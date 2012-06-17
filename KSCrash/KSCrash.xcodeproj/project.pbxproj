@@ -1,0 +1,1179 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		396D6F0B158D2F560046CF16 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 396D6F09158D2F560046CF16 /* InfoPlist.strings */; };
+		396D6F18158D2F560046CF16 /* SenTestingKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 396D6F17158D2F560046CF16 /* SenTestingKit.framework */; };
+		396D6F1A158D2F560046CF16 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 396D6F19158D2F560046CF16 /* UIKit.framework */; };
+		396D6F1C158D2F560046CF16 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 396D6F1B158D2F560046CF16 /* Foundation.framework */; };
+		396D6F1F158D2F560046CF16 /* KSCrash.framework in Resources */ = {isa = PBXBuildFile; fileRef = 396D6F04158D2F560046CF16 /* KSCrash.framework */; };
+		396D6F25158D2F560046CF16 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 396D6F23158D2F560046CF16 /* InfoPlist.strings */; };
+		396D6F83158D2FEA0046CF16 /* KSCrashReportFilter.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F32158D2FEA0046CF16 /* KSCrashReportFilter.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		396D6F84158D2FEA0046CF16 /* KSCrashReportFilter.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F33158D2FEA0046CF16 /* KSCrashReportFilter.m */; };
+		396D6F85158D2FEA0046CF16 /* KSCrashReportFilterAppleFmt.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F34158D2FEA0046CF16 /* KSCrashReportFilterAppleFmt.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		396D6F86158D2FEA0046CF16 /* KSCrashReportFilterAppleFmt.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F35158D2FEA0046CF16 /* KSCrashReportFilterAppleFmt.m */; };
+		396D6F87158D2FEA0046CF16 /* KSCrashReportFilterBasic.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F36158D2FEA0046CF16 /* KSCrashReportFilterBasic.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		396D6F88158D2FEA0046CF16 /* KSCrashReportFilterBasic.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F37158D2FEA0046CF16 /* KSCrashReportFilterBasic.m */; };
+		396D6F89158D2FEA0046CF16 /* KSCrashReportFilterGZip.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F38158D2FEA0046CF16 /* KSCrashReportFilterGZip.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		396D6F8A158D2FEA0046CF16 /* KSCrashReportFilterGZip.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F39158D2FEA0046CF16 /* KSCrashReportFilterGZip.m */; };
+		396D6F8B158D2FEA0046CF16 /* KSCrashReportFilterJSON.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F3A158D2FEA0046CF16 /* KSCrashReportFilterJSON.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		396D6F8C158D2FEA0046CF16 /* KSCrashReportFilterJSON.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F3B158D2FEA0046CF16 /* KSCrashReportFilterJSON.m */; };
+		396D6F8D158D2FEA0046CF16 /* KSCrashReportSinkConsole.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F3C158D2FEA0046CF16 /* KSCrashReportSinkConsole.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		396D6F8E158D2FEA0046CF16 /* KSCrashReportSinkConsole.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F3D158D2FEA0046CF16 /* KSCrashReportSinkConsole.m */; };
+		396D6F8F158D2FEA0046CF16 /* KSCrashReportSinkEMail.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F3E158D2FEA0046CF16 /* KSCrashReportSinkEMail.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		396D6F90158D2FEA0046CF16 /* KSCrashReportSinkEMail.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F3F158D2FEA0046CF16 /* KSCrashReportSinkEMail.m */; };
+		396D6F91158D2FEA0046CF16 /* KSCrashReportSinkQuincy.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F40158D2FEA0046CF16 /* KSCrashReportSinkQuincy.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		396D6F92158D2FEA0046CF16 /* KSCrashReportSinkQuincy.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F41158D2FEA0046CF16 /* KSCrashReportSinkQuincy.m */; };
+		396D6F93158D2FEA0046CF16 /* KSCrashReportSinkStandard.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F42158D2FEA0046CF16 /* KSCrashReportSinkStandard.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		396D6F94158D2FEA0046CF16 /* KSCrashReportSinkStandard.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F43158D2FEA0046CF16 /* KSCrashReportSinkStandard.m */; };
+		396D6F95158D2FEA0046CF16 /* KSHTTPMultipartPostBody.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F45158D2FEA0046CF16 /* KSHTTPMultipartPostBody.h */; };
+		396D6F96158D2FEA0046CF16 /* KSHTTPMultipartPostBody.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F46158D2FEA0046CF16 /* KSHTTPMultipartPostBody.m */; };
+		396D6F97158D2FEA0046CF16 /* KSHTTPRequestSender.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F47158D2FEA0046CF16 /* KSHTTPRequestSender.h */; };
+		396D6F98158D2FEA0046CF16 /* KSHTTPRequestSender.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F48158D2FEA0046CF16 /* KSHTTPRequestSender.m */; };
+		396D6F99158D2FEA0046CF16 /* KSReachability.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F49158D2FEA0046CF16 /* KSReachability.h */; };
+		396D6F9A158D2FEA0046CF16 /* KSReachability.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F4A158D2FEA0046CF16 /* KSReachability.m */; };
+		396D6F9B158D2FEA0046CF16 /* NSData+GZip.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F4B158D2FEA0046CF16 /* NSData+GZip.h */; };
+		396D6F9C158D2FEA0046CF16 /* NSData+GZip.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F4C158D2FEA0046CF16 /* NSData+GZip.m */; };
+		396D6F9D158D2FEA0046CF16 /* NSMutableData+AppendUTF8.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F4D158D2FEA0046CF16 /* NSMutableData+AppendUTF8.h */; };
+		396D6F9E158D2FEA0046CF16 /* NSMutableData+AppendUTF8.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F4E158D2FEA0046CF16 /* NSMutableData+AppendUTF8.m */; };
+		396D6F9F158D2FEA0046CF16 /* KSCrash.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F4F158D2FEA0046CF16 /* KSCrash.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		396D6FA0158D2FEA0046CF16 /* KSCrash.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F50158D2FEA0046CF16 /* KSCrash.m */; };
+		396D6FA1158D2FEA0046CF16 /* KSCrashAdvanced.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F51158D2FEA0046CF16 /* KSCrashAdvanced.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		396D6FA2158D2FEA0046CF16 /* KSCrashReportStore.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F52158D2FEA0046CF16 /* KSCrashReportStore.h */; };
+		396D6FA3158D2FEA0046CF16 /* KSCrashReportStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F53158D2FEA0046CF16 /* KSCrashReportStore.m */; };
+		396D6FA4158D2FEA0046CF16 /* KSCrashContext.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F55158D2FEA0046CF16 /* KSCrashContext.h */; };
+		396D6FA5158D2FEA0046CF16 /* KSCrashHandler_Common.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F56158D2FEA0046CF16 /* KSCrashHandler_Common.c */; };
+		396D6FA6158D2FEA0046CF16 /* KSCrashHandler_Common.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F57158D2FEA0046CF16 /* KSCrashHandler_Common.h */; };
+		396D6FA7158D2FEA0046CF16 /* KSCrashHandler_MachException.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F58158D2FEA0046CF16 /* KSCrashHandler_MachException.c */; };
+		396D6FA8158D2FEA0046CF16 /* KSCrashHandler_MachException.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F59158D2FEA0046CF16 /* KSCrashHandler_MachException.h */; };
+		396D6FA9158D2FEA0046CF16 /* KSCrashHandler_NSException.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F5A158D2FEA0046CF16 /* KSCrashHandler_NSException.h */; };
+		396D6FAA158D2FEA0046CF16 /* KSCrashHandler_NSException.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F5B158D2FEA0046CF16 /* KSCrashHandler_NSException.m */; };
+		396D6FAB158D2FEA0046CF16 /* KSCrashHandler_Signal.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F5C158D2FEA0046CF16 /* KSCrashHandler_Signal.c */; };
+		396D6FAC158D2FEA0046CF16 /* KSCrashHandler_Signal.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F5D158D2FEA0046CF16 /* KSCrashHandler_Signal.h */; };
+		396D6FAD158D2FEA0046CF16 /* KSCrashReporter.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F5E158D2FEA0046CF16 /* KSCrashReporter.c */; };
+		396D6FAE158D2FEA0046CF16 /* KSCrashReporter.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F5F158D2FEA0046CF16 /* KSCrashReporter.h */; };
+		396D6FAF158D2FEA0046CF16 /* KSCrashReportWriter.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F60158D2FEA0046CF16 /* KSCrashReportWriter.c */; };
+		396D6FB0158D2FEA0046CF16 /* KSCrashReportWriter.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F61158D2FEA0046CF16 /* KSCrashReportWriter.h */; };
+		396D6FB1158D2FEA0046CF16 /* KSCrashState.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F62158D2FEA0046CF16 /* KSCrashState.c */; };
+		396D6FB2158D2FEA0046CF16 /* KSCrashState.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F63158D2FEA0046CF16 /* KSCrashState.h */; };
+		396D6FB3158D2FEA0046CF16 /* KSReportWriter.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F64158D2FEA0046CF16 /* KSReportWriter.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		396D6FB4158D2FEA0046CF16 /* KSSystemInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F65158D2FEA0046CF16 /* KSSystemInfo.h */; };
+		396D6FB5158D2FEA0046CF16 /* KSSystemInfo.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F66158D2FEA0046CF16 /* KSSystemInfo.m */; };
+		396D6FB6158D2FEA0046CF16 /* KSSystemInfoC.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F67158D2FEA0046CF16 /* KSSystemInfoC.h */; };
+		396D6FB7158D2FEA0046CF16 /* ARCSafe_MemMgmt.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F69158D2FEA0046CF16 /* ARCSafe_MemMgmt.h */; };
+		396D6FB8158D2FEA0046CF16 /* KSArchSpecific.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F6A158D2FEA0046CF16 /* KSArchSpecific.h */; };
+		396D6FB9158D2FEA0046CF16 /* KSBacktrace.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F6B158D2FEA0046CF16 /* KSBacktrace.c */; };
+		396D6FBA158D2FEA0046CF16 /* KSBacktrace.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F6C158D2FEA0046CF16 /* KSBacktrace.h */; };
+		396D6FBB158D2FEA0046CF16 /* KSBacktrace_private.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F6D158D2FEA0046CF16 /* KSBacktrace_private.h */; };
+		396D6FBC158D2FEA0046CF16 /* KSFileUtils.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F6E158D2FEA0046CF16 /* KSFileUtils.c */; };
+		396D6FBD158D2FEA0046CF16 /* KSFileUtils.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F6F158D2FEA0046CF16 /* KSFileUtils.h */; };
+		396D6FBE158D2FEA0046CF16 /* KSJSONCodec.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F70158D2FEA0046CF16 /* KSJSONCodec.c */; };
+		396D6FBF158D2FEA0046CF16 /* KSJSONCodec.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F71158D2FEA0046CF16 /* KSJSONCodec.h */; };
+		396D6FC0158D2FEA0046CF16 /* KSJSONCodecObjC.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F72158D2FEA0046CF16 /* KSJSONCodecObjC.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		396D6FC1158D2FEA0046CF16 /* KSJSONCodecObjC.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F73158D2FEA0046CF16 /* KSJSONCodecObjC.m */; };
+		396D6FC2158D2FEA0046CF16 /* KSLogger.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F74158D2FEA0046CF16 /* KSLogger.c */; };
+		396D6FC3158D2FEA0046CF16 /* KSLogger.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F75158D2FEA0046CF16 /* KSLogger.h */; };
+		396D6FC4158D2FEA0046CF16 /* KSLogger.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F76158D2FEA0046CF16 /* KSLogger.m */; };
+		396D6FC5158D2FEA0046CF16 /* KSMach.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F77158D2FEA0046CF16 /* KSMach.c */; };
+		396D6FC6158D2FEA0046CF16 /* KSMach.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F78158D2FEA0046CF16 /* KSMach.h */; };
+		396D6FC7158D2FEA0046CF16 /* KSMach_Arm.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F79158D2FEA0046CF16 /* KSMach_Arm.c */; };
+		396D6FC8158D2FEA0046CF16 /* KSMach_x86_32.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F7A158D2FEA0046CF16 /* KSMach_x86_32.c */; };
+		396D6FC9158D2FEA0046CF16 /* KSMach_x86_64.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F7B158D2FEA0046CF16 /* KSMach_x86_64.c */; };
+		396D6FCA158D2FEA0046CF16 /* KSSignalInfo.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F7C158D2FEA0046CF16 /* KSSignalInfo.c */; };
+		396D6FCB158D2FEA0046CF16 /* KSSignalInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F7D158D2FEA0046CF16 /* KSSignalInfo.h */; };
+		396D6FCC158D2FEA0046CF16 /* KSSysCtl.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F7E158D2FEA0046CF16 /* KSSysCtl.c */; };
+		396D6FCD158D2FEA0046CF16 /* KSSysCtl.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F7F158D2FEA0046CF16 /* KSSysCtl.h */; };
+		396D6FCE158D2FEA0046CF16 /* LoadableCategory.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F80158D2FEA0046CF16 /* LoadableCategory.h */; };
+		396D6FCF158D2FEA0046CF16 /* RFC3339DateTool.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F81158D2FEA0046CF16 /* RFC3339DateTool.h */; };
+		396D6FD0158D2FEA0046CF16 /* RFC3339DateTool.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F82158D2FEA0046CF16 /* RFC3339DateTool.m */; };
+		396D6FE8158D30BA0046CF16 /* FileBasedTestCase.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6FDA158D30BA0046CF16 /* FileBasedTestCase.m */; };
+		396D6FE9158D30BA0046CF16 /* KSCrashReportConverter_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6FDB158D30BA0046CF16 /* KSCrashReportConverter_Tests.m */; };
+		396D6FEA158D30BA0046CF16 /* KSCrashReportFilter_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6FDC158D30BA0046CF16 /* KSCrashReportFilter_Tests.m */; };
+		396D6FEB158D30BA0046CF16 /* KSCrashReportStore_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6FDD158D30BA0046CF16 /* KSCrashReportStore_Tests.m */; };
+		396D6FEC158D30BA0046CF16 /* KSCrashState_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6FDE158D30BA0046CF16 /* KSCrashState_Tests.m */; };
+		396D6FED158D30BA0046CF16 /* KSFileUtils_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6FDF158D30BA0046CF16 /* KSFileUtils_Tests.m */; };
+		396D6FEE158D30BA0046CF16 /* KSJSONCodec_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6FE0158D30BA0046CF16 /* KSJSONCodec_Tests.m */; };
+		396D6FEF158D30BA0046CF16 /* KSMach_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6FE1158D30BA0046CF16 /* KSMach_Tests.m */; };
+		396D6FF0158D30BA0046CF16 /* KSSignalInfo_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6FE2158D30BA0046CF16 /* KSSignalInfo_Tests.m */; };
+		396D6FF1158D30BA0046CF16 /* NSData+Gzip_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6FE3158D30BA0046CF16 /* NSData+Gzip_Tests.m */; };
+		396D6FF2158D30BA0046CF16 /* NSMutableData+AppendUTF8_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6FE4158D30BA0046CF16 /* NSMutableData+AppendUTF8_Tests.m */; };
+		396D6FF3158D30BA0046CF16 /* RFC3339DateTool_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6FE5158D30BA0046CF16 /* RFC3339DateTool_Tests.m */; };
+		396D6FF4158D30BA0046CF16 /* SenTestCase+KSCrash.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6FE7158D30BA0046CF16 /* SenTestCase+KSCrash.m */; };
+		396D6FF6158D31880046CF16 /* MessageUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 396D6FF5158D31880046CF16 /* MessageUI.framework */; };
+		396D6FF8158D318C0046CF16 /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 396D6FF7158D318C0046CF16 /* libz.dylib */; };
+		396D6FFA158D31920046CF16 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 396D6FF9158D31920046CF16 /* SystemConfiguration.framework */; };
+		396D70A3158D83870046CF16 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 396D70A1158D83870046CF16 /* InfoPlist.strings */; };
+		396D70AC158D83BB0046CF16 /* KSCrashContext.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F55158D2FEA0046CF16 /* KSCrashContext.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		396D70AD158D83BB0046CF16 /* KSCrashHandler_Common.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F56158D2FEA0046CF16 /* KSCrashHandler_Common.c */; };
+		396D70AE158D83BB0046CF16 /* KSCrashHandler_Common.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F57158D2FEA0046CF16 /* KSCrashHandler_Common.h */; };
+		396D70AF158D83BB0046CF16 /* KSCrashHandler_MachException.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F58158D2FEA0046CF16 /* KSCrashHandler_MachException.c */; };
+		396D70B0158D83BB0046CF16 /* KSCrashHandler_MachException.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F59158D2FEA0046CF16 /* KSCrashHandler_MachException.h */; };
+		396D70B1158D83BB0046CF16 /* KSCrashHandler_NSException.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F5A158D2FEA0046CF16 /* KSCrashHandler_NSException.h */; };
+		396D70B2158D83BB0046CF16 /* KSCrashHandler_NSException.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F5B158D2FEA0046CF16 /* KSCrashHandler_NSException.m */; };
+		396D70B3158D83BB0046CF16 /* KSCrashHandler_Signal.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F5C158D2FEA0046CF16 /* KSCrashHandler_Signal.c */; };
+		396D70B4158D83BB0046CF16 /* KSCrashHandler_Signal.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F5D158D2FEA0046CF16 /* KSCrashHandler_Signal.h */; };
+		396D70B5158D83BB0046CF16 /* KSCrashReporter.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F5E158D2FEA0046CF16 /* KSCrashReporter.c */; };
+		396D70B6158D83BB0046CF16 /* KSCrashReporter.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F5F158D2FEA0046CF16 /* KSCrashReporter.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		396D70B7158D83BB0046CF16 /* KSCrashReportWriter.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F60158D2FEA0046CF16 /* KSCrashReportWriter.c */; };
+		396D70B8158D83BB0046CF16 /* KSCrashReportWriter.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F61158D2FEA0046CF16 /* KSCrashReportWriter.h */; };
+		396D70B9158D83BB0046CF16 /* KSCrashState.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F62158D2FEA0046CF16 /* KSCrashState.c */; };
+		396D70BA158D83BB0046CF16 /* KSCrashState.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F63158D2FEA0046CF16 /* KSCrashState.h */; };
+		396D70BB158D83BB0046CF16 /* KSReportWriter.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F64158D2FEA0046CF16 /* KSReportWriter.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		396D70BC158D83BB0046CF16 /* KSSystemInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F65158D2FEA0046CF16 /* KSSystemInfo.h */; };
+		396D70BD158D83BB0046CF16 /* KSSystemInfo.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F66158D2FEA0046CF16 /* KSSystemInfo.m */; };
+		396D70BE158D83BB0046CF16 /* KSSystemInfoC.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F67158D2FEA0046CF16 /* KSSystemInfoC.h */; };
+		396D70BF158D83BB0046CF16 /* ARCSafe_MemMgmt.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F69158D2FEA0046CF16 /* ARCSafe_MemMgmt.h */; };
+		396D70C0158D83BB0046CF16 /* KSArchSpecific.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F6A158D2FEA0046CF16 /* KSArchSpecific.h */; };
+		396D70C1158D83BB0046CF16 /* KSBacktrace.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F6B158D2FEA0046CF16 /* KSBacktrace.c */; };
+		396D70C2158D83BB0046CF16 /* KSBacktrace.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F6C158D2FEA0046CF16 /* KSBacktrace.h */; };
+		396D70C3158D83BB0046CF16 /* KSBacktrace_private.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F6D158D2FEA0046CF16 /* KSBacktrace_private.h */; };
+		396D70C4158D83BB0046CF16 /* KSFileUtils.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F6E158D2FEA0046CF16 /* KSFileUtils.c */; };
+		396D70C5158D83BB0046CF16 /* KSFileUtils.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F6F158D2FEA0046CF16 /* KSFileUtils.h */; };
+		396D70C6158D83BB0046CF16 /* KSJSONCodec.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F70158D2FEA0046CF16 /* KSJSONCodec.c */; };
+		396D70C7158D83BB0046CF16 /* KSJSONCodec.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F71158D2FEA0046CF16 /* KSJSONCodec.h */; };
+		396D70C8158D83BB0046CF16 /* KSJSONCodecObjC.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F72158D2FEA0046CF16 /* KSJSONCodecObjC.h */; };
+		396D70C9158D83BB0046CF16 /* KSJSONCodecObjC.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F73158D2FEA0046CF16 /* KSJSONCodecObjC.m */; };
+		396D70CA158D83BB0046CF16 /* KSLogger.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F74158D2FEA0046CF16 /* KSLogger.c */; };
+		396D70CB158D83BB0046CF16 /* KSLogger.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F75158D2FEA0046CF16 /* KSLogger.h */; };
+		396D70CC158D83BB0046CF16 /* KSLogger.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F76158D2FEA0046CF16 /* KSLogger.m */; };
+		396D70CD158D83BB0046CF16 /* KSMach.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F77158D2FEA0046CF16 /* KSMach.c */; };
+		396D70CE158D83BB0046CF16 /* KSMach.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F78158D2FEA0046CF16 /* KSMach.h */; };
+		396D70CF158D83BB0046CF16 /* KSMach_Arm.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F79158D2FEA0046CF16 /* KSMach_Arm.c */; };
+		396D70D0158D83BB0046CF16 /* KSMach_x86_32.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F7A158D2FEA0046CF16 /* KSMach_x86_32.c */; };
+		396D70D1158D83BB0046CF16 /* KSMach_x86_64.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F7B158D2FEA0046CF16 /* KSMach_x86_64.c */; };
+		396D70D2158D83BB0046CF16 /* KSSignalInfo.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F7C158D2FEA0046CF16 /* KSSignalInfo.c */; };
+		396D70D3158D83BB0046CF16 /* KSSignalInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F7D158D2FEA0046CF16 /* KSSignalInfo.h */; };
+		396D70D4158D83BB0046CF16 /* KSSysCtl.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F7E158D2FEA0046CF16 /* KSSysCtl.c */; };
+		396D70D5158D83BB0046CF16 /* KSSysCtl.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F7F158D2FEA0046CF16 /* KSSysCtl.h */; };
+		396D70D6158D83BB0046CF16 /* LoadableCategory.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F80158D2FEA0046CF16 /* LoadableCategory.h */; };
+		396D70D7158D83BB0046CF16 /* RFC3339DateTool.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F81158D2FEA0046CF16 /* RFC3339DateTool.h */; };
+		396D70D8158D83BB0046CF16 /* RFC3339DateTool.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F82158D2FEA0046CF16 /* RFC3339DateTool.m */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		396D6F1D158D2F560046CF16 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 396D6EF9158D2F560046CF16 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 396D6F03158D2F560046CF16;
+			remoteInfo = KSCrash;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		396D6F04158D2F560046CF16 /* KSCrash.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KSCrash.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		396D6F08158D2F560046CF16 /* KSCrash-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "KSCrash-Info.plist"; sourceTree = "<group>"; };
+		396D6F0A158D2F560046CF16 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		396D6F0C158D2F560046CF16 /* KSCrash-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "KSCrash-Prefix.pch"; sourceTree = "<group>"; };
+		396D6F15158D2F560046CF16 /* KSCrashTests.octest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KSCrashTests.octest; sourceTree = BUILT_PRODUCTS_DIR; };
+		396D6F17158D2F560046CF16 /* SenTestingKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SenTestingKit.framework; path = Library/Frameworks/SenTestingKit.framework; sourceTree = DEVELOPER_DIR; };
+		396D6F19158D2F560046CF16 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = Library/Frameworks/UIKit.framework; sourceTree = DEVELOPER_DIR; };
+		396D6F1B158D2F560046CF16 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		396D6F22158D2F560046CF16 /* KSCrashTests-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "KSCrashTests-Info.plist"; sourceTree = "<group>"; };
+		396D6F24158D2F560046CF16 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		396D6F32158D2FEA0046CF16 /* KSCrashReportFilter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashReportFilter.h; sourceTree = "<group>"; };
+		396D6F33158D2FEA0046CF16 /* KSCrashReportFilter.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSCrashReportFilter.m; sourceTree = "<group>"; };
+		396D6F34158D2FEA0046CF16 /* KSCrashReportFilterAppleFmt.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashReportFilterAppleFmt.h; sourceTree = "<group>"; };
+		396D6F35158D2FEA0046CF16 /* KSCrashReportFilterAppleFmt.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSCrashReportFilterAppleFmt.m; sourceTree = "<group>"; };
+		396D6F36158D2FEA0046CF16 /* KSCrashReportFilterBasic.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashReportFilterBasic.h; sourceTree = "<group>"; };
+		396D6F37158D2FEA0046CF16 /* KSCrashReportFilterBasic.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSCrashReportFilterBasic.m; sourceTree = "<group>"; };
+		396D6F38158D2FEA0046CF16 /* KSCrashReportFilterGZip.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashReportFilterGZip.h; sourceTree = "<group>"; };
+		396D6F39158D2FEA0046CF16 /* KSCrashReportFilterGZip.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSCrashReportFilterGZip.m; sourceTree = "<group>"; };
+		396D6F3A158D2FEA0046CF16 /* KSCrashReportFilterJSON.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashReportFilterJSON.h; sourceTree = "<group>"; };
+		396D6F3B158D2FEA0046CF16 /* KSCrashReportFilterJSON.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSCrashReportFilterJSON.m; sourceTree = "<group>"; };
+		396D6F3C158D2FEA0046CF16 /* KSCrashReportSinkConsole.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashReportSinkConsole.h; sourceTree = "<group>"; };
+		396D6F3D158D2FEA0046CF16 /* KSCrashReportSinkConsole.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSCrashReportSinkConsole.m; sourceTree = "<group>"; };
+		396D6F3E158D2FEA0046CF16 /* KSCrashReportSinkEMail.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashReportSinkEMail.h; sourceTree = "<group>"; };
+		396D6F3F158D2FEA0046CF16 /* KSCrashReportSinkEMail.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSCrashReportSinkEMail.m; sourceTree = "<group>"; };
+		396D6F40158D2FEA0046CF16 /* KSCrashReportSinkQuincy.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashReportSinkQuincy.h; sourceTree = "<group>"; };
+		396D6F41158D2FEA0046CF16 /* KSCrashReportSinkQuincy.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSCrashReportSinkQuincy.m; sourceTree = "<group>"; };
+		396D6F42158D2FEA0046CF16 /* KSCrashReportSinkStandard.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashReportSinkStandard.h; sourceTree = "<group>"; };
+		396D6F43158D2FEA0046CF16 /* KSCrashReportSinkStandard.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSCrashReportSinkStandard.m; sourceTree = "<group>"; };
+		396D6F45158D2FEA0046CF16 /* KSHTTPMultipartPostBody.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSHTTPMultipartPostBody.h; sourceTree = "<group>"; };
+		396D6F46158D2FEA0046CF16 /* KSHTTPMultipartPostBody.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSHTTPMultipartPostBody.m; sourceTree = "<group>"; };
+		396D6F47158D2FEA0046CF16 /* KSHTTPRequestSender.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSHTTPRequestSender.h; sourceTree = "<group>"; };
+		396D6F48158D2FEA0046CF16 /* KSHTTPRequestSender.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSHTTPRequestSender.m; sourceTree = "<group>"; };
+		396D6F49158D2FEA0046CF16 /* KSReachability.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSReachability.h; sourceTree = "<group>"; };
+		396D6F4A158D2FEA0046CF16 /* KSReachability.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSReachability.m; sourceTree = "<group>"; };
+		396D6F4B158D2FEA0046CF16 /* NSData+GZip.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSData+GZip.h"; sourceTree = "<group>"; };
+		396D6F4C158D2FEA0046CF16 /* NSData+GZip.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSData+GZip.m"; sourceTree = "<group>"; };
+		396D6F4D158D2FEA0046CF16 /* NSMutableData+AppendUTF8.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSMutableData+AppendUTF8.h"; sourceTree = "<group>"; };
+		396D6F4E158D2FEA0046CF16 /* NSMutableData+AppendUTF8.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSMutableData+AppendUTF8.m"; sourceTree = "<group>"; };
+		396D6F4F158D2FEA0046CF16 /* KSCrash.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrash.h; sourceTree = "<group>"; };
+		396D6F50158D2FEA0046CF16 /* KSCrash.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSCrash.m; sourceTree = "<group>"; };
+		396D6F51158D2FEA0046CF16 /* KSCrashAdvanced.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashAdvanced.h; sourceTree = "<group>"; };
+		396D6F52158D2FEA0046CF16 /* KSCrashReportStore.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashReportStore.h; sourceTree = "<group>"; };
+		396D6F53158D2FEA0046CF16 /* KSCrashReportStore.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSCrashReportStore.m; sourceTree = "<group>"; };
+		396D6F55158D2FEA0046CF16 /* KSCrashContext.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashContext.h; sourceTree = "<group>"; };
+		396D6F56158D2FEA0046CF16 /* KSCrashHandler_Common.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSCrashHandler_Common.c; sourceTree = "<group>"; };
+		396D6F57158D2FEA0046CF16 /* KSCrashHandler_Common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashHandler_Common.h; sourceTree = "<group>"; };
+		396D6F58158D2FEA0046CF16 /* KSCrashHandler_MachException.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSCrashHandler_MachException.c; sourceTree = "<group>"; };
+		396D6F59158D2FEA0046CF16 /* KSCrashHandler_MachException.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashHandler_MachException.h; sourceTree = "<group>"; };
+		396D6F5A158D2FEA0046CF16 /* KSCrashHandler_NSException.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashHandler_NSException.h; sourceTree = "<group>"; };
+		396D6F5B158D2FEA0046CF16 /* KSCrashHandler_NSException.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSCrashHandler_NSException.m; sourceTree = "<group>"; };
+		396D6F5C158D2FEA0046CF16 /* KSCrashHandler_Signal.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSCrashHandler_Signal.c; sourceTree = "<group>"; };
+		396D6F5D158D2FEA0046CF16 /* KSCrashHandler_Signal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashHandler_Signal.h; sourceTree = "<group>"; };
+		396D6F5E158D2FEA0046CF16 /* KSCrashReporter.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSCrashReporter.c; sourceTree = "<group>"; };
+		396D6F5F158D2FEA0046CF16 /* KSCrashReporter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashReporter.h; sourceTree = "<group>"; };
+		396D6F60158D2FEA0046CF16 /* KSCrashReportWriter.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSCrashReportWriter.c; sourceTree = "<group>"; };
+		396D6F61158D2FEA0046CF16 /* KSCrashReportWriter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashReportWriter.h; sourceTree = "<group>"; };
+		396D6F62158D2FEA0046CF16 /* KSCrashState.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSCrashState.c; sourceTree = "<group>"; };
+		396D6F63158D2FEA0046CF16 /* KSCrashState.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashState.h; sourceTree = "<group>"; };
+		396D6F64158D2FEA0046CF16 /* KSReportWriter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSReportWriter.h; sourceTree = "<group>"; };
+		396D6F65158D2FEA0046CF16 /* KSSystemInfo.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSSystemInfo.h; sourceTree = "<group>"; };
+		396D6F66158D2FEA0046CF16 /* KSSystemInfo.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSSystemInfo.m; sourceTree = "<group>"; };
+		396D6F67158D2FEA0046CF16 /* KSSystemInfoC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSSystemInfoC.h; sourceTree = "<group>"; };
+		396D6F69158D2FEA0046CF16 /* ARCSafe_MemMgmt.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ARCSafe_MemMgmt.h; sourceTree = "<group>"; };
+		396D6F6A158D2FEA0046CF16 /* KSArchSpecific.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSArchSpecific.h; sourceTree = "<group>"; };
+		396D6F6B158D2FEA0046CF16 /* KSBacktrace.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSBacktrace.c; sourceTree = "<group>"; };
+		396D6F6C158D2FEA0046CF16 /* KSBacktrace.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSBacktrace.h; sourceTree = "<group>"; };
+		396D6F6D158D2FEA0046CF16 /* KSBacktrace_private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSBacktrace_private.h; sourceTree = "<group>"; };
+		396D6F6E158D2FEA0046CF16 /* KSFileUtils.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSFileUtils.c; sourceTree = "<group>"; };
+		396D6F6F158D2FEA0046CF16 /* KSFileUtils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSFileUtils.h; sourceTree = "<group>"; };
+		396D6F70158D2FEA0046CF16 /* KSJSONCodec.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSJSONCodec.c; sourceTree = "<group>"; };
+		396D6F71158D2FEA0046CF16 /* KSJSONCodec.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSJSONCodec.h; sourceTree = "<group>"; };
+		396D6F72158D2FEA0046CF16 /* KSJSONCodecObjC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSJSONCodecObjC.h; sourceTree = "<group>"; };
+		396D6F73158D2FEA0046CF16 /* KSJSONCodecObjC.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSJSONCodecObjC.m; sourceTree = "<group>"; };
+		396D6F74158D2FEA0046CF16 /* KSLogger.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSLogger.c; sourceTree = "<group>"; };
+		396D6F75158D2FEA0046CF16 /* KSLogger.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSLogger.h; sourceTree = "<group>"; };
+		396D6F76158D2FEA0046CF16 /* KSLogger.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSLogger.m; sourceTree = "<group>"; };
+		396D6F77158D2FEA0046CF16 /* KSMach.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSMach.c; sourceTree = "<group>"; };
+		396D6F78158D2FEA0046CF16 /* KSMach.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSMach.h; sourceTree = "<group>"; };
+		396D6F79158D2FEA0046CF16 /* KSMach_Arm.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSMach_Arm.c; sourceTree = "<group>"; };
+		396D6F7A158D2FEA0046CF16 /* KSMach_x86_32.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSMach_x86_32.c; sourceTree = "<group>"; };
+		396D6F7B158D2FEA0046CF16 /* KSMach_x86_64.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSMach_x86_64.c; sourceTree = "<group>"; };
+		396D6F7C158D2FEA0046CF16 /* KSSignalInfo.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSSignalInfo.c; sourceTree = "<group>"; };
+		396D6F7D158D2FEA0046CF16 /* KSSignalInfo.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSSignalInfo.h; sourceTree = "<group>"; };
+		396D6F7E158D2FEA0046CF16 /* KSSysCtl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSSysCtl.c; sourceTree = "<group>"; };
+		396D6F7F158D2FEA0046CF16 /* KSSysCtl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSSysCtl.h; sourceTree = "<group>"; };
+		396D6F80158D2FEA0046CF16 /* LoadableCategory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = LoadableCategory.h; sourceTree = "<group>"; };
+		396D6F81158D2FEA0046CF16 /* RFC3339DateTool.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RFC3339DateTool.h; sourceTree = "<group>"; };
+		396D6F82158D2FEA0046CF16 /* RFC3339DateTool.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = RFC3339DateTool.m; sourceTree = "<group>"; };
+		396D6FD9158D30BA0046CF16 /* FileBasedTestCase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = FileBasedTestCase.h; path = "../../../kscrash-old/KSCrash/KSCrashTests/FileBasedTestCase.h"; sourceTree = "<group>"; };
+		396D6FDA158D30BA0046CF16 /* FileBasedTestCase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = FileBasedTestCase.m; path = "../../../kscrash-old/KSCrash/KSCrashTests/FileBasedTestCase.m"; sourceTree = "<group>"; };
+		396D6FDB158D30BA0046CF16 /* KSCrashReportConverter_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSCrashReportConverter_Tests.m; path = "../../../kscrash-old/KSCrash/KSCrashTests/KSCrashReportConverter_Tests.m"; sourceTree = "<group>"; };
+		396D6FDC158D30BA0046CF16 /* KSCrashReportFilter_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSCrashReportFilter_Tests.m; path = "../../../kscrash-old/KSCrash/KSCrashTests/KSCrashReportFilter_Tests.m"; sourceTree = "<group>"; };
+		396D6FDD158D30BA0046CF16 /* KSCrashReportStore_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSCrashReportStore_Tests.m; path = "../../../kscrash-old/KSCrash/KSCrashTests/KSCrashReportStore_Tests.m"; sourceTree = "<group>"; };
+		396D6FDE158D30BA0046CF16 /* KSCrashState_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSCrashState_Tests.m; path = "../../../kscrash-old/KSCrash/KSCrashTests/KSCrashState_Tests.m"; sourceTree = "<group>"; };
+		396D6FDF158D30BA0046CF16 /* KSFileUtils_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSFileUtils_Tests.m; path = "../../../kscrash-old/KSCrash/KSCrashTests/KSFileUtils_Tests.m"; sourceTree = "<group>"; };
+		396D6FE0158D30BA0046CF16 /* KSJSONCodec_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSJSONCodec_Tests.m; path = "../../../kscrash-old/KSCrash/KSCrashTests/KSJSONCodec_Tests.m"; sourceTree = "<group>"; };
+		396D6FE1158D30BA0046CF16 /* KSMach_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSMach_Tests.m; path = "../../../kscrash-old/KSCrash/KSCrashTests/KSMach_Tests.m"; sourceTree = "<group>"; };
+		396D6FE2158D30BA0046CF16 /* KSSignalInfo_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSSignalInfo_Tests.m; path = "../../../kscrash-old/KSCrash/KSCrashTests/KSSignalInfo_Tests.m"; sourceTree = "<group>"; };
+		396D6FE3158D30BA0046CF16 /* NSData+Gzip_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSData+Gzip_Tests.m"; path = "../../../kscrash-old/KSCrash/KSCrashTests/NSData+Gzip_Tests.m"; sourceTree = "<group>"; };
+		396D6FE4158D30BA0046CF16 /* NSMutableData+AppendUTF8_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSMutableData+AppendUTF8_Tests.m"; path = "../../../kscrash-old/KSCrash/KSCrashTests/NSMutableData+AppendUTF8_Tests.m"; sourceTree = "<group>"; };
+		396D6FE5158D30BA0046CF16 /* RFC3339DateTool_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = RFC3339DateTool_Tests.m; path = "../../../kscrash-old/KSCrash/KSCrashTests/RFC3339DateTool_Tests.m"; sourceTree = "<group>"; };
+		396D6FE6158D30BA0046CF16 /* SenTestCase+KSCrash.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "SenTestCase+KSCrash.h"; path = "../../../kscrash-old/KSCrash/KSCrashTests/SenTestCase+KSCrash.h"; sourceTree = "<group>"; };
+		396D6FE7158D30BA0046CF16 /* SenTestCase+KSCrash.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "SenTestCase+KSCrash.m"; path = "../../../kscrash-old/KSCrash/KSCrashTests/SenTestCase+KSCrash.m"; sourceTree = "<group>"; };
+		396D6FF5158D31880046CF16 /* MessageUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MessageUI.framework; path = System/Library/Frameworks/MessageUI.framework; sourceTree = SDKROOT; };
+		396D6FF7158D318C0046CF16 /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = usr/lib/libz.dylib; sourceTree = SDKROOT; };
+		396D6FF9158D31920046CF16 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = System/Library/Frameworks/SystemConfiguration.framework; sourceTree = SDKROOT; };
+		396D709D158D83870046CF16 /* KSCrashLite.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KSCrashLite.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		396D70A0158D83870046CF16 /* KSCrashLite-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "KSCrashLite-Info.plist"; sourceTree = "<group>"; };
+		396D70A2158D83870046CF16 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		396D70A4158D83870046CF16 /* KSCrashLite-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "KSCrashLite-Prefix.pch"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		396D6EFF158D2F560046CF16 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		396D6F11158D2F560046CF16 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				396D6F1C158D2F560046CF16 /* Foundation.framework in Frameworks */,
+				396D6FF8158D318C0046CF16 /* libz.dylib in Frameworks */,
+				396D6FF6158D31880046CF16 /* MessageUI.framework in Frameworks */,
+				396D6F18158D2F560046CF16 /* SenTestingKit.framework in Frameworks */,
+				396D6FFA158D31920046CF16 /* SystemConfiguration.framework in Frameworks */,
+				396D6F1A158D2F560046CF16 /* UIKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		396D7098158D83870046CF16 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		396D6EF7158D2F560046CF16 = {
+			isa = PBXGroup;
+			children = (
+				396D6F06158D2F560046CF16 /* KSCrash */,
+				396D709E158D83870046CF16 /* KSCrashLite */,
+				396D6F20158D2F560046CF16 /* KSCrashTests */,
+				396D6F16158D2F560046CF16 /* Frameworks */,
+				396D6F05158D2F560046CF16 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		396D6F05158D2F560046CF16 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				396D6F04158D2F560046CF16 /* KSCrash.framework */,
+				396D6F15158D2F560046CF16 /* KSCrashTests.octest */,
+				396D709D158D83870046CF16 /* KSCrashLite.framework */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		396D6F06158D2F560046CF16 /* KSCrash */ = {
+			isa = PBXGroup;
+			children = (
+				396D6F31158D2FEA0046CF16 /* Filters */,
+				396D6F4F158D2FEA0046CF16 /* KSCrash.h */,
+				396D6F50158D2FEA0046CF16 /* KSCrash.m */,
+				396D6F51158D2FEA0046CF16 /* KSCrashAdvanced.h */,
+				396D6F52158D2FEA0046CF16 /* KSCrashReportStore.h */,
+				396D6F53158D2FEA0046CF16 /* KSCrashReportStore.m */,
+				396D6F54158D2FEA0046CF16 /* Reporting */,
+				396D6F07158D2F560046CF16 /* Supporting Files */,
+			);
+			path = KSCrash;
+			sourceTree = "<group>";
+		};
+		396D6F07158D2F560046CF16 /* Supporting Files */ = {
+			isa = PBXGroup;
+			children = (
+				396D6F08158D2F560046CF16 /* KSCrash-Info.plist */,
+				396D6F09158D2F560046CF16 /* InfoPlist.strings */,
+				396D6F0C158D2F560046CF16 /* KSCrash-Prefix.pch */,
+			);
+			name = "Supporting Files";
+			sourceTree = "<group>";
+		};
+		396D6F16158D2F560046CF16 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				396D6F1B158D2F560046CF16 /* Foundation.framework */,
+				396D6FF7158D318C0046CF16 /* libz.dylib */,
+				396D6FF5158D31880046CF16 /* MessageUI.framework */,
+				396D6F17158D2F560046CF16 /* SenTestingKit.framework */,
+				396D6FF9158D31920046CF16 /* SystemConfiguration.framework */,
+				396D6F19158D2F560046CF16 /* UIKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		396D6F20158D2F560046CF16 /* KSCrashTests */ = {
+			isa = PBXGroup;
+			children = (
+				396D6FD9158D30BA0046CF16 /* FileBasedTestCase.h */,
+				396D6FDA158D30BA0046CF16 /* FileBasedTestCase.m */,
+				396D6FDB158D30BA0046CF16 /* KSCrashReportConverter_Tests.m */,
+				396D6FDC158D30BA0046CF16 /* KSCrashReportFilter_Tests.m */,
+				396D6FDD158D30BA0046CF16 /* KSCrashReportStore_Tests.m */,
+				396D6FDE158D30BA0046CF16 /* KSCrashState_Tests.m */,
+				396D6FDF158D30BA0046CF16 /* KSFileUtils_Tests.m */,
+				396D6FE0158D30BA0046CF16 /* KSJSONCodec_Tests.m */,
+				396D6FE1158D30BA0046CF16 /* KSMach_Tests.m */,
+				396D6FE2158D30BA0046CF16 /* KSSignalInfo_Tests.m */,
+				396D6FE3158D30BA0046CF16 /* NSData+Gzip_Tests.m */,
+				396D6FE4158D30BA0046CF16 /* NSMutableData+AppendUTF8_Tests.m */,
+				396D6FE5158D30BA0046CF16 /* RFC3339DateTool_Tests.m */,
+				396D6FE6158D30BA0046CF16 /* SenTestCase+KSCrash.h */,
+				396D6FE7158D30BA0046CF16 /* SenTestCase+KSCrash.m */,
+				396D6F21158D2F560046CF16 /* Supporting Files */,
+			);
+			path = KSCrashTests;
+			sourceTree = "<group>";
+		};
+		396D6F21158D2F560046CF16 /* Supporting Files */ = {
+			isa = PBXGroup;
+			children = (
+				396D6F22158D2F560046CF16 /* KSCrashTests-Info.plist */,
+				396D6F23158D2F560046CF16 /* InfoPlist.strings */,
+			);
+			name = "Supporting Files";
+			sourceTree = "<group>";
+		};
+		396D6F31158D2FEA0046CF16 /* Filters */ = {
+			isa = PBXGroup;
+			children = (
+				396D6F32158D2FEA0046CF16 /* KSCrashReportFilter.h */,
+				396D6F33158D2FEA0046CF16 /* KSCrashReportFilter.m */,
+				396D6F34158D2FEA0046CF16 /* KSCrashReportFilterAppleFmt.h */,
+				396D6F35158D2FEA0046CF16 /* KSCrashReportFilterAppleFmt.m */,
+				396D6F36158D2FEA0046CF16 /* KSCrashReportFilterBasic.h */,
+				396D6F37158D2FEA0046CF16 /* KSCrashReportFilterBasic.m */,
+				396D6F38158D2FEA0046CF16 /* KSCrashReportFilterGZip.h */,
+				396D6F39158D2FEA0046CF16 /* KSCrashReportFilterGZip.m */,
+				396D6F3A158D2FEA0046CF16 /* KSCrashReportFilterJSON.h */,
+				396D6F3B158D2FEA0046CF16 /* KSCrashReportFilterJSON.m */,
+				396D6F3C158D2FEA0046CF16 /* KSCrashReportSinkConsole.h */,
+				396D6F3D158D2FEA0046CF16 /* KSCrashReportSinkConsole.m */,
+				396D6F3E158D2FEA0046CF16 /* KSCrashReportSinkEMail.h */,
+				396D6F3F158D2FEA0046CF16 /* KSCrashReportSinkEMail.m */,
+				396D6F40158D2FEA0046CF16 /* KSCrashReportSinkQuincy.h */,
+				396D6F41158D2FEA0046CF16 /* KSCrashReportSinkQuincy.m */,
+				396D6F42158D2FEA0046CF16 /* KSCrashReportSinkStandard.h */,
+				396D6F43158D2FEA0046CF16 /* KSCrashReportSinkStandard.m */,
+				396D6F44158D2FEA0046CF16 /* Tools */,
+			);
+			path = Filters;
+			sourceTree = "<group>";
+		};
+		396D6F44158D2FEA0046CF16 /* Tools */ = {
+			isa = PBXGroup;
+			children = (
+				396D6F45158D2FEA0046CF16 /* KSHTTPMultipartPostBody.h */,
+				396D6F46158D2FEA0046CF16 /* KSHTTPMultipartPostBody.m */,
+				396D6F47158D2FEA0046CF16 /* KSHTTPRequestSender.h */,
+				396D6F48158D2FEA0046CF16 /* KSHTTPRequestSender.m */,
+				396D6F49158D2FEA0046CF16 /* KSReachability.h */,
+				396D6F4A158D2FEA0046CF16 /* KSReachability.m */,
+				396D6F4B158D2FEA0046CF16 /* NSData+GZip.h */,
+				396D6F4C158D2FEA0046CF16 /* NSData+GZip.m */,
+				396D6F4D158D2FEA0046CF16 /* NSMutableData+AppendUTF8.h */,
+				396D6F4E158D2FEA0046CF16 /* NSMutableData+AppendUTF8.m */,
+			);
+			path = Tools;
+			sourceTree = "<group>";
+		};
+		396D6F54158D2FEA0046CF16 /* Reporting */ = {
+			isa = PBXGroup;
+			children = (
+				396D6F55158D2FEA0046CF16 /* KSCrashContext.h */,
+				396D6F56158D2FEA0046CF16 /* KSCrashHandler_Common.c */,
+				396D6F57158D2FEA0046CF16 /* KSCrashHandler_Common.h */,
+				396D6F58158D2FEA0046CF16 /* KSCrashHandler_MachException.c */,
+				396D6F59158D2FEA0046CF16 /* KSCrashHandler_MachException.h */,
+				396D6F5A158D2FEA0046CF16 /* KSCrashHandler_NSException.h */,
+				396D6F5B158D2FEA0046CF16 /* KSCrashHandler_NSException.m */,
+				396D6F5C158D2FEA0046CF16 /* KSCrashHandler_Signal.c */,
+				396D6F5D158D2FEA0046CF16 /* KSCrashHandler_Signal.h */,
+				396D6F5E158D2FEA0046CF16 /* KSCrashReporter.c */,
+				396D6F5F158D2FEA0046CF16 /* KSCrashReporter.h */,
+				396D6F60158D2FEA0046CF16 /* KSCrashReportWriter.c */,
+				396D6F61158D2FEA0046CF16 /* KSCrashReportWriter.h */,
+				396D6F62158D2FEA0046CF16 /* KSCrashState.c */,
+				396D6F63158D2FEA0046CF16 /* KSCrashState.h */,
+				396D6F64158D2FEA0046CF16 /* KSReportWriter.h */,
+				396D6F65158D2FEA0046CF16 /* KSSystemInfo.h */,
+				396D6F66158D2FEA0046CF16 /* KSSystemInfo.m */,
+				396D6F67158D2FEA0046CF16 /* KSSystemInfoC.h */,
+				396D6F68158D2FEA0046CF16 /* Tools */,
+			);
+			path = Reporting;
+			sourceTree = "<group>";
+		};
+		396D6F68158D2FEA0046CF16 /* Tools */ = {
+			isa = PBXGroup;
+			children = (
+				396D6F69158D2FEA0046CF16 /* ARCSafe_MemMgmt.h */,
+				396D6F6A158D2FEA0046CF16 /* KSArchSpecific.h */,
+				396D6F6B158D2FEA0046CF16 /* KSBacktrace.c */,
+				396D6F6C158D2FEA0046CF16 /* KSBacktrace.h */,
+				396D6F6D158D2FEA0046CF16 /* KSBacktrace_private.h */,
+				396D6F6E158D2FEA0046CF16 /* KSFileUtils.c */,
+				396D6F6F158D2FEA0046CF16 /* KSFileUtils.h */,
+				396D6F70158D2FEA0046CF16 /* KSJSONCodec.c */,
+				396D6F71158D2FEA0046CF16 /* KSJSONCodec.h */,
+				396D6F72158D2FEA0046CF16 /* KSJSONCodecObjC.h */,
+				396D6F73158D2FEA0046CF16 /* KSJSONCodecObjC.m */,
+				396D6F74158D2FEA0046CF16 /* KSLogger.c */,
+				396D6F75158D2FEA0046CF16 /* KSLogger.h */,
+				396D6F76158D2FEA0046CF16 /* KSLogger.m */,
+				396D6F77158D2FEA0046CF16 /* KSMach.c */,
+				396D6F78158D2FEA0046CF16 /* KSMach.h */,
+				396D6F79158D2FEA0046CF16 /* KSMach_Arm.c */,
+				396D6F7A158D2FEA0046CF16 /* KSMach_x86_32.c */,
+				396D6F7B158D2FEA0046CF16 /* KSMach_x86_64.c */,
+				396D6F7C158D2FEA0046CF16 /* KSSignalInfo.c */,
+				396D6F7D158D2FEA0046CF16 /* KSSignalInfo.h */,
+				396D6F7E158D2FEA0046CF16 /* KSSysCtl.c */,
+				396D6F7F158D2FEA0046CF16 /* KSSysCtl.h */,
+				396D6F80158D2FEA0046CF16 /* LoadableCategory.h */,
+				396D6F81158D2FEA0046CF16 /* RFC3339DateTool.h */,
+				396D6F82158D2FEA0046CF16 /* RFC3339DateTool.m */,
+			);
+			path = Tools;
+			sourceTree = "<group>";
+		};
+		396D709E158D83870046CF16 /* KSCrashLite */ = {
+			isa = PBXGroup;
+			children = (
+				396D709F158D83870046CF16 /* Supporting Files */,
+			);
+			path = KSCrashLite;
+			sourceTree = "<group>";
+		};
+		396D709F158D83870046CF16 /* Supporting Files */ = {
+			isa = PBXGroup;
+			children = (
+				396D70A0158D83870046CF16 /* KSCrashLite-Info.plist */,
+				396D70A1158D83870046CF16 /* InfoPlist.strings */,
+				396D70A4158D83870046CF16 /* KSCrashLite-Prefix.pch */,
+			);
+			name = "Supporting Files";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		396D6F00158D2F560046CF16 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				396D6F9F158D2FEA0046CF16 /* KSCrash.h in Headers */,
+				396D6FA1158D2FEA0046CF16 /* KSCrashAdvanced.h in Headers */,
+				396D6F83158D2FEA0046CF16 /* KSCrashReportFilter.h in Headers */,
+				396D6F85158D2FEA0046CF16 /* KSCrashReportFilterAppleFmt.h in Headers */,
+				396D6F87158D2FEA0046CF16 /* KSCrashReportFilterBasic.h in Headers */,
+				396D6F89158D2FEA0046CF16 /* KSCrashReportFilterGZip.h in Headers */,
+				396D6F8B158D2FEA0046CF16 /* KSCrashReportFilterJSON.h in Headers */,
+				396D6F8D158D2FEA0046CF16 /* KSCrashReportSinkConsole.h in Headers */,
+				396D6F8F158D2FEA0046CF16 /* KSCrashReportSinkEMail.h in Headers */,
+				396D6F91158D2FEA0046CF16 /* KSCrashReportSinkQuincy.h in Headers */,
+				396D6F93158D2FEA0046CF16 /* KSCrashReportSinkStandard.h in Headers */,
+				396D6FC0158D2FEA0046CF16 /* KSJSONCodecObjC.h in Headers */,
+				396D6FB3158D2FEA0046CF16 /* KSReportWriter.h in Headers */,
+				396D6F95158D2FEA0046CF16 /* KSHTTPMultipartPostBody.h in Headers */,
+				396D6F97158D2FEA0046CF16 /* KSHTTPRequestSender.h in Headers */,
+				396D6F99158D2FEA0046CF16 /* KSReachability.h in Headers */,
+				396D6F9B158D2FEA0046CF16 /* NSData+GZip.h in Headers */,
+				396D6F9D158D2FEA0046CF16 /* NSMutableData+AppendUTF8.h in Headers */,
+				396D6FA2158D2FEA0046CF16 /* KSCrashReportStore.h in Headers */,
+				396D6FA4158D2FEA0046CF16 /* KSCrashContext.h in Headers */,
+				396D6FA6158D2FEA0046CF16 /* KSCrashHandler_Common.h in Headers */,
+				396D6FA8158D2FEA0046CF16 /* KSCrashHandler_MachException.h in Headers */,
+				396D6FA9158D2FEA0046CF16 /* KSCrashHandler_NSException.h in Headers */,
+				396D6FAC158D2FEA0046CF16 /* KSCrashHandler_Signal.h in Headers */,
+				396D6FAE158D2FEA0046CF16 /* KSCrashReporter.h in Headers */,
+				396D6FB0158D2FEA0046CF16 /* KSCrashReportWriter.h in Headers */,
+				396D6FB2158D2FEA0046CF16 /* KSCrashState.h in Headers */,
+				396D6FB4158D2FEA0046CF16 /* KSSystemInfo.h in Headers */,
+				396D6FB6158D2FEA0046CF16 /* KSSystemInfoC.h in Headers */,
+				396D6FB7158D2FEA0046CF16 /* ARCSafe_MemMgmt.h in Headers */,
+				396D6FB8158D2FEA0046CF16 /* KSArchSpecific.h in Headers */,
+				396D6FBA158D2FEA0046CF16 /* KSBacktrace.h in Headers */,
+				396D6FBB158D2FEA0046CF16 /* KSBacktrace_private.h in Headers */,
+				396D6FBD158D2FEA0046CF16 /* KSFileUtils.h in Headers */,
+				396D6FBF158D2FEA0046CF16 /* KSJSONCodec.h in Headers */,
+				396D6FC3158D2FEA0046CF16 /* KSLogger.h in Headers */,
+				396D6FC6158D2FEA0046CF16 /* KSMach.h in Headers */,
+				396D6FCB158D2FEA0046CF16 /* KSSignalInfo.h in Headers */,
+				396D6FCD158D2FEA0046CF16 /* KSSysCtl.h in Headers */,
+				396D6FCE158D2FEA0046CF16 /* LoadableCategory.h in Headers */,
+				396D6FCF158D2FEA0046CF16 /* RFC3339DateTool.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		396D7099158D83870046CF16 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				396D70AC158D83BB0046CF16 /* KSCrashContext.h in Headers */,
+				396D70B6158D83BB0046CF16 /* KSCrashReporter.h in Headers */,
+				396D70BB158D83BB0046CF16 /* KSReportWriter.h in Headers */,
+				396D70AE158D83BB0046CF16 /* KSCrashHandler_Common.h in Headers */,
+				396D70B0158D83BB0046CF16 /* KSCrashHandler_MachException.h in Headers */,
+				396D70B1158D83BB0046CF16 /* KSCrashHandler_NSException.h in Headers */,
+				396D70B4158D83BB0046CF16 /* KSCrashHandler_Signal.h in Headers */,
+				396D70B8158D83BB0046CF16 /* KSCrashReportWriter.h in Headers */,
+				396D70BA158D83BB0046CF16 /* KSCrashState.h in Headers */,
+				396D70BC158D83BB0046CF16 /* KSSystemInfo.h in Headers */,
+				396D70BE158D83BB0046CF16 /* KSSystemInfoC.h in Headers */,
+				396D70BF158D83BB0046CF16 /* ARCSafe_MemMgmt.h in Headers */,
+				396D70C0158D83BB0046CF16 /* KSArchSpecific.h in Headers */,
+				396D70C2158D83BB0046CF16 /* KSBacktrace.h in Headers */,
+				396D70C3158D83BB0046CF16 /* KSBacktrace_private.h in Headers */,
+				396D70C5158D83BB0046CF16 /* KSFileUtils.h in Headers */,
+				396D70C7158D83BB0046CF16 /* KSJSONCodec.h in Headers */,
+				396D70C8158D83BB0046CF16 /* KSJSONCodecObjC.h in Headers */,
+				396D70CB158D83BB0046CF16 /* KSLogger.h in Headers */,
+				396D70CE158D83BB0046CF16 /* KSMach.h in Headers */,
+				396D70D3158D83BB0046CF16 /* KSSignalInfo.h in Headers */,
+				396D70D5158D83BB0046CF16 /* KSSysCtl.h in Headers */,
+				396D70D6158D83BB0046CF16 /* LoadableCategory.h in Headers */,
+				396D70D7158D83BB0046CF16 /* RFC3339DateTool.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		396D6F03158D2F560046CF16 /* KSCrash */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 396D6F2B158D2F560046CF16 /* Build configuration list for PBXNativeTarget "KSCrash" */;
+			buildPhases = (
+				396D6EFE158D2F560046CF16 /* Sources */,
+				396D6EFF158D2F560046CF16 /* Frameworks */,
+				396D6F00158D2F560046CF16 /* Headers */,
+				396D6F01158D2F560046CF16 /* Resources */,
+				396D6F02158D2F560046CF16 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = KSCrash;
+			productName = KSCrash;
+			productReference = 396D6F04158D2F560046CF16 /* KSCrash.framework */;
+			productType = "com.apple.product-type.bundle";
+		};
+		396D6F14158D2F560046CF16 /* KSCrashTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 396D6F2E158D2F560046CF16 /* Build configuration list for PBXNativeTarget "KSCrashTests" */;
+			buildPhases = (
+				396D6F10158D2F560046CF16 /* Sources */,
+				396D6F11158D2F560046CF16 /* Frameworks */,
+				396D6F12158D2F560046CF16 /* Resources */,
+				396D6F13158D2F560046CF16 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				396D6F1E158D2F560046CF16 /* PBXTargetDependency */,
+			);
+			name = KSCrashTests;
+			productName = KSCrashTests;
+			productReference = 396D6F15158D2F560046CF16 /* KSCrashTests.octest */;
+			productType = "com.apple.product-type.bundle";
+		};
+		396D709C158D83870046CF16 /* KSCrashLite */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 396D70AA158D83870046CF16 /* Build configuration list for PBXNativeTarget "KSCrashLite" */;
+			buildPhases = (
+				396D7097158D83870046CF16 /* Sources */,
+				396D7098158D83870046CF16 /* Frameworks */,
+				396D7099158D83870046CF16 /* Headers */,
+				396D709A158D83870046CF16 /* Resources */,
+				396D709B158D83870046CF16 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = KSCrashLite;
+			productName = KSCrashLite;
+			productReference = 396D709D158D83870046CF16 /* KSCrashLite.framework */;
+			productType = "com.apple.product-type.bundle";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		396D6EF9158D2F560046CF16 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0430;
+			};
+			buildConfigurationList = 396D6EFC158D2F560046CF16 /* Build configuration list for PBXProject "KSCrash" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 396D6EF7158D2F560046CF16;
+			productRefGroup = 396D6F05158D2F560046CF16 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				396D6F03158D2F560046CF16 /* KSCrash */,
+				396D709C158D83870046CF16 /* KSCrashLite */,
+				396D6F14158D2F560046CF16 /* KSCrashTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		396D6F01158D2F560046CF16 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				396D6F0B158D2F560046CF16 /* InfoPlist.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		396D6F12158D2F560046CF16 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				396D6F1F158D2F560046CF16 /* KSCrash.framework in Resources */,
+				396D6F25158D2F560046CF16 /* InfoPlist.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		396D709A158D83870046CF16 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				396D70A3158D83870046CF16 /* InfoPlist.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		396D6F02158D2F560046CF16 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /usr/bin/python;
+			shellScript = "# TAG: BUILD SCRIPT (do not remove this comment)\n# Build script generated using https://github.com/kstenerud/iOS-Universal-Framework Mk 8 (beta 2012-06-16)\nimport logging\n\n\n##############################################################################\n#\n# Configuration\n#\n##############################################################################\n\n# Select which kind of framework to build.\n#\n# Note: Due to issues with Xcode's build process, if you select\n#       'embeddedframework', it will still show the regular framework\n#       (as a symlink) along side of the embedded framework. Be sure to\n#       instruct your users to copy/move the embedded framework in this case!\n#\n# If your framework contains resources such as images, nibs, momds, plists,\n# zipfiles and such, choose 'embeddedframework'.\n#\n# If your framework contains no resources, choose 'framework'.\n#\nconfig_framework_type = 'framework'\n#config_framework_type = 'embeddedframework'\n\n# Open the build directory in Finder when the universal framework is\n# successfully built.\n#\n# This value can be overridden by setting the UFW_OPEN_BUILD_DIR env variable\n# to True or False.\n#\n# Recommended setting: True\n#\nconfig_open_build_dir = True\n\n# If true, ensures that all public headers are stored in the framework under\n# the same directory hierarchy as they were in the source tree.\n#\n# Xcode by default places all headers at the same top level, but every other\n# build tool in the known universe preserves directory structure. For simple\n# libraries it doesn't really matter much, but for ports of existing software\n# packages or for bigger libraries, it makes sense to have more structure.\n#\n# The default is set to \"False\" since that's what most Xcode users are used to.\n#\n# Recommended setting: True for deep hierarchy projects, False otherwise.\n#\nconfig_deep_header_hierarchy = False\n\n# Specify where the top of the public header hierarchy is. This path is\n# relative to the project's dir (PROJECT_DIR). You can reference environment\n# variables using templating syntax (e.g. \"${TARGET_NAME}/Some/Subdir\")\n#\n# NOTE: Only used if config_deep_header_hierarchy is True.\n#\n# If this is set to None, the script will attempt to figure out for itself\n# where the top of the header hierarchy is by looking for common path prefixes\n# in the public header files. This process can fail if:\n# - You only have one public header file.\n# - Your source header files don't all have a common root.\n#\n# A common approach is to use \"${TARGET_NAME}\", working under the assumption\n# that all of your header files share the common root of a directory under\n# your project with the same name as your target (which is the Xcode default).\n#\n# Recommended setting: \"${TARGET_NAME}\"\n#\nconfig_deep_header_top = \"${TARGET_NAME}\"\n\n# Warn when \"DerivedData\" is detected in any of the header, library, or\n# framework search paths. In almost all cases, references to directories under\n# DerivedData are added as a result of an Xcode bug and must be manually\n# removed.\n#\n# Recommended setting: True\n#\nconfig_warn_derived_data = True\n\n# Warn if no headers were marked public in this framework.\n#\n# Recommended setting: True\n#\nconfig_warn_no_public_headers = True\n\n# Cause the build to fail if any warnings are issued.\n#\n# Recommended setting: True\n#\nconfig_fail_on_warnings = True\n\n# Minimum log level\n#\n# Recommended setting: logging.INFO\n#\nconfig_log_level = logging.INFO\n\n\n##############################################################################\n#\n# Don't touch anything below here unless you know what you're doing.\n#\n##############################################################################\n\nimport collections\nimport json\nimport os\nimport re\nimport shlex\nimport shutil\nimport string\nimport subprocess\nimport sys\nimport time\nimport traceback\n\n\n##############################################################################\n#\n# Globals\n#\n##############################################################################\n\nlog = logging.getLogger('UFW')\n\nissued_warnings = False\n\n\n##############################################################################\n#\n# Classes\n#\n##############################################################################\n\n# Allows the slave build to communicate with the master build.\n#\nclass BuildState:\n\n    def __init__(self):\n        self.reload()\n\n    def reset(self):\n        self.slave_platform = None\n        self.slave_architectures = []\n        self.slave_linked_archive_paths = []\n        self.slave_built_fw_path = None\n        self.slave_built_embedded_fw_path = None\n\n    def set_slave_properties(self, architectures,\n                             linked_archive_paths,\n                             built_fw_path,\n                             built_embedded_fw_path):\n        self.slave_platform = os.environ['PLATFORM_NAME']\n        self.slave_architectures = architectures\n        self.slave_linked_archive_paths = linked_archive_paths\n        self.slave_built_fw_path = built_fw_path\n        self.slave_built_embedded_fw_path = built_embedded_fw_path\n\n    def get_save_path(self):\n        return os.path.join(os.environ['PROJECT_TEMP_DIR'], \"ufw_build_state.json\")\n\n    def persist(self):\n        filename = self.get_save_path()\n        parent = os.path.dirname(filename)\n        if not os.path.isdir(parent):\n            os.makedirs(parent)\n        with open(filename, \"w\") as f:\n            f.write(json.dumps(self.__dict__))\n\n    def reload(self):\n        self.reset()\n        filename = self.get_save_path()\n        if os.path.exists(filename):\n            with open(filename, \"r\") as f:\n                new_dict = json.loads(f.read())\n                if new_dict is not None:\n                    self.__dict__ = dict(self.__dict__.items() + new_dict.items())\n\n\n# Holds information about the current project and build environment.\n#\nclass Project:\n\n    def __init__(self, filename):\n        sourcecode_types = ['sourcecode.c.c',\n                            'sourcecode.c.objc',\n                            'sourcecode.cpp.cpp',\n                            'sourcecode.cpp.objcpp',\n                            'sourcecode.asm.asm',\n                            'sourcecode.asm.llvm',\n                            'sourcecode.nasm']\n\n        self.build_state = BuildState()\n        self.project_data = self.load_from_file(filename)\n        self.target = filter(lambda x: x['name'] == os.environ['TARGET_NAME'], self.project_data['targets'])[0]\n        self.public_headers = self.get_build_phase_files('PBXHeadersBuildPhase', lambda x: x.get('settings', False) and x['settings'].get('ATTRIBUTES', False) and 'Public' in x['settings']['ATTRIBUTES'])\n        self.static_libraries = self.get_build_phase_files('PBXFrameworksBuildPhase', lambda x: x['fileRef']['fileType'] == 'archive.ar' and x['fileRef']['sourceTree'] not in ['DEVELOPER_DIR', 'SDKROOT'])\n        self.static_frameworks = self.get_build_phase_files('PBXFrameworksBuildPhase', lambda x: x['fileRef']['fileType'] == 'wrapper.framework' and x['fileRef']['sourceTree'] not in ['DEVELOPER_DIR', 'SDKROOT'])\n        self.compilable_sources = self.get_build_phase_files('PBXSourcesBuildPhase', lambda x: x['fileRef']['fileType'] in sourcecode_types)\n        self.header_paths = [os.path.join(*x['pathComponents']) for x in self.public_headers]\n\n        self.headers_dir = os.path.join(os.environ['TARGET_BUILD_DIR'], os.environ['CONTENTS_FOLDER_PATH'], 'Headers')\n        self.libtool_path = os.path.join(os.environ['DT_TOOLCHAIN_DIR'], 'usr', 'bin', 'libtool')\n        self.project_filename = os.path.join(os.environ['PROJECT_FILE_PATH'], \"project.pbxproj\")\n        self.local_exe_path = os.path.join(os.environ['TARGET_BUILD_DIR'], os.environ['EXECUTABLE_PATH'])\n        self.local_architectures = os.environ['ARCHS'].split(' ')\n        self.local_built_fw_path = os.path.join(os.environ['TARGET_BUILD_DIR'], os.environ['WRAPPER_NAME'])\n        self.local_built_embedded_fw_path = os.path.splitext(self.local_built_fw_path)[0] + \".embeddedframework\"\n        self.local_linked_archive_paths = [self.get_linked_ufw_archive_path(arch) for arch in self.local_architectures]\n        self.local_platform = os.environ['PLATFORM_NAME']\n        other_platforms = os.environ['SUPPORTED_PLATFORMS'].split(' ')\n        other_platforms.remove(self.local_platform)\n        self.other_platform = other_platforms[0]\n\n        sdk_name = os.environ['SDK_NAME']\n        if not sdk_name.startswith(self.local_platform):\n            raise Exception(\"%s didn't start with %s\" % (sdk_name, self.local_platform))\n        self.sdk_version = sdk_name[len(self.local_platform):]\n\n    # Load an Xcode project file.\n    #\n    def load_from_file(self, filename):\n        project_file = json.loads(subprocess.check_output([\"plutil\", \"-convert\", \"json\", \"-o\", \"-\", filename]))\n        all_objects = project_file['objects']\n        del project_file['objects']\n        for obj in all_objects.values():\n            self.fix_keys(obj)\n        self.unpack_objects(self.build_dereference_list(all_objects, None, None, project_file))\n        self.unpack_objects(self.build_dereference_list(all_objects, None, None, all_objects.values()))\n        project_data = project_file['rootObject']\n        self.build_full_paths(project_data, splitpath(os.environ['SOURCE_ROOT']))\n        return project_data\n\n    def is_key(self, obj):        \n        return isinstance(obj, basestring) and len(obj) == 24 and re.search('^[0-9a-fA-F]+$', obj) is not None\n    \n    def build_dereference_list(self, all_objects, parent, key, obj):\n        deref_list = []\n        if self.is_key(obj):\n            dereferenced = all_objects.get(obj, obj)\n            if dereferenced is not obj:\n                deref_list.append((parent, key, obj, dereferenced))\n        elif isinstance(obj, collections.Mapping):\n            for k, v in obj.iteritems():\n                deref_list += self.build_dereference_list(all_objects, obj, k, v)\n        elif isinstance(obj, collections.Iterable) and not isinstance(obj, basestring):\n            for item in obj:\n                deref_list += self.build_dereference_list(all_objects, obj, None, item)\n        return deref_list\n    \n    def unpack_objects(self, deref_list):\n        for parent, key, orig, obj in deref_list:\n            if key is None:\n                parent.remove(orig)\n                parent.append(obj)\n            else:\n                parent[key] = obj\n\n    # Store the full path, separated into components, to a node inside the node\n    # as \"pathComponents\". Also recurse into that node if it's a group.\n    #\n    def build_full_paths(self, node, base_path):\n        # Some nodes are relative to a different source tree, specified as an\n        # env variable.\n        if node.get('sourceTree', '<group>') != '<group>':\n            new_base_path = os.environ.get(node['sourceTree'], None)\n            if new_base_path:\n                base_path = splitpath(new_base_path)\n        # Add the current node's path, if any.\n        if node.get('path', False):\n            base_path = base_path + splitpath(node['path'])\n        node['pathComponents'] = base_path\n        # Recurse if this is a group.\n        if node['isa'] == 'PBXGroup':\n            for child in node['children']:\n                self.build_full_paths(child, base_path)\n        elif node['isa'] == 'PBXProject':\n            self.build_full_paths(node['mainGroup'], base_path)\n            self.build_full_paths(node['productRefGroup'], base_path)\n            for child in node['targets']:\n                self.build_full_paths(child, base_path)\n            projectRefs = node.get('projectReferences', None)\n            if projectRefs is not None:\n                for child in projectRefs[0].values():\n                    self.build_full_paths(child, base_path)\n\n    # Fix up any inconvenient keys.\n    #\n    def fix_keys(self, obj):\n        key_remappings = {'lastKnownFileType': 'fileType', 'explicitFileType': 'fileType'}\n        for key in list(set(key_remappings.keys()) & set(obj.keys())):\n            obj[key_remappings[key]] = obj[key]\n            del obj[key]\n\n    # Get the files from a build phase.\n    #\n    def get_build_phase_files(self, build_phase_name, filter_func):\n        build_phase = filter(lambda x: x['isa'] == build_phase_name, self.target['buildPhases'])[0]\n        build_files = filter(filter_func, build_phase['files'])\n        return [x['fileRef'] for x in build_files]\n\n    # Get the truncated paths of all headers that start with the specified\n    # relative path. Paths are read and returned as fully separated lists.\n    # e.g. ['Some', 'Path', 'To', 'A', 'Header'] with relative_path of\n    # ['Some', 'Path'] gets truncated to ['To', 'A', 'Header']\n    #\n    def movable_headers_relative_to(self, relative_path):\n        rel_path_length = len(relative_path)\n        result = filter(lambda path: len(path) >= rel_path_length and\n                                     path[:rel_path_length] == relative_path, self.header_paths)\n        return [path[rel_path_length:] for path in result]\n\n    # Get the full path to where a linkable archive (library or framework)\n    # is supposed to be.\n    #\n    def get_linked_archive_path(self, architecture):\n        return os.path.join(os.environ['OBJECT_FILE_DIR_%s' % os.environ['CURRENT_VARIANT']],\n                            architecture,\n                            os.environ['EXECUTABLE_NAME'])\n\n    # Get the full path to our custom linked archive of the project.\n    #\n    def get_linked_ufw_archive_path(self, architecture):\n        return self.get_linked_archive_path(architecture) + \".ufwbuild\"\n\n    # Get the full path to the executable of an archive.\n    #\n    def get_exe_path(self, node):\n        path = os.path.join(*node['pathComponents'])\n        if node['fileType'] == 'wrapper.framework':\n            # Frameworks are directories, so go one deeper\n            path = os.path.join(path, os.path.splitext(node['pathComponents'][-1])[0])\n        return path\n\n    # Get the path to the directory containing the archive.\n    #\n    def get_containing_path(self, node):\n        return os.path.join(*node['pathComponents'])\n    \n    def get_archive_search_paths(self):\n        log.info(\"Search paths = %s\" % set([self.get_containing_path(fw) for fw in self.static_frameworks] + [self.get_containing_path(fw) for fw in self.static_libraries]))\n        return set([self.get_containing_path(fw) for fw in self.static_frameworks] + [self.get_containing_path(fw) for fw in self.static_libraries])\n\n    # Command to link all objects of a single architecture.\n    #\n    def get_single_arch_link_command(self, architecture):\n        cmd = [self.libtool_path,\n               \"-static\",\n               \"-arch_only\", architecture,\n               \"-syslibroot\", os.environ['SDKROOT'],\n               \"-L%s\" % os.environ['TARGET_BUILD_DIR'],\n               \"-filelist\", os.environ['LINK_FILE_LIST_%s_%s' % (os.environ['CURRENT_VARIANT'], architecture)]]\n        if os.environ.get('OTHER_LDFLAGS', False):\n            cmd += [os.environ['OTHER_LDFLAGS']]\n        if os.environ.get('WARNING_LDFLAGS', False):\n            cmd += [os.environ['WARNING_LDFLAGS']]\n#        cmd += [\"-L%s\" % libpath for libpath in self.get_archive_search_paths()]\n        cmd += [self.get_exe_path(fw) for fw in self.static_frameworks]\n        cmd += [self.get_exe_path(lib) for lib in self.static_libraries]\n        cmd += [\"-o\", self.get_linked_ufw_archive_path(architecture)]\n        return cmd\n\n    # Command to link all local architectures for the current configuration\n    # into an archive. This reads all libraries + the UFW-built archives and\n    # overwrites the final product.\n    #\n    def get_local_archs_link_command(self):\n        cmd = [self.libtool_path,\n               \"-static\"]\n        cmd += self.local_linked_archive_paths\n        cmd += [self.get_exe_path(fw) for fw in self.static_frameworks]\n        cmd += [self.get_exe_path(lib) for lib in self.static_libraries]\n        cmd += [\"-o\", os.path.join(os.environ['TARGET_BUILD_DIR'], os.environ['EXECUTABLE_PATH'])]\n        return cmd\n\n    # Command to link all architectures into a universal archive.\n    # This reads all UFW-built archives and overwrites the final product.\n    #\n    def get_all_archs_link_command(self):\n        cmd = [self.libtool_path,\n               \"-static\"]\n        cmd += self.local_linked_archive_paths + self.build_state.slave_linked_archive_paths\n        cmd += [\"-o\", os.path.join(os.environ['TARGET_BUILD_DIR'], os.environ['EXECUTABLE_PATH'])]\n        return cmd\n\n    # Build up an environment for the slave process. This uses BUILD_ROOT\n    # and TEMP_ROOT to convert all environment variables to values suitable\n    # for the slave build environment so that xcodebuild doesn't try to build\n    # in the project directory under \"build\".\n    #\n    def get_slave_environment(self):\n        ignored = ['LD_MAP_FILE_PATH',\n        'HEADER_SEARCH_PATHS',\n        'LIBRARY_SEARCH_PATHS',\n        'FRAMEWORK_SEARCH_PATHS']\n        build_root = os.environ['BUILD_ROOT']\n        temp_root = os.environ['TEMP_ROOT']\n        newenv = {}\n        for key, value in os.environ.items():\n            if key not in ignored and not key.startswith('LINK_FILE_LIST_'):\n                if build_root in value or temp_root in value:\n                    newenv[key] = value.replace(self.local_platform, self.other_platform)\n        return newenv\n\n    # Command to invoke xcodebuild on the slave platform.\n    #\n    def get_slave_project_build_command(self):\n        cmd = [\"xcodebuild\",\n               \"-project\",\n               os.environ['PROJECT_FILE_PATH'],\n               \"-target\",\n               os.environ['TARGET_NAME'],\n               \"-configuration\",\n               os.environ['CONFIGURATION'],\n               \"-sdk\",\n               self.other_platform + self.sdk_version]\n        cmd += [\"%s=%s\" % (key, value) for key, value in self.get_slave_environment().items()]\n        cmd += [\"UFW_MASTER_PLATFORM=\" + os.environ['PLATFORM_NAME']]\n        cmd += [os.environ['ACTION']]\n        return cmd\n\n\n\n##############################################################################\n#\n# Utility Functions\n#\n##############################################################################\n\n# Split a path into a list of path components.\n#\ndef splitpath(path, maxdepth=20):\n     (head, tail) = os.path.split(path)\n     return splitpath(head, maxdepth - 1) + [tail] if maxdepth and head and head != path else [ head or tail ]\n\n# Remove all subdirectories under a path.\n#\ndef remove_subdirs(path, ignore_files):\n    if os.path.exists(path):\n        for filename in filter(lambda x: x not in ignore_files, os.listdir(path)):\n            fullpath = os.path.join(path, filename)\n            if os.path.isdir(fullpath):\n                log.info(\"Remove %s\" % fullpath)\n                shutil.rmtree(fullpath)\n\n# Make whatever parent paths are necessary for a path to exist.\n#\ndef ensure_path_exists(path):\n    if not os.path.isdir(path):\n        os.makedirs(path)\n\n# Make whatever parent paths are necessary for a path's parent to exist.\n#\ndef ensure_parent_exists(path):\n    parent = os.path.dirname(path)\n    if not os.path.isdir(parent):\n        os.makedirs(parent)\n\n# Remove a file or dir if it exists.\n#\ndef remove_path(path):\n    if os.path.exists(path):\n        if os.path.isdir(path):\n            shutil.rmtree(path)\n        else:\n            os.remove(path)\n\n# Move a file or dir, replacing the destination if it exists.\n#\ndef move_file(src, dst):\n    if src == dst or not os.path.isfile(src):\n        return\n    log.info(\"Move %s to %s\" % (src, dst))\n    ensure_parent_exists(dst)\n    remove_path(dst)\n    shutil.move(src, dst)\n\n# Copy a file or dir, replacing the destination if it exists already.\n#\ndef copy_overwrite(src, dst):\n    if src != dst:\n        remove_path(dst)\n        ensure_parent_exists(dst)\n        shutil.copytree(src, dst, symlinks=True)\n\n# Attempt to symlink link_path -> link_to.\n# link_to must be a path relative to link_path's parent and must exist.\n# If link_path already exists, do nothing.\n#\ndef attempt_symlink(link_path, link_to):\n    # Only allow linking to an existing file\n    os.stat(os.path.abspath(os.path.join(link_path, \"..\", link_to)))\n\n    # Only make the link if it hasn't already been made\n    if not os.path.exists(link_path):\n        log.info(\"Symlink %s -> %s\" % (link_path, link_to))\n        os.symlink(link_to, link_path)\n\n# Takes the last entry in an array-based path and returns a normal path\n# relative to base_path.\n#\ndef top_level_file_path(base_path, path_list):\n    return os.path.join(base_path, os.path.split(path_list[-1])[-1])\n\n# Takes all entries in an array-based path and returns a normal path\n# relative to base_path.\n#\ndef full_file_path(base_path, path_list):\n    return os.path.join(*([base_path] + path_list))\n\n# Print a command before executing it.\n# Also print out all output from the command to STDOUT.\n#\ndef print_and_call(cmd):\n    log.info(\"Cmd \" + \" \".join(cmd))\n    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)\n    result = p.communicate()[0]\n    if len(result) > 0:\n        log.info(result)\n    if p.returncode != 0:\n        raise subprocess.CalledProcessError(p.returncode, cmd)\n\n# Special print-and-call command for the slave build that strips out\n# xcodebuild's spammy list of environment variables.\n#\ndef print_and_call_slave_build(cmd, other_platform):\n    separator = '=== BUILD NATIVE TARGET '\n    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)\n    result = p.communicate()[0].split(separator)\n    if len(result) == 1:\n        result = result[0]\n    else:\n        result = separator + result[1]\n    log.info(\"Cmd \" + \" \".join(cmd) + \"\\n\" + result)\n    if p.returncode != 0:\n        raise subprocess.CalledProcessError(p.returncode, cmd)\n\n# Issue a warning and record that a warning has been issued.\n#\ndef issue_warning(msg, *args, **kwargs):\n    global issued_warnings\n    issued_warnings = True\n    log.warn(msg, *args, **kwargs)\n\n\n\n##############################################################################\n#\n# Main Application\n#\n##############################################################################\n\n# Check if we are running as master.\n#\ndef is_master():\n    return os.environ.get('UFW_MASTER_PLATFORM', os.environ['PLATFORM_NAME']) == os.environ['PLATFORM_NAME']\n\n# DerivedData should almost never appear in any framework, library, or header\n# search paths. However, Xcode will sometimes add them in, so we check to make\n# sure.\n#\ndef check_for_derived_data_in_search_paths(project):\n    search_path_keys = [\"FRAMEWORK_SEARCH_PATHS\", \"LIBRARY_SEARCH_PATHS\", \"HEADER_SEARCH_PATHS\"]\n    build_configs = project.target['buildConfigurationList']['buildConfigurations']\n    build_settings = filter(lambda x: x['name'] == os.environ['CONFIGURATION'], build_configs)[0]['buildSettings']\n    \n    found_something = False\n    for path_key in filter(lambda x: x in build_settings, search_path_keys):\n        path = build_settings[path_key]\n        if \"DerivedData\" in path:\n            found_something = True\n            log.warn(\"Derived data in %s\" % path)\n            issue_warning(\"'%s' contains reference to 'DerivedData'.\" % path_key)\n    if found_something:\n        log.warn(\"Check your build settings and remove any entries that contain paths inside the DerivedData folder.\")\n        log.warn(\"Otherwise you can disable this warning by changing 'config_warn_derived_data' in this script.\")\n\n# Link local architectures into their respective archives.\n#\ndef link_local_archs(project):\n    for arch in project.local_architectures:\n        print_and_call(project.get_single_arch_link_command(arch))\n\n# Link only the local architectures into the final product, not the slave\n# architectures. For iphoneos, this will be armv6, armv7. For simulator, this\n# will be i386.\n#\ndef link_combine_local_archs(project):\n    print_and_call(project.get_local_archs_link_command())\n\n# Link all architectures into the final product.\n#\ndef link_combine_all_archs(project):\n    print_and_call(project.get_all_archs_link_command())\n\n# Check if we should open the build directory after a successful build.\n#\ndef should_open_build_dir():\n    env_setting = os.environ.get('UFW_OPEN_BUILD_DIR', None)\n    if env_setting is not None:\n        return env_setting\n\n    return config_open_build_dir\n\n# Open the build dir in Finder.\n#\ndef open_build_dir():\n    print_and_call(['open', os.environ['TARGET_BUILD_DIR']])\n\n# Check if the build was started by selecting \"Archive\" under \"Product\" in\n# Xcode.\n#\ndef is_archive_build():\n    # ACTION is always 'build', but perhaps Apple will fix this someday?\n    archive_build = os.environ['ACTION'] == 'archive'\n\n    if not archive_build:\n        # This can be passed in as an env variable when building from command line.\n        archive_build = os.environ.get('UFW_ACTION', None) == 'archive'\n\n    build_dir = splitpath(os.environ['BUILD_DIR'])\n    if not archive_build:\n        # This partial path is used when you select \"archive\" from within Xcode.\n        archive_build = 'ArchiveIntermediates' in build_dir\n\n    # It only counts as a full archive build if this target is being built into\n    # its own build dir (not being built as a dependency of another target)\n    if archive_build:\n        archive_build = os.environ['TARGET_NAME'] in build_dir\n    \n    return archive_build\n\n# Xcode by default throws all public headers into the top level directory.\n# This function moves them to their expected deep hierarchy.\n#\ndef build_deep_header_hierarchy(project):\n    header_path_top = config_deep_header_top\n    if not header_path_top:\n        header_path_top = os.path.commonprefix(project.header_paths)\n    else:\n        header_path_top = splitpath(header_path_top)\n\n    built_headers_path = os.path.join(os.environ['TARGET_BUILD_DIR'], os.environ['PUBLIC_HEADERS_FOLDER_PATH'])\n    movable_headers = project.movable_headers_relative_to(header_path_top)\n\n    # Remove subdirs if they only contain files that have been rebuilt\n    ignore_headers = filter(lambda x: not os.path.isfile(top_level_file_path(built_headers_path, x)), movable_headers)\n    remove_subdirs(built_headers_path, [file[0] for file in ignore_headers])\n\n    # Move rebuilt headers into their proper subdirs\n    for header in movable_headers:\n        move_file(top_level_file_path(built_headers_path, header), full_file_path(built_headers_path, header))\n\n# Add all symlinks needed to make a full framework structure:\n#\n# MyFramework.framework\n# |-- MyFramework -> Versions/Current/MyFramework\n# |-- Headers -> Versions/Current/Headers\n# |-- Resources -> Versions/Current/Resources\n# `-- Versions\n#     |-- A\n#     |   |-- MyFramework\n#     |   |-- Headers\n#     |   |   `-- MyFramework.h\n#     |   `-- Resources\n#     |       |-- Info.plist\n#     |       |-- MyViewController.nib\n#     |       `-- en.lproj\n#     |           `-- InfoPlist.strings\n#     `-- Current -> A\n#\ndef add_symlinks_to_framework(project):\n    base_dir = project.local_built_fw_path\n    attempt_symlink(os.path.join(base_dir, \"Versions\", \"Current\"), os.environ['FRAMEWORK_VERSION'])\n    if os.path.isdir(os.path.join(base_dir, \"Versions\", \"Current\", \"Headers\")):\n        attempt_symlink(os.path.join(base_dir, \"Headers\"), os.path.join(\"Versions\", \"Current\", \"Headers\"))\n    if os.path.isdir(os.path.join(base_dir, \"Versions\", \"Current\", \"Resources\")):\n        attempt_symlink(os.path.join(base_dir, \"Resources\"), os.path.join(\"Versions\", \"Current\", \"Resources\"))\n    attempt_symlink(os.path.join(base_dir, os.environ['EXECUTABLE_NAME']), os.path.join(\"Versions\", \"Current\", os.environ['EXECUTABLE_NAME']))\n\n# Build an embedded framework structure.\n# An embedded framework contains the actual framework, plus a \"Resources\"\n# directory containing symlinks to all resources found in the actual framework,\n# with the exception of \"Info.plist\" and anything ending in \".lproj\":\n#\n# MyFramework.embeddedframework\n# |-- MyFramework.framework\n# |   |-- MyFramework -> Versions/Current/MyFramework\n# |   |-- Headers -> Versions/Current/Headers\n# |   |-- Resources -> Versions/Current/Resources\n# |   `-- Versions\n# |       |-- A\n# |       |   |-- MyFramework\n# |       |   |-- Headers\n# |       |   |   `-- MyFramework.h\n# |       |   `-- Resources\n# |       |       |-- Info.plist\n# |       |       |-- MyViewController.nib\n# |       |       `-- en.lproj\n# |       |           `-- InfoPlist.strings\n# |       `-- Current -> A\n# `-- Resources\n#     `-- MyViewController.nib -> ../MyFramework.framework/Resources/MyViewController.nib\n#\ndef build_embedded_framework(project):\n    fw_path = project.local_built_fw_path\n    embedded_path = project.local_built_embedded_fw_path\n    fw_name = os.environ['WRAPPER_NAME']\n    remove_path(embedded_path)\n    ensure_path_exists(embedded_path)\n    copy_overwrite(fw_path, os.path.join(embedded_path, fw_name))\n    ensure_path_exists(os.path.join(embedded_path, \"Resources\"))\n    symlink_source = os.path.join(\"..\", fw_name, \"Resources\")\n    symlink_path = os.path.join(embedded_path, \"Resources\")\n    if os.path.isdir(os.path.join(fw_path, \"Resources\")):\n        for file in filter(lambda x: x != \"Info.plist\" and not x.endswith(\".lproj\"), os.listdir(os.path.join(fw_path, \"Resources\"))):\n            attempt_symlink(os.path.join(symlink_path, file), os.path.join(symlink_source, file))\n\n    # Remove the normal framework and replace it with a symlink to the copy\n    # in the embedded framework. This is needed because Xcode runs its strip\n    # phase AFTER the script runs.\n    embed_fw_wrapper = os.path.splitext(os.environ['WRAPPER_NAME'])[0] + \".embeddedframework\"\n    remove_path(fw_path)\n    attempt_symlink(fw_path, os.path.join(embed_fw_wrapper, os.environ['WRAPPER_NAME']))\n\n\n# Run the build process in slave mode to build the other configuration\n# (device/simulator).\n#\ndef run_slave_build(project):\n    print_and_call_slave_build(project.get_slave_project_build_command(), project.other_platform)\n\n# Run the build process.\n#\ndef run_build():\n    project = Project(os.path.join(os.environ['PROJECT_FILE_PATH'], \"project.pbxproj\"))\n\n    # Issue warnings only if we're master.\n    if is_master():\n        if len(project.compilable_sources) == 0:\n            raise Exception(\"No compilable sources found. Please add at least one source file to build target %s.\" % os.environ['TARGET_NAME'])\n\n        if config_warn_derived_data:\n            check_for_derived_data_in_search_paths(project)\n        if config_warn_no_public_headers and len(project.public_headers) == 0:\n            issue_warning('No headers in build target %s were marked public. Please move at least one header to \"Public\" in the \"Copy Headers\" build phase.' % os.environ['TARGET_NAME'])\n\n    # Only build slave if this is an archive build.\n    if is_archive_build():\n        if is_master():\n            log.debug(\"Building as MASTER\")\n            # The slave-side linker tries to include this (nonexistent) path as\n            # a library path.\n            ensure_path_exists(project.get_slave_environment()['BUILT_PRODUCTS_DIR'])\n            project.build_state.persist()\n            run_slave_build(project)\n            project.build_state.reload()\n        else:\n            log.debug(\"Building as SLAVE\")\n            project.build_state.reload()\n            project.build_state.set_slave_properties(project.local_architectures,\n                                                     project.local_linked_archive_paths,\n                                                     project.local_built_fw_path,\n                                                     project.local_built_embedded_fw_path)\n            project.build_state.persist()\n\n    link_local_archs(project)\n    \n    # Only do a universal binary when building an archive.\n    if is_archive_build() and is_master():\n        link_combine_all_archs(project)\n    else:\n        link_combine_local_archs(project)\n\n    if config_deep_header_hierarchy:\n        build_deep_header_hierarchy(project)\n\n    add_symlinks_to_framework(project)\n    \n    if is_master():\n        if config_framework_type == 'embeddedframework':\n            build_embedded_framework(project)\n        elif config_framework_type != 'framework':\n            raise Exception(\"%s: Unknown framework type for config_framework_type\" % config_framework_type)\n\n\nif __name__ == \"__main__\":\n    log_handler = logging.StreamHandler()\n    log_handler.setFormatter(logging.Formatter(\"%(name)s (\" + os.environ['PLATFORM_NAME'] + \"): %(levelname)s: %(message)s\"))\n    log.addHandler(log_handler)\n    log.setLevel(config_log_level)\n\n    error_code = 0\n    prefix = \"M\" if is_master() else \"S\"\n    log_handler.setFormatter(logging.Formatter(\"%(name)s (\" + prefix + \" \" + os.environ['PLATFORM_NAME'] + \"): %(levelname)s: %(message)s\"))\n\n    log.debug(\"Begin build process\")\n\n    if config_deep_header_top:\n        config_deep_header_top = string.Template(config_deep_header_top).substitute(os.environ)\n\n    try:\n        run_build()\n        if issued_warnings:\n            if config_fail_on_warnings:\n                error_code = 1\n            log.warn(\"Build completed with warnings\")\n        else:\n            log.info(\"Build completed\")\n        if not is_archive_build():\n            log.info(\"Note: This is *NOT* a universal framework build. To build as a universal framework, do an archive build.\")\n            log.info(\"To do an archive build from command line, use \\\"xcodebuild -configuration Release UFW_ACTION=archive clean build\\\"\")\n    except Exception:\n        traceback.print_exc(file=sys.stdout)\n        error_code = 1\n        log.error(\"Build failed\")\n    finally:\n        if error_code == 0 and is_archive_build() and is_master():\n            log.info(\"Built framework is in \" + os.environ['TARGET_BUILD_DIR'])\n            if should_open_build_dir():\n                open_build_dir()\n        sys.exit(error_code)\n";
+			showEnvVarsInLog = 0;
+		};
+		396D6F13158D2F560046CF16 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Run the unit tests in this test bundle.\n\"${SYSTEM_DEVELOPER_DIR}/Tools/RunUnitTests\"\n";
+		};
+		396D709B158D83870046CF16 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /usr/bin/python;
+			shellScript = "# TAG: BUILD SCRIPT (do not remove this comment)\n# Build script generated using https://github.com/kstenerud/iOS-Universal-Framework Mk 8 (beta 2012-06-16)\nimport logging\n\n\n##############################################################################\n#\n# Configuration\n#\n##############################################################################\n\n# Select which kind of framework to build.\n#\n# Note: Due to issues with Xcode's build process, if you select\n#       'embeddedframework', it will still show the regular framework\n#       (as a symlink) along side of the embedded framework. Be sure to\n#       instruct your users to copy/move the embedded framework in this case!\n#\n# If your framework contains resources such as images, nibs, momds, plists,\n# zipfiles and such, choose 'embeddedframework'.\n#\n# If your framework contains no resources, choose 'framework'.\n#\nconfig_framework_type = 'framework'\n#config_framework_type = 'embeddedframework'\n\n# Open the build directory in Finder when the universal framework is\n# successfully built.\n#\n# This value can be overridden by setting the UFW_OPEN_BUILD_DIR env variable\n# to True or False.\n#\n# Recommended setting: True\n#\nconfig_open_build_dir = True\n\n# If true, ensures that all public headers are stored in the framework under\n# the same directory hierarchy as they were in the source tree.\n#\n# Xcode by default places all headers at the same top level, but every other\n# build tool in the known universe preserves directory structure. For simple\n# libraries it doesn't really matter much, but for ports of existing software\n# packages or for bigger libraries, it makes sense to have more structure.\n#\n# The default is set to \"False\" since that's what most Xcode users are used to.\n#\n# Recommended setting: True for deep hierarchy projects, False otherwise.\n#\nconfig_deep_header_hierarchy = False\n\n# Specify where the top of the public header hierarchy is. This path is\n# relative to the project's dir (PROJECT_DIR). You can reference environment\n# variables using templating syntax (e.g. \"${TARGET_NAME}/Some/Subdir\")\n#\n# NOTE: Only used if config_deep_header_hierarchy is True.\n#\n# If this is set to None, the script will attempt to figure out for itself\n# where the top of the header hierarchy is by looking for common path prefixes\n# in the public header files. This process can fail if:\n# - You only have one public header file.\n# - Your source header files don't all have a common root.\n#\n# A common approach is to use \"${TARGET_NAME}\", working under the assumption\n# that all of your header files share the common root of a directory under\n# your project with the same name as your target (which is the Xcode default).\n#\n# Recommended setting: \"${TARGET_NAME}\"\n#\nconfig_deep_header_top = \"${TARGET_NAME}\"\n\n# Warn when \"DerivedData\" is detected in any of the header, library, or\n# framework search paths. In almost all cases, references to directories under\n# DerivedData are added as a result of an Xcode bug and must be manually\n# removed.\n#\n# Recommended setting: True\n#\nconfig_warn_derived_data = True\n\n# Warn if no headers were marked public in this framework.\n#\n# Recommended setting: True\n#\nconfig_warn_no_public_headers = True\n\n# Cause the build to fail if any warnings are issued.\n#\n# Recommended setting: True\n#\nconfig_fail_on_warnings = True\n\n# Minimum log level\n#\n# Recommended setting: logging.INFO\n#\nconfig_log_level = logging.INFO\n\n\n##############################################################################\n#\n# Don't touch anything below here unless you know what you're doing.\n#\n##############################################################################\n\nimport collections\nimport json\nimport os\nimport re\nimport shlex\nimport shutil\nimport string\nimport subprocess\nimport sys\nimport time\nimport traceback\n\n\n##############################################################################\n#\n# Globals\n#\n##############################################################################\n\nlog = logging.getLogger('UFW')\n\nissued_warnings = False\n\n\n##############################################################################\n#\n# Classes\n#\n##############################################################################\n\n# Allows the slave build to communicate with the master build.\n#\nclass BuildState:\n\n    def __init__(self):\n        self.reload()\n\n    def reset(self):\n        self.slave_platform = None\n        self.slave_architectures = []\n        self.slave_linked_archive_paths = []\n        self.slave_built_fw_path = None\n        self.slave_built_embedded_fw_path = None\n\n    def set_slave_properties(self, architectures,\n                             linked_archive_paths,\n                             built_fw_path,\n                             built_embedded_fw_path):\n        self.slave_platform = os.environ['PLATFORM_NAME']\n        self.slave_architectures = architectures\n        self.slave_linked_archive_paths = linked_archive_paths\n        self.slave_built_fw_path = built_fw_path\n        self.slave_built_embedded_fw_path = built_embedded_fw_path\n\n    def get_save_path(self):\n        return os.path.join(os.environ['PROJECT_TEMP_DIR'], \"ufw_build_state.json\")\n\n    def persist(self):\n        filename = self.get_save_path()\n        parent = os.path.dirname(filename)\n        if not os.path.isdir(parent):\n            os.makedirs(parent)\n        with open(filename, \"w\") as f:\n            f.write(json.dumps(self.__dict__))\n\n    def reload(self):\n        self.reset()\n        filename = self.get_save_path()\n        if os.path.exists(filename):\n            with open(filename, \"r\") as f:\n                new_dict = json.loads(f.read())\n                if new_dict is not None:\n                    self.__dict__ = dict(self.__dict__.items() + new_dict.items())\n\n\n# Holds information about the current project and build environment.\n#\nclass Project:\n\n    def __init__(self, filename):\n        sourcecode_types = ['sourcecode.c.c',\n                            'sourcecode.c.objc',\n                            'sourcecode.cpp.cpp',\n                            'sourcecode.cpp.objcpp',\n                            'sourcecode.asm.asm',\n                            'sourcecode.asm.llvm',\n                            'sourcecode.nasm']\n\n        self.build_state = BuildState()\n        self.project_data = self.load_from_file(filename)\n        self.target = filter(lambda x: x['name'] == os.environ['TARGET_NAME'], self.project_data['targets'])[0]\n        self.public_headers = self.get_build_phase_files('PBXHeadersBuildPhase', lambda x: x.get('settings', False) and x['settings'].get('ATTRIBUTES', False) and 'Public' in x['settings']['ATTRIBUTES'])\n        self.static_libraries = self.get_build_phase_files('PBXFrameworksBuildPhase', lambda x: x['fileRef']['fileType'] == 'archive.ar' and x['fileRef']['sourceTree'] not in ['DEVELOPER_DIR', 'SDKROOT'])\n        self.static_frameworks = self.get_build_phase_files('PBXFrameworksBuildPhase', lambda x: x['fileRef']['fileType'] == 'wrapper.framework' and x['fileRef']['sourceTree'] not in ['DEVELOPER_DIR', 'SDKROOT'])\n        self.compilable_sources = self.get_build_phase_files('PBXSourcesBuildPhase', lambda x: x['fileRef']['fileType'] in sourcecode_types)\n        self.header_paths = [os.path.join(*x['pathComponents']) for x in self.public_headers]\n\n        self.headers_dir = os.path.join(os.environ['TARGET_BUILD_DIR'], os.environ['CONTENTS_FOLDER_PATH'], 'Headers')\n        self.libtool_path = os.path.join(os.environ['DT_TOOLCHAIN_DIR'], 'usr', 'bin', 'libtool')\n        self.project_filename = os.path.join(os.environ['PROJECT_FILE_PATH'], \"project.pbxproj\")\n        self.local_exe_path = os.path.join(os.environ['TARGET_BUILD_DIR'], os.environ['EXECUTABLE_PATH'])\n        self.local_architectures = os.environ['ARCHS'].split(' ')\n        self.local_built_fw_path = os.path.join(os.environ['TARGET_BUILD_DIR'], os.environ['WRAPPER_NAME'])\n        self.local_built_embedded_fw_path = os.path.splitext(self.local_built_fw_path)[0] + \".embeddedframework\"\n        self.local_linked_archive_paths = [self.get_linked_ufw_archive_path(arch) for arch in self.local_architectures]\n        self.local_platform = os.environ['PLATFORM_NAME']\n        other_platforms = os.environ['SUPPORTED_PLATFORMS'].split(' ')\n        other_platforms.remove(self.local_platform)\n        self.other_platform = other_platforms[0]\n\n        sdk_name = os.environ['SDK_NAME']\n        if not sdk_name.startswith(self.local_platform):\n            raise Exception(\"%s didn't start with %s\" % (sdk_name, self.local_platform))\n        self.sdk_version = sdk_name[len(self.local_platform):]\n\n    # Load an Xcode project file.\n    #\n    def load_from_file(self, filename):\n        project_file = json.loads(subprocess.check_output([\"plutil\", \"-convert\", \"json\", \"-o\", \"-\", filename]))\n        all_objects = project_file['objects']\n        del project_file['objects']\n        for obj in all_objects.values():\n            self.fix_keys(obj)\n        self.unpack_objects(self.build_dereference_list(all_objects, None, None, project_file))\n        self.unpack_objects(self.build_dereference_list(all_objects, None, None, all_objects.values()))\n        project_data = project_file['rootObject']\n        self.build_full_paths(project_data, splitpath(os.environ['SOURCE_ROOT']))\n        return project_data\n\n    def is_key(self, obj):        \n        return isinstance(obj, basestring) and len(obj) == 24 and re.search('^[0-9a-fA-F]+$', obj) is not None\n    \n    def build_dereference_list(self, all_objects, parent, key, obj):\n        deref_list = []\n        if self.is_key(obj):\n            dereferenced = all_objects.get(obj, obj)\n            if dereferenced is not obj:\n                deref_list.append((parent, key, obj, dereferenced))\n        elif isinstance(obj, collections.Mapping):\n            for k, v in obj.iteritems():\n                deref_list += self.build_dereference_list(all_objects, obj, k, v)\n        elif isinstance(obj, collections.Iterable) and not isinstance(obj, basestring):\n            for item in obj:\n                deref_list += self.build_dereference_list(all_objects, obj, None, item)\n        return deref_list\n    \n    def unpack_objects(self, deref_list):\n        for parent, key, orig, obj in deref_list:\n            if key is None:\n                parent.remove(orig)\n                parent.append(obj)\n            else:\n                parent[key] = obj\n\n    # Store the full path, separated into components, to a node inside the node\n    # as \"pathComponents\". Also recurse into that node if it's a group.\n    #\n    def build_full_paths(self, node, base_path):\n        # Some nodes are relative to a different source tree, specified as an\n        # env variable.\n        if node.get('sourceTree', '<group>') != '<group>':\n            new_base_path = os.environ.get(node['sourceTree'], None)\n            if new_base_path:\n                base_path = splitpath(new_base_path)\n        # Add the current node's path, if any.\n        if node.get('path', False):\n            base_path = base_path + splitpath(node['path'])\n        node['pathComponents'] = base_path\n        # Recurse if this is a group.\n        if node['isa'] == 'PBXGroup':\n            for child in node['children']:\n                self.build_full_paths(child, base_path)\n        elif node['isa'] == 'PBXProject':\n            self.build_full_paths(node['mainGroup'], base_path)\n            self.build_full_paths(node['productRefGroup'], base_path)\n            for child in node['targets']:\n                self.build_full_paths(child, base_path)\n            projectRefs = node.get('projectReferences', None)\n            if projectRefs is not None:\n                for child in projectRefs[0].values():\n                    self.build_full_paths(child, base_path)\n\n    # Fix up any inconvenient keys.\n    #\n    def fix_keys(self, obj):\n        key_remappings = {'lastKnownFileType': 'fileType', 'explicitFileType': 'fileType'}\n        for key in list(set(key_remappings.keys()) & set(obj.keys())):\n            obj[key_remappings[key]] = obj[key]\n            del obj[key]\n\n    # Get the files from a build phase.\n    #\n    def get_build_phase_files(self, build_phase_name, filter_func):\n        build_phase = filter(lambda x: x['isa'] == build_phase_name, self.target['buildPhases'])[0]\n        build_files = filter(filter_func, build_phase['files'])\n        return [x['fileRef'] for x in build_files]\n\n    # Get the truncated paths of all headers that start with the specified\n    # relative path. Paths are read and returned as fully separated lists.\n    # e.g. ['Some', 'Path', 'To', 'A', 'Header'] with relative_path of\n    # ['Some', 'Path'] gets truncated to ['To', 'A', 'Header']\n    #\n    def movable_headers_relative_to(self, relative_path):\n        rel_path_length = len(relative_path)\n        result = filter(lambda path: len(path) >= rel_path_length and\n                                     path[:rel_path_length] == relative_path, self.header_paths)\n        return [path[rel_path_length:] for path in result]\n\n    # Get the full path to where a linkable archive (library or framework)\n    # is supposed to be.\n    #\n    def get_linked_archive_path(self, architecture):\n        return os.path.join(os.environ['OBJECT_FILE_DIR_%s' % os.environ['CURRENT_VARIANT']],\n                            architecture,\n                            os.environ['EXECUTABLE_NAME'])\n\n    # Get the full path to our custom linked archive of the project.\n    #\n    def get_linked_ufw_archive_path(self, architecture):\n        return self.get_linked_archive_path(architecture) + \".ufwbuild\"\n\n    # Get the full path to the executable of an archive.\n    #\n    def get_exe_path(self, node):\n        path = os.path.join(*node['pathComponents'])\n        if node['fileType'] == 'wrapper.framework':\n            # Frameworks are directories, so go one deeper\n            path = os.path.join(path, os.path.splitext(node['pathComponents'][-1])[0])\n        return path\n\n    # Get the path to the directory containing the archive.\n    #\n    def get_containing_path(self, node):\n        return os.path.join(*node['pathComponents'])\n    \n    def get_archive_search_paths(self):\n        log.info(\"Search paths = %s\" % set([self.get_containing_path(fw) for fw in self.static_frameworks] + [self.get_containing_path(fw) for fw in self.static_libraries]))\n        return set([self.get_containing_path(fw) for fw in self.static_frameworks] + [self.get_containing_path(fw) for fw in self.static_libraries])\n\n    # Command to link all objects of a single architecture.\n    #\n    def get_single_arch_link_command(self, architecture):\n        cmd = [self.libtool_path,\n               \"-static\",\n               \"-arch_only\", architecture,\n               \"-syslibroot\", os.environ['SDKROOT'],\n               \"-L%s\" % os.environ['TARGET_BUILD_DIR'],\n               \"-filelist\", os.environ['LINK_FILE_LIST_%s_%s' % (os.environ['CURRENT_VARIANT'], architecture)]]\n        if os.environ.get('OTHER_LDFLAGS', False):\n            cmd += [os.environ['OTHER_LDFLAGS']]\n        if os.environ.get('WARNING_LDFLAGS', False):\n            cmd += [os.environ['WARNING_LDFLAGS']]\n#        cmd += [\"-L%s\" % libpath for libpath in self.get_archive_search_paths()]\n        cmd += [self.get_exe_path(fw) for fw in self.static_frameworks]\n        cmd += [self.get_exe_path(lib) for lib in self.static_libraries]\n        cmd += [\"-o\", self.get_linked_ufw_archive_path(architecture)]\n        return cmd\n\n    # Command to link all local architectures for the current configuration\n    # into an archive. This reads all libraries + the UFW-built archives and\n    # overwrites the final product.\n    #\n    def get_local_archs_link_command(self):\n        cmd = [self.libtool_path,\n               \"-static\"]\n        cmd += self.local_linked_archive_paths\n        cmd += [self.get_exe_path(fw) for fw in self.static_frameworks]\n        cmd += [self.get_exe_path(lib) for lib in self.static_libraries]\n        cmd += [\"-o\", os.path.join(os.environ['TARGET_BUILD_DIR'], os.environ['EXECUTABLE_PATH'])]\n        return cmd\n\n    # Command to link all architectures into a universal archive.\n    # This reads all UFW-built archives and overwrites the final product.\n    #\n    def get_all_archs_link_command(self):\n        cmd = [self.libtool_path,\n               \"-static\"]\n        cmd += self.local_linked_archive_paths + self.build_state.slave_linked_archive_paths\n        cmd += [\"-o\", os.path.join(os.environ['TARGET_BUILD_DIR'], os.environ['EXECUTABLE_PATH'])]\n        return cmd\n\n    # Build up an environment for the slave process. This uses BUILD_ROOT\n    # and TEMP_ROOT to convert all environment variables to values suitable\n    # for the slave build environment so that xcodebuild doesn't try to build\n    # in the project directory under \"build\".\n    #\n    def get_slave_environment(self):\n        ignored = ['LD_MAP_FILE_PATH',\n        'HEADER_SEARCH_PATHS',\n        'LIBRARY_SEARCH_PATHS',\n        'FRAMEWORK_SEARCH_PATHS']\n        build_root = os.environ['BUILD_ROOT']\n        temp_root = os.environ['TEMP_ROOT']\n        newenv = {}\n        for key, value in os.environ.items():\n            if key not in ignored and not key.startswith('LINK_FILE_LIST_'):\n                if build_root in value or temp_root in value:\n                    newenv[key] = value.replace(self.local_platform, self.other_platform)\n        return newenv\n\n    # Command to invoke xcodebuild on the slave platform.\n    #\n    def get_slave_project_build_command(self):\n        cmd = [\"xcodebuild\",\n               \"-project\",\n               os.environ['PROJECT_FILE_PATH'],\n               \"-target\",\n               os.environ['TARGET_NAME'],\n               \"-configuration\",\n               os.environ['CONFIGURATION'],\n               \"-sdk\",\n               self.other_platform + self.sdk_version]\n        cmd += [\"%s=%s\" % (key, value) for key, value in self.get_slave_environment().items()]\n        cmd += [\"UFW_MASTER_PLATFORM=\" + os.environ['PLATFORM_NAME']]\n        cmd += [os.environ['ACTION']]\n        return cmd\n\n\n\n##############################################################################\n#\n# Utility Functions\n#\n##############################################################################\n\n# Split a path into a list of path components.\n#\ndef splitpath(path, maxdepth=20):\n     (head, tail) = os.path.split(path)\n     return splitpath(head, maxdepth - 1) + [tail] if maxdepth and head and head != path else [ head or tail ]\n\n# Remove all subdirectories under a path.\n#\ndef remove_subdirs(path, ignore_files):\n    if os.path.exists(path):\n        for filename in filter(lambda x: x not in ignore_files, os.listdir(path)):\n            fullpath = os.path.join(path, filename)\n            if os.path.isdir(fullpath):\n                log.info(\"Remove %s\" % fullpath)\n                shutil.rmtree(fullpath)\n\n# Make whatever parent paths are necessary for a path to exist.\n#\ndef ensure_path_exists(path):\n    if not os.path.isdir(path):\n        os.makedirs(path)\n\n# Make whatever parent paths are necessary for a path's parent to exist.\n#\ndef ensure_parent_exists(path):\n    parent = os.path.dirname(path)\n    if not os.path.isdir(parent):\n        os.makedirs(parent)\n\n# Remove a file or dir if it exists.\n#\ndef remove_path(path):\n    if os.path.exists(path):\n        if os.path.isdir(path):\n            shutil.rmtree(path)\n        else:\n            os.remove(path)\n\n# Move a file or dir, replacing the destination if it exists.\n#\ndef move_file(src, dst):\n    if src == dst or not os.path.isfile(src):\n        return\n    log.info(\"Move %s to %s\" % (src, dst))\n    ensure_parent_exists(dst)\n    remove_path(dst)\n    shutil.move(src, dst)\n\n# Copy a file or dir, replacing the destination if it exists already.\n#\ndef copy_overwrite(src, dst):\n    if src != dst:\n        remove_path(dst)\n        ensure_parent_exists(dst)\n        shutil.copytree(src, dst, symlinks=True)\n\n# Attempt to symlink link_path -> link_to.\n# link_to must be a path relative to link_path's parent and must exist.\n# If link_path already exists, do nothing.\n#\ndef attempt_symlink(link_path, link_to):\n    # Only allow linking to an existing file\n    os.stat(os.path.abspath(os.path.join(link_path, \"..\", link_to)))\n\n    # Only make the link if it hasn't already been made\n    if not os.path.exists(link_path):\n        log.info(\"Symlink %s -> %s\" % (link_path, link_to))\n        os.symlink(link_to, link_path)\n\n# Takes the last entry in an array-based path and returns a normal path\n# relative to base_path.\n#\ndef top_level_file_path(base_path, path_list):\n    return os.path.join(base_path, os.path.split(path_list[-1])[-1])\n\n# Takes all entries in an array-based path and returns a normal path\n# relative to base_path.\n#\ndef full_file_path(base_path, path_list):\n    return os.path.join(*([base_path] + path_list))\n\n# Print a command before executing it.\n# Also print out all output from the command to STDOUT.\n#\ndef print_and_call(cmd):\n    log.info(\"Cmd \" + \" \".join(cmd))\n    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)\n    result = p.communicate()[0]\n    if len(result) > 0:\n        log.info(result)\n    if p.returncode != 0:\n        raise subprocess.CalledProcessError(p.returncode, cmd)\n\n# Special print-and-call command for the slave build that strips out\n# xcodebuild's spammy list of environment variables.\n#\ndef print_and_call_slave_build(cmd, other_platform):\n    separator = '=== BUILD NATIVE TARGET '\n    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)\n    result = p.communicate()[0].split(separator)\n    if len(result) == 1:\n        result = result[0]\n    else:\n        result = separator + result[1]\n    log.info(\"Cmd \" + \" \".join(cmd) + \"\\n\" + result)\n    if p.returncode != 0:\n        raise subprocess.CalledProcessError(p.returncode, cmd)\n\n# Issue a warning and record that a warning has been issued.\n#\ndef issue_warning(msg, *args, **kwargs):\n    global issued_warnings\n    issued_warnings = True\n    log.warn(msg, *args, **kwargs)\n\n\n\n##############################################################################\n#\n# Main Application\n#\n##############################################################################\n\n# Check if we are running as master.\n#\ndef is_master():\n    return os.environ.get('UFW_MASTER_PLATFORM', os.environ['PLATFORM_NAME']) == os.environ['PLATFORM_NAME']\n\n# DerivedData should almost never appear in any framework, library, or header\n# search paths. However, Xcode will sometimes add them in, so we check to make\n# sure.\n#\ndef check_for_derived_data_in_search_paths(project):\n    search_path_keys = [\"FRAMEWORK_SEARCH_PATHS\", \"LIBRARY_SEARCH_PATHS\", \"HEADER_SEARCH_PATHS\"]\n    build_configs = project.target['buildConfigurationList']['buildConfigurations']\n    build_settings = filter(lambda x: x['name'] == os.environ['CONFIGURATION'], build_configs)[0]['buildSettings']\n    \n    found_something = False\n    for path_key in filter(lambda x: x in build_settings, search_path_keys):\n        path = build_settings[path_key]\n        if \"DerivedData\" in path:\n            found_something = True\n            log.warn(\"Derived data in %s\" % path)\n            issue_warning(\"'%s' contains reference to 'DerivedData'.\" % path_key)\n    if found_something:\n        log.warn(\"Check your build settings and remove any entries that contain paths inside the DerivedData folder.\")\n        log.warn(\"Otherwise you can disable this warning by changing 'config_warn_derived_data' in this script.\")\n\n# Link local architectures into their respective archives.\n#\ndef link_local_archs(project):\n    for arch in project.local_architectures:\n        print_and_call(project.get_single_arch_link_command(arch))\n\n# Link only the local architectures into the final product, not the slave\n# architectures. For iphoneos, this will be armv6, armv7. For simulator, this\n# will be i386.\n#\ndef link_combine_local_archs(project):\n    print_and_call(project.get_local_archs_link_command())\n\n# Link all architectures into the final product.\n#\ndef link_combine_all_archs(project):\n    print_and_call(project.get_all_archs_link_command())\n\n# Check if we should open the build directory after a successful build.\n#\ndef should_open_build_dir():\n    env_setting = os.environ.get('UFW_OPEN_BUILD_DIR', None)\n    if env_setting is not None:\n        return env_setting\n\n    return config_open_build_dir\n\n# Open the build dir in Finder.\n#\ndef open_build_dir():\n    print_and_call(['open', os.environ['TARGET_BUILD_DIR']])\n\n# Check if the build was started by selecting \"Archive\" under \"Product\" in\n# Xcode.\n#\ndef is_archive_build():\n    # ACTION is always 'build', but perhaps Apple will fix this someday?\n    archive_build = os.environ['ACTION'] == 'archive'\n\n    if not archive_build:\n        # This can be passed in as an env variable when building from command line.\n        archive_build = os.environ.get('UFW_ACTION', None) == 'archive'\n\n    build_dir = splitpath(os.environ['BUILD_DIR'])\n    if not archive_build:\n        # This partial path is used when you select \"archive\" from within Xcode.\n        archive_build = 'ArchiveIntermediates' in build_dir\n\n    # It only counts as a full archive build if this target is being built into\n    # its own build dir (not being built as a dependency of another target)\n    if archive_build:\n        archive_build = os.environ['TARGET_NAME'] in build_dir\n    \n    return archive_build\n\n# Xcode by default throws all public headers into the top level directory.\n# This function moves them to their expected deep hierarchy.\n#\ndef build_deep_header_hierarchy(project):\n    header_path_top = config_deep_header_top\n    if not header_path_top:\n        header_path_top = os.path.commonprefix(project.header_paths)\n    else:\n        header_path_top = splitpath(header_path_top)\n\n    built_headers_path = os.path.join(os.environ['TARGET_BUILD_DIR'], os.environ['PUBLIC_HEADERS_FOLDER_PATH'])\n    movable_headers = project.movable_headers_relative_to(header_path_top)\n\n    # Remove subdirs if they only contain files that have been rebuilt\n    ignore_headers = filter(lambda x: not os.path.isfile(top_level_file_path(built_headers_path, x)), movable_headers)\n    remove_subdirs(built_headers_path, [file[0] for file in ignore_headers])\n\n    # Move rebuilt headers into their proper subdirs\n    for header in movable_headers:\n        move_file(top_level_file_path(built_headers_path, header), full_file_path(built_headers_path, header))\n\n# Add all symlinks needed to make a full framework structure:\n#\n# MyFramework.framework\n# |-- MyFramework -> Versions/Current/MyFramework\n# |-- Headers -> Versions/Current/Headers\n# |-- Resources -> Versions/Current/Resources\n# `-- Versions\n#     |-- A\n#     |   |-- MyFramework\n#     |   |-- Headers\n#     |   |   `-- MyFramework.h\n#     |   `-- Resources\n#     |       |-- Info.plist\n#     |       |-- MyViewController.nib\n#     |       `-- en.lproj\n#     |           `-- InfoPlist.strings\n#     `-- Current -> A\n#\ndef add_symlinks_to_framework(project):\n    base_dir = project.local_built_fw_path\n    attempt_symlink(os.path.join(base_dir, \"Versions\", \"Current\"), os.environ['FRAMEWORK_VERSION'])\n    if os.path.isdir(os.path.join(base_dir, \"Versions\", \"Current\", \"Headers\")):\n        attempt_symlink(os.path.join(base_dir, \"Headers\"), os.path.join(\"Versions\", \"Current\", \"Headers\"))\n    if os.path.isdir(os.path.join(base_dir, \"Versions\", \"Current\", \"Resources\")):\n        attempt_symlink(os.path.join(base_dir, \"Resources\"), os.path.join(\"Versions\", \"Current\", \"Resources\"))\n    attempt_symlink(os.path.join(base_dir, os.environ['EXECUTABLE_NAME']), os.path.join(\"Versions\", \"Current\", os.environ['EXECUTABLE_NAME']))\n\n# Build an embedded framework structure.\n# An embedded framework contains the actual framework, plus a \"Resources\"\n# directory containing symlinks to all resources found in the actual framework,\n# with the exception of \"Info.plist\" and anything ending in \".lproj\":\n#\n# MyFramework.embeddedframework\n# |-- MyFramework.framework\n# |   |-- MyFramework -> Versions/Current/MyFramework\n# |   |-- Headers -> Versions/Current/Headers\n# |   |-- Resources -> Versions/Current/Resources\n# |   `-- Versions\n# |       |-- A\n# |       |   |-- MyFramework\n# |       |   |-- Headers\n# |       |   |   `-- MyFramework.h\n# |       |   `-- Resources\n# |       |       |-- Info.plist\n# |       |       |-- MyViewController.nib\n# |       |       `-- en.lproj\n# |       |           `-- InfoPlist.strings\n# |       `-- Current -> A\n# `-- Resources\n#     `-- MyViewController.nib -> ../MyFramework.framework/Resources/MyViewController.nib\n#\ndef build_embedded_framework(project):\n    fw_path = project.local_built_fw_path\n    embedded_path = project.local_built_embedded_fw_path\n    fw_name = os.environ['WRAPPER_NAME']\n    remove_path(embedded_path)\n    ensure_path_exists(embedded_path)\n    copy_overwrite(fw_path, os.path.join(embedded_path, fw_name))\n    ensure_path_exists(os.path.join(embedded_path, \"Resources\"))\n    symlink_source = os.path.join(\"..\", fw_name, \"Resources\")\n    symlink_path = os.path.join(embedded_path, \"Resources\")\n    if os.path.isdir(os.path.join(fw_path, \"Resources\")):\n        for file in filter(lambda x: x != \"Info.plist\" and not x.endswith(\".lproj\"), os.listdir(os.path.join(fw_path, \"Resources\"))):\n            attempt_symlink(os.path.join(symlink_path, file), os.path.join(symlink_source, file))\n\n    # Remove the normal framework and replace it with a symlink to the copy\n    # in the embedded framework. This is needed because Xcode runs its strip\n    # phase AFTER the script runs.\n    embed_fw_wrapper = os.path.splitext(os.environ['WRAPPER_NAME'])[0] + \".embeddedframework\"\n    remove_path(fw_path)\n    attempt_symlink(fw_path, os.path.join(embed_fw_wrapper, os.environ['WRAPPER_NAME']))\n\n\n# Run the build process in slave mode to build the other configuration\n# (device/simulator).\n#\ndef run_slave_build(project):\n    print_and_call_slave_build(project.get_slave_project_build_command(), project.other_platform)\n\n# Run the build process.\n#\ndef run_build():\n    project = Project(os.path.join(os.environ['PROJECT_FILE_PATH'], \"project.pbxproj\"))\n\n    # Issue warnings only if we're master.\n    if is_master():\n        if len(project.compilable_sources) == 0:\n            raise Exception(\"No compilable sources found. Please add at least one source file to build target %s.\" % os.environ['TARGET_NAME'])\n\n        if config_warn_derived_data:\n            check_for_derived_data_in_search_paths(project)\n        if config_warn_no_public_headers and len(project.public_headers) == 0:\n            issue_warning('No headers in build target %s were marked public. Please move at least one header to \"Public\" in the \"Copy Headers\" build phase.' % os.environ['TARGET_NAME'])\n\n    # Only build slave if this is an archive build.\n    if is_archive_build():\n        if is_master():\n            log.debug(\"Building as MASTER\")\n            # The slave-side linker tries to include this (nonexistent) path as\n            # a library path.\n            ensure_path_exists(project.get_slave_environment()['BUILT_PRODUCTS_DIR'])\n            project.build_state.persist()\n            run_slave_build(project)\n            project.build_state.reload()\n        else:\n            log.debug(\"Building as SLAVE\")\n            project.build_state.reload()\n            project.build_state.set_slave_properties(project.local_architectures,\n                                                     project.local_linked_archive_paths,\n                                                     project.local_built_fw_path,\n                                                     project.local_built_embedded_fw_path)\n            project.build_state.persist()\n\n    link_local_archs(project)\n    \n    # Only do a universal binary when building an archive.\n    if is_archive_build() and is_master():\n        link_combine_all_archs(project)\n    else:\n        link_combine_local_archs(project)\n\n    if config_deep_header_hierarchy:\n        build_deep_header_hierarchy(project)\n\n    add_symlinks_to_framework(project)\n    \n    if is_master():\n        if config_framework_type == 'embeddedframework':\n            build_embedded_framework(project)\n        elif config_framework_type != 'framework':\n            raise Exception(\"%s: Unknown framework type for config_framework_type\" % config_framework_type)\n\n\nif __name__ == \"__main__\":\n    log_handler = logging.StreamHandler()\n    log_handler.setFormatter(logging.Formatter(\"%(name)s (\" + os.environ['PLATFORM_NAME'] + \"): %(levelname)s: %(message)s\"))\n    log.addHandler(log_handler)\n    log.setLevel(config_log_level)\n\n    error_code = 0\n    prefix = \"M\" if is_master() else \"S\"\n    log_handler.setFormatter(logging.Formatter(\"%(name)s (\" + prefix + \" \" + os.environ['PLATFORM_NAME'] + \"): %(levelname)s: %(message)s\"))\n\n    log.debug(\"Begin build process\")\n\n    if config_deep_header_top:\n        config_deep_header_top = string.Template(config_deep_header_top).substitute(os.environ)\n\n    try:\n        run_build()\n        if issued_warnings:\n            if config_fail_on_warnings:\n                error_code = 1\n            log.warn(\"Build completed with warnings\")\n        else:\n            log.info(\"Build completed\")\n        if not is_archive_build():\n            log.info(\"Note: This is *NOT* a universal framework build. To build as a universal framework, do an archive build.\")\n            log.info(\"To do an archive build from command line, use \\\"xcodebuild -configuration Release UFW_ACTION=archive clean build\\\"\")\n    except Exception:\n        traceback.print_exc(file=sys.stdout)\n        error_code = 1\n        log.error(\"Build failed\")\n    finally:\n        if error_code == 0 and is_archive_build() and is_master():\n            log.info(\"Built framework is in \" + os.environ['TARGET_BUILD_DIR'])\n            if should_open_build_dir():\n                open_build_dir()\n        sys.exit(error_code)\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		396D6EFE158D2F560046CF16 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				396D6F84158D2FEA0046CF16 /* KSCrashReportFilter.m in Sources */,
+				396D6F86158D2FEA0046CF16 /* KSCrashReportFilterAppleFmt.m in Sources */,
+				396D6F88158D2FEA0046CF16 /* KSCrashReportFilterBasic.m in Sources */,
+				396D6F8A158D2FEA0046CF16 /* KSCrashReportFilterGZip.m in Sources */,
+				396D6F8C158D2FEA0046CF16 /* KSCrashReportFilterJSON.m in Sources */,
+				396D6F8E158D2FEA0046CF16 /* KSCrashReportSinkConsole.m in Sources */,
+				396D6F90158D2FEA0046CF16 /* KSCrashReportSinkEMail.m in Sources */,
+				396D6F92158D2FEA0046CF16 /* KSCrashReportSinkQuincy.m in Sources */,
+				396D6F94158D2FEA0046CF16 /* KSCrashReportSinkStandard.m in Sources */,
+				396D6F96158D2FEA0046CF16 /* KSHTTPMultipartPostBody.m in Sources */,
+				396D6F98158D2FEA0046CF16 /* KSHTTPRequestSender.m in Sources */,
+				396D6F9A158D2FEA0046CF16 /* KSReachability.m in Sources */,
+				396D6F9C158D2FEA0046CF16 /* NSData+GZip.m in Sources */,
+				396D6F9E158D2FEA0046CF16 /* NSMutableData+AppendUTF8.m in Sources */,
+				396D6FA0158D2FEA0046CF16 /* KSCrash.m in Sources */,
+				396D6FA3158D2FEA0046CF16 /* KSCrashReportStore.m in Sources */,
+				396D6FA5158D2FEA0046CF16 /* KSCrashHandler_Common.c in Sources */,
+				396D6FA7158D2FEA0046CF16 /* KSCrashHandler_MachException.c in Sources */,
+				396D6FAA158D2FEA0046CF16 /* KSCrashHandler_NSException.m in Sources */,
+				396D6FAB158D2FEA0046CF16 /* KSCrashHandler_Signal.c in Sources */,
+				396D6FAD158D2FEA0046CF16 /* KSCrashReporter.c in Sources */,
+				396D6FAF158D2FEA0046CF16 /* KSCrashReportWriter.c in Sources */,
+				396D6FB1158D2FEA0046CF16 /* KSCrashState.c in Sources */,
+				396D6FB5158D2FEA0046CF16 /* KSSystemInfo.m in Sources */,
+				396D6FB9158D2FEA0046CF16 /* KSBacktrace.c in Sources */,
+				396D6FBC158D2FEA0046CF16 /* KSFileUtils.c in Sources */,
+				396D6FBE158D2FEA0046CF16 /* KSJSONCodec.c in Sources */,
+				396D6FC1158D2FEA0046CF16 /* KSJSONCodecObjC.m in Sources */,
+				396D6FC2158D2FEA0046CF16 /* KSLogger.c in Sources */,
+				396D6FC4158D2FEA0046CF16 /* KSLogger.m in Sources */,
+				396D6FC5158D2FEA0046CF16 /* KSMach.c in Sources */,
+				396D6FC7158D2FEA0046CF16 /* KSMach_Arm.c in Sources */,
+				396D6FC8158D2FEA0046CF16 /* KSMach_x86_32.c in Sources */,
+				396D6FC9158D2FEA0046CF16 /* KSMach_x86_64.c in Sources */,
+				396D6FCA158D2FEA0046CF16 /* KSSignalInfo.c in Sources */,
+				396D6FCC158D2FEA0046CF16 /* KSSysCtl.c in Sources */,
+				396D6FD0158D2FEA0046CF16 /* RFC3339DateTool.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		396D6F10158D2F560046CF16 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				396D6FE8158D30BA0046CF16 /* FileBasedTestCase.m in Sources */,
+				396D6FE9158D30BA0046CF16 /* KSCrashReportConverter_Tests.m in Sources */,
+				396D6FEA158D30BA0046CF16 /* KSCrashReportFilter_Tests.m in Sources */,
+				396D6FEB158D30BA0046CF16 /* KSCrashReportStore_Tests.m in Sources */,
+				396D6FEC158D30BA0046CF16 /* KSCrashState_Tests.m in Sources */,
+				396D6FED158D30BA0046CF16 /* KSFileUtils_Tests.m in Sources */,
+				396D6FEE158D30BA0046CF16 /* KSJSONCodec_Tests.m in Sources */,
+				396D6FEF158D30BA0046CF16 /* KSMach_Tests.m in Sources */,
+				396D6FF0158D30BA0046CF16 /* KSSignalInfo_Tests.m in Sources */,
+				396D6FF1158D30BA0046CF16 /* NSData+Gzip_Tests.m in Sources */,
+				396D6FF2158D30BA0046CF16 /* NSMutableData+AppendUTF8_Tests.m in Sources */,
+				396D6FF3158D30BA0046CF16 /* RFC3339DateTool_Tests.m in Sources */,
+				396D6FF4158D30BA0046CF16 /* SenTestCase+KSCrash.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		396D7097158D83870046CF16 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				396D70AD158D83BB0046CF16 /* KSCrashHandler_Common.c in Sources */,
+				396D70AF158D83BB0046CF16 /* KSCrashHandler_MachException.c in Sources */,
+				396D70B2158D83BB0046CF16 /* KSCrashHandler_NSException.m in Sources */,
+				396D70B3158D83BB0046CF16 /* KSCrashHandler_Signal.c in Sources */,
+				396D70B5158D83BB0046CF16 /* KSCrashReporter.c in Sources */,
+				396D70B7158D83BB0046CF16 /* KSCrashReportWriter.c in Sources */,
+				396D70B9158D83BB0046CF16 /* KSCrashState.c in Sources */,
+				396D70BD158D83BB0046CF16 /* KSSystemInfo.m in Sources */,
+				396D70C1158D83BB0046CF16 /* KSBacktrace.c in Sources */,
+				396D70C4158D83BB0046CF16 /* KSFileUtils.c in Sources */,
+				396D70C6158D83BB0046CF16 /* KSJSONCodec.c in Sources */,
+				396D70C9158D83BB0046CF16 /* KSJSONCodecObjC.m in Sources */,
+				396D70CA158D83BB0046CF16 /* KSLogger.c in Sources */,
+				396D70CC158D83BB0046CF16 /* KSLogger.m in Sources */,
+				396D70CD158D83BB0046CF16 /* KSMach.c in Sources */,
+				396D70CF158D83BB0046CF16 /* KSMach_Arm.c in Sources */,
+				396D70D0158D83BB0046CF16 /* KSMach_x86_32.c in Sources */,
+				396D70D1158D83BB0046CF16 /* KSMach_x86_64.c in Sources */,
+				396D70D2158D83BB0046CF16 /* KSSignalInfo.c in Sources */,
+				396D70D4158D83BB0046CF16 /* KSSysCtl.c in Sources */,
+				396D70D8158D83BB0046CF16 /* RFC3339DateTool.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		396D6F1E158D2F560046CF16 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 396D6F03158D2F560046CF16 /* KSCrash */;
+			targetProxy = 396D6F1D158D2F560046CF16 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		396D6F09158D2F560046CF16 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				396D6F0A158D2F560046CF16 /* en */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+		396D6F23158D2F560046CF16 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				396D6F24158D2F560046CF16 /* en */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+		396D70A1158D83870046CF16 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				396D70A2158D83870046CF16 /* en */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		396D6F29158D2F560046CF16 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_IMPLICIT_SIGN_CONVERSION = YES;
+				CLANG_WARN_OBJCPP_ARC_ABI = YES;
+				CLANG_WARN_OBJC_IMPLICIT_ATOMIC_PROPERTIES = YES;
+				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = YES;
+				CLANG_WARN__EXIT_TIME_DESTRUCTORS = YES;
+				COPY_PHASE_STRIP = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
+				GCC_WARN_HIDDEN_VIRTUAL_FUNCTIONS = YES;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_NON_VIRTUAL_DESTRUCTOR = YES;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_STRICT_SELECTOR_MATCH = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNKNOWN_PRAGMAS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 4.0;
+				SDKROOT = iphoneos;
+			};
+			name = Debug;
+		};
+		396D6F2A158D2F560046CF16 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_IMPLICIT_SIGN_CONVERSION = YES;
+				CLANG_WARN_OBJCPP_ARC_ABI = YES;
+				CLANG_WARN_OBJC_IMPLICIT_ATOMIC_PROPERTIES = YES;
+				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = YES;
+				CLANG_WARN__EXIT_TIME_DESTRUCTORS = YES;
+				COPY_PHASE_STRIP = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
+				GCC_WARN_HIDDEN_VIRTUAL_FUNCTIONS = YES;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_NON_VIRTUAL_DESTRUCTOR = YES;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_STRICT_SELECTOR_MATCH = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNKNOWN_PRAGMAS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 4.0;
+				SDKROOT = iphoneos;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		396D6F2C158D2F560046CF16 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					armv6,
+					"$(ARCHS_STANDARD_32_BIT)",
+				);
+				CONTENTS_FOLDER_PATH = "$(WRAPPER_NAME)/Versions/$(FRAMEWORK_VERSION)";
+				DEAD_CODE_STRIPPING = NO;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				FRAMEWORK_VERSION = A;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "KSCrash/KSCrash-Prefix.pch";
+				GCC_THUMB_SUPPORT = NO;
+				INFOPLIST_FILE = "KSCrash/KSCrash-Info.plist";
+				INFOPLIST_PATH = "$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Info.plist";
+				INSTALL_PATH = "$(BUILT_PRODUCTS_DIR)";
+				LINK_WITH_STANDARD_LIBRARIES = NO;
+				MACH_O_TYPE = mh_object;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				UNLOCALIZED_RESOURCES_FOLDER_PATH = "$(CONTENTS_FOLDER_PATH)/Resources";
+				WRAPPER_EXTENSION = framework;
+			};
+			name = Debug;
+		};
+		396D6F2D158D2F560046CF16 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					armv6,
+					"$(ARCHS_STANDARD_32_BIT)",
+				);
+				CONTENTS_FOLDER_PATH = "$(WRAPPER_NAME)/Versions/$(FRAMEWORK_VERSION)";
+				DEAD_CODE_STRIPPING = NO;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				FRAMEWORK_VERSION = A;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "KSCrash/KSCrash-Prefix.pch";
+				GCC_THUMB_SUPPORT = NO;
+				INFOPLIST_FILE = "KSCrash/KSCrash-Info.plist";
+				INFOPLIST_PATH = "$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Info.plist";
+				INSTALL_PATH = "$(BUILT_PRODUCTS_DIR)";
+				LINK_WITH_STANDARD_LIBRARIES = NO;
+				MACH_O_TYPE = mh_object;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				UNLOCALIZED_RESOURCES_FOLDER_PATH = "$(CONTENTS_FOLDER_PATH)/Resources";
+				WRAPPER_EXTENSION = framework;
+			};
+			name = Release;
+		};
+		396D6F2F158D2F560046CF16 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(SDKROOT)/Developer/Library/Frameworks",
+					"$(DEVELOPER_LIBRARY_DIR)/Frameworks",
+				);
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "KSCrash/KSCrash-Prefix.pch";
+				INFOPLIST_FILE = "KSCrashTests/KSCrashTests-Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 5.0;
+				OTHER_LDFLAGS = (
+					"-framework",
+					SenTestingKit,
+					"-framework",
+					"$(UFW_FAKE_FRAMEWORK_NAME)",
+					"-ObjC",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				UFW_FAKE_FRAMEWORK_NAME = KSCrash;
+				WRAPPER_EXTENSION = octest;
+			};
+			name = Debug;
+		};
+		396D6F30158D2F560046CF16 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(SDKROOT)/Developer/Library/Frameworks",
+					"$(DEVELOPER_LIBRARY_DIR)/Frameworks",
+				);
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "KSCrash/KSCrash-Prefix.pch";
+				INFOPLIST_FILE = "KSCrashTests/KSCrashTests-Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 5.0;
+				OTHER_LDFLAGS = (
+					"-framework",
+					SenTestingKit,
+					"-framework",
+					"$(UFW_FAKE_FRAMEWORK_NAME)",
+					"-ObjC",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				UFW_FAKE_FRAMEWORK_NAME = KSCrash;
+				WRAPPER_EXTENSION = octest;
+			};
+			name = Release;
+		};
+		396D70A8158D83870046CF16 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					armv6,
+					"$(ARCHS_STANDARD_32_BIT)",
+				);
+				CONTENTS_FOLDER_PATH = "$(WRAPPER_NAME)/Versions/$(FRAMEWORK_VERSION)";
+				DEAD_CODE_STRIPPING = NO;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				FRAMEWORK_VERSION = A;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "KSCrashLite/KSCrashLite-Prefix.pch";
+				GCC_THUMB_SUPPORT = NO;
+				INFOPLIST_FILE = "KSCrashLite/KSCrashLite-Info.plist";
+				INFOPLIST_PATH = "$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Info.plist";
+				INSTALL_PATH = "$(BUILT_PRODUCTS_DIR)";
+				IPHONEOS_DEPLOYMENT_TARGET = 5.1;
+				LINK_WITH_STANDARD_LIBRARIES = NO;
+				MACH_O_TYPE = mh_object;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				UNLOCALIZED_RESOURCES_FOLDER_PATH = "$(CONTENTS_FOLDER_PATH)/Resources";
+				WRAPPER_EXTENSION = framework;
+			};
+			name = Debug;
+		};
+		396D70A9158D83870046CF16 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					armv6,
+					"$(ARCHS_STANDARD_32_BIT)",
+				);
+				CONTENTS_FOLDER_PATH = "$(WRAPPER_NAME)/Versions/$(FRAMEWORK_VERSION)";
+				DEAD_CODE_STRIPPING = NO;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				FRAMEWORK_VERSION = A;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "KSCrashLite/KSCrashLite-Prefix.pch";
+				GCC_THUMB_SUPPORT = NO;
+				INFOPLIST_FILE = "KSCrashLite/KSCrashLite-Info.plist";
+				INFOPLIST_PATH = "$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Info.plist";
+				INSTALL_PATH = "$(BUILT_PRODUCTS_DIR)";
+				IPHONEOS_DEPLOYMENT_TARGET = 5.1;
+				LINK_WITH_STANDARD_LIBRARIES = NO;
+				MACH_O_TYPE = mh_object;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				UNLOCALIZED_RESOURCES_FOLDER_PATH = "$(CONTENTS_FOLDER_PATH)/Resources";
+				WRAPPER_EXTENSION = framework;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		396D6EFC158D2F560046CF16 /* Build configuration list for PBXProject "KSCrash" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				396D6F29158D2F560046CF16 /* Debug */,
+				396D6F2A158D2F560046CF16 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		396D6F2B158D2F560046CF16 /* Build configuration list for PBXNativeTarget "KSCrash" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				396D6F2C158D2F560046CF16 /* Debug */,
+				396D6F2D158D2F560046CF16 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		396D6F2E158D2F560046CF16 /* Build configuration list for PBXNativeTarget "KSCrashTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				396D6F2F158D2F560046CF16 /* Debug */,
+				396D6F30158D2F560046CF16 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		396D70AA158D83870046CF16 /* Build configuration list for PBXNativeTarget "KSCrashLite" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				396D70A8158D83870046CF16 /* Debug */,
+				396D70A9158D83870046CF16 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 396D6EF9158D2F560046CF16 /* Project object */;
+}
