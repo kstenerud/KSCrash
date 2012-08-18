@@ -61,6 +61,11 @@
         filter != nil;
         filter = va_arg(args, id))
     {
+        if([filter isKindOfClass:[NSArray class]])
+        {
+            filter = [KSCrashReportFilterPipeline filterWithFilters:(NSArray*)filter];
+        }
+        NSAssert([filter conformsToProtocol:@protocol(KSCrashReportFilter)], @"Not a filter");
         NSString* key = va_arg(args, id);
         if(key == nil)
         {
@@ -84,6 +89,11 @@
         filter != nil;
         filter = va_arg(args, id))
     {
+        if([filter isKindOfClass:[NSArray class]])
+        {
+            filter = [KSCrashReportFilterPipeline filterWithFilters:(NSArray*)filter];
+        }
+        NSAssert([filter conformsToProtocol:@protocol(KSCrashReportFilter)], @"Not a filter");
         NSString* key = va_arg(args, id);
         if(key == nil)
         {

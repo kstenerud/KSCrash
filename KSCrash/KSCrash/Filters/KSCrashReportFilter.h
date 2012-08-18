@@ -64,6 +64,7 @@ typedef void(^KSCrashReportFilterCompletion)(NSArray* filteredReports,
 
 @interface KSCrashReportFilterCombine : NSObject <KSCrashReportFilter>
 
+// Each entry can be a filter or an array of filters.
 + (KSCrashReportFilterCombine*) filterWithFiltersAndKeys:(id) firstFilter, ... NS_REQUIRES_NIL_TERMINATION;
 
 - (id)initWithFiltersAndKeys:(id)firstFilter, ... NS_REQUIRES_NIL_TERMINATION;
