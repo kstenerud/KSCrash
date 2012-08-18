@@ -39,13 +39,13 @@
     #define TRACE_SIDEBYSIDE_FMT @"%-4d%-31s 0x%016llx %llx + %llu (%@ + %llu)\n"
     #define POINTER_FMT          @"0x%016llx"
     #define POINTER_SHORT_FMT    @"0x%llx"
-    #define POINTER_RJ_FMT       @"%018#llx"
+    #define POINTER_RJ_FMT       @"%#18llx"
 #else
     #define TRACE_FMT            @"%-4d%-31s 0x%08lx %@ + %lu\n"
     #define TRACE_SIDEBYSIDE_FMT @"%-4d%-31s 0x%08lx 0x%lx + %lu (%@ + %lu)\n"
     #define POINTER_FMT          @"0x%08lx"
     #define POINTER_SHORT_FMT    @"0x%lx"
-    #define POINTER_RJ_FMT       @"%10#lx"
+    #define POINTER_RJ_FMT       @"%#10lx"
 #endif
 
 
