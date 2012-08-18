@@ -91,7 +91,7 @@
 		39E78347158DEF3400B120F9 /* en */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = en; path = en.lproj/ViewController.xib; sourceTree = "<group>"; };
 		39E7834D158DEFED00B120F9 /* Paths.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.objj.h; path = Paths.h; sourceTree = "<group>"; };
 		39E7834E158DEFED00B120F9 /* Paths.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = Paths.m; sourceTree = "<group>"; };
-		39E78351158DF00700B120F9 /* KSCrashLite.framework */ = {isa = PBXFileReference; lastKnownFileType = file; name = KSCrashLite.framework; path = "../KSCrash/build/Release-iphoneos/KSCrashLite.framework"; sourceTree = "<group>"; };
+		39E78351158DF00700B120F9 /* KSCrashLite.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = KSCrashLite.framework; path = "../KSCrash/build/Release-iphoneos/KSCrashLite.framework"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -695,6 +695,7 @@
 				39E7834A158DEF3400B120F9 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
