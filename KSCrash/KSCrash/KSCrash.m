@@ -163,7 +163,7 @@ static KSCrash* g_instance;
 {
     if(g_instance != nil)
     {
-        KSLOG_INFO(@"Only one instance allowed. Use [KSCrash instance] to access it");
+        KSLOG_ERROR(@"Only one instance allowed. Use [KSCrash instance] to access it");
         return nil;
     }
 
