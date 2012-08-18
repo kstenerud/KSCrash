@@ -73,6 +73,12 @@ bool kscrash_installReporter(const char* reportFilePath,
                              bool printTraceToStdout,
                              KSReportWriteCallback onCrashNotify);
 
+/** Set the user-supplied data in JSON format.
+ *
+ * @param userInfoJSON Pre-baked JSON containing user-supplied information.
+ *                     NULL = delete.
+ */
+void kscrash_setUserInfoJSON(const char* const userInfoJSON);
 
 #ifdef __cplusplus
 }

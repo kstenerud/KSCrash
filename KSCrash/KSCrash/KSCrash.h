@@ -78,4 +78,14 @@
                  printTraceToStdout:(BOOL) printTraceToStdout
                             onCrash:(KSReportWriteCallback) onCrash;
 
+/** Set the user-supplied information.
+ *
+ * @param userInfo A dictionary containing any info you'd like to appear in
+ *                 crash reports. Must contain only JSON-safe data: NSString
+ *                 for keys, and NSDictionary, NSArray, NSString, NSDate, and
+ *                 NSNumber for values.
+ *                 nil = delete.
+ */
++ (void) setUserInfo:(NSDictionary*) userInfo;
+
 @end

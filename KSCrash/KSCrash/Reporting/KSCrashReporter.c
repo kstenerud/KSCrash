@@ -127,3 +127,15 @@ bool kscrash_installReporter(const char* const reportFilePath,
     return false;
 }
 
+void kscrash_setUserInfoJSON(const char* const userInfoJSON)
+{
+    KSCrashContext* context = &g_crashReportContext;
+    if(context->userInfoJSON != NULL)
+    {
+        free((void*)context->userInfoJSON);
+    }
+    if(userInfoJSON != NULL)
+    {
+        context->userInfoJSON = strdup(userInfoJSON);
+    }
+}

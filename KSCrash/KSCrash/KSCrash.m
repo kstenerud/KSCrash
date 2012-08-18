@@ -59,6 +59,8 @@
             printTraceToStdout:(BOOL) printTraceToStdout
                        onCrash:(KSReportWriteCallback) onCrash;
 
+- (void) setUserInfo:(NSDictionary*) userInfo;
+
 - (NSMutableData*) nullTerminated:(NSData*) data;
 
 - (NSString*) generateUUIDString;
@@ -121,6 +123,29 @@ static KSCrash* g_instance;
     }
 }
 
++ (void) setUserInfo:(NSDictionary*) userInfo
+{
+    [g_instance setUserInfo:userInfo];
+}
+
+- (void) setUserInfo:(NSDictionary*) userInfo
+{
+    NSError* error = nil;
+    NSData* userInfoJSON = nil;
+    if(userInfo != nil)
+    {
+        userInfoJSON = [self nullTerminated:[KSJSONCodec encode:userInfo
+                                                        options:KSJSONEncodeOptionSorted
+                                                          error:&error]];
+        if(error != NULL)
+        {
+            KSLOG_ERROR(@"Could not serialize user info: %@", error);
+            return;
+        }
+    }
+    kscrash_setUserInfoJSON([userInfoJSON bytes]);
+}
+
 + (KSCrash*) instance
 {
     return g_instance;
@@ -168,7 +193,7 @@ static KSCrash* g_instance;
                 goto failed;
             }
         }
-        
+
         NSData* userInfoJSON = nil;
         if(userInfo != nil)
         {
