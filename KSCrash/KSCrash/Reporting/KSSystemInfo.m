@@ -253,11 +253,10 @@ const char* kssysteminfo_toJSON(void)
     // Append the bundle ID.
     NSData* bundleID = [[[NSBundle mainBundle] bundleIdentifier]
                         dataUsingEncoding:NSUTF8StringEncoding];
-    if(bundleID == nil)
+    if(bundleID != nil)
     {
-        return nil;
+        [data appendData:bundleID];
     }
-    [data appendData:bundleID];
     
     // SHA the whole thing.
     uint8_t sha[CC_SHA1_DIGEST_LENGTH];
