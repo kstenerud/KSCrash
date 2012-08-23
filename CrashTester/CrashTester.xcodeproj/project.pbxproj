@@ -552,10 +552,7 @@
 					"$(ARCHS_STANDARD_32_BIT)",
 					armv6,
 				);
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"\"$(SRCROOT)/../../../Library/Developer/Xcode/DerivedData/KSCrash-akppwyeobeaabxgbqrmhgbnjcavp/Build/Products/Debug-iphoneos\"",
-				);
+				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "CrashTester/CrashTester-Prefix.pch";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -579,10 +576,7 @@
 					"$(ARCHS_STANDARD_32_BIT)",
 					armv6,
 				);
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"\"$(SRCROOT)/../../../Library/Developer/Xcode/DerivedData/KSCrash-akppwyeobeaabxgbqrmhgbnjcavp/Build/Products/Debug-iphoneos\"",
-				);
+				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "CrashTester/CrashTester-Prefix.pch";
 				GCC_PREPROCESSOR_DEFINITIONS = (
