@@ -12,6 +12,7 @@
 #import "Crasher.h"
 
 #import <KSCrash/KSCrashAdvanced.h>
+#import <KSCrash/KSCrashFilterSets.h>
 #import <KSCrash/KSCrashReportFilter.h>
 #import <KSCrash/KSCrashReportFilterAppleFmt.h>
 #import <KSCrash/KSCrashReportFilterBasic.h>
@@ -229,8 +230,8 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                                                                               subject:@"Crash Reports"
                                                                           filenameFmt:@"StandardReport-%d.json.gz"];
           NSArray* filters = [filter defaultCrashReportFilterSet];
-          crashReporter.sink = [KSCrashReportFilterPipeline filterWithFilters:filters];
-          [crashReporter sendAllReports];
+          crashReporter.sink = [KSCrashReportFilterPipeline filterWithFilters:filters, nil];
+          [crashReporter sendAllReportsWithCompletion:nil];
       }]];
     
     [commands addObject:
@@ -250,8 +251,8 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                               [KSCrashReportFilterGZipCompress filterWithCompressionLevel:-1],
                               filter,
                               nil];
-          crashReporter.sink = [KSCrashReportFilterPipeline filterWithFilters:filters];
-          [crashReporter sendAllReports];
+          crashReporter.sink = [KSCrashReportFilterPipeline filterWithFilters:filters, nil];
+          [crashReporter sendAllReportsWithCompletion:nil];
       }]];
     
     [commands addObject:
@@ -271,8 +272,8 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                               [KSCrashReportFilterGZipCompress filterWithCompressionLevel:-1],
                               filter,
                               nil];
-          crashReporter.sink = [KSCrashReportFilterPipeline filterWithFilters:filters];
-          [crashReporter sendAllReports];
+          crashReporter.sink = [KSCrashReportFilterPipeline filterWithFilters:filters, nil];
+          [crashReporter sendAllReportsWithCompletion:nil];
       }]];
     
     [commands addObject:
@@ -292,8 +293,8 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                               [KSCrashReportFilterGZipCompress filterWithCompressionLevel:-1],
                               filter,
                               nil];
-          crashReporter.sink = [KSCrashReportFilterPipeline filterWithFilters:filters];
-          [crashReporter sendAllReports];
+          crashReporter.sink = [KSCrashReportFilterPipeline filterWithFilters:filters, nil];
+          [crashReporter sendAllReportsWithCompletion:nil];
       }]];
     
     [commands addObject:
@@ -313,10 +314,30 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                               [KSCrashReportFilterGZipCompress filterWithCompressionLevel:-1],
                               filter,
                               nil];
-          crashReporter.sink = [KSCrashReportFilterPipeline filterWithFilters:filters];
-          [crashReporter sendAllReports];
+          crashReporter.sink = [KSCrashReportFilterPipeline filterWithFilters:filters, nil];
+          [crashReporter sendAllReportsWithCompletion:nil];
       }]];
     
+    [commands addObject:
+     [CommandEntry commandWithName:@"Apple Style + user & system data"
+                     accessoryType:UITableViewCellAccessoryNone
+                             block:^(UIViewController* controller)
+      {
+#pragma unused(controller)
+          NSLog(@"Mailing side-by-side symbolicated apple reports with system and user data...");
+          KSCrash* crashReporter = [KSCrash instance];
+          KSCrashReportSinkEMail* filter = [KSCrashReportSinkEMail sinkWithRecipients:nil
+                                                                              subject:@"Crash Reports"
+                                                                          filenameFmt:@"AppleSystemUserReport-%d.txt.gz"];
+          NSArray* filters = [NSArray arrayWithObjects:
+                              [KSCrashFilterSets appleFmtWithUserAndSystemData:KSAppleReportStyleSymbolicatedSideBySide
+                                                                    compressed:YES],
+                              filter,
+                              nil];
+          crashReporter.sink = [KSCrashReportFilterPipeline filterWithFilters:filters, nil];
+          [crashReporter sendAllReportsWithCompletion:nil];
+      }]];
+
     return commands;
 }
 
@@ -337,8 +358,8 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                               [KSCrashReportFilterDataToString filter],
                               [KSCrashReportSinkConsole filter],
                               nil];
-          crashReporter.sink = [KSCrashReportFilterPipeline filterWithFilters:filters];
-          [crashReporter sendAllReports];
+          crashReporter.sink = [KSCrashReportFilterPipeline filterWithFilters:filters, nil];
+          [crashReporter sendAllReportsWithCompletion:nil];
       }]];
     
     [commands addObject:
@@ -353,8 +374,8 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                               [KSCrashReportFilterAppleFmt filterWithReportStyle:KSAppleReportStyleUnsymbolicated],
                               [KSCrashReportSinkConsole filter],
                               nil];
-          crashReporter.sink = [KSCrashReportFilterPipeline filterWithFilters:filters];
-          [crashReporter sendAllReports];
+          crashReporter.sink = [KSCrashReportFilterPipeline filterWithFilters:filters, nil];
+          [crashReporter sendAllReportsWithCompletion:nil];
       }]];
     
     [commands addObject:
@@ -369,8 +390,8 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                               [KSCrashReportFilterAppleFmt filterWithReportStyle:KSAppleReportStylePartiallySymbolicated],
                               [KSCrashReportSinkConsole filter],
                               nil];
-          crashReporter.sink = [KSCrashReportFilterPipeline filterWithFilters:filters];
-          [crashReporter sendAllReports];
+          crashReporter.sink = [KSCrashReportFilterPipeline filterWithFilters:filters, nil];
+          [crashReporter sendAllReportsWithCompletion:nil];
       }]];
     
     [commands addObject:
@@ -385,8 +406,8 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                               [KSCrashReportFilterAppleFmt filterWithReportStyle:KSAppleReportStyleSymbolicated],
                               [KSCrashReportSinkConsole filter],
                               nil];
-          crashReporter.sink = [KSCrashReportFilterPipeline filterWithFilters:filters];
-          [crashReporter sendAllReports];
+          crashReporter.sink = [KSCrashReportFilterPipeline filterWithFilters:filters, nil];
+          [crashReporter sendAllReportsWithCompletion:nil];
       }]];
     
     [commands addObject:
@@ -401,10 +422,27 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                               [KSCrashReportFilterAppleFmt filterWithReportStyle:KSAppleReportStyleSymbolicatedSideBySide],
                               [KSCrashReportSinkConsole filter],
                               nil];
-          crashReporter.sink = [KSCrashReportFilterPipeline filterWithFilters:filters];
-          [crashReporter sendAllReports];
+          crashReporter.sink = [KSCrashReportFilterPipeline filterWithFilters:filters, nil];
+          [crashReporter sendAllReportsWithCompletion:nil];
       }]];
-    
+
+    [commands addObject:
+     [CommandEntry commandWithName:@"Apple Style + user & system data"
+                     accessoryType:UITableViewCellAccessoryNone
+                             block:^(UIViewController* controller)
+      {
+#pragma unused(controller)
+          NSLog(@"Printing side-by-side symbolicated apple reports with system and user data...");
+          KSCrash* crashReporter = [KSCrash instance];
+          NSArray* filters = [NSArray arrayWithObjects:
+                              [KSCrashFilterSets appleFmtWithUserAndSystemData:KSAppleReportStyleSymbolicatedSideBySide
+                                                                    compressed:NO],
+                              [KSCrashReportSinkConsole filter],
+                              nil];
+          crashReporter.sink = [KSCrashReportFilterPipeline filterWithFilters:filters, nil];
+          [crashReporter sendAllReportsWithCompletion:nil];
+      }]];
+
     return commands;
 }
 
@@ -427,7 +465,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                                     [blockSelf showAlertWithTitle:@"Success" message:response];
                                     [(CommandTVC*)controller reloadTitle];
                                 }];
-          [crashReporter sendAllReports];
+          [crashReporter sendAllReportsWithCompletion:nil];
       }]];
     
     [commands addObject:
@@ -444,7 +482,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                                     [blockSelf showAlertWithTitle:@"Success" message:response];
                                     [(CommandTVC*)controller reloadTitle];
                                 }];
-          [crashReporter sendAllReports];
+          [crashReporter sendAllReportsWithCompletion:nil];
       }]];
     
     [commands addObject:
@@ -461,7 +499,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                                     [blockSelf showAlertWithTitle:@"Success" message:response];
                                     [(CommandTVC*)controller reloadTitle];
                                 }];
-          [crashReporter sendAllReports];
+          [crashReporter sendAllReportsWithCompletion:nil];
       }]];
     
     return commands;

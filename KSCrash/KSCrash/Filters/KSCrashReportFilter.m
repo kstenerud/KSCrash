@@ -8,6 +8,8 @@
 
 #import "KSCrashReportFilter.h"
 #import "ARCSafe_MemMgmt.h"
+#import "KSSafeCollections.h"
+#import "KSVarArgs.h"
 
 
 @implementation KSCrashReportFilterPassthrough
@@ -51,31 +53,34 @@
     return self;
 }
 
++ (KSVA_Block) argBlockWithFilters:(NSMutableArray*) filters andKeys:(NSMutableArray*) keys
+{
+    __block BOOL isKey = FALSE;
+    KSVA_Block block = ^(id entry)
+    {
+        if(isKey)
+        {
+            [keys addObject:entry];
+        }
+        else
+        {
+            if([entry isKindOfClass:[NSArray class]])
+            {
+                entry = [KSCrashReportFilterPipeline filterWithFilters:entry, nil];
+            }
+            NSAssert([entry conformsToProtocol:@protocol(KSCrashReportFilter)], @"Not a filter");
+            [filters addObject:entry];
+        }
+        isKey = !isKey;
+    };
+    return as_autorelease([block copy]);
+}
+
 + (KSCrashReportFilterCombine*) filterWithFiltersAndKeys:(id) firstFilter, ...
 {
     NSMutableArray* filters = [NSMutableArray array];
     NSMutableArray* keys = [NSMutableArray array];
-    va_list args;
-    va_start(args,firstFilter);
-    for(id<KSCrashReportFilter> filter = firstFilter;
-        filter != nil;
-        filter = va_arg(args, id))
-    {
-        if([filter isKindOfClass:[NSArray class]])
-        {
-            filter = [KSCrashReportFilterPipeline filterWithFilters:(NSArray*)filter];
-        }
-        NSAssert([filter conformsToProtocol:@protocol(KSCrashReportFilter)], @"Not a filter");
-        NSString* key = va_arg(args, id);
-        if(key == nil)
-        {
-            break;
-        }
-        [filters addObject:filter];
-        [keys addObject:key];
-    }
-    va_end(args);
-    
+    ksva_iterate_list(firstFilter, [self argBlockWithFilters:filters andKeys:keys]);
     return as_autorelease([[self alloc] initWithFilters:filters keys:keys]);
 }
 
@@ -83,27 +88,7 @@
 {
     NSMutableArray* filters = [NSMutableArray array];
     NSMutableArray* keys = [NSMutableArray array];
-    va_list args;
-    va_start(args,firstFilter);
-    for(id<KSCrashReportFilter> filter = firstFilter;
-        filter != nil;
-        filter = va_arg(args, id))
-    {
-        if([filter isKindOfClass:[NSArray class]])
-        {
-            filter = [KSCrashReportFilterPipeline filterWithFilters:(NSArray*)filter];
-        }
-        NSAssert([filter conformsToProtocol:@protocol(KSCrashReportFilter)], @"Not a filter");
-        NSString* key = va_arg(args, id);
-        if(key == nil)
-        {
-            break;
-        }
-        [filters addObject:filter];
-        [keys addObject:key];
-    }
-    va_end(args);
-
+    ksva_iterate_list(firstFilter, [[self class] argBlockWithFilters:filters andKeys:keys]);
     return [self initWithFilters:filters keys:keys];
 }
 
@@ -176,16 +161,35 @@
 
 @synthesize filters = _filters;
 
-+ (KSCrashReportFilterPipeline*) filterWithFilters:(NSArray*) filters
++ (KSCrashReportFilterPipeline*) filterWithFilters:(id) firstFilter, ...
 {
-    return as_autorelease([[self alloc] initWithFilters:filters]);
+    ksva_list_to_nsarray(firstFilter, filters);
+    return as_autorelease([[self alloc] initWithFiltersArray:filters]);
 }
 
-- (id) initWithFilters:(NSArray*) filters
+- (id) initWithFilters:(id) firstFilter, ...
+{
+    ksva_list_to_nsarray(firstFilter, filters);
+    return [self initWithFiltersArray:filters];
+}
+
+- (id) initWithFiltersArray:(NSArray*) filters
 {
     if((self = [super init]))
     {
-        self.filters = filters;
+        NSMutableArray* expandedFilters = [NSMutableArray array];
+        for(id<KSCrashReportFilter> filter in filters)
+        {
+            if([filter isKindOfClass:[NSArray class]])
+            {
+                [expandedFilters addObjectsFromArray:(NSArray*)filter];
+            }
+            else
+            {
+                [expandedFilters addObject:filter];
+            }
+        }
+        self.filters = expandedFilters;
     }
     return self;
 }
@@ -222,6 +226,149 @@
 
     id<KSCrashReportFilter> filter = [filters objectAtIndex:iFilter];
     [filter filterReports:reports onCompletion:filterCompletion];
+}
+
+@end
+
+
+@interface KSCrashReportFilterConcatenate ()
+
+@property(nonatomic, readwrite, retain) NSString* separatorFmt;
+@property(nonatomic, readwrite, retain) NSArray* keys;
+
+@end
+
+@implementation KSCrashReportFilterConcatenate
+
+@synthesize separatorFmt = _separatorFmt;
+@synthesize keys = _keys;
+
++ (KSCrashReportFilterConcatenate*) filterWithSeparatorFmt:(NSString*) separatorFmt keys:(id) firstKey, ...
+{
+    ksva_list_to_nsarray(firstKey, keys);
+    return as_autorelease([[self alloc] initWithSeparatorFmt:separatorFmt keysArray:keys]);
+}
+
+- (id) initWithSeparatorFmt:(NSString*) separatorFmt keys:(id) firstKey, ...
+{
+    ksva_list_to_nsarray(firstKey, keys);
+    return [self initWithSeparatorFmt:separatorFmt keysArray:keys];
+}
+
+- (id) initWithSeparatorFmt:(NSString*) separatorFmt keysArray:(NSArray*) keys
+{
+    if((self = [super init]))
+    {
+        NSMutableArray* realKeys = [NSMutableArray array];
+        for(id key in keys)
+        {
+            if([key isKindOfClass:[NSArray class]])
+            {
+                [realKeys addObjectsFromArray:(NSArray*)key];
+            }
+            else
+            {
+                [realKeys addObject:key];
+            }
+        }
+
+        self.separatorFmt = separatorFmt;
+        self.keys = realKeys;
+    }
+    return self;
+}
+
+- (void) dealloc
+{
+    as_release(_separatorFmt);
+    as_release(_keys);
+    as_superdealloc();
+}
+
+- (void) filterReports:(NSArray*) reports
+          onCompletion:(KSCrashReportFilterCompletion) onCompletion
+{
+    NSMutableArray* filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
+    for(NSDictionary* report in reports)
+    {
+        NSMutableString* concatenated = [NSMutableString string];
+        for(NSString* key in self.keys)
+        {
+            [concatenated appendFormat:self.separatorFmt, key];
+            [concatenated appendString:[report valueForKey:key]];
+        }
+        [filteredReports addObject:concatenated];
+    }
+    onCompletion(filteredReports, YES, nil);
+}
+
+@end
+
+
+@interface KSCrashReportFilterSubset ()
+
+@property(nonatomic, readwrite, retain) NSArray* keys;
+
+@end
+
+@implementation KSCrashReportFilterSubset
+
+@synthesize keys = _keys;
+
++ (KSCrashReportFilterSubset*) filterWithKeys:(id) firstKey, ...
+{
+    ksva_list_to_nsarray(firstKey, keys);
+    return as_autorelease([[self alloc] initWithKeysArray:keys]);
+}
+
+- (id) initWithKeys:(id) firstKey, ...
+{
+    ksva_list_to_nsarray(firstKey, keys);
+    return [self initWithKeysArray:keys];
+}
+
+- (id) initWithKeysArray:(NSArray*) keys
+{
+    if((self = [super init]))
+    {
+        NSMutableArray* realKeys = [NSMutableArray array];
+        for(id key in keys)
+        {
+            if([key isKindOfClass:[NSArray class]])
+            {
+                [realKeys addObjectsFromArray:(NSArray*)key];
+            }
+            else
+            {
+                [realKeys addObject:key];
+            }
+        }
+
+        self.keys = realKeys;
+    }
+    return self;
+}
+
+- (void) dealloc
+{
+    as_release(_keys);
+    as_superdealloc();
+}
+
+- (void) filterReports:(NSArray*) reports
+          onCompletion:(KSCrashReportFilterCompletion) onCompletion
+{
+    NSMutableArray* filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
+    for(NSDictionary* report in reports)
+    {
+        NSMutableDictionary* subset = [NSMutableDictionary dictionary];
+        for(NSString* key in self.keys)
+        {
+            [subset safeSetObject:[report objectForKey:key] forKey:key];
+        }
+        [filteredReports addObject:subset];
+    }
+    onCompletion(filteredReports, YES, nil);
 }
 
 @end

@@ -279,7 +279,7 @@ failed:
     if([sink conformsToProtocol:@protocol(KSCrashReportDefaultFilterSet)])
     {
         _sink = [[KSCrashReportFilterPipeline alloc] initWithFilters:
-                 [(id<KSCrashReportDefaultFilterSet>)sink defaultCrashReportFilterSet]];
+                 [(id<KSCrashReportDefaultFilterSet>)sink defaultCrashReportFilterSet], nil];
     }
     else
     {
@@ -351,7 +351,7 @@ failed:
     kscrash_notifyApplicationTerminate();
 }
 
-- (void) sendAllReports
+- (void) sendAllReportsWithCompletion:(KSCrashReportFilterCompletion) onCompletion
 {
     if(self.sink == nil)
     {
@@ -368,8 +368,8 @@ failed:
     
     KSLOG_INFO(@"Sending %d crash reports", [reports count]);
     
-    [self.sink filterReports:reports
-                onCompletion:^(NSArray* filteredReports, BOOL completed, NSError* error)
+    [self sendReports:reports
+         onCompletion:^(NSArray* filteredReports, BOOL completed, NSError* error)
      {
          #pragma unused(filteredReports)
          KSLOG_DEBUG(@"Process finished with completion: %d", completed);
@@ -381,18 +381,22 @@ failed:
          {
              [self deleteAllReports];
          }
+         if(onCompletion != nil)
+         {
+             onCompletion(filteredReports, completed, error);
+         }
      }];
 }
 
-- (void) sendReports:(NSArray*) reports
+- (void) sendReports:(NSArray*) reports onCompletion:(KSCrashReportFilterCompletion) onCompletion
 {
     [self.sink filterReports:reports
                 onCompletion:^(NSArray* filteredReports, BOOL completed, NSError* error)
      {
-         #pragma unused(filteredReports)
-         #pragma unused(completed)
-         #pragma unused(error)
-         // Do nothing.
+         if(onCompletion != nil)
+         {
+             onCompletion(filteredReports, completed, error);
+         }
      }];
 }
 

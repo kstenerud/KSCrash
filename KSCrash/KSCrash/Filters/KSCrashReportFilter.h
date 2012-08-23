@@ -62,22 +62,46 @@ typedef void(^KSCrashReportFilterCompletion)(NSArray* filteredReports,
 @end
 
 
+// Combine the results of multiple filters into a master report (dictionary)
 @interface KSCrashReportFilterCombine : NSObject <KSCrashReportFilter>
 
 // Each entry can be a filter or an array of filters.
 + (KSCrashReportFilterCombine*) filterWithFiltersAndKeys:(id) firstFilter, ... NS_REQUIRES_NIL_TERMINATION;
 
-- (id)initWithFiltersAndKeys:(id)firstFilter, ... NS_REQUIRES_NIL_TERMINATION;
+- (id) initWithFiltersAndKeys:(id)firstFilter, ... NS_REQUIRES_NIL_TERMINATION;
 
 @end
 
 
+// Make a pipeline of filters, passing reports through each one.
 @interface KSCrashReportFilterPipeline : NSObject <KSCrashReportFilter>
 
 @property(nonatomic,readonly,retain) NSArray* filters;
 
-+ (KSCrashReportFilterPipeline*) filterWithFilters:(NSArray*) filters;
++ (KSCrashReportFilterPipeline*) filterWithFilters:(id) firstFilter, ... NS_REQUIRES_NIL_TERMINATION;
 
-- (id) initWithFilters:(NSArray*) filters;
+- (id) initWithFilters:(id) firstFilter, ... NS_REQUIRES_NIL_TERMINATION;
+
+@end
+
+
+// Interprets reports as dictionary of strings and concatenates
+@interface KSCrashReportFilterConcatenate : NSObject <KSCrashReportFilter>
+
++ (KSCrashReportFilterConcatenate*) filterWithSeparatorFmt:(NSString*) separatorFmt
+                                                      keys:(id) firstKey, ... NS_REQUIRES_NIL_TERMINATION;
+
+- (id) initWithSeparatorFmt:(NSString*) separatorFmt
+                       keys:(id) firstKey, ... NS_REQUIRES_NIL_TERMINATION;
+
+@end
+
+
+// Interprets reports as dictionaries and passes on a subset of that dictionary
+@interface KSCrashReportFilterSubset : NSObject <KSCrashReportFilter>
+
++ (KSCrashReportFilterSubset*) filterWithKeys:(id) firstKey, ... NS_REQUIRES_NIL_TERMINATION;
+
+- (id) initWithKeys:(id) firstKey, ... NS_REQUIRES_NIL_TERMINATION;
 
 @end

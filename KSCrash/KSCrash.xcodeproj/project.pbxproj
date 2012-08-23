@@ -153,6 +153,11 @@
 		396D70D6158D83BB0046CF16 /* LoadableCategory.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F80158D2FEA0046CF16 /* LoadableCategory.h */; };
 		396D70D7158D83BB0046CF16 /* RFC3339DateTool.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F81158D2FEA0046CF16 /* RFC3339DateTool.h */; };
 		396D70D8158D83BB0046CF16 /* RFC3339DateTool.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F82158D2FEA0046CF16 /* RFC3339DateTool.m */; };
+		39CBF32715E2A315004A6D9F /* KSVarArgs.h in Headers */ = {isa = PBXBuildFile; fileRef = 39CBF32515E2A315004A6D9F /* KSVarArgs.h */; };
+		39E2D22015E3D6FD003B50A7 /* KSCrashFilterSets.h in Headers */ = {isa = PBXBuildFile; fileRef = 39E2D21E15E3D6FD003B50A7 /* KSCrashFilterSets.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		39E2D22115E3D6FD003B50A7 /* KSCrashFilterSets.m in Sources */ = {isa = PBXBuildFile; fileRef = 39E2D21F15E3D6FD003B50A7 /* KSCrashFilterSets.m */; };
+		39E2D27415E3F633003B50A7 /* KSSafeCollections.h in Headers */ = {isa = PBXBuildFile; fileRef = 39E2D27215E3F633003B50A7 /* KSSafeCollections.h */; };
+		39E2D27515E3F633003B50A7 /* KSSafeCollections.m in Sources */ = {isa = PBXBuildFile; fileRef = 39E2D27315E3F633003B50A7 /* KSSafeCollections.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -276,6 +281,11 @@
 		396D70A0158D83870046CF16 /* KSCrashLite-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "KSCrashLite-Info.plist"; sourceTree = "<group>"; };
 		396D70A2158D83870046CF16 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		396D70A4158D83870046CF16 /* KSCrashLite-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "KSCrashLite-Prefix.pch"; sourceTree = "<group>"; };
+		39CBF32515E2A315004A6D9F /* KSVarArgs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.objj.h; path = KSVarArgs.h; sourceTree = "<group>"; };
+		39E2D21E15E3D6FD003B50A7 /* KSCrashFilterSets.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.objj.h; path = KSCrashFilterSets.h; sourceTree = "<group>"; };
+		39E2D21F15E3D6FD003B50A7 /* KSCrashFilterSets.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSCrashFilterSets.m; sourceTree = "<group>"; };
+		39E2D27215E3F633003B50A7 /* KSSafeCollections.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.objj.h; path = KSSafeCollections.h; sourceTree = "<group>"; };
+		39E2D27315E3F633003B50A7 /* KSSafeCollections.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSSafeCollections.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -403,6 +413,8 @@
 		396D6F31158D2FEA0046CF16 /* Filters */ = {
 			isa = PBXGroup;
 			children = (
+				39E2D21E15E3D6FD003B50A7 /* KSCrashFilterSets.h */,
+				39E2D21F15E3D6FD003B50A7 /* KSCrashFilterSets.m */,
 				396D6F32158D2FEA0046CF16 /* KSCrashReportFilter.h */,
 				396D6F33158D2FEA0046CF16 /* KSCrashReportFilter.m */,
 				396D6F34158D2FEA0046CF16 /* KSCrashReportFilterAppleFmt.h */,
@@ -439,6 +451,7 @@
 				396D6F4C158D2FEA0046CF16 /* NSData+GZip.m */,
 				396D6F4D158D2FEA0046CF16 /* NSMutableData+AppendUTF8.h */,
 				396D6F4E158D2FEA0046CF16 /* NSMutableData+AppendUTF8.m */,
+				39CBF32515E2A315004A6D9F /* KSVarArgs.h */,
 			);
 			path = Tools;
 			sourceTree = "<group>";
@@ -499,6 +512,8 @@
 				396D6F80158D2FEA0046CF16 /* LoadableCategory.h */,
 				396D6F81158D2FEA0046CF16 /* RFC3339DateTool.h */,
 				396D6F82158D2FEA0046CF16 /* RFC3339DateTool.m */,
+				39E2D27215E3F633003B50A7 /* KSSafeCollections.h */,
+				39E2D27315E3F633003B50A7 /* KSSafeCollections.m */,
 			);
 			path = Tools;
 			sourceTree = "<group>";
@@ -539,8 +554,11 @@
 				396D6F8F158D2FEA0046CF16 /* KSCrashReportSinkEMail.h in Headers */,
 				396D6F91158D2FEA0046CF16 /* KSCrashReportSinkQuincy.h in Headers */,
 				396D6F93158D2FEA0046CF16 /* KSCrashReportSinkStandard.h in Headers */,
+				39E2D22015E3D6FD003B50A7 /* KSCrashFilterSets.h in Headers */,
 				396D6FC0158D2FEA0046CF16 /* KSJSONCodecObjC.h in Headers */,
 				396D6FB3158D2FEA0046CF16 /* KSReportWriter.h in Headers */,
+				39E2D27415E3F633003B50A7 /* KSSafeCollections.h in Headers */,
+				39CBF32715E2A315004A6D9F /* KSVarArgs.h in Headers */,
 				396D6F95158D2FEA0046CF16 /* KSHTTPMultipartPostBody.h in Headers */,
 				396D6F97158D2FEA0046CF16 /* KSHTTPRequestSender.h in Headers */,
 				396D6F99158D2FEA0046CF16 /* KSReachability.h in Headers */,
@@ -803,6 +821,8 @@
 				396D6FCA158D2FEA0046CF16 /* KSSignalInfo.c in Sources */,
 				396D6FCC158D2FEA0046CF16 /* KSSysCtl.c in Sources */,
 				396D6FD0158D2FEA0046CF16 /* RFC3339DateTool.m in Sources */,
+				39E2D22115E3D6FD003B50A7 /* KSCrashFilterSets.m in Sources */,
+				39E2D27515E3F633003B50A7 /* KSSafeCollections.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -983,6 +1003,7 @@
 					armv6,
 					"$(ARCHS_STANDARD_32_BIT)",
 				);
+				CLANG_ENABLE_OBJC_ARC = NO;
 				CONTENTS_FOLDER_PATH = "$(WRAPPER_NAME)/Versions/$(FRAMEWORK_VERSION)";
 				DEAD_CODE_STRIPPING = NO;
 				DYLIB_COMPATIBILITY_VERSION = 1;
@@ -1011,6 +1032,7 @@
 					armv6,
 					"$(ARCHS_STANDARD_32_BIT)",
 				);
+				CLANG_ENABLE_OBJC_ARC = NO;
 				CONTENTS_FOLDER_PATH = "$(WRAPPER_NAME)/Versions/$(FRAMEWORK_VERSION)";
 				DEAD_CODE_STRIPPING = NO;
 				DYLIB_COMPATIBILITY_VERSION = 1;

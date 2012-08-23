@@ -29,14 +29,17 @@
  * It will only attempt to send the most recent 5 reports. All others will be
  * deleted. Once the reports are successfully sent to the server, they may be
  * deleted locally, depending on the property "deleteAfterSend".
+ *
+ * @param onCompletion Called when sending is complete.
  */
-- (void) sendAllReports;
+- (void) sendAllReportsWithCompletion:(KSCrashReportFilterCompletion) onCompletion;
 
 /** Send the specified reports to the current sink.
  *
  * @param reports The reports to send.
+ * @param onCompletion Called when sending is complete.
  */
-- (void) sendReports:(NSArray*) reports;
+- (void) sendReports:(NSArray*) reports onCompletion:(KSCrashReportFilterCompletion) onCompletion;
 
 /** Get all reports, with data types corrected, as dictionaries.
  */
