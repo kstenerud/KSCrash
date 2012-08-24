@@ -80,6 +80,17 @@ bool kscrash_installReporter(const char* reportFilePath,
  */
 void kscrash_setUserInfoJSON(const char* const userInfoJSON);
 
+/** Set the callback to invoke upon a crash.
+ *
+ * @param onCrashNotify Function to call during a crash report to give the
+ *                      callee an opportunity to add to the report.
+ *                      NULL = ignore.
+ *                      WARNING: Only call async-safe functions from this
+ *                               function!
+ *                               DO NOT call Objective-C methods!!!
+ */
+void kscrash_setCrashNotifyCallback(const KSReportWriteCallback onCrashNotify);
+
 #ifdef __cplusplus
 }
 #endif

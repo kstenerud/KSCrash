@@ -130,6 +130,18 @@ typedef struct KSReportWriter
                            const char* name,
                            const unsigned char* value);
     
+    /** Add a preformatted JSON element to the report.
+     *
+     * @param writer This writer.
+     *
+     * @param name The name to give this element.
+     *
+     * @param value A pointer to the JSON data.
+     */
+    void (*addJSONElement)(const struct KSReportWriter* writer,
+                           const char* name,
+                           const char* jsonElement);
+
     /** Begin a new object container.
      *
      * @param writer This writer.
@@ -154,7 +166,7 @@ typedef struct KSReportWriter
      * @param writer This writer.
      */
     void (*endContainer)(const struct KSReportWriter* writer);
-    
+
     /** Internal contextual data for the writer */
     void* context;
     

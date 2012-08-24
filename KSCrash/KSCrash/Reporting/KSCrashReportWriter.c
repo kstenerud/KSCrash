@@ -195,10 +195,6 @@ void kscrw_i_writeErrorInfo(const KSReportWriter* const writer,
 void kscrw_i_prepareReportWriter(KSReportWriter* const writer,
                                  KSJSONEncodeContext* const context);
 
-void kscrw_i_addJSONElement(KSReportWriter* writer,
-                            const char* name,
-                            const char* jsonElement);
-
 
 /* Various callbacks.
  */
@@ -229,6 +225,10 @@ void kscrw_i_addTextFileElement(const KSReportWriter* const writer,
 void kscrw_i_addUUIDElement(const KSReportWriter* const writer,
                             const char* const name,
                             const unsigned char* const value);
+
+void kscrw_i_addJSONElement(const KSReportWriter* writer,
+                            const char* name,
+                            const char* jsonElement);
 
 void kscrw_i_beginObject(const KSReportWriter* const writer,
                          const char* const name);
@@ -486,10 +486,14 @@ void kscrw_i_writeAllThreads(const KSReportWriter* const writer,
         
         // All information fetched. Print it out.
         writer->beginObject(writer, NULL);
+        bool printStdout = crashContext->printTraceToStdout &&
+                           isCrashedThread &&
+                           crashContext->crashType != KSCrashTypeNSException;
+        
         kscrw_i_writeBacktrace(writer,
                                backtrace,
                                backtraceLength,
-                               crashContext->printTraceToStdout);
+                               printStdout);
         writer->addIntegerElement(writer, "backtrace_skipped", skipEntries);
         if(registersAreValid)
         {
@@ -900,6 +904,34 @@ void kscrw_i_addUUIDElement(const KSReportWriter* const writer,
     }
 }
 
+void kscrw_i_addJSONElement(const KSReportWriter* writer,
+                            const char* name,
+                            const char* jsonElement)
+{
+    int jsonResult = ksjson_addJSONElement(getJsonContext(writer),
+                                           name,
+                                           jsonElement,
+                                           strlen(jsonElement));
+    if(jsonResult != KSJSON_OK)
+    {
+        char errorBuff[100];
+        snprintf(errorBuff,
+                 sizeof(errorBuff),
+                 "Invalid JSON data: %s",
+                 ksjson_stringForError(jsonResult));
+        ksjson_beginObject(getJsonContext(writer), name);
+        ksjson_addStringElement(getJsonContext(writer),
+                                "error",
+                                errorBuff,
+                                strlen(errorBuff));
+        ksjson_addStringElement(getJsonContext(writer),
+                                "json_data",
+                                jsonElement,
+                                strlen(jsonElement));
+        ksjson_endContainer(getJsonContext(writer));
+    }
+}
+
 void kscrw_i_beginObject(const KSReportWriter* const writer,
                          const char* const name)
 {
@@ -928,6 +960,7 @@ void kscrw_i_prepareReportWriter(KSReportWriter* const writer,
     writer->addStringElement = kscrw_i_addStringElement;
     writer->addTextFileElement = kscrw_i_addTextFileElement;
     writer->addUUIDElement = kscrw_i_addUUIDElement;
+    writer->addJSONElement = kscrw_i_addJSONElement;
     writer->beginObject = kscrw_i_beginObject;
     writer->beginArray = kscrw_i_beginArray;
     writer->endContainer = kscrw_i_endContainer;
@@ -941,34 +974,6 @@ int kscrw_i_addJSONData(const char* const data,
     const int fd = *((int*)userData);
     const bool success = ksfu_writeBytesToFD(fd, data, (ssize_t)length);
     return success ? KSJSON_OK : KSJSON_ERROR_CANNOT_ADD_DATA;
-}
-
-void kscrw_i_addJSONElement(KSReportWriter* writer,
-                            const char* name,
-                            const char* jsonElement)
-{
-    int jsonResult = ksjson_addJSONElement(getJsonContext(writer),
-                                           name,
-                                           jsonElement,
-                                           strlen(jsonElement));
-    if(jsonResult != KSJSON_OK)
-    {
-        char errorBuff[100];
-        snprintf(errorBuff,
-                 sizeof(errorBuff),
-                 "Invalid JSON data: %s",
-                 ksjson_stringForError(jsonResult));
-        ksjson_beginObject(getJsonContext(writer), name);
-        ksjson_addStringElement(getJsonContext(writer),
-                                "error",
-                                errorBuff,
-                                strlen(errorBuff));
-        ksjson_addStringElement(getJsonContext(writer),
-                                "json_data",
-                                jsonElement,
-                                strlen(jsonElement));
-        ksjson_endContainer(getJsonContext(writer));
-    }
 }
 
 void kscrash_writeCrashReport(KSCrashContext* const crashContext,

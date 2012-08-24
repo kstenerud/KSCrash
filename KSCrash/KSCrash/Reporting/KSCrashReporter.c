@@ -45,6 +45,12 @@
 
 // Avoiding static functions due to linker issues.
 
+/** Get the global crash context.
+ *
+ * @return The global crash context.
+ */
+KSCrashContext* kscrash_i_crashContext(void);
+
 /** Called when a crash occurs.
  *
  * This function gets passed as a callback to a crash handler.
@@ -62,13 +68,17 @@ static char* g_reportFilePath;
 static char* g_stateFilePath;
 
 
+KSCrashContext* kscrash_i_crashContext(void)
+{
+    return &g_crashReportContext;
+}
+
 void kscrash_i_onCrash(void)
 {
     kscrash_notifyApplicationCrash();
-    KSCrashContext* crashContext = &g_crashReportContext;
     KSLOGBASIC_INFO("Writing crash report to %s", g_reportFilePath);
     
-    kscrash_writeCrashReport(crashContext, g_reportFilePath);
+    kscrash_writeCrashReport(kscrash_i_crashContext(), g_reportFilePath);
 }
 
 bool kscrash_installReporter(const char* const reportFilePath,
@@ -85,7 +95,7 @@ bool kscrash_installReporter(const char* const reportFilePath,
         
         g_stateFilePath = strdup(stateFilePath);
         g_reportFilePath = strdup(reportFilePath);
-        KSCrashContext* context = &g_crashReportContext;
+        KSCrashContext* context = kscrash_i_crashContext();
         
         if(!kscrash_initState(g_stateFilePath, context))
         {
@@ -129,7 +139,7 @@ bool kscrash_installReporter(const char* const reportFilePath,
 
 void kscrash_setUserInfoJSON(const char* const userInfoJSON)
 {
-    KSCrashContext* context = &g_crashReportContext;
+    KSCrashContext* context = kscrash_i_crashContext();
     if(context->userInfoJSON != NULL)
     {
         free((void*)context->userInfoJSON);
@@ -138,4 +148,9 @@ void kscrash_setUserInfoJSON(const char* const userInfoJSON)
     {
         context->userInfoJSON = strdup(userInfoJSON);
     }
+}
+
+void kscrash_setCrashNotifyCallback(const KSReportWriteCallback onCrashNotify)
+{
+    kscrash_i_crashContext()->onCrashNotify = onCrashNotify;
 }
