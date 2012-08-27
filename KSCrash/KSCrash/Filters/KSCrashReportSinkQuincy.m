@@ -24,6 +24,7 @@
 // THE SOFTWARE.
 //
 
+#define KSLogger_LocalLevel TRACE
 
 #import "KSCrashReportSinkQuincy.h"
 
@@ -40,8 +41,15 @@
 #define kFilterKeyStandard @"standard"
 #define kFilterKeyApple @"apple"
 
+#define kDefaultKeyUserID @"user_id"
+#define kDefaultKeyContactEmail @"contact_email"
+#define kDefaultKeyDescription @"crash_description"
 
 @interface KSCrashReportFilterQuincy ()
+
+@property(nonatomic, readwrite, retain) NSString* userIDKey;
+@property(nonatomic, readwrite, retain) NSString* contactEmailKey;
+@property(nonatomic, readwrite, retain) NSString* crashDescriptionKey;
 
 - (NSString*) cdataEscaped:(NSString*) string;
 
@@ -54,9 +62,52 @@
 
 @implementation KSCrashReportFilterQuincy
 
+@synthesize userIDKey = _userIDKey;
+@synthesize contactEmailKey = _contactEmailKey;
+@synthesize crashDescriptionKey = _crashDescriptionKey;
+
 + (KSCrashReportFilterQuincy*) filter
 {
-    return as_autorelease([[self alloc] init]);
+    return [self filterWithUserIDKey:nil
+                     contactEmailKey:nil
+                 crashDescriptionKey:nil];
+}
+
++ (KSCrashReportFilterQuincy*) filterWithUserIDKey:(NSString*) userIDKey
+                                   contactEmailKey:(NSString*) contactEmailKey
+                               crashDescriptionKey:(NSString*) crashDescriptionKey
+{
+    return as_autorelease([[self alloc] initWithUserIDKey:userIDKey
+                                          contactEmailKey:contactEmailKey
+                                      crashDescriptionKey:crashDescriptionKey]);
+}
+
+- (id) init
+{
+    return [self initWithUserIDKey:nil
+                   contactEmailKey:nil
+               crashDescriptionKey:nil];
+}
+
+- (id) initWithUserIDKey:(NSString*) userIDKey
+         contactEmailKey:(NSString*) contactEmailKey
+     crashDescriptionKey:(NSString*) crashDescriptionKey
+{
+    if((self = [super init]))
+    {
+        self.userIDKey = userIDKey != nil ? userIDKey : kDefaultKeyUserID;
+        self.contactEmailKey = contactEmailKey != nil ? contactEmailKey : kDefaultKeyContactEmail;
+        self.crashDescriptionKey = crashDescriptionKey != nil ? crashDescriptionKey : kDefaultKeyDescription;
+    }
+    return self;
+}
+
+- (void) dealloc
+{
+    as_release(_userIDKey);
+    as_release(_contactEmailKey);
+    as_release(_crashDescriptionKey);
+    as_superdealloc();
 }
 
 - (NSString*) cdataEscaped:(NSString*) string
@@ -78,23 +129,23 @@
     NSString* appleReport = [reportTuple objectForKey:kFilterKeyApple];
     NSDictionary* systemDict = [report objectForKey:@"system"];
     NSDictionary* userDict = [report objectForKey:@"user"];
-    NSString* userID = [self blankForNil:[userDict valueForKey:@"userID"]];
-    NSString* contactEmail = [self blankForNil:[userDict valueForKey:@"contactEmail"]];
-    NSString* crashReportDescription = [self blankForNil:[userDict valueForKey:@"crashReportDescription"]];
-    
+    NSString* userID = [self blankForNil:[userDict valueForKey:self.userIDKey]];
+    NSString* contactEmail = [self blankForNil:[userDict valueForKey:self.contactEmailKey]];
+    NSString* crashReportDescription = [self blankForNil:[userDict valueForKey:self.crashDescriptionKey]];
+
     return [NSString stringWithFormat:
-            @"<crash>"
-            @"<applicationname>%@</applicationname>"
-            @"<bundleidentifier>%@</bundleidentifier>"
-            @"<systemversion>%@</systemversion>"
-            @"<platform>%@</platform>"
-            @"<senderversion>%@</senderversion>"
-            @"<version>%@</version>"
-            @"<log><![CDATA[%@]]></log>"
-            @"<userid>%@</userid>"
-            @"<contact>%@</contact>"
-            @"<description><![CDATA[%@]]></description>"
-            @"</crash>",
+            @"\n    <crash>\n"
+            @"        <applicationname>%@</applicationname>\n"
+            @"        <bundleidentifier>%@</bundleidentifier>\n"
+            @"        <systemversion>%@</systemversion>\n"
+            @"        <platform>%@</platform>\n"
+            @"        <senderversion>%@</senderversion>\n"
+            @"        <version>%@</version>\n"
+            @"        <log><![CDATA[%@]]></log>\n"
+            @"        <userid>%@</userid>\n"
+            @"        <contact>%@</contact>\n"
+            @"        <description><![CDATA[%@]]></description>\n"
+            @"    </crash>",
             [systemDict objectForKey:@"CFBundleExecutable"],
             [systemDict objectForKey:@"CFBundleIdentifier"],
             [systemDict objectForKey:@"system_version"],
@@ -176,6 +227,15 @@
 
 - (NSArray*) defaultCrashReportFilterSet
 {
+    return [self defaultCrashReportFilterSetWithUserIDKey:nil
+                                          contactEmailKey:nil
+                                      crashDescriptionKey:nil];
+}
+
+- (NSArray*) defaultCrashReportFilterSetWithUserIDKey:(NSString*) userIDKey
+                                      contactEmailKey:(NSString*) contactEmailKey
+                                  crashDescriptionKey:(NSString*) crashDescriptionKey
+{
     return [NSArray arrayWithObjects:
             [KSCrashReportFilterCombine filterWithFiltersAndKeys:
              [KSCrashReportFilterPassthrough filter],
@@ -183,7 +243,9 @@
              [KSCrashReportFilterAppleFmt filterWithReportStyle:KSAppleReportStyleSymbolicatedSideBySide],
              kFilterKeyApple,
              nil],
-            [KSCrashReportFilterQuincy filter],
+            [KSCrashReportFilterQuincy filterWithUserIDKey:userIDKey
+                                           contactEmailKey:contactEmailKey
+                                       crashDescriptionKey:crashDescriptionKey],
             self,
             nil];
 }
@@ -227,20 +289,20 @@
     [request setValue:body.contentType forHTTPHeaderField:@"Content-type"];
     
     __unsafe_unretained KSCrashReportSinkQuincy* blockSelf = self;
-    
+
     self.reachableOperation = [KSReachableOperation operationWithHost:[self.url host]
-                                                            allowWWAN:NO
+                                                            allowWWAN:YES
                                                                 block:^
     {
-        KSLOG_TRACE(@"Posting to %@:\n%@", self.url,
-                    as_autorelease([[NSString alloc] initWithData:[body data] encoding:NSUTF8StringEncoding]));
         [[KSHTTPRequestSender sender] sendRequest:request
                                         onSuccess:^(NSHTTPURLResponse* response, NSData* data)
          {
+             KSLOG_TRACE(@"Post successful");
              #pragma unused(response)
              onCompletion(reports, YES, nil);
-             if(blockSelf.onSuccess)
+             if(blockSelf.onSuccess != nil)
              {
+                 KSLOG_TRACE(@"Calling onSuccess");
                  blockSelf.onSuccess(as_autorelease([[NSString alloc] initWithData:data
                                                                           encoding:NSUTF8StringEncoding]));
              }
@@ -248,15 +310,17 @@
          {
              NSString* text = as_autorelease([[NSString alloc] initWithData:data
                                                                    encoding:NSUTF8StringEncoding]);
+             KSLOG_TRACE(@"Post failed. Code %d, reason %@", response.statusCode, text);
              onCompletion(reports, NO, [NSError errorWithDomain:@"KSCrashReportSinkQuincy"
                                                            code:response.statusCode
                                                        userInfo:[NSDictionary dictionaryWithObjectsAndKeys:
                                                                  text,
                                                                  NSLocalizedDescriptionKey,
                                                                  nil]]);
-         } onError:^(NSError* error2)
+         } onError:^(NSError* error)
          {
-             onCompletion(reports, NO, error2);
+             KSLOG_TRACE(@"Posting error: %@", error);
+             onCompletion(reports, NO, error);
          }];
     }];
 }
@@ -299,6 +363,10 @@
 - (id) initWithAppIdentifier:(NSString*) appIdentifier
                    onSuccess:(void(^)(NSString* response)) onSuccess
 {
+    if(appIdentifier == nil)
+    {
+        KSLOG_ERROR(@"appIdentifier was nil. Posting to Hockey will fail");
+    }
     if((self = [super initWithURL:[self urlWithAppIdentifier:appIdentifier]
                         onSuccess:onSuccess]))
     {

@@ -10,6 +10,7 @@
 #import "ARCSafe_MemMgmt.h"
 #import "KSSafeCollections.h"
 #import "KSVarArgs.h"
+#import "Container+DeepSearch.h"
 
 
 @implementation KSCrashReportFilterPassthrough
@@ -22,7 +23,10 @@
 - (void) filterReports:(NSArray*) reports
           onCompletion:(KSCrashReportFilterCompletion) onCompletion
 {
-    onCompletion(reports, YES, nil);
+    if(onCompletion)
+    {
+        onCompletion(reports, YES, nil);
+    }
 }
 
 @end
@@ -137,7 +141,10 @@
             [combinedReports addObject:dict];
         }
 
-        onCompletion(combinedReports, completed, filterError);
+        if(onCompletion)
+        {
+            onCompletion(combinedReports, completed, filterError);
+        }
         as_release(filterCompletion);
         filterCompletion = nil;
     } copy];
@@ -219,7 +226,10 @@
             return;
         }
 
-        onCompletion(filteredReports, completed, filterError);
+        if(onCompletion)
+        {
+            onCompletion(filteredReports, completed, filterError);
+        }
         as_release(filterCompletion);
         filterCompletion = nil;
     } copy];
@@ -299,7 +309,10 @@
         }
         [filteredReports addObject:concatenated];
     }
-    onCompletion(filteredReports, YES, nil);
+    if(onCompletion)
+    {
+        onCompletion(filteredReports, YES, nil);
+    }
 }
 
 @end
@@ -307,51 +320,51 @@
 
 @interface KSCrashReportFilterSubset ()
 
-@property(nonatomic, readwrite, retain) NSArray* keys;
+@property(nonatomic, readwrite, retain) NSArray* keyPaths;
 
 @end
 
 @implementation KSCrashReportFilterSubset
 
-@synthesize keys = _keys;
+@synthesize keyPaths = _keyPaths;
 
-+ (KSCrashReportFilterSubset*) filterWithKeys:(id) firstKey, ...
++ (KSCrashReportFilterSubset*) filterWithKeys:(id) firstKeyPath, ...
 {
-    ksva_list_to_nsarray(firstKey, keys);
-    return as_autorelease([[self alloc] initWithKeysArray:keys]);
+    ksva_list_to_nsarray(firstKeyPath, keyPaths);
+    return as_autorelease([[self alloc] initWithKeysArray:keyPaths]);
 }
 
-- (id) initWithKeys:(id) firstKey, ...
+- (id) initWithKeys:(id) firstKeyPath, ...
 {
-    ksva_list_to_nsarray(firstKey, keys);
-    return [self initWithKeysArray:keys];
+    ksva_list_to_nsarray(firstKeyPath, keyPaths);
+    return [self initWithKeysArray:keyPaths];
 }
 
-- (id) initWithKeysArray:(NSArray*) keys
+- (id) initWithKeysArray:(NSArray*) keyPaths
 {
     if((self = [super init]))
     {
-        NSMutableArray* realKeys = [NSMutableArray array];
-        for(id key in keys)
+        NSMutableArray* realKeyPaths = [NSMutableArray array];
+        for(id keyPath in keyPaths)
         {
-            if([key isKindOfClass:[NSArray class]])
+            if([keyPath isKindOfClass:[NSArray class]])
             {
-                [realKeys addObjectsFromArray:(NSArray*)key];
+                [realKeyPaths addObjectsFromArray:(NSArray*)keyPath];
             }
             else
             {
-                [realKeys addObject:key];
+                [realKeyPaths addObject:keyPath];
             }
         }
 
-        self.keys = realKeys;
+        self.keyPaths = realKeyPaths;
     }
     return self;
 }
 
 - (void) dealloc
 {
-    as_release(_keys);
+    as_release(_keyPaths);
     as_superdealloc();
 }
 
@@ -362,13 +375,17 @@
     for(NSDictionary* report in reports)
     {
         NSMutableDictionary* subset = [NSMutableDictionary dictionary];
-        for(NSString* key in self.keys)
+        for(NSString* keyPath in self.keyPaths)
         {
-            [subset safeSetObject:[report objectForKey:key] forKey:key];
+            id object = [report objectForKeyPath:keyPath];
+            [subset safeSetObject:object forKey:[keyPath lastPathComponent]];
         }
         [filteredReports addObject:subset];
     }
-    onCompletion(filteredReports, YES, nil);
+    if(onCompletion)
+    {
+        onCompletion(filteredReports, YES, nil);
+    }
 }
 
 @end

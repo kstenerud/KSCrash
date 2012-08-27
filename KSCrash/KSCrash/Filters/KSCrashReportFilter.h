@@ -100,8 +100,8 @@ typedef void(^KSCrashReportFilterCompletion)(NSArray* filteredReports,
 // Interprets reports as dictionaries and passes on a subset of that dictionary
 @interface KSCrashReportFilterSubset : NSObject <KSCrashReportFilter>
 
-+ (KSCrashReportFilterSubset*) filterWithKeys:(id) firstKey, ... NS_REQUIRES_NIL_TERMINATION;
++ (KSCrashReportFilterSubset*) filterWithKeys:(id) firstKeyPath, ... NS_REQUIRES_NIL_TERMINATION;
 
-- (id) initWithKeys:(id) firstKey, ... NS_REQUIRES_NIL_TERMINATION;
+- (id) initWithKeys:(id) firstKeyPath, ... NS_REQUIRES_NIL_TERMINATION;
 
 @end

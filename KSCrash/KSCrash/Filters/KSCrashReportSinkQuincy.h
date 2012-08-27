@@ -37,6 +37,14 @@
 
 + (KSCrashReportFilterQuincy*) filter;
 
++ (KSCrashReportFilterQuincy*) filterWithUserIDKey:(NSString*) userIDKey
+                                   contactEmailKey:(NSString*) contactEmailKey
+                               crashDescriptionKey:(NSString*) crashDescriptionKey;
+
+- (id) initWithUserIDKey:(NSString*) userIDKey
+         contactEmailKey:(NSString*) contactEmailKey
+     crashDescriptionKey:(NSString*) crashDescriptionKey;
+
 @end
 
 
@@ -66,6 +74,10 @@
  */
 - (id) initWithURL:(NSURL*) url
          onSuccess:(void(^)(NSString* response)) onSuccess;
+
+- (NSArray*) defaultCrashReportFilterSetWithUserIDKey:(NSString*) userIDKey
+                                      contactEmailKey:(NSString*) contactEmailKey
+                                  crashDescriptionKey:(NSString*) crashDescriptionKey;
 
 @end
 

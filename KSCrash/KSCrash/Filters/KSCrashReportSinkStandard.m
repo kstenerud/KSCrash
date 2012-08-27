@@ -120,7 +120,7 @@
 //    [request setValue:@"gzip" forHTTPHeaderField:@"Content-Encoding"];
     
     self.reachableOperation = [KSReachableOperation operationWithHost:[self.url host]
-                                                            allowWWAN:NO
+                                                            allowWWAN:YES
                                                                 block:^
     {
         [[KSHTTPRequestSender sender] sendRequest:request
