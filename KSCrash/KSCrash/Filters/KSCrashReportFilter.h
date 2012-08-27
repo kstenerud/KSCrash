@@ -85,6 +85,19 @@ typedef void(^KSCrashReportFilterCompletion)(NSArray* filteredReports,
 @end
 
 
+/**
+ * Take one object from the report. If key is a string, it will be interpreted
+ * as a key path.
+ */
+@interface KSCrashReportFilterObjectForKey : NSObject <KSCrashReportFilter>
+
++ (KSCrashReportFilterObjectForKey*) filterWithKey:(id) key;
+
+- (id) initWithKey:(id) key;
+
+@end
+
+
 // Interprets reports as dictionary of strings and concatenates
 @interface KSCrashReportFilterConcatenate : NSObject <KSCrashReportFilter>
 

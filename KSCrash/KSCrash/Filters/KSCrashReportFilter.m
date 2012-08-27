@@ -241,6 +241,60 @@
 @end
 
 
+@interface KSCrashReportFilterObjectForKey ()
+
+@property(nonatomic, readwrite, retain) id key;
+
+@end
+
+@implementation KSCrashReportFilterObjectForKey
+
+@synthesize key = _key;
+
++ (KSCrashReportFilterObjectForKey*) filterWithKey:(id)key
+{
+    return as_autorelease([[self alloc] initWithKey:key]);
+}
+
+- (id) initWithKey:(id)key
+{
+    if((self = [super init]))
+    {
+        self.key = as_retain(key);
+    }
+    return self;
+}
+
+- (void) dealloc
+{
+    as_release(_key);
+    as_superdealloc();
+}
+
+- (void) filterReports:(NSArray*) reports
+          onCompletion:(KSCrashReportFilterCompletion) onCompletion
+{
+    NSMutableArray* filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
+    for(NSDictionary* report in reports)
+    {
+        if([self.key isKindOfClass:[NSString class]])
+        {
+            [filteredReports addObject:[report objectForKeyPath:self.key]];
+        }
+        else
+        {
+            [filteredReports addObject:[report objectForKey:self.key]];
+        }
+    }
+    if(onCompletion)
+    {
+        onCompletion(filteredReports, YES, nil);
+    }
+}
+
+@end
+
+
 @interface KSCrashReportFilterConcatenate ()
 
 @property(nonatomic, readwrite, retain) NSString* separatorFmt;
@@ -305,7 +359,8 @@
         for(NSString* key in self.keys)
         {
             [concatenated appendFormat:self.separatorFmt, key];
-            [concatenated appendString:[report valueForKey:key]];
+            id object = [report objectForKeyPath:key];
+            [concatenated appendFormat:@"%@", object];
         }
         [filteredReports addObject:concatenated];
     }
