@@ -343,8 +343,8 @@ NSDictionary* g_registerOrders;
     
     if(exception != nil)
     {
-        [str appendFormat:@"\n"];
-        [str appendFormat:@"Last Exception: %@: %@\n",
+        [str appendFormat:@"\nApplication Specific Information:\n"];
+        [str appendFormat:@"*** Terminating app due to uncaught exception '%@', reason: '%@'\n\n",
          [errorInfo objectForKey:@"nsexception_name"],
          [errorInfo objectForKey:@"nsexception_reason"]];
         [str appendFormat:@"Last Exception Backtrace:\n"];
