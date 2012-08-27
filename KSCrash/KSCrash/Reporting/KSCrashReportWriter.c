@@ -830,8 +830,9 @@ void kscrw_i_addTextFileElement(const KSReportWriter* const writer,
         return;
     }
     
-    if(!ksjson_beginStringElement(getJsonContext(writer), name))
+    if(ksjson_beginStringElement(getJsonContext(writer), name) != KSJSON_OK)
     {
+        KSLOG_ERROR("Could not start string element");
         goto done;
     }
     
@@ -841,10 +842,11 @@ void kscrw_i_addTextFileElement(const KSReportWriter* const writer,
         bytesRead > 0;
         bytesRead = read(fd, buffer, sizeof(buffer)))
     {
-        if(!ksjson_appendStringElement(getJsonContext(writer),
-                                       buffer,
-                                       (size_t)bytesRead))
+        if(ksjson_appendStringElement(getJsonContext(writer),
+                                      buffer,
+                                      (size_t)bytesRead) != KSJSON_OK)
         {
+            KSLOG_ERROR("Could not append string element");
             goto done;
         }
     }
