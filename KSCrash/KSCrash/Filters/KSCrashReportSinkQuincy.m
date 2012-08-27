@@ -36,6 +36,7 @@
 #import "KSCrashReportFilterAppleFmt.h"
 #import "KSJSONCodecObjC.h"
 #import "KSReachability.h"
+#import "Container+DeepSearch.h"
 
 
 #define kFilterKeyStandard @"standard"
@@ -128,10 +129,9 @@
     NSDictionary* report = [reportTuple objectForKey:kFilterKeyStandard];
     NSString* appleReport = [reportTuple objectForKey:kFilterKeyApple];
     NSDictionary* systemDict = [report objectForKey:@"system"];
-    NSDictionary* userDict = [report objectForKey:@"user"];
-    NSString* userID = [self blankForNil:[userDict valueForKey:self.userIDKey]];
-    NSString* contactEmail = [self blankForNil:[userDict valueForKey:self.contactEmailKey]];
-    NSString* crashReportDescription = [self blankForNil:[userDict valueForKey:self.crashDescriptionKey]];
+    NSString* userID = [self blankForNil:[report objectForKeyPath:self.userIDKey]];
+    NSString* contactEmail = [self blankForNil:[report objectForKeyPath:self.contactEmailKey]];
+    NSString* crashReportDescription = [self blankForNil:[report objectForKeyPath:self.crashDescriptionKey]];
 
     return [NSString stringWithFormat:
             @"\n    <crash>\n"
