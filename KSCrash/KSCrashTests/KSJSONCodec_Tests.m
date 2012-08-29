@@ -680,6 +680,37 @@ static NSString* toString(NSData* data)
     STAssertEqualObjects(result, original, @"");
 }
 
+- (void)testSerializeDeserializeDeep
+{
+    NSError* error = (NSError*)self;
+    NSString* expected = @"{\"a0\":\"A0\",\"a1\":{\"b0\":{\"c0\":\"C0\",\"c1\":{\"d0\":[[],[],[]],\"d1\":\"D1\"}},\"b1\":\"B1\"},\"a2\":\"A2\"}";
+    id original = [NSDictionary dictionaryWithObjectsAndKeys:
+                   @"A0", @"a0",
+                   [NSDictionary dictionaryWithObjectsAndKeys:
+                    [NSDictionary dictionaryWithObjectsAndKeys:
+                     @"C0", @"c0",
+                     [NSDictionary dictionaryWithObjectsAndKeys:
+                      [NSArray arrayWithObjects:[NSArray array], [NSArray array], [NSArray array], nil], @"d0",
+                      @"D1", @"d1",
+                      nil], @"c1",
+                     nil], @"b0",
+                    @"B1", @"b1",
+                    nil], @"a1",
+                   @"A2", @"a2",
+                   nil];
+
+    NSString* jsonString = toString([KSJSONCodec encode:original
+                                                options:KSJSONEncodeOptionSorted
+                                                  error:&error]);
+    STAssertNotNil(jsonString, @"");
+    STAssertNil(error, @"");
+    STAssertEqualObjects(jsonString, expected, @"");
+    id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
+    STAssertNotNil(result, @"");
+    STAssertNil(error, @"");
+    STAssertEqualObjects(result, original, @"");
+}
+
 - (void) testDeserializeUnicode
 {
     NSError* error = (NSError*)self;
@@ -1455,5 +1486,4 @@ static NSString* toString(NSData* data)
     STAssertNil(error, @"");
     STAssertTrue([result count] == 0, @"");
 }
-
 @end

@@ -527,7 +527,7 @@ int ksjson_endContainer(KSJSONEncodeContext* const context)
     context->containerLevel--;
     
     // Pretty printing
-    unlikely_if(context->prettyPrint)
+    unlikely_if(context->prettyPrint && !context->containerFirstEntry)
     {
         int result;
         unlikely_if((result = addJSONData(context, "\n", 1)) != KSJSON_OK)
@@ -542,6 +542,7 @@ int ksjson_endContainer(KSJSONEncodeContext* const context)
             }
         }
     }
+    context->containerFirstEntry = false;
     return addJSONData(context, isObject ? "}" : "]", 1);
 }
 
