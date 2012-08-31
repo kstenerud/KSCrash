@@ -106,11 +106,13 @@
                 name:@"reports"
          contentType:@"application/json"
             filename:@"reports.json"];
-    [body appendUTF8String:@"json"
-                      name:@"encoding"
-               contentType:@"string"
-                  filename:nil];
-    
+    // TODO: Disabled gzip compression until support is added server side,
+    // and I've fixed a bug in appendUTF8String.
+//    [body appendUTF8String:@"json"
+//                      name:@"encoding"
+//               contentType:@"string"
+//                  filename:nil];
+
     request.HTTPMethod = @"POST";
     request.HTTPBody = [body data];
     [request setValue:body.contentType forHTTPHeaderField:@"Content-Type"];
