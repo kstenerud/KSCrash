@@ -1,0 +1,3 @@
+[submodule "KSCrashServer"]
+	path = KSCrashServer
+	url = git@github.com:jarodl/KSCrashServer.git
