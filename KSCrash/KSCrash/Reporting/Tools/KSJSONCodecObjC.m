@@ -535,7 +535,15 @@ int ksjsoncodecobjc_i_encodeObject(KSJSONCodec* codec,
                                        [data bytes],
                                        [data length]);
     }
-    
+
+    if([object isKindOfClass:[NSData class]])
+    {
+        return ksjson_addDataElement(context,
+                                     cName,
+                                     [object bytes],
+                                     [object length]);
+    }
+
     codec.error = ksjsoncodecobjc_i_makeNSError(@"Could not determine type of %@",
                                                 [object class]);
     return KSJSON_ERROR_INVALID_DATA;

@@ -207,7 +207,6 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
       {
           NSLog(@"Deleting reports...");
           [[KSCrash instance] deleteAllReports];
-          [blockSelf showAlertWithTitle:@"Delete All Reports" message:@"All reports deleted"];
           [(CommandTVC*)controller reloadTitle];
       }]];
     
@@ -589,8 +588,17 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
           #pragma unused(controller)
           [Crasher doIllegalInstruction];
       }]];
-    
-    
+
+    [commands addObject:
+     [CommandEntry commandWithName:@"Deallocated Ptr"
+                     accessoryType:UITableViewCellAccessoryNone
+                             block:^(UIViewController* controller)
+      {
+          #pragma unused(controller)
+          [Crasher accessDeallocatedPtr];
+      }]];
+
+
     return commands;
 }
 

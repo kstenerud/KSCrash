@@ -26,4 +26,6 @@
 
 + (void) doIllegalInstruction;
 
++ (void) accessDeallocatedPtr;
+
 @end

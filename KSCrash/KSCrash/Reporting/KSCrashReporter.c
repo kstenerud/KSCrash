@@ -34,6 +34,7 @@
 #include "KSCrashReportWriter.h"
 #include "KSLogger.h"
 #include "KSSystemInfoC.h"
+#include "KSZombie.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -85,6 +86,7 @@ bool kscrash_installReporter(const char* const reportFilePath,
                              const char* const stateFilePath,
                              const char* const crashID,
                              const char* const userInfoJSON,
+                             unsigned int zombieCacheSize,
                              const bool printTraceToStdout,
                              const KSReportWriteCallback onCrashNotify)
 {
@@ -129,6 +131,11 @@ bool kscrash_installReporter(const char* const reportFilePath,
         }
         context->crashID = strdup(crashID);
         context->onCrashNotify = onCrashNotify;
+
+        if(zombieCacheSize > 0)
+        {
+            kszombie_install(zombieCacheSize);
+        }
         
         return true;
     }

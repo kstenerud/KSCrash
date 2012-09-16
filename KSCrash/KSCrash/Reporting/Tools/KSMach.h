@@ -112,6 +112,14 @@ bool ksmach_fillState(thread_t thread,
  */
 uintptr_t ksmach_framePointer(const _STRUCT_MCONTEXT* machineContext);
 
+/** Get the current stack pointer for a machine context.
+ *
+ * @param machineContext The machine context.
+ *
+ * @return The context's stack pointer.
+ */
+uintptr_t ksmach_stackPointer(const _STRUCT_MCONTEXT* machineContext);
+
 /** Get the address of the instruction about to be, or being executed by a
  * machine context.
  *
@@ -206,6 +214,12 @@ const char* ksmach_exceptionRegisterName(int regNumber);
 uint64_t ksmach_exceptionRegisterValue(const _STRUCT_MCONTEXT* machineContext,
                                        int regNumber);
 
+/** Get the direction in which the stack grows on the current architecture.
+ *
+ * @return 1 or -1, depending on which direction the stack grows in.
+ */
+int ksmach_stackGrowDirection(void);
+
 /** Get the name of a thread's dispatch queue. Internally, a queue name will
  * never be more than 64 characters long.
  *
@@ -284,6 +298,19 @@ bool ksmach_resumeAllThreads(void);
  * @return KERN_SUCCESS or an error code.
  */
 kern_return_t ksmach_copyMem(const void* src, void* dst, size_t numBytes);
+
+/** Copies up to numBytes of data from src to dest, stopping if memory
+ * becomes inaccessible.
+ *
+ * @param src The source location to copy from.
+ *
+ * @param dst The location to copy to.
+ *
+ * @param numBytes The number of bytes to copy.
+ *
+ * @return The number of bytes actually copied.
+ */
+size_t ksmach_copyMaxPossibleMem(const void* src, void* dst, size_t numBytes);
 
 /** Get the difference in seconds between two timestamps fetched via
  * mach_absolute_time().

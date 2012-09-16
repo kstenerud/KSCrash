@@ -39,6 +39,7 @@ extern "C" {
 
 
 #include <stdbool.h>
+#include <sys/types.h>
 
 
 /**
@@ -117,6 +118,48 @@ typedef struct KSReportWriter
     void (*addTextFileElement)(const struct KSReportWriter* writer,
                                const char* name,
                                const char* filePath);
+    
+    /** Add a hex encoded data element to the report.
+     *
+     * @param writer This writer.
+     *
+     * @param name The name to give this element.
+     *
+     * @param value A pointer to the binary data.
+     *
+     * @paramn length The length of the data.
+     */
+    void (*addDataElement)(const struct KSReportWriter* writer,
+                           const char* name,
+                           const char* value,
+                           const size_t length);
+
+    /** Begin writing a hex encoded data element to the report.
+     *
+     * @param writer This writer.
+     *
+     * @param name The name to give this element.
+     */
+    void (*beginDataElement)(const struct KSReportWriter* writer,
+                             const char* name);
+    
+    /** Append hex encoded data to the current data element in the report.
+     *
+     * @param writer This writer.
+     *
+     * @param value A pointer to the binary data.
+     *
+     * @paramn length The length of the data.
+     */
+    void (*appendDataElement)(const struct KSReportWriter* writer,
+                              const char* value,
+                              const size_t length);
+
+    /** Complete writing a hex encoded data element to the report.
+     *
+     * @param writer This writer.
+     */
+    void (*endDataElement)(const struct KSReportWriter* writer);
     
     /** Add a UUID element to the report.
      *

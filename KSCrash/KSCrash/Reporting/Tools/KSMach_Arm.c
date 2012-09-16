@@ -56,6 +56,11 @@ uintptr_t ksmach_framePointer(const _STRUCT_MCONTEXT* const machineContext)
     return machineContext->__ss.__r[7];
 }
 
+uintptr_t ksmach_stackPointer(const _STRUCT_MCONTEXT* const machineContext)
+{
+    return machineContext->__ss.__sp;
+}
+
 uintptr_t ksmach_instructionAddress(const _STRUCT_MCONTEXT* const machineContext)
 {
     return machineContext->__ss.__pc;
@@ -157,6 +162,11 @@ uint64_t ksmach_exceptionRegisterValue(const _STRUCT_MCONTEXT* const machineCont
 uintptr_t ksmach_faultAddress(const _STRUCT_MCONTEXT* const machineContext)
 {
     return machineContext->__es.__far;
+}
+
+int ksmach_stackGrowDirection(void)
+{
+    return -1;
 }
 
 

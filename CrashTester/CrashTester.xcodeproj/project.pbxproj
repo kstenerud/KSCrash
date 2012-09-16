@@ -13,11 +13,6 @@
 		396D7015158D32370046CF16 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 396D7013158D32370046CF16 /* InfoPlist.strings */; };
 		396D7017158D32370046CF16 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D7016158D32370046CF16 /* main.m */; };
 		396D701B158D32370046CF16 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D701A158D32370046CF16 /* AppDelegate.m */; };
-		396D7029158D32370046CF16 /* SenTestingKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 396D7028158D32370046CF16 /* SenTestingKit.framework */; };
-		396D702A158D32370046CF16 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 396D700A158D32370046CF16 /* UIKit.framework */; };
-		396D702B158D32370046CF16 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 396D700C158D32370046CF16 /* Foundation.framework */; };
-		396D7033158D32370046CF16 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 396D7031158D32370046CF16 /* InfoPlist.strings */; };
-		396D7036158D32370046CF16 /* CrashTesterTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D7035158D32370046CF16 /* CrashTesterTests.m */; };
 		396D7040158D32C10046CF16 /* Icon.png in Resources */ = {isa = PBXBuildFile; fileRef = 396D703F158D32C10046CF16 /* Icon.png */; };
 		396D7047158D32CD0046CF16 /* AppDelegate+UI.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D7042158D32CD0046CF16 /* AppDelegate+UI.m */; };
 		396D7048158D32CD0046CF16 /* CommandTVC.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D7044158D32CD0046CF16 /* CommandTVC.m */; };
@@ -38,16 +33,6 @@
 		39E78352158DF00700B120F9 /* KSCrashLite.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 39E78351158DF00700B120F9 /* KSCrashLite.framework */; };
 /* End PBXBuildFile section */
 
-/* Begin PBXContainerItemProxy section */
-		396D702C158D32370046CF16 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 396D6FFD158D32370046CF16 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 396D7005158D32370046CF16;
-			remoteInfo = CrashTester;
-		};
-/* End PBXContainerItemProxy section */
-
 /* Begin PBXFileReference section */
 		396D7006158D32370046CF16 /* CrashTester.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CrashTester.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		396D700A158D32370046CF16 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
@@ -59,12 +44,7 @@
 		396D7018158D32370046CF16 /* CrashTester-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "CrashTester-Prefix.pch"; sourceTree = "<group>"; };
 		396D7019158D32370046CF16 /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
 		396D701A158D32370046CF16 /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
-		396D7027158D32370046CF16 /* CrashTesterTests.octest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CrashTesterTests.octest; sourceTree = BUILT_PRODUCTS_DIR; };
 		396D7028158D32370046CF16 /* SenTestingKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SenTestingKit.framework; path = Library/Frameworks/SenTestingKit.framework; sourceTree = DEVELOPER_DIR; };
-		396D7030158D32370046CF16 /* CrashTesterTests-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "CrashTesterTests-Info.plist"; sourceTree = "<group>"; };
-		396D7032158D32370046CF16 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		396D7034158D32370046CF16 /* CrashTesterTests.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CrashTesterTests.h; sourceTree = "<group>"; };
-		396D7035158D32370046CF16 /* CrashTesterTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CrashTesterTests.m; sourceTree = "<group>"; };
 		396D703F158D32C10046CF16 /* Icon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Icon.png; sourceTree = "<group>"; };
 		396D7041158D32CD0046CF16 /* AppDelegate+UI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "AppDelegate+UI.h"; sourceTree = "<group>"; };
 		396D7042158D32CD0046CF16 /* AppDelegate+UI.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "AppDelegate+UI.m"; sourceTree = "<group>"; };
@@ -109,16 +89,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		396D7023158D32370046CF16 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				396D7029158D32370046CF16 /* SenTestingKit.framework in Frameworks */,
-				396D702A158D32370046CF16 /* UIKit.framework in Frameworks */,
-				396D702B158D32370046CF16 /* Foundation.framework in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		39E7832F158DEF3400B120F9 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -138,7 +108,6 @@
 			children = (
 				396D7010158D32370046CF16 /* CrashTester */,
 				39E78337158DEF3400B120F9 /* CrashLiteTester */,
-				396D702E158D32370046CF16 /* CrashTesterTests */,
 				396D7009158D32370046CF16 /* Frameworks */,
 				396D7007158D32370046CF16 /* Products */,
 			);
@@ -148,7 +117,6 @@
 			isa = PBXGroup;
 			children = (
 				396D7006158D32370046CF16 /* CrashTester.app */,
-				396D7027158D32370046CF16 /* CrashTesterTests.octest */,
 				39E78332158DEF3400B120F9 /* CrashLiteTester.app */,
 			);
 			name = Products;
@@ -201,25 +169,6 @@
 			name = "Supporting Files";
 			sourceTree = "<group>";
 		};
-		396D702E158D32370046CF16 /* CrashTesterTests */ = {
-			isa = PBXGroup;
-			children = (
-				396D7034158D32370046CF16 /* CrashTesterTests.h */,
-				396D7035158D32370046CF16 /* CrashTesterTests.m */,
-				396D702F158D32370046CF16 /* Supporting Files */,
-			);
-			path = CrashTesterTests;
-			sourceTree = "<group>";
-		};
-		396D702F158D32370046CF16 /* Supporting Files */ = {
-			isa = PBXGroup;
-			children = (
-				396D7030158D32370046CF16 /* CrashTesterTests-Info.plist */,
-				396D7031158D32370046CF16 /* InfoPlist.strings */,
-			);
-			name = "Supporting Files";
-			sourceTree = "<group>";
-		};
 		39E78337158DEF3400B120F9 /* CrashLiteTester */ = {
 			isa = PBXGroup;
 			children = (
@@ -266,25 +215,6 @@
 			productReference = 396D7006158D32370046CF16 /* CrashTester.app */;
 			productType = "com.apple.product-type.application";
 		};
-		396D7026158D32370046CF16 /* CrashTesterTests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 396D703C158D32370046CF16 /* Build configuration list for PBXNativeTarget "CrashTesterTests" */;
-			buildPhases = (
-				396D7022158D32370046CF16 /* Sources */,
-				396D7023158D32370046CF16 /* Frameworks */,
-				396D7024158D32370046CF16 /* Resources */,
-				396D7025158D32370046CF16 /* ShellScript */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				396D702D158D32370046CF16 /* PBXTargetDependency */,
-			);
-			name = CrashTesterTests;
-			productName = CrashTesterTests;
-			productReference = 396D7027158D32370046CF16 /* CrashTesterTests.octest */;
-			productType = "com.apple.product-type.bundle";
-		};
 		39E78331158DEF3400B120F9 /* CrashLiteTester */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 39E7834B158DEF3400B120F9 /* Build configuration list for PBXNativeTarget "CrashLiteTester" */;
@@ -324,7 +254,6 @@
 			targets = (
 				396D7005158D32370046CF16 /* CrashTester */,
 				39E78331158DEF3400B120F9 /* CrashLiteTester */,
-				396D7026158D32370046CF16 /* CrashTesterTests */,
 			);
 		};
 /* End PBXProject section */
@@ -339,14 +268,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		396D7024158D32370046CF16 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				396D7033158D32370046CF16 /* InfoPlist.strings in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		39E78330158DEF3400B120F9 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -358,22 +279,6 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
-/* Begin PBXShellScriptBuildPhase section */
-		396D7025158D32370046CF16 /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "# Run the unit tests in this test bundle.\n\"${SYSTEM_DEVELOPER_DIR}/Tools/RunUnitTests\"\n";
-		};
-/* End PBXShellScriptBuildPhase section */
-
 /* Begin PBXSourcesBuildPhase section */
 		396D7002158D32370046CF16 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -384,14 +289,6 @@
 				396D7047158D32CD0046CF16 /* AppDelegate+UI.m in Sources */,
 				396D7048158D32CD0046CF16 /* CommandTVC.m in Sources */,
 				396D7049158D32CD0046CF16 /* Crasher.m in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		396D7022158D32370046CF16 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				396D7036158D32370046CF16 /* CrashTesterTests.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -408,27 +305,11 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
-/* Begin PBXTargetDependency section */
-		396D702D158D32370046CF16 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 396D7005158D32370046CF16 /* CrashTester */;
-			targetProxy = 396D702C158D32370046CF16 /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
-
 /* Begin PBXVariantGroup section */
 		396D7013158D32370046CF16 /* InfoPlist.strings */ = {
 			isa = PBXVariantGroup;
 			children = (
 				396D7014158D32370046CF16 /* en */,
-			);
-			name = InfoPlist.strings;
-			sourceTree = "<group>";
-		};
-		396D7031158D32370046CF16 /* InfoPlist.strings */ = {
-			isa = PBXVariantGroup;
-			children = (
-				396D7032158D32370046CF16 /* en */,
 			);
 			name = InfoPlist.strings;
 			sourceTree = "<group>";
@@ -457,7 +338,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
-				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_ARC = NO;
 				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_IMPLICIT_SIGN_CONVERSION = YES;
 				CLANG_WARN_OBJCPP_ARC_ABI = YES;
@@ -506,7 +387,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
-				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_ARC = NO;
 				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_IMPLICIT_SIGN_CONVERSION = YES;
 				CLANG_WARN_OBJCPP_ARC_ABI = YES;
@@ -592,40 +473,6 @@
 			};
 			name = Release;
 		};
-		396D703D158D32370046CF16 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(BUILT_PRODUCTS_DIR)/CrashTester.app/CrashTester";
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(SDKROOT)/Developer/Library/Frameworks",
-					"$(DEVELOPER_LIBRARY_DIR)/Frameworks",
-				);
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = "CrashTester/CrashTester-Prefix.pch";
-				INFOPLIST_FILE = "CrashTesterTests/CrashTesterTests-Info.plist";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				TEST_HOST = "$(BUNDLE_LOADER)";
-				WRAPPER_EXTENSION = octest;
-			};
-			name = Debug;
-		};
-		396D703E158D32370046CF16 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(BUILT_PRODUCTS_DIR)/CrashTester.app/CrashTester";
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(SDKROOT)/Developer/Library/Frameworks",
-					"$(DEVELOPER_LIBRARY_DIR)/Frameworks",
-				);
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = "CrashTester/CrashTester-Prefix.pch";
-				INFOPLIST_FILE = "CrashTesterTests/CrashTesterTests-Info.plist";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				TEST_HOST = "$(BUNDLE_LOADER)";
-				WRAPPER_EXTENSION = octest;
-			};
-			name = Release;
-		};
 		39E78349158DEF3400B120F9 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -669,15 +516,6 @@
 			buildConfigurations = (
 				396D703A158D32370046CF16 /* Debug */,
 				396D703B158D32370046CF16 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		396D703C158D32370046CF16 /* Build configuration list for PBXNativeTarget "CrashTesterTests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				396D703D158D32370046CF16 /* Debug */,
-				396D703E158D32370046CF16 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

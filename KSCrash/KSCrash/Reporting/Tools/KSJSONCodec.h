@@ -242,6 +242,59 @@ int ksjson_appendStringElement(KSJSONEncodeContext* context,
  */
 int ksjson_endStringElement(KSJSONEncodeContext* context);
 
+/** Add a string element. The element will be converted to string-coded hex.
+ *
+ * @param context The encoding context.
+ *
+ * @param name The element's name.
+ *
+ * @param value The element's value.
+ *
+ * @param lengththe length of the data.
+ *
+ * @return KSJSON_OK if the process was successful.
+ */
+int ksjson_addDataElement(KSJSONEncodeContext* const context,
+                          const char* name,
+                          const char* value,
+                          size_t length);
+
+/** Start an incrementally-built data element. The element will be converted
+ * to string-coded hex.
+ *
+ * Use this for constructing very large data elements.
+ *
+ * @param context The encoding context.
+ *
+ * @param name The element's name.
+ *
+ * @return KSJSON_OK if the process was successful.
+ */
+int ksjson_beginDataElement(KSJSONEncodeContext* const context,
+                            const char* const name);
+
+/** Add a data fragment to an incrementally-built data element.
+ *
+ * @param context The encoding context.
+ *
+ * @param value The data fragment.
+ *
+ * @param length the length of the data fragment.
+ *
+ * @return KSJSON_OK if the process was successful.
+ */
+int ksjson_appendDataElement(KSJSONEncodeContext* const context,
+                             const char* const value,
+                             size_t length);
+
+/** End an incrementally-built data element.
+ *
+ * @param context The encoding context.
+ *
+ * @return KSJSON_OK if the process was successful.
+ */
+int ksjson_endDataElement(KSJSONEncodeContext* const context);
+
 /** Add a pre-formatted JSON element.
  *
  * @param context The encoding context.

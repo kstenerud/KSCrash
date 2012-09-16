@@ -32,10 +32,14 @@
 #include "KSJSONCodec.h"
 #include "KSLogger.h"
 #include "KSMach.h"
+#include "KSObjC.h"
 #include "KSReportWriter.h"
 #include "KSSignalInfo.h"
+#include "KSZombie.h"
+#include "KSString.h"
 
 #include <mach-o/dyld.h>
+#include <malloc/malloc.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -53,7 +57,19 @@
  * If it reaches this point, we start cutting off from the top of the stack
  * rather than the bottom.
  */
-#define kOverflowThreshold 200
+#define kStackOverflowThreshold 200
+
+/** How far to search the stack (in pointer sized jumps) for notable data. */
+#define kStackNotableSearchBackDistance 20
+#define kStackNotableSearchForwardDistance 10
+
+/** How much of the stack to dump (in pointer sized jumps). */
+#define kStackContentsPushedDistance 20
+#define kStackContentsPoppedDistance 10
+#define kStackContentsTotalDistance (kStackContentsPushedDistance + kStackContentsPoppedDistance)
+
+/** The minimum length for a valid string. */
+#define kMinStringLength 4
 
 
 #if defined(__LP64__)
@@ -83,6 +99,14 @@ void kscrw_i_printStackTraceEntry(const int entryNum,
                                   Dl_info* const dlInfo);
 #endif
 
+/** Check if a memory address points to a valid null terminated UTF-8 string.
+ *
+ * @param address The address to check.
+ *
+ * @return true if the address points to a string.
+ */
+bool kscrw_i_isValidString(const void* address);
+
 /** Write a backtrace.
  *
  * @param writer The writer to write the backtrace to.
@@ -97,6 +121,52 @@ void kscrw_i_writeBacktrace(const KSReportWriter* const writer,
                             const uintptr_t* const backtrace,
                             const int backtraceLength,
                             const bool printToStdout);
+
+/** Write a dump of the stack contents.
+ *
+ * @param writer The writer.
+ *
+ * @param machineContext The context to retrieve the stack from.
+ */
+void kscrw_i_writeStackContents(const KSReportWriter* const writer,
+                                const _STRUCT_MCONTEXT* const machineContext);
+
+/** Write the contents of a memory location only if it contains notable data.
+ * Also writes meta information about the data.
+ *
+ * @param writer The writer.
+ *
+ * @param address The memory address.
+ *
+ * @param source Where this address came from (register name, stack, etc).
+ */
+void kscrw_i_writeMemoryContentsIfNotable(const KSReportWriter* const writer,
+                                          const uintptr_t address,
+                                          const char* source);
+
+/** Write any notable addresses near the stack pointer (above and below).
+ *
+ * @param writer The writer.
+ *
+ * @param machineContext The context to retrieve the stack from.
+ *
+ * @param backDistance The distance towards the beginning of the stack to check.
+ *
+ * @param forwardDistance The distance past the end of the stack to check.
+ */
+void kscrw_i_writeNotableStackContents(const KSReportWriter* const writer,
+                                       const _STRUCT_MCONTEXT* const machineContext,
+                                       int backDistance,
+                                       int forwardDistance);
+
+/** Write any notable addresses contained in the CPU registers.
+ *
+ * @param writer The writer.
+ *
+ * @param machineContext The context to retrieve the registers from.
+ */
+void kscrw_i_writeNotableRegisters(const KSReportWriter* const writer,
+                                   const _STRUCT_MCONTEXT* const machineContext);
 
 /** Write out the contents of all regular registers.
  *
@@ -222,6 +292,20 @@ void kscrw_i_addTextFileElement(const KSReportWriter* const writer,
                                 const char* const name,
                                 const char* const filePath);
 
+void kscrw_i_addDataElement(const KSReportWriter* const writer,
+                            const char* const name,
+                            const char* const value,
+                            const size_t length);
+
+void kscrw_i_beginDataElement(const KSReportWriter* const writer,
+                              const char* const name);
+
+void kscrw_i_appendDataElement(const KSReportWriter* const writer,
+                               const char* const value,
+                               const size_t length);
+
+void kscrw_i_endDataElement(const KSReportWriter* const writer);
+
 void kscrw_i_addUUIDElement(const KSReportWriter* const writer,
                             const char* const name,
                             const unsigned char* const value);
@@ -311,6 +395,179 @@ void kscrw_i_writeBacktrace(const KSReportWriter* const writer,
             }
         }
         writer->endContainer(writer);
+    }
+}
+
+void kscrw_i_writeStackContents(const KSReportWriter* const writer,
+                                const _STRUCT_MCONTEXT* const machineContext)
+{
+    uintptr_t sp = ksmach_stackPointer(machineContext);
+    if((void*)sp == NULL)
+    {
+        return;
+    }
+
+    uintptr_t lowAddress = sp + (uintptr_t)(kStackContentsPushedDistance * (int)sizeof(sp) * ksmach_stackGrowDirection() * -1);
+    uintptr_t highAddress = sp + (uintptr_t)(kStackContentsPoppedDistance * (int)sizeof(sp) * ksmach_stackGrowDirection());
+    if(highAddress < lowAddress)
+    {
+        uintptr_t tmp = lowAddress;
+        lowAddress = highAddress;
+        highAddress = tmp;
+    }
+    writer->beginObject(writer, "stack");
+    {
+        writer->addStringElement(writer, "grow_direction", ksmach_stackGrowDirection() > 0 ? "+" : "-");
+        writer->addUIntegerElement(writer, "dump_start", lowAddress);
+        writer->addUIntegerElement(writer, "dump_end", highAddress);
+        writer->addUIntegerElement(writer, "stack_pointer", sp);
+        uint8_t stackBuffer[kStackContentsTotalDistance * sizeof(sp)];
+        size_t copyLength = highAddress - lowAddress;
+        if(ksmach_copyMem((void*)lowAddress, stackBuffer, copyLength) == KERN_SUCCESS)
+        {
+            writer->addDataElement(writer, "contents", (void*)stackBuffer, copyLength);
+        }
+        else
+        {
+            writer->addStringElement(writer, "error", "Stack contents not accessible");
+        }
+    }
+    writer->endContainer(writer);
+}
+
+bool kscrw_i_isValidString(const void* address)
+{
+    if((void*)address == NULL)
+    {
+        return false;
+    }
+
+    char buffer[500];
+    if((uintptr_t)address+sizeof(buffer) < (uintptr_t)address)
+    {
+        // Wrapped around the address range.
+        return false;
+    }
+    if(ksmach_copyMem(address, buffer, sizeof(buffer)) != KERN_SUCCESS)
+    {
+        return false;
+    }
+    return kstring_isNullTerminatedUTF8String(buffer,
+                                              kMinStringLength,
+                                              sizeof(buffer));
+}
+
+void kscrw_i_writeMemoryContentsIfNotable(const KSReportWriter* const writer,
+                                          const uintptr_t address,
+                                          const char* source)
+{
+    if((void*)address == NULL)
+    {
+        return;
+    }
+
+    ssize_t mallocSize = (ssize_t)malloc_size((void*)address);
+    const char* zombieClassName = kszombie_className((void*)address);
+    ObjCObjectType objType = ksobjc_objectType((void*)address);
+    const char* className = NULL;
+    if(objType != kObjCObjectTypeNone)
+    {
+        className = ksobjc_className((void*)address);
+        if(className == NULL)
+        {
+            objType = kObjCObjectTypeNone;
+        }
+    }
+    const char* bareString = NULL;
+    if(objType == kObjCObjectTypeNone && kscrw_i_isValidString((void*)address))
+    {
+        bareString = (const char*)address;
+    }
+
+    if(objType == kObjCObjectTypeNone &&
+       zombieClassName == NULL &&
+       bareString == NULL &&
+       mallocSize == 0)
+    {
+        // Nothing notable about this memory location.
+        return;
+    }
+
+    writer->beginObject(writer, source);
+    {
+        writer->addUIntegerElement(writer, "address", address);
+        writer->addUIntegerElement(writer, "malloc_size", (size_t)mallocSize);
+        if(objType != kObjCObjectTypeNone)
+        {
+            const char* contents = objType == kObjCObjectTypeClass ? "objc_class" : "objc_object";
+            writer->addStringElement(writer, "contents", contents);
+            writer->addStringElement(writer, "class", className);
+        }
+        else if(bareString != NULL)
+        {
+            writer->addStringElement(writer, "contents", "string");
+            writer->addStringElement(writer, "value", bareString);
+        }
+        else
+        {
+            writer->addStringElement(writer, "contents", "unknown");
+        }
+        if(zombieClassName != NULL)
+        {
+            writer->addStringElement(writer, "last_deallocated_obj", zombieClassName);
+        }
+    }
+    writer->endContainer(writer);
+}
+
+void kscrw_i_writeNotableStackContents(const KSReportWriter* const writer,
+                                       const _STRUCT_MCONTEXT* const machineContext,
+                                       int backDistance,
+                                       int forwardDistance)
+{
+    uintptr_t sp = ksmach_stackPointer(machineContext);
+    if((void*)sp == NULL)
+    {
+        return;
+    }
+
+    uintptr_t lowAddress = sp + (uintptr_t)(backDistance * (int)sizeof(sp) * ksmach_stackGrowDirection() * -1);
+    uintptr_t highAddress = sp + (uintptr_t)(forwardDistance * (int)sizeof(sp) * ksmach_stackGrowDirection());
+    if(highAddress < lowAddress)
+    {
+        uintptr_t tmp = lowAddress;
+        lowAddress = highAddress;
+        highAddress = tmp;
+    }
+    uintptr_t contentsAsPointer;
+    char nameBuffer[40];
+    for(uintptr_t address = lowAddress; address < highAddress; address += sizeof(address))
+    {
+        if(ksmach_copyMem((void*)address, &contentsAsPointer, sizeof(contentsAsPointer)) == KERN_SUCCESS)
+        {
+            sprintf(nameBuffer, "stack@%p", (void*)address);
+            kscrw_i_writeMemoryContentsIfNotable(writer, contentsAsPointer, nameBuffer);
+        }
+    }
+}
+
+void kscrw_i_writeNotableRegisters(const KSReportWriter* const writer,
+                                   const _STRUCT_MCONTEXT* const machineContext)
+{
+    char registerNameBuff[30];
+    const char* registerName;
+    const int numRegisters = ksmach_numRegisters();
+    for(int reg = 0; reg < numRegisters; reg++)
+    {
+        registerName = ksmach_registerName(reg);
+        if(registerName == NULL)
+        {
+            snprintf(registerNameBuff, sizeof(registerNameBuff), "r%d", reg);
+            registerName = registerNameBuff;
+        }
+        kscrw_i_writeMemoryContentsIfNotable(writer,
+                                             (uintptr_t)ksmach_registerValue(machineContext, reg),
+                                             registerName);
     }
 }
 
@@ -472,7 +729,7 @@ void kscrw_i_writeAllThreads(const KSReportWriter* const writer,
         {
             backtrace = concreteBacktrace;
             backtraceLength = ksbt_backtraceLength(machineContext);
-            if(backtraceLength > kOverflowThreshold)
+            if(backtraceLength > kStackOverflowThreshold)
             {
                 crashContext->isStackOverflow = true;
                 skipEntries = backtraceLength - kMaxBacktraceDepth;
@@ -514,6 +771,17 @@ void kscrw_i_writeAllThreads(const KSReportWriter* const writer,
             writer->addStringElement(writer, "dispatch_queue", threadName);
         }
         writer->addBooleanElement(writer, "crashed", isCrashedThread);
+        if(isCrashedThread && crashContext->crashType != KSCrashTypeNSException)
+        {
+            kscrw_i_writeStackContents(writer, machineContext);
+            writer->beginObject(writer, "notable_addresses");
+            kscrw_i_writeNotableRegisters(writer, machineContext);
+            kscrw_i_writeNotableStackContents(writer,
+                                              machineContext,
+                                              kStackNotableSearchBackDistance,
+                                              kStackNotableSearchForwardDistance);
+            writer->endContainer(writer);
+        }
         writer->endContainer(writer);
     }
     writer->endContainer(writer);
@@ -856,6 +1124,32 @@ done:
     close(fd);
 }
 
+void kscrw_i_addDataElement(const KSReportWriter* const writer,
+                            const char* const name,
+                            const char* const value,
+                            const size_t length)
+{
+    ksjson_addDataElement(getJsonContext(writer), name, value, length);
+}
+
+void kscrw_i_beginDataElement(const KSReportWriter* const writer,
+                              const char* const name)
+{
+    ksjson_beginDataElement(getJsonContext(writer), name);
+}
+
+void kscrw_i_appendDataElement(const KSReportWriter* const writer,
+                               const char* const value,
+                               const size_t length)
+{
+    ksjson_appendDataElement(getJsonContext(writer), value, length);
+}
+
+void kscrw_i_endDataElement(const KSReportWriter* const writer)
+{
+    ksjson_endDataElement(getJsonContext(writer));
+}
+
 void kscrw_i_addUUIDElement(const KSReportWriter* const writer,
                             const char* const name,
                             const unsigned char* const value)
@@ -961,6 +1255,10 @@ void kscrw_i_prepareReportWriter(KSReportWriter* const writer,
     writer->addUIntegerElement = kscrw_i_addUIntegerElement;
     writer->addStringElement = kscrw_i_addStringElement;
     writer->addTextFileElement = kscrw_i_addTextFileElement;
+    writer->addDataElement = kscrw_i_addDataElement;
+    writer->beginDataElement = kscrw_i_beginDataElement;
+    writer->appendDataElement = kscrw_i_appendDataElement;
+    writer->endDataElement = kscrw_i_endDataElement;
     writer->addUUIDElement = kscrw_i_addUUIDElement;
     writer->addJSONElement = kscrw_i_addJSONElement;
     writer->beginObject = kscrw_i_beginObject;

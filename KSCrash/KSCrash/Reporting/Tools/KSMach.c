@@ -542,6 +542,55 @@ kern_return_t ksmach_copyMem(const void* const src,
                              &bytesCopied);
 }
 
+size_t ksmach_copyMaxPossibleMem(const void* const src,
+                                 void* const dst,
+                                 const size_t numBytes)
+{
+    const uint8_t* pSrc = src;
+    const uint8_t* pSrcMax = src + numBytes;
+    const uint8_t* pSrcEnd = src + numBytes;
+    uint8_t* pDst = dst;
+
+    size_t bytesCopied = 0;
+
+    // Short-circuit if no memory is readable
+    if(ksmach_copyMem(src, dst, 1) != KERN_SUCCESS)
+    {
+        return 0;
+    }
+    else if(numBytes <= 1)
+    {
+        return numBytes;
+    }
+
+    for(;;)
+    {
+        ssize_t copyLength = pSrcEnd - pSrc;
+        if(copyLength <= 0)
+        {
+            break;
+        }
+
+        if(ksmach_copyMem(pSrc, pDst, (size_t)copyLength) == KERN_SUCCESS)
+        {
+            bytesCopied += (size_t)copyLength;
+            pSrc += copyLength;
+            pDst += copyLength;
+            pSrcEnd = pSrc + (pSrcMax - pSrc) / 2;
+        }
+        else
+        {
+            if(copyLength <= 1)
+            {
+                break;
+            }
+            pSrcMax = pSrcEnd;
+            pSrcEnd = pSrc + copyLength / 2;
+        }
+    }
+    return bytesCopied;
+}
+
 double ksmach_timeDifferenceInSeconds(const uint64_t endTime,
                                       const uint64_t startTime)
 {

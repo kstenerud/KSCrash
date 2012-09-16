@@ -36,12 +36,11 @@
 #include <mach-o/nlist.h>
 
 
-#if defined (__arm__)
-    // ARM frames report the pc + 7 for some reason...
-    #define kPCOffset 7
-#else
-    #define kPCOffset 0
-#endif
+/** Remove any pointer tagging in a frame address.
+ * Frames are always aligned to double the default pointer size (8 bytes for
+ * 32 bit architectures, 16 bytes for 64 bit) in the System V ABI.
+ */
+#define DETAG_FRAME_CALLER_ADDRESS(A) ((A) & ~(sizeof(uintptr_t)*2-1))
 
 /** Represents an entry in a frame list.
  * This is modeled after the various i386/x64 frame walkers in the xnu source,
@@ -324,7 +323,7 @@ int ksbt_backtraceThreadState(const _STRUCT_MCONTEXT* const machineContext,
     int i;
     for(i = startPoint; i < maxEntries; i++)
     {
-        backtraceBuffer[i] = frame.caller - kPCOffset;
+        backtraceBuffer[i] = DETAG_FRAME_CALLER_ADDRESS(frame.caller);
         if(backtraceBuffer[i] == 0 ||
            frame.previous == 0 ||
            ksmach_copyMem(frame.previous, &frame, sizeof(frame)) != KERN_SUCCESS)

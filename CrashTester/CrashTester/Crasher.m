@@ -7,6 +7,36 @@
 #import "Crasher.h"
 #import "ARCSafe_MemMgmt.h"
 
+@interface MyClass: NSObject
+@end
+
+@implementation MyClass
+
+@end
+
+@interface RefHolder: NSObject
+{
+    as_unsafe_unretained id _ref;
+}
+@property(nonatomic, readwrite, assign) id ref;
+
+@end
+
+@implementation RefHolder
+
+- (id) ref
+{
+    return _ref;
+}
+
+- (void) setRef:(id) ref
+{
+    _ref = ref;
+}
+
+@end
+
+
 @implementation Crasher
 
 int* g_crasher_null_ptr = NULL;
@@ -78,6 +108,17 @@ int g_crasher_denominator = 0;
     unsigned int data[] = {0x11111111, 0x11111111};
     void (*funcptr)() = (void (*)())data;
     funcptr();
+}
+
++ (void) accessDeallocatedPtr
+{
+    RefHolder* ref = as_autorelease([RefHolder new]);
+    ref.ref = as_autorelease([MyClass new]);
+
+    dispatch_async(dispatch_get_main_queue(), ^
+    {
+        NSLog(@"Object = %@", ref.ref);
+    });
 }
 
 @end

@@ -54,6 +54,13 @@ extern "C" {
  * @param userInfoJSON Pre-baked JSON containing user-supplied information.
  *                     NULL = ignore.
  *
+ * @param zombieCacheSize The size of the cache to use for zombie tracking.
+ *                        Must be a power-of-2. 0 = no zombie tracking.
+ *                        You should profile your app to see how many objects
+ *                        are being allocated when choosing this value, but
+ *                        generally you should use 16384 or higher. Uses 8 bytes
+ *                        per cache entry.
+ *
  * @param printTraceToStdout If true, print a stack trace to STDOUT when the app
  *                           crashes.
  *
@@ -70,6 +77,7 @@ bool kscrash_installReporter(const char* reportFilePath,
                              const char* stateFilePath,
                              const char* crashID,
                              const char* userInfoJSON,
+                             unsigned int zombieCacheSize,
                              bool printTraceToStdout,
                              KSReportWriteCallback onCrashNotify);
 

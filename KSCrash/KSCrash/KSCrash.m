@@ -56,6 +56,7 @@
 
 - (id) initWithCrashReportSink:(id<KSCrashReportFilter>) sink
                       userInfo:(NSDictionary*) userInfo
+               zombieCacheSize:(unsigned int) zombieCacheSize
             printTraceToStdout:(BOOL) printTraceToStdout
                        onCrash:(KSReportWriteCallback) onCrash;
 
@@ -92,12 +93,14 @@ static KSCrash* g_instance;
 {
     return [self installWithCrashReportSink:sink
                                    userInfo:nil
+                            zombieCacheSize:0
                          printTraceToStdout:NO
                                     onCrash:NULL];
 }
 
 + (BOOL) installWithCrashReportSink:(id<KSCrashReportFilter>) sink
                            userInfo:(NSDictionary*) userInfo
+                    zombieCacheSize:(unsigned int) zombieCacheSize
                  printTraceToStdout:(BOOL) printTraceToStdout
                             onCrash:(KSReportWriteCallback) onCrash
 {
@@ -110,6 +113,7 @@ static KSCrash* g_instance;
         }
         g_instance = [[self alloc] initWithCrashReportSink:sink
                                                   userInfo:userInfo
+                                           zombieCacheSize:zombieCacheSize
                                         printTraceToStdout:printTraceToStdout
                                                    onCrash:onCrash];
         if(g_instance == nil)
@@ -158,6 +162,7 @@ static KSCrash* g_instance;
 
 - (id) initWithCrashReportSink:(id<KSCrashReportFilter>) sink
                       userInfo:(NSDictionary*) userInfo
+               zombieCacheSize:(unsigned int) zombieCacheSize
             printTraceToStdout:(BOOL) printTraceToStdout
                        onCrash:(KSReportWriteCallback) onCrash
 {
@@ -222,6 +227,7 @@ static KSCrash* g_instance;
                                     [stateFilePath UTF8String],
                                     [crashID UTF8String],
                                     [userInfoJSON bytes],
+                                    zombieCacheSize,
                                     printTraceToStdout,
                                     onCrash))
         {

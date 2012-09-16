@@ -64,6 +64,12 @@
 #define likely_if(x) if(__builtin_expect(x,1))
 #define unlikely_if(x) if(__builtin_expect(x,0))
 
+/** Used for writing hex string values. */
+static char g_hexNybbles[] =
+{
+    '0', '1', '2', '3', '4', '5', '6', '7',
+    '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'
+};
 
 const char* ksjson_stringForError(const int error)
 {
@@ -476,6 +482,57 @@ int ksjson_appendStringElement(KSJSONEncodeContext* const context,
 int ksjson_endStringElement(KSJSONEncodeContext* const context)
 {
     return addJSONData(context, "\"", 1);
+}
+
+int ksjson_addDataElement(KSJSONEncodeContext* const context,
+                          const char* name,
+                          const char* value,
+                          size_t length)
+{
+    int result = KSJSON_OK;
+    result = ksjson_beginDataElement(context, name);
+    if(result == KSJSON_OK)
+    {
+        result = ksjson_appendDataElement(context, value, length);
+    }
+    if(result == KSJSON_OK)
+    {
+        result = ksjson_endDataElement(context);
+    }
+    return result;
+}
+
+int ksjson_beginDataElement(KSJSONEncodeContext* const context,
+                            const char* const name)
+{
+    return ksjson_beginStringElement(context, name);
+}
+
+int ksjson_appendDataElement(KSJSONEncodeContext* const context,
+                               const char* const value,
+                               size_t length)
+{
+    unsigned char* currentByte = (unsigned char*)value;
+    unsigned char* end = currentByte + length;
+    char chars[2];
+    int result = KSJSON_OK;
+    while(currentByte < end)
+    {
+        chars[0] = g_hexNybbles[(*currentByte>>4)&15];
+        chars[1] = g_hexNybbles[*currentByte&15];
+        result = addJSONData(context, chars, sizeof(chars));
+        if(result != KSJSON_OK)
+        {
+            break;
+        }
+        currentByte++;
+    }
+    return result;
+}
+
+int ksjson_endDataElement(KSJSONEncodeContext* const context)
+{
+    return ksjson_endStringElement(context);
 }
 
 int ksjson_beginArray(KSJSONEncodeContext* const context,

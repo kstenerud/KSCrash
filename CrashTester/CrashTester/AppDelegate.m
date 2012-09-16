@@ -38,6 +38,7 @@ static void onCrash(const KSReportWriter* writer)
                                          @"x", @"bslash\\key",
                                          @"intl", @"テスト",
                                          nil]
+                        zombieCacheSize:16384
                      printTraceToStdout:YES
                                 onCrash:onCrash];
 }
