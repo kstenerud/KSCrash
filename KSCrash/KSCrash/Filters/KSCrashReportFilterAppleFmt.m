@@ -451,8 +451,83 @@ NSDictionary* g_registerOrders;
          uuid,
          path];
     }
+
+    [self appendExtraInfoFromReport:JSONReport toMutableString:str];
     
     return str;
+}
+
+- (id) crashedThread:(NSArray*) allThreads
+{
+    for(NSDictionary* thread in allThreads)
+    {
+        BOOL crashed = [[thread objectForKey:@"crashed"] boolValue];
+        if(crashed)
+        {
+            return thread;
+        }
+    }
+    return nil;
+}
+
+- (void) appendExtraInfoFromReport:(NSDictionary*) JSONReport
+                   toMutableString:(NSMutableString*) string
+{
+    [string appendString:@"\nExtra Information:\n"];
+
+    NSDictionary* crashInfo = [JSONReport objectForKey:@"crash"];
+    NSArray* threads = [crashInfo objectForKey:@"threads"];
+
+    NSDictionary* crashedThread = [self crashedThread:threads];
+    if(crashedThread != nil)
+    {
+        NSDictionary* stack = [crashedThread objectForKey:@"stack"];
+        if(stack != nil)
+        {
+            [string appendFormat:@"\nStack Dump (" POINTER_FMT "-" POINTER_FMT "):\n\n%@\n",
+             (uintptr_t)[[stack objectForKey:@"dump_start"] unsignedLongLongValue],
+             (uintptr_t)[[stack objectForKey:@"dump_end"] unsignedLongLongValue],
+             [stack objectForKey:@"contents"]];
+        }
+
+        NSDictionary* notableAddresses = [crashedThread objectForKey:@"notable_addresses"];
+        if(notableAddresses != nil)
+        {
+            [string appendString:@"\nNotable Addresses:\n"];
+
+            for(NSString* source in [notableAddresses.allKeys sortedArrayUsingSelector:@selector(compare:)])
+            {
+                NSDictionary* entry = [notableAddresses objectForKey:source];
+                uintptr_t address = (uintptr_t)[[entry objectForKey:@"address"] unsignedLongLongValue];
+                NSString* zombieName = [entry objectForKey:@"last_deallocated_obj"];
+                NSString* contents = [entry objectForKey:@"contents"];
+
+                [string appendFormat:@"* %-17s (" POINTER_FMT "): ", [source UTF8String], address];
+
+                if([contents isEqualToString:@"string"])
+                {
+                    NSString* value = [entry objectForKey:@"value"];
+                    [string appendFormat:@"string : %@", value];
+                }
+                else if([contents isEqualToString:@"objc_object"] ||
+                        [contents isEqualToString:@"objc_class"])
+                {
+                    NSString* class = [entry objectForKey:@"class"];
+                    NSString* type = [contents isEqualToString:@"objc_object"] ? @"object :" : @"class  :";
+                    [string appendFormat:@"%@ %@", type, class];
+                }
+                else
+                {
+                    [string appendFormat:@"unknown:"];
+                }
+                if(zombieName != nil)
+                {
+                    [string appendFormat:@" (possible zombie of %@)", zombieName];
+                }
+                [string appendString:@"\n"];
+            }
+        }
+    }
 }
 
 @end
