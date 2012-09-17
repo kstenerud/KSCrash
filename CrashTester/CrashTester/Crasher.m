@@ -7,12 +7,11 @@
 #import "Crasher.h"
 #import "ARCSafe_MemMgmt.h"
 
-@interface MyClass: NSObject
-@end
+@interface MyClass: NSObject @end
+@implementation MyClass @end
 
-@implementation MyClass
-
-@end
+@interface MyProxy: NSProxy @end
+@implementation MyProxy @end
 
 @interface RefHolder: NSObject
 {
@@ -116,9 +115,20 @@ int g_crasher_denominator = 0;
     ref.ref = as_autorelease([MyClass new]);
 
     dispatch_async(dispatch_get_main_queue(), ^
-    {
-        NSLog(@"Object = %@", ref.ref);
-    });
+                   {
+                       NSLog(@"Object = %@", ref.ref);
+                   });
+}
+
++ (void) accessDeallocatedPtrProxy
+{
+    RefHolder* ref = as_autorelease([RefHolder new]);
+    ref.ref = as_autorelease([MyProxy alloc]);
+
+    dispatch_async(dispatch_get_main_queue(), ^
+                   {
+                       NSLog(@"Object = %@", ref.ref);
+                   });
 }
 
 @end

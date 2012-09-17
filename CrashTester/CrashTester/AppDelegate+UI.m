@@ -594,8 +594,17 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                      accessoryType:UITableViewCellAccessoryNone
                              block:^(UIViewController* controller)
       {
-          #pragma unused(controller)
+           #pragma unused(controller)
           [Crasher accessDeallocatedPtr];
+      }]];
+
+    [commands addObject:
+     [CommandEntry commandWithName:@"Deallocated Proxy"
+                     accessoryType:UITableViewCellAccessoryNone
+                             block:^(UIViewController* controller)
+      {
+           #pragma unused(controller)
+          [Crasher accessDeallocatedPtrProxy];
       }]];
 
 

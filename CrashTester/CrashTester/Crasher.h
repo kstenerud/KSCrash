@@ -28,4 +28,6 @@
 
 + (void) accessDeallocatedPtr;
 
++ (void) accessDeallocatedPtrProxy;
+
 @end

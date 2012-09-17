@@ -84,6 +84,24 @@ static inline bool isPowerOf2(unsigned int value)
 
 @end
 
+@implementation NSProxy (KSZombie)
+
+- (void) dealloc_KSZombieOrig
+{
+    Zombie* zombie = g_zombieCache + hashIndex(self);
+    zombie->object = self;
+    zombie->className = class_getName(object_getClass(self));
+    [self dealloc_KSZombieOrig];
+}
+
+@end
+
+static void swizzleDealloc(Class cls)
+{
+    method_exchangeImplementations(class_getInstanceMethod(cls, @selector(dealloc)),
+                                   class_getClassMethod(cls, @selector(dealloc_KSZombieOrig)));
+}
+
 void kszombie_install(unsigned int cacheSize)
 {
     if(g_zombieCache != NULL)
@@ -113,9 +131,8 @@ void kszombie_install(unsigned int cacheSize)
         return;
     }
 
-    Class cls = [NSObject class];
-    method_exchangeImplementations(class_getInstanceMethod(cls, @selector(dealloc)),
-                                   class_getClassMethod(cls, @selector(dealloc_KSZombieOrig)));
+    swizzleDealloc([NSObject class]);
+    swizzleDealloc([NSProxy class]);
 }
 
 void kszombie_uninstall(void)
@@ -125,9 +142,8 @@ void kszombie_uninstall(void)
         return;
     }
 
-    Class cls = [NSObject class];
-    method_exchangeImplementations(class_getInstanceMethod(cls, @selector(dealloc)),
-                                   class_getClassMethod(cls, @selector(dealloc_KSZombieOrig)));
+    swizzleDealloc([NSObject class]);
+    swizzleDealloc([NSProxy class]);
 
     void* ptr = g_zombieCache;
     g_zombieCache = NULL;
