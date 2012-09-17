@@ -9,6 +9,7 @@
 
 #import "ViewController.h"
 #import "Paths.h"
+#import "ARCSafe_MemMgmt.h"
 
 #import <KSCrashLite/KSCrashReporter.h>
 
@@ -21,7 +22,7 @@
 - (NSString*) generateUUIDString
 {
     CFUUIDRef uuid = CFUUIDCreate(NULL);
-    NSString* uuidString = (__bridge_transfer NSString*)CFUUIDCreateString(NULL, uuid);
+    NSString* uuidString = (as_bridge_transfer NSString*)CFUUIDCreateString(NULL, uuid);
     CFRelease(uuid);
     
     return uuidString;
@@ -42,6 +43,7 @@ static void onCrash(const KSReportWriter* writer)
                             [[Paths statePath] UTF8String],
                             [[self generateUUIDString] UTF8String],
                             NULL,
+                            0,
                             YES,
                             onCrash);
 

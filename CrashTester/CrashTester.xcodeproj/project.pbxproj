@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		3949662B16076D4E0077D257 /* libKSCrashLib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 3949662A16076D4E0077D257 /* libKSCrashLib.a */; };
+		3949663016076E620077D257 /* Default-568h@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 3949662F16076E620077D257 /* Default-568h@2x.png */; };
+		3949663116076E6E0077D257 /* Default-568h@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 3949662F16076E620077D257 /* Default-568h@2x.png */; };
 		396D700B158D32370046CF16 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 396D700A158D32370046CF16 /* UIKit.framework */; };
 		396D700D158D32370046CF16 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 396D700C158D32370046CF16 /* Foundation.framework */; };
 		396D700F158D32370046CF16 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 396D700E158D32370046CF16 /* CoreGraphics.framework */; };
@@ -17,7 +20,6 @@
 		396D7047158D32CD0046CF16 /* AppDelegate+UI.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D7042158D32CD0046CF16 /* AppDelegate+UI.m */; };
 		396D7048158D32CD0046CF16 /* CommandTVC.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D7044158D32CD0046CF16 /* CommandTVC.m */; };
 		396D7049158D32CD0046CF16 /* Crasher.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D7046158D32CD0046CF16 /* Crasher.m */; };
-		396D704D158D33AD0046CF16 /* KSCrash.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 396D704C158D33AD0046CF16 /* KSCrash.framework */; };
 		396D704F158D33CB0046CF16 /* MessageUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 396D704E158D33CB0046CF16 /* MessageUI.framework */; };
 		396D7051158D33D40046CF16 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 396D7050158D33D40046CF16 /* SystemConfiguration.framework */; };
 		396D7053158D33DC0046CF16 /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 396D7052158D33DC0046CF16 /* libz.dylib */; };
@@ -34,6 +36,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		3949662A16076D4E0077D257 /* libKSCrashLib.a */ = {isa = PBXFileReference; lastKnownFileType = file; name = libKSCrashLib.a; path = "../KSCrash/build/Release-iphoneos/libKSCrashLib.a"; sourceTree = "<group>"; };
+		3949662F16076E620077D257 /* Default-568h@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "Default-568h@2x.png"; path = "../Default-568h@2x.png"; sourceTree = "<group>"; };
 		396D7006158D32370046CF16 /* CrashTester.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CrashTester.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		396D700A158D32370046CF16 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
 		396D700C158D32370046CF16 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
@@ -79,9 +83,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3949662B16076D4E0077D257 /* libKSCrashLib.a in Frameworks */,
 				396D700F158D32370046CF16 /* CoreGraphics.framework in Frameworks */,
 				396D700D158D32370046CF16 /* Foundation.framework in Frameworks */,
-				396D704D158D33AD0046CF16 /* KSCrash.framework in Frameworks */,
 				396D7053158D33DC0046CF16 /* libz.dylib in Frameworks */,
 				396D704F158D33CB0046CF16 /* MessageUI.framework in Frameworks */,
 				396D7051158D33D40046CF16 /* SystemConfiguration.framework in Frameworks */,
@@ -125,6 +129,7 @@
 		396D7009158D32370046CF16 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				3949662A16076D4E0077D257 /* libKSCrashLib.a */,
 				396D700E158D32370046CF16 /* CoreGraphics.framework */,
 				396D700C158D32370046CF16 /* Foundation.framework */,
 				396D704C158D33AD0046CF16 /* KSCrash.framework */,
@@ -160,6 +165,7 @@
 		396D7011158D32370046CF16 /* Supporting Files */ = {
 			isa = PBXGroup;
 			children = (
+				3949662F16076E620077D257 /* Default-568h@2x.png */,
 				396D7012158D32370046CF16 /* CrashTester-Info.plist */,
 				396D703F158D32C10046CF16 /* Icon.png */,
 				396D7013158D32370046CF16 /* InfoPlist.strings */,
@@ -265,6 +271,7 @@
 			files = (
 				396D7015158D32370046CF16 /* InfoPlist.strings in Resources */,
 				396D7040158D32C10046CF16 /* Icon.png in Resources */,
+				3949663116076E6E0077D257 /* Default-568h@2x.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -274,6 +281,7 @@
 			files = (
 				39E7833C158DEF3400B120F9 /* InfoPlist.strings in Resources */,
 				39E78348158DEF3400B120F9 /* ViewController.xib in Resources */,
+				3949663016076E620077D257 /* Default-568h@2x.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -476,6 +484,10 @@
 		39E78349158DEF3400B120F9 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					"$(ARCHS_STANDARD_32_BIT)",
+					armv6,
+				);
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "CrashLiteTester/CrashLiteTester-Prefix.pch";
@@ -489,6 +501,10 @@
 		39E7834A158DEF3400B120F9 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					"$(ARCHS_STANDARD_32_BIT)",
+					armv6,
+				);
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "CrashLiteTester/CrashLiteTester-Prefix.pch";

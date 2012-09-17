@@ -231,7 +231,7 @@ bool ksbt_dladdr(const uintptr_t address, Dl_info* const info)
             if(bestMatch != NULL)
             {
                 info->dli_saddr = (void*)(bestMatch->n_value + imageVMAddrSlide);
-                info->dli_sname = (char*)((intptr_t)stringTable + bestMatch->n_un.n_strx);
+                info->dli_sname = (char*)((intptr_t)stringTable + (intptr_t)bestMatch->n_un.n_strx);
                 if(*info->dli_sname == '_')
                 {
                     info->dli_sname++;

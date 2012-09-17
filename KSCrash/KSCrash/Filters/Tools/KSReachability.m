@@ -1,7 +1,7 @@
 //
 //  KSReachability.m
 //
-//  Created by Karl Stenerud on 12-05-05.
+//  Created by Karl Stenerud on 5/5/12.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -53,9 +53,9 @@
 
 - (void) onReachabilityFlagsChanged:(SCNetworkReachabilityFlags) flags;
 
-void ksreachability_i_onReachabilityChanged(SCNetworkReachabilityRef target,
-                                            SCNetworkReachabilityFlags flags,
-                                            void* info);
+static void onReachabilityChanged(SCNetworkReachabilityRef target,
+                                  SCNetworkReachabilityFlags flags,
+                                  void* info);
 
 @end
 
@@ -127,7 +127,7 @@ void ksreachability_i_onReachabilityChanged(SCNetworkReachabilityRef target,
                 NULL
             };
             if(SCNetworkReachabilitySetCallback(self.reachabilityRef,
-                                                ksreachability_i_onReachabilityChanged,
+                                                onReachabilityChanged,
                                                 &context))
             {
                 if(SCNetworkReachabilityScheduleWithRunLoop(self.reachabilityRef,
@@ -275,9 +275,9 @@ void ksreachability_i_onReachabilityChanged(SCNetworkReachabilityRef target,
     return NO;
 }
 
-void ksreachability_i_onReachabilityChanged(SCNetworkReachabilityRef target,
-                                            SCNetworkReachabilityFlags flags,
-                                            void* info)
+static void onReachabilityChanged(SCNetworkReachabilityRef target,
+                                  SCNetworkReachabilityFlags flags,
+                                  void* info)
 {
     #pragma unused(target)
     KSReachability* reachability = (as_bridge KSReachability*) info;

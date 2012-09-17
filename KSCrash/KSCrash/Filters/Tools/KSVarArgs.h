@@ -51,8 +51,8 @@ typedef void (^KSVA_Block)(id entry);
  * @param BLOCK A code block of type KSVA_Block.
  */
 #define ksva_iterate_list(FIRST_ARG_NAME, BLOCK) \
-KSVA_Block ksva_block = BLOCK; \
 { \
+    KSVA_Block ksva_block = BLOCK; \
     va_list ksva_args; \
     va_start(ksva_args,FIRST_ARG_NAME); \
     for(id ksva_arg = FIRST_ARG_NAME; ksva_arg != nil; ksva_arg = va_arg(ksva_args, id)) \
