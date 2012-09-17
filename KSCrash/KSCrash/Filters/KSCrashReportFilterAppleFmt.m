@@ -522,7 +522,7 @@ NSDictionary* g_registerOrders;
                 }
                 if(zombieName != nil)
                 {
-                    [string appendFormat:@" (possible zombie of %@)", zombieName];
+                    [string appendFormat:@" (was %@)", zombieName];
                 }
                 [string appendString:@"\n"];
             }
