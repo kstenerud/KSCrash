@@ -33,6 +33,7 @@
 #include "KSCrashState.h"
 #include "KSCrashReportWriter.h"
 #include "KSLogger.h"
+#include "KSMach.h"
 #include "KSSystemInfoC.h"
 #include "KSZombie.h"
 
@@ -105,24 +106,32 @@ bool kscrash_installReporter(const char* const reportFilePath,
             // Don't bail because we can still generate reports without this
         }
         context->appLaunchTime = mach_absolute_time();
-        
-        if(!kscrash_installSignalHandler(context, kscrash_i_onCrash))
+
+        // Only enable crash handlers if we're not running in a debugger.
+        if(ksmach_isBeingTraced())
         {
-            // If we fail to install the signal handlers, all is lost.
-            KSLOG_ERROR("Failed to install signal handler");
-            free(g_stateFilePath);
-            g_stateFilePath = NULL;
-            free(g_reportFilePath);
-            g_reportFilePath = NULL;
-            initialized = 0;
-            return false;
+            KSLOGBASIC_INFO("KSCrash: App is running in a debugger. Crash handlers have been disabled for the sanity of all.");
         }
-        
-        // We can still generate reports in many cases if the NSException and
-        // mach exception handlers fail to install.
-        kscrash_installNSExceptionHandler(context, kscrash_i_onCrash);
-        kscrash_installMachExceptionHandler(context, kscrash_i_onCrash);
-        
+        else
+        {
+            if(!kscrash_installSignalHandler(context, kscrash_i_onCrash))
+            {
+                // If we fail to install the signal handlers, all is lost.
+                KSLOG_ERROR("Failed to install signal handler");
+                free(g_stateFilePath);
+                g_stateFilePath = NULL;
+                free(g_reportFilePath);
+                g_reportFilePath = NULL;
+                initialized = 0;
+                return false;
+            }
+
+            // We can still generate reports in many cases if the NSException and
+            // mach exception handlers fail to install.
+            kscrash_installNSExceptionHandler(context, kscrash_i_onCrash);
+            kscrash_installMachExceptionHandler(context, kscrash_i_onCrash);
+        }
+
         context->printTraceToStdout = printTraceToStdout;
         context->systemInfoJSON = kssysteminfo_toJSON();
         if(userInfoJSON != NULL)

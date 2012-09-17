@@ -58,7 +58,6 @@
 		396D7046158D32CD0046CF16 /* Crasher.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = Crasher.m; sourceTree = "<group>"; };
 		396D704A158D33000046CF16 /* ARCSafe_MemMgmt.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ARCSafe_MemMgmt.h; path = ../../KSCrash/KSCrash/Reporting/Tools/ARCSafe_MemMgmt.h; sourceTree = "<group>"; };
 		396D704B158D33180046CF16 /* LoadableCategory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = LoadableCategory.h; path = ../../KSCrash/KSCrash/Reporting/Tools/LoadableCategory.h; sourceTree = "<group>"; };
-		396D704C158D33AD0046CF16 /* KSCrash.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = KSCrash.framework; path = "../../../Library/Developer/Xcode/DerivedData/KSCrash-akppwyeobeaabxgbqrmhgbnjcavp/Build/Products/Debug-iphoneos/KSCrash.framework"; sourceTree = "<group>"; };
 		396D704E158D33CB0046CF16 /* MessageUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MessageUI.framework; path = System/Library/Frameworks/MessageUI.framework; sourceTree = SDKROOT; };
 		396D7050158D33D40046CF16 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = System/Library/Frameworks/SystemConfiguration.framework; sourceTree = SDKROOT; };
 		396D7052158D33DC0046CF16 /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = usr/lib/libz.dylib; sourceTree = SDKROOT; };
@@ -132,7 +131,6 @@
 				3949662A16076D4E0077D257 /* libKSCrashLib.a */,
 				396D700E158D32370046CF16 /* CoreGraphics.framework */,
 				396D700C158D32370046CF16 /* Foundation.framework */,
-				396D704C158D33AD0046CF16 /* KSCrash.framework */,
 				39E78351158DF00700B120F9 /* KSCrashLite.framework */,
 				396D7052158D33DC0046CF16 /* libz.dylib */,
 				396D704E158D33CB0046CF16 /* MessageUI.framework */,
