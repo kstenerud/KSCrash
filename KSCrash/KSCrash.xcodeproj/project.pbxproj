@@ -231,6 +231,13 @@
 			remoteGlobalIDString = 3939F3A615E6BC9900AD3BCD;
 			remoteInfo = KSCrashLib;
 		};
+		39C01F4E1608EF6F00F695B4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 396D6EF9158D2F560046CF16 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3949663516076F150077D257;
+			remoteInfo = KSZombie;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -807,6 +814,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				39C01F4F1608EF6F00F695B4 /* PBXTargetDependency */,
 			);
 			name = KSCrashLib;
 			productName = KSCrashLib;
@@ -1156,6 +1164,11 @@
 			isa = PBXTargetDependency;
 			target = 3939F3A615E6BC9900AD3BCD /* KSCrashLib */;
 			targetProxy = 3949662716076D0F0077D257 /* PBXContainerItemProxy */;
+		};
+		39C01F4F1608EF6F00F695B4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3949663516076F150077D257 /* KSZombie */;
+			targetProxy = 39C01F4E1608EF6F00F695B4 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1552,6 +1565,7 @@
 				3949664116076F150077D257 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		396D6EFC158D2F560046CF16 /* Build configuration list for PBXProject "KSCrash" */ = {
 			isa = XCConfigurationList;
