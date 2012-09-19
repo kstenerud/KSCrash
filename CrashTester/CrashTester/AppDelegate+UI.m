@@ -11,17 +11,17 @@
 #import "Configuration.h"
 #import "Crasher.h"
 
-#import <KSCrash/KSCrashAdvanced.h>
-#import <KSCrash/KSCrashFilterSets.h>
-#import <KSCrash/KSCrashReportFilter.h>
-#import <KSCrash/KSCrashReportFilterAppleFmt.h>
-#import <KSCrash/KSCrashReportFilterBasic.h>
-#import <KSCrash/KSCrashReportFilterGZip.h>
-#import <KSCrash/KSCrashReportFilterJSON.h>
-#import <KSCrash/KSCrashReportSinkConsole.h>
-#import <KSCrash/KSCrashReportSinkEMail.h>
-#import <KSCrash/KSCrashReportSinkQuincy.h>
-#import <KSCrash/KSCrashReportSinkStandard.h>
+#import "KSCrashAdvanced.h"
+#import "KSCrashFilterSets.h"
+#import "KSCrashReportFilter.h"
+#import "KSCrashReportFilterAppleFmt.h"
+#import "KSCrashReportFilterBasic.h"
+#import "KSCrashReportFilterGZip.h"
+#import "KSCrashReportFilterJSON.h"
+#import "KSCrashReportSinkConsole.h"
+#import "KSCrashReportSinkEMail.h"
+#import "KSCrashReportSinkQuincy.h"
+#import "KSCrashReportSinkStandard.h"
 
 
 

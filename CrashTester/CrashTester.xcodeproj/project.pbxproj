@@ -36,7 +36,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		3949662A16076D4E0077D257 /* libKSCrashLib.a */ = {isa = PBXFileReference; lastKnownFileType = file; name = libKSCrashLib.a; path = "../KSCrash/build/Release-iphoneos/libKSCrashLib.a"; sourceTree = "<group>"; };
+		3949662A16076D4E0077D257 /* libKSCrashLib.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libKSCrashLib.a; path = "../KSCrash/build/Release-iphoneos/libKSCrashLib.a"; sourceTree = "<group>"; };
 		3949662F16076E620077D257 /* Default-568h@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "Default-568h@2x.png"; path = "../Default-568h@2x.png"; sourceTree = "<group>"; };
 		396D7006158D32370046CF16 /* CrashTester.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CrashTester.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		396D700A158D32370046CF16 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
@@ -448,6 +448,7 @@
 					UFW_NOARCHIVE,
 				);
 				GCC_THUMB_SUPPORT = NO;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/../KSCrash/**";
 				INFOPLIST_FILE = "CrashTester/CrashTester-Info.plist";
 				OTHER_LDFLAGS = "-ObjC";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -471,6 +472,7 @@
 					UFW_NOARCHIVE,
 				);
 				GCC_THUMB_SUPPORT = NO;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/../KSCrash/**";
 				INFOPLIST_FILE = "CrashTester/CrashTester-Info.plist";
 				OTHER_LDFLAGS = "-ObjC";
 				PRODUCT_NAME = "$(TARGET_NAME)";
