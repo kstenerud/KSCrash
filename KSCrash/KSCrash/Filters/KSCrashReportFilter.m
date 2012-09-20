@@ -145,8 +145,11 @@
         {
             onCompletion(combinedReports, completed, filterError);
         }
-        as_release(filterCompletion);
-        filterCompletion = nil;
+        dispatch_async(dispatch_get_main_queue(), ^
+        {
+            as_release(filterCompletion);
+            filterCompletion = nil;
+        });
     } copy];
     
     id<KSCrashReportFilter> filter = [filters objectAtIndex:iFilter];
@@ -230,8 +233,11 @@
         {
             onCompletion(filteredReports, completed, filterError);
         }
-        as_release(filterCompletion);
-        filterCompletion = nil;
+        dispatch_async(dispatch_get_main_queue(), ^
+        {
+            as_release(filterCompletion);
+            filterCompletion = nil;
+        });
     } copy];
 
     id<KSCrashReportFilter> filter = [filters objectAtIndex:iFilter];

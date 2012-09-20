@@ -224,8 +224,11 @@
                                        NSError* error)
          {
              onCompletion(filteredReports, completed, error);
-             as_release(process);
-             process = nil;
+             dispatch_async(dispatch_get_main_queue(), ^
+             {
+                 as_release(process);
+                 process = nil;
+             });
          }];
     });
 }
