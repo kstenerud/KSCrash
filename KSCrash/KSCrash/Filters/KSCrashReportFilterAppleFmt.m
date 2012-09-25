@@ -35,18 +35,22 @@
 
 
 #if defined(__LP64__)
-    #define TRACE_FMT            @"%-4d%-31s 0x%016llx %@ + %llu\n"
-    #define TRACE_SIDEBYSIDE_FMT @"%-4d%-31s 0x%016llx %llx + %llu (%@ + %llu)\n"
-    #define POINTER_FMT          @"0x%016llx"
-    #define POINTER_SHORT_FMT    @"0x%llx"
-    #define POINTER_RJ_FMT       @"%#18llx"
+    #define FMT_PTR_SHORT        @"0x%llx"
+    #define FMT_PTR_LONG         @"0x%016llx"
+    #define FMT_PTR_RJ           @"%#18llx"
+    #define FMT_OFFSET           @"%llu"
 #else
-    #define TRACE_FMT            @"%-4d%-31s 0x%08lx %@ + %lu\n"
-    #define TRACE_SIDEBYSIDE_FMT @"%-4d%-31s 0x%08lx 0x%lx + %lu (%@ + %lu)\n"
-    #define POINTER_FMT          @"0x%08lx"
-    #define POINTER_SHORT_FMT    @"0x%lx"
-    #define POINTER_RJ_FMT       @"%#10lx"
+    #define FMT_PTR_SHORT        @"0x%lx"
+    #define FMT_PTR_LONG         @"0x%08lx"
+    #define FMT_PTR_RJ           @"%#10lx"
+    #define FMT_OFFSET           @"%lu"
 #endif
+
+#define FMT_TRACE_PREAMBLE       @"%-4d%-31s " FMT_PTR_LONG
+#define FMT_TRACE_UNSYMBOLICATED FMT_PTR_SHORT @" + " FMT_OFFSET
+#define FMT_TRACE_SYMBOLICATED   @"%@ + " FMT_OFFSET
+
+#define kAppleRedactedText @"<redacted>"
 
 
 @interface KSCrashReportFilterAppleFmt ()
@@ -235,47 +239,47 @@ NSDictionary* g_registerOrders;
         NSString* objName = [[trace objectForKey:@"object_name"] lastPathComponent];
         uintptr_t symAddr = (uintptr_t)[[trace objectForKey:@"symbol_addr"] longLongValue];
         NSString* symName = [trace objectForKey:@"symbol_name"];
-        uintptr_t offset = pc - symAddr;
         bool isMainExecutable = [objName isEqualToString:mainExecutableName];
-        bool symNameIsValid = [symName isKindOfClass:[NSString class]];
-        bool symbolicate = reportStyle != KSAppleReportStyleUnsymbolicated && symNameIsValid;
-        
-        if(reportStyle == KSAppleReportStylePartiallySymbolicated && isMainExecutable)
+        KSAppleReportStyle thisLineStyle = reportStyle;
+        if(thisLineStyle == KSAppleReportStylePartiallySymbolicated)
         {
-            symbolicate = NO;
+            thisLineStyle = isMainExecutable ? KSAppleReportStyleUnsymbolicated : KSAppleReportStyleSymbolicated;
         }
-        
-        if(![objName isKindOfClass:[NSString class]])
+
+        NSString* preamble = [NSString stringWithFormat:FMT_TRACE_PREAMBLE, traceNum, [objName UTF8String], pc];
+        NSString* unsymbolicated = [NSString stringWithFormat:FMT_TRACE_UNSYMBOLICATED, objAddr, pc - objAddr];
+        NSString* symbolicated = @"(null)";
+        if(thisLineStyle != KSAppleReportStyleUnsymbolicated && [symName isKindOfClass:[NSString class]])
         {
-            objName = [NSString stringWithFormat:POINTER_FMT, objAddr];
-        }
-        
-        if(!symbolicate)
-        {
-            symName = [NSString stringWithFormat:POINTER_SHORT_FMT, symAddr];
-            offset = pc - objAddr;
-        }
-        
-        if(reportStyle == KSAppleReportStyleSymbolicatedSideBySide &&
-           isMainExecutable && symbolicate)
-        {
-            [string appendFormat:TRACE_SIDEBYSIDE_FMT,
-             traceNum,
-             [objName UTF8String],
-             pc,
-             symAddr,
-             pc - objAddr,
-             symName,
-             offset];
+            symbolicated = [NSString stringWithFormat:FMT_TRACE_SYMBOLICATED, symName, pc - symAddr];
         }
         else
         {
-            [string appendFormat:TRACE_FMT,
-             traceNum,
-             [objName UTF8String],
-             pc,
-             symName,
-             offset];
+            thisLineStyle = KSAppleReportStyleUnsymbolicated;
+        }
+
+
+        // Apple has started replacing symbols for any function/method
+        // beginning with an underscore with "<redacted>" in iOS 6.
+        // No, I can't think of any valid reason to do this, either.
+        if(thisLineStyle == KSAppleReportStyleSymbolicated &&
+           [symName isEqualToString:kAppleRedactedText])
+        {
+            thisLineStyle = KSAppleReportStyleUnsymbolicated;
+        }
+
+        switch (thisLineStyle)
+        {
+            case KSAppleReportStyleSymbolicatedSideBySide:
+                [string appendFormat:@"%@ %@ (%@)\n", preamble, unsymbolicated, symbolicated];
+                break;
+            case KSAppleReportStyleSymbolicated:
+                [string appendFormat:@"%@ %@\n", preamble, symbolicated];
+                break;
+            case KSAppleReportStylePartiallySymbolicated: // Should not happen
+            case KSAppleReportStyleUnsymbolicated:
+                [string appendFormat:@"%@ %@\n", preamble, unsymbolicated];
+                break;
         }
         traceNum++;
     }
@@ -327,7 +331,7 @@ NSDictionary* g_registerOrders;
     [str appendFormat:@"Exception Type:  %@ (%@)\n",
      [errorInfo objectForKey:@"mach_exception"],
      [errorInfo objectForKey:@"signal_name"]];
-    [str appendFormat:@"Exception Codes: %@ at " POINTER_FMT @"\n",
+    [str appendFormat:@"Exception Codes: %@ at " FMT_PTR_LONG @"\n",
      [errorInfo objectForKey:@"mach_code_name"],
      (uintptr_t)[[errorInfo objectForKey:@"address"] longLongValue]];
     
@@ -415,7 +419,7 @@ NSDictionary* g_registerOrders;
             {
                 NSString* regName = [regOrder objectAtIndex:i];
                 uintptr_t addr = (uintptr_t)[[registers objectForKey:regName] longLongValue];
-                [str appendFormat:@"%6s: " POINTER_FMT @" ",
+                [str appendFormat:@"%6s: " FMT_PTR_LONG @" ",
                  [regName cStringUsingEncoding:NSUTF8StringEncoding],
                  addr];
             }
@@ -442,7 +446,7 @@ NSDictionary* g_registerOrders;
         NSString* uuid = [self toCompactUUID:[image objectForKey:@"uuid"]];
         NSString* isBaseImage = [executablePath isEqualToString:path] ? @"+" : @" ";
         
-        [str appendFormat:POINTER_RJ_FMT @" - " POINTER_RJ_FMT @" %@%@ %@  <%@> %@\n",
+        [str appendFormat:FMT_PTR_RJ @" - " FMT_PTR_RJ @" %@%@ %@  <%@> %@\n",
          imageAddr,
          imageAddr + imageSize - 1,
          isBaseImage,
@@ -484,7 +488,7 @@ NSDictionary* g_registerOrders;
         NSDictionary* stack = [crashedThread objectForKey:@"stack"];
         if(stack != nil)
         {
-            [string appendFormat:@"\nStack Dump (" POINTER_FMT "-" POINTER_FMT "):\n\n%@\n",
+            [string appendFormat:@"\nStack Dump (" FMT_PTR_LONG "-" FMT_PTR_LONG "):\n\n%@\n",
              (uintptr_t)[[stack objectForKey:@"dump_start"] unsignedLongLongValue],
              (uintptr_t)[[stack objectForKey:@"dump_end"] unsignedLongLongValue],
              [stack objectForKey:@"contents"]];
@@ -502,7 +506,7 @@ NSDictionary* g_registerOrders;
                 NSString* zombieName = [entry objectForKey:@"last_deallocated_obj"];
                 NSString* contents = [entry objectForKey:@"contents"];
 
-                [string appendFormat:@"* %-17s (" POINTER_FMT "): ", [source UTF8String], address];
+                [string appendFormat:@"* %-17s (" FMT_PTR_LONG "): ", [source UTF8String], address];
 
                 if([contents isEqualToString:@"string"])
                 {
