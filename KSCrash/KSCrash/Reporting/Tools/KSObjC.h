@@ -44,6 +44,7 @@ const char* ksobjc_className(void* potentialObject);
  */
 ObjCObjectType ksobjc_objectType(void* address);
 
+
 #ifdef __cplusplus
 }
 #endif

@@ -39,8 +39,6 @@ extern "C" {
 
 #include "KSCrashContext.h"
 
-#include <stdbool.h>
-
 
 /** Install our custom signal handler.
  *
@@ -50,12 +48,11 @@ extern "C" {
  *
  * @return true if installation was succesful.
  */
-bool kscrash_installSignalHandler(KSCrashContext* context,
-                                  void(*onCrash)());
+bool kscrash_handlers_installSignalHandler(KSCrash_HandlerContext* context);
 
 /** Uninstall our custom signal handlers and restore the previous ones.
  */
-void kscrash_uninstallSignalHandler(void);
+void kscrash_handlers_uninstallSignalHandler(void);
 
 
 #ifdef __cplusplus

@@ -71,7 +71,8 @@ void kszombie_uninstall(void);
  *
  * @return The object's class name, or NULL if it wasn't found.
  */
-const char* kszombie_className(void* object);
+const char* kszombie_className(const void* object);
+
 
 #ifdef __cplusplus
 }

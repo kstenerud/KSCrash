@@ -26,12 +26,14 @@
 
 #import "KSCrashReportSinkEMail.h"
 
-#import <MessageUI/MessageUI.h>
-
 #import "ARCSafe_MemMgmt.h"
-#import "KSLogger.h"
 #import "KSCrashReportFilterGZip.h"
 #import "KSCrashReportFilterJSON.h"
+
+//#define KSLogger_LocalLevel TRACE
+#import "KSLogger.h"
+
+#import <MessageUI/MessageUI.h>
 
 
 @interface KSCrashMailProcess : NSObject <MFMailComposeViewControllerDelegate>

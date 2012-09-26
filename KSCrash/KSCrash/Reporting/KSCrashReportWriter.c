@@ -30,13 +30,15 @@
 #include "KSBacktrace_private.h"
 #include "KSFileUtils.h"
 #include "KSJSONCodec.h"
-#include "KSLogger.h"
 #include "KSMach.h"
 #include "KSObjC.h"
 #include "KSReportWriter.h"
 #include "KSSignalInfo.h"
 #include "KSZombie.h"
 #include "KSString.h"
+
+//#define KSLogger_LocalLevel TRACE
+#include "KSLogger.h"
 
 #include <mach-o/dyld.h>
 #include <malloc/malloc.h>
@@ -45,6 +47,13 @@
 #include <errno.h>
 #include <unistd.h>
 
+
+// Note: Avoiding static functions due to linker issues.
+
+
+// ============================================================================
+#pragma mark - Constants -
+// ============================================================================
 
 /** Version number written to the report. */
 #define kReportVersionMajor 1
@@ -72,969 +81,24 @@
 #define kMinStringLength 4
 
 
+// ============================================================================
+#pragma mark - Formatting -
+// ============================================================================
+
 #if defined(__LP64__)
-    #define TRACE_FMT         "%-4d%-31s 0x%016llx %s + %llu\n"
+    #define TRACE_FMT         "%-4d%-31s 0x%016llx %s + %llu"
     #define POINTER_FMT       "0x%016llx"
     #define POINTER_SHORT_FMT "0x%llx"
 #else
-    #define TRACE_FMT         "%-4d%-31s 0x%08lx %s + %lu\n"
+    #define TRACE_FMT         "%-4d%-31s 0x%08lx %s + %lu"
     #define POINTER_FMT       "0x%08lx"
     #define POINTER_SHORT_FMT "0x%lx"
 #endif
 
 
-// Avoiding static functions due to linker issues.
-
-/** Print a stack trace entry in the standard format.
- *
- * @param entryNum The stack entry number.
- *
- * @param pc The program counter value (instruction address).
- *
- * @param dlInfo Information about the nearest symbols to the pc.
- */
-#if KSLOG_PRINTS_AT_LEVEL(KSLogger_Level_Info)
-void kscrw_i_printStackTraceEntry(const int entryNum,
-                                  const uintptr_t pc,
-                                  Dl_info* const dlInfo);
-#endif
-
-/** Check if a memory address points to a valid null terminated UTF-8 string.
- *
- * @param address The address to check.
- *
- * @return true if the address points to a string.
- */
-bool kscrw_i_isValidString(const void* address);
-
-/** Write a backtrace.
- *
- * @param writer The writer to write the backtrace to.
- *
- * @param backtrace The backtrace to write.
- *
- * @param backtraceLength Length of the backtrace.
- *
- * @param printToStdout If true, also print a trace to stdout.
- */
-void kscrw_i_writeBacktrace(const KSReportWriter* const writer,
-                            const uintptr_t* const backtrace,
-                            const int backtraceLength,
-                            const bool printToStdout);
-
-/** Write a dump of the stack contents.
- *
- * @param writer The writer.
- *
- * @param machineContext The context to retrieve the stack from.
- */
-void kscrw_i_writeStackContents(const KSReportWriter* const writer,
-                                const _STRUCT_MCONTEXT* const machineContext);
-
-/** Write the contents of a memory location only if it contains notable data.
- * Also writes meta information about the data.
- *
- * @param writer The writer.
- *
- * @param address The memory address.
- *
- * @param source Where this address came from (register name, stack, etc).
- */
-void kscrw_i_writeMemoryContentsIfNotable(const KSReportWriter* const writer,
-                                          const uintptr_t address,
-                                          const char* source);
-
-/** Write any notable addresses near the stack pointer (above and below).
- *
- * @param writer The writer.
- *
- * @param machineContext The context to retrieve the stack from.
- *
- * @param backDistance The distance towards the beginning of the stack to check.
- *
- * @param forwardDistance The distance past the end of the stack to check.
- */
-void kscrw_i_writeNotableStackContents(const KSReportWriter* const writer,
-                                       const _STRUCT_MCONTEXT* const machineContext,
-                                       int backDistance,
-                                       int forwardDistance);
-
-/** Write any notable addresses contained in the CPU registers.
- *
- * @param writer The writer.
- *
- * @param machineContext The context to retrieve the registers from.
- */
-void kscrw_i_writeNotableRegisters(const KSReportWriter* const writer,
-                                   const _STRUCT_MCONTEXT* const machineContext);
-
-/** Write out the contents of all regular registers.
- *
- * @param writer The writer.
- *
- * @param machineContext The context to retrieve the registers from.
- */
-void kscrw_i_writeRegisters(const KSReportWriter* const writer,
-                            const _STRUCT_MCONTEXT* const machineContext);
-
-/** Write out the contents of all exception registers.
- *
- * @param writer The writer.
- *
- * @param machineContext The context to retrieve the registers from.
- */
-void kscrw_i_writeExceptionRegisters(const KSReportWriter* const writer,
-                                     const _STRUCT_MCONTEXT* const machineContext);
-
-/** Get all parts of the machine state required for a dump.
- * This includes basic thread state, and exception registers.
- *
- * @param thread The thread to get state for.
- *
- * @param machineContext The machine context to fill out.
- */
-bool kscrw_i_fetchMachineState(const thread_t thread,
-                               _STRUCT_MCONTEXT* const machineContext);
-
-/** Write out information about all threads.
- *
- * @param writer The writer.
- *
- * @param crashContext Information about the crash.
- */
-void kscrw_i_writeAllThreads(const KSReportWriter* const writer,
-                             KSCrashContext* const crashContext);
-
-/** Write out a list of all loaded binary images.
- *
- * @param writer The writer.
- */
-void kscrw_i_writeBinaryImages(const KSReportWriter* const writer);
-
-/** Write out some information about the machine.
- *
- * @param writer The writer.
- */
-void kscrw_i_writeMachineStats(const KSReportWriter* const writer);
-
-/** Get the name of a mach exception.
- *
- * It will fill the buffer with the exception name, or a number in the format
- * 0x00000000 if it couldn't identify the exception.
- *
- * @param machException The exception.
- *
- * @param buffer Buffer to hold the name.
- *
- * @param maxLength The length of the buffer.
- */
-void kscrw_i_getMachExceptionName(const int machException,
-                                  char* const buffer,
-                                  const int maxLength);
-
-/** Get the name of a mach exception code.
- *
- * It will fill the buffer with the code name, or a number in the format
- * 0x00000000 if it couldn't identify the exception code.
- *
- * @param machCode The mach exception code.
- *
- * @param buffer Buffer to hold the name.
- *
- * @param maxLength The length of the buffer.
- */
-void kscrw_i_getMachCodeName(const int machCode,
-                             char* const buffer,
-                             const int maxLength);
-
-/** Write information about the error.
- *
- * @param writer The writer.
- *
- * @param crashContext Information about the crash.
- */
-void kscrw_i_writeErrorInfo(const KSReportWriter* const writer,
-                            const KSCrashContext* const crashContext);
-
-/** Prepare a report writer for use.
- *
- * @oaram writer The writer to prepare.
- *
- * @param context JSON writer contextual information.
- */
-void kscrw_i_prepareReportWriter(KSReportWriter* const writer,
-                                 KSJSONEncodeContext* const context);
-
-
-/* Various callbacks.
- */
-void kscrw_i_addBooleanElement(const KSReportWriter* const writer,
-                               const char* const name,
-                               const bool value);
-
-void kscrw_i_addFloatingPointElement(const KSReportWriter* const writer,
-                                     const char* const name,
-                                     const double value);
-
-void kscrw_i_addIntegerElement(const KSReportWriter* const writer,
-                               const char* const name,
-                               const long long value);
-
-void kscrw_i_addUIntegerElement(const KSReportWriter* const writer,
-                                const char* const name,
-                                const unsigned long long value);
-
-void kscrw_i_addStringElement(const KSReportWriter* const writer,
-                              const char* const name,
-                              const char* const value);
-
-void kscrw_i_addTextFileElement(const KSReportWriter* const writer,
-                                const char* const name,
-                                const char* const filePath);
-
-void kscrw_i_addDataElement(const KSReportWriter* const writer,
-                            const char* const name,
-                            const char* const value,
-                            const size_t length);
-
-void kscrw_i_beginDataElement(const KSReportWriter* const writer,
-                              const char* const name);
-
-void kscrw_i_appendDataElement(const KSReportWriter* const writer,
-                               const char* const value,
-                               const size_t length);
-
-void kscrw_i_endDataElement(const KSReportWriter* const writer);
-
-void kscrw_i_addUUIDElement(const KSReportWriter* const writer,
-                            const char* const name,
-                            const unsigned char* const value);
-
-void kscrw_i_addJSONElement(const KSReportWriter* writer,
-                            const char* name,
-                            const char* jsonElement);
-
-void kscrw_i_beginObject(const KSReportWriter* const writer,
-                         const char* const name);
-
-void kscrw_i_beginArray(const KSReportWriter* const writer,
-                        const char* const name);
-
-void kscrw_i_endContainer(const KSReportWriter* const writer);
-
-int kscrw_i_addJSONData(const char* const data,
-                        const size_t length,
-                        void* const userData);
-
-
-#if KSLOG_PRINTS_AT_LEVEL(KSLogger_Level_Info)
-void kscrw_i_printStackTraceEntry(const int entryNum,
-                                  const uintptr_t pc,
-                                  Dl_info* const dlInfo)
-{
-    char faddrBuff[20];
-    char saddrBuff[20];
-    
-    const char* fname = ksfu_lastPathEntry(dlInfo->dli_fname);
-    if(fname == NULL)
-    {
-        sprintf(faddrBuff, POINTER_FMT, (uintptr_t)dlInfo->dli_fbase);
-        fname = faddrBuff;
-    }
-    
-    uintptr_t offset = pc - (uintptr_t)dlInfo->dli_saddr;
-    const char* sname = dlInfo->dli_sname;
-    if(sname == NULL)
-    {
-        sprintf(saddrBuff, POINTER_SHORT_FMT, (uintptr_t)dlInfo->dli_fbase);
-        sname = saddrBuff;
-        offset = pc - (uintptr_t)dlInfo->dli_fbase;
-    }
-    
-    KSLOGBASIC_INFO(TRACE_FMT,
-                    entryNum,
-                    fname,
-                    pc,
-                    sname,
-                    offset);
-}
-#else
-    #define printStackTraceEntry(A,B,C)
-#endif
-
-void kscrw_i_writeBacktrace(const KSReportWriter* const writer,
-                            const uintptr_t* const backtrace,
-                            const int backtraceLength,
-                            const bool printToStdout)
-{
-    if(backtraceLength > 0)
-    {
-        Dl_info symbolicated[backtraceLength];
-        ksbt_symbolicate(backtrace, symbolicated, backtraceLength);
-        
-        writer->beginArray(writer, "backtrace");
-        for(int i = 0; i < backtraceLength; i++)
-        {
-            writer->beginObject(writer, NULL);
-            const uintptr_t instructionAddr = backtrace[i];
-            if(symbolicated[i].dli_fname != NULL)
-            {
-                writer->addStringElement(writer, "object_name", ksfu_lastPathEntry(symbolicated[i].dli_fname));
-            }
-            writer->addUIntegerElement(writer, "object_addr", (uintptr_t)symbolicated[i].dli_fbase);
-            if(symbolicated[i].dli_sname != NULL)
-            {
-                writer->addStringElement(writer, "symbol_name", symbolicated[i].dli_sname);
-            }
-            writer->addUIntegerElement(writer, "symbol_addr", (uintptr_t)symbolicated[i].dli_saddr);
-            writer->addUIntegerElement(writer, "instruction_addr", (uintptr_t)instructionAddr);
-            writer->endContainer(writer);
-            if(printToStdout)
-            {
-                kscrw_i_printStackTraceEntry(i, instructionAddr, &symbolicated[i]);
-            }
-        }
-        writer->endContainer(writer);
-    }
-}
-
-void kscrw_i_writeStackContents(const KSReportWriter* const writer,
-                                const _STRUCT_MCONTEXT* const machineContext)
-{
-    uintptr_t sp = ksmach_stackPointer(machineContext);
-    if((void*)sp == NULL)
-    {
-        return;
-    }
-
-    uintptr_t lowAddress = sp + (uintptr_t)(kStackContentsPushedDistance * (int)sizeof(sp) * ksmach_stackGrowDirection() * -1);
-    uintptr_t highAddress = sp + (uintptr_t)(kStackContentsPoppedDistance * (int)sizeof(sp) * ksmach_stackGrowDirection());
-    if(highAddress < lowAddress)
-    {
-        uintptr_t tmp = lowAddress;
-        lowAddress = highAddress;
-        highAddress = tmp;
-    }
-    writer->beginObject(writer, "stack");
-    {
-        writer->addStringElement(writer, "grow_direction", ksmach_stackGrowDirection() > 0 ? "+" : "-");
-        writer->addUIntegerElement(writer, "dump_start", lowAddress);
-        writer->addUIntegerElement(writer, "dump_end", highAddress);
-        writer->addUIntegerElement(writer, "stack_pointer", sp);
-        uint8_t stackBuffer[kStackContentsTotalDistance * sizeof(sp)];
-        size_t copyLength = highAddress - lowAddress;
-        if(ksmach_copyMem((void*)lowAddress, stackBuffer, copyLength) == KERN_SUCCESS)
-        {
-            writer->addDataElement(writer, "contents", (void*)stackBuffer, copyLength);
-        }
-        else
-        {
-            writer->addStringElement(writer, "error", "Stack contents not accessible");
-        }
-    }
-    writer->endContainer(writer);
-}
-
-bool kscrw_i_isValidString(const void* address)
-{
-    if((void*)address == NULL)
-    {
-        return false;
-    }
-
-    char buffer[500];
-    if((uintptr_t)address+sizeof(buffer) < (uintptr_t)address)
-    {
-        // Wrapped around the address range.
-        return false;
-    }
-    if(ksmach_copyMem(address, buffer, sizeof(buffer)) != KERN_SUCCESS)
-    {
-        return false;
-    }
-    return kstring_isNullTerminatedUTF8String(buffer,
-                                              kMinStringLength,
-                                              sizeof(buffer));
-}
-
-void kscrw_i_writeMemoryContentsIfNotable(const KSReportWriter* const writer,
-                                          const uintptr_t address,
-                                          const char* source)
-{
-    if((void*)address == NULL)
-    {
-        return;
-    }
-
-    ssize_t mallocSize = (ssize_t)malloc_size((void*)address);
-    const char* zombieClassName = kszombie_className((void*)address);
-    ObjCObjectType objType = ksobjc_objectType((void*)address);
-    const char* className = NULL;
-    if(objType != kObjCObjectTypeNone)
-    {
-        className = ksobjc_className((void*)address);
-        if(className == NULL)
-        {
-            objType = kObjCObjectTypeNone;
-        }
-    }
-    const char* bareString = NULL;
-    if(objType == kObjCObjectTypeNone && kscrw_i_isValidString((void*)address))
-    {
-        bareString = (const char*)address;
-    }
-
-    if(objType == kObjCObjectTypeNone &&
-       zombieClassName == NULL &&
-       bareString == NULL &&
-       mallocSize == 0)
-    {
-        // Nothing notable about this memory location.
-        return;
-    }
-
-    writer->beginObject(writer, source);
-    {
-        writer->addUIntegerElement(writer, "address", address);
-        writer->addUIntegerElement(writer, "malloc_size", (size_t)mallocSize);
-        if(objType != kObjCObjectTypeNone)
-        {
-            const char* contents = objType == kObjCObjectTypeClass ? "objc_class" : "objc_object";
-            writer->addStringElement(writer, "contents", contents);
-            writer->addStringElement(writer, "class", className);
-        }
-        else if(bareString != NULL)
-        {
-            writer->addStringElement(writer, "contents", "string");
-            writer->addStringElement(writer, "value", bareString);
-        }
-        else
-        {
-            writer->addStringElement(writer, "contents", "unknown");
-        }
-        if(zombieClassName != NULL)
-        {
-            writer->addStringElement(writer, "last_deallocated_obj", zombieClassName);
-        }
-    }
-    writer->endContainer(writer);
-}
-
-void kscrw_i_writeNotableStackContents(const KSReportWriter* const writer,
-                                       const _STRUCT_MCONTEXT* const machineContext,
-                                       int backDistance,
-                                       int forwardDistance)
-{
-    uintptr_t sp = ksmach_stackPointer(machineContext);
-    if((void*)sp == NULL)
-    {
-        return;
-    }
-
-    uintptr_t lowAddress = sp + (uintptr_t)(backDistance * (int)sizeof(sp) * ksmach_stackGrowDirection() * -1);
-    uintptr_t highAddress = sp + (uintptr_t)(forwardDistance * (int)sizeof(sp) * ksmach_stackGrowDirection());
-    if(highAddress < lowAddress)
-    {
-        uintptr_t tmp = lowAddress;
-        lowAddress = highAddress;
-        highAddress = tmp;
-    }
-    uintptr_t contentsAsPointer;
-    char nameBuffer[40];
-    for(uintptr_t address = lowAddress; address < highAddress; address += sizeof(address))
-    {
-        if(ksmach_copyMem((void*)address, &contentsAsPointer, sizeof(contentsAsPointer)) == KERN_SUCCESS)
-        {
-            sprintf(nameBuffer, "stack@%p", (void*)address);
-            kscrw_i_writeMemoryContentsIfNotable(writer, contentsAsPointer, nameBuffer);
-        }
-    }
-}
-
-void kscrw_i_writeNotableRegisters(const KSReportWriter* const writer,
-                                   const _STRUCT_MCONTEXT* const machineContext)
-{
-    char registerNameBuff[30];
-    const char* registerName;
-    const int numRegisters = ksmach_numRegisters();
-    for(int reg = 0; reg < numRegisters; reg++)
-    {
-        registerName = ksmach_registerName(reg);
-        if(registerName == NULL)
-        {
-            snprintf(registerNameBuff, sizeof(registerNameBuff), "r%d", reg);
-            registerName = registerNameBuff;
-        }
-        kscrw_i_writeMemoryContentsIfNotable(writer,
-                                             (uintptr_t)ksmach_registerValue(machineContext, reg),
-                                             registerName);
-    }
-}
-
-void kscrw_i_writeRegisters(const KSReportWriter* const writer,
-                            const _STRUCT_MCONTEXT* const machineContext)
-{
-    char registerNameBuff[30];
-    const char* registerName;
-    writer->beginObject(writer, "registers");
-    const int numRegisters = ksmach_numRegisters();
-    for(int reg = 0; reg < numRegisters; reg++)
-    {
-        registerName = ksmach_registerName(reg);
-        if(registerName == NULL)
-        {
-            snprintf(registerNameBuff, sizeof(registerNameBuff), "r%d", reg);
-            registerName = registerNameBuff;
-        }
-        writer->addUIntegerElement(writer, registerName,
-                                   ksmach_registerValue(machineContext, reg));
-    }
-    writer->endContainer(writer);
-}
-
-void kscrw_i_writeExceptionRegisters(const KSReportWriter* const writer,
-                                     const _STRUCT_MCONTEXT* const machineContext)
-{
-    char registerNameBuff[30];
-    const char* registerName;
-    writer->beginObject(writer, "exception_registers");
-    const int numRegisters = ksmach_numExceptionRegisters();
-    for(int reg = 0; reg < numRegisters; reg++)
-    {
-        registerName = ksmach_exceptionRegisterName(reg);
-        if(registerName == NULL)
-        {
-            snprintf(registerNameBuff, sizeof(registerNameBuff), "r%d", reg);
-            registerName = registerNameBuff;
-        }
-        writer->addUIntegerElement(writer,registerName,
-                                   ksmach_exceptionRegisterValue(machineContext, reg));
-    }
-    writer->endContainer(writer);
-}
-
-bool kscrw_i_fetchMachineState(const thread_t thread,
-                               _STRUCT_MCONTEXT* const machineContext)
-{
-    if(!ksmach_threadState(thread, machineContext))
-    {
-        return false;
-    }
-    
-    if(!ksmach_exceptionState(thread, machineContext))
-    {
-        return false;
-    }
-    
-    return true;
-}
-
-void kscrw_i_writeAllThreads(const KSReportWriter* const writer,
-                             KSCrashContext* const crashContext)
-{
-    kern_return_t kr;
-    
-    // Task & thread info
-    const task_t thisTask = mach_task_self();
-    const thread_t thisThread = mach_thread_self();
-    thread_act_array_t threads;
-    mach_msg_type_number_t numThreads;
-    
-    // Used for register and stack trace retrieval
-    // Context may be a local copy or a pointer to somewhere else.
-    _STRUCT_MCONTEXT concreteMachineContext;
-    _STRUCT_MCONTEXT* machineContext;
-    
-    // Holds the actual backtrace.
-    // Backtrace may be a local copy or a pointer to somewhere else.
-    uintptr_t concreteBacktrace[kMaxBacktraceDepth];
-    uintptr_t* backtrace;
-    int backtraceLength;
-    int skipEntries;
-    
-    // Holds the name of the thread
-    char threadName[100] = {0};
-    
-    // Flags
-    bool mustFetchBacktrace;
-    bool registersAreValid;
-    bool isCrashedThread;
-    
-    
-    // Get a list of all threads.
-    if((kr = task_threads(thisTask, &threads, &numThreads)) != KERN_SUCCESS)
-    {
-        KSLOG_ERROR("task_threads: %s", mach_error_string(kr));
-        return;
-    }
-    
-    // Fetch info for all threads.
-    writer->beginArray(writer, "threads");
-    for(mach_msg_type_number_t i = 0; i < numThreads; i++)
-    {
-        thread_t thread = threads[i];
-        pthread_t pthread = pthread_from_mach_thread_np(thread);
-        
-        if(thread == thisThread)
-        {
-            // We're looking at the current thread. Decide what to do based
-            // on the crash type.
-            switch(crashContext->crashType)
-            {
-                case KSCrashTypeSignal:
-                    // Signals provide a machine context that we can get the
-                    // stack trace from.
-                    isCrashedThread = true;
-                    registersAreValid = true;
-                    machineContext = crashContext->signalUserContext->uc_mcontext;
-                    mustFetchBacktrace = true;
-                    break;
-                case KSCrashTypeNSException:
-                    // NSException conveniently provides a stack trace for us.
-                    // No registers, unfortunately.
-                    isCrashedThread = true;
-                    registersAreValid = false;
-                    machineContext = NULL;
-                    backtrace = crashContext->NSExceptionStackTrace;
-                    backtraceLength = crashContext->NSExceptionStackTraceLength;
-                    mustFetchBacktrace = false;
-                    break;
-                case KSCrashTypeMachException:
-                    // Mach exceptions are reported by the mach exception
-                    // handler thread. We can't reliably get the stack trace
-                    // of a running thread (and it wouldn't be useful for
-                    // debugging anyway), so just ignore it.
-                    continue;
-            }
-        }
-        else
-        {
-            // This is not the current thread, and we paused all threads
-            // already, so we can reliably fetch the machine state.
-            isCrashedThread = thread == crashContext->machCrashedThread;
-            registersAreValid = true;
-            machineContext = &concreteMachineContext;
-            if(!kscrw_i_fetchMachineState(thread, machineContext))
-            {
-                KSLOG_ERROR("Failed to fetch machine state for thread %d",
-                            thread);
-                continue;
-            }
-            mustFetchBacktrace = true;
-        }
-        
-        // Fetch the backtrace if necessary.
-        skipEntries = 0;
-        if(mustFetchBacktrace)
-        {
-            backtrace = concreteBacktrace;
-            backtraceLength = ksbt_backtraceLength(machineContext);
-            if(backtraceLength > kStackOverflowThreshold)
-            {
-                crashContext->isStackOverflow = true;
-                skipEntries = backtraceLength - kMaxBacktraceDepth;
-            }
-            
-            backtraceLength = ksbt_backtraceThreadState(machineContext,
-                                                        backtrace,
-                                                        skipEntries,
-                                                        kMaxBacktraceDepth);
-        }
-        
-        // All information fetched. Print it out.
-        writer->beginObject(writer, NULL);
-        bool printStdout = crashContext->printTraceToStdout &&
-                           isCrashedThread &&
-                           crashContext->crashType != KSCrashTypeNSException;
-        
-        kscrw_i_writeBacktrace(writer,
-                               backtrace,
-                               backtraceLength,
-                               printStdout);
-        writer->addIntegerElement(writer, "backtrace_skipped", skipEntries);
-        if(registersAreValid)
-        {
-            kscrw_i_writeRegisters(writer, machineContext);
-            if(isCrashedThread)
-            {
-                kscrw_i_writeExceptionRegisters(writer, machineContext);
-            }
-        }
-        if(pthread_getname_np(pthread, threadName, sizeof(threadName)) == 0 &&
-           threadName[0] != 0)
-        {
-            writer->addStringElement(writer, "name", threadName);
-        }
-        
-        if(ksmach_getThreadQueueName(thread, threadName, sizeof(threadName)))
-        {
-            writer->addStringElement(writer, "dispatch_queue", threadName);
-        }
-        writer->addBooleanElement(writer, "crashed", isCrashedThread);
-        if(isCrashedThread && crashContext->crashType != KSCrashTypeNSException)
-        {
-            kscrw_i_writeStackContents(writer, machineContext);
-            writer->beginObject(writer, "notable_addresses");
-            kscrw_i_writeNotableRegisters(writer, machineContext);
-            kscrw_i_writeNotableStackContents(writer,
-                                              machineContext,
-                                              kStackNotableSearchBackDistance,
-                                              kStackNotableSearchForwardDistance);
-            writer->endContainer(writer);
-        }
-        writer->endContainer(writer);
-    }
-    writer->endContainer(writer);
-    
-    // Clean up.
-    for(mach_msg_type_number_t i = 0; i < numThreads; i++)
-    {
-        mach_port_deallocate(thisTask, threads[i]);
-    }
-    vm_deallocate(thisTask, (vm_address_t)threads, sizeof(thread_t) * numThreads);
-}
-
-void kscrw_i_writeBinaryImages(const KSReportWriter* const writer)
-{
-    const uint32_t imageCount = _dyld_image_count();
-    
-    writer->beginArray(writer, "binary_images");
-    
-    // Dump all images.
-    for(uint32_t iImg = 0; iImg < imageCount; iImg++)
-    {
-        writer->beginObject(writer, NULL);
-        const struct mach_header* header = _dyld_get_image_header(iImg);
-        if(header != NULL)
-        {
-            // Look for the TEXT segment to get the image size.
-            // Also look for a UUID command.
-            uint64_t imageSize = 0;
-            uint8_t* uuid = NULL;
-            uintptr_t cmdPtr = ksmach_firstCmdAfterHeader(header);
-            if(cmdPtr == 0)
-            {
-                continue;
-            }
-            for(uint32_t iCmd = 0; iCmd < header->ncmds; iCmd++)
-            {
-                struct load_command* loadCmd = (struct load_command*)cmdPtr;
-                switch(loadCmd->cmd)
-                {
-                    case LC_SEGMENT:
-                    {
-                        struct segment_command* segCmd = (struct segment_command*)cmdPtr;
-                        if(strcmp(segCmd->segname, SEG_TEXT) == 0)
-                        {
-                            imageSize = segCmd->vmsize;
-                        }
-                        break;
-                    }
-                    case LC_SEGMENT_64:
-                    {
-                        struct segment_command_64* segCmd = (struct segment_command_64*)cmdPtr;
-                        if(strcmp(segCmd->segname, SEG_TEXT) == 0)
-                        {
-                            imageSize = segCmd->vmsize;
-                        }
-                        break;
-                    }
-                    case LC_UUID:
-                    {
-                        struct uuid_command* uuidCmd = (struct uuid_command*)cmdPtr;
-                        uuid = uuidCmd->uuid;
-                        break;
-                    }
-                }
-                cmdPtr += loadCmd->cmdsize;
-            }
-            writer->addUIntegerElement(writer, "image_addr", (uintptr_t)header);
-            writer->addUIntegerElement(writer, "image_size", imageSize);
-            writer->addStringElement(writer, "name", _dyld_get_image_name(iImg));
-            writer->addUUIDElement(writer, "uuid", uuid);
-            writer->addIntegerElement(writer, "cpu_type", header->cputype);
-            writer->addIntegerElement(writer, "cpu_subtype", header->cpusubtype);
-        }
-        writer->endContainer(writer);
-    }
-    
-    writer->endContainer(writer);
-}
-
-void kscrw_i_writeMachineStats(const KSReportWriter* const writer)
-{
-    writer->addUIntegerElement(writer, "usable_memory", ksmach_usableMemory());
-    writer->addUIntegerElement(writer, "free_memory", ksmach_freeMemory());
-}
-
-void kscrw_i_getMachExceptionName(const int machException,
-                                  char* const buffer,
-                                  const int maxLength)
-{
-    const char*const name = ksmach_exceptionName(machException);
-    if(name == NULL)
-    {
-        snprintf(buffer, maxLength, POINTER_FMT, (unsigned long)machException);
-    }
-    else
-    {
-        strncpy(buffer, name, maxLength);
-    }
-}
-
-void kscrw_i_getMachCodeName(const int machCode,
-                             char* const buffer,
-                             const int maxLength)
-{
-    const char* name = ksmach_kernelReturnCodeName(machCode);
-    if(machCode == 0 || name == NULL)
-    {
-        snprintf(buffer, maxLength, POINTER_FMT, (unsigned long)machCode);
-    }
-    else
-    {
-        strncpy(buffer, name, maxLength);
-    }
-}
-
-void kscrw_i_writeErrorInfo(const KSReportWriter* const writer,
-                            const KSCrashContext* const crashContext)
-{
-    int machExceptionType;
-    kern_return_t machCode;
-    kern_return_t machSubCode;
-    int sigNum;
-    int sigCode;
-    
-    writer->beginObject(writer, "error");
-    
-    // Gather common info.
-    switch(crashContext->crashType)
-    {
-        case KSCrashTypeMachException:
-            machExceptionType = crashContext->machExceptionType;
-            machCode = (kern_return_t)crashContext->machExceptionCode;
-            if(machCode == KERN_PROTECTION_FAILURE && crashContext->isStackOverflow)
-            {
-                // A stack overflow should return KERN_INVALID_ADDRESS, but
-                // when a stack blasts through the guard pages at the top of the stack,
-                // it generates KERN_PROTECTION_FAILURE. Correct for this.
-                machCode = KERN_INVALID_ADDRESS;
-            }
-            machSubCode = (kern_return_t)crashContext->machExceptionSubcode;
-            
-            sigNum = kssignal_signalForMachException(crashContext->machExceptionType,
-                                                     machCode);
-            sigCode = 0;
-            break;
-            
-        case KSCrashTypeNSException:
-            machExceptionType = EXC_CRASH;
-            machCode = 0;
-            machSubCode = 0;
-            sigNum = SIGABRT;
-            sigCode = 0;
-            break;
-            
-        case KSCrashTypeSignal:
-            sigNum = crashContext->signalInfo->si_signo;
-            sigCode = crashContext->signalInfo->si_code;
-            machExceptionType = kssignal_machExceptionForSignal(sigNum);
-            machCode = 0;
-            machSubCode = 0;
-            break;
-    }
-    
-    char machExceptionName[30];
-    char machCodeName[30];
-    kscrw_i_getMachExceptionName(machExceptionType, machExceptionName, sizeof(machExceptionName));
-    kscrw_i_getMachCodeName(machCode, machCodeName, sizeof(machCodeName));
-    char sigNameBuff[30];
-    char sigCodeNameBuff[30];
-    const char* sigName = kssignal_signalName(sigNum);
-    const char* sigCodeName = kssignal_signalCodeName(sigNum, sigCode);
-    if(sigName == NULL)
-    {
-        snprintf(sigNameBuff, sizeof(sigNameBuff), "%d", sigNum);
-        sigName = sigNameBuff;
-    }
-    if(sigCodeName == NULL)
-    {
-        snprintf(sigCodeNameBuff, sizeof(sigCodeNameBuff), "%d", sigCode);
-        sigCodeName = sigCodeNameBuff;
-    }
-    
-    writer->addStringElement(writer, "mach_exception", machExceptionName);
-    writer->addUIntegerElement(writer, "mach_code", (unsigned)machCode);
-    writer->addStringElement(writer, "mach_code_name", machCodeName);
-    writer->addUIntegerElement(writer, "mach_subcode", (unsigned)machSubCode);
-    writer->addUIntegerElement(writer, "signal", (unsigned)sigNum);
-    writer->addStringElement(writer, "signal_name", sigName);
-    writer->addUIntegerElement(writer, "signal_code", (unsigned)sigCode);
-    writer->addStringElement(writer, "signal_code_name", sigCodeName);
-    writer->addUIntegerElement(writer, "address", crashContext->faultAddress);
-    
-    // Gather specific info.
-    switch(crashContext->crashType)
-    {
-        case KSCrashTypeMachException:
-            writer->addStringElement(writer, "type", "mach");
-            
-            KSLOGBASIC_INFO("App crashed due to mach exception %s: %s",
-                            machExceptionName, machCodeName);
-            break;
-            
-        case KSCrashTypeNSException:
-            if(crashContext->NSExceptionName != NULL)
-            {
-                writer->addStringElement(writer, "nsexception_name", crashContext->NSExceptionName);
-            }
-            if(crashContext->NSExceptionReason != NULL)
-            {
-                writer->addStringElement(writer, "nsexception_reason", crashContext->NSExceptionReason);
-            }
-            writer->addStringElement(writer, "type", "nsexception");
-            
-            KSLOGBASIC_INFO("App crashed due to exception %s: %s",
-                            crashContext->NSExceptionName,
-                            crashContext->NSExceptionReason);
-            break;
-            
-        case KSCrashTypeSignal:
-            writer->addStringElement(writer, "type", "signal");
-            
-            KSLOGBASIC_INFO("App crashed due to signal [%s, %s] at %08x",
-                            sigName, sigCodeName, crashContext->faultAddress);
-    }
-    
-    if(crashContext->crashType == KSCrashTypeNSException)
-    {
-        writer->beginObject(writer, "nsexception");
-        
-        if(crashContext->NSExceptionName != NULL)
-        {
-            writer->addStringElement(writer, "name", crashContext->NSExceptionName);
-        }
-        if(crashContext->NSExceptionReason != NULL)
-        {
-            writer->addStringElement(writer, "reason", crashContext->NSExceptionReason);
-        }
-        
-        if(crashContext->printTraceToStdout)
-        {
-            KSLOGBASIC_INFO("\nNSException Backtrace:\n");
-        }
-        kscrw_i_writeBacktrace(writer,
-                               crashContext->NSExceptionStackTrace,
-                               crashContext->NSExceptionStackTraceLength,
-                               crashContext->printTraceToStdout);
-        
-        
-        writer->endContainer(writer);
-    }
-    
-    writer->endContainer(writer);
-}
+// ============================================================================
+#pragma mark - JSON Encoding -
+// ============================================================================
 
 #define getJsonContext(REPORT_WRITER) ((KSJSONEncodeContext*)((REPORT_WRITER)->context))
 
@@ -1045,50 +109,70 @@ static char g_hexNybbles[] =
     '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'
 };
 
+#pragma mark Callbacks
+
 void kscrw_i_addBooleanElement(const KSReportWriter* const writer,
-                               const char* const name,
+                               const char* const key,
+                               const bool value);
+void kscrw_i_addBooleanElement(const KSReportWriter* const writer,
+                               const char* const key,
                                const bool value)
 {
-    ksjson_addBooleanElement(getJsonContext(writer), name, value);
+    ksjson_addBooleanElement(getJsonContext(writer), key, value);
 }
 
 void kscrw_i_addFloatingPointElement(const KSReportWriter* const writer,
-                                     const char* const name,
+                                     const char* const key,
+                                     const double value);
+void kscrw_i_addFloatingPointElement(const KSReportWriter* const writer,
+                                     const char* const key,
                                      const double value)
 {
-    ksjson_addFloatingPointElement(getJsonContext(writer), name, value);
+    ksjson_addFloatingPointElement(getJsonContext(writer), key, value);
 }
 
 void kscrw_i_addIntegerElement(const KSReportWriter* const writer,
-                               const char* const name,
+                               const char* const key,
+                               const long long value);
+void kscrw_i_addIntegerElement(const KSReportWriter* const writer,
+                               const char* const key,
                                const long long value)
 {
-    ksjson_addIntegerElement(getJsonContext(writer), name, value);
+    ksjson_addIntegerElement(getJsonContext(writer), key, value);
 }
 
 void kscrw_i_addUIntegerElement(const KSReportWriter* const writer,
-                                const char* const name,
+                                const char* const key,
+                                const unsigned long long value);
+void kscrw_i_addUIntegerElement(const KSReportWriter* const writer,
+                                const char* const key,
                                 const unsigned long long value)
 {
-    ksjson_addIntegerElement(getJsonContext(writer), name, (long long)value);
+    ksjson_addIntegerElement(getJsonContext(writer), key, (long long)value);
 }
 
 void kscrw_i_addStringElement(const KSReportWriter* const writer,
-                              const char* const name,
+                              const char* const key,
+                              const char* const value);
+void kscrw_i_addStringElement(const KSReportWriter* const writer,
+                              const char* const key,
                               const char* const value)
 {
-    if(name == NULL)
+    if(key == NULL)
     {
-        ksjson_addNullElement(getJsonContext(writer), name);
+        ksjson_addNullElement(getJsonContext(writer), key);
     }
     else
     {
-        ksjson_addStringElement(getJsonContext(writer), name, value, strlen(value));
+        ksjson_addStringElement(getJsonContext(writer), key, value, strlen(value));
     }
 }
 
 void kscrw_i_addTextFileElement(const KSReportWriter* const writer,
-                                const char* const name,
+                                const char* const key,
+                                const char* const filePath);
+void kscrw_i_addTextFileElement(const KSReportWriter* const writer,
+                                const char* const key,
                                 const char* const filePath)
 {
     const int fd = open(filePath, O_RDONLY);
@@ -1097,13 +181,13 @@ void kscrw_i_addTextFileElement(const KSReportWriter* const writer,
         KSLOG_ERROR("Could not open file %s: %s", filePath, strerror(errno));
         return;
     }
-    
-    if(ksjson_beginStringElement(getJsonContext(writer), name) != KSJSON_OK)
+
+    if(ksjson_beginStringElement(getJsonContext(writer), key) != KSJSON_OK)
     {
         KSLOG_ERROR("Could not start string element");
         goto done;
     }
-    
+
     char buffer[512];
     ssize_t bytesRead;
     for(bytesRead = read(fd, buffer, sizeof(buffer));
@@ -1118,26 +202,35 @@ void kscrw_i_addTextFileElement(const KSReportWriter* const writer,
             goto done;
         }
     }
-    
+
 done:
     ksjson_endStringElement(getJsonContext(writer));
     close(fd);
 }
 
 void kscrw_i_addDataElement(const KSReportWriter* const writer,
-                            const char* const name,
+                            const char* const key,
+                            const char* const value,
+                            const size_t length);
+void kscrw_i_addDataElement(const KSReportWriter* const writer,
+                            const char* const key,
                             const char* const value,
                             const size_t length)
 {
-    ksjson_addDataElement(getJsonContext(writer), name, value, length);
+    ksjson_addDataElement(getJsonContext(writer), key, value, length);
 }
 
 void kscrw_i_beginDataElement(const KSReportWriter* const writer,
-                              const char* const name)
+                              const char* const key);
+void kscrw_i_beginDataElement(const KSReportWriter* const writer,
+                              const char* const key)
 {
-    ksjson_beginDataElement(getJsonContext(writer), name);
+    ksjson_beginDataElement(getJsonContext(writer), key);
 }
 
+void kscrw_i_appendDataElement(const KSReportWriter* const writer,
+                               const char* const value,
+                               const size_t length);
 void kscrw_i_appendDataElement(const KSReportWriter* const writer,
                                const char* const value,
                                const size_t length)
@@ -1145,18 +238,22 @@ void kscrw_i_appendDataElement(const KSReportWriter* const writer,
     ksjson_appendDataElement(getJsonContext(writer), value, length);
 }
 
+void kscrw_i_endDataElement(const KSReportWriter* const writer);
 void kscrw_i_endDataElement(const KSReportWriter* const writer)
 {
     ksjson_endDataElement(getJsonContext(writer));
 }
 
 void kscrw_i_addUUIDElement(const KSReportWriter* const writer,
-                            const char* const name,
+                            const char* const key,
+                            const unsigned char* const value);
+void kscrw_i_addUUIDElement(const KSReportWriter* const writer,
+                            const char* const key,
                             const unsigned char* const value)
 {
     if(value == NULL)
     {
-        ksjson_addNullElement(getJsonContext(writer), name);
+        ksjson_addNullElement(getJsonContext(writer), key);
     }
     else
     {
@@ -1192,20 +289,23 @@ void kscrw_i_addUUIDElement(const KSReportWriter* const writer,
             *dst++ = g_hexNybbles[(*src>>4)&15];
             *dst++ = g_hexNybbles[(*src++)&15];
         }
-        
+
         ksjson_addStringElement(getJsonContext(writer),
-                                name,
+                                key,
                                 uuidBuffer,
                                 (size_t)(dst - uuidBuffer));
     }
 }
 
-void kscrw_i_addJSONElement(const KSReportWriter* writer,
-                            const char* name,
-                            const char* jsonElement)
+void kscrw_i_addJSONElement(const KSReportWriter* const writer,
+                            const char* const key,
+                            const char* const jsonElement);
+void kscrw_i_addJSONElement(const KSReportWriter* const writer,
+                            const char* const key,
+                            const char* const jsonElement)
 {
     int jsonResult = ksjson_addJSONElement(getJsonContext(writer),
-                                           name,
+                                           key,
                                            jsonElement,
                                            strlen(jsonElement));
     if(jsonResult != KSJSON_OK)
@@ -1215,7 +315,7 @@ void kscrw_i_addJSONElement(const KSReportWriter* writer,
                  sizeof(errorBuff),
                  "Invalid JSON data: %s",
                  ksjson_stringForError(jsonResult));
-        ksjson_beginObject(getJsonContext(writer), name);
+        ksjson_beginObject(getJsonContext(writer), key);
         ksjson_addStringElement(getJsonContext(writer),
                                 "error",
                                 errorBuff,
@@ -1229,23 +329,1309 @@ void kscrw_i_addJSONElement(const KSReportWriter* writer,
 }
 
 void kscrw_i_beginObject(const KSReportWriter* const writer,
-                         const char* const name)
+                         const char* const key);
+void kscrw_i_beginObject(const KSReportWriter* const writer,
+                         const char* const key)
 {
-    ksjson_beginObject(getJsonContext(writer), name);
+    ksjson_beginObject(getJsonContext(writer), key);
 }
 
 void kscrw_i_beginArray(const KSReportWriter* const writer,
-                        const char* const name)
+                        const char* const key);
+void kscrw_i_beginArray(const KSReportWriter* const writer,
+                        const char* const key)
 {
-    ksjson_beginArray(getJsonContext(writer), name);
+    ksjson_beginArray(getJsonContext(writer), key);
 }
 
+void kscrw_i_endContainer(const KSReportWriter* const writer);
 void kscrw_i_endContainer(const KSReportWriter* const writer)
 {
     ksjson_endContainer(getJsonContext(writer));
 }
 
+int kscrw_i_addJSONData(const char* const data,
+                        const size_t length,
+                        void* const userData);
+int kscrw_i_addJSONData(const char* const data,
+                        const size_t length,
+                        void* const userData)
+{
+    const int fd = *((int*)userData);
+    const bool success = ksfu_writeBytesToFD(fd, data, (ssize_t)length);
+    return success ? KSJSON_OK : KSJSON_ERROR_CANNOT_ADD_DATA;
+}
 
+
+// ============================================================================
+#pragma mark - Utility Functions -
+// ============================================================================
+
+/** Check if a memory address points to a valid null terminated UTF-8 string.
+ *
+ * @param address The address to check.
+ *
+ * @return true if the address points to a string.
+ */
+bool kscrw_i_isValidString(const void* const address);
+bool kscrw_i_isValidString(const void* const address)
+{
+    if((void*)address == NULL)
+    {
+        return false;
+    }
+
+    char buffer[500];
+    if((uintptr_t)address+sizeof(buffer) < (uintptr_t)address)
+    {
+        // Wrapped around the address range.
+        return false;
+    }
+    if(ksmach_copyMem(address, buffer, sizeof(buffer)) != KERN_SUCCESS)
+    {
+        return false;
+    }
+    return kstring_isNullTerminatedUTF8String(buffer,
+                                              kMinStringLength,
+                                              sizeof(buffer));
+}
+
+/** Get the name of a mach exception.
+ *
+ * It will fill the buffer with the exception name, or a number in the format
+ * 0x00000000 if it couldn't identify the exception.
+ *
+ * @param machException The exception.
+ *
+ * @param buffer Buffer to hold the name.
+ *
+ * @param maxLength The length of the buffer.
+ */
+void kscrw_i_getMachExceptionName(const int machException,
+                                  char* const buffer,
+                                  const int maxLength);
+void kscrw_i_getMachExceptionName(const int machException,
+                                  char* const buffer,
+                                  const int maxLength)
+{
+    const char*const name = ksmach_exceptionName(machException);
+    if(name == NULL)
+    {
+        snprintf(buffer, maxLength, POINTER_FMT, (unsigned long)machException);
+    }
+    else
+    {
+        strncpy(buffer, name, maxLength);
+    }
+}
+
+/** Get the name of a mach exception code.
+ *
+ * It will fill the buffer with the code name, or a number in standard hex
+ * format if it couldn't identify the exception code.
+ *
+ * @param machCode The mach exception code.
+ *
+ * @param buffer Buffer to hold the name.
+ *
+ * @param maxLength The length of the buffer.
+ */
+void kscrw_i_getMachCodeName(const int machCode,
+                             char* const buffer,
+                             const int maxLength);
+void kscrw_i_getMachCodeName(const int machCode,
+                             char* const buffer,
+                             const int maxLength)
+{
+    const char* name = ksmach_kernelReturnCodeName(machCode);
+    if(machCode == 0 || name == NULL)
+    {
+        snprintf(buffer, maxLength, POINTER_FMT, (unsigned long)machCode);
+    }
+    else
+    {
+        strncpy(buffer, name, maxLength);
+    }
+}
+
+/** Get all parts of the machine state required for a dump.
+ * This includes basic thread state, and exception registers.
+ *
+ * @param thread The thread to get state for.
+ *
+ * @param machineContextBuffer The machine context to fill out.
+ */
+bool kscrw_i_fetchMachineState(const thread_t thread,
+                               _STRUCT_MCONTEXT* const machineContextBuffer);
+bool kscrw_i_fetchMachineState(const thread_t thread,
+                               _STRUCT_MCONTEXT* const machineContextBuffer)
+{
+    if(!ksmach_threadState(thread, machineContextBuffer))
+    {
+        return false;
+    }
+
+    if(!ksmach_exceptionState(thread, machineContextBuffer))
+    {
+        return false;
+    }
+
+    return true;
+}
+
+/** Get the machine context for the specified thread.
+ *
+ * This function will choose how to fetch the machine context based on what kind
+ * of thread it is (current, crashed, other), and what kind of crash occured.
+ * It may store the context in machineContextBuffer unless it can be fetched
+ * directly from memory. Do not count on machineContextBuffer containing
+ * anything. Always use the return value.
+ *
+ * @param crash The crash handler context.
+ *
+ * @param thread The thread to get a machine context for.
+ *
+ * @param machineContextBuffer A place to store the context, if needed.
+ *
+ * @return A pointer to the crash context, or NULL if not found.
+ */
+_STRUCT_MCONTEXT* kscrw_i_getMachineContext(const KSCrash_HandlerContext* const crash,
+                                            const thread_t thread,
+                                            _STRUCT_MCONTEXT* const machineContextBuffer);
+_STRUCT_MCONTEXT* kscrw_i_getMachineContext(const KSCrash_HandlerContext* const crash,
+                                            const thread_t thread,
+                                            _STRUCT_MCONTEXT* const machineContextBuffer)
+{
+    if(thread == crash->crashedThread)
+    {
+        if(crash->crashType == KSCrashTypeSignal)
+        {
+            return crash->signal.userContext->uc_mcontext;
+        }
+    }
+
+    if(thread == mach_thread_self())
+    {
+        return NULL;
+    }
+
+    if(!kscrw_i_fetchMachineState(thread, machineContextBuffer))
+    {
+        KSLOG_ERROR("Failed to fetch machine state for thread %d", thread);
+        return NULL;
+    }
+
+    return machineContextBuffer;
+}
+
+/** Get the backtrace for the specified thread.
+ *
+ * This function will choose how to fetch the backtrace based on machine context
+ * availability andwhat kind of crash occurred. It may store the backtrace in
+ * backtraceBuffer unless it can be fetched directly from memory. Do not count
+ * on backtraceBuffer containing anything. Always use the return value.
+ *
+ * @param crash The crash handler context.
+ *
+ * @param thread The thread to get a machine context for.
+ *
+ * @param machineContext The machine context (can be NULL).
+ *
+ * @param backtraceBuffer A place to store the backtrace, if needed.
+ *
+ * @param backtraceLength In: The length of backtraceBuffer.
+ *                        Out: The length of the backtrace.
+ *
+ * @param skippedEntries: Out: The number of entries that were skipped due to
+ *                             stack overflow.
+ *
+ * @return The backtrace, or NULL if not found.
+ */
+uintptr_t* kscrw_i_getBacktrace(const KSCrash_HandlerContext* const crash,
+                                const thread_t thread,
+                                const _STRUCT_MCONTEXT* const machineContext,
+                                uintptr_t* const backtraceBuffer,
+                                int* const backtraceLength,
+                                int* const skippedEntries);
+uintptr_t* kscrw_i_getBacktrace(const KSCrash_HandlerContext* const crash,
+                                const thread_t thread,
+                                const _STRUCT_MCONTEXT* const machineContext,
+                                uintptr_t* const backtraceBuffer,
+                                int* const backtraceLength,
+                                int* const skippedEntries)
+{
+    if(thread == crash->crashedThread)
+    {
+        if(crash->crashType == KSCrashTypeNSException)
+        {
+            *backtraceLength = crash->NSException.stackTraceLength;
+            return crash->NSException.stackTrace;
+        }
+    }
+
+    if(machineContext == NULL)
+    {
+        return NULL;
+    }
+
+    int actualSkippedEntries = 0;
+    int actualLength = ksbt_backtraceLength(machineContext);
+    if(actualLength >= kStackOverflowThreshold)
+    {
+        actualSkippedEntries = actualLength - *backtraceLength;
+    }
+
+    *backtraceLength = ksbt_backtraceThreadState(machineContext,
+                                                 backtraceBuffer,
+                                                 actualSkippedEntries,
+                                                 *backtraceLength);
+    if(skippedEntries != NULL)
+    {
+        *skippedEntries = actualSkippedEntries;
+    }
+    return backtraceBuffer;
+}
+
+/** Check if the stack for the specified thread has overflowed.
+ *
+ * @param crash The crash handler context.
+ *
+ * @param thread The thread to check.
+ *
+ * @return true if the thread's stack has overflowed.
+ */
+bool kscrw_i_isStackOverflow(const KSCrash_HandlerContext* const crash,
+                             const thread_t thread);
+bool kscrw_i_isStackOverflow(const KSCrash_HandlerContext* const crash,
+                             const thread_t thread)
+{
+    _STRUCT_MCONTEXT concreteMachineContext;
+    _STRUCT_MCONTEXT* machineContext = kscrw_i_getMachineContext(crash,
+                                                                 thread,
+                                                                 &concreteMachineContext);
+    if(machineContext == NULL)
+    {
+        return false;
+    }
+
+    return ksbt_isBacktraceTooLong(machineContext, kStackOverflowThreshold);
+}
+
+
+// ============================================================================
+#pragma mark - Console Printing -
+// ============================================================================
+
+/** Print a backtrace entry in the standard format.
+ *
+ * @param entryNum The backtrace entry number.
+ *
+ * @param address The program counter value (instruction address).
+ *
+ * @param dlInfo Information about the nearest symbols to the address.
+ */
+void kscrw_i_printBacktraceEntry(const int entryNum,
+                                 const uintptr_t address,
+                                 const Dl_info* const dlInfo);
+void kscrw_i_printBacktraceEntry(const int entryNum,
+                                 const uintptr_t address,
+                                 const Dl_info* const dlInfo)
+{
+    char faddrBuff[20];
+    char saddrBuff[20];
+    
+    const char* fname = ksfu_lastPathEntry(dlInfo->dli_fname);
+    if(fname == NULL)
+    {
+        sprintf(faddrBuff, POINTER_FMT, (uintptr_t)dlInfo->dli_fbase);
+        fname = faddrBuff;
+    }
+    
+    uintptr_t offset = address - (uintptr_t)dlInfo->dli_saddr;
+    const char* sname = dlInfo->dli_sname;
+    if(sname == NULL)
+    {
+        sprintf(saddrBuff, POINTER_SHORT_FMT, (uintptr_t)dlInfo->dli_fbase);
+        sname = saddrBuff;
+        offset = address - (uintptr_t)dlInfo->dli_fbase;
+    }
+    
+    KSLOGBASIC_ALWAYS(TRACE_FMT, entryNum, fname, address, sname, offset);
+}
+
+/** Print a backtrace using the logger.
+ *
+ * @param backtrace The backtrace to print.
+ *
+ * @param backtraceLength The length of the backtrace.
+ */
+void kscrw_i_printBacktrace(const uintptr_t* const backtrace,
+                            const int backtraceLength);
+void kscrw_i_printBacktrace(const uintptr_t* const backtrace,
+                            const int backtraceLength)
+{
+    if(backtraceLength > 0)
+    {
+        Dl_info symbolicated[backtraceLength];
+        ksbt_symbolicate(backtrace, symbolicated, backtraceLength);
+
+        for(int i = 0; i < backtraceLength; i++)
+        {
+            kscrw_i_printBacktraceEntry(i, backtrace[i], &symbolicated[i]);
+        }
+    }
+}
+
+/** Print the backtrace for the crashed thread.
+ *
+ * @param crash The crash handler context.
+ */
+void kscrw_i_printCrashThreadBacktrace(const KSCrash_HandlerContext* const crash);
+void kscrw_i_printCrashThreadBacktrace(const KSCrash_HandlerContext* const crash)
+{
+    thread_t thread = crash->crashedThread;
+    _STRUCT_MCONTEXT concreteMachineContext;
+    uintptr_t concreteBacktrace[kMaxBacktraceDepth];
+    int backtraceLength = sizeof(concreteBacktrace);
+
+    _STRUCT_MCONTEXT* machineContext = kscrw_i_getMachineContext(crash,
+                                                                 thread,
+                                                                 &concreteMachineContext);
+
+    uintptr_t* backtrace = kscrw_i_getBacktrace(crash,
+                                                thread,
+                                                machineContext,
+                                                concreteBacktrace,
+                                                &backtraceLength,
+                                                NULL);
+
+    if(backtrace != NULL)
+    {
+        kscrw_i_printBacktrace(backtrace, backtraceLength);
+    }
+}
+
+
+// ============================================================================
+#pragma mark - Report Writing -
+// ============================================================================
+
+/** Write the contents of a memory location only if it contains notable data.
+ * Also writes meta information about the data.
+ *
+ * @param writer The writer.
+ *
+ * @param key The object key, if needed.
+ *
+ * @param address The memory address.
+ */
+void kscrw_i_writeMemoryContentsIfNotable(const KSReportWriter* const writer,
+                                          const char* const key,
+                                          const uintptr_t address);
+void kscrw_i_writeMemoryContentsIfNotable(const KSReportWriter* const writer,
+                                          const char* const key,
+                                          const uintptr_t address)
+{
+    if((void*)address == NULL)
+    {
+        return;
+    }
+
+    ssize_t mallocSize = (ssize_t)malloc_size((void*)address);
+    const char* zombieClassName = kszombie_className((void*)address);
+    ObjCObjectType objType = ksobjc_objectType((void*)address);
+    const char* className = NULL;
+    if(objType != kObjCObjectTypeNone)
+    {
+        className = ksobjc_className((void*)address);
+        if(className == NULL)
+        {
+            objType = kObjCObjectTypeNone;
+        }
+    }
+    const char* bareString = NULL;
+    if(objType == kObjCObjectTypeNone && kscrw_i_isValidString((void*)address))
+    {
+        bareString = (const char*)address;
+    }
+
+    if(objType == kObjCObjectTypeNone &&
+       zombieClassName == NULL &&
+       bareString == NULL &&
+       mallocSize == 0)
+    {
+        // Nothing notable about this memory location.
+        return;
+    }
+
+    writer->beginObject(writer, key);
+    {
+        writer->addUIntegerElement(writer, "address", address);
+        writer->addUIntegerElement(writer, "malloc_size", (size_t)mallocSize);
+        if(objType != kObjCObjectTypeNone)
+        {
+            const char* contents = objType == kObjCObjectTypeClass ? "objc_class" : "objc_object";
+            writer->addStringElement(writer, "contents", contents);
+            writer->addStringElement(writer, "class", className);
+        }
+        else if(bareString != NULL)
+        {
+            writer->addStringElement(writer, "contents", "string");
+            writer->addStringElement(writer, "value", bareString);
+        }
+        else
+        {
+            writer->addStringElement(writer, "contents", "unknown");
+        }
+        if(zombieClassName != NULL)
+        {
+            writer->addStringElement(writer, "last_deallocated_obj", zombieClassName);
+        }
+    }
+    writer->endContainer(writer);
+}
+
+
+#pragma mark Backtrace
+
+/** Write a backtrace entry to the report.
+ *
+ * @param writer The writer.
+ *
+ * @param key The object key, if needed.
+ *
+ * @param address The memory address.
+ *
+ * @param dlInfo Information about the nearest symbols to the address.
+ */
+void kscrw_i_writeBacktraceEntry(const KSReportWriter* const writer,
+                                 const char* const key,
+                                 const uintptr_t address,
+                                 const Dl_info* const info);
+void kscrw_i_writeBacktraceEntry(const KSReportWriter* const writer,
+                                 const char* const key,
+                                 const uintptr_t address,
+                                 const Dl_info* const info)
+{
+    writer->beginObject(writer, key);
+    {
+        if(info->dli_fname != NULL)
+        {
+            writer->addStringElement(writer, "object_name", ksfu_lastPathEntry(info->dli_fname));
+        }
+        writer->addUIntegerElement(writer, "object_addr", (uintptr_t)info->dli_fbase);
+        if(info->dli_sname != NULL)
+        {
+            writer->addStringElement(writer, "symbol_name", info->dli_sname);
+        }
+        writer->addUIntegerElement(writer, "symbol_addr", (uintptr_t)info->dli_saddr);
+        writer->addUIntegerElement(writer, "instruction_addr", address);
+    }
+    writer->endContainer(writer);
+}
+
+/** Write a backtrace to the report.
+ *
+ * @param writer The writer to write the backtrace to.
+ *
+ * @param key The object key, if needed.
+ *
+ * @param backtrace The backtrace to write.
+ *
+ * @param backtraceLength Length of the backtrace.
+ */
+void kscrw_i_writeBacktrace(const KSReportWriter* const writer,
+                            const char* const key,
+                            const uintptr_t* const backtrace,
+                            const int backtraceLength);
+void kscrw_i_writeBacktrace(const KSReportWriter* const writer,
+                            const char* const key,
+                            const uintptr_t* const backtrace,
+                            const int backtraceLength)
+{
+    if(backtraceLength > 0)
+    {
+        Dl_info symbolicated[backtraceLength];
+        ksbt_symbolicate(backtrace, symbolicated, backtraceLength);
+        
+        writer->beginArray(writer, key);
+        {
+            for(int i = 0; i < backtraceLength; i++)
+            {
+                kscrw_i_writeBacktraceEntry(writer,
+                                            NULL,
+                                            backtrace[i],
+                                            &symbolicated[i]);
+            }
+        }
+        writer->endContainer(writer);
+    }
+}
+
+#pragma mark Stack
+
+/** Write a dump of the stack contents to the report.
+ *
+ * @param writer The writer.
+ *
+ * @param key The object key, if needed.
+ *
+ * @param machineContext The context to retrieve the stack from.
+ *
+ * @param isStackOverflow If true, the stack has overflowed.
+ */
+void kscrw_i_writeStackContents(const KSReportWriter* const writer,
+                                const char* const key,
+                                const _STRUCT_MCONTEXT* const machineContext,
+                                const bool isStackOverflow);
+void kscrw_i_writeStackContents(const KSReportWriter* const writer,
+                                const char* const key,
+                                const _STRUCT_MCONTEXT* const machineContext,
+                                const bool isStackOverflow)
+{
+    uintptr_t sp = ksmach_stackPointer(machineContext);
+    if((void*)sp == NULL)
+    {
+        return;
+    }
+
+    uintptr_t lowAddress = sp + (uintptr_t)(kStackContentsPushedDistance * (int)sizeof(sp) * ksmach_stackGrowDirection() * -1);
+    uintptr_t highAddress = sp + (uintptr_t)(kStackContentsPoppedDistance * (int)sizeof(sp) * ksmach_stackGrowDirection());
+    if(highAddress < lowAddress)
+    {
+        uintptr_t tmp = lowAddress;
+        lowAddress = highAddress;
+        highAddress = tmp;
+    }
+    writer->beginObject(writer, key);
+    {
+        writer->addStringElement(writer, "grow_direction", ksmach_stackGrowDirection() > 0 ? "+" : "-");
+        writer->addUIntegerElement(writer, "dump_start", lowAddress);
+        writer->addUIntegerElement(writer, "dump_end", highAddress);
+        writer->addUIntegerElement(writer, "stack_pointer", sp);
+        writer->addBooleanElement(writer, "overflow", isStackOverflow);
+        uint8_t stackBuffer[kStackContentsTotalDistance * sizeof(sp)];
+        size_t copyLength = highAddress - lowAddress;
+        if(ksmach_copyMem((void*)lowAddress, stackBuffer, copyLength) == KERN_SUCCESS)
+        {
+            writer->addDataElement(writer, "contents", (void*)stackBuffer, copyLength);
+        }
+        else
+        {
+            writer->addStringElement(writer, "error", "Stack contents not accessible");
+        }
+    }
+    writer->endContainer(writer);
+}
+
+/** Write any notable addresses near the stack pointer (above and below).
+ *
+ * @param writer The writer.
+ *
+ * @param machineContext The context to retrieve the stack from.
+ *
+ * @param backDistance The distance towards the beginning of the stack to check.
+ *
+ * @param forwardDistance The distance past the end of the stack to check.
+ */
+void kscrw_i_writeNotableStackContents(const KSReportWriter* const writer,
+                                       const _STRUCT_MCONTEXT* const machineContext,
+                                       const int backDistance,
+                                       const int forwardDistance);
+void kscrw_i_writeNotableStackContents(const KSReportWriter* const writer,
+                                       const _STRUCT_MCONTEXT* const machineContext,
+                                       const int backDistance,
+                                       const int forwardDistance)
+{
+    uintptr_t sp = ksmach_stackPointer(machineContext);
+    if((void*)sp == NULL)
+    {
+        return;
+    }
+
+    uintptr_t lowAddress = sp + (uintptr_t)(backDistance * (int)sizeof(sp) * ksmach_stackGrowDirection() * -1);
+    uintptr_t highAddress = sp + (uintptr_t)(forwardDistance * (int)sizeof(sp) * ksmach_stackGrowDirection());
+    if(highAddress < lowAddress)
+    {
+        uintptr_t tmp = lowAddress;
+        lowAddress = highAddress;
+        highAddress = tmp;
+    }
+    uintptr_t contentsAsPointer;
+    char nameBuffer[40];
+    for(uintptr_t address = lowAddress; address < highAddress; address += sizeof(address))
+    {
+        if(ksmach_copyMem((void*)address, &contentsAsPointer, sizeof(contentsAsPointer)) == KERN_SUCCESS)
+        {
+            sprintf(nameBuffer, "stack@%p", (void*)address);
+            kscrw_i_writeMemoryContentsIfNotable(writer, nameBuffer, contentsAsPointer);
+        }
+    }
+}
+
+
+#pragma mark Registers
+
+/** Write the contents of all regular registers to the report.
+ *
+ * @param writer The writer.
+ *
+ * @param key The object key, if needed.
+ *
+ * @param machineContext The context to retrieve the registers from.
+ */
+void kscrw_i_writeRegisters(const KSReportWriter* const writer,
+                            const char* const key,
+                            const _STRUCT_MCONTEXT* const machineContext);
+void kscrw_i_writeRegisters(const KSReportWriter* const writer,
+                            const char* const key,
+                            const _STRUCT_MCONTEXT* const machineContext)
+{
+    char registerNameBuff[30];
+    const char* registerName;
+    writer->beginObject(writer, key);
+    {
+        const int numRegisters = ksmach_numRegisters();
+        for(int reg = 0; reg < numRegisters; reg++)
+        {
+            registerName = ksmach_registerName(reg);
+            if(registerName == NULL)
+            {
+                snprintf(registerNameBuff, sizeof(registerNameBuff), "r%d", reg);
+                registerName = registerNameBuff;
+            }
+            writer->addUIntegerElement(writer, registerName,
+                                       ksmach_registerValue(machineContext, reg));
+        }
+    }
+    writer->endContainer(writer);
+}
+
+/** Write the contents of all exception registers to the report.
+ *
+ * @param writer The writer.
+ *
+ * @param key The object key, if needed.
+ *
+ * @param machineContext The context to retrieve the registers from.
+ */
+void kscrw_i_writeExceptionRegisters(const KSReportWriter* const writer,
+                                     const char* const key,
+                                     const _STRUCT_MCONTEXT* const machineContext);
+void kscrw_i_writeExceptionRegisters(const KSReportWriter* const writer,
+                                     const char* const key,
+                                     const _STRUCT_MCONTEXT* const machineContext)
+{
+    char registerNameBuff[30];
+    const char* registerName;
+    writer->beginObject(writer, key);
+    {
+        const int numRegisters = ksmach_numExceptionRegisters();
+        for(int reg = 0; reg < numRegisters; reg++)
+        {
+            registerName = ksmach_exceptionRegisterName(reg);
+            if(registerName == NULL)
+            {
+                snprintf(registerNameBuff, sizeof(registerNameBuff), "r%d", reg);
+                registerName = registerNameBuff;
+            }
+            writer->addUIntegerElement(writer,registerName,
+                                       ksmach_exceptionRegisterValue(machineContext, reg));
+        }
+    }
+    writer->endContainer(writer);
+}
+
+/** Write any notable addresses contained in the CPU registers.
+ *
+ * @param writer The writer.
+ *
+ * @param machineContext The context to retrieve the registers from.
+ */
+void kscrw_i_writeNotableRegisters(const KSReportWriter* const writer,
+                                   const _STRUCT_MCONTEXT* const machineContext);
+void kscrw_i_writeNotableRegisters(const KSReportWriter* const writer,
+                                   const _STRUCT_MCONTEXT* const machineContext)
+{
+    char registerNameBuff[30];
+    const char* registerName;
+    const int numRegisters = ksmach_numRegisters();
+    for(int reg = 0; reg < numRegisters; reg++)
+    {
+        registerName = ksmach_registerName(reg);
+        if(registerName == NULL)
+        {
+            snprintf(registerNameBuff, sizeof(registerNameBuff), "r%d", reg);
+            registerName = registerNameBuff;
+        }
+        kscrw_i_writeMemoryContentsIfNotable(writer,
+                                             registerName,
+                                             (uintptr_t)ksmach_registerValue(machineContext, reg));
+    }
+}
+
+
+#pragma mark Thread-specific
+
+/** Write any notable addresses in the stack or registers to the report.
+ *
+ * @param writer The writer.
+ *
+ * @param key The object key, if needed.
+ *
+ * @param machineContext The context to retrieve the registers from.
+ */
+void kscrw_i_writeNotableAddresses(const KSReportWriter* const writer,
+                                   const char* const key,
+                                   const _STRUCT_MCONTEXT* const machineContext);
+void kscrw_i_writeNotableAddresses(const KSReportWriter* const writer,
+                                   const char* const key,
+                                   const _STRUCT_MCONTEXT* const machineContext)
+{
+    writer->beginObject(writer, key);
+    {
+        kscrw_i_writeNotableRegisters(writer, machineContext);
+        kscrw_i_writeNotableStackContents(writer,
+                                          machineContext,
+                                          kStackNotableSearchBackDistance,
+                                          kStackNotableSearchForwardDistance);
+    }
+    writer->endContainer(writer);
+}
+
+/** Write information about a thread to the report.
+ *
+ * @param writer The writer.
+ *
+ * @param key The object key, if needed.
+ *
+ * @param crash The crash handler context.
+ *
+ * @param thread The thread to write about.
+ */
+void kscrw_i_writeThread(const KSReportWriter* const writer,
+                         const char* const key,
+                         const KSCrash_HandlerContext* const crash,
+                         const thread_t thread);
+void kscrw_i_writeThread(const KSReportWriter* const writer,
+                         const char* const key,
+                         const KSCrash_HandlerContext* const crash,
+                         const thread_t thread)
+{
+    bool isCrashedThread = thread == crash->crashedThread;
+    char nameBuffer[128];
+    _STRUCT_MCONTEXT machineContextBuffer;
+    uintptr_t backtraceBuffer[kMaxBacktraceDepth];
+    int backtraceLength = sizeof(backtraceBuffer);
+    int skippedEntries = 0;
+
+    _STRUCT_MCONTEXT* machineContext = kscrw_i_getMachineContext(crash,
+                                                                 thread,
+                                                                 &machineContextBuffer);
+
+    uintptr_t* backtrace = kscrw_i_getBacktrace(crash,
+                                                thread,
+                                                machineContext,
+                                                backtraceBuffer,
+                                                &backtraceLength,
+                                                &skippedEntries);
+
+    /*
+    char nameBuffer[100];
+    _STRUCT_MCONTEXT concreteMachineContext;
+    _STRUCT_MCONTEXT* machineContext = NULL;
+    uintptr_t concreteBacktrace[kMaxBacktraceDepth];
+    uintptr_t* backtrace = NULL;
+    int backtraceLength = 0;
+    int skipEntries = 0;
+    bool fetchMachineContext = true;
+    bool isCrashedThread = thread == crash->crashedThread;
+
+    if(thread == mach_thread_self())
+    {
+        fetchMachineContext = false;
+
+        // We're looking at the current thread. Decide what to do based
+        // on the crash type.
+        switch(crash->crashType)
+        {
+            case KSCrashTypeSignal:
+                // Signals provide a machine context that we can get the
+                // stack trace from.
+                machineContext = crash->signal.userContext->uc_mcontext;
+                break;
+            case KSCrashTypeNSException:
+                // NSException conveniently provides a stack trace for us.
+                backtrace = crash->NSException.stackTrace;
+                backtraceLength = crash->NSException.stackTraceLength;
+                break;
+            case KSCrashTypeMachException:
+                // Mach exceptions are reported by the mach exception
+                // handler thread. We can't reliably get the stack trace
+                // of a running thread (and it wouldn't be useful for
+                // debugging anyway), so just ignore it.
+                return;
+        }
+    }
+
+    if(fetchMachineContext)
+    {
+        machineContext = &concreteMachineContext;
+        if(!kscrw_i_fetchMachineState(thread, machineContext))
+        {
+            KSLOG_ERROR("Failed to fetch machine state for thread %d", thread);
+            return;
+        }
+    }
+
+    if(backtrace == NULL && machineContext != NULL)
+    {
+        backtrace = concreteBacktrace;
+        backtraceLength = ksbt_backtraceLength(machineContext);
+        if(backtraceLength > kStackOverflowThreshold)
+        {
+            crash->isStackOverflow = true;
+            skipEntries = backtraceLength - kMaxBacktraceDepth;
+        }
+
+        backtraceLength = ksbt_backtraceThreadState(machineContext,
+                                                    backtrace,
+                                                    skipEntries,
+                                                    kMaxBacktraceDepth);
+    }
+     */
+
+    writer->beginObject(writer, key);
+    {
+        if(backtrace != NULL)
+        {
+            kscrw_i_writeBacktrace(writer, "backtrace", backtrace, backtraceLength);
+            writer->addIntegerElement(writer, "backtrace_skipped", skippedEntries);
+        }
+        if(machineContext != NULL)
+        {
+            kscrw_i_writeRegisters(writer, "registers", machineContext);
+            if(isCrashedThread)
+            {
+                kscrw_i_writeExceptionRegisters(writer, "exception_registers", machineContext);
+            }
+        }
+        if(pthread_getname_np(pthread_from_mach_thread_np(thread),
+                              nameBuffer,
+                              sizeof(nameBuffer)) == 0 &&
+           nameBuffer[0] != 0)
+        {
+            writer->addStringElement(writer, "name", nameBuffer);
+        }
+
+        if(ksmach_getThreadQueueName(thread, nameBuffer, sizeof(nameBuffer)))
+        {
+            writer->addStringElement(writer, "dispatch_queue", nameBuffer);
+        }
+        writer->addBooleanElement(writer, "crashed", isCrashedThread);
+        writer->addBooleanElement(writer, "current_thread", thread == mach_thread_self());
+        if(isCrashedThread && machineContext != NULL)
+        {
+            kscrw_i_writeStackContents(writer,
+                                       "stack",
+                                       machineContext,
+                                       skippedEntries > 0);
+            kscrw_i_writeNotableAddresses(writer, "notable_addresses", machineContext);
+        }
+    }
+    writer->endContainer(writer);
+}
+
+/** Write information about all threads to the report.
+ *
+ * @param writer The writer.
+ *
+ * @param key The object key, if needed.
+ *
+ * @param crash The crash handler context.
+ */
+void kscrw_i_writeAllThreads(const KSReportWriter* const writer,
+                             const char* const key,
+                             const KSCrash_HandlerContext* const crash);
+void kscrw_i_writeAllThreads(const KSReportWriter* const writer,
+                             const char* const key,
+                             const KSCrash_HandlerContext* const crash)
+{
+    const task_t thisTask = mach_task_self();
+    thread_act_array_t threads;
+    mach_msg_type_number_t numThreads;
+    kern_return_t kr;
+
+    if((kr = task_threads(thisTask, &threads, &numThreads)) != KERN_SUCCESS)
+    {
+        KSLOG_ERROR("task_threads: %s", mach_error_string(kr));
+        return;
+    }
+    
+    // Fetch info for all threads.
+    writer->beginArray(writer, key);
+    {
+        for(mach_msg_type_number_t i = 0; i < numThreads; i++)
+        {
+            kscrw_i_writeThread(writer, NULL, crash, threads[i]);
+        }
+    }
+    writer->endContainer(writer);
+    
+    // Clean up.
+    for(mach_msg_type_number_t i = 0; i < numThreads; i++)
+    {
+        mach_port_deallocate(thisTask, threads[i]);
+    }
+    vm_deallocate(thisTask, (vm_address_t)threads, sizeof(thread_t) * numThreads);
+}
+
+
+#pragma mark Global Report Data
+
+/** Write information about a binary image to the report.
+ *
+ * @param writer The writer.
+ *
+ * @param key The object key, if needed.
+ *
+ * @param index Which image to write about.
+ */
+void kscrw_i_writeBinaryImage(const KSReportWriter* const writer,
+                              const char* const key,
+                              const uint32_t index);
+void kscrw_i_writeBinaryImage(const KSReportWriter* const writer,
+                              const char* const key,
+                              const uint32_t index)
+{
+    const struct mach_header* header = _dyld_get_image_header(index);
+    if(header == NULL)
+    {
+        return;
+    }
+
+    uintptr_t cmdPtr = ksmach_firstCmdAfterHeader(header);
+    if(cmdPtr == 0)
+    {
+        return;
+    }
+
+    // Look for the TEXT segment to get the image size.
+    // Also look for a UUID command.
+    uint64_t imageSize = 0;
+    uint8_t* uuid = NULL;
+
+    for(uint32_t iCmd = 0; iCmd < header->ncmds; iCmd++)
+    {
+        struct load_command* loadCmd = (struct load_command*)cmdPtr;
+        switch(loadCmd->cmd)
+        {
+            case LC_SEGMENT:
+            {
+                struct segment_command* segCmd = (struct segment_command*)cmdPtr;
+                if(strcmp(segCmd->segname, SEG_TEXT) == 0)
+                {
+                    imageSize = segCmd->vmsize;
+                }
+                break;
+            }
+            case LC_SEGMENT_64:
+            {
+                struct segment_command_64* segCmd = (struct segment_command_64*)cmdPtr;
+                if(strcmp(segCmd->segname, SEG_TEXT) == 0)
+                {
+                    imageSize = segCmd->vmsize;
+                }
+                break;
+            }
+            case LC_UUID:
+            {
+                struct uuid_command* uuidCmd = (struct uuid_command*)cmdPtr;
+                uuid = uuidCmd->uuid;
+                break;
+            }
+        }
+        cmdPtr += loadCmd->cmdsize;
+    }
+
+    writer->beginObject(writer, key);
+    {
+        writer->addUIntegerElement(writer, "image_addr", (uintptr_t)header);
+        writer->addUIntegerElement(writer, "image_size", imageSize);
+        writer->addStringElement(writer, "name", _dyld_get_image_name(index));
+        writer->addUUIDElement(writer, "uuid", uuid);
+        writer->addIntegerElement(writer, "cpu_type", header->cputype);
+        writer->addIntegerElement(writer, "cpu_subtype", header->cpusubtype);
+    }
+    writer->endContainer(writer);
+}
+
+/** Write information about all images to the report.
+ *
+ * @param writer The writer.
+ *
+ * @param key The object key, if needed.
+ */
+void kscrw_i_writeBinaryImages(const KSReportWriter* const writer,
+                               const char* const key);
+void kscrw_i_writeBinaryImages(const KSReportWriter* const writer,
+                               const char* const key)
+{
+    const uint32_t imageCount = _dyld_image_count();
+
+    writer->beginArray(writer, key);
+    {
+        for(uint32_t iImg = 0; iImg < imageCount; iImg++)
+        {
+            kscrw_i_writeBinaryImage(writer, NULL, iImg);
+        }
+    }
+    writer->endContainer(writer);
+}
+
+/** Write information about system memory to the report.
+ *
+ * @param writer The writer.
+ *
+ * @param key The object key, if needed.
+ */
+void kscrw_i_writeMemoryInfo(const KSReportWriter* const writer,
+                             const char* const key);
+void kscrw_i_writeMemoryInfo(const KSReportWriter* const writer,
+                             const char* const key)
+{
+    writer->beginObject(writer, key);
+    {
+        writer->addUIntegerElement(writer, "usable_memory", ksmach_usableMemory());
+        writer->addUIntegerElement(writer, "free_memory", ksmach_freeMemory());
+    }
+    writer->endContainer(writer);
+}
+
+/** Write information about an NSException to the report.
+ *
+ * @param writer The writer.
+ *
+ * @param key The object key, if needed.
+ *
+ * @param name The exception name.
+ *
+ * @param reason The exception reason.
+ *
+ * @param backtrace The exception's backtrace.
+ *
+ * @param backtraceLength The length of the backtrace.
+ */
+void kscrw_i_writeNSException(const KSReportWriter* const writer,
+                              const char* const key,
+                              const char* const name,
+                              const char* const reason,
+                              const uintptr_t* const backtrace,
+                              const int backtraceLength);
+void kscrw_i_writeNSException(const KSReportWriter* const writer,
+                              const char* const key,
+                              const char* const name,
+                              const char* const reason,
+                              const uintptr_t* const backtrace,
+                              const int backtraceLength)
+{
+    writer->beginObject(writer, key);
+    {
+        writer->addStringElement(writer, "name", name);
+        writer->addStringElement(writer, "reason", reason);
+        kscrw_i_writeBacktrace(writer, "backtrace", backtrace, backtraceLength);
+    }
+    writer->endContainer(writer);
+}
+
+/** Write information about the error leading to the crash to the report.
+ *
+ * @param writer The writer.
+ *
+ * @param key The object key, if needed.
+ *
+ * @param crash The crash handler context.
+ */
+void kscrw_i_writeError(const KSReportWriter* const writer,
+                        const char* const key,
+                        const KSCrash_HandlerContext* const crash);
+void kscrw_i_writeError(const KSReportWriter* const writer,
+                        const char* const key,
+                        const KSCrash_HandlerContext* const crash)
+{
+    int machExceptionType = 0;
+    kern_return_t machCode = 0;
+    kern_return_t machSubCode = 0;
+    int sigNum = 0;
+    int sigCode = 0;
+    const char* NSExceptionName = "(null)";
+    const char* NSExceptionReason = "(null)";
+
+    // Gather common info.
+    switch(crash->crashType)
+    {
+        case KSCrashTypeMachException:
+            machExceptionType = crash->mach.type;
+            machCode = (kern_return_t)crash->mach.code;
+            if(machCode == KERN_PROTECTION_FAILURE && crash->isStackOverflow)
+            {
+                // A stack overflow should return KERN_INVALID_ADDRESS, but
+                // when a stack blasts through the guard pages at the top of the stack,
+                // it generates KERN_PROTECTION_FAILURE. Correct for this.
+                machCode = KERN_INVALID_ADDRESS;
+            }
+            machSubCode = (kern_return_t)crash->mach.subcode;
+            
+            sigNum = kssignal_signalForMachException(machExceptionType,
+                                                     machCode);
+            break;
+            
+        case KSCrashTypeNSException:
+            machExceptionType = EXC_CRASH;
+            sigNum = SIGABRT;
+            if(crash->NSException.name != NULL)
+            {
+                NSExceptionName = crash->NSException.name;
+            }
+            if(crash->NSException.reason != NULL)
+            {
+                NSExceptionReason = crash->NSException.reason;
+            }
+            break;
+        case KSCrashTypeSignal:
+            sigNum = crash->signal.signalInfo->si_signo;
+            sigCode = crash->signal.signalInfo->si_code;
+            machExceptionType = kssignal_machExceptionForSignal(sigNum);
+            break;
+    }
+    
+    char machExceptionName[30];
+    char machCodeName[30];
+    kscrw_i_getMachExceptionName(machExceptionType, machExceptionName, sizeof(machExceptionName));
+    kscrw_i_getMachCodeName(machCode, machCodeName, sizeof(machCodeName));
+    char sigNameBuff[30];
+    char sigCodeNameBuff[30];
+    const char* sigName = kssignal_signalName(sigNum);
+    const char* sigCodeName = kssignal_signalCodeName(sigNum, sigCode);
+    if(sigName == NULL)
+    {
+        snprintf(sigNameBuff, sizeof(sigNameBuff), "%d", sigNum);
+        sigName = sigNameBuff;
+    }
+    if(sigCodeName == NULL)
+    {
+        snprintf(sigCodeNameBuff, sizeof(sigCodeNameBuff), "%d", sigCode);
+        sigCodeName = sigCodeNameBuff;
+    }
+    
+    writer->beginObject(writer, key);
+    {
+        writer->addStringElement(writer, "mach_exception", machExceptionName);
+        writer->addUIntegerElement(writer, "mach_code", (unsigned)machCode);
+        writer->addStringElement(writer, "mach_code_name", machCodeName);
+        writer->addUIntegerElement(writer, "mach_subcode", (unsigned)machSubCode);
+        writer->addUIntegerElement(writer, "signal", (unsigned)sigNum);
+        writer->addStringElement(writer, "signal_name", sigName);
+        writer->addUIntegerElement(writer, "signal_code", (unsigned)sigCode);
+        writer->addStringElement(writer, "signal_code_name", sigCodeName);
+        writer->addUIntegerElement(writer, "address", crash->faultAddress);
+
+        // Gather specific info.
+        switch(crash->crashType)
+        {
+            case KSCrashTypeMachException:
+                writer->addStringElement(writer, "type", "mach");
+
+                KSLOGBASIC_INFO("App crashed due to mach exception %s: %s",
+                                machExceptionName, machCodeName);
+                break;
+
+            case KSCrashTypeNSException:
+                writer->addStringElement(writer, "nsexception_name", NSExceptionName);
+                writer->addStringElement(writer, "nsexception_reason", NSExceptionReason);
+                writer->addStringElement(writer, "type", "nsexception");
+
+                KSLOGBASIC_INFO("App crashed due to exception %s: %s",
+                                NSExceptionName,
+                                NSExceptionReason);
+                break;
+
+            case KSCrashTypeSignal:
+                writer->addStringElement(writer, "type", "signal");
+
+                KSLOGBASIC_INFO("App crashed due to signal [%s, %s] at %08x",
+                                sigName, sigCodeName, crash->faultAddress);
+        }
+
+        if(crash->crashType == KSCrashTypeNSException)
+        {
+            kscrw_i_writeNSException(writer,
+                                     "nsexception",
+                                     NSExceptionName,
+                                     NSExceptionReason,
+                                     crash->NSException.stackTrace,
+                                     crash->NSException.stackTraceLength);
+        }
+    }
+    writer->endContainer(writer);
+}
+
+/** Write information about app runtime, etc to the report.
+ *
+ * @param writer The writer.
+ *
+ * @param key The object key, if needed.
+ *
+ * @param stats The application run stats.
+ */
+void kscrw_i_writeAppStats(const KSReportWriter* const writer,
+                           const char* const key,
+                           KSCrash_Status* stats);
+void kscrw_i_writeAppStats(const KSReportWriter* const writer,
+                           const char* const key,
+                           KSCrash_Status* stats)
+{
+    writer->beginObject(writer, key);
+    {
+        writer->addBooleanElement(writer, "application_active",
+                                  stats->applicationIsActive);
+        writer->addBooleanElement(writer, "application_in_foreground",
+                                  stats->applicationIsInForeground);
+
+        writer->addIntegerElement(writer, "launches_since_last_crash",
+                                  stats->launchesSinceLastCrash);
+        writer->addIntegerElement(writer, "sessions_since_last_crash",
+                                  stats->sessionsSinceLastCrash);
+        writer->addFloatingPointElement(writer,
+                                        "active_time_since_last_crash",
+                                        stats->activeDurationSinceLastCrash);
+        writer->addFloatingPointElement(writer,
+                                        "background_time_since_last_crash",
+                                        stats->backgroundDurationSinceLastCrash);
+
+        writer->addIntegerElement(writer, "sessions_since_launch",
+                                  stats->sessionsSinceLaunch);
+        writer->addFloatingPointElement(writer,
+                                        "active_time_since_launch",
+                                        stats->activeDurationSinceLaunch);
+        writer->addFloatingPointElement(writer,
+                                        "background_time_since_launch",
+                                        stats->backgroundDurationSinceLaunch);
+    }
+    writer->endContainer(writer);
+}
+
+
+#pragma mark Setup
+
+/** Prepare a report writer for use.
+ *
+ * @oaram writer The writer to prepare.
+ *
+ * @param context JSON writer contextual information.
+ */
+void kscrw_i_prepareReportWriter(KSReportWriter* const writer,
+                                 KSJSONEncodeContext* const context);
 void kscrw_i_prepareReportWriter(KSReportWriter* const writer,
                                  KSJSONEncodeContext* const context)
 {
@@ -1267,17 +1653,14 @@ void kscrw_i_prepareReportWriter(KSReportWriter* const writer,
     writer->context = context;
 }
 
-int kscrw_i_addJSONData(const char* const data,
-                        const size_t length,
-                        void* const userData)
-{
-    const int fd = *((int*)userData);
-    const bool success = ksfu_writeBytesToFD(fd, data, (ssize_t)length);
-    return success ? KSJSON_OK : KSJSON_ERROR_CANNOT_ADD_DATA;
-}
-
-void kscrash_writeCrashReport(KSCrashContext* const crashContext,
-                              const char* const path)
+/** Open the crash report file.
+ *
+ * @param path The path to the file.
+ *
+ * @return The file descriptor, or -1 if an error occurred.
+ */
+int kscrw_i_openCrashReportFile(const char* const path);
+int kscrw_i_openCrashReportFile(const char* const path)
 {
     int fd = open(path, O_RDWR | O_CREAT | O_EXCL, 0644);
     if(fd < 0)
@@ -1285,8 +1668,92 @@ void kscrash_writeCrashReport(KSCrashContext* const crashContext,
         KSLOG_ERROR("Could not open crash report file %s: %s",
                     path,
                     strerror(errno));
+    }
+    return fd;
+}
+
+/** Record whether the crashed thread had a stack overflow or not.
+ *
+ * @param crashContext the context.
+ */
+void kscrw_i_updateStackOverflowStatus(KSCrashContext* const crashContext);
+void kscrw_i_updateStackOverflowStatus(KSCrashContext* const crashContext)
+{
+    // TODO: This feels weird. Shouldn't be mutating the context.
+    if(kscrw_i_isStackOverflow(&crashContext->crash, crashContext->crash.crashedThread))
+    {
+        KSLOG_TRACE("Stack overflow detected.");
+        crashContext->crash.isStackOverflow = true;
+    }
+}
+
+
+// ============================================================================
+#pragma mark - Main API -
+// ============================================================================
+
+void kscrash_writeMinimalCrashReport(KSCrashContext* const crashContext,
+                                     const char* const path)
+{
+    KSLOG_INFO("Writing minimal crash report to %s", path);
+
+    int fd = kscrw_i_openCrashReportFile(path);
+    if(fd < 0)
+    {
         return;
     }
+
+    kscrw_i_updateStackOverflowStatus(crashContext);
+
+    KSJSONEncodeContext jsonContext;
+    jsonContext.userData = &fd;
+    KSReportWriter concreteWriter;
+    KSReportWriter* writer = &concreteWriter;
+    kscrw_i_prepareReportWriter(writer, &jsonContext);
+
+    ksjson_beginEncode(getJsonContext(writer),
+                       true,
+                       kscrw_i_addJSONData,
+                       &fd);
+
+    writer->beginObject(writer, "minimal_report");
+    {
+        writer->addIntegerElement(writer, "report_version_major", kReportVersionMajor);
+        writer->addIntegerElement(writer, "report_version_minor", kReportVersionMinor);
+        writer->addStringElement(writer, "crash_id", crashContext->config.crashID);
+        writer->addIntegerElement(writer, "timestamp", time(NULL));
+
+        writer->beginObject(writer, "crash");
+        {
+            kscrw_i_writeThread(writer,
+                                "crashed_thread",
+                                &crashContext->crash,
+                                crashContext->crash.crashedThread);
+            kscrw_i_writeError(writer, "error", &crashContext->crash);
+        }
+        writer->endContainer(writer);
+    }
+    writer->endContainer(writer);
+
+    ksjson_endEncode(getJsonContext(writer));
+
+    close(fd);
+}
+
+void kscrash_writeCrashReport(KSCrashContext* const crashContext,
+                              const char* const path)
+{
+    KSLOG_INFO("Writing crash report to %s", path);
+
+    int fd = kscrw_i_openCrashReportFile(path);
+    if(fd < 0)
+    {
+        return;
+    }
+
+    kscrw_i_updateStackOverflowStatus(crashContext);
+
+    kscrw_i_printCrashThreadBacktrace(&crashContext->crash);
     
     KSJSONEncodeContext jsonContext;
     jsonContext.userData = &fd;
@@ -1294,71 +1761,51 @@ void kscrash_writeCrashReport(KSCrashContext* const crashContext,
     KSReportWriter* writer = &concreteWriter;
     kscrw_i_prepareReportWriter(writer, &jsonContext);
     
-    ksjson_beginEncode(getJsonContext(writer),
-                       true,
-                       kscrw_i_addJSONData,
-                       &fd);
-    writer->beginObject(writer, NULL);
+    ksjson_beginEncode(getJsonContext(writer), true, kscrw_i_addJSONData, &fd);
+
+    writer->beginObject(writer, "report");
     {
         writer->addIntegerElement(writer, "report_version_major", kReportVersionMajor);
         writer->addIntegerElement(writer, "report_version_minor", kReportVersionMinor);
-        writer->addStringElement(writer, "crash_id", crashContext->crashID);
+        writer->addStringElement(writer, "crash_id", crashContext->config.crashID);
         writer->addIntegerElement(writer, "timestamp", time(NULL));
-        if(crashContext->systemInfoJSON != NULL)
+        if(crashContext->config.systemInfoJSON != NULL)
         {
-            kscrw_i_addJSONElement(writer, "system", crashContext->systemInfoJSON);
+            kscrw_i_addJSONElement(writer, "system", crashContext->config.systemInfoJSON);
         }
+
         writer->beginObject(writer, "system_atcrash");
         {
-            kscrw_i_writeMachineStats(writer);
-            
-            writer->addBooleanElement(writer, "application_active",
-                                      crashContext->applicationIsActive);
-            writer->addBooleanElement(writer, "application_in_foreground",
-                                      crashContext->applicationIsInForeground);
-            
-            writer->addIntegerElement(writer, "launches_since_last_crash",
-                                      crashContext->launchesSinceLastCrash);
-            writer->addIntegerElement(writer, "sessions_since_last_crash",
-                                      crashContext->sessionsSinceLastCrash);
-            writer->addFloatingPointElement(writer,
-                                            "active_time_since_last_crash",
-                                            crashContext->activeDurationSinceLastCrash);
-            writer->addFloatingPointElement(writer,
-                                            "background_time_since_last_crash",
-                                            crashContext->backgroundDurationSinceLastCrash);
-            
-            writer->addIntegerElement(writer, "sessions_since_launch",
-                                      crashContext->sessionsSinceLaunch);
-            writer->addFloatingPointElement(writer,
-                                            "active_time_since_launch",
-                                            crashContext->activeDurationSinceLaunch);
-            writer->addFloatingPointElement(writer,
-                                            "background_time_since_launch",
-                                            crashContext->backgroundDurationSinceLaunch);
+            kscrw_i_writeMemoryInfo(writer, "memory");
+            kscrw_i_writeAppStats(writer, "application_stats", &crashContext->state);
         }
         writer->endContainer(writer);
-        
+
+        kscrw_i_writeBinaryImages(writer, "binary_images");
+
         writer->beginObject(writer, "crash");
         {
-            kscrw_i_writeAllThreads(writer, crashContext);
-            kscrw_i_writeErrorInfo(writer, crashContext);
-            kscrw_i_writeBinaryImages(writer);
+            kscrw_i_writeAllThreads(writer, "threads", &crashContext->crash);
+            kscrw_i_writeError(writer, "error", &crashContext->crash);
         }
         writer->endContainer(writer);
         
-        if(crashContext->userInfoJSON != NULL)
+        if(crashContext->config.userInfoJSON != NULL)
         {
-            kscrw_i_addJSONElement(writer, "user", crashContext->userInfoJSON);
+            kscrw_i_addJSONElement(writer, "user", crashContext->config.userInfoJSON);
         }
-        if(crashContext->onCrashNotify != NULL)
+
+        if(crashContext->config.onCrashNotify != NULL)
         {
             writer->beginObject(writer, "user_atcrash");
-            crashContext->onCrashNotify(writer);
+            {
+                crashContext->config.onCrashNotify(writer);
+            }
             writer->endContainer(writer);
         }
     }
     writer->endContainer(writer);
+
     ksjson_endEncode(getJsonContext(writer));
     
     close(fd);

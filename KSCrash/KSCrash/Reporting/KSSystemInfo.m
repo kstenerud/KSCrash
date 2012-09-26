@@ -31,8 +31,10 @@
 #import "ARCSafe_MemMgmt.h"
 #import "KSMach.h"
 #import "KSSysCtl.h"
-#import "KSLogger.h"
 #import "KSJSONCodecObjC.h"
+
+//#define KSLogger_LocalLevel TRACE
+#import "KSLogger.h"
 
 #import <CommonCrypto/CommonDigest.h>
 

@@ -25,16 +25,16 @@
 //
 
 #import "KSZombie.h"
+
 #import <Foundation/Foundation.h>
 #import <objc/runtime.h>
-
 
 
 #if __has_feature(objc_arc)
 
 void kszombie_install(unsigned int cacheSize)
 {
-#pragma unused(cacheSize)
+    #pragma unused(cacheSize)
     NSLog(@"Error: KSZombie must be compiled with ARC disabled. You may use ARC"
           " in your app, but you must compile this library without ARC.");
 }
@@ -45,7 +45,7 @@ void kszombie_uninstall(void)
 
 const char* kszombie_className(void* object)
 {
-#pragma unused(object)
+    #pragma unused(object)
     return NULL;
 }
 
@@ -53,48 +53,38 @@ const char* kszombie_className(void* object)
 
 typedef struct
 {
-    void* object;
+    const void* object;
     const char* className;
 } Zombie;
 
 static Zombie* g_zombieCache;
 static unsigned int g_zombieHashMask;
 
-static inline unsigned int hashIndex(id object)
+static inline unsigned int hashIndex(const id object)
 {
     uintptr_t objPtr = (uintptr_t)object;
     objPtr >>= (sizeof(object)-1);
     return objPtr & g_zombieHashMask;
 }
 
-static inline bool isPowerOf2(unsigned int value)
+static inline bool isPowerOf2(const unsigned int value)
 {
     return value && !(value & (value - 1));
 }
 
-@implementation NSObject (KSZombie)
-
-- (void) dealloc_KSZombieOrig
-{
-    Zombie* zombie = g_zombieCache + hashIndex(self);
-    zombie->object = self;
-    zombie->className = class_getName(object_getClass(self));
-    [self dealloc_KSZombieOrig];
-}
-
+#define CREATE_ZOMBIE_CATEGORY(CLASS) \
+@implementation CLASS (KSZombie) \
+- (void) dealloc_KSZombieOrig \
+{ \
+    Zombie* zombie = g_zombieCache + hashIndex(self); \
+    zombie->object = self; \
+    zombie->className = class_getName(object_getClass(self)); \
+    [self dealloc_KSZombieOrig]; \
+} \
 @end
 
-@implementation NSProxy (KSZombie)
-
-- (void) dealloc_KSZombieOrig
-{
-    Zombie* zombie = g_zombieCache + hashIndex(self);
-    zombie->object = self;
-    zombie->className = class_getName(object_getClass(self));
-    [self dealloc_KSZombieOrig];
-}
-
-@end
+CREATE_ZOMBIE_CATEGORY(NSObject);
+CREATE_ZOMBIE_CATEGORY(NSProxy);
 
 static void swizzleDealloc(Class cls)
 {
@@ -153,7 +143,7 @@ void kszombie_uninstall(void)
     });
 }
 
-const char* kszombie_className(void* object)
+const char* kszombie_className(const void* object)
 {
     if(g_zombieCache == NULL)
     {

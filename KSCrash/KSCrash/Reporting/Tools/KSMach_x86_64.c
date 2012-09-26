@@ -30,6 +30,7 @@
 
 #include "KSMach.h"
 
+//#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
 

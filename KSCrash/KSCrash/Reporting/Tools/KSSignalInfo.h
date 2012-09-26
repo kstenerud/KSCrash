@@ -36,6 +36,7 @@
 extern "C" {
 #endif
 
+
 #include <mach/mach.h>
 
 
@@ -87,6 +88,7 @@ int kssignal_signalForMachException(int exception,
  * @return The matching mach exception, or 0 if not found.
  */
 int kssignal_machExceptionForSignal(int signal);
+
 
 #ifdef __cplusplus
 }

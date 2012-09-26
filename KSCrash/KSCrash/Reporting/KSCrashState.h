@@ -37,9 +37,60 @@ extern "C" {
 #endif
 
 
-#include "KSCrashContext.h"
-
 #include <stdbool.h>
+#include <mach/mach_types.h>
+
+
+typedef struct
+{
+    // Saved data
+
+    /** Total active time elapsed since the last crash. */
+    double activeDurationSinceLastCrash;
+
+    /** Total time backgrounded elapsed since the last crash. */
+    double backgroundDurationSinceLastCrash;
+
+    /** Number of app launches since the last crash. */
+    int launchesSinceLastCrash;
+
+    /** Number of sessions (launch, resume from suspend) since last crash. */
+    int sessionsSinceLastCrash;
+
+    /** Total active time elapsed since launch. */
+    double activeDurationSinceLaunch;
+
+    /** Total time backgrounded elapsed since launch. */
+    double backgroundDurationSinceLaunch;
+
+    /** Number of sessions (launch, resume from suspend) since app launch. */
+    int sessionsSinceLaunch;
+
+    /** If true, the application crashed on the previous launch. */
+    bool crashedLastLaunch;
+
+    // Live data
+
+    /** If true, the application crashed on this launch. */
+    bool crashedThisLaunch;
+
+    /** Timestamp for when the app was launched (mach_absolute_time()) */
+    uint64_t appLaunchTime;
+
+    /** Timestamp for when the app state was last changed (active<-> inactive,
+     * background<->foreground) (mach_absolute_time()) */
+    uint64_t appStateTransitionTime;
+
+    /** If true, the application is currently active. */
+    bool applicationIsActive;
+
+    /** If true, the application is currently in the foreground. */
+    bool applicationIsInForeground;
+
+    bool inCrashHandler;
+    bool inCrashReporter;
+
+} KSCrash_Status;
 
 
 /** Initialize the state monitor.
@@ -50,7 +101,7 @@ extern "C" {
  *
  * @return true if initialization was successful.
  */
-bool kscrash_initState(const char* stateFilePath, KSCrashContext* context);
+bool kscrash_initState(const char* stateFilePath, KSCrash_Status* state);
 
 /** Notify the crash reporter of the application active state.
  *
@@ -72,6 +123,18 @@ void kscrash_notifyApplicationTerminate(void);
 /** Notify the crash reporter that the application has crashed.
  */
 void kscrash_notifyApplicationCrash(void);
+
+/** Notify when control passes to/from a crash handler.
+ *
+ * @param inCrashHandler true if control has passed into a crash handler.
+ */
+void kscrash_notifyInCrashHandler(bool isInCrashHandler);
+
+/** Notify when control passes to/from the crash reporter.
+ *
+ * @param inCrashHandler true if control has passed into the crash reporter.
+ */
+void kscrash_notifyInCrashReporter(bool isInCrashReporter);
 
 
 #ifdef __cplusplus

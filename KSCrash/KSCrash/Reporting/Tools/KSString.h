@@ -34,6 +34,7 @@ extern "C" {
     
 #include <stdbool.h>
 
+
 /** Check if a memory location contains a null terminated UTF-8 string.
  *
  * @param memory The memory location to test.
@@ -45,6 +46,7 @@ extern "C" {
 bool kstring_isNullTerminatedUTF8String(const void* memory,
                                         int minLength,
                                         int maxLength);
+
 
 #ifdef __cplusplus
 }

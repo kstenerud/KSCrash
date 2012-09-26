@@ -291,7 +291,7 @@ NSDictionary* g_registerOrders;
     NSDictionary* systemInfo = [JSONReport objectForKey:@"system"];
     NSDictionary* crashInfo = [JSONReport objectForKey:@"crash"];
     NSDictionary* errorInfo = [crashInfo objectForKey:@"error"];
-    NSArray* binaryImages = [crashInfo objectForKey:@"binary_images"];
+    NSArray* binaryImages = [JSONReport objectForKey:@"binary_images"];
     NSArray* threads = [crashInfo objectForKey:@"threads"];
     NSDictionary* exception = [errorInfo objectForKey:@"nsexception"];
     NSString* cpuArch = [systemInfo objectForKey:@"cpu_arch"];
@@ -345,8 +345,8 @@ NSDictionary* g_registerOrders;
     {
         [str appendFormat:@"\nApplication Specific Information:\n"];
         [str appendFormat:@"*** Terminating app due to uncaught exception '%@', reason: '%@'\n\n",
-         [errorInfo objectForKey:@"nsexception_name"],
-         [errorInfo objectForKey:@"nsexception_reason"]];
+         [exception objectForKey:@"name"],
+         [exception objectForKey:@"reason"]];
         [str appendFormat:@"Last Exception Backtrace:\n"];
         [self appendBacktrace:[exception objectForKey:@"backtrace"]
                   reportStyle:self.reportStyle

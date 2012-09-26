@@ -25,9 +25,14 @@
 //
 
 #import "KSCrashReportFilterAlert.h"
-#import <UIKit/UIKit.h>
+
 #import "ARCSafe_MemMgmt.h"
+
+//#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
+
+#import <UIKit/UIKit.h>
+
 
 @interface KSCrashAlertViewProcess : NSObject <UIAlertViewDelegate>
 

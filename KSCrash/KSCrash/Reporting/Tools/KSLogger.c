@@ -27,6 +27,7 @@
 
 #include "KSLogger.h"
 
+#include <fcntl.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
@@ -56,30 +57,32 @@
  */
 static const char* lastPathEntry(const char* const path);
 
-/** Write a string to stdout.
+/** Write a string to the log fd.
  *
  * @param str The string to write.
  */
-void kslog_i_writeToStdout(const char* const str);
+void kslog_i_write(const char* const str);
 
-/** Write a formatted string to stdout.
+/** Write a formatted string to the log fd.
  *
  * @param fmt The format string, followed by its arguments.
  */
-static void writeFmtToStdout(const char* fmt, ...);
+static void writeFmt(const char* fmt, ...);
 
-/** Write a formatted string to stdout using a vararg list.
+/** Write a formatted string to the log fd using a vararg list.
  *
  * @param fmt The format string.
  *
  * @param args The variable arguments.
  */
-static void writeFmtArgsToStdout(const char* fmt, va_list args);
+static void writeFmtArgs(const char* fmt, va_list args);
 
-/** Flush the stdout stream.
+/** Flush the log stream.
  */
-static void flushStdout(void);
+static void flushLog(void);
 
+/** The file descriptor where log entries get written. */
+static int g_fd = STDOUT_FILENO;
 
 
 static inline const char* lastPathEntry(const char* const path)
@@ -88,23 +91,23 @@ static inline const char* lastPathEntry(const char* const path)
     return lastFile == 0 ? path : lastFile + 1;
 }
 
-static inline void writeFmtToStdout(const char* fmt, ...)
+static inline void writeFmt(const char* fmt, ...)
 {
     va_list args;
     va_start(args,fmt);
-    writeFmtArgsToStdout(fmt, args);
+    writeFmtArgs(fmt, args);
     va_end(args);
 }
 
 #if KSLOGGER_CBufferSize > 0
 
-void kslog_i_writeToStdout(const char* const str)
+void kslog_i_write(const char* const str)
 {
     size_t bytesToWrite = strlen(str);
     const char* pos = str;
     while(bytesToWrite > 0)
     {
-        ssize_t bytesWritten = write(STDOUT_FILENO, pos, bytesToWrite);
+        ssize_t bytesWritten = write(g_fd, pos, bytesToWrite);
         if(bytesWritten == -1)
         {
             return;
@@ -114,36 +117,36 @@ void kslog_i_writeToStdout(const char* const str)
     }
 }
 
-static inline void writeFmtArgsToStdout(const char* fmt, va_list args)
+static inline void writeFmtArgs(const char* fmt, va_list args)
 {
     if(fmt == NULL)
     {
-        kslog_i_writeToStdout("(null)");
+        kslog_i_write("(null)");
     }
     else
     {
         char buffer[KSLOGGER_CBufferSize];
         vsnprintf(buffer, sizeof(buffer), fmt, args);
-        kslog_i_writeToStdout(buffer);
+        kslog_i_write(buffer);
     }
 }
 
-static inline void flushStdout(void)
+static inline void flushLog(void)
 {
 }
 
 #else // if KSLogger_CBufferSize <= 0
 
-static inline void writeToStdout(const char* const str)
+static inline void writeToFD(const char* const str)
 {
     printf("%s", str);
 }
 
-static inline void writeFmtArgsToStdout(const char* fmt, va_list args)
+static inline void writeFmtArgs(const char* fmt, va_list args)
 {
     if(fmt == NULL)
     {
-        writeToStdout("(null)");
+        writeToFD("(null)");
     }
     else
     {
@@ -151,7 +154,7 @@ static inline void writeFmtArgsToStdout(const char* fmt, va_list args)
     }
 }
 
-static inline void flushStdout(void)
+static inline void flushLog(void)
 {
     fflush(stdout);
 }
@@ -159,28 +162,59 @@ static inline void flushStdout(void)
 #endif
 
 
-void i_kslog_c_basic(const char* const fmt, ...)
+void i_kslog_logCBasic(const char* const fmt, ...)
 {
     va_list args;
     va_start(args,fmt);
-    writeFmtArgsToStdout(fmt, args);
+    writeFmtArgs(fmt, args);
     va_end(args);
-    kslog_i_writeToStdout("\n");
-    flushStdout();
+    kslog_i_write("\n");
+    flushLog();
 }
 
-void i_kslog_c(const char* const level,
-               const char* const file,
-               const int line,
-               const char* const function,
-               const char* const fmt, ...)
+void i_kslog_logC(const char* const level,
+                  const char* const file,
+                  const int line,
+                  const char* const function,
+                  const char* const fmt, ...)
 {
-    writeFmtToStdout("%s: %s (%u): %s: ",
-                     level, lastPathEntry(file), line, function);
+    writeFmt("%s: %s (%u): %s: ", level, lastPathEntry(file), line, function);
     va_list args;
     va_start(args,fmt);
-    writeFmtArgsToStdout(fmt, args);
+    writeFmtArgs(fmt, args);
     va_end(args);
-    kslog_i_writeToStdout("\n");
-    flushStdout();
+    kslog_i_write("\n");
+    flushLog();
+}
+
+bool kslog_setLogFilename(const char* filename, bool overwrite)
+{
+    if(filename == NULL)
+    {
+        kslog_setLogFD(STDOUT_FILENO);
+        return true;
+    }
+
+    int openMask = O_WRONLY | O_CREAT;
+    if(overwrite)
+    {
+        openMask |= O_TRUNC;
+    }
+    int fd = open(filename, openMask, 0644);
+    if(fd >= 0)
+    {
+        kslog_setLogFD(fd);
+        return true;
+    }
+    return false;
+}
+
+void kslog_setLogFD(int fd)
+{
+    g_fd = fd;
+}
+
+int kslog_getLogFD(void)
+{
+    return g_fd;
 }

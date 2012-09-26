@@ -152,29 +152,34 @@ extern "C" {
 #endif
 
 
+#include <stdbool.h>
+
+
 #ifdef __OBJC__
 
-void i_kslog_objc(const char* level,
-                  const char* file,
-                  int line,
-                  const char* function,
-                  NSString* fmt, ...);
+void i_kslog_logObjC(const char* level,
+                     const char* file,
+                     int line,
+                     const char* function,
+                     NSString* fmt, ...);
 
-#define i_KSLOG_FULL i_kslog_objc
-#define i_KSLOG_BASIC NSLog
+void i_kslog_logObjCBasic(NSString* fmt, ...);
+
+#define i_KSLOG_FULL i_kslog_logObjC
+#define i_KSLOG_BASIC i_kslog_logObjCBasic
 
 #else // __OBJC__
 
-void i_kslog_c(const char* level,
-               const char* file,
-               int line,
-               const char* function,
-               const char* fmt, ...);
+void i_kslog_logC(const char* level,
+                  const char* file,
+                  int line,
+                  const char* function,
+                  const char* fmt, ...);
 
-void i_kslog_c_basic(const char* fmt, ...);
+void i_kslog_logCBasic(const char* fmt, ...);
 
-#define i_KSLOG_FULL i_kslog_c
-#define i_KSLOG_BASIC i_kslog_c_basic
+#define i_KSLOG_FULL i_kslog_logC
+#define i_KSLOG_BASIC i_kslog_logCBasic
 
 #endif // __OBJC__
 
@@ -243,6 +248,26 @@ void i_kslog_c_basic(const char* fmt, ...);
 #pragma mark - API -
 // ============================================================================
 
+/** Set the filename to log to.
+ *
+ * @param filename The file to write to (NULL = write to stdout).
+ *
+ * @param overwrite If true, overwrite the log file.
+ */
+bool kslog_setLogFilename(const char* filename, bool overwrite);
+
+/** Set the file descriptor where the logger will write log entries.
+ *
+ * @param fd the file descriptor.
+ */
+void kslog_setLogFD(int fd);
+
+/** Get the file descriptor where the logger will write log entries.
+ *
+ * @return The file descriptor.
+ */
+int kslog_getLogFD(void);
+
 /** Tests if the logger would print at the specified level.
  *
  * @param LEVEL The level to test for. One of:
@@ -256,6 +281,15 @@ void i_kslog_c_basic(const char* fmt, ...);
  */
 #define KSLOG_PRINTS_AT_LEVEL(LEVEL) \
     (KSLogger_Level >= LEVEL || KSLogger_LocalLevel >= LEVEL)
+
+/** Log a message regardless of the log settings.
+ * Normal version prints out full context. Basic version prints directly.
+ *
+ * @param FMT The format specifier, followed by its arguments.
+ */
+#define KSLOG_ALWAYS(FMT, ...) a_KSLOG_FULL("FORCE", FMT, ##__VA_ARGS__)
+#define KSLOGBASIC_ALWAYS(FMT, ...) i_KSLOG_BASIC(FMT, ##__VA_ARGS__)
+
 
 /** Log an error.
  * Normal version prints out full context. Basic version prints directly.

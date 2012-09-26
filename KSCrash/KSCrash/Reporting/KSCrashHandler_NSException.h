@@ -37,7 +37,7 @@ extern "C" {
 #endif
 
 
-#include "KSCrashContext.h"
+#include "KSCrashHandler.h"
 
 
 /** Install our custom NSException handler.
@@ -46,12 +46,11 @@ extern "C" {
  *
  * @param onCrash Called when a crash occurs.
  */
-void kscrash_installNSExceptionHandler(KSCrashContext* context,
-                                       void(*onCrash)());
+bool kscrash_handlers_installNSExceptionHandler(KSCrash_HandlerContext* context);
 
 /** Uninstall our custome NSException handler.
  */
-void kscrash_uninstallNSExceptionHandler(void);
+void kscrash_handlers_uninstallNSExceptionHandler(void);
 
 
 #ifdef __cplusplus

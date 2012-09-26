@@ -30,7 +30,7 @@
 		391CF74116094F1300133E84 /* KSCrashAdvanced.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F51158D2FEA0046CF16 /* KSCrashAdvanced.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		391CF74216094F1300133E84 /* KSCrashReportStore.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F52158D2FEA0046CF16 /* KSCrashReportStore.h */; };
 		391CF74316094F1300133E84 /* KSCrashContext.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F55158D2FEA0046CF16 /* KSCrashContext.h */; };
-		391CF74416094F1300133E84 /* KSCrashHandler_Common.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F57158D2FEA0046CF16 /* KSCrashHandler_Common.h */; };
+		391CF74416094F1300133E84 /* KSCrashHandler.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F57158D2FEA0046CF16 /* KSCrashHandler.h */; };
 		391CF74516094F1300133E84 /* KSCrashHandler_MachException.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F59158D2FEA0046CF16 /* KSCrashHandler_MachException.h */; };
 		391CF74616094F1300133E84 /* KSCrashHandler_NSException.m in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F5B158D2FEA0046CF16 /* KSCrashHandler_NSException.m */; };
 		391CF74716094F1300133E84 /* KSCrashHandler_Signal.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F5D158D2FEA0046CF16 /* KSCrashHandler_Signal.h */; };
@@ -76,7 +76,7 @@
 		3939F3C215E6BCE100AD3BCD /* NSMutableData+AppendUTF8.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F4E158D2FEA0046CF16 /* NSMutableData+AppendUTF8.m */; };
 		3939F3C315E6BCE500AD3BCD /* KSCrash.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F50158D2FEA0046CF16 /* KSCrash.m */; };
 		3939F3C415E6BCE500AD3BCD /* KSCrashReportStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F53158D2FEA0046CF16 /* KSCrashReportStore.m */; };
-		3939F3C515E6BCF100AD3BCD /* KSCrashHandler_Common.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F56158D2FEA0046CF16 /* KSCrashHandler_Common.c */; };
+		3939F3C515E6BCF100AD3BCD /* KSCrashHandler.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F56158D2FEA0046CF16 /* KSCrashHandler.c */; };
 		3939F3C615E6BCF100AD3BCD /* KSCrashHandler_MachException.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F58158D2FEA0046CF16 /* KSCrashHandler_MachException.c */; };
 		3939F3C715E6BCF100AD3BCD /* KSCrashHandler_NSException.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F5B158D2FEA0046CF16 /* KSCrashHandler_NSException.m */; };
 		3939F3C815E6BCF100AD3BCD /* KSCrashHandler_Signal.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F5C158D2FEA0046CF16 /* KSCrashHandler_Signal.c */; };
@@ -145,8 +145,8 @@
 		396D6FA2158D2FEA0046CF16 /* KSCrashReportStore.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F52158D2FEA0046CF16 /* KSCrashReportStore.h */; };
 		396D6FA3158D2FEA0046CF16 /* KSCrashReportStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F53158D2FEA0046CF16 /* KSCrashReportStore.m */; };
 		396D6FA4158D2FEA0046CF16 /* KSCrashContext.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F55158D2FEA0046CF16 /* KSCrashContext.h */; };
-		396D6FA5158D2FEA0046CF16 /* KSCrashHandler_Common.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F56158D2FEA0046CF16 /* KSCrashHandler_Common.c */; };
-		396D6FA6158D2FEA0046CF16 /* KSCrashHandler_Common.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F57158D2FEA0046CF16 /* KSCrashHandler_Common.h */; };
+		396D6FA5158D2FEA0046CF16 /* KSCrashHandler.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F56158D2FEA0046CF16 /* KSCrashHandler.c */; };
+		396D6FA6158D2FEA0046CF16 /* KSCrashHandler.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F57158D2FEA0046CF16 /* KSCrashHandler.h */; };
 		396D6FA7158D2FEA0046CF16 /* KSCrashHandler_MachException.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F58158D2FEA0046CF16 /* KSCrashHandler_MachException.c */; };
 		396D6FA8158D2FEA0046CF16 /* KSCrashHandler_MachException.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F59158D2FEA0046CF16 /* KSCrashHandler_MachException.h */; };
 		396D6FA9158D2FEA0046CF16 /* KSCrashHandler_NSException.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F5A158D2FEA0046CF16 /* KSCrashHandler_NSException.h */; };
@@ -207,8 +207,8 @@
 		396D6FFA158D31920046CF16 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 396D6FF9158D31920046CF16 /* SystemConfiguration.framework */; };
 		396D70A3158D83870046CF16 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 396D70A1158D83870046CF16 /* InfoPlist.strings */; };
 		396D70AC158D83BB0046CF16 /* KSCrashContext.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F55158D2FEA0046CF16 /* KSCrashContext.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		396D70AD158D83BB0046CF16 /* KSCrashHandler_Common.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F56158D2FEA0046CF16 /* KSCrashHandler_Common.c */; };
-		396D70AE158D83BB0046CF16 /* KSCrashHandler_Common.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F57158D2FEA0046CF16 /* KSCrashHandler_Common.h */; };
+		396D70AD158D83BB0046CF16 /* KSCrashHandler.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F56158D2FEA0046CF16 /* KSCrashHandler.c */; };
+		396D70AE158D83BB0046CF16 /* KSCrashHandler.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F57158D2FEA0046CF16 /* KSCrashHandler.h */; };
 		396D70AF158D83BB0046CF16 /* KSCrashHandler_MachException.c in Sources */ = {isa = PBXBuildFile; fileRef = 396D6F58158D2FEA0046CF16 /* KSCrashHandler_MachException.c */; };
 		396D70B0158D83BB0046CF16 /* KSCrashHandler_MachException.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F59158D2FEA0046CF16 /* KSCrashHandler_MachException.h */; };
 		396D70B1158D83BB0046CF16 /* KSCrashHandler_NSException.h in Headers */ = {isa = PBXBuildFile; fileRef = 396D6F5A158D2FEA0046CF16 /* KSCrashHandler_NSException.h */; };
@@ -361,8 +361,8 @@
 		396D6F52158D2FEA0046CF16 /* KSCrashReportStore.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashReportStore.h; sourceTree = "<group>"; };
 		396D6F53158D2FEA0046CF16 /* KSCrashReportStore.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSCrashReportStore.m; sourceTree = "<group>"; };
 		396D6F55158D2FEA0046CF16 /* KSCrashContext.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashContext.h; sourceTree = "<group>"; };
-		396D6F56158D2FEA0046CF16 /* KSCrashHandler_Common.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSCrashHandler_Common.c; sourceTree = "<group>"; };
-		396D6F57158D2FEA0046CF16 /* KSCrashHandler_Common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashHandler_Common.h; sourceTree = "<group>"; };
+		396D6F56158D2FEA0046CF16 /* KSCrashHandler.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSCrashHandler.c; sourceTree = "<group>"; };
+		396D6F57158D2FEA0046CF16 /* KSCrashHandler.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.objj.h; path = KSCrashHandler.h; sourceTree = "<group>"; };
 		396D6F58158D2FEA0046CF16 /* KSCrashHandler_MachException.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSCrashHandler_MachException.c; sourceTree = "<group>"; };
 		396D6F59158D2FEA0046CF16 /* KSCrashHandler_MachException.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashHandler_MachException.h; sourceTree = "<group>"; };
 		396D6F5A158D2FEA0046CF16 /* KSCrashHandler_NSException.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashHandler_NSException.h; sourceTree = "<group>"; };
@@ -552,12 +552,10 @@
 		396D6F06158D2F560046CF16 /* KSCrash */ = {
 			isa = PBXGroup;
 			children = (
-				396D6F31158D2FEA0046CF16 /* Filters */,
+				39D050A8160F6E440030AA7A /* Management */,
 				396D6F4F158D2FEA0046CF16 /* KSCrash.h */,
 				396D6F50158D2FEA0046CF16 /* KSCrash.m */,
 				396D6F51158D2FEA0046CF16 /* KSCrashAdvanced.h */,
-				396D6F52158D2FEA0046CF16 /* KSCrashReportStore.h */,
-				396D6F53158D2FEA0046CF16 /* KSCrashReportStore.m */,
 				396D6F54158D2FEA0046CF16 /* Reporting */,
 				396D6F07158D2F560046CF16 /* Supporting Files */,
 			);
@@ -646,7 +644,6 @@
 				396D6F41158D2FEA0046CF16 /* KSCrashReportSinkQuincy.m */,
 				396D6F42158D2FEA0046CF16 /* KSCrashReportSinkStandard.h */,
 				396D6F43158D2FEA0046CF16 /* KSCrashReportSinkStandard.m */,
-				396D6F44158D2FEA0046CF16 /* Tools */,
 			);
 			path = Filters;
 			sourceTree = "<group>";
@@ -668,21 +665,15 @@
 				396D6F4D158D2FEA0046CF16 /* NSMutableData+AppendUTF8.h */,
 				396D6F4E158D2FEA0046CF16 /* NSMutableData+AppendUTF8.m */,
 			);
-			path = Tools;
+			name = Tools;
+			path = Filters/Tools;
 			sourceTree = "<group>";
 		};
 		396D6F54158D2FEA0046CF16 /* Reporting */ = {
 			isa = PBXGroup;
 			children = (
+				39D050AA160F6E640030AA7A /* Crash Handling */,
 				396D6F55158D2FEA0046CF16 /* KSCrashContext.h */,
-				396D6F56158D2FEA0046CF16 /* KSCrashHandler_Common.c */,
-				396D6F57158D2FEA0046CF16 /* KSCrashHandler_Common.h */,
-				396D6F58158D2FEA0046CF16 /* KSCrashHandler_MachException.c */,
-				396D6F59158D2FEA0046CF16 /* KSCrashHandler_MachException.h */,
-				396D6F5A158D2FEA0046CF16 /* KSCrashHandler_NSException.h */,
-				396D6F5B158D2FEA0046CF16 /* KSCrashHandler_NSException.m */,
-				396D6F5C158D2FEA0046CF16 /* KSCrashHandler_Signal.c */,
-				396D6F5D158D2FEA0046CF16 /* KSCrashHandler_Signal.h */,
 				396D6F5E158D2FEA0046CF16 /* KSCrashReporter.c */,
 				396D6F5F158D2FEA0046CF16 /* KSCrashReporter.h */,
 				396D6F60158D2FEA0046CF16 /* KSCrashReportWriter.c */,
@@ -757,6 +748,32 @@
 			name = "Supporting Files";
 			sourceTree = "<group>";
 		};
+		39D050A8160F6E440030AA7A /* Management */ = {
+			isa = PBXGroup;
+			children = (
+				396D6F31158D2FEA0046CF16 /* Filters */,
+				396D6F44158D2FEA0046CF16 /* Tools */,
+				396D6F52158D2FEA0046CF16 /* KSCrashReportStore.h */,
+				396D6F53158D2FEA0046CF16 /* KSCrashReportStore.m */,
+			);
+			name = Management;
+			sourceTree = "<group>";
+		};
+		39D050AA160F6E640030AA7A /* Crash Handling */ = {
+			isa = PBXGroup;
+			children = (
+				396D6F56158D2FEA0046CF16 /* KSCrashHandler.c */,
+				396D6F57158D2FEA0046CF16 /* KSCrashHandler.h */,
+				396D6F58158D2FEA0046CF16 /* KSCrashHandler_MachException.c */,
+				396D6F59158D2FEA0046CF16 /* KSCrashHandler_MachException.h */,
+				396D6F5A158D2FEA0046CF16 /* KSCrashHandler_NSException.h */,
+				396D6F5B158D2FEA0046CF16 /* KSCrashHandler_NSException.m */,
+				396D6F5C158D2FEA0046CF16 /* KSCrashHandler_Signal.c */,
+				396D6F5D158D2FEA0046CF16 /* KSCrashHandler_Signal.h */,
+			);
+			name = "Crash Handling";
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
@@ -788,7 +805,7 @@
 				391CF73F16094F1300133E84 /* NSMutableData+AppendUTF8.h in Headers */,
 				391CF74216094F1300133E84 /* KSCrashReportStore.h in Headers */,
 				391CF74316094F1300133E84 /* KSCrashContext.h in Headers */,
-				391CF74416094F1300133E84 /* KSCrashHandler_Common.h in Headers */,
+				391CF74416094F1300133E84 /* KSCrashHandler.h in Headers */,
 				391CF74516094F1300133E84 /* KSCrashHandler_MachException.h in Headers */,
 				391CF74616094F1300133E84 /* KSCrashHandler_NSException.m in Headers */,
 				391CF74716094F1300133E84 /* KSCrashHandler_Signal.h in Headers */,
@@ -854,7 +871,7 @@
 				396D6F9D158D2FEA0046CF16 /* NSMutableData+AppendUTF8.h in Headers */,
 				396D6FA2158D2FEA0046CF16 /* KSCrashReportStore.h in Headers */,
 				396D6FA4158D2FEA0046CF16 /* KSCrashContext.h in Headers */,
-				396D6FA6158D2FEA0046CF16 /* KSCrashHandler_Common.h in Headers */,
+				396D6FA6158D2FEA0046CF16 /* KSCrashHandler.h in Headers */,
 				396D6FA8158D2FEA0046CF16 /* KSCrashHandler_MachException.h in Headers */,
 				396D6FA9158D2FEA0046CF16 /* KSCrashHandler_NSException.h in Headers */,
 				396D6FAC158D2FEA0046CF16 /* KSCrashHandler_Signal.h in Headers */,
@@ -887,7 +904,7 @@
 				396D70B6158D83BB0046CF16 /* KSCrashReporter.h in Headers */,
 				396D70BB158D83BB0046CF16 /* KSReportWriter.h in Headers */,
 				39BDCF8D1604D9A400900BD4 /* KSString.h in Headers */,
-				396D70AE158D83BB0046CF16 /* KSCrashHandler_Common.h in Headers */,
+				396D70AE158D83BB0046CF16 /* KSCrashHandler.h in Headers */,
 				396D70B0158D83BB0046CF16 /* KSCrashHandler_MachException.h in Headers */,
 				396D70B1158D83BB0046CF16 /* KSCrashHandler_NSException.h in Headers */,
 				396D70B4158D83BB0046CF16 /* KSCrashHandler_Signal.h in Headers */,
@@ -1130,7 +1147,7 @@
 				3939F3C215E6BCE100AD3BCD /* NSMutableData+AppendUTF8.m in Sources */,
 				3939F3C315E6BCE500AD3BCD /* KSCrash.m in Sources */,
 				3939F3C415E6BCE500AD3BCD /* KSCrashReportStore.m in Sources */,
-				3939F3C515E6BCF100AD3BCD /* KSCrashHandler_Common.c in Sources */,
+				3939F3C515E6BCF100AD3BCD /* KSCrashHandler.c in Sources */,
 				3939F3C615E6BCF100AD3BCD /* KSCrashHandler_MachException.c in Sources */,
 				3939F3C715E6BCF100AD3BCD /* KSCrashHandler_NSException.m in Sources */,
 				3939F3C815E6BCF100AD3BCD /* KSCrashHandler_Signal.c in Sources */,
@@ -1187,7 +1204,7 @@
 				396D6F9E158D2FEA0046CF16 /* NSMutableData+AppendUTF8.m in Sources */,
 				396D6FA0158D2FEA0046CF16 /* KSCrash.m in Sources */,
 				396D6FA3158D2FEA0046CF16 /* KSCrashReportStore.m in Sources */,
-				396D6FA5158D2FEA0046CF16 /* KSCrashHandler_Common.c in Sources */,
+				396D6FA5158D2FEA0046CF16 /* KSCrashHandler.c in Sources */,
 				396D6FA7158D2FEA0046CF16 /* KSCrashHandler_MachException.c in Sources */,
 				396D6FAA158D2FEA0046CF16 /* KSCrashHandler_NSException.m in Sources */,
 				396D6FAB158D2FEA0046CF16 /* KSCrashHandler_Signal.c in Sources */,
@@ -1244,7 +1261,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				396D70AD158D83BB0046CF16 /* KSCrashHandler_Common.c in Sources */,
+				396D70AD158D83BB0046CF16 /* KSCrashHandler.c in Sources */,
 				396D70AF158D83BB0046CF16 /* KSCrashHandler_MachException.c in Sources */,
 				396D70B2158D83BB0046CF16 /* KSCrashHandler_NSException.m in Sources */,
 				396D70B3158D83BB0046CF16 /* KSCrashHandler_Signal.c in Sources */,

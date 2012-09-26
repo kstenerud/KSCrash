@@ -490,5 +490,4 @@ int ksjson_decode(const char* data,
 }
 #endif
 
-
 #endif // HDR_KSJSONCodec_h

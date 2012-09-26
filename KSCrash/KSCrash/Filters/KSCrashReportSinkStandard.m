@@ -30,10 +30,13 @@
 #import "ARCSafe_MemMgmt.h"
 #import "KSHTTPMultipartPostBody.h"
 #import "KSHTTPRequestSender.h"
-#import "KSLogger.h"
 #import "NSData+GZip.h"
 #import "KSJSONCodecObjC.h"
 #import "KSReachability.h"
+
+//#define KSLogger_LocalLevel TRACE
+#import "KSLogger.h"
+
 
 @interface KSCrashReportSinkStandard ()
 

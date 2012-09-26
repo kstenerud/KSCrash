@@ -217,6 +217,7 @@ typedef struct KSReportWriter
 
 typedef void (*KSReportWriteCallback)(const KSReportWriter* writer);
 
+
 #ifdef __cplusplus
 }
 #endif

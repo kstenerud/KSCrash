@@ -57,6 +57,18 @@ extern "C" {
 int ksbt_backtraceLength(const _STRUCT_MCONTEXT* machineContext);
 
 
+/** Check if a backtrace is too long.
+ *
+ * @param machineContext The machine context to check the backtrace for.
+ *
+ * @param maxLength The give up point.
+ *
+ * @return true if the backtrace is longer than maxLength.
+ */
+bool ksbt_isBacktraceTooLong(const _STRUCT_MCONTEXT* const machineContext,
+                             int maxLength);
+
+
 /** Generate a backtrace using the thread state in the specified machine context
  *  (async-safe).
  *

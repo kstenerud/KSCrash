@@ -47,6 +47,9 @@ extern "C" {
  *
  * @param reportFilePath The file to store the next crash report to.
  *
+ * @param secondaryReportFilePath If the system crashes during crash handling,
+ *                                store a second, minimal report here.
+ *
  * @param stateFilePath File to store persistent state in.
  *
  * @param crashID The unique identifier to assign to the next crash report.
@@ -74,6 +77,7 @@ extern "C" {
  * @return true if installation was successful.
  */
 bool kscrash_installReporter(const char* reportFilePath,
+                             const char* secondaryReportFilePath,
                              const char* stateFilePath,
                              const char* crashID,
                              const char* userInfoJSON,
@@ -98,6 +102,7 @@ void kscrash_setUserInfoJSON(const char* const userInfoJSON);
  *                               DO NOT call Objective-C methods!!!
  */
 void kscrash_setCrashNotifyCallback(const KSReportWriteCallback onCrashNotify);
+
 
 #ifdef __cplusplus
 }

@@ -27,9 +27,10 @@
 
 #import "KSCrashHandler_NSException.h"
 
-#import "KSCrashHandler_Common.h"
+//#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
-#import "KSMach.h"
+
+#import <mach/mach.h>
 
 
 // Avoiding static functions due to linker issues.
@@ -39,7 +40,7 @@
  *
  * @param exception The exception that was raised.
  */
-void kscrash_nsexc_handleException(NSException* exception);
+void ksnsexc_i_handleException(NSException* exception);
 
 
 /** Flag noting if we've installed our custom handlers or not.
@@ -52,80 +53,89 @@ static volatile sig_atomic_t g_installed = 0;
 static NSUncaughtExceptionHandler* g_previousUncaughtExceptionHandler;
 
 /** Context to fill with crash information. */
-static KSCrashContext* g_crashContext;
+static KSCrash_HandlerContext* g_context;
 
 
-void kscrash_nsexc_handleException(NSException* exception)
+void ksnsexc_i_handleException(NSException* exception)
 {
-    // This is as close to atomic test-and-set we can get on iOS since
-    // iOS devices don't handle OSAtomicTestAndSetBarrier properly.
-    static volatile sig_atomic_t called = 0;
-    if(!called)
-    {
-        called = 1;
-        
-        kscrash_uninstallNSExceptionHandler();
-        
-        // Don't report if another handler has already.
-        if(!g_crashContext->crashed)
-        {
-            // Note: We don't set g_crashContext->crashed here.
-            
-            // Save the NSException data.
-            NSArray* addresses = [exception callStackReturnAddresses];
-            NSUInteger numFrames = [addresses count];
-            uintptr_t* callstack = malloc(numFrames * sizeof(*callstack));
-            for(NSUInteger i = 0; i < numFrames; i++)
-            {
-                callstack[i] = [[addresses objectAtIndex:i] unsignedIntValue];
-            }
-            
-            g_crashContext->crashType = KSCrashTypeNSException;
-            g_crashContext->NSExceptionName = strdup([[exception name] UTF8String]);
-            g_crashContext->NSExceptionReason = strdup([[exception reason] UTF8String]);
-            g_crashContext->NSExceptionStackTrace = callstack;
-            g_crashContext->NSExceptionStackTraceLength = (int)numFrames;
-        }
-        
-        // This handler doesn't handle the crash directly. Rather, it aborts
-        // and the signal handler does the rest (which is how the Apple crash
-        // manager works also).
-        abort();
-        return; // Shouldn't really need this...
-    }
-    
-    // Another thread threw an uncaught exception before we could restore the
-    // old handler. Just log it and ignore it.
-    KSLOG_ERROR(@"Called again before the original handler was restored: %@",
-                exception);
-}
-
-
-void kscrash_installNSExceptionHandler(KSCrashContext* const context,
-                                       void(*onCrash)())
-{
-    #pragma unused(onCrash)
-    if(!g_installed)
-    {
-        // Guarding against double-calls is more important than guarding against
-        // reciprocal calls.
-        g_installed = 1;
-        
-        g_crashContext = context;
-        
-        g_previousUncaughtExceptionHandler = NSGetUncaughtExceptionHandler();
-        NSSetUncaughtExceptionHandler(&kscrash_nsexc_handleException);
-    }
-}
-
-void kscrash_uninstallNSExceptionHandler(void)
-{
+    KSLOG_DEBUG(@"Trapped exception %@", exception);
     if(g_installed)
     {
-        // Guarding against double-calls is more important than guarding against
-        // reciprocal calls.
-        g_installed = 0;
-        
-        NSSetUncaughtExceptionHandler(g_previousUncaughtExceptionHandler);
+        KSLOG_DEBUG(@"Exception handler is installed. Continuing exception handling.");
+
+        if(g_context->handlingCrash)
+        {
+            KSLOG_INFO(@"Detected crash in the crash reporter. Restoring original handlers.");
+            g_context->crashedDuringCrashHandling = true;
+            kscrash_handlers_uninstall(KSCrashTypeAll);
+        }
+        g_context->handlingCrash = true;
+
+        KSLOG_DEBUG(@"Suspending all threads.");
+        kscrash_handlers_suspendThreads();
+
+        KSLOG_DEBUG(@"Filling out context.");
+        NSArray* addresses = [exception callStackReturnAddresses];
+        NSUInteger numFrames = [addresses count];
+        uintptr_t* callstack = malloc(numFrames * sizeof(*callstack));
+        for(NSUInteger i = 0; i < numFrames; i++)
+        {
+            callstack[i] = [[addresses objectAtIndex:i] unsignedIntValue];
+        }
+
+        g_context->crashType = KSCrashTypeNSException;
+        g_context->crashedThread = mach_thread_self();
+        g_context->registersAreValid = false;
+        g_context->NSException.name = strdup([[exception name] UTF8String]);
+        g_context->NSException.reason = strdup([[exception reason] UTF8String]);
+        g_context->NSException.stackTrace = callstack;
+        g_context->NSException.stackTraceLength = (int)numFrames;
+
+
+        KSLOG_DEBUG(@"Calling main crash handler.");
+        g_context->onCrash();
+
+
+        KSLOG_DEBUG(@"Crash handling complete. Restoring original handlers.");
+        kscrash_handlers_uninstall(KSCrashTypeAll);
+
+        KSLOG_DEBUG(@"Calling original exception handler.");
+        g_previousUncaughtExceptionHandler(exception);
     }
+}
+
+
+bool kscrash_handlers_installNSExceptionHandler(KSCrash_HandlerContext* const context)
+{
+    KSLOG_DEBUG(@"Installing NSException handler.");
+    if(g_installed)
+    {
+        KSLOG_DEBUG(@"NSException handler already installed.");
+        return true;
+    }
+    g_installed = 1;
+
+    g_context = context;
+
+    KSLOG_DEBUG(@"Backing up original handler.");
+    g_previousUncaughtExceptionHandler = NSGetUncaughtExceptionHandler();
+
+    KSLOG_DEBUG(@"Setting new handler.");
+    NSSetUncaughtExceptionHandler(&ksnsexc_i_handleException);
+
+    return true;
+}
+
+void kscrash_handlers_uninstallNSExceptionHandler(void)
+{
+    KSLOG_DEBUG(@"Uninstalling NSException handler.");
+    if(!g_installed)
+    {
+        KSLOG_DEBUG(@"NSException handler was already uninstalled.");
+        return;
+    }
+
+    KSLOG_DEBUG(@"Restoring original handler.");
+    NSSetUncaughtExceptionHandler(g_previousUncaughtExceptionHandler);
+    g_installed = 0;
 }

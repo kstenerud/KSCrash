@@ -27,6 +27,7 @@
 
 #include "KSSysCtl.h"
 
+//#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
 #include <errno.h>

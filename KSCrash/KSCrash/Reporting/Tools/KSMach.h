@@ -280,11 +280,31 @@ uintptr_t ksmach_firstCmdAfterHeader(const struct mach_header* header);
  */
 bool ksmach_suspendAllThreads(void);
 
+/** Suspend all threads except for the current one and the specified threads.
+ *
+ * @param exceptThreads The threads to avoid suspending.
+ *
+ * @param exceptThreadsCount The number of threads to avoid suspending.
+ *
+ * @return true if thread suspention was at least partially successful.
+ */
+bool ksmach_suspendAllThreadsExcept(thread_t* exceptThreads, int exceptThreadsCount);
+
 /** Resume all threads except for the current one.
  *
  * @return true if thread resumption was at least partially successful.
  */
 bool ksmach_resumeAllThreads(void);
+
+/** Resume all threads except for the current one and the specified threads.
+ *
+ * @param exceptThreads The threads to avoid resuming.
+ *
+ * @param exceptThreadsCount The number of threads to avoid resuming.
+ *
+ * @return true if thread resumption was at least partially successful.
+ */
+bool ksmach_resumeAllThreadsExcept(thread_t* exceptThreads, int exceptThreadsCount);
 
 /** Copy memory safely. If the memory is not accessible, returns false
  * rather than crashing.

@@ -25,6 +25,9 @@
 /** The total number of unsent reports. */
 @property(nonatomic,readonly,assign) NSUInteger reportCount;
 
+/** Where the crash reports are stored. */
+@property(nonatomic,readonly,retain) NSString* reportsPath;
+
 /** Send any outstanding crash reports to the current sink.
  * It will only attempt to send the most recent 5 reports. All others will be
  * deleted. Once the reports are successfully sent to the server, they may be
@@ -48,6 +51,28 @@
 /** Delete all unsent reports.
  */
 - (void) deleteAllReports;
+
+/** Redirect all log entries to the specified log file.
+ *
+ * @param filename The path to the logfile.
+ * @param overwrite If true, overwrite the file.
+ *
+ * @return true if the operation was successful.
+ */
++ (BOOL) redirectLogsToFile:(NSString*) filename overwrite:(BOOL) overwrite;
+
+/** Redirect all log entries to Library/Caches/KSCrashReports/log.txt.
+ * If the file exists, it will be overwritten.
+ *
+ * @return true if the operation was successful.
+ */
++ (BOOL) logToFile;
+
+/** TODO: Figure out how to get a collection of filename + data of everything
+ * in the reports dir, ready to be attached to an email.
+ * Must be able to specify maximum size.
+ */
+//- (NSArray*) reportsDirectoryContents;
 
 @end
 

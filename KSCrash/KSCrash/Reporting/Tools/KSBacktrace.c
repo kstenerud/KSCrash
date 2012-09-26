@@ -28,7 +28,6 @@
 #include "KSBacktrace_private.h"
 
 #include "KSArchSpecific.h"
-#include "KSLogger.h"
 #include "KSMach.h"
 
 #include <limits.h>
@@ -276,6 +275,35 @@ int ksbt_backtraceLength(const _STRUCT_MCONTEXT* const machineContext)
     }
     
     return kBacktraceGiveUpPoint;
+}
+
+bool ksbt_isBacktraceTooLong(const _STRUCT_MCONTEXT* const machineContext,
+                             int maxLength)
+{
+    const uintptr_t instructionAddress = ksmach_instructionAddress(machineContext);
+
+    if(instructionAddress == 0)
+    {
+        return 0;
+    }
+
+    KSFrameEntry frame = {0};
+    const uintptr_t framePtr = ksmach_framePointer(machineContext);
+    if(framePtr == 0 ||
+       ksmach_copyMem((void*)framePtr, &frame, sizeof(frame)) != KERN_SUCCESS)
+    {
+        return 1;
+    }
+    for(int i = 1; i < maxLength; i++)
+    {
+        if(frame.previous == 0 ||
+           ksmach_copyMem(frame.previous, &frame, sizeof(frame)) != KERN_SUCCESS)
+        {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 int ksbt_backtraceThreadState(const _STRUCT_MCONTEXT* const machineContext,

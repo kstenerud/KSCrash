@@ -10,6 +10,10 @@
 
 #import "KSCrash.h"
 
+// Used to expose "logToFile"
+#import "KSCrashAdvanced.h"
+
+
 @interface AppDelegate ()
 
 - (void) installCrashHandler;
@@ -24,12 +28,16 @@
 
 static void onCrash(const KSReportWriter* writer)
 {
+//    writer = NULL;
     writer->addStringElement(writer, "test", "test");
     writer->addStringElement(writer, "intl2", "テスト２");
 }
 
 - (void) installCrashHandler
 {
+    // Uncomment this to write all log entries to Library/Caches/KSCrashReports/log.txt
+//    [KSCrash logToFile];
+
     [KSCrash installWithCrashReportSink:nil
                                userInfo:[NSDictionary dictionaryWithObjectsAndKeys:
                                          @"\"quote\"", @"quoted value",

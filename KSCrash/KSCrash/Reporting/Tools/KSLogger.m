@@ -36,6 +36,8 @@
     #endif
 #endif
 
+extern void kslog_i_write(const char* const str);
+
 /** Interpret the path as a unix file path and return the last path entry.
  * e.g. "/some/path/to/a/file.txt" will result in "file.txt"
  *
@@ -49,29 +51,48 @@ static inline const char* lastPathEntry(const char* const path)
     return lastFile == 0 ? path : lastFile + 1;
 }
 
+void i_kslog_logObjCBasic(NSString* fmt, ...)
+{
+    va_list args;
+    va_start(args,fmt);
+    CFStringRef entry = CFStringCreateWithFormatAndArguments(NULL, NULL, (as_bridge CFStringRef)fmt, args);
+    va_end(args);
 
-void i_kslog_objc(const char* const level,
-                  const char* const file,
-                  const int line,
-                  const char* const function,
-                  NSString* fmt, ...)
+    int fd = kslog_getLogFD();
+    if(fd == STDOUT_FILENO)
+    {
+        NSLog(@"%@", (as_bridge id)entry);
+    }
+    else
+    {
+        kslog_i_write([(as_bridge NSString*)entry UTF8String]);
+        kslog_i_write("\n");
+    }
+
+    CFRelease(entry);
+}
+
+void i_kslog_logObjC(const char* const level,
+                     const char* const file,
+                     const int line,
+                     const char* const function,
+                     NSString* fmt, ...)
 {
     if(fmt == nil)
     {
-        NSLog(@"%s: %s (%u): %s: (null)",
-              level, lastPathEntry(file), line, function);
+        i_kslog_logObjCBasic(@"%s: %s (%u): %s: (null)",
+                             level, lastPathEntry(file), line, function);
     }
     else
     {
         va_list args;
         va_start(args,fmt);
-        CFStringRef entry = CFStringCreateWithFormatAndArguments(
-                                                                 NULL, NULL, (as_bridge CFStringRef)fmt, args);
+        CFStringRef entry = CFStringCreateWithFormatAndArguments(NULL, NULL, (as_bridge CFStringRef)fmt, args);
         va_end(args);
         
-        NSLog(@"%s: %s (%u): %s: %@",
-              level, lastPathEntry(file), line, function, (as_bridge id)entry);
-        
+        i_kslog_logObjCBasic(@"%s: %s (%u): %s: %@",
+                             level, lastPathEntry(file), line, function, (as_bridge id)entry);
+
         CFRelease(entry);
     }
 }

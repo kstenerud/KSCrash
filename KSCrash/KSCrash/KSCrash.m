@@ -31,8 +31,10 @@
 #import "KSCrashReporter.h"
 #import "KSCrashReportStore.h"
 #import "KSCrashState.h"
-#import "KSLogger.h"
 #import "KSJSONCodecObjC.h"
+
+//#define KSLogger_LocalLevel TRACE
+#import "KSLogger.h"
 
 #import <UIKit/UIKit.h>
 
@@ -66,7 +68,7 @@
 
 - (NSString*) generateUUIDString;
 
-- (NSString*) generateReportFilesPath:(NSString*) localReportFilesPath;
++ (NSString*) generateReportFilesPath:(NSString*) localReportFilesPath;
 
 - (void) pruneReportsKeeping:(int) keepReportsCount;
 
@@ -88,6 +90,23 @@ static KSCrash* g_instance;
 @synthesize crashReportStore = _crashReportStore;
 @synthesize sink = _sink;
 @synthesize deleteAfterSend = _deleteAfterSend;
+
++ (BOOL) redirectLogsToFile:(NSString*) filename overwrite:(BOOL) overwrite
+{
+    return kslog_setLogFilename([filename UTF8String], overwrite);
+}
+
++ (BOOL) logToFile
+{
+    NSString* reportFilesPath = [[self class] generateReportFilesPath:KSCRASH_ReportFilesDirectory];
+    NSString* fullPath = [reportFilesPath stringByAppendingPathComponent:@"log.txt"];
+    if(![self redirectLogsToFile:fullPath overwrite:YES])
+    {
+        KSLOG_ERROR(@"Could not redirect logs to %@", fullPath);
+        return NO;
+    }
+    return YES;
+}
 
 + (BOOL) installWithCrashReportSink:(id<KSCrashReportFilter>) sink
 {
@@ -180,7 +199,7 @@ static KSCrash* g_instance;
         NSError* error = nil;
         NSFileManager* fm = [NSFileManager defaultManager];
         
-        NSString* reportFilesPath = [self generateReportFilesPath:KSCRASH_ReportFilesDirectory];
+        NSString* reportFilesPath = [[self class] generateReportFilesPath:KSCRASH_ReportFilesDirectory];
         if([reportFilesPath length] == 0)
         {
             KSLOG_ERROR(@"Could not determine report files path.");
@@ -217,13 +236,16 @@ static KSCrash* g_instance;
         
         
         NSString* crashID = [self generateUUIDString];
-        NSString* reportFilePath = [reportFilesPath stringByAppendingPathComponent:
-                                    [NSString stringWithFormat:@"%@-%@.json",
-                                     reportFilePrefix,
-                                     crashID]];
+        NSString* reportFilePathBase = [reportFilesPath stringByAppendingPathComponent:
+                                        [NSString stringWithFormat:@"%@-%@",
+                                         reportFilePrefix,
+                                         crashID]];
+        NSString* reportFilePath = [reportFilePathBase stringByAppendingString:@".json"];
+        NSString* secondaryReportFilePath = [reportFilePathBase stringByAppendingString:@"-secondary.json"];
         NSString* stateFilePath = [reportFilesPath stringByAppendingPathComponent:@"kscrash_state.json"];
         
         if(!kscrash_installReporter([reportFilePath UTF8String],
+                                    [secondaryReportFilePath UTF8String],
                                     [stateFilePath UTF8String],
                                     [crashID UTF8String],
                                     [userInfoJSON bytes],
@@ -313,7 +335,7 @@ failed:
     return as_autorelease(uuidString);
 }
 
-- (NSString*) generateReportFilesPath:(NSString*) localReportFilesPath
++ (NSString*) generateReportFilesPath:(NSString*) localReportFilesPath
 {
     NSArray* directories = NSSearchPathForDirectoriesInDomains(NSCachesDirectory,
                                                                NSUserDomainMask,
@@ -445,6 +467,11 @@ failed:
 - (void) deleteAllReports
 {
     [self.crashReportStore deleteAllReports];
+}
+
+- (NSString*) crashReportsPath
+{
+    return self.crashReportStore.path;
 }
 
 @end

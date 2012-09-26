@@ -40,15 +40,25 @@ extern "C" {
 #include "KSCrashContext.h"
 
 
-/** Write a crash report to a file descriptor.
+/** Write a crash report to a file.
  *
  * @param crashContext Contextual information about the crash and environment.
  *                     The caller must fill this out before passing it in.
  *
- * @param fd The file descriptor to write to.
+ * @param path The file to write to.
  */
 void kscrash_writeCrashReport(KSCrashContext* crashContext,
                               const char* path);
+
+/** Write a minimal crash report to a file.
+ *
+ * @param crashContext Contextual information about the crash and environment.
+ *                     The caller must fill this out before passing it in.
+ *
+ * @param path The file to write to.
+ */
+void kscrash_writeMinimalCrashReport(KSCrashContext* const crashContext,
+                                     const char* const path);
 
 
 #ifdef __cplusplus

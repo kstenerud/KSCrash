@@ -28,9 +28,11 @@
 #import "KSCrashReportStore.h"
 
 #import "ARCSafe_MemMgmt.h"
-#import "KSLogger.h"
 #import "KSJSONCodecObjC.h"
 #import "RFC3339DateTool.h"
+
+//#define KSLogger_LocalLevel TRACE
+#import "KSLogger.h"
 
 
 /**

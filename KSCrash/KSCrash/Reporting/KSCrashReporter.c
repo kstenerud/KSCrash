@@ -27,15 +27,15 @@
 
 #include "KSCrashReporter.h"
 
-#include "KSCrashHandler_MachException.h"
-#include "KSCrashHandler_NSException.h"
-#include "KSCrashHandler_Signal.h"
+#include "KSCrashHandler.h"
 #include "KSCrashState.h"
 #include "KSCrashReportWriter.h"
-#include "KSLogger.h"
 #include "KSMach.h"
 #include "KSSystemInfoC.h"
 #include "KSZombie.h"
+
+//#define KSLogger_LocalLevel TRACE
+#include "KSLogger.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -61,10 +61,13 @@ void kscrash_i_onCrash(void);
 
 
 /** Single, global crash context. */
-static KSCrashContext g_crashReportContext = {0};
+static KSCrashContext g_crashReportContext = {{0}};
 
 /** Path to store the next crash report. */
 static char* g_reportFilePath;
+
+/** Path to store the next crash report (only if the crash manager crashes). */
+static char* g_secondaryReportFilePath;
 
 /** Path to store the state file. */
 static char* g_stateFilePath;
@@ -77,13 +80,22 @@ KSCrashContext* kscrash_i_crashContext(void)
 
 void kscrash_i_onCrash(void)
 {
+    KSLOG_DEBUG("Updating application state to note crash.");
     kscrash_notifyApplicationCrash();
-    KSLOGBASIC_INFO("Writing crash report to %s", g_reportFilePath);
-    
-    kscrash_writeCrashReport(kscrash_i_crashContext(), g_reportFilePath);
+
+    KSCrashContext* context = kscrash_i_crashContext();
+    if(context->crash.crashedDuringCrashHandling)
+    {
+        kscrash_writeMinimalCrashReport(context, g_secondaryReportFilePath);
+    }
+    else
+    {
+        kscrash_writeCrashReport(context, g_reportFilePath);
+    }
 }
 
 bool kscrash_installReporter(const char* const reportFilePath,
+                             const char* const secondaryReportFilePath,
                              const char* const stateFilePath,
                              const char* const crashID,
                              const char* const userInfoJSON,
@@ -91,6 +103,16 @@ bool kscrash_installReporter(const char* const reportFilePath,
                              const bool printTraceToStdout,
                              const KSReportWriteCallback onCrashNotify)
 {
+    KSLOG_DEBUG("Installing crash reporter.");
+    KSLOG_TRACE("reportFilePath = %s", reportFilePath);
+    KSLOG_TRACE("secondaryReportFilePath = %s", secondaryReportFilePath);
+    KSLOG_TRACE("stateFilePath = %s", stateFilePath);
+    KSLOG_TRACE("crashID = %s", crashID);
+    KSLOG_TRACE("userInfoJSON = %p", userInfoJSON);
+    KSLOG_TRACE("zombieCacheSize = %d", zombieCacheSize);
+    KSLOG_TRACE("printTraceToStdout = %d", printTraceToStdout);
+    KSLOG_TRACE("onCrashNotify = %p", onCrashNotify);
+
     static volatile sig_atomic_t initialized = 0;
     if(!initialized)
     {
@@ -98,54 +120,38 @@ bool kscrash_installReporter(const char* const reportFilePath,
         
         g_stateFilePath = strdup(stateFilePath);
         g_reportFilePath = strdup(reportFilePath);
+        g_secondaryReportFilePath = strdup(secondaryReportFilePath);
         KSCrashContext* context = kscrash_i_crashContext();
-        
-        if(!kscrash_initState(g_stateFilePath, context))
-        {
-            KSLOG_ERROR("Failed to initialize persistent crash state");
-            // Don't bail because we can still generate reports without this
-        }
-        context->appLaunchTime = mach_absolute_time();
+        context->crash.onCrash = kscrash_i_onCrash;
 
-        // Only enable crash handlers if we're not running in a debugger.
         if(ksmach_isBeingTraced())
         {
-            KSLOGBASIC_INFO("KSCrash: App is running in a debugger. Crash handlers have been disabled for the sanity of all.");
+            KSLOGBASIC_WARN("KSCrash: App is running in a debugger. Crash handlers have been disabled for the sanity of all.");
         }
-        else
+        else if(kscrash_handlers_installWithContext(&context->crash,
+                                                    KSCrashTypeAll) == 0)
         {
-            if(!kscrash_installSignalHandler(context, kscrash_i_onCrash))
-            {
-                // If we fail to install the signal handlers, all is lost.
-                KSLOG_ERROR("Failed to install signal handler");
-                free(g_stateFilePath);
-                g_stateFilePath = NULL;
-                free(g_reportFilePath);
-                g_reportFilePath = NULL;
-                initialized = 0;
-                return false;
-            }
-
-            // We can still generate reports in many cases if the NSException and
-            // mach exception handlers fail to install.
-            kscrash_installNSExceptionHandler(context, kscrash_i_onCrash);
-            kscrash_installMachExceptionHandler(context, kscrash_i_onCrash);
+            KSLOG_ERROR("Failed to install any handlers");
         }
 
-        context->printTraceToStdout = printTraceToStdout;
-        context->systemInfoJSON = kssysteminfo_toJSON();
-        if(userInfoJSON != NULL)
+        if(!kscrash_initState(g_stateFilePath, &context->state))
         {
-            context->userInfoJSON = strdup(userInfoJSON);
+            KSLOG_ERROR("Failed to initialize persistent crash state");
         }
-        context->crashID = strdup(crashID);
-        context->onCrashNotify = onCrashNotify;
+        context->state.appLaunchTime = mach_absolute_time();
+        context->config.printTraceToStdout = printTraceToStdout;
+        context->config.systemInfoJSON = kssysteminfo_toJSON();
+        kscrash_setUserInfoJSON(userInfoJSON);
+        context->config.crashID = strdup(crashID);
+        context->config.onCrashNotify = onCrashNotify;
 
         if(zombieCacheSize > 0)
         {
+            KSLOG_DEBUG("zombieCacheSize > 0. Installing zombie handler.");
             kszombie_install(zombieCacheSize);
         }
-        
+
+        KSLOG_DEBUG("Installation complete.");
         return true;
     }
     
@@ -155,18 +161,22 @@ bool kscrash_installReporter(const char* const reportFilePath,
 
 void kscrash_setUserInfoJSON(const char* const userInfoJSON)
 {
+    KSLOG_TRACE("set userInfoJSON to %p", userInfoJSON);
     KSCrashContext* context = kscrash_i_crashContext();
-    if(context->userInfoJSON != NULL)
+    if(context->config.userInfoJSON != NULL)
     {
-        free((void*)context->userInfoJSON);
+        KSLOG_TRACE("Free old data at %p", context->config.userInfoJSON);
+        free((void*)context->config.userInfoJSON);
     }
     if(userInfoJSON != NULL)
     {
-        context->userInfoJSON = strdup(userInfoJSON);
+        context->config.userInfoJSON = strdup(userInfoJSON);
+        KSLOG_TRACE("Duplicated string to %p", context->config.userInfoJSON);
     }
 }
 
 void kscrash_setCrashNotifyCallback(const KSReportWriteCallback onCrashNotify)
 {
-    kscrash_i_crashContext()->onCrashNotify = onCrashNotify;
+    KSLOG_TRACE("Set onCrashNotify to %p", onCrashNotify);
+    kscrash_i_crashContext()->config.onCrashNotify = onCrashNotify;
 }

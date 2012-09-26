@@ -27,6 +27,7 @@
 
 #include "KSMach.h"
 
+//#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
 #include <dispatch/dispatch.h>
@@ -191,14 +192,14 @@ bool ksmach_fillState(const thread_t thread,
 }
 
 
-// From pthreads/pthread_internals.h
+// From Libc-763.11/pthreads/pthread_internals.h
 #define kEXTERNAL_POSIX_THREAD_KEYS_MAX 512
 #define kINTERNAL_POSIX_THREAD_KEYS_MAX 256
 
 #define kTSD_KEY_COUNT (kEXTERNAL_POSIX_THREAD_KEYS_MAX + \
                         kINTERNAL_POSIX_THREAD_KEYS_MAX)
 
-// From pthreads/pthread_internals.h
+// From Libc-763.11/pthreads/pthread_internals.h
 typedef struct internal_pthread
 {
     long        sig;           /* Unique signature for this structure */
@@ -239,10 +240,10 @@ typedef struct internal_pthread
 }* internal_pthread_t;
 
 
-// From queue_internal.h
+// From libdispatch-187.5/src/queue_internal.h
 #define kDISPATCH_QUEUE_MIN_LABEL_SIZE 64
 
-// From queue_internal.h
+// From libdispatch-187.5/src/queue_internal.h
 typedef struct internal_dispatch_queue_s
 {
     const struct dispatch_queue_vtable_s* do_vtable;
@@ -456,7 +457,24 @@ uintptr_t ksmach_firstCmdAfterHeader(const struct mach_header* const header)
 #pragma mark - Utility -
 // ============================================================================
 
+static inline bool isThreadInList(thread_t thread, thread_t* list, int listCount)
+{
+    for(int i = 0; i < listCount; i++)
+    {
+        if(list[i] == thread)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool ksmach_suspendAllThreads(void)
+{
+    return ksmach_suspendAllThreadsExcept(NULL, 0);
+}
+
+bool ksmach_suspendAllThreadsExcept(thread_t* exceptThreads, int exceptThreadsCount)
 {
     kern_return_t kr;
     const task_t thisTask = mach_task_self();
@@ -473,7 +491,7 @@ bool ksmach_suspendAllThreads(void)
     for(mach_msg_type_number_t i = 0; i < numThreads; i++)
     {
         thread_t thread = threads[i];
-        if(thread != thisThread)
+        if(thread != thisThread && !isThreadInList(thread, exceptThreads, exceptThreadsCount))
         {
             if((kr = thread_suspend(thread)) != KERN_SUCCESS)
             {
@@ -495,6 +513,11 @@ bool ksmach_suspendAllThreads(void)
 
 bool ksmach_resumeAllThreads(void)
 {
+    return ksmach_resumeAllThreadsExcept(NULL, 0);
+}
+
+bool ksmach_resumeAllThreadsExcept(thread_t* exceptThreads, int exceptThreadsCount)
+{
     kern_return_t kr;
     const task_t thisTask = mach_task_self();
     const thread_t thisThread = mach_thread_self();
@@ -510,7 +533,7 @@ bool ksmach_resumeAllThreads(void)
     for(mach_msg_type_number_t i = 0; i < numThreads; i++)
     {
         thread_t thread = threads[i];
-        if(thread != thisThread)
+        if(thread != thisThread && !isThreadInList(thread, exceptThreads, exceptThreadsCount))
         {
             if((kr = thread_resume(thread)) != KERN_SUCCESS)
             {

@@ -37,23 +37,20 @@ extern "C" {
 #endif
 
 
-#include "KSCrashContext.h"
-
-#include <stdbool.h>
+#include "KSCrashHandler.h"
 
 
 /** Install our custom mach exception handler.
  *
- * @param context The crash context to fill out when a crash occurs.
+ * @param context Contextual information for the crash handler.
  *
  * @param onCrash Called when a crash occurs.
  */
-bool kscrash_installMachExceptionHandler(KSCrashContext* context,
-                                         void(*onCrash)());
+bool kscrash_handlers_installMachHandler(KSCrash_HandlerContext* context);
 
 /** Uninstall our custom mach exception handler.
  */
-void kscrash_uninstallMachExceptionHandler(void);
+void kscrash_handlers_uninstallMachHandler(void);
 
 
 #ifdef __cplusplus

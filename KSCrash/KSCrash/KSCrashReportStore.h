@@ -33,6 +33,9 @@
  */
 @interface KSCrashReportStore: NSObject
 
+/** Location where reports are stored. */
+@property(nonatomic,readonly,retain) NSString* path;
+
 /** Create a new store.
  *
  * @param path The path to the crash reports directory.
