@@ -210,6 +210,23 @@
 - (void) filterReports:(NSArray*) reports
           onCompletion:(KSCrashReportFilterCompletion) onCompletion
 {
+    if(![MFMailComposeViewController canSendMail])
+    {
+        [as_autorelease([[UIAlertView alloc] initWithTitle:@"Email Error"
+                                                   message:@"This device is not configured to send email."
+                                                  delegate:nil
+                                         cancelButtonTitle:@"OK"
+                                         otherButtonTitles:nil]) show];
+
+        onCompletion(reports, NO, [NSError errorWithDomain:@"KSCrashReportSinkEMail"
+                                                      code:0
+                                                  userInfo:[NSDictionary dictionaryWithObjectsAndKeys:
+                                                            @"E-Mail not enabled on device",
+                                                            NSLocalizedDescriptionKey,
+                                                            nil]]);
+        return;
+    }
+
     MFMailComposeViewController* mailController = [[MFMailComposeViewController alloc] init];
     [mailController setToRecipients:self.recipients];
     [mailController setSubject:self.subject];
