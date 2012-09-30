@@ -25,6 +25,10 @@
 //
 
 
+/* C interface to the system information.
+ */
+
+
 #ifndef KSCrash_KSSystemInfoC_h
 #define KSCrash_KSSystemInfoC_h
 

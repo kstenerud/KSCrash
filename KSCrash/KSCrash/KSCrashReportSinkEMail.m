@@ -100,7 +100,7 @@
            didFinishWithResult:(MFMailComposeResult) result
                          error:(NSError*) error
 {
-#pragma unused(mailController)
+    #pragma unused(mailController)
     [self dismissModalVC];
 
     switch (result)

@@ -29,6 +29,7 @@
  * number of sessions, session length, etc.
  */
 
+
 #ifndef HDR_KSCrashState_h
 #define HDR_KSCrashState_h
 

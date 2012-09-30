@@ -394,7 +394,7 @@ failed:
     [self sendReports:reports
          onCompletion:^(NSArray* filteredReports, BOOL completed, NSError* error)
      {
-#pragma unused(filteredReports)
+         #pragma unused(filteredReports)
          KSLOG_DEBUG(@"Process finished with completion: %d", completed);
          if(error != nil)
          {

@@ -299,7 +299,7 @@
                                                                    onSuccess:^(NSHTTPURLResponse* response, NSData* data)
                                     {
                                         KSLOG_TRACE(@"Post successful");
-#pragma unused(response)
+                                        #pragma unused(response)
                                         onCompletion(reports, YES, nil);
                                         if(blockSelf.onSuccess != nil)
                                         {

@@ -395,7 +395,7 @@ int ksjsoncodecobjc_i_onEndContainer(void* const userData)
 
 int ksjsoncodecobjc_i_onEndData(void* const userData)
 {
-#pragma unused(userData)
+    #pragma unused(userData)
     return KSJSON_OK;
 }
 

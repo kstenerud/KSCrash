@@ -312,7 +312,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                      accessoryType:UITableViewCellAccessoryNone
                              block:^(UIViewController* controller)
       {
-#pragma unused(controller)
+          #pragma unused(controller)
           NSLog(@"Mailing side-by-side symbolicated apple reports with system and user data...");
           KSCrash* crashReporter = [KSCrash instance];
           KSCrashReportSinkEMail* filter = [KSCrashReportSinkEMail sinkWithRecipients:nil
@@ -420,7 +420,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                      accessoryType:UITableViewCellAccessoryNone
                              block:^(UIViewController* controller)
       {
-#pragma unused(controller)
+          #pragma unused(controller)
           NSLog(@"Printing side-by-side symbolicated apple reports with system and user data...");
           KSCrash* crashReporter = [KSCrash instance];
           NSArray* filters = [NSArray arrayWithObjects:

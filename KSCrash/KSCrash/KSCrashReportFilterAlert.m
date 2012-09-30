@@ -95,7 +95,7 @@
 
 - (void) alertView:(UIAlertView*) alertView clickedButtonAtIndex:(NSInteger) buttonIndex
 {
-#pragma unused(alertView)
+    #pragma unused(alertView)
     BOOL success = buttonIndex == 1;
     self.onCompletion(self.reports, success, nil);
 }

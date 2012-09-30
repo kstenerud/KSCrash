@@ -410,6 +410,7 @@
 				39DA84801618E9FB001E7F79 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
