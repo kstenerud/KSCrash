@@ -73,18 +73,20 @@ MAKE_CATEGORIES_LOADABLE(NSData_GZip);
  *
  * @param fmt The printf-formatted string + args. If nil, *error is cleared to
  *            nil (unless error is nil as well).
+ *
+ * @return always false (to keep the analyzer happy).
  */
-- (void) fillError:(NSError**) error fmt:(NSString*) fmt, ...
+- (BOOL) fillError:(NSError**) error fmt:(NSString*) fmt, ...
 {
     if(error == nil)
     {
-        return;
+        return false;
     }
 
     if(fmt == nil)
     {
         *error = nil;
-        return;
+        return false;
     }
 
     va_list args;
@@ -98,6 +100,7 @@ MAKE_CATEGORIES_LOADABLE(NSData_GZip);
                                  code:1
                              userInfo:[NSDictionary dictionaryWithObject:desc
                                                                   forKey:NSLocalizedDescriptionKey]];
+    return false;
 }
 
 
