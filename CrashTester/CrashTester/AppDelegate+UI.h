@@ -1,7 +1,7 @@
 //
 //  AppDelegate+UI.h
 //
-//  Created by Karl Stenerud on 12-03-04.
+//  Created by Karl Stenerud on 2012-03-04.
 //
 
 #import "AppDelegate.h"

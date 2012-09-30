@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "0440"
+   LastUpgradeVersion = "0450"
    version = "1.3">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -14,7 +14,7 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "396D6F03158D2F560046CF16"
+               BlueprintIdentifier = "39DA35B31618432E009EB332"
                BuildableName = "KSCrash.framework"
                BlueprintName = "KSCrash"
                ReferencedContainer = "container:KSCrash.xcodeproj">
@@ -32,49 +32,11 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "396D6F14158D2F560046CF16"
+               BlueprintIdentifier = "39DA35D316184338009EB332"
                BuildableName = "KSCrashTests.octest"
                BlueprintName = "KSCrashTests"
                ReferencedContainer = "container:KSCrash.xcodeproj">
             </BuildableReference>
-            <SkippedTests>
-               <Test
-                  Identifier = "Container_DeepSearch_Tests/testDeepSearchArray">
-               </Test>
-               <Test
-                  Identifier = "Container_DeepSearch_Tests/testDeepSearchArrayPath">
-               </Test>
-               <Test
-                  Identifier = "Container_DeepSearch_Tests/testDeepSearchArrayString">
-               </Test>
-               <Test
-                  Identifier = "Container_DeepSearch_Tests/testDeepSearchDictionary">
-               </Test>
-               <Test
-                  Identifier = "Container_DeepSearch_Tests/testDeepSearchDictionary2">
-               </Test>
-               <Test
-                  Identifier = "Container_DeepSearch_Tests/testDeepSearchDictionary2Path">
-               </Test>
-               <Test
-                  Identifier = "Container_DeepSearch_Tests/testDeepSearchDictionaryPath">
-               </Test>
-               <Test
-                  Identifier = "Container_DeepSearch_Tests/testDeepSearchMixed">
-               </Test>
-               <Test
-                  Identifier = "Container_DeepSearch_Tests/testDeepSearchNotFoundArray">
-               </Test>
-               <Test
-                  Identifier = "Container_DeepSearch_Tests/testDeepSearchNotFound">
-               </Test>
-               <Test
-                  Identifier = "Container_DeepSearch_Tests/testDeepSearchNonContainerObject">
-               </Test>
-               <Test
-                  Identifier = "Container_DeepSearch_Tests/testDeepSearchMixedPath">
-               </Test>
-            </SkippedTests>
          </TestableReference>
       </Testables>
    </TestAction>

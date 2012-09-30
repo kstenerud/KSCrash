@@ -26,6 +26,7 @@
 #import <SenTestingKit/SenTestingKit.h>
 #import "RFC3339DateTool.h"
 
+
 @interface RFC3339DateTool_Tests : SenTestCase @end
 
 
@@ -55,7 +56,7 @@
     NSDate* date = [self gmtDateWithYear:2000 month:1 day:2 hour:3 minute:4 second:5];
     NSString* expected = @"2000-01-02T03:04:05Z";
     NSString* actual = [RFC3339DateTool stringFromDate:date];
-    
+
     STAssertEqualObjects(actual, expected, @"");
 }
 
@@ -63,7 +64,7 @@
 {
     NSDate* expected = [self gmtDateWithYear:2000 month:1 day:2 hour:3 minute:4 second:5];
     NSDate* actual = [RFC3339DateTool dateFromString:@"2000-01-02T03:04:05Z"];
-    
+
     STAssertEqualObjects(actual, expected, @"");
 }
 
@@ -72,7 +73,7 @@
     NSDate* date = [self gmtDateWithYear:2000 month:1 day:2 hour:3 minute:4 second:5];
     NSString* expected = @"2000-01-02T03:04:05Z";
     NSString* actual = [RFC3339DateTool stringFromUNIXTimestamp:(unsigned long long)[date timeIntervalSince1970]];
-    
+
     STAssertEqualObjects(actual, expected, @"");
 }
 
@@ -80,7 +81,7 @@
 {
     unsigned long long expected = (unsigned long long)[[self gmtDateWithYear:2000 month:1 day:2 hour:3 minute:4 second:5] timeIntervalSince1970];
     unsigned long long actual = [RFC3339DateTool UNIXTimestampFromString:@"2000-01-02T03:04:05Z"];
-    
+
     STAssertEquals(actual, expected, @"");
 }
 

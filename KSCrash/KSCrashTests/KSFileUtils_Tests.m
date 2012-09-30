@@ -1,7 +1,7 @@
 //
 //  KSFileUtils_Tests.m
 //
-//  Created by Karl Stenerud on 12-01-28.
+//  Created by Karl Stenerud on 2012-01-28.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -32,6 +32,7 @@
 
 #import "KSFileUtils.h"
 
+
 @interface KSFileUtils_Tests : FileBasedTestCase @end
 
 
@@ -52,7 +53,7 @@
     NSString* path = [self.tempPath stringByAppendingPathComponent:@"test.txt"];
     NSString* expected = @"testing a bunch of stuff.\nOh look, a newline!";
     int stringLength = (int)[expected length];
-    
+
     int fd = open([path UTF8String], O_RDWR | O_CREAT | O_EXCL, 0644);
     STAssertTrue(fd >= 0, @"");
     bool result = ksfu_writeBytesToFD(fd, [expected cStringUsingEncoding:NSUTF8StringEncoding], stringLength);
@@ -73,7 +74,7 @@
         unsigned char byte = (unsigned char)i;
         [expected appendBytes:&byte length:1];
     }
-    
+
     int fd = open([path UTF8String], O_RDWR | O_CREAT | O_EXCL, 0644);
     STAssertTrue(fd >= 0, @"");
     bool result = ksfu_writeBytesToFD(fd, [expected bytes], length);
@@ -91,7 +92,7 @@
     int stringLength = (int)[expected length];
     [expected writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:&error];
     STAssertNil(error, @"");
-    
+
     int fd = open([path UTF8String], O_RDONLY);
     STAssertTrue(fd >= 0, @"");
     NSMutableData* data = [NSMutableData dataWithLength:(NSUInteger)stringLength];
@@ -115,7 +116,7 @@
     }
     [expected writeToFile:path options:0 error:&error];
     STAssertNil(error, @"");
-    
+
     int fd = open([path UTF8String], O_RDONLY);
     STAssertTrue(fd >= 0, @"");
     NSMutableData* actual = [NSMutableData dataWithLength:(NSUInteger)length];
@@ -131,7 +132,7 @@
     NSString* expected = @"testing a bunch of stuff.\nOh look, a newline!";
     [expected writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:&error];
     STAssertNil(error, @"");
-    
+
     int fd = open([path UTF8String], O_RDONLY);
     STAssertTrue(fd >= 0, @"");
     char* bytes;
@@ -157,7 +158,7 @@
     }
     [expected writeToFile:path options:0 error:&error];
     STAssertNil(error, @"");
-    
+
     int fd = open([path UTF8String], O_RDONLY);
     STAssertTrue(fd >= 0, @"");
     char* bytes;
@@ -173,7 +174,7 @@
     NSError* error = nil;
     NSString* path = [self.tempPath stringByAppendingPathComponent:@"test.txt"];
     NSString* expected = @"testing a bunch of stuff.\nOh look, a newline!";
-    
+
     int fd = open([path UTF8String], O_RDWR | O_CREAT | O_EXCL, 0644);
     STAssertTrue(fd >= 0, @"");
     bool result = ksfu_writeStringToFD(fd, [expected cStringUsingEncoding:NSUTF8StringEncoding]);
@@ -188,7 +189,7 @@
     NSError* error = nil;
     NSString* path = [self.tempPath stringByAppendingPathComponent:@"test.txt"];
     NSString* expected = @"test test testing 1 2.0 3";
-    
+
     int fd = open([path UTF8String], O_RDWR | O_CREAT | O_EXCL, 0644);
     STAssertTrue(fd >= 0, @"");
     bool result = ksfu_writeFmtToFD(fd, "test test testing %d %.1f %s", 1, 2.0f, "3");
@@ -212,7 +213,7 @@
     NSError* error = nil;
     NSString* path = [self.tempPath stringByAppendingPathComponent:@"test.txt"];
     NSString* expected = @"test test testing 1 2.0 3";
-    
+
     int fd = open([path UTF8String], O_RDWR | O_CREAT | O_EXCL, 0644);
     STAssertTrue(fd >= 0, @"");
     bool result = [self writeToFD:fd fmt: "test test testing %d %.1f %s", 1, 2.0f, "3"];
@@ -232,34 +233,34 @@
     NSString* expected3 = @"line 3";
     [source writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:&error];
     STAssertNil(error, @"");
-    
+
     int fd = open([path UTF8String], O_RDONLY);
     STAssertTrue(fd >= 0, @"");
     NSMutableData* data = [NSMutableData dataWithLength:100];
     ssize_t bytesRead;
     NSString* actual;
-    
+
     bytesRead = ksfu_readLineFromFD(fd, [data mutableBytes], 100);
     STAssertTrue(bytesRead > 0, @"");
     actual = as_autorelease([[NSString alloc] initWithBytes:[data bytes]
                                                      length:(NSUInteger)bytesRead
                                                    encoding:NSUTF8StringEncoding]);
     STAssertEqualObjects(actual, expected1, @"");
-    
+
     bytesRead = ksfu_readLineFromFD(fd, [data mutableBytes], 100);
     STAssertTrue(bytesRead > 0, @"");
     actual = as_autorelease([[NSString alloc] initWithBytes:[data bytes]
                                                      length:(NSUInteger)bytesRead
                                                    encoding:NSUTF8StringEncoding]);
     STAssertEqualObjects(actual, expected2, @"");
-    
+
     bytesRead = ksfu_readLineFromFD(fd, [data mutableBytes], 100);
     STAssertTrue(bytesRead > 0, @"");
     actual = as_autorelease([[NSString alloc] initWithBytes:[data bytes]
                                                      length:(NSUInteger)bytesRead
                                                    encoding:NSUTF8StringEncoding]);
     STAssertEqualObjects(actual, expected3, @"");
-    
+
     bytesRead = ksfu_readLineFromFD(fd, [data mutableBytes], 100);
     STAssertTrue(bytesRead == 0, @"");
 }

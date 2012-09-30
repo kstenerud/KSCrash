@@ -1,7 +1,7 @@
 //
 //  NSData+Gzip_Tests.m
 //
-//  Created by Karl Stenerud on 12-02-19.
+//  Created by Karl Stenerud on 2012-02-19.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -28,6 +28,7 @@
 #import <SenTestingKit/SenTestingKit.h>
 #import "NSData+GZip.h"
 
+
 @interface NSData_Gzip_Tests : SenTestCase @end
 
 @implementation NSData_Gzip_Tests
@@ -41,14 +42,14 @@
         unsigned char byte = (unsigned char)i;
         [data appendBytes:&byte length:1];
     }
-    
+
     NSError* error = nil;
     NSData* original = [NSData dataWithData:data];
     NSData* compressed = [original gzippedWithCompressionLevel:-1 error:&error];
     STAssertNil(error, @"");
     NSData* uncompressed = [compressed gunzippedWithError:&error];
     STAssertNil(error, @"");
-    
+
     STAssertEqualObjects(uncompressed, original, @"");
     STAssertFalse([compressed isEqualToData:uncompressed], @"");
     STAssertTrue([compressed length] < [uncompressed length], @"");
@@ -62,7 +63,7 @@
     STAssertNil(error, @"");
     NSData* uncompressed = [compressed gunzippedWithError:&error];
     STAssertNil(error, @"");
-    
+
     STAssertEqualObjects(uncompressed, original, @"");
     STAssertEqualObjects(compressed, original, @"");
 }
@@ -76,11 +77,11 @@
         unsigned char byte = (unsigned char)i;
         [data appendBytes:&byte length:1];
     }
-    
+
     NSData* original = [NSData dataWithData:data];
     NSData* compressed = [original gzippedWithCompressionLevel:-1 error:nil];
     NSData* uncompressed = [compressed gunzippedWithError:nil];
-    
+
     STAssertEqualObjects(uncompressed, original, @"");
     STAssertFalse([compressed isEqualToData:uncompressed], @"");
     STAssertTrue([compressed length] < [uncompressed length], @"");
@@ -91,7 +92,7 @@
     NSData* original = [NSData data];
     NSData* compressed = [original gzippedWithCompressionLevel:-1 error:nil];
     NSData* uncompressed = [compressed gunzippedWithError:nil];
-    
+
     STAssertEqualObjects(uncompressed, original, @"");
     STAssertEqualObjects(compressed, original, @"");
 }

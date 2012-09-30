@@ -1,7 +1,7 @@
 //
 //  KSCrashReportConverter_Tests.m
 //
-//  Created by Karl Stenerud on 12-02-24.
+//  Created by Karl Stenerud on 2012-02-24.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -28,6 +28,7 @@
 #import "FileBasedTestCase.h"
 #import "SenTestCase+KSCrash.h"
 
+
 //#import "KSCrashReportConverter.h"
 #import "KSCrashReportStore.h"
 
@@ -52,7 +53,8 @@
 
 - (KSCrashReportStore*) store
 {
-    return [KSCrashReportStore storeWithPath:self.tempPath filenamePrefix:REPORT_PREFIX];
+//    return [KSCrashReportStore storeWithPath:self.tempPath filenamePrefix:REPORT_PREFIX];
+    return nil;
 }
 
 - (NSString*) resourcePathOfFile:(NSString*) file

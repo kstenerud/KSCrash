@@ -1,7 +1,7 @@
 //
 //  Crasher.m
 //
-//  Created by Karl Stenerud on 12-01-28.
+//  Created by Karl Stenerud on 2012-01-28.
 //
 
 #import "Crasher.h"

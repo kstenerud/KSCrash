@@ -1,7 +1,7 @@
 //
 //  SenTestCase+KSCrash.m
 //
-//  Created by Karl Stenerud on 12-02-11.
+//  Created by Karl Stenerud on 2012-02-11.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -28,11 +28,12 @@
 #import "SenTestCase+KSCrash.h"
 #import "ARCSafe_MemMgmt.h"
 
+
 @implementation SenTestCase (SenTestCase_KSCrash)
 
 - (NSString*) createTempPath
 {
-    NSString* path = [NSTemporaryDirectory() stringByAppendingString: [[NSProcessInfo processInfo] globallyUniqueString]];    
+    NSString* path = [NSTemporaryDirectory() stringByAppendingString: [[NSProcessInfo processInfo] globallyUniqueString]];
     NSFileManager* fm = [NSFileManager defaultManager];
     if(![fm fileExistsAtPath:path])
     {
@@ -52,14 +53,14 @@
 {
     NSError* error = nil;
     NSFileManager* fm = [NSFileManager defaultManager];
-    
+
     [fm createDirectoryAtPath:reportsPath withIntermediateDirectories:YES attributes:nil error:&error];
     STAssertNil(error, @"");
-    
+
     NSString* bundlePath = [[NSBundle bundleForClass:[self class]] resourcePath];
     NSArray* files = [fm contentsOfDirectoryAtPath:bundlePath error:&error];
     STAssertNil(error, @"");
-    
+
     for(NSString* filename in files)
     {
         if([filename rangeOfString:reportPrefix].location != NSNotFound)

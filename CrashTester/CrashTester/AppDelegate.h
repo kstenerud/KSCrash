@@ -1,20 +1,16 @@
 //
 //  AppDelegate.h
 //
-//  Created by Karl Stenerud on 12-03-04.
+//  Created by Karl Stenerud on 2012-03-04.
 //
 
 #import <UIKit/UIKit.h>
-#import <MessageUI/MessageUI.h>
-#import "ARCSafe_MemMgmt.h"
 
 
-@class ViewController;
+@interface AppDelegate : UIResponder <UIApplicationDelegate>
 
-@interface AppDelegate : UIResponder <UIApplicationDelegate, MFMailComposeViewControllerDelegate>
+@property (retain, nonatomic) UIWindow* window;
 
-@property (nonatomic,as_strongprop) UIWindow* window;
-
-@property (nonatomic,as_strongprop) ViewController* viewController;
+@property (retain, nonatomic) UIViewController* viewController;
 
 @end

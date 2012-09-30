@@ -1,17 +1,17 @@
 //
 //  AppDelegate.m
 //
-//  Created by Karl Stenerud on 12-03-04.
+//  Created by Karl Stenerud on 2012-03-04.
 //
 
 #import "AppDelegate.h"
 #import "ARCSafe_MemMgmt.h"
 #import "AppDelegate+UI.h"
 
-#import "KSCrash.h"
+#import <KSCrash/KSCrash.h>
 
 // Used to expose "logToFile"
-#import "KSCrashAdvanced.h"
+#import <KSCrash/KSCrashAdvanced.h>
 
 
 @interface AppDelegate ()
@@ -26,9 +26,8 @@
 @synthesize window = _window;
 @synthesize viewController = _viewController;
 
-static void onCrash(const KSReportWriter* writer)
+static void onCrash(const KSCrashReportWriter* writer)
 {
-//    writer = NULL;
     writer->addStringElement(writer, "test", "test");
     writer->addStringElement(writer, "intl2", "テスト２");
 }
@@ -59,7 +58,7 @@ static void onCrash(const KSReportWriter* writer)
     #pragma unused(launchOptions)
 
     [self installCrashHandler];
-    
+
     self.window = as_autorelease([[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]]);
     self.window.rootViewController = [self createRootViewController];
     [self.window makeKeyAndVisible];

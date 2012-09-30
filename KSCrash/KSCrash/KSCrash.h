@@ -1,7 +1,7 @@
 //
-//  KSCrashReporting.h
+//  KSCrash.h
 //
-//  Created by Karl Stenerud on 12-01-28.
+//  Created by Karl Stenerud on 2012-01-28.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -27,7 +27,7 @@
 
 #import <Foundation/Foundation.h>
 
-#import "KSReportWriter.h"
+#import "KSCrashReportWriter.h"
 #import "KSCrashReportFilter.h"
 #import "KSCrashReportSinkEMail.h"
 #import "KSCrashReportSinkQuincy.h"
@@ -47,7 +47,7 @@
  * - Don't print to stdout
  * - No crash callback
  *
- * @param sink The report sink to send outstanding reports to.
+ * @param sink The report sink to send outstanding reports to (can be nil).
  *
  * @return YES if successful.
  */
@@ -55,7 +55,7 @@
 
 /** Install the crash reporter.
  *
- * @param sink The report sink to send outstanding reports to.
+ * @param sink The report sink to send outstanding reports to (can be nil).
  *
  * @param userInfo A dictionary containing any info you'd like to appear in
  *                 crash reports. Must contain only JSON-safe data: NSString
