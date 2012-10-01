@@ -29,6 +29,7 @@
 
 #import "ARCSafe_MemMgmt.h"
 #import "KSJSONCodecObjC.h"
+#import "NSDictionary+Merge.h"
 #import "RFC3339DateTool.h"
 
 //#define KSLogger_LocalLevel TRACE
@@ -314,29 +315,24 @@
         // It's OK if the source dict didn't exist.
         return;
     }
-
     if(![srcDict isKindOfClass:[NSDictionary class]])
     {
         KSLOG_ERROR(@"'%@' should be a dictionary, not %@", srcKey, [srcDict class]);
         return;
     }
 
-    if([srcDict count] > 0)
+    NSDictionary* dstDict = [report objectForKey:dstKey];
+    if(dstDict == nil)
     {
-        NSDictionary* dstDict = [report objectForKey:dstKey];
-        if(dstDict == nil)
-        {
-            dstDict = [NSDictionary dictionary];
-        }
-        if(![dstDict isKindOfClass:[NSDictionary class]])
-        {
-            KSLOG_ERROR(@"'%@' should be a dictionary, not %@", dstKey, [dstDict class]);
-            return;
-        }
-        NSMutableDictionary* mutableDict = as_autorelease([dstDict mutableCopy]);
-        [mutableDict addEntriesFromDictionary:srcDict];
-        [report setObject:mutableDict forKey:dstKey];
+        dstDict = [NSDictionary dictionary];
     }
+    if(![dstDict isKindOfClass:[NSDictionary class]])
+    {
+        KSLOG_ERROR(@"'%@' should be a dictionary, not %@", dstKey, [dstDict class]);
+        return;
+    }
+
+    [report setObject:[srcDict mergedInto:dstDict] forKey:dstKey];
     [report removeObjectForKey:srcKey];
 }
 

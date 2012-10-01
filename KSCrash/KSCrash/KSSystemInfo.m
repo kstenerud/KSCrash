@@ -261,7 +261,6 @@
     [sysInfo safeSetObject:[self stringSysctl:@"kern.osversion"] forKey:@"os_version"];
     [sysInfo safeSetObject:[self int32Sysctl:@"hw.cpufrequency"] forKey:@"cpu_freq"];
     [sysInfo safeSetObject:[self int32Sysctl:@"hw.busfrequency"] forKey:@"bus_freq"];
-    [sysInfo safeSetObject:[self int64Sysctl:@"hw.memsize"] forKey:@"mem_size"];
     [sysInfo safeSetObject:[NSNumber numberWithBool:[self isJailbroken]] forKey:@"jailbroken"];
     [sysInfo safeSetObject:[self dateSysctl:@"kern.boottime"] forKey:@"boot_time"];
     [sysInfo safeSetObject:[NSDate date] forKey:@"app_start_time"];
@@ -279,6 +278,10 @@
     [sysInfo safeSetObject:[NSNumber numberWithInt:getppid()] forKey:@"parent_process_id"];
     [sysInfo safeSetObject:[self processName:getppid()] forKey:@"parent_process_name"];
     [sysInfo safeSetObject:[self deviceAndAppHash] forKey:@"device_app_hash"];
+
+    NSDictionary* memory = [NSDictionary dictionaryWithObject:[self int64Sysctl:@"hw.memsize"]
+                                                       forKey:@"size"];
+    [sysInfo safeSetObject:memory forKey:@"memory"];
 
     return sysInfo;
 }

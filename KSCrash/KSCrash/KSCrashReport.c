@@ -1225,8 +1225,8 @@ void kscrw_i_writeMemoryInfo(const KSCrashReportWriter* const writer,
 {
     writer->beginObject(writer, key);
     {
-        writer->addUIntegerElement(writer, "usable_memory", ksmach_usableMemory());
-        writer->addUIntegerElement(writer, "free_memory", ksmach_freeMemory());
+        writer->addUIntegerElement(writer, "usable", ksmach_usableMemory());
+        writer->addUIntegerElement(writer, "free", ksmach_freeMemory());
     }
     writer->endContainer(writer);
 }
