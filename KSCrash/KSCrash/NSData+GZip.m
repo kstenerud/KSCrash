@@ -27,21 +27,20 @@
 
 #import "NSData+GZip.h"
 
-#import "ARCSafe_MemMgmt.h"
-#import "LoadableCategory.h"
-
 #import <zlib.h>
+
+
+#if __has_feature(objc_arc)
+    #define as_autorelease(X)        (X)
+#else
+    #define as_autorelease(X)       [(X) autorelease]
+#endif
 
 
 #define kBufferSize 4096
 
 
-MAKE_CATEGORIES_LOADABLE(NSData_GZip);
-
-
-@implementation NSData (GZip)
-
-- (NSString*) zlibError:(int) errorCode
+static NSString* zlibError(int errorCode)
 {
     switch (errorCode)
     {
@@ -76,7 +75,7 @@ MAKE_CATEGORIES_LOADABLE(NSData_GZip);
  *
  * @return always false (to keep the analyzer happy).
  */
-- (BOOL) fillError:(NSError**) error fmt:(NSString*) fmt, ...
+static BOOL fillError(NSError** error, NSString* fmt, ...)
 {
     if(error == nil)
     {
@@ -103,6 +102,7 @@ MAKE_CATEGORIES_LOADABLE(NSData_GZip);
     return false;
 }
 
+@implementation NSData (GZip)
 
 - (NSData*) gzippedWithCompressionLevel:(int) compressionLevel
                                   error:(NSError**) error
@@ -110,7 +110,7 @@ MAKE_CATEGORIES_LOADABLE(NSData_GZip);
     uInt length = (uInt)[self length];
     if(length == 0)
     {
-        [self fillError:error fmt:nil];
+        fillError(error, nil);
         return [NSData data];
     }
 
@@ -128,7 +128,7 @@ MAKE_CATEGORIES_LOADABLE(NSData_GZip);
                        Z_DEFAULT_STRATEGY);
     if(err != Z_OK)
     {
-        [self fillError:error fmt:@"deflateInit2: %@", [self zlibError:err]];
+        fillError(error, @"deflateInit2: %@", zlibError(err));
         return nil;
     }
 
@@ -145,14 +145,14 @@ MAKE_CATEGORIES_LOADABLE(NSData_GZip);
 
     if(err != Z_STREAM_END)
     {
-        [self fillError:error fmt:@"deflate: %@", [self zlibError:err]];
+        fillError(error, @"deflate: %@", zlibError(err));
         deflateEnd(&stream);
         return nil;
     }
 
     [compressedData setLength:stream.total_out];
 
-    [self fillError:error fmt:nil];
+    fillError(error, nil);
     deflateEnd(&stream);
     return compressedData;
 }
@@ -162,7 +162,7 @@ MAKE_CATEGORIES_LOADABLE(NSData_GZip);
     uInt length = (uInt)[self length];
     if(length == 0)
     {
-        [self fillError:error fmt:nil];
+        fillError(error, nil);
         return [NSData data];
     }
 
@@ -175,7 +175,7 @@ MAKE_CATEGORIES_LOADABLE(NSData_GZip);
     err = inflateInit2(&stream, 16+MAX_WBITS);
     if(err != Z_OK)
     {
-        [self fillError:error fmt:@"inflateInit2: %@", [self zlibError:err]];
+        fillError(error, @"inflateInit2: %@", zlibError(err));
         return nil;
     }
 
@@ -190,7 +190,7 @@ MAKE_CATEGORIES_LOADABLE(NSData_GZip);
         err = inflate(&stream, Z_NO_FLUSH);
         if(err != Z_OK && err != Z_STREAM_END)
         {
-            [self fillError:error fmt:@"inflate: %@", [self zlibError:err]];
+            fillError(error, @"inflate: %@", zlibError(err));
             inflateEnd(&stream);
             return nil;
         }
@@ -198,9 +198,12 @@ MAKE_CATEGORIES_LOADABLE(NSData_GZip);
                            length:sizeof(buffer) - stream.avail_out];
     }
 
-    [self fillError:error fmt:nil];
+    fillError(error, nil);
     inflateEnd(&stream);
     return expandedData;
 }
 
 @end
+
+// Make this category auto-link
+@interface NSData_GZIP_A0THJ4 : NSObject @end @implementation NSData_GZIP_A0THJ4 @end
