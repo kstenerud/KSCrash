@@ -27,11 +27,12 @@
 
 #import "NSMutableData+AppendUTF8.h"
 
-#import "ARCSafe_MemMgmt.h"
-#import "LoadableCategory.h"
 
-
-MAKE_CATEGORIES_LOADABLE(NSMutableData_AppendUTF8);
+#if __has_feature(objc_arc)
+    #define as_autorelease(X)        (X)
+#else
+    #define as_autorelease(X)       [(X) autorelease]
+#endif
 
 
 @implementation NSMutableData (AppendUTF8)
@@ -54,3 +55,5 @@ MAKE_CATEGORIES_LOADABLE(NSMutableData_AppendUTF8);
 }
 
 @end
+
+@interface NSMutableData_AppendUTF8_GHO92D : NSObject @end @implementation NSMutableData_AppendUTF8_GHO92D @end
