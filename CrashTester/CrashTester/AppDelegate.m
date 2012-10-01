@@ -20,16 +20,32 @@
 
 @end
 
+static BOOL g_crashInHandler = NO;
+
+static void onCrash(const KSCrashReportWriter* writer)
+{
+    if(g_crashInHandler)
+    {
+        printf(NULL);
+    }
+    writer->addStringElement(writer, "test", "test");
+    writer->addStringElement(writer, "intl2", "テスト２");
+}
+
 
 @implementation AppDelegate
 
 @synthesize window = _window;
 @synthesize viewController = _viewController;
 
-static void onCrash(const KSCrashReportWriter* writer)
+- (BOOL) crashInHandler
 {
-    writer->addStringElement(writer, "test", "test");
-    writer->addStringElement(writer, "intl2", "テスト２");
+    return g_crashInHandler;
+}
+
+- (void) setCrashInHandler:(BOOL)crashInHandler
+{
+    g_crashInHandler = crashInHandler;
 }
 
 - (void) installCrashHandler

@@ -597,6 +597,16 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
           [Crasher accessDeallocatedPtrProxy];
       }]];
 
+    [commands addObject:
+     [CommandEntry commandWithName:@"Recrash"
+                     accessoryType:UITableViewCellAccessoryNone
+                             block:^(UIViewController* controller)
+      {
+          #pragma unused(controller)
+          self.crashInHandler = YES;
+          [Crasher throwException];
+      }]];
+
 
     return commands;
 }

@@ -13,4 +13,6 @@
 
 @property (retain, nonatomic) UIViewController* viewController;
 
+@property(nonatomic, readwrite, assign) BOOL crashInHandler;
+
 @end
