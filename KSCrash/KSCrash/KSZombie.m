@@ -33,6 +33,8 @@
 
 #if __has_feature(objc_arc)
 
+#warning KSZombie must be compiled with ARC disabled.
+
 void kszombie_install(unsigned int cacheSize)
 {
     #pragma unused(cacheSize)
