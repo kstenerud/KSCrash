@@ -206,4 +206,4 @@ static BOOL fillError(NSError** error, NSString* fmt, ...)
 @end
 
 // Make this category auto-link
-@interface NSData_GZIP_A0THJ4 : NSObject @end @implementation NSData_GZIP_A0THJ4 @end
+@interface NSData_GZip_A0THJ4 : NSObject @end @implementation NSData_GZip_A0THJ4 @end

@@ -64,3 +64,5 @@
 }
 
 @end
+
+@interface NSDictionary_Merge_O8FG4A : NSObject @end @implementation NSDictionary_Merge_O8FG4A @end
