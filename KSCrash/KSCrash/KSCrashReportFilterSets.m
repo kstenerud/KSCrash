@@ -29,7 +29,7 @@
 #import "KSCrashReportFilterBasic.h"
 #import "KSCrashReportFilterJSON.h"
 #import "KSCrashReportFilterGZip.h"
-
+#import "KSCrashReportFields.h"
 
 @implementation KSCrashFilterSets
 
@@ -38,7 +38,10 @@
 {
     id<KSCrashReportFilter> appleFilter = [KSCrashReportFilterAppleFmt filterWithReportStyle:reportStyle];
     id<KSCrashReportFilter> userSystemFilter = [KSCrashReportFilterPipeline filterWithFilters:
-                                                [KSCrashReportFilterSubset filterWithKeys:@"system", @"user", nil],
+                                                [KSCrashReportFilterSubset filterWithKeys:
+                                                 @KSCrashField_System,
+                                                 @KSCrashField_User,
+                                                 nil],
                                                 [KSCrashReportFilterJSONEncode filterWithOptions:KSJSONEncodeOptionPretty | KSJSONEncodeOptionSorted],
                                                 [KSCrashReportFilterDataToString filter],
                                                 nil];

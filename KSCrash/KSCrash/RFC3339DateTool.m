@@ -44,11 +44,19 @@ static NSDateFormatter* g_formatter;
 
 + (NSString*) stringFromDate:(NSDate*) date
 {
+    if(date == nil)
+    {
+        return nil;
+    }
     return [g_formatter stringFromDate:date];
 }
 
 + (NSDate*) dateFromString:(NSString*) string
 {
+    if(string == nil)
+    {
+        return nil;
+    }
     return [g_formatter dateFromString:string];
 }
 

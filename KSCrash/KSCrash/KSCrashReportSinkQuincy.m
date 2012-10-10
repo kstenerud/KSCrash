@@ -28,6 +28,7 @@
 #import "KSCrashReportSinkQuincy.h"
 
 #import "ARCSafe_MemMgmt.h"
+#import "KSCrashReportFields.h"
 #import "KSHTTPMultipartPostBody.h"
 #import "KSHTTPRequestSender.h"
 #import "NSData+GZip.h"
@@ -129,34 +130,36 @@
 {
     NSDictionary* report = [reportTuple objectForKey:kFilterKeyStandard];
     NSString* appleReport = [reportTuple objectForKey:kFilterKeyApple];
-    NSDictionary* systemDict = [report objectForKey:@"system"];
+    NSDictionary* systemDict = [report objectForKey:@KSCrashField_System];
     NSString* userID = [self blankForNil:[report objectForKeyPath:self.userIDKey]];
     NSString* contactEmail = [self blankForNil:[report objectForKeyPath:self.contactEmailKey]];
     NSString* crashReportDescription = [self blankForNil:[report objectForKeyPath:self.crashDescriptionKey]];
 
-    return [NSString stringWithFormat:
-            @"\n    <crash>\n"
-            @"        <applicationname>%@</applicationname>\n"
-            @"        <bundleidentifier>%@</bundleidentifier>\n"
-            @"        <systemversion>%@</systemversion>\n"
-            @"        <platform>%@</platform>\n"
-            @"        <senderversion>%@</senderversion>\n"
-            @"        <version>%@</version>\n"
-            @"        <log><![CDATA[%@]]></log>\n"
-            @"        <userid>%@</userid>\n"
-            @"        <contact>%@</contact>\n"
-            @"        <description><![CDATA[%@]]></description>\n"
-            @"    </crash>",
-            [systemDict objectForKey:@"CFBundleExecutable"],
-            [systemDict objectForKey:@"CFBundleIdentifier"],
-            [systemDict objectForKey:@"system_version"],
-            [systemDict objectForKey:@"machine"],
-            [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleVersion"],
-            [systemDict objectForKey:@"CFBundleVersion"],
-            [self cdataEscaped:appleReport],
-            userID,
-            contactEmail,
-            [self cdataEscaped:crashReportDescription]];
+    NSString* result = [NSString stringWithFormat:
+                        @"\n    <crash>\n"
+                        @"        <applicationname>%@</applicationname>\n"
+                        @"        <bundleidentifier>%@</bundleidentifier>\n"
+                        @"        <systemversion>%@</systemversion>\n"
+                        @"        <platform>%@</platform>\n"
+                        @"        <senderversion>%@</senderversion>\n"
+                        @"        <version>%@</version>\n"
+                        @"        <log><![CDATA[%@]]></log>\n"
+                        @"        <userid>%@</userid>\n"
+                        @"        <contact>%@</contact>\n"
+                        @"        <description><![CDATA[%@]]></description>\n"
+                        @"    </crash>",
+                        [systemDict objectForKey:@"CFBundleExecutable"],
+                        [systemDict objectForKey:@"CFBundleIdentifier"],
+                        [systemDict objectForKey:@"system_version"],
+                        [systemDict objectForKey:@"machine"],
+                        [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleVersion"],
+                        [systemDict objectForKey:@"CFBundleVersion"],
+                        [self cdataEscaped:appleReport],
+                        userID,
+                        contactEmail,
+                        [self cdataEscaped:crashReportDescription]];
+    KSLOG_TRACE(@"Report:\n%@", result);
+    return result;
 }
 
 - (void) filterReports:(NSArray*) reports
@@ -291,14 +294,16 @@
 
     __unsafe_unretained KSCrashReportSinkQuincy* blockSelf = self;
 
+    KSLOG_TRACE(@"Starting reachable operation to host %@", [self.url host]);
     self.reachableOperation = [KSReachableOperation operationWithHost:[self.url host]
                                                             allowWWAN:YES
                                                                 block:^
                                {
+                                   KSLOG_TRACE(@"Sending request to %@", request.URL);
                                    [[KSHTTPRequestSender sender] sendRequest:request
                                                                    onSuccess:^(NSHTTPURLResponse* response, NSData* data)
                                     {
-                                        KSLOG_TRACE(@"Post successful");
+                                        KSLOG_DEBUG(@"Post successful");
                                         #pragma unused(response)
                                         onCompletion(reports, YES, nil);
                                         if(blockSelf.onSuccess != nil)
@@ -311,7 +316,8 @@
                                     {
                                         NSString* text = as_autorelease([[NSString alloc] initWithData:data
                                                                                               encoding:NSUTF8StringEncoding]);
-                                        KSLOG_TRACE(@"Post failed. Code %d, reason %@", response.statusCode, text);
+                                        KSLOG_DEBUG(@"Post failed. Code %d", response.statusCode);
+                                        KSLOG_TRACE(@"Response text:\n%@", text);
                                         onCompletion(reports, NO, [NSError errorWithDomain:@"KSCrashReportSinkQuincy"
                                                                                       code:response.statusCode
                                                                                   userInfo:[NSDictionary dictionaryWithObjectsAndKeys:
@@ -320,7 +326,7 @@
                                                                                             nil]]);
                                     } onError:^(NSError* error)
                                     {
-                                        KSLOG_TRACE(@"Posting error: %@", error);
+                                        KSLOG_DEBUG(@"Posting error: %@", error);
                                         onCompletion(reports, NO, error);
                                     }];
                                }];

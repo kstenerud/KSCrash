@@ -9,7 +9,7 @@
 
 // Hockey configuration. Please get your own app ID. This one is for internal testing!
 //#define kHockeyAppID @"7f74dc8aae8bf6effd35b48e32a08298" // Don't use this ID!
-#define kHockeyAppID @"GET AN APP ID AT HOCKEYAPP.NET"
+#define kHockeyAppID @"PLEASE_GET_YOUR_OWN_APP_ID_AT_HOCKEYAPP.NET"
 
 // Quincy configuration. Reconfigure to point to your Quincy app.
 #define kQuincyReportURL [NSURL URLWithString:@"http://localhost/~kstenerud/quincy/crash_v200.php"]

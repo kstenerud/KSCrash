@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		397A7C87162266480096E287 /* KSCrashReportFields.h in Headers */ = {isa = PBXBuildFile; fileRef = 397A7C86162266480096E287 /* KSCrashReportFields.h */; };
+		397A7C88162266480096E287 /* KSCrashReportFields.h in Headers */ = {isa = PBXBuildFile; fileRef = 397A7C86162266480096E287 /* KSCrashReportFields.h */; };
 		39DA35BA1618432E009EB332 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 39DA35B81618432E009EB332 /* InfoPlist.strings */; };
 		39DA35C716184338009EB332 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 39DA35A01618430C009EB332 /* Foundation.framework */; };
 		39DA35D616184338009EB332 /* SenTestingKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 39DA35D516184338009EB332 /* SenTestingKit.framework */; };
@@ -256,6 +258,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		397A7C86162266480096E287 /* KSCrashReportFields.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.objj.h; path = KSCrashReportFields.h; sourceTree = "<group>"; };
 		39DA35A01618430C009EB332 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		39DA35B41618432E009EB332 /* KSCrash.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KSCrash.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		39DA35B71618432E009EB332 /* KSCrash-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "KSCrash-Info.plist"; sourceTree = "<group>"; };
@@ -616,6 +619,7 @@
 				39DA839F1618450A001E7F79 /* KSCrashContext.h */,
 				39DA83A01618450A001E7F79 /* KSCrashReport.c */,
 				39DA83A11618450A001E7F79 /* KSCrashReport.h */,
+				397A7C86162266480096E287 /* KSCrashReportFields.h */,
 				39DA83A21618450A001E7F79 /* KSCrashReportWriter.h */,
 				39DA83AC1618450A001E7F79 /* KSCrashState.c */,
 				39DA83AD1618450A001E7F79 /* KSCrashState.h */,
@@ -691,6 +695,7 @@
 				39DA830516184487001E7F79 /* KSCrashReportSinkQuincy.h in Headers */,
 				39DA830916184487001E7F79 /* KSCrashReportSinkStandard.h in Headers */,
 				39DA836B161844FF001E7F79 /* KSJSONCodecObjC.h in Headers */,
+				397A7C87162266480096E287 /* KSCrashReportFields.h in Headers */,
 				39DA84F6161978D7001E7F79 /* NSDictionary+Merge.h in Headers */,
 				39DA8359161844FF001E7F79 /* ARCSafe_MemMgmt.h in Headers */,
 				39DA831A16184492001E7F79 /* Container+DeepSearch.h in Headers */,
@@ -748,6 +753,7 @@
 				39DA830616184487001E7F79 /* KSCrashReportSinkQuincy.h in Headers */,
 				39DA830A16184487001E7F79 /* KSCrashReportSinkStandard.h in Headers */,
 				39DA836C161844FF001E7F79 /* KSJSONCodecObjC.h in Headers */,
+				397A7C88162266480096E287 /* KSCrashReportFields.h in Headers */,
 				39DA835A161844FF001E7F79 /* ARCSafe_MemMgmt.h in Headers */,
 				39DA831B16184492001E7F79 /* Container+DeepSearch.h in Headers */,
 				39DA835C161844FF001E7F79 /* KSArchSpecific.h in Headers */,

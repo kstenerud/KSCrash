@@ -31,6 +31,8 @@
 #import <mach/machine.h>
 
 #import "ARCSafe_MemMgmt.h"
+#import "KSCrashReportFields.h"
+#import "KSSystemInfo.h"
 #import "RFC3339DateTool.h"
 
 
@@ -51,6 +53,8 @@
 #define FMT_TRACE_SYMBOLICATED   @"%@ + " FMT_OFFSET
 
 #define kAppleRedactedText @"<redacted>"
+
+#define kExpectedMajorVersion 2
 
 
 @interface KSCrashReportFilterAppleFmt ()
@@ -176,13 +180,23 @@ NSDictionary* g_registerOrders;
     return self;
 }
 
+- (int) majorVersion:(NSDictionary*) report
+{
+    return [(NSNumber*)[(NSDictionary*)[(NSDictionary*)[report objectForKey:@KSCrashField_Report]
+                                        objectForKey:@KSCrashField_Version]
+                        objectForKey:@KSCrashField_Major] intValue];
+}
+
 - (void) filterReports:(NSArray*) reports
           onCompletion:(KSCrashReportFilterCompletion) onCompletion
 {
     NSMutableArray* filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
     for(NSDictionary* report in reports)
     {
-        [filteredReports addObject:[self toAppleFormat:report]];
+        if([self majorVersion:report] == kExpectedMajorVersion)
+        {
+            [filteredReports addObject:[self toAppleFormat:report]];
+        }
     }
 
     onCompletion(filteredReports, YES, nil);
@@ -226,19 +240,19 @@ NSDictionary* g_registerOrders;
     return [NSString stringWithFormat:@"unknown(%d,%d)", majorCode, minorCode];
 }
 
-- (void) appendBacktrace:(NSArray*) backtrace
+- (void) appendBacktrace:(NSDictionary*) backtrace
              reportStyle:(KSAppleReportStyle) reportStyle
       mainExecutableName:(NSString*) mainExecutableName
          toMutableString:(NSMutableString*) string
 {
     NSUInteger traceNum = 0;
-    for(NSDictionary* trace in backtrace)
+    for(NSDictionary* trace in [backtrace objectForKey:@KSCrashField_Contents])
     {
-        uintptr_t pc = (uintptr_t)[[trace objectForKey:@"instruction_addr"] longLongValue];
-        uintptr_t objAddr = (uintptr_t)[[trace objectForKey:@"object_addr"] longLongValue];
-        NSString* objName = [[trace objectForKey:@"object_name"] lastPathComponent];
-        uintptr_t symAddr = (uintptr_t)[[trace objectForKey:@"symbol_addr"] longLongValue];
-        NSString* symName = [trace objectForKey:@"symbol_name"];
+        uintptr_t pc = (uintptr_t)[[trace objectForKey:@KSCrashField_InstructionAddr] longLongValue];
+        uintptr_t objAddr = (uintptr_t)[[trace objectForKey:@KSCrashField_ObjectAddr] longLongValue];
+        NSString* objName = [[trace objectForKey:@KSCrashField_ObjectName] lastPathComponent];
+        uintptr_t symAddr = (uintptr_t)[[trace objectForKey:@KSCrashField_SymbolAddr] longLongValue];
+        NSString* symName = [trace objectForKey:@KSCrashField_SymbolName];
         bool isMainExecutable = [objName isEqualToString:mainExecutableName];
         KSAppleReportStyle thisLineStyle = reportStyle;
         if(thisLineStyle == KSAppleReportStylePartiallySymbolicated)
@@ -290,72 +304,93 @@ NSDictionary* g_registerOrders;
     return [[uuid lowercaseString] stringByReplacingOccurrencesOfString:@"-" withString:@""];
 }
 
+- (NSString*) stringFromDate:(NSDate*) date
+{
+    if(date == nil)
+    {
+        return nil;
+    }
+    return [g_dateFormatter stringFromDate:date];
+}
+
 - (NSString*) toAppleFormat:(NSDictionary*) JSONReport
 {
-    NSDictionary* systemInfo = [JSONReport objectForKey:@"system"];
-    NSDictionary* crashInfo = [JSONReport objectForKey:@"crash"];
-    NSDictionary* errorInfo = [crashInfo objectForKey:@"error"];
-    NSArray* binaryImages = [JSONReport objectForKey:@"binary_images"];
-    NSArray* threads = [crashInfo objectForKey:@"threads"];
-    NSDictionary* exception = [errorInfo objectForKey:@"nsexception"];
-    NSString* cpuArch = [systemInfo objectForKey:@"cpu_arch"];
+    NSArray* binaryImages = [JSONReport objectForKey:@KSCrashField_BinaryImages];
+    NSDictionary* reportInfo = [JSONReport objectForKey:@KSCrashField_Report];
+    NSDictionary* system = [JSONReport objectForKey:@KSCrashField_System];
+    NSDictionary* crash = [JSONReport objectForKey:@KSCrashField_Crash];
+    NSDictionary* error = [crash objectForKey:@KSCrashField_Error];
+    NSArray* threads = [crash objectForKey:@KSCrashField_Threads];
+    NSDictionary* nsexception = [error objectForKey:@KSCrashField_NSException];
+    NSDictionary* mach = [error objectForKey:@KSCrashField_Mach];
+    NSDictionary* signal = [error objectForKey:@KSCrashField_Signal];
+    NSString* cpuArch = [system objectForKey:@KSSystemField_CPUArch];
     NSString* cpuArchType = [self CPUType:cpuArch];
 
-    NSDate* crashTime = [RFC3339DateTool dateFromString:[JSONReport objectForKey:@"timestamp"]];
-    NSString* executablePath = [systemInfo objectForKey:@"CFBundleExecutablePath"];
+    NSDate* crashTime = [RFC3339DateTool dateFromString:[reportInfo objectForKey:@KSCrashField_Timestamp]];
+    NSString* executablePath = [system objectForKey:@KSSystemField_ExecutablePath];
     NSString* executableName = [executablePath lastPathComponent];
 
+    NSString* machExcName = [mach objectForKey:@KSCrashField_ExceptionName];
+    if(machExcName == nil)
+    {
+        machExcName = @"0";
+    }
+    NSString* signalName = [signal objectForKey:@KSCrashField_Name];
+    if(signalName == nil)
+    {
+        signalName = [[signal objectForKey:@KSCrashField_Signal] stringValue];
+    }
+    NSString* machCodeName = [mach objectForKey:@KSCrashField_CodeName];
+    if(machCodeName == nil)
+    {
+        machCodeName = @"0x00000000";
+    }
+
     NSMutableString* str = [NSMutableString string];
-    [str appendFormat:@"Incident Identifier: %@\n", [JSONReport objectForKey:@"crash_id"]];
-    [str appendFormat:@"CrashReporter Key:   %@\n", [systemInfo objectForKey:@"device_app_hash"]];
-    [str appendFormat:@"Hardware Model:      %@\n", [systemInfo objectForKey:@"machine"]];
+    [str appendFormat:@"Incident Identifier: %@\n", [reportInfo objectForKey:@KSCrashField_ID]];
+    [str appendFormat:@"CrashReporter Key:   %@\n", [system objectForKey:@KSSystemField_DeviceAppHash]];
+    [str appendFormat:@"Hardware Model:      %@\n", [system objectForKey:@KSSystemField_Machine]];
     [str appendFormat:@"Process:         %@ [%@]\n",
-     [systemInfo objectForKey:@"process_name"],
-     [systemInfo objectForKey:@"process_id"]];
+     [system objectForKey:@KSSystemField_ProcessName],
+     [system objectForKey:@KSSystemField_ProcessID]];
     [str appendFormat:@"Path:            %@\n", executablePath];
-    [str appendFormat:@"Identifier:      %@\n", [systemInfo objectForKey:@"CFBundleIdentifier"]];
-    [str appendFormat:@"Version:         %@\n", [systemInfo objectForKey:@"CFBundleVersion"]];
+    [str appendFormat:@"Identifier:      %@\n", [system objectForKey:@KSSystemField_BundleID]];
+    [str appendFormat:@"Version:         %@\n", [system objectForKey:@KSSystemField_BundleVersion]];
     [str appendFormat:@"Code Type:       %@\n", cpuArchType];
     [str appendFormat:@"Parent Process:  %@ [%@]\n",
-     [systemInfo objectForKey:@"parent_process_name"],
-     [systemInfo objectForKey:@"parent_process_id"]];
+     [system objectForKey:@KSSystemField_ParentProcessName],
+     [system objectForKey:@KSSystemField_ParentProcessID]];
     [str appendFormat:@"\n"];
-    [str appendFormat:@"Date/Time:       %@\n", [g_dateFormatter stringFromDate:crashTime]];
+    [str appendFormat:@"Date/Time:       %@\n", [self stringFromDate:crashTime]];
     [str appendFormat:@"OS Version:      %@ %@ (%@)\n",
-     [systemInfo objectForKey:@"system_name"],
-     [systemInfo objectForKey:@"system_version"],
-     [systemInfo objectForKey:@"os_version"]];
+     [system objectForKey:@KSSystemField_SystemName],
+     [system objectForKey:@KSSystemField_SystemVersion],
+     [system objectForKey:@KSSystemField_OSVersion]];
     [str appendFormat:@"Report Version:  104\n"];
 
     [str appendFormat:@"\n"];
-    [str appendFormat:@"Exception Type:  %@ (%@)\n",
-     [errorInfo objectForKey:@"mach_exception"],
-     [errorInfo objectForKey:@"signal_name"]];
+    [str appendFormat:@"Exception Type:  %@ (%@)\n", machExcName, signalName];
     [str appendFormat:@"Exception Codes: %@ at " FMT_PTR_LONG @"\n",
-     [errorInfo objectForKey:@"mach_code_name"],
-     (uintptr_t)[[errorInfo objectForKey:@"address"] longLongValue]];
+     machCodeName,
+     (uintptr_t)[[error objectForKey:@KSCrashField_Address] longLongValue]];
 
     NSUInteger threadNum = 0;
     for(NSDictionary* thread in threads)
     {
-        if([[thread objectForKey:@"crashed"] boolValue])
+        if([[thread objectForKey:@KSCrashField_Crashed] boolValue])
         {
             [str appendFormat:@"Crashed Thread:  %d\n", threadNum];
         }
         threadNum++;
     }
 
-    if(exception != nil)
+    if(nsexception != nil)
     {
         [str appendFormat:@"\nApplication Specific Information:\n"];
-        [str appendFormat:@"*** Terminating app due to uncaught exception '%@', reason: '%@'\n\n",
-         [exception objectForKey:@"name"],
-         [exception objectForKey:@"reason"]];
-        [str appendFormat:@"Last Exception Backtrace:\n"];
-        [self appendBacktrace:[exception objectForKey:@"backtrace"]
-                  reportStyle:self.reportStyle
-           mainExecutableName:executableName
-              toMutableString:str];
+        [str appendFormat:@"*** Terminating app due to uncaught exception '%@', reason: '%@'\n",
+         [nsexception objectForKey:@KSCrashField_Name],
+         [nsexception objectForKey:@KSCrashField_Reason]];
     }
 
     int crashedThreadNum = -1;
@@ -364,9 +399,9 @@ NSDictionary* g_registerOrders;
     for(NSDictionary* thread in threads)
     {
         [str appendFormat:@"\n"];
-        BOOL crashed = [[thread objectForKey:@"crashed"] boolValue];
-        NSString* name = [thread objectForKey:@"name"];
-        NSString* queueName = [thread objectForKey:@"dispatch_queue"];
+        BOOL crashed = [[thread objectForKey:@KSCrashField_Crashed] boolValue];
+        NSString* name = [thread objectForKey:@KSCrashField_Name];
+        NSString* queueName = [thread objectForKey:@KSCrashField_DispatchQueue];
 
         if(name != nil)
         {
@@ -387,7 +422,7 @@ NSDictionary* g_registerOrders;
             [str appendFormat:@"Thread %d:\n", threadNum];
         }
 
-        [self appendBacktrace:[thread objectForKey:@"backtrace"]
+        [self appendBacktrace:[thread objectForKey:@KSCrashField_Backtrace]
                   reportStyle:self.reportStyle
            mainExecutableName:executableName
               toMutableString:str];
@@ -400,7 +435,7 @@ NSDictionary* g_registerOrders;
         NSDictionary* thread = [threads objectAtIndex:(NSUInteger)crashedThreadNum];
         [str appendFormat:@"\nThread %d crashed with %@ Thread State:\n",
          crashedThreadNum, cpuArchType];
-        NSDictionary* registers = [thread objectForKey:@"registers"];
+        NSDictionary* registers = [(NSDictionary*)[thread objectForKey:@KSCrashField_Registers] objectForKey:@KSCrashField_Basic];
         NSArray* regOrder = [g_registerOrders objectForKey:cpuArch];
         if(regOrder == nil)
         {
@@ -431,19 +466,19 @@ NSDictionary* g_registerOrders;
     NSMutableArray* images = [NSMutableArray arrayWithArray:binaryImages];
     [images sortedArrayUsingComparator:^NSComparisonResult(id obj1, id obj2)
      {
-         NSNumber* num1 = [(NSDictionary*)obj1 objectForKey:@"image_addr"];
-         NSNumber* num2 = [(NSDictionary*)obj2 objectForKey:@"image_addr"];
+         NSNumber* num1 = [(NSDictionary*)obj1 objectForKey:@KSCrashField_ImageAddress];
+         NSNumber* num2 = [(NSDictionary*)obj2 objectForKey:@KSCrashField_ImageAddress];
          return [num1 compare:num2];
      }];
     for(NSDictionary* image in images)
     {
-        int cpuType = [[image objectForKey:@"cpu_type"] intValue];
-        int cpuSubtype = [[image objectForKey:@"cpu_subtype"] intValue];
-        uintptr_t imageAddr = (uintptr_t)[[image objectForKey:@"image_addr"] longLongValue];
-        uintptr_t imageSize = (uintptr_t)[[image objectForKey:@"image_size"] longLongValue];
-        NSString* path = [image objectForKey:@"name"];
+        int cpuType = [[image objectForKey:@KSCrashField_CPUType] intValue];
+        int cpuSubtype = [[image objectForKey:@KSCrashField_CPUSubType] intValue];
+        uintptr_t imageAddr = (uintptr_t)[[image objectForKey:@KSCrashField_ImageAddress] longLongValue];
+        uintptr_t imageSize = (uintptr_t)[[image objectForKey:@KSCrashField_ImageSize] longLongValue];
+        NSString* path = [image objectForKey:@KSCrashField_Name];
         NSString* name = [path lastPathComponent];
-        NSString* uuid = [self toCompactUUID:[image objectForKey:@"uuid"]];
+        NSString* uuid = [self toCompactUUID:[image objectForKey:@KSCrashField_UUID]];
         NSString* isBaseImage = [executablePath isEqualToString:path] ? @"+" : @" ";
 
         [str appendFormat:FMT_PTR_RJ @" - " FMT_PTR_RJ @" %@%@ %@  <%@> %@\n",
@@ -465,7 +500,7 @@ NSDictionary* g_registerOrders;
 {
     for(NSDictionary* thread in allThreads)
     {
-        BOOL crashed = [[thread objectForKey:@"crashed"] boolValue];
+        BOOL crashed = [[thread objectForKey:@KSCrashField_Crashed] boolValue];
         if(crashed)
         {
             return thread;
@@ -479,22 +514,22 @@ NSDictionary* g_registerOrders;
 {
     [string appendString:@"\nExtra Information:\n"];
 
-    NSDictionary* crashInfo = [JSONReport objectForKey:@"crash"];
-    NSArray* threads = [crashInfo objectForKey:@"threads"];
+    NSDictionary* crashInfo = [JSONReport objectForKey:@KSCrashField_Crash];
+    NSArray* threads = [crashInfo objectForKey:@KSCrashField_Threads];
 
     NSDictionary* crashedThread = [self crashedThread:threads];
     if(crashedThread != nil)
     {
-        NSDictionary* stack = [crashedThread objectForKey:@"stack"];
+        NSDictionary* stack = [crashedThread objectForKey:@KSCrashField_Stack];
         if(stack != nil)
         {
             [string appendFormat:@"\nStack Dump (" FMT_PTR_LONG "-" FMT_PTR_LONG "):\n\n%@\n",
-             (uintptr_t)[[stack objectForKey:@"dump_start"] unsignedLongLongValue],
-             (uintptr_t)[[stack objectForKey:@"dump_end"] unsignedLongLongValue],
-             [stack objectForKey:@"contents"]];
+             (uintptr_t)[[stack objectForKey:@KSCrashField_DumpStart] unsignedLongLongValue],
+             (uintptr_t)[[stack objectForKey:@KSCrashField_DumpEnd] unsignedLongLongValue],
+             [stack objectForKey:@KSCrashField_Contents]];
         }
 
-        NSDictionary* notableAddresses = [crashedThread objectForKey:@"notable_addresses"];
+        NSDictionary* notableAddresses = [crashedThread objectForKey:@KSCrashField_NotableAddresses];
         if(notableAddresses != nil)
         {
             [string appendString:@"\nNotable Addresses:\n"];
@@ -502,22 +537,22 @@ NSDictionary* g_registerOrders;
             for(NSString* source in [notableAddresses.allKeys sortedArrayUsingSelector:@selector(compare:)])
             {
                 NSDictionary* entry = [notableAddresses objectForKey:source];
-                uintptr_t address = (uintptr_t)[[entry objectForKey:@"address"] unsignedLongLongValue];
-                NSString* zombieName = [entry objectForKey:@"last_deallocated_obj"];
-                NSString* contents = [entry objectForKey:@"contents"];
+                uintptr_t address = (uintptr_t)[[entry objectForKey:@KSCrashField_Address] unsignedLongLongValue];
+                NSString* zombieName = [entry objectForKey:@KSCrashField_LastDeallocObject];
+                NSString* memType = [entry objectForKey:@KSCrashField_Contents];
 
                 [string appendFormat:@"* %-17s (" FMT_PTR_LONG "): ", [source UTF8String], address];
 
-                if([contents isEqualToString:@"string"])
+                if([memType isEqualToString:@KSCrashMemType_String])
                 {
-                    NSString* value = [entry objectForKey:@"value"];
+                    NSString* value = [entry objectForKey:@KSCrashField_Value];
                     [string appendFormat:@"string : %@", value];
                 }
-                else if([contents isEqualToString:@"objc_object"] ||
-                        [contents isEqualToString:@"objc_class"])
+                else if([memType isEqualToString:@KSCrashMemType_Class] ||
+                        [memType isEqualToString:@KSCrashMemType_Object])
                 {
-                    NSString* class = [entry objectForKey:@"class"];
-                    NSString* type = [contents isEqualToString:@"objc_object"] ? @"object :" : @"class  :";
+                    NSString* class = [entry objectForKey:@KSCrashField_Class];
+                    NSString* type = [memType isEqualToString:@KSCrashMemType_Object] ? @"object :" : @"class  :";
                     [string appendFormat:@"%@ %@", type, class];
                 }
                 else

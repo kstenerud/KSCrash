@@ -25,6 +25,33 @@
 //
 
 
+#define KSSystemField_AppStartTime "app_start_time"
+#define KSSystemField_AppUUID "app_uuid"
+#define KSSystemField_BootTime "boot_time"
+#define KSSystemField_BundleID "CFBundleIdentifier"
+#define KSSystemField_BundleName "CFBundleName"
+#define KSSystemField_BundleShortVersion "CFBundleShortVersionString"
+#define KSSystemField_BundleVersion "CFBundleVersion"
+#define KSSystemField_CPUArch "cpu_arch"
+#define KSSystemField_DeviceAppHash "device_app_hash"
+#define KSSystemField_Executable "CFBundleExecutable"
+#define KSSystemField_ExecutablePath "CFBundleExecutablePath"
+#define KSSystemField_Jailbroken "jailbroken"
+#define KSSystemField_KernelVersion "kernel_version"
+#define KSSystemField_Machine "machine"
+#define KSSystemField_Memory "memory"
+#define KSSystemField_Model "model"
+#define KSSystemField_OSVersion "os_version"
+#define KSSystemField_ParentProcessID "parent_process_id"
+#define KSSystemField_ParentProcessName "parent_process_name"
+#define KSSystemField_ProcessID "process_id"
+#define KSSystemField_ProcessName "process_name"
+#define KSSystemField_Size "size"
+#define KSSystemField_SystemName "system_name"
+#define KSSystemField_SystemVersion "system_version"
+#define KSSystemField_TimeZone "time_zone"
+
+
 /**
  * Provides system information useful for a crash report.
  */

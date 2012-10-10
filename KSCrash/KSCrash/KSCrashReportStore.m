@@ -28,6 +28,7 @@
 #import "KSCrashReportStore.h"
 
 #import "ARCSafe_MemMgmt.h"
+#import "KSCrashReportFields.h"
 #import "KSJSONCodecObjC.h"
 #import "NSDictionary+Merge.h"
 #import "RFC3339DateTool.h"
@@ -207,7 +208,7 @@
             report = [NSDictionary dictionary];
         }
         NSMutableDictionary* primaryReport = as_autorelease([report mutableCopy]);
-        [primaryReport setObject:[NSNumber numberWithBool:YES] forKey:@"incomplete"];
+        [primaryReport setObject:[NSNumber numberWithBool:YES] forKey:@KSCrashField_Incomplete];
         NSMutableDictionary* secondaryReport = as_autorelease([[self readReport:[self pathToSecondaryReportWithID:reportID]
                                                                           error:&error] mutableCopy]);
         if(secondaryReport == nil)
@@ -218,9 +219,9 @@
         {
             if(error != nil)
             {
-                [secondaryReport setObject:[NSNumber numberWithBool:YES] forKey:@"incomplete"];
+                [secondaryReport setObject:[NSNumber numberWithBool:YES] forKey:@KSCrashField_Incomplete];
             }
-            [secondaryReport setObject:primaryReport forKey:@"original_report"];
+            [secondaryReport setObject:primaryReport forKey:@KSCrashField_OriginalReport];
             report = secondaryReport;
         }
     }
@@ -290,16 +291,18 @@
     }
 
     NSMutableDictionary* mutableReport = as_autorelease([report mutableCopy]);
+    NSMutableDictionary* mutableInfo = as_autorelease([[report objectForKey:@KSCrashField_Report] mutableCopy]);
+    [mutableReport setObject:mutableInfo forKey:@KSCrashField_Report];
 
     // Timestamp gets stored as a unix timestamp. Convert it to rfc3339.
-    [self convertTimestamp:@"timestamp" inReport:mutableReport];
+    [self convertTimestamp:@KSCrashField_Timestamp inReport:mutableInfo];
 
-    [self mergeDictWithKey:@"system_atcrash"
-           intoDictWithKey:@"system"
+    [self mergeDictWithKey:@KSCrashField_SystemAtCrash
+           intoDictWithKey:@KSCrashField_System
                   inReport:mutableReport];
 
-    [self mergeDictWithKey:@"user_atcrash"
-           intoDictWithKey:@"user"
+    [self mergeDictWithKey:@KSCrashField_UserAtCrash
+           intoDictWithKey:@KSCrashField_User
                   inReport:mutableReport];
 
     return mutableReport;

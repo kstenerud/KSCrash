@@ -252,36 +252,33 @@
     NSDictionary* infoDict = [mainBundle infoDictionary];
 
 #ifdef __IPHONE_OS_VERSION_MAX_ALLOWED
-    [sysInfo safeSetObject:[UIDevice currentDevice].systemName forKey:@"system_name"];
-    [sysInfo safeSetObject:[UIDevice currentDevice].systemVersion forKey:@"system_version"];
+    [sysInfo safeSetObject:[UIDevice currentDevice].systemName forKey:@KSSystemField_SystemName];
+    [sysInfo safeSetObject:[UIDevice currentDevice].systemVersion forKey:@KSSystemField_SystemVersion];
 #endif
-    [sysInfo safeSetObject:[self stringSysctl:@"hw.machine"] forKey:@"machine"];
-    [sysInfo safeSetObject:[self stringSysctl:@"hw.model"] forKey:@"model"];
-    [sysInfo safeSetObject:[self stringSysctl:@"kern.version"] forKey:@"kernel_version"];
-    [sysInfo safeSetObject:[self stringSysctl:@"kern.osversion"] forKey:@"os_version"];
-    [sysInfo safeSetObject:[self int32Sysctl:@"hw.cpufrequency"] forKey:@"cpu_freq"];
-    [sysInfo safeSetObject:[self int32Sysctl:@"hw.busfrequency"] forKey:@"bus_freq"];
-    [sysInfo safeSetObject:[NSNumber numberWithBool:[self isJailbroken]] forKey:@"jailbroken"];
-    [sysInfo safeSetObject:[self dateSysctl:@"kern.boottime"] forKey:@"boot_time"];
-    [sysInfo safeSetObject:[NSDate date] forKey:@"app_start_time"];
-    [sysInfo safeSetObject:[infoDict objectForKey:@"CFBundleExecutablePath"] forKey:@"CFBundleExecutablePath"];
-    [sysInfo safeSetObject:[infoDict objectForKey:@"CFBundleExecutable"] forKey:@"CFBundleExecutable"];
-    [sysInfo safeSetObject:[infoDict objectForKey:@"CFBundleIdentifier"] forKey:@"CFBundleIdentifier"];
-    [sysInfo safeSetObject:[infoDict objectForKey:@"CFBundleName"] forKey:@"CFBundleName"];
-    [sysInfo safeSetObject:[infoDict objectForKey:@"CFBundleVersion"] forKey:@"CFBundleVersion"];
-    [sysInfo safeSetObject:[infoDict objectForKey:@"CFBundleShortVersionString"] forKey:@"CFBundleShortVersionString"];
-    [sysInfo safeSetObject:[self appUUID] forKey:@"app_uuid"];
-    [sysInfo safeSetObject:[self currentCPUArch] forKey:@"cpu_arch"];
-    [sysInfo safeSetObject:[[NSTimeZone localTimeZone] abbreviation] forKey:@"time_zone"];
-    [sysInfo safeSetObject:[NSProcessInfo processInfo].processName forKey:@"process_name"];
-    [sysInfo safeSetObject:[NSNumber numberWithInt:[NSProcessInfo processInfo].processIdentifier] forKey:@"process_id"];
-    [sysInfo safeSetObject:[NSNumber numberWithInt:getppid()] forKey:@"parent_process_id"];
-    [sysInfo safeSetObject:[self processName:getppid()] forKey:@"parent_process_name"];
-    [sysInfo safeSetObject:[self deviceAndAppHash] forKey:@"device_app_hash"];
+    [sysInfo safeSetObject:[self stringSysctl:@"hw.machine"] forKey:@KSSystemField_Machine];
+    [sysInfo safeSetObject:[self stringSysctl:@"hw.model"] forKey:@KSSystemField_Model];
+    [sysInfo safeSetObject:[self stringSysctl:@"kern.version"] forKey:@KSSystemField_KernelVersion];
+    [sysInfo safeSetObject:[self stringSysctl:@"kern.osversion"] forKey:@KSSystemField_OSVersion];
+    [sysInfo safeSetObject:[NSNumber numberWithBool:[self isJailbroken]] forKey:@KSSystemField_Jailbroken];
+    [sysInfo safeSetObject:[self dateSysctl:@"kern.boottime"] forKey:@KSSystemField_BootTime];
+    [sysInfo safeSetObject:[NSDate date] forKey:@KSSystemField_AppStartTime];
+    [sysInfo safeSetObject:[infoDict objectForKey:@"CFBundleExecutablePath"] forKey:@KSSystemField_ExecutablePath];
+    [sysInfo safeSetObject:[infoDict objectForKey:@"CFBundleExecutable"] forKey:@KSSystemField_Executable];
+    [sysInfo safeSetObject:[infoDict objectForKey:@"CFBundleIdentifier"] forKey:@KSSystemField_BundleID];
+    [sysInfo safeSetObject:[infoDict objectForKey:@"CFBundleName"] forKey:@KSSystemField_BundleName];
+    [sysInfo safeSetObject:[infoDict objectForKey:@"CFBundleVersion"] forKey:@KSSystemField_BundleVersion];
+    [sysInfo safeSetObject:[infoDict objectForKey:@"CFBundleShortVersionString"] forKey:@KSSystemField_BundleShortVersion];
+    [sysInfo safeSetObject:[self appUUID] forKey:@KSSystemField_AppUUID];
+    [sysInfo safeSetObject:[self currentCPUArch] forKey:@KSSystemField_CPUArch];
+    [sysInfo safeSetObject:[[NSTimeZone localTimeZone] abbreviation] forKey:@KSSystemField_TimeZone];
+    [sysInfo safeSetObject:[NSProcessInfo processInfo].processName forKey:@KSSystemField_ProcessName];
+    [sysInfo safeSetObject:[NSNumber numberWithInt:[NSProcessInfo processInfo].processIdentifier] forKey:@KSSystemField_ProcessID];
+    [sysInfo safeSetObject:[NSNumber numberWithInt:getppid()] forKey:@KSSystemField_ParentProcessID];
+    [sysInfo safeSetObject:[self processName:getppid()] forKey:@KSSystemField_ParentProcessName];
+    [sysInfo safeSetObject:[self deviceAndAppHash] forKey:@KSSystemField_DeviceAppHash];
 
-    NSDictionary* memory = [NSDictionary dictionaryWithObject:[self int64Sysctl:@"hw.memsize"]
-                                                       forKey:@"size"];
-    [sysInfo safeSetObject:memory forKey:@"memory"];
+    NSDictionary* memory = [NSDictionary dictionaryWithObject:[self int64Sysctl:@"hw.memsize"] forKey:@KSSystemField_Size];
+    [sysInfo safeSetObject:memory forKey:@KSSystemField_Memory];
 
     return sysInfo;
 }
