@@ -50,7 +50,7 @@ static void onCrash(const KSCrashReportWriter* writer)
 
 - (void) installCrashHandler
 {
-    // Uncomment this to write all log entries to Library/Caches/KSCrashReports/log.txt
+    // Uncomment this to write all log entries to Library/Caches/KSCrashReports/CrashTester/CrashTester-CrashLog.txt
 //    [KSCrash logToFile];
 
     [KSCrash installWithCrashReportSink:nil

@@ -580,12 +580,12 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
       }]];
 
     [commands addObject:
-     [CommandEntry commandWithName:@"Deallocated Ptr"
+     [CommandEntry commandWithName:@"Deallocated Object"
                      accessoryType:UITableViewCellAccessoryNone
                              block:^(UIViewController* controller)
       {
            #pragma unused(controller)
-          [Crasher accessDeallocatedPtr];
+          [Crasher accessDeallocatedObject];
       }]];
 
     [commands addObject:
@@ -598,13 +598,13 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
       }]];
 
     [commands addObject:
-     [CommandEntry commandWithName:@"Recrash"
+     [CommandEntry commandWithName:@"Crash in Handler"
                      accessoryType:UITableViewCellAccessoryNone
                              block:^(UIViewController* controller)
       {
           #pragma unused(controller)
           self.crashInHandler = YES;
-          [Crasher throwException];
+          [Crasher dereferenceBadPointer];
       }]];
 
 

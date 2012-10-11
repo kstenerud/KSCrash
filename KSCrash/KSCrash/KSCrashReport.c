@@ -995,11 +995,14 @@ void kscrw_i_writeNotableAddresses(const KSCrashReportWriter* const writer,
  * @param crash The crash handler context.
  *
  * @param thread The thread to write about.
+ *
+ * @param index The thread's index relative to all threads.
  */
 void kscrw_i_writeThread(const KSCrashReportWriter* const writer,
                          const char* const key,
                          const KSCrash_SentryContext* const crash,
-                         const thread_t thread)
+                         const thread_t thread,
+                         const int index)
 {
     bool isCrashedThread = thread == crash->crashedThread;
     char nameBuffer[128];
@@ -1036,6 +1039,7 @@ void kscrw_i_writeThread(const KSCrashReportWriter* const writer,
                                    machineContext,
                                    isCrashedThread);
         }
+        writer->addIntegerElement(writer, KSCrashField_Index, index);
         if(pthread_getname_np(pthread_from_mach_thread_np(thread),
                               nameBuffer,
                               sizeof(nameBuffer)) == 0 &&
@@ -1096,7 +1100,7 @@ void kscrw_i_writeAllThreads(const KSCrashReportWriter* const writer,
     {
         for(mach_msg_type_number_t i = 0; i < numThreads; i++)
         {
-            kscrw_i_writeThread(writer, NULL, crash, threads[i]);
+            kscrw_i_writeThread(writer, NULL, crash, threads[i], (int)i);
         }
     }
     writer->endContainer(writer);
@@ -1109,6 +1113,44 @@ void kscrw_i_writeAllThreads(const KSCrashReportWriter* const writer,
     vm_deallocate(thisTask, (vm_address_t)threads, sizeof(thread_t) * numThreads);
 }
 
+/** Get the index of a thread.
+ *
+ * @param thread The thread.
+ *
+ * @return The thread's index, or -1 if it couldn't be determined.
+ */
+int kscrw_i_threadIndex(const thread_t thread)
+{
+    int index = -1;
+    const task_t thisTask = mach_task_self();
+    thread_act_array_t threads;
+    mach_msg_type_number_t numThreads;
+    kern_return_t kr;
+
+    if((kr = task_threads(thisTask, &threads, &numThreads)) != KERN_SUCCESS)
+    {
+        KSLOG_ERROR("task_threads: %s", mach_error_string(kr));
+        return -1;
+    }
+
+    for(mach_msg_type_number_t i = 0; i < numThreads; i++)
+    {
+        if(threads[i] == thread)
+        {
+            index = (int)i;
+            break;
+        }
+    }
+
+    // Clean up.
+    for(mach_msg_type_number_t i = 0; i < numThreads; i++)
+    {
+        mach_port_deallocate(thisTask, threads[i]);
+    }
+    vm_deallocate(thisTask, (vm_address_t)threads, sizeof(thread_t) * numThreads);
+
+    return index;
+}
 
 #pragma mark Global Report Data
 
@@ -1534,7 +1576,8 @@ void kscrashreport_writeMinimalReport(KSCrash_Context* const crashContext,
             kscrw_i_writeThread(writer,
                                 KSCrashField_CrashedThread,
                                 &crashContext->crash,
-                                crashContext->crash.crashedThread);
+                                crashContext->crash.crashedThread,
+                                kscrw_i_threadIndex(crashContext->crash.crashedThread));
             kscrw_i_writeError(writer, KSCrashField_Error, &crashContext->crash);
         }
         writer->endContainer(writer);

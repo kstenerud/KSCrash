@@ -26,7 +26,7 @@
 
 + (void) doIllegalInstruction;
 
-+ (void) accessDeallocatedPtr;
++ (void) accessDeallocatedObject;
 
 + (void) accessDeallocatedPtrProxy;
 

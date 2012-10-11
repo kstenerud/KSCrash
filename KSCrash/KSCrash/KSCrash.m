@@ -55,6 +55,14 @@
 
 
 // ============================================================================
+#pragma mark - Constants -
+// ============================================================================
+
+#define kCrashLogFilenameSuffix "-CrashLog.txt"
+#define kCrashStateFilenameSuffix "-CrashState.json"
+
+
+// ============================================================================
 #pragma mark - Globals -
 // ============================================================================
 
@@ -123,28 +131,17 @@ static KSCrash* g_instance;
         self.sink = sink;
         self.deleteAfterSend = YES;
 
-        NSError* error = nil;
-        NSFileManager* fm = [NSFileManager defaultManager];
-
-        NSString* reportFilesPath = [[self class] generateReportFilesPath:KSCRASH_ReportFilesDirectory];
+        NSString* reportFilesPath = [[self class] reportFilesPath];
         if([reportFilesPath length] == 0)
         {
-            KSLOG_ERROR(@"Could not determine report files path.");
             goto failed;
         }
-        if(![fm fileExistsAtPath:reportFilesPath])
+        if(![[self class] ensureDirectoryExists:reportFilesPath])
         {
-            if(![fm createDirectoryAtPath:reportFilesPath
-              withIntermediateDirectories:YES
-                               attributes:nil
-                                    error:&error])
-            {
-                KSLOG_ERROR(@"Could not create cache directory %@: %@.",
-                            reportFilesPath, error);
-                goto failed;
-            }
+            goto failed;
         }
 
+        NSError* error = nil;
         NSData* userInfoJSON = nil;
         if(userInfo != nil)
         {
@@ -162,11 +159,10 @@ static KSCrash* g_instance;
         NSString* crashID = [self generateUUIDString];
         NSString* primaryReportPath = [self.crashReportStore pathToPrimaryReportWithID:crashID];
         NSString* secondaryReportPath = [self.crashReportStore pathToSecondaryReportWithID:crashID];
-        NSString* stateFilePath = [reportFilesPath stringByAppendingPathComponent:@"kscrash_state.json"];
 
         if(!kscrash_install([primaryReportPath UTF8String],
                             [secondaryReportPath UTF8String],
-                            [stateFilePath UTF8String],
+                            [[[self class] stateFilePath] UTF8String],
                             [crashID UTF8String],
                             [userInfoJSON bytes],
                             zombieCacheSize,
@@ -219,6 +215,59 @@ failed:
 #pragma mark - Utility -
 // ============================================================================
 
++ (NSString*) bundleName
+{
+    return [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleName"];
+}
+
++ (NSString*) reportFilesPath
+{
+    NSString* bundleName = [self bundleName];
+    NSString* reportFilesPath = [KSCRASH_ReportFilesDirectory stringByAppendingPathComponent:bundleName];
+
+    NSArray* directories = NSSearchPathForDirectoriesInDomains(NSCachesDirectory,
+                                                               NSUserDomainMask,
+                                                               YES);
+    if([directories count] == 0)
+    {
+        KSLOG_ERROR(@"Could not locate cache directory path.");
+        return nil;
+    }
+    NSString* cachePath = [directories objectAtIndex:0];
+    if([cachePath length] == 0)
+    {
+        KSLOG_ERROR(@"Could not locate cache directory path.");
+        return nil;
+    }
+    NSString* result = [cachePath stringByAppendingPathComponent:reportFilesPath];
+    if([result length] == 0)
+    {
+        KSLOG_ERROR(@"Could not determine report files path.");
+        return nil;
+    }
+    return result;
+}
+
++ (NSString*) logFilename
+{
+    return [NSString stringWithFormat:@"%@" kCrashLogFilenameSuffix, [[self class] bundleName]];
+}
+
++ (NSString*) logFilePath
+{
+    return [[self reportFilesPath] stringByAppendingPathComponent:[self logFilename]];
+}
+
++ (NSString*) stateFilename
+{
+    return [NSString stringWithFormat:@"%@" kCrashStateFilenameSuffix, [[self class] bundleName]];
+}
+
++ (NSString*) stateFilePath
+{
+    return [[self reportFilesPath] stringByAppendingPathComponent:[self stateFilename]];
+}
+
 - (NSMutableData*) nullTerminated:(NSData*) data
 {
     if(data == nil)
@@ -239,23 +288,24 @@ failed:
     return as_autorelease(uuidString);
 }
 
-+ (NSString*) generateReportFilesPath:(NSString*) localReportFilesPath
++ (BOOL) ensureDirectoryExists:(NSString*) path
 {
-    NSArray* directories = NSSearchPathForDirectoriesInDomains(NSCachesDirectory,
-                                                               NSUserDomainMask,
-                                                               YES);
-    if([directories count] == 0)
+    NSError* error = nil;
+    NSFileManager* fm = [NSFileManager defaultManager];
+
+    if(![fm fileExistsAtPath:path])
     {
-        KSLOG_ERROR(@"Could not locate cache directory path.");
-        return nil;
+        if(![fm createDirectoryAtPath:path
+          withIntermediateDirectories:YES
+                           attributes:nil
+                                error:&error])
+        {
+            KSLOG_ERROR(@"Could not create directory %@: %@.", path, error);
+            return NO;
+        }
     }
-    NSString* cachePath = [directories objectAtIndex:0];
-    if([cachePath length] == 0)
-    {
-        KSLOG_ERROR(@"Could not locate cache directory path.");
-        return nil;
-    }
-    return [cachePath stringByAppendingPathComponent:localReportFilesPath];
+
+    return YES;
 }
 
 - (void) setUserInfo:(NSDictionary*) userInfo
@@ -441,11 +491,9 @@ failed:
 
 + (BOOL) logToFile
 {
-    NSString* reportFilesPath = [[self class] generateReportFilesPath:KSCRASH_ReportFilesDirectory];
-    NSString* fullPath = [reportFilesPath stringByAppendingPathComponent:@"log.txt"];
-    if(![self redirectLogsToFile:fullPath overwrite:YES])
+    if(![self redirectLogsToFile:[self logFilePath] overwrite:YES])
     {
-        KSLOG_ERROR(@"Could not redirect logs to %@", fullPath);
+        KSLOG_ERROR(@"Could not redirect logs to %@", [self logFilePath]);
         return NO;
     }
     return YES;

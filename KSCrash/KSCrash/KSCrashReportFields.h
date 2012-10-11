@@ -55,6 +55,7 @@
 #define KSCrashField_Address               "address"
 #define KSCrashField_Contents              "contents"
 #define KSCrashField_Exception             "exception"
+#define KSCrashField_Index                 "index"
 #define KSCrashField_Name                  "name"
 #define KSCrashField_Type                  "type"
 #define KSCrashField_UUID                  "uuid"

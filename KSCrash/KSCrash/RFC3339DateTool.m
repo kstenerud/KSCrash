@@ -44,7 +44,7 @@ static NSDateFormatter* g_formatter;
 
 + (NSString*) stringFromDate:(NSDate*) date
 {
-    if(date == nil)
+    if(![date isKindOfClass:[NSDate class]])
     {
         return nil;
     }
@@ -53,7 +53,7 @@ static NSDateFormatter* g_formatter;
 
 + (NSDate*) dateFromString:(NSString*) string
 {
-    if(string == nil)
+    if(![string isKindOfClass:[NSString class]])
     {
         return nil;
     }

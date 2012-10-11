@@ -109,7 +109,7 @@ int g_crasher_denominator = 0;
     funcptr();
 }
 
-+ (void) accessDeallocatedPtr
++ (void) accessDeallocatedObject
 {
     RefHolder* ref = as_autorelease([RefHolder new]);
     ref.ref = as_autorelease([MyClass new]);

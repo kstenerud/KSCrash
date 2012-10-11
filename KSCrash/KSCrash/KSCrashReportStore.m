@@ -41,8 +41,8 @@
 #pragma mark - Constants -
 // ============================================================================
 
-#define kCrashReportPrefix @"CrashReport"
-#define kCrashReportSecondaryPrefix @"Secondary" kCrashReportPrefix
+#define kCrashReportPrimarySuffix @"-CrashReport-"
+#define kCrashReportSecondarySuffix @"-SecondaryCrashReport-"
 
 
 // ============================================================================
@@ -221,7 +221,8 @@
             {
                 [secondaryReport setObject:[NSNumber numberWithBool:YES] forKey:@KSCrashField_Incomplete];
             }
-            [secondaryReport setObject:primaryReport forKey:@KSCrashField_OriginalReport];
+            [secondaryReport setObject:[self fixupCrashReport:primaryReport]
+                                forKey:@KSCrashField_OriginalReport];
             report = secondaryReport;
         }
     }
@@ -357,14 +358,22 @@
               forKey:key];
 }
 
-- (NSString*) reportPrefix
+- (NSString*) primaryReportFilenameWithID:(NSString*) reportID
 {
-    return [NSString stringWithFormat:@"%@-%@", kCrashReportPrefix, self.bundleName];
+    return [NSString stringWithFormat:@"%@" kCrashReportPrimarySuffix "%@.json",
+            self.bundleName, reportID];
+}
+
+- (NSString*) secondaryReportFilenameWithID:(NSString*) reportID
+{
+    return [NSString stringWithFormat:@"%@" kCrashReportSecondarySuffix "%@.json",
+            self.bundleName, reportID];
 }
 
 - (NSString*) reportIDFromFilename:(NSString*) filename
 {
-    NSString* prefix = [[self reportPrefix] stringByAppendingString:@"-"];
+    NSString* prefix = [NSString stringWithFormat:@"%@" kCrashReportPrimarySuffix,
+                        self.bundleName];
     NSString* suffix = @".json";
     if([filename rangeOfString:prefix].location == 0 &&
        [filename rangeOfString:suffix].location != NSNotFound)
@@ -379,19 +388,13 @@
 
 - (NSString*) pathToPrimaryReportWithID:(NSString*) reportID
 {
-    NSString* filename = [NSString stringWithFormat:@"%@-%@-%@.json",
-                          kCrashReportPrefix,
-                          self.bundleName,
-                          reportID];
+    NSString* filename = [self primaryReportFilenameWithID:reportID];
     return [self.path stringByAppendingPathComponent:filename];
 }
 
 - (NSString*) pathToSecondaryReportWithID:(NSString*) reportID
 {
-    NSString* filename = [NSString stringWithFormat:@"%@-%@-%@.json",
-                          kCrashReportSecondaryPrefix,
-                          self.bundleName,
-                          reportID];
+    NSString* filename = [self secondaryReportFilenameWithID:reportID];
     return [self.path stringByAppendingPathComponent:filename];
 }
 
