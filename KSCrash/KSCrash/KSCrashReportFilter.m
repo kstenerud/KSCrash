@@ -128,6 +128,16 @@
     NSArray* filters = self.filters;
     NSArray* keys = self.keys;
     NSUInteger filterCount = [filters count];
+
+    if(filterCount == 0)
+    {
+        if(onCompletion)
+        {
+            onCompletion(reports, YES,  nil);
+        }
+        return;
+    }
+
     NSMutableArray* reportSets = [NSMutableArray arrayWithCapacity:filterCount];
 
     __block NSUInteger iFilter = 0;
@@ -136,6 +146,8 @@
                           BOOL completed,
                           NSError* filterError)
                         {
+                            // Normal run until all filters exhausted or one
+                            // filter fails to complete.
                             if(completed)
                             {
                                 [reportSets addObject:filteredReports];
@@ -147,6 +159,8 @@
                                 }
                             }
 
+                            // All filters complete, or a filter failed.
+                            // Build final "filteredReports" array.
                             NSUInteger reportCount = [(NSArray*)[reportSets objectAtIndex:0] count];
                             NSMutableArray* combinedReports = [NSMutableArray arrayWithCapacity:reportCount];
                             for(NSUInteger iReport = 0; iReport < reportCount; iReport++)
@@ -164,6 +178,8 @@
                             {
                                 onCompletion(combinedReports, completed, filterError);
                             }
+
+                            // Release self-reference on the main thread.
                             dispatch_async(dispatch_get_main_queue(), ^
                                            {
                                                as_release(filterCompletion);
@@ -171,8 +187,11 @@
                                            });
                         } copy];
 
+    // Initial call with first filter to start everything going.
     id<KSCrashReportFilter> filter = [filters objectAtIndex:iFilter];
     [filter filterReports:reports onCompletion:filterCompletion];
+
+    // False-positive: Potential leak of an object stored into 'filterCompletion'
 }
 
 
@@ -235,12 +254,23 @@
     NSArray* filters = self.filters;
     NSUInteger filterCount = [filters count];
 
+    if(filterCount == 0)
+    {
+        if(onCompletion)
+        {
+            onCompletion(reports, YES,  nil);
+        }
+        return;
+    }
+
     __block NSUInteger iFilter = 0;
     __block KSCrashReportFilterCompletion filterCompletion;
     filterCompletion = [^(NSArray* filteredReports,
                           BOOL completed,
                           NSError* filterError)
                         {
+                            // Normal run until all filters exhausted or one
+                            // filter fails to complete.
                             if(completed && ++iFilter < filterCount)
                             {
                                 id<KSCrashReportFilter> filter = [filters objectAtIndex:iFilter];
@@ -248,10 +278,13 @@
                                 return;
                             }
 
+                            // All filters complete, or a filter failed.
                             if(onCompletion)
                             {
                                 onCompletion(filteredReports, completed, filterError);
                             }
+
+                            // Release self-reference on the main thread.
                             dispatch_async(dispatch_get_main_queue(), ^
                                            {
                                                as_release(filterCompletion);
@@ -259,8 +292,11 @@
                                            });
                         } copy];
 
+    // Initial call with first filter to start everything going.
     id<KSCrashReportFilter> filter = [filters objectAtIndex:iFilter];
     [filter filterReports:reports onCompletion:filterCompletion];
+
+    // False-positive: Potential leak of an object stored into 'filterCompletion'
 }
 
 @end
