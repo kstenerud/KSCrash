@@ -32,6 +32,7 @@
 
 #import "ARCSafe_MemMgmt.h"
 #import "KSCrashReportFields.h"
+#import "KSSafeCollections.h"
 #import "KSSystemInfo.h"
 #import "RFC3339DateTool.h"
 
@@ -180,7 +181,7 @@ NSDictionary* g_registerOrders;
     {
         if([self majorVersion:report] == kExpectedMajorVersion)
         {
-            [filteredReports addObject:[self toAppleFormat:report]];
+            [filteredReports addObjectIfNotNil:[self toAppleFormat:report]];
         }
     }
 
@@ -304,7 +305,7 @@ NSDictionary* g_registerOrders;
 
 - (NSString*) stringFromDate:(NSDate*) date
 {
-    if(date == nil)
+    if(![date isKindOfClass:[NSDate date]])
     {
         return nil;
     }

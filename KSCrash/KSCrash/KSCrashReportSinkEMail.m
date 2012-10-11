@@ -88,9 +88,16 @@
     int i = 1;
     for(NSData* report in reports)
     {
-        [controller addAttachmentData:report
-                             mimeType:@"binary"
-                             fileName:[NSString stringWithFormat:filenameFmt, i++]];
+        if(![report isKindOfClass:[NSData class]])
+        {
+            KSLOG_ERROR(@"Report was of type %@", [report class]);
+        }
+        else
+        {
+            [controller addAttachmentData:report
+                                 mimeType:@"binary"
+                                 fileName:[NSString stringWithFormat:filenameFmt, i++]];
+        }
     }
 
     [self presentModalVC:controller];

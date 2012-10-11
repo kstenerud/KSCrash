@@ -463,7 +463,15 @@ failed:
 
 - (void) sendReports:(NSArray*) reports onCompletion:(KSCrashReportFilterCompletion) onCompletion
 {
-    NSParameterAssert(reports);
+    if([reports count] == 0)
+    {
+        if(onCompletion != nil)
+        {
+            onCompletion(reports, YES, nil);
+        }
+        return;
+    }
+
     [self.sink filterReports:reports
                 onCompletion:^(NSArray* filteredReports, BOOL completed, NSError* error)
      {

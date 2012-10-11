@@ -30,6 +30,7 @@
 #import "ARCSafe_MemMgmt.h"
 #import "KSCrashReportFields.h"
 #import "KSJSONCodecObjC.h"
+#import "KSSafeCollections.h"
 #import "NSDictionary+Merge.h"
 #import "RFC3339DateTool.h"
 
@@ -221,8 +222,8 @@
             {
                 [secondaryReport setObject:[NSNumber numberWithBool:YES] forKey:@KSCrashField_Incomplete];
             }
-            [secondaryReport setObject:[self fixupCrashReport:primaryReport]
-                                forKey:@KSCrashField_OriginalReport];
+            [secondaryReport setObjectIfNotNil:[self fixupCrashReport:primaryReport]
+                                        forKey:@KSCrashField_OriginalReport];
             report = secondaryReport;
         }
     }
@@ -288,12 +289,12 @@
     if(![report isKindOfClass:[NSDictionary class]])
     {
         KSLOG_ERROR(@"Report should be a dictionary, not %@", [report class]);
-        return report;
+        return nil;
     }
 
     NSMutableDictionary* mutableReport = as_autorelease([report mutableCopy]);
     NSMutableDictionary* mutableInfo = as_autorelease([[report objectForKey:@KSCrashField_Report] mutableCopy]);
-    [mutableReport setObject:mutableInfo forKey:@KSCrashField_Report];
+    [mutableReport setObjectIfNotNil:mutableInfo forKey:@KSCrashField_Report];
 
     // Timestamp gets stored as a unix timestamp. Convert it to rfc3339.
     [self convertTimestamp:@KSCrashField_Timestamp inReport:mutableInfo];
@@ -336,7 +337,7 @@
         return;
     }
 
-    [report setObject:[srcDict mergedInto:dstDict] forKey:dstKey];
+    [report setObjectIfNotNil:[srcDict mergedInto:dstDict] forKey:dstKey];
     [report removeObjectForKey:srcKey];
 }
 
@@ -372,6 +373,11 @@
 
 - (NSString*) reportIDFromFilename:(NSString*) filename
 {
+    if([filename length] == 0)
+    {
+        return nil;
+    }
+
     NSString* prefix = [NSString stringWithFormat:@"%@" kCrashReportPrimarySuffix,
                         self.bundleName];
     NSString* suffix = @".json";
@@ -400,6 +406,11 @@
 
 - (NSDictionary*) readReport:(NSString*) path error:(NSError**) error
 {
+    if(path == nil)
+    {
+        KSLOG_ERROR(@"Path is nil");
+    }
+
     NSData* jsonData = [NSData dataWithContentsOfFile:path options:0 error:error];
     if(jsonData == nil)
     {

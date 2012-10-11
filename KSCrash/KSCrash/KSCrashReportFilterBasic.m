@@ -27,6 +27,7 @@
 
 #import "KSCrashReportFilterBasic.h"
 #import "ARCSafe_MemMgmt.h"
+#import "KSSafeCollections.h"
 
 
 @implementation KSCrashReportFilterDataToString
@@ -67,7 +68,7 @@
     for(NSString* report in reports)
     {
         NSData* converted = [report dataUsingEncoding:NSUTF8StringEncoding];
-        [filteredReports addObject:converted];
+        [filteredReports addObjectIfNotNil:converted];
     }
 
     onCompletion(filteredReports, YES, nil);

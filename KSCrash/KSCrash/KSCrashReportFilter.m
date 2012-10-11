@@ -31,6 +31,9 @@
 #import "KSVarArgs.h"
 #import "Container+DeepSearch.h"
 
+//#define KSLogger_LocalLevel TRACE
+#import "KSLogger.h"
+
 
 @implementation KSCrashReportFilterPassthrough
 
@@ -83,7 +86,7 @@
     {
         if(isKey)
         {
-            [keys addObject:entry];
+            [keys addObjectIfNotNil:entry];
         }
         else
         {
@@ -91,8 +94,16 @@
             {
                 entry = [KSCrashReportFilterPipeline filterWithFilters:entry, nil];
             }
-            NSAssert([entry conformsToProtocol:@protocol(KSCrashReportFilter)], @"Not a filter");
-            [filters addObject:entry];
+            if(![entry conformsToProtocol:@protocol(KSCrashReportFilter)])
+            {
+                KSLOG_ERROR(@"Not a filter: %@", entry);
+                // Cause next key entry to fail as well.
+                return;
+            }
+            else
+            {
+                [filters addObject:entry];
+            }
         }
         isKey = !isKey;
     };
@@ -150,7 +161,7 @@
                             // filter fails to complete.
                             if(completed)
                             {
-                                [reportSets addObject:filteredReports];
+                                [reportSets addObjectIfNotNil:filteredReports];
                                 if(++iFilter < filterCount)
                                 {
                                     id<KSCrashReportFilter> filter = [filters objectAtIndex:iFilter];
@@ -340,11 +351,11 @@
     {
         if([self.key isKindOfClass:[NSString class]])
         {
-            [filteredReports addObject:[report objectForKeyPath:self.key]];
+            [filteredReports addObjectIfNotNil:[report objectForKeyPath:self.key]];
         }
         else
         {
-            [filteredReports addObject:[report objectForKey:self.key]];
+            [filteredReports addObjectIfNotNil:[report objectForKey:self.key]];
         }
     }
     if(onCompletion)
@@ -494,7 +505,7 @@
         for(NSString* keyPath in self.keyPaths)
         {
             id object = [report objectForKeyPath:keyPath];
-            [subset safeSetObject:object forKey:[keyPath lastPathComponent]];
+            [subset setObjectIfNotNil:object forKey:[keyPath lastPathComponent]];
         }
         [filteredReports addObject:subset];
     }

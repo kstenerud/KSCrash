@@ -260,7 +260,14 @@
 
     for(NSString* report in reports)
     {
-        [xmlString appendString:report];
+        if(![report isKindOfClass:[NSString class]])
+        {
+            KSLOG_ERROR(@"Report was of type %@", [report class]);
+        }
+        else
+        {
+            [xmlString appendString:report];
+        }
     }
     [xmlString appendString:@"</crashes>"];
 

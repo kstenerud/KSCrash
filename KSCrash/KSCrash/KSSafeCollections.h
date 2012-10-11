@@ -30,17 +30,25 @@
 
 @interface NSMutableArray (KSSafeCollections)
 
+- (void) addObjectIfNotNil:(id) object;
+
 - (void) safeAddObject:(id) object;
 
-- (void) safeInsertObject:(id)anObject atIndex:(NSUInteger)index;
+- (void) insertObjectIfNotNil:(id) object atIndex:(NSUInteger) index;
+
+- (void) safeInsertObject:(id) object atIndex:(NSUInteger) index;
 
 @end
 
 
 @interface NSMutableDictionary (KSSafeCollections)
 
-- (void) safeSetObject:(id)anObject forKey:(id)aKey;
+- (void) setObjectIfNotNil:(id) object forKey:(id) key;
 
-- (void) safeSetValue:(id)value forKey:(NSString *)key;
+- (void) safeSetObject:(id) object forKey:(id) key;
+
+- (void) setValueIfNotNil:(id) value forKey:(NSString*) key;
+
+- (void) safeSetValue:(id) value forKey:(NSString*) key;
 
 @end
