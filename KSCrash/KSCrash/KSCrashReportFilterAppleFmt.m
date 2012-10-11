@@ -305,7 +305,7 @@ NSDictionary* g_registerOrders;
 
 - (NSString*) stringFromDate:(NSDate*) date
 {
-    if(![date isKindOfClass:[NSDate date]])
+    if(![date isKindOfClass:[NSDate class]])
     {
         return nil;
     }
