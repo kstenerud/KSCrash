@@ -459,7 +459,7 @@
 		39DA35B51618432E009EB332 /* KSCrash */ = {
 			isa = PBXGroup;
 			children = (
-				39DA8335161844E6001E7F79 /* Crash Catching */,
+				39DA8335161844E6001E7F79 /* Crash Recording */,
 				39DA82C816184469001E7F79 /* Crash Reporting */,
 				39DA82B916184456001E7F79 /* KSCrash.h */,
 				39DA82BA16184456001E7F79 /* KSCrash.m */,
@@ -608,7 +608,7 @@
 			name = Sentry;
 			sourceTree = "<group>";
 		};
-		39DA8335161844E6001E7F79 /* Crash Catching */ = {
+		39DA8335161844E6001E7F79 /* Crash Recording */ = {
 			isa = PBXGroup;
 			children = (
 				39DA839D1618450A001E7F79 /* KSCrashC.c */,
@@ -626,7 +626,7 @@
 				39DA8334161844B9001E7F79 /* Sentry */,
 				39DA8336161844F1001E7F79 /* Tools */,
 			);
-			name = "Crash Catching";
+			name = "Crash Recording";
 			sourceTree = "<group>";
 		};
 		39DA8336161844F1001E7F79 /* Tools */ = {
