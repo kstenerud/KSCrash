@@ -157,11 +157,11 @@ static KSCrash* g_instance;
         self.crashReportStore = [KSCrashReportStore storeWithPath:reportFilesPath];
 
         NSString* crashID = [self generateUUIDString];
-        NSString* primaryReportPath = [self.crashReportStore pathToPrimaryReportWithID:crashID];
-        NSString* secondaryReportPath = [self.crashReportStore pathToSecondaryReportWithID:crashID];
+        NSString* crashReportPath = [self.crashReportStore pathToCrashReportWithID:crashID];
+        NSString* recrashReportPath = [self.crashReportStore pathToRecrashReportWithID:crashID];
 
-        if(!kscrash_install([primaryReportPath UTF8String],
-                            [secondaryReportPath UTF8String],
+        if(!kscrash_install([crashReportPath UTF8String],
+                            [recrashReportPath UTF8String],
                             [[[self class] stateFilePath] UTF8String],
                             [crashID UTF8String],
                             [userInfoJSON bytes],

@@ -35,6 +35,33 @@
 #import "KSLogger.h"
 
 
+static inline void callCompletion(KSCrashReportFilterCompletion onCompletion,
+                           NSArray* filteredReports,
+                           BOOL completed,
+                           NSError* error)
+{
+    if(onCompletion)
+    {
+        onCompletion(filteredReports, completed, error);
+    }
+}
+
+static inline NSError* makeNSError(NSString* domain, NSInteger code, NSString* fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+
+    NSString* desc = as_autorelease([[NSString alloc] initWithFormat:fmt
+                                                           arguments:args]);
+    va_end(args);
+
+    return [NSError errorWithDomain:domain
+                               code:code
+                           userInfo:[NSDictionary dictionaryWithObject:desc
+                                                                forKey:NSLocalizedDescriptionKey]];
+}
+
+
 @implementation KSCrashReportFilterPassthrough
 
 + (KSCrashReportFilterPassthrough*) filter
@@ -45,10 +72,7 @@
 - (void) filterReports:(NSArray*) reports
           onCompletion:(KSCrashReportFilterCompletion) onCompletion
 {
-    if(onCompletion)
-    {
-        onCompletion(reports, YES, nil);
-    }
+    callCompletion(onCompletion, reports, YES, nil);
 }
 
 @end
@@ -86,7 +110,14 @@
     {
         if(isKey)
         {
-            [keys addObjectIfNotNil:entry];
+            if(entry == nil)
+            {
+                KSLOG_ERROR(@"key entry was nil");
+            }
+            else
+            {
+                [keys addObject:entry];
+            }
         }
         else
         {
@@ -142,10 +173,7 @@
 
     if(filterCount == 0)
     {
-        if(onCompletion)
-        {
-            onCompletion(reports, YES,  nil);
-        }
+        callCompletion(onCompletion, reports, YES, nil);
         return;
     }
 
@@ -153,21 +181,48 @@
 
     __block NSUInteger iFilter = 0;
     __block KSCrashReportFilterCompletion filterCompletion;
+    dispatch_block_t disposeOfCompletion = as_autorelease([^
+    {
+        // Release self-reference on the main thread.
+        dispatch_async(dispatch_get_main_queue(), ^
+                       {
+                           as_release(filterCompletion);
+                           filterCompletion = nil;
+                       });
+    } copy]);
     filterCompletion = [^(NSArray* filteredReports,
                           BOOL completed,
                           NSError* filterError)
                         {
-                            // Normal run until all filters exhausted or one
-                            // filter fails to complete.
-                            if(completed)
+                            if(!completed || filteredReports == nil)
                             {
-                                [reportSets addObjectIfNotNil:filteredReports];
-                                if(++iFilter < filterCount)
+                                if(!completed)
                                 {
-                                    id<KSCrashReportFilter> filter = [filters objectAtIndex:iFilter];
-                                    [filter filterReports:reports onCompletion:filterCompletion];
-                                    return;
+                                    callCompletion(onCompletion,
+                                                   filteredReports,
+                                                   completed,
+                                                   filterError);
                                 }
+                                else if(filteredReports == nil)
+                                {
+                                    callCompletion(onCompletion,
+                                                   filteredReports,
+                                                   NO,
+                                                   makeNSError([[self class] description],
+                                                               0,
+                                                               @"filteredReports was nil"));
+                                }
+                                disposeOfCompletion();
+                                return;
+                            }
+
+                            // Normal run until all filters exhausted.
+                            [reportSets addObject:filteredReports];
+                            if(++iFilter < filterCount)
+                            {
+                                id<KSCrashReportFilter> filter = [filters objectAtIndex:iFilter];
+                                [filter filterReports:reports onCompletion:filterCompletion];
+                                return;
                             }
 
                             // All filters complete, or a filter failed.
@@ -179,23 +234,16 @@
                                 NSMutableDictionary* dict = [NSMutableDictionary dictionaryWithCapacity:filterCount];
                                 for(NSUInteger iSet = 0; iSet < filterCount; iSet++)
                                 {
-                                    [dict setObject:[[reportSets objectAtIndex:iSet] objectAtIndex:iReport]
+                                    NSArray* reportSet = [reportSets objectAtIndex:iSet];
+                                    NSDictionary* report = [reportSet objectAtIndex:iReport];
+                                    [dict setObject:report
                                              forKey:[keys objectAtIndex:iSet]];
                                 }
                                 [combinedReports addObject:dict];
                             }
 
-                            if(onCompletion)
-                            {
-                                onCompletion(combinedReports, completed, filterError);
-                            }
-
-                            // Release self-reference on the main thread.
-                            dispatch_async(dispatch_get_main_queue(), ^
-                                           {
-                                               as_release(filterCompletion);
-                                               filterCompletion = nil;
-                                           });
+                            callCompletion(onCompletion, combinedReports, completed, filterError);
+                            disposeOfCompletion();
                         } copy];
 
     // Initial call with first filter to start everything going.
@@ -267,22 +315,50 @@
 
     if(filterCount == 0)
     {
-        if(onCompletion)
-        {
-            onCompletion(reports, YES,  nil);
-        }
+        callCompletion(onCompletion, reports, YES,  nil);
         return;
     }
 
     __block NSUInteger iFilter = 0;
     __block KSCrashReportFilterCompletion filterCompletion;
+    dispatch_block_t disposeOfCompletion = as_autorelease([^
+    {
+        // Release self-reference on the main thread.
+        dispatch_async(dispatch_get_main_queue(), ^
+                       {
+                           as_release(filterCompletion);
+                           filterCompletion = nil;
+                       });
+    } copy]);
     filterCompletion = [^(NSArray* filteredReports,
                           BOOL completed,
                           NSError* filterError)
                         {
+                            if(!completed || filteredReports == nil)
+                            {
+                                if(!completed)
+                                {
+                                    callCompletion(onCompletion,
+                                                   filteredReports,
+                                                   completed,
+                                                   filterError);
+                                }
+                                else if(filteredReports == nil)
+                                {
+                                    callCompletion(onCompletion,
+                                                   filteredReports,
+                                                   NO,
+                                                   makeNSError([[self class] description],
+                                                               0,
+                                                               @"filteredReports was nil"));
+                                }
+                                disposeOfCompletion();
+                                return;
+                            }
+
                             // Normal run until all filters exhausted or one
                             // filter fails to complete.
-                            if(completed && ++iFilter < filterCount)
+                            if(++iFilter < filterCount)
                             {
                                 id<KSCrashReportFilter> filter = [filters objectAtIndex:iFilter];
                                 [filter filterReports:filteredReports onCompletion:filterCompletion];
@@ -290,17 +366,8 @@
                             }
 
                             // All filters complete, or a filter failed.
-                            if(onCompletion)
-                            {
-                                onCompletion(filteredReports, completed, filterError);
-                            }
-
-                            // Release self-reference on the main thread.
-                            dispatch_async(dispatch_get_main_queue(), ^
-                                           {
-                                               as_release(filterCompletion);
-                                               filterCompletion = nil;
-                                           });
+                            callCompletion(onCompletion, filteredReports, completed, filterError);
+                            disposeOfCompletion();
                         } copy];
 
     // Initial call with first filter to start everything going.
@@ -316,23 +383,29 @@
 @interface KSCrashReportFilterObjectForKey ()
 
 @property(nonatomic, readwrite, retain) id key;
+@property(nonatomic, readwrite, assign) BOOL allowNotFound;
 
 @end
 
 @implementation KSCrashReportFilterObjectForKey
 
 @synthesize key = _key;
+@synthesize allowNotFound = _allowNotFound;
 
 + (KSCrashReportFilterObjectForKey*) filterWithKey:(id)key
+                                     allowNotFound:(BOOL) allowNotFound
 {
-    return as_autorelease([[self alloc] initWithKey:key]);
+    return as_autorelease([[self alloc] initWithKey:key
+                                      allowNotFound:allowNotFound]);
 }
 
 - (id) initWithKey:(id)key
+     allowNotFound:(BOOL) allowNotFound
 {
     if((self = [super init]))
     {
         self.key = as_retain(key);
+        self.allowNotFound = allowNotFound;
     }
     return self;
 }
@@ -349,19 +422,35 @@
     NSMutableArray* filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
     for(NSDictionary* report in reports)
     {
+        id object = nil;
         if([self.key isKindOfClass:[NSString class]])
         {
-            [filteredReports addObjectIfNotNil:[report objectForKeyPath:self.key]];
+            object = [report objectForKeyPath:self.key];
         }
         else
         {
-            [filteredReports addObjectIfNotNil:[report objectForKey:self.key]];
+            object = [report objectForKey:self.key];
+        }
+        if(object == nil)
+        {
+            if(!self.allowNotFound)
+            {
+                callCompletion(onCompletion,
+                               filteredReports,
+                               NO,
+                               makeNSError([[self class] description],
+                                           0,
+                                           @"Key not found: %@", self.key));
+                return;
+            }
+            [filteredReports addObject:[NSDictionary dictionary]];
+        }
+        else
+        {
+            [filteredReports addObject:object];
         }
     }
-    if(onCompletion)
-    {
-        onCompletion(filteredReports, YES, nil);
-    }
+    callCompletion(onCompletion, filteredReports, YES, nil);
 }
 
 @end
@@ -436,10 +525,7 @@
         }
         [filteredReports addObject:concatenated];
     }
-    if(onCompletion)
-    {
-        onCompletion(filteredReports, YES, nil);
-    }
+    callCompletion(onCompletion, filteredReports, YES, nil);
 }
 
 @end
@@ -495,6 +581,7 @@
     as_superdealloc();
 }
 
+
 - (void) filterReports:(NSArray*) reports
           onCompletion:(KSCrashReportFilterCompletion) onCompletion
 {
@@ -505,14 +592,21 @@
         for(NSString* keyPath in self.keyPaths)
         {
             id object = [report objectForKeyPath:keyPath];
-            [subset setObjectIfNotNil:object forKey:[keyPath lastPathComponent]];
+            if(object == nil)
+            {
+                callCompletion(onCompletion,
+                               filteredReports,
+                               NO,
+                               makeNSError([[self class] description],
+                                           0,
+                                           @"Report did not have key path %@", keyPath));
+                return;
+            }
+            [subset setObject:object forKey:[keyPath lastPathComponent]];
         }
         [filteredReports addObject:subset];
     }
-    if(onCompletion)
-    {
-        onCompletion(filteredReports, YES, nil);
-    }
+    callCompletion(onCompletion, filteredReports, YES, nil);
 }
 
 @end

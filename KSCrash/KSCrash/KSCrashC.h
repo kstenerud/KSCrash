@@ -45,10 +45,10 @@ extern "C" {
 /** Install the crash reporter. The reporter will record the next crash and then
  * terminate the program.
  *
- * @param reportFilePath The file to store the next crash report to.
+ * @param crashReportFilePath The file to store the next crash report to.
  *
- * @param secondaryReportFilePath If the system crashes during crash handling,
- *                                store a second, minimal report here.
+ * @param recrashReportFilePath If the system crashes during crash handling,
+ *                              store a second, minimal report here.
  *
  * @param stateFilePath File to store persistent state in.
  *
@@ -76,8 +76,8 @@ extern "C" {
  *
  * @return true if installation was successful.
  */
-bool kscrash_install(const char* reportFilePath,
-                     const char* secondaryReportFilePath,
+bool kscrash_install(const char* const crashReportFilePath,
+                     const char* const recrashReportFilePath,
                      const char* stateFilePath,
                      const char* crashID,
                      const char* userInfoJSON,

@@ -93,9 +93,11 @@ NSError* error);
  */
 @interface KSCrashReportFilterObjectForKey : NSObject <KSCrashReportFilter>
 
-+ (KSCrashReportFilterObjectForKey*) filterWithKey:(id) key;
++ (KSCrashReportFilterObjectForKey*) filterWithKey:(id) key
+                                     allowNotFound:(BOOL) allowNotFound;
 
-- (id) initWithKey:(id) key;
+- (id) initWithKey:(id) key
+     allowNotFound:(BOOL) allowNotFound;
 
 @end
 

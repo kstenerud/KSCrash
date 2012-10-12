@@ -246,25 +246,37 @@ typedef struct internal_pthread
 // From libdispatch-187.5/src/queue_internal.h
 typedef struct internal_dispatch_queue_s
 {
+    // DISPATCH_STRUCT_HEADER (object_internal.h)
     const struct dispatch_queue_vtable_s* do_vtable;
-    struct internal_dispatch_queue_s* volatile do_next;
+    struct dispatch_queue_s* volatile do_next;
     int do_ref_cnt;     // Was unsigned int in queue_internal.h
     int do_xref_cnt;    // Was unsigned int in queue_internal.h
     int do_suspend_cnt; // Was unsigned int in queue_internal.h
-    struct internal_dispatch_queue_s* do_targetq;
+    struct dispatch_queue_s* do_targetq;
     void* do_ctxt;
     void* do_finalizer;
 
+    // DISPATCH_QUEUE_HEADER
     uint32_t volatile dq_running;
     uint32_t dq_width;
-    struct internal_dispatch_queue_s* volatile dq_items_tail;
-    struct internal_dispatch_queue_s* volatile dq_items_head;
+    struct dispatch_queue_s* volatile dq_items_tail;
+    struct dispatch_queue_s* volatile dq_items_head;
     unsigned long dq_serialnum;
     dispatch_queue_t dq_specific_q;
 
     char dq_label[kDISPATCH_QUEUE_MIN_LABEL_SIZE]; // must be last
-    // Don't care about the rest.
+    // char _dq_pad[DISPATCH_QUEUE_CACHELINE_PAD];
 }* internal_dispatch_queue_t;
+
+typedef struct internal_dispatch_queue_vtable_s
+{
+	unsigned long const do_type;
+	const char *const do_kind;
+	size_t (*const do_debug)(struct dispatch_queue_vtable_s *, char *, size_t);
+	struct dispatch_queue_s *(*const do_invoke)(struct dispatch_queue_vtable_s *);
+	bool (*const do_probe)(struct dispatch_queue_vtable_s *);
+	void (*const do_dispose)(struct dispatch_queue_vtable_s *);
+}* internal_dispatch_queue_vtable_t;
 
 
 bool ksmach_getThreadQueueName(const thread_t thread,
@@ -313,6 +325,8 @@ bool ksmach_getThreadQueueName(const thread_t thread,
 
     // Space to copy data from what we hope is a queue.
     struct internal_dispatch_queue_s queue;
+    struct internal_dispatch_queue_s tmpQueue;
+    struct internal_dispatch_queue_vtable_s tmpVTable;
     if(bufLength > sizeof(queue.dq_label))
     {
         bufLength = sizeof(queue.dq_label);
@@ -322,26 +336,46 @@ bool ksmach_getThreadQueueName(const thread_t thread,
     const pthread_t pthread = pthread_from_mach_thread_np(thread);
     const internal_pthread_t const threadStruct = (internal_pthread_t)pthread;
 
+    KSLOG_TRACE("Getting queue name for thread %d", thread);
+
     // Step through thread specific data.
     for(int iTSD = 0; iTSD < kTSD_KEY_COUNT; iTSD++)
     {
         // Copy what might be a valid pointer from the thread-specific data.
         if(ksmach_copyMem(&threadStruct->tsd[iTSD], &tsd, sizeof(tsd)) != KERN_SUCCESS)
         {
+            KSLOG_TRACE("Could not copy thread-specific data pointer from %p", &threadStruct->tsd[iTSD]);
             continue;
         }
         if(tsd == NULL)
         {
+            KSLOG_TRACE("TSD pointer is NULL");
             continue;
         }
 
         // Follow the potential pointer to copy what might be a queue structure.
         if(ksmach_copyMem(tsd, &queue, sizeof(queue)) != KERN_SUCCESS)
         {
+            KSLOG_TRACE("Could not copy queue data from %p", tsd);
             continue;
         }
 
-        // First sanity check: The queue label must be a null terminated string.
+        // Sanity checks follow
+
+        // do_vtable and do_targetq must either be null or point to valid data.
+        if(queue.do_vtable != NULL && ksmach_copyMem(queue.do_vtable, &tmpVTable, sizeof(tmpVTable)) != KERN_SUCCESS)
+        {
+            KSLOG_TRACE("Could not copy vtable data from %p", queue.do_vtable);
+            continue;
+        }
+
+        if(queue.do_targetq != NULL && ksmach_copyMem(queue.do_targetq, &tmpQueue, sizeof(tmpQueue)) != KERN_SUCCESS)
+        {
+            KSLOG_TRACE("Could not copy queue data from %p", queue.do_targetq);
+            continue;
+        }
+        
+        // Wueue label must be a null terminated string.
         int iLabel;
         for(iLabel = 0; iLabel < (int)sizeof(queue.dq_label); iLabel++)
         {
@@ -353,26 +387,39 @@ bool ksmach_getThreadQueueName(const thread_t thread,
         if(queue.dq_label[iLabel] != 0)
         {
             // Found a non-null, invalid char.
+            KSLOG_TRACE("Queue label contains invalid chars");
             continue;
         }
 
-        // Second sanity check: Label length < 5 is probably invalid.
+        // Label length < 5 is probably invalid.
         if(iLabel < 5)
         {
+            KSLOG_TRACE("Queue label is of length %d", iLabel);
             continue;
         }
 
-        // Third sanity check: Check reference counts, etc.
-        if(queue.do_ref_cnt < -1 || queue.do_ref_cnt > 100000 ||
-           queue.do_xref_cnt < -1 || queue.do_xref_cnt > 100000 ||
-           queue.do_suspend_cnt < -1 || queue.do_suspend_cnt > 100000 ||
+        // Counts are never higher than INT_MAX and dq_running must be either 0,
+        // 1, or 2.
+        if(queue.do_ref_cnt < -1 ||
+           queue.do_xref_cnt < -1 ||
+           queue.do_suspend_cnt < -1 ||
            queue.dq_running > 2)
         {
+            KSLOG_TRACE("Failed sanity check:\n"
+                        "do_ref_count = %d\n"
+                        "do_xref_cnt = %d\n"
+                        "do_suspend_cnt = %d\n"
+                        "dq_running = %d\n",
+                        queue.do_ref_cnt,
+                        queue.do_xref_cnt,
+                        queue.do_suspend_cnt,
+                        queue.dq_running);
             continue;
         }
 
         // If all checks passed, we probably have a valid queue label.
         strncpy(buffer, queue.dq_label, bufLength);
+        KSLOG_TRACE("Queue label = %s", buffer);
         return true;
     }
 

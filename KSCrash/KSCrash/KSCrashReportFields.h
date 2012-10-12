@@ -168,6 +168,6 @@
 
 #pragma mark Incomplete
 #define KSCrashField_Incomplete            "incomplete"
-#define KSCrashField_OriginalReport        "original_report"
+#define KSCrashField_RecrashReport         "recrash_report"
 
 #endif

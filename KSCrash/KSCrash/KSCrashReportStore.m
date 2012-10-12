@@ -42,8 +42,8 @@
 #pragma mark - Constants -
 // ============================================================================
 
-#define kCrashReportPrimarySuffix @"-CrashReport-"
-#define kCrashReportSecondarySuffix @"-SecondaryCrashReport-"
+#define kCrashReportSuffix @"-CrashReport-"
+#define kRecrashReportSuffix @"-RecrashReport-"
 
 
 // ============================================================================
@@ -198,37 +198,11 @@
 
 - (NSDictionary*) reportWithID:(NSString*) reportID
 {
-    NSError* error = nil;
+    NSMutableDictionary* crashReport = [self readReport:[self pathToCrashReportWithID:reportID]];
+    NSMutableDictionary* recrashReport = [self readReport:[self pathToRecrashReportWithID:reportID]];
+    [crashReport setObjectIfNotNil:recrashReport forKey:@KSCrashField_RecrashReport];
 
-    NSDictionary* report = [self readReport:[self pathToPrimaryReportWithID:reportID]
-                                      error:&error];
-    if(error != nil)
-    {
-        if(report == nil)
-        {
-            report = [NSDictionary dictionary];
-        }
-        NSMutableDictionary* primaryReport = as_autorelease([report mutableCopy]);
-        [primaryReport setObject:[NSNumber numberWithBool:YES] forKey:@KSCrashField_Incomplete];
-        NSMutableDictionary* secondaryReport = as_autorelease([[self readReport:[self pathToSecondaryReportWithID:reportID]
-                                                                          error:&error] mutableCopy]);
-        if(secondaryReport == nil)
-        {
-            report = primaryReport;
-        }
-        else
-        {
-            if(error != nil)
-            {
-                [secondaryReport setObject:[NSNumber numberWithBool:YES] forKey:@KSCrashField_Incomplete];
-            }
-            [secondaryReport setObjectIfNotNil:[self fixupCrashReport:primaryReport]
-                                        forKey:@KSCrashField_OriginalReport];
-            report = secondaryReport;
-        }
-    }
-
-    return [self fixupCrashReport:report];
+    return crashReport;
 }
 
 - (NSArray*) allReports
@@ -250,7 +224,7 @@
 - (void) deleteReportWithID:(NSString*) reportID
 {
     NSError* error = nil;
-    NSString* filename = [self pathToPrimaryReportWithID:reportID];
+    NSString* filename = [self pathToCrashReportWithID:reportID];
 
     [[NSFileManager defaultManager] removeItemAtPath:filename error:&error];
     if(error != nil)
@@ -259,7 +233,7 @@
     }
 
     // Don't care if this succeeds or not since it may not exist.
-    [[NSFileManager defaultManager] removeItemAtPath:[self pathToSecondaryReportWithID:reportID]
+    [[NSFileManager defaultManager] removeItemAtPath:[self pathToRecrashReportWithID:reportID]
                                                error:&error];
 }
 
@@ -284,7 +258,7 @@
 
 #pragma mark Utility
 
-- (NSDictionary*) fixupCrashReport:(NSDictionary*) report
+- (NSMutableDictionary*) fixupCrashReport:(NSDictionary*) report
 {
     if(![report isKindOfClass:[NSDictionary class]])
     {
@@ -359,15 +333,15 @@
               forKey:key];
 }
 
-- (NSString*) primaryReportFilenameWithID:(NSString*) reportID
+- (NSString*) crashReportFilenameWithID:(NSString*) reportID
 {
-    return [NSString stringWithFormat:@"%@" kCrashReportPrimarySuffix "%@.json",
+    return [NSString stringWithFormat:@"%@" kCrashReportSuffix "%@.json",
             self.bundleName, reportID];
 }
 
-- (NSString*) secondaryReportFilenameWithID:(NSString*) reportID
+- (NSString*) recrashReportFilenameWithID:(NSString*) reportID
 {
-    return [NSString stringWithFormat:@"%@" kCrashReportSecondarySuffix "%@.json",
+    return [NSString stringWithFormat:@"%@" kRecrashReportSuffix "%@.json",
             self.bundleName, reportID];
 }
 
@@ -378,7 +352,7 @@
         return nil;
     }
 
-    NSString* prefix = [NSString stringWithFormat:@"%@" kCrashReportPrimarySuffix,
+    NSString* prefix = [NSString stringWithFormat:@"%@" kCrashReportSuffix,
                         self.bundleName];
     NSString* suffix = @".json";
     if([filename rangeOfString:prefix].location == 0 &&
@@ -392,45 +366,43 @@
     return nil;
 }
 
-- (NSString*) pathToPrimaryReportWithID:(NSString*) reportID
+- (NSString*) pathToCrashReportWithID:(NSString*) reportID
 {
-    NSString* filename = [self primaryReportFilenameWithID:reportID];
+    NSString* filename = [self crashReportFilenameWithID:reportID];
     return [self.path stringByAppendingPathComponent:filename];
 }
 
-- (NSString*) pathToSecondaryReportWithID:(NSString*) reportID
+- (NSString*) pathToRecrashReportWithID:(NSString*) reportID
 {
-    NSString* filename = [self secondaryReportFilenameWithID:reportID];
+    NSString* filename = [self recrashReportFilenameWithID:reportID];
     return [self.path stringByAppendingPathComponent:filename];
 }
 
-- (NSDictionary*) readReport:(NSString*) path error:(NSError**) error
+- (NSMutableDictionary*) readReport:(NSString*) path
 {
+    NSError* error = nil;
+
     if(path == nil)
     {
         KSLOG_ERROR(@"Path is nil");
     }
 
-    NSData* jsonData = [NSData dataWithContentsOfFile:path options:0 error:error];
+    NSData* jsonData = [NSData dataWithContentsOfFile:path options:0 error:&error];
     if(jsonData == nil)
     {
-        KSLOG_ERROR(@"Could not load from %@: %@", path, *error);
+        KSLOG_ERROR(@"Could not load from %@: %@", path, error);
         return nil;
     }
 
-    NSDictionary* report = (NSDictionary*)[KSJSONCodec decode:jsonData
-                                                      options:KSJSONDecodeOptionIgnoreNullInArray |
-                                           KSJSONDecodeOptionIgnoreNullInObject |
-                                           KSJSONDecodeOptionKeepPartialObject
-                                                        error:error];
-    if(*error != nil)
+    NSMutableDictionary* report = [self fixupCrashReport:[KSJSONCodec decode:jsonData
+                                                                     options:KSJSONDecodeOptionIgnoreNullInArray |
+                                                          KSJSONDecodeOptionIgnoreNullInObject |
+                                                          KSJSONDecodeOptionKeepPartialObject
+                                                                       error:&error]];
+    if(error != nil)
     {
-        KSLOG_ERROR(@"Error decoding JSON data from %@: %@", path, *error);
-    }
-    if(![report isKindOfClass:[NSDictionary class]])
-    {
-        KSLOG_ERROR(@"Report should be a dictionary, not %@", [report class]);
-        return nil;
+        KSLOG_ERROR(@"Error decoding JSON data from %@: %@", path, error);
+        [report setObject:[NSNumber numberWithBool:YES] forKey:@KSCrashField_Incomplete];
     }
 
     return report;

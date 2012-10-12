@@ -29,6 +29,36 @@
 #import "ARCSafe_MemMgmt.h"
 #import "KSSafeCollections.h"
 
+//#define KSLogger_LocalLevel TRACE
+#import "KSLogger.h"
+
+
+static inline void callCompletion(KSCrashReportFilterCompletion onCompletion,
+                                  NSArray* filteredReports,
+                                  BOOL completed,
+                                  NSError* error)
+{
+    if(onCompletion)
+    {
+        onCompletion(filteredReports, completed, error);
+    }
+}
+
+static inline NSError* makeNSError(NSString* domain, NSInteger code, NSString* fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+
+    NSString* desc = as_autorelease([[NSString alloc] initWithFormat:fmt
+                                                           arguments:args]);
+    va_end(args);
+
+    return [NSError errorWithDomain:domain
+                               code:code
+                           userInfo:[NSDictionary dictionaryWithObject:desc
+                                                                forKey:NSLocalizedDescriptionKey]];
+}
+
 
 @implementation KSCrashReportFilterDataToString
 
@@ -48,7 +78,7 @@
         [filteredReports addObject:converted];
     }
 
-    onCompletion(filteredReports, YES, nil);
+    callCompletion(onCompletion, filteredReports, YES, nil);
 }
 
 @end
@@ -68,10 +98,22 @@
     for(NSString* report in reports)
     {
         NSData* converted = [report dataUsingEncoding:NSUTF8StringEncoding];
-        [filteredReports addObjectIfNotNil:converted];
+        if(converted == nil)
+        {
+            callCompletion(onCompletion, filteredReports,
+                           NO,
+                           makeNSError([[self class] description],
+                                       0,
+                                       @"Could not convert report to UTF-8"));
+            return;
+        }
+        else
+        {
+            [filteredReports addObject:converted];
+        }
     }
 
-    onCompletion(filteredReports, YES, nil);
+    callCompletion(onCompletion, filteredReports, YES, nil);
 }
 
 @end

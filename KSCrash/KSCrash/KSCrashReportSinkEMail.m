@@ -37,6 +37,22 @@
 #import <MessageUI/MessageUI.h>
 
 
+static inline NSError* makeNSError(NSString* domain, NSInteger code, NSString* fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+
+    NSString* desc = as_autorelease([[NSString alloc] initWithFormat:fmt
+                                                           arguments:args]);
+    va_end(args);
+
+    return [NSError errorWithDomain:domain
+                               code:code
+                           userInfo:[NSDictionary dictionaryWithObject:desc
+                                                                forKey:NSLocalizedDescriptionKey]];
+}
+
+
 @interface KSCrashMailProcess : NSObject <MFMailComposeViewControllerDelegate>
 
 @property(nonatomic,readwrite,retain) NSArray* reports;
@@ -119,19 +135,18 @@
             self.onCompletion(self.reports, YES, nil);
             break;
         case MFMailComposeResultCancelled:
-            self.onCompletion(self.reports, NO, nil);
+            self.onCompletion(self.reports, NO, makeNSError([[self class] description],
+                                                            0,
+                                                            @"User cancelled"));
             break;
         case MFMailComposeResultFailed:
             self.onCompletion(self.reports, NO, error);
             break;
         default:
         {
-            NSString* errorMsg = [NSString stringWithFormat:@"Unknown MFMailComposeResult: %d", result];
-            NSError* error2 = [NSError errorWithDomain:@"KSCrashReportSinkEMail"
-                                                  code:0
-                                              userInfo:[NSDictionary dictionaryWithObject:errorMsg
-                                                                                   forKey:NSLocalizedDescriptionKey]];
-            self.onCompletion(self.reports, NO, error2);
+            self.onCompletion(self.reports, NO, makeNSError([[self class] description],
+                                                            0,
+                                                            @"Unknown MFMailComposeResult: %d", result));
         }
     }
 }

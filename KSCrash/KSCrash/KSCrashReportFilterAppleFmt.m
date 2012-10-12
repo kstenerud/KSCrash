@@ -312,25 +312,14 @@ NSDictionary* g_registerOrders;
     return [g_dateFormatter stringFromDate:date];
 }
 
-- (id) searchReport:(NSDictionary*) report forKey:(NSString*) key
+- (NSDictionary*) recrashReport:(NSDictionary*) report
 {
-    id result = [report objectForKey:key];
-    if(result == nil)
-    {
-        NSDictionary* original = [self originalReport:report];
-        result = [original objectForKey:key];
-    }
-    return result;
-}
-
-- (NSDictionary*) originalReport:(NSDictionary*) report
-{
-    return [report objectForKey:@KSCrashField_OriginalReport];
+    return [report objectForKey:@KSCrashField_RecrashReport];
 }
 
 - (NSDictionary*) systemReport:(NSDictionary*) report
 {
-    return [self searchReport:report forKey:@KSCrashField_System];
+    return [report objectForKey:@KSCrashField_System];
 }
 
 - (NSDictionary*) infoReport:(NSDictionary*) report
@@ -345,7 +334,7 @@ NSDictionary* g_registerOrders;
 
 - (NSArray*) binaryImagesReport:(NSDictionary*) report
 {
-    return [self searchReport:report forKey:@KSCrashField_BinaryImages];
+    return [report objectForKey:@KSCrashField_BinaryImages];
 }
 
 - (NSDictionary*) crashedThread:(NSDictionary*) report
@@ -651,7 +640,7 @@ NSDictionary* g_registerOrders;
     return str;
 }
 
-- (NSString*) standardReportString:(NSDictionary*) report
+- (NSString*) crashReportString:(NSDictionary*) report
 {
     NSMutableString* str = [NSMutableString string];
 
@@ -665,10 +654,10 @@ NSDictionary* g_registerOrders;
     return str;
 }
 
-- (NSString*) secondaryReportString:(NSDictionary*) report
+- (NSString*) recrashReportString:(NSDictionary*) report
 {
-    NSDictionary* originalReport = [self originalReport:report];
-    if(originalReport == nil)
+    NSDictionary* recrashReport = [self recrashReport:report];
+    if(recrashReport == nil)
     {
         return @"";
     }
@@ -678,29 +667,24 @@ NSDictionary* g_registerOrders;
     NSDictionary* system = [self systemReport:report];
     NSString* executablePath = [system objectForKey:@KSSystemField_ExecutablePath];
     NSString* executableName = [executablePath lastPathComponent];
-    NSDictionary* crash = [self crashReport:report];
+    NSDictionary* crash = [self crashReport:recrashReport];
     NSDictionary* thread = [crash objectForKey:@KSCrashField_CrashedThread];
 
     [str appendString:@"\nHandler crashed while reporting:\n"];
-    [str appendString:[self errorInfoStringForReport:report]];
+    [str appendString:[self errorInfoStringForReport:recrashReport]];
     [str appendString:[self threadStringForThread:thread mainExecutableName:executableName]];
-    [str appendString:[self crashedThreadCPUStateStringForReport:report]];
+    [str appendString:[self crashedThreadCPUStateStringForReport:recrashReport]];
 
     return str;
 }
 
+
 - (NSString*) toAppleFormat:(NSDictionary*) report
 {
-    NSDictionary* originalReport = [self originalReport:report];
-    if(originalReport == nil)
-    {
-        originalReport = report;
-    }
-
     NSMutableString* str = [NSMutableString string];
 
-    [str appendString:[self standardReportString:originalReport]];
-    [str appendString:[self secondaryReportString:report]];
+    [str appendString:[self crashReportString:report]];
+    [str appendString:[self recrashReportString:report]];
 
     return str;
 }

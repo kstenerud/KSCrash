@@ -92,20 +92,20 @@
  */
 - (void) pruneReportsLeaving:(int) numReports;
 
-/** Full path to the primary report with the specified ID.
+/** Full path to the crash report with the specified ID.
  *
  * @param reportID The report ID
  *
  * @return The full path.
  */
-- (NSString*) pathToPrimaryReportWithID:(NSString*) reportID;
+- (NSString*) pathToCrashReportWithID:(NSString*) reportID;
 
-/** Full path to the secondary report with the specified ID.
+/** Full path to the recrash report with the specified ID.
  *
  * @param reportID The report ID
  *
  * @return The full path.
  */
-- (NSString*) pathToSecondaryReportWithID:(NSString*) reportID;
+- (NSString*) pathToRecrashReportWithID:(NSString*) reportID;
 
 @end

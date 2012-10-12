@@ -51,10 +51,10 @@
 static KSCrash_Context g_crashReportContext = {{0}};
 
 /** Path to store the next crash report. */
-static char* g_reportFilePath;
+static char* g_crashReportFilePath;
 
 /** Path to store the next crash report (only if the crash manager crashes). */
-static char* g_secondaryReportFilePath;
+static char* g_recrashReportFilePath;
 
 /** Path to store the state file. */
 static char* g_stateFilePath;
@@ -88,11 +88,11 @@ void kscrash_i_onCrash(void)
     KSCrash_Context* context = crashContext();
     if(context->crash.crashedDuringCrashHandling)
     {
-        kscrashreport_writeMinimalReport(context, g_secondaryReportFilePath);
+        kscrashreport_writeMinimalReport(context, g_recrashReportFilePath);
     }
     else
     {
-        kscrashreport_writeStandardReport(context, g_reportFilePath);
+        kscrashreport_writeStandardReport(context, g_crashReportFilePath);
     }
 }
 
@@ -101,8 +101,8 @@ void kscrash_i_onCrash(void)
 #pragma mark - API -
 // ============================================================================
 
-bool kscrash_install(const char* const reportFilePath,
-                     const char* const secondaryReportFilePath,
+bool kscrash_install(const char* const crashReportFilePath,
+                     const char* const recrashReportFilePath,
                      const char* const stateFilePath,
                      const char* const crashID,
                      const char* const userInfoJSON,
@@ -126,8 +126,8 @@ bool kscrash_install(const char* const reportFilePath,
         initialized = 1;
 
         g_stateFilePath = strdup(stateFilePath);
-        g_reportFilePath = strdup(reportFilePath);
-        g_secondaryReportFilePath = strdup(secondaryReportFilePath);
+        g_crashReportFilePath = strdup(crashReportFilePath);
+        g_recrashReportFilePath = strdup(recrashReportFilePath);
         KSCrash_Context* context = crashContext();
         context->crash.onCrash = kscrash_i_onCrash;
 
