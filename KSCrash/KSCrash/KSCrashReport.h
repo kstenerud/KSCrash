@@ -60,6 +60,13 @@ void kscrashreport_writeStandardReport(KSCrash_Context* crashContext,
 void kscrashreport_writeMinimalReport(KSCrash_Context* const crashContext,
                                       const char* path);
 
+/** Write minimal information about the crash to the log.
+ *
+ * @param crashContext Contextual information about the crash and environment.
+ *                     The caller must fill this out before passing it in.
+ */
+void kscrashreport_logCrash(const KSCrash_Context* const crashContext);
+
 
 #ifdef __cplusplus
 }

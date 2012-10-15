@@ -29,6 +29,7 @@
 
 #include "KSCrashReport.h"
 #include "KSMach.h"
+#include "KSSignalInfo.h"
 #include "KSSystemInfoC.h"
 #include "KSZombie.h"
 
@@ -86,6 +87,9 @@ void kscrash_i_onCrash(void)
     kscrashstate_notifyAppCrash();
 
     KSCrash_Context* context = crashContext();
+
+    kscrashreport_logCrash(context);
+
     if(context->crash.crashedDuringCrashHandling)
     {
         kscrashreport_writeMinimalReport(context, g_recrashReportFilePath);

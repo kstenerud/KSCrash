@@ -506,10 +506,48 @@ bool kscrw_i_isStackOverflow(const KSCrash_SentryContext* const crash,
 
 
 // ============================================================================
-#pragma mark - Console Printing -
+#pragma mark - Console Logging -
 // ============================================================================
 
-/** Print a backtrace entry in the standard format.
+/** Print the crash type and location to the log.
+ *
+ * @param sentryContext The crash sentry context.
+ */
+void kscrw_i_logCrashType(const KSCrash_SentryContext* const sentryContext)
+{
+    switch(sentryContext->crashType)
+    {
+        case KSCrashTypeMachException:
+        {
+            int machExceptionType = sentryContext->mach.type;
+            kern_return_t machCode = (kern_return_t)sentryContext->mach.code;
+            const char* machExceptionName = ksmach_exceptionName(machExceptionType);
+            const char* machCodeName = machCode == 0 ? NULL : ksmach_kernelReturnCodeName(machCode);
+            KSLOGBASIC_INFO("App crashed due to mach exception: [%s: %s] at %p",
+                            machExceptionName, machCodeName, sentryContext->faultAddress);
+            break;
+        }
+        case KSCrashTypeNSException:
+        {
+            KSLOGBASIC_INFO("App crashed due to NSException: %s: %s",
+                            sentryContext->NSException.name,
+                            sentryContext->NSException.reason);
+            break;
+        }
+        case KSCrashTypeSignal:
+        {
+            int sigNum = sentryContext->signal.signalInfo->si_signo;
+            int sigCode = sentryContext->signal.signalInfo->si_code;
+            const char* sigName = kssignal_signalName(sigNum);
+            const char* sigCodeName = kssignal_signalCodeName(sigNum, sigCode);
+            KSLOGBASIC_INFO("App crashed due to signal: [%s, %s] at %08x",
+                            sigName, sigCodeName, sentryContext->faultAddress);
+            break;
+        }
+    }
+}
+
+/** Print a backtrace entry in the standard format to the log.
  *
  * @param entryNum The backtrace entry number.
  *
@@ -517,9 +555,9 @@ bool kscrw_i_isStackOverflow(const KSCrash_SentryContext* const crash,
  *
  * @param dlInfo Information about the nearest symbols to the address.
  */
-void kscrw_i_printBacktraceEntry(const int entryNum,
-                                 const uintptr_t address,
-                                 const Dl_info* const dlInfo)
+void kscrw_i_logBacktraceEntry(const int entryNum,
+                               const uintptr_t address,
+                               const Dl_info* const dlInfo)
 {
     char faddrBuff[20];
     char saddrBuff[20];
@@ -543,14 +581,14 @@ void kscrw_i_printBacktraceEntry(const int entryNum,
     KSLOGBASIC_ALWAYS(TRACE_FMT, entryNum, fname, address, sname, offset);
 }
 
-/** Print a backtrace using the logger.
+/** Print a backtrace to the log.
  *
  * @param backtrace The backtrace to print.
  *
  * @param backtraceLength The length of the backtrace.
  */
-void kscrw_i_printBacktrace(const uintptr_t* const backtrace,
-                            const int backtraceLength)
+void kscrw_i_logBacktrace(const uintptr_t* const backtrace,
+                          const int backtraceLength)
 {
     if(backtraceLength > 0)
     {
@@ -559,16 +597,16 @@ void kscrw_i_printBacktrace(const uintptr_t* const backtrace,
 
         for(int i = 0; i < backtraceLength; i++)
         {
-            kscrw_i_printBacktraceEntry(i, backtrace[i], &symbolicated[i]);
+            kscrw_i_logBacktraceEntry(i, backtrace[i], &symbolicated[i]);
         }
     }
 }
 
-/** Print the backtrace for the crashed thread.
+/** Print the backtrace for the crashed thread to the log.
  *
  * @param crash The crash handler context.
  */
-void kscrw_i_printCrashThreadBacktrace(const KSCrash_SentryContext* const crash)
+void kscrw_i_logCrashThreadBacktrace(const KSCrash_SentryContext* const crash)
 {
     thread_t thread = crash->crashedThread;
     _STRUCT_MCONTEXT concreteMachineContext;
@@ -588,7 +626,7 @@ void kscrw_i_printCrashThreadBacktrace(const KSCrash_SentryContext* const crash)
 
     if(backtrace != NULL)
     {
-        kscrw_i_printBacktrace(backtrace, backtraceLength);
+        kscrw_i_logBacktrace(backtrace, backtraceLength);
     }
 }
 
@@ -1368,18 +1406,11 @@ void kscrw_i_writeError(const KSCrashReportWriter* const writer,
         switch(crash->crashType)
         {
             case KSCrashTypeMachException:
-                KSLOGBASIC_INFO("App crashed due to mach exception %s: %s",
-                                machExceptionName, machCodeName);
-
                 writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_Mach);
                 break;
 
             case KSCrashTypeNSException:
             {
-                KSLOGBASIC_INFO("App crashed due to NSException %s: %s",
-                                NSExceptionName,
-                                NSExceptionReason);
-
                 writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_NSException);
                 writer->beginObject(writer, KSCrashField_NSException);
                 {
@@ -1390,9 +1421,6 @@ void kscrw_i_writeError(const KSCrashReportWriter* const writer,
                 break;
             }
             case KSCrashTypeSignal:
-                KSLOGBASIC_INFO("App crashed due to signal [%s, %s] at %08x",
-                                sigName, sigCodeName, crash->faultAddress);
-
                 writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_Signal);
                 break;
         }
@@ -1602,8 +1630,6 @@ void kscrashreport_writeStandardReport(KSCrash_Context* const crashContext,
 
     kscrw_i_updateStackOverflowStatus(crashContext);
 
-    kscrw_i_printCrashThreadBacktrace(&crashContext->crash);
-
     KSJSONEncodeContext jsonContext;
     jsonContext.userData = &fd;
     KSCrashReportWriter concreteWriter;
@@ -1659,4 +1685,11 @@ void kscrashreport_writeStandardReport(KSCrash_Context* const crashContext,
     ksjson_endEncode(getJsonContext(writer));
     
     close(fd);
+}
+
+void kscrashreport_logCrash(const KSCrash_Context* const crashContext)
+{
+    const KSCrash_SentryContext* crash = &crashContext->crash;
+    kscrw_i_logCrashType(crash);
+    kscrw_i_logCrashThreadBacktrace(&crashContext->crash);
 }
