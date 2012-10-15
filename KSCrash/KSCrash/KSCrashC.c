@@ -88,7 +88,10 @@ void kscrash_i_onCrash(void)
 
     KSCrash_Context* context = crashContext();
 
-    kscrashreport_logCrash(context);
+    if(context->config.printTraceToStdout)
+    {
+        kscrashreport_logCrash(context);
+    }
 
     if(context->crash.crashedDuringCrashHandling)
     {
