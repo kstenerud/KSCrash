@@ -144,6 +144,9 @@ NSDictionary* g_registerOrders;
                         armOrder, @"arm",
                         armOrder, @"armv6",
                         armOrder, @"armv7",
+                        armOrder, @"armv7f",
+                        armOrder, @"armv7k",
+                        armOrder, @"armv7s",
                         x86Order, @"x86",
                         x86Order, @"i386",
                         x86Order, @"i486",
@@ -213,6 +216,12 @@ NSDictionary* g_registerOrders;
                     return @"armv6";
                 case CPU_SUBTYPE_ARM_V7:
                     return @"armv7";
+                case CPU_SUBTYPE_ARM_V7F:
+                    return @"armv7f";
+                case CPU_SUBTYPE_ARM_V7K:
+                    return @"armv7k";
+                case CPU_SUBTYPE_ARM_V7S:
+                    return @"armv7s";
                 default:
                     return @"arm";
             }
@@ -353,6 +362,11 @@ NSDictionary* g_registerOrders;
     return [crash objectForKey:@KSCrashField_CrashedThread];
 }
 
+- (NSString*) cpuArchForReport:(NSDictionary*) report
+{
+    NSDictionary* system = [self systemReport:report];
+    return [system objectForKey:@KSSystemField_CPUArch];
+}
 
 - (NSString*) headerStringForReport:(NSDictionary*) report
 {
@@ -373,7 +387,9 @@ NSDictionary* g_registerOrders;
      [system objectForKey:@KSSystemField_ProcessID]];
     [str appendFormat:@"Path:            %@\n", executablePath];
     [str appendFormat:@"Identifier:      %@\n", [system objectForKey:@KSSystemField_BundleID]];
-    [str appendFormat:@"Version:         %@\n", [system objectForKey:@KSSystemField_BundleVersion]];
+    [str appendFormat:@"Version:         %@ (%@)\n",
+     [system objectForKey:@KSSystemField_BundleShortVersion],
+     [system objectForKey:@KSSystemField_BundleVersion]];
     [str appendFormat:@"Code Type:       %@\n", cpuArchType];
     [str appendFormat:@"Parent Process:  %@ [%@]\n",
      [system objectForKey:@KSSystemField_ParentProcessName],
@@ -430,6 +446,7 @@ NSDictionary* g_registerOrders;
 }
 
 - (NSString*) crashedThreadCPUStateStringForReport:(NSDictionary*) report
+                                           cpuArch:(NSString*) cpuArch
 {
     NSDictionary* thread = [self crashedThread:report];
     if(thread == nil)
@@ -438,8 +455,6 @@ NSDictionary* g_registerOrders;
     }
     int threadIndex = [[thread objectForKey:@KSCrashField_Index] intValue];
 
-    NSDictionary* system = [self systemReport:report];
-    NSString* cpuArch = [system objectForKey:@KSSystemField_CPUArch];
     NSString* cpuArchType = [self CPUType:cpuArch];
 
     NSMutableString* str = [NSMutableString string];
@@ -647,7 +662,8 @@ NSDictionary* g_registerOrders;
     [str appendString:[self headerStringForReport:report]];
     [str appendString:[self errorInfoStringForReport:report]];
     [str appendString:[self threadListStringForReport:report]];
-    [str appendString:[self crashedThreadCPUStateStringForReport:report]];
+    [str appendString:[self crashedThreadCPUStateStringForReport:report
+                                                         cpuArch:[self cpuArchForReport:report]]];
     [str appendString:[self binaryImagesStringForReport:report]];
     [str appendString:[self extraInfoStringForReport:report]];
 
@@ -673,7 +689,8 @@ NSDictionary* g_registerOrders;
     [str appendString:@"\nHandler crashed while reporting:\n"];
     [str appendString:[self errorInfoStringForReport:recrashReport]];
     [str appendString:[self threadStringForThread:thread mainExecutableName:executableName]];
-    [str appendString:[self crashedThreadCPUStateStringForReport:recrashReport]];
+    [str appendString:[self crashedThreadCPUStateStringForReport:recrashReport
+                                                         cpuArch:[self cpuArchForReport:report]]];
 
     return str;
 }
