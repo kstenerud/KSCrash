@@ -617,8 +617,8 @@ size_t ksmach_copyMaxPossibleMem(const void* const src,
                                  const size_t numBytes)
 {
     const uint8_t* pSrc = src;
-    const uint8_t* pSrcMax = src + numBytes;
-    const uint8_t* pSrcEnd = src + numBytes;
+    const uint8_t* pSrcMax = (uint8_t*)src + numBytes;
+    const uint8_t* pSrcEnd = (uint8_t*)src + numBytes;
     uint8_t* pDst = dst;
 
     size_t bytesCopied = 0;

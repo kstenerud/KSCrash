@@ -86,8 +86,8 @@ static inline bool isPowerOf2(const unsigned int value)
 } \
 @end
 
-CREATE_ZOMBIE_CATEGORY(NSObject);
-CREATE_ZOMBIE_CATEGORY(NSProxy);
+CREATE_ZOMBIE_CATEGORY(NSObject)
+CREATE_ZOMBIE_CATEGORY(NSProxy)
 
 static void swizzleDealloc(Class cls)
 {
