@@ -1,7 +1,7 @@
 //
 //  AppDelegate+UI.m
 //
-//  Created by Karl Stenerud on 12-03-04.
+//  Created by Karl Stenerud on 2012-03-04.
 //
 
 #import "AppDelegate+UI.h"
@@ -11,17 +11,17 @@
 #import "Configuration.h"
 #import "Crasher.h"
 
-#import "KSCrashAdvanced.h"
-#import "KSCrashFilterSets.h"
-#import "KSCrashReportFilter.h"
-#import "KSCrashReportFilterAppleFmt.h"
-#import "KSCrashReportFilterBasic.h"
-#import "KSCrashReportFilterGZip.h"
-#import "KSCrashReportFilterJSON.h"
-#import "KSCrashReportSinkConsole.h"
-#import "KSCrashReportSinkEMail.h"
-#import "KSCrashReportSinkQuincy.h"
-#import "KSCrashReportSinkStandard.h"
+#import <KSCrash/KSCrashAdvanced.h>
+#import <KSCrash/KSCrashReportFilterSets.h>
+#import <KSCrash/KSCrashReportFilter.h>
+#import <KSCrash/KSCrashReportFilterAppleFmt.h>
+#import <KSCrash/KSCrashReportFilterBasic.h>
+#import <KSCrash/KSCrashReportFilterGZip.h>
+#import <KSCrash/KSCrashReportFilterJSON.h>
+#import <KSCrash/KSCrashReportSinkConsole.h>
+#import <KSCrash/KSCrashReportSinkEMail.h>
+#import <KSCrash/KSCrashReportSinkQuincy.h>
+#import <KSCrash/KSCrashReportSinkStandard.h>
 
 
 
@@ -106,16 +106,6 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                                               delegate:nil
                                      cancelButtonTitle:@"OK"
                                      otherButtonTitles:nil]) show];
-}
-
-- (void) mailComposeController:(MFMailComposeViewController*)mailController
-           didFinishWithResult:(MFMailComposeResult)result
-                         error:(NSError*)error
-{
-    #pragma unused(result)
-    #pragma unused(error)
-    
-    [mailController dismissModalViewControllerAnimated:YES];
 }
 
 
@@ -322,7 +312,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                      accessoryType:UITableViewCellAccessoryNone
                              block:^(UIViewController* controller)
       {
-#pragma unused(controller)
+          #pragma unused(controller)
           NSLog(@"Mailing side-by-side symbolicated apple reports with system and user data...");
           KSCrash* crashReporter = [KSCrash instance];
           KSCrashReportSinkEMail* filter = [KSCrashReportSinkEMail sinkWithRecipients:nil
@@ -430,7 +420,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                      accessoryType:UITableViewCellAccessoryNone
                              block:^(UIViewController* controller)
       {
-#pragma unused(controller)
+          #pragma unused(controller)
           NSLog(@"Printing side-by-side symbolicated apple reports with system and user data...");
           KSCrash* crashReporter = [KSCrash instance];
           NSArray* filters = [NSArray arrayWithObjects:
@@ -590,12 +580,12 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
       }]];
 
     [commands addObject:
-     [CommandEntry commandWithName:@"Deallocated Ptr"
+     [CommandEntry commandWithName:@"Deallocated Object"
                      accessoryType:UITableViewCellAccessoryNone
                              block:^(UIViewController* controller)
       {
            #pragma unused(controller)
-          [Crasher accessDeallocatedPtr];
+          [Crasher accessDeallocatedObject];
       }]];
 
     [commands addObject:
@@ -605,6 +595,16 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
       {
            #pragma unused(controller)
           [Crasher accessDeallocatedPtrProxy];
+      }]];
+
+    [commands addObject:
+     [CommandEntry commandWithName:@"Crash in Handler"
+                     accessoryType:UITableViewCellAccessoryNone
+                             block:^(UIViewController* controller)
+      {
+          #pragma unused(controller)
+          self.crashInHandler = YES;
+          [Crasher dereferenceBadPointer];
       }]];
 
 

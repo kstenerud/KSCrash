@@ -1,7 +1,7 @@
 //
 //  Crasher.h
 //
-//  Created by Karl Stenerud on 12-01-28.
+//  Created by Karl Stenerud on 2012-01-28.
 //
 
 #import <Foundation/Foundation.h>
@@ -26,7 +26,7 @@
 
 + (void) doIllegalInstruction;
 
-+ (void) accessDeallocatedPtr;
++ (void) accessDeallocatedObject;
 
 + (void) accessDeallocatedPtrProxy;
 

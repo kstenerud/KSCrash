@@ -1,7 +1,7 @@
 //
-//  KSCrashReporting.h
+//  KSCrash.h
 //
-//  Created by Karl Stenerud on 12-01-28.
+//  Created by Karl Stenerud on 2012-01-28.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -27,7 +27,7 @@
 
 #import <Foundation/Foundation.h>
 
-#import "KSReportWriter.h"
+#import "KSCrashReportWriter.h"
 #import "KSCrashReportFilter.h"
 #import "KSCrashReportSinkEMail.h"
 #import "KSCrashReportSinkQuincy.h"
@@ -43,11 +43,12 @@
 
 /** Install the crash reporter with default settings:
  *
- * - No user info
- * - Don't print to stdout
- * - No crash callback
+ * - No user info (userInfo = nil)
+ * - Zombie tracking disabled (zombieCacheSize = 0)
+ * - Don't print to stdout (printTraceToStdout = NO)
+ * - No crash callback (onCrash = NULL)
  *
- * @param sink The report sink to send outstanding reports to.
+ * @param sink The report sink to send outstanding reports to (can be nil).
  *
  * @return YES if successful.
  */
@@ -55,7 +56,7 @@
 
 /** Install the crash reporter.
  *
- * @param sink The report sink to send outstanding reports to.
+ * @param sink The report sink to send outstanding reports to (can be nil).
  *
  * @param userInfo A dictionary containing any info you'd like to appear in
  *                 crash reports. Must contain only JSON-safe data: NSString
@@ -66,9 +67,9 @@
  * @param zombieCacheSize The size of the cache to use for zombie tracking.
  *                        Must be a power-of-2. 0 = no zombie tracking.
  *                        You should profile your app to see how many objects
- *                        are being allocated when choosing this value, but
+ *                        are being allocated before choosing this value, but
  *                        generally you should use 16384 or higher. Uses 8 bytes
- *                        per cache entry.
+ *                        per cache entry (16 bytes on 64-bit architectures).
  *
  * @param printTraceToStdout If YES, print a stack trace to STDOUT when the app
  *                           crashes.

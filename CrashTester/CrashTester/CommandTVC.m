@@ -1,7 +1,7 @@
 //
 //  CommandTVC.m
 //
-//  Created by Karl Stenerud on 12-03-04.
+//  Created by Karl Stenerud on 2012-03-04.
 //
 
 #import "CommandTVC.h"
@@ -91,11 +91,6 @@
     {
         self.title = self.getTitleBlock(self);
     }
-}
-
-- (BOOL) shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation) interfaceOrientation
-{
-    return (interfaceOrientation == UIInterfaceOrientationPortrait);
 }
 
 #pragma mark - Table view data source

@@ -1,7 +1,7 @@
 //
 //  Crasher.m
 //
-//  Created by Karl Stenerud on 12-01-28.
+//  Created by Karl Stenerud on 2012-01-28.
 //
 
 #import "Crasher.h"
@@ -109,7 +109,7 @@ int g_crasher_denominator = 0;
     funcptr();
 }
 
-+ (void) accessDeallocatedPtr
++ (void) accessDeallocatedObject
 {
     RefHolder* ref = as_autorelease([RefHolder new]);
     ref.ref = as_autorelease([MyClass new]);

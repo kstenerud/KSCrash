@@ -1,7 +1,7 @@
 //
-//  KSCrashReporter.m
+//  KSCrashReportStore.m
 //
-//  Created by Karl Stenerud on 12-02-05.
+//  Created by Karl Stenerud on 2012-02-05.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -28,10 +28,27 @@
 #import "KSCrashReportStore.h"
 
 #import "ARCSafe_MemMgmt.h"
-#import "KSLogger.h"
+#import "KSCrashReportFields.h"
 #import "KSJSONCodecObjC.h"
+#import "KSSafeCollections.h"
+#import "NSDictionary+Merge.h"
 #import "RFC3339DateTool.h"
 
+//#define KSLogger_LocalLevel TRACE
+#import "KSLogger.h"
+
+
+// ============================================================================
+#pragma mark - Constants -
+// ============================================================================
+
+#define kCrashReportSuffix @"-CrashReport-"
+#define kRecrashReportSuffix @"-RecrashReport-"
+
+
+// ============================================================================
+#pragma mark - Meta Data -
+// ============================================================================
 
 /**
  * Metadata class to hold name and creation date for a file, with
@@ -39,13 +56,13 @@
  */
 @interface KSCrashReportInfo: NSObject
 
-@property(nonatomic,readonly,retain) NSString* name;
+@property(nonatomic,readonly,retain) NSString* reportID;
 @property(nonatomic,readonly,retain) NSDate* creationDate;
 
-+ (KSCrashReportInfo*) reportInfoWithName:(NSString*) name
-                             creationDate:(NSDate*) creationDate;
++ (KSCrashReportInfo*) reportInfoWithID:(NSString*) reportID
+                           creationDate:(NSDate*) creationDate;
 
-- (id) initWithName:(NSString*) name creationDate:(NSDate*) creationDate;
+- (id) initWithID:(NSString*) reportID creationDate:(NSDate*) creationDate;
 
 - (NSComparisonResult) compare:(KSCrashReportInfo*) other;
 
@@ -53,21 +70,21 @@
 
 @implementation KSCrashReportInfo
 
-@synthesize name = _name;
+@synthesize reportID = _reportID;
 @synthesize creationDate = _creationDate;
 
-+ (KSCrashReportInfo*) reportInfoWithName:(NSString*) name
-                             creationDate:(NSDate*) creationDate
++ (KSCrashReportInfo*) reportInfoWithID:(NSString*) reportID
+                           creationDate:(NSDate*) creationDate
 {
-    return as_autorelease([[self alloc] initWithName:name
-                                        creationDate:creationDate]);
+    return as_autorelease([[self alloc] initWithID:reportID
+                                      creationDate:creationDate]);
 }
 
-- (id) initWithName:(NSString*) name creationDate:(NSDate*) creationDate
+- (id) initWithID:(NSString*) reportID creationDate:(NSDate*) creationDate
 {
     if((self = [super init]))
     {
-        _name = as_retain(name);
+        _reportID = as_retain(reportID);
         _creationDate = as_retain(creationDate);
     }
     return self;
@@ -75,7 +92,7 @@
 
 - (void) dealloc
 {
-    as_release(_name);
+    as_release(_reportID);
     as_release(_creationDate);
     as_superdealloc();
 }
@@ -88,49 +105,39 @@
 @end
 
 
+// ============================================================================
+#pragma mark - Main Class -
+// ============================================================================
+
 @interface KSCrashReportStore ()
 
 @property(nonatomic,readwrite,retain) NSString* path;
-
-@property(nonatomic,readwrite,retain) NSString* filenamePrefix;
-
-/** Fix up a raw crash report.
- *
- * @param report The report to fix.
- *
- * @return The cooked crash report.
- */
-- (NSDictionary*) fixupCrashReport:(NSDictionary*) report;
-
-- (bool) mergeDictWithKey:(NSString*) srcKey
-          intoDictWithKey:(NSString*) dstKey
-                 inReport:(NSMutableDictionary*) report;
-
-- (bool) convertTimestamp:(NSString*) key
-                 inReport:(NSMutableDictionary*) report;
+@property(nonatomic,readwrite,retain) NSString* bundleName;
 
 @end
 
 
 @implementation KSCrashReportStore
 
+#pragma mark Properties
+
 @synthesize path = _path;
-@synthesize filenamePrefix = _filenamePrefix;
+@synthesize bundleName = _bundleName;
+
+
+#pragma mark Construction
 
 + (KSCrashReportStore*) storeWithPath:(NSString*) path
-                       filenamePrefix:(NSString*) filenamePrefix
 {
-    return as_autorelease([[self alloc] initWithPath:path
-                                      filenamePrefix:filenamePrefix]);
+    return as_autorelease([[self alloc] initWithPath:path]);
 }
 
 - (id) initWithPath:(NSString*) path
-     filenamePrefix:(NSString*) filenamePrefix
 {
     if((self = [super init]))
     {
         self.path = path;
-        self.filenamePrefix = filenamePrefix;
+        self.bundleName = [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleName"];
     }
     return self;
 }
@@ -138,11 +145,13 @@
 - (void) dealloc
 {
     as_release(_path);
-    as_release(_filenamePrefix);
+    as_release(_bundleName);
     as_superdealloc();
 }
 
-- (NSArray*) reportNamesUnsorted
+#pragma mark API
+
+- (NSArray*) reportIDs
 {
     NSError* error = nil;
     NSFileManager* fm = [NSFileManager defaultManager];
@@ -152,164 +161,130 @@
         KSLOG_ERROR(@"Could not get contents of directory %@: %@", self.path, error);
         return nil;
     }
-    
-    NSMutableArray* reportNames = [NSMutableArray arrayWithCapacity:[filenames count]];
-    for(NSString* filename in filenames)
-    {
-        if([filename rangeOfString:self.filenamePrefix].location != NSNotFound)
-        {
-            [reportNames addObject:filename];
-        }
-    }
-    
-    return reportNames;
-}
 
-- (NSArray*) reportNames
-{
-    NSError* error = nil;
-    NSFileManager* fm = [NSFileManager defaultManager];
-    NSArray* filenames = [self reportNamesUnsorted];
-    if(filenames == nil)
-    {
-        return nil;
-    }
-    
     NSMutableArray* reports = [NSMutableArray arrayWithCapacity:[filenames count]];
     for(NSString* filename in filenames)
     {
-        NSString* fullPath = [self.path stringByAppendingPathComponent:filename];
-        NSDictionary* fileAttribs = [fm attributesOfItemAtPath:fullPath error:&error];
-        if(fileAttribs == nil)
+        NSString* reportId = [self reportIDFromFilename:filename];
+        if(reportId != nil)
         {
-            KSLOG_ERROR(@"Could not read file attributes for %@: %@", fullPath, error);
-        }
-        else
-        {
-            [reports addObject:[KSCrashReportInfo reportInfoWithName:filename
-                                                        creationDate:[fileAttribs valueForKey:NSFileCreationDate]]];
+            NSString* fullPath = [self.path stringByAppendingPathComponent:filename];
+            NSDictionary* fileAttribs = [fm attributesOfItemAtPath:fullPath error:&error];
+            if(fileAttribs == nil)
+            {
+                KSLOG_ERROR(@"Could not read file attributes for %@: %@", fullPath, error);
+            }
+            else
+            {
+                [reports addObject:[KSCrashReportInfo reportInfoWithID:reportId
+                                                          creationDate:[fileAttribs valueForKey:NSFileCreationDate]]];
+            }
         }
     }
     [reports sortUsingSelector:@selector(compare:)];
-    
-    NSMutableArray* sortedNames = [NSMutableArray arrayWithCapacity:[reports count]];
+
+    NSMutableArray* sortedIDs = [NSMutableArray arrayWithCapacity:[reports count]];
     for(KSCrashReportInfo* info in reports)
     {
-        [sortedNames addObject:info.name];
+        [sortedIDs addObject:info.reportID];
     }
-    return sortedNames;
+    return sortedIDs;
 }
 
-- (NSDictionary*) reportNamed:(NSString*) name
+- (NSUInteger) reportCount
 {
-    NSError* error = nil;
-    
-    NSString* filename = [self.path stringByAppendingPathComponent:name];
-    NSData* jsonData = [NSData dataWithContentsOfFile:filename options:0 error:&error];
-    if(jsonData == nil)
-    {
-        KSLOG_ERROR(@"Could not load from %@: %@", filename, error);
-        return nil;
-    }
-    
-    NSDictionary* report = (NSDictionary*)[KSJSONCodec decode:jsonData
-                                                      options:KSJSONDecodeOptionIgnoreNullInArray |
-                                           KSJSONDecodeOptionIgnoreNullInObject
-                                                        error:&error];
-    if(report == nil)
-    {
-        KSLOG_ERROR(@"Could not decode JSON data from %@: %@", filename, error);
-        return nil;
-    }
-    if(![report isKindOfClass:[NSDictionary class]])
-    {
-        KSLOG_ERROR(@"Report should be a dictionary, not %@", [report class]);
-        return nil;
-    }
-    
-    return [self fixupCrashReport:report];
+    return [[self reportIDs] count];
+}
+
+- (NSDictionary*) reportWithID:(NSString*) reportID
+{
+    NSMutableDictionary* crashReport = [self readReport:[self pathToCrashReportWithID:reportID]];
+    NSMutableDictionary* recrashReport = [self readReport:[self pathToRecrashReportWithID:reportID]];
+    [crashReport setObjectIfNotNil:recrashReport forKey:@KSCrashField_RecrashReport];
+
+    return crashReport;
 }
 
 - (NSArray*) allReports
 {
-    NSArray* reportNames = [self reportNames];
-    NSMutableArray* reports = [NSMutableArray arrayWithCapacity:[reportNames count]];
-    for(NSString* name in reportNames)
+    NSArray* reportIDs = [self reportIDs];
+    NSMutableArray* reports = [NSMutableArray arrayWithCapacity:[reportIDs count]];
+    for(NSString* reportID in reportIDs)
     {
-        NSDictionary* report = [self reportNamed:name];
+        NSDictionary* report = [self reportWithID:reportID];
         if(report != nil)
         {
             [reports addObject:report];
         }
     }
 
-    return reportNames;
+    return reports;
 }
 
-- (void) deleteReportNamed:(NSString*) name
+- (void) deleteReportWithID:(NSString*) reportID
 {
     NSError* error = nil;
-    NSString* filename = [self.path stringByAppendingPathComponent:name];
-    
+    NSString* filename = [self pathToCrashReportWithID:reportID];
+
     [[NSFileManager defaultManager] removeItemAtPath:filename error:&error];
     if(error != nil)
     {
         KSLOG_ERROR(@"Could not delete file %@: %@", filename, error);
     }
+
+    // Don't care if this succeeds or not since it may not exist.
+    [[NSFileManager defaultManager] removeItemAtPath:[self pathToRecrashReportWithID:reportID]
+                                               error:&error];
 }
 
 - (void) deleteAllReports
 {
-    for(NSString* name in [self reportNamesUnsorted])
+    for(NSString* reportID in [self reportIDs])
     {
-        [self deleteReportNamed:name];
+        [self deleteReportWithID:reportID];
     }
 }
 
 - (void) pruneReportsLeaving:(int) numReports
 {
-    NSArray* reportNames = [self reportNames];
-    int deleteCount = (int)[reportNames count] - numReports;
+    NSArray* reportIDs = [self reportIDs];
+    int deleteCount = (int)[reportIDs count] - numReports;
     for(int i = 0; i < deleteCount; i++)
     {
-        [self deleteReportNamed:[reportNames objectAtIndex:(NSUInteger)i]];
+        [self deleteReportWithID:[reportIDs objectAtIndex:(NSUInteger)i]];
     }
 }
 
-- (NSDictionary*) fixupCrashReport:(NSDictionary*) report
+
+#pragma mark Utility
+
+- (NSMutableDictionary*) fixupCrashReport:(NSDictionary*) report
 {
     if(![report isKindOfClass:[NSDictionary class]])
     {
         KSLOG_ERROR(@"Report should be a dictionary, not %@", [report class]);
         return nil;
     }
-    
+
     NSMutableDictionary* mutableReport = as_autorelease([report mutableCopy]);
-    
+    NSMutableDictionary* mutableInfo = as_autorelease([[report objectForKey:@KSCrashField_Report] mutableCopy]);
+    [mutableReport setObjectIfNotNil:mutableInfo forKey:@KSCrashField_Report];
+
     // Timestamp gets stored as a unix timestamp. Convert it to rfc3339.
-    if(![self convertTimestamp:@"timestamp" inReport:mutableReport])
-    {
-        return nil;
-    }
-    
-    if(![self mergeDictWithKey:@"system_atcrash"
-               intoDictWithKey:@"system"
-                      inReport:mutableReport])
-    {
-        return nil;
-    }
-    
-    if(![self mergeDictWithKey:@"user_atcrash"
-               intoDictWithKey:@"user"
-                      inReport:mutableReport])
-    {
-        return nil;
-    }
-    
+    [self convertTimestamp:@KSCrashField_Timestamp inReport:mutableInfo];
+
+    [self mergeDictWithKey:@KSCrashField_SystemAtCrash
+           intoDictWithKey:@KSCrashField_System
+                  inReport:mutableReport];
+
+    [self mergeDictWithKey:@KSCrashField_UserAtCrash
+           intoDictWithKey:@KSCrashField_User
+                  inReport:mutableReport];
+
     return mutableReport;
 }
 
-- (bool) mergeDictWithKey:(NSString*) srcKey
+- (void) mergeDictWithKey:(NSString*) srcKey
           intoDictWithKey:(NSString*) dstKey
                  inReport:(NSMutableDictionary*) report
 {
@@ -317,52 +292,120 @@
     if(srcDict == nil)
     {
         // It's OK if the source dict didn't exist.
-        return true;
+        return;
     }
-    
     if(![srcDict isKindOfClass:[NSDictionary class]])
     {
         KSLOG_ERROR(@"'%@' should be a dictionary, not %@", srcKey, [srcDict class]);
-        return false;
+        return;
     }
-    
-    if([srcDict count] > 0)
+
+    NSDictionary* dstDict = [report objectForKey:dstKey];
+    if(dstDict == nil)
     {
-        NSDictionary* dstDict = [report objectForKey:dstKey];
-        if(dstDict == nil)
-        {
-            dstDict = [NSDictionary dictionary];
-        }
-        if(![dstDict isKindOfClass:[NSDictionary class]])
-        {
-            KSLOG_ERROR(@"'%@' should be a dictionary, not %@", dstKey, [dstDict class]);
-            return false;
-        }
-        NSMutableDictionary* mutableDict = as_autorelease([dstDict mutableCopy]);
-        [mutableDict addEntriesFromDictionary:srcDict];
-        [report setObject:mutableDict forKey:dstKey];
+        dstDict = [NSDictionary dictionary];
     }
+    if(![dstDict isKindOfClass:[NSDictionary class]])
+    {
+        KSLOG_ERROR(@"'%@' should be a dictionary, not %@", dstKey, [dstDict class]);
+        return;
+    }
+
+    [report setObjectIfNotNil:[srcDict mergedInto:dstDict] forKey:dstKey];
     [report removeObjectForKey:srcKey];
-    return true;
 }
 
-- (bool) convertTimestamp:(NSString*) key
+- (void) convertTimestamp:(NSString*) key
                  inReport:(NSMutableDictionary*) report
 {
     NSNumber* timestamp = [report objectForKey:key];
     if(timestamp == nil)
     {
         KSLOG_ERROR(@"entry '%@' not found", key);
-        return false;
+        return;
     }
     if(![timestamp isKindOfClass:[NSNumber class]])
     {
-        KSLOG_ERROR(@"'%@' should be a numner, not %@", key, [key class]);
-        return false;
+        KSLOG_ERROR(@"'%@' should be a number, not %@", key, [key class]);
+        return;
     }
     [report setValue:[RFC3339DateTool stringFromUNIXTimestamp:[timestamp unsignedLongLongValue]]
               forKey:key];
-    return true;
+}
+
+- (NSString*) crashReportFilenameWithID:(NSString*) reportID
+{
+    return [NSString stringWithFormat:@"%@" kCrashReportSuffix "%@.json",
+            self.bundleName, reportID];
+}
+
+- (NSString*) recrashReportFilenameWithID:(NSString*) reportID
+{
+    return [NSString stringWithFormat:@"%@" kRecrashReportSuffix "%@.json",
+            self.bundleName, reportID];
+}
+
+- (NSString*) reportIDFromFilename:(NSString*) filename
+{
+    if([filename length] == 0)
+    {
+        return nil;
+    }
+
+    NSString* prefix = [NSString stringWithFormat:@"%@" kCrashReportSuffix,
+                        self.bundleName];
+    NSString* suffix = @".json";
+    if([filename rangeOfString:prefix].location == 0 &&
+       [filename rangeOfString:suffix].location != NSNotFound)
+    {
+        NSUInteger prefixLength = [prefix length];
+        NSUInteger suffixLength = [suffix length];
+        NSRange range = NSMakeRange(prefixLength, [filename length] - prefixLength - suffixLength);
+        return [filename substringWithRange:range];
+    }
+    return nil;
+}
+
+- (NSString*) pathToCrashReportWithID:(NSString*) reportID
+{
+    NSString* filename = [self crashReportFilenameWithID:reportID];
+    return [self.path stringByAppendingPathComponent:filename];
+}
+
+- (NSString*) pathToRecrashReportWithID:(NSString*) reportID
+{
+    NSString* filename = [self recrashReportFilenameWithID:reportID];
+    return [self.path stringByAppendingPathComponent:filename];
+}
+
+- (NSMutableDictionary*) readReport:(NSString*) path
+{
+    NSError* error = nil;
+
+    if(path == nil)
+    {
+        KSLOG_ERROR(@"Path is nil");
+    }
+
+    NSData* jsonData = [NSData dataWithContentsOfFile:path options:0 error:&error];
+    if(jsonData == nil)
+    {
+        KSLOG_ERROR(@"Could not load from %@: %@", path, error);
+        return nil;
+    }
+
+    NSMutableDictionary* report = [self fixupCrashReport:[KSJSONCodec decode:jsonData
+                                                                     options:KSJSONDecodeOptionIgnoreNullInArray |
+                                                          KSJSONDecodeOptionIgnoreNullInObject |
+                                                          KSJSONDecodeOptionKeepPartialObject
+                                                                       error:&error]];
+    if(error != nil)
+    {
+        KSLOG_ERROR(@"Error decoding JSON data from %@: %@", path, error);
+        [report setObject:[NSNumber numberWithBool:YES] forKey:@KSCrashField_Incomplete];
+    }
+
+    return report;
 }
 
 @end

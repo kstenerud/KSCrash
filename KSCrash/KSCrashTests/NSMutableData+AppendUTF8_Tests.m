@@ -1,7 +1,7 @@
 //
 //  NSMutableData_AppendUTF8_Tests.m
 //
-//  Created by Karl Stenerud on 12-02-26.
+//  Created by Karl Stenerud on 2012-02-26.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -28,6 +28,7 @@
 #import <SenTestingKit/SenTestingKit.h>
 #import "NSMutableData+AppendUTF8.h"
 
+
 @interface NSMutableData_AppendUTF8_Tests : SenTestCase @end
 
 @implementation NSMutableData_AppendUTF8_Tests
@@ -38,7 +39,7 @@
     NSMutableData* data = [NSMutableData data];
     [data appendUTF8String:expected];
     NSString* actual = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
-    
+
     STAssertEqualObjects(actual, expected, @"");
 }
 
@@ -48,7 +49,7 @@
     NSMutableData* data = [NSMutableData data];
     [data appendUTF8Format:@"Testing %d %.1f %@", 1, 2.0, @"3"];
     NSString* actual = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
-    
+
     STAssertEqualObjects(actual, expected, @"");
 }
 

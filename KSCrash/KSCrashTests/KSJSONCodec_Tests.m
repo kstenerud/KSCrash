@@ -1,7 +1,7 @@
 //
 //  KSJSONCodec_Tests.m
 //
-//  Created by Karl Stenerud on 12-01-08.
+//  Created by Karl Stenerud on 2012-01-08.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -29,6 +29,7 @@
 
 #import "KSJSONCodecObjC.h"
 #import "ARCSafe_MemMgmt.h"
+
 
 @interface KSJSONCodec_Tests : SenTestCase @end
 
@@ -1028,14 +1029,14 @@ static NSString* toString(NSData* data)
 - (void) testSerializeDeserializeBigString
 {
     NSError* error = (NSError*)self;
-    
+
     NSUInteger length = 500;
     NSMutableString* string = [NSMutableString stringWithCapacity:length];
     for(NSUInteger i = 0; i < length; i++)
     {
         [string appendFormat:@"%d", i%10];
     }
-    
+
     NSString* expected = [NSString stringWithFormat:@"[\"%@\"]", string];
     id original = [NSArray arrayWithObjects:
                    string,
@@ -1059,7 +1060,7 @@ static NSString* toString(NSData* data)
     memset(buff, '2', sizeof(buff));
     buff[sizeof(buff)-1] = 0;
     NSString* string = [NSString stringWithCString:buff encoding:NSUTF8StringEncoding];
-    
+
     id original = [NSArray arrayWithObjects:
                    string,
                    nil];
@@ -1078,7 +1079,7 @@ static NSString* toString(NSData* data)
 {
     NSError* error = (NSError*)self;
     unsigned int numEntries = 2000;
-    
+
     NSMutableString* jsonString = [NSMutableString string];
     [jsonString appendString:@"["];
     for(unsigned int i = 0; i < numEntries; i++)
@@ -1087,7 +1088,7 @@ static NSString* toString(NSData* data)
     }
     [jsonString deleteCharactersInRange:NSMakeRange([jsonString length]-1, 1)];
     [jsonString appendString:@"]"];
-    
+
     id deserialized = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
     STAssertNotNil(deserialized, @"");
     STAssertNil(error, @"");
@@ -1108,7 +1109,7 @@ static NSString* toString(NSData* data)
 {
     NSError* error = (NSError*)self;
     unsigned int numEntries = 2000;
-    
+
     NSMutableString* jsonString = [NSMutableString string];
     [jsonString appendString:@"{"];
     for(unsigned int i = 0; i < numEntries; i++)
@@ -1117,7 +1118,7 @@ static NSString* toString(NSData* data)
     }
     [jsonString deleteCharactersInRange:NSMakeRange([jsonString length]-1, 1)];
     [jsonString appendString:@"}"];
-    
+
     id deserialized = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
     STAssertNotNil(deserialized, @"");
     STAssertNil(error, @"");
@@ -1486,4 +1487,5 @@ static NSString* toString(NSData* data)
     STAssertNil(error, @"");
     STAssertTrue([result count] == 0, @"");
 }
+
 @end

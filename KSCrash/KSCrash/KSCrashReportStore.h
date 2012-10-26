@@ -1,7 +1,7 @@
 //
-//  KSCrashReporter.h
+//  KSCrashReportStore.h
 //
-//  Created by Karl Stenerud on 12-02-05.
+//  Created by Karl Stenerud on 2012-02-05.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -33,41 +33,42 @@
  */
 @interface KSCrashReportStore: NSObject
 
+/** Location where reports are stored. */
+@property(nonatomic,readonly,retain) NSString* path;
+
+/** The total number of reports. Note: This is an expensive operation. */
+@property(nonatomic,readonly,assign) NSUInteger reportCount;
+
+
 /** Create a new store.
  *
- * @param path The path to the crash reports directory.
- *
- * @param filenamePrefix A filename prefix that identifies crash report files.
+ * @param path Where to store crash reports.
  *
  * @return A new crash report store.
  */
-+ (KSCrashReportStore*) storeWithPath:(NSString*) path
-                       filenamePrefix:(NSString*) filenamePrefix;
++ (KSCrashReportStore*) storeWithPath:(NSString*) path;
 
 /** Initialize a store.
  *
- * @param path The path to the crash reports directory.
- *
- * @param filenamePrefix A filename prefix that identifies crash report files.
+ * @param path Where to store crash reports.
  *
  * @return The initialized crash report store.
  */
-- (id) initWithPath:(NSString*) path
-     filenamePrefix:(NSString*) filenamePrefix;
+- (id) initWithPath:(NSString*) path;
 
-/** Get a list of report names.
+/** Get a list of report IDs.
  *
- * @return A list of report names in chronological order (oldest first).
+ * @return A list of report IDs in chronological order (oldest first).
  */
-- (NSArray*) reportNames;
+- (NSArray*) reportIDs;
 
 /** Fetch a report.
  *
- * @param name The name of the report to fetch.
+ * @param reportID The ID of the report to fetch.
  *
  * @return The report or nil if not found.
  */
-- (NSDictionary*) reportNamed:(NSString*) name;
+- (NSDictionary*) reportWithID:(NSString*) reportID;
 
 /** Get a list of all reports.
  *
@@ -77,9 +78,9 @@
 
 /** Delete a report.
  *
- * @param name The report name.
+ * @param reportID The report ID.
  */
-- (void) deleteReportNamed:(NSString*) name;
+- (void) deleteReportWithID:(NSString*) reportID;
 
 /** Delete all reports.
  */
@@ -90,5 +91,21 @@
  * @param numReports the number of reports to keep.
  */
 - (void) pruneReportsLeaving:(int) numReports;
+
+/** Full path to the crash report with the specified ID.
+ *
+ * @param reportID The report ID
+ *
+ * @return The full path.
+ */
+- (NSString*) pathToCrashReportWithID:(NSString*) reportID;
+
+/** Full path to the recrash report with the specified ID.
+ *
+ * @param reportID The report ID
+ *
+ * @return The full path.
+ */
+- (NSString*) pathToRecrashReportWithID:(NSString*) reportID;
 
 @end

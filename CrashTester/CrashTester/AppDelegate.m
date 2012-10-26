@@ -1,14 +1,18 @@
 //
 //  AppDelegate.m
 //
-//  Created by Karl Stenerud on 12-03-04.
+//  Created by Karl Stenerud on 2012-03-04.
 //
 
 #import "AppDelegate.h"
 #import "ARCSafe_MemMgmt.h"
 #import "AppDelegate+UI.h"
 
-#import "KSCrash.h"
+#import <KSCrash/KSCrash.h>
+
+// Used to expose "logToFile"
+#import <KSCrash/KSCrashAdvanced.h>
+
 
 @interface AppDelegate ()
 
@@ -16,20 +20,39 @@
 
 @end
 
+static BOOL g_crashInHandler = NO;
+
+static void onCrash(const KSCrashReportWriter* writer)
+{
+    if(g_crashInHandler)
+    {
+        printf(NULL);
+    }
+    writer->addStringElement(writer, "test", "test");
+    writer->addStringElement(writer, "intl2", "テスト２");
+}
+
 
 @implementation AppDelegate
 
 @synthesize window = _window;
 @synthesize viewController = _viewController;
 
-static void onCrash(const KSReportWriter* writer)
+- (BOOL) crashInHandler
 {
-    writer->addStringElement(writer, "test", "test");
-    writer->addStringElement(writer, "intl2", "テスト２");
+    return g_crashInHandler;
+}
+
+- (void) setCrashInHandler:(BOOL)crashInHandler
+{
+    g_crashInHandler = crashInHandler;
 }
 
 - (void) installCrashHandler
 {
+    // Uncomment this to write all log entries to Library/Caches/KSCrashReports/CrashTester/CrashTester-CrashLog.txt
+//    [KSCrash logToFile];
+
     [KSCrash installWithCrashReportSink:nil
                                userInfo:[NSDictionary dictionaryWithObjectsAndKeys:
                                          @"\"quote\"", @"quoted value",
@@ -51,7 +74,7 @@ static void onCrash(const KSReportWriter* writer)
     #pragma unused(launchOptions)
 
     [self installCrashHandler];
-    
+
     self.window = as_autorelease([[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]]);
     self.window.rootViewController = [self createRootViewController];
     [self.window makeKeyAndVisible];

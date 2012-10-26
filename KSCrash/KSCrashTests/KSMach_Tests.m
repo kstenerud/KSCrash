@@ -1,7 +1,7 @@
 //
 //  KSMach_Tests.m
 //
-//  Created by Karl Stenerud on 12-03-03.
+//  Created by Karl Stenerud on 2012-03-03.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -28,6 +28,7 @@
 #import <SenTestingKit/SenTestingKit.h>
 
 #import "KSMach.h"
+
 
 @interface KSMach_Tests : SenTestCase @end
 

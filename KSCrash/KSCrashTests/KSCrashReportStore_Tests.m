@@ -1,7 +1,7 @@
 //
 //  KSCrashReportStore_Tests.m
 //
-//  Created by Karl Stenerud on 12-02-05.
+//  Created by Karl Stenerud on 2012-02-05.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -30,10 +30,17 @@
 
 #import "KSCrashReportStore.h"
 
-#define REPORT_PREFIX @"CrashReport-KSCrashTest"
 
-#define REPORT_BADPOINTER @"CrashReport-KSCrashTest-BadPointer.json"
-#define REPORT_NSEXCEPTION @"CrashReport-KSCrashTest-NSException.json"
+#define REPORT_PREFIX @"CrashReport-KSCrashTest"
+//
+//#define REPORT_BADPOINTER @"CrashReport-KSCrashTest-BadPointer.json"
+//#define REPORT_NSEXCEPTION @"CrashReport-KSCrashTest-NSException.json"
+
+@interface KSCrashReportStore (Tests)
+
+- (NSString*) reportIDFromFilename:(NSString*) filename;
+
+@end
 
 
 @interface KSCrashReportStore_Tests : FileBasedTestCase @end
@@ -48,7 +55,7 @@
 
 - (KSCrashReportStore*) store
 {
-    return [KSCrashReportStore storeWithPath:self.tempPath filenamePrefix:REPORT_PREFIX];
+    return [KSCrashReportStore storeWithPath:self.tempPath];
 }
 
 - (BOOL) reportExists:(NSString*) reportName

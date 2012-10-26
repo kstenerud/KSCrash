@@ -1,7 +1,0 @@
-//
-// Prefix header for all source files of the 'KSZombie' target in the 'KSZombie' project
-//
-
-#ifdef __OBJC__
-    #import <Foundation/Foundation.h>
-#endif

@@ -1,7 +1,7 @@
 //
 //  FileBasedTestCase.h
 //
-//  Created by Karl Stenerud on 12-02-11.
+//  Created by Karl Stenerud on 2012-02-11.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -26,6 +26,7 @@
 
 
 #import <SenTestingKit/SenTestingKit.h>
+
 
 @interface FileBasedTestCase : SenTestCase
 

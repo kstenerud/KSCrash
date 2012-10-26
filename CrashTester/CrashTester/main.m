@@ -2,7 +2,7 @@
 //  main.m
 //  CrashTester
 //
-//  Created by Karl Stenerud on 12-04-29.
+//  Created by Karl Stenerud on 2012-04-29.
 //
 
 #import <UIKit/UIKit.h>
@@ -13,8 +13,8 @@
 int main(int argc, char* argv[])
 {
     as_autoreleasepool_start(pool_a);
-    
+
     return UIApplicationMain(argc, argv, nil, NSStringFromClass([AppDelegate class]));
-    
+
     as_autoreleasepool_end(pool_a);
 }
