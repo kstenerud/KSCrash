@@ -31,6 +31,11 @@
 #import <objc/runtime.h>
 
 
+// Compiler hints for "if" statements
+#define likely_if(x) if(__builtin_expect(x,1))
+#define unlikely_if(x) if(__builtin_expect(x,0))
+
+
 #if __has_feature(objc_arc)
 
 #warning KSZombie must be compiled with ARC disabled.
@@ -63,6 +68,14 @@ typedef struct
 static Zombie* g_zombieCache;
 static unsigned int g_zombieHashMask;
 
+static struct
+{
+    Class class;
+    const void* address;
+    char name[100];
+    char reason[900];
+} g_lastDeallocedException;
+
 static inline unsigned int hashIndex(const id object)
 {
     uintptr_t objPtr = (uintptr_t)object;
@@ -75,13 +88,25 @@ static inline bool isPowerOf2(const unsigned int value)
     return value && !(value & (value - 1));
 }
 
+static inline void handleDealloc(id self)
+{
+    Zombie* zombie = g_zombieCache + hashIndex(self);
+    zombie->object = self;
+    Class class = object_getClass(self);
+    zombie->className = class_getName(class);
+    unlikely_if(class == g_lastDeallocedException.class)
+    {
+        g_lastDeallocedException.address = self;
+        strncpy(g_lastDeallocedException.name, [[self name] UTF8String], sizeof(g_lastDeallocedException.name));
+        strncpy(g_lastDeallocedException.reason, [[self reason] UTF8String], sizeof(g_lastDeallocedException.reason));
+    }
+}
+
 #define CREATE_ZOMBIE_CATEGORY(CLASS) \
 @implementation CLASS (KSZombie) \
 - (void) dealloc_KSZombieOrig \
 { \
-    Zombie* zombie = g_zombieCache + hashIndex(self); \
-    zombie->object = self; \
-    zombie->className = class_getName(object_getClass(self)); \
+    handleDealloc(self); \
     [self dealloc_KSZombieOrig]; \
 } \
 @end
@@ -124,6 +149,11 @@ void kszombie_install(unsigned int cacheSize)
         return;
     }
 
+    g_lastDeallocedException.class = [NSException class];
+    g_lastDeallocedException.address = NULL;
+    g_lastDeallocedException.name[0] = 0;
+    g_lastDeallocedException.reason[0] = 0;
+
     swizzleDealloc([NSObject class]);
     swizzleDealloc([NSProxy class]);
 }
@@ -159,6 +189,21 @@ const char* kszombie_className(const void* object)
         return zombie->className;
     }
     return NULL;
+}
+
+const void* kszombie_lastDeallocedNSExceptionAddress(void)
+{
+    return g_lastDeallocedException.address;
+}
+
+const char* kszombie_lastDeallocedNSExceptionName(void)
+{
+    return g_lastDeallocedException.name;
+}
+
+const char* kszombie_lastDeallocedNSExceptionReason(void)
+{
+    return g_lastDeallocedException.reason;
 }
 
 #endif

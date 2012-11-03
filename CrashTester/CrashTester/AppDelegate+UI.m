@@ -593,8 +593,17 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                      accessoryType:UITableViewCellAccessoryNone
                              block:^(UIViewController* controller)
       {
-           #pragma unused(controller)
+          #pragma unused(controller)
           [Crasher accessDeallocatedPtrProxy];
+      }]];
+
+    [commands addObject:
+     [CommandEntry commandWithName:@"Zombie NSException"
+                     accessoryType:UITableViewCellAccessoryNone
+                             block:^(UIViewController* controller)
+      {
+          #pragma unused(controller)
+          [Crasher zombieNSException];
       }]];
 
     [commands addObject:

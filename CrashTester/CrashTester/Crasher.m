@@ -131,4 +131,22 @@ int g_crasher_denominator = 0;
                    });
 }
 
++ (void) zombieNSException
+{
+    @try
+    {
+        [self throwException];
+    }
+    @catch (NSException *exception)
+    {
+        RefHolder* ref = as_autorelease([RefHolder new]);
+        ref.ref = exception;
+
+        dispatch_async(dispatch_get_main_queue(), ^
+                       {
+                           NSLog(@"Exception = %@", ref.ref);
+                       });
+    }
+}
+
 @end

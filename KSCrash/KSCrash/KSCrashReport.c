@@ -1470,6 +1470,66 @@ void kscrw_i_writeAppStats(const KSCrashReportWriter* const writer,
     writer->endContainer(writer);
 }
 
+/** Write information about this process.
+ *
+ * @param writer The writer.
+ *
+ * @param key The object key, if needed.
+ */
+void kscrw_i_writeProcessState(const KSCrashReportWriter* const writer,
+                               const char* const key)
+{
+    writer->beginObject(writer, key);
+    {
+        const void* excAddress = kszombie_lastDeallocedNSExceptionAddress();
+        if(excAddress != NULL)
+        {
+            writer->beginObject(writer, KSCrashField_LastDeallocedNSException);
+            {
+                writer->addUIntegerElement(writer, KSCrashField_Address,
+                                          (uintptr_t)excAddress);
+                writer->addStringElement(writer, KSCrashField_Name,
+                                         kszombie_lastDeallocedNSExceptionName());
+                writer->addStringElement(writer, KSCrashField_Reason,
+                                         kszombie_lastDeallocedNSExceptionReason());
+            }
+            writer->endContainer(writer);
+        }
+    }
+    writer->endContainer(writer);
+}
+
+/** Write basic report information.
+ *
+ * @param writer The writer.
+ *
+ * @param key The object key, if needed.
+ *
+ * @param type The report type.
+ *
+ * @param reportID The report ID.
+ */
+void kscrw_i_writeReportInfo(const KSCrashReportWriter* const writer,
+                             const char* const key,
+                             const char* const type,
+                             const char* reportID)
+{
+    writer->beginObject(writer, key);
+    {
+        writer->beginObject(writer, KSCrashField_Version);
+        {
+            writer->addIntegerElement(writer, KSCrashField_Major, kReportVersionMajor);
+            writer->addIntegerElement(writer, KSCrashField_Minor, kReportVersionMinor);
+        }
+        writer->endContainer(writer);
+
+        writer->addStringElement(writer, KSCrashField_ID, reportID);
+        writer->addIntegerElement(writer, KSCrashField_Timestamp, time(NULL));
+        writer->addStringElement(writer, KSCrashField_Type, type);
+    }
+    writer->endContainer(writer);
+}
+
 
 #pragma mark Setup
 
@@ -1532,37 +1592,6 @@ void kscrw_i_updateStackOverflowStatus(KSCrash_Context* const crashContext)
     }
 }
 
-
-/** Write basic report information.
- *
- * @param writer The writer.
- *
- * @param key The object key, if needed.
- *
- * @param type The report type.
- *
- * @param reportID The report ID.
- */
-void kscrw_i_writeReportInfo(const KSCrashReportWriter* const writer,
-                             const char* const key,
-                             const char* const type,
-                             const char* reportID)
-{
-    writer->beginObject(writer, key);
-    {
-        writer->beginObject(writer, KSCrashField_Version);
-        {
-            writer->addIntegerElement(writer, KSCrashField_Major, kReportVersionMajor);
-            writer->addIntegerElement(writer, KSCrashField_Minor, kReportVersionMinor);
-        }
-        writer->endContainer(writer);
-
-        writer->addStringElement(writer, KSCrashField_ID, reportID);
-        writer->addIntegerElement(writer, KSCrashField_Timestamp, time(NULL));
-        writer->addStringElement(writer, KSCrashField_Type, type);
-    }
-    writer->endContainer(writer);
-}
 
 // ============================================================================
 #pragma mark - Main API -
@@ -1653,6 +1682,8 @@ void kscrashreport_writeStandardReport(KSCrash_Context* const crashContext,
             kscrw_i_writeError(writer, KSCrashField_Error, &crashContext->crash);
         }
         writer->endContainer(writer);
+
+        kscrw_i_writeProcessState(writer, KSCrashField_ProcessState);
 
         if(crashContext->config.systemInfoJSON != NULL)
         {

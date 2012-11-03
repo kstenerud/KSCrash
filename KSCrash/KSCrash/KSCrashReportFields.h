@@ -130,6 +130,12 @@
 #define KSCrashField_Reason                "reason"
 
 
+#pragma mark - Process State -
+
+#define KSCrashField_LastDeallocedNSException "last_dealloced_nsexception"
+#define KSCrashField_ProcessState             "process"
+
+
 #pragma mark - App Stats -
 
 #define KSCrashField_ActiveTimeSinceCrash  "active_time_since_last_crash"

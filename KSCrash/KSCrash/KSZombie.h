@@ -74,6 +74,24 @@ void kszombie_uninstall(void);
  */
 const char* kszombie_className(const void* object);
 
+/** Get the address of the last exception to be deallocated.
+ *
+ * @return The address, or NULL if no exception has been deallocated yet.
+ */
+const void* kszombie_lastDeallocedNSExceptionAddress(void);
+
+/** Get the name of the last exception to be deallocated.
+ *
+ * @return The name.
+ */
+const char* kszombie_lastDeallocedNSExceptionName(void);
+
+/** Get the reason of the last exception to be deallocated.
+ *
+ * @return The reason.
+ */
+const char* kszombie_lastDeallocedNSExceptionReason(void);
+
 
 #ifdef __cplusplus
 }

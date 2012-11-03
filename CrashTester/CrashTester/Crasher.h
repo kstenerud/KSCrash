@@ -30,4 +30,6 @@
 
 + (void) accessDeallocatedPtrProxy;
 
++ (void) zombieNSException;
+
 @end

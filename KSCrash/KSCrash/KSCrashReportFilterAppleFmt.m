@@ -336,6 +336,11 @@ NSDictionary* g_registerOrders;
     return [report objectForKey:@KSCrashField_Report];
 }
 
+- (NSDictionary*) processReport:(NSDictionary*) report
+{
+    return [report objectForKey:@KSCrashField_ProcessState];
+}
+
 - (NSDictionary*) crashReport:(NSDictionary*) report
 {
     return [report objectForKey:@KSCrashField_Crash];
@@ -547,7 +552,17 @@ NSDictionary* g_registerOrders;
             }
         }
     }
-    
+
+    NSDictionary* lastException = [[self processReport:report] objectForKey:@KSCrashField_LastDeallocedNSException];
+    if(lastException != nil)
+    {
+        uintptr_t address = (uintptr_t)[[lastException objectForKey:@KSCrashField_Address] unsignedLongLongValue];
+        NSString* name = [lastException objectForKey:@KSCrashField_Name];
+        NSString* reason = [lastException objectForKey:@KSCrashField_Reason];
+        [str appendFormat:@"\nLast deallocated NSException (" FMT_PTR_LONG "): %@: %@\n",
+         address, name, reason];
+    }
+
     return str;
 }
 
