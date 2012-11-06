@@ -1492,6 +1492,11 @@ void kscrw_i_writeProcessState(const KSCrashReportWriter* const writer,
                                          kszombie_lastDeallocedNSExceptionName());
                 writer->addStringElement(writer, KSCrashField_Reason,
                                          kszombie_lastDeallocedNSExceptionReason());
+                kscrw_i_writeBacktrace(writer,
+                                       KSCrashField_Backtrace,
+                                       kszombie_lastDeallocedNSExceptionCallStack(),
+                                       (int)kszombie_lastDeallocedNSExceptionCallStackLength(),
+                                       0);
             }
             writer->endContainer(writer);
         }

@@ -74,7 +74,10 @@ static struct
     const void* address;
     char name[100];
     char reason[900];
+    uintptr_t callStack[50];
+    NSUInteger callStackLength;
 } g_lastDeallocedException;
+static const NSUInteger g_callStackSize = sizeof(g_lastDeallocedException.callStack) / sizeof(*g_lastDeallocedException.callStack);
 
 static inline unsigned int hashIndex(const id object)
 {
@@ -88,6 +91,25 @@ static inline bool isPowerOf2(const unsigned int value)
     return value && !(value & (value - 1));
 }
 
+static void storeException(NSException* exception)
+{
+    g_lastDeallocedException.address = exception;
+    strncpy(g_lastDeallocedException.name, [[exception name] UTF8String], sizeof(g_lastDeallocedException.name));
+    strncpy(g_lastDeallocedException.reason, [[exception reason] UTF8String], sizeof(g_lastDeallocedException.reason));
+
+    NSArray* callStack = [exception callStackReturnAddresses];
+    NSUInteger count = [callStack count];
+    if(count > g_callStackSize)
+    {
+        count = g_callStackSize;
+    }
+    for(NSUInteger i = 0; i < count; i++)
+    {
+        g_lastDeallocedException.callStack[i] = [[callStack objectAtIndex:i] unsignedIntegerValue];
+    }
+    g_lastDeallocedException.callStackLength = count;
+}
+
 static inline void handleDealloc(id self)
 {
     Zombie* zombie = g_zombieCache + hashIndex(self);
@@ -96,9 +118,7 @@ static inline void handleDealloc(id self)
     zombie->className = class_getName(class);
     unlikely_if(class == g_lastDeallocedException.class)
     {
-        g_lastDeallocedException.address = self;
-        strncpy(g_lastDeallocedException.name, [[self name] UTF8String], sizeof(g_lastDeallocedException.name));
-        strncpy(g_lastDeallocedException.reason, [[self reason] UTF8String], sizeof(g_lastDeallocedException.reason));
+        storeException(self);
     }
 }
 
@@ -204,6 +224,16 @@ const char* kszombie_lastDeallocedNSExceptionName(void)
 const char* kszombie_lastDeallocedNSExceptionReason(void)
 {
     return g_lastDeallocedException.reason;
+}
+
+const uintptr_t* kszombie_lastDeallocedNSExceptionCallStack(void)
+{
+    return g_lastDeallocedException.callStack;
+}
+
+const unsigned int kszombie_lastDeallocedNSExceptionCallStackLength(void)
+{
+    return g_lastDeallocedException.callStackLength;
 }
 
 #endif

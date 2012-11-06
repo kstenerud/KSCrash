@@ -367,6 +367,14 @@ NSDictionary* g_registerOrders;
     return [crash objectForKey:@KSCrashField_CrashedThread];
 }
 
+- (NSString*) mainExecutableNameForReport:(NSDictionary*) report
+{
+    NSDictionary* system = [self systemReport:report];
+    NSString* executablePath = [system objectForKey:@KSSystemField_ExecutablePath];
+    NSString* executableName = [executablePath lastPathComponent];
+    return executableName;
+}
+
 - (NSString*) cpuArchForReport:(NSDictionary*) report
 {
     NSDictionary* system = [self systemReport:report];
@@ -497,6 +505,7 @@ NSDictionary* g_registerOrders;
 }
 
 - (NSString*) extraInfoStringForReport:(NSDictionary*) report
+                    mainExecutableName:(NSString*) mainExecutableName
 {
     NSMutableString* str = [NSMutableString string];
 
@@ -561,6 +570,10 @@ NSDictionary* g_registerOrders;
         NSString* reason = [lastException objectForKey:@KSCrashField_Reason];
         [str appendFormat:@"\nLast deallocated NSException (" FMT_PTR_LONG "): %@: %@\n",
          address, name, reason];
+        [str appendString:
+         [self backtraceString:[lastException objectForKey:@KSCrashField_Backtrace]
+                   reportStyle:self.reportStyle
+            mainExecutableName:mainExecutableName]];
     }
 
     return str;
@@ -652,19 +665,16 @@ NSDictionary* g_registerOrders;
 }
 
 - (NSString*) threadListStringForReport:(NSDictionary*) report
+                     mainExecutableName:(NSString*) mainExecutableName
 {
     NSMutableString* str = [NSMutableString string];
 
-    NSDictionary* system = [self systemReport:report];
     NSDictionary* crash = [self crashReport:report];
     NSArray* threads = [crash objectForKey:@KSCrashField_Threads];
 
-    NSString* executablePath = [system objectForKey:@KSSystemField_ExecutablePath];
-    NSString* executableName = [executablePath lastPathComponent];
-
     for(NSDictionary* thread in threads)
     {
-        [str appendString:[self threadStringForThread:thread mainExecutableName:executableName]];
+        [str appendString:[self threadStringForThread:thread mainExecutableName:mainExecutableName]];
     }
 
     return str;
@@ -673,14 +683,14 @@ NSDictionary* g_registerOrders;
 - (NSString*) crashReportString:(NSDictionary*) report
 {
     NSMutableString* str = [NSMutableString string];
+    NSString* executableName = [self mainExecutableNameForReport:report];
 
     [str appendString:[self headerStringForReport:report]];
     [str appendString:[self errorInfoStringForReport:report]];
-    [str appendString:[self threadListStringForReport:report]];
-    [str appendString:[self crashedThreadCPUStateStringForReport:report
-                                                         cpuArch:[self cpuArchForReport:report]]];
+    [str appendString:[self threadListStringForReport:report mainExecutableName:executableName]];
+    [str appendString:[self crashedThreadCPUStateStringForReport:report cpuArch:[self cpuArchForReport:report]]];
     [str appendString:[self binaryImagesStringForReport:report]];
-    [str appendString:[self extraInfoStringForReport:report]];
+    [str appendString:[self extraInfoStringForReport:report mainExecutableName:executableName]];
 
     return str;
 }

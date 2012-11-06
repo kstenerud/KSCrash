@@ -92,6 +92,18 @@ const char* kszombie_lastDeallocedNSExceptionName(void);
  */
 const char* kszombie_lastDeallocedNSExceptionReason(void);
 
+/** Get the call stack from the last exception to be deallocated.
+ *
+ * @return The call stack.
+ */
+const uintptr_t* kszombie_lastDeallocedNSExceptionCallStack(void);
+
+/** Get the length of the call stack from the last exception to be deallocated.
+ *
+ * @return The call stack length.
+ */
+const unsigned int kszombie_lastDeallocedNSExceptionCallStackLength(void);
+
 
 #ifdef __cplusplus
 }

@@ -135,7 +135,7 @@ int g_crasher_denominator = 0;
 {
     @try
     {
-        [self throwException];
+        [NSException raise:@"TurboEncabulatorException" format:@"Spurving bearing failure: Barescent skor motion non-sinusoidal"];
     }
     @catch (NSException *exception)
     {
