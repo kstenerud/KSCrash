@@ -155,6 +155,7 @@ bool kscrash_install(const char* const crashReportFilePath,
         context->state.appLaunchTime = mach_absolute_time();
         context->config.printTraceToStdout = printTraceToStdout;
         context->config.systemInfoJSON = kssysteminfo_toJSON();
+        context->config.processName = kssystemInfo_copyProcessName();
         kscrash_setUserInfoJSON(userInfoJSON);
         context->config.crashID = strdup(crashID);
         context->config.onCrashNotify = onCrashNotify;

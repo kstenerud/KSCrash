@@ -1517,7 +1517,8 @@ void kscrw_i_writeProcessState(const KSCrashReportWriter* const writer,
 void kscrw_i_writeReportInfo(const KSCrashReportWriter* const writer,
                              const char* const key,
                              const char* const type,
-                             const char* reportID)
+                             const char* const reportID,
+                             const char* const processName)
 {
     writer->beginObject(writer, key);
     {
@@ -1529,6 +1530,7 @@ void kscrw_i_writeReportInfo(const KSCrashReportWriter* const writer,
         writer->endContainer(writer);
 
         writer->addStringElement(writer, KSCrashField_ID, reportID);
+        writer->addStringElement(writer, KSCrashField_ProcessName, processName);
         writer->addIntegerElement(writer, KSCrashField_Timestamp, time(NULL));
         writer->addStringElement(writer, KSCrashField_Type, type);
     }
@@ -1597,6 +1599,11 @@ void kscrw_i_updateStackOverflowStatus(KSCrash_Context* const crashContext)
     }
 }
 
+void kscrw_i_callUserCrashHandler(KSCrash_Context* const crashContext,
+                                  KSCrashReportWriter* writer)
+{
+    crashContext->config.onCrashNotify(writer);
+}
 
 // ============================================================================
 #pragma mark - Main API -
@@ -1631,7 +1638,8 @@ void kscrashreport_writeMinimalReport(KSCrash_Context* const crashContext,
         kscrw_i_writeReportInfo(writer,
                                 KSCrashField_Report,
                                 KSCrashReportType_Minimal,
-                                crashContext->config.crashID);
+                                crashContext->config.crashID,
+                                crashContext->config.processName);
 
         writer->beginObject(writer, KSCrashField_Crash);
         {
@@ -1677,7 +1685,8 @@ void kscrashreport_writeStandardReport(KSCrash_Context* const crashContext,
         kscrw_i_writeReportInfo(writer,
                                 KSCrashField_Report,
                                 KSCrashReportType_Standard,
-                                crashContext->config.crashID);
+                                crashContext->config.crashID,
+                                crashContext->config.processName);
 
         kscrw_i_writeBinaryImages(writer, KSCrashField_BinaryImages);
 
@@ -1711,7 +1720,7 @@ void kscrashreport_writeStandardReport(KSCrash_Context* const crashContext,
         {
             writer->beginObject(writer, KSCrashField_UserAtCrash);
             {
-                crashContext->config.onCrashNotify(writer);
+                kscrw_i_callUserCrashHandler(crashContext, writer);
             }
             writer->endContainer(writer);
         }

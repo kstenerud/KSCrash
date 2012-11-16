@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		394DCC71164F43C2008A4C50 /* KSCrashDoctor.h in Headers */ = {isa = PBXBuildFile; fileRef = 394DCC6F164F43C2008A4C50 /* KSCrashDoctor.h */; };
+		394DCC72164F43C2008A4C50 /* KSCrashDoctor.m in Sources */ = {isa = PBXBuildFile; fileRef = 394DCC70164F43C2008A4C50 /* KSCrashDoctor.m */; };
+		394DCC73164F547E008A4C50 /* KSCrashDoctor.h in Headers */ = {isa = PBXBuildFile; fileRef = 394DCC6F164F43C2008A4C50 /* KSCrashDoctor.h */; };
+		394DCC74164F547E008A4C50 /* KSCrashDoctor.m in Sources */ = {isa = PBXBuildFile; fileRef = 394DCC70164F43C2008A4C50 /* KSCrashDoctor.m */; };
 		397A7C87162266480096E287 /* KSCrashReportFields.h in Headers */ = {isa = PBXBuildFile; fileRef = 397A7C86162266480096E287 /* KSCrashReportFields.h */; };
 		397A7C88162266480096E287 /* KSCrashReportFields.h in Headers */ = {isa = PBXBuildFile; fileRef = 397A7C86162266480096E287 /* KSCrashReportFields.h */; };
 		39DA35BA1618432E009EB332 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 39DA35B81618432E009EB332 /* InfoPlist.strings */; };
@@ -256,6 +260,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		394DCC6F164F43C2008A4C50 /* KSCrashDoctor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashDoctor.h; sourceTree = "<group>"; };
+		394DCC70164F43C2008A4C50 /* KSCrashDoctor.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSCrashDoctor.m; sourceTree = "<group>"; };
 		397A7C86162266480096E287 /* KSCrashReportFields.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.objj.h; path = KSCrashReportFields.h; sourceTree = "<group>"; };
 		39DA35A01618430C009EB332 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		39DA35B41618432E009EB332 /* KSCrash.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KSCrash.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -533,6 +539,8 @@
 		39DA82C816184469001E7F79 /* Crash Reporting */ = {
 			isa = PBXGroup;
 			children = (
+				394DCC6F164F43C2008A4C50 /* KSCrashDoctor.h */,
+				394DCC70164F43C2008A4C50 /* KSCrashDoctor.m */,
 				39DA82BC16184456001E7F79 /* KSCrashReportStore.h */,
 				39DA82BD16184456001E7F79 /* KSCrashReportStore.m */,
 				39DA82CA1618447B001E7F79 /* Filters */,
@@ -728,6 +736,7 @@
 				39DA832C16184492001E7F79 /* NSData+GZip.h in Headers */,
 				39DA833016184492001E7F79 /* NSMutableData+AppendUTF8.h in Headers */,
 				39DA8399161844FF001E7F79 /* RFC3339DateTool.h in Headers */,
+				394DCC71164F43C2008A4C50 /* KSCrashDoctor.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -786,6 +795,7 @@
 				39DA833116184492001E7F79 /* NSMutableData+AppendUTF8.h in Headers */,
 				39DA8398161844FF001E7F79 /* LoadableCategory.h in Headers */,
 				39DA839A161844FF001E7F79 /* RFC3339DateTool.h in Headers */,
+				394DCC73164F547E008A4C50 /* KSCrashDoctor.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -974,6 +984,7 @@
 				39DA83CF1618450A001E7F79 /* KSCrashState.c in Sources */,
 				39DA83D51618450A001E7F79 /* KSSystemInfo.m in Sources */,
 				39DA84F7161978D7001E7F79 /* NSDictionary+Merge.m in Sources */,
+				394DCC72164F43C2008A4C50 /* KSCrashDoctor.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1025,6 +1036,7 @@
 				39DA83D01618450A001E7F79 /* KSCrashState.c in Sources */,
 				39DA83D61618450A001E7F79 /* KSSystemInfo.m in Sources */,
 				39DA84F9161978DE001E7F79 /* NSDictionary+Merge.m in Sources */,
+				394DCC74164F547E008A4C50 /* KSCrashDoctor.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

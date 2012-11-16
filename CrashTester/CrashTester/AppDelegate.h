@@ -5,7 +5,7 @@
 //
 
 #import <UIKit/UIKit.h>
-
+#import "Crasher.h"
 
 @interface AppDelegate : UIResponder <UIApplicationDelegate>
 
@@ -14,5 +14,7 @@
 @property (retain, nonatomic) UIViewController* viewController;
 
 @property(nonatomic, readwrite, assign) BOOL crashInHandler;
+
+@property (retain, nonatomic) Crasher* crasher;
 
 @end

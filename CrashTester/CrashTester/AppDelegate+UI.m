@@ -504,7 +504,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                              block:^(UIViewController* controller)
       {
           #pragma unused(controller)
-          [Crasher throwException];
+          [self.crasher throwException];
       }]];
     
     [commands addObject:
@@ -513,7 +513,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                              block:^(UIViewController* controller)
       {
           #pragma unused(controller)
-          [Crasher dereferenceBadPointer];
+          [self.crasher dereferenceBadPointer];
       }]];
     
     [commands addObject:
@@ -522,7 +522,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                              block:^(UIViewController* controller)
       {
           #pragma unused(controller)
-          [Crasher dereferenceNullPointer];
+          [self.crasher dereferenceNullPointer];
       }]];
     
     [commands addObject:
@@ -531,7 +531,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                              block:^(UIViewController* controller)
       {
           #pragma unused(controller)
-          [Crasher useCorruptObject];
+          [self.crasher useCorruptObject];
       }]];
     
     [commands addObject:
@@ -540,7 +540,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                              block:^(UIViewController* controller)
       {
           #pragma unused(controller)
-          [Crasher spinRunloop];
+          [self.crasher spinRunloop];
       }]];
     
     [commands addObject:
@@ -549,7 +549,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                              block:^(UIViewController* controller)
       {
           #pragma unused(controller)
-          [Crasher causeStackOverflow];
+          [self.crasher causeStackOverflow];
       }]];
     
     [commands addObject:
@@ -558,7 +558,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                              block:^(UIViewController* controller)
       {
           #pragma unused(controller)
-          [Crasher doAbort];
+          [self.crasher doAbort];
       }]];
     
     [commands addObject:
@@ -567,7 +567,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                              block:^(UIViewController* controller)
       {
           #pragma unused(controller)
-          [Crasher doDiv0];
+          [self.crasher doDiv0];
       }]];
     
     [commands addObject:
@@ -576,7 +576,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                              block:^(UIViewController* controller)
       {
           #pragma unused(controller)
-          [Crasher doIllegalInstruction];
+          [self.crasher doIllegalInstruction];
       }]];
 
     [commands addObject:
@@ -585,7 +585,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                              block:^(UIViewController* controller)
       {
            #pragma unused(controller)
-          [Crasher accessDeallocatedObject];
+          [self.crasher accessDeallocatedObject];
       }]];
 
     [commands addObject:
@@ -594,7 +594,16 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                              block:^(UIViewController* controller)
       {
           #pragma unused(controller)
-          [Crasher accessDeallocatedPtrProxy];
+          [self.crasher accessDeallocatedPtrProxy];
+      }]];
+
+    [commands addObject:
+     [CommandEntry commandWithName:@"Corrupt Memory"
+                     accessoryType:UITableViewCellAccessoryNone
+                             block:^(UIViewController* controller)
+      {
+          #pragma unused(controller)
+          [self.crasher corruptMemory];
       }]];
 
     [commands addObject:
@@ -603,7 +612,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                              block:^(UIViewController* controller)
       {
           #pragma unused(controller)
-          [Crasher zombieNSException];
+          [self.crasher zombieNSException];
       }]];
 
     [commands addObject:
@@ -613,7 +622,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
       {
           #pragma unused(controller)
           self.crashInHandler = YES;
-          [Crasher dereferenceBadPointer];
+          [self.crasher dereferenceBadPointer];
       }]];
 
 

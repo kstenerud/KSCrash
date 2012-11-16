@@ -33,6 +33,7 @@
 #import "KSSafeCollections.h"
 #import "NSDictionary+Merge.h"
 #import "RFC3339DateTool.h"
+#import "KSCrashDoctor.h"
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -280,6 +281,11 @@
     [self mergeDictWithKey:@KSCrashField_UserAtCrash
            intoDictWithKey:@KSCrashField_User
                   inReport:mutableReport];
+
+    NSMutableDictionary* crashReport = as_autorelease([[report objectForKey:@KSCrashField_Crash] mutableCopy]);
+    [mutableReport setObjectIfNotNil:crashReport forKey:@KSCrashField_Crash];
+    KSCrashDoctor* doctor = [KSCrashDoctor doctor];
+    [crashReport setObject:[doctor diagnoseCrash:report] forKey:@KSCrashField_Diagnosis];
 
     return mutableReport;
 }

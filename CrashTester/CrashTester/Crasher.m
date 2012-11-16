@@ -41,24 +41,24 @@
 int* g_crasher_null_ptr = NULL;
 int g_crasher_denominator = 0;
 
-+ (void) throwException
+- (void) throwException
 {
     id data = @"a";
     [data objectAtIndex:0];
 }
 
-+ (void) dereferenceBadPointer
+- (void) dereferenceBadPointer
 {
     char* ptr = (char*)-1;
     *ptr = 1;
 }
 
-+ (void) dereferenceNullPointer
+- (void) dereferenceNullPointer
 {
     *g_crasher_null_ptr = 1;
 }
 
-+ (void) useCorruptObject
+- (void) useCorruptObject
 {
     // From http://landonf.bikemonkey.org/2011/09/14
     
@@ -74,7 +74,7 @@ int g_crasher_denominator = 0;
     [(as_bridge id)&corruptObj class];
 }
 
-+ (void) spinRunloop
+- (void) spinRunloop
 {
     // From http://landonf.bikemonkey.org/2011/09/14
     
@@ -85,42 +85,49 @@ int g_crasher_denominator = 0;
     *g_crasher_null_ptr = 1;
 }
 
-+ (void) causeStackOverflow
+- (void) causeStackOverflow
 {
     [self causeStackOverflow];
 }
 
-+ (void) doAbort
+- (void) doAbort
 {
     abort();
 }
 
-+ (void) doDiv0
+- (void) doDiv0
 {
     int value = 10;
     value /= g_crasher_denominator;
     NSLog(@"%d", value);
 }
 
-+ (void) doIllegalInstruction
+- (void) doIllegalInstruction
 {
     unsigned int data[] = {0x11111111, 0x11111111};
     void (*funcptr)() = (void (*)())data;
     funcptr();
 }
 
-+ (void) accessDeallocatedObject
+- (void) accessDeallocatedObject
 {
+//    NSArray* array = [[NSArray alloc] initWithObjects:@"", nil];
+//    [array release];
+//    void* ptr = array;
+//    memset(ptr, 0xe1, 16);
+//    [array objectAtIndex:10];
+//    return;
+
     RefHolder* ref = as_autorelease([RefHolder new]);
-    ref.ref = as_autorelease([MyClass new]);
+    ref.ref = [NSArray arrayWithObjects:@"test1", @"test2", nil];
 
     dispatch_async(dispatch_get_main_queue(), ^
                    {
-                       NSLog(@"Object = %@", ref.ref);
+                       NSLog(@"Object = %@", [ref.ref objectAtIndex:1]);
                    });
 }
 
-+ (void) accessDeallocatedPtrProxy
+- (void) accessDeallocatedPtrProxy
 {
     RefHolder* ref = as_autorelease([RefHolder new]);
     ref.ref = as_autorelease([MyProxy alloc]);
@@ -131,7 +138,7 @@ int g_crasher_denominator = 0;
                    });
 }
 
-+ (void) zombieNSException
+- (void) zombieNSException
 {
     @try
     {
@@ -147,6 +154,17 @@ int g_crasher_denominator = 0;
                            NSLog(@"Exception = %@", ref.ref);
                        });
     }
+}
+
+- (void) corruptMemory
+{
+    size_t stringsize = sizeof(uintptr_t) * 2 + 2;
+    NSString* string = [NSString stringWithFormat:@"%d", 1];
+    NSLog(@"%@", string);
+    void* cast = (as_bridge void*)string;
+    uintptr_t address = (uintptr_t)cast;
+    void* ptr = (void*)address + stringsize;
+    memset(ptr, 0xa1, 500);
 }
 
 @end

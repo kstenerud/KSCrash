@@ -43,6 +43,11 @@ extern "C" {
  */
 const char* kssysteminfo_toJSON(void);
 
+/** Create a copy of the current process name.
+ *
+ * @return The process name. Caller is responsible for calling free().
+ */
+const char* kssystemInfo_copyProcessName(void);
 
 #ifdef __cplusplus
 }

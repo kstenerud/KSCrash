@@ -46,13 +46,13 @@
 
 #define kDefaultKeyUserID @"user_id"
 #define kDefaultKeyContactEmail @"contact_email"
-#define kDefaultKeyDescription @"crash_description"
+#define kDefaultKeyDescription [NSArray arrayWithObjects:@"crash_description", @KSCrashField_System, @KSCrashField_User, nil]
 
 @interface KSCrashReportFilterQuincy ()
 
 @property(nonatomic, readwrite, retain) NSString* userIDKey;
 @property(nonatomic, readwrite, retain) NSString* contactEmailKey;
-@property(nonatomic, readwrite, retain) NSString* crashDescriptionKey;
+@property(nonatomic, readwrite, retain) NSArray* crashDescriptionKeys;
 
 - (NSString*) cdataEscaped:(NSString*) string;
 
@@ -67,40 +67,40 @@
 
 @synthesize userIDKey = _userIDKey;
 @synthesize contactEmailKey = _contactEmailKey;
-@synthesize crashDescriptionKey = _crashDescriptionKey;
+@synthesize crashDescriptionKeys = _crashDescriptionKeys;
 
 + (KSCrashReportFilterQuincy*) filter
 {
     return [self filterWithUserIDKey:nil
                      contactEmailKey:nil
-                 crashDescriptionKey:nil];
+                crashDescriptionKeys:nil];
 }
 
 + (KSCrashReportFilterQuincy*) filterWithUserIDKey:(NSString*) userIDKey
                                    contactEmailKey:(NSString*) contactEmailKey
-                               crashDescriptionKey:(NSString*) crashDescriptionKey
+                              crashDescriptionKeys:(NSArray*) crashDescriptionKeys;
 {
     return as_autorelease([[self alloc] initWithUserIDKey:userIDKey
                                           contactEmailKey:contactEmailKey
-                                      crashDescriptionKey:crashDescriptionKey]);
+                                     crashDescriptionKeys:crashDescriptionKeys]);
 }
 
 - (id) init
 {
     return [self initWithUserIDKey:nil
                    contactEmailKey:nil
-               crashDescriptionKey:nil];
+              crashDescriptionKeys:nil];
 }
 
 - (id) initWithUserIDKey:(NSString*) userIDKey
          contactEmailKey:(NSString*) contactEmailKey
-     crashDescriptionKey:(NSString*) crashDescriptionKey
+    crashDescriptionKeys:(NSArray*) crashDescriptionKeys;
 {
     if((self = [super init]))
     {
         self.userIDKey = userIDKey != nil ? userIDKey : kDefaultKeyUserID;
         self.contactEmailKey = contactEmailKey != nil ? contactEmailKey : kDefaultKeyContactEmail;
-        self.crashDescriptionKey = crashDescriptionKey != nil ? crashDescriptionKey : kDefaultKeyDescription;
+        self.crashDescriptionKeys = crashDescriptionKeys != nil ? crashDescriptionKeys : kDefaultKeyDescription;
     }
     return self;
 }
@@ -109,7 +109,7 @@
 {
     as_release(_userIDKey);
     as_release(_contactEmailKey);
-    as_release(_crashDescriptionKey);
+    as_release(_crashDescriptionKeys);
     as_superdealloc();
 }
 
@@ -126,6 +126,47 @@
     return string == nil ? @"" : string;
 }
 
+- (NSString*) descriptionForReport:(NSDictionary*) report keys:(NSArray*) keys
+{
+    NSMutableString* str = [NSMutableString string];
+    NSUInteger count = [keys count];
+    for(NSUInteger i = 0; i < count; i++)
+    {
+        NSString* stringValue = nil;
+        NSString* key = [keys objectAtIndex:i];
+        id value = [report objectForKeyPath:key];
+        if([value isKindOfClass:[NSString class]])
+        {
+            stringValue = value;
+        }
+        else if([value isKindOfClass:[NSDictionary class]] || [value isKindOfClass:[NSArray class]])
+        {
+            NSError* error = nil;
+            NSData* encoded = [KSJSONCodec encode:value options:KSJSONEncodeOptionSorted | KSJSONEncodeOptionPretty error:&error];
+            if(error != nil)
+            {
+                KSLOG_ERROR(@"Could not encode report section %@: %@", key, error);
+                continue;
+            }
+            stringValue = as_autorelease([[NSString alloc] initWithData:encoded encoding:NSUTF8StringEncoding]);
+        }
+        else
+        {
+            KSLOG_ERROR(@"Could not encode report section %@: Don't know how to encode class %@", key, [value class]);
+        }
+        if(stringValue != nil)
+        {
+            if(i > 0)
+            {
+                [str appendString:@"\n\n"];
+            }
+            [str appendFormat:@"%@:\n", key];
+            [str appendString:stringValue];
+        }
+    }
+    return str;
+}
+
 - (NSString*) toQuincyFormat:(NSDictionary*) reportTuple
 {
     NSDictionary* report = [reportTuple objectForKey:kFilterKeyStandard];
@@ -133,7 +174,7 @@
     NSDictionary* systemDict = [report objectForKey:@KSCrashField_System];
     NSString* userID = [self blankForNil:[report objectForKeyPath:self.userIDKey]];
     NSString* contactEmail = [self blankForNil:[report objectForKeyPath:self.contactEmailKey]];
-    NSString* crashReportDescription = [self blankForNil:[report objectForKeyPath:self.crashDescriptionKey]];
+    NSString* crashReportDescription = [self descriptionForReport:report keys:self.crashDescriptionKeys];
 
     NSString* result = [NSString stringWithFormat:
                         @"\n    <crash>\n"
@@ -233,12 +274,12 @@
 {
     return [self defaultCrashReportFilterSetWithUserIDKey:nil
                                           contactEmailKey:nil
-                                      crashDescriptionKey:nil];
+                                     crashDescriptionKeys:nil];
 }
 
 - (NSArray*) defaultCrashReportFilterSetWithUserIDKey:(NSString*) userIDKey
                                       contactEmailKey:(NSString*) contactEmailKey
-                                  crashDescriptionKey:(NSString*) crashDescriptionKey
+                                 crashDescriptionKeys:(NSArray*) crashDescriptionKeys;
 {
     return [NSArray arrayWithObjects:
             [KSCrashReportFilterCombine filterWithFiltersAndKeys:
@@ -249,7 +290,7 @@
              nil],
             [KSCrashReportFilterQuincy filterWithUserIDKey:userIDKey
                                            contactEmailKey:contactEmailKey
-                                       crashDescriptionKey:crashDescriptionKey],
+                                      crashDescriptionKeys:crashDescriptionKeys],
             self,
             nil];
 }

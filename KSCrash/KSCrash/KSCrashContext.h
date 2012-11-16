@@ -51,6 +51,9 @@ typedef struct
     /** A unique identifier (UUID). */
     const char* crashID;
 
+    /** Name of this process. */
+    const char* processName;
+
     /** System information in JSON format (to be written to the report). */
     const char* systemInfoJSON;
 

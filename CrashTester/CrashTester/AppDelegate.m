@@ -37,6 +37,7 @@ static void onCrash(const KSCrashReportWriter* writer)
 
 @synthesize window = _window;
 @synthesize viewController = _viewController;
+@synthesize crasher = _crasher;
 
 - (BOOL) crashInHandler
 {
@@ -74,6 +75,7 @@ static void onCrash(const KSCrashReportWriter* writer)
     #pragma unused(launchOptions)
 
     [self installCrashHandler];
+    self.crasher = as_autorelease([[Crasher alloc] init]);
 
     self.window = as_autorelease([[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]]);
     self.window.rootViewController = [self createRootViewController];
@@ -85,6 +87,7 @@ static void onCrash(const KSCrashReportWriter* writer)
 {
     as_release(_viewController);
     as_release(_window);
+    as_release(_crasher);
     as_superdealloc();
 }
 

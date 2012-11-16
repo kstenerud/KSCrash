@@ -369,10 +369,8 @@ NSDictionary* g_registerOrders;
 
 - (NSString*) mainExecutableNameForReport:(NSDictionary*) report
 {
-    NSDictionary* system = [self systemReport:report];
-    NSString* executablePath = [system objectForKey:@KSSystemField_ExecutablePath];
-    NSString* executableName = [executablePath lastPathComponent];
-    return executableName;
+    NSDictionary* info = [self infoReport:report];
+    return [info objectForKey:@KSCrashField_ProcessName];
 }
 
 - (NSString*) cpuArchForReport:(NSDictionary*) report
@@ -576,6 +574,13 @@ NSDictionary* g_registerOrders;
             mainExecutableName:mainExecutableName]];
     }
 
+    NSDictionary* crashReport = [report objectForKey:@KSCrashField_Crash];
+    NSString* diagnosis = [crashReport objectForKey:@KSCrashField_Diagnosis];
+    if(diagnosis != nil)
+    {
+        [str appendFormat:@"\nCrashDoctor Diagnosis: %@\n", diagnosis];
+    }
+
     return str;
 }
 
@@ -716,6 +721,11 @@ NSDictionary* g_registerOrders;
     [str appendString:[self threadStringForThread:thread mainExecutableName:executableName]];
     [str appendString:[self crashedThreadCPUStateStringForReport:recrashReport
                                                          cpuArch:[self cpuArchForReport:report]]];
+    NSString* diagnosis = [crash objectForKey:@KSCrashField_Diagnosis];
+    if(diagnosis != nil)
+    {
+        [str appendFormat:@"\nRecrash Diagnosis: %@", diagnosis];
+    }
 
     return str;
 }
