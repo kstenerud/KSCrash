@@ -285,7 +285,7 @@
     NSMutableDictionary* crashReport = as_autorelease([[report objectForKey:@KSCrashField_Crash] mutableCopy]);
     [mutableReport setObjectIfNotNil:crashReport forKey:@KSCrashField_Crash];
     KSCrashDoctor* doctor = [KSCrashDoctor doctor];
-    [crashReport setObject:[doctor diagnoseCrash:report] forKey:@KSCrashField_Diagnosis];
+    [crashReport setObjectIfNotNil:[doctor diagnoseCrash:report] forKey:@KSCrashField_Diagnosis];
 
     return mutableReport;
 }
