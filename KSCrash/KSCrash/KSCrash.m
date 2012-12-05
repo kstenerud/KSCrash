@@ -29,7 +29,6 @@
 
 #import "ARCSafe_MemMgmt.h"
 #import "KSCrashC.h"
-#import "KSCrashReportStore.h"
 #import "KSCrashState.h"
 #import "KSJSONCodecObjC.h"
 
@@ -67,17 +66,6 @@
 // ============================================================================
 
 static KSCrash* g_instance;
-
-
-// ============================================================================
-#pragma mark - IVars -
-// ============================================================================
-
-@interface KSCrash ()
-
-@property(nonatomic,readwrite,retain) KSCrashReportStore* crashReportStore;
-
-@end
 
 
 @implementation KSCrash

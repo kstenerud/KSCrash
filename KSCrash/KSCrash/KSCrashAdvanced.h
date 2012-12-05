@@ -26,6 +26,7 @@
 
 
 #import "KSCrash.h"
+#import "KSCrashReportStore.h"
 
 
 /** Advanced interface to the KSCrash system.
@@ -47,6 +48,9 @@
 
 /** Where the crash reports are stored. */
 @property(nonatomic,readonly,retain) NSString* crashReportsPath;
+
+/** Store containing all crash reports. */
+@property(nonatomic,readwrite,retain) KSCrashReportStore* crashReportStore;
 
 /** Send any outstanding crash reports to the current sink.
  * It will only attempt to send the most recent 5 reports. All others will be
