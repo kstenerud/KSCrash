@@ -5,29 +5,33 @@ KSCrash
 
 ### Beta Note
 
-KSCrash is "beta" software for two reasons:
+Although it's now being shipped in production apps, KSCrash is still
+officially considered "beta" software because there are a few more
+enhancements I want to make before releasing version 1.0.
 
-1. Though it has received months of testing, I have not yet deployed it into
-   one of my live apps. Until then, I cannot in good faith call it "production"
-   code.
+The following features are newer and not as tested as the rest:
 
-2. I haven't written a decent server-side API for it yet (I have a really
-   crappy API server + webapp that I wrote using Django and Cappuccino that I'd
-   be embarrassed to show anyone. If you can help with this effort, let me
-   know!). It does work with Hockey and Quincy, and I'll be adding support for
-   other services soon.
+- Recrash detection
+- Interesting address detection in the stack and registers
+- Zombie detection
+- Crash Doctor 
+
+These features are being used in deployed systems, but have not had as much
+exposure as the rest of the library.
+
+Also, the backend side is not done yet, though Hockey and Quincy integration
+is fully implemented and working (more on the way as time allows).
 
 
 ### Another crash reporter? Why?
 
-Because all existing solutions fall short. PLCrashReporter comes very close,
-but not quite:
+Because all existing solutions fall short in some way:
 
-* It can't handle stack overflow crashes.
-* It doesn't fill in all fields for its Apple crash reports.
-* It can't symbolicate on the device.
-* It only records enough information for an Apple crash report, though there is
-  plenty of extra useful information to be gathered!
+* None of them handle stack overflow crashes.
+* None of them fill in all fields for its Apple crash reports.
+* Some don't symbolicate on the device.
+* They only record enough information for an Apple crash report, though there
+  is plenty of other useful information to be gathered!
 
 As well, each crash reporter service, though most of them use PLCrashReporter
 at the core, has its own format and API.
@@ -43,7 +47,10 @@ at the core, has its own format and API.
   reporter.
 * It is the only crash reporter capable of creating a 100% complete Apple crash
   report (including thread/queue names).
-* It can be compiled with or without ARC.
+* It supports zombie detection in the wild.
+* It can piece together objective-c method calls.
+* It provides extra contextual information to help you track down the cause of
+  the crash.
 
 [Click here for some examples of the reports it can generate.](https://github.com/kstenerud/KSCrash/tree/master/ExampleReports)
 
@@ -151,14 +158,6 @@ won't attempt to report to an external API until you assign it a sink:
     #import <KSCrash/KSCrashAdvanced.h>
 
 	[KSCrash instance].sink = [KSCrashReportSinkStandard sinkWithURL:myAPIURL onSuccess:nil];
-
-
-### Using the low level crash reporting API
-
-KSCrash is written in two layers: The part that records crashes, and the part
-that sends crashes to a server. If you want to do your own high level
-implementation, you can use **KSCrashLite.framework** (basically everything
-inside the "Reporting" source tree) as your base and build upon that.
 
 
 Examples
