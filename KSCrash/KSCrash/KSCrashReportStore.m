@@ -414,4 +414,49 @@
     return report;
 }
 
+- (void) addMessage:(NSString *) message forKey:(NSString *) msgKey toCrashReportWithID:(NSString*) reportID
+{
+    @try
+    {
+        NSString * reportPath = [self pathToCrashReportWithID:reportID];
+        NSMutableDictionary * report = [KSJSONCodec decode:[NSData dataWithContentsOfFile:reportPath] options:0 error:nil];
+		
+        NSString * userDictKey = @KSCrashField_User;
+        NSMutableDictionary * userDict = [report objectForKey:userDictKey];
+		
+        if(!userDict)
+        {
+            userDictKey = @KSCrashField_UserAtCrash;
+            userDict = [report objectForKey:userDictKey];
+        }
+		
+        bool removeOldKey = YES;
+        if(!userDict)
+        {
+            removeOldKey = NO;
+        }
+		
+        [userDict setObject:message forKey:msgKey];
+		
+        if(removeOldKey)
+        {
+            [report removeObjectForKey:@KSCrashField_UserAtCrash];
+        }
+		
+        [report setObject:userDict forKey:@KSCrashField_UserAtCrash];
+		
+        NSData * modifiedData = [KSJSONCodec encode:report options:KSJSONEncodeOptionPretty error:nil];
+		
+        [modifiedData writeToFile:reportPath atomically:YES];
+		
+    }
+    @catch (NSException *exception)
+    {
+        NSLog(@"Exception: %@", exception);
+    }
+    @finally
+    {
+		
+    }
+}
 @end

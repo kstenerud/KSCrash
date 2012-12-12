@@ -108,4 +108,15 @@
  */
 - (NSString*) pathToRecrashReportWithID:(NSString*) reportID;
 
+/** Add a message to user dictionary in the crash.
+ *
+ * @param message The Message to be appended
+ *
+ * @param msgKey The Key for the message
+ *
+ * @param reportID The report ID
+ *
+ * @return The full path.
+ */
+- (void) addMessage:(NSString *) message forKey:(NSString *) msgKey toCrashReportWithID:(NSString*) reportID;
 @end
