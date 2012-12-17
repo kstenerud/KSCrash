@@ -78,6 +78,10 @@ can use it like you would any other framework.
 .
 
     #import <KSCrash/KSCrash.h>
+    // Include to use the standard reporter.
+    #import <KSCrash/KSCrashReportSinkStandard.h>
+    // Include to use Quincy or Hockey.
+    #import <KSCrash/KSCrashReportSinkQuincy.h>
 
 	- (BOOL)application:(UIApplication*) application didFinishLaunchingWithOptions:(NSDictionary*) launchOptions
 	{
@@ -162,6 +166,15 @@ won't attempt to report to an external API until you assign it a sink:
     #import <KSCrash/KSCrashAdvanced.h>
 
 	[KSCrash instance].sink = [KSCrashReportSinkStandard sinkWithURL:myAPIURL onSuccess:nil];
+
+
+KSCrashLite
+-----------
+
+KSCrashLite is intended for use in custom crash frameworks that have special needs. It doesn't
+include any sinks (except for console); it is expected that the user will supply their own.
+Unlike the regular KSCrash framework, KSCrashLite has no dependencies on MessageUI.framework or
+zlib (it still requires SystemConfiguration.framework).
 
 
 Examples

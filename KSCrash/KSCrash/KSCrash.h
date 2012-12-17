@@ -29,9 +29,6 @@
 
 #import "KSCrashReportWriter.h"
 #import "KSCrashReportFilter.h"
-#import "KSCrashReportSinkEMail.h"
-#import "KSCrashReportSinkQuincy.h"
-#import "KSCrashReportSinkStandard.h"
 
 
 /**
