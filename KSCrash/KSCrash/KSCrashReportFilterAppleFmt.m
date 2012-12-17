@@ -628,6 +628,10 @@ NSDictionary* g_registerOrders;
          [nsexception objectForKey:@KSCrashField_Name],
          [nsexception objectForKey:@KSCrashField_Reason]];
     }
+    if([@KSCrashExcType_Deadlock isEqualToString:[error objectForKey:@KSCrashField_Type]])
+    {
+        [str appendFormat:@"\nApplication main thread deadlocked\n"];
+    }
 
     return str;
 }

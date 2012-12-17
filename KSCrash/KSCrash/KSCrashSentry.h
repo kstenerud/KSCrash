@@ -46,15 +46,17 @@ extern "C" {
  * - Mach kernel exception
  * - Fatal signal
  * - Uncaught Objective-C NSException
+ * - Deadlock on the main thread
  */
 typedef enum
 {
     KSCrashTypeMachException = 1,
     KSCrashTypeSignal = 2,
     KSCrashTypeNSException = 4,
+    KSCrashTypeMainThreadDeadlock = 8,
 } KSCrashType;
 
-#define KSCrashTypeAll (KSCrashTypeMachException | KSCrashTypeSignal | KSCrashTypeNSException)
+#define KSCrashTypeAll (KSCrashTypeMachException | KSCrashTypeSignal | KSCrashTypeNSException | KSCrashTypeMainThreadDeadlock)
 #define KSCrashTypeAsyncSafe (KSCrashTypeMachException | KSCrashTypeSignal)
 
 typedef enum
@@ -91,8 +93,8 @@ typedef struct KSCrash_SentryContext
     /** True if the crash system has detected a stack overflow. */
     bool isStackOverflow;
 
-    /** The crashed thread. */
-    thread_t crashedThread;
+    /** The thread that caused the problem. */
+    thread_t offendingThread;
 
     /** Address that caused the fault. */
     uintptr_t faultAddress;

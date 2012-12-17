@@ -64,6 +64,9 @@ extern "C" {
  *                        generally you should use 16384 or higher. Uses 8 bytes
  *                        per cache entry.
  *
+ * @param deadlockWatchdogInterval The interval in seconds between checks for
+ *                                 deadlocks on the main thread. 0 = ignore.
+ *
  * @param printTraceToStdout If true, print a stack trace to STDOUT when the app
  *                           crashes.
  *
@@ -82,6 +85,7 @@ bool kscrash_install(const char* const crashReportFilePath,
                      const char* crashID,
                      const char* userInfoJSON,
                      unsigned int zombieCacheSize,
+                     float deadlockWatchdogInterval,
                      bool printTraceToStdout,
                      KSReportWriteCallback onCrashNotify);
 

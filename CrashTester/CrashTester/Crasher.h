@@ -34,4 +34,6 @@
 
 - (void) corruptMemory;
 
+- (void) deadlock;
+
 @end

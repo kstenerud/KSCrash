@@ -45,6 +45,7 @@
  *
  * - No user info (userInfo = nil)
  * - Zombie tracking disabled (zombieCacheSize = 0)
+ * - Main thread deadlock detection enabled (deadlockWatchdogInterval = 5.0f)
  * - Don't print to stdout (printTraceToStdout = NO)
  * - No crash callback (onCrash = NULL)
  *
@@ -71,6 +72,9 @@
  *                        generally you should use 16384 or higher. Uses 8 bytes
  *                        per cache entry (16 bytes on 64-bit architectures).
  *
+ * @param deadlockWatchdogInterval The interval in seconds between checks for
+ *                                 deadlocks on the main thread. 0 = ignore.
+ *
  * @param printTraceToStdout If YES, print a stack trace to STDOUT when the app
  *                           crashes.
  *
@@ -84,6 +88,7 @@
 + (BOOL) installWithCrashReportSink:(id<KSCrashReportFilter>) sink
                            userInfo:(NSDictionary*) userInfo
                     zombieCacheSize:(unsigned int) zombieCacheSize
+           deadlockWatchdogInterval:(float) deadlockWatchdogInterval
                  printTraceToStdout:(BOOL) printTraceToStdout
                             onCrash:(KSReportWriteCallback) onCrash;
 

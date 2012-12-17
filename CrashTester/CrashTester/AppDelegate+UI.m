@@ -625,6 +625,15 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
           [self.crasher dereferenceBadPointer];
       }]];
 
+    [commands addObject:
+     [CommandEntry commandWithName:@"Deadlock main queue"
+                     accessoryType:UITableViewCellAccessoryNone
+                             block:^(UIViewController* controller)
+      {
+          #pragma unused(controller)
+          [self.crasher deadlock];
+      }]];
+    
 
     return commands;
 }

@@ -28,6 +28,7 @@
 #include "KSCrashSentry.h"
 #include "KSCrashSentry_Private.h"
 
+#include "KSCrashSentry_Deadlock.h"
 #include "KSCrashSentry_MachException.h"
 #include "KSCrashSentry_NSException.h"
 #include "KSCrashSentry_Signal.h"
@@ -63,6 +64,10 @@ KSCrashType kscrashsentry_installWithContext(KSCrash_SentryContext* context,
     context->handlingCrash = false;
 
     KSCrashType installed = 0;
+    if((crashTypes & KSCrashTypeMainThreadDeadlock) && kscrashsentry_installDeadlockHandler(context))
+    {
+        installed |= KSCrashTypeMainThreadDeadlock;
+    }
     if((crashTypes & KSCrashTypeMachException) && kscrashsentry_installMachHandler(context))
     {
         installed |= KSCrashTypeMachException;
@@ -75,7 +80,7 @@ KSCrashType kscrashsentry_installWithContext(KSCrash_SentryContext* context,
     {
         installed |= KSCrashTypeNSException;
     }
-
+    
     KSLOG_DEBUG("Installation complete. Installed types 0x%x.", installed);
     return installed;
 }
@@ -83,6 +88,10 @@ KSCrashType kscrashsentry_installWithContext(KSCrash_SentryContext* context,
 void kscrashsentry_uninstall(KSCrashType crashTypes)
 {
     KSLOG_DEBUG("Uninstalling handlers with crash types 0x%x.", crashTypes);
+    if(crashTypes & KSCrashTypeMainThreadDeadlock)
+    {
+        kscrashsentry_uninstallDeadlockHandler();
+    }
     if(crashTypes & KSCrashTypeMachException)
     {
         kscrashsentry_uninstallMachHandler();

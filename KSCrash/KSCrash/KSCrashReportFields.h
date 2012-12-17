@@ -45,6 +45,7 @@
 
 #pragma mark - Exception Types -
 
+#define KSCrashExcType_Deadlock            "deadlock"
 #define KSCrashExcType_Mach                "mach"
 #define KSCrashExcType_NSException         "nsexception"
 #define KSCrashExcType_Signal              "signal"

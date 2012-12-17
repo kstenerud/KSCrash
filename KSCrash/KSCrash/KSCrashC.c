@@ -32,6 +32,7 @@
 #include "KSSignalInfo.h"
 #include "KSSystemInfoC.h"
 #include "KSZombie.h"
+#include "KSCrashSentry_Deadlock.h"
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
@@ -114,6 +115,7 @@ bool kscrash_install(const char* const crashReportFilePath,
                      const char* const crashID,
                      const char* const userInfoJSON,
                      unsigned int zombieCacheSize,
+                     float deadlockWatchdogInterval,
                      const bool printTraceToStdout,
                      const KSReportWriteCallback onCrashNotify)
 {
@@ -138,6 +140,8 @@ bool kscrash_install(const char* const crashReportFilePath,
         KSCrash_Context* context = crashContext();
         context->crash.onCrash = kscrash_i_onCrash;
 
+        kscrashSentry_setDeadlockHandlerWatchdogInterval(deadlockWatchdogInterval);
+        
         if(ksmach_isBeingTraced())
         {
             KSLOGBASIC_WARN("KSCrash: App is running in a debugger. Crash handlers have been disabled for the sanity of all.");

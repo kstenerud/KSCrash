@@ -63,6 +63,7 @@ static void onCrash(const KSCrashReportWriter* writer)
                                          @"intl", @"テスト",
                                          nil]
                         zombieCacheSize:16384
+               deadlockWatchdogInterval:5.0f
                      printTraceToStdout:YES
                                 onCrash:onCrash];
 }

@@ -105,6 +105,7 @@ static KSCrash* g_instance;
 - (id) initWithCrashReportSink:(id<KSCrashReportFilter>) sink
                       userInfo:(NSDictionary*) userInfo
                zombieCacheSize:(unsigned int) zombieCacheSize
+      deadlockWatchdogInterval:(float) deadlockWatchdogInterval
             printTraceToStdout:(BOOL) printTraceToStdout
                        onCrash:(KSReportWriteCallback) onCrash
 {
@@ -154,6 +155,7 @@ static KSCrash* g_instance;
                             [crashID UTF8String],
                             [userInfoJSON bytes],
                             zombieCacheSize,
+                            deadlockWatchdogInterval,
                             printTraceToStdout,
                             onCrash))
         {
@@ -354,6 +356,7 @@ failed:
     return [self installWithCrashReportSink:sink
                                    userInfo:nil
                             zombieCacheSize:0
+                   deadlockWatchdogInterval:5.0f
                          printTraceToStdout:NO
                                     onCrash:NULL];
 }
@@ -361,6 +364,7 @@ failed:
 + (BOOL) installWithCrashReportSink:(id<KSCrashReportFilter>) sink
                            userInfo:(NSDictionary*) userInfo
                     zombieCacheSize:(unsigned int) zombieCacheSize
+           deadlockWatchdogInterval:(float) deadlockWatchdogInterval
                  printTraceToStdout:(BOOL) printTraceToStdout
                             onCrash:(KSReportWriteCallback) onCrash
 {
@@ -374,6 +378,7 @@ failed:
         g_instance = [[self alloc] initWithCrashReportSink:sink
                                                   userInfo:userInfo
                                            zombieCacheSize:zombieCacheSize
+                                  deadlockWatchdogInterval:deadlockWatchdogInterval
                                         printTraceToStdout:printTraceToStdout
                                                    onCrash:onCrash];
         if(g_instance == nil)

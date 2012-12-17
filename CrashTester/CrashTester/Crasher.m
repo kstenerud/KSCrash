@@ -36,7 +36,31 @@
 @end
 
 
+@interface Crasher ()
+
+@property(nonatomic, readwrite, retain) NSLock* lock;
+
+@end
+
+
 @implementation Crasher
+
+@synthesize lock = _lock;
+
+- (id) init
+{
+    if((self = [super init]))
+    {
+        self.lock = as_autorelease([[NSLock alloc] init]);
+    }
+    return self;
+}
+
+- (void) dealloc
+{
+    as_release(_lock);
+    as_superdealloc();
+}
 
 int* g_crasher_null_ptr = NULL;
 int g_crasher_denominator = 0;
@@ -165,6 +189,16 @@ int g_crasher_denominator = 0;
     uintptr_t address = (uintptr_t)cast;
     void* ptr = (void*)address + stringsize;
     memset(ptr, 0xa1, 500);
+}
+
+- (void) deadlock
+{
+    [self.lock lock];
+    [NSThread sleepForTimeInterval:0.2f];
+    dispatch_async(dispatch_get_main_queue(), ^
+                   {
+                       [self.lock lock];
+                   });
 }
 
 @end

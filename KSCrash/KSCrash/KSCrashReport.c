@@ -397,7 +397,7 @@ _STRUCT_MCONTEXT* kscrw_i_getMachineContext(const KSCrash_SentryContext* const c
                                             const thread_t thread,
                                             _STRUCT_MCONTEXT* const machineContextBuffer)
 {
-    if(thread == crash->crashedThread)
+    if(thread == crash->offendingThread)
     {
         if(crash->crashType == KSCrashTypeSignal)
         {
@@ -449,7 +449,7 @@ uintptr_t* kscrw_i_getBacktrace(const KSCrash_SentryContext* const crash,
                                 int* const backtraceLength,
                                 int* const skippedEntries)
 {
-    if(thread == crash->crashedThread)
+    if(thread == crash->offendingThread)
     {
         if(crash->crashType == KSCrashTypeNSException)
         {
@@ -544,6 +544,11 @@ void kscrw_i_logCrashType(const KSCrash_SentryContext* const sentryContext)
                             sigName, sigCodeName, sentryContext->faultAddress);
             break;
         }
+        case KSCrashTypeMainThreadDeadlock:
+        {
+            KSLOGBASIC_INFO("Main thread deadlocked");
+            break;
+        }
     }
 }
 
@@ -608,7 +613,7 @@ void kscrw_i_logBacktrace(const uintptr_t* const backtrace,
  */
 void kscrw_i_logCrashThreadBacktrace(const KSCrash_SentryContext* const crash)
 {
-    thread_t thread = crash->crashedThread;
+    thread_t thread = crash->offendingThread;
     _STRUCT_MCONTEXT concreteMachineContext;
     uintptr_t concreteBacktrace[kMaxBacktraceDepth];
     int backtraceLength = sizeof(concreteBacktrace);
@@ -1042,7 +1047,7 @@ void kscrw_i_writeThread(const KSCrashReportWriter* const writer,
                          const thread_t thread,
                          const int index)
 {
-    bool isCrashedThread = thread == crash->crashedThread;
+    bool isCrashedThread = thread == crash->offendingThread;
     char nameBuffer[128];
     _STRUCT_MCONTEXT machineContextBuffer;
     uintptr_t backtraceBuffer[kMaxBacktraceDepth];
@@ -1327,6 +1332,8 @@ void kscrw_i_writeError(const KSCrashReportWriter* const writer,
     // Gather common info.
     switch(crash->crashType)
     {
+        case KSCrashTypeMainThreadDeadlock:
+            break;
         case KSCrashTypeMachException:
             machExceptionType = crash->mach.type;
             machCode = (kern_return_t)crash->mach.code;
@@ -1405,10 +1412,14 @@ void kscrw_i_writeError(const KSCrashReportWriter* const writer,
         // Gather specific info.
         switch(crash->crashType)
         {
+            case KSCrashTypeMainThreadDeadlock:
+                writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_Deadlock);
+                break;
+                
             case KSCrashTypeMachException:
                 writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_Mach);
                 break;
-
+                
             case KSCrashTypeNSException:
             {
                 writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_NSException);
@@ -1592,7 +1603,7 @@ int kscrw_i_openCrashReportFile(const char* const path)
 void kscrw_i_updateStackOverflowStatus(KSCrash_Context* const crashContext)
 {
     // TODO: This feels weird. Shouldn't be mutating the context.
-    if(kscrw_i_isStackOverflow(&crashContext->crash, crashContext->crash.crashedThread))
+    if(kscrw_i_isStackOverflow(&crashContext->crash, crashContext->crash.offendingThread))
     {
         KSLOG_TRACE("Stack overflow detected.");
         crashContext->crash.isStackOverflow = true;
@@ -1646,8 +1657,8 @@ void kscrashreport_writeMinimalReport(KSCrash_Context* const crashContext,
             kscrw_i_writeThread(writer,
                                 KSCrashField_CrashedThread,
                                 &crashContext->crash,
-                                crashContext->crash.crashedThread,
-                                kscrw_i_threadIndex(crashContext->crash.crashedThread));
+                                crashContext->crash.offendingThread,
+                                kscrw_i_threadIndex(crashContext->crash.offendingThread));
             kscrw_i_writeError(writer, KSCrashField_Error, &crashContext->crash);
         }
         writer->endContainer(writer);

@@ -301,7 +301,7 @@ void* ksmachexc_i_handleExceptions(void* const userData)
 
         KSLOG_DEBUG("Filling out context.");
         g_context->crashType = KSCrashTypeMachException;
-        g_context->crashedThread = exceptionMessage.thread.name;
+        g_context->offendingThread = exceptionMessage.thread.name;
         g_context->registersAreValid = true;
         g_context->mach.type = exceptionMessage.exception;
         g_context->mach.code = exceptionMessage.code[0];

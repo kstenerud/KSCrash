@@ -484,6 +484,13 @@ typedef enum
     return [[stack objectForKey:@KSCrashField_Overflow] boolValue];
 }
 
+- (BOOL) isDeadlock:(NSDictionary*) report
+{
+    NSDictionary* errorReport = [self errorReport:report];
+    NSString* crashType = [errorReport objectForKey:@KSCrashField_Type];
+    return [@KSCrashExcType_Deadlock isEqualToString:crashType];
+}
+
 - (NSString*) appendOriginatingCall:(NSString*) string callName:(NSString*) callName
 {
     if(callName != nil && ![callName isEqualToString:@"main"])
@@ -501,6 +508,11 @@ typedef enum
         NSDictionary* crashedThreadReport = [self crashedThreadReport:report];
         NSDictionary* errorReport = [self errorReport:report];
 
+        if([self isDeadlock:report])
+        {
+            return [NSString stringWithFormat:@"Main thread deadlocked in %@", lastFunctionName];
+        }
+        
         if([self isStackOverflow:crashedThreadReport])
         {
             return [NSString stringWithFormat:@"Stack overflow in %@", lastFunctionName];

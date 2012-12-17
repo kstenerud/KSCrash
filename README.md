@@ -15,6 +15,7 @@ The following features are newer and not as tested as the rest:
 - Interesting address detection in the stack and registers
 - Zombie detection
 - Crash Doctor 
+- Deadlock detection
 
 These features are being used in deployed systems, but have not had as much
 exposure as the rest of the library.
@@ -49,6 +50,7 @@ at the core, has its own format and API.
   report (including thread/queue names).
 * It supports zombie detection in the wild.
 * It can piece together objective-c method calls.
+* It can detect deadlocks in the main thread.
 * It provides extra contextual information to help you track down the cause of
   the crash.
 
@@ -113,6 +115,8 @@ portion of a crash report:
                                userInfo:[NSDictionary dictionaryWithObjectsAndKeys:
                                          @"username", someUsername,
                                          nil]
+                        zombieCacheSize:16384
+               deadlockWatchdogInterval:5.0f
                      printTraceToStdout:NO
                                 onCrash:nil];
 

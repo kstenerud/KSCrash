@@ -426,6 +426,7 @@
 		39DA847F1618E9FB001E7F79 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = armv7;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "CrashTester/CrashTester-Prefix.pch";
 				HEADER_SEARCH_PATHS = "$(SRCROOT)/../KSCrash/**";
@@ -440,6 +441,7 @@
 		39DA84801618E9FB001E7F79 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = armv7;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "CrashTester/CrashTester-Prefix.pch";
 				HEADER_SEARCH_PATHS = "$(SRCROOT)/../KSCrash/**";
