@@ -55,6 +55,13 @@
 			remoteGlobalIDString = 39DA35C516184338009EB332;
 			remoteInfo = KSCrashLib;
 		};
+		CB78E4B61699D34C00C39B02 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 39DA84D01618ECA9001E7F79 /* KSCrash.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = CB0AA0EE167EC43E006EAB99;
+			remoteInfo = KSCrashLite;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
@@ -174,6 +181,7 @@
 			isa = PBXGroup;
 			children = (
 				39DA84D71618ECA9001E7F79 /* KSCrash.framework */,
+				CB78E4B71699D34C00C39B02 /* KSCrashLite.framework */,
 				39DA84D91618ECA9001E7F79 /* libKSCrashLib.a */,
 				39DA84DB1618ECA9001E7F79 /* KSCrashTests.octest */,
 			);
@@ -262,6 +270,13 @@
 			fileType = wrapper.cfbundle;
 			path = KSCrashTests.octest;
 			remoteRef = 39DA84DA1618ECA9001E7F79 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		CB78E4B71699D34C00C39B02 /* KSCrashLite.framework */ = {
+			isa = PBXReferenceProxy;
+			fileType = wrapper.cfbundle;
+			path = KSCrashLite.framework;
+			remoteRef = CB78E4B61699D34C00C39B02 /* PBXContainerItemProxy */;
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 /* End PBXReferenceProxy section */
