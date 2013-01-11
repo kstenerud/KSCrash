@@ -29,7 +29,7 @@
 #define HDR_KSObjC_h
 
 #ifdef __cplusplus
-//extern "C" {
+extern "C" {
 #endif
 
 

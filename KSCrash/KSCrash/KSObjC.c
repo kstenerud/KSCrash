@@ -227,33 +227,49 @@ static inline bool isValidClassNameChar(char ch)
     return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '_';
 }
 
-const char* ksobjc_className(const void* classPtr)
+static size_t copyName(const void* const classPtr, char* buffer, size_t bufferLength)
 {
+    if(bufferLength == 0)
+    {
+        return 0;
+    }
+
     const struct class_ro_t* ro = classRO(classPtr);
-    char name[128];
     
-    size_t nameLength = ksmach_copyMaxPossibleMem(ro->name, name, sizeof(name));
+    size_t nameLength = ksmach_copyMaxPossibleMem(ro->name, buffer, bufferLength);
     if(ro->name + nameLength < ro->name)
     {
         // Wrapped around address space.
-        return NULL;
+        return 0;
     }
-    if(nameLength == 0 || !isValidClassNameStartChar(*name))
+    if(nameLength == 0 || !isValidClassNameStartChar(buffer[0]))
     {
-        return NULL;
+        return 0;
     }
     for(size_t i = 0; i < nameLength; i++)
     {
-        if(!isValidClassNameChar(name[i]))
+        if(!isValidClassNameChar(buffer[i]))
         {
-            if(name[i] == 0)
+            if(buffer[i] == 0)
             {
-                return ro->name;
+                return nameLength;
             }
-            return NULL;
+            return 0;
         }
     }
-    return NULL;
+    return 0;
+}
+
+static bool containsValidName(const void* const classPtr)
+{
+    char name[128];
+    return copyName(classPtr, name, sizeof(name)) > 0;
+}
+
+const char* ksobjc_className(const void* classPtr)
+{
+    const struct class_ro_t* ro = classRO(classPtr);
+    return containsValidName(classPtr) ? ro->name : NULL;
 }
 
 bool ksobjc_isClassNamed(const void* const classPtr, const char* const className)
@@ -445,6 +461,10 @@ KSObjCType ksobjc_objectType(const void* objectOrClassPtr)
     {
         return KSObjCTypeUnknown;
     }
+    if(!containsValidName(isa))
+    {
+        return KSObjCTypeUnknown;
+    }
     
     if(isBlockClass(isa))
     {
@@ -462,6 +482,10 @@ KSObjCType ksobjc_objectType(const void* objectOrClassPtr)
     }
     
     if(!containsValidIvarData(isa))
+    {
+        return KSObjCTypeUnknown;
+    }
+    if(!containsValidName(isa))
     {
         return KSObjCTypeUnknown;
     }
