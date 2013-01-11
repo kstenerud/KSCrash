@@ -584,6 +584,41 @@ NSDictionary* g_registerOrders;
     }
 }
 
+- (BOOL) isZombieNSException:(NSDictionary*) report
+{
+    NSDictionary* crash = [self crashReport:report];
+    NSDictionary* error = [crash objectForKey:@KSCrashField_Error];
+    NSDictionary* mach = [error objectForKey:@KSCrashField_Mach];
+    NSString* machExcName = [mach objectForKey:@KSCrashField_ExceptionName];
+    NSString* machCodeName = [mach objectForKey:@KSCrashField_CodeName];
+    if(![machExcName isEqualToString:@"EXC_BAD_ACCESS"] ||
+       ![machCodeName isEqualToString:@"KERN_INVALID_ADDRESS"])
+    {
+        return NO;
+    }
+
+    NSDictionary* lastException = [[self processReport:report] objectForKey:@KSCrashField_LastDeallocedNSException];
+    if(lastException == nil)
+    {
+        return NO;
+    }
+    NSNumber* lastExceptionAddress = [lastException objectForKey:@KSCrashField_Address];
+
+    NSDictionary* thread = [self crashedThread:report];
+    NSDictionary* registers = [(NSDictionary*)[thread objectForKey:@KSCrashField_Registers] objectForKey:@KSCrashField_Basic];
+
+    for(NSString* reg in registers)
+    {
+        NSNumber* address = [registers objectForKey:reg];
+        if([address isEqualToNumber:lastExceptionAddress])
+        {
+            return YES;
+        }
+    }
+
+    return NO;
+}
+
 - (NSString*) errorInfoStringForReport:(NSDictionary*) report
 {
     NSMutableString* str = [NSMutableString string];
@@ -593,6 +628,7 @@ NSDictionary* g_registerOrders;
     NSDictionary* error = [crash objectForKey:@KSCrashField_Error];
 
     NSDictionary* nsexception = [error objectForKey:@KSCrashField_NSException];
+    NSDictionary* lastException = [[self processReport:report] objectForKey:@KSCrashField_LastDeallocedNSException];
     NSDictionary* mach = [error objectForKey:@KSCrashField_Mach];
     NSDictionary* signal = [error objectForKey:@KSCrashField_Signal];
 
@@ -627,6 +663,14 @@ NSDictionary* g_registerOrders;
         [str appendFormat:@"*** Terminating app due to uncaught exception '%@', reason: '%@'\n",
          [nsexception objectForKey:@KSCrashField_Name],
          [nsexception objectForKey:@KSCrashField_Reason]];
+    }
+    else if([self isZombieNSException:report])
+    {
+        [str appendFormat:@"\nApplication Specific Information:\n"];
+        [str appendFormat:@"*** Terminating app due to uncaught exception '%@', reason: '%@'\n",
+         [lastException objectForKey:@KSCrashField_Name],
+         [lastException objectForKey:@KSCrashField_Reason]];
+        [str appendString:@"NOTE: This exception has been deallocated! Stack trace is crash from attempting to access this zombie exception.\n"];
     }
     if([@KSCrashExcType_Deadlock isEqualToString:[error objectForKey:@KSCrashField_Type]])
     {
