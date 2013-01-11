@@ -26,6 +26,7 @@
 
 
 #include "KSString.h"
+#include <string.h>
 
 
 // Compiler hints for "if" statements
@@ -93,6 +94,75 @@ bool kstring_isNullTerminatedUTF8String(const void* memory,
         else unlikely_if(ch < 0x20 && !g_printableControlChars[ch])
         {
             return false;
+        }
+    }
+    return false;
+}
+
+
+#define INV 0xff
+
+/** Lookup table for converting hex values to integers.
+ * INV (0x11111) is used to mark invalid characters so that any attempted
+ * invalid nybble conversion is always > 0xffff.
+ */
+static const unsigned int g_hexConversion[] =
+{
+    INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV,
+    INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV,
+    INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV,
+    0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, INV, INV, INV, INV, INV, INV,
+    INV, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf, INV, INV, INV, INV, INV, INV, INV, INV, INV,
+    INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV,
+    INV, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf, INV, INV, INV, INV, INV, INV, INV, INV, INV,
+    INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV,
+    INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV,
+    INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV,
+    INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV,
+    INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV,
+    INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV,
+    INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV,
+    INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV,
+    INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV,
+};
+
+bool ksstring_extractHexValue(const char* string,
+                              size_t stringLength,
+                              uint64_t* const result)
+{
+    if(stringLength > 0)
+    {
+        const unsigned char* current = (const unsigned char*)string;
+        const unsigned char* const end = current + stringLength;
+        for(;;)
+        {
+            current = (const unsigned char*)strnstr((const char*)current, "0x", (size_t)(end - current));
+            unlikely_if(!current)
+            {
+                return false;
+            }
+            current += 2;
+            
+            // Must have at least one valid digit after "0x".
+            unlikely_if(g_hexConversion[*current] == INV)
+            {
+                continue;
+            }
+            
+            uint64_t accum = 0;
+            unsigned int nybble = 0;
+            while(current < end)
+            {
+                nybble = g_hexConversion[*current++];
+                unlikely_if(nybble == INV)
+                {
+                    break;
+                }
+                accum <<= 4;
+                accum += nybble;
+            }
+            *result = accum;
+            return true;
         }
     }
     return false;

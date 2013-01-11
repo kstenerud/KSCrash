@@ -29,6 +29,7 @@
 
 #include "KSCrashReport.h"
 #include "KSMach.h"
+#include "KSObjC.h"
 #include "KSSignalInfo.h"
 #include "KSSystemInfoC.h"
 #include "KSZombie.h"
@@ -139,6 +140,8 @@ bool kscrash_install(const char* const crashReportFilePath,
         g_recrashReportFilePath = strdup(recrashReportFilePath);
         KSCrash_Context* context = crashContext();
         context->crash.onCrash = kscrash_i_onCrash;
+
+        ksobjc_init();
 
         kscrashSentry_setDeadlockHandlerWatchdogInterval(deadlockWatchdogInterval);
         

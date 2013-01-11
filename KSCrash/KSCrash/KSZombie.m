@@ -198,7 +198,7 @@ void kszombie_uninstall(void)
 
 const char* kszombie_className(const void* object)
 {
-    if(g_zombieCache == NULL)
+    if(g_zombieCache == NULL || object == NULL)
     {
         return NULL;
     }

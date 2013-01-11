@@ -37,7 +37,9 @@
 
 #pragma mark - Memory Types -
 
+#define KSCrashMemType_Block               "objc_block"
 #define KSCrashMemType_Class               "objc_class"
+#define KSCrashMemType_NullPointer         "null_pointer"
 #define KSCrashMemType_Object              "objc_object"
 #define KSCrashMemType_String              "string"
 #define KSCrashMemType_Unknown             "unknown"
@@ -56,8 +58,11 @@
 #define KSCrashField_Address               "address"
 #define KSCrashField_Contents              "contents"
 #define KSCrashField_Exception             "exception"
+#define KSCrashField_FirstObject           "first_object"
 #define KSCrashField_Index                 "index"
+#define KSCrashField_Ivars                 "ivars"
 #define KSCrashField_Name                  "name"
+#define KSCrashField_ReferencedObject      "referenced_object"
 #define KSCrashField_Type                  "type"
 #define KSCrashField_UUID                  "uuid"
 #define KSCrashField_Value                 "value"
@@ -70,7 +75,6 @@
 
 #define KSCrashField_Class                 "class"
 #define KSCrashField_LastDeallocObject     "last_deallocated_obj"
-#define KSCrashField_MallocSize            "malloc_size"
 
 
 #pragma mark - Backtrace -

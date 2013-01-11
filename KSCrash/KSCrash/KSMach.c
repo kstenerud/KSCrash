@@ -27,10 +27,11 @@
 
 #include "KSMach.h"
 
+#include "KSMachApple.h"
+
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
-#include <dispatch/dispatch.h>
 #include <errno.h>
 #include <mach-o/arch.h>
 #include <mach/mach_time.h>
@@ -190,102 +191,6 @@ bool ksmach_fillState(const thread_t thread,
     }
     return true;
 }
-
-
-// From Libc-763.11/pthreads/pthread_internals.h
-#define kEXTERNAL_POSIX_THREAD_KEYS_MAX 512
-#define kINTERNAL_POSIX_THREAD_KEYS_MAX 256
-
-#define kTSD_KEY_COUNT (kEXTERNAL_POSIX_THREAD_KEYS_MAX + \
-                        kINTERNAL_POSIX_THREAD_KEYS_MAX)
-
-// From Libc-763.11/pthreads/pthread_internals.h
-typedef struct internal_pthread
-{
-    long        sig;           /* Unique signature for this structure */
-    struct __darwin_pthread_handler_rec* __cleanup_stack;
-    int lock;                  /* Used for internal mutex on structure (actually pthread_lock_t) */
-    uint32_t    detached:8,
-                inherit:8,
-                policy:8,
-                freeStackOnExit:1,
-                newstyle:1,
-                kernalloc:1,
-                schedset:1,
-                wqthread:1,
-                wqkillset:1,
-                pad:2;
-    size_t      guardsize;     /* size in bytes to guard stack overflow */
-#if  !defined(__LP64__)
-    int         pad0;          /* for backwards compatibility */
-#endif
-    struct sched_param param;
-    uint32_t    cancel_error;
-#if defined(__LP64__)
-    uint32_t    cancel_pad;    /* pad value for alignment */
-#endif
-    struct _pthread* joiner;
-#if !defined(__LP64__)
-    int         pad1;          /* for backwards compatibility */
-#endif
-    void*       exit_value;
-    semaphore_t death;         /* pthread_join() uses this to wait for death's call */
-    mach_port_t kernel_thread; /* kernel thread this thread is bound to */
-    void*       (*fun)(void*); /* Thread start routine */
-    void*       arg;           /* Argment for thread start routine */
-    int         cancel_state;  /* Whether thread can be cancelled */
-    int         err_no;        /* thread-local errno */
-    void*       tsd[kTSD_KEY_COUNT]; /* Thread specific data */
-    // Don't care about the rest.
-}* internal_pthread_t;
-
-
-// From Libc-763.11/pthreads/pthread_machdep.h
-#define __PTK_LIBDISPATCH_KEY0		20
-
-
-// From libdispatch-187.5/src/shims/tsd.h
-static const unsigned long dispatch_queue_key		= __PTK_LIBDISPATCH_KEY0;
-
-
-// From libdispatch-187.5/src/queue_internal.h
-#define kDISPATCH_QUEUE_MIN_LABEL_SIZE 64
-
-
-// From libdispatch-187.5/src/queue_internal.h
-typedef struct internal_dispatch_queue_s
-{
-    // DISPATCH_STRUCT_HEADER (object_internal.h)
-    const struct dispatch_queue_vtable_s* do_vtable;
-    struct dispatch_queue_s* volatile do_next;
-    int do_ref_cnt;     // Was unsigned int in queue_internal.h
-    int do_xref_cnt;    // Was unsigned int in queue_internal.h
-    int do_suspend_cnt; // Was unsigned int in queue_internal.h
-    struct dispatch_queue_s* do_targetq;
-    void* do_ctxt;
-    void* do_finalizer;
-
-    // DISPATCH_QUEUE_HEADER
-    uint32_t volatile dq_running;
-    uint32_t dq_width;
-    struct dispatch_queue_s* volatile dq_items_tail;
-    struct dispatch_queue_s* volatile dq_items_head;
-    unsigned long dq_serialnum;
-    dispatch_queue_t dq_specific_q;
-
-    char dq_label[kDISPATCH_QUEUE_MIN_LABEL_SIZE]; // must be last
-    // char _dq_pad[DISPATCH_QUEUE_CACHELINE_PAD];
-}* internal_dispatch_queue_t;
-
-typedef struct internal_dispatch_queue_vtable_s
-{
-	unsigned long const do_type;
-	const char *const do_kind;
-	size_t (*const do_debug)(struct dispatch_queue_vtable_s *, char *, size_t);
-	struct dispatch_queue_s *(*const do_invoke)(struct dispatch_queue_vtable_s *);
-	bool (*const do_probe)(struct dispatch_queue_vtable_s *);
-	void (*const do_dispose)(struct dispatch_queue_vtable_s *);
-}* internal_dispatch_queue_vtable_t;
 
 
 bool ksmach_getThreadQueueName(const thread_t thread,

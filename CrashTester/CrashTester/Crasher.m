@@ -67,8 +67,8 @@ int g_crasher_denominator = 0;
 
 - (void) throwException
 {
-    id data = @"a";
-    [data objectAtIndex:0];
+    id data = [NSArray arrayWithObject:@"Hello World"];
+    [(NSDictionary*)data objectForKey:0];
 }
 
 - (void) dereferenceBadPointer
@@ -166,7 +166,9 @@ int g_crasher_denominator = 0;
 {
     @try
     {
-        [NSException raise:@"TurboEncabulatorException" format:@"Spurving bearing failure: Barescent skor motion non-sinusoidal"];
+        NSString* value = @"This is a string";
+        [NSException raise:@"TurboEncabulatorException"
+                    format:@"Spurving bearing failure: Barescent skor motion non-sinusoidal for %p", value];
     }
     @catch (NSException *exception)
     {

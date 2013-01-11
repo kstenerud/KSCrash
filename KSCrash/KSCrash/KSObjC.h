@@ -29,40 +29,328 @@
 #define HDR_KSObjC_h
 
 #ifdef __cplusplus
-extern "C" {
+//extern "C" {
 #endif
 
 
-#include <stdbool.h>
+#include <CoreFoundation/CoreFoundation.h>
+#include <mach/kern_return.h>
 
 
 typedef enum
 {
-    kObjCObjectTypeNone,
-    kObjCObjectTypeClass,
-    kObjCObjectTypeObject,
-} ObjCObjectType;
+    KSObjCTypeUnknown = 0,
+    KSObjCTypeClass,
+    KSObjCTypeObject,
+    KSObjCTypeBlock,
+} KSObjCType;
 
-/** Interpret a pointer as an object or class and attempt to get its class name.
- *
- * @param potentialObject The pointer that may be an object.
- *
- * @return The class name or NULL if not found.
- */
-const char* ksobjc_className(void* potentialObject);
+typedef enum
+{
+    KSObjCClassTypeUnknown = 0,
+    KSObjCClassTypeString,
+    KSObjCClassTypeDate,
+    KSObjCClassTypeURL,
+    KSObjCClassTypeArray,
+    KSObjCClassTypeDictionary,
+    KSObjCClassTypeNumber,
+    KSObjCClassTypeException,
+} KSObjCClassType;
 
-/** Get the type of object at the specified pointer.
- *
- * Note: This only checks that the pointers for isa and superclass check out.
- *       You should also call ksobjc_className() to be sure it really is valid.
- *       This method doesn't call it automatically because ksobjc_className()
- *       is potentially expensive.
- *
- * @param potentialClass The pointer to test.
- *
- * @return The kind of object, or kObjCObjectTypeNone if it couldn't be determined.
+typedef struct
+{
+    const char* name;
+    const char* type;
+    size_t index;
+} KSObjCIvar;
+
+//======================================================================
+#pragma mark - Initialization -
+//======================================================================
+
+/** Initialize the KSObjC library.
  */
-ObjCObjectType ksobjc_objectType(void* address);
+void ksobjc_init(void);
+
+
+//======================================================================
+#pragma mark - Basic Objective-C Queries -
+//======================================================================
+
+/** Query a pointer to see what kind of object it points to.
+ * If the pointer points to a class, this method will verify that its basic
+ * class data and ivars are valid,
+ * If the pointer points to an object, it will verify the object data (if
+ * recognized as a common class), and the isa's basic class info (everything
+ * except ivars).
+ *
+ * Warning: In order to ensure that an object is both valid and accessible,
+ *          always call this method on an object or class pointer (including
+ *          those returned by ksobjc_isaPointer() and ksobjc_superclass())
+ *          BEFORE calling any other function in this module.
+ *
+ * @param objectOrClassPtr Pointer to something that may be an object or class.
+ *
+ * @return The type of object, or KSObjCTypeNone if it was not an object or
+ *         was inaccessible.
+ */
+KSObjCType ksobjc_objectType(const void* objectOrClassPtr);
+
+/** Check that an object contains valid data.
+ * If the object is of a recognized type (string, date, array, etc),
+ * this function will verify that its internal data is intact.
+ *
+ * Call this function before calling any object-specific functions.
+ *
+ * @param object The object to verify.
+ *
+ * @return true if the object is valid.
+ */
+bool ksobjc_isValidObject(const void* object);
+
+/** Fetch the isa pointer from an object or class.
+ *
+ * @param objectOrClassPtr Pointer to a valid object or class.
+ *
+ * @return The isa pointer.
+ */
+const void* ksobjc_isaPointer(const void* objectOrClassPtr);
+
+/** Fetch the super class pointer from a class.
+ *
+ * @param classPtr Pointer to a valid class.
+ *
+ * @param the super class.
+ */
+const void* ksobjc_superClass(const void* classPtr);
+
+/** Get the base class this class is derived from.
+ * It will always return the highest level non-root class in the hierarchy
+ * (one below NSObject or NSProxy), unless the passed in object or class
+ * actually is a root class.
+ *
+ * @param classPtr Pointer to a valid class.
+ *
+ * @return The base class.
+ */
+const void* ksobjc_baseClass(const void* const classPtr);
+
+/** Check if a class is a meta class.
+ *
+ * @param classPtr Pointer to a valid class.
+ *
+ * @return true if the class is a meta class.
+ */
+bool ksobjc_isMetaClass(const void* classPtr);
+
+/** Check if a class is a root class.
+ *
+ * @param classPtr Pointer to a valid class.
+ *
+ * @return true if the class is a root class.
+ */
+bool ksobjc_isRootClass(const void* classPtr);
+
+/** Get the name of a class.
+ *
+ * @param classPtr Pointer to a valid class.
+ *
+ * @return the name, or NULL if the name inaccessible.
+ */
+const char* ksobjc_className(const void* classPtr);
+
+/** Check if a class has a specific name.
+ *
+ * @param classPtr Pointer to a valid class.
+ *
+ * @param className The class name to compare against.
+ *
+ * @param true if the class has the specified name.
+ */
+bool ksobjc_isClassNamed(const void* const classPtr, const char* const className);
+
+/** Check if a class is of the specified type or a subclass thereof.
+ * Note: This function is considerably slower than ksobjc_baseClassName().
+ *
+ * @param classPtr Pointer to a valid class.
+ *
+ * @param className The class name to compare against.
+ *
+ * @param true if the class is of the specified type or a subclass of that type.
+ */
+bool ksobjc_isKindOfClass(const void* classPtr, const char* className);
+
+/** Get the number of ivars registered with a class.
+ *
+ * @param classPtr Pointer to a valid class.
+ *
+ * @return The number of ivars.
+ */
+size_t ksobjc_ivarCount(const void* classPtr);
+
+/** Get information about ivars in a class.
+ *
+ * @param classPtr Pointer to a valid class.
+ *
+ * @param dstIvars Buffer to hold ivar data.
+ *
+ * @param ivarsCount The number of ivars the buffer can hold.
+ *
+ * @return The number of ivars copied.
+ */
+size_t ksobjc_ivarList(const void* classPtr, KSObjCIvar* dstIvars, size_t ivarsCount);
+
+/** Get ivar information by name/
+ *
+ * @param classPtr Pointer to a valid class.
+ *
+ * @param name The name of the ivar to get information about.
+ *
+ * @param dst Buffer to hold the result.
+ *
+ * @return true if the operation was successful.
+ */
+bool ksobjc_ivarNamed(const void* const classPtr, const char* name, KSObjCIvar* dst);
+
+/** Get the value of an ivar in an object.
+ *
+ * @param objectPtr Pointer to a valid object.
+ *
+ * @param ivarIndex The index of the ivar to fetch.
+ *
+ * @param dst Pointer to buffer big enough to contain the data.
+ *
+ * @return true if the operation was successful.
+ */
+bool ksobjc_ivarValue(const void* objectPtr, size_t ivarIndex, void* dst);
+
+/** Generate a description of an object.
+ *
+ * For known common object classes it will print extra information.
+ * For all other objects, it will print a standard <SomeClass: 0x12345678>
+ *
+ * For containers, it will only print the first object in the container.
+ *
+ * buffer will be null terminated unless bufferLength is 0.
+ * If the string doesn't fit, it will be truncated.
+ *
+ * @param object the object to generate a description for.
+ *
+ * @param string The string to copy data from.
+ *
+ * @param buffer The buffer to copy into.
+ *
+ * @param bufferLength The length of the buffer.
+ *
+ * @return the number of bytes copied (not including null terminator).
+ */
+size_t ksobjc_getDescription(void* object,
+                             char* buffer,
+                             size_t bufferLength);
+
+/** Get the class type of an object.
+ * There are a number of common class types that KSObjC understamds,
+ * listed in KSObjCClassType.
+ *
+ * @param object The object to query.
+ *
+ * @return The class type, or KSObjCClassTypeUnknown if it couldn't be determined.
+ */
+KSObjCClassType ksobjc_objectClassType(const void* object);
+
+
+//======================================================================
+#pragma mark - Object-Specific Queries -
+//======================================================================
+
+/** Copy the contents of a date object.
+ *
+ * @param date The date to copy data from.
+ *
+ * @return Time interval since Jan 1 2001 00:00:00 GMT.
+ */
+CFAbsoluteTime ksobjc_dateContents(const void* datePtr);
+
+/** Copy the contents of a URL object.
+ *
+ * dst will be null terminated unless maxLength is 0.
+ * If the string doesn't fit, it will be truncated.
+ *
+ * @param url The URL to copy data from.
+ *
+ * @param dst The destination to copy into.
+ *
+ * @param maxLength The size of the buffer.
+ *
+ * @return the number of bytes copied (not including null terminator).
+ */
+size_t ksobjc_copyURLContents(const void* nsurl, char* dst, size_t maxLength);
+
+/** Get the length of a string in characters.
+ *
+ * @param stringPtr Pointer to a string.
+ *
+ * @return The length of the string.
+ */
+size_t ksobjc_stringLength(const void* const stringPtr);
+
+/** Copy the contents of a string object.
+ *
+ * dst will be null terminated unless maxLength is 0.
+ * If the string doesn't fit, it will be truncated.
+ *
+ * @param string The string to copy data from.
+ *
+ * @param dst The destination to copy into.
+ *
+ * @param maxLength The size of the buffer.
+ *
+ * @return the number of bytes copied (not including null terminator).
+ */
+size_t ksobjc_copyStringContents(const void* string, char* dst, size_t maxLength);
+
+/** Get an NSArray's count.
+ *
+ * @param arrayPtr The array to get the count from.
+ *
+ * @return The array's count.
+ */
+size_t ksobjc_arrayCount(const void* arrayPtr);
+
+/** Get an NSArray's contents.
+ *
+ * @param arrayPtr The array to get the contents of.
+ *
+ * @param contents Location to copy the array's contents into.
+ *
+ * @param count The number of objects to copy.
+ *
+ * @return The number of items copied.
+ */
+size_t ksobjc_arrayContents(const void* arrayPtr, uintptr_t* contents, size_t count);
+
+
+//======================================================================
+#pragma mark - Broken/Unimplemented Stuff -
+//======================================================================
+
+/** Get the first entry from an NSDictionary.
+ *
+ * WARNING: This function is broken!
+ *
+ * @param dict The dictionary to copy from.
+ *
+ * @param key Location to copy the first key into.
+ *
+ * @param value Location to copy the first value into.
+ *
+ * @return true if the operation was successful.
+ */
+bool ksobjc_dictionaryFirstEntry(const void* dict, uintptr_t* key, uintptr_t* value);
+
+/** UNIMPLEMENTED
+ */
+size_t ksobjc_dictionaryCount(const void* dict);
 
 
 #ifdef __cplusplus

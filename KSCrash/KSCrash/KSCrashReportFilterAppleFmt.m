@@ -32,6 +32,7 @@
 
 #import "ARCSafe_MemMgmt.h"
 #import "KSCrashReportFields.h"
+#import "KSJSONCodecObjC.h"
 #import "KSSafeCollections.h"
 #import "KSSystemInfo.h"
 #import "RFC3339DateTool.h"
@@ -509,6 +510,15 @@ NSDictionary* g_registerOrders;
 
     [str appendString:@"\nExtra Information:\n"];
 
+    NSDictionary* crash = [self crashReport:report];
+    NSDictionary* error = [crash objectForKey:@KSCrashField_Error];
+    NSDictionary* nsexception = [error objectForKey:@KSCrashField_NSException];
+    NSDictionary* referencedObject = [nsexception objectForKey:@KSCrashField_ReferencedObject];
+    if(referencedObject != nil)
+    {
+        [str appendFormat:@"Object referenced by NSException:\n%@\n", [self JSONForObject:referencedObject]];
+    }
+    
     NSDictionary* crashedThread = [self crashedThread:report];
     if(crashedThread != nil)
     {
@@ -524,39 +534,7 @@ NSDictionary* g_registerOrders;
         NSDictionary* notableAddresses = [crashedThread objectForKey:@KSCrashField_NotableAddresses];
         if(notableAddresses != nil)
         {
-            [str appendString:@"\nNotable Addresses:\n"];
-
-            for(NSString* source in [notableAddresses.allKeys sortedArrayUsingSelector:@selector(compare:)])
-            {
-                NSDictionary* entry = [notableAddresses objectForKey:source];
-                uintptr_t address = (uintptr_t)[[entry objectForKey:@KSCrashField_Address] unsignedLongLongValue];
-                NSString* zombieName = [entry objectForKey:@KSCrashField_LastDeallocObject];
-                NSString* memType = [entry objectForKey:@KSCrashField_Contents];
-
-                [str appendFormat:@"* %-17s (" FMT_PTR_LONG "): ", [source UTF8String], address];
-
-                if([memType isEqualToString:@KSCrashMemType_String])
-                {
-                    NSString* value = [entry objectForKey:@KSCrashField_Value];
-                    [str appendFormat:@"string : %@", value];
-                }
-                else if([memType isEqualToString:@KSCrashMemType_Class] ||
-                        [memType isEqualToString:@KSCrashMemType_Object])
-                {
-                    NSString* class = [entry objectForKey:@KSCrashField_Class];
-                    NSString* type = [memType isEqualToString:@KSCrashMemType_Object] ? @"object :" : @"class  :";
-                    [str appendFormat:@"%@ %@", type, class];
-                }
-                else
-                {
-                    [str appendFormat:@"unknown:"];
-                }
-                if(zombieName != nil)
-                {
-                    [str appendFormat:@" (was %@)", zombieName];
-                }
-                [str appendString:@"\n"];
-            }
+            [str appendFormat:@"\nNotable Addresses:\n%@\n", [self JSONForObject:notableAddresses]];
         }
     }
 
@@ -566,8 +544,13 @@ NSDictionary* g_registerOrders;
         uintptr_t address = (uintptr_t)[[lastException objectForKey:@KSCrashField_Address] unsignedLongLongValue];
         NSString* name = [lastException objectForKey:@KSCrashField_Name];
         NSString* reason = [lastException objectForKey:@KSCrashField_Reason];
+        referencedObject = [lastException objectForKey:@KSCrashField_ReferencedObject];
         [str appendFormat:@"\nLast deallocated NSException (" FMT_PTR_LONG "): %@: %@\n",
          address, name, reason];
+        if(referencedObject != nil)
+        {
+            [str appendFormat:@"Referenced object:\n%@\n", [self JSONForObject:referencedObject]];
+        }
         [str appendString:
          [self backtraceString:[lastException objectForKey:@KSCrashField_Backtrace]
                    reportStyle:self.reportStyle
@@ -582,6 +565,23 @@ NSDictionary* g_registerOrders;
     }
 
     return str;
+}
+
+- (NSString*) JSONForObject:(id) object
+{
+    NSError* error = nil;
+    NSData* encoded = [KSJSONCodec encode:object
+                                  options:KSJSONEncodeOptionPretty |
+                       KSJSONEncodeOptionSorted
+                                    error:&error];
+    if(error != nil)
+    {
+        return [NSString stringWithFormat:@"Error encoding JSON: %@", error];
+    }
+    else
+    {
+        return [[NSString alloc] initWithData:encoded encoding:NSUTF8StringEncoding];
+    }
 }
 
 - (NSString*) errorInfoStringForReport:(NSDictionary*) report
