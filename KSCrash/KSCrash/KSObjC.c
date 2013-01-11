@@ -317,7 +317,26 @@ const void* ksobjc_baseClass(const void* const classPtr)
 
 size_t ksobjc_ivarCount(const void* const classPtr)
 {
-    return classRO(classPtr)->ivars->count;
+    // Need to do this safely since there are a lot of weird class structures.
+    const struct class_t* class = classPtr;
+    const void* ptr = (void*)(class->data_NEVER_USE & (~WORD_MASK));
+    struct class_rw_t rw;
+    if(ksmach_copyMem(ptr, &rw, sizeof(rw)) != KERN_SUCCESS)
+    {
+        return 0;
+    }
+    struct class_ro_t ro;
+    if(ksmach_copyMem(rw.ro, &ro, sizeof(ro)) != KERN_SUCCESS)
+    {
+        return 0;
+    }
+    struct ivar_list_t ivars;
+    if(ksmach_copyMem(ro.ivars, &ivars, sizeof(ivars)) != KERN_SUCCESS)
+    {
+        return 0;
+    }
+    
+    return ivars.count;
 }
 
 size_t ksobjc_ivarList(const void* const classPtr, KSObjCIvar* dstIvars, size_t ivarsCount)
@@ -328,6 +347,11 @@ size_t ksobjc_ivarList(const void* const classPtr, KSObjCIvar* dstIvars, size_t 
     }
     
     size_t count = ksobjc_ivarCount(classPtr);
+    if(count == 0)
+    {
+        return count;
+    }
+
     if(ivarsCount < count)
     {
         count = ivarsCount;
