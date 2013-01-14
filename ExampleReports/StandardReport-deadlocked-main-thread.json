@@ -3,15 +3,15 @@
         {
             "cpu_subtype": 9,
             "cpu_type": 12,
-            "image_addr": 815104,
-            "image_size": 163840,
-            "name": "/var/mobile/Applications/4C6BECD4-F577-45F0-ADE9-941A8539E367/CrashTester.app/CrashTester",
-            "uuid": "17C4B100-1D85-3BE3-B382-CFBD0E6E7D72"
+            "image_addr": 323584,
+            "image_size": 167936,
+            "name": "/var/mobile/Applications/194DF637-2244-4A11-887C-C732BDD94F39/CrashTester.app/CrashTester",
+            "uuid": "3ABD09C1-F82E-315F-B44B-74DBA8A3CB7E"
         },
         {
             "cpu_subtype": 6,
             "cpu_type": 12,
-            "image_addr": 1138688,
+            "image_addr": 638976,
             "image_size": 4096,
             "name": "/Library/MobileSubstrate/MobileSubstrate.dylib",
             "uuid": "B8A484A9-5B5D-30C5-AB59-F25362558E7C"
@@ -1131,7 +1131,7 @@
         {
             "cpu_subtype": 6,
             "cpu_type": 12,
-            "image_addr": 1355776,
+            "image_addr": 864256,
             "image_size": 8192,
             "name": "/Library/Frameworks/CydiaSubstrate.framework/Libraries/SubstrateLoader.dylib",
             "uuid": "885B4713-FD43-3C39-96ED-FC3552109041"
@@ -1139,7 +1139,7 @@
         {
             "cpu_subtype": 6,
             "cpu_type": 12,
-            "image_addr": 1634304,
+            "image_addr": 2195456,
             "image_size": 28672,
             "name": "/Library/MobileSubstrate/DynamicLibraries/libstatusbar.dylib",
             "uuid": "FE21097B-2CB8-3481-A70C-9AB877AF55E3"
@@ -1147,7 +1147,7 @@
         {
             "cpu_subtype": 6,
             "cpu_type": 12,
-            "image_addr": 1675264,
+            "image_addr": 2236416,
             "image_size": 16384,
             "name": "/usr/lib/libsubstrate.dylib",
             "uuid": "65A35EED-3908-32B0-8134-C3CEDC6EAFA2"
@@ -1203,10 +1203,10 @@
                             "symbol_name": "-[NSLock lock]"
                         },
                         {
-                            "instruction_addr": 834480,
-                            "object_addr": 815104,
+                            "instruction_addr": 345504,
+                            "object_addr": 323584,
                             "object_name": "CrashTester",
-                            "symbol_addr": 834456,
+                            "symbol_addr": 345480,
                             "symbol_name": "__19-[Crasher deadlock]_block_invoke_0"
                         },
                         {
@@ -1259,10 +1259,10 @@
                             "symbol_name": "UIApplicationMain"
                         },
                         {
-                            "instruction_addr": 819576,
-                            "object_addr": 815104,
+                            "instruction_addr": 330576,
+                            "object_addr": 323584,
                             "object_name": "CrashTester",
-                            "symbol_addr": 819484,
+                            "symbol_addr": 330484,
                             "symbol_name": "main"
                         }
                     ],
@@ -1274,55 +1274,55 @@
                 "index": 0,
                 "notable_addresses": {
                     "r0": {
-                        "address": 2780696,
+                        "address": 1549272,
                         "type": "string",
                         "value": "XTUM"
                     },
-                    "stack@0x2fec4e6c": {
-                        "address": 2780696,
+                    "stack@0x2fe4ce6c": {
+                        "address": 1549272,
                         "type": "string",
                         "value": "XTUM"
                     },
-                    "stack@0x2fec4e74": {
-                        "address": 2780696,
+                    "stack@0x2fe4ce74": {
+                        "address": 1549272,
                         "type": "string",
                         "value": "XTUM"
                     },
-                    "stack@0x2fec4e78": {
-                        "address": 2780696,
+                    "stack@0x2fe4ce78": {
+                        "address": 1549272,
                         "type": "string",
                         "value": "XTUM"
                     },
-                    "stack@0x2fec4ea0": {
-                        "address": 2780696,
+                    "stack@0x2fe4cea0": {
+                        "address": 1549272,
                         "type": "string",
                         "value": "XTUM"
                     },
-                    "stack@0x2fec4ea4": {
-                        "address": 2780688,
+                    "stack@0x2fe4cea4": {
+                        "address": 1549264,
                         "class": "NSLock",
                         "ivars": {},
                         "type": "objc_object"
                     },
-                    "stack@0x2fec4ea8": {
-                        "address": 2832432,
+                    "stack@0x2fe4cea8": {
+                        "address": 1627872,
                         "class": "__NSCFString",
                         "last_deallocated_obj": "__NSArrayM",
                         "type": "objc_object",
                         "value": "*** -[NSLock lock]"
                     },
-                    "stack@0x2fec4eb4": {
-                        "address": 2780688,
+                    "stack@0x2fe4ceb4": {
+                        "address": 1549264,
                         "class": "NSLock",
                         "ivars": {},
                         "type": "objc_object"
                     },
-                    "stack@0x2fec4eb8": {
+                    "stack@0x2fe4ceb8": {
                         "address": 1053226636,
                         "class": "NSLock",
                         "type": "objc_class"
                     },
-                    "stack@0x2fec4ebc": {
+                    "stack@0x2fe4cebc": {
                         "address": 831827332,
                         "type": "string",
                         "value": "lock"
@@ -1334,33 +1334,33 @@
                         "ip": 301,
                         "lr": 901412475,
                         "pc": 820752600,
-                        "r0": 2780696,
+                        "r0": 1549272,
                         "r1": 515,
                         "r10": 0,
                         "r11": 515,
                         "r2": 0,
-                        "r3": 38516,
+                        "r3": 81754,
                         "r4": 0,
                         "r5": 8288,
-                        "r6": 2780728,
-                        "r7": 804015788,
+                        "r6": 1549304,
+                        "r7": 803524268,
                         "r8": 515,
-                        "r9": 0,
-                        "sp": 804015736
+                        "r9": 1508928,
+                        "sp": 803524216
                     },
                     "exception": {
                         "exception": 0,
-                        "far": 37445632,
+                        "far": 36429824,
                         "fsr": 2055
                     }
                 },
                 "stack": {
-                    "contents": "A04EEC2F04000000EC4EEC2FEC4EEC2FEC4EEC2FEC4EEC2F2C6E2A00186E2A0060200000186E2A00186E2A0000000000000000006020000074960000000000002BAB7833EC4EEC2FEC4EEC2FE0AD5E3F186E2A00106E2A0030382B00C84EEC2F87BD7633106E2A008CF6C63E84AD94310000000000000000",
-                    "dump_end": 804015816,
-                    "dump_start": 804015696,
+                    "contents": "A0CEE42F04000000ECCEE42FECCEE42FECCEE42FECCEE42FECA31700D8A3170060200000D8A31700D8A317000000000000000000602000005A3F0100000000002BAB7833ECCEE42FECCEE42FE0AD5E3FD8A31700D0A31700E0D61800C8CEE42F87BD7633D0A317008CF6C63E84AD94310000000000000000",
+                    "dump_end": 803524296,
+                    "dump_start": 803524176,
                     "grow_direction": "-",
                     "overflow": false,
-                    "stack_pointer": 804015736
+                    "stack_pointer": 803524216
                 }
             },
             {
@@ -1398,14 +1398,14 @@
                         "r10": 1067417696,
                         "r11": 0,
                         "r2": 0,
-                        "r3": 804918832,
+                        "r3": 804427312,
                         "r4": 1,
-                        "r5": 804919116,
-                        "r6": 804919116,
-                        "r7": 804919148,
+                        "r5": 804427596,
+                        "r6": 804427596,
+                        "r7": 804427628,
                         "r8": 0,
                         "r9": 0,
-                        "sp": 804918812
+                        "sp": 804427292
                     }
                 }
             },
@@ -1474,7 +1474,7 @@
                         "ip": 4294967265,
                         "lr": 820687361,
                         "pc": 820686852,
-                        "r0": 6079060,
+                        "r0": 4858452,
                         "r1": 117440518,
                         "r10": 117440518,
                         "r11": 4294967295,
@@ -1483,10 +1483,10 @@
                         "r4": 8963,
                         "r5": 4294967295,
                         "r6": 0,
-                        "r7": 6078908,
+                        "r7": 4858300,
                         "r8": 0,
                         "r9": 1,
-                        "sp": 6078848
+                        "sp": 4858240
                     }
                 }
             },
@@ -1513,10 +1513,10 @@
                             "symbol_name": "thread_suspend"
                         },
                         {
-                            "instruction_addr": 917344,
-                            "object_addr": 815104,
+                            "instruction_addr": 428488,
+                            "object_addr": 323584,
                             "object_name": "CrashTester",
-                            "symbol_addr": 917268,
+                            "symbol_addr": 428412,
                             "symbol_name": "ksmachexc_i_handleExceptions"
                         },
                         {
@@ -1548,10 +1548,10 @@
                         "r4": 14851,
                         "r5": 0,
                         "r6": 0,
-                        "r7": 36469648,
+                        "r7": 35445648,
                         "r8": 0,
                         "r9": 0,
-                        "sp": 36469588
+                        "sp": 35445588
                     }
                 }
             },
@@ -1566,10 +1566,10 @@
                             "symbol_name": "mach_msg_trap"
                         },
                         {
-                            "instruction_addr": 917376,
-                            "object_addr": 815104,
+                            "instruction_addr": 428520,
+                            "object_addr": 323584,
                             "object_name": "CrashTester",
-                            "symbol_addr": 917268,
+                            "symbol_addr": 428412,
                             "symbol_name": "ksmachexc_i_handleExceptions"
                         },
                         {
@@ -1592,7 +1592,7 @@
                         "ip": 4294967265,
                         "lr": 820687361,
                         "pc": 820686852,
-                        "r0": 37002592,
+                        "r0": 35978592,
                         "r1": 2,
                         "r10": 2,
                         "r11": 0,
@@ -1601,10 +1601,10 @@
                         "r4": 14339,
                         "r5": 0,
                         "r6": 0,
-                        "r7": 37002196,
+                        "r7": 35978196,
                         "r8": 0,
                         "r9": 0,
-                        "sp": 37002136
+                        "sp": 35978136
                     }
                 }
             }
@@ -1612,9 +1612,9 @@
     },
     "process": {},
     "report": {
-        "id": "7898AA28-E3EB-440C-8024-209413024657",
+        "id": "26121C8A-C4AA-4DFE-8718-EEACB1BFAF2E",
         "process_name": "CrashTester",
-        "timestamp": "2013-01-14T03:21:53Z",
+        "timestamp": "2013-01-14T15:59:29Z",
         "type": "standard",
         "version": {
             "major": 2,
@@ -1623,16 +1623,16 @@
     },
     "system": {
         "CFBundleExecutable": "CrashTester",
-        "CFBundleExecutablePath": "/var/mobile/Applications/4C6BECD4-F577-45F0-ADE9-941A8539E367/CrashTester.app/CrashTester",
+        "CFBundleExecutablePath": "/var/mobile/Applications/194DF637-2244-4A11-887C-C732BDD94F39/CrashTester.app/CrashTester",
         "CFBundleIdentifier": "org.stenerud.CrashTester",
         "CFBundleName": "CrashTester",
         "CFBundleShortVersionString": "1.0",
         "CFBundleVersion": "1.02",
-        "app_start_time": "2013-01-14T03:21:43Z",
-        "app_uuid": "17C4B100-1D85-3BE3-B382-CFBD0E6E7D72",
+        "app_start_time": "2013-01-14T15:59:19Z",
+        "app_uuid": "3ABD09C1-F82E-315F-B44B-74DBA8A3CB7E",
         "application_stats": {
-            "active_time_since_last_crash": 9.99687,
-            "active_time_since_launch": 9.99687,
+            "active_time_since_last_crash": 9.99183,
+            "active_time_since_launch": 9.99183,
             "application_active": true,
             "application_in_foreground": true,
             "background_time_since_last_crash": 0,
@@ -1641,22 +1641,22 @@
             "sessions_since_last_crash": 1,
             "sessions_since_launch": 1
         },
-        "boot_time": "2013-01-12T00:09:55Z",
+        "boot_time": "2013-01-12T00:09:54Z",
         "cpu_arch": "armv7",
         "device_app_hash": "2f11dc412b5da106a79350af5a58308f98199651",
         "jailbroken": true,
         "kernel_version": "Darwin Kernel Version 11.0.0: Wed Feb  1 23:16:39 PST 2012; root:xnu-1878.11.8~1/RELEASE_ARM_S5L8920X",
         "machine": "iPhone2,1",
         "memory": {
-            "free": 69017600,
+            "free": 68468736,
             "size": 266575872,
-            "usable": 203448320
+            "usable": 202993664
         },
         "model": "N88AP",
         "os_version": "9B176",
         "parent_process_id": 1,
         "parent_process_name": "launchd",
-        "process_id": 1584,
+        "process_id": 2384,
         "process_name": "CrashTester",
         "system_name": "iPhone OS",
         "system_version": "5.1",

@@ -64,14 +64,6 @@ typedef struct
     size_t index;
 } KSObjCIvar;
 
-//======================================================================
-#pragma mark - Initialization -
-//======================================================================
-
-/** Initialize the KSObjC library.
- */
-void ksobjc_init(void);
-
 
 //======================================================================
 #pragma mark - Basic Objective-C Queries -

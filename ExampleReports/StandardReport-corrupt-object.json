@@ -3,15 +3,15 @@
         {
             "cpu_subtype": 9,
             "cpu_type": 12,
-            "image_addr": 991232,
-            "image_size": 163840,
-            "name": "/var/mobile/Applications/4C6BECD4-F577-45F0-ADE9-941A8539E367/CrashTester.app/CrashTester",
-            "uuid": "17C4B100-1D85-3BE3-B382-CFBD0E6E7D72"
+            "image_addr": 241664,
+            "image_size": 167936,
+            "name": "/var/mobile/Applications/194DF637-2244-4A11-887C-C732BDD94F39/CrashTester.app/CrashTester",
+            "uuid": "3ABD09C1-F82E-315F-B44B-74DBA8A3CB7E"
         },
         {
             "cpu_subtype": 6,
             "cpu_type": 12,
-            "image_addr": 1306624,
+            "image_addr": 552960,
             "image_size": 4096,
             "name": "/Library/MobileSubstrate/MobileSubstrate.dylib",
             "uuid": "B8A484A9-5B5D-30C5-AB59-F25362558E7C"
@@ -1131,7 +1131,7 @@
         {
             "cpu_subtype": 6,
             "cpu_type": 12,
-            "image_addr": 1531904,
+            "image_addr": 782336,
             "image_size": 8192,
             "name": "/Library/Frameworks/CydiaSubstrate.framework/Libraries/SubstrateLoader.dylib",
             "uuid": "885B4713-FD43-3C39-96ED-FC3552109041"
@@ -1139,7 +1139,7 @@
         {
             "cpu_subtype": 6,
             "cpu_type": 12,
-            "image_addr": 1810432,
+            "image_addr": 2117632,
             "image_size": 28672,
             "name": "/Library/MobileSubstrate/DynamicLibraries/libstatusbar.dylib",
             "uuid": "FE21097B-2CB8-3481-A70C-9AB877AF55E3"
@@ -1147,7 +1147,7 @@
         {
             "cpu_subtype": 6,
             "cpu_type": 12,
-            "image_addr": 1851392,
+            "image_addr": 2158592,
             "image_size": 16384,
             "name": "/usr/lib/libsubstrate.dylib",
             "uuid": "65A35EED-3908-32B0-8134-C3CEDC6EAFA2"
@@ -1235,31 +1235,31 @@
                             "symbol_name": "objc_msgSend_uncached"
                         },
                         {
-                            "instruction_addr": 1009176,
-                            "object_addr": 991232,
+                            "instruction_addr": 262152,
+                            "object_addr": 241664,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1009056,
+                            "symbol_addr": 262032,
                             "symbol_name": "-[Crasher useCorruptObject]"
                         },
                         {
-                            "instruction_addr": 1006552,
-                            "object_addr": 991232,
+                            "instruction_addr": 259528,
+                            "object_addr": 241664,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1006520,
+                            "symbol_addr": 259492,
                             "symbol_name": "__32-[AppDelegate(UI) crashCommands]_block_invoke_0331"
                         },
                         {
-                            "instruction_addr": 1007736,
-                            "object_addr": 991232,
+                            "instruction_addr": 260704,
+                            "object_addr": 241664,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1007708,
+                            "symbol_addr": 260680,
                             "symbol_name": "-[CommandEntry executeWithViewController:]"
                         },
                         {
-                            "instruction_addr": 1008584,
-                            "object_addr": 991232,
+                            "instruction_addr": 261552,
+                            "object_addr": 241664,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1008496,
+                            "symbol_addr": 261468,
                             "symbol_name": "-[CommandTVC tableView:didSelectRowAtIndexPath:]"
                         },
                         {
@@ -1333,10 +1333,10 @@
                             "symbol_name": "UIApplicationMain"
                         },
                         {
-                            "instruction_addr": 995704,
-                            "object_addr": 991232,
+                            "instruction_addr": 248656,
+                            "object_addr": 241664,
                             "object_name": "CrashTester",
-                            "symbol_addr": 995612,
+                            "symbol_addr": 248564,
                             "symbol_name": "main"
                         }
                     ],
@@ -1348,16 +1348,16 @@
                 "index": 0,
                 "notable_addresses": {
                     "r3": {
-                        "address": 3060608,
+                        "address": 1639808,
                         "last_deallocated_obj": "UIGestureDelayedTouch",
                         "type": "unknown"
                     },
-                    "stack@0x2feefb98": {
-                        "address": 3056416,
+                    "stack@0x2fe38b98": {
+                        "address": 1750400,
                         "class": "UIView",
                         "ivars": {
                             "_backgroundColorSystemColorName": {
-                                "address": 3002512,
+                                "address": 1699168,
                                 "class": "__NSCFString",
                                 "type": "objc_object",
                                 "value": "tableSeparatorLightColor"
@@ -1372,14 +1372,14 @@
                                 "type": "null_pointer"
                             },
                             "_layer": {
-                                "address": 3057600,
+                                "address": 1751552,
                                 "class": "CALayer",
                                 "ivars": {},
                                 "last_deallocated_obj": "__NSArrayI",
                                 "type": "objc_object"
                             },
                             "_subviewCache": {
-                                "address": 2749152,
+                                "address": 1444576,
                                 "class": "__NSArrayI",
                                 "type": "objc_object"
                             },
@@ -1393,16 +1393,15 @@
                                 "type": "null_pointer"
                             }
                         },
-                        "last_deallocated_obj": "__NSArrayI",
                         "type": "objc_object"
                     },
-                    "stack@0x2feefba0": {
-                        "address": 2749152,
+                    "stack@0x2fe38ba0": {
+                        "address": 1444576,
                         "class": "__NSArrayI",
                         "type": "objc_object"
                     },
-                    "stack@0x2feefbb4": {
-                        "address": 3051936,
+                    "stack@0x2fe38bb4": {
+                        "address": 1747136,
                         "class": "UITableViewCell",
                         "ivars": {
                             "_accessoryAction": {
@@ -1420,7 +1419,7 @@
                             "_indentationLevel": 0,
                             "_indentationWidth": 10,
                             "_layoutManager": {
-                                "address": 2986320,
+                                "address": 1477280,
                                 "class": "UITableViewCellLayoutManager",
                                 "ivars": {},
                                 "type": "objc_object"
@@ -1450,17 +1449,17 @@
                         "pc": 922293126,
                         "r0": 0,
                         "r1": 4294967295,
-                        "r10": 1129062,
+                        "r10": 382146,
                         "r11": 3,
                         "r2": 922263177,
-                        "r3": 3060608,
-                        "r4": 804191080,
+                        "r3": 1639808,
+                        "r4": 803441512,
                         "r5": 1814064757,
-                        "r6": 1129066,
-                        "r7": 804191224,
-                        "r8": 804191476,
+                        "r6": 382150,
+                        "r7": 803441656,
+                        "r8": 803441908,
                         "r9": 1,
-                        "sp": 804191080
+                        "sp": 803441512
                     },
                     "exception": {
                         "exception": 0,
@@ -1469,12 +1468,12 @@
                     }
                 },
                 "stack": {
-                    "contents": "FFFFFFFF83D22D0000201400D0FBEE2F4B84BA358C2A863E00EA843E200000000100000002000000010000003C301400483014008854140038581F0F00000000020000008454140000EA843E03000000FEFFFFFF8454140020A32E00DCA05E3FE0F2290000201400A54CF13408FCEE2F08FCEE2FA0912E00",
-                    "dump_end": 804191160,
-                    "dump_start": 804191040,
+                    "contents": "FFFFFFFFB3131B0000A00800D08BE32F4B84BA358C2A863E00EA843E200000000100000002000000010000003CB0080048B0080088D40800A8432310000000000200000084D4080000EA843E03000000FEFFFFFF84D4080080B51A00DCA05E3FE00A160000A00800A54CF134088CE32F088CE32FC0A81A00",
+                    "dump_end": 803441592,
+                    "dump_start": 803441472,
                     "grow_direction": "-",
                     "overflow": false,
-                    "stack_pointer": 804191080
+                    "stack_pointer": 803441512
                 }
             },
             {
@@ -1512,14 +1511,14 @@
                         "r10": 1067417696,
                         "r11": 0,
                         "r2": 0,
-                        "r3": 805094960,
+                        "r3": 804345392,
                         "r4": 1,
-                        "r5": 805095244,
-                        "r6": 805095244,
-                        "r7": 805095276,
+                        "r5": 804345676,
+                        "r6": 804345676,
+                        "r7": 804345708,
                         "r8": 0,
                         "r9": 0,
-                        "sp": 805094940
+                        "sp": 804345372
                     }
                 }
             },
@@ -1551,13 +1550,13 @@
                         "r11": 0,
                         "r2": 0,
                         "r3": 0,
-                        "r4": 253500544,
-                        "r5": 1789980,
-                        "r6": 3674112,
-                        "r7": 3674080,
+                        "r4": 270538880,
+                        "r5": 2097180,
+                        "r6": 804880384,
+                        "r7": 804880352,
                         "r8": 1063169328,
                         "r9": 22,
-                        "sp": 3674048
+                        "sp": 804880320
                     }
                 }
             },
@@ -1589,13 +1588,13 @@
                         "r11": 0,
                         "r2": 0,
                         "r3": 0,
-                        "r4": 253500416,
-                        "r5": 1790232,
-                        "r6": 4206592,
-                        "r7": 4206560,
+                        "r4": 270538752,
+                        "r5": 2097460,
+                        "r6": 2711552,
+                        "r7": 2711520,
                         "r8": 1063169328,
                         "r9": 0,
-                        "sp": 4206528
+                        "sp": 2711488
                     }
                 }
             },
@@ -1664,7 +1663,7 @@
                         "ip": 4294967265,
                         "lr": 820687361,
                         "pc": 820686852,
-                        "r0": 6079060,
+                        "r0": 4780628,
                         "r1": 117440518,
                         "r10": 117440518,
                         "r11": 4294967295,
@@ -1673,10 +1672,10 @@
                         "r4": 8963,
                         "r5": 4294967295,
                         "r6": 0,
-                        "r7": 6078908,
+                        "r7": 4780476,
                         "r8": 0,
                         "r9": 1,
-                        "sp": 6078848
+                        "sp": 4780416
                     }
                 }
             },
@@ -1698,10 +1697,10 @@
                             "symbol_name": "+[NSThread sleepForTimeInterval:]"
                         },
                         {
-                            "instruction_addr": 1109304,
-                            "object_addr": 991232,
+                            "instruction_addr": 362400,
+                            "object_addr": 241664,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1109060,
+                            "symbol_addr": 362156,
                             "symbol_name": "-[KSCrashDeadlockMonitor runMonitor]"
                         },
                         {
@@ -1739,17 +1738,17 @@
                         "pc": 820753960,
                         "r0": 3075,
                         "r1": 0,
-                        "r10": 36114432,
+                        "r10": 34832384,
                         "r11": 884400866,
                         "r2": 1,
                         "r3": 1,
                         "r4": 5,
                         "r5": 0,
                         "r6": 0,
-                        "r7": 36113776,
+                        "r7": 34831728,
                         "r8": 0,
                         "r9": 7,
-                        "sp": 36113720
+                        "sp": 34831672
                     }
                 }
             },
@@ -1764,10 +1763,10 @@
                             "symbol_name": "mach_msg_trap"
                         },
                         {
-                            "instruction_addr": 1093504,
-                            "object_addr": 991232,
+                            "instruction_addr": 346600,
+                            "object_addr": 241664,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1093396,
+                            "symbol_addr": 346492,
                             "symbol_name": "ksmachexc_i_handleExceptions"
                         },
                         {
@@ -1790,7 +1789,7 @@
                         "ip": 4294967265,
                         "lr": 820687361,
                         "pc": 820686852,
-                        "r0": 36646240,
+                        "r0": 35364192,
                         "r1": 2,
                         "r10": 2,
                         "r11": 0,
@@ -1799,10 +1798,10 @@
                         "r4": 14339,
                         "r5": 0,
                         "r6": 0,
-                        "r7": 36645844,
+                        "r7": 35363796,
                         "r8": 0,
                         "r9": 0,
-                        "sp": 36645784
+                        "sp": 35363736
                     }
                 }
             },
@@ -1816,9 +1815,9 @@
     },
     "process": {},
     "report": {
-        "id": "A9190CEC-801A-40D0-AD5C-2D04F81A9103",
+        "id": "CFC9F205-A421-4CC5-A6BE-C948E8464CE0",
         "process_name": "CrashTester",
-        "timestamp": "2013-01-14T03:14:56Z",
+        "timestamp": "2013-01-14T15:51:35Z",
         "type": "standard",
         "version": {
             "major": 2,
@@ -1827,16 +1826,16 @@
     },
     "system": {
         "CFBundleExecutable": "CrashTester",
-        "CFBundleExecutablePath": "/var/mobile/Applications/4C6BECD4-F577-45F0-ADE9-941A8539E367/CrashTester.app/CrashTester",
+        "CFBundleExecutablePath": "/var/mobile/Applications/194DF637-2244-4A11-887C-C732BDD94F39/CrashTester.app/CrashTester",
         "CFBundleIdentifier": "org.stenerud.CrashTester",
         "CFBundleName": "CrashTester",
         "CFBundleShortVersionString": "1.0",
         "CFBundleVersion": "1.02",
-        "app_start_time": "2013-01-14T03:14:54Z",
-        "app_uuid": "17C4B100-1D85-3BE3-B382-CFBD0E6E7D72",
+        "app_start_time": "2013-01-14T15:51:33Z",
+        "app_uuid": "3ABD09C1-F82E-315F-B44B-74DBA8A3CB7E",
         "application_stats": {
-            "active_time_since_last_crash": 2.03944,
-            "active_time_since_launch": 2.03944,
+            "active_time_since_last_crash": 1.65549,
+            "active_time_since_launch": 1.65549,
             "application_active": true,
             "application_in_foreground": true,
             "background_time_since_last_crash": 0,
@@ -1845,22 +1844,22 @@
             "sessions_since_last_crash": 1,
             "sessions_since_launch": 1
         },
-        "boot_time": "2013-01-12T00:09:55Z",
+        "boot_time": "2013-01-12T00:09:54Z",
         "cpu_arch": "armv7",
         "device_app_hash": "2f11dc412b5da106a79350af5a58308f98199651",
         "jailbroken": true,
         "kernel_version": "Darwin Kernel Version 11.0.0: Wed Feb  1 23:16:39 PST 2012; root:xnu-1878.11.8~1/RELEASE_ARM_S5L8920X",
         "machine": "iPhone2,1",
         "memory": {
-            "free": 63967232,
+            "free": 61927424,
             "size": 266575872,
-            "usable": 200376320
+            "usable": 202350592
         },
         "model": "N88AP",
         "os_version": "9B176",
         "parent_process_id": 1,
         "parent_process_name": "launchd",
-        "process_id": 1551,
+        "process_id": 2353,
         "process_name": "CrashTester",
         "system_name": "iPhone OS",
         "system_version": "5.1",

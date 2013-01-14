@@ -1,19 +1,19 @@
-Incident Identifier: 70B4F49E-D04F-4834-A206-9ADDF2E3439B
+Incident Identifier: B76D9488-5AC0-4A4D-835A-EBD16F34418E
 CrashReporter Key:   2f11dc412b5da106a79350af5a58308f98199651
 Hardware Model:      iPhone2,1
-Process:         CrashTester [1567]
-Path:            /var/mobile/Applications/4C6BECD4-F577-45F0-ADE9-941A8539E367/CrashTester.app/CrashTester
+Process:         CrashTester [2367]
+Path:            /var/mobile/Applications/194DF637-2244-4A11-887C-C732BDD94F39/CrashTester.app/CrashTester
 Identifier:      org.stenerud.CrashTester
 Version:         1.0 (1.02)
 Code Type:       ARM
 Parent Process:  launchd [1]
 
-Date/Time:       2013-01-13 19:18:07.000 -0800
+Date/Time:       2013-01-14 07:54:57.000 -0800
 OS Version:      iPhone OS 5.1 (9B176)
 Report Version:  104
 
 Exception Type:  EXC_BAD_ACCESS (SIGSEGV)
-Exception Codes: KERN_INVALID_ADDRESS at 0x1002c852
+Exception Codes: KERN_INVALID_ADDRESS at 0xc001e736
 Crashed Thread:  0
 
 Thread 0 name:  Dispatch queue: com.apple.main-thread
@@ -26,15 +26,21 @@ Thread 0 Crashed:
 5   CoreFoundation                  0x34f18368 0x34f09000 + 62312 (CFRunLoopRunInMode + 100)
 6   GraphicsServices                0x34583438 0x3457f000 + 17464 (GSEventRunModal + 136)
 7   UIKit                           0x3158fe78 0x3155e000 + 204408 (UIApplicationMain + 1076)
-8   CrashTester                     0x000e7178 0xe6000 + 4472 (main + 92)
+8   CrashTester                     0x00068b50 0x67000 + 6992 (main + 92)
 
 Thread 1 name:  Dispatch queue: com.apple.libdispatch-manager
 Thread 1:
 0   libsystem_kernel.dylib          0x30eab3a8 0x30eaa000 + 5032 (kevent + 24)
 1   libdispatch.dylib               0x378fabc8 0x378ee000 + 52168 (_dispatch_mgr_wakeup + 0)
 
-Thread 2 name:  WebThread
 Thread 2:
+0   libsystem_kernel.dylib          0x30ebbcd4 0x30eaa000 + 72916 (__workq_kernreturn + 8)
+
+Thread 3:
+0   libsystem_kernel.dylib          0x30ebbcd4 0x30eaa000 + 72916 (__workq_kernreturn + 8)
+
+Thread 4 name:  WebThread
+Thread 4:
 0   libsystem_kernel.dylib          0x30eab004 0x30eaa000 + 4100 (mach_msg_trap + 20)
 1   CoreFoundation                  0x34f963f0 0x34f09000 + 578544 (__CFRunLoopServiceMachPort + 124)
 2   CoreFoundation                  0x34f95128 0x34f09000 + 573736 (__CFRunLoopRun + 880)
@@ -43,36 +49,33 @@ Thread 2:
 5   WebCore                         0x320320f0 0x31f89000 + 692464 (_ZL12RunWebThreadPv + 396)
 6   libsystem_c.dylib               0x35bb3730 0x35ba5000 + 59184 (_pthread_start + 316)
 
-Thread 3:
+Thread 5:
 0   libsystem_kernel.dylib          0x30ebb628 0x30eaa000 + 71208 (__semwait_signal + 24)
 1   Foundation                      0x337b1b00 0x3376a000 + 293632 (+[NSThread sleepForTimeInterval:] + 124)
-2   CrashTester                     0x00102d38 0xe6000 + 118072 (-[KSCrashDeadlockMonitor runMonitor] + 244)
+2   CrashTester                     0x000847a0 0x67000 + 120736 (-[KSCrashDeadlockMonitor runMonitor] + 244)
 3   Foundation                      0x3377aa80 0x3376a000 + 68224 (-[NSThread main] + 72)
 4   Foundation                      0x3380e590 0x3376a000 + 673168 (__NSThread__main__ + 1048)
 5   libsystem_c.dylib               0x35bb3730 0x35ba5000 + 59184 (_pthread_start + 316)
 
-Thread 4 name:  KSCrash Exception Handler (Secondary)
-Thread 4:
+Thread 6 name:  KSCrash Exception Handler (Secondary)
+Thread 6:
 0   libsystem_kernel.dylib          0x30eab004 0x30eaa000 + 4100 (mach_msg_trap + 20)
-1   CrashTester                     0x000fef80 0xe6000 + 102272 (ksmachexc_i_handleExceptions + 108)
+1   CrashTester                     0x000809e8 0x67000 + 104936 (ksmachexc_i_handleExceptions + 108)
 2   libsystem_c.dylib               0x35bb3730 0x35ba5000 + 59184 (_pthread_start + 316)
 
-Thread 5 name:  KSCrash Exception Handler (Primary)
-Thread 5:
-
-Thread 6:
-0   libsystem_kernel.dylib          0x30ebbcd4 0x30eaa000 + 72916 (__workq_kernreturn + 8)
+Thread 7 name:  KSCrash Exception Handler (Primary)
+Thread 7:
 
 Thread 0 crashed with ARM Thread State:
-    r0: 0x002aac80     r1: 0x34b6f81c     r2: 0x00000001     r3: 0x002c6430 
-    r4: 0x1002c84a     r5: 0x00000000     r6: 0x00000000     r7: 0x2fee3ed4 
-    r8: 0x2fee3eec     r9: 0x0d2dbe07    r10: 0x2fee3eec    r11: 0x3f5eade0 
-    ip: 0x000ea459     sp: 0x2fee3ecc     lr: 0x000ea7b1     pc: 0x36f8af78 
+    r0: 0x001c38e0     r1: 0x34b6f81c     r2: 0x00000001     r3: 0x001e7390 
+    r4: 0xc001e72e     r5: 0x00000000     r6: 0x00000000     r7: 0x2fe64ed4 
+    r8: 0x2fe64eec     r9: 0x0d2dbe07    r10: 0x2fe64eec    r11: 0x3f5eade0 
+    ip: 0x0006be49     sp: 0x2fe64ecc     lr: 0x0006c1a1     pc: 0x36f8af78 
   cpsr: 0x20000030 
 
 Binary Images:
-   0xe6000 -   0x10dfff +CrashTester armv7  <17c4b1001d853be3b382cfbd0e6e7d72> /var/mobile/Applications/4C6BECD4-F577-45F0-ADE9-941A8539E367/CrashTester.app/CrashTester
-  0x135000 -   0x135fff  MobileSubstrate.dylib armv6  <b8a484a95b5d30c5ab59f25362558e7c> /Library/MobileSubstrate/MobileSubstrate.dylib
+   0x67000 -    0x8ffff +CrashTester armv7  <3abd09c1f82e315fb44b74dba8a3cb7e> /var/mobile/Applications/194DF637-2244-4A11-887C-C732BDD94F39/CrashTester.app/CrashTester
+   0xb6000 -    0xb6fff  MobileSubstrate.dylib armv6  <b8a484a95b5d30c5ab59f25362558e7c> /Library/MobileSubstrate/MobileSubstrate.dylib
 0x375a8000 - 0x375ddfff  SystemConfiguration armv7  <4464a4e3bb3f32f7abaa35ebf31fda49> /System/Library/Frameworks/SystemConfiguration.framework/SystemConfiguration
 0x3088a000 - 0x308eefff  MessageUI armv7  <b74d79ea691a35ada276f063b7217a20> /System/Library/Frameworks/MessageUI.framework/MessageUI
 0x30937000 - 0x30943fff  libz.1.dylib armv7  <36ce86a3dc8c344596c8c325615f374b> /usr/lib/libz.1.dylib
@@ -212,22 +215,22 @@ Binary Images:
 0x372b4000 - 0x374e1fff  MediaToolbox armv7  <ec9bc89489763c6c93f86c5c490b2d69> /System/Library/PrivateFrameworks/MediaToolbox.framework/MediaToolbox
 0x31b66000 - 0x31becfff  CoreMotion armv7  <6a9355d5a8e238b5b8f193605d509e15> /System/Library/Frameworks/CoreMotion.framework/CoreMotion
 0x37233000 - 0x372a7fff  MediaControlSender armv7  <87315c54b2293ab589950341ff91b45d> /System/Library/PrivateFrameworks/MediaControlSender.framework/MediaControlSender
-  0x16a000 -   0x16bfff  SubstrateLoader.dylib armv6  <885b4713fd433c3996edfc3552109041> /Library/Frameworks/CydiaSubstrate.framework/Libraries/SubstrateLoader.dylib
-  0x1ae000 -   0x1b4fff  libstatusbar.dylib armv6  <fe21097b2cb83481a70c9ab877af55e3> /Library/MobileSubstrate/DynamicLibraries/libstatusbar.dylib
-  0x1b8000 -   0x1bbfff  libsubstrate.dylib armv6  <65a35eed390832b08134c3cedc6eafa2> /usr/lib/libsubstrate.dylib
+  0x200000 -   0x201fff  SubstrateLoader.dylib armv6  <885b4713fd433c3996edfc3552109041> /Library/Frameworks/CydiaSubstrate.framework/Libraries/SubstrateLoader.dylib
+  0x230000 -   0x236fff  libstatusbar.dylib armv6  <fe21097b2cb83481a70c9ab877af55e3> /Library/MobileSubstrate/DynamicLibraries/libstatusbar.dylib
+  0x23a000 -   0x23dfff  libsubstrate.dylib armv6  <65a35eed390832b08134c3cedc6eafa2> /usr/lib/libsubstrate.dylib
 0x35509000 - 0x35544fff  libCGFreetype.A.dylib armv7  <55941c96cf1f3b048e72a148c4496c16> /System/Library/Frameworks/CoreGraphics.framework/Resources/libCGFreetype.A.dylib
 0x33056000 - 0x3306ffff  libRIP.A.dylib armv7  <1828cddc5dd93c61afbefb59587d7f8a> /System/Library/Frameworks/CoreGraphics.framework/Resources/libRIP.A.dylib
 
 Extra Information:
 
-Stack Dump (0x2fee3ea4-0x2fee3f1c):
+Stack Dump (0x2fe64ea4-0x2fe64f1c):
 
-00000000B43EEE2F13B7F836D0542800CC3EEE2FCBAFF836D05428008F035E344DEC8E3730642C0030642C0030642C00E03EEE2F59EC8E3700689F3F143FEE2F919E8F3700689F3F00000000000000000000000000000000783FEE2F031A0000783FEE2F38A0190D58F12400A8F02400984BEE2FAD52F934
+00000000B44EE62F13B7F836B0E71900CC4EE62FCBAFF836B0E719008F035E344DEC8E3790731E0090731E0090731E00E04EE62F59EC8E3700689F3F144FE62F919E8F3700689F3F00000000000000000000000000000000784FE62F031A0000784FE62F38004010B8C3160008C31600985BE62FAD52F934
 
 Notable Addresses:
 {
     "r0": {
-        "address": 2796672,
+        "address": 1849568,
         "last_deallocated_obj": "__NSArrayI",
         "type": "unknown"
     },
@@ -237,60 +240,60 @@ Notable Addresses:
         "value": "objectAtIndex:"
     },
     "r3": {
-        "address": 2909232,
+        "address": 1995664,
         "class": "__NSMallocBlock__",
-        "last_deallocated_obj": "__NSArrayM",
+        "last_deallocated_obj": "__NSArrayI",
         "type": "objc_block"
     },
-    "stack@0x2fee3eb0": {
-        "address": 2643152,
+    "stack@0x2fe64eb0": {
+        "address": 1697712,
         "class": "RefHolder",
         "ivars": {
             "_ref": {
-                "address": 2796672,
+                "address": 1849568,
                 "last_deallocated_obj": "__NSArrayI",
                 "type": "unknown"
             }
         },
         "type": "objc_object"
     },
-    "stack@0x2fee3ebc": {
-        "address": 2643152,
+    "stack@0x2fe64ebc": {
+        "address": 1697712,
         "class": "RefHolder",
         "ivars": {
             "_ref": {
-                "address": 2796672,
+                "address": 1849568,
                 "last_deallocated_obj": "__NSArrayI",
                 "type": "unknown"
             }
         },
         "type": "objc_object"
     },
-    "stack@0x2fee3ec8": {
-        "address": 2909232,
+    "stack@0x2fe64ec8": {
+        "address": 1995664,
         "class": "__NSMallocBlock__",
-        "last_deallocated_obj": "__NSArrayM",
+        "last_deallocated_obj": "__NSArrayI",
         "type": "objc_block"
     },
-    "stack@0x2fee3ecc": {
-        "address": 2909232,
+    "stack@0x2fe64ecc": {
+        "address": 1995664,
         "class": "__NSMallocBlock__",
-        "last_deallocated_obj": "__NSArrayM",
+        "last_deallocated_obj": "__NSArrayI",
         "type": "objc_block"
     },
-    "stack@0x2fee3ed0": {
-        "address": 2909232,
+    "stack@0x2fe64ed0": {
+        "address": 1995664,
         "class": "__NSMallocBlock__",
-        "last_deallocated_obj": "__NSArrayM",
+        "last_deallocated_obj": "__NSArrayI",
         "type": "objc_block"
     },
-    "stack@0x2fee3f0c": {
-        "address": 2421080,
+    "stack@0x2fe64f0c": {
+        "address": 1491896,
         "type": "string",
         "value": "XTUM"
     },
-    "stack@0x2fee3f10": {
-        "address": 2420904,
+    "stack@0x2fe64f10": {
+        "address": 1491720,
         "type": "string",
         "value": "XTUM"
     }
@@ -300,4 +303,4 @@ CrashDoctor Diagnosis: Possible zombie in call: Function: objc_msgSend
 Param 1:  (was __NSArrayI)
 Param 2:  
 Param 3:  0x1 
-Param 4:  (was __NSArrayM)
+Param 4:  (was __NSArrayI)

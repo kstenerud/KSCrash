@@ -1,14 +1,14 @@
-Incident Identifier: 9EA71DBE-BC77-4B34-8268-FE45CC200039
+Incident Identifier: DA04A693-19A6-43C6-8121-C18B59470523
 CrashReporter Key:   2f11dc412b5da106a79350af5a58308f98199651
 Hardware Model:      iPhone2,1
-Process:         CrashTester [1547]
-Path:            /var/mobile/Applications/4C6BECD4-F577-45F0-ADE9-941A8539E367/CrashTester.app/CrashTester
+Process:         CrashTester [2349]
+Path:            /var/mobile/Applications/194DF637-2244-4A11-887C-C732BDD94F39/CrashTester.app/CrashTester
 Identifier:      org.stenerud.CrashTester
 Version:         1.0 (1.02)
 Code Type:       ARM
 Parent Process:  launchd [1]
 
-Date/Time:       2013-01-13 19:14:45.000 -0800
+Date/Time:       2013-01-14 07:51:24.000 -0800
 OS Version:      iPhone OS 5.1 (9B176)
 Report Version:  104
 
@@ -18,9 +18,9 @@ Crashed Thread:  0
 
 Thread 0 name:  Dispatch queue: com.apple.main-thread
 Thread 0 Crashed:
-0   CrashTester                     0x00093586 0x8f000 + 17798 (-[Crasher dereferenceBadPointer] + 6)
-1   CrashTester                     0x00093078 0x8f000 + 16504 (-[CommandEntry executeWithViewController:] + 28)
-2   CrashTester                     0x000933c8 0x8f000 + 17352 (-[CommandTVC tableView:didSelectRowAtIndexPath:] + 88)
+0   CrashTester                     0x000a0f76 0x9c000 + 20342 (-[Crasher dereferenceBadPointer] + 6)
+1   CrashTester                     0x000a0a60 0x9c000 + 19040 (-[CommandEntry executeWithViewController:] + 24)
+2   CrashTester                     0x000a0db0 0x9c000 + 19888 (-[CommandTVC tableView:didSelectRowAtIndexPath:] + 84)
 3   UIKit                           0x31613ae0 0x3155e000 + 744160 (-[UITableView _selectRowAtIndexPath:animated:scrollPosition:notifyDelegate:] + 940)
 4   UIKit                           0x3168d7a8 0x3155e000 + 1243048 (-[UITableView _userSelectRowAtPendingSelectionIndexPath:] + 156)
 5   Foundation                      0x33805930 0x3376a000 + 637232 (__NSFireDelayedPerform + 412)
@@ -31,15 +31,21 @@ Thread 0 Crashed:
 10  CoreFoundation                  0x34f18368 0x34f09000 + 62312 (CFRunLoopRunInMode + 100)
 11  GraphicsServices                0x34583438 0x3457f000 + 17464 (GSEventRunModal + 136)
 12  UIKit                           0x3158fe78 0x3155e000 + 204408 (UIApplicationMain + 1076)
-13  CrashTester                     0x00090178 0x8f000 + 4472 (main + 92)
+13  CrashTester                     0x0009db50 0x9c000 + 6992 (main + 92)
 
 Thread 1 name:  Dispatch queue: com.apple.libdispatch-manager
 Thread 1:
 0   libsystem_kernel.dylib          0x30eab3a8 0x30eaa000 + 5032 (kevent + 24)
 1   libdispatch.dylib               0x378fabc8 0x378ee000 + 52168 (_dispatch_mgr_wakeup + 0)
 
-Thread 2 name:  WebThread
 Thread 2:
+0   libsystem_kernel.dylib          0x30ebbcd4 0x30eaa000 + 72916 (__workq_kernreturn + 8)
+
+Thread 3:
+0   libsystem_kernel.dylib          0x30ebbcd4 0x30eaa000 + 72916 (__workq_kernreturn + 8)
+
+Thread 4 name:  WebThread
+Thread 4:
 0   libsystem_kernel.dylib          0x30eab004 0x30eaa000 + 4100 (mach_msg_trap + 20)
 1   CoreFoundation                  0x34f963f0 0x34f09000 + 578544 (__CFRunLoopServiceMachPort + 124)
 2   CoreFoundation                  0x34f95128 0x34f09000 + 573736 (__CFRunLoopRun + 880)
@@ -48,33 +54,33 @@ Thread 2:
 5   WebCore                         0x320320f0 0x31f89000 + 692464 (_ZL12RunWebThreadPv + 396)
 6   libsystem_c.dylib               0x35bb3730 0x35ba5000 + 59184 (_pthread_start + 316)
 
-Thread 3:
+Thread 5:
 0   libsystem_kernel.dylib          0x30ebb628 0x30eaa000 + 71208 (__semwait_signal + 24)
 1   Foundation                      0x337b1b00 0x3376a000 + 293632 (+[NSThread sleepForTimeInterval:] + 124)
-2   CrashTester                     0x000abd38 0x8f000 + 118072 (-[KSCrashDeadlockMonitor runMonitor] + 244)
+2   CrashTester                     0x000b97a0 0x9c000 + 120736 (-[KSCrashDeadlockMonitor runMonitor] + 244)
 3   Foundation                      0x3377aa80 0x3376a000 + 68224 (-[NSThread main] + 72)
 4   Foundation                      0x3380e590 0x3376a000 + 673168 (__NSThread__main__ + 1048)
 5   libsystem_c.dylib               0x35bb3730 0x35ba5000 + 59184 (_pthread_start + 316)
 
-Thread 4 name:  KSCrash Exception Handler (Secondary)
-Thread 4:
+Thread 6 name:  KSCrash Exception Handler (Secondary)
+Thread 6:
 0   libsystem_kernel.dylib          0x30eab004 0x30eaa000 + 4100 (mach_msg_trap + 20)
-1   CrashTester                     0x000a7f80 0x8f000 + 102272 (ksmachexc_i_handleExceptions + 108)
+1   CrashTester                     0x000b59e8 0x9c000 + 104936 (ksmachexc_i_handleExceptions + 108)
 2   libsystem_c.dylib               0x35bb3730 0x35ba5000 + 59184 (_pthread_start + 316)
 
-Thread 5 name:  KSCrash Exception Handler (Primary)
-Thread 5:
+Thread 7 name:  KSCrash Exception Handler (Primary)
+Thread 7:
 
 Thread 0 crashed with ARM Thread State:
-    r0: 0xffffffff     r1: 0x00000001     r2: 0x00092b29     r3: 0x00000000 
-    r4: 0x001e2950     r5: 0x001f7770     r6: 0x001e2950     r7: 0x2fe8cd2c 
-    r8: 0x0d259600     r9: 0x00000001    r10: 0x3e8615c0    r11: 0x00000001 
-    ip: 0x00093581     sp: 0x2fe8cd2c     lr: 0x00092b4f     pc: 0x00093586 
+    r0: 0xffffffff     r1: 0x00000001     r2: 0x000a0515     r3: 0x00000000 
+    r4: 0x002e8760     r5: 0x002f5b40     r6: 0x002e8760     r7: 0x2fe99d2c 
+    r8: 0x101b3200     r9: 0x00000002    r10: 0x3e8615c0    r11: 0x00000001 
+    ip: 0x000a0f71     sp: 0x2fe99d2c     lr: 0x000a053b     pc: 0x000a0f76 
   cpsr: 0x20000030 
 
 Binary Images:
-   0x8f000 -    0xb6fff +CrashTester armv7  <17c4b1001d853be3b382cfbd0e6e7d72> /var/mobile/Applications/4C6BECD4-F577-45F0-ADE9-941A8539E367/CrashTester.app/CrashTester
-   0xdd000 -    0xddfff  MobileSubstrate.dylib armv6  <b8a484a95b5d30c5ab59f25362558e7c> /Library/MobileSubstrate/MobileSubstrate.dylib
+   0x9c000 -    0xc4fff +CrashTester armv7  <3abd09c1f82e315fb44b74dba8a3cb7e> /var/mobile/Applications/194DF637-2244-4A11-887C-C732BDD94F39/CrashTester.app/CrashTester
+   0xea000 -    0xeafff  MobileSubstrate.dylib armv6  <b8a484a95b5d30c5ab59f25362558e7c> /Library/MobileSubstrate/MobileSubstrate.dylib
 0x375a8000 - 0x375ddfff  SystemConfiguration armv7  <4464a4e3bb3f32f7abaa35ebf31fda49> /System/Library/Frameworks/SystemConfiguration.framework/SystemConfiguration
 0x3088a000 - 0x308eefff  MessageUI armv7  <b74d79ea691a35ada276f063b7217a20> /System/Library/Frameworks/MessageUI.framework/MessageUI
 0x30937000 - 0x30943fff  libz.1.dylib armv7  <36ce86a3dc8c344596c8c325615f374b> /usr/lib/libz.1.dylib
@@ -214,48 +220,48 @@ Binary Images:
 0x372b4000 - 0x374e1fff  MediaToolbox armv7  <ec9bc89489763c6c93f86c5c490b2d69> /System/Library/PrivateFrameworks/MediaToolbox.framework/MediaToolbox
 0x31b66000 - 0x31becfff  CoreMotion armv7  <6a9355d5a8e238b5b8f193605d509e15> /System/Library/Frameworks/CoreMotion.framework/CoreMotion
 0x37233000 - 0x372a7fff  MediaControlSender armv7  <87315c54b2293ab589950341ff91b45d> /System/Library/PrivateFrameworks/MediaControlSender.framework/MediaControlSender
-  0x219000 -   0x21afff  SubstrateLoader.dylib armv6  <885b4713fd433c3996edfc3552109041> /Library/Frameworks/CydiaSubstrate.framework/Libraries/SubstrateLoader.dylib
-  0x25a000 -   0x260fff  libstatusbar.dylib armv6  <fe21097b2cb83481a70c9ab877af55e3> /Library/MobileSubstrate/DynamicLibraries/libstatusbar.dylib
-  0x264000 -   0x267fff  libsubstrate.dylib armv6  <65a35eed390832b08134c3cedc6eafa2> /usr/lib/libsubstrate.dylib
+  0x120000 -   0x121fff  SubstrateLoader.dylib armv6  <885b4713fd433c3996edfc3552109041> /Library/Frameworks/CydiaSubstrate.framework/Libraries/SubstrateLoader.dylib
+  0x164000 -   0x16afff  libstatusbar.dylib armv6  <fe21097b2cb83481a70c9ab877af55e3> /Library/MobileSubstrate/DynamicLibraries/libstatusbar.dylib
+  0x16e000 -   0x171fff  libsubstrate.dylib armv6  <65a35eed390832b08134c3cedc6eafa2> /usr/lib/libsubstrate.dylib
 0x35509000 - 0x35544fff  libCGFreetype.A.dylib armv7  <55941c96cf1f3b048e72a148c4496c16> /System/Library/Frameworks/CoreGraphics.framework/Resources/libCGFreetype.A.dylib
 0x33056000 - 0x3306ffff  libRIP.A.dylib armv7  <1828cddc5dd93c61afbefb59587d7f8a> /System/Library/Frameworks/CoreGraphics.framework/Resources/libRIP.A.dylib
 
 Extra Information:
 
-Stack Dump (0x2fe8cd04-0x2fe8cd7c):
+Stack Dump (0x2fe99d04-0x2fe99d7c):
 
-13B7F836F02E1E0024CDE82FCBAFF836F02E1E003FD70A00292B0900000000002CCDE82F4F2B090038CDE82F7930090010AC1F0050CDE82FCB330900000000000096250DE0AE1F0010AC1F00DCCDE82FE53A6131D4388D3F000000000096250D000000000000000080000000000000000000000008A2853E
+13B7F836903A2F00249DE92FCBAFF836903A2F00A5B10B0015050A00000000002C9DE92F3B050A00389DE92F650A0A0090202700509DE92FB70D0A000000000000321B10506F270090202700DC9DE92FE53A6131D4388D3F0000000000321B10000000000000000080000000000000000000000008A2853E
 
 Notable Addresses:
 {
     "r4": {
-        "address": 1976656,
+        "address": 3049312,
         "class": "CommandTVC",
         "ivars": {
             "_commands": {
-                "address": 2062192,
+                "address": 3103552,
                 "class": "__NSArrayM",
                 "first_object": {
-                    "address": 1964496,
+                    "address": 2875968,
                     "class": "CommandEntry",
                     "ivars": {
                         "_accessoryType": 0,
                         "_block": {
-                            "address": 1794640,
+                            "address": 2885024,
                             "class": "__NSMallocBlock__",
+                            "last_deallocated_obj": "__NSDate",
                             "type": "objc_block"
                         },
                         "_name": {
-                            "address": 775812,
+                            "address": 833160,
                             "class": "__NSCFConstantString",
-                            "ivars": {},
-                            "type": "objc_object"
+                            "type": "objc_object",
+                            "value": "NSException"
                         }
                     },
                     "last_deallocated_obj": "__NSArrayI",
                     "type": "objc_object"
                 },
-                "last_deallocated_obj": "UITextRenderingAttributes",
                 "type": "objc_object"
             },
             "_getTitleBlock": {
@@ -263,63 +269,62 @@ Notable Addresses:
                 "type": "null_pointer"
             }
         },
-        "last_deallocated_obj": "KSJSONCodec",
         "type": "objc_object"
     },
     "r5": {
-        "address": 2062192,
+        "address": 3103552,
         "class": "__NSArrayM",
         "first_object": {
-            "address": 1964496,
+            "address": 2875968,
             "class": "CommandEntry",
             "ivars": {
                 "_accessoryType": 0,
                 "_block": {
-                    "address": 1794640,
+                    "address": 2885024,
                     "class": "__NSMallocBlock__",
+                    "last_deallocated_obj": "__NSDate",
                     "type": "objc_block"
                 },
                 "_name": {
-                    "address": 775812,
+                    "address": 833160,
                     "class": "__NSCFConstantString",
-                    "ivars": {},
-                    "type": "objc_object"
+                    "type": "objc_object",
+                    "value": "NSException"
                 }
             },
             "last_deallocated_obj": "__NSArrayI",
             "type": "objc_object"
         },
-        "last_deallocated_obj": "UITextRenderingAttributes",
         "type": "objc_object"
     },
     "r6": {
-        "address": 1976656,
+        "address": 3049312,
         "class": "CommandTVC",
         "ivars": {
             "_commands": {
-                "address": 2062192,
+                "address": 3103552,
                 "class": "__NSArrayM",
                 "first_object": {
-                    "address": 1964496,
+                    "address": 2875968,
                     "class": "CommandEntry",
                     "ivars": {
                         "_accessoryType": 0,
                         "_block": {
-                            "address": 1794640,
+                            "address": 2885024,
                             "class": "__NSMallocBlock__",
+                            "last_deallocated_obj": "__NSDate",
                             "type": "objc_block"
                         },
                         "_name": {
-                            "address": 775812,
+                            "address": 833160,
                             "class": "__NSCFConstantString",
-                            "ivars": {},
-                            "type": "objc_object"
+                            "type": "objc_object",
+                            "value": "NSException"
                         }
                     },
                     "last_deallocated_obj": "__NSArrayI",
                     "type": "objc_object"
                 },
-                "last_deallocated_obj": "UITextRenderingAttributes",
                 "type": "objc_object"
             },
             "_getTitleBlock": {
@@ -327,21 +332,19 @@ Notable Addresses:
                 "type": "null_pointer"
             }
         },
-        "last_deallocated_obj": "KSJSONCodec",
         "type": "objc_object"
     },
     "r8": {
-        "address": 220567040,
+        "address": 270217728,
         "class": "UITableView",
         "ivars": {
             "_dataSource": {
-                "address": 1976656,
+                "address": 3049312,
                 "class": "CommandTVC",
                 "ivars": {
                     "_commands": {
-                        "address": 2062192,
+                        "address": 3103552,
                         "class": "__NSArrayM",
-                        "last_deallocated_obj": "UITextRenderingAttributes",
                         "type": "objc_object"
                     },
                     "_getTitleBlock": {
@@ -349,7 +352,6 @@ Notable Addresses:
                         "type": "null_pointer"
                     }
                 },
-                "last_deallocated_obj": "KSJSONCodec",
                 "type": "objc_object"
             },
             "_firstResponderIndexPath": {
@@ -357,9 +359,9 @@ Notable Addresses:
                 "type": "null_pointer"
             },
             "_rowData": {
-                "address": 2075760,
+                "address": 3106080,
                 "class": "UITableViewRowData",
-                "last_deallocated_obj": "NSConcreteValue",
+                "last_deallocated_obj": "_UITouchForwardingRecipient",
                 "type": "objc_object"
             },
             "_rowHeight": 44,
@@ -367,19 +369,19 @@ Notable Addresses:
             "_sectionHeaderHeight": 22,
             "_style": 0,
             "_visibleCells": {
-                "address": 2045376,
+                "address": 3051056,
                 "class": "__NSArrayM",
                 "type": "objc_object"
             }
         },
         "type": "objc_object"
     },
-    "stack@0x2fe8cd08": {
-        "address": 1978096,
+    "stack@0x2fe99d08": {
+        "address": 3095184,
         "class": "Crasher",
         "ivars": {
             "_lock": {
-                "address": 2011712,
+                "address": 3095712,
                 "class": "NSLock",
                 "ivars": {},
                 "type": "objc_object"
@@ -387,12 +389,12 @@ Notable Addresses:
         },
         "type": "objc_object"
     },
-    "stack@0x2fe8cd14": {
-        "address": 1978096,
+    "stack@0x2fe99d14": {
+        "address": 3095184,
         "class": "Crasher",
         "ivars": {
             "_lock": {
-                "address": 2011712,
+                "address": 3095712,
                 "class": "NSLock",
                 "ivars": {},
                 "type": "objc_object"
@@ -400,13 +402,13 @@ Notable Addresses:
         },
         "type": "objc_object"
     },
-    "stack@0x2fe8cd18": {
-        "address": 710463,
+    "stack@0x2fe99d18": {
+        "address": 766373,
         "type": "string",
         "value": "dereferenceBadPointer"
     },
-    "stack@0x2fe8cd34": {
-        "address": 2075664,
+    "stack@0x2fe99d34": {
+        "address": 2564240,
         "class": "NSIndexPath",
         "ivars": {
             "_hash": 2147483647,
@@ -415,18 +417,17 @@ Notable Addresses:
         "last_deallocated_obj": "__NSArrayM",
         "type": "objc_object"
     },
-    "stack@0x2fe8cd44": {
-        "address": 220567040,
+    "stack@0x2fe99d44": {
+        "address": 270217728,
         "class": "UITableView",
         "ivars": {
             "_dataSource": {
-                "address": 1976656,
+                "address": 3049312,
                 "class": "CommandTVC",
                 "ivars": {
                     "_commands": {
-                        "address": 2062192,
+                        "address": 3103552,
                         "class": "__NSArrayM",
-                        "last_deallocated_obj": "UITextRenderingAttributes",
                         "type": "objc_object"
                     },
                     "_getTitleBlock": {
@@ -434,7 +435,6 @@ Notable Addresses:
                         "type": "null_pointer"
                     }
                 },
-                "last_deallocated_obj": "KSJSONCodec",
                 "type": "objc_object"
             },
             "_firstResponderIndexPath": {
@@ -442,9 +442,9 @@ Notable Addresses:
                 "type": "null_pointer"
             },
             "_rowData": {
-                "address": 2075760,
+                "address": 3106080,
                 "class": "UITableViewRowData",
-                "last_deallocated_obj": "NSConcreteValue",
+                "last_deallocated_obj": "_UITouchForwardingRecipient",
                 "type": "objc_object"
             },
             "_rowHeight": 44,
@@ -452,15 +452,15 @@ Notable Addresses:
             "_sectionHeaderHeight": 22,
             "_style": 0,
             "_visibleCells": {
-                "address": 2045376,
+                "address": 3051056,
                 "class": "__NSArrayM",
                 "type": "objc_object"
             }
         },
         "type": "objc_object"
     },
-    "stack@0x2fe8cd48": {
-        "address": 2076384,
+    "stack@0x2fe99d48": {
+        "address": 2584400,
         "class": "UITableViewCell",
         "ivars": {
             "_accessoryAction": {
@@ -478,7 +478,7 @@ Notable Addresses:
             "_indentationLevel": 0,
             "_indentationWidth": 10,
             "_layoutManager": {
-                "address": 1809568,
+                "address": 2892304,
                 "class": "UITableViewCellLayoutManager",
                 "ivars": {},
                 "type": "objc_object"
@@ -499,8 +499,8 @@ Notable Addresses:
         },
         "type": "objc_object"
     },
-    "stack@0x2fe8cd4c": {
-        "address": 2075664,
+    "stack@0x2fe99d4c": {
+        "address": 2564240,
         "class": "NSIndexPath",
         "ivars": {
             "_hash": 2147483647,
@@ -509,18 +509,17 @@ Notable Addresses:
         "last_deallocated_obj": "__NSArrayM",
         "type": "objc_object"
     },
-    "stack@0x2fe8cd60": {
-        "address": 220567040,
+    "stack@0x2fe99d60": {
+        "address": 270217728,
         "class": "UITableView",
         "ivars": {
             "_dataSource": {
-                "address": 1976656,
+                "address": 3049312,
                 "class": "CommandTVC",
                 "ivars": {
                     "_commands": {
-                        "address": 2062192,
+                        "address": 3103552,
                         "class": "__NSArrayM",
-                        "last_deallocated_obj": "UITextRenderingAttributes",
                         "type": "objc_object"
                     },
                     "_getTitleBlock": {
@@ -528,7 +527,6 @@ Notable Addresses:
                         "type": "null_pointer"
                     }
                 },
-                "last_deallocated_obj": "KSJSONCodec",
                 "type": "objc_object"
             },
             "_firstResponderIndexPath": {
@@ -536,9 +534,9 @@ Notable Addresses:
                 "type": "null_pointer"
             },
             "_rowData": {
-                "address": 2075760,
+                "address": 3106080,
                 "class": "UITableViewRowData",
-                "last_deallocated_obj": "NSConcreteValue",
+                "last_deallocated_obj": "_UITouchForwardingRecipient",
                 "type": "objc_object"
             },
             "_rowHeight": 44,
@@ -546,7 +544,7 @@ Notable Addresses:
             "_sectionHeaderHeight": 22,
             "_style": 0,
             "_visibleCells": {
-                "address": 2045376,
+                "address": 3051056,
                 "class": "__NSArrayM",
                 "type": "objc_object"
             }

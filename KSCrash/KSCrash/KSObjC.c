@@ -58,7 +58,7 @@ typedef enum
 
 typedef struct
 {
-    void* class;
+    const char* name;
     KSObjCClassType type;
     ClassSubtype subtype;
     bool isMutable;
@@ -66,6 +66,7 @@ typedef struct
     size_t (*description)(const void* object,
                           char* buffer,
                           size_t bufferLength);
+    const void* class;
 } ClassData;
 
 
@@ -73,26 +74,75 @@ typedef struct
 #pragma mark - Globals -
 //======================================================================
 
-static bool g_initialized = false;
-static ClassData g_classData[100];
-static void* g_blockBaseClass = NULL;
-static int g_classDataIndex = 0;
+// Forward references
+static bool objectIsValid(const void* object);
+static bool stringIsValid(const void* object);
+static bool urlIsValid(const void* object);
+static bool arrayIsValid(const void* object);
+static bool dateIsValid(const void* object);
+
+static size_t objectDescription(const void* object, char* buffer, size_t bufferLength);
+static size_t stringDescription(const void* object, char* buffer, size_t bufferLength);
+static size_t urlDescription(const void* object, char* buffer, size_t bufferLength);
+static size_t arrayDescription(const void* object, char* buffer, size_t bufferLength);
+static size_t dateDescription(const void* object, char* buffer, size_t bufferLength);
+
+
+static ClassData g_classData[] =
+{
+    {"__NSCFString",         KSObjCClassTypeString,  ClassSubtypeNone,             true,  stringIsValid, stringDescription},
+    {"__NSCFConstantString", KSObjCClassTypeString,  ClassSubtypeNone,             true,  stringIsValid, stringDescription},
+    {"__NSArrayI",           KSObjCClassTypeArray,   ClassSubtypeNSArrayImmutable, false, arrayIsValid,  arrayDescription},
+    {"__NSArrayM",           KSObjCClassTypeArray,   ClassSubtypeNSArrayMutable,   true,  arrayIsValid,  arrayDescription},
+    {"__NSCFArray",          KSObjCClassTypeArray,   ClassSubtypeCFArray,          false, arrayIsValid,  arrayDescription},
+    {"__NSDate",             KSObjCClassTypeDate,    ClassSubtypeNone,             false, dateIsValid,   dateDescription},
+    {"NSDate",               KSObjCClassTypeDate,    ClassSubtypeNone,             false, dateIsValid,   dateDescription},
+    {"NSURL",                KSObjCClassTypeURL,     ClassSubtypeNone,             false, urlIsValid,    urlDescription},
+    {NULL,                   KSObjCClassTypeUnknown, ClassSubtypeNone,             false, objectIsValid, objectDescription},
+};
+
+static const char* g_blockBaseClassName = "NSBlock";
 
 
 //======================================================================
 #pragma mark - Utility -
 //======================================================================
 
+/** Get any special class metadata we have about the specified class.
+ * It will return a generic metadata object if the type is not recognized.
+ *
+ * Note: The Objective-C runtime is free to change a class address,
+ * so I can't just blindly store class pointers at application start
+ * and then compare against them later. However, comparing strings is
+ * slow, so I've reached a compromise. Since I'm omly using this at
+ * crash time, I can assume that the Objective-C environment is frozen.
+ * As such, I can keep a cache of discovered classes. If, however, this
+ * library is used outside of a frozen environment, caching will be
+ * unreliable.
+ *
+ * @param class The class to examine.
+ *
+ * @return The associated class data.
+ */
 static ClassData* getClassData(const void* class)
 {
-    for(int i = 1; i < g_classDataIndex; i++)
+    const char* className = ksobjc_className(class);
+    for(ClassData* data = g_classData;; data++)
     {
-        if(g_classData[i].class == class)
+        unlikely_if(data->name == NULL)
         {
-            return &g_classData[i];
+            return data;
+        }
+        unlikely_if(class == data->class)
+        {
+            return data;
+        }
+        unlikely_if(data->class == NULL && strcmp(className, data->name) == 0)
+        {
+            data->class = class;
+            return data;
         }
     }
-    return &g_classData[0];
 }
 
 static inline ClassData* getClassDataFromObject(const void* object)
@@ -489,7 +539,7 @@ static inline bool isBlockClass(const void* class)
     {
         return false;
     }
-    return strcmp(name, "NSBlock") == 0;
+    return strcmp(name, g_blockBaseClassName) == 0;
 }
 
 KSObjCType ksobjc_objectType(const void* objectOrClassPtr)
@@ -574,7 +624,7 @@ static inline const char* stringStart(const struct CFString* str)
     return (const char*)CF_StrContents(str) + (CF_StrHasLengthByte(str) ? 1 : 0);
 }
 
-static inline bool stringIsValid(const void* const stringPtr)
+static bool stringIsValid(const void* const stringPtr)
 {
     const struct CFString* string = stringPtr;
     struct CFString temp;
@@ -820,7 +870,7 @@ static size_t stringDescription(const void* object, char* buffer, size_t bufferL
 #pragma mark - NSURL -
 //======================================================================
 
-static inline bool urlIsValid(const void* const urlPtr)
+static bool urlIsValid(const void* const urlPtr)
 {
     struct CFURL url;
     if(ksmach_copyMem(urlPtr, &url, sizeof(url)) != KERN_SUCCESS)
@@ -854,7 +904,7 @@ static size_t urlDescription(const void* object, char* buffer, size_t bufferLeng
 #pragma mark - NSDate -
 //======================================================================
 
-static inline bool dateIsValid(const void* const datePtr)
+static bool dateIsValid(const void* const datePtr)
 {
     struct CFDate temp;
     return ksmach_copyMem(datePtr, &temp, sizeof(temp)) == KERN_SUCCESS;
@@ -1148,63 +1198,6 @@ size_t ksobjc_dictionaryCount(const void* dict)
     // TODO: Implement me
 #pragma unused(dict)
     return 0;
-}
-
-//======================================================================
-#pragma mark - Initialization -
-//======================================================================
-
-static void addClassData(char* name,
-                         KSObjCClassType type,
-                         ClassSubtype subType,
-                         bool isMutable,
-                         bool (*validationFunction)(const void* object),
-                         size_t (*descriptionFunction)(const void* object,
-                                                       char* buffer,
-                                                       size_t bufferLength))
-{
-    ClassData* data = g_classData + g_classDataIndex;
-    void* class = objc_getClass(name);
-    if(class == NULL)
-    {
-        // Error
-        return;
-    }
-    
-    data->class = class;
-    data->type = type;
-    data->subtype = subType;
-    data->isMutable = isMutable;
-    data->isValidObject = validationFunction;
-    data->description = descriptionFunction;
-    
-    g_classDataIndex++;
-}
-
-void ksobjc_init(void)
-{
-    if(g_initialized)
-    {
-        return;
-    }
-    
-    g_blockBaseClass = objc_getClass("NSBlock");
-    g_classData[0].isValidObject = objectIsValid;
-    g_classData[0].type = KSObjCClassTypeUnknown;
-    g_classData[0].subtype = ClassSubtypeNone;
-    g_classData[0].description = objectDescription;
-    g_classDataIndex = 1;
-    
-    addClassData("__NSCFArray",          KSObjCClassTypeArray,  ClassSubtypeCFArray,          false, arrayIsValid,  arrayDescription);
-    addClassData("__NSArrayI",           KSObjCClassTypeArray,  ClassSubtypeNSArrayImmutable, false, arrayIsValid,  arrayDescription);
-    addClassData("__NSArrayM",           KSObjCClassTypeArray,  ClassSubtypeNSArrayMutable,   true,  arrayIsValid,  arrayDescription);
-    addClassData("__NSCFString",         KSObjCClassTypeString, ClassSubtypeNone,             true,  stringIsValid, stringDescription);
-    addClassData("__NSCFConstantString", KSObjCClassTypeString, ClassSubtypeNone,             true,  stringIsValid, stringDescription);
-    addClassData("NSURL",                KSObjCClassTypeURL,    ClassSubtypeNone,             false, urlIsValid,    urlDescription);
-    addClassData("__NSDate",             KSObjCClassTypeDate,   ClassSubtypeNone,             false, dateIsValid,   dateDescription);
-    addClassData("NSDate",               KSObjCClassTypeDate,   ClassSubtypeNone,             false, dateIsValid,   dateDescription);
-    
-    g_initialized = true;
 }
 
 

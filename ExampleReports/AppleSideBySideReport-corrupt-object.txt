@@ -1,14 +1,14 @@
-Incident Identifier: A9190CEC-801A-40D0-AD5C-2D04F81A9103
+Incident Identifier: CFC9F205-A421-4CC5-A6BE-C948E8464CE0
 CrashReporter Key:   2f11dc412b5da106a79350af5a58308f98199651
 Hardware Model:      iPhone2,1
-Process:         CrashTester [1551]
-Path:            /var/mobile/Applications/4C6BECD4-F577-45F0-ADE9-941A8539E367/CrashTester.app/CrashTester
+Process:         CrashTester [2353]
+Path:            /var/mobile/Applications/194DF637-2244-4A11-887C-C732BDD94F39/CrashTester.app/CrashTester
 Identifier:      org.stenerud.CrashTester
 Version:         1.0 (1.02)
 Code Type:       ARM
 Parent Process:  launchd [1]
 
-Date/Time:       2013-01-13 19:14:56.000 -0800
+Date/Time:       2013-01-14 07:51:35.000 -0800
 OS Version:      iPhone OS 5.1 (9B176)
 Report Version:  104
 
@@ -24,10 +24,10 @@ Thread 0 Crashed:
 3   libobjc.A.dylib                 0x36f8b740 0x36f87000 + 18240 (lookUpMethod + 40)
 4   libobjc.A.dylib                 0x36f8b710 0x36f87000 + 18192 (_class_lookupMethodAndLoadCache3 + 16)
 5   libobjc.A.dylib                 0x36f8afc8 0x36f87000 + 16328 (objc_msgSend_uncached + 24)
-6   CrashTester                     0x000f6618 0xf2000 + 17944 (-[Crasher useCorruptObject] + 120)
-7   CrashTester                     0x000f5bd8 0xf2000 + 15320 (__32-[AppDelegate(UI) crashCommands]_block_invoke_0331 + 32)
-8   CrashTester                     0x000f6078 0xf2000 + 16504 (-[CommandEntry executeWithViewController:] + 28)
-9   CrashTester                     0x000f63c8 0xf2000 + 17352 (-[CommandTVC tableView:didSelectRowAtIndexPath:] + 88)
+6   CrashTester                     0x00040008 0x3b000 + 20488 (-[Crasher useCorruptObject] + 120)
+7   CrashTester                     0x0003f5c8 0x3b000 + 17864 (__32-[AppDelegate(UI) crashCommands]_block_invoke_0331 + 36)
+8   CrashTester                     0x0003fa60 0x3b000 + 19040 (-[CommandEntry executeWithViewController:] + 24)
+9   CrashTester                     0x0003fdb0 0x3b000 + 19888 (-[CommandTVC tableView:didSelectRowAtIndexPath:] + 84)
 10  UIKit                           0x31613ae0 0x3155e000 + 744160 (-[UITableView _selectRowAtIndexPath:animated:scrollPosition:notifyDelegate:] + 940)
 11  UIKit                           0x3168d7a8 0x3155e000 + 1243048 (-[UITableView _userSelectRowAtPendingSelectionIndexPath:] + 156)
 12  Foundation                      0x33805930 0x3376a000 + 637232 (__NSFireDelayedPerform + 412)
@@ -38,7 +38,7 @@ Thread 0 Crashed:
 17  CoreFoundation                  0x34f18368 0x34f09000 + 62312 (CFRunLoopRunInMode + 100)
 18  GraphicsServices                0x34583438 0x3457f000 + 17464 (GSEventRunModal + 136)
 19  UIKit                           0x3158fe78 0x3155e000 + 204408 (UIApplicationMain + 1076)
-20  CrashTester                     0x000f3178 0xf2000 + 4472 (main + 92)
+20  CrashTester                     0x0003cb50 0x3b000 + 6992 (main + 92)
 
 Thread 1 name:  Dispatch queue: com.apple.libdispatch-manager
 Thread 1:
@@ -64,7 +64,7 @@ Thread 4:
 Thread 5:
 0   libsystem_kernel.dylib          0x30ebb628 0x30eaa000 + 71208 (__semwait_signal + 24)
 1   Foundation                      0x337b1b00 0x3376a000 + 293632 (+[NSThread sleepForTimeInterval:] + 124)
-2   CrashTester                     0x0010ed38 0xf2000 + 118072 (-[KSCrashDeadlockMonitor runMonitor] + 244)
+2   CrashTester                     0x000587a0 0x3b000 + 120736 (-[KSCrashDeadlockMonitor runMonitor] + 244)
 3   Foundation                      0x3377aa80 0x3376a000 + 68224 (-[NSThread main] + 72)
 4   Foundation                      0x3380e590 0x3376a000 + 673168 (__NSThread__main__ + 1048)
 5   libsystem_c.dylib               0x35bb3730 0x35ba5000 + 59184 (_pthread_start + 316)
@@ -72,22 +72,22 @@ Thread 5:
 Thread 6 name:  KSCrash Exception Handler (Secondary)
 Thread 6:
 0   libsystem_kernel.dylib          0x30eab004 0x30eaa000 + 4100 (mach_msg_trap + 20)
-1   CrashTester                     0x0010af80 0xf2000 + 102272 (ksmachexc_i_handleExceptions + 108)
+1   CrashTester                     0x000549e8 0x3b000 + 104936 (ksmachexc_i_handleExceptions + 108)
 2   libsystem_c.dylib               0x35bb3730 0x35ba5000 + 59184 (_pthread_start + 316)
 
 Thread 7 name:  KSCrash Exception Handler (Primary)
 Thread 7:
 
 Thread 0 crashed with ARM Thread State:
-    r0: 0x00000000     r1: 0xffffffff     r2: 0x36f89e89     r3: 0x002eb380 
-    r4: 0x2feefb68     r5: 0x6c206e75     r6: 0x00113a6a     r7: 0x2feefbf8 
-    r8: 0x2feefcf4     r9: 0x00000001    r10: 0x00113a66    r11: 0x00000003 
-    ip: 0x00000000     sp: 0x2feefb68     lr: 0x36f913ed     pc: 0x36f91386 
+    r0: 0x00000000     r1: 0xffffffff     r2: 0x36f89e89     r3: 0x00190580 
+    r4: 0x2fe38b68     r5: 0x6c206e75     r6: 0x0005d4c6     r7: 0x2fe38bf8 
+    r8: 0x2fe38cf4     r9: 0x00000001    r10: 0x0005d4c2    r11: 0x00000003 
+    ip: 0x00000000     sp: 0x2fe38b68     lr: 0x36f913ed     pc: 0x36f91386 
   cpsr: 0x20000030 
 
 Binary Images:
-   0xf2000 -   0x119fff +CrashTester armv7  <17c4b1001d853be3b382cfbd0e6e7d72> /var/mobile/Applications/4C6BECD4-F577-45F0-ADE9-941A8539E367/CrashTester.app/CrashTester
-  0x13f000 -   0x13ffff  MobileSubstrate.dylib armv6  <b8a484a95b5d30c5ab59f25362558e7c> /Library/MobileSubstrate/MobileSubstrate.dylib
+   0x3b000 -    0x63fff +CrashTester armv7  <3abd09c1f82e315fb44b74dba8a3cb7e> /var/mobile/Applications/194DF637-2244-4A11-887C-C732BDD94F39/CrashTester.app/CrashTester
+   0x87000 -    0x87fff  MobileSubstrate.dylib armv6  <b8a484a95b5d30c5ab59f25362558e7c> /Library/MobileSubstrate/MobileSubstrate.dylib
 0x375a8000 - 0x375ddfff  SystemConfiguration armv7  <4464a4e3bb3f32f7abaa35ebf31fda49> /System/Library/Frameworks/SystemConfiguration.framework/SystemConfiguration
 0x3088a000 - 0x308eefff  MessageUI armv7  <b74d79ea691a35ada276f063b7217a20> /System/Library/Frameworks/MessageUI.framework/MessageUI
 0x30937000 - 0x30943fff  libz.1.dylib armv7  <36ce86a3dc8c344596c8c325615f374b> /usr/lib/libz.1.dylib
@@ -227,31 +227,31 @@ Binary Images:
 0x372b4000 - 0x374e1fff  MediaToolbox armv7  <ec9bc89489763c6c93f86c5c490b2d69> /System/Library/PrivateFrameworks/MediaToolbox.framework/MediaToolbox
 0x31b66000 - 0x31becfff  CoreMotion armv7  <6a9355d5a8e238b5b8f193605d509e15> /System/Library/Frameworks/CoreMotion.framework/CoreMotion
 0x37233000 - 0x372a7fff  MediaControlSender armv7  <87315c54b2293ab589950341ff91b45d> /System/Library/PrivateFrameworks/MediaControlSender.framework/MediaControlSender
-  0x176000 -   0x177fff  SubstrateLoader.dylib armv6  <885b4713fd433c3996edfc3552109041> /Library/Frameworks/CydiaSubstrate.framework/Libraries/SubstrateLoader.dylib
-  0x1ba000 -   0x1c0fff  libstatusbar.dylib armv6  <fe21097b2cb83481a70c9ab877af55e3> /Library/MobileSubstrate/DynamicLibraries/libstatusbar.dylib
-  0x1c4000 -   0x1c7fff  libsubstrate.dylib armv6  <65a35eed390832b08134c3cedc6eafa2> /usr/lib/libsubstrate.dylib
+   0xbf000 -    0xc0fff  SubstrateLoader.dylib armv6  <885b4713fd433c3996edfc3552109041> /Library/Frameworks/CydiaSubstrate.framework/Libraries/SubstrateLoader.dylib
+  0x205000 -   0x20bfff  libstatusbar.dylib armv6  <fe21097b2cb83481a70c9ab877af55e3> /Library/MobileSubstrate/DynamicLibraries/libstatusbar.dylib
+  0x20f000 -   0x212fff  libsubstrate.dylib armv6  <65a35eed390832b08134c3cedc6eafa2> /usr/lib/libsubstrate.dylib
 0x35509000 - 0x35544fff  libCGFreetype.A.dylib armv7  <55941c96cf1f3b048e72a148c4496c16> /System/Library/Frameworks/CoreGraphics.framework/Resources/libCGFreetype.A.dylib
 0x33056000 - 0x3306ffff  libRIP.A.dylib armv7  <1828cddc5dd93c61afbefb59587d7f8a> /System/Library/Frameworks/CoreGraphics.framework/Resources/libRIP.A.dylib
 
 Extra Information:
 
-Stack Dump (0x2feefb40-0x2feefbb8):
+Stack Dump (0x2fe38b40-0x2fe38bb8):
 
-FFFFFFFF83D22D0000201400D0FBEE2F4B84BA358C2A863E00EA843E200000000100000002000000010000003C301400483014008854140038581F0F00000000020000008454140000EA843E03000000FEFFFFFF8454140020A32E00DCA05E3FE0F2290000201400A54CF13408FCEE2F08FCEE2FA0912E00
+FFFFFFFFB3131B0000A00800D08BE32F4B84BA358C2A863E00EA843E200000000100000002000000010000003CB0080048B0080088D40800A8432310000000000200000084D4080000EA843E03000000FEFFFFFF84D4080080B51A00DCA05E3FE00A160000A00800A54CF134088CE32F088CE32FC0A81A00
 
 Notable Addresses:
 {
     "r3": {
-        "address": 3060608,
+        "address": 1639808,
         "last_deallocated_obj": "UIGestureDelayedTouch",
         "type": "unknown"
     },
-    "stack@0x2feefb98": {
-        "address": 3056416,
+    "stack@0x2fe38b98": {
+        "address": 1750400,
         "class": "UIView",
         "ivars": {
             "_backgroundColorSystemColorName": {
-                "address": 3002512,
+                "address": 1699168,
                 "class": "__NSCFString",
                 "type": "objc_object",
                 "value": "tableSeparatorLightColor"
@@ -266,14 +266,14 @@ Notable Addresses:
                 "type": "null_pointer"
             },
             "_layer": {
-                "address": 3057600,
+                "address": 1751552,
                 "class": "CALayer",
                 "ivars": {},
                 "last_deallocated_obj": "__NSArrayI",
                 "type": "objc_object"
             },
             "_subviewCache": {
-                "address": 2749152,
+                "address": 1444576,
                 "class": "__NSArrayI",
                 "type": "objc_object"
             },
@@ -287,16 +287,15 @@ Notable Addresses:
                 "type": "null_pointer"
             }
         },
-        "last_deallocated_obj": "__NSArrayI",
         "type": "objc_object"
     },
-    "stack@0x2feefba0": {
-        "address": 2749152,
+    "stack@0x2fe38ba0": {
+        "address": 1444576,
         "class": "__NSArrayI",
         "type": "objc_object"
     },
-    "stack@0x2feefbb4": {
-        "address": 3051936,
+    "stack@0x2fe38bb4": {
+        "address": 1747136,
         "class": "UITableViewCell",
         "ivars": {
             "_accessoryAction": {
@@ -314,7 +313,7 @@ Notable Addresses:
             "_indentationLevel": 0,
             "_indentationWidth": 10,
             "_layoutManager": {
-                "address": 2986320,
+                "address": 1477280,
                 "class": "UITableViewCellLayoutManager",
                 "ivars": {},
                 "type": "objc_object"

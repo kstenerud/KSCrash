@@ -3,15 +3,15 @@
         {
             "cpu_subtype": 9,
             "cpu_type": 12,
-            "image_addr": 507904,
-            "image_size": 163840,
-            "name": "/var/mobile/Applications/4C6BECD4-F577-45F0-ADE9-941A8539E367/CrashTester.app/CrashTester",
-            "uuid": "17C4B100-1D85-3BE3-B382-CFBD0E6E7D72"
+            "image_addr": 1032192,
+            "image_size": 167936,
+            "name": "/var/mobile/Applications/194DF637-2244-4A11-887C-C732BDD94F39/CrashTester.app/CrashTester",
+            "uuid": "3ABD09C1-F82E-315F-B44B-74DBA8A3CB7E"
         },
         {
             "cpu_subtype": 6,
             "cpu_type": 12,
-            "image_addr": 831488,
+            "image_addr": 1347584,
             "image_size": 4096,
             "name": "/Library/MobileSubstrate/MobileSubstrate.dylib",
             "uuid": "B8A484A9-5B5D-30C5-AB59-F25362558E7C"
@@ -1131,7 +1131,7 @@
         {
             "cpu_subtype": 6,
             "cpu_type": 12,
-            "image_addr": 2097152,
+            "image_addr": 1572864,
             "image_size": 8192,
             "name": "/Library/Frameworks/CydiaSubstrate.framework/Libraries/SubstrateLoader.dylib",
             "uuid": "885B4713-FD43-3C39-96ED-FC3552109041"
@@ -1139,7 +1139,7 @@
         {
             "cpu_subtype": 6,
             "cpu_type": 12,
-            "image_addr": 2375680,
+            "image_addr": 1851392,
             "image_size": 28672,
             "name": "/Library/MobileSubstrate/DynamicLibraries/libstatusbar.dylib",
             "uuid": "FE21097B-2CB8-3481-A70C-9AB877AF55E3"
@@ -1147,7 +1147,7 @@
         {
             "cpu_subtype": 6,
             "cpu_type": 12,
-            "image_addr": 2416640,
+            "image_addr": 1892352,
             "image_size": 16384,
             "name": "/usr/lib/libsubstrate.dylib",
             "uuid": "65A35EED-3908-32B0-8134-C3CEDC6EAFA2"
@@ -1258,9 +1258,9 @@
         }
     ],
     "crash": {
-        "diagnosis": "Possible zombie in call: Function: objc_msgSend\nParam 1:  (was __NSArrayM)\nParam 2:  \nParam 3:  \nParam 4:  0x0 \nOriginated at or in a subcall of -[NSObject(KSZombie) dealloc_KSZombieOrig]",
+        "diagnosis": "Possible zombie in call: Function: objc_msgSend\nParam 1:  (was NSException)\nParam 2:  \nParam 3:  \nParam 4:  0xffffffff \nOriginated at or in a subcall of __28-[Crasher zombieNSException]_block_invoke_0",
         "error": {
-            "address": 805409824,
+            "address": 1342347203,
             "mach": {
                 "code": 1,
                 "code_name": "KERN_INVALID_ADDRESS",
@@ -1288,77 +1288,63 @@
                             "symbol_name": "objc_msgSend"
                         },
                         {
-                            "instruction_addr": 599696,
-                            "object_addr": 507904,
-                            "object_name": "CrashTester",
-                            "symbol_addr": 599692,
-                            "symbol_name": "-[NSObject(KSZombie) dealloc_KSZombieOrig]"
-                        },
-                        {
-                            "instruction_addr": 888940304,
+                            "instruction_addr": 888809840,
                             "object_addr": 888180736,
                             "object_name": "CoreFoundation",
-                            "symbol_addr": 888940172,
-                            "symbol_name": "-[NSException dealloc]"
+                            "symbol_addr": 888801840,
+                            "symbol_name": "__CFStringAppendFormatCore"
                         },
                         {
-                            "instruction_addr": 922272112,
-                            "object_addr": 922251264,
-                            "object_name": "libobjc.A.dylib",
-                            "symbol_addr": 922272080,
-                            "symbol_name": "_objc_rootRelease"
-                        },
-                        {
-                            "instruction_addr": 922279504,
-                            "object_addr": 922251264,
-                            "object_name": "libobjc.A.dylib",
-                            "symbol_addr": 922279472,
-                            "symbol_name": "objc_release"
-                        },
-                        {
-                            "instruction_addr": 922275496,
-                            "object_addr": 922251264,
-                            "object_name": "libobjc.A.dylib",
-                            "symbol_addr": 922275276,
-                            "symbol_name": "_ZN12_GLOBAL__N_119AutoreleasePoolPage3popEPv"
-                        },
-                        {
-                            "instruction_addr": 922275272,
-                            "object_addr": 922251264,
-                            "object_name": "libobjc.A.dylib",
-                            "symbol_addr": 922275260,
-                            "symbol_name": "_objc_autoreleasePoolPop"
-                        },
-                        {
-                            "instruction_addr": 888220920,
+                            "instruction_addr": 888263128,
                             "object_addr": 888180736,
                             "object_name": "CoreFoundation",
-                            "symbol_addr": 888220908,
-                            "symbol_name": "_CFAutoreleasePoolPop"
+                            "symbol_addr": 888263060,
+                            "symbol_name": "_CFStringCreateWithFormatAndArgumentsAux"
                         },
                         {
-                            "instruction_addr": 864049544,
+                            "instruction_addr": 888343384,
+                            "object_addr": 888180736,
+                            "object_name": "CoreFoundation",
+                            "symbol_addr": 888343308,
+                            "symbol_name": "_CFLogvEx"
+                        },
+                        {
+                            "instruction_addr": 863546248,
                             "object_addr": 863412224,
                             "object_name": "Foundation",
-                            "symbol_addr": 864049044,
-                            "symbol_name": "__NSFireDelayedPerform"
+                            "symbol_addr": 863546164,
+                            "symbol_name": "NSLogv"
                         },
                         {
-                            "instruction_addr": 888760880,
-                            "object_addr": 888180736,
-                            "object_name": "CoreFoundation",
-                            "symbol_addr": 888760868,
-                            "symbol_name": "__CFRUNLOOP_IS_CALLING_OUT_TO_A_TIMER_CALLBACK_FUNCTION__"
+                            "instruction_addr": 863546152,
+                            "object_addr": 863412224,
+                            "object_name": "Foundation",
+                            "symbol_addr": 863546128,
+                            "symbol_name": "NSLog"
                         },
                         {
-                            "instruction_addr": 888759960,
-                            "object_addr": 888180736,
-                            "object_name": "CoreFoundation",
-                            "symbol_addr": 888759596,
-                            "symbol_name": "__CFRunLoopDoTimer"
+                            "instruction_addr": 1053816,
+                            "object_addr": 1032192,
+                            "object_name": "CrashTester",
+                            "symbol_addr": 1053780,
+                            "symbol_name": "__28-[Crasher zombieNSException]_block_invoke_0"
                         },
                         {
-                            "instruction_addr": 888754792,
+                            "instruction_addr": 932113496,
+                            "object_addr": 932110336,
+                            "object_name": "libdispatch.dylib",
+                            "symbol_addr": 932113484,
+                            "symbol_name": "_dispatch_call_block_and_release"
+                        },
+                        {
+                            "instruction_addr": 932159120,
+                            "object_addr": 932110336,
+                            "object_name": "libdispatch.dylib",
+                            "symbol_addr": 932158924,
+                            "symbol_name": "_dispatch_main_queue_callback_4CF$VARIANT$up"
+                        },
+                        {
+                            "instruction_addr": 888754856,
                             "object_addr": 888180736,
                             "object_name": "CoreFoundation",
                             "symbol_addr": 888753592,
@@ -1393,10 +1379,10 @@
                             "symbol_name": "UIApplicationMain"
                         },
                         {
-                            "instruction_addr": 512376,
-                            "object_addr": 507904,
+                            "instruction_addr": 1039184,
+                            "object_addr": 1032192,
                             "object_name": "CrashTester",
-                            "symbol_addr": 512284,
+                            "symbol_addr": 1039092,
                             "symbol_name": "main"
                         }
                     ],
@@ -1408,280 +1394,59 @@
                 "index": 0,
                 "notable_addresses": {
                     "r0": {
-                        "address": 2056912,
-                        "last_deallocated_obj": "__NSArrayM",
+                        "address": 2785376,
+                        "last_deallocated_obj": "NSException",
                         "type": "unknown"
                     },
                     "r1": {
-                        "address": 884403911,
+                        "address": 884405494,
                         "type": "string",
-                        "value": "objectForKey:"
+                        "value": "respondsToSelector:"
                     },
                     "r2": {
-                        "address": 1058462768,
-                        "class": "__NSCFConstantString",
-                        "ivars": {},
-                        "type": "objc_object"
-                    },
-                    "r5": {
-                        "address": 884401142,
+                        "address": 889302229,
                         "type": "string",
-                        "value": "UTF8String"
+                        "value": "descriptionWithLocale:"
                     },
-                    "stack@0x2fe79d44": {
-                        "address": 1644480,
-                        "class": "NSException",
-                        "ivars": {
-                            "name": {
-                                "address": 698356,
-                                "class": "__NSCFConstantString",
-                                "ivars": {},
-                                "type": "objc_object"
-                            },
-                            "reason": {
-                                "address": 1621264,
-                                "class": "__NSCFString",
-                                "last_deallocated_obj": "UITouch",
-                                "type": "objc_object",
-                                "value": "Spurving bearing failure: Barescent skor motion non-sinusoidal for 0xaa7e4"
-                            },
-                            "reserved": {
-                                "address": 2056912,
-                                "last_deallocated_obj": "__NSArrayM",
-                                "type": "unknown"
-                            },
-                            "userInfo": {
-                                "address": 0,
-                                "type": "null_pointer"
-                            }
-                        },
+                    "stack@0x2fef8f40": {
+                        "address": 2785376,
                         "last_deallocated_obj": "NSException",
-                        "type": "objc_object"
-                    },
-                    "stack@0x2fe79d50": {
-                        "address": 1644480,
-                        "class": "NSException",
-                        "ivars": {
-                            "name": {
-                                "address": 698356,
-                                "class": "__NSCFConstantString",
-                                "ivars": {},
-                                "type": "objc_object"
-                            },
-                            "reason": {
-                                "address": 1621264,
-                                "class": "__NSCFString",
-                                "last_deallocated_obj": "UITouch",
-                                "type": "objc_object",
-                                "value": "Spurving bearing failure: Barescent skor motion non-sinusoidal for 0xaa7e4"
-                            },
-                            "reserved": {
-                                "address": 2056912,
-                                "last_deallocated_obj": "__NSArrayM",
-                                "type": "unknown"
-                            },
-                            "userInfo": {
-                                "address": 0,
-                                "type": "null_pointer"
-                            }
-                        },
-                        "last_deallocated_obj": "NSException",
-                        "type": "objc_object"
-                    },
-                    "stack@0x2fe79d54": {
-                        "address": 889310981,
-                        "type": "string",
-                        "value": "callStackReturnAddresses"
-                    },
-                    "stack@0x2fe79d64": {
-                        "address": 1644480,
-                        "class": "NSException",
-                        "ivars": {
-                            "name": {
-                                "address": 698356,
-                                "class": "__NSCFConstantString",
-                                "ivars": {},
-                                "type": "objc_object"
-                            },
-                            "reason": {
-                                "address": 1621264,
-                                "class": "__NSCFString",
-                                "last_deallocated_obj": "UITouch",
-                                "type": "objc_object",
-                                "value": "Spurving bearing failure: Barescent skor motion non-sinusoidal for 0xaa7e4"
-                            },
-                            "reserved": {
-                                "address": 2056912,
-                                "last_deallocated_obj": "__NSArrayM",
-                                "type": "unknown"
-                            },
-                            "userInfo": {
-                                "address": 0,
-                                "type": "null_pointer"
-                            }
-                        },
-                        "last_deallocated_obj": "NSException",
-                        "type": "objc_object"
-                    },
-                    "stack@0x2fe79d78": {
-                        "address": 1644480,
-                        "class": "NSException",
-                        "ivars": {
-                            "name": {
-                                "address": 698356,
-                                "class": "__NSCFConstantString",
-                                "ivars": {},
-                                "type": "objc_object"
-                            },
-                            "reason": {
-                                "address": 1621264,
-                                "class": "__NSCFString",
-                                "last_deallocated_obj": "UITouch",
-                                "type": "objc_object",
-                                "value": "Spurving bearing failure: Barescent skor motion non-sinusoidal for 0xaa7e4"
-                            },
-                            "reserved": {
-                                "address": 2056912,
-                                "last_deallocated_obj": "__NSArrayM",
-                                "type": "unknown"
-                            },
-                            "userInfo": {
-                                "address": 0,
-                                "type": "null_pointer"
-                            }
-                        },
-                        "last_deallocated_obj": "NSException",
-                        "type": "objc_object"
-                    },
-                    "stack@0x2fe79d8c": {
-                        "address": 1644480,
-                        "class": "NSException",
-                        "ivars": {
-                            "name": {
-                                "address": 698356,
-                                "class": "__NSCFConstantString",
-                                "ivars": {},
-                                "type": "objc_object"
-                            },
-                            "reason": {
-                                "address": 1621264,
-                                "class": "__NSCFString",
-                                "last_deallocated_obj": "UITouch",
-                                "type": "objc_object",
-                                "value": "Spurving bearing failure: Barescent skor motion non-sinusoidal for 0xaa7e4"
-                            },
-                            "reserved": {
-                                "address": 2056912,
-                                "last_deallocated_obj": "__NSArrayM",
-                                "type": "unknown"
-                            },
-                            "userInfo": {
-                                "address": 0,
-                                "type": "null_pointer"
-                            }
-                        },
-                        "last_deallocated_obj": "NSException",
-                        "type": "objc_object"
-                    },
-                    "stack@0x2fe79d98": {
-                        "address": 1644480,
-                        "class": "NSException",
-                        "ivars": {
-                            "name": {
-                                "address": 698356,
-                                "class": "__NSCFConstantString",
-                                "ivars": {},
-                                "type": "objc_object"
-                            },
-                            "reason": {
-                                "address": 1621264,
-                                "class": "__NSCFString",
-                                "last_deallocated_obj": "UITouch",
-                                "type": "objc_object",
-                                "value": "Spurving bearing failure: Barescent skor motion non-sinusoidal for 0xaa7e4"
-                            },
-                            "reserved": {
-                                "address": 2056912,
-                                "last_deallocated_obj": "__NSArrayM",
-                                "type": "unknown"
-                            },
-                            "userInfo": {
-                                "address": 0,
-                                "type": "null_pointer"
-                            }
-                        },
-                        "last_deallocated_obj": "NSException",
-                        "type": "objc_object"
-                    },
-                    "stack@0x2fe79d9c": {
-                        "address": 1058408592,
-                        "class": "NSException",
-                        "type": "objc_class"
-                    },
-                    "stack@0x2fe79da0": {
-                        "address": 1644480,
-                        "class": "NSException",
-                        "ivars": {
-                            "name": {
-                                "address": 698356,
-                                "class": "__NSCFConstantString",
-                                "ivars": {},
-                                "type": "objc_object"
-                            },
-                            "reason": {
-                                "address": 1621264,
-                                "class": "__NSCFString",
-                                "last_deallocated_obj": "UITouch",
-                                "type": "objc_object",
-                                "value": "Spurving bearing failure: Barescent skor motion non-sinusoidal for 0xaa7e4"
-                            },
-                            "reserved": {
-                                "address": 2056912,
-                                "last_deallocated_obj": "__NSArrayM",
-                                "type": "unknown"
-                            },
-                            "userInfo": {
-                                "address": 0,
-                                "type": "null_pointer"
-                            }
-                        },
-                        "last_deallocated_obj": "NSException",
-                        "type": "objc_object"
+                        "type": "unknown"
                     }
                 },
                 "registers": {
                     "basic": {
                         "cpsr": 537854000,
-                        "ip": 1058367508,
-                        "lr": 599893,
+                        "ip": 1053058800,
+                        "lr": 863436043,
                         "pc": 922267512,
-                        "r0": 2056912,
-                        "r1": 884403911,
-                        "r10": 260280376,
-                        "r11": 2745410467,
-                        "r2": 1058462768,
-                        "r3": 0,
-                        "r4": 805409816,
-                        "r5": 884401142,
-                        "r6": 37418944,
-                        "r7": 803708292,
-                        "r8": 711216,
-                        "r9": 221100977,
-                        "sp": 803708256
+                        "r0": 2785376,
+                        "r1": 884405494,
+                        "r10": 888803510,
+                        "r11": 0,
+                        "r2": 889302229,
+                        "r3": 4294967295,
+                        "r4": 1342347195,
+                        "r5": 0,
+                        "r6": 1053210824,
+                        "r7": 804228944,
+                        "r8": 804229107,
+                        "r9": 221101373,
+                        "sp": 804228924
                     },
                     "exception": {
                         "exception": 0,
-                        "far": 805409824,
-                        "fsr": 7
+                        "far": 1342347203,
+                        "fsr": 5
                     }
                 },
                 "stack": {
-                    "contents": "C0F73A02489DE72F13B7F836C0171900609DE72FCBAFF836C017190005CF0135000000000000000000000000C0171900E3B7F8363890830F3890830FA3A3A3A3C0171900D4F8153FE0AD5E3F909DE72F97260900C0171900A89DE72F1127FC34C01719009008163FC0171900E0AD5E3FB49DE72F75C1F836",
-                    "dump_end": 803708336,
-                    "dump_start": 803708216,
+                    "contents": "1C8FEF2FC9CDF836288FEF2FFF2CF134FFFFFFFF848FEF2FFBD8FB340000000000000000F38FEF2FFFFFFFFF60802A000000000000000000588FEF2F409EEF2F7529FA340000000000000000000000000000000000000000000000005894EF2FF074173F040000000400000001000000AB94EF2FFF66FB34",
+                    "dump_end": 804229004,
+                    "dump_start": 804228884,
                     "grow_direction": "-",
                     "overflow": false,
-                    "stack_pointer": 803708256
+                    "stack_pointer": 804228924
                 }
             },
             {
@@ -1719,14 +1484,14 @@
                         "r10": 1067417696,
                         "r11": 0,
                         "r2": 0,
-                        "r3": 804611632,
+                        "r3": 805135920,
                         "r4": 1,
-                        "r5": 804611916,
-                        "r6": 804611916,
-                        "r7": 804611948,
+                        "r5": 805136204,
+                        "r6": 805136204,
+                        "r7": 805136236,
                         "r8": 0,
                         "r9": 0,
-                        "sp": 804611612
+                        "sp": 805135900
                     }
                 }
             },
@@ -1795,7 +1560,7 @@
                         "ip": 4294967265,
                         "lr": 820687361,
                         "pc": 820686852,
-                        "r0": 6193748,
+                        "r0": 6210132,
                         "r1": 117440518,
                         "r10": 117440518,
                         "r11": 4294967295,
@@ -1804,10 +1569,10 @@
                         "r4": 8963,
                         "r5": 4294967295,
                         "r6": 0,
-                        "r7": 6193596,
+                        "r7": 6209980,
                         "r8": 0,
                         "r9": 11,
-                        "sp": 6193536
+                        "sp": 6209920
                     }
                 }
             },
@@ -1829,10 +1594,10 @@
                             "symbol_name": "+[NSThread sleepForTimeInterval:]"
                         },
                         {
-                            "instruction_addr": 625976,
-                            "object_addr": 507904,
+                            "instruction_addr": 1152928,
+                            "object_addr": 1032192,
                             "object_name": "CrashTester",
-                            "symbol_addr": 625732,
+                            "symbol_addr": 1152684,
                             "symbol_name": "-[KSCrashDeadlockMonitor runMonitor]"
                         },
                         {
@@ -1877,10 +1642,10 @@
                         "r4": 5,
                         "r5": 0,
                         "r6": 0,
-                        "r7": 36146544,
+                        "r7": 36154736,
                         "r8": 0,
                         "r9": 6,
-                        "sp": 36146488
+                        "sp": 36154680
                     }
                 }
             },
@@ -1895,10 +1660,10 @@
                             "symbol_name": "mach_msg_trap"
                         },
                         {
-                            "instruction_addr": 610176,
-                            "object_addr": 507904,
+                            "instruction_addr": 1137128,
+                            "object_addr": 1032192,
                             "object_name": "CrashTester",
-                            "symbol_addr": 610068,
+                            "symbol_addr": 1137020,
                             "symbol_name": "ksmachexc_i_handleExceptions"
                         },
                         {
@@ -1921,7 +1686,7 @@
                         "ip": 4294967265,
                         "lr": 820687361,
                         "pc": 820686852,
-                        "r0": 36679008,
+                        "r0": 36687200,
                         "r1": 2,
                         "r10": 2,
                         "r11": 0,
@@ -1930,10 +1695,10 @@
                         "r4": 14339,
                         "r5": 0,
                         "r6": 0,
-                        "r7": 36678612,
+                        "r7": 36686804,
                         "r8": 0,
                         "r9": 0,
-                        "sp": 36678552
+                        "sp": 36686744
                     }
                 }
             },
@@ -2022,19 +1787,19 @@
                         "ip": 4294967265,
                         "lr": 820687361,
                         "pc": 820686852,
-                        "r0": 53784752,
+                        "r0": 53665968,
                         "r1": 117440518,
                         "r10": 117440518,
                         "r11": 4294967295,
                         "r2": 0,
                         "r3": 3072,
-                        "r4": 21763,
+                        "r4": 22019,
                         "r5": 4294967295,
                         "r6": 0,
-                        "r7": 53784600,
+                        "r7": 53665816,
                         "r8": 0,
                         "r9": 2814029233,
-                        "sp": 53784540
+                        "sp": 53665756
                     }
                 }
             },
@@ -2103,19 +1868,19 @@
                         "ip": 4294967265,
                         "lr": 820687361,
                         "pc": 820686852,
-                        "r0": 48505436,
+                        "r0": 54731356,
                         "r1": 117440518,
                         "r10": 117440518,
                         "r11": 4294967295,
                         "r2": 0,
                         "r3": 3072,
-                        "r4": 24327,
+                        "r4": 25091,
                         "r5": 4294967295,
                         "r6": 0,
-                        "r7": 48505284,
+                        "r7": 54731204,
                         "r8": 0,
                         "r9": 2814029233,
-                        "sp": 48505224
+                        "sp": 54731144
                     }
                 }
             },
@@ -2147,13 +1912,13 @@
                         "r11": 0,
                         "r2": 0,
                         "r3": 0,
-                        "r4": 260242304,
-                        "r5": 2355536,
-                        "r6": 805146624,
-                        "r7": 805146592,
+                        "r4": 236306816,
+                        "r5": 1831388,
+                        "r6": 44888064,
+                        "r7": 44888032,
                         "r8": 1063169328,
                         "r9": 0,
-                        "sp": 805146560
+                        "sp": 44888000
                     }
                 }
             }
@@ -2161,25 +1926,25 @@
     },
     "process": {
         "last_dealloced_nsexception": {
-            "address": 1644480,
+            "address": 2785376,
             "backtrace": {
                 "contents": [],
                 "skipped": 0
             },
             "name": "TurboEncabulatorException",
-            "reason": "Spurving bearing failure: Barescent skor motion non-sinusoidal for 0xaa7e4",
+            "reason": "Spurving bearing failure: Barescent skor motion non-sinusoidal for 0x12b7e8",
             "referenced_object": {
-                "address": 698340,
+                "address": 1226728,
                 "class": "__NSCFConstantString",
-                "ivars": {},
-                "type": "objc_object"
+                "type": "objc_object",
+                "value": "This is a string"
             }
         }
     },
     "report": {
-        "id": "F0530AEE-5D6F-44D0-ADBF-3C1E172A070B",
+        "id": "3B121770-E3ED-41D7-8322-4EEBA82C2516",
         "process_name": "CrashTester",
-        "timestamp": "2013-01-14T03:21:33Z",
+        "timestamp": "2013-01-14T15:59:09Z",
         "type": "standard",
         "version": {
             "major": 2,
@@ -2188,16 +1953,16 @@
     },
     "system": {
         "CFBundleExecutable": "CrashTester",
-        "CFBundleExecutablePath": "/var/mobile/Applications/4C6BECD4-F577-45F0-ADE9-941A8539E367/CrashTester.app/CrashTester",
+        "CFBundleExecutablePath": "/var/mobile/Applications/194DF637-2244-4A11-887C-C732BDD94F39/CrashTester.app/CrashTester",
         "CFBundleIdentifier": "org.stenerud.CrashTester",
         "CFBundleName": "CrashTester",
         "CFBundleShortVersionString": "1.0",
         "CFBundleVersion": "1.02",
-        "app_start_time": "2013-01-14T03:18:23Z",
-        "app_uuid": "17C4B100-1D85-3BE3-B382-CFBD0E6E7D72",
+        "app_start_time": "2013-01-14T15:55:26Z",
+        "app_uuid": "3ABD09C1-F82E-315F-B44B-74DBA8A3CB7E",
         "application_stats": {
-            "active_time_since_last_crash": 189.709,
-            "active_time_since_launch": 189.709,
+            "active_time_since_last_crash": 222.615,
+            "active_time_since_launch": 222.615,
             "application_active": true,
             "application_in_foreground": true,
             "background_time_since_last_crash": 0,
@@ -2206,22 +1971,22 @@
             "sessions_since_last_crash": 1,
             "sessions_since_launch": 1
         },
-        "boot_time": "2013-01-12T00:09:55Z",
+        "boot_time": "2013-01-12T00:09:54Z",
         "cpu_arch": "armv7",
         "device_app_hash": "2f11dc412b5da106a79350af5a58308f98199651",
         "jailbroken": true,
         "kernel_version": "Darwin Kernel Version 11.0.0: Wed Feb  1 23:16:39 PST 2012; root:xnu-1878.11.8~1/RELEASE_ARM_S5L8920X",
         "machine": "iPhone2,1",
         "memory": {
-            "free": 59133952,
+            "free": 58376192,
             "size": 266575872,
-            "usable": 195670016
+            "usable": 194990080
         },
         "model": "N88AP",
         "os_version": "9B176",
         "parent_process_id": 1,
         "parent_process_name": "launchd",
-        "process_id": 1574,
+        "process_id": 2374,
         "process_name": "CrashTester",
         "system_name": "iPhone OS",
         "system_version": "5.1",

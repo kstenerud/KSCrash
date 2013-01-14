@@ -141,8 +141,6 @@ bool kscrash_install(const char* const crashReportFilePath,
         KSCrash_Context* context = crashContext();
         context->crash.onCrash = kscrash_i_onCrash;
 
-        ksobjc_init();
-
         kscrashSentry_setDeadlockHandlerWatchdogInterval(deadlockWatchdogInterval);
         
         if(ksmach_isBeingTraced())

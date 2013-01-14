@@ -58,12 +58,6 @@
 
 @implementation KSObjC_Tests
 
-- (void) setUp
-{
-    [super setUp];
-    ksobjc_init();
-}
-
 - (NSArray*) componentsOfBasicDescription:(NSString*) description
 {
     NSError* error = nil;
@@ -116,6 +110,13 @@
 - (void) testObjectTypeObject
 {
     id object = [KSObjC_Tests new];
+    KSObjCType type = ksobjc_objectType((as_bridge void *)(object));
+    STAssertTrue(type == KSObjCTypeObject, @"");
+}
+
+- (void) testObjectTypeObject2
+{
+    id object = @"Test";
     KSObjCType type = ksobjc_objectType((as_bridge void *)(object));
     STAssertTrue(type == KSObjCTypeObject, @"");
 }

@@ -1,14 +1,14 @@
-Incident Identifier: 20198B67-7DC9-41A1-A478-B11C30CDA214
+Incident Identifier: 5E4A82C8-ABA0-4C9D-AC3C-8396DBAD7A88
 CrashReporter Key:   2f11dc412b5da106a79350af5a58308f98199651
 Hardware Model:      iPhone2,1
-Process:         CrashTester [1542]
-Path:            /var/mobile/Applications/4C6BECD4-F577-45F0-ADE9-941A8539E367/CrashTester.app/CrashTester
+Process:         CrashTester [2342]
+Path:            /var/mobile/Applications/194DF637-2244-4A11-887C-C732BDD94F39/CrashTester.app/CrashTester
 Identifier:      org.stenerud.CrashTester
 Version:         1.0 (1.02)
 Code Type:       ARM
 Parent Process:  launchd [1]
 
-Date/Time:       2013-01-13 19:14:35.000 -0800
+Date/Time:       2013-01-14 07:51:16.000 -0800
 OS Version:      iPhone OS 5.1 (9B176)
 Report Version:  104
 
@@ -17,7 +17,7 @@ Exception Codes: 0x00000000 at 0x00000000
 Crashed Thread:  0
 
 Application Specific Information:
-*** Terminating app due to uncaught exception 'NSInvalidArgumentException', reason: '-[__NSArrayI objectForKey:]: unrecognized selector sent to instance 0x2b6e00'
+*** Terminating app due to uncaught exception 'NSInvalidArgumentException', reason: '-[__NSArrayI objectForKey:]: unrecognized selector sent to instance 0x12b270'
 
 Thread 0 name:  Dispatch queue: com.apple.main-thread
 Thread 0 Crashed:
@@ -26,10 +26,10 @@ Thread 0 Crashed:
 2   CoreFoundation                  0x34fc5a9b 0x34f09000 + 772763 (-[NSObject doesNotRecognizeSelector:] + 175)
 3   CoreFoundation                  0x34fc4915 0x34f09000 + 768277 (___forwarding___ + 301)
 4   CoreFoundation                  0x34f1f650 0x34f09000 + 91728 (_CF_forwarding_prep_0 + 48)
-5   CrashTester                     0x0009f57d 0x9b000 + 17789 (-[Crasher throwException] + 61)
-6   CrashTester                     0x0009eb07 0x9b000 + 15111 (__32-[AppDelegate(UI) crashCommands]_block_invoke_0 + 39)
-7   CrashTester                     0x0009f079 0x9b000 + 16505 (-[CommandEntry executeWithViewController:] + 29)
-8   CrashTester                     0x0009f3cb 0x9b000 + 17355 (-[CommandTVC tableView:didSelectRowAtIndexPath:] + 91)
+5   CrashTester                     0x0008cf6d 0x88000 + 20333 (-[Crasher throwException] + 61)
+6   CrashTester                     0x0008c4f3 0x88000 + 17651 (__32-[AppDelegate(UI) crashCommands]_block_invoke_0 + 39)
+7   CrashTester                     0x0008ca65 0x88000 + 19045 (-[CommandEntry executeWithViewController:] + 29)
+8   CrashTester                     0x0008cdb7 0x88000 + 19895 (-[CommandTVC tableView:didSelectRowAtIndexPath:] + 91)
 9   UIKit                           0x31613ae5 0x3155e000 + 744165 (-[UITableView _selectRowAtIndexPath:animated:scrollPosition:notifyDelegate:] + 945)
 10  UIKit                           0x3168d7ab 0x3155e000 + 1243051 (-[UITableView _userSelectRowAtPendingSelectionIndexPath:] + 159)
 11  Foundation                      0x33805933 0x3376a000 + 637235 (__NSFireDelayedPerform + 415)
@@ -40,22 +40,16 @@ Thread 0 Crashed:
 16  CoreFoundation                  0x34f1836d 0x34f09000 + 62317 (CFRunLoopRunInMode + 105)
 17  GraphicsServices                0x34583439 0x3457f000 + 17465 (GSEventRunModal + 137)
 18  UIKit                           0x3158fe7d 0x3155e000 + 204413 (UIApplicationMain + 1081)
-19  CrashTester                     0x0009c17f 0x9b000 + 4479 (main + 99)
-20  CrashTester                     0x0009c118 0x9b000 + 4376 (start + 40)
+19  CrashTester                     0x00089b57 0x88000 + 6999 (main + 99)
+20  CrashTester                     0x00089af0 0x88000 + 6896 (start + 40)
 
 Thread 1 name:  Dispatch queue: com.apple.libdispatch-manager
 Thread 1:
 0   libsystem_kernel.dylib          0x30eab3a8 0x30eaa000 + 5032 (kevent + 24)
 1   libdispatch.dylib               0x378fabc8 0x378ee000 + 52168 (_dispatch_mgr_wakeup + 0)
 
+Thread 2 name:  WebThread
 Thread 2:
-0   libsystem_kernel.dylib          0x30ebbcd4 0x30eaa000 + 72916 (__workq_kernreturn + 8)
-
-Thread 3:
-0   libsystem_kernel.dylib          0x30ebbcd4 0x30eaa000 + 72916 (__workq_kernreturn + 8)
-
-Thread 4 name:  WebThread
-Thread 4:
 0   libsystem_kernel.dylib          0x30eab004 0x30eaa000 + 4100 (mach_msg_trap + 20)
 1   CoreFoundation                  0x34f963f0 0x34f09000 + 578544 (__CFRunLoopServiceMachPort + 124)
 2   CoreFoundation                  0x34f95128 0x34f09000 + 573736 (__CFRunLoopRun + 880)
@@ -64,26 +58,31 @@ Thread 4:
 5   WebCore                         0x320320f0 0x31f89000 + 692464 (_ZL12RunWebThreadPv + 396)
 6   libsystem_c.dylib               0x35bb3730 0x35ba5000 + 59184 (_pthread_start + 316)
 
-Thread 5:
+Thread 3:
 0   libsystem_kernel.dylib          0x30ebb628 0x30eaa000 + 71208 (__semwait_signal + 24)
 1   Foundation                      0x337b1b00 0x3376a000 + 293632 (+[NSThread sleepForTimeInterval:] + 124)
-2   CrashTester                     0x000b7d38 0x9b000 + 118072 (-[KSCrashDeadlockMonitor runMonitor] + 244)
+2   CrashTester                     0x000a57a0 0x88000 + 120736 (-[KSCrashDeadlockMonitor runMonitor] + 244)
 3   Foundation                      0x3377aa80 0x3376a000 + 68224 (-[NSThread main] + 72)
 4   Foundation                      0x3380e590 0x3376a000 + 673168 (__NSThread__main__ + 1048)
 5   libsystem_c.dylib               0x35bb3730 0x35ba5000 + 59184 (_pthread_start + 316)
 
-Thread 6 name:  KSCrash Exception Handler (Secondary)
-Thread 6:
+Thread 4 name:  KSCrash Exception Handler (Secondary)
+Thread 4:
 0   libsystem_kernel.dylib          0x30eab004 0x30eaa000 + 4100 (mach_msg_trap + 20)
 1   libsystem_kernel.dylib          0x30eada50 0x30eaa000 + 14928 (thread_suspend + 40)
-2   CrashTester                     0x000b3f60 0x9b000 + 102240 (ksmachexc_i_handleExceptions + 76)
+2   CrashTester                     0x000a19c8 0x88000 + 104904 (ksmachexc_i_handleExceptions + 76)
 3   libsystem_c.dylib               0x35bb3730 0x35ba5000 + 59184 (_pthread_start + 316)
 
-Thread 7 name:  KSCrash Exception Handler (Primary)
-Thread 7:
+Thread 5 name:  KSCrash Exception Handler (Primary)
+Thread 5:
 0   libsystem_kernel.dylib          0x30eab004 0x30eaa000 + 4100 (mach_msg_trap + 20)
-1   CrashTester                     0x000b3f80 0x9b000 + 102272 (ksmachexc_i_handleExceptions + 108)
+1   CrashTester                     0x000a19e8 0x88000 + 104936 (ksmachexc_i_handleExceptions + 108)
 2   libsystem_c.dylib               0x35bb3730 0x35ba5000 + 59184 (_pthread_start + 316)
+
+Thread 6:
+0   libsystem_kernel.dylib          0x30ebbcd4 0x30eaa000 + 72916 (__workq_kernreturn + 8)
+
+Thread 7:
 
 Thread 0 crashed with ARM Thread State:
     r0: 0x00000000     r1: 0x00000000     r2: 0x00000000     r3: 0x00000000 
@@ -93,8 +92,8 @@ Thread 0 crashed with ARM Thread State:
   cpsr: 0x00000000 
 
 Binary Images:
-   0x9b000 -    0xc2fff +CrashTester armv7  <17c4b1001d853be3b382cfbd0e6e7d72> /var/mobile/Applications/4C6BECD4-F577-45F0-ADE9-941A8539E367/CrashTester.app/CrashTester
-   0xea000 -    0xeafff  MobileSubstrate.dylib armv6  <b8a484a95b5d30c5ab59f25362558e7c> /Library/MobileSubstrate/MobileSubstrate.dylib
+   0x88000 -    0xb0fff +CrashTester armv7  <3abd09c1f82e315fb44b74dba8a3cb7e> /var/mobile/Applications/194DF637-2244-4A11-887C-C732BDD94F39/CrashTester.app/CrashTester
+   0xd6000 -    0xd6fff  MobileSubstrate.dylib armv6  <b8a484a95b5d30c5ab59f25362558e7c> /Library/MobileSubstrate/MobileSubstrate.dylib
 0x375a8000 - 0x375ddfff  SystemConfiguration armv7  <4464a4e3bb3f32f7abaa35ebf31fda49> /System/Library/Frameworks/SystemConfiguration.framework/SystemConfiguration
 0x3088a000 - 0x308eefff  MessageUI armv7  <b74d79ea691a35ada276f063b7217a20> /System/Library/Frameworks/MessageUI.framework/MessageUI
 0x30937000 - 0x30943fff  libz.1.dylib armv7  <36ce86a3dc8c344596c8c325615f374b> /usr/lib/libz.1.dylib
@@ -234,26 +233,26 @@ Binary Images:
 0x372b4000 - 0x374e1fff  MediaToolbox armv7  <ec9bc89489763c6c93f86c5c490b2d69> /System/Library/PrivateFrameworks/MediaToolbox.framework/MediaToolbox
 0x31b66000 - 0x31becfff  CoreMotion armv7  <6a9355d5a8e238b5b8f193605d509e15> /System/Library/Frameworks/CoreMotion.framework/CoreMotion
 0x37233000 - 0x372a7fff  MediaControlSender armv7  <87315c54b2293ab589950341ff91b45d> /System/Library/PrivateFrameworks/MediaControlSender.framework/MediaControlSender
-  0x11f000 -   0x120fff  SubstrateLoader.dylib armv6  <885b4713fd433c3996edfc3552109041> /Library/Frameworks/CydiaSubstrate.framework/Libraries/SubstrateLoader.dylib
-  0x163000 -   0x169fff  libstatusbar.dylib armv6  <fe21097b2cb83481a70c9ab877af55e3> /Library/MobileSubstrate/DynamicLibraries/libstatusbar.dylib
-  0x16d000 -   0x170fff  libsubstrate.dylib armv6  <65a35eed390832b08134c3cedc6eafa2> /usr/lib/libsubstrate.dylib
+  0x211000 -   0x212fff  SubstrateLoader.dylib armv6  <885b4713fd433c3996edfc3552109041> /Library/Frameworks/CydiaSubstrate.framework/Libraries/SubstrateLoader.dylib
+  0x252000 -   0x258fff  libstatusbar.dylib armv6  <fe21097b2cb83481a70c9ab877af55e3> /Library/MobileSubstrate/DynamicLibraries/libstatusbar.dylib
+  0x25c000 -   0x25ffff  libsubstrate.dylib armv6  <65a35eed390832b08134c3cedc6eafa2> /usr/lib/libsubstrate.dylib
 0x35509000 - 0x35544fff  libCGFreetype.A.dylib armv7  <55941c96cf1f3b048e72a148c4496c16> /System/Library/Frameworks/CoreGraphics.framework/Resources/libCGFreetype.A.dylib
 0x33056000 - 0x3306ffff  libRIP.A.dylib armv7  <1828cddc5dd93c61afbefb59587d7f8a> /System/Library/Frameworks/CoreGraphics.framework/Resources/libRIP.A.dylib
 
 Extra Information:
 Object referenced by NSException:
 {
-    "address": 2846208,
+    "address": 1225328,
     "class": "__NSArrayI",
     "first_object": {
-        "address": 825220,
+        "address": 751496,
         "class": "__NSCFConstantString",
-        "ivars": {},
-        "type": "objc_object"
+        "type": "objc_object",
+        "value": "Hello World"
     },
     "last_deallocated_obj": "__NSArrayI",
     "type": "objc_object"
 }
 
-CrashDoctor Diagnosis: Application threw exception NSInvalidArgumentException: -[__NSArrayI objectForKey:]: unrecognized selector sent to instance 0x2b6e00
+CrashDoctor Diagnosis: Application threw exception NSInvalidArgumentException: -[__NSArrayI objectForKey:]: unrecognized selector sent to instance 0x12b270
 Originated at or in a subcall of -[Crasher throwException]

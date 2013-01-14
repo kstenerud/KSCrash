@@ -3,15 +3,15 @@
         {
             "cpu_subtype": 9,
             "cpu_type": 12,
-            "image_addr": 1044480,
+            "image_addr": 221184,
             "image_size": 167936,
-            "name": "/var/mobile/Applications/EEDFEAA8-1DA3-4A3A-AA3A-A556ACE892B8/CrashTester.app/CrashTester",
-            "uuid": "CC686081-AE74-3D83-BE31-CC56006C6CF3"
+            "name": "/var/mobile/Applications/194DF637-2244-4A11-887C-C732BDD94F39/CrashTester.app/CrashTester",
+            "uuid": "3ABD09C1-F82E-315F-B44B-74DBA8A3CB7E"
         },
         {
             "cpu_subtype": 6,
             "cpu_type": 12,
-            "image_addr": 1368064,
+            "image_addr": 532480,
             "image_size": 4096,
             "name": "/Library/MobileSubstrate/MobileSubstrate.dylib",
             "uuid": "B8A484A9-5B5D-30C5-AB59-F25362558E7C"
@@ -1131,7 +1131,7 @@
         {
             "cpu_subtype": 6,
             "cpu_type": 12,
-            "image_addr": 1589248,
+            "image_addr": 761856,
             "image_size": 8192,
             "name": "/Library/Frameworks/CydiaSubstrate.framework/Libraries/SubstrateLoader.dylib",
             "uuid": "885B4713-FD43-3C39-96ED-FC3552109041"
@@ -1139,7 +1139,7 @@
         {
             "cpu_subtype": 6,
             "cpu_type": 12,
-            "image_addr": 1867776,
+            "image_addr": 2097152,
             "image_size": 28672,
             "name": "/Library/MobileSubstrate/DynamicLibraries/libstatusbar.dylib",
             "uuid": "FE21097B-2CB8-3481-A70C-9AB877AF55E3"
@@ -1147,7 +1147,7 @@
         {
             "cpu_subtype": 6,
             "cpu_type": 12,
-            "image_addr": 1908736,
+            "image_addr": 2138112,
             "image_size": 16384,
             "name": "/usr/lib/libsubstrate.dylib",
             "uuid": "65A35EED-3908-32B0-8134-C3CEDC6EAFA2"
@@ -1172,7 +1172,7 @@
     "crash": {
         "diagnosis": "Stack overflow in -[Crasher causeStackOverflow]",
         "error": {
-            "address": 803205116,
+            "address": 802381820,
             "mach": {
                 "code": 1,
                 "code_name": "KERN_INVALID_ADDRESS",
@@ -1193,276 +1193,276 @@
                 "backtrace": {
                     "contents": [
                         {
-                            "instruction_addr": 1065448,
-                            "object_addr": 1044480,
+                            "instruction_addr": 241776,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1065432,
+                            "symbol_addr": 241760,
                             "symbol_name": "-[Crasher causeStackOverflow]"
                         },
                         {
-                            "instruction_addr": 1065448,
-                            "object_addr": 1044480,
+                            "instruction_addr": 241776,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1065432,
+                            "symbol_addr": 241760,
                             "symbol_name": "-[Crasher causeStackOverflow]"
                         },
                         {
-                            "instruction_addr": 1065448,
-                            "object_addr": 1044480,
+                            "instruction_addr": 241776,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1065432,
+                            "symbol_addr": 241760,
                             "symbol_name": "-[Crasher causeStackOverflow]"
                         },
                         {
-                            "instruction_addr": 1065448,
-                            "object_addr": 1044480,
+                            "instruction_addr": 241776,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1065432,
+                            "symbol_addr": 241760,
                             "symbol_name": "-[Crasher causeStackOverflow]"
                         },
                         {
-                            "instruction_addr": 1065448,
-                            "object_addr": 1044480,
+                            "instruction_addr": 241776,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1065432,
+                            "symbol_addr": 241760,
                             "symbol_name": "-[Crasher causeStackOverflow]"
                         },
                         {
-                            "instruction_addr": 1065448,
-                            "object_addr": 1044480,
+                            "instruction_addr": 241776,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1065432,
+                            "symbol_addr": 241760,
                             "symbol_name": "-[Crasher causeStackOverflow]"
                         },
                         {
-                            "instruction_addr": 1065448,
-                            "object_addr": 1044480,
+                            "instruction_addr": 241776,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1065432,
+                            "symbol_addr": 241760,
                             "symbol_name": "-[Crasher causeStackOverflow]"
                         },
                         {
-                            "instruction_addr": 1065448,
-                            "object_addr": 1044480,
+                            "instruction_addr": 241776,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1065432,
+                            "symbol_addr": 241760,
                             "symbol_name": "-[Crasher causeStackOverflow]"
                         },
                         {
-                            "instruction_addr": 1065448,
-                            "object_addr": 1044480,
+                            "instruction_addr": 241776,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1065432,
+                            "symbol_addr": 241760,
                             "symbol_name": "-[Crasher causeStackOverflow]"
                         },
                         {
-                            "instruction_addr": 1065448,
-                            "object_addr": 1044480,
+                            "instruction_addr": 241776,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1065432,
+                            "symbol_addr": 241760,
                             "symbol_name": "-[Crasher causeStackOverflow]"
                         },
                         {
-                            "instruction_addr": 1065448,
-                            "object_addr": 1044480,
+                            "instruction_addr": 241776,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1065432,
+                            "symbol_addr": 241760,
                             "symbol_name": "-[Crasher causeStackOverflow]"
                         },
                         {
-                            "instruction_addr": 1065448,
-                            "object_addr": 1044480,
+                            "instruction_addr": 241776,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1065432,
+                            "symbol_addr": 241760,
                             "symbol_name": "-[Crasher causeStackOverflow]"
                         },
                         {
-                            "instruction_addr": 1065448,
-                            "object_addr": 1044480,
+                            "instruction_addr": 241776,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1065432,
+                            "symbol_addr": 241760,
                             "symbol_name": "-[Crasher causeStackOverflow]"
                         },
                         {
-                            "instruction_addr": 1065448,
-                            "object_addr": 1044480,
+                            "instruction_addr": 241776,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1065432,
+                            "symbol_addr": 241760,
                             "symbol_name": "-[Crasher causeStackOverflow]"
                         },
                         {
-                            "instruction_addr": 1065448,
-                            "object_addr": 1044480,
+                            "instruction_addr": 241776,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1065432,
+                            "symbol_addr": 241760,
                             "symbol_name": "-[Crasher causeStackOverflow]"
                         },
                         {
-                            "instruction_addr": 1065448,
-                            "object_addr": 1044480,
+                            "instruction_addr": 241776,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1065432,
+                            "symbol_addr": 241760,
                             "symbol_name": "-[Crasher causeStackOverflow]"
                         },
                         {
-                            "instruction_addr": 1065448,
-                            "object_addr": 1044480,
+                            "instruction_addr": 241776,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1065432,
+                            "symbol_addr": 241760,
                             "symbol_name": "-[Crasher causeStackOverflow]"
                         },
                         {
-                            "instruction_addr": 1065448,
-                            "object_addr": 1044480,
+                            "instruction_addr": 241776,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1065432,
+                            "symbol_addr": 241760,
                             "symbol_name": "-[Crasher causeStackOverflow]"
                         },
                         {
-                            "instruction_addr": 1065448,
-                            "object_addr": 1044480,
+                            "instruction_addr": 241776,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1065432,
+                            "symbol_addr": 241760,
                             "symbol_name": "-[Crasher causeStackOverflow]"
                         },
                         {
-                            "instruction_addr": 1065448,
-                            "object_addr": 1044480,
+                            "instruction_addr": 241776,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1065432,
+                            "symbol_addr": 241760,
                             "symbol_name": "-[Crasher causeStackOverflow]"
                         },
                         {
-                            "instruction_addr": 1065448,
-                            "object_addr": 1044480,
+                            "instruction_addr": 241776,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1065432,
+                            "symbol_addr": 241760,
                             "symbol_name": "-[Crasher causeStackOverflow]"
                         },
                         {
-                            "instruction_addr": 1065448,
-                            "object_addr": 1044480,
+                            "instruction_addr": 241776,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1065432,
+                            "symbol_addr": 241760,
                             "symbol_name": "-[Crasher causeStackOverflow]"
                         },
                         {
-                            "instruction_addr": 1065448,
-                            "object_addr": 1044480,
+                            "instruction_addr": 241776,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1065432,
+                            "symbol_addr": 241760,
                             "symbol_name": "-[Crasher causeStackOverflow]"
                         },
                         {
-                            "instruction_addr": 1065448,
-                            "object_addr": 1044480,
+                            "instruction_addr": 241776,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1065432,
+                            "symbol_addr": 241760,
                             "symbol_name": "-[Crasher causeStackOverflow]"
                         },
                         {
-                            "instruction_addr": 1065448,
-                            "object_addr": 1044480,
+                            "instruction_addr": 241776,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1065432,
+                            "symbol_addr": 241760,
                             "symbol_name": "-[Crasher causeStackOverflow]"
                         },
                         {
-                            "instruction_addr": 1065448,
-                            "object_addr": 1044480,
+                            "instruction_addr": 241776,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1065432,
+                            "symbol_addr": 241760,
                             "symbol_name": "-[Crasher causeStackOverflow]"
                         },
                         {
-                            "instruction_addr": 1065448,
-                            "object_addr": 1044480,
+                            "instruction_addr": 241776,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1065432,
+                            "symbol_addr": 241760,
                             "symbol_name": "-[Crasher causeStackOverflow]"
                         },
                         {
-                            "instruction_addr": 1065448,
-                            "object_addr": 1044480,
+                            "instruction_addr": 241776,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1065432,
+                            "symbol_addr": 241760,
                             "symbol_name": "-[Crasher causeStackOverflow]"
                         },
                         {
-                            "instruction_addr": 1065448,
-                            "object_addr": 1044480,
+                            "instruction_addr": 241776,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1065432,
+                            "symbol_addr": 241760,
                             "symbol_name": "-[Crasher causeStackOverflow]"
                         },
                         {
-                            "instruction_addr": 1065448,
-                            "object_addr": 1044480,
+                            "instruction_addr": 241776,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1065432,
+                            "symbol_addr": 241760,
                             "symbol_name": "-[Crasher causeStackOverflow]"
                         },
                         {
-                            "instruction_addr": 1065448,
-                            "object_addr": 1044480,
+                            "instruction_addr": 241776,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1065432,
+                            "symbol_addr": 241760,
                             "symbol_name": "-[Crasher causeStackOverflow]"
                         },
                         {
-                            "instruction_addr": 1065448,
-                            "object_addr": 1044480,
+                            "instruction_addr": 241776,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1065432,
+                            "symbol_addr": 241760,
                             "symbol_name": "-[Crasher causeStackOverflow]"
                         },
                         {
-                            "instruction_addr": 1065448,
-                            "object_addr": 1044480,
+                            "instruction_addr": 241776,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1065432,
+                            "symbol_addr": 241760,
                             "symbol_name": "-[Crasher causeStackOverflow]"
                         },
                         {
-                            "instruction_addr": 1065448,
-                            "object_addr": 1044480,
+                            "instruction_addr": 241776,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1065432,
+                            "symbol_addr": 241760,
                             "symbol_name": "-[Crasher causeStackOverflow]"
                         },
                         {
-                            "instruction_addr": 1065448,
-                            "object_addr": 1044480,
+                            "instruction_addr": 241776,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1065432,
+                            "symbol_addr": 241760,
                             "symbol_name": "-[Crasher causeStackOverflow]"
                         },
                         {
-                            "instruction_addr": 1065448,
-                            "object_addr": 1044480,
+                            "instruction_addr": 241776,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1065432,
+                            "symbol_addr": 241760,
                             "symbol_name": "-[Crasher causeStackOverflow]"
                         },
                         {
-                            "instruction_addr": 1062864,
-                            "object_addr": 1044480,
+                            "instruction_addr": 239192,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1062832,
+                            "symbol_addr": 239156,
                             "symbol_name": "__32-[AppDelegate(UI) crashCommands]_block_invoke_0347"
                         },
                         {
-                            "instruction_addr": 1063904,
-                            "object_addr": 1044480,
+                            "instruction_addr": 240224,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1063876,
+                            "symbol_addr": 240200,
                             "symbol_name": "-[CommandEntry executeWithViewController:]"
                         },
                         {
-                            "instruction_addr": 1064752,
-                            "object_addr": 1044480,
+                            "instruction_addr": 241072,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1064664,
+                            "symbol_addr": 240988,
                             "symbol_name": "-[CommandTVC tableView:didSelectRowAtIndexPath:]"
                         },
                         {
@@ -1536,10 +1536,10 @@
                             "symbol_name": "UIApplicationMain"
                         },
                         {
-                            "instruction_addr": 1051872,
-                            "object_addr": 1044480,
+                            "instruction_addr": 228176,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1051780,
+                            "symbol_addr": 228084,
                             "symbol_name": "main"
                         }
                     ],
@@ -1551,11 +1551,11 @@
                 "index": 0,
                 "notable_addresses": {
                     "r0": {
-                        "address": 2699136,
+                        "address": 1670912,
                         "class": "Crasher",
                         "ivars": {
                             "_lock": {
-                                "address": 2742608,
+                                "address": 1670960,
                                 "class": "NSLock",
                                 "ivars": {},
                                 "type": "objc_object"
@@ -1564,35 +1564,35 @@
                         "type": "objc_object"
                     },
                     "r1": {
-                        "address": 1172365,
+                        "address": 348655,
                         "type": "string",
                         "value": "causeStackOverflow"
                     },
                     "r4": {
-                        "address": 2707520,
+                        "address": 1731328,
                         "class": "CommandTVC",
                         "ivars": {
                             "_commands": {
-                                "address": 2758384,
+                                "address": 1472912,
                                 "class": "__NSArrayM",
                                 "first_object": {
-                                    "address": 2777872,
+                                    "address": 1696160,
                                     "class": "CommandEntry",
                                     "ivars": {
                                         "_accessoryType": 0,
                                         "_block": {
-                                            "address": 2524384,
+                                            "address": 1696672,
                                             "class": "__NSMallocBlock__",
+                                            "last_deallocated_obj": "__NSArrayM",
                                             "type": "objc_block"
                                         },
                                         "_name": {
-                                            "address": 1238660,
+                                            "address": 415368,
                                             "class": "__NSCFConstantString",
-                                            "ivars": {},
-                                            "type": "objc_object"
+                                            "type": "objc_object",
+                                            "value": "NSException"
                                         }
                                     },
-                                    "last_deallocated_obj": "__NSDate",
                                     "type": "objc_object"
                                 },
                                 "type": "objc_object"
@@ -1602,59 +1602,58 @@
                                 "type": "null_pointer"
                             }
                         },
-                        "last_deallocated_obj": "KSJSONCodec",
                         "type": "objc_object"
                     },
                     "r5": {
-                        "address": 2758384,
+                        "address": 1472912,
                         "class": "__NSArrayM",
                         "first_object": {
-                            "address": 2777872,
+                            "address": 1696160,
                             "class": "CommandEntry",
                             "ivars": {
                                 "_accessoryType": 0,
                                 "_block": {
-                                    "address": 2524384,
+                                    "address": 1696672,
                                     "class": "__NSMallocBlock__",
+                                    "last_deallocated_obj": "__NSArrayM",
                                     "type": "objc_block"
                                 },
                                 "_name": {
-                                    "address": 1238660,
+                                    "address": 415368,
                                     "class": "__NSCFConstantString",
-                                    "ivars": {},
-                                    "type": "objc_object"
+                                    "type": "objc_object",
+                                    "value": "NSException"
                                 }
                             },
-                            "last_deallocated_obj": "__NSDate",
                             "type": "objc_object"
                         },
                         "type": "objc_object"
                     },
                     "r6": {
-                        "address": 2707520,
+                        "address": 1731328,
                         "class": "CommandTVC",
                         "ivars": {
                             "_commands": {
-                                "address": 2758384,
+                                "address": 1472912,
                                 "class": "__NSArrayM",
                                 "first_object": {
-                                    "address": 2777872,
+                                    "address": 1696160,
                                     "class": "CommandEntry",
                                     "ivars": {
                                         "_accessoryType": 0,
                                         "_block": {
-                                            "address": 2524384,
+                                            "address": 1696672,
                                             "class": "__NSMallocBlock__",
+                                            "last_deallocated_obj": "__NSArrayM",
                                             "type": "objc_block"
                                         },
                                         "_name": {
-                                            "address": 1238660,
+                                            "address": 415368,
                                             "class": "__NSCFConstantString",
-                                            "ivars": {},
-                                            "type": "objc_object"
+                                            "type": "objc_object",
+                                            "value": "NSException"
                                         }
                                     },
-                                    "last_deallocated_obj": "__NSDate",
                                     "type": "objc_object"
                                 },
                                 "type": "objc_object"
@@ -1664,19 +1663,18 @@
                                 "type": "null_pointer"
                             }
                         },
-                        "last_deallocated_obj": "KSJSONCodec",
                         "type": "objc_object"
                     },
                     "r8": {
-                        "address": 237420032,
+                        "address": 238190592,
                         "class": "UITableView",
                         "ivars": {
                             "_dataSource": {
-                                "address": 2707520,
+                                "address": 1731328,
                                 "class": "CommandTVC",
                                 "ivars": {
                                     "_commands": {
-                                        "address": 2758384,
+                                        "address": 1472912,
                                         "class": "__NSArrayM",
                                         "type": "objc_object"
                                     },
@@ -1685,7 +1683,6 @@
                                         "type": "null_pointer"
                                     }
                                 },
-                                "last_deallocated_obj": "KSJSONCodec",
                                 "type": "objc_object"
                             },
                             "_firstResponderIndexPath": {
@@ -1693,7 +1690,7 @@
                                 "type": "null_pointer"
                             },
                             "_rowData": {
-                                "address": 2806400,
+                                "address": 1734144,
                                 "class": "UITableViewRowData",
                                 "last_deallocated_obj": "NSConcreteValue",
                                 "type": "objc_object"
@@ -1703,7 +1700,7 @@
                             "_sectionHeaderHeight": 22,
                             "_style": 0,
                             "_visibleCells": {
-                                "address": 2708192,
+                                "address": 1640832,
                                 "class": "__NSArrayM",
                                 "type": "objc_object"
                             }
@@ -1714,36 +1711,36 @@
                 "registers": {
                     "basic": {
                         "cpsr": 536870960,
-                        "ip": 1065433,
-                        "lr": 1065453,
+                        "ip": 241761,
+                        "lr": 241781,
                         "pc": 922267502,
-                        "r0": 2699136,
-                        "r1": 1172365,
+                        "r0": 1670912,
+                        "r1": 348655,
                         "r10": 1048974784,
                         "r11": 5,
-                        "r2": 1062833,
+                        "r2": 239157,
                         "r3": 0,
-                        "r4": 2707520,
-                        "r5": 2758384,
-                        "r6": 2707520,
-                        "r7": 803205124,
-                        "r8": 237420032,
+                        "r4": 1731328,
+                        "r5": 1472912,
+                        "r6": 1731328,
+                        "r7": 802381828,
+                        "r8": 238190592,
                         "r9": 4,
-                        "sp": 803205124
+                        "sp": 802381828
                     },
                     "exception": {
                         "exception": 0,
-                        "far": 803205116,
+                        "far": 802381820,
                         "fsr": 2055
                     }
                 },
                 "stack": {
-                    "dump_end": 803205204,
-                    "dump_start": 803205084,
+                    "dump_end": 802381908,
+                    "dump_start": 802381788,
                     "error": "Stack contents not accessible",
                     "grow_direction": "-",
                     "overflow": true,
-                    "stack_pointer": 803205124
+                    "stack_pointer": 802381828
                 }
             },
             {
@@ -1781,14 +1778,14 @@
                         "r10": 1067417696,
                         "r11": 0,
                         "r2": 0,
-                        "r3": 805148208,
+                        "r3": 804324912,
                         "r4": 1,
-                        "r5": 805148492,
-                        "r6": 805148492,
-                        "r7": 805148524,
+                        "r5": 804325196,
+                        "r6": 804325196,
+                        "r7": 804325228,
                         "r8": 0,
                         "r9": 0,
-                        "sp": 805148188
+                        "sp": 804324892
                     }
                 }
             },
@@ -1820,13 +1817,13 @@
                         "r11": 0,
                         "r2": 0,
                         "r3": 0,
-                        "r4": 237240448,
-                        "r5": 1847324,
-                        "r6": 3674112,
-                        "r7": 3674080,
+                        "r4": 237994112,
+                        "r5": 1019932,
+                        "r6": 804859904,
+                        "r7": 804859872,
                         "r8": 1063169328,
                         "r9": 0,
-                        "sp": 3674048
+                        "sp": 804859840
                     }
                 }
             },
@@ -1895,7 +1892,7 @@
                         "ip": 4294967265,
                         "lr": 820687361,
                         "pc": 820686852,
-                        "r0": 5677652,
+                        "r0": 4227668,
                         "r1": 117440518,
                         "r10": 117440518,
                         "r11": 4294967295,
@@ -1904,10 +1901,10 @@
                         "r4": 8707,
                         "r5": 4294967295,
                         "r6": 0,
-                        "r7": 5677500,
+                        "r7": 4227516,
                         "r8": 0,
                         "r9": 1,
-                        "sp": 5677440
+                        "sp": 4227456
                     }
                 }
             },
@@ -1939,13 +1936,13 @@
                         "r11": 0,
                         "r2": 0,
                         "r3": 0,
-                        "r4": 237240320,
-                        "r5": 1847576,
-                        "r6": 6213632,
-                        "r7": 6213600,
+                        "r4": 237993984,
+                        "r5": 1020156,
+                        "r6": 4763648,
+                        "r7": 4763616,
                         "r8": 1063169328,
                         "r9": 59,
-                        "sp": 6213568
+                        "sp": 4763584
                     }
                 }
             },
@@ -1967,10 +1964,10 @@
                             "symbol_name": "+[NSThread sleepForTimeInterval:]"
                         },
                         {
-                            "instruction_addr": 1165624,
-                            "object_addr": 1044480,
+                            "instruction_addr": 341920,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1165384,
+                            "symbol_addr": 341676,
                             "symbol_name": "-[KSCrashDeadlockMonitor runMonitor]"
                         },
                         {
@@ -2008,17 +2005,17 @@
                         "pc": 820753960,
                         "r0": 60,
                         "r1": 0,
-                        "r10": 36171776,
+                        "r10": 34811904,
                         "r11": 884400866,
                         "r2": 1,
                         "r3": 1,
                         "r4": 5,
                         "r5": 0,
                         "r6": 0,
-                        "r7": 36171120,
+                        "r7": 34811248,
                         "r8": 0,
                         "r9": 7,
-                        "sp": 36171064
+                        "sp": 34811192
                     }
                 }
             },
@@ -2033,10 +2030,10 @@
                             "symbol_name": "mach_msg_trap"
                         },
                         {
-                            "instruction_addr": 1149824,
-                            "object_addr": 1044480,
+                            "instruction_addr": 326120,
+                            "object_addr": 221184,
                             "object_name": "CrashTester",
-                            "symbol_addr": 1149720,
+                            "symbol_addr": 326012,
                             "symbol_name": "ksmachexc_i_handleExceptions"
                         },
                         {
@@ -2059,7 +2056,7 @@
                         "ip": 4294967265,
                         "lr": 820687361,
                         "pc": 820686852,
-                        "r0": 36703584,
+                        "r0": 35343712,
                         "r1": 2,
                         "r10": 2,
                         "r11": 0,
@@ -2068,10 +2065,10 @@
                         "r4": 14339,
                         "r5": 0,
                         "r6": 0,
-                        "r7": 36703188,
+                        "r7": 35343316,
                         "r8": 0,
                         "r9": 0,
-                        "sp": 36703128
+                        "sp": 35343256
                     }
                 }
             },
@@ -2085,9 +2082,9 @@
     },
     "process": {},
     "report": {
-        "id": "FF077B9F-F1D4-4FD7-99FE-4F2B3C40F626",
+        "id": "939CCDFF-3CE8-473A-B7A6-D6F3D9C1E9A9",
         "process_name": "CrashTester",
-        "timestamp": "2013-01-14T05:05:57Z",
+        "timestamp": "2013-01-14T15:51:43Z",
         "type": "standard",
         "version": {
             "major": 2,
@@ -2096,16 +2093,16 @@
     },
     "system": {
         "CFBundleExecutable": "CrashTester",
-        "CFBundleExecutablePath": "/var/mobile/Applications/EEDFEAA8-1DA3-4A3A-AA3A-A556ACE892B8/CrashTester.app/CrashTester",
+        "CFBundleExecutablePath": "/var/mobile/Applications/194DF637-2244-4A11-887C-C732BDD94F39/CrashTester.app/CrashTester",
         "CFBundleIdentifier": "org.stenerud.CrashTester",
         "CFBundleName": "CrashTester",
         "CFBundleShortVersionString": "1.0",
         "CFBundleVersion": "1.02",
-        "app_start_time": "2013-01-14T05:05:51Z",
-        "app_uuid": "CC686081-AE74-3D83-BE31-CC56006C6CF3",
+        "app_start_time": "2013-01-14T15:51:38Z",
+        "app_uuid": "3ABD09C1-F82E-315F-B44B-74DBA8A3CB7E",
         "application_stats": {
-            "active_time_since_last_crash": 2.29637,
-            "active_time_since_launch": 2.29637,
+            "active_time_since_last_crash": 2.10365,
+            "active_time_since_launch": 2.10365,
             "application_active": true,
             "application_in_foreground": true,
             "background_time_since_last_crash": 0,
@@ -2114,22 +2111,22 @@
             "sessions_since_last_crash": 1,
             "sessions_since_launch": 1
         },
-        "boot_time": "2013-01-12T00:09:55Z",
+        "boot_time": "2013-01-12T00:09:54Z",
         "cpu_arch": "armv7",
         "device_app_hash": "2f11dc412b5da106a79350af5a58308f98199651",
         "jailbroken": true,
         "kernel_version": "Darwin Kernel Version 11.0.0: Wed Feb  1 23:16:39 PST 2012; root:xnu-1878.11.8~1/RELEASE_ARM_S5L8920X",
         "machine": "iPhone2,1",
         "memory": {
-            "free": 58687488,
+            "free": 62803968,
             "size": 266575872,
-            "usable": 197021696
+            "usable": 201732096
         },
         "model": "N88AP",
         "os_version": "9B176",
         "parent_process_id": 1,
         "parent_process_name": "launchd",
-        "process_id": 2141,
+        "process_id": 2354,
         "process_name": "CrashTester",
         "system_name": "iPhone OS",
         "system_version": "5.1",

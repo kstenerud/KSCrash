@@ -3,15 +3,15 @@
         {
             "cpu_subtype": 9,
             "cpu_type": 12,
-            "image_addr": 806912,
-            "image_size": 163840,
-            "name": "/var/mobile/Applications/4C6BECD4-F577-45F0-ADE9-941A8539E367/CrashTester.app/CrashTester",
-            "uuid": "17C4B100-1D85-3BE3-B382-CFBD0E6E7D72"
+            "image_addr": 401408,
+            "image_size": 167936,
+            "name": "/var/mobile/Applications/194DF637-2244-4A11-887C-C732BDD94F39/CrashTester.app/CrashTester",
+            "uuid": "3ABD09C1-F82E-315F-B44B-74DBA8A3CB7E"
         },
         {
             "cpu_subtype": 6,
             "cpu_type": 12,
-            "image_addr": 1118208,
+            "image_addr": 712704,
             "image_size": 4096,
             "name": "/Library/MobileSubstrate/MobileSubstrate.dylib",
             "uuid": "B8A484A9-5B5D-30C5-AB59-F25362558E7C"
@@ -1131,7 +1131,7 @@
         {
             "cpu_subtype": 6,
             "cpu_type": 12,
-            "image_addr": 1347584,
+            "image_addr": 2097152,
             "image_size": 8192,
             "name": "/Library/Frameworks/CydiaSubstrate.framework/Libraries/SubstrateLoader.dylib",
             "uuid": "885B4713-FD43-3C39-96ED-FC3552109041"
@@ -1139,7 +1139,7 @@
         {
             "cpu_subtype": 6,
             "cpu_type": 12,
-            "image_addr": 1626112,
+            "image_addr": 2293760,
             "image_size": 28672,
             "name": "/Library/MobileSubstrate/DynamicLibraries/libstatusbar.dylib",
             "uuid": "FE21097B-2CB8-3481-A70C-9AB877AF55E3"
@@ -1147,7 +1147,7 @@
         {
             "cpu_subtype": 6,
             "cpu_type": 12,
-            "image_addr": 1667072,
+            "image_addr": 1024000,
             "image_size": 16384,
             "name": "/usr/lib/libsubstrate.dylib",
             "uuid": "65A35EED-3908-32B0-8134-C3CEDC6EAFA2"
@@ -1172,7 +1172,7 @@
     "crash": {
         "diagnosis": "Possible zombie in call: Function: objc_msgSend\nParam 1:  (was MyProxy)\nParam 2:  \nParam 3:  \nParam 4:  0xffffffff \nOriginated at or in a subcall of __36-[Crasher accessDeallocatedPtrProxy]_block_invoke_0",
         "error": {
-            "address": 172165,
+            "address": 4026652049,
             "mach": {
                 "code": 1,
                 "code_name": "KERN_INVALID_ADDRESS",
@@ -1235,10 +1235,10 @@
                             "symbol_name": "NSLog"
                         },
                         {
-                            "instruction_addr": 825528,
-                            "object_addr": 806912,
+                            "instruction_addr": 422568,
+                            "object_addr": 401408,
                             "object_name": "CrashTester",
-                            "symbol_addr": 825496,
+                            "symbol_addr": 422536,
                             "symbol_name": "__36-[Crasher accessDeallocatedPtrProxy]_block_invoke_0"
                         },
                         {
@@ -1291,10 +1291,10 @@
                             "symbol_name": "UIApplicationMain"
                         },
                         {
-                            "instruction_addr": 811384,
-                            "object_addr": 806912,
+                            "instruction_addr": 408400,
+                            "object_addr": 401408,
                             "object_name": "CrashTester",
-                            "symbol_addr": 811292,
+                            "symbol_addr": 408308,
                             "symbol_name": "main"
                         }
                     ],
@@ -1306,7 +1306,7 @@
                 "index": 0,
                 "notable_addresses": {
                     "r0": {
-                        "address": 2835920,
+                        "address": 1629744,
                         "last_deallocated_obj": "MyProxy",
                         "type": "unknown"
                     },
@@ -1320,8 +1320,8 @@
                         "type": "string",
                         "value": "descriptionWithLocale:"
                     },
-                    "stack@0x2fec1f40": {
-                        "address": 2835920,
+                    "stack@0x2fe5ef40": {
+                        "address": 1629744,
                         "last_deallocated_obj": "MyProxy",
                         "type": "unknown"
                     }
@@ -1332,33 +1332,33 @@
                         "ip": 1053058800,
                         "lr": 863436043,
                         "pc": 922267512,
-                        "r0": 2835920,
+                        "r0": 1629744,
                         "r1": 884405494,
                         "r10": 888803510,
                         "r11": 0,
                         "r2": 889302229,
                         "r3": 4294967295,
-                        "r4": 172157,
+                        "r4": 4026652041,
                         "r5": 0,
                         "r6": 1053210824,
-                        "r7": 804003664,
-                        "r8": 804003827,
+                        "r7": 803598160,
+                        "r8": 803598323,
                         "r9": 221101373,
-                        "sp": 804003644
+                        "sp": 803598140
                     },
                     "exception": {
                         "exception": 0,
-                        "far": 172165,
-                        "fsr": 7
+                        "far": 4026652049,
+                        "fsr": 5
                     }
                 },
                 "stack": {
-                    "contents": "1C1FEC2FC9CDF836281FEC2FFF2CF134FFFFFFFF841FEC2FFBD8FB340000000000000000F31FEC2FFFFFFFFFD0452B000000000000000000581FEC2F402EEC2F7529FA34341FEC2F301FEC2F010000000000000000000000000000005824EC2FF074173F040000000400000001000000AB24EC2FFF66FB34",
-                    "dump_end": 804003724,
-                    "dump_start": 804003604,
+                    "contents": "1CEFE52FC9CDF83628EFE52FFF2CF134FFFFFFFF84EFE52FFBD8FB340000000000000000F3EFE52FFFFFFFFF30DE1800000000000000000058EFE52F40FEE52F7529FA3434EFE52F30EFE52F0100000000000000000000000000000058F4E52FF074173F040000000400000001000000ABF4E52FFF66FB34",
+                    "dump_end": 803598220,
+                    "dump_start": 803598100,
                     "grow_direction": "-",
                     "overflow": false,
-                    "stack_pointer": 804003644
+                    "stack_pointer": 803598140
                 }
             },
             {
@@ -1396,90 +1396,14 @@
                         "r10": 1067417696,
                         "r11": 0,
                         "r2": 0,
-                        "r3": 804910640,
+                        "r3": 804505136,
                         "r4": 1,
-                        "r5": 804910924,
-                        "r6": 804910924,
-                        "r7": 804910956,
+                        "r5": 804505420,
+                        "r6": 804505420,
+                        "r7": 804505452,
                         "r8": 0,
                         "r9": 0,
-                        "sp": 804910620
-                    }
-                }
-            },
-            {
-                "backtrace": {
-                    "contents": [
-                        {
-                            "instruction_addr": 820755668,
-                            "object_addr": 820682752,
-                            "object_name": "libsystem_kernel.dylib",
-                            "symbol_addr": 820755660,
-                            "symbol_name": "__workq_kernreturn"
-                        }
-                    ],
-                    "skipped": 0
-                },
-                "crashed": false,
-                "current_thread": false,
-                "index": 2,
-                "registers": {
-                    "basic": {
-                        "cpsr": 1073741840,
-                        "ip": 368,
-                        "lr": 901439293,
-                        "pc": 820755668,
-                        "r0": 4,
-                        "r1": 0,
-                        "r10": 1063169360,
-                        "r11": 0,
-                        "r2": 0,
-                        "r3": 0,
-                        "r4": 237273216,
-                        "r5": 1605660,
-                        "r6": 3674112,
-                        "r7": 3674080,
-                        "r8": 1063169328,
-                        "r9": 22,
-                        "sp": 3674048
-                    }
-                }
-            },
-            {
-                "backtrace": {
-                    "contents": [
-                        {
-                            "instruction_addr": 820755668,
-                            "object_addr": 820682752,
-                            "object_name": "libsystem_kernel.dylib",
-                            "symbol_addr": 820755660,
-                            "symbol_name": "__workq_kernreturn"
-                        }
-                    ],
-                    "skipped": 0
-                },
-                "crashed": false,
-                "current_thread": false,
-                "index": 3,
-                "registers": {
-                    "basic": {
-                        "cpsr": 1073741840,
-                        "ip": 368,
-                        "lr": 901439293,
-                        "pc": 820755668,
-                        "r0": 4,
-                        "r1": 0,
-                        "r10": 1063169360,
-                        "r11": 0,
-                        "r2": 0,
-                        "r3": 0,
-                        "r4": 237273088,
-                        "r5": 1605968,
-                        "r6": 4206592,
-                        "r7": 4206560,
-                        "r8": 1063169328,
-                        "r9": 0,
-                        "sp": 4206528
+                        "sp": 804505116
                     }
                 }
             },
@@ -1540,7 +1464,7 @@
                 },
                 "crashed": false,
                 "current_thread": false,
-                "index": 4,
+                "index": 2,
                 "name": "WebThread",
                 "registers": {
                     "basic": {
@@ -1548,7 +1472,7 @@
                         "ip": 4294967265,
                         "lr": 820687361,
                         "pc": 820686852,
-                        "r0": 6079060,
+                        "r0": 4936276,
                         "r1": 117440518,
                         "r10": 117440518,
                         "r11": 4294967295,
@@ -1557,10 +1481,10 @@
                         "r4": 8963,
                         "r5": 4294967295,
                         "r6": 0,
-                        "r7": 6078908,
+                        "r7": 4936124,
                         "r8": 0,
                         "r9": 1,
-                        "sp": 6078848
+                        "sp": 4936064
                     }
                 }
             },
@@ -1582,10 +1506,10 @@
                             "symbol_name": "+[NSThread sleepForTimeInterval:]"
                         },
                         {
-                            "instruction_addr": 924984,
-                            "object_addr": 806912,
+                            "instruction_addr": 522144,
+                            "object_addr": 401408,
                             "object_name": "CrashTester",
-                            "symbol_addr": 924740,
+                            "symbol_addr": 521900,
                             "symbol_name": "-[KSCrashDeadlockMonitor runMonitor]"
                         },
                         {
@@ -1614,7 +1538,7 @@
                 },
                 "crashed": false,
                 "current_thread": false,
-                "index": 5,
+                "index": 3,
                 "registers": {
                     "basic": {
                         "cpsr": 16,
@@ -1623,17 +1547,17 @@
                         "pc": 820753960,
                         "r0": 3075,
                         "r1": 0,
-                        "r10": 35934208,
+                        "r10": 0,
                         "r11": 884400866,
                         "r2": 1,
                         "r3": 1,
                         "r4": 5,
                         "r5": 0,
                         "r6": 0,
-                        "r7": 35933552,
+                        "r7": 34991472,
                         "r8": 0,
                         "r9": 7,
-                        "sp": 35933496
+                        "sp": 34991416
                     }
                 }
             },
@@ -1648,10 +1572,10 @@
                             "symbol_name": "mach_msg_trap"
                         },
                         {
-                            "instruction_addr": 909184,
-                            "object_addr": 806912,
+                            "instruction_addr": 506344,
+                            "object_addr": 401408,
                             "object_name": "CrashTester",
-                            "symbol_addr": 909076,
+                            "symbol_addr": 506236,
                             "symbol_name": "ksmachexc_i_handleExceptions"
                         },
                         {
@@ -1666,7 +1590,7 @@
                 },
                 "crashed": false,
                 "current_thread": false,
-                "index": 6,
+                "index": 4,
                 "name": "KSCrash Exception Handler (Secondary)",
                 "registers": {
                     "basic": {
@@ -1674,7 +1598,7 @@
                         "ip": 4294967265,
                         "lr": 820687361,
                         "pc": 820686852,
-                        "r0": 36466016,
+                        "r0": 35523936,
                         "r1": 2,
                         "r10": 2,
                         "r11": 0,
@@ -1683,26 +1607,26 @@
                         "r4": 14339,
                         "r5": 0,
                         "r6": 0,
-                        "r7": 36465620,
+                        "r7": 35523540,
                         "r8": 0,
                         "r9": 0,
-                        "sp": 36465560
+                        "sp": 35523480
                     }
                 }
             },
             {
                 "crashed": false,
                 "current_thread": true,
-                "index": 7,
+                "index": 5,
                 "name": "KSCrash Exception Handler (Primary)"
             }
         ]
     },
     "process": {},
     "report": {
-        "id": "D1B78023-B737-4E14-BEF5-3A5DCE805A27",
+        "id": "6AFB926B-31AA-4EE1-815A-705B47CC2D0B",
         "process_name": "CrashTester",
-        "timestamp": "2013-01-14T03:18:14Z",
+        "timestamp": "2013-01-14T15:55:16Z",
         "type": "standard",
         "version": {
             "major": 2,
@@ -1711,16 +1635,16 @@
     },
     "system": {
         "CFBundleExecutable": "CrashTester",
-        "CFBundleExecutablePath": "/var/mobile/Applications/4C6BECD4-F577-45F0-ADE9-941A8539E367/CrashTester.app/CrashTester",
+        "CFBundleExecutablePath": "/var/mobile/Applications/194DF637-2244-4A11-887C-C732BDD94F39/CrashTester.app/CrashTester",
         "CFBundleIdentifier": "org.stenerud.CrashTester",
         "CFBundleName": "CrashTester",
         "CFBundleShortVersionString": "1.0",
         "CFBundleVersion": "1.02",
-        "app_start_time": "2013-01-14T03:18:10Z",
-        "app_uuid": "17C4B100-1D85-3BE3-B382-CFBD0E6E7D72",
+        "app_start_time": "2013-01-14T15:55:00Z",
+        "app_uuid": "3ABD09C1-F82E-315F-B44B-74DBA8A3CB7E",
         "application_stats": {
-            "active_time_since_last_crash": 3.44906,
-            "active_time_since_launch": 3.44906,
+            "active_time_since_last_crash": 15.5046,
+            "active_time_since_launch": 15.5046,
             "application_active": true,
             "application_in_foreground": true,
             "background_time_since_last_crash": 0,
@@ -1729,22 +1653,22 @@
             "sessions_since_last_crash": 1,
             "sessions_since_launch": 1
         },
-        "boot_time": "2013-01-12T00:09:55Z",
+        "boot_time": "2013-01-12T00:09:54Z",
         "cpu_arch": "armv7",
         "device_app_hash": "2f11dc412b5da106a79350af5a58308f98199651",
         "jailbroken": true,
         "kernel_version": "Darwin Kernel Version 11.0.0: Wed Feb  1 23:16:39 PST 2012; root:xnu-1878.11.8~1/RELEASE_ARM_S5L8920X",
         "machine": "iPhone2,1",
         "memory": {
-            "free": 67895296,
+            "free": 69251072,
             "size": 266575872,
-            "usable": 203366400
+            "usable": 203608064
         },
         "model": "N88AP",
         "os_version": "9B176",
         "parent_process_id": 1,
         "parent_process_name": "launchd",
-        "process_id": 1570,
+        "process_id": 2370,
         "process_name": "CrashTester",
         "system_name": "iPhone OS",
         "system_version": "5.1",

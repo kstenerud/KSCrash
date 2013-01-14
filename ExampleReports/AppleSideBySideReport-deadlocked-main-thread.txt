@@ -1,14 +1,14 @@
-Incident Identifier: 7898AA28-E3EB-440C-8024-209413024657
+Incident Identifier: 26121C8A-C4AA-4DFE-8718-EEACB1BFAF2E
 CrashReporter Key:   2f11dc412b5da106a79350af5a58308f98199651
 Hardware Model:      iPhone2,1
-Process:         CrashTester [1584]
-Path:            /var/mobile/Applications/4C6BECD4-F577-45F0-ADE9-941A8539E367/CrashTester.app/CrashTester
+Process:         CrashTester [2384]
+Path:            /var/mobile/Applications/194DF637-2244-4A11-887C-C732BDD94F39/CrashTester.app/CrashTester
 Identifier:      org.stenerud.CrashTester
 Version:         1.0 (1.02)
 Code Type:       ARM
 Parent Process:  launchd [1]
 
-Date/Time:       2013-01-13 19:21:53.000 -0800
+Date/Time:       2013-01-14 07:59:29.000 -0800
 OS Version:      iPhone OS 5.1 (9B176)
 Report Version:  104
 
@@ -22,7 +22,7 @@ Thread 0 name:  Dispatch queue: com.apple.main-thread
 Thread 0 Crashed:
 0   libsystem_kernel.dylib          0x30ebb0d8 0x30eaa000 + 69848 (__psynch_mutexwait + 24)
 1   Foundation                      0x3376bd80 0x3376a000 + 7552 (-[NSLock lock] + 108)
-2   CrashTester                     0x000cbbb0 0xc7000 + 19376 (__19-[Crasher deadlock]_block_invoke_0 + 24)
+2   CrashTester                     0x000545a0 0x4f000 + 21920 (__19-[Crasher deadlock]_block_invoke_0 + 24)
 3   libdispatch.dylib               0x378eec58 0x378ee000 + 3160 (_dispatch_call_block_and_release + 12)
 4   libdispatch.dylib               0x378f9e90 0x378ee000 + 48784 (_dispatch_main_queue_callback_4CF$VARIANT$up + 196)
 5   CoreFoundation                  0x34f952a8 0x34f09000 + 574120 (__CFRunLoopRun + 1264)
@@ -30,7 +30,7 @@ Thread 0 Crashed:
 7   CoreFoundation                  0x34f18368 0x34f09000 + 62312 (CFRunLoopRunInMode + 100)
 8   GraphicsServices                0x34583438 0x3457f000 + 17464 (GSEventRunModal + 136)
 9   UIKit                           0x3158fe78 0x3155e000 + 204408 (UIApplicationMain + 1076)
-10  CrashTester                     0x000c8178 0xc7000 + 4472 (main + 92)
+10  CrashTester                     0x00050b50 0x4f000 + 6992 (main + 92)
 
 Thread 1 name:  Dispatch queue: com.apple.libdispatch-manager
 Thread 1:
@@ -53,25 +53,25 @@ Thread 4 name:  KSCrash Exception Handler (Secondary)
 Thread 4:
 0   libsystem_kernel.dylib          0x30eab004 0x30eaa000 + 4100 (mach_msg_trap + 20)
 1   libsystem_kernel.dylib          0x30eada50 0x30eaa000 + 14928 (thread_suspend + 40)
-2   CrashTester                     0x000dff60 0xc7000 + 102240 (ksmachexc_i_handleExceptions + 76)
+2   CrashTester                     0x000689c8 0x4f000 + 104904 (ksmachexc_i_handleExceptions + 76)
 3   libsystem_c.dylib               0x35bb3730 0x35ba5000 + 59184 (_pthread_start + 316)
 
 Thread 5 name:  KSCrash Exception Handler (Primary)
 Thread 5:
 0   libsystem_kernel.dylib          0x30eab004 0x30eaa000 + 4100 (mach_msg_trap + 20)
-1   CrashTester                     0x000dff80 0xc7000 + 102272 (ksmachexc_i_handleExceptions + 108)
+1   CrashTester                     0x000689e8 0x4f000 + 104936 (ksmachexc_i_handleExceptions + 108)
 2   libsystem_c.dylib               0x35bb3730 0x35ba5000 + 59184 (_pthread_start + 316)
 
 Thread 0 crashed with ARM Thread State:
-    r0: 0x002a6e18     r1: 0x00000203     r2: 0x00000000     r3: 0x00009674 
-    r4: 0x00000000     r5: 0x00002060     r6: 0x002a6e38     r7: 0x2fec4eac 
-    r8: 0x00000203     r9: 0x00000000    r10: 0x00000000    r11: 0x00000203 
-    ip: 0x0000012d     sp: 0x2fec4e78     lr: 0x35ba767b     pc: 0x30ebb0d8 
+    r0: 0x0017a3d8     r1: 0x00000203     r2: 0x00000000     r3: 0x00013f5a 
+    r4: 0x00000000     r5: 0x00002060     r6: 0x0017a3f8     r7: 0x2fe4ceac 
+    r8: 0x00000203     r9: 0x00170640    r10: 0x00000000    r11: 0x00000203 
+    ip: 0x0000012d     sp: 0x2fe4ce78     lr: 0x35ba767b     pc: 0x30ebb0d8 
   cpsr: 0x80000010 
 
 Binary Images:
-   0xc7000 -    0xeefff +CrashTester armv7  <17c4b1001d853be3b382cfbd0e6e7d72> /var/mobile/Applications/4C6BECD4-F577-45F0-ADE9-941A8539E367/CrashTester.app/CrashTester
-  0x116000 -   0x116fff  MobileSubstrate.dylib armv6  <b8a484a95b5d30c5ab59f25362558e7c> /Library/MobileSubstrate/MobileSubstrate.dylib
+   0x4f000 -    0x77fff +CrashTester armv7  <3abd09c1f82e315fb44b74dba8a3cb7e> /var/mobile/Applications/194DF637-2244-4A11-887C-C732BDD94F39/CrashTester.app/CrashTester
+   0x9c000 -    0x9cfff  MobileSubstrate.dylib armv6  <b8a484a95b5d30c5ab59f25362558e7c> /Library/MobileSubstrate/MobileSubstrate.dylib
 0x375a8000 - 0x375ddfff  SystemConfiguration armv7  <4464a4e3bb3f32f7abaa35ebf31fda49> /System/Library/Frameworks/SystemConfiguration.framework/SystemConfiguration
 0x3088a000 - 0x308eefff  MessageUI armv7  <b74d79ea691a35ada276f063b7217a20> /System/Library/Frameworks/MessageUI.framework/MessageUI
 0x30937000 - 0x30943fff  libz.1.dylib armv7  <36ce86a3dc8c344596c8c325615f374b> /usr/lib/libz.1.dylib
@@ -211,70 +211,70 @@ Binary Images:
 0x372b4000 - 0x374e1fff  MediaToolbox armv7  <ec9bc89489763c6c93f86c5c490b2d69> /System/Library/PrivateFrameworks/MediaToolbox.framework/MediaToolbox
 0x31b66000 - 0x31becfff  CoreMotion armv7  <6a9355d5a8e238b5b8f193605d509e15> /System/Library/Frameworks/CoreMotion.framework/CoreMotion
 0x37233000 - 0x372a7fff  MediaControlSender armv7  <87315c54b2293ab589950341ff91b45d> /System/Library/PrivateFrameworks/MediaControlSender.framework/MediaControlSender
-  0x14b000 -   0x14cfff  SubstrateLoader.dylib armv6  <885b4713fd433c3996edfc3552109041> /Library/Frameworks/CydiaSubstrate.framework/Libraries/SubstrateLoader.dylib
-  0x18f000 -   0x195fff  libstatusbar.dylib armv6  <fe21097b2cb83481a70c9ab877af55e3> /Library/MobileSubstrate/DynamicLibraries/libstatusbar.dylib
-  0x199000 -   0x19cfff  libsubstrate.dylib armv6  <65a35eed390832b08134c3cedc6eafa2> /usr/lib/libsubstrate.dylib
+   0xd3000 -    0xd4fff  SubstrateLoader.dylib armv6  <885b4713fd433c3996edfc3552109041> /Library/Frameworks/CydiaSubstrate.framework/Libraries/SubstrateLoader.dylib
+  0x218000 -   0x21efff  libstatusbar.dylib armv6  <fe21097b2cb83481a70c9ab877af55e3> /Library/MobileSubstrate/DynamicLibraries/libstatusbar.dylib
+  0x222000 -   0x225fff  libsubstrate.dylib armv6  <65a35eed390832b08134c3cedc6eafa2> /usr/lib/libsubstrate.dylib
 0x35509000 - 0x35544fff  libCGFreetype.A.dylib armv7  <55941c96cf1f3b048e72a148c4496c16> /System/Library/Frameworks/CoreGraphics.framework/Resources/libCGFreetype.A.dylib
 0x33056000 - 0x3306ffff  libRIP.A.dylib armv7  <1828cddc5dd93c61afbefb59587d7f8a> /System/Library/Frameworks/CoreGraphics.framework/Resources/libRIP.A.dylib
 
 Extra Information:
 
-Stack Dump (0x2fec4e50-0x2fec4ec8):
+Stack Dump (0x2fe4ce50-0x2fe4cec8):
 
-A04EEC2F04000000EC4EEC2FEC4EEC2FEC4EEC2FEC4EEC2F2C6E2A00186E2A0060200000186E2A00186E2A0000000000000000006020000074960000000000002BAB7833EC4EEC2FEC4EEC2FE0AD5E3F186E2A00106E2A0030382B00C84EEC2F87BD7633106E2A008CF6C63E84AD94310000000000000000
+A0CEE42F04000000ECCEE42FECCEE42FECCEE42FECCEE42FECA31700D8A3170060200000D8A31700D8A317000000000000000000602000005A3F0100000000002BAB7833ECCEE42FECCEE42FE0AD5E3FD8A31700D0A31700E0D61800C8CEE42F87BD7633D0A317008CF6C63E84AD94310000000000000000
 
 Notable Addresses:
 {
     "r0": {
-        "address": 2780696,
+        "address": 1549272,
         "type": "string",
         "value": "XTUM"
     },
-    "stack@0x2fec4e6c": {
-        "address": 2780696,
+    "stack@0x2fe4ce6c": {
+        "address": 1549272,
         "type": "string",
         "value": "XTUM"
     },
-    "stack@0x2fec4e74": {
-        "address": 2780696,
+    "stack@0x2fe4ce74": {
+        "address": 1549272,
         "type": "string",
         "value": "XTUM"
     },
-    "stack@0x2fec4e78": {
-        "address": 2780696,
+    "stack@0x2fe4ce78": {
+        "address": 1549272,
         "type": "string",
         "value": "XTUM"
     },
-    "stack@0x2fec4ea0": {
-        "address": 2780696,
+    "stack@0x2fe4cea0": {
+        "address": 1549272,
         "type": "string",
         "value": "XTUM"
     },
-    "stack@0x2fec4ea4": {
-        "address": 2780688,
+    "stack@0x2fe4cea4": {
+        "address": 1549264,
         "class": "NSLock",
         "ivars": {},
         "type": "objc_object"
     },
-    "stack@0x2fec4ea8": {
-        "address": 2832432,
+    "stack@0x2fe4cea8": {
+        "address": 1627872,
         "class": "__NSCFString",
         "last_deallocated_obj": "__NSArrayM",
         "type": "objc_object",
         "value": "*** -[NSLock lock]"
     },
-    "stack@0x2fec4eb4": {
-        "address": 2780688,
+    "stack@0x2fe4ceb4": {
+        "address": 1549264,
         "class": "NSLock",
         "ivars": {},
         "type": "objc_object"
     },
-    "stack@0x2fec4eb8": {
+    "stack@0x2fe4ceb8": {
         "address": 1053226636,
         "class": "NSLock",
         "type": "objc_class"
     },
-    "stack@0x2fec4ebc": {
+    "stack@0x2fe4cebc": {
         "address": 831827332,
         "type": "string",
         "value": "lock"
