@@ -121,8 +121,8 @@ bool kscrash_install(const char* const crashReportFilePath,
                      const KSReportWriteCallback onCrashNotify)
 {
     KSLOG_DEBUG("Installing crash reporter.");
-    KSLOG_TRACE("reportFilePath = %s", reportFilePath);
-    KSLOG_TRACE("secondaryReportFilePath = %s", secondaryReportFilePath);
+    KSLOG_TRACE("reportFilePath = %s", crashReportFilePath);
+    KSLOG_TRACE("secondaryReportFilePath = %s", recrashReportFilePath);
     KSLOG_TRACE("stateFilePath = %s", stateFilePath);
     KSLOG_TRACE("crashID = %s", crashID);
     KSLOG_TRACE("userInfoJSON = %p", userInfoJSON);

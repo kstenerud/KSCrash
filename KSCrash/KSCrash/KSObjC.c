@@ -32,6 +32,8 @@
 #import "KSString.h"
 
 
+#define kMaxNameLength 128
+
 //======================================================================
 #pragma mark - Macros -
 //======================================================================
@@ -137,9 +139,97 @@ static size_t stringPrintf(char* buffer,
     return (size_t)printLength;
 }
 
+
 //======================================================================
-#pragma mark - Basic Objective-C Queries -
+#pragma mark - Validation -
 //======================================================================
+
+// Lookup table for validating class/ivar names and objc @encode types.
+#define INV 0
+#define N_C 5
+#define N_S 7
+#define T_C 4
+
+static const unsigned int g_nameChars[] =
+{
+    INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV,
+    INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV,
+    INV, T_C, T_C, T_C, T_C, T_C, T_C, T_C, T_C, T_C, T_C, T_C, T_C, T_C, T_C, T_C,
+    N_C, N_C, N_C, N_C, N_C, N_C, N_C, N_C, N_C, N_C, T_C, T_C, T_C, T_C, T_C, T_C,
+    T_C, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S,
+    N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, T_C, T_C, T_C, T_C, N_S,
+    T_C, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S,
+    N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, N_S, T_C, T_C, T_C, T_C, INV,
+    INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV,
+    INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV,
+    INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV,
+    INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV,
+    INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV,
+    INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV,
+    INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV,
+    INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV,
+};
+
+#define VALID_NAME_CHAR(A) ((g_nameChars[(uint8_t)(A)] & 1) != 0)
+#define VALID_NAME_START_CHAR(A) ((g_nameChars[(uint8_t)(A)] & 2) != 0)
+#define VALID_TYPE_CHAR(A) ((g_nameChars[(uint8_t)(A)] & 7) != 0)
+
+static bool isValidName(const char* const name, const size_t maxLength)
+{
+    if((uintptr_t)name + maxLength < (uintptr_t)name)
+    {
+        // Wrapped around address space.
+        return false;
+    }
+
+    char buffer[maxLength];
+    size_t length = ksmach_copyMaxPossibleMem(name, buffer, maxLength);
+    if(length == 0 || !VALID_NAME_START_CHAR(name[0]))
+    {
+        return false;
+    }
+    for(size_t i = 1; i < length; i++)
+    {
+        unlikely_if(!VALID_NAME_CHAR(name[i]))
+        {
+            if(name[i] == 0)
+            {
+                return true;
+            }
+            return false;
+        }
+    }
+    return false;
+}
+
+static bool isValidIvarType(const char* const type)
+{
+    const int maxLength = 100;
+
+    if((uintptr_t)type + maxLength < (uintptr_t)type)
+    {
+        // Wrapped around address space.
+        return false;
+    }
+
+    char buffer[maxLength];
+    size_t length = ksmach_copyMaxPossibleMem(type, buffer, maxLength);
+    if(length == 0 || !VALID_TYPE_CHAR(type[0]))
+    {
+        return false;
+    }
+    for(size_t i = 0; i < length; i++)
+    {
+        unlikely_if(!VALID_TYPE_CHAR(type[i]))
+        {
+            if(type[i] == 0)
+            {
+                return true;
+            }
+        }
+    }
+    return false;
+}
 
 static bool containsValidROData(const void* const classPtr)
 {
@@ -163,22 +253,24 @@ static bool containsValidROData(const void* const classPtr)
 
 static bool containsValidIvarData(const void* const classPtr)
 {
-    struct ivar_list_t ivars;
     const struct class_ro_t* ro = classRO(classPtr);
-    if(ro->ivars == NULL)
+    const struct ivar_list_t* ivars = ro->ivars;
+    if(ivars == NULL)
     {
         return true;
     }
-
-    if(ksmach_copyMem(ro->ivars, &ivars, sizeof(ivars)) != KERN_SUCCESS)
+    
+    struct ivar_list_t ivarsBuffer;
+    if(ksmach_copyMem(ivars, &ivarsBuffer, sizeof(ivarsBuffer)) != KERN_SUCCESS)
     {
         return false;
     }
-    if(ivars.count > 0)
+
+    if(ivars->count > 0)
     {
         struct ivar_t ivar;
-        uint8_t* ivarPtr = (uint8_t*)(&ivars.first) + ivars.entsize;
-        for(uint32_t i = 1; i < ivars.count; i++)
+        uint8_t* ivarPtr = (uint8_t*)(&ivars->first) + ivars->entsize;
+        for(uint32_t i = 1; i < ivarsBuffer.count; i++)
         {
             if(ksmach_copyMem(ivarPtr, &ivar, sizeof(ivar)) != KERN_SUCCESS)
             {
@@ -189,11 +281,30 @@ static bool containsValidIvarData(const void* const classPtr)
             {
                 return false;
             }
-            ivarPtr += ivars.entsize;
+            if(!isValidName(ivar.name, kMaxNameLength))
+            {
+                return false;
+            }
+            if(!isValidIvarType(ivar.type))
+            {
+                return false;
+            }
+            ivarPtr += ivars->entsize;
         }
     }
     return true;
 }
+
+static bool containsValidClassName(const void* const classPtr)
+{
+    const struct class_ro_t* ro = classRO(classPtr);
+    return isValidName(ro->name, kMaxNameLength);
+}
+
+
+//======================================================================
+#pragma mark - Basic Objective-C Queries -
+//======================================================================
 
 const void* ksobjc_isaPointer(const void* const objectOrClassPtr)
 {
@@ -217,59 +328,10 @@ bool ksobjc_isRootClass(const void* const classPtr)
     return (classRO(classPtr)->flags & RO_ROOT) != 0;
 }
 
-static inline bool isValidClassNameStartChar(char ch)
-{
-    return (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || ch == '_';
-}
-
-static inline bool isValidClassNameChar(char ch)
-{
-    return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '_';
-}
-
-static size_t copyName(const void* const classPtr, char* buffer, size_t bufferLength)
-{
-    if(bufferLength == 0)
-    {
-        return 0;
-    }
-
-    const struct class_ro_t* ro = classRO(classPtr);
-    
-    size_t nameLength = ksmach_copyMaxPossibleMem(ro->name, buffer, bufferLength);
-    if(ro->name + nameLength < ro->name)
-    {
-        // Wrapped around address space.
-        return 0;
-    }
-    if(nameLength == 0 || !isValidClassNameStartChar(buffer[0]))
-    {
-        return 0;
-    }
-    for(size_t i = 0; i < nameLength; i++)
-    {
-        if(!isValidClassNameChar(buffer[i]))
-        {
-            if(buffer[i] == 0)
-            {
-                return nameLength;
-            }
-            return 0;
-        }
-    }
-    return 0;
-}
-
-static bool containsValidName(const void* const classPtr)
-{
-    char name[128];
-    return copyName(classPtr, name, sizeof(name)) > 0;
-}
-
 const char* ksobjc_className(const void* classPtr)
 {
     const struct class_ro_t* ro = classRO(classPtr);
-    return containsValidName(classPtr) ? ro->name : NULL;
+    return ro->name;
 }
 
 bool ksobjc_isClassNamed(const void* const classPtr, const char* const className)
@@ -330,29 +392,14 @@ const void* ksobjc_baseClass(const void* const classPtr)
     }
 }
 
-
 size_t ksobjc_ivarCount(const void* const classPtr)
 {
-    // Need to do this safely since there are a lot of weird class structures.
-    const struct class_t* class = classPtr;
-    const void* ptr = (void*)(class->data_NEVER_USE & (~WORD_MASK));
-    struct class_rw_t rw;
-    if(ksmach_copyMem(ptr, &rw, sizeof(rw)) != KERN_SUCCESS)
+    const struct ivar_list_t* ivars = classRO(classPtr)->ivars;
+    if(ivars == NULL)
     {
         return 0;
     }
-    struct class_ro_t ro;
-    if(ksmach_copyMem(rw.ro, &ro, sizeof(ro)) != KERN_SUCCESS)
-    {
-        return 0;
-    }
-    struct ivar_list_t ivars;
-    if(ksmach_copyMem(ro.ivars, &ivars, sizeof(ivars)) != KERN_SUCCESS)
-    {
-        return 0;
-    }
-    
-    return ivars.count;
+    return ivars->count;
 }
 
 size_t ksobjc_ivarList(const void* const classPtr, KSObjCIvar* dstIvars, size_t ivarsCount)
@@ -365,7 +412,7 @@ size_t ksobjc_ivarList(const void* const classPtr, KSObjCIvar* dstIvars, size_t 
     size_t count = ksobjc_ivarCount(classPtr);
     if(count == 0)
     {
-        return count;
+        return 0;
     }
 
     if(ivarsCount < count)
@@ -461,7 +508,7 @@ KSObjCType ksobjc_objectType(const void* objectOrClassPtr)
     {
         return KSObjCTypeUnknown;
     }
-    if(!containsValidName(isa))
+    if(!containsValidClassName(isa))
     {
         return KSObjCTypeUnknown;
     }
@@ -485,7 +532,7 @@ KSObjCType ksobjc_objectType(const void* objectOrClassPtr)
     {
         return KSObjCTypeUnknown;
     }
-    if(!containsValidName(isa))
+    if(!containsValidClassName(isa))
     {
         return KSObjCTypeUnknown;
     }

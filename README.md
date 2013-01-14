@@ -3,18 +3,49 @@ KSCrash
 
 #### The Ultimate iOS Crash Reporter
 
+
+### Another crash reporter? Why?
+
+Because while the existing crash reporters do report crashes, there's a heck
+of a lot more that they COULD do. Here are some key features of KSCrash
+
+* On-device symbolication in a way that supports re-symbolication offline
+  (necessary for iOS versions where many functions have been redacted).
+* Generates full Apple reports, with every field filled in.
+* Handles errors that can only be caught at the mach level, such as stack
+  overflow.
+* Handles a crash in the crash handler itself (or in the user crash handler
+  callback).
+* Detects deadlocks in the main loop.
+* Detects zombie (deallocated) object access attempts.
+* Recovers lost NSException messages in cases of zombies or memory corruption.
+* Introspects objects in registers and on the stack (C strings and Objective-C
+  objects, including ivars).
+* Extracts information about objects referenced by an exception (such as
+  "unrecognized selector sent to instance 0xa26d9a0")
+* Its pluggable server reporting architecture makes it easy to adapt to any API
+  service (it already supports Hockey and Quincy and sending via email, with
+  more to come!).
+* Dumps the stack contents.
+* Diagnoses crash causes (Crash Doctor).
+* Records lots of information beyond what the Apple crash report can, in a JSON
+  format.
+* Supports including extra data that the programmer supplies (before and during
+  a crash).
+
+[Click here for some examples of the reports it can generate.](https://github.com/kstenerud/KSCrash/tree/master/ExampleReports)
+
+
+
 ### Beta Note
 
 Although it's now being shipped in production apps, KSCrash is still
 officially considered "beta" software because there are a few more
-enhancements I want to make before releasing version 1.0.
+things to do before releasing version 1.0.
 
 The following features are newer and not as tested as the rest:
 
-- Recrash detection
-- Interesting address detection in the stack and registers
-- Zombie detection
-- Crash Doctor 
+- Objective-C introspection.
 - Deadlock detection
 
 These features are being used in deployed systems, but have not had as much
@@ -23,38 +54,8 @@ exposure as the rest of the library.
 Also, the backend side is not done yet, though Hockey and Quincy integration
 is fully implemented and working (more on the way as time allows).
 
+And finally, the documentation sucks :P
 
-### Another crash reporter? Why?
-
-Because all existing solutions fall short in some way:
-
-* None of them handle stack overflow crashes.
-* None of them fill in all fields for its Apple crash reports.
-* Some don't symbolicate on the device.
-* They only record enough information for an Apple crash report, though there
-  is plenty of other useful information to be gathered!
-
-As well, each crash reporter service, though most of them use PLCrashReporter
-at the core, has its own format and API.
-
-#### KSCrash is superior for the following reasons:
-
-* It catches ALL crashes.
-* Its pluggable server reporting architecture makes it easy to adapt to any API
-  service (it already supports Hockey and Quincy and sending via email, with
-  more to come!).
-* It supports symbolicating on the device.
-* It records more information about the system and crash than any other crash
-  reporter.
-* It is the only crash reporter capable of creating a 100% complete Apple crash
-  report (including thread/queue names).
-* It supports zombie detection in the wild.
-* It can piece together objective-c method calls.
-* It can detect deadlocks in the main thread.
-* It provides extra contextual information to help you track down the cause of
-  the crash.
-
-[Click here for some examples of the reports it can generate.](https://github.com/kstenerud/KSCrash/tree/master/ExampleReports)
 
 
 ### How to build it

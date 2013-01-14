@@ -34,7 +34,7 @@
 #import "NSData+GZip.h"
 #import "KSCrashReportFilterAppleFmt.h"
 #import "KSJSONCodecObjC.h"
-#import "KSReachability.h"
+#import "KSReachabilityKSCrash.h"
 #import "Container+DeepSearch.h"
 
 //#define KSLogger_LocalLevel TRACE

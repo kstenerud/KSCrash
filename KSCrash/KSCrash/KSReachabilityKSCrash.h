@@ -46,7 +46,7 @@
  *
  * All notification methods are disabled by default.
  */
-@interface KSReachability : NSObject
+@interface KSReachabilityKSCrash : NSObject
 
 #pragma mark Constructors
 
@@ -55,11 +55,11 @@
  * @param hostname The name or IP address of the host to monitor. If nil or
  *                 empty string, check reachability to the internet in general.
  */
-+ (KSReachability*) reachabilityToHost:(NSString*) hostname;
++ (KSReachabilityKSCrash*) reachabilityToHost:(NSString*) hostname;
 
 /** Reachability to the local (wired or wifi) network.
  */
-+ (KSReachability*) reachabilityToLocalNetwork;
++ (KSReachabilityKSCrash*) reachabilityToLocalNetwork;
 
 
 #pragma mark General Information
@@ -73,7 +73,7 @@
 /** If non-nil, called whenever reachability flags change.
  * Block will be invoked on the main thread.
  */
-@property(nonatomic,readwrite,copy) void(^onReachabilityChanged)(KSReachability* reachability);
+@property(nonatomic,readwrite,copy) void(^onReachabilityChanged)(KSReachabilityKSCrash* reachability);
 
 /** The notification to send when reachability changes (nil = don't send).
  * Default = nil

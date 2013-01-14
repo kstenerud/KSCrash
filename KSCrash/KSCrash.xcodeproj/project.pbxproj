@@ -89,10 +89,10 @@
 		39DA832316184492001E7F79 /* KSHTTPRequestSender.h in Headers */ = {isa = PBXBuildFile; fileRef = 39DA831116184492001E7F79 /* KSHTTPRequestSender.h */; };
 		39DA832416184492001E7F79 /* KSHTTPRequestSender.m in Sources */ = {isa = PBXBuildFile; fileRef = 39DA831216184492001E7F79 /* KSHTTPRequestSender.m */; };
 		39DA832516184492001E7F79 /* KSHTTPRequestSender.m in Sources */ = {isa = PBXBuildFile; fileRef = 39DA831216184492001E7F79 /* KSHTTPRequestSender.m */; };
-		39DA832616184492001E7F79 /* KSReachability.h in Headers */ = {isa = PBXBuildFile; fileRef = 39DA831316184492001E7F79 /* KSReachability.h */; };
-		39DA832716184492001E7F79 /* KSReachability.h in Headers */ = {isa = PBXBuildFile; fileRef = 39DA831316184492001E7F79 /* KSReachability.h */; };
-		39DA832816184492001E7F79 /* KSReachability.m in Sources */ = {isa = PBXBuildFile; fileRef = 39DA831416184492001E7F79 /* KSReachability.m */; };
-		39DA832916184492001E7F79 /* KSReachability.m in Sources */ = {isa = PBXBuildFile; fileRef = 39DA831416184492001E7F79 /* KSReachability.m */; };
+		39DA832616184492001E7F79 /* KSReachabilityKSCrash.h in Headers */ = {isa = PBXBuildFile; fileRef = 39DA831316184492001E7F79 /* KSReachabilityKSCrash.h */; };
+		39DA832716184492001E7F79 /* KSReachabilityKSCrash.h in Headers */ = {isa = PBXBuildFile; fileRef = 39DA831316184492001E7F79 /* KSReachabilityKSCrash.h */; };
+		39DA832816184492001E7F79 /* KSReachabilityKSCrash.m in Sources */ = {isa = PBXBuildFile; fileRef = 39DA831416184492001E7F79 /* KSReachabilityKSCrash.m */; };
+		39DA832916184492001E7F79 /* KSReachabilityKSCrash.m in Sources */ = {isa = PBXBuildFile; fileRef = 39DA831416184492001E7F79 /* KSReachabilityKSCrash.m */; };
 		39DA832A16184492001E7F79 /* KSVarArgs.h in Headers */ = {isa = PBXBuildFile; fileRef = 39DA831516184492001E7F79 /* KSVarArgs.h */; };
 		39DA832B16184492001E7F79 /* KSVarArgs.h in Headers */ = {isa = PBXBuildFile; fileRef = 39DA831516184492001E7F79 /* KSVarArgs.h */; };
 		39DA832C16184492001E7F79 /* NSData+GZip.h in Headers */ = {isa = PBXBuildFile; fileRef = 39DA831616184492001E7F79 /* NSData+GZip.h */; };
@@ -310,8 +310,8 @@
 		CB0AA14C167EC4AD006EAB99 /* KSHTTPMultipartPostBody.m in Sources */ = {isa = PBXBuildFile; fileRef = 39DA831016184492001E7F79 /* KSHTTPMultipartPostBody.m */; };
 		CB0AA14D167EC4AD006EAB99 /* KSHTTPRequestSender.h in Headers */ = {isa = PBXBuildFile; fileRef = 39DA831116184492001E7F79 /* KSHTTPRequestSender.h */; };
 		CB0AA14E167EC4AD006EAB99 /* KSHTTPRequestSender.m in Sources */ = {isa = PBXBuildFile; fileRef = 39DA831216184492001E7F79 /* KSHTTPRequestSender.m */; };
-		CB0AA14F167EC4AD006EAB99 /* KSReachability.h in Headers */ = {isa = PBXBuildFile; fileRef = 39DA831316184492001E7F79 /* KSReachability.h */; };
-		CB0AA150167EC4AD006EAB99 /* KSReachability.m in Sources */ = {isa = PBXBuildFile; fileRef = 39DA831416184492001E7F79 /* KSReachability.m */; };
+		CB0AA14F167EC4AD006EAB99 /* KSReachabilityKSCrash.h in Headers */ = {isa = PBXBuildFile; fileRef = 39DA831316184492001E7F79 /* KSReachabilityKSCrash.h */; };
+		CB0AA150167EC4AD006EAB99 /* KSReachabilityKSCrash.m in Sources */ = {isa = PBXBuildFile; fileRef = 39DA831416184492001E7F79 /* KSReachabilityKSCrash.m */; };
 		CB0AA151167EC4AD006EAB99 /* KSVarArgs.h in Headers */ = {isa = PBXBuildFile; fileRef = 39DA831516184492001E7F79 /* KSVarArgs.h */; };
 		CB0AA152167EC4B1006EAB99 /* NSDictionary+Merge.h in Headers */ = {isa = PBXBuildFile; fileRef = 39DA84F4161978D7001E7F79 /* NSDictionary+Merge.h */; };
 		CB0AA153167EC4B1006EAB99 /* NSDictionary+Merge.m in Sources */ = {isa = PBXBuildFile; fileRef = 39DA84F5161978D7001E7F79 /* NSDictionary+Merge.m */; };
@@ -410,8 +410,8 @@
 		39DA831016184492001E7F79 /* KSHTTPMultipartPostBody.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSHTTPMultipartPostBody.m; sourceTree = "<group>"; };
 		39DA831116184492001E7F79 /* KSHTTPRequestSender.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.objj.h; path = KSHTTPRequestSender.h; sourceTree = "<group>"; };
 		39DA831216184492001E7F79 /* KSHTTPRequestSender.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSHTTPRequestSender.m; sourceTree = "<group>"; };
-		39DA831316184492001E7F79 /* KSReachability.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.objj.h; path = KSReachability.h; sourceTree = "<group>"; };
-		39DA831416184492001E7F79 /* KSReachability.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSReachability.m; sourceTree = "<group>"; };
+		39DA831316184492001E7F79 /* KSReachabilityKSCrash.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSReachabilityKSCrash.h; sourceTree = "<group>"; };
+		39DA831416184492001E7F79 /* KSReachabilityKSCrash.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSReachabilityKSCrash.m; sourceTree = "<group>"; };
 		39DA831516184492001E7F79 /* KSVarArgs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.objj.h; path = KSVarArgs.h; sourceTree = "<group>"; };
 		39DA831616184492001E7F79 /* NSData+GZip.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.objj.h; path = "NSData+GZip.h"; sourceTree = "<group>"; };
 		39DA831716184492001E7F79 /* NSData+GZip.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSData+GZip.m"; sourceTree = "<group>"; };
@@ -677,8 +677,8 @@
 				39DA831016184492001E7F79 /* KSHTTPMultipartPostBody.m */,
 				39DA831116184492001E7F79 /* KSHTTPRequestSender.h */,
 				39DA831216184492001E7F79 /* KSHTTPRequestSender.m */,
-				39DA831316184492001E7F79 /* KSReachability.h */,
-				39DA831416184492001E7F79 /* KSReachability.m */,
+				39DA831316184492001E7F79 /* KSReachabilityKSCrash.h */,
+				39DA831416184492001E7F79 /* KSReachabilityKSCrash.m */,
 				39DA831516184492001E7F79 /* KSVarArgs.h */,
 				39DA831616184492001E7F79 /* NSData+GZip.h */,
 				39DA831716184492001E7F79 /* NSData+GZip.m */,
@@ -865,7 +865,7 @@
 				39DA8371161844FF001E7F79 /* KSLogger.h in Headers */,
 				39DA837D161844FF001E7F79 /* KSMach.h in Headers */,
 				39DA8381161844FF001E7F79 /* KSObjC.h in Headers */,
-				39DA832616184492001E7F79 /* KSReachability.h in Headers */,
+				39DA832616184492001E7F79 /* KSReachabilityKSCrash.h in Headers */,
 				39DA8383161844FF001E7F79 /* KSSafeCollections.h in Headers */,
 				39DA8389161844FF001E7F79 /* KSSignalInfo.h in Headers */,
 				39DA838D161844FF001E7F79 /* KSString.h in Headers */,
@@ -927,7 +927,7 @@
 				39DA8372161844FF001E7F79 /* KSLogger.h in Headers */,
 				39DA837E161844FF001E7F79 /* KSMach.h in Headers */,
 				39DA8382161844FF001E7F79 /* KSObjC.h in Headers */,
-				39DA832716184492001E7F79 /* KSReachability.h in Headers */,
+				39DA832716184492001E7F79 /* KSReachabilityKSCrash.h in Headers */,
 				39DA8384161844FF001E7F79 /* KSSafeCollections.h in Headers */,
 				39DA838A161844FF001E7F79 /* KSSignalInfo.h in Headers */,
 				39DA838E161844FF001E7F79 /* KSString.h in Headers */,
@@ -994,7 +994,7 @@
 				CB0AA149167EC4AD006EAB99 /* Container+DeepSearch.h in Headers */,
 				CB0AA14B167EC4AD006EAB99 /* KSHTTPMultipartPostBody.h in Headers */,
 				CB0AA14D167EC4AD006EAB99 /* KSHTTPRequestSender.h in Headers */,
-				CB0AA14F167EC4AD006EAB99 /* KSReachability.h in Headers */,
+				CB0AA14F167EC4AD006EAB99 /* KSReachabilityKSCrash.h in Headers */,
 				CB0AA151167EC4AD006EAB99 /* KSVarArgs.h in Headers */,
 				CB0AA152167EC4B1006EAB99 /* NSDictionary+Merge.h in Headers */,
 				CB0AA154167EC4B1006EAB99 /* NSMutableData+AppendUTF8.h in Headers */,
@@ -1216,7 +1216,7 @@
 				39DA831C16184492001E7F79 /* Container+DeepSearch.m in Sources */,
 				39DA832016184492001E7F79 /* KSHTTPMultipartPostBody.m in Sources */,
 				39DA832416184492001E7F79 /* KSHTTPRequestSender.m in Sources */,
-				39DA832816184492001E7F79 /* KSReachability.m in Sources */,
+				39DA832816184492001E7F79 /* KSReachabilityKSCrash.m in Sources */,
 				39DA832E16184492001E7F79 /* NSData+GZip.m in Sources */,
 				39DA833216184492001E7F79 /* NSMutableData+AppendUTF8.m in Sources */,
 				39DA835F161844FF001E7F79 /* KSBacktrace.c in Sources */,
@@ -1269,7 +1269,7 @@
 				39DA831D16184492001E7F79 /* Container+DeepSearch.m in Sources */,
 				39DA832116184492001E7F79 /* KSHTTPMultipartPostBody.m in Sources */,
 				39DA832516184492001E7F79 /* KSHTTPRequestSender.m in Sources */,
-				39DA832916184492001E7F79 /* KSReachability.m in Sources */,
+				39DA832916184492001E7F79 /* KSReachabilityKSCrash.m in Sources */,
 				39DA832F16184492001E7F79 /* NSData+GZip.m in Sources */,
 				39DA833316184492001E7F79 /* NSMutableData+AppendUTF8.m in Sources */,
 				39DA8360161844FF001E7F79 /* KSBacktrace.c in Sources */,
@@ -1366,7 +1366,7 @@
 				CB0AA14A167EC4AD006EAB99 /* Container+DeepSearch.m in Sources */,
 				CB0AA14C167EC4AD006EAB99 /* KSHTTPMultipartPostBody.m in Sources */,
 				CB0AA14E167EC4AD006EAB99 /* KSHTTPRequestSender.m in Sources */,
-				CB0AA150167EC4AD006EAB99 /* KSReachability.m in Sources */,
+				CB0AA150167EC4AD006EAB99 /* KSReachabilityKSCrash.m in Sources */,
 				CB0AA153167EC4B1006EAB99 /* NSDictionary+Merge.m in Sources */,
 				CB0AA155167EC4B1006EAB99 /* NSMutableData+AppendUTF8.m in Sources */,
 				CB0AA157167EC4B5006EAB99 /* KSCrash.m in Sources */,

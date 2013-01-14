@@ -25,7 +25,7 @@
 //
 
 
-#import "KSReachability.h"
+#import "KSReachabilityKSCrash.h"
 
 #import <netdb.h>
 
@@ -37,7 +37,7 @@
 #define kKVOProperty_WWANOnly  @"WWANOnly"
 
 
-@interface KSReachability ()
+@interface KSReachabilityKSCrash ()
 
 @property(nonatomic,readwrite,retain) NSString* hostname;
 @property(nonatomic,readwrite,assign) SCNetworkReachabilityFlags flags;
@@ -62,7 +62,7 @@ static void onReachabilityChanged(SCNetworkReachabilityRef target,
 @end
 
 
-@implementation KSReachability
+@implementation KSReachabilityKSCrash
 
 @synthesize onReachabilityChanged = _onReachabilityChanged;
 @synthesize flags = _flags;
@@ -72,13 +72,13 @@ static void onReachabilityChanged(SCNetworkReachabilityRef target,
 @synthesize hostname = _hostname;
 @synthesize notificationName = _notificationName;
 
-+ (KSReachability*) reachabilityToHost:(NSString*) hostname
++ (KSReachabilityKSCrash*) reachabilityToHost:(NSString*) hostname
 {
     return as_autorelease([[self alloc] initWithHost:hostname]);
 }
 
 
-+ (KSReachability*) reachabilityToLocalNetwork
++ (KSReachabilityKSCrash*) reachabilityToLocalNetwork
 {
     struct sockaddr_in address;
     bzero(&address, sizeof(address));
@@ -282,7 +282,7 @@ static void onReachabilityChanged(SCNetworkReachabilityRef target,
                                   void* info)
 {
     #pragma unused(target)
-    KSReachability* reachability = (as_bridge KSReachability*) info;
+    KSReachabilityKSCrash* reachability = (as_bridge KSReachabilityKSCrash*) info;
     
     dispatch_async(dispatch_get_main_queue(), ^
                    {
@@ -299,7 +299,7 @@ static void onReachabilityChanged(SCNetworkReachabilityRef target,
 
 @interface KSReachableOperation ()
 
-@property(nonatomic,readwrite,retain) KSReachability* reachability;
+@property(nonatomic,readwrite,retain) KSReachabilityKSCrash* reachability;
 
 @end
 
@@ -323,10 +323,10 @@ static void onReachabilityChanged(SCNetworkReachabilityRef target,
 {
     if((self = [super init]))
     {
-        self.reachability = [KSReachability reachabilityToHost:host];
+        self.reachability = [KSReachabilityKSCrash reachabilityToHost:host];
         
         __unsafe_unretained KSReachableOperation* blockSelf = self;
-        self.reachability.onReachabilityChanged = ^(KSReachability* reachability)
+        self.reachability.onReachabilityChanged = ^(KSReachabilityKSCrash* reachability)
         {
             if(reachability.reachable)
             {

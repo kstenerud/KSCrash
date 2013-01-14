@@ -32,7 +32,7 @@
 #import "KSHTTPRequestSender.h"
 #import "NSData+GZip.h"
 #import "KSJSONCodecObjC.h"
-#import "KSReachability.h"
+#import "KSReachabilityKSCrash.h"
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"

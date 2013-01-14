@@ -71,6 +71,10 @@
  */
 #define kStackOverflowThreshold 200
 
+/** Maximum number of lines to print when printing a stack trace to the console.
+ */
+#define kMaxStackTracePrintLines 40
+
 /** How far to search the stack (in pointer sized jumps) for notable data. */
 #define kStackNotableSearchBackDistance 20
 #define kStackNotableSearchForwardDistance 10
@@ -617,8 +621,8 @@ void kscrw_i_logCrashThreadBacktrace(const KSCrash_SentryContext* const crash)
 {
     thread_t thread = crash->offendingThread;
     _STRUCT_MCONTEXT concreteMachineContext;
-    uintptr_t concreteBacktrace[kMaxBacktraceDepth];
-    int backtraceLength = sizeof(concreteBacktrace);
+    uintptr_t concreteBacktrace[kMaxStackTracePrintLines];
+    int backtraceLength = sizeof(concreteBacktrace) / sizeof(*concreteBacktrace);
 
     _STRUCT_MCONTEXT* machineContext = kscrw_i_getMachineContext(crash,
                                                                  thread,
@@ -1341,18 +1345,21 @@ void kscrw_i_writeNotableAddresses(const KSCrashReportWriter* const writer,
  * @param thread The thread to write about.
  *
  * @param index The thread's index relative to all threads.
+ *
+ * @paran If true, write any notable addresses found.
  */
 void kscrw_i_writeThread(const KSCrashReportWriter* const writer,
                          const char* const key,
                          const KSCrash_SentryContext* const crash,
                          const thread_t thread,
-                         const int index)
+                         const int index,
+                         const bool writeNotableAddresses)
 {
     bool isCrashedThread = thread == crash->offendingThread;
     char nameBuffer[128];
     _STRUCT_MCONTEXT machineContextBuffer;
     uintptr_t backtraceBuffer[kMaxBacktraceDepth];
-    int backtraceLength = sizeof(backtraceBuffer);
+    int backtraceLength = sizeof(backtraceBuffer) / sizeof(*backtraceBuffer);
     int skippedEntries = 0;
 
     _STRUCT_MCONTEXT* machineContext = kscrw_i_getMachineContext(crash,
@@ -1408,9 +1415,12 @@ void kscrw_i_writeThread(const KSCrashReportWriter* const writer,
                                        KSCrashField_Stack,
                                        machineContext,
                                        skippedEntries > 0);
-            kscrw_i_writeNotableAddresses(writer,
-                                          KSCrashField_NotableAddresses,
-                                          machineContext);
+            if(writeNotableAddresses)
+            {
+                kscrw_i_writeNotableAddresses(writer,
+                                              KSCrashField_NotableAddresses,
+                                              machineContext);
+            }
         }
     }
     writer->endContainer(writer);
@@ -1444,7 +1454,7 @@ void kscrw_i_writeAllThreads(const KSCrashReportWriter* const writer,
     {
         for(mach_msg_type_number_t i = 0; i < numThreads; i++)
         {
-            kscrw_i_writeThread(writer, NULL, crash, threads[i], (int)i);
+            kscrw_i_writeThread(writer, NULL, crash, threads[i], (int)i, true);
         }
     }
     writer->endContainer(writer);
@@ -1963,7 +1973,8 @@ void kscrashreport_writeMinimalReport(KSCrash_Context* const crashContext,
                                 KSCrashField_CrashedThread,
                                 &crashContext->crash,
                                 crashContext->crash.offendingThread,
-                                kscrw_i_threadIndex(crashContext->crash.offendingThread));
+                                kscrw_i_threadIndex(crashContext->crash.offendingThread),
+                                false);
             kscrw_i_writeError(writer, KSCrashField_Error, &crashContext->crash);
         }
         writer->endContainer(writer);
