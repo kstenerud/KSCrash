@@ -299,8 +299,4 @@ Notable Addresses:
     }
 }
 
-CrashDoctor Diagnosis: Possible zombie in call: Function: objc_msgSend
-Param 1:  (was __NSArrayI)
-Param 2:  
-Param 3:  0x1 
-Param 4:  (was __NSArrayI)
+CrashDoctor Diagnosis: Possible zombie in call: -[__NSArrayI objectAtIndex:0x1]

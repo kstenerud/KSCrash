@@ -251,9 +251,5 @@ Notable Addresses:
     }
 }
 
-CrashDoctor Diagnosis: Possible zombie in call: Function: objc_msgSend
-Param 1:  (was MyProxy)
-Param 2:  
-Param 3:  
-Param 4:  0xffffffff 
+CrashDoctor Diagnosis: Possible zombie in call: -[MyProxy respondsToSelector:"descriptionWithLocale:"]
 Originated at or in a subcall of __36-[Crasher accessDeallocatedPtrProxy]_block_invoke_0

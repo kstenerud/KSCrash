@@ -1170,7 +1170,7 @@
         }
     ],
     "crash": {
-        "diagnosis": "Possible zombie in call: Function: objc_msgSend\nParam 1:  (was MyProxy)\nParam 2:  \nParam 3:  \nParam 4:  0xffffffff \nOriginated at or in a subcall of __36-[Crasher accessDeallocatedPtrProxy]_block_invoke_0",
+        "diagnosis": "Possible zombie in call: -[MyProxy respondsToSelector:\"descriptionWithLocale:\"]",
         "error": {
             "address": 4026652049,
             "mach": {

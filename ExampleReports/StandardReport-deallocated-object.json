@@ -1170,7 +1170,7 @@
         }
     ],
     "crash": {
-        "diagnosis": "Possible zombie in call: Function: objc_msgSend\nParam 1:  (was __NSArrayI)\nParam 2:  \nParam 3:  0x1 \nParam 4:  (was __NSArrayI)",
+        "diagnosis": "Possible zombie in call: -[__NSArrayI objectAtIndex:0x1]",
         "error": {
             "address": 3221350198,
             "mach": {

@@ -366,8 +366,8 @@ typedef enum
     NSArray* notableAddresses = [crashedThread objectForKey:@KSCrashField_NotableAddresses];
     for(NSDictionary* address in [notableAddresses objectEnumerator])
     {
-        NSString* contents = [address objectForKey:@KSCrashField_Contents];
-        if([contents isEqualToString:@"string"])
+        NSString* type = [address objectForKey:@KSCrashField_Type];
+        if([type isEqualToString:@"string"])
         {
             NSString* value = [address objectForKey:@KSCrashField_Value];
             if([value rangeOfString:@"autorelease pool page"].location != NSNotFound &&
@@ -436,7 +436,7 @@ typedef enum
         }
         else
         {
-            param.type = [notableAddress objectForKey:@KSCrashField_Contents];
+            param.type = [notableAddress objectForKey:@KSCrashField_Type];
             NSString* className = [notableAddress objectForKey:@KSCrashField_Class];
             NSString* previousClass = [notableAddress objectForKey:@KSCrashField_LastDeallocObject];
             NSString* value = [notableAddress objectForKey:@KSCrashField_Value];
