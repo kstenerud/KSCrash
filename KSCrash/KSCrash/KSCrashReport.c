@@ -355,9 +355,9 @@ bool kscrw_i_isValidString(const void* const address)
     {
         return false;
     }
-    return kstring_isNullTerminatedUTF8String(buffer,
-                                              kMinStringLength,
-                                              sizeof(buffer));
+    return ksstring_isNullTerminatedUTF8String(buffer,
+                                               kMinStringLength,
+                                               sizeof(buffer));
 }
 
 /** Get all parts of the machine state required for a dump.

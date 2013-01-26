@@ -231,7 +231,7 @@ const uintptr_t* kszombie_lastDeallocedNSExceptionCallStack(void)
     return g_lastDeallocedException.callStack;
 }
 
-const unsigned int kszombie_lastDeallocedNSExceptionCallStackLength(void)
+const size_t kszombie_lastDeallocedNSExceptionCallStackLength(void)
 {
     return g_lastDeallocedException.callStackLength;
 }

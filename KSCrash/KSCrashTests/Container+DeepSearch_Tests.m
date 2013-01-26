@@ -44,7 +44,7 @@
                      nil], @"key1",
                     nil];
 
-    NSArray* deepKey = [NSArray arrayWithObjects:@"key1", @"key2", @"key3", nil];
+    id deepKey = [NSArray arrayWithObjects:@"key1", @"key2", @"key3", nil];
     id actual = [container objectForDeepKey:deepKey];
     STAssertEqualObjects(expected, actual, @"");
 }
@@ -75,7 +75,7 @@
                      nil], @"1",
                     nil];
 
-    NSArray* deepKey = [NSArray arrayWithObjects:@"1", @"2", @"3", nil];
+    id deepKey = [NSArray arrayWithObjects:@"1", @"2", @"3", nil];
     id actual = [container objectForDeepKey:deepKey];
     STAssertEqualObjects(expected, actual, @"");
 }
@@ -108,7 +108,7 @@
                      nil],
                     nil];
 
-    NSArray* deepKey = [NSArray arrayWithObjects:
+    id deepKey = [NSArray arrayWithObjects:
                         [NSNumber numberWithInt:0],
                         [NSNumber numberWithInt:1],
                         [NSNumber numberWithInt:1],
@@ -130,27 +130,43 @@
                      nil],
                     nil];
 
-    NSArray* deepKey = [NSArray arrayWithObjects:@"0", @"1", @"1", nil];
+    id deepKey = [NSArray arrayWithObjects:@"0", @"1", @"1", nil];
     id actual = [container objectForDeepKey:deepKey];
     STAssertEqualObjects(expected, actual, @"");
 }
 
 - (void) testDeepSearchArrayString2
 {
-    id expected = @"Object";
     id container = [NSArray arrayWithObjects:
                     [NSArray arrayWithObjects:
                      @"blah",
                      [NSArray arrayWithObjects:
                       @"blah2",
-                      expected,
                       nil],
                      nil],
                     nil];
 
-    NSArray* deepKey = [NSArray arrayWithObjects:@"0", @"1", @"key", nil];
+    id deepKey = [NSArray arrayWithObjects:@"0", @"1", @"key", nil];
     id actual = [container objectForDeepKey:deepKey];
     STAssertNil(actual, @"");
+}
+
+- (void) testDeepSearchArrayEmptyString
+{
+    id expected = @"Object";
+    id container = [NSArray arrayWithObjects:
+                    [NSArray arrayWithObjects:
+                     @"blah",
+                     [NSArray arrayWithObjects:
+                      expected,
+                      @"blah2",
+                      nil],
+                     nil],
+                    nil];
+    
+    id deepKey = [NSArray arrayWithObjects:@"0", @"1", @"", nil];
+    id actual = [container objectForDeepKey:deepKey];
+    STAssertEqualObjects(expected, actual, @"");
 }
 
 - (void) testDeepSearchArrayPath
@@ -182,7 +198,7 @@
                      nil], @"key1",
                     nil];
 
-    NSArray* deepKey = [NSArray arrayWithObjects:
+    id deepKey = [NSArray arrayWithObjects:
                         @"key1",
                         [NSNumber numberWithInt:1],
                         @"key3", nil];
@@ -209,7 +225,7 @@
 - (void) testDeepSearchNotFound
 {
     id container = [NSDictionary dictionary];
-    NSArray* deepKey = [NSArray arrayWithObjects:@"key1", nil];
+    id deepKey = [NSArray arrayWithObjects:@"key1", nil];
     id actual = [container objectForDeepKey:deepKey];
     STAssertNil(actual, @"");
 }
@@ -217,7 +233,7 @@
 - (void) testDeepSearchNotFoundArray
 {
     id container = [NSArray array];
-    NSArray* deepKey = [NSArray arrayWithObjects:@"key1", nil];
+    id deepKey = [NSArray arrayWithObjects:@"key1", nil];
     id actual = [container objectForDeepKey:deepKey];
     STAssertNil(actual, @"");
 }
@@ -234,7 +250,7 @@
                      nil], @"key1",
                     nil];
 
-    NSArray* deepKey = [NSArray arrayWithObjects:
+    id deepKey = [NSArray arrayWithObjects:
                         @"key1",
                         [NSNumber numberWithInt:1],
                         @"key3",
@@ -243,5 +259,237 @@
     STAssertNil(actual, @"");
 }
 
+- (void) testSetObjectForDeepKeyDict
+{
+    id expected = @"Object";
+    id container = [NSDictionary dictionaryWithObjectsAndKeys:
+                    [NSDictionary dictionaryWithObjectsAndKeys:
+                     [NSMutableDictionary dictionaryWithObjectsAndKeys:
+                      @"someObject", @"someKey",
+                      nil], @"key2",
+                     nil], @"key1",
+                    nil];
+    
+    id deepKey = [NSArray arrayWithObjects:@"key1", @"key2", @"key3", nil];
+    [container setObject:expected forDeepKey:deepKey];
+    id actual = [container objectForDeepKey:deepKey];
+    STAssertEqualObjects(expected, actual, @"");
+}
+
+- (void) testSetObjectForDeepKeyDictSimple
+{
+    id expected = @"Object";
+    id container = [NSMutableDictionary dictionaryWithObjectsAndKeys:
+                      @"someObject", @"someKey",
+                    nil];
+    
+    id deepKey = [NSArray arrayWithObjects:@"key1", nil];
+    [container setObject:expected forDeepKey:deepKey];
+    id actual = [container objectForDeepKey:deepKey];
+    STAssertEqualObjects(expected, actual, @"");
+}
+
+- (void) testSetObjectForDeepKeyDictEmptyKey
+{
+    id expected = @"Object";
+    id container = [NSDictionary dictionaryWithObjectsAndKeys:
+                    [NSDictionary dictionaryWithObjectsAndKeys:
+                     [NSMutableDictionary dictionaryWithObjectsAndKeys:
+                      @"someObject", @"someKey",
+                      nil], @"key2",
+                     nil], @"key1",
+                    nil];
+    
+    id deepKey = [NSArray array];
+    STAssertThrows([container setObject:expected forDeepKey:deepKey], @"");
+}
+
+- (void) testSetObjectForDeepKeyArray
+{
+    id expected = @"Object";
+    id container = [NSArray arrayWithObjects:
+                    [NSDictionary dictionaryWithObjectsAndKeys:
+                     [NSMutableArray arrayWithObjects:
+                      @"someObject",
+                      nil], @"key2",
+                     nil],
+                    nil];
+    
+    id deepKey = [NSArray arrayWithObjects:@"0", @"key2", @"0", nil];
+    [container setObject:expected forDeepKey:deepKey];
+    id actual = [container objectForDeepKey:deepKey];
+    STAssertEqualObjects(expected, actual, @"");
+}
+
+- (void) testSetObjectForKeyPathArray
+{
+    id expected = @"Object";
+    id container = [NSArray arrayWithObjects:
+                    [NSDictionary dictionaryWithObjectsAndKeys:
+                     [NSMutableArray arrayWithObjects:
+                      @"someObject",
+                      nil], @"key2",
+                     nil],
+                    nil];
+    
+    id deepKey = @"0/key2/0";
+    [container setObject:expected forKeyPath:deepKey];
+    id actual = [container objectForKeyPath:deepKey];
+    STAssertEqualObjects(expected, actual, @"");
+}
+
+- (void) testSetObjectForDeepKeyInvalidContainer
+{
+    id expected = @"Object";
+    id container = [NSDate date];
+    
+    id deepKey = [NSArray arrayWithObjects:@"key1", @"key2", @"0", nil];
+    STAssertThrows([container setObject:expected forDeepKey:deepKey], @"");
+}
+
+- (void) testSetObjectForDeepKeyImmutableArray
+{
+    id expected = @"Object";
+    id container = [NSArray arrayWithObjects:
+                    [NSDictionary dictionaryWithObjectsAndKeys:
+                     [NSArray arrayWithObjects:
+                      @"someObject",
+                      nil], @"key2",
+                     nil],
+                    nil];
+    
+    id deepKey = [NSArray arrayWithObjects:@"0", @"key2", @"0", nil];
+    STAssertThrows([container setObject:expected forDeepKey:deepKey], @"");
+}
+
+- (void) testSetObjectForDeepKeyImmutableDict
+{
+    id expected = @"Object";
+    id container = [NSDictionary dictionaryWithObjectsAndKeys:
+                    [NSDictionary dictionaryWithObjectsAndKeys:
+                     [NSDictionary dictionaryWithObjectsAndKeys:
+                      @"someObject", @"someKey",
+                      nil], @"key2",
+                     nil], @"key1",
+                    nil];
+    
+    id deepKey = [NSArray arrayWithObjects:@"key1", @"key2", [NSDate date], nil];
+    STAssertThrows([container setObject:expected forDeepKey:deepKey], @"");
+}
+
+- (void) testSetObjectForKeyPathDict
+{
+    id expected = @"Object";
+    id container = [NSDictionary dictionaryWithObjectsAndKeys:
+                    [NSDictionary dictionaryWithObjectsAndKeys:
+                     [NSMutableDictionary dictionaryWithObjectsAndKeys:
+                      @"someObject", @"someKey",
+                      nil], @"key2",
+                     nil], @"key1",
+                    nil];
+    
+    id deepKey = @"key1/key2/key3";
+    [container setObject:expected forKeyPath:deepKey];
+    id actual = [container objectForKeyPath:deepKey];
+    STAssertEqualObjects(expected, actual, @"");
+}
+
+- (void) testRemoveObjectForDeepKeyDict
+{
+    id container = [NSDictionary dictionaryWithObjectsAndKeys:
+                    [NSDictionary dictionaryWithObjectsAndKeys:
+                     [NSMutableDictionary dictionaryWithObjectsAndKeys:
+                      @"someObject", @"key3",
+                      nil], @"key2",
+                     nil], @"key1",
+                    nil];
+    
+    id deepKey = [NSArray arrayWithObjects:@"key1", @"key2", @"key3", nil];
+    [container removeObjectForDeepKey:deepKey];
+    id actual = [container objectForDeepKey:deepKey];
+    STAssertNil(actual, @"");
+}
+
+- (void) testRemoveObjectForKeyPathDict
+{
+    id container = [NSDictionary dictionaryWithObjectsAndKeys:
+                    [NSDictionary dictionaryWithObjectsAndKeys:
+                     [NSMutableDictionary dictionaryWithObjectsAndKeys:
+                      @"someObject", @"key3",
+                      nil], @"key2",
+                     nil], @"key1",
+                    nil];
+    
+    id deepKey = @"key1/key2/key3";
+    [container removeObjectForKeyPath:deepKey];
+    id actual = [container objectForKeyPath:deepKey];
+    STAssertNil(actual, @"");
+}
+
+- (void) testRemoveObjectForDeepKeyArray
+{
+    id container = [NSArray arrayWithObjects:
+                    [NSDictionary dictionaryWithObjectsAndKeys:
+                     [NSMutableArray arrayWithObjects:
+                      @"someObject",
+                      nil], @"key2",
+                     nil],
+                    nil];
+    
+    id deepKey = [NSArray arrayWithObjects:@"0", @"key2", @"0", nil];
+    [container removeObjectForDeepKey:deepKey];
+    STAssertThrows([container objectForDeepKey:deepKey], @"");
+}
+
+- (void) testRemoveObjectForKeyPathArray
+{
+    id container = [NSArray arrayWithObjects:
+                    [NSDictionary dictionaryWithObjectsAndKeys:
+                     [NSMutableArray arrayWithObjects:
+                      @"someObject",
+                      nil], @"key2",
+                     nil],
+                    nil];
+    
+    id deepKey = @"0/key2/0";
+    [container removeObjectForKeyPath:deepKey];
+    STAssertThrows([container objectForKeyPath:deepKey], @"");
+}
+
+- (void) testRemoveObjectForDeepKeyInvalidContainer
+{
+    id container = [NSDate date];
+    
+    id deepKey = [NSArray arrayWithObjects:@"key1", @"key2", @"0", nil];
+    STAssertThrows([container removeObjectForDeepKey:deepKey], @"");
+}
+
+- (void) testRemoveObjectForDeepKeyImmutableArray
+{
+    id container = [NSArray arrayWithObjects:
+                    [NSDictionary dictionaryWithObjectsAndKeys:
+                     [NSArray arrayWithObjects:
+                      @"someObject",
+                      nil], @"key2",
+                     nil],
+                    nil];
+    
+    id deepKey = [NSArray arrayWithObjects:@"0", @"key2", @"0", nil];
+    STAssertThrows([container removeObjectForDeepKey:deepKey], @"");
+}
+
+- (void) testRemoveObjectForDeepKeyImmutableDict
+{
+    id container = [NSDictionary dictionaryWithObjectsAndKeys:
+                    [NSDictionary dictionaryWithObjectsAndKeys:
+                     [NSDictionary dictionaryWithObjectsAndKeys:
+                      @"someObject", @"someKey",
+                      nil], @"key2",
+                     nil], @"key1",
+                    nil];
+    
+    id deepKey = [NSArray arrayWithObjects:@"key1", @"key2", [NSDate date], nil];
+    STAssertThrows([container removeObjectForDeepKey:deepKey], @"");
+}
 
 @end

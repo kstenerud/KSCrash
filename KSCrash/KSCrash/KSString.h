@@ -45,9 +45,9 @@ extern "C" {
  *
  * @param maxLength The maximum length to be considered a valid string.
  */
-bool kstring_isNullTerminatedUTF8String(const void* memory,
-                                        int minLength,
-                                        int maxLength);
+bool ksstring_isNullTerminatedUTF8String(const void* memory,
+                                         int minLength,
+                                         int maxLength);
 
 /** Extract a hex value in the form "0x123456789abcdef" from a string.
  *

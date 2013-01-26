@@ -57,7 +57,7 @@ static const int g_continuationByteCount[0x40] =
     3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 0, 0,
 };
 
-bool kstring_isNullTerminatedUTF8String(const void* memory,
+bool ksstring_isNullTerminatedUTF8String(const void* memory,
                                         int minLength,
                                         int maxLength)
 {

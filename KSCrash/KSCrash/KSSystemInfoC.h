@@ -47,7 +47,7 @@ const char* kssysteminfo_toJSON(void);
  *
  * @return The process name. Caller is responsible for calling free().
  */
-const char* kssystemInfo_copyProcessName(void);
+char* kssystemInfo_copyProcessName(void);
 
 #ifdef __cplusplus
 }

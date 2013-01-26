@@ -81,39 +81,33 @@ static id objectForKeyPath(id container, NSString* keyPath)
 static id parentOfDeepKey(id container, NSArray* deepKey)
 {
     NSUInteger deepKeyCount = [deepKey count];
-    switch(deepKeyCount)
+    if(deepKeyCount == 1)
     {
-        case 0:
-        {
-            @throw [NSException exceptionWithName:NSInvalidArgumentException
-                                           reason:@"deepKey must contain at least one key"
-                                         userInfo:nil];
-            break;
-        }
-        case 1:
-        {
-            return container;
-        }
-        default:
-        {
-            NSArray* parentKey = [deepKey subarrayWithRange:NSMakeRange(0, deepKeyCount - 1)];
-            id parent = objectForDeepKey(container, parentKey);
-            if(parent == nil)
-            {
-                NSString* reason = [NSString stringWithFormat:
-                                    @"Parent %@ does not resolve to a valid object",
-                                    parentKey];
-                @throw [NSException exceptionWithName:NSInternalInconsistencyException
-                                               reason:reason
-                                             userInfo:nil];
-            }
-            return parent;
-        }
+        return container;
     }
+
+    NSArray* parentKey = [deepKey subarrayWithRange:NSMakeRange(0, deepKeyCount - 1)];
+    id parent = objectForDeepKey(container, parentKey);
+    if(parent == nil)
+    {
+        NSString* reason = [NSString stringWithFormat:
+                            @"Parent %@ does not resolve to a valid object",
+                            parentKey];
+        @throw [NSException exceptionWithName:NSInternalInconsistencyException
+                                       reason:reason
+                                     userInfo:nil];
+    }
+    return parent;
 }
 
 static void setObjectForDeepKey(id container, id object, NSArray* deepKey)
 {
+    if([deepKey count] == 0)
+    {
+        @throw [NSException exceptionWithName:NSInvalidArgumentException
+                                       reason:[NSString stringWithFormat:@"deepKey %@ must contain at least one key", deepKey]
+                                     userInfo:nil];
+    }
     NSString* excFormat = nil;
     id lastKey = [deepKey objectAtIndex:[deepKey count] - 1];
     id parentContainer = parentOfDeepKey(container, deepKey);

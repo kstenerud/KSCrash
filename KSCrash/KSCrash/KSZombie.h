@@ -102,7 +102,7 @@ const uintptr_t* kszombie_lastDeallocedNSExceptionCallStack(void);
  *
  * @return The call stack length.
  */
-const unsigned int kszombie_lastDeallocedNSExceptionCallStackLength(void);
+const size_t kszombie_lastDeallocedNSExceptionCallStackLength(void);
 
 
 #ifdef __cplusplus
