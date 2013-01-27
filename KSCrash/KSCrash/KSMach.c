@@ -91,22 +91,22 @@ const char* ksmach_currentCPUArch(void)
     return archInfo == NULL ? NULL : archInfo->name;
 }
 
+#define RETURN_NAME_FOR_ENUM(A) case A: return #A
+
 const char* ksmach_exceptionName(const exception_type_t exceptionType)
 {
     switch (exceptionType)
     {
-        case EXC_BAD_ACCESS:      return "EXC_BAD_ACCESS";
-        case EXC_BAD_INSTRUCTION: return "EXC_BAD_INSTRUCTION";
-        case EXC_ARITHMETIC:      return "EXC_ARITHMETIC";
-        case EXC_EMULATION:       return "EXC_EMULATION";
-        case EXC_SOFTWARE:        return "EXC_SOFTWARE";
-        case EXC_BREAKPOINT:      return "EXC_BREAKPOINT";
-        case EXC_SYSCALL:         return "EXC_SYSCALL";
-        case EXC_MACH_SYSCALL:    return "EXC_MACH_SYSCALL";
-        case EXC_RPC_ALERT:       return "EXC_RPC_ALERT";
-        case EXC_CRASH:           return "EXC_CRASH";
-        default:
-            break;
+            RETURN_NAME_FOR_ENUM(EXC_BAD_ACCESS);
+            RETURN_NAME_FOR_ENUM(EXC_BAD_INSTRUCTION);
+            RETURN_NAME_FOR_ENUM(EXC_ARITHMETIC);
+            RETURN_NAME_FOR_ENUM(EXC_EMULATION);
+            RETURN_NAME_FOR_ENUM(EXC_SOFTWARE);
+            RETURN_NAME_FOR_ENUM(EXC_BREAKPOINT);
+            RETURN_NAME_FOR_ENUM(EXC_SYSCALL);
+            RETURN_NAME_FOR_ENUM(EXC_MACH_SYSCALL);
+            RETURN_NAME_FOR_ENUM(EXC_RPC_ALERT);
+            RETURN_NAME_FOR_ENUM(EXC_CRASH);
     }
     return NULL;
 }
@@ -115,57 +115,57 @@ const char* ksmach_kernelReturnCodeName(const kern_return_t returnCode)
 {
     switch (returnCode)
     {
-        case KERN_SUCCESS:                return "KERN_SUCCESS";                //  0
-        case KERN_INVALID_ADDRESS:        return "KERN_INVALID_ADDRESS";        //  1
-        case KERN_PROTECTION_FAILURE:     return "KERN_PROTECTION_FAILURE";     //  2
-        case KERN_NO_SPACE:               return "KERN_NO_SPACE";               //  3
-        case KERN_INVALID_ARGUMENT:       return "KERN_INVALID_ARGUMENT";       //  4
-        case KERN_FAILURE:                return "KERN_FAILURE";                //  5
-        case KERN_RESOURCE_SHORTAGE:      return "KERN_RESOURCE_SHORTAGE";      //  6
-        case KERN_NOT_RECEIVER:           return "KERN_NOT_RECEIVER";           //  7
-        case KERN_NO_ACCESS:              return "KERN_NO_ACCESS";              //  8
-        case KERN_MEMORY_FAILURE:         return "KERN_MEMORY_FAILURE";         //  9
-        case KERN_MEMORY_ERROR:           return "KERN_MEMORY_ERROR";           // 10
-        case KERN_ALREADY_IN_SET:         return "KERN_ALREADY_IN_SET";         // 11
-        case KERN_NOT_IN_SET:             return "KERN_NOT_IN_SET";             // 12
-        case KERN_NAME_EXISTS:            return "KERN_NAME_EXISTS";            // 13
-        case KERN_ABORTED:                return "KERN_ABORTED";                // 14
-        case KERN_INVALID_NAME:           return "KERN_INVALID_NAME";           // 15
-        case KERN_INVALID_TASK:           return "KERN_INVALID_TASK";           // 16
-        case KERN_INVALID_RIGHT:          return "KERN_INVALID_RIGHT";          // 17
-        case KERN_INVALID_VALUE:          return "KERN_INVALID_VALUE";          // 18
-        case KERN_UREFS_OVERFLOW:         return "KERN_UREFS_OVERFLOW";         // 19
-        case KERN_INVALID_CAPABILITY:     return "KERN_INVALID_CAPABILITY";     // 20
-        case KERN_RIGHT_EXISTS:           return "KERN_RIGHT_EXISTS";           // 21
-        case KERN_INVALID_HOST:           return "KERN_INVALID_HOST";           // 22
-        case KERN_MEMORY_PRESENT:         return "KERN_MEMORY_PRESENT";         // 23
-        case KERN_MEMORY_DATA_MOVED:      return "KERN_MEMORY_DATA_MOVED";      // 24
-        case KERN_MEMORY_RESTART_COPY:    return "KERN_MEMORY_RESTART_COPY";    // 25
-        case KERN_INVALID_PROCESSOR_SET:  return "KERN_INVALID_PROCESSOR_SET";  // 26
-        case KERN_POLICY_LIMIT:           return "KERN_POLICY_LIMIT";           // 27
-        case KERN_INVALID_POLICY:         return "KERN_INVALID_POLICY";         // 28
-        case KERN_INVALID_OBJECT:         return "KERN_INVALID_OBJECT";         // 29
-        case KERN_ALREADY_WAITING:        return "KERN_ALREADY_WAITING";        // 30
-        case KERN_DEFAULT_SET:            return "KERN_DEFAULT_SET";            // 31
-        case KERN_EXCEPTION_PROTECTED:    return "KERN_EXCEPTION_PROTECTED";    // 32
-        case KERN_INVALID_LEDGER:         return "KERN_INVALID_LEDGER";         // 33
-        case KERN_INVALID_MEMORY_CONTROL: return "KERN_INVALID_MEMORY_CONTROL"; // 34
-        case KERN_INVALID_SECURITY:       return "KERN_INVALID_SECURITY";       // 35
-        case KERN_NOT_DEPRESSED:          return "KERN_NOT_DEPRESSED";          // 36
-        case KERN_TERMINATED:             return "KERN_TERMINATED";             // 37
-        case KERN_LOCK_SET_DESTROYED:     return "KERN_LOCK_SET_DESTROYED";     // 38
-        case KERN_LOCK_UNSTABLE:          return "KERN_LOCK_UNSTABLE";          // 39
-        case KERN_LOCK_OWNED:             return "KERN_LOCK_OWNED";             // 40
-        case KERN_LOCK_OWNED_SELF:        return "KERN_LOCK_OWNED_SELF";        // 41
-        case KERN_SEMAPHORE_DESTROYED:    return "KERN_SEMAPHORE_DESTROYED";    // 42
-        case KERN_RPC_SERVER_TERMINATED:  return "KERN_RPC_SERVER_TERMINATED";  // 43
-        case KERN_RPC_TERMINATE_ORPHAN:   return "KERN_RPC_TERMINATE_ORPHAN";   // 44
-        case KERN_RPC_CONTINUE_ORPHAN:    return "KERN_RPC_CONTINUE_ORPHAN";    // 45
-        case KERN_NOT_SUPPORTED:          return "KERN_NOT_SUPPORTED";          // 46
-        case KERN_NODE_DOWN:              return "KERN_NODE_DOWN";              // 47
-        case KERN_NOT_WAITING:            return "KERN_NOT_WAITING";            // 48
-        case KERN_OPERATION_TIMED_OUT:    return "KERN_OPERATION_TIMED_OUT";    // 49
-        case KERN_CODESIGN_ERROR:         return "KERN_CODESIGN_ERROR";         // 50
+            RETURN_NAME_FOR_ENUM(KERN_SUCCESS);
+            RETURN_NAME_FOR_ENUM(KERN_INVALID_ADDRESS);
+            RETURN_NAME_FOR_ENUM(KERN_PROTECTION_FAILURE);
+            RETURN_NAME_FOR_ENUM(KERN_NO_SPACE);
+            RETURN_NAME_FOR_ENUM(KERN_INVALID_ARGUMENT);
+            RETURN_NAME_FOR_ENUM(KERN_FAILURE);
+            RETURN_NAME_FOR_ENUM(KERN_RESOURCE_SHORTAGE);
+            RETURN_NAME_FOR_ENUM(KERN_NOT_RECEIVER);
+            RETURN_NAME_FOR_ENUM(KERN_NO_ACCESS);
+            RETURN_NAME_FOR_ENUM(KERN_MEMORY_FAILURE);
+            RETURN_NAME_FOR_ENUM(KERN_MEMORY_ERROR);
+            RETURN_NAME_FOR_ENUM(KERN_ALREADY_IN_SET);
+            RETURN_NAME_FOR_ENUM(KERN_NOT_IN_SET);
+            RETURN_NAME_FOR_ENUM(KERN_NAME_EXISTS);
+            RETURN_NAME_FOR_ENUM(KERN_ABORTED);
+            RETURN_NAME_FOR_ENUM(KERN_INVALID_NAME);
+            RETURN_NAME_FOR_ENUM(KERN_INVALID_TASK);
+            RETURN_NAME_FOR_ENUM(KERN_INVALID_RIGHT);
+            RETURN_NAME_FOR_ENUM(KERN_INVALID_VALUE);
+            RETURN_NAME_FOR_ENUM(KERN_UREFS_OVERFLOW);
+            RETURN_NAME_FOR_ENUM(KERN_INVALID_CAPABILITY);
+            RETURN_NAME_FOR_ENUM(KERN_RIGHT_EXISTS);
+            RETURN_NAME_FOR_ENUM(KERN_INVALID_HOST);
+            RETURN_NAME_FOR_ENUM(KERN_MEMORY_PRESENT);
+            RETURN_NAME_FOR_ENUM(KERN_MEMORY_DATA_MOVED);
+            RETURN_NAME_FOR_ENUM(KERN_MEMORY_RESTART_COPY);
+            RETURN_NAME_FOR_ENUM(KERN_INVALID_PROCESSOR_SET);
+            RETURN_NAME_FOR_ENUM(KERN_POLICY_LIMIT);
+            RETURN_NAME_FOR_ENUM(KERN_INVALID_POLICY);
+            RETURN_NAME_FOR_ENUM(KERN_INVALID_OBJECT);
+            RETURN_NAME_FOR_ENUM(KERN_ALREADY_WAITING);
+            RETURN_NAME_FOR_ENUM(KERN_DEFAULT_SET);
+            RETURN_NAME_FOR_ENUM(KERN_EXCEPTION_PROTECTED);
+            RETURN_NAME_FOR_ENUM(KERN_INVALID_LEDGER);
+            RETURN_NAME_FOR_ENUM(KERN_INVALID_MEMORY_CONTROL);
+            RETURN_NAME_FOR_ENUM(KERN_INVALID_SECURITY);
+            RETURN_NAME_FOR_ENUM(KERN_NOT_DEPRESSED);
+            RETURN_NAME_FOR_ENUM(KERN_TERMINATED);
+            RETURN_NAME_FOR_ENUM(KERN_LOCK_SET_DESTROYED);
+            RETURN_NAME_FOR_ENUM(KERN_LOCK_UNSTABLE);
+            RETURN_NAME_FOR_ENUM(KERN_LOCK_OWNED);
+            RETURN_NAME_FOR_ENUM(KERN_LOCK_OWNED_SELF);
+            RETURN_NAME_FOR_ENUM(KERN_SEMAPHORE_DESTROYED);
+            RETURN_NAME_FOR_ENUM(KERN_RPC_SERVER_TERMINATED);
+            RETURN_NAME_FOR_ENUM(KERN_RPC_TERMINATE_ORPHAN);
+            RETURN_NAME_FOR_ENUM(KERN_RPC_CONTINUE_ORPHAN);
+            RETURN_NAME_FOR_ENUM(KERN_NOT_SUPPORTED);
+            RETURN_NAME_FOR_ENUM(KERN_NODE_DOWN);
+            RETURN_NAME_FOR_ENUM(KERN_NOT_WAITING);
+            RETURN_NAME_FOR_ENUM(KERN_OPERATION_TIMED_OUT);
+            RETURN_NAME_FOR_ENUM(KERN_CODESIGN_ERROR);
     }
     return NULL;
 }

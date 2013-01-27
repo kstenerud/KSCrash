@@ -40,6 +40,11 @@
 #include <unistd.h>
 
 
+// Compiler hints for "if" statements
+#define likely_if(x) if(__builtin_expect(x,1))
+#define unlikely_if(x) if(__builtin_expect(x,0))
+
+
 /** The buffer size to use when writing log entries.
  *
  * If this value is > 0, any log entries that expand beyond this length will
@@ -115,7 +120,7 @@ static void writeToLog(const char* const str)
     while(bytesToWrite > 0)
     {
         ssize_t bytesWritten = write(g_fd, pos, bytesToWrite);
-        if(bytesWritten == -1)
+        unlikely_if(bytesWritten == -1)
         {
             return;
         }
@@ -126,7 +131,7 @@ static void writeToLog(const char* const str)
 
 static inline void writeFmtArgsToLog(const char* fmt, va_list args)
 {
-    if(fmt == NULL)
+    unlikely_if(fmt == NULL)
     {
         writeToLog("(null)");
     }
@@ -143,11 +148,20 @@ static inline void flushLog(void)
     // Nothing to do.
 }
 
+static inline void setLogFD(int fd)
+{
+    if(g_fd >= 0 && g_fd != STDOUT_FILENO && g_fd != STDERR_FILENO && g_fd != STDIN_FILENO)
+    {
+        close(g_fd);
+    }
+    g_fd = fd;
+}
+
 bool kslog_setLogFilename(const char* filename, bool overwrite)
 {
     if(filename == NULL)
     {
-        g_fd = STDOUT_FILENO;
+        setLogFD(STDOUT_FILENO);
         return true;
     }
 
@@ -157,31 +171,46 @@ bool kslog_setLogFilename(const char* filename, bool overwrite)
         openMask |= O_TRUNC;
     }
     int fd = open(filename, openMask, 0644);
-    if(fd < 0)
+    unlikely_if(fd < 0)
     {
         writeFmtToLog("KSLogger: Could not open %s: %s", filename, strerror(errno));
         return false;
     }
 
-    if(g_fd >= 0 && g_fd != STDOUT_FILENO && g_fd != STDERR_FILENO && g_fd != STDIN_FILENO)
-    {
-        close(g_fd);
-    }
-    g_fd = fd;
+    setLogFD(fd);
     return true;
 }
 
 #else // if KSLogger_CBufferSize <= 0
 
-static FILE* g_file;
+static FILE* g_file = NULL;
+
+static inline void setLogFD(FILE* file)
+{
+    if(g_file != NULL && g_file != stdout && g_file != stderr && g_file != stdin)
+    {
+        fclose(g_file);
+    }
+    g_file = file;
+}
 
 static void writeToLog(const char* const str)
 {
+    unlikely_if(g_file == NULL)
+    {
+        g_file = stdout;
+    }
+    
     fprintf(g_file, "%s", str);
 }
 
 static inline void writeFmtArgsToLog(const char* fmt, va_list args)
 {
+    unlikely_if(g_file == NULL)
+    {
+        g_file = stdout;
+    }
+
     if(fmt == NULL)
     {
         writeToLog("(null)");
@@ -201,21 +230,18 @@ bool kslog_setLogFilename(const char* filename, bool overwrite)
 {
     if(filename == NULL)
     {
-        g_file = stdout;
+        setLogFD(stdout);
+        return true;
     }
 
     FILE* file = fopen(filename, overwrite ? "wb" : "ab");
-    if(file == NULL)
+    unlikely_if(file == NULL)
     {
         writeFmtToLog("KSLogger: Could not open %s: %s", filename, strerror(errno));
         return false;
     }
 
-    if(g_file != stdout && g_file != stderr && g_file != stdin)
-    {
-        fclose(g_file);
-    }
-    g_file = file;
+    setLogFD(file);
     return true;
 }
 
@@ -266,6 +292,12 @@ void i_kslog_logC(const char* const level,
 
 void i_kslog_logObjCBasic(NSString* fmt, ...)
 {
+    if(fmt == nil)
+    {
+        writeToLog("(null)");
+        return;
+    }
+
     va_list args;
     va_start(args,fmt);
     CFStringRef entry = CFStringCreateWithFormatAndArguments(NULL, NULL, (as_bridge CFStringRef)fmt, args);

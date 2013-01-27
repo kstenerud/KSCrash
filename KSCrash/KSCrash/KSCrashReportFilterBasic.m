@@ -27,7 +27,6 @@
 
 #import "KSCrashReportFilterBasic.h"
 #import "ARCSafe_MemMgmt.h"
-#import "KSSafeCollections.h"
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
