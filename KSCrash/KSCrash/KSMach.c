@@ -207,7 +207,7 @@ bool ksmach_getThreadQueueName(const thread_t thread,
 
     // Recast the opaque thread to our hacky internal thread structure pointer.
     const pthread_t pthread = pthread_from_mach_thread_np(thread);
-    const internal_pthread_t const threadStruct = (internal_pthread_t)pthread;
+    const internal_pthread_t threadStruct = (internal_pthread_t)pthread;
 
     if(ksmach_copyMem(&threadStruct->tsd[dispatch_queue_key], &pQueue, sizeof(pQueue)) != KERN_SUCCESS)
     {
