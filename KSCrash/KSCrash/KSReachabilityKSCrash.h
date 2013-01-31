@@ -110,7 +110,7 @@
  * The operation will only be performed once, regardless of how many times a
  * host becomes reachable.
  */
-@interface KSReachableOperation: NSObject
+@interface KSReachableOperationKSCrash: NSObject
 
 /** Constructor.
  *
@@ -124,7 +124,7 @@
  * @param block The block to invoke when the host becomes reachable.
  *              Block will be invoked on the main thread.
  */
-+ (KSReachableOperation*) operationWithHost:(NSString*) hostname
++ (KSReachableOperationKSCrash*) operationWithHost:(NSString*) hostname
                                   allowWWAN:(BOOL) allowWWAN
                                       block:(void(^)()) block;
 

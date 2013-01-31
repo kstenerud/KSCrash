@@ -226,7 +226,7 @@
 
 @property(nonatomic,readwrite,copy) void(^onSuccess)(NSString* response);
 
-@property(nonatomic,readwrite,retain) KSReachableOperation* reachableOperation;
+@property(nonatomic,readwrite,retain) KSReachableOperationKSCrash* reachableOperation;
 
 - (NSData*) toQuincyBody:(NSArray*) reports;
 
@@ -343,7 +343,7 @@
     __unsafe_unretained KSCrashReportSinkQuincy* blockSelf = self;
 
     KSLOG_TRACE(@"Starting reachable operation to host %@", [self.url host]);
-    self.reachableOperation = [KSReachableOperation operationWithHost:[self.url host]
+    self.reachableOperation = [KSReachableOperationKSCrash operationWithHost:[self.url host]
                                                             allowWWAN:YES
                                                                 block:^
                                {

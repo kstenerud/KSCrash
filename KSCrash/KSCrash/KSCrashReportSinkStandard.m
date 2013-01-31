@@ -44,7 +44,7 @@
 
 @property(nonatomic,readwrite,copy) void(^onSuccess)(NSString* response);
 
-@property(nonatomic,readwrite,retain) KSReachableOperation* reachableOperation;
+@property(nonatomic,readwrite,retain) KSReachableOperationKSCrash* reachableOperation;
 
 
 @end
@@ -124,7 +124,7 @@
 //    [request setHTTPBody:[[body data] gzippedWithError:nil]];
 //    [request setValue:@"gzip" forHTTPHeaderField:@"Content-Encoding"];
 
-    self.reachableOperation = [KSReachableOperation operationWithHost:[self.url host]
+    self.reachableOperation = [KSReachableOperationKSCrash operationWithHost:[self.url host]
                                                             allowWWAN:YES
                                                                 block:^
     {
