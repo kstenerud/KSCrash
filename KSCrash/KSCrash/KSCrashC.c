@@ -148,7 +148,7 @@ bool kscrash_install(const char* const crashReportFilePath,
             KSLOGBASIC_WARN("KSCrash: App is running in a debugger. Crash handlers have been disabled for the sanity of all.");
         }
         else if(kscrashsentry_installWithContext(&context->crash,
-                                                 KSCrashTypeAll) == 0)
+                                                 deadlockWatchdogInterval ? KSCrashTypeAll : KSCrashTypeAll & ~KSCrashTypeMainThreadDeadlock) == 0)
         {
             KSLOG_ERROR("Failed to install any handlers");
         }
