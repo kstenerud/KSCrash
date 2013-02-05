@@ -29,7 +29,7 @@
 		39DA82C116184456001E7F79 /* KSCrash.m in Sources */ = {isa = PBXBuildFile; fileRef = 39DA82BA16184456001E7F79 /* KSCrash.m */; };
 		39DA82C216184456001E7F79 /* KSCrashAdvanced.h in Headers */ = {isa = PBXBuildFile; fileRef = 39DA82BB16184456001E7F79 /* KSCrashAdvanced.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		39DA82C316184456001E7F79 /* KSCrashAdvanced.h in Headers */ = {isa = PBXBuildFile; fileRef = 39DA82BB16184456001E7F79 /* KSCrashAdvanced.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		39DA82C416184456001E7F79 /* KSCrashReportStore.h in Headers */ = {isa = PBXBuildFile; fileRef = 39DA82BC16184456001E7F79 /* KSCrashReportStore.h */; };
+		39DA82C416184456001E7F79 /* KSCrashReportStore.h in Headers */ = {isa = PBXBuildFile; fileRef = 39DA82BC16184456001E7F79 /* KSCrashReportStore.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		39DA82C516184456001E7F79 /* KSCrashReportStore.h in Headers */ = {isa = PBXBuildFile; fileRef = 39DA82BC16184456001E7F79 /* KSCrashReportStore.h */; };
 		39DA82C616184456001E7F79 /* KSCrashReportStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 39DA82BD16184456001E7F79 /* KSCrashReportStore.m */; };
 		39DA82C716184456001E7F79 /* KSCrashReportStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 39DA82BD16184456001E7F79 /* KSCrashReportStore.m */; };
@@ -851,6 +851,7 @@
 				39DA830116184487001E7F79 /* KSCrashReportSinkEMail.h in Headers */,
 				39DA830516184487001E7F79 /* KSCrashReportSinkQuincy.h in Headers */,
 				39DA830916184487001E7F79 /* KSCrashReportSinkStandard.h in Headers */,
+				39DA82C416184456001E7F79 /* KSCrashReportStore.h in Headers */,
 				39DA836B161844FF001E7F79 /* KSJSONCodecObjC.h in Headers */,
 				397A7C87162266480096E287 /* KSCrashReportFields.h in Headers */,
 				39DA84F6161978D7001E7F79 /* NSDictionary+Merge.h in Headers */,
@@ -862,7 +863,6 @@
 				39DA83B31618450A001E7F79 /* KSCrashC.h in Headers */,
 				39DA83B51618450A001E7F79 /* KSCrashContext.h in Headers */,
 				39DA83B91618450A001E7F79 /* KSCrashReport.h in Headers */,
-				39DA82C416184456001E7F79 /* KSCrashReportStore.h in Headers */,
 				39D329DC16765AD500D989DC /* KSCrashSentry_Deadlock.h in Headers */,
 				39DA83BF1618450A001E7F79 /* KSCrashSentry_MachException.h in Headers */,
 				39DA83C11618450A001E7F79 /* KSCrashSentry_NSException.h in Headers */,
