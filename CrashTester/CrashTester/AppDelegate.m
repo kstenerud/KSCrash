@@ -55,13 +55,8 @@ static void onCrash(const KSCrashReportWriter* writer)
 //    [KSCrash logToFile];
 
     [KSCrash installWithCrashReportSink:nil
-                               userInfo:[NSDictionary dictionaryWithObjectsAndKeys:
-                                         @"\"quote\"", @"quoted value",
-                                         @"blah", @"\"quoted\" key",
-                                         @"bslash\\", @"bslash value",
-                                         @"x", @"bslash\\key",
-                                         @"intl", @"テスト",
-                                         nil]
+                               userInfo:@{ @"name": [UIDevice currentDevice].name, @"email": @"user@gmail.com",
+     @"quoted value": @"\"quote\"", @"\"quoted\" key": @"blah", @"bslash value": @"bslash\\", @"bslash\\key": @"x", @"テスト": @"intl" }
                         zombieCacheSize:16384
                deadlockWatchdogInterval:5.0f
                      printTraceToStdout:YES
