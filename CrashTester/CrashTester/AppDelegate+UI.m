@@ -491,6 +491,23 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
           [crashReporter sendAllReportsWithCompletion:nil];
       }]];
     
+    [commands addObject:
+     [CommandEntry commandWithName:@"Send to Takanashi"
+                     accessoryType:UITableViewCellAccessoryNone
+                             block:^(UIViewController* controller)
+      {
+          NSLog(@"Sending reports to Takanashi...");
+          KSCrash* crashReporter = [KSCrash instance];
+          crashReporter.sink = [KSCrashReportSinkStandard sinkWithURL:kTakanashiURL
+                                                            onSuccess:^(NSString* response)
+                                {
+                                    NSLog(@"Success. Response = %@", response);
+                                    [blockSelf showAlertWithTitle:@"Success" message:response];
+                                    [(CommandTVC*)controller reloadTitle];
+                                }];
+          [crashReporter sendAllReportsWithCompletion:nil];
+      }]];
+    
     return commands;
 }
 

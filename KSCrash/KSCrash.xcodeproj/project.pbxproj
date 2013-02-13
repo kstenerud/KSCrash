@@ -29,7 +29,7 @@
 		39DA82C116184456001E7F79 /* KSCrash.m in Sources */ = {isa = PBXBuildFile; fileRef = 39DA82BA16184456001E7F79 /* KSCrash.m */; };
 		39DA82C216184456001E7F79 /* KSCrashAdvanced.h in Headers */ = {isa = PBXBuildFile; fileRef = 39DA82BB16184456001E7F79 /* KSCrashAdvanced.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		39DA82C316184456001E7F79 /* KSCrashAdvanced.h in Headers */ = {isa = PBXBuildFile; fileRef = 39DA82BB16184456001E7F79 /* KSCrashAdvanced.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		39DA82C416184456001E7F79 /* KSCrashReportStore.h in Headers */ = {isa = PBXBuildFile; fileRef = 39DA82BC16184456001E7F79 /* KSCrashReportStore.h */; };
+		39DA82C416184456001E7F79 /* KSCrashReportStore.h in Headers */ = {isa = PBXBuildFile; fileRef = 39DA82BC16184456001E7F79 /* KSCrashReportStore.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		39DA82C516184456001E7F79 /* KSCrashReportStore.h in Headers */ = {isa = PBXBuildFile; fileRef = 39DA82BC16184456001E7F79 /* KSCrashReportStore.h */; };
 		39DA82C616184456001E7F79 /* KSCrashReportStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 39DA82BD16184456001E7F79 /* KSCrashReportStore.m */; };
 		39DA82C716184456001E7F79 /* KSCrashReportStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 39DA82BD16184456001E7F79 /* KSCrashReportStore.m */; };
@@ -866,6 +866,7 @@
 				39DA830116184487001E7F79 /* KSCrashReportSinkEMail.h in Headers */,
 				39DA830516184487001E7F79 /* KSCrashReportSinkQuincy.h in Headers */,
 				39DA830916184487001E7F79 /* KSCrashReportSinkStandard.h in Headers */,
+				39DA82C416184456001E7F79 /* KSCrashReportStore.h in Headers */,
 				39DA836B161844FF001E7F79 /* KSJSONCodecObjC.h in Headers */,
 				397A7C87162266480096E287 /* KSCrashReportFields.h in Headers */,
 				39DA84F6161978D7001E7F79 /* NSDictionary+Merge.h in Headers */,
@@ -877,7 +878,6 @@
 				39DA83B31618450A001E7F79 /* KSCrashC.h in Headers */,
 				39DA83B51618450A001E7F79 /* KSCrashContext.h in Headers */,
 				39DA83B91618450A001E7F79 /* KSCrashReport.h in Headers */,
-				39DA82C416184456001E7F79 /* KSCrashReportStore.h in Headers */,
 				39D329DC16765AD500D989DC /* KSCrashSentry_Deadlock.h in Headers */,
 				39DA83BF1618450A001E7F79 /* KSCrashSentry_MachException.h in Headers */,
 				39DA83C11618450A001E7F79 /* KSCrashSentry_NSException.h in Headers */,
@@ -1116,7 +1116,7 @@
 		39DA35941618430C009EB332 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0450;
+				LastUpgradeCheck = 0460;
 				ORGANIZATIONNAME = "Karl Stenerud";
 			};
 			buildConfigurationList = 39DA35971618430C009EB332 /* Build configuration list for PBXProject "KSCrash" */;
@@ -1466,7 +1466,6 @@
 				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_IMPLICIT_SIGN_CONVERSION = YES;
-				CLANG_WARN_OBJCPP_ARC_ABI = YES;
 				CLANG_WARN_OBJC_IMPLICIT_ATOMIC_PROPERTIES = YES;
 				CLANG_WARN_OBJC_MISSING_PROPERTY_SYNTHESIS = YES;
 				CLANG_WARN_OBJC_RECEIVER_WEAK = YES;
@@ -1519,7 +1518,6 @@
 				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_IMPLICIT_SIGN_CONVERSION = YES;
-				CLANG_WARN_OBJCPP_ARC_ABI = YES;
 				CLANG_WARN_OBJC_IMPLICIT_ATOMIC_PROPERTIES = YES;
 				CLANG_WARN_OBJC_MISSING_PROPERTY_SYNTHESIS = YES;
 				CLANG_WARN_OBJC_RECEIVER_WEAK = YES;
@@ -1687,6 +1685,7 @@
 				FRAMEWORK_VERSION = A;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "KSCrashLite/KSCrashLite-Prefix.pch";
+				GCC_THUMB_SUPPORT = NO;
 				INFOPLIST_FILE = "KSCrashLite/KSCrashLite-Info.plist";
 				INFOPLIST_PATH = "$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Info.plist";
 				INSTALL_PATH = "$(BUILT_PRODUCTS_DIR)";
@@ -1715,6 +1714,7 @@
 				FRAMEWORK_VERSION = A;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "KSCrashLite/KSCrashLite-Prefix.pch";
+				GCC_THUMB_SUPPORT = NO;
 				INFOPLIST_FILE = "KSCrashLite/KSCrashLite-Info.plist";
 				INFOPLIST_PATH = "$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Info.plist";
 				INSTALL_PATH = "$(BUILT_PRODUCTS_DIR)";
