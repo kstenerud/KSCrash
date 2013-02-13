@@ -43,10 +43,14 @@ Although it's now being shipped in production apps, KSCrash is still
 officially considered "beta" software because there are a few more
 things to do before releasing version 1.0.
 
+The following feature has been causing problems. Please don't use it until
+I've found a more robust solution.
+
+- Deadlock detection
+
 The following features are newer and not as tested as the rest:
 
 - Objective-C introspection.
-- Deadlock detection
 
 These features are being used in deployed systems, but have not had as much
 exposure as the rest of the library.
