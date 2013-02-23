@@ -56,7 +56,7 @@ void kscrashsentry_uninstallDeadlockHandler(void);
  *
  * @param value The number of seconds between checks (0 = disabled).
  */
-void kscrashSentry_setDeadlockHandlerWatchdogInterval(float value);
+void kscrashSentry_setDeadlockHandlerWatchdogInterval(double value);
 
 
 #ifdef __cplusplus

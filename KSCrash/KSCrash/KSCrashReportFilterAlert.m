@@ -28,6 +28,7 @@
 #import "KSCrashReportFilterAlert.h"
 
 #import "ARCSafe_MemMgmt.h"
+#import "KSCrashCallCompletion.h"
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -93,11 +94,10 @@
     [self.alertView show];
 }
 
-- (void) alertView:(UIAlertView*) alertView clickedButtonAtIndex:(NSInteger) buttonIndex
+- (void) alertView:(__unused UIAlertView*) alertView clickedButtonAtIndex:(NSInteger) buttonIndex
 {
-    #pragma unused(alertView)
     BOOL success = buttonIndex == 1;
-    self.onCompletion(self.reports, success, nil);
+    kscrash_i_callCompletion(self.onCompletion, self.reports, success, nil);
 }
 
 @end
@@ -171,7 +171,7 @@
                                                  NSError* error)
                         {
                             KSLOG_TRACE(@"alert process complete");
-                            onCompletion(filteredReports, completed, error);
+                            kscrash_i_callCompletion(onCompletion, filteredReports, completed, error);
                             dispatch_async(dispatch_get_main_queue(), ^
                                            {
                                                as_release(process);

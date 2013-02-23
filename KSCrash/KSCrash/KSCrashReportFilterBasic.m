@@ -27,36 +27,11 @@
 
 #import "KSCrashReportFilterBasic.h"
 #import "ARCSafe_MemMgmt.h"
+#import "KSCrashCallCompletion.h"
+#import "NSError+SimpleConstructor.h"
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
-
-
-static inline void callCompletion(KSCrashReportFilterCompletion onCompletion,
-                                  NSArray* filteredReports,
-                                  BOOL completed,
-                                  NSError* error)
-{
-    if(onCompletion)
-    {
-        onCompletion(filteredReports, completed, error);
-    }
-}
-
-static inline NSError* makeNSError(NSString* domain, NSInteger code, NSString* fmt, ...)
-{
-    va_list args;
-    va_start(args, fmt);
-
-    NSString* desc = as_autorelease([[NSString alloc] initWithFormat:fmt
-                                                           arguments:args]);
-    va_end(args);
-
-    return [NSError errorWithDomain:domain
-                               code:code
-                           userInfo:[NSDictionary dictionaryWithObject:desc
-                                                                forKey:NSLocalizedDescriptionKey]];
-}
 
 
 @implementation KSCrashReportFilterDataToString
@@ -77,7 +52,7 @@ static inline NSError* makeNSError(NSString* domain, NSInteger code, NSString* f
         [filteredReports addObject:converted];
     }
 
-    callCompletion(onCompletion, filteredReports, YES, nil);
+    kscrash_i_callCompletion(onCompletion, filteredReports, YES, nil);
 }
 
 @end
@@ -99,11 +74,10 @@ static inline NSError* makeNSError(NSString* domain, NSInteger code, NSString* f
         NSData* converted = [report dataUsingEncoding:NSUTF8StringEncoding];
         if(converted == nil)
         {
-            callCompletion(onCompletion, filteredReports,
-                           NO,
-                           makeNSError([[self class] description],
-                                       0,
-                                       @"Could not convert report to UTF-8"));
+            kscrash_i_callCompletion(onCompletion, filteredReports, NO,
+                                     [NSError errorWithDomain:[[self class] description]
+                                                         code:0
+                                                  description:@"Could not convert report to UTF-8"]);
             return;
         }
         else
@@ -112,7 +86,7 @@ static inline NSError* makeNSError(NSString* domain, NSInteger code, NSString* f
         }
     }
 
-    callCompletion(onCompletion, filteredReports, YES, nil);
+    kscrash_i_callCompletion(onCompletion, filteredReports, YES, nil);
 }
 
 @end

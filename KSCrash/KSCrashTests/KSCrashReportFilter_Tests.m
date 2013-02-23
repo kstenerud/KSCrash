@@ -26,6 +26,7 @@
 
 
 #import <SenTestingKit/SenTestingKit.h>
+#import "KSCrashCallCompletion.h"
 #import "KSCrashReportFilter.h"
 #import "KSCrashReportFilterBasic.h"
 #import "KSCrashReportFilterGZip.h"
@@ -86,7 +87,7 @@
 
 - (void) onTimeUp
 {
-    self.onCompletion(self.reports, self.completed, self.error);
+    kscrash_i_callCompletion(self.onCompletion, self.reports, self.completed, self.error);
 }
 
 @end
@@ -105,13 +106,10 @@
 
     __block KSCrashReportFilterPassthrough* filter = [KSCrashReportFilterPassthrough filter];
     [filter filterReports:reports
-             onCompletion:^(NSArray* filteredReports,
-                            BOOL completed,
-                            NSError* error)
+             onCompletion:^(__unused NSArray* filteredReports,
+                            __unused BOOL completed,
+                            __unused NSError* error)
      {
-         #pragma unused(filteredReports)
-         #pragma unused(completed)
-         #pragma unused(error)
          filter = nil;
          reports = nil;
          dispatch_async(dispatch_get_main_queue(), ^
@@ -131,13 +129,10 @@
 
     __block KSCrashReportFilterPipeline* pipeline = [KSCrashReportFilterPipeline filterWithFilters:filter, nil];
     [pipeline filterReports:reports
-               onCompletion:^(NSArray* filteredReports,
-                              BOOL completed,
-                              NSError* error)
+               onCompletion:^(__unused NSArray* filteredReports,
+                              __unused BOOL completed,
+                              __unused NSError* error)
      {
-         #pragma unused(filteredReports)
-         #pragma unused(completed)
-         #pragma unused(error)
          reports = nil;
          filter = nil;
          pipeline = nil;
@@ -160,13 +155,10 @@
 
     __block KSCrashReportFilterPipeline* pipeline = [KSCrashReportFilterPipeline filterWithFilters:filter, nil];
     [pipeline filterReports:reports
-               onCompletion:^(NSArray* filteredReports,
-                              BOOL completed,
-                              NSError* error)
+               onCompletion:^(__unused NSArray* filteredReports,
+                              __unused BOOL completed,
+                              __unused NSError* error)
      {
-         #pragma unused(filteredReports)
-         #pragma unused(completed)
-         #pragma unused(error)
          reports = nil;
          filter = nil;
          pipeline = nil;

@@ -27,6 +27,7 @@
 
 #import "NSData+GZip.h"
 
+#import "NSError+SimpleConstructor.h"
 #import <zlib.h>
 
 
@@ -66,42 +67,6 @@ static NSString* zlibError(int errorCode)
     return [NSString stringWithFormat:@"Unknown error: %d", errorCode];
 }
 
-/** Fill out a pointer-to-error.
- *
- * @param error The error to fill out. Ignored if nil.
- *
- * @param fmt The printf-formatted string + args. If nil, *error is cleared to
- *            nil (unless error is nil as well).
- *
- * @return always false (to keep the analyzer happy).
- */
-static BOOL fillError(NSError** error, NSString* fmt, ...)
-{
-    if(error == nil)
-    {
-        return false;
-    }
-
-    if(fmt == nil)
-    {
-        *error = nil;
-        return false;
-    }
-
-    va_list args;
-    va_start(args, fmt);
-
-    NSString* desc = as_autorelease([[NSString alloc] initWithFormat:fmt
-                                                           arguments:args]);
-    va_end(args);
-
-    *error = [NSError errorWithDomain:@"JSONCodec"
-                                 code:1
-                             userInfo:[NSDictionary dictionaryWithObject:desc
-                                                                  forKey:NSLocalizedDescriptionKey]];
-    return false;
-}
-
 @implementation NSData (GZip)
 
 - (NSData*) gzippedWithCompressionLevel:(int) compressionLevel
@@ -110,7 +75,7 @@ static BOOL fillError(NSError** error, NSString* fmt, ...)
     uInt length = (uInt)[self length];
     if(length == 0)
     {
-        fillError(error, nil);
+        [NSError clearError:error];
         return [NSData data];
     }
 
@@ -128,7 +93,10 @@ static BOOL fillError(NSError** error, NSString* fmt, ...)
                        Z_DEFAULT_STRATEGY);
     if(err != Z_OK)
     {
-        fillError(error, @"deflateInit2: %@", zlibError(err));
+        [NSError fillError:error
+                withDomain:[[self class] description]
+                      code:0
+               description:@"deflateInit2: %@", zlibError(err)];
         return nil;
     }
 
@@ -145,14 +113,17 @@ static BOOL fillError(NSError** error, NSString* fmt, ...)
 
     if(err != Z_STREAM_END)
     {
-        fillError(error, @"deflate: %@", zlibError(err));
+        [NSError fillError:error
+                withDomain:[[self class] description]
+                      code:0
+               description:@"deflate: %@", zlibError(err)];
         deflateEnd(&stream);
         return nil;
     }
 
     [compressedData setLength:stream.total_out];
 
-    fillError(error, nil);
+    [NSError clearError:error];
     deflateEnd(&stream);
     return compressedData;
 }
@@ -162,7 +133,7 @@ static BOOL fillError(NSError** error, NSString* fmt, ...)
     uInt length = (uInt)[self length];
     if(length == 0)
     {
-        fillError(error, nil);
+        [NSError clearError:error];
         return [NSData data];
     }
 
@@ -175,7 +146,10 @@ static BOOL fillError(NSError** error, NSString* fmt, ...)
     err = inflateInit2(&stream, 16+MAX_WBITS);
     if(err != Z_OK)
     {
-        fillError(error, @"inflateInit2: %@", zlibError(err));
+        [NSError fillError:error
+                withDomain:[[self class] description]
+                      code:0
+               description:@"inflateInit2: %@", zlibError(err)];
         return nil;
     }
 
@@ -190,7 +164,10 @@ static BOOL fillError(NSError** error, NSString* fmt, ...)
         err = inflate(&stream, Z_NO_FLUSH);
         if(err != Z_OK && err != Z_STREAM_END)
         {
-            fillError(error, @"inflate: %@", zlibError(err));
+            [NSError fillError:error
+                    withDomain:[[self class] description]
+                          code:0
+                   description:@"inflate: %@", zlibError(err)];
             inflateEnd(&stream);
             return nil;
         }
@@ -198,7 +175,7 @@ static BOOL fillError(NSError** error, NSString* fmt, ...)
                            length:sizeof(buffer) - stream.avail_out];
     }
 
-    fillError(error, nil);
+    [NSError clearError:error];
     inflateEnd(&stream);
     return expandedData;
 }

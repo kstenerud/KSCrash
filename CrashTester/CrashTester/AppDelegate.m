@@ -51,25 +51,31 @@ static void onCrash(const KSCrashReportWriter* writer)
 
 - (void) installCrashHandler
 {
-    // Uncomment this to write all log entries to Library/Caches/KSCrashReports/CrashTester/CrashTester-CrashLog.txt
-//    [KSCrash logToFile];
+    KSCrash* handler = [KSCrash sharedInstance];
 
-    [KSCrash installWithCrashReportSink:nil
-                               userInfo:@{ @"name": [UIDevice currentDevice].name, @"email": @"user@gmail.com",
-     @"quoted value": @"\"quote\"", @"\"quoted\" key": @"blah", @"bslash value": @"bslash\\", @"bslash\\key": @"x", @"テスト": @"intl" }
-                        zombieCacheSize:16384
-               deadlockWatchdogInterval:5.0f
-                     printTraceToStdout:YES
-                                onCrash:onCrash];
+    // Uncomment this to write all log entries to Library/Caches/KSCrashReports/CrashTester/CrashTester-CrashLog.txt
+//    [handler logToFile];
+
+    handler.zombieCacheSize = 16384;
+    handler.deadlockWatchdogInterval = 5.0f;
+    handler.printTraceToStdout = YES;
+    handler.onCrash = onCrash;
+    handler.userInfo = [NSDictionary dictionaryWithObjectsAndKeys:
+                        @"\"quote\"", @"quoted value",
+                        @"blah", @"\"quoted\" key",
+                        @"bslash\\", @"bslash value",
+                        @"x", @"bslash\\key",
+                        @"intl", @"テスト",
+                        nil];
+
+    // Don't delete after send for this demo.
+    handler.deleteAfterSendAll = NO;
+
+    [handler install];
 }
 
-
-
-- (BOOL)application:(UIApplication*) application didFinishLaunchingWithOptions:(NSDictionary*) launchOptions
+- (BOOL)application:(__unused UIApplication*) application didFinishLaunchingWithOptions:(__unused NSDictionary*) launchOptions
 {
-    #pragma unused(application)
-    #pragma unused(launchOptions)
-
     [self installCrashHandler];
     self.crasher = as_autorelease([[Crasher alloc] init]);
 

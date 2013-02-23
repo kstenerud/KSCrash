@@ -41,7 +41,6 @@ extern "C" {
 #include "KSCrashSentry.h"
 #include "KSCrashState.h"
 
-#include <mach/mach_types.h>
 #include <signal.h>
 #include <stdbool.h>
 

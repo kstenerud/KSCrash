@@ -80,8 +80,7 @@
 
 - (void) viewWillAppear:(BOOL)animated
 {
-    #pragma unused(animated)
-
+    [super viewWillAppear:animated];
     [self reloadTitle];
 }
 
@@ -95,18 +94,13 @@
 
 #pragma mark - Table view data source
 
-- (NSInteger) numberOfSectionsInTableView:(UITableView*) tableView
+- (NSInteger) numberOfSectionsInTableView:(__unused UITableView*) tableView
 {
-    #pragma unused(tableView)
-
     return 1;
 }
 
-- (NSInteger) tableView:(UITableView*) tableView numberOfRowsInSection:(NSInteger) section
+- (NSInteger) tableView:(__unused UITableView*) tableView numberOfRowsInSection:(__unused NSInteger) section
 {
-    #pragma unused(tableView)
-    #pragma unused(section)
-
     return (NSInteger)[self.commands count];
 }
 

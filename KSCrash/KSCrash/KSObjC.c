@@ -29,7 +29,7 @@
 #include "KSObjCApple.h"
 
 #include "KSMach.h"
-#import "KSString.h"
+#include "KSString.h"
 
 
 #define kMaxNameLength 128
@@ -254,7 +254,8 @@ static bool isValidName(const char* const name, const size_t maxLength)
 
 static bool isValidIvarType(const char* const type)
 {
-    const int maxLength = 100;
+    char buffer[100];
+    const size_t maxLength = sizeof(buffer);
 
     if((uintptr_t)type + maxLength < (uintptr_t)type)
     {
@@ -262,7 +263,6 @@ static bool isValidIvarType(const char* const type)
         return false;
     }
 
-    char buffer[maxLength];
     size_t length = ksmach_copyMaxPossibleMem(type, buffer, maxLength);
     if(length == 0 || !VALID_TYPE_CHAR(type[0]))
     {
@@ -595,9 +595,8 @@ KSObjCType ksobjc_objectType(const void* objectOrClassPtr)
 #pragma mark - Unknown Object -
 //======================================================================
 
-static bool objectIsValid(const void* object)
+static bool objectIsValid(__unused const void* object)
 {
-#pragma unused(object)
     // If it passed ksobjc_objectType, it's been validated as much as
     // possible.
     return true;
@@ -724,7 +723,7 @@ size_t ksobjc_i_copyAndConvertUTF16StringToUTF8(const void* const src,
 {
     const uint16_t* pSrc = src;
     uint8_t* pDst = dst;
-    const uint8_t* const pDstEnd = dst + maxByteCount - 1; // Leave room for null termination.
+    const uint8_t* const pDstEnd = pDst + maxByteCount - 1; // Leave room for null termination.
     for(size_t charsRemaining = charCount; charsRemaining > 0 && pDst < pDstEnd; charsRemaining--)
     {
         // Decode UTF-16

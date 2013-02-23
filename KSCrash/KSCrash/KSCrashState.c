@@ -133,49 +133,38 @@ int kscrashstate_i_onIntegerElement(const char* const name,
     return kscrashstate_i_onFloatingPointElement(name, value, userData);
 }
 
-int kscrashstate_i_onNullElement(const char* const name,
-                                 void* const userData)
+int kscrashstate_i_onNullElement(__unused const char* const name,
+                                 __unused void* const userData)
 {
-    #pragma unused(name)
-    #pragma unused(userData)
     return KSJSON_OK;
 }
 
-int kscrashstate_i_onStringElement(const char* const name,
-                                   const char* const value,
-                                   void* const userData)
+int kscrashstate_i_onStringElement(__unused const char* const name,
+                                   __unused const char* const value,
+                                   __unused void* const userData)
 {
-    #pragma unused(name)
-    #pragma unused(value)
-    #pragma unused(userData)
     return KSJSON_OK;
 }
 
-int kscrashstate_i_onBeginObject(const char* const name,
-                                 void* const userData)
+int kscrashstate_i_onBeginObject(__unused const char* const name,
+                                 __unused void* const userData)
 {
-    #pragma unused(name)
-    #pragma unused(userData)
     return KSJSON_OK;
 }
 
-int kscrashstate_i_onBeginArray(const char* const name,
-                                void* const userData)
+int kscrashstate_i_onBeginArray(__unused const char* const name,
+                                __unused void* const userData)
 {
-    #pragma unused(name)
-    #pragma unused(userData)
     return KSJSON_OK;
 }
 
-int kscrashstate_i_onEndContainer(void* const userData)
+int kscrashstate_i_onEndContainer(__unused void* const userData)
 {
-    #pragma unused(userData)
     return KSJSON_OK;
 }
 
-int kscrashstate_i_onEndData(void* const userData)
+int kscrashstate_i_onEndData(__unused void* const userData)
 {
-    #pragma unused(userData)
     return KSJSON_OK;
 }
 

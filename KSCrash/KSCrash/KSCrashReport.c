@@ -676,9 +676,8 @@ void kscrw_i_writeMemoryContents(const KSCrashReportWriter* const writer,
 void kscrw_i_writeNSStringContents(const KSCrashReportWriter* const writer,
                                    const char* const key,
                                    const uintptr_t objectAddress,
-                                   int* limit)
+                                   __unused int* limit)
 {
-#pragma unused(limit)
     const void* object = (const void*)objectAddress;
     char buffer[200];
     if(ksobjc_copyStringContents(object, buffer, sizeof(buffer)))
@@ -701,9 +700,8 @@ void kscrw_i_writeNSStringContents(const KSCrashReportWriter* const writer,
 void kscrw_i_writeURLContents(const KSCrashReportWriter* const writer,
                               const char* const key,
                               const uintptr_t objectAddress,
-                              int* limit)
+                              __unused int* limit)
 {
-#pragma unused(limit)
     const void* object = (const void*)objectAddress;
     char buffer[200];
     if(ksobjc_copyStringContents(object, buffer, sizeof(buffer)))
@@ -726,9 +724,8 @@ void kscrw_i_writeURLContents(const KSCrashReportWriter* const writer,
 void kscrw_i_writeDateContents(const KSCrashReportWriter* const writer,
                                const char* const key,
                                const uintptr_t objectAddress,
-                               int* limit)
+                               __unused int* limit)
 {
-#pragma unused(limit)
     const void* object = (const void*)objectAddress;
     writer->addFloatingPointElement(writer, key, ksobjc_dateContents(object));
 }
@@ -749,7 +746,6 @@ void kscrw_i_writeArrayContents(const KSCrashReportWriter* const writer,
                                 const uintptr_t objectAddress,
                                 int* limit)
 {
-#pragma unused(limit)
     const void* object = (const void*)objectAddress;
     uintptr_t firstObject;
     if(ksobjc_arrayContents(object, &firstObject, 1) == 1)

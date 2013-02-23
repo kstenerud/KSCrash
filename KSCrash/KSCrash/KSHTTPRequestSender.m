@@ -27,6 +27,7 @@
 
 #import "KSHTTPRequestSender.h"
 #import "ARCSafe_MemMgmt.h"
+#import "NSError+SimpleConstructor.h"
 
 
 @implementation KSHTTPRequestSender
@@ -68,22 +69,17 @@
         {
             if(response == nil)
             {
-                error = [NSError errorWithDomain:@"domain"
+                error = [NSError errorWithDomain:[[self class] description]
                                             code:0
-                                        userInfo:[NSDictionary dictionaryWithObjectsAndKeys:
-                                                  @"Response was nil", NSLocalizedDescriptionKey,
-                                                  nil]];
+                                     description:@"Response was nil"];
             }
 
             if(![response isKindOfClass:[NSHTTPURLResponse class]])
             {
-                error = [NSError errorWithDomain:@"domain"
+                error = [NSError errorWithDomain:[[self class] description]
                                             code:0
-                                        userInfo:[NSDictionary dictionaryWithObjectsAndKeys:
-                                                  [NSString stringWithFormat:@"Response was of type %@. Expected NSHTTPURLResponse",
-                                                   [response class]],
-                                                  NSLocalizedDescriptionKey,
-                                                  nil]];
+                                     description:@"Response was of type %@. Expected NSHTTPURLResponse",
+                         [response class]];
             }
         }
 

@@ -20,7 +20,7 @@
 #import <KSCrash/KSCrashReportFilterJSON.h>
 #import <KSCrash/KSCrashReportSinkConsole.h>
 #import <KSCrash/KSCrashReportSinkEMail.h>
-#import <KSCrash/KSCrashReportSinkQuincy.h>
+#import <KSCrash/KSCrashReportSinkQuincyHockey.h>
 #import <KSCrash/KSCrashReportSinkStandard.h>
 
 
@@ -60,14 +60,10 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
 
 - (UIViewController*) createRootViewController
 {
-    // Don't delete after send for this demo.
-    [KSCrash instance].deleteAfterSend = NO;
-    
     __unsafe_unretained id blockSelf = self;
     CommandTVC* cmdController = [self commandTVCWithCommands:[self topLevelCommands]];
-    cmdController.getTitleBlock = ^NSString* (UIViewController* controller)
+    cmdController.getTitleBlock = ^NSString* (__unused UIViewController* controller)
     {
-        #pragma unused(controller)
         return [NSString stringWithFormat:@"Crash Tester: %@", [blockSelf reportCountString]];
     };
     return as_autorelease([[UINavigationController alloc] initWithRootViewController:cmdController]);
@@ -95,7 +91,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
 
 - (NSString*) reportCountString
 {
-    return [NSString stringWithFormat:@"%d Reports", [[KSCrash instance] reportCount]];
+    return [NSString stringWithFormat:@"%d Reports", [[KSCrash sharedInstance] reportCount]];
 }
 
 - (void) showAlertWithTitle:(NSString*) title
@@ -122,9 +118,8 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                              block:^(UIViewController* controller)
       {
           CommandTVC* cmdController = [self commandTVCWithCommands:[blockSelf manageCommands]];
-          cmdController.getTitleBlock = ^NSString* (UIViewController* controllerInner)
+          cmdController.getTitleBlock = ^NSString* (__unused UIViewController* controllerInner)
           {
-              #pragma unused(controllerInner)
               return [NSString stringWithFormat:@"Manage (%@)", [blockSelf reportCountString]];
           };
           [controller.navigationController pushViewController:cmdController animated:YES];
@@ -154,9 +149,8 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                              block:^(UIViewController* controller)
       {
           CommandTVC* cmdController = [self commandTVCWithCommands:[blockSelf printCommands]];
-          cmdController.getTitleBlock = ^NSString* (UIViewController* controllerInner)
+          cmdController.getTitleBlock = ^NSString* (__unused UIViewController* controllerInner)
           {
-              #pragma unused(controllerInner)
               return [NSString stringWithFormat:@"Print (%@)", [blockSelf reportCountString]];
           };
           [controller.navigationController pushViewController:cmdController animated:YES];
@@ -168,9 +162,8 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                              block:^(UIViewController* controller)
       {
           CommandTVC* cmdController = [self commandTVCWithCommands:[blockSelf sendCommands]];
-          cmdController.getTitleBlock = ^NSString* (UIViewController* controllerInner)
+          cmdController.getTitleBlock = ^NSString* (__unused UIViewController* controllerInner)
           {
-              #pragma unused(controllerInner)
               return [NSString stringWithFormat:@"Send (%@)", [blockSelf reportCountString]];
           };
           [controller.navigationController pushViewController:cmdController animated:YES];
@@ -182,9 +175,8 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                              block:^(UIViewController* controller)
       {
           CommandTVC* cmdController = [self commandTVCWithCommands:[blockSelf mailCommands]];
-          cmdController.getTitleBlock = ^NSString* (UIViewController* controllerInner)
+          cmdController.getTitleBlock = ^NSString* (__unused UIViewController* controllerInner)
           {
-              #pragma unused(controllerInner)
               return [NSString stringWithFormat:@"Mail (%@)", [blockSelf reportCountString]];
           };
           [controller.navigationController pushViewController:cmdController animated:YES];
@@ -196,7 +188,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                              block:^(UIViewController* controller)
       {
           NSLog(@"Deleting reports...");
-          [[KSCrash instance] deleteAllReports];
+          [[KSCrash sharedInstance] deleteAllReports];
           [(CommandTVC*)controller reloadTitle];
       }]];
     
@@ -210,11 +202,10 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
     [commands addObject:
      [CommandEntry commandWithName:@"Standard Reports"
                      accessoryType:UITableViewCellAccessoryNone
-                             block:^(UIViewController* controller)
+                             block:^(__unused UIViewController* controller)
       {
-          #pragma unused(controller)
           NSLog(@"Mailing standard reports...");
-          KSCrash* crashReporter = [KSCrash instance];
+          KSCrash* crashReporter = [KSCrash sharedInstance];
           KSCrashReportSinkEMail* filter = [KSCrashReportSinkEMail sinkWithRecipients:nil
                                                                               subject:@"Crash Reports"
                                                                           filenameFmt:@"StandardReport-%d.json.gz"];
@@ -226,11 +217,10 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
     [commands addObject:
      [CommandEntry commandWithName:@"Apple Style (Unsymbolicated)"
                      accessoryType:UITableViewCellAccessoryNone
-                             block:^(UIViewController* controller)
+                             block:^(__unused UIViewController* controller)
       {
-          #pragma unused(controller)
           NSLog(@"Mailing unsymbolicated apple reports...");
-          KSCrash* crashReporter = [KSCrash instance];
+          KSCrash* crashReporter = [KSCrash sharedInstance];
           KSCrashReportSinkEMail* filter = [KSCrashReportSinkEMail sinkWithRecipients:nil
                                                                               subject:@"Crash Reports"
                                                                           filenameFmt:@"AppleUnsymbolicatedReport-%d.txt.gz"];
@@ -247,11 +237,10 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
     [commands addObject:
      [CommandEntry commandWithName:@"Apple Style (Partial)"
                      accessoryType:UITableViewCellAccessoryNone
-                             block:^(UIViewController* controller)
+                             block:^(__unused UIViewController* controller)
       {
-          #pragma unused(controller)
           NSLog(@"Mailing partially symbolicated apple reports...");
-          KSCrash* crashReporter = [KSCrash instance];
+          KSCrash* crashReporter = [KSCrash sharedInstance];
           KSCrashReportSinkEMail* filter = [KSCrashReportSinkEMail sinkWithRecipients:nil
                                                                               subject:@"Crash Reports"
                                                                           filenameFmt:@"ApplePartialSymbolicatedReport-%d.txt.gz"];
@@ -268,11 +257,10 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
     [commands addObject:
      [CommandEntry commandWithName:@"Apple Style (Symbolicated)"
                      accessoryType:UITableViewCellAccessoryNone
-                             block:^(UIViewController* controller)
+                             block:^(__unused UIViewController* controller)
       {
-          #pragma unused(controller)
           NSLog(@"Mailing symbolicated apple reports...");
-          KSCrash* crashReporter = [KSCrash instance];
+          KSCrash* crashReporter = [KSCrash sharedInstance];
           KSCrashReportSinkEMail* filter = [KSCrashReportSinkEMail sinkWithRecipients:nil
                                                                               subject:@"Crash Reports"
                                                                           filenameFmt:@"AppleSymbolicatedReport-%d.txt.gz"];
@@ -289,11 +277,10 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
     [commands addObject:
      [CommandEntry commandWithName:@"Apple Style (Side-By-Side)"
                      accessoryType:UITableViewCellAccessoryNone
-                             block:^(UIViewController* controller)
+                             block:^(__unused UIViewController* controller)
       {
-          #pragma unused(controller)
           NSLog(@"Mailing side-by-side symbolicated apple reports...");
-          KSCrash* crashReporter = [KSCrash instance];
+          KSCrash* crashReporter = [KSCrash sharedInstance];
           KSCrashReportSinkEMail* filter = [KSCrashReportSinkEMail sinkWithRecipients:nil
                                                                               subject:@"Crash Reports"
                                                                           filenameFmt:@"AppleSideBySideReport-%d.txt.gz"];
@@ -310,11 +297,10 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
     [commands addObject:
      [CommandEntry commandWithName:@"Apple Style + user & system data"
                      accessoryType:UITableViewCellAccessoryNone
-                             block:^(UIViewController* controller)
+                             block:^(__unused UIViewController* controller)
       {
-          #pragma unused(controller)
           NSLog(@"Mailing side-by-side symbolicated apple reports with system and user data...");
-          KSCrash* crashReporter = [KSCrash instance];
+          KSCrash* crashReporter = [KSCrash sharedInstance];
           KSCrashReportSinkEMail* filter = [KSCrashReportSinkEMail sinkWithRecipients:nil
                                                                               subject:@"Crash Reports"
                                                                           filenameFmt:@"AppleSystemUserReport-%d.txt.gz"];
@@ -337,11 +323,10 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
     [commands addObject:
      [CommandEntry commandWithName:@"Standard Reports"
                      accessoryType:UITableViewCellAccessoryNone
-                             block:^(UIViewController* controller)
+                             block:^(__unused UIViewController* controller)
       {
-          #pragma unused(controller)
           NSLog(@"Printing standard reports...");
-          KSCrash* crashReporter = [KSCrash instance];
+          KSCrash* crashReporter = [KSCrash sharedInstance];
           NSArray* filters = [NSArray arrayWithObjects:
                               [KSCrashReportFilterJSONEncode filterWithOptions:KSJSONEncodeOptionSorted | KSJSONEncodeOptionPretty],
                               [KSCrashReportFilterDataToString filter],
@@ -354,11 +339,10 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
     [commands addObject:
      [CommandEntry commandWithName:@"Apple Style (Unsymbolicated)"
                      accessoryType:UITableViewCellAccessoryNone
-                             block:^(UIViewController* controller)
+                             block:^(__unused UIViewController* controller)
       {
-          #pragma unused(controller)
           NSLog(@"Printing unsymbolicated apple reports...");
-          KSCrash* crashReporter = [KSCrash instance];
+          KSCrash* crashReporter = [KSCrash sharedInstance];
           NSArray* filters = [NSArray arrayWithObjects:
                               [KSCrashReportFilterAppleFmt filterWithReportStyle:KSAppleReportStyleUnsymbolicated],
                               [KSCrashReportSinkConsole filter],
@@ -370,11 +354,10 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
     [commands addObject:
      [CommandEntry commandWithName:@"Apple Style (Partial)"
                      accessoryType:UITableViewCellAccessoryNone
-                             block:^(UIViewController* controller)
+                             block:^(__unused UIViewController* controller)
       {
-          #pragma unused(controller)
           NSLog(@"Printing partially symbolicated apple reports...");
-          KSCrash* crashReporter = [KSCrash instance];
+          KSCrash* crashReporter = [KSCrash sharedInstance];
           NSArray* filters = [NSArray arrayWithObjects:
                               [KSCrashReportFilterAppleFmt filterWithReportStyle:KSAppleReportStylePartiallySymbolicated],
                               [KSCrashReportSinkConsole filter],
@@ -386,11 +369,10 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
     [commands addObject:
      [CommandEntry commandWithName:@"Apple Style (Symbolicated)"
                      accessoryType:UITableViewCellAccessoryNone
-                             block:^(UIViewController* controller)
+                             block:^(__unused UIViewController* controller)
       {
-          #pragma unused(controller)
           NSLog(@"Printing symbolicated apple reports...");
-          KSCrash* crashReporter = [KSCrash instance];
+          KSCrash* crashReporter = [KSCrash sharedInstance];
           NSArray* filters = [NSArray arrayWithObjects:
                               [KSCrashReportFilterAppleFmt filterWithReportStyle:KSAppleReportStyleSymbolicated],
                               [KSCrashReportSinkConsole filter],
@@ -402,11 +384,10 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
     [commands addObject:
      [CommandEntry commandWithName:@"Apple Style (Side-By-Side)"
                      accessoryType:UITableViewCellAccessoryNone
-                             block:^(UIViewController* controller)
+                             block:^(__unused UIViewController* controller)
       {
-          #pragma unused(controller)
           NSLog(@"Printing side-by-side symbolicated apple reports...");
-          KSCrash* crashReporter = [KSCrash instance];
+          KSCrash* crashReporter = [KSCrash sharedInstance];
           NSArray* filters = [NSArray arrayWithObjects:
                               [KSCrashReportFilterAppleFmt filterWithReportStyle:KSAppleReportStyleSymbolicatedSideBySide],
                               [KSCrashReportSinkConsole filter],
@@ -418,11 +399,10 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
     [commands addObject:
      [CommandEntry commandWithName:@"Apple Style + user & system data"
                      accessoryType:UITableViewCellAccessoryNone
-                             block:^(UIViewController* controller)
+                             block:^(__unused UIViewController* controller)
       {
-          #pragma unused(controller)
           NSLog(@"Printing side-by-side symbolicated apple reports with system and user data...");
-          KSCrash* crashReporter = [KSCrash instance];
+          KSCrash* crashReporter = [KSCrash sharedInstance];
           NSArray* filters = [NSArray arrayWithObjects:
                               [KSCrashFilterSets appleFmtWithUserAndSystemData:KSAppleReportStyleSymbolicatedSideBySide
                                                                     compressed:NO],
@@ -446,7 +426,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                              block:^(UIViewController* controller)
       {
           NSLog(@"Sending reports to KS...");
-          KSCrash* crashReporter = [KSCrash instance];
+          KSCrash* crashReporter = [KSCrash sharedInstance];
           crashReporter.sink = [KSCrashReportSinkStandard sinkWithURL:kReportURL
                                                             onSuccess:^(NSString* response)
                                 {
@@ -463,7 +443,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                              block:^(UIViewController* controller)
       {
           NSLog(@"Sending reports to Quincy...");
-          KSCrash* crashReporter = [KSCrash instance];
+          KSCrash* crashReporter = [KSCrash sharedInstance];
           crashReporter.sink = [KSCrashReportSinkQuincy sinkWithURL:kQuincyReportURL
                                                           onSuccess:^(NSString* response)
                                 {
@@ -480,7 +460,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                              block:^(UIViewController* controller)
       {
           NSLog(@"Sending reports to Hockey...");
-          KSCrash* crashReporter = [KSCrash instance];
+          KSCrash* crashReporter = [KSCrash sharedInstance];
           crashReporter.sink = [KSCrashReportSinkHockey sinkWithAppIdentifier:kHockeyAppID
                                                                     onSuccess:^(NSString* response)
                                 {
@@ -518,126 +498,112 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
     [commands addObject:
      [CommandEntry commandWithName:@"NSException"
                      accessoryType:UITableViewCellAccessoryNone
-                             block:^(UIViewController* controller)
+                             block:^(__unused UIViewController* controller)
       {
-          #pragma unused(controller)
           [self.crasher throwException];
       }]];
     
     [commands addObject:
      [CommandEntry commandWithName:@"Bad Pointer"
                      accessoryType:UITableViewCellAccessoryNone
-                             block:^(UIViewController* controller)
+                             block:^(__unused UIViewController* controller)
       {
-          #pragma unused(controller)
           [self.crasher dereferenceBadPointer];
       }]];
     
     [commands addObject:
      [CommandEntry commandWithName:@"Null Pointer"
                      accessoryType:UITableViewCellAccessoryNone
-                             block:^(UIViewController* controller)
+                             block:^(__unused UIViewController* controller)
       {
-          #pragma unused(controller)
           [self.crasher dereferenceNullPointer];
       }]];
     
     [commands addObject:
      [CommandEntry commandWithName:@"Corrupt Object"
                      accessoryType:UITableViewCellAccessoryNone
-                             block:^(UIViewController* controller)
+                             block:^(__unused UIViewController* controller)
       {
-          #pragma unused(controller)
           [self.crasher useCorruptObject];
       }]];
     
     [commands addObject:
      [CommandEntry commandWithName:@"Spin Run Loop"
                      accessoryType:UITableViewCellAccessoryNone
-                             block:^(UIViewController* controller)
+                             block:^(__unused UIViewController* controller)
       {
-          #pragma unused(controller)
           [self.crasher spinRunloop];
       }]];
     
     [commands addObject:
      [CommandEntry commandWithName:@"Stack Overflow"
                      accessoryType:UITableViewCellAccessoryNone
-                             block:^(UIViewController* controller)
+                             block:^(__unused UIViewController* controller)
       {
-          #pragma unused(controller)
           [self.crasher causeStackOverflow];
       }]];
     
     [commands addObject:
      [CommandEntry commandWithName:@"Abort"
                      accessoryType:UITableViewCellAccessoryNone
-                             block:^(UIViewController* controller)
+                             block:^(__unused UIViewController* controller)
       {
-          #pragma unused(controller)
           [self.crasher doAbort];
       }]];
     
     [commands addObject:
      [CommandEntry commandWithName:@"Divide By Zero"
                      accessoryType:UITableViewCellAccessoryNone
-                             block:^(UIViewController* controller)
+                             block:^(__unused UIViewController* controller)
       {
-          #pragma unused(controller)
           [self.crasher doDiv0];
       }]];
     
     [commands addObject:
      [CommandEntry commandWithName:@"Illegal Instruction"
                      accessoryType:UITableViewCellAccessoryNone
-                             block:^(UIViewController* controller)
+                             block:^(__unused UIViewController* controller)
       {
-          #pragma unused(controller)
           [self.crasher doIllegalInstruction];
       }]];
 
     [commands addObject:
      [CommandEntry commandWithName:@"Deallocated Object"
                      accessoryType:UITableViewCellAccessoryNone
-                             block:^(UIViewController* controller)
+                             block:^(__unused UIViewController* controller)
       {
-           #pragma unused(controller)
           [self.crasher accessDeallocatedObject];
       }]];
 
     [commands addObject:
      [CommandEntry commandWithName:@"Deallocated Proxy"
                      accessoryType:UITableViewCellAccessoryNone
-                             block:^(UIViewController* controller)
+                             block:^(__unused UIViewController* controller)
       {
-          #pragma unused(controller)
           [self.crasher accessDeallocatedPtrProxy];
       }]];
 
     [commands addObject:
      [CommandEntry commandWithName:@"Corrupt Memory"
                      accessoryType:UITableViewCellAccessoryNone
-                             block:^(UIViewController* controller)
+                             block:^(__unused UIViewController* controller)
       {
-          #pragma unused(controller)
           [self.crasher corruptMemory];
       }]];
 
     [commands addObject:
      [CommandEntry commandWithName:@"Zombie NSException"
                      accessoryType:UITableViewCellAccessoryNone
-                             block:^(UIViewController* controller)
+                             block:^(__unused UIViewController* controller)
       {
-          #pragma unused(controller)
           [self.crasher zombieNSException];
       }]];
 
     [commands addObject:
      [CommandEntry commandWithName:@"Crash in Handler"
                      accessoryType:UITableViewCellAccessoryNone
-                             block:^(UIViewController* controller)
+                             block:^(__unused UIViewController* controller)
       {
-          #pragma unused(controller)
           self.crashInHandler = YES;
           [self.crasher dereferenceBadPointer];
       }]];
@@ -645,9 +611,8 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
     [commands addObject:
      [CommandEntry commandWithName:@"Deadlock main queue"
                      accessoryType:UITableViewCellAccessoryNone
-                             block:^(UIViewController* controller)
+                             block:^(__unused UIViewController* controller)
       {
-          #pragma unused(controller)
           [self.crasher deadlock];
       }]];
     

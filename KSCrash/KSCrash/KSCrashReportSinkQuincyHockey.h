@@ -1,5 +1,5 @@
 //
-//  KSCrashReportSinkQuincy.h
+//  KSCrashReportSinkQuincyHockey.h
 //
 //  Created by Karl Stenerud on 2012-02-26.
 //
@@ -55,25 +55,12 @@
  */
 @interface KSCrashReportSinkQuincy : NSObject <KSCrashReportFilter, KSCrashReportDefaultFilterSet>
 
-/** Constructor.
- *
- * @param url The URL to connect to.
- *
- * @param onSuccess Called when reports are successfully pushed.
- *
- * @param onFailure Called when report pushing fails.
- */
-+ (KSCrashReportSinkQuincy*) sinkWithURL:(NSURL*) url
-                               onSuccess:(void(^)(NSString* response)) onSuccess;
+/** The URL to connect to. */
+@property(nonatomic,readwrite,retain) NSURL* url;
 
 /** Constructor.
- *
- * @param url The URL to connect to.
- *
- * @param onSuccess Called when reports are successfully pushed.
  */
-- (id) initWithURL:(NSURL*) url
-         onSuccess:(void(^)(NSString* response)) onSuccess;
++ (id) sink;
 
 - (NSArray*) defaultCrashReportFilterSetWithUserIDKey:(NSString*) userIDKey
                                       contactEmailKey:(NSString*) contactEmailKey
@@ -84,22 +71,6 @@
 
 @interface KSCrashReportSinkHockey : KSCrashReportSinkQuincy
 
-/** Constructor.
- *
- * @param appIdentifier Your Hockey app identifier.
- *
- * @param onSuccess Called when reports are successfully pushed.
- */
-+ (KSCrashReportSinkHockey*) sinkWithAppIdentifier:(NSString*) appIdentifier
-                                         onSuccess:(void(^)(NSString* response)) onSuccess;
-
-/** Constructor.
- *
- * @param appIdentifier Your Hockey app identifier.
- *
- * @param onSuccess Called when reports are successfully pushed.
- */
-- (id) initWithAppIdentifier:(NSString*) appIdentifier
-                   onSuccess:(void(^)(NSString* response)) onSuccess;
+@property(nonatomic,readwrite,retain) NSString* appIdentifier;
 
 @end

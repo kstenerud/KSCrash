@@ -61,6 +61,12 @@ is fully implemented and working (more on the way as time allows).
 And finally, the documentation sucks :P
 
 
+### Incompatible API Change Notice
+
+As of Jan 29th, 2013, I've modified the KSCrash main API to use properties rather than
+init method parameters for configuration. With all the new options, things
+were starting to get a bit unwieldly. This should mark the last major API change.
+
 
 ### How to build it
 
@@ -77,7 +83,9 @@ can use it like you would any other framework.
 1. Add the framework to your project (or add the KSCrash project as a
    dependency)
 
-2. Add the following to your **[application: didFinishLaunchingWithOptions:]**
+2. Add the flag "-ObjC" to **Other Linker Flags** in your **Build Settings**
+
+3. Add the following to your **[application: didFinishLaunchingWithOptions:]**
    method in your app delegate:
 
 .
@@ -96,12 +104,21 @@ can use it like you would any other framework.
 	    // OR:
     	id<KSCrashReportFilter> sink = [KSCrashReportSinkQuincy sinkWithURL:myQuincyURL onSuccess:nil];
 
-	    [KSCrash installWithCrashReportSink:sink];
+      KSCrash* reporter = [KSCrash sharedInstance];
+      reporter.sink = sink;
+      [reporter install];
 	    …
 	}
 
-And you're done! If a crash occurs, it will store a report. Upon relaunch, it
-will automatically contact the server and upload the report whenever the device has internet access.
+This will install the crash sentry system (which intercepts crashes and stores
+reports to disk). Once you're ready to send any outstanding crash reports, do
+the following:
+
+    KSCrash* reporter = [KSCrash sharedInstance];
+    [reporter sendAllReportsWithCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error)
+     {
+         // Stuff to do when report sending is complete
+     }];
 
 
 Advanced Usage
@@ -115,62 +132,78 @@ to **Debugging Symbols**. Doing so increases your final binary size by about
 5%, but you get on-device symbolication.
 
 
-### Passing extra information to the crash reporter
+### Enabling advanced functionality:
 
-You can pass a dictionary to KSCrash, which will get stored to the "user_data"
-portion of a crash report:
-
-    [KSCrash installWithCrashReportSink:sink
-                               userInfo:[NSDictionary dictionaryWithObjectsAndKeys:
-                                         @"username", someUsername,
-                                         nil]
-                        zombieCacheSize:16384
-               deadlockWatchdogInterval:5.0f
-                     printTraceToStdout:NO
-                                onCrash:nil];
+KSCrash has advanced functionality that can be very useful when examining crash
+reports in the wild. Some involve minor trade-offs, so most of them are
+disabled by default.
 
 
-### Passing extra info to the crash reporter during a crash
+#### Zombie Tracking (zombieCacheSize in KSCrash.h)
 
-If you have extra information at crash time that would be useful on a crash
-report, you can provide an **onCrash** function:
+KSCrash has the ability to detect zombie instances (dangling pointers to
+deallocated objects). It does this by recording the address and class of any
+object that gets deallocated. It stores these values in a cache, keyed off the
+deallocated object's address. This means that the smaller you set the cache
+size, the greater the chance that a hash collision occurs and you lose
+information about a previously deallocated object.
 
-    static void onCrash(const KSReportWriter* writer)
-    {
-        writer->addStringElement(writer, "sprocketID", g_sprocketID);
-    }
-    
-    - (void) installCrashHandler
-    {
-        [KSCrash installWithCrashReportSink:sink
-                                   userInfo:nil
-                         printTraceToStdout:YES
-                                    onCrash:onCrash];
-    }
+With zombie tracking enabled, KSCrash will also detect a lost NSException and
+print its contents. Certain kinds of memory corruption or stack corruption
+crashes can cause the exception to deallocate early, further twarting efforts
+to debug your app, so this feature can be quite handy at times.
 
-**Warning**: onCrash will be called in a **crashed** context. This is a
-**VERY DANGEROUS** state since for all we know the memory has been trampled
-over and nothing's valid anymore. As well, calling any functions that create
-locks could potentially deadlock, so you must
-[only call async-safe functions](https://www.securecoding.cert.org/confluence/display/seccode/SIG30-C.+Call+only+asynchronous-safe+functions+within+signal+handlers).
-**DO NOT CALL OBJECTIVE-C METHODS FROM THIS FUNCTION!!!**
+Each cache entry takes up 8 bytes on a 32-bit architecture, and 16 bytes on a
+64-bit architecture. The recommended minimum is 16384, which translates to
+128k of RAM used for zombie tracking on a 32-bit machine. Generally, the more
+objects you tend to have in your app, the larger you'll want to make the cache.
 
-It's generally best to avoid using this feature unless absolutely necessary.
+Trade off: Zombie tracking at the cost of adding very slight overhead to object
+           deallocation, and having some memory reserved.
 
 
-### Deferring server reporting
+#### Deadlock Detection (deadlockWatchdogInterval in KSCrash.h)
 
-If you don't want it to report to the server right away, you can pass nil as
-the sink parameter:
+If your main thread deadlocks, your user interface will become unresponsive,
+and the user will have to manually shut down the app (for which there will be
+no crash report). With deadlock detection enabled, a watchdog timer is set up.
+If anything holds the main thread for longer than the watchdog timer duration,
+KSCrash will shut down the app and give you a stack trace showing what the
+main thread was doing at the time.
 
-    [KSCrash installWithCrashReportSink:nil];
+This is wonderful, but you must be careful: App initialization generally
+occurs on the main thread. If your initialization code takes longer than the
+watchdog timer, your app will be forcibly shut down during start up! If you
+enable this feature, you MUST ensure that NONE of your normally running code
+holds the main thread for longer than the watchdog value! At the same time,
+you'll want to set the timer to a low enough value that the user doesn't
+become impatient and shut down the app manually before the watchdog triggers!
 
-It will still install the crash reporter, and will still record crashes, but it
-won't attempt to report to an external API until you assign it a sink:
+Trade off: Deadlock detection, but you must be a lot more careful about what
+           runs on the main thread!
 
-    #import <KSCrash/KSCrashAdvanced.h>
 
-	[KSCrash instance].sink = [KSCrashReportSinkStandard sinkWithURL:myAPIURL onSuccess:nil];
+#### Custom crash handling code (onCrash in KSCrash.h)
+
+If you want to do some extra processing after a crash occurs (perhaps to add
+more contextual data to the report), you can do so.
+
+However, you must ensure that you only use async-safe code, and above all else
+never call Objective-C code from that method! There are many cases where you
+can get away with doing so anyway, but there are certain classes of crashes
+where handler code that disregards this warning will cause the crash handler
+to crash! Note that if this happens, KSCrash will detect it and write a full
+report anyway, though your custom handler code may not fully run.
+
+Trade off: Custom crash handling code, but you must be careful what you put
+           in it!
+
+
+#### KSCrash log redirection (KSCrashAdvanced.h)
+
+This takes whatever KSCrash would have printed to the console, and writes it
+to a file instead. I mostly use this for debugging KSCrash itself, but it could
+be useful for other purposes, so I've exposed an API for it.
 
 
 KSCrashLite
@@ -185,8 +218,7 @@ zlib (it still requires SystemConfiguration.framework).
 Examples
 --------
 
-The workspace includes two example apps, which demonstrate using KSCrash and
-KSCrashLite.
+The workspace includes two example apps, which demonstrate using KSCrash.
 
 
 License

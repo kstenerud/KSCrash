@@ -27,6 +27,7 @@
 
 #import "KSCrashReportSinkConsole.h"
 #import "ARCSafe_MemMgmt.h"
+#import "KSCrashCallCompletion.h"
 #import "KSCrashReportFilterAppleFmt.h"
 
 
@@ -54,7 +55,7 @@
         NSLog(@"Report %d:\n%@", ++i, report);
     }
 
-    onCompletion(reports, YES, nil);
+    kscrash_i_callCompletion(onCompletion, reports, YES, nil);
 }
 
 

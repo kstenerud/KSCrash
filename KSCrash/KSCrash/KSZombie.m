@@ -40,9 +40,8 @@
 
 #warning KSZombie must be compiled with ARC disabled.
 
-void kszombie_install(unsigned int cacheSize)
+void kszombie_install(__unused unsigned int cacheSize)
 {
-    #pragma unused(cacheSize)
     NSLog(@"Error: KSZombie must be compiled with ARC disabled. You may use ARC"
           " in your app, but you must compile this library without ARC.");
 }
@@ -51,9 +50,8 @@ void kszombie_uninstall(void)
 {
 }
 
-const char* kszombie_className(const void* object)
+const char* kszombie_className(__unused const void* object)
 {
-    #pragma unused(object)
     return NULL;
 }
 

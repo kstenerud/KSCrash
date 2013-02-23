@@ -28,11 +28,13 @@
 #import "KSCrashReportSinkStandard.h"
 
 #import "ARCSafe_MemMgmt.h"
+#import "KSCrashCallCompletion.h"
 #import "KSHTTPMultipartPostBody.h"
 #import "KSHTTPRequestSender.h"
 #import "NSData+GZip.h"
 #import "KSJSONCodecObjC.h"
 #import "KSReachabilityKSCrash.h"
+#import "NSError+SimpleConstructor.h"
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -44,7 +46,7 @@
 
 @property(nonatomic,readwrite,copy) void(^onSuccess)(NSString* response);
 
-@property(nonatomic,readwrite,retain) KSReachableOperation* reachableOperation;
+@property(nonatomic,readwrite,retain) KSReachableOperationKSCrash* reachableOperation;
 
 
 @end
@@ -101,7 +103,7 @@
                                      error:&error];
     if(jsonData == nil)
     {
-        onCompletion(reports, NO, error);
+        kscrash_i_callCompletion(onCompletion, reports, NO, error);
         return;
     }
 
@@ -124,15 +126,14 @@
 //    [request setHTTPBody:[[body data] gzippedWithError:nil]];
 //    [request setValue:@"gzip" forHTTPHeaderField:@"Content-Encoding"];
 
-    self.reachableOperation = [KSReachableOperation operationWithHost:[self.url host]
-                                                            allowWWAN:YES
-                                                                block:^
+    self.reachableOperation = [KSReachableOperationKSCrash operationWithHost:[self.url host]
+                                                                   allowWWAN:YES
+                                                                       block:^
     {
         [[KSHTTPRequestSender sender] sendRequest:request
-                                        onSuccess:^(NSHTTPURLResponse* response, NSData* data)
+                                        onSuccess:^(__unused NSHTTPURLResponse* response, NSData* data)
          {
-             #pragma unused(response)
-             onCompletion(reports, YES, nil);
+             kscrash_i_callCompletion(onCompletion, reports, YES, nil);
              if(self.onSuccess)
              {
                  self.onSuccess(as_autorelease([[NSString alloc] initWithData:data
@@ -142,15 +143,13 @@
          {
              NSString* text = as_autorelease([[NSString alloc] initWithData:data
                                                                    encoding:NSUTF8StringEncoding]);
-             onCompletion(reports, NO, [NSError errorWithDomain:@"KSCrashReportSinkStandard"
-                                                           code:response.statusCode
-                                                       userInfo:[NSDictionary dictionaryWithObjectsAndKeys:
-                                                                 text,
-                                                                 NSLocalizedDescriptionKey,
-                                                                 nil]]);
+             kscrash_i_callCompletion(onCompletion, reports, NO,
+                                      [NSError errorWithDomain:[[self class] description]
+                                                          code:response.statusCode
+                                                   description:text]);
          } onError:^(NSError* error2)
          {
-             onCompletion(reports, NO, error2);
+             kscrash_i_callCompletion(onCompletion, reports, NO, error2);
          }];
     }];
 }

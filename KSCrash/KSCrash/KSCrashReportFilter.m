@@ -27,38 +27,13 @@
 
 #import "KSCrashReportFilter.h"
 #import "ARCSafe_MemMgmt.h"
-#import "KSVarArgs.h"
 #import "Container+DeepSearch.h"
+#import "KSCrashCallCompletion.h"
+#import "KSVarArgs.h"
+#import "NSError+SimpleConstructor.h"
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
-
-
-static inline void callCompletion(KSCrashReportFilterCompletion onCompletion,
-                           NSArray* filteredReports,
-                           BOOL completed,
-                           NSError* error)
-{
-    if(onCompletion)
-    {
-        onCompletion(filteredReports, completed, error);
-    }
-}
-
-static inline NSError* makeNSError(NSString* domain, NSInteger code, NSString* fmt, ...)
-{
-    va_list args;
-    va_start(args, fmt);
-
-    NSString* desc = as_autorelease([[NSString alloc] initWithFormat:fmt
-                                                           arguments:args]);
-    va_end(args);
-
-    return [NSError errorWithDomain:domain
-                               code:code
-                           userInfo:[NSDictionary dictionaryWithObject:desc
-                                                                forKey:NSLocalizedDescriptionKey]];
-}
 
 
 @implementation KSCrashReportFilterPassthrough
@@ -71,7 +46,7 @@ static inline NSError* makeNSError(NSString* domain, NSInteger code, NSString* f
 - (void) filterReports:(NSArray*) reports
           onCompletion:(KSCrashReportFilterCompletion) onCompletion
 {
-    callCompletion(onCompletion, reports, YES, nil);
+    kscrash_i_callCompletion(onCompletion, reports, YES, nil);
 }
 
 @end
@@ -172,7 +147,7 @@ static inline NSError* makeNSError(NSString* domain, NSInteger code, NSString* f
 
     if(filterCount == 0)
     {
-        callCompletion(onCompletion, reports, YES, nil);
+        kscrash_i_callCompletion(onCompletion, reports, YES, nil);
         return;
     }
 
@@ -197,19 +172,17 @@ static inline NSError* makeNSError(NSString* domain, NSInteger code, NSString* f
                             {
                                 if(!completed)
                                 {
-                                    callCompletion(onCompletion,
+                                    kscrash_i_callCompletion(onCompletion,
                                                    filteredReports,
                                                    completed,
                                                    filterError);
                                 }
                                 else if(filteredReports == nil)
                                 {
-                                    callCompletion(onCompletion,
-                                                   filteredReports,
-                                                   NO,
-                                                   makeNSError([[self class] description],
-                                                               0,
-                                                               @"filteredReports was nil"));
+                                    kscrash_i_callCompletion(onCompletion, filteredReports, NO,
+                                                             [NSError errorWithDomain:[[self class] description]
+                                                                                 code:0
+                                                                          description:@"filteredReports was nil"]);
                                 }
                                 disposeOfCompletion();
                                 return;
@@ -241,15 +214,13 @@ static inline NSError* makeNSError(NSString* domain, NSInteger code, NSString* f
                                 [combinedReports addObject:dict];
                             }
 
-                            callCompletion(onCompletion, combinedReports, completed, filterError);
+                            kscrash_i_callCompletion(onCompletion, combinedReports, completed, filterError);
                             disposeOfCompletion();
                         } copy];
 
     // Initial call with first filter to start everything going.
     id<KSCrashReportFilter> filter = [filters objectAtIndex:iFilter];
     [filter filterReports:reports onCompletion:filterCompletion];
-
-    // False-positive: Potential leak of an object stored into 'filterCompletion'
 }
 
 
@@ -314,7 +285,7 @@ static inline NSError* makeNSError(NSString* domain, NSInteger code, NSString* f
 
     if(filterCount == 0)
     {
-        callCompletion(onCompletion, reports, YES,  nil);
+        kscrash_i_callCompletion(onCompletion, reports, YES,  nil);
         return;
     }
 
@@ -337,19 +308,17 @@ static inline NSError* makeNSError(NSString* domain, NSInteger code, NSString* f
                             {
                                 if(!completed)
                                 {
-                                    callCompletion(onCompletion,
+                                    kscrash_i_callCompletion(onCompletion,
                                                    filteredReports,
                                                    completed,
                                                    filterError);
                                 }
                                 else if(filteredReports == nil)
                                 {
-                                    callCompletion(onCompletion,
-                                                   filteredReports,
-                                                   NO,
-                                                   makeNSError([[self class] description],
-                                                               0,
-                                                               @"filteredReports was nil"));
+                                    kscrash_i_callCompletion(onCompletion, filteredReports, NO,
+                                                             [NSError errorWithDomain:[[self class] description]
+                                                                                 code:0
+                                                                          description:@"filteredReports was nil"]);
                                 }
                                 disposeOfCompletion();
                                 return;
@@ -365,15 +334,13 @@ static inline NSError* makeNSError(NSString* domain, NSInteger code, NSString* f
                             }
 
                             // All filters complete, or a filter failed.
-                            callCompletion(onCompletion, filteredReports, completed, filterError);
+                            kscrash_i_callCompletion(onCompletion, filteredReports, completed, filterError);
                             disposeOfCompletion();
                         } copy];
 
     // Initial call with first filter to start everything going.
     id<KSCrashReportFilter> filter = [filters objectAtIndex:iFilter];
     [filter filterReports:reports onCompletion:filterCompletion];
-
-    // False-positive: Potential leak of an object stored into 'filterCompletion'
 }
 
 @end
@@ -434,12 +401,10 @@ static inline NSError* makeNSError(NSString* domain, NSInteger code, NSString* f
         {
             if(!self.allowNotFound)
             {
-                callCompletion(onCompletion,
-                               filteredReports,
-                               NO,
-                               makeNSError([[self class] description],
-                                           0,
-                                           @"Key not found: %@", self.key));
+                kscrash_i_callCompletion(onCompletion, filteredReports, NO,
+                                         [NSError errorWithDomain:[[self class] description]
+                                                             code:0
+                                                      description:@"Key not found: %@", self.key]);
                 return;
             }
             [filteredReports addObject:[NSDictionary dictionary]];
@@ -449,7 +414,7 @@ static inline NSError* makeNSError(NSString* domain, NSInteger code, NSString* f
             [filteredReports addObject:object];
         }
     }
-    callCompletion(onCompletion, filteredReports, YES, nil);
+    kscrash_i_callCompletion(onCompletion, filteredReports, YES, nil);
 }
 
 @end
@@ -524,7 +489,7 @@ static inline NSError* makeNSError(NSString* domain, NSInteger code, NSString* f
         }
         [filteredReports addObject:concatenated];
     }
-    callCompletion(onCompletion, filteredReports, YES, nil);
+    kscrash_i_callCompletion(onCompletion, filteredReports, YES, nil);
 }
 
 @end
@@ -593,19 +558,17 @@ static inline NSError* makeNSError(NSString* domain, NSInteger code, NSString* f
             id object = [report objectForKeyPath:keyPath];
             if(object == nil)
             {
-                callCompletion(onCompletion,
-                               filteredReports,
-                               NO,
-                               makeNSError([[self class] description],
-                                           0,
-                                           @"Report did not have key path %@", keyPath));
+                kscrash_i_callCompletion(onCompletion, filteredReports, NO,
+                                         [NSError errorWithDomain:[[self class] description]
+                                                             code:0
+                                                      description:@"Report did not have key path %@", keyPath]);
                 return;
             }
             [subset setObject:object forKey:[keyPath lastPathComponent]];
         }
         [filteredReports addObject:subset];
     }
-    callCompletion(onCompletion, filteredReports, YES, nil);
+    kscrash_i_callCompletion(onCompletion, filteredReports, YES, nil);
 }
 
 @end
