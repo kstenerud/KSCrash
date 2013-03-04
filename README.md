@@ -171,6 +171,12 @@ won't attempt to report to an external API until you assign it a sink:
     #import <KSCrash/KSCrashAdvanced.h>
 
 	[KSCrash instance].sink = [KSCrashReportSinkStandard sinkWithURL:myAPIURL onSuccess:nil];
+	
+You'll then need to manually trigger the start of crash report uploading:
+
+	[[KSCrash instance] sendAllReportsWithCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error) {
+        	// All reports uploaded.
+	}];
 
 
 KSCrashLite
