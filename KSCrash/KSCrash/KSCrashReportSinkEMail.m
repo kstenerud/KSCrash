@@ -250,7 +250,7 @@ static inline NSError* makeNSError(NSString* domain, NSInteger code, NSString* f
         return;
     }
 
-    MFMailComposeViewController* mailController = [[MFMailComposeViewController alloc] init];
+	MFMailComposeViewController* mailController = as_autorelease([[MFMailComposeViewController alloc] init]);
     [mailController setToRecipients:self.recipients];
     [mailController setSubject:self.subject];
     NSString* filenameFmt = self.filenameFmt;
