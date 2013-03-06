@@ -44,65 +44,69 @@ typedef struct
     const int numCodes;
 } KSSignalInfo;
 
+#define ENUM_NAME_MAPPING(A) {A, #A}
+
 static const KSSignalCodeInfo g_sigIllCodes[] =
 {
-    {ILL_NOOP, "ILL_NOOP"},
-    {ILL_ILLOPC, "ILL_ILLOPC"},
-    {ILL_ILLTRP, "ILL_ILLTRP"},
-    {ILL_PRVOPC, "ILL_PRVOPC"},
-    {ILL_ILLOPN, "ILL_ILLOPN"},
-    {ILL_ILLADR, "ILL_ILLADR"},
-    {ILL_PRVREG, "ILL_PRVREG"},
-    {ILL_COPROC, "ILL_COPROC"},
-    {ILL_BADSTK, "ILL_BADSTK"},
+    ENUM_NAME_MAPPING(ILL_NOOP),
+    ENUM_NAME_MAPPING(ILL_ILLOPC),
+    ENUM_NAME_MAPPING(ILL_ILLTRP),
+    ENUM_NAME_MAPPING(ILL_PRVOPC),
+    ENUM_NAME_MAPPING(ILL_ILLOPN),
+    ENUM_NAME_MAPPING(ILL_ILLADR),
+    ENUM_NAME_MAPPING(ILL_PRVREG),
+    ENUM_NAME_MAPPING(ILL_COPROC),
+    ENUM_NAME_MAPPING(ILL_BADSTK),
 };
 
 static const KSSignalCodeInfo g_sigTrapCodes[] =
 {
-    {0, "0"},
-    {TRAP_BRKPT, "TRAP_BRKPT"},
-    {TRAP_TRACE, "TRAP_TRACE"},
+    ENUM_NAME_MAPPING(0),
+    ENUM_NAME_MAPPING(TRAP_BRKPT),
+    ENUM_NAME_MAPPING(TRAP_TRACE),
 };
 
 static const KSSignalCodeInfo g_sigFPECodes[] =
 {
-    {FPE_NOOP, "FPE_NOOP"},
-    {FPE_FLTDIV, "FPE_FLTDIV"},
-    {FPE_FLTOVF, "FPE_FLTOVF"},
-    {FPE_FLTUND, "FPE_FLTUND"},
-    {FPE_FLTRES, "FPE_FLTRES"},
-    {FPE_FLTINV, "FPE_FLTINV"},
-    {FPE_FLTSUB, "FPE_FLTSUB"},
-    {FPE_INTDIV, "FPE_INTDIV"},
-    {FPE_INTOVF, "FPE_INTOVF"},
+    ENUM_NAME_MAPPING(FPE_NOOP),
+    ENUM_NAME_MAPPING(FPE_FLTDIV),
+    ENUM_NAME_MAPPING(FPE_FLTOVF),
+    ENUM_NAME_MAPPING(FPE_FLTUND),
+    ENUM_NAME_MAPPING(FPE_FLTRES),
+    ENUM_NAME_MAPPING(FPE_FLTINV),
+    ENUM_NAME_MAPPING(FPE_FLTSUB),
+    ENUM_NAME_MAPPING(FPE_INTDIV),
+    ENUM_NAME_MAPPING(FPE_INTOVF),
 };
 
 static const KSSignalCodeInfo g_sigBusCodes[] =
 {
-    {BUS_NOOP, "BUS_NOOP"},
-    {BUS_ADRALN, "BUS_ADRALN"},
-    {BUS_ADRERR, "BUS_ADRERR"},
-    {BUS_OBJERR, "BUS_OBJERR"},
+    ENUM_NAME_MAPPING(BUS_NOOP),
+    ENUM_NAME_MAPPING(BUS_ADRALN),
+    ENUM_NAME_MAPPING(BUS_ADRERR),
+    ENUM_NAME_MAPPING(BUS_OBJERR),
 };
 
 static const KSSignalCodeInfo g_sigSegVCodes[] =
 {
-    {SEGV_NOOP, "SEGV_NOOP"},
-    {SEGV_MAPERR, "SEGV_MAPERR"},
-    {SEGV_ACCERR, "SEGV_ACCERR"},
+    ENUM_NAME_MAPPING(SEGV_NOOP),
+    ENUM_NAME_MAPPING(SEGV_MAPERR),
+    ENUM_NAME_MAPPING(SEGV_ACCERR),
 };
 
+#define SIGNAL_INFO(SIGNAL, CODES) {SIGNAL, #SIGNAL, CODES, sizeof(CODES) / sizeof(*CODES)}
+#define SIGNAL_INFO_NOCODES(SIGNAL) {SIGNAL, #SIGNAL, 0, 0}
 
 static const KSSignalInfo g_fatalSignalData[] =
 {
-    {SIGABRT, "SIGABRT", 0, 0},
-    {SIGBUS, "SIGBUS", g_sigBusCodes, sizeof(g_sigBusCodes) / sizeof(g_sigBusCodes[0])},
-    {SIGFPE, "SIGFPE", g_sigFPECodes, sizeof(g_sigFPECodes) / sizeof(g_sigFPECodes[0])},
-    {SIGILL, "SIGILL", g_sigIllCodes, sizeof(g_sigIllCodes) / sizeof(g_sigIllCodes[0])},
-    {SIGPIPE, "SIGPIPE", 0, 0},
-    {SIGSEGV, "SIGSEGV", g_sigSegVCodes, sizeof(g_sigSegVCodes) / sizeof(g_sigSegVCodes[0])},
-    {SIGSYS, "SIGSYS", 0, 0},
-    {SIGTRAP, "SIGTRAP", g_sigTrapCodes, sizeof(g_sigTrapCodes) / sizeof(g_sigTrapCodes[0])},
+    SIGNAL_INFO_NOCODES(SIGABRT),
+    SIGNAL_INFO(SIGBUS, g_sigBusCodes),
+    SIGNAL_INFO(SIGFPE, g_sigFPECodes),
+    SIGNAL_INFO(SIGILL, g_sigIllCodes),
+    SIGNAL_INFO_NOCODES(SIGPIPE),
+    SIGNAL_INFO(SIGSEGV, g_sigSegVCodes),
+    SIGNAL_INFO_NOCODES(SIGSYS),
+    SIGNAL_INFO(SIGTERM, g_sigTrapCodes),
 };
 static const int g_fatalSignalsCount = sizeof(g_fatalSignalData) / sizeof(*g_fatalSignalData);
 

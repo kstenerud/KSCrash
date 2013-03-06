@@ -42,7 +42,7 @@
  *
  * - No user info (userInfo = nil)
  * - Zombie tracking disabled (zombieCacheSize = 0)
- * - Main thread deadlock detection enabled (deadlockWatchdogInterval = 5.0f)
+ * - Main thread deadlock detection disabled (deadlockWatchdogInterval = 0)
  * - Don't print to stdout (printTraceToStdout = NO)
  * - No crash callback (onCrash = NULL)
  *
@@ -53,6 +53,8 @@
 + (BOOL) installWithCrashReportSink:(id<KSCrashReportFilter>) sink;
 
 /** Install the crash reporter.
+ *
+ * BETA WARNING: Deadlock detection has some issues. Please don't use it for now.
  *
  * @param sink The report sink to send outstanding reports to (can be nil).
  *

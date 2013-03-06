@@ -356,7 +356,7 @@ failed:
     return [self installWithCrashReportSink:sink
                                    userInfo:nil
                             zombieCacheSize:0
-                   deadlockWatchdogInterval:5.0f
+                   deadlockWatchdogInterval:0
                          printTraceToStdout:NO
                                     onCrash:NULL];
 }

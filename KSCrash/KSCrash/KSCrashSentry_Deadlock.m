@@ -33,7 +33,7 @@
 #import "KSLogger.h"
 
 
-#define kDefaultWatchdogInterval 5.0f
+#define kDefaultWatchdogInterval 0
 
 
 @class KSCrashDeadlockMonitor;

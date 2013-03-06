@@ -43,10 +43,14 @@ Although it's now being shipped in production apps, KSCrash is still
 officially considered "beta" software because there are a few more
 things to do before releasing version 1.0.
 
+The following feature has been causing problems. Please don't use it until
+I've found a more robust solution.
+
+- Deadlock detection
+
 The following features are newer and not as tested as the rest:
 
 - Objective-C introspection.
-- Deadlock detection
 
 These features are being used in deployed systems, but have not had as much
 exposure as the rest of the library.
@@ -167,6 +171,12 @@ won't attempt to report to an external API until you assign it a sink:
     #import <KSCrash/KSCrashAdvanced.h>
 
 	[KSCrash instance].sink = [KSCrashReportSinkStandard sinkWithURL:myAPIURL onSuccess:nil];
+	
+You'll then need to manually trigger the start of crash report uploading:
+
+	[[KSCrash instance] sendAllReportsWithCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error) {
+        	// All reports uploaded.
+	}];
 
 
 KSCrashLite

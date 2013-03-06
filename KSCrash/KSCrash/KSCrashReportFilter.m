@@ -27,7 +27,6 @@
 
 #import "KSCrashReportFilter.h"
 #import "ARCSafe_MemMgmt.h"
-#import "KSSafeCollections.h"
 #import "KSVarArgs.h"
 #import "Container+DeepSearch.h"
 
