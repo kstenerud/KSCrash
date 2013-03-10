@@ -56,9 +56,14 @@ And finally, the documentation sucks :P
 
 ### Incompatible API Change Notice
 
-As of Jan 29th, 2013, I've modified the KSCrash main API to use properties rather than
-init method parameters for configuration. With all the new options, things
-were starting to get a bit unwieldly. This should mark the last major API change.
+As of Jan 29th, 2013, I've modified the KSCrash main API to use properties
+rather than init method parameters for configuration. With all the new options,
+things were starting to get a bit unwieldly. This should mark the last major
+API change.
+
+Note: The preferred method for initializing KSCrash is now via the installation
+      objects rather than using filters directly. See "How to Use KSCrash" for
+      details.
 
 
 
