@@ -32,6 +32,7 @@
 
 @interface KSSignalInfo_Tests : SenTestCase @end
 
+
 @implementation KSSignalInfo_Tests
 
 - (void) testSignalName

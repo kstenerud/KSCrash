@@ -35,6 +35,10 @@
  */
 @interface KSCrashReportFilterGZipCompress : NSObject <KSCrashReportFilter>
 
+/** Constructor.
+ *
+ * @param compressionLevel 0 = none, 9 = best, -1 = default
+ */
 + (KSCrashReportFilterGZipCompress*) filterWithCompressionLevel:(int) compressionLevel;
 
 - (id) initWithCompressionLevel:(int) compressionLevel;

@@ -151,11 +151,20 @@
 
 - (void) dismissModalVC
 {
-	[self.dummyVC dismissViewControllerAnimated:YES completion:^
-     {
-         [self.dummyVC.view removeFromSuperview];
-         self.dummyVC = nil;
-     }];
+    if([self.dummyVC respondsToSelector:@selector(dismissViewControllerAnimated:completion:)])
+    {
+        [self.dummyVC dismissViewControllerAnimated:YES completion:^
+         {
+             [self.dummyVC.view removeFromSuperview];
+             self.dummyVC = nil;
+         }];
+    }
+    else
+    {
+        [self.dummyVC dismissModalViewControllerAnimated:NO];
+        [self.dummyVC.view removeFromSuperview];
+        self.dummyVC = nil;
+    }
 }
 
 @end
@@ -167,6 +176,8 @@
 
 @property(nonatomic,readwrite,retain) NSString* subject;
 
+@property(nonatomic,readwrite,retain) NSString* message;
+
 @property(nonatomic,readwrite,retain) NSString* filenameFmt;
 
 @end
@@ -176,25 +187,30 @@
 
 @synthesize recipients = _recipients;
 @synthesize subject = _subject;
+@synthesize message = _message;
 @synthesize filenameFmt = _filenameFmt;
 
 + (KSCrashReportSinkEMail*) sinkWithRecipients:(NSArray*) recipients
                                        subject:(NSString*) subject
+                                       message:(NSString*) message
                                    filenameFmt:(NSString*) filenameFmt
 {
     return as_autorelease([[self alloc] initWithRecipients:recipients
                                                    subject:subject
+                                                   message:message
                                                filenameFmt:filenameFmt]);
 }
 
 - (id) initWithRecipients:(NSArray*) recipients
                   subject:(NSString*) subject
+                  message:(NSString*) message
               filenameFmt:(NSString*) filenameFmt
 {
     if((self = [super init]))
     {
         self.recipients = recipients;
         self.subject = subject;
+        self.message = message;
         self.filenameFmt = filenameFmt;
     }
     return self;
@@ -204,13 +220,14 @@
 {
     as_release(_recipients);
     as_release(_subject);
+    as_release(_message);
     as_release(_filenameFmt);
     as_superdealloc();
 }
 
-- (NSArray*) defaultCrashReportFilterSet
+- (id <KSCrashReportFilter>) defaultCrashReportFilterSet
 {
-    return [NSArray arrayWithObjects:
+    return [KSCrashReportFilterPipeline filterWithFilters:
             [KSCrashReportFilterJSONEncode filterWithOptions:KSJSONEncodeOptionSorted | KSJSONEncodeOptionPretty],
             [KSCrashReportFilterGZipCompress filterWithCompressionLevel:-1],
             self,
@@ -235,9 +252,13 @@
         return;
     }
 
-    MFMailComposeViewController* mailController = [[MFMailComposeViewController alloc] init];
+    MFMailComposeViewController* mailController = as_autorelease([[MFMailComposeViewController alloc] init]);
     [mailController setToRecipients:self.recipients];
     [mailController setSubject:self.subject];
+    if(self.message != nil)
+    {
+        [mailController setMessageBody:self.message isHTML:NO];
+    }
     NSString* filenameFmt = self.filenameFmt;
 
     dispatch_async(dispatch_get_main_queue(), ^

@@ -86,7 +86,7 @@
 
 @synthesize sink = _sink;
 @synthesize userInfo = _userInfo;
-@synthesize deleteAfterSendAll = _deleteAfterSendAll;
+@synthesize deleteBehaviorAfterSendAll = _deleteBehaviorAfterSendAll;
 @synthesize zombieCacheSize = _zombieCacheSize;
 @synthesize deadlockWatchdogInterval = _deadlockWatchdogInterval;
 @synthesize printTraceToStdout = _printTraceToStdout;
@@ -95,20 +95,8 @@
 @synthesize bundleName = _bundleName;
 @synthesize logFilePath = _logFilePath;
 @synthesize nextCrashID = _nextCrashID;
-
-- (void) setSink:(id<KSCrashReportFilter>)sink
-{
-    as_autorelease_noref(_sink);
-    if([sink conformsToProtocol:@protocol(KSCrashReportDefaultFilterSet)])
-    {
-        _sink = [[KSCrashReportFilterPipeline alloc] initWithFilters:
-                 [(id<KSCrashReportDefaultFilterSet>)sink defaultCrashReportFilterSet], nil];
-    }
-    else
-    {
-        _sink = as_retain(sink);
-    }
-}
+@synthesize introspectMemory = _introspectMemory;
+@synthesize doNotIntrospectClasses = _doNotIntrospectClasses;
 
 
 // ============================================================================
@@ -150,10 +138,9 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrash)
         }
         
         self.nextCrashID = [self generateUUIDString];
-
         self.crashReportStore = [KSCrashReportStore storeWithPath:storePath];
-
-        self.deleteAfterSendAll = YES;
+        self.deleteBehaviorAfterSendAll = KSCDeleteAlways;
+        self.introspectMemory = YES;
     }
     return self;
 
@@ -200,7 +187,7 @@ failed:
     kscrash_setUserInfoJSON([userInfoJSON bytes]);
 }
 
-- (void) setZombieCacheSize:(unsigned int) zombieCacheSize
+- (void) setZombieCacheSize:(size_t) zombieCacheSize
 {
     _zombieCacheSize = zombieCacheSize;
     kscrash_setZombieCacheSize(zombieCacheSize);
@@ -222,6 +209,33 @@ failed:
 {
     _onCrash = onCrash;
     kscrash_setCrashNotifyCallback(onCrash);
+}
+
+- (void) setIntrospectMemory:(bool) introspectMemory
+{
+    _introspectMemory = introspectMemory;
+    kscrash_setIntrospectMemory(introspectMemory);
+}
+
+- (void) setDoNotIntrospectClasses:(NSArray *)doNotIntrospectClasses
+{
+    as_autorelease(_doNotIntrospectClasses);
+    _doNotIntrospectClasses = as_retain(doNotIntrospectClasses);
+    size_t count = [doNotIntrospectClasses count];
+    if(count == 0)
+    {
+        kscrash_setDoNotIntrospectClasses(nil, 0);
+    }
+    else
+    {
+        NSMutableData* data = [NSMutableData dataWithLength:count * sizeof(const char*)];
+        const char** classes = data.mutableBytes;
+        for(size_t i = 0; i < count; i++)
+        {
+            classes[i] = [[doNotIntrospectClasses objectAtIndex:i] cStringUsingEncoding:NSUTF8StringEncoding];
+        }
+        kscrash_setDoNotIntrospectClasses(classes, count);
+    }
 }
 
 - (BOOL) install
@@ -280,7 +294,8 @@ failed:
          {
              KSLOG_ERROR(@"Failed to send reports: %@", error);
          }
-         if(self.deleteAfterSendAll && completed)
+         if((self.deleteBehaviorAfterSendAll == KSCDeleteOnSucess && completed) ||
+            self.deleteBehaviorAfterSendAll == KSCDeleteAlways)
          {
              [self deleteAllReports];
          }

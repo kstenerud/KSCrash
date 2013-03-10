@@ -31,6 +31,13 @@
 #import "KSCrashReportFilter.h"
 
 
+typedef enum
+{
+    KSCDeleteNever,
+    KSCDeleteOnSucess,
+    KSCDeleteAlways
+} KSCDeleteBehavior;
+
 /**
  * Reports any crashes that occur in the application.
  *
@@ -52,11 +59,16 @@
  */
 @property(nonatomic,readwrite,retain) NSDictionary* userInfo;
 
-/** If YES, delete all reports after a successful send via sendAllReportsWithCompletion:
+/** What to do after sending reports via sendAllReportsWithCompletion:
  *
- * Default: YES
+ * - Use KSCDeleteNever if you will manually manage the reports.
+ * - Use KSCDeleteAlways if you will be using an alert confirmation (otherwise it
+ *   will nag the user incessantly until he selects "yes").
+ * - Use KSCDeleteOnSuccess for all other situations.
+ *
+ * Default: KSCDeleteAlways
  */
-@property(nonatomic,readwrite,assign) BOOL deleteAfterSendAll;
+@property(nonatomic,readwrite,assign) KSCDeleteBehavior deleteBehaviorAfterSendAll;
 
 /** The size of the cache to use for on-device zombie tracking.
  * Every deallocated object will be hashed based on its address modulus the cache
@@ -71,7 +83,7 @@
  *
  * Default: 0
  */
-@property(nonatomic,readwrite,assign) unsigned int zombieCacheSize;
+@property(nonatomic,readwrite,assign) size_t zombieCacheSize;
 
 /** Maximum time to allow the main thread to run without returning.
  * If a task occupies the main thread for longer than this interval, the
@@ -84,21 +96,24 @@
  * another thread, or perhaps set this to a higher value until your application
  * has been fully initialized.
  *
+ * WARNING: This is still causing false positives in some cases. Use at own risk!
+ *
  * 0 = Disabled.
  *
  * Default: 0
  */
 @property(nonatomic,readwrite,assign) double deadlockWatchdogInterval;
 
-/** If YES, introspect Objective-C objects during a crash.
- * Any objects near the stack pointer or referenced by cpu registers or exceptions
- * will be recorded in the crash report, along with their contents.
+/** If YES, introspect memory contents during a crash.
+ * Any Objective-C objects or C strings near the stack pointer or referenced by
+ * cpu registers or exceptions will be recorded in the crash report, along with
+ * their contents.
  *
  * Default: YES
  */
-@property(nonatomic,readwrite,assign) bool objectiveCIntrospection;
+@property(nonatomic,readwrite,assign) bool introspectMemory;
 
-/** List of classes that should never be introspected.
+/** List of Objective-C classes that should never be introspected.
  * Whenever a class in this list is encountered, only the class name will be recorded.
  * This can be useful for information security concerns.
  *

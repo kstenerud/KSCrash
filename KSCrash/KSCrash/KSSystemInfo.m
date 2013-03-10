@@ -91,16 +91,14 @@
         return @"";
     }
 
-    char* value = malloc(size);
+    NSMutableData* value = [NSMutableData dataWithLength:size];
 
     if(kssysctl_stringForName([name cStringUsingEncoding:NSUTF8StringEncoding],
-                              value,
+                              value.mutableBytes,
                               size) != 0)
     {
-        str = [NSString stringWithCString:value encoding:NSUTF8StringEncoding];
+        str = [NSString stringWithCString:value.mutableBytes encoding:NSUTF8StringEncoding];
     }
-
-    free(value);
 
     return str;
 }

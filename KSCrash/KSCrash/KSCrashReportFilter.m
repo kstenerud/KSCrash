@@ -150,6 +150,16 @@
         kscrash_i_callCompletion(onCompletion, reports, YES, nil);
         return;
     }
+    
+    if(filterCount != [keys count])
+    {
+        kscrash_i_callCompletion(onCompletion, reports, NO,
+                                 [NSError errorWithDomain:[[self class] description]
+                                                     code:0
+                                              description:@"Key/filter mismatch (%d keys, %d filters",
+                                  [keys count], filterCount]);
+        return;
+    }
 
     NSMutableArray* reportSets = [NSMutableArray arrayWithCapacity:filterCount];
 
@@ -480,10 +490,18 @@
     NSMutableArray* filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
     for(NSDictionary* report in reports)
     {
+        BOOL firstEntry = YES;
         NSMutableString* concatenated = [NSMutableString string];
         for(NSString* key in self.keys)
         {
-            [concatenated appendFormat:self.separatorFmt, key];
+            if(firstEntry)
+            {
+                firstEntry = NO;
+            }
+            else
+            {
+                [concatenated appendFormat:self.separatorFmt, key];
+            }
             id object = [report objectForKeyPath:key];
             [concatenated appendFormat:@"%@", object];
         }

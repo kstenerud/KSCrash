@@ -1,0 +1,118 @@
+//
+//  AppDelegate.m
+//  Simple-Example
+//
+
+#import "AppDelegate.h"
+
+#import <KSCrash/KSCrashInstallationStandard.h>
+#import <KSCrash/KSCrashInstallationQuincyHockey.h>
+#import <KSCrash/KSCrashInstallationEmail.h>
+
+
+/* Very basic crash reporting example.
+ *
+ * This example creates an installation (standard, email, quincy, or hockey)
+ * installs, and then sends any crash reports right away.
+ */
+
+
+@implementation AppDelegate
+
+- (BOOL) application:(__unused UIApplication *) application
+didFinishLaunchingWithOptions:(__unused NSDictionary *) launchOptions
+{
+    [self installCrashHandler];
+    
+    return YES;
+}
+
+// ======================================================================
+#pragma mark - Basic Crash Handling -
+// ======================================================================
+
+- (void) installCrashHandler
+{
+    // Create an installation (choose one)
+//    KSCrashInstallation* installation = [self makeStandardInstallation];
+    KSCrashInstallation* installation = [self makeEmailInstallation];
+//    KSCrashInstallation* installation = [self makeHockeyInstallation];
+//    KSCrashInstallation* installation = [self makeQuincyInstallation];
+    
+    
+    // Install the crash handler. This should be done as early as possible.
+    // This will record any crashes that occur, but it doesn't automatically send them.
+    [installation install];
+    
+    
+    // Send all outstanding reports. You can do this any time; it doesn't need
+    // to happen right as the app launches. Advanced-Example shows how to defer
+    // displaying the main view controller until crash reporting completes.
+    [installation sendAllReportsWithCompletion:^(NSArray* reports, BOOL completed, NSError* error)
+     {
+         if(completed)
+         {
+             NSLog(@"Sent %d reports", [reports count]);
+         }
+         else
+         {
+             NSLog(@"Failed to send reports: %@", error);
+         }
+     }];
+}
+
+- (KSCrashInstallation*) makeEmailInstallation
+{
+    NSString* emailAddress = @"your@email.here";
+    
+    KSCrashInstallationEmail* email = [KSCrashInstallationEmail sharedInstance];
+    email.recipients = @[emailAddress];
+    email.subject = @"Crash Report";
+    email.message = @"This is a crash report";
+    email.filenameFmt = @"crash-report-%d.txt.gz";
+    
+    [email addConditionalAlertWithTitle:@"Crash Detected"
+                                message:@"The app crashed last time it was launched. Send a crash report?"
+                              yesAnswer:@"Sure!"
+                               noAnswer:@"No thanks"];
+    
+    return email;
+}
+
+- (KSCrashInstallation*) makeHockeyInstallation
+{
+    NSString* hockeyAppIdentifier = @"PUT_YOUR_HOCKEY_APP_ID_HERE";
+    
+    KSCrashInstallationHockey* hockey = [KSCrashInstallationHockey sharedInstance];
+    hockey.appIdentifier = hockeyAppIdentifier;
+    hockey.userID = @"ABC123";
+    hockey.contactEmail = @"nobody@nowhere.com";
+    hockey.crashDescription = @"Something broke!";
+    
+    return hockey;
+}
+
+- (KSCrashInstallation*) makeQuincyInstallation
+{
+    NSURL* quincyURL = [NSURL URLWithString:@"http://localhost:8888/quincy/crash_v200.php"];
+    
+    KSCrashInstallationQuincy* quincy = [KSCrashInstallationQuincy sharedInstance];
+    quincy.url = quincyURL;
+    quincy.userID = @"ABC123";
+    quincy.contactEmail = @"nobody@nowhere.com";
+    quincy.crashDescription = @"Something broke!";
+    
+    return quincy;
+}
+
+- (KSCrashInstallation*) makeStandardInstallation
+{
+    NSURL* url = [NSURL URLWithString:@"http://put.your.url.here"];
+    
+    KSCrashInstallationStandard* standard = [KSCrashInstallationStandard sharedInstance];
+    standard.url = url;
+    
+    return standard;
+}
+
+@end

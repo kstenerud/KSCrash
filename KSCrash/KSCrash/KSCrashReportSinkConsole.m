@@ -38,9 +38,9 @@
     return as_autorelease([[self alloc] init]);
 }
 
-- (NSArray*) defaultCrashReportFilterSet
+- (id <KSCrashReportFilter>) defaultCrashReportFilterSet
 {
-    return [NSArray arrayWithObjects:
+    return [KSCrashReportFilterPipeline filterWithFilters:
             [KSCrashReportFilterAppleFmt filterWithReportStyle:KSAppleReportStyleSymbolicated],
             self,
             nil];

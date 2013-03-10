@@ -204,7 +204,11 @@
     NSMutableDictionary* crashReport = [self readReport:[self pathToCrashReportWithID:reportID] error:&error];
     if(error != nil)
     {
-        KSLOG_ERROR(@"Could not load crash report %@: %@", reportID, error);
+        KSLOG_ERROR(@"Encountered error loading crash report %@: %@", reportID, error);
+    }
+    if(crashReport == nil)
+    {
+        KSLOG_ERROR(@"Could not load crash report");
         return nil;
     }
     NSMutableDictionary* recrashReport = [self readReport:[self pathToRecrashReportWithID:reportID] error:nil];

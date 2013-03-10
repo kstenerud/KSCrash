@@ -26,10 +26,12 @@
 
 
 #import <SenTestingKit/SenTestingKit.h>
+
 #import "NSMutableData+AppendUTF8.h"
 
 
 @interface NSMutableData_AppendUTF8_Tests : SenTestCase @end
+
 
 @implementation NSMutableData_AppendUTF8_Tests
 

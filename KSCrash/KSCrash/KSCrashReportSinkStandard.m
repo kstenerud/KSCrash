@@ -44,8 +44,6 @@
 
 @property(nonatomic,readwrite,retain) NSURL* url;
 
-@property(nonatomic,readwrite,copy) void(^onSuccess)(NSString* response);
-
 @property(nonatomic,readwrite,retain) KSReachableOperationKSCrash* reachableOperation;
 
 
@@ -55,22 +53,18 @@
 @implementation KSCrashReportSinkStandard
 
 @synthesize url = _url;
-@synthesize onSuccess = _onSuccess;
 @synthesize reachableOperation = _reachableOperation;
 
 + (KSCrashReportSinkStandard*) sinkWithURL:(NSURL*) url
-                                 onSuccess:(void(^)(NSString* response)) onSuccess
 {
-    return as_autorelease([[self alloc] initWithURL:url onSuccess:onSuccess]);
+    return as_autorelease([[self alloc] initWithURL:url]);
 }
 
 - (id) initWithURL:(NSURL*) url
-         onSuccess:(void(^)(NSString* response)) onSuccess
 {
     if((self = [super init]))
     {
         self.url = url;
-        self.onSuccess = onSuccess;
     }
     return self;
 }
@@ -79,15 +73,12 @@
 {
     as_release(_reachableOperation);
     as_release(_url);
-    as_release(_onSuccess);
     as_superdealloc();
 }
 
-- (NSArray*) defaultCrashReportFilterSet
+- (id <KSCrashReportFilter>) defaultCrashReportFilterSet
 {
-    return [NSArray arrayWithObjects:
-            self,
-            nil];
+    return self;
 }
 
 - (void) filterReports:(NSArray*) reports
@@ -131,14 +122,9 @@
                                                                        block:^
     {
         [[KSHTTPRequestSender sender] sendRequest:request
-                                        onSuccess:^(__unused NSHTTPURLResponse* response, NSData* data)
+                                        onSuccess:^(__unused NSHTTPURLResponse* response, __unused NSData* data)
          {
              kscrash_i_callCompletion(onCompletion, reports, YES, nil);
-             if(self.onSuccess)
-             {
-                 self.onSuccess(as_autorelease([[NSString alloc] initWithData:data
-                                                                     encoding:NSUTF8StringEncoding]));
-             }
          } onFailure:^(NSHTTPURLResponse* response, NSData* data)
          {
              NSString* text = as_autorelease([[NSString alloc] initWithData:data

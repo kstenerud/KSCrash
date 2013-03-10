@@ -210,7 +210,7 @@ void kscrashsentry_uninstallDeadlockHandler(void)
     g_installed = 0;
 }
 
-void kscrashSentry_setDeadlockHandlerWatchdogInterval(double value)
+void kscrashsentry_setDeadlockHandlerWatchdogInterval(double value)
 {
     g_watchdogInterval = value;
 }

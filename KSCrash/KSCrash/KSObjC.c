@@ -91,10 +91,13 @@ static size_t dateDescription(const void* object, char* buffer, size_t bufferLen
 static ClassData g_classData[] =
 {
     {"__NSCFString",         KSObjCClassTypeString,  ClassSubtypeNone,             true,  stringIsValid, stringDescription},
+    {"NSCFString",           KSObjCClassTypeString,  ClassSubtypeNone,             true,  stringIsValid, stringDescription},
     {"__NSCFConstantString", KSObjCClassTypeString,  ClassSubtypeNone,             true,  stringIsValid, stringDescription},
+    {"NSCFConstantString",   KSObjCClassTypeString,  ClassSubtypeNone,             true,  stringIsValid, stringDescription},
     {"__NSArrayI",           KSObjCClassTypeArray,   ClassSubtypeNSArrayImmutable, false, arrayIsValid,  arrayDescription},
     {"__NSArrayM",           KSObjCClassTypeArray,   ClassSubtypeNSArrayMutable,   true,  arrayIsValid,  arrayDescription},
     {"__NSCFArray",          KSObjCClassTypeArray,   ClassSubtypeCFArray,          false, arrayIsValid,  arrayDescription},
+    {"NSCFArray",            KSObjCClassTypeArray,   ClassSubtypeCFArray,          false, arrayIsValid,  arrayDescription},
     {"__NSDate",             KSObjCClassTypeDate,    ClassSubtypeNone,             false, dateIsValid,   dateDescription},
     {"NSDate",               KSObjCClassTypeDate,    ClassSubtypeNone,             false, dateIsValid,   dateDescription},
     {"NSURL",                KSObjCClassTypeURL,     ClassSubtypeNone,             false, urlIsValid,    urlDescription},

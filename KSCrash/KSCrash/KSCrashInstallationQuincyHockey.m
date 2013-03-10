@@ -24,10 +24,12 @@
 // THE SOFTWARE.
 //
 
+
 #import "KSCrashInstallationQuincyHockey.h"
 
 #import "ARCSafe_MemMgmt.h"
 #import "KSCrashInstallation+Private.h"
+#import "KSCrashReportFields.h"
 #import "KSCrashReportSinkQuincyHockey.h"
 #import "KSSingleton.h"
 #import "NSError+SimpleConstructor.h"
@@ -35,24 +37,18 @@
 
 #define kQuincyDefaultKeyUserID @"user_id"
 #define kQuincyDefaultKeyContactEmail @"contact_email"
-#define kQuincyDefaultKeyDescription @"description"
-
-
-typedef enum
-{
-    ReportFieldUserID,
-    ReportFieldContactEmail,
-    ReportFieldDescription,
-    ReportFieldFileContainingDescription,
-    ReportFieldCount
-} ReportField;
+#define kQuincyDefaultKeyDescription @"crash_description"
+#define kQuincyDefaultKeysExtraDescription [NSArray arrayWithObjects:@"/" @KSCrashField_System, @"/" @KSCrashField_User, nil]
 
 
 @implementation KSCrashInstallationBaseQuincyHockey
 
-IMPLEMENT_REPORT_PROPERTY(quincyhockey, userID, UserID, NSString*);
-IMPLEMENT_REPORT_PROPERTY(quincyhockey, contactEmail, ContactEmail, NSString*);
-IMPLEMENT_REPORT_PROPERTY(quincyhockey, description, Description, NSString*);
+IMPLEMENT_REPORT_PROPERTY(userID, UserID, NSString*);
+IMPLEMENT_REPORT_PROPERTY(contactEmail, ContactEmail, NSString*);
+IMPLEMENT_REPORT_PROPERTY(crashDescription, CrashDescription, NSString*);
+
+@synthesize extraDescriptionKeys = _extraDescriptionKeys;
+@synthesize waitUntilReachable = _waitUntilReachable;
 
 - (id) initWithMaxReportFieldCount:(size_t) maxReportFieldCount
                 requiredProperties:(NSArray*) requiredProperties
@@ -62,7 +58,9 @@ IMPLEMENT_REPORT_PROPERTY(quincyhockey, description, Description, NSString*);
     {
         self.userIDKey = kQuincyDefaultKeyUserID;
         self.contactEmailKey = kQuincyDefaultKeyContactEmail;
-        self.descriptionKey = kQuincyDefaultKeyDescription;
+        self.crashDescriptionKey = kQuincyDefaultKeyDescription;
+        self.extraDescriptionKeys = kQuincyDefaultKeysExtraDescription;
+        self.waitUntilReachable = YES;
     }
     return self;
 }
@@ -73,15 +71,24 @@ IMPLEMENT_REPORT_PROPERTY(quincyhockey, description, Description, NSString*);
     as_release(_userIDKey);
     as_release(_contactEmail);
     as_release(_contactEmailKey);
-    as_release(_description);
-    as_release(_descriptionKey);
+    as_release(_crashDescription);
+    as_release(_crashDescriptionKey);
+    as_release(_extraDescriptionKeys);
     as_superdealloc();
 }
 
-- (NSString*) makeKeyPath:(NSString*) keyPath
+- (NSArray*) allCrashDescriptionKeys
 {
-    BOOL isAbsoluteKeyPath = [keyPath length] > 0 && [keyPath characterAtIndex:0] == '/';
-    return isAbsoluteKeyPath ? keyPath : [@"user/" stringByAppendingString:keyPath];
+    NSMutableArray* keys = [NSMutableArray array];
+    if(self.crashDescriptionKey != nil)
+    {
+        [keys addObject:self.crashDescriptionKey];
+    }
+    if([self.extraDescriptionKeys count] > 0)
+    {
+        [keys addObjectsFromArray:self.extraDescriptionKeys];
+    }
+    return keys;
 }
 
 @end
@@ -112,12 +119,12 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrashInstallationQuincy)
 
 - (id<KSCrashReportFilter>) sink
 {
-    KSCrashReportSinkQuincy* sink = [KSCrashReportSinkQuincy sink];
-    sink.url = self.url;
-    NSArray* pipeline = [sink defaultCrashReportFilterSetWithUserIDKey:[self makeKeyPath:self.userIDKey]
-                                                       contactEmailKey:[self makeKeyPath:self.contactEmailKey]
-                                                  crashDescriptionKeys:[NSArray arrayWithObject:[self makeKeyPath:self.descriptionKey]]];
-    return [KSCrashReportFilterPipeline filterWithFilters:pipeline, nil];
+    KSCrashReportSinkQuincy* sink = [KSCrashReportSinkQuincy sinkWithURL:self.url
+                                                               userIDKey:[self makeKeyPath:self.userIDKey]
+                                                         contactEmailKey:[self makeKeyPath:self.contactEmailKey]
+                                                    crashDescriptionKeys:[self makeKeyPaths:[self allCrashDescriptionKeys]]];
+    sink.waitUntilReachable = self.waitUntilReachable;
+    return [sink defaultCrashReportFilterSet];
 }
 
 @end
@@ -148,12 +155,12 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrashInstallationHockey)
 
 - (id<KSCrashReportFilter>) sink
 {
-    KSCrashReportSinkHockey* sink = [KSCrashReportSinkHockey sink];
-    sink.appIdentifier = self.appIdentifier;
-    NSArray* pipeline = [sink defaultCrashReportFilterSetWithUserIDKey:[self makeKeyPath:self.userIDKey]
-                                                       contactEmailKey:[self makeKeyPath:self.contactEmailKey]
-                                                  crashDescriptionKeys:[NSArray arrayWithObject:[self makeKeyPath:self.descriptionKey]]];
-    return [KSCrashReportFilterPipeline filterWithFilters:pipeline, nil];
+    KSCrashReportSinkHockey* sink = [KSCrashReportSinkHockey sinkWithAppIdentifier:self.appIdentifier
+                                                                         userIDKey:[self makeKeyPath:self.userIDKey]
+                                                                   contactEmailKey:[self makeKeyPath:self.contactEmailKey]
+                                                              crashDescriptionKeys:[self makeKeyPaths:[self allCrashDescriptionKeys]]];
+    sink.waitUntilReachable = self.waitUntilReachable;
+    return [sink defaultCrashReportFilterSet];
 }
 
 @end

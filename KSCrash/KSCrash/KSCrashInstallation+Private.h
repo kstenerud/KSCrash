@@ -24,9 +24,12 @@
 // THE SOFTWARE.
 //
 
+
 #import "KSCrashInstallation.h"
 #import "ARCSafe_MemMgmt.h"
 
+
+/** Implement a property to be used as a "key". */
 #define IMPLEMENT_REPORT_KEY_PROPERTY(NAME, NAMEUPPER) \
 @synthesize NAME##Key = _##NAME##Key; \
 - (void) set##NAMEUPPER##Key:(NSString*) value \
@@ -36,6 +39,7 @@
     [self reportFieldForProperty:@#NAME setKey:value]; \
 }
 
+/** Implement a property to be used as a "value". */
 #define IMPLEMENT_REPORT_VALUE_PROPERTY(NAME, NAMEUPPER, TYPE) \
 @synthesize NAME = _##NAME; \
 - (void) set##NAMEUPPER:(TYPE) value \
@@ -45,20 +49,44 @@
     [self reportFieldForProperty:@#NAME setValue:value]; \
 }
 
-#define IMPLEMENT_REPORT_PROPERTY(NAMESPACE, NAME, NAMEUPPER, TYPE) \
+/** Implement a standard report property (with key and value properties) */
+#define IMPLEMENT_REPORT_PROPERTY(NAME, NAMEUPPER, TYPE) \
 IMPLEMENT_REPORT_VALUE_PROPERTY(NAME, NAMEUPPER, TYPE) \
 IMPLEMENT_REPORT_KEY_PROPERTY(NAME, NAMEUPPER)
 
 
 @interface KSCrashInstallation ()
 
+/** Initializer.
+ *
+ * @param maxReportFieldCount Maximum report fields supported by this installation.
+ * @param requiredProperties Properties that MUST be set when sending reports.
+ */
 - (id) initWithMaxReportFieldCount:(size_t) maxReportFieldCount
                 requiredProperties:(NSArray*) requiredProperties;
 
+/** Set the key to be used for the specified report property.
+ *
+ * @param propertyName The name of the property.
+ * @param key The key to use.
+ */
 - (void) reportFieldForProperty:(NSString*) propertyName setKey:(id) key;
 
+/** Set the value of the specified report property.
+ *
+ * @param propertyName The name of the property.
+ * @param value The value to set.
+ */
 - (void) reportFieldForProperty:(NSString*) propertyName setValue:(id) value;
 
+/** Create a new sink. Subclasses must implement this.
+ */
 - (id<KSCrashReportFilter>) sink;
+
+/** Make an absolute key path if the specified path is not already absolute. */
+- (NSString*) makeKeyPath:(NSString*) keyPath;
+
+/** Make an absolute key paths from the specified paths. */
+- (NSArray*) makeKeyPaths:(NSArray*) keyPaths;
 
 @end

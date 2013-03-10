@@ -44,6 +44,21 @@ extern "C" {
 #include <signal.h>
 #include <stdbool.h>
 
+typedef struct
+{
+    /** If YES, introspect memory contents during a crash.
+     * Any Objective-C objects or C strings near the stack pointer or referenced by
+     * cpu registers or exceptions will be recorded in the crash report, along with
+     * their contents.
+     */
+    bool enabled;
+    
+    /** List of classes that should never be introspected.
+     * Whenever a class in this list is encountered, only the class name will be recorded.
+     */
+    const char** restrictedClasses;
+    size_t restrictedClassesCount;
+} KSCrash_IntrospectionRules;
 
 typedef struct
 {
@@ -61,7 +76,10 @@ typedef struct
 
     /** When writing the crash report, print a stack trace to STDOUT as well. */
     bool printTraceToStdout;
-
+    
+    /** Rules for introspecting Objective-C objects. */
+    KSCrash_IntrospectionRules introspectionRules;
+    
     /** Callback allowing the application the opportunity to add extra data to
      * the report file. Application MUST NOT call async-unsafe methods!
      */

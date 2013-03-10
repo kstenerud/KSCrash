@@ -28,49 +28,50 @@
 #import "KSCrashReportFilter.h"
 
 
-/** Convert reports to Quincy usable format.
+/** Sends reports to Quincy.
  *
- * Input: NSDictionary {"standard": NSDictionary, "apple": NSString Apple side-by-side format}
- * Output: NSString (Quincy format)
+ * Input: NSDictionary
+ * Output: Same as input (passthrough)
  */
-@interface KSCrashReportFilterQuincy: NSObject <KSCrashReportFilter>
+@interface KSCrashReportSinkQuincy : NSObject <KSCrashReportFilter>
 
-+ (KSCrashReportFilterQuincy*) filter;
+/** If YES, wait until the host becomes reachable before trying to send.
+ * If NO, it will attempt to send right away, and either succeed or fail.
+ *
+ * Default: YES
+ */
+@property(nonatomic,readwrite,assign) BOOL waitUntilReachable;
 
-+ (KSCrashReportFilterQuincy*) filterWithUserIDKey:(NSString*) userIDKey
++ (KSCrashReportSinkQuincy*) sinkWithURL:(NSURL*) url
+                               userIDKey:(NSString*) userIDKey
+                         contactEmailKey:(NSString*) contactEmailKey
+                    crashDescriptionKeys:(NSArray*) crashDescriptionKeys;
+
+- (id) initWithURL:(NSURL*) url
+         userIDKey:(NSString*) userIDKey
+   contactEmailKey:(NSString*) contactEmailKey
+crashDescriptionKeys:(NSArray*) crashDescriptionKeys;
+
+- (id <KSCrashReportFilter>) defaultCrashReportFilterSet;
+
+@end
+
+
+/** Sends reports to Hockey.
+ *
+ * Input: NSDictionary
+ * Output: Same as input (passthrough)
+ */
+@interface KSCrashReportSinkHockey : KSCrashReportSinkQuincy
+
++ (KSCrashReportSinkHockey*) sinkWithAppIdentifier:(NSString*) appIdentifier
+                                         userIDKey:(NSString*) userIDKey
                                    contactEmailKey:(NSString*) contactEmailKey
                               crashDescriptionKeys:(NSArray*) crashDescriptionKeys;
 
-- (id) initWithUserIDKey:(NSString*) userIDKey
-         contactEmailKey:(NSString*) contactEmailKey
-    crashDescriptionKeys:(NSArray*) crashDescriptionKeys;
-
-@end
-
-
-/** Sends reports to Quincy.
- *
- * Input: NSString (Quincy format)
- * Output: Same as input (passthrough)
- */
-@interface KSCrashReportSinkQuincy : NSObject <KSCrashReportFilter, KSCrashReportDefaultFilterSet>
-
-/** The URL to connect to. */
-@property(nonatomic,readwrite,retain) NSURL* url;
-
-/** Constructor.
- */
-+ (id) sink;
-
-- (NSArray*) defaultCrashReportFilterSetWithUserIDKey:(NSString*) userIDKey
-                                      contactEmailKey:(NSString*) contactEmailKey
-                                 crashDescriptionKeys:(NSArray*) crashDescriptionKeys;
-
-@end
-
-
-@interface KSCrashReportSinkHockey : KSCrashReportSinkQuincy
-
-@property(nonatomic,readwrite,retain) NSString* appIdentifier;
+- (id) initWithAppIdentifier:(NSString*) appIdentifier
+                   userIDKey:(NSString*) userIDKey
+             contactEmailKey:(NSString*) contactEmailKey
+        crashDescriptionKeys:(NSArray*) crashDescriptionKeys;
 
 @end

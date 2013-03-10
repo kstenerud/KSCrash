@@ -81,7 +81,7 @@ void kscrash_setUserInfoJSON(const char* const userInfoJSON);
  *
  * Default: 0
  */
-void kscrash_setZombieCacheSize(unsigned int zombieCacheSize);
+void kscrash_setZombieCacheSize(size_t zombieCacheSize);
 
 /** Set the maximum time to allow the main thread to run without returning.
  * If a task occupies the main thread for longer than this interval, the
@@ -105,6 +105,23 @@ void kscrash_setDeadlockWatchdogInterval(double deadlockWatchdogInterval);
  * Default: false
  */
 void kscrash_setPrintTraceToStdout(bool printTraceToStdout);
+
+/** If YES, introspect memory contents during a crash.
+ * Any Objective-C objects or C strings near the stack pointer or referenced by
+ * cpu registers or exceptions will be recorded in the crash report, along with
+ * their contents.
+ *
+ * Default: false
+ */
+void kscrash_setIntrospectMemory(bool introspectMemory);
+
+/** List of Objective-C classes that should never be introspected.
+ * Whenever a class in this list is encountered, only the class name will be recorded.
+ * This can be useful for information security concerns.
+ *
+ * Default: NULL
+ */
+void kscrash_setDoNotIntrospectClasses(const char** doNotIntrospectClasses, size_t length);
 
 /** Set the callback to invoke upon a crash.
  *

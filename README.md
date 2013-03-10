@@ -7,7 +7,7 @@ KSCrash
 ### Another crash reporter? Why?
 
 Because while the existing crash reporters do report crashes, there's a heck
-of a lot more that they COULD do. Here are some key features of KSCrash
+of a lot more that they COULD do. Here are some key features of KSCrash:
 
 * On-device symbolication in a way that supports re-symbolication offline
   (necessary for iOS versions where many functions have been redacted).
@@ -33,7 +33,7 @@ of a lot more that they COULD do. Here are some key features of KSCrash
 * Supports including extra data that the programmer supplies (before and during
   a crash).
 
-[Click here for some examples of the reports it can generate.](https://github.com/kstenerud/KSCrash/tree/master/ExampleReports)
+[Here are some examples of the reports it can generate.](https://github.com/kstenerud/KSCrash/tree/master/Example-Reports/_README.md)
 
 
 
@@ -48,15 +48,8 @@ I've found a more robust solution.
 
 - Deadlock detection
 
-The following features are newer and not as tested as the rest:
-
-- Objective-C introspection.
-
-These features are being used in deployed systems, but have not had as much
-exposure as the rest of the library.
-
-Also, the backend side is not done yet, though Hockey and Quincy integration
-is fully implemented and working (more on the way as time allows).
+Also, the backend side is not done yet, though Hockey, Quincy, and email
+integration is fully implemented and working (more on the way as time allows).
 
 And finally, the documentation sucks :P
 
@@ -68,7 +61,9 @@ init method parameters for configuration. With all the new options, things
 were starting to get a bit unwieldly. This should mark the last major API change.
 
 
-### How to build it
+
+How to Build KSCrash
+--------------------
 
 1. Select the **KSCrash** scheme.
 2. Choose **iOS Device**.
@@ -78,7 +73,9 @@ When it has finished building, it will show you the framework in Finder. You
 can use it like you would any other framework.
 
 
-### How to use it
+
+How to Use KSCrash
+------------------
 
 1. Add the framework to your project (or add the KSCrash project as a
    dependency)
@@ -92,33 +89,67 @@ can use it like you would any other framework.
 
     #import <KSCrash/KSCrash.h>
     // Include to use the standard reporter.
-    #import <KSCrash/KSCrashReportSinkStandard.h>
+    #import <KSCrash/KSCrashInstallationStandard.h>
     // Include to use Quincy or Hockey.
-    #import <KSCrash/KSCrashReportSinkQuincy.h>
+    #import <KSCrash/KSCrashInstallationQuincyHockey.h>
+    // Include to use the email reporter.
+    #import <KSCrash/KSCrashInstallationEmail.h>
 
 	- (BOOL)application:(UIApplication*) application didFinishLaunchingWithOptions:(NSDictionary*) launchOptions
 	{
-    	id<KSCrashReportFilter> sink = [KSCrashReportSinkStandard sinkWithURL:myAPIURL onSuccess:nil];
-	    // OR:
-    	id<KSCrashReportFilter> sink = [KSCrashReportSinkHockey sinkWithAppIdentifier:hockeyAppID onSuccess:nil];
-	    // OR:
-    	id<KSCrashReportFilter> sink = [KSCrashReportSinkQuincy sinkWithURL:myQuincyURL onSuccess:nil];
+      KSCrashInstallationStandard* installation = [KSCrashInstallationStandard sharedInstance];
+      installation.url = [NSURL URLWithString:@"http://put.your.url.here"];
 
-      KSCrash* reporter = [KSCrash sharedInstance];
-      reporter.sink = sink;
-      [reporter install];
+      // OR:
+
+      KSCrashInstallationQuincy* installation = [KSCrashInstallationQuincy sharedInstance];
+      installation.url = [NSURL URLWithString:@"http://put.your.url.here"];
+
+      // OR:
+
+      KSCrashInstallationHockey* installation = [KSCrashInstallationHockey sharedInstance];
+      installation.appIdentifier = @"PUT_YOUR_HOCKEY_APP_ID_HERE";
+
+      // OR:
+
+      KSCrashInstallationEmail* installation = [KSCrashInstallationEmail sharedInstance];
+      installation.recipients = @[@"some@email.address"];
+
+      // Optional: Add an alert confirmation (recommended for email installation)
+      [installation addConditionalAlertWithTitle:@"Crash Detected"
+                                         message:@"The app crashed last time it was launched. Send a crash report?"
+                                       yesAnswer:@"Sure!"
+                                        noAnswer:@"No thanks"];
+
+      [installation install];
 	    …
 	}
 
 This will install the crash sentry system (which intercepts crashes and stores
-reports to disk). Once you're ready to send any outstanding crash reports, do
-the following:
+reports to disk). Note that there are other properties you can and probably
+will want to set for the various installations.
 
-    KSCrash* reporter = [KSCrash sharedInstance];
-    [reporter sendAllReportsWithCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error)
+Once you're ready to send any outstanding crash reports, call the following:
+
+    [installation sendAllReportsWithCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error)
      {
          // Stuff to do when report sending is complete
      }];
+
+
+
+Recommended Reading
+-------------------
+
+If possible, you should read the following header files to fully understand
+what features KSCrash has, and how to use them:
+
+* KSCrash.h
+* KSCrashAdvanced.h
+* KSCrashInstallation.h
+* KSCrashInstallation(SPECIFIC TYPE).h
+* Architecture.md
+
 
 
 Advanced Usage
@@ -137,6 +168,12 @@ to **Debugging Symbols**. Doing so increases your final binary size by about
 KSCrash has advanced functionality that can be very useful when examining crash
 reports in the wild. Some involve minor trade-offs, so most of them are
 disabled by default.
+
+
+#### Custom User Data (userInfo in KSCrash.h)
+
+You can store custom user data to the next crash report by setting the
+**userInfo** property in KSCrash.h.
 
 
 #### Zombie Tracking (zombieCacheSize in KSCrash.h)
@@ -183,6 +220,17 @@ Trade off: Deadlock detection, but you must be a lot more careful about what
            runs on the main thread!
 
 
+#### Memory Introspection (introspectMemory in KSCrash.h)
+
+When an app crashes, there are usually objects and strings in memory that are
+being referenced by the stack, registers, or even exception messages. When
+enabled, KSCrash will introspect these memory regions and store their contents
+in the crash report.
+
+You can also specify a list of classes that should not be introspected by
+setting the **doNotIntrospectClasses** property in KSCrash.
+
+
 #### Custom crash handling code (onCrash in KSCrash.h)
 
 If you want to do some extra processing after a crash occurs (perhaps to add
@@ -218,7 +266,7 @@ zlib (it still requires SystemConfiguration.framework).
 Examples
 --------
 
-The workspace includes two example apps, which demonstrate using KSCrash.
+The workspace includes some example apps, which demonstrate common KSCrash usage.
 
 
 License

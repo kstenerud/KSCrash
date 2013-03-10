@@ -176,7 +176,7 @@ void kscrash_setUserInfoJSON(const char* const userInfoJSON)
     }
 }
 
-void kscrash_setZombieCacheSize(unsigned int zombieCacheSize)
+void kscrash_setZombieCacheSize(size_t zombieCacheSize)
 {
     kszombie_uninstall();
     if(zombieCacheSize > 0)
@@ -187,12 +187,53 @@ void kscrash_setZombieCacheSize(unsigned int zombieCacheSize)
 
 void kscrash_setDeadlockWatchdogInterval(double deadlockWatchdogInterval)
 {
-    kscrashSentry_setDeadlockHandlerWatchdogInterval(deadlockWatchdogInterval);
+    kscrashsentry_setDeadlockHandlerWatchdogInterval(deadlockWatchdogInterval);
 }
 
 void kscrash_setPrintTraceToStdout(bool printTraceToStdout)
 {
     crashContext()->config.printTraceToStdout = printTraceToStdout;
+}
+
+void kscrash_setIntrospectMemory(bool introspectMemory)
+{
+    crashContext()->config.introspectionRules.enabled = introspectMemory;
+}
+
+void kscrash_setDoNotIntrospectClasses(const char** doNotIntrospectClasses, size_t length)
+{
+    const char** oldClasses = crashContext()->config.introspectionRules.restrictedClasses;
+    size_t oldClassesLength = crashContext()->config.introspectionRules.restrictedClassesCount;
+    const char** newClasses = nil;
+    size_t newClassesLength = 0;
+    
+    if(doNotIntrospectClasses != nil && length > 0)
+    {
+        newClassesLength = length;
+        newClasses = malloc(sizeof(*newClasses) * newClassesLength);
+        if(newClasses == nil)
+        {
+            KSLOG_ERROR("Could not allocate memory");
+            return;
+        }
+        
+        for(size_t i = 0; i < newClassesLength; i++)
+        {
+            newClasses[i] = strdup(doNotIntrospectClasses[i]);
+        }
+    }
+
+    crashContext()->config.introspectionRules.restrictedClasses = newClasses;
+    crashContext()->config.introspectionRules.restrictedClassesCount = newClassesLength;
+
+    if(oldClasses != nil)
+    {
+        for(size_t i = 0; i < oldClassesLength; i++)
+        {
+            free((void*)oldClasses[i]);
+        }
+        free(oldClasses);
+    }
 }
 
 void kscrash_setCrashNotifyCallback(const KSReportWriteCallback onCrashNotify)
