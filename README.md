@@ -36,7 +36,6 @@ of a lot more that they COULD do. Here are some key features of KSCrash:
 [Here are some examples of the reports it can generate.](https://github.com/kstenerud/KSCrash/tree/master/Example-Reports/_README.md)
 
 
-
 ### Beta Note
 
 Although it's now being shipped in production apps, KSCrash is still
@@ -50,8 +49,6 @@ I've found a more robust solution.
 
 Also, the backend side is not done yet, though Hockey, Quincy, and email
 integration is fully implemented and working (more on the way as time allows).
-
-And finally, the documentation sucks :P
 
 
 ### Incompatible API Change Notice
@@ -259,19 +256,25 @@ to a file instead. I mostly use this for debugging KSCrash itself, but it could
 be useful for other purposes, so I've exposed an API for it.
 
 
+
 KSCrashLite
 -----------
 
-KSCrashLite is intended for use in custom crash frameworks that have special needs. It doesn't
-include any sinks (except for console); it is expected that the user will supply their own.
-Unlike the regular KSCrash framework, KSCrashLite has no dependencies on MessageUI.framework or
-zlib (it still requires SystemConfiguration.framework).
+KSCrashLite is intended for use in custom crash frameworks that have special
+needs. It doesn't include any sinks (except for console); it is expected that
+the user will supply their own. Unlike the regular KSCrash framework,
+KSCrashLite has no dependencies on MessageUI.framework or zlib (it still
+requires SystemConfiguration.framework).
+
 
 
 Examples
 --------
 
-The workspace includes some example apps, which demonstrate common KSCrash usage.
+The workspace includes some example apps, which demonstrate common KSCrash
+usage. Please look at the top of AppDelegate.m in each app for a description
+of what it does.
+
 
 
 License
