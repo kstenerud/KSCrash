@@ -39,7 +39,7 @@
 {
     bool success;
     KSCrash_SentryContext context;
-    kscrashSentry_setDeadlockHandlerWatchdogInterval(10);
+    kscrashsentry_setDeadlockHandlerWatchdogInterval(10);
     success = kscrashsentry_installDeadlockHandler(&context);
     STAssertTrue(success, @"");
     [NSThread sleepForTimeInterval:0.1];
