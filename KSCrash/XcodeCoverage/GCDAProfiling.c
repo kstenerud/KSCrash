@@ -73,10 +73,14 @@ static char *mangle_filename(const char *orig_filename) {
   if (!prefix)
     return strdup(orig_filename);
 
-  filename = malloc(strlen(prefix) + 1 + strlen(orig_filename) + 1);
-  strcpy(filename, prefix);
-  strcat(filename, "/");
-  strcat(filename, orig_filename);
+  size_t filenameLength = strlen(prefix) + 1 + strlen(orig_filename) + 1;
+  filename = malloc(filenameLength);
+  strncpy(filename, prefix, filenameLength);
+  filename[filenameLength-1] = '\0';
+  strncat(filename, "/", filenameLength - strlen(filename));
+  filename[filenameLength-1] = '\0';
+  strncat(filename, orig_filename, filenameLength - strlen(filename));
+  filename[filenameLength-1] = '\0';
   return filename;
 }
 

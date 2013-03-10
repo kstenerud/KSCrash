@@ -28,6 +28,7 @@
 #import "KSCrashReportFilterJSON.h"
 
 #import "ARCSafe_MemMgmt.h"
+#import "KSCrashCallCompletion.h"
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -70,7 +71,7 @@
                                          error:&error];
         if(jsonData == nil)
         {
-            onCompletion(filteredReports, NO, error);
+            kscrash_i_callCompletion(onCompletion, filteredReports, NO, error);
             return;
         }
         else
@@ -79,7 +80,7 @@
         }
     }
 
-    onCompletion(filteredReports, YES, nil);
+    kscrash_i_callCompletion(onCompletion, filteredReports, YES, nil);
 }
 
 @end
@@ -122,7 +123,7 @@
                                              error:&error];
         if(report == nil)
         {
-            onCompletion(filteredReports, NO, error);
+            kscrash_i_callCompletion(onCompletion, filteredReports, NO, error);
             return;
         }
         else
@@ -131,7 +132,7 @@
         }
     }
 
-    onCompletion(filteredReports, YES, nil);
+    kscrash_i_callCompletion(onCompletion, filteredReports, YES, nil);
 }
 
 @end

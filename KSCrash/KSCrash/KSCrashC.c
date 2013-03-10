@@ -113,22 +113,13 @@ void kscrash_i_onCrash(void)
 bool kscrash_install(const char* const crashReportFilePath,
                      const char* const recrashReportFilePath,
                      const char* const stateFilePath,
-                     const char* const crashID,
-                     const char* const userInfoJSON,
-                     unsigned int zombieCacheSize,
-                     float deadlockWatchdogInterval,
-                     const bool printTraceToStdout,
-                     const KSReportWriteCallback onCrashNotify)
+                     const char* const crashID)
 {
     KSLOG_DEBUG("Installing crash reporter.");
     KSLOG_TRACE("reportFilePath = %s", crashReportFilePath);
     KSLOG_TRACE("secondaryReportFilePath = %s", recrashReportFilePath);
     KSLOG_TRACE("stateFilePath = %s", stateFilePath);
     KSLOG_TRACE("crashID = %s", crashID);
-    KSLOG_TRACE("userInfoJSON = %p", userInfoJSON);
-    KSLOG_TRACE("zombieCacheSize = %d", zombieCacheSize);
-    KSLOG_TRACE("printTraceToStdout = %d", printTraceToStdout);
-    KSLOG_TRACE("onCrashNotify = %p", onCrashNotify);
 
     static volatile sig_atomic_t initialized = 0;
     if(!initialized)
@@ -141,11 +132,10 @@ bool kscrash_install(const char* const crashReportFilePath,
         KSCrash_Context* context = crashContext();
         context->crash.onCrash = kscrash_i_onCrash;
 
-        kscrashSentry_setDeadlockHandlerWatchdogInterval(deadlockWatchdogInterval);
-        
         if(ksmach_isBeingTraced())
         {
-            KSLOGBASIC_WARN("KSCrash: App is running in a debugger. Crash handlers have been disabled for the sanity of all.");
+            KSLOGBASIC_WARN("KSCrash: App is running in a debugger."
+                            " Crash sentries have been disabled for the sanity of all.");
         }
         else if(kscrashsentry_installWithContext(&context->crash,
                                                  KSCrashTypeAll) == 0)
@@ -158,18 +148,9 @@ bool kscrash_install(const char* const crashReportFilePath,
             KSLOG_ERROR("Failed to initialize persistent crash state");
         }
         context->state.appLaunchTime = mach_absolute_time();
-        context->config.printTraceToStdout = printTraceToStdout;
         context->config.systemInfoJSON = kssysteminfo_toJSON();
         context->config.processName = kssystemInfo_copyProcessName();
-        kscrash_setUserInfoJSON(userInfoJSON);
         context->config.crashID = strdup(crashID);
-        context->config.onCrashNotify = onCrashNotify;
-
-        if(zombieCacheSize > 0)
-        {
-            KSLOG_DEBUG("zombieCacheSize > 0. Installing zombie handler.");
-            kszombie_install(zombieCacheSize);
-        }
 
         KSLOG_DEBUG("Installation complete.");
         return true;
@@ -192,6 +173,66 @@ void kscrash_setUserInfoJSON(const char* const userInfoJSON)
     {
         context->config.userInfoJSON = strdup(userInfoJSON);
         KSLOG_TRACE("Duplicated string to %p", context->config.userInfoJSON);
+    }
+}
+
+void kscrash_setZombieCacheSize(size_t zombieCacheSize)
+{
+    kszombie_uninstall();
+    if(zombieCacheSize > 0)
+    {
+        kszombie_install(zombieCacheSize);
+    }
+}
+
+void kscrash_setDeadlockWatchdogInterval(double deadlockWatchdogInterval)
+{
+    kscrashsentry_setDeadlockHandlerWatchdogInterval(deadlockWatchdogInterval);
+}
+
+void kscrash_setPrintTraceToStdout(bool printTraceToStdout)
+{
+    crashContext()->config.printTraceToStdout = printTraceToStdout;
+}
+
+void kscrash_setIntrospectMemory(bool introspectMemory)
+{
+    crashContext()->config.introspectionRules.enabled = introspectMemory;
+}
+
+void kscrash_setDoNotIntrospectClasses(const char** doNotIntrospectClasses, size_t length)
+{
+    const char** oldClasses = crashContext()->config.introspectionRules.restrictedClasses;
+    size_t oldClassesLength = crashContext()->config.introspectionRules.restrictedClassesCount;
+    const char** newClasses = nil;
+    size_t newClassesLength = 0;
+    
+    if(doNotIntrospectClasses != nil && length > 0)
+    {
+        newClassesLength = length;
+        newClasses = malloc(sizeof(*newClasses) * newClassesLength);
+        if(newClasses == nil)
+        {
+            KSLOG_ERROR("Could not allocate memory");
+            return;
+        }
+        
+        for(size_t i = 0; i < newClassesLength; i++)
+        {
+            newClasses[i] = strdup(doNotIntrospectClasses[i]);
+        }
+    }
+
+    crashContext()->config.introspectionRules.restrictedClasses = newClasses;
+    crashContext()->config.introspectionRules.restrictedClassesCount = newClassesLength;
+
+    if(oldClasses != nil)
+    {
+        for(size_t i = 0; i < oldClassesLength; i++)
+        {
+            free((void*)oldClasses[i]);
+        }
+        free(oldClasses);
     }
 }
 

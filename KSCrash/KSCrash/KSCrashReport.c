@@ -116,6 +116,13 @@ static const char g_hexNybbles[] =
     '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'
 };
 
+// ============================================================================
+#pragma mark - Runtime Config -
+// ============================================================================
+
+static KSCrash_IntrospectionRules* g_introspectionRules;
+
+
 #pragma mark Callbacks
 
 void kscrw_i_addBooleanElement(const KSCrashReportWriter* const writer,
@@ -676,9 +683,8 @@ void kscrw_i_writeMemoryContents(const KSCrashReportWriter* const writer,
 void kscrw_i_writeNSStringContents(const KSCrashReportWriter* const writer,
                                    const char* const key,
                                    const uintptr_t objectAddress,
-                                   int* limit)
+                                   __unused int* limit)
 {
-#pragma unused(limit)
     const void* object = (const void*)objectAddress;
     char buffer[200];
     if(ksobjc_copyStringContents(object, buffer, sizeof(buffer)))
@@ -701,9 +707,8 @@ void kscrw_i_writeNSStringContents(const KSCrashReportWriter* const writer,
 void kscrw_i_writeURLContents(const KSCrashReportWriter* const writer,
                               const char* const key,
                               const uintptr_t objectAddress,
-                              int* limit)
+                              __unused int* limit)
 {
-#pragma unused(limit)
     const void* object = (const void*)objectAddress;
     char buffer[200];
     if(ksobjc_copyStringContents(object, buffer, sizeof(buffer)))
@@ -726,9 +731,8 @@ void kscrw_i_writeURLContents(const KSCrashReportWriter* const writer,
 void kscrw_i_writeDateContents(const KSCrashReportWriter* const writer,
                                const char* const key,
                                const uintptr_t objectAddress,
-                               int* limit)
+                               __unused int* limit)
 {
-#pragma unused(limit)
     const void* object = (const void*)objectAddress;
     writer->addFloatingPointElement(writer, key, ksobjc_dateContents(object));
 }
@@ -749,7 +753,6 @@ void kscrw_i_writeArrayContents(const KSCrashReportWriter* const writer,
                                 const uintptr_t objectAddress,
                                 int* limit)
 {
-#pragma unused(limit)
     const void* object = (const void*)objectAddress;
     uintptr_t firstObject;
     if(ksobjc_arrayContents(object, &firstObject, 1) == 1)
@@ -867,6 +870,21 @@ void kscrw_i_writeUnknownObjectContents(const KSCrashReportWriter* const writer,
     writer->endContainer(writer);
 }
 
+bool kscrw_i_isRestrictedClass(const char* name)
+{
+    if(g_introspectionRules->restrictedClasses != NULL)
+    {
+        for(size_t i = 0; i < g_introspectionRules->restrictedClassesCount; i++)
+        {
+            if(strcmp(name, g_introspectionRules->restrictedClasses[i]) == 0)
+            {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 /** Write the contents of a memory location.
  * Also writes meta information about the data.
  *
@@ -919,39 +937,43 @@ void kscrw_i_writeMemoryContents(const KSCrashReportWriter* const writer,
             {
                 writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_Object);
                 class = ksobjc_isaPointer(object);
-                writer->addStringElement(writer, KSCrashField_Class, ksobjc_className(class));
-                switch(ksobjc_objectClassType(object))
+                const char* className = ksobjc_className(class);
+                writer->addStringElement(writer, KSCrashField_Class, className);
+                if(!kscrw_i_isRestrictedClass(className))
                 {
-                    case KSObjCClassTypeString:
-                        kscrw_i_writeNSStringContents(writer, KSCrashField_Value, address, limit);
-                        break;
-                    case KSObjCClassTypeURL:
-                        kscrw_i_writeURLContents(writer, KSCrashField_Value, address, limit);
-                        break;
-                    case KSObjCClassTypeDate:
-                        kscrw_i_writeDateContents(writer, KSCrashField_Value, address, limit);
-                        break;
-                    case KSObjCClassTypeArray:
-                        if(*limit > 0)
-                        {
-                            kscrw_i_writeArrayContents(writer, KSCrashField_FirstObject, address, limit);
-                        }
-                        break;
-                    case KSObjCClassTypeDictionary:
-                    case KSObjCClassTypeNumber:
-                    case KSObjCClassTypeException:
-                        // TODO: Implement these.
-                        if(*limit > 0)
-                        {
-                            kscrw_i_writeUnknownObjectContents(writer, KSCrashField_Ivars, address, limit);
-                        }
-                        break;
-                    case KSObjCClassTypeUnknown:
-                        if(*limit > 0)
-                        {
-                            kscrw_i_writeUnknownObjectContents(writer, KSCrashField_Ivars, address, limit);
-                        }
-                        break;
+                    switch(ksobjc_objectClassType(object))
+                    {
+                        case KSObjCClassTypeString:
+                            kscrw_i_writeNSStringContents(writer, KSCrashField_Value, address, limit);
+                            break;
+                        case KSObjCClassTypeURL:
+                            kscrw_i_writeURLContents(writer, KSCrashField_Value, address, limit);
+                            break;
+                        case KSObjCClassTypeDate:
+                            kscrw_i_writeDateContents(writer, KSCrashField_Value, address, limit);
+                            break;
+                        case KSObjCClassTypeArray:
+                            if(*limit > 0)
+                            {
+                                kscrw_i_writeArrayContents(writer, KSCrashField_FirstObject, address, limit);
+                            }
+                            break;
+                        case KSObjCClassTypeDictionary:
+                        case KSObjCClassTypeNumber:
+                        case KSObjCClassTypeException:
+                            // TODO: Implement these.
+                            if(*limit > 0)
+                            {
+                                kscrw_i_writeUnknownObjectContents(writer, KSCrashField_Ivars, address, limit);
+                            }
+                            break;
+                        case KSObjCClassTypeUnknown:
+                            if(*limit > 0)
+                            {
+                                kscrw_i_writeUnknownObjectContents(writer, KSCrashField_Ivars, address, limit);
+                            }
+                            break;
+                    }
                 }
                 break;
             }
@@ -1436,7 +1458,8 @@ void kscrw_i_writeThread(const KSCrashReportWriter* const writer,
  */
 void kscrw_i_writeAllThreads(const KSCrashReportWriter* const writer,
                              const char* const key,
-                             const KSCrash_SentryContext* const crash)
+                             const KSCrash_SentryContext* const crash,
+                             bool writeNotableAddresses)
 {
     const task_t thisTask = mach_task_self();
     thread_act_array_t threads;
@@ -1454,7 +1477,7 @@ void kscrw_i_writeAllThreads(const KSCrashReportWriter* const writer,
     {
         for(mach_msg_type_number_t i = 0; i < numThreads; i++)
         {
-            kscrw_i_writeThread(writer, NULL, crash, threads[i], (int)i, true);
+            kscrw_i_writeThread(writer, NULL, crash, threads[i], (int)i, writeNotableAddresses);
         }
     }
     writer->endContainer(writer);
@@ -1946,6 +1969,8 @@ void kscrashreport_writeMinimalReport(KSCrash_Context* const crashContext,
         return;
     }
 
+    g_introspectionRules = &crashContext->config.introspectionRules;
+    
     kscrw_i_updateStackOverflowStatus(crashContext);
 
     KSJSONEncodeContext jsonContext;
@@ -1996,6 +2021,8 @@ void kscrashreport_writeStandardReport(KSCrash_Context* const crashContext,
     {
         return;
     }
+    
+    g_introspectionRules = &crashContext->config.introspectionRules;
 
     kscrw_i_updateStackOverflowStatus(crashContext);
 
@@ -2019,7 +2046,7 @@ void kscrashreport_writeStandardReport(KSCrash_Context* const crashContext,
 
         writer->beginObject(writer, KSCrashField_Crash);
         {
-            kscrw_i_writeAllThreads(writer, KSCrashField_Threads, &crashContext->crash);
+            kscrw_i_writeAllThreads(writer, KSCrashField_Threads, &crashContext->crash, crashContext->config.introspectionRules.enabled);
             kscrw_i_writeError(writer, KSCrashField_Error, &crashContext->crash);
         }
         writer->endContainer(writer);

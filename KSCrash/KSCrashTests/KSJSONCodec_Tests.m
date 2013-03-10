@@ -33,6 +33,7 @@
 
 @interface KSJSONCodec_Tests : SenTestCase @end
 
+
 @implementation KSJSONCodec_Tests
 
 static NSData* toData(NSString* string)

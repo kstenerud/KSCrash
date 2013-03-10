@@ -31,6 +31,7 @@
 #import <mach/machine.h>
 
 #import "ARCSafe_MemMgmt.h"
+#import "KSCrashCallCompletion.h"
 #import "KSCrashReportFields.h"
 #import "KSJSONCodecObjC.h"
 #import "KSSafeCollections.h"
@@ -189,7 +190,7 @@ NSDictionary* g_registerOrders;
         }
     }
 
-    onCompletion(filteredReports, YES, nil);
+    kscrash_i_callCompletion(onCompletion, filteredReports, YES, nil);
 }
 
 - (NSString*) CPUType:(NSString*) CPUArch
@@ -580,7 +581,7 @@ NSDictionary* g_registerOrders;
     }
     else
     {
-        return [[NSString alloc] initWithData:encoded encoding:NSUTF8StringEncoding];
+        return as_autorelease([[NSString alloc] initWithData:encoded encoding:NSUTF8StringEncoding]);
     }
 }
 

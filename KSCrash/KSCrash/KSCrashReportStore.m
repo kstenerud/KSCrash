@@ -32,6 +32,7 @@
 #import "KSJSONCodecObjC.h"
 #import "KSSafeCollections.h"
 #import "NSDictionary+Merge.h"
+#import "NSError+SimpleConstructor.h"
 #import "RFC3339DateTool.h"
 #import "KSCrashDoctor.h"
 
@@ -199,8 +200,18 @@
 
 - (NSDictionary*) reportWithID:(NSString*) reportID
 {
-    NSMutableDictionary* crashReport = [self readReport:[self pathToCrashReportWithID:reportID]];
-    NSMutableDictionary* recrashReport = [self readReport:[self pathToRecrashReportWithID:reportID]];
+    NSError* error = nil;
+    NSMutableDictionary* crashReport = [self readReport:[self pathToCrashReportWithID:reportID] error:&error];
+    if(error != nil)
+    {
+        KSLOG_ERROR(@"Encountered error loading crash report %@: %@", reportID, error);
+    }
+    if(crashReport == nil)
+    {
+        KSLOG_ERROR(@"Could not load crash report");
+        return nil;
+    }
+    NSMutableDictionary* recrashReport = [self readReport:[self pathToRecrashReportWithID:reportID] error:nil];
     [crashReport setObjectIfNotNil:recrashReport forKey:@KSCrashField_RecrashReport];
 
     return crashReport;
@@ -384,19 +395,19 @@
     return [self.path stringByAppendingPathComponent:filename];
 }
 
-- (NSMutableDictionary*) readReport:(NSString*) path
+- (NSMutableDictionary*) readReport:(NSString*) path error:(NSError**) error
 {
-    NSError* error = nil;
-
     if(path == nil)
     {
-        KSLOG_ERROR(@"Path is nil");
+        [NSError fillError:error withDomain:[[self class] description]
+                      code:0
+               description:@"Path is nil"];
+        return nil;
     }
 
-    NSData* jsonData = [NSData dataWithContentsOfFile:path options:0 error:&error];
+    NSData* jsonData = [NSData dataWithContentsOfFile:path options:0 error:error];
     if(jsonData == nil)
     {
-        KSLOG_ERROR(@"Could not load from %@: %@", path, error);
         return nil;
     }
 
@@ -404,10 +415,11 @@
                                                                      options:KSJSONDecodeOptionIgnoreNullInArray |
                                                           KSJSONDecodeOptionIgnoreNullInObject |
                                                           KSJSONDecodeOptionKeepPartialObject
-                                                                       error:&error]];
-    if(error != nil)
+                                                                       error:error]];
+    if(error != nil && *error != nil)
     {
-        KSLOG_ERROR(@"Error decoding JSON data from %@: %@", path, error);
+        
+        KSLOG_ERROR(@"Error decoding JSON data from %@: %@", path, *error);
         [report setObject:[NSNumber numberWithBool:YES] forKey:@KSCrashField_Incomplete];
     }
 

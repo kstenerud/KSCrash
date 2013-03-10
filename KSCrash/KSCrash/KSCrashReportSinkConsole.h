@@ -27,9 +27,16 @@
 
 #import "KSCrashReportFilter.h"
 
-
-@interface KSCrashReportSinkConsole : NSObject <KSCrashReportFilter, KSCrashReportDefaultFilterSet>
+/**
+ * Prints reports directly to the console.
+ *
+ * Input: Anything
+ * Output: Same as input (passthrough)
+ */
+@interface KSCrashReportSinkConsole : NSObject <KSCrashReportFilter>
 
 + (KSCrashReportSinkConsole*) filter;
+
+- (id <KSCrashReportFilter>) defaultCrashReportFilterSet;
 
 @end
