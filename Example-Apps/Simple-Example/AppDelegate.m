@@ -94,7 +94,8 @@ didFinishLaunchingWithOptions:(__unused NSDictionary *) launchOptions
 
 - (KSCrashInstallation*) makeQuincyInstallation
 {
-    NSURL* quincyURL = [NSURL URLWithString:@"http://localhost:8888/quincy/crash_v200.php"];
+//    NSURL* quincyURL = [NSURL URLWithString:@"http://localhost:8888/quincy/crash_v200.php"];
+    NSURL* quincyURL = [NSURL URLWithString:@"http://put.your.quincy.url.here"];
     
     KSCrashInstallationQuincy* quincy = [KSCrashInstallationQuincy sharedInstance];
     quincy.url = quincyURL;
