@@ -28,11 +28,13 @@
 #import "KSCrashReportSinkStandard.h"
 
 #import "ARCSafe_MemMgmt.h"
+#import "KSCrashCallCompletion.h"
 #import "KSHTTPMultipartPostBody.h"
 #import "KSHTTPRequestSender.h"
 #import "NSData+GZip.h"
 #import "KSJSONCodecObjC.h"
 #import "KSReachabilityKSCrash.h"
+#import "NSError+SimpleConstructor.h"
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -42,9 +44,7 @@
 
 @property(nonatomic,readwrite,retain) NSURL* url;
 
-@property(nonatomic,readwrite,copy) void(^onSuccess)(NSString* response);
-
-@property(nonatomic,readwrite,retain) KSReachableOperation* reachableOperation;
+@property(nonatomic,readwrite,retain) KSReachableOperationKSCrash* reachableOperation;
 
 
 @end
@@ -53,22 +53,18 @@
 @implementation KSCrashReportSinkStandard
 
 @synthesize url = _url;
-@synthesize onSuccess = _onSuccess;
 @synthesize reachableOperation = _reachableOperation;
 
 + (KSCrashReportSinkStandard*) sinkWithURL:(NSURL*) url
-                                 onSuccess:(void(^)(NSString* response)) onSuccess
 {
-    return as_autorelease([[self alloc] initWithURL:url onSuccess:onSuccess]);
+    return as_autorelease([[self alloc] initWithURL:url]);
 }
 
 - (id) initWithURL:(NSURL*) url
-         onSuccess:(void(^)(NSString* response)) onSuccess
 {
     if((self = [super init]))
     {
         self.url = url;
-        self.onSuccess = onSuccess;
     }
     return self;
 }
@@ -77,15 +73,12 @@
 {
     as_release(_reachableOperation);
     as_release(_url);
-    as_release(_onSuccess);
     as_superdealloc();
 }
 
-- (NSArray*) defaultCrashReportFilterSet
+- (id <KSCrashReportFilter>) defaultCrashReportFilterSet
 {
-    return [NSArray arrayWithObjects:
-            self,
-            nil];
+    return self;
 }
 
 - (void) filterReports:(NSArray*) reports
@@ -101,7 +94,7 @@
                                      error:&error];
     if(jsonData == nil)
     {
-        onCompletion(reports, NO, error);
+        kscrash_i_callCompletion(onCompletion, reports, NO, error);
         return;
     }
 
@@ -124,33 +117,25 @@
 //    [request setHTTPBody:[[body data] gzippedWithError:nil]];
 //    [request setValue:@"gzip" forHTTPHeaderField:@"Content-Encoding"];
 
-    self.reachableOperation = [KSReachableOperation operationWithHost:[self.url host]
-                                                            allowWWAN:YES
-                                                                block:^
+    self.reachableOperation = [KSReachableOperationKSCrash operationWithHost:[self.url host]
+                                                                   allowWWAN:YES
+                                                                       block:^
     {
         [[KSHTTPRequestSender sender] sendRequest:request
-                                        onSuccess:^(NSHTTPURLResponse* response, NSData* data)
+                                        onSuccess:^(__unused NSHTTPURLResponse* response, __unused NSData* data)
          {
-             #pragma unused(response)
-             onCompletion(reports, YES, nil);
-             if(self.onSuccess)
-             {
-                 self.onSuccess(as_autorelease([[NSString alloc] initWithData:data
-                                                                     encoding:NSUTF8StringEncoding]));
-             }
+             kscrash_i_callCompletion(onCompletion, reports, YES, nil);
          } onFailure:^(NSHTTPURLResponse* response, NSData* data)
          {
              NSString* text = as_autorelease([[NSString alloc] initWithData:data
                                                                    encoding:NSUTF8StringEncoding]);
-             onCompletion(reports, NO, [NSError errorWithDomain:@"KSCrashReportSinkStandard"
-                                                           code:response.statusCode
-                                                       userInfo:[NSDictionary dictionaryWithObjectsAndKeys:
-                                                                 text,
-                                                                 NSLocalizedDescriptionKey,
-                                                                 nil]]);
+             kscrash_i_callCompletion(onCompletion, reports, NO,
+                                      [NSError errorWithDomain:[[self class] description]
+                                                          code:response.statusCode
+                                                   description:text]);
          } onError:^(NSError* error2)
          {
-             onCompletion(reports, NO, error2);
+             kscrash_i_callCompletion(onCompletion, reports, NO, error2);
          }];
     }];
 }

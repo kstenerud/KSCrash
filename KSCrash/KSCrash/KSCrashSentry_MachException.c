@@ -212,8 +212,6 @@ void ksmachexc_i_restoreExceptionPorts(void)
  */
 void* ksmachexc_i_handleExceptions(void* const userData)
 {
-    #pragma unused(userData)
-
     MachExceptionMessage exceptionMessage = {{0}};
     MachReplyMessage replyMessage = {{0}};
 

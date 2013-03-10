@@ -26,16 +26,39 @@
 
 
 #import <SenTestingKit/SenTestingKit.h>
+
+#import "ARCSafe_MemMgmt.h"
+#import "KSCrashCallCompletion.h"
 #import "KSCrashReportFilter.h"
 #import "KSCrashReportFilterBasic.h"
 #import "KSCrashReportFilterGZip.h"
 #import "KSCrashReportFilterJSON.h"
-#import "ARCSafe_MemMgmt.h"
 #import "NSData+GZip.h"
+#import "NSError+SimpleConstructor.h"
 
 
-@interface TimedTestFilter: NSObject <KSCrashReportFilter>
+@interface KSCrash_TestNilFilter: NSObject <KSCrashReportFilter>
 
+@end
+
+@implementation KSCrash_TestNilFilter
+
++ (KSCrash_TestNilFilter*) filter
+{
+    return as_autorelease([[self alloc] init]);
+}
+
+- (void) filterReports:(__unused NSArray*) reports onCompletion:(KSCrashReportFilterCompletion) onCompletion
+{
+    onCompletion(nil, YES, nil);
+}
+
+@end
+
+
+@interface KSCrash_TestFilter: NSObject <KSCrashReportFilter>
+
+@property(nonatomic,readwrite,assign) NSTimeInterval delay;
 @property(nonatomic,readwrite,assign) BOOL completed;
 @property(nonatomic,readwrite,retain) NSError* error;
 @property(nonatomic,readwrite,retain) NSTimer* timer;
@@ -44,23 +67,29 @@
 
 @end
 
-@implementation TimedTestFilter
+@implementation KSCrash_TestFilter
 
+@synthesize delay = _delay;
 @synthesize completed = _completed;
 @synthesize error = _error;
 @synthesize reports = _reports;
 @synthesize timer = _timer;
 @synthesize onCompletion = _onCompletion;
 
-+ (TimedTestFilter*) filterWithCompleted:(BOOL) completed error:(NSError*) error
++ (KSCrash_TestFilter*) filterWithDelay:(NSTimeInterval) delay
+                              completed:(BOOL) completed
+                                  error:(NSError*) error
 {
-    return as_autorelease([[self alloc] initWithCompleted:completed error:error]);
+    return as_autorelease([[self alloc] initWithDelay:delay completed:completed error:error]);
 }
 
-- (id) initWithCompleted:(BOOL) completed error:(NSError*) error
+- (id) initWithDelay:(NSTimeInterval) delay
+           completed:(BOOL) completed
+               error:(NSError*) error
 {
     if((self = [super init]))
     {
+        self.delay = delay;
         self.completed = completed;
         self.error = error;
     }
@@ -81,12 +110,19 @@
 {
     self.reports = reports;
     self.onCompletion = onCompletion;
-    self.timer = [NSTimer timerWithTimeInterval:0.1 target:self selector:@selector(onTimeUp) userInfo:nil repeats:NO];
+    if(self.delay > 0)
+    {
+        self.timer = [NSTimer timerWithTimeInterval:self.delay target:self selector:@selector(onTimeUp) userInfo:nil repeats:NO];
+    }
+    else
+    {
+        [self onTimeUp];
+    }
 }
 
 - (void) onTimeUp
 {
-    self.onCompletion(self.reports, self.completed, self.error);
+    kscrash_i_callCompletion(self.onCompletion, self.reports, self.completed, self.error);
 }
 
 @end
@@ -105,13 +141,10 @@
 
     __block KSCrashReportFilterPassthrough* filter = [KSCrashReportFilterPassthrough filter];
     [filter filterReports:reports
-             onCompletion:^(NSArray* filteredReports,
-                            BOOL completed,
-                            NSError* error)
+             onCompletion:^(__unused NSArray* filteredReports,
+                            __unused BOOL completed,
+                            __unused NSError* error)
      {
-         #pragma unused(filteredReports)
-         #pragma unused(completed)
-         #pragma unused(error)
          filter = nil;
          reports = nil;
          dispatch_async(dispatch_get_main_queue(), ^
@@ -121,23 +154,107 @@
      }];
 }
 
+- (void) testPipeline
+{
+    NSArray* expected = [NSArray arrayWithObjects:@"1", @"2", @"3", nil];
+    id<KSCrashReportFilter> filter = [KSCrashReportFilterPipeline filterWithFilters:
+                                      [KSCrashReportFilterPassthrough filter],
+                                      [KSCrashReportFilterPassthrough filter],
+                                      nil];
+    
+    [filter filterReports:expected onCompletion:^(NSArray* filteredReports,
+                                                  BOOL completed,
+                                                  NSError* error)
+     {
+         STAssertTrue(completed, @"");
+         STAssertNil(error, @"");
+         STAssertEqualObjects(expected, filteredReports, @"");
+     }];
+}
+
+- (void) testPipelineInit
+{
+    NSArray* expected = [NSArray arrayWithObjects:@"1", @"2", @"3", nil];
+    id<KSCrashReportFilter> filter = [[KSCrashReportFilterPipeline alloc] initWithFilters:
+                                      [KSCrashReportFilterPassthrough filter],
+                                      [KSCrashReportFilterPassthrough filter],
+                                      nil];
+    filter = as_autorelease(filter);
+    
+    [filter filterReports:expected onCompletion:^(NSArray* filteredReports,
+                                                  BOOL completed,
+                                                  NSError* error)
+     {
+         STAssertTrue(completed, @"");
+         STAssertNil(error, @"");
+         STAssertEqualObjects(expected, filteredReports, @"");
+     }];
+}
+
+- (void) testPipelineNoFilters
+{
+    NSArray* expected = [NSArray arrayWithObjects:@"1", @"2", @"3", nil];
+    id<KSCrashReportFilter> filter = [KSCrashReportFilterPipeline filterWithFilters:
+                                      nil];
+    
+    [filter filterReports:expected onCompletion:^(NSArray* filteredReports,
+                                                  BOOL completed,
+                                                  NSError* error)
+     {
+         STAssertTrue(completed, @"");
+         STAssertNil(error, @"");
+         STAssertEqualObjects(expected, filteredReports, @"");
+     }];
+}
+
+- (void) testFilterPipelineIncomplete
+{
+    NSArray* expected1 = [NSArray arrayWithObjects:@"1", @"2", @"3", nil];
+    id<KSCrashReportFilter> filter = [KSCrashReportFilterPipeline filterWithFilters:
+                                      [KSCrash_TestFilter filterWithDelay:0 completed:NO error:nil],
+                                      nil];
+    
+    [filter filterReports:expected1 onCompletion:^(NSArray* filteredReports,
+                                                   BOOL completed,
+                                                   NSError* error)
+     {
+         STAssertNotNil(filteredReports, @"");
+         STAssertFalse(completed, @"");
+         STAssertNil(error, @"");
+     }];
+}
+
+- (void) testFilterPipelineNilReports
+{
+    NSArray* expected1 = [NSArray arrayWithObjects:@"1", @"2", @"3", nil];
+    id<KSCrashReportFilter> filter = [KSCrashReportFilterPipeline filterWithFilters:
+                                      [KSCrash_TestNilFilter filter],
+                                      nil];
+    
+    [filter filterReports:expected1 onCompletion:^(NSArray* filteredReports,
+                                                   BOOL completed,
+                                                   NSError* error)
+     {
+         STAssertNil(filteredReports, @"");
+         STAssertFalse(completed, @"");
+         STAssertNotNil(error, @"");
+     }];
+}
+
 - (void) testPiplelineLeak1
 {
     __block NSArray* reports = [NSArray arrayWithObjects:@"one", @"two", nil];
-    __block id<KSCrashReportFilter> filter = [TimedTestFilter filterWithCompleted:YES error:nil];
+    __block id<KSCrashReportFilter> filter = [KSCrash_TestFilter filterWithDelay:0.1 completed:YES error:nil];
 
     __weak id weakReports = reports;
     __weak id weakFilter = filter;
 
     __block KSCrashReportFilterPipeline* pipeline = [KSCrashReportFilterPipeline filterWithFilters:filter, nil];
     [pipeline filterReports:reports
-               onCompletion:^(NSArray* filteredReports,
-                              BOOL completed,
-                              NSError* error)
+               onCompletion:^(__unused NSArray* filteredReports,
+                              __unused BOOL completed,
+                              __unused NSError* error)
      {
-         #pragma unused(filteredReports)
-         #pragma unused(completed)
-         #pragma unused(error)
          reports = nil;
          filter = nil;
          pipeline = nil;
@@ -153,20 +270,17 @@
 - (void) testPiplelineLeak2
 {
     __block NSArray* reports = [NSArray arrayWithObjects:@"one", @"two", nil];
-    __block id<KSCrashReportFilter> filter = [TimedTestFilter filterWithCompleted:NO error:nil];
+    __block id<KSCrashReportFilter> filter = [KSCrash_TestFilter filterWithDelay:0.1 completed:NO error:nil];
 
     __weak id weakReports = reports;
     __weak id weakFilter = filter;
 
     __block KSCrashReportFilterPipeline* pipeline = [KSCrashReportFilterPipeline filterWithFilters:filter, nil];
     [pipeline filterReports:reports
-               onCompletion:^(NSArray* filteredReports,
-                              BOOL completed,
-                              NSError* error)
+               onCompletion:^(__unused NSArray* filteredReports,
+                              __unused BOOL completed,
+                              __unused NSError* error)
      {
-         #pragma unused(filteredReports)
-         #pragma unused(completed)
-         #pragma unused(error)
          reports = nil;
          filter = nil;
          pipeline = nil;
@@ -288,109 +402,343 @@
      }];
 }
 
-- (void) testFilterGZipCompress
+- (void) testFilterCombineInit
 {
-    NSArray* decompressed = [NSArray arrayWithObjects:
-                             [@"this is a test" dataUsingEncoding:NSUTF8StringEncoding],
-                             [@"here is another test" dataUsingEncoding:NSUTF8StringEncoding],
-                             [@"testing is fun!" dataUsingEncoding:NSUTF8StringEncoding],
-                             nil];
-
-    NSError* error = nil;
-    NSMutableArray* compressed = [NSMutableArray array];
-    for(NSData* data in decompressed)
-    {
-        NSData* newData = [data gzippedWithCompressionLevel:-1 error:&error];
-        STAssertNotNil(newData, @"");
-        STAssertNil(error, @"");
-        [compressed addObject:newData];
-    }
-
-    id<KSCrashReportFilter> filter = [KSCrashReportFilterGZipCompress filterWithCompressionLevel:-1];
-    [filter filterReports:decompressed onCompletion:^(NSArray* filteredReports,
-                                                      BOOL completed,
-                                                      NSError* error2)
+    NSArray* expected1 = [NSArray arrayWithObjects:@"1", @"2", @"3", nil];
+    NSArray* expected2 = [NSArray arrayWithObjects:
+                          [@"1" dataUsingEncoding:NSUTF8StringEncoding],
+                          [@"2" dataUsingEncoding:NSUTF8StringEncoding],
+                          [@"3" dataUsingEncoding:NSUTF8StringEncoding],
+                          nil];
+    id<KSCrashReportFilter> filter = [[KSCrashReportFilterCombine alloc] initWithFiltersAndKeys:
+                                      [KSCrashReportFilterPassthrough filter],
+                                      @"normal",
+                                      [KSCrashReportFilterStringToData filter],
+                                      @"data",
+                                      nil];
+    filter = as_autorelease(filter);
+    
+    [filter filterReports:expected1 onCompletion:^(NSArray* filteredReports,
+                                                   BOOL completed,
+                                                   NSError* error)
      {
          STAssertTrue(completed, @"");
-         STAssertNil(error2, @"");
-         STAssertEqualObjects(compressed, filteredReports, @"");
+         STAssertNil(error, @"");
+         for(NSUInteger i = 0; i < [expected1 count]; i++)
+         {
+             id exp1 = [expected1 objectAtIndex:i];
+             id exp2 = [expected2 objectAtIndex:i];
+             NSDictionary* entry = [filteredReports objectAtIndex:i];
+             id result1 = [entry objectForKey:@"normal"];
+             id result2 = [entry objectForKey:@"data"];
+             STAssertEqualObjects(result1, exp1, @"");
+             STAssertEqualObjects(result2, exp2, @"");
+         }
      }];
 }
 
-- (void) testFilterGZipDecompress
+- (void) testFilterCombineNoFilters
 {
-    NSArray* decompressed = [NSArray arrayWithObjects:
-                             [@"this is a test" dataUsingEncoding:NSUTF8StringEncoding],
-                             [@"here is another test" dataUsingEncoding:NSUTF8StringEncoding],
-                             [@"testing is fun!" dataUsingEncoding:NSUTF8StringEncoding],
-                             nil];
-
-    NSError* error = nil;
-    NSMutableArray* compressed = [NSMutableArray array];
-    for(NSData* data in decompressed)
-    {
-        NSData* newData = [data gzippedWithCompressionLevel:-1 error:&error];
-        STAssertNotNil(newData, @"");
-        STAssertNil(error, @"");
-        [compressed addObject:newData];
-    }
-
-    id<KSCrashReportFilter> filter = [KSCrashReportFilterGZipDecompress filter];
-    [filter filterReports:compressed onCompletion:^(NSArray* filteredReports,
-                                                    BOOL completed,
-                                                    NSError* error2)
+    NSArray* expected1 = [NSArray arrayWithObjects:@"1", @"2", @"3", nil];
+    id<KSCrashReportFilter> filter = [KSCrashReportFilterCombine filterWithFiltersAndKeys:
+                                      nil];
+    
+    [filter filterReports:expected1 onCompletion:^(NSArray* filteredReports,
+                                                   BOOL completed,
+                                                   NSError* error)
      {
          STAssertTrue(completed, @"");
-         STAssertNil(error2, @"");
-         STAssertEqualObjects(decompressed, filteredReports, @"");
+         STAssertNil(error, @"");
+         for(NSUInteger i = 0; i < [expected1 count]; i++)
+         {
+             id exp = [expected1 objectAtIndex:i];
+             NSString* entry = [filteredReports objectAtIndex:i];
+             STAssertEqualObjects(entry, exp, @"");
+         }
      }];
 }
 
-- (void) testFilterJSONEncode
+- (void) testFilterCombineIncomplete
 {
-    NSArray* decoded = [NSArray arrayWithObjects:
-                        [NSArray arrayWithObjects:@"1", @"2", @"3", nil],
-                        [NSArray arrayWithObjects:@"4", @"5", @"6", nil],
-                        [NSArray arrayWithObjects:@"7", @"8", @"9", nil],
-                        nil];
-    NSArray* encoded = [NSArray arrayWithObjects:
-                        [@"[\"1\",\"2\",\"3\"]" dataUsingEncoding:NSUTF8StringEncoding],
-                        [@"[\"4\",\"5\",\"6\"]" dataUsingEncoding:NSUTF8StringEncoding],
-                        [@"[\"7\",\"8\",\"9\"]" dataUsingEncoding:NSUTF8StringEncoding],
-                        nil];
+    NSArray* expected1 = [NSArray arrayWithObjects:@"1", @"2", @"3", nil];
+    id<KSCrashReportFilter> filter = [KSCrashReportFilterCombine filterWithFiltersAndKeys:
+                                      [KSCrash_TestFilter filterWithDelay:0 completed:NO error:nil],
+                                      @"Blah",
+                                      nil];
+    
+    [filter filterReports:expected1 onCompletion:^(NSArray* filteredReports,
+                                                   BOOL completed,
+                                                   NSError* error)
+     {
+         STAssertNotNil(filteredReports, @"");
+         STAssertFalse(completed, @"");
+         STAssertNil(error, @"");
+     }];
+}
 
-    id<KSCrashReportFilter> filter = [KSCrashReportFilterJSONEncode filterWithOptions:0];
-    [filter filterReports:decoded onCompletion:^(NSArray* filteredReports,
+- (void) testFilterCombineNilReports
+{
+    NSArray* expected1 = [NSArray arrayWithObjects:@"1", @"2", @"3", nil];
+    id<KSCrashReportFilter> filter = [KSCrashReportFilterCombine filterWithFiltersAndKeys:
+                                      [KSCrash_TestNilFilter filter],
+                                      @"Blah",
+                                      nil];
+    
+    [filter filterReports:expected1 onCompletion:^(NSArray* filteredReports,
+                                                   BOOL completed,
+                                                   NSError* error)
+     {
+         STAssertNil(filteredReports, @"");
+         STAssertFalse(completed, @"");
+         STAssertNotNil(error, @"");
+     }];
+}
+
+- (void) testFilterCombineArray
+{
+    NSArray* expected1 = [NSArray arrayWithObjects:@"1", @"2", @"3", nil];
+    NSArray* expected2 = [NSArray arrayWithObjects:
+                          [@"1" dataUsingEncoding:NSUTF8StringEncoding],
+                          [@"2" dataUsingEncoding:NSUTF8StringEncoding],
+                          [@"3" dataUsingEncoding:NSUTF8StringEncoding],
+                          nil];
+    id<KSCrashReportFilter> filter = [KSCrashReportFilterCombine filterWithFiltersAndKeys:
+                                      [NSArray arrayWithObject:[KSCrashReportFilterPassthrough filter]],
+                                      @"normal",
+                                      [NSArray arrayWithObject:[KSCrashReportFilterStringToData filter]],
+                                      @"data",
+                                      nil];
+    
+    [filter filterReports:expected1 onCompletion:^(NSArray* filteredReports,
+                                                   BOOL completed,
+                                                   NSError* error)
+     {
+         STAssertTrue(completed, @"");
+         STAssertNil(error, @"");
+         for(NSUInteger i = 0; i < [expected1 count]; i++)
+         {
+             id exp1 = [expected1 objectAtIndex:i];
+             id exp2 = [expected2 objectAtIndex:i];
+             NSDictionary* entry = [filteredReports objectAtIndex:i];
+             id result1 = [entry objectForKey:@"normal"];
+             id result2 = [entry objectForKey:@"data"];
+             STAssertEqualObjects(result1, exp1, @"");
+             STAssertEqualObjects(result2, exp2, @"");
+         }
+     }];
+}
+
+- (void) testFilterCombineMissingKey
+{
+    NSArray* expected1 = [NSArray arrayWithObjects:@"1", @"2", @"3", nil];
+    id<KSCrashReportFilter> filter = [KSCrashReportFilterCombine filterWithFiltersAndKeys:
+                                      [KSCrashReportFilterPassthrough filter],
+                                      @"normal",
+                                      [KSCrashReportFilterStringToData filter],
+                                      // Missing key
+                                      nil];
+    
+    [filter filterReports:expected1 onCompletion:^(__unused NSArray* filteredReports,
+                                                   BOOL completed,
+                                                   NSError* error)
+     {
+         STAssertFalse(completed, @"");
+         STAssertNotNil(error, @"");
+     }];
+}
+
+- (void) testObjectForKey
+{
+    NSString* key = @"someKey";
+    NSString* expected = @"value";
+    NSArray* reports = [NSArray arrayWithObjects:
+                        [NSDictionary dictionaryWithObject:expected forKey:key],
+                        nil];
+    
+    id<KSCrashReportFilter> filter = [KSCrashReportFilterObjectForKey filterWithKey:key allowNotFound:NO];
+
+    [filter filterReports:reports onCompletion:^(__unused NSArray* filteredReports,
                                                  BOOL completed,
-                                                 NSError* error2)
+                                                 NSError* error)
      {
          STAssertTrue(completed, @"");
-         STAssertNil(error2, @"");
-         STAssertEqualObjects(encoded, filteredReports, @"");
+         STAssertNil(error, @"");
+         STAssertEqualObjects([filteredReports objectAtIndex:0], expected, @"");
      }];
 }
 
-- (void) testFilterJSONDencode
+- (void) testObjectForKey2
 {
-    NSArray* decoded = [NSArray arrayWithObjects:
-                        [NSArray arrayWithObjects:@"1", @"2", @"3", nil],
-                        [NSArray arrayWithObjects:@"4", @"5", @"6", nil],
-                        [NSArray arrayWithObjects:@"7", @"8", @"9", nil],
+    id key = [NSNumber numberWithInt:100];
+    NSString* expected = @"value";
+    NSArray* reports = [NSArray arrayWithObjects:
+                        [NSDictionary dictionaryWithObject:expected forKey:key],
                         nil];
-    NSArray* encoded = [NSArray arrayWithObjects:
-                        [@"[\"1\",\"2\",\"3\"]" dataUsingEncoding:NSUTF8StringEncoding],
-                        [@"[\"4\",\"5\",\"6\"]" dataUsingEncoding:NSUTF8StringEncoding],
-                        [@"[\"7\",\"8\",\"9\"]" dataUsingEncoding:NSUTF8StringEncoding],
-                        nil];
-
-    id<KSCrashReportFilter> filter = [KSCrashReportFilterJSONEncode filterWithOptions:0];
-    [filter filterReports:decoded onCompletion:^(NSArray* filteredReports,
+    
+    id<KSCrashReportFilter> filter = [KSCrashReportFilterObjectForKey filterWithKey:key allowNotFound:NO];
+    
+    [filter filterReports:reports onCompletion:^(__unused NSArray* filteredReports,
                                                  BOOL completed,
-                                                 NSError* error2)
+                                                 NSError* error)
      {
          STAssertTrue(completed, @"");
-         STAssertNil(error2, @"");
-         STAssertEqualObjects(encoded, filteredReports, @"");
+         STAssertNil(error, @"");
+         STAssertEqualObjects([filteredReports objectAtIndex:0], expected, @"");
+     }];
+}
+
+- (void) testObjectForKeyNotFoundAllowed
+{
+    NSString* key = @"someKey";
+    NSString* expected = @"value";
+    NSArray* reports = [NSArray arrayWithObjects:
+                        [NSDictionary dictionaryWithObject:expected forKey:key],
+                        nil];
+    
+    id<KSCrashReportFilter> filter = [KSCrashReportFilterObjectForKey filterWithKey:@"someOtherKey" allowNotFound:YES];
+    
+    [filter filterReports:reports onCompletion:^(__unused NSArray* filteredReports,
+                                                 BOOL completed,
+                                                 NSError* error)
+     {
+         STAssertTrue(completed, @"");
+         STAssertNil(error, @"");
+         STAssertTrue([[filteredReports objectAtIndex:0] count] == 0, @"");
+     }];
+}
+
+- (void) testObjectForKeyNotFoundNotAllowed
+{
+    NSString* key = @"someKey";
+    NSString* expected = @"value";
+    NSArray* reports = [NSArray arrayWithObjects:
+                        [NSDictionary dictionaryWithObject:expected forKey:key],
+                        nil];
+    
+    id<KSCrashReportFilter> filter = [KSCrashReportFilterObjectForKey filterWithKey:@"someOtherKey" allowNotFound:NO];
+    
+    [filter filterReports:reports onCompletion:^(__unused NSArray* filteredReports,
+                                                 BOOL completed,
+                                                 NSError* error)
+     {
+         STAssertFalse(completed, @"");
+         STAssertNotNil(error, @"");
+     }];
+}
+
+- (void) testConcatenate
+{
+    NSArray* reports = [NSArray arrayWithObjects:
+                        [NSDictionary dictionaryWithObjectsAndKeys:
+                         @"1", @"first",
+                         @"a", @"second",
+                         nil],
+                        nil];
+    NSString* expected = @"1,a";
+    id<KSCrashReportFilter> filter = [KSCrashReportFilterConcatenate filterWithSeparatorFmt:@","
+                                                                                       keys:@"first", @"second", nil];
+    
+    [filter filterReports:reports onCompletion:^(NSArray* filteredReports,
+                                                 BOOL completed,
+                                                 NSError* error)
+     {
+         STAssertTrue(completed, @"");
+         STAssertNil(error, @"");
+         STAssertEqualObjects([filteredReports objectAtIndex:0], expected, @"");
+     }];
+}
+
+- (void) testConcatenateInit
+{
+    NSArray* reports = [NSArray arrayWithObjects:
+                        [NSDictionary dictionaryWithObjectsAndKeys:
+                         @"1", @"first",
+                         @"a", @"second",
+                         nil],
+                        nil];
+    NSString* expected = @"1,a";
+    id<KSCrashReportFilter> filter = [[KSCrashReportFilterConcatenate alloc] initWithSeparatorFmt:@","
+                                                                                             keys:@"first", @"second", nil];
+    filter = as_autorelease(filter);
+    
+    [filter filterReports:reports onCompletion:^(NSArray* filteredReports,
+                                                 BOOL completed,
+                                                 NSError* error)
+     {
+         STAssertTrue(completed, @"");
+         STAssertNil(error, @"");
+         STAssertEqualObjects([filteredReports objectAtIndex:0], expected, @"");
+     }];
+}
+
+- (void) testSubset
+{
+    NSArray* reports = [NSArray arrayWithObjects:
+                        [NSDictionary dictionaryWithObjectsAndKeys:
+                         @"1", @"first",
+                         @"a", @"second",
+                         @"b", @"third",
+                         nil],
+                        nil];
+    NSDictionary* expected = [NSDictionary dictionaryWithObjectsAndKeys:
+                              @"1", @"first",
+                              @"b", @"third",
+                              nil];
+    id<KSCrashReportFilter> filter = [KSCrashReportFilterSubset filterWithKeys:@"first", @"third", nil];
+    
+    [filter filterReports:reports onCompletion:^(NSArray* filteredReports,
+                                                 BOOL completed,
+                                                 NSError* error)
+     {
+         STAssertTrue(completed, @"");
+         STAssertNil(error, @"");
+         STAssertEqualObjects([filteredReports objectAtIndex:0], expected, @"");
+     }];
+}
+
+- (void) testSubsetBadKeyPath
+{
+    NSArray* reports = [NSArray arrayWithObjects:
+                        [NSDictionary dictionaryWithObjectsAndKeys:
+                         @"1", @"first",
+                         @"a", @"second",
+                         @"b", @"third",
+                         nil],
+                        nil];
+    id<KSCrashReportFilter> filter = [KSCrashReportFilterSubset filterWithKeys:@"first", @"aaa", nil];
+    
+    [filter filterReports:reports onCompletion:^(__unused NSArray* filteredReports,
+                                                 BOOL completed,
+                                                 NSError* error)
+     {
+         STAssertFalse(completed, @"");
+         STAssertNotNil(error, @"");
+     }];
+}
+
+- (void) testSubsetInit
+{
+    NSArray* reports = [NSArray arrayWithObjects:
+                        [NSDictionary dictionaryWithObjectsAndKeys:
+                         @"1", @"first",
+                         @"a", @"second",
+                         @"b", @"third",
+                         nil],
+                        nil];
+    NSDictionary* expected = [NSDictionary dictionaryWithObjectsAndKeys:
+                              @"1", @"first",
+                              @"b", @"third",
+                              nil];
+    id<KSCrashReportFilter> filter = [[KSCrashReportFilterSubset alloc] initWithKeys:@"first", @"third", nil];
+    filter = as_autorelease(filter);
+    
+    [filter filterReports:reports onCompletion:^(NSArray* filteredReports,
+                                                 BOOL completed,
+                                                 NSError* error)
+     {
+         STAssertTrue(completed, @"");
+         STAssertNil(error, @"");
+         STAssertEqualObjects([filteredReports objectAtIndex:0], expected, @"");
      }];
 }
 

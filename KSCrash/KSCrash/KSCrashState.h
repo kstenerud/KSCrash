@@ -39,7 +39,7 @@ extern "C" {
 
 
 #include <stdbool.h>
-#include <mach/mach_types.h>
+#include <stdint.h>
 
 
 typedef struct

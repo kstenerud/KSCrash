@@ -27,6 +27,7 @@
 
 #import "KSCrashReportSinkConsole.h"
 #import "ARCSafe_MemMgmt.h"
+#import "KSCrashCallCompletion.h"
 #import "KSCrashReportFilterAppleFmt.h"
 
 
@@ -37,9 +38,9 @@
     return as_autorelease([[self alloc] init]);
 }
 
-- (NSArray*) defaultCrashReportFilterSet
+- (id <KSCrashReportFilter>) defaultCrashReportFilterSet
 {
-    return [NSArray arrayWithObjects:
+    return [KSCrashReportFilterPipeline filterWithFilters:
             [KSCrashReportFilterAppleFmt filterWithReportStyle:KSAppleReportStyleSymbolicated],
             self,
             nil];
@@ -54,7 +55,7 @@
         NSLog(@"Report %d:\n%@", ++i, report);
     }
 
-    onCompletion(reports, YES, nil);
+    kscrash_i_callCompletion(onCompletion, reports, YES, nil);
 }
 
 

@@ -28,29 +28,15 @@
 #import "KSCrashReportSinkEMail.h"
 
 #import "ARCSafe_MemMgmt.h"
+#import "KSCrashCallCompletion.h"
 #import "KSCrashReportFilterGZip.h"
 #import "KSCrashReportFilterJSON.h"
+#import "NSError+SimpleConstructor.h"
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
 
 #import <MessageUI/MessageUI.h>
-
-
-static inline NSError* makeNSError(NSString* domain, NSInteger code, NSString* fmt, ...)
-{
-    va_list args;
-    va_start(args, fmt);
-
-    NSString* desc = as_autorelease([[NSString alloc] initWithFormat:fmt
-                                                           arguments:args]);
-    va_end(args);
-
-    return [NSError errorWithDomain:domain
-                               code:code
-                           userInfo:[NSDictionary dictionaryWithObject:desc
-                                                                forKey:NSLocalizedDescriptionKey]];
-}
 
 
 @interface KSCrashMailProcess : NSObject <MFMailComposeViewControllerDelegate>
@@ -119,34 +105,35 @@ static inline NSError* makeNSError(NSString* domain, NSInteger code, NSString* f
     [self presentModalVC:controller];
 }
 
-- (void) mailComposeController:(MFMailComposeViewController*) mailController
+- (void) mailComposeController:(__unused MFMailComposeViewController*) mailController
            didFinishWithResult:(MFMailComposeResult) result
                          error:(NSError*) error
 {
-    #pragma unused(mailController)
     [self dismissModalVC];
 
     switch (result)
     {
         case MFMailComposeResultSent:
-            self.onCompletion(self.reports, YES, nil);
+            kscrash_i_callCompletion(self.onCompletion, self.reports, YES, nil);
             break;
         case MFMailComposeResultSaved:
-            self.onCompletion(self.reports, YES, nil);
+            kscrash_i_callCompletion(self.onCompletion, self.reports, YES, nil);
             break;
         case MFMailComposeResultCancelled:
-            self.onCompletion(self.reports, NO, makeNSError([[self class] description],
-                                                            0,
-                                                            @"User cancelled"));
+            kscrash_i_callCompletion(self.onCompletion, self.reports, NO,
+                                     [NSError errorWithDomain:[[self class] description]
+                                                         code:0
+                                                  description:@"User cancelled"]);
             break;
         case MFMailComposeResultFailed:
-            self.onCompletion(self.reports, NO, error);
+            kscrash_i_callCompletion(self.onCompletion, self.reports, NO, error);
             break;
         default:
         {
-            self.onCompletion(self.reports, NO, makeNSError([[self class] description],
-                                                            0,
-                                                            @"Unknown MFMailComposeResult: %d", result));
+            kscrash_i_callCompletion(self.onCompletion, self.reports, NO,
+                                     [NSError errorWithDomain:[[self class] description]
+                                                         code:0
+                                                  description:@"Unknown MFMailComposeResult: %d", result]);
         }
     }
 }
@@ -164,11 +151,20 @@ static inline NSError* makeNSError(NSString* domain, NSInteger code, NSString* f
 
 - (void) dismissModalVC
 {
-	[self.dummyVC dismissViewControllerAnimated:YES completion:^
-     {
-         [self.dummyVC.view removeFromSuperview];
-         self.dummyVC = nil;
-     }];
+    if([self.dummyVC respondsToSelector:@selector(dismissViewControllerAnimated:completion:)])
+    {
+        [self.dummyVC dismissViewControllerAnimated:YES completion:^
+         {
+             [self.dummyVC.view removeFromSuperview];
+             self.dummyVC = nil;
+         }];
+    }
+    else
+    {
+        [self.dummyVC dismissModalViewControllerAnimated:NO];
+        [self.dummyVC.view removeFromSuperview];
+        self.dummyVC = nil;
+    }
 }
 
 @end
@@ -180,6 +176,8 @@ static inline NSError* makeNSError(NSString* domain, NSInteger code, NSString* f
 
 @property(nonatomic,readwrite,retain) NSString* subject;
 
+@property(nonatomic,readwrite,retain) NSString* message;
+
 @property(nonatomic,readwrite,retain) NSString* filenameFmt;
 
 @end
@@ -189,25 +187,30 @@ static inline NSError* makeNSError(NSString* domain, NSInteger code, NSString* f
 
 @synthesize recipients = _recipients;
 @synthesize subject = _subject;
+@synthesize message = _message;
 @synthesize filenameFmt = _filenameFmt;
 
 + (KSCrashReportSinkEMail*) sinkWithRecipients:(NSArray*) recipients
                                        subject:(NSString*) subject
+                                       message:(NSString*) message
                                    filenameFmt:(NSString*) filenameFmt
 {
     return as_autorelease([[self alloc] initWithRecipients:recipients
                                                    subject:subject
+                                                   message:message
                                                filenameFmt:filenameFmt]);
 }
 
 - (id) initWithRecipients:(NSArray*) recipients
                   subject:(NSString*) subject
+                  message:(NSString*) message
               filenameFmt:(NSString*) filenameFmt
 {
     if((self = [super init]))
     {
         self.recipients = recipients;
         self.subject = subject;
+        self.message = message;
         self.filenameFmt = filenameFmt;
     }
     return self;
@@ -217,13 +220,14 @@ static inline NSError* makeNSError(NSString* domain, NSInteger code, NSString* f
 {
     as_release(_recipients);
     as_release(_subject);
+    as_release(_message);
     as_release(_filenameFmt);
     as_superdealloc();
 }
 
-- (NSArray*) defaultCrashReportFilterSet
+- (id <KSCrashReportFilter>) defaultCrashReportFilterSet
 {
-    return [NSArray arrayWithObjects:
+    return [KSCrashReportFilterPipeline filterWithFilters:
             [KSCrashReportFilterJSONEncode filterWithOptions:KSJSONEncodeOptionSorted | KSJSONEncodeOptionPretty],
             [KSCrashReportFilterGZipCompress filterWithCompressionLevel:-1],
             self,
@@ -241,18 +245,20 @@ static inline NSError* makeNSError(NSString* domain, NSInteger code, NSString* f
                                          cancelButtonTitle:@"OK"
                                          otherButtonTitles:nil]) show];
 
-        onCompletion(reports, NO, [NSError errorWithDomain:@"KSCrashReportSinkEMail"
-                                                      code:0
-                                                  userInfo:[NSDictionary dictionaryWithObjectsAndKeys:
-                                                            @"E-Mail not enabled on device",
-                                                            NSLocalizedDescriptionKey,
-                                                            nil]]);
+        kscrash_i_callCompletion(onCompletion, reports, NO,
+                                 [NSError errorWithDomain:[[self class] description]
+                                                     code:0
+                                              description:@"E-Mail not enabled on device"]);
         return;
     }
 
-	MFMailComposeViewController* mailController = as_autorelease([[MFMailComposeViewController alloc] init]);
+    MFMailComposeViewController* mailController = as_autorelease([[MFMailComposeViewController alloc] init]);
     [mailController setToRecipients:self.recipients];
     [mailController setSubject:self.subject];
+    if(self.message != nil)
+    {
+        [mailController setMessageBody:self.message isHTML:NO];
+    }
     NSString* filenameFmt = self.filenameFmt;
 
     dispatch_async(dispatch_get_main_queue(), ^
@@ -265,7 +271,7 @@ static inline NSError* makeNSError(NSString* domain, NSInteger code, NSString* f
                                                       BOOL completed,
                                                       NSError* error)
                         {
-                            onCompletion(filteredReports, completed, error);
+                            kscrash_i_callCompletion(onCompletion, filteredReports, completed, error);
                             dispatch_async(dispatch_get_main_queue(), ^
                                            {
                                                as_release(process);

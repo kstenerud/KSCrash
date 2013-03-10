@@ -60,7 +60,7 @@ extern "C" {
  * @param cacheSize The size of the zombie cache. Must be a multiple of 2 and
  *                  greater than 1.
  */
-void kszombie_install(unsigned int cacheSize);
+void kszombie_install(size_t cacheSize);
 
 /** Uninstall the zombie tracker.
  */

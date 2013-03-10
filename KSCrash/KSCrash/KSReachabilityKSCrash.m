@@ -277,11 +277,10 @@ static void onReachabilityChanged(SCNetworkReachabilityRef target,
     return NO;
 }
 
-static void onReachabilityChanged(SCNetworkReachabilityRef target,
+static void onReachabilityChanged(__unused SCNetworkReachabilityRef target,
                                   SCNetworkReachabilityFlags flags,
                                   void* info)
 {
-    #pragma unused(target)
     KSReachabilityKSCrash* reachability = (as_bridge KSReachabilityKSCrash*) info;
     
     dispatch_async(dispatch_get_main_queue(), ^
@@ -297,20 +296,20 @@ static void onReachabilityChanged(SCNetworkReachabilityRef target,
 @end
 
 
-@interface KSReachableOperation ()
+@interface KSReachableOperationKSCrash ()
 
 @property(nonatomic,readwrite,retain) KSReachabilityKSCrash* reachability;
 
 @end
 
 
-@implementation KSReachableOperation
+@implementation KSReachableOperationKSCrash
 
 @synthesize reachability = _reachability;
 
-+ (KSReachableOperation*) operationWithHost:(NSString*) host
-                                  allowWWAN:(BOOL) allowWWAN
-                                      block:(void(^)()) block
++ (KSReachableOperationKSCrash*) operationWithHost:(NSString*) host
+                                         allowWWAN:(BOOL) allowWWAN
+                                             block:(void(^)()) block
 {
     return as_autorelease([[self alloc] initWithHost:host
                                            allowWWAN:allowWWAN
@@ -325,7 +324,7 @@ static void onReachabilityChanged(SCNetworkReachabilityRef target,
     {
         self.reachability = [KSReachabilityKSCrash reachabilityToHost:host];
         
-        __unsafe_unretained KSReachableOperation* blockSelf = self;
+        __unsafe_unretained KSReachableOperationKSCrash* blockSelf = self;
         self.reachability.onReachabilityChanged = ^(KSReachabilityKSCrash* reachability)
         {
             if(reachability.reachable)

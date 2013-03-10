@@ -31,74 +31,137 @@
 #import "KSCrashReportFilter.h"
 
 
+typedef enum
+{
+    KSCDeleteNever,
+    KSCDeleteOnSucess,
+    KSCDeleteAlways
+} KSCDeleteBehavior;
+
 /**
- * Handles any crashes in the application and generates a crash report.
+ * Reports any crashes that occur in the application.
  *
  * The crash reports will be located in $APP_HOME/Library/Caches/KSCrashReports
  */
 @interface KSCrash : NSObject
 
-/** Install the crash reporter with default settings:
- *
- * - No user info (userInfo = nil)
- * - Zombie tracking disabled (zombieCacheSize = 0)
- * - Main thread deadlock detection disabled (deadlockWatchdogInterval = 0)
- * - Don't print to stdout (printTraceToStdout = NO)
- * - No crash callback (onCrash = NULL)
- *
- * @param sink The report sink to send outstanding reports to (can be nil).
- *
- * @return YES if successful.
+/** The report sink where reports get sent.
+ * This MUST be set or else the reporter will not send reports (although it will
+ * still record them).
  */
-+ (BOOL) installWithCrashReportSink:(id<KSCrashReportFilter>) sink;
+@property(nonatomic,readwrite,retain) id<KSCrashReportFilter> sink;
+
+/** A dictionary containing any info you'd like to appear in crash reports. Must
+ * contain only JSON-safe data: NSString for keys, and NSDictionary, NSArray,
+ * NSString, NSDate, and NSNumber for values.
+ *
+ * Default: nil
+ */
+@property(nonatomic,readwrite,retain) NSDictionary* userInfo;
+
+/** What to do after sending reports via sendAllReportsWithCompletion:
+ *
+ * - Use KSCDeleteNever if you will manually manage the reports.
+ * - Use KSCDeleteAlways if you will be using an alert confirmation (otherwise it
+ *   will nag the user incessantly until he selects "yes").
+ * - Use KSCDeleteOnSuccess for all other situations.
+ *
+ * Default: KSCDeleteAlways
+ */
+@property(nonatomic,readwrite,assign) KSCDeleteBehavior deleteBehaviorAfterSendAll;
+
+/** The size of the cache to use for on-device zombie tracking.
+ * Every deallocated object will be hashed based on its address modulus the cache
+ * size, so the bigger the cache, the less likely a hash collision (missed zombie).
+ * It is best to profile your app to determine how many objects are allocated at
+ * a time before choosing this value, but in general you'll want a value of
+ * at least 16384.
+ * Each cache entry will occupy 8 bytes for 32-bit architectures and 16 bytes
+ * for 64-bit architectures.
+ *
+ * Note: Value must be a power-of-2. 0 = no zombie checking.
+ *
+ * Default: 0
+ */
+@property(nonatomic,readwrite,assign) size_t zombieCacheSize;
+
+/** Maximum time to allow the main thread to run without returning.
+ * If a task occupies the main thread for longer than this interval, the
+ * watchdog will consider the queue deadlocked and shut down the app and write a
+ * crash report.
+ *
+ * Warning: Make SURE that nothing in your app that runs on the main thread takes
+ * longer to complete than this value or it WILL get shut down! This includes
+ * your app startup process, so you may need to push app initialization to
+ * another thread, or perhaps set this to a higher value until your application
+ * has been fully initialized.
+ *
+ * WARNING: This is still causing false positives in some cases. Use at own risk!
+ *
+ * 0 = Disabled.
+ *
+ * Default: 0
+ */
+@property(nonatomic,readwrite,assign) double deadlockWatchdogInterval;
+
+/** If YES, introspect memory contents during a crash.
+ * Any Objective-C objects or C strings near the stack pointer or referenced by
+ * cpu registers or exceptions will be recorded in the crash report, along with
+ * their contents.
+ *
+ * Default: YES
+ */
+@property(nonatomic,readwrite,assign) bool introspectMemory;
+
+/** List of Objective-C classes that should never be introspected.
+ * Whenever a class in this list is encountered, only the class name will be recorded.
+ * This can be useful for information security concerns.
+ *
+ * Default: nil
+ */
+@property(nonatomic,readwrite,retain) NSArray* doNotIntrospectClasses;
+
+/** If YES, print a stack trace to stdout when a crash occurs.
+ *
+ * Default: NO
+ */
+@property(nonatomic,readwrite,assign) bool printTraceToStdout;
+
+/** C Function to call during a crash report to give the callee an opportunity to
+ * add to the report. NULL = ignore.
+ *
+ * WARNING: Only call async-safe functions from this function! DO NOT call
+ * Objective-C methods!!!
+ */
+@property(nonatomic,readwrite,assign) KSReportWriteCallback onCrash;
+
+
+/** Get the singleton instance of the crash reporter.
+ */
++ (KSCrash*) sharedInstance;
 
 /** Install the crash reporter.
+ * The reporter will record crashes, but will not send any crash reports unless
+ * sink is set.
  *
- * BETA WARNING: Deadlock detection has some issues. Please don't use it for now.
- *
- * @param sink The report sink to send outstanding reports to (can be nil).
- *
- * @param userInfo A dictionary containing any info you'd like to appear in
- *                 crash reports. Must contain only JSON-safe data: NSString
- *                 for keys, and NSDictionary, NSArray, NSString, NSDate, and
- *                 NSNumber for values.
- *                 nil = ignore.
- *
- * @param zombieCacheSize The size of the cache to use for zombie tracking.
- *                        Must be a power-of-2. 0 = no zombie tracking.
- *                        You should profile your app to see how many objects
- *                        are being allocated before choosing this value, but
- *                        generally you should use 16384 or higher. Uses 8 bytes
- *                        per cache entry (16 bytes on 64-bit architectures).
- *
- * @param deadlockWatchdogInterval The interval in seconds between checks for
- *                                 deadlocks on the main thread. 0 = ignore.
- *
- * @param printTraceToStdout If YES, print a stack trace to STDOUT when the app
- *                           crashes.
- *
- * @param onCrash C Function to call during a crash report to give the
- *                callee an opportunity to add to the report. NULL = ignore.
- *                WARNING: Only call async-safe functions from this function!
- *                DO NOT call Objective-C methods!!!
- *
- * @return YES if successful.
+ * @return YES if the reporter successfully installed.
  */
-+ (BOOL) installWithCrashReportSink:(id<KSCrashReportFilter>) sink
-                           userInfo:(NSDictionary*) userInfo
-                    zombieCacheSize:(unsigned int) zombieCacheSize
-           deadlockWatchdogInterval:(float) deadlockWatchdogInterval
-                 printTraceToStdout:(BOOL) printTraceToStdout
-                            onCrash:(KSReportWriteCallback) onCrash;
+- (BOOL) install;
 
-/** Set the user-supplied information.
+/** Send any outstanding crash reports to the current sink.
+ * It will only attempt to send the most recent 5 reports. All others will be
+ * deleted. Once the reports are successfully sent to the server, they may be
+ * deleted locally, depending on the property "deleteAfterSendAll".
  *
- * @param userInfo A dictionary containing any info you'd like to appear in
- *                 crash reports. Must contain only JSON-safe data: NSString
- *                 for keys, and NSDictionary, NSArray, NSString, NSDate, and
- *                 NSNumber for values.
- *                 nil = delete.
+ * Note: property "sink" MUST be set or else this method will call onCompletion
+ *       with an error.
+ *
+ * @param onCompletion Called when sending is complete (nil = ignore).
  */
-+ (void) setUserInfo:(NSDictionary*) userInfo;
+- (void) sendAllReportsWithCompletion:(KSCrashReportFilterCompletion) onCompletion;
+
+/** Delete all unsent reports.
+ */
+- (void) deleteAllReports;
 
 @end

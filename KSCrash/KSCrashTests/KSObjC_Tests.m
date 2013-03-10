@@ -26,9 +26,11 @@
 
 
 #import <SenTestingKit/SenTestingKit.h>
-#import "KSObjC.h"
 #import "ARCSafe_MemMgmt.h"
 #import <objc/runtime.h>
+
+#import "KSObjC.h"
+
 
 @interface SomeObjCClass: NSObject
 {

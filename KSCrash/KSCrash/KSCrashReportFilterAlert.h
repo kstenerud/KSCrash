@@ -29,18 +29,37 @@
 #import "KSCrashReportFilter.h"
 
 
-/** Asks the user if the filter should continue or not.
+/** Pops up a standard alert window and awaits a user response before continuing.
+ *
+ * This filter can be set up as a conditional or unconditional filter. If both a
+ * "yes" and "no" button are defined, it will only continue if the user presses
+ * the "yes" button. If only a "yes" button is defined ("no" button is nil), it
+ * will continue unconditionally when the alert is dismissed.
  *
  * Input: Any
  * Output: Same as input (passthrough)
  */
-@interface KSCrashReportFilterAlert : NSObject
+@interface KSCrashReportFilterAlert : NSObject <KSCrashReportFilter>
 
+/**
+ * @param title The title of the alert.
+ * @param message The contents of the alert.
+ * @param yesAnswer The text to put in the "yes" button.
+ * @param noAnswer The text to put in the "no" button. If nil, the filter will
+ *                 proceed unconditionally.
+ */
 + (KSCrashReportFilterAlert*) filterWithTitle:(NSString*) title
                                       message:(NSString*) message
                                     yesAnswer:(NSString*) yesAnswer
                                      noAnswer:(NSString*) noAnswer;
 
+/**
+ * @param title The title of the alert.
+ * @param message The contents of the alert.
+ * @param yesAnswer The text to put in the "yes" button.
+ * @param noAnswer The text to put in the "no" button. If nil, the filter will
+ *                 proceed unconditionally.
+ */
 - (id) initWithTitle:(NSString*) title
              message:(NSString*) message
            yesAnswer:(NSString*) yesAnswer
