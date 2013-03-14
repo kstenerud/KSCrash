@@ -59,11 +59,9 @@ IMPLEMENT_REPORT_KEY_PROPERTY(NAME, NAMEUPPER)
 
 /** Initializer.
  *
- * @param maxReportFieldCount Maximum report fields supported by this installation.
  * @param requiredProperties Properties that MUST be set when sending reports.
  */
-- (id) initWithMaxReportFieldCount:(size_t) maxReportFieldCount
-                requiredProperties:(NSArray*) requiredProperties;
+- (id) initWithRequiredProperties:(NSArray*) requiredProperties;
 
 /** Set the key to be used for the specified report property.
  *

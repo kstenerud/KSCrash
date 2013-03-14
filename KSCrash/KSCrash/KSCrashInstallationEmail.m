@@ -44,12 +44,11 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrashInstallationEmail)
 
 - (id) init
 {
-    if((self = [super initWithMaxReportFieldCount:10
-                               requiredProperties:[NSArray arrayWithObjects:
-                                                   @"recipients",
-                                                   @"subject",
-                                                   @"filenameFmt",
-                                                   nil]]))
+    if((self = [super initWithRequiredProperties:[NSArray arrayWithObjects:
+                                                  @"recipients",
+                                                  @"subject",
+                                                  @"filenameFmt",
+                                                  nil]]))
     {
         NSString* bundleName = [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleName"];
         self.subject = [NSString stringWithFormat:@"Crash Report (%@)", bundleName];

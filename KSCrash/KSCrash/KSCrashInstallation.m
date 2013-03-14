@@ -37,6 +37,10 @@
 #import <objc/runtime.h>
 
 
+/** Max number of properties that can be defined for writing to the report */
+#define kMaxProperties 500
+
+
 typedef struct
 {
     const char* key;
@@ -193,13 +197,12 @@ void kscinst_i_crashCallback(const KSCrashReportWriter* writer)
     return nil;
 }
 
-- (id) initWithMaxReportFieldCount:(size_t) maxReportFieldCount
-                requiredProperties:(NSArray*) requiredProperties
+- (id) initWithRequiredProperties:(NSArray*) requiredProperties
 {
     if((self = [super init]))
     {
         self.crashHandlerDataBacking = [NSMutableData dataWithLength:sizeof(*self.crashHandlerData) +
-                                        sizeof(*self.crashHandlerData->reportFields) * maxReportFieldCount];
+                                        sizeof(*self.crashHandlerData->reportFields) * kMaxProperties];
         self.fields = [NSMutableDictionary dictionary];
         self.requiredProperties = requiredProperties;
     }

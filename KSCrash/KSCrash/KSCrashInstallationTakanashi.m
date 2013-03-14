@@ -42,8 +42,7 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrashInstallationTakanashi)
 
 - (id) init
 {
-    if((self = [super initWithMaxReportFieldCount:10
-                               requiredProperties:[NSArray arrayWithObjects:
+    if((self = [super initWithRequiredProperties:[NSArray arrayWithObjects:
                                                    @"url",
                                                    nil]]))
     {

@@ -40,10 +40,9 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrashInstallationStandard)
 
 - (id) init
 {
-    if((self = [super initWithMaxReportFieldCount:10
-                               requiredProperties:[NSArray arrayWithObjects:
-                                                   @"url",
-                                                   nil]]))
+    if((self = [super initWithRequiredProperties:[NSArray arrayWithObjects:
+                                                  @"url",
+                                                  nil]]))
     {
     }
     return self;

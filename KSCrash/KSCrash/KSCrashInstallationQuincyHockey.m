@@ -50,11 +50,9 @@ IMPLEMENT_REPORT_PROPERTY(crashDescription, CrashDescription, NSString*);
 @synthesize extraDescriptionKeys = _extraDescriptionKeys;
 @synthesize waitUntilReachable = _waitUntilReachable;
 
-- (id) initWithMaxReportFieldCount:(size_t) maxReportFieldCount
-                requiredProperties:(NSArray*) requiredProperties
+- (id) initWithRequiredProperties:(NSArray*) requiredProperties
 {
-    if((self = [super initWithMaxReportFieldCount:maxReportFieldCount
-                requiredProperties:requiredProperties]))
+    if((self = [super initWithRequiredProperties:requiredProperties]))
     {
         self.userIDKey = kQuincyDefaultKeyUserID;
         self.contactEmailKey = kQuincyDefaultKeyContactEmail;
@@ -102,10 +100,9 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrashInstallationQuincy)
 
 - (id) init
 {
-    if((self = [super initWithMaxReportFieldCount:10
-                               requiredProperties:[NSArray arrayWithObjects:
-                                                   @"url",
-                                                   nil]]))
+    if((self = [super initWithRequiredProperties:[NSArray arrayWithObjects:
+                                                  @"url",
+                                                  nil]]))
     {
     }
     return self;
@@ -138,10 +135,9 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrashInstallationHockey)
 
 - (id) init
 {
-    if((self = [super initWithMaxReportFieldCount:10
-                               requiredProperties:[NSArray arrayWithObjects:
-                                                   @"appIdentifier",
-                                                   nil]]))
+    if((self = [super initWithRequiredProperties:[NSArray arrayWithObjects:
+                                                  @"appIdentifier",
+                                                  nil]]))
     {
     }
     return self;
