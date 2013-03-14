@@ -1,5 +1,5 @@
 //
-//  KSCrashInstallationStandard.m
+//  KSCrashInstallationTakanashi.m
 //
 //  Created by Kelp on 2013-03-13.
 //
