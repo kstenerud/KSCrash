@@ -96,6 +96,8 @@ How to Use KSCrash
     #import <KSCrash/KSCrashInstallationQuincyHockey.h>
     // Include to use the email reporter.
     #import <KSCrash/KSCrashInstallationEmail.h>
+    // Include to use Takanashi.
+    #import <KSCrash/KSCrashInstallationTakanashi.h>
 
 	- (BOOL)application:(UIApplication*) application didFinishLaunchingWithOptions:(NSDictionary*) launchOptions
 	{
@@ -122,6 +124,11 @@ How to Use KSCrash
                                          message:@"The app crashed last time it was launched. Send a crash report?"
                                        yesAnswer:@"Sure!"
                                         noAnswer:@"No thanks"];
+
+      // OR:
+
+      KSCrashInstallationTakanashi* installation = [KSCrashInstallationTakanashi sharedInstance];
+      installation.url = [NSURL URLWithString:@"https://put.your.url.here/api/v1/crash/<application key>"];
 
       [installation install];
 	    …
