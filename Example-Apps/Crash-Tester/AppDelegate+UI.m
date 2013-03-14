@@ -22,6 +22,7 @@
 #import <KSCrash/KSCrashReportSinkEMail.h>
 #import <KSCrash/KSCrashReportSinkQuincyHockey.h>
 #import <KSCrash/KSCrashReportSinkStandard.h>
+#import <KSCrash/KSCrashReportSinkTakanashi.h>
 
 
 
@@ -470,7 +471,9 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
       {
           NSLog(@"Sending reports to Takanashi...");
           KSCrash* crashReporter = [KSCrash sharedInstance];
-          crashReporter.sink = [[KSCrashReportSinkStandard sinkWithURL:kTakanashiURL] defaultCrashReportFilterSet];
+          crashReporter.sink = [[KSCrashReportSinkTakanashi sinkWithURL:kTakanashiURL
+                                                               userName:[[UIDevice currentDevice] name]
+                                                              userEmail:nil] defaultCrashReportFilterSet];
           [crashReporter sendAllReportsWithCompletion:^(NSArray* filteredReports, BOOL completed, NSError* error)
            {
                [blockSelf onSendCompleteWithController:controller
