@@ -5,6 +5,6 @@
       location = "group:KSCrash/KSCrash.xcodeproj">
    </FileRef>
    <FileRef
-      location = "group:CrashTester/CrashTester.xcodeproj">
+      location = "group:Example-Apps/Example-Apps.xcodeproj">
    </FileRef>
 </Workspace>

@@ -28,6 +28,12 @@
 #import "KSCrashReportFilter.h"
 
 
+/**
+ * Convert UTF-8 data to an NSString.
+ *
+ * Input: NSData
+ * Output: NSString
+ */
 @interface KSCrashReportFilterDataToString : NSObject <KSCrashReportFilter>
 
 + (KSCrashReportFilterDataToString*) filter;
@@ -35,6 +41,12 @@
 @end
 
 
+/**
+ * Convert NSString to UTF-8 encoded NSData.
+ *
+ * Input: NSString
+ * Output: NSData
+ */
 @interface KSCrashReportFilterStringToData : NSObject <KSCrashReportFilter>
 
 + (KSCrashReportFilterStringToData*) filter;

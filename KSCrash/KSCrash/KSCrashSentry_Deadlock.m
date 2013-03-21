@@ -33,7 +33,7 @@
 #import "KSLogger.h"
 
 
-#define kDefaultWatchdogInterval 0
+#define kIdleInterval 5.0f
 
 
 @class KSCrashDeadlockMonitor;
@@ -55,7 +55,7 @@ static KSCrashDeadlockMonitor* g_monitor;
 static KSCrash_SentryContext* g_context;
 
 /** Interval between watchdog pulses. */
-static float g_watchdogInterval = kDefaultWatchdogInterval;
+static NSTimeInterval g_watchdogInterval = 0;
 
 
 // ============================================================================
@@ -65,16 +65,14 @@ static float g_watchdogInterval = kDefaultWatchdogInterval;
 
 @interface KSCrashDeadlockMonitor: NSObject
 
-@property(nonatomic, readwrite, assign) NSTimeInterval pollInterval;
 @property(nonatomic, readwrite, retain) NSThread* monitorThread;
 @property(nonatomic, readwrite, assign) thread_t mainThread;
-@property(nonatomic, readwrite, assign) BOOL awaitingResponse;
+@property(atomic, readwrite, assign) BOOL awaitingResponse;
 
 @end
 
 @implementation KSCrashDeadlockMonitor
 
-@synthesize pollInterval = _pollInterval;
 @synthesize monitorThread = _monitorThread;
 @synthesize mainThread = _mainThread;
 @synthesize awaitingResponse = _awaitingResponse;
@@ -144,11 +142,17 @@ static float g_watchdogInterval = kDefaultWatchdogInterval;
     BOOL cancelled = NO;
     do
     {
+        // Only do a watchdog check if the watchdog interval is > 0.
+        // If the interval is <= 0, just idle until the user changes it.
         as_autoreleasepool_start(POOL);
         {
-            BOOL runWatchdogCheck = g_watchdogInterval > 0;
-            float interval = runWatchdogCheck ? g_watchdogInterval : 5.0f;
-            [NSThread sleepForTimeInterval:interval];
+            NSTimeInterval sleepInterval = g_watchdogInterval;
+            BOOL runWatchdogCheck = sleepInterval > 0;
+            if(!runWatchdogCheck)
+            {
+                sleepInterval = kIdleInterval;
+            }
+            [NSThread sleepForTimeInterval:sleepInterval];
             cancelled = self.monitorThread.isCancelled;
             if(!cancelled && runWatchdogCheck)
             {
@@ -206,7 +210,7 @@ void kscrashsentry_uninstallDeadlockHandler(void)
     g_installed = 0;
 }
 
-void kscrashSentry_setDeadlockHandlerWatchdogInterval(float value)
+void kscrashsentry_setDeadlockHandlerWatchdogInterval(double value)
 {
     g_watchdogInterval = value;
 }

@@ -32,31 +32,38 @@
  *
  * @param filteredReports The filtered reports (may be incomplete if "completed"
  *                        is false).
- *
  * @param completed True if filtering completed.
  *                  Can be false due to a non-erroneous condition (such as a
  *                  user cancelling the operation).
- *
  * @param error Non-nil if an error occurred.
  */
 typedef void(^KSCrashReportFilterCompletion)(NSArray* filteredReports,
-BOOL completed,
-NSError* error);
+                                             BOOL completed,
+                                             NSError* error);
 
+/**
+ * A filter receives a set of reports, possibly transforms them, and then
+ * calls a completion method.
+ */
 @protocol KSCrashReportFilter <NSObject>
 
+/** Filter the specified reports.
+ *
+ * @param reports The reports to process.
+ * @param onCompletion Block to call when processing is complete.
+ */
 - (void) filterReports:(NSArray*) reports
           onCompletion:(KSCrashReportFilterCompletion) onCompletion;
 
 @end
 
-@protocol KSCrashReportDefaultFilterSet <NSObject>
 
-- (NSArray*) defaultCrashReportFilterSet;
-
-@end
-
-
+/**
+ * Very basic filter that passes through reports untouched.
+ *
+ * Input: Anything.
+ * Output: Same as input (passthrough).
+ */
 @interface KSCrashReportFilterPassthrough : NSObject <KSCrashReportFilter>
 
 + (KSCrashReportFilterPassthrough*) filter;
@@ -64,61 +71,135 @@ NSError* error);
 @end
 
 
-// Combine the results of multiple filters into a master report (dictionary)
+/**
+ * Passes reports to a series of subfilters, then stores the results of those operations
+ * as keyed values in final master reports.
+ *
+ * Input: Anything
+ * Output: NSDictionary
+ */
 @interface KSCrashReportFilterCombine : NSObject <KSCrashReportFilter>
 
-// Each entry can be a filter or an array of filters.
+/** Constructor.
+ *
+ * @param firstFilter The first filter, followed by key, filter, key, ...
+ *                    Each "filter" can be id<KSCrashReportFilter> or an NSArray
+ *                    of filters (which gets wrapped in a pipeline filter).
+ */
 + (KSCrashReportFilterCombine*) filterWithFiltersAndKeys:(id) firstFilter, ... NS_REQUIRES_NIL_TERMINATION;
 
+/** Initializer.
+ *
+ * @param firstFilter The first filter, followed by key, filter, key, ...
+ *                    Each "filter" can be id<KSCrashReportFilter> or an NSArray
+ *                    of filters (which gets wrapped in a pipeline filter).
+ */
 - (id) initWithFiltersAndKeys:(id)firstFilter, ... NS_REQUIRES_NIL_TERMINATION;
 
 @end
 
 
-// Make a pipeline of filters, passing reports through each one.
+/**
+ * A pipeline of filters. Reports get passed through each subfilter in order.
+ *
+ * Input: Depends on what's in the pipeline.
+ * Output: Depends on what's in the pipeline.
+ */
 @interface KSCrashReportFilterPipeline : NSObject <KSCrashReportFilter>
 
+/** The filters in this pipeline. */
 @property(nonatomic,readonly,retain) NSArray* filters;
 
+/** Constructor.
+ *
+ * @param firstFilter The first filter, followed by filter, filter, ...
+ */
 + (KSCrashReportFilterPipeline*) filterWithFilters:(id) firstFilter, ... NS_REQUIRES_NIL_TERMINATION;
 
+/** Initializer.
+ *
+ * @param firstFilter The first filter, followed by filter, filter, ...
+ */
 - (id) initWithFilters:(id) firstFilter, ... NS_REQUIRES_NIL_TERMINATION;
 
 @end
 
 
 /**
- * Take one object from the report. If key is a string, it will be interpreted
- * as a key path.
+ * Extracts data associated with a key from each report.
  */
 @interface KSCrashReportFilterObjectForKey : NSObject <KSCrashReportFilter>
 
+/** Constructor.
+ *
+ * @param key The key to search for in each report. If the key is a string,
+ *            it will be interpreted as a key path.
+ * @param allowNotFound If NO, filtering will stop with an error if the key
+ *                      was not found in a report.
+ */
 + (KSCrashReportFilterObjectForKey*) filterWithKey:(id) key
                                      allowNotFound:(BOOL) allowNotFound;
 
+/** Initializer.
+ *
+ * @param key The key to search for in each report. If the key is a string,
+ *            it will be interpreted as a key path.
+ * @param allowNotFound If NO, filtering will stop with an error if the key
+ *                      was not found in a report.
+ */
 - (id) initWithKey:(id) key
      allowNotFound:(BOOL) allowNotFound;
 
 @end
 
 
-// Interprets reports as dictionary of strings and concatenates
+/**
+ * Takes values by key from the report and concatenates their string representations.
+ *
+ * Input: NSDictionary
+ * Output: NSString
+ */
 @interface KSCrashReportFilterConcatenate : NSObject <KSCrashReportFilter>
 
+/** Constructor.
+ *
+ * @param separatorFmt Formatting text to use when separating the values. You may include
+ *                     %@ in the formatting text to include the key name as well.
+ * @param firstKey Series of keys to extract from the source report.
+ */
 + (KSCrashReportFilterConcatenate*) filterWithSeparatorFmt:(NSString*) separatorFmt
                                                       keys:(id) firstKey, ... NS_REQUIRES_NIL_TERMINATION;
 
+/** Constructor.
+ *
+ * @param separatorFmt Formatting text to use when separating the values. You may include
+ *                     %@ in the formatting text to include the key name as well.
+ * @param firstKey Series of keys to extract from the source report.
+ */
 - (id) initWithSeparatorFmt:(NSString*) separatorFmt
                        keys:(id) firstKey, ... NS_REQUIRES_NIL_TERMINATION;
 
 @end
 
 
-// Interprets reports as dictionaries and passes on a subset of that dictionary
+/**
+ * Fetches subsets of data from the source reports. All other data is discarded.
+ *
+ * Input: NSDictionary
+ * Output: NSDictionary
+ */
 @interface KSCrashReportFilterSubset : NSObject <KSCrashReportFilter>
 
+/** Constructor.
+ *
+ * @param firstKeyPath Series of key paths to search in the source reports.
+ */
 + (KSCrashReportFilterSubset*) filterWithKeys:(id) firstKeyPath, ... NS_REQUIRES_NIL_TERMINATION;
 
+/** Initializer.
+ *
+ * @param firstKeyPath Series of key paths to search in the source reports.
+ */
 - (id) initWithKeys:(id) firstKeyPath, ... NS_REQUIRES_NIL_TERMINATION;
 
 @end

@@ -34,25 +34,20 @@
  * Input: NSDictionary
  * Output: Same as input (passthrough)
  */
-@interface KSCrashReportSinkStandard : NSObject <KSCrashReportFilter, KSCrashReportDefaultFilterSet>
+@interface KSCrashReportSinkStandard : NSObject <KSCrashReportFilter>
 
 /** Constructor.
  *
  * @param url The URL to connect to.
- *
- * @param onSuccess Called when reports are successfully pushed.
  */
-+ (KSCrashReportSinkStandard*) sinkWithURL:(NSURL*) url
-                                 onSuccess:(void(^)(NSString* response)) onSuccess;
++ (KSCrashReportSinkStandard*) sinkWithURL:(NSURL*) url;
 
 /** Constructor.
  *
  * @param url The URL to connect to.
- *
- * @param onSuccess Called when reports are successfully pushed.
  */
-- (id) initWithURL:(NSURL*) url
-         onSuccess:(void(^)(NSString* response)) onSuccess;
+- (id) initWithURL:(NSURL*) url;
 
+- (id <KSCrashReportFilter>) defaultCrashReportFilterSet;
 
 @end

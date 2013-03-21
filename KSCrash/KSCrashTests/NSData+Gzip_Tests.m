@@ -31,6 +31,7 @@
 
 @interface NSData_Gzip_Tests : SenTestCase @end
 
+
 @implementation NSData_Gzip_Tests
 
 - (void) testCompressDecompress

@@ -54,40 +54,12 @@ extern "C" {
  *
  * @param crashID The unique identifier to assign to the next crash report.
  *
- * @param userInfoJSON Pre-baked JSON containing user-supplied information.
- *                     NULL = ignore.
- *
- * @param zombieCacheSize The size of the cache to use for zombie tracking.
- *                        Must be a power-of-2. 0 = no zombie tracking.
- *                        You should profile your app to see how many objects
- *                        are being allocated when choosing this value, but
- *                        generally you should use 16384 or higher. Uses 8 bytes
- *                        per cache entry.
- *
- * @param deadlockWatchdogInterval The interval in seconds between checks for
- *                                 deadlocks on the main thread. 0 = ignore.
- *
- * @param printTraceToStdout If true, print a stack trace to STDOUT when the app
- *                           crashes.
- *
- * @param onCrashNotify Function to call during a crash report to give the
- *                      callee an opportunity to add to the report.
- *                      NULL = ignore.
- *                      WARNING: Only call async-safe functions from this
- *                               function!
- *                               DO NOT call Objective-C methods!!!
- *
  * @return true if installation was successful.
  */
 bool kscrash_install(const char* const crashReportFilePath,
                      const char* const recrashReportFilePath,
                      const char* stateFilePath,
-                     const char* crashID,
-                     const char* userInfoJSON,
-                     unsigned int zombieCacheSize,
-                     float deadlockWatchdogInterval,
-                     bool printTraceToStdout,
-                     KSReportWriteCallback onCrashNotify);
+                     const char* crashID);
 
 /** Set the user-supplied data in JSON format.
  *
@@ -96,14 +68,71 @@ bool kscrash_install(const char* const crashReportFilePath,
  */
 void kscrash_setUserInfoJSON(const char* const userInfoJSON);
 
+/** Set the size of the cache to use for on-device zombie tracking.
+ * Every deallocated object will be hashed based on its address modulus the cache
+ * size, so the bigger the cache, the less likely a hash collision (missed zombie).
+ * It is best to profile your app to determine how many objects are allocated at
+ * a time before choosing this value, but in general you'll want a value of
+ * at least 16384.
+ * Each cache entry will occupy 8 bytes for 32-bit architectures and 16 bytes
+ * for 64-bit architectures.
+ *
+ * Note: Value must be a power-of-2. 0 = no zombie checking.
+ *
+ * Default: 0
+ */
+void kscrash_setZombieCacheSize(size_t zombieCacheSize);
+
+/** Set the maximum time to allow the main thread to run without returning.
+ * If a task occupies the main thread for longer than this interval, the
+ * watchdog will consider the queue deadlocked and shut down the app and write a
+ * crash report.
+ *
+ * Warning: Make SURE that nothing in your app that runs on the main thread takes
+ * longer to complete than this value or it WILL get shut down! This includes
+ * your app startup process, so you may need to push app initialization to
+ * another thread, or perhaps set this to a higher value until your application
+ * has been fully initialized.
+ *
+ * 0 = Disabled.
+ *
+ * Default: 0
+ */
+void kscrash_setDeadlockWatchdogInterval(double deadlockWatchdogInterval);
+
+/** Set whether or not to print a stack trace to stdout when a crash occurs.
+ *
+ * Default: false
+ */
+void kscrash_setPrintTraceToStdout(bool printTraceToStdout);
+
+/** If YES, introspect memory contents during a crash.
+ * Any Objective-C objects or C strings near the stack pointer or referenced by
+ * cpu registers or exceptions will be recorded in the crash report, along with
+ * their contents.
+ *
+ * Default: false
+ */
+void kscrash_setIntrospectMemory(bool introspectMemory);
+
+/** List of Objective-C classes that should never be introspected.
+ * Whenever a class in this list is encountered, only the class name will be recorded.
+ * This can be useful for information security concerns.
+ *
+ * Default: NULL
+ */
+void kscrash_setDoNotIntrospectClasses(const char** doNotIntrospectClasses, size_t length);
+
 /** Set the callback to invoke upon a crash.
+ *
+ * WARNING: Only call async-safe functions from this function! DO NOT call
+ * Objective-C methods!!!
  *
  * @param onCrashNotify Function to call during a crash report to give the
  *                      callee an opportunity to add to the report.
  *                      NULL = ignore.
- *                      WARNING: Only call async-safe functions from this
- *                               function!
- *                               DO NOT call Objective-C methods!!!
+ *
+ * Default: NULL
  */
 void kscrash_setCrashNotifyCallback(const KSReportWriteCallback onCrashNotify);
 

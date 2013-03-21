@@ -277,11 +277,10 @@ static void onReachabilityChanged(SCNetworkReachabilityRef target,
     return NO;
 }
 
-static void onReachabilityChanged(SCNetworkReachabilityRef target,
+static void onReachabilityChanged(__unused SCNetworkReachabilityRef target,
                                   SCNetworkReachabilityFlags flags,
                                   void* info)
 {
-    #pragma unused(target)
     KSReachabilityKSCrash* reachability = (as_bridge KSReachabilityKSCrash*) info;
     
     dispatch_async(dispatch_get_main_queue(), ^
@@ -309,8 +308,8 @@ static void onReachabilityChanged(SCNetworkReachabilityRef target,
 @synthesize reachability = _reachability;
 
 + (KSReachableOperationKSCrash*) operationWithHost:(NSString*) host
-                                  allowWWAN:(BOOL) allowWWAN
-                                      block:(void(^)()) block
+                                         allowWWAN:(BOOL) allowWWAN
+                                             block:(void(^)()) block
 {
     return as_autorelease([[self alloc] initWithHost:host
                                            allowWWAN:allowWWAN

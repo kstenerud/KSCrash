@@ -28,7 +28,6 @@
 #include "KSCrashSentry_Signal.h"
 #include "KSCrashSentry_Private.h"
 
-#include "KSMach.h"
 #include "KSSignalInfo.h"
 
 //#define KSLogger_LocalLevel TRACE

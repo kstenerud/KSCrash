@@ -29,7 +29,9 @@
 
 #import "NSDictionary+Merge.h"
 
+
 @interface NSDictionary_Merge_Tests : SenTestCase @end
+
 
 @implementation NSDictionary_Merge_Tests
 

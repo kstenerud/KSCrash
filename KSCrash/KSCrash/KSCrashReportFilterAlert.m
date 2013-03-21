@@ -28,6 +28,7 @@
 #import "KSCrashReportFilterAlert.h"
 
 #import "ARCSafe_MemMgmt.h"
+#import "KSCrashCallCompletion.h"
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -40,6 +41,7 @@
 @property(nonatomic,readwrite,retain) NSArray* reports;
 @property(nonatomic,readwrite,copy) KSCrashReportFilterCompletion onCompletion;
 @property(nonatomic,readwrite,retain) UIAlertView* alertView;
+@property(nonatomic,readwrite,assign) NSInteger expectedButtonIndex;
 
 + (KSCrashAlertViewProcess*) process;
 
@@ -57,6 +59,7 @@
 @synthesize reports = _reports;
 @synthesize onCompletion = _onCompletion;
 @synthesize alertView = _alertView;
+@synthesize expectedButtonIndex = _expectedButtonIndex;
 
 + (KSCrashAlertViewProcess*) process
 {
@@ -88,16 +91,17 @@
     [self.alertView addButtonWithTitle:noAnswer];
     [self.alertView addButtonWithTitle:yesAnswer];
     self.alertView.delegate = self;
+    
+    self.expectedButtonIndex = noAnswer == nil ? 0 : 1;
 
     KSLOG_TRACE(@"Showing alert view");
     [self.alertView show];
 }
 
-- (void) alertView:(UIAlertView*) alertView clickedButtonAtIndex:(NSInteger) buttonIndex
+- (void) alertView:(__unused UIAlertView*) alertView clickedButtonAtIndex:(NSInteger) buttonIndex
 {
-    #pragma unused(alertView)
-    BOOL success = buttonIndex == 1;
-    self.onCompletion(self.reports, success, nil);
+    BOOL success = buttonIndex == self.expectedButtonIndex;
+    kscrash_i_callCompletion(self.onCompletion, self.reports, success, nil);
 }
 
 @end
@@ -171,7 +175,7 @@
                                                  NSError* error)
                         {
                             KSLOG_TRACE(@"alert process complete");
-                            onCompletion(filteredReports, completed, error);
+                            kscrash_i_callCompletion(onCompletion, filteredReports, completed, error);
                             dispatch_async(dispatch_get_main_queue(), ^
                                            {
                                                as_release(process);

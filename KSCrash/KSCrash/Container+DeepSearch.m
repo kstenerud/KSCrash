@@ -75,6 +75,10 @@ static id objectForDeepKey(id container, NSArray* deepKey)
 
 static id objectForKeyPath(id container, NSString* keyPath)
 {
+    while([keyPath length] > 0 && [keyPath characterAtIndex:0] == '/')
+    {
+        keyPath = [keyPath substringFromIndex:1];
+    }
     return objectForDeepKey(container, [keyPath componentsSeparatedByString:@"/"]);
 }
 

@@ -29,37 +29,23 @@
 #import "KSCrashReportStore.h"
 
 
-/** Advanced interface to the KSCrash system.
+/**
+ * Advanced interface to the KSCrash system.
  */
-@interface KSCrash ()
-
-/** Get the global instance.
- */
-+ (KSCrash*) instance;
-
-/** The report sink where reports get sent. */
-@property(nonatomic,readwrite,retain) id<KSCrashReportFilter> sink;
-
-/** If YES, delete any reports that are successfully sent. */
-@property(nonatomic,readwrite,assign) BOOL deleteAfterSend;
-
-/** The total number of unsent reports. Note: This is an expensive operation. */
-@property(nonatomic,readonly,assign) NSUInteger reportCount;
-
-/** Where the crash reports are stored. */
-@property(nonatomic,readonly,retain) NSString* crashReportsPath;
+@interface KSCrash (Advanced)
 
 /** Store containing all crash reports. */
-@property(nonatomic,readwrite,retain) KSCrashReportStore* crashReportStore;
+@property(nonatomic, readwrite, retain) KSCrashReportStore* crashReportStore;
 
-/** Send any outstanding crash reports to the current sink.
- * It will only attempt to send the most recent 5 reports. All others will be
- * deleted. Once the reports are successfully sent to the server, they may be
- * deleted locally, depending on the property "deleteAfterSend".
+/** Path where the log of KSCrash's activities will be written.
+ * If nil, log entries will be printed to the console.
  *
- * @param onCompletion Called when sending is complete (nil = ignore).
+ * This property cannot be set directly. Use one of the "redirectConsoleLogs"
+ * methods instead.
+ *
+ * Default: nil
  */
-- (void) sendAllReportsWithCompletion:(KSCrashReportFilterCompletion) onCompletion;
+@property(nonatomic, readonly, retain) NSString* logFilePath;
 
 /** Send the specified reports to the current sink.
  *
@@ -68,35 +54,30 @@
  */
 - (void) sendReports:(NSArray*) reports onCompletion:(KSCrashReportFilterCompletion) onCompletion;
 
+/** The total number of unsent reports. Note: This is an expensive operation.
+ */
+- (NSUInteger) reportCount;
+
 /** Get all reports, with data types corrected, as dictionaries.
  */
 - (NSArray*) allReports;
 
-/** Delete all unsent reports.
- */
-- (void) deleteAllReports;
-
-/** Redirect all log entries to the specified log file.
- *
- * @param filename The path to the logfile.
- * @param overwrite If true, overwrite the file.
- *
- * @return true if the operation was successful.
- */
-+ (BOOL) redirectLogsToFile:(NSString*) filename overwrite:(BOOL) overwrite;
-
-/** Redirect all log entries to Library/Caches/KSCrashReports/log.txt.
+/** Sets logFilePath to the default log file location
+ * (Library/Caches/KSCrashReports/<bundle name>-CrashLog.txt).
  * If the file exists, it will be overwritten.
  *
  * @return true if the operation was successful.
  */
-+ (BOOL) logToFile;
+- (BOOL) redirectConsoleLogsToDefaultFile;
 
-/** TODO: Figure out how to get a collection of filename + data of everything
- * in the reports dir, ready to be attached to an email.
- * Must be able to specify maximum size.
+/** Redirect the log of KSCrash's activities from the console to the specified log file.
+ *
+ * @param fullPath The path to the logfile (nil = log to console instead).
+ * @param overwrite If true, overwrite the file (ignored if fullPath is nil).
+ *
+ * @return true if the operation was successful.
  */
-//- (NSArray*) reportsDirectoryContents;
+- (BOOL) redirectConsoleLogsToFile:(NSString*) fullPath overwrite:(BOOL) overwrite;
 
 @end
 

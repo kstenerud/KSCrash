@@ -29,6 +29,7 @@
 
 #import "ARCSafe_MemMgmt.h"
 #import "KSJSONCodec.h"
+#import "NSError+SimpleConstructor.h"
 #import "RFC3339DateTool.h"
 
 
@@ -95,8 +96,6 @@
 #pragma mark Callbacks
 
 // Avoiding static functions due to linker issues.
-
-NSError* ksjsoncodecobjc_i_makeNSError(NSString* fmt, ...);
 
 /** Called when a new JSON element is decoded.
  *
@@ -227,21 +226,6 @@ int ksjsoncodecobjc_i_addJSONData(const char* const bytes,
 
 #pragma mark Utility
 
-NSError* ksjsoncodecobjc_i_makeNSError(NSString* fmt, ...)
-{
-    va_list args;
-    va_start(args, fmt);
-
-    NSString* desc = as_autorelease([[NSString alloc] initWithFormat:fmt
-                                                           arguments:args]);
-    va_end(args);
-
-    return [NSError errorWithDomain:@"JSONCodec"
-                               code:1
-                           userInfo:[NSDictionary dictionaryWithObject:desc
-                                                                forKey:NSLocalizedDescriptionKey]];
-}
-
 static inline NSString* stringFromCString(const char* const string)
 {
     if(string == NULL)
@@ -257,8 +241,10 @@ int ksjsoncodecobjc_i_onElement(KSJSONCodec* codec, NSString* name, id element)
 {
     if(codec->_currentContainer == nil)
     {
-        codec.error = ksjsoncodecobjc_i_makeNSError(@"Type %@ not allowed as top level container",
-                                                    [element class]);
+        codec.error = [NSError errorWithDomain:@"KSJSONCodecObjC"
+                                          code:0
+                                   description:@"Type %@ not allowed as top level container",
+                       [element class]];
         return KSJSON_ERROR_INVALID_DATA;
     }
 
@@ -377,7 +363,9 @@ int ksjsoncodecobjc_i_onEndContainer(void* const userData)
 
     if([codec->_containerStack count] == 0)
     {
-        codec.error = ksjsoncodecobjc_i_makeNSError(@"Already at the top level; no container left to end");
+        codec.error = [NSError errorWithDomain:@"KSJSONCodecObjC"
+                                          code:0
+                                   description:@"Already at the top level; no container left to end"];
         return KSJSON_ERROR_INVALID_DATA;
     }
     [codec->_containerStack removeLastObject];
@@ -393,9 +381,8 @@ int ksjsoncodecobjc_i_onEndContainer(void* const userData)
     return KSJSON_OK;
 }
 
-int ksjsoncodecobjc_i_onEndData(void* const userData)
+int ksjsoncodecobjc_i_onEndData(__unused void* const userData)
 {
-    #pragma unused(userData)
     return KSJSON_OK;
 }
 
@@ -424,8 +411,9 @@ int ksjsoncodecobjc_i_encodeObject(KSJSONCodec* codec,
                                          [data length]);
         if(result == KSJSON_ERROR_INVALID_CHARACTER)
         {
-            codec.error = ksjsoncodecobjc_i_makeNSError(@"Invalid character in %@",
-                                                        object);
+            codec.error = [NSError errorWithDomain:@"KSJSONCodecObjC"
+                                              code:0
+                                       description:@"Invalid character in %@", object];
         }
         return result;
     }
@@ -545,8 +533,9 @@ int ksjsoncodecobjc_i_encodeObject(KSJSONCodec* codec,
                                      [object length]);
     }
 
-    codec.error = ksjsoncodecobjc_i_makeNSError(@"Could not determine type of %@",
-                                                [object class]);
+    codec.error = [NSError errorWithDomain:@"KSJSONCodecObjC"
+                                      code:0
+                               description:@"Could not determine type of %@", [object class]];
     return KSJSON_ERROR_INVALID_DATA;
 }
 
@@ -590,9 +579,11 @@ int ksjsoncodecobjc_i_encodeObject(KSJSONCodec* codec,
                                (as_bridge void*)codec, &errorOffset);
     if(result != KSJSON_OK && codec.error == nil)
     {
-        codec.error = ksjsoncodecobjc_i_makeNSError(@"%s (offset %d)",
-                                                    ksjson_stringForError(result),
-                                                    errorOffset);
+        codec.error = [NSError errorWithDomain:@"KSJSONCodecObjC"
+                                          code:0
+                                   description:@"%s (offset %d)",
+                       ksjson_stringForError(result),
+                       errorOffset];
     }
     if(error != nil)
     {

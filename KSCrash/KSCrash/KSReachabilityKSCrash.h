@@ -125,8 +125,8 @@
  *              Block will be invoked on the main thread.
  */
 + (KSReachableOperationKSCrash*) operationWithHost:(NSString*) hostname
-                                  allowWWAN:(BOOL) allowWWAN
-                                      block:(void(^)()) block;
+                                         allowWWAN:(BOOL) allowWWAN
+                                             block:(void(^)()) block;
 
 /** Constructor.
  *

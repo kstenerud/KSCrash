@@ -26,6 +26,7 @@
 
 
 #import <SenTestingKit/SenTestingKit.h>
+
 #import "Container+DeepSearch.h"
 
 
@@ -61,6 +62,21 @@
                     nil];
 
     id actual = [container objectForKeyPath:@"key1/key2/key3"];
+    STAssertEqualObjects(expected, actual, @"");
+}
+
+- (void) testDeepSearchDictionaryPathAbs
+{
+    id expected = @"Object";
+    id container = [NSDictionary dictionaryWithObjectsAndKeys:
+                    [NSDictionary dictionaryWithObjectsAndKeys:
+                     [NSDictionary dictionaryWithObjectsAndKeys:
+                      expected, @"key3",
+                      nil], @"key2",
+                     nil], @"key1",
+                    nil];
+    
+    id actual = [container objectForKeyPath:@"/key1/key2/key3"];
     STAssertEqualObjects(expected, actual, @"");
 }
 

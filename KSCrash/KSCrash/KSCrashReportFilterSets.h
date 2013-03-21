@@ -29,8 +29,13 @@
 #import "KSCrashReportFilterAppleFmt.h"
 
 
+/**
+ * Common filter sets.
+ */
 @interface KSCrashFilterSets : NSObject
 
+/** Create an Apple format filter that includes system and user data in JSON format.
+ */
 + (id<KSCrashReportFilter>) appleFmtWithUserAndSystemData:(KSAppleReportStyle) reportStyle
                                                compressed:(BOOL) compressed;
 
