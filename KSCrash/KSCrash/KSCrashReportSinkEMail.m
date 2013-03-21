@@ -29,6 +29,8 @@
 
 #import "ARCSafe_MemMgmt.h"
 #import "KSCrashCallCompletion.h"
+#import "KSCrashReportFilterAppleFmt.h"
+#import "KSCrashReportFilterBasic.h"
 #import "KSCrashReportFilterGZip.h"
 #import "KSCrashReportFilterJSON.h"
 #import "NSError+SimpleConstructor.h"
@@ -229,6 +231,16 @@
 {
     return [KSCrashReportFilterPipeline filterWithFilters:
             [KSCrashReportFilterJSONEncode filterWithOptions:KSJSONEncodeOptionSorted | KSJSONEncodeOptionPretty],
+            [KSCrashReportFilterGZipCompress filterWithCompressionLevel:-1],
+            self,
+            nil];
+}
+
+- (id <KSCrashReportFilter>) defaultCrashReportFilterSetAppleFmt
+{
+    return [KSCrashReportFilterPipeline filterWithFilters:
+            [KSCrashReportFilterAppleFmt filterWithReportStyle:KSAppleReportStyleSymbolicatedSideBySide],
+            [KSCrashReportFilterStringToData filter],
             [KSCrashReportFilterGZipCompress filterWithCompressionLevel:-1],
             self,
             nil];

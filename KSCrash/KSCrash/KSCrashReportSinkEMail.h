@@ -63,5 +63,6 @@
               filenameFmt:(NSString*) filenameFmt;
 
 - (id <KSCrashReportFilter>) defaultCrashReportFilterSet;
+- (id <KSCrashReportFilter>) defaultCrashReportFilterSetAppleFmt;
 
 @end

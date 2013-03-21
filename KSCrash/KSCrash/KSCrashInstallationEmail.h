@@ -27,6 +27,11 @@
 
 #import "KSCrashInstallation.h"
 
+typedef enum
+{
+    KSCrashEmailReportStyleJSON,
+    KSCrashEmailReportStyleApple,
+} KSCrashEmailReportStyle;
 
 /**
  * Email installation.
@@ -58,6 +63,18 @@
  * Default: "crash-report-YourBundleID-%d.txt.gz"
  */
 @property(nonatomic,readwrite,retain) NSString* filenameFmt;
+
+/** Which report style to use.
+ */
+@property(nonatomic,readwrite,assign) KSCrashEmailReportStyle reportStyle;
+
+/** Use the specified report format.
+ *
+ * useDefaultFilenameFormat If true, also change the filename format to the default
+ *                          suitable for the report format.
+ */
+- (void) setReportStyle:(KSCrashEmailReportStyle)reportStyle
+useDefaultFilenameFormat:(BOOL) useDefaultFilenameFormat;
 
 + (KSCrashInstallationEmail*) sharedInstance;
 

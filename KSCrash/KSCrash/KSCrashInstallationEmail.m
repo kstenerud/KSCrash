@@ -33,6 +33,13 @@
 #import "KSSingleton.h"
 
 
+@interface KSCrashInstallationEmail ()
+
+@property(nonatomic,readwrite,retain) NSDictionary* defaultFilenameFormats;
+
+@end
+
+
 @implementation KSCrashInstallationEmail
 
 IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrashInstallationEmail)
@@ -41,6 +48,8 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrashInstallationEmail)
 @synthesize subject = _subject;
 @synthesize message = _message;
 @synthesize filenameFmt = _filenameFmt;
+@synthesize reportStyle = _reportStyle;
+@synthesize defaultFilenameFormats = _defaultFilenameFormats;
 
 - (id) init
 {
@@ -52,7 +61,13 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrashInstallationEmail)
     {
         NSString* bundleName = [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleName"];
         self.subject = [NSString stringWithFormat:@"Crash Report (%@)", bundleName];
-        self.filenameFmt = [NSString stringWithFormat:@"crash-report-%@-%%d.txt.gz", bundleName];
+        self.defaultFilenameFormats = [NSDictionary dictionaryWithObjectsAndKeys:
+                                       [NSString stringWithFormat:@"crash-report-%@-%%d.txt.gz", bundleName],
+                                       [NSNumber numberWithInt:KSCrashEmailReportStyleApple],
+                                       [NSString stringWithFormat:@"crash-report-%@-%%d.json.gz", bundleName],
+                                       [NSNumber numberWithInt:KSCrashEmailReportStyleJSON],
+                                       nil];
+        [self setReportStyle:KSCrashEmailReportStyleJSON useDefaultFilenameFormat:YES];
     }
     return self;
 }
@@ -63,7 +78,19 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrashInstallationEmail)
     as_release(_subject);
     as_release(_message);
     as_release(_filenameFmt);
+    as_release(_defaultFilenameFormats);
     as_superdealloc();
+}
+
+- (void) setReportStyle:(KSCrashEmailReportStyle)reportStyle
+useDefaultFilenameFormat:(BOOL) useDefaultFilenameFormat
+{
+    self.reportStyle = reportStyle;
+
+    if(useDefaultFilenameFormat)
+    {
+        self.filenameFmt = [self.defaultFilenameFormats objectForKey:[NSNumber numberWithInt:reportStyle]];
+    }
 }
 
 - (id<KSCrashReportFilter>) sink
@@ -72,7 +99,16 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrashInstallationEmail)
                                                                       subject:self.subject
                                                                       message:self.message
                                                                   filenameFmt:self.filenameFmt];
-    return [KSCrashReportFilterPipeline filterWithFilters:[sink defaultCrashReportFilterSet], nil];
+    
+    switch(self.reportStyle)
+    {
+        case KSCrashEmailReportStyleApple:
+            return [sink defaultCrashReportFilterSetAppleFmt];
+            break;
+        case KSCrashEmailReportStyleJSON:
+            return [sink defaultCrashReportFilterSet];
+            break;
+    }
 }
 
 @end

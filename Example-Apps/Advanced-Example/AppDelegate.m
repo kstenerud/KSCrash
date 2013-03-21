@@ -82,6 +82,9 @@ didFinishLaunchingWithOptions:(__unused NSDictionary *) launchOptions
                               yesAnswer:@"Sure!"
                                noAnswer:@"No thanks"];
     
+    // Uncomment to send Apple style reports instead of JSON.
+//    [email setReportStyle:KSCrashEmailReportStyleApple useDefaultFilenameFormat:YES];
+
     return email;
 }
 

@@ -119,6 +119,9 @@ How to Use KSCrash
       KSCrashInstallationEmail* installation = [KSCrashInstallationEmail sharedInstance];
       installation.recipients = @[@"some@email.address"];
 
+      // Optional (Email): Send Apple-style reports instead of JSON
+      [installation setReportStyle:KSCrashEmailReportStyleApple useDefaultFilenameFormat:YES]; 
+
       // Optional: Add an alert confirmation (recommended for email installation)
       [installation addConditionalAlertWithTitle:@"Crash Detected"
                                          message:@"The app crashed last time it was launched. Send a crash report?"
