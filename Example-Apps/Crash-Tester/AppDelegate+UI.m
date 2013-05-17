@@ -610,7 +610,15 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
       {
           [self.crasher deadlock];
       }]];
-    
+
+    [commands addObject:
+     [CommandEntry commandWithName:@"Deadlock pthread"
+                     accessoryType:UITableViewCellAccessoryNone
+                             block:^(__unused UIViewController* controller)
+      {
+          [self.crasher pthreadAPICrash];
+      }]];
+
 
     return commands;
 }

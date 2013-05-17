@@ -132,6 +132,8 @@ bool kscrash_install(const char* const crashReportFilePath,
         KSCrash_Context* context = crashContext();
         context->crash.onCrash = kscrash_i_onCrash;
 
+        ksmach_init();
+
         if(ksmach_isBeingTraced())
         {
             KSLOGBASIC_WARN("KSCrash: App is running in a debugger."

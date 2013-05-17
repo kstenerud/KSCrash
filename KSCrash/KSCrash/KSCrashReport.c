@@ -1413,15 +1413,12 @@ void kscrw_i_writeThread(const KSCrashReportWriter* const writer,
                                    isCrashedThread);
         }
         writer->addIntegerElement(writer, KSCrashField_Index, index);
-        if(pthread_getname_np(pthread_from_mach_thread_np(thread),
-                              nameBuffer,
-                              sizeof(nameBuffer)) == 0 &&
-           nameBuffer[0] != 0)
+        if(ksmach_getThreadName(thread, nameBuffer, sizeof(nameBuffer)) && nameBuffer[0] != 0)
         {
             writer->addStringElement(writer, KSCrashField_Name, nameBuffer);
         }
 
-        if(ksmach_getThreadQueueName(thread, nameBuffer, sizeof(nameBuffer)))
+        if(ksmach_getThreadQueueName(thread, nameBuffer, sizeof(nameBuffer)) && nameBuffer[0] != 0)
         {
             writer->addStringElement(writer,
                                      KSCrashField_DispatchQueue,

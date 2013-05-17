@@ -34,9 +34,19 @@ extern "C" {
 
 #define kEXTERNAL_POSIX_THREAD_KEYS_MAX 512
 #define kINTERNAL_POSIX_THREAD_KEYS_MAX 256
+#define MAXTHREADNAMESIZE	64
 
 #define kTSD_KEY_COUNT (kEXTERNAL_POSIX_THREAD_KEYS_MAX + \
 kINTERNAL_POSIX_THREAD_KEYS_MAX)
+
+#define	TRACEBUF
+
+#define	TAILQ_ENTRY(type)						\
+struct {								\
+    struct type *tqe_next;	/* next element */			\
+    struct type **tqe_prev;	/* address of previous next element */	\
+    TRACEBUF							\
+}
 
 typedef struct internal_pthread
 {
@@ -74,7 +84,30 @@ typedef struct internal_pthread
     int         cancel_state;  /* Whether thread can be cancelled */
     int         err_no;        /* thread-local errno */
     void*       tsd[kTSD_KEY_COUNT]; /* Thread specific data */
-    // Don't care about the rest.
+    void           *stackaddr;     /* Base of the stack (is aligned on vm_page_size boundary */
+    size_t         stacksize;      /* Size of the stack (is a multiple of vm_page_size and >= PTHREAD_STACK_MIN) */
+	mach_port_t    reply_port;     /* Cached MiG reply port */
+#if defined(__LP64__)
+    int		pad2;		/* for natural alignment */
+#endif
+	void           *cthread_self;  /* cthread_self() if somebody calls cthread_set_self() */
+	/* protected by list lock */
+	uint32_t 	childrun:1,
+parentcheck:1,
+childexit:1,
+pad3:29;
+#if defined(__LP64__)
+	int		pad4;		/* for natural alignment */
+#endif
+	TAILQ_ENTRY(internal_pthread) plist;
+	void *	freeaddr;
+	size_t	freesize;
+	mach_port_t	joiner_notify;
+	char	pthread_name[MAXTHREADNAMESIZE];		/* including nulll the name */
+    int	max_tsd_key;
+	void *	cur_workq;
+	void * cur_workitem;
+	uint64_t thread_id;
 }* internal_pthread_t;
 
 

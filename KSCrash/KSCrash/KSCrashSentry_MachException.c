@@ -130,10 +130,12 @@ static struct
 static mach_port_t g_exceptionPort = MACH_PORT_NULL;
 
 /** Primary exception handler thread. */
-static pthread_t g_primaryThread;
+static pthread_t g_primaryPThread;
+static thread_t g_primaryMachThread;
 
 /** Secondary exception handler thread in case crash handler crashes. */
-static pthread_t g_secondaryThread;
+static pthread_t g_secondaryPThread;
+static thread_t g_secondaryMachThread;
 
 /** Context to fill with crash information. */
 static KSCrash_SentryContext* g_context;
@@ -255,10 +257,10 @@ void* ksmachexc_i_handleExceptions(void* const userData)
 
         // Switch to the secondary thread if necessary, or uninstall the handler
         // to avoid a death loop.
-        if(mach_thread_self() == pthread_mach_thread_np(g_primaryThread))
+        if(mach_thread_self() == g_primaryMachThread)
         {
             KSLOG_DEBUG("This is the primary exception thread. Activating secondary thread.");
-            if(thread_resume(pthread_mach_thread_np(g_secondaryThread)) != KERN_SUCCESS)
+            if(thread_resume(g_secondaryMachThread) != KERN_SUCCESS)
             {
                 KSLOG_DEBUG("Could not activate secondary thread. Restoring original exception ports.");
                 ksmachexc_i_restoreExceptionPorts();
@@ -428,7 +430,7 @@ bool kscrashsentry_installMachHandler(KSCrash_SentryContext* const context)
     pthread_attr_init(&attr);
     attributes_created = true;
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-    error = pthread_create(&g_secondaryThread,
+    error = pthread_create(&g_secondaryPThread,
                            &attr,
                            &ksmachexc_i_handleExceptions,
                            kThreadSecondary);
@@ -437,10 +439,11 @@ bool kscrashsentry_installMachHandler(KSCrash_SentryContext* const context)
         KSLOG_ERROR("pthread_create_suspended_np: %s", strerror(error));
         goto failed;
     }
-    context->reservedThreads[KSCrashReservedThreadTypeMachSecondary] = pthread_mach_thread_np(g_secondaryThread);
+    g_secondaryMachThread = pthread_mach_thread_np(g_secondaryPThread);
+    context->reservedThreads[KSCrashReservedThreadTypeMachSecondary] = g_secondaryMachThread;
 
     KSLOG_DEBUG("Creating primary exception thread.");
-    error = pthread_create(&g_primaryThread,
+    error = pthread_create(&g_primaryPThread,
                            &attr,
                            &ksmachexc_i_handleExceptions,
                            kThreadPrimary);
@@ -450,7 +453,8 @@ bool kscrashsentry_installMachHandler(KSCrash_SentryContext* const context)
         goto failed;
     }
     pthread_attr_destroy(&attr);
-    context->reservedThreads[KSCrashReservedThreadTypeMachPrimary] = pthread_mach_thread_np(g_primaryThread);
+    g_primaryMachThread = pthread_mach_thread_np(g_primaryPThread);
+    context->reservedThreads[KSCrashReservedThreadTypeMachPrimary] = g_primaryMachThread;
 
     KSLOG_DEBUG("Mach exception handler installed.");
     return true;
@@ -484,19 +488,35 @@ void kscrashsentry_uninstallMachHandler(void)
 
     thread_t thread_self = mach_thread_self();
 
-    if(g_primaryThread != 0 && pthread_mach_thread_np(g_primaryThread) != thread_self)
+    if(g_primaryPThread != 0 && g_primaryMachThread != thread_self)
     {
         KSLOG_DEBUG("Cancelling primary exception thread.");
-        pthread_cancel(g_primaryThread);
-        g_primaryThread = 0;
+        if(g_context->handlingCrash)
+        {
+            thread_terminate(g_primaryMachThread);
+        }
+        else
+        {
+            pthread_cancel(g_primaryPThread);
+        }
+        g_primaryMachThread = 0;
+        g_primaryPThread = 0;
     }
-    if(g_secondaryThread != 0 && pthread_mach_thread_np(g_secondaryThread) != thread_self)
+    if(g_secondaryPThread != 0 && g_secondaryMachThread != thread_self)
     {
         KSLOG_DEBUG("Cancelling secondary exception thread.");
-        pthread_cancel(g_secondaryThread);
-        g_secondaryThread = 0;
+        if(g_context->handlingCrash)
+        {
+            thread_terminate(g_secondaryMachThread);
+        }
+        else
+        {
+            pthread_cancel(g_secondaryPThread);
+        }
+        g_secondaryMachThread = 0;
+        g_secondaryPThread = 0;
     }
-    
+
     KSLOG_DEBUG("Mach exception handlers uninstalled.");
     g_installed = 0;
 }
