@@ -36,4 +36,6 @@
 
 - (void) deadlock;
 
+- (void) pthreadAPICrash;
+
 @end

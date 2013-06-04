@@ -6,6 +6,7 @@
 
 #import "Crasher.h"
 #import "ARCSafe_MemMgmt.h"
+#import <pthread.h>
 
 @interface MyClass: NSObject @end
 @implementation MyClass @end
@@ -201,6 +202,12 @@ int g_crasher_denominator = 0;
                    {
                        [self.lock lock];
                    });
+}
+
+- (void) pthreadAPICrash
+{
+    // http://landonf.bikemonkey.org/code/crashreporting
+    pthread_getname_np(pthread_self(), (char*)0x1, 1);
 }
 
 @end

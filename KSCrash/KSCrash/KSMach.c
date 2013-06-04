@@ -36,7 +36,6 @@
 #include <mach-o/arch.h>
 #include <mach/mach_time.h>
 #include <mach/vm_map.h>
-#include <pthread.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/sysctl.h>
@@ -55,6 +54,7 @@
 bool ksmach_i_VMStats(vm_statistics_data_t* const vmStats,
                       vm_size_t* const pageSize);
 
+static pthread_t g_topThread;
 
 // ============================================================================
 #pragma mark - General Information -
@@ -192,6 +192,80 @@ bool ksmach_fillState(const thread_t thread,
     return true;
 }
 
+void ksmach_init(void)
+{
+    kern_return_t kr;
+    const task_t thisTask = mach_task_self();
+    thread_act_array_t threads;
+    mach_msg_type_number_t numThreads;
+
+    if((kr = task_threads(thisTask, &threads, &numThreads)) != KERN_SUCCESS)
+    {
+        KSLOG_ERROR("task_threads: %s", mach_error_string(kr));
+        return;
+    }
+
+    g_topThread = pthread_from_mach_thread_np(threads[0]);
+
+    for(mach_msg_type_number_t i = 0; i < numThreads; i++)
+    {
+        mach_port_deallocate(thisTask, threads[i]);
+    }
+    vm_deallocate(thisTask, (vm_address_t)threads, sizeof(thread_t) * numThreads);
+}
+
+thread_t ksmach_machThreadFromPThread(const pthread_t pthread)
+{
+    const internal_pthread_t threadStruct = (internal_pthread_t)pthread;
+    thread_t machThread = 0;
+    if(ksmach_copyMem(&threadStruct->kernel_thread, &machThread, sizeof(machThread)) != KERN_SUCCESS)
+    {
+        KSLOG_TRACE("Could not copy mach thread from %p", threadStruct->kernel_thread);
+        return 0;
+    }
+    return machThread;
+}
+
+pthread_t ksmach_pthreadFromMachThread(const thread_t thread)
+{
+    internal_pthread_t threadStruct = (internal_pthread_t)g_topThread;
+    thread_t machThread = 0;
+
+    for(int i = 0; i < 50; i++)
+    {
+        if(ksmach_copyMem(&threadStruct->kernel_thread, &machThread, sizeof(machThread)) != KERN_SUCCESS)
+        {
+            break;
+        }
+        if(machThread == thread)
+        {
+            return (pthread_t)threadStruct;
+        }
+
+        if(ksmach_copyMem(&threadStruct->plist.tqe_next, &threadStruct, sizeof(threadStruct)) != KERN_SUCCESS)
+        {
+            break;
+        }
+    }
+    return 0;
+}
+
+bool ksmach_getThreadName(const thread_t thread,
+                          char* const buffer,
+                          size_t bufLength)
+{
+    const pthread_t pthread = ksmach_pthreadFromMachThread(thread);
+    const internal_pthread_t threadStruct = (internal_pthread_t)pthread;
+    size_t copyLength = bufLength > MAXTHREADNAMESIZE ? MAXTHREADNAMESIZE : bufLength;
+
+    if(ksmach_copyMem(threadStruct->pthread_name, buffer, copyLength) != KERN_SUCCESS)
+    {
+        KSLOG_TRACE("Could not copy thread name from %p", threadStruct->pthread_name);
+        return false;
+    }
+    buffer[copyLength-1] = 0;
+    return true;
+}
 
 bool ksmach_getThreadQueueName(const thread_t thread,
                                char* const buffer,
@@ -206,7 +280,7 @@ bool ksmach_getThreadQueueName(const thread_t thread,
     }
 
     // Recast the opaque thread to our hacky internal thread structure pointer.
-    const pthread_t pthread = pthread_from_mach_thread_np(thread);
+    const pthread_t pthread = ksmach_pthreadFromMachThread(thread);
     const internal_pthread_t threadStruct = (internal_pthread_t)pthread;
 
     if(ksmach_copyMem(&threadStruct->tsd[dispatch_queue_key], &pQueue, sizeof(pQueue)) != KERN_SUCCESS)
@@ -242,7 +316,7 @@ bool ksmach_getThreadQueueName(const thread_t thread,
         KSLOG_TRACE("Queue label contains invalid chars");
         return false;
     }
-    
+
     strncpy(buffer, queue.dq_label, bufLength);
     KSLOG_TRACE("Queue label = %s", buffer);
     return true;
@@ -552,6 +626,6 @@ bool ksmach_i_VMStats(vm_statistics_data_t* const vmStats,
         KSLOG_ERROR("host_statistics: %s", mach_error_string(kr));
         return false;
     }
-
+    
     return true;
 }
