@@ -44,7 +44,7 @@ extern "C" {
  *
  * @param context The crash context to fill out when a crash occurs.
  *
- * @param onCrash Called when a crash occurs.
+ * @return true if installation was succesful.
  */
 bool kscrashsentry_installNSExceptionHandler(KSCrash_SentryContext* context);
 

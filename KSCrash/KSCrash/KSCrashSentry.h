@@ -42,21 +42,23 @@ extern "C" {
 #include <stdbool.h>
 
 
-/** There are 3 ways an iOS app can crash (that we can capture):
+/** Different ways an application can crash:
  * - Mach kernel exception
  * - Fatal signal
  * - Uncaught Objective-C NSException
  * - Deadlock on the main thread
+ * - User reported custom exception
  */
 typedef enum
 {
-    KSCrashTypeMachException = 1,
-    KSCrashTypeSignal = 2,
-    KSCrashTypeNSException = 4,
-    KSCrashTypeMainThreadDeadlock = 8,
+    KSCrashTypeMachException      = 0x01,
+    KSCrashTypeSignal             = 0x02,
+    KSCrashTypeNSException        = 0x04,
+    KSCrashTypeMainThreadDeadlock = 0x08,
+    KSCrashTypeUserReported       = 0x10,
 } KSCrashType;
 
-#define KSCrashTypeAll (KSCrashTypeMachException | KSCrashTypeSignal | KSCrashTypeNSException | KSCrashTypeMainThreadDeadlock)
+#define KSCrashTypeAll (KSCrashTypeMachException | KSCrashTypeSignal | KSCrashTypeNSException | KSCrashTypeMainThreadDeadlock | KSCrashTypeUserReported)
 #define KSCrashTypeAsyncSafe (KSCrashTypeMachException | KSCrashTypeSignal)
 
 typedef enum
@@ -103,6 +105,15 @@ typedef struct KSCrash_SentryContext
      * This determines which other fields are valid. */
     KSCrashType crashType;
 
+    /** Short description of why the crash occurred. */
+    const char* crashReason;
+
+    /** The stack trace. */
+    uintptr_t* stackTrace;
+
+    /** Length of the stack trace. */
+    int stackTraceLength;
+
     struct
     {
         /** The mach exception type. */
@@ -120,14 +131,6 @@ typedef struct KSCrash_SentryContext
         /** The exception name. */
         const char* name;
 
-        /** The exception reason. */
-        const char* reason;
-
-        /** The stack trace. */
-        uintptr_t* stackTrace;
-
-        /** Length of the stack trace. */
-        int stackTraceLength;
     } NSException;
 
     struct
@@ -138,6 +141,21 @@ typedef struct KSCrash_SentryContext
         /** Signal information. */
         const siginfo_t* signalInfo;
     } signal;
+
+    struct
+    {
+        /** The exception name. */
+        const char* name;
+
+        /** The line of code where the exception occurred. Can be NULL. */
+        const char* lineOfCode;
+
+        /** The user-supplied custom format stack trace. */
+        const char** customStackTrace;
+
+        /** Length of the stack trace. */
+        int customStackTraceLength;
+    } userException;
 
 } KSCrash_SentryContext;
 

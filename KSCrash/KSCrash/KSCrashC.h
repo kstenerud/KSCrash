@@ -137,6 +137,29 @@ void kscrash_setDoNotIntrospectClasses(const char** doNotIntrospectClasses, size
 void kscrash_setCrashNotifyCallback(const KSReportWriteCallback onCrashNotify);
 
 
+/** Report a custom, user defined exception.
+ * This can be useful when dealing with scripting languages.
+ *
+ * If terminateProgram is true, all sentries will be uninstalled and the application will
+ * terminate with an abort().
+ *
+ * @param reason A description of why the exception occurred.
+ *
+ * @param lineOfCode A copy of the offending line of code (NULL = ignore).
+ *
+ * @param stackTrace An array of strings representing the call stack leading to the exception.
+ *
+ * @param stackTraceCount The length of the stack trace array.
+ *
+ * @param terminateProgram If true, do not return from this function call. Terminate the program instead.
+ */
+void kscrash_reportUserException(const char* name,
+                                 const char* reason,
+                                 const char* lineOfCode,
+                                 const char** stackTrace,
+                                 size_t stackTraceCount,
+                                 bool terminateProgram);
+
 #ifdef __cplusplus
 }
 #endif

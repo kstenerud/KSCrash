@@ -93,9 +93,9 @@ void ksnsexc_i_handleException(NSException* exception)
         g_context->offendingThread = mach_thread_self();
         g_context->registersAreValid = false;
         g_context->NSException.name = strdup([[exception name] UTF8String]);
-        g_context->NSException.reason = strdup([[exception reason] UTF8String]);
-        g_context->NSException.stackTrace = callstack;
-        g_context->NSException.stackTraceLength = (int)numFrames;
+        g_context->crashReason = strdup([[exception reason] UTF8String]);
+        g_context->stackTrace = callstack;
+        g_context->stackTraceLength = (int)numFrames;
 
 
         KSLOG_DEBUG(@"Calling main crash handler.");

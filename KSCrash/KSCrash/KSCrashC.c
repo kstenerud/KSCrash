@@ -34,11 +34,13 @@
 #include "KSSystemInfoC.h"
 #include "KSZombie.h"
 #include "KSCrashSentry_Deadlock.h"
+#include "KSCrashSentry_User.h"
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
 #include <errno.h>
+#include <execinfo.h>
 #include <fcntl.h>
 #include <mach/mach_time.h>
 #include <stdlib.h>
@@ -134,12 +136,12 @@ bool kscrash_install(const char* const crashReportFilePath,
 
         ksmach_init();
 
-        if(ksmach_isBeingTraced())
+        /*if(ksmach_isBeingTraced())
         {
             KSLOGBASIC_WARN("KSCrash: App is running in a debugger."
                             " Crash sentries have been disabled for the sanity of all.");
         }
-        else if(kscrashsentry_installWithContext(&context->crash,
+        else */if(kscrashsentry_installWithContext(&context->crash,
                                                  KSCrashTypeAll) == 0)
         {
             KSLOG_ERROR("Failed to install any handlers");
@@ -242,4 +244,19 @@ void kscrash_setCrashNotifyCallback(const KSReportWriteCallback onCrashNotify)
 {
     KSLOG_TRACE("Set onCrashNotify to %p", onCrashNotify);
     crashContext()->config.onCrashNotify = onCrashNotify;
+}
+
+void kscrash_reportUserException(const char* name,
+                                 const char* reason,
+                                 const char* lineOfCode,
+                                 const char** stackTrace,
+                                 size_t stackTraceCount,
+                                 bool terminateProgram)
+{
+    kscrashsentry_reportUserException(name,
+                                      reason,
+                                      lineOfCode,
+                                      stackTrace,
+                                      stackTraceCount,
+                                      terminateProgram);
 }

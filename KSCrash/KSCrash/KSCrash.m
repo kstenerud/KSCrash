@@ -308,6 +308,33 @@ failed:
     [self.crashReportStore deleteAllReports];
 }
 
+- (void) reportUserException:(NSString*) name
+                      reason:(NSString*) reason
+                  lineOfCode:(NSString*) lineOfCode
+                  stackTrace:(NSArray*) stackTrace
+            terminateProgram:(BOOL) terminateProgram
+{
+    const char* cName = [name cStringUsingEncoding:NSUTF8StringEncoding];
+    const char* cReason = [reason cStringUsingEncoding:NSUTF8StringEncoding];
+    const char* cLineOfCode = [lineOfCode cStringUsingEncoding:NSUTF8StringEncoding];
+    size_t cStackTraceCount = [stackTrace count];
+    const char** cStackTrace = malloc(sizeof(*cStackTrace) * cStackTraceCount);
+
+    for(size_t i = 0; i < cStackTraceCount; i++)
+    {
+        cStackTrace[i] = [[stackTrace objectAtIndex:i] cStringUsingEncoding:NSUTF8StringEncoding];
+    }
+
+    kscrash_reportUserException(cName,
+                                cReason,
+                                cLineOfCode,
+                                cStackTrace,
+                                cStackTraceCount,
+                                terminateProgram);
+
+    free((void*)cStackTrace);
+}
+
 
 // ============================================================================
 #pragma mark - Advanced API -

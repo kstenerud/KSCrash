@@ -44,7 +44,7 @@ extern "C" {
  *
  * @param context Contextual information for the crash handler.
  *
- * @param onCrash Called when a crash occurs.
+ * @return true if installation was succesful.
  */
 bool kscrashsentry_installMachHandler(KSCrash_SentryContext* context);
 

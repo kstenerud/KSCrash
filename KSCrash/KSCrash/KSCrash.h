@@ -164,4 +164,26 @@ typedef enum
  */
 - (void) deleteAllReports;
 
+/** Report a custom, user defined exception.
+ * This can be useful when dealing with scripting languages.
+ *
+ * If terminateProgram is true, all sentries will be uninstalled and the application will
+ * terminate with an abort().
+ *
+ * @param name The exception name (for namespacing exception types).
+ *
+ * @param reason A description of why the exception occurred.
+ *
+ * @param lineOfCode A copy of the offending line of code (NULL = ignore).
+ *
+ * @param stackTrace An array of strings representing the call stack leading to the exception.
+ *
+ * @param terminateProgram If true, do not return from this function call. Terminate the program instead.
+ */
+- (void) reportUserException:(NSString*) name
+                      reason:(NSString*) reason
+                  lineOfCode:(NSString*) lineOfCode
+                  stackTrace:(NSArray*) stackTrace
+            terminateProgram:(BOOL) terminateProgram;
+
 @end
