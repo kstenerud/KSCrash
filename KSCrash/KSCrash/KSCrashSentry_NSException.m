@@ -67,15 +67,17 @@ void ksnsexc_i_handleException(NSException* exception)
     KSLOG_DEBUG(@"Trapped exception %@", exception);
     if(g_installed)
     {
+        bool wasHandlingCrash = g_context->handlingCrash;
+        kscrashsentry_beginHandlingCrash(g_context);
+
         KSLOG_DEBUG(@"Exception handler is installed. Continuing exception handling.");
 
-        if(g_context->handlingCrash)
+        if(wasHandlingCrash)
         {
             KSLOG_INFO(@"Detected crash in the crash reporter. Restoring original handlers.");
             g_context->crashedDuringCrashHandling = true;
             kscrashsentry_uninstall(KSCrashTypeAll);
         }
-        g_context->handlingCrash = true;
 
         KSLOG_DEBUG(@"Suspending all threads.");
         kscrashsentry_suspendThreads();

@@ -166,10 +166,13 @@ typedef struct KSCrash_SentryContext
  *
  * @param crashTypes The crash types to install handlers for.
  *
+ * @param onCrash Function to call when a crash occurs.
+ *
  * @return which crash handlers were installed successfully.
  */
 KSCrashType kscrashsentry_installWithContext(KSCrash_SentryContext* context,
-                                             KSCrashType crashTypes);
+                                             KSCrashType crashTypes,
+                                             void (*onCrash)(void));
 
 /** Uninstall crash sentry.
  *

@@ -226,7 +226,7 @@ int g_crasher_denominator = 0;
                                            reason:reason
                                        lineOfCode:lineOfCode
                                        stackTrace:stackTrace
-                                 terminateProgram:YES];
+                                 terminateProgram:NO];
 }
 
 @end

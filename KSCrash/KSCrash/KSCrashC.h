@@ -61,6 +61,23 @@ bool kscrash_install(const char* const crashReportFilePath,
                      const char* stateFilePath,
                      const char* crashID);
 
+/** Reinstall the crash reporter. Useful for resetting the crash reporter
+ * after a "soft" crash.
+ *
+ * @param crashReportFilePath The file to store the next crash report to.
+ *
+ * @param recrashReportFilePath If the system crashes during crash handling,
+ *                              store a second, minimal report here.
+ *
+ * @param stateFilePath File to store persistent state in.
+ *
+ * @param crashID The unique identifier to assign to the next crash report.
+ */
+void kscrash_reinstall(const char* const crashReportFilePath,
+                       const char* const recrashReportFilePath,
+                       const char* const stateFilePath,
+                       const char* const crashID);
+
 /** Set the user-supplied data in JSON format.
  *
  * @param userInfoJSON Pre-baked JSON containing user-supplied information.
@@ -135,7 +152,6 @@ void kscrash_setDoNotIntrospectClasses(const char** doNotIntrospectClasses, size
  * Default: NULL
  */
 void kscrash_setCrashNotifyCallback(const KSReportWriteCallback onCrashNotify);
-
 
 /** Report a custom, user defined exception.
  * This can be useful when dealing with scripting languages.

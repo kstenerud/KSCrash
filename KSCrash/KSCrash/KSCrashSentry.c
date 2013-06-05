@@ -94,12 +94,13 @@ static bool g_threads_are_running = true;
 // ============================================================================
 
 KSCrashType kscrashsentry_installWithContext(KSCrash_SentryContext* context,
-                                             KSCrashType crashTypes)
+                                             KSCrashType crashTypes,
+                                             void (*onCrash)(void))
 {
     KSLOG_DEBUG("Installing handlers with context %p, crash types 0x%x.", context, crashTypes);
     g_context = context;
-
-    context->handlingCrash = false;
+    kscrashsentry_clearContext(g_context);
+    g_context->onCrash = onCrash;
 
     KSCrashType installed = 0;
     for(size_t i = 0; i < g_sentriesCount; i++)
@@ -200,4 +201,17 @@ void kscrashsentry_resumeThreads(void)
         }
     }
     KSLOG_DEBUG("Resume complete.");
+}
+
+void kscrashsentry_clearContext(KSCrash_SentryContext* context)
+{
+    void (*onCrash)(void) = context->onCrash;
+    memset(context, 0, sizeof(*context));
+    context->onCrash = onCrash;
+}
+
+void kscrashsentry_beginHandlingCrash(KSCrash_SentryContext* context)
+{
+    kscrashsentry_clearContext(context);
+    context->handlingCrash = true;
 }

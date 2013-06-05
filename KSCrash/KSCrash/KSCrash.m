@@ -74,6 +74,9 @@
 @property(nonatomic, readwrite, retain) NSString* logFilePath;
 @property(nonatomic, readwrite, retain) NSString* nextCrashID;
 @property(nonatomic, readwrite, retain) KSCrashReportStore* crashReportStore;
+@property(nonatomic, readonly, retain) NSString* crashReportPath;
+@property(nonatomic, readonly, retain) NSString* recrashReportPath;
+@property(nonatomic, readonly, retain) NSString* stateFilePath;
 
 @end
 
@@ -136,7 +139,7 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrash)
         {
             goto failed;
         }
-        
+
         self.nextCrashID = [self generateUUIDString];
         self.crashReportStore = [KSCrashReportStore storeWithPath:storePath];
         self.deleteBehaviorAfterSendAll = KSCDeleteAlways;
@@ -238,16 +241,27 @@ failed:
     }
 }
 
+- (NSString*) crashReportPath
+{
+    return [self.crashReportStore pathToCrashReportWithID:self.nextCrashID];
+}
+
+- (NSString*) recrashReportPath
+{
+    return [self.crashReportStore pathToRecrashReportWithID:self.nextCrashID];
+}
+
+- (NSString*) stateFilePath
+{
+    NSString* stateFilename = [NSString stringWithFormat:@"%@" kCrashStateFilenameSuffix, self.bundleName];
+    return [self.crashReportStore.path stringByAppendingPathComponent:stateFilename];
+}
+
 - (BOOL) install
 {
-    NSString* crashReportPath = [self.crashReportStore pathToCrashReportWithID:self.nextCrashID];
-    NSString* recrashReportPath = [self.crashReportStore pathToRecrashReportWithID:self.nextCrashID];
-    NSString* stateFilename = [NSString stringWithFormat:@"%@" kCrashStateFilenameSuffix, self.bundleName];
-    NSString* stateFilePath = [self.crashReportStore.path stringByAppendingPathComponent:stateFilename];
-
-    if(!kscrash_install([crashReportPath UTF8String],
-                        [recrashReportPath UTF8String],
-                        [stateFilePath UTF8String],
+    if(!kscrash_install([self.crashReportPath UTF8String],
+                        [self.recrashReportPath UTF8String],
+                        [self.stateFilePath UTF8String],
                         [self.nextCrashID UTF8String]))
     {
         return false;
@@ -332,9 +346,18 @@ failed:
                                 cStackTraceCount,
                                 terminateProgram);
 
+    // If kscrash_reportUserException() returns, we did not terminate.
+    // Set up IDs and paths for the next crash.
+
+    self.nextCrashID = [self generateUUIDString];
+
+    kscrash_reinstall([self.crashReportPath UTF8String],
+                      [self.recrashReportPath UTF8String],
+                      [self.stateFilePath UTF8String],
+                      [self.nextCrashID UTF8String]);
+
     free((void*)cStackTrace);
 }
-
 
 // ============================================================================
 #pragma mark - Advanced API -

@@ -43,6 +43,8 @@ void kscrashsentry_reportUserException(const char* name,
 {
     if(g_context != NULL)
     {
+        kscrashsentry_beginHandlingCrash(g_context);
+
         KSLOG_DEBUG("Suspending all threads");
         kscrashsentry_suspendThreads();
 
@@ -79,6 +81,7 @@ void kscrashsentry_reportUserException(const char* name,
         }
         else
         {
+            kscrashsentry_clearContext(g_context);
             kscrashsentry_resumeThreads();
         }
     }

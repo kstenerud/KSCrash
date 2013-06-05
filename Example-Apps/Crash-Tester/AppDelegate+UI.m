@@ -620,7 +620,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
       }]];
 
     [commands addObject:
-     [CommandEntry commandWithName:@"User Defined Crash"
+     [CommandEntry commandWithName:@"User Defined (soft) Crash"
                      accessoryType:UITableViewCellAccessoryNone
                              block:^(__unused UIViewController* controller)
       {

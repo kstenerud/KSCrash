@@ -122,6 +122,9 @@ static NSTimeInterval g_watchdogInterval = 0;
 
 - (void) handleDeadlock
 {
+    kscrashsentry_beginHandlingCrash(g_context);
+
+    KSLOG_DEBUG("Filling out context.");
     g_context->crashType = KSCrashTypeMainThreadDeadlock;
     g_context->offendingThread = self.mainThread;
     g_context->registersAreValid = false;
