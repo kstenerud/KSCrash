@@ -67,15 +67,17 @@ void ksnsexc_i_handleException(NSException* exception)
     KSLOG_DEBUG(@"Trapped exception %@", exception);
     if(g_installed)
     {
+        bool wasHandlingCrash = g_context->handlingCrash;
+        kscrashsentry_beginHandlingCrash(g_context);
+
         KSLOG_DEBUG(@"Exception handler is installed. Continuing exception handling.");
 
-        if(g_context->handlingCrash)
+        if(wasHandlingCrash)
         {
             KSLOG_INFO(@"Detected crash in the crash reporter. Restoring original handlers.");
             g_context->crashedDuringCrashHandling = true;
             kscrashsentry_uninstall(KSCrashTypeAll);
         }
-        g_context->handlingCrash = true;
 
         KSLOG_DEBUG(@"Suspending all threads.");
         kscrashsentry_suspendThreads();
@@ -93,9 +95,9 @@ void ksnsexc_i_handleException(NSException* exception)
         g_context->offendingThread = mach_thread_self();
         g_context->registersAreValid = false;
         g_context->NSException.name = strdup([[exception name] UTF8String]);
-        g_context->NSException.reason = strdup([[exception reason] UTF8String]);
-        g_context->NSException.stackTrace = callstack;
-        g_context->NSException.stackTraceLength = (int)numFrames;
+        g_context->crashReason = strdup([[exception reason] UTF8String]);
+        g_context->stackTrace = callstack;
+        g_context->stackTraceLength = (int)numFrames;
 
 
         KSLOG_DEBUG(@"Calling main crash handler.");

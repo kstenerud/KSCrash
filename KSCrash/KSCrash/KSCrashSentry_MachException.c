@@ -250,6 +250,9 @@ void* ksmachexc_i_handleExceptions(void* const userData)
                 exceptionMessage.code[0], exceptionMessage.code[1]);
     if(g_installed)
     {
+        bool wasHandlingCrash = g_context->handlingCrash;
+        kscrashsentry_beginHandlingCrash(g_context);
+
         KSLOG_DEBUG("Exception handler is installed. Continuing exception handling.");
 
         KSLOG_DEBUG("Suspending all threads");
@@ -272,7 +275,7 @@ void* ksmachexc_i_handleExceptions(void* const userData)
             ksmachexc_i_restoreExceptionPorts();
         }
 
-        if(g_context->handlingCrash)
+        if(wasHandlingCrash)
         {
             KSLOG_INFO("Detected crash in the crash reporter. Restoring original handlers.");
             // The crash reporter itself crashed. Make a note of this and
@@ -281,10 +284,7 @@ void* ksmachexc_i_handleExceptions(void* const userData)
             kscrashsentry_uninstall(KSCrashTypeAsyncSafe);
         }
 
-
         // Fill out crash information
-        g_context->handlingCrash = true;
-
         KSLOG_DEBUG("Fetching machine state.");
         _STRUCT_MCONTEXT machineContext;
         if(ksmachexc_i_fetchMachineState(exceptionMessage.thread.name, &machineContext))

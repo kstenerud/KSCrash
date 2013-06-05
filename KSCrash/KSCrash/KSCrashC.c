@@ -28,17 +28,20 @@
 #include "KSCrashC.h"
 
 #include "KSCrashReport.h"
+#include "KSString.h"
 #include "KSMach.h"
 #include "KSObjC.h"
 #include "KSSignalInfo.h"
 #include "KSSystemInfoC.h"
 #include "KSZombie.h"
 #include "KSCrashSentry_Deadlock.h"
+#include "KSCrashSentry_User.h"
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
 #include <errno.h>
+#include <execinfo.h>
 #include <fcntl.h>
 #include <mach/mach_time.h>
 #include <stdlib.h>
@@ -116,23 +119,20 @@ bool kscrash_install(const char* const crashReportFilePath,
                      const char* const crashID)
 {
     KSLOG_DEBUG("Installing crash reporter.");
-    KSLOG_TRACE("reportFilePath = %s", crashReportFilePath);
-    KSLOG_TRACE("secondaryReportFilePath = %s", recrashReportFilePath);
-    KSLOG_TRACE("stateFilePath = %s", stateFilePath);
-    KSLOG_TRACE("crashID = %s", crashID);
 
     static volatile sig_atomic_t initialized = 0;
     if(!initialized)
     {
         initialized = 1;
 
-        g_stateFilePath = strdup(stateFilePath);
-        g_crashReportFilePath = strdup(crashReportFilePath);
-        g_recrashReportFilePath = strdup(recrashReportFilePath);
-        KSCrash_Context* context = crashContext();
-        context->crash.onCrash = kscrash_i_onCrash;
-
         ksmach_init();
+
+        kscrash_reinstall(crashReportFilePath,
+                          recrashReportFilePath,
+                          stateFilePath,
+                          crashID);
+
+        KSCrash_Context* context = crashContext();
 
         if(ksmach_isBeingTraced())
         {
@@ -140,19 +140,14 @@ bool kscrash_install(const char* const crashReportFilePath,
                             " Crash sentries have been disabled for the sanity of all.");
         }
         else if(kscrashsentry_installWithContext(&context->crash,
-                                                 KSCrashTypeAll) == 0)
+                                                 KSCrashTypeAll,
+                                                 kscrash_i_onCrash) == 0)
         {
             KSLOG_ERROR("Failed to install any handlers");
         }
 
-        if(!kscrashstate_init(g_stateFilePath, &context->state))
-        {
-            KSLOG_ERROR("Failed to initialize persistent crash state");
-        }
-        context->state.appLaunchTime = mach_absolute_time();
         context->config.systemInfoJSON = kssysteminfo_toJSON();
         context->config.processName = kssystemInfo_copyProcessName();
-        context->config.crashID = strdup(crashID);
 
         KSLOG_DEBUG("Installation complete.");
         return true;
@@ -162,20 +157,34 @@ bool kscrash_install(const char* const crashReportFilePath,
     return false;
 }
 
+void kscrash_reinstall(const char* const crashReportFilePath,
+                       const char* const recrashReportFilePath,
+                       const char* const stateFilePath,
+                       const char* const crashID)
+{
+    KSLOG_TRACE("reportFilePath = %s", crashReportFilePath);
+    KSLOG_TRACE("secondaryReportFilePath = %s", recrashReportFilePath);
+    KSLOG_TRACE("stateFilePath = %s", stateFilePath);
+    KSLOG_TRACE("crashID = %s", crashID);
+
+    ksstring_replace((const char**)&g_stateFilePath, stateFilePath);
+    ksstring_replace((const char**)&g_crashReportFilePath, crashReportFilePath);
+    ksstring_replace((const char**)&g_recrashReportFilePath, recrashReportFilePath);
+    KSCrash_Context* context = crashContext();
+    ksstring_replace(&context->config.crashID, crashID);
+
+    if(!kscrashstate_init(g_stateFilePath, &context->state))
+    {
+        KSLOG_ERROR("Failed to initialize persistent crash state");
+    }
+    context->state.appLaunchTime = mach_absolute_time();
+}
+
 void kscrash_setUserInfoJSON(const char* const userInfoJSON)
 {
     KSLOG_TRACE("set userInfoJSON to %p", userInfoJSON);
     KSCrash_Context* context = crashContext();
-    if(context->config.userInfoJSON != NULL)
-    {
-        KSLOG_TRACE("Free old data at %p", context->config.userInfoJSON);
-        free((void*)context->config.userInfoJSON);
-    }
-    if(userInfoJSON != NULL)
-    {
-        context->config.userInfoJSON = strdup(userInfoJSON);
-        KSLOG_TRACE("Duplicated string to %p", context->config.userInfoJSON);
-    }
+    ksstring_replace(&context->config.userInfoJSON, userInfoJSON);
 }
 
 void kscrash_setZombieCacheSize(size_t zombieCacheSize)
@@ -242,4 +251,19 @@ void kscrash_setCrashNotifyCallback(const KSReportWriteCallback onCrashNotify)
 {
     KSLOG_TRACE("Set onCrashNotify to %p", onCrashNotify);
     crashContext()->config.onCrashNotify = onCrashNotify;
+}
+
+void kscrash_reportUserException(const char* name,
+                                 const char* reason,
+                                 const char* lineOfCode,
+                                 const char** stackTrace,
+                                 size_t stackTraceCount,
+                                 bool terminateProgram)
+{
+    kscrashsentry_reportUserException(name,
+                                      reason,
+                                      lineOfCode,
+                                      stackTrace,
+                                      stackTraceCount,
+                                      terminateProgram);
 }

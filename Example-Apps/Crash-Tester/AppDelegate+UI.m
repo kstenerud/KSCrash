@@ -619,6 +619,14 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
           [self.crasher pthreadAPICrash];
       }]];
 
+    [commands addObject:
+     [CommandEntry commandWithName:@"User Defined (soft) Crash"
+                     accessoryType:UITableViewCellAccessoryNone
+                             block:^(__unused UIViewController* controller)
+      {
+          [self.crasher userDefinedCrash];
+      }]];
+
 
     return commands;
 }

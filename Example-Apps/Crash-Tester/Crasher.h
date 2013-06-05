@@ -38,4 +38,6 @@
 
 - (void) pthreadAPICrash;
 
+- (void) userDefinedCrash;
+
 @end
