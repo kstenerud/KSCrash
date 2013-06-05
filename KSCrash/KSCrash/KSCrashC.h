@@ -165,7 +165,7 @@ void kscrash_setCrashNotifyCallback(const KSReportWriteCallback onCrashNotify);
  *
  * @param stackTrace An array of strings representing the call stack leading to the exception.
  *
- * @param stackTraceCount The length of the stack trace array.
+ * @param stackTraceCount The length of the stack trace array (0 = ignore).
  *
  * @param terminateProgram If true, do not return from this function call. Terminate the program instead.
  */

@@ -674,9 +674,11 @@ NSDictionary* g_registerOrders;
     {
         [str appendString:[self stringWithUncaughtExceptionName:[userException objectForKey:@KSCrashField_Name]
                                                          reason:[error objectForKey:@KSCrashField_Reason]]];
-        [str appendString:@"\n"];
-        [str appendString:[self userExceptionTrace:userException]];
-        [str appendString:@"\n"];
+        NSString* trace = [self userExceptionTrace:userException];
+        if(trace.length > 0)
+        {
+            [str appendFormat:@"\n%@\n", trace];
+        }
     }
 
     if([@KSCrashExcType_Deadlock isEqualToString:[error objectForKey:@KSCrashField_Type]])
@@ -697,7 +699,7 @@ NSDictionary* g_registerOrders;
 
 - (NSString*) userExceptionTrace:(NSDictionary*)userException
 {
-    NSMutableString* str = [NSMutableString stringWithString:@"Custom Backtrace:\n"];
+    NSMutableString* str = [NSMutableString string];
     NSString* line = [userException objectForKey:@KSCrashField_LineOfCode];
     if(line != nil)
     {
@@ -708,7 +710,12 @@ NSDictionary* g_registerOrders;
     {
         [str appendFormat:@"%@\n", entry];
     }
-    return str;
+
+    if(str.length > 0)
+    {
+        return [@"Custom Backtrace:\n" stringByAppendingString:str];
+    }
+    return @"";
 }
 
 - (NSString*) threadStringForThread:(NSDictionary*) thread
