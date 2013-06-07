@@ -238,6 +238,15 @@
 		39DA84F7161978D7001E7F79 /* NSDictionary+Merge.m in Sources */ = {isa = PBXBuildFile; fileRef = 39DA84F5161978D7001E7F79 /* NSDictionary+Merge.m */; };
 		39DA84F9161978DE001E7F79 /* NSDictionary+Merge.m in Sources */ = {isa = PBXBuildFile; fileRef = 39DA84F5161978D7001E7F79 /* NSDictionary+Merge.m */; };
 		39DA84FD16198753001E7F79 /* NSDictionary+Merge_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 39DA84FB16198753001E7F79 /* NSDictionary+Merge_Tests.m */; };
+		CB05EC6217623AFF0095353E /* KSCrashSentry_CPPException.h in Headers */ = {isa = PBXBuildFile; fileRef = CB05EC6117623AFF0095353E /* KSCrashSentry_CPPException.h */; };
+		CB05EC6317623AFF0095353E /* KSCrashSentry_CPPException.h in Headers */ = {isa = PBXBuildFile; fileRef = CB05EC6117623AFF0095353E /* KSCrashSentry_CPPException.h */; };
+		CB05EC6417623AFF0095353E /* KSCrashSentry_CPPException.h in Headers */ = {isa = PBXBuildFile; fileRef = CB05EC6117623AFF0095353E /* KSCrashSentry_CPPException.h */; };
+		CB05EC6617623C000095353E /* KSCrashSentry_CPPExceptionDisabled.c in Sources */ = {isa = PBXBuildFile; fileRef = CB05EC6517623C000095353E /* KSCrashSentry_CPPExceptionDisabled.c */; };
+		CB05EC6717623C000095353E /* KSCrashSentry_CPPExceptionDisabled.c in Sources */ = {isa = PBXBuildFile; fileRef = CB05EC6517623C000095353E /* KSCrashSentry_CPPExceptionDisabled.c */; };
+		CB05EC6817623C000095353E /* KSCrashSentry_CPPExceptionDisabled.c in Sources */ = {isa = PBXBuildFile; fileRef = CB05EC6517623C000095353E /* KSCrashSentry_CPPExceptionDisabled.c */; };
+		CB05EC8A176292EA0095353E /* KSCrashSentry_CPPException.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CB05EC5D17623AE30095353E /* KSCrashSentry_CPPException.cpp */; };
+		CB05EC8B176292EB0095353E /* KSCrashSentry_CPPException.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CB05EC5D17623AE30095353E /* KSCrashSentry_CPPException.cpp */; };
+		CB05EC8C176292EB0095353E /* KSCrashSentry_CPPException.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CB05EC5D17623AE30095353E /* KSCrashSentry_CPPException.cpp */; };
 		CB0AA0F4167EC43E006EAB99 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = CB0AA0F2167EC43E006EAB99 /* InfoPlist.strings */; };
 		CB0AA0FD167EC460006EAB99 /* KSCrashC.c in Sources */ = {isa = PBXBuildFile; fileRef = 39DA839D1618450A001E7F79 /* KSCrashC.c */; };
 		CB0AA0FE167EC460006EAB99 /* KSCrashC.h in Headers */ = {isa = PBXBuildFile; fileRef = 39DA839E1618450A001E7F79 /* KSCrashC.h */; };
@@ -571,6 +580,9 @@
 		39DA84F4161978D7001E7F79 /* NSDictionary+Merge.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.objj.h; path = "NSDictionary+Merge.h"; sourceTree = "<group>"; };
 		39DA84F5161978D7001E7F79 /* NSDictionary+Merge.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSDictionary+Merge.m"; sourceTree = "<group>"; };
 		39DA84FB16198753001E7F79 /* NSDictionary+Merge_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSDictionary+Merge_Tests.m"; sourceTree = "<group>"; };
+		CB05EC5D17623AE30095353E /* KSCrashSentry_CPPException.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = KSCrashSentry_CPPException.cpp; sourceTree = "<group>"; };
+		CB05EC6117623AFF0095353E /* KSCrashSentry_CPPException.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashSentry_CPPException.h; sourceTree = "<group>"; };
+		CB05EC6517623C000095353E /* KSCrashSentry_CPPExceptionDisabled.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSCrashSentry_CPPExceptionDisabled.c; sourceTree = "<group>"; };
 		CB0AA0EE167EC43E006EAB99 /* KSCrashLite.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KSCrashLite.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		CB0AA0F1167EC43E006EAB99 /* KSCrashLite-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "KSCrashLite-Info.plist"; sourceTree = "<group>"; };
 		CB0AA0F3167EC43E006EAB99 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
@@ -866,6 +878,9 @@
 			children = (
 				39DA83AA1618450A001E7F79 /* KSCrashSentry.c */,
 				39DA83AB1618450A001E7F79 /* KSCrashSentry.h */,
+				CB05EC5D17623AE30095353E /* KSCrashSentry_CPPException.cpp */,
+				CB05EC6117623AFF0095353E /* KSCrashSentry_CPPException.h */,
+				CB05EC6517623C000095353E /* KSCrashSentry_CPPExceptionDisabled.c */,
 				39D329DA16765AD500D989DC /* KSCrashSentry_Deadlock.h */,
 				39D329DB16765AD500D989DC /* KSCrashSentry_Deadlock.m */,
 				39DA83A31618450A001E7F79 /* KSCrashSentry_MachException.c */,
@@ -875,8 +890,8 @@
 				39DA83A71618450A001E7F79 /* KSCrashSentry_Private.h */,
 				39DA83A81618450A001E7F79 /* KSCrashSentry_Signal.c */,
 				39DA83A91618450A001E7F79 /* KSCrashSentry_Signal.h */,
-				CBCED884175E565B00BF56F0 /* KSCrashSentry_User.h */,
 				CBCED88C175E567F00BF56F0 /* KSCrashSentry_User.c */,
+				CBCED884175E565B00BF56F0 /* KSCrashSentry_User.h */,
 			);
 			name = Sentry;
 			sourceTree = "<group>";
@@ -1053,6 +1068,7 @@
 				CBF2D93A16DE86B00003AD7E /* KSCrashInstallationEmail.h in Headers */,
 				CBF2D94016DEDCC10003AD7E /* KSCrashInstallationStandard.h in Headers */,
 				CBCED885175E565B00BF56F0 /* KSCrashSentry_User.h in Headers */,
+				CB05EC6217623AFF0095353E /* KSCrashSentry_CPPException.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1127,6 +1143,7 @@
 				CBF2D93B16DE86B00003AD7E /* KSCrashInstallationEmail.h in Headers */,
 				CBF2D94116DEDCC10003AD7E /* KSCrashInstallationStandard.h in Headers */,
 				CBCED887175E565B00BF56F0 /* KSCrashSentry_User.h in Headers */,
+				CB05EC6417623AFF0095353E /* KSCrashSentry_CPPException.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1190,6 +1207,7 @@
 				CB1B377016D74F3C00FFFCEA /* KSCString.h in Headers */,
 				CB1B378716D820AE00FFFCEA /* KSSingleton.h in Headers */,
 				CBCED886175E565B00BF56F0 /* KSCrashSentry_User.h in Headers */,
+				CB05EC6317623AFF0095353E /* KSCrashSentry_CPPException.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1446,6 +1464,8 @@
 				2122BBD116F185120056D11C /* KSCrashReportSinkTakanashi.m in Sources */,
 				2193ACC616F19D690016EA5F /* KSCrashInstallationTakanashi.m in Sources */,
 				CBCED88D175E567F00BF56F0 /* KSCrashSentry_User.c in Sources */,
+				CB05EC6617623C000095353E /* KSCrashSentry_CPPExceptionDisabled.c in Sources */,
+				CB05EC8A176292EA0095353E /* KSCrashSentry_CPPException.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1510,6 +1530,8 @@
 				2122BBD216F185120056D11C /* KSCrashReportSinkTakanashi.m in Sources */,
 				2193ACC716F19D690016EA5F /* KSCrashInstallationTakanashi.m in Sources */,
 				CBCED88F175E567F00BF56F0 /* KSCrashSentry_User.c in Sources */,
+				CB05EC6817623C000095353E /* KSCrashSentry_CPPExceptionDisabled.c in Sources */,
+				CB05EC8C176292EB0095353E /* KSCrashSentry_CPPException.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1604,6 +1626,8 @@
 				CB7C754716CD5F5F00227870 /* KSCrashInstallation.m in Sources */,
 				CB1B377316D74F3C00FFFCEA /* KSCString.m in Sources */,
 				CBCED88E175E567F00BF56F0 /* KSCrashSentry_User.c in Sources */,
+				CB05EC6717623C000095353E /* KSCrashSentry_CPPExceptionDisabled.c in Sources */,
+				CB05EC8B176292EB0095353E /* KSCrashSentry_CPPException.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1696,7 +1720,7 @@
 				GCC_WARN_UNUSED_LABEL = YES;
 				GCC_WARN_UNUSED_PARAMETER = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 4.3;
+				IPHONEOS_DEPLOYMENT_TARGET = 5.0;
 				SDKROOT = iphoneos;
 				STRIP_STYLE = debugging;
 			};
@@ -1741,7 +1765,7 @@
 				GCC_WARN_UNUSED_LABEL = YES;
 				GCC_WARN_UNUSED_PARAMETER = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 4.3;
+				IPHONEOS_DEPLOYMENT_TARGET = 5.0;
 				SDKROOT = iphoneos;
 				STRIP_STYLE = debugging;
 				VALIDATE_PRODUCT = YES;

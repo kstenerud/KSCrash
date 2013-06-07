@@ -1,7 +1,5 @@
 //
-//  KSCrashSentry_Private.h
-//
-//  Created by Karl Stenerud on 2012-09-29.
+//  KSCrashSentry_CPPException.h
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,43 +22,32 @@
 // THE SOFTWARE.
 //
 
-
-#ifndef HDR_KSCrashSentry_Private_h
-#define HDR_KSCrashSentry_Private_h
+#ifndef HDR_KSCrashSentry_CPPException_h
+#define HDR_KSCrashSentry_CPPException_h
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-    
+
 #include "KSCrashSentry.h"
 
 
-/** Suspend all non-reserved threads.
+/** Install the C++ exception handler.
  *
- * Reserved threads include the current thread and all threads in
- "reservedThreads" in the context.
- */
-void kscrashsentry_suspendThreads(void);
-
-/** Resume all non-reserved threads.
+ * @param context Contextual information for the crash handler.
  *
- * Reserved threads include the current thread and all threads in
- * "reservedThreads" in the context.
+ * @return true if installation was succesful.
  */
-void kscrashsentry_resumeThreads(void);
+bool kscrashsentry_installCPPExceptionHandler(KSCrash_SentryContext* context);
 
-/** Prepare the context for handling a new crash.
+/** Uninstall the C++ exception handler.
  */
-void kscrashsentry_beginHandlingCrash(KSCrash_SentryContext* context);
+void kscrashsentry_uninstallCPPExceptionHandler(void);
 
-/** Clear a crash sentry context.
- */
-void kscrashsentry_clearContext(KSCrash_SentryContext* context);
 
-    
 #ifdef __cplusplus
 }
 #endif
 
-#endif // HDR_KSCrashSentry_Private_h
+#endif // HDR_KSCrashSentry_CPPException_h

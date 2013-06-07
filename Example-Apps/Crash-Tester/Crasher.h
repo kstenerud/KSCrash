@@ -8,7 +8,7 @@
 
 @interface Crasher : NSObject
 
-- (void) throwException;
+- (void) throwUncaughtNSException;
 
 - (void) dereferenceBadPointer;
 
@@ -39,5 +39,7 @@
 - (void) pthreadAPICrash;
 
 - (void) userDefinedCrash;
+
+- (void) throwUncaughtCPPException;
 
 @end

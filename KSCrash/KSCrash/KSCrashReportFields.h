@@ -47,6 +47,7 @@
 
 #pragma mark - Exception Types -
 
+#define KSCrashExcType_CPPException        "cpp_exception"
 #define KSCrashExcType_Deadlock            "deadlock"
 #define KSCrashExcType_Mach                "mach"
 #define KSCrashExcType_NSException         "nsexception"
