@@ -40,7 +40,19 @@ extern "C" {
 #include <mach/mach.h>
 #include <mach-o/dyld.h>
 #include <stdbool.h>
+#include <pthread.h>
 #include <sys/ucontext.h>
+
+
+// ============================================================================
+#pragma mark - Initialization -
+// ============================================================================
+
+/** Initializes KSMach.
+ * Some functions (currently only ksmach_pthreadFromMachThread) require
+ * initialization before use.
+ */
+void ksmach_init(void);
 
 
 // ============================================================================
@@ -220,10 +232,23 @@ uint64_t ksmach_exceptionRegisterValue(const _STRUCT_MCONTEXT* machineContext,
  */
 int ksmach_stackGrowDirection(void);
 
-/** Get the name of a thread's dispatch queue. Internally, a queue name will
+/** Get a thread's name. Internally, a thread name will
  * never be more than 64 characters long.
  *
  * @param thread The thread whose name to get.
+ *
+ * @oaram buffer Buffer to hold the name.
+ *
+ * @param bufLength The length of the buffer.
+ *
+ * @return true if a name was found.
+ */
+bool ksmach_getThreadName(const thread_t thread, char* const buffer, size_t bufLength);
+
+/** Get the name of a thread's dispatch queue. Internally, a queue name will
+ * never be more than 64 characters long.
+ *
+ * @param thread The thread whose queue name to get.
  *
  * @oaram buffer Buffer to hold the name.
  *
@@ -273,6 +298,22 @@ uintptr_t ksmach_firstCmdAfterHeader(const struct mach_header* header);
 // ============================================================================
 #pragma mark - Utility -
 // ============================================================================
+
+/** Get a mach thread's corresponding posix thread.
+ *
+ * @param thread The mach thread.
+ *
+ * @return The corresponding posix thread, or 0 if an error occurred.
+ */
+pthread_t ksmach_pthreadFromMachThread(const thread_t thread);
+
+/** Get a posix thread's corresponding mach thread.
+ *
+ * @param pthread The posix thread.
+ *
+ * @return The corresponding mach thread, or 0 if an error occurred.
+ */
+thread_t ksmach_machThreadFromPThread(const pthread_t pthread);
 
 /** Suspend all threads except for the current one.
  *

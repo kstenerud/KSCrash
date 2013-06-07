@@ -374,6 +374,12 @@
 		CB7C754716CD5F5F00227870 /* KSCrashInstallation.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7C754216CD5F5F00227870 /* KSCrashInstallation.m */; };
 		CB7C754816CD5F5F00227870 /* KSCrashInstallation.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7C754216CD5F5F00227870 /* KSCrashInstallation.m */; };
 		CBC74E9E169FD6FC001A688D /* GCDAProfiling.c in Sources */ = {isa = PBXBuildFile; fileRef = CBC74E9D169FD6FC001A688D /* GCDAProfiling.c */; };
+		CBCED885175E565B00BF56F0 /* KSCrashSentry_User.h in Headers */ = {isa = PBXBuildFile; fileRef = CBCED884175E565B00BF56F0 /* KSCrashSentry_User.h */; };
+		CBCED886175E565B00BF56F0 /* KSCrashSentry_User.h in Headers */ = {isa = PBXBuildFile; fileRef = CBCED884175E565B00BF56F0 /* KSCrashSentry_User.h */; };
+		CBCED887175E565B00BF56F0 /* KSCrashSentry_User.h in Headers */ = {isa = PBXBuildFile; fileRef = CBCED884175E565B00BF56F0 /* KSCrashSentry_User.h */; };
+		CBCED88D175E567F00BF56F0 /* KSCrashSentry_User.c in Sources */ = {isa = PBXBuildFile; fileRef = CBCED88C175E567F00BF56F0 /* KSCrashSentry_User.c */; };
+		CBCED88E175E567F00BF56F0 /* KSCrashSentry_User.c in Sources */ = {isa = PBXBuildFile; fileRef = CBCED88C175E567F00BF56F0 /* KSCrashSentry_User.c */; };
+		CBCED88F175E567F00BF56F0 /* KSCrashSentry_User.c in Sources */ = {isa = PBXBuildFile; fileRef = CBCED88C175E567F00BF56F0 /* KSCrashSentry_User.c */; };
 		CBD9A64416E3E875007142EE /* KSCrashInstallationEmail_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CBD9A64316E3E875007142EE /* KSCrashInstallationEmail_Tests.m */; };
 		CBD9A64716E3EC02007142EE /* KSCrashInstallationQuincyHockey_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CBD9A64616E3EC02007142EE /* KSCrashInstallationQuincyHockey_Tests.m */; };
 		CBD9A64A16E3F424007142EE /* KSCrashInstallationStandard_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CBD9A64916E3F424007142EE /* KSCrashInstallationStandard_Tests.m */; };
@@ -591,6 +597,8 @@
 		CB7C754116CD5F5E00227870 /* KSCrashInstallation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashInstallation.h; sourceTree = "<group>"; };
 		CB7C754216CD5F5F00227870 /* KSCrashInstallation.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSCrashInstallation.m; sourceTree = "<group>"; };
 		CBC74E9D169FD6FC001A688D /* GCDAProfiling.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = GCDAProfiling.c; path = XcodeCoverage/GCDAProfiling.c; sourceTree = SOURCE_ROOT; };
+		CBCED884175E565B00BF56F0 /* KSCrashSentry_User.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashSentry_User.h; sourceTree = "<group>"; };
+		CBCED88C175E567F00BF56F0 /* KSCrashSentry_User.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSCrashSentry_User.c; sourceTree = "<group>"; };
 		CBD9A64316E3E875007142EE /* KSCrashInstallationEmail_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSCrashInstallationEmail_Tests.m; sourceTree = "<group>"; };
 		CBD9A64616E3EC02007142EE /* KSCrashInstallationQuincyHockey_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSCrashInstallationQuincyHockey_Tests.m; sourceTree = "<group>"; };
 		CBD9A64916E3F424007142EE /* KSCrashInstallationStandard_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSCrashInstallationStandard_Tests.m; sourceTree = "<group>"; };
@@ -867,6 +875,8 @@
 				39DA83A71618450A001E7F79 /* KSCrashSentry_Private.h */,
 				39DA83A81618450A001E7F79 /* KSCrashSentry_Signal.c */,
 				39DA83A91618450A001E7F79 /* KSCrashSentry_Signal.h */,
+				CBCED884175E565B00BF56F0 /* KSCrashSentry_User.h */,
+				CBCED88C175E567F00BF56F0 /* KSCrashSentry_User.c */,
 			);
 			name = Sentry;
 			sourceTree = "<group>";
@@ -1042,6 +1052,7 @@
 				CB1B378616D820AE00FFFCEA /* KSSingleton.h in Headers */,
 				CBF2D93A16DE86B00003AD7E /* KSCrashInstallationEmail.h in Headers */,
 				CBF2D94016DEDCC10003AD7E /* KSCrashInstallationStandard.h in Headers */,
+				CBCED885175E565B00BF56F0 /* KSCrashSentry_User.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1115,6 +1126,7 @@
 				CB1B378816D820AE00FFFCEA /* KSSingleton.h in Headers */,
 				CBF2D93B16DE86B00003AD7E /* KSCrashInstallationEmail.h in Headers */,
 				CBF2D94116DEDCC10003AD7E /* KSCrashInstallationStandard.h in Headers */,
+				CBCED887175E565B00BF56F0 /* KSCrashSentry_User.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1177,6 +1189,7 @@
 				CB7C754416CD5F5F00227870 /* KSCrashInstallation.h in Headers */,
 				CB1B377016D74F3C00FFFCEA /* KSCString.h in Headers */,
 				CB1B378716D820AE00FFFCEA /* KSSingleton.h in Headers */,
+				CBCED886175E565B00BF56F0 /* KSCrashSentry_User.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1432,6 +1445,7 @@
 				CBF2D94216DEDCC10003AD7E /* KSCrashInstallationStandard.m in Sources */,
 				2122BBD116F185120056D11C /* KSCrashReportSinkTakanashi.m in Sources */,
 				2193ACC616F19D690016EA5F /* KSCrashInstallationTakanashi.m in Sources */,
+				CBCED88D175E567F00BF56F0 /* KSCrashSentry_User.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1495,6 +1509,7 @@
 				CBF2D94316DEDCC10003AD7E /* KSCrashInstallationStandard.m in Sources */,
 				2122BBD216F185120056D11C /* KSCrashReportSinkTakanashi.m in Sources */,
 				2193ACC716F19D690016EA5F /* KSCrashInstallationTakanashi.m in Sources */,
+				CBCED88F175E567F00BF56F0 /* KSCrashSentry_User.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1588,6 +1603,7 @@
 				CB5A5B4716C718C500DC1D2D /* KSCrashCallCompletion.m in Sources */,
 				CB7C754716CD5F5F00227870 /* KSCrashInstallation.m in Sources */,
 				CB1B377316D74F3C00FFFCEA /* KSCString.m in Sources */,
+				CBCED88E175E567F00BF56F0 /* KSCrashSentry_User.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

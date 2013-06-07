@@ -27,6 +27,7 @@
 
 #include "KSString.h"
 #include <string.h>
+#include <stdlib.h>
 
 
 // Compiler hints for "if" statements
@@ -166,4 +167,20 @@ bool ksstring_extractHexValue(const char* string,
         }
     }
     return false;
+}
+
+void ksstring_replace(const char** dest, const char* replacement)
+{
+    if(*dest != NULL)
+    {
+        free((void*)*dest);
+    }
+    if(replacement == NULL)
+    {
+        *dest = NULL;
+    }
+    else
+    {
+        *dest = strdup(replacement);
+    }
 }

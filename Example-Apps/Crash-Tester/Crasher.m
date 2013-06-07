@@ -6,6 +6,8 @@
 
 #import "Crasher.h"
 #import "ARCSafe_MemMgmt.h"
+#import <KSCrash/KSCrash.h>
+#import <pthread.h>
 
 @interface MyClass: NSObject @end
 @implementation MyClass @end
@@ -201,6 +203,30 @@ int g_crasher_denominator = 0;
                    {
                        [self.lock lock];
                    });
+}
+
+- (void) pthreadAPICrash
+{
+    // http://landonf.bikemonkey.org/code/crashreporting
+    pthread_getname_np(pthread_self(), (char*)0x1, 1);
+}
+
+- (void) userDefinedCrash
+{
+    NSString* name = @"Script Error";
+    NSString* reason = @"fragment is not defined";
+    NSString* lineOfCode = @"string.append(fragment)";
+    NSArray* stackTrace = [NSArray arrayWithObjects:
+                           @"Printer.script, line 174: in function assembleComponents",
+                           @"Printer.script, line 209: in function print",
+                           @"Main.script, line 10: in function initialize",
+                           nil];
+
+    [[KSCrash sharedInstance] reportUserException:name
+                                           reason:reason
+                                       lineOfCode:lineOfCode
+                                       stackTrace:stackTrace
+                                 terminateProgram:NO];
 }
 
 @end
