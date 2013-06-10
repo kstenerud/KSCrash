@@ -53,8 +53,17 @@
 #pragma mark - Globals -
 // ============================================================================
 
+/** True if KSCrash has been installed. */
+static volatile sig_atomic_t g_installed = 0;
+
 /** Single, global crash context. */
-static KSCrash_Context g_crashReportContext = {{0}};
+static KSCrash_Context g_crashReportContext =
+{
+    .config =
+    {
+        .handlingCrashTypes = KSCrashTypeProductionSafe
+    }
+};
 
 /** Path to store the next crash report. */
 static char* g_crashReportFilePath;
@@ -113,48 +122,37 @@ void kscrash_i_onCrash(void)
 #pragma mark - API -
 // ============================================================================
 
-bool kscrash_install(const char* const crashReportFilePath,
-                     const char* const recrashReportFilePath,
-                     const char* const stateFilePath,
-                     const char* const crashID)
+KSCrashType kscrash_install(const char* const crashReportFilePath,
+                            const char* const recrashReportFilePath,
+                            const char* stateFilePath,
+                            const char* crashID)
 {
     KSLOG_DEBUG("Installing crash reporter.");
 
-    static volatile sig_atomic_t initialized = 0;
-    if(!initialized)
+    KSCrash_Context* context = crashContext();
+
+    if(g_installed)
     {
-        initialized = 1;
-
-        ksmach_init();
-
-        kscrash_reinstall(crashReportFilePath,
-                          recrashReportFilePath,
-                          stateFilePath,
-                          crashID);
-
-        KSCrash_Context* context = crashContext();
-
-        if(ksmach_isBeingTraced())
-        {
-            KSLOGBASIC_WARN("KSCrash: App is running in a debugger."
-                            " Crash sentries have been disabled for the sanity of all.");
-        }
-        else if(kscrashsentry_installWithContext(&context->crash,
-                                                 KSCrashTypeAll,
-                                                 kscrash_i_onCrash) == 0)
-        {
-            KSLOG_ERROR("Failed to install any handlers");
-        }
-
-        context->config.systemInfoJSON = kssysteminfo_toJSON();
-        context->config.processName = kssystemInfo_copyProcessName();
-
-        KSLOG_DEBUG("Installation complete.");
-        return true;
+        KSLOG_DEBUG("Crash reporter already installed.");
+        return context->config.handlingCrashTypes;
     }
+    g_installed = 1;
 
-    KSLOG_ERROR("Called more than once");
-    return false;
+    ksmach_init();
+
+    kscrash_reinstall(crashReportFilePath,
+                      recrashReportFilePath,
+                      stateFilePath,
+                      crashID);
+
+
+    KSCrashType crashTypes = kscrash_setHandlingCrashTypes(context->config.handlingCrashTypes);
+
+    context->config.systemInfoJSON = kssysteminfo_toJSON();
+    context->config.processName = kssysteminfo_copyProcessName();
+
+    KSLOG_DEBUG("Installation complete.");
+    return crashTypes;
 }
 
 void kscrash_reinstall(const char* const crashReportFilePath,
@@ -178,6 +176,26 @@ void kscrash_reinstall(const char* const crashReportFilePath,
         KSLOG_ERROR("Failed to initialize persistent crash state");
     }
     context->state.appLaunchTime = mach_absolute_time();
+}
+
+KSCrashType kscrash_setHandlingCrashTypes(KSCrashType crashTypes)
+{
+    if((crashTypes & KSCrashTypeDebuggerUnsafe) && ksmach_isBeingTraced())
+    {
+        KSLOGBASIC_WARN("KSCrash: App is running in a debugger. Crash types 0x%02x have been disabled.",
+                        (crashTypes & KSCrashTypeDebuggerUnsafe));
+        crashTypes &= KSCrashTypeDebuggerSafe;
+    }
+
+    KSCrash_Context* context = crashContext();
+    context->config.handlingCrashTypes = crashTypes;
+
+    if(g_installed)
+    {
+        kscrashsentry_uninstall(~crashTypes);
+        crashTypes = kscrashsentry_installWithContext(&context->crash, crashTypes, kscrash_i_onCrash);
+    }
+    return crashTypes;
 }
 
 void kscrash_setUserInfoJSON(const char* const userInfoJSON)

@@ -37,31 +37,12 @@ extern "C" {
 #endif
 
 
+#include "KSCrashType.h"
+
 #include <mach/mach_types.h>
 #include <signal.h>
 #include <stdbool.h>
 
-
-/** Different ways an application can crash:
- * - Mach kernel exception
- * - Fatal signal
- * - Uncaught C++ exception
- * - Uncaught Objective-C NSException
- * - Deadlock on the main thread
- * - User reported custom exception
- */
-typedef enum
-{
-    KSCrashTypeMachException      = 0x01,
-    KSCrashTypeSignal             = 0x02,
-    KSCrashTypeCPPException       = 0x04,
-    KSCrashTypeNSException        = 0x08,
-    KSCrashTypeMainThreadDeadlock = 0x10,
-    KSCrashTypeUserReported       = 0x20,
-} KSCrashType;
-
-#define KSCrashTypeAll (KSCrashTypeMachException | KSCrashTypeSignal | KSCrashTypeCPPException |KSCrashTypeNSException | KSCrashTypeMainThreadDeadlock | KSCrashTypeUserReported)
-#define KSCrashTypeAsyncSafe (KSCrashTypeMachException | KSCrashTypeSignal)
 
 typedef enum
 {

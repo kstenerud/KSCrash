@@ -304,7 +304,7 @@ const char* kssysteminfo_toJSON(void)
     return strdup([jsonData bytes]);
 }
 
-char* kssystemInfo_copyProcessName(void)
+char* kssysteminfo_copyProcessName(void)
 {
     return strdup([[NSProcessInfo processInfo].processName UTF8String]);
 }

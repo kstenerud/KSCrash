@@ -90,6 +90,7 @@
 @synthesize sink = _sink;
 @synthesize userInfo = _userInfo;
 @synthesize deleteBehaviorAfterSendAll = _deleteBehaviorAfterSendAll;
+@synthesize handlingCrashTypes = _handlingCrashTypes;
 @synthesize zombieCacheSize = _zombieCacheSize;
 @synthesize deadlockWatchdogInterval = _deadlockWatchdogInterval;
 @synthesize printTraceToStdout = _printTraceToStdout;
@@ -190,6 +191,11 @@ failed:
     kscrash_setUserInfoJSON([userInfoJSON bytes]);
 }
 
+- (void) setHandlingCrashTypes:(KSCrashType)handlingCrashTypes
+{
+    _handlingCrashTypes = kscrash_setHandlingCrashTypes(handlingCrashTypes);
+}
+
 - (void) setZombieCacheSize:(size_t) zombieCacheSize
 {
     _zombieCacheSize = zombieCacheSize;
@@ -259,10 +265,11 @@ failed:
 
 - (BOOL) install
 {
-    if(!kscrash_install([self.crashReportPath UTF8String],
-                        [self.recrashReportPath UTF8String],
-                        [self.stateFilePath UTF8String],
-                        [self.nextCrashID UTF8String]))
+    _handlingCrashTypes = kscrash_install([self.crashReportPath UTF8String],
+                                          [self.recrashReportPath UTF8String],
+                                          [self.stateFilePath UTF8String],
+                                          [self.nextCrashID UTF8String]);
+    if(self.handlingCrashTypes == 0)
     {
         return false;
     }

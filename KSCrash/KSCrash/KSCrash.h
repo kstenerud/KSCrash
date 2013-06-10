@@ -29,6 +29,7 @@
 
 #import "KSCrashReportWriter.h"
 #import "KSCrashReportFilter.h"
+#import "KSCrashType.h"
 
 
 typedef enum
@@ -69,6 +70,12 @@ typedef enum
  * Default: KSCDeleteAlways
  */
 @property(nonatomic,readwrite,assign) KSCDeleteBehavior deleteBehaviorAfterSendAll;
+
+/** The crash types that are being handled.
+ * Note: This value may change once KSCrash is installed if some handlers
+ *       fail to install.
+ */
+@property(nonatomic,readwrite,assign) KSCrashType handlingCrashTypes;
 
 /** The size of the cache to use for on-device zombie tracking.
  * Every deallocated object will be hashed based on its address modulus the cache

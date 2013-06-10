@@ -54,12 +54,25 @@ extern "C" {
  *
  * @param crashID The unique identifier to assign to the next crash report.
  *
- * @return true if installation was successful.
+ * @return The crash types that are being handled.
  */
-bool kscrash_install(const char* const crashReportFilePath,
-                     const char* const recrashReportFilePath,
-                     const char* stateFilePath,
-                     const char* crashID);
+KSCrashType kscrash_install(const char* const crashReportFilePath,
+                            const char* const recrashReportFilePath,
+                            const char* stateFilePath,
+                            const char* crashID);
+
+/** Set the crash types that will be handled.
+ * Some crash types may not be enabled depending on circumstances (e.g. running
+ * in a debugger).
+ *
+ * @param crashTypes The crash types to handle.
+ *
+ * @return The crash types that are now behing handled. If KSCrash has been
+ *         installed, the return value represents the crash sentries that were
+ *         successfully installed. Otherwise it represents which sentries it
+ *         will attempt to activate when KSCrash installs.
+ */
+KSCrashType kscrash_setHandlingCrashTypes(KSCrashType crashTypes);
 
 /** Reinstall the crash reporter. Useful for resetting the crash reporter
  * after a "soft" crash.
