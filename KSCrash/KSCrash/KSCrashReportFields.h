@@ -130,6 +130,7 @@
 #define KSCrashField_Backtrace             "backtrace"
 #define KSCrashField_Code                  "code"
 #define KSCrashField_CodeName              "code_name"
+#define KSCrashField_CPPException          "cpp_exception"
 #define KSCrashField_ExceptionName         "exception_name"
 #define KSCrashField_Mach                  "mach"
 #define KSCrashField_NSException           "nsexception"

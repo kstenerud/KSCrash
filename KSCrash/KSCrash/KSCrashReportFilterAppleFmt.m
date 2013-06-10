@@ -630,6 +630,7 @@ NSDictionary* g_registerOrders;
     NSDictionary* type = [error objectForKey:@KSCrashField_Type];
 
     NSDictionary* nsexception = [error objectForKey:@KSCrashField_NSException];
+    NSDictionary* cppexception = [error objectForKey:@KSCrashField_CPPException];
     NSDictionary* lastException = [[self processReport:report] objectForKey:@KSCrashField_LastDeallocedNSException];
     NSDictionary* userException = [error objectForKey:@KSCrashField_UserReported];
     NSDictionary* mach = [error objectForKey:@KSCrashField_Mach];
@@ -683,8 +684,8 @@ NSDictionary* g_registerOrders;
     }
     else if([type isEqual:@KSCrashExcType_CPPException])
     {
-        [str appendString:[self stringWithUncaughtExceptionName:@"C++"
-                                                         reason:@"Uncaught C++ Exception"]];
+        [str appendString:[self stringWithUncaughtExceptionName:[cppexception objectForKey:@KSCrashField_Name]
+                                                         reason:[error objectForKey:@KSCrashField_Reason]]];
     }
 
     if([@KSCrashExcType_Deadlock isEqualToString:[error objectForKey:@KSCrashField_Type]])

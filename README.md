@@ -16,7 +16,6 @@ of a lot more that they COULD do. Here are some key features of KSCrash:
   overflow.
 * Handles a crash in the crash handler itself (or in the user crash handler
   callback).
-* Detects deadlocks in the main loop.
 * Detects zombie (deallocated) object access attempts.
 * Recovers lost NSException messages in cases of zombies or memory corruption.
 * Introspects objects in registers and on the stack (C strings and Objective-C
@@ -32,6 +31,15 @@ of a lot more that they COULD do. Here are some key features of KSCrash:
   format.
 * Supports including extra data that the programmer supplies (before and during
   a crash).
+
+KSCrash handles the following kinds of crashes:
+
+* Mach kernel exceptions
+* Fatal signals
+* C++ exceptions
+* Objective-C exceptions
+* Main thread deadlock (experimental)
+* Custom crashes (e.g. from scripting languages)
 
 [Here are some examples of the reports it can generate.](https://github.com/kstenerud/KSCrash/tree/master/Example-Reports/_README.md)
 

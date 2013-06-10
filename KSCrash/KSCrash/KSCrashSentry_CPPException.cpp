@@ -28,10 +28,12 @@
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
+#include <cxxabi.h>
 #include <dlfcn.h>
-#include <execinfo.h>
 #include <exception>
+#include <execinfo.h>
 #include <mach/mach.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <typeinfo>
 
@@ -48,11 +50,13 @@
 #pragma mark - Globals -
 // ============================================================================
 
-/** True if this handler has been installed.
- * Note: We are not using sig_atomic or volatile since c++ exceptions can happen
- * quite frequently.
- */
-static bool g_installed = false;
+/** True if this handler has been installed. */
+static volatile sig_atomic_t g_installed = 0;
+
+/** True if the handler should capture the next stack trace. */
+static bool g_captureNextStackTrace = false;
+
+static std::terminate_handler g_originalTerminateHandler;
 
 /** Buffer for the backtrace of the most recent exception. */
 static uintptr_t g_stackTrace[STACKTRACE_BUFFER_LENGTH];
@@ -72,7 +76,7 @@ typedef void (*cxa_throw_type)(void*, void*, void (*)(void*));
 
 extern "C" void __cxa_throw(void* thrown_exception, void* tinfo, void (*dest)(void*))
 {
-    if(g_installed)
+    if(g_captureNextStackTrace)
     {
         g_stackTraceCount = backtrace((void**)g_stackTrace, sizeof(g_stackTrace) / sizeof(*g_stackTrace));
     }
@@ -86,13 +90,11 @@ extern "C" void __cxa_throw(void* thrown_exception, void* tinfo, void (*dest)(vo
 }
 
 
-static void CPPExceptionTerminate_Installed(void)
+static void CPPExceptionTerminate(void)
 {
     KSLOG_DEBUG("Trapped c++ exception %s", g_exception_cause);
     bool wasHandlingCrash = g_context->handlingCrash;
     kscrashsentry_beginHandlingCrash(g_context);
-
-    KSLOG_DEBUG("Exception handler is installed. Continuing exception handling.");
 
     if(wasHandlingCrash)
     {
@@ -107,19 +109,110 @@ static void CPPExceptionTerminate_Installed(void)
     g_context->crashType = KSCrashTypeCPPException;
     g_context->offendingThread = mach_thread_self();
     g_context->registersAreValid = false;
-    g_context->stackTrace = g_stackTrace + 1; // Don't record __cxa_throw
+    g_context->stackTrace = g_stackTrace + 1; // Don't record __cxa_throw stack entry
     g_context->stackTraceLength = g_stackTraceCount - 1;
+
+    KSLOG_DEBUG(@"Capturing exception info.");
+    g_captureNextStackTrace = false;
+    std::type_info* tinfo = __cxxabiv1::__cxa_current_exception_type();
+    if(tinfo != NULL)
+    {
+        size_t nameLength = 100;
+        char* name = (char*)malloc(nameLength);
+        int demangleStatus = 0;
+        name = __cxxabiv1::__cxa_demangle(tinfo->name(), name, &nameLength, &demangleStatus);
+
+        if(name != NULL)
+        {
+            char descriptionBuff[1000];
+            const char* description = descriptionBuff;
+
+            try
+            {
+                throw;
+            }
+            catch(std::exception &exc)
+            {
+                description = exc.what();
+            }
+            catch(char value)
+            {
+                snprintf(descriptionBuff, sizeof(descriptionBuff), "%d", value);
+            }
+            catch(unsigned char value)
+            {
+                snprintf(descriptionBuff, sizeof(descriptionBuff), "%u", value);
+            }
+            catch(short value)
+            {
+                snprintf(descriptionBuff, sizeof(descriptionBuff), "%d", value);
+            }
+            catch(unsigned short value)
+            {
+                snprintf(descriptionBuff, sizeof(descriptionBuff), "%u", value);
+            }
+            catch(int value)
+            {
+                snprintf(descriptionBuff, sizeof(descriptionBuff), "%d", value);
+            }
+            catch(unsigned int value)
+            {
+                snprintf(descriptionBuff, sizeof(descriptionBuff), "%u", value);
+            }
+            catch(long value)
+            {
+                snprintf(descriptionBuff, sizeof(descriptionBuff), "%ld", value);
+            }
+            catch(unsigned long value)
+            {
+                snprintf(descriptionBuff, sizeof(descriptionBuff), "%lu", value);
+            }
+            catch(long long value)
+            {
+                snprintf(descriptionBuff, sizeof(descriptionBuff), "%lld", value);
+            }
+            catch(unsigned long long value)
+            {
+                snprintf(descriptionBuff, sizeof(descriptionBuff), "%llu", value);
+            }
+            catch(float value)
+            {
+                snprintf(descriptionBuff, sizeof(descriptionBuff), "%f", value);
+            }
+            catch(double value)
+            {
+                snprintf(descriptionBuff, sizeof(descriptionBuff), "%f", value);
+            }
+            catch(long double value)
+            {
+                snprintf(descriptionBuff, sizeof(descriptionBuff), "%Lf", value);
+            }
+            catch(char* value)
+            {
+                snprintf(descriptionBuff, sizeof(descriptionBuff), "%s", value);
+            }
+            catch(const char* value)
+            {
+                snprintf(descriptionBuff, sizeof(descriptionBuff), "%s", value);
+            }
+            catch(...)
+            {
+                description = NULL;
+            }
+
+            g_context->CPPException.name = name;
+            g_context->crashReason = description;
+        }
+        
+        free(name);
+    }
+    g_captureNextStackTrace = (g_installed != 0);
 
     KSLOG_DEBUG(@"Calling main crash handler.");
     g_context->onCrash();
 
     KSLOG_DEBUG(@"Crash handling complete. Restoring original handlers.");
     kscrashsentry_uninstall((KSCrashType)KSCrashTypeAll);
-    abort();
-}
-
-static void CPPExceptionTerminate_Uninstalled(void)
-{
     abort();
 }
 
@@ -137,23 +230,25 @@ extern "C" bool kscrashsentry_installCPPExceptionHandler(KSCrash_SentryContext* 
         KSLOG_DEBUG("C++ exception handler already installed.");
         return true;
     }
-    g_installed = true;
+    g_installed = 1;
 
     g_context = context;
 
-    std::set_terminate(CPPExceptionTerminate_Installed);
+    g_originalTerminateHandler = std::set_terminate(CPPExceptionTerminate);
+    g_captureNextStackTrace = true;
     return true;
 }
 
 extern "C" void kscrashsentry_uninstallCPPExceptionHandler(void)
 {
-    KSLOG_DEBUG("Uninstalling C++ exception handlers.");
+    KSLOG_DEBUG("Uninstalling C++ exception handler.");
     if(!g_installed)
     {
-        KSLOG_DEBUG("C++ exception handlers were already uninstalled.");
+        KSLOG_DEBUG("C++ exception handler already uninstalled.");
         return;
     }
 
-    std::set_terminate(CPPExceptionTerminate_Uninstalled);
-    g_installed = false;
+    g_captureNextStackTrace = false;
+    std::set_terminate(g_originalTerminateHandler);
+    g_installed = 0;
 }

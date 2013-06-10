@@ -8,6 +8,7 @@
 #import "ARCSafe_MemMgmt.h"
 #import <KSCrash/KSCrash.h>
 #import <pthread.h>
+#import <exception>
 
 @interface MyClass: NSObject @end
 @implementation MyClass @end
@@ -235,9 +236,21 @@ int g_crasher_denominator = 0;
                                  terminateProgram:NO];
 }
 
+
+class MyException: public std::exception
+{
+public:
+    virtual const char* what() const noexcept;
+};
+
+const char* MyException::what() const noexcept
+{
+    return "Something bad happened...";
+}
+
 - (void) throwUncaughtCPPException
 {
-    throw 20;
+    throw MyException();
 }
 
 @end

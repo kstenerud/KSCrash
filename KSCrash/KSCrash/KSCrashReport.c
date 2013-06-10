@@ -535,7 +535,9 @@ void kscrw_i_logCrashType(const KSCrash_SentryContext* const sentryContext)
         }
         case KSCrashTypeCPPException:
         {
-            KSLOG_INFO("App crashed due to C++ exception: %s", sentryContext->crashReason);
+            KSLOG_INFO("App crashed due to C++ exception: %s: %s",
+                       sentryContext->CPPException.name,
+                       sentryContext->crashReason);
             break;
         }
         case KSCrashTypeNSException:
@@ -1660,7 +1662,7 @@ void kscrw_i_writeError(const KSCrashReportWriter* const writer,
     kern_return_t machSubCode = 0;
     int sigNum = 0;
     int sigCode = 0;
-    const char* NSExceptionName = NULL;
+    const char* exceptionName = NULL;
     const char* crashReason = NULL;
 
     // Gather common info.
@@ -1687,11 +1689,12 @@ void kscrw_i_writeError(const KSCrashReportWriter* const writer,
             machExceptionType = EXC_CRASH;
             sigNum = SIGABRT;
             crashReason = crash->crashReason;
+            exceptionName = crash->CPPException.name;
             break;
         case KSCrashTypeNSException:
             machExceptionType = EXC_CRASH;
             sigNum = SIGABRT;
-            NSExceptionName = crash->NSException.name;
+            exceptionName = crash->NSException.name;
             crashReason = crash->crashReason;
             break;
         case KSCrashTypeSignal:
@@ -1762,15 +1765,21 @@ void kscrw_i_writeError(const KSCrashReportWriter* const writer,
                 break;
 
             case KSCrashTypeCPPException:
+            {
                 writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_CPPException);
+                writer->beginObject(writer, KSCrashField_CPPException);
+                {
+                    writer->addStringElement(writer, KSCrashField_Name, exceptionName);
+                }
+                writer->endContainer(writer);
                 break;
-
+            }
             case KSCrashTypeNSException:
             {
                 writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_NSException);
                 writer->beginObject(writer, KSCrashField_NSException);
                 {
-                    writer->addStringElement(writer, KSCrashField_Name, NSExceptionName);
+                    writer->addStringElement(writer, KSCrashField_Name, exceptionName);
                     kscrw_i_writeAddressReferencedByString(writer, KSCrashField_ReferencedObject, crashReason);
                 }
                 writer->endContainer(writer);

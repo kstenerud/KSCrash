@@ -137,6 +137,13 @@ typedef struct KSCrash_SentryContext
 
     struct
     {
+        /** The exception name. */
+        const char* name;
+
+    } CPPException;
+    
+    struct
+    {
         /** User context information. */
         const ucontext_t* userContext;
 
