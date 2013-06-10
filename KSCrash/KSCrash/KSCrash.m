@@ -71,12 +71,17 @@
 @interface KSCrash ()
 
 @property(nonatomic, readwrite, retain) NSString* bundleName;
-@property(nonatomic, readwrite, retain) NSString* logFilePath;
 @property(nonatomic, readwrite, retain) NSString* nextCrashID;
-@property(nonatomic, readwrite, retain) KSCrashReportStore* crashReportStore;
 @property(nonatomic, readonly, retain) NSString* crashReportPath;
 @property(nonatomic, readonly, retain) NSString* recrashReportPath;
 @property(nonatomic, readonly, retain) NSString* stateFilePath;
+
+@end
+
+@interface KSCrash (Private)
+
+@property(nonatomic, readwrite, retain) NSString* logFilePath;
+@property(nonatomic, readwrite, retain) KSCrashReportStore* crashReportStore;
 
 @end
 
