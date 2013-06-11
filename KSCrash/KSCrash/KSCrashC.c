@@ -182,8 +182,17 @@ KSCrashType kscrash_setHandlingCrashTypes(KSCrashType crashTypes)
 {
     if((crashTypes & KSCrashTypeDebuggerUnsafe) && ksmach_isBeingTraced())
     {
-        KSLOGBASIC_WARN("KSCrash: App is running in a debugger. Crash types 0x%02x have been disabled.",
-                        (crashTypes & KSCrashTypeDebuggerUnsafe));
+        KSLOGBASIC_WARN("KSCrash: App is running in a debugger. The following crash types have been disabled:");
+        KSCrashType disabledCrashTypes = crashTypes & KSCrashTypeDebuggerUnsafe;
+        for(int i = 0; i < 31; i++)
+        {
+            KSCrashType type = 1 << i;
+            if(disabledCrashTypes & type)
+            {
+                KSLOGBASIC_WARN("* %s", kscrashtype_name(type));
+            }
+        }
+
         crashTypes &= KSCrashTypeDebuggerSafe;
     }
 

@@ -369,6 +369,9 @@
 		CB5C51781766711D00A05F0C /* KSCrashType.h in Headers */ = {isa = PBXBuildFile; fileRef = CB5C51771766702000A05F0C /* KSCrashType.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CB5C51791766713000A05F0C /* KSCrashType.h in Headers */ = {isa = PBXBuildFile; fileRef = CB5C51771766702000A05F0C /* KSCrashType.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CB5C517A1766714A00A05F0C /* KSCrashType.h in Headers */ = {isa = PBXBuildFile; fileRef = CB5C51771766702000A05F0C /* KSCrashType.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		CB5C51881767639400A05F0C /* KSCrashType.c in Sources */ = {isa = PBXBuildFile; fileRef = CB5C51871767639400A05F0C /* KSCrashType.c */; };
+		CB5C51891767639400A05F0C /* KSCrashType.c in Sources */ = {isa = PBXBuildFile; fileRef = CB5C51871767639400A05F0C /* KSCrashType.c */; };
+		CB5C518A1767639400A05F0C /* KSCrashType.c in Sources */ = {isa = PBXBuildFile; fileRef = CB5C51871767639400A05F0C /* KSCrashType.c */; };
 		CB775560169F402700EA90A5 /* libKSCrashLib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 39DA35C616184338009EB332 /* libKSCrashLib.a */; };
 		CB78E8B5169C934100C39B02 /* KSObjCApple.h in Headers */ = {isa = PBXBuildFile; fileRef = CB78E8B4169C934100C39B02 /* KSObjCApple.h */; };
 		CB78E8B6169C934100C39B02 /* KSObjCApple.h in Headers */ = {isa = PBXBuildFile; fileRef = CB78E8B4169C934100C39B02 /* KSObjCApple.h */; };
@@ -607,6 +610,7 @@
 		CB5A5B4116C718C400DC1D2D /* KSCrashCallCompletion.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashCallCompletion.h; sourceTree = "<group>"; };
 		CB5A5B4216C718C400DC1D2D /* KSCrashCallCompletion.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSCrashCallCompletion.m; sourceTree = "<group>"; };
 		CB5C51771766702000A05F0C /* KSCrashType.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = KSCrashType.h; sourceTree = "<group>"; };
+		CB5C51871767639400A05F0C /* KSCrashType.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSCrashType.c; sourceTree = "<group>"; };
 		CB78E8B4169C934100C39B02 /* KSObjCApple.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSObjCApple.h; sourceTree = "<group>"; };
 		CB78E8B9169C94DA00C39B02 /* KSMachApple.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSMachApple.h; sourceTree = "<group>"; };
 		CB7C753D16CD5DA200227870 /* KSCrashInstallation+Private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "KSCrashInstallation+Private.h"; sourceTree = "<group>"; };
@@ -912,6 +916,7 @@
 				39DA83A21618450A001E7F79 /* KSCrashReportWriter.h */,
 				39DA83AC1618450A001E7F79 /* KSCrashState.c */,
 				39DA83AD1618450A001E7F79 /* KSCrashState.h */,
+				CB5C51871767639400A05F0C /* KSCrashType.c */,
 				CB5C51771766702000A05F0C /* KSCrashType.h */,
 				39DA83AE1618450A001E7F79 /* KSSystemInfo.h */,
 				39DA83AF1618450A001E7F79 /* KSSystemInfo.m */,
@@ -1474,6 +1479,7 @@
 				CBCED88D175E567F00BF56F0 /* KSCrashSentry_User.c in Sources */,
 				CB05EC6617623C000095353E /* KSCrashSentry_CPPExceptionDisabled.c in Sources */,
 				CB05EC8A176292EA0095353E /* KSCrashSentry_CPPException.cpp in Sources */,
+				CB5C51881767639400A05F0C /* KSCrashType.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1540,6 +1546,7 @@
 				CBCED88F175E567F00BF56F0 /* KSCrashSentry_User.c in Sources */,
 				CB05EC6817623C000095353E /* KSCrashSentry_CPPExceptionDisabled.c in Sources */,
 				CB05EC8C176292EB0095353E /* KSCrashSentry_CPPException.cpp in Sources */,
+				CB5C518A1767639400A05F0C /* KSCrashType.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1636,6 +1643,7 @@
 				CBCED88E175E567F00BF56F0 /* KSCrashSentry_User.c in Sources */,
 				CB05EC6717623C000095353E /* KSCrashSentry_CPPExceptionDisabled.c in Sources */,
 				CB05EC8B176292EB0095353E /* KSCrashSentry_CPPException.cpp in Sources */,
+				CB5C51891767639400A05F0C /* KSCrashType.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
