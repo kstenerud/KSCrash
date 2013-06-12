@@ -8,10 +8,10 @@
 
 // Takanshi error reporting server.
 // (A Python open source project. It runs on Google App Engine)
-// https://github.com/Kelp404/Takanashi
-// "takanashi-demo.appspot.com" is your server domain
+// https://github.com/kelp404/Victory
+// "victory-demo.appspot.com" is your server domain
 // "cf22ec3f-1703-476c-9a72-57d72bdebaa1" is your application key
-#define kTakanashiURL [NSURL URLWithString:@"https://takanashi-demo.appspot.com/api/v1/crash/cf22ec3f-1703-476c-9a72-57d72bdebaa1"]
+#define kVictoryURL [NSURL URLWithString:@"https://victory-demo.appspot.com/api/v1/crash/cf22ec3f-1703-476c-9a72-57d72bdebaa1"]
 
 // Hockey configuration. Please get your own app ID. This one is for internal testing!
 //#define kHockeyAppID @"7f74dc8aae8bf6effd35b48e32a08298" // Don't use this ID!

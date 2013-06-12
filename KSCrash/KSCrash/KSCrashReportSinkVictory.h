@@ -1,5 +1,5 @@
 //
-//  KSCrashReportSinkTakanashi.h
+//  KSCrashReportSinkVictory.h
 //
 //  Created by Kelp on 2013-03-14.
 //
@@ -29,12 +29,12 @@
 
 
 /**
- * Sends crash reports to Takanashi server.
+ * Sends crash reports to Victory server.
  *
  * Input: NSDictionary
  * Output: Same as input (passthrough)
  */
-@interface KSCrashReportSinkTakanashi : NSObject <KSCrashReportFilter>
+@interface KSCrashReportSinkVictory : NSObject <KSCrashReportFilter>
 
 /** Constructor.
  *
@@ -42,7 +42,7 @@
  * @param userName The user name of crash information *required. If value is nil it will be replaced with UIDevice.currentDevice.name
  * @param userEmail The user email of crash information *optional
  */
-+ (KSCrashReportSinkTakanashi*) sinkWithURL:(NSURL*) url
++ (KSCrashReportSinkVictory*) sinkWithURL:(NSURL*) url
                                    userName:(NSString*) userName
                                   userEmail:(NSString*) userEmail;;
 

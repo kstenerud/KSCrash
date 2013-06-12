@@ -1,5 +1,5 @@
 //
-//  KSCrashInstallationStandard_Tests.m
+//  KSCrashInstallationVictory.h
 //
 //  Created by Kelp on 2013-03-14.
 //
@@ -25,30 +25,26 @@
 //
 
 
-#import <SenTestingKit/SenTestingKit.h>
-
-#import "KSCrashInstallationTakanashi.h"
+#import "KSCrashInstallation.h"
 
 
-@interface KSCrashInstallationTakanashi_Tests : SenTestCase @end
+/**
+ Victory is an error reporting server in Python. It runs on Google App Engine.
+ https://github.com/kelp404/Victory
+ 
+ You could download this project and then deploy to GAE with free plan.
+ Your app could send error information to Victory with RESTful API.
+ This is a demo site: https://victory-demo.appspot.com/
+ */
+@interface KSCrashInstallationVictory : KSCrashInstallation
 
+/** The URL to connect to. */
+@property(nonatomic,readwrite,retain) NSURL* url;
+/** The user name of crash information *required. If value is nil it will be replaced with UIDevice.currentDevice.name */
+@property(nonatomic,readwrite,retain) NSString* userName;
+/** The user email of crash information *optional */
+@property(nonatomic,readwrite,retain) NSString* userEmail;
 
-@implementation KSCrashInstallationTakanashi_Tests
-
-- (void) testInstall
-{
-    KSCrashInstallationTakanashi* installation = [KSCrashInstallationTakanashi sharedInstance];
-    installation.url = [NSURL URLWithString:@"https://takanashi-demo.appspot.com/api/v1/crash/0571f5f6-652d-413f-8043-0e9531e1b689"];
-    installation.userName = nil;
-    installation.userEmail = nil;
-    
-    [installation install];
-    [installation sendAllReportsWithCompletion:^(__unused NSArray *filteredReports, BOOL completed, NSError *error)
-     {
-         // There are no reports, so this will succeed.
-         STAssertTrue(completed, @"");
-         STAssertNil(error, @"");
-     }];
-}
++ (KSCrashInstallationVictory*) sharedInstance;
 
 @end
