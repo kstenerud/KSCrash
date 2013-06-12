@@ -22,7 +22,7 @@
 #import <KSCrash/KSCrashReportSinkEMail.h>
 #import <KSCrash/KSCrashReportSinkQuincyHockey.h>
 #import <KSCrash/KSCrashReportSinkStandard.h>
-#import <KSCrash/KSCrashReportSinkTakanashi.h>
+#import <KSCrash/KSCrashReportSinkVictory.h>
 
 
 
@@ -465,13 +465,13 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
       }]];
     
     [commands addObject:
-     [CommandEntry commandWithName:@"Send to Takanashi"
+     [CommandEntry commandWithName:@"Send to Victory"
                      accessoryType:UITableViewCellAccessoryNone
                              block:^(UIViewController* controller)
       {
-          NSLog(@"Sending reports to Takanashi...");
+          NSLog(@"Sending reports to Victory...");
           KSCrash* crashReporter = [KSCrash sharedInstance];
-          crashReporter.sink = [[KSCrashReportSinkTakanashi sinkWithURL:kTakanashiURL
+          crashReporter.sink = [[KSCrashReportSinkVictory sinkWithURL:kVictoryURL
                                                                userName:[[UIDevice currentDevice] name]
                                                               userEmail:nil] defaultCrashReportFilterSet];
           [crashReporter sendAllReportsWithCompletion:^(NSArray* filteredReports, BOOL completed, NSError* error)
