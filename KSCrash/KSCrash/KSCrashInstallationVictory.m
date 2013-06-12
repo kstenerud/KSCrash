@@ -1,5 +1,5 @@
 //
-//  KSCrashInstallationTakanashi.m
+//  KSCrashInstallationVictory.m
 //
 //  Created by Kelp on 2013-03-13.
 //
@@ -25,16 +25,16 @@
 //
 
 
-#import "KSCrashInstallationTakanashi.h"
+#import "KSCrashInstallationVictory.h"
 #import "KSCrashInstallation+Private.h"
 #import "ARCSafe_MemMgmt.h"
 #import "KSSingleton.h"
-#import "KSCrashReportSinkTakanashi.h"
+#import "KSCrashReportSinkVictory.h"
 
 
-@implementation KSCrashInstallationTakanashi
+@implementation KSCrashInstallationVictory
 
-IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrashInstallationTakanashi)
+IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrashInstallationVictory)
 
 @synthesize url = _url;
 @synthesize userName = _userName;
@@ -60,7 +60,7 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrashInstallationTakanashi)
 
 - (id<KSCrashReportFilter>) sink
 {
-    KSCrashReportSinkTakanashi* sink = [KSCrashReportSinkTakanashi sinkWithURL:self.url userName:self.userName userEmail:self.userEmail];
+    KSCrashReportSinkVictory* sink = [KSCrashReportSinkVictory sinkWithURL:self.url userName:self.userName userEmail:self.userEmail];
     return [KSCrashReportFilterPipeline filterWithFilters:[sink defaultCrashReportFilterSet], nil];
 }
 
