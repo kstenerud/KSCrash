@@ -511,6 +511,7 @@ NSDictionary* g_registerOrders;
 
     [str appendString:@"\nExtra Information:\n"];
 
+    NSDictionary* system = [self systemReport:report];
     NSDictionary* crash = [self crashReport:report];
     NSDictionary* error = [crash objectForKey:@KSCrashField_Error];
     NSDictionary* nsexception = [error objectForKey:@KSCrashField_NSException];
@@ -556,6 +557,12 @@ NSDictionary* g_registerOrders;
          [self backtraceString:[lastException objectForKey:@KSCrashField_Backtrace]
                    reportStyle:self.reportStyle
             mainExecutableName:mainExecutableName]];
+    }
+
+    NSDictionary* appStats = [system objectForKey:@KSCrashField_AppStats];
+    if(appStats != nil)
+    {
+        [str appendFormat:@"\nApplication Stats:\n%@\n", [self JSONForObject:appStats]];
     }
 
     NSDictionary* crashReport = [report objectForKey:@KSCrashField_Crash];
