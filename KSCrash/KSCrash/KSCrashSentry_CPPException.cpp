@@ -135,66 +135,26 @@ static void CPPExceptionTerminate(void)
             {
                 description = exc.what();
             }
-            catch(char value)
-            {
-                snprintf(descriptionBuff, sizeof(descriptionBuff), "%d", value);
-            }
-            catch(unsigned char value)
-            {
-                snprintf(descriptionBuff, sizeof(descriptionBuff), "%u", value);
-            }
-            catch(short value)
-            {
-                snprintf(descriptionBuff, sizeof(descriptionBuff), "%d", value);
-            }
-            catch(unsigned short value)
-            {
-                snprintf(descriptionBuff, sizeof(descriptionBuff), "%u", value);
-            }
-            catch(int value)
-            {
-                snprintf(descriptionBuff, sizeof(descriptionBuff), "%d", value);
-            }
-            catch(unsigned int value)
-            {
-                snprintf(descriptionBuff, sizeof(descriptionBuff), "%u", value);
-            }
-            catch(long value)
-            {
-                snprintf(descriptionBuff, sizeof(descriptionBuff), "%ld", value);
-            }
-            catch(unsigned long value)
-            {
-                snprintf(descriptionBuff, sizeof(descriptionBuff), "%lu", value);
-            }
-            catch(long long value)
-            {
-                snprintf(descriptionBuff, sizeof(descriptionBuff), "%lld", value);
-            }
-            catch(unsigned long long value)
-            {
-                snprintf(descriptionBuff, sizeof(descriptionBuff), "%llu", value);
-            }
-            catch(float value)
-            {
-                snprintf(descriptionBuff, sizeof(descriptionBuff), "%f", value);
-            }
-            catch(double value)
-            {
-                snprintf(descriptionBuff, sizeof(descriptionBuff), "%f", value);
-            }
-            catch(long double value)
-            {
-                snprintf(descriptionBuff, sizeof(descriptionBuff), "%Lf", value);
-            }
-            catch(char* value)
-            {
-                snprintf(descriptionBuff, sizeof(descriptionBuff), "%s", value);
-            }
-            catch(const char* value)
-            {
-                snprintf(descriptionBuff, sizeof(descriptionBuff), "%s", value);
-            }
+#define CATCH_VALUE(TYPE, PRINTFTYPE) \
+catch(TYPE value)\
+{ \
+    snprintf(descriptionBuff, sizeof(descriptionBuff), "%" #PRINTFTYPE, value); \
+}
+            CATCH_VALUE(char,                 d)
+            CATCH_VALUE(short,                d)
+            CATCH_VALUE(int,                  d)
+            CATCH_VALUE(long,                ld)
+            CATCH_VALUE(long long,          lld)
+            CATCH_VALUE(unsigned char,        u)
+            CATCH_VALUE(unsigned short,       u)
+            CATCH_VALUE(unsigned int,         u)
+            CATCH_VALUE(unsigned long,       lu)
+            CATCH_VALUE(unsigned long long, llu)
+            CATCH_VALUE(float,                f)
+            CATCH_VALUE(double,               f)
+            CATCH_VALUE(long double,         Lf)
+            CATCH_VALUE(char*,                s)
+            CATCH_VALUE(const char*,          s)
             catch(...)
             {
                 description = NULL;
