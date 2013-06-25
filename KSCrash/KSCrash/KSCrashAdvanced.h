@@ -32,7 +32,7 @@
 /**
  * Advanced interface to the KSCrash system.
  */
-@interface KSCrash ()
+@interface KSCrash (Advanced)
 
 #pragma mark - Information -
 
@@ -102,7 +102,7 @@
  *
  * Default: nil
  */
-@property(nonatomic, readonly, retain) NSString* logFilePath;
+@property(nonatomic,readonly,retain) NSString* logFilePath;
 
 /** If YES, print a stack trace to stdout when a crash occurs.
  *

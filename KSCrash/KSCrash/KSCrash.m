@@ -70,18 +70,18 @@
 
 @interface KSCrash ()
 
-@property(nonatomic, readwrite, retain) NSString* bundleName;
-@property(nonatomic, readwrite, retain) NSString* nextCrashID;
-@property(nonatomic, readonly, retain) NSString* crashReportPath;
-@property(nonatomic, readonly, retain) NSString* recrashReportPath;
-@property(nonatomic, readonly, retain) NSString* stateFilePath;
+@property(nonatomic,readwrite,retain) NSString* bundleName;
+@property(nonatomic,readwrite,retain) NSString* nextCrashID;
+@property(nonatomic,readonly,retain) NSString* crashReportPath;
+@property(nonatomic,readonly,retain) NSString* recrashReportPath;
+@property(nonatomic,readonly,retain) NSString* stateFilePath;
 
-@end
-
-@interface KSCrash (Private)
-
-@property(nonatomic, readwrite, retain) NSString* logFilePath;
-@property(nonatomic, readwrite, retain) KSCrashReportStore* crashReportStore;
+// Mirrored from KSCrashAdvanced.h to provide ivars
+@property(nonatomic,readwrite,retain) id<KSCrashReportFilter> sink;
+@property(nonatomic,readwrite,retain) NSString* logFilePath;
+@property(nonatomic,readwrite,retain) KSCrashReportStore* crashReportStore;
+@property(nonatomic,readwrite,assign) KSReportWriteCallback onCrash;
+@property(nonatomic,readwrite,assign) bool printTraceToStdout;
 
 @end
 

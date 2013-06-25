@@ -168,12 +168,17 @@
  */
 + (NSString*) deviceAndAppHash
 {
-    NSMutableData* data = [NSMutableData dataWithLength:6];
+    NSMutableData* data = nil;
 
-    // Get the MAC address.
-    if(!kssysctl_getMacAddress("en0", [data mutableBytes]))
+    if([[UIDevice currentDevice] respondsToSelector:@selector(identifierForVendor)])
     {
-        return nil;
+        data = [NSMutableData dataWithLength:16];
+        [[UIDevice currentDevice].identifierForVendor getUUIDBytes:data.mutableBytes];
+    }
+    else
+    {
+        data = [NSMutableData dataWithLength:6];
+        kssysctl_getMacAddress("en0", [data mutableBytes]);
     }
 
     // Append some device-specific data.
