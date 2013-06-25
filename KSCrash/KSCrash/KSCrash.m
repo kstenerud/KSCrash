@@ -375,6 +375,21 @@ failed:
 #pragma mark - Advanced API -
 // ============================================================================
 
+#define SYNTHESIZE_CRASH_STATE_PROPERTY(TYPE, NAME) \
+- (TYPE) NAME \
+{ \
+    return kscrashstate_currentState()->NAME; \
+}
+
+SYNTHESIZE_CRASH_STATE_PROPERTY(NSTimeInterval, activeDurationSinceLastCrash)
+SYNTHESIZE_CRASH_STATE_PROPERTY(NSTimeInterval, backgroundDurationSinceLastCrash)
+SYNTHESIZE_CRASH_STATE_PROPERTY(int, launchesSinceLastCrash)
+SYNTHESIZE_CRASH_STATE_PROPERTY(int, sessionsSinceLastCrash)
+SYNTHESIZE_CRASH_STATE_PROPERTY(NSTimeInterval, activeDurationSinceLaunch)
+SYNTHESIZE_CRASH_STATE_PROPERTY(NSTimeInterval, backgroundDurationSinceLaunch)
+SYNTHESIZE_CRASH_STATE_PROPERTY(int, sessionsSinceLaunch)
+SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
+
 - (NSUInteger) reportCount
 {
     return [self.crashReportStore reportCount];

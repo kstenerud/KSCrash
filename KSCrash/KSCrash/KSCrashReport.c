@@ -1036,7 +1036,7 @@ void kscrw_i_writeAddressReferencedByString(const KSCrashReportWriter* const wri
                                             const char* string)
 {
     uint64_t address = 0;
-    if(!ksstring_extractHexValue(string, strlen(string), &address))
+    if(string == NULL || !ksstring_extractHexValue(string, strlen(string), &address))
     {
         return;
     }

@@ -34,6 +34,43 @@
  */
 @interface KSCrash ()
 
+#pragma mark - Information -
+
+/** Total active time elapsed since the last crash. */
+@property(nonatomic,readonly,assign) NSTimeInterval activeDurationSinceLastCrash;
+
+/** Total time backgrounded elapsed since the last crash. */
+@property(nonatomic,readonly,assign) NSTimeInterval backgroundDurationSinceLastCrash;
+
+/** Number of app launches since the last crash. */
+@property(nonatomic,readonly,assign) int launchesSinceLastCrash;
+
+/** Number of sessions (launch, resume from suspend) since last crash. */
+@property(nonatomic,readonly,assign) int sessionsSinceLastCrash;
+
+/** Total active time elapsed since launch. */
+@property(nonatomic,readonly,assign) NSTimeInterval activeDurationSinceLaunch;
+
+/** Total time backgrounded elapsed since launch. */
+@property(nonatomic,readonly,assign) NSTimeInterval backgroundDurationSinceLaunch;
+
+/** Number of sessions (launch, resume from suspend) since app launch. */
+@property(nonatomic,readonly,assign) int sessionsSinceLaunch;
+
+/** If true, the application crashed on the previous launch. */
+@property(nonatomic,readonly,assign) BOOL crashedLastLaunch;
+
+/** The total number of unsent reports. Note: This is an expensive operation.
+ */
+- (NSUInteger) reportCount;
+
+/** Get all reports, with data types corrected, as dictionaries.
+ */
+- (NSArray*) allReports;
+
+
+#pragma mark - Configuration -
+
 /** Store containing all crash reports. */
 @property(nonatomic, readwrite, retain) KSCrashReportStore* crashReportStore;
 
@@ -73,21 +110,6 @@
  */
 @property(nonatomic,readwrite,assign) bool printTraceToStdout;
 
-/** Send the specified reports to the current sink.
- *
- * @param reports The reports to send.
- * @param onCompletion Called when sending is complete (nil = ignore).
- */
-- (void) sendReports:(NSArray*) reports onCompletion:(KSCrashReportFilterCompletion) onCompletion;
-
-/** The total number of unsent reports. Note: This is an expensive operation.
- */
-- (NSUInteger) reportCount;
-
-/** Get all reports, with data types corrected, as dictionaries.
- */
-- (NSArray*) allReports;
-
 /** Sets logFilePath to the default log file location
  * (Library/Caches/KSCrashReports/<bundle name>-CrashLog.txt).
  * If the file exists, it will be overwritten.
@@ -105,5 +127,14 @@
  */
 - (BOOL) redirectConsoleLogsToFile:(NSString*) fullPath overwrite:(BOOL) overwrite;
 
-@end
 
+#pragma mark - Operations -
+
+/** Send the specified reports to the current sink.
+ *
+ * @param reports The reports to send.
+ * @param onCompletion Called when sending is complete (nil = ignore).
+ */
+- (void) sendReports:(NSArray*) reports onCompletion:(KSCrashReportFilterCompletion) onCompletion;
+
+@end
