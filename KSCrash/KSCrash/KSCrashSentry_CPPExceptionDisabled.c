@@ -1,7 +1,5 @@
 //
-//  KSSystemInfo_Tests.m
-//
-//  Created by Karl Stenerud on 2013-01-26.
+//  KSCrashSentry_CPPThrowHandler.c
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,37 +22,20 @@
 // THE SOFTWARE.
 //
 
-#import <SenTestingKit/SenTestingKit.h>
 
-#import "KSSystemInfo.h"
-#import "KSSystemInfoC.h"
+#include "KSCrashSentry_CPPException.h"
 
 
-@interface KSSystemInfo_Tests : SenTestCase @end
+// ============================================================================
+#pragma mark - Public API -
+// ============================================================================
 
-
-@implementation KSSystemInfo_Tests
-
-- (void) testSystemInfo
+__attribute((weak)) bool kscrashsentry_installCPPExceptionHandler(__unused KSCrash_SentryContext* context)
 {
-    NSDictionary* info = [KSSystemInfo systemInfo];
-    STAssertNotNil(info, @"");
+    return false;
 }
 
-- (void) testSystemInfoJSON
+__attribute((weak)) void kscrashsentry_uninstallCPPExceptionHandler(void)
 {
-    const char* json = kssysteminfo_toJSON();
-    STAssertTrue(json != NULL, @"");
+    // Do nothing.
 }
-
-- (void) testCopyProcessName
-{
-    char* processName = kssysteminfo_copyProcessName();
-    STAssertTrue(processName != NULL, @"");
-    if(processName != NULL)
-    {
-        free(processName);
-    }
-}
-
-@end

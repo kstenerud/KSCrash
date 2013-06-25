@@ -1,7 +1,5 @@
 //
-//  KSSystemInfo_Tests.m
-//
-//  Created by Karl Stenerud on 2013-01-26.
+//  KSCrashType.c
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,37 +22,37 @@
 // THE SOFTWARE.
 //
 
-#import <SenTestingKit/SenTestingKit.h>
 
-#import "KSSystemInfo.h"
-#import "KSSystemInfoC.h"
+#include "KSCrashType.h"
 
-
-@interface KSSystemInfo_Tests : SenTestCase @end
+#include <stdlib.h>
 
 
-@implementation KSSystemInfo_Tests
-
-- (void) testSystemInfo
+static const struct
 {
-    NSDictionary* info = [KSSystemInfo systemInfo];
-    STAssertNotNil(info, @"");
-}
-
-- (void) testSystemInfoJSON
+    const KSCrashType type;
+    const char* const name;
+} g_crashTypes[] =
 {
-    const char* json = kssysteminfo_toJSON();
-    STAssertTrue(json != NULL, @"");
-}
+#define CRASHTYPE(NAME) {NAME, #NAME}
+    CRASHTYPE(KSCrashTypeMachException),
+    CRASHTYPE(KSCrashTypeSignal),
+    CRASHTYPE(KSCrashTypeCPPException),
+    CRASHTYPE(KSCrashTypeNSException),
+    CRASHTYPE(KSCrashTypeMainThreadDeadlock),
+    CRASHTYPE(KSCrashTypeUserReported),
+};
+static const int g_crashTypesCount = sizeof(g_crashTypes) / sizeof(*g_crashTypes);
 
-- (void) testCopyProcessName
+
+const char* kscrashtype_name(const KSCrashType crashType)
 {
-    char* processName = kssysteminfo_copyProcessName();
-    STAssertTrue(processName != NULL, @"");
-    if(processName != NULL)
+    for(int i = 0; i < g_crashTypesCount; i++)
     {
-        free(processName);
+        if(g_crashTypes[i].type == crashType)
+        {
+            return g_crashTypes[i].name;
+        }
     }
+    return NULL;
 }
-
-@end

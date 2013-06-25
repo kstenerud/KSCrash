@@ -30,6 +30,7 @@
 
 #include "KSCrashSentry_Deadlock.h"
 #include "KSCrashSentry_MachException.h"
+#include "KSCrashSentry_CPPException.h"
 #include "KSCrashSentry_NSException.h"
 #include "KSCrashSentry_Signal.h"
 #include "KSCrashSentry_User.h"
@@ -61,6 +62,11 @@ static CrashSentry g_sentries[] =
         KSCrashTypeSignal,
         kscrashsentry_installSignalHandler,
         kscrashsentry_uninstallSignalHandler,
+    },
+    {
+        KSCrashTypeCPPException,
+        kscrashsentry_installCPPExceptionHandler,
+        kscrashsentry_uninstallCPPExceptionHandler,
     },
     {
         KSCrashTypeNSException,

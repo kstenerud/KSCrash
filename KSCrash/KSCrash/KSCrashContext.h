@@ -76,7 +76,10 @@ typedef struct
 
     /** When writing the crash report, print a stack trace to STDOUT as well. */
     bool printTraceToStdout;
-    
+
+    /** The types of crashes that will be handled. */
+    KSCrashType handlingCrashTypes;
+
     /** Rules for introspecting Objective-C objects. */
     KSCrash_IntrospectionRules introspectionRules;
     

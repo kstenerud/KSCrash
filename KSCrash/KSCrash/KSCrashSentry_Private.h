@@ -32,6 +32,9 @@
 extern "C" {
 #endif
 
+    
+#include "KSCrashSentry.h"
+
 
 /** Suspend all non-reserved threads.
  *

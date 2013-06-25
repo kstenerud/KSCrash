@@ -70,13 +70,18 @@
 
 @interface KSCrash ()
 
-@property(nonatomic, readwrite, retain) NSString* bundleName;
-@property(nonatomic, readwrite, retain) NSString* logFilePath;
-@property(nonatomic, readwrite, retain) NSString* nextCrashID;
-@property(nonatomic, readwrite, retain) KSCrashReportStore* crashReportStore;
-@property(nonatomic, readonly, retain) NSString* crashReportPath;
-@property(nonatomic, readonly, retain) NSString* recrashReportPath;
-@property(nonatomic, readonly, retain) NSString* stateFilePath;
+@property(nonatomic,readwrite,retain) NSString* bundleName;
+@property(nonatomic,readwrite,retain) NSString* nextCrashID;
+@property(nonatomic,readonly,retain) NSString* crashReportPath;
+@property(nonatomic,readonly,retain) NSString* recrashReportPath;
+@property(nonatomic,readonly,retain) NSString* stateFilePath;
+
+// Mirrored from KSCrashAdvanced.h to provide ivars
+@property(nonatomic,readwrite,retain) id<KSCrashReportFilter> sink;
+@property(nonatomic,readwrite,retain) NSString* logFilePath;
+@property(nonatomic,readwrite,retain) KSCrashReportStore* crashReportStore;
+@property(nonatomic,readwrite,assign) KSReportWriteCallback onCrash;
+@property(nonatomic,readwrite,assign) bool printTraceToStdout;
 
 @end
 
@@ -90,6 +95,7 @@
 @synthesize sink = _sink;
 @synthesize userInfo = _userInfo;
 @synthesize deleteBehaviorAfterSendAll = _deleteBehaviorAfterSendAll;
+@synthesize handlingCrashTypes = _handlingCrashTypes;
 @synthesize zombieCacheSize = _zombieCacheSize;
 @synthesize deadlockWatchdogInterval = _deadlockWatchdogInterval;
 @synthesize printTraceToStdout = _printTraceToStdout;
@@ -190,6 +196,11 @@ failed:
     kscrash_setUserInfoJSON([userInfoJSON bytes]);
 }
 
+- (void) setHandlingCrashTypes:(KSCrashType)handlingCrashTypes
+{
+    _handlingCrashTypes = kscrash_setHandlingCrashTypes(handlingCrashTypes);
+}
+
 - (void) setZombieCacheSize:(size_t) zombieCacheSize
 {
     _zombieCacheSize = zombieCacheSize;
@@ -259,10 +270,11 @@ failed:
 
 - (BOOL) install
 {
-    if(!kscrash_install([self.crashReportPath UTF8String],
-                        [self.recrashReportPath UTF8String],
-                        [self.stateFilePath UTF8String],
-                        [self.nextCrashID UTF8String]))
+    _handlingCrashTypes = kscrash_install([self.crashReportPath UTF8String],
+                                          [self.recrashReportPath UTF8String],
+                                          [self.stateFilePath UTF8String],
+                                          [self.nextCrashID UTF8String]);
+    if(self.handlingCrashTypes == 0)
     {
         return false;
     }

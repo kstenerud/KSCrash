@@ -30,6 +30,10 @@
 #import "KSCrashSentry.h"
 #import "KSCrashSentry_Private.h"
 
+static void onCrash(void)
+{
+    // Do nothing
+}
 
 @interface KSCrashSentry_Tests : SenTestCase @end
 
@@ -39,7 +43,7 @@
 - (void) testInstallUninstall
 {
     KSCrash_SentryContext context;
-    kscrashsentry_installWithContext(&context, KSCrashTypeAll);
+    kscrashsentry_installWithContext(&context, KSCrashTypeAll, onCrash);
     kscrashsentry_uninstall(KSCrashTypeAll);
 }
 

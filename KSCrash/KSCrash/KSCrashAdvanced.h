@@ -74,6 +74,26 @@
 /** Store containing all crash reports. */
 @property(nonatomic, readwrite, retain) KSCrashReportStore* crashReportStore;
 
+/** The report sink where reports get sent.
+ * This MUST be set or else the reporter will not send reports (although it will
+ * still record them).
+ *
+ * Note: If you use an installation, it will automatically set this property.
+ *       Do not modify it in such a case.
+ */
+@property(nonatomic,readwrite,retain) id<KSCrashReportFilter> sink;
+
+/** C Function to call during a crash report to give the callee an opportunity to
+ * add to the report. NULL = ignore.
+ *
+ * WARNING: Only call async-safe functions from this function! DO NOT call
+ * Objective-C methods!!!
+ *
+ * Note: If you use an installation, it will automatically set this property.
+ *       Do not modify it in such a case.
+ */
+@property(nonatomic,readwrite,assign) KSReportWriteCallback onCrash;
+
 /** Path where the log of KSCrash's activities will be written.
  * If nil, log entries will be printed to the console.
  *
@@ -82,7 +102,13 @@
  *
  * Default: nil
  */
-@property(nonatomic, readonly, retain) NSString* logFilePath;
+@property(nonatomic,readonly,retain) NSString* logFilePath;
+
+/** If YES, print a stack trace to stdout when a crash occurs.
+ *
+ * Default: NO
+ */
+@property(nonatomic,readwrite,assign) bool printTraceToStdout;
 
 /** Sets logFilePath to the default log file location
  * (Library/Caches/KSCrashReports/<bundle name>-CrashLog.txt).

@@ -8,6 +8,7 @@
 #import "ARCSafe_MemMgmt.h"
 #import <KSCrash/KSCrash.h>
 #import <pthread.h>
+#import <exception>
 
 @interface MyClass: NSObject @end
 @implementation MyClass @end
@@ -67,7 +68,7 @@
 int* g_crasher_null_ptr = NULL;
 int g_crasher_denominator = 0;
 
-- (void) throwException
+- (void) throwUncaughtNSException
 {
     id data = [NSArray arrayWithObject:@"Hello World"];
     [(NSDictionary*)data objectForKey:0];
@@ -90,7 +91,13 @@ int g_crasher_denominator = 0;
     
     // Random data
     void* pointers[] = {NULL, NULL, NULL};
-    void* randomData[] = {"a","b",pointers,"d","e","f"};
+    void* randomData[] = {
+        (void*)"a",
+        (void*)"b",
+        (void*)pointers,
+        (void*)"d",
+        (void*)"e",
+        (void*)"f"};
     
     // A corrupted/under-retained/re-used piece of memory
     struct {void* isa;} corruptObj = {randomData};
@@ -227,6 +234,23 @@ int g_crasher_denominator = 0;
                                        lineOfCode:lineOfCode
                                        stackTrace:stackTrace
                                  terminateProgram:NO];
+}
+
+
+class MyException: public std::exception
+{
+public:
+    virtual const char* what() const noexcept;
+};
+
+const char* MyException::what() const noexcept
+{
+    return "Something bad happened...";
+}
+
+- (void) throwUncaughtCPPException
+{
+    throw MyException();
 }
 
 @end

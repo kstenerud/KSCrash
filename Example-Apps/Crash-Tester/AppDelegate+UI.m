@@ -496,9 +496,17 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                      accessoryType:UITableViewCellAccessoryNone
                              block:^(__unused UIViewController* controller)
       {
-          [blockSelf.crasher throwException];
+          [blockSelf.crasher throwUncaughtNSException];
       }]];
     
+    [commands addObject:
+     [CommandEntry commandWithName:@"C++ Exception"
+                     accessoryType:UITableViewCellAccessoryNone
+                             block:^(__unused UIViewController* controller)
+      {
+          [blockSelf.crasher throwUncaughtCPPException];
+      }]];
+
     [commands addObject:
      [CommandEntry commandWithName:@"Bad Pointer"
                      accessoryType:UITableViewCellAccessoryNone

@@ -1,7 +1,5 @@
 //
-//  KSSystemInfo_Tests.m
-//
-//  Created by Karl Stenerud on 2013-01-26.
+//  KSCrashSentry_CPPException.h
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,37 +22,32 @@
 // THE SOFTWARE.
 //
 
-#import <SenTestingKit/SenTestingKit.h>
+#ifndef HDR_KSCrashSentry_CPPException_h
+#define HDR_KSCrashSentry_CPPException_h
 
-#import "KSSystemInfo.h"
-#import "KSSystemInfoC.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 
-@interface KSSystemInfo_Tests : SenTestCase @end
+#include "KSCrashSentry.h"
 
 
-@implementation KSSystemInfo_Tests
+/** Install the C++ exception handler.
+ *
+ * @param context Contextual information for the crash handler.
+ *
+ * @return true if installation was succesful.
+ */
+bool kscrashsentry_installCPPExceptionHandler(KSCrash_SentryContext* context);
 
-- (void) testSystemInfo
-{
-    NSDictionary* info = [KSSystemInfo systemInfo];
-    STAssertNotNil(info, @"");
+/** Uninstall the C++ exception handler.
+ */
+void kscrashsentry_uninstallCPPExceptionHandler(void);
+
+
+#ifdef __cplusplus
 }
+#endif
 
-- (void) testSystemInfoJSON
-{
-    const char* json = kssysteminfo_toJSON();
-    STAssertTrue(json != NULL, @"");
-}
-
-- (void) testCopyProcessName
-{
-    char* processName = kssysteminfo_copyProcessName();
-    STAssertTrue(processName != NULL, @"");
-    if(processName != NULL)
-    {
-        free(processName);
-    }
-}
-
-@end
+#endif // HDR_KSCrashSentry_CPPException_h
