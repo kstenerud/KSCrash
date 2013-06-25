@@ -39,6 +39,8 @@
 
 
 #define STACKTRACE_BUFFER_LENGTH 30
+#define NAME_BUFFER_LENGTH 100
+#define DESCRIPTION_BUFFER_LENGTH 1000
 
 
 // Compiler hints for "if" statements
@@ -92,88 +94,109 @@ extern "C" void __cxa_throw(void* thrown_exception, void* tinfo, void (*dest)(vo
 
 static void CPPExceptionTerminate(void)
 {
-    KSLOG_DEBUG("Trapped c++ exception %s", g_exception_cause);
-    bool wasHandlingCrash = g_context->handlingCrash;
-    kscrashsentry_beginHandlingCrash(g_context);
+    KSLOG_DEBUG(@"Trapped c++ exception");
 
-    if(wasHandlingCrash)
-    {
-        KSLOG_INFO("Detected crash in the crash reporter. Restoring original handlers.");
-        g_context->crashedDuringCrashHandling = true;
-        kscrashsentry_uninstall((KSCrashType)KSCrashTypeAll);
-    }
+    bool isNSException = false;
+    char nameBuff[NAME_BUFFER_LENGTH];
+    char descriptionBuff[DESCRIPTION_BUFFER_LENGTH];
+    const char* name = NULL;
+    const char* description = NULL;
 
-    KSLOG_DEBUG(@"Suspending all threads.");
-    kscrashsentry_suspendThreads();
-
-    g_context->crashType = KSCrashTypeCPPException;
-    g_context->offendingThread = mach_thread_self();
-    g_context->registersAreValid = false;
-    g_context->stackTrace = g_stackTrace + 1; // Don't record __cxa_throw stack entry
-    g_context->stackTraceLength = g_stackTraceCount - 1;
-
-    KSLOG_DEBUG(@"Capturing exception info.");
-    g_captureNextStackTrace = false;
+    KSLOG_DEBUG(@"Get exception type name.");
     std::type_info* tinfo = __cxxabiv1::__cxa_current_exception_type();
     if(tinfo != NULL)
     {
-        size_t nameLength = 100;
-        char* name = (char*)malloc(nameLength);
-        int demangleStatus = 0;
-        name = __cxxabiv1::__cxa_demangle(tinfo->name(), name, &nameLength, &demangleStatus);
-
-        if(name != NULL)
+        size_t nameLength = sizeof(nameBuff);
+        char* namePtr = (char*)malloc(nameLength);
+        if(namePtr != NULL)
         {
-            char descriptionBuff[1000];
-            const char* description = descriptionBuff;
+            int demangleStatus = 0;
+            namePtr = __cxxabiv1::__cxa_demangle(tinfo->name(), namePtr, &nameLength, &demangleStatus);
+            if(namePtr != NULL)
+            {
+                strncpy(nameBuff, namePtr, sizeof(nameBuff));
+                free(namePtr);
+                name = nameBuff;
+            }
+        }
+    }
 
-            try
-            {
-                throw;
-            }
-            catch(std::exception &exc)
-            {
-                description = exc.what();
-            }
+    description = descriptionBuff;
+    descriptionBuff[0] = 0;
+
+    KSLOG_DEBUG(@"Discovering what kind of exception was thrown.");
+    g_captureNextStackTrace = false;
+    try
+    {
+        throw;
+    }
+    catch(NSException* exception)
+    {
+        KSLOG_DEBUG(@"Detected NSException. Letting the current NSException handler deal with it.");
+        isNSException = true;
+    }
+    catch(std::exception& exc)
+    {
+        strncpy(descriptionBuff, exc.what(), sizeof(descriptionBuff));
+    }
 #define CATCH_VALUE(TYPE, PRINTFTYPE) \
 catch(TYPE value)\
 { \
     snprintf(descriptionBuff, sizeof(descriptionBuff), "%" #PRINTFTYPE, value); \
 }
-            CATCH_VALUE(char,                 d)
-            CATCH_VALUE(short,                d)
-            CATCH_VALUE(int,                  d)
-            CATCH_VALUE(long,                ld)
-            CATCH_VALUE(long long,          lld)
-            CATCH_VALUE(unsigned char,        u)
-            CATCH_VALUE(unsigned short,       u)
-            CATCH_VALUE(unsigned int,         u)
-            CATCH_VALUE(unsigned long,       lu)
-            CATCH_VALUE(unsigned long long, llu)
-            CATCH_VALUE(float,                f)
-            CATCH_VALUE(double,               f)
-            CATCH_VALUE(long double,         Lf)
-            CATCH_VALUE(char*,                s)
-            CATCH_VALUE(const char*,          s)
-            catch(...)
-            {
-                description = NULL;
-            }
-
-            g_context->CPPException.name = name;
-            g_context->crashReason = description;
-        }
-        
-        free(name);
+    CATCH_VALUE(char,                 d)
+    CATCH_VALUE(short,                d)
+    CATCH_VALUE(int,                  d)
+    CATCH_VALUE(long,                ld)
+    CATCH_VALUE(long long,          lld)
+    CATCH_VALUE(unsigned char,        u)
+    CATCH_VALUE(unsigned short,       u)
+    CATCH_VALUE(unsigned int,         u)
+    CATCH_VALUE(unsigned long,       lu)
+    CATCH_VALUE(unsigned long long, llu)
+    CATCH_VALUE(float,                f)
+    CATCH_VALUE(double,               f)
+    CATCH_VALUE(long double,         Lf)
+    CATCH_VALUE(char*,                s)
+    CATCH_VALUE(const char*,          s)
+    catch(...)
+    {
+        description = NULL;
     }
     g_captureNextStackTrace = (g_installed != 0);
 
-    KSLOG_DEBUG(@"Calling main crash handler.");
-    g_context->onCrash();
+    if(!isNSException)
+    {
+        bool wasHandlingCrash = g_context->handlingCrash;
+        kscrashsentry_beginHandlingCrash(g_context);
 
-    KSLOG_DEBUG(@"Crash handling complete. Restoring original handlers.");
-    kscrashsentry_uninstall((KSCrashType)KSCrashTypeAll);
-    abort();
+        if(wasHandlingCrash)
+        {
+            KSLOG_INFO(@"Detected crash in the crash reporter. Restoring original handlers.");
+            g_context->crashedDuringCrashHandling = true;
+            kscrashsentry_uninstall((KSCrashType)KSCrashTypeAll);
+        }
+
+        KSLOG_DEBUG(@"Suspending all threads.");
+        kscrashsentry_suspendThreads();
+
+        g_context->crashType = KSCrashTypeCPPException;
+        g_context->offendingThread = mach_thread_self();
+        g_context->registersAreValid = false;
+        g_context->stackTrace = g_stackTrace + 1; // Don't record __cxa_throw stack entry
+        g_context->stackTraceLength = g_stackTraceCount - 1;
+        g_context->CPPException.name = name;
+        g_context->crashReason = description;
+
+        KSLOG_DEBUG(@"Calling main crash handler.");
+        g_context->onCrash();
+
+        KSLOG_DEBUG(@"Crash handling complete. Restoring original handlers.");
+        kscrashsentry_uninstall((KSCrashType)KSCrashTypeAll);
+        kscrashsentry_resumeThreads();
+    }
+
+    g_originalTerminateHandler();
 }
 
 
@@ -183,11 +206,11 @@ catch(TYPE value)\
 
 extern "C" bool kscrashsentry_installCPPExceptionHandler(KSCrash_SentryContext* context)
 {
-    KSLOG_DEBUG("Installing C++ exception handler.");
+    KSLOG_DEBUG(@"Installing C++ exception handler.");
 
     if(g_installed)
     {
-        KSLOG_DEBUG("C++ exception handler already installed.");
+        KSLOG_DEBUG(@"C++ exception handler already installed.");
         return true;
     }
     g_installed = 1;
@@ -201,10 +224,10 @@ extern "C" bool kscrashsentry_installCPPExceptionHandler(KSCrash_SentryContext* 
 
 extern "C" void kscrashsentry_uninstallCPPExceptionHandler(void)
 {
-    KSLOG_DEBUG("Uninstalling C++ exception handler.");
+    KSLOG_DEBUG(@"Uninstalling C++ exception handler.");
     if(!g_installed)
     {
-        KSLOG_DEBUG("C++ exception handler already uninstalled.");
+        KSLOG_DEBUG(@"C++ exception handler already uninstalled.");
         return;
     }
 
