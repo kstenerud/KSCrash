@@ -62,7 +62,8 @@ typedef enum
 
 #define KSCrashTypeDebuggerUnsafe   \
 (                                   \
-    KSCrashTypeMachException        \
+    KSCrashTypeMachException      | \
+    KSCrashTypeNSException          \
 )
 
 #define KSCrashTypeAsyncSafe        \
