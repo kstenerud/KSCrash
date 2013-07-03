@@ -241,9 +241,6 @@
 		CB05EC6217623AFF0095353E /* KSCrashSentry_CPPException.h in Headers */ = {isa = PBXBuildFile; fileRef = CB05EC6117623AFF0095353E /* KSCrashSentry_CPPException.h */; };
 		CB05EC6317623AFF0095353E /* KSCrashSentry_CPPException.h in Headers */ = {isa = PBXBuildFile; fileRef = CB05EC6117623AFF0095353E /* KSCrashSentry_CPPException.h */; };
 		CB05EC6417623AFF0095353E /* KSCrashSentry_CPPException.h in Headers */ = {isa = PBXBuildFile; fileRef = CB05EC6117623AFF0095353E /* KSCrashSentry_CPPException.h */; };
-		CB05EC6617623C000095353E /* KSCrashSentry_CPPExceptionDisabled.c in Sources */ = {isa = PBXBuildFile; fileRef = CB05EC6517623C000095353E /* KSCrashSentry_CPPExceptionDisabled.c */; };
-		CB05EC6717623C000095353E /* KSCrashSentry_CPPExceptionDisabled.c in Sources */ = {isa = PBXBuildFile; fileRef = CB05EC6517623C000095353E /* KSCrashSentry_CPPExceptionDisabled.c */; };
-		CB05EC6817623C000095353E /* KSCrashSentry_CPPExceptionDisabled.c in Sources */ = {isa = PBXBuildFile; fileRef = CB05EC6517623C000095353E /* KSCrashSentry_CPPExceptionDisabled.c */; };
 		CB05EC8A176292EA0095353E /* KSCrashSentry_CPPException.mm in Sources */ = {isa = PBXBuildFile; fileRef = CB05EC5D17623AE30095353E /* KSCrashSentry_CPPException.mm */; };
 		CB05EC8B176292EB0095353E /* KSCrashSentry_CPPException.mm in Sources */ = {isa = PBXBuildFile; fileRef = CB05EC5D17623AE30095353E /* KSCrashSentry_CPPException.mm */; };
 		CB05EC8C176292EB0095353E /* KSCrashSentry_CPPException.mm in Sources */ = {isa = PBXBuildFile; fileRef = CB05EC5D17623AE30095353E /* KSCrashSentry_CPPException.mm */; };
@@ -588,7 +585,6 @@
 		39DA84FB16198753001E7F79 /* NSDictionary+Merge_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSDictionary+Merge_Tests.m"; sourceTree = "<group>"; };
 		CB05EC5D17623AE30095353E /* KSCrashSentry_CPPException.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = KSCrashSentry_CPPException.mm; sourceTree = "<group>"; };
 		CB05EC6117623AFF0095353E /* KSCrashSentry_CPPException.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashSentry_CPPException.h; sourceTree = "<group>"; };
-		CB05EC6517623C000095353E /* KSCrashSentry_CPPExceptionDisabled.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSCrashSentry_CPPExceptionDisabled.c; sourceTree = "<group>"; };
 		CB0AA0EE167EC43E006EAB99 /* KSCrashLite.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KSCrashLite.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		CB0AA0F1167EC43E006EAB99 /* KSCrashLite-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "KSCrashLite-Info.plist"; sourceTree = "<group>"; };
 		CB0AA0F3167EC43E006EAB99 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
@@ -888,7 +884,6 @@
 				39DA83AB1618450A001E7F79 /* KSCrashSentry.h */,
 				CB05EC5D17623AE30095353E /* KSCrashSentry_CPPException.mm */,
 				CB05EC6117623AFF0095353E /* KSCrashSentry_CPPException.h */,
-				CB05EC6517623C000095353E /* KSCrashSentry_CPPExceptionDisabled.c */,
 				39D329DA16765AD500D989DC /* KSCrashSentry_Deadlock.h */,
 				39D329DB16765AD500D989DC /* KSCrashSentry_Deadlock.m */,
 				39DA83A31618450A001E7F79 /* KSCrashSentry_MachException.c */,
@@ -1477,7 +1472,6 @@
 				2122BBD116F185120056D11C /* KSCrashReportSinkTakanashi.m in Sources */,
 				2193ACC616F19D690016EA5F /* KSCrashInstallationTakanashi.m in Sources */,
 				CBCED88D175E567F00BF56F0 /* KSCrashSentry_User.c in Sources */,
-				CB05EC6617623C000095353E /* KSCrashSentry_CPPExceptionDisabled.c in Sources */,
 				CB05EC8A176292EA0095353E /* KSCrashSentry_CPPException.mm in Sources */,
 				CB5C51881767639400A05F0C /* KSCrashType.c in Sources */,
 			);
@@ -1544,7 +1538,6 @@
 				2122BBD216F185120056D11C /* KSCrashReportSinkTakanashi.m in Sources */,
 				2193ACC716F19D690016EA5F /* KSCrashInstallationTakanashi.m in Sources */,
 				CBCED88F175E567F00BF56F0 /* KSCrashSentry_User.c in Sources */,
-				CB05EC6817623C000095353E /* KSCrashSentry_CPPExceptionDisabled.c in Sources */,
 				CB05EC8C176292EB0095353E /* KSCrashSentry_CPPException.mm in Sources */,
 				CB5C518A1767639400A05F0C /* KSCrashType.c in Sources */,
 			);
@@ -1641,7 +1634,6 @@
 				CB7C754716CD5F5F00227870 /* KSCrashInstallation.m in Sources */,
 				CB1B377316D74F3C00FFFCEA /* KSCString.m in Sources */,
 				CBCED88E175E567F00BF56F0 /* KSCrashSentry_User.c in Sources */,
-				CB05EC6717623C000095353E /* KSCrashSentry_CPPExceptionDisabled.c in Sources */,
 				CB05EC8B176292EB0095353E /* KSCrashSentry_CPPException.mm in Sources */,
 				CB5C51891767639400A05F0C /* KSCrashType.c in Sources */,
 			);
