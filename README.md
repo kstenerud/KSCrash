@@ -14,6 +14,7 @@ of a lot more that they COULD do. Here are some key features of KSCrash:
 * Generates full Apple reports, with every field filled in.
 * Handles errors that can only be caught at the mach level, such as stack
   overflow.
+* Tracks the REAL cause of an uncaught C++ exception.
 * Handles a crash in the crash handler itself (or in the user crash handler
   callback).
 * Detects zombie (deallocated) object access attempts.
@@ -23,8 +24,7 @@ of a lot more that they COULD do. Here are some key features of KSCrash:
 * Extracts information about objects referenced by an exception (such as
   "unrecognized selector sent to instance 0xa26d9a0")
 * Its pluggable server reporting architecture makes it easy to adapt to any API
-  service (it already supports Hockey and Quincy and sending via email, with
-  more to come!).
+  service.
 * Dumps the stack contents.
 * Diagnoses crash causes (Crash Doctor).
 * Records lots of information beyond what the Apple crash report can, in a JSON
@@ -32,7 +32,7 @@ of a lot more that they COULD do. Here are some key features of KSCrash:
 * Supports including extra data that the programmer supplies (before and during
   a crash).
 
-KSCrash handles the following kinds of crashes:
+#### KSCrash handles the following kinds of crashes:
 
 * Mach kernel exceptions
 * Fatal signals
@@ -40,6 +40,13 @@ KSCrash handles the following kinds of crashes:
 * Objective-C exceptions
 * Main thread deadlock (experimental)
 * Custom crashes (e.g. from scripting languages)
+
+#### KSCrash can report to the following servers:
+
+* [Hockey](http://hockeyapp.net/)
+* [QuincyKit](https://github.com/TheRealKerni/QuincyKit)
+* [Victory](https://github.com/kelp404/Victory)
+* Email
 
 [Here are some examples of the reports it can generate.](https://github.com/kstenerud/KSCrash/tree/master/Example-Reports/_README.md)
 
