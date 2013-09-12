@@ -7,15 +7,15 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		2122BBCF16F185120056D11C /* KSCrashReportSinkTakanashi.h in Headers */ = {isa = PBXBuildFile; fileRef = 2122BBCD16F185120056D11C /* KSCrashReportSinkTakanashi.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		2122BBD016F185120056D11C /* KSCrashReportSinkTakanashi.h in Headers */ = {isa = PBXBuildFile; fileRef = 2122BBCD16F185120056D11C /* KSCrashReportSinkTakanashi.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		2122BBD116F185120056D11C /* KSCrashReportSinkTakanashi.m in Sources */ = {isa = PBXBuildFile; fileRef = 2122BBCE16F185120056D11C /* KSCrashReportSinkTakanashi.m */; };
-		2122BBD216F185120056D11C /* KSCrashReportSinkTakanashi.m in Sources */ = {isa = PBXBuildFile; fileRef = 2122BBCE16F185120056D11C /* KSCrashReportSinkTakanashi.m */; };
-		2193ACC416F19D690016EA5F /* KSCrashInstallationTakanashi.h in Headers */ = {isa = PBXBuildFile; fileRef = 2193ACC216F19D690016EA5F /* KSCrashInstallationTakanashi.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		2193ACC516F19D690016EA5F /* KSCrashInstallationTakanashi.h in Headers */ = {isa = PBXBuildFile; fileRef = 2193ACC216F19D690016EA5F /* KSCrashInstallationTakanashi.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		2193ACC616F19D690016EA5F /* KSCrashInstallationTakanashi.m in Sources */ = {isa = PBXBuildFile; fileRef = 2193ACC316F19D690016EA5F /* KSCrashInstallationTakanashi.m */; };
-		2193ACC716F19D690016EA5F /* KSCrashInstallationTakanashi.m in Sources */ = {isa = PBXBuildFile; fileRef = 2193ACC316F19D690016EA5F /* KSCrashInstallationTakanashi.m */; };
-		21D6639E16F1AD1400654F31 /* KSCrashInstallationTakanashi_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 21D6639D16F1AD1400654F31 /* KSCrashInstallationTakanashi_Tests.m */; };
+		2122BBCF16F185120056D11C /* KSCrashReportSinkVictory.h in Headers */ = {isa = PBXBuildFile; fileRef = 2122BBCD16F185120056D11C /* KSCrashReportSinkVictory.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		2122BBD016F185120056D11C /* KSCrashReportSinkVictory.h in Headers */ = {isa = PBXBuildFile; fileRef = 2122BBCD16F185120056D11C /* KSCrashReportSinkVictory.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		2122BBD116F185120056D11C /* KSCrashReportSinkVictory.m in Sources */ = {isa = PBXBuildFile; fileRef = 2122BBCE16F185120056D11C /* KSCrashReportSinkVictory.m */; };
+		2122BBD216F185120056D11C /* KSCrashReportSinkVictory.m in Sources */ = {isa = PBXBuildFile; fileRef = 2122BBCE16F185120056D11C /* KSCrashReportSinkVictory.m */; };
+		2193ACC416F19D690016EA5F /* KSCrashInstallationVictory.h in Headers */ = {isa = PBXBuildFile; fileRef = 2193ACC216F19D690016EA5F /* KSCrashInstallationVictory.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		2193ACC516F19D690016EA5F /* KSCrashInstallationVictory.h in Headers */ = {isa = PBXBuildFile; fileRef = 2193ACC216F19D690016EA5F /* KSCrashInstallationVictory.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		2193ACC616F19D690016EA5F /* KSCrashInstallationVictory.m in Sources */ = {isa = PBXBuildFile; fileRef = 2193ACC316F19D690016EA5F /* KSCrashInstallationVictory.m */; };
+		2193ACC716F19D690016EA5F /* KSCrashInstallationVictory.m in Sources */ = {isa = PBXBuildFile; fileRef = 2193ACC316F19D690016EA5F /* KSCrashInstallationVictory.m */; };
+		21D6639E16F1AD1400654F31 /* KSCrashInstallationVictory_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 21D6639D16F1AD1400654F31 /* KSCrashInstallationVictory_Tests.m */; };
 		394DCC71164F43C2008A4C50 /* KSCrashDoctor.h in Headers */ = {isa = PBXBuildFile; fileRef = 394DCC6F164F43C2008A4C50 /* KSCrashDoctor.h */; };
 		394DCC72164F43C2008A4C50 /* KSCrashDoctor.m in Sources */ = {isa = PBXBuildFile; fileRef = 394DCC70164F43C2008A4C50 /* KSCrashDoctor.m */; };
 		394DCC73164F547E008A4C50 /* KSCrashDoctor.h in Headers */ = {isa = PBXBuildFile; fileRef = 394DCC6F164F43C2008A4C50 /* KSCrashDoctor.h */; };
@@ -445,11 +445,11 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		2122BBCD16F185120056D11C /* KSCrashReportSinkTakanashi.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashReportSinkTakanashi.h; sourceTree = "<group>"; };
-		2122BBCE16F185120056D11C /* KSCrashReportSinkTakanashi.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSCrashReportSinkTakanashi.m; sourceTree = "<group>"; };
-		2193ACC216F19D690016EA5F /* KSCrashInstallationTakanashi.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashInstallationTakanashi.h; sourceTree = "<group>"; };
-		2193ACC316F19D690016EA5F /* KSCrashInstallationTakanashi.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSCrashInstallationTakanashi.m; sourceTree = "<group>"; };
-		21D6639D16F1AD1400654F31 /* KSCrashInstallationTakanashi_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSCrashInstallationTakanashi_Tests.m; sourceTree = "<group>"; };
+		2122BBCD16F185120056D11C /* KSCrashReportSinkVictory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashReportSinkVictory.h; sourceTree = "<group>"; };
+		2122BBCE16F185120056D11C /* KSCrashReportSinkVictory.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSCrashReportSinkVictory.m; sourceTree = "<group>"; };
+		2193ACC216F19D690016EA5F /* KSCrashInstallationVictory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashInstallationVictory.h; sourceTree = "<group>"; };
+		2193ACC316F19D690016EA5F /* KSCrashInstallationVictory.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSCrashInstallationVictory.m; sourceTree = "<group>"; };
+		21D6639D16F1AD1400654F31 /* KSCrashInstallationVictory_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSCrashInstallationVictory_Tests.m; sourceTree = "<group>"; };
 		394DCC6F164F43C2008A4C50 /* KSCrashDoctor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashDoctor.h; sourceTree = "<group>"; };
 		394DCC70164F43C2008A4C50 /* KSCrashDoctor.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSCrashDoctor.m; sourceTree = "<group>"; };
 		397A7C86162266480096E287 /* KSCrashReportFields.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.objj.h; path = KSCrashReportFields.h; sourceTree = "<group>"; };
@@ -759,7 +759,7 @@
 				CBD9A64316E3E875007142EE /* KSCrashInstallationEmail_Tests.m */,
 				CBD9A64616E3EC02007142EE /* KSCrashInstallationQuincyHockey_Tests.m */,
 				CBD9A64916E3F424007142EE /* KSCrashInstallationStandard_Tests.m */,
-				21D6639D16F1AD1400654F31 /* KSCrashInstallationTakanashi_Tests.m */,
+				21D6639D16F1AD1400654F31 /* KSCrashInstallationVictory_Tests.m */,
 				39DA84241618D02F001E7F79 /* KSCrashReportConverter_Tests.m */,
 				39DA84251618D02F001E7F79 /* KSCrashReportFilter_Tests.m */,
 				CBF2D95416E27BF60003AD7E /* KSCrashReportFilterAlert_Tests.m */,
@@ -871,8 +871,8 @@
 				39DA82DE16184487001E7F79 /* KSCrashReportSinkQuincyHockey.m */,
 				39DA82DF16184487001E7F79 /* KSCrashReportSinkStandard.h */,
 				39DA82E016184487001E7F79 /* KSCrashReportSinkStandard.m */,
-				2122BBCD16F185120056D11C /* KSCrashReportSinkTakanashi.h */,
-				2122BBCE16F185120056D11C /* KSCrashReportSinkTakanashi.m */,
+				2122BBCD16F185120056D11C /* KSCrashReportSinkVictory.h */,
+				2122BBCE16F185120056D11C /* KSCrashReportSinkVictory.m */,
 			);
 			name = Filters;
 			sourceTree = "<group>";
@@ -993,8 +993,8 @@
 				CBE3D8E516C7A61400C4105E /* KSCrashInstallationQuincyHockey.m */,
 				CBF2D93E16DEDCC10003AD7E /* KSCrashInstallationStandard.h */,
 				CBF2D93F16DEDCC10003AD7E /* KSCrashInstallationStandard.m */,
-				2193ACC216F19D690016EA5F /* KSCrashInstallationTakanashi.h */,
-				2193ACC316F19D690016EA5F /* KSCrashInstallationTakanashi.m */,
+				2193ACC216F19D690016EA5F /* KSCrashInstallationVictory.h */,
+				2193ACC316F19D690016EA5F /* KSCrashInstallationVictory.m */,
 			);
 			name = Installation;
 			sourceTree = "<group>";
@@ -1010,7 +1010,7 @@
 				39DA82C216184456001E7F79 /* KSCrashAdvanced.h in Headers */,
 				39DA83BB1618450A001E7F79 /* KSCrashReportWriter.h in Headers */,
 				39DA82E516184487001E7F79 /* KSCrashReportFilter.h in Headers */,
-				2193ACC416F19D690016EA5F /* KSCrashInstallationTakanashi.h in Headers */,
+				2193ACC416F19D690016EA5F /* KSCrashInstallationVictory.h in Headers */,
 				39DA82E916184487001E7F79 /* KSCrashReportFilterAlert.h in Headers */,
 				39DA82ED16184487001E7F79 /* KSCrashReportFilterAppleFmt.h in Headers */,
 				39DA82F116184487001E7F79 /* KSCrashReportFilterBasic.h in Headers */,
@@ -1021,7 +1021,7 @@
 				39DA830116184487001E7F79 /* KSCrashReportSinkEMail.h in Headers */,
 				39DA830516184487001E7F79 /* KSCrashReportSinkQuincyHockey.h in Headers */,
 				39DA830916184487001E7F79 /* KSCrashReportSinkStandard.h in Headers */,
-				2122BBCF16F185120056D11C /* KSCrashReportSinkTakanashi.h in Headers */,
+				2122BBCF16F185120056D11C /* KSCrashReportSinkVictory.h in Headers */,
 				39DA82C416184456001E7F79 /* KSCrashReportStore.h in Headers */,
 				397A7C87162266480096E287 /* KSCrashReportFields.h in Headers */,
 				39DA84F6161978D7001E7F79 /* NSDictionary+Merge.h in Headers */,
@@ -1083,7 +1083,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				39DA82BF16184456001E7F79 /* KSCrash.h in Headers */,
-				2193ACC516F19D690016EA5F /* KSCrashInstallationTakanashi.h in Headers */,
+				2193ACC516F19D690016EA5F /* KSCrashInstallationVictory.h in Headers */,
 				39DA82C316184456001E7F79 /* KSCrashAdvanced.h in Headers */,
 				39DA83BC1618450A001E7F79 /* KSCrashReportWriter.h in Headers */,
 				39DA82E616184487001E7F79 /* KSCrashReportFilter.h in Headers */,
@@ -1097,8 +1097,8 @@
 				39DA830216184487001E7F79 /* KSCrashReportSinkEMail.h in Headers */,
 				39DA830616184487001E7F79 /* KSCrashReportSinkQuincyHockey.h in Headers */,
 				39DA830A16184487001E7F79 /* KSCrashReportSinkStandard.h in Headers */,
-				2122BBD016F185120056D11C /* KSCrashReportSinkTakanashi.h in Headers */,
 				CB5C517A1766714A00A05F0C /* KSCrashType.h in Headers */,
+				2122BBD016F185120056D11C /* KSCrashReportSinkVictory.h in Headers */,
 				39DA836C161844FF001E7F79 /* KSJSONCodecObjC.h in Headers */,
 				397A7C88162266480096E287 /* KSCrashReportFields.h in Headers */,
 				39DA835A161844FF001E7F79 /* ARCSafe_MemMgmt.h in Headers */,
@@ -1469,11 +1469,11 @@
 				CB1B377216D74F3C00FFFCEA /* KSCString.m in Sources */,
 				CBF2D93C16DE86B00003AD7E /* KSCrashInstallationEmail.m in Sources */,
 				CBF2D94216DEDCC10003AD7E /* KSCrashInstallationStandard.m in Sources */,
-				2122BBD116F185120056D11C /* KSCrashReportSinkTakanashi.m in Sources */,
-				2193ACC616F19D690016EA5F /* KSCrashInstallationTakanashi.m in Sources */,
 				CBCED88D175E567F00BF56F0 /* KSCrashSentry_User.c in Sources */,
 				CB05EC8A176292EA0095353E /* KSCrashSentry_CPPException.mm in Sources */,
 				CB5C51881767639400A05F0C /* KSCrashType.c in Sources */,
+				2122BBD116F185120056D11C /* KSCrashReportSinkVictory.m in Sources */,
+				2193ACC616F19D690016EA5F /* KSCrashInstallationVictory.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1535,11 +1535,11 @@
 				CB1B377416D74F3C00FFFCEA /* KSCString.m in Sources */,
 				CBF2D93D16DE86B00003AD7E /* KSCrashInstallationEmail.m in Sources */,
 				CBF2D94316DEDCC10003AD7E /* KSCrashInstallationStandard.m in Sources */,
-				2122BBD216F185120056D11C /* KSCrashReportSinkTakanashi.m in Sources */,
-				2193ACC716F19D690016EA5F /* KSCrashInstallationTakanashi.m in Sources */,
 				CBCED88F175E567F00BF56F0 /* KSCrashSentry_User.c in Sources */,
 				CB05EC8C176292EB0095353E /* KSCrashSentry_CPPException.mm in Sources */,
 				CB5C518A1767639400A05F0C /* KSCrashType.c in Sources */,
+				2122BBD216F185120056D11C /* KSCrashReportSinkVictory.m in Sources */,
+				2193ACC716F19D690016EA5F /* KSCrashInstallationVictory.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1581,7 +1581,7 @@
 				CBD9A64416E3E875007142EE /* KSCrashInstallationEmail_Tests.m in Sources */,
 				CBD9A64716E3EC02007142EE /* KSCrashInstallationQuincyHockey_Tests.m in Sources */,
 				CBD9A64A16E3F424007142EE /* KSCrashInstallationStandard_Tests.m in Sources */,
-				21D6639E16F1AD1400654F31 /* KSCrashInstallationTakanashi_Tests.m in Sources */,
+				21D6639E16F1AD1400654F31 /* KSCrashInstallationVictory_Tests.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -1,5 +1,5 @@
 //
-//  KSCrashReportSinkTakanashi.m
+//  KSCrashReportSinkVictory.m
 //
 //  Created by Kelp on 2013-03-14.
 //
@@ -26,7 +26,7 @@
 
 
 #import <UIKit/UIKit.h>
-#import "KSCrashReportSinkTakanashi.h"
+#import "KSCrashReportSinkVictory.h"
 
 #import "ARCSafe_MemMgmt.h"
 #import "KSCrashCallCompletion.h"
@@ -41,7 +41,7 @@
 #import "KSLogger.h"
 
 
-@interface KSCrashReportSinkTakanashi ()
+@interface KSCrashReportSinkVictory ()
 
 @property(nonatomic,readwrite,retain) NSURL* url;
 @property(nonatomic,readwrite,retain) NSString* userName;
@@ -53,14 +53,14 @@
 @end
 
 
-@implementation KSCrashReportSinkTakanashi
+@implementation KSCrashReportSinkVictory
 
 @synthesize url = _url;
 @synthesize userName = _userName;
 @synthesize userEmail = _userEmail;
 @synthesize reachableOperation = _reachableOperation;
 
-+ (KSCrashReportSinkTakanashi*) sinkWithURL:(NSURL*) url
++ (KSCrashReportSinkVictory*) sinkWithURL:(NSURL*) url
                                    userName:(NSString*) userName
                                   userEmail:(NSString*) userEmail
 {

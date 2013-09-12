@@ -8,7 +8,7 @@
 #import <KSCrash/KSCrashInstallationStandard.h>
 #import <KSCrash/KSCrashInstallationQuincyHockey.h>
 #import <KSCrash/KSCrashInstallationEmail.h>
-#import <KSCrash/KSCrashInstallationTakanashi.h>
+#import <KSCrash/KSCrashInstallationVictory.h>
 
 
 /* Very basic crash reporting example.
@@ -39,7 +39,7 @@ didFinishLaunchingWithOptions:(__unused NSDictionary *) launchOptions
     KSCrashInstallation* installation = [self makeEmailInstallation];
 //    KSCrashInstallation* installation = [self makeHockeyInstallation];
 //    KSCrashInstallation* installation = [self makeQuincyInstallation];
-//    KSCrashInstallation *installation = [self makeTakanashiInstallation];
+//    KSCrashInstallation *installation = [self makeVictoryInstallation];
     
     
     // Install the crash handler. This should be done as early as possible.
@@ -121,17 +121,17 @@ didFinishLaunchingWithOptions:(__unused NSDictionary *) launchOptions
     return standard;
 }
 
-- (KSCrashInstallation*) makeTakanashiInstallation
+- (KSCrashInstallation*) makeVictoryInstallation
 {
-//    NSURL* url = [NSURL URLWithString:@"https://takanashi-demo.appspot.com/api/v1/crash/0571f5f6-652d-413f-8043-0e9531e1b689"];
+//    NSURL* url = [NSURL URLWithString:@"https://victory-demo.appspot.com/api/v1/crash/0571f5f6-652d-413f-8043-0e9531e1b689"];
     NSURL* url = [NSURL URLWithString:@"https://put.your.url.here/api/v1/crash/<application key>"];
     
-    KSCrashInstallationTakanashi* takanashi = [KSCrashInstallationTakanashi sharedInstance];
-    takanashi.url = url;
-    takanashi.userName = [[UIDevice currentDevice] name];
-    takanashi.userEmail = @"nobody@nowhere.com";
+    KSCrashInstallationVictory* victory = [KSCrashInstallationVictory sharedInstance];
+    victory.url = url;
+    victory.userName = [[UIDevice currentDevice] name];
+    victory.userEmail = @"nobody@nowhere.com";
     
-    return takanashi;
+    return victory;
 }
 
 @end
