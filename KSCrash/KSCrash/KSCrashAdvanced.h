@@ -34,8 +34,65 @@
  */
 @interface KSCrash (Advanced)
 
+#pragma mark - Information -
+
+/** Total active time elapsed since the last crash. */
+@property(nonatomic,readonly,assign) NSTimeInterval activeDurationSinceLastCrash;
+
+/** Total time backgrounded elapsed since the last crash. */
+@property(nonatomic,readonly,assign) NSTimeInterval backgroundDurationSinceLastCrash;
+
+/** Number of app launches since the last crash. */
+@property(nonatomic,readonly,assign) int launchesSinceLastCrash;
+
+/** Number of sessions (launch, resume from suspend) since last crash. */
+@property(nonatomic,readonly,assign) int sessionsSinceLastCrash;
+
+/** Total active time elapsed since launch. */
+@property(nonatomic,readonly,assign) NSTimeInterval activeDurationSinceLaunch;
+
+/** Total time backgrounded elapsed since launch. */
+@property(nonatomic,readonly,assign) NSTimeInterval backgroundDurationSinceLaunch;
+
+/** Number of sessions (launch, resume from suspend) since app launch. */
+@property(nonatomic,readonly,assign) int sessionsSinceLaunch;
+
+/** If true, the application crashed on the previous launch. */
+@property(nonatomic,readonly,assign) BOOL crashedLastLaunch;
+
+/** The total number of unsent reports. Note: This is an expensive operation.
+ */
+- (NSUInteger) reportCount;
+
+/** Get all reports, with data types corrected, as dictionaries.
+ */
+- (NSArray*) allReports;
+
+
+#pragma mark - Configuration -
+
 /** Store containing all crash reports. */
 @property(nonatomic, readwrite, retain) KSCrashReportStore* crashReportStore;
+
+/** The report sink where reports get sent.
+ * This MUST be set or else the reporter will not send reports (although it will
+ * still record them).
+ *
+ * Note: If you use an installation, it will automatically set this property.
+ *       Do not modify it in such a case.
+ */
+@property(nonatomic,readwrite,retain) id<KSCrashReportFilter> sink;
+
+/** C Function to call during a crash report to give the callee an opportunity to
+ * add to the report. NULL = ignore.
+ *
+ * WARNING: Only call async-safe functions from this function! DO NOT call
+ * Objective-C methods!!!
+ *
+ * Note: If you use an installation, it will automatically set this property.
+ *       Do not modify it in such a case.
+ */
+@property(nonatomic,readwrite,assign) KSReportWriteCallback onCrash;
 
 /** Path where the log of KSCrash's activities will be written.
  * If nil, log entries will be printed to the console.
@@ -45,22 +102,13 @@
  *
  * Default: nil
  */
-@property(nonatomic, readonly, retain) NSString* logFilePath;
+@property(nonatomic,readonly,retain) NSString* logFilePath;
 
-/** Send the specified reports to the current sink.
+/** If YES, print a stack trace to stdout when a crash occurs.
  *
- * @param reports The reports to send.
- * @param onCompletion Called when sending is complete (nil = ignore).
+ * Default: NO
  */
-- (void) sendReports:(NSArray*) reports onCompletion:(KSCrashReportFilterCompletion) onCompletion;
-
-/** The total number of unsent reports. Note: This is an expensive operation.
- */
-- (NSUInteger) reportCount;
-
-/** Get all reports, with data types corrected, as dictionaries.
- */
-- (NSArray*) allReports;
+@property(nonatomic,readwrite,assign) bool printTraceToStdout;
 
 /** Sets logFilePath to the default log file location
  * (Library/Caches/KSCrashReports/<bundle name>-CrashLog.txt).
@@ -79,5 +127,14 @@
  */
 - (BOOL) redirectConsoleLogsToFile:(NSString*) fullPath overwrite:(BOOL) overwrite;
 
-@end
 
+#pragma mark - Operations -
+
+/** Send the specified reports to the current sink.
+ *
+ * @param reports The reports to send.
+ * @param onCompletion Called when sending is complete (nil = ignore).
+ */
+- (void) sendReports:(NSArray*) reports onCompletion:(KSCrashReportFilterCompletion) onCompletion;
+
+@end

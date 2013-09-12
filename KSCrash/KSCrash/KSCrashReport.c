@@ -56,7 +56,7 @@
 // ============================================================================
 
 /** Version number written to the report. */
-#define kReportVersionMajor 2
+#define kReportVersionMajor 3
 #define kReportVersionMinor 0
 
 /** Maximum depth allowed for a backtrace. */
@@ -157,14 +157,7 @@ void kscrw_i_addStringElement(const KSCrashReportWriter* const writer,
                               const char* const key,
                               const char* const value)
 {
-    if(key == NULL)
-    {
-        ksjson_addNullElement(getJsonContext(writer), key);
-    }
-    else
-    {
-        ksjson_addStringElement(getJsonContext(writer), key, value, strlen(value));
-    }
+    ksjson_addStringElement(getJsonContext(writer), key, value, strlen(value));
 }
 
 void kscrw_i_addTextFileElement(const KSCrashReportWriter* const writer,
@@ -464,10 +457,10 @@ uintptr_t* kscrw_i_getBacktrace(const KSCrash_SentryContext* const crash,
 {
     if(thread == crash->offendingThread)
     {
-        if(crash->crashType == KSCrashTypeNSException)
+        if(crash->crashType & (KSCrashTypeCPPException | KSCrashTypeNSException | KSCrashTypeUserReported))
         {
-            *backtraceLength = crash->NSException.stackTraceLength;
-            return crash->NSException.stackTrace;
+            *backtraceLength = crash->stackTraceLength;
+            return crash->stackTrace;
         }
     }
 
@@ -540,11 +533,18 @@ void kscrw_i_logCrashType(const KSCrash_SentryContext* const sentryContext)
                             machExceptionName, machCodeName, sentryContext->faultAddress);
             break;
         }
+        case KSCrashTypeCPPException:
+        {
+            KSLOG_INFO("App crashed due to C++ exception: %s: %s",
+                       sentryContext->CPPException.name,
+                       sentryContext->crashReason);
+            break;
+        }
         case KSCrashTypeNSException:
         {
             KSLOGBASIC_INFO("App crashed due to NSException: %s: %s",
                             sentryContext->NSException.name,
-                            sentryContext->NSException.reason);
+                            sentryContext->crashReason);
             break;
         }
         case KSCrashTypeSignal:
@@ -560,6 +560,11 @@ void kscrw_i_logCrashType(const KSCrash_SentryContext* const sentryContext)
         case KSCrashTypeMainThreadDeadlock:
         {
             KSLOGBASIC_INFO("Main thread deadlocked");
+            break;
+        }
+        case KSCrashTypeUserReported:
+        {
+            KSLOG_INFO("App crashed due to user specified exception: %s", sentryContext->crashReason);
             break;
         }
     }
@@ -1031,7 +1036,7 @@ void kscrw_i_writeAddressReferencedByString(const KSCrashReportWriter* const wri
                                             const char* string)
 {
     uint64_t address = 0;
-    if(!ksstring_extractHexValue(string, strlen(string), &address))
+    if(string == NULL || !ksstring_extractHexValue(string, strlen(string), &address))
     {
         return;
     }
@@ -1657,8 +1662,8 @@ void kscrw_i_writeError(const KSCrashReportWriter* const writer,
     kern_return_t machSubCode = 0;
     int sigNum = 0;
     int sigCode = 0;
-    const char* NSExceptionName = "(null)";
-    const char* NSExceptionReason = "(null)";
+    const char* exceptionName = NULL;
+    const char* crashReason = NULL;
 
     // Gather common info.
     switch(crash->crashType)
@@ -1680,23 +1685,27 @@ void kscrw_i_writeError(const KSCrashReportWriter* const writer,
             sigNum = kssignal_signalForMachException(machExceptionType,
                                                      machCode);
             break;
-
+        case KSCrashTypeCPPException:
+            machExceptionType = EXC_CRASH;
+            sigNum = SIGABRT;
+            crashReason = crash->crashReason;
+            exceptionName = crash->CPPException.name;
+            break;
         case KSCrashTypeNSException:
             machExceptionType = EXC_CRASH;
             sigNum = SIGABRT;
-            if(crash->NSException.name != NULL)
-            {
-                NSExceptionName = crash->NSException.name;
-            }
-            if(crash->NSException.reason != NULL)
-            {
-                NSExceptionReason = crash->NSException.reason;
-            }
+            exceptionName = crash->NSException.name;
+            crashReason = crash->crashReason;
             break;
         case KSCrashTypeSignal:
             sigNum = crash->signal.signalInfo->si_signo;
             sigCode = crash->signal.signalInfo->si_code;
             machExceptionType = kssignal_machExceptionForSignal(sigNum);
+            break;
+        case KSCrashTypeUserReported:
+            machExceptionType = EXC_CRASH;
+            sigNum = SIGABRT;
+            crashReason = crash->crashReason;
             break;
     }
 
@@ -1739,6 +1748,10 @@ void kscrw_i_writeError(const KSCrashReportWriter* const writer,
         writer->endContainer(writer);
 
         writer->addUIntegerElement(writer, KSCrashField_Address, crash->faultAddress);
+        if(crashReason != NULL)
+        {
+            writer->addStringElement(writer, KSCrashField_Reason, crashReason);
+        }
 
         // Gather specific info.
         switch(crash->crashType)
@@ -1750,15 +1763,24 @@ void kscrw_i_writeError(const KSCrashReportWriter* const writer,
             case KSCrashTypeMachException:
                 writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_Mach);
                 break;
-                
+
+            case KSCrashTypeCPPException:
+            {
+                writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_CPPException);
+                writer->beginObject(writer, KSCrashField_CPPException);
+                {
+                    writer->addStringElement(writer, KSCrashField_Name, exceptionName);
+                }
+                writer->endContainer(writer);
+                break;
+            }
             case KSCrashTypeNSException:
             {
                 writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_NSException);
                 writer->beginObject(writer, KSCrashField_NSException);
                 {
-                    writer->addStringElement(writer, KSCrashField_Name, NSExceptionName);
-                    writer->addStringElement(writer, KSCrashField_Reason, NSExceptionReason);
-                    kscrw_i_writeAddressReferencedByString(writer, KSCrashField_ReferencedObject, NSExceptionReason);
+                    writer->addStringElement(writer, KSCrashField_Name, exceptionName);
+                    kscrw_i_writeAddressReferencedByString(writer, KSCrashField_ReferencedObject, crashReason);
                 }
                 writer->endContainer(writer);
                 break;
@@ -1766,6 +1788,32 @@ void kscrw_i_writeError(const KSCrashReportWriter* const writer,
             case KSCrashTypeSignal:
                 writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_Signal);
                 break;
+
+            case KSCrashTypeUserReported:
+            {
+                writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_User);
+                writer->beginObject(writer, KSCrashField_UserReported);
+                {
+                    writer->addStringElement(writer, KSCrashField_Name, crash->userException.name);
+                    if(crash->userException.lineOfCode != NULL)
+                    {
+                        writer->addStringElement(writer, KSCrashField_LineOfCode, crash->userException.lineOfCode);
+                    }
+                    if(crash->userException.customStackTraceLength > 0)
+                    {
+                        writer->beginArray(writer, KSCrashField_Backtrace);
+                        {
+                            for(int i = 0; i < crash->userException.customStackTraceLength; i++)
+                            {
+                                writer->addStringElement(writer, NULL, crash->userException.customStackTrace[i]);
+                            }
+                        }
+                        writer->endContainer(writer);
+                    }
+                }
+                writer->endContainer(writer);
+                break;
+            }
         }
     }
     writer->endContainer(writer);
@@ -2041,13 +2089,6 @@ void kscrashreport_writeStandardReport(KSCrash_Context* const crashContext,
 
         kscrw_i_writeBinaryImages(writer, KSCrashField_BinaryImages);
 
-        writer->beginObject(writer, KSCrashField_Crash);
-        {
-            kscrw_i_writeAllThreads(writer, KSCrashField_Threads, &crashContext->crash, crashContext->config.introspectionRules.enabled);
-            kscrw_i_writeError(writer, KSCrashField_Error, &crashContext->crash);
-        }
-        writer->endContainer(writer);
-
         kscrw_i_writeProcessState(writer, KSCrashField_ProcessState);
 
         if(crashContext->config.systemInfoJSON != NULL)
@@ -2066,6 +2107,13 @@ void kscrashreport_writeStandardReport(KSCrash_Context* const crashContext,
         {
             kscrw_i_addJSONElement(writer, KSCrashField_User, crashContext->config.userInfoJSON);
         }
+
+        writer->beginObject(writer, KSCrashField_Crash);
+        {
+            kscrw_i_writeAllThreads(writer, KSCrashField_Threads, &crashContext->crash, crashContext->config.introspectionRules.enabled);
+            kscrw_i_writeError(writer, KSCrashField_Error, &crashContext->crash);
+        }
+        writer->endContainer(writer);
 
         if(crashContext->config.onCrashNotify != NULL)
         {

@@ -194,24 +194,29 @@ bool ksmach_fillState(const thread_t thread,
 
 void ksmach_init(void)
 {
-    kern_return_t kr;
-    const task_t thisTask = mach_task_self();
-    thread_act_array_t threads;
-    mach_msg_type_number_t numThreads;
-
-    if((kr = task_threads(thisTask, &threads, &numThreads)) != KERN_SUCCESS)
+    static volatile sig_atomic_t initialized = 0;
+    if(!initialized)
     {
-        KSLOG_ERROR("task_threads: %s", mach_error_string(kr));
-        return;
-    }
+        kern_return_t kr;
+        const task_t thisTask = mach_task_self();
+        thread_act_array_t threads;
+        mach_msg_type_number_t numThreads;
 
-    g_topThread = pthread_from_mach_thread_np(threads[0]);
+        if((kr = task_threads(thisTask, &threads, &numThreads)) != KERN_SUCCESS)
+        {
+            KSLOG_ERROR("task_threads: %s", mach_error_string(kr));
+            return;
+        }
 
-    for(mach_msg_type_number_t i = 0; i < numThreads; i++)
-    {
-        mach_port_deallocate(thisTask, threads[i]);
+        g_topThread = pthread_from_mach_thread_np(threads[0]);
+
+        for(mach_msg_type_number_t i = 0; i < numThreads; i++)
+        {
+            mach_port_deallocate(thisTask, threads[i]);
+        }
+        vm_deallocate(thisTask, (vm_address_t)threads, sizeof(thread_t) * numThreads);
+        initialized = true;
     }
-    vm_deallocate(thisTask, (vm_address_t)threads, sizeof(thread_t) * numThreads);
 }
 
 thread_t ksmach_machThreadFromPThread(const pthread_t pthread)

@@ -29,6 +29,7 @@
 
 #import "KSCrashReportWriter.h"
 #import "KSCrashReportFilter.h"
+#import "KSCrashType.h"
 
 
 typedef enum
@@ -44,12 +45,6 @@ typedef enum
  * The crash reports will be located in $APP_HOME/Library/Caches/KSCrashReports
  */
 @interface KSCrash : NSObject
-
-/** The report sink where reports get sent.
- * This MUST be set or else the reporter will not send reports (although it will
- * still record them).
- */
-@property(nonatomic,readwrite,retain) id<KSCrashReportFilter> sink;
 
 /** A dictionary containing any info you'd like to appear in crash reports. Must
  * contain only JSON-safe data: NSString for keys, and NSDictionary, NSArray,
@@ -69,6 +64,12 @@ typedef enum
  * Default: KSCDeleteAlways
  */
 @property(nonatomic,readwrite,assign) KSCDeleteBehavior deleteBehaviorAfterSendAll;
+
+/** The crash types that are being handled.
+ * Note: This value may change once KSCrash is installed if some handlers
+ *       fail to install.
+ */
+@property(nonatomic,readwrite,assign) KSCrashType handlingCrashTypes;
 
 /** The size of the cache to use for on-device zombie tracking.
  * Every deallocated object will be hashed based on its address modulus the cache
@@ -121,20 +122,6 @@ typedef enum
  */
 @property(nonatomic,readwrite,retain) NSArray* doNotIntrospectClasses;
 
-/** If YES, print a stack trace to stdout when a crash occurs.
- *
- * Default: NO
- */
-@property(nonatomic,readwrite,assign) bool printTraceToStdout;
-
-/** C Function to call during a crash report to give the callee an opportunity to
- * add to the report. NULL = ignore.
- *
- * WARNING: Only call async-safe functions from this function! DO NOT call
- * Objective-C methods!!!
- */
-@property(nonatomic,readwrite,assign) KSReportWriteCallback onCrash;
-
 
 /** Get the singleton instance of the crash reporter.
  */
@@ -163,5 +150,27 @@ typedef enum
 /** Delete all unsent reports.
  */
 - (void) deleteAllReports;
+
+/** Report a custom, user defined exception.
+ * This can be useful when dealing with scripting languages.
+ *
+ * If terminateProgram is true, all sentries will be uninstalled and the application will
+ * terminate with an abort().
+ *
+ * @param name The exception name (for namespacing exception types).
+ *
+ * @param reason A description of why the exception occurred.
+ *
+ * @param lineOfCode A copy of the offending line of code (nil = ignore).
+ *
+ * @param stackTrace An array of strings representing the call stack leading to the exception (nil = ignore).
+ *
+ * @param terminateProgram If true, do not return from this function call. Terminate the program instead.
+ */
+- (void) reportUserException:(NSString*) name
+                      reason:(NSString*) reason
+                  lineOfCode:(NSString*) lineOfCode
+                  stackTrace:(NSArray*) stackTrace
+            terminateProgram:(BOOL) terminateProgram;
 
 @end

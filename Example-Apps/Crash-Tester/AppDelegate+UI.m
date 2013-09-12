@@ -489,21 +489,30 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
 - (NSArray*) crashCommands
 {
     NSMutableArray* commands = [NSMutableArray array];
+    __block AppDelegate* blockSelf = self;
     
     [commands addObject:
      [CommandEntry commandWithName:@"NSException"
                      accessoryType:UITableViewCellAccessoryNone
                              block:^(__unused UIViewController* controller)
       {
-          [self.crasher throwException];
+          [blockSelf.crasher throwUncaughtNSException];
       }]];
     
+    [commands addObject:
+     [CommandEntry commandWithName:@"C++ Exception"
+                     accessoryType:UITableViewCellAccessoryNone
+                             block:^(__unused UIViewController* controller)
+      {
+          [blockSelf.crasher throwUncaughtCPPException];
+      }]];
+
     [commands addObject:
      [CommandEntry commandWithName:@"Bad Pointer"
                      accessoryType:UITableViewCellAccessoryNone
                              block:^(__unused UIViewController* controller)
       {
-          [self.crasher dereferenceBadPointer];
+          [blockSelf.crasher dereferenceBadPointer];
       }]];
     
     [commands addObject:
@@ -511,7 +520,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                      accessoryType:UITableViewCellAccessoryNone
                              block:^(__unused UIViewController* controller)
       {
-          [self.crasher dereferenceNullPointer];
+          [blockSelf.crasher dereferenceNullPointer];
       }]];
     
     [commands addObject:
@@ -519,7 +528,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                      accessoryType:UITableViewCellAccessoryNone
                              block:^(__unused UIViewController* controller)
       {
-          [self.crasher useCorruptObject];
+          [blockSelf.crasher useCorruptObject];
       }]];
     
     [commands addObject:
@@ -527,7 +536,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                      accessoryType:UITableViewCellAccessoryNone
                              block:^(__unused UIViewController* controller)
       {
-          [self.crasher spinRunloop];
+          [blockSelf.crasher spinRunloop];
       }]];
     
     [commands addObject:
@@ -535,7 +544,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                      accessoryType:UITableViewCellAccessoryNone
                              block:^(__unused UIViewController* controller)
       {
-          [self.crasher causeStackOverflow];
+          [blockSelf.crasher causeStackOverflow];
       }]];
     
     [commands addObject:
@@ -543,7 +552,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                      accessoryType:UITableViewCellAccessoryNone
                              block:^(__unused UIViewController* controller)
       {
-          [self.crasher doAbort];
+          [blockSelf.crasher doAbort];
       }]];
     
     [commands addObject:
@@ -551,7 +560,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                      accessoryType:UITableViewCellAccessoryNone
                              block:^(__unused UIViewController* controller)
       {
-          [self.crasher doDiv0];
+          [blockSelf.crasher doDiv0];
       }]];
     
     [commands addObject:
@@ -559,7 +568,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                      accessoryType:UITableViewCellAccessoryNone
                              block:^(__unused UIViewController* controller)
       {
-          [self.crasher doIllegalInstruction];
+          [blockSelf.crasher doIllegalInstruction];
       }]];
 
     [commands addObject:
@@ -567,7 +576,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                      accessoryType:UITableViewCellAccessoryNone
                              block:^(__unused UIViewController* controller)
       {
-          [self.crasher accessDeallocatedObject];
+          [blockSelf.crasher accessDeallocatedObject];
       }]];
 
     [commands addObject:
@@ -575,7 +584,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                      accessoryType:UITableViewCellAccessoryNone
                              block:^(__unused UIViewController* controller)
       {
-          [self.crasher accessDeallocatedPtrProxy];
+          [blockSelf.crasher accessDeallocatedPtrProxy];
       }]];
 
     [commands addObject:
@@ -583,7 +592,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                      accessoryType:UITableViewCellAccessoryNone
                              block:^(__unused UIViewController* controller)
       {
-          [self.crasher corruptMemory];
+          [blockSelf.crasher corruptMemory];
       }]];
 
     [commands addObject:
@@ -591,7 +600,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                      accessoryType:UITableViewCellAccessoryNone
                              block:^(__unused UIViewController* controller)
       {
-          [self.crasher zombieNSException];
+          [blockSelf.crasher zombieNSException];
       }]];
 
     [commands addObject:
@@ -599,8 +608,8 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                      accessoryType:UITableViewCellAccessoryNone
                              block:^(__unused UIViewController* controller)
       {
-          self.crashInHandler = YES;
-          [self.crasher dereferenceBadPointer];
+          blockSelf.crashInHandler = YES;
+          [blockSelf.crasher dereferenceBadPointer];
       }]];
 
     [commands addObject:
@@ -608,7 +617,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                      accessoryType:UITableViewCellAccessoryNone
                              block:^(__unused UIViewController* controller)
       {
-          [self.crasher deadlock];
+          [blockSelf.crasher deadlock];
       }]];
 
     [commands addObject:
@@ -616,7 +625,15 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                      accessoryType:UITableViewCellAccessoryNone
                              block:^(__unused UIViewController* controller)
       {
-          [self.crasher pthreadAPICrash];
+          [blockSelf.crasher pthreadAPICrash];
+      }]];
+
+    [commands addObject:
+     [CommandEntry commandWithName:@"User Defined (soft) Crash"
+                     accessoryType:UITableViewCellAccessoryNone
+                             block:^(__unused UIViewController* controller)
+      {
+          [blockSelf.crasher userDefinedCrash];
       }]];
 
 

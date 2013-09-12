@@ -426,3 +426,8 @@ void kscrashstate_notifyAppCrash(void)
     state->crashedThisLaunch = true;
     kscrashstate_i_saveState(state, stateFilePath);
 }
+
+const KSCrash_State* const kscrashstate_currentState(void)
+{
+    return g_state;
+}

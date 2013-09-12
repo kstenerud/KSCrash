@@ -84,18 +84,20 @@ void kssighndl_i_handleSignal(int sigNum,
     KSLOG_DEBUG("Trapped signal %d", sigNum);
     if(g_installed)
     {
+        bool wasHandlingCrash = g_context->handlingCrash;
+        kscrashsentry_beginHandlingCrash(g_context);
+
         KSLOG_DEBUG("Signal handler is installed. Continuing signal handling.");
 
         KSLOG_DEBUG("Suspending all threads.");
         kscrashsentry_suspendThreads();
 
-        if(g_context->handlingCrash)
+        if(wasHandlingCrash)
         {
             KSLOG_INFO("Detected crash in the crash reporter. Restoring original handlers.");
             g_context->crashedDuringCrashHandling = true;
             kscrashsentry_uninstall(KSCrashTypeAsyncSafe);
         }
-        g_context->handlingCrash = true;
 
 
         KSLOG_DEBUG("Filling out context.");

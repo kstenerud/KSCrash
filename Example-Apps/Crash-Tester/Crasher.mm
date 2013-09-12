@@ -6,7 +6,9 @@
 
 #import "Crasher.h"
 #import "ARCSafe_MemMgmt.h"
+#import <KSCrash/KSCrash.h>
 #import <pthread.h>
+#import <exception>
 
 @interface MyClass: NSObject @end
 @implementation MyClass @end
@@ -66,7 +68,7 @@
 int* g_crasher_null_ptr = NULL;
 int g_crasher_denominator = 0;
 
-- (void) throwException
+- (void) throwUncaughtNSException
 {
     id data = [NSArray arrayWithObject:@"Hello World"];
     [(NSDictionary*)data objectForKey:0];
@@ -89,7 +91,13 @@ int g_crasher_denominator = 0;
     
     // Random data
     void* pointers[] = {NULL, NULL, NULL};
-    void* randomData[] = {"a","b",pointers,"d","e","f"};
+    void* randomData[] = {
+        (void*)"a",
+        (void*)"b",
+        (void*)pointers,
+        (void*)"d",
+        (void*)"e",
+        (void*)"f"};
     
     // A corrupted/under-retained/re-used piece of memory
     struct {void* isa;} corruptObj = {randomData};
@@ -208,6 +216,41 @@ int g_crasher_denominator = 0;
 {
     // http://landonf.bikemonkey.org/code/crashreporting
     pthread_getname_np(pthread_self(), (char*)0x1, 1);
+}
+
+- (void) userDefinedCrash
+{
+    NSString* name = @"Script Error";
+    NSString* reason = @"fragment is not defined";
+    NSString* lineOfCode = @"string.append(fragment)";
+    NSArray* stackTrace = [NSArray arrayWithObjects:
+                           @"Printer.script, line 174: in function assembleComponents",
+                           @"Printer.script, line 209: in function print",
+                           @"Main.script, line 10: in function initialize",
+                           nil];
+
+    [[KSCrash sharedInstance] reportUserException:name
+                                           reason:reason
+                                       lineOfCode:lineOfCode
+                                       stackTrace:stackTrace
+                                 terminateProgram:NO];
+}
+
+
+class MyException: public std::exception
+{
+public:
+    virtual const char* what() const noexcept;
+};
+
+const char* MyException::what() const noexcept
+{
+    return "Something bad happened...";
+}
+
+- (void) throwUncaughtCPPException
+{
+    throw MyException();
 }
 
 @end

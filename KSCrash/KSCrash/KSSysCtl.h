@@ -177,6 +177,7 @@ struct timeval kssysctl_timevalForName(const char* name);
 bool kssysctl_getProcessInfo(int pid, struct kinfo_proc* procInfo);
 
 /** Get the MAC address of the specified interface.
+ * Note: As of iOS 7 this will always return a fixed value of 02:00:00:00:00:00.
  *
  * @param name Interface name (e.g. "en1").
  *
