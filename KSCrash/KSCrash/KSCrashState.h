@@ -122,6 +122,10 @@ void kscrashstate_notifyAppTerminate(void);
  */
 void kscrashstate_notifyAppCrash(void);
 
+/** Read-only access into the current state.
+ */
+const KSCrash_State* const kscrashstate_currentState(void);
+
 
 #ifdef __cplusplus
 }

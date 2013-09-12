@@ -49,7 +49,7 @@
 
 - (void) testCopyProcessName
 {
-    char* processName = kssystemInfo_copyProcessName();
+    char* processName = kssysteminfo_copyProcessName();
     STAssertTrue(processName != NULL, @"");
     if(processName != NULL)
     {

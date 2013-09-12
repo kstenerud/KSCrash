@@ -57,7 +57,7 @@
 
 #define kAppleRedactedText @"<redacted>"
 
-#define kExpectedMajorVersion 2
+#define kExpectedMajorVersion 3
 
 
 @interface KSCrashReportFilterAppleFmt ()
@@ -511,6 +511,7 @@ NSDictionary* g_registerOrders;
 
     [str appendString:@"\nExtra Information:\n"];
 
+    NSDictionary* system = [self systemReport:report];
     NSDictionary* crash = [self crashReport:report];
     NSDictionary* error = [crash objectForKey:@KSCrashField_Error];
     NSDictionary* nsexception = [error objectForKey:@KSCrashField_NSException];
@@ -556,6 +557,12 @@ NSDictionary* g_registerOrders;
          [self backtraceString:[lastException objectForKey:@KSCrashField_Backtrace]
                    reportStyle:self.reportStyle
             mainExecutableName:mainExecutableName]];
+    }
+
+    NSDictionary* appStats = [system objectForKey:@KSCrashField_AppStats];
+    if(appStats != nil)
+    {
+        [str appendFormat:@"\nApplication Stats:\n%@\n", [self JSONForObject:appStats]];
     }
 
     NSDictionary* crashReport = [report objectForKey:@KSCrashField_Crash];
@@ -627,9 +634,12 @@ NSDictionary* g_registerOrders;
     NSDictionary* thread = [self crashedThread:report];
     NSDictionary* crash = [self crashReport:report];
     NSDictionary* error = [crash objectForKey:@KSCrashField_Error];
+    NSDictionary* type = [error objectForKey:@KSCrashField_Type];
 
     NSDictionary* nsexception = [error objectForKey:@KSCrashField_NSException];
+    NSDictionary* cppexception = [error objectForKey:@KSCrashField_CPPException];
     NSDictionary* lastException = [[self processReport:report] objectForKey:@KSCrashField_LastDeallocedNSException];
+    NSDictionary* userException = [error objectForKey:@KSCrashField_UserReported];
     NSDictionary* mach = [error objectForKey:@KSCrashField_Mach];
     NSDictionary* signal = [error objectForKey:@KSCrashField_Signal];
 
@@ -660,25 +670,66 @@ NSDictionary* g_registerOrders;
 
     if(nsexception != nil)
     {
-        [str appendFormat:@"\nApplication Specific Information:\n"];
-        [str appendFormat:@"*** Terminating app due to uncaught exception '%@', reason: '%@'\n",
-         [nsexception objectForKey:@KSCrashField_Name],
-         [nsexception objectForKey:@KSCrashField_Reason]];
+        [str appendString:[self stringWithUncaughtExceptionName:[nsexception objectForKey:@KSCrashField_Name]
+                                                         reason:[error objectForKey:@KSCrashField_Reason]]];
     }
     else if([self isZombieNSException:report])
     {
-        [str appendFormat:@"\nApplication Specific Information:\n"];
-        [str appendFormat:@"*** Terminating app due to uncaught exception '%@', reason: '%@'\n",
-         [lastException objectForKey:@KSCrashField_Name],
-         [lastException objectForKey:@KSCrashField_Reason]];
+        [str appendString:[self stringWithUncaughtExceptionName:[lastException objectForKey:@KSCrashField_Name]
+                                                         reason:[lastException objectForKey:@KSCrashField_Reason]]];
         [str appendString:@"NOTE: This exception has been deallocated! Stack trace is crash from attempting to access this zombie exception.\n"];
     }
+    else if(userException != nil)
+    {
+        [str appendString:[self stringWithUncaughtExceptionName:[userException objectForKey:@KSCrashField_Name]
+                                                         reason:[error objectForKey:@KSCrashField_Reason]]];
+        NSString* trace = [self userExceptionTrace:userException];
+        if(trace.length > 0)
+        {
+            [str appendFormat:@"\n%@\n", trace];
+        }
+    }
+    else if([type isEqual:@KSCrashExcType_CPPException])
+    {
+        [str appendString:[self stringWithUncaughtExceptionName:[cppexception objectForKey:@KSCrashField_Name]
+                                                         reason:[error objectForKey:@KSCrashField_Reason]]];
+    }
+
     if([@KSCrashExcType_Deadlock isEqualToString:[error objectForKey:@KSCrashField_Type]])
     {
         [str appendFormat:@"\nApplication main thread deadlocked\n"];
     }
 
     return str;
+}
+
+- (NSString*) stringWithUncaughtExceptionName:(NSString*) name reason:(NSString*) reason
+{
+    return [NSString stringWithFormat:
+            @"\nApplication Specific Information:\n"
+            @"*** Terminating app due to uncaught exception '%@', reason: '%@'\n",
+            name, reason];
+}
+
+- (NSString*) userExceptionTrace:(NSDictionary*)userException
+{
+    NSMutableString* str = [NSMutableString string];
+    NSString* line = [userException objectForKey:@KSCrashField_LineOfCode];
+    if(line != nil)
+    {
+        [str appendFormat:@"Line: %@\n", line];
+    }
+    NSArray* backtrace = [userException objectForKey:@KSCrashField_Backtrace];
+    for(NSString* entry in backtrace)
+    {
+        [str appendFormat:@"%@\n", entry];
+    }
+
+    if(str.length > 0)
+    {
+        return [@"Custom Backtrace:\n" stringByAppendingString:str];
+    }
+    return @"";
 }
 
 - (NSString*) threadStringForThread:(NSDictionary*) thread

@@ -1,7 +1,5 @@
 //
-//  KSCrashSentry_Signal.h
-//
-//  Created by Karl Stenerud on 2012-01-28.
+//  KSCrashType.c
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -25,36 +23,36 @@
 //
 
 
-/* Catches fatal unix signals.
- */
+#include "KSCrashType.h"
+
+#include <stdlib.h>
 
 
-#ifndef HDR_KSCrashSentry_Signal_h
-#define HDR_KSCrashSentry_Signal_h
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-
-#include "KSCrashSentry.h"
-
-
-/** Install our custom signal handler.
- *
- * @param context The crash context to fill out when a crash occurs.
- *
- * @return true if installation was succesful.
- */
-bool kscrashsentry_installSignalHandler(KSCrash_SentryContext* context);
-
-/** Uninstall our custom signal handlers and restore the previous ones.
- */
-void kscrashsentry_uninstallSignalHandler(void);
+static const struct
+{
+    const KSCrashType type;
+    const char* const name;
+} g_crashTypes[] =
+{
+#define CRASHTYPE(NAME) {NAME, #NAME}
+    CRASHTYPE(KSCrashTypeMachException),
+    CRASHTYPE(KSCrashTypeSignal),
+    CRASHTYPE(KSCrashTypeCPPException),
+    CRASHTYPE(KSCrashTypeNSException),
+    CRASHTYPE(KSCrashTypeMainThreadDeadlock),
+    CRASHTYPE(KSCrashTypeUserReported),
+};
+static const int g_crashTypesCount = sizeof(g_crashTypes) / sizeof(*g_crashTypes);
 
 
-#ifdef __cplusplus
+const char* kscrashtype_name(const KSCrashType crashType)
+{
+    for(int i = 0; i < g_crashTypesCount; i++)
+    {
+        if(g_crashTypes[i].type == crashType)
+        {
+            return g_crashTypes[i].name;
+        }
+    }
+    return NULL;
 }
-#endif
-
-#endif // HDR_KSCrashSentry_Signal_h

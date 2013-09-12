@@ -1,7 +1,5 @@
 //
-//  KSCrashSentry_Signal.h
-//
-//  Created by Karl Stenerud on 2012-01-28.
+//  KSCrashSentry_CPPException.h
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,13 +22,8 @@
 // THE SOFTWARE.
 //
 
-
-/* Catches fatal unix signals.
- */
-
-
-#ifndef HDR_KSCrashSentry_Signal_h
-#define HDR_KSCrashSentry_Signal_h
+#ifndef HDR_KSCrashSentry_CPPException_h
+#define HDR_KSCrashSentry_CPPException_h
 
 #ifdef __cplusplus
 extern "C" {
@@ -40,21 +33,21 @@ extern "C" {
 #include "KSCrashSentry.h"
 
 
-/** Install our custom signal handler.
+/** Install the C++ exception handler.
  *
- * @param context The crash context to fill out when a crash occurs.
+ * @param context Contextual information for the crash handler.
  *
  * @return true if installation was succesful.
  */
-bool kscrashsentry_installSignalHandler(KSCrash_SentryContext* context);
+bool kscrashsentry_installCPPExceptionHandler(KSCrash_SentryContext* context);
 
-/** Uninstall our custom signal handlers and restore the previous ones.
+/** Uninstall the C++ exception handler.
  */
-void kscrashsentry_uninstallSignalHandler(void);
+void kscrashsentry_uninstallCPPExceptionHandler(void);
 
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // HDR_KSCrashSentry_Signal_h
+#endif // HDR_KSCrashSentry_CPPException_h

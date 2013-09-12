@@ -50,7 +50,7 @@
 		CB1C616116E96BF90088122E /* Icon.png in Resources */ = {isa = PBXBuildFile; fileRef = CB1C616016E96BF90088122E /* Icon.png */; };
 		CB1C616816E96C160088122E /* AppDelegate+UI.m in Sources */ = {isa = PBXBuildFile; fileRef = CB1C616316E96C150088122E /* AppDelegate+UI.m */; };
 		CB1C616916E96C160088122E /* CommandTVC.m in Sources */ = {isa = PBXBuildFile; fileRef = CB1C616616E96C160088122E /* CommandTVC.m */; };
-		CB1C616C16E96C270088122E /* Crasher.m in Sources */ = {isa = PBXBuildFile; fileRef = CB1C616B16E96C270088122E /* Crasher.m */; };
+		CB1C616C16E96C270088122E /* Crasher.mm in Sources */ = {isa = PBXBuildFile; fileRef = CB1C616B16E96C270088122E /* Crasher.mm */; };
 		CB1C616E16E96C680088122E /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB1C610C16E958040088122E /* SystemConfiguration.framework */; };
 		CB1C616F16E96C680088122E /* MessageUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB1C610A16E958000088122E /* MessageUI.framework */; };
 		CB1C617016E96C6B0088122E /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = CB1C610816E957FB0088122E /* libz.dylib */; };
@@ -77,7 +77,7 @@
 		CB1C610816E957FB0088122E /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = usr/lib/libz.dylib; sourceTree = SDKROOT; };
 		CB1C610A16E958000088122E /* MessageUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MessageUI.framework; path = System/Library/Frameworks/MessageUI.framework; sourceTree = SDKROOT; };
 		CB1C610C16E958040088122E /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = System/Library/Frameworks/SystemConfiguration.framework; sourceTree = SDKROOT; };
-		CB1C610E16E958130088122E /* KSCrash.framework */ = {isa = PBXFileReference; lastKnownFileType = file; name = KSCrash.framework; path = "../KSCrash/build/Release-iphoneos/KSCrash.framework"; sourceTree = "<group>"; };
+		CB1C610E16E958130088122E /* KSCrash.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = KSCrash.framework; path = "../KSCrash/build/Release-iphoneos/KSCrash.framework"; sourceTree = "<group>"; };
 		CB1C611416E959C70088122E /* Advanced-Example.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Advanced-Example.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		CB1C611A16E959C70088122E /* Advanced-Example-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Advanced-Example-Info.plist"; sourceTree = "<group>"; };
 		CB1C611C16E959C70088122E /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
@@ -111,7 +111,7 @@
 		CB1C616616E96C160088122E /* CommandTVC.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = CommandTVC.m; sourceTree = "<group>"; };
 		CB1C616716E96C160088122E /* Configuration.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Configuration.h; sourceTree = "<group>"; };
 		CB1C616A16E96C270088122E /* Crasher.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Crasher.h; sourceTree = "<group>"; };
-		CB1C616B16E96C270088122E /* Crasher.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = Crasher.m; sourceTree = "<group>"; };
+		CB1C616B16E96C270088122E /* Crasher.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = Crasher.mm; sourceTree = "<group>"; };
 		CB1C616D16E96C2F0088122E /* LoadableCategory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = LoadableCategory.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -264,7 +264,7 @@
 				CB1C616616E96C160088122E /* CommandTVC.m */,
 				CB1C616716E96C160088122E /* Configuration.h */,
 				CB1C616A16E96C270088122E /* Crasher.h */,
-				CB1C616B16E96C270088122E /* Crasher.m */,
+				CB1C616B16E96C270088122E /* Crasher.mm */,
 				CB1C616D16E96C2F0088122E /* LoadableCategory.h */,
 				CB1C614616E96B4F0088122E /* Supporting Files */,
 			);
@@ -437,7 +437,7 @@
 				CB1C615016E96B4F0088122E /* AppDelegate.m in Sources */,
 				CB1C616816E96C160088122E /* AppDelegate+UI.m in Sources */,
 				CB1C616916E96C160088122E /* CommandTVC.m in Sources */,
-				CB1C616C16E96C270088122E /* Crasher.m in Sources */,
+				CB1C616C16E96C270088122E /* Crasher.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -661,7 +661,7 @@
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "Crash-Tester/Crash-Tester-Prefix.pch";
 				INFOPLIST_FILE = "Crash-Tester/Crash-Tester-Info.plist";
-				IPHONEOS_DEPLOYMENT_TARGET = 4.3;
+				IPHONEOS_DEPLOYMENT_TARGET = 5.0;
 				OTHER_LDFLAGS = "-ObjC";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WRAPPER_EXTENSION = app;
@@ -676,7 +676,7 @@
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "Crash-Tester/Crash-Tester-Prefix.pch";
 				INFOPLIST_FILE = "Crash-Tester/Crash-Tester-Info.plist";
-				IPHONEOS_DEPLOYMENT_TARGET = 4.3;
+				IPHONEOS_DEPLOYMENT_TARGET = 5.0;
 				OTHER_LDFLAGS = "-ObjC";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WRAPPER_EXTENSION = app;
@@ -702,6 +702,7 @@
 				CB1C610716E9579A0088122E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		CB1C613016E959C70088122E /* Build configuration list for PBXNativeTarget "Advanced-Example" */ = {
 			isa = XCConfigurationList;
@@ -710,6 +711,7 @@
 				CB1C613216E959C70088122E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		CB1C615D16E96B4F0088122E /* Build configuration list for PBXNativeTarget "Crash-Tester" */ = {
 			isa = XCConfigurationList;
@@ -718,6 +720,7 @@
 				CB1C615F16E96B4F0088122E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

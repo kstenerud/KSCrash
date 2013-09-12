@@ -28,6 +28,13 @@
 #ifndef HDR_KSCrashSentry_Private_h
 #define HDR_KSCrashSentry_Private_h
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+    
+#include "KSCrashSentry.h"
+
 
 /** Suspend all non-reserved threads.
  *
@@ -43,5 +50,17 @@ void kscrashsentry_suspendThreads(void);
  */
 void kscrashsentry_resumeThreads(void);
 
+/** Prepare the context for handling a new crash.
+ */
+void kscrashsentry_beginHandlingCrash(KSCrash_SentryContext* context);
+
+/** Clear a crash sentry context.
+ */
+void kscrashsentry_clearContext(KSCrash_SentryContext* context);
+
+    
+#ifdef __cplusplus
+}
+#endif
 
 #endif // HDR_KSCrashSentry_Private_h

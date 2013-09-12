@@ -47,10 +47,12 @@
 
 #pragma mark - Exception Types -
 
+#define KSCrashExcType_CPPException        "cpp_exception"
 #define KSCrashExcType_Deadlock            "deadlock"
 #define KSCrashExcType_Mach                "mach"
 #define KSCrashExcType_NSException         "nsexception"
 #define KSCrashExcType_Signal              "signal"
+#define KSCrashExcType_User                "user"
 
 
 #pragma mark - Common -
@@ -80,6 +82,7 @@
 #pragma mark - Backtrace -
 
 #define KSCrashField_InstructionAddr       "instruction_addr"
+#define KSCrashField_LineOfCode            "line_of_code"
 #define KSCrashField_ObjectAddr            "object_addr"
 #define KSCrashField_ObjectName            "object_name"
 #define KSCrashField_SymbolAddr            "symbol_addr"
@@ -127,12 +130,14 @@
 #define KSCrashField_Backtrace             "backtrace"
 #define KSCrashField_Code                  "code"
 #define KSCrashField_CodeName              "code_name"
+#define KSCrashField_CPPException          "cpp_exception"
 #define KSCrashField_ExceptionName         "exception_name"
 #define KSCrashField_Mach                  "mach"
 #define KSCrashField_NSException           "nsexception"
+#define KSCrashField_Reason                "reason"
 #define KSCrashField_Signal                "signal"
 #define KSCrashField_Subcode               "subcode"
-#define KSCrashField_Reason                "reason"
+#define KSCrashField_UserReported          "user_reported"
 
 
 #pragma mark - Process State -
