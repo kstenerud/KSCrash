@@ -60,7 +60,7 @@ const char* ksfu_lastPathEntry(const char* path);
  *
  * @return true if the operation was successful.
  */
-bool ksfu_writeBytesToFD(int fd, const char* bytes, ssize_t length);
+bool ksfu_writeBytesToFD(const int fd, const char* bytes, ssize_t length);
 
 /** Read bytes from a file descriptor.
  *
@@ -72,7 +72,7 @@ bool ksfu_writeBytesToFD(int fd, const char* bytes, ssize_t length);
  *
  * @return true if the operation was successful.
  */
-bool ksfu_readBytesFromFD(int fd, char* bytes, ssize_t length);
+bool ksfu_readBytesFromFD(const int fd, char* bytes, ssize_t length);
 
 /** Read an entire file.
  *
@@ -94,7 +94,7 @@ bool ksfu_readEntireFile(const char* path, char** data, size_t* length);
  *
  * @return true if successful.
  */
-bool ksfu_writeStringToFD(int fd, const char* string);
+bool ksfu_writeStringToFD(const int fd, const char* string);
 
 /** Write a formatted string to a file.
  *
@@ -104,7 +104,7 @@ bool ksfu_writeStringToFD(int fd, const char* string);
  *
  * @return true if successful.
  */
-bool ksfu_writeFmtToFD(int fd, const char* fmt, ...);
+bool ksfu_writeFmtToFD(const int fd, const char* fmt, ...);
 
 /** Write a formatted string to a file.
  *
@@ -116,7 +116,7 @@ bool ksfu_writeFmtToFD(int fd, const char* fmt, ...);
  *
  * @return true if successful.
  */
-bool ksfu_writeFmtArgsToFD(int fd, const char* fmt, va_list args);
+bool ksfu_writeFmtArgsToFD(const int fd, const char* fmt, va_list args);
 
 /** Read a single line from a file.
  *
@@ -128,7 +128,7 @@ bool ksfu_writeFmtArgsToFD(int fd, const char* fmt, va_list args);
  *
  * @return The number of bytes read.
  */
-ssize_t ksfu_readLineFromFD(int fd, char* buffer, int maxLength);
+ssize_t ksfu_readLineFromFD(const int fd, char* buffer, int maxLength);
 
 
 #ifdef __cplusplus

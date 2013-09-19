@@ -93,9 +93,9 @@
 // ============================================================================
 
 #if defined(__LP64__)
-    #define TRACE_FMT         "%-4d%-31s 0x%016llx %s + %llu"
-    #define POINTER_FMT       "0x%016llx"
-    #define POINTER_SHORT_FMT "0x%llx"
+    #define TRACE_FMT         "%-4d%-31s 0x%016lx %s + %lu"
+    #define POINTER_FMT       "0x%016lx"
+    #define POINTER_SHORT_FMT "0x%lx"
 #else
     #define TRACE_FMT         "%-4d%-31s 0x%08lx %s + %lu"
     #define POINTER_FMT       "0x%08lx"

@@ -148,7 +148,17 @@
     UIWindow* window = [[[UIApplication sharedApplication] delegate] window];
     [window addSubview:self.dummyVC.view];
 
-    [self.dummyVC presentModalViewController:vc animated:YES];
+    if([self.dummyVC respondsToSelector:@selector(presentViewController:animated:completion:)])
+    {
+        [self.dummyVC presentViewController:vc animated:YES completion:nil];
+    }
+    else
+    {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        [self.dummyVC presentModalViewController:vc animated:YES];
+#pragma clang diagnostic pop
+    }
 }
 
 - (void) dismissModalVC
@@ -163,7 +173,10 @@
     }
     else
     {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         [self.dummyVC dismissModalViewControllerAnimated:NO];
+#pragma clang diagnostic pop
         [self.dummyVC.view removeFromSuperview];
         self.dummyVC = nil;
     }

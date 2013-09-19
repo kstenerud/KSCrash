@@ -40,10 +40,10 @@
 
 
 #if defined(__LP64__)
-    #define FMT_PTR_SHORT        @"0x%llx"
-    #define FMT_PTR_LONG         @"0x%016llx"
-    #define FMT_PTR_RJ           @"%#18llx"
-    #define FMT_OFFSET           @"%llu"
+    #define FMT_PTR_SHORT        @"0x%lx"
+    #define FMT_PTR_LONG         @"0x%016lx"
+    #define FMT_PTR_RJ           @"%#18lx"
+    #define FMT_OFFSET           @"%lu"
 #else
     #define FMT_PTR_SHORT        @"0x%lx"
     #define FMT_PTR_LONG         @"0x%08lx"
@@ -253,7 +253,7 @@ NSDictionary* g_registerOrders;
 {
     NSMutableString* str = [NSMutableString string];
 
-    NSUInteger traceNum = 0;
+    int traceNum = 0;
     for(NSDictionary* trace in [backtrace objectForKey:@KSCrashField_Contents])
     {
         uintptr_t pc = (uintptr_t)[[trace objectForKey:@KSCrashField_InstructionAddr] longLongValue];

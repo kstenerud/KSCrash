@@ -64,7 +64,7 @@ typedef struct
 } Zombie;
 
 static Zombie* g_zombieCache;
-static unsigned int g_zombieHashMask;
+static size_t g_zombieHashMask;
 
 static struct
 {
@@ -77,7 +77,7 @@ static struct
 } g_lastDeallocedException;
 static const NSUInteger g_callStackSize = sizeof(g_lastDeallocedException.callStack) / sizeof(*g_lastDeallocedException.callStack);
 
-static inline unsigned int hashIndex(const id object)
+static inline size_t hashIndex(const id object)
 {
     uintptr_t objPtr = (uintptr_t)object;
     objPtr >>= (sizeof(object)-1);

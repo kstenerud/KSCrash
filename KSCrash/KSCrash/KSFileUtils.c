@@ -179,7 +179,7 @@ bool ksfu_writeFmtToFD(const int fd, const char* const fmt, ...)
 
 bool ksfu_writeFmtArgsToFD(const int fd,
                            const char* const fmt,
-                           const va_list args)
+                           va_list args)
 {
     if(*fmt != 0)
     {

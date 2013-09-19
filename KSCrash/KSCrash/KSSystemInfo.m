@@ -196,7 +196,7 @@
 
     // SHA the whole thing.
     uint8_t sha[CC_SHA1_DIGEST_LENGTH];
-    CC_SHA1([data bytes], [data length], sha);
+    CC_SHA1([data bytes], (CC_LONG)[data length], sha);
 
     NSMutableString* hash = [NSMutableString string];
     for(size_t i = 0; i < sizeof(sha); i++)
