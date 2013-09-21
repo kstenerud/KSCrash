@@ -60,7 +60,7 @@
 #define kReportVersionMinor 0
 
 /** Maximum depth allowed for a backtrace. */
-#define kMaxBacktraceDepth 50
+#define kMaxBacktraceDepth 100
 
 /** Default number of objects, subobjects, and ivars to record from a memory loc */
 #define kDefaultMemorySearchDepth 15
