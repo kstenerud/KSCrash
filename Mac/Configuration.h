@@ -27,8 +27,8 @@
 #define kReportURL [NSURL URLWithString:@"http://" kReportHost @":8000/api/crashes/"]
 
 
-// Set to YES to write all log entries to Library/Caches/KSCrashReports/Crash-Tester/Crash-Tester-CrashLog.txt
-#define kRedirectConsoleLogToDefaultFile NO
+// Set to true to write all log entries to Library/Caches/KSCrashReports/Crash-Tester/Crash-Tester-CrashLog.txt
+#define kRedirectConsoleLogToDefaultFile false
 
 
 #endif

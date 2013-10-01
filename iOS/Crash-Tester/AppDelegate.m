@@ -7,6 +7,7 @@
 #import "AppDelegate.h"
 #import "ARCSafe_MemMgmt.h"
 #import "AppDelegate+UI.h"
+#import "Configuration.h"
 
 #import <KSCrash/KSCrash.h>
 #import <KSCrash/KSCrashAdvanced.h>

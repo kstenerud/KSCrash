@@ -10,6 +10,7 @@
 #import "ARCSafe_MemMgmt.h"
 #import "Crasher.h"
 #import "CrashTesterCommands.h"
+#import "Configuration.h"
 
 #import <KSCrash/KSCrashAdvanced.h>
 #import <KSCrash/KSCrashReportFilterSets.h>
