@@ -1,7 +1,0 @@
-//
-// Prefix header for all source files of the 'KSCrashLib' target in the 'KSCrashLib' project
-//
-
-#ifdef __OBJC__
-    #import <Foundation/Foundation.h>
-#endif
