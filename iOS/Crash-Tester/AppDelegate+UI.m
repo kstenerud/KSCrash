@@ -249,7 +249,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
                      accessoryType:UITableViewCellAccessoryNone
                              block:^(__unused UIViewController* controller)
       {
-          [CrashTesterCommands mailSideBySide];
+          [CrashTesterCommands printSideBySide];
       }]];
 
     [commands addObject:
