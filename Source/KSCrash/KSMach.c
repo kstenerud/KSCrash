@@ -335,23 +335,26 @@ bool ksmach_getThreadQueueName(const thread_t thread,
 
 uint32_t ksmach_imageNamed(const char* const imageName, bool exactMatch)
 {
-    const uint32_t imageCount = _dyld_image_count();
-
-    for(uint32_t iImg = 0; iImg < imageCount; iImg++)
+    if(imageName != NULL)
     {
-        const char* name = _dyld_get_image_name(iImg);
-        if(exactMatch)
+        const uint32_t imageCount = _dyld_image_count();
+
+        for(uint32_t iImg = 0; iImg < imageCount; iImg++)
         {
-            if(strcmp(name, imageName) == 0)
+            const char* name = _dyld_get_image_name(iImg);
+            if(exactMatch)
             {
-                return iImg;
+                if(strcmp(name, imageName) == 0)
+                {
+                    return iImg;
+                }
             }
-        }
-        else
-        {
-            if(strstr(name, imageName) != NULL)
+            else
             {
-                return iImg;
+                if(strstr(name, imageName) != NULL)
+                {
+                    return iImg;
+                }
             }
         }
     }
@@ -360,24 +363,27 @@ uint32_t ksmach_imageNamed(const char* const imageName, bool exactMatch)
 
 const uint8_t* ksmach_imageUUID(const char* const imageName, bool exactMatch)
 {
-    const uint32_t iImg = ksmach_imageNamed(imageName, exactMatch);
-    if(iImg != UINT32_MAX)
+    if(imageName != NULL)
     {
-        const struct mach_header* header = _dyld_get_image_header(iImg);
-        if(header != NULL)
+        const uint32_t iImg = ksmach_imageNamed(imageName, exactMatch);
+        if(iImg != UINT32_MAX)
         {
-            uintptr_t cmdPtr = ksmach_firstCmdAfterHeader(header);
-            if(cmdPtr != 0)
+            const struct mach_header* header = _dyld_get_image_header(iImg);
+            if(header != NULL)
             {
-                for(uint32_t iCmd = 0;iCmd < header->ncmds; iCmd++)
+                uintptr_t cmdPtr = ksmach_firstCmdAfterHeader(header);
+                if(cmdPtr != 0)
                 {
-                    const struct load_command* loadCmd = (struct load_command*)cmdPtr;
-                    if(loadCmd->cmd == LC_UUID)
+                    for(uint32_t iCmd = 0;iCmd < header->ncmds; iCmd++)
                     {
-                        struct uuid_command* uuidCmd = (struct uuid_command*)cmdPtr;
-                        return uuidCmd->uuid;
+                        const struct load_command* loadCmd = (struct load_command*)cmdPtr;
+                        if(loadCmd->cmd == LC_UUID)
+                        {
+                            struct uuid_command* uuidCmd = (struct uuid_command*)cmdPtr;
+                            return uuidCmd->uuid;
+                        }
+                        cmdPtr += loadCmd->cmdsize;
                     }
-                    cmdPtr += loadCmd->cmdsize;
                 }
             }
         }
