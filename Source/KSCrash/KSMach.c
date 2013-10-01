@@ -276,6 +276,7 @@ bool ksmach_getThreadQueueName(const thread_t thread,
                                char* const buffer,
                                size_t bufLength)
 {
+    // TODO: This seems to have broken in iOS 7...
     struct internal_dispatch_queue_s* pQueue;
     struct internal_dispatch_queue_s queue;
 

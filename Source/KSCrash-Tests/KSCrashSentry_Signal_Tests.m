@@ -25,12 +25,12 @@
 //
 
 
-#import <SenTestingKit/SenTestingKit.h>
+#import <XCTest/XCTest.h>
 
 #import "KSCrashSentry_Signal.h"
 
 
-@interface KSCrashSentry_Signal_Tests : SenTestCase @end
+@interface KSCrashSentry_Signal_Tests : XCTestCase @end
 
 
 @implementation KSCrashSentry_Signal_Tests
@@ -40,7 +40,7 @@
     bool success;
     KSCrash_SentryContext context;
     success = kscrashsentry_installSignalHandler(&context);
-    STAssertTrue(success, @"");
+    XCTAssertTrue(success, @"");
     [NSThread sleepForTimeInterval:0.1];
     kscrashsentry_uninstallSignalHandler();
 }
@@ -50,9 +50,9 @@
     bool success;
     KSCrash_SentryContext context;
     success = kscrashsentry_installSignalHandler(&context);
-    STAssertTrue(success, @"");
+    XCTAssertTrue(success, @"");
     success = kscrashsentry_installSignalHandler(&context);
-    STAssertTrue(success, @"");
+    XCTAssertTrue(success, @"");
     kscrashsentry_uninstallSignalHandler();
     kscrashsentry_uninstallSignalHandler();
 }

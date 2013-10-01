@@ -25,14 +25,14 @@
 //
 
 
-#import <SenTestingKit/SenTestingKit.h>
-#import "SenTestCase+KSCrash.h"
+#import <XCTest/XCTest.h>
+#import "XCTestCase+KSCrash.h"
 
 #import "ARCSafe_MemMgmt.h"
 #import "KSLogger.h"
 
 
-@interface KSLogger_Tests : SenTestCase
+@interface KSLogger_Tests : XCTestCase
 
 @property(nonatomic, readwrite, retain) NSString* tempDir;
 
@@ -110,15 +110,15 @@
 
     NSError* error = nil;
     NSString* result = [NSString stringWithContentsOfFile:logFileName encoding:NSUTF8StringEncoding error:&error];
-    STAssertNil(error, @"");
+    XCTAssertNil(error, @"");
     result = [[result componentsSeparatedByString:@"\x0a"] objectAtIndex:0];
-    STAssertEqualObjects(result, expected, @"");
+    XCTAssertEqualObjects(result, expected, @"");
 
     KSLOGBASIC_ALWAYS(@"blah blah");
     result = [NSString stringWithContentsOfFile:logFileName encoding:NSUTF8StringEncoding error:&error];
     result = [[result componentsSeparatedByString:@"\x0a"] objectAtIndex:0];
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, expected, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, expected, @"");
 }
 
 @end

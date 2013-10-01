@@ -25,12 +25,12 @@
 //
 
 
-#import <SenTestingKit/SenTestingKit.h>
+#import <XCTest/XCTest.h>
 
 #import "KSCString.h"
 
 
-@interface KSCString_Tests : SenTestCase @end
+@interface KSCString_Tests : XCTestCase @end
 
 
 @implementation KSCString_Tests
@@ -40,8 +40,8 @@
     NSString* expected = @"Expected";
     KSCString* actual = [KSCString stringWithString:expected];
     BOOL matches = strcmp([expected cStringUsingEncoding:NSUTF8StringEncoding], actual.bytes) == 0;
-    STAssertTrue(matches, @"");
-    STAssertEquals(actual.length, (size_t)[expected length], @"");
+    XCTAssertTrue(matches, @"");
+    XCTAssertEqual(actual.length, (size_t)[expected length], @"");
 }
 
 - (void) testCString
@@ -50,8 +50,8 @@
     size_t expectedLength = strlen(expected);
     KSCString* actual = [KSCString stringWithCString:expected];
     BOOL matches = strcmp(expected, actual.bytes) == 0;
-    STAssertTrue(matches, @"");
-    STAssertEquals(actual.length, expectedLength, @"");
+    XCTAssertTrue(matches, @"");
+    XCTAssertEqual(actual.length, expectedLength, @"");
 }
 
 - (void) testNSData
@@ -61,8 +61,8 @@
     NSData* source = [NSData dataWithBytes:expected length:expectedLength];
     KSCString* actual = [KSCString stringWithData:source];
     BOOL matches = strcmp(expected, actual.bytes) == 0;
-    STAssertTrue(matches, @"");
-    STAssertEquals(actual.length, expectedLength, @"");
+    XCTAssertTrue(matches, @"");
+    XCTAssertEqual(actual.length, expectedLength, @"");
 }
 
 - (void) testData
@@ -71,8 +71,8 @@
     size_t expectedLength = strlen(expected);
     KSCString* actual = [KSCString stringWithData:expected length:expectedLength];
     BOOL matches = strcmp(expected, actual.bytes) == 0;
-    STAssertTrue(matches, @"");
-    STAssertEquals(actual.length, expectedLength, @"");
+    XCTAssertTrue(matches, @"");
+    XCTAssertEqual(actual.length, expectedLength, @"");
 }
 
 @end

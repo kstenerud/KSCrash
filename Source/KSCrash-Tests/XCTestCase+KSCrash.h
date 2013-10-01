@@ -25,10 +25,10 @@
 //
 
 
-#import <SenTestingKit/SenTestingKit.h>
+#import <XCTest/XCTest.h>
 
 
-@interface SenTestCase (SenTestCase_KSCrash)
+@interface XCTestCase (XCTestCase_KSCrash)
 
 - (NSString*) createTempPath;
 

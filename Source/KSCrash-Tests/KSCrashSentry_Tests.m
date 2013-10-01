@@ -25,7 +25,7 @@
 //
 
 
-#import <SenTestingKit/SenTestingKit.h>
+#import <XCTest/XCTest.h>
 
 #import "KSCrashSentry.h"
 #import "KSCrashSentry_Private.h"
@@ -35,7 +35,7 @@ static void onCrash(void)
     // Do nothing
 }
 
-@interface KSCrashSentry_Tests : SenTestCase @end
+@interface KSCrashSentry_Tests : XCTestCase @end
 
 
 @implementation KSCrashSentry_Tests

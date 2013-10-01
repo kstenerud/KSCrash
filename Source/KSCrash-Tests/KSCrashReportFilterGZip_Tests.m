@@ -25,13 +25,13 @@
 //
 
 
-#import <SenTestingKit/SenTestingKit.h>
+#import <XCTest/XCTest.h>
 
 #import "KSCrashReportFilterGZip.h"
 #import "NSData+GZip.h"
 
 
-@interface KSCrashReportFilterGZip_Tests : SenTestCase @end
+@interface KSCrashReportFilterGZip_Tests : XCTestCase @end
 
 
 @implementation KSCrashReportFilterGZip_Tests
@@ -49,8 +49,8 @@
     for(NSData* data in decompressed)
     {
         NSData* newData = [data gzippedWithCompressionLevel:-1 error:&error];
-        STAssertNotNil(newData, @"");
-        STAssertNil(error, @"");
+        XCTAssertNotNil(newData, @"");
+        XCTAssertNil(error, @"");
         [compressed addObject:newData];
     }
     
@@ -59,9 +59,9 @@
                                                       BOOL completed,
                                                       NSError* error2)
      {
-         STAssertTrue(completed, @"");
-         STAssertNil(error2, @"");
-         STAssertEqualObjects(compressed, filteredReports, @"");
+         XCTAssertTrue(completed, @"");
+         XCTAssertNil(error2, @"");
+         XCTAssertEqualObjects(compressed, filteredReports, @"");
      }];
 }
 
@@ -78,8 +78,8 @@
     for(NSData* data in decompressed)
     {
         NSData* newData = [data gzippedWithCompressionLevel:-1 error:&error];
-        STAssertNotNil(newData, @"");
-        STAssertNil(error, @"");
+        XCTAssertNotNil(newData, @"");
+        XCTAssertNil(error, @"");
         [compressed addObject:newData];
     }
     
@@ -88,9 +88,9 @@
                                                     BOOL completed,
                                                     NSError* error2)
      {
-         STAssertTrue(completed, @"");
-         STAssertNil(error2, @"");
-         STAssertEqualObjects(decompressed, filteredReports, @"");
+         XCTAssertTrue(completed, @"");
+         XCTAssertNil(error2, @"");
+         XCTAssertEqualObjects(decompressed, filteredReports, @"");
      }];
 }
 

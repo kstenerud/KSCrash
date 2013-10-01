@@ -25,12 +25,12 @@
 //
 
 
-#import <SenTestingKit/SenTestingKit.h>
+#import <XCTest/XCTest.h>
 
 #import "NSDictionary+Merge.h"
 
 
-@interface NSDictionary_Merge_Tests : SenTestCase @end
+@interface NSDictionary_Merge_Tests : XCTestCase @end
 
 
 @implementation NSDictionary_Merge_Tests
@@ -48,7 +48,7 @@
                               @"two", @"b",
                               nil];
     NSDictionary* actual = [src mergedInto:dst];
-    STAssertEqualObjects(expected, actual, @"");
+    XCTAssertEqualObjects(expected, actual, @"");
 }
 
 - (void) testOverwrite
@@ -63,7 +63,7 @@
                               @"one", @"a",
                               nil];
     NSDictionary* actual = [src mergedInto:dst];
-    STAssertEqualObjects(expected, actual, @"");
+    XCTAssertEqualObjects(expected, actual, @"");
 }
 
 - (void) testSrcEmpty
@@ -76,7 +76,7 @@
                               @"two", @"b",
                               nil];
     NSDictionary* actual = [src mergedInto:dst];
-    STAssertEqualObjects(expected, actual, @"");
+    XCTAssertEqualObjects(expected, actual, @"");
 }
 
 - (void) testDstEmpty
@@ -89,7 +89,7 @@
                               @"one", @"a",
                               nil];
     NSDictionary* actual = [src mergedInto:dst];
-    STAssertEqualObjects(expected, actual, @"");
+    XCTAssertEqualObjects(expected, actual, @"");
 }
 
 - (void) testDstNil
@@ -102,7 +102,7 @@
                               @"one", @"a",
                               nil];
     NSDictionary* actual = [src mergedInto:dst];
-    STAssertEqualObjects(expected, actual, @"");
+    XCTAssertEqualObjects(expected, actual, @"");
 }
 
 - (void) testSrcDict
@@ -117,7 +117,7 @@
                               [NSDictionary dictionaryWithObjectsAndKeys:@"blah", @"x", nil], @"a",
                               nil];
     NSDictionary* actual = [src mergedInto:dst];
-    STAssertEqualObjects(expected, actual, @"");
+    XCTAssertEqualObjects(expected, actual, @"");
 }
 
 - (void) testDstDict
@@ -132,7 +132,7 @@
                               @"one", @"a",
                               nil];
     NSDictionary* actual = [src mergedInto:dst];
-    STAssertEqualObjects(expected, actual, @"");
+    XCTAssertEqualObjects(expected, actual, @"");
 }
 
 - (void) testSrcDstDict
@@ -150,7 +150,7 @@
                                nil], @"a",
                               nil];
     NSDictionary* actual = [src mergedInto:dst];
-    STAssertEqualObjects(expected, actual, @"");
+    XCTAssertEqualObjects(expected, actual, @"");
 }
 
 @end

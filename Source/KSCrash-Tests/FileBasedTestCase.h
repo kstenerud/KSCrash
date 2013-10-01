@@ -25,10 +25,10 @@
 //
 
 
-#import <SenTestingKit/SenTestingKit.h>
+#import <XCTest/XCTest.h>
 
 
-@interface FileBasedTestCase : SenTestCase
+@interface FileBasedTestCase : XCTestCase
 
 @property(nonatomic,readwrite,retain) NSString* tempPath;
 

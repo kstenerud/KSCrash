@@ -25,12 +25,12 @@
 //
 
 
-#import <SenTestingKit/SenTestingKit.h>
+#import <XCTest/XCTest.h>
 
 #import "KSCrashSentry_NSException.h"
 
 
-@interface KSCrashSentry_NSException_Tests : SenTestCase @end
+@interface KSCrashSentry_NSException_Tests : XCTestCase @end
 
 
 @implementation KSCrashSentry_NSException_Tests
@@ -40,7 +40,7 @@
     bool success;
     KSCrash_SentryContext context;
     success = kscrashsentry_installNSExceptionHandler(&context);
-    STAssertTrue(success, @"");
+    XCTAssertTrue(success, @"");
     [NSThread sleepForTimeInterval:0.1];
     kscrashsentry_uninstallNSExceptionHandler();
 }
@@ -50,9 +50,9 @@
     bool success;
     KSCrash_SentryContext context;
     success = kscrashsentry_installNSExceptionHandler(&context);
-    STAssertTrue(success, @"");
+    XCTAssertTrue(success, @"");
     success = kscrashsentry_installNSExceptionHandler(&context);
-    STAssertTrue(success, @"");
+    XCTAssertTrue(success, @"");
     kscrashsentry_uninstallNSExceptionHandler();
     kscrashsentry_uninstallNSExceptionHandler();
 }

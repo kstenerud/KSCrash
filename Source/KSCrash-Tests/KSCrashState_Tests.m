@@ -26,7 +26,7 @@
 
 
 #import "FileBasedTestCase.h"
-#import "SenTestCase+KSCrash.h"
+#import "XCTestCase+KSCrash.h"
 
 #import "KSCrashState.h"
 
@@ -44,39 +44,39 @@
     kscrashstate_init([stateFile cStringUsingEncoding:NSUTF8StringEncoding],
                       &context);
 
-    STAssertTrue(context.applicationIsInForeground, @"");
-    STAssertFalse(context.applicationIsActive, @"");
+    XCTAssertTrue(context.applicationIsInForeground, @"");
+    XCTAssertFalse(context.applicationIsActive, @"");
 
-    STAssertEquals(context.activeDurationSinceLastCrash, 0.0, @"");
-    STAssertEquals(context.backgroundDurationSinceLastCrash, 0.0, @"");
-    STAssertEquals(context.launchesSinceLastCrash, 1, @"");
-    STAssertEquals(context.sessionsSinceLastCrash, 1, @"");
+    XCTAssertEqual(context.activeDurationSinceLastCrash, 0.0, @"");
+    XCTAssertEqual(context.backgroundDurationSinceLastCrash, 0.0, @"");
+    XCTAssertEqual(context.launchesSinceLastCrash, 1, @"");
+    XCTAssertEqual(context.sessionsSinceLastCrash, 1, @"");
 
-    STAssertEquals(context.activeDurationSinceLaunch, 0.0, @"");
-    STAssertEquals(context.backgroundDurationSinceLaunch, 0.0, @"");
-    STAssertEquals(context.sessionsSinceLaunch, 1, @"");
+    XCTAssertEqual(context.activeDurationSinceLaunch, 0.0, @"");
+    XCTAssertEqual(context.backgroundDurationSinceLaunch, 0.0, @"");
+    XCTAssertEqual(context.sessionsSinceLaunch, 1, @"");
 
-    STAssertFalse(context.crashedThisLaunch, @"");
-    STAssertFalse(context.crashedLastLaunch, @"");
+    XCTAssertFalse(context.crashedThisLaunch, @"");
+    XCTAssertFalse(context.crashedLastLaunch, @"");
 
     memset(&context, 0, sizeof(context));
     kscrashstate_init([stateFile cStringUsingEncoding:NSUTF8StringEncoding],
                       &context);
 
-    STAssertTrue(context.applicationIsInForeground, @"");
-    STAssertFalse(context.applicationIsActive, @"");
+    XCTAssertTrue(context.applicationIsInForeground, @"");
+    XCTAssertFalse(context.applicationIsActive, @"");
 
-    STAssertEquals(context.activeDurationSinceLastCrash, 0.0, @"");
-    STAssertEquals(context.backgroundDurationSinceLastCrash, 0.0, @"");
-    STAssertEquals(context.launchesSinceLastCrash, 2, @"");
-    STAssertEquals(context.sessionsSinceLastCrash, 2, @"");
+    XCTAssertEqual(context.activeDurationSinceLastCrash, 0.0, @"");
+    XCTAssertEqual(context.backgroundDurationSinceLastCrash, 0.0, @"");
+    XCTAssertEqual(context.launchesSinceLastCrash, 2, @"");
+    XCTAssertEqual(context.sessionsSinceLastCrash, 2, @"");
 
-    STAssertEquals(context.activeDurationSinceLaunch, 0.0, @"");
-    STAssertEquals(context.backgroundDurationSinceLaunch, 0.0, @"");
-    STAssertEquals(context.sessionsSinceLaunch, 1, @"");
+    XCTAssertEqual(context.activeDurationSinceLaunch, 0.0, @"");
+    XCTAssertEqual(context.backgroundDurationSinceLaunch, 0.0, @"");
+    XCTAssertEqual(context.sessionsSinceLaunch, 1, @"");
 
-    STAssertFalse(context.crashedThisLaunch, @"");
-    STAssertFalse(context.crashedLastLaunch, @"");
+    XCTAssertFalse(context.crashedThisLaunch, @"");
+    XCTAssertFalse(context.crashedLastLaunch, @"");
 }
 
 - (void) testInitCrash
@@ -92,48 +92,48 @@
     kscrashstate_notifyAppCrash();
     KSCrash_State checkpointC = context;
 
-    STAssertTrue(checkpointC.applicationIsInForeground ==
+    XCTAssertTrue(checkpointC.applicationIsInForeground ==
                  checkpoint0.applicationIsInForeground, @"");
-    STAssertTrue(checkpointC.applicationIsActive ==
+    XCTAssertTrue(checkpointC.applicationIsActive ==
                  checkpoint0.applicationIsActive, @"");
 
-    STAssertTrue(checkpointC.activeDurationSinceLastCrash ==
+    XCTAssertTrue(checkpointC.activeDurationSinceLastCrash ==
                  checkpoint0.activeDurationSinceLastCrash, @"");
-    STAssertTrue(checkpointC.backgroundDurationSinceLastCrash ==
+    XCTAssertTrue(checkpointC.backgroundDurationSinceLastCrash ==
                  checkpoint0.backgroundDurationSinceLastCrash, @"");
-    STAssertTrue(checkpointC.launchesSinceLastCrash ==
+    XCTAssertTrue(checkpointC.launchesSinceLastCrash ==
                  checkpoint0.launchesSinceLastCrash, @"");
-    STAssertTrue(checkpointC.sessionsSinceLastCrash ==
+    XCTAssertTrue(checkpointC.sessionsSinceLastCrash ==
                  checkpoint0.sessionsSinceLastCrash, @"");
 
-    STAssertTrue(checkpointC.activeDurationSinceLaunch ==
+    XCTAssertTrue(checkpointC.activeDurationSinceLaunch ==
                  checkpoint0.activeDurationSinceLaunch, @"");
-    STAssertTrue(checkpointC.backgroundDurationSinceLaunch ==
+    XCTAssertTrue(checkpointC.backgroundDurationSinceLaunch ==
                  checkpoint0.backgroundDurationSinceLaunch, @"");
-    STAssertTrue(checkpointC.sessionsSinceLaunch ==
+    XCTAssertTrue(checkpointC.sessionsSinceLaunch ==
                  checkpoint0.sessionsSinceLaunch, @"");
 
-    STAssertTrue(checkpointC.crashedThisLaunch, @"");
-    STAssertFalse(checkpointC.crashedLastLaunch, @"");
+    XCTAssertTrue(checkpointC.crashedThisLaunch, @"");
+    XCTAssertFalse(checkpointC.crashedLastLaunch, @"");
 
     memset(&context, 0, sizeof(context));
     kscrashstate_init([stateFile cStringUsingEncoding:NSUTF8StringEncoding],
                       &context);
 
-    STAssertTrue(context.applicationIsInForeground, @"");
-    STAssertFalse(context.applicationIsActive, @"");
+    XCTAssertTrue(context.applicationIsInForeground, @"");
+    XCTAssertFalse(context.applicationIsActive, @"");
 
-    STAssertEquals(context.activeDurationSinceLastCrash, 0.0, @"");
-    STAssertEquals(context.backgroundDurationSinceLastCrash, 0.0, @"");
-    STAssertEquals(context.launchesSinceLastCrash, 1, @"");
-    STAssertEquals(context.sessionsSinceLastCrash, 1, @"");
+    XCTAssertEqual(context.activeDurationSinceLastCrash, 0.0, @"");
+    XCTAssertEqual(context.backgroundDurationSinceLastCrash, 0.0, @"");
+    XCTAssertEqual(context.launchesSinceLastCrash, 1, @"");
+    XCTAssertEqual(context.sessionsSinceLastCrash, 1, @"");
 
-    STAssertEquals(context.activeDurationSinceLaunch, 0.0, @"");
-    STAssertEquals(context.backgroundDurationSinceLaunch, 0.0, @"");
-    STAssertEquals(context.sessionsSinceLaunch, 1, @"");
+    XCTAssertEqual(context.activeDurationSinceLaunch, 0.0, @"");
+    XCTAssertEqual(context.backgroundDurationSinceLaunch, 0.0, @"");
+    XCTAssertEqual(context.sessionsSinceLaunch, 1, @"");
 
-    STAssertFalse(context.crashedThisLaunch, @"");
-    STAssertTrue(context.crashedLastLaunch, @"");
+    XCTAssertFalse(context.crashedThisLaunch, @"");
+    XCTAssertTrue(context.crashedLastLaunch, @"");
 }
 
 - (void) testActRelaunch
@@ -149,50 +149,50 @@
     kscrashstate_notifyAppActive(true);
     KSCrash_State checkpoint1 = context;
 
-    STAssertTrue(checkpoint1.applicationIsInForeground ==
+    XCTAssertTrue(checkpoint1.applicationIsInForeground ==
                  checkpoint0.applicationIsInForeground, @"");
-    STAssertTrue(checkpoint1.applicationIsActive !=
+    XCTAssertTrue(checkpoint1.applicationIsActive !=
                  checkpoint0.applicationIsActive, @"");
-    STAssertTrue(checkpoint1.applicationIsActive, @"");
+    XCTAssertTrue(checkpoint1.applicationIsActive, @"");
 
-    STAssertTrue(checkpoint1.activeDurationSinceLastCrash ==
+    XCTAssertTrue(checkpoint1.activeDurationSinceLastCrash ==
                  checkpoint0.activeDurationSinceLastCrash, @"");
-    STAssertTrue(checkpoint1.backgroundDurationSinceLastCrash ==
+    XCTAssertTrue(checkpoint1.backgroundDurationSinceLastCrash ==
                  checkpoint0.backgroundDurationSinceLastCrash, @"");
-    STAssertTrue(checkpoint1.launchesSinceLastCrash ==
+    XCTAssertTrue(checkpoint1.launchesSinceLastCrash ==
                  checkpoint0.launchesSinceLastCrash, @"");
-    STAssertTrue(checkpoint1.sessionsSinceLastCrash ==
+    XCTAssertTrue(checkpoint1.sessionsSinceLastCrash ==
                  checkpoint0.sessionsSinceLastCrash, @"");
 
-    STAssertTrue(checkpoint1.activeDurationSinceLaunch ==
+    XCTAssertTrue(checkpoint1.activeDurationSinceLaunch ==
                  checkpoint0.activeDurationSinceLaunch, @"");
-    STAssertTrue(checkpoint1.backgroundDurationSinceLaunch ==
+    XCTAssertTrue(checkpoint1.backgroundDurationSinceLaunch ==
                  checkpoint0.backgroundDurationSinceLaunch, @"");
-    STAssertTrue(checkpoint1.sessionsSinceLaunch ==
+    XCTAssertTrue(checkpoint1.sessionsSinceLaunch ==
                  checkpoint0.sessionsSinceLaunch, @"");
 
-    STAssertFalse(checkpoint1.crashedThisLaunch, @"");
-    STAssertFalse(checkpoint1.crashedLastLaunch, @"");
+    XCTAssertFalse(checkpoint1.crashedThisLaunch, @"");
+    XCTAssertFalse(checkpoint1.crashedLastLaunch, @"");
 
     usleep(1);
     memset(&context, 0, sizeof(context));
     kscrashstate_init([stateFile cStringUsingEncoding:NSUTF8StringEncoding],
                       &context);
 
-    STAssertTrue(context.applicationIsInForeground, @"");
-    STAssertFalse(context.applicationIsActive, @"");
+    XCTAssertTrue(context.applicationIsInForeground, @"");
+    XCTAssertFalse(context.applicationIsActive, @"");
 
-    STAssertEquals(context.activeDurationSinceLastCrash, 0.0, @"");
-    STAssertEquals(context.backgroundDurationSinceLastCrash, 0.0, @"");
-    STAssertEquals(context.launchesSinceLastCrash, 2, @"");
-    STAssertEquals(context.sessionsSinceLastCrash, 2, @"");
+    XCTAssertEqual(context.activeDurationSinceLastCrash, 0.0, @"");
+    XCTAssertEqual(context.backgroundDurationSinceLastCrash, 0.0, @"");
+    XCTAssertEqual(context.launchesSinceLastCrash, 2, @"");
+    XCTAssertEqual(context.sessionsSinceLastCrash, 2, @"");
 
-    STAssertEquals(context.activeDurationSinceLaunch, 0.0, @"");
-    STAssertEquals(context.backgroundDurationSinceLaunch, 0.0, @"");
-    STAssertEquals(context.sessionsSinceLaunch, 1, @"");
+    XCTAssertEqual(context.activeDurationSinceLaunch, 0.0, @"");
+    XCTAssertEqual(context.backgroundDurationSinceLaunch, 0.0, @"");
+    XCTAssertEqual(context.sessionsSinceLaunch, 1, @"");
 
-    STAssertFalse(context.crashedThisLaunch, @"");
-    STAssertFalse(context.crashedLastLaunch, @"");
+    XCTAssertFalse(context.crashedThisLaunch, @"");
+    XCTAssertFalse(context.crashedLastLaunch, @"");
 }
 
 - (void) testActCrash
@@ -210,48 +210,48 @@
     kscrashstate_notifyAppCrash();
     KSCrash_State checkpointC = context;
 
-    STAssertTrue(checkpointC.applicationIsInForeground ==
+    XCTAssertTrue(checkpointC.applicationIsInForeground ==
                  checkpoint0.applicationIsInForeground, @"");
-    STAssertTrue(checkpointC.applicationIsActive ==
+    XCTAssertTrue(checkpointC.applicationIsActive ==
                  checkpoint0.applicationIsActive, @"");
 
-    STAssertTrue(checkpointC.activeDurationSinceLastCrash >
+    XCTAssertTrue(checkpointC.activeDurationSinceLastCrash >
                  checkpoint0.activeDurationSinceLastCrash, @"");
-    STAssertTrue(checkpointC.backgroundDurationSinceLastCrash ==
+    XCTAssertTrue(checkpointC.backgroundDurationSinceLastCrash ==
                  checkpoint0.backgroundDurationSinceLastCrash, @"");
-    STAssertTrue(checkpointC.launchesSinceLastCrash ==
+    XCTAssertTrue(checkpointC.launchesSinceLastCrash ==
                  checkpoint0.launchesSinceLastCrash, @"");
-    STAssertTrue(checkpointC.sessionsSinceLastCrash ==
+    XCTAssertTrue(checkpointC.sessionsSinceLastCrash ==
                  checkpoint0.sessionsSinceLastCrash, @"");
 
-    STAssertTrue(checkpointC.activeDurationSinceLaunch >
+    XCTAssertTrue(checkpointC.activeDurationSinceLaunch >
                  checkpoint0.activeDurationSinceLaunch, @"");
-    STAssertTrue(checkpointC.backgroundDurationSinceLaunch ==
+    XCTAssertTrue(checkpointC.backgroundDurationSinceLaunch ==
                  checkpoint0.backgroundDurationSinceLaunch, @"");
-    STAssertTrue(checkpointC.sessionsSinceLaunch ==
+    XCTAssertTrue(checkpointC.sessionsSinceLaunch ==
                  checkpoint0.sessionsSinceLaunch, @"");
 
-    STAssertTrue(checkpointC.crashedThisLaunch, @"");
-    STAssertFalse(checkpointC.crashedLastLaunch, @"");
+    XCTAssertTrue(checkpointC.crashedThisLaunch, @"");
+    XCTAssertFalse(checkpointC.crashedLastLaunch, @"");
 
     memset(&context, 0, sizeof(context));
     kscrashstate_init([stateFile cStringUsingEncoding:NSUTF8StringEncoding],
                       &context);
 
-    STAssertTrue(context.applicationIsInForeground, @"");
-    STAssertFalse(context.applicationIsActive, @"");
+    XCTAssertTrue(context.applicationIsInForeground, @"");
+    XCTAssertFalse(context.applicationIsActive, @"");
 
-    STAssertEquals(context.activeDurationSinceLastCrash, 0.0, @"");
-    STAssertEquals(context.backgroundDurationSinceLastCrash, 0.0, @"");
-    STAssertEquals(context.launchesSinceLastCrash, 1, @"");
-    STAssertEquals(context.sessionsSinceLastCrash, 1, @"");
+    XCTAssertEqual(context.activeDurationSinceLastCrash, 0.0, @"");
+    XCTAssertEqual(context.backgroundDurationSinceLastCrash, 0.0, @"");
+    XCTAssertEqual(context.launchesSinceLastCrash, 1, @"");
+    XCTAssertEqual(context.sessionsSinceLastCrash, 1, @"");
 
-    STAssertEquals(context.activeDurationSinceLaunch, 0.0, @"");
-    STAssertEquals(context.backgroundDurationSinceLaunch, 0.0, @"");
-    STAssertEquals(context.sessionsSinceLaunch, 1, @"");
+    XCTAssertEqual(context.activeDurationSinceLaunch, 0.0, @"");
+    XCTAssertEqual(context.backgroundDurationSinceLaunch, 0.0, @"");
+    XCTAssertEqual(context.sessionsSinceLaunch, 1, @"");
 
-    STAssertFalse(context.crashedThisLaunch, @"");
-    STAssertTrue(context.crashedLastLaunch, @"");
+    XCTAssertFalse(context.crashedThisLaunch, @"");
+    XCTAssertTrue(context.crashedLastLaunch, @"");
 }
 
 - (void) testActDeactRelaunch
@@ -269,30 +269,30 @@
     kscrashstate_notifyAppActive(false);
     KSCrash_State checkpoint1 = context;
 
-    STAssertTrue(checkpoint1.applicationIsInForeground ==
+    XCTAssertTrue(checkpoint1.applicationIsInForeground ==
                  checkpoint0.applicationIsInForeground, @"");
-    STAssertTrue(checkpoint1.applicationIsActive !=
+    XCTAssertTrue(checkpoint1.applicationIsActive !=
                  checkpoint0.applicationIsActive, @"");
-    STAssertFalse(checkpoint1.applicationIsActive, @"");
+    XCTAssertFalse(checkpoint1.applicationIsActive, @"");
 
-    STAssertTrue(checkpoint1.activeDurationSinceLastCrash >
+    XCTAssertTrue(checkpoint1.activeDurationSinceLastCrash >
                  checkpoint0.activeDurationSinceLastCrash, @"");
-    STAssertTrue(checkpoint1.backgroundDurationSinceLastCrash ==
+    XCTAssertTrue(checkpoint1.backgroundDurationSinceLastCrash ==
                  checkpoint0.backgroundDurationSinceLastCrash, @"");
-    STAssertTrue(checkpoint1.launchesSinceLastCrash ==
+    XCTAssertTrue(checkpoint1.launchesSinceLastCrash ==
                  checkpoint0.launchesSinceLastCrash, @"");
-    STAssertTrue(checkpoint1.sessionsSinceLastCrash ==
+    XCTAssertTrue(checkpoint1.sessionsSinceLastCrash ==
                  checkpoint0.sessionsSinceLastCrash, @"");
 
-    STAssertTrue(checkpoint1.activeDurationSinceLaunch >
+    XCTAssertTrue(checkpoint1.activeDurationSinceLaunch >
                  checkpoint0.activeDurationSinceLaunch, @"");
-    STAssertTrue(checkpoint1.backgroundDurationSinceLaunch ==
+    XCTAssertTrue(checkpoint1.backgroundDurationSinceLaunch ==
                  checkpoint0.backgroundDurationSinceLaunch, @"");
-    STAssertTrue(checkpoint1.sessionsSinceLaunch ==
+    XCTAssertTrue(checkpoint1.sessionsSinceLaunch ==
                  checkpoint0.sessionsSinceLaunch, @"");
 
-    STAssertFalse(checkpoint1.crashedThisLaunch, @"");
-    STAssertFalse(checkpoint1.crashedLastLaunch, @"");
+    XCTAssertFalse(checkpoint1.crashedThisLaunch, @"");
+    XCTAssertFalse(checkpoint1.crashedLastLaunch, @"");
 
     usleep(1);
     memset(&context, 0, sizeof(context));
@@ -300,21 +300,21 @@
                       &context);
     KSCrash_State checkpointR = context;
 
-    STAssertTrue(checkpointR.applicationIsInForeground, @"");
-    STAssertFalse(checkpointR.applicationIsActive, @"");
+    XCTAssertTrue(checkpointR.applicationIsInForeground, @"");
+    XCTAssertFalse(checkpointR.applicationIsActive, @"");
 
     // We don't save after going inactive, so this will still be 0.
-    STAssertEquals(checkpointR.activeDurationSinceLastCrash, 0.0, @"");
-    STAssertEquals(checkpointR.backgroundDurationSinceLastCrash, 0.0, @"");
-    STAssertEquals(checkpointR.launchesSinceLastCrash, 2, @"");
-    STAssertEquals(checkpointR.sessionsSinceLastCrash, 2, @"");
+    XCTAssertEqual(checkpointR.activeDurationSinceLastCrash, 0.0, @"");
+    XCTAssertEqual(checkpointR.backgroundDurationSinceLastCrash, 0.0, @"");
+    XCTAssertEqual(checkpointR.launchesSinceLastCrash, 2, @"");
+    XCTAssertEqual(checkpointR.sessionsSinceLastCrash, 2, @"");
 
-    STAssertEquals(checkpointR.activeDurationSinceLaunch, 0.0, @"");
-    STAssertEquals(checkpointR.backgroundDurationSinceLaunch, 0.0, @"");
-    STAssertEquals(checkpointR.sessionsSinceLaunch, 1, @"");
+    XCTAssertEqual(checkpointR.activeDurationSinceLaunch, 0.0, @"");
+    XCTAssertEqual(checkpointR.backgroundDurationSinceLaunch, 0.0, @"");
+    XCTAssertEqual(checkpointR.sessionsSinceLaunch, 1, @"");
 
-    STAssertFalse(checkpointR.crashedThisLaunch, @"");
-    STAssertFalse(checkpointR.crashedLastLaunch, @"");
+    XCTAssertFalse(checkpointR.crashedThisLaunch, @"");
+    XCTAssertFalse(checkpointR.crashedLastLaunch, @"");
 }
 
 - (void) testActDeactCrash
@@ -334,48 +334,48 @@
     kscrashstate_notifyAppCrash();
     KSCrash_State checkpointC = context;
 
-    STAssertTrue(checkpointC.applicationIsInForeground ==
+    XCTAssertTrue(checkpointC.applicationIsInForeground ==
                  checkpoint0.applicationIsInForeground, @"");
-    STAssertTrue(checkpointC.applicationIsActive ==
+    XCTAssertTrue(checkpointC.applicationIsActive ==
                  checkpoint0.applicationIsActive, @"");
 
-    STAssertTrue(checkpointC.activeDurationSinceLastCrash ==
+    XCTAssertTrue(checkpointC.activeDurationSinceLastCrash ==
                  checkpoint0.activeDurationSinceLastCrash, @"");
-    STAssertTrue(checkpointC.backgroundDurationSinceLastCrash ==
+    XCTAssertTrue(checkpointC.backgroundDurationSinceLastCrash ==
                  checkpoint0.backgroundDurationSinceLastCrash, @"");
-    STAssertTrue(checkpointC.launchesSinceLastCrash ==
+    XCTAssertTrue(checkpointC.launchesSinceLastCrash ==
                  checkpoint0.launchesSinceLastCrash, @"");
-    STAssertTrue(checkpointC.sessionsSinceLastCrash ==
+    XCTAssertTrue(checkpointC.sessionsSinceLastCrash ==
                  checkpoint0.sessionsSinceLastCrash, @"");
 
-    STAssertTrue(checkpointC.activeDurationSinceLaunch ==
+    XCTAssertTrue(checkpointC.activeDurationSinceLaunch ==
                  checkpoint0.activeDurationSinceLaunch, @"");
-    STAssertTrue(checkpointC.backgroundDurationSinceLaunch ==
+    XCTAssertTrue(checkpointC.backgroundDurationSinceLaunch ==
                  checkpoint0.backgroundDurationSinceLaunch, @"");
-    STAssertTrue(checkpointC.sessionsSinceLaunch ==
+    XCTAssertTrue(checkpointC.sessionsSinceLaunch ==
                  checkpoint0.sessionsSinceLaunch, @"");
 
-    STAssertTrue(checkpointC.crashedThisLaunch, @"");
-    STAssertFalse(checkpointC.crashedLastLaunch, @"");
+    XCTAssertTrue(checkpointC.crashedThisLaunch, @"");
+    XCTAssertFalse(checkpointC.crashedLastLaunch, @"");
 
     memset(&context, 0, sizeof(context));
     kscrashstate_init([stateFile cStringUsingEncoding:NSUTF8StringEncoding],
                       &context);
 
-    STAssertTrue(context.applicationIsInForeground, @"");
-    STAssertFalse(context.applicationIsActive, @"");
+    XCTAssertTrue(context.applicationIsInForeground, @"");
+    XCTAssertFalse(context.applicationIsActive, @"");
 
-    STAssertEquals(context.activeDurationSinceLastCrash, 0.0, @"");
-    STAssertEquals(context.backgroundDurationSinceLastCrash, 0.0, @"");
-    STAssertEquals(context.launchesSinceLastCrash, 1, @"");
-    STAssertEquals(context.sessionsSinceLastCrash, 1, @"");
+    XCTAssertEqual(context.activeDurationSinceLastCrash, 0.0, @"");
+    XCTAssertEqual(context.backgroundDurationSinceLastCrash, 0.0, @"");
+    XCTAssertEqual(context.launchesSinceLastCrash, 1, @"");
+    XCTAssertEqual(context.sessionsSinceLastCrash, 1, @"");
 
-    STAssertEquals(context.activeDurationSinceLaunch, 0.0, @"");
-    STAssertEquals(context.backgroundDurationSinceLaunch, 0.0, @"");
-    STAssertEquals(context.sessionsSinceLaunch, 1, @"");
+    XCTAssertEqual(context.activeDurationSinceLaunch, 0.0, @"");
+    XCTAssertEqual(context.backgroundDurationSinceLaunch, 0.0, @"");
+    XCTAssertEqual(context.sessionsSinceLaunch, 1, @"");
 
-    STAssertFalse(context.crashedThisLaunch, @"");
-    STAssertTrue(context.crashedLastLaunch, @"");
+    XCTAssertFalse(context.crashedThisLaunch, @"");
+    XCTAssertTrue(context.crashedLastLaunch, @"");
 }
 
 - (void) testActDeactBGRelaunch
@@ -395,30 +395,30 @@
     kscrashstate_notifyAppInForeground(false);
     KSCrash_State checkpoint1 = context;
 
-    STAssertTrue(checkpoint1.applicationIsInForeground !=
+    XCTAssertTrue(checkpoint1.applicationIsInForeground !=
                  checkpoint0.applicationIsInForeground, @"");
-    STAssertTrue(checkpoint1.applicationIsActive ==
+    XCTAssertTrue(checkpoint1.applicationIsActive ==
                  checkpoint0.applicationIsActive, @"");
-    STAssertFalse(checkpoint1.applicationIsInForeground, @"");
+    XCTAssertFalse(checkpoint1.applicationIsInForeground, @"");
 
-    STAssertTrue(checkpoint1.activeDurationSinceLastCrash ==
+    XCTAssertTrue(checkpoint1.activeDurationSinceLastCrash ==
                  checkpoint0.activeDurationSinceLastCrash, @"");
-    STAssertTrue(checkpoint1.backgroundDurationSinceLastCrash ==
+    XCTAssertTrue(checkpoint1.backgroundDurationSinceLastCrash ==
                  checkpoint0.backgroundDurationSinceLastCrash, @"");
-    STAssertTrue(checkpoint1.launchesSinceLastCrash ==
+    XCTAssertTrue(checkpoint1.launchesSinceLastCrash ==
                  checkpoint0.launchesSinceLastCrash, @"");
-    STAssertTrue(checkpoint1.sessionsSinceLastCrash ==
+    XCTAssertTrue(checkpoint1.sessionsSinceLastCrash ==
                  checkpoint0.sessionsSinceLastCrash, @"");
 
-    STAssertTrue(checkpoint1.activeDurationSinceLaunch ==
+    XCTAssertTrue(checkpoint1.activeDurationSinceLaunch ==
                  checkpoint0.activeDurationSinceLaunch, @"");
-    STAssertTrue(checkpoint1.backgroundDurationSinceLaunch ==
+    XCTAssertTrue(checkpoint1.backgroundDurationSinceLaunch ==
                  checkpoint0.backgroundDurationSinceLaunch, @"");
-    STAssertTrue(checkpoint1.sessionsSinceLaunch ==
+    XCTAssertTrue(checkpoint1.sessionsSinceLaunch ==
                  checkpoint0.sessionsSinceLaunch, @"");
 
-    STAssertFalse(checkpoint1.crashedThisLaunch, @"");
-    STAssertFalse(checkpoint1.crashedLastLaunch, @"");
+    XCTAssertFalse(checkpoint1.crashedThisLaunch, @"");
+    XCTAssertFalse(checkpoint1.crashedLastLaunch, @"");
 
     usleep(1);
     memset(&context, 0, sizeof(context));
@@ -426,20 +426,20 @@
                       &context);
     KSCrash_State checkpointR = context;
 
-    STAssertTrue(checkpointR.applicationIsInForeground, @"");
-    STAssertFalse(checkpointR.applicationIsActive, @"");
+    XCTAssertTrue(checkpointR.applicationIsInForeground, @"");
+    XCTAssertFalse(checkpointR.applicationIsActive, @"");
 
-    STAssertTrue(checkpointR.activeDurationSinceLastCrash > 0, @"");
-    STAssertEquals(checkpointR.backgroundDurationSinceLastCrash, 0.0, @"");
-    STAssertEquals(checkpointR.launchesSinceLastCrash, 2, @"");
-    STAssertEquals(checkpointR.sessionsSinceLastCrash, 2, @"");
+    XCTAssertTrue(checkpointR.activeDurationSinceLastCrash > 0, @"");
+    XCTAssertEqual(checkpointR.backgroundDurationSinceLastCrash, 0.0, @"");
+    XCTAssertEqual(checkpointR.launchesSinceLastCrash, 2, @"");
+    XCTAssertEqual(checkpointR.sessionsSinceLastCrash, 2, @"");
 
-    STAssertEquals(checkpointR.activeDurationSinceLaunch, 0.0, @"");
-    STAssertEquals(checkpointR.backgroundDurationSinceLaunch, 0.0, @"");
-    STAssertEquals(checkpointR.sessionsSinceLaunch, 1, @"");
+    XCTAssertEqual(checkpointR.activeDurationSinceLaunch, 0.0, @"");
+    XCTAssertEqual(checkpointR.backgroundDurationSinceLaunch, 0.0, @"");
+    XCTAssertEqual(checkpointR.sessionsSinceLaunch, 1, @"");
 
-    STAssertFalse(checkpointR.crashedThisLaunch, @"");
-    STAssertFalse(checkpointR.crashedLastLaunch, @"");
+    XCTAssertFalse(checkpointR.crashedThisLaunch, @"");
+    XCTAssertFalse(checkpointR.crashedLastLaunch, @"");
 }
 
 - (void) testActDeactBGTerminate
@@ -465,20 +465,20 @@
                       &context);
     KSCrash_State checkpointR = context;
 
-    STAssertTrue(checkpointR.applicationIsInForeground, @"");
-    STAssertFalse(checkpointR.applicationIsActive, @"");
+    XCTAssertTrue(checkpointR.applicationIsInForeground, @"");
+    XCTAssertFalse(checkpointR.applicationIsActive, @"");
 
-    STAssertTrue(checkpointR.backgroundDurationSinceLastCrash >
+    XCTAssertTrue(checkpointR.backgroundDurationSinceLastCrash >
                  checkpoint0.backgroundDurationSinceLastCrash, @"");
-    STAssertEquals(checkpointR.launchesSinceLastCrash, 2, @"");
-    STAssertEquals(checkpointR.sessionsSinceLastCrash, 2, @"");
+    XCTAssertEqual(checkpointR.launchesSinceLastCrash, 2, @"");
+    XCTAssertEqual(checkpointR.sessionsSinceLastCrash, 2, @"");
 
-    STAssertEquals(checkpointR.activeDurationSinceLaunch, 0.0, @"");
-    STAssertEquals(checkpointR.backgroundDurationSinceLaunch, 0.0, @"");
-    STAssertEquals(checkpointR.sessionsSinceLaunch, 1, @"");
+    XCTAssertEqual(checkpointR.activeDurationSinceLaunch, 0.0, @"");
+    XCTAssertEqual(checkpointR.backgroundDurationSinceLaunch, 0.0, @"");
+    XCTAssertEqual(checkpointR.sessionsSinceLaunch, 1, @"");
 
-    STAssertFalse(checkpointR.crashedThisLaunch, @"");
-    STAssertFalse(checkpointR.crashedLastLaunch, @"");
+    XCTAssertFalse(checkpointR.crashedThisLaunch, @"");
+    XCTAssertFalse(checkpointR.crashedLastLaunch, @"");
 }
 
 - (void) testActDeactBGCrash
@@ -500,48 +500,48 @@
     kscrashstate_notifyAppCrash();
     KSCrash_State checkpointC = context;
 
-    STAssertTrue(checkpointC.applicationIsInForeground ==
+    XCTAssertTrue(checkpointC.applicationIsInForeground ==
                  checkpoint0.applicationIsInForeground, @"");
-    STAssertTrue(checkpointC.applicationIsActive ==
+    XCTAssertTrue(checkpointC.applicationIsActive ==
                  checkpoint0.applicationIsActive, @"");
 
-    STAssertTrue(checkpointC.activeDurationSinceLastCrash ==
+    XCTAssertTrue(checkpointC.activeDurationSinceLastCrash ==
                  checkpoint0.activeDurationSinceLastCrash, @"");
-    STAssertTrue(checkpointC.backgroundDurationSinceLastCrash >
+    XCTAssertTrue(checkpointC.backgroundDurationSinceLastCrash >
                  checkpoint0.backgroundDurationSinceLastCrash, @"");
-    STAssertTrue(checkpointC.launchesSinceLastCrash ==
+    XCTAssertTrue(checkpointC.launchesSinceLastCrash ==
                  checkpoint0.launchesSinceLastCrash, @"");
-    STAssertTrue(checkpointC.sessionsSinceLastCrash ==
+    XCTAssertTrue(checkpointC.sessionsSinceLastCrash ==
                  checkpoint0.sessionsSinceLastCrash, @"");
 
-    STAssertTrue(checkpointC.activeDurationSinceLaunch ==
+    XCTAssertTrue(checkpointC.activeDurationSinceLaunch ==
                  checkpoint0.activeDurationSinceLaunch, @"");
-    STAssertTrue(checkpointC.backgroundDurationSinceLaunch >
+    XCTAssertTrue(checkpointC.backgroundDurationSinceLaunch >
                  checkpoint0.backgroundDurationSinceLaunch, @"");
-    STAssertTrue(checkpointC.sessionsSinceLaunch ==
+    XCTAssertTrue(checkpointC.sessionsSinceLaunch ==
                  checkpoint0.sessionsSinceLaunch, @"");
 
-    STAssertTrue(checkpointC.crashedThisLaunch, @"");
-    STAssertFalse(checkpointC.crashedLastLaunch, @"");
+    XCTAssertTrue(checkpointC.crashedThisLaunch, @"");
+    XCTAssertFalse(checkpointC.crashedLastLaunch, @"");
 
     memset(&context, 0, sizeof(context));
     kscrashstate_init([stateFile cStringUsingEncoding:NSUTF8StringEncoding],
                       &context);
 
-    STAssertTrue(context.applicationIsInForeground, @"");
-    STAssertFalse(context.applicationIsActive, @"");
+    XCTAssertTrue(context.applicationIsInForeground, @"");
+    XCTAssertFalse(context.applicationIsActive, @"");
 
-    STAssertEquals(context.activeDurationSinceLastCrash, 0.0, @"");
-    STAssertEquals(context.backgroundDurationSinceLastCrash, 0.0, @"");
-    STAssertEquals(context.launchesSinceLastCrash, 1, @"");
-    STAssertEquals(context.sessionsSinceLastCrash, 1, @"");
+    XCTAssertEqual(context.activeDurationSinceLastCrash, 0.0, @"");
+    XCTAssertEqual(context.backgroundDurationSinceLastCrash, 0.0, @"");
+    XCTAssertEqual(context.launchesSinceLastCrash, 1, @"");
+    XCTAssertEqual(context.sessionsSinceLastCrash, 1, @"");
 
-    STAssertEquals(context.activeDurationSinceLaunch, 0.0, @"");
-    STAssertEquals(context.backgroundDurationSinceLaunch, 0.0, @"");
-    STAssertEquals(context.sessionsSinceLaunch, 1, @"");
+    XCTAssertEqual(context.activeDurationSinceLaunch, 0.0, @"");
+    XCTAssertEqual(context.backgroundDurationSinceLaunch, 0.0, @"");
+    XCTAssertEqual(context.sessionsSinceLaunch, 1, @"");
 
-    STAssertFalse(context.crashedThisLaunch, @"");
-    STAssertTrue(context.crashedLastLaunch, @"");
+    XCTAssertFalse(context.crashedThisLaunch, @"");
+    XCTAssertTrue(context.crashedLastLaunch, @"");
 }
 
 - (void) testActDeactBGFGRelaunch
@@ -564,30 +564,30 @@
     kscrashstate_notifyAppInForeground(true);
     KSCrash_State checkpoint1 = context;
 
-    STAssertTrue(checkpoint1.applicationIsInForeground !=
+    XCTAssertTrue(checkpoint1.applicationIsInForeground !=
                  checkpoint0.applicationIsInForeground, @"");
-    STAssertTrue(checkpoint1.applicationIsActive ==
+    XCTAssertTrue(checkpoint1.applicationIsActive ==
                  checkpoint0.applicationIsActive, @"");
-    STAssertTrue(checkpoint1.applicationIsInForeground, @"");
+    XCTAssertTrue(checkpoint1.applicationIsInForeground, @"");
 
-    STAssertTrue(checkpoint1.activeDurationSinceLastCrash ==
+    XCTAssertTrue(checkpoint1.activeDurationSinceLastCrash ==
                  checkpoint0.activeDurationSinceLastCrash, @"");
-    STAssertTrue(checkpoint1.backgroundDurationSinceLastCrash >
+    XCTAssertTrue(checkpoint1.backgroundDurationSinceLastCrash >
                  checkpoint0.backgroundDurationSinceLastCrash, @"");
-    STAssertTrue(checkpoint1.launchesSinceLastCrash ==
+    XCTAssertTrue(checkpoint1.launchesSinceLastCrash ==
                  checkpoint0.launchesSinceLastCrash, @"");
-    STAssertTrue(checkpoint1.sessionsSinceLastCrash ==
+    XCTAssertTrue(checkpoint1.sessionsSinceLastCrash ==
                  checkpoint0.sessionsSinceLastCrash + 1, @"");
 
-    STAssertTrue(checkpoint1.activeDurationSinceLaunch ==
+    XCTAssertTrue(checkpoint1.activeDurationSinceLaunch ==
                  checkpoint0.activeDurationSinceLaunch, @"");
-    STAssertTrue(checkpoint1.backgroundDurationSinceLaunch >
+    XCTAssertTrue(checkpoint1.backgroundDurationSinceLaunch >
                  checkpoint0.backgroundDurationSinceLaunch, @"");
-    STAssertTrue(checkpoint1.sessionsSinceLaunch ==
+    XCTAssertTrue(checkpoint1.sessionsSinceLaunch ==
                  checkpoint0.sessionsSinceLaunch + 1, @"");
 
-    STAssertFalse(checkpoint1.crashedThisLaunch, @"");
-    STAssertFalse(checkpoint1.crashedLastLaunch, @"");
+    XCTAssertFalse(checkpoint1.crashedThisLaunch, @"");
+    XCTAssertFalse(checkpoint1.crashedLastLaunch, @"");
 
     usleep(1);
     memset(&context, 0, sizeof(context));
@@ -595,21 +595,21 @@
                       &context);
     KSCrash_State checkpointR = context;
 
-    STAssertTrue(checkpointR.applicationIsInForeground, @"");
-    STAssertFalse(checkpointR.applicationIsActive, @"");
+    XCTAssertTrue(checkpointR.applicationIsInForeground, @"");
+    XCTAssertFalse(checkpointR.applicationIsActive, @"");
 
-    STAssertTrue(checkpointR.activeDurationSinceLastCrash > 0, @"");
+    XCTAssertTrue(checkpointR.activeDurationSinceLastCrash > 0, @"");
     // We don't save after going to FG, so this will still be 0.
-    STAssertEquals(checkpointR.backgroundDurationSinceLastCrash, 0.0, @"");
-    STAssertEquals(checkpointR.launchesSinceLastCrash, 2, @"");
-    STAssertEquals(checkpointR.sessionsSinceLastCrash, 2, @"");
+    XCTAssertEqual(checkpointR.backgroundDurationSinceLastCrash, 0.0, @"");
+    XCTAssertEqual(checkpointR.launchesSinceLastCrash, 2, @"");
+    XCTAssertEqual(checkpointR.sessionsSinceLastCrash, 2, @"");
 
-    STAssertEquals(checkpointR.activeDurationSinceLaunch, 0.0, @"");
-    STAssertEquals(checkpointR.backgroundDurationSinceLaunch, 0.0, @"");
-    STAssertEquals(checkpointR.sessionsSinceLaunch, 1, @"");
+    XCTAssertEqual(checkpointR.activeDurationSinceLaunch, 0.0, @"");
+    XCTAssertEqual(checkpointR.backgroundDurationSinceLaunch, 0.0, @"");
+    XCTAssertEqual(checkpointR.sessionsSinceLaunch, 1, @"");
 
-    STAssertFalse(checkpointR.crashedThisLaunch, @"");
-    STAssertFalse(checkpointR.crashedLastLaunch, @"");
+    XCTAssertFalse(checkpointR.crashedThisLaunch, @"");
+    XCTAssertFalse(checkpointR.crashedLastLaunch, @"");
 }
 
 - (void) testActDeactBGFGCrash
@@ -633,48 +633,48 @@
     kscrashstate_notifyAppCrash();
     KSCrash_State checkpointC = context;
 
-    STAssertTrue(checkpointC.applicationIsInForeground ==
+    XCTAssertTrue(checkpointC.applicationIsInForeground ==
                  checkpoint0.applicationIsInForeground, @"");
-    STAssertTrue(checkpointC.applicationIsActive ==
+    XCTAssertTrue(checkpointC.applicationIsActive ==
                  checkpoint0.applicationIsActive, @"");
 
-    STAssertTrue(checkpointC.activeDurationSinceLastCrash ==
+    XCTAssertTrue(checkpointC.activeDurationSinceLastCrash ==
                  checkpoint0.activeDurationSinceLastCrash, @"");
-    STAssertTrue(checkpointC.backgroundDurationSinceLastCrash ==
+    XCTAssertTrue(checkpointC.backgroundDurationSinceLastCrash ==
                  checkpoint0.backgroundDurationSinceLastCrash, @"");
-    STAssertTrue(checkpointC.launchesSinceLastCrash ==
+    XCTAssertTrue(checkpointC.launchesSinceLastCrash ==
                  checkpoint0.launchesSinceLastCrash, @"");
-    STAssertTrue(checkpointC.sessionsSinceLastCrash ==
+    XCTAssertTrue(checkpointC.sessionsSinceLastCrash ==
                  checkpoint0.sessionsSinceLastCrash, @"");
 
-    STAssertTrue(checkpointC.activeDurationSinceLaunch ==
+    XCTAssertTrue(checkpointC.activeDurationSinceLaunch ==
                  checkpoint0.activeDurationSinceLaunch, @"");
-    STAssertTrue(checkpointC.backgroundDurationSinceLaunch ==
+    XCTAssertTrue(checkpointC.backgroundDurationSinceLaunch ==
                  checkpoint0.backgroundDurationSinceLaunch, @"");
-    STAssertTrue(checkpointC.sessionsSinceLaunch ==
+    XCTAssertTrue(checkpointC.sessionsSinceLaunch ==
                  checkpoint0.sessionsSinceLaunch, @"");
 
-    STAssertTrue(checkpointC.crashedThisLaunch, @"");
-    STAssertFalse(checkpointC.crashedLastLaunch, @"");
+    XCTAssertTrue(checkpointC.crashedThisLaunch, @"");
+    XCTAssertFalse(checkpointC.crashedLastLaunch, @"");
 
     memset(&context, 0, sizeof(context));
     kscrashstate_init([stateFile cStringUsingEncoding:NSUTF8StringEncoding],
                       &context);
 
-    STAssertTrue(context.applicationIsInForeground, @"");
-    STAssertFalse(context.applicationIsActive, @"");
+    XCTAssertTrue(context.applicationIsInForeground, @"");
+    XCTAssertFalse(context.applicationIsActive, @"");
 
-    STAssertEquals(context.activeDurationSinceLastCrash, 0.0, @"");
-    STAssertEquals(context.backgroundDurationSinceLastCrash, 0.0, @"");
-    STAssertEquals(context.launchesSinceLastCrash, 1, @"");
-    STAssertEquals(context.sessionsSinceLastCrash, 1, @"");
+    XCTAssertEqual(context.activeDurationSinceLastCrash, 0.0, @"");
+    XCTAssertEqual(context.backgroundDurationSinceLastCrash, 0.0, @"");
+    XCTAssertEqual(context.launchesSinceLastCrash, 1, @"");
+    XCTAssertEqual(context.sessionsSinceLastCrash, 1, @"");
 
-    STAssertEquals(context.activeDurationSinceLaunch, 0.0, @"");
-    STAssertEquals(context.backgroundDurationSinceLaunch, 0.0, @"");
-    STAssertEquals(context.sessionsSinceLaunch, 1, @"");
+    XCTAssertEqual(context.activeDurationSinceLaunch, 0.0, @"");
+    XCTAssertEqual(context.backgroundDurationSinceLaunch, 0.0, @"");
+    XCTAssertEqual(context.sessionsSinceLaunch, 1, @"");
 
-    STAssertFalse(context.crashedThisLaunch, @"");
-    STAssertTrue(context.crashedLastLaunch, @"");
+    XCTAssertFalse(context.crashedThisLaunch, @"");
+    XCTAssertTrue(context.crashedLastLaunch, @"");
 }
 
 @end

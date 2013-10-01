@@ -26,7 +26,7 @@
 
 
 #import "FileBasedTestCase.h"
-#import "SenTestCase+KSCrash.h"
+#import "XCTestCase+KSCrash.h"
 
 
 //#import "KSCrashReportConverter.h"
@@ -67,7 +67,7 @@
     NSString* filename = [[[NSBundle bundleForClass:[self class]] resourcePath] stringByAppendingPathComponent:name];
     NSError* error = nil;
     NSString* result = [NSString stringWithContentsOfFile:filename encoding:NSUTF8StringEncoding error:&error];
-    STAssertNil(error, @"");
+    XCTAssertNil(error, @"");
     return result;
 }
 
@@ -80,12 +80,12 @@
 //    NSDictionary* report = [store reportNamed:REPORT_BADPOINTER];
 //    NSString* converted = [KSCrashReportConverter toAppleFormat:report
 //                                                    reportStyle:KSAppleReportStyleUnsymbolicated];
-//    STAssertNotNil(converted, @"");
+//    XCTAssertNotNil(converted, @"");
 //    
 //    NSString* expected = [self loadAppleReportNamed:APPLE_BADPOINTER_UNSYMBOLICATED];
-//    STAssertNotNil(expected, @"");
+//    XCTAssertNotNil(expected, @"");
 //    
-//    STAssertTrue([converted isEqualToString:expected], @"");
+//    XCTAssertTrue([converted isEqualToString:expected], @"");
 }
 
 @end

@@ -25,7 +25,7 @@
 //
 
 
-#import <SenTestingKit/SenTestingKit.h>
+#import <XCTest/XCTest.h>
 
 #import "ARCSafe_MemMgmt.h"
 #import "KSCrashCallCompletion.h"
@@ -128,7 +128,7 @@
 @end
 
 
-@interface KSCrashReportFilter_Tests : SenTestCase @end
+@interface KSCrashReportFilter_Tests : XCTestCase @end
 
 @implementation KSCrashReportFilter_Tests
 
@@ -149,7 +149,7 @@
          reports = nil;
          dispatch_async(dispatch_get_main_queue(), ^
                         {
-                            STAssertNil(weakRef, @"Object leaked");
+                            XCTAssertNil(weakRef, @"Object leaked");
                         });
      }];
 }
@@ -166,9 +166,9 @@
                                                   BOOL completed,
                                                   NSError* error)
      {
-         STAssertTrue(completed, @"");
-         STAssertNil(error, @"");
-         STAssertEqualObjects(expected, filteredReports, @"");
+         XCTAssertTrue(completed, @"");
+         XCTAssertNil(error, @"");
+         XCTAssertEqualObjects(expected, filteredReports, @"");
      }];
 }
 
@@ -185,9 +185,9 @@
                                                   BOOL completed,
                                                   NSError* error)
      {
-         STAssertTrue(completed, @"");
-         STAssertNil(error, @"");
-         STAssertEqualObjects(expected, filteredReports, @"");
+         XCTAssertTrue(completed, @"");
+         XCTAssertNil(error, @"");
+         XCTAssertEqualObjects(expected, filteredReports, @"");
      }];
 }
 
@@ -201,9 +201,9 @@
                                                   BOOL completed,
                                                   NSError* error)
      {
-         STAssertTrue(completed, @"");
-         STAssertNil(error, @"");
-         STAssertEqualObjects(expected, filteredReports, @"");
+         XCTAssertTrue(completed, @"");
+         XCTAssertNil(error, @"");
+         XCTAssertEqualObjects(expected, filteredReports, @"");
      }];
 }
 
@@ -218,9 +218,9 @@
                                                    BOOL completed,
                                                    NSError* error)
      {
-         STAssertNotNil(filteredReports, @"");
-         STAssertFalse(completed, @"");
-         STAssertNil(error, @"");
+         XCTAssertNotNil(filteredReports, @"");
+         XCTAssertFalse(completed, @"");
+         XCTAssertNil(error, @"");
      }];
 }
 
@@ -235,9 +235,9 @@
                                                    BOOL completed,
                                                    NSError* error)
      {
-         STAssertNil(filteredReports, @"");
-         STAssertFalse(completed, @"");
-         STAssertNotNil(error, @"");
+         XCTAssertNil(filteredReports, @"");
+         XCTAssertFalse(completed, @"");
+         XCTAssertNotNil(error, @"");
      }];
 }
 
@@ -258,11 +258,11 @@
          reports = nil;
          filter = nil;
          pipeline = nil;
-         STAssertTrue(completed, @"");
+         XCTAssertTrue(completed, @"");
          dispatch_async(dispatch_get_main_queue(), ^
                         {
-                            STAssertNil(weakReports, @"Object leaked");
-                            STAssertNil(weakFilter, @"Object leaked");
+                            XCTAssertNil(weakReports, @"Object leaked");
+                            XCTAssertNil(weakFilter, @"Object leaked");
                         });
      }];
 }
@@ -284,11 +284,11 @@
          reports = nil;
          filter = nil;
          pipeline = nil;
-         STAssertFalse(completed, @"");
+         XCTAssertFalse(completed, @"");
          dispatch_async(dispatch_get_main_queue(), ^
                         {
-                            STAssertNil(weakReports, @"Object leaked");
-                            STAssertNil(weakFilter, @"Object leaked");
+                            XCTAssertNil(weakReports, @"Object leaked");
+                            XCTAssertNil(weakFilter, @"Object leaked");
                         });
      }];
 }
@@ -304,9 +304,9 @@
                                                   BOOL completed,
                                                   NSError* error)
      {
-         STAssertTrue(completed, @"");
-         STAssertNil(error, @"");
-         STAssertEqualObjects(expected, filteredReports, @"");
+         XCTAssertTrue(completed, @"");
+         XCTAssertNil(error, @"");
+         XCTAssertEqualObjects(expected, filteredReports, @"");
      }];
 }
 
@@ -324,9 +324,9 @@
                                                 BOOL completed,
                                                 NSError* error)
      {
-         STAssertTrue(completed, @"");
-         STAssertNil(error, @"");
-         STAssertEqualObjects(expected, filteredReports, @"");
+         XCTAssertTrue(completed, @"");
+         XCTAssertNil(error, @"");
+         XCTAssertEqualObjects(expected, filteredReports, @"");
      }];
 }
 
@@ -344,9 +344,9 @@
                                                 BOOL completed,
                                                 NSError* error)
      {
-         STAssertTrue(completed, @"");
-         STAssertNil(error, @"");
-         STAssertEqualObjects(expected, filteredReports, @"");
+         XCTAssertTrue(completed, @"");
+         XCTAssertNil(error, @"");
+         XCTAssertEqualObjects(expected, filteredReports, @"");
      }];
 }
 
@@ -362,9 +362,9 @@
                                                   BOOL completed,
                                                   NSError* error)
      {
-         STAssertTrue(completed, @"");
-         STAssertNil(error, @"");
-         STAssertEqualObjects(expected, filteredReports, @"");
+         XCTAssertTrue(completed, @"");
+         XCTAssertNil(error, @"");
+         XCTAssertEqualObjects(expected, filteredReports, @"");
      }];
 }
 
@@ -387,8 +387,8 @@
                                                    BOOL completed,
                                                    NSError* error)
      {
-         STAssertTrue(completed, @"");
-         STAssertNil(error, @"");
+         XCTAssertTrue(completed, @"");
+         XCTAssertNil(error, @"");
          for(NSUInteger i = 0; i < [expected1 count]; i++)
          {
              id exp1 = [expected1 objectAtIndex:i];
@@ -396,8 +396,8 @@
              NSDictionary* entry = [filteredReports objectAtIndex:i];
              id result1 = [entry objectForKey:@"normal"];
              id result2 = [entry objectForKey:@"data"];
-             STAssertEqualObjects(result1, exp1, @"");
-             STAssertEqualObjects(result2, exp2, @"");
+             XCTAssertEqualObjects(result1, exp1, @"");
+             XCTAssertEqualObjects(result2, exp2, @"");
          }
      }];
 }
@@ -422,8 +422,8 @@
                                                    BOOL completed,
                                                    NSError* error)
      {
-         STAssertTrue(completed, @"");
-         STAssertNil(error, @"");
+         XCTAssertTrue(completed, @"");
+         XCTAssertNil(error, @"");
          for(NSUInteger i = 0; i < [expected1 count]; i++)
          {
              id exp1 = [expected1 objectAtIndex:i];
@@ -431,8 +431,8 @@
              NSDictionary* entry = [filteredReports objectAtIndex:i];
              id result1 = [entry objectForKey:@"normal"];
              id result2 = [entry objectForKey:@"data"];
-             STAssertEqualObjects(result1, exp1, @"");
-             STAssertEqualObjects(result2, exp2, @"");
+             XCTAssertEqualObjects(result1, exp1, @"");
+             XCTAssertEqualObjects(result2, exp2, @"");
          }
      }];
 }
@@ -447,13 +447,13 @@
                                                    BOOL completed,
                                                    NSError* error)
      {
-         STAssertTrue(completed, @"");
-         STAssertNil(error, @"");
+         XCTAssertTrue(completed, @"");
+         XCTAssertNil(error, @"");
          for(NSUInteger i = 0; i < [expected1 count]; i++)
          {
              id exp = [expected1 objectAtIndex:i];
              NSString* entry = [filteredReports objectAtIndex:i];
-             STAssertEqualObjects(entry, exp, @"");
+             XCTAssertEqualObjects(entry, exp, @"");
          }
      }];
 }
@@ -470,9 +470,9 @@
                                                    BOOL completed,
                                                    NSError* error)
      {
-         STAssertNotNil(filteredReports, @"");
-         STAssertFalse(completed, @"");
-         STAssertNil(error, @"");
+         XCTAssertNotNil(filteredReports, @"");
+         XCTAssertFalse(completed, @"");
+         XCTAssertNil(error, @"");
      }];
 }
 
@@ -488,9 +488,9 @@
                                                    BOOL completed,
                                                    NSError* error)
      {
-         STAssertNil(filteredReports, @"");
-         STAssertFalse(completed, @"");
-         STAssertNotNil(error, @"");
+         XCTAssertNil(filteredReports, @"");
+         XCTAssertFalse(completed, @"");
+         XCTAssertNotNil(error, @"");
      }];
 }
 
@@ -513,8 +513,8 @@
                                                    BOOL completed,
                                                    NSError* error)
      {
-         STAssertTrue(completed, @"");
-         STAssertNil(error, @"");
+         XCTAssertTrue(completed, @"");
+         XCTAssertNil(error, @"");
          for(NSUInteger i = 0; i < [expected1 count]; i++)
          {
              id exp1 = [expected1 objectAtIndex:i];
@@ -522,8 +522,8 @@
              NSDictionary* entry = [filteredReports objectAtIndex:i];
              id result1 = [entry objectForKey:@"normal"];
              id result2 = [entry objectForKey:@"data"];
-             STAssertEqualObjects(result1, exp1, @"");
-             STAssertEqualObjects(result2, exp2, @"");
+             XCTAssertEqualObjects(result1, exp1, @"");
+             XCTAssertEqualObjects(result2, exp2, @"");
          }
      }];
 }
@@ -542,8 +542,8 @@
                                                    BOOL completed,
                                                    NSError* error)
      {
-         STAssertFalse(completed, @"");
-         STAssertNotNil(error, @"");
+         XCTAssertFalse(completed, @"");
+         XCTAssertNotNil(error, @"");
      }];
 }
 
@@ -561,9 +561,9 @@
                                                  BOOL completed,
                                                  NSError* error)
      {
-         STAssertTrue(completed, @"");
-         STAssertNil(error, @"");
-         STAssertEqualObjects([filteredReports objectAtIndex:0], expected, @"");
+         XCTAssertTrue(completed, @"");
+         XCTAssertNil(error, @"");
+         XCTAssertEqualObjects([filteredReports objectAtIndex:0], expected, @"");
      }];
 }
 
@@ -581,9 +581,9 @@
                                                  BOOL completed,
                                                  NSError* error)
      {
-         STAssertTrue(completed, @"");
-         STAssertNil(error, @"");
-         STAssertEqualObjects([filteredReports objectAtIndex:0], expected, @"");
+         XCTAssertTrue(completed, @"");
+         XCTAssertNil(error, @"");
+         XCTAssertEqualObjects([filteredReports objectAtIndex:0], expected, @"");
      }];
 }
 
@@ -601,9 +601,9 @@
                                                  BOOL completed,
                                                  NSError* error)
      {
-         STAssertTrue(completed, @"");
-         STAssertNil(error, @"");
-         STAssertTrue([[filteredReports objectAtIndex:0] count] == 0, @"");
+         XCTAssertTrue(completed, @"");
+         XCTAssertNil(error, @"");
+         XCTAssertTrue([[filteredReports objectAtIndex:0] count] == 0, @"");
      }];
 }
 
@@ -621,8 +621,8 @@
                                                  BOOL completed,
                                                  NSError* error)
      {
-         STAssertFalse(completed, @"");
-         STAssertNotNil(error, @"");
+         XCTAssertFalse(completed, @"");
+         XCTAssertNotNil(error, @"");
      }];
 }
 
@@ -642,9 +642,9 @@
                                                  BOOL completed,
                                                  NSError* error)
      {
-         STAssertTrue(completed, @"");
-         STAssertNil(error, @"");
-         STAssertEqualObjects([filteredReports objectAtIndex:0], expected, @"");
+         XCTAssertTrue(completed, @"");
+         XCTAssertNil(error, @"");
+         XCTAssertEqualObjects([filteredReports objectAtIndex:0], expected, @"");
      }];
 }
 
@@ -665,9 +665,9 @@
                                                  BOOL completed,
                                                  NSError* error)
      {
-         STAssertTrue(completed, @"");
-         STAssertNil(error, @"");
-         STAssertEqualObjects([filteredReports objectAtIndex:0], expected, @"");
+         XCTAssertTrue(completed, @"");
+         XCTAssertNil(error, @"");
+         XCTAssertEqualObjects([filteredReports objectAtIndex:0], expected, @"");
      }];
 }
 
@@ -690,9 +690,9 @@
                                                  BOOL completed,
                                                  NSError* error)
      {
-         STAssertTrue(completed, @"");
-         STAssertNil(error, @"");
-         STAssertEqualObjects([filteredReports objectAtIndex:0], expected, @"");
+         XCTAssertTrue(completed, @"");
+         XCTAssertNil(error, @"");
+         XCTAssertEqualObjects([filteredReports objectAtIndex:0], expected, @"");
      }];
 }
 
@@ -711,8 +711,8 @@
                                                  BOOL completed,
                                                  NSError* error)
      {
-         STAssertFalse(completed, @"");
-         STAssertNotNil(error, @"");
+         XCTAssertFalse(completed, @"");
+         XCTAssertNotNil(error, @"");
      }];
 }
 
@@ -736,9 +736,9 @@
                                                  BOOL completed,
                                                  NSError* error)
      {
-         STAssertTrue(completed, @"");
-         STAssertNil(error, @"");
-         STAssertEqualObjects([filteredReports objectAtIndex:0], expected, @"");
+         XCTAssertTrue(completed, @"");
+         XCTAssertNil(error, @"");
+         XCTAssertEqualObjects([filteredReports objectAtIndex:0], expected, @"");
      }];
 }
 

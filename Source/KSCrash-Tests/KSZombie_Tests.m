@@ -25,13 +25,13 @@
 //
 
 
-#import <SenTestingKit/SenTestingKit.h>
+#import <XCTest/XCTest.h>
 #import "ARCSafe_MemMgmt.h"
 
 #import "KSZombie.h"
 
 
-@interface KSZombie_Tests : SenTestCase @end
+@interface KSZombie_Tests : XCTestCase @end
 
 
 @implementation KSZombie_Tests
@@ -66,23 +66,23 @@
     const char* name = kszombie_lastDeallocedNSExceptionName();
     const char* reason = kszombie_lastDeallocedNSExceptionReason();
     
-    STAssertTrue(address == NULL, @"");
-    STAssertTrue((void*)callStack[0] == NULL, @"");
-    STAssertTrue(callStackLength == 0, @"");
-    STAssertTrue(name[0] == 0, @"");
-    STAssertTrue(reason[0] == 0, @"");
+    XCTAssertTrue(address == NULL, @"");
+    XCTAssertTrue((void*)callStack[0] == NULL, @"");
+    XCTAssertTrue(callStackLength == 0, @"");
+    XCTAssertTrue(name[0] == 0, @"");
+    XCTAssertTrue(reason[0] == 0, @"");
 }
 
 - (void) testZombieClassNameNull
 {
     const char* className = kszombie_className(NULL);
-    STAssertTrue(className == NULL, @"");
+    XCTAssertTrue(className == NULL, @"");
 }
 
 - (void) testZombieClassNameNotFound
 {
     const char* className = kszombie_className((void*)1);
-    STAssertTrue(className == NULL, @"");
+    XCTAssertTrue(className == NULL, @"");
 }
 
 - (void) testZombieClass
@@ -96,7 +96,7 @@
     as_autoreleasepool_end(POOL);
     
     const char* className = kszombie_className((as_bridge void*)object);
-    STAssertTrue(strcmp(className, "NSObject") == 0, @"");
+    XCTAssertTrue(strcmp(className, "NSObject") == 0, @"");
 }
 
 - (void) testZombieProxy
@@ -110,7 +110,7 @@
     as_autoreleasepool_end(POOL);
     
     const char* className = kszombie_className((as_bridge void*)object);
-    STAssertTrue(strcmp(className, "NSProxy") == 0, @"");
+    XCTAssertTrue(strcmp(className, "NSProxy") == 0, @"");
 }
 
 - (void) testZombieExeption
@@ -128,7 +128,7 @@
     as_autoreleasepool_end(POOL);
     
     const char* className = kszombie_className((as_bridge void*)object);
-    STAssertTrue(strcmp(className, "NSException") == 0, @"");
+    XCTAssertTrue(strcmp(className, "NSException") == 0, @"");
 
     const void* address = kszombie_lastDeallocedNSExceptionAddress();
 //    const uintptr_t* callStack = kszombie_lastDeallocedNSExceptionCallStack();
@@ -136,11 +136,11 @@
     const char* name = kszombie_lastDeallocedNSExceptionName();
     const char* reason = kszombie_lastDeallocedNSExceptionReason();
     
-    STAssertTrue(address == (as_bridge void*)object, @"");
-//    STAssertTrue((void*)callStack[0] != NULL, @"");
-//    STAssertTrue(callStackLength > 0, @"");
-    STAssertTrue(strcmp(name, "name") == 0, @"");
-    STAssertTrue(strcmp(reason, "reason") == 0, @"");
+    XCTAssertTrue(address == (as_bridge void*)object, @"");
+//    XCTAssertTrue((void*)callStack[0] != NULL, @"");
+//    XCTAssertTrue(callStackLength > 0, @"");
+    XCTAssertTrue(strcmp(name, "name") == 0, @"");
+    XCTAssertTrue(strcmp(reason, "reason") == 0, @"");
 }
 
 @end

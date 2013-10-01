@@ -26,7 +26,7 @@
 
 
 #import "FileBasedTestCase.h"
-#import "SenTestCase+KSCrash.h"
+#import "XCTestCase+KSCrash.h"
 
 #import "KSCrashReportStore.h"
 
@@ -69,42 +69,42 @@
     KSCrashReportStore* store = [self store];
     
     NSArray* names = [store reportNames];
-    STAssertEquals([names count], 2u,@"");
-    STAssertTrue([names containsObject:REPORT_BADPOINTER], @"");
-    STAssertTrue([names containsObject:REPORT_NSEXCEPTION], @"");
+    XCTAssertEqual([names count], 2u,@"");
+    XCTAssertTrue([names containsObject:REPORT_BADPOINTER], @"");
+    XCTAssertTrue([names containsObject:REPORT_NSEXCEPTION], @"");
 }
 
 - (void) testReportLoad
 {
     KSCrashReportStore* store = [self store];
     NSDictionary* report = [store reportNamed:REPORT_BADPOINTER];
-    STAssertNotNil(report, @"");
+    XCTAssertNotNil(report, @"");
     report = [store reportNamed:REPORT_NSEXCEPTION];
-    STAssertNotNil(report, @"");
+    XCTAssertNotNil(report, @"");
 }
 
 - (void) testReportDelete
 {
     KSCrashReportStore* store = [self store];
     
-    STAssertTrue([self reportExists:REPORT_BADPOINTER], @"");
+    XCTAssertTrue([self reportExists:REPORT_BADPOINTER], @"");
     [store deleteReportNamed:REPORT_BADPOINTER];
-    STAssertFalse([self reportExists:REPORT_BADPOINTER], @"");
+    XCTAssertFalse([self reportExists:REPORT_BADPOINTER], @"");
     
-    STAssertTrue([self reportExists:REPORT_NSEXCEPTION], @"");
+    XCTAssertTrue([self reportExists:REPORT_NSEXCEPTION], @"");
     [store deleteReportNamed:REPORT_NSEXCEPTION];
-    STAssertFalse([self reportExists:REPORT_NSEXCEPTION], @"");
+    XCTAssertFalse([self reportExists:REPORT_NSEXCEPTION], @"");
 }
 
 - (void) testReportDeleteAll
 {
     KSCrashReportStore* store = [self store];
     
-    STAssertTrue([self reportExists:REPORT_BADPOINTER], @"");
-    STAssertTrue([self reportExists:REPORT_NSEXCEPTION], @"");
+    XCTAssertTrue([self reportExists:REPORT_BADPOINTER], @"");
+    XCTAssertTrue([self reportExists:REPORT_NSEXCEPTION], @"");
     [store deleteAllReports];
-    STAssertFalse([self reportExists:REPORT_BADPOINTER], @"");
-    STAssertFalse([self reportExists:REPORT_NSEXCEPTION], @"");
+    XCTAssertFalse([self reportExists:REPORT_BADPOINTER], @"");
+    XCTAssertFalse([self reportExists:REPORT_NSEXCEPTION], @"");
 }
 */
 @end

@@ -25,12 +25,12 @@
 //
 
 
-#import <SenTestingKit/SenTestingKit.h>
+#import <XCTest/XCTest.h>
 
 #import "KSCrashInstallationStandard.h"
 
 
-@interface KSCrashInstallationStandard_Tests : SenTestCase @end
+@interface KSCrashInstallationStandard_Tests : XCTestCase @end
 
 
 @implementation KSCrashInstallationStandard_Tests
@@ -43,8 +43,8 @@
     [installation sendAllReportsWithCompletion:^(__unused NSArray *filteredReports, BOOL completed, NSError *error)
      {
          // There are no reports, so this will succeed.
-         STAssertTrue(completed, @"");
-         STAssertNil(error, @"");
+         XCTAssertTrue(completed, @"");
+         XCTAssertNil(error, @"");
      }];
 }
 

@@ -25,12 +25,12 @@
 //
 
 
-#import <SenTestingKit/SenTestingKit.h>
+#import <XCTest/XCTest.h>
 
 #import "KSCrashReportFilterJSON.h"
 
 
-@interface KSCrashReportFilterJSON_Tests : SenTestCase @end
+@interface KSCrashReportFilterJSON_Tests : XCTestCase @end
 
 
 @implementation KSCrashReportFilterJSON_Tests
@@ -53,9 +53,9 @@
                                                  BOOL completed,
                                                  NSError* error2)
      {
-         STAssertTrue(completed, @"");
-         STAssertNil(error2, @"");
-         STAssertEqualObjects(encoded, filteredReports, @"");
+         XCTAssertTrue(completed, @"");
+         XCTAssertNil(error2, @"");
+         XCTAssertEqualObjects(encoded, filteredReports, @"");
      }];
 }
 
@@ -70,8 +70,8 @@
                                                  BOOL completed,
                                                  NSError* error2)
      {
-         STAssertFalse(completed, @"");
-         STAssertNotNil(error2, @"");
+         XCTAssertFalse(completed, @"");
+         XCTAssertNotNil(error2, @"");
      }];
 }
 
@@ -93,9 +93,9 @@
                                                  BOOL completed,
                                                  NSError* error2)
      {
-         STAssertTrue(completed, @"");
-         STAssertNil(error2, @"");
-         STAssertEqualObjects(decoded, filteredReports, @"");
+         XCTAssertTrue(completed, @"");
+         XCTAssertNil(error2, @"");
+         XCTAssertEqualObjects(decoded, filteredReports, @"");
      }];
 }
 
@@ -110,8 +110,8 @@
                                                  BOOL completed,
                                                  NSError* error2)
      {
-         STAssertFalse(completed, @"");
-         STAssertNotNil(error2, @"");
+         XCTAssertFalse(completed, @"");
+         XCTAssertNotNil(error2, @"");
      }];
 }
 

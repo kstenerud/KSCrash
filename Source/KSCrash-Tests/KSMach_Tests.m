@@ -25,7 +25,7 @@
 //
 
 
-#import <SenTestingKit/SenTestingKit.h>
+#import <XCTest/XCTest.h>
 
 #import "KSMach.h"
 #import "ARCSafe_MemMgmt.h"
@@ -54,7 +54,7 @@
 @end
 
 
-@interface KSMach_Tests : SenTestCase @end
+@interface KSMach_Tests : XCTestCase @end
 
 @implementation KSMach_Tests
 
@@ -63,13 +63,13 @@
     NSString* expected = @"EXC_ARITHMETIC";
     NSString* actual = [NSString stringWithCString:ksmach_exceptionName(EXC_ARITHMETIC)
                                           encoding:NSUTF8StringEncoding];
-    STAssertEqualObjects(actual, expected, @"");
+    XCTAssertEqualObjects(actual, expected, @"");
 }
 
 - (void) testVeryHighExceptionName
 {
     const char* result = ksmach_exceptionName(100000);
-    STAssertTrue(result == NULL, @"");
+    XCTAssertTrue(result == NULL, @"");
 }
 
 - (void) testKernReturnCodeName
@@ -77,34 +77,34 @@
     NSString* expected = @"KERN_FAILURE";
     NSString* actual = [NSString stringWithCString:ksmach_kernelReturnCodeName(KERN_FAILURE)
                                           encoding:NSUTF8StringEncoding];
-    STAssertEqualObjects(actual, expected, @"");
+    XCTAssertEqualObjects(actual, expected, @"");
 }
 
 - (void) testVeryHighKernReturnCodeName
 {
     const char* result = ksmach_kernelReturnCodeName(100000);
-    STAssertTrue(result == NULL, @"");
+    XCTAssertTrue(result == NULL, @"");
 }
 
 - (void) testFreeMemory
 {
     uint64_t freeMem = ksmach_freeMemory();
-    STAssertTrue(freeMem > 0, @"");
+    XCTAssertTrue(freeMem > 0, @"");
 }
 
 - (void) testUsableMemory
 {
     uint64_t usableMem = ksmach_usableMemory();
-    STAssertTrue(usableMem > 0, @"");
+    XCTAssertTrue(usableMem > 0, @"");
 }
 
 - (void) testSuspendThreads
 {
     bool success;
     success = ksmach_suspendAllThreads();
-    STAssertTrue(success, @"");
+    XCTAssertTrue(success, @"");
     success = ksmach_resumeAllThreads();
-    STAssertTrue(success, @"");
+    XCTAssertTrue(success, @"");
 }
 
 - (void) testCopyMem
@@ -113,9 +113,9 @@
     char buff2[100] = {1,2,3,4,5};
     
     kern_return_t result = ksmach_copyMem(buff2, buff, sizeof(buff));
-    STAssertEquals(result, KERN_SUCCESS, @"");
+    XCTAssertEqual(result, KERN_SUCCESS, @"");
     int memCmpResult = memcmp(buff, buff2, sizeof(buff));
-    STAssertEquals(memCmpResult, 0, @"");
+    XCTAssertEqual(memCmpResult, 0, @"");
 }
 
 - (void) testCopyMemNull
@@ -124,7 +124,7 @@
     char* buff2 = NULL;
     
     kern_return_t result = ksmach_copyMem(buff2, buff, sizeof(buff));
-    STAssertTrue(result != KERN_SUCCESS, @"");
+    XCTAssertTrue(result != KERN_SUCCESS, @"");
 }
 
 - (void) testCopyMemBad
@@ -133,7 +133,7 @@
     char* buff2 = (char*)-1;
     
     kern_return_t result = ksmach_copyMem(buff2, buff, sizeof(buff));
-    STAssertTrue(result != KERN_SUCCESS, @"");
+    XCTAssertTrue(result != KERN_SUCCESS, @"");
 }
 
 - (void) testCopyMaxPossibleMem
@@ -142,9 +142,9 @@
     char buff2[5] = {1,2,3,4,5};
     
     size_t copied = ksmach_copyMaxPossibleMem(buff2, buff, sizeof(buff));
-    STAssertTrue(copied >= 5, @"");
+    XCTAssertTrue(copied >= 5, @"");
     int memCmpResult = memcmp(buff, buff2, sizeof(buff2));
-    STAssertEquals(memCmpResult, 0, @"");
+    XCTAssertEqual(memCmpResult, 0, @"");
 }
 
 - (void) testCopyMaxPossibleMemNull
@@ -153,7 +153,7 @@
     char* buff2 = NULL;
     
     size_t copied = ksmach_copyMaxPossibleMem(buff2, buff, sizeof(buff));
-    STAssertTrue(copied == 0, @"");
+    XCTAssertTrue(copied == 0, @"");
 }
 
 - (void) testCopyMaxPossibleMemBad
@@ -162,7 +162,7 @@
     char* buff2 = (char*)-1;
     
     size_t copied = ksmach_copyMaxPossibleMem(buff2, buff, sizeof(buff));
-    STAssertTrue(copied == 0, @"");
+    XCTAssertTrue(copied == 0, @"");
 }
 
 - (void) testTimeDifferenceInSeconds
@@ -171,38 +171,33 @@
     [NSThread sleepForTimeInterval:0.1];
     uint64_t endTime = mach_absolute_time();
     double diff = ksmach_timeDifferenceInSeconds(endTime, startTime);
-    STAssertTrue(diff >= 0.1 && diff < 0.2, @"");
+    XCTAssertTrue(diff >= 0.1 && diff < 0.2, @"");
 }
 
 - (void) testIsBeingTraced
 {
     bool traced = ksmach_isBeingTraced();
-    STAssertTrue(traced, @"");
+    XCTAssertTrue(traced, @"");
 }
 
 - (void) testImageUUID
 {
-    NSBundle* mainBundle = [NSBundle mainBundle];
-    NSDictionary* infoDict = [mainBundle infoDictionary];
-    NSString* exePath = [infoDict objectForKey:@"CFBundleExecutablePath"];
-    const uint8_t* uuidBytes = ksmach_imageUUID([exePath UTF8String], true);
-    STAssertTrue(uuidBytes != NULL, @"");
+    // Just abritrarily grab the name of the 4th image...
+    const char* name = _dyld_get_image_name(4);
+    const uint8_t* uuidBytes = ksmach_imageUUID(name, true);
+    XCTAssertTrue(uuidBytes != NULL, @"");
 }
 
 - (void) testImageUUIDInvalidName
 {
     const uint8_t* uuidBytes = ksmach_imageUUID("sdfgserghwerghwrh", true);
-    STAssertTrue(uuidBytes == NULL, @"");
+    XCTAssertTrue(uuidBytes == NULL, @"");
 }
 
 - (void) testImageUUIDPartialMatch
 {
-    NSBundle* mainBundle = [NSBundle mainBundle];
-    NSDictionary* infoDict = [mainBundle infoDictionary];
-    NSString* exePath = [infoDict objectForKey:@"CFBundleExecutablePath"];
-    exePath = [exePath substringFromIndex:[exePath length] - 4];
-    const uint8_t* uuidBytes = ksmach_imageUUID([exePath UTF8String], false);
-    STAssertTrue(uuidBytes != NULL, @"");
+    const uint8_t* uuidBytes = ksmach_imageUUID("libSystem", false);
+    XCTAssertTrue(uuidBytes != NULL, @"");
 }
 
 - (void) testGetQueueName
@@ -213,7 +208,7 @@
     mach_msg_type_number_t numThreads;
     
     kr = task_threads(thisTask, &threads, &numThreads);
-    STAssertTrue(kr == KERN_SUCCESS, @"");
+    XCTAssertTrue(kr == KERN_SUCCESS, @"");
     
     bool success = false;
     char buffer[100];
@@ -233,7 +228,7 @@
     }
     vm_deallocate(thisTask, (vm_address_t)threads, sizeof(thread_t) * numThreads);
     
-    STAssertTrue(success, @"");
+    XCTAssertTrue(success, @"");
 }
 
 - (void) testThreadState
@@ -243,32 +238,32 @@
     [NSThread sleepForTimeInterval:0.1];
     kern_return_t kr;
     kr = thread_suspend(thread.thread);
-    STAssertTrue(kr == KERN_SUCCESS, @"");
+    XCTAssertTrue(kr == KERN_SUCCESS, @"");
     
     _STRUCT_MCONTEXT machineContext;
     bool success = ksmach_threadState(thread.thread, &machineContext);
-    STAssertTrue(success, @"");
+    XCTAssertTrue(success, @"");
 
     int numRegisters = ksmach_numRegisters();
     for(int i = 0; i < numRegisters; i++)
     {
         const char* name = ksmach_registerName(i);
-        STAssertTrue(name != NULL, @"Register %d was NULL", i);
+        XCTAssertTrue(name != NULL, @"Register %d was NULL", i);
         ksmach_registerValue(&machineContext, i);
     }
 
     const char* name = ksmach_registerName(1000000);
-    STAssertTrue(name == NULL, @"");
+    XCTAssertTrue(name == NULL, @"");
     uint64_t value = ksmach_registerValue(&machineContext, 1000000);
-    STAssertTrue(value == 0, @"");
+    XCTAssertTrue(value == 0, @"");
     
     uintptr_t address;
     address = ksmach_framePointer(&machineContext);
-    STAssertTrue(address != 0, @"");
+    XCTAssertTrue(address != 0, @"");
     address = ksmach_stackPointer(&machineContext);
-    STAssertTrue(address != 0, @"");
+    XCTAssertTrue(address != 0, @"");
     address = ksmach_instructionAddress(&machineContext);
-    STAssertTrue(address != 0, @"");
+    XCTAssertTrue(address != 0, @"");
 
     thread_resume(thread.thread);
     [thread cancel];
@@ -281,11 +276,11 @@
     [NSThread sleepForTimeInterval:0.1];
     kern_return_t kr;
     kr = thread_suspend(thread.thread);
-    STAssertTrue(kr == KERN_SUCCESS, @"");
+    XCTAssertTrue(kr == KERN_SUCCESS, @"");
     
     _STRUCT_MCONTEXT machineContext;
     bool success = ksmach_floatState(thread.thread, &machineContext);
-    STAssertTrue(success, @"");
+    XCTAssertTrue(success, @"");
     thread_resume(thread.thread);
     [thread cancel];
 }
@@ -297,24 +292,24 @@
     [NSThread sleepForTimeInterval:0.1];
     kern_return_t kr;
     kr = thread_suspend(thread.thread);
-    STAssertTrue(kr == KERN_SUCCESS, @"");
+    XCTAssertTrue(kr == KERN_SUCCESS, @"");
     
     _STRUCT_MCONTEXT machineContext;
     bool success = ksmach_exceptionState(thread.thread, &machineContext);
-    STAssertTrue(success, @"");
+    XCTAssertTrue(success, @"");
     
     int numRegisters = ksmach_numExceptionRegisters();
     for(int i = 0; i < numRegisters; i++)
     {
         const char* name = ksmach_exceptionRegisterName(i);
-        STAssertTrue(name != NULL, @"Register %d was NULL", i);
+        XCTAssertTrue(name != NULL, @"Register %d was NULL", i);
         ksmach_exceptionRegisterValue(&machineContext, i);
     }
     
     const char* name = ksmach_exceptionRegisterName(1000000);
-    STAssertTrue(name == NULL, @"");
+    XCTAssertTrue(name == NULL, @"");
     uint64_t value = ksmach_exceptionRegisterValue(&machineContext, 1000000);
-    STAssertTrue(value == 0, @"");
+    XCTAssertTrue(value == 0, @"");
 
     ksmach_faultAddress(&machineContext);
 

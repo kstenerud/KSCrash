@@ -25,12 +25,12 @@
 //
 
 
-#import <SenTestingKit/SenTestingKit.h>
+#import <XCTest/XCTest.h>
 
 #import "NSError+SimpleConstructor.h"
 
 
-@interface NSError_SimpleConstructor_Tests : SenTestCase @end
+@interface NSError_SimpleConstructor_Tests : XCTestCase @end
 
 
 @implementation NSError_SimpleConstructor_Tests
@@ -41,9 +41,9 @@
     NSString* expectedDomain = @"Domain";
     int expectedCode = 10;
     NSString* expectedDescription = @"A description 1";
-    STAssertEqualObjects(error.domain, expectedDomain, @"");
-    STAssertEquals(error.code, expectedCode, @"");
-    STAssertEqualObjects(error.localizedDescription, expectedDescription, @"");
+    XCTAssertEqualObjects(error.domain, expectedDomain, @"");
+    XCTAssertEqual(error.code, expectedCode, @"");
+    XCTAssertEqualObjects(error.localizedDescription, expectedDescription, @"");
 }
 
 - (void) testFillError
@@ -53,9 +53,9 @@
     NSString* expectedDomain = @"Domain";
     int expectedCode = 10;
     NSString* expectedDescription = @"A description 1";
-    STAssertEqualObjects(error.domain, expectedDomain, @"");
-    STAssertEquals(error.code, expectedCode, @"");
-    STAssertEqualObjects(error.localizedDescription, expectedDescription, @"");
+    XCTAssertEqualObjects(error.domain, expectedDomain, @"");
+    XCTAssertEqual(error.code, expectedCode, @"");
+    XCTAssertEqualObjects(error.localizedDescription, expectedDescription, @"");
 }
 
 - (void) testFillErrorNil
@@ -66,9 +66,9 @@
 - (void) testClearError
 {
     NSError* error = [NSError errorWithDomain:@"" code:1 description:@""];
-    STAssertNotNil(error, @"");
+    XCTAssertNotNil(error, @"");
     [NSError clearError:&error];
-    STAssertNil(error, @"");
+    XCTAssertNil(error, @"");
 }
 
 - (void) testClearErrorNil

@@ -25,11 +25,11 @@
 //
 
 
-#import "SenTestCase+KSCrash.h"
+#import "XCTestCase+KSCrash.h"
 #import "ARCSafe_MemMgmt.h"
 
 
-@implementation SenTestCase (SenTestCase_KSCrash)
+@implementation XCTestCase (XCTestCase_KSCrash)
 
 - (NSString*) createTempPath
 {
@@ -55,11 +55,11 @@
     NSFileManager* fm = [NSFileManager defaultManager];
 
     [fm createDirectoryAtPath:reportsPath withIntermediateDirectories:YES attributes:nil error:&error];
-    STAssertNil(error, @"");
+    XCTAssertNil(error, @"");
 
     NSString* bundlePath = [[NSBundle bundleForClass:[self class]] resourcePath];
     NSArray* files = [fm contentsOfDirectoryAtPath:bundlePath error:&error];
-    STAssertNil(error, @"");
+    XCTAssertNil(error, @"");
 
     for(NSString* filename in files)
     {
@@ -68,7 +68,7 @@
             [fm copyItemAtPath:[bundlePath stringByAppendingPathComponent:filename]
                         toPath:[reportsPath stringByAppendingPathComponent:filename]
                          error:&error];
-            STAssertNil(error, @"");
+            XCTAssertNil(error, @"");
         }
     }
 }

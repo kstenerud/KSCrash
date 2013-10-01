@@ -25,13 +25,13 @@
 //
 
 
-#import <SenTestingKit/SenTestingKit.h>
+#import <XCTest/XCTest.h>
 
 #import "KSJSONCodecObjC.h"
 #import "ARCSafe_MemMgmt.h"
 
 
-@interface KSJSONCodec_Tests : SenTestCase @end
+@interface KSJSONCodec_Tests : XCTestCase @end
 
 
 @implementation KSJSONCodec_Tests
@@ -62,13 +62,13 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, original, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void) testSerializeDeserializeArrayNull
@@ -81,13 +81,13 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, original, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void) testSerializeDeserializeArrayBoolTrue
@@ -100,13 +100,13 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, original, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void) testSerializeDeserializeArrayBoolFalse
@@ -119,13 +119,13 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, original, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void) testSerializeDeserializeArrayInteger
@@ -138,13 +138,13 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, original, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void) testSerializeDeserializeArrayFloat
@@ -157,15 +157,15 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEquals([[result objectAtIndex:0] floatValue], -0.2f, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqual([[result objectAtIndex:0] floatValue], -0.2f, @"");
     // This always fails on NSNumber filled with float.
-    //STAssertEqualObjects(result, original, @"");
+    //XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void) testSerializeDeserializeArrayFloat2
@@ -178,15 +178,15 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEquals([[result objectAtIndex:0] floatValue], -2e-15f, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqual([[result objectAtIndex:0] floatValue], -2e-15f, @"");
     // This always fails on NSNumber filled with float.
-    //STAssertEqualObjects(result, original, @"");
+    //XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void)testSerializeDeserializeArrayString
@@ -199,13 +199,13 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, original, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void)testSerializeDeserializeArrayStringIntl
@@ -218,13 +218,13 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, original, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void)testSerializeDeserializeArrayMultipleEntries
@@ -239,13 +239,13 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, original, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void)testSerializeDeserializeArrayMultipleEntriesSorted
@@ -265,13 +265,13 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, sorted, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, sorted, @"");
 }
 
 - (void)testSerializeDeserializeArrayWithArray
@@ -284,13 +284,13 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, original, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void)testSerializeDeserializeArrayWithArray2
@@ -303,13 +303,13 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, original, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void)testSerializeDeserializeArrayWithDictionary
@@ -322,13 +322,13 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, original, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void)testSerializeDeserializeArrayWithDictionary2
@@ -343,13 +343,13 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, original, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, original, @"");
 }
 
 
@@ -361,13 +361,13 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, original, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void) testSerializeDeserializeDictionaryNull
@@ -380,13 +380,13 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, original, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void) testSerializeDeserializeDictionaryBoolTrue
@@ -399,13 +399,13 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, original, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void) testSerializeDeserializeDictionaryBoolFalse
@@ -418,13 +418,13 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, original, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void) testSerializeDeserializeDictionaryInteger
@@ -437,13 +437,13 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, original, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void) testSerializeDeserializeDictionaryFloat
@@ -456,15 +456,15 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEquals([[(NSDictionary*)result objectForKey:@"One"] floatValue], 54.918f, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqual([[(NSDictionary*)result objectForKey:@"One"] floatValue], 54.918f, @"");
     // This always fails on NSNumber filled with float.
-    //STAssertEqualObjects(result, original, @"");
+    //XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void) testSerializeDeserializeDictionaryFloat2
@@ -477,15 +477,15 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEquals([[(NSDictionary*)result objectForKey:@"One"] floatValue], 5e20f, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqual([[(NSDictionary*)result objectForKey:@"One"] floatValue], 5e20f, @"");
     // This always fails on NSNumber filled with float.
-    //STAssertEqualObjects(result, original, @"");
+    //XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void)testSerializeDeserializeDictionaryString
@@ -498,13 +498,13 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, original, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void)testSerializeDeserializeDictionaryMultipleEntries
@@ -519,13 +519,13 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, original, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void)testSerializeDeserializeDictionaryWithDictionary
@@ -538,13 +538,13 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, original, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void)testSerializeDeserializeDictionaryWithDictionary2
@@ -559,13 +559,13 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, original, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void)testSerializeDeserializeDictionaryWithArray
@@ -578,13 +578,13 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, original, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void)testSerializeDeserializeDictionaryWithArray2
@@ -597,13 +597,13 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, original, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void)testSerializeDeserializeBigDictionary
@@ -674,12 +674,12 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, original, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void)testSerializeDeserializeDeep
@@ -704,13 +704,13 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, original, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void) testDeserializeUnicode
@@ -719,10 +719,10 @@ static NSString* toString(NSData* data)
     NSString* json = @"[\"\\u00dcOne\"]";
     NSString* expected = @"\u00dcOne";
     NSArray* result = [KSJSONCodec decode:toData(json) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
     NSString* value = [result objectAtIndex:0];
-    STAssertEqualObjects(value, expected, @"");
+    XCTAssertEqualObjects(value, expected, @"");
 }
 
 - (void) testDeserializeUnicode2
@@ -731,10 +731,10 @@ static NSString* toString(NSData* data)
     NSString* json = @"[\"\\u827e\\u5c0f\\u8587\"]";
     NSString* expected = @"\u827e\u5c0f\u8587";
     NSArray* result = [KSJSONCodec decode:toData(json) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
     NSString* value = [result objectAtIndex:0];
-    STAssertEqualObjects(value, expected, @"");
+    XCTAssertEqualObjects(value, expected, @"");
 }
 
 - (void) testDeserializeUnicodeExtended
@@ -744,10 +744,10 @@ static NSString* toString(NSData* data)
     NSString* json = @"[\"ABC\\ud840\\udf23DEFGHIJ\"]";
     NSString* expected = @"ABC𐌣DEFGHIJ";
     NSArray* result = [KSJSONCodec decode:toData(json) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
     NSString* value = [result objectAtIndex:0];
-    STAssertEqualObjects(value, expected, @"");
+    XCTAssertEqualObjects(value, expected, @"");
 }
 
 - (void) testDeserializeUnicodeExtendedLoneTrailSurrogate
@@ -755,8 +755,8 @@ static NSString* toString(NSData* data)
     NSError* error = (NSError*)self;
     NSString* json = @"[\"ABC\\ud840DEFGHIJ\"]";
     NSArray* result = [KSJSONCodec decode:toData(json) options:0 error:&error];
-    STAssertNil(result, @"");
-    STAssertNotNil(error, @"");
+    XCTAssertNil(result, @"");
+    XCTAssertNotNil(error, @"");
 }
 
 - (void) testDeserializeUnicodeExtendedMissingTrailSurrogate
@@ -764,8 +764,8 @@ static NSString* toString(NSData* data)
     NSError* error = (NSError*)self;
     NSString* json = @"[\"ABC\\udf23DEFGHIJ\"]";
     NSArray* result = [KSJSONCodec decode:toData(json) options:0 error:&error];
-    STAssertNil(result, @"");
-    STAssertNotNil(error, @"");
+    XCTAssertNil(result, @"");
+    XCTAssertNotNil(error, @"");
 }
 
 - (void) testDeserializeUnicodeExtendedMissingTrailSurrogate2
@@ -773,8 +773,8 @@ static NSString* toString(NSData* data)
     NSError* error = (NSError*)self;
     NSString* json = @"[\"ABC\\udf23\\u1234DEFGHIJ\"]";
     NSArray* result = [KSJSONCodec decode:toData(json) options:0 error:&error];
-    STAssertNil(result, @"");
-    STAssertNotNil(error, @"");
+    XCTAssertNil(result, @"");
+    XCTAssertNotNil(error, @"");
 }
 
 - (void) testDeserializeUnicodeExtendedCutOff
@@ -782,8 +782,8 @@ static NSString* toString(NSData* data)
     NSError* error = (NSError*)self;
     NSString* json = @"[\"ABC\\udf23\"]";
     NSArray* result = [KSJSONCodec decode:toData(json) options:0 error:&error];
-    STAssertNil(result, @"");
-    STAssertNotNil(error, @"");
+    XCTAssertNil(result, @"");
+    XCTAssertNotNil(error, @"");
 }
 
 - (void) testDeserializeControlChars
@@ -792,10 +792,10 @@ static NSString* toString(NSData* data)
     NSString* json = @"[\"\\b\\f\\n\\r\\t\"]";
     NSString* expected = @"\b\f\n\r\t";
     NSArray* result = [KSJSONCodec decode:toData(json) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
     NSString* value = [result objectAtIndex:0];
-    STAssertEqualObjects(value, expected, @"");
+    XCTAssertEqualObjects(value, expected, @"");
 }
 
 - (void) testSerializeDeserializeControlChars2
@@ -808,13 +808,13 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, original, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void) testSerializeDeserializeControlChars3
@@ -827,13 +827,13 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, original, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void) testSerializeDeserializeEscapedChars
@@ -846,13 +846,13 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, original, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void) testSerializeDeserializeFloat
@@ -865,13 +865,13 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertTrue([[result objectAtIndex:0] floatValue] ==  [[original objectAtIndex:0] floatValue], @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertTrue([[result objectAtIndex:0] floatValue] ==  [[original objectAtIndex:0] floatValue], @"");
 }
 
 - (void) testSerializeDeserializeDouble
@@ -884,13 +884,13 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertTrue([[result objectAtIndex:0] floatValue] ==  [[original objectAtIndex:0] floatValue], @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertTrue([[result objectAtIndex:0] floatValue] ==  [[original objectAtIndex:0] floatValue], @"");
 }
 
 - (void) testSerializeDeserializeChar
@@ -903,13 +903,13 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, original, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void) testSerializeDeserializeShort
@@ -922,13 +922,13 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, original, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void) testSerializeDeserializeLong
@@ -941,13 +941,13 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, original, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void) testSerializeDeserializeLongLong
@@ -960,13 +960,13 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, original, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void) testSerializeDeserializeNegative
@@ -979,13 +979,13 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, original, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void) testSerializeDeserialize0
@@ -998,13 +998,13 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, original, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void) testSerializeDeserializeEmptyString
@@ -1018,22 +1018,22 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, original, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void) testSerializeDeserializeBigString
 {
     NSError* error = (NSError*)self;
 
-    NSUInteger length = 500;
-    NSMutableString* string = [NSMutableString stringWithCapacity:length];
-    for(NSUInteger i = 0; i < length; i++)
+    int length = 500;
+    NSMutableString* string = [NSMutableString stringWithCapacity:(NSUInteger)length];
+    for(int i = 0; i < length; i++)
     {
         [string appendFormat:@"%d", i%10];
     }
@@ -1045,13 +1045,13 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(jsonString, expected, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(jsonString, expected, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, original, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void) testSerializeDeserializeHugeString
@@ -1068,12 +1068,12 @@ static NSString* toString(NSData* data)
     NSString* jsonString = toString([KSJSONCodec encode:original
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(jsonString, @"");
-    STAssertNil(error, @"");
+    XCTAssertNotNil(jsonString, @"");
+    XCTAssertNil(error, @"");
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(result, original, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(result, original, @"");
 }
 
 - (void) testSerializeDeserializeLargeArray
@@ -1091,19 +1091,19 @@ static NSString* toString(NSData* data)
     [jsonString appendString:@"]"];
 
     id deserialized = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(deserialized, @"");
-    STAssertNil(error, @"");
-    STAssertEquals([deserialized count], numEntries, @"");
+    XCTAssertNotNil(deserialized, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqual([deserialized count], numEntries, @"");
     NSString* serialized = toString([KSJSONCodec encode:deserialized
                                                 options:0
                                                   error:&error]);
-    STAssertNotNil(serialized, @"");
-    STAssertNil(error, @"");
-    STAssertEqualObjects(serialized, jsonString, @"");
+    XCTAssertNotNil(serialized, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqualObjects(serialized, jsonString, @"");
     int value = [[deserialized objectAtIndex:1] intValue];
-    STAssertEquals(value, 1, @"");
+    XCTAssertEqual(value, 1, @"");
     value = [[deserialized objectAtIndex:9] intValue];
-    STAssertEquals(value, 9, @"");
+    XCTAssertEqual(value, 9, @"");
 }
 
 - (void) testSerializeDeserializeLargeDictionary
@@ -1121,17 +1121,17 @@ static NSString* toString(NSData* data)
     [jsonString appendString:@"}"];
 
     id deserialized = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(deserialized, @"");
-    STAssertNil(error, @"");
-    STAssertEquals([deserialized count], numEntries, @"");
+    XCTAssertNotNil(deserialized, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertEqual([deserialized count], numEntries, @"");
     int value = [[(NSDictionary*)deserialized objectForKey:@"1"] intValue];
-    STAssertEquals(value, 1, @"");
+    XCTAssertEqual(value, 1, @"");
     NSString* serialized = toString([KSJSONCodec encode:deserialized
                                                 options:KSJSONEncodeOptionSorted
                                                   error:&error]);
-    STAssertNotNil(serialized, @"");
-    STAssertNil(error, @"");
-    STAssertTrue([serialized length] == [jsonString length], @"");
+    XCTAssertNotNil(serialized, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertTrue([serialized length] == [jsonString length], @"");
 }
 
 - (void) testDeserializeArrayMissingTerminator
@@ -1139,8 +1139,8 @@ static NSString* toString(NSData* data)
     NSError* error = (NSError*)self;
     NSString* json = @"[\"blah\"";
     NSArray* result = [KSJSONCodec decode:toData(json) options:0 error:&error];
-    STAssertNil(result, @"");
-    STAssertNotNil(error, @"");
+    XCTAssertNil(result, @"");
+    XCTAssertNotNil(error, @"");
 }
 
 //- (void) testSerializeBadTopLevelType
@@ -1148,8 +1148,8 @@ static NSString* toString(NSData* data)
 //    NSError* error = (NSError*)self;
 //    id source = @"Blah";
 //    NSString* result = toString([KSJSONCodec encode:source error:&error]);
-//    STAssertNil(result, @"");
-//    STAssertNotNil(error, @"");
+//    XCTAssertNil(result, @"");
+//    XCTAssertNotNil(error, @"");
 //}
 
 - (void) testSerializeArrayBadType
@@ -1159,8 +1159,8 @@ static NSString* toString(NSData* data)
     NSString* result = toString([KSJSONCodec encode:source
                                             options:KSJSONEncodeOptionSorted
                                               error:&error]);
-    STAssertNil(result, @"");
-    STAssertNotNil(error, @"");
+    XCTAssertNil(result, @"");
+    XCTAssertNotNil(error, @"");
 }
 
 - (void) testSerializeDictionaryBadType
@@ -1170,8 +1170,8 @@ static NSString* toString(NSData* data)
     NSString* result = toString([KSJSONCodec encode:source
                                             options:KSJSONEncodeOptionSorted
                                               error:&error]);
-    STAssertNil(result, @"");
-    STAssertNotNil(error, @"");
+    XCTAssertNil(result, @"");
+    XCTAssertNotNil(error, @"");
 }
 
 - (void) testSerializeDictionaryBadCharacter
@@ -1181,8 +1181,8 @@ static NSString* toString(NSData* data)
     NSString* result = toString([KSJSONCodec encode:source
                                             options:KSJSONEncodeOptionSorted
                                               error:&error]);
-    STAssertNil(result, @"");
-    STAssertNotNil(error, @"");
+    XCTAssertNil(result, @"");
+    XCTAssertNotNil(error, @"");
 }
 
 - (void) testSerializeArrayBadCharacter
@@ -1192,8 +1192,8 @@ static NSString* toString(NSData* data)
     NSString* result = toString([KSJSONCodec encode:source
                                             options:KSJSONEncodeOptionSorted
                                               error:&error]);
-    STAssertNil(result, @"");
-    STAssertNotNil(error, @"");
+    XCTAssertNil(result, @"");
+    XCTAssertNotNil(error, @"");
 }
 
 - (void)testDeserializeArrayInvalidUnicodeSequence
@@ -1201,8 +1201,8 @@ static NSString* toString(NSData* data)
     NSError* error = (NSError*)self;
     NSString* jsonString = @"[\"One\\ubarfTwo\"]";
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNil(result, @"");
-    STAssertNotNil(error, @"");
+    XCTAssertNil(result, @"");
+    XCTAssertNotNil(error, @"");
 }
 
 - (void)testDeserializeArrayInvalidUnicodeSequence2
@@ -1210,8 +1210,8 @@ static NSString* toString(NSData* data)
     NSError* error = (NSError*)self;
     NSString* jsonString = @"[\"One\\u123gTwo\"]";
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNil(result, @"");
-    STAssertNotNil(error, @"");
+    XCTAssertNil(result, @"");
+    XCTAssertNotNil(error, @"");
 }
 
 - (void)testDeserializeArrayUnterminatedEscape
@@ -1219,8 +1219,8 @@ static NSString* toString(NSData* data)
     NSError* error = (NSError*)self;
     NSString* jsonString = @"[\"One\\u123\"]";
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNil(result, @"");
-    STAssertNotNil(error, @"");
+    XCTAssertNil(result, @"");
+    XCTAssertNotNil(error, @"");
 }
 
 - (void)testDeserializeArrayUnterminatedEscape2
@@ -1228,8 +1228,8 @@ static NSString* toString(NSData* data)
     NSError* error = (NSError*)self;
     NSString* jsonString = @"[\"One\\\"]";
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNil(result, @"");
-    STAssertNotNil(error, @"");
+    XCTAssertNil(result, @"");
+    XCTAssertNotNil(error, @"");
 }
 
 - (void)testDeserializeArrayUnterminatedEscape3
@@ -1237,8 +1237,8 @@ static NSString* toString(NSData* data)
     NSError* error = (NSError*)self;
     NSString* jsonString = @"[\"One\\u\"]";
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNil(result, @"");
-    STAssertNotNil(error, @"");
+    XCTAssertNil(result, @"");
+    XCTAssertNotNil(error, @"");
 }
 
 - (void)testDeserializeArrayInvalidEscape
@@ -1246,8 +1246,8 @@ static NSString* toString(NSData* data)
     NSError* error = (NSError*)self;
     NSString* jsonString = @"[\"One\\qTwo\"]";
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNil(result, @"");
-    STAssertNotNil(error, @"");
+    XCTAssertNil(result, @"");
+    XCTAssertNotNil(error, @"");
 }
 
 - (void)testDeserializeArrayUnterminatedString
@@ -1255,8 +1255,8 @@ static NSString* toString(NSData* data)
     NSError* error = (NSError*)self;
     NSString* jsonString = @"[\"One]";
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNil(result, @"");
-    STAssertNotNil(error, @"");
+    XCTAssertNil(result, @"");
+    XCTAssertNotNil(error, @"");
 }
 
 - (void)testDeserializeArrayTruncatedFalse
@@ -1264,8 +1264,8 @@ static NSString* toString(NSData* data)
     NSError* error = (NSError*)self;
     NSString* jsonString = @"[f]";
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNil(result, @"");
-    STAssertNotNil(error, @"");
+    XCTAssertNil(result, @"");
+    XCTAssertNotNil(error, @"");
 }
 
 - (void)testDeserializeArrayInvalidFalse
@@ -1273,8 +1273,8 @@ static NSString* toString(NSData* data)
     NSError* error = (NSError*)self;
     NSString* jsonString = @"[falst]";
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNil(result, @"");
-    STAssertNotNil(error, @"");
+    XCTAssertNil(result, @"");
+    XCTAssertNotNil(error, @"");
 }
 
 - (void)testDeserializeArrayTruncatedTrue
@@ -1282,8 +1282,8 @@ static NSString* toString(NSData* data)
     NSError* error = (NSError*)self;
     NSString* jsonString = @"[t]";
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNil(result, @"");
-    STAssertNotNil(error, @"");
+    XCTAssertNil(result, @"");
+    XCTAssertNotNil(error, @"");
 }
 
 - (void)testDeserializeArrayInvalidTrue
@@ -1291,8 +1291,8 @@ static NSString* toString(NSData* data)
     NSError* error = (NSError*)self;
     NSString* jsonString = @"[ture]";
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNil(result, @"");
-    STAssertNotNil(error, @"");
+    XCTAssertNil(result, @"");
+    XCTAssertNotNil(error, @"");
 }
 
 - (void)testDeserializeArrayTruncatedNull
@@ -1300,8 +1300,8 @@ static NSString* toString(NSData* data)
     NSError* error = (NSError*)self;
     NSString* jsonString = @"[n]";
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNil(result, @"");
-    STAssertNotNil(error, @"");
+    XCTAssertNil(result, @"");
+    XCTAssertNotNil(error, @"");
 }
 
 - (void)testDeserializeArrayInvalidNull
@@ -1309,8 +1309,8 @@ static NSString* toString(NSData* data)
     NSError* error = (NSError*)self;
     NSString* jsonString = @"[nlll]";
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNil(result, @"");
-    STAssertNotNil(error, @"");
+    XCTAssertNil(result, @"");
+    XCTAssertNotNil(error, @"");
 }
 
 - (void)testDeserializeArrayInvalidElement
@@ -1318,8 +1318,8 @@ static NSString* toString(NSData* data)
     NSError* error = (NSError*)self;
     NSString* jsonString = @"[-blah]";
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNil(result, @"");
-    STAssertNotNil(error, @"");
+    XCTAssertNil(result, @"");
+    XCTAssertNotNil(error, @"");
 }
 
 - (void)testDeserializeArrayUnterminated
@@ -1327,8 +1327,8 @@ static NSString* toString(NSData* data)
     NSError* error = (NSError*)self;
     NSString* jsonString = @"[\"blah\"";
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNil(result, @"");
-    STAssertNotNil(error, @"");
+    XCTAssertNil(result, @"");
+    XCTAssertNotNil(error, @"");
 }
 
 - (void)testDeserializeArrayNumberOverflow
@@ -1336,8 +1336,8 @@ static NSString* toString(NSData* data)
     NSError* error = (NSError*)self;
     NSString* jsonString = @"[123456789012345678901234567890]";
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
 }
 
 - (void)testDeserializeDictionaryInvalidKey
@@ -1345,8 +1345,8 @@ static NSString* toString(NSData* data)
     NSError* error = (NSError*)self;
     NSString* jsonString = @"{blah:\"blah\"}";
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNil(result, @"");
-    STAssertNotNil(error, @"");
+    XCTAssertNil(result, @"");
+    XCTAssertNotNil(error, @"");
 }
 
 - (void)testDeserializeDictionaryMissingSeparator
@@ -1354,8 +1354,8 @@ static NSString* toString(NSData* data)
     NSError* error = (NSError*)self;
     NSString* jsonString = @"{\"blah\"\"blah\"}";
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNil(result, @"");
-    STAssertNotNil(error, @"");
+    XCTAssertNil(result, @"");
+    XCTAssertNotNil(error, @"");
 }
 
 - (void)testDeserializeDictionaryBadElement
@@ -1363,8 +1363,8 @@ static NSString* toString(NSData* data)
     NSError* error = (NSError*)self;
     NSString* jsonString = @"{\"blah\":blah\"}";
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNil(result, @"");
-    STAssertNotNil(error, @"");
+    XCTAssertNil(result, @"");
+    XCTAssertNotNil(error, @"");
 }
 
 - (void)testDeserializeDictionaryUnterminated
@@ -1372,8 +1372,8 @@ static NSString* toString(NSData* data)
     NSError* error = (NSError*)self;
     NSString* jsonString = @"{\"blah\":\"blah\"";
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNil(result, @"");
-    STAssertNotNil(error, @"");
+    XCTAssertNil(result, @"");
+    XCTAssertNotNil(error, @"");
 }
 
 - (void)testDeserializeInvalidData
@@ -1381,8 +1381,8 @@ static NSString* toString(NSData* data)
     NSError* error = (NSError*)self;
     NSString* jsonString = @"X{\"blah\":\"blah\"}";
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    STAssertNil(result, @"");
-    STAssertNotNil(error, @"");
+    XCTAssertNil(result, @"");
+    XCTAssertNotNil(error, @"");
 }
 
 - (void) testDeserializeArrayWithNull
@@ -1393,10 +1393,10 @@ static NSString* toString(NSData* data)
     NSArray* result = [KSJSONCodec decode:toData(json)
                                   options:0
                                     error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
     NSString* value = [result objectAtIndex:0];
-    STAssertEqualObjects(value, expected, @"");
+    XCTAssertEqualObjects(value, expected, @"");
 }
 
 - (void) testDeserializeArrayWithNullIgnoreNullInArray
@@ -1406,9 +1406,9 @@ static NSString* toString(NSData* data)
     NSArray* result = [KSJSONCodec decode:toData(json)
                                   options:KSJSONDecodeOptionIgnoreNullInArray
                                     error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertTrue([result count] == 0, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertTrue([result count] == 0, @"");
 }
 
 - (void) testDeserializeArrayWithNullIgnoreNullInObject
@@ -1419,10 +1419,10 @@ static NSString* toString(NSData* data)
     NSArray* result = [KSJSONCodec decode:toData(json)
                                   options:KSJSONDecodeOptionIgnoreNullInObject
                                     error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
     NSString* value = [result objectAtIndex:0];
-    STAssertEqualObjects(value, expected, @"");
+    XCTAssertEqualObjects(value, expected, @"");
 }
 
 - (void) testDeserializeArrayWithNullIgnoreAllNulls
@@ -1432,9 +1432,9 @@ static NSString* toString(NSData* data)
     NSArray* result = [KSJSONCodec decode:toData(json)
                                   options:KSJSONDecodeOptionIgnoreAllNulls
                                     error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertTrue([result count] == 0, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertTrue([result count] == 0, @"");
 }
 
 - (void) testDeserializeObjectWithNull
@@ -1445,10 +1445,10 @@ static NSString* toString(NSData* data)
     NSArray* result = [KSJSONCodec decode:toData(json)
                                   options:0
                                     error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
     NSString* value = [result valueForKey:@"blah"];
-    STAssertEqualObjects(value, expected, @"");
+    XCTAssertEqualObjects(value, expected, @"");
 }
 
 - (void) testDeserializeObjectWithNullIgnoreNullInArray
@@ -1459,10 +1459,10 @@ static NSString* toString(NSData* data)
     NSArray* result = [KSJSONCodec decode:toData(json)
                                   options:KSJSONDecodeOptionIgnoreNullInArray
                                     error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
     NSString* value = [result valueForKey:@"blah"];
-    STAssertEqualObjects(value, expected, @"");
+    XCTAssertEqualObjects(value, expected, @"");
 }
 
 - (void) testDeserializeObjectWithNullIgnoreNullInObject
@@ -1472,9 +1472,9 @@ static NSString* toString(NSData* data)
     NSArray* result = [KSJSONCodec decode:toData(json)
                                   options:KSJSONDecodeOptionIgnoreNullInObject
                                     error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertTrue([result count] == 0, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertTrue([result count] == 0, @"");
 }
 
 - (void) testDeserializeObjectWithNullIgnoreAllNulls
@@ -1484,9 +1484,9 @@ static NSString* toString(NSData* data)
     NSArray* result = [KSJSONCodec decode:toData(json)
                                   options:KSJSONDecodeOptionIgnoreAllNulls
                                     error:&error];
-    STAssertNotNil(result, @"");
-    STAssertNil(error, @"");
-    STAssertTrue([result count] == 0, @"");
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertTrue([result count] == 0, @"");
 }
 
 @end

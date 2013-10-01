@@ -25,12 +25,12 @@
 //
 
 
-#import <SenTestingKit/SenTestingKit.h>
+#import <XCTest/XCTest.h>
 
 #import "KSCrashInstallationEmail.h"
 
 
-@interface KSCrashInstallationEmail_Tests : SenTestCase @end
+@interface KSCrashInstallationEmail_Tests : XCTestCase @end
 
 
 @implementation KSCrashInstallationEmail_Tests
@@ -47,8 +47,8 @@
     [installation sendAllReportsWithCompletion:^(__unused NSArray *filteredReports, BOOL completed, NSError *error)
      {
          // There are no reports, so this will succeed.
-         STAssertTrue(completed, @"");
-         STAssertNil(error, @"");
+         XCTAssertTrue(completed, @"");
+         XCTAssertNil(error, @"");
      }];
 }
 
@@ -63,8 +63,8 @@
     [installation install];
     [installation sendAllReportsWithCompletion:^(__unused NSArray *filteredReports, BOOL completed, NSError *error)
      {
-         STAssertFalse(completed, @"");
-         STAssertNotNil(error, @"");
+         XCTAssertFalse(completed, @"");
+         XCTAssertNotNil(error, @"");
      }];
 }
 

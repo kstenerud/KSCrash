@@ -25,12 +25,12 @@
 //
 
 
-#import <SenTestingKit/SenTestingKit.h>
+#import <XCTest/XCTest.h>
 
 #import "KSSignalInfo.h"
 
 
-@interface KSSignalInfo_Tests : SenTestCase @end
+@interface KSSignalInfo_Tests : XCTestCase @end
 
 
 @implementation KSSignalInfo_Tests
@@ -39,19 +39,19 @@
 {
     NSString* expected = @"SIGBUS";
     NSString* actual = [NSString stringWithCString:kssignal_signalName(SIGBUS) encoding:NSUTF8StringEncoding];
-    STAssertEqualObjects(actual, expected, @"");
+    XCTAssertEqualObjects(actual, expected, @"");
 }
 
 - (void) testHighSignalName
 {
     const char* result = kssignal_signalName(90);
-    STAssertTrue(result == NULL, @"");
+    XCTAssertTrue(result == NULL, @"");
 }
 
 - (void) testNegativeSignalName
 {
     const char* result = kssignal_signalName(-1);
-    STAssertTrue(result == NULL, @"");
+    XCTAssertTrue(result == NULL, @"");
 }
 
 - (void) testSignalCodeName
@@ -59,31 +59,31 @@
     NSString* expected = @"BUS_ADRERR";
     NSString* actual = [NSString stringWithCString:kssignal_signalCodeName(SIGBUS, BUS_ADRERR)
                                           encoding:NSUTF8StringEncoding];
-    STAssertEqualObjects(actual, expected, @"");
+    XCTAssertEqualObjects(actual, expected, @"");
 }
 
 - (void) testHighSignalCodeName
 {
     const char* result = kssignal_signalCodeName(SIGBUS, 90);
-    STAssertTrue(result == NULL, @"");
+    XCTAssertTrue(result == NULL, @"");
 }
 
 - (void) testNegativeSignalCodeName
 {
     const char* result = kssignal_signalCodeName(SIGBUS, -1);
-    STAssertTrue(result == NULL, @"");
+    XCTAssertTrue(result == NULL, @"");
 }
 
 - (void) testFatalSignals
 {
     const int* fatalSignals = kssignal_fatalSignals();
-    STAssertTrue(fatalSignals != NULL, @"");
+    XCTAssertTrue(fatalSignals != NULL, @"");
 }
 
 - (void) testNumFatalSignals
 {
     int numSignals = kssignal_numFatalSignals();
-    STAssertTrue(numSignals > 0, @"");
+    XCTAssertTrue(numSignals > 0, @"");
 }
 
 #define EXC_UNIX_BAD_SYSCALL 0x10000 /* SIGSYS */
@@ -124,13 +124,13 @@
 - (void) assertMachException:(int) exception code:(int) code matchesSignal:(int) signal
 {
     int result = kssignal_signalForMachException(exception, code);
-    STAssertEquals(result, signal, @"");
+    XCTAssertEqual(result, signal, @"");
 }
 
 - (void) assertSignal:(int) signal matchesMachException:(int) exception
 {
     int result = kssignal_machExceptionForSignal(signal);
-    STAssertEquals(result, exception, @"");
+    XCTAssertEqual(result, exception, @"");
 }
 
 @end

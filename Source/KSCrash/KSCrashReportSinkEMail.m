@@ -38,8 +38,7 @@
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
 
-#if 0 // TODO: Remove this
-//#ifdef __IPHONE_OS_VERSION_MAX_ALLOWED
+#ifdef __IPHONE_OS_VERSION_MAX_ALLOWED
 #import <MessageUI/MessageUI.h>
 
 

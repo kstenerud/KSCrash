@@ -25,12 +25,12 @@
 //
 
 
-#import <SenTestingKit/SenTestingKit.h>
+#import <XCTest/XCTest.h>
 
 #import "KSCrashInstallationQuincyHockey.h"
 
 
-@interface KSCrashInstallationQuincyHockey_Tests : SenTestCase @end
+@interface KSCrashInstallationQuincyHockey_Tests : XCTestCase @end
 
 
 @implementation KSCrashInstallationQuincyHockey_Tests
@@ -52,8 +52,8 @@
     [installation sendAllReportsWithCompletion:^(__unused NSArray *filteredReports, BOOL completed, NSError *error)
      {
          // There are no reports, so this will succeed.
-         STAssertTrue(completed, @"");
-         STAssertNil(error, @"");
+         XCTAssertTrue(completed, @"");
+         XCTAssertNil(error, @"");
      }];
 }
 
@@ -64,8 +64,8 @@
     [installation install];
     [installation sendAllReportsWithCompletion:^(__unused NSArray *filteredReports, BOOL completed, NSError *error)
      {
-         STAssertFalse(completed, @"");
-         STAssertNotNil(error, @"");
+         XCTAssertFalse(completed, @"");
+         XCTAssertNotNil(error, @"");
      }];
 }
 
@@ -77,8 +77,8 @@
     [installation sendAllReportsWithCompletion:^(__unused NSArray *filteredReports, BOOL completed, NSError *error)
      {
          // There are no reports, so this will succeed.
-         STAssertTrue(completed, @"");
-         STAssertNil(error, @"");
+         XCTAssertTrue(completed, @"");
+         XCTAssertNil(error, @"");
      }];
 }
 

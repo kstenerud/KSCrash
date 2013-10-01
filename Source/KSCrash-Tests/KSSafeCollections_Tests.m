@@ -25,11 +25,11 @@
 //
 
 
-#import <SenTestingKit/SenTestingKit.h>
+#import <XCTest/XCTest.h>
 #import "KSSafeCollections.h"
 
 
-@interface KSSafeCollections_Tests : SenTestCase @end
+@interface KSSafeCollections_Tests : XCTestCase @end
 
 
 @implementation KSSafeCollections_Tests
@@ -39,7 +39,7 @@
     NSMutableArray* array = [NSMutableArray array];
     id object = @"blah";
     [array addObjectIfNotNil:object];
-    STAssertTrue([array count] == 1, @"");
+    XCTAssertTrue([array count] == 1, @"");
 }
 
 - (void) testAddObjectIfNotNil2
@@ -47,7 +47,7 @@
     NSMutableArray* array = [NSMutableArray array];
     id object = nil;
     [array addObjectIfNotNil:object];
-    STAssertTrue([array count] == 0, @"");
+    XCTAssertTrue([array count] == 0, @"");
 }
 
 - (void) testSafeAddObject
@@ -55,7 +55,7 @@
     NSMutableArray* array = [NSMutableArray array];
     id object = @"blah";
     [array safeAddObject:object];
-    STAssertTrue([array count] == 1, @"");
+    XCTAssertTrue([array count] == 1, @"");
 }
 
 - (void) testSafeAddObject2
@@ -63,7 +63,7 @@
     NSMutableArray* array = [NSMutableArray array];
     id object = nil;
     [array safeAddObject:object];
-    STAssertTrue([array count] == 1, @"");
+    XCTAssertTrue([array count] == 1, @"");
 }
 
 - (void) testInsertObjectIfNotNil
@@ -71,7 +71,7 @@
     NSMutableArray* array = [NSMutableArray arrayWithObjects:@"a", @"b", nil];
     id object = @"blah";
     [array insertObjectIfNotNil:object atIndex:1];
-    STAssertTrue([array count] == 3, @"");
+    XCTAssertTrue([array count] == 3, @"");
 }
 
 - (void) testInsertObjectIfNotNil2
@@ -79,7 +79,7 @@
     NSMutableArray* array = [NSMutableArray arrayWithObjects:@"a", @"b", nil];
     id object = nil;
     [array insertObjectIfNotNil:object atIndex:1];
-    STAssertTrue([array count] == 2, @"");
+    XCTAssertTrue([array count] == 2, @"");
 }
 
 - (void) testSafeInsertObject
@@ -87,7 +87,7 @@
     NSMutableArray* array = [NSMutableArray arrayWithObjects:@"a", @"b", nil];
     id object = @"blah";
     [array safeInsertObject:object atIndex:1];
-    STAssertTrue([array count] == 3, @"");
+    XCTAssertTrue([array count] == 3, @"");
 }
 
 - (void) testSafeInsertObject2
@@ -95,7 +95,7 @@
     NSMutableArray* array = [NSMutableArray arrayWithObjects:@"a", @"b", nil];
     id object = nil;
     [array safeInsertObject:object atIndex:1];
-    STAssertTrue([array count] == 3, @"");
+    XCTAssertTrue([array count] == 3, @"");
 }
 
 - (void) testSetObjectIfNotNil
@@ -105,7 +105,7 @@
     id object = @"blah";
     [dict setObjectIfNotNil:object forKey:key];
     id result = [dict objectForKey:key];
-    STAssertEquals(result, object, @"");
+    XCTAssertEqual(result, object, @"");
 }
 
 - (void) testSetObjectIfNotNil2
@@ -115,7 +115,7 @@
     id object = nil;
     [dict setObjectIfNotNil:object forKey:key];
     id result = [dict objectForKey:key];
-    STAssertNil(result, @"");
+    XCTAssertNil(result, @"");
 }
 
 - (void) testSafeSetObject
@@ -125,7 +125,7 @@
     id object = @"blah";
     [dict safeSetObject:object forKey:key];
     id result = [dict objectForKey:key];
-    STAssertEquals(result, object, @"");
+    XCTAssertEqual(result, object, @"");
 }
 
 - (void) testSafeSetObject2
@@ -135,7 +135,7 @@
     id object = nil;
     [dict safeSetObject:object forKey:key];
     id result = [dict objectForKey:key];
-    STAssertNotNil(result, @"");
+    XCTAssertNotNil(result, @"");
 }
 
 - (void) testSetValueIfNotNil
@@ -145,7 +145,7 @@
     id object = @"blah";
     [dict setValueIfNotNil:object forKey:key];
     id result = [dict valueForKey:key];
-    STAssertEquals(result, object, @"");
+    XCTAssertEqual(result, object, @"");
 }
 
 - (void) testSetValueIfNotNil2
@@ -155,7 +155,7 @@
     id object = nil;
     [dict setValueIfNotNil:object forKey:key];
     id result = [dict valueForKey:key];
-    STAssertNil(result, @"");
+    XCTAssertNil(result, @"");
 }
 
 - (void) testSafeSetValue
@@ -165,7 +165,7 @@
     id object = @"blah";
     [dict safeSetValue:object forKey:key];
     id result = [dict valueForKey:key];
-    STAssertEquals(result, object, @"");
+    XCTAssertEqual(result, object, @"");
 }
 
 - (void) testSafeSetValue2
@@ -175,7 +175,7 @@
     id object = nil;
     [dict safeSetValue:object forKey:key];
     id result = [dict valueForKey:key];
-    STAssertNotNil(result, @"");
+    XCTAssertNotNil(result, @"");
 }
 
 @end

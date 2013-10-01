@@ -25,12 +25,12 @@
 //
 
 
-#import <SenTestingKit/SenTestingKit.h>
+#import <XCTest/XCTest.h>
 
 #import "NSMutableData+AppendUTF8.h"
 
 
-@interface NSMutableData_AppendUTF8_Tests : SenTestCase @end
+@interface NSMutableData_AppendUTF8_Tests : XCTestCase @end
 
 
 @implementation NSMutableData_AppendUTF8_Tests
@@ -42,7 +42,7 @@
     [data appendUTF8String:expected];
     NSString* actual = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
 
-    STAssertEqualObjects(actual, expected, @"");
+    XCTAssertEqualObjects(actual, expected, @"");
 }
 
 - (void) testAppendUTF8Format
@@ -52,7 +52,7 @@
     [data appendUTF8Format:@"Testing %d %.1f %@", 1, 2.0, @"3"];
     NSString* actual = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
 
-    STAssertEqualObjects(actual, expected, @"");
+    XCTAssertEqualObjects(actual, expected, @"");
 }
 
 @end

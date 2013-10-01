@@ -25,11 +25,11 @@
 //
 
 
-#import <SenTestingKit/SenTestingKit.h>
+#import <XCTest/XCTest.h>
 #import "NSData+GZip.h"
 
 
-@interface NSData_Gzip_Tests : SenTestCase @end
+@interface NSData_Gzip_Tests : XCTestCase @end
 
 
 @implementation NSData_Gzip_Tests
@@ -47,13 +47,13 @@
     NSError* error = nil;
     NSData* original = [NSData dataWithData:data];
     NSData* compressed = [original gzippedWithCompressionLevel:-1 error:&error];
-    STAssertNil(error, @"");
+    XCTAssertNil(error, @"");
     NSData* uncompressed = [compressed gunzippedWithError:&error];
-    STAssertNil(error, @"");
+    XCTAssertNil(error, @"");
 
-    STAssertEqualObjects(uncompressed, original, @"");
-    STAssertFalse([compressed isEqualToData:uncompressed], @"");
-    STAssertTrue([compressed length] < [uncompressed length], @"");
+    XCTAssertEqualObjects(uncompressed, original, @"");
+    XCTAssertFalse([compressed isEqualToData:uncompressed], @"");
+    XCTAssertTrue([compressed length] < [uncompressed length], @"");
 }
 
 - (void) testCompressDecompressEmpty
@@ -61,12 +61,12 @@
     NSError* error = nil;
     NSData* original = [NSData data];
     NSData* compressed = [original gzippedWithCompressionLevel:-1 error:&error];
-    STAssertNil(error, @"");
+    XCTAssertNil(error, @"");
     NSData* uncompressed = [compressed gunzippedWithError:&error];
-    STAssertNil(error, @"");
+    XCTAssertNil(error, @"");
 
-    STAssertEqualObjects(uncompressed, original, @"");
-    STAssertEqualObjects(compressed, original, @"");
+    XCTAssertEqualObjects(uncompressed, original, @"");
+    XCTAssertEqualObjects(compressed, original, @"");
 }
 
 - (void) testCompressDecompressNilError
@@ -83,9 +83,9 @@
     NSData* compressed = [original gzippedWithCompressionLevel:-1 error:nil];
     NSData* uncompressed = [compressed gunzippedWithError:nil];
 
-    STAssertEqualObjects(uncompressed, original, @"");
-    STAssertFalse([compressed isEqualToData:uncompressed], @"");
-    STAssertTrue([compressed length] < [uncompressed length], @"");
+    XCTAssertEqualObjects(uncompressed, original, @"");
+    XCTAssertFalse([compressed isEqualToData:uncompressed], @"");
+    XCTAssertTrue([compressed length] < [uncompressed length], @"");
 }
 
 - (void) testCompressDecompressEmptyNilError
@@ -94,8 +94,8 @@
     NSData* compressed = [original gzippedWithCompressionLevel:-1 error:nil];
     NSData* uncompressed = [compressed gunzippedWithError:nil];
 
-    STAssertEqualObjects(uncompressed, original, @"");
-    STAssertEqualObjects(compressed, original, @"");
+    XCTAssertEqualObjects(uncompressed, original, @"");
+    XCTAssertEqualObjects(compressed, original, @"");
 }
 
 @end

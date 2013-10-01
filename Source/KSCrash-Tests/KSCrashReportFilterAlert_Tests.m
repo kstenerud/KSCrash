@@ -25,12 +25,12 @@
 //
 
 
-#import <SenTestingKit/SenTestingKit.h>
+#import <XCTest/XCTest.h>
 
 #import "KSCrashReportFilterAlert.h"
 
 
-@interface KSCrashReportFilterAlert_Tests : SenTestCase @end
+@interface KSCrashReportFilterAlert_Tests : XCTestCase @end
 
 
 @implementation KSCrashReportFilterAlert_Tests
@@ -46,8 +46,8 @@
                                                          BOOL completed,
                                                          NSError* error)
      {
-         STAssertTrue(completed, @"");
-         STAssertNil(error, @"");
+         XCTAssertTrue(completed, @"");
+         XCTAssertNil(error, @"");
      }];
 }
 

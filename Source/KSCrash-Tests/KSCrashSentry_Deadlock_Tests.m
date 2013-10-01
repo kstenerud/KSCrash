@@ -25,12 +25,12 @@
 //
 
 
-#import <SenTestingKit/SenTestingKit.h>
+#import <XCTest/XCTest.h>
 
 #import "KSCrashSentry_Deadlock.h"
 
 
-@interface KSCrashSentry_Deadlock_Tests : SenTestCase @end
+@interface KSCrashSentry_Deadlock_Tests : XCTestCase @end
 
 
 @implementation KSCrashSentry_Deadlock_Tests
@@ -41,7 +41,7 @@
     KSCrash_SentryContext context;
     kscrashsentry_setDeadlockHandlerWatchdogInterval(10);
     success = kscrashsentry_installDeadlockHandler(&context);
-    STAssertTrue(success, @"");
+    XCTAssertTrue(success, @"");
     [NSThread sleepForTimeInterval:0.1];
     kscrashsentry_uninstallDeadlockHandler();
 }
@@ -51,9 +51,9 @@
     bool success;
     KSCrash_SentryContext context;
     success = kscrashsentry_installDeadlockHandler(&context);
-    STAssertTrue(success, @"");
+    XCTAssertTrue(success, @"");
     success = kscrashsentry_installDeadlockHandler(&context);
-    STAssertTrue(success, @"");
+    XCTAssertTrue(success, @"");
     kscrashsentry_uninstallDeadlockHandler();
     kscrashsentry_uninstallDeadlockHandler();
 }

@@ -24,13 +24,13 @@
 // THE SOFTWARE.
 //
 
-#import <SenTestingKit/SenTestingKit.h>
+#import <XCTest/XCTest.h>
 
 #import "KSSystemInfo.h"
 #import "KSSystemInfoC.h"
 
 
-@interface KSSystemInfo_Tests : SenTestCase @end
+@interface KSSystemInfo_Tests : XCTestCase @end
 
 
 @implementation KSSystemInfo_Tests
@@ -38,19 +38,19 @@
 - (void) testSystemInfo
 {
     NSDictionary* info = [KSSystemInfo systemInfo];
-    STAssertNotNil(info, @"");
+    XCTAssertNotNil(info, @"");
 }
 
 - (void) testSystemInfoJSON
 {
     const char* json = kssysteminfo_toJSON();
-    STAssertTrue(json != NULL, @"");
+    XCTAssertTrue(json != NULL, @"");
 }
 
 - (void) testCopyProcessName
 {
     char* processName = kssysteminfo_copyProcessName();
-    STAssertTrue(processName != NULL, @"");
+    XCTAssertTrue(processName != NULL, @"");
     if(processName != NULL)
     {
         free(processName);
