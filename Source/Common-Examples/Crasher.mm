@@ -10,6 +10,28 @@
 #import <pthread.h>
 #import <exception>
 
+class MyException: public std::exception
+{
+public:
+    virtual const char* what() const noexcept;
+};
+
+const char* MyException::what() const noexcept
+{
+    return "Something bad happened...";
+}
+
+
+class MyCPPClass
+{
+public:
+    void throwAnException()
+    {
+        throw MyException();
+    }
+};
+
+
 @interface MyClass: NSObject @end
 @implementation MyClass @end
 
@@ -237,20 +259,10 @@ int g_crasher_denominator = 0;
 }
 
 
-class MyException: public std::exception
-{
-public:
-    virtual const char* what() const noexcept;
-};
-
-const char* MyException::what() const noexcept
-{
-    return "Something bad happened...";
-}
-
 - (void) throwUncaughtCPPException
 {
-    throw MyException();
+    MyCPPClass instance;
+    instance.throwAnException();
 }
 
 @end

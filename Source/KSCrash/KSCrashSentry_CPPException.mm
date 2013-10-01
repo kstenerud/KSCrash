@@ -24,6 +24,7 @@
 
 #include "KSCrashSentry_CPPException.h"
 #include "KSCrashSentry_Private.h"
+#include "Demangle.h"
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
@@ -97,7 +98,7 @@ static void CPPExceptionTerminate(void)
     KSLOG_DEBUG(@"Trapped c++ exception");
 
     bool isNSException = false;
-    char nameBuff[NAME_BUFFER_LENGTH];
+    char nameDemangled[NAME_BUFFER_LENGTH];
     char descriptionBuff[DESCRIPTION_BUFFER_LENGTH];
     const char* name = NULL;
     const char* description = NULL;
@@ -106,18 +107,10 @@ static void CPPExceptionTerminate(void)
     std::type_info* tinfo = __cxxabiv1::__cxa_current_exception_type();
     if(tinfo != NULL)
     {
-        size_t nameLength = sizeof(nameBuff);
-        char* namePtr = (char*)malloc(nameLength);
-        if(namePtr != NULL)
+        name = tinfo->name();
+        if(safe_demangle(name, nameDemangled, sizeof(nameDemangled)))
         {
-            int demangleStatus = 0;
-            namePtr = __cxxabiv1::__cxa_demangle(tinfo->name(), namePtr, &nameLength, &demangleStatus);
-            if(namePtr != NULL)
-            {
-                strncpy(nameBuff, namePtr, sizeof(nameBuff));
-                free(namePtr);
-                name = nameBuff;
-            }
+            name = nameDemangled;
         }
     }
 

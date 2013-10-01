@@ -37,6 +37,7 @@
 #include "KSSignalInfo.h"
 #include "KSZombie.h"
 #include "KSString.h"
+#include "Demangle.h"
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
@@ -593,6 +594,7 @@ void kscrw_i_logBacktraceEntry(const int entryNum,
 {
     char faddrBuff[20];
     char saddrBuff[20];
+    char demangleBuff[500];
 
     const char* fname = ksfu_lastPathEntry(dlInfo->dli_fname);
     if(fname == NULL)
@@ -603,7 +605,14 @@ void kscrw_i_logBacktraceEntry(const int entryNum,
 
     uintptr_t offset = address - (uintptr_t)dlInfo->dli_saddr;
     const char* sname = dlInfo->dli_sname;
-    if(sname == NULL)
+    if(sname != NULL)
+    {
+        if(safe_demangle(sname, demangleBuff, sizeof(demangleBuff)))
+        {
+            sname = demangleBuff;
+        }
+    }
+    else
     {
         sprintf(saddrBuff, POINTER_SHORT_FMT, (uintptr_t)dlInfo->dli_fbase);
         sname = saddrBuff;
@@ -1071,6 +1080,7 @@ void kscrw_i_writeBacktraceEntry(const KSCrashReportWriter* const writer,
                                  const uintptr_t address,
                                  const Dl_info* const info)
 {
+    char demangleBuff[500];
     writer->beginObject(writer, key);
     {
         if(info->dli_fname != NULL)
@@ -1080,7 +1090,12 @@ void kscrw_i_writeBacktraceEntry(const KSCrashReportWriter* const writer,
         writer->addUIntegerElement(writer, KSCrashField_ObjectAddr, (uintptr_t)info->dli_fbase);
         if(info->dli_sname != NULL)
         {
-            writer->addStringElement(writer, KSCrashField_SymbolName, info->dli_sname);
+            const char* sname = info->dli_sname;
+            if(safe_demangle(sname, demangleBuff, sizeof(demangleBuff)))
+            {
+                sname = demangleBuff;
+            }
+            writer->addStringElement(writer, KSCrashField_SymbolName, sname);
         }
         writer->addUIntegerElement(writer, KSCrashField_SymbolAddr, (uintptr_t)info->dli_saddr);
         writer->addUIntegerElement(writer, KSCrashField_InstructionAddr, address);
