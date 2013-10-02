@@ -27,6 +27,10 @@
 #ifndef HDR_KSDynamicLinker_h
 #define HDR_KSDynamicLinker_h
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 #include <dlfcn.h>
 #include <mach-o/dyld.h>
@@ -95,5 +99,9 @@ uintptr_t ksdl_segmentBaseOfImageIndex(const uint32_t idx);
  */
 bool ksdl_dladdr(const uintptr_t address, Dl_info* const info);
 
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // HDR_KSDynamicLinker_h
