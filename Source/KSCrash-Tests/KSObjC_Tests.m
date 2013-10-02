@@ -522,6 +522,14 @@
     XCTAssertEqualObjects(theRest, expectedTheRest, @"");
 }
 
+- (void) testNumberIsValid
+{
+    NSNumber* number = [NSNumber numberWithInt:10];
+    void* numberPtr = (as_bridge void*)number;
+    bool valid = ksobjc_isValidObject(numberPtr);
+    XCTAssertTrue(valid, @"");
+}
+
 - (void) testArrayIsValid
 {
     NSArray* array = [NSArray array];

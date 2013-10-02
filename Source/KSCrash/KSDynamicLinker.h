@@ -99,6 +99,22 @@ uintptr_t ksdl_segmentBaseOfImageIndex(const uint32_t idx);
  */
 bool ksdl_dladdr(const uintptr_t address, Dl_info* const info);
 
+/** Get the address of a symbol in the specified image.
+ *
+ * @param imageIdx The index of the image to search.
+ * @param symbolName The symbol to search for.
+ * @return The address of the symbol or NULL if not found.
+ */
+const void* ksdl_getSymbolAddrInImage(uint32_t imageIdx, const char* symbolName);
+
+/** Get the address of a symbol in any image.
+ * Searches all images starting at index 0.
+ *
+ * @param symbolName The symbol to search for.
+ * @return The address of the symbol or NULL if not found.
+ */
+const void* ksdl_getSymbolAddrInAnyImage(const char* symbolName);
+
 
 #ifdef __cplusplus
 }

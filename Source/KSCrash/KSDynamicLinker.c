@@ -263,3 +263,67 @@ bool ksdl_dladdr(const uintptr_t address, Dl_info* const info)
     
     return true;
 }
+
+const void* ksdl_getSymbolAddrInImage(uint32_t imageIdx, const char* symbolName)
+{
+    const struct mach_header* header = _dyld_get_image_header(imageIdx);
+    if(header == NULL)
+    {
+        return NULL;
+    }
+    const uintptr_t imageVMAddrSlide = (uintptr_t)_dyld_get_image_vmaddr_slide(imageIdx);
+    const uintptr_t segmentBase = ksdl_segmentBaseOfImageIndex(imageIdx) + imageVMAddrSlide;
+    if(segmentBase == 0)
+    {
+        return NULL;
+    }
+    uintptr_t cmdPtr = ksdl_firstCmdAfterHeader(header);
+    if(cmdPtr == 0)
+    {
+        return NULL;
+    }
+    for(uint32_t iCmd = 0; iCmd < header->ncmds; iCmd++)
+    {
+        const struct load_command* loadCmd = (struct load_command*)cmdPtr;
+        if(loadCmd->cmd == LC_SYMTAB)
+        {
+            const struct symtab_command* symtabCmd = (struct symtab_command*)cmdPtr;
+            const STRUCT_NLIST* symbolTable = (STRUCT_NLIST*)(segmentBase + symtabCmd->symoff);
+            const uintptr_t stringTable = segmentBase + symtabCmd->stroff;
+
+            for(uint32_t iSym = 0; iSym < symtabCmd->nsyms; iSym++)
+            {
+                // If n_value is 0, the symbol refers to an external object.
+                if(symbolTable[iSym].n_value != 0)
+                {
+                    const char* sname = (char*)((intptr_t)stringTable + (intptr_t)symbolTable[iSym].n_un.n_strx);
+                    if(*sname == '_')
+                    {
+                        sname++;
+                    }
+                    if(strcmp(sname, symbolName) == 0)
+                    {
+                        return (void*)(symbolTable[iSym].n_value + imageVMAddrSlide);
+                    }
+                }
+            }
+        }
+        cmdPtr += loadCmd->cmdsize;
+    }
+    return NULL;
+}
+
+const void* ksdl_getSymbolAddrInAnyImage(const char* symbolName)
+{
+    const uint32_t imageCount = _dyld_image_count();
+
+    for(uint32_t iImg = 0; iImg < imageCount; iImg++)
+    {
+        const void* symbolAddr = ksdl_getSymbolAddrInImage(iImg, symbolName);
+        if(symbolAddr != NULL)
+        {
+            return symbolAddr;
+        }
+    }
+    return NULL;
+}
