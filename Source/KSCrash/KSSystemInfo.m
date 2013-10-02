@@ -29,6 +29,7 @@
 #import "KSSystemInfoC.h"
 
 #import "ARCSafe_MemMgmt.h"
+#import "KSDynamicLinker.h"
 #import "KSMach.h"
 #import "KSSafeCollections.h"
 #import "KSSysCtl.h"
@@ -150,7 +151,7 @@
     NSString* exePath = [infoDict objectForKey:@"CFBundleExecutablePath"];
     if(exePath != nil)
     {
-        const uint8_t* uuidBytes = ksmach_imageUUID([exePath UTF8String], true);
+        const uint8_t* uuidBytes = ksdl_imageUUID([exePath UTF8String], true);
         if(uuidBytes != NULL)
         {
             result = [self uuidBytesToString:uuidBytes];
@@ -276,7 +277,7 @@
  */
 + (BOOL) isJailbroken
 {
-    return ksmach_imageNamed("MobileSubstrate", false) != UINT32_MAX;
+    return ksdl_imageNamed("MobileSubstrate", false) != UINT32_MAX;
 }
 
 

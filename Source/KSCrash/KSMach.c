@@ -36,8 +36,6 @@
 #include <mach-o/arch.h>
 #include <mach/mach_time.h>
 #include <mach/vm_map.h>
-#include <stdio.h>
-#include <string.h>
 #include <sys/sysctl.h>
 
 
@@ -326,85 +324,6 @@ bool ksmach_getThreadQueueName(const thread_t thread,
     strncpy(buffer, queue.dq_label, bufLength);
     KSLOG_TRACE("Queue label = %s", buffer);
     return true;
-}
-
-
-// ============================================================================
-#pragma mark - Binary Image Info -
-// ============================================================================
-
-uint32_t ksmach_imageNamed(const char* const imageName, bool exactMatch)
-{
-    if(imageName != NULL)
-    {
-        const uint32_t imageCount = _dyld_image_count();
-
-        for(uint32_t iImg = 0; iImg < imageCount; iImg++)
-        {
-            const char* name = _dyld_get_image_name(iImg);
-            if(exactMatch)
-            {
-                if(strcmp(name, imageName) == 0)
-                {
-                    return iImg;
-                }
-            }
-            else
-            {
-                if(strstr(name, imageName) != NULL)
-                {
-                    return iImg;
-                }
-            }
-        }
-    }
-    return UINT32_MAX;
-}
-
-const uint8_t* ksmach_imageUUID(const char* const imageName, bool exactMatch)
-{
-    if(imageName != NULL)
-    {
-        const uint32_t iImg = ksmach_imageNamed(imageName, exactMatch);
-        if(iImg != UINT32_MAX)
-        {
-            const struct mach_header* header = _dyld_get_image_header(iImg);
-            if(header != NULL)
-            {
-                uintptr_t cmdPtr = ksmach_firstCmdAfterHeader(header);
-                if(cmdPtr != 0)
-                {
-                    for(uint32_t iCmd = 0;iCmd < header->ncmds; iCmd++)
-                    {
-                        const struct load_command* loadCmd = (struct load_command*)cmdPtr;
-                        if(loadCmd->cmd == LC_UUID)
-                        {
-                            struct uuid_command* uuidCmd = (struct uuid_command*)cmdPtr;
-                            return uuidCmd->uuid;
-                        }
-                        cmdPtr += loadCmd->cmdsize;
-                    }
-                }
-            }
-        }
-    }
-    return NULL;
-}
-
-uintptr_t ksmach_firstCmdAfterHeader(const struct mach_header* const header)
-{
-    switch(header->magic)
-    {
-        case MH_MAGIC:
-        case MH_CIGAM:
-            return (uintptr_t)(header + 1);
-        case MH_MAGIC_64:
-        case MH_CIGAM_64:
-            return (uintptr_t)(((struct mach_header_64*)header) + 1);
-        default:
-            // Header is corrupt
-            return 0;
-    }
 }
 
 

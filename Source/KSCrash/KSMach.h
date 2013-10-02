@@ -40,9 +40,8 @@ extern "C" {
 #include "KSArchSpecific.h"
 
 #include <mach/mach.h>
-#include <mach-o/dyld.h>
-#include <stdbool.h>
 #include <pthread.h>
+#include <stdbool.h>
 #include <sys/ucontext.h>
 
 
@@ -259,42 +258,6 @@ bool ksmach_getThreadName(const thread_t thread, char* const buffer, size_t bufL
  * @return true if a name or label was found.
  */
 bool ksmach_getThreadQueueName(thread_t thread, char* buffer, size_t bufLength);
-
-
-// ============================================================================
-#pragma mark - Binary Image Info -
-// ============================================================================
-
-/** Find a loaded binary image with the specified name.
- *
- * @param imageName The image name to look for.
- *
- * @param exactMatch If true, look for an exact match instead of a partial one.
- *
- * @return the index of the matched image, or UINT32_MAX if not found.
- */
-uint32_t ksmach_imageNamed(const char* const imageName, bool exactMatch);
-
-/** Get the UUID of a loaded binary image with the specified name.
- *
- * @param imageName The image name to look for.
- *
- * @param exactMatch If true, look for an exact match instead of a partial one.
- *
- * @return A pointer to the binary (16 byte) UUID of the image, or NULL if it
- *         wasn't found.
- */
-const uint8_t* ksmach_imageUUID(const char* const imageName, bool exactMatch);
-
-/** Get the address of the first command following a header (which will be of
- * type struct load_command).
- *
- * @param header The header to get commands for.
- *
- * @return The address of the first command, or NULL if none was found (which
- *         should not happen unless the header or image is corrupt).
- */
-uintptr_t ksmach_firstCmdAfterHeader(const struct mach_header* header);
 
 
 // ============================================================================

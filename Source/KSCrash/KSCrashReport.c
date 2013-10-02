@@ -30,6 +30,7 @@
 #include "KSBacktrace_Private.h"
 #include "KSCrashReportFields.h"
 #include "KSCrashReportWriter.h"
+#include "KSDynamicLinker.h"
 #include "KSFileUtils.h"
 #include "KSJSONCodec.h"
 #include "KSMach.h"
@@ -1575,7 +1576,7 @@ void kscrw_i_writeBinaryImage(const KSCrashReportWriter* const writer,
         return;
     }
 
-    uintptr_t cmdPtr = ksmach_firstCmdAfterHeader(header);
+    uintptr_t cmdPtr = ksdl_firstCmdAfterHeader(header);
     if(cmdPtr == 0)
     {
         return;
