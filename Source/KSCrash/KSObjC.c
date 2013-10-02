@@ -116,7 +116,7 @@ static ClassData g_classData[] =
  * but it's always a null pointer for some reason.
  * We only care about 3 (NSNumber) and 6 (NSDate).
  */
-static ClassData g_taggedClassNames[16] =
+static ClassData g_taggedClassData[] =
 {
     {"NSAtom",               KSObjCClassTypeUnknown, ClassSubtypeNone,             false, taggedObjectIsValid, taggedObjectDescription},
     {NULL,                   KSObjCClassTypeUnknown, ClassSubtypeNone,             false, taggedObjectIsValid, taggedObjectDescription},
@@ -134,6 +134,7 @@ static ClassData g_taggedClassNames[16] =
     {NULL,                   KSObjCClassTypeUnknown, ClassSubtypeNone,             false, taggedObjectIsValid, taggedObjectDescription},
     {NULL,                   KSObjCClassTypeUnknown, ClassSubtypeNone,             false, taggedObjectIsValid, taggedObjectDescription},
 };
+static const int g_taggedClassDataCount = sizeof(g_taggedClassData) / sizeof(*g_taggedClassData);
 
 static const char* g_blockBaseClassName = "NSBlock";
 
@@ -202,7 +203,7 @@ static uint32_t getTaggedPointerSlot(const void* const object)
 static const ClassData* getClassDataFromTaggedPointer(const void* const object)
 {
     uint32_t slot = getTaggedPointerSlot(object);
-    return &g_taggedClassNames[slot];
+    return &g_taggedClassData[slot];
 }
 
 /** Get a tagged pointer's payload.
@@ -524,6 +525,11 @@ static bool containsValidClassName(const void* const classPtr)
 
 const void* ksobjc_isaPointer(const void* const objectOrClassPtr)
 {
+    if(isTaggedPointer(objectOrClassPtr))
+    {
+        return getClassDataFromTaggedPointer(objectOrClassPtr)->class;
+    }
+
     const struct class_t* ptr = objectOrClassPtr;
     return ptr->isa;
 }
@@ -676,6 +682,25 @@ bool ksobjc_ivarNamed(const void* const classPtr, const char* name, KSObjCIvar* 
 
 bool ksobjc_ivarValue(const void* const objectPtr, size_t ivarIndex, void* dst)
 {
+    if(isTaggedPointer(objectPtr))
+    {
+        // Naively assume they want "value".
+        if(isTaggedPointerNSDate(objectPtr))
+        {
+            CFTimeInterval value = extractTaggedNSDate(objectPtr);
+            memcpy(dst, &value, sizeof(value));
+            return true;
+        }
+        if(isTaggedPointerNSNumber(objectPtr))
+        {
+            // TODO: Correct to assume 64-bit signed int? What does the actual ivar say?
+            int64_t value = extractTaggedNSNumber(objectPtr);
+            memcpy(dst, &value, sizeof(value));
+            return true;
+        }
+        return false;
+    }
+
     const void* const classPtr = ksobjc_isaPointer(objectPtr);
     const struct ivar_list_t* ivars = classRO(classPtr)->ivars;
     if(ivarIndex >= ivars->count)
@@ -713,6 +738,11 @@ KSObjCType ksobjc_objectType(const void* objectOrClassPtr)
     if(objectOrClassPtr == NULL)
     {
         return KSObjCTypeUnknown;
+    }
+
+    if(isTaggedPointer(objectOrClassPtr))
+    {
+        return KSObjCTypeObject;
     }
     
     const struct class_t* isa;
@@ -1471,6 +1501,15 @@ void ksobjc_init(void)
     g_taggedpointer_slot_mask = dereferenceSymbolAsUint32("objc_debug_taggedpointer_slot_mask");
     g_taggedpointer_slot_shift = dereferenceSymbolAsUint32("objc_debug_taggedpointer_slot_shift");
     g_taggedpointer_classes = (uintptr_t*)dereferenceSymbolAsUintptr("objc_debug_taggedpointer_classes");
+
+    for(int i = 0; i < g_taggedClassDataCount; i++)
+    {
+        ClassData* data = &g_taggedClassData[i];
+        if(data->name != NULL)
+        {
+            data->class = objc_getClass(data->name);
+        }
+    }
 }
 
 
