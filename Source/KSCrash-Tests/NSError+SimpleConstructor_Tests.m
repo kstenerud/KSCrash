@@ -39,7 +39,7 @@
 {
     NSError* error = [NSError errorWithDomain:@"Domain" code:10 description:@"A description %d", 1];
     NSString* expectedDomain = @"Domain";
-    int expectedCode = 10;
+    NSInteger expectedCode = 10;
     NSString* expectedDescription = @"A description 1";
     XCTAssertEqualObjects(error.domain, expectedDomain, @"");
     XCTAssertEqual(error.code, expectedCode, @"");
@@ -51,7 +51,7 @@
     NSError* error = nil;
     [NSError fillError:&error withDomain:@"Domain" code:10 description:@"A description %d", 1];
     NSString* expectedDomain = @"Domain";
-    int expectedCode = 10;
+    NSInteger expectedCode = 10;
     NSString* expectedDescription = @"A description 1";
     XCTAssertEqualObjects(error.domain, expectedDomain, @"");
     XCTAssertEqual(error.code, expectedCode, @"");
