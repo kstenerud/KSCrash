@@ -121,6 +121,7 @@ static void storeException(NSException* exception)
     strncpy(g_lastDeallocedException.name, [[exception name] UTF8String], sizeof(g_lastDeallocedException.name));
     strncpy(g_lastDeallocedException.reason, [[exception reason] UTF8String], sizeof(g_lastDeallocedException.reason));
 
+#ifdef __IPHONE_OS_VERSION_MAX_ALLOWED
     NSArray* callStack = [exception callStackReturnAddresses];
     NSUInteger count = [callStack count];
     if(count > g_callStackSize)
@@ -132,6 +133,7 @@ static void storeException(NSException* exception)
         g_lastDeallocedException.callStack[i] = [[callStack objectAtIndex:i] unsignedIntegerValue];
     }
     g_lastDeallocedException.callStackLength = count;
+#endif
 }
 
 static inline void handleDealloc(id self)
