@@ -57,7 +57,6 @@
 		CB6D133417EB749A00BC2C04 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB5217AE17EB735D007CB3C1 /* XCTest.framework */; };
 		CB6D133517EB749A00BC2C04 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB52178F17EB735D007CB3C1 /* Foundation.framework */; };
 		CB6D133617EB749A00BC2C04 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB52179317EB735D007CB3C1 /* UIKit.framework */; };
-		CB6D133917EB749A00BC2C04 /* libKSCrashLib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = CB6D132617EB749A00BC2C04 /* libKSCrashLib.a */; };
 		CB6D134917EB758A00BC2C04 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = CB6D131717EB743A00BC2C04 /* InfoPlist.strings */; };
 		CB7A6C8417FB82CB00997792 /* Demangle.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6C8217FB82CB00997792 /* Demangle.cpp */; };
 		CB7A6C8517FB82CB00997792 /* Demangle.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6C8217FB82CB00997792 /* Demangle.cpp */; };
@@ -67,6 +66,8 @@
 		CB7A6C9017FB96E800997792 /* KSDynamicLinker.c in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6C8E17FB96E800997792 /* KSDynamicLinker.c */; };
 		CB7A6C9217FB96FF00997792 /* KSDynamicLinker.h in Headers */ = {isa = PBXBuildFile; fileRef = CB7A6C9117FB96FF00997792 /* KSDynamicLinker.h */; };
 		CB7A6C9317FB96FF00997792 /* KSDynamicLinker.h in Headers */ = {isa = PBXBuildFile; fileRef = CB7A6C9117FB96FF00997792 /* KSDynamicLinker.h */; };
+		CB7A6C9C17FB9C3200997792 /* KSDynamicLinker_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6C9B17FB9C3200997792 /* KSDynamicLinker_Tests.m */; };
+		CB7A6CEE17FB9E2800997792 /* libKSCrashLib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = CB6D132617EB749A00BC2C04 /* libKSCrashLib.a */; };
 		CBF53D9317EB765C0056DA83 /* ARCSafe_MemMgmt.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D1217EB765C0056DA83 /* ARCSafe_MemMgmt.h */; };
 		CBF53D9417EB765C0056DA83 /* Container+DeepSearch.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D1317EB765C0056DA83 /* Container+DeepSearch.h */; };
 		CBF53D9517EB765C0056DA83 /* Container+DeepSearch.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D1417EB765C0056DA83 /* Container+DeepSearch.m */; };
@@ -394,6 +395,7 @@
 		CB7A6C8317FB82CB00997792 /* Demangle.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Demangle.h; path = ../../Source/KSCrash/Demangle.h; sourceTree = "<group>"; };
 		CB7A6C8E17FB96E800997792 /* KSDynamicLinker.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSDynamicLinker.c; path = ../../Source/KSCrash/KSDynamicLinker.c; sourceTree = "<group>"; };
 		CB7A6C9117FB96FF00997792 /* KSDynamicLinker.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSDynamicLinker.h; path = ../../Source/KSCrash/KSDynamicLinker.h; sourceTree = "<group>"; };
+		CB7A6C9B17FB9C3200997792 /* KSDynamicLinker_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSDynamicLinker_Tests.m; path = "../../Source/KSCrash-Tests/KSDynamicLinker_Tests.m"; sourceTree = "<group>"; };
 		CBF53D1217EB765C0056DA83 /* ARCSafe_MemMgmt.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ARCSafe_MemMgmt.h; path = ../../Source/KSCrash/ARCSafe_MemMgmt.h; sourceTree = "<group>"; };
 		CBF53D1317EB765C0056DA83 /* Container+DeepSearch.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "Container+DeepSearch.h"; path = "../../Source/KSCrash/Container+DeepSearch.h"; sourceTree = "<group>"; };
 		CBF53D1417EB765C0056DA83 /* Container+DeepSearch.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "Container+DeepSearch.m"; path = "../../Source/KSCrash/Container+DeepSearch.m"; sourceTree = "<group>"; };
@@ -543,6 +545,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CB7A6CEE17FB9E2800997792 /* libKSCrashLib.a in Frameworks */,
 				CB0264D417FA6101003E0AED /* libz.dylib in Frameworks */,
 				CB0264D217FA60D3003E0AED /* MessageUI.framework in Frameworks */,
 				CB0264D017FA60CD003E0AED /* libc++.dylib in Frameworks */,
@@ -550,7 +553,6 @@
 				CB6D133417EB749A00BC2C04 /* XCTest.framework in Frameworks */,
 				CB6D133617EB749A00BC2C04 /* UIKit.framework in Frameworks */,
 				CB6D133517EB749A00BC2C04 /* Foundation.framework in Frameworks */,
-				CB6D133917EB749A00BC2C04 /* libKSCrashLib.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -640,6 +642,7 @@
 				CB02649417FA5B12003E0AED /* KSCrashState_Tests.m */,
 				CB02649517FA5B13003E0AED /* KSCrashTests-Info.plist */,
 				CB02649617FA5B13003E0AED /* KSCString_Tests.m */,
+				CB7A6C9B17FB9C3200997792 /* KSDynamicLinker_Tests.m */,
 				CB02649717FA5B13003E0AED /* KSFileUtils_Tests.m */,
 				CB02649817FA5B13003E0AED /* KSJSONCodec_Tests.m */,
 				CB02649917FA5B13003E0AED /* KSLogger_Tests.m */,
@@ -656,9 +659,9 @@
 				CB0264A417FA5B13003E0AED /* NSError+SimpleConstructor_Tests.m */,
 				CB0264A517FA5B13003E0AED /* NSMutableData+AppendUTF8_Tests.m */,
 				CB0264A617FA5B13003E0AED /* RFC3339DateTool_Tests.m */,
+				CB6D131517EB743A00BC2C04 /* Supporting Files */,
 				CB0264A717FA5B13003E0AED /* XCTestCase+KSCrash.h */,
 				CB0264A817FA5B13003E0AED /* XCTestCase+KSCrash.m */,
-				CB6D131517EB743A00BC2C04 /* Supporting Files */,
 			);
 			path = KSCrashTests;
 			sourceTree = "<group>";
@@ -1322,6 +1325,7 @@
 				CB0264C617FA5B13003E0AED /* KSZombie_Tests.m in Sources */,
 				CB0264BC17FA5B13003E0AED /* KSFileUtils_Tests.m in Sources */,
 				CB0264B417FA5B13003E0AED /* KSCrashReportStore_Tests.m in Sources */,
+				CB7A6C9C17FB9C3200997792 /* KSDynamicLinker_Tests.m in Sources */,
 				CB0264AB17FA5B13003E0AED /* KSCrashInstallationEmail_Tests.m in Sources */,
 				CB0264B917FA5B13003E0AED /* KSCrashState_Tests.m in Sources */,
 				CB0264B617FA5B13003E0AED /* KSCrashSentry_NSException_Tests.m in Sources */,

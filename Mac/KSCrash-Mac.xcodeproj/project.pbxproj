@@ -142,13 +142,51 @@
 		CB7A6C9617FB99E800997792 /* KSDynamicLinker.c in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6C9417FB99E800997792 /* KSDynamicLinker.c */; };
 		CB7A6C9817FB99E800997792 /* KSDynamicLinker.h in Headers */ = {isa = PBXBuildFile; fileRef = CB7A6C9517FB99E800997792 /* KSDynamicLinker.h */; };
 		CB7A6C9917FB9A1000997792 /* KSDynamicLinker.c in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6C9417FB99E800997792 /* KSDynamicLinker.c */; };
+		CB7A6CC417FB9CEE00997792 /* Container+DeepSearch_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6C9D17FB9CEE00997792 /* Container+DeepSearch_Tests.m */; };
+		CB7A6CC517FB9CEE00997792 /* FileBasedTestCase.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6C9F17FB9CEE00997792 /* FileBasedTestCase.m */; };
+		CB7A6CC617FB9CEE00997792 /* KSCrashInstallationEmail_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CA017FB9CEE00997792 /* KSCrashInstallationEmail_Tests.m */; };
+		CB7A6CC717FB9CEE00997792 /* KSCrashInstallationQuincyHockey_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CA117FB9CEE00997792 /* KSCrashInstallationQuincyHockey_Tests.m */; };
+		CB7A6CC817FB9CEE00997792 /* KSCrashInstallationStandard_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CA217FB9CEE00997792 /* KSCrashInstallationStandard_Tests.m */; };
+		CB7A6CC917FB9CEE00997792 /* KSCrashInstallationVictory_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CA317FB9CEE00997792 /* KSCrashInstallationVictory_Tests.m */; };
+		CB7A6CCA17FB9CEE00997792 /* KSCrashReportConverter_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CA417FB9CEE00997792 /* KSCrashReportConverter_Tests.m */; };
+		CB7A6CCB17FB9CEE00997792 /* KSCrashReportFilter_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CA517FB9CEE00997792 /* KSCrashReportFilter_Tests.m */; };
+		CB7A6CCC17FB9CEE00997792 /* KSCrashReportFilterAlert_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CA617FB9CEE00997792 /* KSCrashReportFilterAlert_Tests.m */; };
+		CB7A6CCD17FB9CEE00997792 /* KSCrashReportFilterGZip_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CA717FB9CEE00997792 /* KSCrashReportFilterGZip_Tests.m */; };
+		CB7A6CCE17FB9CEE00997792 /* KSCrashReportFilterJSON_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CA817FB9CEE00997792 /* KSCrashReportFilterJSON_Tests.m */; };
+		CB7A6CCF17FB9CEE00997792 /* KSCrashReportStore_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CA917FB9CEE00997792 /* KSCrashReportStore_Tests.m */; };
+		CB7A6CD017FB9CEE00997792 /* KSCrashSentry_Deadlock_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CAA17FB9CEE00997792 /* KSCrashSentry_Deadlock_Tests.m */; };
+		CB7A6CD117FB9CEE00997792 /* KSCrashSentry_NSException_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CAB17FB9CEE00997792 /* KSCrashSentry_NSException_Tests.m */; };
+		CB7A6CD217FB9CEE00997792 /* KSCrashSentry_Signal_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CAC17FB9CEE00997792 /* KSCrashSentry_Signal_Tests.m */; };
+		CB7A6CD317FB9CEE00997792 /* KSCrashSentry_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CAD17FB9CEE00997792 /* KSCrashSentry_Tests.m */; };
+		CB7A6CD417FB9CEE00997792 /* KSCrashState_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CAE17FB9CEE00997792 /* KSCrashState_Tests.m */; };
+		CB7A6CD517FB9CEE00997792 /* KSCrashTests-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = CB7A6CAF17FB9CEE00997792 /* KSCrashTests-Info.plist */; };
+		CB7A6CD617FB9CEE00997792 /* KSCString_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CB017FB9CEE00997792 /* KSCString_Tests.m */; };
+		CB7A6CD717FB9CEE00997792 /* KSDynamicLinker_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CB117FB9CEE00997792 /* KSDynamicLinker_Tests.m */; };
+		CB7A6CD817FB9CEE00997792 /* KSFileUtils_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CB217FB9CEE00997792 /* KSFileUtils_Tests.m */; };
+		CB7A6CD917FB9CEE00997792 /* KSJSONCodec_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CB317FB9CEE00997792 /* KSJSONCodec_Tests.m */; };
+		CB7A6CDA17FB9CEE00997792 /* KSLogger_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CB417FB9CEE00997792 /* KSLogger_Tests.m */; };
+		CB7A6CDB17FB9CEE00997792 /* KSMach_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CB517FB9CEE00997792 /* KSMach_Tests.m */; };
+		CB7A6CDC17FB9CEE00997792 /* KSObjC_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CB617FB9CEE00997792 /* KSObjC_Tests.m */; };
+		CB7A6CDD17FB9CEE00997792 /* KSSafeCollections_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CB717FB9CEE00997792 /* KSSafeCollections_Tests.m */; };
+		CB7A6CDE17FB9CEE00997792 /* KSSignalInfo_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CB817FB9CEE00997792 /* KSSignalInfo_Tests.m */; };
+		CB7A6CDF17FB9CEE00997792 /* KSString_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CB917FB9CEE00997792 /* KSString_Tests.m */; };
+		CB7A6CE017FB9CEE00997792 /* KSSysCtl_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CBA17FB9CEE00997792 /* KSSysCtl_Tests.m */; };
+		CB7A6CE117FB9CEE00997792 /* KSSystemInfo_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CBB17FB9CEE00997792 /* KSSystemInfo_Tests.m */; };
+		CB7A6CE217FB9CEE00997792 /* KSZombie_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CBC17FB9CEE00997792 /* KSZombie_Tests.m */; };
+		CB7A6CE317FB9CEE00997792 /* NSData+Gzip_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CBD17FB9CEE00997792 /* NSData+Gzip_Tests.m */; };
+		CB7A6CE417FB9CEE00997792 /* NSDictionary+Merge_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CBE17FB9CEE00997792 /* NSDictionary+Merge_Tests.m */; };
+		CB7A6CE517FB9CEE00997792 /* NSError+SimpleConstructor_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CBF17FB9CEE00997792 /* NSError+SimpleConstructor_Tests.m */; };
+		CB7A6CE617FB9CEE00997792 /* NSMutableData+AppendUTF8_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CC017FB9CEE00997792 /* NSMutableData+AppendUTF8_Tests.m */; };
+		CB7A6CE717FB9CEE00997792 /* RFC3339DateTool_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CC117FB9CEE00997792 /* RFC3339DateTool_Tests.m */; };
+		CB7A6CE817FB9CEE00997792 /* XCTestCase+KSCrash.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CC317FB9CEE00997792 /* XCTestCase+KSCrash.m */; };
+		CB7A6CE917FB9D0900997792 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB8E571D17EBA8DF000C56D3 /* SystemConfiguration.framework */; };
+		CB7A6CEA17FB9D0E00997792 /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = CB8E571B17EBA8D9000C56D3 /* libz.dylib */; };
+		CB7A6CEC17FB9D1300997792 /* libc++.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = CB7A6CEB17FB9D1300997792 /* libc++.dylib */; };
 		CB8E55EB17EB99E3000C56D3 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB8E55EA17EB99E3000C56D3 /* Cocoa.framework */; };
 		CB8E55F517EB99E3000C56D3 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = CB8E55F317EB99E3000C56D3 /* InfoPlist.strings */; };
 		CB8E560017EB99E3000C56D3 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB8E55FF17EB99E3000C56D3 /* XCTest.framework */; };
 		CB8E560117EB99E3000C56D3 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB8E55EA17EB99E3000C56D3 /* Cocoa.framework */; };
-		CB8E560417EB99E3000C56D3 /* KSCrash.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB8E55E717EB99E3000C56D3 /* KSCrash.framework */; };
 		CB8E560A17EB99E3000C56D3 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = CB8E560817EB99E3000C56D3 /* InfoPlist.strings */; };
-		CB8E560C17EB99E3000C56D3 /* KSCrashTests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB8E560B17EB99E3000C56D3 /* KSCrashTests.m */; };
 		CB8E561817EB9AA5000C56D3 /* KSCrash.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E561517EB9AA5000C56D3 /* KSCrash.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CB8E561917EB9AA5000C56D3 /* KSCrash.m in Sources */ = {isa = PBXBuildFile; fileRef = CB8E561617EB9AA5000C56D3 /* KSCrash.m */; };
 		CB8E561A17EB9AA5000C56D3 /* KSCrashAdvanced.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E561717EB9AA5000C56D3 /* KSCrashAdvanced.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -295,6 +333,46 @@
 		CB7A6C8917FB84F600997792 /* Demangle.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Demangle.h; path = ../../Source/KSCrash/Demangle.h; sourceTree = "<group>"; };
 		CB7A6C9417FB99E800997792 /* KSDynamicLinker.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSDynamicLinker.c; path = ../../Source/KSCrash/KSDynamicLinker.c; sourceTree = "<group>"; };
 		CB7A6C9517FB99E800997792 /* KSDynamicLinker.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSDynamicLinker.h; path = ../../Source/KSCrash/KSDynamicLinker.h; sourceTree = "<group>"; };
+		CB7A6C9D17FB9CEE00997792 /* Container+DeepSearch_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "Container+DeepSearch_Tests.m"; path = "../../Source/KSCrash-Tests/Container+DeepSearch_Tests.m"; sourceTree = "<group>"; };
+		CB7A6C9E17FB9CEE00997792 /* FileBasedTestCase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = FileBasedTestCase.h; path = "../../Source/KSCrash-Tests/FileBasedTestCase.h"; sourceTree = "<group>"; };
+		CB7A6C9F17FB9CEE00997792 /* FileBasedTestCase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = FileBasedTestCase.m; path = "../../Source/KSCrash-Tests/FileBasedTestCase.m"; sourceTree = "<group>"; };
+		CB7A6CA017FB9CEE00997792 /* KSCrashInstallationEmail_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSCrashInstallationEmail_Tests.m; path = "../../Source/KSCrash-Tests/KSCrashInstallationEmail_Tests.m"; sourceTree = "<group>"; };
+		CB7A6CA117FB9CEE00997792 /* KSCrashInstallationQuincyHockey_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSCrashInstallationQuincyHockey_Tests.m; path = "../../Source/KSCrash-Tests/KSCrashInstallationQuincyHockey_Tests.m"; sourceTree = "<group>"; };
+		CB7A6CA217FB9CEE00997792 /* KSCrashInstallationStandard_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSCrashInstallationStandard_Tests.m; path = "../../Source/KSCrash-Tests/KSCrashInstallationStandard_Tests.m"; sourceTree = "<group>"; };
+		CB7A6CA317FB9CEE00997792 /* KSCrashInstallationVictory_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSCrashInstallationVictory_Tests.m; path = "../../Source/KSCrash-Tests/KSCrashInstallationVictory_Tests.m"; sourceTree = "<group>"; };
+		CB7A6CA417FB9CEE00997792 /* KSCrashReportConverter_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSCrashReportConverter_Tests.m; path = "../../Source/KSCrash-Tests/KSCrashReportConverter_Tests.m"; sourceTree = "<group>"; };
+		CB7A6CA517FB9CEE00997792 /* KSCrashReportFilter_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSCrashReportFilter_Tests.m; path = "../../Source/KSCrash-Tests/KSCrashReportFilter_Tests.m"; sourceTree = "<group>"; };
+		CB7A6CA617FB9CEE00997792 /* KSCrashReportFilterAlert_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSCrashReportFilterAlert_Tests.m; path = "../../Source/KSCrash-Tests/KSCrashReportFilterAlert_Tests.m"; sourceTree = "<group>"; };
+		CB7A6CA717FB9CEE00997792 /* KSCrashReportFilterGZip_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSCrashReportFilterGZip_Tests.m; path = "../../Source/KSCrash-Tests/KSCrashReportFilterGZip_Tests.m"; sourceTree = "<group>"; };
+		CB7A6CA817FB9CEE00997792 /* KSCrashReportFilterJSON_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSCrashReportFilterJSON_Tests.m; path = "../../Source/KSCrash-Tests/KSCrashReportFilterJSON_Tests.m"; sourceTree = "<group>"; };
+		CB7A6CA917FB9CEE00997792 /* KSCrashReportStore_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSCrashReportStore_Tests.m; path = "../../Source/KSCrash-Tests/KSCrashReportStore_Tests.m"; sourceTree = "<group>"; };
+		CB7A6CAA17FB9CEE00997792 /* KSCrashSentry_Deadlock_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSCrashSentry_Deadlock_Tests.m; path = "../../Source/KSCrash-Tests/KSCrashSentry_Deadlock_Tests.m"; sourceTree = "<group>"; };
+		CB7A6CAB17FB9CEE00997792 /* KSCrashSentry_NSException_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSCrashSentry_NSException_Tests.m; path = "../../Source/KSCrash-Tests/KSCrashSentry_NSException_Tests.m"; sourceTree = "<group>"; };
+		CB7A6CAC17FB9CEE00997792 /* KSCrashSentry_Signal_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSCrashSentry_Signal_Tests.m; path = "../../Source/KSCrash-Tests/KSCrashSentry_Signal_Tests.m"; sourceTree = "<group>"; };
+		CB7A6CAD17FB9CEE00997792 /* KSCrashSentry_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSCrashSentry_Tests.m; path = "../../Source/KSCrash-Tests/KSCrashSentry_Tests.m"; sourceTree = "<group>"; };
+		CB7A6CAE17FB9CEE00997792 /* KSCrashState_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSCrashState_Tests.m; path = "../../Source/KSCrash-Tests/KSCrashState_Tests.m"; sourceTree = "<group>"; };
+		CB7A6CAF17FB9CEE00997792 /* KSCrashTests-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "KSCrashTests-Info.plist"; path = "../../Source/KSCrash-Tests/KSCrashTests-Info.plist"; sourceTree = "<group>"; };
+		CB7A6CB017FB9CEE00997792 /* KSCString_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSCString_Tests.m; path = "../../Source/KSCrash-Tests/KSCString_Tests.m"; sourceTree = "<group>"; };
+		CB7A6CB117FB9CEE00997792 /* KSDynamicLinker_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSDynamicLinker_Tests.m; path = "../../Source/KSCrash-Tests/KSDynamicLinker_Tests.m"; sourceTree = "<group>"; };
+		CB7A6CB217FB9CEE00997792 /* KSFileUtils_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSFileUtils_Tests.m; path = "../../Source/KSCrash-Tests/KSFileUtils_Tests.m"; sourceTree = "<group>"; };
+		CB7A6CB317FB9CEE00997792 /* KSJSONCodec_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSJSONCodec_Tests.m; path = "../../Source/KSCrash-Tests/KSJSONCodec_Tests.m"; sourceTree = "<group>"; };
+		CB7A6CB417FB9CEE00997792 /* KSLogger_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSLogger_Tests.m; path = "../../Source/KSCrash-Tests/KSLogger_Tests.m"; sourceTree = "<group>"; };
+		CB7A6CB517FB9CEE00997792 /* KSMach_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSMach_Tests.m; path = "../../Source/KSCrash-Tests/KSMach_Tests.m"; sourceTree = "<group>"; };
+		CB7A6CB617FB9CEE00997792 /* KSObjC_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSObjC_Tests.m; path = "../../Source/KSCrash-Tests/KSObjC_Tests.m"; sourceTree = "<group>"; };
+		CB7A6CB717FB9CEE00997792 /* KSSafeCollections_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSSafeCollections_Tests.m; path = "../../Source/KSCrash-Tests/KSSafeCollections_Tests.m"; sourceTree = "<group>"; };
+		CB7A6CB817FB9CEE00997792 /* KSSignalInfo_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSSignalInfo_Tests.m; path = "../../Source/KSCrash-Tests/KSSignalInfo_Tests.m"; sourceTree = "<group>"; };
+		CB7A6CB917FB9CEE00997792 /* KSString_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSString_Tests.m; path = "../../Source/KSCrash-Tests/KSString_Tests.m"; sourceTree = "<group>"; };
+		CB7A6CBA17FB9CEE00997792 /* KSSysCtl_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSSysCtl_Tests.m; path = "../../Source/KSCrash-Tests/KSSysCtl_Tests.m"; sourceTree = "<group>"; };
+		CB7A6CBB17FB9CEE00997792 /* KSSystemInfo_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSSystemInfo_Tests.m; path = "../../Source/KSCrash-Tests/KSSystemInfo_Tests.m"; sourceTree = "<group>"; };
+		CB7A6CBC17FB9CEE00997792 /* KSZombie_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSZombie_Tests.m; path = "../../Source/KSCrash-Tests/KSZombie_Tests.m"; sourceTree = "<group>"; };
+		CB7A6CBD17FB9CEE00997792 /* NSData+Gzip_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSData+Gzip_Tests.m"; path = "../../Source/KSCrash-Tests/NSData+Gzip_Tests.m"; sourceTree = "<group>"; };
+		CB7A6CBE17FB9CEE00997792 /* NSDictionary+Merge_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSDictionary+Merge_Tests.m"; path = "../../Source/KSCrash-Tests/NSDictionary+Merge_Tests.m"; sourceTree = "<group>"; };
+		CB7A6CBF17FB9CEE00997792 /* NSError+SimpleConstructor_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSError+SimpleConstructor_Tests.m"; path = "../../Source/KSCrash-Tests/NSError+SimpleConstructor_Tests.m"; sourceTree = "<group>"; };
+		CB7A6CC017FB9CEE00997792 /* NSMutableData+AppendUTF8_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSMutableData+AppendUTF8_Tests.m"; path = "../../Source/KSCrash-Tests/NSMutableData+AppendUTF8_Tests.m"; sourceTree = "<group>"; };
+		CB7A6CC117FB9CEE00997792 /* RFC3339DateTool_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = RFC3339DateTool_Tests.m; path = "../../Source/KSCrash-Tests/RFC3339DateTool_Tests.m"; sourceTree = "<group>"; };
+		CB7A6CC217FB9CEE00997792 /* XCTestCase+KSCrash.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "XCTestCase+KSCrash.h"; path = "../../Source/KSCrash-Tests/XCTestCase+KSCrash.h"; sourceTree = "<group>"; };
+		CB7A6CC317FB9CEE00997792 /* XCTestCase+KSCrash.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "XCTestCase+KSCrash.m"; path = "../../Source/KSCrash-Tests/XCTestCase+KSCrash.m"; sourceTree = "<group>"; };
+		CB7A6CEB17FB9D1300997792 /* libc++.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libc++.dylib"; path = "usr/lib/libc++.dylib"; sourceTree = SDKROOT; };
 		CB8E55E717EB99E3000C56D3 /* KSCrash.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = KSCrash.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		CB8E55EA17EB99E3000C56D3 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
 		CB8E55ED17EB99E3000C56D3 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
@@ -307,7 +385,6 @@
 		CB8E55FF17EB99E3000C56D3 /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = Library/Frameworks/XCTest.framework; sourceTree = DEVELOPER_DIR; };
 		CB8E560717EB99E3000C56D3 /* KSCrashTests-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "KSCrashTests-Info.plist"; sourceTree = "<group>"; };
 		CB8E560917EB99E3000C56D3 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		CB8E560B17EB99E3000C56D3 /* KSCrashTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = KSCrashTests.m; sourceTree = "<group>"; };
 		CB8E561517EB9AA5000C56D3 /* KSCrash.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSCrash.h; path = ../../Source/KSCrash/KSCrash.h; sourceTree = "<group>"; };
 		CB8E561617EB9AA5000C56D3 /* KSCrash.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSCrash.m; path = ../../Source/KSCrash/KSCrash.m; sourceTree = "<group>"; };
 		CB8E561717EB9AA5000C56D3 /* KSCrashAdvanced.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSCrashAdvanced.h; path = ../../Source/KSCrash/KSCrashAdvanced.h; sourceTree = "<group>"; };
@@ -460,7 +537,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CB8E560417EB99E3000C56D3 /* KSCrash.framework in Frameworks */,
+				CB7A6CEC17FB9D1300997792 /* libc++.dylib in Frameworks */,
+				CB7A6CEA17FB9D0E00997792 /* libz.dylib in Frameworks */,
+				CB7A6CE917FB9D0900997792 /* SystemConfiguration.framework in Frameworks */,
 				CB8E560117EB99E3000C56D3 /* Cocoa.framework in Frameworks */,
 				CB8E560017EB99E3000C56D3 /* XCTest.framework in Frameworks */,
 			);
@@ -509,6 +588,7 @@
 		CB8E55E917EB99E3000C56D3 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				CB7A6CEB17FB9D1300997792 /* libc++.dylib */,
 				CB8E571D17EBA8DF000C56D3 /* SystemConfiguration.framework */,
 				CB8E571B17EBA8D9000C56D3 /* libz.dylib */,
 				CB8E55EA17EB99E3000C56D3 /* Cocoa.framework */,
@@ -555,7 +635,45 @@
 		CB8E560517EB99E3000C56D3 /* KSCrashTests */ = {
 			isa = PBXGroup;
 			children = (
-				CB8E560B17EB99E3000C56D3 /* KSCrashTests.m */,
+				CB7A6C9D17FB9CEE00997792 /* Container+DeepSearch_Tests.m */,
+				CB7A6C9E17FB9CEE00997792 /* FileBasedTestCase.h */,
+				CB7A6C9F17FB9CEE00997792 /* FileBasedTestCase.m */,
+				CB7A6CA017FB9CEE00997792 /* KSCrashInstallationEmail_Tests.m */,
+				CB7A6CA117FB9CEE00997792 /* KSCrashInstallationQuincyHockey_Tests.m */,
+				CB7A6CA217FB9CEE00997792 /* KSCrashInstallationStandard_Tests.m */,
+				CB7A6CA317FB9CEE00997792 /* KSCrashInstallationVictory_Tests.m */,
+				CB7A6CA417FB9CEE00997792 /* KSCrashReportConverter_Tests.m */,
+				CB7A6CA517FB9CEE00997792 /* KSCrashReportFilter_Tests.m */,
+				CB7A6CA617FB9CEE00997792 /* KSCrashReportFilterAlert_Tests.m */,
+				CB7A6CA717FB9CEE00997792 /* KSCrashReportFilterGZip_Tests.m */,
+				CB7A6CA817FB9CEE00997792 /* KSCrashReportFilterJSON_Tests.m */,
+				CB7A6CA917FB9CEE00997792 /* KSCrashReportStore_Tests.m */,
+				CB7A6CAA17FB9CEE00997792 /* KSCrashSentry_Deadlock_Tests.m */,
+				CB7A6CAB17FB9CEE00997792 /* KSCrashSentry_NSException_Tests.m */,
+				CB7A6CAC17FB9CEE00997792 /* KSCrashSentry_Signal_Tests.m */,
+				CB7A6CAD17FB9CEE00997792 /* KSCrashSentry_Tests.m */,
+				CB7A6CAE17FB9CEE00997792 /* KSCrashState_Tests.m */,
+				CB7A6CAF17FB9CEE00997792 /* KSCrashTests-Info.plist */,
+				CB7A6CB017FB9CEE00997792 /* KSCString_Tests.m */,
+				CB7A6CB117FB9CEE00997792 /* KSDynamicLinker_Tests.m */,
+				CB7A6CB217FB9CEE00997792 /* KSFileUtils_Tests.m */,
+				CB7A6CB317FB9CEE00997792 /* KSJSONCodec_Tests.m */,
+				CB7A6CB417FB9CEE00997792 /* KSLogger_Tests.m */,
+				CB7A6CB517FB9CEE00997792 /* KSMach_Tests.m */,
+				CB7A6CB617FB9CEE00997792 /* KSObjC_Tests.m */,
+				CB7A6CB717FB9CEE00997792 /* KSSafeCollections_Tests.m */,
+				CB7A6CB817FB9CEE00997792 /* KSSignalInfo_Tests.m */,
+				CB7A6CB917FB9CEE00997792 /* KSString_Tests.m */,
+				CB7A6CBA17FB9CEE00997792 /* KSSysCtl_Tests.m */,
+				CB7A6CBB17FB9CEE00997792 /* KSSystemInfo_Tests.m */,
+				CB7A6CBC17FB9CEE00997792 /* KSZombie_Tests.m */,
+				CB7A6CBD17FB9CEE00997792 /* NSData+Gzip_Tests.m */,
+				CB7A6CBE17FB9CEE00997792 /* NSDictionary+Merge_Tests.m */,
+				CB7A6CBF17FB9CEE00997792 /* NSError+SimpleConstructor_Tests.m */,
+				CB7A6CC017FB9CEE00997792 /* NSMutableData+AppendUTF8_Tests.m */,
+				CB7A6CC117FB9CEE00997792 /* RFC3339DateTool_Tests.m */,
+				CB7A6CC217FB9CEE00997792 /* XCTestCase+KSCrash.h */,
+				CB7A6CC317FB9CEE00997792 /* XCTestCase+KSCrash.m */,
 				CB8E560617EB99E3000C56D3 /* Supporting Files */,
 			);
 			path = KSCrashTests;
@@ -1012,6 +1130,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CB7A6CD517FB9CEE00997792 /* KSCrashTests-Info.plist in Resources */,
 				CB8E560A17EB99E3000C56D3 /* InfoPlist.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1173,7 +1292,42 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CB8E560C17EB99E3000C56D3 /* KSCrashTests.m in Sources */,
+				CB7A6CE617FB9CEE00997792 /* NSMutableData+AppendUTF8_Tests.m in Sources */,
+				CB7A6CC917FB9CEE00997792 /* KSCrashInstallationVictory_Tests.m in Sources */,
+				CB7A6CE717FB9CEE00997792 /* RFC3339DateTool_Tests.m in Sources */,
+				CB7A6CD117FB9CEE00997792 /* KSCrashSentry_NSException_Tests.m in Sources */,
+				CB7A6CE817FB9CEE00997792 /* XCTestCase+KSCrash.m in Sources */,
+				CB7A6CD417FB9CEE00997792 /* KSCrashState_Tests.m in Sources */,
+				CB7A6CE217FB9CEE00997792 /* KSZombie_Tests.m in Sources */,
+				CB7A6CD817FB9CEE00997792 /* KSFileUtils_Tests.m in Sources */,
+				CB7A6CCC17FB9CEE00997792 /* KSCrashReportFilterAlert_Tests.m in Sources */,
+				CB7A6CD717FB9CEE00997792 /* KSDynamicLinker_Tests.m in Sources */,
+				CB7A6CCE17FB9CEE00997792 /* KSCrashReportFilterJSON_Tests.m in Sources */,
+				CB7A6CCB17FB9CEE00997792 /* KSCrashReportFilter_Tests.m in Sources */,
+				CB7A6CD217FB9CEE00997792 /* KSCrashSentry_Signal_Tests.m in Sources */,
+				CB7A6CDB17FB9CEE00997792 /* KSMach_Tests.m in Sources */,
+				CB7A6CD317FB9CEE00997792 /* KSCrashSentry_Tests.m in Sources */,
+				CB7A6CD617FB9CEE00997792 /* KSCString_Tests.m in Sources */,
+				CB7A6CDD17FB9CEE00997792 /* KSSafeCollections_Tests.m in Sources */,
+				CB7A6CE017FB9CEE00997792 /* KSSysCtl_Tests.m in Sources */,
+				CB7A6CC417FB9CEE00997792 /* Container+DeepSearch_Tests.m in Sources */,
+				CB7A6CCA17FB9CEE00997792 /* KSCrashReportConverter_Tests.m in Sources */,
+				CB7A6CC717FB9CEE00997792 /* KSCrashInstallationQuincyHockey_Tests.m in Sources */,
+				CB7A6CDC17FB9CEE00997792 /* KSObjC_Tests.m in Sources */,
+				CB7A6CDE17FB9CEE00997792 /* KSSignalInfo_Tests.m in Sources */,
+				CB7A6CC517FB9CEE00997792 /* FileBasedTestCase.m in Sources */,
+				CB7A6CC817FB9CEE00997792 /* KSCrashInstallationStandard_Tests.m in Sources */,
+				CB7A6CC617FB9CEE00997792 /* KSCrashInstallationEmail_Tests.m in Sources */,
+				CB7A6CE517FB9CEE00997792 /* NSError+SimpleConstructor_Tests.m in Sources */,
+				CB7A6CE317FB9CEE00997792 /* NSData+Gzip_Tests.m in Sources */,
+				CB7A6CCD17FB9CEE00997792 /* KSCrashReportFilterGZip_Tests.m in Sources */,
+				CB7A6CE417FB9CEE00997792 /* NSDictionary+Merge_Tests.m in Sources */,
+				CB7A6CCF17FB9CEE00997792 /* KSCrashReportStore_Tests.m in Sources */,
+				CB7A6CDA17FB9CEE00997792 /* KSLogger_Tests.m in Sources */,
+				CB7A6CD017FB9CEE00997792 /* KSCrashSentry_Deadlock_Tests.m in Sources */,
+				CB7A6CDF17FB9CEE00997792 /* KSString_Tests.m in Sources */,
+				CB7A6CD917FB9CEE00997792 /* KSJSONCodec_Tests.m in Sources */,
+				CB7A6CE117FB9CEE00997792 /* KSSystemInfo_Tests.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1347,6 +1501,12 @@
 					"$(inherited)",
 				);
 				INFOPLIST_FILE = "KSCrashTests/KSCrashTests-Info.plist";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-framework",
+					XCTest,
+					"-ObjC",
+				);
 				PRODUCT_NAME = KSCrashTests;
 				TEST_HOST = "$(BUNDLE_LOADER)";
 				WRAPPER_EXTENSION = xctest;
@@ -1365,6 +1525,12 @@
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "KSCrash/KSCrash-Prefix.pch";
 				INFOPLIST_FILE = "KSCrashTests/KSCrashTests-Info.plist";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-framework",
+					XCTest,
+					"-ObjC",
+				);
 				PRODUCT_NAME = KSCrashTests;
 				TEST_HOST = "$(BUNDLE_LOADER)";
 				WRAPPER_EXTENSION = xctest;

@@ -180,38 +180,6 @@
     XCTAssertTrue(traced, @"");
 }
 
-- (void) testImageUUID
-{
-    // Just abritrarily grab the name of the 4th image...
-    const char* name = _dyld_get_image_name(4);
-    const uint8_t* uuidBytes = ksmach_imageUUID(name, true);
-    XCTAssertTrue(uuidBytes != NULL, @"");
-}
-
-- (void) testImageUUIDInvalidName
-{
-    const uint8_t* uuidBytes = ksmach_imageUUID("sdfgserghwerghwrh", true);
-    XCTAssertTrue(uuidBytes == NULL, @"");
-}
-
-- (void) testImageUUIDNULLName
-{
-    const uint8_t* uuidBytes = ksmach_imageUUID(NULL, true);
-    XCTAssertTrue(uuidBytes == NULL, @"");
-}
-
-- (void) testImageUUIDPartialMatch
-{
-    const uint8_t* uuidBytes = ksmach_imageUUID("libSystem", false);
-    XCTAssertTrue(uuidBytes != NULL, @"");
-}
-
-- (void) testGetImageNameNULL
-{
-    uint32_t imageIdx = ksmach_imageNamed(NULL, false);
-    XCTAssertEqual(imageIdx, UINT32_MAX, @"");
-}
-
 - (void) testGetQueueName
 {
     kern_return_t kr;
