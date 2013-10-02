@@ -1091,9 +1091,10 @@ static NSString* toString(NSData* data)
     [jsonString appendString:@"]"];
 
     id deserialized = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
+    unsigned int deserializedCount = (unsigned int)[deserialized count];
     XCTAssertNotNil(deserialized, @"");
     XCTAssertNil(error, @"");
-    XCTAssertEqual([deserialized count], numEntries, @"");
+    XCTAssertEqual(deserializedCount, numEntries, @"");
     NSString* serialized = toString([KSJSONCodec encode:deserialized
                                                 options:0
                                                   error:&error]);
@@ -1121,9 +1122,10 @@ static NSString* toString(NSData* data)
     [jsonString appendString:@"}"];
 
     id deserialized = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
+    unsigned int deserializedCount = (unsigned int)[deserialized count];
     XCTAssertNotNil(deserialized, @"");
     XCTAssertNil(error, @"");
-    XCTAssertEqual([deserialized count], numEntries, @"");
+    XCTAssertEqual(deserializedCount, numEntries, @"");
     int value = [[(NSDictionary*)deserialized objectForKey:@"1"] intValue];
     XCTAssertEqual(value, 1, @"");
     NSString* serialized = toString([KSJSONCodec encode:deserialized
