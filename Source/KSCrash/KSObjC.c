@@ -144,6 +144,7 @@ static uintptr_t g_isa_magic_value;
 static uintptr_t g_taggedpointer_mask;
 static uint32_t g_taggedpointer_payload_lshift;
 static uint32_t g_taggedpointer_payload_rshift;
+static uint32_t g_taggedpointer_payload_lshift2;
 static uint32_t g_taggedpointer_slot_mask;
 static uint32_t g_taggedpointer_slot_shift;
 static uintptr_t* g_taggedpointer_classes;
@@ -215,7 +216,10 @@ static const ClassData* getClassDataFromTaggedPointer(const void* const object)
 static uintptr_t getTaggedPointerPayload(const void* const object)
 {
     uintptr_t payload = (uintptr_t)object;
-    return (payload << g_taggedpointer_payload_lshift) >> g_taggedpointer_payload_rshift;
+    payload <<= g_taggedpointer_payload_lshift;
+    payload >>= g_taggedpointer_payload_rshift;
+    payload <<= g_taggedpointer_payload_lshift2;
+    return payload;
 }
 
 /** Check if a tagged pointer is a number.
@@ -1501,6 +1505,19 @@ void ksobjc_init(void)
     g_taggedpointer_slot_mask = dereferenceSymbolAsUint32("objc_debug_taggedpointer_slot_mask");
     g_taggedpointer_slot_shift = dereferenceSymbolAsUint32("objc_debug_taggedpointer_slot_shift");
     g_taggedpointer_classes = (uintptr_t*)dereferenceSymbolAsUintptr("objc_debug_taggedpointer_classes");
+
+#ifndef __IPHONE_OS_VERSION_MAX_ALLOWED
+    // OS X doesn't include this info.
+    if(g_taggedpointer_mask == 0)
+    {
+        g_taggedpointer_mask = 1;
+        g_taggedpointer_payload_lshift = 0;
+        g_taggedpointer_payload_rshift = 8;
+        g_taggedpointer_payload_lshift2 = 8;
+        g_taggedpointer_slot_mask = 7;
+        g_taggedpointer_slot_shift = 1;
+    }
+#endif
 
     for(int i = 0; i < g_taggedClassDataCount; i++)
     {
