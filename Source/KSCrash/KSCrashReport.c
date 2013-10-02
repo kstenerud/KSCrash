@@ -888,6 +888,8 @@ void kscrw_i_writeUnknownObjectContents(const KSCrashReportWriter* const writer,
                     ksobjc_ivarValue(object, ivar->index, &pointer);
                     kscrw_i_writeMemoryContents(writer, ivar->name, (uintptr_t)pointer, limit);
                     break;
+                default:
+                    KSLOG_DEBUG("%s: Unknown ivar type [%s]", ivar->name, ivar->type);
             }
         }
     }
