@@ -60,6 +60,11 @@
 
 @implementation KSObjC_Tests
 
++ (void) initialize
+{
+    ksobjc_init();
+}
+
 - (NSArray*) componentsOfBasicDescription:(NSString*) description
 {
     NSError* error = nil;
