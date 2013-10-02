@@ -156,7 +156,11 @@ How to Use KSCrash
 1. Add the framework to your project (or add the KSCrash project as a
    dependency)
    
-2. Add the SystemConfiguration framework and libz.dylib to your project
+2. Add the following system frameworks & libraries to your project:
+   * libc++.dylib
+   * libz.dylib
+   * MessageUI.framework (iOS only)
+   * SystemConfiguration.framework
 
 3. Add the flag "-ObjC" to **Other Linker Flags** in your **Build Settings**
 
