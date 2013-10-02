@@ -87,7 +87,8 @@
 - (void) testObjectTypeInvalidMemory
 {
     uintptr_t pointer = (uintptr_t)-1;
-    pointer >>= 1;
+    pointer >>= 9;
+    pointer <<= 8;
     void* ptr = (void*)pointer;
     KSObjCType type = ksobjc_objectType(ptr);
     XCTAssertEqual(type, KSObjCTypeUnknown, @"Type was %d", type);
