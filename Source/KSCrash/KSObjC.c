@@ -32,6 +32,22 @@
 #include "KSString.h"
 #include "KSDynamicLinker.h"
 
+#include "KSLogger.h"
+
+#ifdef __IPHONE_OS_VERSION_MAX_ALLOWED
+#include <objc/NSObjCRuntime.h>
+#else
+#if __LP64__ || (TARGET_OS_EMBEDDED && !TARGET_OS_IPHONE) || TARGET_OS_WIN32 || NS_BUILD_32_LIKE_64
+typedef long NSInteger;
+typedef unsigned long NSUInteger;
+#else
+typedef int NSInteger;
+typedef unsigned int NSUInteger;
+#endif
+#endif
+#include <CoreFoundation/CFBase.h>
+#include <CoreGraphics/CGBase.h>
+
 
 #define kMaxNameLength 128
 
@@ -82,6 +98,7 @@ static bool stringIsValid(const void* object);
 static bool urlIsValid(const void* object);
 static bool arrayIsValid(const void* object);
 static bool dateIsValid(const void* object);
+static bool numberIsValid(const void* object);
 static bool taggedDateIsValid(const void* object);
 static bool taggedNumberIsValid(const void* object);
 
@@ -91,6 +108,7 @@ static size_t stringDescription(const void* object, char* buffer, size_t bufferL
 static size_t urlDescription(const void* object, char* buffer, size_t bufferLength);
 static size_t arrayDescription(const void* object, char* buffer, size_t bufferLength);
 static size_t dateDescription(const void* object, char* buffer, size_t bufferLength);
+static size_t numberDescription(const void* object, char* buffer, size_t bufferLength);
 static size_t taggedDateDescription(const void* object, char* buffer, size_t bufferLength);
 static size_t taggedNumberDescription(const void* object, char* buffer, size_t bufferLength);
 
@@ -107,6 +125,9 @@ static ClassData g_classData[] =
     {"NSCFArray",            KSObjCClassTypeArray,   ClassSubtypeCFArray,          false, arrayIsValid,      arrayDescription},
     {"__NSDate",             KSObjCClassTypeDate,    ClassSubtypeNone,             false, dateIsValid,       dateDescription},
     {"NSDate",               KSObjCClassTypeDate,    ClassSubtypeNone,             false, dateIsValid,       dateDescription},
+    {"__NSCFNumber",         KSObjCClassTypeNumber,  ClassSubtypeNone,             false, numberIsValid,     numberDescription},
+    {"NSCFNumber",           KSObjCClassTypeNumber,  ClassSubtypeNone,             false, numberIsValid,     numberDescription},
+    {"NSNumber",             KSObjCClassTypeNumber,  ClassSubtypeNone,             false, numberIsValid,     numberDescription},
     {"NSURL",                KSObjCClassTypeURL,     ClassSubtypeNone,             false, urlIsValid,        urlDescription},
     {NULL,                   KSObjCClassTypeUnknown, ClassSubtypeNone,             false, objectIsValid,     objectDescription},
 };
@@ -1168,6 +1189,86 @@ static size_t taggedDateDescription(const void* object, char* buffer, size_t buf
 //======================================================================
 #pragma mark - NSNumber -
 //======================================================================
+
+#define NSNUMBER_CASE(CFTYPE, RETURN_TYPE, CAST_TYPE, DATA) \
+    case CFTYPE: \
+    { \
+        RETURN_TYPE result; \
+        memcpy(&result, DATA, sizeof(result)); \
+        return (CAST_TYPE)result; \
+    }
+
+#define EXTRACT_AND_RETURN_NSNUMBER(OBJECT, RETURN_TYPE) \
+    if(isTaggedPointer(object)) \
+    { \
+        return extractTaggedNSNumber(object); \
+    } \
+    const struct CFNumber* number = OBJECT; \
+    CFNumberType cftype = CFNumberGetType((CFNumberRef)OBJECT); \
+    const void *data = &(number->_pad); \
+    switch(cftype) \
+    { \
+        NSNUMBER_CASE( kCFNumberSInt8Type,     int8_t,    RETURN_TYPE, data ) \
+        NSNUMBER_CASE( kCFNumberSInt16Type,    int16_t,   RETURN_TYPE, data ) \
+        NSNUMBER_CASE( kCFNumberSInt32Type,    int32_t,   RETURN_TYPE, data ) \
+        NSNUMBER_CASE( kCFNumberSInt64Type,    int64_t,   RETURN_TYPE, data ) \
+        NSNUMBER_CASE( kCFNumberFloat32Type,   Float32,   RETURN_TYPE, data ) \
+        NSNUMBER_CASE( kCFNumberFloat64Type,   Float64,   RETURN_TYPE, data ) \
+        NSNUMBER_CASE( kCFNumberCharType,      char,      RETURN_TYPE, data ) \
+        NSNUMBER_CASE( kCFNumberShortType,     short,     RETURN_TYPE, data ) \
+        NSNUMBER_CASE( kCFNumberIntType,       int,       RETURN_TYPE, data ) \
+        NSNUMBER_CASE( kCFNumberLongType,      long,      RETURN_TYPE, data ) \
+        NSNUMBER_CASE( kCFNumberLongLongType,  long long, RETURN_TYPE, data ) \
+        NSNUMBER_CASE( kCFNumberFloatType,     float,     RETURN_TYPE, data ) \
+        NSNUMBER_CASE( kCFNumberDoubleType,    double,    RETURN_TYPE, data ) \
+        NSNUMBER_CASE( kCFNumberCFIndexType,   CFIndex,   RETURN_TYPE, data ) \
+        NSNUMBER_CASE( kCFNumberNSIntegerType, NSInteger, RETURN_TYPE, data ) \
+        NSNUMBER_CASE( kCFNumberCGFloatType,   CGFloat,   RETURN_TYPE, data ) \
+    }
+
+Float64 ksobjc_numberAsFloat(const void* object)
+{
+    EXTRACT_AND_RETURN_NSNUMBER(object, Float64);
+    return NAN;
+}
+
+int64_t ksobjc_numberAsInteger(const void* object)
+{
+    EXTRACT_AND_RETURN_NSNUMBER(object, int64_t);
+    return 0;
+}
+
+bool ksobjc_numberIsFloat(const void* object)
+{
+    return CFNumberIsFloatType((CFNumberRef)object);
+}
+
+static bool numberIsValid(const void* const datePtr)
+{
+    struct CFNumber temp;
+    return ksmach_copyMem(datePtr, &temp, sizeof(temp)) == KERN_SUCCESS;
+}
+
+static size_t numberDescription(const void* object, char* buffer, size_t bufferLength)
+{
+    char* pBuffer = buffer;
+    char* pEnd = buffer + bufferLength;
+
+    pBuffer += objectDescription(object, pBuffer, (size_t)(pEnd - pBuffer));
+
+    if(ksobjc_numberIsFloat(object))
+    {
+        int64_t value = ksobjc_numberAsInteger(object);
+        pBuffer += stringPrintf(pBuffer, (size_t)(pEnd - pBuffer), ": %ld", value);
+    }
+    else
+    {
+        Float64 value = ksobjc_numberAsFloat(object);
+        pBuffer += stringPrintf(pBuffer, (size_t)(pEnd - pBuffer), ": %lf", value);
+    }
+
+    return (size_t)(pBuffer - buffer);
+}
 
 static bool taggedNumberIsValid(const void* const object)
 {

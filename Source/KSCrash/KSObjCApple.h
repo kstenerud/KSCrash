@@ -347,6 +347,17 @@ struct CFDate {
 
 
 // ======================================================================
+#pragma mark - CF-635/CFNumber.c -
+// ======================================================================
+
+struct CFNumber {
+    struct CFRuntimeBase _base;
+    uint64_t _pad; // need this space here for the constant objects
+    /* 0 or 8 more bytes allocated here */
+};
+
+
+// ======================================================================
 #pragma mark - CF-635/CFArray.c -
 // ======================================================================
 

@@ -761,6 +761,26 @@ void kscrw_i_writeDateContents(const KSCrashReportWriter* const writer,
     writer->addFloatingPointElement(writer, key, ksobjc_dateContents(object));
 }
 
+/** Write a number to the report.
+ * This will only print the first child of the array.
+ *
+ * @param writer The writer.
+ *
+ * @param key The object key, if needed.
+ *
+ * @param objectAddress The object's address.
+ *
+ * @param limit How many more subreferenced objects to write, if any.
+ */
+void kscrw_i_writeNumberContents(const KSCrashReportWriter* const writer,
+                               const char* const key,
+                               const uintptr_t objectAddress,
+                               __unused int* limit)
+{
+    const void* object = (const void*)objectAddress;
+    writer->addFloatingPointElement(writer, key, ksobjc_numberAsFloat(object));
+}
+
 /** Write an array to the report.
  * This will only print the first child of the array.
  *
@@ -984,8 +1004,10 @@ void kscrw_i_writeMemoryContents(const KSCrashReportWriter* const writer,
                                 kscrw_i_writeArrayContents(writer, KSCrashField_FirstObject, address, limit);
                             }
                             break;
-                        case KSObjCClassTypeDictionary:
                         case KSObjCClassTypeNumber:
+                            kscrw_i_writeNumberContents(writer, KSCrashField_Value, address, limit);
+                            break;
+                        case KSObjCClassTypeDictionary:
                         case KSObjCClassTypeException:
                             // TODO: Implement these.
                             if(*limit > 0)

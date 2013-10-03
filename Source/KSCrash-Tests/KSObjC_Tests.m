@@ -538,6 +538,93 @@
     XCTAssertTrue(valid, @"");
 }
 
+- (void) testNumberIsFloat
+{
+    NSNumber* number = [NSNumber numberWithDouble:0.1];
+    void* numberPtr = (as_bridge void*)number;
+    bool isFloat = ksobjc_numberIsFloat(numberPtr);
+    XCTAssertTrue(isFloat, "");
+}
+
+- (void) testNumberIsFloat2
+{
+    NSNumber* number = [NSNumber numberWithDouble:1];
+    void* numberPtr = (as_bridge void*)number;
+    bool isFloat = ksobjc_numberIsFloat(numberPtr);
+    XCTAssertTrue(isFloat, "");
+}
+
+- (void) testNumberIsInt
+{
+    NSNumber* number = [NSNumber numberWithInt:1];
+    void* numberPtr = (as_bridge void*)number;
+    bool isFloat = ksobjc_numberIsFloat(numberPtr);
+    XCTAssertFalse(isFloat, "");
+}
+
+- (void) testFloatNumber
+{
+    Float64 expected = 0.1;
+    NSNumber* number = [NSNumber numberWithDouble:expected];
+    void* numberPtr = (as_bridge void*)number;
+    Float64 actual = ksobjc_numberAsFloat(numberPtr);
+    XCTAssertEqual(expected, actual, "");
+}
+
+- (void) testFloatNumberWhole
+{
+    Float64 expected = 1.0;
+    NSNumber* number = [NSNumber numberWithDouble:expected];
+    void* numberPtr = (as_bridge void*)number;
+    Float64 actual = ksobjc_numberAsFloat(numberPtr);
+    XCTAssertEqual(expected, actual, "");
+}
+
+- (void) testFloatNumberFromInt
+{
+    Float64 expected = 1.0;
+    NSNumber* number = [NSNumber numberWithInt:(int)expected];
+    void* numberPtr = (as_bridge void*)number;
+    Float64 actual = ksobjc_numberAsFloat(numberPtr);
+    XCTAssertEqual(expected, actual, "");
+}
+
+- (void) testIntNumber
+{
+    int64_t expected = 55;
+    NSNumber* number = [NSNumber numberWithLongLong:expected];
+    void* numberPtr = (as_bridge void*)number;
+    int64_t actual = ksobjc_numberAsInteger(numberPtr);
+    XCTAssertEqual(expected, actual, "");
+}
+
+- (void) testLargeIntNumber
+{
+    int64_t expected = 0x7fffffffffffffff;
+    NSNumber* number = [NSNumber numberWithLongLong:expected];
+    void* numberPtr = (as_bridge void*)number;
+    int64_t actual = ksobjc_numberAsInteger(numberPtr);
+    XCTAssertEqual(expected, actual, "");
+}
+
+- (void) testIntNumberFromFloat
+{
+    int64_t expected = 55;
+    NSNumber* number = [NSNumber numberWithDouble:expected];
+    void* numberPtr = (as_bridge void*)number;
+    int64_t actual = ksobjc_numberAsInteger(numberPtr);
+    XCTAssertEqual(expected, actual, "");
+}
+
+- (void) testIntNumberFromFloatTruncated
+{
+    int64_t expected = 55;
+    NSNumber* number = [NSNumber numberWithDouble:55.8];
+    void* numberPtr = (as_bridge void*)number;
+    int64_t actual = ksobjc_numberAsInteger(numberPtr);
+    XCTAssertEqual(expected, actual, "");
+}
+
 - (void) testArrayIsValid
 {
     NSArray* array = [NSArray array];

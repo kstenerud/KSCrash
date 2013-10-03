@@ -264,6 +264,29 @@ KSObjCClassType ksobjc_objectClassType(const void* object);
 #pragma mark - Object-Specific Queries -
 //======================================================================
 
+/** Check if a number was stored as floating point.
+ *
+ * @param object The number to query.
+ * @return true if the number is floating point.
+ */
+bool ksobjc_numberIsFloat(const void* object);
+
+/** Get the contents of a number as a floating point value.
+ *
+ * @param object The number.
+ * @return The value.
+ */
+Float64 ksobjc_numberAsFloat(const void* object);
+
+/** Get the contents of a number as an integer value.
+ * If the number was stored as floating point, it will be
+ * truncated as per C's conversion rules.
+ *
+ * @param object The number.
+ * @return The value.
+ */
+int64_t ksobjc_numberAsInteger(const void* object);
+
 /** Copy the contents of a date object.
  *
  * @param date The date to copy data from.
