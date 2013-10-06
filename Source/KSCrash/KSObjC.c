@@ -47,6 +47,7 @@ typedef unsigned int NSUInteger;
 #endif
 #include <CoreFoundation/CFBase.h>
 #include <CoreGraphics/CGBase.h>
+#include <objc/runtime.h>
 
 
 #define kMaxNameLength 128
@@ -867,15 +868,15 @@ static size_t taggedObjectDescription(const void* object,
 #pragma mark - NSString -
 //======================================================================
 
-static inline const char* stringStart(const struct CFString* str)
+static inline const char* stringStart(const struct __CFString* str)
 {
-    return (const char*)CF_StrContents(str) + (CF_StrHasLengthByte(str) ? 1 : 0);
+    return (const char*)__CFStrContents(str) + (__CFStrHasLengthByte(str) ? 1 : 0);
 }
 
 static bool stringIsValid(const void* const stringPtr)
 {
-    const struct CFString* string = stringPtr;
-    struct CFString temp;
+    const struct __CFString* string = stringPtr;
+    struct __CFString temp;
     uint8_t oneByte;
     CFIndex length = -1;
     if(ksmach_copyMem(string, &temp, sizeof(string->base)) != KERN_SUCCESS)
@@ -883,7 +884,7 @@ static bool stringIsValid(const void* const stringPtr)
         return false;
     }
     
-    if(CF_StrIsInline(string))
+    if(__CFStrIsInline(string))
     {
         if(ksmach_copyMem(&string->variants.inline1, &temp, sizeof(string->variants.inline1)) != KERN_SUCCESS)
         {
@@ -891,7 +892,7 @@ static bool stringIsValid(const void* const stringPtr)
         }
         length = string->variants.inline1.length;
     }
-    else if(CF_StrIsMutable(string))
+    else if(__CFStrIsMutable(string))
     {
         if(ksmach_copyMem(&string->variants.notInlineMutable, &temp, sizeof(string->variants.notInlineMutable)) != KERN_SUCCESS)
         {
@@ -899,7 +900,7 @@ static bool stringIsValid(const void* const stringPtr)
         }
         length = string->variants.notInlineMutable.length;
     }
-    else if(!CF_StrHasLengthByte(string))
+    else if(!__CFStrHasLengthByte(string))
     {
         if(ksmach_copyMem(&string->variants.notInlineImmutable1, &temp, sizeof(string->variants.notInlineImmutable1)) != KERN_SUCCESS)
         {
@@ -913,7 +914,7 @@ static bool stringIsValid(const void* const stringPtr)
         {
             return false;
         }
-        if(ksmach_copyMem(CF_StrContents(string), &oneByte, sizeof(oneByte)) != KERN_SUCCESS)
+        if(ksmach_copyMem(__CFStrContents(string), &oneByte, sizeof(oneByte)) != KERN_SUCCESS)
         {
             return false;
         }
@@ -936,26 +937,26 @@ static bool stringIsValid(const void* const stringPtr)
 
 size_t ksobjc_stringLength(const void* const stringPtr)
 {
-    const struct CFString* string = stringPtr;
-    if(CF_StrIsInline(string))
+    const struct __CFString* string = stringPtr;
+    if(__CFStrIsInline(string))
     {
-        if(CF_StrHasLengthByte(string))
+        if(__CFStrHasLengthByte(string))
         {
             return string->variants.inline2.length;
         }
         return (size_t)string->variants.inline1.length;
     }
-    else if(CF_StrIsMutable(string))
+    else if(__CFStrIsMutable(string))
     {
         return (size_t)string->variants.notInlineMutable.length;
     }
-    else if(!CF_StrHasLengthByte(string))
+    else if(!__CFStrHasLengthByte(string))
     {
         return (size_t)string->variants.notInlineImmutable1.length;
     }
     else
     {
-        return (uint8_t)*((uint8_t*)CF_StrContents(string));
+        return (uint8_t)*((uint8_t*)__CFStrContents(string));
     }
 }
 
@@ -1088,11 +1089,11 @@ size_t ksobjc_i_copy8BitString(const void* const src, void* const dst, size_t ch
 
 size_t ksobjc_copyStringContents(const void* stringPtr, char* dst, size_t maxByteCount)
 {
-    const struct CFString* string = stringPtr;
+    const struct __CFString* string = stringPtr;
     size_t charCount = ksobjc_stringLength(string);
     
     const char* src = stringStart(string);
-    if(CF_StrIsUnicode(string))
+    if(__CFStrIsUnicode(string))
     {
         return ksobjc_i_copyAndConvertUTF16StringToUTF8(src, dst, charCount, maxByteCount);
     }
@@ -1120,7 +1121,7 @@ static size_t stringDescription(const void* object, char* buffer, size_t bufferL
 
 static bool urlIsValid(const void* const urlPtr)
 {
-    struct CFURL url;
+    struct __CFURL url;
     if(ksmach_copyMem(urlPtr, &url, sizeof(url)) != KERN_SUCCESS)
     {
         return false;
@@ -1130,7 +1131,7 @@ static bool urlIsValid(const void* const urlPtr)
 
 size_t ksobjc_copyURLContents(const void* const urlPtr, char* dst, size_t maxLength)
 {
-    const struct CFURL* url = urlPtr;
+    const struct __CFURL* url = urlPtr;
     return ksobjc_copyStringContents(url->_string, dst, maxLength);
 }
 
@@ -1154,7 +1155,7 @@ static size_t urlDescription(const void* object, char* buffer, size_t bufferLeng
 
 static bool dateIsValid(const void* const datePtr)
 {
-    struct CFDate temp;
+    struct __CFDate temp;
     return ksmach_copyMem(datePtr, &temp, sizeof(temp)) == KERN_SUCCESS;
 }
 
@@ -1164,7 +1165,7 @@ CFAbsoluteTime ksobjc_dateContents(const void* const datePtr)
     {
         return extractTaggedNSDate(datePtr);
     }
-    const struct CFDate* date = datePtr;
+    const struct __CFDate* date = datePtr;
     return date->_time;
 }
 
@@ -1215,7 +1216,7 @@ static size_t taggedDateDescription(const void* object, char* buffer, size_t buf
     { \
         return extractTaggedNSNumber(object); \
     } \
-    const struct CFNumber* number = OBJECT; \
+    const struct __CFNumber* number = OBJECT; \
     CFNumberType cftype = CFNumberGetType((CFNumberRef)OBJECT); \
     const void *data = &(number->_pad); \
     switch(cftype) \
@@ -1257,7 +1258,7 @@ bool ksobjc_numberIsFloat(const void* object)
 
 static bool numberIsValid(const void* const datePtr)
 {
-    struct CFNumber temp;
+    struct __CFNumber temp;
     return ksmach_copyMem(datePtr, &temp, sizeof(temp)) == KERN_SUCCESS;
 }
 
@@ -1389,17 +1390,17 @@ static size_t nsarrayContents(const void* const arrayPtr, uintptr_t* contents, s
 
 static inline bool cfarrayIsValid(const void* const arrayPtr)
 {
-    struct CFArray temp;
+    struct __CFArray temp;
     if(ksmach_copyMem(arrayPtr, &temp, sizeof(temp)) != KERN_SUCCESS)
     {
         return false;
     }
-    const struct CFArray* array = arrayPtr;
-    if(CF_ArrayGetType(array) == kCFArrayDeque)
+    const struct __CFArray* array = arrayPtr;
+    if(__CFArrayGetType(array) == __kCFArrayDeque)
     {
         if(array->_store != NULL)
         {
-            struct CFArrayDeque deque;
+            struct __CFArrayDeque deque;
             if(ksmach_copyMem(array->_store, &deque, sizeof(deque)) != KERN_SUCCESS)
             {
                 return false;
@@ -1411,18 +1412,18 @@ static inline bool cfarrayIsValid(const void* const arrayPtr)
 
 static inline const void* cfarrayData(const void* const arrayPtr)
 {
-    return CF_ArrayGetBucketsPtr(arrayPtr);
+    return __CFArrayGetBucketsPtr(arrayPtr);
 }
 
 static inline size_t cfarrayCount(const void* const arrayPtr)
 {
-    const struct CFArray* array = arrayPtr;
+    const struct __CFArray* array = arrayPtr;
     return array->_count < 0 ? 0 : (size_t)array->_count;
 }
 
 static size_t cfarrayContents(const void* const arrayPtr, uintptr_t* contents, size_t count)
 {
-    const struct CFArray* array = arrayPtr;
+    const struct __CFArray* array = arrayPtr;
     if(array->_count < (CFIndex)count)
     {
         if(array->_count <= 0)
@@ -1506,14 +1507,14 @@ bool ksobjc_dictionaryFirstEntry(const void* dict, uintptr_t* key, uintptr_t* va
     // TODO: This is broken.
 
     // Ensure memory is valid.
-    struct CFBasicHash copy;
+    struct __CFBasicHash copy;
     kern_return_t kr = KERN_SUCCESS;
     if((kr = ksmach_copyMem(dict, &copy, sizeof(copy))) != KERN_SUCCESS)
     {
         return false;
     }
     
-    struct CFBasicHash* ht = (struct CFBasicHash*)dict;
+    struct __CFBasicHash* ht = (struct __CFBasicHash*)dict;
     uintptr_t* keys = (uintptr_t*)ht->pointers + ht->bits.keys_offset;
     uintptr_t* values = (uintptr_t*)ht->pointers;
     
