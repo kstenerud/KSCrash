@@ -40,8 +40,9 @@ bool safe_demangle(const char* mangled_name, char* output_buffer, size_t buffer_
     if(mangled_length < buffer_length)
     {
         size_t length = buffer_length;
-        int status = 0;
-        return __cxxabiv1::__cxa_demangle(mangled_name, output_buffer, &length, &status) != NULL;
+        int status = DEMANGLE_STATUS_SUCCESS;
+        __cxxabiv1::__cxa_demangle(mangled_name, output_buffer, &length, &status);
+        return status;
     }
-    return false;
+    return DEMANGLE_STATUS_TOO_SMALL;
 }

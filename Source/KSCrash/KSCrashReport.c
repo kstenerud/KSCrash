@@ -608,7 +608,7 @@ void kscrw_i_logBacktraceEntry(const int entryNum,
     const char* sname = dlInfo->dli_sname;
     if(sname != NULL)
     {
-        if(safe_demangle(sname, demangleBuff, sizeof(demangleBuff)))
+        if(safe_demangle(sname, demangleBuff, sizeof(demangleBuff)) == DEMANGLE_STATUS_SUCCESS)
         {
             sname = demangleBuff;
         }
@@ -1116,7 +1116,7 @@ void kscrw_i_writeBacktraceEntry(const KSCrashReportWriter* const writer,
         if(info->dli_sname != NULL)
         {
             const char* sname = info->dli_sname;
-            if(safe_demangle(sname, demangleBuff, sizeof(demangleBuff)))
+            if(safe_demangle(sname, demangleBuff, sizeof(demangleBuff)) == DEMANGLE_STATUS_SUCCESS)
             {
                 sname = demangleBuff;
             }

@@ -34,6 +34,14 @@ extern "C" {
 
 #include <sys/types.h>
 
+
+#define DEMANGLE_STATUS_SUCCESS 0
+#define DEMANGLE_STATUS_ALLOC_FAILURE -1
+#define DEMANGLE_STATUS_INVALID_NAME -2
+#define DEMANGLE_STATUS_INVALID_ARG -3
+#define DEMANGLE_STATUS_TOO_SMALL -4
+
+
 /**
  * C interface to the C++ ABI's cxa_demangle.
  *
@@ -64,6 +72,12 @@ char* cpp_demangle(const char* mangled_name, char* output_buffer, size_t* length
  * @param output_buffer Buffer to store the demangled name.
  * @param buffer_length The length of the output buffer.
  * @return True if demangling was successful.
+ * @return One of the following values:
+ *          0: The demangling operation succeeded.
+ *         -1: A memory allocation failiure occurred.
+ *         -2: mangled_name is not a valid name under the C++ ABI mangling rules.
+ *         -3: One of the arguments is invalid.
+ *         -4: The buffer was not big enough to hold the demangled name.
  */
 bool safe_demangle(const char* mangled_name, char* output_buffer, size_t buffer_length);
 

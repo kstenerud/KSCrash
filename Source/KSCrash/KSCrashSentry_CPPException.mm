@@ -108,7 +108,7 @@ static void CPPExceptionTerminate(void)
     if(tinfo != NULL)
     {
         name = tinfo->name();
-        if(safe_demangle(name, nameDemangled, sizeof(nameDemangled)))
+        if(safe_demangle(name, nameDemangled, sizeof(nameDemangled)) == DEMANGLE_STATUS_SUCCESS)
         {
             name = nameDemangled;
         }
