@@ -27,7 +27,7 @@
 #import "KSCrashSentry_Deadlock.h"
 #import "KSCrashSentry_Private.h"
 #import "ARCSafe_MemMgmt.h"
-#import <mach/mach.h>
+#include "KSMach.h"
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -88,7 +88,7 @@ static NSTimeInterval g_watchdogInterval = 0;
 
         dispatch_async(dispatch_get_main_queue(), ^
         {
-            self.mainThread = mach_thread_self();
+            self.mainThread = ksmach_thread_self();
         });
     }
     return self;

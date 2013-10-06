@@ -422,7 +422,7 @@ STRUCT_MCONTEXT_L* kscrw_i_getMachineContext(const KSCrash_SentryContext* const 
         }
     }
 
-    if(thread == mach_thread_self())
+    if(thread == ksmach_thread_self())
     {
         return NULL;
     }
@@ -1481,7 +1481,7 @@ void kscrw_i_writeThread(const KSCrashReportWriter* const writer,
         writer->addBooleanElement(writer, KSCrashField_Crashed, isCrashedThread);
         writer->addBooleanElement(writer,
                                   KSCrashField_CurrentThread,
-                                  thread == mach_thread_self());
+                                  thread == ksmach_thread_self());
         if(isCrashedThread && machineContext != NULL)
         {
             kscrw_i_writeStackContents(writer,

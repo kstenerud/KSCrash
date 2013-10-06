@@ -217,6 +217,13 @@ void ksmach_init(void)
     }
 }
 
+thread_t ksmach_thread_self()
+{
+    thread_t thread_self = mach_thread_self();
+    mach_port_deallocate(mach_task_self(), thread_self);
+    return thread_self;
+}
+
 thread_t ksmach_machThreadFromPThread(const pthread_t pthread)
 {
     const internal_pthread_t threadStruct = (internal_pthread_t)pthread;
@@ -352,7 +359,7 @@ bool ksmach_suspendAllThreadsExcept(thread_t* exceptThreads, int exceptThreadsCo
 {
     kern_return_t kr;
     const task_t thisTask = mach_task_self();
-    const thread_t thisThread = mach_thread_self();
+    const thread_t thisThread = ksmach_thread_self();
     thread_act_array_t threads;
     mach_msg_type_number_t numThreads;
 
@@ -394,7 +401,7 @@ bool ksmach_resumeAllThreadsExcept(thread_t* exceptThreads, int exceptThreadsCou
 {
     kern_return_t kr;
     const task_t thisTask = mach_task_self();
-    const thread_t thisThread = mach_thread_self();
+    const thread_t thisThread = ksmach_thread_self();
     thread_act_array_t threads;
     mach_msg_type_number_t numThreads;
 

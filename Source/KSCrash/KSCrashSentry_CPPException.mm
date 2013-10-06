@@ -25,6 +25,7 @@
 #include "KSCrashSentry_CPPException.h"
 #include "KSCrashSentry_Private.h"
 #include "Demangle.h"
+#include "KSMach.h"
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
@@ -33,7 +34,6 @@
 #include <dlfcn.h>
 #include <exception>
 #include <execinfo.h>
-#include <mach/mach.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <typeinfo>
@@ -174,7 +174,7 @@ catch(TYPE value)\
         kscrashsentry_suspendThreads();
 
         g_context->crashType = KSCrashTypeCPPException;
-        g_context->offendingThread = mach_thread_self();
+        g_context->offendingThread = ksmach_thread_self();
         g_context->registersAreValid = false;
         g_context->stackTrace = g_stackTrace + 1; // Don't record __cxa_throw stack entry
         g_context->stackTraceLength = g_stackTraceCount - 1;

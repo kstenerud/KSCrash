@@ -264,6 +264,15 @@ bool ksmach_getThreadQueueName(thread_t thread, char* buffer, size_t bufLength);
 #pragma mark - Utility -
 // ============================================================================
 
+/* Get the current mach thread ID.
+ * mach_thread_self() receives a send right for the thread port which needs to
+ * be deallocated to balance the reference count. This function takes care of
+ * all of that for you.
+ *
+ * @return The current thread ID.
+ */
+thread_t ksmach_thread_self();
+
 /** Get a mach thread's corresponding posix thread.
  *
  * @param thread The mach thread.

@@ -27,13 +27,11 @@
 
 #include "KSCrashSentry_MachException.h"
 #include "KSCrashSentry_Private.h"
-
 #include "KSMach.h"
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
-#include <mach/mach.h>
 #include <pthread.h>
 
 
@@ -222,7 +220,7 @@ void* ksmachexc_i_handleExceptions(void* const userData)
     if(threadName == kThreadSecondary)
     {
         KSLOG_DEBUG("This is the secondary thread. Suspending.");
-        thread_suspend(mach_thread_self());
+        thread_suspend(ksmach_thread_self());
     }
 
     for(;;)
@@ -260,7 +258,7 @@ void* ksmachexc_i_handleExceptions(void* const userData)
 
         // Switch to the secondary thread if necessary, or uninstall the handler
         // to avoid a death loop.
-        if(mach_thread_self() == g_primaryMachThread)
+        if(ksmach_thread_self() == g_primaryMachThread)
         {
             KSLOG_DEBUG("This is the primary exception thread. Activating secondary thread.");
             if(thread_resume(g_secondaryMachThread) != KERN_SUCCESS)
@@ -486,7 +484,7 @@ void kscrashsentry_uninstallMachHandler(void)
 
     ksmachexc_i_restoreExceptionPorts();
 
-    thread_t thread_self = mach_thread_self();
+    thread_t thread_self = ksmach_thread_self();
 
     if(g_primaryPThread != 0 && g_primaryMachThread != thread_self)
     {

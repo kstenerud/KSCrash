@@ -202,7 +202,7 @@ int ksbt_backtracePthread(const pthread_t thread,
 int ksbt_backtraceSelf(uintptr_t* const backtraceBuffer,
                        const int maxEntries)
 {
-    return ksbt_backtraceThread(mach_thread_self(),
+    return ksbt_backtraceThread(ksmach_thread_self(),
                                 backtraceBuffer,
                                 maxEntries);
 }

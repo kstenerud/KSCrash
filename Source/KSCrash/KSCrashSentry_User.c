@@ -24,12 +24,12 @@
 
 #include "KSCrashSentry_User.h"
 #include "KSCrashSentry_Private.h"
+#include "KSMach.h"
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
 #include <execinfo.h>
-#include <mach/mach.h>
 #include <stdlib.h>
 
 
@@ -76,7 +76,7 @@ void kscrashsentry_reportUserException(const char* name,
 
         KSLOG_DEBUG("Filling out context.");
         g_context->crashType = KSCrashTypeUserReported;
-        g_context->offendingThread = mach_thread_self();
+        g_context->offendingThread = ksmach_thread_self();
         g_context->registersAreValid = false;
         g_context->crashReason = reason;
         g_context->stackTrace = callstack;

@@ -29,6 +29,7 @@
 #include "KSCrashSentry_Private.h"
 
 #include "KSSignalInfo.h"
+#include "KSMach.h"
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
@@ -102,7 +103,7 @@ void kssighndl_i_handleSignal(int sigNum,
 
         KSLOG_DEBUG("Filling out context.");
         g_context->crashType = KSCrashTypeSignal;
-        g_context->offendingThread = mach_thread_self();
+        g_context->offendingThread = ksmach_thread_self();
         g_context->registersAreValid = true;
         g_context->faultAddress = (uintptr_t)signalInfo->si_addr;
         g_context->signal.userContext = userContext;

@@ -44,7 +44,7 @@
 
 - (void) main
 {
-    self.thread = mach_thread_self();
+    self.thread = ksmach_thread_self();
     while(!self.isCancelled)
     {
         [[self class] sleepForTimeInterval:0.1];
