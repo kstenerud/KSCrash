@@ -157,8 +157,17 @@ static ClassData g_taggedClassData[] =
 };
 static const int g_taggedClassDataCount = sizeof(g_taggedClassData) / sizeof(*g_taggedClassData);
 
+/* Small hack to get NSNumber and NSDate slot indices.
+ * Ideally these should come from objc_debug_taggedpointer_classes
+ * but it always seems to be a null pointer.
+ */
+static const int kTaggedPointerSlotNSNumber = 3;
+static const int kTaggedPointerSlotNSDate = 6;
+
 static const char* g_blockBaseClassName = "NSBlock";
 
+// Runtime information about the tagged pointer system.
+// We get this data via the dynamic linker.
 static uintptr_t g_isa_class_mask;
 static uintptr_t g_isa_magic_mask;
 static uintptr_t g_isa_magic_value;
@@ -253,7 +262,7 @@ static uintptr_t getTaggedPointerPayload(const void* const object)
  */
 static bool isTaggedPointerNSNumber(const void* const object)
 {
-    return getTaggedPointerSlot(object) == 3;
+    return getTaggedPointerSlot(object) == kTaggedPointerSlotNSNumber;
 }
 
 /** Check if a tagged pointer is a date.
@@ -263,7 +272,7 @@ static bool isTaggedPointerNSNumber(const void* const object)
  */
 static bool isTaggedPointerNSDate(const void* const object)
 {
-    return getTaggedPointerSlot(object) == 6;
+    return getTaggedPointerSlot(object) == kTaggedPointerSlotNSDate;
 }
 
 /** Extract an integer from a tagged NSNumber.
@@ -387,10 +396,13 @@ static size_t stringPrintf(char* buffer,
 //======================================================================
 
 // Lookup table for validating class/ivar names and objc @encode types.
-#define INV 0
-#define N_C 5
-#define N_S 7
-#define T_C 4
+// An ivar name must start with a letter, and can contain letters & numbers.
+// An ivar type can in theory be any combination of numbers, letters, and symbols
+// in the ASCII range (0x21-0x7e).
+#define INV 0 // Invalid.
+#define N_C 5 // Name character: Valid for anything except the first letter of a name.
+#define N_S 7 // Name start character: Valid for anything.
+#define T_C 4 // Type character: Valid for types only.
 
 static const unsigned int g_nameChars[] =
 {

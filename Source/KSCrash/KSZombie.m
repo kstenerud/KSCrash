@@ -122,6 +122,7 @@ static void storeException(NSException* exception)
     strncpy(g_lastDeallocedException.reason, [[exception reason] UTF8String], sizeof(g_lastDeallocedException.reason));
 
 #ifdef __IPHONE_OS_VERSION_MAX_ALLOWED
+    // Crashes under OS X
     NSArray* callStack = [exception callStackReturnAddresses];
     NSUInteger count = [callStack count];
     if(count > g_callStackSize)
