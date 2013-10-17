@@ -34,7 +34,7 @@
 
 #include "KSLogger.h"
 
-#ifdef __IPHONE_OS_VERSION_MAX_ALLOWED
+#if __IPHONE_OS_VERSION_MAX_ALLOWED > 70000
 #include <objc/NSObjCRuntime.h>
 #else
 #if __LP64__ || (TARGET_OS_EMBEDDED && !TARGET_OS_IPHONE) || TARGET_OS_WIN32 || NS_BUILD_32_LIKE_64
