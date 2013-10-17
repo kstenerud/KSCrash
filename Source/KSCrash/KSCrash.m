@@ -193,7 +193,7 @@ failed:
         }
     }
     
-    as_autorelease(_userInfo);
+    as_autorelease_noref(_userInfo);
     _userInfo = as_retain(userInfo);
     kscrash_setUserInfoJSON([userInfoJSON bytes]);
 }
@@ -235,7 +235,7 @@ failed:
 
 - (void) setDoNotIntrospectClasses:(NSArray *)doNotIntrospectClasses
 {
-    as_autorelease(_doNotIntrospectClasses);
+    as_autorelease_noref(_doNotIntrospectClasses);
     _doNotIntrospectClasses = as_retain(doNotIntrospectClasses);
     size_t count = [doNotIntrospectClasses count];
     if(count == 0)

@@ -34,7 +34,7 @@
 @synthesize NAME##Key = _##NAME##Key; \
 - (void) set##NAMEUPPER##Key:(NSString*) value \
 { \
-    as_autorelease(_##NAME##Key); \
+    as_autorelease_noref(_##NAME##Key); \
     _##NAME##Key = as_retain(value); \
     [self reportFieldForProperty:@#NAME setKey:value]; \
 }
@@ -44,7 +44,7 @@
 @synthesize NAME = _##NAME; \
 - (void) set##NAMEUPPER:(TYPE) value \
 { \
-    as_autorelease(_##NAME); \
+    as_autorelease_noref(_##NAME); \
     _##NAME = as_retain(value); \
     [self reportFieldForProperty:@#NAME setValue:value]; \
 }
