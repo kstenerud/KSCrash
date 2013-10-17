@@ -222,8 +222,10 @@ NSDictionary* g_registerOrders;
                     return @"armv7f";
                 case CPU_SUBTYPE_ARM_V7K:
                     return @"armv7k";
+#ifdef CPU_SUBTYPE_ARM_V7S
                 case CPU_SUBTYPE_ARM_V7S:
                     return @"armv7s";
+#endif
                 default:
                     return @"arm";
             }
