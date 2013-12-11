@@ -185,21 +185,12 @@ static void onReachabilityChanged(SCNetworkReachabilityRef target,
     {
         return nil;
     }
-    
-    NSUInteger startIndex = 0;
-    NSRange range = [potentialURL rangeOfString:@"//"];
-    if(range.location != NSNotFound)
-    {
-        startIndex = range.location + 2;
-    }
-    range = [potentialURL rangeOfString:@"/"
-                                options:0
-                                  range:NSMakeRange(startIndex, [potentialURL length] - startIndex)];
-    if(range.location == NSNotFound)
+
+    if([potentialURL rangeOfString:@"//"].location == NSNotFound)
     {
         return potentialURL;
     }
-    return [potentialURL substringWithRange:NSMakeRange(startIndex, range.location - startIndex)];
+    return [[NSURL URLWithString:potentialURL] host];
 }
 
 - (BOOL) isReachableWithFlags:(SCNetworkReachabilityFlags) flags
