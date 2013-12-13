@@ -186,8 +186,12 @@ static void onReachabilityChanged(SCNetworkReachabilityRef target,
         return nil;
     }
 
-    NSURL *hostURL = [NSURL URLWithString:potentialURL];
-    return [hostURL host];
+    NSString *host = [[NSURL URLWithString:potentialURL] host];
+    if (host == nil)
+    {
+        host = potentialURL;
+    }
+    return host;
 }
 
 - (BOOL) isReachableWithFlags:(SCNetworkReachabilityFlags) flags
