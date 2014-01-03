@@ -440,6 +440,10 @@ NSDictionary* g_registerOrders;
      {
          NSNumber* num1 = [(NSDictionary*)obj1 objectForKey:@KSCrashField_ImageAddress];
          NSNumber* num2 = [(NSDictionary*)obj2 objectForKey:@KSCrashField_ImageAddress];
+         if(num1 == nil || num2 == nil)
+         {
+             return NSOrderedSame;
+         }
          return [num1 compare:num2];
      }];
     for(NSDictionary* image in images)
