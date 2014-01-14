@@ -513,8 +513,8 @@
 		CBF53D8817EB765C0056DA83 /* KSZombie.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSZombie.m; path = ../../Source/KSCrash/Recording/Tools/KSZombie.m; sourceTree = "<group>"; };
 		CBF53D8917EB765C0056DA83 /* NSData+GZip.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSData+GZip.h"; path = "../../Source/KSCrash/Reporting/Filters/Tools/NSData+GZip.h"; sourceTree = "<group>"; };
 		CBF53D8A17EB765C0056DA83 /* NSData+GZip.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSData+GZip.m"; path = "../../Source/KSCrash/Reporting/Filters/Tools/NSData+GZip.m"; sourceTree = "<group>"; };
-		CBF53D8B17EB765C0056DA83 /* NSDictionary+Merge.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSDictionary+Merge.h"; path = "../../Source/KSCrash/Reporting/Tools/NSDictionary+Merge.h"; sourceTree = "<group>"; };
-		CBF53D8C17EB765C0056DA83 /* NSDictionary+Merge.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSDictionary+Merge.m"; path = "../../Source/KSCrash/Reporting/Tools/NSDictionary+Merge.m"; sourceTree = "<group>"; };
+		CBF53D8B17EB765C0056DA83 /* NSDictionary+Merge.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSDictionary+Merge.h"; path = "../../Source/KSCrash/Recording/Tools/NSDictionary+Merge.h"; sourceTree = "<group>"; };
+		CBF53D8C17EB765C0056DA83 /* NSDictionary+Merge.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSDictionary+Merge.m"; path = "../../Source/KSCrash/Recording/Tools/NSDictionary+Merge.m"; sourceTree = "<group>"; };
 		CBF53D8D17EB765C0056DA83 /* NSError+SimpleConstructor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSError+SimpleConstructor.h"; path = "../../Source/KSCrash/Recording/Tools/NSError+SimpleConstructor.h"; sourceTree = "<group>"; };
 		CBF53D8E17EB765C0056DA83 /* NSError+SimpleConstructor.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSError+SimpleConstructor.m"; path = "../../Source/KSCrash/Recording/Tools/NSError+SimpleConstructor.m"; sourceTree = "<group>"; };
 		CBF53D8F17EB765C0056DA83 /* NSMutableData+AppendUTF8.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSMutableData+AppendUTF8.h"; path = "../../Source/KSCrash/Reporting/Tools/NSMutableData+AppendUTF8.h"; sourceTree = "<group>"; };
@@ -813,6 +813,8 @@
 				CBF53D8217EB765C0056DA83 /* KSSysCtl.h */,
 				CBF53D8717EB765C0056DA83 /* KSZombie.h */,
 				CBF53D8817EB765C0056DA83 /* KSZombie.m */,
+				CBF53D8B17EB765C0056DA83 /* NSDictionary+Merge.h */,
+				CBF53D8C17EB765C0056DA83 /* NSDictionary+Merge.m */,
 				CBF53D8D17EB765C0056DA83 /* NSError+SimpleConstructor.h */,
 				CBF53D8E17EB765C0056DA83 /* NSError+SimpleConstructor.m */,
 				CBF53D9117EB765C0056DA83 /* RFC3339DateTool.h */,
@@ -832,8 +834,6 @@
 				CBF53D6817EB765C0056DA83 /* KSHTTPRequestSender.m */,
 				CBF53D7817EB765C0056DA83 /* KSReachabilityKSCrash.h */,
 				CBF53D7917EB765C0056DA83 /* KSReachabilityKSCrash.m */,
-				CBF53D8B17EB765C0056DA83 /* NSDictionary+Merge.h */,
-				CBF53D8C17EB765C0056DA83 /* NSDictionary+Merge.m */,
 				CBF53D8F17EB765C0056DA83 /* NSMutableData+AppendUTF8.h */,
 				CBF53D9017EB765C0056DA83 /* NSMutableData+AppendUTF8.m */,
 			);
