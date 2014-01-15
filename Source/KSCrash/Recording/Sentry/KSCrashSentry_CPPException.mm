@@ -40,7 +40,7 @@
 
 
 #define STACKTRACE_BUFFER_LENGTH 30
-#define NAME_BUFFER_LENGTH 2000
+#define DEMANGLE_BUFFER_LENGTH 2000
 #define DESCRIPTION_BUFFER_LENGTH 1000
 
 
@@ -98,7 +98,7 @@ static void CPPExceptionTerminate(void)
     KSLOG_DEBUG(@"Trapped c++ exception");
 
     bool isNSException = false;
-    char nameDemangled[NAME_BUFFER_LENGTH];
+    char nameDemangled[DEMANGLE_BUFFER_LENGTH];
     char descriptionBuff[DESCRIPTION_BUFFER_LENGTH];
     const char* name = NULL;
     const char* description = NULL;

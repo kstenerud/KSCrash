@@ -98,6 +98,9 @@
 /** The minimum length for a valid string. */
 #define kMinStringLength 4
 
+/** Leave lots of room for C++ demangling */
+#define DEMANGLE_BUFFER_LENGTH 2000
+
 
 // ============================================================================
 #pragma mark - Formatting -
@@ -595,7 +598,7 @@ void kscrw_i_logBacktraceEntry(const int entryNum,
 {
     char faddrBuff[20];
     char saddrBuff[20];
-    char demangleBuff[2000];
+    char demangleBuff[DEMANGLE_BUFFER_LENGTH];
 
     const char* fname = ksfu_lastPathEntry(dlInfo->dli_fname);
     if(fname == NULL)
@@ -1105,7 +1108,7 @@ void kscrw_i_writeBacktraceEntry(const KSCrashReportWriter* const writer,
                                  const uintptr_t address,
                                  const Dl_info* const info)
 {
-    char demangleBuff[2000];
+    char demangleBuff[DEMANGLE_BUFFER_LENGTH];
     writer->beginObject(writer, key);
     {
         if(info->dli_fname != NULL)
