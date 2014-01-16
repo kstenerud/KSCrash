@@ -281,58 +281,59 @@ bool ksmach_getThreadQueueName(const thread_t thread,
                                char* const buffer,
                                size_t bufLength)
 {
-    // TODO: This seems to have broken in iOS 7...
-    struct internal_dispatch_queue_s* pQueue;
-    struct internal_dispatch_queue_s queue;
+    integer_t infoBuffer[THREAD_IDENTIFIER_INFO_COUNT] = {0};
+    thread_info_t info = infoBuffer;
+    mach_msg_type_number_t inOutSize = THREAD_IDENTIFIER_INFO_COUNT;
+    kern_return_t kr = 0;
 
-    if(bufLength > sizeof(queue.dq_label))
+    kr = thread_info(thread, THREAD_IDENTIFIER_INFO, info, &inOutSize);
+    if(kr != KERN_SUCCESS)
     {
-        bufLength = sizeof(queue.dq_label);
-    }
-
-    // Recast the opaque thread to our hacky internal thread structure pointer.
-    const pthread_t pthread = ksmach_pthreadFromMachThread(thread);
-    const internal_pthread_t threadStruct = (internal_pthread_t)pthread;
-
-    if(ksmach_copyMem(&threadStruct->tsd[dispatch_queue_key], &pQueue, sizeof(pQueue)) != KERN_SUCCESS)
-    {
-        KSLOG_TRACE("Could not copy queue pointer from %p", &threadStruct->tsd[dispatch_queue_key]);
+        KSLOG_TRACE("Error getting thread_info with flavor THREAD_IDENTIFIER_INFO from mach thread : %s", mach_error_string(kr));
         return false;
     }
 
-    if(pQueue == NULL)
+    thread_identifier_info_t idInfo = (thread_identifier_info_t)info;
+    dispatch_queue_t* dispatch_queue_ptr = (dispatch_queue_t*)idInfo->dispatch_qaddr;
+    //thread_handle shouldn't be 0 also, because
+    //identifier_info->dispatch_qaddr =  identifier_info->thread_handle + get_dispatchqueue_offset_from_proc(thread->task->bsd_info);
+    if(dispatch_queue_ptr == NULL || idInfo->thread_handle == 0 || *dispatch_queue_ptr == NULL)
     {
-        KSLOG_TRACE("Queue pointer is NULL");
+        KSLOG_TRACE("This thread doesn't have a dispatch queue attached : %p", thread);
         return false;
     }
 
-    if(ksmach_copyMem(pQueue, &queue, sizeof(queue)) != KERN_SUCCESS)
+    dispatch_queue_t dispatch_queue = *dispatch_queue_ptr;
+    const char* queue_name = dispatch_queue_get_label(dispatch_queue);
+    if(queue_name == NULL)
     {
-        KSLOG_TRACE("Could not copy queue data from %p", pQueue);
+        KSLOG_TRACE("Error while getting dispatch queue name : %p", dispatch_queue);
         return false;
     }
+    KSLOG_TRACE("Dispatch queue name: %s", name);
+    size_t length = strlen(queue_name);
 
     // Queue label must be a null terminated string.
-    int iLabel;
-    for(iLabel = 0; iLabel < (int)sizeof(queue.dq_label); iLabel++)
+    size_t iLabel;
+    for(iLabel = 0; iLabel < length + 1; iLabel++)
     {
-        if(queue.dq_label[iLabel] < ' ' || queue.dq_label[iLabel] > '~')
+        if(queue_name[iLabel] < ' ' || queue_name[iLabel] > '~')
         {
             break;
         }
     }
-    if(queue.dq_label[iLabel] != 0)
+    if(queue_name[iLabel] != 0)
     {
         // Found a non-null, invalid char.
         KSLOG_TRACE("Queue label contains invalid chars");
         return false;
     }
-
-    strncpy(buffer, queue.dq_label, bufLength);
+    bufLength = MIN(length, bufLength - 1);//just strlen, without null-terminator
+    strncpy(buffer, queue_name, bufLength);
+    buffer[bufLength] = 0;//terminate string
     KSLOG_TRACE("Queue label = %s", buffer);
     return true;
 }
-
 
 // ============================================================================
 #pragma mark - Utility -
