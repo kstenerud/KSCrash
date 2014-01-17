@@ -234,6 +234,11 @@ void kscrash_setPrintTraceToStdout(bool printTraceToStdout)
     crashContext()->config.printTraceToStdout = printTraceToStdout;
 }
 
+void kscrash_setSearchThreadQueueNames(bool shouldSearchThreadQueueNames)
+{
+    crashContext()->config.searchThreadQueueNames = shouldSearchThreadQueueNames;
+}
+
 void kscrash_setIntrospectMemory(bool introspectMemory)
 {
     crashContext()->config.introspectionRules.enabled = introspectMemory;

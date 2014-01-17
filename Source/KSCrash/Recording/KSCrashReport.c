@@ -1432,7 +1432,8 @@ void kscrw_i_writeThread(const KSCrashReportWriter* const writer,
                          const KSCrash_SentryContext* const crash,
                          const thread_t thread,
                          const int index,
-                         const bool writeNotableAddresses)
+                         const bool writeNotableAddresses,
+                         const bool searchThreadQueueNames)
 {
     bool isCrashedThread = thread == crash->offendingThread;
     char nameBuffer[128];
@@ -1470,16 +1471,18 @@ void kscrw_i_writeThread(const KSCrashReportWriter* const writer,
                                    isCrashedThread);
         }
         writer->addIntegerElement(writer, KSCrashField_Index, index);
-        if(ksmach_getThreadName(thread, nameBuffer, sizeof(nameBuffer)) && nameBuffer[0] != 0)
+        if(searchThreadQueueNames)
         {
-            writer->addStringElement(writer, KSCrashField_Name, nameBuffer);
-        }
-
-        if(ksmach_getThreadQueueName(thread, nameBuffer, sizeof(nameBuffer)) && nameBuffer[0] != 0)
-        {
-            writer->addStringElement(writer,
-                                     KSCrashField_DispatchQueue,
-                                     nameBuffer);
+            if(ksmach_getThreadName(thread, nameBuffer, sizeof(nameBuffer)) && nameBuffer[0] != 0)
+            {
+                writer->addStringElement(writer, KSCrashField_Name, nameBuffer);
+            }
+            if(ksmach_getThreadQueueName(thread, nameBuffer, sizeof(nameBuffer)) && nameBuffer[0] != 0)
+            {
+                writer->addStringElement(writer,
+                                         KSCrashField_DispatchQueue,
+                                         nameBuffer);
+            }
         }
         writer->addBooleanElement(writer, KSCrashField_Crashed, isCrashedThread);
         writer->addBooleanElement(writer,
@@ -1513,7 +1516,8 @@ void kscrw_i_writeThread(const KSCrashReportWriter* const writer,
 void kscrw_i_writeAllThreads(const KSCrashReportWriter* const writer,
                              const char* const key,
                              const KSCrash_SentryContext* const crash,
-                             bool writeNotableAddresses)
+                             bool writeNotableAddresses,
+                             bool searchThreadQueueNames)
 {
     const task_t thisTask = mach_task_self();
     thread_act_array_t threads;
@@ -1531,7 +1535,7 @@ void kscrw_i_writeAllThreads(const KSCrashReportWriter* const writer,
     {
         for(mach_msg_type_number_t i = 0; i < numThreads; i++)
         {
-            kscrw_i_writeThread(writer, NULL, crash, threads[i], (int)i, writeNotableAddresses);
+            kscrw_i_writeThread(writer, NULL, crash, threads[i], (int)i, writeNotableAddresses, searchThreadQueueNames);
         }
     }
     writer->endContainer(writer);
@@ -2096,7 +2100,7 @@ void kscrashreport_writeMinimalReport(KSCrash_Context* const crashContext,
                                 &crashContext->crash,
                                 crashContext->crash.offendingThread,
                                 kscrw_i_threadIndex(crashContext->crash.offendingThread),
-                                false);
+                                false, false);
             kscrw_i_writeError(writer, KSCrashField_Error, &crashContext->crash);
         }
         writer->endContainer(writer);
@@ -2162,7 +2166,11 @@ void kscrashreport_writeStandardReport(KSCrash_Context* const crashContext,
 
         writer->beginObject(writer, KSCrashField_Crash);
         {
-            kscrw_i_writeAllThreads(writer, KSCrashField_Threads, &crashContext->crash, crashContext->config.introspectionRules.enabled);
+            kscrw_i_writeAllThreads(writer,
+                                    KSCrashField_Threads,
+                                    &crashContext->crash,
+                                    crashContext->config.introspectionRules.enabled,
+                                    crashContext->config.searchThreadQueueNames);
             kscrw_i_writeError(writer, KSCrashField_Error, &crashContext->crash);
         }
         writer->endContainer(writer);

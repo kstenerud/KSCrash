@@ -165,7 +165,8 @@ static void advanced_crash_callback(const KSCrashReportWriter* writer)
     handler.userInfo = @{@"someKey": @"someValue"};
     handler.onCrash = advanced_crash_callback;
     handler.printTraceToStdout = YES;
-    
+    handler.searchThreadQueueNames = YES;
+
     // Do not introspect class SensitiveInfo (see MainVC)
     // When added to the "do not introspect" list, the Objective-C introspector
     // will only record the class name, not its contents.

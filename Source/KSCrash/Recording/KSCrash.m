@@ -106,6 +106,7 @@
 @synthesize bundleName = _bundleName;
 @synthesize logFilePath = _logFilePath;
 @synthesize nextCrashID = _nextCrashID;
+@synthesize searchThreadQueueNames = _searchThreadQueueNames;
 @synthesize introspectMemory = _introspectMemory;
 @synthesize doNotIntrospectClasses = _doNotIntrospectClasses;
 
@@ -151,6 +152,7 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrash)
         self.nextCrashID = [self generateUUIDString];
         self.crashReportStore = [KSCrashReportStore storeWithPath:storePath];
         self.deleteBehaviorAfterSendAll = KSCDeleteAlways;
+        self.searchThreadQueueNames = NO;
         self.introspectMemory = YES;
     }
     return self;
@@ -225,6 +227,12 @@ failed:
 {
     _onCrash = onCrash;
     kscrash_setCrashNotifyCallback(onCrash);
+}
+
+- (void) setSearchThreadQueueNames:(bool)searchThreadQueueNames
+{
+    _searchThreadQueueNames = searchThreadQueueNames;
+    kscrash_setSearchThreadQueueNames(searchThreadQueueNames);
 }
 
 - (void) setIntrospectMemory:(bool) introspectMemory

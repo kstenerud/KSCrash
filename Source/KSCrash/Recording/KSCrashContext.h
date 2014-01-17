@@ -77,6 +77,9 @@ typedef struct
     /** When writing the crash report, print a stack trace to STDOUT as well. */
     bool printTraceToStdout;
 
+    /** If true, do a non-async-safe search of thread and dispatch queue names. */
+    bool searchThreadQueueNames;
+
     /** The types of crashes that will be handled. */
     KSCrashType handlingCrashTypes;
 

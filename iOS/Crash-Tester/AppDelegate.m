@@ -61,6 +61,7 @@ static void onCrash(const KSCrashReportWriter* writer)
 
     handler.zombieCacheSize = 16384;
     handler.deadlockWatchdogInterval = 5.0f;
+    handler.searchThreadQueueNames = YES;
     handler.printTraceToStdout = YES;
     handler.onCrash = onCrash;
     handler.userInfo = [NSDictionary dictionaryWithObjectsAndKeys:
