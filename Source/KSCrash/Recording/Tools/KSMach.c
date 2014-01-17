@@ -264,23 +264,18 @@ bool ksmach_getThreadName(const thread_t thread,
                           char* const buffer,
                           size_t bufLength)
 {
-    const pthread_t pthread = ksmach_pthreadFromMachThread(thread);
-    const internal_pthread_t threadStruct = (internal_pthread_t)pthread;
-    size_t copyLength = bufLength > MAXTHREADNAMESIZE ? MAXTHREADNAMESIZE : bufLength;
+    // WARNING: This implementation is no longer async-safe!
 
-    if(ksmach_copyMem(threadStruct->pthread_name, buffer, copyLength) != KERN_SUCCESS)
-    {
-        KSLOG_TRACE("Could not copy thread name from %p", threadStruct->pthread_name);
-        return false;
-    }
-    buffer[copyLength-1] = 0;
-    return true;
+    const pthread_t pthread = pthread_from_mach_thread_np(thread);
+    return pthread_getname_np(pthread, buffer, bufLength) == 0;
 }
 
 bool ksmach_getThreadQueueName(const thread_t thread,
                                char* const buffer,
                                size_t bufLength)
 {
+    // WARNING: This implementation is no longer async-safe!
+
     integer_t infoBuffer[THREAD_IDENTIFIER_INFO_COUNT] = {0};
     thread_info_t info = infoBuffer;
     mach_msg_type_number_t inOutSize = THREAD_IDENTIFIER_INFO_COUNT;
