@@ -7,10 +7,9 @@ Pod::Spec.new do |s|
   s.author       = { "Karl Stenerud" => "kstenerud@gmail.com" }
   s.platform     = :ios, '5.0'
   s.source       = { :git => "https://github.com/kstenerud/KSCrash.git", :tag=>s.version.to_s }
-  s.source_files = 'Source/KSCrash/**/*.{h,m,mm,c,cpp}'
   s.frameworks = 'Foundation', 'SystemConfiguration', 'MessageUI'
   s.libraries = 'c++', 'z'
-  
+    
   s.subspec 'Recording' do |recording|
     recording.source_files   = 'Source/KSCrash/Recording/**/*.{h,m,mm,c,cpp}',
                                'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h' 
@@ -18,27 +17,62 @@ Pod::Spec.new do |s|
 
   s.subspec 'Reporting' do |reporting|
     reporting.dependency 'KSCrash/Recording'
-    reporting.source_files   = 'Source/KSCrash/Reporting/**/*.{h,m,mm,c,cpp}'
+    #reporting.source_files   = 'Source/KSCrash/Reporting/**/*.{h,m,mm,c,cpp}'
 
     reporting.subspec 'Filters' do |filters|
-      filters.source_files = 'Source/KSCrash/Reporting/Filters/**/*.{h,m,mm,c,cpp}'
-
-      filters.subspec 'Tools' do |tools|
-        tools.source_files = 'Source/KSCrash/Reporting/Filters/Tools/**/*.{h,m,mm,c,cpp}'
-      end
-
+      #filters.source_files = 'Source/KSCrash/Reporting/Filters/**/*.{h,m,mm,c,cpp}'
+      
       filters.subspec 'Base' do |base|
-        base.dependency 'KSCrash/Reporting/Filters/Tools'
-        base.source_files = 'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h',
+        base.source_files = 'Source/KSCrash/Reporting/Filters/Tools/**/*.{h,m,mm,c,cpp}',
+                            'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h',
                             'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.m'
+      end
+      
+      filters.subspec 'Alert' do |alert|
+        alert.dependency 'KSCrash/Reporting/Filters/Base'
+        alert.source_files = 'Source/KSCrash/Reporting/Filters/KSCrashReportFilterAlert.h',
+                             'Source/KSCrash/Reporting/Filters/KSCrashReportFilterAlert.m'
+      end
+      
+      filters.subspec 'Alert' do |alert|
+        alert.dependency 'KSCrash/Reporting/Filters/Base'
+        alert.source_files = 'Source/KSCrash/Reporting/Filters/KSCrashReportFilterAlert.h',
+                             'Source/KSCrash/Reporting/Filters/KSCrashReportFilterAlert.m'
       end
 
       filters.subspec 'AppleFmt' do |applefmt|
         applefmt.dependency 'KSCrash/Reporting/Filters/Base'
-        applefmt.dependency 'KSCrash/Reporting/Filters/Tools'
-
         applefmt.source_files = 'Source/KSCrash/Reporting/Filters/KSCrashReportFilterAppleFmt.h',
-                                'Source/KSCrash/Reporting/Filters/KSCrashReportFilterAppleFmt.m'
+                             'Source/KSCrash/Reporting/Filters/KSCrashReportFilterAppleFmt.m'
+      end
+
+      filters.subspec 'Basic' do |basic|
+        basic.dependency 'KSCrash/Reporting/Filters/Base'
+        basic.source_files = 'Source/KSCrash/Reporting/Filters/KSCrashReportFilterBasic.h',
+                             'Source/KSCrash/Reporting/Filters/KSCrashReportFilterBasic.m'
+      end
+
+      filters.subspec 'GZip' do |gzip|
+        gzip.dependency 'KSCrash/Reporting/Filters/Base'
+        gzip.source_files = 'Source/KSCrash/Reporting/Filters/KSCrashReportFilterGZip.h',
+                            'Source/KSCrash/Reporting/Filters/KSCrashReportFilterGZip.m'
+      end
+
+      filters.subspec 'JSON' do |json|
+        json.dependency 'KSCrash/Reporting/Filters/Base'
+        json.source_files = 'Source/KSCrash/Reporting/Filters/KSCrashReportFilterJSON.h',
+                            'Source/KSCrash/Reporting/Filters/KSCrashReportFilterJSON.m'
+      end
+      
+      filters.subspec 'Sets' do |sets|
+        sets.dependency 'KSCrash/Reporting/Filters/Base'
+        sets.dependency 'KSCrash/Reporting/Filters/AppleFmt'
+        sets.dependency 'KSCrash/Reporting/Filters/Basic'
+        sets.dependency 'KSCrash/Reporting/Filters/GZip'
+        sets.dependency 'KSCrash/Reporting/Filters/JSON'
+        
+        sets.source_files = 'Source/KSCrash/Reporting/Filters/KSCrashReportFilterSets.h',
+                            'Source/KSCrash/Reporting/Filters/KSCrashReportFilterSets.m'
       end
 
     end
@@ -49,39 +83,17 @@ Pod::Spec.new do |s|
     end
 
     reporting.subspec 'Sinks' do |sinks|
+      sinks.dependency 'KSCrash/Reporting/Filters'
       sinks.dependency 'KSCrash/Reporting/Tools'
       sinks.source_files = 'Source/KSCrash/Reporting/Sinks/**/*.{h,m,mm,c,cpp}'
-
-      sinks.subspec 'Email' do |email|
-        email.dependency 'KSCrash/Reporting/Filters'
-
-        email.source_files = 'Source/KSCrash/Reporting/Sinks/KSCrashReportSinkEMail.h',
-                             'Source/KSCrash/Reporting/Sinks/KSCrashReportSinkEMail.m'
-      end
-
     end
 
   end
   
   s.subspec 'Installations' do |installations|
     installations.dependency 'KSCrash/Recording'
-    installations.dependency 'KSCrash/Reporting/Sinks'
+    installations.dependency 'KSCrash/Reporting'
     installations.source_files = 'Source/KSCrash/Installations/**/*.{h,m,mm,c,cpp}'
-
-    installations.subspec 'Base' do |base|
-      base.source_files = 'Source/KSCrash/Installations/KSCrashInstallation.h',
-                          'Source/KSCrash/Installations/KSCrashInstallation+Private.h',
-                          'Source/KSCrash/Installations/KSCrashInstallation.m'
-    end
-
-    installations.subspec 'Email' do |email|
-      email.dependency 'KSCrash/Reporting/Sinks/Email'
-      email.dependency 'KSCrash/Installations/Base'
-
-      email.source_files = 'Source/KSCrash/Installations/KSCrashInstallationEmail.h',
-                           'Source/KSCrash/Installations/KSCrashInstallationEmail.m'
-
-    end
   end
 
 end
