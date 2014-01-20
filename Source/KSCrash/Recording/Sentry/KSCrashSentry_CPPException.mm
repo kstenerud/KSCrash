@@ -75,9 +75,9 @@ static KSCrash_SentryContext* g_context;
 #pragma mark - Callbacks -
 // ============================================================================
 
-typedef void (*cxa_throw_type)(void*, void*, void (*)(void*));
+typedef void (*cxa_throw_type)(void*, std::type_info*, void (*)(void*));
 
-extern "C" void __cxa_throw(void* thrown_exception, void* tinfo, void (*dest)(void*))
+extern "C" void __cxa_throw(void* thrown_exception, std::type_info* tinfo, void (*dest)(void*))
 {
     if(g_captureNextStackTrace)
     {
