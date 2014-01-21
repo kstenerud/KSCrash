@@ -195,6 +195,10 @@ NSDictionary* g_registerOrders;
 
 - (NSString*) CPUType:(NSString*) CPUArch
 {
+    if([CPUArch rangeOfString:@"arm64"].location == 0)
+    {
+        return @"ARM-64";
+    }
     if([CPUArch rangeOfString:@"arm"].location == 0)
     {
         return @"ARM";
@@ -235,6 +239,10 @@ NSDictionary* g_registerOrders;
             }
             break;
         }
+#ifdef CPU_TYPE_ARM64
+        case CPU_TYPE_ARM64:
+            return @"arm64";
+#endif
         case CPU_TYPE_X86:
             return @"x86";
         case CPU_TYPE_X86_64:
