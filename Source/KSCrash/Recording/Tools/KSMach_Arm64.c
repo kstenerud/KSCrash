@@ -73,8 +73,8 @@ bool ksmach_threadState(const thread_t thread,
 {
     return ksmach_fillState(thread,
                             (thread_state_t)&machineContext->__ss,
-                            ARM_THREAD_STATE,
-                            ARM_THREAD_STATE_COUNT);
+                            ARM_THREAD_STATE64,
+                            ARM_THREAD_STATE64_COUNT);
 }
 
 bool ksmach_floatState(const thread_t thread,
@@ -91,8 +91,8 @@ bool ksmach_exceptionState(const thread_t thread,
 {
     return ksmach_fillState(thread,
                             (thread_state_t)&machineContext->__es,
-                            ARM_EXCEPTION_STATE,
-                            ARM_EXCEPTION_STATE_COUNT);
+                            ARM_EXCEPTION_STATE64,
+                            ARM_EXCEPTION_STATE64_COUNT);
 }
 
 int ksmach_numRegisters(void)

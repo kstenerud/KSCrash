@@ -87,7 +87,7 @@ void ksnsexc_i_handleException(NSException* exception)
         uintptr_t* callstack = malloc(numFrames * sizeof(*callstack));
         for(NSUInteger i = 0; i < numFrames; i++)
         {
-            callstack[i] = [[addresses objectAtIndex:i] unsignedIntValue];
+            callstack[i] = [[addresses objectAtIndex:i] unsignedLongValue];
         }
 
         g_context->crashType = KSCrashTypeNSException;
