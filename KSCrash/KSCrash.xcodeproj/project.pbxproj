@@ -238,6 +238,28 @@
 		39DA84F7161978D7001E7F79 /* NSDictionary+Merge.m in Sources */ = {isa = PBXBuildFile; fileRef = 39DA84F5161978D7001E7F79 /* NSDictionary+Merge.m */; };
 		39DA84F9161978DE001E7F79 /* NSDictionary+Merge.m in Sources */ = {isa = PBXBuildFile; fileRef = 39DA84F5161978D7001E7F79 /* NSDictionary+Merge.m */; };
 		39DA84FD16198753001E7F79 /* NSDictionary+Merge_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 39DA84FB16198753001E7F79 /* NSDictionary+Merge_Tests.m */; };
+		3CDF7DDF18CE70CC00B76896 /* KSCrashReportSinkCustomService.h in Headers */ = {isa = PBXBuildFile; fileRef = 3CDF7DDD18CE70CC00B76896 /* KSCrashReportSinkCustomService.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		3CDF7DE018CE70CC00B76896 /* KSCrashReportSinkCustomService.m in Sources */ = {isa = PBXBuildFile; fileRef = 3CDF7DDE18CE70CC00B76896 /* KSCrashReportSinkCustomService.m */; };
+		3CDF7DE118CE70D600B76896 /* KSCrashReportSinkCustomService.h in Headers */ = {isa = PBXBuildFile; fileRef = 3CDF7DDD18CE70CC00B76896 /* KSCrashReportSinkCustomService.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		3CDF7DE218CE70E300B76896 /* KSCrashReportSinkCustomService.m in Sources */ = {isa = PBXBuildFile; fileRef = 3CDF7DDE18CE70CC00B76896 /* KSCrashReportSinkCustomService.m */; };
+		3CDF7DEA18CF558600B76896 /* CJSONDeserializer.h in Headers */ = {isa = PBXBuildFile; fileRef = 3CDF7DE318CF558600B76896 /* CJSONDeserializer.h */; };
+		3CDF7DEB18CF558600B76896 /* CJSONDeserializer.h in Headers */ = {isa = PBXBuildFile; fileRef = 3CDF7DE318CF558600B76896 /* CJSONDeserializer.h */; };
+		3CDF7DEC18CF558600B76896 /* CJSONDeserializer.m in Sources */ = {isa = PBXBuildFile; fileRef = 3CDF7DE418CF558600B76896 /* CJSONDeserializer.m */; };
+		3CDF7DED18CF558600B76896 /* CJSONDeserializer.m in Sources */ = {isa = PBXBuildFile; fileRef = 3CDF7DE418CF558600B76896 /* CJSONDeserializer.m */; };
+		3CDF7DEE18CF558600B76896 /* CJSONSerializer.h in Headers */ = {isa = PBXBuildFile; fileRef = 3CDF7DE518CF558600B76896 /* CJSONSerializer.h */; };
+		3CDF7DEF18CF558600B76896 /* CJSONSerializer.h in Headers */ = {isa = PBXBuildFile; fileRef = 3CDF7DE518CF558600B76896 /* CJSONSerializer.h */; };
+		3CDF7DF018CF558600B76896 /* CJSONSerializer.m in Sources */ = {isa = PBXBuildFile; fileRef = 3CDF7DE618CF558600B76896 /* CJSONSerializer.m */; };
+		3CDF7DF118CF558600B76896 /* CJSONSerializer.m in Sources */ = {isa = PBXBuildFile; fileRef = 3CDF7DE618CF558600B76896 /* CJSONSerializer.m */; };
+		3CDF7DF218CF558600B76896 /* JSONRepresentation.h in Headers */ = {isa = PBXBuildFile; fileRef = 3CDF7DE718CF558600B76896 /* JSONRepresentation.h */; };
+		3CDF7DF318CF558600B76896 /* JSONRepresentation.h in Headers */ = {isa = PBXBuildFile; fileRef = 3CDF7DE718CF558600B76896 /* JSONRepresentation.h */; };
+		3CDF7DF418CF558600B76896 /* NSDictionary_JSONExtensions.h in Headers */ = {isa = PBXBuildFile; fileRef = 3CDF7DE818CF558600B76896 /* NSDictionary_JSONExtensions.h */; };
+		3CDF7DF518CF558600B76896 /* NSDictionary_JSONExtensions.h in Headers */ = {isa = PBXBuildFile; fileRef = 3CDF7DE818CF558600B76896 /* NSDictionary_JSONExtensions.h */; };
+		3CDF7DF618CF558600B76896 /* NSDictionary_JSONExtensions.m in Sources */ = {isa = PBXBuildFile; fileRef = 3CDF7DE918CF558600B76896 /* NSDictionary_JSONExtensions.m */; };
+		3CDF7DF718CF558600B76896 /* NSDictionary_JSONExtensions.m in Sources */ = {isa = PBXBuildFile; fileRef = 3CDF7DE918CF558600B76896 /* NSDictionary_JSONExtensions.m */; };
+		3CDF7DFC18CF5B2F00B76896 /* KSCrashInstallationCustomService.h in Headers */ = {isa = PBXBuildFile; fileRef = 3CDF7DFA18CF5B2F00B76896 /* KSCrashInstallationCustomService.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		3CDF7DFD18CF5B2F00B76896 /* KSCrashInstallationCustomService.h in Headers */ = {isa = PBXBuildFile; fileRef = 3CDF7DFA18CF5B2F00B76896 /* KSCrashInstallationCustomService.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		3CDF7DFE18CF5B2F00B76896 /* KSCrashInstallationCustomService.m in Sources */ = {isa = PBXBuildFile; fileRef = 3CDF7DFB18CF5B2F00B76896 /* KSCrashInstallationCustomService.m */; };
+		3CDF7DFF18CF5B2F00B76896 /* KSCrashInstallationCustomService.m in Sources */ = {isa = PBXBuildFile; fileRef = 3CDF7DFB18CF5B2F00B76896 /* KSCrashInstallationCustomService.m */; };
 		CB05EC6217623AFF0095353E /* KSCrashSentry_CPPException.h in Headers */ = {isa = PBXBuildFile; fileRef = CB05EC6117623AFF0095353E /* KSCrashSentry_CPPException.h */; };
 		CB05EC6317623AFF0095353E /* KSCrashSentry_CPPException.h in Headers */ = {isa = PBXBuildFile; fileRef = CB05EC6117623AFF0095353E /* KSCrashSentry_CPPException.h */; };
 		CB05EC6417623AFF0095353E /* KSCrashSentry_CPPException.h in Headers */ = {isa = PBXBuildFile; fileRef = CB05EC6117623AFF0095353E /* KSCrashSentry_CPPException.h */; };
@@ -582,6 +604,17 @@
 		39DA84F4161978D7001E7F79 /* NSDictionary+Merge.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.objj.h; path = "NSDictionary+Merge.h"; sourceTree = "<group>"; };
 		39DA84F5161978D7001E7F79 /* NSDictionary+Merge.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSDictionary+Merge.m"; sourceTree = "<group>"; };
 		39DA84FB16198753001E7F79 /* NSDictionary+Merge_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSDictionary+Merge_Tests.m"; sourceTree = "<group>"; };
+		3CDF7DDD18CE70CC00B76896 /* KSCrashReportSinkCustomService.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashReportSinkCustomService.h; sourceTree = "<group>"; };
+		3CDF7DDE18CE70CC00B76896 /* KSCrashReportSinkCustomService.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSCrashReportSinkCustomService.m; sourceTree = "<group>"; };
+		3CDF7DE318CF558600B76896 /* CJSONDeserializer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CJSONDeserializer.h; sourceTree = "<group>"; };
+		3CDF7DE418CF558600B76896 /* CJSONDeserializer.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = CJSONDeserializer.m; sourceTree = "<group>"; };
+		3CDF7DE518CF558600B76896 /* CJSONSerializer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CJSONSerializer.h; sourceTree = "<group>"; };
+		3CDF7DE618CF558600B76896 /* CJSONSerializer.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = CJSONSerializer.m; sourceTree = "<group>"; };
+		3CDF7DE718CF558600B76896 /* JSONRepresentation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSONRepresentation.h; sourceTree = "<group>"; };
+		3CDF7DE818CF558600B76896 /* NSDictionary_JSONExtensions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NSDictionary_JSONExtensions.h; sourceTree = "<group>"; };
+		3CDF7DE918CF558600B76896 /* NSDictionary_JSONExtensions.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = NSDictionary_JSONExtensions.m; sourceTree = "<group>"; };
+		3CDF7DFA18CF5B2F00B76896 /* KSCrashInstallationCustomService.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashInstallationCustomService.h; sourceTree = "<group>"; };
+		3CDF7DFB18CF5B2F00B76896 /* KSCrashInstallationCustomService.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSCrashInstallationCustomService.m; sourceTree = "<group>"; };
 		CB05EC5D17623AE30095353E /* KSCrashSentry_CPPException.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = KSCrashSentry_CPPException.mm; sourceTree = "<group>"; };
 		CB05EC6117623AFF0095353E /* KSCrashSentry_CPPException.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashSentry_CPPException.h; sourceTree = "<group>"; };
 		CB0AA0EE167EC43E006EAB99 /* KSCrashLite.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KSCrashLite.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -817,6 +850,13 @@
 		39DA82C916184476001E7F79 /* Tools */ = {
 			isa = PBXGroup;
 			children = (
+				3CDF7DE318CF558600B76896 /* CJSONDeserializer.h */,
+				3CDF7DE418CF558600B76896 /* CJSONDeserializer.m */,
+				3CDF7DE518CF558600B76896 /* CJSONSerializer.h */,
+				3CDF7DE618CF558600B76896 /* CJSONSerializer.m */,
+				3CDF7DE718CF558600B76896 /* JSONRepresentation.h */,
+				3CDF7DE818CF558600B76896 /* NSDictionary_JSONExtensions.h */,
+				3CDF7DE918CF558600B76896 /* NSDictionary_JSONExtensions.m */,
 				39DA830D16184492001E7F79 /* Container+DeepSearch.h */,
 				39DA830E16184492001E7F79 /* Container+DeepSearch.m */,
 				CB5A5B4116C718C400DC1D2D /* KSCrashCallCompletion.h */,
@@ -870,6 +910,8 @@
 				39DA82E016184487001E7F79 /* KSCrashReportSinkStandard.m */,
 				2122BBCD16F185120056D11C /* KSCrashReportSinkVictory.h */,
 				2122BBCE16F185120056D11C /* KSCrashReportSinkVictory.m */,
+				3CDF7DDD18CE70CC00B76896 /* KSCrashReportSinkCustomService.h */,
+				3CDF7DDE18CE70CC00B76896 /* KSCrashReportSinkCustomService.m */,
 			);
 			name = Filters;
 			sourceTree = "<group>";
@@ -992,6 +1034,8 @@
 				CBF2D93F16DEDCC10003AD7E /* KSCrashInstallationStandard.m */,
 				2193ACC216F19D690016EA5F /* KSCrashInstallationVictory.h */,
 				2193ACC316F19D690016EA5F /* KSCrashInstallationVictory.m */,
+				3CDF7DFA18CF5B2F00B76896 /* KSCrashInstallationCustomService.h */,
+				3CDF7DFB18CF5B2F00B76896 /* KSCrashInstallationCustomService.m */,
 			);
 			name = Installation;
 			sourceTree = "<group>";
@@ -1008,18 +1052,21 @@
 				39DA83BB1618450A001E7F79 /* KSCrashReportWriter.h in Headers */,
 				39DA82E516184487001E7F79 /* KSCrashReportFilter.h in Headers */,
 				2193ACC416F19D690016EA5F /* KSCrashInstallationVictory.h in Headers */,
+				3CDF7DFC18CF5B2F00B76896 /* KSCrashInstallationCustomService.h in Headers */,
 				39DA82E916184487001E7F79 /* KSCrashReportFilterAlert.h in Headers */,
 				39DA82ED16184487001E7F79 /* KSCrashReportFilterAppleFmt.h in Headers */,
 				39DA82F116184487001E7F79 /* KSCrashReportFilterBasic.h in Headers */,
 				39DA82F516184487001E7F79 /* KSCrashReportFilterGZip.h in Headers */,
 				39DA82F916184487001E7F79 /* KSCrashReportFilterJSON.h in Headers */,
 				39DA82E116184487001E7F79 /* KSCrashReportFilterSets.h in Headers */,
+				3CDF7DF418CF558600B76896 /* NSDictionary_JSONExtensions.h in Headers */,
 				39DA82FD16184487001E7F79 /* KSCrashReportSinkConsole.h in Headers */,
 				39DA830116184487001E7F79 /* KSCrashReportSinkEMail.h in Headers */,
 				39DA830516184487001E7F79 /* KSCrashReportSinkQuincyHockey.h in Headers */,
 				39DA830916184487001E7F79 /* KSCrashReportSinkStandard.h in Headers */,
 				2122BBCF16F185120056D11C /* KSCrashReportSinkVictory.h in Headers */,
 				39DA82C416184456001E7F79 /* KSCrashReportStore.h in Headers */,
+				3CDF7DEA18CF558600B76896 /* CJSONDeserializer.h in Headers */,
 				397A7C87162266480096E287 /* KSCrashReportFields.h in Headers */,
 				39DA84F6161978D7001E7F79 /* NSDictionary+Merge.h in Headers */,
 				39DA8359161844FF001E7F79 /* ARCSafe_MemMgmt.h in Headers */,
@@ -1032,6 +1079,7 @@
 				39DA83B31618450A001E7F79 /* KSCrashC.h in Headers */,
 				39DA83B51618450A001E7F79 /* KSCrashContext.h in Headers */,
 				39DA83B91618450A001E7F79 /* KSCrashReport.h in Headers */,
+				3CDF7DEE18CF558600B76896 /* CJSONSerializer.h in Headers */,
 				39D329DC16765AD500D989DC /* KSCrashSentry_Deadlock.h in Headers */,
 				39DA83BF1618450A001E7F79 /* KSCrashSentry_MachException.h in Headers */,
 				39DA83C11618450A001E7F79 /* KSCrashSentry_NSException.h in Headers */,
@@ -1053,6 +1101,7 @@
 				39DA8391161844FF001E7F79 /* KSSysCtl.h in Headers */,
 				39DA83D31618450A001E7F79 /* KSSystemInfo.h in Headers */,
 				39DA83D71618450A001E7F79 /* KSSystemInfoC.h in Headers */,
+				3CDF7DF218CF558600B76896 /* JSONRepresentation.h in Headers */,
 				39DA832A16184492001E7F79 /* KSVarArgs.h in Headers */,
 				39DA8393161844FF001E7F79 /* KSZombie.h in Headers */,
 				39DA832C16184492001E7F79 /* NSData+GZip.h in Headers */,
@@ -1063,6 +1112,7 @@
 				CB78E8BA169C94DB00C39B02 /* KSMachApple.h in Headers */,
 				CB5A5B3B16C6650E00DC1D2D /* NSError+SimpleConstructor.h in Headers */,
 				CB5A5B4316C718C500DC1D2D /* KSCrashCallCompletion.h in Headers */,
+				3CDF7DDF18CE70CC00B76896 /* KSCrashReportSinkCustomService.h in Headers */,
 				CBE3D8E616C7A61400C4105E /* KSCrashInstallationQuincyHockey.h in Headers */,
 				CB7C753E16CD5DA200227870 /* KSCrashInstallation+Private.h in Headers */,
 				CB7C754316CD5F5F00227870 /* KSCrashInstallation.h in Headers */,
@@ -1084,18 +1134,21 @@
 				39DA82C316184456001E7F79 /* KSCrashAdvanced.h in Headers */,
 				39DA83BC1618450A001E7F79 /* KSCrashReportWriter.h in Headers */,
 				39DA82E616184487001E7F79 /* KSCrashReportFilter.h in Headers */,
+				3CDF7DFD18CF5B2F00B76896 /* KSCrashInstallationCustomService.h in Headers */,
 				39DA82EA16184487001E7F79 /* KSCrashReportFilterAlert.h in Headers */,
 				39DA82EE16184487001E7F79 /* KSCrashReportFilterAppleFmt.h in Headers */,
 				39DA82F216184487001E7F79 /* KSCrashReportFilterBasic.h in Headers */,
 				39DA82F616184487001E7F79 /* KSCrashReportFilterGZip.h in Headers */,
 				39DA82FA16184487001E7F79 /* KSCrashReportFilterJSON.h in Headers */,
 				39DA82E216184487001E7F79 /* KSCrashReportFilterSets.h in Headers */,
+				3CDF7DF518CF558600B76896 /* NSDictionary_JSONExtensions.h in Headers */,
 				39DA82FE16184487001E7F79 /* KSCrashReportSinkConsole.h in Headers */,
 				39DA830216184487001E7F79 /* KSCrashReportSinkEMail.h in Headers */,
 				39DA830616184487001E7F79 /* KSCrashReportSinkQuincyHockey.h in Headers */,
 				39DA830A16184487001E7F79 /* KSCrashReportSinkStandard.h in Headers */,
 				CB5C517A1766714A00A05F0C /* KSCrashType.h in Headers */,
 				2122BBD016F185120056D11C /* KSCrashReportSinkVictory.h in Headers */,
+				3CDF7DEB18CF558600B76896 /* CJSONDeserializer.h in Headers */,
 				39DA836C161844FF001E7F79 /* KSJSONCodecObjC.h in Headers */,
 				397A7C88162266480096E287 /* KSCrashReportFields.h in Headers */,
 				39DA835A161844FF001E7F79 /* ARCSafe_MemMgmt.h in Headers */,
@@ -1108,6 +1161,7 @@
 				39DA83BA1618450A001E7F79 /* KSCrashReport.h in Headers */,
 				39DA82C516184456001E7F79 /* KSCrashReportStore.h in Headers */,
 				39D329DD16765AD500D989DC /* KSCrashSentry_Deadlock.h in Headers */,
+				3CDF7DEF18CF558600B76896 /* CJSONSerializer.h in Headers */,
 				39DA83C01618450A001E7F79 /* KSCrashSentry_MachException.h in Headers */,
 				39DA83C21618450A001E7F79 /* KSCrashSentry_NSException.h in Headers */,
 				39DA83C61618450A001E7F79 /* KSCrashSentry_Private.h in Headers */,
@@ -1129,6 +1183,7 @@
 				39DA83D41618450A001E7F79 /* KSSystemInfo.h in Headers */,
 				39DA83D81618450A001E7F79 /* KSSystemInfoC.h in Headers */,
 				39DA832B16184492001E7F79 /* KSVarArgs.h in Headers */,
+				3CDF7DF318CF558600B76896 /* JSONRepresentation.h in Headers */,
 				39DA8394161844FF001E7F79 /* KSZombie.h in Headers */,
 				39DA832D16184492001E7F79 /* NSData+GZip.h in Headers */,
 				39DA833116184492001E7F79 /* NSMutableData+AppendUTF8.h in Headers */,
@@ -1139,6 +1194,7 @@
 				CB5A5B3D16C6650E00DC1D2D /* NSError+SimpleConstructor.h in Headers */,
 				CB5A5B4516C718C500DC1D2D /* KSCrashCallCompletion.h in Headers */,
 				CB5A5B4916C7589400DC1D2D /* NSDictionary+Merge.h in Headers */,
+				3CDF7DE118CE70D600B76896 /* KSCrashReportSinkCustomService.h in Headers */,
 				CBE3D8E716C7A61400C4105E /* KSCrashInstallationQuincyHockey.h in Headers */,
 				CB7C754016CD5DA200227870 /* KSCrashInstallation+Private.h in Headers */,
 				CB7C754516CD5F5F00227870 /* KSCrashInstallation.h in Headers */,
@@ -1404,14 +1460,17 @@
 				39DA82E716184487001E7F79 /* KSCrashReportFilter.m in Sources */,
 				39DA82EB16184487001E7F79 /* KSCrashReportFilterAlert.m in Sources */,
 				39DA82EF16184487001E7F79 /* KSCrashReportFilterAppleFmt.m in Sources */,
+				3CDF7DF618CF558600B76896 /* NSDictionary_JSONExtensions.m in Sources */,
 				39DA82F316184487001E7F79 /* KSCrashReportFilterBasic.m in Sources */,
 				39DA82F716184487001E7F79 /* KSCrashReportFilterGZip.m in Sources */,
+				3CDF7DFE18CF5B2F00B76896 /* KSCrashInstallationCustomService.m in Sources */,
 				39DA82FB16184487001E7F79 /* KSCrashReportFilterJSON.m in Sources */,
 				39DA82FF16184487001E7F79 /* KSCrashReportSinkConsole.m in Sources */,
 				39DA830316184487001E7F79 /* KSCrashReportSinkEMail.m in Sources */,
 				39DA830716184487001E7F79 /* KSCrashReportSinkQuincyHockey.m in Sources */,
 				39DA830B16184487001E7F79 /* KSCrashReportSinkStandard.m in Sources */,
 				39DA831C16184492001E7F79 /* Container+DeepSearch.m in Sources */,
+				3CDF7DF018CF558600B76896 /* CJSONSerializer.m in Sources */,
 				39DA832016184492001E7F79 /* KSHTTPMultipartPostBody.m in Sources */,
 				39DA832416184492001E7F79 /* KSHTTPRequestSender.m in Sources */,
 				39DA832816184492001E7F79 /* KSReachabilityKSCrash.m in Sources */,
@@ -1449,8 +1508,10 @@
 				CBE3D8E816C7A61400C4105E /* KSCrashInstallationQuincyHockey.m in Sources */,
 				CB7C754616CD5F5F00227870 /* KSCrashInstallation.m in Sources */,
 				CB1B377216D74F3C00FFFCEA /* KSCString.m in Sources */,
+				3CDF7DE018CE70CC00B76896 /* KSCrashReportSinkCustomService.m in Sources */,
 				CBF2D93C16DE86B00003AD7E /* KSCrashInstallationEmail.m in Sources */,
 				CBF2D94216DEDCC10003AD7E /* KSCrashInstallationStandard.m in Sources */,
+				3CDF7DEC18CF558600B76896 /* CJSONDeserializer.m in Sources */,
 				CBCED88D175E567F00BF56F0 /* KSCrashSentry_User.c in Sources */,
 				CB05EC8A176292EA0095353E /* KSCrashSentry_CPPException.mm in Sources */,
 				CB5C51881767639400A05F0C /* KSCrashType.c in Sources */,
@@ -1469,14 +1530,17 @@
 				39DA82E816184487001E7F79 /* KSCrashReportFilter.m in Sources */,
 				39DA82EC16184487001E7F79 /* KSCrashReportFilterAlert.m in Sources */,
 				39DA82F016184487001E7F79 /* KSCrashReportFilterAppleFmt.m in Sources */,
+				3CDF7DF718CF558600B76896 /* NSDictionary_JSONExtensions.m in Sources */,
 				39DA82F416184487001E7F79 /* KSCrashReportFilterBasic.m in Sources */,
 				39DA82F816184487001E7F79 /* KSCrashReportFilterGZip.m in Sources */,
+				3CDF7DFF18CF5B2F00B76896 /* KSCrashInstallationCustomService.m in Sources */,
 				39DA82FC16184487001E7F79 /* KSCrashReportFilterJSON.m in Sources */,
 				39DA830016184487001E7F79 /* KSCrashReportSinkConsole.m in Sources */,
 				39DA830416184487001E7F79 /* KSCrashReportSinkEMail.m in Sources */,
 				39DA830816184487001E7F79 /* KSCrashReportSinkQuincyHockey.m in Sources */,
 				39DA830C16184487001E7F79 /* KSCrashReportSinkStandard.m in Sources */,
 				39DA831D16184492001E7F79 /* Container+DeepSearch.m in Sources */,
+				3CDF7DF118CF558600B76896 /* CJSONSerializer.m in Sources */,
 				39DA832116184492001E7F79 /* KSHTTPMultipartPostBody.m in Sources */,
 				39DA832516184492001E7F79 /* KSHTTPRequestSender.m in Sources */,
 				39DA832916184492001E7F79 /* KSReachabilityKSCrash.m in Sources */,
@@ -1514,8 +1578,10 @@
 				CBE3D8E916C7A61400C4105E /* KSCrashInstallationQuincyHockey.m in Sources */,
 				CB7C754816CD5F5F00227870 /* KSCrashInstallation.m in Sources */,
 				CB1B377416D74F3C00FFFCEA /* KSCString.m in Sources */,
+				3CDF7DE218CE70E300B76896 /* KSCrashReportSinkCustomService.m in Sources */,
 				CBF2D93D16DE86B00003AD7E /* KSCrashInstallationEmail.m in Sources */,
 				CBF2D94316DEDCC10003AD7E /* KSCrashInstallationStandard.m in Sources */,
+				3CDF7DED18CF558600B76896 /* CJSONDeserializer.m in Sources */,
 				CBCED88F175E567F00BF56F0 /* KSCrashSentry_User.c in Sources */,
 				CB05EC8C176292EB0095353E /* KSCrashSentry_CPPException.mm in Sources */,
 				CB5C518A1767639400A05F0C /* KSCrashType.c in Sources */,
