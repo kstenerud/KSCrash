@@ -90,6 +90,7 @@ extern "C" void __cxa_throw(void* thrown_exception, std::type_info* tinfo, void 
         orig_cxa_throw = (cxa_throw_type) dlsym(RTLD_NEXT, "__cxa_throw");
     }
     orig_cxa_throw(thrown_exception, tinfo, dest);
+    __builtin_unreachable();
 }
 
 
