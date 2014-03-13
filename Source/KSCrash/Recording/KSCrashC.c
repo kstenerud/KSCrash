@@ -234,9 +234,14 @@ void kscrash_setPrintTraceToStdout(bool printTraceToStdout)
     crashContext()->config.printTraceToStdout = printTraceToStdout;
 }
 
-void kscrash_setSearchThreadQueueNames(bool shouldSearchThreadQueueNames)
+void kscrash_setSearchThreadNames(bool shouldSearchThreadNames)
 {
-    crashContext()->config.searchThreadQueueNames = shouldSearchThreadQueueNames;
+    crashContext()->config.searchThreadNames = shouldSearchThreadNames;
+}
+
+void kscrash_setSearchQueueNames(bool shouldSearchQueueNames)
+{
+    crashContext()->config.searchQueueNames = shouldSearchQueueNames;
 }
 
 void kscrash_setIntrospectMemory(bool introspectMemory)

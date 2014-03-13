@@ -105,6 +105,17 @@ typedef enum
  */
 @property(nonatomic,readwrite,assign) double deadlockWatchdogInterval;
 
+/** If YES, attempt to fetch thread names for each running thread.
+ *
+ * WARNING: There is a chance that this will deadlock on a thread_lock() call!
+ * If that happens, your crash report will be cut short.
+ *
+ * Enable at your own risk.
+ *
+ * Default: NO
+ */
+@property(nonatomic,readwrite,assign) bool searchThreadNames;
+
 /** If YES, attempt to fetch dispatch queue names for each running thread.
  *
  * WARNING: There is a chance that this will deadlock on a thread_lock() call!
@@ -114,7 +125,7 @@ typedef enum
  *
  * Default: NO
  */
-@property(nonatomic,readwrite,assign) bool searchThreadQueueNames;
+@property(nonatomic,readwrite,assign) bool searchQueueNames;
 
 /** If YES, introspect memory contents during a crash.
  * Any Objective-C objects or C strings near the stack pointer or referenced by
