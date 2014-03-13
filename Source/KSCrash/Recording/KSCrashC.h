@@ -136,11 +136,17 @@ void kscrash_setDeadlockWatchdogInterval(double deadlockWatchdogInterval);
  */
 void kscrash_setPrintTraceToStdout(bool printTraceToStdout);
 
-/** If true, search for dispatch queue names where appropriate.
- * Queue name searching is not async-safe, and so comes with the risk of
+/** If true, search for thread names where appropriate.
+ * Thread name searching is not async-safe, and so comes with the risk of
  * timing out and panicking in thread_lock().
  */
-void kscrash_setSearchThreadQueueNames(bool shouldSearchThreadQueueNames);
+void kscrash_setSearchThreadNames(bool shouldSearchThreadNames);
+
+/** If true, search for dispatch queue names where appropriate.
+* Queue name searching is not async-safe, and so comes with the risk of
+* timing out and panicking in thread_lock().
+*/
+void kscrash_setSearchQueueNames(bool shouldSearchQueueNames);
 
 /** If YES, introspect memory contents during a crash.
  * Any Objective-C objects or C strings near the stack pointer or referenced by

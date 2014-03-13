@@ -1433,7 +1433,8 @@ void kscrw_i_writeThread(const KSCrashReportWriter* const writer,
                          const thread_t thread,
                          const int index,
                          const bool writeNotableAddresses,
-                         const bool searchThreadQueueNames)
+                         const bool searchThreadNames,
+                         const bool searchQueueNames)
 {
     bool isCrashedThread = thread == crash->offendingThread;
     char nameBuffer[128];
@@ -1471,12 +1472,14 @@ void kscrw_i_writeThread(const KSCrashReportWriter* const writer,
                                    isCrashedThread);
         }
         writer->addIntegerElement(writer, KSCrashField_Index, index);
-        if(searchThreadQueueNames)
+        if(searchThreadNames)
         {
             if(ksmach_getThreadName(thread, nameBuffer, sizeof(nameBuffer)) && nameBuffer[0] != 0)
             {
                 writer->addStringElement(writer, KSCrashField_Name, nameBuffer);
             }
+        }
+        if (searchQueueNames) {
             if(ksmach_getThreadQueueName(thread, nameBuffer, sizeof(nameBuffer)) && nameBuffer[0] != 0)
             {
                 writer->addStringElement(writer,
@@ -1517,7 +1520,8 @@ void kscrw_i_writeAllThreads(const KSCrashReportWriter* const writer,
                              const char* const key,
                              const KSCrash_SentryContext* const crash,
                              bool writeNotableAddresses,
-                             bool searchThreadQueueNames)
+                             bool searchThreadNames,
+                             bool searchQueueNames)
 {
     const task_t thisTask = mach_task_self();
     thread_act_array_t threads;
@@ -1535,7 +1539,8 @@ void kscrw_i_writeAllThreads(const KSCrashReportWriter* const writer,
     {
         for(mach_msg_type_number_t i = 0; i < numThreads; i++)
         {
-            kscrw_i_writeThread(writer, NULL, crash, threads[i], (int)i, writeNotableAddresses, searchThreadQueueNames);
+            kscrw_i_writeThread(writer, NULL, crash, threads[i], (int)i, writeNotableAddresses, searchThreadNames,
+                                searchQueueNames);
         }
     }
     writer->endContainer(writer);
@@ -2100,7 +2105,7 @@ void kscrashreport_writeMinimalReport(KSCrash_Context* const crashContext,
                                 &crashContext->crash,
                                 crashContext->crash.offendingThread,
                                 kscrw_i_threadIndex(crashContext->crash.offendingThread),
-                                false, false);
+                                false, false, false);
             kscrw_i_writeError(writer, KSCrashField_Error, &crashContext->crash);
         }
         writer->endContainer(writer);
@@ -2170,7 +2175,8 @@ void kscrashreport_writeStandardReport(KSCrash_Context* const crashContext,
                                     KSCrashField_Threads,
                                     &crashContext->crash,
                                     crashContext->config.introspectionRules.enabled,
-                                    crashContext->config.searchThreadQueueNames);
+                                    crashContext->config.searchThreadNames,
+                                    crashContext->config.searchQueueNames);
             kscrw_i_writeError(writer, KSCrashField_Error, &crashContext->crash);
         }
         writer->endContainer(writer);
