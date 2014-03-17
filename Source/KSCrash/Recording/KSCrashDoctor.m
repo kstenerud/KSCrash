@@ -20,6 +20,7 @@ typedef enum
     CPUFamilyUnknown,
     CPUFamilyArm,
     CPUFamilyX86,
+    CPUFamilyX86_64
 } CPUFamily;
 
 @interface  KSCrashDoctorParam: NSObject
@@ -228,6 +229,9 @@ typedef enum
     {
         return CPUFamilyX86;
     }
+    if ([cpuArch rangeOfString:@"x86_64" options:NSCaseInsensitiveSearch].location != NSNotFound) {
+        return CPUFamilyX86_64;
+    }
     return CPUFamilyUnknown;
 }
 
@@ -261,6 +265,20 @@ typedef enum
                     return @"edx";
                 case 3:
                     return @"ecx";
+            }
+        }
+        case CPUFamilyX86_64:
+        {
+            switch(index)
+            {
+                case 0:
+                    return @"rdi";
+                case 1:
+                    return @"rsi";
+                case 2:
+                    return @"rdx";
+                case 3:
+                    return @"rcx";
             }
         }
         case CPUFamilyUnknown:
