@@ -218,9 +218,11 @@
                                 for(NSUInteger iSet = 0; iSet < filterCount; iSet++)
                                 {
                                     NSArray* reportSet = [reportSets objectAtIndex:iSet];
-                                    NSDictionary* report = [reportSet objectAtIndex:iReport];
-                                    [dict setObject:report
-                                             forKey:[keys objectAtIndex:iSet]];
+                                    if(reportSet.count>iReport){
+                                        NSDictionary* report = [reportSet objectAtIndex:iReport];
+                                        [dict setObject:report
+                                                 forKey:[keys objectAtIndex:iSet]];
+                                    }
                                 }
                                 [combinedReports addObject:dict];
                             }
