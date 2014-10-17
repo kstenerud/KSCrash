@@ -138,6 +138,19 @@
     return as_autorelease(str);
 }
 
+/** Get this application's executable path.
+ *
+ * @return Executable path.
+ */
++ (NSString*) executablePath
+{
+    NSBundle* mainBundle = [NSBundle mainBundle];
+    NSDictionary* infoDict = [mainBundle infoDictionary];
+    NSString* bundlePath = [mainBundle bundlePath];
+    NSString* executableName = infoDict[@"CFBundleExecutable"];
+    return [bundlePath stringByAppendingPathComponent:executableName];
+}
+
 /** Get this application's UUID.
  *
  * @return The UUID.
@@ -145,10 +158,9 @@
 + (NSString*) appUUID
 {
     NSString* result = nil;
-    NSBundle* mainBundle = [NSBundle mainBundle];
-    NSDictionary* infoDict = [mainBundle infoDictionary];
+    
+    NSString* exePath = [self executablePath];
 
-    NSString* exePath = [infoDict objectForKey:@"CFBundleExecutablePath"];
     if(exePath != nil)
     {
         const uint8_t* uuidBytes = ksdl_imageUUID([exePath UTF8String], true);
@@ -304,7 +316,7 @@
     [sysInfo safeSetObject:[NSNumber numberWithBool:[self isJailbroken]] forKey:@KSSystemField_Jailbroken];
     [sysInfo safeSetObject:[self dateSysctl:@"kern.boottime"] forKey:@KSSystemField_BootTime];
     [sysInfo safeSetObject:[NSDate date] forKey:@KSSystemField_AppStartTime];
-    [sysInfo safeSetObject:[infoDict objectForKey:@"CFBundleExecutablePath"] forKey:@KSSystemField_ExecutablePath];
+    [sysInfo safeSetObject:[self executablePath] forKey:@KSSystemField_ExecutablePath];
     [sysInfo safeSetObject:[infoDict objectForKey:@"CFBundleExecutable"] forKey:@KSSystemField_Executable];
     [sysInfo safeSetObject:[infoDict objectForKey:@"CFBundleIdentifier"] forKey:@KSSystemField_BundleID];
     [sysInfo safeSetObject:[infoDict objectForKey:@"CFBundleName"] forKey:@KSSystemField_BundleName];
