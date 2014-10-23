@@ -1311,15 +1311,8 @@ struct NSArray
     {
         void* isa;
         CFIndex count;
+        id firstEntry;
     } basic;
-    
-    struct
-    {
-        unsigned long flags; // Seems to always be 0x21 or 0x11
-        unsigned long dequeStartOffset; // Need to shift right by 2 since lower bits always set?
-        unsigned long mutations;
-        void* deque;
-    } mutable;
 };
 
 static inline bool nsarrayIsMutable(const void* const arrayPtr)
@@ -1334,30 +1327,7 @@ static inline bool nsarrayIsValid(const void* const arrayPtr)
     {
         return false;
     }
-    if(nsarrayIsMutable(arrayPtr))
-    {
-        if(ksmach_copyMem(arrayPtr, &temp, sizeof(temp.mutable)) != KERN_SUCCESS)
-        {
-            return false;
-        }
-    }
     return true;
-}
-
-static inline const void* nsarrayData(const void* const arrayPtr)
-{
-    const struct NSArray* array = arrayPtr;
-    uintptr_t entriesPtr;
-    if(nsarrayIsMutable(arrayPtr))
-    {
-        entriesPtr = ((uintptr_t)array->mutable.deque) + array->mutable.dequeStartOffset;
-    }
-    else
-    {
-        entriesPtr = ((uintptr_t)array) + sizeof(array->basic);
-    }
-    entriesPtr &= ~WORD_MASK;
-    return (void*)entriesPtr;
 }
 
 static inline size_t nsarrayCount(const void* const arrayPtr)
@@ -1378,9 +1348,13 @@ static size_t nsarrayContents(const void* const arrayPtr, uintptr_t* contents, s
         }
         count = (size_t)array->basic.count;
     }
+    // TODO: implement this (requires bit-field unpacking) in ksobj_ivarValue
+    if(nsarrayIsMutable(arrayPtr))
+    {
+        return 0;
+    }
     
-    const void* firstEntry = nsarrayData(array);
-    if(ksmach_copyMem(firstEntry, contents, sizeof(*contents) * count) != KERN_SUCCESS)
+    if(ksmach_copyMem(&array->basic.firstEntry, contents, sizeof(*contents) * count) != KERN_SUCCESS)
     {
         return 0;
     }
