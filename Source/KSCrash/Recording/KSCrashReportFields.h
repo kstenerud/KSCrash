@@ -116,6 +116,7 @@
 #define KSCrashField_CPUSubType            "cpu_subtype"
 #define KSCrashField_CPUType               "cpu_type"
 #define KSCrashField_ImageAddress          "image_addr"
+#define KSCrashField_ImageVmAddress        "image_vmaddr"
 #define KSCrashField_ImageSize             "image_size"
 
 
