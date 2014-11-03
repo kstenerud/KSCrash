@@ -36,6 +36,7 @@
 
 
 #define kQuincyDefaultKeyUserID @"user_id"
+#define kQuincyDefaultKeyUserName @"user_name"
 #define kQuincyDefaultKeyContactEmail @"contact_email"
 #define kQuincyDefaultKeyDescription @"crash_description"
 #define kQuincyDefaultKeysExtraDescription [NSArray arrayWithObjects:@"/" @KSCrashField_System, @"/" @KSCrashField_User, nil]
@@ -44,6 +45,7 @@
 @implementation KSCrashInstallationBaseQuincyHockey
 
 IMPLEMENT_REPORT_PROPERTY(userID, UserID, NSString*);
+IMPLEMENT_REPORT_PROPERTY(userName, UserName, NSString*);
 IMPLEMENT_REPORT_PROPERTY(contactEmail, ContactEmail, NSString*);
 IMPLEMENT_REPORT_PROPERTY(crashDescription, CrashDescription, NSString*);
 
@@ -55,6 +57,7 @@ IMPLEMENT_REPORT_PROPERTY(crashDescription, CrashDescription, NSString*);
     if((self = [super initWithRequiredProperties:requiredProperties]))
     {
         self.userIDKey = kQuincyDefaultKeyUserID;
+        self.userNameKey = kQuincyDefaultKeyUserName;
         self.contactEmailKey = kQuincyDefaultKeyContactEmail;
         self.crashDescriptionKey = kQuincyDefaultKeyDescription;
         self.extraDescriptionKeys = kQuincyDefaultKeysExtraDescription;
@@ -67,6 +70,8 @@ IMPLEMENT_REPORT_PROPERTY(crashDescription, CrashDescription, NSString*);
 {
     as_release(_userID);
     as_release(_userIDKey);
+    as_release(_userName);
+    as_release(_userNameKey);
     as_release(_contactEmail);
     as_release(_contactEmailKey);
     as_release(_crashDescription);
@@ -118,6 +123,7 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrashInstallationQuincy)
 {
     KSCrashReportSinkQuincy* sink = [KSCrashReportSinkQuincy sinkWithURL:self.url
                                                                userIDKey:[self makeKeyPath:self.userIDKey]
+                                                             userNameKey:[self makeKeyPath:self.userNameKey]
                                                          contactEmailKey:[self makeKeyPath:self.contactEmailKey]
                                                     crashDescriptionKeys:[self makeKeyPaths:[self allCrashDescriptionKeys]]];
     sink.waitUntilReachable = self.waitUntilReachable;
@@ -153,6 +159,7 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrashInstallationHockey)
 {
     KSCrashReportSinkHockey* sink = [KSCrashReportSinkHockey sinkWithAppIdentifier:self.appIdentifier
                                                                          userIDKey:[self makeKeyPath:self.userIDKey]
+                                                                       userNameKey:[self makeKeyPath:self.userNameKey]
                                                                    contactEmailKey:[self makeKeyPath:self.contactEmailKey]
                                                               crashDescriptionKeys:[self makeKeyPaths:[self allCrashDescriptionKeys]]];
     sink.waitUntilReachable = self.waitUntilReachable;

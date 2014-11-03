@@ -225,6 +225,7 @@
     [self sendReportsWithMessage:@"Sending reports to Quincy..."
                             sink:[[KSCrashReportSinkQuincy sinkWithURL:kQuincyReportURL
                                                              userIDKey:nil
+                                                           userNameKey:nil
                                                        contactEmailKey:nil
                                                   crashDescriptionKeys:nil] defaultCrashReportFilterSet]
                       completion:completion];
@@ -235,6 +236,7 @@
     [self sendReportsWithMessage:@"Sending reports to Hockey..."
                             sink:[[KSCrashReportSinkHockey sinkWithAppIdentifier:kHockeyAppID
                                                                        userIDKey:nil
+                                                                     userNameKey:nil
                                                                  contactEmailKey:nil
                                                             crashDescriptionKeys:nil] defaultCrashReportFilterSet]
                       completion:completion];
