@@ -38,6 +38,8 @@
 #import "KSReachabilityKSCrash.h"
 #import "Container+DeepSearch.h"
 #import "NSError+SimpleConstructor.h"
+#import <mach/machine.h>
+#import "KSSystemInfo.h"
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -45,11 +47,13 @@
 
 #define kFilterKeyStandard @"standard"
 #define kFilterKeyApple @"apple"
+#define kQuincyUUIDUserDefault @"QuincyKitAppInstallationUUID"
 
 
 @interface KSCrashReportSinkQuincy ()
 
 @property(nonatomic, readwrite, retain) NSString* userIDKey;
+@property(nonatomic, readwrite, retain) NSString* userNameKey;
 @property(nonatomic, readwrite, retain) NSString* contactEmailKey;
 @property(nonatomic, readwrite, retain) NSArray* crashDescriptionKeys;
 @property(nonatomic,readwrite,retain) NSURL* url;
@@ -62,6 +66,7 @@
 
 @synthesize url = _url;
 @synthesize userIDKey = _userIDKey;
+@synthesize userNameKey = _userNameKey;
 @synthesize contactEmailKey = _contactEmailKey;
 @synthesize crashDescriptionKeys = _crashDescriptionKeys;
 @synthesize reachableOperation = _reachableOperation;
@@ -69,17 +74,20 @@
 
 + (KSCrashReportSinkQuincy*) sinkWithURL:(NSURL*) url
                                userIDKey:(NSString*) userIDKey
+                             userNameKey:(NSString*) userNameKey
                          contactEmailKey:(NSString*) contactEmailKey
                     crashDescriptionKeys:(NSArray*) crashDescriptionKeys
 {
     return as_autorelease([[self alloc] initWithURL:url
                                           userIDKey:userIDKey
+                                        userNameKey:userNameKey
                                     contactEmailKey:contactEmailKey
                                crashDescriptionKeys:crashDescriptionKeys]);
 }
 
 - (id) initWithURL:(NSURL*) url
          userIDKey:(NSString*) userIDKey
+       userNameKey:(NSString*) userNameKey
    contactEmailKey:(NSString*) contactEmailKey
 crashDescriptionKeys:(NSArray*) crashDescriptionKeys
 {
@@ -87,6 +95,7 @@ crashDescriptionKeys:(NSArray*) crashDescriptionKeys
     {
         self.url = url;
         self.userIDKey = userIDKey;
+        self.userNameKey = userNameKey;
         self.contactEmailKey = contactEmailKey;
         self.crashDescriptionKeys = crashDescriptionKeys;
         self.waitUntilReachable = YES;
@@ -175,37 +184,185 @@ crashDescriptionKeys:(NSArray*) crashDescriptionKeys
     return str;
 }
 
+- (NSString*) quincyInstallUUID
+{
+    static NSString *installUUID = nil;
+    static dispatch_once_t predicate;
+    
+    dispatch_once(&predicate,
+    ^{
+        NSString *priorValue = [[NSUserDefaults standardUserDefaults] stringForKey:kQuincyUUIDUserDefault];
+        if (priorValue)
+        {
+            installUUID = priorValue;
+        }
+        else
+        {
+            CFUUIDRef uuidObj = CFUUIDCreate(NULL);
+            installUUID = (NSString*) CFBridgingRelease(CFUUIDCreateString(NULL, uuidObj));
+            CFRelease(uuidObj);
+            [[NSUserDefaults standardUserDefaults] setObject:installUUID forKey:kQuincyUUIDUserDefault];
+            [[NSUserDefaults standardUserDefaults] synchronize];
+        }
+    });
+    
+    return installUUID;
+}
+
+- (NSString*) quincyArchFromCpuType:(cpu_type_t)cpuType cpuSubType:(cpu_subtype_t)cpuSubType
+{
+    NSString *arch = @"???";
+    
+    switch (cpuType)
+    {
+        case CPU_TYPE_ARM:
+            switch (cpuSubType)
+            {
+                case CPU_SUBTYPE_ARM_V6:
+                    arch = @"armv6";
+                    break;
+                    
+                case CPU_SUBTYPE_ARM_V7:
+                    arch = @"armv7";
+                    break;
+                    
+                case CPU_SUBTYPE_ARM_V7S:
+                    arch = @"armv7s";
+                    break;
+                    
+                default:
+                    arch = @"arm-unknown";
+                    break;
+            }
+            break;
+            
+        case CPU_TYPE_ARM64:
+            switch (cpuSubType)
+            {
+                case CPU_SUBTYPE_ARM_ALL:
+                    arch = @"arm64";
+                    break;
+                    
+                case CPU_SUBTYPE_ARM_V8:
+                    arch = @"arm64";
+                    break;
+                    
+                default:
+                    arch = @"arm64-unknown";
+                    break;
+            }
+            break;
+            
+        case CPU_TYPE_X86:
+            arch = @"i386";
+            break;
+            
+        case CPU_TYPE_X86_64:
+            arch = @"x86_64";
+            break;
+            
+        case CPU_TYPE_POWERPC:
+            arch = @"powerpc";
+            break;
+    }
+    
+    return arch;
+}
+
+- (NSString*) uuidsFromReport:(NSDictionary*) standardReport
+{
+    NSMutableString* uuidString = [NSMutableString string];
+    NSArray* binaryImages = [standardReport objectForKey:@KSCrashField_BinaryImages];
+    if(binaryImages == nil)
+    {
+        return @"";
+    }
+    
+    NSDictionary* systemInfo = [standardReport objectForKey:@KSCrashField_System];
+    NSString* processPath = [systemInfo objectForKey:@KSSystemField_ExecutablePath];
+    NSString* appContainerPath = [[processPath stringByDeletingLastPathComponent] stringByDeletingLastPathComponent];
+    
+    for(NSDictionary* image in binaryImages)
+    {
+        NSString* imagePath = [[image objectForKey:@KSCrashField_Name] stringByStandardizingPath];
+        NSString* imageType;
+        if([imagePath isEqualToString:processPath])
+        {
+            imageType = @"app";
+        }
+        else if([imagePath hasPrefix:appContainerPath])
+        {
+            imageType = @"framework";
+        }
+        else
+        {
+            // Only include the UUID information for the app binary or frameworks contained in
+            // the app.
+            continue;
+        }
+        
+        NSString* uuid = [image objectForKey:@KSCrashField_UUID];
+        if(uuid == nil)
+        {
+            uuid = @"???";
+        }
+        else
+        {
+            uuid = [[uuid lowercaseString] stringByReplacingOccurrencesOfString:@"-" withString:@""];
+        }
+        cpu_type_t cpuType = [[image objectForKey:@KSCrashField_CPUType] intValue];
+        cpu_subtype_t cpuSubType = [[image objectForKey:@KSCrashField_CPUSubType] intValue];
+        NSString* arch = [self quincyArchFromCpuType:cpuType cpuSubType:cpuSubType];
+        [uuidString appendFormat:@"<uuid type=\"%@\" arch=\"%@\">%@</uuid>", imageType, arch, uuid];
+    }
+    
+    return uuidString;
+}
+
 - (NSString*) toQuincyFormat:(NSDictionary*) reportTuple
 {
     NSDictionary* report = [reportTuple objectForKey:kFilterKeyStandard];
     NSString* appleReport = [reportTuple objectForKey:kFilterKeyApple];
     NSDictionary* systemDict = [report objectForKey:@KSCrashField_System];
     NSString* userID = self.userIDKey == nil ? nil : [self blankForNil:[report objectForKeyPath:self.userIDKey]];
+    NSString* userName = self.userNameKey == nil ? nil : [self blankForNil:[report objectForKeyPath:self.userNameKey]];
     NSString* contactEmail = self.contactEmailKey == nil ? nil : [self blankForNil:[report objectForKeyPath:self.contactEmailKey]];
     NSString* crashReportDescription = [self.crashDescriptionKeys count] == 0 ? nil : [self descriptionForReport:report keys:self.crashDescriptionKeys];
+    NSString* uuids = [self uuidsFromReport:report];
+    NSDictionary* reportInfo = [report objectForKey:@KSCrashField_Report];
     
     NSString* result = [NSString stringWithFormat:
                         @"\n    <crash>\n"
                         @"        <applicationname>%@</applicationname>\n"
+                        @"        <uuids>\n"
+                        @"          %@\n"
+                        @"        </uuids>\n"
                         @"        <bundleidentifier>%@</bundleidentifier>\n"
                         @"        <systemversion>%@</systemversion>\n"
                         @"        <platform>%@</platform>\n"
                         @"        <senderversion>%@</senderversion>\n"
                         @"        <version>%@</version>\n"
+                        @"        <uuid>%@</uuid>\n"
                         @"        <log><![CDATA[%@]]></log>\n"
                         @"        <userid>%@</userid>\n"
+                        @"        <username>%@</username>\n"
                         @"        <contact>%@</contact>\n"
+                        @"        <installstring>%@</installstring>\n"
                         @"        <description><![CDATA[%@]]></description>\n"
                         @"    </crash>",
                         [systemDict objectForKey:@"CFBundleExecutable"],
+                        uuids,
                         [systemDict objectForKey:@"CFBundleIdentifier"],
                         [systemDict objectForKey:@"system_version"],
                         [systemDict objectForKey:@"machine"],
                         [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleVersion"],
                         [systemDict objectForKey:@"CFBundleVersion"],
+                        [reportInfo objectForKey:@KSCrashField_ID],
                         [self cdataEscaped:appleReport],
                         userID,
+                        userName,
                         contactEmail,
+                        [self quincyInstallUUID],
                         [self cdataEscaped:crashReportDescription]];
     return result;
 }
@@ -325,22 +482,26 @@ crashDescriptionKeys:(NSArray*) crashDescriptionKeys
 
 + (KSCrashReportSinkHockey*) sinkWithAppIdentifier:(NSString*) appIdentifier
                                          userIDKey:(NSString*) userIDKey
+                                       userNameKey:(NSString*) userNameKey
                                    contactEmailKey:(NSString*) contactEmailKey
                               crashDescriptionKeys:(NSArray*) crashDescriptionKeys
 {
     return as_autorelease([[self alloc] initWithAppIdentifier:appIdentifier
                                                     userIDKey:userIDKey
+                                                  userNameKey:userNameKey
                                               contactEmailKey:contactEmailKey
                                          crashDescriptionKeys:crashDescriptionKeys]);
 }
 
 - (id) initWithAppIdentifier:(NSString*) appIdentifier
                    userIDKey:(NSString*) userIDKey
+                 userNameKey:(NSString*) userNameKey
              contactEmailKey:(NSString*) contactEmailKey
         crashDescriptionKeys:(NSArray*) crashDescriptionKeys
 {
     if((self = [super initWithURL:[self urlWithAppIdentifier:appIdentifier]
                         userIDKey:userIDKey
+                      userNameKey:userNameKey
                   contactEmailKey:contactEmailKey
              crashDescriptionKeys:crashDescriptionKeys]))
     {
@@ -378,7 +539,7 @@ crashDescriptionKeys:(NSArray*) crashDescriptionKeys
 
 - (NSURL*) urlWithAppIdentifier:(NSString*) appIdentifier
 {
-    NSString* urlString = [NSString stringWithFormat:@"https://rink.hockeyapp.net/api/2/apps/%@/crashes",
+    NSString* urlString = [NSString stringWithFormat:@"https://sdk.hockeyapp.net/api/2/apps/%@/crashes",
                            [self urlEscaped:appIdentifier]];
     return [NSURL URLWithString:urlString];
 }

@@ -244,7 +244,7 @@ NSDictionary* g_registerOrders;
             return @"arm64";
 #endif
         case CPU_TYPE_X86:
-            return @"x86";
+            return @"i386";
         case CPU_TYPE_X86_64:
             return @"x86_64";
     }
