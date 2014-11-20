@@ -633,12 +633,13 @@ void kscrw_i_logBacktraceEntry(const int entryNum,
  * @param backtraceLength The length of the backtrace.
  */
 void kscrw_i_logBacktrace(const uintptr_t* const backtrace,
-                          const int backtraceLength)
+                          const int backtraceLength,
+                          const int skippedEntries)
 {
     if(backtraceLength > 0)
     {
         Dl_info symbolicated[backtraceLength];
-        ksbt_symbolicate(backtrace, symbolicated, backtraceLength);
+        ksbt_symbolicate(backtrace, symbolicated, backtraceLength, skippedEntries);
 
         for(int i = 0; i < backtraceLength; i++)
         {
@@ -662,16 +663,17 @@ void kscrw_i_logCrashThreadBacktrace(const KSCrash_SentryContext* const crash)
                                                                  thread,
                                                                  &concreteMachineContext);
 
+    int skippedEntries;
     uintptr_t* backtrace = kscrw_i_getBacktrace(crash,
                                                 thread,
                                                 machineContext,
                                                 concreteBacktrace,
                                                 &backtraceLength,
-                                                NULL);
+                                                &skippedEntries);
 
     if(backtrace != NULL)
     {
-        kscrw_i_logBacktrace(backtrace, backtraceLength);
+        kscrw_i_logBacktrace(backtrace, backtraceLength, skippedEntries);
     }
 }
 
@@ -1157,7 +1159,7 @@ void kscrw_i_writeBacktrace(const KSCrashReportWriter* const writer,
             if(backtraceLength > 0)
             {
                 Dl_info symbolicated[backtraceLength];
-                ksbt_symbolicate(backtrace, symbolicated, backtraceLength);
+                ksbt_symbolicate(backtrace, symbolicated, backtraceLength, skippedEntries);
 
                 for(int i = 0; i < backtraceLength; i++)
                 {
