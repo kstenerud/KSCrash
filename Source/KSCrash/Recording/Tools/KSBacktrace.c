@@ -31,12 +31,29 @@
 #include "KSDynamicLinker.h"
 #include "KSMach.h"
 
-
-/** Remove any pointer tagging in a frame address.
- * Frames are always aligned to double the default pointer size (8 bytes for
- * 32 bit architectures, 16 bytes for 64 bit) in the System V ABI.
+/** Remove any pointer tagging from an instruction address
+ * On armv7 the least significant bit of the pointer distinguishes
+ * between thumb mode (2-byte instructions) and normal mode (4-byte instructions).
+ * On arm64 all instructions are 4-bytes wide so the two least significant
+ * bytes should always be 0.
+ * On x86_64 and i386, instructions are variable length so all bits are
+ * signficant.
  */
-#define DETAG_FRAME_CALLER_ADDRESS(A) ((A) & ~(sizeof(uintptr_t)*2-1))
+#if defined(__arm__)
+#define DETAG_INSTRUCTION_ADDRESS(A) ((A) & ~(1))
+#elif defined(__arm64__)
+#define DETAG_INSTRUCTION_ADDRESS(A) ((A) & ~(3))
+#else
+#define DETAG_INSTRUCTION_ADDRESS(A) (A)
+#endif
+
+/** Step backwards by one instruction.
+ * The backtrace of an objective-C program is expected to contain return
+ * addresses not call instructions, as that is what can easily be read from
+ * the stack. This is not a problem except for a few cases where the return
+ * address is inside a different symbol than the call address.
+ */
+#define CALL_INSTRUCTION_FROM_RETURN_ADDRESS(A) (DETAG_INSTRUCTION_ADDRESS((A)) - 1)
 
 /** Represents an entry in a frame list.
  * This is modeled after the various i386/x64 frame walkers in the xnu source,
@@ -49,7 +66,7 @@ typedef struct KSFrameEntry
     const struct KSFrameEntry* const previous;
 
     /** The instruction address. */
-    const uintptr_t caller;
+    const uintptr_t return_address;
 } KSFrameEntry;
 
 
@@ -119,24 +136,39 @@ int ksbt_backtraceThreadState(const STRUCT_MCONTEXT_L* const machineContext,
                               const int skipEntries,
                               const int maxEntries)
 {
-    const uintptr_t instructionAddress = ksmach_instructionAddress(machineContext);
-
     if(maxEntries == 0)
     {
         return 0;
     }
 
-    int startPoint = 0;
+    int i = 0;
+
     if(skipEntries == 0)
     {
-        backtraceBuffer[0] = instructionAddress;
+        const uintptr_t instructionAddress = ksmach_instructionAddress(machineContext);
+        backtraceBuffer[i] = instructionAddress;
+        i++;
 
-        if(maxEntries == 1)
+        if(i == maxEntries)
         {
-            return 1;
+            return i;
         }
+    }
 
-        startPoint = 1;
+    if(skipEntries <= 1)
+    {
+        uintptr_t linkRegister = ksmach_linkRegister(machineContext);
+
+        if(linkRegister)
+        {
+            backtraceBuffer[i] = linkRegister;
+            i++;
+
+            if (i == maxEntries)
+            {
+                return i;
+            }
+        }
     }
 
     KSFrameEntry frame = {0};
@@ -147,7 +179,7 @@ int ksbt_backtraceThreadState(const STRUCT_MCONTEXT_L* const machineContext,
     {
         return 0;
     }
-    for(int i = 1; i < skipEntries; i++)
+    for(int j = 1; j < skipEntries; j++)
     {
         if(frame.previous == 0 ||
            ksmach_copyMem(frame.previous, &frame, sizeof(frame)) != KERN_SUCCESS)
@@ -156,10 +188,9 @@ int ksbt_backtraceThreadState(const STRUCT_MCONTEXT_L* const machineContext,
         }
     }
 
-    int i;
-    for(i = startPoint; i < maxEntries; i++)
+    for(; i < maxEntries; i++)
     {
-        backtraceBuffer[i] = DETAG_FRAME_CALLER_ADDRESS(frame.caller);
+        backtraceBuffer[i] = frame.return_address;
         if(backtraceBuffer[i] == 0 ||
            frame.previous == 0 ||
            ksmach_copyMem(frame.previous, &frame, sizeof(frame)) != KERN_SUCCESS)
@@ -210,10 +241,19 @@ int ksbt_backtraceSelf(uintptr_t* const backtraceBuffer,
 
 void ksbt_symbolicate(const uintptr_t* const backtraceBuffer,
                       Dl_info* const symbolsBuffer,
-                      const int numEntries)
+                      const int numEntries,
+                      const int skippedEntries)
 {
-    for(int i = 0; i < numEntries; i++)
+    int i = 0;
+
+    if(!skippedEntries && i < numEntries)
     {
         ksdl_dladdr(backtraceBuffer[i], &symbolsBuffer[i]);
+        i++;
+    }
+
+    for(; i < numEntries; i++)
+    {
+        ksdl_dladdr(CALL_INSTRUCTION_FROM_RETURN_ADDRESS(backtraceBuffer[i]), &symbolsBuffer[i]);
     }
 }
