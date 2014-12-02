@@ -142,6 +142,15 @@ uintptr_t ksmach_stackPointer(const STRUCT_MCONTEXT_L* machineContext);
  */
 uintptr_t ksmach_instructionAddress(const STRUCT_MCONTEXT_L* machineContext);
 
+/** Get the address stored in the link register (arm only). This may
+ * contain the first return address of the stack.
+ *
+ * @param machineContext The machine context.
+ *
+ * @return The link register value.
+ */
+uintptr_t ksmach_linkRegister(const STRUCT_MCONTEXT_L* machineContext);
+
 /** Get the address whose access caused the last fault.
  *
  * @param machineContext The machine context.

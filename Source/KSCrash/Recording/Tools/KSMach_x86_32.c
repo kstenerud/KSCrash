@@ -69,6 +69,11 @@ uintptr_t ksmach_instructionAddress(const STRUCT_MCONTEXT_L* const machineContex
     return machineContext->__ss.__eip;
 }
 
+uintptr_t ksmach_linkRegister(const STRUCT_MCONTEXT_L* const machineContext)
+{
+    return 0;
+}
+
 bool ksmach_threadState(const thread_t thread,
                         STRUCT_MCONTEXT_L* const machineContext)
 {

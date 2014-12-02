@@ -774,14 +774,8 @@
     XCTAssertEqual(count, expectedCount, @"");
     uintptr_t contents[10];
     size_t copied = ksobjc_arrayContents(arrayPtr, contents, sizeof(contents));
-    XCTAssertEqual(copied, count, @"");
-    for(size_t i = 0; i < count; i++)
-    {
-        bool isValid = ksobjc_objectType((void*)contents[i]) == KSObjCTypeObject;
-        XCTAssertTrue(isValid, @"Object %zu is not an object", i);
-        isValid = ksobjc_isValidObject((void*)contents[i]);
-        XCTAssertTrue(isValid, @"Object %zu is invalid", i);
-    }
+    size_t expectedCopied = 0;
+    XCTAssertEqual(copied, expectedCopied, @"");
 }
 
 - (void) testCopyArrayContentsMutableEmpty

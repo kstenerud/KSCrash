@@ -44,11 +44,13 @@
 
 + (KSCrashReportSinkQuincy*) sinkWithURL:(NSURL*) url
                                userIDKey:(NSString*) userIDKey
+                             userNameKey:(NSString*) userNameKey
                          contactEmailKey:(NSString*) contactEmailKey
                     crashDescriptionKeys:(NSArray*) crashDescriptionKeys;
 
 - (id) initWithURL:(NSURL*) url
          userIDKey:(NSString*) userIDKey
+       userNameKey:(NSString*) userNameKey
    contactEmailKey:(NSString*) contactEmailKey
 crashDescriptionKeys:(NSArray*) crashDescriptionKeys;
 
@@ -66,11 +68,13 @@ crashDescriptionKeys:(NSArray*) crashDescriptionKeys;
 
 + (KSCrashReportSinkHockey*) sinkWithAppIdentifier:(NSString*) appIdentifier
                                          userIDKey:(NSString*) userIDKey
+                                       userNameKey:(NSString*) userNameKey
                                    contactEmailKey:(NSString*) contactEmailKey
                               crashDescriptionKeys:(NSArray*) crashDescriptionKeys;
 
 - (id) initWithAppIdentifier:(NSString*) appIdentifier
                    userIDKey:(NSString*) userIDKey
+                 userNameKey:(NSString*) userNameKey
              contactEmailKey:(NSString*) contactEmailKey
         crashDescriptionKeys:(NSArray*) crashDescriptionKeys;
 

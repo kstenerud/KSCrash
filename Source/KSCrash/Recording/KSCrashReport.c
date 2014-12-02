@@ -633,12 +633,13 @@ void kscrw_i_logBacktraceEntry(const int entryNum,
  * @param backtraceLength The length of the backtrace.
  */
 void kscrw_i_logBacktrace(const uintptr_t* const backtrace,
-                          const int backtraceLength)
+                          const int backtraceLength,
+                          const int skippedEntries)
 {
     if(backtraceLength > 0)
     {
         Dl_info symbolicated[backtraceLength];
-        ksbt_symbolicate(backtrace, symbolicated, backtraceLength);
+        ksbt_symbolicate(backtrace, symbolicated, backtraceLength, skippedEntries);
 
         for(int i = 0; i < backtraceLength; i++)
         {
@@ -662,16 +663,17 @@ void kscrw_i_logCrashThreadBacktrace(const KSCrash_SentryContext* const crash)
                                                                  thread,
                                                                  &concreteMachineContext);
 
+    int skippedEntries;
     uintptr_t* backtrace = kscrw_i_getBacktrace(crash,
                                                 thread,
                                                 machineContext,
                                                 concreteBacktrace,
                                                 &backtraceLength,
-                                                NULL);
+                                                &skippedEntries);
 
     if(backtrace != NULL)
     {
-        kscrw_i_logBacktrace(backtrace, backtraceLength);
+        kscrw_i_logBacktrace(backtrace, backtraceLength, skippedEntries);
     }
 }
 
@@ -1157,7 +1159,7 @@ void kscrw_i_writeBacktrace(const KSCrashReportWriter* const writer,
             if(backtraceLength > 0)
             {
                 Dl_info symbolicated[backtraceLength];
-                ksbt_symbolicate(backtrace, symbolicated, backtraceLength);
+                ksbt_symbolicate(backtrace, symbolicated, backtraceLength, skippedEntries);
 
                 for(int i = 0; i < backtraceLength; i++)
                 {
@@ -1621,6 +1623,7 @@ void kscrw_i_writeBinaryImage(const KSCrashReportWriter* const writer,
     // Look for the TEXT segment to get the image size.
     // Also look for a UUID command.
     uint64_t imageSize = 0;
+    uint64_t imageVmAddr = 0;
     uint8_t* uuid = NULL;
 
     for(uint32_t iCmd = 0; iCmd < header->ncmds; iCmd++)
@@ -1634,6 +1637,7 @@ void kscrw_i_writeBinaryImage(const KSCrashReportWriter* const writer,
                 if(strcmp(segCmd->segname, SEG_TEXT) == 0)
                 {
                     imageSize = segCmd->vmsize;
+                    imageVmAddr = segCmd->vmaddr;
                 }
                 break;
             }
@@ -1643,6 +1647,7 @@ void kscrw_i_writeBinaryImage(const KSCrashReportWriter* const writer,
                 if(strcmp(segCmd->segname, SEG_TEXT) == 0)
                 {
                     imageSize = segCmd->vmsize;
+                    imageVmAddr = segCmd->vmaddr;
                 }
                 break;
             }
@@ -1659,6 +1664,7 @@ void kscrw_i_writeBinaryImage(const KSCrashReportWriter* const writer,
     writer->beginObject(writer, key);
     {
         writer->addUIntegerElement(writer, KSCrashField_ImageAddress, (uintptr_t)header);
+        writer->addUIntegerElement(writer, KSCrashField_ImageVmAddress, imageVmAddr);
         writer->addUIntegerElement(writer, KSCrashField_ImageSize, imageSize);
         writer->addStringElement(writer, KSCrashField_Name, _dyld_get_image_name(index));
         writer->addUUIDElement(writer, KSCrashField_UUID, uuid);

@@ -57,4 +57,22 @@
     }
 }
 
+- (void) testExecutablePathIsNotNull
+{
+    NSDictionary* info = [KSSystemInfo systemInfo];
+    id executablePath = info[@KSSystemField_ExecutablePath];
+    XCTAssertNotEqual(executablePath, [NSNull null]);
+}
+
+- (void) testExecutablePathIsValid
+{
+    NSDictionary* info = [KSSystemInfo systemInfo];
+    NSString* executablePath = info[@KSSystemField_ExecutablePath];
+    NSDictionary* infoDictionary = [[NSBundle mainBundle] infoDictionary];
+    NSString* executableName = infoDictionary[@"CFBundleExecutable"];
+    NSString* bundlePath = [[NSBundle mainBundle] bundlePath];
+    NSString* expectedExecutablePath = [bundlePath stringByAppendingPathComponent:executableName];
+    XCTAssertEqualObjects(executablePath, expectedExecutablePath);
+}
+
 @end

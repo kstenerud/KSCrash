@@ -71,6 +71,7 @@
 // The values of these properties will be written to the next crash report.
 
 @property(nonatomic,readwrite,retain) NSString* userID;
+@property(nonatomic,readwrite,retain) NSString* userName;
 @property(nonatomic,readwrite,retain) NSString* contactEmail;
 @property(nonatomic,readwrite,retain) NSString* crashDescription;
 
@@ -83,6 +84,7 @@
 // following keys.
 
 @property(nonatomic,readwrite,retain) NSString* userIDKey;
+@property(nonatomic,readwrite,retain) NSString* userNameKey;
 @property(nonatomic,readwrite,retain) NSString* contactEmailKey;
 @property(nonatomic,readwrite,retain) NSString* crashDescriptionKey;
 
