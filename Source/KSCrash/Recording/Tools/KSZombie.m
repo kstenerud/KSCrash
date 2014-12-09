@@ -101,7 +101,10 @@ static struct
     uintptr_t callStack[50];
     NSUInteger callStackLength;
 } g_lastDeallocedException;
+
+#ifdef __IPHONE_OS_VERSION_MAX_ALLOWED
 static const NSUInteger g_callStackSize = sizeof(g_lastDeallocedException.callStack) / sizeof(*g_lastDeallocedException.callStack);
+#endif
 
 static inline size_t hashIndex(const id object)
 {
