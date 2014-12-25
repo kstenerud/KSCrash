@@ -59,19 +59,19 @@ of a lot more that they COULD do. Here are some key features of KSCrash:
 That's right! Normally if your app terminates due to an uncaught C++ exception,
 all you get is this:
 
-    Thread 0 name:  Dispatch queue: com.apple.main-thread
-    Thread 0 Crashed:
-    0   libsystem_kernel.dylib          0x9750ea6a 0x974fa000 + 84586 (__pthread_kill + 10)
-    1   libsystem_sim_c.dylib           0x04d56578 0x4d0f000 + 292216 (abort + 137)
-    2   libc++abi.dylib                 0x04ed6f78 0x4ed4000 + 12152 (abort_message + 102)
-    3   libc++abi.dylib                 0x04ed4a20 0x4ed4000 + 2592 (_ZL17default_terminatev + 29)
-    4   libobjc.A.dylib                 0x013110d0 0x130b000 + 24784 (_ZL15_objc_terminatev + 109)
-    5   libc++abi.dylib                 0x04ed4a60 0x4ed4000 + 2656 (_ZL19safe_handler_callerPFvvE + 8)
-    6   libc++abi.dylib                 0x04ed4ac8 0x4ed4000 + 2760 (_ZSt9terminatev + 18)
-    7   libc++abi.dylib                 0x04ed5c48 0x4ed4000 + 7240 (__cxa_rethrow + 77)
-    8   libobjc.A.dylib                 0x01310fb8 0x130b000 + 24504 (objc_exception_rethrow + 42)
-    9   CoreFoundation                  0x01f2af98 0x1ef9000 + 204696 (CFRunLoopRunSpecific + 360)
-    ...
+	Thread 0 name:  Dispatch queue: com.apple.main-thread
+	Thread 0 Crashed:
+	0   libsystem_kernel.dylib          0x9750ea6a 0x974fa000 + 84586 (__pthread_kill + 10)
+	1   libsystem_sim_c.dylib           0x04d56578 0x4d0f000 + 292216 (abort + 137)
+	2   libc++abi.dylib                 0x04ed6f78 0x4ed4000 + 12152 (abort_message + 102)
+	3   libc++abi.dylib                 0x04ed4a20 0x4ed4000 + 2592 (_ZL17default_terminatev + 29)
+	4   libobjc.A.dylib                 0x013110d0 0x130b000 + 24784 (_ZL15_objc_terminatev + 109)
+	5   libc++abi.dylib                 0x04ed4a60 0x4ed4000 + 2656 (_ZL19safe_handler_callerPFvvE + 8)
+	6   libc++abi.dylib                 0x04ed4ac8 0x4ed4000 + 2760 (_ZSt9terminatev + 18)
+	7   libc++abi.dylib                 0x04ed5c48 0x4ed4000 + 7240 (__cxa_rethrow + 77)
+	8   libobjc.A.dylib                 0x01310fb8 0x130b000 + 24504 (objc_exception_rethrow + 42)
+	9   CoreFoundation                  0x01f2af98 0x1ef9000 + 204696 (CFRunLoopRunSpecific + 360)
+	...
 
 No way to track what the exception was or where it was thrown from!
 
@@ -99,7 +99,9 @@ Now with KSCrash, you get the uncaught exception type, description, and where it
 
 If you turn on trace printing:
 
-    [KSCrash sharedInstance].printTraceToStdout = YES;
+```objective-c
+[KSCrash sharedInstance].printTraceToStdout = YES;
+```
 
 It will print a proper stack trace to stdout whenever your app throws an
 uncaught C++ exception! Otherwise the debugger will only lead you to where the
@@ -109,12 +111,13 @@ exception was rethrown.
 
 You can now report your own custom crashes and stack traces (think scripting
 languages):
-
-    - (void) reportUserException:(NSString*) name
-                          reason:(NSString*) reason
-                      lineOfCode:(NSString*) lineOfCode
-                      stackTrace:(NSArray*) stackTrace
-                terminateProgram:(BOOL) terminateProgram;
+```objective-c
+- (void) reportUserException:(NSString*) name
+                  reason:(NSString*) reason
+              lineOfCode:(NSString*) lineOfCode
+              stackTrace:(NSArray*) stackTrace
+        terminateProgram:(BOOL) terminateProgram;
+```
 
 See KSCrash.h for details.
 
@@ -173,55 +176,56 @@ How to Use KSCrash
 4. Add the following to your **[application: didFinishLaunchingWithOptions:]**
    method in your app delegate:
 
-.
 
-    #import <KSCrash/KSCrash.h>
-    // Include to use the standard reporter.
-    #import <KSCrash/KSCrashInstallationStandard.h>
-    // Include to use Quincy or Hockey.
-    #import <KSCrash/KSCrashInstallationQuincyHockey.h>
-    // Include to use the email reporter.
-    #import <KSCrash/KSCrashInstallationEmail.h>
-    // Include to use Victory.
-    #import <KSCrash/KSCrashInstallationVictory.h>
+```objective-c
+#import <KSCrash/KSCrash.h>
+// Include to use the standard reporter.
+#import <KSCrash/KSCrashInstallationStandard.h>
+// Include to use Quincy or Hockey.
+#import <KSCrash/KSCrashInstallationQuincyHockey.h>
+// Include to use the email reporter.
+#import <KSCrash/KSCrashInstallationEmail.h>
+// Include to use Victory.
+#import <KSCrash/KSCrashInstallationVictory.h>
 
-	- (BOOL)application:(UIApplication*) application didFinishLaunchingWithOptions:(NSDictionary*) launchOptions
-	{
-      KSCrashInstallationStandard* installation = [KSCrashInstallationStandard sharedInstance];
-      installation.url = [NSURL URLWithString:@"http://put.your.url.here"];
+- (BOOL)application:(UIApplication*) application didFinishLaunchingWithOptions:(NSDictionary*) launchOptions
+{
+KSCrashInstallationStandard* installation = [KSCrashInstallationStandard sharedInstance];
+installation.url = [NSURL URLWithString:@"http://put.your.url.here"];
 
-      // OR:
+// OR:
 
-      KSCrashInstallationQuincy* installation = [KSCrashInstallationQuincy sharedInstance];
-      installation.url = [NSURL URLWithString:@"http://put.your.url.here"];
+KSCrashInstallationQuincy* installation = [KSCrashInstallationQuincy sharedInstance];
+installation.url = [NSURL URLWithString:@"http://put.your.url.here"];
 
-      // OR:
+// OR:
 
-      KSCrashInstallationHockey* installation = [KSCrashInstallationHockey sharedInstance];
-      installation.appIdentifier = @"PUT_YOUR_HOCKEY_APP_ID_HERE";
+KSCrashInstallationHockey* installation = [KSCrashInstallationHockey sharedInstance];
+installation.appIdentifier = @"PUT_YOUR_HOCKEY_APP_ID_HERE";
 
-      // OR:
+// OR:
 
-      KSCrashInstallationEmail* installation = [KSCrashInstallationEmail sharedInstance];
-      installation.recipients = @[@"some@email.address"];
+KSCrashInstallationEmail* installation = [KSCrashInstallationEmail sharedInstance];
+installation.recipients = @[@"some@email.address"];
 
-      // Optional (Email): Send Apple-style reports instead of JSON
-      [installation setReportStyle:KSCrashEmailReportStyleApple useDefaultFilenameFormat:YES]; 
+// Optional (Email): Send Apple-style reports instead of JSON
+[installation setReportStyle:KSCrashEmailReportStyleApple useDefaultFilenameFormat:YES]; 
 
-      // Optional: Add an alert confirmation (recommended for email installation)
-      [installation addConditionalAlertWithTitle:@"Crash Detected"
-                                         message:@"The app crashed last time it was launched. Send a crash report?"
-                                       yesAnswer:@"Sure!"
-                                        noAnswer:@"No thanks"];
+// Optional: Add an alert confirmation (recommended for email installation)
+[installation addConditionalAlertWithTitle:@"Crash Detected"
+                                 message:@"The app crashed last time it was launched. Send a crash report?"
+                               yesAnswer:@"Sure!"
+                                noAnswer:@"No thanks"];
 
-      // OR:
+// OR:
 
-      KSCrashInstallationVictory* installation = [KSCrashInstallationVictory sharedInstance];
-      installation.url = [NSURL URLWithString:@"https://put.your.url.here/api/v1/crash/<application key>"];
+KSCrashInstallationVictory* installation = [KSCrashInstallationVictory sharedInstance];
+installation.url = [NSURL URLWithString:@"https://put.your.url.here/api/v1/crash/<application key>"];
 
-      [installation install];
-	    …
-	}
+[installation install];
+    …
+}
+```
 
 This will install the crash sentry system (which intercepts crashes and stores
 reports to disk). Note that there are other properties you can and probably
@@ -229,11 +233,12 @@ will want to set for the various installations.
 
 Once you're ready to send any outstanding crash reports, call the following:
 
-    [installation sendAllReportsWithCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error)
-     {
-         // Stuff to do when report sending is complete
-     }];
-
+```objective-c
+[installation sendAllReportsWithCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error)
+{
+ // Stuff to do when report sending is complete
+}];
+```
 
 
 Recommended Reading
