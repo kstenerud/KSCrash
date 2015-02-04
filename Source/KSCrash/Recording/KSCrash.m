@@ -110,6 +110,7 @@
 @synthesize searchQueueNames = _searchQueueNames;
 @synthesize introspectMemory = _introspectMemory;
 @synthesize doNotIntrospectClasses = _doNotIntrospectClasses;
+@synthesize suspendThreadsForUserReported = _suspendThreadsForUserReported;
 
 
 // ============================================================================
@@ -156,6 +157,7 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrash)
         self.searchThreadNames = NO;
         self.searchQueueNames = NO;
         self.introspectMemory = YES;
+        self.suspendThreadsForUserReported = YES;
     }
     return self;
 
@@ -268,6 +270,12 @@ failed:
         }
         kscrash_setDoNotIntrospectClasses(classes, count);
     }
+}
+
+- (void) setSuspendThreadsForUserReported:(bool) suspendThreadsForUserReported
+{
+    _suspendThreadsForUserReported = suspendThreadsForUserReported;
+    kscrash_setSuspendThreadsForUserReported(suspendThreadsForUserReported);
 }
 
 - (NSString*) crashReportPath

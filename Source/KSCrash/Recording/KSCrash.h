@@ -144,6 +144,13 @@ typedef enum
  */
 @property(nonatomic,readwrite,retain) NSArray* doNotIntrospectClasses;
 
+/** If YES, user reported exceptions will suspend all threads during report generation.
+ * All threads will be suspended while generating a crash report for a user
+ * reported exception.
+ *
+ * Default: YES
+ */
+@property(nonatomic,readwrite,assign) bool suspendThreadsForUserReported;
 
 /** Get the singleton instance of the crash reporter.
  */
