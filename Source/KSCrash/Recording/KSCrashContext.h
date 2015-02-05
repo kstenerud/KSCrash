@@ -89,9 +89,6 @@ typedef struct
     /** Rules for introspecting Objective-C objects. */
     KSCrash_IntrospectionRules introspectionRules;
     
-    /** If true, will suspend threads for user reported exceptions. */
-    bool suspendThreadsForUserReported;
-    
     /** Callback allowing the application the opportunity to add extra data to
      * the report file. Application MUST NOT call async-unsafe methods!
      */

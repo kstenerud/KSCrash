@@ -58,7 +58,9 @@ typedef struct KSCrash_SentryContext
 
     /** Called by the crash handler when a crash is detected. */
     void (*onCrash)(void);
-
+    
+    /** If true, will suspend threads for user reported exceptions. */
+    bool suspendThreadsForUserReported;
 
     // Implementation defined values. Caller does not initialize these.
 
