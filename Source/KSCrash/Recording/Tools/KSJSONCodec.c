@@ -1141,7 +1141,7 @@ int ksjsoncodec_i_decodeElement(const char** ptr,
             // it would be undefined to call sscanf/sttod etc. directly.
             // instead we create a temporary string.
             double value;
-            size_t len = (unsigned)(*ptr - start);
+            size_t len = (size_t)(*ptr - start);
             char * buf = malloc(len + 1);
             strncpy(buf, start, len);
             buf[len] = '\0';
