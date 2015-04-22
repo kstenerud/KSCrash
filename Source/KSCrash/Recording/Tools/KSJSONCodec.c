@@ -1137,8 +1137,19 @@ int ksjsoncodec_i_decodeElement(const char** ptr,
                 return KSJSON_ERROR_INCOMPLETE;
             }
 
+            // our buffer is not necessarily NULL-terminated, so
+            // it would be undefined to call sscanf/sttod etc. directly.
+            // instead we create a temporary string.
             double value;
-            sscanf(start, "%lg", &value);
+            size_t len = (size_t)(*ptr - start);
+            char * buf = malloc(len + 1);
+            strncpy(buf, start, len);
+            buf[len] = '\0';
+
+            sscanf(buf, "%lg", &value);
+
+            free(buf);
+
             value *= sign;
             return callbacks->onFloatingPointElement(name, value, userData);
         }

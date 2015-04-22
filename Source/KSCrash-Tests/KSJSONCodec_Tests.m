@@ -1491,4 +1491,26 @@ static NSString* toString(NSData* data)
     XCTAssertTrue([result count] == 0, @"");
 }
 
+- (void) testFloatParsingDoesntOverflow
+{
+    NSError *error = (NSError*)self;
+
+    char * buffer = malloc(0x1000000);
+    for (int i = 0; i < 0x1000000; i++) {
+        buffer[i] = ';';
+    }
+
+    memcpy(buffer, "{\"test\":1.1}", 12);
+
+    NSData *data = [NSData dataWithBytesNoCopy:buffer length:0x1000000 freeWhenDone:YES];
+
+    NSDictionary *result = [KSJSONCodec decode: data
+                                    options:0
+                                         error:&error];
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+    XCTAssertTrue([result count] == 1, @"");
+
+}
+
 @end
