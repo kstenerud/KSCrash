@@ -110,4 +110,6 @@ typedef enum
 
 - (id) initWithReportStyle:(KSAppleReportStyle) reportStyle;
 
+- (NSString*)headerStringForSystemInfo:(NSDictionary*)system reportID:(NSString*)reportID crashTime:(NSDate*)crashTime;
+
 @end
