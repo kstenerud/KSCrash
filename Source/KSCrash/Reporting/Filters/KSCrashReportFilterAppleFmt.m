@@ -399,16 +399,22 @@ NSDictionary* g_registerOrders;
 
 - (NSString*) headerStringForReport:(NSDictionary*) report
 {
-    NSMutableString* str = [NSMutableString string];
-
     NSDictionary* system = [self systemReport:report];
     NSDictionary* reportInfo = [self infoReport:report];
+    NSString *reportID = [reportInfo objectForKey:@KSCrashField_ID];
+    NSDate* crashTime = [RFC3339DateTool dateFromString:[reportInfo objectForKey:@KSCrashField_Timestamp]];
+
+    return [self headerStringForSystemInfo:system reportID:reportID crashTime:crashTime];
+}
+
+- (NSString*)headerStringForSystemInfo:(NSDictionary*)system reportID:(NSString*)reportID crashTime:(NSDate*)crashTime
+{
+    NSMutableString* str = [NSMutableString string];
     NSString* executablePath = [system objectForKey:@KSSystemField_ExecutablePath];
     NSString* cpuArch = [system objectForKey:@KSSystemField_CPUArch];
     NSString* cpuArchType = [self CPUType:cpuArch];
-    NSDate* crashTime = [RFC3339DateTool dateFromString:[reportInfo objectForKey:@KSCrashField_Timestamp]];
 
-    [str appendFormat:@"Incident Identifier: %@\n", [reportInfo objectForKey:@KSCrashField_ID]];
+    [str appendFormat:@"Incident Identifier: %@\n", reportID];
     [str appendFormat:@"CrashReporter Key:   %@\n", [system objectForKey:@KSSystemField_DeviceAppHash]];
     [str appendFormat:@"Hardware Model:      %@\n", [system objectForKey:@KSSystemField_Machine]];
     [str appendFormat:@"Process:         %@ [%@]\n",
