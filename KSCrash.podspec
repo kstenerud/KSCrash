@@ -11,9 +11,16 @@ Pod::Spec.new do |s|
   s.libraries = 'c++', 'z'
   s.xcconfig = { 'GCC_ENABLE_CPP_EXCEPTIONS' => 'YES' }
   
+  s.subspec 'no-arc' do |sp|
+    sp.source_files = 'Source/KSCrash/Recording/**/KSZombie.{h,m}'
+    sp.requires_arc = false
+  end
+
   s.subspec 'Recording' do |recording|
+    recording.dependency 'KSCrash/no-arc'
     recording.source_files   = 'Source/KSCrash/Recording/**/*.{h,m,mm,c,cpp}',
                                'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h' 
+    recording.exclude_files = 'Source/KSCrash/Recording/**/KSZombie.{h,m}'  
   end
 
   s.subspec 'Reporting' do |reporting|

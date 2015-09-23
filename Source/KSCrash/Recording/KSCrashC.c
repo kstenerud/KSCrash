@@ -139,8 +139,12 @@ KSCrashType kscrash_install(const char* const crashReportFilePath,
     g_installed = 1;
 
     ksmach_init();
-    ksobjc_init();
-
+    
+    if(context->config.introspectionRules.enabled)
+    {
+        ksobjc_init();
+    }
+    
     kscrash_reinstall(crashReportFilePath,
                       recrashReportFilePath,
                       stateFilePath,
