@@ -425,8 +425,8 @@ struct __CFBasicHashCallbacks {
 
 typedef union {
     uintptr_t neutral;
-    id strong;
-    id weak;
+    uintptr_t strong;
+    uintptr_t weak;
 } CFBasicHashValue;
 
 struct __CFBasicHash {

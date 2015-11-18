@@ -165,7 +165,7 @@ static const unsigned long dispatch_queue_key		= __PTK_LIBDISPATCH_KEY0;
     struct dispatch_object_s *volatile dq_items_tail; \
     struct dispatch_object_s *volatile dq_items_head; \
     unsigned long dq_serialnum; \
-    dispatch_queue_t dq_specific_q;
+    uintptr_t dq_specific_q;
 
 
 struct dispatch_queue_s {
