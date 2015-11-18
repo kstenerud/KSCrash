@@ -69,7 +69,7 @@ uintptr_t ksmach_instructionAddress(const STRUCT_MCONTEXT_L* const machineContex
     return machineContext->__ss.__eip;
 }
 
-uintptr_t ksmach_linkRegister(const STRUCT_MCONTEXT_L* const machineContext)
+uintptr_t ksmach_linkRegister(__unused const STRUCT_MCONTEXT_L* const machineContext)
 {
     return 0;
 }

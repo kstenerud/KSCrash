@@ -93,7 +93,7 @@ int g_crasher_denominator = 0;
 - (void) throwUncaughtNSException
 {
     id data = [NSArray arrayWithObject:@"Hello World"];
-    [(NSDictionary*)data objectForKey:0];
+    [(NSDictionary*)data objectForKey:@""];
 }
 
 - (void) dereferenceBadPointer

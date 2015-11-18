@@ -664,7 +664,7 @@ void kscrw_i_logCrashThreadBacktrace(const KSCrash_SentryContext* const crash)
                                                                  thread,
                                                                  &concreteMachineContext);
 
-    int skippedEntries;
+    int skippedEntries = 0;
     uintptr_t* backtrace = kscrw_i_getBacktrace(crash,
                                                 thread,
                                                 machineContext,

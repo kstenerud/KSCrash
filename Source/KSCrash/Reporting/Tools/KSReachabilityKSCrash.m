@@ -116,50 +116,65 @@ static void onReachabilityChanged(SCNetworkReachabilityRef target,
 {
     if((self = [super init]))
     {
-        if(reachabilityRef != NULL)
+        if(reachabilityRef == NULL)
         {
-            self.reachabilityRef = reachabilityRef;
-            
-            SCNetworkReachabilityContext context =
-            {
-                0,
-                (as_bridge void*)self,
-                NULL,
-                NULL,
-                NULL
-            };
-            if(SCNetworkReachabilitySetCallback(self.reachabilityRef,
-                                                onReachabilityChanged,
-                                                &context))
-            {
-                if(SCNetworkReachabilityScheduleWithRunLoop(self.reachabilityRef,
-                                                            CFRunLoopGetCurrent(),
-                                                            kCFRunLoopDefaultMode))
-                {
-                    dispatch_async(dispatch_get_global_queue(0,0), ^
-                                   {
-                                       as_autoreleasepool_start(pool);
-                                       
-                                       SCNetworkReachabilityFlags flags;
-                                       if(SCNetworkReachabilityGetFlags(self.reachabilityRef, &flags))
-                                       {
-                                           dispatch_async(dispatch_get_main_queue(), ^
-                                                          {
-                                                              as_autoreleasepool_start(pool2);
-                                                              
-                                                              [self onReachabilityFlagsChanged:flags];
-                                                              
-                                                              as_autoreleasepool_end(pool2);
-                                                          });
-                                       }
-                                       
-                                       as_autoreleasepool_end(pool);
-                                   });
-                    return self;
-                }
-            }
+            goto failed;
         }
+
+        SCNetworkReachabilityContext context =
+        {
+            0,
+            (as_bridge void*)self,
+            NULL,
+            NULL,
+            NULL
+        };
+
+        if(!SCNetworkReachabilitySetCallback(reachabilityRef,
+                                             onReachabilityChanged,
+                                             &context))
+        {
+            goto failed;
+        }
+
+        if(!SCNetworkReachabilityScheduleWithRunLoop(reachabilityRef,
+                                                     CFRunLoopGetCurrent(),
+                                                     kCFRunLoopDefaultMode))
+        {
+            goto failed;
+        }
+
+        dispatch_async(dispatch_get_global_queue(0,0), ^
+                       {
+                           as_autoreleasepool_start(pool);
+                           
+                           SCNetworkReachabilityFlags flags;
+                           if(SCNetworkReachabilityGetFlags(self.reachabilityRef, &flags))
+                           {
+                               dispatch_async(dispatch_get_main_queue(), ^
+                                              {
+                                                  as_autoreleasepool_start(pool2);
+                                                  
+                                                  [self onReachabilityFlagsChanged:flags];
+                                                  
+                                                  as_autoreleasepool_end(pool2);
+                                              });
+                           }
+                           
+                           as_autoreleasepool_end(pool);
+                       });
+
+        self.reachabilityRef = reachabilityRef;
+
+        return self;
     }
+
+failed:
+    if(reachabilityRef)
+    {
+        CFRelease(reachabilityRef);
+    }
+    self.reachabilityRef = NULL;
     as_release(self);
     return nil;
 }
