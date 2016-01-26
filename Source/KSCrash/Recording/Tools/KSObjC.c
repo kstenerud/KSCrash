@@ -156,7 +156,7 @@ static const char* g_blockBaseClassName = "NSBlock";
 
 #if SUPPORT_TAGGED_POINTERS
 bool isTaggedPointer(uintptr_t pointer) {return (pointer & TAG_MASK) != 0; }
-uintptr_t getTaggedSlot(uintptr_t pointer) {printf("P %016lx, S %016x, M %016x\n", pointer, TAG_SLOT_SHIFT, TAG_SLOT_MASK);  return (pointer >> TAG_SLOT_SHIFT) & TAG_SLOT_MASK; }
+uintptr_t getTaggedSlot(uintptr_t pointer) { return (pointer >> TAG_SLOT_SHIFT) & TAG_SLOT_MASK; }
 uintptr_t getTaggedPayload(uintptr_t pointer) { return (pointer << TAG_PAYLOAD_LSHIFT) >> TAG_PAYLOAD_RSHIFT; }
 #else
 bool isTaggedPointer(__unused uintptr_t pointer) { return false; }
