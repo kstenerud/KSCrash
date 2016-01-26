@@ -1041,6 +1041,24 @@ void kscrw_i_writeMemoryContents(const KSCrashReportWriter* const writer,
     writer->endContainer(writer);
 }
 
+bool kscrw_i_isValidPointer(const uintptr_t address)
+{
+    if(address == (uintptr_t)NULL)
+    {
+        return false;
+    }
+
+    if(ksobjc_isTaggedPointer((const void*)address))
+    {
+        if(!ksobjc_isValidTaggedPointer((const void*)address))
+        {
+            return false;
+        }
+    }
+    
+    return true;
+}
+
 /** Write the contents of a memory location only if it contains notable data.
  * Also writes meta information about the data.
  *
@@ -1054,11 +1072,12 @@ void kscrw_i_writeMemoryContentsIfNotable(const KSCrashReportWriter* const write
                                           const char* const key,
                                           const uintptr_t address)
 {
-    const void* object = (const void*)address;
-    if(object == NULL)
+    if(!kscrw_i_isValidPointer(address))
     {
         return;
     }
+
+    const void* object = (const void*)address;
     
     if(ksobjc_objectType(object) == KSObjCTypeUnknown &&
        kszombie_className(object) == NULL &&

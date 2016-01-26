@@ -199,16 +199,6 @@ static TYPE dereferenceSymbolAs##NAME(const char* symbolName) \
 MAKE_SYMBOL_DEREFERENCE_FUNC(uintptr_t, Uintptr)
 MAKE_SYMBOL_DEREFERENCE_FUNC(uint32_t, Uint32)
 
-/** Check if a pointer is a tagged pointer or not.
- *
- * @param pointer The pointer to check.
- * @return true if it's a tagged pointer.
- */
-static bool isTaggedPointer(const void* const pointer)
-{
-    return (((uintptr_t)pointer) & g_taggedpointer_mask) != 0;
-}
-
 /** Get a tagged pointer's slot.
  * The slot loosely represents the object's class.
  * Currently the following slots are supported in KSObjC:
@@ -345,7 +335,7 @@ static ClassData* getClassData(const void* class)
 
 static inline const ClassData* getClassDataFromObject(const void* object)
 {
-    if(isTaggedPointer(object))
+    if(ksobjc_isTaggedPointer(object))
     {
         return getClassDataFromTaggedPointer(object);
     }
@@ -563,7 +553,7 @@ static bool containsValidClassName(const void* const classPtr)
 
 const void* ksobjc_isaPointer(const void* const objectOrClassPtr)
 {
-    if(isTaggedPointer(objectOrClassPtr))
+    if(ksobjc_isTaggedPointer(objectOrClassPtr))
     {
         return getClassDataFromTaggedPointer(objectOrClassPtr)->class;
     }
@@ -720,7 +710,7 @@ bool ksobjc_ivarNamed(const void* const classPtr, const char* name, KSObjCIvar* 
 
 bool ksobjc_ivarValue(const void* const objectPtr, size_t ivarIndex, void* dst)
 {
-    if(isTaggedPointer(objectPtr))
+    if(ksobjc_isTaggedPointer(objectPtr))
     {
         // Naively assume they want "value".
         if(isTaggedPointerNSDate(objectPtr))
@@ -778,7 +768,7 @@ KSObjCType ksobjc_objectType(const void* objectOrClassPtr)
         return KSObjCTypeUnknown;
     }
 
-    if(isTaggedPointer(objectOrClassPtr))
+    if(ksobjc_isTaggedPointer(objectOrClassPtr))
     {
         return KSObjCTypeObject;
     }
@@ -838,7 +828,7 @@ static bool objectIsValid(__unused const void* object)
 
 static bool taggedObjectIsValid(const void* object)
 {
-    return isTaggedPointer(object);
+    return ksobjc_isTaggedPointer(object);
 }
 
 static size_t objectDescription(const void* object,
@@ -1161,7 +1151,7 @@ static bool dateIsValid(const void* const datePtr)
 
 CFAbsoluteTime ksobjc_dateContents(const void* const datePtr)
 {
-    if(isTaggedPointer(datePtr))
+    if(ksobjc_isTaggedPointer(datePtr))
     {
         return extractTaggedNSDate(datePtr);
     }
@@ -1183,7 +1173,7 @@ static size_t dateDescription(const void* object, char* buffer, size_t bufferLen
 
 static bool taggedDateIsValid(const void* const datePtr)
 {
-    return isTaggedPointer(datePtr) && isTaggedPointerNSDate(datePtr);
+    return ksobjc_isTaggedPointer(datePtr) && isTaggedPointerNSDate(datePtr);
 }
 
 static size_t taggedDateDescription(const void* object, char* buffer, size_t bufferLength)
@@ -1212,7 +1202,7 @@ static size_t taggedDateDescription(const void* object, char* buffer, size_t buf
     }
 
 #define EXTRACT_AND_RETURN_NSNUMBER(OBJECT, RETURN_TYPE) \
-    if(isTaggedPointer(object)) \
+    if(ksobjc_isTaggedPointer(object)) \
     { \
         return extractTaggedNSNumber(object); \
     } \
@@ -1285,7 +1275,7 @@ static size_t numberDescription(const void* object, char* buffer, size_t bufferL
 
 static bool taggedNumberIsValid(const void* const object)
 {
-    return isTaggedPointer(object) && isTaggedPointerNSNumber(object);
+    return ksobjc_isTaggedPointer(object) && isTaggedPointerNSNumber(object);
 }
 
 static size_t taggedNumberDescription(const void* object, char* buffer, size_t bufferLength)
@@ -1567,6 +1557,20 @@ void* ksobjc_i_objectReferencedByString(const char* string)
         return (void*)address;
     }
     return NULL;
+}
+
+bool ksobjc_isTaggedPointer(const void* const pointer)
+{
+#if defined (__arm64__) || defined(__x86_64__)
+    return false;
+#endif
+    return (((uintptr_t)pointer) & g_taggedpointer_mask) != 0;
+}
+
+bool ksobjc_isValidTaggedPointer(const void* const pointer)
+{
+    const ClassData* classData = getClassDataFromTaggedPointer(pointer);
+    return classData->type != KSObjCClassTypeUnknown;
 }
 
 bool ksobjc_isValidObject(const void* object)

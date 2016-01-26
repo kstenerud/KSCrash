@@ -78,6 +78,20 @@ void ksobjc_init(void);
 #pragma mark - Basic Objective-C Queries -
 //======================================================================
 
+/** Check if a pointer is a tagged pointer or not.
+ *
+ * @param pointer The pointer to check.
+ * @return true if it's a tagged pointer.
+ */
+bool ksobjc_isTaggedPointer(const void* const pointer);
+
+/** Check if a pointer is a valid tagged pointer.
+ *
+ * @param pointer The pointer to check.
+ * @return true if it's a valid tagged pointer.
+ */
+bool ksobjc_isValidTaggedPointer(const void* const pointer);
+    
 /** Query a pointer to see what kind of object it points to.
  * If the pointer points to a class, this method will verify that its basic
  * class data and ivars are valid,
