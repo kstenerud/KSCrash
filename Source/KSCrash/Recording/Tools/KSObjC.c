@@ -233,7 +233,7 @@ static size_t extractTaggedNSString(const void* const object, char* buffer)
 {
     size_t length = getTaggedNSStringLength(object);
     uintptr_t payload = getTaggedPayload((uintptr_t)object);
-    uintptr_t value = payload >> 8;
+    uintptr_t value = payload >> 4;
     static char* alphabet = "eilotrm.apdnsIc ufkMShjTRxgC4013bDNvwyUL2O856P-B79AFKEWV_zGJ/HYX";
     if(length <=7)
     {
