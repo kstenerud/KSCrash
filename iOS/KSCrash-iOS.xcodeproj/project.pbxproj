@@ -40,7 +40,6 @@
 		CB0264C317FA5B13003E0AED /* KSString_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB02649E17FA5B13003E0AED /* KSString_Tests.m */; };
 		CB0264C417FA5B13003E0AED /* KSSysCtl_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB02649F17FA5B13003E0AED /* KSSysCtl_Tests.m */; };
 		CB0264C517FA5B13003E0AED /* KSSystemInfo_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB0264A017FA5B13003E0AED /* KSSystemInfo_Tests.m */; };
-		CB0264C617FA5B13003E0AED /* KSZombie_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB0264A117FA5B13003E0AED /* KSZombie_Tests.m */; };
 		CB0264C717FA5B13003E0AED /* NSData+Gzip_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB0264A217FA5B13003E0AED /* NSData+Gzip_Tests.m */; };
 		CB0264C817FA5B13003E0AED /* NSDictionary+Merge_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB0264A317FA5B13003E0AED /* NSDictionary+Merge_Tests.m */; };
 		CB0264C917FA5B13003E0AED /* NSError+SimpleConstructor_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB0264A417FA5B13003E0AED /* NSError+SimpleConstructor_Tests.m */; };
@@ -1338,7 +1337,6 @@
 				CB0264CB17FA5B13003E0AED /* RFC3339DateTool_Tests.m in Sources */,
 				CB0264B517FA5B13003E0AED /* KSCrashSentry_Deadlock_Tests.m in Sources */,
 				CB0264AD17FA5B13003E0AED /* KSCrashInstallationStandard_Tests.m in Sources */,
-				CB0264C617FA5B13003E0AED /* KSZombie_Tests.m in Sources */,
 				CB0264BC17FA5B13003E0AED /* KSFileUtils_Tests.m in Sources */,
 				CB0264B417FA5B13003E0AED /* KSCrashReportStore_Tests.m in Sources */,
 				CB7A6C9C17FB9C3200997792 /* KSDynamicLinker_Tests.m in Sources */,
