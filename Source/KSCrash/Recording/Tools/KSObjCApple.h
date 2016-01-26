@@ -35,6 +35,72 @@ typedef struct property_list_t property_list_t;
 // Remove unknown keywords & directives
 #define __strong
 
+// ======================================================================
+#pragma mark - objc4-680/runtime/objc-config.h -
+// ======================================================================
+
+// Define SUPPORT_TAGGED_POINTERS=1 to enable tagged pointer objects
+// Be sure to edit tagged pointer SPI in objc-internal.h as well.
+#if !(__LP64__)
+#   define SUPPORT_TAGGED_POINTERS 0
+#else
+#   define SUPPORT_TAGGED_POINTERS 1
+#endif
+    
+// Define SUPPORT_MSB_TAGGED_POINTERS to use the MSB
+// as the tagged pointer marker instead of the LSB.
+// Be sure to edit tagged pointer SPI in objc-internal.h as well.
+#if !SUPPORT_TAGGED_POINTERS  ||  !TARGET_OS_IPHONE
+#   define SUPPORT_MSB_TAGGED_POINTERS 0
+#else
+#   define SUPPORT_MSB_TAGGED_POINTERS 1
+#endif
+
+
+// ======================================================================
+#pragma mark - objc4-680/runtime/objc-object.h -
+// ======================================================================
+    
+#if SUPPORT_TAGGED_POINTERS
+
+// The original values wouldn't have worked. The slot shift and mask
+// were incorrect.
+#define TAG_COUNT 8
+//#define TAG_SLOT_MASK 0xf
+#define TAG_SLOT_MASK 0x07
+
+#if SUPPORT_MSB_TAGGED_POINTERS
+#   define TAG_MASK (1ULL<<63)
+#   define TAG_SLOT_SHIFT 60
+#   define TAG_PAYLOAD_LSHIFT 4
+#   define TAG_PAYLOAD_RSHIFT 4
+#else
+#   define TAG_MASK 1
+//#   define TAG_SLOT_SHIFT 0
+#   define TAG_PAYLOAD_LSHIFT 0
+#   define TAG_PAYLOAD_RSHIFT 4
+#define TAG_SLOT_SHIFT 1
+#endif
+
+#endif
+
+// ======================================================================
+#pragma mark - objc4-680/runtime/objc-internal.h -
+// ======================================================================
+
+enum
+{
+    OBJC_TAG_NSAtom            = 0,
+    OBJC_TAG_1                 = 1,
+    OBJC_TAG_NSString          = 2,
+    OBJC_TAG_NSNumber          = 3,
+    OBJC_TAG_NSIndexPath       = 4,
+    OBJC_TAG_NSManagedObjectID = 5,
+    OBJC_TAG_NSDate            = 6,
+    OBJC_TAG_7                 = 7
+};
+
+
 
 // ======================================================================
 #pragma mark - objc4-532.2/runtime/objc-private.h -

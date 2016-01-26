@@ -102,6 +102,7 @@ static bool dateIsValid(const void* object);
 static bool numberIsValid(const void* object);
 static bool taggedDateIsValid(const void* object);
 static bool taggedNumberIsValid(const void* object);
+static bool taggedStringIsValid(const void* object);
 
 static size_t objectDescription(const void* object, char* buffer, size_t bufferLength);
 static size_t taggedObjectDescription(const void* object, char* buffer, size_t bufferLength);
@@ -112,6 +113,7 @@ static size_t dateDescription(const void* object, char* buffer, size_t bufferLen
 static size_t numberDescription(const void* object, char* buffer, size_t bufferLength);
 static size_t taggedDateDescription(const void* object, char* buffer, size_t bufferLength);
 static size_t taggedNumberDescription(const void* object, char* buffer, size_t bufferLength);
+static size_t taggedStringDescription(const void* object, char* buffer, size_t bufferLength);
 
 
 static ClassData g_classData[] =
@@ -133,89 +135,34 @@ static ClassData g_classData[] =
     {NULL,                   KSObjCClassTypeUnknown, ClassSubtypeNone,             false, objectIsValid,     objectDescription},
 };
 
-/* Indices taken from the LLVM Objective-C runtime.
- * Normally this info would be stored in g_taggedpointer_classes
- * but it's always a null pointer for some reason.
- * We only care about 3 (NSNumber) and 6 (NSDate).
- */
 static ClassData g_taggedClassData[] =
 {
     {"NSAtom",               KSObjCClassTypeUnknown, ClassSubtypeNone,             false, taggedObjectIsValid, taggedObjectDescription},
     {NULL,                   KSObjCClassTypeUnknown, ClassSubtypeNone,             false, taggedObjectIsValid, taggedObjectDescription},
-    {NULL,                   KSObjCClassTypeUnknown, ClassSubtypeNone,             false, taggedObjectIsValid, taggedObjectDescription},
-    {"__NSCFNumber",         KSObjCClassTypeNumber,  ClassSubtypeNone,             false, taggedNumberIsValid, taggedNumberDescription},
-    {"NSDateTS",             KSObjCClassTypeUnknown, ClassSubtypeNone,             false, taggedObjectIsValid, taggedObjectDescription},
-    {"NSManagedObject",      KSObjCClassTypeUnknown, ClassSubtypeNone,             false, taggedObjectIsValid, taggedObjectDescription},
-    {"__NSTaggedDate",       KSObjCClassTypeDate,    ClassSubtypeNone,             false, taggedDateIsValid,   taggedDateDescription},
-    {NULL,                   KSObjCClassTypeUnknown, ClassSubtypeNone,             false, taggedObjectIsValid, taggedObjectDescription},
-    {NULL,                   KSObjCClassTypeUnknown, ClassSubtypeNone,             false, taggedObjectIsValid, taggedObjectDescription},
-    {NULL,                   KSObjCClassTypeUnknown, ClassSubtypeNone,             false, taggedObjectIsValid, taggedObjectDescription},
-    {NULL,                   KSObjCClassTypeUnknown, ClassSubtypeNone,             false, taggedObjectIsValid, taggedObjectDescription},
-    {NULL,                   KSObjCClassTypeUnknown, ClassSubtypeNone,             false, taggedObjectIsValid, taggedObjectDescription},
-    {NULL,                   KSObjCClassTypeUnknown, ClassSubtypeNone,             false, taggedObjectIsValid, taggedObjectDescription},
-    {NULL,                   KSObjCClassTypeUnknown, ClassSubtypeNone,             false, taggedObjectIsValid, taggedObjectDescription},
+    {"NSString",             KSObjCClassTypeString,  ClassSubtypeNone,             false, taggedStringIsValid, taggedStringDescription},
+    {"NSNumber",             KSObjCClassTypeNumber,  ClassSubtypeNone,             false, taggedNumberIsValid, taggedNumberDescription},
+    {"NSIndexPath",          KSObjCClassTypeUnknown, ClassSubtypeNone,             false, taggedObjectIsValid, taggedObjectDescription},
+    {"NSManagedObjectID",    KSObjCClassTypeUnknown, ClassSubtypeNone,             false, taggedObjectIsValid, taggedObjectDescription},
+    {"NSDate",               KSObjCClassTypeDate,    ClassSubtypeNone,             false, taggedDateIsValid,   taggedDateDescription},
     {NULL,                   KSObjCClassTypeUnknown, ClassSubtypeNone,             false, taggedObjectIsValid, taggedObjectDescription},
 };
-static const int g_taggedClassDataCount = sizeof(g_taggedClassData) / sizeof(*g_taggedClassData);
-
-/* Small hack to get NSNumber and NSDate slot indices.
- * Ideally these should come from objc_debug_taggedpointer_classes
- * but it always seems to be a null pointer.
- */
-static const int kTaggedPointerSlotNSNumber = 3;
-static const int kTaggedPointerSlotNSDate = 6;
 
 static const char* g_blockBaseClassName = "NSBlock";
-
-// Runtime information about the tagged pointer system.
-// We get this data via the dynamic linker.
-static uintptr_t g_isa_class_mask;
-static uintptr_t g_isa_magic_mask;
-static uintptr_t g_isa_magic_value;
-static uintptr_t g_taggedpointer_mask;
-static uint32_t g_taggedpointer_payload_lshift;
-static uint32_t g_taggedpointer_payload_rshift;
-static uint32_t g_taggedpointer_payload_lshift2;
-static uint32_t g_taggedpointer_slot_mask;
-static uint32_t g_taggedpointer_slot_shift;
-static uintptr_t* g_taggedpointer_classes;
 
 
 //======================================================================
 #pragma mark - Utility -
 //======================================================================
 
-#define MAKE_SYMBOL_DEREFERENCE_FUNC(TYPE, NAME) \
-static TYPE dereferenceSymbolAs##NAME(const char* symbolName) \
-{ \
-    const void* symbol = ksdl_getSymbolAddrInAnyImage(symbolName); \
-    if(symbol == NULL) \
-    { \
-        return 0; \
-    } \
-    return *((TYPE*)symbol); \
-}
-
-MAKE_SYMBOL_DEREFERENCE_FUNC(uintptr_t, Uintptr)
-MAKE_SYMBOL_DEREFERENCE_FUNC(uint32_t, Uint32)
-
-/** Get a tagged pointer's slot.
- * The slot loosely represents the object's class.
- * Currently the following slots are supported in KSObjC:
- * - 3: NSNumber
- * - 6: NSDate
- *
- * Normally g_taggedpointer_classes would contain the list
- * of classes, but for some reason it's always NULL.
- *
- * @param object The object to query.
- * @return The object's tagged pointer slot.
- */
-static uint32_t getTaggedPointerSlot(const void* const object)
-{
-    uintptr_t payload = (uintptr_t)object;
-    return ((payload & ~g_taggedpointer_mask) >> g_taggedpointer_slot_shift) & g_taggedpointer_slot_mask;
-}
+#if SUPPORT_TAGGED_POINTERS
+bool isTaggedPointer(uintptr_t pointer) {return (pointer & TAG_MASK) != 0; }
+uintptr_t getTaggedSlot(uintptr_t pointer) {printf("P %016lx, S %016x, M %016x\n", pointer, TAG_SLOT_SHIFT, TAG_SLOT_MASK);  return (pointer >> TAG_SLOT_SHIFT) & TAG_SLOT_MASK; }
+uintptr_t getTaggedPayload(uintptr_t pointer) { return (pointer << TAG_PAYLOAD_LSHIFT) >> TAG_PAYLOAD_RSHIFT; }
+#else
+bool isTaggedPointer(__unused uintptr_t pointer) { return false; }
+uintptr_t getTaggedSlot(__unused uintptr_t pointer) { return 0; }
+uintptr_t getTaggedPayload(uintptr_t pointer) { return pointer; }
+#endif
 
 /** Get class data for a tagged pointer.
  *
@@ -224,36 +171,28 @@ static uint32_t getTaggedPointerSlot(const void* const object)
  */
 static const ClassData* getClassDataFromTaggedPointer(const void* const object)
 {
-    uint32_t slot = getTaggedPointerSlot(object);
+    uintptr_t slot = getTaggedSlot((uintptr_t)object);
     return &g_taggedClassData[slot];
 }
 
-/** Get a tagged pointer's payload.
- * The payload is class-specific data representing the object's contents.
- *
- * @param object The object to extract the payload from.
- * @return The payload.
- */
-static uintptr_t getTaggedPointerPayload(const void* const object)
-{
-    uintptr_t payload = (uintptr_t)object;
-    payload <<= g_taggedpointer_payload_lshift;
-    payload >>= g_taggedpointer_payload_rshift;
-    payload <<= g_taggedpointer_payload_lshift2;
-    return payload;
-}
-
 /** Check if a tagged pointer is a number.
- * Note: Only integers up to 56 bits in width (-0x7fffffffffffff to 0x7fffffffffffff)
- * can be represented as tagged pointers. All other values and types
- * are stored as full NSNumber objects.
  *
  * @param object The object to query.
  * @return true if the tagged pointer is an NSNumber.
  */
 static bool isTaggedPointerNSNumber(const void* const object)
 {
-    return getTaggedPointerSlot(object) == kTaggedPointerSlotNSNumber;
+    return getTaggedSlot((uintptr_t)object) == OBJC_TAG_NSNumber;
+}
+
+/** Check if a tagged pointer is a string.
+ *
+ * @param object The object to query.
+ * @return true if the tagged pointer is an NSString.
+ */
+static bool isTaggedPointerNSString(const void* const object)
+{
+    return getTaggedSlot((uintptr_t)object) == OBJC_TAG_NSString;
 }
 
 /** Check if a tagged pointer is a date.
@@ -263,22 +202,70 @@ static bool isTaggedPointerNSNumber(const void* const object)
  */
 static bool isTaggedPointerNSDate(const void* const object)
 {
-    return getTaggedPointerSlot(object) == kTaggedPointerSlotNSDate;
+    return getTaggedSlot((uintptr_t)object) == OBJC_TAG_NSDate;
 }
 
 /** Extract an integer from a tagged NSNumber.
  *
  * @param object The NSNumber object (must be a tagged pointer).
- * @return The integer's 56-bit value (-0x7fffffffffffff to 0x7fffffffffffff).
+ * @return The integer value.
  */
 static int64_t extractTaggedNSNumber(const void* const object)
 {
-    uintptr_t payload = getTaggedPointerPayload(object);
-    // Get the sign bit into the MSB, then shift back down arithmetically.
-    int64_t value = (int64_t)(payload << g_taggedpointer_payload_lshift);
-    value >>= g_taggedpointer_payload_rshift;
+    intptr_t signedPointer = (intptr_t)object;
+#if SUPPORT_TAGGED_POINTERS
+    intptr_t value = (signedPointer << TAG_PAYLOAD_LSHIFT) >> TAG_PAYLOAD_RSHIFT;
+#else
+    intptr_t value = signedPointer & 0;
+#endif
+    
     // The lower 4 bits encode type information so shift them out.
-    return value >> 4;
+    return (int64_t)(value >> 4);
+}
+
+static size_t getTaggedNSStringLength(const void* const object)
+{
+    uintptr_t payload = getTaggedPayload((uintptr_t)object);
+    return payload & 0xff;
+}
+
+static size_t extractTaggedNSString(const void* const object, char* buffer)
+{
+    size_t length = getTaggedNSStringLength(object);
+    uintptr_t payload = getTaggedPayload((uintptr_t)object);
+    uintptr_t value = payload >> 8;
+    static char* alphabet = "eilotrm.apdnsIc ufkMShjTRxgC4013bDNvwyUL2O856P-B79AFKEWV_zGJ/HYX";
+    if(length <=7)
+    {
+        for(size_t i = 0; i < length; i++)
+        {
+            buffer[i] = (char)(value & 0xff);
+            value >>= 8;
+        }
+    }
+    else if(length <= 9)
+    {
+        for(size_t i = 0; i < length; i++)
+        {
+            buffer[i] = alphabet[value & 0x3f];
+            value >>= 6;
+        }
+    }
+    else if(length <= 11)
+    {
+        for(size_t i = 0; i < length; i++)
+        {
+            buffer[i] = alphabet[value & 0x1f];
+            value >>= 5;
+        }
+    }
+    else
+    {
+        buffer[0] = 0;
+    }
+    buffer[length] = 0;
+
+    return length;
 }
 
 /** Extract a tagged NSDate's time value as an absolute time.
@@ -288,10 +275,10 @@ static int64_t extractTaggedNSNumber(const void* const object)
  */
 static CFAbsoluteTime extractTaggedNSDate(const void* const object)
 {
-    uintptr_t payload = getTaggedPointerPayload(object);
+    uintptr_t payload = getTaggedPayload((uintptr_t)object);
     // Payload is a 60-bit float. Fortunately we can just cast across from
     // an integer pointer after shifting out the upper 4 bits.
-    payload <<= g_taggedpointer_payload_lshift;
+    payload <<= 4;
     CFAbsoluteTime value = *((CFAbsoluteTime*)&payload);
     return value;
 }
@@ -726,6 +713,11 @@ bool ksobjc_ivarValue(const void* const objectPtr, size_t ivarIndex, void* dst)
             memcpy(dst, &value, sizeof(value));
             return true;
         }
+        if(isTaggedPointerNSString(objectPtr))
+        {
+            extractTaggedNSString(objectPtr, dst);
+            return true;
+        }
         return false;
     }
 
@@ -927,6 +919,10 @@ static bool stringIsValid(const void* const stringPtr)
 
 size_t ksobjc_stringLength(const void* const stringPtr)
 {
+    if(isTaggedPointer((uintptr_t)stringPtr) && isTaggedPointerNSString(stringPtr))
+    {
+        return getTaggedNSStringLength(stringPtr);
+    }
     const struct __CFString* string = stringPtr;
     if(__CFStrIsInline(string))
     {
@@ -1079,6 +1075,10 @@ size_t ksobjc_i_copy8BitString(const void* const src, void* const dst, size_t ch
 
 size_t ksobjc_copyStringContents(const void* stringPtr, char* dst, size_t maxByteCount)
 {
+    if(isTaggedPointer((uintptr_t)stringPtr) && isTaggedPointerNSString(stringPtr))
+    {
+        return extractTaggedNSString(stringPtr, dst);
+    }
     const struct __CFString* string = stringPtr;
     size_t charCount = ksobjc_stringLength(string);
     
@@ -1102,6 +1102,16 @@ static size_t stringDescription(const void* object, char* buffer, size_t bufferL
     pBuffer += stringPrintf(pBuffer, (size_t)(pEnd - pBuffer), "\"");
 
     return (size_t)(pBuffer - buffer);
+}
+
+static bool taggedStringIsValid(const void* const object)
+{
+    return ksobjc_isTaggedPointer(object) && isTaggedPointerNSString(object);
+}
+
+static size_t taggedStringDescription(const void* object, char* buffer, __unused size_t bufferLength)
+{
+    return extractTaggedNSString(object, buffer);
 }
 
 
@@ -1561,14 +1571,16 @@ void* ksobjc_i_objectReferencedByString(const char* string)
 
 bool ksobjc_isTaggedPointer(const void* const pointer)
 {
-#if defined (__arm64__) || defined(__x86_64__)
-    return false;
-#endif
-    return (((uintptr_t)pointer) & g_taggedpointer_mask) != 0;
+    return isTaggedPointer((uintptr_t)pointer);
 }
 
 bool ksobjc_isValidTaggedPointer(const void* const pointer)
 {
+    if (!isTaggedPointer((uintptr_t)pointer))
+    {
+        return false;
+    }
+
     const ClassData* classData = getClassDataFromTaggedPointer(pointer);
     return classData->type != KSObjCClassTypeUnknown;
 }
@@ -1588,37 +1600,6 @@ KSObjCClassType ksobjc_objectClassType(const void* object)
 
 void ksobjc_init(void)
 {
-    g_isa_class_mask = dereferenceSymbolAsUintptr("objc_debug_isa_class_mask");
-    g_isa_magic_mask = dereferenceSymbolAsUintptr("objc_debug_isa_magic_mask");
-    g_isa_magic_value = dereferenceSymbolAsUintptr("objc_debug_isa_magic_value");
-    g_taggedpointer_mask = dereferenceSymbolAsUintptr("objc_debug_taggedpointer_mask");
-    g_taggedpointer_payload_lshift = dereferenceSymbolAsUint32("objc_debug_taggedpointer_payload_lshift");
-    g_taggedpointer_payload_rshift = dereferenceSymbolAsUint32("objc_debug_taggedpointer_payload_rshift");
-    g_taggedpointer_slot_mask = dereferenceSymbolAsUint32("objc_debug_taggedpointer_slot_mask");
-    g_taggedpointer_slot_shift = dereferenceSymbolAsUint32("objc_debug_taggedpointer_slot_shift");
-    g_taggedpointer_classes = (uintptr_t*)dereferenceSymbolAsUintptr("objc_debug_taggedpointer_classes");
-
-#ifndef __IPHONE_OS_VERSION_MAX_ALLOWED
-    // OS X doesn't include this info.
-    if(g_taggedpointer_mask == 0)
-    {
-        g_taggedpointer_mask = 1;
-        g_taggedpointer_payload_lshift = 0;
-        g_taggedpointer_payload_rshift = 8;
-        g_taggedpointer_payload_lshift2 = 8;
-        g_taggedpointer_slot_mask = 7;
-        g_taggedpointer_slot_shift = 1;
-    }
-#endif
-
-    for(int i = 0; i < g_taggedClassDataCount; i++)
-    {
-        ClassData* data = &g_taggedClassData[i];
-        if(data->name != NULL)
-        {
-            data->class = objc_getClass(data->name);
-        }
-    }
 }
 
 
