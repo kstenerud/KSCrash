@@ -248,16 +248,16 @@ static size_t extractTaggedNSString(const void* const object, char* buffer)
     {
         for(size_t i = 0; i < length; i++)
         {
-            buffer[i] = alphabet[value & 0x3f];
-            value >>= 6;
+            uintptr_t index = (value >> ((length - 1 - i) * 6)) & 0x3f;
+            buffer[i] = alphabet[index];
         }
     }
     else if(length <= 11)
     {
         for(size_t i = 0; i < length; i++)
         {
-            buffer[i] = alphabet[value & 0x1f];
-            value >>= 5;
+            uintptr_t index = (value >> ((length - 1 - i) * 5)) & 0x1f;
+            buffer[i] = alphabet[index];
         }
     }
     else

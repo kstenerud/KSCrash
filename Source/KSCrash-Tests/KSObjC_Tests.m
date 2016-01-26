@@ -60,8 +60,29 @@
 
 @implementation KSObjC_Tests
 
+static NSArray* g_test_strings;
+
+
 + (void) initialize
 {
+    g_test_strings = @[
+                       @"a",
+                       @"ab",
+                       @"abc",
+                       @"abcd",
+                       @"abcde",
+                       @"abcdef",
+                       @"abcdefg",
+                       @"abcdefgh",
+                       @"abcdefghi",
+                       @"abcdefghij",
+                       @"abcdefghijk",
+                       @"abcdefghijkl",
+                       @"abcdefghijklm",
+                       @"abcdefghijklmn",
+                       @"abcdefghijklmno",
+                       @"abcdefghijklmnop",
+                       ];
     ksobjc_init();
 }
 
@@ -430,32 +451,38 @@
 
 - (void) testCopyStringContentsCFString
 {
-    char* expected = "test";
-    size_t expectedLength = strlen(expected);
-    CFStringRef string = CFStringCreateWithBytes(NULL, (uint8_t*)expected, (CFIndex)expectedLength, kCFStringEncodingUTF8, FALSE);
-    char actual[100];
-    size_t copied = ksobjc_copyStringContents(string, actual, sizeof(actual));
-    XCTAssertEqual(copied, expectedLength, @"");
-    int result = strcmp(actual, expected);
-    XCTAssertTrue(result == 0, @"String %s did not equal %s", actual, expected);
-    CFRelease(string);
+    for(NSUInteger i = 0; i < g_test_strings.count; i++)
+    {
+        const char* expected = [g_test_strings[i] UTF8String];
+        size_t expectedLength = strlen(expected);
+        CFStringRef string = CFStringCreateWithBytes(NULL, (uint8_t*)expected, (CFIndex)expectedLength, kCFStringEncodingUTF8, FALSE);
+        char actual[100];
+        size_t copied = ksobjc_copyStringContents(string, actual, sizeof(actual));
+        XCTAssertEqual(copied, expectedLength, @"");
+        int result = strcmp(actual, expected);
+        XCTAssertTrue(result == 0, @"String %s did not equal %s", actual, expected);
+        CFRelease(string);
+    }
 }
 
 - (void) testStringDescription
 {
-    NSString* string = @"A string";
-    void* stringPtr = (as_bridge void*)string;
-    NSString* expectedClassName = [NSString stringWithCString:class_getName([string class]) encoding:NSUTF8StringEncoding];
-    NSString* expectedTheRest = @"\"A string\"";
-    char buffer[100];
-    size_t copied = ksobjc_getDescription(stringPtr, buffer, sizeof(buffer));
-    XCTAssertTrue(copied > 0, @"");
-    NSString* description = [NSString stringWithCString:buffer encoding:NSUTF8StringEncoding];
-    NSArray* components = [self componentsOfComplexDescription:description];
-    NSString* className = [components objectAtIndex:0];
-    NSString* theRest = [components objectAtIndex:1];
-    XCTAssertEqualObjects(className, expectedClassName, @"");
-    XCTAssertEqualObjects(theRest, expectedTheRest, @"");
+    for(NSUInteger i = 0; i < g_test_strings.count; i++)
+    {
+        NSString* string = g_test_strings[i];
+        void* stringPtr = (as_bridge void*)string;
+        NSString* expectedClassName = [NSString stringWithCString:class_getName([string class]) encoding:NSUTF8StringEncoding];
+        NSString* expectedTheRest = [NSString stringWithFormat:@"\"%@\"", string];
+        char buffer[100];
+        size_t copied = ksobjc_getDescription(stringPtr, buffer, sizeof(buffer));
+        XCTAssertTrue(copied > 0, @"");
+        NSString* description = [NSString stringWithCString:buffer encoding:NSUTF8StringEncoding];
+        NSArray* components = [self componentsOfComplexDescription:description];
+        NSString* className = [components objectAtIndex:0];
+        NSString* theRest = [components objectAtIndex:1];
+        XCTAssertEqualObjects(className, expectedClassName, @"");
+        XCTAssertEqualObjects(theRest, expectedTheRest, @"");
+    }
 }
 
 - (void) testURLIsValid
