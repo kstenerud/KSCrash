@@ -226,7 +226,7 @@ static int64_t extractTaggedNSNumber(const void* const object)
 static size_t getTaggedNSStringLength(const void* const object)
 {
     uintptr_t payload = getTaggedPayload((uintptr_t)object);
-    return payload & 0xff;
+    return payload & 0xf;
 }
 
 static size_t extractTaggedNSString(const void* const object, char* buffer)
