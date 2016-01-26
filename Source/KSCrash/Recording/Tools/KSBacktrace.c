@@ -40,9 +40,9 @@
  * signficant.
  */
 #if defined(__arm__)
-#define DETAG_INSTRUCTION_ADDRESS(A) ((A) & ~(1))
+#define DETAG_INSTRUCTION_ADDRESS(A) ((A) & ~(1UL))
 #elif defined(__arm64__)
-#define DETAG_INSTRUCTION_ADDRESS(A) ((A) & ~(3))
+#define DETAG_INSTRUCTION_ADDRESS(A) ((A) & ~(3UL))
 #else
 #define DETAG_INSTRUCTION_ADDRESS(A) (A)
 #endif
