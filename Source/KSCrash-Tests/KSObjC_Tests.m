@@ -517,7 +517,7 @@
 {
     NSDate* date = [NSDate dateWithTimeIntervalSinceReferenceDate:10.0];
     void* datePtr = (as_bridge void*)date;
-    NSString* expectedClassName = [NSString stringWithCString:class_getName([date class]) encoding:NSUTF8StringEncoding];
+    NSString* expectedClassName = @"NSDate";
     NSString* expectedTheRest = @"10.000000";
     char buffer[100];
     size_t copied = ksobjc_getDescription(datePtr, buffer, sizeof(buffer));
