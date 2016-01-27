@@ -230,15 +230,16 @@ static size_t getTaggedNSStringLength(const void* const object)
     return payload & 0xf;
 }
 
-static size_t extractTaggedNSString(const void* const object, char* buffer)
+static size_t extractTaggedNSString(const void* const object, char* buffer, size_t bufferLength)
 {
     size_t length = getTaggedNSStringLength(object);
+    size_t copyLength = ((length + 1) > bufferLength) ? (bufferLength - 1) : length;
     uintptr_t payload = getTaggedPayload((uintptr_t)object);
     uintptr_t value = payload >> 4;
     static char* alphabet = "eilotrm.apdnsIc ufkMShjTRxgC4013bDNvwyUL2O856P-B79AFKEWV_zGJ/HYX";
     if(length <=7)
     {
-        for(size_t i = 0; i < length; i++)
+        for(size_t i = 0; i < copyLength; i++)
         {
             buffer[i] = (char)(value & 0xff);
             value >>= 8;
@@ -246,7 +247,7 @@ static size_t extractTaggedNSString(const void* const object, char* buffer)
     }
     else if(length <= 9)
     {
-        for(size_t i = 0; i < length; i++)
+        for(size_t i = 0; i < copyLength; i++)
         {
             uintptr_t index = (value >> ((length - 1 - i) * 6)) & 0x3f;
             buffer[i] = alphabet[index];
@@ -254,7 +255,7 @@ static size_t extractTaggedNSString(const void* const object, char* buffer)
     }
     else if(length <= 11)
     {
-        for(size_t i = 0; i < length; i++)
+        for(size_t i = 0; i < copyLength; i++)
         {
             uintptr_t index = (value >> ((length - 1 - i) * 5)) & 0x1f;
             buffer[i] = alphabet[index];
@@ -714,11 +715,6 @@ bool ksobjc_ivarValue(const void* const objectPtr, size_t ivarIndex, void* dst)
             memcpy(dst, &value, sizeof(value));
             return true;
         }
-        if(isTaggedPointerNSString(objectPtr))
-        {
-            extractTaggedNSString(objectPtr, dst);
-            return true;
-        }
         return false;
     }
 
@@ -1078,7 +1074,7 @@ size_t ksobjc_copyStringContents(const void* stringPtr, char* dst, size_t maxByt
 {
     if(isTaggedPointer((uintptr_t)stringPtr) && isTaggedPointerNSString(stringPtr))
     {
-        return extractTaggedNSString(stringPtr, dst);
+        return extractTaggedNSString(stringPtr, dst, maxByteCount);
     }
     const struct __CFString* string = stringPtr;
     size_t charCount = ksobjc_stringLength(string);
@@ -1112,7 +1108,7 @@ static bool taggedStringIsValid(const void* const object)
 
 static size_t taggedStringDescription(const void* object, char* buffer, __unused size_t bufferLength)
 {
-    return extractTaggedNSString(object, buffer);
+    return extractTaggedNSString(object, buffer, bufferLength);
 }
 
 
