@@ -503,7 +503,7 @@ static bool containsValidIvarData(const void* const classPtr)
     if(ivars->count > 0)
     {
         struct ivar_t ivar;
-        uint8_t* ivarPtr = (uint8_t*)(&ivars->first) + ivars->entsize;
+        uint8_t* ivarPtr = (uint8_t*)(&ivars->first) + ivars->entsizeAndFlags;
         for(uint32_t i = 1; i < ivarsBuffer.count; i++)
         {
             if(ksmach_copyMem(ivarPtr, &ivar, sizeof(ivar)) != KERN_SUCCESS)
@@ -523,7 +523,7 @@ static bool containsValidIvarData(const void* const classPtr)
             {
                 return false;
             }
-            ivarPtr += ivars->entsize;
+            ivarPtr += ivars->entsizeAndFlags;
         }
     }
     return true;
@@ -667,7 +667,7 @@ size_t ksobjc_ivarList(const void* const classPtr, KSObjCIvar* dstIvars, size_t 
         dst->name = src->name;
         dst->type = src->type;
         dst->index = i;
-        srcPtr += srcIvars->entsize;
+        srcPtr += srcIvars->entsizeAndFlags;
         src = (void*)srcPtr;
     }
     return count;
@@ -691,7 +691,7 @@ bool ksobjc_ivarNamed(const void* const classPtr, const char* name, KSObjCIvar* 
             dst->index = i;
             return true;
         }
-        ivarPtr += ivars->entsize;
+        ivarPtr += ivars->entsizeAndFlags;
         ivar = (void*)ivarPtr;
     }
     return false;
@@ -725,9 +725,9 @@ bool ksobjc_ivarValue(const void* const objectPtr, size_t ivarIndex, void* dst)
         return false;
     }
     uintptr_t ivarPtr = (uintptr_t)&ivars->first;
-    const struct ivar_t* ivar = (void*)(ivarPtr + ivars->entsize * ivarIndex);
+    const struct ivar_t* ivar = (void*)(ivarPtr + ivars->entsizeAndFlags * ivarIndex);
     
-    uintptr_t valuePtr = (uintptr_t)objectPtr + *ivar->offset;
+    uintptr_t valuePtr = (uintptr_t)objectPtr + (uintptr_t)*ivar->offset;
     if(ksmach_copyMem((void*)valuePtr, dst, ivar->size) != KERN_SUCCESS)
     {
         return false;
@@ -920,26 +920,23 @@ size_t ksobjc_stringLength(const void* const stringPtr)
     {
         return getTaggedNSStringLength(stringPtr);
     }
+
     const struct __CFString* string = stringPtr;
-    if(__CFStrIsInline(string))
+
+    if (__CFStrHasExplicitLength(string))
     {
-        if(__CFStrHasLengthByte(string))
+        if (__CFStrIsInline(string))
         {
-            return string->variants.inline2.length;
+            return (size_t)string->variants.inline1.length;
         }
-        return (size_t)string->variants.inline1.length;
-    }
-    else if(__CFStrIsMutable(string))
-    {
-        return (size_t)string->variants.notInlineMutable.length;
-    }
-    else if(!__CFStrHasLengthByte(string))
-    {
-        return (size_t)string->variants.notInlineImmutable1.length;
+        else
+        {
+            return (size_t)string->variants.notInlineImmutable1.length;
+        }
     }
     else
     {
-        return (uint8_t)*((uint8_t*)__CFStrContents(string));
+        return (size_t)(*((uint8_t *)__CFStrContents(string)));
     }
 }
 
