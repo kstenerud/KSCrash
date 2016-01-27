@@ -171,7 +171,6 @@
 		CB7A6CDF17FB9CEE00997792 /* KSString_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CB917FB9CEE00997792 /* KSString_Tests.m */; };
 		CB7A6CE017FB9CEE00997792 /* KSSysCtl_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CBA17FB9CEE00997792 /* KSSysCtl_Tests.m */; };
 		CB7A6CE117FB9CEE00997792 /* KSSystemInfo_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CBB17FB9CEE00997792 /* KSSystemInfo_Tests.m */; };
-		CB7A6CE217FB9CEE00997792 /* KSZombie_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CBC17FB9CEE00997792 /* KSZombie_Tests.m */; };
 		CB7A6CE317FB9CEE00997792 /* NSData+Gzip_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CBD17FB9CEE00997792 /* NSData+Gzip_Tests.m */; };
 		CB7A6CE417FB9CEE00997792 /* NSDictionary+Merge_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CBE17FB9CEE00997792 /* NSDictionary+Merge_Tests.m */; };
 		CB7A6CE517FB9CEE00997792 /* NSError+SimpleConstructor_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6CBF17FB9CEE00997792 /* NSError+SimpleConstructor_Tests.m */; };
@@ -1314,7 +1313,6 @@
 				CB7A6CD117FB9CEE00997792 /* KSCrashSentry_NSException_Tests.m in Sources */,
 				CB7A6CE817FB9CEE00997792 /* XCTestCase+KSCrash.m in Sources */,
 				CB7A6CD417FB9CEE00997792 /* KSCrashState_Tests.m in Sources */,
-				CB7A6CE217FB9CEE00997792 /* KSZombie_Tests.m in Sources */,
 				CB7A6CD817FB9CEE00997792 /* KSFileUtils_Tests.m in Sources */,
 				CB7A6CCC17FB9CEE00997792 /* KSCrashReportFilterAlert_Tests.m in Sources */,
 				CB7A6CD717FB9CEE00997792 /* KSDynamicLinker_Tests.m in Sources */,
