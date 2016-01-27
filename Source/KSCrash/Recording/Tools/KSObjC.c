@@ -176,6 +176,23 @@ static const ClassData* getClassDataFromTaggedPointer(const void* const object)
     return &g_taggedClassData[slot];
 }
 
+const void* getIsaPointer(const void* const objectOrClassPtr)
+{
+    if(ksobjc_isTaggedPointer(objectOrClassPtr))
+    {
+        return getClassDataFromTaggedPointer(objectOrClassPtr)->class;
+    }
+    
+    const struct class_t* ptr = objectOrClassPtr;
+    uintptr_t isa = (uintptr_t)ptr->isa;
+    if(isa & ISA_TAG_MASK)
+    {
+        return (const void*)(isa & ISA_MASK);
+    }
+    
+    return ptr->isa;
+}
+
 /** Check if a tagged pointer is a number.
  *
  * @param object The object to query.
@@ -329,7 +346,7 @@ static inline const ClassData* getClassDataFromObject(const void* object)
         return getClassDataFromTaggedPointer(object);
     }
     const struct class_t* obj = object;
-    return getClassData(obj->isa);
+    return getClassData(getIsaPointer(obj));
 }
 
 static inline struct class_rw_t* classRW(const struct class_t* const class)
@@ -542,13 +559,7 @@ static bool containsValidClassName(const void* const classPtr)
 
 const void* ksobjc_isaPointer(const void* const objectOrClassPtr)
 {
-    if(ksobjc_isTaggedPointer(objectOrClassPtr))
-    {
-        return getClassDataFromTaggedPointer(objectOrClassPtr)->class;
-    }
-
-    const struct class_t* ptr = objectOrClassPtr;
-    return ptr->isa;
+    return getIsaPointer(objectOrClassPtr);
 }
 
 const void* ksobjc_superClass(const void* const classPtr)

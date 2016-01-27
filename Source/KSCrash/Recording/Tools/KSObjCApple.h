@@ -43,6 +43,22 @@ NAME { \
     Class isa  OBJC_ISA_AVAILABILITY;
 
 // ======================================================================
+#pragma mark - objc4-680/runtime/objc-msg-x86_64.s -
+// ======================================================================
+
+#if __x86_64__
+#define ISA_TAG_MASK 1
+#define ISA_MASK     0x00007ffffffffff8
+#elif defined(__arm64__)
+#define ISA_TAG_MASK 1
+#define ISA_MASK     0x00000001fffffff8
+#else
+#define ISA_TAG_MASK 0
+#define ISA_MASK     ~1
+#endif
+
+
+// ======================================================================
 #pragma mark - objc4-680/runtime/objc-config.h -
 // ======================================================================
 
