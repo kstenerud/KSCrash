@@ -27,9 +27,6 @@ extern "C" {
 #include <objc/objc.h>
 
 
-// Remove unknown keywords & directives
-#define __strong
-
 #define MAKE_LIST_T(TYPE) \
 typedef struct TYPE##_list_t { \
     uint32_t entsizeAndFlags; \
@@ -42,19 +39,21 @@ typedef TYPE##_list_t TYPE##_array_t
 NAME { \
     Class isa  OBJC_ISA_AVAILABILITY;
 
+
 // ======================================================================
 #pragma mark - objc4-680/runtime/objc-msg-x86_64.s -
+// and objc4-680/runtime/objc-msg-arm64.s
 // ======================================================================
 
 #if __x86_64__
-#define ISA_TAG_MASK 1UL
-#define ISA_MASK     0x00007ffffffffff8UL
+#   define ISA_TAG_MASK 1UL
+#   define ISA_MASK     0x00007ffffffffff8UL
 #elif defined(__arm64__)
-#define ISA_TAG_MASK 1UL
-#define ISA_MASK     0x00000001fffffff8UL
+#   define ISA_TAG_MASK 1UL
+#   define ISA_MASK     0x00000001fffffff8UL
 #else
-#define ISA_TAG_MASK 0UL
-#define ISA_MASK     ~1UL
+#   define ISA_TAG_MASK 0UL
+#   define ISA_MASK     ~1UL
 #endif
 
 
@@ -100,9 +99,9 @@ NAME { \
 #else
 #   define TAG_MASK 1
 //#   define TAG_SLOT_SHIFT 0
+#   define TAG_SLOT_SHIFT 1
 #   define TAG_PAYLOAD_LSHIFT 0
 #   define TAG_PAYLOAD_RSHIFT 4
-#define TAG_SLOT_SHIFT 1
 #endif
 
 #endif
