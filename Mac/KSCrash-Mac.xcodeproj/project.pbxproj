@@ -1105,7 +1105,7 @@
 		CB8E55DE17EB99E3000C56D3 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0500;
+				LastUpgradeCheck = 0720;
 				ORGANIZATIONNAME = "Karl Stenerud";
 				TargetAttributes = {
 					CB8E55FD17EB99E3000C56D3 = {
@@ -1378,6 +1378,7 @@
 		CB6240A417EBC9F8006471F1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "KSCrashLib/KSCrashLib-Prefix.pch";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -1392,6 +1393,7 @@
 		CB6240A517EBC9F8006471F1 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "KSCrashLib/KSCrashLib-Prefix.pch";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1415,6 +1417,7 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
@@ -1478,6 +1481,7 @@
 				GCC_PREFIX_HEADER = "KSCrash/KSCrash-Prefix.pch";
 				INFOPLIST_FILE = "KSCrash/KSCrash-Info.plist";
 				MACH_O_TYPE = staticlib;
+				PRODUCT_BUNDLE_IDENTIFIER = "org.stenerud.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = KSCrash;
 				WRAPPER_EXTENSION = framework;
 			};
@@ -1494,6 +1498,7 @@
 				GCC_PREFIX_HEADER = "KSCrash/KSCrash-Prefix.pch";
 				INFOPLIST_FILE = "KSCrash/KSCrash-Info.plist";
 				MACH_O_TYPE = staticlib;
+				PRODUCT_BUNDLE_IDENTIFIER = "org.stenerud.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = KSCrash;
 				WRAPPER_EXTENSION = framework;
 			};
@@ -1521,6 +1526,7 @@
 					XCTest,
 					"-ObjC",
 				);
+				PRODUCT_BUNDLE_IDENTIFIER = "org.stenerud.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = KSCrashTests;
 				TEST_HOST = "$(BUNDLE_LOADER)";
 				WRAPPER_EXTENSION = xctest;
@@ -1545,6 +1551,7 @@
 					XCTest,
 					"-ObjC",
 				);
+				PRODUCT_BUNDLE_IDENTIFIER = "org.stenerud.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = KSCrashTests;
 				TEST_HOST = "$(BUNDLE_LOADER)";
 				WRAPPER_EXTENSION = xctest;
