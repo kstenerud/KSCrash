@@ -47,14 +47,14 @@ NAME { \
 // ======================================================================
 
 #if __x86_64__
-#define ISA_TAG_MASK 1
-#define ISA_MASK     0x00007ffffffffff8
+#define ISA_TAG_MASK 1UL
+#define ISA_MASK     0x00007ffffffffff8UL
 #elif defined(__arm64__)
-#define ISA_TAG_MASK 1
-#define ISA_MASK     0x00000001fffffff8
+#define ISA_TAG_MASK 1UL
+#define ISA_MASK     0x00000001fffffff8UL
 #else
-#define ISA_TAG_MASK 0
-#define ISA_MASK     ~1
+#define ISA_TAG_MASK 0UL
+#define ISA_MASK     ~1UL
 #endif
 
 
@@ -508,7 +508,7 @@ CF_INLINE CFIndex __CFArrayGetType(CFArrayRef array) {
 CF_INLINE CFIndex __CFArrayGetSizeOfType(CFIndex t) {
     CFIndex size = 0;
     size += sizeof(struct __CFArray);
-    if (__CFBitfieldGetValue(t, 3, 2) == __kCFArrayHasCustomCallBacks) {
+    if (__CFBitfieldGetValue((unsigned long)t, 3, 2) == __kCFArrayHasCustomCallBacks) {
         size += sizeof(CFArrayCallBacks);
     }
     return size;
@@ -638,7 +638,7 @@ CF_INLINE uintptr_t __CFBasicHashGetSlotCount(CFConstBasicHashRef ht, CFIndex id
         case 0: return ((uint8_t *)counts)[idx];
         case 1: return ((uint16_t *)counts)[idx];
         case 2: return ((uint32_t *)counts)[idx];
-        case 3: return ((uint64_t *)counts)[idx];
+        case 3: return (uintptr_t)((uint64_t *)counts)[idx];
     }
     return 0;
 }
