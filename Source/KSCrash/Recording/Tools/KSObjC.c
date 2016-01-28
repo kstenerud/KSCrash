@@ -176,6 +176,16 @@ static const ClassData* getClassDataFromTaggedPointer(const void* const object)
     return &g_taggedClassData[slot];
 }
 
+const void* decodeIsaPointer(const void* const isaPointer)
+{
+    uintptr_t isa = (uintptr_t)isaPointer;
+    if(isa & ISA_TAG_MASK)
+    {
+        return (const void*)(isa & ISA_MASK);
+    }
+    return isaPointer;
+}
+
 const void* getIsaPointer(const void* const objectOrClassPtr)
 {
     if(ksobjc_isTaggedPointer(objectOrClassPtr))
@@ -184,13 +194,7 @@ const void* getIsaPointer(const void* const objectOrClassPtr)
     }
     
     const struct class_t* ptr = objectOrClassPtr;
-    uintptr_t isa = (uintptr_t)ptr->isa;
-    if(isa & ISA_TAG_MASK)
-    {
-        return (const void*)(isa & ISA_MASK);
-    }
-    
-    return ptr->isa;
+    return decodeIsaPointer(ptr->isa);
 }
 
 /** Check if a tagged pointer is a number.
@@ -778,6 +782,7 @@ KSObjCType ksobjc_objectType(const void* objectOrClassPtr)
     {
         return KSObjCTypeUnknown;
     }
+    isa = decodeIsaPointer(isa);
     if(!containsValidROData(isa))
     {
         return KSObjCTypeUnknown;
