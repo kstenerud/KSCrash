@@ -21,6 +21,14 @@
 		CB8E57B117EBB1AF000C56D3 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = CB8E57AF17EBB1AF000C56D3 /* Main.storyboard */; };
 		CB8E57B417EBB1AF000C56D3 /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = CB8E57B317EBB1AF000C56D3 /* ViewController.m */; };
 		CB8E57B617EBB1AF000C56D3 /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CB8E57B517EBB1AF000C56D3 /* Images.xcassets */; };
+		CBC43EA01C5ABA1F0083A11B /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBC43E9F1C5ABA1F0083A11B /* AppDelegate.swift */; };
+		CBC43EA21C5ABA1F0083A11B /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBC43EA11C5ABA1F0083A11B /* ViewController.swift */; };
+		CBC43EA51C5ABA1F0083A11B /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = CBC43EA31C5ABA1F0083A11B /* Main.storyboard */; };
+		CBC43EA71C5ABA1F0083A11B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CBC43EA61C5ABA1F0083A11B /* Assets.xcassets */; };
+		CBC43EAA1C5ABA1F0083A11B /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = CBC43EA81C5ABA1F0083A11B /* LaunchScreen.storyboard */; };
+		CBC43EB01C5ABA590083A11B /* libKSCrashLib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = CBC43EAF1C5ABA590083A11B /* libKSCrashLib.a */; };
+		CBC43EB31C5ABD6B0083A11B /* libstdc++.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = CBC43EB21C5ABD6B0083A11B /* libstdc++.tbd */; };
+		CBC43EB51C5AC11F0083A11B /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = CBC43EB41C5AC11F0083A11B /* libz.tbd */; };
 		CBF3CDDE17F574B5001AC307 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB8E576617EBB16D000C56D3 /* Foundation.framework */; };
 		CBF3CDDF17F574B5001AC307 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB8E576817EBB16D000C56D3 /* CoreGraphics.framework */; };
 		CBF3CDE017F574B5001AC307 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB8E576A17EBB16D000C56D3 /* UIKit.framework */; };
@@ -76,6 +84,17 @@
 		CB8E57B217EBB1AF000C56D3 /* ViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ViewController.h; sourceTree = "<group>"; };
 		CB8E57B317EBB1AF000C56D3 /* ViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ViewController.m; sourceTree = "<group>"; };
 		CB8E57B517EBB1AF000C56D3 /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
+		CBC43E9D1C5ABA1F0083A11B /* Swift-Tester.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Swift-Tester.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		CBC43E9F1C5ABA1F0083A11B /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		CBC43EA11C5ABA1F0083A11B /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
+		CBC43EA41C5ABA1F0083A11B /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
+		CBC43EA61C5ABA1F0083A11B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		CBC43EA91C5ABA1F0083A11B /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
+		CBC43EAB1C5ABA1F0083A11B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		CBC43EAF1C5ABA590083A11B /* libKSCrashLib.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libKSCrashLib.a; path = "../../../Library/Developer/Xcode/DerivedData/iOS-dgdwfjadqnxyraebsbgzipjzfiso/Build/Products/Debug-iphoneos/libKSCrashLib.a"; sourceTree = "<group>"; };
+		CBC43EB11C5ABC0B0083A11B /* BridgeHeader.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BridgeHeader.h; sourceTree = "<group>"; };
+		CBC43EB21C5ABD6B0083A11B /* libstdc++.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = "libstdc++.tbd"; path = "usr/lib/libstdc++.tbd"; sourceTree = SDKROOT; };
+		CBC43EB41C5AC11F0083A11B /* libz.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libz.tbd; path = usr/lib/libz.tbd; sourceTree = SDKROOT; };
 		CBF3CDDD17F574B5001AC307 /* Advanced-Example.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Advanced-Example.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		CBF3CDE317F574B5001AC307 /* Advanced-Example-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Advanced-Example-Info.plist"; sourceTree = "<group>"; };
 		CBF3CDE517F574B5001AC307 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
@@ -131,6 +150,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		CBC43E9A1C5ABA1F0083A11B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CBC43EB51C5AC11F0083A11B /* libz.tbd in Frameworks */,
+				CBC43EB31C5ABD6B0083A11B /* libstdc++.tbd in Frameworks */,
+				CBC43EB01C5ABA590083A11B /* libKSCrashLib.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		CBF3CDDA17F574B5001AC307 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -171,6 +200,7 @@
 				CBF3CDE117F574B5001AC307 /* Advanced-Example */,
 				CBF3CE2217F576C0001AC307 /* Crash-Tester */,
 				CBF3CE4017F576C0001AC307 /* Crash-TesterTests */,
+				CBC43E9E1C5ABA1F0083A11B /* Swift-Tester */,
 				CB8E576517EBB16D000C56D3 /* Frameworks */,
 				CB8E576417EBB16D000C56D3 /* Products */,
 			);
@@ -182,6 +212,7 @@
 				CB8E579F17EBB1AF000C56D3 /* Simple-Example.app */,
 				CBF3CDDD17F574B5001AC307 /* Advanced-Example.app */,
 				CBF3CE1E17F576C0001AC307 /* Crash-Tester.app */,
+				CBC43E9D1C5ABA1F0083A11B /* Swift-Tester.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -189,6 +220,9 @@
 		CB8E576517EBB16D000C56D3 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				CBC43EB41C5AC11F0083A11B /* libz.tbd */,
+				CBC43EB21C5ABD6B0083A11B /* libstdc++.tbd */,
+				CBC43EAF1C5ABA590083A11B /* libKSCrashLib.a */,
 				CBF3CE5A17F5778E001AC307 /* libKSCrashLib.a */,
 				CBF3CE1817F57622001AC307 /* libc++.dylib */,
 				CBF3CE1317F57601001AC307 /* libKSCrashLib.a */,
@@ -228,6 +262,20 @@
 				CB8E57AB17EBB1AF000C56D3 /* Simple-Example-Prefix.pch */,
 			);
 			name = "Supporting Files";
+			sourceTree = "<group>";
+		};
+		CBC43E9E1C5ABA1F0083A11B /* Swift-Tester */ = {
+			isa = PBXGroup;
+			children = (
+				CBC43E9F1C5ABA1F0083A11B /* AppDelegate.swift */,
+				CBC43EA11C5ABA1F0083A11B /* ViewController.swift */,
+				CBC43EA31C5ABA1F0083A11B /* Main.storyboard */,
+				CBC43EA61C5ABA1F0083A11B /* Assets.xcassets */,
+				CBC43EA81C5ABA1F0083A11B /* LaunchScreen.storyboard */,
+				CBC43EAB1C5ABA1F0083A11B /* Info.plist */,
+				CBC43EB11C5ABC0B0083A11B /* BridgeHeader.h */,
+			);
+			path = "Swift-Tester";
 			sourceTree = "<group>";
 		};
 		CBF3CDE117F574B5001AC307 /* Advanced-Example */ = {
@@ -328,6 +376,23 @@
 			productReference = CB8E579F17EBB1AF000C56D3 /* Simple-Example.app */;
 			productType = "com.apple.product-type.application";
 		};
+		CBC43E9C1C5ABA1F0083A11B /* Swift-Tester */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CBC43EAE1C5ABA1F0083A11B /* Build configuration list for PBXNativeTarget "Swift-Tester" */;
+			buildPhases = (
+				CBC43E991C5ABA1F0083A11B /* Sources */,
+				CBC43E9A1C5ABA1F0083A11B /* Frameworks */,
+				CBC43E9B1C5ABA1F0083A11B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "Swift-Tester";
+			productName = "Swift-Tester";
+			productReference = CBC43E9D1C5ABA1F0083A11B /* Swift-Tester.app */;
+			productType = "com.apple.product-type.application";
+		};
 		CBF3CDDC17F574B5001AC307 /* Advanced-Example */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = CBF3CE0B17F574B6001AC307 /* Build configuration list for PBXNativeTarget "Advanced-Example" */;
@@ -388,6 +453,7 @@
 				CB8E579E17EBB1AF000C56D3 /* Simple-Example */,
 				CBF3CDDC17F574B5001AC307 /* Advanced-Example */,
 				CBF3CE1D17F576C0001AC307 /* Crash-Tester */,
+				CBC43E9C1C5ABA1F0083A11B /* Swift-Tester */,
 			);
 		};
 /* End PBXProject section */
@@ -400,6 +466,16 @@
 				CB8E57B617EBB1AF000C56D3 /* Images.xcassets in Resources */,
 				CB8E57A817EBB1AF000C56D3 /* InfoPlist.strings in Resources */,
 				CB8E57B117EBB1AF000C56D3 /* Main.storyboard in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CBC43E9B1C5ABA1F0083A11B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CBC43EAA1C5ABA1F0083A11B /* LaunchScreen.storyboard in Resources */,
+				CBC43EA71C5ABA1F0083A11B /* Assets.xcassets in Resources */,
+				CBC43EA51C5ABA1F0083A11B /* Main.storyboard in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -451,6 +527,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		CBC43E991C5ABA1F0083A11B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CBC43EA21C5ABA1F0083A11B /* ViewController.swift in Sources */,
+				CBC43EA01C5ABA1F0083A11B /* AppDelegate.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		CBF3CDD917F574B5001AC307 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -492,6 +577,22 @@
 				CB8E57B017EBB1AF000C56D3 /* Base */,
 			);
 			name = Main.storyboard;
+			sourceTree = "<group>";
+		};
+		CBC43EA31C5ABA1F0083A11B /* Main.storyboard */ = {
+			isa = PBXVariantGroup;
+			children = (
+				CBC43EA41C5ABA1F0083A11B /* Base */,
+			);
+			name = Main.storyboard;
+			sourceTree = "<group>";
+		};
+		CBC43EA81C5ABA1F0083A11B /* LaunchScreen.storyboard */ = {
+			isa = PBXVariantGroup;
+			children = (
+				CBC43EA91C5ABA1F0083A11B /* Base */,
+			);
+			name = LaunchScreen.storyboard;
 			sourceTree = "<group>";
 		};
 		CBF3CDE417F574B5001AC307 /* InfoPlist.strings */ = {
@@ -636,6 +737,50 @@
 			};
 			name = Release;
 		};
+		CBC43EAC1C5ABA1F0083A11B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INFOPLIST_FILE = "Swift-Tester/Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 9.2;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				MTL_ENABLE_DEBUG_INFO = YES;
+				OTHER_LDFLAGS = "-ObjC";
+				PRODUCT_BUNDLE_IDENTIFIER = "karl.Swift-Tester";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_OBJC_BRIDGING_HEADER = "Swift-Tester/BridgeHeader.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		CBC43EAD1C5ABA1F0083A11B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INFOPLIST_FILE = "Swift-Tester/Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 9.2;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_LDFLAGS = "-ObjC";
+				PRODUCT_BUNDLE_IDENTIFIER = "karl.Swift-Tester";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_OBJC_BRIDGING_HEADER = "Swift-Tester/BridgeHeader.h";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		CBF3CE0717F574B6001AC307 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -776,6 +921,14 @@
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
+		};
+		CBC43EAE1C5ABA1F0083A11B /* Build configuration list for PBXNativeTarget "Swift-Tester" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CBC43EAC1C5ABA1F0083A11B /* Debug */,
+				CBC43EAD1C5ABA1F0083A11B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
 		};
 		CBF3CE0B17F574B6001AC307 /* Build configuration list for PBXNativeTarget "Advanced-Example" */ = {
 			isa = XCConfigurationList;
