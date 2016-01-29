@@ -31,14 +31,17 @@
 
 /**
  * Demangle a Swift symbol.
- * Note: Does not return nil like demangleCPP. The called API doesn't work that way.
  *
  * @param symbol The symbol to demangle.
- * @return The demangled string or the original symbol if it can't be demangled as Swift.
+ * @return The demangled string or nil if it can't be demangled as Swift.
  */
 static NSString* demangleSwift(NSString* symbol)
 {
     std::string demangled = swift::Demangle::demangleSymbolAsString(symbol.UTF8String);
+    if(demangled.length() == 0)
+    {
+        return nil;
+    }
     return [NSString stringWithUTF8String:demangled.c_str()];
 }
 
@@ -76,7 +79,14 @@ static NSString* demangleCPP(NSString* symbol)
     {
         return demangled;
     }
-    return demangleSwift(self);
+
+    demangled = demangleSwift(self);
+    if(demangled != nil)
+    {
+        return demangled;
+    }
+
+    return self;
 }
 
 @end

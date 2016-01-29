@@ -288,7 +288,6 @@
     {
         fieldPath = @[];
     }
-    NSLog(@"Examining field %@", currentField);
 
     id field = report[currentField];
     if(field == nil)
@@ -329,7 +328,6 @@
     NSString* lastPath = fieldPath[fieldPath.count - 1];
     [self performOnFields:fieldPath inReport:report operation:^(NSMutableDictionary* parent, NSString* field)
     {
-        NSLog(@"Perform operation on %@", field);
         parent[lastPath] = [field demangledSymbol];
     } okIfNotFound:isOkIfNotFound];
 }

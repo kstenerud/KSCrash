@@ -838,6 +838,7 @@
 				CBF53D2317EB765C0056DA83 /* KSCrashDoctor.h */,
 				CBF53D2417EB765C0056DA83 /* KSCrashDoctor.m */,
 				CBF53E5117EB76B10056DA83 /* Sentry */,
+				CBC43F061C5AF29F0083A11B /* Support */,
 				CBF53E5217EB76B70056DA83 /* Tools */,
 			);
 			name = "Crash Recording";
@@ -846,7 +847,6 @@
 		CBF53E4F17EB76990056DA83 /* Crash Reporting */ = {
 			isa = PBXGroup;
 			children = (
-				CBC43F061C5AF29F0083A11B /* Support */,
 				DCA19E321881C13300DCA792 /* Sinks */,
 				CBF53E5417EB77160056DA83 /* Filters */,
 				CBF53E5317EB77090056DA83 /* Tools */,
