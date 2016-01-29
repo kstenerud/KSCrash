@@ -7,11 +7,16 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		CB0C95651C5BF3F400166B50 /* libc++.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = CB0C95641C5BF3F400166B50 /* libc++.tbd */; };
+		CB0C95661C5BF40700166B50 /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = CBC43EB41C5AC11F0083A11B /* libz.tbd */; };
+		CB0C95671C5BF8DA00166B50 /* libc++.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = CB0C95641C5BF3F400166B50 /* libc++.tbd */; };
+		CB0C95681C5BF8E300166B50 /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = CBC43EB41C5AC11F0083A11B /* libz.tbd */; };
+		CB0C95691C5BF90200166B50 /* libc++.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = CB0C95641C5BF3F400166B50 /* libc++.tbd */; };
+		CB0C956A1C5BF90700166B50 /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = CBC43EB41C5AC11F0083A11B /* libz.tbd */; };
+		CB0C956B1C5BF91300166B50 /* libc++.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = CB0C95641C5BF3F400166B50 /* libc++.tbd */; };
 		CB62400117EBB2C9006471F1 /* libKSCrashLib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = CB62400017EBB2C9006471F1 /* libKSCrashLib.a */; };
-		CB62400317EBB2CE006471F1 /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = CB62400217EBB2CE006471F1 /* libz.dylib */; };
 		CB62400517EBB2D2006471F1 /* MessageUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB62400417EBB2D2006471F1 /* MessageUI.framework */; };
 		CB62400717EBB2D7006471F1 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB62400617EBB2D7006471F1 /* SystemConfiguration.framework */; };
-		CB62400917EBB2FF006471F1 /* libstdc++.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = CB62400817EBB2FF006471F1 /* libstdc++.dylib */; };
 		CB8E57A017EBB1AF000C56D3 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB8E576617EBB16D000C56D3 /* Foundation.framework */; };
 		CB8E57A117EBB1AF000C56D3 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB8E576817EBB16D000C56D3 /* CoreGraphics.framework */; };
 		CB8E57A217EBB1AF000C56D3 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB8E576A17EBB16D000C56D3 /* UIKit.framework */; };
@@ -27,7 +32,6 @@
 		CBC43EA71C5ABA1F0083A11B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CBC43EA61C5ABA1F0083A11B /* Assets.xcassets */; };
 		CBC43EAA1C5ABA1F0083A11B /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = CBC43EA81C5ABA1F0083A11B /* LaunchScreen.storyboard */; };
 		CBC43EB01C5ABA590083A11B /* libKSCrashLib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = CBC43EAF1C5ABA590083A11B /* libKSCrashLib.a */; };
-		CBC43EB31C5ABD6B0083A11B /* libstdc++.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = CBC43EB21C5ABD6B0083A11B /* libstdc++.tbd */; };
 		CBC43EB51C5AC11F0083A11B /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = CBC43EB41C5AC11F0083A11B /* libz.tbd */; };
 		CBF3CDDE17F574B5001AC307 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB8E576617EBB16D000C56D3 /* Foundation.framework */; };
 		CBF3CDDF17F574B5001AC307 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB8E576817EBB16D000C56D3 /* CoreGraphics.framework */; };
@@ -42,8 +46,6 @@
 		CBF3CE1417F57601001AC307 /* libKSCrashLib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = CBF3CE1317F57601001AC307 /* libKSCrashLib.a */; };
 		CBF3CE1517F57609001AC307 /* MessageUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB62400417EBB2D2006471F1 /* MessageUI.framework */; };
 		CBF3CE1617F57610001AC307 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB62400617EBB2D7006471F1 /* SystemConfiguration.framework */; };
-		CBF3CE1717F57614001AC307 /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = CB62400217EBB2CE006471F1 /* libz.dylib */; };
-		CBF3CE1917F57622001AC307 /* libc++.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = CBF3CE1817F57622001AC307 /* libc++.dylib */; };
 		CBF3CE1F17F576C0001AC307 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB8E576617EBB16D000C56D3 /* Foundation.framework */; };
 		CBF3CE2017F576C0001AC307 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB8E576817EBB16D000C56D3 /* CoreGraphics.framework */; };
 		CBF3CE2117F576C0001AC307 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB8E576A17EBB16D000C56D3 /* UIKit.framework */; };
@@ -57,13 +59,12 @@
 		CBF3CE5B17F5778E001AC307 /* libKSCrashLib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = CBF3CE5A17F5778E001AC307 /* libKSCrashLib.a */; };
 		CBF3CE5C17F57794001AC307 /* MessageUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB62400417EBB2D2006471F1 /* MessageUI.framework */; };
 		CBF3CE5D17F57798001AC307 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB62400617EBB2D7006471F1 /* SystemConfiguration.framework */; };
-		CBF3CE5E17F5779C001AC307 /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = CB62400217EBB2CE006471F1 /* libz.dylib */; };
-		CBF3CE5F17F5779F001AC307 /* libc++.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = CBF3CE1817F57622001AC307 /* libc++.dylib */; };
 		CBF3CEA717F67EA9001AC307 /* CrashTesterCommands.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF3CEA617F67EA9001AC307 /* CrashTesterCommands.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		CB02647717F69E8A003E0AED /* Configuration.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Configuration.h; sourceTree = SOURCE_ROOT; };
+		CB0C95641C5BF3F400166B50 /* libc++.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = "libc++.tbd"; path = "usr/lib/libc++.tbd"; sourceTree = SDKROOT; };
 		CB62400017EBB2C9006471F1 /* libKSCrashLib.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libKSCrashLib.a; path = "build/Debug-iphoneos/libKSCrashLib.a"; sourceTree = "<group>"; };
 		CB62400217EBB2CE006471F1 /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = usr/lib/libz.dylib; sourceTree = SDKROOT; };
 		CB62400417EBB2D2006471F1 /* MessageUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MessageUI.framework; path = System/Library/Frameworks/MessageUI.framework; sourceTree = SDKROOT; };
@@ -139,10 +140,10 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CB62400917EBB2FF006471F1 /* libstdc++.dylib in Frameworks */,
+				CB0C95661C5BF40700166B50 /* libz.tbd in Frameworks */,
+				CB0C95651C5BF3F400166B50 /* libc++.tbd in Frameworks */,
 				CB62400717EBB2D7006471F1 /* SystemConfiguration.framework in Frameworks */,
 				CB62400517EBB2D2006471F1 /* MessageUI.framework in Frameworks */,
-				CB62400317EBB2CE006471F1 /* libz.dylib in Frameworks */,
 				CB62400117EBB2C9006471F1 /* libKSCrashLib.a in Frameworks */,
 				CB8E57A117EBB1AF000C56D3 /* CoreGraphics.framework in Frameworks */,
 				CB8E57A217EBB1AF000C56D3 /* UIKit.framework in Frameworks */,
@@ -154,8 +155,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CB0C956B1C5BF91300166B50 /* libc++.tbd in Frameworks */,
 				CBC43EB51C5AC11F0083A11B /* libz.tbd in Frameworks */,
-				CBC43EB31C5ABD6B0083A11B /* libstdc++.tbd in Frameworks */,
 				CBC43EB01C5ABA590083A11B /* libKSCrashLib.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -164,8 +165,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CBF3CE1917F57622001AC307 /* libc++.dylib in Frameworks */,
-				CBF3CE1717F57614001AC307 /* libz.dylib in Frameworks */,
+				CB0C95681C5BF8E300166B50 /* libz.tbd in Frameworks */,
+				CB0C95671C5BF8DA00166B50 /* libc++.tbd in Frameworks */,
 				CBF3CE1617F57610001AC307 /* SystemConfiguration.framework in Frameworks */,
 				CBF3CE1517F57609001AC307 /* MessageUI.framework in Frameworks */,
 				CBF3CE1417F57601001AC307 /* libKSCrashLib.a in Frameworks */,
@@ -179,8 +180,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CBF3CE5F17F5779F001AC307 /* libc++.dylib in Frameworks */,
-				CBF3CE5E17F5779C001AC307 /* libz.dylib in Frameworks */,
+				CB0C956A1C5BF90700166B50 /* libz.tbd in Frameworks */,
+				CB0C95691C5BF90200166B50 /* libc++.tbd in Frameworks */,
 				CBF3CE5D17F57798001AC307 /* SystemConfiguration.framework in Frameworks */,
 				CBF3CE5C17F57794001AC307 /* MessageUI.framework in Frameworks */,
 				CBF3CE5B17F5778E001AC307 /* libKSCrashLib.a in Frameworks */,
@@ -220,6 +221,7 @@
 		CB8E576517EBB16D000C56D3 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				CB0C95641C5BF3F400166B50 /* libc++.tbd */,
 				CBC43EB41C5AC11F0083A11B /* libz.tbd */,
 				CBC43EB21C5ABD6B0083A11B /* libstdc++.tbd */,
 				CBC43EAF1C5ABA590083A11B /* libKSCrashLib.a */,
@@ -929,6 +931,7 @@
 				CBC43EAD1C5ABA1F0083A11B /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		CBF3CE0B17F574B6001AC307 /* Build configuration list for PBXNativeTarget "Advanced-Example" */ = {
 			isa = XCConfigurationList;
