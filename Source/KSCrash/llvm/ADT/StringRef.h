@@ -254,7 +254,7 @@ namespace llvm {
       if (FindBegin < Length) { // Avoid calling memchr with nullptr.
         // Just forward to memchr, which is faster than a hand-rolled loop.
         if (const void *P = ::memchr(Data + FindBegin, C, Length - FindBegin))
-          return static_cast<const char *>(P) - Data;
+          return (size_t)(static_cast<const char *>(P) - Data);
       }
       return npos;
     }
