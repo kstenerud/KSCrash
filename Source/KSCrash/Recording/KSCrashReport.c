@@ -38,7 +38,6 @@
 #include "KSSignalInfo.h"
 #include "KSZombie.h"
 #include "KSString.h"
-#include "Demangle.h"
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
@@ -98,9 +97,6 @@
 
 /** The minimum length for a valid string. */
 #define kMinStringLength 4
-
-/** Leave lots of room for C++ demangling */
-#define DEMANGLE_BUFFER_LENGTH 2000
 
 
 // ============================================================================
@@ -599,7 +595,6 @@ void kscrw_i_logBacktraceEntry(const int entryNum,
 {
     char faddrBuff[20];
     char saddrBuff[20];
-    char demangleBuff[DEMANGLE_BUFFER_LENGTH];
 
     const char* fname = ksfu_lastPathEntry(dlInfo->dli_fname);
     if(fname == NULL)
@@ -610,14 +605,7 @@ void kscrw_i_logBacktraceEntry(const int entryNum,
 
     uintptr_t offset = address - (uintptr_t)dlInfo->dli_saddr;
     const char* sname = dlInfo->dli_sname;
-    if(sname != NULL)
-    {
-        if(safe_demangle(sname, demangleBuff, sizeof(demangleBuff)) == DEMANGLE_STATUS_SUCCESS)
-        {
-            sname = demangleBuff;
-        }
-    }
-    else
+    if(sname == NULL)
     {
         sprintf(saddrBuff, POINTER_SHORT_FMT, (uintptr_t)dlInfo->dli_fbase);
         sname = saddrBuff;
@@ -1130,7 +1118,6 @@ void kscrw_i_writeBacktraceEntry(const KSCrashReportWriter* const writer,
                                  const uintptr_t address,
                                  const Dl_info* const info)
 {
-    char demangleBuff[DEMANGLE_BUFFER_LENGTH];
     writer->beginObject(writer, key);
     {
         if(info->dli_fname != NULL)
@@ -1141,10 +1128,6 @@ void kscrw_i_writeBacktraceEntry(const KSCrashReportWriter* const writer,
         if(info->dli_sname != NULL)
         {
             const char* sname = info->dli_sname;
-            if(safe_demangle(sname, demangleBuff, sizeof(demangleBuff)) == DEMANGLE_STATUS_SUCCESS)
-            {
-                sname = demangleBuff;
-            }
             writer->addStringElement(writer, KSCrashField_SymbolName, sname);
         }
         writer->addUIntegerElement(writer, KSCrashField_SymbolAddr, (uintptr_t)info->dli_saddr);

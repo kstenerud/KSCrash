@@ -1,7 +1,7 @@
 //
-//  Demangle.cpp
+//  NSMutableData+AppendUTF8.h
 //
-//  Created by Karl Stenerud on 2013-10-02.
+//  Created by Karl Stenerud on 2012-02-26.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,25 +24,18 @@
 // THE SOFTWARE.
 //
 
-#include "Demangle.h"
-#include <cxxabi.h>
-#include <string.h>
-#include "KSLogger.h"
 
-char* cpp_demangle(const char* mangled_name, char* output_buffer, size_t* length, int* status)
-{
-    return __cxxabiv1::__cxa_demangle(mangled_name, output_buffer, length, status);
-}
+#import <Foundation/Foundation.h>
 
-bool safe_demangle(const char* mangled_name, char* output_buffer, size_t buffer_length)
-{
-    size_t mangled_length = strlen(mangled_name);
-    if(mangled_length < buffer_length)
-    {
-        size_t length = buffer_length;
-        int status = DEMANGLE_STATUS_SUCCESS;
-        __cxxabiv1::__cxa_demangle(mangled_name, output_buffer, &length, &status);
-        return status;
-    }
-    return DEMANGLE_STATUS_TOO_SMALL;
-}
+
+/** Demangles C++ or Swift symbols.
+ */
+@interface NSString (Demangle)
+
+/** Demangle a symbol into a human readable format.
+ *
+ * @return The demangled symbol, or the original string if it couldn't be demangled.
+ */
+- (NSString*) demangledSymbol;
+
+@end
