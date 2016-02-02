@@ -19,12 +19,10 @@ class ViewController: UIViewController {
         super.didReceiveMemoryWarning()
         // Dispose of any resources that can be recreated.
     }
-    func doSomething() {
-        doSomething()
-    }
 
     @IBAction func onButtonPressed(sender: AnyObject) {
-        doSomething()
+        var emptyDictionary = Dictionary<Int,Int>()
+        print(emptyDictionary[1]!)
     }
 }
 

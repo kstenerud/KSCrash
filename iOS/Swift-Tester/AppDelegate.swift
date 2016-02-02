@@ -16,12 +16,30 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(application: UIApplication, didFinishLaunchingWithOptions launchOptions: [NSObject: AnyObject]?) -> Bool {
         // Override point for customization after application launch.
-        let handler = KSCrash.sharedInstance()
-        handler.searchThreadNames = true
-        handler.searchQueueNames = true
-        handler.printTraceToStdout = true
-        handler.install()
+        let emailAddress = "your@email.here"
+        
+        let installation = KSCrashInstallationEmail.sharedInstance()
+        installation.recipients = [emailAddress]
+        installation.subject = "Crash Report"
+        installation.message = "This is a crash report"
+        installation.filenameFmt = "crash-report-%d.json.gz"
+        installation.reportStyle = KSCrashEmailReportStyleJSON
+        
+        installation.addConditionalAlertWithTitle("Crash Detected",
+            message: "The app crashed last time it was launched. Send a crash report?",
+            yesAnswer: "Sure!",
+            noAnswer: "No thanks")
 
+        installation.install()
+
+        installation.sendAllReportsWithCompletion { (reports, completed, error) -> Void in
+            if(completed) {
+                print("Sent \(reports.count) reports")
+            } else {
+                print("Failed to send reports: \(error)")
+            }
+        }
+        
         return true
     }
 
