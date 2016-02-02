@@ -305,7 +305,7 @@ bool ksmach_getThreadQueueName(const thread_t thread,
         KSLOG_TRACE("Error while getting dispatch queue name : %p", dispatch_queue);
         return false;
     }
-    KSLOG_TRACE("Dispatch queue name: %s", name);
+    KSLOG_TRACE("Dispatch queue name: %s", queue_name);
     size_t length = strlen(queue_name);
 
     // Queue label must be a null terminated string.
