@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name         = "KSCrash"
-  s.version      = "0.0.8"
+  s.version      = "0.0.9"
   s.summary      = "The Ultimate iOS Crash Reporter"
   s.homepage     = "https://github.com/kstenerud/KSCrash"
   s.license     = { :type => 'KSCrash license agreement', :file => 'LICENSE' }
@@ -10,7 +10,7 @@ Pod::Spec.new do |s|
   s.frameworks = 'Foundation'
   s.libraries = 'c++', 'z'
   s.xcconfig = { 'GCC_ENABLE_CPP_EXCEPTIONS' => 'YES' }
-  
+
   s.subspec 'no-arc' do |sp|
     sp.source_files = 'Source/KSCrash/Recording/**/KSZombie.{h,m}'
     sp.requires_arc = false
@@ -19,14 +19,14 @@ Pod::Spec.new do |s|
   s.subspec 'Recording' do |recording|
     recording.dependency 'KSCrash/no-arc'
     recording.source_files   = 'Source/KSCrash/Recording/**/*.{h,m,mm,c,cpp}',
-                               'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h' 
-    recording.exclude_files = 'Source/KSCrash/Recording/**/KSZombie.{h,m}'  
+                               'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h'
+    recording.exclude_files = 'Source/KSCrash/Recording/**/KSZombie.{h,m}'
   end
 
   s.subspec 'Reporting' do |reporting|
     reporting.dependency 'KSCrash/Recording'
 
-    reporting.subspec 'Filters' do |filters|      
+    reporting.subspec 'Filters' do |filters|
       filters.subspec 'Base' do |base|
         base.source_files = 'Source/KSCrash/Reporting/Filters/Tools/**/*.{h,m,mm,c,cpp}',
                             'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h',
@@ -62,14 +62,14 @@ Pod::Spec.new do |s|
         json.source_files = 'Source/KSCrash/Reporting/Filters/KSCrashReportFilterJSON.h',
                             'Source/KSCrash/Reporting/Filters/KSCrashReportFilterJSON.m'
       end
-      
+
       filters.subspec 'Sets' do |sets|
         sets.dependency 'KSCrash/Reporting/Filters/Base'
         sets.dependency 'KSCrash/Reporting/Filters/AppleFmt'
         sets.dependency 'KSCrash/Reporting/Filters/Basic'
         sets.dependency 'KSCrash/Reporting/Filters/GZip'
         sets.dependency 'KSCrash/Reporting/Filters/JSON'
-        
+
         sets.source_files = 'Source/KSCrash/Reporting/Filters/KSCrashReportFilterSets.h',
                             'Source/KSCrash/Reporting/Filters/KSCrashReportFilterSets.m'
       end
@@ -90,7 +90,7 @@ Pod::Spec.new do |s|
     end
 
   end
-  
+
   s.subspec 'Installations' do |installations|
     installations.dependency 'KSCrash/Recording'
     installations.dependency 'KSCrash/Reporting'
