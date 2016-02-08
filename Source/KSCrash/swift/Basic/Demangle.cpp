@@ -16,7 +16,7 @@
 
 #include "Demangle.h"
 #include "Fallthrough.h"
-#include "Strings.h"
+#include "SwiftStrings.h"
 #include "LLVM.h"
 #include "Punycode.h"
 #include "StringRef.h"

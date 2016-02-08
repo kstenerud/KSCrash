@@ -44,8 +44,8 @@
 		CB26862D1C694E4400EE4EB3 /* Punycode.h in Headers */ = {isa = PBXBuildFile; fileRef = CB26860C1C694E4400EE4EB3 /* Punycode.h */; };
 		CB26862E1C694E4400EE4EB3 /* Punycode.h in Headers */ = {isa = PBXBuildFile; fileRef = CB26860C1C694E4400EE4EB3 /* Punycode.h */; };
 		CB26862F1C694E4400EE4EB3 /* LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = CB26860D1C694E4400EE4EB3 /* LICENSE.txt */; };
-		CB2686301C694E4400EE4EB3 /* Strings.h in Headers */ = {isa = PBXBuildFile; fileRef = CB26860E1C694E4400EE4EB3 /* Strings.h */; };
-		CB2686311C694E4400EE4EB3 /* Strings.h in Headers */ = {isa = PBXBuildFile; fileRef = CB26860E1C694E4400EE4EB3 /* Strings.h */; };
+		CB2686301C694E4400EE4EB3 /* SwiftStrings.h in Headers */ = {isa = PBXBuildFile; fileRef = CB26860E1C694E4400EE4EB3 /* SwiftStrings.h */; };
+		CB2686311C694E4400EE4EB3 /* SwiftStrings.h in Headers */ = {isa = PBXBuildFile; fileRef = CB26860E1C694E4400EE4EB3 /* SwiftStrings.h */; };
 		CB62408A17EBC9F7006471F1 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB8E55EA17EB99E3000C56D3 /* Cocoa.framework */; };
 		CB6240A917EBCA74006471F1 /* KSCrashC.c in Sources */ = {isa = PBXBuildFile; fileRef = CB8E561F17EB9AFD000C56D3 /* KSCrashC.c */; };
 		CB6240AA17EBCA74006471F1 /* KSCrashC.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E562017EB9AFD000C56D3 /* KSCrashC.h */; };
@@ -381,7 +381,7 @@
 		CB26860B1C694E4400EE4EB3 /* Punycode.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Punycode.cpp; sourceTree = "<group>"; };
 		CB26860C1C694E4400EE4EB3 /* Punycode.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Punycode.h; sourceTree = "<group>"; };
 		CB26860D1C694E4400EE4EB3 /* LICENSE.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LICENSE.txt; sourceTree = "<group>"; };
-		CB26860E1C694E4400EE4EB3 /* Strings.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Strings.h; sourceTree = "<group>"; };
+		CB26860E1C694E4400EE4EB3 /* SwiftStrings.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SwiftStrings.h; sourceTree = "<group>"; };
 		CB62408917EBC9F7006471F1 /* libKSCrashLib.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libKSCrashLib.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		CB62408D17EBC9F7006471F1 /* KSCrashLib-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "KSCrashLib-Prefix.pch"; sourceTree = "<group>"; };
 		CB7A6C9417FB99E800997792 /* KSDynamicLinker.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSDynamicLinker.c; path = ../../Source/KSCrash/Recording/Tools/KSDynamicLinker.c; sourceTree = "<group>"; };
@@ -656,7 +656,7 @@
 			children = (
 				CB2686041C694E4400EE4EB3 /* Basic */,
 				CB26860D1C694E4400EE4EB3 /* LICENSE.txt */,
-				CB26860E1C694E4400EE4EB3 /* Strings.h */,
+				CB26860E1C694E4400EE4EB3 /* SwiftStrings.h */,
 			);
 			name = swift;
 			path = ../../Source/KSCrash/swift;
@@ -1027,7 +1027,7 @@
 				CB26861D1C694E4400EE4EB3 /* Compiler.h in Headers */,
 				CB62411B17EBCA74006471F1 /* KSCrashInstallation.h in Headers */,
 				CB62411D17EBCA74006471F1 /* KSCrashInstallationEmail.h in Headers */,
-				CB2686311C694E4400EE4EB3 /* Strings.h in Headers */,
+				CB2686311C694E4400EE4EB3 /* SwiftStrings.h in Headers */,
 				CB62411F17EBCA74006471F1 /* KSCrashInstallationQuincyHockey.h in Headers */,
 				CB62412117EBCA74006471F1 /* KSCrashInstallationStandard.h in Headers */,
 				CB62412317EBCA74006471F1 /* KSCrashInstallationVictory.h in Headers */,
@@ -1177,7 +1177,7 @@
 				CB2686111C694E4400EE4EB3 /* Optional.h in Headers */,
 				CB2686221C694E4400EE4EB3 /* Demangle.h in Headers */,
 				CB8E562E17EB9AFD000C56D3 /* KSCrashC.h in Headers */,
-				CB2686301C694E4400EE4EB3 /* Strings.h in Headers */,
+				CB2686301C694E4400EE4EB3 /* SwiftStrings.h in Headers */,
 				CB8E568317EB9B43000C56D3 /* KSFileUtils.h in Headers */,
 				CB8E565817EB9B35000C56D3 /* KSCrashSentry_Signal.h in Headers */,
 				CB8E565617EB9B35000C56D3 /* KSCrashSentry_Private.h in Headers */,

@@ -94,8 +94,8 @@
 		CBC43F3A1C5AF2B10083A11B /* Punycode.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CBC43F1B1C5AF2B10083A11B /* Punycode.cpp */; };
 		CBC43F3B1C5AF2B10083A11B /* Punycode.h in Headers */ = {isa = PBXBuildFile; fileRef = CBC43F1C1C5AF2B10083A11B /* Punycode.h */; };
 		CBC43F3C1C5AF2B10083A11B /* Punycode.h in Headers */ = {isa = PBXBuildFile; fileRef = CBC43F1C1C5AF2B10083A11B /* Punycode.h */; };
-		CBC43F3D1C5AF2B10083A11B /* Strings.h in Headers */ = {isa = PBXBuildFile; fileRef = CBC43F1D1C5AF2B10083A11B /* Strings.h */; };
-		CBC43F3E1C5AF2B10083A11B /* Strings.h in Headers */ = {isa = PBXBuildFile; fileRef = CBC43F1D1C5AF2B10083A11B /* Strings.h */; };
+		CBC43F3D1C5AF2B10083A11B /* SwiftStrings.h in Headers */ = {isa = PBXBuildFile; fileRef = CBC43F1D1C5AF2B10083A11B /* SwiftStrings.h */; };
+		CBC43F3E1C5AF2B10083A11B /* SwiftStrings.h in Headers */ = {isa = PBXBuildFile; fileRef = CBC43F1D1C5AF2B10083A11B /* SwiftStrings.h */; };
 		CBC43F411C5BE9670083A11B /* NSString+Demangle.h in Headers */ = {isa = PBXBuildFile; fileRef = CBC43F3F1C5BE9670083A11B /* NSString+Demangle.h */; };
 		CBC43F421C5BE9670083A11B /* NSString+Demangle.h in Headers */ = {isa = PBXBuildFile; fileRef = CBC43F3F1C5BE9670083A11B /* NSString+Demangle.h */; };
 		CBC43F431C5BE9670083A11B /* NSString+Demangle.mm in Sources */ = {isa = PBXBuildFile; fileRef = CBC43F401C5BE9670083A11B /* NSString+Demangle.mm */; };
@@ -442,7 +442,7 @@
 		CBC43F1A1C5AF2B10083A11B /* Malloc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Malloc.h; sourceTree = "<group>"; };
 		CBC43F1B1C5AF2B10083A11B /* Punycode.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Punycode.cpp; sourceTree = "<group>"; };
 		CBC43F1C1C5AF2B10083A11B /* Punycode.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Punycode.h; sourceTree = "<group>"; };
-		CBC43F1D1C5AF2B10083A11B /* Strings.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Strings.h; sourceTree = "<group>"; };
+		CBC43F1D1C5AF2B10083A11B /* SwiftStrings.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SwiftStrings.h; sourceTree = "<group>"; };
 		CBC43F3F1C5BE9670083A11B /* NSString+Demangle.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSString+Demangle.h"; path = "../../Source/KSCrash/Recording/Tools/NSString+Demangle.h"; sourceTree = "<group>"; };
 		CBC43F401C5BE9670083A11B /* NSString+Demangle.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = "NSString+Demangle.mm"; path = "../../Source/KSCrash/Recording/Tools/NSString+Demangle.mm"; sourceTree = "<group>"; };
 		CBF53D1217EB765C0056DA83 /* ARCSafe_MemMgmt.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ARCSafe_MemMgmt.h; path = ../../Source/KSCrash/Recording/Tools/ARCSafe_MemMgmt.h; sourceTree = "<group>"; };
@@ -795,7 +795,7 @@
 			isa = PBXGroup;
 			children = (
 				CBC43F141C5AF2B10083A11B /* Basic */,
-				CBC43F1D1C5AF2B10083A11B /* Strings.h */,
+				CBC43F1D1C5AF2B10083A11B /* SwiftStrings.h */,
 			);
 			name = swift;
 			path = ../../Source/KSCrash/swift;
@@ -1066,7 +1066,7 @@
 				CBF53D9B17EB765C0056DA83 /* KSBacktrace.h in Headers */,
 				CBC43F281C5AF2B10083A11B /* Casting.h in Headers */,
 				CBF53DF117EB765C0056DA83 /* KSCrashSentry_NSException.h in Headers */,
-				CBC43F3D1C5AF2B10083A11B /* Strings.h in Headers */,
+				CBC43F3D1C5AF2B10083A11B /* SwiftStrings.h in Headers */,
 				CBF53E2217EB765C0056DA83 /* KSMachApple.h in Headers */,
 				CBF53D9417EB765C0056DA83 /* Container+DeepSearch.h in Headers */,
 				CBF53E1217EB765C0056DA83 /* KSJSONCodec.h in Headers */,
@@ -1158,7 +1158,7 @@
 				CBF53E5B17EB7EA80056DA83 /* KSCrashState.h in Headers */,
 				CBC43F291C5AF2B10083A11B /* Casting.h in Headers */,
 				CBF53E6917EB7EA80056DA83 /* KSBacktrace.h in Headers */,
-				CBC43F3E1C5AF2B10083A11B /* Strings.h in Headers */,
+				CBC43F3E1C5AF2B10083A11B /* SwiftStrings.h in Headers */,
 				CBF53E5817EB7EA80056DA83 /* KSCrashReport.h in Headers */,
 				CBF53E5E17EB7EA80056DA83 /* KSSystemInfoC.h in Headers */,
 				CBF53E8517EB7EA80056DA83 /* KSCrashDoctor.h in Headers */,
