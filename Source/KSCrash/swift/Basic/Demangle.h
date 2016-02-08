@@ -137,7 +137,7 @@ class Node : public std::enable_shared_from_this<Node> {
 public:
   enum class Kind : uint16_t {
 #define NODE(ID) ID,
-#include "DemangleNodes.def"
+#include "DemangleNodes.h"
   };
 
   typedef uint64_t IndexType;

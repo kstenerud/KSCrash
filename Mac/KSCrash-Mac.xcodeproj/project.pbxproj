@@ -32,7 +32,7 @@
 		CB2686211C694E4400EE4EB3 /* Demangle.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CB2686051C694E4400EE4EB3 /* Demangle.cpp */; };
 		CB2686221C694E4400EE4EB3 /* Demangle.h in Headers */ = {isa = PBXBuildFile; fileRef = CB2686061C694E4400EE4EB3 /* Demangle.h */; };
 		CB2686231C694E4400EE4EB3 /* Demangle.h in Headers */ = {isa = PBXBuildFile; fileRef = CB2686061C694E4400EE4EB3 /* Demangle.h */; };
-		CB2686241C694E4400EE4EB3 /* DemangleNodes.def in Resources */ = {isa = PBXBuildFile; fileRef = CB2686071C694E4400EE4EB3 /* DemangleNodes.def */; };
+		CB2686241C694E4400EE4EB3 /* DemangleNodes.h in Resources */ = {isa = PBXBuildFile; fileRef = CB2686071C694E4400EE4EB3 /* DemangleNodes.h */; };
 		CB2686251C694E4400EE4EB3 /* Fallthrough.h in Headers */ = {isa = PBXBuildFile; fileRef = CB2686081C694E4400EE4EB3 /* Fallthrough.h */; };
 		CB2686261C694E4400EE4EB3 /* Fallthrough.h in Headers */ = {isa = PBXBuildFile; fileRef = CB2686081C694E4400EE4EB3 /* Fallthrough.h */; };
 		CB2686271C694E4400EE4EB3 /* LLVM.h in Headers */ = {isa = PBXBuildFile; fileRef = CB2686091C694E4400EE4EB3 /* LLVM.h */; };
@@ -374,7 +374,7 @@
 		CB2686021C694E4400EE4EB3 /* type_traits.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = type_traits.h; sourceTree = "<group>"; };
 		CB2686051C694E4400EE4EB3 /* Demangle.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Demangle.cpp; sourceTree = "<group>"; };
 		CB2686061C694E4400EE4EB3 /* Demangle.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Demangle.h; sourceTree = "<group>"; };
-		CB2686071C694E4400EE4EB3 /* DemangleNodes.def */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = DemangleNodes.def; sourceTree = "<group>"; };
+		CB2686071C694E4400EE4EB3 /* DemangleNodes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DemangleNodes.h; sourceTree = "<group>"; };
 		CB2686081C694E4400EE4EB3 /* Fallthrough.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Fallthrough.h; sourceTree = "<group>"; };
 		CB2686091C694E4400EE4EB3 /* LLVM.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = LLVM.h; sourceTree = "<group>"; };
 		CB26860A1C694E4400EE4EB3 /* Malloc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Malloc.h; sourceTree = "<group>"; };
@@ -667,7 +667,7 @@
 			children = (
 				CB2686051C694E4400EE4EB3 /* Demangle.cpp */,
 				CB2686061C694E4400EE4EB3 /* Demangle.h */,
-				CB2686071C694E4400EE4EB3 /* DemangleNodes.def */,
+				CB2686071C694E4400EE4EB3 /* DemangleNodes.h */,
 				CB2686081C694E4400EE4EB3 /* Fallthrough.h */,
 				CB2686091C694E4400EE4EB3 /* LLVM.h */,
 				CB26860A1C694E4400EE4EB3 /* Malloc.h */,
@@ -1299,7 +1299,7 @@
 				CB26862F1C694E4400EE4EB3 /* LICENSE.txt in Resources */,
 				CB2686171C694E4400EE4EB3 /* LICENSE.TXT in Resources */,
 				CB8E55F517EB99E3000C56D3 /* InfoPlist.strings in Resources */,
-				CB2686241C694E4400EE4EB3 /* DemangleNodes.def in Resources */,
+				CB2686241C694E4400EE4EB3 /* DemangleNodes.h in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

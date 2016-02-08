@@ -19,6 +19,8 @@ Pod::Spec.new do |s|
   s.subspec 'Recording' do |recording|
     recording.dependency 'KSCrash/no-arc'
     recording.source_files   = 'Source/KSCrash/Recording/**/*.{h,m,mm,c,cpp}',
+                               'Source/KSCrash/llvm/**/*.{h,m,mm,c,cpp}',
+                               'Source/KSCrash/swift/**/*.{h,m,mm,c,cpp}',
                                'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h'
     recording.exclude_files = 'Source/KSCrash/Recording/**/KSZombie.{h,m}'
   end
