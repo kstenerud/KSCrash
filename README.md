@@ -362,17 +362,6 @@ be useful for other purposes, so I've exposed an API for it.
 
 
 
-KSCrashLite
------------
-
-KSCrashLite is intended for use in custom crash frameworks that have special
-needs. It doesn't include any sinks (except for console); it is expected that
-the user will supply their own. Unlike the regular KSCrash framework,
-KSCrashLite has no dependencies on MessageUI.framework or zlib (it still
-requires SystemConfiguration.framework).
-
-
-
 Examples
 --------
 
