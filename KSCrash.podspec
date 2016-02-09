@@ -1,11 +1,13 @@
 Pod::Spec.new do |s|
+  IOS_DEPLOYMENT_TARGET = '5.0' unless defined? IOS_DEPLOYMENT_TARGET
   s.name         = "KSCrash"
   s.version      = "0.0.9"
   s.summary      = "The Ultimate iOS Crash Reporter"
   s.homepage     = "https://github.com/kstenerud/KSCrash"
   s.license     = { :type => 'KSCrash license agreement', :file => 'LICENSE' }
   s.author       = { "Karl Stenerud" => "kstenerud@gmail.com" }
-  s.platform     = :ios, '5.0'
+  s.ios.deployment_target =  IOS_DEPLOYMENT_TARGET
+  s.osx.deployment_target =  '10.8'
   s.source       = { :git => "https://github.com/kstenerud/KSCrash.git", :tag=>s.version.to_s }
   s.frameworks = 'Foundation'
   s.libraries = 'c++', 'z'
@@ -85,6 +87,7 @@ Pod::Spec.new do |s|
     end
 
     reporting.subspec 'Sinks' do |sinks|
+      sinks.platform = :ios, IOS_DEPLOYMENT_TARGET
       sinks.frameworks = 'MessageUI'
       sinks.dependency 'KSCrash/Reporting/Filters'
       sinks.dependency 'KSCrash/Reporting/Tools'
