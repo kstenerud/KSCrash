@@ -1,5 +1,5 @@
 Pod::Spec.new do |s|
-  IOS_DEPLOYMENT_TARGET = '5.0' unless defined? IOS_DEPLOYMENT_TARGET
+  IOS_DEPLOYMENT_TARGET = '7.0' unless defined? IOS_DEPLOYMENT_TARGET
   s.name         = "KSCrash"
   s.version      = "0.0.9"
   s.summary      = "The Ultimate iOS Crash Reporter"
