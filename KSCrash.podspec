@@ -1,7 +1,7 @@
 Pod::Spec.new do |s|
   IOS_DEPLOYMENT_TARGET = '7.0' unless defined? IOS_DEPLOYMENT_TARGET
   s.name         = "KSCrash"
-  s.version      = "0.0.9"
+  s.version      = "1.0.0"
   s.summary      = "The Ultimate iOS Crash Reporter"
   s.homepage     = "https://github.com/kstenerud/KSCrash"
   s.license     = { :type => 'KSCrash license agreement', :file => 'LICENSE' }
@@ -86,9 +86,11 @@ Pod::Spec.new do |s|
 
     end
 
+    reporting.subspec 'MessageUI' do |messageui|
+    end
+
     reporting.subspec 'Sinks' do |sinks|
-      sinks.platform = :ios, IOS_DEPLOYMENT_TARGET
-      sinks.frameworks = 'MessageUI'
+      sinks.ios.frameworks = 'MessageUI'
       sinks.dependency 'KSCrash/Reporting/Filters'
       sinks.dependency 'KSCrash/Reporting/Tools'
       sinks.source_files = 'Source/KSCrash/Reporting/Sinks/**/*.{h,m,mm,c,cpp}'
