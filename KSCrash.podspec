@@ -1,5 +1,5 @@
 Pod::Spec.new do |s|
-  IOS_DEPLOYMENT_TARGET = '7.0' unless defined? IOS_DEPLOYMENT_TARGET
+  IOS_DEPLOYMENT_TARGET = '6.0' unless defined? IOS_DEPLOYMENT_TARGET
   s.name         = "KSCrash"
   s.version      = "1.0.0"
   s.summary      = "The Ultimate iOS Crash Reporter"
@@ -31,7 +31,8 @@ Pod::Spec.new do |s|
                                     'Source/KSCrash/Recording/KSCrashState.h',
                                     'Source/KSCrash/Recording/KSCrashType.h',
                                     'Source/KSCrash/Recording/Sentry/KSCrashSentry.h',
-                                    'Source/KSCrash/Recording/Tools/KSArchSpecific.h'
+                                    'Source/KSCrash/Recording/Tools/KSArchSpecific.h',
+                                    'Source/KSCrash/Recording/Tools/KSJSONCodecObjC.h'
   end
 
   s.subspec 'Reporting' do |reporting|
