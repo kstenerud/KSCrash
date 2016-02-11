@@ -235,24 +235,28 @@ crashDescriptionKeys:(NSArray*) crashDescriptionKeys
                     break;
             }
             break;
-            
+
+#ifdef CPU_TYPE_ARM64
         case CPU_TYPE_ARM64:
             switch (cpuSubType)
             {
                 case CPU_SUBTYPE_ARM_ALL:
                     arch = @"arm64";
                     break;
-                    
+
+#ifdef CPU_SUBTYPE_ARM_V8
                 case CPU_SUBTYPE_ARM_V8:
                     arch = @"arm64";
                     break;
-                    
+#endif
+
                 default:
                     arch = @"arm64-unknown";
                     break;
             }
             break;
-            
+#endif
+
         case CPU_TYPE_X86:
             arch = @"i386";
             break;
