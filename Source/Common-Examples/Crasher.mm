@@ -5,7 +5,6 @@
 //
 
 #import "Crasher.h"
-#import "ARCSafe_MemMgmt.h"
 #import <KSCrash/KSCrash.h>
 #import <pthread.h>
 #import <exception>
@@ -40,7 +39,7 @@ public:
 
 @interface RefHolder: NSObject
 {
-    as_unsafe_unretained id _ref;
+    __unsafe_unretained id _ref;
 }
 @property(nonatomic, readwrite, assign) id ref;
 
@@ -76,15 +75,9 @@ public:
 {
     if((self = [super init]))
     {
-        self.lock = as_autorelease([[NSLock alloc] init]);
+        self.lock = [[NSLock alloc] init];
     }
     return self;
-}
-
-- (void) dealloc
-{
-    as_release(_lock);
-    as_superdealloc();
 }
 
 int* g_crasher_null_ptr = NULL;
@@ -126,7 +119,7 @@ int g_crasher_denominator = 0;
     
     // Message an invalid/corrupt object.
     // This will deadlock if called in a crash handler.
-    [(as_bridge id)&corruptObj class];
+    [(__bridge id)&corruptObj class];
 }
 
 - (void) spinRunloop
@@ -173,7 +166,7 @@ int g_crasher_denominator = 0;
 //    [array objectAtIndex:10];
 //    return;
 
-    RefHolder* ref = as_autorelease([RefHolder new]);
+    RefHolder* ref = [RefHolder new];
     ref.ref = [NSArray arrayWithObjects:@"test1", @"test2", nil];
 
     dispatch_async(dispatch_get_main_queue(), ^
@@ -184,8 +177,8 @@ int g_crasher_denominator = 0;
 
 - (void) accessDeallocatedPtrProxy
 {
-    RefHolder* ref = as_autorelease([RefHolder new]);
-    ref.ref = as_autorelease([MyProxy alloc]);
+    RefHolder* ref = [RefHolder new];
+    ref.ref = [MyProxy alloc];
 
     dispatch_async(dispatch_get_main_queue(), ^
                    {
@@ -203,7 +196,7 @@ int g_crasher_denominator = 0;
     }
     @catch (NSException *exception)
     {
-        RefHolder* ref = as_autorelease([RefHolder new]);
+        RefHolder* ref = [RefHolder new];
         ref.ref = exception;
 
         dispatch_async(dispatch_get_main_queue(), ^
@@ -218,7 +211,7 @@ int g_crasher_denominator = 0;
     size_t stringsize = sizeof(uintptr_t) * 2 + 2;
     NSString* string = [NSString stringWithFormat:@"%d", 1];
     NSLog(@"%@", string);
-    void* cast = (as_bridge void*)string;
+    void* cast = (__bridge void*)string;
     uintptr_t address = (uintptr_t)cast;
     void* ptr = (char*)address + stringsize;
     memset(ptr, 0xa1, 500);

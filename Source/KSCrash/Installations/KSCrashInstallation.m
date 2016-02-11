@@ -27,7 +27,6 @@
 
 #import "KSCrashInstallation.h"
 #import "KSCrashInstallation+Private.h"
-#import "ARCSafe_MemMgmt.h"
 #import "KSCrashAdvanced.h"
 #import "KSCrashReportFilterAlert.h"
 #import "KSCString.h"
@@ -100,7 +99,7 @@ void kscinst_i_crashCallback(const KSCrashReportWriter* writer)
 
 + (KSCrashInstReportField*) fieldWithIndex:(size_t) index
 {
-    return as_autorelease([(KSCrashInstReportField*)[self alloc] initWithIndex:index]);
+    return [(KSCrashInstReportField*)[self alloc] initWithIndex:index];
 }
 
 - (id) initWithIndex:(size_t) index
@@ -113,16 +112,6 @@ void kscinst_i_crashCallback(const KSCrashReportWriter* writer)
     return self;
 }
 
-- (void) dealloc
-{
-    as_release(_key);
-    as_release(_value);
-    as_release(_fieldBacking);
-    as_release(_keyBacking);
-    as_release(_valueBacking);
-    as_superdealloc();
-}
-
 - (ReportField*) field
 {
     return (ReportField*)self.fieldBacking.mutableBytes;
@@ -130,8 +119,7 @@ void kscinst_i_crashCallback(const KSCrashReportWriter* writer)
 
 - (void) setKey:(NSString*) key
 {
-    as_autorelease_noref(_key);
-    _key = as_retain(key);
+    _key = key;
     if(key == nil)
     {
         self.keyBacking = nil;
@@ -147,7 +135,6 @@ void kscinst_i_crashCallback(const KSCrashReportWriter* writer)
 {
     if(value == nil)
     {
-        as_autorelease_noref(_value);
         _value = nil;
         self.valueBacking = nil;
         return;
@@ -161,8 +148,7 @@ void kscinst_i_crashCallback(const KSCrashReportWriter* writer)
     }
     else
     {
-        as_autorelease_noref(_value);
-        _value = as_retain(value);
+        _value = value;
         self.valueBacking = [KSCString stringWithData:jsonData];
         self.field->value = self.valueBacking.bytes;
     }
@@ -220,11 +206,6 @@ void kscinst_i_crashCallback(const KSCrashReportWriter* writer)
             handler.onCrash = NULL;
         }
     }
-    as_release(_crashHandlerDataBacking);
-    as_release(_fields);
-    as_release(_requiredProperties);
-    as_release(_alertFilter);
-    as_superdealloc();
 }
 
 - (CrashHandlerData*) crashHandlerData

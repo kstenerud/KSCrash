@@ -27,7 +27,6 @@
 
 #import "KSCrashInstallationStandard.h"
 #import "KSCrashInstallation+Private.h"
-#import "ARCSafe_MemMgmt.h"
 #import "KSSingleton.h"
 #import "KSCrashReportSinkStandard.h"
 
@@ -46,12 +45,6 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrashInstallationStandard)
     {
     }
     return self;
-}
-
-- (void) dealloc
-{
-    as_release(_url);
-    as_superdealloc();
 }
 
 - (id<KSCrashReportFilter>) sink

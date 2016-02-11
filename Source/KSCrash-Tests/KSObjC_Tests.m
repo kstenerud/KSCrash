@@ -26,7 +26,6 @@
 
 
 #import <XCTest/XCTest.h>
-#import "ARCSafe_MemMgmt.h"
 #import <objc/runtime.h>
 
 #import "KSObjC.h"
@@ -136,7 +135,7 @@ static NSArray* g_test_strings;
 - (void) testObjectTypeClass
 {
     Class cls = [KSObjC_Tests class];
-    void* clsPtr = (as_bridge void*)cls;
+    void* clsPtr = (__bridge void*)cls;
     KSObjCType type = ksobjc_objectType(clsPtr);
     XCTAssertTrue(type == KSObjCTypeClass, @"Type was %d", type);
 }
@@ -144,14 +143,14 @@ static NSArray* g_test_strings;
 - (void) testObjectTypeObject
 {
     id object = [KSObjC_Tests new];
-    KSObjCType type = ksobjc_objectType((as_bridge void *)(object));
+    KSObjCType type = ksobjc_objectType((__bridge void *)(object));
     XCTAssertTrue(type == KSObjCTypeObject, @"");
 }
 
 - (void) testObjectTypeObject2
 {
     id object = @"Test";
-    KSObjCType type = ksobjc_objectType((as_bridge void *)(object));
+    KSObjCType type = ksobjc_objectType((__bridge void *)(object));
     XCTAssertTrue(type == KSObjCTypeObject, @"");
 }
 
@@ -163,25 +162,25 @@ static NSArray* g_test_strings;
     KSObjCType type;
     
     block = ^{};
-    blockPtr = (as_bridge void*)block;
+    blockPtr = (__bridge void*)block;
     isaPtr = ksobjc_isaPointer(blockPtr);
     type = ksobjc_objectType(isaPtr);
     XCTAssertTrue(type == KSObjCTypeBlock, @"");
     
-    block = as_autorelease([^{} copy]);
-    blockPtr = (as_bridge void*)block;
+    block = [^{} copy];
+    blockPtr = (__bridge void*)block;
     isaPtr = ksobjc_isaPointer(blockPtr);
     type = ksobjc_objectType(isaPtr);
     XCTAssertTrue(type == KSObjCTypeBlock, @"");
     
     block = ^{NSLog(@"%d", type);};
-    blockPtr = (as_bridge void*)block;
+    blockPtr = (__bridge void*)block;
     isaPtr = ksobjc_isaPointer(blockPtr);
     type = ksobjc_objectType(isaPtr);
     XCTAssertTrue(type == KSObjCTypeBlock, @"");
     
-    block = as_autorelease([^{NSLog(@"%d", type);} copy]);
-    blockPtr = (as_bridge void*)block;
+    block = [^{NSLog(@"%d", type);} copy];
+    blockPtr = (__bridge void*)block;
     isaPtr = ksobjc_isaPointer(blockPtr);
     type = ksobjc_objectType(isaPtr);
     XCTAssertTrue(type == KSObjCTypeBlock, @"");
@@ -189,13 +188,13 @@ static NSArray* g_test_strings;
     __block int value = 0;
     
     block = ^{value = 1;};
-    blockPtr = (as_bridge void*)block;
+    blockPtr = (__bridge void*)block;
     isaPtr = ksobjc_isaPointer(blockPtr);
     type = ksobjc_objectType(isaPtr);
     XCTAssertTrue(type == KSObjCTypeBlock, @"");
     
-    block = as_autorelease([^{value = 1;} copy]);
-    blockPtr = (as_bridge void*)block;
+    block = [^{value = 1;} copy];
+    blockPtr = (__bridge void*)block;
     isaPtr = ksobjc_isaPointer(blockPtr);
     type = ksobjc_objectType(isaPtr);
     XCTAssertTrue(type == KSObjCTypeBlock, @"");
@@ -217,7 +216,7 @@ static NSArray* g_test_strings;
 - (void) testGetObjectClassName
 {
     NSObject* obj = [NSObject new];
-    void* objPtr = (as_bridge void*)obj;
+    void* objPtr = (__bridge void*)obj;
     KSObjCType type = ksobjc_objectType(objPtr);
     XCTAssertEqual(type, KSObjCTypeObject, @"");
 
@@ -235,7 +234,7 @@ static NSArray* g_test_strings;
 - (void) testStringIsValid
 {
     NSString* string = @"test";
-    void* stringPtr = (as_bridge void*)string;
+    void* stringPtr = (__bridge void*)string;
     bool valid = ksobjc_isValidObject(stringPtr);
     XCTAssertTrue(valid, @"");
 }
@@ -243,7 +242,7 @@ static NSArray* g_test_strings;
 - (void) testStringIsValid2
 {
     NSString* string = [NSString stringWithFormat:@"%d", 1];
-    void* stringPtr = (as_bridge void*)string;
+    void* stringPtr = (__bridge void*)string;
     bool valid = ksobjc_isValidObject(stringPtr);
     XCTAssertTrue(valid, @"");
 }
@@ -251,7 +250,7 @@ static NSArray* g_test_strings;
 - (void) testStringIsValid3
 {
     NSMutableString* string = [NSMutableString stringWithFormat:@"%d", 1];
-    void* stringPtr = (as_bridge void*)string;
+    void* stringPtr = (__bridge void*)string;
     bool valid = ksobjc_isValidObject(stringPtr);
     XCTAssertTrue(valid, @"");
 }
@@ -269,7 +268,7 @@ static NSArray* g_test_strings;
 - (void) testStringLength
 {
     NSString* string = @"test";
-    void* stringPtr = (as_bridge void*)string;
+    void* stringPtr = (__bridge void*)string;
     size_t expectedLength = [string length];
     size_t length = ksobjc_stringLength(stringPtr);
     XCTAssertEqual(length, expectedLength, @"");
@@ -278,7 +277,7 @@ static NSArray* g_test_strings;
 - (void) testStringLength2
 {
     NSString* string = [NSString stringWithFormat:@"%d", 1];
-    void* stringPtr = (as_bridge void*)string;
+    void* stringPtr = (__bridge void*)string;
     size_t expectedLength = [string length];
     size_t length = ksobjc_stringLength(stringPtr);
     XCTAssertEqual(length, expectedLength, @"");
@@ -287,7 +286,7 @@ static NSArray* g_test_strings;
 - (void) testStringLength3
 {
     NSMutableString* string = [NSMutableString stringWithFormat:@"%d", 1];
-    void* stringPtr = (as_bridge void*)string;
+    void* stringPtr = (__bridge void*)string;
     size_t expectedLength = [string length];
     size_t length = ksobjc_stringLength(stringPtr);
     XCTAssertEqual(length, expectedLength, @"");
@@ -308,7 +307,7 @@ static NSArray* g_test_strings;
     const char* expected = [string UTF8String];
     size_t expectedLength = [string length];
     char actual[100];
-    size_t copied = ksobjc_copyStringContents((as_bridge void*)string, actual, sizeof(actual));
+    size_t copied = ksobjc_copyStringContents((__bridge void*)string, actual, sizeof(actual));
     XCTAssertEqual(copied, expectedLength, @"");
     int result = strcmp(actual, expected);
     XCTAssertTrue(result == 0, @"String %s did not equal %s", actual, expected);
@@ -320,7 +319,7 @@ static NSArray* g_test_strings;
     const char* expected = [string UTF8String];
     size_t expectedLength = [string length];
     char actual[100];
-    size_t copied = ksobjc_copyStringContents((as_bridge void*)string, actual, sizeof(actual));
+    size_t copied = ksobjc_copyStringContents((__bridge void*)string, actual, sizeof(actual));
     XCTAssertEqual(copied, expectedLength, @"");
     int result = strcmp(actual, expected);
     XCTAssertTrue(result == 0, @"String %s did not equal %s", actual, expected);
@@ -332,7 +331,7 @@ static NSArray* g_test_strings;
     const char* expected = [string UTF8String];
     size_t expectedLength = [string length];
     char actual[100];
-    size_t copied = ksobjc_copyStringContents((as_bridge void*)string, actual, sizeof(actual));
+    size_t copied = ksobjc_copyStringContents((__bridge void*)string, actual, sizeof(actual));
     XCTAssertEqual(copied, expectedLength, @"");
     int result = strcmp(actual, expected);
     XCTAssertTrue(result == 0, @"String %s did not equal %s", actual, expected);
@@ -344,7 +343,7 @@ static NSArray* g_test_strings;
     const char* expected = [string UTF8String];
     size_t expectedLength = [string length];
     char actual[100];
-    size_t copied = ksobjc_copyStringContents((as_bridge void*)string, actual, sizeof(actual));
+    size_t copied = ksobjc_copyStringContents((__bridge void*)string, actual, sizeof(actual));
     XCTAssertEqual(copied, expectedLength, @"");
     int result = strcmp(actual, expected);
     XCTAssertTrue(result == 0, @"String %s did not equal %s", actual, expected);
@@ -356,7 +355,7 @@ static NSArray* g_test_strings;
     const char* expected = "A lo";
     size_t expectedLength = 4;
     char actual[5];
-    size_t copied = ksobjc_copyStringContents((as_bridge void*)string, actual, sizeof(actual));
+    size_t copied = ksobjc_copyStringContents((__bridge void*)string, actual, sizeof(actual));
     XCTAssertEqual(copied, expectedLength, @"");
     int result = strcmp(actual, expected);
     XCTAssertTrue(result == 0, @"String %s did not equal %s", actual, expected);
@@ -368,7 +367,7 @@ static NSArray* g_test_strings;
     const char expected = 0x7f;
     size_t expectedLength = 0;
     char actual = expected;
-    size_t copied = ksobjc_copyStringContents((as_bridge void*)string, &actual, 0);
+    size_t copied = ksobjc_copyStringContents((__bridge void*)string, &actual, 0);
     XCTAssertEqual(copied, expectedLength, @"");
     XCTAssertEqual(actual, expected, @"");
 }
@@ -379,7 +378,7 @@ static NSArray* g_test_strings;
     const char* expected = [string UTF8String];
     size_t expectedLength = strlen(expected);
     char actual[100];
-    size_t copied = ksobjc_copyStringContents((as_bridge void*)string, actual, sizeof(actual));
+    size_t copied = ksobjc_copyStringContents((__bridge void*)string, actual, sizeof(actual));
     XCTAssertEqual(copied, expectedLength, @"");
     int result = strcmp(actual, expected);
     XCTAssertTrue(result == 0, @"String %s did not equal %s", actual, expected);
@@ -391,7 +390,7 @@ static NSArray* g_test_strings;
     const char* expected = [string UTF8String];
     size_t expectedLength = strlen(expected);
     char actual[100];
-    size_t copied = ksobjc_copyStringContents((as_bridge void*)string, actual, sizeof(actual));
+    size_t copied = ksobjc_copyStringContents((__bridge void*)string, actual, sizeof(actual));
     XCTAssertEqual(copied, expectedLength, @"");
     int result = strcmp(actual, expected);
     XCTAssertTrue(result == 0, @"String %s did not equal %s", actual, expected);
@@ -403,7 +402,7 @@ static NSArray* g_test_strings;
     const char* expected = [string UTF8String];
     size_t expectedLength = strlen(expected);
     char actual[100];
-    size_t copied = ksobjc_copyStringContents((as_bridge void*)string, actual, sizeof(actual));
+    size_t copied = ksobjc_copyStringContents((__bridge void*)string, actual, sizeof(actual));
     XCTAssertEqual(copied, expectedLength, @"");
     int result = strcmp(actual, expected);
     XCTAssertTrue(result == 0, @"String %s did not equal %s", actual, expected);
@@ -415,7 +414,7 @@ static NSArray* g_test_strings;
     const char* expected = [string UTF8String];
     size_t expectedLength = strlen(expected);
     char actual[100];
-    size_t copied = ksobjc_copyStringContents((as_bridge void*)string, actual, sizeof(actual));
+    size_t copied = ksobjc_copyStringContents((__bridge void*)string, actual, sizeof(actual));
     XCTAssertEqual(copied, expectedLength, @"");
     int result = strcmp(actual, expected);
     XCTAssertTrue(result == 0, @"String %s did not equal %s", actual, expected);
@@ -427,7 +426,7 @@ static NSArray* g_test_strings;
     const char* expected = [string UTF8String];
     size_t expectedLength = [string length];
     char actual[100];
-    size_t copied = ksobjc_copyStringContents((as_bridge void*)string, actual, sizeof(actual));
+    size_t copied = ksobjc_copyStringContents((__bridge void*)string, actual, sizeof(actual));
     XCTAssertEqual(copied, expectedLength, @"");
     int result = strcmp(actual, expected);
     XCTAssertTrue(result == 0, @"String %s did not equal %s", actual, expected);
@@ -443,7 +442,7 @@ static NSArray* g_test_strings;
     const char* expected = [string UTF8String];
     size_t expectedLength = [string length];
     char actual[2000];
-    size_t copied = ksobjc_copyStringContents((as_bridge void*)string, actual, sizeof(actual));
+    size_t copied = ksobjc_copyStringContents((__bridge void*)string, actual, sizeof(actual));
     XCTAssertEqual(copied, expectedLength, @"");
     int result = strcmp(actual, expected);
     XCTAssertTrue(result == 0, @"String %s did not equal %s", actual, expected);
@@ -470,7 +469,7 @@ static NSArray* g_test_strings;
     for(NSUInteger i = 0; i < g_test_strings.count; i++)
     {
         NSString* string = g_test_strings[i];
-        void* stringPtr = (as_bridge void*)string;
+        void* stringPtr = (__bridge void*)string;
         NSString* expectedClassName = [NSString stringWithCString:class_getName([string class]) encoding:NSUTF8StringEncoding];
         NSString* expectedTheRest = [NSString stringWithFormat:@"\"%@\"", string];
         char buffer[100];
@@ -488,7 +487,7 @@ static NSArray* g_test_strings;
 - (void) testURLIsValid
 {
     NSURL* URL =  [NSURL URLWithString:@"http://www.google.com"];
-    void* URLPtr = (as_bridge void*)URL;
+    void* URLPtr = (__bridge void*)URL;
     bool valid = ksobjc_isValidObject(URLPtr);
     XCTAssertTrue(valid, @"");
 }
@@ -500,7 +499,7 @@ static NSArray* g_test_strings;
     const char* expected = [string UTF8String];
     size_t expectedLength = [string length];
     char actual[100];
-    size_t copied = ksobjc_copyURLContents((as_bridge void*)URL, actual, sizeof(actual));
+    size_t copied = ksobjc_copyURLContents((__bridge void*)URL, actual, sizeof(actual));
     XCTAssertEqual(copied, expectedLength, @"");
     int result = strcmp(actual, expected);
     XCTAssertTrue(result == 0, @"String %s did not equal %s", actual, expected);
@@ -509,7 +508,7 @@ static NSArray* g_test_strings;
 - (void) testURLDescription
 {
     NSURL* URL =  [NSURL URLWithString:@"http://www.google.com"];
-    void* URLPtr = (as_bridge void*)URL;
+    void* URLPtr = (__bridge void*)URL;
     NSString* expectedClassName = [NSString stringWithCString:class_getName([URL class]) encoding:NSUTF8StringEncoding];
     NSString* expectedTheRest = @"\"http://www.google.com\"";
     char buffer[100];
@@ -526,7 +525,7 @@ static NSArray* g_test_strings;
 - (void) testDateIsValid
 {
     NSDate* date = [NSDate dateWithTimeIntervalSinceReferenceDate:10.0];
-    void* datePtr = (as_bridge void*)date;
+    void* datePtr = (__bridge void*)date;
     bool valid = ksobjc_isValidObject(datePtr);
     XCTAssertTrue(valid, @"");
 }
@@ -534,7 +533,7 @@ static NSArray* g_test_strings;
 - (void) testGetDateContents
 {
     NSDate* date = [NSDate dateWithTimeIntervalSinceReferenceDate:10.0];
-    void* datePtr = (as_bridge void*)date;
+    void* datePtr = (__bridge void*)date;
     NSTimeInterval expected = [date timeIntervalSinceReferenceDate];
     NSTimeInterval actual = ksobjc_dateContents(datePtr);
     XCTAssertEqual(actual, expected, @"");
@@ -543,7 +542,7 @@ static NSArray* g_test_strings;
 - (void) testDateDescription
 {
     NSDate* date = [NSDate dateWithTimeIntervalSinceReferenceDate:10.0];
-    void* datePtr = (as_bridge void*)date;
+    void* datePtr = (__bridge void*)date;
     NSString* expectedClassName = @"NSDate";
     NSString* expectedTheRest = @"10.000000";
     char buffer[100];
@@ -560,7 +559,7 @@ static NSArray* g_test_strings;
 - (void) testNumberIsValid
 {
     NSNumber* number = [NSNumber numberWithInt:10];
-    void* numberPtr = (as_bridge void*)number;
+    void* numberPtr = (__bridge void*)number;
     bool valid = ksobjc_isValidObject(numberPtr);
     XCTAssertTrue(valid, @"");
 }
@@ -568,7 +567,7 @@ static NSArray* g_test_strings;
 - (void) testNumberIsFloat
 {
     NSNumber* number = [NSNumber numberWithDouble:0.1];
-    void* numberPtr = (as_bridge void*)number;
+    void* numberPtr = (__bridge void*)number;
     bool isFloat = ksobjc_numberIsFloat(numberPtr);
     XCTAssertTrue(isFloat, "");
 }
@@ -576,7 +575,7 @@ static NSArray* g_test_strings;
 - (void) testNumberIsFloat2
 {
     NSNumber* number = [NSNumber numberWithDouble:1];
-    void* numberPtr = (as_bridge void*)number;
+    void* numberPtr = (__bridge void*)number;
     bool isFloat = ksobjc_numberIsFloat(numberPtr);
     XCTAssertTrue(isFloat, "");
 }
@@ -584,7 +583,7 @@ static NSArray* g_test_strings;
 - (void) testNumberIsInt
 {
     NSNumber* number = [NSNumber numberWithInt:1];
-    void* numberPtr = (as_bridge void*)number;
+    void* numberPtr = (__bridge void*)number;
     bool isFloat = ksobjc_numberIsFloat(numberPtr);
     XCTAssertFalse(isFloat, "");
 }
@@ -593,7 +592,7 @@ static NSArray* g_test_strings;
 {
     Float64 expected = 0.1;
     NSNumber* number = [NSNumber numberWithDouble:expected];
-    void* numberPtr = (as_bridge void*)number;
+    void* numberPtr = (__bridge void*)number;
     Float64 actual = ksobjc_numberAsFloat(numberPtr);
     XCTAssertEqual(expected, actual, "");
 }
@@ -602,7 +601,7 @@ static NSArray* g_test_strings;
 {
     Float64 expected = 1.0;
     NSNumber* number = [NSNumber numberWithDouble:expected];
-    void* numberPtr = (as_bridge void*)number;
+    void* numberPtr = (__bridge void*)number;
     Float64 actual = ksobjc_numberAsFloat(numberPtr);
     XCTAssertEqual(expected, actual, "");
 }
@@ -611,7 +610,7 @@ static NSArray* g_test_strings;
 {
     Float64 expected = 1.0;
     NSNumber* number = [NSNumber numberWithInt:(int)expected];
-    void* numberPtr = (as_bridge void*)number;
+    void* numberPtr = (__bridge void*)number;
     Float64 actual = ksobjc_numberAsFloat(numberPtr);
     XCTAssertEqual(expected, actual, "");
 }
@@ -620,7 +619,7 @@ static NSArray* g_test_strings;
 {
     int64_t expected = 55;
     NSNumber* number = [NSNumber numberWithLongLong:expected];
-    void* numberPtr = (as_bridge void*)number;
+    void* numberPtr = (__bridge void*)number;
     int64_t actual = ksobjc_numberAsInteger(numberPtr);
     XCTAssertEqual(expected, actual, "");
 }
@@ -629,7 +628,7 @@ static NSArray* g_test_strings;
 {
     int64_t expected = 0x7fffffffffffffff;
     NSNumber* number = [NSNumber numberWithLongLong:expected];
-    void* numberPtr = (as_bridge void*)number;
+    void* numberPtr = (__bridge void*)number;
     int64_t actual = ksobjc_numberAsInteger(numberPtr);
     XCTAssertEqual(expected, actual, "");
 }
@@ -638,7 +637,7 @@ static NSArray* g_test_strings;
 {
     int64_t expected = 55;
     NSNumber* number = [NSNumber numberWithDouble:expected];
-    void* numberPtr = (as_bridge void*)number;
+    void* numberPtr = (__bridge void*)number;
     int64_t actual = ksobjc_numberAsInteger(numberPtr);
     XCTAssertEqual(expected, actual, "");
 }
@@ -647,7 +646,7 @@ static NSArray* g_test_strings;
 {
     int64_t expected = 55;
     NSNumber* number = [NSNumber numberWithDouble:55.8];
-    void* numberPtr = (as_bridge void*)number;
+    void* numberPtr = (__bridge void*)number;
     int64_t actual = ksobjc_numberAsInteger(numberPtr);
     XCTAssertEqual(expected, actual, "");
 }
@@ -655,7 +654,7 @@ static NSArray* g_test_strings;
 - (void) testArrayIsValid
 {
     NSArray* array = [NSArray array];
-    void* arrayPtr = (as_bridge void*)array;
+    void* arrayPtr = (__bridge void*)array;
     bool valid = ksobjc_isValidObject(arrayPtr);
     XCTAssertTrue(valid, @"");
 }
@@ -663,7 +662,7 @@ static NSArray* g_test_strings;
 - (void) testMutableArrayIsValid
 {
     NSMutableArray* array = [NSMutableArray array];
-    void* arrayPtr = (as_bridge void*)array;
+    void* arrayPtr = (__bridge void*)array;
     bool valid = ksobjc_isValidObject(arrayPtr);
     XCTAssertTrue(valid, @"");
 }
@@ -695,7 +694,7 @@ static NSArray* g_test_strings;
 {
     CFMutableArrayRef arrayPtr = CFArrayCreateMutable(NULL, 4, NULL);
     id value = @"blah";
-    CFArrayAppendValue(arrayPtr, (as_bridge void*)value);
+    CFArrayAppendValue(arrayPtr, (__bridge void*)value);
     bool valid = ksobjc_isValidObject(arrayPtr);
     XCTAssertTrue(valid, @"");
     CFRelease(arrayPtr);
@@ -704,7 +703,7 @@ static NSArray* g_test_strings;
 - (void) testCopyArrayContentsEmpty
 {
     NSArray* array = [NSArray array];
-    void* arrayPtr = (as_bridge void*)array;
+    void* arrayPtr = (__bridge void*)array;
     size_t expectedCount = [array count];
     size_t count = ksobjc_arrayCount(arrayPtr);
     XCTAssertEqual(count, expectedCount, @"");
@@ -713,7 +712,7 @@ static NSArray* g_test_strings;
 - (void) testArrayCountEmpty
 {
     NSArray* array = [NSArray array];
-    void* arrayPtr = (as_bridge void*)array;
+    void* arrayPtr = (__bridge void*)array;
     size_t count = ksobjc_arrayCount(arrayPtr);
     XCTAssertEqual(count, 0ul, @"");
 }
@@ -721,7 +720,7 @@ static NSArray* g_test_strings;
 - (void) testArrayDescriptionEmpty
 {
     NSArray* array = [NSArray array];
-    void* arrayPtr = (as_bridge void*)array;
+    void* arrayPtr = (__bridge void*)array;
     NSString* expectedClassName = [NSString stringWithCString:class_getName([array class]) encoding:NSUTF8StringEncoding];
     NSString* expectedTheRest = @"[]";
     char buffer[100];
@@ -738,7 +737,7 @@ static NSArray* g_test_strings;
 - (void) testArrayDescription
 {
     NSArray* array = [NSArray arrayWithObjects:@"test", nil];
-    void* arrayPtr = (as_bridge void*)array;
+    void* arrayPtr = (__bridge void*)array;
     NSString* expectedClassName = [NSString stringWithCString:class_getName([array class]) encoding:NSUTF8StringEncoding];
     NSString* expectedTheRest = @"\"test\"";
     char buffer[100];
@@ -764,7 +763,7 @@ static NSArray* g_test_strings;
 - (void) testCopyArrayContentsImmutable
 {
     NSArray* array = [NSArray arrayWithObjects:@"1", @"2", @"3", @"4", nil];
-    void* arrayPtr = (as_bridge void*)array;
+    void* arrayPtr = (__bridge void*)array;
     size_t expectedCount = [array count];
     size_t count = ksobjc_arrayCount(arrayPtr);
     XCTAssertEqual(count, expectedCount, @"");
@@ -783,7 +782,7 @@ static NSArray* g_test_strings;
 - (void) testCopyArrayContentsImmutableEmpty
 {
     NSArray* array = [NSArray array];
-    void* arrayPtr = (as_bridge void*)array;
+    void* arrayPtr = (__bridge void*)array;
     size_t expectedCount = [array count];
     size_t count = ksobjc_arrayCount(arrayPtr);
     XCTAssertEqual(count, expectedCount, @"");
@@ -795,7 +794,7 @@ static NSArray* g_test_strings;
 - (void) testCopyArrayContentsMutable
 {
     NSMutableArray* array = [NSMutableArray arrayWithObjects:@"1", @"2", @"3", @"4", nil];
-    void* arrayPtr = (as_bridge void*)array;
+    void* arrayPtr = (__bridge void*)array;
     size_t expectedCount = [array count];
     size_t count = ksobjc_arrayCount(arrayPtr);
     XCTAssertEqual(count, expectedCount, @"");
@@ -808,7 +807,7 @@ static NSArray* g_test_strings;
 - (void) testCopyArrayContentsMutableEmpty
 {
     NSMutableArray* array = [NSMutableArray array];
-    void* arrayPtr = (as_bridge void*)array;
+    void* arrayPtr = (__bridge void*)array;
     size_t expectedCount = [array count];
     size_t count = ksobjc_arrayCount(arrayPtr);
     XCTAssertEqual(count, expectedCount, @"");
@@ -827,7 +826,7 @@ static NSArray* g_test_strings;
         @"4",
     };
     CFArrayRef arrayPtr = CFArrayCreate(NULL, values, 4, NULL);
-    NSArray* array = (as_bridge NSArray*)arrayPtr;
+    NSArray* array = (__bridge NSArray*)arrayPtr;
     size_t expectedCount = [array count];
     size_t count = ksobjc_arrayCount(arrayPtr);
     XCTAssertEqual(count, expectedCount, @"");
@@ -847,7 +846,7 @@ static NSArray* g_test_strings;
 - (void) testCopyArrayContentsCFArrayEmpty
 {
     CFArrayRef arrayPtr = CFArrayCreate(NULL, NULL, 0, NULL);
-    NSArray* array = (as_bridge NSArray*)arrayPtr;
+    NSArray* array = (__bridge NSArray*)arrayPtr;
     size_t expectedCount = [array count];
     size_t count = ksobjc_arrayCount(arrayPtr);
     XCTAssertEqual(count, expectedCount, @"");
@@ -859,15 +858,15 @@ static NSArray* g_test_strings;
 
 - (void) testUntrackedClassIsValid
 {
-    void* classPtr = (as_bridge void*)[SomeObjCClass class];
+    void* classPtr = (__bridge void*)[SomeObjCClass class];
     bool isValid = ksobjc_objectType(classPtr) == KSObjCTypeClass;
     XCTAssertTrue(isValid, @"Not a class");
 }
 
 - (void) testUntrackedClassDescription
 {
-    SomeObjCClass* instance = as_autorelease([[SomeObjCClass alloc] init]);
-    void* instancePtr = (as_bridge void*)instance;
+    SomeObjCClass* instance = [[SomeObjCClass alloc] init];
+    void* instancePtr = (__bridge void*)instance;
     NSString* expectedClassName = [NSString stringWithCString:class_getName([instance class]) encoding:NSUTF8StringEncoding];
     char buffer[100];
     size_t copied = ksobjc_getDescription(instancePtr, buffer, sizeof(buffer));
@@ -880,29 +879,29 @@ static NSArray* g_test_strings;
 
 - (void) testSuperclass
 {
-    void* classPtr = (as_bridge void*)[SomeObjCClass class];
-    const void* expected = (as_bridge void*)[NSObject class];
+    void* classPtr = (__bridge void*)[SomeObjCClass class];
+    const void* expected = (__bridge void*)[NSObject class];
     const void* superclass = ksobjc_superClass(classPtr);
     XCTAssertEqual(superclass, expected, @"");
 }
 
 - (void) testNSObjectIsRootClass
 {
-    void* classPtr = (as_bridge void*)[NSObject class];
+    void* classPtr = (__bridge void*)[NSObject class];
     bool isRootClass = ksobjc_isRootClass(classPtr);
     XCTAssertTrue(isRootClass, @"");
 }
 
 - (void) testNotRootClass
 {
-    void* classPtr = (as_bridge void*)[SomeObjCClass class];
+    void* classPtr = (__bridge void*)[SomeObjCClass class];
     bool isRootClass = ksobjc_isRootClass(classPtr);
     XCTAssertFalse(isRootClass, @"");
 }
 
 - (void) testIsClassNamed
 {
-    void* classPtr = (as_bridge void*)[SomeObjCClass class];
+    void* classPtr = (__bridge void*)[SomeObjCClass class];
     bool isClassNamed = ksobjc_isClassNamed(classPtr, "SomeObjCClass");
     XCTAssertTrue(isClassNamed, @"");
     isClassNamed = ksobjc_isClassNamed(classPtr, "NSObject");
@@ -913,7 +912,7 @@ static NSArray* g_test_strings;
 
 - (void) testIsKindOfClass
 {
-    void* classPtr = (as_bridge void*)[SomeObjCClass class];
+    void* classPtr = (__bridge void*)[SomeObjCClass class];
     bool isKindOfClass = ksobjc_isKindOfClass(classPtr, "NSObject");
     XCTAssertTrue(isKindOfClass, @"");
     isKindOfClass = ksobjc_isKindOfClass(classPtr, "NSDate");
@@ -924,22 +923,22 @@ static NSArray* g_test_strings;
 
 - (void) testBaseClass
 {
-    const void* classPtr = (as_bridge void*)[SomeSubclass class];
-    const void* expected = (as_bridge void*)[SomeObjCClass class];
+    const void* classPtr = (__bridge void*)[SomeSubclass class];
+    const void* expected = (__bridge void*)[SomeObjCClass class];
     const void* baseClass = ksobjc_baseClass(classPtr);
     XCTAssertEqual(baseClass, expected, @"");
 }
 
 - (void) testIvarCount
 {
-    void* classPtr = (as_bridge void*)[SomeObjCClass class];
+    void* classPtr = (__bridge void*)[SomeObjCClass class];
     size_t ivarCount = ksobjc_ivarCount(classPtr);
     XCTAssertEqual(ivarCount, 2ul, @"");
 }
 
 - (void) testIvarList
 {
-    void* classPtr = (as_bridge void*)[SomeObjCClass class];
+    void* classPtr = (__bridge void*)[SomeObjCClass class];
     KSObjCIvar ivars[10];
     size_t ivarCount = ksobjc_ivarList(classPtr, ivars, sizeof(ivars)/sizeof(*ivars));
     const char* expectedIvar1Name = "someIvar";
@@ -962,7 +961,7 @@ static NSArray* g_test_strings;
 
 - (void) testIvarListTruncated
 {
-    void* classPtr = (as_bridge void*)[SomeObjCClass class];
+    void* classPtr = (__bridge void*)[SomeObjCClass class];
     KSObjCIvar ivars[1];
     size_t ivarCount = ksobjc_ivarList(classPtr, ivars, sizeof(ivars)/sizeof(*ivars));
     const char* expectedIvar1Name = "someIvar";
@@ -979,14 +978,14 @@ static NSArray* g_test_strings;
 
 - (void) testIvarListNull
 {
-    void* classPtr = (as_bridge void*)[SomeObjCClass class];
+    void* classPtr = (__bridge void*)[SomeObjCClass class];
     size_t ivarCount = ksobjc_ivarList(classPtr, NULL, 10);
     XCTAssertEqual(ivarCount, 0ul, @"");
 }
 
 - (void) testIvarNamed
 {
-    void* classPtr = (as_bridge void*)[SomeObjCClass class];
+    void* classPtr = (__bridge void*)[SomeObjCClass class];
     KSObjCIvar ivar;
     bool found = ksobjc_ivarNamed(classPtr, "someIvar", &ivar);
     XCTAssertTrue(found, @"");
@@ -1000,7 +999,7 @@ static NSArray* g_test_strings;
 
 - (void) testIvarNamedNotFound
 {
-    void* classPtr = (as_bridge void*)[SomeObjCClass class];
+    void* classPtr = (__bridge void*)[SomeObjCClass class];
     KSObjCIvar ivar;
     bool found = ksobjc_ivarNamed(classPtr, "blahblahh", &ivar);
     XCTAssertFalse(found, @"");
@@ -1012,9 +1011,9 @@ static NSArray* g_test_strings;
 - (void) testIvarValue
 {
     int expectedValue = 100;
-    SomeObjCClass* object = as_autorelease([[SomeObjCClass alloc] init]);
+    SomeObjCClass* object = [[SomeObjCClass alloc] init];
     object.someIvar = expectedValue;
-    void* objectPtr = (as_bridge void*)object;
+    void* objectPtr = (__bridge void*)object;
     int value = 0;
     bool success = ksobjc_ivarValue(objectPtr, 0, &value);
     XCTAssertTrue(success, @"");
@@ -1023,8 +1022,8 @@ static NSArray* g_test_strings;
 
 - (void) testIvarValueOutOfRange
 {
-    SomeObjCClass* object = as_autorelease([[SomeObjCClass alloc] init]);
-    void* objectPtr = (as_bridge void*)object;
+    SomeObjCClass* object = [[SomeObjCClass alloc] init];
+    void* objectPtr = (__bridge void*)object;
     int value = 0;
     bool success = ksobjc_ivarValue(objectPtr, 100, &value);
     XCTAssertFalse(success, @"");
@@ -1032,8 +1031,8 @@ static NSArray* g_test_strings;
 
 - (void) testUnknownObjectIsValid
 {
-    SomeObjCClass* object = as_autorelease([[SomeObjCClass alloc] init]);
-    void* objectPtr = (as_bridge void*)object;
+    SomeObjCClass* object = [[SomeObjCClass alloc] init];
+    void* objectPtr = (__bridge void*)object;
     bool success = ksobjc_isValidObject(objectPtr);
     XCTAssertTrue(success, @"");
 }
@@ -1041,7 +1040,7 @@ static NSArray* g_test_strings;
 //- (void) testCopyDictionaryContents
 //{
 //    NSDictionary* dict = [NSDictionary dictionaryWithObject:@"value" forKey:@"key"];
-//    void* dictPtr = (as_bridge void*)dict;
+//    void* dictPtr = (__bridge void*)dict;
 //    size_t expectedCount = [dict count];
 //    size_t count = ksobjc_dictionaryCount(dictPtr);
 //    XCTAssertEqual(count, expectedCount, @"");

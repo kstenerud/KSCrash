@@ -25,8 +25,6 @@
 
 #import "RFC3339DateTool.h"
 
-#import "ARCSafe_MemMgmt.h"
-
 
 @implementation RFC3339DateTool
 
@@ -35,8 +33,8 @@ static NSDateFormatter* g_formatter;
 + (void) initialize
 {
     g_formatter = [[NSDateFormatter alloc] init];
-    NSLocale* locale = as_autorelease([[NSLocale alloc]
-                                       initWithLocaleIdentifier:@"en_US_POSIX"]);
+    NSLocale* locale = [[NSLocale alloc]
+                        initWithLocaleIdentifier:@"en_US_POSIX"];
     [g_formatter setLocale:locale];
     [g_formatter setDateFormat:@"yyyy'-'MM'-'dd'T'HH':'mm':'ss'Z'"];
     [g_formatter setTimeZone:[NSTimeZone timeZoneForSecondsFromGMT:0]];

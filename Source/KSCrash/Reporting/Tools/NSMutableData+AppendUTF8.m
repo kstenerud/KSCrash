@@ -28,13 +28,6 @@
 #import "NSMutableData+AppendUTF8.h"
 
 
-#if __has_feature(objc_arc)
-    #define as_autorelease(X)        (X)
-#else
-    #define as_autorelease(X)       [(X) autorelease]
-#endif
-
-
 @implementation NSMutableData (AppendUTF8)
 
 - (void) appendUTF8String:(NSString*) string
@@ -47,8 +40,7 @@
 {
     va_list args;
     va_start(args, format);
-    NSString* string = as_autorelease([[NSString alloc] initWithFormat:format
-                                                             arguments:args]);
+    NSString* string = [[NSString alloc] initWithFormat:format arguments:args];
     va_end(args);
     const char* cstring = [string UTF8String];
     [self appendBytes:cstring length:strlen(cstring)];

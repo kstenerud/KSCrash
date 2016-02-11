@@ -90,7 +90,7 @@ static void onCrash(const KSCrashReportWriter* writer)
 - (void)applicationDidFinishLaunching:(__unused NSNotification *)aNotification
 {
     [self installCrashHandler];
-    self.crasher = as_autorelease([[Crasher alloc] init]);
+    self.crasher = [[Crasher alloc] init];
     [self updateReportCount];
 }
 

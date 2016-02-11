@@ -31,13 +31,6 @@
 #import <zlib.h>
 
 
-#if __has_feature(objc_arc)
-    #define as_autorelease(X)        (X)
-#else
-    #define as_autorelease(X)       [(X) autorelease]
-#endif
-
-
 #define kBufferSize 4096
 
 

@@ -27,7 +27,6 @@
 
 #import "KSCrashAdvanced.h"
 
-#import "ARCSafe_MemMgmt.h"
 #import "KSCrashC.h"
 #import "KSCrashCallCompletion.h"
 #import "KSCrashState.h"
@@ -161,19 +160,7 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrash)
 
 failed:
     KSLOG_ERROR(@"Failed to initialize crash handler. Crash reporting disabled.");
-    as_release(self);
     return nil;
-}
-
-- (void) dealloc
-{
-    as_release(_bundleName);
-    as_release(_userInfo);
-    as_release(_sink);
-    as_release(_crashReportStore);
-    as_release(_logFilePath);
-    as_release(_nextCrashID);
-    as_superdealloc();
 }
 
 
@@ -197,8 +184,7 @@ failed:
         }
     }
     
-    as_autorelease_noref(_userInfo);
-    _userInfo = as_retain(userInfo);
+    _userInfo = userInfo;
     kscrash_setUserInfoJSON([userInfoJSON bytes]);
 }
 
@@ -251,8 +237,7 @@ failed:
 
 - (void) setDoNotIntrospectClasses:(NSArray *)doNotIntrospectClasses
 {
-    as_autorelease_noref(_doNotIntrospectClasses);
-    _doNotIntrospectClasses = as_retain(doNotIntrospectClasses);
+    _doNotIntrospectClasses = doNotIntrospectClasses;
     size_t count = [doNotIntrospectClasses count];
     if(count == 0)
     {
@@ -499,10 +484,10 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
 - (NSString*) generateUUIDString
 {
     CFUUIDRef uuid = CFUUIDCreate(NULL);
-    NSString* uuidString = (as_bridge_transfer NSString*)CFUUIDCreateString(NULL, uuid);
+    NSString* uuidString = (__bridge_transfer NSString*)CFUUIDCreateString(NULL, uuid);
     CFRelease(uuid);
     
-    return as_autorelease(uuidString);
+    return uuidString;
 }
 
 - (NSMutableData*) nullTerminated:(NSData*) data

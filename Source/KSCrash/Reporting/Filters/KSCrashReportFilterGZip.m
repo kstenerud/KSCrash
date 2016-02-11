@@ -26,7 +26,6 @@
 
 
 #import "KSCrashReportFilterGZip.h"
-#import "ARCSafe_MemMgmt.h"
 #import "KSCrashCallCompletion.h"
 #import "NSData+GZip.h"
 
@@ -43,7 +42,7 @@
 
 + (KSCrashReportFilterGZipCompress*) filterWithCompressionLevel:(int) compressionLevel
 {
-    return as_autorelease([[self alloc] initWithCompressionLevel:compressionLevel]);
+    return [[self alloc] initWithCompressionLevel:compressionLevel];
 }
 
 - (id) initWithCompressionLevel:(int) compressionLevel
@@ -85,7 +84,7 @@
 
 + (KSCrashReportFilterGZipDecompress*) filter
 {
-    return as_autorelease([[self alloc] init]);
+    return [[self alloc] init];
 }
 
 - (void) filterReports:(NSArray*) reports

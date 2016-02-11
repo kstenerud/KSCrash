@@ -27,7 +27,6 @@
 
 #import "KSCrashInstallationVictory.h"
 #import "KSCrashInstallation+Private.h"
-#import "ARCSafe_MemMgmt.h"
 #import "KSSingleton.h"
 #import "KSCrashReportSinkVictory.h"
 
@@ -48,14 +47,6 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrashInstallationVictory)
     {
     }
     return self;
-}
-
-- (void) dealloc
-{
-    as_release(_url);
-    as_release(_userName);
-    as_release(_userEmail);
-    as_superdealloc();
 }
 
 - (id<KSCrashReportFilter>) sink

@@ -26,7 +26,6 @@
 
 
 #import "KSCrashReportSinkConsole.h"
-#import "ARCSafe_MemMgmt.h"
 #import "KSCrashCallCompletion.h"
 #import "KSCrashReportFilterAppleFmt.h"
 
@@ -35,7 +34,7 @@
 
 + (KSCrashReportSinkConsole*) filter
 {
-    return as_autorelease([[self alloc] init]);
+    return [[self alloc] init];
 }
 
 - (id <KSCrashReportFilter>) defaultCrashReportFilterSet

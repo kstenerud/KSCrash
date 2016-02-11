@@ -28,7 +28,6 @@
 #import "KSSystemInfo.h"
 #import "KSSystemInfoC.h"
 
-#import "ARCSafe_MemMgmt.h"
 #import "KSDynamicLinker.h"
 #import "KSMach.h"
 #import "KSSafeCollections.h"
@@ -132,10 +131,10 @@
 + (NSString*) uuidBytesToString:(const uint8_t*) uuidBytes
 {
     CFUUIDRef uuidRef = CFUUIDCreateFromUUIDBytes(NULL, *((CFUUIDBytes*)uuidBytes));
-    NSString* str = (as_bridge_transfer NSString*)CFUUIDCreateString(NULL, uuidRef);
+    NSString* str = (__bridge_transfer NSString*)CFUUIDCreateString(NULL, uuidRef);
     CFRelease(uuidRef);
 
-    return as_autorelease(str);
+    return str;
 }
 
 /** Get this application's executable path.

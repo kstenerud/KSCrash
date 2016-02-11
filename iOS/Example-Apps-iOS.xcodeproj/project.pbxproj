@@ -129,7 +129,6 @@
 		CBF3CE5717F5777A001AC307 /* Crasher.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Crasher.h; path = "../../Source/Common-Examples/Crasher.h"; sourceTree = "<group>"; };
 		CBF3CE5817F5777A001AC307 /* Crasher.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = Crasher.mm; path = "../../Source/Common-Examples/Crasher.mm"; sourceTree = "<group>"; };
 		CBF3CE5A17F5778E001AC307 /* libKSCrashLib.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libKSCrashLib.a; path = "build/Debug-iphoneos/libKSCrashLib.a"; sourceTree = "<group>"; };
-		CBF3CE9B17F66124001AC307 /* ARCSafe_MemMgmt.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ARCSafe_MemMgmt.h; path = "../../Source/Common-Examples/ARCSafe_MemMgmt.h"; sourceTree = "<group>"; };
 		CBF3CE9C17F66124001AC307 /* LoadableCategory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = LoadableCategory.h; path = "../../Source/Common-Examples/LoadableCategory.h"; sourceTree = "<group>"; };
 		CBF3CEA517F67EA9001AC307 /* CrashTesterCommands.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = CrashTesterCommands.h; path = "../../Source/Common-Examples/CrashTesterCommands.h"; sourceTree = "<group>"; };
 		CBF3CEA617F67EA9001AC307 /* CrashTesterCommands.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = CrashTesterCommands.m; path = "../../Source/Common-Examples/CrashTesterCommands.m"; sourceTree = "<group>"; };
@@ -314,7 +313,6 @@
 				CBF3CE4F17F5774A001AC307 /* AppDelegate+UI.m */,
 				CBF3CE2B17F576C0001AC307 /* AppDelegate.h */,
 				CBF3CE2C17F576C0001AC307 /* AppDelegate.m */,
-				CBF3CE9B17F66124001AC307 /* ARCSafe_MemMgmt.h */,
 				CBF3CE5117F5774A001AC307 /* CommandTVC.h */,
 				CBF3CE5217F5774A001AC307 /* CommandTVC.m */,
 				CB02647717F69E8A003E0AED /* Configuration.h */,

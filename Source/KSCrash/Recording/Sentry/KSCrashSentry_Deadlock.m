@@ -26,7 +26,6 @@
 
 #import "KSCrashSentry_Deadlock.h"
 #import "KSCrashSentry_Private.h"
-#import "ARCSafe_MemMgmt.h"
 #include "KSMach.h"
 
 //#define KSLogger_LocalLevel TRACE
@@ -82,7 +81,7 @@ static NSTimeInterval g_watchdogInterval = 0;
     if((self = [super init]))
     {
         // target (self) is retained until selector (runMonitor) exits.
-        self.monitorThread = as_autorelease([[NSThread alloc] initWithTarget:self selector:@selector(runMonitor) object:nil]);
+        self.monitorThread = [[NSThread alloc] initWithTarget:self selector:@selector(runMonitor) object:nil];
         self.monitorThread.name = @"KSCrash Deadlock Detection Thread";
         [self.monitorThread start];
 
@@ -92,12 +91,6 @@ static NSTimeInterval g_watchdogInterval = 0;
         });
     }
     return self;
-}
-
-- (void) dealloc
-{
-    as_release(_monitorThread);
-    as_superdealloc();
 }
 
 - (void) cancel
@@ -147,8 +140,7 @@ static NSTimeInterval g_watchdogInterval = 0;
     {
         // Only do a watchdog check if the watchdog interval is > 0.
         // If the interval is <= 0, just idle until the user changes it.
-        as_autoreleasepool_start(POOL);
-        {
+        @autoreleasepool {
             NSTimeInterval sleepInterval = g_watchdogInterval;
             BOOL runWatchdogCheck = sleepInterval > 0;
             if(!runWatchdogCheck)
@@ -169,7 +161,6 @@ static NSTimeInterval g_watchdogInterval = 0;
                 }
             }
         }
-        as_autoreleasepool_end(POOL);
     } while (!cancelled);
 }
 
@@ -207,7 +198,6 @@ void kscrashsentry_uninstallDeadlockHandler(void)
 
     KSLOG_DEBUG(@"Stopping deadlock monitor.");
     [g_monitor cancel];
-    as_release(g_monitor);
     g_monitor = nil;
 
     g_installed = 0;

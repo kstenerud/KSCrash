@@ -68,7 +68,6 @@
 		CBF3CE7817F578CC001AC307 /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
 		CBF3CE9117F65857001AC307 /* Crasher.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Crasher.h; path = "../../Source/Common-Examples/Crasher.h"; sourceTree = "<group>"; };
 		CBF3CE9217F65857001AC307 /* Crasher.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = Crasher.mm; path = "../../Source/Common-Examples/Crasher.mm"; sourceTree = "<group>"; };
-		CBF3CE9417F65B12001AC307 /* ARCSafe_MemMgmt.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ARCSafe_MemMgmt.h; path = "../../Source/Common-Examples/ARCSafe_MemMgmt.h"; sourceTree = "<group>"; };
 		CBF3CE9517F65B12001AC307 /* LoadableCategory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = LoadableCategory.h; path = "../../Source/Common-Examples/LoadableCategory.h"; sourceTree = "<group>"; };
 		CBF3CE9617F65B51001AC307 /* libKSCrashLib.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libKSCrashLib.a; path = "../../../Library/Developer/Xcode/DerivedData/Mac-beusbddefllzqoanxuparffwsspt/Build/Products/Debug/libKSCrashLib.a"; sourceTree = "<group>"; };
 		CBF3CEA217F67E9D001AC307 /* CrashTesterCommands.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = CrashTesterCommands.h; path = "../../Source/Common-Examples/CrashTesterCommands.h"; sourceTree = "<group>"; };
@@ -178,7 +177,6 @@
 			children = (
 				CBF3CE7217F578CC001AC307 /* AppDelegate.h */,
 				CBF3CE7317F578CC001AC307 /* AppDelegate.m */,
-				CBF3CE9417F65B12001AC307 /* ARCSafe_MemMgmt.h */,
 				CB02647617F69E79003E0AED /* Configuration.h */,
 				CBF3CE9117F65857001AC307 /* Crasher.h */,
 				CBF3CE9217F65857001AC307 /* Crasher.mm */,

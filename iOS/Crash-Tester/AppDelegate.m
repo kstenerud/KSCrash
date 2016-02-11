@@ -5,7 +5,6 @@
 //
 
 #import "AppDelegate.h"
-#import "ARCSafe_MemMgmt.h"
 #import "AppDelegate+UI.h"
 #import "Configuration.h"
 
@@ -82,20 +81,12 @@ static void onCrash(const KSCrashReportWriter* writer)
 - (BOOL)application:(__unused UIApplication*) application didFinishLaunchingWithOptions:(__unused NSDictionary*) launchOptions
 {
     [self installCrashHandler];
-    self.crasher = as_autorelease([[Crasher alloc] init]);
+    self.crasher = [[Crasher alloc] init];
 
-    self.window = as_autorelease([[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]]);
+    self.window = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
     self.window.rootViewController = [self createRootViewController];
     [self.window makeKeyAndVisible];
     return YES;
-}
-
-- (void) dealloc
-{
-    as_release(_viewController);
-    as_release(_window);
-    as_release(_crasher);
-    as_superdealloc();
 }
 
 @end

@@ -27,7 +27,6 @@
 
 #import "KSCrashInstallationEmail.h"
 #import "KSCrashInstallation+Private.h"
-#import "ARCSafe_MemMgmt.h"
 #import "KSCrashReportSinkEMail.h"
 #import "KSCrashReportFilterAlert.h"
 #import "KSSingleton.h"
@@ -70,16 +69,6 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrashInstallationEmail)
         [self setReportStyle:KSCrashEmailReportStyleJSON useDefaultFilenameFormat:YES];
     }
     return self;
-}
-
-- (void) dealloc
-{
-    as_release(_recipients);
-    as_release(_subject);
-    as_release(_message);
-    as_release(_filenameFmt);
-    as_release(_defaultFilenameFormats);
-    as_superdealloc();
 }
 
 - (void) setReportStyle:(KSCrashEmailReportStyle)reportStyle

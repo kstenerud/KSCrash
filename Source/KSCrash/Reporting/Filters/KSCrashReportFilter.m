@@ -26,7 +26,6 @@
 
 
 #import "KSCrashReportFilter.h"
-#import "ARCSafe_MemMgmt.h"
 #import "Container+DeepSearch.h"
 #import "KSCrashCallCompletion.h"
 #import "KSVarArgs.h"
@@ -40,7 +39,7 @@
 
 + (KSCrashReportFilterPassthrough*) filter
 {
-    return as_autorelease([[self alloc] init]);
+    return [[self alloc] init];
 }
 
 - (void) filterReports:(NSArray*) reports
@@ -112,7 +111,7 @@
         }
         isKey = !isKey;
     };
-    return as_autorelease([block copy]);
+    return [block copy];
 }
 
 + (KSCrashReportFilterCombine*) filterWithFiltersAndKeys:(id) firstFilter, ...
@@ -120,7 +119,7 @@
     NSMutableArray* filters = [NSMutableArray array];
     NSMutableArray* keys = [NSMutableArray array];
     ksva_iterate_list(firstFilter, [self argBlockWithFilters:filters andKeys:keys]);
-    return as_autorelease([[self alloc] initWithFilters:filters keys:keys]);
+    return [[self alloc] initWithFilters:filters keys:keys];
 }
 
 - (id) initWithFiltersAndKeys:(id) firstFilter, ...
@@ -129,13 +128,6 @@
     NSMutableArray* keys = [NSMutableArray array];
     ksva_iterate_list(firstFilter, [[self class] argBlockWithFilters:filters andKeys:keys]);
     return [self initWithFilters:filters keys:keys];
-}
-
-- (void) dealloc
-{
-    as_release(_filters);
-    as_release(_keys);
-    as_superdealloc();
 }
 
 - (void) filterReports:(NSArray*) reports
@@ -165,16 +157,15 @@
 
     __block NSUInteger iFilter = 0;
     __block KSCrashReportFilterCompletion filterCompletion = nil;
-    __block as_weak KSCrashReportFilterCompletion weakFilterCompletion = nil;
-    dispatch_block_t disposeOfCompletion = as_autorelease([^
+    __block __weak KSCrashReportFilterCompletion weakFilterCompletion = nil;
+    dispatch_block_t disposeOfCompletion = [^
     {
         // Release self-reference on the main thread.
         dispatch_async(dispatch_get_main_queue(), ^
                        {
-                           as_release(filterCompletion);
                            filterCompletion = nil;
                        });
-    } copy]);
+    } copy];
     filterCompletion = [^(NSArray* filteredReports,
                           BOOL completed,
                           NSError* filterError)
@@ -253,7 +244,7 @@
 + (KSCrashReportFilterPipeline*) filterWithFilters:(id) firstFilter, ...
 {
     ksva_list_to_nsarray(firstFilter, filters);
-    return as_autorelease([[self alloc] initWithFiltersArray:filters]);
+    return [[self alloc] initWithFiltersArray:filters];
 }
 
 - (id) initWithFilters:(id) firstFilter, ...
@@ -283,12 +274,6 @@
     return self;
 }
 
-- (void) dealloc
-{
-    as_release(_filters);
-    as_superdealloc();
-}
-
 - (void) filterReports:(NSArray*) reports
           onCompletion:(KSCrashReportFilterCompletion) onCompletion
 {
@@ -303,16 +288,15 @@
 
     __block NSUInteger iFilter = 0;
     __block KSCrashReportFilterCompletion filterCompletion;
-    __block as_weak KSCrashReportFilterCompletion weakFilterCompletion = nil;
-    dispatch_block_t disposeOfCompletion = as_autorelease([^
+    __block __weak KSCrashReportFilterCompletion weakFilterCompletion = nil;
+    dispatch_block_t disposeOfCompletion = [^
     {
         // Release self-reference on the main thread.
         dispatch_async(dispatch_get_main_queue(), ^
                        {
-                           as_release(filterCompletion);
                            filterCompletion = nil;
                        });
-    } copy]);
+    } copy];
     filterCompletion = [^(NSArray* filteredReports,
                           BOOL completed,
                           NSError* filterError)
@@ -375,8 +359,7 @@
 + (KSCrashReportFilterObjectForKey*) filterWithKey:(id)key
                                      allowNotFound:(BOOL) allowNotFound
 {
-    return as_autorelease([[self alloc] initWithKey:key
-                                      allowNotFound:allowNotFound]);
+    return [[self alloc] initWithKey:key allowNotFound:allowNotFound];
 }
 
 - (id) initWithKey:(id)key
@@ -384,16 +367,10 @@
 {
     if((self = [super init]))
     {
-        self.key = as_retain(key);
+        self.key = key;
         self.allowNotFound = allowNotFound;
     }
     return self;
-}
-
-- (void) dealloc
-{
-    as_release(_key);
-    as_superdealloc();
 }
 
 - (void) filterReports:(NSArray*) reports
@@ -449,7 +426,7 @@
 + (KSCrashReportFilterConcatenate*) filterWithSeparatorFmt:(NSString*) separatorFmt keys:(id) firstKey, ...
 {
     ksva_list_to_nsarray(firstKey, keys);
-    return as_autorelease([[self alloc] initWithSeparatorFmt:separatorFmt keysArray:keys]);
+    return [[self alloc] initWithSeparatorFmt:separatorFmt keysArray:keys];
 }
 
 - (id) initWithSeparatorFmt:(NSString*) separatorFmt keys:(id) firstKey, ...
@@ -479,13 +456,6 @@
         self.keys = realKeys;
     }
     return self;
-}
-
-- (void) dealloc
-{
-    as_release(_separatorFmt);
-    as_release(_keys);
-    as_superdealloc();
 }
 
 - (void) filterReports:(NSArray*) reports
@@ -530,7 +500,7 @@
 + (KSCrashReportFilterSubset*) filterWithKeys:(id) firstKeyPath, ...
 {
     ksva_list_to_nsarray(firstKeyPath, keyPaths);
-    return as_autorelease([[self alloc] initWithKeysArray:keyPaths]);
+    return [[self alloc] initWithKeysArray:keyPaths];
 }
 
 - (id) initWithKeys:(id) firstKeyPath, ...
@@ -560,13 +530,6 @@
     }
     return self;
 }
-
-- (void) dealloc
-{
-    as_release(_keyPaths);
-    as_superdealloc();
-}
-
 
 - (void) filterReports:(NSArray*) reports
           onCompletion:(KSCrashReportFilterCompletion) onCompletion

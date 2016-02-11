@@ -28,13 +28,6 @@
 #import "NSDictionary+Merge.h"
 
 
-#if __has_feature(objc_arc)
-    #define as_autorelease(X)        (X)
-#else
-    #define as_autorelease(X)       [(X) autorelease]
-#endif
-
-
 @implementation NSDictionary (KSMerge)
 
 - (NSDictionary*) mergedInto:(NSDictionary*) dest
@@ -48,7 +41,7 @@
         return dest;
     }
 
-    NSMutableDictionary* dict = as_autorelease([dest mutableCopy]);
+    NSMutableDictionary* dict = [dest mutableCopy];
     for(id key in [self allKeys])
     {
         id srcEntry = [self objectForKey:key];

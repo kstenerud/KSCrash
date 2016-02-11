@@ -27,7 +27,6 @@
 
 #import "KSCrashReportStore.h"
 
-#import "ARCSafe_MemMgmt.h"
 #import "KSCrashReportFields.h"
 #import "KSJSONCodecObjC.h"
 #import "KSSafeCollections.h"
@@ -79,25 +78,17 @@
 + (KSCrashReportInfo*) reportInfoWithID:(NSString*) reportID
                            creationDate:(NSDate*) creationDate
 {
-    return as_autorelease([[self alloc] initWithID:reportID
-                                      creationDate:creationDate]);
+    return [[self alloc] initWithID:reportID creationDate:creationDate];
 }
 
 - (id) initWithID:(NSString*) reportID creationDate:(NSDate*) creationDate
 {
     if((self = [super init]))
     {
-        _reportID = as_retain(reportID);
-        _creationDate = as_retain(creationDate);
+        _reportID = reportID;
+        _creationDate = creationDate;
     }
     return self;
-}
-
-- (void) dealloc
-{
-    as_release(_reportID);
-    as_release(_creationDate);
-    as_superdealloc();
 }
 
 - (NSComparisonResult) compare:(KSCrashReportInfo*) other
@@ -132,7 +123,7 @@
 
 + (KSCrashReportStore*) storeWithPath:(NSString*) path
 {
-    return as_autorelease([[self alloc] initWithPath:path]);
+    return [[self alloc] initWithPath:path];
 }
 
 - (id) initWithPath:(NSString*) path
@@ -143,13 +134,6 @@
         self.bundleName = [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleName"];
     }
     return self;
-}
-
-- (void) dealloc
-{
-    as_release(_path);
-    as_release(_bundleName);
-    as_superdealloc();
 }
 
 #pragma mark API
@@ -340,8 +324,8 @@
         return nil;
     }
 
-    NSMutableDictionary* mutableReport = as_autorelease([report mutableCopy]);
-    NSMutableDictionary* mutableInfo = as_autorelease([[report objectForKey:@KSCrashField_Report] mutableCopy]);
+    NSMutableDictionary* mutableReport = [report mutableCopy];
+    NSMutableDictionary* mutableInfo = [[report objectForKey:@KSCrashField_Report] mutableCopy];
     [mutableReport setObjectIfNotNil:mutableInfo forKey:@KSCrashField_Report];
 
     // Timestamp gets stored as a unix timestamp. Convert it to rfc3339.
@@ -355,7 +339,7 @@
            intoDictWithKey:@KSCrashField_User
                   inReport:mutableReport];
 
-    NSMutableDictionary* crashReport = as_autorelease([[report objectForKey:@KSCrashField_Crash] mutableCopy]);
+    NSMutableDictionary* crashReport = [[report objectForKey:@KSCrashField_Crash] mutableCopy];
     [mutableReport setObjectIfNotNil:crashReport forKey:@KSCrashField_Crash];
     KSCrashDoctor* doctor = [KSCrashDoctor doctor];
     [crashReport setObjectIfNotNil:[doctor diagnoseCrash:report] forKey:@KSCrashField_Diagnosis];

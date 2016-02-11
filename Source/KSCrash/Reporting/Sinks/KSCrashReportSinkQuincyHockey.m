@@ -27,7 +27,6 @@
 
 #import "KSCrashReportSinkQuincyHockey.h"
 
-#import "ARCSafe_MemMgmt.h"
 #import "KSCrashReportFields.h"
 #import "KSHTTPMultipartPostBody.h"
 #import "KSHTTPRequestSender.h"
@@ -78,11 +77,11 @@
                          contactEmailKey:(NSString*) contactEmailKey
                     crashDescriptionKeys:(NSArray*) crashDescriptionKeys
 {
-    return as_autorelease([[self alloc] initWithURL:url
-                                          userIDKey:userIDKey
-                                        userNameKey:userNameKey
-                                    contactEmailKey:contactEmailKey
-                               crashDescriptionKeys:crashDescriptionKeys]);
+    return [[self alloc] initWithURL:url
+                           userIDKey:userIDKey
+                         userNameKey:userNameKey
+                     contactEmailKey:contactEmailKey
+                crashDescriptionKeys:crashDescriptionKeys];
 }
 
 - (id) initWithURL:(NSURL*) url
@@ -101,16 +100,6 @@ crashDescriptionKeys:(NSArray*) crashDescriptionKeys
         self.waitUntilReachable = YES;
     }
     return self;
-}
-
-- (void) dealloc
-{
-    as_release(_reachableOperation);
-    as_release(_url);
-    as_release(_userIDKey);
-    as_release(_contactEmailKey);
-    as_release(_crashDescriptionKeys);
-    as_superdealloc();
 }
 
 - (id <KSCrashReportFilter>) defaultCrashReportFilterSet
@@ -161,7 +150,7 @@ crashDescriptionKeys:(NSArray*) crashDescriptionKeys
                 KSLOG_ERROR(@"Could not encode report section %@: %@", key, error);
                 continue;
             }
-            stringValue = as_autorelease([[NSString alloc] initWithData:encoded encoding:NSUTF8StringEncoding]);
+            stringValue = [[NSString alloc] initWithData:encoded encoding:NSUTF8StringEncoding];
         }
         else if(value == nil)
         {
@@ -428,8 +417,7 @@ crashDescriptionKeys:(NSArray*) crashDescriptionKeys
              kscrash_i_callCompletion(onCompletion, reports, YES, nil);
          } onFailure:^(NSHTTPURLResponse* response, NSData* data)
          {
-             NSString* text = as_autorelease([[NSString alloc] initWithData:data
-                                                                   encoding:NSUTF8StringEncoding]);
+             NSString* text = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
              KSLOG_DEBUG(@"Post failed. Code %d", response.statusCode);
              KSLOG_TRACE(@"Response text:\n%@", text);
              kscrash_i_callCompletion(onCompletion, reports, NO,
@@ -486,11 +474,11 @@ crashDescriptionKeys:(NSArray*) crashDescriptionKeys
                                    contactEmailKey:(NSString*) contactEmailKey
                               crashDescriptionKeys:(NSArray*) crashDescriptionKeys
 {
-    return as_autorelease([[self alloc] initWithAppIdentifier:appIdentifier
-                                                    userIDKey:userIDKey
-                                                  userNameKey:userNameKey
-                                              contactEmailKey:contactEmailKey
-                                         crashDescriptionKeys:crashDescriptionKeys]);
+    return [[self alloc] initWithAppIdentifier:appIdentifier
+                                     userIDKey:userIDKey
+                                   userNameKey:userNameKey
+                               contactEmailKey:contactEmailKey
+                          crashDescriptionKeys:crashDescriptionKeys];
 }
 
 - (id) initWithAppIdentifier:(NSString*) appIdentifier
@@ -508,12 +496,6 @@ crashDescriptionKeys:(NSArray*) crashDescriptionKeys
         self.appIdentifier = appIdentifier;
     }
     return self;
-}
-
-- (void) dealloc
-{
-    as_release(_appIdentifier);
-    as_superdealloc();
 }
 
 - (void) filterReports:(NSArray*) reports

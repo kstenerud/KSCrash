@@ -27,7 +27,6 @@
 
 #import "KSCrashReportFilterJSON.h"
 
-#import "ARCSafe_MemMgmt.h"
 #import "KSCrashCallCompletion.h"
 
 //#define KSLogger_LocalLevel TRACE
@@ -47,7 +46,7 @@
 
 + (KSCrashReportFilterJSONEncode*) filterWithOptions:(KSJSONEncodeOption) options
 {
-    return as_autorelease([(KSCrashReportFilterJSONEncode*)[self alloc] initWithOptions:options]);
+    return [(KSCrashReportFilterJSONEncode*)[self alloc] initWithOptions:options];
 }
 
 - (id) initWithOptions:(KSJSONEncodeOption) options
@@ -99,7 +98,7 @@
 
 + (KSCrashReportFilterJSONDecode*) filterWithOptions:(KSJSONDecodeOption) options
 {
-    return as_autorelease([(KSCrashReportFilterJSONDecode*)[self alloc] initWithOptions:options]);
+    return [(KSCrashReportFilterJSONDecode*)[self alloc] initWithOptions:options];
 }
 
 - (id) initWithOptions:(KSJSONDecodeOption) options

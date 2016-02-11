@@ -28,7 +28,6 @@
 #import <XCTest/XCTest.h>
 #import "XCTestCase+KSCrash.h"
 
-#import "ARCSafe_MemMgmt.h"
 #import "KSLogger.h"
 
 
@@ -42,12 +41,6 @@
 @implementation KSLogger_Tests
 
 @synthesize tempDir = _tempDir;
-
-- (void) dealloc
-{
-    as_release(_tempDir);
-    as_superdealloc();
-}
 
 - (void) setUp
 {

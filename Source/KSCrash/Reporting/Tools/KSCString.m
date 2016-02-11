@@ -25,7 +25,6 @@
 //
 
 #import "KSCString.h"
-#import "ARCSafe_MemMgmt.h"
 
 @implementation KSCString
 
@@ -34,22 +33,22 @@
 
 + (KSCString*) stringWithString:(NSString*) string
 {
-    return as_autorelease([[self alloc] initWithString:string]);
+    return [[self alloc] initWithString:string];
 }
 
 + (KSCString*) stringWithCString:(const char*) string
 {
-    return as_autorelease([[self alloc] initWithCString:string]);
+    return [[self alloc] initWithCString:string];
 }
 
 + (KSCString*) stringWithData:(NSData*) data
 {
-    return as_autorelease([[self alloc] initWithData:data]);
+    return [[self alloc] initWithData:data];
 }
 
 + (KSCString*) stringWithData:(const char*) data length:(size_t) length
 {
-    return as_autorelease([[self alloc] initWithData:data length:length]);
+    return [[self alloc] initWithData:data length:length];
 }
 
 - (id) initWithString:(NSString*) string
@@ -91,7 +90,6 @@
     {
         free((void*)_bytes);
     }
-    as_superdealloc();
 }
 
 @end

@@ -282,14 +282,6 @@ void i_kslog_logC(const char* const level,
 #pragma mark - Objective-C -
 // ===========================================================================
 
-#ifndef as_bridge
-    #if __has_feature(objc_arc)
-        #define as_bridge __bridge
-    #else
-        #define as_bridge
-    #endif
-#endif
-
 void i_kslog_logObjCBasic(NSString* fmt, ...)
 {
     if(fmt == nil)
@@ -300,10 +292,10 @@ void i_kslog_logObjCBasic(NSString* fmt, ...)
 
     va_list args;
     va_start(args,fmt);
-    CFStringRef entry = CFStringCreateWithFormatAndArguments(NULL, NULL, (as_bridge CFStringRef)fmt, args);
+    CFStringRef entry = CFStringCreateWithFormatAndArguments(NULL, NULL, (__bridge CFStringRef)fmt, args);
     va_end(args);
 
-    writeToLog([(as_bridge NSString*)entry UTF8String]);
+    writeToLog([(__bridge NSString*)entry UTF8String]);
     writeToLog("\n");
 
     CFRelease(entry);
@@ -324,11 +316,11 @@ void i_kslog_logObjC(const char* const level,
     {
         va_list args;
         va_start(args,fmt);
-        CFStringRef entry = CFStringCreateWithFormatAndArguments(NULL, NULL, (as_bridge CFStringRef)fmt, args);
+        CFStringRef entry = CFStringCreateWithFormatAndArguments(NULL, NULL, (__bridge CFStringRef)fmt, args);
         va_end(args);
 
         i_kslog_logObjCBasic(@"%s: %s (%u): %s: %@",
-                             level, lastPathEntry(file), line, function, (as_bridge id)entry);
+                             level, lastPathEntry(file), line, function, (__bridge id)entry);
 
         CFRelease(entry);
     }

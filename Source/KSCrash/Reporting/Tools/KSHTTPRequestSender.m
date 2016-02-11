@@ -26,7 +26,6 @@
 
 
 #import "KSHTTPRequestSender.h"
-#import "ARCSafe_MemMgmt.h"
 #import "NSError+SimpleConstructor.h"
 
 
@@ -34,7 +33,7 @@
 
 + (KSHTTPRequestSender*) sender
 {
-    return as_autorelease([[self alloc] init]);
+    return [[self alloc] init];
 }
 
 - (void) sendRequest:(NSURLRequest*) request
@@ -57,65 +56,63 @@
 {
     dispatch_async(dispatch_get_global_queue(priority, 0), ^
     {
-        as_autoreleasepool_start(arpool);
-
-        NSURLResponse* response = nil;
-        NSError* error = nil;
-        NSData* data = [NSURLConnection sendSynchronousRequest:request
-                                             returningResponse:&response
-                                                         error:&error];
-
-        if(error == nil)
-        {
-            if(response == nil)
+        @autoreleasepool {
+            NSURLResponse* response = nil;
+            NSError* error = nil;
+            NSData* data = [NSURLConnection sendSynchronousRequest:request
+                                                 returningResponse:&response
+                                                             error:&error];
+            
+            if(error == nil)
             {
-                error = [NSError errorWithDomain:[[self class] description]
-                                            code:0
-                                     description:@"Response was nil"];
+                if(response == nil)
+                {
+                    error = [NSError errorWithDomain:[[self class] description]
+                                                code:0
+                                         description:@"Response was nil"];
+                }
+                
+                if(![response isKindOfClass:[NSHTTPURLResponse class]])
+                {
+                    error = [NSError errorWithDomain:[[self class] description]
+                                                code:0
+                                         description:@"Response was of type %@. Expected NSHTTPURLResponse",
+                             [response class]];
+                }
             }
-
-            if(![response isKindOfClass:[NSHTTPURLResponse class]])
+            
+            if(error == nil)
             {
-                error = [NSError errorWithDomain:[[self class] description]
-                                            code:0
-                                     description:@"Response was of type %@. Expected NSHTTPURLResponse",
-                         [response class]];
-            }
-        }
-
-        if(error == nil)
-        {
-            NSHTTPURLResponse* httpResponse = (NSHTTPURLResponse*)response;
-            if((httpResponse.statusCode / 100) != 2)
-            {
-                if(failureBlock != nil)
+                NSHTTPURLResponse* httpResponse = (NSHTTPURLResponse*)response;
+                if((httpResponse.statusCode / 100) != 2)
+                {
+                    if(failureBlock != nil)
+                    {
+                        dispatch_async(dispatch_get_main_queue(), ^
+                                       {
+                                           failureBlock(httpResponse, data);
+                                       });
+                    }
+                }
+                else if(successBlock != nil)
                 {
                     dispatch_async(dispatch_get_main_queue(), ^
                                    {
-                                       failureBlock(httpResponse, data);
+                                       successBlock(httpResponse, data);
                                    });
                 }
             }
-            else if(successBlock != nil)
+            else
             {
-                dispatch_async(dispatch_get_main_queue(), ^
-                               {
-                                   successBlock(httpResponse, data);
-                               });
+                if(errorBlock != nil)
+                {
+                    dispatch_async(dispatch_get_main_queue(), ^
+                                   {
+                                       errorBlock(error);
+                                   });
+                }
             }
         }
-        else
-        {
-            if(errorBlock != nil)
-            {
-                dispatch_async(dispatch_get_main_queue(), ^
-                               {
-                                   errorBlock(error);
-                               });
-            }
-        }
-
-        as_autoreleasepool_end(arpool);
     });
 }
 

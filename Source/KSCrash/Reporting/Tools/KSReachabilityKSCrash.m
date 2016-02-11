@@ -29,8 +29,6 @@
 
 #import <netdb.h>
 
-#import "ARCSafe_MemMgmt.h"
-
 
 #define kKVOProperty_Flags     @"flags"
 #define kKVOProperty_Reachable @"reachable"
@@ -74,7 +72,7 @@ static void onReachabilityChanged(SCNetworkReachabilityRef target,
 
 + (KSReachabilityKSCrash*) reachabilityToHost:(NSString*) hostname
 {
-    return as_autorelease([[self alloc] initWithHost:hostname]);
+    return [[self alloc] initWithHost:hostname];
 }
 
 
@@ -86,7 +84,7 @@ static void onReachabilityChanged(SCNetworkReachabilityRef target,
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = htonl(IN_LINKLOCALNETNUM);
     
-    return as_autorelease([[self alloc] initWithAddress:(const struct sockaddr*)&address]);
+    return [[self alloc] initWithAddress:(const struct sockaddr*)&address];
 }
 
 - (id) initWithHost:(NSString*) hostname
@@ -124,7 +122,7 @@ static void onReachabilityChanged(SCNetworkReachabilityRef target,
         SCNetworkReachabilityContext context =
         {
             0,
-            (as_bridge void*)self,
+            (__bridge void*)self,
             NULL,
             NULL,
             NULL
@@ -146,22 +144,19 @@ static void onReachabilityChanged(SCNetworkReachabilityRef target,
 
         dispatch_async(dispatch_get_global_queue(0,0), ^
                        {
-                           as_autoreleasepool_start(pool);
+                           @autoreleasepool {
                            
-                           SCNetworkReachabilityFlags flags;
-                           if(SCNetworkReachabilityGetFlags(self.reachabilityRef, &flags))
-                           {
-                               dispatch_async(dispatch_get_main_queue(), ^
-                                              {
-                                                  as_autoreleasepool_start(pool2);
-                                                  
-                                                  [self onReachabilityFlagsChanged:flags];
-                                                  
-                                                  as_autoreleasepool_end(pool2);
-                                              });
+                               SCNetworkReachabilityFlags flags;
+                               if(SCNetworkReachabilityGetFlags(self.reachabilityRef, &flags))
+                               {
+                                   dispatch_async(dispatch_get_main_queue(), ^
+                                                  {
+                                                      @autoreleasepool {
+                                                          [self onReachabilityFlagsChanged:flags];
+                                                      }
+                                                  });
+                               }
                            }
-                           
-                           as_autoreleasepool_end(pool);
                        });
 
         self.reachabilityRef = reachabilityRef;
@@ -175,7 +170,6 @@ failed:
         CFRelease(reachabilityRef);
     }
     self.reachabilityRef = NULL;
-    as_release(self);
     return nil;
 }
 
@@ -188,10 +182,6 @@ failed:
                                                    kCFRunLoopDefaultMode);
         CFRelease(_reachabilityRef);
     }
-    as_release(_hostname);
-    as_release(_notificationName);
-    as_release(_onReachabilityChanged);
-    as_superdealloc();
 }
 
 - (NSString*) extractHostName:(NSString*) potentialURL
@@ -288,15 +278,13 @@ static void onReachabilityChanged(__unused SCNetworkReachabilityRef target,
                                   SCNetworkReachabilityFlags flags,
                                   void* info)
 {
-    KSReachabilityKSCrash* reachability = (as_bridge KSReachabilityKSCrash*) info;
+    KSReachabilityKSCrash* reachability = (__bridge KSReachabilityKSCrash*) info;
     
     dispatch_async(dispatch_get_main_queue(), ^
                    {
-                       as_autoreleasepool_start(pool);
-                       
-                       [reachability onReachabilityFlagsChanged:flags];
-                       
-                       as_autoreleasepool_end(pool);
+                       @autoreleasepool {
+                           [reachability onReachabilityFlagsChanged:flags];
+                       }
                    });
 }
 
@@ -318,9 +306,7 @@ static void onReachabilityChanged(__unused SCNetworkReachabilityRef target,
                                          allowWWAN:(BOOL) allowWWAN
                                              block:(void(^)()) block
 {
-    return as_autorelease([[self alloc] initWithHost:host
-                                           allowWWAN:allowWWAN
-                                               block:block]);
+    return [[self alloc] initWithHost:host allowWWAN:allowWWAN block:block];
 }
 
 - (id) initWithHost:(NSString*) host
@@ -345,12 +331,6 @@ static void onReachabilityChanged(__unused SCNetworkReachabilityRef target,
         };
     }
     return self;
-}
-
-- (void) dealloc
-{
-    as_release(_reachability);
-    as_superdealloc();
 }
 
 @end

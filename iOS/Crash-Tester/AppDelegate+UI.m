@@ -5,7 +5,6 @@
 //
 
 #import "AppDelegate+UI.h"
-#import "ARCSafe_MemMgmt.h"
 #import "LoadableCategory.h"
 #import "CommandTVC.h"
 #import "Crasher.h"
@@ -40,7 +39,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
     {
         return [NSString stringWithFormat:@"Crash Tester: %@", [CrashTesterCommands reportCountString]];
     };
-    return as_autorelease([[UINavigationController alloc] initWithRootViewController:cmdController]);
+    return [[UINavigationController alloc] initWithRootViewController:cmdController];
 }
 
 
@@ -48,7 +47,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
 
 - (CommandTVC*) commandTVCWithCommands:(NSArray*) commands
 {
-    CommandTVC* cmdController = as_autorelease([[CommandTVC alloc] initWithStyle:UITableViewStylePlain]);
+    CommandTVC* cmdController = [[CommandTVC alloc] initWithStyle:UITableViewStylePlain];
     [cmdController.commands addObjectsFromArray:commands];
     [self setBackButton:cmdController];
     return cmdController;
@@ -57,10 +56,10 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
 - (void) setBackButton:(UIViewController*) controller
 {
     controller.navigationItem.backBarButtonItem =
-    as_autorelease([[UIBarButtonItem alloc] initWithTitle:@"Back"
-                                                    style:UIBarButtonItemStyleBordered
-                                                   target:nil
-                                                   action:nil]);
+        [[UIBarButtonItem alloc] initWithTitle:@"Back"
+                                         style:UIBarButtonItemStyleBordered
+                                        target:nil
+                                        action:nil];
 }
 
 #pragma mark Commands

@@ -9,7 +9,6 @@
 #import "KSCrashDoctor.h"
 #import "KSCrashReportFields.h"
 #import "KSSystemInfo.h"
-#import "ARCSafe_MemMgmt.h"
 
 
 #define kUserCrashHandler "kscrw_i_callUserCrashHandler"
@@ -43,15 +42,6 @@ typedef enum
 @synthesize value = _value;
 @synthesize type = _type;
 
-- (void) dealloc
-{
-    as_release(_className);
-    as_release(_previousClassName);
-    as_release(_value);
-    as_release(_type);
-    as_superdealloc();
-}
-
 @end
 
 @interface KSCrashDoctorFunctionCall: NSObject
@@ -65,13 +55,6 @@ typedef enum
 
 @synthesize name = _name;
 @synthesize params = _params;
-
-- (void) dealloc
-{
-    as_release(_name);
-    as_release(_params);
-    as_superdealloc();
-}
 
 - (NSString*) descriptionForObjCCall
 {
@@ -189,7 +172,7 @@ typedef enum
 
 + (KSCrashDoctor*) doctor
 {
-    return as_autorelease([[self alloc] init]);
+    return [[self alloc] init];
 }
 
 - (NSDictionary*) recrashReport:(NSDictionary*) report
@@ -428,7 +411,7 @@ typedef enum
 
 - (KSCrashDoctorFunctionCall*) lastFunctionCall:(NSDictionary*) report
 {
-    KSCrashDoctorFunctionCall* function = as_autorelease([[KSCrashDoctorFunctionCall alloc] init]);
+    KSCrashDoctorFunctionCall* function = [[KSCrashDoctorFunctionCall alloc] init];
     NSDictionary* lastStackEntry = [self lastStackEntry:report];
     function.name = [lastStackEntry objectForKey:@KSCrashField_SymbolName];
 
@@ -445,7 +428,7 @@ typedef enum
     NSMutableArray* params = [NSMutableArray arrayWithCapacity:4];
     for(NSString* regName in regNames)
     {
-        KSCrashDoctorParam* param = as_autorelease([[KSCrashDoctorParam alloc] init]);
+        KSCrashDoctorParam* param = [[KSCrashDoctorParam alloc] init];
         param.address = (uintptr_t)[[registers objectForKey:regName] unsignedLongLongValue];
         NSDictionary* notableAddress = [notableAddresses objectForKey:regName];
         if(notableAddress == nil)

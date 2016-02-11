@@ -30,7 +30,6 @@
 
 #import <mach/machine.h>
 
-#import "ARCSafe_MemMgmt.h"
 #import "KSCrashCallCompletion.h"
 #import "KSCrashReportFields.h"
 #import "KSJSONCodecObjC.h"
@@ -159,7 +158,7 @@ NSDictionary* g_registerOrders;
 
 + (KSCrashReportFilterAppleFmt*) filterWithReportStyle:(KSAppleReportStyle) reportStyle
 {
-    return as_autorelease([[self alloc] initWithReportStyle:reportStyle]);
+    return [[self alloc] initWithReportStyle:reportStyle];
 }
 
 - (id) initWithReportStyle:(KSAppleReportStyle) reportStyle
@@ -614,7 +613,7 @@ NSDictionary* g_registerOrders;
     }
     else
     {
-        return as_autorelease([[NSString alloc] initWithData:encoded encoding:NSUTF8StringEncoding]);
+        return [[NSString alloc] initWithData:encoded encoding:NSUTF8StringEncoding];
     }
 }
 

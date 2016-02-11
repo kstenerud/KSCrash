@@ -28,7 +28,6 @@
 #import <XCTest/XCTest.h>
 
 #import "KSMach.h"
-#import "ARCSafe_MemMgmt.h"
 #import <mach/mach_time.h>
 
 
@@ -214,7 +213,7 @@
 
 - (void) testThreadState
 {
-    TestThread* thread = as_autorelease([[TestThread alloc] init]);
+    TestThread* thread = [[TestThread alloc] init];
     [thread start];
     [NSThread sleepForTimeInterval:0.1];
     kern_return_t kr;
@@ -252,7 +251,7 @@
 
 - (void) testFloatState
 {
-    TestThread* thread = as_autorelease([[TestThread alloc] init]);
+    TestThread* thread = [[TestThread alloc] init];
     [thread start];
     [NSThread sleepForTimeInterval:0.1];
     kern_return_t kr;
@@ -268,7 +267,7 @@
 
 - (void) testExceptionState
 {
-    TestThread* thread = as_autorelease([[TestThread alloc] init]);
+    TestThread* thread = [[TestThread alloc] init];
     [thread start];
     [NSThread sleepForTimeInterval:0.1];
     kern_return_t kr;

@@ -26,7 +26,6 @@
 
 
 #import "KSCrashReportFilterBasic.h"
-#import "ARCSafe_MemMgmt.h"
 #import "KSCrashCallCompletion.h"
 #import "NSError+SimpleConstructor.h"
 
@@ -38,7 +37,7 @@
 
 + (KSCrashReportFilterDataToString*) filter
 {
-    return as_autorelease([[self alloc] init]);
+    return [[self alloc] init];
 }
 
 - (void) filterReports:(NSArray*) reports
@@ -47,8 +46,7 @@
     NSMutableArray* filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
     for(NSData* report in reports)
     {
-        NSString* converted = as_autorelease([[NSString alloc] initWithData:report
-                                                                   encoding:NSUTF8StringEncoding]);
+        NSString* converted = [[NSString alloc] initWithData:report encoding:NSUTF8StringEncoding];
         [filteredReports addObject:converted];
     }
 
@@ -62,7 +60,7 @@
 
 + (KSCrashReportFilterStringToData*) filter
 {
-    return as_autorelease([[self alloc] init]);
+    return [[self alloc] init];
 }
 
 - (void) filterReports:(NSArray*) reports

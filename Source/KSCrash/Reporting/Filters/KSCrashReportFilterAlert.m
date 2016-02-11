@@ -27,7 +27,6 @@
 
 #import "KSCrashReportFilterAlert.h"
 
-#import "ARCSafe_MemMgmt.h"
 #import "KSCrashCallCompletion.h"
 
 //#define KSLogger_LocalLevel TRACE
@@ -72,17 +71,7 @@
 
 + (KSCrashAlertViewProcess*) process
 {
-    return as_autorelease([[self alloc] init]);
-}
-
-- (void) dealloc
-{
-#ifdef __IPHONE_OS_VERSION_MAX_ALLOWED
-    as_release(_alertView);
-#endif
-    as_release(_reports);
-    as_release(_onCompletion);
-    as_superdealloc();
+    return [[self alloc] init];
 }
 
 - (void) startWithTitle:(NSString*) title
@@ -98,7 +87,7 @@
     self.expectedButtonIndex = noAnswer == nil ? 0 : 1;
 
 #ifdef __IPHONE_OS_VERSION_MAX_ALLOWED
-    self.alertView = as_autorelease([[UIAlertView alloc] init]);
+    self.alertView = [[UIAlertView alloc] init];
     self.alertView.title = title;
     self.alertView.message = message;
     if(noAnswer != nil)
@@ -159,10 +148,10 @@
                                     yesAnswer:(NSString*) yesAnswer
                                      noAnswer:(NSString*) noAnswer
 {
-    return as_autorelease([[self alloc] initWithTitle:title
-                                              message:message
-                                            yesAnswer:yesAnswer
-                                             noAnswer:noAnswer]);
+    return [[self alloc] initWithTitle:title
+                               message:message
+                             yesAnswer:yesAnswer
+                              noAnswer:noAnswer];
 }
 
 - (id) initWithTitle:(NSString*) title
@@ -178,15 +167,6 @@
         self.noAnswer = noAnswer;
     }
     return self;
-}
-
-- (void) dealloc
-{
-    as_release(_title);
-    as_release(_message);
-    as_release(_yesAnswer);
-    as_release(_noAnswer);
-    as_superdealloc();
 }
 
 - (void) filterReports:(NSArray*) reports
@@ -209,7 +189,6 @@
                             kscrash_i_callCompletion(onCompletion, filteredReports, completed, error);
                             dispatch_async(dispatch_get_main_queue(), ^
                                            {
-                                               as_release(process);
                                                process = nil;
                                            });
                         }];

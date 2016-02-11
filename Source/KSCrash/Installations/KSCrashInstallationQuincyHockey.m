@@ -27,7 +27,6 @@
 
 #import "KSCrashInstallationQuincyHockey.h"
 
-#import "ARCSafe_MemMgmt.h"
 #import "KSCrashInstallation+Private.h"
 #import "KSCrashReportFields.h"
 #import "KSCrashReportSinkQuincyHockey.h"
@@ -66,20 +65,6 @@ IMPLEMENT_REPORT_PROPERTY(crashDescription, CrashDescription, NSString*);
     return self;
 }
 
-- (void) dealloc
-{
-    as_release(_userID);
-    as_release(_userIDKey);
-    as_release(_userName);
-    as_release(_userNameKey);
-    as_release(_contactEmail);
-    as_release(_contactEmailKey);
-    as_release(_crashDescription);
-    as_release(_crashDescriptionKey);
-    as_release(_extraDescriptionKeys);
-    as_superdealloc();
-}
-
 - (NSArray*) allCrashDescriptionKeys
 {
     NSMutableArray* keys = [NSMutableArray array];
@@ -113,12 +98,6 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrashInstallationQuincy)
     return self;
 }
 
-- (void) dealloc
-{
-    as_release(_url);
-    as_superdealloc();
-}
-
 - (id<KSCrashReportFilter>) sink
 {
     KSCrashReportSinkQuincy* sink = [KSCrashReportSinkQuincy sinkWithURL:self.url
@@ -147,12 +126,6 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrashInstallationHockey)
     {
     }
     return self;
-}
-
-- (void) dealloc
-{
-    as_release(_appIdentifier);
-    as_superdealloc();
 }
 
 - (id<KSCrashReportFilter>) sink

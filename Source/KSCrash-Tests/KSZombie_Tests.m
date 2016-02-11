@@ -26,7 +26,6 @@
 
 
 #import <XCTest/XCTest.h>
-#import "ARCSafe_MemMgmt.h"
 
 #import "KSZombie.h"
 
@@ -88,37 +87,32 @@
 
 - (void) testZombieClass
 {
-    as_unsafe_unretained id object;
-    as_autoreleasepool_start(POOL);
-    {
-        id anObject = as_autorelease([[NSObject alloc] init]);
+    __unsafe_unretained id object;
+    @autoreleasepool {
+        id anObject = [[NSObject alloc] init];
         object = anObject;
     }
-    as_autoreleasepool_end(POOL);
     
-    const char* className = kszombie_className((as_bridge void*)object);
+    const char* className = kszombie_className((__bridge void*)object);
     XCTAssertTrue(strcmp(className, "NSObject") == 0, @"");
 }
 
 - (void) testZombieProxy
 {
-    as_unsafe_unretained id object;
-    as_autoreleasepool_start(POOL);
-    {
-        id anObject = as_autorelease([NSProxy alloc]);
+    __unsafe_unretained id object;
+    @autoreleasepool {
+        id anObject = [NSProxy alloc];
         object = anObject;
     }
-    as_autoreleasepool_end(POOL);
     
-    const char* className = kszombie_className((as_bridge void*)object);
+    const char* className = kszombie_className((__bridge void*)object);
     XCTAssertTrue(strcmp(className, "NSProxy") == 0, @"");
 }
 
 - (void) testZombieExeption
 {
-    as_unsafe_unretained id object;
-    as_autoreleasepool_start(POOL);
-    {
+    __unsafe_unretained id object;
+    @autoreleasepool {
         @try {
             [NSException raise:@"name" format:@"reason"];
         }
@@ -126,9 +120,8 @@
             object = exception;
         }
     }
-    as_autoreleasepool_end(POOL);
     
-    const char* className = kszombie_className((as_bridge void*)object);
+    const char* className = kszombie_className((__bridge void*)object);
     XCTAssertTrue(strcmp(className, "NSException") == 0, @"");
 
     const void* address = kszombie_lastDeallocedNSExceptionAddress();
@@ -137,7 +130,7 @@
     const char* name = kszombie_lastDeallocedNSExceptionName();
     const char* reason = kszombie_lastDeallocedNSExceptionReason();
     
-    XCTAssertTrue(address == (as_bridge void*)object, @"");
+    XCTAssertTrue(address == (__bridge void*)object, @"");
 //    XCTAssertTrue((void*)callStack[0] != NULL, @"");
 //    XCTAssertTrue(callStackLength > 0, @"");
     XCTAssertTrue(strcmp(name, "name") == 0, @"");
