@@ -25,6 +25,13 @@ Pod::Spec.new do |s|
                                'Source/KSCrash/swift/**/*.{h,m,mm,c,cpp}',
                                'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h'
     recording.exclude_files = 'Source/KSCrash/Recording/**/KSZombie.{h,m}'
+    recording.public_header_files = 'Source/KSCrash/Recording/KSCrashC.h',
+                                    'Source/KSCrash/Recording/KSCrashContext.h',
+                                    'Source/KSCrash/Recording/KSCrashReportWriter.h',
+                                    'Source/KSCrash/Recording/KSCrashState.h',
+                                    'Source/KSCrash/Recording/KSCrashType.h',
+                                    'Source/KSCrash/Recording/Sentry/KSCrashSentry.h',
+                                    'Source/KSCrash/Recording/Tools/KSArchSpecific.h'
   end
 
   s.subspec 'Reporting' do |reporting|
@@ -35,6 +42,7 @@ Pod::Spec.new do |s|
         base.source_files = 'Source/KSCrash/Reporting/Filters/Tools/**/*.{h,m,mm,c,cpp}',
                             'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h',
                             'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.m'
+        base.public_header_files = 'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h'
       end
 
       filters.subspec 'Alert' do |alert|
