@@ -25,7 +25,8 @@ Pod::Spec.new do |s|
                                'Source/KSCrash/swift/**/*.{h,m,mm,c,cpp}',
                                'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h'
     recording.exclude_files = 'Source/KSCrash/Recording/**/KSZombie.{h,m}'
-    recording.public_header_files = 'Source/KSCrash/Recording/KSCrashC.h',
+    recording.public_header_files = 'Source/KSCrash/Recording/KSCrash.h',
+                                    'Source/KSCrash/Recording/KSCrashC.h',
                                     'Source/KSCrash/Recording/KSCrashContext.h',
                                     'Source/KSCrash/Recording/KSCrashReportWriter.h',
                                     'Source/KSCrash/Recording/KSCrashState.h',
