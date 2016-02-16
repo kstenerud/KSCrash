@@ -12,7 +12,7 @@ of a lot more that they COULD do. Here are some key features of KSCrash:
 * On-device symbolication in a way that supports re-symbolication offline
   (necessary for iOS versions where many functions have been redacted).
 * Generates full Apple reports, with every field filled in.
-* 32-bit and 64-bit mode (EXPERIMENTAL).
+* 32-bit and 64-bit mode.
 * Handles errors that can only be caught at the mach level, such as stack
   overflow.
 * Tracks the REAL cause of an uncaught C++ exception.
@@ -127,11 +127,6 @@ See KSCrash.h for details.
 The following features should be considered "unstable" and are disabled by default:
 
 - Deadlock detection
-
-
-### 64-bit ARM Support
-
-64-bit ARM support is EXPERIMENTAL. Although it compiles and runs in 64-bit mode in the simulator, I don't have an iPhone 5 to test with.
 
 
 ### Incompatible API Change Notice
