@@ -33,7 +33,8 @@ Pod::Spec.new do |s|
                                     'Source/KSCrash/Recording/KSCrashType.h',
                                     'Source/KSCrash/Recording/Sentry/KSCrashSentry.h',
                                     'Source/KSCrash/Recording/Tools/KSArchSpecific.h',
-                                    'Source/KSCrash/Recording/Tools/KSJSONCodecObjC.h'
+                                    'Source/KSCrash/Recording/Tools/KSJSONCodecObjC.h',
+                                    'Source/KSCrash/Recording/Tools/NSError+SimpleConstructor.h'
   end
 
   s.subspec 'Reporting' do |reporting|
@@ -88,12 +89,15 @@ Pod::Spec.new do |s|
                             'Source/KSCrash/Reporting/Filters/KSCrashReportFilterSets.m'
       end
 
+      filters.subspec 'Tools' do |tools|
+        tools.source_files = 'Source/KSCrash/Reporting/Filters/Tools/**/*.{h,m,mm,c,cpp}'
+      end
+
     end
 
     reporting.subspec 'Tools' do |tools|
       tools.frameworks = 'SystemConfiguration'
       tools.source_files = 'Source/KSCrash/Reporting/Tools/**/*.{h,m,mm,c,cpp}'
-
     end
 
     reporting.subspec 'MessageUI' do |messageui|
