@@ -413,7 +413,7 @@
 
 - (NSString*) reportIDFromFilename:(NSString*) filename
 {
-    if([filename length] == 0)
+    if([filename length] == 0 || [[filename pathExtension] isEqualToString:@"json"] == NO)
     {
         return nil;
     }
@@ -421,12 +421,13 @@
     NSString* prefix = [NSString stringWithFormat:@"%@" kCrashReportSuffix,
                         self.bundleName];
     NSString* suffix = @".json";
-    if([filename rangeOfString:prefix].location == 0 &&
-       [filename rangeOfString:suffix].location != NSNotFound)
+
+    NSRange prefixRange = [filename rangeOfString:prefix];
+    NSRange suffixRange = [filename rangeOfString:suffix options:NSBackwardsSearch];
+    if(prefixRange.location == 0 && suffixRange.location != NSNotFound)
     {
-        NSUInteger prefixLength = [prefix length];
-        NSUInteger suffixLength = [suffix length];
-        NSRange range = NSMakeRange(prefixLength, [filename length] - prefixLength - suffixLength);
+        NSUInteger prefixEnd = NSMaxRange(prefixRange);
+        NSRange range = NSMakeRange(prefixEnd, suffixRange.location - prefixEnd);
         return [filename substringWithRange:range];
     }
     return nil;
