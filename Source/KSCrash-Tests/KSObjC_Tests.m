@@ -543,7 +543,7 @@ static NSArray* g_test_strings;
 {
     NSDate* date = [NSDate dateWithTimeIntervalSinceReferenceDate:10.0];
     void* datePtr = (__bridge void*)date;
-    NSString* expectedClassName = @"NSDate";
+    NSString* expectedClassName = @"__NSDate";
     NSString* expectedTheRest = @"10.000000";
     char buffer[100];
     size_t copied = ksobjc_getDescription(datePtr, buffer, sizeof(buffer));
