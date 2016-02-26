@@ -265,23 +265,6 @@
     return result ?:[NSString stringWithUTF8String:ksmach_currentCPUArch()];
 }
 
-/** Get the name of a process.
- *
- * @param pid The process ID.
- *
- * @return The process name, or "unknown" if none was found.
- */
-+ (NSString*) processName:(int) pid
-{
-    struct kinfo_proc procInfo;
-    if(kssysctl_getProcessInfo(pid, &procInfo))
-    {
-        return [NSString stringWithCString:procInfo.kp_proc.p_comm
-                                  encoding:NSUTF8StringEncoding];
-    }
-    return @"unknown";
-}
-
 /** Check if the current device is jailbroken.
  *
  * @return YES if the device is jailbroken.
@@ -331,7 +314,6 @@
     [sysInfo safeSetObject:[NSProcessInfo processInfo].processName forKey:@KSSystemField_ProcessName];
     [sysInfo safeSetObject:[NSNumber numberWithInt:[NSProcessInfo processInfo].processIdentifier] forKey:@KSSystemField_ProcessID];
     [sysInfo safeSetObject:[NSNumber numberWithInt:getppid()] forKey:@KSSystemField_ParentProcessID];
-    [sysInfo safeSetObject:[self processName:getppid()] forKey:@KSSystemField_ParentProcessName];
     [sysInfo safeSetObject:[self deviceAndAppHash] forKey:@KSSystemField_DeviceAppHash];
 
     NSDictionary* memory = [NSDictionary dictionaryWithObject:[self int64Sysctl:@"hw.memsize"] forKey:@KSSystemField_Size];

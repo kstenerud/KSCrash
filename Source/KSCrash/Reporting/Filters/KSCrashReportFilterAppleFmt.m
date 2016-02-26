@@ -425,8 +425,7 @@ NSDictionary* g_registerOrders;
      [system objectForKey:@KSSystemField_BundleShortVersion],
      [system objectForKey:@KSSystemField_BundleVersion]];
     [str appendFormat:@"Code Type:       %@\n", cpuArchType];
-    [str appendFormat:@"Parent Process:  %@ [%@]\n",
-     [system objectForKey:@KSSystemField_ParentProcessName],
+    [str appendFormat:@"Parent Process:  ? [%@]\n",
      [system objectForKey:@KSSystemField_ParentProcessID]];
     [str appendFormat:@"\n"];
     [str appendFormat:@"Date/Time:       %@\n", [self stringFromDate:crashTime]];
