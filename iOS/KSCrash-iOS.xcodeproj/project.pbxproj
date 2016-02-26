@@ -222,7 +222,7 @@
 		CBF53E1017EB765C0056DA83 /* KSJSONCodec.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D6917EB765C0056DA83 /* KSJSONCodec.c */; };
 		CBF53E1117EB765C0056DA83 /* KSJSONCodec.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D6917EB765C0056DA83 /* KSJSONCodec.c */; };
 		CBF53E1217EB765C0056DA83 /* KSJSONCodec.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D6A17EB765C0056DA83 /* KSJSONCodec.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		CBF53E1317EB765C0056DA83 /* KSJSONCodecObjC.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D6B17EB765C0056DA83 /* KSJSONCodecObjC.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CBF53E1317EB765C0056DA83 /* KSJSONCodecObjC.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D6B17EB765C0056DA83 /* KSJSONCodecObjC.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CBF53E1417EB765C0056DA83 /* KSJSONCodecObjC.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D6C17EB765C0056DA83 /* KSJSONCodecObjC.m */; };
 		CBF53E1517EB765C0056DA83 /* KSJSONCodecObjC.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D6C17EB765C0056DA83 /* KSJSONCodecObjC.m */; };
 		CBF53E1617EB765C0056DA83 /* KSLogger.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D6D17EB765C0056DA83 /* KSLogger.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -303,7 +303,7 @@
 		CBF53E6A17EB7EA80056DA83 /* KSBacktrace_Private.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D1617EB765C0056DA83 /* KSBacktrace_Private.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBF53E6B17EB7EA80056DA83 /* KSFileUtils.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D6417EB765C0056DA83 /* KSFileUtils.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBF53E6C17EB7EA80056DA83 /* KSJSONCodec.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D6A17EB765C0056DA83 /* KSJSONCodec.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		CBF53E6D17EB7EA80056DA83 /* KSJSONCodecObjC.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D6B17EB765C0056DA83 /* KSJSONCodecObjC.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CBF53E6D17EB7EA80056DA83 /* KSJSONCodecObjC.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D6B17EB765C0056DA83 /* KSJSONCodecObjC.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CBF53E6E17EB7EA80056DA83 /* KSLogger.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D6D17EB765C0056DA83 /* KSLogger.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBF53E6F17EB7EA80056DA83 /* KSMach.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D7317EB765C0056DA83 /* KSMach.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBF53E7017EB7EA80056DA83 /* KSMachApple.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D7417EB765C0056DA83 /* KSMachApple.h */; settings = {ATTRIBUTES = (Private, ); }; };
