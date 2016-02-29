@@ -12,6 +12,7 @@ Pod::Spec.new do |s|
   s.frameworks = 'Foundation'
   s.libraries = 'c++', 'z'
   s.xcconfig = { 'GCC_ENABLE_CPP_EXCEPTIONS' => 'YES' }
+  s.default_subspecs = 'Installations'
 
   s.subspec 'no-arc' do |sp|
     sp.source_files = 'Source/KSCrash/Recording/**/KSZombie.{h,m}'
@@ -34,21 +35,28 @@ Pod::Spec.new do |s|
                                     'Source/KSCrash/Recording/Sentry/KSCrashSentry.h',
                                     'Source/KSCrash/Recording/Tools/KSArchSpecific.h',
                                     'Source/KSCrash/Recording/Tools/KSJSONCodecObjC.h',
-                                    'Source/KSCrash/Recording/Tools/NSError+SimpleConstructor.h'
+                                    'Source/KSCrash/Recording/Tools/NSError+SimpleConstructor.h',
+                                    'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h'
+  end
 
-    recording.subspec 'Advanced' do |advanced|
-      advanced.public_header_files = 'Source/KSCrash/Recording/KSCrashAdvanced.h',
-                                     'Source/KSCrash/Recording/KSCrashDoctor.h',
-                                     'Source/KSCrash/Recording/KSCrashReportFields.h',
-                                     'Source/KSCrash/Recording/KSCrashReportStore.h',
-                                     'Source/KSCrash/Recording/KSSystemInfo.h',
-                                     'Source/KSCrash/Recording/KSSystemInfoC.h'
-    end
+  # This subspec is just to optionally expose the advanced headers
+  s.subspec 'RecordingAdvanced' do |advanced|
+    advanced.dependency 'KSCrash/Recording'
+    # Just add .h files; the .m files are all compiled in the Recording spec
+    advanced.source_files = 'Source/KSCrash/Recording/KSCrashAdvanced.h',
+                            'Source/KSCrash/Recording/KSCrashDoctor.h',
+                            'Source/KSCrash/Recording/KSCrashReportFields.h',
+                            'Source/KSCrash/Recording/KSCrashReportStore.h',
+                            'Source/KSCrash/Recording/KSSystemInfo.h',
+                            'Source/KSCrash/Recording/KSSystemInfoC.h'
+  end
 
-    recording.subspec 'Tools' do |tools|
-      tools.public_header_files = 'Source/KSCrash/Recording/Tools/**/*.h'
-    end
-
+  # This subspec is just to optionally expose the tools headers
+  s.subspec 'RecordingTools' do |tools|
+    tools.dependency 'KSCrash/Recording'
+    # Just add .h files; the .m files are all compiled in the Recording spec
+    tools.source_files = 'Source/KSCrash/Recording/Tools/*.h'
+    tools.exclude_files = 'Source/KSCrash/Recording/Tools/KSZombie.h'
   end
 
   s.subspec 'Reporting' do |reporting|
