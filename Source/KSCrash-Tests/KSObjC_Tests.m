@@ -543,7 +543,7 @@ static NSArray* g_test_strings;
 {
     NSDate* date = [NSDate dateWithTimeIntervalSinceReferenceDate:10.0];
     void* datePtr = (__bridge void*)date;
-    NSString* expectedClassName = @"__NSDate";
+    NSString* expectedClassName = @"NSDate";
     NSString* expectedTheRest = @"10.000000";
     char buffer[100];
     size_t copied = ksobjc_getDescription(datePtr, buffer, sizeof(buffer));
@@ -552,7 +552,7 @@ static NSArray* g_test_strings;
     NSArray* components = [self componentsOfComplexDescription:description];
     NSString* className = [components objectAtIndex:0];
     NSString* theRest = [components objectAtIndex:1];
-    XCTAssertEqualObjects(className, expectedClassName, @"");
+    XCTAssert([className hasSuffix:expectedClassName]);
     XCTAssertEqualObjects(theRest, expectedTheRest, @"");
 }
 
