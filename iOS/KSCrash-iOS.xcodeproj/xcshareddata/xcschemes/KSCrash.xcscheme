@@ -14,7 +14,7 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "CB6D12FD17EB743A00BC2C04"
+               BlueprintIdentifier = "03DE7B691C84DEF700F789BA"
                BuildableName = "KSCrash.framework"
                BlueprintName = "KSCrash"
                ReferencedContainer = "container:KSCrash-iOS.xcodeproj">
@@ -45,7 +45,7 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "CB6D12FD17EB743A00BC2C04"
+            BlueprintIdentifier = "03DE7B691C84DEF700F789BA"
             BuildableName = "KSCrash.framework"
             BlueprintName = "KSCrash"
             ReferencedContainer = "container:KSCrash-iOS.xcodeproj">
@@ -63,7 +63,7 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "CB6D12FD17EB743A00BC2C04"
+            BlueprintIdentifier = "03DE7B691C84DEF700F789BA"
             BuildableName = "KSCrash.framework"
             BlueprintName = "KSCrash"
             ReferencedContainer = "container:KSCrash-iOS.xcodeproj">
