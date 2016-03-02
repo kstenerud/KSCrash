@@ -196,3 +196,9 @@ typedef enum
             terminateProgram:(BOOL) terminateProgram;
 
 @end
+
+//! Project version number for KSCrashFramework.
+FOUNDATION_EXPORT double KSCrashFrameworkVersionNumber;
+
+//! Project version string for KSCrashFramework.
+FOUNDATION_EXPORT const unsigned char KSCrashFrameworkVersionString[];
