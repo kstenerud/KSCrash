@@ -522,10 +522,11 @@ int ksjsoncodecobjc_i_encodeObject(KSJSONCodec* codec,
 
     if([object isKindOfClass:[NSData class]])
     {
+        NSData* data = (NSData*)object;
         return ksjson_addDataElement(context,
                                      cName,
-                                     [object bytes],
-                                     [object length]);
+                                     [data bytes],
+                                     [data length]);
     }
 
     codec.error = [NSError errorWithDomain:@"KSJSONCodecObjC"

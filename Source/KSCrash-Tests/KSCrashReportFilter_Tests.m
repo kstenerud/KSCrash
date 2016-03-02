@@ -593,7 +593,8 @@
      {
          XCTAssertTrue(completed, @"");
          XCTAssertNil(error, @"");
-         XCTAssertTrue([[filteredReports objectAtIndex:0] count] == 0, @"");
+         NSDictionary* firstReport = filteredReports[0];
+         XCTAssertTrue(firstReport.count == 0, @"");
      }];
 }
 
