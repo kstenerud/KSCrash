@@ -46,11 +46,6 @@
 #pragma mark - Default Constants -
 // ============================================================================
 
-/** The maximum number of reports to keep on disk. */
-#ifndef KSCRASH_MaxStoredReports
-    #define KSCRASH_MaxStoredReports 5
-#endif
-
 /** The directory under "Caches" to store the crash reports. */
 #ifndef KSCRASH_ReportFilesDirectory
     #define KSCRASH_ReportFilesDirectory @"KSCrashReports"
@@ -155,6 +150,7 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrash)
         self.searchThreadNames = NO;
         self.searchQueueNames = NO;
         self.introspectMemory = YES;
+        self.maxStoredReports = 5;
     }
     return self;
 
@@ -311,7 +307,7 @@ failed:
 
 - (void) sendAllReportsWithCompletion:(KSCrashReportFilterCompletion) onCompletion
 {
-    [self.crashReportStore pruneReportsLeaving:KSCRASH_MaxStoredReports];
+    [self.crashReportStore pruneReportsLeaving:self.maxStoredReports];
     
     NSArray* reports = [self allReports];
     
