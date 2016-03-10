@@ -346,6 +346,8 @@
 		CB8E571817EB9BA8000C56D3 /* KSCrashInstallationStandard.m in Sources */ = {isa = PBXBuildFile; fileRef = CB8E570D17EB9BA8000C56D3 /* KSCrashInstallationStandard.m */; };
 		CB8E571917EB9BA8000C56D3 /* KSCrashInstallationVictory.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E570E17EB9BA8000C56D3 /* KSCrashInstallationVictory.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CB8E571A17EB9BA8000C56D3 /* KSCrashInstallationVictory.m in Sources */ = {isa = PBXBuildFile; fileRef = CB8E570F17EB9BA8000C56D3 /* KSCrashInstallationVictory.m */; };
+		CBA997741C9226DE00D12149 /* KSCrashReportVersion.h in Headers */ = {isa = PBXBuildFile; fileRef = CBA997731C9226DE00D12149 /* KSCrashReportVersion.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CBA997751C9226DE00D12149 /* KSCrashReportVersion.h in Headers */ = {isa = PBXBuildFile; fileRef = CBA997731C9226DE00D12149 /* KSCrashReportVersion.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DCA19E3418832A7800DCA792 /* KSCrashSentry_MachException.c in Sources */ = {isa = PBXBuildFile; fileRef = DCA19E3318832A7700DCA792 /* KSCrashSentry_MachException.c */; };
 		DCA19E3518832A8B00DCA792 /* KSCrashSentry_MachException.c in Sources */ = {isa = PBXBuildFile; fileRef = DCA19E3318832A7700DCA792 /* KSCrashSentry_MachException.c */; };
 /* End PBXBuildFile section */
@@ -565,6 +567,7 @@
 		CB8E570F17EB9BA8000C56D3 /* KSCrashInstallationVictory.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSCrashInstallationVictory.m; path = ../../Source/KSCrash/Installations/KSCrashInstallationVictory.m; sourceTree = "<group>"; };
 		CB8E571B17EBA8D9000C56D3 /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = usr/lib/libz.dylib; sourceTree = SDKROOT; };
 		CB8E571D17EBA8DF000C56D3 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = System/Library/Frameworks/SystemConfiguration.framework; sourceTree = SDKROOT; };
+		CBA997731C9226DE00D12149 /* KSCrashReportVersion.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSCrashReportVersion.h; path = ../../Source/KSCrash/Recording/KSCrashReportVersion.h; sourceTree = "<group>"; };
 		DCA19E3318832A7700DCA792 /* KSCrashSentry_MachException.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSCrashSentry_MachException.c; path = ../../Source/KSCrash/Recording/Sentry/KSCrashSentry_MachException.c; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -825,6 +828,7 @@
 				CB8E562217EB9AFD000C56D3 /* KSCrashReport.c */,
 				CB8E562317EB9AFD000C56D3 /* KSCrashReport.h */,
 				CB8E562417EB9AFD000C56D3 /* KSCrashReportFields.h */,
+				CBA997731C9226DE00D12149 /* KSCrashReportVersion.h */,
 				CB8E562517EB9AFD000C56D3 /* KSCrashReportWriter.h */,
 				CB8E562617EB9AFD000C56D3 /* KSCrashState.c */,
 				CB8E562717EB9AFD000C56D3 /* KSCrashState.h */,
@@ -1037,6 +1041,7 @@
 				CB6240F217EBCA74006471F1 /* KSCrashReportFilterJSON.h in Headers */,
 				CB2686101C694E4400EE4EB3 /* None.h in Headers */,
 				CB2685F21C694DB200EE4EB3 /* NSString+Demangle.h in Headers */,
+				CBA997751C9226DE00D12149 /* KSCrashReportVersion.h in Headers */,
 				CB6240F417EBCA74006471F1 /* KSCrashReportFilterSets.h in Headers */,
 				CB26861B1C694E4400EE4EB3 /* Casting.h in Headers */,
 				CB2686231C694E4400EE4EB3 /* Demangle.h in Headers */,
@@ -1129,6 +1134,7 @@
 				CB8E56C317EB9B7E000C56D3 /* KSCrashReportFilterJSON.h in Headers */,
 				CB8E56C517EB9B7E000C56D3 /* KSCrashReportFilterSets.h in Headers */,
 				CB8E56C717EB9B7E000C56D3 /* KSCrashReportSinkConsole.h in Headers */,
+				CBA997741C9226DE00D12149 /* KSCrashReportVersion.h in Headers */,
 				CB42F4571C6D1A79002FD017 /* DemangleNodes.h in Headers */,
 				CB8E56C917EB9B7E000C56D3 /* KSCrashReportSinkEMail.h in Headers */,
 				CB8E56CB17EB9B7E000C56D3 /* KSCrashReportSinkQuincyHockey.h in Headers */,
