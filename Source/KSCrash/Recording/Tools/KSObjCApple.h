@@ -485,7 +485,7 @@ struct __CFArray {
     CFIndex _count;		/* number of objects */
     CFIndex _mutations;
     int32_t _mutInProgress;
-    __strong void *_store;           /* can be NULL when MutableDeque */
+    /* __strong */ void *_store;           /* can be NULL when MutableDeque */
 };
 
 /* Flag bits */
@@ -578,8 +578,8 @@ static const uintptr_t __CFBasicHashTableSizes[64] = {
 
 typedef union {
     uintptr_t neutral;
-    id strong;
-    id weak;
+    id Xstrong;
+    id Xweak;
 } CFBasicHashValue;
 
 struct __CFBasicHash {
