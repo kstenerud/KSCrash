@@ -78,6 +78,7 @@
 @property(nonatomic,readwrite,retain) KSCrashReportStore* crashReportStore;
 @property(nonatomic,readwrite,assign) KSReportWriteCallback onCrash;
 @property(nonatomic,readwrite,assign) bool printTraceToStdout;
+@property(nonatomic,readwrite,assign) int maxStoredReports;
 
 @end
 
@@ -104,6 +105,7 @@
 @synthesize searchQueueNames = _searchQueueNames;
 @synthesize introspectMemory = _introspectMemory;
 @synthesize doNotIntrospectClasses = _doNotIntrospectClasses;
+@synthesize maxStoredReports = _maxStoredReports;
 
 
 // ============================================================================
@@ -144,7 +146,7 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrash)
             goto failed;
         }
 
-        self.nextCrashID = [self generateUUIDString];
+        self.nextCrashID = [NSUUID UUID].UUIDString;
         self.crashReportStore = [KSCrashReportStore storeWithPath:storePath];
         self.deleteBehaviorAfterSendAll = KSCDeleteAlways;
         self.searchThreadNames = NO;
@@ -362,7 +364,7 @@ failed:
     // If kscrash_reportUserException() returns, we did not terminate.
     // Set up IDs and paths for the next crash.
 
-    self.nextCrashID = [self generateUUIDString];
+    self.nextCrashID = [NSUUID UUID].UUIDString;
 
     kscrash_reinstall([self.crashReportPath UTF8String],
                       [self.recrashReportPath UTF8String],
@@ -475,15 +477,6 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
     }
     
     return YES;
-}
-
-- (NSString*) generateUUIDString
-{
-    CFUUIDRef uuid = CFUUIDCreate(NULL);
-    NSString* uuidString = (__bridge_transfer NSString*)CFUUIDCreateString(NULL, uuid);
-    CFRelease(uuid);
-    
-    return uuidString;
 }
 
 - (NSMutableData*) nullTerminated:(NSData*) data

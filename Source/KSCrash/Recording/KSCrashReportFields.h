@@ -33,6 +33,7 @@
 
 #define KSCrashReportType_Minimal          "minimal"
 #define KSCrashReportType_Standard         "standard"
+#define KSCrashReportType_Custom           "custom"
 
 
 #pragma mark - Memory Types -

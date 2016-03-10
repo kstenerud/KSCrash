@@ -38,6 +38,7 @@
 #include "KSSignalInfo.h"
 #include "KSZombie.h"
 #include "KSString.h"
+#include "KSCrashReportVersion.h"
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
@@ -65,10 +66,6 @@
 // ============================================================================
 #pragma mark - Constants -
 // ============================================================================
-
-/** Version number written to the report. */
-#define kReportVersionMajor 3
-#define kReportVersionMinor 0
 
 /** Maximum depth allowed for a backtrace. */
 #define kMaxBacktraceDepth 150
@@ -1986,13 +1983,7 @@ void kscrw_i_writeReportInfo(const KSCrashReportWriter* const writer,
 {
     writer->beginObject(writer, key);
     {
-        writer->beginObject(writer, KSCrashField_Version);
-        {
-            writer->addIntegerElement(writer, KSCrashField_Major, kReportVersionMajor);
-            writer->addIntegerElement(writer, KSCrashField_Minor, kReportVersionMinor);
-        }
-        writer->endContainer(writer);
-
+        writer->addStringElement(writer, KSCrashField_Version, KSCRASH_REPORT_VERSION);
         writer->addStringElement(writer, KSCrashField_ID, reportID);
         writer->addStringElement(writer, KSCrashField_ProcessName, processName);
         writer->addIntegerElement(writer, KSCrashField_Timestamp, time(NULL));

@@ -35,6 +35,7 @@
 #import "NSString+Demangle.h"
 #import "RFC3339DateTool.h"
 #import "KSCrashDoctor.h"
+#import "KSCrashReportVersion.h"
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -445,6 +446,17 @@
     return [self.path stringByAppendingPathComponent:filename];
 }
 
+- (NSString*) getReportType:(NSDictionary*) report
+{
+    NSDictionary* reportSection = report[@KSCrashField_Report];
+    if(reportSection)
+    {
+        return reportSection[@KSCrashField_Type];
+    }
+    KSLOG_ERROR(@"Expected a report section in the report.");
+    return nil;
+}
+
 - (NSMutableDictionary*) readReport:(NSString*) path error:(NSError* __autoreleasing *) error
 {
     if(path == nil)
@@ -461,19 +473,62 @@
         return nil;
     }
 
-    NSMutableDictionary* report = [self fixupCrashReport:[KSJSONCodec decode:jsonData
-                                                                     options:KSJSONDecodeOptionIgnoreNullInArray |
-                                                          KSJSONDecodeOptionIgnoreNullInObject |
-                                                          KSJSONDecodeOptionKeepPartialObject
-                                                                       error:error]];
+    NSMutableDictionary* report = [KSJSONCodec decode:jsonData
+                                              options:KSJSONDecodeOptionIgnoreNullInArray |
+                                   KSJSONDecodeOptionIgnoreNullInObject |
+                                   KSJSONDecodeOptionKeepPartialObject
+                                                error:error];
     if(error != nil && *error != nil)
     {
         
         KSLOG_ERROR(@"Error decoding JSON data from %@: %@", path, *error);
         [report setObject:[NSNumber numberWithBool:YES] forKey:@KSCrashField_Incomplete];
     }
+    
+    NSString* reportType = [self getReportType:report];
+    if([reportType isEqualToString:@KSCrashReportType_Standard] || [reportType isEqualToString:@KSCrashReportType_Minimal])
+    {
+        report = [self fixupCrashReport:report];
+    }
 
     return report;
+}
+
+- (void) addReportSectionForCustomReport:(NSMutableDictionary*) report
+{
+    NSMutableDictionary* reportSection = [NSMutableDictionary new];
+    reportSection[@KSCrashField_Version] = @KSCRASH_REPORT_VERSION;
+    reportSection[@KSCrashField_ID] = [NSUUID UUID].UUIDString;
+    reportSection[@KSCrashField_ProcessName] = [NSProcessInfo processInfo].processName;
+    reportSection[@KSCrashField_Timestamp] = [NSNumber numberWithLong:time(NULL)];
+    reportSection[@KSCrashField_Type] = @KSCrashReportType_Custom;
+
+    report[@KSCrashField_Report] = reportSection;
+}
+
+- (NSString*) addCustomReport:(NSDictionary*) report
+{
+    NSMutableDictionary* mutableReport = [report mutableCopy];
+    [self addReportSectionForCustomReport:mutableReport];
+    NSError* error = nil;
+    NSData* data = [KSJSONCodec encode:mutableReport options:0 error:&error];
+    if(error)
+    {
+        KSLOG_ERROR(@"Error encoding custom report: %@", error);
+        return nil;
+    }
+
+    NSString* identifier = mutableReport[@KSCrashField_Report][@KSCrashField_ID];
+    NSString* path = [self pathToCrashReportWithID:identifier];
+    error = nil;
+    BOOL didWriteFile = [data writeToFile:path options:0 error:&error];
+    if(!didWriteFile || error)
+    {
+        KSLOG_ERROR(@"Could not write custom report to %@: %@", path, error);
+        return nil;
+    }
+    
+    return identifier;
 }
 
 @end

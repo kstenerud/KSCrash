@@ -108,4 +108,12 @@
  */
 - (NSString*) pathToRecrashReportWithID:(NSString*) reportID;
 
+/** Add a custom report to the store.
+ *
+ * @param report The report to store. This method will add a standard top-level "report" section to it.
+ *
+ * @return The report ID
+ */
+- (NSString*) addCustomReport:(NSDictionary*) report;
+
 @end
