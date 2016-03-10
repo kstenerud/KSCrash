@@ -29,6 +29,7 @@ Pod::Spec.new do |s|
     recording.public_header_files = 'Source/KSCrash/Recording/KSCrash.h',
                                     'Source/KSCrash/Recording/KSCrashC.h',
                                     'Source/KSCrash/Recording/KSCrashContext.h',
+                                    'Source/KSCrash/Recording/KSCrashReportVersion.h',
                                     'Source/KSCrash/Recording/KSCrashReportWriter.h',
                                     'Source/KSCrash/Recording/KSCrashState.h',
                                     'Source/KSCrash/Recording/KSCrashType.h',
