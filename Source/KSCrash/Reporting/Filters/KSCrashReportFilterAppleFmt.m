@@ -448,7 +448,7 @@ NSDictionary* g_registerOrders;
 
     [str appendString:@"\nBinary Images:\n"];
     NSMutableArray* images = [NSMutableArray arrayWithArray:binaryImages];
-    [images sortedArrayUsingComparator:^NSComparisonResult(id obj1, id obj2)
+    [images sortUsingComparator:^NSComparisonResult(id obj1, id obj2)
      {
          NSNumber* num1 = [(NSDictionary*)obj1 objectForKey:@KSCrashField_ImageAddress];
          NSNumber* num2 = [(NSDictionary*)obj2 objectForKey:@KSCrashField_ImageAddress];
