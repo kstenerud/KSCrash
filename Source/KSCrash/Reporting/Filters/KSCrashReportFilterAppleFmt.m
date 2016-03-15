@@ -173,8 +173,8 @@ NSDictionary* g_registerOrders;
 - (int) majorVersion:(NSDictionary*) report
 {
     NSDictionary* info = [self infoReport:report];
-    NSDictionary* version = [info objectForKey:@KSCrashField_Version];
-    return [[version objectForKey:@KSCrashField_Major] intValue];
+    NSString* version = [info objectForKey:@KSCrashField_Version];
+    return version.intValue;
 }
 
 - (void) filterReports:(NSArray*) reports

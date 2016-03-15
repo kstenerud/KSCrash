@@ -166,8 +166,6 @@
 #define KSCrashField_Crash                 "crash"
 #define KSCrashField_Diagnosis             "diagnosis"
 #define KSCrashField_ID                    "id"
-#define KSCrashField_Major                 "major"
-#define KSCrashField_Minor                 "minor"
 #define KSCrashField_ProcessName           "process_name"
 #define KSCrashField_Report                "report"
 #define KSCrashField_Timestamp             "timestamp"
