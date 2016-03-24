@@ -245,7 +245,7 @@
 		CB62400B17EBB430006471F1 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0500;
+				LastUpgradeCheck = 0730;
 				ORGANIZATIONNAME = "Karl Stenerud";
 			};
 			buildConfigurationList = CB62400E17EBB430006471F1 /* Build configuration list for PBXProject "Example-Apps-Mac" */;
@@ -383,6 +383,7 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
@@ -452,6 +453,7 @@
 				);
 				INFOPLIST_FILE = "Simple-Example/Simple-Example-Info.plist";
 				OTHER_LDFLAGS = "-ObjC";
+				PRODUCT_BUNDLE_IDENTIFIER = "org.stenerud.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WRAPPER_EXTENSION = app;
 			};
@@ -470,6 +472,7 @@
 				GCC_PREFIX_HEADER = "Simple-Example/Simple-Example-Prefix.pch";
 				INFOPLIST_FILE = "Simple-Example/Simple-Example-Info.plist";
 				OTHER_LDFLAGS = "-ObjC";
+				PRODUCT_BUNDLE_IDENTIFIER = "org.stenerud.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WRAPPER_EXTENSION = app;
 			};
@@ -515,6 +518,7 @@
 					"$(USER_LIBRARY_DIR)/Developer/Xcode/DerivedData/Mac-beusbddefllzqoanxuparffwsspt/Build/Products/Debug",
 				);
 				OTHER_LDFLAGS = "-ObjC";
+				PRODUCT_BUNDLE_IDENTIFIER = "org.stenerud.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WRAPPER_EXTENSION = app;
 			};
@@ -556,6 +560,7 @@
 					"$(USER_LIBRARY_DIR)/Developer/Xcode/DerivedData/Mac-beusbddefllzqoanxuparffwsspt/Build/Products/Debug",
 				);
 				OTHER_LDFLAGS = "-ObjC";
+				PRODUCT_BUNDLE_IDENTIFIER = "org.stenerud.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WRAPPER_EXTENSION = app;
 			};
