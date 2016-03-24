@@ -145,7 +145,6 @@ catch(TYPE value)\
     CATCH_VALUE(double,               f)
     CATCH_VALUE(long double,         Lf)
     CATCH_VALUE(char*,                s)
-    CATCH_VALUE(const char*,          s)
     catch(...)
     {
         description = NULL;
