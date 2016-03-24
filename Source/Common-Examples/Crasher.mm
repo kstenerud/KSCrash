@@ -237,6 +237,7 @@ int g_crasher_denominator = 0;
 {
     NSString* name = @"Script Error";
     NSString* reason = @"fragment is not defined";
+    NSString* language = @"karlscript";
     NSString* lineOfCode = @"string.append(fragment)";
     NSArray* stackTrace = [NSArray arrayWithObjects:
                            @"Printer.script, line 174: in function assembleComponents",
@@ -246,6 +247,7 @@ int g_crasher_denominator = 0;
 
     [[KSCrash sharedInstance] reportUserException:name
                                            reason:reason
+                                         language:language
                                        lineOfCode:lineOfCode
                                        stackTrace:stackTrace
                                  terminateProgram:NO];

@@ -1862,6 +1862,10 @@ void kscrw_i_writeError(const KSCrashReportWriter* const writer,
                 writer->beginObject(writer, KSCrashField_UserReported);
                 {
                     writer->addStringElement(writer, KSCrashField_Name, crash->userException.name);
+                    if(crash->userException.language != NULL)
+                    {
+                        writer->addStringElement(writer, KSCrashField_Language, crash->userException.language);
+                    }
                     if(crash->userException.lineOfCode != NULL)
                     {
                         writer->addStringElement(writer, KSCrashField_LineOfCode, crash->userException.lineOfCode);

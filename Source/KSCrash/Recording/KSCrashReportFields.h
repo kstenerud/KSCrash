@@ -64,6 +64,7 @@
 #define KSCrashField_FirstObject           "first_object"
 #define KSCrashField_Index                 "index"
 #define KSCrashField_Ivars                 "ivars"
+#define KSCrashField_Language              "language"
 #define KSCrashField_Name                  "name"
 #define KSCrashField_ReferencedObject      "referenced_object"
 #define KSCrashField_Type                  "type"

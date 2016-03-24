@@ -183,6 +183,8 @@ typedef enum
  *
  * @param reason A description of why the exception occurred.
  *
+ * @param language A unique language identifier.
+ *
  * @param lineOfCode A copy of the offending line of code (nil = ignore).
  *
  * @param stackTrace An array of strings representing the call stack leading to the exception (nil = ignore).
@@ -191,6 +193,7 @@ typedef enum
  */
 - (void) reportUserException:(NSString*) name
                       reason:(NSString*) reason
+                    language:(NSString*) language
                   lineOfCode:(NSString*) lineOfCode
                   stackTrace:(NSArray*) stackTrace
             terminateProgram:(BOOL) terminateProgram;

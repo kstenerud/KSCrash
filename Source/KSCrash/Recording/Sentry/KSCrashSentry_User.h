@@ -57,6 +57,8 @@ void kscrashsentry_uninstallUserExceptionHandler(void);
  *
  * @param reason A description of why the exception occurred.
  *
+ * @param language A unique language identifier.
+ *
  * @param lineOfCode A copy of the offending line of code (NULL = ignore).
  *
  * @param stackTrace An array of strings representing the call stack leading to the exception.
@@ -67,6 +69,7 @@ void kscrashsentry_uninstallUserExceptionHandler(void);
  */
 void kscrashsentry_reportUserException(const char* name,
                                        const char* reason,
+                                       const char* language,
                                        const char* lineOfCode,
                                        const char** stackTrace,
                                        size_t stackTraceCount,

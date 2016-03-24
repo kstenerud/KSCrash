@@ -339,12 +339,14 @@ failed:
 
 - (void) reportUserException:(NSString*) name
                       reason:(NSString*) reason
+                    language:(NSString*) language
                   lineOfCode:(NSString*) lineOfCode
                   stackTrace:(NSArray*) stackTrace
             terminateProgram:(BOOL) terminateProgram
 {
     const char* cName = [name cStringUsingEncoding:NSUTF8StringEncoding];
     const char* cReason = [reason cStringUsingEncoding:NSUTF8StringEncoding];
+    const char* cLanguage = [language cStringUsingEncoding:NSUTF8StringEncoding];
     const char* cLineOfCode = [lineOfCode cStringUsingEncoding:NSUTF8StringEncoding];
     size_t cStackTraceCount = [stackTrace count];
     const char** cStackTrace = malloc(sizeof(*cStackTrace) * cStackTraceCount);
@@ -356,6 +358,7 @@ failed:
 
     kscrash_reportUserException(cName,
                                 cReason,
+                                cLanguage,
                                 cLineOfCode,
                                 cStackTrace,
                                 cStackTraceCount,

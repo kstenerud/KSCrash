@@ -184,7 +184,11 @@ void kscrash_setCrashNotifyCallback(const KSReportWriteCallback onCrashNotify);
  * If terminateProgram is true, all sentries will be uninstalled and the application will
  * terminate with an abort().
  *
+ * @param name The exception name (for namespacing exception types).
+ *
  * @param reason A description of why the exception occurred.
+ *
+ * @param language A unique language identifier.
  *
  * @param lineOfCode A copy of the offending line of code (NULL = ignore).
  *
@@ -196,6 +200,7 @@ void kscrash_setCrashNotifyCallback(const KSReportWriteCallback onCrashNotify);
  */
 void kscrash_reportUserException(const char* name,
                                  const char* reason,
+                                 const char* language,
                                  const char* lineOfCode,
                                  const char** stackTrace,
                                  size_t stackTraceCount,

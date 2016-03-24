@@ -138,6 +138,9 @@ typedef struct KSCrash_SentryContext
         /** The exception name. */
         const char* name;
 
+        /** The language the exception occured in. */
+        const char* language;
+        
         /** The line of code where the exception occurred. Can be NULL. */
         const char* lineOfCode;
 

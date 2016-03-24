@@ -297,6 +297,7 @@ void kscrash_setCrashNotifyCallback(const KSReportWriteCallback onCrashNotify)
 
 void kscrash_reportUserException(const char* name,
                                  const char* reason,
+                                 const char* language,
                                  const char* lineOfCode,
                                  const char** stackTrace,
                                  size_t stackTraceCount,
@@ -304,6 +305,7 @@ void kscrash_reportUserException(const char* name,
 {
     kscrashsentry_reportUserException(name,
                                       reason,
+                                      language,
                                       lineOfCode,
                                       stackTrace,
                                       stackTraceCount,
