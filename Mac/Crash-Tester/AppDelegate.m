@@ -7,7 +7,6 @@
 //
 
 #import "AppDelegate.h"
-#import "ARCSafe_MemMgmt.h"
 #import "Crasher.h"
 #import "CrashTesterCommands.h"
 #import "Configuration.h"
