@@ -1,7 +1,7 @@
 Pod::Spec.new do |s|
   IOS_DEPLOYMENT_TARGET = '6.0' unless defined? IOS_DEPLOYMENT_TARGET
   s.name         = "KSCrash"
-  s.version      = "1.3.0"
+  s.version      = "1.3.1"
   s.summary      = "The Ultimate iOS Crash Reporter"
   s.homepage     = "https://github.com/kstenerud/KSCrash"
   s.license     = { :type => 'KSCrash license agreement', :file => 'LICENSE' }
@@ -37,7 +37,8 @@ Pod::Spec.new do |s|
                                     'Source/KSCrash/Recording/Tools/KSArchSpecific.h',
                                     'Source/KSCrash/Recording/Tools/KSJSONCodecObjC.h',
                                     'Source/KSCrash/Recording/Tools/NSError+SimpleConstructor.h',
-                                    'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h'
+                                    'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h',
+                                    'Source/KSCrash/Recording/Tools/RFC3339DateTool.h'
   end
 
   # This subspec is just to optionally expose the advanced headers
@@ -49,7 +50,7 @@ Pod::Spec.new do |s|
                             'Source/KSCrash/Recording/KSCrashReportFields.h',
                             'Source/KSCrash/Recording/KSCrashReportStore.h',
                             'Source/KSCrash/Recording/KSSystemInfo.h',
-                            'Source/KSCrash/Recording/KSSystemInfoC.h'
+                            'Source/KSCrash/Recording/KSSystemInfoC.h',
   end
 
   # This subspec is just to optionally expose the tools headers
