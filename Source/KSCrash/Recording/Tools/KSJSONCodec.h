@@ -334,6 +334,32 @@ int ksjson_beginObject(KSJSONEncodeContext* context,
 int ksjson_beginArray(KSJSONEncodeContext* context,
                       const char* name);
 
+/** Begin a generic JSON element, adding any necessary JSON preamble text,
+ *  including commas and names.
+ *  Note: This does not add any object or array specifiers ('{', '[').
+ *
+ * @param context The JSON context.
+ *
+ * @param The name of the next element (only needed if parent is a dictionary).
+ */
+int ksjson_beginElement(KSJSONEncodeContext* const context,
+                        const char* const name);
+
+/** Add JSON data manually.
+ * This function just passes your data directly through, even if it's malforned.
+ *
+ * @param context The encoding context.
+ *
+ * @param data The data to write.
+ *
+ * @param length The length of the data.
+ *
+ * @return KSJSON_OK if the process was successful.
+ */
+int ksjson_addRawJSONData(KSJSONEncodeContext* const context,
+                          const char* const data,
+                          const size_t length);
+
 /** End the current container and return to the next higher level.
  *
  * @param context The encoding context.

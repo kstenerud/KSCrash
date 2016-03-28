@@ -248,14 +248,8 @@ int ksjsoncodec_i_addQuotedEscapedString(KSJSONEncodeContext* const context,
     return addJSONData(context, "\"", 1);
 }
 
-/** Add any necessary JSON preamble text, including commas and names.
- *
- * @param context The JSON context.
- *
- * @param The name of the next element (only needed if parent is a dictionary).
- */
-int ksjsoncodec_i_addPreamble(KSJSONEncodeContext* const context,
-                              const char* const name)
+int ksjson_beginElement(KSJSONEncodeContext* const context,
+                        const char* const name)
 {
     int result = KSJSON_OK;
 
@@ -320,11 +314,18 @@ int ksjsoncodec_i_addPreamble(KSJSONEncodeContext* const context,
     return result;
 }
 
+int ksjson_addRawJSONData(KSJSONEncodeContext* const context,
+                          const char* const data,
+                          const size_t length)
+{
+    return addJSONData(context, data, length);
+}
+
 int ksjson_addBooleanElement(KSJSONEncodeContext* const context,
                              const char* const name,
                              const bool value)
 {
-    int result = ksjsoncodec_i_addPreamble(context, name);
+    int result = ksjson_beginElement(context, name);
     unlikely_if(result != KSJSON_OK)
     {
         return result;
@@ -343,7 +344,7 @@ int ksjson_addFloatingPointElement(KSJSONEncodeContext* const context,
                                    const char* const name,
                                    double value)
 {
-    int result = ksjsoncodec_i_addPreamble(context, name);
+    int result = ksjson_beginElement(context, name);
     unlikely_if(result != KSJSON_OK)
     {
         return result;
@@ -357,7 +358,7 @@ int ksjson_addIntegerElement(KSJSONEncodeContext* const context,
                              const char* const name,
                              long long value)
 {
-    int result = ksjsoncodec_i_addPreamble(context, name);
+    int result = ksjson_beginElement(context, name);
     unlikely_if(result != KSJSON_OK)
     {
         return result;
@@ -404,7 +405,7 @@ int ksjson_addJSONElement(KSJSONEncodeContext* const context,
             return KSJSON_ERROR_INVALID_DATA;
     }
 
-    int result = ksjsoncodec_i_addPreamble(context, name);
+    int result = ksjson_beginElement(context, name);
     unlikely_if(result != KSJSON_OK)
     {
         return result;
@@ -415,7 +416,7 @@ int ksjson_addJSONElement(KSJSONEncodeContext* const context,
 int ksjson_addNullElement(KSJSONEncodeContext* const context,
                           const char* const name)
 {
-    int result = ksjsoncodec_i_addPreamble(context, name);
+    int result = ksjson_beginElement(context, name);
     unlikely_if(result != KSJSON_OK)
     {
         return result;
@@ -432,7 +433,7 @@ int ksjson_addStringElement(KSJSONEncodeContext* const context,
     {
         return ksjson_addNullElement(context, name);
     }
-    int result = ksjsoncodec_i_addPreamble(context, name);
+    int result = ksjson_beginElement(context, name);
     unlikely_if(result != KSJSON_OK)
     {
         return result;
@@ -443,7 +444,7 @@ int ksjson_addStringElement(KSJSONEncodeContext* const context,
 int ksjson_beginStringElement(KSJSONEncodeContext* const context,
                               const char* const name)
 {
-    int result = ksjsoncodec_i_addPreamble(context, name);
+    int result = ksjson_beginElement(context, name);
     unlikely_if(result != KSJSON_OK)
     {
         return result;
@@ -519,7 +520,7 @@ int ksjson_beginArray(KSJSONEncodeContext* const context,
 {
     likely_if(context->containerLevel >= 0)
     {
-        int result = ksjsoncodec_i_addPreamble(context, name);
+        int result = ksjson_beginElement(context, name);
         unlikely_if(result != KSJSON_OK)
         {
             return result;
@@ -538,7 +539,7 @@ int ksjson_beginObject(KSJSONEncodeContext* const context,
 {
     likely_if(context->containerLevel >= 0)
     {
-        int result = ksjsoncodec_i_addPreamble(context, name);
+        int result = ksjson_beginElement(context, name);
         unlikely_if(result != KSJSON_OK)
         {
             return result;

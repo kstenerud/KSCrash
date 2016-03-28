@@ -119,6 +119,18 @@ typedef struct KSCrashReportWriter
                                const char* name,
                                const char* filePath);
 
+    /** Add a JSON element from a text file to the report.
+     *
+     * @param writer This writer.
+     *
+     * @param name The name to give this element.
+     *
+     * @param filePath The path to the file containing the value to add.
+     */
+    void (*addJSONFileElement)(const struct KSCrashReportWriter* writer,
+                               const char* name,
+                               const char* filePath);
+    
     /** Add a hex encoded data element to the report.
      *
      * @param writer This writer.

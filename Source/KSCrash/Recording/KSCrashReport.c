@@ -309,6 +309,40 @@ void kscrw_i_addJSONElement(const KSCrashReportWriter* const writer,
     }
 }
 
+void kscrw_i_addJSONElementFromFile(const KSCrashReportWriter* const writer,
+                                    const char* const key,
+                                    const char* const filePath)
+{
+    const int fd = open(filePath, O_RDONLY);
+    if(fd < 0)
+    {
+        KSLOG_ERROR("Could not open file %s: %s", filePath, strerror(errno));
+        return;
+    }
+    
+    if(ksjson_beginElement(getJsonContext(writer), key) != KSJSON_OK)
+    {
+        KSLOG_ERROR("Could not start JSON element");
+        goto done;
+    }
+    
+    char buffer[512];
+    ssize_t bytesRead;
+    while((bytesRead = read(fd, buffer, sizeof(buffer))) > 0)
+    {
+        if(ksjson_addRawJSONData(getJsonContext(writer),
+                                 buffer,
+                                 (size_t)bytesRead) != KSJSON_OK)
+        {
+            KSLOG_ERROR("Could not append JSON data");
+            goto done;
+        }
+    }
+    
+done:
+    close(fd);
+}
+
 void kscrw_i_beginObject(const KSCrashReportWriter* const writer,
                          const char* const key)
 {
@@ -2014,6 +2048,7 @@ void kscrw_i_prepareReportWriter(KSCrashReportWriter* const writer,
     writer->addUIntegerElement = kscrw_i_addUIntegerElement;
     writer->addStringElement = kscrw_i_addStringElement;
     writer->addTextFileElement = kscrw_i_addTextFileElement;
+    writer->addJSONFileElement = kscrw_i_addJSONElementFromFile;
     writer->addDataElement = kscrw_i_addDataElement;
     writer->beginDataElement = kscrw_i_beginDataElement;
     writer->appendDataElement = kscrw_i_appendDataElement;
