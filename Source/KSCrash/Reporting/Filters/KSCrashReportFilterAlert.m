@@ -24,6 +24,7 @@
 // THE SOFTWARE.
 //
 
+#include <TargetConditionals.h>
 
 #import "KSCrashReportFilterAlert.h"
 
@@ -31,6 +32,8 @@
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
+
+#if !TARGET_OS_TV
 
 #ifdef __IPHONE_OS_VERSION_MAX_ALLOWED
 #import <UIKit/UIKit.h>
@@ -196,3 +199,41 @@
 }
 
 @end
+
+#else
+
+@implementation KSCrashReportFilterAlert
+
++ (KSCrashReportFilterAlert*) filterWithTitle:(NSString*) title
+                                      message:(NSString*) message
+                                    yesAnswer:(NSString*) yesAnswer
+                                     noAnswer:(NSString*) noAnswer
+{
+    return [[self alloc] initWithTitle:title
+                               message:message
+                             yesAnswer:yesAnswer
+                              noAnswer:noAnswer];
+}
+
+- (id) initWithTitle:(NSString*) title
+             message:(NSString*) message
+           yesAnswer:(NSString*) yesAnswer
+            noAnswer:(NSString*) noAnswer
+{
+    if((self = [super init]))
+    {
+        KSLOG_WARN(@"Alert filter not available on this platform.");
+    }
+    return self;
+}
+
+- (void) filterReports:(NSArray*) reports
+          onCompletion:(KSCrashReportFilterCompletion) onCompletion
+{
+    KSLOG_WARN(@"Alert filter not available on this platform.");
+    kscrash_i_callCompletion(onCompletion, reports, YES, nil);
+}
+
+@end
+
+#endif

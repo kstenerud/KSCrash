@@ -36,8 +36,8 @@
 extern "C" {
 #endif
 
-
 #include "KSCrashSentry.h"
+#include <stdbool.h>
 
 
 /** Install our custom mach exception handler.

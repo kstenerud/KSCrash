@@ -37,7 +37,7 @@
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
 
-#ifdef __IPHONE_OS_VERSION_MAX_ALLOWED
+#if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && !defined(__TV_OS_VERSION_MAX_ALLOWED)
 #import <MessageUI/MessageUI.h>
 
 
@@ -326,7 +326,7 @@
     kscrash_i_callCompletion(onCompletion, reports, NO,
                              [NSError errorWithDomain:[[self class] description]
                                                  code:0
-                                          description:@"Cannot send mail on Mac OS X"]);
+                                          description:@"Cannot send mail on this platform"]);
 }
 
 - (id <KSCrashReportFilter>) defaultCrashReportFilterSet

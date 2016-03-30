@@ -22,6 +22,8 @@
 // THE SOFTWARE.
 //
 
+#import <Foundation/Foundation.h>
+
 #include "KSCrashSentry_CPPException.h"
 #include "KSCrashSentry_Private.h"
 #include "KSMach.h"

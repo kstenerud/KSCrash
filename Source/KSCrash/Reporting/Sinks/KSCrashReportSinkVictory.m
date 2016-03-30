@@ -24,6 +24,7 @@
 // THE SOFTWARE.
 //
 
+#include <TargetConditionals.h>
 
 #ifdef __IPHONE_OS_VERSION_MAX_ALLOWED
 #import <UIKit/UIKit.h>
@@ -76,7 +77,7 @@
     {
         self.url = url;
         if (userName == nil || [userName length] == 0) {
-#ifdef __IPHONE_OS_VERSION_MAX_ALLOWED
+#if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && !TARGET_OS_TV
             self.userName = UIDevice.currentDevice.name;
 #else
             self.userName = @"unknown";

@@ -54,6 +54,7 @@
 extern "C" {
 #endif
 
+#include <sys/types.h>
 
 /** Install the zombie tracker.
  *

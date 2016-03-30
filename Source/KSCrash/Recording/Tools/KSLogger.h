@@ -157,6 +157,8 @@ extern "C" {
 
 #ifdef __OBJC__
 
+#import <Foundation/Foundation.h>
+
 void i_kslog_logObjC(const char* level,
                      const char* file,
                      int line,

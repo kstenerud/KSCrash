@@ -54,6 +54,7 @@
 #define KSSystemField_SystemVersion "system_version"
 #define KSSystemField_TimeZone "time_zone"
 
+#import <Foundation/Foundation.h>
 
 /**
  * Provides system information useful for a crash report.
