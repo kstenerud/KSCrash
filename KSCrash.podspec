@@ -90,10 +90,10 @@ Pod::Spec.new do |s|
                              'Source/KSCrash/Reporting/Filters/KSCrashReportFilterBasic.m'
       end
 
-      filters.subspec 'Console' do |console|
-        console.dependency 'KSCrash/Reporting/Filters/Base'
-        console.source_files = 'Source/KSCrash/Reporting/Filters/KSCrashReportFilterConsole.h',
-                               'Source/KSCrash/Reporting/Filters/KSCrashReportFilterConsole.m'
+      filters.subspec 'Stringify' do |stringify|
+        stringify.dependency 'KSCrash/Reporting/Filters/Base'
+        stringify.source_files = 'Source/KSCrash/Reporting/Filters/KSCrashReportFilterStringify.h',
+                                 'Source/KSCrash/Reporting/Filters/KSCrashReportFilterStringify.m'
       end
 
       filters.subspec 'GZip' do |gzip|
@@ -112,7 +112,7 @@ Pod::Spec.new do |s|
         sets.dependency 'KSCrash/Reporting/Filters/Base'
         sets.dependency 'KSCrash/Reporting/Filters/AppleFmt'
         sets.dependency 'KSCrash/Reporting/Filters/Basic'
-        sets.dependency 'KSCrash/Reporting/Filters/Console'
+        sets.dependency 'KSCrash/Reporting/Filters/Stringify'
         sets.dependency 'KSCrash/Reporting/Filters/GZip'
         sets.dependency 'KSCrash/Reporting/Filters/JSON'
 
