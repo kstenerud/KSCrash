@@ -1,7 +1,7 @@
 Pod::Spec.new do |s|
   IOS_DEPLOYMENT_TARGET = '6.0' unless defined? IOS_DEPLOYMENT_TARGET
   s.name         = "KSCrash"
-  s.version      = "1.3.3"
+  s.version      = "1.3.4"
   s.summary      = "The Ultimate iOS Crash Reporter"
   s.homepage     = "https://github.com/kstenerud/KSCrash"
   s.license     = { :type => 'KSCrash license agreement', :file => 'LICENSE' }
@@ -90,6 +90,12 @@ Pod::Spec.new do |s|
                              'Source/KSCrash/Reporting/Filters/KSCrashReportFilterBasic.m'
       end
 
+      filters.subspec 'Console' do |console|
+        console.dependency 'KSCrash/Reporting/Filters/Base'
+        console.source_files = 'Source/KSCrash/Reporting/Filters/KSCrashReportFilterConsole.h',
+                               'Source/KSCrash/Reporting/Filters/KSCrashReportFilterConsole.m'
+      end
+
       filters.subspec 'GZip' do |gzip|
         gzip.dependency 'KSCrash/Reporting/Filters/Base'
         gzip.source_files = 'Source/KSCrash/Reporting/Filters/KSCrashReportFilterGZip.h',
@@ -106,6 +112,7 @@ Pod::Spec.new do |s|
         sets.dependency 'KSCrash/Reporting/Filters/Base'
         sets.dependency 'KSCrash/Reporting/Filters/AppleFmt'
         sets.dependency 'KSCrash/Reporting/Filters/Basic'
+        sets.dependency 'KSCrash/Reporting/Filters/Console'
         sets.dependency 'KSCrash/Reporting/Filters/GZip'
         sets.dependency 'KSCrash/Reporting/Filters/JSON'
 
