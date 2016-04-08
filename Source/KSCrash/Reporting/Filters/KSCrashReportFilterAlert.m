@@ -66,7 +66,7 @@
 
 @synthesize reports = _reports;
 @synthesize onCompletion = _onCompletion;
-#ifdef __IPHONE_OS_VERSION_MAX_ALLOWED
+#if KSCRASH_HAS_UIALERTVIEW
 @synthesize alertView = _alertView;
 #endif
 @synthesize expectedButtonIndex = _expectedButtonIndex;
@@ -101,7 +101,7 @@
     
     KSLOG_TRACE(@"Showing alert view");
     [self.alertView show];
-#else
+#elseif KSCRASH_HAS_ALERTVIEW
     NSAlert *alert = [[NSAlert alloc] init];
     [alert addButtonWithTitle:yesAnswer];
     if(noAnswer != nil)
