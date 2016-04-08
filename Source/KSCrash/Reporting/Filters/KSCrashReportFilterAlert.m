@@ -101,7 +101,7 @@
     
     KSLOG_TRACE(@"Showing alert view");
     [self.alertView show];
-#elseif KSCRASH_HAS_ALERTVIEW
+#elif KSCRASH_HAS_NSALERT
     NSAlert *alert = [[NSAlert alloc] init];
     [alert addButtonWithTitle:yesAnswer];
     if(noAnswer != nil)
