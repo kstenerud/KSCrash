@@ -35,6 +35,7 @@
 #include "KSCrashSentry_Signal.h"
 #include "KSCrashSentry_User.h"
 #include "KSMach.h"
+#include "KSSystemCapabilities.h"
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
@@ -53,11 +54,13 @@ typedef struct
 
 static CrashSentry g_sentries[] =
 {
+#if KSCRASH_HAS_MACH
     {
         KSCrashTypeMachException,
         kscrashsentry_installMachHandler,
         kscrashsentry_uninstallMachHandler,
     },
+#endif
     {
         KSCrashTypeSignal,
         kscrashsentry_installSignalHandler,

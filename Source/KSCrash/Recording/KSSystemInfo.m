@@ -33,12 +33,13 @@
 #import "KSSafeCollections.h"
 #import "KSSysCtl.h"
 #import "KSJSONCodecObjC.h"
+#import "KSSystemCapabilities.h"
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
 
 #import <CommonCrypto/CommonDigest.h>
-#ifdef __IPHONE_OS_VERSION_MAX_ALLOWED
+#if KSCRASH_HAS_UIKIT
 #import <UIKit/UIKit.h>
 #endif
 
@@ -182,7 +183,7 @@
 {
     NSMutableData* data = nil;
 
-#ifdef __IPHONE_OS_VERSION_MAX_ALLOWED
+#if KSCRASH_HAS_UIDEVICE
     if([[UIDevice currentDevice] respondsToSelector:@selector(identifierForVendor)])
     {
         data = [NSMutableData dataWithLength:16];
@@ -287,7 +288,7 @@
     NSDictionary* infoDict = [mainBundle infoDictionary];
     const struct mach_header* header = _dyld_get_image_header(0);
 
-#ifdef __IPHONE_OS_VERSION_MAX_ALLOWED
+#if KSCRASH_HAS_UIDEVICE
     [sysInfo safeSetObject:[UIDevice currentDevice].systemName forKey:@KSSystemField_SystemName];
     [sysInfo safeSetObject:[UIDevice currentDevice].systemVersion forKey:@KSSystemField_SystemVersion];
 #endif

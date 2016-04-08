@@ -24,9 +24,9 @@
 // THE SOFTWARE.
 //
 
-#include <TargetConditionals.h>
+#import "KSSystemCapabilities.h"
 
-#ifdef __IPHONE_OS_VERSION_MAX_ALLOWED
+#if KSCRASH_HAS_UIKIT
 #import <UIKit/UIKit.h>
 #endif
 #import "KSCrashReportSinkVictory.h"
@@ -38,6 +38,7 @@
 #import "KSJSONCodecObjC.h"
 #import "KSReachabilityKSCrash.h"
 #import "NSError+SimpleConstructor.h"
+#import "KSSystemCapabilities.h"
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -77,7 +78,7 @@
     {
         self.url = url;
         if (userName == nil || [userName length] == 0) {
-#if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && !TARGET_OS_TV
+#if KSCRASH_HAS_UIDEVICE
             self.userName = UIDevice.currentDevice.name;
 #else
             self.userName = @"unknown";

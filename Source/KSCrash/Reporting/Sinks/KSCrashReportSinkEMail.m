@@ -33,11 +33,12 @@
 #import "KSCrashReportFilterGZip.h"
 #import "KSCrashReportFilterJSON.h"
 #import "NSError+SimpleConstructor.h"
+#import "KSSystemCapabilities.h"
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
 
-#if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && !defined(__TV_OS_VERSION_MAX_ALLOWED)
+#if KSCRASH_HAS_MESSAGEUI
 #import <MessageUI/MessageUI.h>
 
 

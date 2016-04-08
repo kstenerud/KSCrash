@@ -237,6 +237,8 @@
 		CBC43F3E1C5AF2B10083A11B /* SwiftStrings.h in Headers */ = {isa = PBXBuildFile; fileRef = CBC43F1D1C5AF2B10083A11B /* SwiftStrings.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBC43F421C5BE9670083A11B /* NSString+Demangle.h in Headers */ = {isa = PBXBuildFile; fileRef = CBC43F3F1C5BE9670083A11B /* NSString+Demangle.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBC43F441C5BE9670083A11B /* NSString+Demangle.mm in Sources */ = {isa = PBXBuildFile; fileRef = CBC43F401C5BE9670083A11B /* NSString+Demangle.mm */; };
+		CBEE5C181CB83F4C005EAF61 /* KSSystemCapabilities.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C171CB83F4C005EAF61 /* KSSystemCapabilities.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CBEE5C191CB83F4C005EAF61 /* KSSystemCapabilities.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C171CB83F4C005EAF61 /* KSSystemCapabilities.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBF53D9617EB765C0056DA83 /* Container+DeepSearch.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D1417EB765C0056DA83 /* Container+DeepSearch.m */; };
 		CBF53D9A17EB765C0056DA83 /* KSBacktrace.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D1717EB765C0056DA83 /* KSBacktrace.c */; };
 		CBF53DA017EB765C0056DA83 /* KSCrash.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D1C17EB765C0056DA83 /* KSCrash.m */; };
@@ -460,6 +462,7 @@
 		CBC43F1D1C5AF2B10083A11B /* SwiftStrings.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SwiftStrings.h; sourceTree = "<group>"; };
 		CBC43F3F1C5BE9670083A11B /* NSString+Demangle.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSString+Demangle.h"; path = "../../Source/KSCrash/Recording/Tools/NSString+Demangle.h"; sourceTree = "<group>"; };
 		CBC43F401C5BE9670083A11B /* NSString+Demangle.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = "NSString+Demangle.mm"; path = "../../Source/KSCrash/Recording/Tools/NSString+Demangle.mm"; sourceTree = "<group>"; };
+		CBEE5C171CB83F4C005EAF61 /* KSSystemCapabilities.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSSystemCapabilities.h; path = ../../Source/KSCrash/Recording/KSSystemCapabilities.h; sourceTree = "<group>"; };
 		CBF53D1317EB765C0056DA83 /* Container+DeepSearch.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "Container+DeepSearch.h"; path = "../../Source/KSCrash/Reporting/Filters/Tools/Container+DeepSearch.h"; sourceTree = "<group>"; };
 		CBF53D1417EB765C0056DA83 /* Container+DeepSearch.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "Container+DeepSearch.m"; path = "../../Source/KSCrash/Reporting/Filters/Tools/Container+DeepSearch.m"; sourceTree = "<group>"; };
 		CBF53D1517EB765C0056DA83 /* KSArchSpecific.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSArchSpecific.h; path = ../../Source/KSCrash/Recording/Tools/KSArchSpecific.h; sourceTree = "<group>"; };
@@ -835,6 +838,7 @@
 				CBF53D5E17EB765C0056DA83 /* KSCrashState.h */,
 				CBF53D5F17EB765C0056DA83 /* KSCrashType.c */,
 				CBF53D6017EB765C0056DA83 /* KSCrashType.h */,
+				CBEE5C171CB83F4C005EAF61 /* KSSystemCapabilities.h */,
 				CBF53D8317EB765C0056DA83 /* KSSystemInfo.h */,
 				CBF53D8417EB765C0056DA83 /* KSSystemInfo.m */,
 				CBF53D8517EB765C0056DA83 /* KSSystemInfoC.h */,
@@ -1063,6 +1067,7 @@
 				03DE7C9C1C84DFAB00F789BA /* NSString+Demangle.h in Headers */,
 				03DE7CBA1C84DFBC00F789BA /* KSVarArgs.h in Headers */,
 				03DE7C891C84DFAB00F789BA /* KSMachApple.h in Headers */,
+				CBEE5C191CB83F4C005EAF61 /* KSSystemCapabilities.h in Headers */,
 				03DE7C841C84DFAB00F789BA /* KSMach.h in Headers */,
 				03DE7C461C84DF8100F789BA /* KSCrashReportFields.h in Headers */,
 				03DE7C5B1C84DF8600F789BA /* KSCrashSentry_NSException.h in Headers */,
@@ -1147,6 +1152,7 @@
 				CBF53E8617EB7EA80056DA83 /* KSCrashReportStore.h in Headers */,
 				CBF53E5A17EB7EA80056DA83 /* KSCrashReportWriter.h in Headers */,
 				DCA19E2D18817AD100DCA792 /* KSCrashReportFilterAlert.h in Headers */,
+				CBEE5C181CB83F4C005EAF61 /* KSSystemCapabilities.h in Headers */,
 				DCA19E3018817BA200DCA792 /* KSCrashReportFilterSets.h in Headers */,
 				CBC43F251C5AF2B10083A11B /* llvm-config.h in Headers */,
 				CBF53E5C17EB7EA80056DA83 /* KSCrashType.h in Headers */,

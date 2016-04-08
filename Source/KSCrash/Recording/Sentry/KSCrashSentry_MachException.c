@@ -27,13 +27,12 @@
 #include "KSCrashSentry_MachException.h"
 #include "KSCrashSentry_Private.h"
 #include "KSMach.h"
+#include "KSSystemCapabilities.h"
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
-#include <TargetConditionals.h>
-#if !TARGET_OS_TV
-
+#if KSCRASH_HAS_MACH
 
 #include <pthread.h>
 

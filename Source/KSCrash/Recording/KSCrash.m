@@ -33,11 +33,12 @@
 #import "KSJSONCodecObjC.h"
 #import "KSSingleton.h"
 #import "NSError+SimpleConstructor.h"
+#import "KSSystemCapabilities.h"
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
 
-#ifdef __IPHONE_OS_VERSION_MAX_ALLOWED
+#if KSCRASH_HAS_UIKIT
 #import <UIKit/UIKit.h>
 #endif
 
@@ -280,7 +281,7 @@ failed:
         return false;
     }
 
-#ifdef __IPHONE_OS_VERSION_MAX_ALLOWED
+#if KSCRASH_HAS_UIKIT
     NSNotificationCenter* nCenter = [NSNotificationCenter defaultCenter];
     [nCenter addObserver:self
                 selector:@selector(applicationDidBecomeActive)

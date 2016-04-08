@@ -24,30 +24,29 @@
 // THE SOFTWARE.
 //
 
-#include <TargetConditionals.h>
-
 #import "KSCrashReportFilterAlert.h"
 
+#import "KSSystemCapabilities.h"
 #import "KSCrashCallCompletion.h"
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
 
-#if !TARGET_OS_TV
+#if KSCRASH_HAS_ALERTVIEW
 
-#ifdef __IPHONE_OS_VERSION_MAX_ALLOWED
+#if KSCRASH_HAS_UIKIT
 #import <UIKit/UIKit.h>
 #endif
 
 
 @interface KSCrashAlertViewProcess : NSObject
-#ifdef __IPHONE_OS_VERSION_MAX_ALLOWED
+#if KSCRASH_HAS_UIALERTVIEW
 <UIAlertViewDelegate>
 #endif
 
 @property(nonatomic,readwrite,retain) NSArray* reports;
 @property(nonatomic,readwrite,copy) KSCrashReportFilterCompletion onCompletion;
-#ifdef __IPHONE_OS_VERSION_MAX_ALLOWED
+#if KSCRASH_HAS_UIALERTVIEW
 @property(nonatomic,readwrite,retain) UIAlertView* alertView;
 #endif
 @property(nonatomic,readwrite,assign) NSInteger expectedButtonIndex;
@@ -89,7 +88,7 @@
     self.onCompletion = onCompletion;
     self.expectedButtonIndex = noAnswer == nil ? 0 : 1;
 
-#ifdef __IPHONE_OS_VERSION_MAX_ALLOWED
+#if KSCRASH_HAS_UIALERTVIEW
     self.alertView = [[UIAlertView alloc] init];
     self.alertView.title = title;
     self.alertView.message = message;
