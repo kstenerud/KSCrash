@@ -101,7 +101,7 @@ static void onReachabilityChanged(SCNetworkReachabilityRef target,
     }
     
     return [self initWithReachabilityRef:
-            SCNetworkReachabilityCreateWithName(NULL, [hostname UTF8String])];
+            SCNetworkReachabilityCreateWithName(NULL, (const char* _Nonnull)[hostname UTF8String])];
 }
 
 - (id) initWithAddress:(const struct sockaddr*) address

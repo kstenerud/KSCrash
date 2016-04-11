@@ -214,10 +214,10 @@
                               noAnswer:noAnswer];
 }
 
-- (id) initWithTitle:(NSString*) title
-             message:(NSString*) message
-           yesAnswer:(NSString*) yesAnswer
-            noAnswer:(NSString*) noAnswer
+- (id) initWithTitle:(__unused NSString*) title
+             message:(__unused NSString*) message
+           yesAnswer:(__unused NSString*) yesAnswer
+            noAnswer:(__unused NSString*) noAnswer
 {
     if((self = [super init]))
     {

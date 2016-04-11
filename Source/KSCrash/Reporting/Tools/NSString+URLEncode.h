@@ -1,7 +1,7 @@
 //
-//  KSHTTPRequestSender.h
+//  NSString+URLEncode.h
 //
-//  Created by Karl Stenerud on 2012-02-19.
+//  Created by karl on 2016-04-11.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,37 +24,10 @@
 // THE SOFTWARE.
 //
 
-
 #import <Foundation/Foundation.h>
 
+@interface NSString (URLEncode)
 
-/**
- * Sends HTTP requests via the global dispatch queue, informing the caller of
- * success, failure, or errors via blocks.
- */
-@interface KSHTTPRequestSender : NSObject
-
-/** Constructor.
- */
-+ (KSHTTPRequestSender*) sender;
-
-/** Send an HTTP request.
- * The request gets sent via the global dispatch queue using default priority.
- * Result blocks will be invoked on the main thread.
- *
- * @param request The request to send.
- *
- * @param successBlock Gets executed when the request completes successfully.
- *
- * @param failureBlock Gets executed if the request fails or receives an HTTP
- *                     response indicating failure.
- *
- * @param errorBlock Gets executed if an error prevents the request from being
- *                   sent or an invalid (non-HTTP) response is received.
- */
-- (void) sendRequest:(NSURLRequest*) request
-           onSuccess:(void(^)(NSHTTPURLResponse* response, NSData* data)) successBlock
-           onFailure:(void(^)(NSHTTPURLResponse* response, NSData* data)) failureBlock
-             onError:(void(^)(NSError* error)) errorBlock;
+- (NSString*) URLEncoded;
 
 @end

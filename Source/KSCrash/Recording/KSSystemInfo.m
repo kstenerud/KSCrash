@@ -197,9 +197,9 @@
     }
 
     // Append some device-specific data.
-    [data appendData:[[self stringSysctl:@"hw.machine"] dataUsingEncoding:NSUTF8StringEncoding]];
-    [data appendData:[[self stringSysctl:@"hw.model"] dataUsingEncoding:NSUTF8StringEncoding]];
-    [data appendData:[[self currentCPUArch] dataUsingEncoding:NSUTF8StringEncoding]];
+    [data appendData:(NSData* _Nonnull )[[self stringSysctl:@"hw.machine"] dataUsingEncoding:NSUTF8StringEncoding]];
+    [data appendData:(NSData* _Nonnull )[[self stringSysctl:@"hw.model"] dataUsingEncoding:NSUTF8StringEncoding]];
+    [data appendData:(NSData* _Nonnull )[[self currentCPUArch] dataUsingEncoding:NSUTF8StringEncoding]];
 
     // Append the bundle ID.
     NSData* bundleID = [[[NSBundle mainBundle] bundleIdentifier]

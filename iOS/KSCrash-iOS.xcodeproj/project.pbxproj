@@ -239,6 +239,10 @@
 		CBC43F441C5BE9670083A11B /* NSString+Demangle.mm in Sources */ = {isa = PBXBuildFile; fileRef = CBC43F401C5BE9670083A11B /* NSString+Demangle.mm */; };
 		CBEE5C181CB83F4C005EAF61 /* KSSystemCapabilities.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C171CB83F4C005EAF61 /* KSSystemCapabilities.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBEE5C191CB83F4C005EAF61 /* KSSystemCapabilities.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C171CB83F4C005EAF61 /* KSSystemCapabilities.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CBEE5DC21CBC197D005EAF61 /* NSString+URLEncode.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5DC01CBC197D005EAF61 /* NSString+URLEncode.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CBEE5DC31CBC197D005EAF61 /* NSString+URLEncode.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5DC01CBC197D005EAF61 /* NSString+URLEncode.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CBEE5DC41CBC197D005EAF61 /* NSString+URLEncode.m in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5DC11CBC197D005EAF61 /* NSString+URLEncode.m */; };
+		CBEE5DC51CBC197D005EAF61 /* NSString+URLEncode.m in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5DC11CBC197D005EAF61 /* NSString+URLEncode.m */; };
 		CBF53D9617EB765C0056DA83 /* Container+DeepSearch.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D1417EB765C0056DA83 /* Container+DeepSearch.m */; };
 		CBF53D9A17EB765C0056DA83 /* KSBacktrace.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D1717EB765C0056DA83 /* KSBacktrace.c */; };
 		CBF53DA017EB765C0056DA83 /* KSCrash.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D1C17EB765C0056DA83 /* KSCrash.m */; };
@@ -463,6 +467,8 @@
 		CBC43F3F1C5BE9670083A11B /* NSString+Demangle.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSString+Demangle.h"; path = "../../Source/KSCrash/Recording/Tools/NSString+Demangle.h"; sourceTree = "<group>"; };
 		CBC43F401C5BE9670083A11B /* NSString+Demangle.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = "NSString+Demangle.mm"; path = "../../Source/KSCrash/Recording/Tools/NSString+Demangle.mm"; sourceTree = "<group>"; };
 		CBEE5C171CB83F4C005EAF61 /* KSSystemCapabilities.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSSystemCapabilities.h; path = ../../Source/KSCrash/Recording/KSSystemCapabilities.h; sourceTree = "<group>"; };
+		CBEE5DC01CBC197D005EAF61 /* NSString+URLEncode.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSString+URLEncode.h"; path = "../../Source/KSCrash/Reporting/Tools/NSString+URLEncode.h"; sourceTree = "<group>"; };
+		CBEE5DC11CBC197D005EAF61 /* NSString+URLEncode.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSString+URLEncode.m"; path = "../../Source/KSCrash/Reporting/Tools/NSString+URLEncode.m"; sourceTree = "<group>"; };
 		CBF53D1317EB765C0056DA83 /* Container+DeepSearch.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "Container+DeepSearch.h"; path = "../../Source/KSCrash/Reporting/Filters/Tools/Container+DeepSearch.h"; sourceTree = "<group>"; };
 		CBF53D1417EB765C0056DA83 /* Container+DeepSearch.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "Container+DeepSearch.m"; path = "../../Source/KSCrash/Reporting/Filters/Tools/Container+DeepSearch.m"; sourceTree = "<group>"; };
 		CBF53D1517EB765C0056DA83 /* KSArchSpecific.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSArchSpecific.h; path = ../../Source/KSCrash/Recording/Tools/KSArchSpecific.h; sourceTree = "<group>"; };
@@ -966,6 +972,8 @@
 				CBF53D7917EB765C0056DA83 /* KSReachabilityKSCrash.m */,
 				CBF53D8F17EB765C0056DA83 /* NSMutableData+AppendUTF8.h */,
 				CBF53D9017EB765C0056DA83 /* NSMutableData+AppendUTF8.m */,
+				CBEE5DC01CBC197D005EAF61 /* NSString+URLEncode.h */,
+				CBEE5DC11CBC197D005EAF61 /* NSString+URLEncode.m */,
 			);
 			name = Tools;
 			sourceTree = "<group>";
@@ -1050,6 +1058,7 @@
 				03DE7CA21C84DFB100F789BA /* KSCrashReportSinkEMail.h in Headers */,
 				03DE7CB41C84DFB700F789BA /* KSCrashReportFilterJSON.h in Headers */,
 				CB94D3641CAC190900806679 /* KSCrashReportFilterStringify.h in Headers */,
+				CBEE5DC31CBC197D005EAF61 /* NSString+URLEncode.h in Headers */,
 				03DE7CB21C84DFB700F789BA /* KSCrashReportFilterGZip.h in Headers */,
 				03DE7CAA1C84DFB600F789BA /* KSCrashReportFilter.h in Headers */,
 				03DE7CAE1C84DFB600F789BA /* KSCrashReportFilterAppleFmt.h in Headers */,
@@ -1151,6 +1160,7 @@
 				CBF53E8417EB7EA80056DA83 /* KSCrashReportSinkVictory.h in Headers */,
 				CBF53E8617EB7EA80056DA83 /* KSCrashReportStore.h in Headers */,
 				CBF53E5A17EB7EA80056DA83 /* KSCrashReportWriter.h in Headers */,
+				CBEE5DC21CBC197D005EAF61 /* NSString+URLEncode.h in Headers */,
 				DCA19E2D18817AD100DCA792 /* KSCrashReportFilterAlert.h in Headers */,
 				CBEE5C181CB83F4C005EAF61 /* KSSystemCapabilities.h in Headers */,
 				DCA19E3018817BA200DCA792 /* KSCrashReportFilterSets.h in Headers */,
@@ -1390,6 +1400,7 @@
 				03DE7C531C84DF8600F789BA /* KSCrashSentry.c in Sources */,
 				03DE7C8E1C84DFAB00F789BA /* KSSafeCollections.m in Sources */,
 				03DE7C801C84DFAB00F789BA /* KSJSONCodecObjC.m in Sources */,
+				CBEE5DC51CBC197D005EAF61 /* NSString+URLEncode.m in Sources */,
 				03DE7CA51C84DFB100F789BA /* KSCrashReportSinkQuincyHockey.m in Sources */,
 				03DE7C861C84DFAB00F789BA /* KSMach_Arm64.c in Sources */,
 				03DE7CA91C84DFB100F789BA /* KSCrashReportSinkVictory.m in Sources */,
@@ -1462,6 +1473,7 @@
 				CBF53DF317EB765C0056DA83 /* KSCrashSentry_NSException.m in Sources */,
 				CBF53E3917EB765C0056DA83 /* KSSystemInfo.m in Sources */,
 				CBF53E1517EB765C0056DA83 /* KSJSONCodecObjC.m in Sources */,
+				CBEE5DC41CBC197D005EAF61 /* NSString+URLEncode.m in Sources */,
 				CBF53DBD17EB765C0056DA83 /* KSCrashReport.c in Sources */,
 				CBF53E0617EB765C0056DA83 /* KSCString.m in Sources */,
 				CBF53E2C17EB765C0056DA83 /* KSSafeCollections.m in Sources */,
@@ -1631,6 +1643,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_RAND = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_STRCPY = YES;
@@ -1647,6 +1660,7 @@
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_IMPLICIT_SIGN_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NULLABLE_TO_NONNULL_CONVERSION = YES;
 				CLANG_WARN_OBJC_EXPLICIT_OWNERSHIP_TYPE = YES;
 				CLANG_WARN_OBJC_IMPLICIT_ATOMIC_PROPERTIES = YES;
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
@@ -1655,6 +1669,7 @@
 				CLANG_WARN_OBJC_REPEATED_USE_OF_WEAK = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES_AGGRESSIVE;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CLANG_WARN__EXIT_TIME_DESTRUCTORS = YES;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
@@ -1696,6 +1711,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_RAND = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_STRCPY = YES;
@@ -1712,6 +1728,7 @@
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_IMPLICIT_SIGN_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NULLABLE_TO_NONNULL_CONVERSION = YES;
 				CLANG_WARN_OBJC_EXPLICIT_OWNERSHIP_TYPE = YES;
 				CLANG_WARN_OBJC_IMPLICIT_ATOMIC_PROPERTIES = YES;
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
@@ -1720,6 +1737,7 @@
 				CLANG_WARN_OBJC_REPEATED_USE_OF_WEAK = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES_AGGRESSIVE;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CLANG_WARN__EXIT_TIME_DESTRUCTORS = YES;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";

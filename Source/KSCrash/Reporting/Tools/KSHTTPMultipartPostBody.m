@@ -28,6 +28,7 @@
 #import "KSHTTPMultipartPostBody.h"
 
 #import "NSMutableData+AppendUTF8.h"
+#import "NSString+URLEncode.h"
 
 
 /**
@@ -166,13 +167,13 @@ static NSString* g_boundary = @"uyw$gHGJ[fsR}tt932_shGwqdbanbvVMJje%Y2ewy78";
         if(field.filename != nil)
         {
             [data appendUTF8Format:@"Content-Disposition: form-data; name=\"%@\"; filename=\"%@\"\r\n",
-             [field.name stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding],
-             [field.filename stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
+             [field.name URLEncoded],
+             [field.filename URLEncoded]];
         }
         else
         {
             [data appendUTF8Format:@"Content-Disposition: form-data; name=\"%@\"\r\n",
-             [field.name stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
+             [field.name URLEncoded]];
         }
         if(field.contentType != nil)
         {

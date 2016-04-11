@@ -523,7 +523,7 @@ void kscrashsentry_uninstallMachHandler(void)
 
 #else
 
-bool kscrashsentry_installMachHandler(KSCrash_SentryContext* const context)
+bool kscrashsentry_installMachHandler(__unused KSCrash_SentryContext* const context)
 {
     KSLOG_WARN("Mach exception handler not available on this platform.");
     return false;

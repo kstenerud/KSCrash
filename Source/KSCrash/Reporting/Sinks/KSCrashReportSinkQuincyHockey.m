@@ -39,6 +39,7 @@
 #import "NSError+SimpleConstructor.h"
 #import <mach/machine.h>
 #import "KSSystemInfo.h"
+#import "NSString+URLEncode.h"
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -526,13 +527,8 @@ crashDescriptionKeys:(NSArray*) crashDescriptionKeys
 - (NSURL*) urlWithAppIdentifier:(NSString*) appIdentifier
 {
     NSString* urlString = [NSString stringWithFormat:@"https://sdk.hockeyapp.net/api/2/apps/%@/crashes",
-                           [self urlEscaped:appIdentifier]];
+                           [appIdentifier URLEncoded]];
     return [NSURL URLWithString:urlString];
-}
-
-- (NSString*) urlEscaped:(NSString*) string
-{
-    return [string stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
 }
 
 @end

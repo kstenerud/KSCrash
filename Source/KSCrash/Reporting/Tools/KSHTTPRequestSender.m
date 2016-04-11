@@ -36,25 +36,71 @@
     return [[self alloc] init];
 }
 
-- (void) sendRequest:(NSURLRequest*) request
-           onSuccess:(void(^)(NSHTTPURLResponse* response, NSData* data)) successBlock
-           onFailure:(void(^)(NSHTTPURLResponse* response, NSData* data)) failureBlock
-             onError:(void(^)(NSError* error)) errorBlock
+- (void) handleResponse:(NSURLResponse*) response
+                   data:(NSData*) data
+                  error:(NSError*) error
+              onSuccess:(void(^)(NSHTTPURLResponse* response, NSData* data)) successBlock
+              onFailure:(void(^)(NSHTTPURLResponse* response, NSData* data)) failureBlock
+                onError:(void(^)(NSError* error)) errorBlock
 {
-    [self sendRequest:request
-             priority:DISPATCH_QUEUE_PRIORITY_DEFAULT
-            onSuccess:successBlock
-            onFailure:failureBlock
-              onError:errorBlock];
+    if(error == nil)
+    {
+        if(response == nil)
+        {
+            error = [NSError errorWithDomain:[[self class] description]
+                                        code:0
+                                 description:@"Response was nil"];
+        }
+        
+        if(![response isKindOfClass:[NSHTTPURLResponse class]])
+        {
+            error = [NSError errorWithDomain:[[self class] description]
+                                        code:0
+                                 description:@"Response was of type %@. Expected NSHTTPURLResponse",
+                     [response class]];
+        }
+    }
+    
+    if(error == nil)
+    {
+        NSHTTPURLResponse* httpResponse = (NSHTTPURLResponse*)response;
+        if((httpResponse.statusCode / 100) != 2)
+        {
+            if(failureBlock != nil)
+            {
+                dispatch_async(dispatch_get_main_queue(), ^
+                               {
+                                   failureBlock(httpResponse, data);
+                               });
+            }
+        }
+        else if(successBlock != nil)
+        {
+            dispatch_async(dispatch_get_main_queue(), ^
+                           {
+                               successBlock(httpResponse, data);
+                           });
+        }
+    }
+    else
+    {
+        if(errorBlock != nil)
+        {
+            dispatch_async(dispatch_get_main_queue(), ^
+                           {
+                               errorBlock(error);
+                           });
+        }
+    }
 }
 
 - (void) sendRequest:(NSURLRequest*) request
-            priority:(dispatch_queue_priority_t) priority
            onSuccess:(void(^)(NSHTTPURLResponse* response, NSData* data)) successBlock
            onFailure:(void(^)(NSHTTPURLResponse* response, NSData* data)) failureBlock
              onError:(void(^)(NSError* error)) errorBlock
 {
-    dispatch_async(dispatch_get_global_queue(priority, 0), ^
+#if __IPHONE_OS_VERSION_MAX_ALLOWED < 70000
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^
     {
         @autoreleasepool {
             NSURLResponse* response = nil;
@@ -62,58 +108,16 @@
             NSData* data = [NSURLConnection sendSynchronousRequest:request
                                                  returningResponse:&response
                                                              error:&error];
-            
-            if(error == nil)
-            {
-                if(response == nil)
-                {
-                    error = [NSError errorWithDomain:[[self class] description]
-                                                code:0
-                                         description:@"Response was nil"];
-                }
-                
-                if(![response isKindOfClass:[NSHTTPURLResponse class]])
-                {
-                    error = [NSError errorWithDomain:[[self class] description]
-                                                code:0
-                                         description:@"Response was of type %@. Expected NSHTTPURLResponse",
-                             [response class]];
-                }
-            }
-            
-            if(error == nil)
-            {
-                NSHTTPURLResponse* httpResponse = (NSHTTPURLResponse*)response;
-                if((httpResponse.statusCode / 100) != 2)
-                {
-                    if(failureBlock != nil)
-                    {
-                        dispatch_async(dispatch_get_main_queue(), ^
-                                       {
-                                           failureBlock(httpResponse, data);
-                                       });
-                    }
-                }
-                else if(successBlock != nil)
-                {
-                    dispatch_async(dispatch_get_main_queue(), ^
-                                   {
-                                       successBlock(httpResponse, data);
-                                   });
-                }
-            }
-            else
-            {
-                if(errorBlock != nil)
-                {
-                    dispatch_async(dispatch_get_main_queue(), ^
-                                   {
-                                       errorBlock(error);
-                                   });
-                }
-            }
+            [self handleResponse:response data:data error:error onSuccess:successBlock onFailure:failureBlock onError:errorBlock];
         }
     });
+#else
+    NSURLSession* session = [NSURLSession sharedSession];
+    NSURLSessionTask* task = [session dataTaskWithRequest:request completionHandler:^(NSData * _Nullable data, NSURLResponse * _Nullable response, NSError * _Nullable error) {
+        [self handleResponse:response data:data error:error onSuccess:successBlock onFailure:failureBlock onError:errorBlock];
+    }];
+    [task resume];
+#endif
 }
 
 @end
