@@ -280,11 +280,11 @@ crashDescriptionKeys:(NSArray*) crashDescriptionKeys
     {
         NSString* imagePath = [[image objectForKey:@KSCrashField_Name] stringByStandardizingPath];
         NSString* imageType;
-        if([imagePath isEqualToString:processPath])
+        if(processPath && [imagePath isEqualToString:processPath])
         {
             imageType = @"app";
         }
-        else if([imagePath hasPrefix:appContainerPath])
+        else if(appContainerPath && [imagePath hasPrefix:appContainerPath])
         {
             imageType = @"framework";
         }
