@@ -80,6 +80,8 @@ typedef enum
  */
 #define KSCrashTypeProductionSafe (KSCrashTypeAll & (~KSCrashTypeExperimental))
 
+#define KSCrashTypeNone 0
+
 const char* kscrashtype_name(KSCrashType crashType);
 
 #endif // HDR_KSCrashType_h

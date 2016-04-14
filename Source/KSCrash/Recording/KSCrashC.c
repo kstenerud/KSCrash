@@ -185,30 +185,15 @@ void kscrash_reinstall(const char* const crashReportFilePath,
 
 KSCrashType kscrash_setHandlingCrashTypes(KSCrashType crashTypes)
 {
-    if((crashTypes & KSCrashTypeDebuggerUnsafe) && ksmach_isBeingTraced())
-    {
-        KSLOGBASIC_WARN("KSCrash: App is running in a debugger. The following crash types have been disabled:");
-        KSCrashType disabledCrashTypes = crashTypes & KSCrashTypeDebuggerUnsafe;
-        for(int i = 0; i < 31; i++)
-        {
-            KSCrashType type = 1 << i;
-            if(disabledCrashTypes & type)
-            {
-                KSLOGBASIC_WARN("* %s", kscrashtype_name(type));
-            }
-        }
-
-        crashTypes &= KSCrashTypeDebuggerSafe;
-    }
-
     KSCrash_Context* context = crashContext();
     context->config.handlingCrashTypes = crashTypes;
-
+    
     if(g_installed)
     {
         kscrashsentry_uninstall(~crashTypes);
         crashTypes = kscrashsentry_installWithContext(&context->crash, crashTypes, kscrash_i_onCrash);
     }
+
     return crashTypes;
 }
 
