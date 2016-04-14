@@ -164,6 +164,11 @@
     if(exePath != nil)
     {
         const uint8_t* uuidBytes = ksdl_imageUUID([exePath UTF8String], true);
+        if(uuidBytes == NULL)
+        {
+            // OSX app image path is a lie.
+            uuidBytes = ksdl_imageUUID([exePath.lastPathComponent UTF8String], false);
+        }
         if(uuidBytes != NULL)
         {
             result = [self uuidBytesToString:uuidBytes];
