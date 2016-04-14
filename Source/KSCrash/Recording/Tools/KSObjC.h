@@ -174,6 +174,15 @@ bool ksobjc_isRootClass(const void* classPtr);
  */
 const char* ksobjc_className(const void* classPtr);
 
+/** Get the name of an object's class.
+ * This also handles tagged pointers.
+ *
+ * @param objectPointer Pointer to a valid object.
+ *
+ * @return the name, or NULL if the name is inaccessible.
+ */
+const char* ksobjc_objectClassName(const void* objectPtr);
+
 /** Check if a class has a specific name.
  *
  * @param classPtr Pointer to a valid class.
@@ -238,6 +247,14 @@ bool ksobjc_ivarNamed(const void* const classPtr, const char* name, KSObjCIvar* 
  * @return true if the operation was successful.
  */
 bool ksobjc_ivarValue(const void* objectPtr, size_t ivarIndex, void* dst);
+
+/* Get the payload from a tagged pointer.
+ *
+ * @param objectPtr Pointer to a valid object.
+ *
+ * @return the payload value.
+ */
+uintptr_t ksobjc_taggedPointerPayload(const void* taggedObjectPtr);
 
 /** Generate a description of an object.
  *

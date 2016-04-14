@@ -866,75 +866,82 @@ void kscrw_i_writeUnknownObjectContents(const KSCrashReportWriter* const writer,
     
     writer->beginObject(writer, key);
     {
-        const void* class = ksobjc_isaPointer(object);
-        size_t ivarCount = ksobjc_ivarList(class, ivars, sizeof(ivars)/sizeof(*ivars));
-        *limit -= (int)ivarCount;
-        for(size_t i = 0; i < ivarCount; i++)
+        if(ksobjc_isTaggedPointer(object))
         {
-            KSObjCIvar* ivar = &ivars[i];
-            switch(ivar->type[0])
+            writer->addIntegerElement(writer, "tagged_payload", ksobjc_taggedPointerPayload(object));
+        }
+        else
+        {
+            const void* class = ksobjc_isaPointer(object);
+            size_t ivarCount = ksobjc_ivarList(class, ivars, sizeof(ivars)/sizeof(*ivars));
+            *limit -= (int)ivarCount;
+            for(size_t i = 0; i < ivarCount; i++)
             {
-                case 'c':
-                    ksobjc_ivarValue(object, ivar->index, &s8);
-                    writer->addIntegerElement(writer, ivar->name, s8);
-                    break;
-                case 'i':
-                    ksobjc_ivarValue(object, ivar->index, &sInt);
-                    writer->addIntegerElement(writer, ivar->name, sInt);
-                    break;
-                case 's':
-                    ksobjc_ivarValue(object, ivar->index, &s16);
-                    writer->addIntegerElement(writer, ivar->name, s16);
-                    break;
-                case 'l':
-                    ksobjc_ivarValue(object, ivar->index, &s32);
-                    writer->addIntegerElement(writer, ivar->name, s32);
-                    break;
-                case 'q':
-                    ksobjc_ivarValue(object, ivar->index, &s64);
-                    writer->addIntegerElement(writer, ivar->name, s64);
-                    break;
-                case 'C':
-                    ksobjc_ivarValue(object, ivar->index, &u8);
-                    writer->addUIntegerElement(writer, ivar->name, u8);
-                    break;
-                case 'I':
-                    ksobjc_ivarValue(object, ivar->index, &uInt);
-                    writer->addUIntegerElement(writer, ivar->name, uInt);
-                    break;
-                case 'S':
-                    ksobjc_ivarValue(object, ivar->index, &u16);
-                    writer->addUIntegerElement(writer, ivar->name, u16);
-                    break;
-                case 'L':
-                    ksobjc_ivarValue(object, ivar->index, &u32);
-                    writer->addUIntegerElement(writer, ivar->name, u32);
-                    break;
-                case 'Q':
-                    ksobjc_ivarValue(object, ivar->index, &u64);
-                    writer->addUIntegerElement(writer, ivar->name, u64);
-                    break;
-                case 'f':
-                    ksobjc_ivarValue(object, ivar->index, &f32);
-                    writer->addFloatingPointElement(writer, ivar->name, f32);
-                    break;
-                case 'd':
-                    ksobjc_ivarValue(object, ivar->index, &f64);
-                    writer->addFloatingPointElement(writer, ivar->name, f64);
-                    break;
-                case 'B':
-                    ksobjc_ivarValue(object, ivar->index, &b);
-                    writer->addBooleanElement(writer, ivar->name, b);
-                    break;
-                case '*':
-                case '@':
-                case '#':
-                case ':':
-                    ksobjc_ivarValue(object, ivar->index, &pointer);
-                    kscrw_i_writeMemoryContents(writer, ivar->name, (uintptr_t)pointer, limit);
-                    break;
-                default:
-                    KSLOG_DEBUG("%s: Unknown ivar type [%s]", ivar->name, ivar->type);
+                KSObjCIvar* ivar = &ivars[i];
+                switch(ivar->type[0])
+                {
+                    case 'c':
+                        ksobjc_ivarValue(object, ivar->index, &s8);
+                        writer->addIntegerElement(writer, ivar->name, s8);
+                        break;
+                    case 'i':
+                        ksobjc_ivarValue(object, ivar->index, &sInt);
+                        writer->addIntegerElement(writer, ivar->name, sInt);
+                        break;
+                    case 's':
+                        ksobjc_ivarValue(object, ivar->index, &s16);
+                        writer->addIntegerElement(writer, ivar->name, s16);
+                        break;
+                    case 'l':
+                        ksobjc_ivarValue(object, ivar->index, &s32);
+                        writer->addIntegerElement(writer, ivar->name, s32);
+                        break;
+                    case 'q':
+                        ksobjc_ivarValue(object, ivar->index, &s64);
+                        writer->addIntegerElement(writer, ivar->name, s64);
+                        break;
+                    case 'C':
+                        ksobjc_ivarValue(object, ivar->index, &u8);
+                        writer->addUIntegerElement(writer, ivar->name, u8);
+                        break;
+                    case 'I':
+                        ksobjc_ivarValue(object, ivar->index, &uInt);
+                        writer->addUIntegerElement(writer, ivar->name, uInt);
+                        break;
+                    case 'S':
+                        ksobjc_ivarValue(object, ivar->index, &u16);
+                        writer->addUIntegerElement(writer, ivar->name, u16);
+                        break;
+                    case 'L':
+                        ksobjc_ivarValue(object, ivar->index, &u32);
+                        writer->addUIntegerElement(writer, ivar->name, u32);
+                        break;
+                    case 'Q':
+                        ksobjc_ivarValue(object, ivar->index, &u64);
+                        writer->addUIntegerElement(writer, ivar->name, u64);
+                        break;
+                    case 'f':
+                        ksobjc_ivarValue(object, ivar->index, &f32);
+                        writer->addFloatingPointElement(writer, ivar->name, f32);
+                        break;
+                    case 'd':
+                        ksobjc_ivarValue(object, ivar->index, &f64);
+                        writer->addFloatingPointElement(writer, ivar->name, f64);
+                        break;
+                    case 'B':
+                        ksobjc_ivarValue(object, ivar->index, &b);
+                        writer->addBooleanElement(writer, ivar->name, b);
+                        break;
+                    case '*':
+                    case '@':
+                    case '#':
+                    case ':':
+                        ksobjc_ivarValue(object, ivar->index, &pointer);
+                        kscrw_i_writeMemoryContents(writer, ivar->name, (uintptr_t)pointer, limit);
+                        break;
+                    default:
+                        KSLOG_DEBUG("%s: Unknown ivar type [%s]", ivar->name, ivar->type);
+                }
             }
         }
     }
@@ -974,7 +981,6 @@ void kscrw_i_writeMemoryContents(const KSCrashReportWriter* const writer,
 {
     (*limit)--;
     const void* object = (const void*)address;
-    const void* class;
     writer->beginObject(writer, key);
     {
         writer->addUIntegerElement(writer, KSCrashField_Address, address);
@@ -1007,8 +1013,7 @@ void kscrw_i_writeMemoryContents(const KSCrashReportWriter* const writer,
             case KSObjCTypeObject:
             {
                 writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_Object);
-                class = ksobjc_isaPointer(object);
-                const char* className = ksobjc_className(class);
+                const char* className = ksobjc_objectClassName(object);
                 writer->addStringElement(writer, KSCrashField_Class, className);
                 if(!kscrw_i_isRestrictedClass(className))
                 {
@@ -1052,8 +1057,8 @@ void kscrw_i_writeMemoryContents(const KSCrashReportWriter* const writer,
             }
             case KSObjCTypeBlock:
                 writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_Block);
-                class = ksobjc_isaPointer(object);
-                writer->addStringElement(writer, KSCrashField_Class, ksobjc_className(class));
+                const char* className = ksobjc_objectClassName(object);
+                writer->addStringElement(writer, KSCrashField_Class, className);
                 break;
         }
     }
