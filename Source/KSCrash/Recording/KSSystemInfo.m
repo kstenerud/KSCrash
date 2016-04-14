@@ -291,6 +291,19 @@
 #if KSCRASH_HAS_UIDEVICE
     [sysInfo safeSetObject:[UIDevice currentDevice].systemName forKey:@KSSystemField_SystemName];
     [sysInfo safeSetObject:[UIDevice currentDevice].systemVersion forKey:@KSSystemField_SystemVersion];
+#else
+    [sysInfo safeSetObject:@"Mac OS" forKey:@KSSystemField_SystemName];
+    NSOperatingSystemVersion version =[NSProcessInfo processInfo].operatingSystemVersion;
+    NSString* systemVersion;
+    if(version.patchVersion == 0)
+    {
+        systemVersion = [NSString stringWithFormat:@"%ld.%ld", version.majorVersion, version.minorVersion];
+    }
+    else
+    {
+        systemVersion = [NSString stringWithFormat:@"%ld.%ld.%ld", version.majorVersion, version.minorVersion, version.patchVersion];
+    }
+    [sysInfo safeSetObject:systemVersion forKey:@KSSystemField_SystemVersion];
 #endif
     [sysInfo safeSetObject:[self stringSysctl:@"hw.machine"] forKey:@KSSystemField_Machine];
     [sysInfo safeSetObject:[self stringSysctl:@"hw.model"] forKey:@KSSystemField_Model];
