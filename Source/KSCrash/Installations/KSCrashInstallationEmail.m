@@ -93,10 +93,8 @@ useDefaultFilenameFormat:(BOOL) useDefaultFilenameFormat
     {
         case KSCrashEmailReportStyleApple:
             return [sink defaultCrashReportFilterSetAppleFmt];
-            break;
         case KSCrashEmailReportStyleJSON:
             return [sink defaultCrashReportFilterSet];
-            break;
     }
 }
 

@@ -43,9 +43,9 @@
                         [NSArray arrayWithObjects:@"7", @"8", @"9", nil],
                         nil];
     NSArray* encoded = [NSArray arrayWithObjects:
-                        [@"[\"1\",\"2\",\"3\"]" dataUsingEncoding:NSUTF8StringEncoding],
-                        [@"[\"4\",\"5\",\"6\"]" dataUsingEncoding:NSUTF8StringEncoding],
-                        [@"[\"7\",\"8\",\"9\"]" dataUsingEncoding:NSUTF8StringEncoding],
+                        (id _Nonnull)[@"[\"1\",\"2\",\"3\"]" dataUsingEncoding:NSUTF8StringEncoding],
+                        (id _Nonnull)[@"[\"4\",\"5\",\"6\"]" dataUsingEncoding:NSUTF8StringEncoding],
+                        (id _Nonnull)[@"[\"7\",\"8\",\"9\"]" dataUsingEncoding:NSUTF8StringEncoding],
                         nil];
     
     id<KSCrashReportFilter> filter = [KSCrashReportFilterJSONEncode filterWithOptions:0];
@@ -83,9 +83,9 @@
                         [NSArray arrayWithObjects:@"7", @"8", @"9", nil],
                         nil];
     NSArray* encoded = [NSArray arrayWithObjects:
-                        [@"[\"1\",\"2\",\"3\"]" dataUsingEncoding:NSUTF8StringEncoding],
-                        [@"[\"4\",\"5\",\"6\"]" dataUsingEncoding:NSUTF8StringEncoding],
-                        [@"[\"7\",\"8\",\"9\"]" dataUsingEncoding:NSUTF8StringEncoding],
+                        (id _Nonnull)[@"[\"1\",\"2\",\"3\"]" dataUsingEncoding:NSUTF8StringEncoding],
+                        (id _Nonnull)[@"[\"4\",\"5\",\"6\"]" dataUsingEncoding:NSUTF8StringEncoding],
+                        (id _Nonnull)[@"[\"7\",\"8\",\"9\"]" dataUsingEncoding:NSUTF8StringEncoding],
                         nil];
     
     id<KSCrashReportFilter> filter = [KSCrashReportFilterJSONDecode filterWithOptions:0];
@@ -102,7 +102,7 @@
 - (void) testFilterJSONDencodeInvalid
 {
     NSArray* encoded = [NSArray arrayWithObjects:
-                        [@"[\"1\"\",\"2\",\"3\"]" dataUsingEncoding:NSUTF8StringEncoding],
+                        (id _Nonnull)[@"[\"1\"\",\"2\",\"3\"]" dataUsingEncoding:NSUTF8StringEncoding],
                         nil];
     
     id<KSCrashReportFilter> filter = [KSCrashReportFilterJSONDecode filterWithOptions:0];

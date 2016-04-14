@@ -304,9 +304,9 @@
 {
     NSArray* source = [NSArray arrayWithObjects:@"1", @"2", @"3", nil];
     NSArray* expected = [NSArray arrayWithObjects:
-                         [@"1" dataUsingEncoding:NSUTF8StringEncoding],
-                         [@"2" dataUsingEncoding:NSUTF8StringEncoding],
-                         [@"3" dataUsingEncoding:NSUTF8StringEncoding],
+                         (id _Nonnull)[@"1" dataUsingEncoding:NSUTF8StringEncoding],
+                         (id _Nonnull)[@"2" dataUsingEncoding:NSUTF8StringEncoding],
+                         (id _Nonnull)[@"3" dataUsingEncoding:NSUTF8StringEncoding],
                          nil];
     id<KSCrashReportFilter> filter = [KSCrashReportFilterStringToData filter];
 
@@ -323,9 +323,9 @@
 - (void) testFilterDataToString
 {
     NSArray* source = [NSArray arrayWithObjects:
-                       [@"1" dataUsingEncoding:NSUTF8StringEncoding],
-                       [@"2" dataUsingEncoding:NSUTF8StringEncoding],
-                       [@"3" dataUsingEncoding:NSUTF8StringEncoding],
+                       (id _Nonnull)[@"1" dataUsingEncoding:NSUTF8StringEncoding],
+                       (id _Nonnull)[@"2" dataUsingEncoding:NSUTF8StringEncoding],
+                       (id _Nonnull)[@"3" dataUsingEncoding:NSUTF8StringEncoding],
                        nil];
     NSArray* expected = [NSArray arrayWithObjects:@"1", @"2", @"3", nil];
     id<KSCrashReportFilter> filter = [KSCrashReportFilterDataToString filter];
@@ -362,9 +362,9 @@
 {
     NSArray* expected1 = [NSArray arrayWithObjects:@"1", @"2", @"3", nil];
     NSArray* expected2 = [NSArray arrayWithObjects:
-                          [@"1" dataUsingEncoding:NSUTF8StringEncoding],
-                          [@"2" dataUsingEncoding:NSUTF8StringEncoding],
-                          [@"3" dataUsingEncoding:NSUTF8StringEncoding],
+                          (id _Nonnull)[@"1" dataUsingEncoding:NSUTF8StringEncoding],
+                          (id _Nonnull)[@"2" dataUsingEncoding:NSUTF8StringEncoding],
+                          (id _Nonnull)[@"3" dataUsingEncoding:NSUTF8StringEncoding],
                           nil];
     id<KSCrashReportFilter> filter = [KSCrashReportFilterCombine filterWithFiltersAndKeys:
                                       [KSCrashReportFilterPassthrough filter],
@@ -396,9 +396,9 @@
 {
     NSArray* expected1 = [NSArray arrayWithObjects:@"1", @"2", @"3", nil];
     NSArray* expected2 = [NSArray arrayWithObjects:
-                          [@"1" dataUsingEncoding:NSUTF8StringEncoding],
-                          [@"2" dataUsingEncoding:NSUTF8StringEncoding],
-                          [@"3" dataUsingEncoding:NSUTF8StringEncoding],
+                          (id _Nonnull)[@"1" dataUsingEncoding:NSUTF8StringEncoding],
+                          (id _Nonnull)[@"2" dataUsingEncoding:NSUTF8StringEncoding],
+                          (id _Nonnull)[@"3" dataUsingEncoding:NSUTF8StringEncoding],
                           nil];
     id<KSCrashReportFilter> filter = [[KSCrashReportFilterCombine alloc] initWithFiltersAndKeys:
                                       [KSCrashReportFilterPassthrough filter],
@@ -488,9 +488,9 @@
 {
     NSArray* expected1 = [NSArray arrayWithObjects:@"1", @"2", @"3", nil];
     NSArray* expected2 = [NSArray arrayWithObjects:
-                          [@"1" dataUsingEncoding:NSUTF8StringEncoding],
-                          [@"2" dataUsingEncoding:NSUTF8StringEncoding],
-                          [@"3" dataUsingEncoding:NSUTF8StringEncoding],
+                          (id _Nonnull)[@"1" dataUsingEncoding:NSUTF8StringEncoding],
+                          (id _Nonnull)[@"2" dataUsingEncoding:NSUTF8StringEncoding],
+                          (id _Nonnull)[@"3" dataUsingEncoding:NSUTF8StringEncoding],
                           nil];
     id<KSCrashReportFilter> filter = [KSCrashReportFilterCombine filterWithFiltersAndKeys:
                                       [NSArray arrayWithObject:[KSCrashReportFilterPassthrough filter]],

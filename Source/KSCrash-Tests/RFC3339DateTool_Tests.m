@@ -47,7 +47,7 @@
     components.minute = minute;
     components.second = second;
     NSCalendar* calendar = [[NSCalendar alloc] initWithCalendarIdentifier:NSGregorianCalendar];
-    [calendar setTimeZone:[NSTimeZone timeZoneWithAbbreviation:@"GMT"]];
+    [calendar setTimeZone:(NSTimeZone* _Nonnull)[NSTimeZone timeZoneWithAbbreviation:@"GMT"]];
     return [calendar dateFromComponents:components];
 }
 

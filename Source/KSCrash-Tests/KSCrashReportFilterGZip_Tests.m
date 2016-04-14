@@ -39,9 +39,9 @@
 - (void) testFilterGZipCompress
 {
     NSArray* decompressed = [NSArray arrayWithObjects:
-                             [@"this is a test" dataUsingEncoding:NSUTF8StringEncoding],
-                             [@"here is another test" dataUsingEncoding:NSUTF8StringEncoding],
-                             [@"testing is fun!" dataUsingEncoding:NSUTF8StringEncoding],
+                             (id _Nonnull)[@"this is a test" dataUsingEncoding:NSUTF8StringEncoding],
+                             (id _Nonnull)[@"here is another test" dataUsingEncoding:NSUTF8StringEncoding],
+                             (id _Nonnull)[@"testing is fun!" dataUsingEncoding:NSUTF8StringEncoding],
                              nil];
     
     NSError* error = nil;
@@ -68,9 +68,9 @@
 - (void) testFilterGZipDecompress
 {
     NSArray* decompressed = [NSArray arrayWithObjects:
-                             [@"this is a test" dataUsingEncoding:NSUTF8StringEncoding],
-                             [@"here is another test" dataUsingEncoding:NSUTF8StringEncoding],
-                             [@"testing is fun!" dataUsingEncoding:NSUTF8StringEncoding],
+                             (id _Nonnull)[@"this is a test" dataUsingEncoding:NSUTF8StringEncoding],
+                             (id _Nonnull)[@"here is another test" dataUsingEncoding:NSUTF8StringEncoding],
+                             (id _Nonnull)[@"testing is fun!" dataUsingEncoding:NSUTF8StringEncoding],
                              nil];
     
     NSError* error = nil;
