@@ -165,7 +165,7 @@ void kscrw_i_addStringElement(const KSCrashReportWriter* const writer,
                               const char* const key,
                               const char* const value)
 {
-    ksjson_addStringElement(getJsonContext(writer), key, value, strlen(value));
+    ksjson_addStringElement(getJsonContext(writer), key, value, KSJSON_SIZE_AUTOMATIC);
 }
 
 void kscrw_i_addTextFileElement(const KSCrashReportWriter* const writer,
@@ -300,11 +300,11 @@ void kscrw_i_addJSONElement(const KSCrashReportWriter* const writer,
         ksjson_addStringElement(getJsonContext(writer),
                                 KSCrashField_Error,
                                 errorBuff,
-                                strlen(errorBuff));
+                                KSJSON_SIZE_AUTOMATIC);
         ksjson_addStringElement(getJsonContext(writer),
                                 KSCrashField_JSONData,
                                 jsonElement,
-                                strlen(jsonElement));
+                                KSJSON_SIZE_AUTOMATIC);
         ksjson_endContainer(getJsonContext(writer));
     }
 }

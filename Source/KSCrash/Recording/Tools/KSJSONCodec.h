@@ -40,6 +40,10 @@ extern "C" {
 #include <stdbool.h>
 #include <sys/types.h>
 
+/* Tells the encoder to automatically determine the length of a field value.
+ * Currently, this is done using strlen().
+ */
+#define KSJSON_SIZE_AUTOMATIC ((size_t)~0)
 
 enum
 {
@@ -198,7 +202,7 @@ int ksjson_addNullElement(KSJSONEncodeContext* context,
  *
  * @param value The element's value.
  *
- * @param lengththe length of the string.
+ * @param length the length of the string, or KSJSON_SIZE_AUTOMATIC.
  *
  * @return KSJSON_OK if the process was successful.
  */

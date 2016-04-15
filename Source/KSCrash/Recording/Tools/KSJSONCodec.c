@@ -438,6 +438,10 @@ int ksjson_addStringElement(KSJSONEncodeContext* const context,
     {
         return result;
     }
+    if(length == KSJSON_SIZE_AUTOMATIC)
+    {
+        length = strlen(value);
+    }
     return ksjsoncodec_i_addQuotedEscapedString(context, value, length);
 }
 
