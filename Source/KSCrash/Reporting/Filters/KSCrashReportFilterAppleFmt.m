@@ -174,6 +174,12 @@ NSDictionary* g_registerOrders;
 {
     NSDictionary* info = [self infoReport:report];
     NSString* version = [info objectForKey:@KSCrashField_Version];
+    if ([version isKindOfClass:[NSDictionary class]])
+    {
+        NSDictionary *oldVersion = (NSDictionary *)version;
+        version = oldVersion[@"major"];
+    }
+
     if([version respondsToSelector:@selector(intValue)])
     {
         return version.intValue;
