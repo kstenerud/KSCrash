@@ -868,7 +868,7 @@ void kscrw_i_writeUnknownObjectContents(const KSCrashReportWriter* const writer,
     {
         if(ksobjc_isTaggedPointer(object))
         {
-            writer->addIntegerElement(writer, "tagged_payload", ksobjc_taggedPointerPayload(object));
+            writer->addIntegerElement(writer, "tagged_payload", (long long)ksobjc_taggedPointerPayload(object));
         }
         else
         {
