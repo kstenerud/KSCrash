@@ -122,6 +122,8 @@ typedef void(^KSCrashReportFilterCompletion)(NSArray* filteredReports,
  */
 - (id) initWithFilters:(id) firstFilter, ... NS_REQUIRES_NIL_TERMINATION;
 
+- (void) addFilter:(id<KSCrashReportFilter>) filter;
+
 @end
 
 

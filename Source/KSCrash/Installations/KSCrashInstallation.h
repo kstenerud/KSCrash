@@ -47,30 +47,6 @@
  */
 @property(atomic,readwrite,assign) KSReportWriteCallback onCrash;
 
-/** Show an alert before sending any reports. Reports will only be sent if the user
- * presses the "yes" button.
- *
- * @param title The alert title.
- * @param message The message to show the user.
- * @param yesAnswer The text to display in the "yes" box.
- * @param noAnswer The text to display in the "no" box.
- */
-- (void) addConditionalAlertWithTitle:(NSString*) title
-                              message:(NSString*) message
-                            yesAnswer:(NSString*) yesAnswer
-                             noAnswer:(NSString*) noAnswer;
-
-/** Show an alert before sending any reports. Reports will be unconditionally sent
- * when the alert is dismissed.
- *
- * @param title The alert title.
- * @param message The message to show the user.
- * @param dismissButtonText The text to display in the dismiss button.
- */
-- (void) addUnconditionalAlertWithTitle:(NSString*) title
-                                message:(NSString*) message
-                      dismissButtonText:(NSString*) dismissButtonText;
-
 /** Install this installation. Call this instead of -[KSCrash install] to install
  * with everything needed for your particular backend.
  */
@@ -84,5 +60,12 @@
  * @param onCompletion Called when sending is complete (nil = ignore).
  */
 - (void) sendAllReportsWithCompletion:(KSCrashReportFilterCompletion) onCompletion;
+
+/** Add a filter that gets executed before all normal filters.
+ * Prepended filters will be executed in the order in which they were added.
+ *
+ * @param filter the filter to prepend.
+ */
+- (void) addPreFilter:(id<KSCrashReportFilter>) filter;
 
 @end

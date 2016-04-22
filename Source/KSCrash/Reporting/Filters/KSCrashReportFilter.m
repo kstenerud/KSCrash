@@ -274,6 +274,12 @@
     return self;
 }
 
+- (void) addFilter:(id<KSCrashReportFilter>) filter
+{
+    NSMutableArray* mutableFilters = (NSMutableArray*)self.filters; // Shh! Don't tell anyone!
+    [mutableFilters insertObject:filter atIndex:0];
+}
+
 - (void) filterReports:(NSArray*) reports
           onCompletion:(KSCrashReportFilterCompletion) onCompletion
 {
