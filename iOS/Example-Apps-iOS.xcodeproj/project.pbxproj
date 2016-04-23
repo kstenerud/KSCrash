@@ -26,12 +26,13 @@
 		CB8E57B117EBB1AF000C56D3 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = CB8E57AF17EBB1AF000C56D3 /* Main.storyboard */; };
 		CB8E57B417EBB1AF000C56D3 /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = CB8E57B317EBB1AF000C56D3 /* ViewController.m */; };
 		CB8E57B617EBB1AF000C56D3 /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CB8E57B517EBB1AF000C56D3 /* Images.xcassets */; };
+		CB8F1DCD1CCAF0DF0022CDF0 /* KSCrash.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB8F1DCC1CCAF0DF0022CDF0 /* KSCrash.framework */; };
+		CB8F1DCE1CCAF0DF0022CDF0 /* KSCrash.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = CB8F1DCC1CCAF0DF0022CDF0 /* KSCrash.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		CBC43EA01C5ABA1F0083A11B /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBC43E9F1C5ABA1F0083A11B /* AppDelegate.swift */; };
 		CBC43EA21C5ABA1F0083A11B /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBC43EA11C5ABA1F0083A11B /* ViewController.swift */; };
 		CBC43EA51C5ABA1F0083A11B /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = CBC43EA31C5ABA1F0083A11B /* Main.storyboard */; };
 		CBC43EA71C5ABA1F0083A11B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CBC43EA61C5ABA1F0083A11B /* Assets.xcassets */; };
 		CBC43EAA1C5ABA1F0083A11B /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = CBC43EA81C5ABA1F0083A11B /* LaunchScreen.storyboard */; };
-		CBC43EB01C5ABA590083A11B /* libKSCrashLib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = CBC43EAF1C5ABA590083A11B /* libKSCrashLib.a */; };
 		CBC43EB51C5AC11F0083A11B /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = CBC43EB41C5AC11F0083A11B /* libz.tbd */; };
 		CBF3CDDE17F574B5001AC307 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB8E576617EBB16D000C56D3 /* Foundation.framework */; };
 		CBF3CDDF17F574B5001AC307 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB8E576817EBB16D000C56D3 /* CoreGraphics.framework */; };
@@ -62,6 +63,20 @@
 		CBF3CEA717F67EA9001AC307 /* CrashTesterCommands.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF3CEA617F67EA9001AC307 /* CrashTesterCommands.m */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		CB8F1DCF1CCAF0E00022CDF0 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				CB8F1DCE1CCAF0DF0022CDF0 /* KSCrash.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		CB02647717F69E8A003E0AED /* Configuration.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Configuration.h; sourceTree = SOURCE_ROOT; };
 		CB0C95641C5BF3F400166B50 /* libc++.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = "libc++.tbd"; path = "usr/lib/libc++.tbd"; sourceTree = SDKROOT; };
@@ -85,6 +100,8 @@
 		CB8E57B217EBB1AF000C56D3 /* ViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ViewController.h; sourceTree = "<group>"; };
 		CB8E57B317EBB1AF000C56D3 /* ViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ViewController.m; sourceTree = "<group>"; };
 		CB8E57B517EBB1AF000C56D3 /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
+		CB8F1DCA1CCAF0C30022CDF0 /* KSCrash.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = KSCrash.framework; path = "build/Debug-iphoneos/KSCrash.framework"; sourceTree = "<group>"; };
+		CB8F1DCC1CCAF0DF0022CDF0 /* KSCrash.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; name = KSCrash.framework; path = "/Users/karl/Library/Developer/Xcode/DerivedData/iOS-dgdwfjadqnxyraebsbgzipjzfiso/Build/Products/Debug-iphonesimulator/KSCrash.framework"; sourceTree = "<absolute>"; };
 		CBC43E9D1C5ABA1F0083A11B /* Swift-Tester.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Swift-Tester.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		CBC43E9F1C5ABA1F0083A11B /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		CBC43EA11C5ABA1F0083A11B /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
@@ -154,9 +171,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CB8F1DCD1CCAF0DF0022CDF0 /* KSCrash.framework in Frameworks */,
 				CB0C956B1C5BF91300166B50 /* libc++.tbd in Frameworks */,
 				CBC43EB51C5AC11F0083A11B /* libz.tbd in Frameworks */,
-				CBC43EB01C5ABA590083A11B /* libKSCrashLib.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -196,6 +213,7 @@
 		CB8E575A17EBB16D000C56D3 = {
 			isa = PBXGroup;
 			children = (
+				CB8F1DCC1CCAF0DF0022CDF0 /* KSCrash.framework */,
 				CB8E57A317EBB1AF000C56D3 /* Simple-Example */,
 				CBF3CDE117F574B5001AC307 /* Advanced-Example */,
 				CBF3CE2217F576C0001AC307 /* Crash-Tester */,
@@ -220,6 +238,7 @@
 		CB8E576517EBB16D000C56D3 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				CB8F1DCA1CCAF0C30022CDF0 /* KSCrash.framework */,
 				CB0C95641C5BF3F400166B50 /* libc++.tbd */,
 				CBC43EB41C5AC11F0083A11B /* libz.tbd */,
 				CBC43EB21C5ABD6B0083A11B /* libstdc++.tbd */,
@@ -383,6 +402,7 @@
 				CBC43E991C5ABA1F0083A11B /* Sources */,
 				CBC43E9A1C5ABA1F0083A11B /* Frameworks */,
 				CBC43E9B1C5ABA1F0083A11B /* Resources */,
+				CB8F1DCF1CCAF0E00022CDF0 /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -744,6 +764,10 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/build/Debug-iphoneos",
+				);
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				INFOPLIST_FILE = "Swift-Tester/Info.plist";
@@ -767,6 +791,10 @@
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/build/Debug-iphoneos",
+				);
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				INFOPLIST_FILE = "Swift-Tester/Info.plist";

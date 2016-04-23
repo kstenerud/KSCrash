@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import KSCrash
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {

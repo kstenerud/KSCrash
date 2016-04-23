@@ -5,6 +5,7 @@
 
 #import "AppDelegate.h"
 
+#import <KSCrash/KSCrashInstallation+Alert.h>
 #import <KSCrash/KSCrashInstallationStandard.h>
 #import <KSCrash/KSCrashInstallationQuincyHockey.h>
 #import <KSCrash/KSCrashInstallationEmail.h>
