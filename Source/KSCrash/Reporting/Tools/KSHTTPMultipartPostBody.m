@@ -103,16 +103,16 @@
 @interface KSHTTPMultipartPostBody ()
 
 @property(nonatomic,readwrite,retain) NSMutableArray* fields;
+@property(nonatomic,readwrite,retain) NSString* boundary;
 
 @end
 
 
 @implementation KSHTTPMultipartPostBody
 
-static NSString* g_boundary = @"uyw$gHGJ[fsR}tt932_shGwqdbanbvVMJje%Y2ewy78";
-
 @synthesize contentType = _contentType;
 @synthesize fields = _fields;
+@synthesize boundary = _boundary;
 
 + (KSHTTPMultipartPostBody*) body
 {
@@ -123,8 +123,10 @@ static NSString* g_boundary = @"uyw$gHGJ[fsR}tt932_shGwqdbanbvVMJje%Y2ewy78";
 {
     if((self = [super init]))
     {
+        NSString *uuid = [[NSUUID UUID] UUIDString];
+        _boundary = [[uuid lowercaseString] stringByReplacingOccurrencesOfString:@"-" withString:@""];
         _fields = [[NSMutableArray alloc] init];
-        _contentType = [[NSString alloc] initWithFormat:@"multipart/form-data; boundary=%@", g_boundary];
+        _contentType = [[NSString alloc] initWithFormat:@"multipart/form-data; boundary=%@", _boundary];
     }
     return self;
 }
@@ -163,7 +165,7 @@ static NSString* g_boundary = @"uyw$gHGJ[fsR}tt932_shGwqdbanbvVMJje%Y2ewy78";
     NSMutableData* data = [NSMutableData dataWithCapacity:baseSize];
     for(KSHTTPPostField* field in _fields)
     {
-        [data appendUTF8Format:@"--%@\r\n", g_boundary];
+        [data appendUTF8Format:@"--%@\r\n", _boundary];
         if(field.filename != nil)
         {
             [data appendUTF8Format:@"Content-Disposition: form-data; name=\"%@\"; filename=\"%@\"\r\n",
@@ -179,10 +181,10 @@ static NSString* g_boundary = @"uyw$gHGJ[fsR}tt932_shGwqdbanbvVMJje%Y2ewy78";
         {
             [data appendUTF8Format:@"Content-Type: %@\r\n", field.contentType];
         }
-        [data appendUTF8Format:@"\r\n", g_boundary];
+        [data appendUTF8Format:@"\r\n", _boundary];
         [data appendData:field.data];
     }
-    [data appendUTF8Format:@"\r\n--%@--\r\n", g_boundary];
+    [data appendUTF8Format:@"\r\n--%@--\r\n", _boundary];
 
     return data;
 }
