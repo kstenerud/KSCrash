@@ -175,13 +175,13 @@
         if(field.filename != nil)
         {
             [data appendUTF8Format:@"Content-Disposition: form-data; name=\"%@\"; filename=\"%@\"\r\n",
-             [field.name URLEncoded],
-             [field.filename URLEncoded]];
+             field.name,
+             field.filename];
         }
         else
         {
             [data appendUTF8Format:@"Content-Disposition: form-data; name=\"%@\"\r\n",
-             [field.name URLEncoded]];
+             field.name];
         }
         if(field.contentType != nil)
         {
