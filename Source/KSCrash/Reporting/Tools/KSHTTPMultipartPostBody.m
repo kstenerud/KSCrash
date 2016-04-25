@@ -163,8 +163,14 @@
     }
 
     NSMutableData* data = [NSMutableData dataWithCapacity:baseSize];
+    BOOL firstFieldSent = NO;
     for(KSHTTPPostField* field in _fields)
     {
+        if (firstFieldSent) {
+            [data appendUTF8Format:@"\r\n"];
+        } else {
+            firstFieldSent = YES;
+        }
         [data appendUTF8Format:@"--%@\r\n", _boundary];
         if(field.filename != nil)
         {
