@@ -15,7 +15,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "EDF2BE781CCF15AD004BADF4"
-               BuildableName = "KSCrash_static.framework"
+               BuildableName = "KSCrash.framework"
                BlueprintName = "KSCrash_static"
                ReferencedContainer = "container:KSCrash-iOS.xcodeproj">
             </BuildableReference>
@@ -46,7 +46,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "EDF2BE781CCF15AD004BADF4"
-            BuildableName = "KSCrash_static.framework"
+            BuildableName = "KSCrash.framework"
             BlueprintName = "KSCrash_static"
             ReferencedContainer = "container:KSCrash-iOS.xcodeproj">
          </BuildableReference>
@@ -64,7 +64,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "EDF2BE781CCF15AD004BADF4"
-            BuildableName = "KSCrash_static.framework"
+            BuildableName = "KSCrash.framework"
             BlueprintName = "KSCrash_static"
             ReferencedContainer = "container:KSCrash-iOS.xcodeproj">
          </BuildableReference>
