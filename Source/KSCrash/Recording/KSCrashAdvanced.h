@@ -74,6 +74,9 @@
 
 #pragma mark - Configuration -
 
+/** Init KSCrash instance with custom report files directory path. */
+- (id) initWithReportFilesDirectory:(NSString *)reportFilesDirectory;
+
 /** Store containing all crash reports. */
 @property(nonatomic, readwrite, retain) KSCrashReportStore* crashReportStore;
 

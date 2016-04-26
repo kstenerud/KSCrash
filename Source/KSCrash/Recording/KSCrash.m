@@ -117,6 +117,11 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrash)
 
 - (id) init
 {
+    return [self initWithReportFilesDirectory:KSCRASH_ReportFilesDirectory];
+}
+
+- (id) initWithReportFilesDirectory:(NSString *)reportFilesDirectory
+{
     if((self = [super init]))
     {
         self.bundleName = [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleName"];
@@ -135,7 +140,7 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrash)
             KSLOG_ERROR(@"Could not locate cache directory path.");
             goto failed;
         }
-        NSString* storePathEnd = [KSCRASH_ReportFilesDirectory stringByAppendingPathComponent:self.bundleName];
+        NSString* storePathEnd = [reportFilesDirectory stringByAppendingPathComponent:self.bundleName];
         NSString* storePath = [cachePath stringByAppendingPathComponent:storePathEnd];
         if([storePath length] == 0)
         {
