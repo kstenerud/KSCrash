@@ -86,7 +86,7 @@
 {
     NSParameterAssert(data);
     NSParameterAssert(name);
-
+    
     if((self = [super init]))
     {
         _data = data;
@@ -154,6 +154,11 @@
             filename:filename];
 }
 
+- (NSString*) toStringWithQuotesEscaped:(NSString*) value
+{
+    return [value stringByReplacingOccurrencesOfString:@"\"" withString:@"\\\""];
+}
+
 - (NSData*) data
 {
     NSUInteger baseSize = 0;
@@ -161,7 +166,7 @@
     {
         baseSize += [desc.data length] + 200;
     }
-
+    
     NSMutableData* data = [NSMutableData dataWithCapacity:baseSize];
     BOOL firstFieldSent = NO;
     for(KSHTTPPostField* field in _fields)
@@ -175,13 +180,13 @@
         if(field.filename != nil)
         {
             [data appendUTF8Format:@"Content-Disposition: form-data; name=\"%@\"; filename=\"%@\"\r\n",
-             field.name,
-             field.filename];
+             [self toStringWithQuotesEscaped:field.name],
+             [self toStringWithQuotesEscaped:field.filename]];
         }
         else
         {
             [data appendUTF8Format:@"Content-Disposition: form-data; name=\"%@\"\r\n",
-             field.name];
+             [self toStringWithQuotesEscaped:field.name]];
         }
         if(field.contentType != nil)
         {
@@ -191,7 +196,7 @@
         [data appendData:field.data];
     }
     [data appendUTF8Format:@"\r\n--%@--\r\n", _boundary];
-
+    
     return data;
 }
 
