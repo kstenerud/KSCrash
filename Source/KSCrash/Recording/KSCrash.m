@@ -48,8 +48,8 @@
 // ============================================================================
 
 /** The directory under "Caches" to store the crash reports. */
-#ifndef KSCRASH_ReportFilesDirectory
-    #define KSCRASH_ReportFilesDirectory @"KSCrashReports"
+#ifndef KSCRASH_DefaultReportFilesDirectory
+    #define KSCRASH_DefaultReportFilesDirectory @"KSCrashReports"
 #endif
 
 
@@ -117,6 +117,11 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrash)
 
 - (id) init
 {
+    return [self initWithReportFilesDirectory:KSCRASH_DefaultReportFilesDirectory];
+}
+
+- (id) initWithReportFilesDirectory:(NSString *)reportFilesDirectory
+{
     if((self = [super init]))
     {
         self.bundleName = [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleName"];
@@ -135,7 +140,7 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrash)
             KSLOG_ERROR(@"Could not locate cache directory path.");
             goto failed;
         }
-        NSString* storePathEnd = [KSCRASH_ReportFilesDirectory stringByAppendingPathComponent:self.bundleName];
+        NSString* storePathEnd = [reportFilesDirectory stringByAppendingPathComponent:self.bundleName];
         NSString* storePath = [cachePath stringByAppendingPathComponent:storePathEnd];
         if([storePath length] == 0)
         {
@@ -528,7 +533,7 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
 
 
 //! Project version number for KSCrashFramework.
-double KSCrashFrameworkVersionNumber = 1.03;
+const double KSCrashFrameworkVersionNumber = 1.52;
 
 //! Project version string for KSCrashFramework.
-const unsigned char KSCrashFrameworkVersionString[] = "1.0.3";
+const unsigned char KSCrashFrameworkVersionString[] = "1.5.2";
