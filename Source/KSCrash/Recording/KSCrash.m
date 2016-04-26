@@ -48,8 +48,8 @@
 // ============================================================================
 
 /** The directory under "Caches" to store the crash reports. */
-#ifndef KSCRASH_ReportFilesDirectory
-    #define KSCRASH_ReportFilesDirectory @"KSCrashReports"
+#ifndef KSCRASH_DefaultReportFilesDirectory
+    #define KSCRASH_DefaultReportFilesDirectory @"KSCrashReports"
 #endif
 
 
@@ -117,7 +117,7 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrash)
 
 - (id) init
 {
-    return [self initWithReportFilesDirectory:KSCRASH_ReportFilesDirectory];
+    return [self initWithReportFilesDirectory:KSCRASH_DefaultReportFilesDirectory];
 }
 
 - (id) initWithReportFilesDirectory:(NSString *)reportFilesDirectory
