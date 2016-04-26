@@ -167,7 +167,7 @@
     for(KSHTTPPostField* field in _fields)
     {
         if (firstFieldSent) {
-            [data appendUTF8Format:@"\r\n"];
+            [data appendUTF8String:@"\r\n"];
         } else {
             firstFieldSent = YES;
         }
