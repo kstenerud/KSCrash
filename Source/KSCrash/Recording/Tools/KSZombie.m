@@ -155,23 +155,28 @@ static inline void handleDealloc(id self)
     }
 }
 
-#define CREATE_ZOMBIE_CATEGORY(CLASS) \
-@implementation CLASS (KSZombie) \
-- (void) dealloc_KSZombieOrig \
+typedef void (*deallocFunction)(id, SEL);
+
+#define CREATE_ZOMBIE_HANDLER_INSTALLER(CLASS) \
+static IMP originalDealloc_ ## CLASS; \
+static void handleDealloc_ ## CLASS(id self, SEL _cmd) \
 { \
     handleDealloc(self); \
-    [self dealloc_KSZombieOrig]; \
+    deallocFunction originalDealloc = (deallocFunction)originalDealloc_ ## CLASS; \
+    originalDealloc(self, _cmd); \
 } \
-@end
-
-CREATE_ZOMBIE_CATEGORY(NSObject)
-CREATE_ZOMBIE_CATEGORY(NSProxy)
-
-static void swizzleDealloc(Class cls)
-{
-    method_exchangeImplementations(class_getInstanceMethod(cls, @selector(dealloc)),
-                                   class_getClassMethod(cls, @selector(dealloc_KSZombieOrig)));
+static void installDealloc_ ## CLASS() \
+{ \
+    originalDealloc_ ## CLASS = method_setImplementation(class_getInstanceMethod([CLASS class], @selector(dealloc)), \
+                                                        (IMP)handleDealloc_ ## CLASS); \
+} \
+static void uninstallDealloc_ ## CLASS() \
+{ \
+    method_setImplementation(class_getInstanceMethod([CLASS class], @selector(dealloc)), originalDealloc_ ## CLASS); \
 }
+
+CREATE_ZOMBIE_HANDLER_INSTALLER(NSObject)
+CREATE_ZOMBIE_HANDLER_INSTALLER(NSProxy)
 
 void kszombie_install(size_t cacheSize)
 {
@@ -207,8 +212,8 @@ void kszombie_install(size_t cacheSize)
     g_lastDeallocedException.name[0] = 0;
     g_lastDeallocedException.reason[0] = 0;
 
-    swizzleDealloc([NSObject class]);
-    swizzleDealloc([NSProxy class]);
+    installDealloc_NSObject();
+    installDealloc_NSProxy();
 }
 
 void kszombie_uninstall(void)
@@ -218,8 +223,8 @@ void kszombie_uninstall(void)
         return;
     }
 
-    swizzleDealloc([NSObject class]);
-    swizzleDealloc([NSProxy class]);
+    uninstallDealloc_NSObject();
+    uninstallDealloc_NSProxy();
 
     void* ptr = g_zombieCache;
     g_zombieCache = NULL;
