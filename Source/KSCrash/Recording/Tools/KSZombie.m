@@ -155,15 +155,12 @@ static inline void handleDealloc(id self)
     }
 }
 
-typedef void (*deallocFunction)(id, SEL);
-
 #define CREATE_ZOMBIE_HANDLER_INSTALLER(CLASS) \
 static IMP g_originalDealloc_ ## CLASS; \
 static void handleDealloc_ ## CLASS(id self, SEL _cmd) \
 { \
     handleDealloc(self); \
-    deallocFunction originalDealloc = (deallocFunction)g_originalDealloc_ ## CLASS; \
-    originalDealloc(self, _cmd); \
+    g_originalDealloc_ ## CLASS(self, _cmd); \
 } \
 static void installDealloc_ ## CLASS() \
 { \
