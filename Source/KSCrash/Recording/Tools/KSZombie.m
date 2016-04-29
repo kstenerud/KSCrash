@@ -158,21 +158,21 @@ static inline void handleDealloc(id self)
 typedef void (*deallocFunction)(id, SEL);
 
 #define CREATE_ZOMBIE_HANDLER_INSTALLER(CLASS) \
-static IMP originalDealloc_ ## CLASS; \
+static IMP g_originalDealloc_ ## CLASS; \
 static void handleDealloc_ ## CLASS(id self, SEL _cmd) \
 { \
     handleDealloc(self); \
-    deallocFunction originalDealloc = (deallocFunction)originalDealloc_ ## CLASS; \
+    deallocFunction originalDealloc = (deallocFunction)g_originalDealloc_ ## CLASS; \
     originalDealloc(self, _cmd); \
 } \
 static void installDealloc_ ## CLASS() \
 { \
-    originalDealloc_ ## CLASS = method_setImplementation(class_getInstanceMethod([CLASS class], @selector(dealloc)), \
-                                                        (IMP)handleDealloc_ ## CLASS); \
+    g_originalDealloc_ ## CLASS = method_setImplementation(class_getInstanceMethod([CLASS class], @selector(dealloc)), \
+                                                            (IMP)handleDealloc_ ## CLASS); \
 } \
 static void uninstallDealloc_ ## CLASS() \
 { \
-    method_setImplementation(class_getInstanceMethod([CLASS class], @selector(dealloc)), originalDealloc_ ## CLASS); \
+    method_setImplementation(class_getInstanceMethod([CLASS class], @selector(dealloc)), g_originalDealloc_ ## CLASS); \
 }
 
 CREATE_ZOMBIE_HANDLER_INSTALLER(NSObject)
