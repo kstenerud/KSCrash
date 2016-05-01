@@ -160,7 +160,9 @@ static IMP g_originalDealloc_ ## CLASS; \
 static void handleDealloc_ ## CLASS(id self, SEL _cmd) \
 { \
     handleDealloc(self); \
-    g_originalDealloc_ ## CLASS(self, _cmd); \
+    typedef void (*fn)(id,SEL); \
+    fn f = (fn)g_originalDealloc_ ## CLASS; \
+    f(self, _cmd); \
 } \
 static void installDealloc_ ## CLASS() \
 { \
