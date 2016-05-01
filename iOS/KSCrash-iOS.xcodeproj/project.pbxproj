@@ -816,6 +816,7 @@
 				CB52178D17EB735D007CB3C1 /* Products */,
 			);
 			sourceTree = "<group>";
+			usesTabs = 0;
 		};
 		CB52178D17EB735D007CB3C1 /* Products */ = {
 			isa = PBXGroup;
