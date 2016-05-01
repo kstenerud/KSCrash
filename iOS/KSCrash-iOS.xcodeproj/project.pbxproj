@@ -531,7 +531,6 @@
 		EDF2BF1A1CCF15AD004BADF4 /* KSCrashSentry_MachException.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D5317EB765C0056DA83 /* KSCrashSentry_MachException.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		EDF2BF1B1CCF15AD004BADF4 /* KSSysCtl.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D8217EB765C0056DA83 /* KSSysCtl.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		EDF2BF1C1CCF15AD004BADF4 /* KSSystemInfoC.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D8517EB765C0056DA83 /* KSSystemInfoC.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		EDF2BF291CCF1A27004BADF4 /* KSCrash_static-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = EDF2BF281CCF1A27004BADF4 /* KSCrash_static-Info.plist */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1590,7 +1589,7 @@
 		CB52178417EB735D007CB3C1 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0710;
+				LastUpgradeCheck = 0730;
 				ORGANIZATIONNAME = "Karl Stenerud";
 				TargetAttributes = {
 					03DE7B691C84DEF700F789BA = {
@@ -1643,7 +1642,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				EDF2BF291CCF1A27004BADF4 /* KSCrash_static-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
