@@ -1704,7 +1704,6 @@
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "KSCrash/KSCrash-Prefix.pch";
 				INFOPLIST_FILE = "KSCrash/KSCrash-Info.plist";
-				MACH_O_TYPE = staticlib;
 				PRODUCT_BUNDLE_IDENTIFIER = "org.stenerud.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = KSCrash;
 				WRAPPER_EXTENSION = framework;
@@ -1721,7 +1720,6 @@
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "KSCrash/KSCrash-Prefix.pch";
 				INFOPLIST_FILE = "KSCrash/KSCrash-Info.plist";
-				MACH_O_TYPE = staticlib;
 				PRODUCT_BUNDLE_IDENTIFIER = "org.stenerud.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = KSCrash;
 				WRAPPER_EXTENSION = framework;
