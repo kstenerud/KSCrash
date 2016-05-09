@@ -58,7 +58,11 @@ void kscrashsentry_reportUserException(const char* name,
                                        size_t stackTraceCount,
                                        bool terminateProgram)
 {
-    if(g_context != NULL)
+    if(g_context == NULL)
+    {
+        KSLOG_WARN("User-reported exception sentry is not installed. Exception has not been recorded.");
+    }
+    else
     {
         kscrashsentry_beginHandlingCrash(g_context);
 
