@@ -58,7 +58,6 @@ static void onCrash(const KSCrashReportWriter* writer)
     [handler redirectConsoleLogsToDefaultFile];
 #endif
     
-    handler.zombieCacheSize = 16384;
     handler.deadlockWatchdogInterval = 5.0f;
     handler.searchThreadNames = YES;
     handler.searchQueueNames = YES;

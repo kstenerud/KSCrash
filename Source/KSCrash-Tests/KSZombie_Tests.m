@@ -38,23 +38,17 @@
 - (void) setUp
 {
     [super setUp];
-    kszombie_install(32768);
+    kszombie_install();
 }
 
 - (void) tearDown
 {
-    kszombie_uninstall();
     [super tearDown];
 }
 
 - (void) testDoubleInstall
 {
-    kszombie_install(32768);
-}
-
-- (void) testDoubleUninstall
-{
-    kszombie_uninstall();
+    kszombie_install();
 }
 
 - (void) testNoLastDeallocedException

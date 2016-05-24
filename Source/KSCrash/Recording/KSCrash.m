@@ -94,7 +94,6 @@
 @synthesize userInfo = _userInfo;
 @synthesize deleteBehaviorAfterSendAll = _deleteBehaviorAfterSendAll;
 @synthesize handlingCrashTypes = _handlingCrashTypes;
-@synthesize zombieCacheSize = _zombieCacheSize;
 @synthesize deadlockWatchdogInterval = _deadlockWatchdogInterval;
 @synthesize printTraceToStdout = _printTraceToStdout;
 @synthesize onCrash = _onCrash;
@@ -105,6 +104,7 @@
 @synthesize searchThreadNames = _searchThreadNames;
 @synthesize searchQueueNames = _searchQueueNames;
 @synthesize introspectMemory = _introspectMemory;
+@synthesize catchZombies = _catchZombies;
 @synthesize doNotIntrospectClasses = _doNotIntrospectClasses;
 @synthesize maxStoredReports = _maxStoredReports;
 
@@ -158,6 +158,7 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrash)
         self.searchThreadNames = NO;
         self.searchQueueNames = NO;
         self.introspectMemory = YES;
+        self.catchZombies = YES;
         self.maxStoredReports = 5;
     }
     return self;
@@ -197,12 +198,6 @@ failed:
     _handlingCrashTypes = kscrash_setHandlingCrashTypes(handlingCrashTypes);
 }
 
-- (void) setZombieCacheSize:(size_t) zombieCacheSize
-{
-    _zombieCacheSize = zombieCacheSize;
-    kscrash_setZombieCacheSize(zombieCacheSize);
-}
-
 - (void) setDeadlockWatchdogInterval:(double) deadlockWatchdogInterval
 {
     _deadlockWatchdogInterval = deadlockWatchdogInterval;
@@ -237,6 +232,12 @@ failed:
 {
     _introspectMemory = introspectMemory;
     kscrash_setIntrospectMemory(introspectMemory);
+}
+
+- (void) setCatchZombies:(bool)catchZombies
+{
+    _catchZombies = catchZombies;
+    kscrash_setCatchZombies(catchZombies);
 }
 
 - (void) setDoNotIntrospectClasses:(NSArray *)doNotIntrospectClasses

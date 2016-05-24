@@ -71,21 +71,6 @@ typedef enum
  */
 @property(nonatomic,readwrite,assign) KSCrashType handlingCrashTypes;
 
-/** The size of the cache to use for on-device zombie tracking.
- * Every deallocated object will be hashed based on its address modulus the cache
- * size, so the bigger the cache, the less likely a hash collision (missed zombie).
- * It is best to profile your app to determine how many objects are allocated at
- * a time before choosing this value, but in general you'll want a value of
- * at least 16384.
- * Each cache entry will occupy 8 bytes for 32-bit architectures and 16 bytes
- * for 64-bit architectures.
- *
- * Note: Value must be a power-of-2. 0 = no zombie checking.
- *
- * Default: 0
- */
-@property(nonatomic,readwrite,assign) size_t zombieCacheSize;
-
 /** Maximum time to allow the main thread to run without returning.
  * If a task occupies the main thread for longer than this interval, the
  * watchdog will consider the queue deadlocked and shut down the app and write a
@@ -135,6 +120,13 @@ typedef enum
  * Default: YES
  */
 @property(nonatomic,readwrite,assign) bool introspectMemory;
+
+/** If YES, monitor all Objective-C/Swift deallocations and keep track of any
+ * accesses after deallocation.
+ *
+ * Default: YES
+ */
+@property(nonatomic,readwrite,assign) bool catchZombies;
 
 /** List of Objective-C classes that should never be introspected.
  * Whenever a class in this list is encountered, only the class name will be recorded.

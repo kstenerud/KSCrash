@@ -288,11 +288,6 @@ print its contents. Certain kinds of memory corruption or stack corruption
 crashes can cause the exception to deallocate early, further twarting efforts
 to debug your app, so this feature can be quite handy at times.
 
-Each cache entry takes up 8 bytes on a 32-bit architecture, and 16 bytes on a
-64-bit architecture. The recommended minimum is 16384, which translates to
-128k of RAM used for zombie tracking on a 32-bit machine. Generally, the more
-objects you tend to have in your app, the larger you'll want to make the cache.
-
 Trade off: Zombie tracking at the cost of adding very slight overhead to object
            deallocation, and having some memory reserved.
 
