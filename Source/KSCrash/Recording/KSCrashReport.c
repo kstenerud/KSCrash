@@ -499,7 +499,9 @@ uintptr_t* kscrw_i_getBacktrace(const KSCrash_SentryContext* const crash,
 {
     if(thread == crash->offendingThread)
     {
-        if(crash->crashType & (KSCrashTypeCPPException | KSCrashTypeNSException | KSCrashTypeUserReported))
+        if(crash->stackTrace != NULL &&
+           crash->stackTraceLength > 0 &&
+           (crash->crashType & (KSCrashTypeCPPException | KSCrashTypeNSException | KSCrashTypeUserReported)))
         {
             *backtraceLength = crash->stackTraceLength;
             return crash->stackTrace;
@@ -1909,7 +1911,7 @@ void kscrw_i_writeError(const KSCrashReportWriter* const writer,
                     {
                         writer->addStringElement(writer, KSCrashField_LineOfCode, crash->userException.lineOfCode);
                     }
-                    if(crash->userException.customStackTraceLength > 0)
+                    if(crash->userException.customStackTrace != NULL && crash->userException.customStackTraceLength > 0)
                     {
                         writer->beginArray(writer, KSCrashField_Backtrace);
                         {
