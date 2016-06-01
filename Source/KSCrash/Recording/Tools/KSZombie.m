@@ -167,8 +167,9 @@ static void handleDealloc_ ## CLASS(id self, SEL _cmd) \
 } \
 static void installDealloc_ ## CLASS() \
 { \
-    g_originalDealloc_ ## CLASS = method_setImplementation(class_getInstanceMethod([CLASS class], @selector(dealloc)), \
-                                                            (IMP)handleDealloc_ ## CLASS); \
+    Method method = class_getInstanceMethod([CLASS class], @selector(dealloc)); \
+    g_originalDealloc_ ## CLASS = method_getImplementation(method); \
+    method_setImplementation(method, (IMP)handleDealloc_ ## CLASS); \
 } \
 static void uninstallDealloc_ ## CLASS() \
 { \
