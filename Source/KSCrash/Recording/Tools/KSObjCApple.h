@@ -578,8 +578,8 @@ static const uintptr_t __CFBasicHashTableSizes[64] = {
 
 typedef union {
     uintptr_t neutral;
-    id Xstrong;
-    id Xweak;
+    void* Xstrong; // Changed from type 'id'
+    void* Xweak; // Changed from type 'id'
 } CFBasicHashValue;
 
 struct __CFBasicHash {
