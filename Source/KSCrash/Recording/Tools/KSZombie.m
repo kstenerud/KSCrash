@@ -214,15 +214,16 @@ static void uninstall(void)
     });
 }
 
-void kszombie_setEnabled(bool isEnabled)
+void kszombie_setEnabled(bool shouldEnable)
 {
-    if(g_zombieCache == NULL)
-    {
-        uninstall();
-    }
-    else
+    bool isCurrentlyEnabled = g_zombieCache != NULL;
+    if(shouldEnable && !isCurrentlyEnabled)
     {
         install();
+    }
+    else if(!shouldEnable && isCurrentlyEnabled)
+    {
+        uninstall();
     }
 }
 
