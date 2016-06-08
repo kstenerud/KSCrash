@@ -42,4 +42,6 @@
 #import "KSArchSpecific.h"
 #import "KSCrashAdvanced.h"
 
+#import "NSData+GZip.h"
+
 #endif /* KSCrashFramework_h */

@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		03B07DB41D089690007B4758 /* KSCrashFramework.h in Headers */ = {isa = PBXBuildFile; fileRef = 03B07DB21D089690007B4758 /* KSCrashFramework.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CB2685F11C694DB200EE4EB3 /* NSString+Demangle.h in Headers */ = {isa = PBXBuildFile; fileRef = CB2685EF1C694DB200EE4EB3 /* NSString+Demangle.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB2685F21C694DB200EE4EB3 /* NSString+Demangle.h in Headers */ = {isa = PBXBuildFile; fileRef = CB2685EF1C694DB200EE4EB3 /* NSString+Demangle.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB2685F31C694DB200EE4EB3 /* NSString+Demangle.mm in Sources */ = {isa = PBXBuildFile; fileRef = CB2685F01C694DB200EE4EB3 /* NSString+Demangle.mm */; };
@@ -322,7 +323,7 @@
 		CB8E56F217EB9B89000C56D3 /* KSReachabilityKSCrash.m in Sources */ = {isa = PBXBuildFile; fileRef = CB8E56DC17EB9B89000C56D3 /* KSReachabilityKSCrash.m */; };
 		CB8E56F317EB9B89000C56D3 /* KSSingleton.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E56DD17EB9B89000C56D3 /* KSSingleton.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB8E56F417EB9B89000C56D3 /* KSVarArgs.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E56DE17EB9B89000C56D3 /* KSVarArgs.h */; };
-		CB8E56F517EB9B89000C56D3 /* NSData+GZip.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E56DF17EB9B89000C56D3 /* NSData+GZip.h */; };
+		CB8E56F517EB9B89000C56D3 /* NSData+GZip.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E56DF17EB9B89000C56D3 /* NSData+GZip.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CB8E56F617EB9B89000C56D3 /* NSData+GZip.m in Sources */ = {isa = PBXBuildFile; fileRef = CB8E56E017EB9B89000C56D3 /* NSData+GZip.m */; };
 		CB8E56F717EB9B89000C56D3 /* NSDictionary+Merge.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E56E117EB9B89000C56D3 /* NSDictionary+Merge.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB8E56F817EB9B89000C56D3 /* NSDictionary+Merge.m in Sources */ = {isa = PBXBuildFile; fileRef = CB8E56E217EB9B89000C56D3 /* NSDictionary+Merge.m */; };
@@ -334,7 +335,7 @@
 		CB8E570217EB9B95000C56D3 /* KSCrashDoctor.m in Sources */ = {isa = PBXBuildFile; fileRef = CB8E56FE17EB9B95000C56D3 /* KSCrashDoctor.m */; };
 		CB8E570317EB9B95000C56D3 /* KSCrashReportStore.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E56FF17EB9B95000C56D3 /* KSCrashReportStore.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CB8E570417EB9B95000C56D3 /* KSCrashReportStore.m in Sources */ = {isa = PBXBuildFile; fileRef = CB8E570017EB9B95000C56D3 /* KSCrashReportStore.m */; };
-		CB8E571017EB9BA8000C56D3 /* KSCrashInstallation+Private.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E570517EB9BA8000C56D3 /* KSCrashInstallation+Private.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CB8E571017EB9BA8000C56D3 /* KSCrashInstallation+Private.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E570517EB9BA8000C56D3 /* KSCrashInstallation+Private.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CB8E571117EB9BA8000C56D3 /* KSCrashInstallation.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E570617EB9BA8000C56D3 /* KSCrashInstallation.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CB8E571217EB9BA8000C56D3 /* KSCrashInstallation.m in Sources */ = {isa = PBXBuildFile; fileRef = CB8E570717EB9BA8000C56D3 /* KSCrashInstallation.m */; };
 		CB8E571317EB9BA8000C56D3 /* KSCrashInstallationEmail.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E570817EB9BA8000C56D3 /* KSCrashInstallationEmail.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -382,6 +383,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		03B07DB21D089690007B4758 /* KSCrashFramework.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSCrashFramework.h; path = ../../Source/Framework/KSCrashFramework.h; sourceTree = "<group>"; };
+		03B07DB31D089690007B4758 /* module.modulemap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = "sourcecode.module-map"; name = module.modulemap; path = ../../Source/Framework/module.modulemap; sourceTree = "<group>"; };
 		CB2685EF1C694DB200EE4EB3 /* NSString+Demangle.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSString+Demangle.h"; path = "../../Source/KSCrash/Recording/Tools/NSString+Demangle.h"; sourceTree = "<group>"; };
 		CB2685F01C694DB200EE4EB3 /* NSString+Demangle.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = "NSString+Demangle.mm"; path = "../../Source/KSCrash/Recording/Tools/NSString+Demangle.mm"; sourceTree = "<group>"; };
 		CB2685F81C694E4400EE4EB3 /* None.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = None.h; sourceTree = "<group>"; };
@@ -785,6 +788,8 @@
 		CB8E55F117EB99E3000C56D3 /* Supporting Files */ = {
 			isa = PBXGroup;
 			children = (
+				03B07DB21D089690007B4758 /* KSCrashFramework.h */,
+				03B07DB31D089690007B4758 /* module.modulemap */,
 				CB8E55F217EB99E3000C56D3 /* KSCrash-Info.plist */,
 				CB8E55F317EB99E3000C56D3 /* InfoPlist.strings */,
 				CB8E55F617EB99E3000C56D3 /* KSCrash-Prefix.pch */,
@@ -1160,6 +1165,8 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CB8E571017EB9BA8000C56D3 /* KSCrashInstallation+Private.h in Headers */,
+				CB8E56F517EB9B89000C56D3 /* NSData+GZip.h in Headers */,
 				CB8F1DD21CCAF3B40022CDF0 /* KSCrashInstallation+Alert.h in Headers */,
 				CB8E561817EB9AA5000C56D3 /* KSCrash.h in Headers */,
 				CB8E561A17EB9AA5000C56D3 /* KSCrashAdvanced.h in Headers */,
@@ -1211,13 +1218,13 @@
 				CB8E565417EB9B35000C56D3 /* KSCrashSentry_NSException.h in Headers */,
 				CBBD3AAE1CAD98A300DBB897 /* KSCrashInstallationConsole.h in Headers */,
 				CB8E568817EB9B43000C56D3 /* KSLogger.h in Headers */,
+				03B07DB41D089690007B4758 /* KSCrashFramework.h in Headers */,
 				CB8E563117EB9AFD000C56D3 /* KSCrashReport.h in Headers */,
 				CB8E569217EB9B43000C56D3 /* KSObjCApple.h in Headers */,
 				CB8E565A17EB9B35000C56D3 /* KSCrashSentry_User.h in Headers */,
 				CB8E565317EB9B35000C56D3 /* KSCrashSentry_MachException.h in Headers */,
 				CB2685F11C694DB200EE4EB3 /* NSString+Demangle.h in Headers */,
 				CB8E568B17EB9B43000C56D3 /* KSMach.h in Headers */,
-				CB8E56F517EB9B89000C56D3 /* NSData+GZip.h in Headers */,
 				CB8E569D17EB9B43000C56D3 /* RFC3339DateTool.h in Headers */,
 				CB8E563517EB9AFD000C56D3 /* KSCrashState.h in Headers */,
 				CB8E563817EB9AFD000C56D3 /* KSSystemInfo.h in Headers */,
@@ -1245,7 +1252,6 @@
 				CB8E569B17EB9B43000C56D3 /* KSZombie.h in Headers */,
 				CB2686251C694E4400EE4EB3 /* Fallthrough.h in Headers */,
 				CB8E569117EB9B43000C56D3 /* KSObjC.h in Headers */,
-				CB8E571017EB9BA8000C56D3 /* KSCrashInstallation+Private.h in Headers */,
 				CB8E56F117EB9B89000C56D3 /* KSReachabilityKSCrash.h in Headers */,
 				CB8E568017EB9B43000C56D3 /* KSBacktrace.h in Headers */,
 				CB8E56EF17EB9B89000C56D3 /* KSHTTPRequestSender.h in Headers */,
@@ -1699,13 +1705,16 @@
 		CB8E561017EB99E3000C56D3 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
 				COMBINE_HIDPI_IMAGES = YES;
+				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				FRAMEWORK_VERSION = A;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "KSCrash/KSCrash-Prefix.pch";
 				INFOPLIST_FILE = "KSCrash/KSCrash-Info.plist";
+				MODULEMAP_FILE = ../Source/Framework/module.modulemap;
 				PRODUCT_BUNDLE_IDENTIFIER = "org.stenerud.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = KSCrash;
 				WRAPPER_EXTENSION = framework;
@@ -1715,13 +1724,16 @@
 		CB8E561117EB99E3000C56D3 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
 				COMBINE_HIDPI_IMAGES = YES;
+				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				FRAMEWORK_VERSION = A;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "KSCrash/KSCrash-Prefix.pch";
 				INFOPLIST_FILE = "KSCrash/KSCrash-Info.plist";
+				MODULEMAP_FILE = ../Source/Framework/module.modulemap;
 				PRODUCT_BUNDLE_IDENTIFIER = "org.stenerud.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = KSCrash;
 				WRAPPER_EXTENSION = framework;
