@@ -17,6 +17,7 @@
 #import "KSCrashContext.h"
 #import "KSCrashInstallation.h"
 #import "KSCrashInstallation+Alert.h"
+#import "KSCrashInstallation+Private.h"
 #import "KSCrashInstallationConsole.h"
 #import "KSCrashInstallationEmail.h"
 #import "KSCrashInstallationQuincyHockey.h"
