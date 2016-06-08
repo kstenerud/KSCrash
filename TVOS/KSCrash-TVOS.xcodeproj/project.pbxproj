@@ -9,7 +9,7 @@
 /* Begin PBXBuildFile section */
 		CB8F1DDA1CCAF43A0022CDF0 /* KSCrashInstallation+Alert.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8F1DD81CCAF43A0022CDF0 /* KSCrashInstallation+Alert.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CB8F1DDB1CCAF43A0022CDF0 /* KSCrashInstallation+Alert.m in Sources */ = {isa = PBXBuildFile; fileRef = CB8F1DD91CCAF43A0022CDF0 /* KSCrashInstallation+Alert.m */; };
-		CBEE5CDD1CB86989005EAF61 /* KSCrashInstallation+Private.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C331CB86989005EAF61 /* KSCrashInstallation+Private.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CBEE5CDD1CB86989005EAF61 /* KSCrashInstallation+Private.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C331CB86989005EAF61 /* KSCrashInstallation+Private.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CBEE5CDE1CB86989005EAF61 /* KSCrashInstallation.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C341CB86989005EAF61 /* KSCrashInstallation.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CBEE5CDF1CB86989005EAF61 /* KSCrashInstallation.m in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C351CB86989005EAF61 /* KSCrashInstallation.m */; };
 		CBEE5CE01CB86989005EAF61 /* KSCrashInstallationConsole.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C361CB86989005EAF61 /* KSCrashInstallationConsole.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -133,7 +133,7 @@
 		CBEE5D561CB86989005EAF61 /* Container+DeepSearch.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5CB61CB86989005EAF61 /* Container+DeepSearch.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBEE5D571CB86989005EAF61 /* Container+DeepSearch.m in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5CB71CB86989005EAF61 /* Container+DeepSearch.m */; };
 		CBEE5D581CB86989005EAF61 /* KSVarArgs.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5CB81CB86989005EAF61 /* KSVarArgs.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		CBEE5D591CB86989005EAF61 /* NSData+GZip.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5CB91CB86989005EAF61 /* NSData+GZip.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CBEE5D591CB86989005EAF61 /* NSData+GZip.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5CB91CB86989005EAF61 /* NSData+GZip.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CBEE5D5A1CB86989005EAF61 /* NSData+GZip.m in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5CBA1CB86989005EAF61 /* NSData+GZip.m */; };
 		CBEE5D5B1CB86989005EAF61 /* KSCrashReportSinkConsole.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5CBC1CB86989005EAF61 /* KSCrashReportSinkConsole.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CBEE5D5C1CB86989005EAF61 /* KSCrashReportSinkConsole.m in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5CBD1CB86989005EAF61 /* KSCrashReportSinkConsole.m */; };
@@ -686,6 +686,8 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CBEE5CDD1CB86989005EAF61 /* KSCrashInstallation+Private.h in Headers */,
+				CBEE5D591CB86989005EAF61 /* NSData+GZip.h in Headers */,
 				CBEE5D4E1CB86989005EAF61 /* KSCrashReportFilterGZip.h in Headers */,
 				CBEE5D731CB86989005EAF61 /* LLVM.h in Headers */,
 				CBEE5D3B1CB86989005EAF61 /* KSSysCtl.h in Headers */,
@@ -709,7 +711,6 @@
 				CBEE5D051CB86989005EAF61 /* KSCrashType.h in Headers */,
 				CBEE5D361CB86989005EAF61 /* KSSignalInfo.h in Headers */,
 				CBEE5CF91CB86989005EAF61 /* KSCrashDoctor.h in Headers */,
-				CBEE5D591CB86989005EAF61 /* NSData+GZip.h in Headers */,
 				CBEE5D001CB86989005EAF61 /* KSCrashReportVersion.h in Headers */,
 				CBEE5CEF1CB86989005EAF61 /* AlignOf.h in Headers */,
 				CBEE5D141CB86989005EAF61 /* KSCrashSentry_Private.h in Headers */,
@@ -740,7 +741,6 @@
 				CBEE5D501CB86989005EAF61 /* KSCrashReportFilterJSON.h in Headers */,
 				CBEE5D5B1CB86989005EAF61 /* KSCrashReportSinkConsole.h in Headers */,
 				CBEE5D1B1CB86989005EAF61 /* KSBacktrace.h in Headers */,
-				CBEE5CDD1CB86989005EAF61 /* KSCrashInstallation+Private.h in Headers */,
 				CBEE5D561CB86989005EAF61 /* Container+DeepSearch.h in Headers */,
 				CBEE5D181CB86989005EAF61 /* KSCrashSentry_User.h in Headers */,
 				CBEE5D061CB86989005EAF61 /* KSSystemCapabilities.h in Headers */,
