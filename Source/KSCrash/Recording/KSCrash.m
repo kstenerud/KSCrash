@@ -158,7 +158,7 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrash)
         self.searchThreadNames = NO;
         self.searchQueueNames = NO;
         self.introspectMemory = YES;
-        self.catchZombies = YES;
+        self.catchZombies = NO;
         self.maxStoredReports = 5;
     }
     return self;
