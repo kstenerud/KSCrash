@@ -966,6 +966,10 @@ int ksjsoncodec_i_decodeElement(const char** ptr,
             while(*ptr < end)
             {
                 skipWhitespace(ptr, end);
+                unlikely_if(*ptr >= end)
+                {
+                    break;
+                }
                 unlikely_if(**ptr == ']')
                 {
                     (*ptr)++;
@@ -978,6 +982,10 @@ int ksjsoncodec_i_decodeElement(const char** ptr,
                                                      userData);
                 unlikely_if(result != KSJSON_OK) return result;
                 skipWhitespace(ptr, end);
+                unlikely_if(*ptr >= end)
+                {
+                    break;
+                }
                 likely_if(**ptr == ',')
                 {
                     (*ptr)++;
@@ -994,6 +1002,10 @@ int ksjsoncodec_i_decodeElement(const char** ptr,
             while(*ptr < end)
             {
                 skipWhitespace(ptr, end);
+                unlikely_if(*ptr >= end)
+                {
+                    break;
+                }
                 unlikely_if(**ptr == '}')
                 {
                     (*ptr)++;
@@ -1003,6 +1015,11 @@ int ksjsoncodec_i_decodeElement(const char** ptr,
                 result = ksjsoncodec_i_decodeString(ptr, end, &key);
                 unlikely_if(result != KSJSON_OK) return result;
                 skipWhitespace(ptr, end);
+                unlikely_if(*ptr >= end)
+                {
+                    free(key);
+                    break;
+                }
                 unlikely_if(**ptr != ':')
                 {
                     free(key);
@@ -1019,6 +1036,10 @@ int ksjsoncodec_i_decodeElement(const char** ptr,
                 free(key);
                 unlikely_if(result != KSJSON_OK) return result;
                 skipWhitespace(ptr, end);
+                unlikely_if(*ptr >= end)
+                {
+                    break;
+                }
                 likely_if(**ptr == ',')
                 {
                     (*ptr)++;
