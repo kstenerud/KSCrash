@@ -124,7 +124,7 @@ typedef enum
 /** If YES, monitor all Objective-C/Swift deallocations and keep track of any
  * accesses after deallocation.
  *
- * Default: YES
+ * Default: NO
  */
 @property(nonatomic,readwrite,assign) bool catchZombies;
 
