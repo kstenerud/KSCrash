@@ -35,7 +35,7 @@ static inline id safeValue(id value)
 
 @implementation NSMutableArray (KSSafeCollections)
 
-- (void) addObjectIfNotNil:(id) object
+- (void) ksc_addObjectIfNotNil:(id) object
 {
     if(object != nil)
     {
@@ -43,12 +43,12 @@ static inline id safeValue(id value)
     }
 }
 
-- (void) safeAddObject:(id) object
+- (void) ksc_safeAddObject:(id) object
 {
     [self addObject:safeValue(object)];
 }
 
-- (void) insertObjectIfNotNil:(id) object atIndex:(NSUInteger) index
+- (void) ksc_insertObjectIfNotNil:(id) object atIndex:(NSUInteger) index
 {
     if(object != nil)
     {
@@ -56,7 +56,7 @@ static inline id safeValue(id value)
     }
 }
 
-- (void) safeInsertObject:(id) object atIndex:(NSUInteger) index
+- (void) ksc_safeInsertObject:(id) object atIndex:(NSUInteger) index
 {
     [self insertObject:safeValue(object) atIndex:index];
 }
@@ -65,7 +65,7 @@ static inline id safeValue(id value)
 
 @implementation NSMutableDictionary (KSSafeCollections)
 
-- (void) setObjectIfNotNil:(id) object forKey:(id) key
+- (void) ksc_setObjectIfNotNil:(id) object forKey:(id) key
 {
     if(object != nil && key != nil)
     {
@@ -73,12 +73,12 @@ static inline id safeValue(id value)
     }
 }
 
-- (void) safeSetObject:(id) object forKey:(id) key
+- (void) ksc_safeSetObject:(id) object forKey:(id) key
 {
     [self setObject:safeValue(object) forKey:key];
 }
 
-- (void) setValueIfNotNil:(id) value forKey:(NSString*) key
+- (void) ksc_setValueIfNotNil:(id) value forKey:(NSString*) key
 {
     if(value != nil && key != nil)
     {
@@ -86,7 +86,7 @@ static inline id safeValue(id value)
     }
 }
 
-- (void) safeSetValue:(id) value forKey:(NSString*) key
+- (void) ksc_safeSetValue:(id) value forKey:(NSString*) key
 {
     [self setValue:safeValue(value) forKey:key];
 }

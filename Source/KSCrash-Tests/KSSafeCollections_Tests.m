@@ -38,7 +38,7 @@
 {
     NSMutableArray* array = [NSMutableArray array];
     id object = @"blah";
-    [array addObjectIfNotNil:object];
+    [array ksc_addObjectIfNotNil:object];
     XCTAssertTrue([array count] == 1, @"");
 }
 
@@ -46,7 +46,7 @@
 {
     NSMutableArray* array = [NSMutableArray array];
     id object = nil;
-    [array addObjectIfNotNil:object];
+    [array ksc_addObjectIfNotNil:object];
     XCTAssertTrue([array count] == 0, @"");
 }
 
@@ -54,7 +54,7 @@
 {
     NSMutableArray* array = [NSMutableArray array];
     id object = @"blah";
-    [array safeAddObject:object];
+    [array ksc_safeAddObject:object];
     XCTAssertTrue([array count] == 1, @"");
 }
 
@@ -62,7 +62,7 @@
 {
     NSMutableArray* array = [NSMutableArray array];
     id object = nil;
-    [array safeAddObject:object];
+    [array ksc_safeAddObject:object];
     XCTAssertTrue([array count] == 1, @"");
 }
 
@@ -70,7 +70,7 @@
 {
     NSMutableArray* array = [NSMutableArray arrayWithObjects:@"a", @"b", nil];
     id object = @"blah";
-    [array insertObjectIfNotNil:object atIndex:1];
+    [array ksc_insertObjectIfNotNil:object atIndex:1];
     XCTAssertTrue([array count] == 3, @"");
 }
 
@@ -78,7 +78,7 @@
 {
     NSMutableArray* array = [NSMutableArray arrayWithObjects:@"a", @"b", nil];
     id object = nil;
-    [array insertObjectIfNotNil:object atIndex:1];
+    [array ksc_insertObjectIfNotNil:object atIndex:1];
     XCTAssertTrue([array count] == 2, @"");
 }
 
@@ -86,7 +86,7 @@
 {
     NSMutableArray* array = [NSMutableArray arrayWithObjects:@"a", @"b", nil];
     id object = @"blah";
-    [array safeInsertObject:object atIndex:1];
+    [array ksc_safeInsertObject:object atIndex:1];
     XCTAssertTrue([array count] == 3, @"");
 }
 
@@ -94,7 +94,7 @@
 {
     NSMutableArray* array = [NSMutableArray arrayWithObjects:@"a", @"b", nil];
     id object = nil;
-    [array safeInsertObject:object atIndex:1];
+    [array ksc_safeInsertObject:object atIndex:1];
     XCTAssertTrue([array count] == 3, @"");
 }
 
@@ -103,7 +103,7 @@
     NSMutableDictionary* dict = [NSMutableDictionary dictionary];
     id key = @"key";
     id object = @"blah";
-    [dict setObjectIfNotNil:object forKey:key];
+    [dict ksc_setObjectIfNotNil:object forKey:key];
     id result = [dict objectForKey:key];
     XCTAssertEqual(result, object, @"");
 }
@@ -113,7 +113,7 @@
     NSMutableDictionary* dict = [NSMutableDictionary dictionary];
     id key = @"key";
     id object = nil;
-    [dict setObjectIfNotNil:object forKey:key];
+    [dict ksc_setObjectIfNotNil:object forKey:key];
     id result = [dict objectForKey:key];
     XCTAssertNil(result, @"");
 }
@@ -123,7 +123,7 @@
     NSMutableDictionary* dict = [NSMutableDictionary dictionary];
     id key = @"key";
     id object = @"blah";
-    [dict safeSetObject:object forKey:key];
+    [dict ksc_safeSetObject:object forKey:key];
     id result = [dict objectForKey:key];
     XCTAssertEqual(result, object, @"");
 }
@@ -133,7 +133,7 @@
     NSMutableDictionary* dict = [NSMutableDictionary dictionary];
     id key = @"key";
     id object = nil;
-    [dict safeSetObject:object forKey:key];
+    [dict ksc_safeSetObject:object forKey:key];
     id result = [dict objectForKey:key];
     XCTAssertNotNil(result, @"");
 }
@@ -143,7 +143,7 @@
     NSMutableDictionary* dict = [NSMutableDictionary dictionary];
     id key = @"key";
     id object = @"blah";
-    [dict setValueIfNotNil:object forKey:key];
+    [dict ksc_setValueIfNotNil:object forKey:key];
     id result = [dict valueForKey:key];
     XCTAssertEqual(result, object, @"");
 }
@@ -153,7 +153,7 @@
     NSMutableDictionary* dict = [NSMutableDictionary dictionary];
     id key = @"key";
     id object = nil;
-    [dict setValueIfNotNil:object forKey:key];
+    [dict ksc_setValueIfNotNil:object forKey:key];
     id result = [dict valueForKey:key];
     XCTAssertNil(result, @"");
 }
@@ -163,7 +163,7 @@
     NSMutableDictionary* dict = [NSMutableDictionary dictionary];
     id key = @"key";
     id object = @"blah";
-    [dict safeSetValue:object forKey:key];
+    [dict ksc_safeSetValue:object forKey:key];
     id result = [dict valueForKey:key];
     XCTAssertEqual(result, object, @"");
 }
@@ -173,7 +173,7 @@
     NSMutableDictionary* dict = [NSMutableDictionary dictionary];
     id key = @"key";
     id object = nil;
-    [dict safeSetValue:object forKey:key];
+    [dict ksc_safeSetValue:object forKey:key];
     id result = [dict valueForKey:key];
     XCTAssertNotNil(result, @"");
 }
