@@ -280,6 +280,77 @@
     return ksdl_imageNamed("MobileSubstrate", false) != UINT32_MAX;
 }
 
+/** Check if the current build is a debug build.
+ *
+ * @return YES if the app was built in debug mode.
+ */
++ (BOOL) isDebugBuild
+{
+#ifdef DEBUG
+    return YES;
+#else
+    return NO;
+#endif
+}
+
+/** Check if this code is built for the simulator.
+ *
+ * @return YES if this is a simulator build.
+ */
++ (BOOL) isSimulatorBuild
+{
+#if TARGET_OS_SIMULATOR
+    return YES;
+#else
+    return NO;
+#endif
+}
+
+/** Check if the current build is a "testing" build.
+ * This is useful for checking if the app was released through Testflight.
+ *
+ * @return YES if this is a testing build.
+ */
++ (BOOL) isTestBuild
+{
+    NSURL* receiptUrl = [NSBundle mainBundle].appStoreReceiptURL;
+    return [receiptUrl.path.lastPathComponent isEqualToString:@"sandboxReceipt"];
+}
+
+/** Check if the app has an app store receipt.
+ * Only apps released through the app store will have a receipt.
+ *
+ * @return YES if there is an app store receipt.
+ */
++ (BOOL) hasAppStoreReceipt
+{
+    NSURL* receiptUrl = [NSBundle mainBundle].appStoreReceiptURL;
+    BOOL isAppStoreReceipt = [receiptUrl.path.lastPathComponent isEqualToString:@"receipt"];
+    BOOL receiptExists = [[NSFileManager defaultManager] fileExistsAtPath:receiptUrl.path];
+    
+    return isAppStoreReceipt && receiptExists;
+}
+
++ (NSString*) buildType
+{
+    if([KSSystemInfo isSimulatorBuild])
+    {
+        return @"simulator";
+    }
+    if([KSSystemInfo isDebugBuild])
+    {
+        return @"debug";
+    }
+    if([KSSystemInfo isTestBuild])
+    {
+        return @"test";
+    }
+    if([KSSystemInfo hasAppStoreReceipt])
+    {
+        return @"app store";
+    }
+    return @"unknown";
+}
 
 // ============================================================================
 #pragma mark - API -
@@ -334,6 +405,7 @@
     [sysInfo safeSetObject:[NSNumber numberWithInt:[NSProcessInfo processInfo].processIdentifier] forKey:@KSSystemField_ProcessID];
     [sysInfo safeSetObject:[NSNumber numberWithInt:getppid()] forKey:@KSSystemField_ParentProcessID];
     [sysInfo safeSetObject:[self deviceAndAppHash] forKey:@KSSystemField_DeviceAppHash];
+    [sysInfo safeSetObject:[KSSystemInfo buildType] forKey:@KSSystemField_BuildType];
 
     NSDictionary* memory = [NSDictionary dictionaryWithObject:[self int64Sysctl:@"hw.memsize"] forKey:@KSSystemField_Size];
     [sysInfo safeSetObject:memory forKey:@KSSystemField_Memory];
