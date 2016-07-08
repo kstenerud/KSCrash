@@ -41,6 +41,7 @@
 #import "KSJSONCodecObjC.h"
 #import "KSArchSpecific.h"
 #import "KSCrashAdvanced.h"
+#import "KSSystemInfo.h"
 
 #import "NSData+GZip.h"
 
