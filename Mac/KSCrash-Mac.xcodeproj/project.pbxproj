@@ -235,7 +235,7 @@
 		CB8E563517EB9AFD000C56D3 /* KSCrashState.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E562717EB9AFD000C56D3 /* KSCrashState.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CB8E563617EB9AFD000C56D3 /* KSCrashType.c in Sources */ = {isa = PBXBuildFile; fileRef = CB8E562817EB9AFD000C56D3 /* KSCrashType.c */; };
 		CB8E563717EB9AFD000C56D3 /* KSCrashType.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E562917EB9AFD000C56D3 /* KSCrashType.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		CB8E563817EB9AFD000C56D3 /* KSSystemInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E562A17EB9AFD000C56D3 /* KSSystemInfo.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CB8E563817EB9AFD000C56D3 /* KSSystemInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E562A17EB9AFD000C56D3 /* KSSystemInfo.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CB8E563917EB9AFD000C56D3 /* KSSystemInfo.m in Sources */ = {isa = PBXBuildFile; fileRef = CB8E562B17EB9AFD000C56D3 /* KSSystemInfo.m */; };
 		CB8E563A17EB9AFD000C56D3 /* KSSystemInfoC.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E562C17EB9AFD000C56D3 /* KSSystemInfoC.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB8E564C17EB9B35000C56D3 /* KSCrashSentry.c in Sources */ = {isa = PBXBuildFile; fileRef = CB8E563D17EB9B35000C56D3 /* KSCrashSentry.c */; };
@@ -1165,6 +1165,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CB8E563817EB9AFD000C56D3 /* KSSystemInfo.h in Headers */,
 				CB8E571017EB9BA8000C56D3 /* KSCrashInstallation+Private.h in Headers */,
 				CB8E56F517EB9B89000C56D3 /* NSData+GZip.h in Headers */,
 				CB8F1DD21CCAF3B40022CDF0 /* KSCrashInstallation+Alert.h in Headers */,
@@ -1227,7 +1228,6 @@
 				CB8E568B17EB9B43000C56D3 /* KSMach.h in Headers */,
 				CB8E569D17EB9B43000C56D3 /* RFC3339DateTool.h in Headers */,
 				CB8E563517EB9AFD000C56D3 /* KSCrashState.h in Headers */,
-				CB8E563817EB9AFD000C56D3 /* KSSystemInfo.h in Headers */,
 				CB8E56F417EB9B89000C56D3 /* KSVarArgs.h in Headers */,
 				CB8E569A17EB9B43000C56D3 /* KSSysCtl.h in Headers */,
 				CB26861C1C694E4400EE4EB3 /* Compiler.h in Headers */,

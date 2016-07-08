@@ -18,7 +18,7 @@
 		03DE7C491C84DF8100F789BA /* KSCrashState.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D5E17EB765C0056DA83 /* KSCrashState.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		03DE7C4A1C84DF8100F789BA /* KSCrashType.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D5F17EB765C0056DA83 /* KSCrashType.c */; };
 		03DE7C4B1C84DF8100F789BA /* KSCrashType.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D6017EB765C0056DA83 /* KSCrashType.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		03DE7C4C1C84DF8100F789BA /* KSSystemInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D8317EB765C0056DA83 /* KSSystemInfo.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		03DE7C4C1C84DF8100F789BA /* KSSystemInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D8317EB765C0056DA83 /* KSSystemInfo.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		03DE7C4D1C84DF8100F789BA /* KSSystemInfo.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D8417EB765C0056DA83 /* KSSystemInfo.m */; };
 		03DE7C4E1C84DF8100F789BA /* KSSystemInfoC.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D8517EB765C0056DA83 /* KSSystemInfoC.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		03DE7C4F1C84DF8100F789BA /* KSCrashReportStore.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D4B17EB765C0056DA83 /* KSCrashReportStore.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -1217,6 +1217,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				03DE7C4C1C84DF8100F789BA /* KSSystemInfo.h in Headers */,
 				03DE7CC71C84DFCD00F789BA /* KSCrashInstallation+Private.h in Headers */,
 				03DE7DAA1C879A0200F789BA /* KSCrashFramework.h in Headers */,
 				03DE7CBB1C84DFBC00F789BA /* NSData+GZip.h in Headers */,
@@ -1294,7 +1295,6 @@
 				03DE7C5D1C84DF8600F789BA /* KSCrashSentry_Private.h in Headers */,
 				03DE7C761C84DFAB00F789BA /* KSBacktrace_Private.h in Headers */,
 				03DE7CBF1C84DFC100F789BA /* KSHTTPMultipartPostBody.h in Headers */,
-				03DE7C4C1C84DF8100F789BA /* KSSystemInfo.h in Headers */,
 				03DE7C811C84DFAB00F789BA /* KSLogger.h in Headers */,
 				03DE7C981C84DFAB00F789BA /* NSDictionary+Merge.h in Headers */,
 				03DE7C6E1C84DFA400F789BA /* LLVM.h in Headers */,
