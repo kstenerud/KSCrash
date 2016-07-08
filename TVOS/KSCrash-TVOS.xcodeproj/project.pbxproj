@@ -51,7 +51,7 @@
 		CBEE5D041CB86989005EAF61 /* KSCrashType.c in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C5F1CB86989005EAF61 /* KSCrashType.c */; };
 		CBEE5D051CB86989005EAF61 /* KSCrashType.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C601CB86989005EAF61 /* KSCrashType.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CBEE5D061CB86989005EAF61 /* KSSystemCapabilities.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C611CB86989005EAF61 /* KSSystemCapabilities.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		CBEE5D071CB86989005EAF61 /* KSSystemInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C621CB86989005EAF61 /* KSSystemInfo.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CBEE5D071CB86989005EAF61 /* KSSystemInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C621CB86989005EAF61 /* KSSystemInfo.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CBEE5D081CB86989005EAF61 /* KSSystemInfo.m in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C631CB86989005EAF61 /* KSSystemInfo.m */; };
 		CBEE5D091CB86989005EAF61 /* KSSystemInfoC.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C641CB86989005EAF61 /* KSSystemInfoC.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBEE5D0A1CB86989005EAF61 /* KSCrashSentry.c in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C661CB86989005EAF61 /* KSCrashSentry.c */; };
@@ -686,6 +686,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CBEE5D071CB86989005EAF61 /* KSSystemInfo.h in Headers */,
 				CBEE5CDD1CB86989005EAF61 /* KSCrashInstallation+Private.h in Headers */,
 				CBEE5D591CB86989005EAF61 /* NSData+GZip.h in Headers */,
 				CBEE5D4E1CB86989005EAF61 /* KSCrashReportFilterGZip.h in Headers */,
@@ -756,7 +757,6 @@
 				CBEE5D761CB86989005EAF61 /* Punycode.h in Headers */,
 				CBEE5D2F1CB86989005EAF61 /* KSMachApple.h in Headers */,
 				CBEE5D401CB86989005EAF61 /* NSError+SimpleConstructor.h in Headers */,
-				CBEE5D071CB86989005EAF61 /* KSSystemInfo.h in Headers */,
 				CBEE5D331CB86989005EAF61 /* KSSafeCollections.h in Headers */,
 				CBEE5CFD1CB86989005EAF61 /* KSCrashReportFields.h in Headers */,
 				CBEE5CF71CB86989005EAF61 /* KSCrashC.h in Headers */,
