@@ -115,6 +115,7 @@ NSDictionary* g_registerOrders;
 + (void) initialize
 {
     g_dateFormatter = [[NSDateFormatter alloc] init];
+    [g_dateFormatter setLocale:[NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"]];
     [g_dateFormatter setDateFormat:@"yyyy-MM-dd HH:mm:ss.SSS ZZZ"];
 
     NSArray* armOrder = [NSArray arrayWithObjects:
