@@ -198,7 +198,7 @@
         return nil;
     }
     NSMutableDictionary* recrashReport = [self readReport:[self pathToRecrashReportWithID:reportID] error:nil];
-    [crashReport setObjectIfNotNil:recrashReport forKey:@KSCrashField_RecrashReport];
+    [crashReport ksc_setObjectIfNotNil:recrashReport forKey:@KSCrashField_RecrashReport];
 
     return crashReport;
 }
@@ -327,7 +327,7 @@
 
     NSMutableDictionary* mutableReport = [report mutableCopy];
     NSMutableDictionary* mutableInfo = [[report objectForKey:@KSCrashField_Report] mutableCopy];
-    [mutableReport setObjectIfNotNil:mutableInfo forKey:@KSCrashField_Report];
+    [mutableReport ksc_setObjectIfNotNil:mutableInfo forKey:@KSCrashField_Report];
 
     // Timestamp gets stored as a unix timestamp. Convert it to rfc3339.
     [self convertTimestamp:@KSCrashField_Timestamp inReport:mutableInfo];
@@ -341,9 +341,9 @@
                   inReport:mutableReport];
 
     NSMutableDictionary* crashReport = [[report objectForKey:@KSCrashField_Crash] mutableCopy];
-    [mutableReport setObjectIfNotNil:crashReport forKey:@KSCrashField_Crash];
+    [mutableReport ksc_setObjectIfNotNil:crashReport forKey:@KSCrashField_Crash];
     KSCrashDoctor* doctor = [KSCrashDoctor doctor];
-    [crashReport setObjectIfNotNil:[doctor diagnoseCrash:report] forKey:@KSCrashField_Diagnosis];
+    [crashReport ksc_setObjectIfNotNil:[doctor diagnoseCrash:report] forKey:@KSCrashField_Diagnosis];
 
     [self symbolicateField:@[@"threads", @"backtrace", @"contents", @"symbol_name"] inReport:crashReport okIfNotFound:YES];
     [self symbolicateField:@[@"error", @"cpp_exception", @"name"] inReport:crashReport okIfNotFound:YES];
@@ -378,7 +378,7 @@
         return;
     }
 
-    [report setObjectIfNotNil:[srcDict mergedInto:dstDict] forKey:dstKey];
+    [report ksc_setObjectIfNotNil:[srcDict mergedInto:dstDict] forKey:dstKey];
     [report removeObjectForKey:srcKey];
 }
 

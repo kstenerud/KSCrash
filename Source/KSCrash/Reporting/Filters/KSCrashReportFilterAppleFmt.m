@@ -195,7 +195,7 @@ NSDictionary* g_registerOrders;
     {
         if([self majorVersion:report] == kExpectedMajorVersion)
         {
-            [filteredReports addObjectIfNotNil:[self toAppleFormat:report]];
+            [filteredReports ksc_addObjectIfNotNil:[self toAppleFormat:report]];
         }
     }
 
