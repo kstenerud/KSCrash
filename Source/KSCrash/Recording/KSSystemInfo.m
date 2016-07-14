@@ -324,9 +324,13 @@
  */
 + (BOOL) hasAppStoreReceipt
 {
-    NSURL* receiptUrl = [NSBundle mainBundle].appStoreReceiptURL;
-    BOOL isAppStoreReceipt = [receiptUrl.path.lastPathComponent isEqualToString:@"receipt"];
-    BOOL receiptExists = [[NSFileManager defaultManager] fileExistsAtPath:receiptUrl.path];
+    NSString* receiptPath = [NSBundle mainBundle].appStoreReceiptURL.path;
+    if(receiptPath == nil)
+    {
+        return NO;
+    }
+    BOOL isAppStoreReceipt = [receiptPath.lastPathComponent isEqualToString:@"receipt"];
+    BOOL receiptExists = [[NSFileManager defaultManager] fileExistsAtPath:receiptPath];
     
     return isAppStoreReceipt && receiptExists;
 }
