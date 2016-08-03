@@ -86,21 +86,21 @@
     size_t size = kssysctl_stringForName([name cStringUsingEncoding:NSUTF8StringEncoding],
                                          NULL,
                                          0);
-
+    
     if(size <= 0)
     {
         return @"";
     }
-
+    
     NSMutableData* value = [NSMutableData dataWithLength:size];
-
+    
     if(kssysctl_stringForName([name cStringUsingEncoding:NSUTF8StringEncoding],
                               value.mutableBytes,
                               size) != 0)
     {
         str = [NSString stringWithCString:value.mutableBytes encoding:NSUTF8StringEncoding];
     }
-
+    
     return str;
 }
 
@@ -113,13 +113,13 @@
 + (NSDate*) dateSysctl:(NSString*) name
 {
     NSDate* result = nil;
-
+    
     struct timeval value = kssysctl_timevalForName([name cStringUsingEncoding:NSUTF8StringEncoding]);
     if(!(value.tv_sec == 0 && value.tv_usec == 0))
     {
         result = [NSDate dateWithTimeIntervalSince1970:(NSTimeInterval)value.tv_sec];
     }
-
+    
     return result;
 }
 
@@ -134,7 +134,7 @@
     CFUUIDRef uuidRef = CFUUIDCreateFromUUIDBytes(NULL, *((CFUUIDBytes*)uuidBytes));
     NSString* str = (__bridge_transfer NSString*)CFUUIDCreateString(NULL, uuidRef);
     CFRelease(uuidRef);
-
+    
     return str;
 }
 
@@ -160,7 +160,7 @@
     NSString* result = nil;
     
     NSString* exePath = [self executablePath];
-
+    
     if(exePath != nil)
     {
         const uint8_t* uuidBytes = ksdl_imageUUID([exePath UTF8String], true);
@@ -174,7 +174,7 @@
             result = [self uuidBytesToString:uuidBytes];
         }
     }
-
+    
     return result;
 }
 
@@ -187,7 +187,7 @@
 + (NSString*) deviceAndAppHash
 {
     NSMutableData* data = nil;
-
+    
 #if KSCRASH_HAS_UIDEVICE
     if([[UIDevice currentDevice] respondsToSelector:@selector(identifierForVendor)])
     {
@@ -200,12 +200,12 @@
         data = [NSMutableData dataWithLength:6];
         kssysctl_getMacAddress("en0", [data mutableBytes]);
     }
-
+    
     // Append some device-specific data.
     [data appendData:(NSData* _Nonnull )[[self stringSysctl:@"hw.machine"] dataUsingEncoding:NSUTF8StringEncoding]];
     [data appendData:(NSData* _Nonnull )[[self stringSysctl:@"hw.model"] dataUsingEncoding:NSUTF8StringEncoding]];
     [data appendData:(NSData* _Nonnull )[[self currentCPUArch] dataUsingEncoding:NSUTF8StringEncoding]];
-
+    
     // Append the bundle ID.
     NSData* bundleID = [[[NSBundle mainBundle] bundleIdentifier]
                         dataUsingEncoding:NSUTF8StringEncoding];
@@ -213,17 +213,17 @@
     {
         [data appendData:bundleID];
     }
-
+    
     // SHA the whole thing.
     uint8_t sha[CC_SHA1_DIGEST_LENGTH];
     CC_SHA1([data bytes], (CC_LONG)[data length], sha);
-
+    
     NSMutableString* hash = [NSMutableString string];
     for(size_t i = 0; i < sizeof(sha); i++)
     {
         [hash appendFormat:@"%02x", sha[i]];
     }
-
+    
     return hash;
 }
 
@@ -259,7 +259,7 @@
         case CPU_TYPE_X86_64:
             return @"x86_64";
     }
-
+    
     return nil;
 }
 
@@ -267,7 +267,7 @@
 {
     NSString* result = [self CPUArchForCPUType:kssysctl_int32ForName("hw.cputype")
                                        subType:kssysctl_int32ForName("hw.cpusubtype")];
-
+    
     return result ?:[NSString stringWithUTF8String:ksmach_currentCPUArch()];
 }
 
@@ -363,11 +363,11 @@
 + (NSDictionary*) systemInfo
 {
     NSMutableDictionary* sysInfo = [NSMutableDictionary dictionary];
-
+    
     NSBundle* mainBundle = [NSBundle mainBundle];
     NSDictionary* infoDict = [mainBundle infoDictionary];
     const struct mach_header* header = _dyld_get_image_header(0);
-
+    
 #if KSCRASH_HAS_UIDEVICE
     [sysInfo ksc_safeSetObject:[UIDevice currentDevice].systemName forKey:@KSSystemField_SystemName];
     [sysInfo ksc_safeSetObject:[UIDevice currentDevice].systemVersion forKey:@KSSystemField_SystemVersion];
@@ -385,8 +385,22 @@
     }
     [sysInfo ksc_safeSetObject:systemVersion forKey:@KSSystemField_SystemVersion];
 #endif
-    [sysInfo ksc_safeSetObject:[self stringSysctl:@"hw.machine"] forKey:@KSSystemField_Machine];
-    [sysInfo ksc_safeSetObject:[self stringSysctl:@"hw.model"] forKey:@KSSystemField_Model];
+    if([self isSimulatorBuild])
+    {
+        NSString* model = [NSProcessInfo processInfo].environment[@"SIMULATOR_MODEL_IDENTIFIER"];
+        [sysInfo ksc_safeSetObject:model forKey:@KSSystemField_Machine];
+        [sysInfo ksc_safeSetObject:@"simulator" forKey:@KSSystemField_Model];
+    }
+    else
+    {
+#if KSCRASH_HOST_OSX
+        // MacOS has the machine in the model field, and no model
+        [sysInfo ksc_safeSetObject:[self stringSysctl:@"hw.model"] forKey:@KSSystemField_Machine];
+#else
+        [sysInfo ksc_safeSetObject:[self stringSysctl:@"hw.machine"] forKey:@KSSystemField_Machine];
+        [sysInfo ksc_safeSetObject:[self stringSysctl:@"hw.model"] forKey:@KSSystemField_Model];
+#endif
+    }
     [sysInfo ksc_safeSetObject:[self stringSysctl:@"kern.version"] forKey:@KSSystemField_KernelVersion];
     [sysInfo ksc_safeSetObject:[self stringSysctl:@"kern.osversion"] forKey:@KSSystemField_OSVersion];
     [sysInfo ksc_safeSetObject:[NSNumber numberWithBool:[self isJailbroken]] forKey:@KSSystemField_Jailbroken];
@@ -410,10 +424,10 @@
     [sysInfo ksc_safeSetObject:[NSNumber numberWithInt:getppid()] forKey:@KSSystemField_ParentProcessID];
     [sysInfo ksc_safeSetObject:[self deviceAndAppHash] forKey:@KSSystemField_DeviceAppHash];
     [sysInfo ksc_safeSetObject:[KSSystemInfo buildType] forKey:@KSSystemField_BuildType];
-
+    
     NSDictionary* memory = [NSDictionary dictionaryWithObject:[self int64Sysctl:@"hw.memsize"] forKey:@KSSystemField_Size];
     [sysInfo ksc_safeSetObject:memory forKey:@KSSystemField_Memory];
-
+    
     return sysInfo;
 }
 
@@ -435,7 +449,7 @@ const char* kssysteminfo_toJSON(void)
     {
         jsonData = [NSMutableData dataWithData:jsonData];
     }
-
+    
     [jsonData appendBytes:"\0" length:1];
     return strdup([jsonData bytes]);
 }
