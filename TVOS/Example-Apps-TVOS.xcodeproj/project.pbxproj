@@ -7,13 +7,13 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		CBA9B1E21D52934E0067D0FA /* KSCrash.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CBA9B1E11D52934E0067D0FA /* KSCrash.framework */; };
+		CBA9B1E31D5293560067D0FA /* KSCrash.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = CBA9B1E11D52934E0067D0FA /* KSCrash.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		CBEE5DA81CB86CC4005EAF61 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5DA71CB86CC4005EAF61 /* main.m */; };
 		CBEE5DAB1CB86CC4005EAF61 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5DAA1CB86CC4005EAF61 /* AppDelegate.m */; };
 		CBEE5DAE1CB86CC4005EAF61 /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5DAD1CB86CC4005EAF61 /* ViewController.m */; };
 		CBEE5DB11CB86CC4005EAF61 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = CBEE5DAF1CB86CC4005EAF61 /* Main.storyboard */; };
 		CBEE5DB31CB86CC4005EAF61 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CBEE5DB21CB86CC4005EAF61 /* Assets.xcassets */; };
-		CBEE5DB91CB86DEE005EAF61 /* KSCrash.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CBEE5DB81CB86DEE005EAF61 /* KSCrash.framework */; };
-		CBEE5DBA1CB86DEE005EAF61 /* KSCrash.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = CBEE5DB81CB86DEE005EAF61 /* KSCrash.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -23,7 +23,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 10;
 			files = (
-				CBEE5DBA1CB86DEE005EAF61 /* KSCrash.framework in Embed Frameworks */,
+				CBA9B1E31D5293560067D0FA /* KSCrash.framework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -31,6 +31,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		CBA9B1E11D52934E0067D0FA /* KSCrash.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = KSCrash.framework; path = "../../../Library/Developer/Xcode/DerivedData/TVOS-bxbphsyvdykwkjgzlbbmiyqgdbaq/Build/Products/Debug-appletvos/KSCrash.framework"; sourceTree = "<group>"; };
 		CBEE5DA41CB86CC4005EAF61 /* SimpleExample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SimpleExample.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CBEE5DA71CB86CC4005EAF61 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		CBEE5DA91CB86CC4005EAF61 /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
@@ -40,7 +41,6 @@
 		CBEE5DB01CB86CC4005EAF61 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		CBEE5DB21CB86CC4005EAF61 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		CBEE5DB41CB86CC4005EAF61 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		CBEE5DB81CB86DEE005EAF61 /* KSCrash.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; name = KSCrash.framework; path = "/Users/karl/Library/Developer/Xcode/DerivedData/TVOS-bxbphsyvdykwkjgzlbbmiyqgdbaq/Build/Products/Debug-appletvsimulator/KSCrash.framework"; sourceTree = "<absolute>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -48,7 +48,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CBEE5DB91CB86DEE005EAF61 /* KSCrash.framework in Frameworks */,
+				CBA9B1E21D52934E0067D0FA /* KSCrash.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -58,7 +58,7 @@
 		CBEE5D801CB86C68005EAF61 = {
 			isa = PBXGroup;
 			children = (
-				CBEE5DB81CB86DEE005EAF61 /* KSCrash.framework */,
+				CBA9B1E11D52934E0067D0FA /* KSCrash.framework */,
 				CBEE5DA51CB86CC4005EAF61 /* SimpleExample */,
 				CBEE5D8A1CB86C68005EAF61 /* Products */,
 			);
@@ -127,7 +127,7 @@
 				TargetAttributes = {
 					CBEE5DA31CB86CC4005EAF61 = {
 						CreatedOnToolsVersion = 7.3;
-						DevelopmentTeam = T9FTH2H5V5;
+						DevelopmentTeam = 9DEE4YJFV8;
 					};
 				};
 			};
