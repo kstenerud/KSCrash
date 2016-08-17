@@ -179,7 +179,7 @@ typedef enum
  *
  * @param lineOfCode A copy of the offending line of code (nil = ignore).
  *
- * @param stackTrace An array of strings representing the call stack leading to the exception (nil = ignore).
+ * @param stackTrace An array of frames (dictionaries or strings) representing the call stack leading to the exception (nil = ignore).
  *
  * @param terminateProgram If true, do not return from this function call. Terminate the program instead.
  */

@@ -280,8 +280,7 @@ void kscrash_reportUserException(const char* name,
                                  const char* reason,
                                  const char* language,
                                  const char* lineOfCode,
-                                 const char** stackTrace,
-                                 size_t stackTraceCount,
+                                 const char* stackTrace,
                                  bool terminateProgram)
 {
     kscrashsentry_reportUserException(name,
@@ -289,6 +288,5 @@ void kscrash_reportUserException(const char* name,
                                       language,
                                       lineOfCode,
                                       stackTrace,
-                                      stackTraceCount,
                                       terminateProgram);
 }

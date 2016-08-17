@@ -54,8 +54,7 @@ void kscrashsentry_reportUserException(const char* name,
                                        const char* reason,
                                        const char* language,
                                        const char* lineOfCode,
-                                       const char** stackTrace,
-                                       size_t stackTraceCount,
+                                       const char* stackTrace,
                                        bool terminateProgram)
 {
     if(g_context == NULL)
@@ -90,7 +89,6 @@ void kscrashsentry_reportUserException(const char* name,
         g_context->userException.language = language;
         g_context->userException.lineOfCode = lineOfCode;
         g_context->userException.customStackTrace = stackTrace;
-        g_context->userException.customStackTraceLength = (int)stackTraceCount;
 
         KSLOG_DEBUG("Calling main crash handler.");
         g_context->onCrash();

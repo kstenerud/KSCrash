@@ -1911,16 +1911,9 @@ void kscrw_i_writeError(const KSCrashReportWriter* const writer,
                     {
                         writer->addStringElement(writer, KSCrashField_LineOfCode, crash->userException.lineOfCode);
                     }
-                    if(crash->userException.customStackTrace != NULL && crash->userException.customStackTraceLength > 0)
+                    if(crash->userException.customStackTrace != NULL)
                     {
-                        writer->beginArray(writer, KSCrashField_Backtrace);
-                        {
-                            for(int i = 0; i < crash->userException.customStackTraceLength; i++)
-                            {
-                                writer->addStringElement(writer, NULL, crash->userException.customStackTrace[i]);
-                            }
-                        }
-                        writer->endContainer(writer);
+                        writer->addJSONElement(writer, KSCrashField_Backtrace, crash->userException.customStackTrace);
                     }
                 }
                 writer->endContainer(writer);

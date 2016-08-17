@@ -144,11 +144,8 @@ typedef struct KSCrash_SentryContext
         /** The line of code where the exception occurred. Can be NULL. */
         const char* lineOfCode;
 
-        /** The user-supplied custom format stack trace. */
-        const char** customStackTrace;
-
-        /** Length of the stack trace. */
-        int customStackTraceLength;
+        /** The user-supplied JSON encoded stack trace. */
+        const char* customStackTrace;
     } userException;
 
 } KSCrash_SentryContext;
