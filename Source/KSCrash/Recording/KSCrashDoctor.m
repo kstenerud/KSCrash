@@ -468,11 +468,11 @@ typedef enum
 
 - (NSString*) zombieCall:(KSCrashDoctorFunctionCall*) functionCall
 {
-    if([functionCall.name isEqualToString:@"objc_msgSend"] && [[functionCall.params objectAtIndex:0] previousClassName] != nil)
+    if([functionCall.name isEqualToString:@"objc_msgSend"] && functionCall.params.count > 0 && [[functionCall.params objectAtIndex:0] previousClassName] != nil)
     {
         return [functionCall descriptionWithParamCount:4];
     }
-    else if([functionCall.name isEqualToString:@"objc_retain"] && [[functionCall.params objectAtIndex:0] previousClassName] != nil)
+    else if([functionCall.name isEqualToString:@"objc_retain"] && functionCall.params.count > 0 && [[functionCall.params objectAtIndex:0] previousClassName] != nil)
     {
         return [functionCall descriptionWithParamCount:1];
     }
