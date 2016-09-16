@@ -26,6 +26,8 @@
 
 
 #import "KSZombie.h"
+#import "KSObjC.h"
+#import "KSLogger.h"
 
 #import <Foundation/Foundation.h>
 #import <objc/runtime.h>
@@ -115,12 +117,49 @@ static inline size_t hashIndex(const id object)
     return objPtr & g_zombieHashMask;
 }
 
-static void storeException(NSException* exception)
+static bool copyStringIvar(id self, const char* ivarName, char* buffer, size_t bufferLength)
+{
+    Class class = object_getClass(self);
+    KSObjCIvar ivar = {0};
+    if(ksobjc_ivarNamed(class, ivarName, &ivar))
+    {
+        void* pointer;
+        if(ksobjc_ivarValue(self, ivar.index, &pointer))
+        {
+            if(ksobjc_isValidObject(pointer))
+            {
+                if(ksobjc_copyStringContents(pointer, buffer, bufferLength))
+                {
+                    return true;
+                }
+                else
+                {
+                    KSLOG_DEBUG(@"ksobjc_copyStringContents %s failed", ivarName);
+                }
+            }
+            else
+            {
+                KSLOG_DEBUG(@"ksobjc_isValidObject %s failed", ivarName);
+            }
+        }
+        else
+        {
+            KSLOG_DEBUG(@"ksobjc_ivarValue %s failed", ivarName);
+        }
+    }
+    else
+    {
+        KSLOG_DEBUG(@"ksobjc_ivarNamed %s failed", ivarName);
+    }
+    return false;
+}
+
+static void storeException(id exception)
 {
     g_lastDeallocedException.address = exception;
-    strncpy(g_lastDeallocedException.name, [[exception name] UTF8String], sizeof(g_lastDeallocedException.name));
-    strncpy(g_lastDeallocedException.reason, [[exception reason] UTF8String], sizeof(g_lastDeallocedException.reason));
-
+    copyStringIvar(exception, "name", g_lastDeallocedException.name, sizeof(g_lastDeallocedException.name));
+    copyStringIvar(exception, "reason", g_lastDeallocedException.reason, sizeof(g_lastDeallocedException.reason));
+    
 #ifdef __IPHONE_OS_VERSION_MAX_ALLOWED
     // Crashes under OS X
     NSArray* callStack = [exception callStackReturnAddresses];
