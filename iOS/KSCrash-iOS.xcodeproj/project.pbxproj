@@ -93,7 +93,7 @@
 		03DE7C941C84DFAB00F789BA /* KSSysCtl.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D8117EB765C0056DA83 /* KSSysCtl.c */; };
 		03DE7C951C84DFAB00F789BA /* KSSysCtl.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D8217EB765C0056DA83 /* KSSysCtl.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		03DE7C961C84DFAB00F789BA /* KSZombie.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D8717EB765C0056DA83 /* KSZombie.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		03DE7C971C84DFAB00F789BA /* KSZombie.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D8817EB765C0056DA83 /* KSZombie.m */; settings = {COMPILER_FLAGS = "-fno-objc-arc"; }; };
+		03DE7C971C84DFAB00F789BA /* KSZombie.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D8817EB765C0056DA83 /* KSZombie.c */; };
 		03DE7C981C84DFAB00F789BA /* NSDictionary+Merge.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D8B17EB765C0056DA83 /* NSDictionary+Merge.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		03DE7C991C84DFAB00F789BA /* NSDictionary+Merge.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D8C17EB765C0056DA83 /* NSDictionary+Merge.m */; };
 		03DE7C9A1C84DFAB00F789BA /* NSError+SimpleConstructor.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D8D17EB765C0056DA83 /* NSError+SimpleConstructor.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -298,7 +298,7 @@
 		CBF53E3217EB765C0056DA83 /* KSString.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D7F17EB765C0056DA83 /* KSString.c */; };
 		CBF53E3517EB765C0056DA83 /* KSSysCtl.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D8117EB765C0056DA83 /* KSSysCtl.c */; };
 		CBF53E3917EB765C0056DA83 /* KSSystemInfo.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D8417EB765C0056DA83 /* KSSystemInfo.m */; };
-		CBF53E3E17EB765C0056DA83 /* KSZombie.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D8817EB765C0056DA83 /* KSZombie.m */; settings = {COMPILER_FLAGS = "-fno-objc-arc"; }; };
+		CBF53E3E17EB765C0056DA83 /* KSZombie.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D8817EB765C0056DA83 /* KSZombie.c */; settings = {COMPILER_FLAGS = "-fno-objc-arc"; }; };
 		CBF53E4117EB765C0056DA83 /* NSData+GZip.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D8A17EB765C0056DA83 /* NSData+GZip.m */; };
 		CBF53E4417EB765C0056DA83 /* NSDictionary+Merge.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D8C17EB765C0056DA83 /* NSDictionary+Merge.m */; };
 		CBF53E4717EB765C0056DA83 /* NSError+SimpleConstructor.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D8E17EB765C0056DA83 /* NSError+SimpleConstructor.m */; };
@@ -417,7 +417,7 @@
 		EDF2BEA41CCF15AD004BADF4 /* KSMach.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D7217EB765C0056DA83 /* KSMach.c */; };
 		EDF2BEA51CCF15AD004BADF4 /* KSBacktrace.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D1717EB765C0056DA83 /* KSBacktrace.c */; };
 		EDF2BEA61CCF15AD004BADF4 /* KSCrashSentry_MachException.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D5217EB765C0056DA83 /* KSCrashSentry_MachException.c */; };
-		EDF2BEA71CCF15AD004BADF4 /* KSZombie.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D8817EB765C0056DA83 /* KSZombie.m */; settings = {COMPILER_FLAGS = "-fno-objc-arc"; }; };
+		EDF2BEA71CCF15AD004BADF4 /* KSZombie.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D8817EB765C0056DA83 /* KSZombie.c */; settings = {COMPILER_FLAGS = "-fno-objc-arc"; }; };
 		EDF2BEA81CCF15AD004BADF4 /* KSSysCtl.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D8117EB765C0056DA83 /* KSSysCtl.c */; };
 		EDF2BEA91CCF15AD004BADF4 /* KSCrashSentry_Signal.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D5717EB765C0056DA83 /* KSCrashSentry_Signal.c */; };
 		EDF2BEAA1CCF15AD004BADF4 /* RFC3339DateTool.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D9217EB765C0056DA83 /* RFC3339DateTool.m */; };
@@ -747,7 +747,7 @@
 		CBF53D8517EB765C0056DA83 /* KSSystemInfoC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSSystemInfoC.h; path = ../../Source/KSCrash/Recording/KSSystemInfoC.h; sourceTree = "<group>"; };
 		CBF53D8617EB765C0056DA83 /* KSVarArgs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSVarArgs.h; path = ../../Source/KSCrash/Reporting/Filters/Tools/KSVarArgs.h; sourceTree = "<group>"; };
 		CBF53D8717EB765C0056DA83 /* KSZombie.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSZombie.h; path = ../../Source/KSCrash/Recording/Tools/KSZombie.h; sourceTree = "<group>"; };
-		CBF53D8817EB765C0056DA83 /* KSZombie.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSZombie.m; path = ../../Source/KSCrash/Recording/Tools/KSZombie.m; sourceTree = "<group>"; };
+		CBF53D8817EB765C0056DA83 /* KSZombie.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSZombie.c; path = ../../Source/KSCrash/Recording/Tools/KSZombie.c; sourceTree = "<group>"; };
 		CBF53D8917EB765C0056DA83 /* NSData+GZip.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSData+GZip.h"; path = "../../Source/KSCrash/Reporting/Filters/Tools/NSData+GZip.h"; sourceTree = "<group>"; };
 		CBF53D8A17EB765C0056DA83 /* NSData+GZip.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSData+GZip.m"; path = "../../Source/KSCrash/Reporting/Filters/Tools/NSData+GZip.m"; sourceTree = "<group>"; };
 		CBF53D8B17EB765C0056DA83 /* NSDictionary+Merge.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSDictionary+Merge.h"; path = "../../Source/KSCrash/Recording/Tools/NSDictionary+Merge.h"; sourceTree = "<group>"; };
@@ -1125,7 +1125,7 @@
 				CBF53D8117EB765C0056DA83 /* KSSysCtl.c */,
 				CBF53D8217EB765C0056DA83 /* KSSysCtl.h */,
 				CBF53D8717EB765C0056DA83 /* KSZombie.h */,
-				CBF53D8817EB765C0056DA83 /* KSZombie.m */,
+				CBF53D8817EB765C0056DA83 /* KSZombie.c */,
 				CBF53D8B17EB765C0056DA83 /* NSDictionary+Merge.h */,
 				CBF53D8C17EB765C0056DA83 /* NSDictionary+Merge.m */,
 				CBF53D8D17EB765C0056DA83 /* NSError+SimpleConstructor.h */,
@@ -1714,7 +1714,7 @@
 				03DE7C831C84DFAB00F789BA /* KSMach.c in Sources */,
 				03DE7C741C84DFAB00F789BA /* KSBacktrace.c in Sources */,
 				03DE7C591C84DF8600F789BA /* KSCrashSentry_MachException.c in Sources */,
-				03DE7C971C84DFAB00F789BA /* KSZombie.m in Sources */,
+				03DE7C971C84DFAB00F789BA /* KSZombie.c in Sources */,
 				03DE7C941C84DFAB00F789BA /* KSSysCtl.c in Sources */,
 				03DE7C5E1C84DF8600F789BA /* KSCrashSentry_Signal.c in Sources */,
 				03DE7C9F1C84DFAB00F789BA /* RFC3339DateTool.m in Sources */,
@@ -1800,7 +1800,7 @@
 				CBF53E4A17EB765C0056DA83 /* NSMutableData+AppendUTF8.m in Sources */,
 				CBF53E4717EB765C0056DA83 /* NSError+SimpleConstructor.m in Sources */,
 				CBF53DCB17EB765C0056DA83 /* KSCrashReportFilterBasic.m in Sources */,
-				CBF53E3E17EB765C0056DA83 /* KSZombie.m in Sources */,
+				CBF53E3E17EB765C0056DA83 /* KSZombie.c in Sources */,
 				CBF53D9617EB765C0056DA83 /* Container+DeepSearch.m in Sources */,
 				CBF53DC517EB765C0056DA83 /* KSCrashReportFilterAlert.m in Sources */,
 				CBF53DA017EB765C0056DA83 /* KSCrash.m in Sources */,
@@ -1904,7 +1904,7 @@
 				EDF2BEA41CCF15AD004BADF4 /* KSMach.c in Sources */,
 				EDF2BEA51CCF15AD004BADF4 /* KSBacktrace.c in Sources */,
 				EDF2BEA61CCF15AD004BADF4 /* KSCrashSentry_MachException.c in Sources */,
-				EDF2BEA71CCF15AD004BADF4 /* KSZombie.m in Sources */,
+				EDF2BEA71CCF15AD004BADF4 /* KSZombie.c in Sources */,
 				EDF2BEA81CCF15AD004BADF4 /* KSSysCtl.c in Sources */,
 				EDF2BEA91CCF15AD004BADF4 /* KSCrashSentry_Signal.c in Sources */,
 				EDF2BEAA1CCF15AD004BADF4 /* RFC3339DateTool.m in Sources */,

@@ -25,12 +25,11 @@
 //
 
 
-#import "KSZombie.h"
-#import "KSObjC.h"
-#import "KSLogger.h"
+#include "KSZombie.h"
+#include "KSObjC.h"
+#include "KSLogger.h"
 
-#import <Foundation/Foundation.h>
-#import <objc/runtime.h>
+#include <objc/runtime.h>
 
 
 #define CACHE_SIZE 0x8000
@@ -39,53 +38,6 @@
 #define likely_if(x) if(__builtin_expect(x,1))
 #define unlikely_if(x) if(__builtin_expect(x,0))
 
-
-#if __has_feature(objc_arc)
-
-#warning KSZombie.m must be compiled with ARC disabled. Use -fno-objc-arc when compiling this file.
-
-void kszombie_install(__unused size_t cacheSize)
-{
-    NSLog(@"Error: KSZombie.m must be compiled with ARC disabled. "
-          @"Use -fno-objc-arc when compiling this file.");
-    NSLog(@"KSZombie is disabled.");
-}
-
-void kszombie_uninstall(void)
-{
-}
-
-const char* kszombie_className(__unused const void* object)
-{
-    return NULL;
-}
-
-const void* kszombie_lastDeallocedNSExceptionAddress(void)
-{
-    return NULL;
-}
-
-const char* kszombie_lastDeallocedNSExceptionName(void)
-{
-    return NULL;
-}
-
-const char* kszombie_lastDeallocedNSExceptionReason(void)
-{
-    return NULL;
-}
-
-const uintptr_t* kszombie_lastDeallocedNSExceptionCallStack(void)
-{
-    return NULL;
-}
-
-const size_t kszombie_lastDeallocedNSExceptionCallStackLength(void)
-{
-    return 0;
-}
-
-#else
 
 typedef struct
 {
@@ -102,88 +54,67 @@ static struct
     const void* address;
     char name[100];
     char reason[900];
-    uintptr_t callStack[50];
-    NSUInteger callStackLength;
 } g_lastDeallocedException;
 
-#ifdef __IPHONE_OS_VERSION_MAX_ALLOWED
-static const NSUInteger g_callStackSize = sizeof(g_lastDeallocedException.callStack) / sizeof(*g_lastDeallocedException.callStack);
-#endif
-
-static inline size_t hashIndex(const id object)
+static inline size_t hashIndex(const void* object)
 {
     uintptr_t objPtr = (uintptr_t)object;
     objPtr >>= (sizeof(object)-1);
     return objPtr & g_zombieHashMask;
 }
 
-static bool copyStringIvar(id self, const char* ivarName, char* buffer, size_t bufferLength)
+static bool copyStringIvar(const void* self, const char* ivarName, char* buffer, size_t bufferLength)
 {
-    Class class = object_getClass(self);
+    Class class = object_getClass((id)self);
     KSObjCIvar ivar = {0};
-    if(ksobjc_ivarNamed(class, ivarName, &ivar))
+    likely_if(ksobjc_ivarNamed(class, ivarName, &ivar))
     {
         void* pointer;
-        if(ksobjc_ivarValue(self, ivar.index, &pointer))
+        likely_if(ksobjc_ivarValue(self, ivar.index, &pointer))
         {
-            if(ksobjc_isValidObject(pointer))
+            likely_if(ksobjc_isValidObject(pointer))
             {
-                if(ksobjc_copyStringContents(pointer, buffer, bufferLength))
+                likely_if(ksobjc_copyStringContents(pointer, buffer, bufferLength))
                 {
                     return true;
                 }
                 else
                 {
-                    KSLOG_DEBUG(@"ksobjc_copyStringContents %s failed", ivarName);
+                    KSLOG_DEBUG("ksobjc_copyStringContents %s failed", ivarName);
                 }
             }
             else
             {
-                KSLOG_DEBUG(@"ksobjc_isValidObject %s failed", ivarName);
+                KSLOG_DEBUG("ksobjc_isValidObject %s failed", ivarName);
             }
         }
         else
         {
-            KSLOG_DEBUG(@"ksobjc_ivarValue %s failed", ivarName);
+            KSLOG_DEBUG("ksobjc_ivarValue %s failed", ivarName);
         }
     }
     else
     {
-        KSLOG_DEBUG(@"ksobjc_ivarNamed %s failed", ivarName);
+        KSLOG_DEBUG("ksobjc_ivarNamed %s failed", ivarName);
     }
     return false;
 }
 
-static void storeException(id exception)
+static void storeException(const void* exception)
 {
     g_lastDeallocedException.address = exception;
     copyStringIvar(exception, "name", g_lastDeallocedException.name, sizeof(g_lastDeallocedException.name));
     copyStringIvar(exception, "reason", g_lastDeallocedException.reason, sizeof(g_lastDeallocedException.reason));
-    
-#ifdef __IPHONE_OS_VERSION_MAX_ALLOWED
-    // Crashes under OS X
-    NSArray* callStack = [exception callStackReturnAddresses];
-    NSUInteger count = [callStack count];
-    if(count > g_callStackSize)
-    {
-        count = g_callStackSize;
-    }
-    for(NSUInteger i = 0; i < count; i++)
-    {
-        g_lastDeallocedException.callStack[i] = [[callStack objectAtIndex:i] unsignedIntegerValue];
-    }
-    g_lastDeallocedException.callStackLength = count;
-#endif
 }
 
-static inline void handleDealloc(id self)
+static inline void handleDealloc(const void* self)
 {
     volatile Zombie* cache = g_zombieCache;
     likely_if(cache != NULL)
     {
         Zombie* zombie = (Zombie*)cache + hashIndex(self);
         zombie->object = self;
-        Class class = object_getClass(self);
+        Class class = object_getClass((id)self);
         zombie->className = class_getName(class);
         for(; class != nil; class = class_getSuperclass(class))
         {
@@ -206,13 +137,13 @@ static void handleDealloc_ ## CLASS(id self, SEL _cmd) \
 } \
 static void installDealloc_ ## CLASS() \
 { \
-    Method method = class_getInstanceMethod([CLASS class], @selector(dealloc)); \
+    Method method = class_getInstanceMethod(objc_getClass(#CLASS), sel_registerName("dealloc")); \
     g_originalDealloc_ ## CLASS = method_getImplementation(method); \
     method_setImplementation(method, (IMP)handleDealloc_ ## CLASS); \
 } \
 static void uninstallDealloc_ ## CLASS() \
 { \
-    method_setImplementation(class_getInstanceMethod([CLASS class], @selector(dealloc)), g_originalDealloc_ ## CLASS); \
+    method_setImplementation(class_getInstanceMethod(objc_getClass(#CLASS), sel_registerName("dealloc")), g_originalDealloc_ ## CLASS); \
 }
 
 CREATE_ZOMBIE_HANDLER_INSTALLER(NSObject)
@@ -225,12 +156,12 @@ static void install()
     g_zombieCache = calloc(cacheSize, sizeof(*g_zombieCache));
     if(g_zombieCache == NULL)
     {
-        NSLog(@"Error: Could not allocate %ld bytes of memory. KSZombie NOT installed!",
+        KSLOG_ERROR("Error: Could not allocate %ld bytes of memory. KSZombie NOT installed!",
               cacheSize * sizeof(*g_zombieCache));
         return;
     }
 
-    g_lastDeallocedException.class = [NSException class];
+    g_lastDeallocedException.class = objc_getClass("NSException");
     g_lastDeallocedException.address = NULL;
     g_lastDeallocedException.name[0] = 0;
     g_lastDeallocedException.reason[0] = 0;
@@ -296,15 +227,3 @@ const char* kszombie_lastDeallocedNSExceptionReason(void)
 {
     return g_lastDeallocedException.reason;
 }
-
-const uintptr_t* kszombie_lastDeallocedNSExceptionCallStack(void)
-{
-    return g_lastDeallocedException.callStack;
-}
-
-const size_t kszombie_lastDeallocedNSExceptionCallStackLength(void)
-{
-    return g_lastDeallocedException.callStackLength;
-}
-
-#endif

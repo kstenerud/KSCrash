@@ -54,14 +54,10 @@
 - (void) testNoLastDeallocedException
 {
     const void* address = kszombie_lastDeallocedNSExceptionAddress();
-    const uintptr_t* callStack = kszombie_lastDeallocedNSExceptionCallStack();
-    size_t callStackLength = kszombie_lastDeallocedNSExceptionCallStackLength();
     const char* name = kszombie_lastDeallocedNSExceptionName();
     const char* reason = kszombie_lastDeallocedNSExceptionReason();
     
     XCTAssertTrue(address == NULL, @"");
-    XCTAssertTrue((void*)callStack[0] == NULL, @"");
-    XCTAssertTrue(callStackLength == 0, @"");
     XCTAssertTrue(name[0] == 0, @"");
     XCTAssertTrue(reason[0] == 0, @"");
 }
@@ -119,14 +115,10 @@
     XCTAssertTrue(strcmp(className, "NSException") == 0, @"");
 
     const void* address = kszombie_lastDeallocedNSExceptionAddress();
-//    const uintptr_t* callStack = kszombie_lastDeallocedNSExceptionCallStack();
-//    size_t callStackLength = kszombie_lastDeallocedNSExceptionCallStackLength();
     const char* name = kszombie_lastDeallocedNSExceptionName();
     const char* reason = kszombie_lastDeallocedNSExceptionReason();
     
     XCTAssertTrue(address == (__bridge void*)object, @"");
-//    XCTAssertTrue((void*)callStack[0] != NULL, @"");
-//    XCTAssertTrue(callStackLength > 0, @"");
     XCTAssertTrue(strcmp(name, "name") == 0, @"");
     XCTAssertTrue(strcmp(reason, "reason") == 0, @"");
 }

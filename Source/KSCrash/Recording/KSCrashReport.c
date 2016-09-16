@@ -1991,11 +1991,6 @@ void kscrw_i_writeProcessState(const KSCrashReportWriter* const writer,
                 kscrw_i_writeAddressReferencedByString(writer,
                                                        KSCrashField_ReferencedObject,
                                                        kszombie_lastDeallocedNSExceptionReason());
-                kscrw_i_writeBacktrace(writer,
-                                       KSCrashField_Backtrace,
-                                       kszombie_lastDeallocedNSExceptionCallStack(),
-                                       (int)kszombie_lastDeallocedNSExceptionCallStackLength(),
-                                       0);
             }
             writer->endContainer(writer);
         }
