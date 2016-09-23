@@ -24,7 +24,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         installation.subject = "Crash Report"
         installation.message = "This is a crash report"
         installation.filenameFmt = "crash-report-%d.json.gz"
-        installation.reportStyle = KSCrashEmailReportStyleJSON
+//        installation.reportStyle = KSCrashEmailReportStyleJSON
         
         installation.addConditionalAlertWithTitle("Crash Detected",
             message: "The app crashed last time it was launched. Send a crash report?",
