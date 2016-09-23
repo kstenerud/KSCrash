@@ -24,10 +24,11 @@
 #ifndef SWIFT_BASIC_PUNYCODE_H
 #define SWIFT_BASIC_PUNYCODE_H
 
+//#include "swift/Basic/LLVM.h"
+//#include "llvm/ADT/StringRef.h"
+//#include "llvm/ADT/SmallVector.h"
 #include "LLVM.h"
 #include "StringRef.h"
-// KS: Not needed for demangling
-//#include "llvm/ADT/SmallVector.h"
 #include <vector>
 #include <cstdint>
 
@@ -53,5 +54,5 @@ bool decodePunycodeUTF8(StringRef InputPunycode, std::string &OutUTF8);
 } // end namespace Punycode
 } // end namespace swift
 
-#endif // LLVM_SWIFT_BASIC_PUNYCODE_H
+#endif // SWIFT_BASIC_PUNYCODE_H
 

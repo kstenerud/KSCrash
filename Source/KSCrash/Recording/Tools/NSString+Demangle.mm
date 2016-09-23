@@ -33,7 +33,8 @@
 
 - (NSString*) demangledAsSwift
 {
-    std::string demangled = swift::Demangle::demangleSymbolAsString(self.UTF8String);
+    swift::Demangle::DemangleOptions options = swift::Demangle::DemangleOptions::SimplifiedUIDemangleOptions();
+    std::string demangled = swift::Demangle::demangleSymbolAsString(self.UTF8String, options);
     if(demangled.length() == 0)
     {
         return nil;

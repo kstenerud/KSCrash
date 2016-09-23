@@ -15,20 +15,22 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef SWIFT_AST_LLVM_H
-#define SWIFT_AST_LLVM_H
+#ifndef SWIFT_BASIC_LLVM_H
+#define SWIFT_BASIC_LLVM_H
 
 // Do not proliferate #includes here, require clients to #include their
 // dependencies.
 // Casting.h has complex templates that cannot be easily forward declared.
+//#include "llvm/Support/Casting.h"
 #include "Casting.h"
 // None.h includes an enumerator that is desired & cannot be forward declared
 // without a definition of NoneType.
+//#include "llvm/ADT/None.h"
 #include "None.h"
 
 // Forward declarations.
 namespace llvm {
-  // Containers
+  // Containers.
   class StringRef;
   class Twine;
   template <typename T> class SmallPtrSetImpl;
@@ -46,7 +48,7 @@ namespace llvm {
   class raw_ostream;
   class APInt;
   class APFloat;
-} // end namespace llvm;
+} // end namespace llvm
 
 
 namespace swift {
@@ -57,7 +59,7 @@ namespace swift {
   using llvm::dyn_cast_or_null;
   using llvm::cast_or_null;
 
-  // Containers
+  // Containers.
   using llvm::None;
   using llvm::Optional;
   using llvm::SmallPtrSetImpl;
@@ -79,4 +81,4 @@ namespace swift {
   using llvm::NoneType;
 } // end namespace swift
 
-#endif
+#endif // SWIFT_BASIC_LLVM_H
