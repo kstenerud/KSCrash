@@ -28,14 +28,24 @@
 #import <Foundation/Foundation.h>
 
 
-/** Demangles C++ or Swift symbols.
+/** Demangles symbols for various languages.
  */
 @interface NSString (Demangle)
 
-/** Demangle a symbol into a human readable format.
+/**
+ * Demangle as a Swift symbol.
  *
- * @return The demangled symbol, or the original string if it couldn't be demangled.
+ * @param symbol The symbol to demangle.
+ * @return The demangled string or nil if it can't be demangled as Swift.
  */
-- (NSString*) demangledSymbol;
+- (NSString*) demangledAsSwift;
+
+/**
+ * Demangle as a C++ symbol.
+ *
+ * @param symbol The symbol to demangle.
+ * @return The demangled string or nil if it can't be demangled as C++.
+ */
+- (NSString*) demangledAsCPP;
 
 @end

@@ -39,6 +39,11 @@
 /** The total number of reports. Note: This is an expensive operation. */
 @property(nonatomic,readonly,assign) NSUInteger reportCount;
 
+/** If true, demangle any C++ symbols found in stack traces. */
+@property(nonatomic,readwrite,assign) BOOL demangleCPP;
+
+/** If true, demangle any Swift symbols found in stack traces. */
+@property(nonatomic,readwrite,assign) BOOL demangleSwift;
 
 /** Create a new store.
  *

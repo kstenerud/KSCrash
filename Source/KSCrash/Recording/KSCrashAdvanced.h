@@ -28,6 +28,12 @@
 #import "KSCrash.h"
 #import "KSCrashReportStore.h"
 
+typedef enum
+{
+    KSCrashDemangleLanguageCPlusPlus = 1,
+    KSCrashDemangleLanguageSwift = 2,
+    KSCrashDemangleLanguageAll = ~1
+} KSCrashDemangleLanguage;
 
 /**
  * Advanced interface to the KSCrash system.
@@ -62,6 +68,9 @@
 
 /** Max number of reports to store on disk before throwing older reports out. (default 5) */
 @property(nonatomic,readwrite,assign) int maxStoredReports;
+
+/** Which languages to demangle when getting stack traces (default KSCrashDemangleLanguageAll) */
+@property(nonatomic,readwrite,assign) KSCrashDemangleLanguage demangleLanguages;
 
 /** The total number of unsent reports. Note: This is an expensive operation.
  */

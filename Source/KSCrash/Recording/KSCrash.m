@@ -113,6 +113,26 @@
 #pragma mark - Lifecycle -
 // ============================================================================
 
+- (void) setDemangleLanguages:(KSCrashDemangleLanguage)demangleLanguages
+{
+    self.crashReportStore.demangleCPP = (demangleLanguages & KSCrashDemangleLanguageCPlusPlus) != 0;
+    self.crashReportStore.demangleSwift = (demangleLanguages & KSCrashDemangleLanguageSwift) != 0;
+}
+
+- (KSCrashDemangleLanguage) demangleLanguages
+{
+    KSCrashDemangleLanguage languages = 0;
+    if(self.crashReportStore.demangleCPP)
+    {
+        languages |= KSCrashDemangleLanguageCPlusPlus;
+    }
+    if(self.crashReportStore.demangleSwift)
+    {
+        languages |= KSCrashDemangleLanguageSwift;
+    }
+    return languages;
+}
+
 IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrash)
 
 - (id) init
