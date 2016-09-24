@@ -959,11 +959,11 @@ private:
     Node::IndexType length;
     if (!demangleNatural(length))
       return nullptr;
-    if (!Mangled.hasAtLeast(length))
+    if (!Mangled.hasAtLeast((size_t)length))
       return nullptr;
     
-    StringRef identifier = Mangled.slice(length);
-    Mangled.advanceOffset(length);
+    StringRef identifier = Mangled.slice((size_t)length);
+    Mangled.advanceOffset((size_t)length);
     
     // Decode Unicode identifiers.
     identifier = decode(identifier);
@@ -1070,7 +1070,7 @@ private:
       return nullptr;
     if (index_sub >= Substitutions.size())
       return nullptr;
-    return Substitutions[index_sub];
+    return Substitutions[(size_t)index_sub];
   }
 
   NodePointer demangleModule() {
