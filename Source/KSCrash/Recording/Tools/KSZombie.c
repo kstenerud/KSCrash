@@ -74,7 +74,7 @@ static bool copyStringIvar(const void* self, const char* ivarName, char* buffer,
         {
             likely_if(ksobjc_isValidObject(pointer))
             {
-                likely_if(ksobjc_copyStringContents(pointer, buffer, bufferLength))
+                likely_if(ksobjc_copyStringContents(pointer, buffer, bufferLength) > 0)
                 {
                     return true;
                 }

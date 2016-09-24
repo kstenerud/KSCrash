@@ -118,6 +118,8 @@
 
 @synthesize path = _path;
 @synthesize bundleName = _bundleName;
+@synthesize demangleSwift = _demangleSwift;
+@synthesize demangleCPP = _demangleCPP;
 
 
 #pragma mark Construction
