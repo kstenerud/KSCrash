@@ -36,8 +36,8 @@ static const char delimiter = '_';
 static char digit_value(int digit) {
   assert(digit < base && "invalid punycode digit");
   if (digit < 26)
-    return 'a' + digit;
-  return 'A' - 26 + digit;
+    return 'a' + (char)digit;
+  return 'A' - 26 + (char)digit;
 }
 
 static int digit_index(char value) {
@@ -89,7 +89,7 @@ bool Punycode::decodePunycode(StringRef InputPunycode,
       // fail on any non-basic code point
       if (static_cast<unsigned char>(c) > 0x7f)
         return true;
-      OutCodePoints.push_back(c);
+      OutCodePoints.push_back((uint32_t)c);
     }
     // if more than zero code points were consumed then consume one more
     //  (which will be the last delimiter)
@@ -119,9 +119,9 @@ bool Punycode::decodePunycode(StringRef InputPunycode,
         break;
       w = w * (base - t);
     }
-    bias = adapt(i - oldi, OutCodePoints.size() + 1, oldi == 0);
-    n = n + i / (OutCodePoints.size() + 1);
-    i = i % (OutCodePoints.size() + 1);
+    bias = adapt(i - oldi, (int)OutCodePoints.size() + 1, oldi == 0);
+    n = n + (uint32_t)i / (OutCodePoints.size() + 1);
+    i = i % ((int)OutCodePoints.size() + 1);
     // if n is a basic code point then fail
     if (n < 0x80)
       return true;
@@ -149,7 +149,7 @@ bool Punycode::encodePunycode(const std::vector<uint32_t> &InputCodePoints,
   for (auto C : InputCodePoints) {
     if (C < 0x80) {
       ++h;
-      OutPunycode.push_back(C);
+      OutPunycode.push_back((char)C);
     }
     if (!isValidUnicodeScalar(C)) {
       OutPunycode.clear();
@@ -169,7 +169,7 @@ bool Punycode::encodePunycode(const std::vector<uint32_t> &InputCodePoints,
         m = codePoint;
     }
     
-    delta = delta + (m - n) * (h + 1);
+    delta = delta + (int)(m - n) * (int)(h + 1);
     n = m;
     for (auto c : InputCodePoints) {
       if (c < n) ++delta;
@@ -185,7 +185,7 @@ bool Punycode::encodePunycode(const std::vector<uint32_t> &InputCodePoints,
           q = (q - t) / (base - t);
         }
         OutPunycode.push_back(digit_value(q));
-        bias = adapt(delta, h + 1, h == b);
+        bias = adapt(delta, (int)h + 1, h == b);
         delta = 0;
         ++h;
       }
@@ -215,14 +215,14 @@ static bool encodeToUTF8(const std::vector<uint32_t> &Scalars,
 
     switch (Bytes) {
     case 1:
-      OutUTF8.push_back(S);
+      OutUTF8.push_back((char)S);
       break;
     case 2: {
       uint8_t Byte2 = (S | 0x80) & 0xBF;
       S >>= 6;
-      uint8_t Byte1 = S | 0xC0;
-      OutUTF8.push_back(Byte1);
-      OutUTF8.push_back(Byte2);
+      uint8_t Byte1 = (uint8_t)S | 0xC0;
+      OutUTF8.push_back((char)Byte1);
+      OutUTF8.push_back((char)Byte2);
       break;
     }
     case 3: {
@@ -230,10 +230,10 @@ static bool encodeToUTF8(const std::vector<uint32_t> &Scalars,
       S >>= 6;
       uint8_t Byte2 = (S | 0x80) & 0xBF;
       S >>= 6;
-      uint8_t Byte1 = S | 0xE0;
-      OutUTF8.push_back(Byte1);
-      OutUTF8.push_back(Byte2);
-      OutUTF8.push_back(Byte3);
+      uint8_t Byte1 = (uint8_t)S | 0xE0;
+      OutUTF8.push_back((char)Byte1);
+      OutUTF8.push_back((char)Byte2);
+      OutUTF8.push_back((char)Byte3);
       break;
     }
     case 4: {
@@ -243,11 +243,11 @@ static bool encodeToUTF8(const std::vector<uint32_t> &Scalars,
       S >>= 6;
       uint8_t Byte2 = (S | 0x80) & 0xBF;
       S >>= 6;
-      uint8_t Byte1 = S | 0xF0;
-      OutUTF8.push_back(Byte1);
-      OutUTF8.push_back(Byte2);
-      OutUTF8.push_back(Byte3);
-      OutUTF8.push_back(Byte4);
+      uint8_t Byte1 = (uint8_t)S | 0xF0;
+      OutUTF8.push_back((char)Byte1);
+      OutUTF8.push_back((char)Byte2);
+      OutUTF8.push_back((char)Byte3);
+      OutUTF8.push_back((char)Byte4);
       break;
     }
     }

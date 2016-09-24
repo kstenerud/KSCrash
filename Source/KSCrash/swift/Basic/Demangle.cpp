@@ -60,7 +60,7 @@ namespace {
 struct QuotedString {
   std::string Value;
 
-  explicit QuotedString(std::string Value) : Value(Value) {}
+  explicit QuotedString(std::string aValue) : Value(aValue) {}
 };
 } // end anonymous namespace.
 
@@ -393,7 +393,7 @@ private:
     char c = Mangled.next();
     if (c < '0' || c > '9')
       return false;
-    num = (c - '0');
+    num = (Node::IndexType)(c - '0');
     while (true) {
       if (!Mangled) {
         return true;
@@ -402,7 +402,7 @@ private:
       if (c < '0' || c > '9') {
         return true;
       } else {
-        num = (10 * num) + (c - '0');
+        num = ((Node::IndexType)10 * num) + (Node::IndexType)(c - '0');
       }
       Mangled.next();
     }
@@ -1492,7 +1492,7 @@ private:
       depth = 0;
       index += 1;
     }
-    return getDependentGenericParamType(depth, index);
+    return getDependentGenericParamType((unsigned)depth, (unsigned)index);
   }
 
   NodePointer demangleDependentMemberTypeName(NodePointer base) {
@@ -2268,11 +2268,11 @@ private:
       kind = Node::Kind::ImplErrorResult;
     }
   
-    auto getContext = [](Node::Kind kind) -> ImplConventionContext {
-      if (kind == Node::Kind::ImplParameter)
+    auto getContext = [](Node::Kind aKind) -> ImplConventionContext {
+      if (aKind == Node::Kind::ImplParameter)
         return ImplConventionContext::Parameter;
-      else if (kind == Node::Kind::ImplResult
-               || kind == Node::Kind::ImplErrorResult)
+      else if (aKind == Node::Kind::ImplResult
+               || aKind == Node::Kind::ImplErrorResult)
         return ImplConventionContext::Result;
       else
         unreachable("unexpected node kind");
@@ -2296,7 +2296,7 @@ private:
 NodePointer
 swift::Demangle::demangleSymbolAsNode(const char *MangledName,
                                       size_t MangledNameLength,
-                                      const DemangleOptions &Options) {
+                                      __unused const DemangleOptions &Options) {
   Demangler demangler(StringRef(MangledName, MangledNameLength));
   return demangler.demangleTopLevel();
 }
@@ -2304,7 +2304,7 @@ swift::Demangle::demangleSymbolAsNode(const char *MangledName,
 NodePointer
 swift::Demangle::demangleTypeAsNode(const char *MangledName,
                                     size_t MangledNameLength,
-                                    const DemangleOptions &Options) {
+                                    __unused const DemangleOptions &Options) {
   Demangler demangler(StringRef(MangledName, MangledNameLength));
   return demangler.demangleTypeName();
 }
@@ -2722,7 +2722,7 @@ static bool isExistentialType(NodePointer node) {
 unsigned NodePrinter::printFunctionSigSpecializationParam(NodePointer pointer,
                                                           unsigned Idx) {
   NodePointer firstChild = pointer->getChild(Idx);
-  unsigned V = firstChild->getIndex();
+  unsigned V = (unsigned)firstChild->getIndex();
   auto K = FunctionSigSpecializationParamKind(V);
   switch (K) {
   case FunctionSigSpecializationParamKind::BoxToValue:
@@ -2768,7 +2768,7 @@ unsigned NodePrinter::printFunctionSigSpecializationParam(NodePointer pointer,
     Printer << " : ";
     print(pointer->getChild(Idx++));
     Printer << ", Argument Types : [";
-    for (unsigned e = pointer->getNumChildren(); Idx < e;) {
+    for (unsigned e = (unsigned)pointer->getNumChildren(); Idx < e;) {
       NodePointer child = pointer->getChild(Idx);
       // Until we no longer have a type node, keep demangling.
       if (child->getKind() != Node::Kind::Type)
@@ -3120,7 +3120,7 @@ void NodePrinter::print(NodePointer pointer, bool asContext, bool suppressType) 
       Printer << "generic not re-abstracted specialization <";
     }
     bool hasPrevious = false;
-    for (unsigned i = 0, e = pointer->getNumChildren(); i < e; ++i) {
+    for (unsigned i = 0, e = (unsigned)pointer->getNumChildren(); i < e; ++i) {
       auto child = pointer->getChild(i);
 
       switch (pointer->getChild(i)->getKind()) {
@@ -3151,7 +3151,7 @@ void NodePrinter::print(NodePointer pointer, bool asContext, bool suppressType) 
     return;
   case Node::Kind::GenericSpecializationParam:
     print(pointer->getChild(0));
-    for (unsigned i = 1, e = pointer->getNumChildren(); i < e; ++i) {
+    for (unsigned i = 1, e = (unsigned)pointer->getNumChildren(); i < e; ++i) {
       if (i == 1)
         Printer << " with ";
       else
@@ -3166,7 +3166,7 @@ void NodePrinter::print(NodePointer pointer, bool asContext, bool suppressType) 
 
     unsigned Idx = printFunctionSigSpecializationParam(pointer, 0);
 
-    for (unsigned e = pointer->getNumChildren(); Idx < e;) {
+    for (unsigned e = (unsigned)pointer->getNumChildren(); Idx < e;) {
       Printer << " and ";
       Idx = printFunctionSigSpecializationParam(pointer, Idx);
     }
@@ -3614,7 +3614,7 @@ void NodePrinter::print(NodePointer pointer, bool asContext, bool suppressType) 
     Printer << '<';
     
     unsigned depth = 0;
-    unsigned numChildren = pointer->getNumChildren();
+    unsigned numChildren = (unsigned)pointer->getNumChildren();
     for (;
          depth < numChildren
            && pointer->getChild(depth)->getKind()
@@ -3623,7 +3623,7 @@ void NodePrinter::print(NodePointer pointer, bool asContext, bool suppressType) 
       if (depth != 0)
         Printer << "><";
       
-      unsigned count = pointer->getChild(depth)->getIndex();
+      unsigned count = (unsigned)pointer->getChild(depth)->getIndex();
       for (unsigned index = 0; index < count; ++index) {
         if (index != 0)
           Printer << ", ";
