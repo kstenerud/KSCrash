@@ -306,6 +306,20 @@
 #endif
 }
 
+/** The file path for the bundle’s App Store receipt.
+ *
+ * @return App Store receipt for iOS 7+, nil otherwise.
+ */
++ (NSString*)receiptUrlPath
+{
+    NSString* path = nil;
+    // For iOS 6 compatibility
+    if ([[UIDevice currentDevice].systemVersion compare:@"7" options:NSNumericSearch] != NSOrderedAscending) {
+        path = [NSBundle mainBundle].appStoreReceiptURL.path;
+    }
+    return path;
+}
+
 /** Check if the current build is a "testing" build.
  * This is useful for checking if the app was released through Testflight.
  *
@@ -313,8 +327,7 @@
  */
 + (BOOL) isTestBuild
 {
-    NSURL* receiptUrl = [NSBundle mainBundle].appStoreReceiptURL;
-    return [receiptUrl.path.lastPathComponent isEqualToString:@"sandboxReceipt"];
+    return [[self receiptUrlPath].lastPathComponent isEqualToString:@"sandboxReceipt"];
 }
 
 /** Check if the app has an app store receipt.
@@ -324,7 +337,7 @@
  */
 + (BOOL) hasAppStoreReceipt
 {
-    NSString* receiptPath = [NSBundle mainBundle].appStoreReceiptURL.path;
+    NSString* receiptPath = [self receiptUrlPath];
     if(receiptPath == nil)
     {
         return NO;
