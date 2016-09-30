@@ -313,10 +313,14 @@
 + (NSString*)receiptUrlPath
 {
     NSString* path = nil;
+#if KSCRASH_HOST_IOS
     // For iOS 6 compatibility
     if ([[UIDevice currentDevice].systemVersion compare:@"7" options:NSNumericSearch] != NSOrderedAscending) {
+#endif
         path = [NSBundle mainBundle].appStoreReceiptURL.path;
+#if KSCRASH_HOST_IOS
     }
+#endif
     return path;
 }
 
