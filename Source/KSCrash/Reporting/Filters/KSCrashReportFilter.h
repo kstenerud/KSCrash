@@ -24,9 +24,11 @@
 // THE SOFTWARE.
 //
 
+#ifndef KSCrashReportFilter_h
+#define KSCrashReportFilter_h
+
 
 #import <Foundation/Foundation.h>
-
 
 /** Callback for filter operations.
  *
@@ -205,3 +207,5 @@ typedef void(^KSCrashReportFilterCompletion)(NSArray* filteredReports,
 - (id) initWithKeys:(id) firstKeyPath, ... NS_REQUIRES_NIL_TERMINATION;
 
 @end
+
+#endif
