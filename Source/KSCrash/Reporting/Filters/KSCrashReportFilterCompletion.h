@@ -1,9 +1,9 @@
 //
-//  KSCrashCallCompletion.h
+//  KSCrashReportFilterCompletion.h
 //
-//  Created by Karl Stenerud on 2013-02-10.
+//  Created by Karl Stenerud on 2016-10-06.
 //
-//  Copyright (c) 2012 Karl Stenerud. All rights reserved.
+//  Copyright (c) Karl Stenerud. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -24,16 +24,18 @@
 // THE SOFTWARE.
 //
 
-#import "KSCrashReportFilterCompletion.h"
 
-/** Conditionally call a completion method if it's not nil.
+#import <Foundation/Foundation.h>
+
+/** Callback for filter operations.
  *
- * @param onCompletion The completion block. If nil, this function does nothing.
- * @param filteredReports The parameter to send as "filteredReports".
- * @param completed The parameter to send as "completed".
- * @param error The parameter to send as "error".
+ * @param filteredReports The filtered reports (may be incomplete if "completed"
+ *                        is false).
+ * @param completed True if filtering completed.
+ *                  Can be false due to a non-erroneous condition (such as a
+ *                  user cancelling the operation).
+ * @param error Non-nil if an error occurred.
  */
-void kscrash_i_callCompletion(KSCrashReportFilterCompletion onCompletion,
-                              NSArray* filteredReports,
-                              BOOL completed,
-                              NSError* error);
+typedef void(^KSCrashReportFilterCompletion)(NSArray* filteredReports,
+                                             BOOL completed,
+                                             NSError* error);

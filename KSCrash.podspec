@@ -60,9 +60,11 @@ Pod::Spec.new do |s|
     reporting.subspec 'Filters' do |filters|
       filters.subspec 'Base' do |base|
         base.source_files = 'Source/KSCrash/Reporting/Filters/Tools/**/*.{h,m,mm,c,cpp}',
+                            'Source/KSCrash/Reporting/Filters/KSCrashReportFilterCompletion.h',
                             'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h',
                             'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.m'
-        base.public_header_files = 'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h'
+        base.public_header_files = 'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h',
+                            'Source/KSCrash/Reporting/Filters/KSCrashReportFilterCompletion.h'
       end
 
       filters.subspec 'Alert' do |alert|

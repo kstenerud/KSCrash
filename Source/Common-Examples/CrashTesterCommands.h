@@ -6,7 +6,7 @@
 //  Copyright (c) 2013 Karl Stenerud. All rights reserved.
 //
 
-#import <KSCrash/KSCrashReportFilter.h>
+#import <KSCrash/KSCrashReportFilterCompletion.h>
 
 @interface CrashTesterCommands : NSObject
 
