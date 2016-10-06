@@ -19,7 +19,7 @@ Pod::Spec.new do |s|
     recording.source_files   = 'Source/KSCrash/Recording/**/*.{h,m,mm,c,cpp}',
                                'Source/KSCrash/llvm/**/*.{h,m,mm,c,cpp}',
                                'Source/KSCrash/swift/**/*.{h,m,mm,c,cpp}',
-                               'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h'
+                               'Source/KSCrash/Reporting/Filters/KSCrashReportFilterCompletion.h'
     recording.public_header_files = 'Source/KSCrash/Recording/KSCrash.h',
                                     'Source/KSCrash/Recording/KSCrashC.h',
                                     'Source/KSCrash/Recording/KSCrashContext.h',
