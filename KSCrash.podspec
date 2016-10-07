@@ -1,7 +1,7 @@
 Pod::Spec.new do |s|
   IOS_DEPLOYMENT_TARGET = '6.0' unless defined? IOS_DEPLOYMENT_TARGET
   s.name         = "KSCrash"
-  s.version      = "1.8.12"
+  s.version      = "1.8.13"
   s.summary      = "The Ultimate iOS Crash Reporter"
   s.homepage     = "https://github.com/kstenerud/KSCrash"
   s.license     = { :type => 'KSCrash license agreement', :file => 'LICENSE' }
@@ -19,7 +19,7 @@ Pod::Spec.new do |s|
     recording.source_files   = 'Source/KSCrash/Recording/**/*.{h,m,mm,c,cpp}',
                                'Source/KSCrash/llvm/**/*.{h,m,mm,c,cpp}',
                                'Source/KSCrash/swift/**/*.{h,m,mm,c,cpp}',
-                               'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h'
+                               'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h',
                                'Source/KSCrash/Reporting/Filters/KSCrashReportFilterCompletion.h'
     recording.public_header_files = 'Source/KSCrash/Recording/KSCrash.h',
                                     'Source/KSCrash/Recording/KSCrashC.h',
@@ -34,6 +34,7 @@ Pod::Spec.new do |s|
                                     'Source/KSCrash/Recording/Tools/KSJSONCodecObjC.h',
                                     'Source/KSCrash/Recording/Tools/NSError+SimpleConstructor.h',
                                     'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h',
+                                    'Source/KSCrash/Reporting/Filters/KSCrashReportFilterCompletion.h',
                                     'Source/KSCrash/Recording/Tools/RFC3339DateTool.h'
   end
 
@@ -119,7 +120,8 @@ Pod::Spec.new do |s|
       end
 
       filters.subspec 'Tools' do |tools|
-        tools.source_files = 'Source/KSCrash/Reporting/Filters/Tools/**/*.{h,m,mm,c,cpp}'
+        tools.source_files = 'Source/KSCrash/Reporting/Filters/Tools/**/*.{h,m,mm,c,cpp}',
+                             'Source/KSCrash/Reporting/Filters/KSCrashReportFilterCompletion.h'
       end
 
     end
