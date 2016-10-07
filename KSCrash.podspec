@@ -1,7 +1,7 @@
 Pod::Spec.new do |s|
   IOS_DEPLOYMENT_TARGET = '6.0' unless defined? IOS_DEPLOYMENT_TARGET
   s.name         = "KSCrash"
-  s.version      = "1.8.10"
+  s.version      = "1.8.11"
   s.summary      = "The Ultimate iOS Crash Reporter"
   s.homepage     = "https://github.com/kstenerud/KSCrash"
   s.license     = { :type => 'KSCrash license agreement', :file => 'LICENSE' }
@@ -45,6 +45,7 @@ Pod::Spec.new do |s|
                             'Source/KSCrash/Recording/KSCrashReportFields.h',
                             'Source/KSCrash/Recording/KSCrashReportStore.h',
                             'Source/KSCrash/Recording/KSSystemInfoC.h',
+                            'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h',
                             'Source/KSCrash/Reporting/Filters/KSCrashReportFilterCompletion.h'
   end
 
