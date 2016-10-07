@@ -44,7 +44,8 @@ Pod::Spec.new do |s|
                             'Source/KSCrash/Recording/KSCrashDoctor.h',
                             'Source/KSCrash/Recording/KSCrashReportFields.h',
                             'Source/KSCrash/Recording/KSCrashReportStore.h',
-                            'Source/KSCrash/Recording/KSSystemInfoC.h'
+                            'Source/KSCrash/Recording/KSSystemInfoC.h',
+                            'Source/KSCrash/Reporting/Filters/KSCrashReportFilterCompletion.h'
   end
 
   # This subspec is just to optionally expose the tools headers
