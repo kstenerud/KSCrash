@@ -28,7 +28,26 @@
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES">
       <Testables>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "8A2506FD1DA8768E00D7F158"
+               BuildableName = "KSCrashTests.xctest"
+               BlueprintName = "KSCrashTests"
+               ReferencedContainer = "container:KSCrash-TVOS.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
+      <MacroExpansion>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "CBEE5C261CB8679E005EAF61"
+            BuildableName = "KSCrash.framework"
+            BlueprintName = "KSCrash"
+            ReferencedContainer = "container:KSCrash-TVOS.xcodeproj">
+         </BuildableReference>
+      </MacroExpansion>
       <AdditionalOptions>
       </AdditionalOptions>
    </TestAction>
