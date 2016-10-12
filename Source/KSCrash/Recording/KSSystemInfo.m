@@ -394,11 +394,11 @@
     NSString* systemVersion;
     if(version.patchVersion == 0)
     {
-        systemVersion = [NSString stringWithFormat:@"%ld.%ld", version.majorVersion, version.minorVersion];
+        systemVersion = [NSString stringWithFormat:@"%ld.%ld", (long)version.majorVersion, (long)version.minorVersion];
     }
     else
     {
-        systemVersion = [NSString stringWithFormat:@"%ld.%ld.%ld", version.majorVersion, version.minorVersion, version.patchVersion];
+        systemVersion = [NSString stringWithFormat:@"%ld.%ld.%ld", (long)version.majorVersion, (long)version.minorVersion, (long)version.patchVersion];
     }
     [sysInfo ksc_safeSetObject:systemVersion forKey:@KSSystemField_SystemVersion];
 #endif
@@ -410,7 +410,7 @@
     }
     else
     {
-#if KSCRASH_HOST_OSX
+#if KSCRASH_HOST_MAC
         // MacOS has the machine in the model field, and no model
         [sysInfo ksc_safeSetObject:[self stringSysctl:@"hw.model"] forKey:@KSSystemField_Machine];
 #else

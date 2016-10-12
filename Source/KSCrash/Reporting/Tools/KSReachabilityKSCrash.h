@@ -26,8 +26,9 @@
 
 
 #import <Foundation/Foundation.h>
+#if KSCRASH_HAS_REACHABILITY
 #import <SystemConfiguration/SystemConfiguration.h>
-
+#endif
 
 /** This is the notification name used in the Apple reachability example. */
 #define kDefaultNetworkReachabilityChangedNotification @"kNetworkReachabilityChangedNotification"
@@ -84,7 +85,9 @@
 #pragma mark KVO Compliant Status Properties
 
 /** The current reachability flags. */
+#if KSCRASH_HAS_REACHABILITY
 @property(nonatomic,readonly,assign) SCNetworkReachabilityFlags flags;
+#endif
 
 /** Whether the host is reachable or not. */
 @property(nonatomic,readonly,assign) BOOL reachable;

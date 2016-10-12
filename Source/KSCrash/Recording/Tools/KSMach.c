@@ -178,6 +178,7 @@ bool ksmach_fillState(const thread_t thread,
                       const thread_state_flavor_t flavor,
                       const mach_msg_type_number_t stateCount)
 {
+#if KSCRASH_HAS_THREADS_API
     mach_msg_type_number_t stateCountBuff = stateCount;
     kern_return_t kr;
 
@@ -188,6 +189,9 @@ bool ksmach_fillState(const thread_t thread,
         return false;
     }
     return true;
+#else
+    return false;
+#endif
 }
 
 void ksmach_init(void)
@@ -334,6 +338,7 @@ bool ksmach_getThreadQueueName(const thread_t thread,
 #pragma mark - Utility -
 // ============================================================================
 
+#if KSCRASH_HAS_THREADS_API
 static inline bool isThreadInList(thread_t thread, thread_t* list, int listCount)
 {
     for(int i = 0; i < listCount; i++)
@@ -345,6 +350,7 @@ static inline bool isThreadInList(thread_t thread, thread_t* list, int listCount
     }
     return false;
 }
+#endif
 
 bool ksmach_suspendAllThreads(void)
 {
@@ -353,6 +359,7 @@ bool ksmach_suspendAllThreads(void)
 
 bool ksmach_suspendAllThreadsExcept(thread_t* exceptThreads, int exceptThreadsCount)
 {
+#if KSCRASH_HAS_THREADS_API
     kern_return_t kr;
     const task_t thisTask = mach_task_self();
     const thread_t thisThread = ksmach_thread_self();
@@ -386,6 +393,9 @@ bool ksmach_suspendAllThreadsExcept(thread_t* exceptThreads, int exceptThreadsCo
     vm_deallocate(thisTask, (vm_address_t)threads, sizeof(thread_t) * numThreads);
 
     return true;
+#else
+    return false;
+#endif
 }
 
 bool ksmach_resumeAllThreads(void)
@@ -395,6 +405,7 @@ bool ksmach_resumeAllThreads(void)
 
 bool ksmach_resumeAllThreadsExcept(thread_t* exceptThreads, int exceptThreadsCount)
 {
+#if KSCRASH_HAS_THREADS_API
     kern_return_t kr;
     const task_t thisTask = mach_task_self();
     const thread_t thisThread = ksmach_thread_self();
@@ -428,6 +439,9 @@ bool ksmach_resumeAllThreadsExcept(thread_t* exceptThreads, int exceptThreadsCou
     vm_deallocate(thisTask, (vm_address_t)threads, sizeof(thread_t) * numThreads);
 
     return true;
+#else
+    return false;
+#endif
 }
 
 kern_return_t ksmach_copyMem(const void* const src,
