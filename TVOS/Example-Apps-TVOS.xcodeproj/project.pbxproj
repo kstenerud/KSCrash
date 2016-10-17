@@ -7,8 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		CBA9B1E21D52934E0067D0FA /* KSCrash.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CBA9B1E11D52934E0067D0FA /* KSCrash.framework */; };
-		CBA9B1E31D5293560067D0FA /* KSCrash.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = CBA9B1E11D52934E0067D0FA /* KSCrash.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		CBEBE1C01DB55CF1008DD4BF /* KSCrash.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CBEBE1BF1DB55CF1008DD4BF /* KSCrash.framework */; };
+		CBEBE1C11DB55CF1008DD4BF /* KSCrash.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = CBEBE1BF1DB55CF1008DD4BF /* KSCrash.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		CBEE5DA81CB86CC4005EAF61 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5DA71CB86CC4005EAF61 /* main.m */; };
 		CBEE5DAB1CB86CC4005EAF61 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5DAA1CB86CC4005EAF61 /* AppDelegate.m */; };
 		CBEE5DAE1CB86CC4005EAF61 /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5DAD1CB86CC4005EAF61 /* ViewController.m */; };
@@ -17,13 +17,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		CBEE5DBB1CB86DEE005EAF61 /* Embed Frameworks */ = {
+		CBEBE1BE1DB55CE6008DD4BF /* Embed Frameworks */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
 			dstSubfolderSpec = 10;
 			files = (
-				CBA9B1E31D5293560067D0FA /* KSCrash.framework in Embed Frameworks */,
+				CBEBE1C11DB55CF1008DD4BF /* KSCrash.framework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -31,7 +31,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		CBA9B1E11D52934E0067D0FA /* KSCrash.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = KSCrash.framework; path = "../../../Library/Developer/Xcode/DerivedData/TVOS-bxbphsyvdykwkjgzlbbmiyqgdbaq/Build/Products/Debug-appletvos/KSCrash.framework"; sourceTree = "<group>"; };
+		CBEBE1BF1DB55CF1008DD4BF /* KSCrash.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = KSCrash.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		CBEE5DA41CB86CC4005EAF61 /* SimpleExample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SimpleExample.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CBEE5DA71CB86CC4005EAF61 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		CBEE5DA91CB86CC4005EAF61 /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
@@ -48,7 +48,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CBA9B1E21D52934E0067D0FA /* KSCrash.framework in Frameworks */,
+				CBEBE1C01DB55CF1008DD4BF /* KSCrash.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -58,7 +58,7 @@
 		CBEE5D801CB86C68005EAF61 = {
 			isa = PBXGroup;
 			children = (
-				CBA9B1E11D52934E0067D0FA /* KSCrash.framework */,
+				CBEBE1BF1DB55CF1008DD4BF /* KSCrash.framework */,
 				CBEE5DA51CB86CC4005EAF61 /* SimpleExample */,
 				CBEE5D8A1CB86C68005EAF61 /* Products */,
 			);
@@ -105,7 +105,7 @@
 				CBEE5DA01CB86CC4005EAF61 /* Sources */,
 				CBEE5DA11CB86CC4005EAF61 /* Frameworks */,
 				CBEE5DA21CB86CC4005EAF61 /* Resources */,
-				CBEE5DBB1CB86DEE005EAF61 /* Embed Frameworks */,
+				CBEBE1BE1DB55CE6008DD4BF /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -122,7 +122,7 @@
 		CBEE5D811CB86C68005EAF61 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0730;
+				LastUpgradeCheck = 0800;
 				ORGANIZATIONNAME = "Karl Stenerud";
 				TargetAttributes = {
 					CBEE5DA31CB86CC4005EAF61 = {
@@ -200,8 +200,10 @@
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
@@ -244,8 +246,10 @@
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
