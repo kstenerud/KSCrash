@@ -121,7 +121,7 @@
 
 - (KSCrashDemangleLanguage) demangleLanguages
 {
-    KSCrashDemangleLanguage languages = 0;
+    KSCrashDemangleLanguage languages = KSCrashDemangleLanguageNone;
     if(self.crashReportStore.demangleCPP)
     {
         languages |= KSCrashDemangleLanguageCPlusPlus;

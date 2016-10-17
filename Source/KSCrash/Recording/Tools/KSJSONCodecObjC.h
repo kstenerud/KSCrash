@@ -31,6 +31,8 @@
 /** Optional behavior when encoding JSON data */
 typedef enum
 {
+    KSJSONEncodeOptionNone = 0,
+
     /** Indent 4 spaces per object/array level */
     KSJSONEncodeOptionPretty = 1,
 
@@ -42,6 +44,8 @@ typedef enum
 /** Optional behavior when decoding JSON data */
 typedef enum
 {
+    KSJSONDecodeOptionNone = 0,
+
     /** Normally, null elements get stored as [NSNull null].
      * If this option is set, do not store anything when a null element is
      * encountered inside an array.

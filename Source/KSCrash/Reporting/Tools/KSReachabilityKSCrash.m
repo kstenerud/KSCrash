@@ -338,7 +338,14 @@ static void onReachabilityChanged(__unused SCNetworkReachabilityRef target,
 #else
 
 @implementation KSReachabilityKSCrash
-+ (KSReachabilityKSCrash*) reachabilityToHost:(NSString*) hostname
+
+@synthesize onReachabilityChanged = _onReachabilityChanged;
+@synthesize reachable = _reachable;
+@synthesize WWANOnly = _WWANOnly;
+@synthesize hostname = _hostname;
+@synthesize notificationName = _notificationName;
+
++ (KSReachabilityKSCrash*) reachabilityToHost:(__unused NSString*) hostname
 {
     return [[self alloc] init];
 }
@@ -365,8 +372,8 @@ static void onReachabilityChanged(__unused SCNetworkReachabilityRef target,
     return [[self alloc] initWithHost:host allowWWAN:allowWWAN block:block];
 }
 
-- (id) initWithHost:(NSString*) host
-          allowWWAN:(BOOL) allowWWAN
+- (id) initWithHost:(__unused NSString*) host
+          allowWWAN:(__unused BOOL) allowWWAN
               block:(void(^)()) block
 {
     if((self = [super init]))

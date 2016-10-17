@@ -492,8 +492,8 @@
 
     NSMutableDictionary* report = [KSJSONCodec decode:jsonData
                                               options:KSJSONDecodeOptionIgnoreNullInArray |
-                                   KSJSONDecodeOptionIgnoreNullInObject |
-                                   KSJSONDecodeOptionKeepPartialObject
+                                                      KSJSONDecodeOptionIgnoreNullInObject |
+                                                      KSJSONDecodeOptionKeepPartialObject
                                                 error:error];
     if(error != nil && *error != nil)
     {

@@ -120,7 +120,7 @@ KSCrashType kscrashsentry_installWithContext(KSCrash_SentryContext* context,
     kscrashsentry_clearContext(g_context);
     g_context->onCrash = onCrash;
 
-    KSCrashType installed = 0;
+    KSCrashType installed = KSCrashTypeNone;
     for(size_t i = 0; i < g_sentriesCount; i++)
     {
         CrashSentry* sentry = &g_sentries[i];

@@ -549,7 +549,7 @@ int ksjsoncodecobjc_i_encodeObject(KSJSONCodec* codec,
                        ksjsoncodecobjc_i_addJSONData,
                        (__bridge void*)data);
     KSJSONCodec* codec = [self codecWithEncodeOptions:encodeOptions
-                                        decodeOptions:0];
+                                        decodeOptions:KSJSONDecodeOptionNone];
 
     int result = ksjsoncodecobjc_i_encodeObject(codec,
                                                 object,

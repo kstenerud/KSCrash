@@ -26,6 +26,7 @@
 
 
 #import <Foundation/Foundation.h>
+#import "KSSystemCapabilities.h"
 #if KSCRASH_HAS_REACHABILITY
 #import <SystemConfiguration/SystemConfiguration.h>
 #endif

@@ -31,6 +31,7 @@
 
 typedef enum
 {
+    KSCrashDemangleLanguageNone = 0,
     KSCrashDemangleLanguageCPlusPlus = 1,
     KSCrashDemangleLanguageSwift = 2,
     KSCrashDemangleLanguageAll = ~1
