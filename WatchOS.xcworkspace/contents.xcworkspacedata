@@ -4,4 +4,7 @@
    <FileRef
       location = "group:WatchOS/KSCrash.xcodeproj">
    </FileRef>
+   <FileRef
+      location = "group:WatchOS/CrashExample/CrashExample.xcodeproj">
+   </FileRef>
 </Workspace>
