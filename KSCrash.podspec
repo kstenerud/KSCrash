@@ -129,7 +129,9 @@ Pod::Spec.new do |s|
     end
 
     reporting.subspec 'Tools' do |tools|
-      tools.frameworks = 'SystemConfiguration'
+      tools.ios.frameworks = 'SystemConfiguration'
+      tools.tvos.frameworks = 'SystemConfiguration'
+      tools.osx.frameworks = 'SystemConfiguration'
       tools.source_files = 'Source/KSCrash/Reporting/Tools/**/*.{h,m,mm,c,cpp}'
     end
 
