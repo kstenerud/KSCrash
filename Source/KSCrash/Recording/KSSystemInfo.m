@@ -389,7 +389,12 @@
     [sysInfo ksc_safeSetObject:[UIDevice currentDevice].systemName forKey:@KSSystemField_SystemName];
     [sysInfo ksc_safeSetObject:[UIDevice currentDevice].systemVersion forKey:@KSSystemField_SystemVersion];
 #else
-    [sysInfo ksc_safeSetObject:@"Mac OS" forKey:@KSSystemField_SystemName];
+#if KSCRASH_HOST_MAC
+    [sysInfo ksc_safeSetObject:@"macOS" forKey:@KSSystemField_SystemName];
+#endif
+#if KSCRASH_HOST_WATCH
+    [sysInfo ksc_safeSetObject:@"watchOS" forKey:@KSSystemField_SystemName];
+#endif
     NSOperatingSystemVersion version =[NSProcessInfo processInfo].operatingSystemVersion;
     NSString* systemVersion;
     if(version.patchVersion == 0)
