@@ -88,7 +88,7 @@ const char* ksmach_exceptionName(exception_type_t exceptionType);
 
 /** Get the name of a mach kernel return code.
  *
- * @param code The return code.
+ * @param returnCode The return code.
  *
  * @return The code's name or NULL if not found.
  */

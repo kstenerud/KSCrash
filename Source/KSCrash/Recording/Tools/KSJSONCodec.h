@@ -254,7 +254,7 @@ int ksjson_endStringElement(KSJSONEncodeContext* context);
  *
  * @param value The element's value.
  *
- * @param lengththe length of the data.
+ * @param length The length of the data.
  *
  * @return KSJSON_OK if the process was successful.
  */
@@ -344,7 +344,7 @@ int ksjson_beginArray(KSJSONEncodeContext* context,
  *
  * @param context The JSON context.
  *
- * @param The name of the next element (only needed if parent is a dictionary).
+ * @param name The name of the next element (only needed if parent is a dictionary).
  */
 int ksjson_beginElement(KSJSONEncodeContext* const context,
                         const char* const name);

@@ -49,7 +49,7 @@
 
 /** Convert a UNIX timestamp to an RFC3339 string representation.
  *
- * @param date The date to convert.
+ * @param timestamp The date to convert.
  *
  * @return The RFC3339 date string.
  */

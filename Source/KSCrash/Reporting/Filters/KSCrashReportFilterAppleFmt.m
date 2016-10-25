@@ -67,8 +67,6 @@
  *
  * @param JSONReport The crash report.
  *
- * @param reportStyle The style of report to generate.
- *
  * @return The converted crash report.
  */
 - (NSString*) toAppleFormat:(NSDictionary*) JSONReport;

@@ -35,7 +35,6 @@
 /**
  * Demangle as a Swift symbol.
  *
- * @param symbol The symbol to demangle.
  * @return The demangled string or nil if it can't be demangled as Swift.
  */
 - (NSString*) demangledAsSwift;
@@ -43,7 +42,6 @@
 /**
  * Demangle as a C++ symbol.
  *
- * @param symbol The symbol to demangle.
  * @return The demangled string or nil if it can't be demangled as C++.
  */
 - (NSString*) demangledAsCPP;

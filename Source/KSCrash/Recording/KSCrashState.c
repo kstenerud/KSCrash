@@ -243,7 +243,7 @@ bool kscrashstate_i_loadState(KSCrash_State* const context,
 
 /** Save the persistent state portion of a crash context.
  *
- * @param context The context to save from.
+ * @param state The context to save from.
  *
  * @param path The path to the file to create.
  *

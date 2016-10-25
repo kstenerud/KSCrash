@@ -135,7 +135,7 @@ const void* ksobjc_isaPointer(const void* objectOrClassPtr);
  *
  * @param classPtr Pointer to a valid class.
  *
- * @param the super class.
+ * @return the super class.
  */
 const void* ksobjc_superClass(const void* classPtr);
 
@@ -177,7 +177,7 @@ const char* ksobjc_className(const void* classPtr);
 /** Get the name of an object's class.
  * This also handles tagged pointers.
  *
- * @param objectPointer Pointer to a valid object.
+ * @param objectPtr Pointer to a valid object.
  *
  * @return the name, or NULL if the name is inaccessible.
  */
@@ -189,7 +189,7 @@ const char* ksobjc_objectClassName(const void* objectPtr);
  *
  * @param className The class name to compare against.
  *
- * @param true if the class has the specified name.
+ * @return true if the class has the specified name.
  */
 bool ksobjc_isClassNamed(const void* const classPtr, const char* const className);
 
@@ -200,7 +200,7 @@ bool ksobjc_isClassNamed(const void* const classPtr, const char* const className
  *
  * @param className The class name to compare against.
  *
- * @param true if the class is of the specified type or a subclass of that type.
+ * @return true if the class is of the specified type or a subclass of that type.
  */
 bool ksobjc_isKindOfClass(const void* classPtr, const char* className);
 
@@ -268,8 +268,6 @@ uintptr_t ksobjc_taggedPointerPayload(const void* taggedObjectPtr);
  *
  * @param object the object to generate a description for.
  *
- * @param string The string to copy data from.
- *
  * @param buffer The buffer to copy into.
  *
  * @param bufferLength The length of the buffer.
@@ -320,7 +318,7 @@ int64_t ksobjc_numberAsInteger(const void* object);
 
 /** Copy the contents of a date object.
  *
- * @param date The date to copy data from.
+ * @param datePtr The date to copy data from.
  *
  * @return Time interval since Jan 1 2001 00:00:00 GMT.
  */
@@ -331,7 +329,7 @@ CFAbsoluteTime ksobjc_dateContents(const void* datePtr);
  * dst will be null terminated unless maxLength is 0.
  * If the string doesn't fit, it will be truncated.
  *
- * @param url The URL to copy data from.
+ * @param nsurl The URL to copy data from.
  *
  * @param dst The destination to copy into.
  *

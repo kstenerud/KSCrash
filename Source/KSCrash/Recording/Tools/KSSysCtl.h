@@ -181,7 +181,7 @@ bool kssysctl_getProcessInfo(int pid, struct kinfo_proc* procInfo);
  *
  * @param name Interface name (e.g. "en1").
  *
- * @param macAddressBuff 6 bytes of storage to hold the MAC address.
+ * @param macAddressBuffer 6 bytes of storage to hold the MAC address.
  *
  * @return true if the address was successfully retrieved.
  */

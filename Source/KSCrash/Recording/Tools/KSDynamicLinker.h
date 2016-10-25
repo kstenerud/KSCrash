@@ -78,7 +78,7 @@ uint32_t ksdl_imageIndexContainingAddress(const uintptr_t address);
  *
  * This is required for any symtab command offsets.
  *
- * @param index The image index.
+ * @param idx The image index.
  * @return The image's base address, or 0 if none was found.
  */
 uintptr_t ksdl_segmentBaseOfImageIndex(const uint32_t idx);

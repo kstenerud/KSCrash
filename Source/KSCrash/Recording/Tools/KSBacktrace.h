@@ -101,7 +101,7 @@ int ksbt_backtraceSelf(uintptr_t* backtraceBuffer,
  *
  * @param numEntries The number of entries to examine.
  *
- * @param numEntries The number of entries skipped from the start of this backtrace.
+ * @param skippedEntries The number of entries skipped from the start of this backtrace.
  */
 void ksbt_symbolicate(const uintptr_t* backtraceBuffer,
                       Dl_info* symbolsBuffer,

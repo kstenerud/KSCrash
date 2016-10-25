@@ -8,10 +8,12 @@
 
 #import "ExtensionDelegate.h"
 #import <KSCrash/KSCrashInstallationConsole.h>
+#import <KSCrash/KSLogger.h>
 
 @implementation ExtensionDelegate
 
 - (void)applicationDidFinishLaunching {
+    KSLOG_DEBUG(@"TEST TEST TEST TEST TEST");
     KSCrashInstallationConsole* installation = [KSCrashInstallationConsole new];
     installation.printAppleFormat = NO;
     [installation install];
