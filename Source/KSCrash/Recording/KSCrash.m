@@ -572,7 +572,7 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
 
 
 //! Project version number for KSCrashFramework.
-const double KSCrashFrameworkVersionNumber = 1.94;
+const double KSCrashFrameworkVersionNumber = 1.95;
 
 //! Project version string for KSCrashFramework.
-const unsigned char KSCrashFrameworkVersionString[] = "1.9.4";
+const unsigned char KSCrashFrameworkVersionString[] = "1.9.5";
