@@ -109,7 +109,7 @@ void kscrashstate_notifyAppActive(bool isActive);
 
 /** Notify the crash reporter of the application foreground/background state.
  *
- * @param isActive true if the application is in the foreground, false if
+ * @param isInForeground true if the application is in the foreground, false if
  *                 it is in the background.
  */
 void kscrashstate_notifyAppInForeground(bool isInForeground);
