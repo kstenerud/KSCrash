@@ -190,7 +190,6 @@ bool ksmach_fillState(const thread_t thread,
         return false;
     }
     return true;
-    return false;
 }
 #else
 bool ksmach_fillState(__unused const thread_t thread,
