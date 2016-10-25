@@ -1060,6 +1060,7 @@
 				INFOPLIST_FILE = KSCrash/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				MODULEMAP_FILE = ../Source/Framework/module.modulemap;
 				PRODUCT_BUNDLE_IDENTIFIER = org.stenerud.kscrash.KSCrash;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -1078,6 +1079,7 @@
 				INFOPLIST_FILE = KSCrash/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				MODULEMAP_FILE = ../Source/Framework/module.modulemap;
 				PRODUCT_BUNDLE_IDENTIFIER = org.stenerud.kscrash.KSCrash;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
