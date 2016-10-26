@@ -206,6 +206,9 @@
 		CB69B8C81DC03FFF002713B1 /* RFC3339UTFString.h in Headers */ = {isa = PBXBuildFile; fileRef = CB69B8C41DC03FFF002713B1 /* RFC3339UTFString.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB69B8C91DC03FFF002713B1 /* RFC3339UTFString.h in Headers */ = {isa = PBXBuildFile; fileRef = CB69B8C41DC03FFF002713B1 /* RFC3339UTFString.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB69B8CA1DC03FFF002713B1 /* RFC3339UTFString.h in Headers */ = {isa = PBXBuildFile; fileRef = CB69B8C41DC03FFF002713B1 /* RFC3339UTFString.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CB69B8DA1DC0ED80002713B1 /* KSLogger.c in Sources */ = {isa = PBXBuildFile; fileRef = CB69B8D91DC0ED80002713B1 /* KSLogger.c */; };
+		CB69B8DB1DC0ED80002713B1 /* KSLogger.c in Sources */ = {isa = PBXBuildFile; fileRef = CB69B8D91DC0ED80002713B1 /* KSLogger.c */; };
+		CB69B8DC1DC0ED80002713B1 /* KSLogger.c in Sources */ = {isa = PBXBuildFile; fileRef = CB69B8D91DC0ED80002713B1 /* KSLogger.c */; };
 		CB6D132717EB749A00BC2C04 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB52178F17EB735D007CB3C1 /* Foundation.framework */; };
 		CB6D133417EB749A00BC2C04 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB5217AE17EB735D007CB3C1 /* XCTest.framework */; };
 		CB6D133517EB749A00BC2C04 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB52178F17EB735D007CB3C1 /* Foundation.framework */; };
@@ -606,6 +609,7 @@
 		CB5217AE17EB735D007CB3C1 /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = Library/Frameworks/XCTest.framework; sourceTree = DEVELOPER_DIR; };
 		CB69B8C31DC03FFF002713B1 /* RFC3339UTFString.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = RFC3339UTFString.c; path = ../../Source/KSCrash/Recording/Tools/RFC3339UTFString.c; sourceTree = "<group>"; };
 		CB69B8C41DC03FFF002713B1 /* RFC3339UTFString.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = RFC3339UTFString.h; path = ../../Source/KSCrash/Recording/Tools/RFC3339UTFString.h; sourceTree = "<group>"; };
+		CB69B8D91DC0ED80002713B1 /* KSLogger.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSLogger.c; path = ../../Source/KSCrash/Recording/Tools/KSLogger.c; sourceTree = "<group>"; };
 		CB6D130117EB743A00BC2C04 /* KSCrash-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "KSCrash-Info.plist"; sourceTree = "<group>"; };
 		CB6D130317EB743A00BC2C04 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		CB6D130517EB743A00BC2C04 /* KSCrash-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "KSCrash-Prefix.pch"; sourceTree = "<group>"; };
@@ -1115,6 +1119,7 @@
 				CBF53D6A17EB765C0056DA83 /* KSJSONCodec.h */,
 				CBF53D6B17EB765C0056DA83 /* KSJSONCodecObjC.h */,
 				CBF53D6C17EB765C0056DA83 /* KSJSONCodecObjC.m */,
+				CB69B8D91DC0ED80002713B1 /* KSLogger.c */,
 				CBF53D6D17EB765C0056DA83 /* KSLogger.h */,
 				CBF53D6E17EB765C0056DA83 /* KSLogger.m */,
 				CBF53D6F17EB765C0056DA83 /* KSMach_Arm.c */,
@@ -1751,6 +1756,7 @@
 				03DE7C481C84DF8100F789BA /* KSCrashState.c in Sources */,
 				03DE7CC61C84DFC100F789BA /* NSMutableData+AppendUTF8.m in Sources */,
 				03DE7C4A1C84DF8100F789BA /* KSCrashType.c in Sources */,
+				CB69B8DB1DC0ED80002713B1 /* KSLogger.c in Sources */,
 				CB69B8C61DC03FFF002713B1 /* RFC3339UTFString.c in Sources */,
 				03DE7CAD1C84DFB600F789BA /* KSCrashReportFilterAlert.m in Sources */,
 				03DE7CB91C84DFBC00F789BA /* Container+DeepSearch.m in Sources */,
@@ -1826,6 +1832,7 @@
 				CBF53D9617EB765C0056DA83 /* Container+DeepSearch.m in Sources */,
 				CBF53DC517EB765C0056DA83 /* KSCrashReportFilterAlert.m in Sources */,
 				CBF53DA017EB765C0056DA83 /* KSCrash.m in Sources */,
+				CB69B8DA1DC0ED80002713B1 /* KSLogger.c in Sources */,
 				CB69B8C51DC03FFF002713B1 /* RFC3339UTFString.c in Sources */,
 				CBF53DFF17EB765C0056DA83 /* KSCrashState.c in Sources */,
 				CBF53E1E17EB765C0056DA83 /* KSMach_x86_64.c in Sources */,
@@ -1943,6 +1950,7 @@
 				EDF2BEB41CCF15AD004BADF4 /* KSCrashState.c in Sources */,
 				EDF2BEB51CCF15AD004BADF4 /* NSMutableData+AppendUTF8.m in Sources */,
 				EDF2BEB61CCF15AD004BADF4 /* KSCrashType.c in Sources */,
+				CB69B8DC1DC0ED80002713B1 /* KSLogger.c in Sources */,
 				CB69B8C71DC03FFF002713B1 /* RFC3339UTFString.c in Sources */,
 				EDF2BEB71CCF15AD004BADF4 /* KSCrashReportFilterAlert.m in Sources */,
 				EDF2BEB81CCF15AD004BADF4 /* Container+DeepSearch.m in Sources */,
