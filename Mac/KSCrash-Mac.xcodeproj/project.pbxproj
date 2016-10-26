@@ -179,6 +179,8 @@
 		CB69B8D21DC04432002713B1 /* RFC3339UTFString.c in Sources */ = {isa = PBXBuildFile; fileRef = CB69B8CF1DC04432002713B1 /* RFC3339UTFString.c */; };
 		CB69B8D31DC04432002713B1 /* RFC3339UTFString.h in Headers */ = {isa = PBXBuildFile; fileRef = CB69B8D01DC04432002713B1 /* RFC3339UTFString.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB69B8D41DC04432002713B1 /* RFC3339UTFString.h in Headers */ = {isa = PBXBuildFile; fileRef = CB69B8D01DC04432002713B1 /* RFC3339UTFString.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CB69B8DE1DC0F106002713B1 /* KSLogger.c in Sources */ = {isa = PBXBuildFile; fileRef = CB69B8DD1DC0F106002713B1 /* KSLogger.c */; };
+		CB69B8DF1DC0F106002713B1 /* KSLogger.c in Sources */ = {isa = PBXBuildFile; fileRef = CB69B8DD1DC0F106002713B1 /* KSLogger.c */; };
 		CB7A6C9617FB99E800997792 /* KSDynamicLinker.c in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6C9417FB99E800997792 /* KSDynamicLinker.c */; };
 		CB7A6C9817FB99E800997792 /* KSDynamicLinker.h in Headers */ = {isa = PBXBuildFile; fileRef = CB7A6C9517FB99E800997792 /* KSDynamicLinker.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB7A6C9917FB9A1000997792 /* KSDynamicLinker.c in Sources */ = {isa = PBXBuildFile; fileRef = CB7A6C9417FB99E800997792 /* KSDynamicLinker.c */; };
@@ -417,6 +419,7 @@
 		CB62408D17EBC9F7006471F1 /* KSCrashLib-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "KSCrashLib-Prefix.pch"; sourceTree = "<group>"; };
 		CB69B8CF1DC04432002713B1 /* RFC3339UTFString.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = RFC3339UTFString.c; path = /Users/karl/Projects/KSCrash/Source/KSCrash/Recording/Tools/RFC3339UTFString.c; sourceTree = "<absolute>"; };
 		CB69B8D01DC04432002713B1 /* RFC3339UTFString.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = RFC3339UTFString.h; path = /Users/karl/Projects/KSCrash/Source/KSCrash/Recording/Tools/RFC3339UTFString.h; sourceTree = "<absolute>"; };
+		CB69B8DD1DC0F106002713B1 /* KSLogger.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSLogger.c; path = ../../Source/KSCrash/Recording/Tools/KSLogger.c; sourceTree = "<group>"; };
 		CB7A6C9417FB99E800997792 /* KSDynamicLinker.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSDynamicLinker.c; path = ../../Source/KSCrash/Recording/Tools/KSDynamicLinker.c; sourceTree = "<group>"; };
 		CB7A6C9517FB99E800997792 /* KSDynamicLinker.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSDynamicLinker.h; path = ../../Source/KSCrash/Recording/Tools/KSDynamicLinker.h; sourceTree = "<group>"; };
 		CB7A6C9D17FB9CEE00997792 /* Container+DeepSearch_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "Container+DeepSearch_Tests.m"; path = "../../Source/KSCrash-Tests/Container+DeepSearch_Tests.m"; sourceTree = "<group>"; };
@@ -963,6 +966,7 @@
 				CB8E566317EB9B43000C56D3 /* KSJSONCodec.h */,
 				CB8E566417EB9B43000C56D3 /* KSJSONCodecObjC.h */,
 				CB8E566517EB9B43000C56D3 /* KSJSONCodecObjC.m */,
+				CB69B8DD1DC0F106002713B1 /* KSLogger.c */,
 				CB8E566617EB9B43000C56D3 /* KSLogger.h */,
 				CB8E566717EB9B43000C56D3 /* KSLogger.m */,
 				CB8E566817EB9B43000C56D3 /* KSMach.c */,
@@ -1450,6 +1454,7 @@
 				CB6240B017EBCA74006471F1 /* KSCrashState.c in Sources */,
 				CB6240B717EBCA74006471F1 /* KSCrashSentry.c in Sources */,
 				CB6240D917EBCA74006471F1 /* KSObjC.c in Sources */,
+				CB69B8DF1DC0F106002713B1 /* KSLogger.c in Sources */,
 				CB8F1DD51CCAF3B40022CDF0 /* KSCrashInstallation+Alert.m in Sources */,
 				CB6240FB17EBCA74006471F1 /* KSCrashReportSinkQuincyHockey.m in Sources */,
 				CB6240BC17EBCA74006471F1 /* KSCrashSentry_Deadlock.m in Sources */,
@@ -1524,6 +1529,7 @@
 				CB8E56FA17EB9B89000C56D3 /* NSError+SimpleConstructor.m in Sources */,
 				CB8E56BA17EB9B7E000C56D3 /* KSCrashReportFilter.m in Sources */,
 				CB8F1DD41CCAF3B40022CDF0 /* KSCrashInstallation+Alert.m in Sources */,
+				CB69B8DE1DC0F106002713B1 /* KSLogger.c in Sources */,
 				CB8E56E817EB9B89000C56D3 /* Container+DeepSearch.m in Sources */,
 				03082CD51D9181F600935324 /* KSZombie.c in Sources */,
 				CB8E567F17EB9B43000C56D3 /* KSBacktrace.c in Sources */,

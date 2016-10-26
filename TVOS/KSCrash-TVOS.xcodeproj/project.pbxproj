@@ -46,6 +46,7 @@
 		8A2507541DA876C300D7F158 /* XCTestCase+KSCrash.m in Sources */ = {isa = PBXBuildFile; fileRef = 8A25072F1DA876C300D7F158 /* XCTestCase+KSCrash.m */; };
 		CB69B8D71DC044A7002713B1 /* RFC3339UTFString.c in Sources */ = {isa = PBXBuildFile; fileRef = CB69B8D51DC044A7002713B1 /* RFC3339UTFString.c */; };
 		CB69B8D81DC044A7002713B1 /* RFC3339UTFString.h in Headers */ = {isa = PBXBuildFile; fileRef = CB69B8D61DC044A7002713B1 /* RFC3339UTFString.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CB69B8E11DC0F11C002713B1 /* KSLogger.c in Sources */ = {isa = PBXBuildFile; fileRef = CB69B8E01DC0F11C002713B1 /* KSLogger.c */; };
 		CB8F1DDA1CCAF43A0022CDF0 /* KSCrashInstallation+Alert.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8F1DD81CCAF43A0022CDF0 /* KSCrashInstallation+Alert.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CB8F1DDB1CCAF43A0022CDF0 /* KSCrashInstallation+Alert.m in Sources */ = {isa = PBXBuildFile; fileRef = CB8F1DD91CCAF43A0022CDF0 /* KSCrashInstallation+Alert.m */; };
 		CBC7CCFB1DA710E0002D5DAD /* KSCrashReportFilterCompletion.h in Headers */ = {isa = PBXBuildFile; fileRef = CBC7CCFA1DA710E0002D5DAD /* KSCrashReportFilterCompletion.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -263,6 +264,7 @@
 		8A25072F1DA876C300D7F158 /* XCTestCase+KSCrash.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "XCTestCase+KSCrash.m"; path = "../../Source/KSCrash-Tests/XCTestCase+KSCrash.m"; sourceTree = "<group>"; };
 		CB69B8D51DC044A7002713B1 /* RFC3339UTFString.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = RFC3339UTFString.c; path = /Users/karl/Projects/KSCrash/Source/KSCrash/Recording/Tools/RFC3339UTFString.c; sourceTree = "<absolute>"; };
 		CB69B8D61DC044A7002713B1 /* RFC3339UTFString.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = RFC3339UTFString.h; path = /Users/karl/Projects/KSCrash/Source/KSCrash/Recording/Tools/RFC3339UTFString.h; sourceTree = "<absolute>"; };
+		CB69B8E01DC0F11C002713B1 /* KSLogger.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSLogger.c; sourceTree = "<group>"; };
 		CB8F1DD81CCAF43A0022CDF0 /* KSCrashInstallation+Alert.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "KSCrashInstallation+Alert.h"; sourceTree = "<group>"; };
 		CB8F1DD91CCAF43A0022CDF0 /* KSCrashInstallation+Alert.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "KSCrashInstallation+Alert.m"; sourceTree = "<group>"; };
 		CBC7CCFA1DA710E0002D5DAD /* KSCrashReportFilterCompletion.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashReportFilterCompletion.h; sourceTree = "<group>"; };
@@ -662,6 +664,7 @@
 				CBEE5C811CB86989005EAF61 /* KSJSONCodec.h */,
 				CBEE5C821CB86989005EAF61 /* KSJSONCodecObjC.h */,
 				CBEE5C831CB86989005EAF61 /* KSJSONCodecObjC.m */,
+				CB69B8E01DC0F11C002713B1 /* KSLogger.c */,
 				CBEE5C841CB86989005EAF61 /* KSLogger.h */,
 				CBEE5C851CB86989005EAF61 /* KSLogger.m */,
 				CBEE5C861CB86989005EAF61 /* KSMach.c */,
@@ -1133,6 +1136,7 @@
 				CBEE5D511CB86989005EAF61 /* KSCrashReportFilterJSON.m in Sources */,
 				CBEE5D1A1CB86989005EAF61 /* KSBacktrace.c in Sources */,
 				CBEE5D021CB86989005EAF61 /* KSCrashState.c in Sources */,
+				CB69B8E11DC0F11C002713B1 /* KSLogger.c in Sources */,
 				CBEE5D381CB86989005EAF61 /* KSString.c in Sources */,
 				CBEE5D491CB86989005EAF61 /* KSCrashReportFilterAlert.m in Sources */,
 				CBEE5D4D1CB86989005EAF61 /* KSCrashReportFilterBasic.m in Sources */,
