@@ -33,7 +33,7 @@
 #import "NSDictionary+Merge.h"
 #import "NSError+SimpleConstructor.h"
 #import "NSString+Demangle.h"
-#import "RFC3339DateTool.h"
+#import "RFC3339UTFString.h"
 #import "KSCrashDoctor.h"
 #import "KSCrashReportVersion.h"
 
@@ -108,6 +108,28 @@
 
 @property(nonatomic,readwrite,retain) NSString* path;
 @property(nonatomic,readwrite,retain) NSString* bundleName;
+
+/** Get a list of report IDs.
+ *
+ * @return A list of report IDs in chronological order (oldest first).
+ */
+- (NSArray*) reportIDs;
+
+/** Fetch a report.
+ *
+ * @param reportID The ID of the report to fetch.
+ *
+ * @return The report or nil if not found.
+ */
+- (NSDictionary*) reportWithID:(NSString*) reportID;
+
+/** Delete a report.
+ *
+ * @param reportID The report ID.
+ */
+- (void) deleteReportWithID:(NSString*) reportID;
+
+
 
 @end
 
@@ -413,8 +435,9 @@
         KSLOG_ERROR(@"'%@' should be a number, not %@", key, [key class]);
         return;
     }
-    [report setValue:[RFC3339DateTool stringFromUNIXTimestamp:[timestamp unsignedLongLongValue]]
-              forKey:key];
+    char timeString[21] = {0};
+    rfc3339UtcStringFromUNIXTimestamp((time_t)[timestamp unsignedLongLongValue], timeString);
+    [report setValue:[NSString stringWithUTF8String:timeString] forKey:key];
 }
 
 - (NSString*) crashReportFilenameWithID:(NSString*) reportID

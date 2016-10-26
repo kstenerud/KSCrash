@@ -61,31 +61,11 @@
  */
 - (id) initWithPath:(NSString*) path;
 
-/** Get a list of report IDs.
- *
- * @return A list of report IDs in chronological order (oldest first).
- */
-- (NSArray*) reportIDs;
-
-/** Fetch a report.
- *
- * @param reportID The ID of the report to fetch.
- *
- * @return The report or nil if not found.
- */
-- (NSDictionary*) reportWithID:(NSString*) reportID;
-
 /** Get a list of all reports.
  *
  * @return A list of reports in chronological order (oldest first).
  */
 - (NSArray*) allReports;
-
-/** Delete a report.
- *
- * @param reportID The report ID.
- */
-- (void) deleteReportWithID:(NSString*) reportID;
 
 /** Delete all reports.
  */

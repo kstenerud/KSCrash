@@ -200,6 +200,12 @@
 		CB0264D217FA60D3003E0AED /* MessageUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB0264D117FA60D3003E0AED /* MessageUI.framework */; };
 		CB0264D417FA6101003E0AED /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = CB0264D317FA6101003E0AED /* libz.dylib */; };
 		CB42F4551C6D180F002FD017 /* DemangleNodes.h in Headers */ = {isa = PBXBuildFile; fileRef = CBC43F171C5AF2B10083A11B /* DemangleNodes.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CB69B8C51DC03FFF002713B1 /* RFC3339UTFString.c in Sources */ = {isa = PBXBuildFile; fileRef = CB69B8C31DC03FFF002713B1 /* RFC3339UTFString.c */; };
+		CB69B8C61DC03FFF002713B1 /* RFC3339UTFString.c in Sources */ = {isa = PBXBuildFile; fileRef = CB69B8C31DC03FFF002713B1 /* RFC3339UTFString.c */; };
+		CB69B8C71DC03FFF002713B1 /* RFC3339UTFString.c in Sources */ = {isa = PBXBuildFile; fileRef = CB69B8C31DC03FFF002713B1 /* RFC3339UTFString.c */; };
+		CB69B8C81DC03FFF002713B1 /* RFC3339UTFString.h in Headers */ = {isa = PBXBuildFile; fileRef = CB69B8C41DC03FFF002713B1 /* RFC3339UTFString.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CB69B8C91DC03FFF002713B1 /* RFC3339UTFString.h in Headers */ = {isa = PBXBuildFile; fileRef = CB69B8C41DC03FFF002713B1 /* RFC3339UTFString.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CB69B8CA1DC03FFF002713B1 /* RFC3339UTFString.h in Headers */ = {isa = PBXBuildFile; fileRef = CB69B8C41DC03FFF002713B1 /* RFC3339UTFString.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB6D132717EB749A00BC2C04 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB52178F17EB735D007CB3C1 /* Foundation.framework */; };
 		CB6D133417EB749A00BC2C04 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB5217AE17EB735D007CB3C1 /* XCTest.framework */; };
 		CB6D133517EB749A00BC2C04 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB52178F17EB735D007CB3C1 /* Foundation.framework */; };
@@ -598,6 +604,8 @@
 		CB52179117EB735D007CB3C1 /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
 		CB52179317EB735D007CB3C1 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
 		CB5217AE17EB735D007CB3C1 /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = Library/Frameworks/XCTest.framework; sourceTree = DEVELOPER_DIR; };
+		CB69B8C31DC03FFF002713B1 /* RFC3339UTFString.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = RFC3339UTFString.c; path = ../../Source/KSCrash/Recording/Tools/RFC3339UTFString.c; sourceTree = "<group>"; };
+		CB69B8C41DC03FFF002713B1 /* RFC3339UTFString.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = RFC3339UTFString.h; path = ../../Source/KSCrash/Recording/Tools/RFC3339UTFString.h; sourceTree = "<group>"; };
 		CB6D130117EB743A00BC2C04 /* KSCrash-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "KSCrash-Info.plist"; sourceTree = "<group>"; };
 		CB6D130317EB743A00BC2C04 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		CB6D130517EB743A00BC2C04 /* KSCrash-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "KSCrash-Prefix.pch"; sourceTree = "<group>"; };
@@ -760,8 +768,8 @@
 		CBF53D8E17EB765C0056DA83 /* NSError+SimpleConstructor.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSError+SimpleConstructor.m"; path = "../../Source/KSCrash/Recording/Tools/NSError+SimpleConstructor.m"; sourceTree = "<group>"; };
 		CBF53D8F17EB765C0056DA83 /* NSMutableData+AppendUTF8.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSMutableData+AppendUTF8.h"; path = "../../Source/KSCrash/Reporting/Tools/NSMutableData+AppendUTF8.h"; sourceTree = "<group>"; };
 		CBF53D9017EB765C0056DA83 /* NSMutableData+AppendUTF8.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSMutableData+AppendUTF8.m"; path = "../../Source/KSCrash/Reporting/Tools/NSMutableData+AppendUTF8.m"; sourceTree = "<group>"; };
-		CBF53D9117EB765C0056DA83 /* RFC3339DateTool.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = RFC3339DateTool.h; path = ../../Source/KSCrash/Recording/Tools/RFC3339DateTool.h; sourceTree = "<group>"; };
-		CBF53D9217EB765C0056DA83 /* RFC3339DateTool.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = RFC3339DateTool.m; path = ../../Source/KSCrash/Recording/Tools/RFC3339DateTool.m; sourceTree = "<group>"; };
+		CBF53D9117EB765C0056DA83 /* RFC3339DateTool.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = RFC3339DateTool.h; path = ../../Source/KSCrash/Reporting/Tools/RFC3339DateTool.h; sourceTree = "<group>"; };
+		CBF53D9217EB765C0056DA83 /* RFC3339DateTool.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = RFC3339DateTool.m; path = ../../Source/KSCrash/Reporting/Tools/RFC3339DateTool.m; sourceTree = "<group>"; };
 		DCA19E2B18817AD100DCA792 /* KSCrashReportFilterAlert.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSCrashReportFilterAlert.h; path = ../../Source/KSCrash/Reporting/Filters/KSCrashReportFilterAlert.h; sourceTree = "<group>"; };
 		DCA19E2E18817BA200DCA792 /* KSCrashReportFilterSets.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSCrashReportFilterSets.h; path = ../../Source/KSCrash/Reporting/Filters/KSCrashReportFilterSets.h; sourceTree = "<group>"; };
 		EDF2BF211CCF15AD004BADF4 /* KSCrash.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = KSCrash.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1136,8 +1144,8 @@
 				CBF53D8E17EB765C0056DA83 /* NSError+SimpleConstructor.m */,
 				CBC43F3F1C5BE9670083A11B /* NSString+Demangle.h */,
 				CBC43F401C5BE9670083A11B /* NSString+Demangle.mm */,
-				CBF53D9117EB765C0056DA83 /* RFC3339DateTool.h */,
-				CBF53D9217EB765C0056DA83 /* RFC3339DateTool.m */,
+				CB69B8C31DC03FFF002713B1 /* RFC3339UTFString.c */,
+				CB69B8C41DC03FFF002713B1 /* RFC3339UTFString.h */,
 			);
 			name = Tools;
 			sourceTree = "<group>";
@@ -1157,6 +1165,8 @@
 				CBF53D9017EB765C0056DA83 /* NSMutableData+AppendUTF8.m */,
 				CBEE5DC01CBC197D005EAF61 /* NSString+URLEncode.h */,
 				CBEE5DC11CBC197D005EAF61 /* NSString+URLEncode.m */,
+				CBF53D9117EB765C0056DA83 /* RFC3339DateTool.h */,
+				CBF53D9217EB765C0056DA83 /* RFC3339DateTool.m */,
 			);
 			name = Tools;
 			sourceTree = "<group>";
@@ -1295,6 +1305,7 @@
 				03DE7C721C84DFA400F789BA /* SwiftStrings.h in Headers */,
 				03DE7C6F1C84DFA400F789BA /* Malloc.h in Headers */,
 				03DE7C751C84DFAB00F789BA /* KSBacktrace.h in Headers */,
+				CB69B8C91DC03FFF002713B1 /* RFC3339UTFString.h in Headers */,
 				03DE7C931C84DFAB00F789BA /* KSString.h in Headers */,
 				03DE7C631C84DF9200F789BA /* Optional.h in Headers */,
 				03DE7C8D1C84DFAB00F789BA /* KSSafeCollections.h in Headers */,
@@ -1365,6 +1376,7 @@
 				CBF53E6117EB7EA80056DA83 /* KSCrashSentry_Deadlock.h in Headers */,
 				CBF53E7317EB7EA80056DA83 /* KSSafeCollections.h in Headers */,
 				CBF53E9117EB7EA80056DA83 /* NSError+SimpleConstructor.h in Headers */,
+				CB69B8C81DC03FFF002713B1 /* RFC3339UTFString.h in Headers */,
 				CBF53E9217EB7EA80056DA83 /* NSMutableData+AppendUTF8.h in Headers */,
 				CBF53E6017EB7EA80056DA83 /* KSCrashSentry_CPPException.h in Headers */,
 				CBF53E8817EB7EA80056DA83 /* KSCrashCallCompletion.h in Headers */,
@@ -1494,6 +1506,7 @@
 				EDF2BF061CCF15AD004BADF4 /* KSBacktrace.h in Headers */,
 				EDF2BF071CCF15AD004BADF4 /* KSString.h in Headers */,
 				EDF2BF081CCF15AD004BADF4 /* Optional.h in Headers */,
+				CB69B8CA1DC03FFF002713B1 /* RFC3339UTFString.h in Headers */,
 				EDF2BF091CCF15AD004BADF4 /* KSSafeCollections.h in Headers */,
 				EDF2BF0A1CCF15AD004BADF4 /* KSCrashSentry_Private.h in Headers */,
 				EDF2BF0B1CCF15AD004BADF4 /* KSBacktrace_Private.h in Headers */,
@@ -1738,6 +1751,7 @@
 				03DE7C481C84DF8100F789BA /* KSCrashState.c in Sources */,
 				03DE7CC61C84DFC100F789BA /* NSMutableData+AppendUTF8.m in Sources */,
 				03DE7C4A1C84DF8100F789BA /* KSCrashType.c in Sources */,
+				CB69B8C61DC03FFF002713B1 /* RFC3339UTFString.c in Sources */,
 				03DE7CAD1C84DFB600F789BA /* KSCrashReportFilterAlert.m in Sources */,
 				03DE7CB91C84DFBC00F789BA /* Container+DeepSearch.m in Sources */,
 				03DE7CC01C84DFC100F789BA /* KSHTTPMultipartPostBody.m in Sources */,
@@ -1812,6 +1826,7 @@
 				CBF53D9617EB765C0056DA83 /* Container+DeepSearch.m in Sources */,
 				CBF53DC517EB765C0056DA83 /* KSCrashReportFilterAlert.m in Sources */,
 				CBF53DA017EB765C0056DA83 /* KSCrash.m in Sources */,
+				CB69B8C51DC03FFF002713B1 /* RFC3339UTFString.c in Sources */,
 				CBF53DFF17EB765C0056DA83 /* KSCrashState.c in Sources */,
 				CBF53E1E17EB765C0056DA83 /* KSMach_x86_64.c in Sources */,
 				CBC43F441C5BE9670083A11B /* NSString+Demangle.mm in Sources */,
@@ -1928,6 +1943,7 @@
 				EDF2BEB41CCF15AD004BADF4 /* KSCrashState.c in Sources */,
 				EDF2BEB51CCF15AD004BADF4 /* NSMutableData+AppendUTF8.m in Sources */,
 				EDF2BEB61CCF15AD004BADF4 /* KSCrashType.c in Sources */,
+				CB69B8C71DC03FFF002713B1 /* RFC3339UTFString.c in Sources */,
 				EDF2BEB71CCF15AD004BADF4 /* KSCrashReportFilterAlert.m in Sources */,
 				EDF2BEB81CCF15AD004BADF4 /* Container+DeepSearch.m in Sources */,
 				EDF2BEB91CCF15AD004BADF4 /* KSHTTPMultipartPostBody.m in Sources */,

@@ -1,7 +1,7 @@
 //
-// RFC3339DateTool.h
+//  RFC3339UTFString.c
 //
-// Copyright 2010 Karl Stenerud
+// Copyright 2016 Karl Stenerud.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,45 +22,18 @@
 // THE SOFTWARE.
 //
 
+#include "RFC3339UTFString.h"
+#include <stdio.h>
 
-#import <Foundation/Foundation.h>
-
-
-/**
- * Tool for converting to/from RFC3339 compliant date strings.
- */
-@interface RFC3339DateTool : NSObject
-
-/** Convert a date to an RFC3339 string representation.
- *
- * @param date The date to convert.
- *
- * @return The RFC3339 date string.
- */
-+ (NSString*) stringFromDate:(NSDate*) date;
-
-/** Convert an RFC3339 string representation to a date.
- *
- * @param string The string to convert.
- *
- * @return The date.
- */
-+ (NSDate*) dateFromString:(NSString*) string;
-
-/** Convert a UNIX timestamp to an RFC3339 string representation.
- *
- * @param timestamp The date to convert.
- *
- * @return The RFC3339 date string.
- */
-+ (NSString*) stringFromUNIXTimestamp:(unsigned long long) timestamp;
-
-/** Convert an RFC3339 string representation to a UNIX timestamp.
- *
- * @param string The string to convert.
- *
- * @return The timestamp.
- */
-+ (unsigned long long) UNIXTimestampFromString:(NSString*) string;
-
-@end
+void rfc3339UtcStringFromUNIXTimestamp(time_t timestamp, char* buffer21Chars)
+{
+    struct tm result = {0};
+    gmtime_r(&timestamp, &result);
+    snprintf(buffer21Chars, 21, "%04d-%02d-%02dT%02d:%02d:%02dZ",
+             result.tm_year + 1900,
+             result.tm_mon+1,
+             result.tm_mday,
+             result.tm_hour,
+             result.tm_min,
+             result.tm_sec);
+}
