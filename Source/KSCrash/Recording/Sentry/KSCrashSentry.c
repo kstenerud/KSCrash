@@ -61,11 +61,13 @@ static CrashSentry g_sentries[] =
         kscrashsentry_uninstallMachHandler,
     },
 #endif
+#if KSCRASH_HAS_SIGNAL
     {
         KSCrashTypeSignal,
         kscrashsentry_installSignalHandler,
         kscrashsentry_uninstallSignalHandler,
     },
+#endif
     {
         KSCrashTypeCPPException,
         kscrashsentry_installCPPExceptionHandler,

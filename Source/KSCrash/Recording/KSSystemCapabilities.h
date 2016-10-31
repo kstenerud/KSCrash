@@ -87,6 +87,13 @@
 #define KSCRASH_HAS_MACH 0
 #endif
 
+// WatchOS signal is broken as of 3.1
+#if KSCRASH_HOST_IOS || KSCRASH_HOST_MAC || KSCRASH_HOST_TV
+#define KSCRASH_HAS_SIGNAL 1
+#else
+#define KSCRASH_HAS_SIGNAL 0
+#endif
+
 #if KSCRASH_HOST_MAC || KSCRASH_HOST_IOS
 #define KSCRASH_HAS_SIGNAL_STACK 1
 #else
