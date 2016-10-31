@@ -24,6 +24,80 @@
 // THE SOFTWARE.
 //
 
+#include <sys/types.h>
+
+#define KSCRS_MAX_PATH_LENGTH 500
+
+/** Initialize the report store.
+ *
+ * @param appName The application's name.
+ * @param reportsPath Full path to where the reports are to be stored.
+ */
+void kscrs_initialize(const char* appName, const char* reportsPath);
+
+/** Get the paths to the next crash report components to be generated.
+ * Max length for paths is KSCRS_MAX_PATH_LENGTH
+ *
+ * @param crashReportPathBuffer Buffer to store the crash report path.
+ * @param recrashReportPathBuffer Buffer to store the recrash report path.
+ */
+void kscrs_getCrashReportPaths(char* crashReportPathBuffer, char* recrashReportPathBuffer);
+
+/** Get the number of reports on disk.
+ */
+int kscrs_getReportCount();
+
+
+/** Get a list of IDs for all reports on disk.
+ *
+ * @param reportIDs An array big enough to hold all report IDs.
+ * @param count How many reports the array can hold.
+ *
+ * @return The number of report IDs that were placed in the array.
+ */
+int kscrs_getReportIDs(int64_t* reportIDs, int count);
+
+/** Read a report.
+ *
+ * @param reportID The report's ID.
+ * @param reportPtr (out) Will be filled with a pointer to the contents of the report, or NULL if not found.
+ *                        Caller MUST call free() on the returned pointer if not NULL.
+ * @param reportLengthPtr (out) Will be filled with the length of the report in bytes, or 0 if not found.
+ * @param recrashPtr (out) Will be filled with a pointer to the contents of the recrash report, or NULL if none is persent.
+ *                        Caller MUST call free() on the returned pointer if it is not NULL.
+ * @param recrashLengthPtr (out) Will be filled with the length of the recrash report in bytes, or 0 if nons is present.
+ */
+void kscrs_readReport(int64_t reportID, char** reportPtr, int* reportLengthPtr,
+                      char** recrashPtr, int* recrashLengthPtr);
+
+/** Add a custom report to the store.
+ *
+ * @param report The report's contents (must be JSON encoded).
+ * @param reportLength The length of the report in bytes.
+ */
+void kscrs_addUserReport(const char* report, int reportLength);
+
+/** Delete all reports on disk.
+ */
+void kscrs_deleteAllReports();
+
+
+/** Increment the crash report index.
+ * Internal function. Do not use.
+ */
+void kscrsi_incrementCrashReportIndex();
+
+/** Get the next crash report ID.
+ * Internal function. Do not use.
+ */
+int64_t kscrsi_getNextCrashReportID();
+
+/** Get the next user report ID.
+ * Internal function. Do not use.
+ */
+int64_t kscrsi_getNextUserReportID();
+
+#if 0
 
 #import <Foundation/Foundation.h>
 
@@ -102,3 +176,4 @@
 - (NSString*) addCustomReport:(NSDictionary*) report;
 
 @end
+#endif

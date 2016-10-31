@@ -76,7 +76,7 @@
 
     XCTAssertEqualObjects(actual, expected, @"");
 }
-
+#if 0
 - (void) testUnixTimestampFromString
 {
     unsigned long long expected = (unsigned long long)[[self gmtDateWithYear:2000 month:1 day:2 hour:3 minute:4 second:5] timeIntervalSince1970];
@@ -84,5 +84,5 @@
 
     XCTAssertEqual(actual, expected, @"");
 }
-
+#endif
 @end

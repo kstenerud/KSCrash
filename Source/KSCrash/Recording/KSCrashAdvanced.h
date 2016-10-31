@@ -68,9 +68,6 @@ typedef enum
 /** If true, the application crashed on the previous launch. */
 @property(nonatomic,readonly,assign) BOOL crashedLastLaunch;
 
-/** Max number of reports to store on disk before throwing older reports out. (default 5) */
-@property(nonatomic,readwrite,assign) int maxStoredReports;
-
 /** Which languages to demangle when getting stack traces (default KSCrashDemangleLanguageAll) */
 @property(nonatomic,readwrite,assign) KSCrashDemangleLanguage demangleLanguages;
 
@@ -78,18 +75,14 @@ typedef enum
  */
 - (NSUInteger) reportCount;
 
-/** Get all reports, with data types corrected, as dictionaries.
- */
-- (NSArray*) allReports;
-
 
 #pragma mark - Configuration -
 
 /** Init KSCrash instance with custom report files directory path. */
-- (id) initWithReportFilesDirectory:(NSString *)reportFilesDirectory;
+//- (id) initWithReportFilesDirectory:(NSString *)reportFilesDirectory;
 
 /** Store containing all crash reports. */
-@property(nonatomic, readwrite, retain) KSCrashReportStore* crashReportStore;
+//@property(nonatomic, readwrite, retain) KSCrashReportStore* crashReportStore;
 
 /** The report sink where reports get sent.
  * This MUST be set or else the reporter will not send reports (although it will

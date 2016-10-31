@@ -34,6 +34,13 @@
 #import "KSSingleton.h"
 #import "NSError+SimpleConstructor.h"
 #import "KSSystemCapabilities.h"
+#import "KSCrashReportFields.h"
+#import "NSDictionary+Merge.h"
+#import "KSJSONCodecObjC.h"
+#import "KSSafeCollections.h"
+#import "RFC3339UTFString.h"
+#import "NSString+Demangle.h"
+#import "KSCrashDoctor.h"
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -69,17 +76,16 @@
 
 @property(nonatomic,readwrite,retain) NSString* bundleName;
 @property(nonatomic,readwrite,retain) NSString* nextCrashID;
-@property(nonatomic,readonly,retain) NSString* crashReportPath;
-@property(nonatomic,readonly,retain) NSString* recrashReportPath;
-@property(nonatomic,readonly,retain) NSString* stateFilePath;
+@property(nonatomic,readwrite,retain) NSString* stateFilePath;
 
 // Mirrored from KSCrashAdvanced.h to provide ivars
 @property(nonatomic,readwrite,retain) id<KSCrashReportFilter> sink;
 @property(nonatomic,readwrite,retain) NSString* logFilePath;
-@property(nonatomic,readwrite,retain) KSCrashReportStore* crashReportStore;
 @property(nonatomic,readwrite,assign) KSReportWriteCallback onCrash;
 @property(nonatomic,readwrite,assign) bool printTraceToStdout;
-@property(nonatomic,readwrite,assign) int maxStoredReports;
+@property(nonatomic,readwrite,assign) KSCrashDemangleLanguage demangleLanguages;
+@property(nonatomic,readwrite,retain) NSString* reportsPath;
+@property(nonatomic,readwrite,retain) NSString* dataPath;
 
 @end
 
@@ -97,7 +103,6 @@
 @synthesize deadlockWatchdogInterval = _deadlockWatchdogInterval;
 @synthesize printTraceToStdout = _printTraceToStdout;
 @synthesize onCrash = _onCrash;
-@synthesize crashReportStore = _crashReportStore;
 @synthesize bundleName = _bundleName;
 @synthesize logFilePath = _logFilePath;
 @synthesize nextCrashID = _nextCrashID;
@@ -106,45 +111,27 @@
 @synthesize introspectMemory = _introspectMemory;
 @synthesize catchZombies = _catchZombies;
 @synthesize doNotIntrospectClasses = _doNotIntrospectClasses;
-@synthesize maxStoredReports = _maxStoredReports;
+@synthesize stateFilePath = _stateFilePath;
+@synthesize demangleLanguages = _demangleLanguages;
+@synthesize reportsPath = _reportsPath;
+@synthesize dataPath = _dataPath;
 
 
 // ============================================================================
 #pragma mark - Lifecycle -
 // ============================================================================
 
-- (void) setDemangleLanguages:(KSCrashDemangleLanguage)demangleLanguages
-{
-    self.crashReportStore.demangleCPP = (demangleLanguages & KSCrashDemangleLanguageCPlusPlus) != 0;
-    self.crashReportStore.demangleSwift = (demangleLanguages & KSCrashDemangleLanguageSwift) != 0;
-}
-
-- (KSCrashDemangleLanguage) demangleLanguages
-{
-    KSCrashDemangleLanguage languages = KSCrashDemangleLanguageNone;
-    if(self.crashReportStore.demangleCPP)
-    {
-        languages |= KSCrashDemangleLanguageCPlusPlus;
-    }
-    if(self.crashReportStore.demangleSwift)
-    {
-        languages |= KSCrashDemangleLanguageSwift;
-    }
-    return languages;
-}
-
 IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrash)
 
 - (id) init
 {
-    return [self initWithReportFilesDirectory:KSCRASH_DefaultReportFilesDirectory];
-}
-
-- (id) initWithReportFilesDirectory:(NSString *)reportFilesDirectory
-{
     if((self = [super init]))
     {
         self.bundleName = [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleName"];
+        if(self.bundleName == nil)
+        {
+            self.bundleName = @"Unknown";
+        }
 
         NSArray* directories = NSSearchPathForDirectoriesInDomains(NSCachesDirectory,
                                                                    NSUserDomainMask,
@@ -160,26 +147,31 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrash)
             KSLOG_ERROR(@"Could not locate cache directory path.");
             goto failed;
         }
-        NSString* storePathEnd = [reportFilesDirectory stringByAppendingPathComponent:self.bundleName];
-        NSString* storePath = [cachePath stringByAppendingPathComponent:storePathEnd];
-        if([storePath length] == 0)
+        NSString* storePathEnd = [@"KSCrash" stringByAppendingPathComponent:self.bundleName];
+        NSString* basePath = [cachePath stringByAppendingPathComponent:storePathEnd];
+        self.reportsPath = [basePath stringByAppendingPathComponent:@"Reports"];
+        self.dataPath = [basePath stringByAppendingPathComponent:@"Data"];
+        if(![self ensureDirectoryExists:self.reportsPath])
         {
-            KSLOG_ERROR(@"Could not determine report files path.");
+            KSLOG_ERROR(@"Could not create reports path at %@", self.reportsPath);
             goto failed;
         }
-        if(![self ensureDirectoryExists:storePath])
+        if(![self ensureDirectoryExists:self.dataPath])
         {
+            KSLOG_ERROR(@"Could not create data path at %@", self.dataPath);
             goto failed;
         }
 
+        NSString* stateFilename = [NSString stringWithFormat:@"%@" kCrashStateFilenameSuffix, self.bundleName];
+        self.stateFilePath = [self.dataPath stringByAppendingPathComponent:stateFilename];
+
         self.nextCrashID = [NSUUID UUID].UUIDString;
-        self.crashReportStore = [KSCrashReportStore storeWithPath:storePath];
+        kscrs_initialize(self.bundleName.UTF8String, self.reportsPath.UTF8String);
         self.deleteBehaviorAfterSendAll = KSCDeleteAlways;
         self.searchThreadNames = NO;
         self.searchQueueNames = NO;
         self.introspectMemory = YES;
         self.catchZombies = NO;
-        self.maxStoredReports = 5;
     }
     return self;
 
@@ -280,28 +272,15 @@ failed:
     }
 }
 
-- (NSString*) crashReportPath
-{
-    return [self.crashReportStore pathToCrashReportWithID:self.nextCrashID];
-}
-
-- (NSString*) recrashReportPath
-{
-    return [self.crashReportStore pathToRecrashReportWithID:self.nextCrashID];
-}
-
-- (NSString*) stateFilePath
-{
-    NSString* stateFilename = [NSString stringWithFormat:@"%@" kCrashStateFilenameSuffix, self.bundleName];
-    return [self.crashReportStore.path stringByAppendingPathComponent:stateFilename];
-}
-
 - (BOOL) install
 {
-    _handlingCrashTypes = kscrash_install([self.crashReportPath UTF8String],
-                                          [self.recrashReportPath UTF8String],
-                                          [self.stateFilePath UTF8String],
-                                          [self.nextCrashID UTF8String]);
+    char crashReportPath[KSCRS_MAX_PATH_LENGTH];
+    char recrashReportPath[KSCRS_MAX_PATH_LENGTH];
+    kscrs_getCrashReportPaths(crashReportPath, recrashReportPath);
+    _handlingCrashTypes = kscrash_install(crashReportPath,
+                                          recrashReportPath,
+                                          self.stateFilePath.UTF8String,
+                                          self.nextCrashID.UTF8String);
     if(self.handlingCrashTypes == 0)
     {
         return false;
@@ -355,8 +334,6 @@ failed:
 
 - (void) sendAllReportsWithCompletion:(KSCrashReportFilterCompletion) onCompletion
 {
-    [self.crashReportStore pruneReportsLeaving:self.maxStoredReports];
-    
     NSArray* reports = [self allReports];
     
     KSLOG_INFO(@"Sending %d crash reports", [reports count]);
@@ -372,7 +349,7 @@ failed:
          if((self.deleteBehaviorAfterSendAll == KSCDeleteOnSucess && completed) ||
             self.deleteBehaviorAfterSendAll == KSCDeleteAlways)
          {
-             [self deleteAllReports];
+             kscrs_deleteAllReports();
          }
          kscrash_i_callCompletion(onCompletion, filteredReports, completed, error);
      }];
@@ -380,7 +357,7 @@ failed:
 
 - (void) deleteAllReports
 {
-    [self.crashReportStore deleteAllReports];
+    kscrs_deleteAllReports();
 }
 
 - (void) reportUserException:(NSString*) name
@@ -415,11 +392,14 @@ failed:
     // Set up IDs and paths for the next crash.
 
     self.nextCrashID = [NSUUID UUID].UUIDString;
-
-    kscrash_reinstall([self.crashReportPath UTF8String],
-                      [self.recrashReportPath UTF8String],
-                      [self.stateFilePath UTF8String],
-                      [self.nextCrashID UTF8String]);
+    kscrsi_incrementCrashReportIndex();
+    char crashReportPath[KSCRS_MAX_PATH_LENGTH];
+    char recrashReportPath[KSCRS_MAX_PATH_LENGTH];
+    kscrs_getCrashReportPaths(crashReportPath, recrashReportPath);
+    kscrash_reinstall(crashReportPath,
+                      recrashReportPath,
+                      self.stateFilePath.UTF8String,
+                      self.nextCrashID.UTF8String);
 }
 
 // ============================================================================
@@ -443,12 +423,7 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
 
 - (NSUInteger) reportCount
 {
-    return [self.crashReportStore reportCount];
-}
-
-- (NSString*) crashReportsPath
-{
-    return self.crashReportStore.path;
+    return (NSUInteger)kscrs_getReportCount();
 }
 
 - (void) sendReports:(NSArray*) reports onCompletion:(KSCrashReportFilterCompletion) onCompletion
@@ -475,9 +450,244 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
      }];
 }
 
+- (NSString*) getReportType:(NSDictionary*) report
+{
+    NSDictionary* reportSection = report[@KSCrashField_Report];
+    if(reportSection)
+    {
+        return reportSection[@KSCrashField_Type];
+    }
+    KSLOG_ERROR(@"Expected a report section in the report.");
+    return nil;
+}
+
+- (void) convertTimestamp:(NSString*) key
+                 inReport:(NSMutableDictionary*) report
+{
+    NSNumber* timestamp = [report objectForKey:key];
+    if(timestamp == nil)
+    {
+        KSLOG_ERROR(@"entry '%@' not found", key);
+        return;
+    }
+    if(![timestamp isKindOfClass:[NSNumber class]])
+    {
+        KSLOG_ERROR(@"'%@' should be a number, not %@", key, [key class]);
+        return;
+    }
+    char timeString[21] = {0};
+    rfc3339UtcStringFromUNIXTimestamp((time_t)[timestamp unsignedLongLongValue], timeString);
+    [report setValue:[NSString stringWithUTF8String:timeString] forKey:key];
+}
+
+- (void) mergeDictWithKey:(NSString*) srcKey
+          intoDictWithKey:(NSString*) dstKey
+                 inReport:(NSMutableDictionary*) report
+{
+    NSDictionary* srcDict = [report objectForKey:srcKey];
+    if(srcDict == nil)
+    {
+        // It's OK if the source dict didn't exist.
+        return;
+    }
+    if(![srcDict isKindOfClass:[NSDictionary class]])
+    {
+        KSLOG_ERROR(@"'%@' should be a dictionary, not %@", srcKey, [srcDict class]);
+        return;
+    }
+    
+    NSDictionary* dstDict = [report objectForKey:dstKey];
+    if(dstDict == nil)
+    {
+        dstDict = [NSDictionary dictionary];
+    }
+    if(![dstDict isKindOfClass:[NSDictionary class]])
+    {
+        KSLOG_ERROR(@"'%@' should be a dictionary, not %@", dstKey, [dstDict class]);
+        return;
+    }
+    
+    [report ksc_setObjectIfNotNil:[srcDict mergedInto:dstDict] forKey:dstKey];
+    [report removeObjectForKey:srcKey];
+}
+
+- (void) performOnFields:(NSArray*) fieldPath inReport:(NSMutableDictionary*) report operation:(void (^)(id parent, id field)) operation okIfNotFound:(BOOL) isOkIfNotFound
+{
+    if(fieldPath.count == 0)
+    {
+        KSLOG_ERROR(@"Unexpected end of field path");
+        return;
+    }
+    
+    NSString* currentField = fieldPath[0];
+    if(fieldPath.count > 1)
+    {
+        fieldPath = [fieldPath subarrayWithRange:NSMakeRange(1, fieldPath.count - 1)];
+    }
+    else
+    {
+        fieldPath = @[];
+    }
+    
+    id field = report[currentField];
+    if(field == nil)
+    {
+        if(!isOkIfNotFound)
+        {
+            KSLOG_ERROR(@"%@: No such field in report. Candidates are: %@", currentField, report.allKeys);
+        }
+        return;
+    }
+    
+    if([field isKindOfClass:NSMutableDictionary.class])
+    {
+        [self performOnFields:fieldPath inReport:field operation:operation okIfNotFound:isOkIfNotFound];
+    }
+    else if([field isKindOfClass:[NSMutableArray class]])
+    {
+        for(id subfield in field)
+        {
+            if([subfield isKindOfClass:NSMutableDictionary.class])
+            {
+                [self performOnFields:fieldPath inReport:subfield operation:operation okIfNotFound:isOkIfNotFound];
+            }
+            else
+            {
+                operation(field, subfield);
+            }
+        }
+    }
+    else
+    {
+        operation(report, field);
+    }
+}
+
+- (void) symbolicateField:(NSArray*) fieldPath inReport:(NSMutableDictionary*) report okIfNotFound:(BOOL) isOkIfNotFound
+{
+    NSString* lastPath = fieldPath[fieldPath.count - 1];
+    [self performOnFields:fieldPath inReport:report operation:^(NSMutableDictionary* parent, NSString* field)
+     {
+         NSString* processedField = nil;
+         if(self.demangleLanguages & KSCrashDemangleLanguageCPlusPlus)
+         {
+             processedField = [field demangledAsCPP];
+         }
+         if(processedField == nil && self.demangleLanguages & KSCrashDemangleLanguageSwift)
+         {
+             processedField = [field demangledAsSwift];
+         }
+         if(processedField == nil)
+         {
+             processedField = field;
+         }
+         parent[lastPath] = processedField;
+     } okIfNotFound:isOkIfNotFound];
+}
+
+- (NSMutableDictionary*) fixupCrashReport:(NSDictionary*) report
+{
+    if(![report isKindOfClass:[NSDictionary class]])
+    {
+        KSLOG_ERROR(@"Report should be a dictionary, not %@", [report class]);
+        return nil;
+    }
+    
+    NSMutableDictionary* mutableReport = [report mutableCopy];
+    NSMutableDictionary* mutableInfo = [[report objectForKey:@KSCrashField_Report] mutableCopy];
+    [mutableReport ksc_setObjectIfNotNil:mutableInfo forKey:@KSCrashField_Report];
+    
+    // Timestamp gets stored as a unix timestamp. Convert it to rfc3339.
+    [self convertTimestamp:@KSCrashField_Timestamp inReport:mutableInfo];
+    
+    [self mergeDictWithKey:@KSCrashField_SystemAtCrash
+           intoDictWithKey:@KSCrashField_System
+                  inReport:mutableReport];
+    
+    [self mergeDictWithKey:@KSCrashField_UserAtCrash
+           intoDictWithKey:@KSCrashField_User
+                  inReport:mutableReport];
+    
+    NSMutableDictionary* crashReport = [[report objectForKey:@KSCrashField_Crash] mutableCopy];
+    [mutableReport ksc_setObjectIfNotNil:crashReport forKey:@KSCrashField_Crash];
+    KSCrashDoctor* doctor = [KSCrashDoctor doctor];
+    [crashReport ksc_setObjectIfNotNil:[doctor diagnoseCrash:report] forKey:@KSCrashField_Diagnosis];
+    
+    [self symbolicateField:@[@"threads", @"backtrace", @"contents", @"symbol_name"] inReport:crashReport okIfNotFound:YES];
+    [self symbolicateField:@[@"error", @"cpp_exception", @"name"] inReport:crashReport okIfNotFound:YES];
+    
+    return mutableReport;
+}
+
+- (NSDictionary*) reportWithID:(int64_t) reportID
+{
+    if(reportID <= 0)
+    {
+        KSLOG_ERROR(@"Report ID was %llx", reportID);
+    }
+    char* rawReport;
+    int rawReportLength;
+    char* rawRecrashReport;
+    int rawRecrashReportLength;
+    kscrs_readReport(reportID, &rawReport, &rawReportLength, &rawRecrashReport, &rawRecrashReportLength);
+    NSData* jsonData = [NSData dataWithBytesNoCopy:rawReport length:(NSUInteger)rawReportLength freeWhenDone:YES];
+    NSData* recrashJsonData = nil;
+    if(rawRecrashReport != NULL)
+    {
+        recrashJsonData = [NSData dataWithBytesNoCopy:rawRecrashReport length:(NSUInteger)rawRecrashReportLength freeWhenDone:YES];
+    }
+
+    NSError* error = nil;
+    NSMutableDictionary* crashReport = [KSJSONCodec decode:jsonData
+                                                   options:KSJSONDecodeOptionIgnoreNullInArray |
+                                        KSJSONDecodeOptionIgnoreNullInObject |
+                                        KSJSONDecodeOptionKeepPartialObject
+                                                     error:&error];
+    if(error != nil)
+    {
+        KSLOG_ERROR(@"Encountered error loading crash report %llx: %@", reportID, error);
+    }
+    if(crashReport == nil)
+    {
+        KSLOG_ERROR(@"Could not load crash report");
+        return nil;
+    }
+    NSString* reportType = [self getReportType:crashReport];
+    if([reportType isEqualToString:@KSCrashReportType_Standard] || [reportType isEqualToString:@KSCrashReportType_Minimal])
+    {
+        crashReport = [self fixupCrashReport:crashReport];
+    }
+
+    if(recrashJsonData != nil)
+    {
+        NSMutableDictionary* recrashReport = [KSJSONCodec decode:jsonData
+                                                         options:KSJSONDecodeOptionIgnoreNullInArray |
+                                              KSJSONDecodeOptionIgnoreNullInObject |
+                                              KSJSONDecodeOptionKeepPartialObject
+                                                           error:&error];
+        recrashReport = [self fixupCrashReport:recrashReport];
+        [crashReport ksc_setObjectIfNotNil:recrashReport forKey:@KSCrashField_RecrashReport];
+    }
+    
+    return crashReport;
+}
+
 - (NSArray*) allReports
 {
-    return [self.crashReportStore allReports];
+    int reportCount = kscrs_getReportCount();
+    int64_t reportIDs[reportCount];
+    reportCount = kscrs_getReportIDs(reportIDs, reportCount);
+    NSMutableArray* reports = [NSMutableArray arrayWithCapacity:(NSUInteger)reportCount];
+    for(int i = 0; i < reportCount; i++)
+    {
+        NSDictionary* report = [self reportWithID:reportIDs[i]];
+        if(report != nil)
+        {
+            [reports addObject:report];
+        }
+    }
+    
+    return reports;
 }
 
 - (BOOL) redirectConsoleLogsToFile:(NSString*) fullPath overwrite:(BOOL) overwrite
@@ -493,7 +703,7 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
 - (BOOL) redirectConsoleLogsToDefaultFile
 {
     NSString* logFilename = [NSString stringWithFormat:@"%@" kCrashLogFilenameSuffix, self.bundleName];
-    NSString* logFilePath = [self.crashReportStore.path stringByAppendingPathComponent:logFilename];
+    NSString* logFilePath = [self.dataPath stringByAppendingPathComponent:logFilename];
     if(![self redirectConsoleLogsToFile:logFilePath overwrite:YES])
     {
         KSLOG_ERROR(@"Could not redirect logs to %@", logFilePath);
