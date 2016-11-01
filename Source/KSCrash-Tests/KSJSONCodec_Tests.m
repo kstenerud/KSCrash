@@ -1056,7 +1056,7 @@ static NSString* toString(NSData* data)
 - (void) testSerializeDeserializeHugeString
 {
     NSError* error = (NSError*)self;
-    char buff[100000];
+    char buff[5000];
     memset(buff, '2', sizeof(buff));
     buff[sizeof(buff)-1] = 0;
     NSString* string = [NSString stringWithCString:buff encoding:NSUTF8StringEncoding];

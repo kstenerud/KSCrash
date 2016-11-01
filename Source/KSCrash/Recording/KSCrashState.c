@@ -224,10 +224,13 @@ bool kscrashstate_i_loadState(KSCrash_State* const context,
     callbacks.onNullElement = kscrashstate_i_onNullElement;
     callbacks.onStringElement = kscrashstate_i_onStringElement;
 
-    size_t errorOffset = 0;
+    int errorOffset = 0;
 
+    char stringBuffer[1000];
     const int result = ksjson_decode(data,
-                                     length,
+                                     (int)length,
+                                     stringBuffer,
+                                     sizeof(stringBuffer),
                                      &callbacks,
                                      context,
                                      &errorOffset);

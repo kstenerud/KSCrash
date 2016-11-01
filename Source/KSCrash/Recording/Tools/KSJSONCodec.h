@@ -53,21 +53,24 @@ enum
     /** Encoding or decoding: Encountered an unexpected or invalid character */
     KSJSON_ERROR_INVALID_CHARACTER = 1,
 
+    /** Decoding: Source data was too long. */
+    KSJSON_ERROR_DATA_TOO_LONG = 2,
+
     /** Encoding: addJSONData could not handle the data.
      * This code is not used by the decoder, but is meant to be returned by
      * the addJSONData callback method if it couldn't handle the data.
      */
-    KSJSON_ERROR_CANNOT_ADD_DATA = 2,
+    KSJSON_ERROR_CANNOT_ADD_DATA = 3,
 
     /** Decoding: Source data appears to be truncated. */
-    KSJSON_ERROR_INCOMPLETE = 3,
+    KSJSON_ERROR_INCOMPLETE = 4,
 
     /** Decoding: Parsing failed due to bad data structure/type/contents.
      * This code is not used by the decoder, but is meant to be returned
      * by the user callback methods if the decoded data is incorrect for
      * semantic or structural reasons.
      */
-    KSJSON_ERROR_INVALID_DATA = 4,
+    KSJSON_ERROR_INVALID_DATA = 5,
 };
 
 /** Get a description for an error code.
@@ -500,6 +503,11 @@ typedef struct KSJSONDecodeCallbacks
  *
  * @param length Length of the data.
  *
+ * @param stringBuffer A buffer to use for decoding strings.
+ *                     Note: 1/4 of this buffer will be used for dictionary name decoding.
+ *
+ * @param stringBufferLength The length of the string buffer.
+ *
  * @param callbacks The callbacks to call while decoding.
  *
  * @param userData Any data you would like passed to the callbacks.
@@ -510,10 +518,12 @@ typedef struct KSJSONDecodeCallbacks
  * @return KSJSON_OK if succesful. An error code otherwise.
  */
 int ksjson_decode(const char* data,
-                  size_t length,
+                  int length,
+                  char* stringBuffer,
+                  int stringBufferLength,
                   KSJSONDecodeCallbacks* callbacks,
                   void* userData,
-                  size_t* errorOffset);
+                  int* errorOffset);
 
 
 #ifdef __cplusplus
