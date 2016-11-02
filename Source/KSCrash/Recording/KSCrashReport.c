@@ -313,34 +313,7 @@ void kscrw_i_addJSONElementFromFile(const KSCrashReportWriter* const writer,
                                     const char* const key,
                                     const char* const filePath)
 {
-    const int fd = open(filePath, O_RDONLY);
-    if(fd < 0)
-    {
-        KSLOG_ERROR("Could not open file %s: %s", filePath, strerror(errno));
-        return;
-    }
-    
-    if(ksjson_beginElement(getJsonContext(writer), key) != KSJSON_OK)
-    {
-        KSLOG_ERROR("Could not start JSON element");
-        goto done;
-    }
-    
-    char buffer[512];
-    ssize_t bytesRead;
-    while((bytesRead = read(fd, buffer, sizeof(buffer))) > 0)
-    {
-        if(ksjson_addRawJSONData(getJsonContext(writer),
-                                 buffer,
-                                 (size_t)bytesRead) != KSJSON_OK)
-        {
-            KSLOG_ERROR("Could not append JSON data");
-            goto done;
-        }
-    }
-    
-done:
-    close(fd);
+    ksjson_addJSONFromFile(getJsonContext(writer), key, filePath);
 }
 
 void kscrw_i_beginObject(const KSCrashReportWriter* const writer,
@@ -2029,6 +2002,13 @@ void kscrw_i_writeReportInfo(const KSCrashReportWriter* const writer,
     writer->endContainer(writer);
 }
 
+static void writeRecrash(const KSCrashReportWriter* const writer,
+                         const char* const key,
+                         const char* crashReportPath)
+{
+    writer->addJSONFileElement(writer, key, crashReportPath);
+}
+
 
 #pragma mark Setup
 
@@ -2102,11 +2082,18 @@ void kscrw_i_callUserCrashHandler(KSCrash_Context* const crashContext,
 #pragma mark - Main API -
 // ============================================================================
 
-void kscrashreport_writeMinimalReport(KSCrash_Context* const crashContext,
+void kscrashreport_writeRecrashReport(KSCrash_Context* const crashContext,
                                       const char* const path)
 {
-    KSLOG_INFO("Writing minimal crash report to %s", path);
+    static char tempPath[1000];
+    strncpy(tempPath, path, sizeof(tempPath) - 10);
+    strcpy(tempPath + strlen(tempPath) - 5, ".old");
+    KSLOG_INFO("Writing recrash report to %s", path);
 
+    if(rename(path, tempPath) < 0)
+    {
+        KSLOG_ERROR("Could not rename %s to %s: %s", path, tempPath, strerror(errno));
+    }
     int fd = kscrw_i_openCrashReportFile(path);
     if(fd < 0)
     {
@@ -2130,6 +2117,11 @@ void kscrashreport_writeMinimalReport(KSCrash_Context* const crashContext,
 
     writer->beginObject(writer, KSCrashField_Report);
     {
+        writeRecrash(writer, KSCrashField_RecrashReport, tempPath);
+        if(remove(tempPath) < 0)
+        {
+            KSLOG_ERROR("Could not remove %s: %s", tempPath, strerror(errno));
+        }
         kscrw_i_writeReportInfo(writer,
                                 KSCrashField_Report,
                                 KSCrashReportType_Minimal,

@@ -167,11 +167,6 @@ static void getCrashReportPathByID(int64_t id, char* pathBuffer)
     snprintf(pathBuffer, KSCRS_MAX_PATH_LENGTH, "%s/%s-report-%016llx.json", g_reportsPath, g_appName, id);
     
 }
-static void getRecrashReportPathByID(int64_t id, char* pathBuffer)
-{
-    snprintf(pathBuffer, KSCRS_MAX_PATH_LENGTH, "%s/%s-recrash-%016llx.json", g_reportsPath, g_appName, id);
-    
-}
 
 static int64_t getReportIDFromFilename(const char* filename)
 {
@@ -188,8 +183,6 @@ static void deleteReportWithID(int64_t id)
     char path[KSCRS_MAX_PATH_LENGTH];
     getCrashReportPathByID(id, path);
     removeFile(path, true);
-    getRecrashReportPathByID(id, path);
-    removeFile(path, false);
 }
 
 static int getReportCount()
@@ -294,11 +287,10 @@ void kscrs_initialize(const char* appName, const char* reportsPath)
     pthread_mutex_unlock(&g_mutex);
 }
 
-void kscrs_getCrashReportPaths(char* crashReportPathBuffer, char* recrashReportPathBuffer)
+void kscrs_getCrashReportPath(char* crashReportPathBuffer)
 {
     pthread_mutex_lock(&g_mutex);
     getCrashReportPathByID(g_nextCrashID, crashReportPathBuffer);
-    getRecrashReportPathByID(g_nextCrashID, recrashReportPathBuffer);
     pthread_mutex_unlock(&g_mutex);
 }
 
@@ -318,15 +310,12 @@ int kscrs_getReportIDs(int64_t* reportIDs, int count)
     return count;
 }
 
-void kscrs_readReport(int64_t reportID, char** reportPtr, int* reportLengthPtr,
-                      char** recrashPtr, int* recrashLengthPtr)
+void kscrs_readReport(int64_t reportID, char** reportPtr, int* reportLengthPtr)
 {
     pthread_mutex_lock(&g_mutex);
     char path[KSCRS_MAX_PATH_LENGTH];
     getCrashReportPathByID(reportID, path);
     *reportLengthPtr = readFile(path, reportPtr);
-    getRecrashReportPathByID(reportID, path);
-    *recrashLengthPtr = readFile(path, recrashPtr);
     pthread_mutex_unlock(&g_mutex);
 }
 

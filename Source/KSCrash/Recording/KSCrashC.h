@@ -47,9 +47,6 @@ extern "C" {
  *
  * @param crashReportFilePath The file to store the next crash report to.
  *
- * @param recrashReportFilePath If the system crashes during crash handling,
- *                              store a second, minimal report here.
- *
  * @param stateFilePath File to store persistent state in.
  *
  * @param crashID The unique identifier to assign to the next crash report.
@@ -57,7 +54,6 @@ extern "C" {
  * @return The crash types that are being handled.
  */
 KSCrashType kscrash_install(const char* const crashReportFilePath,
-                            const char* const recrashReportFilePath,
                             const char* stateFilePath,
                             const char* crashID);
 
@@ -79,15 +75,11 @@ KSCrashType kscrash_setHandlingCrashTypes(KSCrashType crashTypes);
  *
  * @param crashReportFilePath The file to store the next crash report to.
  *
- * @param recrashReportFilePath If the system crashes during crash handling,
- *                              store a second, minimal report here.
- *
  * @param stateFilePath File to store persistent state in.
  *
  * @param crashID The unique identifier to assign to the next crash report.
  */
 void kscrash_reinstall(const char* const crashReportFilePath,
-                       const char* const recrashReportFilePath,
                        const char* const stateFilePath,
                        const char* const crashID);
 

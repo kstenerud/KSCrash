@@ -68,9 +68,6 @@ static KSCrash_Context g_crashReportContext =
 /** Path to store the next crash report. */
 static char* g_crashReportFilePath;
 
-/** Path to store the next crash report (only if the crash manager crashes). */
-static char* g_recrashReportFilePath;
-
 /** Path to store the state file. */
 static char* g_stateFilePath;
 
@@ -109,7 +106,7 @@ void kscrash_i_onCrash(void)
 
     if(context->crash.crashedDuringCrashHandling)
     {
-        kscrashreport_writeMinimalReport(context, g_recrashReportFilePath);
+        kscrashreport_writeRecrashReport(context, g_crashReportFilePath);
     }
     else
     {
@@ -123,7 +120,6 @@ void kscrash_i_onCrash(void)
 // ============================================================================
 
 KSCrashType kscrash_install(const char* const crashReportFilePath,
-                            const char* const recrashReportFilePath,
                             const char* stateFilePath,
                             const char* crashID)
 {
@@ -146,7 +142,6 @@ KSCrashType kscrash_install(const char* const crashReportFilePath,
     }
     
     kscrash_reinstall(crashReportFilePath,
-                      recrashReportFilePath,
                       stateFilePath,
                       crashID);
 
@@ -161,18 +156,15 @@ KSCrashType kscrash_install(const char* const crashReportFilePath,
 }
 
 void kscrash_reinstall(const char* const crashReportFilePath,
-                       const char* const recrashReportFilePath,
                        const char* const stateFilePath,
                        const char* const crashID)
 {
     KSLOG_TRACE("reportFilePath = %s", crashReportFilePath);
-    KSLOG_TRACE("secondaryReportFilePath = %s", recrashReportFilePath);
     KSLOG_TRACE("stateFilePath = %s", stateFilePath);
     KSLOG_TRACE("crashID = %s", crashID);
 
     ksstring_replace((const char**)&g_stateFilePath, stateFilePath);
     ksstring_replace((const char**)&g_crashReportFilePath, crashReportFilePath);
-    ksstring_replace((const char**)&g_recrashReportFilePath, recrashReportFilePath);
     KSCrash_Context* context = crashContext();
     ksstring_replace(&context->config.crashID, crashID);
 

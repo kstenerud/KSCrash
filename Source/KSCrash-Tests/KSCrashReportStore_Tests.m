@@ -73,19 +73,13 @@
     return reportIDs;
 }
 
-- (int64_t) writeCrashReportWithStringContents:(NSString*) contents recrashContents:(NSString*) recrash
+- (int64_t) writeCrashReportWithStringContents:(NSString*) contents
 {
     NSData* crashData = [contents dataUsingEncoding:NSUTF8StringEncoding];
     int64_t reportID = kscrsi_getNextCrashReportID();
     char crashReportPath[KSCRS_MAX_PATH_LENGTH];
-    char recrashReportPath[KSCRS_MAX_PATH_LENGTH];
-    kscrs_getCrashReportPaths(crashReportPath, recrashReportPath);
+    kscrs_getCrashReportPath(crashReportPath);
     [crashData writeToFile:[NSString stringWithUTF8String:crashReportPath] atomically:YES];
-    if(recrash != nil)
-    {
-        NSData* recrashData = [recrash dataUsingEncoding:NSUTF8StringEncoding];
-        [recrashData writeToFile:[NSString stringWithUTF8String:recrashReportPath] atomically:YES];
-    }
     kscrsi_incrementCrashReportIndex();
     return reportID;
 }
@@ -100,13 +94,10 @@
 
 - (void) loadReportID:(int64_t) reportID
          reportString:(NSString* __autoreleasing *) reportString
-        recrashString:(NSString* __autoreleasing *) recrashString
 {
     char* reportBytes;
     int reportLength;
-    char* recrashBytes;
-    int recrashLength;
-    kscrs_readReport(reportID, &reportBytes, &reportLength, &recrashBytes, &recrashLength);
+    kscrs_readReport(reportID, &reportBytes, &reportLength);
     if(reportBytes == NULL)
     {
         reportString = nil;
@@ -114,14 +105,6 @@
     else
     {
         *reportString = [[NSString alloc] initWithData:[NSData dataWithBytesNoCopy:reportBytes length:(NSUInteger)reportLength] encoding:NSUTF8StringEncoding];
-    }
-    if(recrashBytes == NULL)
-    {
-        recrashString = nil;
-    }
-    else
-    {
-        *recrashString = [[NSString alloc] initWithData:[NSData dataWithBytesNoCopy:recrashBytes length:(NSUInteger)recrashLength] encoding:NSUTF8StringEncoding];
     }
 }
 
@@ -132,26 +115,14 @@
 
 - (void) expectReports:(NSArray*) reportIDs
             areStrings:(NSArray*) reportStrings
-andRecrashesAreStrings:(NSArray*) recrashStrings
 {
-    NSString* nullString = (NSString*)[NSNull null];
     for(NSUInteger i = 0; i < reportIDs.count; i++)
     {
         int64_t reportID = [reportIDs[i] longLongValue];
         NSString* reportString = reportStrings[i];
-        NSString* recrashString = recrashStrings[i];
         NSString* loadedReportString;
-        NSString* loadedRecrashString;
-        [self loadReportID:reportID reportString:&loadedReportString recrashString:&loadedRecrashString];
+        [self loadReportID:reportID reportString:&loadedReportString];
         XCTAssertEqualObjects(loadedReportString, reportString);
-        if(recrashString == nullString)
-        {
-            XCTAssertNil(loadedRecrashString);
-        }
-        else
-        {
-            XCTAssertEqualObjects(loadedRecrashString, recrashString);
-        }
     }
 }
 
@@ -165,7 +136,7 @@ andRecrashesAreStrings:(NSArray*) recrashStrings
 {
     [self prepareReportStoreWithPathEnd:@"testCrashReportCount1"];
     NSString* reportContents = @"Testing";
-    [self writeCrashReportWithStringContents:reportContents recrashContents:nil];
+    [self writeCrashReportWithStringContents:reportContents];
     [self expectHasReportCount:1];
 }
 
@@ -174,17 +145,8 @@ andRecrashesAreStrings:(NSArray*) recrashStrings
 {
     [self prepareReportStoreWithPathEnd:@"testStoresLoadsOneCrashReport"];
     NSString* reportContents = @"Testing";
-    int64_t reportID = [self writeCrashReportWithStringContents:reportContents recrashContents:nil];
-    [self expectReports:@[@(reportID)] areStrings:@[reportContents] andRecrashesAreStrings:nil];
-}
-
-- (void) testStoresLoadsOneRecrashReport
-{
-    [self prepareReportStoreWithPathEnd:@"testStoresLoadsOneRecrashReport"];
-    NSString* reportContents = @"Testing";
-    NSString* recrashContents = @"Recrash";
-    int64_t reportID = [self writeCrashReportWithStringContents:reportContents recrashContents:recrashContents];
-    [self expectReports:@[@(reportID)] areStrings:@[reportContents] andRecrashesAreStrings:@[recrashContents]];
+    int64_t reportID = [self writeCrashReportWithStringContents:reportContents];
+    [self expectReports:@[@(reportID)] areStrings:@[reportContents]];
 }
 
 - (void) testStoresLoadsOneUserReport
@@ -192,7 +154,7 @@ andRecrashesAreStrings:(NSArray*) recrashStrings
     [self prepareReportStoreWithPathEnd:@"testStoresLoadsOneUserReport"];
     NSString* reportContents = @"Testing";
     int64_t reportID = [self writeUserReportWithStringContents:reportContents];
-    [self expectReports:@[@(reportID)] areStrings:@[reportContents] andRecrashesAreStrings:nil];
+    [self expectReports:@[@(reportID)] areStrings:@[reportContents]];
 }
 
 - (void) testStoresLoadsMultipleReports
@@ -200,22 +162,21 @@ andRecrashesAreStrings:(NSArray*) recrashStrings
     [self prepareReportStoreWithPathEnd:@"testStoresLoadsMultipleReports"];
     NSMutableArray* reportIDs = [NSMutableArray new];
     NSArray* reportContents = @[@"report1", @"report2", @"report3", @"report4"];
-    NSArray* recrashContents = @[@"recrash1", [NSNull null], [NSNull null], @"recrash4"];
-    [reportIDs addObject:@([self writeCrashReportWithStringContents:reportContents[0] recrashContents:recrashContents[0]])];
+    [reportIDs addObject:@([self writeCrashReportWithStringContents:reportContents[0]])];
     [reportIDs addObject:@([self writeUserReportWithStringContents:reportContents[1]])];
     [reportIDs addObject:@([self writeUserReportWithStringContents:reportContents[2]])];
-    [reportIDs addObject:@([self writeCrashReportWithStringContents:reportContents[3] recrashContents:recrashContents[3]])];
+    [reportIDs addObject:@([self writeCrashReportWithStringContents:reportContents[3]])];
     [self expectHasReportCount:4];
-    [self expectReports:reportIDs areStrings:reportContents andRecrashesAreStrings:recrashContents];
+    [self expectReports:reportIDs areStrings:reportContents];
 }
 
 - (void) testDeleteAllReports
 {
     [self prepareReportStoreWithPathEnd:@"testDeleteAllReports"];
-    [self writeCrashReportWithStringContents:@"1" recrashContents:@"1"];
+    [self writeCrashReportWithStringContents:@"1"];
     [self writeUserReportWithStringContents:@"2"];
     [self writeUserReportWithStringContents:@"3"];
-    [self writeCrashReportWithStringContents:@"4" recrashContents:@"4"];
+    [self writeCrashReportWithStringContents:@"4"];
     [self expectHasReportCount:4];
     kscrs_deleteAllReports();
     [self expectHasReportCount:0];
@@ -225,12 +186,12 @@ andRecrashesAreStrings:(NSArray*) recrashStrings
 {
     int reportStorePrunesTo = 5;
     [self prepareReportStoreWithPathEnd:@"testDeleteAllReports"];
-    [self writeCrashReportWithStringContents:@"c1" recrashContents:@"c1"];
+    [self writeCrashReportWithStringContents:@"c1"];
     // User reports should be pruned first, starting with the oldest.
     int64_t prunedReportID = [self writeUserReportWithStringContents:@"u1"];
     [self writeUserReportWithStringContents:@"u2"];
-    [self writeCrashReportWithStringContents:@"c2" recrashContents:@"c2"];
-    [self writeCrashReportWithStringContents:@"c3" recrashContents:@"c3"];
+    [self writeCrashReportWithStringContents:@"c2"];
+    [self writeCrashReportWithStringContents:@"c3"];
     [self writeUserReportWithStringContents:@"u3"];
     [self expectHasReportCount:6];
     // Calls kscrs_initialize() again, which prunes the reports.
@@ -245,9 +206,8 @@ andRecrashesAreStrings:(NSArray*) recrashStrings
     self.appName = @"ЙогуртЙод";
     [self prepareReportStoreWithPathEnd:@"testStoresLoadsWithUnicodeAppName"];
     NSString* reportContents = @"Testing";
-    NSString* recrashContents = @"Recrash";
-    int64_t reportID = [self writeCrashReportWithStringContents:reportContents recrashContents:recrashContents];
-    [self expectReports:@[@(reportID)] areStrings:@[reportContents] andRecrashesAreStrings:@[recrashContents]];
+    int64_t reportID = [self writeCrashReportWithStringContents:reportContents];
+    [self expectReports:@[@(reportID)] areStrings:@[reportContents]];
 }
 
 @end

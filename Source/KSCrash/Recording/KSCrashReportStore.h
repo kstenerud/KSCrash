@@ -39,9 +39,8 @@ void kscrs_initialize(const char* appName, const char* reportsPath);
  * Max length for paths is KSCRS_MAX_PATH_LENGTH
  *
  * @param crashReportPathBuffer Buffer to store the crash report path.
- * @param recrashReportPathBuffer Buffer to store the recrash report path.
  */
-void kscrs_getCrashReportPaths(char* crashReportPathBuffer, char* recrashReportPathBuffer);
+void kscrs_getCrashReportPath(char* crashReportPathBuffer);
 
 /** Get the number of reports on disk.
  */
@@ -63,12 +62,8 @@ int kscrs_getReportIDs(int64_t* reportIDs, int count);
  * @param reportPtr (out) Will be filled with a pointer to the contents of the report, or NULL if not found.
  *                        Caller MUST call free() on the returned pointer if not NULL.
  * @param reportLengthPtr (out) Will be filled with the length of the report in bytes, or 0 if not found.
- * @param recrashPtr (out) Will be filled with a pointer to the contents of the recrash report, or NULL if none is persent.
- *                        Caller MUST call free() on the returned pointer if it is not NULL.
- * @param recrashLengthPtr (out) Will be filled with the length of the recrash report in bytes, or 0 if nons is present.
  */
-void kscrs_readReport(int64_t reportID, char** reportPtr, int* reportLengthPtr,
-                      char** recrashPtr, int* recrashLengthPtr);
+void kscrs_readReport(int64_t reportID, char** reportPtr, int* reportLengthPtr);
 
 /** Add a custom report to the store.
  *
@@ -96,84 +91,3 @@ int64_t kscrsi_getNextCrashReportID();
  * Internal function. Do not use.
  */
 int64_t kscrsi_getNextUserReportID();
-
-#if 0
-
-#import <Foundation/Foundation.h>
-
-
-/**
- * Manages a store of crash reports.
- */
-@interface KSCrashReportStore: NSObject
-
-/** Location where reports are stored. */
-@property(nonatomic,readonly,retain) NSString* path;
-
-/** The total number of reports. Note: This is an expensive operation. */
-@property(nonatomic,readonly,assign) NSUInteger reportCount;
-
-/** If true, demangle any C++ symbols found in stack traces. */
-@property(nonatomic,readwrite,assign) BOOL demangleCPP;
-
-/** If true, demangle any Swift symbols found in stack traces. */
-@property(nonatomic,readwrite,assign) BOOL demangleSwift;
-
-/** Create a new store.
- *
- * @param path Where to store crash reports.
- *
- * @return A new crash report store.
- */
-+ (KSCrashReportStore*) storeWithPath:(NSString*) path;
-
-/** Initialize a store.
- *
- * @param path Where to store crash reports.
- *
- * @return The initialized crash report store.
- */
-- (id) initWithPath:(NSString*) path;
-
-/** Get a list of all reports.
- *
- * @return A list of reports in chronological order (oldest first).
- */
-- (NSArray*) allReports;
-
-/** Delete all reports.
- */
-- (void) deleteAllReports;
-
-/** Prune reports, keeping only the newest ones.
- *
- * @param numReports the number of reports to keep.
- */
-- (void) pruneReportsLeaving:(int) numReports;
-
-/** Full path to the crash report with the specified ID.
- *
- * @param reportID The report ID
- *
- * @return The full path.
- */
-- (NSString*) pathToCrashReportWithID:(NSString*) reportID;
-
-/** Full path to the recrash report with the specified ID.
- *
- * @param reportID The report ID
- *
- * @return The full path.
- */
-- (NSString*) pathToRecrashReportWithID:(NSString*) reportID;
-
-/** Add a custom report to the store.
- *
- * @param report The report to store. This method will add a standard top-level "report" section to it.
- *
- * @return The report ID
- */
-- (NSString*) addCustomReport:(NSDictionary*) report;
-
-@end
-#endif

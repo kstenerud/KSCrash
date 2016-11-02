@@ -275,10 +275,8 @@ failed:
 - (BOOL) install
 {
     char crashReportPath[KSCRS_MAX_PATH_LENGTH];
-    char recrashReportPath[KSCRS_MAX_PATH_LENGTH];
-    kscrs_getCrashReportPaths(crashReportPath, recrashReportPath);
+    kscrs_getCrashReportPath(crashReportPath);
     _handlingCrashTypes = kscrash_install(crashReportPath,
-                                          recrashReportPath,
                                           self.stateFilePath.UTF8String,
                                           self.nextCrashID.UTF8String);
     if(self.handlingCrashTypes == 0)
@@ -394,10 +392,8 @@ failed:
     self.nextCrashID = [NSUUID UUID].UUIDString;
     kscrsi_incrementCrashReportIndex();
     char crashReportPath[KSCRS_MAX_PATH_LENGTH];
-    char recrashReportPath[KSCRS_MAX_PATH_LENGTH];
-    kscrs_getCrashReportPaths(crashReportPath, recrashReportPath);
+    kscrs_getCrashReportPath(crashReportPath);
     kscrash_reinstall(crashReportPath,
-                      recrashReportPath,
                       self.stateFilePath.UTF8String,
                       self.nextCrashID.UTF8String);
 }
@@ -627,15 +623,8 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
     }
     char* rawReport;
     int rawReportLength;
-    char* rawRecrashReport;
-    int rawRecrashReportLength;
-    kscrs_readReport(reportID, &rawReport, &rawReportLength, &rawRecrashReport, &rawRecrashReportLength);
+    kscrs_readReport(reportID, &rawReport, &rawReportLength);
     NSData* jsonData = [NSData dataWithBytesNoCopy:rawReport length:(NSUInteger)rawReportLength freeWhenDone:YES];
-    NSData* recrashJsonData = nil;
-    if(rawRecrashReport != NULL)
-    {
-        recrashJsonData = [NSData dataWithBytesNoCopy:rawRecrashReport length:(NSUInteger)rawRecrashReportLength freeWhenDone:YES];
-    }
 
     NSError* error = nil;
     NSMutableDictionary* crashReport = [KSJSONCodec decode:jsonData
@@ -658,15 +647,10 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
         crashReport = [self fixupCrashReport:crashReport];
     }
 
-    if(recrashJsonData != nil)
+    NSMutableDictionary* recrashReport = crashReport[@KSCrashField_RecrashReport];
+    if(recrashReport != nil)
     {
-        NSMutableDictionary* recrashReport = [KSJSONCodec decode:jsonData
-                                                         options:KSJSONDecodeOptionIgnoreNullInArray |
-                                              KSJSONDecodeOptionIgnoreNullInObject |
-                                              KSJSONDecodeOptionKeepPartialObject
-                                                           error:&error];
-        recrashReport = [self fixupCrashReport:recrashReport];
-        [crashReport ksc_setObjectIfNotNil:recrashReport forKey:@KSCrashField_RecrashReport];
+        crashReport[@KSCrashField_RecrashReport] = [self fixupCrashReport:recrashReport];
     }
     
     return crashReport;
