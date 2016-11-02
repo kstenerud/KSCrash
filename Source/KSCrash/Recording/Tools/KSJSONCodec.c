@@ -28,8 +28,11 @@
 #include "KSJSONCodec.h"
 
 #include <ctype.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 
 // ============================================================================
@@ -635,7 +638,7 @@ typedef struct
     /** The callbacks to call while decoding. */
     KSJSONDecodeCallbacks* const callbacks;
     /** Data that was specified when calling ksjson_decode(). */
-    void* const userData;
+    void* userData;
 } KSJSONDecodeContext;
 
 /** Lookup table for converting hex values to integers.
@@ -1192,5 +1195,182 @@ int ksjson_decode(const char* const data,
     {
         *errorOffset = ptr - data;
     }
+    return result;
+}
+
+
+typedef struct
+{
+    KSJSONEncodeContext* encodeContext;
+    KSJSONDecodeContext* decodeContext;
+    char* bufferStart;
+    const char* sourceFilename;
+    int fd;
+    bool isEOF;
+} JSONFromFileContext;
+
+
+static void addJSONFromFile_updateDecoder(JSONFromFileContext* context)
+{
+    likely_if(!context->isEOF)
+    {
+        char* end = context->decodeContext->bufferEnd;
+        char* start = context->bufferStart;
+        char* ptr = context->decodeContext->bufferPtr;
+        int bufferLength = end - start;
+        int remainingLength = end - ptr;
+        unlikely_if(remainingLength < bufferLength / 2)
+        {
+            int fillLength = bufferLength - remainingLength;
+            memcpy(start, ptr, remainingLength);
+            context->decodeContext->bufferPtr = start;
+            ssize_t bytesRead = read(context->fd, start+remainingLength, (size_t)fillLength);
+            unlikely_if(bytesRead < fillLength)
+            {
+                if(bytesRead < 0)
+                {
+                    KSLOG_ERROR("Error reading file %s: %s", context->sourceFilename, strerror(errno));
+                }
+                context->isEOF = true;
+            }
+        }
+    }
+}
+
+static int addJSONFromFile_onBooleanElement(const char* const name,
+                                       const bool value,
+                                       void* const userData)
+{
+    JSONFromFileContext* context = (JSONFromFileContext*)userData;
+    int result = ksjson_addBooleanElement(context->encodeContext, name, value);
+    addJSONFromFile_updateDecoder(context);
+    return result;
+}
+
+static int addJSONFromFile_onFloatingPointElement(const char* const name,
+                                             const double value,
+                                             void* const userData)
+{
+    JSONFromFileContext* context = (JSONFromFileContext*)userData;
+    int result = ksjson_addFloatingPointElement(context->encodeContext, name, value);
+    addJSONFromFile_updateDecoder(context);
+    return result;
+}
+
+static int addJSONFromFile_onIntegerElement(const char* const name,
+                                       const long long value,
+                                       void* const userData)
+{
+    JSONFromFileContext* context = (JSONFromFileContext*)userData;
+    int result = ksjson_addIntegerElement(context->encodeContext, name, value);
+    addJSONFromFile_updateDecoder(context);
+    return result;
+}
+
+static int addJSONFromFile_onNullElement(const char* const name,
+                                    void* const userData)
+{
+    JSONFromFileContext* context = (JSONFromFileContext*)userData;
+    int result = ksjson_addNullElement(context->encodeContext, name);
+    addJSONFromFile_updateDecoder(context);
+    return result;
+}
+
+static int addJSONFromFile_onStringElement(const char* const name,
+                                      const char* const value,
+                                      void* const userData)
+{
+    JSONFromFileContext* context = (JSONFromFileContext*)userData;
+    int result = ksjson_addStringElement(context->encodeContext, name, value, strlen(value));
+    addJSONFromFile_updateDecoder(context);
+    return result;
+}
+
+static int addJSONFromFile_onBeginObject(const char* const name,
+                                    void* const userData)
+{
+    JSONFromFileContext* context = (JSONFromFileContext*)userData;
+    int result = ksjson_beginObject(context->encodeContext, name);
+    addJSONFromFile_updateDecoder(context);
+    return result;
+}
+
+static int addJSONFromFile_onBeginArray(const char* const name,
+                                   void* const userData)
+{
+    JSONFromFileContext* context = (JSONFromFileContext*)userData;
+    int result = ksjson_beginArray(context->encodeContext, name);
+    addJSONFromFile_updateDecoder(context);
+    return result;
+}
+
+static int addJSONFromFile_onEndContainer(void* const userData)
+{
+    JSONFromFileContext* context = (JSONFromFileContext*)userData;
+    int result = ksjson_endContainer(context->encodeContext);
+    addJSONFromFile_updateDecoder(context);
+    return result;
+}
+
+static int addJSONFromFile_onEndData(__unused void* const userData)
+{
+    return KSJSON_OK;
+}
+
+int ksjson_addJSONFromFile(KSJSONEncodeContext* const encodeContext,
+                           const char* restrict const name,
+                           const char* restrict const filename)
+{
+    KSJSONDecodeCallbacks callbacks =
+    {
+        .onBeginArray = addJSONFromFile_onBeginArray,
+        .onBeginObject = addJSONFromFile_onBeginObject,
+        .onBooleanElement = addJSONFromFile_onBooleanElement,
+        .onEndContainer = addJSONFromFile_onEndContainer,
+        .onEndData = addJSONFromFile_onEndData,
+        .onFloatingPointElement = addJSONFromFile_onFloatingPointElement,
+        .onIntegerElement = addJSONFromFile_onIntegerElement,
+        .onNullElement = addJSONFromFile_onNullElement,
+        .onStringElement = addJSONFromFile_onStringElement,
+    };
+    char nameBuffer[100] = {0};
+    char stringBuffer[500] = {0};
+    char fileBuffer[1000] = {0};
+    KSJSONDecodeContext decodeContext =
+    {
+        .bufferPtr = fileBuffer,
+        .bufferEnd = fileBuffer + sizeof(fileBuffer),
+        .nameBuffer = nameBuffer,
+        .nameBufferLength = sizeof(nameBuffer),
+        .stringBuffer = stringBuffer,
+        .stringBufferLength = sizeof(stringBuffer),
+        .callbacks = &callbacks,
+        .userData = NULL,
+    };
+
+    int fd = open(filename, O_RDONLY);
+    JSONFromFileContext jsonContext =
+    {
+        .encodeContext = encodeContext,
+        .decodeContext = &decodeContext,
+        .bufferStart = fileBuffer,
+        .sourceFilename = filename,
+        .fd = fd,
+        .isEOF = false,
+    };
+    decodeContext.userData = &jsonContext;
+    int containerLevel = encodeContext->containerLevel;
+
+    // Manually trigger a data load.
+    decodeContext.bufferPtr = decodeContext.bufferEnd;
+    addJSONFromFile_updateDecoder(&jsonContext);
+
+    int result = ksjsoncodec_i_decodeElement(name, &decodeContext);
+    close(fd);
+    while(encodeContext->containerLevel > containerLevel)
+    {
+        ksjson_endContainer(encodeContext);
+    }
+
     return result;
 }

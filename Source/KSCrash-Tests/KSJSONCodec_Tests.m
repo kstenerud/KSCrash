@@ -27,10 +27,12 @@
 
 #import <XCTest/XCTest.h>
 
+#import "FileBasedTestCase.h"
 #import "KSJSONCodecObjC.h"
+#import "KSJSONCodec.h"
 
 
-@interface KSJSONCodec_Tests : XCTestCase @end
+@interface KSJSONCodec_Tests : FileBasedTestCase @end
 
 
 @implementation KSJSONCodec_Tests
@@ -1510,6 +1512,118 @@ static NSString* toString(NSData* data)
     XCTAssertNil(error, @"");
     XCTAssertTrue([result count] == 1, @"");
 
+}
+
+static int addJSONData(const char* data, size_t length, void* userData)
+{
+    NSMutableData* nsdata = (__bridge NSMutableData*)userData;
+    [nsdata appendBytes:data length:length];
+    return KSJSON_OK;
+}
+
+- (void) serializeObject:(id) object toFile:(NSString*) filename
+{
+    NSError* error = nil;
+    NSData* savedData = [NSJSONSerialization dataWithJSONObject:object options:0 error:&error];
+    XCTAssertNotNil(savedData);
+    XCTAssertNil(error);
+    XCTAssertTrue([savedData writeToFile:filename atomically:YES]);
+}
+
+- (void) expectData:(NSData*) data encodesObject:(id) expectedObject
+{
+    NSError* error = nil;
+    id object = [NSJSONSerialization JSONObjectWithData:data options:0 error:&error];
+    XCTAssertNotNil(object);
+    XCTAssertNil(error);
+    XCTAssertEqualObjects(object, expectedObject);
+}
+
+- (void) testAddJSONFromFile
+{
+    NSString* savedFilename = [self.tempPath stringByAppendingPathComponent:@"saved.json"];
+    id savedObject = @{@"loaded": @"yes"};
+    [self serializeObject:savedObject toFile:savedFilename];
+    id expectedObject = @{@"1": @"one", @"from_file": savedObject};
+    
+    NSMutableData* encodedData = [NSMutableData data];
+    KSJSONEncodeContext context = {0};
+    ksjson_beginEncode(&context, false, addJSONData, (__bridge void *)(encodedData));
+    ksjson_beginObject(&context, NULL);
+    ksjson_addStringElement(&context, "1", "one", KSJSON_SIZE_AUTOMATIC);
+    ksjson_addJSONFromFile(&context, "from_file", savedFilename.UTF8String);
+    ksjson_endContainer(&context);
+    ksjson_endEncode(&context);
+    
+    [self expectData:encodedData encodesObject:expectedObject];
+}
+
+- (void) testAddJSONFromBigFile
+{
+    NSString* savedFilename = [self.tempPath stringByAppendingPathComponent:@"big.json"];
+    id savedObject = @{
+                       @"an_array": @[@1, @2, @3, @4],
+                       @"lines": @[
+                               @"I cannot describe to you my sensations on the near prospect of my undertaking.",
+                               @"It is impossible to communicate to you a conception of the trembling sensation, half pleasurable and half fearful, with which I am preparing to depart.",
+                               @"I am going to unexplored regions, to \"the land of mist and snow,\" but I shall kill no albatross; therefore do not be alarmed for my safety or if I should come back to you as worn and woeful as the \"Ancient Mariner.\"",
+                               @"You will smile at my allusion, but I will disclose a secret.",
+                               @"I have often attributed my attachment to, my passionate enthusiasm for, the dangerous mysteries of ocean to that production of the most imaginative of modern poets.",
+                               @"There is something at work in my soul which I do not understand.",
+                               @"I am practically industrious—painstaking, a workman to execute with perseverance and labour—but besides this there is a love for the marvellous, a belief in the marvellous, intertwined in all my projects, which hurries me out of the common pathways of men, even to the wild sea and unvisited regions I am about to explore.",
+                               @"But to return to dearer considerations.",
+                               @"Shall I meet you again, after having traversed immense seas, and returned by the most southern cape of Africa or America? I dare not expect such success, yet I cannot bear to look on the reverse of the picture.",
+                               @"Continue for the present to write to me by every opportunity: I may receive your letters on some occasions when I need them most to support my spirits.",
+                               @"I love you very tenderly.",
+                               @"Remember me with affection, should you never hear from me again.",
+                               ],
+                       };
+    [self serializeObject:savedObject toFile:savedFilename];
+    id expectedObject = @{@"testing": @"this", @"from_file": savedObject};
+    
+    NSMutableData* encodedData = [NSMutableData data];
+    KSJSONEncodeContext context = {0};
+    ksjson_beginEncode(&context, false, addJSONData, (__bridge void *)(encodedData));
+    ksjson_beginObject(&context, NULL);
+    ksjson_addStringElement(&context, "testing", "this", KSJSON_SIZE_AUTOMATIC);
+    ksjson_addJSONFromFile(&context, "from_file", savedFilename.UTF8String);
+    ksjson_endContainer(&context);
+    ksjson_endEncode(&context);
+    
+    [self expectData:encodedData encodesObject:expectedObject];
+}
+
+- (void) testAddJSONFromBrokenFile
+{
+    NSString* savedFilename = [self.tempPath stringByAppendingPathComponent:@"broken.json"];
+    char* savedJSON = "{"
+                            "\"an_object\": {";
+    char* expectedJSON = "{"
+                            "\"1\": \"one\","
+                            "\"from_file\": {"
+                                "\"an_object\": {"
+                                "}"
+                            "}"
+                        "}";
+
+    NSData* data = [NSData dataWithBytes:savedJSON length:strlen(savedJSON)];
+    XCTAssertTrue([data writeToFile:savedFilename atomically:YES]);
+    
+    NSError* error = nil;
+    NSData* expectedObject = [NSJSONSerialization JSONObjectWithData:[NSData dataWithBytes:expectedJSON length:strlen(expectedJSON)] options:0 error:&error];
+    XCTAssertNotNil(expectedObject);
+    XCTAssertNil(error);
+    
+    NSMutableData* encodedData = [NSMutableData data];
+    KSJSONEncodeContext context = {0};
+    ksjson_beginEncode(&context, false, addJSONData, (__bridge void *)(encodedData));
+    ksjson_beginObject(&context, NULL);
+    ksjson_addStringElement(&context, "1", "one", KSJSON_SIZE_AUTOMATIC);
+    ksjson_addJSONFromFile(&context, "from_file", savedFilename.UTF8String);
+    ksjson_endContainer(&context);
+    ksjson_endEncode(&context);
+    
+    [self expectData:encodedData encodesObject:expectedObject];
 }
 
 @end

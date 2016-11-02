@@ -376,6 +376,10 @@ int ksjson_addRawJSONData(KSJSONEncodeContext* const context,
 int ksjson_endContainer(KSJSONEncodeContext* context);
 
 
+    int ksjson_addJSONFromFile(KSJSONEncodeContext* const encodeContext,
+                               const char* restrict const name,
+                               const char* restrict const filename);
+
 
 // ============================================================================
 // Decode
