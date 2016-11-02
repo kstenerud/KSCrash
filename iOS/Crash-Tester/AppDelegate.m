@@ -27,7 +27,8 @@ static void onCrash(const KSCrashReportWriter* writer)
 {
     if(g_crashInHandler)
     {
-        printf(NULL);
+        char* buff = NULL;
+        buff[0] = 'a';
     }
     writer->addStringElement(writer, "test", "test");
     writer->addStringElement(writer, "intl2", "テスト２");
