@@ -99,12 +99,7 @@ extern "C"
 static void CPPExceptionTerminate(void)
 {
     KSLOG_DEBUG("Trapped c++ exception");
-
-    char descriptionBuff[DESCRIPTION_BUFFER_LENGTH];
     const char* name = NULL;
-    const char* description = NULL;
-
-    KSLOG_DEBUG("Get exception type name.");
     std::type_info* tinfo = __cxxabiv1::__cxa_current_exception_type();
     if(tinfo != NULL)
     {
@@ -113,7 +108,8 @@ static void CPPExceptionTerminate(void)
     
     if(name == NULL || strcmp(name, "NSException") != 0)
     {
-        description = descriptionBuff;
+        char descriptionBuff[DESCRIPTION_BUFFER_LENGTH];
+        const char* description = descriptionBuff;
         descriptionBuff[0] = 0;
 
         KSLOG_DEBUG("Discovering what kind of exception was thrown.");
