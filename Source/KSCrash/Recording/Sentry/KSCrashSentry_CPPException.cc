@@ -22,8 +22,6 @@
 // THE SOFTWARE.
 //
 
-#import <Foundation/Foundation.h>
-
 #include "KSCrashSentry_CPPException.h"
 #include "KSCrashSentry_Private.h"
 #include "KSMach.h"
@@ -100,76 +98,70 @@ extern "C"
 
 static void CPPExceptionTerminate(void)
 {
-    KSLOG_DEBUG(@"Trapped c++ exception");
+    KSLOG_DEBUG("Trapped c++ exception");
 
-    bool isNSException = false;
     char descriptionBuff[DESCRIPTION_BUFFER_LENGTH];
     const char* name = NULL;
     const char* description = NULL;
 
-    KSLOG_DEBUG(@"Get exception type name.");
+    KSLOG_DEBUG("Get exception type name.");
     std::type_info* tinfo = __cxxabiv1::__cxa_current_exception_type();
     if(tinfo != NULL)
     {
         name = tinfo->name();
     }
+    
+    if(name == NULL || strcmp(name, "NSException") != 0)
+    {
+        description = descriptionBuff;
+        descriptionBuff[0] = 0;
 
-    description = descriptionBuff;
-    descriptionBuff[0] = 0;
-
-    KSLOG_DEBUG(@"Discovering what kind of exception was thrown.");
-    g_captureNextStackTrace = false;
-    try
-    {
-        throw;
-    }
-    catch(NSException* exception)
-    {
-        KSLOG_DEBUG(@"Detected NSException. Letting the current NSException handler deal with it.");
-        isNSException = true;
-    }
-    catch(std::exception& exc)
-    {
-        strncpy(descriptionBuff, exc.what(), sizeof(descriptionBuff));
-    }
+        KSLOG_DEBUG("Discovering what kind of exception was thrown.");
+        g_captureNextStackTrace = false;
+        try
+        {
+            throw;
+        }
+        catch(std::exception& exc)
+        {
+            strncpy(descriptionBuff, exc.what(), sizeof(descriptionBuff));
+        }
 #define CATCH_VALUE(TYPE, PRINTFTYPE) \
 catch(TYPE value)\
 { \
     snprintf(descriptionBuff, sizeof(descriptionBuff), "%" #PRINTFTYPE, value); \
 }
-    CATCH_VALUE(char,                 d)
-    CATCH_VALUE(short,                d)
-    CATCH_VALUE(int,                  d)
-    CATCH_VALUE(long,                ld)
-    CATCH_VALUE(long long,          lld)
-    CATCH_VALUE(unsigned char,        u)
-    CATCH_VALUE(unsigned short,       u)
-    CATCH_VALUE(unsigned int,         u)
-    CATCH_VALUE(unsigned long,       lu)
-    CATCH_VALUE(unsigned long long, llu)
-    CATCH_VALUE(float,                f)
-    CATCH_VALUE(double,               f)
-    CATCH_VALUE(long double,         Lf)
-    CATCH_VALUE(char*,                s)
-    catch(...)
-    {
-        description = NULL;
-    }
-    g_captureNextStackTrace = (g_installed != 0);
+        CATCH_VALUE(char,                 d)
+        CATCH_VALUE(short,                d)
+        CATCH_VALUE(int,                  d)
+        CATCH_VALUE(long,                ld)
+        CATCH_VALUE(long long,          lld)
+        CATCH_VALUE(unsigned char,        u)
+        CATCH_VALUE(unsigned short,       u)
+        CATCH_VALUE(unsigned int,         u)
+        CATCH_VALUE(unsigned long,       lu)
+        CATCH_VALUE(unsigned long long, llu)
+        CATCH_VALUE(float,                f)
+        CATCH_VALUE(double,               f)
+        CATCH_VALUE(long double,         Lf)
+        CATCH_VALUE(char*,                s)
+        catch(...)
+        {
+            description = NULL;
+        }
+        g_captureNextStackTrace = (g_installed != 0);
 
-    if(!isNSException)
-    {
         bool wasHandlingCrash = g_context->handlingCrash;
         kscrashsentry_beginHandlingCrash(g_context);
 
         if(wasHandlingCrash)
         {
-            KSLOG_INFO(@"Detected crash in the crash reporter. Restoring original handlers.");
+            KSLOG_INFO("Detected crash in the crash reporter. Restoring original handlers.");
             g_context->crashedDuringCrashHandling = true;
             kscrashsentry_uninstall((KSCrashType)KSCrashTypeAll);
         }
 
-        KSLOG_DEBUG(@"Suspending all threads.");
+        KSLOG_DEBUG("Suspending all threads.");
         kscrashsentry_suspendThreads();
 
         g_context->crashType = KSCrashTypeCPPException;
@@ -180,12 +172,16 @@ catch(TYPE value)\
         g_context->CPPException.name = name;
         g_context->crashReason = description;
 
-        KSLOG_DEBUG(@"Calling main crash handler.");
+        KSLOG_DEBUG("Calling main crash handler.");
         g_context->onCrash();
 
-        KSLOG_DEBUG(@"Crash handling complete. Restoring original handlers.");
+        KSLOG_DEBUG("Crash handling complete. Restoring original handlers.");
         kscrashsentry_uninstall((KSCrashType)KSCrashTypeAll);
         kscrashsentry_resumeThreads();
+    }
+    else
+    {
+        KSLOG_DEBUG("Detected NSException. Letting the current NSException handler deal with it.");
     }
 
     g_originalTerminateHandler();
@@ -198,11 +194,11 @@ catch(TYPE value)\
 
 extern "C" bool kscrashsentry_installCPPExceptionHandler(KSCrash_SentryContext* context)
 {
-    KSLOG_DEBUG(@"Installing C++ exception handler.");
+    KSLOG_DEBUG("Installing C++ exception handler.");
 
     if(g_installed)
     {
-        KSLOG_DEBUG(@"C++ exception handler already installed.");
+        KSLOG_DEBUG("C++ exception handler already installed.");
         return true;
     }
     g_installed = 1;
@@ -216,10 +212,10 @@ extern "C" bool kscrashsentry_installCPPExceptionHandler(KSCrash_SentryContext* 
 
 extern "C" void kscrashsentry_uninstallCPPExceptionHandler(void)
 {
-    KSLOG_DEBUG(@"Uninstalling C++ exception handler.");
+    KSLOG_DEBUG("Uninstalling C++ exception handler.");
     if(!g_installed)
     {
-        KSLOG_DEBUG(@"C++ exception handler already uninstalled.");
+        KSLOG_DEBUG("C++ exception handler already uninstalled.");
         return;
     }
 

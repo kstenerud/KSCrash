@@ -98,7 +98,7 @@
 		CBEE5D0A1CB86989005EAF61 /* KSCrashSentry.c in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C661CB86989005EAF61 /* KSCrashSentry.c */; };
 		CBEE5D0B1CB86989005EAF61 /* KSCrashSentry.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C671CB86989005EAF61 /* KSCrashSentry.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CBEE5D0C1CB86989005EAF61 /* KSCrashSentry_CPPException.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C681CB86989005EAF61 /* KSCrashSentry_CPPException.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		CBEE5D0D1CB86989005EAF61 /* KSCrashSentry_CPPException.mm in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C691CB86989005EAF61 /* KSCrashSentry_CPPException.mm */; };
+		CBEE5D0D1CB86989005EAF61 /* KSCrashSentry_CPPException.cc in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C691CB86989005EAF61 /* KSCrashSentry_CPPException.cc */; };
 		CBEE5D0E1CB86989005EAF61 /* KSCrashSentry_Deadlock.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C6A1CB86989005EAF61 /* KSCrashSentry_Deadlock.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBEE5D0F1CB86989005EAF61 /* KSCrashSentry_Deadlock.m in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C6B1CB86989005EAF61 /* KSCrashSentry_Deadlock.m */; };
 		CBEE5D101CB86989005EAF61 /* KSCrashSentry_MachException.c in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C6C1CB86989005EAF61 /* KSCrashSentry_MachException.c */; };
@@ -318,7 +318,7 @@
 		CBEE5C661CB86989005EAF61 /* KSCrashSentry.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSCrashSentry.c; sourceTree = "<group>"; };
 		CBEE5C671CB86989005EAF61 /* KSCrashSentry.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashSentry.h; sourceTree = "<group>"; };
 		CBEE5C681CB86989005EAF61 /* KSCrashSentry_CPPException.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashSentry_CPPException.h; sourceTree = "<group>"; };
-		CBEE5C691CB86989005EAF61 /* KSCrashSentry_CPPException.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = KSCrashSentry_CPPException.mm; sourceTree = "<group>"; };
+		CBEE5C691CB86989005EAF61 /* KSCrashSentry_CPPException.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = KSCrashSentry_CPPException.cc; sourceTree = "<group>"; };
 		CBEE5C6A1CB86989005EAF61 /* KSCrashSentry_Deadlock.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashSentry_Deadlock.h; sourceTree = "<group>"; };
 		CBEE5C6B1CB86989005EAF61 /* KSCrashSentry_Deadlock.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSCrashSentry_Deadlock.m; sourceTree = "<group>"; };
 		CBEE5C6C1CB86989005EAF61 /* KSCrashSentry_MachException.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSCrashSentry_MachException.c; sourceTree = "<group>"; };
@@ -631,7 +631,7 @@
 				CBEE5C661CB86989005EAF61 /* KSCrashSentry.c */,
 				CBEE5C671CB86989005EAF61 /* KSCrashSentry.h */,
 				CBEE5C681CB86989005EAF61 /* KSCrashSentry_CPPException.h */,
-				CBEE5C691CB86989005EAF61 /* KSCrashSentry_CPPException.mm */,
+				CBEE5C691CB86989005EAF61 /* KSCrashSentry_CPPException.cc */,
 				CBEE5C6A1CB86989005EAF61 /* KSCrashSentry_Deadlock.h */,
 				CBEE5C6B1CB86989005EAF61 /* KSCrashSentry_Deadlock.m */,
 				CBEE5C6C1CB86989005EAF61 /* KSCrashSentry_MachException.c */,
@@ -1110,7 +1110,7 @@
 				CBEE5D661CB86989005EAF61 /* KSCString.m in Sources */,
 				CB8F1DDB1CCAF43A0022CDF0 /* KSCrashInstallation+Alert.m in Sources */,
 				CBEE5D0F1CB86989005EAF61 /* KSCrashSentry_Deadlock.m in Sources */,
-				CBEE5D0D1CB86989005EAF61 /* KSCrashSentry_CPPException.mm in Sources */,
+				CBEE5D0D1CB86989005EAF61 /* KSCrashSentry_CPPException.cc in Sources */,
 				CB69B8EC1DC0F195002713B1 /* KSCrashReportStore.c in Sources */,
 				CBEE5CF61CB86989005EAF61 /* KSCrashC.c in Sources */,
 				CB69B8D71DC044A7002713B1 /* RFC3339UTFString.c in Sources */,
