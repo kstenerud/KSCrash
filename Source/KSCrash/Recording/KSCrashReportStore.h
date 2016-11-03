@@ -31,11 +31,11 @@
 /** Initialize the report store.
  *
  * @param appName The application's name.
- * @param reportsPath Full path to where the reports are to be stored.
+ * @param reportsPath Full path to directory where the reports are to be stored (path will be created if needed).
  */
 void kscrs_initialize(const char* appName, const char* reportsPath);
 
-/** Get the paths to the next crash report components to be generated.
+/** Get the path to the next crash report to be generated.
  * Max length for paths is KSCRS_MAX_PATH_LENGTH
  *
  * @param crashReportPathBuffer Buffer to store the crash report path.
