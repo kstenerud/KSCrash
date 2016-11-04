@@ -136,8 +136,6 @@
 		CBEE5D301CB86989005EAF61 /* KSObjC.c in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C8D1CB86989005EAF61 /* KSObjC.c */; };
 		CBEE5D311CB86989005EAF61 /* KSObjC.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C8E1CB86989005EAF61 /* KSObjC.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBEE5D321CB86989005EAF61 /* KSObjCApple.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C8F1CB86989005EAF61 /* KSObjCApple.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		CBEE5D331CB86989005EAF61 /* KSSafeCollections.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C901CB86989005EAF61 /* KSSafeCollections.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		CBEE5D341CB86989005EAF61 /* KSSafeCollections.m in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C911CB86989005EAF61 /* KSSafeCollections.m */; };
 		CBEE5D351CB86989005EAF61 /* KSSignalInfo.c in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C921CB86989005EAF61 /* KSSignalInfo.c */; };
 		CBEE5D361CB86989005EAF61 /* KSSignalInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C931CB86989005EAF61 /* KSSignalInfo.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBEE5D371CB86989005EAF61 /* KSSingleton.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C941CB86989005EAF61 /* KSSingleton.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -356,8 +354,6 @@
 		CBEE5C8D1CB86989005EAF61 /* KSObjC.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSObjC.c; sourceTree = "<group>"; };
 		CBEE5C8E1CB86989005EAF61 /* KSObjC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSObjC.h; sourceTree = "<group>"; };
 		CBEE5C8F1CB86989005EAF61 /* KSObjCApple.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSObjCApple.h; sourceTree = "<group>"; };
-		CBEE5C901CB86989005EAF61 /* KSSafeCollections.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSSafeCollections.h; sourceTree = "<group>"; };
-		CBEE5C911CB86989005EAF61 /* KSSafeCollections.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSSafeCollections.m; sourceTree = "<group>"; };
 		CBEE5C921CB86989005EAF61 /* KSSignalInfo.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSSignalInfo.c; sourceTree = "<group>"; };
 		CBEE5C931CB86989005EAF61 /* KSSignalInfo.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSSignalInfo.h; sourceTree = "<group>"; };
 		CBEE5C941CB86989005EAF61 /* KSSingleton.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSSingleton.h; sourceTree = "<group>"; };
@@ -677,8 +673,6 @@
 				CBEE5C8D1CB86989005EAF61 /* KSObjC.c */,
 				CBEE5C8E1CB86989005EAF61 /* KSObjC.h */,
 				CBEE5C8F1CB86989005EAF61 /* KSObjCApple.h */,
-				CBEE5C901CB86989005EAF61 /* KSSafeCollections.h */,
-				CBEE5C911CB86989005EAF61 /* KSSafeCollections.m */,
 				CBEE5C921CB86989005EAF61 /* KSSignalInfo.c */,
 				CBEE5C931CB86989005EAF61 /* KSSignalInfo.h */,
 				CBEE5C941CB86989005EAF61 /* KSSingleton.h */,
@@ -911,7 +905,6 @@
 				CBEE5D761CB86989005EAF61 /* Punycode.h in Headers */,
 				CBEE5D2F1CB86989005EAF61 /* KSMachApple.h in Headers */,
 				CBEE5D401CB86989005EAF61 /* NSError+SimpleConstructor.h in Headers */,
-				CBEE5D331CB86989005EAF61 /* KSSafeCollections.h in Headers */,
 				CBEE5CFD1CB86989005EAF61 /* KSCrashReportFields.h in Headers */,
 				CBEE5CF71CB86989005EAF61 /* KSCrashC.h in Headers */,
 				CBEE5CE81CB86989005EAF61 /* KSCrashInstallationVictory.h in Headers */,
@@ -1126,7 +1119,6 @@
 				CBEE5D2E1CB86989005EAF61 /* KSMach_x86_64.c in Sources */,
 				CBEE5CF41CB86989005EAF61 /* KSCrash.m in Sources */,
 				CBEE5D6E1CB86989005EAF61 /* NSMutableData+AppendUTF8.m in Sources */,
-				CBEE5D341CB86989005EAF61 /* KSSafeCollections.m in Sources */,
 				CBEE5D101CB86989005EAF61 /* KSCrashSentry_MachException.c in Sources */,
 				CBEE5D751CB86989005EAF61 /* Punycode.cpp in Sources */,
 				CBEE5D261CB86989005EAF61 /* KSJSONCodecObjC.m in Sources */,

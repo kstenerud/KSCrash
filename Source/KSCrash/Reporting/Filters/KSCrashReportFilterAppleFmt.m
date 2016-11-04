@@ -33,7 +33,6 @@
 #import "KSCrashCallCompletion.h"
 #import "KSCrashReportFields.h"
 #import "KSJSONCodecObjC.h"
-#import "KSSafeCollections.h"
 #import "KSSystemInfo.h"
 #import "RFC3339DateTool.h"
 
@@ -194,7 +193,11 @@ NSDictionary* g_registerOrders;
     {
         if([self majorVersion:report] == kExpectedMajorVersion)
         {
-            [filteredReports ksc_addObjectIfNotNil:[self toAppleFormat:report]];
+            id appleReport = [self toAppleFormat:report];
+            if(appleReport != nil)
+            {
+                [filteredReports addObject:appleReport];
+            }
         }
     }
 

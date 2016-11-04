@@ -76,8 +76,6 @@
 		CB736FC41D9B6F0E00E3230F /* KSObjC.c in Sources */ = {isa = PBXBuildFile; fileRef = CB736F971D9B6F0E00E3230F /* KSObjC.c */; };
 		CB736FC51D9B6F0E00E3230F /* KSObjC.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736F981D9B6F0E00E3230F /* KSObjC.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB736FC61D9B6F0E00E3230F /* KSObjCApple.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736F991D9B6F0E00E3230F /* KSObjCApple.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		CB736FC71D9B6F0E00E3230F /* KSSafeCollections.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736F9A1D9B6F0E00E3230F /* KSSafeCollections.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		CB736FC81D9B6F0E00E3230F /* KSSafeCollections.m in Sources */ = {isa = PBXBuildFile; fileRef = CB736F9B1D9B6F0E00E3230F /* KSSafeCollections.m */; };
 		CB736FC91D9B6F0E00E3230F /* KSSignalInfo.c in Sources */ = {isa = PBXBuildFile; fileRef = CB736F9C1D9B6F0E00E3230F /* KSSignalInfo.c */; };
 		CB736FCA1D9B6F0E00E3230F /* KSSignalInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736F9D1D9B6F0E00E3230F /* KSSignalInfo.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB736FCB1D9B6F0E00E3230F /* KSSingleton.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736F9E1D9B6F0E00E3230F /* KSSingleton.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -246,8 +244,6 @@
 		CB736F971D9B6F0E00E3230F /* KSObjC.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSObjC.c; path = ../../Source/KSCrash/Recording/Tools/KSObjC.c; sourceTree = "<group>"; };
 		CB736F981D9B6F0E00E3230F /* KSObjC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSObjC.h; path = ../../Source/KSCrash/Recording/Tools/KSObjC.h; sourceTree = "<group>"; };
 		CB736F991D9B6F0E00E3230F /* KSObjCApple.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSObjCApple.h; path = ../../Source/KSCrash/Recording/Tools/KSObjCApple.h; sourceTree = "<group>"; };
-		CB736F9A1D9B6F0E00E3230F /* KSSafeCollections.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSSafeCollections.h; path = ../../Source/KSCrash/Recording/Tools/KSSafeCollections.h; sourceTree = "<group>"; };
-		CB736F9B1D9B6F0E00E3230F /* KSSafeCollections.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSSafeCollections.m; path = ../../Source/KSCrash/Recording/Tools/KSSafeCollections.m; sourceTree = "<group>"; };
 		CB736F9C1D9B6F0E00E3230F /* KSSignalInfo.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSSignalInfo.c; path = ../../Source/KSCrash/Recording/Tools/KSSignalInfo.c; sourceTree = "<group>"; };
 		CB736F9D1D9B6F0E00E3230F /* KSSignalInfo.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSSignalInfo.h; path = ../../Source/KSCrash/Recording/Tools/KSSignalInfo.h; sourceTree = "<group>"; };
 		CB736F9E1D9B6F0E00E3230F /* KSSingleton.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSSingleton.h; path = ../../Source/KSCrash/Recording/Tools/KSSingleton.h; sourceTree = "<group>"; };
@@ -487,8 +483,6 @@
 				CB736F971D9B6F0E00E3230F /* KSObjC.c */,
 				CB736F981D9B6F0E00E3230F /* KSObjC.h */,
 				CB736F991D9B6F0E00E3230F /* KSObjCApple.h */,
-				CB736F9A1D9B6F0E00E3230F /* KSSafeCollections.h */,
-				CB736F9B1D9B6F0E00E3230F /* KSSafeCollections.m */,
 				CB736F9C1D9B6F0E00E3230F /* KSSignalInfo.c */,
 				CB736F9D1D9B6F0E00E3230F /* KSSignalInfo.h */,
 				CB736F9E1D9B6F0E00E3230F /* KSSingleton.h */,
@@ -718,7 +712,6 @@
 				CB7370511D9B6FD000E3230F /* KSCString.h in Headers */,
 				CB7370551D9B6FD000E3230F /* KSHTTPRequestSender.h in Headers */,
 				CB736FBE1D9B6F0E00E3230F /* KSMach.h in Headers */,
-				CB736FC71D9B6F0E00E3230F /* KSSafeCollections.h in Headers */,
 				CB736FCF1D9B6F0E00E3230F /* KSSysCtl.h in Headers */,
 				CB736FF01D9B6F6A00E3230F /* SwiftStrings.h in Headers */,
 				CB736FAD1D9B6F0E00E3230F /* KSArchSpecific.h in Headers */,
@@ -904,7 +897,6 @@
 				CB7370731D9B6FE500E3230F /* KSCrashInstallationConsole.m in Sources */,
 				CB73702D1D9B6FB900E3230F /* Container+DeepSearch.m in Sources */,
 				CB7370421D9B6FC800E3230F /* KSCrashReportSinkStandard.m in Sources */,
-				CB736FC81D9B6F0E00E3230F /* KSSafeCollections.m in Sources */,
 				CB7370771D9B6FE500E3230F /* KSCrashInstallationQuincyHockey.m in Sources */,
 				CB736FB31D9B6F0E00E3230F /* KSDynamicLinker.c in Sources */,
 				CB7370231D9B6FA800E3230F /* KSCrashReportFilterSets.m in Sources */,

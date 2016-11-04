@@ -100,8 +100,6 @@
 		CB6240D917EBCA74006471F1 /* KSObjC.c in Sources */ = {isa = PBXBuildFile; fileRef = CB8E566E17EB9B43000C56D3 /* KSObjC.c */; };
 		CB6240DA17EBCA74006471F1 /* KSObjC.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E566F17EB9B43000C56D3 /* KSObjC.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB6240DB17EBCA74006471F1 /* KSObjCApple.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E567017EB9B43000C56D3 /* KSObjCApple.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		CB6240DC17EBCA74006471F1 /* KSSafeCollections.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E567117EB9B43000C56D3 /* KSSafeCollections.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		CB6240DD17EBCA74006471F1 /* KSSafeCollections.m in Sources */ = {isa = PBXBuildFile; fileRef = CB8E567217EB9B43000C56D3 /* KSSafeCollections.m */; };
 		CB6240DE17EBCA74006471F1 /* KSSignalInfo.c in Sources */ = {isa = PBXBuildFile; fileRef = CB8E567317EB9B43000C56D3 /* KSSignalInfo.c */; };
 		CB6240DF17EBCA74006471F1 /* KSSignalInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E567417EB9B43000C56D3 /* KSSignalInfo.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB6240E017EBCA74006471F1 /* KSString.c in Sources */ = {isa = PBXBuildFile; fileRef = CB8E567517EB9B43000C56D3 /* KSString.c */; };
@@ -280,8 +278,6 @@
 		CB8E569017EB9B43000C56D3 /* KSObjC.c in Sources */ = {isa = PBXBuildFile; fileRef = CB8E566E17EB9B43000C56D3 /* KSObjC.c */; };
 		CB8E569117EB9B43000C56D3 /* KSObjC.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E566F17EB9B43000C56D3 /* KSObjC.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB8E569217EB9B43000C56D3 /* KSObjCApple.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E567017EB9B43000C56D3 /* KSObjCApple.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		CB8E569317EB9B43000C56D3 /* KSSafeCollections.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E567117EB9B43000C56D3 /* KSSafeCollections.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		CB8E569417EB9B43000C56D3 /* KSSafeCollections.m in Sources */ = {isa = PBXBuildFile; fileRef = CB8E567217EB9B43000C56D3 /* KSSafeCollections.m */; };
 		CB8E569517EB9B43000C56D3 /* KSSignalInfo.c in Sources */ = {isa = PBXBuildFile; fileRef = CB8E567317EB9B43000C56D3 /* KSSignalInfo.c */; };
 		CB8E569617EB9B43000C56D3 /* KSSignalInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E567417EB9B43000C56D3 /* KSSignalInfo.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB8E569717EB9B43000C56D3 /* KSString.c in Sources */ = {isa = PBXBuildFile; fileRef = CB8E567517EB9B43000C56D3 /* KSString.c */; };
@@ -527,8 +523,6 @@
 		CB8E566E17EB9B43000C56D3 /* KSObjC.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSObjC.c; path = ../../Source/KSCrash/Recording/Tools/KSObjC.c; sourceTree = "<group>"; };
 		CB8E566F17EB9B43000C56D3 /* KSObjC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSObjC.h; path = ../../Source/KSCrash/Recording/Tools/KSObjC.h; sourceTree = "<group>"; };
 		CB8E567017EB9B43000C56D3 /* KSObjCApple.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSObjCApple.h; path = ../../Source/KSCrash/Recording/Tools/KSObjCApple.h; sourceTree = "<group>"; };
-		CB8E567117EB9B43000C56D3 /* KSSafeCollections.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSSafeCollections.h; path = ../../Source/KSCrash/Recording/Tools/KSSafeCollections.h; sourceTree = "<group>"; };
-		CB8E567217EB9B43000C56D3 /* KSSafeCollections.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSSafeCollections.m; path = ../../Source/KSCrash/Recording/Tools/KSSafeCollections.m; sourceTree = "<group>"; };
 		CB8E567317EB9B43000C56D3 /* KSSignalInfo.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSSignalInfo.c; path = ../../Source/KSCrash/Recording/Tools/KSSignalInfo.c; sourceTree = "<group>"; };
 		CB8E567417EB9B43000C56D3 /* KSSignalInfo.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSSignalInfo.h; path = ../../Source/KSCrash/Recording/Tools/KSSignalInfo.h; sourceTree = "<group>"; };
 		CB8E567517EB9B43000C56D3 /* KSString.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSString.c; path = ../../Source/KSCrash/Recording/Tools/KSString.c; sourceTree = "<group>"; };
@@ -978,8 +972,6 @@
 				CB8E566E17EB9B43000C56D3 /* KSObjC.c */,
 				CB8E566F17EB9B43000C56D3 /* KSObjC.h */,
 				CB8E567017EB9B43000C56D3 /* KSObjCApple.h */,
-				CB8E567117EB9B43000C56D3 /* KSSafeCollections.h */,
-				CB8E567217EB9B43000C56D3 /* KSSafeCollections.m */,
 				CB8E567317EB9B43000C56D3 /* KSSignalInfo.c */,
 				CB8E567417EB9B43000C56D3 /* KSSignalInfo.h */,
 				CB8E56DD17EB9B89000C56D3 /* KSSingleton.h */,
@@ -1125,7 +1117,6 @@
 				CB62411017EBCA74006471F1 /* KSSingleton.h in Headers */,
 				CB2686191C694E4400EE4EB3 /* AlignOf.h in Headers */,
 				CB6240BB17EBCA74006471F1 /* KSCrashSentry_Deadlock.h in Headers */,
-				CB6240DC17EBCA74006471F1 /* KSSafeCollections.h in Headers */,
 				CB62411617EBCA74006471F1 /* NSError+SimpleConstructor.h in Headers */,
 				CB62411817EBCA74006471F1 /* NSMutableData+AppendUTF8.h in Headers */,
 				CB6240B917EBCA74006471F1 /* KSCrashSentry_CPPException.h in Headers */,
@@ -1227,7 +1218,6 @@
 				CB8E565017EB9B35000C56D3 /* KSCrashSentry_Deadlock.h in Headers */,
 				CB8E56F917EB9B89000C56D3 /* NSError+SimpleConstructor.h in Headers */,
 				CB69B8D31DC04432002713B1 /* RFC3339UTFString.h in Headers */,
-				CB8E569317EB9B43000C56D3 /* KSSafeCollections.h in Headers */,
 				CB2686131C694E4400EE4EB3 /* StringRef.h in Headers */,
 				CB2686291C694E4400EE4EB3 /* Malloc.h in Headers */,
 				CB2686151C694E4400EE4EB3 /* llvm-config.h in Headers */,
@@ -1443,7 +1433,6 @@
 				CB6240E717EBCA74006471F1 /* RFC3339DateTool.m in Sources */,
 				CB6240AC17EBCA74006471F1 /* KSCrashReport.c in Sources */,
 				CB6240C417EBCA74006471F1 /* KSCrashSentry_User.c in Sources */,
-				CB6240DD17EBCA74006471F1 /* KSSafeCollections.m in Sources */,
 				CB6240E917EBCA74006471F1 /* KSCrashReportFilter.m in Sources */,
 				CB6240D617EBCA74006471F1 /* KSMach_x86_32.c in Sources */,
 				CB7A6C9917FB9A1000997792 /* KSDynamicLinker.c in Sources */,
@@ -1542,7 +1531,6 @@
 				CB8E571617EB9BA8000C56D3 /* KSCrashInstallationQuincyHockey.m in Sources */,
 				CB8E571A17EB9BA8000C56D3 /* KSCrashInstallationVictory.m in Sources */,
 				CB2686201C694E4400EE4EB3 /* Demangle.cpp in Sources */,
-				CB8E569417EB9B43000C56D3 /* KSSafeCollections.m in Sources */,
 				CB8E56F617EB9B89000C56D3 /* NSData+GZip.m in Sources */,
 				CB8E569E17EB9B43000C56D3 /* RFC3339DateTool.m in Sources */,
 				CB69B8E91DC0F17A002713B1 /* KSCrashReportStore.c in Sources */,

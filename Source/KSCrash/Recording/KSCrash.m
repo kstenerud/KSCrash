@@ -37,7 +37,6 @@
 #import "KSCrashReportFields.h"
 #import "NSDictionary+Merge.h"
 #import "KSJSONCodecObjC.h"
-#import "KSSafeCollections.h"
 #import "RFC3339UTFString.h"
 #import "NSString+Demangle.h"
 #import "KSCrashDoctor.h"
@@ -503,7 +502,7 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
         return;
     }
     
-    [report ksc_setObjectIfNotNil:[srcDict mergedInto:dstDict] forKey:dstKey];
+    report[dstKey] = [srcDict mergedInto:dstDict];
     [report removeObjectForKey:srcKey];
 }
 
@@ -590,8 +589,11 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
     }
     
     NSMutableDictionary* mutableReport = [report mutableCopy];
-    NSMutableDictionary* mutableInfo = [[report objectForKey:@KSCrashField_Report] mutableCopy];
-    [mutableReport ksc_setObjectIfNotNil:mutableInfo forKey:@KSCrashField_Report];
+    NSMutableDictionary* mutableInfo = [report[@KSCrashField_Report] mutableCopy];
+    if(mutableInfo != nil)
+    {
+        mutableReport[@KSCrashField_Report] = mutableInfo;
+    }
     
     // Timestamp gets stored as a unix timestamp. Convert it to rfc3339.
     [self convertTimestamp:@KSCrashField_Timestamp inReport:mutableInfo];
@@ -604,10 +606,12 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
            intoDictWithKey:@KSCrashField_User
                   inReport:mutableReport];
     
-    NSMutableDictionary* crashReport = [[report objectForKey:@KSCrashField_Crash] mutableCopy];
-    [mutableReport ksc_setObjectIfNotNil:crashReport forKey:@KSCrashField_Crash];
-    KSCrashDoctor* doctor = [KSCrashDoctor doctor];
-    [crashReport ksc_setObjectIfNotNil:[doctor diagnoseCrash:report] forKey:@KSCrashField_Diagnosis];
+    NSMutableDictionary* crashReport = [report[@KSCrashField_Crash] mutableCopy];
+    if(crashReport != nil)
+    {
+        mutableReport[@KSCrashField_Crash] = crashReport;
+        crashReport[@KSCrashField_Diagnosis] = [[KSCrashDoctor doctor] diagnoseCrash:report];
+    }
     
     [self symbolicateField:@[@"threads", @"backtrace", @"contents", @"symbol_name"] inReport:crashReport okIfNotFound:YES];
     [self symbolicateField:@[@"error", @"cpp_exception", @"name"] inReport:crashReport okIfNotFound:YES];
