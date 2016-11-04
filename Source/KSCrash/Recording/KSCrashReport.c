@@ -283,12 +283,14 @@ void kscrw_i_addUUIDElement(const KSCrashReportWriter* const writer,
 
 void kscrw_i_addJSONElement(const KSCrashReportWriter* const writer,
                             const char* const key,
-                            const char* const jsonElement)
+                            const char* const jsonElement,
+                            bool closeLastContainer)
 {
     int jsonResult = ksjson_addJSONElement(getJsonContext(writer),
                                            key,
                                            jsonElement,
-                                           strlen(jsonElement));
+                                           (int)strlen(jsonElement),
+                                           closeLastContainer);
     if(jsonResult != KSJSON_OK)
     {
         char errorBuff[100];
@@ -1891,7 +1893,7 @@ void kscrw_i_writeError(const KSCrashReportWriter* const writer,
                     }
                     if(crash->userException.customStackTrace != NULL)
                     {
-                        writer->addJSONElement(writer, KSCrashField_Backtrace, crash->userException.customStackTrace);
+                        writer->addJSONElement(writer, KSCrashField_Backtrace, crash->userException.customStackTrace, true);
                     }
                 }
                 writer->endContainer(writer);
@@ -2185,20 +2187,15 @@ void kscrashreport_writeStandardReport(KSCrash_Context* const crashContext,
 
         if(crashContext->config.systemInfoJSON != NULL)
         {
-            kscrw_i_addJSONElement(writer, KSCrashField_System, crashContext->config.systemInfoJSON);
+            kscrw_i_addJSONElement(writer, KSCrashField_System, crashContext->config.systemInfoJSON, false);
         }
-
-        writer->beginObject(writer, KSCrashField_SystemAtCrash);
+        else
         {
-            kscrw_i_writeMemoryInfo(writer, KSCrashField_Memory);
-            kscrw_i_writeAppStats(writer, KSCrashField_AppStats, &crashContext->state);
+            writer->beginObject(writer, KSCrashField_System);
         }
+        kscrw_i_writeMemoryInfo(writer, KSCrashField_Memory);
+        kscrw_i_writeAppStats(writer, KSCrashField_AppStats, &crashContext->state);
         writer->endContainer(writer);
-
-        if(crashContext->config.userInfoJSON != NULL)
-        {
-            kscrw_i_addJSONElement(writer, KSCrashField_User, crashContext->config.userInfoJSON);
-        }
 
         writer->beginObject(writer, KSCrashField_Crash);
         {
@@ -2212,14 +2209,19 @@ void kscrashreport_writeStandardReport(KSCrash_Context* const crashContext,
         }
         writer->endContainer(writer);
 
+        if(crashContext->config.userInfoJSON != NULL)
+        {
+            kscrw_i_addJSONElement(writer, KSCrashField_User, crashContext->config.userInfoJSON, false);
+        }
+        else
+        {
+            writer->beginObject(writer, KSCrashField_User);
+        }
         if(crashContext->config.onCrashNotify != NULL)
         {
-            writer->beginObject(writer, KSCrashField_UserAtCrash);
-            {
-                kscrw_i_callUserCrashHandler(crashContext, writer);
-            }
-            writer->endContainer(writer);
+            kscrw_i_callUserCrashHandler(crashContext, writer);
         }
+        writer->endContainer(writer);
     }
     writer->endContainer(writer);
     

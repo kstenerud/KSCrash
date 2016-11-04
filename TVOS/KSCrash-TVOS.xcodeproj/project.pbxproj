@@ -143,8 +143,6 @@
 		CBEE5D3A1CB86989005EAF61 /* KSSysCtl.c in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C971CB86989005EAF61 /* KSSysCtl.c */; };
 		CBEE5D3B1CB86989005EAF61 /* KSSysCtl.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C981CB86989005EAF61 /* KSSysCtl.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBEE5D3C1CB86989005EAF61 /* KSZombie.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C991CB86989005EAF61 /* KSZombie.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		CBEE5D3E1CB86989005EAF61 /* NSDictionary+Merge.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C9B1CB86989005EAF61 /* NSDictionary+Merge.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		CBEE5D3F1CB86989005EAF61 /* NSDictionary+Merge.m in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C9C1CB86989005EAF61 /* NSDictionary+Merge.m */; };
 		CBEE5D401CB86989005EAF61 /* NSError+SimpleConstructor.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C9D1CB86989005EAF61 /* NSError+SimpleConstructor.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBEE5D411CB86989005EAF61 /* NSError+SimpleConstructor.m in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C9E1CB86989005EAF61 /* NSError+SimpleConstructor.m */; };
 		CBEE5D421CB86989005EAF61 /* NSString+Demangle.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C9F1CB86989005EAF61 /* NSString+Demangle.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -360,8 +358,6 @@
 		CBEE5C971CB86989005EAF61 /* KSSysCtl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSSysCtl.c; sourceTree = "<group>"; };
 		CBEE5C981CB86989005EAF61 /* KSSysCtl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSSysCtl.h; sourceTree = "<group>"; };
 		CBEE5C991CB86989005EAF61 /* KSZombie.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSZombie.h; sourceTree = "<group>"; };
-		CBEE5C9B1CB86989005EAF61 /* NSDictionary+Merge.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSDictionary+Merge.h"; sourceTree = "<group>"; };
-		CBEE5C9C1CB86989005EAF61 /* NSDictionary+Merge.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSDictionary+Merge.m"; sourceTree = "<group>"; };
 		CBEE5C9D1CB86989005EAF61 /* NSError+SimpleConstructor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSError+SimpleConstructor.h"; sourceTree = "<group>"; };
 		CBEE5C9E1CB86989005EAF61 /* NSError+SimpleConstructor.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSError+SimpleConstructor.m"; sourceTree = "<group>"; };
 		CBEE5C9F1CB86989005EAF61 /* NSString+Demangle.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSString+Demangle.h"; sourceTree = "<group>"; };
@@ -679,8 +675,6 @@
 				CBEE5C981CB86989005EAF61 /* KSSysCtl.h */,
 				CBEE5C991CB86989005EAF61 /* KSZombie.h */,
 				03082CD61D91822300935324 /* KSZombie.c */,
-				CBEE5C9B1CB86989005EAF61 /* NSDictionary+Merge.h */,
-				CBEE5C9C1CB86989005EAF61 /* NSDictionary+Merge.m */,
 				CBEE5C9D1CB86989005EAF61 /* NSError+SimpleConstructor.h */,
 				CBEE5C9E1CB86989005EAF61 /* NSError+SimpleConstructor.m */,
 				CBEE5C9F1CB86989005EAF61 /* NSString+Demangle.h */,
@@ -920,7 +914,6 @@
 				CBEE5D221CB86989005EAF61 /* KSFileUtils.h in Headers */,
 				CBEE5D721CB86989005EAF61 /* Fallthrough.h in Headers */,
 				CBEE5D4A1CB86989005EAF61 /* KSCrashReportFilterAppleFmt.h in Headers */,
-				CBEE5D3E1CB86989005EAF61 /* NSDictionary+Merge.h in Headers */,
 				CBEE5D201CB86989005EAF61 /* KSDynamicLinker.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1105,7 +1098,6 @@
 				CB69B8D71DC044A7002713B1 /* RFC3339UTFString.c in Sources */,
 				CBEE5D451CB86989005EAF61 /* RFC3339DateTool.m in Sources */,
 				CBEE5D571CB86989005EAF61 /* Container+DeepSearch.m in Sources */,
-				CBEE5D3F1CB86989005EAF61 /* NSDictionary+Merge.m in Sources */,
 				CBEE5D291CB86989005EAF61 /* KSMach.c in Sources */,
 				03082CD71D91822300935324 /* KSZombie.c in Sources */,
 				CBEE5D641CB86989005EAF61 /* KSCrashReportSinkVictory.m in Sources */,

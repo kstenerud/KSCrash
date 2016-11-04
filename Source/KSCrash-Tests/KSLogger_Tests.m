@@ -60,7 +60,8 @@
 
 - (void) testLogErrorNull
 {
-    KSLOG_ERROR(nil);
+    NSString* str = nil;
+    KSLOG_ERROR(str);
 }
 
 - (void) testLogAlways
@@ -70,7 +71,8 @@
 
 - (void) testLogAlwaysNull
 {
-    KSLOG_ALWAYS(nil);
+    NSString* str = nil;
+    KSLOG_ALWAYS(str);
 }
 
 - (void) testLogBasicError
@@ -80,7 +82,8 @@
 
 - (void) testLogBasicErrorNull
 {
-    KSLOGBASIC_ERROR(nil);
+    NSString* str = nil;
+    KSLOGBASIC_ERROR(str);
 }
 
 - (void) testLogBasicAlways
@@ -90,7 +93,8 @@
 
 - (void) testLogBasicAlwaysNull
 {
-    KSLOGBASIC_ALWAYS(nil);
+    NSString* str = nil;
+    KSLOGBASIC_ALWAYS(str);
 }
 
 - (void) testSetLogFilename

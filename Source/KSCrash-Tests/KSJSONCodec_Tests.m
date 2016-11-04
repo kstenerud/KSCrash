@@ -1539,6 +1539,23 @@ static int addJSONData(const char* data, size_t length, void* userData)
     XCTAssertEqualObjects(object, expectedObject);
 }
 
+- (id) decodeJSON:(const char*) jsonBytes
+{
+    NSError* error = nil;
+    NSData* jsonData = [NSData dataWithBytes:jsonBytes length:strlen(jsonBytes)];
+    id object = [KSJSONCodec decode:jsonData options:KSJSONDecodeOptionKeepPartialObject error:&error];
+    XCTAssertNil(error);
+    XCTAssertNotNil(object);
+    return object;
+}
+
+- (void) expectEquivalentJSON:(const char*) jsonCompareBytes toJSON:(const char*) jsonExpectedBytes
+{
+    id objectCompare = [self decodeJSON:jsonCompareBytes];
+    id objectExpect = [self decodeJSON:jsonExpectedBytes];
+    XCTAssertEqualObjects(objectCompare, objectExpect);
+}
+
 - (void) testAddJSONFromFile
 {
     NSString* savedFilename = [self.tempPath stringByAppendingPathComponent:@"saved.json"];
@@ -1551,7 +1568,7 @@ static int addJSONData(const char* data, size_t length, void* userData)
     ksjson_beginEncode(&context, false, addJSONData, (__bridge void *)(encodedData));
     ksjson_beginObject(&context, NULL);
     ksjson_addStringElement(&context, "1", "one", KSJSON_SIZE_AUTOMATIC);
-    ksjson_addJSONFromFile(&context, "from_file", savedFilename.UTF8String);
+    ksjson_addJSONFromFile(&context, "from_file", savedFilename.UTF8String, true);
     ksjson_endContainer(&context);
     ksjson_endEncode(&context);
     
@@ -1586,7 +1603,7 @@ static int addJSONData(const char* data, size_t length, void* userData)
     ksjson_beginEncode(&context, false, addJSONData, (__bridge void *)(encodedData));
     ksjson_beginObject(&context, NULL);
     ksjson_addStringElement(&context, "testing", "this", KSJSON_SIZE_AUTOMATIC);
-    ksjson_addJSONFromFile(&context, "from_file", savedFilename.UTF8String);
+    ksjson_addJSONFromFile(&context, "from_file", savedFilename.UTF8String, true);
     ksjson_endContainer(&context);
     ksjson_endEncode(&context);
     
@@ -1619,11 +1636,29 @@ static int addJSONData(const char* data, size_t length, void* userData)
     ksjson_beginEncode(&context, false, addJSONData, (__bridge void *)(encodedData));
     ksjson_beginObject(&context, NULL);
     ksjson_addStringElement(&context, "1", "one", KSJSON_SIZE_AUTOMATIC);
-    ksjson_addJSONFromFile(&context, "from_file", savedFilename.UTF8String);
+    ksjson_addJSONFromFile(&context, "from_file", savedFilename.UTF8String, true);
     ksjson_endContainer(&context);
     ksjson_endEncode(&context);
     
     [self expectData:encodedData encodesObject:expectedObject];
+}
+
+- (void) testDontCloseLastContainer
+{
+    char* jsonData = "{\"a\":\"1\"}";
+    char* expectedJson = "{\"a_container\": {\"a\":\"1\", \"testing\":\"this\"}}";
+    
+    NSMutableData* encodedData = [NSMutableData data];
+    KSJSONEncodeContext context = {0};
+    ksjson_beginEncode(&context, false, addJSONData, (__bridge void *)(encodedData));
+    ksjson_beginObject(&context, NULL);
+    ksjson_addJSONElement(&context, "a_container", jsonData, (int)strlen(jsonData), false);
+    ksjson_addStringElement(&context, "testing", "this", KSJSON_SIZE_AUTOMATIC);
+    ksjson_endContainer(&context);
+    ksjson_endEncode(&context);
+    [encodedData appendBytes:"\0" length:1];
+
+    [self expectEquivalentJSON:encodedData.bytes toJSON:expectedJson];
 }
 
 @end

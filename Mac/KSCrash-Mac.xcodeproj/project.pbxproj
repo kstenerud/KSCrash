@@ -151,8 +151,6 @@
 		CB62411117EBCA74006471F1 /* KSVarArgs.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E56DE17EB9B89000C56D3 /* KSVarArgs.h */; };
 		CB62411217EBCA74006471F1 /* NSData+GZip.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E56DF17EB9B89000C56D3 /* NSData+GZip.h */; };
 		CB62411317EBCA74006471F1 /* NSData+GZip.m in Sources */ = {isa = PBXBuildFile; fileRef = CB8E56E017EB9B89000C56D3 /* NSData+GZip.m */; };
-		CB62411417EBCA74006471F1 /* NSDictionary+Merge.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E56E117EB9B89000C56D3 /* NSDictionary+Merge.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		CB62411517EBCA74006471F1 /* NSDictionary+Merge.m in Sources */ = {isa = PBXBuildFile; fileRef = CB8E56E217EB9B89000C56D3 /* NSDictionary+Merge.m */; };
 		CB62411617EBCA74006471F1 /* NSError+SimpleConstructor.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E56E317EB9B89000C56D3 /* NSError+SimpleConstructor.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB62411717EBCA74006471F1 /* NSError+SimpleConstructor.m in Sources */ = {isa = PBXBuildFile; fileRef = CB8E56E417EB9B89000C56D3 /* NSError+SimpleConstructor.m */; };
 		CB62411817EBCA74006471F1 /* NSMutableData+AppendUTF8.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E56E517EB9B89000C56D3 /* NSMutableData+AppendUTF8.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -325,8 +323,6 @@
 		CB8E56F417EB9B89000C56D3 /* KSVarArgs.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E56DE17EB9B89000C56D3 /* KSVarArgs.h */; };
 		CB8E56F517EB9B89000C56D3 /* NSData+GZip.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E56DF17EB9B89000C56D3 /* NSData+GZip.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CB8E56F617EB9B89000C56D3 /* NSData+GZip.m in Sources */ = {isa = PBXBuildFile; fileRef = CB8E56E017EB9B89000C56D3 /* NSData+GZip.m */; };
-		CB8E56F717EB9B89000C56D3 /* NSDictionary+Merge.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E56E117EB9B89000C56D3 /* NSDictionary+Merge.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		CB8E56F817EB9B89000C56D3 /* NSDictionary+Merge.m in Sources */ = {isa = PBXBuildFile; fileRef = CB8E56E217EB9B89000C56D3 /* NSDictionary+Merge.m */; };
 		CB8E56F917EB9B89000C56D3 /* NSError+SimpleConstructor.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E56E317EB9B89000C56D3 /* NSError+SimpleConstructor.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB8E56FA17EB9B89000C56D3 /* NSError+SimpleConstructor.m in Sources */ = {isa = PBXBuildFile; fileRef = CB8E56E417EB9B89000C56D3 /* NSError+SimpleConstructor.m */; };
 		CB8E56FB17EB9B89000C56D3 /* NSMutableData+AppendUTF8.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E56E517EB9B89000C56D3 /* NSMutableData+AppendUTF8.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -569,8 +565,6 @@
 		CB8E56DE17EB9B89000C56D3 /* KSVarArgs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSVarArgs.h; path = ../../Source/KSCrash/Reporting/Filters/Tools/KSVarArgs.h; sourceTree = "<group>"; };
 		CB8E56DF17EB9B89000C56D3 /* NSData+GZip.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSData+GZip.h"; path = "../../Source/KSCrash/Reporting/Filters/Tools/NSData+GZip.h"; sourceTree = "<group>"; };
 		CB8E56E017EB9B89000C56D3 /* NSData+GZip.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSData+GZip.m"; path = "../../Source/KSCrash/Reporting/Filters/Tools/NSData+GZip.m"; sourceTree = "<group>"; };
-		CB8E56E117EB9B89000C56D3 /* NSDictionary+Merge.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSDictionary+Merge.h"; path = "../../Source/KSCrash/Recording/Tools/NSDictionary+Merge.h"; sourceTree = "<group>"; };
-		CB8E56E217EB9B89000C56D3 /* NSDictionary+Merge.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSDictionary+Merge.m"; path = "../../Source/KSCrash/Recording/Tools/NSDictionary+Merge.m"; sourceTree = "<group>"; };
 		CB8E56E317EB9B89000C56D3 /* NSError+SimpleConstructor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSError+SimpleConstructor.h"; path = "../../Source/KSCrash/Recording/Tools/NSError+SimpleConstructor.h"; sourceTree = "<group>"; };
 		CB8E56E417EB9B89000C56D3 /* NSError+SimpleConstructor.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSError+SimpleConstructor.m"; path = "../../Source/KSCrash/Recording/Tools/NSError+SimpleConstructor.m"; sourceTree = "<group>"; };
 		CB8E56E517EB9B89000C56D3 /* NSMutableData+AppendUTF8.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSMutableData+AppendUTF8.h"; path = "../../Source/KSCrash/Reporting/Tools/NSMutableData+AppendUTF8.h"; sourceTree = "<group>"; };
@@ -977,8 +971,6 @@
 				CB8E567817EB9B43000C56D3 /* KSSysCtl.h */,
 				CB8E567917EB9B43000C56D3 /* KSZombie.h */,
 				03082CD41D9181F600935324 /* KSZombie.c */,
-				CB8E56E117EB9B89000C56D3 /* NSDictionary+Merge.h */,
-				CB8E56E217EB9B89000C56D3 /* NSDictionary+Merge.m */,
 				CB8E56E317EB9B89000C56D3 /* NSError+SimpleConstructor.h */,
 				CB8E56E417EB9B89000C56D3 /* NSError+SimpleConstructor.m */,
 				CB2685EF1C694DB200EE4EB3 /* NSString+Demangle.h */,
@@ -1147,7 +1139,6 @@
 				CB6240AE17EBCA74006471F1 /* KSCrashReportFields.h in Headers */,
 				CB6240BE17EBCA74006471F1 /* KSCrashSentry_MachException.h in Headers */,
 				CB6240AB17EBCA74006471F1 /* KSCrashContext.h in Headers */,
-				CB62411417EBCA74006471F1 /* NSDictionary+Merge.h in Headers */,
 				CB62411A17EBCA74006471F1 /* KSCrashInstallation+Private.h in Headers */,
 				CB26862A1C694E4400EE4EB3 /* Malloc.h in Headers */,
 				CB2686141C694E4400EE4EB3 /* StringRef.h in Headers */,
@@ -1249,7 +1240,6 @@
 				CB8E565617EB9B35000C56D3 /* KSCrashSentry_Private.h in Headers */,
 				CB8E567E17EB9B43000C56D3 /* KSArchSpecific.h in Headers */,
 				CB2686271C694E4400EE4EB3 /* LLVM.h in Headers */,
-				CB8E56F717EB9B89000C56D3 /* NSDictionary+Merge.h in Headers */,
 				CB8E56E717EB9B89000C56D3 /* Container+DeepSearch.h in Headers */,
 				CB8E563217EB9AFD000C56D3 /* KSCrashReportFields.h in Headers */,
 				CB26861A1C694E4400EE4EB3 /* Casting.h in Headers */,
@@ -1445,7 +1435,6 @@
 				CB6240F717EBCA74006471F1 /* KSCrashReportSinkConsole.m in Sources */,
 				CBEE5DCB1CBC19AF005EAF61 /* NSString+URLEncode.m in Sources */,
 				CB62412617EBCA74006471F1 /* KSCrash.m in Sources */,
-				CB62411517EBCA74006471F1 /* NSDictionary+Merge.m in Sources */,
 				CB6240CD17EBCA74006471F1 /* KSJSONCodec.c in Sources */,
 				CB6240C217EBCA74006471F1 /* KSCrashSentry_Signal.c in Sources */,
 				CB62410517EBCA74006471F1 /* Container+DeepSearch.m in Sources */,
@@ -1529,7 +1518,6 @@
 				CB8E569E17EB9B43000C56D3 /* RFC3339DateTool.m in Sources */,
 				CB69B8E91DC0F17A002713B1 /* KSCrashReportStore.c in Sources */,
 				CB8E56EC17EB9B89000C56D3 /* KSCString.m in Sources */,
-				CB8E56F817EB9B89000C56D3 /* NSDictionary+Merge.m in Sources */,
 				CB8E568717EB9B43000C56D3 /* KSJSONCodecObjC.m in Sources */,
 				CB8E563917EB9AFD000C56D3 /* KSSystemInfo.m in Sources */,
 				CB8E563417EB9AFD000C56D3 /* KSCrashState.c in Sources */,

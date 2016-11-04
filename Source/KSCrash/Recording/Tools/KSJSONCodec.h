@@ -304,20 +304,23 @@ int ksjson_endDataElement(KSJSONEncodeContext* const context);
 
 /** Add a pre-formatted JSON element.
  *
- * @param context The encoding context.
+ * @param encodeContext The encoding context.
  *
  * @param name The element's name.
  *
- * @param value The element's value. MUST BE VALID JSON!
+ * @param jsonData The element's value. MUST BE VALID JSON!
  *
- * @param length The length of the element.
+ * @param jsonDataLength The length of the element.
+ *
+ * @param closeLastContainer If false, do not close the last container.
  *
  * @return KSJSON_OK if the process was successful.
  */
-int ksjson_addJSONElement(KSJSONEncodeContext* context,
-                          const char* restrict name,
-                          const char* restrict value,
-                          size_t length);
+int ksjson_addJSONElement(KSJSONEncodeContext* const encodeContext,
+                          const char* restrict const name,
+                          const char* restrict const jsonData,
+                          const int jsonDataLength,
+                          const bool closeLastContainer);
 
 /** Begin a new object container.
  *
@@ -375,7 +378,7 @@ int ksjson_addRawJSONData(KSJSONEncodeContext* const context,
  */
 int ksjson_endContainer(KSJSONEncodeContext* context);
 
-/** Add JSON data from a file.
+/** Decode and add JSON data from a file.
  *
  * @param context The encoding context.
  *

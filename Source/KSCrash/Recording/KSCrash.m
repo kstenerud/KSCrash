@@ -35,7 +35,6 @@
 #import "NSError+SimpleConstructor.h"
 #import "KSSystemCapabilities.h"
 #import "KSCrashReportFields.h"
-#import "NSDictionary+Merge.h"
 #import "KSJSONCodecObjC.h"
 #import "RFC3339UTFString.h"
 #import "NSString+Demangle.h"
@@ -475,37 +474,6 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
     [report setValue:[NSString stringWithUTF8String:timeString] forKey:key];
 }
 
-- (void) mergeDictWithKey:(NSString*) srcKey
-          intoDictWithKey:(NSString*) dstKey
-                 inReport:(NSMutableDictionary*) report
-{
-    NSDictionary* srcDict = [report objectForKey:srcKey];
-    if(srcDict == nil)
-    {
-        // It's OK if the source dict didn't exist.
-        return;
-    }
-    if(![srcDict isKindOfClass:[NSDictionary class]])
-    {
-        KSLOG_ERROR(@"'%@' should be a dictionary, not %@", srcKey, [srcDict class]);
-        return;
-    }
-    
-    NSDictionary* dstDict = [report objectForKey:dstKey];
-    if(dstDict == nil)
-    {
-        dstDict = [NSDictionary dictionary];
-    }
-    if(![dstDict isKindOfClass:[NSDictionary class]])
-    {
-        KSLOG_ERROR(@"'%@' should be a dictionary, not %@", dstKey, [dstDict class]);
-        return;
-    }
-    
-    report[dstKey] = [srcDict mergedInto:dstDict];
-    [report removeObjectForKey:srcKey];
-}
-
 - (void) performOnFields:(NSArray*) fieldPath inReport:(NSMutableDictionary*) report operation:(void (^)(id parent, id field)) operation okIfNotFound:(BOOL) isOkIfNotFound
 {
     if(fieldPath.count == 0)
@@ -597,14 +565,6 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
     
     // Timestamp gets stored as a unix timestamp. Convert it to rfc3339.
     [self convertTimestamp:@KSCrashField_Timestamp inReport:mutableInfo];
-    
-    [self mergeDictWithKey:@KSCrashField_SystemAtCrash
-           intoDictWithKey:@KSCrashField_System
-                  inReport:mutableReport];
-    
-    [self mergeDictWithKey:@KSCrashField_UserAtCrash
-           intoDictWithKey:@KSCrashField_User
-                  inReport:mutableReport];
     
     NSMutableDictionary* crashReport = [report[@KSCrashField_Crash] mutableCopy];
     if(crashReport != nil)

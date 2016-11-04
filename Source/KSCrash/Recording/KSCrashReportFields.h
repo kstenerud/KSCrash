@@ -178,12 +178,10 @@
 #pragma mark Standard
 #define KSCrashField_AppStats              "application_stats"
 #define KSCrashField_BinaryImages          "binary_images"
-#define KSCrashField_SystemAtCrash         "system_atcrash"
 #define KSCrashField_System                "system"
 #define KSCrashField_Memory                "memory"
 #define KSCrashField_Threads               "threads"
 #define KSCrashField_User                  "user"
-#define KSCrashField_UserAtCrash           "user_atcrash"
 
 #pragma mark Incomplete
 #define KSCrashField_Incomplete            "incomplete"

@@ -63,7 +63,7 @@ void kscinst_i_crashCallback(const KSCrashReportWriter* writer)
         ReportField* field = g_crashHandlerData->reportFields[i];
         if(field->key != NULL && field->value != NULL)
         {
-            writer->addJSONElement(writer, field->key, field->value);
+            writer->addJSONElement(writer, field->key, field->value, true);
         }
     }
     if(g_crashHandlerData->userCrashCallback != NULL)

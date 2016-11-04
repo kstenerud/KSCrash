@@ -198,7 +198,8 @@ typedef struct KSCrashReportWriter
      */
     void (*addJSONElement)(const struct KSCrashReportWriter* writer,
                            const char* name,
-                           const char* jsonElement);
+                           const char* jsonElement,
+                           bool closeLastContainer);
 
     /** Begin a new object container.
      *

@@ -370,51 +370,6 @@ int ksjson_addIntegerElement(KSJSONEncodeContext* const context,
     return addJSONData(context, buff, strlen(buff));
 }
 
-int ksjson_addJSONElement(KSJSONEncodeContext* const context,
-                          const char* restrict const name,
-                          const char* restrict const element,
-                          size_t length)
-{
-    unlikely_if(element == NULL)
-    {
-        return ksjson_addNullElement(context, name);
-    }
-    size_t idx = 0;
-    while(idx < length &&
-          (element[idx] == ' ' ||
-           element[idx] == '\r' ||
-           element[idx] == '\n' ||
-           element[idx] == '\t' ||
-           element[idx] == '\f'))
-    {
-        idx++;
-    }
-    unlikely_if(idx >= length)
-    {
-        KSLOG_DEBUG("JSON element contained no JSON data: %s", element);
-        return KSJSON_ERROR_INVALID_DATA;
-    }
-    switch(element[idx])
-    {
-        case '[': case '{': case '\"': case 'f':
-        case 't': case 'n': case '-':
-        case '0': case '1': case '2': case '3': case '4':
-        case '5': case '6': case '7': case '8': case '9':
-            break;
-        default:
-            KSLOG_DEBUG("Invalid character '%c' in: ",
-                        element[idx], element);
-            return KSJSON_ERROR_INVALID_DATA;
-    }
-
-    int result = ksjson_beginElement(context, name);
-    unlikely_if(result != KSJSON_OK)
-    {
-        return result;
-    }
-    return addJSONData(context, element, length);
-}
-
 int ksjson_addNullElement(KSJSONEncodeContext* const context,
                           const char* const name)
 {
@@ -624,9 +579,9 @@ int ksjson_endEncode(KSJSONEncodeContext* const context)
 typedef struct
 {
     /** Pointer to current work area in the buffer. */
-    char* bufferPtr;
+    const char* bufferPtr;
     /** Pointer to the end of the buffer. */
-    char* bufferEnd;
+    const char* bufferEnd;
     /** Pointer to a buffer for storing a decoded name. */
     char* nameBuffer;
     /** Length of the name buffer. */
@@ -780,7 +735,7 @@ int ksjsoncodec_i_decodeString(KSJSONDecodeContext* context, char* dstBuffer, in
         return KSJSON_ERROR_INVALID_CHARACTER;
     }
 
-    char* src = context->bufferPtr + 1;
+    const char* src = context->bufferPtr + 1;
     bool fastCopy = true;
 
     for(; src < context->bufferEnd && *src != '\"'; src++)
@@ -796,7 +751,7 @@ int ksjsoncodec_i_decodeString(KSJSONDecodeContext* context, char* dstBuffer, in
         KSLOG_DEBUG("Premature end of data");
         return KSJSON_ERROR_INCOMPLETE;
     }
-    char* srcEnd = src;
+    const char* srcEnd = src;
     src = context->bufferPtr + 1;
     int length = srcEnd - src;
     if(length >= dstBufferLength)
@@ -1198,8 +1153,10 @@ int ksjson_decode(const char* const data,
     return result;
 }
 
+struct JSONFromFileContext;
+typedef void (*UpdateDecoderCallback)(struct JSONFromFileContext* context);
 
-typedef struct
+typedef struct JSONFromFileContext
 {
     KSJSONEncodeContext* encodeContext;
     KSJSONDecodeContext* decodeContext;
@@ -1208,16 +1165,21 @@ typedef struct
     int fd;
     bool isEOF;
     bool closeLastContainer;
+    UpdateDecoderCallback updateDecoderCallback;
 } JSONFromFileContext;
 
+static void updateDecoder_doNothing(__unused struct JSONFromFileContext* context)
+{
+    
+}
 
-static void addJSONFromFile_updateDecoder(JSONFromFileContext* context)
+static void updateDecoder_readFile(struct JSONFromFileContext* context)
 {
     likely_if(!context->isEOF)
     {
-        char* end = context->decodeContext->bufferEnd;
+        const char* end = context->decodeContext->bufferEnd;
         char* start = context->bufferStart;
-        char* ptr = context->decodeContext->bufferPtr;
+        const char* ptr = context->decodeContext->bufferPtr;
         int bufferLength = end - start;
         int remainingLength = end - ptr;
         unlikely_if(remainingLength < bufferLength / 2)
@@ -1244,7 +1206,7 @@ static int addJSONFromFile_onBooleanElement(const char* const name,
 {
     JSONFromFileContext* context = (JSONFromFileContext*)userData;
     int result = ksjson_addBooleanElement(context->encodeContext, name, value);
-    addJSONFromFile_updateDecoder(context);
+    context->updateDecoderCallback(context);
     return result;
 }
 
@@ -1254,7 +1216,7 @@ static int addJSONFromFile_onFloatingPointElement(const char* const name,
 {
     JSONFromFileContext* context = (JSONFromFileContext*)userData;
     int result = ksjson_addFloatingPointElement(context->encodeContext, name, value);
-    addJSONFromFile_updateDecoder(context);
+    context->updateDecoderCallback(context);
     return result;
 }
 
@@ -1264,7 +1226,7 @@ static int addJSONFromFile_onIntegerElement(const char* const name,
 {
     JSONFromFileContext* context = (JSONFromFileContext*)userData;
     int result = ksjson_addIntegerElement(context->encodeContext, name, value);
-    addJSONFromFile_updateDecoder(context);
+    context->updateDecoderCallback(context);
     return result;
 }
 
@@ -1273,7 +1235,7 @@ static int addJSONFromFile_onNullElement(const char* const name,
 {
     JSONFromFileContext* context = (JSONFromFileContext*)userData;
     int result = ksjson_addNullElement(context->encodeContext, name);
-    addJSONFromFile_updateDecoder(context);
+    context->updateDecoderCallback(context);
     return result;
 }
 
@@ -1283,7 +1245,7 @@ static int addJSONFromFile_onStringElement(const char* const name,
 {
     JSONFromFileContext* context = (JSONFromFileContext*)userData;
     int result = ksjson_addStringElement(context->encodeContext, name, value, strlen(value));
-    addJSONFromFile_updateDecoder(context);
+    context->updateDecoderCallback(context);
     return result;
 }
 
@@ -1292,7 +1254,7 @@ static int addJSONFromFile_onBeginObject(const char* const name,
 {
     JSONFromFileContext* context = (JSONFromFileContext*)userData;
     int result = ksjson_beginObject(context->encodeContext, name);
-    addJSONFromFile_updateDecoder(context);
+    context->updateDecoderCallback(context);
     return result;
 }
 
@@ -1301,7 +1263,7 @@ static int addJSONFromFile_onBeginArray(const char* const name,
 {
     JSONFromFileContext* context = (JSONFromFileContext*)userData;
     int result = ksjson_beginArray(context->encodeContext, name);
-    addJSONFromFile_updateDecoder(context);
+    context->updateDecoderCallback(context);
     return result;
 }
 
@@ -1309,11 +1271,11 @@ static int addJSONFromFile_onEndContainer(void* const userData)
 {
     JSONFromFileContext* context = (JSONFromFileContext*)userData;
     int result = KSJSON_OK;
-    if(context->closeLastContainer || context->encodeContext->containerLevel != 1)
+    if(context->closeLastContainer || context->encodeContext->containerLevel > 2)
     {
         result = ksjson_endContainer(context->encodeContext);
     }
-    addJSONFromFile_updateDecoder(context);
+    context->updateDecoderCallback(context);
     return result;
 }
 
@@ -1364,20 +1326,76 @@ int ksjson_addJSONFromFile(KSJSONEncodeContext* const encodeContext,
         .fd = fd,
         .closeLastContainer = closeLastContainer,
         .isEOF = false,
+        .updateDecoderCallback = updateDecoder_readFile,
     };
     decodeContext.userData = &jsonContext;
     int containerLevel = encodeContext->containerLevel;
 
     // Manually trigger a data load.
     decodeContext.bufferPtr = decodeContext.bufferEnd;
-    addJSONFromFile_updateDecoder(&jsonContext);
+    jsonContext.updateDecoderCallback(&jsonContext);
 
     int result = ksjsoncodec_i_decodeElement(name, &decodeContext);
     close(fd);
-    while(encodeContext->containerLevel > containerLevel)
+    while(closeLastContainer && encodeContext->containerLevel > containerLevel)
     {
         ksjson_endContainer(encodeContext);
     }
 
+    return result;
+}
+
+int ksjson_addJSONElement(KSJSONEncodeContext* const encodeContext,
+                          const char* restrict const name,
+                          const char* restrict const jsonData,
+                          const int jsonDataLength,
+                          const bool closeLastContainer)
+{
+    KSJSONDecodeCallbacks callbacks =
+    {
+        .onBeginArray = addJSONFromFile_onBeginArray,
+        .onBeginObject = addJSONFromFile_onBeginObject,
+        .onBooleanElement = addJSONFromFile_onBooleanElement,
+        .onEndContainer = addJSONFromFile_onEndContainer,
+        .onEndData = addJSONFromFile_onEndData,
+        .onFloatingPointElement = addJSONFromFile_onFloatingPointElement,
+        .onIntegerElement = addJSONFromFile_onIntegerElement,
+        .onNullElement = addJSONFromFile_onNullElement,
+        .onStringElement = addJSONFromFile_onStringElement,
+    };
+    char nameBuffer[100] = {0};
+    char stringBuffer[500] = {0};
+    KSJSONDecodeContext decodeContext =
+    {
+        .bufferPtr = jsonData,
+        .bufferEnd = jsonData + jsonDataLength,
+        .nameBuffer = nameBuffer,
+        .nameBufferLength = sizeof(nameBuffer),
+        .stringBuffer = stringBuffer,
+        .stringBufferLength = sizeof(stringBuffer),
+        .callbacks = &callbacks,
+        .userData = NULL,
+    };
+    
+    JSONFromFileContext jsonContext =
+    {
+        .encodeContext = encodeContext,
+        .decodeContext = &decodeContext,
+        .bufferStart = (char*)jsonData,
+        .sourceFilename = NULL,
+        .fd = 0,
+        .closeLastContainer = closeLastContainer,
+        .isEOF = false,
+        .updateDecoderCallback = updateDecoder_doNothing,
+    };
+    decodeContext.userData = &jsonContext;
+    int containerLevel = encodeContext->containerLevel;
+    
+    int result = ksjsoncodec_i_decodeElement(name, &decodeContext);
+    while(closeLastContainer && encodeContext->containerLevel > containerLevel)
+    {
+        ksjson_endContainer(encodeContext);
+    }
+    
     return result;
 }
