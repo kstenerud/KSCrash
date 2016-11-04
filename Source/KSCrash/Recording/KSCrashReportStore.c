@@ -361,7 +361,7 @@ static bool canDeletePath(const char* path)
     }
     else
     {
-        lastComponent--;
+        lastComponent++;
     }
     if(strcmp(lastComponent, ".") == 0)
     {
