@@ -65,7 +65,6 @@
 		CB736FB91D9B6F0E00E3230F /* KSJSONCodecObjC.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736F8C1D9B6F0E00E3230F /* KSJSONCodecObjC.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CB736FBA1D9B6F0E00E3230F /* KSJSONCodecObjC.m in Sources */ = {isa = PBXBuildFile; fileRef = CB736F8D1D9B6F0E00E3230F /* KSJSONCodecObjC.m */; };
 		CB736FBB1D9B6F0E00E3230F /* KSLogger.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736F8E1D9B6F0E00E3230F /* KSLogger.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		CB736FBC1D9B6F0E00E3230F /* KSLogger.m in Sources */ = {isa = PBXBuildFile; fileRef = CB736F8F1D9B6F0E00E3230F /* KSLogger.m */; };
 		CB736FBD1D9B6F0E00E3230F /* KSMach.c in Sources */ = {isa = PBXBuildFile; fileRef = CB736F901D9B6F0E00E3230F /* KSMach.c */; };
 		CB736FBE1D9B6F0E00E3230F /* KSMach.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736F911D9B6F0E00E3230F /* KSMach.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB736FBF1D9B6F0E00E3230F /* KSMach_Arm.c in Sources */ = {isa = PBXBuildFile; fileRef = CB736F921D9B6F0E00E3230F /* KSMach_Arm.c */; };
@@ -233,7 +232,6 @@
 		CB736F8C1D9B6F0E00E3230F /* KSJSONCodecObjC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSJSONCodecObjC.h; path = ../../Source/KSCrash/Recording/Tools/KSJSONCodecObjC.h; sourceTree = "<group>"; };
 		CB736F8D1D9B6F0E00E3230F /* KSJSONCodecObjC.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSJSONCodecObjC.m; path = ../../Source/KSCrash/Recording/Tools/KSJSONCodecObjC.m; sourceTree = "<group>"; };
 		CB736F8E1D9B6F0E00E3230F /* KSLogger.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSLogger.h; path = ../../Source/KSCrash/Recording/Tools/KSLogger.h; sourceTree = "<group>"; };
-		CB736F8F1D9B6F0E00E3230F /* KSLogger.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSLogger.m; path = ../../Source/KSCrash/Recording/Tools/KSLogger.m; sourceTree = "<group>"; };
 		CB736F901D9B6F0E00E3230F /* KSMach.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSMach.c; path = ../../Source/KSCrash/Recording/Tools/KSMach.c; sourceTree = "<group>"; };
 		CB736F911D9B6F0E00E3230F /* KSMach.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSMach.h; path = ../../Source/KSCrash/Recording/Tools/KSMach.h; sourceTree = "<group>"; };
 		CB736F921D9B6F0E00E3230F /* KSMach_Arm.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSMach_Arm.c; path = ../../Source/KSCrash/Recording/Tools/KSMach_Arm.c; sourceTree = "<group>"; };
@@ -472,7 +470,6 @@
 				CB736F8D1D9B6F0E00E3230F /* KSJSONCodecObjC.m */,
 				CB69B8E21DC0F12F002713B1 /* KSLogger.c */,
 				CB736F8E1D9B6F0E00E3230F /* KSLogger.h */,
-				CB736F8F1D9B6F0E00E3230F /* KSLogger.m */,
 				CB736F901D9B6F0E00E3230F /* KSMach.c */,
 				CB736F911D9B6F0E00E3230F /* KSMach.h */,
 				CB736F921D9B6F0E00E3230F /* KSMach_Arm.c */,
@@ -876,7 +873,6 @@
 				CB736FC41D9B6F0E00E3230F /* KSObjC.c in Sources */,
 				CB7370751D9B6FE500E3230F /* KSCrashInstallationEmail.m in Sources */,
 				CB736FD31D9B6F0E00E3230F /* NSDictionary+Merge.m in Sources */,
-				CB736FBC1D9B6F0E00E3230F /* KSLogger.m in Sources */,
 				CB736FFA1D9B6F7800E3230F /* Demangle.cpp in Sources */,
 				CB73707D1D9BB77800E3230F /* KSReachabilityKSCrash.m in Sources */,
 				CB7370561D9B6FD000E3230F /* KSHTTPRequestSender.m in Sources */,

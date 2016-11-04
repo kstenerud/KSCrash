@@ -260,3 +260,63 @@ void i_kslog_logC(const char* const level,
     kslog_i_writeToLog("\n");
     flushLog();
 }
+
+
+// ===========================================================================
+#pragma mark - Objective-C -
+// ===========================================================================
+
+#include <CoreFoundation/CoreFoundation.h>
+
+void i_kslog_logObjCBasic(CFStringRef fmt, ...)
+{
+    if(fmt == NULL)
+    {
+        kslog_i_writeToLog("(null)");
+        return;
+    }
+    
+    va_list args;
+    va_start(args,fmt);
+    CFStringRef entry = CFStringCreateWithFormatAndArguments(NULL, NULL, fmt, args);
+    va_end(args);
+    
+    size_t bufferLength = (size_t)CFStringGetLength(entry) * 4 + 1;
+    char* stringBuffer = malloc(bufferLength);
+    if(CFStringGetCString(entry, stringBuffer, (CFIndex)bufferLength, kCFStringEncodingUTF8))
+    {
+        kslog_i_writeToLog(stringBuffer);
+    }
+    else
+    {
+        kslog_i_writeToLog("Could not convert log string to UTF-8. No logging performed.");
+    }
+    kslog_i_writeToLog("\n");
+    
+    CFRelease(entry);
+}
+
+void i_kslog_logObjC(const char* const level,
+                     const char* const file,
+                     const int line,
+                     const char* const function,
+                     CFStringRef fmt, ...)
+{
+    if(fmt == NULL)
+    {
+        i_kslog_logObjCBasic(CFStringCreateWithCString(NULL, "%s: %s (%u): %s: (null)", kCFStringEncodingUTF8),
+                             level, kslog_i_lastPathEntry(file), line, function);
+    }
+    else
+    {
+        va_list args;
+        va_start(args,fmt);
+        CFStringRef entry = CFStringCreateWithFormatAndArguments(NULL, NULL, fmt, args);
+        va_end(args);
+        
+        i_kslog_logObjCBasic(CFStringCreateWithCString(NULL, "%s: %s (%u): %s: %@", kCFStringEncodingUTF8),
+                             level, kslog_i_lastPathEntry(file), line, function, entry);
+        
+        CFRelease(entry);
+    }
+}

@@ -125,7 +125,6 @@
 		CBEE5D251CB86989005EAF61 /* KSJSONCodecObjC.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C821CB86989005EAF61 /* KSJSONCodecObjC.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CBEE5D261CB86989005EAF61 /* KSJSONCodecObjC.m in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C831CB86989005EAF61 /* KSJSONCodecObjC.m */; };
 		CBEE5D271CB86989005EAF61 /* KSLogger.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C841CB86989005EAF61 /* KSLogger.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		CBEE5D281CB86989005EAF61 /* KSLogger.m in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C851CB86989005EAF61 /* KSLogger.m */; };
 		CBEE5D291CB86989005EAF61 /* KSMach.c in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C861CB86989005EAF61 /* KSMach.c */; };
 		CBEE5D2A1CB86989005EAF61 /* KSMach.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C871CB86989005EAF61 /* KSMach.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBEE5D2B1CB86989005EAF61 /* KSMach_Arm.c in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C881CB86989005EAF61 /* KSMach_Arm.c */; };
@@ -343,7 +342,6 @@
 		CBEE5C821CB86989005EAF61 /* KSJSONCodecObjC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSJSONCodecObjC.h; sourceTree = "<group>"; };
 		CBEE5C831CB86989005EAF61 /* KSJSONCodecObjC.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSJSONCodecObjC.m; sourceTree = "<group>"; };
 		CBEE5C841CB86989005EAF61 /* KSLogger.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSLogger.h; sourceTree = "<group>"; };
-		CBEE5C851CB86989005EAF61 /* KSLogger.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSLogger.m; sourceTree = "<group>"; };
 		CBEE5C861CB86989005EAF61 /* KSMach.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSMach.c; sourceTree = "<group>"; };
 		CBEE5C871CB86989005EAF61 /* KSMach.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSMach.h; sourceTree = "<group>"; };
 		CBEE5C881CB86989005EAF61 /* KSMach_Arm.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSMach_Arm.c; sourceTree = "<group>"; };
@@ -662,7 +660,6 @@
 				CBEE5C831CB86989005EAF61 /* KSJSONCodecObjC.m */,
 				CB69B8E01DC0F11C002713B1 /* KSLogger.c */,
 				CBEE5C841CB86989005EAF61 /* KSLogger.h */,
-				CBEE5C851CB86989005EAF61 /* KSLogger.m */,
 				CBEE5C861CB86989005EAF61 /* KSMach.c */,
 				CBEE5C871CB86989005EAF61 /* KSMach.h */,
 				CBEE5C881CB86989005EAF61 /* KSMach_Arm.c */,
@@ -1084,7 +1081,6 @@
 				CBEE5D081CB86989005EAF61 /* KSSystemInfo.m in Sources */,
 				CBEE5D211CB86989005EAF61 /* KSFileUtils.c in Sources */,
 				CBEE5CE71CB86989005EAF61 /* KSCrashInstallationStandard.m in Sources */,
-				CBEE5D281CB86989005EAF61 /* KSLogger.m in Sources */,
 				CBEE5D6C1CB86989005EAF61 /* KSReachabilityKSCrash.m in Sources */,
 				CBEE5DBF1CBC14CF005EAF61 /* NSString+URLEncode.m in Sources */,
 				CBEE5D4F1CB86989005EAF61 /* KSCrashReportFilterGZip.m in Sources */,

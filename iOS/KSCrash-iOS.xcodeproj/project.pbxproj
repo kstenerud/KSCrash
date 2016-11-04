@@ -71,7 +71,6 @@
 		03DE7C7F1C84DFAB00F789BA /* KSJSONCodecObjC.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D6B17EB765C0056DA83 /* KSJSONCodecObjC.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		03DE7C801C84DFAB00F789BA /* KSJSONCodecObjC.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D6C17EB765C0056DA83 /* KSJSONCodecObjC.m */; };
 		03DE7C811C84DFAB00F789BA /* KSLogger.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D6D17EB765C0056DA83 /* KSLogger.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		03DE7C821C84DFAB00F789BA /* KSLogger.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D6E17EB765C0056DA83 /* KSLogger.m */; };
 		03DE7C831C84DFAB00F789BA /* KSMach.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D7217EB765C0056DA83 /* KSMach.c */; };
 		03DE7C841C84DFAB00F789BA /* KSMach.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D7317EB765C0056DA83 /* KSMach.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		03DE7C851C84DFAB00F789BA /* KSMach_Arm.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D6F17EB765C0056DA83 /* KSMach_Arm.c */; };
@@ -296,7 +295,6 @@
 		CBF53E0F17EB765C0056DA83 /* KSHTTPRequestSender.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D6817EB765C0056DA83 /* KSHTTPRequestSender.m */; };
 		CBF53E1117EB765C0056DA83 /* KSJSONCodec.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D6917EB765C0056DA83 /* KSJSONCodec.c */; };
 		CBF53E1517EB765C0056DA83 /* KSJSONCodecObjC.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D6C17EB765C0056DA83 /* KSJSONCodecObjC.m */; };
-		CBF53E1817EB765C0056DA83 /* KSLogger.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D6E17EB765C0056DA83 /* KSLogger.m */; };
 		CBF53E1A17EB765C0056DA83 /* KSMach_Arm.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D6F17EB765C0056DA83 /* KSMach_Arm.c */; };
 		CBF53E1C17EB765C0056DA83 /* KSMach_x86_32.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D7017EB765C0056DA83 /* KSMach_x86_32.c */; };
 		CBF53E1E17EB765C0056DA83 /* KSMach_x86_64.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D7117EB765C0056DA83 /* KSMach_x86_64.c */; };
@@ -397,7 +395,6 @@
 		EDF2BE881CCF15AD004BADF4 /* KSCrashInstallationQuincyHockey.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D2B17EB765C0056DA83 /* KSCrashInstallationQuincyHockey.m */; };
 		EDF2BE891CCF15AD004BADF4 /* KSMach_Arm.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D6F17EB765C0056DA83 /* KSMach_Arm.c */; };
 		EDF2BE8A1CCF15AD004BADF4 /* Punycode.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CBC43F1B1C5AF2B10083A11B /* Punycode.cpp */; };
-		EDF2BE8B1CCF15AD004BADF4 /* KSLogger.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D6E17EB765C0056DA83 /* KSLogger.m */; };
 		EDF2BE8C1CCF15AD004BADF4 /* KSCrashDoctor.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D2417EB765C0056DA83 /* KSCrashDoctor.m */; };
 		EDF2BE8D1CCF15AD004BADF4 /* KSJSONCodec.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D6917EB765C0056DA83 /* KSJSONCodec.c */; };
 		EDF2BE8E1CCF15AD004BADF4 /* KSCrashC.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D1E17EB765C0056DA83 /* KSCrashC.c */; };
@@ -729,7 +726,6 @@
 		CBF53D6B17EB765C0056DA83 /* KSJSONCodecObjC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSJSONCodecObjC.h; path = ../../Source/KSCrash/Recording/Tools/KSJSONCodecObjC.h; sourceTree = "<group>"; };
 		CBF53D6C17EB765C0056DA83 /* KSJSONCodecObjC.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSJSONCodecObjC.m; path = ../../Source/KSCrash/Recording/Tools/KSJSONCodecObjC.m; sourceTree = "<group>"; };
 		CBF53D6D17EB765C0056DA83 /* KSLogger.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSLogger.h; path = ../../Source/KSCrash/Recording/Tools/KSLogger.h; sourceTree = "<group>"; };
-		CBF53D6E17EB765C0056DA83 /* KSLogger.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSLogger.m; path = ../../Source/KSCrash/Recording/Tools/KSLogger.m; sourceTree = "<group>"; };
 		CBF53D6F17EB765C0056DA83 /* KSMach_Arm.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSMach_Arm.c; path = ../../Source/KSCrash/Recording/Tools/KSMach_Arm.c; sourceTree = "<group>"; };
 		CBF53D7017EB765C0056DA83 /* KSMach_x86_32.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSMach_x86_32.c; path = ../../Source/KSCrash/Recording/Tools/KSMach_x86_32.c; sourceTree = "<group>"; };
 		CBF53D7117EB765C0056DA83 /* KSMach_x86_64.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSMach_x86_64.c; path = ../../Source/KSCrash/Recording/Tools/KSMach_x86_64.c; sourceTree = "<group>"; };
@@ -1110,7 +1106,6 @@
 				CBF53D6C17EB765C0056DA83 /* KSJSONCodecObjC.m */,
 				CB69B8D91DC0ED80002713B1 /* KSLogger.c */,
 				CBF53D6D17EB765C0056DA83 /* KSLogger.h */,
-				CBF53D6E17EB765C0056DA83 /* KSLogger.m */,
 				CBF53D6F17EB765C0056DA83 /* KSMach_Arm.c */,
 				CB02647E17F7CEC5003E0AED /* KSMach_Arm64.c */,
 				CBF53D7017EB765C0056DA83 /* KSMach_x86_32.c */,
@@ -1696,7 +1691,6 @@
 				03DE7CCD1C84DFCD00F789BA /* KSCrashInstallationQuincyHockey.m in Sources */,
 				03DE7C851C84DFAB00F789BA /* KSMach_Arm.c in Sources */,
 				03DE7C701C84DFA400F789BA /* Punycode.cpp in Sources */,
-				03DE7C821C84DFAB00F789BA /* KSLogger.m in Sources */,
 				03DE7C521C84DF8100F789BA /* KSCrashDoctor.m in Sources */,
 				03DE7C7D1C84DFAB00F789BA /* KSJSONCodec.c in Sources */,
 				03DE7C411C84DF8100F789BA /* KSCrashC.c in Sources */,
@@ -1820,7 +1814,6 @@
 				CBF53DFF17EB765C0056DA83 /* KSCrashState.c in Sources */,
 				CBF53E1E17EB765C0056DA83 /* KSMach_x86_64.c in Sources */,
 				CBC43F441C5BE9670083A11B /* NSString+Demangle.mm in Sources */,
-				CBF53E1817EB765C0056DA83 /* KSLogger.m in Sources */,
 				CBF53DE017EB765C0056DA83 /* KSCrashReportSinkStandard.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1887,7 +1880,6 @@
 				EDF2BE881CCF15AD004BADF4 /* KSCrashInstallationQuincyHockey.m in Sources */,
 				EDF2BE891CCF15AD004BADF4 /* KSMach_Arm.c in Sources */,
 				EDF2BE8A1CCF15AD004BADF4 /* Punycode.cpp in Sources */,
-				EDF2BE8B1CCF15AD004BADF4 /* KSLogger.m in Sources */,
 				EDF2BE8C1CCF15AD004BADF4 /* KSCrashDoctor.m in Sources */,
 				EDF2BE8D1CCF15AD004BADF4 /* KSJSONCodec.c in Sources */,
 				EDF2BE8E1CCF15AD004BADF4 /* KSCrashC.c in Sources */,
