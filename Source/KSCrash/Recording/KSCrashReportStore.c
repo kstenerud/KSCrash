@@ -352,52 +352,154 @@ done:
     pthread_mutex_unlock(&g_mutex);
 }
 
-static bool canDeleteFile(const char* filename)
+static bool canDeletePath(const char* path)
 {
-    if(strcmp(filename, ".") == 0)
+    const char* lastComponent = strrchr(path, '/');
+    if(lastComponent == NULL)
+    {
+        lastComponent = path;
+    }
+    else
+    {
+        lastComponent--;
+    }
+    if(strcmp(lastComponent, ".") == 0)
     {
         return false;
     }
-    if(strcmp(filename, "..") == 0)
+    if(strcmp(lastComponent, "..") == 0)
     {
         return false;
     }
     return true;
 }
 
-void kscrs_deleteAllReports()
+static int dirContentsCount(const char* path)
 {
-    pthread_mutex_lock(&g_mutex);
-    DIR* dir = opendir(g_reportsPath);
-    if(dir != NULL)
+    int count = 0;
+    DIR* dir = opendir(path);
+    if(dir == NULL)
     {
-        char pathBuffer[KSCRS_MAX_PATH_LENGTH];
-        snprintf(pathBuffer, sizeof(pathBuffer), "%s/", g_reportsPath);
-        char* pathPtr = pathBuffer + strlen(pathBuffer);
-        int pathRemainingLength = (int)sizeof(pathBuffer) - (int)(pathPtr - pathBuffer);
-        
-        bool mustRescan = false;
-        do
+        KSLOG_ERROR("Error reading directory %s: %s", strerror(errno));
+        return 0;
+    }
+
+    struct dirent* ent;
+    while((ent = readdir(dir)))
+    {
+        count++;
+    }
+    
+    closedir(dir);
+    return count;
+}
+
+static void dirContents(const char* path, char*** entries, int* count)
+{
+    char** entryList = NULL;
+    int entryCount = dirContentsCount(path);
+    if(entryCount <= 0)
+    {
+        goto done;
+    }
+    DIR* dir = opendir(path);
+    if(dir == NULL)
+    {
+        KSLOG_ERROR("Error reading directory %s: %s", strerror(errno));
+        goto done;
+    }
+
+    entryList = calloc((size_t)(entryCount), sizeof(char*));
+    struct dirent* ent;
+    int index = 0;
+    while((ent = readdir(dir)))
+    {
+        if(index >= entryCount)
         {
-            mustRescan = false;
-            rewinddir(dir);
-            struct dirent* ent;
-            while((ent = readdir(dir)))
+            KSLOG_ERROR("Contents of %s have been mutated", path);
+            goto done;
+        }
+        entryList[index] = strdup(ent->d_name);
+        index++;
+    }
+
+done:
+    if(entryList == NULL)
+    {
+        entryCount = 0;
+    }
+    *entries = entryList;
+    *count = entryCount;
+}
+
+static void freeDirListing(char** entries, int count)
+{
+    if(entries != NULL)
+    {
+        for(int i = 0; i < count; i++)
+        {
+            char* ptr = entries[i];
+            if(ptr != NULL)
             {
-                strncpy(pathPtr, ent->d_name, pathRemainingLength);
-                if(canDeleteFile(ent->d_name))
-                {
-                    removeFile(pathBuffer, false);
-                    mustRescan = true;
-                }
+                free(ptr);
             }
-        } while(mustRescan);
-        closedir (dir);
+        }
+        free(entries);
+    }
+}
+
+static void deletePathContents(const char* path, bool deleteTopLevelPathAlso)
+{
+    if(!canDeletePath(path))
+    {
+        return;
+    }
+
+    struct stat statStruct = {0};
+    if(stat(path, &statStruct) != 0)
+    {
+        KSLOG_ERROR("Could not stat %s: %s", strerror(errno));
+        return;
+    }
+    if(S_ISDIR(statStruct.st_mode))
+    {
+        char** entries = NULL;
+        int entryCount = 0;
+        dirContents(path, &entries, &entryCount);
+
+        int bufferLength = KSCRS_MAX_PATH_LENGTH;
+        char* pathBuffer = malloc((size_t)bufferLength);
+        snprintf(pathBuffer, bufferLength, "%s/", path);
+        char* pathPtr = pathBuffer + strlen(pathBuffer);
+        int pathRemainingLength = bufferLength - (pathPtr - pathBuffer);
+
+        for(int i = 0; i < entryCount; i++)
+        {
+            strncpy(pathPtr, entries[i], pathRemainingLength);
+            deletePathContents(pathBuffer, false);
+        }
+
+        free(pathBuffer);
+        freeDirListing(entries, entryCount);
+        if(deleteTopLevelPathAlso)
+        {
+            removeFile(path, false);
+        }
+    }
+    else if(S_ISREG(statStruct.st_mode))
+    {
+        removeFile(path, false);
     }
     else
     {
-        KSLOG_ERROR("Could not open directory %s", g_reportsPath);
+        KSLOG_ERROR("Could not delete %s: Not a regular file.", path);
     }
+}
+
+void kscrs_deleteAllReports()
+{
+    pthread_mutex_lock(&g_mutex);
+    deletePathContents(g_reportsPath, false);
     pthread_mutex_unlock(&g_mutex);
 }
 
