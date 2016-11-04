@@ -1207,6 +1207,7 @@ typedef struct
     const char* sourceFilename;
     int fd;
     bool isEOF;
+    bool closeLastContainer;
 } JSONFromFileContext;
 
 
@@ -1307,7 +1308,11 @@ static int addJSONFromFile_onBeginArray(const char* const name,
 static int addJSONFromFile_onEndContainer(void* const userData)
 {
     JSONFromFileContext* context = (JSONFromFileContext*)userData;
-    int result = ksjson_endContainer(context->encodeContext);
+    int result = KSJSON_OK;
+    if(context->closeLastContainer || context->encodeContext->containerLevel != 1)
+    {
+        result = ksjson_endContainer(context->encodeContext);
+    }
     addJSONFromFile_updateDecoder(context);
     return result;
 }
@@ -1319,7 +1324,8 @@ static int addJSONFromFile_onEndData(__unused void* const userData)
 
 int ksjson_addJSONFromFile(KSJSONEncodeContext* const encodeContext,
                            const char* restrict const name,
-                           const char* restrict const filename)
+                           const char* restrict const filename,
+                           const bool closeLastContainer)
 {
     KSJSONDecodeCallbacks callbacks =
     {
@@ -1356,6 +1362,7 @@ int ksjson_addJSONFromFile(KSJSONEncodeContext* const encodeContext,
         .bufferStart = fileBuffer,
         .sourceFilename = filename,
         .fd = fd,
+        .closeLastContainer = closeLastContainer,
         .isEOF = false,
     };
     decodeContext.userData = &jsonContext;

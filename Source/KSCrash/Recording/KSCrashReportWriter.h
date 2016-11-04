@@ -126,10 +126,13 @@ typedef struct KSCrashReportWriter
      * @param name The name to give this element.
      *
      * @param filePath The path to the file containing the value to add.
+     *
+     * @param closeLastContainer If false, do not close the last container.
      */
     void (*addJSONFileElement)(const struct KSCrashReportWriter* writer,
                                const char* name,
-                               const char* filePath);
+                               const char* filePath,
+                               const bool closeLastContainer);
     
     /** Add a hex encoded data element to the report.
      *

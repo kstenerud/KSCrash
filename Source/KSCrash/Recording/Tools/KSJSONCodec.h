@@ -375,10 +375,20 @@ int ksjson_addRawJSONData(KSJSONEncodeContext* const context,
  */
 int ksjson_endContainer(KSJSONEncodeContext* context);
 
-
-    int ksjson_addJSONFromFile(KSJSONEncodeContext* const encodeContext,
-                               const char* restrict const name,
-                               const char* restrict const filename);
+/** Add JSON data from a file.
+ *
+ * @param context The encoding context.
+ *
+ * @param name The name to give the top element from the file.
+ *
+ * @param filename The file to read from.
+ *
+ * @param closeLastContainer If false, do not close the last container.
+ */
+int ksjson_addJSONFromFile(KSJSONEncodeContext* const context,
+                           const char* restrict const name,
+                           const char* restrict const filename,
+                           const bool closeLastContainer);
 
 
 // ============================================================================

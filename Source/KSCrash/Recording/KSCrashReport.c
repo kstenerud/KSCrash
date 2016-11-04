@@ -311,9 +311,10 @@ void kscrw_i_addJSONElement(const KSCrashReportWriter* const writer,
 
 void kscrw_i_addJSONElementFromFile(const KSCrashReportWriter* const writer,
                                     const char* const key,
-                                    const char* const filePath)
+                                    const char* const filePath,
+                                    bool closeLastContainer)
 {
-    ksjson_addJSONFromFile(getJsonContext(writer), key, filePath);
+    ksjson_addJSONFromFile(getJsonContext(writer), key, filePath, closeLastContainer);
 }
 
 void kscrw_i_beginObject(const KSCrashReportWriter* const writer,
@@ -2006,7 +2007,7 @@ static void writeRecrash(const KSCrashReportWriter* const writer,
                          const char* const key,
                          const char* crashReportPath)
 {
-    writer->addJSONFileElement(writer, key, crashReportPath);
+    writer->addJSONFileElement(writer, key, crashReportPath, true);
 }
 
 
