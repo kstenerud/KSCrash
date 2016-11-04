@@ -352,6 +352,19 @@ done:
     pthread_mutex_unlock(&g_mutex);
 }
 
+static bool canDeleteFile(const char* filename)
+{
+    if(strcmp(filename, ".") == 0)
+    {
+        return false;
+    }
+    if(strcmp(filename, "..") == 0)
+    {
+        return false;
+    }
+    return true;
+}
+
 void kscrs_deleteAllReports()
 {
     pthread_mutex_lock(&g_mutex);
@@ -363,17 +376,22 @@ void kscrs_deleteAllReports()
         char* pathPtr = pathBuffer + strlen(pathBuffer);
         int pathRemainingLength = (int)sizeof(pathBuffer) - (int)(pathPtr - pathBuffer);
         
-        for(bool mustRescan = true; mustRescan; mustRescan = false)
+        bool mustRescan = false;
+        do
         {
+            mustRescan = false;
             rewinddir(dir);
             struct dirent* ent;
             while((ent = readdir(dir)))
             {
                 strncpy(pathPtr, ent->d_name, pathRemainingLength);
-                removeFile(pathBuffer, false);
-                mustRescan = true;
+                if(canDeleteFile(ent->d_name))
+                {
+                    removeFile(pathBuffer, false);
+                    mustRescan = true;
+                }
             }
-        }
+        } while(mustRescan);
         closedir (dir);
     }
     else

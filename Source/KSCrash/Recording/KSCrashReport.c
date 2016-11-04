@@ -2090,7 +2090,7 @@ void kscrashreport_writeRecrashReport(KSCrash_Context* const crashContext,
 {
     static char tempPath[1000];
     strncpy(tempPath, path, sizeof(tempPath) - 10);
-    strcpy(tempPath + strlen(tempPath) - 5, ".old");
+    strncpy(tempPath + strlen(tempPath) - 5, ".old", 5);
     KSLOG_INFO("Writing recrash report to %s", path);
 
     if(rename(path, tempPath) < 0)

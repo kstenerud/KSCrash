@@ -293,6 +293,7 @@ void i_kslog_logObjCBasic(CFStringRef fmt, ...)
     }
     kslog_i_writeToLog("\n");
     
+    free(stringBuffer);
     CFRelease(entry);
 }
 
@@ -302,10 +303,11 @@ void i_kslog_logObjC(const char* const level,
                      const char* const function,
                      CFStringRef fmt, ...)
 {
+    CFStringRef logFmt = NULL;
     if(fmt == NULL)
     {
-        i_kslog_logObjCBasic(CFStringCreateWithCString(NULL, "%s: %s (%u): %s: (null)", kCFStringEncodingUTF8),
-                             level, kslog_i_lastPathEntry(file), line, function);
+        logFmt = CFStringCreateWithCString(NULL, "%s: %s (%u): %s: (null)", kCFStringEncodingUTF8);
+        i_kslog_logObjCBasic(logFmt, level, kslog_i_lastPathEntry(file), line, function);
     }
     else
     {
@@ -314,9 +316,10 @@ void i_kslog_logObjC(const char* const level,
         CFStringRef entry = CFStringCreateWithFormatAndArguments(NULL, NULL, fmt, args);
         va_end(args);
         
-        i_kslog_logObjCBasic(CFStringCreateWithCString(NULL, "%s: %s (%u): %s: %@", kCFStringEncodingUTF8),
-                             level, kslog_i_lastPathEntry(file), line, function, entry);
+        logFmt = CFStringCreateWithCString(NULL, "%s: %s (%u): %s: %@", kCFStringEncodingUTF8);
+        i_kslog_logObjCBasic(logFmt, level, kslog_i_lastPathEntry(file), line, function, entry);
         
         CFRelease(entry);
     }
+    CFRelease(logFmt);
 }
