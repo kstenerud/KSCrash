@@ -475,8 +475,12 @@ static void deletePathContents(const char* path, bool deleteTopLevelPathAlso)
 
         for(int i = 0; i < entryCount; i++)
         {
-            strncpy(pathPtr, entries[i], pathRemainingLength);
-            deletePathContents(pathBuffer, false);
+            char* entry = entries[i];
+            if(entry != NULL)
+            {
+                strncpy(pathPtr, entry, pathRemainingLength);
+                deletePathContents(pathBuffer, false);
+            }
         }
 
         free(pathBuffer);
