@@ -1,7 +1,7 @@
 //
-//  NSMutableData+AppendUTF8.m
+//  DemangleSwift.h
 //
-//  Created by Karl Stenerud on 2012-02-26.
+//  Created by Karl Stenerud on 2016-11-04.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,43 +24,24 @@
 // THE SOFTWARE.
 //
 
+#ifndef HDR_DemangleSwift_h
+#define HDR_DemangleSwift_h
 
-#import "NSString+Demangle.h"
-#import "Demangle.h"
-#include <cxxabi.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-@implementation NSString (Demangle)
-
-- (NSString*) demangledAsSwift
-{
-    swift::Demangle::DemangleOptions options = swift::Demangle::DemangleOptions::SimplifiedUIDemangleOptions();
-    std::string demangled = swift::Demangle::demangleSymbolAsString(self.UTF8String, options);
-    if(demangled.length() == 0)
-    {
-        return nil;
-    }
-    return [NSString stringWithUTF8String:demangled.c_str()];
+/** Demangle a Swift symbol.
+ *
+ * @param mangledSymbol The mangled symbol.
+ *
+ * @return A demangled symbol, or NULL if demangling failed.
+ *         MEMORY MANAGEMENT WARNING: User is responsible for calling free() on the returned value.
+ */
+char* demangleSwift(const char* mangledSymbol);
+    
+#ifdef __cplusplus
 }
+#endif
 
-- (NSString*) demangledAsCPP
-{
-    NSString* result = nil;
-    int status = 0;
-    char* demangled = __cxxabiv1::__cxa_demangle(self.UTF8String, NULL, NULL, &status);
-
-    if(status == 0 && demangled != NULL)
-    {
-        result = [NSString stringWithUTF8String:demangled];
-    }
-
-    if(demangled != NULL)
-    {
-        free(demangled);
-    }
-
-    return result;
-}
-
-@end
-
-@interface NSString_Demangle_GH992D : NSObject @end @implementation NSString_Demangle_GH992D @end
+#endif // HDR_DemangleSwift_h

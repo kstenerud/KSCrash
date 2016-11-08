@@ -95,16 +95,15 @@
 - (void) loadReportID:(int64_t) reportID
          reportString:(NSString* __autoreleasing *) reportString
 {
-    char* reportBytes;
-    int reportLength;
-    kscrs_readReport(reportID, &reportBytes, &reportLength);
+    char* reportBytes = kscrs_readReport(reportID);
+    
     if(reportBytes == NULL)
     {
         reportString = nil;
     }
     else
     {
-        *reportString = [[NSString alloc] initWithData:[NSData dataWithBytesNoCopy:reportBytes length:(NSUInteger)reportLength] encoding:NSUTF8StringEncoding];
+        *reportString = [[NSString alloc] initWithData:[NSData dataWithBytesNoCopy:reportBytes length:strlen(reportBytes)] encoding:NSUTF8StringEncoding];
     }
 }
 

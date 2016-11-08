@@ -24,6 +24,9 @@
 // THE SOFTWARE.
 //
 
+#ifndef HDR_KSCrashReportStore_h
+#define HDR_KSCrashReportStore_h
+
 #include <sys/types.h>
 
 #define KSCRS_MAX_PATH_LENGTH 500
@@ -59,11 +62,11 @@ int kscrs_getReportIDs(int64_t* reportIDs, int count);
 /** Read a report.
  *
  * @param reportID The report's ID.
- * @param reportPtr (out) Will be filled with a pointer to the contents of the report, or NULL if not found.
- *                        Caller MUST call free() on the returned pointer if not NULL.
- * @param reportLengthPtr (out) Will be filled with the length of the report in bytes, or 0 if not found.
+ *
+ * @return The NULL terminated report, or NULL if not found.
+ *         MEMORY MANAGEMENT WARNING: User is responsible for calling free() on the returned value.
  */
-void kscrs_readReport(int64_t reportID, char** reportPtr, int* reportLengthPtr);
+char* kscrs_readReport(int64_t reportID);
 
 /** Add a custom report to the store.
  *
@@ -91,3 +94,5 @@ int64_t kscrsi_getNextCrashReportID();
  * Internal function. Do not use.
  */
 int64_t kscrsi_getNextUserReportID();
+
+#endif // HDR_KSCrashReportStore_h

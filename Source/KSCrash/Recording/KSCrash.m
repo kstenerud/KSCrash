@@ -30,14 +30,11 @@
 #import "KSCrashC.h"
 #import "KSCrashCallCompletion.h"
 #import "KSCrashState.h"
-#import "KSJSONCodecObjC.h"
 #import "KSSingleton.h"
 #import "NSError+SimpleConstructor.h"
-#import "KSSystemCapabilities.h"
 #import "KSCrashReportFields.h"
 #import "KSJSONCodecObjC.h"
-#import "RFC3339UTFString.h"
-#import "NSString+Demangle.h"
+#import "KSCrashReportFixer.h"
 #import "KSCrashDoctor.h"
 
 //#define KSLogger_LocalLevel TRACE
@@ -444,157 +441,71 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
      }];
 }
 
-- (NSString*) getReportType:(NSDictionary*) report
+- (NSData*) loadCrashReportJSONWithID:(int64_t) reportID
 {
-    NSDictionary* reportSection = report[@KSCrashField_Report];
-    if(reportSection)
-    {
-        return reportSection[@KSCrashField_Type];
-    }
-    KSLOG_ERROR(@"Expected a report section in the report.");
-    return nil;
-}
+    // Have to do this the ugly way in order to avoid use of exceptions :/
+    char* rawReport = NULL;
+    char* fixedReport = NULL;
+    NSData* jsonData = nil;
 
-- (void) convertTimestamp:(NSString*) key
-                 inReport:(NSMutableDictionary*) report
-{
-    NSNumber* timestamp = [report objectForKey:key];
-    if(timestamp == nil)
+    if(reportID <= 0)
     {
-        KSLOG_ERROR(@"entry '%@' not found", key);
-        return;
-    }
-    if(![timestamp isKindOfClass:[NSNumber class]])
-    {
-        KSLOG_ERROR(@"'%@' should be a number, not %@", key, [key class]);
-        return;
-    }
-    char timeString[21] = {0};
-    rfc3339UtcStringFromUNIXTimestamp((time_t)[timestamp unsignedLongLongValue], timeString);
-    [report setValue:[NSString stringWithUTF8String:timeString] forKey:key];
-}
-
-- (void) performOnFields:(NSArray*) fieldPath inReport:(NSMutableDictionary*) report operation:(void (^)(id parent, id field)) operation okIfNotFound:(BOOL) isOkIfNotFound
-{
-    if(fieldPath.count == 0)
-    {
-        KSLOG_ERROR(@"Unexpected end of field path");
-        return;
-    }
-    
-    NSString* currentField = fieldPath[0];
-    if(fieldPath.count > 1)
-    {
-        fieldPath = [fieldPath subarrayWithRange:NSMakeRange(1, fieldPath.count - 1)];
-    }
-    else
-    {
-        fieldPath = @[];
-    }
-    
-    id field = report[currentField];
-    if(field == nil)
-    {
-        if(!isOkIfNotFound)
-        {
-            KSLOG_ERROR(@"%@: No such field in report. Candidates are: %@", currentField, report.allKeys);
-        }
-        return;
-    }
-    
-    if([field isKindOfClass:NSMutableDictionary.class])
-    {
-        [self performOnFields:fieldPath inReport:field operation:operation okIfNotFound:isOkIfNotFound];
-    }
-    else if([field isKindOfClass:[NSMutableArray class]])
-    {
-        for(id subfield in field)
-        {
-            if([subfield isKindOfClass:NSMutableDictionary.class])
-            {
-                [self performOnFields:fieldPath inReport:subfield operation:operation okIfNotFound:isOkIfNotFound];
-            }
-            else
-            {
-                operation(field, subfield);
-            }
-        }
-    }
-    else
-    {
-        operation(report, field);
-    }
-}
-
-- (void) symbolicateField:(NSArray*) fieldPath inReport:(NSMutableDictionary*) report okIfNotFound:(BOOL) isOkIfNotFound
-{
-    NSString* lastPath = fieldPath[fieldPath.count - 1];
-    [self performOnFields:fieldPath inReport:report operation:^(NSMutableDictionary* parent, NSString* field)
-     {
-         NSString* processedField = nil;
-         if(self.demangleLanguages & KSCrashDemangleLanguageCPlusPlus)
-         {
-             processedField = [field demangledAsCPP];
-         }
-         if(processedField == nil && self.demangleLanguages & KSCrashDemangleLanguageSwift)
-         {
-             processedField = [field demangledAsSwift];
-         }
-         if(processedField == nil)
-         {
-             processedField = field;
-         }
-         parent[lastPath] = processedField;
-     } okIfNotFound:isOkIfNotFound];
-}
-
-- (NSMutableDictionary*) fixupCrashReport:(NSDictionary*) report
-{
-    if(![report isKindOfClass:[NSDictionary class]])
-    {
-        KSLOG_ERROR(@"Report should be a dictionary, not %@", [report class]);
+        KSLOG_ERROR(@"Report ID was %llx", reportID);
         return nil;
     }
-    
-    NSMutableDictionary* mutableReport = [report mutableCopy];
-    NSMutableDictionary* mutableInfo = [report[@KSCrashField_Report] mutableCopy];
-    if(mutableInfo != nil)
+    rawReport = kscrs_readReport(reportID);
+    if(rawReport == NULL)
     {
-        mutableReport[@KSCrashField_Report] = mutableInfo;
+        KSLOG_ERROR(@"Failed to load report ID %llx", reportID);
     }
-    
-    // Timestamp gets stored as a unix timestamp. Convert it to rfc3339.
-    [self convertTimestamp:@KSCrashField_Timestamp inReport:mutableInfo];
-    
-    NSMutableDictionary* crashReport = [report[@KSCrashField_Crash] mutableCopy];
+    else
+    {
+        fixedReport = kscrf_fixupCrashReport(rawReport);
+        if(fixedReport == NULL)
+        {
+            KSLOG_ERROR(@"Failed to fixup report ID %llx", reportID);
+        }
+    }
+
+    if(fixedReport != NULL)
+    {
+        jsonData = [NSData dataWithBytesNoCopy:fixedReport length:strlen(fixedReport) freeWhenDone:YES];
+        rawReport = NULL;
+    }
+    if(rawReport != NULL)
+    {
+        free(rawReport);
+    }
+    return jsonData;
+}
+
+- (void) doctorReport:(NSMutableDictionary*) report
+{
+    NSMutableDictionary* crashReport = report[@KSCrashField_Crash];
     if(crashReport != nil)
     {
-        mutableReport[@KSCrashField_Crash] = crashReport;
         crashReport[@KSCrashField_Diagnosis] = [[KSCrashDoctor doctor] diagnoseCrash:report];
     }
-    
-    [self symbolicateField:@[@"threads", @"backtrace", @"contents", @"symbol_name"] inReport:crashReport okIfNotFound:YES];
-    [self symbolicateField:@[@"error", @"cpp_exception", @"name"] inReport:crashReport okIfNotFound:YES];
-    
-    return mutableReport;
+    crashReport = report[@KSCrashField_RecrashReport][@KSCrashField_Crash];
+    if(crashReport != nil)
+    {
+        crashReport[@KSCrashField_Diagnosis] = [[KSCrashDoctor doctor] diagnoseCrash:report];
+    }
 }
 
 - (NSDictionary*) reportWithID:(int64_t) reportID
 {
-    if(reportID <= 0)
+    NSData* jsonData = [self loadCrashReportJSONWithID:reportID];
+    if(jsonData == nil)
     {
-        KSLOG_ERROR(@"Report ID was %llx", reportID);
+        return nil;
     }
-    char* rawReport;
-    int rawReportLength;
-    kscrs_readReport(reportID, &rawReport, &rawReportLength);
-    NSData* jsonData = [NSData dataWithBytesNoCopy:rawReport length:(NSUInteger)rawReportLength freeWhenDone:YES];
 
     NSError* error = nil;
     NSMutableDictionary* crashReport = [KSJSONCodec decode:jsonData
                                                    options:KSJSONDecodeOptionIgnoreNullInArray |
-                                        KSJSONDecodeOptionIgnoreNullInObject |
-                                        KSJSONDecodeOptionKeepPartialObject
+                                                           KSJSONDecodeOptionIgnoreNullInObject |
+                                                           KSJSONDecodeOptionKeepPartialObject
                                                      error:&error];
     if(error != nil)
     {
@@ -605,18 +516,8 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
         KSLOG_ERROR(@"Could not load crash report");
         return nil;
     }
-    NSString* reportType = [self getReportType:crashReport];
-    if([reportType isEqualToString:@KSCrashReportType_Standard] || [reportType isEqualToString:@KSCrashReportType_Minimal])
-    {
-        crashReport = [self fixupCrashReport:crashReport];
-    }
+    [self doctorReport:crashReport];
 
-    NSMutableDictionary* recrashReport = crashReport[@KSCrashField_RecrashReport];
-    if(recrashReport != nil)
-    {
-        crashReport[@KSCrashField_RecrashReport] = [self fixupCrashReport:recrashReport];
-    }
-    
     return crashReport;
 }
 

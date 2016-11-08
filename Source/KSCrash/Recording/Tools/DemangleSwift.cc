@@ -1,7 +1,7 @@
 //
-//  NSMutableData+AppendUTF8.h
+//  DemangleSwift.cc
 //
-//  Created by Karl Stenerud on 2012-02-26.
+//  Created by Karl Stenerud on 2016-11-04.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -25,25 +25,16 @@
 //
 
 
-#import <Foundation/Foundation.h>
+#include "Demangle.h"
+#include "DemangleSwift.h"
 
-
-/** Demangles symbols for various languages.
- */
-@interface NSString (Demangle)
-
-/**
- * Demangle as a Swift symbol.
- *
- * @return The demangled string or nil if it can't be demangled as Swift.
- */
-- (NSString*) demangledAsSwift;
-
-/**
- * Demangle as a C++ symbol.
- *
- * @return The demangled string or nil if it can't be demangled as C++.
- */
-- (NSString*) demangledAsCPP;
-
-@end
+extern "C" char* demangleSwift(const char* mangledSymbol)
+{
+    swift::Demangle::DemangleOptions options = swift::Demangle::DemangleOptions::SimplifiedUIDemangleOptions();
+    std::string demangled = swift::Demangle::demangleSymbolAsString(mangledSymbol, options);
+    if(demangled.length() == 0)
+    {
+        return NULL;
+    }
+    return strdup(demangled.c_str());
+}
