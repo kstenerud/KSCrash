@@ -356,17 +356,6 @@ kern_return_t ksmach_copyMem(const void* src, void* dst, size_t numBytes);
  */
 size_t ksmach_copyMaxPossibleMem(const void* src, void* dst, size_t numBytes);
 
-/** Get the difference in seconds between two timestamps fetched via
- * mach_absolute_time().
- *
- * @param endTime The greater of the two times.
- *
- * @param startTime The lesser of the two times.
- *
- * @return The difference between the two timestamps in seconds.
- */
-double ksmach_timeDifferenceInSeconds(uint64_t endTime, uint64_t startTime);
-
 /** Check if the current process is being traced or not.
  *
  * @return true if we're being traced.

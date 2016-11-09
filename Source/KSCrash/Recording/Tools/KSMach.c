@@ -35,7 +35,6 @@
 
 #include <errno.h>
 #include <mach-o/arch.h>
-#include <mach/mach_time.h>
 #include <mach/vm_map.h>
 #include <sys/sysctl.h>
 
@@ -516,29 +515,6 @@ size_t ksmach_copyMaxPossibleMem(const void* const src,
         }
     }
     return bytesCopied;
-}
-
-double ksmach_timeDifferenceInSeconds(const uint64_t endTime,
-                                      const uint64_t startTime)
-{
-    // From http://lists.apple.com/archives/perfoptimization-dev/2005/Jan/msg00039.html
-
-    static double conversion = 0;
-
-    if(conversion == 0)
-    {
-        mach_timebase_info_data_t info = {0};
-        kern_return_t kr = mach_timebase_info(&info);
-        if(kr != KERN_SUCCESS)
-        {
-            KSLOG_ERROR("mach_timebase_info: %s", mach_error_string(kr));
-            return 0;
-        }
-
-        conversion = 1e-9 * (double)info.numer / (double)info.denom;
-    }
-
-    return conversion * (endTime - startTime);
 }
 
 /** Check if the current process is being traced or not.

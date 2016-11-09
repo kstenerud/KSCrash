@@ -43,7 +43,6 @@
 #include <errno.h>
 #include <execinfo.h>
 #include <fcntl.h>
-#include <mach/mach_time.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -172,7 +171,6 @@ void kscrash_reinstall(const char* const crashReportFilePath,
     {
         KSLOG_ERROR("Failed to initialize persistent crash state");
     }
-    context->state.appLaunchTime = mach_absolute_time();
 }
 
 KSCrashType kscrash_setHandlingCrashTypes(KSCrashType crashTypes)

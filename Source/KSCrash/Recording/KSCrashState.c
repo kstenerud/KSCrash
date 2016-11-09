@@ -36,9 +36,9 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <mach/mach_time.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 
@@ -184,6 +184,18 @@ int kscrashstate_i_addJSONData(const char* const data,
 // ============================================================================
 #pragma mark - Utility -
 // ============================================================================
+
+static double getCurentTime()
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return tv.tv_sec + (double)tv.tv_usec / 1000000.0;
+}
+
+static double timeSince(double timeInSeconds)
+{
+    return getCurentTime() - timeInSeconds;
+}
 
 /** Load the persistent state portion of a crash context.
  *
@@ -365,12 +377,11 @@ void kscrashstate_notifyAppActive(const bool isActive)
     state->applicationIsActive = isActive;
     if(isActive)
     {
-        state->appStateTransitionTime = mach_absolute_time();
+        state->appStateTransitionTime = getCurentTime();
     }
     else
     {
-        double duration = ksmach_timeDifferenceInSeconds(mach_absolute_time(),
-                                                         state->appStateTransitionTime);
+        double duration = timeSince(state->appStateTransitionTime);
         state->activeDurationSinceLaunch += duration;
         state->activeDurationSinceLastCrash += duration;
     }
@@ -384,8 +395,7 @@ void kscrashstate_notifyAppInForeground(const bool isInForeground)
     state->applicationIsInForeground = isInForeground;
     if(isInForeground)
     {
-        double duration = ksmach_timeDifferenceInSeconds(mach_absolute_time(),
-                                                         state->appStateTransitionTime);
+        double duration = getCurentTime() - state->appStateTransitionTime;
         state->backgroundDurationSinceLaunch += duration;
         state->backgroundDurationSinceLastCrash += duration;
         state->sessionsSinceLastCrash++;
@@ -393,7 +403,7 @@ void kscrashstate_notifyAppInForeground(const bool isInForeground)
     }
     else
     {
-        state->appStateTransitionTime = mach_absolute_time();
+        state->appStateTransitionTime = getCurentTime();
         kscrashstate_i_saveState(state, stateFilePath);
     }
 }
@@ -403,8 +413,7 @@ void kscrashstate_notifyAppTerminate(void)
     KSCrash_State* const state = g_state;
     const char* const stateFilePath = g_stateFilePath;
 
-    const double duration = ksmach_timeDifferenceInSeconds(mach_absolute_time(),
-                                                           state->appStateTransitionTime);
+    const double duration = timeSince(state->appStateTransitionTime);
     state->backgroundDurationSinceLastCrash += duration;
     kscrashstate_i_saveState(state, stateFilePath);
 }
@@ -414,8 +423,7 @@ void kscrashstate_notifyAppCrash(void)
     KSCrash_State* const state = g_state;
     const char* const stateFilePath = g_stateFilePath;
 
-    const double duration = ksmach_timeDifferenceInSeconds(mach_absolute_time(),
-                                                           state->appStateTransitionTime);
+    const double duration = timeSince(state->appStateTransitionTime);
     if(state->applicationIsActive)
     {
         state->activeDurationSinceLaunch += duration;

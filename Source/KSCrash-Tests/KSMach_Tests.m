@@ -28,7 +28,6 @@
 #import <XCTest/XCTest.h>
 
 #import "KSMach.h"
-#import <mach/mach_time.h>
 
 
 @interface TestThread: NSThread
@@ -162,15 +161,6 @@
     
     size_t copied = ksmach_copyMaxPossibleMem(buff2, buff, sizeof(buff));
     XCTAssertTrue(copied == 0, @"");
-}
-
-- (void) testTimeDifferenceInSeconds
-{
-    uint64_t startTime = mach_absolute_time();
-    [NSThread sleepForTimeInterval:0.1];
-    uint64_t endTime = mach_absolute_time();
-    double diff = ksmach_timeDifferenceInSeconds(endTime, startTime);
-    XCTAssertTrue(diff >= 0.1 && diff < 0.2, @"");
 }
 
 - (void) testIsBeingTraced

@@ -75,12 +75,9 @@ typedef struct
     /** If true, the application crashed on this launch. */
     bool crashedThisLaunch;
 
-    /** Timestamp for when the app was launched (mach_absolute_time()) */
-    uint64_t appLaunchTime;
-
-    /** Timestamp for when the app state was last changed (active<-> inactive,
-     * background<->foreground) (mach_absolute_time()) */
-    uint64_t appStateTransitionTime;
+    /** Timestamp for when the app state was last changed (active<->inactive,
+     * background<->foreground) */
+    double appStateTransitionTime;
 
     /** If true, the application is currently active. */
     bool applicationIsActive;
