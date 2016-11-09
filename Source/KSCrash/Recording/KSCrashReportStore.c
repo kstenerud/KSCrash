@@ -26,6 +26,7 @@
 
 #include "KSCrashReportStore.h"
 #include "KSLogger.h"
+#include "KSFileUtils.h"
 
 #include <dirent.h>
 #include <errno.h>
@@ -59,257 +60,6 @@ static int compareInt64(const void* a, const void* b)
     return 0;
 }
 
-static bool makePath(const char* absolutePath)
-{
-    bool isSuccessful = false;
-    char* pathCopy = strdup(absolutePath);
-    for(char* ptr = pathCopy+1; *ptr != '\0';ptr++)
-    {
-        if(*ptr == '/')
-        {
-            *ptr = '\0';
-            if(mkdir(pathCopy, S_IRWXU) < 0 && errno != EEXIST)
-            {
-                KSLOG_ERROR("Could not create directory %s: %s", pathCopy, strerror(errno));
-                goto done;
-            }
-            *ptr = '/';
-        }
-    }
-    if(mkdir(pathCopy, S_IRWXU) < 0 && errno != EEXIST)
-    {
-        KSLOG_ERROR("Could not create directory %s: %s", pathCopy, strerror(errno));
-        goto done;
-    }
-    isSuccessful = true;
-    
-done:
-    free(pathCopy);
-    return isSuccessful;
-}
-
-static void removeFile(const char* path, bool mustExist)
-{
-    if(remove(path) < 0)
-    {
-        if(mustExist || errno != ENOENT)
-        {
-            KSLOG_ERROR("Could not delete %s: %s", path, strerror(errno));
-        }
-    }
-}
-
-static bool canDeletePath(const char* path)
-{
-    const char* lastComponent = strrchr(path, '/');
-    if(lastComponent == NULL)
-    {
-        lastComponent = path;
-    }
-    else
-    {
-        lastComponent++;
-    }
-    if(strcmp(lastComponent, ".") == 0)
-    {
-        return false;
-    }
-    if(strcmp(lastComponent, "..") == 0)
-    {
-        return false;
-    }
-    return true;
-}
-
-static int dirContentsCount(const char* path)
-{
-    int count = 0;
-    DIR* dir = opendir(path);
-    if(dir == NULL)
-    {
-        KSLOG_ERROR("Error reading directory %s: %s", strerror(errno));
-        return 0;
-    }
-    
-    struct dirent* ent;
-    while((ent = readdir(dir)))
-    {
-        count++;
-    }
-    
-    closedir(dir);
-    return count;
-}
-
-static void dirContents(const char* path, char*** entries, int* count)
-{
-    char** entryList = NULL;
-    int entryCount = dirContentsCount(path);
-    if(entryCount <= 0)
-    {
-        goto done;
-    }
-    DIR* dir = opendir(path);
-    if(dir == NULL)
-    {
-        KSLOG_ERROR("Error reading directory %s: %s", strerror(errno));
-        goto done;
-    }
-    
-    entryList = calloc((size_t)(entryCount), sizeof(char*));
-    struct dirent* ent;
-    int index = 0;
-    while((ent = readdir(dir)))
-    {
-        if(index >= entryCount)
-        {
-            KSLOG_ERROR("Contents of %s have been mutated", path);
-            goto done;
-        }
-        entryList[index] = strdup(ent->d_name);
-        index++;
-    }
-    
-done:
-    if(entryList == NULL)
-    {
-        entryCount = 0;
-    }
-    *entries = entryList;
-    *count = entryCount;
-}
-
-static void freeDirListing(char** entries, int count)
-{
-    if(entries != NULL)
-    {
-        for(int i = 0; i < count; i++)
-        {
-            char* ptr = entries[i];
-            if(ptr != NULL)
-            {
-                free(ptr);
-            }
-        }
-        free(entries);
-    }
-}
-
-static void deletePathContents(const char* path, bool deleteTopLevelPathAlso)
-{
-    if(!canDeletePath(path))
-    {
-        return;
-    }
-    
-    struct stat statStruct = {0};
-    if(stat(path, &statStruct) != 0)
-    {
-        KSLOG_ERROR("Could not stat %s: %s", strerror(errno));
-        return;
-    }
-    if(S_ISDIR(statStruct.st_mode))
-    {
-        char** entries = NULL;
-        int entryCount = 0;
-        dirContents(path, &entries, &entryCount);
-        
-        int bufferLength = KSCRS_MAX_PATH_LENGTH;
-        char* pathBuffer = malloc((size_t)bufferLength);
-        snprintf(pathBuffer, bufferLength, "%s/", path);
-        char* pathPtr = pathBuffer + strlen(pathBuffer);
-        int pathRemainingLength = bufferLength - (pathPtr - pathBuffer);
-        
-        for(int i = 0; i < entryCount; i++)
-        {
-            char* entry = entries[i];
-            if(entry != NULL)
-            {
-                strncpy(pathPtr, entry, pathRemainingLength);
-                deletePathContents(pathBuffer, false);
-            }
-        }
-        
-        free(pathBuffer);
-        freeDirListing(entries, entryCount);
-        if(deleteTopLevelPathAlso)
-        {
-            removeFile(path, false);
-        }
-    }
-    else if(S_ISREG(statStruct.st_mode))
-    {
-        removeFile(path, false);
-    }
-    else
-    {
-        KSLOG_ERROR("Could not delete %s: Not a regular file.", path);
-    }
-}
-
-static char* readFile(const char* path)
-{
-    int length = 0;
-    char* buffer = NULL;
-    char* result = NULL;
-    
-    const int fd = open(path, O_RDONLY);
-    if(fd < 0)
-    {
-        if(errno != ENOENT)
-        {
-            KSLOG_ERROR("Could not open file %s: %s", path, strerror(errno));
-        }
-        goto done;
-    }
-    
-    struct stat sb = {0};
-    if(fstat(fd, &sb) < 0)
-    {
-        KSLOG_ERROR("Could not stat file %s: %s", path, strerror(errno));
-        goto done;
-    }
-    
-    length = (int)sb.st_size;
-    if(length == 0)
-    {
-        KSLOG_ERROR("File %s is empty", path);
-        goto done;
-    }
-    
-    buffer = malloc((size_t)length+1);
-    if(buffer == NULL)
-    {
-        KSLOG_ERROR("Could allocate %d bytes for file %s: %s", length, path, strerror(errno));
-        goto done;
-    }
-    
-    int bytesRead = read(fd, buffer, (size_t)length);
-    if(bytesRead < 0)
-    {
-        KSLOG_ERROR("Error reading from file %s: %s", path, strerror(errno));
-        goto done;
-    }
-    if(bytesRead != length)
-    {
-        KSLOG_ERROR("Expected to read %d bytes from file %s, but only got %ll", path, length, bytesRead);
-        length = bytesRead;
-    }
-    buffer[length] = '\0'; // Null terminate it.
-    result = buffer;
-    buffer = NULL;
-    
-done:
-    if(fd >= 0)
-    {
-        close(fd);
-    }
-    if(buffer != NULL)
-    {
-        free(buffer);
-    }
-    return result;
-}
 
 static void getCrashReportPathByID(int64_t id, char* pathBuffer)
 {
@@ -331,7 +81,7 @@ static void deleteReportWithID(int64_t id)
 {
     char path[KSCRS_MAX_PATH_LENGTH];
     getCrashReportPathByID(id, path);
-    removeFile(path, true);
+    ksfu_removeFile(path, true);
 }
 
 static int getReportCount()
@@ -430,7 +180,7 @@ void kscrs_initialize(const char* appName, const char* reportsPath)
     pthread_mutex_lock(&g_mutex);
     strncpy(g_appName, appName, sizeof(g_appName));
     strncpy(g_reportsPath, reportsPath, sizeof(g_reportsPath));
-    makePath(reportsPath);
+    ksfu_makePath(reportsPath);
     pruneReports();
     initializeIDs();
     pthread_mutex_unlock(&g_mutex);
@@ -464,7 +214,8 @@ char* kscrs_readReport(int64_t reportID)
     pthread_mutex_lock(&g_mutex);
     char path[KSCRS_MAX_PATH_LENGTH];
     getCrashReportPathByID(reportID, path);
-    char* result = readFile(path);
+    char* result;
+    ksfu_readEntireFile(path, &result, NULL);
     pthread_mutex_unlock(&g_mutex);
     return result;
 }
@@ -505,7 +256,7 @@ done:
 void kscrs_deleteAllReports()
 {
     pthread_mutex_lock(&g_mutex);
-    deletePathContents(g_reportsPath, false);
+    ksfu_deleteContentsOfPath(g_reportsPath);
     pthread_mutex_unlock(&g_mutex);
 }
 
