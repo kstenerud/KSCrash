@@ -233,7 +233,7 @@ void kscrs_addUserReport(const char* report, int reportLength)
         goto done;
     }
 
-    int bytesWritten = write(fd, report, (unsigned)reportLength);
+    int bytesWritten = (int)write(fd, report, (unsigned)reportLength);
     if(bytesWritten < 0)
     {
         KSLOG_ERROR("Could not write to file %s: %s", crashReportPath, strerror(errno));

@@ -484,7 +484,7 @@ int ksmach_copyMaxPossibleMem(const void* const src, void* const dst, const int 
 
     for(;;)
     {
-        int copyLength = pSrcEnd - pSrc;
+        int copyLength = (int)(pSrcEnd - pSrc);
         if(copyLength <= 0)
         {
             break;

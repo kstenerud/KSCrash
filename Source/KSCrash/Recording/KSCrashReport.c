@@ -186,9 +186,9 @@ void kscrw_i_addTextFileElement(const KSCrashReportWriter* const writer,
 
     char buffer[512];
     int bytesRead;
-    for(bytesRead = read(fd, buffer, sizeof(buffer));
+    for(bytesRead = (int)read(fd, buffer, sizeof(buffer));
         bytesRead > 0;
-        bytesRead = read(fd, buffer, sizeof(buffer)))
+        bytesRead = (int)read(fd, buffer, sizeof(buffer)))
     {
         if(ksjson_appendStringElement(getJsonContext(writer), buffer, bytesRead) != KSJSON_OK)
         {
@@ -271,7 +271,7 @@ void kscrw_i_addUUIDElement(const KSCrashReportWriter* const writer,
             *dst++ = g_hexNybbles[(*src++)&15];
         }
 
-        ksjson_addStringElement(getJsonContext(writer), key, uuidBuffer, dst - uuidBuffer);
+        ksjson_addStringElement(getJsonContext(writer), key, uuidBuffer, (int)(dst - uuidBuffer));
     }
 }
 
@@ -1224,7 +1224,7 @@ void kscrw_i_writeStackContents(const KSCrashReportWriter* const writer,
         writer->addUIntegerElement(writer, KSCrashField_StackPtr, sp);
         writer->addBooleanElement(writer, KSCrashField_Overflow, isStackOverflow);
         uint8_t stackBuffer[kStackContentsTotalDistance * sizeof(sp)];
-        int copyLength = (intptr_t)highAddress - (intptr_t)lowAddress;
+        int copyLength = (int)(highAddress - lowAddress);
         if(ksmach_copyMem((void*)lowAddress, stackBuffer, copyLength) == KERN_SUCCESS)
         {
             writer->addDataElement(writer, KSCrashField_Contents, (void*)stackBuffer, copyLength);

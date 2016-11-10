@@ -38,6 +38,8 @@ extern "C" {
 
 #include "KSCrashSentry.h"
 
+#include <stdbool.h>
+
 
 /** Install the deadlock handler.
  *

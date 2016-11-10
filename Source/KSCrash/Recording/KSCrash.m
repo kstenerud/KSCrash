@@ -250,7 +250,7 @@ failed:
 - (void) setDoNotIntrospectClasses:(NSArray *)doNotIntrospectClasses
 {
     _doNotIntrospectClasses = doNotIntrospectClasses;
-    unsigned count = [doNotIntrospectClasses count];
+    NSUInteger count = [doNotIntrospectClasses count];
     if(count == 0)
     {
         kscrash_setDoNotIntrospectClasses(nil, 0);

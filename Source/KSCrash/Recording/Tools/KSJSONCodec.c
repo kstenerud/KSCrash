@@ -180,7 +180,7 @@ int ksjsoncodec_i_appendEscapedString(KSJSONEncodeContext* const context,
                 *dst++ = *src;
         }
     }
-    int encLength = (dst - workBuffer);
+    int encLength = (int)(dst - workBuffer);
     dst -= encLength;
     return addJSONData(context, dst, encLength);
 }
@@ -753,7 +753,7 @@ int ksjsoncodec_i_decodeString(KSJSONDecodeContext* context, char* dstBuffer, in
     }
     const char* srcEnd = src;
     src = context->bufferPtr + 1;
-    int length = srcEnd - src;
+    int length = (int)(srcEnd - src);
     if(length >= dstBufferLength)
     {
         KSLOG_DEBUG("String is too long");
@@ -1095,7 +1095,7 @@ int ksjsoncodec_i_decodeElement(const char* const name,
             // it would be undefined to call sscanf/sttod etc. directly.
             // instead we create a temporary string.
             double value;
-            int len = context->bufferPtr - start;
+            int len = (int)(context->bufferPtr - start);
             if(len >= context->stringBufferLength)
             {
                 KSLOG_DEBUG("Number is too long.");
@@ -1148,7 +1148,7 @@ int ksjson_decode(const char* const data,
 
     unlikely_if(result != KSJSON_OK && errorOffset != NULL)
     {
-        *errorOffset = ptr - data;
+        *errorOffset = (int)(ptr - data);
     }
     return result;
 }
@@ -1180,14 +1180,14 @@ static void updateDecoder_readFile(struct JSONFromFileContext* context)
         const char* end = context->decodeContext->bufferEnd;
         char* start = context->bufferStart;
         const char* ptr = context->decodeContext->bufferPtr;
-        int bufferLength = end - start;
-        int remainingLength = end - ptr;
+        int bufferLength = (int)(end - start);
+        int remainingLength = (int)(end - ptr);
         unlikely_if(remainingLength < bufferLength / 2)
         {
             int fillLength = bufferLength - remainingLength;
             memcpy(start, ptr, remainingLength);
             context->decodeContext->bufferPtr = start;
-            int bytesRead = read(context->fd, start+remainingLength, (unsigned)fillLength);
+            int bytesRead = (int)read(context->fd, start+remainingLength, (unsigned)fillLength);
             unlikely_if(bytesRead < fillLength)
             {
                 if(bytesRead < 0)

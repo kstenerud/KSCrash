@@ -103,7 +103,7 @@ void kslog_i_writeToLog(const char* const str)
     const char* pos = str;
     while(bytesToWrite > 0)
     {
-        int bytesWritten = write(g_fd, pos, (unsigned)bytesToWrite);
+        int bytesWritten = (int)write(g_fd, pos, (unsigned)bytesToWrite);
         unlikely_if(bytesWritten == -1)
         {
             return;
@@ -281,7 +281,7 @@ void i_kslog_logObjCBasic(CFStringRef fmt, ...)
     CFStringRef entry = CFStringCreateWithFormatAndArguments(NULL, NULL, fmt, args);
     va_end(args);
     
-    int bufferLength = CFStringGetLength(entry) * 4 + 1;
+    int bufferLength = (int)CFStringGetLength(entry) * 4 + 1;
     char* stringBuffer = malloc((unsigned)bufferLength);
     if(CFStringGetCString(entry, stringBuffer, (CFIndex)bufferLength, kCFStringEncodingUTF8))
     {

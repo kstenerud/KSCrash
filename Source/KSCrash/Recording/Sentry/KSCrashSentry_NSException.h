@@ -39,6 +39,8 @@ extern "C" {
 
 #include "KSCrashSentry.h"
 
+#include <stdbool.h>
+
 
 /** Install our custom NSException handler.
  *

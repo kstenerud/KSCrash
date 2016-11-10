@@ -166,7 +166,7 @@ static bool deletePathContents(const char* path, bool deleteTopLevelPathAlso)
         char* pathBuffer = malloc((unsigned)bufferLength);
         snprintf(pathBuffer, bufferLength, "%s/", path);
         char* pathPtr = pathBuffer + strlen(pathBuffer);
-        int pathRemainingLength = bufferLength - (pathPtr - pathBuffer);
+        int pathRemainingLength = bufferLength - (int)(pathPtr - pathBuffer);
         
         for(int i = 0; i < entryCount; i++)
         {
@@ -217,7 +217,7 @@ bool ksfu_writeBytesToFD(const int fd, const char* const bytes, int length)
     const char* pos = bytes;
     while(length > 0)
     {
-        int bytesWritten = write(fd, pos, (unsigned)length);
+        int bytesWritten = (int)write(fd, pos, (unsigned)length);
         if(bytesWritten == -1)
         {
             KSLOG_ERROR("Could not write to fd %d: %s", fd, strerror(errno));
@@ -234,7 +234,7 @@ bool ksfu_readBytesFromFD(const int fd, char* const bytes, int length)
     char* pos = bytes;
     while(length > 0)
     {
-        int bytesRead = read(fd, pos, (unsigned)length);
+        int bytesRead = (int)read(fd, pos, (unsigned)length);
         if(bytesRead == -1)
         {
             KSLOG_ERROR("Could not write to fd %d: %s", fd, strerror(errno));
@@ -311,7 +311,7 @@ bool ksfu_writeStringToFD(const int fd, const char* const string)
         const char* pos = string;
         while(bytesToWrite > 0)
         {
-            int bytesWritten = write(fd, pos, (unsigned)bytesToWrite);
+            int bytesWritten = (int)write(fd, pos, (unsigned)bytesToWrite);
             if(bytesWritten == -1)
             {
                 KSLOG_ERROR("Could not write to fd %d: %s",
@@ -359,7 +359,7 @@ int ksfu_readLineFromFD(const int fd, char* const buffer, const int maxLength)
     char* ch;
     for(ch = buffer; ch < end; ch++)
     {
-        int bytesRead = read(fd, ch, 1);
+        int bytesRead = (int)read(fd, ch, 1);
         if(bytesRead < 0)
         {
             KSLOG_ERROR("Could not read from fd %d: %s", fd, strerror(errno));
@@ -371,7 +371,7 @@ int ksfu_readLineFromFD(const int fd, char* const buffer, const int maxLength)
         }
     }
     *ch = 0;
-    return ch - buffer;
+    return (int)(ch - buffer);
 }
 
 bool ksfu_makePath(const char* absolutePath)

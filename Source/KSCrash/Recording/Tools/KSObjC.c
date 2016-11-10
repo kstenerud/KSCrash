@@ -156,7 +156,7 @@ static const char* g_blockBaseClassName = "NSBlock";
 
 #if SUPPORT_TAGGED_POINTERS
 bool isTaggedPointer(const void* pointer) {return (((uintptr_t)pointer) & TAG_MASK) != 0; }
-uintptr_t getTaggedSlot(const void* pointer) { return (((uintptr_t)pointer) >> TAG_SLOT_SHIFT) & TAG_SLOT_MASK; }
+int getTaggedSlot(const void* pointer) { return (int)((((uintptr_t)pointer) >> TAG_SLOT_SHIFT) & TAG_SLOT_MASK); }
 uintptr_t getTaggedPayload(const void* pointer) { return (((uintptr_t)pointer) << TAG_PAYLOAD_LSHIFT) >> TAG_PAYLOAD_RSHIFT; }
 #else
 bool isTaggedPointer(__unused const void* pointer) { return false; }
@@ -1013,11 +1013,11 @@ int ksobjc_stringLength(const void* const stringPtr)
     {
         if (__CFStrIsInline(string))
         {
-            return string->variants.inline1.length;
+            return (int)string->variants.inline1.length;
         }
         else
         {
-            return string->variants.notInlineImmutable1.length;
+            return (int)string->variants.notInlineImmutable1.length;
         }
     }
     else
@@ -1124,7 +1124,7 @@ int ksobjc_i_copyAndConvertUTF16StringToUTF8(const void* const src,
     
     // Null terminate and return.
     *pDst = 0;
-    return pDst - (uint8_t*)dst;
+    return (int)(pDst - (uint8_t*)dst);
 }
 
 int ksobjc_i_copy8BitString(const void* const src, void* const dst, int charCount, int maxByteCount)
@@ -1176,12 +1176,12 @@ static int stringDescription(const void* object, char* buffer, int bufferLength)
     char* pBuffer = buffer;
     char* pEnd = buffer + bufferLength;
     
-    pBuffer += objectDescription(object, pBuffer, pEnd - pBuffer);
-    pBuffer += stringPrintf(pBuffer, pEnd - pBuffer, ": \"");
-    pBuffer += ksobjc_copyStringContents(object, pBuffer, pEnd - pBuffer);
-    pBuffer += stringPrintf(pBuffer, pEnd - pBuffer, "\"");
+    pBuffer += objectDescription(object, pBuffer, (int)(pEnd - pBuffer));
+    pBuffer += stringPrintf(pBuffer, (int)(pEnd - pBuffer), ": \"");
+    pBuffer += ksobjc_copyStringContents(object, pBuffer, (int)(pEnd - pBuffer));
+    pBuffer += stringPrintf(pBuffer, (int)(pEnd - pBuffer), "\"");
 
-    return pBuffer - buffer;
+    return (int)(pBuffer - buffer);
 }
 
 static bool taggedStringIsValid(const void* const object)
@@ -1220,12 +1220,12 @@ static int urlDescription(const void* object, char* buffer, int bufferLength)
     char* pBuffer = buffer;
     char* pEnd = buffer + bufferLength;
     
-    pBuffer += objectDescription(object, pBuffer, pEnd - pBuffer);
-    pBuffer += stringPrintf(pBuffer, pEnd - pBuffer, ": \"");
-    pBuffer += ksobjc_copyURLContents(object, pBuffer, pEnd - pBuffer);
-    pBuffer += stringPrintf(pBuffer, pEnd - pBuffer, "\"");
+    pBuffer += objectDescription(object, pBuffer, (int)(pEnd - pBuffer));
+    pBuffer += stringPrintf(pBuffer, (int)(pEnd - pBuffer), ": \"");
+    pBuffer += ksobjc_copyURLContents(object, pBuffer, (int)(pEnd - pBuffer));
+    pBuffer += stringPrintf(pBuffer, (int)(pEnd - pBuffer), "\"");
     
-    return pBuffer - buffer;
+    return (int)(pBuffer - buffer);
 }
 
 
@@ -1255,10 +1255,10 @@ static int dateDescription(const void* object, char* buffer, int bufferLength)
     char* pEnd = buffer + bufferLength;
     
     CFAbsoluteTime time = ksobjc_dateContents(object);
-    pBuffer += objectDescription(object, pBuffer, pEnd - pBuffer);
-    pBuffer += stringPrintf(pBuffer, pEnd - pBuffer, ": %f", time);
+    pBuffer += objectDescription(object, pBuffer, (int)(pEnd - pBuffer));
+    pBuffer += stringPrintf(pBuffer, (int)(pEnd - pBuffer), ": %f", time);
     
-    return pBuffer - buffer;
+    return (int)(pBuffer - buffer);
 }
 
 static bool taggedDateIsValid(const void* const datePtr)
@@ -1272,10 +1272,10 @@ static int taggedDateDescription(const void* object, char* buffer, int bufferLen
     char* pEnd = buffer + bufferLength;
 
     CFAbsoluteTime time = extractTaggedNSDate(object);
-    pBuffer += taggedObjectDescription(object, pBuffer, pEnd - pBuffer);
-    pBuffer += stringPrintf(pBuffer, pEnd - pBuffer, ": %f", time);
+    pBuffer += taggedObjectDescription(object, pBuffer, (int)(pEnd - pBuffer));
+    pBuffer += stringPrintf(pBuffer, (int)(pEnd - pBuffer), ": %f", time);
 
-    return pBuffer - buffer;
+    return (int)(pBuffer - buffer);
 }
 
 
@@ -1347,20 +1347,20 @@ static int numberDescription(const void* object, char* buffer, int bufferLength)
     char* pBuffer = buffer;
     char* pEnd = buffer + bufferLength;
 
-    pBuffer += objectDescription(object, pBuffer, pEnd - pBuffer);
+    pBuffer += objectDescription(object, pBuffer, (int)(pEnd - pBuffer));
 
     if(ksobjc_numberIsFloat(object))
     {
         int64_t value = ksobjc_numberAsInteger(object);
-        pBuffer += stringPrintf(pBuffer, pEnd - pBuffer, ": %ld", value);
+        pBuffer += stringPrintf(pBuffer, (int)(pEnd - pBuffer), ": %ld", value);
     }
     else
     {
         Float64 value = ksobjc_numberAsFloat(object);
-        pBuffer += stringPrintf(pBuffer, pEnd - pBuffer, ": %lf", value);
+        pBuffer += stringPrintf(pBuffer, (int)(pEnd - pBuffer), ": %lf", value);
     }
 
-    return pBuffer - buffer;
+    return (int)(pBuffer - buffer);
 }
 
 static bool taggedNumberIsValid(const void* const object)
@@ -1374,10 +1374,10 @@ static int taggedNumberDescription(const void* object, char* buffer, int bufferL
     char* pEnd = buffer + bufferLength;
 
     int64_t value = extractTaggedNSNumber(object);
-    pBuffer += taggedObjectDescription(object, pBuffer, pEnd - pBuffer);
-    pBuffer += stringPrintf(pBuffer, pEnd - pBuffer, ": %ld", value);
+    pBuffer += taggedObjectDescription(object, pBuffer, (int)(pEnd - pBuffer));
+    pBuffer += stringPrintf(pBuffer, (int)(pEnd - pBuffer), ": %ld", value);
 
-    return pBuffer - buffer;
+    return (int)(pBuffer - buffer);
 }
 
 
@@ -1413,7 +1413,7 @@ static inline bool nsarrayIsValid(const void* const arrayPtr)
 static inline int nsarrayCount(const void* const arrayPtr)
 {
     const struct NSArray* array = arrayPtr;
-    return array->basic.count < 0 ? 0 : array->basic.count;
+    return array->basic.count < 0 ? 0 : (int)array->basic.count;
 }
 
 static int nsarrayContents(const void* const arrayPtr, uintptr_t* contents, int count)
@@ -1426,7 +1426,7 @@ static int nsarrayContents(const void* const arrayPtr, uintptr_t* contents, int 
         {
             return 0;
         }
-        count = array->basic.count;
+        count = (int)array->basic.count;
     }
     // TODO: implement this (requires bit-field unpacking) in ksobj_ivarValue
     if(nsarrayIsMutable(arrayPtr))
@@ -1472,7 +1472,7 @@ static inline const void* cfarrayData(const void* const arrayPtr)
 static inline int cfarrayCount(const void* const arrayPtr)
 {
     const struct __CFArray* array = arrayPtr;
-    return array->_count < 0 ? 0 : array->_count;
+    return array->_count < 0 ? 0 : (int)array->_count;
 }
 
 static int cfarrayContents(const void* const arrayPtr, uintptr_t* contents, int count)
@@ -1484,7 +1484,7 @@ static int cfarrayContents(const void* const arrayPtr, uintptr_t* contents, int 
         {
             return 0;
         }
-        count = array->_count;
+        count = (int)array->_count;
     }
     
     const void* firstEntry = cfarrayData(array);
@@ -1535,20 +1535,20 @@ static int arrayDescription(const void* object, char* buffer, int bufferLength)
     char* pBuffer = buffer;
     char* pEnd = buffer + bufferLength;
     
-    pBuffer += objectDescription(object, pBuffer, pEnd - pBuffer);
-    pBuffer += stringPrintf(pBuffer, pEnd - pBuffer, ": [");
+    pBuffer += objectDescription(object, pBuffer, (int)(pEnd - pBuffer));
+    pBuffer += stringPrintf(pBuffer, (int)(pEnd - pBuffer), ": [");
 
     if(pBuffer < pEnd-1 && ksobjc_arrayCount(object) > 0)
     {
         uintptr_t contents = 0;
         if(ksobjc_arrayContents(object, &contents, 1) == 1)
         {
-            pBuffer += ksobjc_getDescription((void*)contents, pBuffer, pEnd - pBuffer);
+            pBuffer += ksobjc_getDescription((void*)contents, pBuffer, (int)(pEnd - pBuffer));
         }
     }
-    pBuffer += stringPrintf(pBuffer, pEnd - pBuffer, "]");
+    pBuffer += stringPrintf(pBuffer, (int)(pEnd - pBuffer), "]");
     
-    return pBuffer - buffer;
+    return (int)(pBuffer - buffer);
 }
 
 
