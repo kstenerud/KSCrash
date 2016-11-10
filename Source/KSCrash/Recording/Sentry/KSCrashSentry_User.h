@@ -32,7 +32,6 @@ extern "C" {
 
 #include "KSCrashSentry.h"
 
-#include <signal.h>
 #include <stdbool.h>
 
 

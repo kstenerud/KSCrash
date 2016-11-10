@@ -33,8 +33,8 @@ extern "C" {
 #endif
 
 
-#include <CoreFoundation/CoreFoundation.h>
-#include <mach/kern_return.h>
+#include <sys/types.h>
+#include <stdbool.h>
 
 
 typedef enum
@@ -305,7 +305,7 @@ bool ksobjc_numberIsFloat(const void* object);
  * @param object The number.
  * @return The value.
  */
-Float64 ksobjc_numberAsFloat(const void* object);
+double ksobjc_numberAsFloat(const void* object);
 
 /** Get the contents of a number as an integer value.
  * If the number was stored as floating point, it will be
@@ -322,7 +322,7 @@ int64_t ksobjc_numberAsInteger(const void* object);
  *
  * @return Time interval since Jan 1 2001 00:00:00 GMT.
  */
-CFAbsoluteTime ksobjc_dateContents(const void* datePtr);
+double ksobjc_dateContents(const void* datePtr);
 
 /** Copy the contents of a URL object.
  *

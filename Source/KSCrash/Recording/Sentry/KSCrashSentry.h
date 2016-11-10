@@ -37,7 +37,6 @@ extern "C" {
 #endif
 
 
-#include "KSArchSpecific.h"
 #include "KSCrashType.h"
 
 #include <mach/mach_types.h>

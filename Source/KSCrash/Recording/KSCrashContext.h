@@ -37,11 +37,11 @@ extern "C" {
 #endif
 
 
+#include "KSCrashType.h"
 #include "KSCrashSentry.h"
 #include "KSCrashReportWriter.h"
 #include "KSCrashState.h"
 
-#include <signal.h>
 #include <stdbool.h>
 
 typedef struct

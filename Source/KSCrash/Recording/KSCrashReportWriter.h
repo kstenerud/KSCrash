@@ -39,6 +39,7 @@ extern "C" {
 
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <sys/types.h>
 
 
@@ -81,7 +82,7 @@ typedef struct KSCrashReportWriter
      */
     void (*addIntegerElement)(const struct KSCrashReportWriter* writer,
                               const char* name,
-                              long long value);
+                              int64_t value);
 
     /** Add an unsigned integer element to the report.
      *
@@ -93,7 +94,7 @@ typedef struct KSCrashReportWriter
      */
     void (*addUIntegerElement)(const struct KSCrashReportWriter* writer,
                                const char* name,
-                               unsigned long long value);
+                               uint64_t value);
 
     /** Add a string element to the report.
      *

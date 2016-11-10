@@ -27,6 +27,11 @@
 #ifndef HDR_KSCrashReportStore_h
 #define HDR_KSCrashReportStore_h
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 #include <sys/types.h>
 
 #define KSCRS_MAX_PATH_LENGTH 500
@@ -94,5 +99,9 @@ int64_t kscrsi_getNextCrashReportID();
  * Internal function. Do not use.
  */
 int64_t kscrsi_getNextUserReportID();
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // HDR_KSCrashReportStore_h

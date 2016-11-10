@@ -37,9 +37,11 @@ extern "C" {
 #endif
 
 
-#include "KSCrashContext.h"
+#include "KSCrashType.h"
+#include "KSCrashReportWriter.h"
 
 #include <stdbool.h>
+#include <sys/types.h>
 
 
 /** Install the crash reporter. The reporter will record the next crash and then

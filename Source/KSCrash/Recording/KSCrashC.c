@@ -28,24 +28,26 @@
 #include "KSCrashC.h"
 
 #include "KSCrashReport.h"
+#include "KSFileUtils.h"
 #include "KSString.h"
 #include "KSMach.h"
 #include "KSObjC.h"
 #include "KSSignalInfo.h"
-#include "KSSystemInfoC.h"
 #include "KSZombie.h"
 #include "KSCrashSentry_Deadlock.h"
 #include "KSCrashSentry_User.h"
+#include "KSSystemInfo.h"
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
-#include <errno.h>
-#include <execinfo.h>
-#include <fcntl.h>
+//#include <errno.h>
+//#include <execinfo.h>
+//#include <fcntl.h>
+//#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
+//#include <string.h>
+//#include <unistd.h>
 
 
 // ============================================================================
@@ -228,14 +230,14 @@ void kscrash_setDoNotIntrospectClasses(const char** doNotIntrospectClasses, size
 {
     const char** oldClasses = crashContext()->config.introspectionRules.restrictedClasses;
     size_t oldClassesLength = crashContext()->config.introspectionRules.restrictedClassesCount;
-    const char** newClasses = nil;
+    const char** newClasses = NULL;
     size_t newClassesLength = 0;
     
-    if(doNotIntrospectClasses != nil && length > 0)
+    if(doNotIntrospectClasses != NULL && length > 0)
     {
         newClassesLength = length;
         newClasses = malloc(sizeof(*newClasses) * newClassesLength);
-        if(newClasses == nil)
+        if(newClasses == NULL)
         {
             KSLOG_ERROR("Could not allocate memory");
             return;
@@ -250,7 +252,7 @@ void kscrash_setDoNotIntrospectClasses(const char** doNotIntrospectClasses, size
     crashContext()->config.introspectionRules.restrictedClasses = newClasses;
     crashContext()->config.introspectionRules.restrictedClassesCount = newClassesLength;
 
-    if(oldClasses != nil)
+    if(oldClasses != NULL)
     {
         for(size_t i = 0; i < oldClassesLength; i++)
         {

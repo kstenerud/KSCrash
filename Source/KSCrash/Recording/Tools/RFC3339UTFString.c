@@ -24,6 +24,7 @@
 
 #include "RFC3339UTFString.h"
 #include <stdio.h>
+#include <time.h>
 
 void rfc3339UtcStringFromUNIXTimestamp(time_t timestamp, char* buffer21Chars)
 {

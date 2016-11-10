@@ -24,6 +24,12 @@
 // THE SOFTWARE.
 //
 
+#ifndef KSCrash_KSSystemInfo_h
+#define KSCrash_KSSystemInfo_h
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define KSSystemField_AppStartTime "app_start_time"
 #define KSSystemField_AppUUID "app_uuid"
@@ -56,6 +62,25 @@
 #define KSSystemField_TimeZone "time_zone"
 #define KSSystemField_BuildType "build_type"
 
+/** Get the complete system info dictionary encoded to JSON.
+ *
+ * @return System info as JSON. Caller is responsible for calling free().
+ */
+const char* kssysteminfo_toJSON(void);
+
+/** Create a copy of the current process name.
+ *
+ * @return The process name. Caller is responsible for calling free().
+ */
+char* kssysteminfo_copyProcessName(void);
+    
+#ifdef __cplusplus
+}
+#endif
+
+
+#ifdef __OBJC__
+
 #import <Foundation/Foundation.h>
 
 /**
@@ -70,3 +95,7 @@
 + (NSDictionary*) systemInfo;
 
 @end
+
+#endif
+
+#endif

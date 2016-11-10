@@ -33,6 +33,7 @@
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
+#include <dispatch/dispatch.h>
 #include <errno.h>
 #include <mach-o/arch.h>
 #include <mach/vm_map.h>

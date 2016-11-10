@@ -30,6 +30,8 @@
 #include "KSLogger.h"
 
 #include <objc/runtime.h>
+#include <dispatch/dispatch.h>
+#include <stdlib.h>
 
 
 #define CACHE_SIZE 0x8000

@@ -25,6 +25,7 @@ extern "C" {
 
 
 #include <objc/objc.h>
+#include <CoreFoundation/CoreFoundation.h>
 
 
 #define MAKE_LIST_T(TYPE) \

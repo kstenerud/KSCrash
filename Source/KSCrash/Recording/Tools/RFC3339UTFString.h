@@ -25,7 +25,7 @@
 #ifndef RFC3339DateToolC_h
 #define RFC3339DateToolC_h
 
-#include <time.h>
+#include <sys/types.h>
 
 /** Convert a UNIX timestamp to an RFC3339 string representation.
  *

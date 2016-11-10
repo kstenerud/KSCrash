@@ -100,7 +100,6 @@
 		CBEE5D061CB86989005EAF61 /* KSSystemCapabilities.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C611CB86989005EAF61 /* KSSystemCapabilities.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBEE5D071CB86989005EAF61 /* KSSystemInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C621CB86989005EAF61 /* KSSystemInfo.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CBEE5D081CB86989005EAF61 /* KSSystemInfo.m in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C631CB86989005EAF61 /* KSSystemInfo.m */; };
-		CBEE5D091CB86989005EAF61 /* KSSystemInfoC.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C641CB86989005EAF61 /* KSSystemInfoC.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBEE5D0A1CB86989005EAF61 /* KSCrashSentry.c in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C661CB86989005EAF61 /* KSCrashSentry.c */; };
 		CBEE5D0B1CB86989005EAF61 /* KSCrashSentry.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C671CB86989005EAF61 /* KSCrashSentry.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CBEE5D0C1CB86989005EAF61 /* KSCrashSentry_CPPException.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C681CB86989005EAF61 /* KSCrashSentry_CPPException.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -319,7 +318,6 @@
 		CBEE5C611CB86989005EAF61 /* KSSystemCapabilities.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSSystemCapabilities.h; sourceTree = "<group>"; };
 		CBEE5C621CB86989005EAF61 /* KSSystemInfo.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSSystemInfo.h; sourceTree = "<group>"; };
 		CBEE5C631CB86989005EAF61 /* KSSystemInfo.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSSystemInfo.m; sourceTree = "<group>"; };
-		CBEE5C641CB86989005EAF61 /* KSSystemInfoC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSSystemInfoC.h; sourceTree = "<group>"; };
 		CBEE5C661CB86989005EAF61 /* KSCrashSentry.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSCrashSentry.c; sourceTree = "<group>"; };
 		CBEE5C671CB86989005EAF61 /* KSCrashSentry.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashSentry.h; sourceTree = "<group>"; };
 		CBEE5C681CB86989005EAF61 /* KSCrashSentry_CPPException.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashSentry_CPPException.h; sourceTree = "<group>"; };
@@ -616,7 +614,6 @@
 				CBEE5C611CB86989005EAF61 /* KSSystemCapabilities.h */,
 				CBEE5C621CB86989005EAF61 /* KSSystemInfo.h */,
 				CBEE5C631CB86989005EAF61 /* KSSystemInfo.m */,
-				CBEE5C641CB86989005EAF61 /* KSSystemInfoC.h */,
 				CBEE5C651CB86989005EAF61 /* Sentry */,
 				CBEE5D791CB869A9005EAF61 /* Support */,
 				CBEE5C751CB86989005EAF61 /* Tools */,
@@ -923,7 +920,6 @@
 				CBEE5CF01CB86989005EAF61 /* Casting.h in Headers */,
 				CBEE5D741CB86989005EAF61 /* Malloc.h in Headers */,
 				CBEE5D631CB86989005EAF61 /* KSCrashReportSinkVictory.h in Headers */,
-				CBEE5D091CB86989005EAF61 /* KSSystemInfoC.h in Headers */,
 				CBA1A5371DD25043007B1CE7 /* KSCrashReportFixer.h in Headers */,
 				CBEE5D221CB86989005EAF61 /* KSFileUtils.h in Headers */,
 				CBEE5D721CB86989005EAF61 /* Fallthrough.h in Headers */,

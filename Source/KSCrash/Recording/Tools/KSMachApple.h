@@ -24,7 +24,6 @@ extern "C" {
 #endif
 
 
-#include <dispatch/dispatch.h>
 #include <sched.h>
 #include <sys/queue.h>
 
