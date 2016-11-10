@@ -27,6 +27,7 @@
 #include <TargetConditionals.h>
 
 #include "KSCrashSentry_Signal.h"
+#include "KSCrashSentry_Context.h"
 #include "KSCrashSentry_Private.h"
 
 #include "KSSignalInfo.h"

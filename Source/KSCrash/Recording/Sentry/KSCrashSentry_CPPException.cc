@@ -23,6 +23,7 @@
 //
 
 #include "KSCrashSentry_CPPException.h"
+#include "KSCrashSentry_Context.h"
 #include "KSCrashSentry_Private.h"
 #include "KSMach.h"
 

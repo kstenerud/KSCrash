@@ -24,7 +24,9 @@
 // THE SOFTWARE.
 //
 
+
 #include "KSCrashSentry_MachException.h"
+#include "KSCrashSentry_Context.h"
 #include "KSCrashSentry_Private.h"
 #include "KSMach.h"
 #include "KSSystemCapabilities.h"

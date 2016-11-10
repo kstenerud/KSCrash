@@ -39,116 +39,7 @@ extern "C" {
 
 #include "KSCrashType.h"
 
-#include <mach/mach_types.h>
-#include <signal.h>
-#include <stdbool.h>
-
-
-typedef enum
-{
-    KSCrashReservedThreadTypeMachPrimary,
-    KSCrashReservedThreadTypeMachSecondary,
-    KSCrashReservedThreadTypeCount
-} KSCrashReservedTheadType;
-
-typedef struct KSCrash_SentryContext
-{
-    // Caller defined values. Caller must fill these out prior to installation.
-
-    /** Called by the crash handler when a crash is detected. */
-    void (*onCrash)(void);
-
-
-    // Implementation defined values. Caller does not initialize these.
-
-    /** Threads reserved by the crash handlers, which must not be suspended. */
-    thread_t reservedThreads[KSCrashReservedThreadTypeCount];
-
-    /** If true, the crash handling system is currently handling a crash.
-     * When false, all values below this field are considered invalid.
-     */
-    bool handlingCrash;
-
-    /** If true, a second crash occurred while handling a crash. */
-    bool crashedDuringCrashHandling;
-
-    /** If true, the registers contain valid information about the crash. */
-    bool registersAreValid;
-
-    /** True if the crash system has detected a stack overflow. */
-    bool isStackOverflow;
-
-    /** The thread that caused the problem. */
-    thread_t offendingThread;
-
-    /** Address that caused the fault. */
-    uintptr_t faultAddress;
-
-    /** The type of crash that occurred.
-     * This determines which other fields are valid. */
-    KSCrashType crashType;
-
-    /** Short description of why the crash occurred. */
-    const char* crashReason;
-
-    /** The stack trace. */
-    uintptr_t* stackTrace;
-
-    /** Length of the stack trace. */
-    int stackTraceLength;
-
-    struct
-    {
-        /** The mach exception type. */
-        int type;
-
-        /** The mach exception code. */
-        int64_t code;
-
-        /** The mach exception subcode. */
-        int64_t subcode;
-    } mach;
-
-    struct
-    {
-        /** The exception name. */
-        const char* name;
-
-    } NSException;
-
-    struct
-    {
-        /** The exception name. */
-        const char* name;
-
-    } CPPException;
-    
-    struct
-    {
-        /** User context information. */
-        const void* userContext;
-
-        /** Signal information. */
-        const siginfo_t* signalInfo;
-    } signal;
-
-    struct
-    {
-        /** The exception name. */
-        const char* name;
-
-        /** The language the exception occured in. */
-        const char* language;
-        
-        /** The line of code where the exception occurred. Can be NULL. */
-        const char* lineOfCode;
-
-        /** The user-supplied JSON encoded stack trace. */
-        const char* customStackTrace;
-    } userException;
-
-} KSCrash_SentryContext;
-
+struct KSCrash_SentryContext;
 
 /** Install crash sentry.
  *
@@ -160,7 +51,7 @@ typedef struct KSCrash_SentryContext
  *
  * @return which crash handlers were installed successfully.
  */
-KSCrashType kscrashsentry_installWithContext(KSCrash_SentryContext* context,
+KSCrashType kscrashsentry_installWithContext(struct KSCrash_SentryContext* context,
                                              KSCrashType crashTypes,
                                              void (*onCrash)(void));
 

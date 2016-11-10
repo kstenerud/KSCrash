@@ -210,6 +210,9 @@
 		CB48F6D51DCD0D490099D264 /* DemangleSwift.h in Headers */ = {isa = PBXBuildFile; fileRef = CB48F6CB1DCD0D490099D264 /* DemangleSwift.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB48F6D61DCD0D490099D264 /* DemangleSwift.h in Headers */ = {isa = PBXBuildFile; fileRef = CB48F6CB1DCD0D490099D264 /* DemangleSwift.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB48F6D71DCD0D490099D264 /* DemangleSwift.h in Headers */ = {isa = PBXBuildFile; fileRef = CB48F6CB1DCD0D490099D264 /* DemangleSwift.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CB5633CC1DD5392A0023CEB6 /* KSCrashSentry_Context.h in Headers */ = {isa = PBXBuildFile; fileRef = CB5633CB1DD5392A0023CEB6 /* KSCrashSentry_Context.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CB5633CD1DD5392A0023CEB6 /* KSCrashSentry_Context.h in Headers */ = {isa = PBXBuildFile; fileRef = CB5633CB1DD5392A0023CEB6 /* KSCrashSentry_Context.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CB5633CE1DD5392A0023CEB6 /* KSCrashSentry_Context.h in Headers */ = {isa = PBXBuildFile; fileRef = CB5633CB1DD5392A0023CEB6 /* KSCrashSentry_Context.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB69B8C51DC03FFF002713B1 /* RFC3339UTFString.c in Sources */ = {isa = PBXBuildFile; fileRef = CB69B8C31DC03FFF002713B1 /* RFC3339UTFString.c */; };
 		CB69B8C61DC03FFF002713B1 /* RFC3339UTFString.c in Sources */ = {isa = PBXBuildFile; fileRef = CB69B8C31DC03FFF002713B1 /* RFC3339UTFString.c */; };
 		CB69B8C71DC03FFF002713B1 /* RFC3339UTFString.c in Sources */ = {isa = PBXBuildFile; fileRef = CB69B8C31DC03FFF002713B1 /* RFC3339UTFString.c */; };
@@ -609,6 +612,7 @@
 		CB52179117EB735D007CB3C1 /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
 		CB52179317EB735D007CB3C1 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
 		CB5217AE17EB735D007CB3C1 /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = Library/Frameworks/XCTest.framework; sourceTree = DEVELOPER_DIR; };
+		CB5633CB1DD5392A0023CEB6 /* KSCrashSentry_Context.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSCrashSentry_Context.h; path = ../../Source/KSCrash/Recording/Sentry/KSCrashSentry_Context.h; sourceTree = "<group>"; };
 		CB69B8C31DC03FFF002713B1 /* RFC3339UTFString.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = RFC3339UTFString.c; path = ../../Source/KSCrash/Recording/Tools/RFC3339UTFString.c; sourceTree = "<group>"; };
 		CB69B8C41DC03FFF002713B1 /* RFC3339UTFString.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = RFC3339UTFString.h; path = ../../Source/KSCrash/Recording/Tools/RFC3339UTFString.h; sourceTree = "<group>"; };
 		CB69B8D91DC0ED80002713B1 /* KSLogger.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSLogger.c; path = ../../Source/KSCrash/Recording/Tools/KSLogger.c; sourceTree = "<group>"; };
@@ -1079,8 +1083,9 @@
 		CBF53E5117EB76B10056DA83 /* Sentry */ = {
 			isa = PBXGroup;
 			children = (
-				CBF53D4E17EB765C0056DA83 /* KSCrashSentry_CPPException.h */,
+				CB5633CB1DD5392A0023CEB6 /* KSCrashSentry_Context.h */,
 				CBF53D4F17EB765C0056DA83 /* KSCrashSentry_CPPException.cc */,
+				CBF53D4E17EB765C0056DA83 /* KSCrashSentry_CPPException.h */,
 				CBF53D5017EB765C0056DA83 /* KSCrashSentry_Deadlock.h */,
 				CBF53D5117EB765C0056DA83 /* KSCrashSentry_Deadlock.m */,
 				CBF53D5217EB765C0056DA83 /* KSCrashSentry_MachException.c */,
@@ -1237,6 +1242,7 @@
 				03DE7CD21C84DFD000F789BA /* KSCrash.h in Headers */,
 				03DE7C431C84DF8100F789BA /* KSCrashContext.h in Headers */,
 				03DE7C421C84DF8100F789BA /* KSCrashC.h in Headers */,
+				CB5633CD1DD5392A0023CEB6 /* KSCrashSentry_Context.h in Headers */,
 				03DE7C731C84DFAB00F789BA /* KSArchSpecific.h in Headers */,
 				03DE7C541C84DF8600F789BA /* KSCrashSentry.h in Headers */,
 				03DE7C491C84DF8100F789BA /* KSCrashState.h in Headers */,
@@ -1353,6 +1359,7 @@
 				CB42F4551C6D180F002FD017 /* DemangleNodes.h in Headers */,
 				CBF53E8317EB7EA80056DA83 /* KSCrashReportSinkStandard.h in Headers */,
 				CB8F1DC61CCADB2A0022CDF0 /* KSCrashInstallation+Alert.h in Headers */,
+				CB5633CC1DD5392A0023CEB6 /* KSCrashSentry_Context.h in Headers */,
 				CBF53E8417EB7EA80056DA83 /* KSCrashReportSinkVictory.h in Headers */,
 				CBF53E8617EB7EA80056DA83 /* KSCrashReportStore.h in Headers */,
 				CBF53E5A17EB7EA80056DA83 /* KSCrashReportWriter.h in Headers */,
@@ -1436,6 +1443,7 @@
 				EDF2BEC51CCF15AD004BADF4 /* KSArchSpecific.h in Headers */,
 				EDF2BEC61CCF15AD004BADF4 /* KSCrashSentry.h in Headers */,
 				EDF2BEC71CCF15AD004BADF4 /* KSCrashState.h in Headers */,
+				CB5633CE1DD5392A0023CEB6 /* KSCrashSentry_Context.h in Headers */,
 				EDF2BEC81CCF15AD004BADF4 /* KSJSONCodecObjC.h in Headers */,
 				EDF2BEC91CCF15AD004BADF4 /* KSCrashType.h in Headers */,
 				EDF2BECA1CCF15AD004BADF4 /* KSCrashReportWriter.h in Headers */,

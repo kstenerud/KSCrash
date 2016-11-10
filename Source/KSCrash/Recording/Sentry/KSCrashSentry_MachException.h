@@ -46,7 +46,7 @@ extern "C" {
  *
  * @return true if installation was succesful.
  */
-bool kscrashsentry_installMachHandler(KSCrash_SentryContext* context);
+bool kscrashsentry_installMachHandler(struct KSCrash_SentryContext* context);
 
 /** Uninstall our custom mach exception handler.
  */

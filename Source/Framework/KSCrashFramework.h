@@ -14,7 +14,6 @@
 #import "KSArchSpecific.h"
 #import "KSCrashAdvanced.h"
 #import "KSCrashC.h"
-#import "KSCrashContext.h"
 #import "KSCrashInstallation.h"
 #import "KSCrashInstallation+Alert.h"
 #import "KSCrashInstallation+Private.h"

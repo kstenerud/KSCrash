@@ -25,6 +25,7 @@
 //
 
 #import "KSCrashSentry_Deadlock.h"
+#include "KSCrashSentry_Context.h"
 #import "KSCrashSentry_Private.h"
 #import "KSMach.h"
 #import <Foundation/Foundation.h>

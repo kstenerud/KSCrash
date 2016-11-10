@@ -46,6 +46,8 @@
 		CB42F4571C6D1A79002FD017 /* DemangleNodes.h in Headers */ = {isa = PBXBuildFile; fileRef = CB2686071C694E4400EE4EB3 /* DemangleNodes.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB42F4581C6D1A7B002FD017 /* DemangleNodes.h in Headers */ = {isa = PBXBuildFile; fileRef = CB2686071C694E4400EE4EB3 /* DemangleNodes.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB42F4591C6D1AC7002FD017 /* KSDynamicLinker.h in Headers */ = {isa = PBXBuildFile; fileRef = CB7A6C9517FB99E800997792 /* KSDynamicLinker.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CB5633D01DD53BE50023CEB6 /* KSCrashSentry_Context.h in Headers */ = {isa = PBXBuildFile; fileRef = CB5633CF1DD53BE50023CEB6 /* KSCrashSentry_Context.h */; };
+		CB5633D11DD53BE50023CEB6 /* KSCrashSentry_Context.h in Headers */ = {isa = PBXBuildFile; fileRef = CB5633CF1DD53BE50023CEB6 /* KSCrashSentry_Context.h */; };
 		CB62408A17EBC9F7006471F1 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB8E55EA17EB99E3000C56D3 /* Cocoa.framework */; };
 		CB6240A917EBCA74006471F1 /* KSCrashC.c in Sources */ = {isa = PBXBuildFile; fileRef = CB8E561F17EB9AFD000C56D3 /* KSCrashC.c */; };
 		CB6240AA17EBCA74006471F1 /* KSCrashC.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E562017EB9AFD000C56D3 /* KSCrashC.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -409,6 +411,7 @@
 		CB26860C1C694E4400EE4EB3 /* Punycode.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Punycode.h; sourceTree = "<group>"; };
 		CB26860D1C694E4400EE4EB3 /* LICENSE.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LICENSE.txt; sourceTree = "<group>"; };
 		CB26860E1C694E4400EE4EB3 /* SwiftStrings.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SwiftStrings.h; sourceTree = "<group>"; };
+		CB5633CF1DD53BE50023CEB6 /* KSCrashSentry_Context.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSCrashSentry_Context.h; path = ../../Source/KSCrash/Recording/Sentry/KSCrashSentry_Context.h; sourceTree = "<group>"; };
 		CB62408917EBC9F7006471F1 /* libKSCrashLib.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libKSCrashLib.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		CB62408D17EBC9F7006471F1 /* KSCrashLib-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "KSCrashLib-Prefix.pch"; sourceTree = "<group>"; };
 		CB69B8CF1DC04432002713B1 /* RFC3339UTFString.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = RFC3339UTFString.c; path = /Users/karl/Projects/KSCrash/Source/KSCrash/Recording/Tools/RFC3339UTFString.c; sourceTree = "<absolute>"; };
@@ -925,10 +928,9 @@
 		CB8E563B17EB9B09000C56D3 /* Sentry */ = {
 			isa = PBXGroup;
 			children = (
-				CB8E563D17EB9B35000C56D3 /* KSCrashSentry.c */,
-				CB8E563E17EB9B35000C56D3 /* KSCrashSentry.h */,
-				CB8E563F17EB9B35000C56D3 /* KSCrashSentry_CPPException.h */,
+				CB5633CF1DD53BE50023CEB6 /* KSCrashSentry_Context.h */,
 				CB8E564017EB9B35000C56D3 /* KSCrashSentry_CPPException.cc */,
+				CB8E563F17EB9B35000C56D3 /* KSCrashSentry_CPPException.h */,
 				CB8E564117EB9B35000C56D3 /* KSCrashSentry_Deadlock.h */,
 				CB8E564217EB9B35000C56D3 /* KSCrashSentry_Deadlock.m */,
 				DCA19E3318832A7700DCA792 /* KSCrashSentry_MachException.c */,
@@ -940,6 +942,8 @@
 				CB8E564917EB9B35000C56D3 /* KSCrashSentry_Signal.h */,
 				CB8E564A17EB9B35000C56D3 /* KSCrashSentry_User.c */,
 				CB8E564B17EB9B35000C56D3 /* KSCrashSentry_User.h */,
+				CB8E563D17EB9B35000C56D3 /* KSCrashSentry.c */,
+				CB8E563E17EB9B35000C56D3 /* KSCrashSentry.h */,
 			);
 			name = Sentry;
 			sourceTree = "<group>";
@@ -1130,6 +1134,7 @@
 				CBA1A5331DD24FB5007B1CE7 /* DemangleSwift.h in Headers */,
 				CB6240AD17EBCA74006471F1 /* KSCrashReport.h in Headers */,
 				CB62410017EBCA74006471F1 /* KSCrashDoctor.h in Headers */,
+				CB5633D11DD53BE50023CEB6 /* KSCrashSentry_Context.h in Headers */,
 				CB2686161C694E4400EE4EB3 /* llvm-config.h in Headers */,
 				CB6240CA17EBCA74006471F1 /* KSBacktrace_Private.h in Headers */,
 				CB6240DA17EBCA74006471F1 /* KSObjC.h in Headers */,
@@ -1189,6 +1194,7 @@
 				CB8E571917EB9BA8000C56D3 /* KSCrashInstallationVictory.h in Headers */,
 				CB8E56B917EB9B7E000C56D3 /* KSCrashReportFilter.h in Headers */,
 				CB8E56BB17EB9B7E000C56D3 /* KSCrashReportFilterAlert.h in Headers */,
+				CB5633D01DD53BE50023CEB6 /* KSCrashSentry_Context.h in Headers */,
 				CB8E56BD17EB9B7E000C56D3 /* KSCrashReportFilterAppleFmt.h in Headers */,
 				CB8E56BF17EB9B7E000C56D3 /* KSCrashReportFilterBasic.h in Headers */,
 				CB8E56C117EB9B7E000C56D3 /* KSCrashReportFilterGZip.h in Headers */,

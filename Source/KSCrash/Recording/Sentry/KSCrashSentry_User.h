@@ -41,7 +41,7 @@ extern "C" {
  *
  * @return true if installation was succesful.
  */
-bool kscrashsentry_installUserExceptionHandler(KSCrash_SentryContext* context);
+bool kscrashsentry_installUserExceptionHandler(struct KSCrash_SentryContext* context);
 
 /** Uninstall the user exception handler.
  */

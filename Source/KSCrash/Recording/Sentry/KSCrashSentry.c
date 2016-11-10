@@ -26,6 +26,7 @@
 
 
 #include "KSCrashSentry.h"
+#include "KSCrashSentry_Context.h"
 #include "KSCrashSentry_Private.h"
 
 #include "KSCrashSentry_Deadlock.h"

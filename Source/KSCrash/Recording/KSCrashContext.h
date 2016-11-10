@@ -38,7 +38,7 @@ extern "C" {
 
 
 #include "KSCrashType.h"
-#include "KSCrashSentry.h"
+#include "KSCrashSentry_Context.h"
 #include "KSCrashReportWriter.h"
 #include "KSCrashState.h"
 
