@@ -40,7 +40,7 @@
     const char* string = "Some string with 0x12345678 and such";
     uint64_t expected = 0x12345678;
     uint64_t result = 0;
-    bool success = ksstring_extractHexValue(string, strlen(string), &result);
+    bool success = ksstring_extractHexValue(string, (int)strlen(string), &result);
     XCTAssertTrue(success, @"");
     XCTAssertEqual(result, expected, @"");
 }
@@ -50,7 +50,7 @@
     const char* string = "Some string with 0x1 and such";
     uint64_t expected = 0x1;
     uint64_t result = 0;
-    bool success = ksstring_extractHexValue(string, strlen(string), &result);
+    bool success = ksstring_extractHexValue(string, (int)strlen(string), &result);
     XCTAssertTrue(success, @"");
     XCTAssertEqual(result, expected, @"");
 }
@@ -60,7 +60,7 @@
     const char* string = "Some string with 0x1234567890123456 and such";
     uint64_t expected = 0x1234567890123456;
     uint64_t result = 0;
-    bool success = ksstring_extractHexValue(string, strlen(string), &result);
+    bool success = ksstring_extractHexValue(string, (int)strlen(string), &result);
     XCTAssertTrue(success, @"");
     XCTAssertEqual(result, expected, @"");
 }
@@ -70,7 +70,7 @@
     const char* string = "0x12345678 Some string";
     uint64_t expected = 0x12345678;
     uint64_t result = 0;
-    bool success = ksstring_extractHexValue(string, strlen(string), &result);
+    bool success = ksstring_extractHexValue(string, (int)strlen(string), &result);
     XCTAssertTrue(success, @"");
     XCTAssertEqual(result, expected, @"");
 }
@@ -80,7 +80,7 @@
     const char* string = "Some string with 0x12345678";
     uint64_t expected = 0x12345678;
     uint64_t result = 0;
-    bool success = ksstring_extractHexValue(string, strlen(string), &result);
+    bool success = ksstring_extractHexValue(string, (int)strlen(string), &result);
     XCTAssertTrue(success, @"");
     XCTAssertEqual(result, expected, @"");
 }
@@ -89,7 +89,7 @@
 {
     const char* string = "";
     uint64_t result = 0;
-    bool success = ksstring_extractHexValue(string, strlen(string), &result);
+    bool success = ksstring_extractHexValue(string, (int)strlen(string), &result);
     XCTAssertFalse(success, @"");
 }
 
@@ -97,7 +97,7 @@
 {
     const char* string = "Some string with 0xoo and such";
     uint64_t result = 0;
-    bool success = ksstring_extractHexValue(string, strlen(string), &result);
+    bool success = ksstring_extractHexValue(string, (int)strlen(string), &result);
     XCTAssertFalse(success, @"");
 }
 
@@ -105,7 +105,7 @@
 {
     const char* string = "Some string with 0xoo";
     uint64_t result = 0;
-    bool success = ksstring_extractHexValue(string, strlen(string), &result);
+    bool success = ksstring_extractHexValue(string, (int)strlen(string), &result);
     XCTAssertFalse(success, @"");
 }
 

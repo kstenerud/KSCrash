@@ -48,7 +48,7 @@ typedef struct
 } Zombie;
 
 static volatile Zombie* g_zombieCache;
-static size_t g_zombieHashMask;
+static unsigned g_zombieHashMask;
 
 static struct
 {
@@ -58,14 +58,14 @@ static struct
     char reason[900];
 } g_lastDeallocedException;
 
-static inline size_t hashIndex(const void* object)
+static inline unsigned hashIndex(const void* object)
 {
     uintptr_t objPtr = (uintptr_t)object;
     objPtr >>= (sizeof(object)-1);
     return objPtr & g_zombieHashMask;
 }
 
-static bool copyStringIvar(const void* self, const char* ivarName, char* buffer, size_t bufferLength)
+static bool copyStringIvar(const void* self, const char* ivarName, char* buffer, int bufferLength)
 {
     Class class = object_getClass((id)self);
     KSObjCIvar ivar = {0};
@@ -153,7 +153,7 @@ CREATE_ZOMBIE_HANDLER_INSTALLER(NSProxy)
 
 static void install()
 {
-    size_t cacheSize = CACHE_SIZE;
+    unsigned cacheSize = CACHE_SIZE;
     g_zombieHashMask = cacheSize - 1;
     g_zombieCache = calloc(cacheSize, sizeof(*g_zombieCache));
     if(g_zombieCache == NULL)

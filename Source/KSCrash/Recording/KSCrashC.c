@@ -28,11 +28,9 @@
 #include "KSCrashC.h"
 
 #include "KSCrashReport.h"
-#include "KSFileUtils.h"
 #include "KSString.h"
 #include "KSMach.h"
 #include "KSObjC.h"
-#include "KSSignalInfo.h"
 #include "KSZombie.h"
 #include "KSCrashSentry_Deadlock.h"
 #include "KSCrashSentry_User.h"
@@ -41,13 +39,7 @@
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
-//#include <errno.h>
-//#include <execinfo.h>
-//#include <fcntl.h>
-//#include <stdio.h>
 #include <stdlib.h>
-//#include <string.h>
-//#include <unistd.h>
 
 
 // ============================================================================
@@ -226,24 +218,24 @@ void kscrash_setCatchZombies(bool catchZombies)
     kszombie_setEnabled(catchZombies);
 }
 
-void kscrash_setDoNotIntrospectClasses(const char** doNotIntrospectClasses, size_t length)
+void kscrash_setDoNotIntrospectClasses(const char** doNotIntrospectClasses, int length)
 {
     const char** oldClasses = crashContext()->config.introspectionRules.restrictedClasses;
-    size_t oldClassesLength = crashContext()->config.introspectionRules.restrictedClassesCount;
+    int oldClassesLength = crashContext()->config.introspectionRules.restrictedClassesCount;
     const char** newClasses = NULL;
-    size_t newClassesLength = 0;
+    int newClassesLength = 0;
     
     if(doNotIntrospectClasses != NULL && length > 0)
     {
         newClassesLength = length;
-        newClasses = malloc(sizeof(*newClasses) * newClassesLength);
+        newClasses = malloc(sizeof(*newClasses) * (unsigned)newClassesLength);
         if(newClasses == NULL)
         {
             KSLOG_ERROR("Could not allocate memory");
             return;
         }
         
-        for(size_t i = 0; i < newClassesLength; i++)
+        for(int i = 0; i < newClassesLength; i++)
         {
             newClasses[i] = strdup(doNotIntrospectClasses[i]);
         }
@@ -254,7 +246,7 @@ void kscrash_setDoNotIntrospectClasses(const char** doNotIntrospectClasses, size
 
     if(oldClasses != NULL)
     {
-        for(size_t i = 0; i < oldClassesLength; i++)
+        for(int i = 0; i < oldClassesLength; i++)
         {
             free((void*)oldClasses[i]);
         }

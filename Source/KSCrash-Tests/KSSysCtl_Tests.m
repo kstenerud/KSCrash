@@ -213,7 +213,7 @@
     bool success = kssysctl_getMacAddress("en0", (char*)macAddress);
     XCTAssertTrue(success, @"");
     unsigned int result = 0;
-    for(size_t i = 0; i < sizeof(macAddress); i++)
+    for(unsigned i = 0; i < sizeof(macAddress); i++)
     {
         result |= macAddress[i];
     }

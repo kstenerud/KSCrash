@@ -31,7 +31,6 @@
 
 #include <cxxabi.h>
 #include <dlfcn.h>
-#include <exception>
 #include <execinfo.h>
 #include <stdio.h>
 #include <stdlib.h>

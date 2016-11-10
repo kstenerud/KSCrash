@@ -57,7 +57,7 @@ typedef struct
      * Whenever a class in this list is encountered, only the class name will be recorded.
      */
     const char** restrictedClasses;
-    size_t restrictedClassesCount;
+    int restrictedClassesCount;
 } KSCrash_IntrospectionRules;
 
 typedef struct

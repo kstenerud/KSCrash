@@ -109,7 +109,7 @@ static void dirContents(const char* path, char*** entries, int* count)
         goto done;
     }
     
-    entryList = calloc((size_t)(entryCount), sizeof(char*));
+    entryList = calloc((unsigned)entryCount, sizeof(char*));
     struct dirent* ent;
     int index = 0;
     while((ent = readdir(dir)))
@@ -163,7 +163,7 @@ static bool deletePathContents(const char* path, bool deleteTopLevelPathAlso)
         dirContents(path, &entries, &entryCount);
         
         int bufferLength = KSFU_MAX_PATH_LENGTH;
-        char* pathBuffer = malloc((size_t)bufferLength);
+        char* pathBuffer = malloc((unsigned)bufferLength);
         snprintf(pathBuffer, bufferLength, "%s/", path);
         char* pathPtr = pathBuffer + strlen(pathBuffer);
         int pathRemainingLength = bufferLength - (pathPtr - pathBuffer);
@@ -212,14 +212,12 @@ const char* ksfu_lastPathEntry(const char* const path)
     return lastFile == NULL ? path : lastFile + 1;
 }
 
-bool ksfu_writeBytesToFD(const int fd,
-                         const char* const bytes,
-                         ssize_t length)
+bool ksfu_writeBytesToFD(const int fd, const char* const bytes, int length)
 {
     const char* pos = bytes;
     while(length > 0)
     {
-        ssize_t bytesWritten = write(fd, pos, (size_t)length);
+        int bytesWritten = write(fd, pos, (unsigned)length);
         if(bytesWritten == -1)
         {
             KSLOG_ERROR("Could not write to fd %d: %s", fd, strerror(errno));
@@ -231,14 +229,12 @@ bool ksfu_writeBytesToFD(const int fd,
     return true;
 }
 
-bool ksfu_readBytesFromFD(const int fd,
-                          char* const bytes,
-                          ssize_t length)
+bool ksfu_readBytesFromFD(const int fd, char* const bytes, int length)
 {
     char* pos = bytes;
     while(length > 0)
     {
-        ssize_t bytesRead = read(fd, pos, (size_t)length);
+        int bytesRead = read(fd, pos, (unsigned)length);
         if(bytesRead == -1)
         {
             KSLOG_ERROR("Could not write to fd %d: %s", fd, strerror(errno));
@@ -250,12 +246,10 @@ bool ksfu_readBytesFromFD(const int fd,
     return true;
 }
 
-bool ksfu_readEntireFile(const char* const path,
-                         char** data,
-                         size_t* length)
+bool ksfu_readEntireFile(const char* const path, char** data, int* length)
 {
     bool isSuccessful = false;
-    size_t bytesRead = 0;
+    int bytesRead = 0;
     char* mem = NULL;
     int fd = -1;
 
@@ -273,19 +267,19 @@ bool ksfu_readEntireFile(const char* const path,
         goto done;
     }
 
-    mem = malloc((size_t)st.st_size + 1);
+    mem = malloc((unsigned)st.st_size + 1);
     if(mem == NULL)
     {
         KSLOG_ERROR("Out of memory");
         goto done;
     }
 
-    if(!ksfu_readBytesFromFD(fd, mem, (ssize_t)st.st_size))
+    if(!ksfu_readBytesFromFD(fd, mem, (int)st.st_size))
     {
         goto done;
     }
 
-    bytesRead = (size_t)st.st_size;
+    bytesRead = (int)st.st_size;
     mem[bytesRead] = '\0';
     isSuccessful = true;
 
@@ -313,18 +307,18 @@ bool ksfu_writeStringToFD(const int fd, const char* const string)
 {
     if(*string != 0)
     {
-        size_t bytesToWrite = strlen(string);
+        int bytesToWrite = (int)strlen(string);
         const char* pos = string;
         while(bytesToWrite > 0)
         {
-            ssize_t bytesWritten = write(fd, pos, bytesToWrite);
+            int bytesWritten = write(fd, pos, (unsigned)bytesToWrite);
             if(bytesWritten == -1)
             {
                 KSLOG_ERROR("Could not write to fd %d: %s",
                             fd, strerror(errno));
                 return false;
             }
-            bytesToWrite -= (size_t)bytesWritten;
+            bytesToWrite -= bytesWritten;
             pos += bytesWritten;
         }
         return true;
@@ -358,16 +352,14 @@ bool ksfu_writeFmtArgsToFD(const int fd,
     return false;
 }
 
-ssize_t ksfu_readLineFromFD(const int fd,
-                            char* const buffer,
-                            const int maxLength)
+int ksfu_readLineFromFD(const int fd, char* const buffer, const int maxLength)
 {
     char* end = buffer + maxLength - 1;
     *end = 0;
     char* ch;
     for(ch = buffer; ch < end; ch++)
     {
-        ssize_t bytesRead = read(fd, ch, 1);
+        int bytesRead = read(fd, ch, 1);
         if(bytesRead < 0)
         {
             KSLOG_ERROR("Could not read from fd %d: %s", fd, strerror(errno));

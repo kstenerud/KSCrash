@@ -33,8 +33,8 @@ extern "C" {
 #endif
 
 
-#include <sys/types.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 
 typedef enum
@@ -61,7 +61,7 @@ typedef struct
 {
     const char* name;
     const char* type;
-    size_t index;
+    int index;
 } KSObjCIvar;
 
 
@@ -210,7 +210,7 @@ bool ksobjc_isKindOfClass(const void* classPtr, const char* className);
  *
  * @return The number of ivars.
  */
-size_t ksobjc_ivarCount(const void* classPtr);
+int ksobjc_ivarCount(const void* classPtr);
 
 /** Get information about ivars in a class.
  *
@@ -222,7 +222,7 @@ size_t ksobjc_ivarCount(const void* classPtr);
  *
  * @return The number of ivars copied.
  */
-size_t ksobjc_ivarList(const void* classPtr, KSObjCIvar* dstIvars, size_t ivarsCount);
+int ksobjc_ivarList(const void* classPtr, KSObjCIvar* dstIvars, int ivarsCount);
 
 /** Get ivar information by name/
  *
@@ -246,7 +246,7 @@ bool ksobjc_ivarNamed(const void* const classPtr, const char* name, KSObjCIvar* 
  *
  * @return true if the operation was successful.
  */
-bool ksobjc_ivarValue(const void* objectPtr, size_t ivarIndex, void* dst);
+bool ksobjc_ivarValue(const void* objectPtr, int ivarIndex, void* dst);
 
 /* Get the payload from a tagged pointer.
  *
@@ -274,9 +274,7 @@ uintptr_t ksobjc_taggedPointerPayload(const void* taggedObjectPtr);
  *
  * @return the number of bytes copied (not including null terminator).
  */
-size_t ksobjc_getDescription(void* object,
-                             char* buffer,
-                             size_t bufferLength);
+int ksobjc_getDescription(void* object, char* buffer, int bufferLength);
 
 /** Get the class type of an object.
  * There are a number of common class types that KSObjC understamds,
@@ -337,7 +335,7 @@ double ksobjc_dateContents(const void* datePtr);
  *
  * @return the number of bytes copied (not including null terminator).
  */
-size_t ksobjc_copyURLContents(const void* nsurl, char* dst, size_t maxLength);
+int ksobjc_copyURLContents(const void* nsurl, char* dst, int maxLength);
 
 /** Get the length of a string in characters.
  *
@@ -345,7 +343,7 @@ size_t ksobjc_copyURLContents(const void* nsurl, char* dst, size_t maxLength);
  *
  * @return The length of the string.
  */
-size_t ksobjc_stringLength(const void* const stringPtr);
+int ksobjc_stringLength(const void* const stringPtr);
 
 /** Copy the contents of a string object.
  *
@@ -360,7 +358,7 @@ size_t ksobjc_stringLength(const void* const stringPtr);
  *
  * @return the number of bytes copied (not including null terminator).
  */
-size_t ksobjc_copyStringContents(const void* string, char* dst, size_t maxLength);
+int ksobjc_copyStringContents(const void* string, char* dst, int maxLength);
 
 /** Get an NSArray's count.
  *
@@ -368,7 +366,7 @@ size_t ksobjc_copyStringContents(const void* string, char* dst, size_t maxLength
  *
  * @return The array's count.
  */
-size_t ksobjc_arrayCount(const void* arrayPtr);
+int ksobjc_arrayCount(const void* arrayPtr);
 
 /** Get an NSArray's contents.
  *
@@ -380,7 +378,7 @@ size_t ksobjc_arrayCount(const void* arrayPtr);
  *
  * @return The number of items copied.
  */
-size_t ksobjc_arrayContents(const void* arrayPtr, uintptr_t* contents, size_t count);
+int ksobjc_arrayContents(const void* arrayPtr, uintptr_t* contents, int count);
 
 
 //======================================================================
@@ -403,7 +401,7 @@ bool ksobjc_dictionaryFirstEntry(const void* dict, uintptr_t* key, uintptr_t* va
 
 /** UNIMPLEMENTED
  */
-size_t ksobjc_dictionaryCount(const void* dict);
+int ksobjc_dictionaryCount(const void* dict);
 
 
 #ifdef __cplusplus

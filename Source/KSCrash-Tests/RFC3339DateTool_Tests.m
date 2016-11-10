@@ -72,15 +72,15 @@
 {
     NSDate* date = [self gmtDateWithYear:2000 month:1 day:2 hour:3 minute:4 second:5];
     NSString* expected = @"2000-01-02T03:04:05Z";
-    NSString* actual = [RFC3339DateTool stringFromUNIXTimestamp:(unsigned long long)[date timeIntervalSince1970]];
+    NSString* actual = [RFC3339DateTool stringFromUNIXTimestamp:(uint64_t)[date timeIntervalSince1970]];
 
     XCTAssertEqualObjects(actual, expected, @"");
 }
 #if 0
 - (void) testUnixTimestampFromString
 {
-    unsigned long long expected = (unsigned long long)[[self gmtDateWithYear:2000 month:1 day:2 hour:3 minute:4 second:5] timeIntervalSince1970];
-    unsigned long long actual = [RFC3339DateTool UNIXTimestampFromString:@"2000-01-02T03:04:05Z"];
+    uint64_t expected = (uint64_t)[[self gmtDateWithYear:2000 month:1 day:2 hour:3 minute:4 second:5] timeIntervalSince1970];
+    uint64_t actual = [RFC3339DateTool UNIXTimestampFromString:@"2000-01-02T03:04:05Z"];
 
     XCTAssertEqual(actual, expected, @"");
 }

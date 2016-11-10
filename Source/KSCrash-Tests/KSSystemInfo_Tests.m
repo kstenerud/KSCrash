@@ -27,7 +27,6 @@
 #import <XCTest/XCTest.h>
 
 #import "KSSystemInfo.h"
-#import "KSSystemInfoC.h"
 
 
 @interface KSSystemInfo_Tests : XCTestCase @end

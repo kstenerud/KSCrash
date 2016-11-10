@@ -39,7 +39,6 @@ extern "C" {
 
 #include <stdbool.h>
 #include <stdarg.h>
-#include <sys/types.h>
 
 
 #define KSFU_MAX_PATH_LENGTH 500
@@ -62,7 +61,7 @@ const char* ksfu_lastPathEntry(const char* path);
  *
  * @return true if the operation was successful.
  */
-bool ksfu_writeBytesToFD(const int fd, const char* bytes, ssize_t length);
+bool ksfu_writeBytesToFD(const int fd, const char* bytes, int length);
 
 /** Read bytes from a file descriptor.
  *
@@ -74,7 +73,7 @@ bool ksfu_writeBytesToFD(const int fd, const char* bytes, ssize_t length);
  *
  * @return true if the operation was successful.
  */
-bool ksfu_readBytesFromFD(const int fd, char* bytes, ssize_t length);
+bool ksfu_readBytesFromFD(const int fd, char* bytes, int length);
 
 /** Read an entire file. Returns a buffer of file size + 1, null terminated.
  *
@@ -86,7 +85,7 @@ bool ksfu_readBytesFromFD(const int fd, char* bytes, ssize_t length);
  *
  * @return true if the operation was successful.
  */
-bool ksfu_readEntireFile(const char* path, char** data, size_t* length);
+bool ksfu_readEntireFile(const char* path, char** data, int* length);
 
 /** Write a string to a file.
  *
@@ -130,7 +129,7 @@ bool ksfu_writeFmtArgsToFD(const int fd, const char* fmt, va_list args);
  *
  * @return The number of bytes read.
  */
-ssize_t ksfu_readLineFromFD(const int fd, char* buffer, int maxLength);
+int ksfu_readLineFromFD(const int fd, char* buffer, int maxLength);
 
 /** Make all directories in a path.
  *

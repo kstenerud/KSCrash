@@ -41,7 +41,6 @@ extern "C" {
 #include "KSCrashReportWriter.h"
 
 #include <stdbool.h>
-#include <sys/types.h>
 
 
 /** Install the crash reporter. The reporter will record the next crash and then
@@ -149,7 +148,7 @@ void kscrash_setCatchZombies(bool catchZombies);
  *
  * Default: NULL
  */
-void kscrash_setDoNotIntrospectClasses(const char** doNotIntrospectClasses, size_t length);
+void kscrash_setDoNotIntrospectClasses(const char** doNotIntrospectClasses, int length);
 
 /** Set the callback to invoke upon a crash.
  *

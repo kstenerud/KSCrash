@@ -53,6 +53,6 @@
  *
  * @return The RFC3339 date string.
  */
-+ (NSString*) stringFromUNIXTimestamp:(unsigned long long) timestamp;
++ (NSString*) stringFromUNIXTimestamp:(uint64_t) timestamp;
 
 @end

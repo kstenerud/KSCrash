@@ -32,7 +32,7 @@ extern "C" {
 #endif
 
 
-#include <sys/types.h>
+#include <stdint.h>
 
 #define KSCRS_MAX_PATH_LENGTH 500
 

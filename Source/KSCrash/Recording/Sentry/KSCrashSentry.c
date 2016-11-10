@@ -89,7 +89,7 @@ static CrashSentry g_sentries[] =
         kscrashsentry_uninstallUserExceptionHandler,
     },
 };
-static size_t g_sentriesCount = sizeof(g_sentries) / sizeof(*g_sentries);
+static int g_sentriesCount = sizeof(g_sentries) / sizeof(*g_sentries);
 
 /** Context to fill with crash information. */
 static KSCrash_SentryContext* g_context = NULL;
@@ -123,7 +123,7 @@ KSCrashType kscrashsentry_installWithContext(KSCrash_SentryContext* context,
     g_context->onCrash = onCrash;
 
     KSCrashType installed = KSCrashTypeNone;
-    for(size_t i = 0; i < g_sentriesCount; i++)
+    for(int i = 0; i < g_sentriesCount; i++)
     {
         CrashSentry* sentry = &g_sentries[i];
         if(sentry->crashType & crashTypes)
@@ -142,7 +142,7 @@ KSCrashType kscrashsentry_installWithContext(KSCrash_SentryContext* context,
 void kscrashsentry_uninstall(KSCrashType crashTypes)
 {
     KSLOG_DEBUG("Uninstalling handlers with crash types 0x%x.", crashTypes);
-    for(size_t i = 0; i < g_sentriesCount; i++)
+    for(int i = 0; i < g_sentriesCount; i++)
     {
         CrashSentry* sentry = &g_sentries[i];
         if(sentry->crashType & crashTypes)

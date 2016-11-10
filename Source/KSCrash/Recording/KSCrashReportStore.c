@@ -35,7 +35,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
 #include <unistd.h>
 
 
@@ -130,7 +129,7 @@ static int getReportIDs(int64_t* reportIDs, int count)
         }
     }
 
-    qsort(reportIDs, (size_t)count, sizeof(reportIDs[0]), compareInt64);
+    qsort(reportIDs, (unsigned)count, sizeof(reportIDs[0]), compareInt64);
 
 done:
     if(dir != NULL)
@@ -234,13 +233,13 @@ void kscrs_addUserReport(const char* report, int reportLength)
         goto done;
     }
 
-    int bytesWritten = write(fd, report, (size_t)reportLength);
+    int bytesWritten = write(fd, report, (unsigned)reportLength);
     if(bytesWritten < 0)
     {
         KSLOG_ERROR("Could not write to file %s: %s", crashReportPath, strerror(errno));
         goto done;
     }
-    else if(bytesWritten < (ssize_t)reportLength)
+    else if(bytesWritten < reportLength)
     {
         KSLOG_ERROR("Expected to write %lull bytes to file %s, but only wrote %ll", crashReportPath, reportLength, bytesWritten);
     }

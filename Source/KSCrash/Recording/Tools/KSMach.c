@@ -271,19 +271,15 @@ pthread_t ksmach_pthreadFromMachThread(const thread_t thread)
     return 0;
 }
 
-bool ksmach_getThreadName(const thread_t thread,
-                          char* const buffer,
-                          size_t bufLength)
+bool ksmach_getThreadName(const thread_t thread, char* const buffer, int bufLength)
 {
     // WARNING: This implementation is no longer async-safe!
 
     const pthread_t pthread = pthread_from_mach_thread_np(thread);
-    return pthread_getname_np(pthread, buffer, bufLength) == 0;
+    return pthread_getname_np(pthread, buffer, (unsigned)bufLength) == 0;
 }
 
-bool ksmach_getThreadQueueName(const thread_t thread,
-                               char* const buffer,
-                               size_t bufLength)
+bool ksmach_getThreadQueueName(const thread_t thread, char* const buffer, int bufLength)
 {
     // WARNING: This implementation is no longer async-safe!
 
@@ -317,10 +313,10 @@ bool ksmach_getThreadQueueName(const thread_t thread,
         return false;
     }
     KSLOG_TRACE("Dispatch queue name: %s", queue_name);
-    size_t length = strlen(queue_name);
+    int length = (int)strlen(queue_name);
 
     // Queue label must be a null terminated string.
-    size_t iLabel;
+    int iLabel;
     for(iLabel = 0; iLabel < length + 1; iLabel++)
     {
         if(queue_name[iLabel] < ' ' || queue_name[iLabel] > '~')
@@ -457,9 +453,7 @@ bool ksmach_resumeAllThreadsExcept(__unused thread_t* exceptThreads, __unused in
 }
 #endif
 
-kern_return_t ksmach_copyMem(const void* const src,
-                             void* const dst,
-                             const size_t numBytes)
+kern_return_t ksmach_copyMem(const void* const src, void* const dst, const int numBytes)
 {
     vm_size_t bytesCopied = 0;
     return vm_read_overwrite(mach_task_self(),
@@ -469,16 +463,14 @@ kern_return_t ksmach_copyMem(const void* const src,
                              &bytesCopied);
 }
 
-size_t ksmach_copyMaxPossibleMem(const void* const src,
-                                 void* const dst,
-                                 const size_t numBytes)
+int ksmach_copyMaxPossibleMem(const void* const src, void* const dst, const int numBytes)
 {
     const uint8_t* pSrc = src;
     const uint8_t* pSrcMax = (uint8_t*)src + numBytes;
     const uint8_t* pSrcEnd = (uint8_t*)src + numBytes;
     uint8_t* pDst = dst;
 
-    size_t bytesCopied = 0;
+    int bytesCopied = 0;
 
     // Short-circuit if no memory is readable
     if(ksmach_copyMem(src, dst, 1) != KERN_SUCCESS)
@@ -492,15 +484,15 @@ size_t ksmach_copyMaxPossibleMem(const void* const src,
 
     for(;;)
     {
-        ssize_t copyLength = pSrcEnd - pSrc;
+        int copyLength = pSrcEnd - pSrc;
         if(copyLength <= 0)
         {
             break;
         }
 
-        if(ksmach_copyMem(pSrc, pDst, (size_t)copyLength) == KERN_SUCCESS)
+        if(ksmach_copyMem(pSrc, pDst, copyLength) == KERN_SUCCESS)
         {
-            bytesCopied += (size_t)copyLength;
+            bytesCopied += copyLength;
             pSrc += copyLength;
             pDst += copyLength;
             pSrcEnd = pSrc + (pSrcMax - pSrc) / 2;

@@ -1514,10 +1514,10 @@ static NSString* toString(NSData* data)
 
 }
 
-static int addJSONData(const char* data, size_t length, void* userData)
+static int addJSONData(const char* data, int length, void* userData)
 {
     NSMutableData* nsdata = (__bridge NSMutableData*)userData;
-    [nsdata appendBytes:data length:length];
+    [nsdata appendBytes:data length:(unsigned)length];
     return KSJSON_OK;
 }
 

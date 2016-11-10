@@ -38,12 +38,12 @@ extern "C" {
 
 
 #include <stdbool.h>
-#include <sys/types.h>
+#include <stdint.h>
 
 /* Tells the encoder to automatically determine the length of a field value.
  * Currently, this is done using strlen().
  */
-#define KSJSON_SIZE_AUTOMATIC ((size_t)~0)
+#define KSJSON_SIZE_AUTOMATIC -1
 
 enum
 {
@@ -97,9 +97,7 @@ const char* ksjson_stringForError(const int error);
  * @return KSJSON_OK if the data was handled.
  *         otherwise KSJSON_ERROR_CANNOT_ADD_DATA.
  */
-typedef int (*KSJSONAddDataFunc)(const char* data,
-size_t length,
-void* userData);
+typedef int (*KSJSONAddDataFunc)(const char* data, int length, void* userData);
 
 typedef struct
 {
@@ -170,7 +168,7 @@ int ksjson_addBooleanElement(KSJSONEncodeContext* context,
  */
 int ksjson_addIntegerElement(KSJSONEncodeContext* context,
                              const char* name,
-                             long long value);
+                             int64_t value);
 
 /** Add a floating point element.
  *
@@ -212,7 +210,7 @@ int ksjson_addNullElement(KSJSONEncodeContext* context,
 int ksjson_addStringElement(KSJSONEncodeContext* context,
                             const char* name,
                             const char* value,
-                            size_t length);
+                            int length);
 
 /** Start an incrementally-built string element.
  *
@@ -239,7 +237,7 @@ int ksjson_beginStringElement(KSJSONEncodeContext* context,
  */
 int ksjson_appendStringElement(KSJSONEncodeContext* context,
                                const char* value,
-                               size_t length);
+                               int length);
 
 /** End an incrementally-built string element.
  *
@@ -264,7 +262,7 @@ int ksjson_endStringElement(KSJSONEncodeContext* context);
 int ksjson_addDataElement(KSJSONEncodeContext* const context,
                           const char* name,
                           const char* value,
-                          size_t length);
+                          int length);
 
 /** Start an incrementally-built data element. The element will be converted
  * to string-coded hex.
@@ -292,7 +290,7 @@ int ksjson_beginDataElement(KSJSONEncodeContext* const context,
  */
 int ksjson_appendDataElement(KSJSONEncodeContext* const context,
                              const char* const value,
-                             size_t length);
+                             int length);
 
 /** End an incrementally-built data element.
  *
@@ -368,7 +366,7 @@ int ksjson_beginElement(KSJSONEncodeContext* const context,
  */
 int ksjson_addRawJSONData(KSJSONEncodeContext* const context,
                           const char* const data,
-                          const size_t length);
+                          const int length);
 
 /** End the current container and return to the next higher level.
  *
@@ -444,7 +442,7 @@ typedef struct KSJSONDecodeCallbacks
      * @return KSJSON_OK if decoding should continue.
      */
     int (*onIntegerElement)(const char* name,
-                            long long value,
+                            int64_t value,
                             void* userData);
 
     /** Called when a null element is decoded.

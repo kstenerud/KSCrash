@@ -139,7 +139,7 @@
     char buff[1000];
     char buff2[5] = {1,2,3,4,5};
     
-    size_t copied = ksmach_copyMaxPossibleMem(buff2, buff, sizeof(buff));
+    int copied = ksmach_copyMaxPossibleMem(buff2, buff, sizeof(buff));
     XCTAssertTrue(copied >= 5, @"");
     int memCmpResult = memcmp(buff, buff2, sizeof(buff2));
     XCTAssertEqual(memCmpResult, 0, @"");
@@ -150,7 +150,7 @@
     char buff[1000];
     char* buff2 = NULL;
     
-    size_t copied = ksmach_copyMaxPossibleMem(buff2, buff, sizeof(buff));
+    int copied = ksmach_copyMaxPossibleMem(buff2, buff, sizeof(buff));
     XCTAssertTrue(copied == 0, @"");
 }
 
@@ -159,7 +159,7 @@
     char buff[1000];
     char* buff2 = (char*)-1;
     
-    size_t copied = ksmach_copyMaxPossibleMem(buff2, buff, sizeof(buff));
+    int copied = ksmach_copyMaxPossibleMem(buff2, buff, sizeof(buff));
     XCTAssertTrue(copied == 0, @"");
 }
 

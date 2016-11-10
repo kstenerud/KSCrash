@@ -250,7 +250,7 @@ failed:
 - (void) setDoNotIntrospectClasses:(NSArray *)doNotIntrospectClasses
 {
     _doNotIntrospectClasses = doNotIntrospectClasses;
-    size_t count = [doNotIntrospectClasses count];
+    unsigned count = [doNotIntrospectClasses count];
     if(count == 0)
     {
         kscrash_setDoNotIntrospectClasses(nil, 0);
@@ -259,11 +259,11 @@ failed:
     {
         NSMutableData* data = [NSMutableData dataWithLength:count * sizeof(const char*)];
         const char** classes = data.mutableBytes;
-        for(size_t i = 0; i < count; i++)
+        for(unsigned i = 0; i < count; i++)
         {
             classes[i] = [[doNotIntrospectClasses objectAtIndex:i] cStringUsingEncoding:NSUTF8StringEncoding];
         }
-        kscrash_setDoNotIntrospectClasses(classes, count);
+        kscrash_setDoNotIntrospectClasses(classes, (int)count);
     }
 }
 

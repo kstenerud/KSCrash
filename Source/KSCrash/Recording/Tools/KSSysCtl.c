@@ -31,7 +31,6 @@
 #include "KSLogger.h"
 
 #include <errno.h>
-#include <sys/socket.h>
 #include <net/if.h>
 #include <net/if_dl.h>
 #include <string.h>
@@ -158,13 +157,13 @@ uint64_t kssysctl_uint64ForName(const char* const name)
     return value;
 }
 
-size_t kssysctl_string(const int major_cmd,
+int kssysctl_string(const int major_cmd,
                        const int minor_cmd,
                        char*const value,
-                       const size_t maxSize)
+                       const int maxSize)
 {
     int cmd[2] = {major_cmd, minor_cmd};
-    size_t size = value == NULL ? 0 : maxSize;
+    size_t size = value == NULL ? 0 : (size_t)maxSize;
 
     CHECK_SYSCTL_CMD(string, sysctl(cmd,
                                     sizeof(cmd)/sizeof(*cmd),
@@ -173,18 +172,18 @@ size_t kssysctl_string(const int major_cmd,
                                     NULL,
                                     0));
 
-    return size;
+    return (int)size;
 }
 
-size_t kssysctl_stringForName(const char* const  name,
+int kssysctl_stringForName(const char* const  name,
                               char* const value,
-                              const size_t maxSize)
+                              const int maxSize)
 {
-    size_t size = value == NULL ? 0 : maxSize;
+    size_t size = value == NULL ? 0 : (size_t)maxSize;
 
     CHECK_SYSCTL_NAME(string, sysctlbyname(name, value, &size, NULL, 0));
 
-    return size;
+    return (int)size;
 }
 
 struct timeval kssysctl_timeval(const int major_cmd, const int minor_cmd)

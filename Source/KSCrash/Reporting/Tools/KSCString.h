@@ -32,7 +32,7 @@
 @interface KSCString : NSObject
 
 /** Length of the string in bytes (not characters!). Length does not include null terminator. */
-@property(nonatomic,readonly,assign) size_t length;
+@property(nonatomic,readonly,assign) NSUInteger length;
 
 /** String contents, including null terminator */
 @property(nonatomic,readonly,assign) const char* bytes;
@@ -47,11 +47,11 @@
 + (KSCString*) stringWithData:(NSData*) data;
 
 /** Constructor for non-terminated string (assumes UTF-8 encoding). */
-+ (KSCString*) stringWithData:(const char*) data length:(size_t) length;
++ (KSCString*) stringWithData:(const char*) data length:(NSUInteger) length;
 
 - (id) initWithString:(NSString*) string;
 - (id) initWithCString:(const char*) string;
 - (id) initWithData:(NSData*) data;
-- (id) initWithData:(const char*) data length:(size_t) length;
+- (id) initWithData:(const char*) data length:(NSUInteger) length;
 
 @end

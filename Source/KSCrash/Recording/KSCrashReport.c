@@ -43,10 +43,9 @@
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
-#include <mach-o/dyld.h>
-#include <stdio.h>
-#include <fcntl.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <stdio.h>
 #include <unistd.h>
 
 
@@ -149,16 +148,16 @@ void kscrw_i_addFloatingPointElement(const KSCrashReportWriter* const writer,
 
 void kscrw_i_addIntegerElement(const KSCrashReportWriter* const writer,
                                const char* const key,
-                               const long long value)
+                               const int64_t value)
 {
     ksjson_addIntegerElement(getJsonContext(writer), key, value);
 }
 
 void kscrw_i_addUIntegerElement(const KSCrashReportWriter* const writer,
                                 const char* const key,
-                                const unsigned long long value)
+                                const uint64_t value)
 {
-    ksjson_addIntegerElement(getJsonContext(writer), key, (long long)value);
+    ksjson_addIntegerElement(getJsonContext(writer), key, (int64_t)value);
 }
 
 void kscrw_i_addStringElement(const KSCrashReportWriter* const writer,
@@ -186,14 +185,12 @@ void kscrw_i_addTextFileElement(const KSCrashReportWriter* const writer,
     }
 
     char buffer[512];
-    ssize_t bytesRead;
+    int bytesRead;
     for(bytesRead = read(fd, buffer, sizeof(buffer));
         bytesRead > 0;
         bytesRead = read(fd, buffer, sizeof(buffer)))
     {
-        if(ksjson_appendStringElement(getJsonContext(writer),
-                                      buffer,
-                                      (size_t)bytesRead) != KSJSON_OK)
+        if(ksjson_appendStringElement(getJsonContext(writer), buffer, bytesRead) != KSJSON_OK)
         {
             KSLOG_ERROR("Could not append string element");
             goto done;
@@ -208,7 +205,7 @@ done:
 void kscrw_i_addDataElement(const KSCrashReportWriter* const writer,
                             const char* const key,
                             const char* const value,
-                            const size_t length)
+                            const int length)
 {
     ksjson_addDataElement(getJsonContext(writer), key, value, length);
 }
@@ -221,7 +218,7 @@ void kscrw_i_beginDataElement(const KSCrashReportWriter* const writer,
 
 void kscrw_i_appendDataElement(const KSCrashReportWriter* const writer,
                                const char* const value,
-                               const size_t length)
+                               const int length)
 {
     ksjson_appendDataElement(getJsonContext(writer), value, length);
 }
@@ -274,10 +271,7 @@ void kscrw_i_addUUIDElement(const KSCrashReportWriter* const writer,
             *dst++ = g_hexNybbles[(*src++)&15];
         }
 
-        ksjson_addStringElement(getJsonContext(writer),
-                                key,
-                                uuidBuffer,
-                                (size_t)(dst - uuidBuffer));
+        ksjson_addStringElement(getJsonContext(writer), key, uuidBuffer, dst - uuidBuffer);
     }
 }
 
@@ -336,12 +330,10 @@ void kscrw_i_endContainer(const KSCrashReportWriter* const writer)
     ksjson_endContainer(getJsonContext(writer));
 }
 
-int kscrw_i_addJSONData(const char* const data,
-                        const size_t length,
-                        void* const userData)
+int kscrw_i_addJSONData(const char* const data, const int length, void* const userData)
 {
     const int fd = *((int*)userData);
-    const bool success = ksfu_writeBytesToFD(fd, data, (ssize_t)length);
+    const bool success = ksfu_writeBytesToFD(fd, data, length);
     return success ? KSJSON_OK : KSJSON_ERROR_CANNOT_ADD_DATA;
 }
 
@@ -826,19 +818,19 @@ void kscrw_i_writeUnknownObjectContents(const KSCrashReportWriter* const writer,
     (*limit)--;
     const void* object = (const void*)objectAddress;
     KSObjCIvar ivars[10];
-    char s8;
-    short s16;
+    int8_t s8;
+    int16_t s16;
     int sInt;
-    long s32;
-    long long s64;
-    unsigned char u8;
-    unsigned short u16;
+    int32_t s32;
+    int64_t s64;
+    uint8_t u8;
+    uint16_t u16;
     unsigned int uInt;
-    unsigned long u32;
-    unsigned long long u64;
+    uint32_t u32;
+    uint64_t u64;
     float f32;
     double f64;
-    _Bool b;
+    bool b;
     void* pointer;
     
     
@@ -846,14 +838,14 @@ void kscrw_i_writeUnknownObjectContents(const KSCrashReportWriter* const writer,
     {
         if(ksobjc_isTaggedPointer(object))
         {
-            writer->addIntegerElement(writer, "tagged_payload", (long long)ksobjc_taggedPointerPayload(object));
+            writer->addIntegerElement(writer, "tagged_payload", (int64_t)ksobjc_taggedPointerPayload(object));
         }
         else
         {
             const void* class = ksobjc_isaPointer(object);
-            size_t ivarCount = ksobjc_ivarList(class, ivars, sizeof(ivars)/sizeof(*ivars));
-            *limit -= (int)ivarCount;
-            for(size_t i = 0; i < ivarCount; i++)
+            int ivarCount = ksobjc_ivarList(class, ivars, sizeof(ivars)/sizeof(*ivars));
+            *limit -= ivarCount;
+            for(int i = 0; i < ivarCount; i++)
             {
                 KSObjCIvar* ivar = &ivars[i];
                 switch(ivar->type[0])
@@ -930,7 +922,7 @@ bool kscrw_i_isRestrictedClass(const char* name)
 {
     if(g_introspectionRules->restrictedClasses != NULL)
     {
-        for(size_t i = 0; i < g_introspectionRules->restrictedClassesCount; i++)
+        for(int i = 0; i < g_introspectionRules->restrictedClassesCount; i++)
         {
             if(strcmp(name, g_introspectionRules->restrictedClasses[i]) == 0)
             {
@@ -1106,7 +1098,7 @@ void kscrw_i_writeAddressReferencedByString(const KSCrashReportWriter* const wri
                                             const char* string)
 {
     uint64_t address = 0;
-    if(string == NULL || !ksstring_extractHexValue(string, strlen(string), &address))
+    if(string == NULL || !ksstring_extractHexValue(string, (int)strlen(string), &address))
     {
         return;
     }
@@ -1232,7 +1224,7 @@ void kscrw_i_writeStackContents(const KSCrashReportWriter* const writer,
         writer->addUIntegerElement(writer, KSCrashField_StackPtr, sp);
         writer->addBooleanElement(writer, KSCrashField_Overflow, isStackOverflow);
         uint8_t stackBuffer[kStackContentsTotalDistance * sizeof(sp)];
-        size_t copyLength = highAddress - lowAddress;
+        int copyLength = (intptr_t)highAddress - (intptr_t)lowAddress;
         if(ksmach_copyMem((void*)lowAddress, stackBuffer, copyLength) == KERN_SUCCESS)
         {
             writer->addDataElement(writer, KSCrashField_Contents, (void*)stackBuffer, copyLength);

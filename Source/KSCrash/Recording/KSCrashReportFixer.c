@@ -150,7 +150,7 @@ static int onFloatingPointElement(const char* const name,
 }
 
 static int onIntegerElement(const char* const name,
-                            const long long value,
+                            const int64_t value,
                             void* const userData)
 {
     FixupContext* context = (FixupContext*)userData;
@@ -160,7 +160,7 @@ static int onIntegerElement(const char* const name,
         char buffer[21];
         rfc3339UtcStringFromUNIXTimestamp((time_t)value, buffer);
 
-        result = ksjson_addStringElement(context->encodeContext, name, buffer, strlen(buffer));
+        result = ksjson_addStringElement(context->encodeContext, name, buffer, (int)strlen(buffer));
     }
     else
     {
@@ -195,7 +195,7 @@ static int onStringElement(const char* const name,
             stringValue = demangled;
         }
     }
-    int result = ksjson_addStringElement(context->encodeContext, name, stringValue, strlen(stringValue));
+    int result = ksjson_addStringElement(context->encodeContext, name, stringValue, (int)strlen(stringValue));
     if(demangled != NULL)
     {
         free(demangled);
@@ -244,10 +244,10 @@ static int onEndData(__unused void* const userData)
     return ksjson_endEncode(context->encodeContext);
 }
 
-static int addJSONData(const char* data, size_t length, void* userData)
+static int addJSONData(const char* data, int length, void* userData)
 {
     FixupContext* context = (FixupContext*)userData;
-    if((int)length > context->outputBytesLeft)
+    if(length > context->outputBytesLeft)
     {
         return KSJSON_ERROR_DATA_TOO_LONG;
     }
@@ -278,10 +278,10 @@ char* kscrf_fixupCrashReport(const char* crashReport)
         .onStringElement = onStringElement,
     };
     int stringBufferLength = 1000;
-    char* stringBuffer = malloc((size_t)stringBufferLength);
+    char* stringBuffer = malloc((unsigned)stringBufferLength);
     int crashReportLength = (int)strlen(crashReport);
     int fixedReportLength = (int)(crashReportLength * 1.5);
-    char* fixedReport = malloc((size_t)fixedReportLength);
+    char* fixedReport = malloc((unsigned)fixedReportLength);
     KSJSONEncodeContext encodeContext;
     FixupContext fixupContext =
     {

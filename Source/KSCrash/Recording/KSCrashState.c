@@ -107,7 +107,7 @@ int kscrashstate_i_onFloatingPointElement(const char* const name,
 }
 
 int kscrashstate_i_onIntegerElement(const char* const name,
-                                    const long long value,
+                                    const int64_t value,
                                     void* const userData)
 {
     KSCrash_State* state = userData;
@@ -171,12 +171,10 @@ int kscrashstate_i_onEndData(__unused void* const userData)
 
 /** Callback for adding JSON data.
  */
-int kscrashstate_i_addJSONData(const char* const data,
-                               const size_t length,
-                               void* const userData)
+int kscrashstate_i_addJSONData(const char* const data, const int length, void* const userData)
 {
     const int fd = *((int*)userData);
-    const bool success = ksfu_writeBytesToFD(fd, data, (ssize_t)length);
+    const bool success = ksfu_writeBytesToFD(fd, data, length);
     return success ? KSJSON_OK : KSJSON_ERROR_CANNOT_ADD_DATA;
 }
 
@@ -218,7 +216,7 @@ bool kscrashstate_i_loadState(KSCrash_State* const context,
     close(fd);
 
     char* data;
-    size_t length;
+    int length;
     if(!ksfu_readEntireFile(path, &data, &length))
     {
         KSLOG_ERROR("%s: Could not load file", path);

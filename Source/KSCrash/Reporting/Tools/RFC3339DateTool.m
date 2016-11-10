@@ -58,14 +58,14 @@ static NSDateFormatter* g_formatter;
     return [g_formatter dateFromString:string];
 }
 
-+ (NSString*) stringFromUNIXTimestamp:(unsigned long long) timestamp
++ (NSString*) stringFromUNIXTimestamp:(uint64_t) timestamp
 {
     return [self stringFromDate:[NSDate dateWithTimeIntervalSince1970:timestamp]];
 }
 
-+ (unsigned long long) UNIXTimestampFromString:(NSString*) string
++ (uint64_t) UNIXTimestampFromString:(NSString*) string
 {
-    return (unsigned long long)[[self dateFromString:string] timeIntervalSince1970];
+    return (uint64_t)[[self dateFromString:string] timeIntervalSince1970];
 }
 
 @end

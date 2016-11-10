@@ -46,7 +46,7 @@
     return [[self alloc] initWithData:data];
 }
 
-+ (KSCString*) stringWithData:(const char*) data length:(size_t) length
++ (KSCString*) stringWithData:(const char*) data length:(NSUInteger) length
 {
     return [[self alloc] initWithData:data length:length];
 }
@@ -71,12 +71,12 @@
     return [self initWithData:data.bytes length:data.length];
 }
 
-- (id) initWithData:(const char*) data length:(size_t) length
+- (id) initWithData:(const char*) data length:(NSUInteger) length
 {
     if((self = [super init]))
     {
         _length = length;
-        char* bytes = malloc(_length+1);
+        char* bytes = malloc((unsigned)_length+1);
         memcpy(bytes, data, _length);
         bytes[_length] = 0;
         _bytes = bytes;

@@ -40,7 +40,6 @@ extern "C" {
 
 #include <stdbool.h>
 #include <stdint.h>
-#include <sys/types.h>
 
 
 /**
@@ -148,7 +147,7 @@ typedef struct KSCrashReportWriter
     void (*addDataElement)(const struct KSCrashReportWriter* writer,
                            const char* name,
                            const char* value,
-                           const size_t length);
+                           const int length);
 
     /** Begin writing a hex encoded data element to the report.
      *
@@ -169,7 +168,7 @@ typedef struct KSCrashReportWriter
      */
     void (*appendDataElement)(const struct KSCrashReportWriter* writer,
                               const char* value,
-                              const size_t length);
+                              const int length);
 
     /** Complete writing a hex encoded data element to the report.
      *

@@ -253,7 +253,7 @@ int ksmach_stackGrowDirection(void);
  *
  * @return true if a name was found.
  */
-bool ksmach_getThreadName(const thread_t thread, char* const buffer, size_t bufLength);
+bool ksmach_getThreadName(const thread_t thread, char* const buffer, int bufLength);
 
 /** Get the name of a thread's dispatch queue. Internally, a queue name will
  * never be more than 64 characters long.
@@ -266,7 +266,7 @@ bool ksmach_getThreadName(const thread_t thread, char* const buffer, size_t bufL
  *
  * @return true if a name or label was found.
  */
-bool ksmach_getThreadQueueName(thread_t thread, char* buffer, size_t bufLength);
+bool ksmach_getThreadQueueName(thread_t thread, char* buffer, int bufLength);
 
 
 // ============================================================================
@@ -341,7 +341,7 @@ bool ksmach_resumeAllThreadsExcept(thread_t* exceptThreads, int exceptThreadsCou
  *
  * @return KERN_SUCCESS or an error code.
  */
-kern_return_t ksmach_copyMem(const void* src, void* dst, size_t numBytes);
+kern_return_t ksmach_copyMem(const void* src, void* dst, int numBytes);
 
 /** Copies up to numBytes of data from src to dest, stopping if memory
  * becomes inaccessible.
@@ -354,7 +354,7 @@ kern_return_t ksmach_copyMem(const void* src, void* dst, size_t numBytes);
  *
  * @return The number of bytes actually copied.
  */
-size_t ksmach_copyMaxPossibleMem(const void* src, void* dst, size_t numBytes);
+int ksmach_copyMaxPossibleMem(const void* src, void* dst, int numBytes);
 
 /** Check if the current process is being traced or not.
  *
