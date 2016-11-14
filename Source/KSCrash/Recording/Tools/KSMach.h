@@ -40,7 +40,6 @@ extern "C" {
 #include "KSArchSpecific.h"
 
 #include <mach/mach.h>
-#include <pthread.h>
 #include <stdbool.h>
 #include <sys/ucontext.h>
 

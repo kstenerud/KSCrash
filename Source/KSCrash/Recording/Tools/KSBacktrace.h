@@ -39,7 +39,6 @@ extern "C" {
 
 #include <dlfcn.h>
 #include <mach/mach.h>
-#include <pthread.h>
 
 
 /** Generate a backtrace on the specified mach thread (async-safe).

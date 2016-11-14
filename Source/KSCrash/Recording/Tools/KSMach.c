@@ -37,6 +37,7 @@
 #include <errno.h>
 #include <mach-o/arch.h>
 #include <mach/vm_map.h>
+#include <pthread.h>
 #include <sys/sysctl.h>
 
 
