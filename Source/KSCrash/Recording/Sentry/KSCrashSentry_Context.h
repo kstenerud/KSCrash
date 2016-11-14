@@ -32,6 +32,8 @@
 extern "C" {
 #endif
 
+#include "KSCrashType.h"
+    
 #include <mach/mach_types.h>
 #include <signal.h>
 #include <stdbool.h>
