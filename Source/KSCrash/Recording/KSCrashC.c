@@ -29,7 +29,6 @@
 
 #include "KSCrashReport.h"
 #include "KSString.h"
-#include "KSMach.h"
 #include "KSObjC.h"
 #include "KSZombie.h"
 #include "KSCrashSentry_Deadlock.h"
@@ -40,6 +39,7 @@
 #include "KSLogger.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 
 // ============================================================================
@@ -127,8 +127,6 @@ KSCrashType kscrash_install(const char* const crashReportFilePath,
     }
     g_installed = 1;
 
-    ksmach_init();
-    
     if(context->config.introspectionRules.enabled)
     {
         ksobjc_init();

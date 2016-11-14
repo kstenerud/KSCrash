@@ -58,21 +58,6 @@ int ksbt_backtraceThread(thread_t thread,
                          uintptr_t* backtraceBuffer,
                          int maxEntries);
 
-/** Generate a backtrace on the specified posix thread (async-safe).
- *
- * @param thread The thread to generate a backtrace for.
- *
- * @param backtraceBuffer A buffer to hold the backtrace.
- *
- * @param maxEntries The maximum number of trace entries to generate (must not
- *                   be larger than backtraceBuffer can hold).
- *
- * @return The number of backtrace entries generated.
- */
-int ksbt_backtracePthread(pthread_t thread,
-                          uintptr_t* backtraceBuffer,
-                          int maxEntries);
-
 /** Generate a backtrace on the currently running thread (async-safe).
  *
  * Note: This function seems to get a bit confused at times due to stack

@@ -46,17 +46,6 @@ extern "C" {
 
 
 // ============================================================================
-#pragma mark - Initialization -
-// ============================================================================
-
-/** Initializes KSMach.
- * Some functions (currently only ksmach_pthreadFromMachThread) require
- * initialization before use.
- */
-void ksmach_init(void);
-
-
-// ============================================================================
 #pragma mark - General Information -
 // ============================================================================
 
@@ -281,22 +270,6 @@ bool ksmach_getThreadQueueName(thread_t thread, char* buffer, int bufLength);
  * @return The current thread ID.
  */
 thread_t ksmach_thread_self();
-
-/** Get a mach thread's corresponding posix thread.
- *
- * @param thread The mach thread.
- *
- * @return The corresponding posix thread, or 0 if an error occurred.
- */
-pthread_t ksmach_pthreadFromMachThread(const thread_t thread);
-
-/** Get a posix thread's corresponding mach thread.
- *
- * @param pthread The posix thread.
- *
- * @return The corresponding mach thread, or 0 if an error occurred.
- */
-thread_t ksmach_machThreadFromPThread(const pthread_t pthread);
 
 /** Suspend all threads except for the current one.
  *

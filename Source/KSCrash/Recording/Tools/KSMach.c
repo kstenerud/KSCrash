@@ -53,8 +53,6 @@
 bool ksmach_i_VMStats(vm_statistics_data_t* const vmStats,
                       vm_size_t* const pageSize);
 
-static pthread_t g_topThread;
-
 // ============================================================================
 #pragma mark - General Information -
 // ============================================================================
@@ -201,74 +199,11 @@ bool ksmach_fillState(__unused const thread_t thread,
 }
 #endif
 
-void ksmach_init(void)
-{
-    static volatile sig_atomic_t initialized = 0;
-    if(!initialized)
-    {
-        kern_return_t kr;
-        const task_t thisTask = mach_task_self();
-        thread_act_array_t threads;
-        mach_msg_type_number_t numThreads;
-
-        if((kr = task_threads(thisTask, &threads, &numThreads)) != KERN_SUCCESS)
-        {
-            KSLOG_ERROR("task_threads: %s", mach_error_string(kr));
-            return;
-        }
-
-        g_topThread = pthread_from_mach_thread_np(threads[0]);
-
-        for(mach_msg_type_number_t i = 0; i < numThreads; i++)
-        {
-            mach_port_deallocate(thisTask, threads[i]);
-        }
-        vm_deallocate(thisTask, (vm_address_t)threads, sizeof(thread_t) * numThreads);
-        initialized = true;
-    }
-}
-
 thread_t ksmach_thread_self()
 {
     thread_t thread_self = mach_thread_self();
     mach_port_deallocate(mach_task_self(), thread_self);
     return thread_self;
-}
-
-thread_t ksmach_machThreadFromPThread(const pthread_t pthread)
-{
-    const internal_pthread_t threadStruct = (internal_pthread_t)pthread;
-    thread_t machThread = 0;
-    if(ksmach_copyMem(&threadStruct->kernel_thread, &machThread, sizeof(machThread)) != KERN_SUCCESS)
-    {
-        KSLOG_TRACE("Could not copy mach thread from %p", threadStruct->kernel_thread);
-        return 0;
-    }
-    return machThread;
-}
-
-pthread_t ksmach_pthreadFromMachThread(const thread_t thread)
-{
-    internal_pthread_t threadStruct = (internal_pthread_t)g_topThread;
-    thread_t machThread = 0;
-
-    for(int i = 0; i < 50; i++)
-    {
-        if(ksmach_copyMem(&threadStruct->kernel_thread, &machThread, sizeof(machThread)) != KERN_SUCCESS)
-        {
-            break;
-        }
-        if(machThread == thread)
-        {
-            return (pthread_t)threadStruct;
-        }
-
-        if(ksmach_copyMem(&threadStruct->plist.tqe_next, &threadStruct, sizeof(threadStruct)) != KERN_SUCCESS)
-        {
-            break;
-        }
-    }
-    return 0;
 }
 
 bool ksmach_getThreadName(const thread_t thread, char* const buffer, int bufLength)
