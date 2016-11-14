@@ -50,13 +50,10 @@ extern "C" {
  *
  * @param stateFilePath File to store persistent state in.
  *
- * @param crashID The unique identifier to assign to the next crash report.
- *
  * @return The crash types that are being handled.
  */
 KSCrashType kscrash_install(const char* const crashReportFilePath,
-                            const char* stateFilePath,
-                            const char* crashID);
+                            const char* stateFilePath);
 
 /** Set the crash types that will be handled.
  * Some crash types may not be enabled depending on circumstances (e.g. running
@@ -77,12 +74,9 @@ KSCrashType kscrash_setHandlingCrashTypes(KSCrashType crashTypes);
  * @param crashReportFilePath The file to store the next crash report to.
  *
  * @param stateFilePath File to store persistent state in.
- *
- * @param crashID The unique identifier to assign to the next crash report.
  */
 void kscrash_reinstall(const char* const crashReportFilePath,
-                       const char* const stateFilePath,
-                       const char* const crashID);
+                       const char* const stateFilePath);
 
 /** Set the user-supplied data in JSON format.
  *

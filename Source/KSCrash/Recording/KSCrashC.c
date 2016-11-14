@@ -38,8 +38,10 @@
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <uuid/uuid.h>
 
 
 // ============================================================================
@@ -63,7 +65,6 @@ static char* g_crashReportFilePath;
 
 /** Path to store the state file. */
 static char* g_stateFilePath;
-
 
 // ============================================================================
 #pragma mark - Utility -
@@ -113,8 +114,7 @@ void kscrash_i_onCrash(void)
 // ============================================================================
 
 KSCrashType kscrash_install(const char* const crashReportFilePath,
-                            const char* stateFilePath,
-                            const char* crashID)
+                            const char* stateFilePath)
 {
     KSLOG_DEBUG("Installing crash reporter.");
 
@@ -133,8 +133,7 @@ KSCrashType kscrash_install(const char* const crashReportFilePath,
     }
     
     kscrash_reinstall(crashReportFilePath,
-                      stateFilePath,
-                      crashID);
+                      stateFilePath);
 
 
     KSCrashType crashTypes = kscrash_setHandlingCrashTypes(context->config.handlingCrashTypes);
@@ -147,11 +146,32 @@ KSCrashType kscrash_install(const char* const crashReportFilePath,
 }
 
 void kscrash_reinstall(const char* const crashReportFilePath,
-                       const char* const stateFilePath,
-                       const char* const crashID)
+                       const char* const stateFilePath)
 {
     KSLOG_TRACE("reportFilePath = %s", crashReportFilePath);
     KSLOG_TRACE("stateFilePath = %s", stateFilePath);
+
+    uuid_t uuid;
+    uuid_generate(uuid);
+    static char crashID[37];
+    sprintf(crashID, "%02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X",
+            (unsigned)uuid[0],
+            (unsigned)uuid[1],
+            (unsigned)uuid[2],
+            (unsigned)uuid[3],
+            (unsigned)uuid[4],
+            (unsigned)uuid[5],
+            (unsigned)uuid[6],
+            (unsigned)uuid[7],
+            (unsigned)uuid[8],
+            (unsigned)uuid[9],
+            (unsigned)uuid[10],
+            (unsigned)uuid[11],
+            (unsigned)uuid[12],
+            (unsigned)uuid[13],
+            (unsigned)uuid[14],
+            (unsigned)uuid[15]
+            );
     KSLOG_TRACE("crashID = %s", crashID);
 
     ksstring_replace((const char**)&g_stateFilePath, stateFilePath);

@@ -70,7 +70,6 @@
 @interface KSCrash ()
 
 @property(nonatomic,readwrite,retain) NSString* bundleName;
-@property(nonatomic,readwrite,retain) NSString* nextCrashID;
 @property(nonatomic,readwrite,retain) NSString* stateFilePath;
 
 // Mirrored from KSCrashAdvanced.h to provide ivars
@@ -100,7 +99,6 @@
 @synthesize onCrash = _onCrash;
 @synthesize bundleName = _bundleName;
 @synthesize logFilePath = _logFilePath;
-@synthesize nextCrashID = _nextCrashID;
 @synthesize searchThreadNames = _searchThreadNames;
 @synthesize searchQueueNames = _searchQueueNames;
 @synthesize introspectMemory = _introspectMemory;
@@ -160,7 +158,6 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrash)
         NSString* stateFilename = [NSString stringWithFormat:@"%@" kCrashStateFilenameSuffix, self.bundleName];
         self.stateFilePath = [self.dataPath stringByAppendingPathComponent:stateFilename];
 
-        self.nextCrashID = [NSUUID UUID].UUIDString;
         kscrs_initialize(self.bundleName.UTF8String, self.reportsPath.UTF8String);
         self.deleteBehaviorAfterSendAll = KSCDeleteAlways;
         self.searchThreadNames = NO;
@@ -272,8 +269,7 @@ failed:
     char crashReportPath[KSCRS_MAX_PATH_LENGTH];
     kscrs_getCrashReportPath(crashReportPath);
     _handlingCrashTypes = kscrash_install(crashReportPath,
-                                          self.stateFilePath.UTF8String,
-                                          self.nextCrashID.UTF8String);
+                                          self.stateFilePath.UTF8String);
     if(self.handlingCrashTypes == 0)
     {
         return false;
@@ -384,13 +380,11 @@ failed:
     // If kscrash_reportUserException() returns, we did not terminate.
     // Set up IDs and paths for the next crash.
 
-    self.nextCrashID = [NSUUID UUID].UUIDString;
     kscrsi_incrementCrashReportIndex();
     char crashReportPath[KSCRS_MAX_PATH_LENGTH];
     kscrs_getCrashReportPath(crashReportPath);
     kscrash_reinstall(crashReportPath,
-                      self.stateFilePath.UTF8String,
-                      self.nextCrashID.UTF8String);
+                      self.stateFilePath.UTF8String);
 }
 
 // ============================================================================
