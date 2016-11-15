@@ -46,42 +46,52 @@
 
 
 // ============================================================================
-#pragma mark - Default Constants -
-// ============================================================================
-
-/** The directory under "Caches" to store the crash reports. */
-#ifndef KSCRASH_DefaultReportFilesDirectory
-    #define KSCRASH_DefaultReportFilesDirectory @"KSCrashReports"
-#endif
-
-
-// ============================================================================
-#pragma mark - Constants -
-// ============================================================================
-
-#define kCrashLogFilenameSuffix "-CrashLog.txt"
-#define kCrashStateFilenameSuffix "-CrashState.json"
-
-
-// ============================================================================
 #pragma mark - Globals -
 // ============================================================================
 
 @interface KSCrash ()
 
 @property(nonatomic,readwrite,retain) NSString* bundleName;
-@property(nonatomic,readwrite,retain) NSString* stateFilePath;
+@property(nonatomic,readwrite,retain) NSString* basePath;
 
 // Mirrored from KSCrashAdvanced.h to provide ivars
 @property(nonatomic,readwrite,retain) id<KSCrashReportFilter> sink;
-@property(nonatomic,readwrite,retain) NSString* logFilePath;
 @property(nonatomic,readwrite,assign) KSReportWriteCallback onCrash;
 @property(nonatomic,readwrite,assign) bool printTraceToStdout;
 @property(nonatomic,readwrite,assign) KSCrashDemangleLanguage demangleLanguages;
-@property(nonatomic,readwrite,retain) NSString* reportsPath;
-@property(nonatomic,readwrite,retain) NSString* dataPath;
 
 @end
+
+
+static NSString* getBundleName()
+{
+    NSString* bundleName = [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleName"];
+    if(bundleName == nil)
+    {
+        bundleName = @"Unknown";
+    }
+    return bundleName;
+}
+
+static NSString* getBasePath()
+{
+    NSArray* directories = NSSearchPathForDirectoriesInDomains(NSCachesDirectory,
+                                                               NSUserDomainMask,
+                                                               YES);
+    if([directories count] == 0)
+    {
+        KSLOG_ERROR(@"Could not locate cache directory path.");
+        return nil;
+    }
+    NSString* cachePath = [directories objectAtIndex:0];
+    if([cachePath length] == 0)
+    {
+        KSLOG_ERROR(@"Could not locate cache directory path.");
+        return nil;
+    }
+    NSString* pathEnd = [@"KSCrash" stringByAppendingPathComponent:getBundleName()];
+    return [cachePath stringByAppendingPathComponent:pathEnd];
+}
 
 
 @implementation KSCrash
@@ -98,16 +108,13 @@
 @synthesize printTraceToStdout = _printTraceToStdout;
 @synthesize onCrash = _onCrash;
 @synthesize bundleName = _bundleName;
-@synthesize logFilePath = _logFilePath;
+@synthesize basePath = _basePath;
 @synthesize searchThreadNames = _searchThreadNames;
 @synthesize searchQueueNames = _searchQueueNames;
 @synthesize introspectMemory = _introspectMemory;
 @synthesize catchZombies = _catchZombies;
 @synthesize doNotIntrospectClasses = _doNotIntrospectClasses;
-@synthesize stateFilePath = _stateFilePath;
 @synthesize demangleLanguages = _demangleLanguages;
-@synthesize reportsPath = _reportsPath;
-@synthesize dataPath = _dataPath;
 
 
 // ============================================================================
@@ -120,45 +127,13 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrash)
 {
     if((self = [super init]))
     {
-        self.bundleName = [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleName"];
-        if(self.bundleName == nil)
+        self.bundleName = getBundleName();
+        self.basePath = getBasePath();
+        if(self.basePath == nil)
         {
-            self.bundleName = @"Unknown";
+            KSLOG_ERROR(@"Failed to initialize crash handler. Crash reporting disabled.");
+            return nil;
         }
-
-        NSArray* directories = NSSearchPathForDirectoriesInDomains(NSCachesDirectory,
-                                                                   NSUserDomainMask,
-                                                                   YES);
-        if([directories count] == 0)
-        {
-            KSLOG_ERROR(@"Could not locate cache directory path.");
-            goto failed;
-        }
-        NSString* cachePath = [directories objectAtIndex:0];
-        if([cachePath length] == 0)
-        {
-            KSLOG_ERROR(@"Could not locate cache directory path.");
-            goto failed;
-        }
-        NSString* storePathEnd = [@"KSCrash" stringByAppendingPathComponent:self.bundleName];
-        NSString* basePath = [cachePath stringByAppendingPathComponent:storePathEnd];
-        self.reportsPath = [basePath stringByAppendingPathComponent:@"Reports"];
-        self.dataPath = [basePath stringByAppendingPathComponent:@"Data"];
-        if(![self ensureDirectoryExists:self.reportsPath])
-        {
-            KSLOG_ERROR(@"Could not create reports path at %@", self.reportsPath);
-            goto failed;
-        }
-        if(![self ensureDirectoryExists:self.dataPath])
-        {
-            KSLOG_ERROR(@"Could not create data path at %@", self.dataPath);
-            goto failed;
-        }
-
-        NSString* stateFilename = [NSString stringWithFormat:@"%@" kCrashStateFilenameSuffix, self.bundleName];
-        self.stateFilePath = [self.dataPath stringByAppendingPathComponent:stateFilename];
-
-        kscrs_initialize(self.bundleName.UTF8String, self.reportsPath.UTF8String);
         self.deleteBehaviorAfterSendAll = KSCDeleteAlways;
         self.searchThreadNames = NO;
         self.searchQueueNames = NO;
@@ -166,10 +141,6 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrash)
         self.catchZombies = NO;
     }
     return self;
-
-failed:
-    KSLOG_ERROR(@"Failed to initialize crash handler. Crash reporting disabled.");
-    return nil;
 }
 
 
@@ -266,10 +237,8 @@ failed:
 
 - (BOOL) install
 {
-    char crashReportPath[KSCRS_MAX_PATH_LENGTH];
-    kscrs_getCrashReportPath(crashReportPath);
-    _handlingCrashTypes = kscrash_install(crashReportPath,
-                                          self.stateFilePath.UTF8String);
+    _handlingCrashTypes = kscrash_install(self.bundleName.UTF8String,
+                                          self.basePath.UTF8String);
     if(self.handlingCrashTypes == 0)
     {
         return false;
@@ -376,15 +345,6 @@ failed:
                                 cLineOfCode,
                                 cStackTrace,
                                 terminateProgram);
-
-    // If kscrash_reportUserException() returns, we did not terminate.
-    // Set up IDs and paths for the next crash.
-
-    kscrsi_incrementCrashReportIndex();
-    char crashReportPath[KSCRS_MAX_PATH_LENGTH];
-    kscrs_getCrashReportPath(crashReportPath);
-    kscrash_reinstall(crashReportPath,
-                      self.stateFilePath.UTF8String);
 }
 
 // ============================================================================
@@ -533,52 +493,15 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
     return reports;
 }
 
-- (BOOL) redirectConsoleLogsToFile:(NSString*) fullPath overwrite:(BOOL) overwrite
+- (BOOL) redirectConsoleLogToFile
 {
-    if(kslog_setLogFilename([fullPath UTF8String], overwrite))
-    {
-        self.logFilePath = fullPath;
-        return YES;
-    }
-    return NO;
-}
-
-- (BOOL) redirectConsoleLogsToDefaultFile
-{
-    NSString* logFilename = [NSString stringWithFormat:@"%@" kCrashLogFilenameSuffix, self.bundleName];
-    NSString* logFilePath = [self.dataPath stringByAppendingPathComponent:logFilename];
-    if(![self redirectConsoleLogsToFile:logFilePath overwrite:YES])
-    {
-        KSLOG_ERROR(@"Could not redirect logs to %@", logFilePath);
-        return NO;
-    }
-    return YES;
+    return kscrash_redirectConsoleLogToFile();
 }
 
 
 // ============================================================================
 #pragma mark - Utility -
 // ============================================================================
-
-- (BOOL) ensureDirectoryExists:(NSString*) path
-{
-    NSError* error = nil;
-    NSFileManager* fm = [NSFileManager defaultManager];
-    
-    if(![fm fileExistsAtPath:path])
-    {
-        if(![fm createDirectoryAtPath:path
-          withIntermediateDirectories:YES
-                           attributes:nil
-                                error:&error])
-        {
-            KSLOG_ERROR(@"Could not create directory %@: %@.", path, error);
-            return NO;
-        }
-    }
-    
-    return YES;
-}
 
 - (NSMutableData*) nullTerminated:(NSData*) data
 {

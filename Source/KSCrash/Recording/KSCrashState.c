@@ -340,32 +340,35 @@ done:
 #pragma mark - API -
 // ============================================================================
 
-bool kscrashstate_init(const char* const stateFilePath,
-                       KSCrash_State* const state)
+bool kscrashstate_init(const char* const stateFilePath, KSCrash_State* const state)
 {
-    g_stateFilePath = stateFilePath;
+    g_stateFilePath = strdup(stateFilePath);
     g_state = state;
 
-    kscrashstate_i_loadState(state, stateFilePath);
+    kscrashstate_i_loadState(g_state, g_stateFilePath);
+    return kscrashstate_reset();
+}
 
-    state->sessionsSinceLaunch = 1;
-    state->activeDurationSinceLaunch = 0;
-    state->backgroundDurationSinceLaunch = 0;
-    if(state->crashedLastLaunch)
+bool kscrashstate_reset()
+{
+    g_state->sessionsSinceLaunch = 1;
+    g_state->activeDurationSinceLaunch = 0;
+    g_state->backgroundDurationSinceLaunch = 0;
+    if(g_state->crashedLastLaunch)
     {
-        state->activeDurationSinceLastCrash = 0;
-        state->backgroundDurationSinceLastCrash = 0;
-        state->launchesSinceLastCrash = 0;
-        state->sessionsSinceLastCrash = 0;
+        g_state->activeDurationSinceLastCrash = 0;
+        g_state->backgroundDurationSinceLastCrash = 0;
+        g_state->launchesSinceLastCrash = 0;
+        g_state->sessionsSinceLastCrash = 0;
     }
-    state->crashedThisLaunch = false;
-
+    g_state->crashedThisLaunch = false;
+    
     // Simulate first transition to foreground
-    state->launchesSinceLastCrash++;
-    state->sessionsSinceLastCrash++;
-    state->applicationIsInForeground = true;
-
-    return kscrashstate_i_saveState(state, stateFilePath);
+    g_state->launchesSinceLastCrash++;
+    g_state->sessionsSinceLastCrash++;
+    g_state->applicationIsInForeground = true;
+    
+    return kscrashstate_i_saveState(g_state, g_stateFilePath);
 }
 
 void kscrashstate_notifyAppActive(const bool isActive)

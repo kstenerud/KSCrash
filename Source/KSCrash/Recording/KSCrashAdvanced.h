@@ -120,22 +120,10 @@ typedef enum
  */
 @property(nonatomic,readwrite,assign) bool printTraceToStdout;
 
-/** Sets logFilePath to the default log file location
- * (Library/Caches/KSCrashReports/<bundle name>-CrashLog.txt).
- * If the file exists, it will be overwritten.
- *
+/** Redirect KSCrash's console log messages to a file inside the Data dir.
  * @return true if the operation was successful.
  */
-- (BOOL) redirectConsoleLogsToDefaultFile;
-
-/** Redirect the log of KSCrash's activities from the console to the specified log file.
- *
- * @param fullPath The path to the logfile (nil = log to console instead).
- * @param overwrite If true, overwrite the file (ignored if fullPath is nil).
- *
- * @return true if the operation was successful.
- */
-- (BOOL) redirectConsoleLogsToFile:(NSString*) fullPath overwrite:(BOOL) overwrite;
+- (BOOL) redirectConsoleLogToFile;
 
 
 #pragma mark - Operations -

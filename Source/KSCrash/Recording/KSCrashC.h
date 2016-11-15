@@ -46,14 +46,11 @@ extern "C" {
 /** Install the crash reporter. The reporter will record the next crash and then
  * terminate the program.
  *
- * @param crashReportFilePath The file to store the next crash report to.
- *
- * @param stateFilePath File to store persistent state in.
+ * @param installPath Directory to install to.
  *
  * @return The crash types that are being handled.
  */
-KSCrashType kscrash_install(const char* const crashReportFilePath,
-                            const char* stateFilePath);
+KSCrashType kscrash_install(const char* appName, const char* const installPath);
 
 /** Set the crash types that will be handled.
  * Some crash types may not be enabled depending on circumstances (e.g. running
@@ -70,13 +67,8 @@ KSCrashType kscrash_setHandlingCrashTypes(KSCrashType crashTypes);
 
 /** Reinstall the crash reporter. Useful for resetting the crash reporter
  * after a "soft" crash.
- *
- * @param crashReportFilePath The file to store the next crash report to.
- *
- * @param stateFilePath File to store persistent state in.
  */
-void kscrash_reinstall(const char* const crashReportFilePath,
-                       const char* const stateFilePath);
+void kscrash_reinstall();
 
 /** Set the user-supplied data in JSON format.
  *
@@ -156,6 +148,10 @@ void kscrash_setDoNotIntrospectClasses(const char** doNotIntrospectClasses, int 
  * Default: NULL
  */
 void kscrash_setCrashNotifyCallback(const KSReportWriteCallback onCrashNotify);
+
+/** Redirect any KSLOG messages to a crash log file in the data directory.
+ */
+bool kscrash_redirectConsoleLogToFile();
 
 /** Report a custom, user defined exception.
  * This can be useful when dealing with scripting languages.

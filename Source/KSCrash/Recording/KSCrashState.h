@@ -97,6 +97,10 @@ typedef struct
  */
 bool kscrashstate_init(const char* stateFilePath, KSCrash_State* state);
 
+/** Reset the crash state.
+ */
+bool kscrashstate_reset();
+
 /** Notify the crash reporter of the application active state.
  *
  * @param isActive true if the application is active, otherwise false.

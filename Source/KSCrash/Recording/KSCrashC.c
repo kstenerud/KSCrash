@@ -28,12 +28,14 @@
 #include "KSCrashC.h"
 
 #include "KSCrashReport.h"
-#include "KSString.h"
-#include "KSObjC.h"
-#include "KSZombie.h"
+#include "KSCrashReportStore.h"
 #include "KSCrashSentry_Deadlock.h"
 #include "KSCrashSentry_User.h"
+#include "KSFileUtils.h"
+#include "KSObjC.h"
+#include "KSString.h"
 #include "KSSystemInfo.h"
+#include "KSZombie.h"
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
@@ -60,11 +62,8 @@ static KSCrash_Context g_crashReportContext =
     }
 };
 
-/** Path to store the next crash report. */
-static char* g_crashReportFilePath;
+static char* g_logFilePath;
 
-/** Path to store the state file. */
-static char* g_stateFilePath;
 
 // ============================================================================
 #pragma mark - Utility -
@@ -97,14 +96,16 @@ void kscrash_i_onCrash(void)
     {
         kscrashreport_logCrash(context);
     }
+    char crashReportFilePath[KSFU_MAX_PATH_LENGTH];
+    kscrs_getCrashReportPath(crashReportFilePath);
 
     if(context->crash.crashedDuringCrashHandling)
     {
-        kscrashreport_writeRecrashReport(context, g_crashReportFilePath);
+        kscrashreport_writeRecrashReport(context, crashReportFilePath);
     }
     else
     {
-        kscrashreport_writeStandardReport(context, g_crashReportFilePath);
+        kscrashreport_writeStandardReport(context, crashReportFilePath);
     }
 }
 
@@ -113,8 +114,7 @@ void kscrash_i_onCrash(void)
 #pragma mark - API -
 // ============================================================================
 
-KSCrashType kscrash_install(const char* const crashReportFilePath,
-                            const char* stateFilePath)
+KSCrashType kscrash_install(const char* appName, const char* const installPath)
 {
     KSLOG_DEBUG("Installing crash reporter.");
 
@@ -127,13 +127,28 @@ KSCrashType kscrash_install(const char* const crashReportFilePath,
     }
     g_installed = 1;
 
+    char path[KSFU_MAX_PATH_LENGTH];
+    snprintf(path, sizeof(path), "%s/Reports", installPath);
+    ksfu_makePath(path);
+    kscrs_initialize(appName, path);
+
+    snprintf(path, sizeof(path), "%s/Data", installPath);
+    ksfu_makePath(path);
+    snprintf(path, sizeof(path), "%s/Data/CrashState.json", installPath);
+    if(!kscrashstate_init(path, &context->state))
+    {
+        KSLOG_ERROR("Failed to initialize persistent crash state");
+    }
+
+    snprintf(path, sizeof(path), "%s/Data/ConsoleLog.txt", installPath);
+    g_logFilePath = strdup(path);
+
     if(context->config.introspectionRules.enabled)
     {
         ksobjc_init();
     }
     
-    kscrash_reinstall(crashReportFilePath,
-                      stateFilePath);
+    kscrash_reinstall();
 
 
     KSCrashType crashTypes = kscrash_setHandlingCrashTypes(context->config.handlingCrashTypes);
@@ -145,12 +160,8 @@ KSCrashType kscrash_install(const char* const crashReportFilePath,
     return crashTypes;
 }
 
-void kscrash_reinstall(const char* const crashReportFilePath,
-                       const char* const stateFilePath)
+void kscrash_reinstall()
 {
-    KSLOG_TRACE("reportFilePath = %s", crashReportFilePath);
-    KSLOG_TRACE("stateFilePath = %s", stateFilePath);
-
     uuid_t uuid;
     uuid_generate(uuid);
     static char crashID[37];
@@ -172,17 +183,11 @@ void kscrash_reinstall(const char* const crashReportFilePath,
             (unsigned)uuid[14],
             (unsigned)uuid[15]
             );
-    KSLOG_TRACE("crashID = %s", crashID);
-
-    ksstring_replace((const char**)&g_stateFilePath, stateFilePath);
-    ksstring_replace((const char**)&g_crashReportFilePath, crashReportFilePath);
     KSCrash_Context* context = crashContext();
     ksstring_replace(&context->config.crashID, crashID);
+    KSLOG_TRACE("crashID = %s", crashID);
 
-    if(!kscrashstate_init(g_stateFilePath, &context->state))
-    {
-        KSLOG_ERROR("Failed to initialize persistent crash state");
-    }
+    kscrashstate_reset();
 }
 
 KSCrashType kscrash_setHandlingCrashTypes(KSCrashType crashTypes)
@@ -278,6 +283,11 @@ void kscrash_setCrashNotifyCallback(const KSReportWriteCallback onCrashNotify)
     crashContext()->config.onCrashNotify = onCrashNotify;
 }
 
+bool kscrash_redirectConsoleLogToFile()
+{
+    return kslog_setLogFilename(g_logFilePath, true);
+}
+
 void kscrash_reportUserException(const char* name,
                                  const char* reason,
                                  const char* language,
@@ -291,4 +301,10 @@ void kscrash_reportUserException(const char* name,
                                       lineOfCode,
                                       stackTrace,
                                       terminateProgram);
+
+    // If kscrash_reportUserException() returns, we did not terminate.
+    // Set up IDs and paths for the next crash.
+
+    kscrsi_incrementCrashReportIndex();
+    kscrash_reinstall();
 }

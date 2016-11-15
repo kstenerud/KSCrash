@@ -41,8 +41,8 @@
 static const int g_maxReports = 5;
 static int64_t g_nextCrashID;
 static int64_t g_nextUserReportID;
-static char g_appName[KSCRS_MAX_PATH_LENGTH];
-static char g_reportsPath[KSCRS_MAX_PATH_LENGTH];
+static const char* g_appName;
+static const char* g_reportsPath;
 static pthread_mutex_t g_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static int compareInt64(const void* a, const void* b)
@@ -177,8 +177,8 @@ static void initializeIDs()
 void kscrs_initialize(const char* appName, const char* reportsPath)
 {
     pthread_mutex_lock(&g_mutex);
-    strncpy(g_appName, appName, sizeof(g_appName));
-    strncpy(g_reportsPath, reportsPath, sizeof(g_reportsPath));
+    g_appName = strdup(appName);
+    g_reportsPath = strdup(reportsPath);
     ksfu_makePath(reportsPath);
     pruneReports();
     initializeIDs();
