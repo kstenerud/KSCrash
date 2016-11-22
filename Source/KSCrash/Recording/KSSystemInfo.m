@@ -26,11 +26,9 @@
 
 
 #import "KSSystemInfo.h"
-#import "KSSystemInfoC.h"
 
 #import "KSDynamicLinker.h"
 #import "KSMach.h"
-#import "KSSafeCollections.h"
 #import "KSSysCtl.h"
 #import "KSJSONCodecObjC.h"
 #import "KSSystemCapabilities.h"
@@ -83,16 +81,14 @@
 + (NSString*) stringSysctl:(NSString*) name
 {
     NSString* str = nil;
-    size_t size = kssysctl_stringForName([name cStringUsingEncoding:NSUTF8StringEncoding],
-                                         NULL,
-                                         0);
+    int size = kssysctl_stringForName([name cStringUsingEncoding:NSUTF8StringEncoding], NULL, 0);
     
     if(size <= 0)
     {
         return @"";
     }
     
-    NSMutableData* value = [NSMutableData dataWithLength:size];
+    NSMutableData* value = [NSMutableData dataWithLength:(unsigned)size];
     
     if(kssysctl_stringForName([name cStringUsingEncoding:NSUTF8StringEncoding],
                               value.mutableBytes,
@@ -219,7 +215,7 @@
     CC_SHA1([data bytes], (CC_LONG)[data length], sha);
     
     NSMutableString* hash = [NSMutableString string];
-    for(size_t i = 0; i < sizeof(sha); i++)
+    for(unsigned i = 0; i < sizeof(sha); i++)
     {
         [hash appendFormat:@"%02x", sha[i]];
     }
@@ -373,6 +369,11 @@
     return @"unknown";
 }
 
+static inline id safeValue(id value)
+{
+    return value == nil ? [NSNull null] : value;
+}
+
 // ============================================================================
 #pragma mark - API -
 // ============================================================================
@@ -386,14 +387,14 @@
     const struct mach_header* header = _dyld_get_image_header(0);
     
 #if KSCRASH_HAS_UIDEVICE
-    [sysInfo ksc_safeSetObject:[UIDevice currentDevice].systemName forKey:@KSSystemField_SystemName];
-    [sysInfo ksc_safeSetObject:[UIDevice currentDevice].systemVersion forKey:@KSSystemField_SystemVersion];
+    sysInfo[@KSSystemField_SystemName] = safeValue([UIDevice currentDevice].systemName);
+    sysInfo[@KSSystemField_SystemVersion] = safeValue([UIDevice currentDevice].systemVersion);
 #else
 #if KSCRASH_HOST_MAC
-    [sysInfo ksc_safeSetObject:@"macOS" forKey:@KSSystemField_SystemName];
+    sysInfo[@KSSystemField_SystemName] = @"macOS";
 #endif
 #if KSCRASH_HOST_WATCH
-    [sysInfo ksc_safeSetObject:@"watchOS" forKey:@KSSystemField_SystemName];
+    sysInfo[@KSSystemField_SystemName] = @"watchOS";
 #endif
     NSOperatingSystemVersion version =[NSProcessInfo processInfo].operatingSystemVersion;
     NSString* systemVersion;
@@ -405,50 +406,50 @@
     {
         systemVersion = [NSString stringWithFormat:@"%ld.%ld.%ld", (long)version.majorVersion, (long)version.minorVersion, (long)version.patchVersion];
     }
-    [sysInfo ksc_safeSetObject:systemVersion forKey:@KSSystemField_SystemVersion];
+    sysInfo[@KSSystemField_SystemVersion] = safeValue(systemVersion);
 #endif
     if([self isSimulatorBuild])
     {
         NSString* model = [NSProcessInfo processInfo].environment[@"SIMULATOR_MODEL_IDENTIFIER"];
-        [sysInfo ksc_safeSetObject:model forKey:@KSSystemField_Machine];
-        [sysInfo ksc_safeSetObject:@"simulator" forKey:@KSSystemField_Model];
+        sysInfo[@KSSystemField_Machine] = safeValue(model);
+        sysInfo[@KSSystemField_Model] = safeValue(@"simulator");
     }
     else
     {
 #if KSCRASH_HOST_MAC
         // MacOS has the machine in the model field, and no model
-        [sysInfo ksc_safeSetObject:[self stringSysctl:@"hw.model"] forKey:@KSSystemField_Machine];
+        sysInfo[@KSSystemField_Machine] = safeValue([self stringSysctl:@"hw.model"]);
 #else
-        [sysInfo ksc_safeSetObject:[self stringSysctl:@"hw.machine"] forKey:@KSSystemField_Machine];
-        [sysInfo ksc_safeSetObject:[self stringSysctl:@"hw.model"] forKey:@KSSystemField_Model];
+        sysInfo[@KSSystemField_Machine] = safeValue([self stringSysctl:@"hw.machine"]);
+        sysInfo[@KSSystemField_Model] = safeValue([self stringSysctl:@"hw.model"]);
 #endif
     }
-    [sysInfo ksc_safeSetObject:[self stringSysctl:@"kern.version"] forKey:@KSSystemField_KernelVersion];
-    [sysInfo ksc_safeSetObject:[self stringSysctl:@"kern.osversion"] forKey:@KSSystemField_OSVersion];
-    [sysInfo ksc_safeSetObject:[NSNumber numberWithBool:[self isJailbroken]] forKey:@KSSystemField_Jailbroken];
-    [sysInfo ksc_safeSetObject:[self dateSysctl:@"kern.boottime"] forKey:@KSSystemField_BootTime];
-    [sysInfo ksc_safeSetObject:[NSDate date] forKey:@KSSystemField_AppStartTime];
-    [sysInfo ksc_safeSetObject:[self executablePath] forKey:@KSSystemField_ExecutablePath];
-    [sysInfo ksc_safeSetObject:[infoDict objectForKey:@"CFBundleExecutable"] forKey:@KSSystemField_Executable];
-    [sysInfo ksc_safeSetObject:[infoDict objectForKey:@"CFBundleIdentifier"] forKey:@KSSystemField_BundleID];
-    [sysInfo ksc_safeSetObject:[infoDict objectForKey:@"CFBundleName"] forKey:@KSSystemField_BundleName];
-    [sysInfo ksc_safeSetObject:[infoDict objectForKey:@"CFBundleVersion"] forKey:@KSSystemField_BundleVersion];
-    [sysInfo ksc_safeSetObject:[infoDict objectForKey:@"CFBundleShortVersionString"] forKey:@KSSystemField_BundleShortVersion];
-    [sysInfo ksc_safeSetObject:[self appUUID] forKey:@KSSystemField_AppUUID];
-    [sysInfo ksc_safeSetObject:[self currentCPUArch] forKey:@KSSystemField_CPUArch];
-    [sysInfo ksc_safeSetObject:[self int32Sysctl:@"hw.cputype"] forKey:@KSSystemField_CPUType];
-    [sysInfo ksc_safeSetObject:[self int32Sysctl:@"hw.cpusubtype"] forKey:@KSSystemField_CPUSubType];
-    [sysInfo ksc_safeSetObject:[NSNumber numberWithInt:header->cputype] forKey:@KSSystemField_BinaryCPUType];
-    [sysInfo ksc_safeSetObject:[NSNumber numberWithInt:header->cpusubtype] forKey:@KSSystemField_BinaryCPUSubType];
-    [sysInfo ksc_safeSetObject:[[NSTimeZone localTimeZone] abbreviation] forKey:@KSSystemField_TimeZone];
-    [sysInfo ksc_safeSetObject:[NSProcessInfo processInfo].processName forKey:@KSSystemField_ProcessName];
-    [sysInfo ksc_safeSetObject:[NSNumber numberWithInt:[NSProcessInfo processInfo].processIdentifier] forKey:@KSSystemField_ProcessID];
-    [sysInfo ksc_safeSetObject:[NSNumber numberWithInt:getppid()] forKey:@KSSystemField_ParentProcessID];
-    [sysInfo ksc_safeSetObject:[self deviceAndAppHash] forKey:@KSSystemField_DeviceAppHash];
-    [sysInfo ksc_safeSetObject:[KSSystemInfo buildType] forKey:@KSSystemField_BuildType];
+    sysInfo[@KSSystemField_KernelVersion] = safeValue([self stringSysctl:@"kern.version"]);
+    sysInfo[@KSSystemField_OSVersion] = safeValue([self stringSysctl:@"kern.osversion"]);
+    sysInfo[@KSSystemField_Jailbroken] = safeValue([NSNumber numberWithBool:[self isJailbroken]]);
+    sysInfo[@KSSystemField_BootTime] = safeValue([self dateSysctl:@"kern.boottime"]);
+    sysInfo[@KSSystemField_AppStartTime] = safeValue([NSDate date]);
+    sysInfo[@KSSystemField_ExecutablePath] = safeValue([self executablePath]);
+    sysInfo[@KSSystemField_Executable] = safeValue([infoDict objectForKey:@"CFBundleExecutable"]);
+    sysInfo[@KSSystemField_BundleID] = safeValue([infoDict objectForKey:@"CFBundleIdentifier"]);
+    sysInfo[@KSSystemField_BundleName] = safeValue([infoDict objectForKey:@"CFBundleName"]);
+    sysInfo[@KSSystemField_BundleVersion] = safeValue([infoDict objectForKey:@"CFBundleVersion"]);
+    sysInfo[@KSSystemField_BundleShortVersion] = safeValue([infoDict objectForKey:@"CFBundleShortVersionString"]);
+    sysInfo[@KSSystemField_AppUUID] = safeValue([self appUUID]);
+    sysInfo[@KSSystemField_CPUArch] = safeValue([self currentCPUArch]);
+    sysInfo[@KSSystemField_CPUType] = safeValue([self int32Sysctl:@"hw.cputype"]);
+    sysInfo[@KSSystemField_CPUSubType] = safeValue([self int32Sysctl:@"hw.cpusubtype"]);
+    sysInfo[@KSSystemField_BinaryCPUType] = safeValue([NSNumber numberWithInt:header->cputype]);
+    sysInfo[@KSSystemField_BinaryCPUSubType] = safeValue([NSNumber numberWithInt:header->cpusubtype]);
+    sysInfo[@KSSystemField_TimeZone] = safeValue([[NSTimeZone localTimeZone] abbreviation]);
+    sysInfo[@KSSystemField_ProcessName] = safeValue([NSProcessInfo processInfo].processName);
+    sysInfo[@KSSystemField_ProcessID] = safeValue([NSNumber numberWithInt:[NSProcessInfo processInfo].processIdentifier]);
+    sysInfo[@KSSystemField_ParentProcessID] = safeValue([NSNumber numberWithInt:getppid()]);
+    sysInfo[@KSSystemField_DeviceAppHash] = safeValue([self deviceAndAppHash]);
+    sysInfo[@KSSystemField_BuildType] = safeValue([KSSystemInfo buildType]);
     
     NSDictionary* memory = [NSDictionary dictionaryWithObject:[self int64Sysctl:@"hw.memsize"] forKey:@KSSystemField_Size];
-    [sysInfo ksc_safeSetObject:memory forKey:@KSSystemField_Memory];
+    sysInfo[@KSSystemField_Memory] = safeValue(memory);
     
     return sysInfo;
 }
