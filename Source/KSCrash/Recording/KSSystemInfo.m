@@ -369,6 +369,11 @@
     return @"unknown";
 }
 
++ (NSNumber*) storageSize
+{
+    return [[[NSFileManager defaultManager] attributesOfFileSystemForPath:NSHomeDirectory() error:nil] objectForKey:NSFileSystemSize];
+}
+
 static inline id safeValue(id value)
 {
     return value == nil ? [NSNull null] : value;
@@ -447,6 +452,7 @@ static inline id safeValue(id value)
     sysInfo[@KSSystemField_ParentProcessID] = safeValue([NSNumber numberWithInt:getppid()]);
     sysInfo[@KSSystemField_DeviceAppHash] = safeValue([self deviceAndAppHash]);
     sysInfo[@KSSystemField_BuildType] = safeValue([KSSystemInfo buildType]);
+    sysInfo[@KSSystemField_Storage] = [self storageSize];
     
     NSDictionary* memory = [NSDictionary dictionaryWithObject:[self int64Sysctl:@"hw.memsize"] forKey:@KSSystemField_Size];
     sysInfo[@KSSystemField_Memory] = safeValue(memory);

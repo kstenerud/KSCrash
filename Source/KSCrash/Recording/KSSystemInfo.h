@@ -50,6 +50,7 @@
 #define KSSystemField_ProcessID "process_id"
 #define KSSystemField_ProcessName "process_name"
 #define KSSystemField_Size "size"
+#define KSSystemField_Storage "storage"
 #define KSSystemField_SystemName "system_name"
 #define KSSystemField_SystemVersion "system_version"
 #define KSSystemField_TimeZone "time_zone"
