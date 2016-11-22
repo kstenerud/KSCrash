@@ -81,7 +81,7 @@
 + (NSString*) stringSysctl:(NSString*) name
 {
     NSString* str = nil;
-    int size = kssysctl_stringForName([name cStringUsingEncoding:NSUTF8StringEncoding], NULL, 0);
+    int size = (int)kssysctl_stringForName([name cStringUsingEncoding:NSUTF8StringEncoding], NULL, 0);
     
     if(size <= 0)
     {
