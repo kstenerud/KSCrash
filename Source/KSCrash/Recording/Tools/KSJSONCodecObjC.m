@@ -475,7 +475,7 @@ int ksjsoncodecobjc_i_encodeObject(KSJSONCodec* codec,
         {
             return result;
         }
-        NSArray* keys = [object allKeys];
+        NSArray* keys = [(NSDictionary*)object allKeys];
         if(codec->_sorted)
         {
             keys = [keys sortedArrayUsingSelector:@selector(compare:)];
