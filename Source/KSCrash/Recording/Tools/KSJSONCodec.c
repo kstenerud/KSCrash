@@ -79,6 +79,8 @@ const char* ksjson_stringForError(const int error)
     {
         case KSJSON_ERROR_INVALID_CHARACTER:
             return "Invalid character";
+        case KSJSON_ERROR_DATA_TOO_LONG:
+            return "Data too long";
         case KSJSON_ERROR_CANNOT_ADD_DATA:
             return "Cannot add data";
         case KSJSON_ERROR_INCOMPLETE:
