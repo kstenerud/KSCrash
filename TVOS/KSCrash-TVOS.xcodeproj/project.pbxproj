@@ -44,7 +44,7 @@
 		8A2507521DA876C300D7F158 /* NSMutableData+AppendUTF8_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 8A25072C1DA876C300D7F158 /* NSMutableData+AppendUTF8_Tests.m */; };
 		8A2507531DA876C300D7F158 /* RFC3339DateTool_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 8A25072D1DA876C300D7F158 /* RFC3339DateTool_Tests.m */; };
 		8A2507541DA876C300D7F158 /* XCTestCase+KSCrash.m in Sources */ = {isa = PBXBuildFile; fileRef = 8A25072F1DA876C300D7F158 /* XCTestCase+KSCrash.m */; };
-		CB5633D31DD53C0A0023CEB6 /* KSCrashSentry_Context.h in Headers */ = {isa = PBXBuildFile; fileRef = CB5633D21DD53C0A0023CEB6 /* KSCrashSentry_Context.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CB5633D31DD53C0A0023CEB6 /* KSCrashSentry_Context.h in Headers */ = {isa = PBXBuildFile; fileRef = CB5633D21DD53C0A0023CEB6 /* KSCrashSentry_Context.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CB69B8D71DC044A7002713B1 /* RFC3339UTFString.c in Sources */ = {isa = PBXBuildFile; fileRef = CB69B8D51DC044A7002713B1 /* RFC3339UTFString.c */; };
 		CB69B8D81DC044A7002713B1 /* RFC3339UTFString.h in Headers */ = {isa = PBXBuildFile; fileRef = CB69B8D61DC044A7002713B1 /* RFC3339UTFString.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB69B8E11DC0F11C002713B1 /* KSLogger.c in Sources */ = {isa = PBXBuildFile; fileRef = CB69B8E01DC0F11C002713B1 /* KSLogger.c */; };
@@ -91,7 +91,7 @@
 		CBEE5CFB1CB86989005EAF61 /* KSCrashReport.c in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C561CB86989005EAF61 /* KSCrashReport.c */; };
 		CBEE5CFC1CB86989005EAF61 /* KSCrashReport.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C571CB86989005EAF61 /* KSCrashReport.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBEE5CFD1CB86989005EAF61 /* KSCrashReportFields.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C581CB86989005EAF61 /* KSCrashReportFields.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		CBEE5CFE1CB86989005EAF61 /* KSCrashReportStore.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C591CB86989005EAF61 /* KSCrashReportStore.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		CBEE5CFE1CB86989005EAF61 /* KSCrashReportStore.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C591CB86989005EAF61 /* KSCrashReportStore.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBEE5D001CB86989005EAF61 /* KSCrashReportVersion.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C5B1CB86989005EAF61 /* KSCrashReportVersion.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBEE5D011CB86989005EAF61 /* KSCrashReportWriter.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C5C1CB86989005EAF61 /* KSCrashReportWriter.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CBEE5D021CB86989005EAF61 /* KSCrashState.c in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C5D1CB86989005EAF61 /* KSCrashState.c */; };
@@ -99,10 +99,10 @@
 		CBEE5D041CB86989005EAF61 /* KSCrashType.c in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C5F1CB86989005EAF61 /* KSCrashType.c */; };
 		CBEE5D051CB86989005EAF61 /* KSCrashType.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C601CB86989005EAF61 /* KSCrashType.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CBEE5D061CB86989005EAF61 /* KSSystemCapabilities.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C611CB86989005EAF61 /* KSSystemCapabilities.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		CBEE5D071CB86989005EAF61 /* KSSystemInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C621CB86989005EAF61 /* KSSystemInfo.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		CBEE5D071CB86989005EAF61 /* KSSystemInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C621CB86989005EAF61 /* KSSystemInfo.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBEE5D081CB86989005EAF61 /* KSSystemInfo.m in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C631CB86989005EAF61 /* KSSystemInfo.m */; };
 		CBEE5D0A1CB86989005EAF61 /* KSCrashSentry.c in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C661CB86989005EAF61 /* KSCrashSentry.c */; };
-		CBEE5D0B1CB86989005EAF61 /* KSCrashSentry.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C671CB86989005EAF61 /* KSCrashSentry.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		CBEE5D0B1CB86989005EAF61 /* KSCrashSentry.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C671CB86989005EAF61 /* KSCrashSentry.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBEE5D0C1CB86989005EAF61 /* KSCrashSentry_CPPException.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C681CB86989005EAF61 /* KSCrashSentry_CPPException.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBEE5D0D1CB86989005EAF61 /* KSCrashSentry_CPPException.cc in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C691CB86989005EAF61 /* KSCrashSentry_CPPException.cc */; };
 		CBEE5D0E1CB86989005EAF61 /* KSCrashSentry_Deadlock.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C6A1CB86989005EAF61 /* KSCrashSentry_Deadlock.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -116,7 +116,7 @@
 		CBEE5D161CB86989005EAF61 /* KSCrashSentry_Signal.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C721CB86989005EAF61 /* KSCrashSentry_Signal.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBEE5D171CB86989005EAF61 /* KSCrashSentry_User.c in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C731CB86989005EAF61 /* KSCrashSentry_User.c */; };
 		CBEE5D181CB86989005EAF61 /* KSCrashSentry_User.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C741CB86989005EAF61 /* KSCrashSentry_User.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		CBEE5D191CB86989005EAF61 /* KSArchSpecific.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C761CB86989005EAF61 /* KSArchSpecific.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		CBEE5D191CB86989005EAF61 /* KSArchSpecific.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C761CB86989005EAF61 /* KSArchSpecific.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBEE5D1A1CB86989005EAF61 /* KSBacktrace.c in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C771CB86989005EAF61 /* KSBacktrace.c */; };
 		CBEE5D1B1CB86989005EAF61 /* KSBacktrace.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C781CB86989005EAF61 /* KSBacktrace.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBEE5D1C1CB86989005EAF61 /* KSBacktrace_Private.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C791CB86989005EAF61 /* KSBacktrace_Private.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -1193,12 +1193,12 @@
 				CLANG_WARN_CXX0X_EXTENSIONS = YES;
 				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_IMPLICIT_SIGN_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_NULLABLE_TO_NONNULL_CONVERSION = YES;
 				CLANG_WARN_OBJC_EXPLICIT_OWNERSHIP_TYPE = YES;
 				CLANG_WARN_OBJC_IMPLICIT_ATOMIC_PROPERTIES = YES;
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
@@ -1240,10 +1240,8 @@
 				GCC_WARN_UNUSED_LABEL = YES;
 				GCC_WARN_UNUSED_PARAMETER = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = appletvos;
-				TARGETED_DEVICE_FAMILY = 3;
 				TVOS_DEPLOYMENT_TARGET = 9.0;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
@@ -1269,12 +1267,12 @@
 				CLANG_WARN_CXX0X_EXTENSIONS = YES;
 				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_IMPLICIT_SIGN_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_NULLABLE_TO_NONNULL_CONVERSION = YES;
 				CLANG_WARN_OBJC_EXPLICIT_OWNERSHIP_TYPE = YES;
 				CLANG_WARN_OBJC_IMPLICIT_ATOMIC_PROPERTIES = YES;
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
@@ -1310,9 +1308,7 @@
 				GCC_WARN_UNUSED_LABEL = YES;
 				GCC_WARN_UNUSED_PARAMETER = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = appletvos;
-				TARGETED_DEVICE_FAMILY = 3;
 				TVOS_DEPLOYMENT_TARGET = 9.0;
 				VALIDATE_PRODUCT = YES;
 				VERSIONING_SYSTEM = "apple-generic";

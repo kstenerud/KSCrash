@@ -11,9 +11,9 @@
 
 #import "KSCrash.h"
 
-#import "KSArchSpecific.h"
 #import "KSCrashAdvanced.h"
 #import "KSCrashC.h"
+#import "KSCrashContext.h"
 #import "KSCrashInstallation.h"
 #import "KSCrashInstallation+Alert.h"
 #import "KSCrashInstallation+Private.h"
@@ -34,13 +34,9 @@
 #import "KSCrashReportSinkQuincyHockey.h"
 #import "KSCrashReportSinkStandard.h"
 #import "KSCrashReportSinkVictory.h"
-#import "KSCrashReportStore.h"
-#import "KSCrashSentry.h"
+#import "KSCrashSentry_Context.h"
 #import "KSCrashState.h"
 #import "KSJSONCodecObjC.h"
-#import "KSArchSpecific.h"
-#import "KSCrashAdvanced.h"
-#import "KSSystemInfo.h"
 
 #import "NSData+GZip.h"
 

@@ -18,13 +18,13 @@
 		CB736F351D9B6EAF00E3230F /* KSCrashAdvanced.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736F321D9B6EAF00E3230F /* KSCrashAdvanced.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CB736F4B1D9B6ECD00E3230F /* KSCrashC.c in Sources */ = {isa = PBXBuildFile; fileRef = CB736F371D9B6ECD00E3230F /* KSCrashC.c */; };
 		CB736F4C1D9B6ECD00E3230F /* KSCrashC.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736F381D9B6ECD00E3230F /* KSCrashC.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		CB736F4D1D9B6ECD00E3230F /* KSCrashContext.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736F391D9B6ECD00E3230F /* KSCrashContext.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CB736F4D1D9B6ECD00E3230F /* KSCrashContext.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736F391D9B6ECD00E3230F /* KSCrashContext.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CB736F4E1D9B6ECD00E3230F /* KSCrashDoctor.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736F3A1D9B6ECD00E3230F /* KSCrashDoctor.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB736F4F1D9B6ECD00E3230F /* KSCrashDoctor.m in Sources */ = {isa = PBXBuildFile; fileRef = CB736F3B1D9B6ECD00E3230F /* KSCrashDoctor.m */; };
 		CB736F501D9B6ECD00E3230F /* KSCrashReport.c in Sources */ = {isa = PBXBuildFile; fileRef = CB736F3C1D9B6ECD00E3230F /* KSCrashReport.c */; };
 		CB736F511D9B6ECD00E3230F /* KSCrashReport.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736F3D1D9B6ECD00E3230F /* KSCrashReport.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB736F521D9B6ECD00E3230F /* KSCrashReportFields.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736F3E1D9B6ECD00E3230F /* KSCrashReportFields.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		CB736F531D9B6ECD00E3230F /* KSCrashReportStore.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736F3F1D9B6ECD00E3230F /* KSCrashReportStore.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		CB736F531D9B6ECD00E3230F /* KSCrashReportStore.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736F3F1D9B6ECD00E3230F /* KSCrashReportStore.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB736F551D9B6ECD00E3230F /* KSCrashReportVersion.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736F411D9B6ECD00E3230F /* KSCrashReportVersion.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB736F561D9B6ECD00E3230F /* KSCrashReportWriter.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736F421D9B6ECD00E3230F /* KSCrashReportWriter.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CB736F571D9B6ECD00E3230F /* KSCrashState.c in Sources */ = {isa = PBXBuildFile; fileRef = CB736F431D9B6ECD00E3230F /* KSCrashState.c */; };
@@ -32,10 +32,10 @@
 		CB736F591D9B6ECD00E3230F /* KSCrashType.c in Sources */ = {isa = PBXBuildFile; fileRef = CB736F451D9B6ECD00E3230F /* KSCrashType.c */; };
 		CB736F5A1D9B6ECD00E3230F /* KSCrashType.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736F461D9B6ECD00E3230F /* KSCrashType.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CB736F5B1D9B6ECD00E3230F /* KSSystemCapabilities.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736F471D9B6ECD00E3230F /* KSSystemCapabilities.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		CB736F5C1D9B6ECD00E3230F /* KSSystemInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736F481D9B6ECD00E3230F /* KSSystemInfo.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		CB736F5C1D9B6ECD00E3230F /* KSSystemInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736F481D9B6ECD00E3230F /* KSSystemInfo.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB736F5D1D9B6ECD00E3230F /* KSSystemInfo.m in Sources */ = {isa = PBXBuildFile; fileRef = CB736F491D9B6ECD00E3230F /* KSSystemInfo.m */; };
 		CB736F711D9B6EF500E3230F /* KSCrashSentry.c in Sources */ = {isa = PBXBuildFile; fileRef = CB736F621D9B6EF500E3230F /* KSCrashSentry.c */; };
-		CB736F721D9B6EF500E3230F /* KSCrashSentry.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736F631D9B6EF500E3230F /* KSCrashSentry.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		CB736F721D9B6EF500E3230F /* KSCrashSentry.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736F631D9B6EF500E3230F /* KSCrashSentry.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB736F731D9B6EF500E3230F /* KSCrashSentry_CPPException.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736F641D9B6EF500E3230F /* KSCrashSentry_CPPException.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB736F741D9B6EF500E3230F /* KSCrashSentry_CPPException.cc in Sources */ = {isa = PBXBuildFile; fileRef = CB736F651D9B6EF500E3230F /* KSCrashSentry_CPPException.cc */; };
 		CB736F751D9B6EF500E3230F /* KSCrashSentry_Deadlock.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736F661D9B6EF500E3230F /* KSCrashSentry_Deadlock.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -49,7 +49,7 @@
 		CB736F7D1D9B6EF500E3230F /* KSCrashSentry_Signal.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736F6E1D9B6EF500E3230F /* KSCrashSentry_Signal.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB736F7E1D9B6EF500E3230F /* KSCrashSentry_User.c in Sources */ = {isa = PBXBuildFile; fileRef = CB736F6F1D9B6EF500E3230F /* KSCrashSentry_User.c */; };
 		CB736F7F1D9B6EF500E3230F /* KSCrashSentry_User.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736F701D9B6EF500E3230F /* KSCrashSentry_User.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		CB736FAD1D9B6F0E00E3230F /* KSArchSpecific.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736F801D9B6F0E00E3230F /* KSArchSpecific.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		CB736FAD1D9B6F0E00E3230F /* KSArchSpecific.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736F801D9B6F0E00E3230F /* KSArchSpecific.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB736FAE1D9B6F0E00E3230F /* KSBacktrace.c in Sources */ = {isa = PBXBuildFile; fileRef = CB736F811D9B6F0E00E3230F /* KSBacktrace.c */; };
 		CB736FAF1D9B6F0E00E3230F /* KSBacktrace.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736F821D9B6F0E00E3230F /* KSBacktrace.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB736FB01D9B6F0E00E3230F /* KSBacktrace_Private.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736F831D9B6F0E00E3230F /* KSBacktrace_Private.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -163,7 +163,7 @@
 		CB73707C1D9BB77500E3230F /* KSReachabilityKSCrash.h in Headers */ = {isa = PBXBuildFile; fileRef = CB73704B1D9B6FD000E3230F /* KSReachabilityKSCrash.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB73707D1D9BB77800E3230F /* KSReachabilityKSCrash.m in Sources */ = {isa = PBXBuildFile; fileRef = CB73704C1D9B6FD000E3230F /* KSReachabilityKSCrash.m */; };
 		CB73707F1D9BB84300E3230F /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = CB73707E1D9BB84300E3230F /* libz.tbd */; };
-		CB9BFDD31DD53FF300EA4F27 /* KSCrashSentry_Context.h in Headers */ = {isa = PBXBuildFile; fileRef = CB9BFDD21DD53FF300EA4F27 /* KSCrashSentry_Context.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CB9BFDD31DD53FF300EA4F27 /* KSCrashSentry_Context.h in Headers */ = {isa = PBXBuildFile; fileRef = CB9BFDD21DD53FF300EA4F27 /* KSCrashSentry_Context.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CBA1A5421DD2507B007B1CE7 /* KSCrashReportFixer.c in Sources */ = {isa = PBXBuildFile; fileRef = CBA1A5401DD2507B007B1CE7 /* KSCrashReportFixer.c */; };
 		CBA1A5431DD2507B007B1CE7 /* KSCrashReportFixer.h in Headers */ = {isa = PBXBuildFile; fileRef = CBA1A5411DD2507B007B1CE7 /* KSCrashReportFixer.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBA1A5481DD25082007B1CE7 /* DemangleCPP.cc in Sources */ = {isa = PBXBuildFile; fileRef = CBA1A5441DD25082007B1CE7 /* DemangleCPP.cc */; };
@@ -939,6 +939,7 @@
 				CLANG_WARN_CXX0X_EXTENSIONS = YES;
 				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_IMPLICIT_SIGN_CONVERSION = YES;
@@ -971,6 +972,7 @@
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
 				GCC_WARN_HIDDEN_VIRTUAL_FUNCTIONS = YES;
 				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
 				GCC_WARN_NON_VIRTUAL_DESTRUCTOR = YES;
@@ -1009,6 +1011,7 @@
 				CLANG_WARN_CXX0X_EXTENSIONS = YES;
 				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_IMPLICIT_SIGN_CONVERSION = YES;
@@ -1035,6 +1038,7 @@
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
 				GCC_WARN_HIDDEN_VIRTUAL_FUNCTIONS = YES;
 				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
 				GCC_WARN_NON_VIRTUAL_DESTRUCTOR = YES;
