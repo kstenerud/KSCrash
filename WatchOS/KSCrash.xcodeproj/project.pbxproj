@@ -85,8 +85,6 @@
 		CB736FD11D9B6F0E00E3230F /* KSZombie.c in Sources */ = {isa = PBXBuildFile; fileRef = CB736FA41D9B6F0E00E3230F /* KSZombie.c */; };
 		CB736FD41D9B6F0E00E3230F /* NSError+SimpleConstructor.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736FA71D9B6F0E00E3230F /* NSError+SimpleConstructor.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB736FD51D9B6F0E00E3230F /* NSError+SimpleConstructor.m in Sources */ = {isa = PBXBuildFile; fileRef = CB736FA81D9B6F0E00E3230F /* NSError+SimpleConstructor.m */; };
-		CB736FD81D9B6F0E00E3230F /* RFC3339DateTool.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736FAB1D9B6F0E00E3230F /* RFC3339DateTool.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		CB736FD91D9B6F0E00E3230F /* RFC3339DateTool.m in Sources */ = {isa = PBXBuildFile; fileRef = CB736FAC1D9B6F0E00E3230F /* RFC3339DateTool.m */; };
 		CB736FE21D9B6F4D00E3230F /* None.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736FDF1D9B6F4D00E3230F /* None.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB736FE31D9B6F4D00E3230F /* Optional.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736FE01D9B6F4D00E3230F /* Optional.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB736FE41D9B6F4D00E3230F /* StringRef.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736FE11D9B6F4D00E3230F /* StringRef.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -254,8 +252,6 @@
 		CB736FA41D9B6F0E00E3230F /* KSZombie.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSZombie.c; path = ../../Source/KSCrash/Recording/Tools/KSZombie.c; sourceTree = "<group>"; };
 		CB736FA71D9B6F0E00E3230F /* NSError+SimpleConstructor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSError+SimpleConstructor.h"; path = "../../Source/KSCrash/Recording/Tools/NSError+SimpleConstructor.h"; sourceTree = "<group>"; };
 		CB736FA81D9B6F0E00E3230F /* NSError+SimpleConstructor.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSError+SimpleConstructor.m"; path = "../../Source/KSCrash/Recording/Tools/NSError+SimpleConstructor.m"; sourceTree = "<group>"; };
-		CB736FAB1D9B6F0E00E3230F /* RFC3339DateTool.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = RFC3339DateTool.h; path = ../../Source/KSCrash/Reporting/Tools/RFC3339DateTool.h; sourceTree = "<group>"; };
-		CB736FAC1D9B6F0E00E3230F /* RFC3339DateTool.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = RFC3339DateTool.m; path = ../../Source/KSCrash/Reporting/Tools/RFC3339DateTool.m; sourceTree = "<group>"; };
 		CB736FDF1D9B6F4D00E3230F /* None.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = None.h; path = ../../Source/KSCrash/llvm/ADT/None.h; sourceTree = "<group>"; };
 		CB736FE01D9B6F4D00E3230F /* Optional.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Optional.h; path = ../../Source/KSCrash/llvm/ADT/Optional.h; sourceTree = "<group>"; };
 		CB736FE11D9B6F4D00E3230F /* StringRef.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = StringRef.h; path = ../../Source/KSCrash/llvm/ADT/StringRef.h; sourceTree = "<group>"; };
@@ -637,8 +633,6 @@
 				CB73704E1D9B6FD000E3230F /* NSMutableData+AppendUTF8.m */,
 				CB73704F1D9B6FD000E3230F /* NSString+URLEncode.h */,
 				CB7370501D9B6FD000E3230F /* NSString+URLEncode.m */,
-				CB736FAB1D9B6F0E00E3230F /* RFC3339DateTool.h */,
-				CB736FAC1D9B6F0E00E3230F /* RFC3339DateTool.m */,
 			);
 			name = Tools;
 			sourceTree = "<group>";
@@ -734,7 +728,6 @@
 				CB736FB41D9B6F0E00E3230F /* KSDynamicLinker.h in Headers */,
 				CB736FD41D9B6F0E00E3230F /* NSError+SimpleConstructor.h in Headers */,
 				CB7370721D9B6FE500E3230F /* KSCrashInstallationConsole.h in Headers */,
-				CB736FD81D9B6F0E00E3230F /* RFC3339DateTool.h in Headers */,
 				CB7370411D9B6FC800E3230F /* KSCrashReportSinkStandard.h in Headers */,
 				CB736F4E1D9B6ECD00E3230F /* KSCrashDoctor.h in Headers */,
 				CB736F5B1D9B6ECD00E3230F /* KSSystemCapabilities.h in Headers */,
@@ -851,7 +844,6 @@
 				CB736F5D1D9B6ECD00E3230F /* KSSystemInfo.m in Sources */,
 				CB736F711D9B6EF500E3230F /* KSCrashSentry.c in Sources */,
 				CB736F4F1D9B6ECD00E3230F /* KSCrashDoctor.m in Sources */,
-				CB736FD91D9B6F0E00E3230F /* RFC3339DateTool.m in Sources */,
 				CB736FBF1D9B6F0E00E3230F /* KSMach_Arm.c in Sources */,
 				CB7370401D9B6FC800E3230F /* KSCrashReportSinkQuincyHockey.m in Sources */,
 				CB736F591D9B6ECD00E3230F /* KSCrashType.c in Sources */,

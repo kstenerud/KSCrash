@@ -33,16 +33,13 @@
 		8A2507461DA876C300D7F158 /* KSLogger_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 8A2507201DA876C300D7F158 /* KSLogger_Tests.m */; };
 		8A2507471DA876C300D7F158 /* KSMach_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 8A2507211DA876C300D7F158 /* KSMach_Tests.m */; };
 		8A2507481DA876C300D7F158 /* KSObjC_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 8A2507221DA876C300D7F158 /* KSObjC_Tests.m */; };
-		8A2507491DA876C300D7F158 /* KSSafeCollections_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 8A2507231DA876C300D7F158 /* KSSafeCollections_Tests.m */; };
 		8A25074A1DA876C300D7F158 /* KSSignalInfo_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 8A2507241DA876C300D7F158 /* KSSignalInfo_Tests.m */; };
 		8A25074B1DA876C300D7F158 /* KSString_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 8A2507251DA876C300D7F158 /* KSString_Tests.m */; };
 		8A25074C1DA876C300D7F158 /* KSSysCtl_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 8A2507261DA876C300D7F158 /* KSSysCtl_Tests.m */; };
 		8A25074D1DA876C300D7F158 /* KSSystemInfo_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 8A2507271DA876C300D7F158 /* KSSystemInfo_Tests.m */; };
 		8A25074F1DA876C300D7F158 /* NSData+Gzip_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 8A2507291DA876C300D7F158 /* NSData+Gzip_Tests.m */; };
-		8A2507501DA876C300D7F158 /* NSDictionary+Merge_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 8A25072A1DA876C300D7F158 /* NSDictionary+Merge_Tests.m */; };
 		8A2507511DA876C300D7F158 /* NSError+SimpleConstructor_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 8A25072B1DA876C300D7F158 /* NSError+SimpleConstructor_Tests.m */; };
 		8A2507521DA876C300D7F158 /* NSMutableData+AppendUTF8_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 8A25072C1DA876C300D7F158 /* NSMutableData+AppendUTF8_Tests.m */; };
-		8A2507531DA876C300D7F158 /* RFC3339DateTool_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 8A25072D1DA876C300D7F158 /* RFC3339DateTool_Tests.m */; };
 		8A2507541DA876C300D7F158 /* XCTestCase+KSCrash.m in Sources */ = {isa = PBXBuildFile; fileRef = 8A25072F1DA876C300D7F158 /* XCTestCase+KSCrash.m */; };
 		CB5633D31DD53C0A0023CEB6 /* KSCrashSentry_Context.h in Headers */ = {isa = PBXBuildFile; fileRef = CB5633D21DD53C0A0023CEB6 /* KSCrashSentry_Context.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CB69B8D71DC044A7002713B1 /* RFC3339UTFString.c in Sources */ = {isa = PBXBuildFile; fileRef = CB69B8D51DC044A7002713B1 /* RFC3339UTFString.c */; };
@@ -151,8 +148,6 @@
 		CBEE5D3C1CB86989005EAF61 /* KSZombie.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C991CB86989005EAF61 /* KSZombie.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBEE5D401CB86989005EAF61 /* NSError+SimpleConstructor.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C9D1CB86989005EAF61 /* NSError+SimpleConstructor.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBEE5D411CB86989005EAF61 /* NSError+SimpleConstructor.m in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C9E1CB86989005EAF61 /* NSError+SimpleConstructor.m */; };
-		CBEE5D441CB86989005EAF61 /* RFC3339DateTool.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5CA11CB86989005EAF61 /* RFC3339DateTool.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		CBEE5D451CB86989005EAF61 /* RFC3339DateTool.m in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5CA21CB86989005EAF61 /* RFC3339DateTool.m */; };
 		CBEE5D461CB86989005EAF61 /* KSCrashReportFilter.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5CA51CB86989005EAF61 /* KSCrashReportFilter.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CBEE5D471CB86989005EAF61 /* KSCrashReportFilter.m in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5CA61CB86989005EAF61 /* KSCrashReportFilter.m */; };
 		CBEE5D481CB86989005EAF61 /* KSCrashReportFilterAlert.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5CA71CB86989005EAF61 /* KSCrashReportFilterAlert.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -249,16 +244,13 @@
 		8A2507201DA876C300D7F158 /* KSLogger_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSLogger_Tests.m; path = "../../Source/KSCrash-Tests/KSLogger_Tests.m"; sourceTree = "<group>"; };
 		8A2507211DA876C300D7F158 /* KSMach_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSMach_Tests.m; path = "../../Source/KSCrash-Tests/KSMach_Tests.m"; sourceTree = "<group>"; };
 		8A2507221DA876C300D7F158 /* KSObjC_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSObjC_Tests.m; path = "../../Source/KSCrash-Tests/KSObjC_Tests.m"; sourceTree = "<group>"; };
-		8A2507231DA876C300D7F158 /* KSSafeCollections_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSSafeCollections_Tests.m; path = "../../Source/KSCrash-Tests/KSSafeCollections_Tests.m"; sourceTree = "<group>"; };
 		8A2507241DA876C300D7F158 /* KSSignalInfo_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSSignalInfo_Tests.m; path = "../../Source/KSCrash-Tests/KSSignalInfo_Tests.m"; sourceTree = "<group>"; };
 		8A2507251DA876C300D7F158 /* KSString_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSString_Tests.m; path = "../../Source/KSCrash-Tests/KSString_Tests.m"; sourceTree = "<group>"; };
 		8A2507261DA876C300D7F158 /* KSSysCtl_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSSysCtl_Tests.m; path = "../../Source/KSCrash-Tests/KSSysCtl_Tests.m"; sourceTree = "<group>"; };
 		8A2507271DA876C300D7F158 /* KSSystemInfo_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSSystemInfo_Tests.m; path = "../../Source/KSCrash-Tests/KSSystemInfo_Tests.m"; sourceTree = "<group>"; };
 		8A2507291DA876C300D7F158 /* NSData+Gzip_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSData+Gzip_Tests.m"; path = "../../Source/KSCrash-Tests/NSData+Gzip_Tests.m"; sourceTree = "<group>"; };
-		8A25072A1DA876C300D7F158 /* NSDictionary+Merge_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSDictionary+Merge_Tests.m"; path = "../../Source/KSCrash-Tests/NSDictionary+Merge_Tests.m"; sourceTree = "<group>"; };
 		8A25072B1DA876C300D7F158 /* NSError+SimpleConstructor_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSError+SimpleConstructor_Tests.m"; path = "../../Source/KSCrash-Tests/NSError+SimpleConstructor_Tests.m"; sourceTree = "<group>"; };
 		8A25072C1DA876C300D7F158 /* NSMutableData+AppendUTF8_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSMutableData+AppendUTF8_Tests.m"; path = "../../Source/KSCrash-Tests/NSMutableData+AppendUTF8_Tests.m"; sourceTree = "<group>"; };
-		8A25072D1DA876C300D7F158 /* RFC3339DateTool_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = RFC3339DateTool_Tests.m; path = "../../Source/KSCrash-Tests/RFC3339DateTool_Tests.m"; sourceTree = "<group>"; };
 		8A25072E1DA876C300D7F158 /* XCTestCase+KSCrash.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "XCTestCase+KSCrash.h"; path = "../../Source/KSCrash-Tests/XCTestCase+KSCrash.h"; sourceTree = "<group>"; };
 		8A25072F1DA876C300D7F158 /* XCTestCase+KSCrash.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "XCTestCase+KSCrash.m"; path = "../../Source/KSCrash-Tests/XCTestCase+KSCrash.m"; sourceTree = "<group>"; };
 		CB5633D21DD53C0A0023CEB6 /* KSCrashSentry_Context.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashSentry_Context.h; sourceTree = "<group>"; };
@@ -370,8 +362,6 @@
 		CBEE5C991CB86989005EAF61 /* KSZombie.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSZombie.h; sourceTree = "<group>"; };
 		CBEE5C9D1CB86989005EAF61 /* NSError+SimpleConstructor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSError+SimpleConstructor.h"; sourceTree = "<group>"; };
 		CBEE5C9E1CB86989005EAF61 /* NSError+SimpleConstructor.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSError+SimpleConstructor.m"; sourceTree = "<group>"; };
-		CBEE5CA11CB86989005EAF61 /* RFC3339DateTool.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RFC3339DateTool.h; sourceTree = "<group>"; };
-		CBEE5CA21CB86989005EAF61 /* RFC3339DateTool.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = RFC3339DateTool.m; sourceTree = "<group>"; };
 		CBEE5CA51CB86989005EAF61 /* KSCrashReportFilter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashReportFilter.h; sourceTree = "<group>"; };
 		CBEE5CA61CB86989005EAF61 /* KSCrashReportFilter.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KSCrashReportFilter.m; sourceTree = "<group>"; };
 		CBEE5CA71CB86989005EAF61 /* KSCrashReportFilterAlert.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashReportFilterAlert.h; sourceTree = "<group>"; };
@@ -478,16 +468,13 @@
 				8A2507201DA876C300D7F158 /* KSLogger_Tests.m */,
 				8A2507211DA876C300D7F158 /* KSMach_Tests.m */,
 				8A2507221DA876C300D7F158 /* KSObjC_Tests.m */,
-				8A2507231DA876C300D7F158 /* KSSafeCollections_Tests.m */,
 				8A2507241DA876C300D7F158 /* KSSignalInfo_Tests.m */,
 				8A2507251DA876C300D7F158 /* KSString_Tests.m */,
 				8A2507261DA876C300D7F158 /* KSSysCtl_Tests.m */,
 				8A2507271DA876C300D7F158 /* KSSystemInfo_Tests.m */,
 				8A2507291DA876C300D7F158 /* NSData+Gzip_Tests.m */,
-				8A25072A1DA876C300D7F158 /* NSDictionary+Merge_Tests.m */,
 				8A25072B1DA876C300D7F158 /* NSError+SimpleConstructor_Tests.m */,
 				8A25072C1DA876C300D7F158 /* NSMutableData+AppendUTF8_Tests.m */,
-				8A25072D1DA876C300D7F158 /* RFC3339DateTool_Tests.m */,
 				8A25072E1DA876C300D7F158 /* XCTestCase+KSCrash.h */,
 				8A25072F1DA876C300D7F158 /* XCTestCase+KSCrash.m */,
 				8A2507021DA8768E00D7F158 /* Info.plist */,
@@ -777,8 +764,6 @@
 				CBEE5CD01CB86989005EAF61 /* NSMutableData+AppendUTF8.m */,
 				CBEE5DBC1CBC14CF005EAF61 /* NSString+URLEncode.h */,
 				CBEE5DBD1CBC14CF005EAF61 /* NSString+URLEncode.m */,
-				CBEE5CA11CB86989005EAF61 /* RFC3339DateTool.h */,
-				CBEE5CA21CB86989005EAF61 /* RFC3339DateTool.m */,
 			);
 			path = Tools;
 			sourceTree = "<group>";
@@ -920,7 +905,6 @@
 				CBEE5D611CB86989005EAF61 /* KSCrashReportSinkStandard.h in Headers */,
 				CBEE5D5F1CB86989005EAF61 /* KSCrashReportSinkQuincyHockey.h in Headers */,
 				CBEE5D161CB86989005EAF61 /* KSCrashSentry_Signal.h in Headers */,
-				CBEE5D441CB86989005EAF61 /* RFC3339DateTool.h in Headers */,
 				CBEE5CF01CB86989005EAF61 /* Casting.h in Headers */,
 				CBEE5D741CB86989005EAF61 /* Malloc.h in Headers */,
 				CBEE5D631CB86989005EAF61 /* KSCrashReportSinkVictory.h in Headers */,
@@ -1035,13 +1019,11 @@
 				8A2507391DA876C300D7F158 /* KSCrashReportFilterGZip_Tests.m in Sources */,
 				8A25073C1DA876C300D7F158 /* KSCrashSentry_Deadlock_Tests.m in Sources */,
 				8A25074B1DA876C300D7F158 /* KSString_Tests.m in Sources */,
-				8A2507491DA876C300D7F158 /* KSSafeCollections_Tests.m in Sources */,
 				8A2507341DA876C300D7F158 /* KSCrashInstallationStandard_Tests.m in Sources */,
 				8A25073B1DA876C300D7F158 /* KSCrashReportStore_Tests.m in Sources */,
 				8A2507321DA876C300D7F158 /* KSCrashInstallationEmail_Tests.m in Sources */,
 				8A2507401DA876C300D7F158 /* KSCrashState_Tests.m in Sources */,
 				8A25073D1DA876C300D7F158 /* KSCrashSentry_NSException_Tests.m in Sources */,
-				8A2507501DA876C300D7F158 /* NSDictionary+Merge_Tests.m in Sources */,
 				8A2507311DA876C300D7F158 /* FileBasedTestCase.m in Sources */,
 				8A2507431DA876C300D7F158 /* KSDynamicLinker_Tests.m in Sources */,
 				8A2507511DA876C300D7F158 /* NSError+SimpleConstructor_Tests.m in Sources */,
@@ -1055,7 +1037,6 @@
 				8A2507521DA876C300D7F158 /* NSMutableData+AppendUTF8_Tests.m in Sources */,
 				8A25073E1DA876C300D7F158 /* KSCrashSentry_Signal_Tests.m in Sources */,
 				8A25073A1DA876C300D7F158 /* KSCrashReportFilterJSON_Tests.m in Sources */,
-				8A2507531DA876C300D7F158 /* RFC3339DateTool_Tests.m in Sources */,
 				8A2507381DA876C300D7F158 /* KSCrashReportFilterAlert_Tests.m in Sources */,
 				8A2507461DA876C300D7F158 /* KSLogger_Tests.m in Sources */,
 				8A2507471DA876C300D7F158 /* KSMach_Tests.m in Sources */,
@@ -1111,7 +1092,6 @@
 				CB69B8EC1DC0F195002713B1 /* KSCrashReportStore.c in Sources */,
 				CBEE5CF61CB86989005EAF61 /* KSCrashC.c in Sources */,
 				CB69B8D71DC044A7002713B1 /* RFC3339UTFString.c in Sources */,
-				CBEE5D451CB86989005EAF61 /* RFC3339DateTool.m in Sources */,
 				CBEE5D571CB86989005EAF61 /* Container+DeepSearch.m in Sources */,
 				CBEE5D291CB86989005EAF61 /* KSMach.c in Sources */,
 				03082CD71D91822300935324 /* KSZombie.c in Sources */,

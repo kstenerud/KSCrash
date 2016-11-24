@@ -24,11 +24,18 @@
 
 
 #import <XCTest/XCTest.h>
-#import "RFC3339DateTool.h"
+#import "RFC3339UTFString.h"
 
 
 @interface RFC3339DateTool_Tests : XCTestCase @end
 
+NSString* stringFromDate(NSDate* date)
+{
+    char string[21];
+    time_t timestamp = (time_t)date.timeIntervalSince1970;
+    rfc3339UtcStringFromUNIXTimestamp(timestamp, string);
+    return [NSString stringWithUTF8String:string];
+}
 
 @implementation RFC3339DateTool_Tests
 
@@ -55,34 +62,10 @@
 {
     NSDate* date = [self gmtDateWithYear:2000 month:1 day:2 hour:3 minute:4 second:5];
     NSString* expected = @"2000-01-02T03:04:05Z";
-    NSString* actual = [RFC3339DateTool stringFromDate:date];
+    NSString* actual = stringFromDate(date);
 
     XCTAssertEqualObjects(actual, expected, @"");
 }
 
-- (void) testDateFromString
-{
-    NSDate* expected = [self gmtDateWithYear:2000 month:1 day:2 hour:3 minute:4 second:5];
-    NSDate* actual = [RFC3339DateTool dateFromString:@"2000-01-02T03:04:05Z"];
-
-    XCTAssertEqualObjects(actual, expected, @"");
-}
-
-- (void) testStringFromUnixTimestamp
-{
-    NSDate* date = [self gmtDateWithYear:2000 month:1 day:2 hour:3 minute:4 second:5];
-    NSString* expected = @"2000-01-02T03:04:05Z";
-    NSString* actual = [RFC3339DateTool stringFromUNIXTimestamp:(uint64_t)[date timeIntervalSince1970]];
-
-    XCTAssertEqualObjects(actual, expected, @"");
-}
-#if 0
-- (void) testUnixTimestampFromString
-{
-    uint64_t expected = (uint64_t)[[self gmtDateWithYear:2000 month:1 day:2 hour:3 minute:4 second:5] timeIntervalSince1970];
-    uint64_t actual = [RFC3339DateTool UNIXTimestampFromString:@"2000-01-02T03:04:05Z"];
-
-    XCTAssertEqual(actual, expected, @"");
-}
-#endif
 @end
+

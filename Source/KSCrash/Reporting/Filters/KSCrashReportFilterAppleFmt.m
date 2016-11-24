@@ -34,7 +34,6 @@
 #import "KSCrashReportFields.h"
 #import "KSJSONCodecObjC.h"
 #import "KSSystemInfo.h"
-#import "RFC3339DateTool.h"
 
 
 #if defined(__LP64__)
@@ -106,6 +105,9 @@
 /** Date formatter for Apple date format in crash reports. */
 NSDateFormatter* g_dateFormatter;
 
+/** Date formatter for RFC3339 date format. */
+NSDateFormatter* g_rfc3339DateFormatter;
+
 /** Printing order for registers. */
 NSDictionary* g_registerOrders;
 
@@ -114,6 +116,11 @@ NSDictionary* g_registerOrders;
     g_dateFormatter = [[NSDateFormatter alloc] init];
     [g_dateFormatter setLocale:[NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"]];
     [g_dateFormatter setDateFormat:@"yyyy-MM-dd HH:mm:ss.SSS ZZZ"];
+
+    g_rfc3339DateFormatter = [[NSDateFormatter alloc] init];
+    [g_rfc3339DateFormatter setLocale:[NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"]];
+    [g_rfc3339DateFormatter setDateFormat:@"yyyy'-'MM'-'dd'T'HH':'mm':'ss'Z'"];
+    [g_rfc3339DateFormatter setTimeZone:[NSTimeZone timeZoneForSecondsFromGMT:0]];
 
     NSArray* armOrder = [NSArray arrayWithObjects:
                          @"r0", @"r1", @"r2", @"r3", @"r4", @"r5", @"r6", @"r7",
@@ -411,7 +418,7 @@ NSDictionary* g_registerOrders;
     NSDictionary* system = [self systemReport:report];
     NSDictionary* reportInfo = [self infoReport:report];
     NSString *reportID = [reportInfo objectForKey:@KSCrashField_ID];
-    NSDate* crashTime = [RFC3339DateTool dateFromString:[reportInfo objectForKey:@KSCrashField_Timestamp]];
+    NSDate* crashTime = [g_rfc3339DateFormatter dateFromString:[reportInfo objectForKey:@KSCrashField_Timestamp]];
 
     return [self headerStringForSystemInfo:system reportID:reportID crashTime:crashTime];
 }
