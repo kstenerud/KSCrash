@@ -29,29 +29,9 @@
 #include "DemangleCPP.h"
 #include "KSLogger.h"
 
-static const char* const errorMessages[] =
-{
-    /*  0 */ "No error",
-    /* -1 */ "A memory allocation failiure occurred",
-    /* -2 */ "Invalid symbol under the C++ ABI mangling rules",
-    /* -3 */ "Invalid argument",
-};
-
 extern "C" char* demangleCPP(const char* mangledSymbol)
 {
     int status = 0;
     char* demangled = __cxxabiv1::__cxa_demangle(mangledSymbol, NULL, NULL, &status);
-    switch(status)
-    {
-        case 0:
-            break;
-        case -1:
-        case -2:
-        case -3:
-            KSLOG_ERROR("Failed to demangle %s: %s.", mangledSymbol, errorMessages[-status]);
-            break;
-        default:
-            KSLOG_ERROR("Failed to demangle %s: Unknown error code %d.", mangledSymbol, status);
-    }
-    return demangled;
+    return status == 0 ? demangled : NULL;
 }
