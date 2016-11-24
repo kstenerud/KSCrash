@@ -29,13 +29,14 @@
 
 #import "KSCrashC.h"
 #import "KSCrashCallCompletion.h"
+#import "KSCrashDoctor.h"
+#import "KSCrashReportFields.h"
+#import "KSCrashReportFixer.h"
+#import "KSCrashReportStore.h"
 #import "KSCrashState.h"
+#import "KSJSONCodecObjC.h"
 #import "KSSingleton.h"
 #import "NSError+SimpleConstructor.h"
-#import "KSCrashReportFields.h"
-#import "KSJSONCodecObjC.h"
-#import "KSCrashReportFixer.h"
-#import "KSCrashDoctor.h"
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"

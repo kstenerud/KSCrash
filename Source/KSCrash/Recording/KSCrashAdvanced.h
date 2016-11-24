@@ -26,7 +26,6 @@
 
 
 #import "KSCrash.h"
-#import "KSCrashReportStore.h"
 #import "KSCrashReportFilter.h"
 
 typedef enum
