@@ -34,7 +34,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_DEPTH 10
+#define MAX_DEPTH 100
 #define MAX_NAME_LENGTH 100
 
 static char* datePaths[][MAX_DEPTH] =
