@@ -1,0 +1,12 @@
+1.11.0:
+
+Re-implemented most Objective-C functionality in POSIX C to prepare for porting. The following APIs have been changed/removed:
+
+- RENAMED [KSCrash redirectConsoleLogsToDefaultFile] TO [KSCrash redirectConsoleLogToFile]
+- REMOVED [KSCrash redirectConsoleLogsToFile:(NSString*) fullPath overwrite:(BOOL) overwrite]
+- CHANGED kscrash_install() now only takes an app name and an install path.
+- CHANGED kscrash_reinstall() no longer takes arguments.
+- REMOVED KSCrash.maxStoredReports. Now stores 5 max always (g_maxReports in KSCrashReportStore.c)
+- REMOVED [KSCrash allReports]
+- REMOVED [KSCrash initWithReportFilesDirectory]
+- REMOVED KSCrash.crashReportStore
