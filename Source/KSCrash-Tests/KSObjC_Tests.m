@@ -258,7 +258,7 @@ static NSArray* g_test_strings;
 - (void) testCFStringIsValid
 {
     char* expected = "test";
-    int expectedLength = (CFIndex)strlen(expected);
+    int expectedLength = (int)strlen(expected);
     CFStringRef stringPtr = CFStringCreateWithBytes(NULL, (uint8_t*)expected, expectedLength, kCFStringEncodingUTF8, FALSE);
     bool valid = ksobjc_isValidObject(stringPtr);
     XCTAssertTrue(valid, @"");
