@@ -166,7 +166,7 @@
 		CBA1A5431DD2507B007B1CE7 /* KSCrashReportFixer.h in Headers */ = {isa = PBXBuildFile; fileRef = CBA1A5411DD2507B007B1CE7 /* KSCrashReportFixer.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBA1A5481DD25082007B1CE7 /* DemangleCPP.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CBA1A5441DD25082007B1CE7 /* DemangleCPP.cpp */; };
 		CBA1A5491DD25082007B1CE7 /* DemangleCPP.h in Headers */ = {isa = PBXBuildFile; fileRef = CBA1A5451DD25082007B1CE7 /* DemangleCPP.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		CBA1A54A1DD25082007B1CE7 /* DemangleSwift.cc in Sources */ = {isa = PBXBuildFile; fileRef = CBA1A5461DD25082007B1CE7 /* DemangleSwift.cc */; };
+		CBA1A54A1DD25082007B1CE7 /* DemangleSwift.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CBA1A5461DD25082007B1CE7 /* DemangleSwift.cpp */; };
 		CBA1A54B1DD25082007B1CE7 /* DemangleSwift.h in Headers */ = {isa = PBXBuildFile; fileRef = CBA1A5471DD25082007B1CE7 /* DemangleSwift.h */; settings = {ATTRIBUTES = (Private, ); }; };
 /* End PBXBuildFile section */
 
@@ -333,7 +333,7 @@
 		CBA1A5411DD2507B007B1CE7 /* KSCrashReportFixer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSCrashReportFixer.h; path = /Users/karl/Projects/KSCrash/iOS/KSCrash/../../Source/KSCrash/Recording/KSCrashReportFixer.h; sourceTree = "<absolute>"; };
 		CBA1A5441DD25082007B1CE7 /* DemangleCPP.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = DemangleCPP.cpp; path = /Users/karl/Projects/KSCrash/Source/KSCrash/Recording/Tools/DemangleCPP.cpp; sourceTree = "<absolute>"; };
 		CBA1A5451DD25082007B1CE7 /* DemangleCPP.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DemangleCPP.h; path = /Users/karl/Projects/KSCrash/iOS/KSCrash/../../Source/KSCrash/Recording/Tools/DemangleCPP.h; sourceTree = "<absolute>"; };
-		CBA1A5461DD25082007B1CE7 /* DemangleSwift.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = DemangleSwift.cc; path = /Users/karl/Projects/KSCrash/iOS/KSCrash/../../Source/KSCrash/Recording/Tools/DemangleSwift.cc; sourceTree = "<absolute>"; };
+		CBA1A5461DD25082007B1CE7 /* DemangleSwift.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = DemangleSwift.cpp; path = /Users/karl/Projects/KSCrash/Source/KSCrash/Recording/Tools/DemangleSwift.cpp; sourceTree = "<absolute>"; };
 		CBA1A5471DD25082007B1CE7 /* DemangleSwift.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DemangleSwift.h; path = /Users/karl/Projects/KSCrash/iOS/KSCrash/../../Source/KSCrash/Recording/Tools/DemangleSwift.h; sourceTree = "<absolute>"; };
 /* End PBXFileReference section */
 
@@ -458,7 +458,7 @@
 			children = (
 				CBA1A5441DD25082007B1CE7 /* DemangleCPP.cpp */,
 				CBA1A5451DD25082007B1CE7 /* DemangleCPP.h */,
-				CBA1A5461DD25082007B1CE7 /* DemangleSwift.cc */,
+				CBA1A5461DD25082007B1CE7 /* DemangleSwift.cpp */,
 				CBA1A5471DD25082007B1CE7 /* DemangleSwift.h */,
 				CB736F801D9B6F0E00E3230F /* KSArchSpecific.h */,
 				CB736F811D9B6F0E00E3230F /* KSBacktrace.c */,
@@ -906,7 +906,7 @@
 				CB73703E1D9B6FC800E3230F /* KSCrashReportSinkEMail.m in Sources */,
 				CB736F771D9B6EF500E3230F /* KSCrashSentry_MachException.c in Sources */,
 				CB736F741D9B6EF500E3230F /* KSCrashSentry_CPPException.cpp in Sources */,
-				CBA1A54A1DD25082007B1CE7 /* DemangleSwift.cc in Sources */,
+				CBA1A54A1DD25082007B1CE7 /* DemangleSwift.cpp in Sources */,
 				CB736F571D9B6ECD00E3230F /* KSCrashState.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

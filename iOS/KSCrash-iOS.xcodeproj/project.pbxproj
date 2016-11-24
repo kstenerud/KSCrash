@@ -202,9 +202,9 @@
 		CB48F6CF1DCD0D490099D264 /* DemangleCPP.h in Headers */ = {isa = PBXBuildFile; fileRef = CB48F6C91DCD0D490099D264 /* DemangleCPP.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB48F6D01DCD0D490099D264 /* DemangleCPP.h in Headers */ = {isa = PBXBuildFile; fileRef = CB48F6C91DCD0D490099D264 /* DemangleCPP.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB48F6D11DCD0D490099D264 /* DemangleCPP.h in Headers */ = {isa = PBXBuildFile; fileRef = CB48F6C91DCD0D490099D264 /* DemangleCPP.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		CB48F6D21DCD0D490099D264 /* DemangleSwift.cc in Sources */ = {isa = PBXBuildFile; fileRef = CB48F6CA1DCD0D490099D264 /* DemangleSwift.cc */; };
-		CB48F6D31DCD0D490099D264 /* DemangleSwift.cc in Sources */ = {isa = PBXBuildFile; fileRef = CB48F6CA1DCD0D490099D264 /* DemangleSwift.cc */; };
-		CB48F6D41DCD0D490099D264 /* DemangleSwift.cc in Sources */ = {isa = PBXBuildFile; fileRef = CB48F6CA1DCD0D490099D264 /* DemangleSwift.cc */; };
+		CB48F6D21DCD0D490099D264 /* DemangleSwift.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CB48F6CA1DCD0D490099D264 /* DemangleSwift.cpp */; };
+		CB48F6D31DCD0D490099D264 /* DemangleSwift.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CB48F6CA1DCD0D490099D264 /* DemangleSwift.cpp */; };
+		CB48F6D41DCD0D490099D264 /* DemangleSwift.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CB48F6CA1DCD0D490099D264 /* DemangleSwift.cpp */; };
 		CB48F6D51DCD0D490099D264 /* DemangleSwift.h in Headers */ = {isa = PBXBuildFile; fileRef = CB48F6CB1DCD0D490099D264 /* DemangleSwift.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB48F6D61DCD0D490099D264 /* DemangleSwift.h in Headers */ = {isa = PBXBuildFile; fileRef = CB48F6CB1DCD0D490099D264 /* DemangleSwift.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB48F6D71DCD0D490099D264 /* DemangleSwift.h in Headers */ = {isa = PBXBuildFile; fileRef = CB48F6CB1DCD0D490099D264 /* DemangleSwift.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -600,7 +600,7 @@
 		CB0C19C81DD143A6005B2F80 /* raw.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; name = raw.json; path = ../../tests/raw.json; sourceTree = "<group>"; };
 		CB48F6C81DCD0D490099D264 /* DemangleCPP.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = DemangleCPP.cpp; path = ../../Source/KSCrash/Recording/Tools/DemangleCPP.cpp; sourceTree = "<group>"; };
 		CB48F6C91DCD0D490099D264 /* DemangleCPP.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DemangleCPP.h; path = ../../Source/KSCrash/Recording/Tools/DemangleCPP.h; sourceTree = "<group>"; };
-		CB48F6CA1DCD0D490099D264 /* DemangleSwift.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = DemangleSwift.cc; path = ../../Source/KSCrash/Recording/Tools/DemangleSwift.cc; sourceTree = "<group>"; };
+		CB48F6CA1DCD0D490099D264 /* DemangleSwift.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = DemangleSwift.cpp; path = ../../Source/KSCrash/Recording/Tools/DemangleSwift.cpp; sourceTree = "<group>"; };
 		CB48F6CB1DCD0D490099D264 /* DemangleSwift.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DemangleSwift.h; path = ../../Source/KSCrash/Recording/Tools/DemangleSwift.h; sourceTree = "<group>"; };
 		CB52178F17EB735D007CB3C1 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		CB52179117EB735D007CB3C1 /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
@@ -1100,7 +1100,7 @@
 			children = (
 				CB48F6C81DCD0D490099D264 /* DemangleCPP.cpp */,
 				CB48F6C91DCD0D490099D264 /* DemangleCPP.h */,
-				CB48F6CA1DCD0D490099D264 /* DemangleSwift.cc */,
+				CB48F6CA1DCD0D490099D264 /* DemangleSwift.cpp */,
 				CB48F6CB1DCD0D490099D264 /* DemangleSwift.h */,
 				CBF53D1517EB765C0056DA83 /* KSArchSpecific.h */,
 				CBF53D1617EB765C0056DA83 /* KSBacktrace_Private.h */,
@@ -1747,7 +1747,7 @@
 				03DE7CC01C84DFC100F789BA /* KSHTTPMultipartPostBody.m in Sources */,
 				03DE7CB11C84DFB600F789BA /* KSCrashReportFilterBasic.m in Sources */,
 				03DE7CB71C84DFB700F789BA /* KSCrashReportFilterSets.m in Sources */,
-				CB48F6D31DCD0D490099D264 /* DemangleSwift.cc in Sources */,
+				CB48F6D31DCD0D490099D264 /* DemangleSwift.cpp in Sources */,
 				03DE7C601C84DF8600F789BA /* KSCrashSentry_User.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1821,7 +1821,7 @@
 				CB69B8C51DC03FFF002713B1 /* RFC3339UTFString.c in Sources */,
 				CBF53DFF17EB765C0056DA83 /* KSCrashState.c in Sources */,
 				CBF53E1E17EB765C0056DA83 /* KSMach_x86_64.c in Sources */,
-				CB48F6D21DCD0D490099D264 /* DemangleSwift.cc in Sources */,
+				CB48F6D21DCD0D490099D264 /* DemangleSwift.cpp in Sources */,
 				CBF53DE017EB765C0056DA83 /* KSCrashReportSinkStandard.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1936,7 +1936,7 @@
 				EDF2BEB91CCF15AD004BADF4 /* KSHTTPMultipartPostBody.m in Sources */,
 				EDF2BEBA1CCF15AD004BADF4 /* KSCrashReportFilterBasic.m in Sources */,
 				EDF2BEBB1CCF15AD004BADF4 /* KSCrashReportFilterSets.m in Sources */,
-				CB48F6D41DCD0D490099D264 /* DemangleSwift.cc in Sources */,
+				CB48F6D41DCD0D490099D264 /* DemangleSwift.cpp in Sources */,
 				EDF2BEBC1CCF15AD004BADF4 /* KSCrashSentry_User.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
