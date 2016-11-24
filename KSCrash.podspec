@@ -32,6 +32,7 @@ Pod::Spec.new do |s|
                                     'Source/KSCrash/Recording/KSSystemCapabilities.h',
                                     'Source/KSCrash/Recording/KSSystemInfo.h',
                                     'Source/KSCrash/Recording/Sentry/KSCrashSentry.h',
+                                    'Source/KSCrash/Recording/Sentry/KSCrashSentry_Context.h',
                                     'Source/KSCrash/Recording/Tools/KSArchSpecific.h',
                                     'Source/KSCrash/Recording/Tools/KSJSONCodecObjC.h',
                                     'Source/KSCrash/Recording/Tools/NSError+SimpleConstructor.h',
