@@ -96,13 +96,14 @@ static int dirContentsCount(const char* path)
 
 static void dirContents(const char* path, char*** entries, int* count)
 {
+    DIR* dir = NULL;
     char** entryList = NULL;
     int entryCount = dirContentsCount(path);
     if(entryCount <= 0)
     {
         goto done;
     }
-    DIR* dir = opendir(path);
+    dir = opendir(path);
     if(dir == NULL)
     {
         KSLOG_ERROR("Error reading directory %s: %s", strerror(errno));
@@ -124,6 +125,10 @@ static void dirContents(const char* path, char*** entries, int* count)
     }
     
 done:
+    if(dir != NULL)
+    {
+        closedir(dir);
+    }
     if(entryList == NULL)
     {
         entryCount = 0;
