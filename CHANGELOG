@@ -1,3 +1,8 @@
+1.11.2:
+
+Added buffered report file writing, giving a significant performance boost.
+
+
 1.11.0:
 
 Re-implemented most Objective-C functionality in POSIX C to prepare for porting. The following APIs have been changed/removed:
