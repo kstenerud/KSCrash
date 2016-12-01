@@ -41,19 +41,6 @@ Pod::Spec.new do |s|
                                     'Source/KSCrash/Recording/Tools/RFC3339DateTool.h'
   end
 
-  # This subspec is just to optionally expose the advanced headers
-  s.subspec 'RecordingAdvanced' do |advanced|
-    advanced.dependency 'KSCrash/Recording'
-    # Just add .h files; the .m files are all compiled in the Recording spec
-    advanced.source_files = 'Source/KSCrash/Recording/KSCrashAdvanced.h',
-                            'Source/KSCrash/Recording/KSCrashDoctor.h',
-                            'Source/KSCrash/Recording/KSCrashReportFields.h',
-                            'Source/KSCrash/Recording/KSCrashReportStore.h',
-                            'Source/KSCrash/Recording/KSSystemInfoC.h',
-                            'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h',
-                            'Source/KSCrash/Reporting/Filters/KSCrashReportFilterCompletion.h'
-  end
-
   # This subspec is just to optionally expose the tools headers
   s.subspec 'RecordingTools' do |tools|
     tools.dependency 'KSCrash/Recording'

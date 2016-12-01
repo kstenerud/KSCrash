@@ -11,7 +11,6 @@
 
 #import "KSCrash.h"
 
-#import "KSCrashAdvanced.h"
 #import "KSCrashC.h"
 #import "KSCrashContext.h"
 #import "KSCrashInstallation.h"

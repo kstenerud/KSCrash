@@ -9,7 +9,7 @@
 #import "CrashTesterCommands.h"
 #import "Configuration.h"
 
-#import <KSCrash/KSCrashAdvanced.h>
+#import <KSCrash/KSCrash.h>
 #import <KSCrash/KSCrashReportFilterSets.h>
 #import <KSCrash/KSCrashReportFilter.h>
 #import <KSCrash/KSCrashReportFilterAppleFmt.h>

@@ -283,9 +283,10 @@ void kscrash_setCrashNotifyCallback(const KSReportWriteCallback onCrashNotify)
     crashContext()->config.onCrashNotify = onCrashNotify;
 }
 
-bool kscrash_redirectConsoleLogToFile()
+void kscrash_setRedirectConsoleLogToFile(bool shouldRedirectToFile)
 {
-    return kslog_setLogFilename(g_logFilePath, true);
+    char* path = shouldRedirectToFile ? g_logFilePath : NULL;
+    kslog_setLogFilename(path, true);
 }
 
 void kscrash_reportUserException(const char* name,

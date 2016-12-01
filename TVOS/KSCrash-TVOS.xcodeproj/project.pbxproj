@@ -79,7 +79,6 @@
 		CBEE5CF21CB86989005EAF61 /* type_traits.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C4C1CB86989005EAF61 /* type_traits.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBEE5CF31CB86989005EAF61 /* KSCrash.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C4E1CB86989005EAF61 /* KSCrash.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CBEE5CF41CB86989005EAF61 /* KSCrash.m in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C4F1CB86989005EAF61 /* KSCrash.m */; };
-		CBEE5CF51CB86989005EAF61 /* KSCrashAdvanced.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C501CB86989005EAF61 /* KSCrashAdvanced.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CBEE5CF61CB86989005EAF61 /* KSCrashC.c in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C511CB86989005EAF61 /* KSCrashC.c */; };
 		CBEE5CF71CB86989005EAF61 /* KSCrashC.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C521CB86989005EAF61 /* KSCrashC.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CBEE5CF81CB86989005EAF61 /* KSCrashContext.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C531CB86989005EAF61 /* KSCrashContext.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -291,7 +290,6 @@
 		CBEE5C4C1CB86989005EAF61 /* type_traits.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = type_traits.h; sourceTree = "<group>"; };
 		CBEE5C4E1CB86989005EAF61 /* KSCrash.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSCrash.h; path = ../../Source/KSCrash/Recording/KSCrash.h; sourceTree = "<group>"; };
 		CBEE5C4F1CB86989005EAF61 /* KSCrash.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSCrash.m; path = ../../Source/KSCrash/Recording/KSCrash.m; sourceTree = "<group>"; };
-		CBEE5C501CB86989005EAF61 /* KSCrashAdvanced.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSCrashAdvanced.h; path = ../../Source/KSCrash/Recording/KSCrashAdvanced.h; sourceTree = "<group>"; };
 		CBEE5C511CB86989005EAF61 /* KSCrashC.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSCrashC.c; sourceTree = "<group>"; };
 		CBEE5C521CB86989005EAF61 /* KSCrashC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashC.h; sourceTree = "<group>"; };
 		CBEE5C531CB86989005EAF61 /* KSCrashContext.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashContext.h; sourceTree = "<group>"; };
@@ -505,7 +503,6 @@
 				CBEE5C321CB86989005EAF61 /* Installations */,
 				CBEE5C4E1CB86989005EAF61 /* KSCrash.h */,
 				CBEE5C4F1CB86989005EAF61 /* KSCrash.m */,
-				CBEE5C501CB86989005EAF61 /* KSCrashAdvanced.h */,
 				CBEE5D7A1CB86A08005EAF61 /* Supporting Files */,
 			);
 			path = "KSCrash-TVOS";
@@ -856,7 +853,6 @@
 				CBEE5D4C1CB86989005EAF61 /* KSCrashReportFilterBasic.h in Headers */,
 				CBEE5D5D1CB86989005EAF61 /* KSCrashReportSinkEMail.h in Headers */,
 				CBEE5CE21CB86989005EAF61 /* KSCrashInstallationEmail.h in Headers */,
-				CBEE5CF51CB86989005EAF61 /* KSCrashAdvanced.h in Headers */,
 				CBEE5CE61CB86989005EAF61 /* KSCrashInstallationStandard.h in Headers */,
 				CBEE5CEA1CB86989005EAF61 /* None.h in Headers */,
 				CB69B8D81DC044A7002713B1 /* RFC3339UTFString.h in Headers */,

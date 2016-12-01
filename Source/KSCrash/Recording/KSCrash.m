@@ -25,7 +25,7 @@
 //
 
 
-#import "KSCrashAdvanced.h"
+#import "KSCrash.h"
 
 #import "KSCrashC.h"
 #import "KSCrashCallCompletion.h"
@@ -53,12 +53,6 @@
 
 @property(nonatomic,readwrite,retain) NSString* bundleName;
 @property(nonatomic,readwrite,retain) NSString* basePath;
-
-// Mirrored from KSCrashAdvanced.h to provide ivars
-@property(nonatomic,readwrite,retain) id<KSCrashReportFilter> sink;
-@property(nonatomic,readwrite,assign) KSReportWriteCallback onCrash;
-@property(nonatomic,readwrite,assign) bool printTraceToStdout;
-@property(nonatomic,readwrite,assign) KSCrashDemangleLanguage demangleLanguages;
 
 @end
 
@@ -115,6 +109,7 @@ static NSString* getBasePath()
 @synthesize catchZombies = _catchZombies;
 @synthesize doNotIntrospectClasses = _doNotIntrospectClasses;
 @synthesize demangleLanguages = _demangleLanguages;
+@synthesize redirectConsoleLogToFile = _redirectConsoleLogToFile;
 
 
 // ============================================================================
@@ -188,7 +183,7 @@ static NSString* getBasePath()
     kscrash_setDeadlockWatchdogInterval(deadlockWatchdogInterval);
 }
 
-- (void) setPrintTraceToStdout:(bool)printTraceToStdout
+- (void) setPrintTraceToStdout:(BOOL)printTraceToStdout
 {
     _printTraceToStdout = printTraceToStdout;
     kscrash_setPrintTraceToStdout(printTraceToStdout);
@@ -200,25 +195,25 @@ static NSString* getBasePath()
     kscrash_setCrashNotifyCallback(onCrash);
 }
 
-- (void) setSearchThreadNames:(bool)searchThreadNames
+- (void) setSearchThreadNames:(BOOL)searchThreadNames
 {
     _searchThreadNames = searchThreadNames;
     kscrash_setSearchThreadNames(searchThreadNames);
 }
 
-- (void) setSearchQueueNames:(bool)searchQueueNames
+- (void) setSearchQueueNames:(BOOL)searchQueueNames
 {
     _searchQueueNames = searchQueueNames;
     kscrash_setSearchQueueNames(searchQueueNames);
 }
 
-- (void) setIntrospectMemory:(bool) introspectMemory
+- (void) setIntrospectMemory:(BOOL) introspectMemory
 {
     _introspectMemory = introspectMemory;
     kscrash_setIntrospectMemory(introspectMemory);
 }
 
-- (void) setCatchZombies:(bool)catchZombies
+- (void) setCatchZombies:(BOOL)catchZombies
 {
     _catchZombies = catchZombies;
     kscrash_setCatchZombies(catchZombies);
@@ -375,9 +370,9 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(NSTimeInterval, backgroundDurationSinceLaunch)
 SYNTHESIZE_CRASH_STATE_PROPERTY(int, sessionsSinceLaunch)
 SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
 
-- (NSUInteger) reportCount
+- (int) reportCount
 {
-    return (NSUInteger)kscrs_getReportCount();
+    return kscrs_getReportCount();
 }
 
 - (void) sendReports:(NSArray*) reports onCompletion:(KSCrashReportFilterCompletion) onCompletion
@@ -502,9 +497,10 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
     return reports;
 }
 
-- (BOOL) redirectConsoleLogToFile
+- (void) setRedirectConsoleLogToFile:(BOOL) shouldRedirectToFile
 {
-    return kscrash_redirectConsoleLogToFile();
+    _redirectConsoleLogToFile = shouldRedirectToFile;
+    kscrash_setRedirectConsoleLogToFile(shouldRedirectToFile);
 }
 
 

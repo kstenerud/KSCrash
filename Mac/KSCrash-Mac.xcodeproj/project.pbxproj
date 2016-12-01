@@ -161,7 +161,6 @@
 		CB62412417EBCA74006471F1 /* KSCrashInstallationVictory.m in Sources */ = {isa = PBXBuildFile; fileRef = CB8E570F17EB9BA8000C56D3 /* KSCrashInstallationVictory.m */; };
 		CB62412517EBCA74006471F1 /* KSCrash.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E561517EB9AA5000C56D3 /* KSCrash.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CB62412617EBCA74006471F1 /* KSCrash.m in Sources */ = {isa = PBXBuildFile; fileRef = CB8E561617EB9AA5000C56D3 /* KSCrash.m */; };
-		CB62412717EBCA74006471F1 /* KSCrashAdvanced.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E561717EB9AA5000C56D3 /* KSCrashAdvanced.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CB69B8D11DC04432002713B1 /* RFC3339UTFString.c in Sources */ = {isa = PBXBuildFile; fileRef = CB69B8CF1DC04432002713B1 /* RFC3339UTFString.c */; };
 		CB69B8D21DC04432002713B1 /* RFC3339UTFString.c in Sources */ = {isa = PBXBuildFile; fileRef = CB69B8CF1DC04432002713B1 /* RFC3339UTFString.c */; };
 		CB69B8D31DC04432002713B1 /* RFC3339UTFString.h in Headers */ = {isa = PBXBuildFile; fileRef = CB69B8D01DC04432002713B1 /* RFC3339UTFString.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -215,7 +214,6 @@
 		CB8E560A17EB99E3000C56D3 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = CB8E560817EB99E3000C56D3 /* InfoPlist.strings */; };
 		CB8E561817EB9AA5000C56D3 /* KSCrash.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E561517EB9AA5000C56D3 /* KSCrash.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CB8E561917EB9AA5000C56D3 /* KSCrash.m in Sources */ = {isa = PBXBuildFile; fileRef = CB8E561617EB9AA5000C56D3 /* KSCrash.m */; };
-		CB8E561A17EB9AA5000C56D3 /* KSCrashAdvanced.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E561717EB9AA5000C56D3 /* KSCrashAdvanced.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CB8E562D17EB9AFD000C56D3 /* KSCrashC.c in Sources */ = {isa = PBXBuildFile; fileRef = CB8E561F17EB9AFD000C56D3 /* KSCrashC.c */; };
 		CB8E562E17EB9AFD000C56D3 /* KSCrashC.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E562017EB9AFD000C56D3 /* KSCrashC.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CB8E562F17EB9AFD000C56D3 /* KSCrashContext.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E562117EB9AFD000C56D3 /* KSCrashContext.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -460,7 +458,6 @@
 		CB8E560917EB99E3000C56D3 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		CB8E561517EB9AA5000C56D3 /* KSCrash.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSCrash.h; path = ../../Source/KSCrash/Recording/KSCrash.h; sourceTree = "<group>"; };
 		CB8E561617EB9AA5000C56D3 /* KSCrash.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSCrash.m; path = ../../Source/KSCrash/Recording/KSCrash.m; sourceTree = "<group>"; };
-		CB8E561717EB9AA5000C56D3 /* KSCrashAdvanced.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSCrashAdvanced.h; path = ../../Source/KSCrash/Recording/KSCrashAdvanced.h; sourceTree = "<group>"; };
 		CB8E561F17EB9AFD000C56D3 /* KSCrashC.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSCrashC.c; path = ../../Source/KSCrash/Recording/KSCrashC.c; sourceTree = "<group>"; };
 		CB8E562017EB9AFD000C56D3 /* KSCrashC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSCrashC.h; path = ../../Source/KSCrash/Recording/KSCrashC.h; sourceTree = "<group>"; };
 		CB8E562117EB9AFD000C56D3 /* KSCrashContext.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSCrashContext.h; path = ../../Source/KSCrash/Recording/KSCrashContext.h; sourceTree = "<group>"; };
@@ -770,7 +767,6 @@
 				CB8E561E17EB9AEA000C56D3 /* Installation */,
 				CB8E561517EB9AA5000C56D3 /* KSCrash.h */,
 				CB8E561617EB9AA5000C56D3 /* KSCrash.m */,
-				CB8E561717EB9AA5000C56D3 /* KSCrashAdvanced.h */,
 				CB8E55F117EB99E3000C56D3 /* Supporting Files */,
 			);
 			path = KSCrash;
@@ -1056,7 +1052,6 @@
 			files = (
 				CB8F1DD31CCAF3B40022CDF0 /* KSCrashInstallation+Alert.h in Headers */,
 				CB62412517EBCA74006471F1 /* KSCrash.h in Headers */,
-				CB62412717EBCA74006471F1 /* KSCrashAdvanced.h in Headers */,
 				CB26861D1C694E4400EE4EB3 /* Compiler.h in Headers */,
 				CB62411B17EBCA74006471F1 /* KSCrashInstallation.h in Headers */,
 				CB62411D17EBCA74006471F1 /* KSCrashInstallationEmail.h in Headers */,
@@ -1157,7 +1152,6 @@
 				CB8E56F517EB9B89000C56D3 /* NSData+GZip.h in Headers */,
 				CB8F1DD21CCAF3B40022CDF0 /* KSCrashInstallation+Alert.h in Headers */,
 				CB8E561817EB9AA5000C56D3 /* KSCrash.h in Headers */,
-				CB8E561A17EB9AA5000C56D3 /* KSCrashAdvanced.h in Headers */,
 				CB8E571117EB9BA8000C56D3 /* KSCrashInstallation.h in Headers */,
 				CB26861E1C694E4400EE4EB3 /* type_traits.h in Headers */,
 				CB2686181C694E4400EE4EB3 /* AlignOf.h in Headers */,

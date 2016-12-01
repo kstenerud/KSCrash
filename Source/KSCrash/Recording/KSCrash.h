@@ -28,9 +28,17 @@
 #import <Foundation/Foundation.h>
 
 #import "KSCrashReportWriter.h"
+#import "KSCrashReportFilter.h"
 #import "KSCrashReportFilterCompletion.h"
 #import "KSCrashType.h"
 
+typedef enum
+{
+    KSCrashDemangleLanguageNone = 0,
+    KSCrashDemangleLanguageCPlusPlus = 1,
+    KSCrashDemangleLanguageSwift = 2,
+    KSCrashDemangleLanguageAll = ~1
+} KSCrashDemangleLanguage;
 
 typedef enum
 {
@@ -45,6 +53,8 @@ typedef enum
  * The crash reports will be located in $APP_HOME/Library/Caches/KSCrashReports
  */
 @interface KSCrash : NSObject
+
+#pragma mark - Configuration -
 
 /** A dictionary containing any info you'd like to appear in crash reports. Must
  * contain only JSON-safe data: NSString for keys, and NSDictionary, NSArray,
@@ -99,7 +109,7 @@ typedef enum
  *
  * Default: NO
  */
-@property(nonatomic,readwrite,assign) bool searchThreadNames;
+@property(nonatomic,readwrite,assign) BOOL searchThreadNames;
 
 /** If YES, attempt to fetch dispatch queue names for each running thread.
  *
@@ -110,7 +120,7 @@ typedef enum
  *
  * Default: NO
  */
-@property(nonatomic,readwrite,assign) bool searchQueueNames;
+@property(nonatomic,readwrite,assign) BOOL searchQueueNames;
 
 /** If YES, introspect memory contents during a crash.
  * Any Objective-C objects or C strings near the stack pointer or referenced by
@@ -119,14 +129,14 @@ typedef enum
  *
  * Default: YES
  */
-@property(nonatomic,readwrite,assign) bool introspectMemory;
+@property(nonatomic,readwrite,assign) BOOL introspectMemory;
 
 /** If YES, monitor all Objective-C/Swift deallocations and keep track of any
  * accesses after deallocation.
  *
  * Default: NO
  */
-@property(nonatomic,readwrite,assign) bool catchZombies;
+@property(nonatomic,readwrite,assign) BOOL catchZombies;
 
 /** List of Objective-C classes that should never be introspected.
  * Whenever a class in this list is encountered, only the class name will be recorded.
@@ -136,6 +146,72 @@ typedef enum
  */
 @property(nonatomic,readwrite,retain) NSArray* doNotIntrospectClasses;
 
+/** The report sink where reports get sent.
+ * This MUST be set or else the reporter will not send reports (although it will
+ * still record them).
+ *
+ * Note: If you use an installation, it will automatically set this property.
+ *       Do not modify it in such a case.
+ */
+@property(nonatomic,readwrite,retain) id<KSCrashReportFilter> sink;
+
+/** C Function to call during a crash report to give the callee an opportunity to
+ * add to the report. NULL = ignore.
+ *
+ * WARNING: Only call async-safe functions from this function! DO NOT call
+ * Objective-C methods!!!
+ *
+ * Note: If you use an installation, it will automatically set this property.
+ *       Do not modify it in such a case.
+ */
+@property(nonatomic,readwrite,assign) KSReportWriteCallback onCrash;
+
+/** If YES, print a stack trace to stdout when a crash occurs.
+ *
+ * Default: NO
+ */
+@property(nonatomic,readwrite,assign) BOOL printTraceToStdout;
+
+/** Redirect KSCrash's console log messages to a file inside the Data dir.
+ * @return true if the operation was successful.
+ */
+@property(nonatomic,readwrite,assign) BOOL redirectConsoleLogToFile;
+
+/** Which languages to demangle when getting stack traces (default KSCrashDemangleLanguageAll) */
+@property(nonatomic,readwrite,assign) KSCrashDemangleLanguage demangleLanguages;
+
+
+#pragma mark - Information -
+
+/** Total active time elapsed since the last crash. */
+@property(nonatomic,readonly,assign) NSTimeInterval activeDurationSinceLastCrash;
+
+/** Total time backgrounded elapsed since the last crash. */
+@property(nonatomic,readonly,assign) NSTimeInterval backgroundDurationSinceLastCrash;
+
+/** Number of app launches since the last crash. */
+@property(nonatomic,readonly,assign) int launchesSinceLastCrash;
+
+/** Number of sessions (launch, resume from suspend) since last crash. */
+@property(nonatomic,readonly,assign) int sessionsSinceLastCrash;
+
+/** Total active time elapsed since launch. */
+@property(nonatomic,readonly,assign) NSTimeInterval activeDurationSinceLaunch;
+
+/** Total time backgrounded elapsed since launch. */
+@property(nonatomic,readonly,assign) NSTimeInterval backgroundDurationSinceLaunch;
+
+/** Number of sessions (launch, resume from suspend) since app launch. */
+@property(nonatomic,readonly,assign) int sessionsSinceLaunch;
+
+/** If true, the application crashed on the previous launch. */
+@property(nonatomic,readonly,assign) BOOL crashedLastLaunch;
+
+/** The total number of unsent reports. Note: This is an expensive operation. */
+@property(nonatomic,readonly,assign) int reportCount;
+
+
+#pragma mark - API -
 
 /** Get the singleton instance of the crash reporter.
  */
@@ -149,7 +225,7 @@ typedef enum
  */
 - (BOOL) install;
 
-/** Send any outstanding crash reports to the current sink.
+/** Send all outstanding crash reports to the current sink.
  * It will only attempt to send the most recent 5 reports. All others will be
  * deleted. Once the reports are successfully sent to the server, they may be
  * deleted locally, depending on the property "deleteAfterSendAll".
@@ -191,6 +267,7 @@ typedef enum
             terminateProgram:(BOOL) terminateProgram;
 
 @end
+
 
 //! Project version number for KSCrashFramework.
 FOUNDATION_EXPORT const double KSCrashFrameworkVersionNumber;

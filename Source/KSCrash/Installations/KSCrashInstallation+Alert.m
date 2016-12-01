@@ -23,7 +23,7 @@
 //
 
 #import "KSCrashInstallation+Alert.h"
-#import "KSCrashAdvanced.h"
+#import "KSCrash.h"
 #import "KSCrashReportFilterAlert.h"
 
 @implementation KSCrashInstallation (Alert)

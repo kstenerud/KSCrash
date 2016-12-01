@@ -9,7 +9,6 @@
 #import "Configuration.h"
 
 #import <KSCrash/KSCrash.h>
-#import <KSCrash/KSCrashAdvanced.h>
 
 
 /* Example app that demonstrates the many ways in which an application
