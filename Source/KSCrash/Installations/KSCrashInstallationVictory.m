@@ -27,6 +27,7 @@
 
 #import "KSCrashInstallationVictory.h"
 #import "KSCrashInstallation+Private.h"
+#import "KSCrashReportFilterBasic.h"
 #import "KSCrashReportSinkVictory.h"
 
 

@@ -104,7 +104,6 @@
 		CB7370001D9B6F7800E3230F /* Punycode.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CB736FF81D9B6F7800E3230F /* Punycode.cpp */; };
 		CB7370011D9B6F7800E3230F /* Punycode.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736FF91D9B6F7800E3230F /* Punycode.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB7370161D9B6FA800E3230F /* KSCrashReportFilter.h in Headers */ = {isa = PBXBuildFile; fileRef = CB7370061D9B6FA800E3230F /* KSCrashReportFilter.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		CB7370171D9B6FA800E3230F /* KSCrashReportFilter.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7370071D9B6FA800E3230F /* KSCrashReportFilter.m */; };
 		CB7370181D9B6FA800E3230F /* KSCrashReportFilterAlert.h in Headers */ = {isa = PBXBuildFile; fileRef = CB7370081D9B6FA800E3230F /* KSCrashReportFilterAlert.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CB7370191D9B6FA800E3230F /* KSCrashReportFilterAlert.m in Sources */ = {isa = PBXBuildFile; fileRef = CB7370091D9B6FA800E3230F /* KSCrashReportFilterAlert.m */; };
 		CB73701A1D9B6FA800E3230F /* KSCrashReportFilterAppleFmt.h in Headers */ = {isa = PBXBuildFile; fileRef = CB73700A1D9B6FA800E3230F /* KSCrashReportFilterAppleFmt.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -270,7 +269,6 @@
 		CB736FF81D9B6F7800E3230F /* Punycode.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = Punycode.cpp; path = ../../Source/KSCrash/swift/Basic/Punycode.cpp; sourceTree = "<group>"; };
 		CB736FF91D9B6F7800E3230F /* Punycode.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Punycode.h; path = ../../Source/KSCrash/swift/Basic/Punycode.h; sourceTree = "<group>"; };
 		CB7370061D9B6FA800E3230F /* KSCrashReportFilter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSCrashReportFilter.h; path = ../../Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h; sourceTree = "<group>"; };
-		CB7370071D9B6FA800E3230F /* KSCrashReportFilter.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSCrashReportFilter.m; path = ../../Source/KSCrash/Reporting/Filters/KSCrashReportFilter.m; sourceTree = "<group>"; };
 		CB7370081D9B6FA800E3230F /* KSCrashReportFilterAlert.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSCrashReportFilterAlert.h; path = ../../Source/KSCrash/Reporting/Filters/KSCrashReportFilterAlert.h; sourceTree = "<group>"; };
 		CB7370091D9B6FA800E3230F /* KSCrashReportFilterAlert.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSCrashReportFilterAlert.m; path = ../../Source/KSCrash/Reporting/Filters/KSCrashReportFilterAlert.m; sourceTree = "<group>"; };
 		CB73700A1D9B6FA800E3230F /* KSCrashReportFilterAppleFmt.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSCrashReportFilterAppleFmt.h; path = ../../Source/KSCrash/Reporting/Filters/KSCrashReportFilterAppleFmt.h; sourceTree = "<group>"; };
@@ -577,7 +575,6 @@
 			isa = PBXGroup;
 			children = (
 				CB7370061D9B6FA800E3230F /* KSCrashReportFilter.h */,
-				CB7370071D9B6FA800E3230F /* KSCrashReportFilter.m */,
 				CB7370081D9B6FA800E3230F /* KSCrashReportFilterAlert.h */,
 				CB7370091D9B6FA800E3230F /* KSCrashReportFilterAlert.m */,
 				CB73700A1D9B6FA800E3230F /* KSCrashReportFilterAppleFmt.h */,
@@ -863,7 +860,6 @@
 				CB736FD51D9B6F0E00E3230F /* NSError+SimpleConstructor.m in Sources */,
 				CB7370441D9B6FC800E3230F /* KSCrashReportSinkVictory.m in Sources */,
 				CB736FB71D9B6F0E00E3230F /* KSJSONCodec.c in Sources */,
-				CB7370171D9B6FA800E3230F /* KSCrashReportFilter.m in Sources */,
 				CB736F7A1D9B6EF500E3230F /* KSCrashSentry_NSException.m in Sources */,
 				CB736FC41D9B6F0E00E3230F /* KSObjC.c in Sources */,
 				CB7370751D9B6FE500E3230F /* KSCrashInstallationEmail.m in Sources */,

@@ -28,6 +28,7 @@
 #import "KSCrashReportSinkConsole.h"
 #import "KSCrashCallCompletion.h"
 #import "KSCrashReportFilterAppleFmt.h"
+#import "KSCrashReportFilterBasic.h"
 
 
 @implementation KSCrashReportSinkConsole

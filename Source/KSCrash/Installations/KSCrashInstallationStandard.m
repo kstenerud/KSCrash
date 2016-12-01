@@ -28,6 +28,7 @@
 #import "KSCrashInstallationStandard.h"
 #import "KSCrashInstallation+Private.h"
 #import "KSCrashReportSinkStandard.h"
+#import "KSCrashReportFilterBasic.h"
 
 
 @implementation KSCrashInstallationStandard

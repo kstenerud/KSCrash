@@ -33,6 +33,7 @@
 #import "NSData+GZip.h"
 #import "KSCrashCallCompletion.h"
 #import "KSCrashReportFilterAppleFmt.h"
+#import "KSCrashReportFilterBasic.h"
 #import "KSJSONCodecObjC.h"
 #import "KSReachabilityKSCrash.h"
 #import "Container+DeepSearch.h"

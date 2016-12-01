@@ -27,6 +27,7 @@
 #import "KSCrashInstallation+Private.h"
 #import "KSCrashReportSinkConsole.h"
 #import "KSCrashReportFilterAppleFmt.h"
+#import "KSCrashReportFilterBasic.h"
 #import "KSCrashReportFilterJSON.h"
 #import "KSCrashReportFilterStringify.h"
 
