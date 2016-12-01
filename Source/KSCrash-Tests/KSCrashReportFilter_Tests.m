@@ -27,7 +27,6 @@
 
 #import <XCTest/XCTest.h>
 
-#import "KSCrashCallCompletion.h"
 #import "KSCrashReportFilter.h"
 #import "KSCrashReportFilterBasic.h"
 #import "KSCrashReportFilterGZip.h"
