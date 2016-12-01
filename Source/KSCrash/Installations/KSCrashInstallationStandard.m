@@ -27,24 +27,27 @@
 
 #import "KSCrashInstallationStandard.h"
 #import "KSCrashInstallation+Private.h"
-#import "KSSingleton.h"
 #import "KSCrashReportSinkStandard.h"
 
 
 @implementation KSCrashInstallationStandard
 
-IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrashInstallationStandard)
-
 @synthesize url = _url;
+
++ (instancetype) sharedInstance
+{
+    static KSCrashInstallationStandard *sharedInstance = nil;
+    static dispatch_once_t onceToken;
+    
+    dispatch_once(&onceToken, ^{
+        sharedInstance = [[KSCrashInstallationStandard alloc] init];
+    });
+    return sharedInstance;
+}
 
 - (id) init
 {
-    if((self = [super initWithRequiredProperties:[NSArray arrayWithObjects:
-                                                  @"url",
-                                                  nil]]))
-    {
-    }
-    return self;
+    return [super initWithRequiredProperties:[NSArray arrayWithObjects: @"url", nil]];
 }
 
 - (id<KSCrashReportFilter>) sink

@@ -29,7 +29,6 @@
 #import "KSCrashInstallation+Private.h"
 #import "KSCrashReportSinkEMail.h"
 #import "KSCrashReportFilterAlert.h"
-#import "KSSingleton.h"
 
 
 @interface KSCrashInstallationEmail ()
@@ -41,14 +40,23 @@
 
 @implementation KSCrashInstallationEmail
 
-IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrashInstallationEmail)
-
 @synthesize recipients = _recipients;
 @synthesize subject = _subject;
 @synthesize message = _message;
 @synthesize filenameFmt = _filenameFmt;
 @synthesize reportStyle = _reportStyle;
 @synthesize defaultFilenameFormats = _defaultFilenameFormats;
+
++ (instancetype) sharedInstance
+{
+    static KSCrashInstallationEmail *sharedInstance = nil;
+    static dispatch_once_t onceToken;
+    
+    dispatch_once(&onceToken, ^{
+        sharedInstance = [[KSCrashInstallationEmail alloc] init];
+    });
+    return sharedInstance;
+}
 
 - (id) init
 {

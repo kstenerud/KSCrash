@@ -140,7 +140,6 @@
 		CBEE5D321CB86989005EAF61 /* KSObjCApple.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C8F1CB86989005EAF61 /* KSObjCApple.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBEE5D351CB86989005EAF61 /* KSSignalInfo.c in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C921CB86989005EAF61 /* KSSignalInfo.c */; };
 		CBEE5D361CB86989005EAF61 /* KSSignalInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C931CB86989005EAF61 /* KSSignalInfo.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		CBEE5D371CB86989005EAF61 /* KSSingleton.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C941CB86989005EAF61 /* KSSingleton.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBEE5D381CB86989005EAF61 /* KSString.c in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C951CB86989005EAF61 /* KSString.c */; };
 		CBEE5D391CB86989005EAF61 /* KSString.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C961CB86989005EAF61 /* KSString.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBEE5D3A1CB86989005EAF61 /* KSSysCtl.c in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C971CB86989005EAF61 /* KSSysCtl.c */; };
@@ -354,7 +353,6 @@
 		CBEE5C8F1CB86989005EAF61 /* KSObjCApple.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSObjCApple.h; sourceTree = "<group>"; };
 		CBEE5C921CB86989005EAF61 /* KSSignalInfo.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSSignalInfo.c; sourceTree = "<group>"; };
 		CBEE5C931CB86989005EAF61 /* KSSignalInfo.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSSignalInfo.h; sourceTree = "<group>"; };
-		CBEE5C941CB86989005EAF61 /* KSSingleton.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSSingleton.h; sourceTree = "<group>"; };
 		CBEE5C951CB86989005EAF61 /* KSString.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSString.c; sourceTree = "<group>"; };
 		CBEE5C961CB86989005EAF61 /* KSString.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSString.h; sourceTree = "<group>"; };
 		CBEE5C971CB86989005EAF61 /* KSSysCtl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSSysCtl.c; sourceTree = "<group>"; };
@@ -669,7 +667,6 @@
 				CBEE5C8F1CB86989005EAF61 /* KSObjCApple.h */,
 				CBEE5C921CB86989005EAF61 /* KSSignalInfo.c */,
 				CBEE5C931CB86989005EAF61 /* KSSignalInfo.h */,
-				CBEE5C941CB86989005EAF61 /* KSSingleton.h */,
 				CBEE5C951CB86989005EAF61 /* KSString.c */,
 				CBEE5C961CB86989005EAF61 /* KSString.h */,
 				CBEE5C971CB86989005EAF61 /* KSSysCtl.c */,
@@ -839,7 +836,6 @@
 				CBEE5CEC1CB86989005EAF61 /* StringRef.h in Headers */,
 				CBEE5D011CB86989005EAF61 /* KSCrashReportWriter.h in Headers */,
 				CBEE5D481CB86989005EAF61 /* KSCrashReportFilterAlert.h in Headers */,
-				CBEE5D371CB86989005EAF61 /* KSSingleton.h in Headers */,
 				CBEE5D311CB86989005EAF61 /* KSObjC.h in Headers */,
 				CBEE5D3C1CB86989005EAF61 /* KSZombie.h in Headers */,
 				CBEE5CE41CB86989005EAF61 /* KSCrashInstallationQuincyHockey.h in Headers */,

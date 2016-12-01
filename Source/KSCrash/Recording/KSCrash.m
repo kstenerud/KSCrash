@@ -35,7 +35,6 @@
 #import "KSCrashReportStore.h"
 #import "KSCrashState.h"
 #import "KSJSONCodecObjC.h"
-#import "KSSingleton.h"
 #import "NSError+SimpleConstructor.h"
 
 //#define KSLogger_LocalLevel TRACE
@@ -122,7 +121,16 @@ static NSString* getBasePath()
 #pragma mark - Lifecycle -
 // ============================================================================
 
-IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrash)
++ (instancetype) sharedInstance
+{
+    static KSCrash *sharedInstance = nil;
+    static dispatch_once_t onceToken;
+    
+    dispatch_once(&onceToken, ^{
+        sharedInstance = [[KSCrash alloc] init];
+    });
+    return sharedInstance;
+}
 
 - (id) init
 {

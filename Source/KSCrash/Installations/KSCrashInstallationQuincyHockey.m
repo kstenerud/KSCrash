@@ -30,7 +30,6 @@
 #import "KSCrashInstallation+Private.h"
 #import "KSCrashReportFields.h"
 #import "KSCrashReportSinkQuincyHockey.h"
-#import "KSSingleton.h"
 #import "NSError+SimpleConstructor.h"
 
 
@@ -84,18 +83,22 @@ IMPLEMENT_REPORT_PROPERTY(crashDescription, CrashDescription, NSString*);
 
 @implementation KSCrashInstallationQuincy
 
-IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrashInstallationQuincy)
-
 @synthesize url = _url;
+
++ (instancetype) sharedInstance
+{
+    static KSCrashInstallationQuincy *sharedInstance = nil;
+    static dispatch_once_t onceToken;
+    
+    dispatch_once(&onceToken, ^{
+        sharedInstance = [[KSCrashInstallationQuincy alloc] init];
+    });
+    return sharedInstance;
+}
 
 - (id) init
 {
-    if((self = [super initWithRequiredProperties:[NSArray arrayWithObjects:
-                                                  @"url",
-                                                  nil]]))
-    {
-    }
-    return self;
+    return [super initWithRequiredProperties:[NSArray arrayWithObjects: @"url", nil]];
 }
 
 - (id<KSCrashReportFilter>) sink
@@ -114,9 +117,18 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrashInstallationQuincy)
 
 @implementation KSCrashInstallationHockey
 
-IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrashInstallationHockey)
-
 @synthesize appIdentifier = _appIdentifier;
+
++ (instancetype) sharedInstance
+{
+    static KSCrashInstallationHockey *sharedInstance = nil;
+    static dispatch_once_t onceToken;
+    
+    dispatch_once(&onceToken, ^{
+        sharedInstance = [[KSCrashInstallationHockey alloc] init];
+    });
+    return sharedInstance;
+}
 
 - (id) init
 {
