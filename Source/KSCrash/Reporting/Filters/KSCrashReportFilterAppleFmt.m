@@ -30,7 +30,6 @@
 
 #import <mach/machine.h>
 
-#import "KSCrashCallCompletion.h"
 #import "KSCrashReportFields.h"
 #import "KSJSONCodecObjC.h"
 #import "KSSystemInfo.h"

@@ -28,7 +28,6 @@
 #import "KSCrash.h"
 
 #import "KSCrashC.h"
-#import "KSCrashCallCompletion.h"
 #import "KSCrashDoctor.h"
 #import "KSCrashReportFields.h"
 #import "KSCrashReportFixer.h"

@@ -29,7 +29,6 @@
 
 #import "KSCrashReportWriter.h"
 #import "KSCrashReportFilter.h"
-#import "KSCrashReportFilterCompletion.h"
 #import "KSCrashType.h"
 
 typedef enum

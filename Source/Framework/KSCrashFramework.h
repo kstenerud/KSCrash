@@ -21,6 +21,7 @@
 #import "KSCrashInstallationQuincyHockey.h"
 #import "KSCrashInstallationStandard.h"
 #import "KSCrashInstallationVictory.h"
+#import "KSCrashReportFilter.h"
 #import "KSCrashReportFilterAlert.h"
 #import "KSCrashReportFilterAppleFmt.h"
 #import "KSCrashReportFilterBasic.h"

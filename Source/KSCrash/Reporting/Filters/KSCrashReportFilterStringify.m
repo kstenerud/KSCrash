@@ -24,7 +24,6 @@
 //
 
 #import "KSCrashReportFilterStringify.h"
-#import "KSCrashCallCompletion.h"
 
 @implementation KSCrashReportFilterStringify
 

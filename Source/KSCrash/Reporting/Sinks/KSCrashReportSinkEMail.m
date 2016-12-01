@@ -27,7 +27,6 @@
 
 #import "KSCrashReportSinkEMail.h"
 
-#import "KSCrashCallCompletion.h"
 #import "KSCrashReportFilterAppleFmt.h"
 #import "KSCrashReportFilterBasic.h"
 #import "KSCrashReportFilterGZip.h"

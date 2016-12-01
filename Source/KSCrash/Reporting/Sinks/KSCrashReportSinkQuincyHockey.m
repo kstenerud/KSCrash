@@ -31,7 +31,6 @@
 #import "KSHTTPMultipartPostBody.h"
 #import "KSHTTPRequestSender.h"
 #import "NSData+GZip.h"
-#import "KSCrashCallCompletion.h"
 #import "KSCrashReportFilterAppleFmt.h"
 #import "KSCrashReportFilterBasic.h"
 #import "KSJSONCodecObjC.h"

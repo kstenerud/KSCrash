@@ -24,8 +24,18 @@
 // THE SOFTWARE.
 //
 
+#import <Foundation/Foundation.h>
 
-#import "KSCrashReportFilterCompletion.h"
+/** Callback for filter operations.
+ *
+ * @param filteredReports The filtered reports (may be incomplete if "completed"
+ *                        is false).
+ * @param completed True if filtering completed.
+ *                  Can be false due to a non-erroneous condition (such as a
+ *                  user cancelling the operation).
+ * @param error Non-nil if an error occurred.
+ */
+typedef void(^KSCrashReportFilterCompletion)(NSArray* filteredReports, BOOL completed, NSError* error);
 
 
 /**
@@ -43,3 +53,22 @@
           onCompletion:(KSCrashReportFilterCompletion) onCompletion;
 
 @end
+
+
+/** Conditionally call a completion method if it's not nil.
+ *
+ * @param onCompletion The completion block. If nil, this function does nothing.
+ * @param filteredReports The parameter to send as "filteredReports".
+ * @param completed The parameter to send as "completed".
+ * @param error The parameter to send as "error".
+ */
+static inline void kscrash_i_callCompletion(KSCrashReportFilterCompletion onCompletion,
+                                            NSArray* filteredReports,
+                                            BOOL completed,
+                                            NSError* error)
+{
+    if(onCompletion)
+    {
+        onCompletion(filteredReports, completed, error);
+    }
+}

@@ -20,8 +20,7 @@ Pod::Spec.new do |s|
     recording.source_files   = 'Source/KSCrash/Recording/**/*.{h,m,mm,c,cpp}',
                                'Source/KSCrash/llvm/**/*.{h,m,mm,c,cpp}',
                                'Source/KSCrash/swift/**/*.{h,m,mm,c,cpp}',
-                               'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h',
-                               'Source/KSCrash/Reporting/Filters/KSCrashReportFilterCompletion.h'
+                               'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h'
     recording.public_header_files = 'Source/KSCrash/Recording/KSCrash.h',
                                     'Source/KSCrash/Recording/KSCrashC.h',
                                     'Source/KSCrash/Recording/KSCrashContext.h',
@@ -36,9 +35,7 @@ Pod::Spec.new do |s|
                                     'Source/KSCrash/Recording/Tools/KSArchSpecific.h',
                                     'Source/KSCrash/Recording/Tools/KSJSONCodecObjC.h',
                                     'Source/KSCrash/Recording/Tools/NSError+SimpleConstructor.h',
-                                    'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h',
-                                    'Source/KSCrash/Reporting/Filters/KSCrashReportFilterCompletion.h',
-                                    'Source/KSCrash/Recording/Tools/RFC3339DateTool.h'
+                                    'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h'
   end
 
   # This subspec is just to optionally expose the tools headers
@@ -54,10 +51,8 @@ Pod::Spec.new do |s|
     reporting.subspec 'Filters' do |filters|
       filters.subspec 'Base' do |base|
         base.source_files = 'Source/KSCrash/Reporting/Filters/Tools/**/*.{h,m,mm,c,cpp}',
-                            'Source/KSCrash/Reporting/Filters/KSCrashReportFilterCompletion.h',
                             'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h'
-        base.public_header_files = 'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h',
-                            'Source/KSCrash/Reporting/Filters/KSCrashReportFilterCompletion.h'
+        base.public_header_files = 'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h'
       end
 
       filters.subspec 'Alert' do |alert|
@@ -109,8 +104,7 @@ Pod::Spec.new do |s|
       end
 
       filters.subspec 'Tools' do |tools|
-        tools.source_files = 'Source/KSCrash/Reporting/Filters/Tools/**/*.{h,m,mm,c,cpp}',
-                             'Source/KSCrash/Reporting/Filters/KSCrashReportFilterCompletion.h'
+        tools.source_files = 'Source/KSCrash/Reporting/Filters/Tools/**/*.{h,m,mm,c,cpp}'
       end
 
     end

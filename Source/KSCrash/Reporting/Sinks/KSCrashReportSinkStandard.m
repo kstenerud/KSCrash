@@ -27,7 +27,6 @@
 
 #import "KSCrashReportSinkStandard.h"
 
-#import "KSCrashCallCompletion.h"
 #import "KSHTTPMultipartPostBody.h"
 #import "KSHTTPRequestSender.h"
 #import "NSData+GZip.h"
