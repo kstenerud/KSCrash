@@ -243,7 +243,6 @@ If possible, you should read the following header files to fully understand
 what features KSCrash has, and how to use them:
 
 * KSCrash.h
-* KSCrashAdvanced.h
 * KSCrashInstallation.h
 * KSCrashInstallation(SPECIFIC TYPE).h
 * Architecture.md
@@ -344,7 +343,7 @@ Trade off: Custom crash handling code, but you must be careful what you put
            in it!
 
 
-#### KSCrash log redirection (KSCrashAdvanced.h)
+#### KSCrash log redirection
 
 This takes whatever KSCrash would have printed to the console, and writes it
 to a file instead. I mostly use this for debugging KSCrash itself, but it could

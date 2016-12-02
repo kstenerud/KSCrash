@@ -11,7 +11,7 @@
 #import "CrashTesterCommands.h"
 #import "Configuration.h"
 
-#import <KSCrash/KSCrashAdvanced.h>
+#import <KSCrash/KSCrash.h>
 
 @interface AppDelegate ()
 

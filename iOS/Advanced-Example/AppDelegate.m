@@ -11,7 +11,6 @@
 #import <KSCrash/KSCrashInstallationEmail.h>
 #import <KSCrash/KSCrashInstallationVictory.h>
 #import <KSCrash/KSCrash.h>
-#import <KSCrash/KSCrashAdvanced.h>
 
 
 /* More advanced crash reporting example.
