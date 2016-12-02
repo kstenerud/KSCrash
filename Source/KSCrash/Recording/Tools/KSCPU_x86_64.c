@@ -29,6 +29,7 @@
 
 
 #include "KSCPU.h"
+#include "KSCPU_Apple.h"
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
@@ -77,26 +78,26 @@ uintptr_t kscpu_linkRegister(const STRUCT_MCONTEXT_L* const machineContext __att
 
 bool kscpu_threadState(const thread_t thread, STRUCT_MCONTEXT_L* const machineContext)
 {
-    return kscpu_fillState(thread,
-                           (thread_state_t)&machineContext->__ss,
-                           x86_THREAD_STATE64,
-                           x86_THREAD_STATE64_COUNT);
+    return kscpu_i_fillState(thread,
+                             (thread_state_t)&machineContext->__ss,
+                             x86_THREAD_STATE64,
+                             x86_THREAD_STATE64_COUNT);
 }
 
 bool kscpu_floatState(const thread_t thread, STRUCT_MCONTEXT_L* const machineContext)
 {
-    return kscpu_fillState(thread,
-                           (thread_state_t)&machineContext->__fs,
-                           x86_FLOAT_STATE64,
-                           x86_FLOAT_STATE64_COUNT);
+    return kscpu_i_fillState(thread,
+                             (thread_state_t)&machineContext->__fs,
+                             x86_FLOAT_STATE64,
+                             x86_FLOAT_STATE64_COUNT);
 }
 
 bool kscpu_exceptionState(const thread_t thread, STRUCT_MCONTEXT_L* const machineContext)
 {
-    return kscpu_fillState(thread,
-                           (thread_state_t)&machineContext->__es,
-                           x86_EXCEPTION_STATE64,
-                           x86_EXCEPTION_STATE64_COUNT);
+    return kscpu_i_fillState(thread,
+                             (thread_state_t)&machineContext->__es,
+                             x86_EXCEPTION_STATE64,
+                             x86_EXCEPTION_STATE64_COUNT);
 }
 
 int kscpu_numRegisters(void)

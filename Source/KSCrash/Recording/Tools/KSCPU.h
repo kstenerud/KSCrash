@@ -44,23 +44,6 @@ extern "C" {
  */
 const char* kscpu_currentArch(void);
 
-/** Fill in state information about a thread.
- *
- * @param thread The thread to get information about.
- *
- * @param state Pointer to buffer for state information.
- *
- * @param flavor The kind of information to get (arch specific).
- *
- * @param stateCount Number of entries in the state information buffer.
- *
- * @return true if state fetching was successful.
- */
-bool kscpu_fillState(thread_t thread,
-                     thread_state_t state,
-                     thread_state_flavor_t flavor,
-                     mach_msg_type_number_t stateCount);
-
 /** Get the frame pointer for a machine context.
  * The frame pointer marks the top of the call stack.
  *

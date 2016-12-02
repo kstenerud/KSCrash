@@ -1,5 +1,5 @@
 //
-//  KSCPU.h
+//  KSCPU_Apple.h
 //
 //  Created by Karl Stenerud on 2012-01-29.
 //
@@ -24,47 +24,40 @@
 // THE SOFTWARE.
 //
 
+#ifndef HDR_KSCPU_Apple_h
+#define HDR_KSCPU_Apple_h
 
-#include "KSCPU.h"
-
-#include "KSSystemCapabilities.h"
-
-#include <mach/mach.h>
-#include <mach-o/arch.h>
-
-//#define KSLogger_LocalLevel TRACE
-#include "KSLogger.h"
-
-
-const char* kscpu_currentArch(void)
-{
-    const NXArchInfo* archInfo = NXGetLocalArchInfo();
-    return archInfo == NULL ? NULL : archInfo->name;
-}
-
-#if KSCRASH_HAS_THREADS_API
-bool kscpu_fillState(const thread_t thread,
-                     const thread_state_t state,
-                     const thread_state_flavor_t flavor,
-                     const mach_msg_type_number_t stateCount)
-{
-    mach_msg_type_number_t stateCountBuff = stateCount;
-    kern_return_t kr;
+#ifdef __cplusplus
+extern "C" {
+#endif
     
-    kr = thread_get_state(thread, flavor, state, &stateCountBuff);
-    if(kr != KERN_SUCCESS)
-    {
-        KSLOG_ERROR("thread_get_state: %s", mach_error_string(kr));
-        return false;
-    }
-    return true;
-}
-#else
-bool kscpu_fillState(__unused const thread_t thread,
-                     __unused const thread_state_t state,
-                     __unused const thread_state_flavor_t flavor,
-                     __unused const mach_msg_type_number_t stateCount)
-{
-    return false;
+    
+#include "KSArchSpecific.h"
+    
+#include <mach/mach_types.h>
+#include <stdbool.h>
+#include <sys/ucontext.h>
+    
+/** Fill in state information about a thread.
+ *
+ * @param thread The thread to get information about.
+ *
+ * @param state Pointer to buffer for state information.
+ *
+ * @param flavor The kind of information to get (arch specific).
+ *
+ * @param stateCount Number of entries in the state information buffer.
+ *
+ * @return true if state fetching was successful.
+ */
+bool kscpu_i_fillState(thread_t thread,
+                       thread_state_t state,
+                       thread_state_flavor_t flavor,
+                       mach_msg_type_number_t stateCount);
+    
+   
+#ifdef __cplusplus
 }
 #endif
+
+#endif // HDR_KSCPU_Apple_h
