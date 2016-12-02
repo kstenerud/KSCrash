@@ -20,7 +20,7 @@ class ViewController: UIViewController {
         // Dispose of any resources that can be recreated.
     }
 
-    @IBAction func onButtonPressed(sender: AnyObject) {
+    @IBAction func onButtonPressed(_ sender: AnyObject) {
         var emptyDictionary = Dictionary<Int,Int>()
         print(emptyDictionary[1]!)
     }

@@ -456,6 +456,11 @@
 			attributes = {
 				LastUpgradeCheck = 0800;
 				ORGANIZATIONNAME = "Karl Stenerud";
+				TargetAttributes = {
+					CBC43E9C1C5ABA1F0083A11B = {
+						LastSwiftMigration = 0810;
+					};
+				};
 			};
 			buildConfigurationList = CB8E575E17EBB16D000C56D3 /* Build configuration list for PBXProject "Example-Apps-iOS" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -790,6 +795,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Swift-Tester/BridgeHeader.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 3.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -816,6 +822,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "org.stenerud.Swift-Tester";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Swift-Tester/BridgeHeader.h";
+				SWIFT_VERSION = 3.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
