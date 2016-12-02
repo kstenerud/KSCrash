@@ -12,6 +12,8 @@
 		CB1F3DDC1DB046CB007F240B /* KSCrashFramework.h in Headers */ = {isa = PBXBuildFile; fileRef = CB1F3DDB1DB046CB007F240B /* KSCrashFramework.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CB25A5C91DF221AD00EC2B02 /* KSCPU.c in Sources */ = {isa = PBXBuildFile; fileRef = CB25A5C71DF221AD00EC2B02 /* KSCPU.c */; };
 		CB25A5CA1DF221AD00EC2B02 /* KSCPU.h in Headers */ = {isa = PBXBuildFile; fileRef = CB25A5C81DF221AD00EC2B02 /* KSCPU.h */; };
+		CB25A5EB1DF2372E00EC2B02 /* KSThread.c in Sources */ = {isa = PBXBuildFile; fileRef = CB25A5E91DF2372E00EC2B02 /* KSThread.c */; };
+		CB25A5EC1DF2372E00EC2B02 /* KSThread.h in Headers */ = {isa = PBXBuildFile; fileRef = CB25A5EA1DF2372E00EC2B02 /* KSThread.h */; };
 		CB69B8CD1DC043B4002713B1 /* RFC3339UTFString.c in Sources */ = {isa = PBXBuildFile; fileRef = CB69B8CB1DC043B4002713B1 /* RFC3339UTFString.c */; };
 		CB69B8CE1DC043B4002713B1 /* RFC3339UTFString.h in Headers */ = {isa = PBXBuildFile; fileRef = CB69B8CC1DC043B4002713B1 /* RFC3339UTFString.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB69B8E31DC0F12F002713B1 /* KSLogger.c in Sources */ = {isa = PBXBuildFile; fileRef = CB69B8E21DC0F12F002713B1 /* KSLogger.c */; };
@@ -175,6 +177,8 @@
 		CB1F3DDD1DB04750007F240B /* module.modulemap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = "sourcecode.module-map"; name = module.modulemap; path = ../../Source/Framework/module.modulemap; sourceTree = "<group>"; };
 		CB25A5C71DF221AD00EC2B02 /* KSCPU.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSCPU.c; path = /Users/karl/Projects/KSCrash/iOS/KSCrash/../../Source/KSCrash/Recording/Tools/KSCPU.c; sourceTree = "<absolute>"; };
 		CB25A5C81DF221AD00EC2B02 /* KSCPU.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSCPU.h; path = /Users/karl/Projects/KSCrash/iOS/KSCrash/../../Source/KSCrash/Recording/Tools/KSCPU.h; sourceTree = "<absolute>"; };
+		CB25A5E91DF2372E00EC2B02 /* KSThread.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSThread.c; path = ../../Source/KSCrash/Recording/Tools/KSThread.c; sourceTree = "<group>"; };
+		CB25A5EA1DF2372E00EC2B02 /* KSThread.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSThread.h; path = ../../Source/KSCrash/Recording/Tools/KSThread.h; sourceTree = "<group>"; };
 		CB69B8CB1DC043B4002713B1 /* RFC3339UTFString.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = RFC3339UTFString.c; path = ../../Source/KSCrash/Recording/Tools/RFC3339UTFString.c; sourceTree = "<group>"; };
 		CB69B8CC1DC043B4002713B1 /* RFC3339UTFString.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = RFC3339UTFString.h; path = ../../Source/KSCrash/Recording/Tools/RFC3339UTFString.h; sourceTree = "<group>"; };
 		CB69B8E21DC0F12F002713B1 /* KSLogger.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSLogger.c; path = ../../Source/KSCrash/Recording/Tools/KSLogger.c; sourceTree = "<group>"; };
@@ -483,6 +487,8 @@
 				CB736FA01D9B6F0E00E3230F /* KSString.h */,
 				CB736FA11D9B6F0E00E3230F /* KSSysCtl.c */,
 				CB736FA21D9B6F0E00E3230F /* KSSysCtl.h */,
+				CB25A5E91DF2372E00EC2B02 /* KSThread.c */,
+				CB25A5EA1DF2372E00EC2B02 /* KSThread.h */,
 				CB736FA31D9B6F0E00E3230F /* KSZombie.h */,
 				CB736FA41D9B6F0E00E3230F /* KSZombie.c */,
 				CB736FA71D9B6F0E00E3230F /* NSError+SimpleConstructor.h */,
@@ -704,6 +710,7 @@
 				CB736FAD1D9B6F0E00E3230F /* KSArchSpecific.h in Headers */,
 				CB736F721D9B6EF500E3230F /* KSCrashSentry.h in Headers */,
 				CB7370181D9B6FA800E3230F /* KSCrashReportFilterAlert.h in Headers */,
+				CB25A5EC1DF2372E00EC2B02 /* KSThread.h in Headers */,
 				CB736F781D9B6EF500E3230F /* KSCrashSentry_MachException.h in Headers */,
 				CB736F531D9B6ECD00E3230F /* KSCrashReportStore.h in Headers */,
 				CB7370431D9B6FC800E3230F /* KSCrashReportSinkVictory.h in Headers */,
@@ -831,6 +838,7 @@
 				CB736F4F1D9B6ECD00E3230F /* KSCrashDoctor.m in Sources */,
 				CB736FBF1D9B6F0E00E3230F /* KSCPU_arm.c in Sources */,
 				CB7370401D9B6FC800E3230F /* KSCrashReportSinkQuincyHockey.m in Sources */,
+				CB25A5EB1DF2372E00EC2B02 /* KSThread.c in Sources */,
 				CB736F591D9B6ECD00E3230F /* KSCrashType.c in Sources */,
 				CB7370541D9B6FD000E3230F /* KSHTTPMultipartPostBody.m in Sources */,
 				CB736FB51D9B6F0E00E3230F /* KSFileUtils.c in Sources */,

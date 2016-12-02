@@ -28,7 +28,7 @@
 #import "KSCrashSentry_NSException.h"
 #include "KSCrashSentry_Context.h"
 #import "KSCrashSentry_Private.h"
-#include "KSMach.h"
+#include "KSThread.h"
 #import <Foundation/Foundation.h>
 
 //#define KSLogger_LocalLevel TRACE
@@ -91,7 +91,7 @@ static void handleException(NSException* exception)
         }
 
         g_context->crashType = KSCrashTypeNSException;
-        g_context->offendingThread = ksmach_thread_self();
+        g_context->offendingThread = ksthread_self();
         g_context->registersAreValid = false;
         g_context->NSException.name = strdup([[exception name] UTF8String]);
         g_context->crashReason = strdup([[exception reason] UTF8String]);

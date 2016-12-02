@@ -31,6 +31,7 @@
 #include "KSCPU.h"
 #include "KSDynamicLinker.h"
 #include "KSMach.h"
+#include "KSThread.h"
 
 /** Remove any pointer tagging from an instruction address
  * On armv7 the least significant bit of the pointer distinguishes
@@ -217,7 +218,7 @@ int ksbt_backtraceThread(const thread_t thread,
 int ksbt_backtraceSelf(uintptr_t* const backtraceBuffer,
                        const int maxEntries)
 {
-    return ksbt_backtraceThread(ksmach_thread_self(),
+    return ksbt_backtraceThread(ksthread_self(),
                                 backtraceBuffer,
                                 maxEntries);
 }

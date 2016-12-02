@@ -36,7 +36,10 @@
 #include "KSCrashSentry_Signal.h"
 #include "KSCrashSentry_User.h"
 #include "KSMach.h"
+#include "KSThread.h"
 #include "KSSystemCapabilities.h"
+
+#include <memory.h>
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
@@ -175,7 +178,7 @@ void kscrashsentry_suspendThreads(void)
     {
         int numThreads = sizeof(g_context->reservedThreads) / sizeof(g_context->reservedThreads[0]);
         KSLOG_DEBUG("Suspending all threads except for %d reserved threads.", numThreads);
-        if(ksmach_suspendAllThreadsExcept(g_context->reservedThreads, numThreads))
+        if(ksthread_suspendAllThreadsExcept(g_context->reservedThreads, numThreads))
         {
             KSLOG_DEBUG("Suspend successful.");
             g_threads_are_running = false;
@@ -184,7 +187,7 @@ void kscrashsentry_suspendThreads(void)
     else
     {
         KSLOG_DEBUG("Suspending all threads.");
-        if(ksmach_suspendAllThreads())
+        if(ksthread_suspendAllThreads())
         {
             KSLOG_DEBUG("Suspend successful.");
             g_threads_are_running = false;
@@ -206,7 +209,7 @@ void kscrashsentry_resumeThreads(void)
     {
         int numThreads = sizeof(g_context->reservedThreads) / sizeof(g_context->reservedThreads[0]);
         KSLOG_DEBUG("Resuming all threads except for %d reserved threads.", numThreads);
-        if(ksmach_resumeAllThreadsExcept(g_context->reservedThreads, numThreads))
+        if(ksthread_resumeAllThreadsExcept(g_context->reservedThreads, numThreads))
         {
             KSLOG_DEBUG("Resume successful.");
             g_threads_are_running = true;
@@ -215,7 +218,7 @@ void kscrashsentry_resumeThreads(void)
     else
     {
         KSLOG_DEBUG("Resuming all threads.");
-        if(ksmach_resumeAllThreads())
+        if(ksthread_resumeAllThreads())
         {
             KSLOG_DEBUG("Resume successful.");
             g_threads_are_running = true;

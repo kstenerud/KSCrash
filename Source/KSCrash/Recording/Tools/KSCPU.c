@@ -29,6 +29,7 @@
 
 #include "KSSystemCapabilities.h"
 
+#include <mach/mach.h>
 #include <mach-o/arch.h>
 
 //#define KSLogger_LocalLevel TRACE

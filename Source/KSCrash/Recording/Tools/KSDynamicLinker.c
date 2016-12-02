@@ -28,6 +28,7 @@
 #include "KSArchSpecific.h"
 
 #include <limits.h>
+#include <mach-o/dyld.h>
 #include <mach-o/nlist.h>
 #include <string.h>
 

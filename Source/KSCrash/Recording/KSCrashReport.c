@@ -35,6 +35,7 @@
 #include "KSJSONCodec.h"
 #include "KSCPU.h"
 #include "KSMach.h"
+#include "KSThread.h"
 #include "KSObjC.h"
 #include "KSSignalInfo.h"
 #include "KSZombie.h"
@@ -46,7 +47,10 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <mach/mach.h>
+#include <mach-o/dyld.h>
 #include <stdio.h>
+#include <string.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -457,7 +461,7 @@ static STRUCT_MCONTEXT_L* getMachineContext(const KSCrash_SentryContext* const c
         }
     }
 
-    if(thread == ksmach_thread_self())
+    if(thread == ksthread_self())
     {
         return NULL;
     }
@@ -1514,19 +1518,19 @@ static void writeThread(const KSCrashReportWriter* const writer,
         writer->addIntegerElement(writer, KSCrashField_Index, index);
         if(searchThreadNames)
         {
-            if(ksmach_getThreadName(thread, nameBuffer, sizeof(nameBuffer)) && nameBuffer[0] != 0)
+            if(ksthread_getThreadName(thread, nameBuffer, sizeof(nameBuffer)) && nameBuffer[0] != 0)
             {
                 writer->addStringElement(writer, KSCrashField_Name, nameBuffer);
             }
         }
         if (searchQueueNames) {
-            if(ksmach_getThreadQueueName(thread, nameBuffer, sizeof(nameBuffer)) && nameBuffer[0] != 0)
+            if(ksthread_getQueueName(thread, nameBuffer, sizeof(nameBuffer)) && nameBuffer[0] != 0)
             {
                 writer->addStringElement(writer, KSCrashField_DispatchQueue, nameBuffer);
             }
         }
         writer->addBooleanElement(writer, KSCrashField_Crashed, isCrashedThread);
-        writer->addBooleanElement(writer, KSCrashField_CurrentThread, thread == ksmach_thread_self());
+        writer->addBooleanElement(writer, KSCrashField_CurrentThread, thread == ksthread_self());
         if(isCrashedThread && machineContext != NULL)
         {
             writeStackContents(writer,

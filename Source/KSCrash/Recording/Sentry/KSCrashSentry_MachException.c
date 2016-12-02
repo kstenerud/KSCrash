@@ -29,7 +29,7 @@
 #include "KSCrashSentry_Context.h"
 #include "KSCrashSentry_Private.h"
 #include "KSCPU.h"
-#include "KSMach.h"
+#include "KSThread.h"
 #include "KSSystemCapabilities.h"
 
 //#define KSLogger_LocalLevel TRACE
@@ -37,6 +37,7 @@
 
 #if KSCRASH_HAS_MACH
 
+#include <mach/mach.h>
 #include <pthread.h>
 
 
@@ -222,7 +223,7 @@ static void* handleExceptions(void* const userData)
     if(threadName == kThreadSecondary)
     {
         KSLOG_DEBUG("This is the secondary thread. Suspending.");
-        thread_suspend(ksmach_thread_self());
+        thread_suspend(ksthread_self());
     }
 
     for(;;)
@@ -260,7 +261,7 @@ static void* handleExceptions(void* const userData)
 
         // Switch to the secondary thread if necessary, or uninstall the handler
         // to avoid a death loop.
-        if(ksmach_thread_self() == g_primaryMachThread)
+        if(ksthread_self() == g_primaryMachThread)
         {
             KSLOG_DEBUG("This is the primary exception thread. Activating secondary thread.");
             restoreExceptionPorts();
@@ -362,17 +363,6 @@ bool kscrashsentry_installMachHandler(KSCrash_SentryContext* const context)
         return true;
     }
     g_installed = 1;
-
-    if(ksmach_isBeingTraced())
-    {
-        // Different debuggers hook into different exception types.
-        // For example, GDB uses EXC_BAD_ACCESS for single stepping,
-        // and LLDB uses EXC_SOFTWARE to stop a debug session.
-        // Because of this, it's safer to not hook into the mach exception
-        // system at all while being debugged.
-        KSLOG_WARN("Process is being debugged. Not installing handler.");
-        goto failed;
-    }
 
     g_context = context;
 
@@ -486,7 +476,7 @@ void kscrashsentry_uninstallMachHandler(void)
 
     restoreExceptionPorts();
 
-    thread_t thread_self = ksmach_thread_self();
+    thread_t thread_self = ksthread_self();
 
     if(g_primaryPThread != 0 && g_primaryMachThread != thread_self)
     {

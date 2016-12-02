@@ -26,7 +26,7 @@
 
 
 #import "TestThread.h"
-#import "KSMach.h"
+#import "KSThread.h"
 
 
 @implementation TestThread
@@ -35,7 +35,7 @@
 
 - (void) main
 {
-    self.thread = ksmach_thread_self();
+    self.thread = ksthread_self();
     while(!self.isCancelled)
     {
         [[self class] sleepForTimeInterval:0.1];

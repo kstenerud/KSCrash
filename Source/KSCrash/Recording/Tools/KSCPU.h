@@ -34,7 +34,7 @@ extern "C" {
 
 #include "KSArchSpecific.h"
 
-#include <mach/mach.h>
+#include <mach/mach_types.h>
 #include <stdbool.h>
 #include <sys/ucontext.h>
 

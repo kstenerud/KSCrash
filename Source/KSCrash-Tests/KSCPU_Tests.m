@@ -28,9 +28,9 @@
 #import <XCTest/XCTest.h>
 
 #import "KSCPU.h"
-#import "KSMach.h"
-
 #import "TestThread.h"
+
+#import <mach/mach.h>
 
 
 @interface KSCPU_Tests : XCTestCase @end

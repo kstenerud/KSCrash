@@ -29,7 +29,6 @@
 
 #import "KSDynamicLinker.h"
 #import "KSCPU.h"
-#import "KSMach.h"
 #import "KSSysCtl.h"
 #import "KSJSONCodecObjC.h"
 #import "KSSystemCapabilities.h"
@@ -41,6 +40,7 @@
 #if KSCRASH_HAS_UIKIT
 #import <UIKit/UIKit.h>
 #endif
+#include <mach-o/dyld.h>
 
 
 @implementation KSSystemInfo

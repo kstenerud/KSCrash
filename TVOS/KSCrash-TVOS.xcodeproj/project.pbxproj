@@ -43,6 +43,8 @@
 		8A2507541DA876C300D7F158 /* XCTestCase+KSCrash.m in Sources */ = {isa = PBXBuildFile; fileRef = 8A25072F1DA876C300D7F158 /* XCTestCase+KSCrash.m */; };
 		CB25A5C51DF220DB00EC2B02 /* KSCPU.c in Sources */ = {isa = PBXBuildFile; fileRef = CB25A5C31DF220DB00EC2B02 /* KSCPU.c */; };
 		CB25A5C61DF220DB00EC2B02 /* KSCPU.h in Headers */ = {isa = PBXBuildFile; fileRef = CB25A5C41DF220DB00EC2B02 /* KSCPU.h */; };
+		CB25A5E71DF2370300EC2B02 /* KSThread.c in Sources */ = {isa = PBXBuildFile; fileRef = CB25A5E51DF2370300EC2B02 /* KSThread.c */; };
+		CB25A5E81DF2370300EC2B02 /* KSThread.h in Headers */ = {isa = PBXBuildFile; fileRef = CB25A5E61DF2370300EC2B02 /* KSThread.h */; };
 		CB5633D31DD53C0A0023CEB6 /* KSCrashSentry_Context.h in Headers */ = {isa = PBXBuildFile; fileRef = CB5633D21DD53C0A0023CEB6 /* KSCrashSentry_Context.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CB69B8D71DC044A7002713B1 /* RFC3339UTFString.c in Sources */ = {isa = PBXBuildFile; fileRef = CB69B8D51DC044A7002713B1 /* RFC3339UTFString.c */; };
 		CB69B8D81DC044A7002713B1 /* RFC3339UTFString.h in Headers */ = {isa = PBXBuildFile; fileRef = CB69B8D61DC044A7002713B1 /* RFC3339UTFString.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -251,6 +253,8 @@
 		8A25072F1DA876C300D7F158 /* XCTestCase+KSCrash.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "XCTestCase+KSCrash.m"; path = "../../Source/KSCrash-Tests/XCTestCase+KSCrash.m"; sourceTree = "<group>"; };
 		CB25A5C31DF220DB00EC2B02 /* KSCPU.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSCPU.c; sourceTree = "<group>"; };
 		CB25A5C41DF220DB00EC2B02 /* KSCPU.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCPU.h; sourceTree = "<group>"; };
+		CB25A5E51DF2370300EC2B02 /* KSThread.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KSThread.c; sourceTree = "<group>"; };
+		CB25A5E61DF2370300EC2B02 /* KSThread.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSThread.h; sourceTree = "<group>"; };
 		CB5633D21DD53C0A0023CEB6 /* KSCrashSentry_Context.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSCrashSentry_Context.h; sourceTree = "<group>"; };
 		CB69B8D51DC044A7002713B1 /* RFC3339UTFString.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = RFC3339UTFString.c; sourceTree = "<group>"; };
 		CB69B8D61DC044A7002713B1 /* RFC3339UTFString.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RFC3339UTFString.h; sourceTree = "<group>"; };
@@ -664,6 +668,8 @@
 				CBEE5C961CB86989005EAF61 /* KSString.h */,
 				CBEE5C971CB86989005EAF61 /* KSSysCtl.c */,
 				CBEE5C981CB86989005EAF61 /* KSSysCtl.h */,
+				CB25A5E51DF2370300EC2B02 /* KSThread.c */,
+				CB25A5E61DF2370300EC2B02 /* KSThread.h */,
 				CBEE5C991CB86989005EAF61 /* KSZombie.h */,
 				03082CD61D91822300935324 /* KSZombie.c */,
 				CBEE5C9D1CB86989005EAF61 /* NSError+SimpleConstructor.h */,
@@ -846,6 +852,7 @@
 				CBEE5CEB1CB86989005EAF61 /* Optional.h in Headers */,
 				CBEE5D391CB86989005EAF61 /* KSString.h in Headers */,
 				CBEE5CF81CB86989005EAF61 /* KSCrashContext.h in Headers */,
+				CB25A5E81DF2370300EC2B02 /* KSThread.h in Headers */,
 				CBEE5D4C1CB86989005EAF61 /* KSCrashReportFilterBasic.h in Headers */,
 				CBEE5D5D1CB86989005EAF61 /* KSCrashReportSinkEMail.h in Headers */,
 				CBEE5CE21CB86989005EAF61 /* KSCrashInstallationEmail.h in Headers */,
@@ -1043,6 +1050,7 @@
 				CBEE5D2C1CB86989005EAF61 /* KSCPU_arm64.c in Sources */,
 				CBEE5CDF1CB86989005EAF61 /* KSCrashInstallation.m in Sources */,
 				CBEE5CFB1CB86989005EAF61 /* KSCrashReport.c in Sources */,
+				CB25A5E71DF2370300EC2B02 /* KSThread.c in Sources */,
 				CBEE5CE31CB86989005EAF61 /* KSCrashInstallationEmail.m in Sources */,
 				CBEE5D5C1CB86989005EAF61 /* KSCrashReportSinkConsole.m in Sources */,
 				CBEE5CE11CB86989005EAF61 /* KSCrashInstallationConsole.m in Sources */,

@@ -33,7 +33,7 @@ extern "C" {
 
 
 #include <dlfcn.h>
-#include <mach-o/dyld.h>
+#include <mach-o/loader.h>
 
 
 /** Find a loaded binary image with the specified name.
