@@ -115,14 +115,14 @@
     {
         success = noAnswer != nil;
     }
-    kscrash_i_callCompletion(self.onCompletion, self.reports, success, nil);
+    kscrash_callCompletion(self.onCompletion, self.reports, success, nil);
 #endif
 }
 
 - (void) alertView:(__unused id) alertView clickedButtonAtIndex:(NSInteger) buttonIndex
 {
     BOOL success = buttonIndex == self.expectedButtonIndex;
-    kscrash_i_callCompletion(self.onCompletion, self.reports, success, nil);
+    kscrash_callCompletion(self.onCompletion, self.reports, success, nil);
 }
 
 @end
@@ -187,7 +187,7 @@
                                                  NSError* error)
                         {
                             KSLOG_TRACE(@"alert process complete");
-                            kscrash_i_callCompletion(onCompletion, filteredReports, completed, error);
+                            kscrash_callCompletion(onCompletion, filteredReports, completed, error);
                             dispatch_async(dispatch_get_main_queue(), ^
                                            {
                                                process = nil;
@@ -229,7 +229,7 @@
           onCompletion:(KSCrashReportFilterCompletion) onCompletion
 {
     KSLOG_WARN(@"Alert filter not available on this platform.");
-    kscrash_i_callCompletion(onCompletion, reports, YES, nil);
+    kscrash_callCompletion(onCompletion, reports, YES, nil);
 }
 
 @end

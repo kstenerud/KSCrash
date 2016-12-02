@@ -111,7 +111,7 @@
 
 - (void) onTimeUp
 {
-    kscrash_i_callCompletion(self.onCompletion, self.reports, self.completed, self.error);
+    kscrash_callCompletion(self.onCompletion, self.reports, self.completed, self.error);
 }
 
 @end

@@ -68,15 +68,11 @@ static const char* g_stateFilePath;
 static KSCrash_State* g_state;
 
 
-// Avoiding static functions due to linker issues.
-
 // ============================================================================
 #pragma mark - JSON Encoding -
 // ============================================================================
 
-int kscrashstate_i_onBooleanElement(const char* const name,
-                                    const bool value,
-                                    void* const userData)
+static int onBooleanElement(const char* const name, const bool value, void* const userData)
 {
     KSCrash_State* state = userData;
 
@@ -88,9 +84,7 @@ int kscrashstate_i_onBooleanElement(const char* const name,
     return KSJSON_OK;
 }
 
-int kscrashstate_i_onFloatingPointElement(const char* const name,
-                                          const double value,
-                                          void* const userData)
+static int onFloatingPointElement(const char* const name, const double value, void* const userData)
 {
     KSCrash_State* state = userData;
 
@@ -106,9 +100,7 @@ int kscrashstate_i_onFloatingPointElement(const char* const name,
     return KSJSON_OK;
 }
 
-int kscrashstate_i_onIntegerElement(const char* const name,
-                                    const int64_t value,
-                                    void* const userData)
+static int onIntegerElement(const char* const name, const int64_t value, void* const userData)
 {
     KSCrash_State* state = userData;
 
@@ -130,40 +122,37 @@ int kscrashstate_i_onIntegerElement(const char* const name,
     }
 
     // FP value might have been written as a whole number.
-    return kscrashstate_i_onFloatingPointElement(name, value, userData);
+    return onFloatingPointElement(name, value, userData);
 }
 
-int kscrashstate_i_onNullElement(__unused const char* const name,
-                                 __unused void* const userData)
+static int onNullElement(__unused const char* const name, __unused void* const userData)
 {
     return KSJSON_OK;
 }
 
-int kscrashstate_i_onStringElement(__unused const char* const name,
-                                   __unused const char* const value,
-                                   __unused void* const userData)
+static int onStringElement(__unused const char* const name,
+                           __unused const char* const value,
+                           __unused void* const userData)
 {
     return KSJSON_OK;
 }
 
-int kscrashstate_i_onBeginObject(__unused const char* const name,
-                                 __unused void* const userData)
+static int onBeginObject(__unused const char* const name, __unused void* const userData)
 {
     return KSJSON_OK;
 }
 
-int kscrashstate_i_onBeginArray(__unused const char* const name,
-                                __unused void* const userData)
+static int onBeginArray(__unused const char* const name, __unused void* const userData)
 {
     return KSJSON_OK;
 }
 
-int kscrashstate_i_onEndContainer(__unused void* const userData)
+static int onEndContainer(__unused void* const userData)
 {
     return KSJSON_OK;
 }
 
-int kscrashstate_i_onEndData(__unused void* const userData)
+static int onEndData(__unused void* const userData)
 {
     return KSJSON_OK;
 }
@@ -171,7 +160,7 @@ int kscrashstate_i_onEndData(__unused void* const userData)
 
 /** Callback for adding JSON data.
  */
-int kscrashstate_i_addJSONData(const char* const data, const int length, void* const userData)
+static int addJSONData(const char* const data, const int length, void* const userData)
 {
     const int fd = *((int*)userData);
     const bool success = ksfu_writeBytesToFD(fd, data, length);
@@ -203,7 +192,7 @@ static double timeSince(double timeInSeconds)
  *
  * @return true if the operation was successful.
  */
-bool kscrashstate_i_loadState(KSCrash_State* const context,
+bool loadState(KSCrash_State* const context,
                               const char* const path)
 {
     // Stop if the file doesn't exist.
@@ -224,15 +213,15 @@ bool kscrashstate_i_loadState(KSCrash_State* const context,
     }
 
     KSJSONDecodeCallbacks callbacks;
-    callbacks.onBeginArray = kscrashstate_i_onBeginArray;
-    callbacks.onBeginObject = kscrashstate_i_onBeginObject;
-    callbacks.onBooleanElement = kscrashstate_i_onBooleanElement;
-    callbacks.onEndContainer = kscrashstate_i_onEndContainer;
-    callbacks.onEndData = kscrashstate_i_onEndData;
-    callbacks.onFloatingPointElement = kscrashstate_i_onFloatingPointElement;
-    callbacks.onIntegerElement = kscrashstate_i_onIntegerElement;
-    callbacks.onNullElement = kscrashstate_i_onNullElement;
-    callbacks.onStringElement = kscrashstate_i_onStringElement;
+    callbacks.onBeginArray = onBeginArray;
+    callbacks.onBeginObject = onBeginObject;
+    callbacks.onBooleanElement = onBooleanElement;
+    callbacks.onEndContainer = onEndContainer;
+    callbacks.onEndData = onEndData;
+    callbacks.onFloatingPointElement = onFloatingPointElement;
+    callbacks.onIntegerElement = onIntegerElement;
+    callbacks.onNullElement = onNullElement;
+    callbacks.onStringElement = onStringElement;
 
     int errorOffset = 0;
 
@@ -262,7 +251,7 @@ bool kscrashstate_i_loadState(KSCrash_State* const context,
  *
  * @return true if the operation was successful.
  */
-bool kscrashstate_i_saveState(const KSCrash_State* const state,
+bool saveState(const KSCrash_State* const state,
                               const char* const path)
 {
     int fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0644);
@@ -277,7 +266,7 @@ bool kscrashstate_i_saveState(const KSCrash_State* const state,
     KSJSONEncodeContext JSONContext;
     ksjson_beginEncode(&JSONContext,
                        true,
-                       kscrashstate_i_addJSONData,
+                       addJSONData,
                        &fd);
 
     int result;
@@ -345,7 +334,7 @@ bool kscrashstate_init(const char* const stateFilePath, KSCrash_State* const sta
     g_stateFilePath = strdup(stateFilePath);
     g_state = state;
 
-    kscrashstate_i_loadState(g_state, g_stateFilePath);
+    loadState(g_state, g_stateFilePath);
     return kscrashstate_reset();
 }
 
@@ -368,7 +357,7 @@ bool kscrashstate_reset()
     g_state->sessionsSinceLastCrash++;
     g_state->applicationIsInForeground = true;
     
-    return kscrashstate_i_saveState(g_state, g_stateFilePath);
+    return saveState(g_state, g_stateFilePath);
 }
 
 void kscrashstate_notifyAppActive(const bool isActive)
@@ -405,7 +394,7 @@ void kscrashstate_notifyAppInForeground(const bool isInForeground)
     else
     {
         state->appStateTransitionTime = getCurentTime();
-        kscrashstate_i_saveState(state, stateFilePath);
+        saveState(state, stateFilePath);
     }
 }
 
@@ -416,7 +405,7 @@ void kscrashstate_notifyAppTerminate(void)
 
     const double duration = timeSince(state->appStateTransitionTime);
     state->backgroundDurationSinceLastCrash += duration;
-    kscrashstate_i_saveState(state, stateFilePath);
+    saveState(state, stateFilePath);
 }
 
 void kscrashstate_notifyAppCrash(void)
@@ -436,7 +425,7 @@ void kscrashstate_notifyAppCrash(void)
         state->backgroundDurationSinceLastCrash += duration;
     }
     state->crashedThisLaunch = true;
-    kscrashstate_i_saveState(state, stateFilePath);
+    saveState(state, stateFilePath);
 }
 
 const KSCrash_State* const kscrashstate_currentState(void)

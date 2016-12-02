@@ -54,7 +54,7 @@
         [filteredReports addObject:[self stringifyObject:report]];
     }
     
-    kscrash_i_callCompletion(onCompletion, filteredReports, YES, nil);
+    kscrash_callCompletion(onCompletion, filteredReports, YES, nil);
 }
 
 @end

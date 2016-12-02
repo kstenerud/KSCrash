@@ -54,7 +54,7 @@
         NSLog(@"Report %d:\n%@", ++i, report);
     }
 
-    kscrash_i_callCompletion(onCompletion, reports, YES, nil);
+    kscrash_callCompletion(onCompletion, reports, YES, nil);
 }
 
 

@@ -108,23 +108,23 @@
     switch (result)
     {
         case MFMailComposeResultSent:
-            kscrash_i_callCompletion(self.onCompletion, self.reports, YES, nil);
+            kscrash_callCompletion(self.onCompletion, self.reports, YES, nil);
             break;
         case MFMailComposeResultSaved:
-            kscrash_i_callCompletion(self.onCompletion, self.reports, YES, nil);
+            kscrash_callCompletion(self.onCompletion, self.reports, YES, nil);
             break;
         case MFMailComposeResultCancelled:
-            kscrash_i_callCompletion(self.onCompletion, self.reports, NO,
+            kscrash_callCompletion(self.onCompletion, self.reports, NO,
                                      [NSError errorWithDomain:[[self class] description]
                                                          code:0
                                                   description:@"User cancelled"]);
             break;
         case MFMailComposeResultFailed:
-            kscrash_i_callCompletion(self.onCompletion, self.reports, NO, error);
+            kscrash_callCompletion(self.onCompletion, self.reports, NO, error);
             break;
         default:
         {
-            kscrash_i_callCompletion(self.onCompletion, self.reports, NO,
+            kscrash_callCompletion(self.onCompletion, self.reports, NO,
                                      [NSError errorWithDomain:[[self class] description]
                                                          code:0
                                                   description:@"Unknown MFMailComposeResult: %d", result]);
@@ -253,7 +253,7 @@
                           cancelButtonTitle:@"OK"
                           otherButtonTitles:nil] show];
 
-        kscrash_i_callCompletion(onCompletion, reports, NO,
+        kscrash_callCompletion(onCompletion, reports, NO,
                                  [NSError errorWithDomain:[[self class] description]
                                                      code:0
                                               description:@"E-Mail not enabled on device"]);
@@ -279,7 +279,7 @@
                                                       BOOL completed,
                                                       NSError* error)
                         {
-                            kscrash_i_callCompletion(onCompletion, filteredReports, completed, error);
+                            kscrash_callCompletion(onCompletion, filteredReports, completed, error);
                             dispatch_async(dispatch_get_main_queue(), ^
                                            {
                                                process = nil;
@@ -323,7 +323,7 @@
         NSString* report = [[NSString alloc] initWithData:[reportData gunzippedWithError:nil] encoding:NSUTF8StringEncoding];
         NSLog(@"Report\n%@", report);
     }
-    kscrash_i_callCompletion(onCompletion, reports, NO,
+    kscrash_callCompletion(onCompletion, reports, NO,
                              [NSError errorWithDomain:[[self class] description]
                                                  code:0
                                           description:@"Cannot send mail on this platform"]);

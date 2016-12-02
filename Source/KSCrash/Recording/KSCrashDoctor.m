@@ -11,9 +11,6 @@
 #import "KSSystemInfo.h"
 
 
-#define kUserCrashHandler "kscrw_i_callUserCrashHandler"
-
-
 typedef enum
 {
     CPUFamilyUnknown,

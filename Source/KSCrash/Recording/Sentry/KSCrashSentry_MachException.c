@@ -147,8 +147,6 @@ static KSCrash_SentryContext* g_context;
 #pragma mark - Utility -
 // ============================================================================
 
-// Avoiding static methods due to linker issue.
-
 /** Get all parts of the machine state required for a dump.
  * This includes basic thread state, and exception registers.
  *
@@ -156,8 +154,7 @@ static KSCrash_SentryContext* g_context;
  *
  * @param machineContext The machine context to fill out.
  */
-bool ksmachexc_i_fetchMachineState(const thread_t thread,
-                                   STRUCT_MCONTEXT_L* const machineContext)
+static bool fetchMachineState(const thread_t thread, STRUCT_MCONTEXT_L* const machineContext)
 {
     if(!ksmach_threadState(thread, machineContext))
     {
@@ -174,7 +171,7 @@ bool ksmachexc_i_fetchMachineState(const thread_t thread,
 
 /** Restore the original mach exception ports.
  */
-void ksmachexc_i_restoreExceptionPorts(void)
+static void restoreExceptionPorts(void)
 {
     KSLOG_DEBUG("Restoring original exception ports.");
     if(g_previousExceptionPorts.count == 0)
@@ -214,7 +211,7 @@ void ksmachexc_i_restoreExceptionPorts(void)
  * Wait for an exception message, uninstall our exception port, record the
  * exception information, and write a report.
  */
-void* ksmachexc_i_handleExceptions(void* const userData)
+static void* handleExceptions(void* const userData)
 {
     MachExceptionMessage exceptionMessage = {{0}};
     MachReplyMessage replyMessage = {{0}};
@@ -265,7 +262,7 @@ void* ksmachexc_i_handleExceptions(void* const userData)
         if(ksmach_thread_self() == g_primaryMachThread)
         {
             KSLOG_DEBUG("This is the primary exception thread. Activating secondary thread.");
-            ksmachexc_i_restoreExceptionPorts();
+            restoreExceptionPorts();
             if(thread_resume(g_secondaryMachThread) != KERN_SUCCESS)
             {
                 KSLOG_DEBUG("Could not activate secondary thread. Restoring original exception ports.");
@@ -274,7 +271,7 @@ void* ksmachexc_i_handleExceptions(void* const userData)
         else
         {
             KSLOG_DEBUG("This is the secondary exception thread. Restoring original exception ports.");
-            ksmachexc_i_restoreExceptionPorts();
+            restoreExceptionPorts();
         }
 
         if(wasHandlingCrash)
@@ -289,7 +286,7 @@ void* ksmachexc_i_handleExceptions(void* const userData)
         // Fill out crash information
         KSLOG_DEBUG("Fetching machine state.");
         STRUCT_MCONTEXT_L machineContext;
-        if(ksmachexc_i_fetchMachineState(exceptionMessage.thread.name, &machineContext))
+        if(fetchMachineState(exceptionMessage.thread.name, &machineContext))
         {
             if(exceptionMessage.exception == EXC_BAD_ACCESS)
             {
@@ -434,7 +431,7 @@ bool kscrashsentry_installMachHandler(KSCrash_SentryContext* const context)
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
     error = pthread_create(&g_secondaryPThread,
                            &attr,
-                           &ksmachexc_i_handleExceptions,
+                           &handleExceptions,
                            kThreadSecondary);
     if(error != 0)
     {
@@ -447,7 +444,7 @@ bool kscrashsentry_installMachHandler(KSCrash_SentryContext* const context)
     KSLOG_DEBUG("Creating primary exception thread.");
     error = pthread_create(&g_primaryPThread,
                            &attr,
-                           &ksmachexc_i_handleExceptions,
+                           &handleExceptions,
                            kThreadPrimary);
     if(error != 0)
     {
@@ -486,7 +483,7 @@ void kscrashsentry_uninstallMachHandler(void)
     // NOTE: Do not deallocate the exception port. If a secondary crash occurs
     // it will hang the process.
 
-    ksmachexc_i_restoreExceptionPorts();
+    restoreExceptionPorts();
 
     thread_t thread_self = ksmach_thread_self();
 

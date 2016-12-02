@@ -312,7 +312,7 @@ static NSString* getBasePath()
          {
              kscrs_deleteAllReports();
          }
-         kscrash_i_callCompletion(onCompletion, filteredReports, completed, error);
+         kscrash_callCompletion(onCompletion, filteredReports, completed, error);
      }];
 }
 
@@ -378,13 +378,13 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
 {
     if([reports count] == 0)
     {
-        kscrash_i_callCompletion(onCompletion, reports, YES, nil);
+        kscrash_callCompletion(onCompletion, reports, YES, nil);
         return;
     }
     
     if(self.sink == nil)
     {
-        kscrash_i_callCompletion(onCompletion, reports, NO,
+        kscrash_callCompletion(onCompletion, reports, NO,
                                  [NSError errorWithDomain:[[self class] description]
                                                      code:0
                                               description:@"No sink set. Crash reports not sent."]);
@@ -394,7 +394,7 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
     [self.sink filterReports:reports
                 onCompletion:^(NSArray* filteredReports, BOOL completed, NSError* error)
      {
-         kscrash_i_callCompletion(onCompletion, filteredReports, completed, error);
+         kscrash_callCompletion(onCompletion, filteredReports, completed, error);
      }];
 }
 

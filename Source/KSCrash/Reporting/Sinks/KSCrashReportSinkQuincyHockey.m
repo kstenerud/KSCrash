@@ -419,20 +419,20 @@ crashDescriptionKeys:(NSArray*) crashDescriptionKeys
                                                     __unused NSData* data)
          {
              KSLOG_DEBUG(@"Post successful");
-             kscrash_i_callCompletion(onCompletion, reports, YES, nil);
+             kscrash_callCompletion(onCompletion, reports, YES, nil);
          } onFailure:^(NSHTTPURLResponse* response, NSData* data)
          {
              NSString* text = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
              KSLOG_DEBUG(@"Post failed. Code %d", response.statusCode);
              KSLOG_TRACE(@"Response text:\n%@", text);
-             kscrash_i_callCompletion(onCompletion, reports, NO,
+             kscrash_callCompletion(onCompletion, reports, NO,
                                       [NSError errorWithDomain:[[self class] description]
                                                           code:response.statusCode
                                                    description:text]);
          } onError:^(NSError* error)
          {
              KSLOG_DEBUG(@"Posting error: %@", error);
-             kscrash_i_callCompletion(onCompletion, reports, NO, error);
+             kscrash_callCompletion(onCompletion, reports, NO, error);
          }];
     };
 

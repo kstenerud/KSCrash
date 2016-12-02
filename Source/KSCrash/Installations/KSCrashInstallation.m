@@ -57,7 +57,7 @@ typedef struct
 static CrashHandlerData* g_crashHandlerData;
 
 
-void kscinst_i_crashCallback(const KSCrashReportWriter* writer)
+static void crashCallback(const KSCrashReportWriter* writer)
 {
     for(int i = 0; i < g_crashHandlerData->reportFieldsCount; i++)
     {
@@ -322,7 +322,7 @@ void kscinst_i_crashCallback(const KSCrashReportWriter* writer)
     @synchronized(handler)
     {
         g_crashHandlerData = self.crashHandlerData;
-        handler.onCrash = kscinst_i_crashCallback;
+        handler.onCrash = crashCallback;
         [handler install];
     }
 }

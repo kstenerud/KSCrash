@@ -41,7 +41,9 @@
 #include <sys/sysctl.h>
 
 
-// Avoiding static functions due to linker issues.
+// ============================================================================
+#pragma mark - (internal) -
+// ============================================================================
 
 /** Get the current VM stats.
  *
@@ -51,8 +53,31 @@
  *
  * @return true if the operation was successful.
  */
-bool ksmach_i_VMStats(vm_statistics_data_t* const vmStats,
-                      vm_size_t* const pageSize);
+static bool VMStats(vm_statistics_data_t* const vmStats, vm_size_t* const pageSize)
+{
+    kern_return_t kr;
+    const mach_port_t hostPort = mach_host_self();
+    
+    if((kr = host_page_size(hostPort, pageSize)) != KERN_SUCCESS)
+    {
+        KSLOG_ERROR("host_page_size: %s", mach_error_string(kr));
+        return false;
+    }
+    
+    mach_msg_type_number_t hostSize = sizeof(*vmStats) / sizeof(natural_t);
+    kr = host_statistics(hostPort,
+                         HOST_VM_INFO,
+                         (host_info_t)vmStats,
+                         &hostSize);
+    if(kr != KERN_SUCCESS)
+    {
+        KSLOG_ERROR("host_statistics: %s", mach_error_string(kr));
+        return false;
+    }
+    
+    return true;
+}
+
 
 // ============================================================================
 #pragma mark - General Information -
@@ -62,7 +87,7 @@ uint64_t ksmach_freeMemory(void)
 {
     vm_statistics_data_t vmStats;
     vm_size_t pageSize;
-    if(ksmach_i_VMStats(&vmStats, &pageSize))
+    if(VMStats(&vmStats, &pageSize))
     {
         return ((uint64_t)pageSize) * vmStats.free_count;
     }
@@ -73,7 +98,7 @@ uint64_t ksmach_usableMemory(void)
 {
     vm_statistics_data_t vmStats;
     vm_size_t pageSize;
-    if(ksmach_i_VMStats(&vmStats, &pageSize))
+    if(VMStats(&vmStats, &pageSize))
     {
         return ((uint64_t)pageSize) * (vmStats.active_count +
                                        vmStats.inactive_count +
@@ -463,35 +488,4 @@ bool ksmach_isBeingTraced(void)
     }
 
     return (procInfo.kp_proc.p_flag & P_TRACED) != 0;
-}
-
-
-// ============================================================================
-#pragma mark - (internal) -
-// ============================================================================
-
-bool ksmach_i_VMStats(vm_statistics_data_t* const vmStats,
-                      vm_size_t* const pageSize)
-{
-    kern_return_t kr;
-    const mach_port_t hostPort = mach_host_self();
-
-    if((kr = host_page_size(hostPort, pageSize)) != KERN_SUCCESS)
-    {
-        KSLOG_ERROR("host_page_size: %s", mach_error_string(kr));
-        return false;
-    }
-
-    mach_msg_type_number_t hostSize = sizeof(*vmStats) / sizeof(natural_t);
-    kr = host_statistics(hostPort,
-                         HOST_VM_INFO,
-                         (host_info_t)vmStats,
-                         &hostSize);
-    if(kr != KERN_SUCCESS)
-    {
-        KSLOG_ERROR("host_statistics: %s", mach_error_string(kr));
-        return false;
-    }
-    
-    return true;
 }

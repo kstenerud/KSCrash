@@ -56,14 +56,12 @@ static KSCrash_SentryContext* g_context;
 #pragma mark - Callbacks -
 // ============================================================================
 
-// Avoiding static methods due to linker issue.
-
 /** Our custom excepetion handler.
  * Fetch the stack trace from the exception and write a report.
  *
  * @param exception The exception that was raised.
  */
-void ksnsexc_i_handleException(NSException* exception)
+static void handleException(NSException* exception)
 {
     KSLOG_DEBUG(@"Trapped exception %@", exception);
     if(g_installed)
@@ -137,7 +135,7 @@ bool kscrashsentry_installNSExceptionHandler(KSCrash_SentryContext* const contex
     g_previousUncaughtExceptionHandler = NSGetUncaughtExceptionHandler();
 
     KSLOG_DEBUG(@"Setting new handler.");
-    NSSetUncaughtExceptionHandler(&ksnsexc_i_handleException);
+    NSSetUncaughtExceptionHandler(&handleException);
 
     return true;
 }

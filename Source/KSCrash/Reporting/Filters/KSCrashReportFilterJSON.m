@@ -68,7 +68,7 @@
                                          error:&error];
         if(jsonData == nil)
         {
-            kscrash_i_callCompletion(onCompletion, filteredReports, NO, error);
+            kscrash_callCompletion(onCompletion, filteredReports, NO, error);
             return;
         }
         else
@@ -77,7 +77,7 @@
         }
     }
 
-    kscrash_i_callCompletion(onCompletion, filteredReports, YES, nil);
+    kscrash_callCompletion(onCompletion, filteredReports, YES, nil);
 }
 
 @end
@@ -120,7 +120,7 @@
                                              error:&error];
         if(report == nil)
         {
-            kscrash_i_callCompletion(onCompletion, filteredReports, NO, error);
+            kscrash_callCompletion(onCompletion, filteredReports, NO, error);
             return;
         }
         else
@@ -129,7 +129,7 @@
         }
     }
 
-    kscrash_i_callCompletion(onCompletion, filteredReports, YES, nil);
+    kscrash_callCompletion(onCompletion, filteredReports, YES, nil);
 }
 
 @end

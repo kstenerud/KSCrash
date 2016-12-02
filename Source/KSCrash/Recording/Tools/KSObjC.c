@@ -1032,10 +1032,10 @@ int ksobjc_stringLength(const void* const stringPtr)
 #define kUTF16_TailSurrogateEnd         0xdfffu
 #define kUTF16_FirstSupplementaryPlane  0x10000u
 
-int ksobjc_i_copyAndConvertUTF16StringToUTF8(const void* const src,
-                                             void* const dst,
-                                             int charCount,
-                                             int maxByteCount)
+static int copyAndConvertUTF16StringToUTF8(const void* const src,
+                                           void* const dst,
+                                           int charCount,
+                                           int maxByteCount)
 {
     const uint16_t* pSrc = src;
     uint8_t* pDst = dst;
@@ -1127,7 +1127,7 @@ int ksobjc_i_copyAndConvertUTF16StringToUTF8(const void* const src,
     return (int)(pDst - (uint8_t*)dst);
 }
 
-int ksobjc_i_copy8BitString(const void* const src, void* const dst, int charCount, int maxByteCount)
+static int copy8BitString(const void* const src, void* const dst, int charCount, int maxByteCount)
 {
     unlikely_if(maxByteCount == 0)
     {
@@ -1165,10 +1165,10 @@ int ksobjc_copyStringContents(const void* stringPtr, char* dst, int maxByteCount
     const char* src = stringStart(string);
     if(__CFStrIsUnicode(string))
     {
-        return ksobjc_i_copyAndConvertUTF16StringToUTF8(src, dst, charCount, maxByteCount);
+        return copyAndConvertUTF16StringToUTF8(src, dst, charCount, maxByteCount);
     }
     
-    return ksobjc_i_copy8BitString(src, dst, charCount, maxByteCount);
+    return copy8BitString(src, dst, charCount, maxByteCount);
 }
 
 static int stringDescription(const void* object, char* buffer, int bufferLength)
@@ -1637,7 +1637,7 @@ int ksobjc_getDescription(void* object, char* buffer, int bufferLength)
     return data->description(object, buffer, bufferLength);
 }
 
-void* ksobjc_i_objectReferencedByString(const char* string)
+static void* objectReferencedByString(const char* string)
 {
     uint64_t address = 0;
     if(ksstring_extractHexValue(string, (int)strlen(string), &address))

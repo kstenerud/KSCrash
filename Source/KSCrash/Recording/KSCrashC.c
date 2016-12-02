@@ -79,13 +79,11 @@ static inline KSCrash_Context* crashContext(void)
 #pragma mark - Callbacks -
 // ============================================================================
 
-// Avoiding static methods due to linker issue.
-
 /** Called when a crash occurs.
  *
  * This function gets passed as a callback to a crash handler.
  */
-void kscrash_i_onCrash(void)
+static void onCrash(void)
 {
     KSLOG_DEBUG("Updating application state to note crash.");
     kscrashstate_notifyAppCrash();
@@ -198,7 +196,7 @@ KSCrashType kscrash_setHandlingCrashTypes(KSCrashType crashTypes)
     if(g_installed)
     {
         kscrashsentry_uninstall(~crashTypes);
-        crashTypes = kscrashsentry_installWithContext(&context->crash, crashTypes, kscrash_i_onCrash);
+        crashTypes = kscrashsentry_installWithContext(&context->crash, crashTypes, onCrash);
     }
 
     return crashTypes;

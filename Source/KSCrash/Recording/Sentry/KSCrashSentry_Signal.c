@@ -68,8 +68,6 @@ static KSCrash_SentryContext* g_context;
 #pragma mark - Callbacks -
 // ============================================================================
 
-// Avoiding static functions due to linker issues.
-
 /** Our custom signal handler.
  * Restore the default signal handlers, record the signal information, and
  * write a crash report.
@@ -82,9 +80,7 @@ static KSCrash_SentryContext* g_context;
  *
  * @param userContext Other contextual information.
  */
-void kssighndl_i_handleSignal(int sigNum,
-                              siginfo_t* signalInfo,
-                              void* userContext)
+static void handleSignal(int sigNum, siginfo_t* signalInfo, void* userContext)
 {
     KSLOG_DEBUG("Trapped signal %d", sigNum);
     if(g_installed)
@@ -179,7 +175,7 @@ bool kscrashsentry_installSignalHandler(KSCrash_SentryContext* context)
     action.sa_flags |= SA_64REGSET;
 #endif
     sigemptyset(&action.sa_mask);
-    action.sa_sigaction = &kssighndl_i_handleSignal;
+    action.sa_sigaction = &handleSignal;
 
     for(int i = 0; i < fatalSignalsCount; i++)
     {

@@ -123,7 +123,7 @@
                                      error:&error];
     if(jsonData == nil)
     {
-        kscrash_i_callCompletion(onCompletion, reports, NO, error);
+        kscrash_callCompletion(onCompletion, reports, NO, error);
         return;
     }
     
@@ -148,17 +148,17 @@
         [[KSHTTPRequestSender sender] sendRequest:request
                                         onSuccess:^(__unused NSHTTPURLResponse* response, __unused NSData* data)
          {
-             kscrash_i_callCompletion(onCompletion, reports, YES, nil);
+             kscrash_callCompletion(onCompletion, reports, YES, nil);
          } onFailure:^(NSHTTPURLResponse* response, NSData* data)
          {
              NSString* text = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
-             kscrash_i_callCompletion(onCompletion, reports, NO,
+             kscrash_callCompletion(onCompletion, reports, NO,
                                       [NSError errorWithDomain:[[self class] description]
                                                           code:response.statusCode
                                                    description:text]);
          } onError:^(NSError* error2)
          {
-             kscrash_i_callCompletion(onCompletion, reports, NO, error2);
+             kscrash_callCompletion(onCompletion, reports, NO, error2);
          }];
     }];
 }

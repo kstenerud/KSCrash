@@ -62,7 +62,7 @@ typedef void(^KSCrashReportFilterCompletion)(NSArray* filteredReports, BOOL comp
  * @param completed The parameter to send as "completed".
  * @param error The parameter to send as "error".
  */
-static inline void kscrash_i_callCompletion(KSCrashReportFilterCompletion onCompletion,
+static inline void kscrash_callCompletion(KSCrashReportFilterCompletion onCompletion,
                                             NSArray* filteredReports,
                                             BOOL completed,
                                             NSError* error)

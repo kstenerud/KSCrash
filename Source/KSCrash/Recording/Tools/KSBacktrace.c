@@ -69,11 +69,6 @@ typedef struct KSFrameEntry
     const uintptr_t return_address;
 } KSFrameEntry;
 
-
-// Avoiding static functions due to linker issues.
-
-
-
 int ksbt_backtraceLength(const STRUCT_MCONTEXT_L* const machineContext)
 {
     const uintptr_t instructionAddress = ksmach_instructionAddress(machineContext);

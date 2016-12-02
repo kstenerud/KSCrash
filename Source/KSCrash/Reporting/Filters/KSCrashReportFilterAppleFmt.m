@@ -207,7 +207,7 @@ NSDictionary* g_registerOrders;
         }
     }
 
-    kscrash_i_callCompletion(onCompletion, filteredReports, YES, nil);
+    kscrash_callCompletion(onCompletion, filteredReports, YES, nil);
 }
 
 - (NSString*) CPUType:(NSString*) CPUArch
