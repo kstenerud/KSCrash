@@ -24,6 +24,13 @@
 // THE SOFTWARE.
 //
 
+#ifndef HDR_KSCPU_h
+#define HDR_KSCPU_h
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 #include "KSArchSpecific.h"
 
@@ -177,3 +184,10 @@ uint64_t kscpu_exceptionRegisterValue(const STRUCT_MCONTEXT_L* machineContext, i
  * @return 1 or -1, depending on which direction the stack grows in.
  */
 int kscpu_stackGrowDirection(void);
+    
+    
+#ifdef __cplusplus
+}
+#endif
+
+#endif // HDR_KSCPU_h
