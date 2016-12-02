@@ -28,6 +28,7 @@
 #include "KSCrashSentry_MachException.h"
 #include "KSCrashSentry_Context.h"
 #include "KSCrashSentry_Private.h"
+#include "KSCPU.h"
 #include "KSMach.h"
 #include "KSSystemCapabilities.h"
 
@@ -156,12 +157,12 @@ static KSCrash_SentryContext* g_context;
  */
 static bool fetchMachineState(const thread_t thread, STRUCT_MCONTEXT_L* const machineContext)
 {
-    if(!ksmach_threadState(thread, machineContext))
+    if(!kscpu_threadState(thread, machineContext))
     {
         return false;
     }
 
-    if(!ksmach_exceptionState(thread, machineContext))
+    if(!kscpu_exceptionState(thread, machineContext))
     {
         return false;
     }
@@ -290,11 +291,11 @@ static void* handleExceptions(void* const userData)
         {
             if(exceptionMessage.exception == EXC_BAD_ACCESS)
             {
-                g_context->faultAddress = ksmach_faultAddress(&machineContext);
+                g_context->faultAddress = kscpu_faultAddress(&machineContext);
             }
             else
             {
-                g_context->faultAddress = ksmach_instructionAddress(&machineContext);
+                g_context->faultAddress = kscpu_instructionAddress(&machineContext);
             }
         }
 

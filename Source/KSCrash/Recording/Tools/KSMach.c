@@ -108,12 +108,6 @@ uint64_t ksmach_usableMemory(void)
     return 0;
 }
 
-const char* ksmach_currentCPUArch(void)
-{
-    const NXArchInfo* archInfo = NXGetLocalArchInfo();
-    return archInfo == NULL ? NULL : archInfo->name;
-}
-
 #define RETURN_NAME_FOR_ENUM(A) case A: return #A
 
 const char* ksmach_exceptionName(const exception_type_t exceptionType)
@@ -198,32 +192,6 @@ const char* ksmach_kernelReturnCodeName(const kern_return_t returnCode)
 #pragma mark - Thread State Info -
 // ============================================================================
 
-#if KSCRASH_HAS_THREADS_API
-bool ksmach_fillState(const thread_t thread,
-                      const thread_state_t state,
-                      const thread_state_flavor_t flavor,
-                      const mach_msg_type_number_t stateCount)
-{
-    mach_msg_type_number_t stateCountBuff = stateCount;
-    kern_return_t kr;
-
-    kr = thread_get_state(thread, flavor, state, &stateCountBuff);
-    if(kr != KERN_SUCCESS)
-    {
-        KSLOG_ERROR("thread_get_state: %s", mach_error_string(kr));
-        return false;
-    }
-    return true;
-}
-#else
-bool ksmach_fillState(__unused const thread_t thread,
-                      __unused const thread_state_t state,
-                      __unused const thread_state_flavor_t flavor,
-                      __unused const mach_msg_type_number_t stateCount)
-{
-    return false;
-}
-#endif
 
 thread_t ksmach_thread_self()
 {

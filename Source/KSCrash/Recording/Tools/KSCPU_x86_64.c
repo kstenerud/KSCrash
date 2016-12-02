@@ -28,7 +28,7 @@
 #if defined (__x86_64__)
 
 
-#include "KSMach.h"
+#include "KSCPU.h"
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
@@ -55,69 +55,65 @@ static const int g_exceptionRegisterNamesCount =
 sizeof(g_exceptionRegisterNames) / sizeof(*g_exceptionRegisterNames);
 
 
-uintptr_t ksmach_framePointer(const STRUCT_MCONTEXT_L* const machineContext)
+uintptr_t kscpu_framePointer(const STRUCT_MCONTEXT_L* const machineContext)
 {
     return machineContext->__ss.__rbp;
 }
 
-uintptr_t ksmach_stackPointer(const STRUCT_MCONTEXT_L* const machineContext)
+uintptr_t kscpu_stackPointer(const STRUCT_MCONTEXT_L* const machineContext)
 {
     return machineContext->__ss.__rsp;
 }
 
-uintptr_t ksmach_instructionAddress(const STRUCT_MCONTEXT_L* const machineContext)
+uintptr_t kscpu_instructionAddress(const STRUCT_MCONTEXT_L* const machineContext)
 {
     return machineContext->__ss.__rip;
 }
 
-uintptr_t ksmach_linkRegister(const STRUCT_MCONTEXT_L* const machineContext __attribute__ ((unused)))
+uintptr_t kscpu_linkRegister(const STRUCT_MCONTEXT_L* const machineContext __attribute__ ((unused)))
 {
     return 0;
 }
 
-bool ksmach_threadState(const thread_t thread,
-                        STRUCT_MCONTEXT_L* const machineContext)
+bool kscpu_threadState(const thread_t thread, STRUCT_MCONTEXT_L* const machineContext)
 {
-    return ksmach_fillState(thread,
-                            (thread_state_t)&machineContext->__ss,
-                            x86_THREAD_STATE64,
-                            x86_THREAD_STATE64_COUNT);
+    return kscpu_fillState(thread,
+                           (thread_state_t)&machineContext->__ss,
+                           x86_THREAD_STATE64,
+                           x86_THREAD_STATE64_COUNT);
 }
 
-bool ksmach_floatState(const thread_t thread,
-                       STRUCT_MCONTEXT_L* const machineContext)
+bool kscpu_floatState(const thread_t thread, STRUCT_MCONTEXT_L* const machineContext)
 {
-    return ksmach_fillState(thread,
-                            (thread_state_t)&machineContext->__fs,
-                            x86_FLOAT_STATE64,
-                            x86_FLOAT_STATE64_COUNT);
+    return kscpu_fillState(thread,
+                           (thread_state_t)&machineContext->__fs,
+                           x86_FLOAT_STATE64,
+                           x86_FLOAT_STATE64_COUNT);
 }
 
-bool ksmach_exceptionState(const thread_t thread,
-                           STRUCT_MCONTEXT_L* const machineContext)
+bool kscpu_exceptionState(const thread_t thread, STRUCT_MCONTEXT_L* const machineContext)
 {
-    return ksmach_fillState(thread,
-                            (thread_state_t)&machineContext->__es,
-                            x86_EXCEPTION_STATE64,
-                            x86_EXCEPTION_STATE64_COUNT);
+    return kscpu_fillState(thread,
+                           (thread_state_t)&machineContext->__es,
+                           x86_EXCEPTION_STATE64,
+                           x86_EXCEPTION_STATE64_COUNT);
 }
 
-int ksmach_numRegisters(void)
+int kscpu_numRegisters(void)
 {
     return g_registerNamesCount;
 }
 
-const char* ksmach_registerName(const int regNumber)
+const char* kscpu_registerName(const int regNumber)
 {
-    if(regNumber < ksmach_numRegisters())
+    if(regNumber < kscpu_numRegisters())
     {
         return g_registerNames[regNumber];
     }
     return NULL;
 }
 
-uint64_t ksmach_registerValue(const STRUCT_MCONTEXT_L* const machineContext,
-                              const int regNumber)
+uint64_t kscpu_registerValue(const STRUCT_MCONTEXT_L* const machineContext, const int regNumber)
 {
     switch(regNumber)
     {
@@ -169,14 +165,14 @@ uint64_t ksmach_registerValue(const STRUCT_MCONTEXT_L* const machineContext,
     return 0;
 }
 
-int ksmach_numExceptionRegisters(void)
+int kscpu_numExceptionRegisters(void)
 {
     return g_exceptionRegisterNamesCount;
 }
 
-const char* ksmach_exceptionRegisterName(const int regNumber)
+const char* kscpu_exceptionRegisterName(const int regNumber)
 {
-    if(regNumber < ksmach_numExceptionRegisters())
+    if(regNumber < kscpu_numExceptionRegisters())
     {
         return g_exceptionRegisterNames[regNumber];
     }
@@ -184,8 +180,8 @@ const char* ksmach_exceptionRegisterName(const int regNumber)
     return NULL;
 }
 
-uint64_t ksmach_exceptionRegisterValue(const STRUCT_MCONTEXT_L* const machineContext,
-                                       const int regNumber)
+uint64_t kscpu_exceptionRegisterValue(const STRUCT_MCONTEXT_L* const machineContext,
+                                      const int regNumber)
 {
     switch(regNumber)
     {
@@ -201,12 +197,12 @@ uint64_t ksmach_exceptionRegisterValue(const STRUCT_MCONTEXT_L* const machineCon
     return 0;
 }
 
-uintptr_t ksmach_faultAddress(const STRUCT_MCONTEXT_L* const machineContext)
+uintptr_t kscpu_faultAddress(const STRUCT_MCONTEXT_L* const machineContext)
 {
     return machineContext->__es.__faultvaddr;
 }
 
-int ksmach_stackGrowDirection(void)
+int kscpu_stackGrowDirection(void)
 {
     return -1;
 }

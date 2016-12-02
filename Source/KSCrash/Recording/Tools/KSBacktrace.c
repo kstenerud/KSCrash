@@ -28,6 +28,7 @@
 #include "KSBacktrace_Private.h"
 
 #include "KSArchSpecific.h"
+#include "KSCPU.h"
 #include "KSDynamicLinker.h"
 #include "KSMach.h"
 
@@ -71,7 +72,7 @@ typedef struct KSFrameEntry
 
 int ksbt_backtraceLength(const STRUCT_MCONTEXT_L* const machineContext)
 {
-    const uintptr_t instructionAddress = ksmach_instructionAddress(machineContext);
+    const uintptr_t instructionAddress = kscpu_instructionAddress(machineContext);
 
     if(instructionAddress == 0)
     {
@@ -79,7 +80,7 @@ int ksbt_backtraceLength(const STRUCT_MCONTEXT_L* const machineContext)
     }
 
     KSFrameEntry frame = {0};
-    const uintptr_t framePtr = ksmach_framePointer(machineContext);
+    const uintptr_t framePtr = kscpu_framePointer(machineContext);
     if(framePtr == 0 ||
        ksmach_copyMem((void*)framePtr, &frame, sizeof(frame)) != KERN_SUCCESS)
     {
@@ -100,7 +101,7 @@ int ksbt_backtraceLength(const STRUCT_MCONTEXT_L* const machineContext)
 bool ksbt_isBacktraceTooLong(const STRUCT_MCONTEXT_L* const machineContext,
                              int maxLength)
 {
-    const uintptr_t instructionAddress = ksmach_instructionAddress(machineContext);
+    const uintptr_t instructionAddress = kscpu_instructionAddress(machineContext);
 
     if(instructionAddress == 0)
     {
@@ -108,7 +109,7 @@ bool ksbt_isBacktraceTooLong(const STRUCT_MCONTEXT_L* const machineContext,
     }
 
     KSFrameEntry frame = {0};
-    const uintptr_t framePtr = ksmach_framePointer(machineContext);
+    const uintptr_t framePtr = kscpu_framePointer(machineContext);
     if(framePtr == 0 ||
        ksmach_copyMem((void*)framePtr, &frame, sizeof(frame)) != KERN_SUCCESS)
     {
@@ -140,7 +141,7 @@ int ksbt_backtraceThreadState(const STRUCT_MCONTEXT_L* const machineContext,
 
     if(skipEntries == 0)
     {
-        const uintptr_t instructionAddress = ksmach_instructionAddress(machineContext);
+        const uintptr_t instructionAddress = kscpu_instructionAddress(machineContext);
         backtraceBuffer[i] = instructionAddress;
         i++;
 
@@ -152,7 +153,7 @@ int ksbt_backtraceThreadState(const STRUCT_MCONTEXT_L* const machineContext,
 
     if(skipEntries <= 1)
     {
-        uintptr_t linkRegister = ksmach_linkRegister(machineContext);
+        uintptr_t linkRegister = kscpu_linkRegister(machineContext);
 
         if(linkRegister)
         {
@@ -168,7 +169,7 @@ int ksbt_backtraceThreadState(const STRUCT_MCONTEXT_L* const machineContext,
 
     KSFrameEntry frame = {0};
 
-    const uintptr_t framePtr = ksmach_framePointer(machineContext);
+    const uintptr_t framePtr = kscpu_framePointer(machineContext);
     if(framePtr == 0 ||
        ksmach_copyMem((void*)framePtr, &frame, sizeof(frame)) != KERN_SUCCESS)
     {
@@ -202,7 +203,7 @@ int ksbt_backtraceThread(const thread_t thread,
 {
     STRUCT_MCONTEXT_L machineContext;
 
-    if(!ksmach_threadState(thread, &machineContext))
+    if(!kscpu_threadState(thread, &machineContext))
     {
         return 0;
     }

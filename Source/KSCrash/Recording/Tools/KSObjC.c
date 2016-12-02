@@ -1637,16 +1637,6 @@ int ksobjc_getDescription(void* object, char* buffer, int bufferLength)
     return data->description(object, buffer, bufferLength);
 }
 
-static void* objectReferencedByString(const char* string)
-{
-    uint64_t address = 0;
-    if(ksstring_extractHexValue(string, (int)strlen(string), &address))
-    {
-        return (void*)address;
-    }
-    return NULL;
-}
-
 bool ksobjc_isTaggedPointer(const void* const pointer)
 {
     return isTaggedPointer(pointer);

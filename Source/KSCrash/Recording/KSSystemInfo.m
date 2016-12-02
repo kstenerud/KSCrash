@@ -28,6 +28,7 @@
 #import "KSSystemInfo.h"
 
 #import "KSDynamicLinker.h"
+#import "KSCPU.h"
 #import "KSMach.h"
 #import "KSSysCtl.h"
 #import "KSJSONCodecObjC.h"
@@ -264,7 +265,7 @@
     NSString* result = [self CPUArchForCPUType:kssysctl_int32ForName("hw.cputype")
                                        subType:kssysctl_int32ForName("hw.cpusubtype")];
     
-    return result ?:[NSString stringWithUTF8String:ksmach_currentCPUArch()];
+    return result ?:[NSString stringWithUTF8String:kscpu_currentArch()];
 }
 
 /** Check if the current device is jailbroken.

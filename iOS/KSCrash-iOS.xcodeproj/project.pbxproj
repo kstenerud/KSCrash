@@ -70,10 +70,10 @@
 		03DE7C811C84DFAB00F789BA /* KSLogger.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D6D17EB765C0056DA83 /* KSLogger.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		03DE7C831C84DFAB00F789BA /* KSMach.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D7217EB765C0056DA83 /* KSMach.c */; };
 		03DE7C841C84DFAB00F789BA /* KSMach.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D7317EB765C0056DA83 /* KSMach.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		03DE7C851C84DFAB00F789BA /* KSMach_Arm.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D6F17EB765C0056DA83 /* KSMach_Arm.c */; };
-		03DE7C861C84DFAB00F789BA /* KSMach_Arm64.c in Sources */ = {isa = PBXBuildFile; fileRef = CB02647E17F7CEC5003E0AED /* KSMach_Arm64.c */; };
-		03DE7C871C84DFAB00F789BA /* KSMach_x86_32.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D7017EB765C0056DA83 /* KSMach_x86_32.c */; };
-		03DE7C881C84DFAB00F789BA /* KSMach_x86_64.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D7117EB765C0056DA83 /* KSMach_x86_64.c */; };
+		03DE7C851C84DFAB00F789BA /* KSCPU_arm.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D6F17EB765C0056DA83 /* KSCPU_arm.c */; };
+		03DE7C861C84DFAB00F789BA /* KSCPU_arm64.c in Sources */ = {isa = PBXBuildFile; fileRef = CB02647E17F7CEC5003E0AED /* KSCPU_arm64.c */; };
+		03DE7C871C84DFAB00F789BA /* KSCPU_x86_32.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D7017EB765C0056DA83 /* KSCPU_x86_32.c */; };
+		03DE7C881C84DFAB00F789BA /* KSCPU_x86_64.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D7117EB765C0056DA83 /* KSCPU_x86_64.c */; };
 		03DE7C891C84DFAB00F789BA /* KSMachApple.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D7417EB765C0056DA83 /* KSMachApple.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		03DE7C8A1C84DFAB00F789BA /* KSObjC.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D7517EB765C0056DA83 /* KSObjC.c */; };
 		03DE7C8B1C84DFAB00F789BA /* KSObjC.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D7617EB765C0056DA83 /* KSObjC.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -142,7 +142,7 @@
 		03DE7CD51C84E02A00F789BA /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB52178F17EB735D007CB3C1 /* Foundation.framework */; };
 		03DE7CD71C84E1F400F789BA /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 03DE7CD61C84E1F400F789BA /* libz.tbd */; };
 		03DE7DAA1C879A0200F789BA /* KSCrashFramework.h in Headers */ = {isa = PBXBuildFile; fileRef = 03DE7DA91C879A0200F789BA /* KSCrashFramework.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		CB02648017F7CEC5003E0AED /* KSMach_Arm64.c in Sources */ = {isa = PBXBuildFile; fileRef = CB02647E17F7CEC5003E0AED /* KSMach_Arm64.c */; };
+		CB02648017F7CEC5003E0AED /* KSCPU_arm64.c in Sources */ = {isa = PBXBuildFile; fileRef = CB02647E17F7CEC5003E0AED /* KSCPU_arm64.c */; };
 		CB02648217F8D853003E0AED /* KSCrashSentry_CPPException.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D4F17EB765C0056DA83 /* KSCrashSentry_CPPException.cpp */; };
 		CB0264A917FA5B13003E0AED /* Container+DeepSearch_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB02648317FA5B12003E0AED /* Container+DeepSearch_Tests.m */; };
 		CB0264AA17FA5B13003E0AED /* FileBasedTestCase.m in Sources */ = {isa = PBXBuildFile; fileRef = CB02648517FA5B12003E0AED /* FileBasedTestCase.m */; };
@@ -190,6 +190,14 @@
 		CB0C19C61DD1265B005B2F80 /* KSCrashReportFixer_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB0C19C51DD1265B005B2F80 /* KSCrashReportFixer_Tests.m */; };
 		CB0C19C91DD143A6005B2F80 /* processed.json in Resources */ = {isa = PBXBuildFile; fileRef = CB0C19C71DD143A6005B2F80 /* processed.json */; };
 		CB0C19CA1DD143A6005B2F80 /* raw.json in Resources */ = {isa = PBXBuildFile; fileRef = CB0C19C81DD143A6005B2F80 /* raw.json */; };
+		CB25A5B71DF2182A00EC2B02 /* KSCPU.c in Sources */ = {isa = PBXBuildFile; fileRef = CB25A5B51DF2182A00EC2B02 /* KSCPU.c */; };
+		CB25A5B81DF2182A00EC2B02 /* KSCPU.c in Sources */ = {isa = PBXBuildFile; fileRef = CB25A5B51DF2182A00EC2B02 /* KSCPU.c */; };
+		CB25A5B91DF2182A00EC2B02 /* KSCPU.c in Sources */ = {isa = PBXBuildFile; fileRef = CB25A5B51DF2182A00EC2B02 /* KSCPU.c */; };
+		CB25A5BA1DF2182A00EC2B02 /* KSCPU.h in Headers */ = {isa = PBXBuildFile; fileRef = CB25A5B61DF2182A00EC2B02 /* KSCPU.h */; };
+		CB25A5BB1DF2182A00EC2B02 /* KSCPU.h in Headers */ = {isa = PBXBuildFile; fileRef = CB25A5B61DF2182A00EC2B02 /* KSCPU.h */; };
+		CB25A5BC1DF2182A00EC2B02 /* KSCPU.h in Headers */ = {isa = PBXBuildFile; fileRef = CB25A5B61DF2182A00EC2B02 /* KSCPU.h */; };
+		CB25A5CC1DF2292F00EC2B02 /* KSCPU_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB25A5CB1DF2292F00EC2B02 /* KSCPU_Tests.m */; };
+		CB25A5CF1DF229F100EC2B02 /* TestThread.m in Sources */ = {isa = PBXBuildFile; fileRef = CB25A5CE1DF229F100EC2B02 /* TestThread.m */; };
 		CB42F4551C6D180F002FD017 /* DemangleNodes.h in Headers */ = {isa = PBXBuildFile; fileRef = CBC43F171C5AF2B10083A11B /* DemangleNodes.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB48F6CC1DCD0D490099D264 /* DemangleCPP.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CB48F6C81DCD0D490099D264 /* DemangleCPP.cpp */; };
 		CB48F6CD1DCD0D490099D264 /* DemangleCPP.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CB48F6C81DCD0D490099D264 /* DemangleCPP.cpp */; };
@@ -299,9 +307,9 @@
 		CBF53E0F17EB765C0056DA83 /* KSHTTPRequestSender.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D6817EB765C0056DA83 /* KSHTTPRequestSender.m */; };
 		CBF53E1117EB765C0056DA83 /* KSJSONCodec.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D6917EB765C0056DA83 /* KSJSONCodec.c */; };
 		CBF53E1517EB765C0056DA83 /* KSJSONCodecObjC.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D6C17EB765C0056DA83 /* KSJSONCodecObjC.m */; };
-		CBF53E1A17EB765C0056DA83 /* KSMach_Arm.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D6F17EB765C0056DA83 /* KSMach_Arm.c */; };
-		CBF53E1C17EB765C0056DA83 /* KSMach_x86_32.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D7017EB765C0056DA83 /* KSMach_x86_32.c */; };
-		CBF53E1E17EB765C0056DA83 /* KSMach_x86_64.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D7117EB765C0056DA83 /* KSMach_x86_64.c */; };
+		CBF53E1A17EB765C0056DA83 /* KSCPU_arm.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D6F17EB765C0056DA83 /* KSCPU_arm.c */; };
+		CBF53E1C17EB765C0056DA83 /* KSCPU_x86_32.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D7017EB765C0056DA83 /* KSCPU_x86_32.c */; };
+		CBF53E1E17EB765C0056DA83 /* KSCPU_x86_64.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D7117EB765C0056DA83 /* KSCPU_x86_64.c */; };
 		CBF53E2017EB765C0056DA83 /* KSMach.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D7217EB765C0056DA83 /* KSMach.c */; };
 		CBF53E2417EB765C0056DA83 /* KSObjC.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D7517EB765C0056DA83 /* KSObjC.c */; };
 		CBF53E2917EB765C0056DA83 /* KSReachabilityKSCrash.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D7917EB765C0056DA83 /* KSReachabilityKSCrash.m */; };
@@ -382,13 +390,13 @@
 		EDF2BE7F1CCF15AD004BADF4 /* Demangle.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CBC43F151C5AF2B10083A11B /* Demangle.cpp */; };
 		EDF2BE801CCF15AD004BADF4 /* KSCrashInstallationEmail.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D2917EB765C0056DA83 /* KSCrashInstallationEmail.m */; };
 		EDF2BE811CCF15AD004BADF4 /* NSError+SimpleConstructor.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D8E17EB765C0056DA83 /* NSError+SimpleConstructor.m */; };
-		EDF2BE831CCF15AD004BADF4 /* KSMach_x86_64.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D7117EB765C0056DA83 /* KSMach_x86_64.c */; };
+		EDF2BE831CCF15AD004BADF4 /* KSCPU_x86_64.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D7117EB765C0056DA83 /* KSCPU_x86_64.c */; };
 		EDF2BE841CCF15AD004BADF4 /* KSReachabilityKSCrash.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D7917EB765C0056DA83 /* KSReachabilityKSCrash.m */; };
 		EDF2BE851CCF15AD004BADF4 /* KSCrashInstallationConsole.m in Sources */ = {isa = PBXBuildFile; fileRef = CB94D35C1CAC11B000806679 /* KSCrashInstallationConsole.m */; };
 		EDF2BE861CCF15AD004BADF4 /* KSSystemInfo.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D8417EB765C0056DA83 /* KSSystemInfo.m */; };
 		EDF2BE871CCF15AD004BADF4 /* KSCrashReportFilterStringify.m in Sources */ = {isa = PBXBuildFile; fileRef = CB94D3621CAC190900806679 /* KSCrashReportFilterStringify.m */; };
 		EDF2BE881CCF15AD004BADF4 /* KSCrashInstallationQuincyHockey.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D2B17EB765C0056DA83 /* KSCrashInstallationQuincyHockey.m */; };
-		EDF2BE891CCF15AD004BADF4 /* KSMach_Arm.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D6F17EB765C0056DA83 /* KSMach_Arm.c */; };
+		EDF2BE891CCF15AD004BADF4 /* KSCPU_arm.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D6F17EB765C0056DA83 /* KSCPU_arm.c */; };
 		EDF2BE8A1CCF15AD004BADF4 /* Punycode.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CBC43F1B1C5AF2B10083A11B /* Punycode.cpp */; };
 		EDF2BE8C1CCF15AD004BADF4 /* KSCrashDoctor.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D2417EB765C0056DA83 /* KSCrashDoctor.m */; };
 		EDF2BE8D1CCF15AD004BADF4 /* KSJSONCodec.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D6917EB765C0056DA83 /* KSJSONCodec.c */; };
@@ -398,7 +406,7 @@
 		EDF2BE921CCF15AD004BADF4 /* KSFileUtils.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D6317EB765C0056DA83 /* KSFileUtils.c */; };
 		EDF2BE931CCF15AD004BADF4 /* KSCrashSentry_NSException.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D5517EB765C0056DA83 /* KSCrashSentry_NSException.m */; };
 		EDF2BE941CCF15AD004BADF4 /* KSCrashReportFilterAppleFmt.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D3817EB765C0056DA83 /* KSCrashReportFilterAppleFmt.m */; };
-		EDF2BE961CCF15AD004BADF4 /* KSMach_x86_32.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D7017EB765C0056DA83 /* KSMach_x86_32.c */; };
+		EDF2BE961CCF15AD004BADF4 /* KSCPU_x86_32.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D7017EB765C0056DA83 /* KSCPU_x86_32.c */; };
 		EDF2BE971CCF15AD004BADF4 /* KSString.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D7F17EB765C0056DA83 /* KSString.c */; };
 		EDF2BE981CCF15AD004BADF4 /* KSCrash.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D1C17EB765C0056DA83 /* KSCrash.m */; };
 		EDF2BE9A1CCF15AD004BADF4 /* KSCrashReport.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D3017EB765C0056DA83 /* KSCrashReport.c */; };
@@ -408,7 +416,7 @@
 		EDF2BE9F1CCF15AD004BADF4 /* KSJSONCodecObjC.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D6C17EB765C0056DA83 /* KSJSONCodecObjC.m */; };
 		EDF2BEA01CCF15AD004BADF4 /* NSString+URLEncode.m in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5DC11CBC197D005EAF61 /* NSString+URLEncode.m */; };
 		EDF2BEA11CCF15AD004BADF4 /* KSCrashReportSinkQuincyHockey.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D4617EB765C0056DA83 /* KSCrashReportSinkQuincyHockey.m */; };
-		EDF2BEA21CCF15AD004BADF4 /* KSMach_Arm64.c in Sources */ = {isa = PBXBuildFile; fileRef = CB02647E17F7CEC5003E0AED /* KSMach_Arm64.c */; };
+		EDF2BEA21CCF15AD004BADF4 /* KSCPU_arm64.c in Sources */ = {isa = PBXBuildFile; fileRef = CB02647E17F7CEC5003E0AED /* KSCPU_arm64.c */; };
 		EDF2BEA31CCF15AD004BADF4 /* KSCrashReportSinkVictory.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D4A17EB765C0056DA83 /* KSCrashReportSinkVictory.m */; };
 		EDF2BEA41CCF15AD004BADF4 /* KSMach.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D7217EB765C0056DA83 /* KSMach.c */; };
 		EDF2BEA51CCF15AD004BADF4 /* KSBacktrace.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D1717EB765C0056DA83 /* KSBacktrace.c */; };
@@ -534,7 +542,7 @@
 		03DE7CD61C84E1F400F789BA /* libz.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libz.tbd; path = usr/lib/libz.tbd; sourceTree = SDKROOT; };
 		03DE7D0F1C84FB9E00F789BA /* module.modulemap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = "sourcecode.module-map"; name = module.modulemap; path = ../../Source/Framework/module.modulemap; sourceTree = "<group>"; };
 		03DE7DA91C879A0200F789BA /* KSCrashFramework.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSCrashFramework.h; path = ../../Source/Framework/KSCrashFramework.h; sourceTree = "<group>"; };
-		CB02647E17F7CEC5003E0AED /* KSMach_Arm64.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSMach_Arm64.c; path = ../../Source/KSCrash/Recording/Tools/KSMach_Arm64.c; sourceTree = "<group>"; };
+		CB02647E17F7CEC5003E0AED /* KSCPU_arm64.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSCPU_arm64.c; path = ../../Source/KSCrash/Recording/Tools/KSCPU_arm64.c; sourceTree = "<group>"; };
 		CB02648317FA5B12003E0AED /* Container+DeepSearch_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "Container+DeepSearch_Tests.m"; path = "../../Source/KSCrash-Tests/Container+DeepSearch_Tests.m"; sourceTree = "<group>"; };
 		CB02648417FA5B12003E0AED /* FileBasedTestCase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = FileBasedTestCase.h; path = "../../Source/KSCrash-Tests/FileBasedTestCase.h"; sourceTree = "<group>"; };
 		CB02648517FA5B12003E0AED /* FileBasedTestCase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = FileBasedTestCase.m; path = "../../Source/KSCrash-Tests/FileBasedTestCase.m"; sourceTree = "<group>"; };
@@ -580,6 +588,11 @@
 		CB0C19C51DD1265B005B2F80 /* KSCrashReportFixer_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSCrashReportFixer_Tests.m; path = "../../Source/KSCrash-Tests/KSCrashReportFixer_Tests.m"; sourceTree = "<group>"; };
 		CB0C19C71DD143A6005B2F80 /* processed.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; name = processed.json; path = ../../tests/processed.json; sourceTree = "<group>"; };
 		CB0C19C81DD143A6005B2F80 /* raw.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; name = raw.json; path = ../../tests/raw.json; sourceTree = "<group>"; };
+		CB25A5B51DF2182A00EC2B02 /* KSCPU.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSCPU.c; path = ../../Source/KSCrash/Recording/Tools/KSCPU.c; sourceTree = "<group>"; };
+		CB25A5B61DF2182A00EC2B02 /* KSCPU.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSCPU.h; path = ../../Source/KSCrash/Recording/Tools/KSCPU.h; sourceTree = "<group>"; };
+		CB25A5CB1DF2292F00EC2B02 /* KSCPU_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSCPU_Tests.m; path = "../../Source/KSCrash-Tests/KSCPU_Tests.m"; sourceTree = "<group>"; };
+		CB25A5CD1DF229F100EC2B02 /* TestThread.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = TestThread.h; path = "../../Source/KSCrash-Tests/TestThread.h"; sourceTree = "<group>"; };
+		CB25A5CE1DF229F100EC2B02 /* TestThread.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = TestThread.m; path = "../../Source/KSCrash-Tests/TestThread.m"; sourceTree = "<group>"; };
 		CB48F6C81DCD0D490099D264 /* DemangleCPP.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = DemangleCPP.cpp; path = ../../Source/KSCrash/Recording/Tools/DemangleCPP.cpp; sourceTree = "<group>"; };
 		CB48F6C91DCD0D490099D264 /* DemangleCPP.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DemangleCPP.h; path = ../../Source/KSCrash/Recording/Tools/DemangleCPP.h; sourceTree = "<group>"; };
 		CB48F6CA1DCD0D490099D264 /* DemangleSwift.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = DemangleSwift.cpp; path = ../../Source/KSCrash/Recording/Tools/DemangleSwift.cpp; sourceTree = "<group>"; };
@@ -712,9 +725,9 @@
 		CBF53D6B17EB765C0056DA83 /* KSJSONCodecObjC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSJSONCodecObjC.h; path = ../../Source/KSCrash/Recording/Tools/KSJSONCodecObjC.h; sourceTree = "<group>"; };
 		CBF53D6C17EB765C0056DA83 /* KSJSONCodecObjC.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSJSONCodecObjC.m; path = ../../Source/KSCrash/Recording/Tools/KSJSONCodecObjC.m; sourceTree = "<group>"; };
 		CBF53D6D17EB765C0056DA83 /* KSLogger.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSLogger.h; path = ../../Source/KSCrash/Recording/Tools/KSLogger.h; sourceTree = "<group>"; };
-		CBF53D6F17EB765C0056DA83 /* KSMach_Arm.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSMach_Arm.c; path = ../../Source/KSCrash/Recording/Tools/KSMach_Arm.c; sourceTree = "<group>"; };
-		CBF53D7017EB765C0056DA83 /* KSMach_x86_32.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSMach_x86_32.c; path = ../../Source/KSCrash/Recording/Tools/KSMach_x86_32.c; sourceTree = "<group>"; };
-		CBF53D7117EB765C0056DA83 /* KSMach_x86_64.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSMach_x86_64.c; path = ../../Source/KSCrash/Recording/Tools/KSMach_x86_64.c; sourceTree = "<group>"; };
+		CBF53D6F17EB765C0056DA83 /* KSCPU_arm.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSCPU_arm.c; path = ../../Source/KSCrash/Recording/Tools/KSCPU_arm.c; sourceTree = "<group>"; };
+		CBF53D7017EB765C0056DA83 /* KSCPU_x86_32.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSCPU_x86_32.c; path = ../../Source/KSCrash/Recording/Tools/KSCPU_x86_32.c; sourceTree = "<group>"; };
+		CBF53D7117EB765C0056DA83 /* KSCPU_x86_64.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSCPU_x86_64.c; path = ../../Source/KSCrash/Recording/Tools/KSCPU_x86_64.c; sourceTree = "<group>"; };
 		CBF53D7217EB765C0056DA83 /* KSMach.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSMach.c; path = ../../Source/KSCrash/Recording/Tools/KSMach.c; sourceTree = "<group>"; };
 		CBF53D7317EB765C0056DA83 /* KSMach.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSMach.h; path = ../../Source/KSCrash/Recording/Tools/KSMach.h; sourceTree = "<group>"; };
 		CBF53D7417EB765C0056DA83 /* KSMachApple.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSMachApple.h; path = ../../Source/KSCrash/Recording/Tools/KSMachApple.h; sourceTree = "<group>"; };
@@ -876,6 +889,7 @@
 				CB02649317FA5B12003E0AED /* KSCrashSentry_Tests.m */,
 				CB02649417FA5B12003E0AED /* KSCrashState_Tests.m */,
 				CB02649517FA5B13003E0AED /* KSCrashTests-Info.plist */,
+				CB25A5CB1DF2292F00EC2B02 /* KSCPU_Tests.m */,
 				CB02649617FA5B13003E0AED /* KSCString_Tests.m */,
 				CB7A6C9B17FB9C3200997792 /* KSDynamicLinker_Tests.m */,
 				CB02649717FA5B13003E0AED /* KSFileUtils_Tests.m */,
@@ -893,6 +907,8 @@
 				CB0264A517FA5B13003E0AED /* NSMutableData+AppendUTF8_Tests.m */,
 				CB0264A617FA5B13003E0AED /* RFC3339UTFString_Tests.m */,
 				CB6D131517EB743A00BC2C04 /* Supporting Files */,
+				CB25A5CD1DF229F100EC2B02 /* TestThread.h */,
+				CB25A5CE1DF229F100EC2B02 /* TestThread.m */,
 				CB0264A717FA5B13003E0AED /* XCTestCase+KSCrash.h */,
 				CB0264A817FA5B13003E0AED /* XCTestCase+KSCrash.m */,
 			);
@@ -1081,6 +1097,12 @@
 				CBF53D1617EB765C0056DA83 /* KSBacktrace_Private.h */,
 				CBF53D1717EB765C0056DA83 /* KSBacktrace.c */,
 				CBF53D1817EB765C0056DA83 /* KSBacktrace.h */,
+				CB25A5B51DF2182A00EC2B02 /* KSCPU.c */,
+				CB25A5B61DF2182A00EC2B02 /* KSCPU.h */,
+				CBF53D6F17EB765C0056DA83 /* KSCPU_arm.c */,
+				CB02647E17F7CEC5003E0AED /* KSCPU_arm64.c */,
+				CBF53D7017EB765C0056DA83 /* KSCPU_x86_32.c */,
+				CBF53D7117EB765C0056DA83 /* KSCPU_x86_64.c */,
 				CB7A6C8E17FB96E800997792 /* KSDynamicLinker.c */,
 				CB7A6C9117FB96FF00997792 /* KSDynamicLinker.h */,
 				CBF53D6317EB765C0056DA83 /* KSFileUtils.c */,
@@ -1091,10 +1113,6 @@
 				CBF53D6C17EB765C0056DA83 /* KSJSONCodecObjC.m */,
 				CB69B8D91DC0ED80002713B1 /* KSLogger.c */,
 				CBF53D6D17EB765C0056DA83 /* KSLogger.h */,
-				CBF53D6F17EB765C0056DA83 /* KSMach_Arm.c */,
-				CB02647E17F7CEC5003E0AED /* KSMach_Arm64.c */,
-				CBF53D7017EB765C0056DA83 /* KSMach_x86_32.c */,
-				CBF53D7117EB765C0056DA83 /* KSMach_x86_64.c */,
 				CBF53D7217EB765C0056DA83 /* KSMach.c */,
 				CBF53D7317EB765C0056DA83 /* KSMach.h */,
 				CBF53D7417EB765C0056DA83 /* KSMachApple.h */,
@@ -1246,6 +1264,7 @@
 				03DE7CC51C84DFC100F789BA /* NSMutableData+AppendUTF8.h in Headers */,
 				03DE7C551C84DF8600F789BA /* KSCrashSentry_CPPException.h in Headers */,
 				03DE7C511C84DF8100F789BA /* KSCrashDoctor.h in Headers */,
+				CB25A5BB1DF2182A00EC2B02 /* KSCPU.h in Headers */,
 				CB94D35E1CAC11B000806679 /* KSCrashInstallationConsole.h in Headers */,
 				03DE7C6B1C84DFA400F789BA /* Demangle.h in Headers */,
 				03DE7C691C84DF9F00F789BA /* type_traits.h in Headers */,
@@ -1356,6 +1375,7 @@
 				CBF53E8F17EB7EA80056DA83 /* NSData+GZip.h in Headers */,
 				CBF53E5D17EB7EA80056DA83 /* KSSystemInfo.h in Headers */,
 				CBF53E7417EB7EA80056DA83 /* KSSignalInfo.h in Headers */,
+				CB25A5BA1DF2182A00EC2B02 /* KSCPU.h in Headers */,
 				CBF53E6817EB7EA80056DA83 /* KSArchSpecific.h in Headers */,
 				CBC43F2D1C5AF2B10083A11B /* type_traits.h in Headers */,
 				CBF53E8E17EB7EA80056DA83 /* KSVarArgs.h in Headers */,
@@ -1437,6 +1457,7 @@
 				EDF2BEF11CCF15AD004BADF4 /* KSCrashDoctor.h in Headers */,
 				EDF2BEF21CCF15AD004BADF4 /* KSCrashInstallationConsole.h in Headers */,
 				EDF2BEF31CCF15AD004BADF4 /* Demangle.h in Headers */,
+				CB25A5BC1DF2182A00EC2B02 /* KSCPU.h in Headers */,
 				EDF2BEF51CCF15AD004BADF4 /* type_traits.h in Headers */,
 				EDF2BEF61CCF15AD004BADF4 /* KSObjCApple.h in Headers */,
 				EDF2BEF71CCF15AD004BADF4 /* KSHTTPRequestSender.h in Headers */,
@@ -1649,14 +1670,14 @@
 				CB0C19C01DD0F2EE005B2F80 /* KSCrashReportFixer.c in Sources */,
 				03DE7CCB1C84DFCD00F789BA /* KSCrashInstallationEmail.m in Sources */,
 				03DE7C9B1C84DFAB00F789BA /* NSError+SimpleConstructor.m in Sources */,
-				03DE7C881C84DFAB00F789BA /* KSMach_x86_64.c in Sources */,
+				03DE7C881C84DFAB00F789BA /* KSCPU_x86_64.c in Sources */,
 				03DE7CC41C84DFC100F789BA /* KSReachabilityKSCrash.m in Sources */,
 				CB94D3601CAC11B000806679 /* KSCrashInstallationConsole.m in Sources */,
 				03DE7C4D1C84DF8100F789BA /* KSSystemInfo.m in Sources */,
 				CB94D3661CAC190900806679 /* KSCrashReportFilterStringify.m in Sources */,
 				03DE7CCD1C84DFCD00F789BA /* KSCrashInstallationQuincyHockey.m in Sources */,
 				CB48F6CD1DCD0D490099D264 /* DemangleCPP.cpp in Sources */,
-				03DE7C851C84DFAB00F789BA /* KSMach_Arm.c in Sources */,
+				03DE7C851C84DFAB00F789BA /* KSCPU_arm.c in Sources */,
 				03DE7C701C84DFA400F789BA /* Punycode.cpp in Sources */,
 				03DE7C521C84DF8100F789BA /* KSCrashDoctor.m in Sources */,
 				03DE7C7D1C84DFAB00F789BA /* KSJSONCodec.c in Sources */,
@@ -1666,7 +1687,7 @@
 				03DE7C7B1C84DFAB00F789BA /* KSFileUtils.c in Sources */,
 				03DE7C5C1C84DF8600F789BA /* KSCrashSentry_NSException.m in Sources */,
 				03DE7CAF1C84DFB600F789BA /* KSCrashReportFilterAppleFmt.m in Sources */,
-				03DE7C871C84DFAB00F789BA /* KSMach_x86_32.c in Sources */,
+				03DE7C871C84DFAB00F789BA /* KSCPU_x86_32.c in Sources */,
 				03DE7C921C84DFAB00F789BA /* KSString.c in Sources */,
 				03DE7CD31C84DFD000F789BA /* KSCrash.m in Sources */,
 				03DE7C441C84DF8100F789BA /* KSCrashReport.c in Sources */,
@@ -1677,7 +1698,7 @@
 				03DE7C801C84DFAB00F789BA /* KSJSONCodecObjC.m in Sources */,
 				CBEE5DC51CBC197D005EAF61 /* NSString+URLEncode.m in Sources */,
 				03DE7CA51C84DFB100F789BA /* KSCrashReportSinkQuincyHockey.m in Sources */,
-				03DE7C861C84DFAB00F789BA /* KSMach_Arm64.c in Sources */,
+				03DE7C861C84DFAB00F789BA /* KSCPU_arm64.c in Sources */,
 				03DE7CA91C84DFB100F789BA /* KSCrashReportSinkVictory.m in Sources */,
 				03DE7C831C84DFAB00F789BA /* KSMach.c in Sources */,
 				03DE7C741C84DFAB00F789BA /* KSBacktrace.c in Sources */,
@@ -1700,6 +1721,7 @@
 				CB69B8C61DC03FFF002713B1 /* RFC3339UTFString.c in Sources */,
 				03DE7CAD1C84DFB600F789BA /* KSCrashReportFilterAlert.m in Sources */,
 				03DE7CB91C84DFBC00F789BA /* Container+DeepSearch.m in Sources */,
+				CB25A5B81DF2182A00EC2B02 /* KSCPU.c in Sources */,
 				03DE7CC01C84DFC100F789BA /* KSHTTPMultipartPostBody.m in Sources */,
 				03DE7CB11C84DFB600F789BA /* KSCrashReportFilterBasic.m in Sources */,
 				03DE7CB71C84DFB700F789BA /* KSCrashReportFilterSets.m in Sources */,
@@ -1715,7 +1737,7 @@
 				CBF53E2917EB765C0056DA83 /* KSReachabilityKSCrash.m in Sources */,
 				CBF53DE317EB765C0056DA83 /* KSCrashReportSinkVictory.m in Sources */,
 				CBF53DC817EB765C0056DA83 /* KSCrashReportFilterAppleFmt.m in Sources */,
-				CBF53E1C17EB765C0056DA83 /* KSMach_x86_32.c in Sources */,
+				CBF53E1C17EB765C0056DA83 /* KSCPU_x86_32.c in Sources */,
 				CBF53DDD17EB765C0056DA83 /* KSCrashReportSinkQuincyHockey.m in Sources */,
 				CB0C19BF1DD0F2EE005B2F80 /* KSCrashReportFixer.c in Sources */,
 				CBF53DF617EB765C0056DA83 /* KSCrashSentry_Signal.c in Sources */,
@@ -1728,7 +1750,7 @@
 				CBF53DCE17EB765C0056DA83 /* KSCrashReportFilterGZip.m in Sources */,
 				CBF53DB517EB765C0056DA83 /* KSCrashInstallationQuincyHockey.m in Sources */,
 				CB48F6CC1DCD0D490099D264 /* DemangleCPP.cpp in Sources */,
-				CB02648017F7CEC5003E0AED /* KSMach_Arm64.c in Sources */,
+				CB02648017F7CEC5003E0AED /* KSCPU_arm64.c in Sources */,
 				CBF53DFC17EB765C0056DA83 /* KSCrashSentry.c in Sources */,
 				CBF53E3217EB765C0056DA83 /* KSString.c in Sources */,
 				CB02648217F8D853003E0AED /* KSCrashSentry_CPPException.cpp in Sources */,
@@ -1755,7 +1777,7 @@
 				CBF53E0617EB765C0056DA83 /* KSCString.m in Sources */,
 				CBF53E2417EB765C0056DA83 /* KSObjC.c in Sources */,
 				CBF53D9A17EB765C0056DA83 /* KSBacktrace.c in Sources */,
-				CBF53E1A17EB765C0056DA83 /* KSMach_Arm.c in Sources */,
+				CBF53E1A17EB765C0056DA83 /* KSCPU_arm.c in Sources */,
 				CBF53DA317EB765C0056DA83 /* KSCrashC.c in Sources */,
 				CBF53E1117EB765C0056DA83 /* KSJSONCodec.c in Sources */,
 				CBF53E4117EB765C0056DA83 /* NSData+GZip.m in Sources */,
@@ -1772,9 +1794,10 @@
 				CBF53DC517EB765C0056DA83 /* KSCrashReportFilterAlert.m in Sources */,
 				CBF53DA017EB765C0056DA83 /* KSCrash.m in Sources */,
 				CB69B8DA1DC0ED80002713B1 /* KSLogger.c in Sources */,
+				CB25A5B71DF2182A00EC2B02 /* KSCPU.c in Sources */,
 				CB69B8C51DC03FFF002713B1 /* RFC3339UTFString.c in Sources */,
 				CBF53DFF17EB765C0056DA83 /* KSCrashState.c in Sources */,
-				CBF53E1E17EB765C0056DA83 /* KSMach_x86_64.c in Sources */,
+				CBF53E1E17EB765C0056DA83 /* KSCPU_x86_64.c in Sources */,
 				CB48F6D21DCD0D490099D264 /* DemangleSwift.cpp in Sources */,
 				CBF53DE017EB765C0056DA83 /* KSCrashReportSinkStandard.m in Sources */,
 			);
@@ -1803,10 +1826,12 @@
 				CB0264AC17FA5B13003E0AED /* KSCrashInstallationQuincyHockey_Tests.m in Sources */,
 				CB0264B817FA5B13003E0AED /* KSCrashSentry_Tests.m in Sources */,
 				CB0264B717FA5B13003E0AED /* KSCrashSentry_Signal_Tests.m in Sources */,
+				CB25A5CF1DF229F100EC2B02 /* TestThread.m in Sources */,
 				CB0264C017FA5B13003E0AED /* KSObjC_Tests.m in Sources */,
 				CB0264C217FA5B13003E0AED /* KSSignalInfo_Tests.m in Sources */,
 				CB0264B317FA5B13003E0AED /* KSCrashReportFilterJSON_Tests.m in Sources */,
 				CB0264B117FA5B13003E0AED /* KSCrashReportFilterAlert_Tests.m in Sources */,
+				CB25A5CC1DF2292F00EC2B02 /* KSCPU_Tests.m in Sources */,
 				CB0264C917FA5B13003E0AED /* NSError+SimpleConstructor_Tests.m in Sources */,
 				CB0264C717FA5B13003E0AED /* NSData+Gzip_Tests.m in Sources */,
 				CB0264AF17FA5B13003E0AED /* KSCrashReportConverter_Tests.m in Sources */,
@@ -1834,14 +1859,14 @@
 				CB0C19C11DD0F2EE005B2F80 /* KSCrashReportFixer.c in Sources */,
 				EDF2BE801CCF15AD004BADF4 /* KSCrashInstallationEmail.m in Sources */,
 				EDF2BE811CCF15AD004BADF4 /* NSError+SimpleConstructor.m in Sources */,
-				EDF2BE831CCF15AD004BADF4 /* KSMach_x86_64.c in Sources */,
+				EDF2BE831CCF15AD004BADF4 /* KSCPU_x86_64.c in Sources */,
 				EDF2BE841CCF15AD004BADF4 /* KSReachabilityKSCrash.m in Sources */,
 				EDF2BE851CCF15AD004BADF4 /* KSCrashInstallationConsole.m in Sources */,
 				EDF2BE861CCF15AD004BADF4 /* KSSystemInfo.m in Sources */,
 				EDF2BE871CCF15AD004BADF4 /* KSCrashReportFilterStringify.m in Sources */,
 				EDF2BE881CCF15AD004BADF4 /* KSCrashInstallationQuincyHockey.m in Sources */,
 				CB48F6CE1DCD0D490099D264 /* DemangleCPP.cpp in Sources */,
-				EDF2BE891CCF15AD004BADF4 /* KSMach_Arm.c in Sources */,
+				EDF2BE891CCF15AD004BADF4 /* KSCPU_arm.c in Sources */,
 				EDF2BE8A1CCF15AD004BADF4 /* Punycode.cpp in Sources */,
 				EDF2BE8C1CCF15AD004BADF4 /* KSCrashDoctor.m in Sources */,
 				EDF2BE8D1CCF15AD004BADF4 /* KSJSONCodec.c in Sources */,
@@ -1851,7 +1876,7 @@
 				EDF2BE921CCF15AD004BADF4 /* KSFileUtils.c in Sources */,
 				EDF2BE931CCF15AD004BADF4 /* KSCrashSentry_NSException.m in Sources */,
 				EDF2BE941CCF15AD004BADF4 /* KSCrashReportFilterAppleFmt.m in Sources */,
-				EDF2BE961CCF15AD004BADF4 /* KSMach_x86_32.c in Sources */,
+				EDF2BE961CCF15AD004BADF4 /* KSCPU_x86_32.c in Sources */,
 				EDF2BE971CCF15AD004BADF4 /* KSString.c in Sources */,
 				EDF2BE981CCF15AD004BADF4 /* KSCrash.m in Sources */,
 				EDF2BE9A1CCF15AD004BADF4 /* KSCrashReport.c in Sources */,
@@ -1862,7 +1887,7 @@
 				EDF2BE9F1CCF15AD004BADF4 /* KSJSONCodecObjC.m in Sources */,
 				EDF2BEA01CCF15AD004BADF4 /* NSString+URLEncode.m in Sources */,
 				EDF2BEA11CCF15AD004BADF4 /* KSCrashReportSinkQuincyHockey.m in Sources */,
-				EDF2BEA21CCF15AD004BADF4 /* KSMach_Arm64.c in Sources */,
+				EDF2BEA21CCF15AD004BADF4 /* KSCPU_arm64.c in Sources */,
 				EDF2BEA31CCF15AD004BADF4 /* KSCrashReportSinkVictory.m in Sources */,
 				EDF2BEA41CCF15AD004BADF4 /* KSMach.c in Sources */,
 				EDF2BEA51CCF15AD004BADF4 /* KSBacktrace.c in Sources */,
@@ -1885,6 +1910,7 @@
 				CB69B8C71DC03FFF002713B1 /* RFC3339UTFString.c in Sources */,
 				EDF2BEB71CCF15AD004BADF4 /* KSCrashReportFilterAlert.m in Sources */,
 				EDF2BEB81CCF15AD004BADF4 /* Container+DeepSearch.m in Sources */,
+				CB25A5B91DF2182A00EC2B02 /* KSCPU.c in Sources */,
 				EDF2BEB91CCF15AD004BADF4 /* KSHTTPMultipartPostBody.m in Sources */,
 				EDF2BEBA1CCF15AD004BADF4 /* KSCrashReportFilterBasic.m in Sources */,
 				EDF2BEBB1CCF15AD004BADF4 /* KSCrashReportFilterSets.m in Sources */,

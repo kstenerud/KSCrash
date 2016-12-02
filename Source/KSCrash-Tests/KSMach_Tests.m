@@ -27,29 +27,10 @@
 
 #import <XCTest/XCTest.h>
 
+#import "KSCPU.h"
 #import "KSMach.h"
 
-
-@interface TestThread: NSThread
-
-@property(nonatomic, readwrite, assign) thread_t thread;
-
-@end
-
-@implementation TestThread
-
-@synthesize thread = _thread;
-
-- (void) main
-{
-    self.thread = ksmach_thread_self();
-    while(!self.isCancelled)
-    {
-        [[self class] sleepForTimeInterval:0.1];
-    }
-}
-
-@end
+#import "TestThread.h"
 
 
 @interface KSMach_Tests : XCTestCase @end
@@ -200,96 +181,5 @@
 //    
 //    XCTAssertTrue(success, @"");
 //}
-
-- (void) testThreadState
-{
-    TestThread* thread = [[TestThread alloc] init];
-    [thread start];
-    [NSThread sleepForTimeInterval:0.1];
-    kern_return_t kr;
-    kr = thread_suspend(thread.thread);
-    XCTAssertTrue(kr == KERN_SUCCESS, @"");
-    
-    _STRUCT_MCONTEXT machineContext;
-    bool success = ksmach_threadState(thread.thread, &machineContext);
-    XCTAssertTrue(success, @"");
-
-    int numRegisters = ksmach_numRegisters();
-    for(int i = 0; i < numRegisters; i++)
-    {
-        const char* name = ksmach_registerName(i);
-        XCTAssertTrue(name != NULL, @"Register %d was NULL", i);
-        ksmach_registerValue(&machineContext, i);
-    }
-
-    const char* name = ksmach_registerName(1000000);
-    XCTAssertTrue(name == NULL, @"");
-    uint64_t value = ksmach_registerValue(&machineContext, 1000000);
-    XCTAssertTrue(value == 0, @"");
-    
-    uintptr_t address;
-    address = ksmach_framePointer(&machineContext);
-    XCTAssertTrue(address != 0, @"");
-    address = ksmach_stackPointer(&machineContext);
-    XCTAssertTrue(address != 0, @"");
-    address = ksmach_instructionAddress(&machineContext);
-    XCTAssertTrue(address != 0, @"");
-
-    thread_resume(thread.thread);
-    [thread cancel];
-}
-
-- (void) testFloatState
-{
-    TestThread* thread = [[TestThread alloc] init];
-    [thread start];
-    [NSThread sleepForTimeInterval:0.1];
-    kern_return_t kr;
-    kr = thread_suspend(thread.thread);
-    XCTAssertTrue(kr == KERN_SUCCESS, @"");
-    
-    _STRUCT_MCONTEXT machineContext;
-    bool success = ksmach_floatState(thread.thread, &machineContext);
-    XCTAssertTrue(success, @"");
-    thread_resume(thread.thread);
-    [thread cancel];
-}
-
-- (void) testExceptionState
-{
-    TestThread* thread = [[TestThread alloc] init];
-    [thread start];
-    [NSThread sleepForTimeInterval:0.1];
-    kern_return_t kr;
-    kr = thread_suspend(thread.thread);
-    XCTAssertTrue(kr == KERN_SUCCESS, @"");
-    
-    _STRUCT_MCONTEXT machineContext;
-    bool success = ksmach_exceptionState(thread.thread, &machineContext);
-    XCTAssertTrue(success, @"");
-    
-    int numRegisters = ksmach_numExceptionRegisters();
-    for(int i = 0; i < numRegisters; i++)
-    {
-        const char* name = ksmach_exceptionRegisterName(i);
-        XCTAssertTrue(name != NULL, @"Register %d was NULL", i);
-        ksmach_exceptionRegisterValue(&machineContext, i);
-    }
-    
-    const char* name = ksmach_exceptionRegisterName(1000000);
-    XCTAssertTrue(name == NULL, @"");
-    uint64_t value = ksmach_exceptionRegisterValue(&machineContext, 1000000);
-    XCTAssertTrue(value == 0, @"");
-
-    ksmach_faultAddress(&machineContext);
-
-    thread_resume(thread.thread);
-    [thread cancel];
-}
-
-- (void) testStackGrowDirection
-{
-    ksmach_stackGrowDirection();
-}
 
 @end

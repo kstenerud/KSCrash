@@ -33,6 +33,7 @@
 #include "KSDynamicLinker.h"
 #include "KSFileUtils.h"
 #include "KSJSONCodec.h"
+#include "KSCPU.h"
 #include "KSMach.h"
 #include "KSObjC.h"
 #include "KSSignalInfo.h"
@@ -415,12 +416,12 @@ static bool isValidString(const void* const address)
  */
 static bool fetchMachineState(const thread_t thread, STRUCT_MCONTEXT_L* const machineContextBuffer)
 {
-    if(!ksmach_threadState(thread, machineContextBuffer))
+    if(!kscpu_threadState(thread, machineContextBuffer))
     {
         return false;
     }
 
-    if(!ksmach_exceptionState(thread, machineContextBuffer))
+    if(!kscpu_exceptionState(thread, machineContextBuffer))
     {
         return false;
     }
@@ -1230,14 +1231,14 @@ static void writeStackContents(const KSCrashReportWriter* const writer,
                                const STRUCT_MCONTEXT_L* const machineContext,
                                const bool isStackOverflow)
 {
-    uintptr_t sp = ksmach_stackPointer(machineContext);
+    uintptr_t sp = kscpu_stackPointer(machineContext);
     if((void*)sp == NULL)
     {
         return;
     }
 
-    uintptr_t lowAddress = sp + (uintptr_t)(kStackContentsPushedDistance * (int)sizeof(sp) * ksmach_stackGrowDirection() * -1);
-    uintptr_t highAddress = sp + (uintptr_t)(kStackContentsPoppedDistance * (int)sizeof(sp) * ksmach_stackGrowDirection());
+    uintptr_t lowAddress = sp + (uintptr_t)(kStackContentsPushedDistance * (int)sizeof(sp) * kscpu_stackGrowDirection() * -1);
+    uintptr_t highAddress = sp + (uintptr_t)(kStackContentsPoppedDistance * (int)sizeof(sp) * kscpu_stackGrowDirection());
     if(highAddress < lowAddress)
     {
         uintptr_t tmp = lowAddress;
@@ -1246,7 +1247,7 @@ static void writeStackContents(const KSCrashReportWriter* const writer,
     }
     writer->beginObject(writer, key);
     {
-        writer->addStringElement(writer, KSCrashField_GrowDirection, ksmach_stackGrowDirection() > 0 ? "+" : "-");
+        writer->addStringElement(writer, KSCrashField_GrowDirection, kscpu_stackGrowDirection() > 0 ? "+" : "-");
         writer->addUIntegerElement(writer, KSCrashField_DumpStart, lowAddress);
         writer->addUIntegerElement(writer, KSCrashField_DumpEnd, highAddress);
         writer->addUIntegerElement(writer, KSCrashField_StackPtr, sp);
@@ -1280,14 +1281,14 @@ static void writeNotableStackContents(const KSCrashReportWriter* const writer,
                                       const int backDistance,
                                       const int forwardDistance)
 {
-    uintptr_t sp = ksmach_stackPointer(machineContext);
+    uintptr_t sp = kscpu_stackPointer(machineContext);
     if((void*)sp == NULL)
     {
         return;
     }
 
-    uintptr_t lowAddress = sp + (uintptr_t)(backDistance * (int)sizeof(sp) * ksmach_stackGrowDirection() * -1);
-    uintptr_t highAddress = sp + (uintptr_t)(forwardDistance * (int)sizeof(sp) * ksmach_stackGrowDirection());
+    uintptr_t lowAddress = sp + (uintptr_t)(backDistance * (int)sizeof(sp) * kscpu_stackGrowDirection() * -1);
+    uintptr_t highAddress = sp + (uintptr_t)(forwardDistance * (int)sizeof(sp) * kscpu_stackGrowDirection());
     if(highAddress < lowAddress)
     {
         uintptr_t tmp = lowAddress;
@@ -1325,17 +1326,17 @@ static void writeBasicRegisters(const KSCrashReportWriter* const writer,
     const char* registerName;
     writer->beginObject(writer, key);
     {
-        const int numRegisters = ksmach_numRegisters();
+        const int numRegisters = kscpu_numRegisters();
         for(int reg = 0; reg < numRegisters; reg++)
         {
-            registerName = ksmach_registerName(reg);
+            registerName = kscpu_registerName(reg);
             if(registerName == NULL)
             {
                 snprintf(registerNameBuff, sizeof(registerNameBuff), "r%d", reg);
                 registerName = registerNameBuff;
             }
             writer->addUIntegerElement(writer, registerName,
-                                       ksmach_registerValue(machineContext, reg));
+                                       kscpu_registerValue(machineContext, reg));
         }
     }
     writer->endContainer(writer);
@@ -1357,17 +1358,17 @@ static void writeExceptionRegisters(const KSCrashReportWriter* const writer,
     const char* registerName;
     writer->beginObject(writer, key);
     {
-        const int numRegisters = ksmach_numExceptionRegisters();
+        const int numRegisters = kscpu_numExceptionRegisters();
         for(int reg = 0; reg < numRegisters; reg++)
         {
-            registerName = ksmach_exceptionRegisterName(reg);
+            registerName = kscpu_exceptionRegisterName(reg);
             if(registerName == NULL)
             {
                 snprintf(registerNameBuff, sizeof(registerNameBuff), "r%d", reg);
                 registerName = registerNameBuff;
             }
             writer->addUIntegerElement(writer,registerName,
-                                       ksmach_exceptionRegisterValue(machineContext, reg));
+                                       kscpu_exceptionRegisterValue(machineContext, reg));
         }
     }
     writer->endContainer(writer);
@@ -1410,10 +1411,10 @@ static void writeNotableRegisters(const KSCrashReportWriter* const writer,
 {
     char registerNameBuff[30];
     const char* registerName;
-    const int numRegisters = ksmach_numRegisters();
+    const int numRegisters = kscpu_numRegisters();
     for(int reg = 0; reg < numRegisters; reg++)
     {
-        registerName = ksmach_registerName(reg);
+        registerName = kscpu_registerName(reg);
         if(registerName == NULL)
         {
             snprintf(registerNameBuff, sizeof(registerNameBuff), "r%d", reg);
@@ -1421,7 +1422,7 @@ static void writeNotableRegisters(const KSCrashReportWriter* const writer,
         }
         writeMemoryContentsIfNotable(writer,
                                      registerName,
-                                     (uintptr_t)ksmach_registerValue(machineContext, reg));
+                                     (uintptr_t)kscpu_registerValue(machineContext, reg));
     }
 }
 
