@@ -23,26 +23,13 @@ Pod::Spec.new do |s|
                                'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h'
     recording.public_header_files = 'Source/KSCrash/Recording/KSCrash.h',
                                     'Source/KSCrash/Recording/KSCrashC.h',
-                                    'Source/KSCrash/Recording/KSCrashContext.h',
-                                    'Source/KSCrash/Recording/KSCrashReportVersion.h',
                                     'Source/KSCrash/Recording/KSCrashReportWriter.h',
-                                    'Source/KSCrash/Recording/KSCrashState.h',
                                     'Source/KSCrash/Recording/KSCrashType.h',
-                                    'Source/KSCrash/Recording/KSSystemCapabilities.h',
-                                    'Source/KSCrash/Recording/KSSystemInfo.h',
-                                    'Source/KSCrash/Recording/Sentry/KSCrashSentry.h',
-                                    'Source/KSCrash/Recording/Sentry/KSCrashSentry_Context.h',
-                                    'Source/KSCrash/Recording/Tools/KSArchSpecific.h',
-                                    'Source/KSCrash/Recording/Tools/KSJSONCodecObjC.h',
-                                    'Source/KSCrash/Recording/Tools/NSError+SimpleConstructor.h',
                                     'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h'
-  end
 
-  # This subspec is just to optionally expose the tools headers
-  s.subspec 'RecordingTools' do |tools|
-    tools.dependency 'KSCrash/Recording'
-    # Just add .h files; the .m files are all compiled in the Recording spec
-    tools.source_files = 'Source/KSCrash/Recording/Tools/*.h'
+    recording.subspec 'Tools' do |tools|
+      tools.source_files = 'Source/KSCrash/Recording/Tools/*.h'
+    end
   end
 
   s.subspec 'Reporting' do |reporting|
@@ -113,7 +100,8 @@ Pod::Spec.new do |s|
       tools.ios.frameworks = 'SystemConfiguration'
       tools.tvos.frameworks = 'SystemConfiguration'
       tools.osx.frameworks = 'SystemConfiguration'
-      tools.source_files = 'Source/KSCrash/Reporting/Tools/**/*.{h,m,mm,c,cpp}'
+      tools.source_files = 'Source/KSCrash/Reporting/Tools/**/*.{h,m,mm,c,cpp}',
+                           'Source/KSCrash/Recording/KSSystemCapabilities.h'
     end
 
     reporting.subspec 'MessageUI' do |messageui|
