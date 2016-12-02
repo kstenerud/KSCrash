@@ -27,6 +27,8 @@
 
 #include "KSThread.h"
 
+#include "KSSystemCapabilities.h"
+
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
