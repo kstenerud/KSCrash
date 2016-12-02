@@ -84,14 +84,6 @@ bool kscpu_threadState(const thread_t thread, STRUCT_MCONTEXT_L* const machineCo
                              x86_THREAD_STATE64_COUNT);
 }
 
-bool kscpu_floatState(const thread_t thread, STRUCT_MCONTEXT_L* const machineContext)
-{
-    return kscpu_i_fillState(thread,
-                             (thread_state_t)&machineContext->__fs,
-                             x86_FLOAT_STATE64,
-                             x86_FLOAT_STATE64_COUNT);
-}
-
 bool kscpu_exceptionState(const thread_t thread, STRUCT_MCONTEXT_L* const machineContext)
 {
     return kscpu_i_fillState(thread,

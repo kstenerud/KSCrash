@@ -75,22 +75,6 @@
     [thread cancel];
 }
 
-- (void) testFloatState
-{
-    TestThread* thread = [[TestThread alloc] init];
-    [thread start];
-    [NSThread sleepForTimeInterval:0.1];
-    kern_return_t kr;
-    kr = thread_suspend(thread.thread);
-    XCTAssertTrue(kr == KERN_SUCCESS, @"");
-    
-    _STRUCT_MCONTEXT machineContext;
-    bool success = kscpu_floatState(thread.thread, &machineContext);
-    XCTAssertTrue(success, @"");
-    thread_resume(thread.thread);
-    [thread cancel];
-}
-
 - (void) testExceptionState
 {
     TestThread* thread = [[TestThread alloc] init];

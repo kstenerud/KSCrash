@@ -97,16 +97,6 @@ uintptr_t kscpu_faultAddress(const STRUCT_MCONTEXT_L* machineContext);
  */
 bool kscpu_threadState(thread_t thread, STRUCT_MCONTEXT_L* machineContext);
 
-/** Get a thread's floating point state and place it in a machine context.
- *
- * @param thread The thread to fetch state for.
- *
- * @param machineContext The machine context to store the state in.
- *
- * @return true if successful.
- */
-bool kscpu_floatState(thread_t thread, STRUCT_MCONTEXT_L* machineContext);
-
 /** Get a thread's exception state and place it in a machine context.
  *
  * @param thread The thread to fetch state for.
