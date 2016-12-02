@@ -35,7 +35,7 @@
 #include "KSCrashSentry_NSException.h"
 #include "KSCrashSentry_Signal.h"
 #include "KSCrashSentry_User.h"
-#include "KSMach.h"
+#include "KSDebug.h"
 #include "KSThread.h"
 #include "KSSystemCapabilities.h"
 
@@ -112,7 +112,7 @@ KSCrashType kscrashsentry_installWithContext(KSCrash_SentryContext* context,
                                              KSCrashType crashTypes,
                                              void (*onCrash)(void))
 {
-    if(ksmach_isBeingTraced())
+    if(ksdebug_isBeingTraced())
     {
         KSLOGBASIC_WARN("KSCrash: App is running in a debugger. Only user reported events will be handled.");
         crashTypes = KSCrashTypeUserReported;

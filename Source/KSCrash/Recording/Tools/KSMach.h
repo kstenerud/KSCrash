@@ -106,12 +106,6 @@ kern_return_t ksmach_copyMem(const void* src, void* dst, int numBytes);
  */
 int ksmach_copyMaxPossibleMem(const void* src, void* dst, int numBytes);
 
-/** Check if the current process is being traced or not.
- *
- * @return true if we're being traced.
- */
-bool ksmach_isBeingTraced(void);
-
 #ifdef __cplusplus
 }
 #endif

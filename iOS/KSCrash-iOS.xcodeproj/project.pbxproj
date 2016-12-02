@@ -205,6 +205,13 @@
 		CB25A5DB1DF22F4000EC2B02 /* KSThread.h in Headers */ = {isa = PBXBuildFile; fileRef = CB25A5D61DF22F4000EC2B02 /* KSThread.h */; };
 		CB25A5DC1DF22F4000EC2B02 /* KSThread.h in Headers */ = {isa = PBXBuildFile; fileRef = CB25A5D61DF22F4000EC2B02 /* KSThread.h */; };
 		CB25A5DE1DF231E600EC2B02 /* KSThread_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB25A5DD1DF231E600EC2B02 /* KSThread_Tests.m */; };
+		CB25A5EF1DF2396700EC2B02 /* KSDebug.c in Sources */ = {isa = PBXBuildFile; fileRef = CB25A5ED1DF2396700EC2B02 /* KSDebug.c */; };
+		CB25A5F01DF2396700EC2B02 /* KSDebug.c in Sources */ = {isa = PBXBuildFile; fileRef = CB25A5ED1DF2396700EC2B02 /* KSDebug.c */; };
+		CB25A5F11DF2396700EC2B02 /* KSDebug.c in Sources */ = {isa = PBXBuildFile; fileRef = CB25A5ED1DF2396700EC2B02 /* KSDebug.c */; };
+		CB25A5F21DF2396700EC2B02 /* KSDebug.h in Headers */ = {isa = PBXBuildFile; fileRef = CB25A5EE1DF2396700EC2B02 /* KSDebug.h */; };
+		CB25A5F31DF2396700EC2B02 /* KSDebug.h in Headers */ = {isa = PBXBuildFile; fileRef = CB25A5EE1DF2396700EC2B02 /* KSDebug.h */; };
+		CB25A5F41DF2396700EC2B02 /* KSDebug.h in Headers */ = {isa = PBXBuildFile; fileRef = CB25A5EE1DF2396700EC2B02 /* KSDebug.h */; };
+		CB25A5F61DF23A8100EC2B02 /* KSDebug_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB25A5F51DF23A8100EC2B02 /* KSDebug_Tests.m */; };
 		CB42F4551C6D180F002FD017 /* DemangleNodes.h in Headers */ = {isa = PBXBuildFile; fileRef = CBC43F171C5AF2B10083A11B /* DemangleNodes.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB48F6CC1DCD0D490099D264 /* DemangleCPP.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CB48F6C81DCD0D490099D264 /* DemangleCPP.cpp */; };
 		CB48F6CD1DCD0D490099D264 /* DemangleCPP.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CB48F6C81DCD0D490099D264 /* DemangleCPP.cpp */; };
@@ -603,6 +610,9 @@
 		CB25A5D51DF22F4000EC2B02 /* KSThread.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSThread.c; path = ../../Source/KSCrash/Recording/Tools/KSThread.c; sourceTree = "<group>"; };
 		CB25A5D61DF22F4000EC2B02 /* KSThread.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSThread.h; path = ../../Source/KSCrash/Recording/Tools/KSThread.h; sourceTree = "<group>"; };
 		CB25A5DD1DF231E600EC2B02 /* KSThread_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSThread_Tests.m; path = "../../Source/KSCrash-Tests/KSThread_Tests.m"; sourceTree = "<group>"; };
+		CB25A5ED1DF2396700EC2B02 /* KSDebug.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSDebug.c; path = ../../Source/KSCrash/Recording/Tools/KSDebug.c; sourceTree = "<group>"; };
+		CB25A5EE1DF2396700EC2B02 /* KSDebug.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSDebug.h; path = ../../Source/KSCrash/Recording/Tools/KSDebug.h; sourceTree = "<group>"; };
+		CB25A5F51DF23A8100EC2B02 /* KSDebug_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSDebug_Tests.m; path = "../../Source/KSCrash-Tests/KSDebug_Tests.m"; sourceTree = "<group>"; };
 		CB48F6C81DCD0D490099D264 /* DemangleCPP.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = DemangleCPP.cpp; path = ../../Source/KSCrash/Recording/Tools/DemangleCPP.cpp; sourceTree = "<group>"; };
 		CB48F6C91DCD0D490099D264 /* DemangleCPP.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DemangleCPP.h; path = ../../Source/KSCrash/Recording/Tools/DemangleCPP.h; sourceTree = "<group>"; };
 		CB48F6CA1DCD0D490099D264 /* DemangleSwift.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = DemangleSwift.cpp; path = ../../Source/KSCrash/Recording/Tools/DemangleSwift.cpp; sourceTree = "<group>"; };
@@ -901,6 +911,7 @@
 				CB02649517FA5B13003E0AED /* KSCrashTests-Info.plist */,
 				CB25A5CB1DF2292F00EC2B02 /* KSCPU_Tests.m */,
 				CB02649617FA5B13003E0AED /* KSCString_Tests.m */,
+				CB25A5F51DF23A8100EC2B02 /* KSDebug_Tests.m */,
 				CB7A6C9B17FB9C3200997792 /* KSDynamicLinker_Tests.m */,
 				CB02649717FA5B13003E0AED /* KSFileUtils_Tests.m */,
 				CB02649817FA5B13003E0AED /* KSJSONCodec_Tests.m */,
@@ -1114,6 +1125,8 @@
 				CB02647E17F7CEC5003E0AED /* KSCPU_arm64.c */,
 				CBF53D7017EB765C0056DA83 /* KSCPU_x86_32.c */,
 				CBF53D7117EB765C0056DA83 /* KSCPU_x86_64.c */,
+				CB25A5ED1DF2396700EC2B02 /* KSDebug.c */,
+				CB25A5EE1DF2396700EC2B02 /* KSDebug.h */,
 				CB7A6C8E17FB96E800997792 /* KSDynamicLinker.c */,
 				CB7A6C9117FB96FF00997792 /* KSDynamicLinker.h */,
 				CBF53D6317EB765C0056DA83 /* KSFileUtils.c */,
@@ -1310,6 +1323,7 @@
 				03DE7C6E1C84DFA400F789BA /* LLVM.h in Headers */,
 				03DE7C901C84DFAB00F789BA /* KSSignalInfo.h in Headers */,
 				03DE7C6D1C84DFA400F789BA /* Fallthrough.h in Headers */,
+				CB25A5F31DF2396700EC2B02 /* KSDebug.h in Headers */,
 				03DE7C621C84DF9200F789BA /* None.h in Headers */,
 				03DE7C8B1C84DFAB00F789BA /* KSObjC.h in Headers */,
 				03DE7CB81C84DFBC00F789BA /* Container+DeepSearch.h in Headers */,
@@ -1409,6 +1423,7 @@
 				CBF53E5617EB7EA80056DA83 /* KSCrashC.h in Headers */,
 				CBF53E8C17EB7EA80056DA83 /* KSReachabilityKSCrash.h in Headers */,
 				CBF53E6B17EB7EA80056DA83 /* KSFileUtils.h in Headers */,
+				CB25A5F21DF2396700EC2B02 /* KSDebug.h in Headers */,
 				CBF53E8B17EB7EA80056DA83 /* KSHTTPRequestSender.h in Headers */,
 				CBC43F311C5AF2B10083A11B /* Demangle.h in Headers */,
 				CBF53E6417EB7EA80056DA83 /* KSCrashSentry_Private.h in Headers */,
@@ -1505,6 +1520,7 @@
 				EDF2BF111CCF15AD004BADF4 /* KSCrashInstallation+Private.h in Headers */,
 				EDF2BF121CCF15AD004BADF4 /* KSSignalInfo.h in Headers */,
 				EDF2BF131CCF15AD004BADF4 /* Fallthrough.h in Headers */,
+				CB25A5F41DF2396700EC2B02 /* KSDebug.h in Headers */,
 				EDF2BF141CCF15AD004BADF4 /* None.h in Headers */,
 				EDF2BF151CCF15AD004BADF4 /* KSObjC.h in Headers */,
 				EDF2BF171CCF15AD004BADF4 /* Container+DeepSearch.h in Headers */,
@@ -1700,6 +1716,7 @@
 				03DE7C7D1C84DFAB00F789BA /* KSJSONCodec.c in Sources */,
 				03DE7C411C84DF8100F789BA /* KSCrashC.c in Sources */,
 				CB8F1DC91CCADB2A0022CDF0 /* KSCrashInstallation+Alert.m in Sources */,
+				CB25A5F01DF2396700EC2B02 /* KSDebug.c in Sources */,
 				03DE7CB31C84DFB700F789BA /* KSCrashReportFilterGZip.m in Sources */,
 				03DE7C7B1C84DFAB00F789BA /* KSFileUtils.c in Sources */,
 				03DE7C5C1C84DF8600F789BA /* KSCrashSentry_NSException.m in Sources */,
@@ -1774,6 +1791,7 @@
 				CB02648217F8D853003E0AED /* KSCrashSentry_CPPException.cpp in Sources */,
 				CBF53E2E17EB765C0056DA83 /* KSSignalInfo.c in Sources */,
 				CB8F1DC81CCADB2A0022CDF0 /* KSCrashInstallation+Alert.m in Sources */,
+				CB25A5EF1DF2396700EC2B02 /* KSDebug.c in Sources */,
 				CBF53DB217EB765C0056DA83 /* KSCrashInstallationEmail.m in Sources */,
 				CBF53DB817EB765C0056DA83 /* KSCrashInstallationStandard.m in Sources */,
 				CBF53DBB17EB765C0056DA83 /* KSCrashInstallationVictory.m in Sources */,
@@ -1848,6 +1866,7 @@
 				CB25A5CF1DF229F100EC2B02 /* TestThread.m in Sources */,
 				CB0264C017FA5B13003E0AED /* KSObjC_Tests.m in Sources */,
 				CB0264C217FA5B13003E0AED /* KSSignalInfo_Tests.m in Sources */,
+				CB25A5F61DF23A8100EC2B02 /* KSDebug_Tests.m in Sources */,
 				CB0264B317FA5B13003E0AED /* KSCrashReportFilterJSON_Tests.m in Sources */,
 				CB0264B117FA5B13003E0AED /* KSCrashReportFilterAlert_Tests.m in Sources */,
 				CB25A5CC1DF2292F00EC2B02 /* KSCPU_Tests.m in Sources */,
@@ -1892,6 +1911,7 @@
 				EDF2BE8D1CCF15AD004BADF4 /* KSJSONCodec.c in Sources */,
 				EDF2BE8E1CCF15AD004BADF4 /* KSCrashC.c in Sources */,
 				EDF2BE8F1CCF15AD004BADF4 /* KSCrashInstallation+Alert.m in Sources */,
+				CB25A5F11DF2396700EC2B02 /* KSDebug.c in Sources */,
 				EDF2BE901CCF15AD004BADF4 /* KSCrashReportFilterGZip.m in Sources */,
 				EDF2BE921CCF15AD004BADF4 /* KSFileUtils.c in Sources */,
 				EDF2BE931CCF15AD004BADF4 /* KSCrashSentry_NSException.m in Sources */,

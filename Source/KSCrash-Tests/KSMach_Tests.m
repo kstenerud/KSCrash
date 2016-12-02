@@ -133,10 +133,4 @@
     XCTAssertTrue(copied == 0, @"");
 }
 
-- (void) testIsBeingTraced
-{
-    bool traced = ksmach_isBeingTraced();
-    XCTAssertTrue(traced, @"");
-}
-
 @end

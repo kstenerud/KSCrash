@@ -19,6 +19,10 @@
 		CB25A5E21DF236D500EC2B02 /* KSThread.c in Sources */ = {isa = PBXBuildFile; fileRef = CB25A5DF1DF236D500EC2B02 /* KSThread.c */; };
 		CB25A5E31DF236D500EC2B02 /* KSThread.h in Headers */ = {isa = PBXBuildFile; fileRef = CB25A5E01DF236D500EC2B02 /* KSThread.h */; };
 		CB25A5E41DF236D500EC2B02 /* KSThread.h in Headers */ = {isa = PBXBuildFile; fileRef = CB25A5E01DF236D500EC2B02 /* KSThread.h */; };
+		CB25A5F91DF23B5D00EC2B02 /* KSDebug.c in Sources */ = {isa = PBXBuildFile; fileRef = CB25A5F71DF23B5D00EC2B02 /* KSDebug.c */; };
+		CB25A5FA1DF23B5D00EC2B02 /* KSDebug.c in Sources */ = {isa = PBXBuildFile; fileRef = CB25A5F71DF23B5D00EC2B02 /* KSDebug.c */; };
+		CB25A5FB1DF23B5D00EC2B02 /* KSDebug.h in Headers */ = {isa = PBXBuildFile; fileRef = CB25A5F81DF23B5D00EC2B02 /* KSDebug.h */; };
+		CB25A5FC1DF23B5D00EC2B02 /* KSDebug.h in Headers */ = {isa = PBXBuildFile; fileRef = CB25A5F81DF23B5D00EC2B02 /* KSDebug.h */; };
 		CB26860F1C694E4400EE4EB3 /* None.h in Headers */ = {isa = PBXBuildFile; fileRef = CB2685F81C694E4400EE4EB3 /* None.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB2686101C694E4400EE4EB3 /* None.h in Headers */ = {isa = PBXBuildFile; fileRef = CB2685F81C694E4400EE4EB3 /* None.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB2686111C694E4400EE4EB3 /* Optional.h in Headers */ = {isa = PBXBuildFile; fileRef = CB2685F91C694E4400EE4EB3 /* Optional.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -388,6 +392,8 @@
 		CB25A5D31DF22B3300EC2B02 /* KSCPU_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSCPU_Tests.m; path = "../../Source/KSCrash-Tests/KSCPU_Tests.m"; sourceTree = "<group>"; };
 		CB25A5DF1DF236D500EC2B02 /* KSThread.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSThread.c; path = /Users/karl/Projects/KSCrash/iOS/KSCrash/../../Source/KSCrash/Recording/Tools/KSThread.c; sourceTree = "<absolute>"; };
 		CB25A5E01DF236D500EC2B02 /* KSThread.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSThread.h; path = /Users/karl/Projects/KSCrash/iOS/KSCrash/../../Source/KSCrash/Recording/Tools/KSThread.h; sourceTree = "<absolute>"; };
+		CB25A5F71DF23B5D00EC2B02 /* KSDebug.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSDebug.c; path = /Users/karl/Projects/KSCrash/iOS/KSCrash/../../Source/KSCrash/Recording/Tools/KSDebug.c; sourceTree = "<absolute>"; };
+		CB25A5F81DF23B5D00EC2B02 /* KSDebug.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSDebug.h; path = /Users/karl/Projects/KSCrash/iOS/KSCrash/../../Source/KSCrash/Recording/Tools/KSDebug.h; sourceTree = "<absolute>"; };
 		CB2685F81C694E4400EE4EB3 /* None.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = None.h; sourceTree = "<group>"; };
 		CB2685F91C694E4400EE4EB3 /* Optional.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Optional.h; sourceTree = "<group>"; };
 		CB2685FA1C694E4400EE4EB3 /* StringRef.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = StringRef.h; sourceTree = "<group>"; };
@@ -946,6 +952,8 @@
 				CB25A5BE1DF2209000EC2B02 /* KSCPU.h */,
 				CB8E566B17EB9B43000C56D3 /* KSCPU_x86_32.c */,
 				CB8E566C17EB9B43000C56D3 /* KSCPU_x86_64.c */,
+				CB25A5F71DF23B5D00EC2B02 /* KSDebug.c */,
+				CB25A5F81DF23B5D00EC2B02 /* KSDebug.h */,
 				CB7A6C9417FB99E800997792 /* KSDynamicLinker.c */,
 				CB7A6C9517FB99E800997792 /* KSDynamicLinker.h */,
 				CB8E566017EB9B43000C56D3 /* KSFileUtils.c */,
@@ -1143,6 +1151,7 @@
 				CB42F4581C6D1A7B002FD017 /* DemangleNodes.h in Headers */,
 				CB6240AA17EBCA74006471F1 /* KSCrashC.h in Headers */,
 				CB62410E17EBCA74006471F1 /* KSReachabilityKSCrash.h in Headers */,
+				CB25A5FC1DF23B5D00EC2B02 /* KSDebug.h in Headers */,
 				CB6240CC17EBCA74006471F1 /* KSFileUtils.h in Headers */,
 				CB62410C17EBCA74006471F1 /* KSHTTPRequestSender.h in Headers */,
 				CB6240C117EBCA74006471F1 /* KSCrashSentry_Private.h in Headers */,
@@ -1239,6 +1248,7 @@
 				CB8E56ED17EB9B89000C56D3 /* KSHTTPMultipartPostBody.h in Headers */,
 				CB8E569B17EB9B43000C56D3 /* KSZombie.h in Headers */,
 				CB2686251C694E4400EE4EB3 /* Fallthrough.h in Headers */,
+				CB25A5FB1DF23B5D00EC2B02 /* KSDebug.h in Headers */,
 				CB8E569117EB9B43000C56D3 /* KSObjC.h in Headers */,
 				CB8E56F117EB9B89000C56D3 /* KSReachabilityKSCrash.h in Headers */,
 				CBA1A5261DD24F8D007B1CE7 /* KSCrashReportFixer.h in Headers */,
@@ -1445,6 +1455,7 @@
 				CB26862C1C694E4400EE4EB3 /* Punycode.cpp in Sources */,
 				CB25A5E21DF236D500EC2B02 /* KSThread.c in Sources */,
 				CB62410D17EBCA74006471F1 /* KSHTTPRequestSender.m in Sources */,
+				CB25A5FA1DF23B5D00EC2B02 /* KSDebug.c in Sources */,
 				CB62410117EBCA74006471F1 /* KSCrashDoctor.m in Sources */,
 				CB6240C817EBCA74006471F1 /* KSBacktrace.c in Sources */,
 			);
@@ -1517,6 +1528,7 @@
 				CB26862B1C694E4400EE4EB3 /* Punycode.cpp in Sources */,
 				CB25A5E11DF236D500EC2B02 /* KSThread.c in Sources */,
 				CB8E571817EB9BA8000C56D3 /* KSCrashInstallationStandard.m in Sources */,
+				CB25A5F91DF23B5D00EC2B02 /* KSDebug.c in Sources */,
 				CB8E56FC17EB9B89000C56D3 /* NSMutableData+AppendUTF8.m in Sources */,
 				CB8E565917EB9B35000C56D3 /* KSCrashSentry_User.c in Sources */,
 			);
