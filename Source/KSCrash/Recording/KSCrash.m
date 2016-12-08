@@ -107,6 +107,7 @@ static NSString* getBasePath()
 @synthesize introspectMemory = _introspectMemory;
 @synthesize catchZombies = _catchZombies;
 @synthesize doNotIntrospectClasses = _doNotIntrospectClasses;
+@synthesize suspendThreadsForUserReported = _suspendThreadsForUserReported;
 @synthesize demangleLanguages = _demangleLanguages;
 @synthesize redirectConsoleLogToFile = _redirectConsoleLogToFile;
 
@@ -141,6 +142,7 @@ static NSString* getBasePath()
         self.searchThreadNames = NO;
         self.searchQueueNames = NO;
         self.introspectMemory = YES;
+        self.suspendThreadsForUserReported = YES;
         self.catchZombies = NO;
     }
     return self;
@@ -236,6 +238,28 @@ static NSString* getBasePath()
         }
         kscrash_setDoNotIntrospectClasses(classes, (int)count);
     }
+}
+
+- (NSString*) crashReportPath
+{
+    return [self.crashReportStore pathToCrashReportWithID:self.nextCrashID];
+}
+
+- (NSString*) recrashReportPath
+{
+    return [self.crashReportStore pathToRecrashReportWithID:self.nextCrashID];
+}
+
+- (NSString*) stateFilePath
+{
+    NSString* stateFilename = [NSString stringWithFormat:@"%@" kCrashStateFilenameSuffix, self.bundleName];
+    return [self.crashReportStore.path stringByAppendingPathComponent:stateFilename];
+}
+
+- (void) setSuspendThreadsForUserReported:(bool) suspendThreadsForUserReported
+{
+    _suspendThreadsForUserReported = suspendThreadsForUserReported;
+    kscrash_setSuspendThreadsForUserReported(suspendThreadsForUserReported);
 }
 
 - (BOOL) install

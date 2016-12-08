@@ -136,6 +136,15 @@ void kscrash_setCatchZombies(bool catchZombies);
  */
 void kscrash_setDoNotIntrospectClasses(const char** doNotIntrospectClasses, int length);
 
+
+/** If YES, user reported exceptions will suspend all threads during report generation.
+ * All threads will be suspended while generating a crash report for a user
+ * reported exception.
+ *
+ * Default: YES
+ */
+void kscrash_setSuspendThreadsForUserReported(bool suspendThreadsForUserReported);
+    
 /** Set the callback to invoke upon a crash.
  *
  * WARNING: Only call async-safe functions from this function! DO NOT call

@@ -275,6 +275,11 @@ void kscrash_setDoNotIntrospectClasses(const char** doNotIntrospectClasses, int 
     }
 }
 
+void kscrash_setSuspendThreadsForUserReported(bool suspendThreadsForUserReported)
+{
+    crashContext()->crash.suspendThreadsForUserReported = suspendThreadsForUserReported;
+}
+
 void kscrash_setCrashNotifyCallback(const KSReportWriteCallback onCrashNotify)
 {
     KSLOG_TRACE("Set onCrashNotify to %p", onCrashNotify);
