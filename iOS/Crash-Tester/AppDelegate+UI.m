@@ -57,7 +57,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
 {
     controller.navigationItem.backBarButtonItem =
         [[UIBarButtonItem alloc] initWithTitle:@"Back"
-                                         style:UIBarButtonItemStyleBordered
+                                         style:UIBarButtonItemStyleDone
                                         target:nil
                                         action:nil];
 }

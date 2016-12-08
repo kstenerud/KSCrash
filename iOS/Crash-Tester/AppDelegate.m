@@ -54,16 +54,12 @@ static void onCrash(const KSCrashReportWriter* writer)
 {
     KSCrash* handler = [KSCrash sharedInstance];
 
-#if kRedirectConsoleLogToDefaultFile
-    [handler redirectConsoleLogsToDefaultFile];
-#endif
-    
     handler.deadlockWatchdogInterval = 5.0f;
     handler.catchZombies = YES;
     handler.searchThreadNames = YES;
     handler.searchQueueNames = YES;
 //    handler.printTraceToStdout = YES;
-//    [handler redirectConsoleLogsToDefaultFile];
+//    handler.redirectConsoleLogToFile = YES;
     handler.onCrash = onCrash;
     handler.userInfo = [NSDictionary dictionaryWithObjectsAndKeys:
                         @"\"quote\"", @"quoted value",
