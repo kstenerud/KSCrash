@@ -32,7 +32,6 @@ extern "C" {
 
 #include "KSCrashSentry.h"
 
-#include <signal.h>
 #include <stdbool.h>
 
 
@@ -42,7 +41,7 @@ extern "C" {
  *
  * @return true if installation was succesful.
  */
-bool kscrashsentry_installUserExceptionHandler(KSCrash_SentryContext* context);
+bool kscrashsentry_installUserExceptionHandler(struct KSCrash_SentryContext* context);
 
 /** Uninstall the user exception handler.
  */
@@ -57,19 +56,20 @@ void kscrashsentry_uninstallUserExceptionHandler(void);
  *
  * @param reason A description of why the exception occurred.
  *
+ * @param language A unique language identifier.
+ *
  * @param lineOfCode A copy of the offending line of code (NULL = ignore).
  *
- * @param stackTrace An array of strings representing the call stack leading to the exception.
- *
- * @param stackTraceCount The length of the stack trace array (0 = ignore).
+ * @param stackTrace JSON encoded array containing stack trace information (one frame per array entry).
+ *                   The frame structure can be anything you want, including bare strings.
  *
  * @param terminateProgram If true, do not return from this function call. Terminate the program instead.
  */
 void kscrashsentry_reportUserException(const char* name,
                                        const char* reason,
+                                       const char* language,
                                        const char* lineOfCode,
-                                       const char** stackTrace,
-                                       size_t stackTraceCount,
+                                       const char* stackTrace,
                                        bool terminateProgram);
 
 

@@ -27,19 +27,19 @@
 
 #import "KSCrashReportSinkQuincyHockey.h"
 
-#import "ARCSafe_MemMgmt.h"
 #import "KSCrashReportFields.h"
 #import "KSHTTPMultipartPostBody.h"
 #import "KSHTTPRequestSender.h"
 #import "NSData+GZip.h"
-#import "KSCrashCallCompletion.h"
 #import "KSCrashReportFilterAppleFmt.h"
+#import "KSCrashReportFilterBasic.h"
 #import "KSJSONCodecObjC.h"
 #import "KSReachabilityKSCrash.h"
 #import "Container+DeepSearch.h"
 #import "NSError+SimpleConstructor.h"
 #import <mach/machine.h>
 #import "KSSystemInfo.h"
+#import "NSString+URLEncode.h"
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -78,11 +78,11 @@
                          contactEmailKey:(NSString*) contactEmailKey
                     crashDescriptionKeys:(NSArray*) crashDescriptionKeys
 {
-    return as_autorelease([[self alloc] initWithURL:url
-                                          userIDKey:userIDKey
-                                        userNameKey:userNameKey
-                                    contactEmailKey:contactEmailKey
-                               crashDescriptionKeys:crashDescriptionKeys]);
+    return [[self alloc] initWithURL:url
+                           userIDKey:userIDKey
+                         userNameKey:userNameKey
+                     contactEmailKey:contactEmailKey
+                crashDescriptionKeys:crashDescriptionKeys];
 }
 
 - (id) initWithURL:(NSURL*) url
@@ -101,16 +101,6 @@ crashDescriptionKeys:(NSArray*) crashDescriptionKeys
         self.waitUntilReachable = YES;
     }
     return self;
-}
-
-- (void) dealloc
-{
-    as_release(_reachableOperation);
-    as_release(_url);
-    as_release(_userIDKey);
-    as_release(_contactEmailKey);
-    as_release(_crashDescriptionKeys);
-    as_superdealloc();
 }
 
 - (id <KSCrashReportFilter>) defaultCrashReportFilterSet
@@ -161,7 +151,7 @@ crashDescriptionKeys:(NSArray*) crashDescriptionKeys
                 KSLOG_ERROR(@"Could not encode report section %@: %@", key, error);
                 continue;
             }
-            stringValue = as_autorelease([[NSString alloc] initWithData:encoded encoding:NSUTF8StringEncoding]);
+            stringValue = [[NSString alloc] initWithData:encoded encoding:NSUTF8StringEncoding];
         }
         else if(value == nil)
         {
@@ -235,24 +225,28 @@ crashDescriptionKeys:(NSArray*) crashDescriptionKeys
                     break;
             }
             break;
-            
+
+#ifdef CPU_TYPE_ARM64
         case CPU_TYPE_ARM64:
             switch (cpuSubType)
             {
                 case CPU_SUBTYPE_ARM_ALL:
                     arch = @"arm64";
                     break;
-                    
+
+#ifdef CPU_SUBTYPE_ARM_V8
                 case CPU_SUBTYPE_ARM_V8:
                     arch = @"arm64";
                     break;
-                    
+#endif
+
                 default:
                     arch = @"arm64-unknown";
                     break;
             }
             break;
-            
+#endif
+
         case CPU_TYPE_X86:
             arch = @"i386";
             break;
@@ -286,11 +280,11 @@ crashDescriptionKeys:(NSArray*) crashDescriptionKeys
     {
         NSString* imagePath = [[image objectForKey:@KSCrashField_Name] stringByStandardizingPath];
         NSString* imageType;
-        if([imagePath isEqualToString:processPath])
+        if(processPath && [imagePath isEqualToString:processPath])
         {
             imageType = @"app";
         }
-        else if([imagePath hasPrefix:appContainerPath])
+        else if(appContainerPath && [imagePath hasPrefix:appContainerPath])
         {
             imageType = @"framework";
         }
@@ -425,21 +419,20 @@ crashDescriptionKeys:(NSArray*) crashDescriptionKeys
                                                     __unused NSData* data)
          {
              KSLOG_DEBUG(@"Post successful");
-             kscrash_i_callCompletion(onCompletion, reports, YES, nil);
+             kscrash_callCompletion(onCompletion, reports, YES, nil);
          } onFailure:^(NSHTTPURLResponse* response, NSData* data)
          {
-             NSString* text = as_autorelease([[NSString alloc] initWithData:data
-                                                                   encoding:NSUTF8StringEncoding]);
+             NSString* text = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
              KSLOG_DEBUG(@"Post failed. Code %d", response.statusCode);
              KSLOG_TRACE(@"Response text:\n%@", text);
-             kscrash_i_callCompletion(onCompletion, reports, NO,
+             kscrash_callCompletion(onCompletion, reports, NO,
                                       [NSError errorWithDomain:[[self class] description]
                                                           code:response.statusCode
                                                    description:text]);
          } onError:^(NSError* error)
          {
              KSLOG_DEBUG(@"Posting error: %@", error);
-             kscrash_i_callCompletion(onCompletion, reports, NO, error);
+             kscrash_callCompletion(onCompletion, reports, NO, error);
          }];
     };
 
@@ -486,11 +479,11 @@ crashDescriptionKeys:(NSArray*) crashDescriptionKeys
                                    contactEmailKey:(NSString*) contactEmailKey
                               crashDescriptionKeys:(NSArray*) crashDescriptionKeys
 {
-    return as_autorelease([[self alloc] initWithAppIdentifier:appIdentifier
-                                                    userIDKey:userIDKey
-                                                  userNameKey:userNameKey
-                                              contactEmailKey:contactEmailKey
-                                         crashDescriptionKeys:crashDescriptionKeys]);
+    return [[self alloc] initWithAppIdentifier:appIdentifier
+                                     userIDKey:userIDKey
+                                   userNameKey:userNameKey
+                               contactEmailKey:contactEmailKey
+                          crashDescriptionKeys:crashDescriptionKeys];
 }
 
 - (id) initWithAppIdentifier:(NSString*) appIdentifier
@@ -508,12 +501,6 @@ crashDescriptionKeys:(NSArray*) crashDescriptionKeys
         self.appIdentifier = appIdentifier;
     }
     return self;
-}
-
-- (void) dealloc
-{
-    as_release(_appIdentifier);
-    as_superdealloc();
 }
 
 - (void) filterReports:(NSArray*) reports
@@ -540,13 +527,8 @@ crashDescriptionKeys:(NSArray*) crashDescriptionKeys
 - (NSURL*) urlWithAppIdentifier:(NSString*) appIdentifier
 {
     NSString* urlString = [NSString stringWithFormat:@"https://sdk.hockeyapp.net/api/2/apps/%@/crashes",
-                           [self urlEscaped:appIdentifier]];
+                           [appIdentifier URLEncoded]];
     return [NSURL URLWithString:urlString];
-}
-
-- (NSString*) urlEscaped:(NSString*) string
-{
-    return [string stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
 }
 
 @end

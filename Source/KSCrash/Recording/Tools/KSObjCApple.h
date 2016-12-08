@@ -25,35 +25,182 @@ extern "C" {
 
 
 #include <objc/objc.h>
+#include <CoreFoundation/CoreFoundation.h>
 
 
-// Fake structs. Implement as needed.
-typedef struct method_list_t method_list_t;
-typedef struct protocol_list_t protocol_list_t;
-typedef struct property_list_t property_list_t;
+#define MAKE_LIST_T(TYPE) \
+typedef struct TYPE##_list_t { \
+    uint32_t entsizeAndFlags; \
+    uint32_t count; \
+    TYPE##_t first; \
+} TYPE##_list_t; \
+typedef TYPE##_list_t TYPE##_array_t
 
-// Remove unknown keywords & directives
-#define __strong
+#define OBJC_OBJECT(NAME) \
+NAME { \
+    Class isa  OBJC_ISA_AVAILABILITY;
 
 
 // ======================================================================
-#pragma mark - objc4-532.2/runtime/objc-private.h -
+#pragma mark - objc4-680/runtime/objc-msg-x86_64.s -
+// and objc4-680/runtime/objc-msg-arm64.s
+// ======================================================================
+
+#if __x86_64__
+#   define ISA_TAG_MASK 1UL
+#   define ISA_MASK     0x00007ffffffffff8UL
+#elif defined(__arm64__)
+#   define ISA_TAG_MASK 1UL
+#   define ISA_MASK     0x00000001fffffff8UL
+#else
+#   define ISA_TAG_MASK 0UL
+#   define ISA_MASK     ~1UL
+#endif
+
+
+// ======================================================================
+#pragma mark - objc4-680/runtime/objc-config.h -
+// ======================================================================
+
+// Define SUPPORT_TAGGED_POINTERS=1 to enable tagged pointer objects
+// Be sure to edit tagged pointer SPI in objc-internal.h as well.
+#if !(__LP64__)
+#   define SUPPORT_TAGGED_POINTERS 0
+#else
+#   define SUPPORT_TAGGED_POINTERS 1
+#endif
+    
+// Define SUPPORT_MSB_TAGGED_POINTERS to use the MSB
+// as the tagged pointer marker instead of the LSB.
+// Be sure to edit tagged pointer SPI in objc-internal.h as well.
+#if !SUPPORT_TAGGED_POINTERS  ||  !TARGET_OS_IPHONE
+#   define SUPPORT_MSB_TAGGED_POINTERS 0
+#else
+#   define SUPPORT_MSB_TAGGED_POINTERS 1
+#endif
+
+
+// ======================================================================
+#pragma mark - objc4-680/runtime/objc-object.h -
+// ======================================================================
+    
+#if SUPPORT_TAGGED_POINTERS
+
+// KS: The original values wouldn't have worked. The slot shift and mask
+// were incorrect.
+#define TAG_COUNT 8
+//#define TAG_SLOT_MASK 0xf
+#define TAG_SLOT_MASK 0x07
+
+#if SUPPORT_MSB_TAGGED_POINTERS
+#   define TAG_MASK (1ULL<<63)
+#   define TAG_SLOT_SHIFT 60
+#   define TAG_PAYLOAD_LSHIFT 4
+#   define TAG_PAYLOAD_RSHIFT 4
+#else
+#   define TAG_MASK 1
+//#   define TAG_SLOT_SHIFT 0
+#   define TAG_SLOT_SHIFT 1
+#   define TAG_PAYLOAD_LSHIFT 0
+#   define TAG_PAYLOAD_RSHIFT 4
+#endif
+
+#endif
+
+// ======================================================================
+#pragma mark - objc4-680/runtime/objc-internal.h -
+// ======================================================================
+
+enum
+{
+    OBJC_TAG_NSAtom            = 0,
+    OBJC_TAG_1                 = 1,
+    OBJC_TAG_NSString          = 2,
+    OBJC_TAG_NSNumber          = 3,
+    OBJC_TAG_NSIndexPath       = 4,
+    OBJC_TAG_NSManagedObjectID = 5,
+    OBJC_TAG_NSDate            = 6,
+    OBJC_TAG_7                 = 7
+};
+
+
+
+// ======================================================================
+#pragma mark - objc4-680/runtime/objc-os.h -
 // ======================================================================
 
 #ifdef __LP64__
 #   define WORD_SHIFT 3UL
 #   define WORD_MASK 7UL
+#   define WORD_BITS 64
 #else
 #   define WORD_SHIFT 2UL
 #   define WORD_MASK 3UL
+#   define WORD_BITS 32
 #endif
 
+
+// ======================================================================
+#pragma mark - objc4-680/runtime/runtime.h -
+// ======================================================================
+    
 typedef struct objc_cache *Cache;
 
 
 // ======================================================================
-#pragma mark - objc4-532.2/runtime/objc-runtime-new.h -
+#pragma mark - objc4-680/runtime/objc-runtime-new.h -
 // ======================================================================
+
+typedef struct method_t {
+    SEL name;
+    const char *types;
+    IMP imp;
+} method_t;
+
+MAKE_LIST_T(method);
+
+typedef struct ivar_t {
+#if __x86_64__
+    // *offset was originally 64-bit on some x86_64 platforms.
+    // We read and write only 32 bits of it.
+    // Some metadata provides all 64 bits. This is harmless for unsigned
+    // little-endian values.
+    // Some code uses all 64 bits. class_addIvar() over-allocates the
+    // offset for their benefit.
+#endif
+    int32_t *offset;
+    const char *name;
+    const char *type;
+    // alignment is sometimes -1; use alignment() instead
+    uint32_t alignment_raw;
+    uint32_t size;
+} ivar_t;
+
+MAKE_LIST_T(ivar);
+
+typedef struct property_t {
+    const char *name;
+    const char *attributes;
+} property_t;
+
+MAKE_LIST_T(property);
+
+typedef struct OBJC_OBJECT(protocol_t)
+    const char *mangledName;
+    struct protocol_list_t *protocols;
+    method_list_t *instanceMethods;
+    method_list_t *classMethods;
+    method_list_t *optionalInstanceMethods;
+    method_list_t *optionalClassMethods;
+    property_list_t *instanceProperties;
+    uint32_t size;   // sizeof(protocol_t)
+    uint32_t flags;
+    // Fields below this point are not always present on disk.
+    const char **extendedMethodTypes;
+    const char *_demangledName;
+} protocol_t;
+
+MAKE_LIST_T(protocol);
 
 // Values for class_ro_t->flags
 // These are emitted by the compiler and are part of the ABI.
@@ -62,24 +209,6 @@ typedef struct objc_cache *Cache;
 // class is a root class
 #define RO_ROOT               (1<<1)
 
-
-typedef struct ivar_t {
-    // *offset is 64-bit by accident even though other
-    // fields restrict total instance size to 32-bit.
-    uintptr_t *offset;
-    const char *name;
-    const char *type;
-    // alignment is sometimes -1; use ivar_alignment() instead
-    uint32_t alignment  __attribute__((deprecated));
-    uint32_t size;
-} ivar_t;
-
-typedef struct ivar_list_t {
-    uint32_t entsize;
-    uint32_t count;
-    ivar_t first;
-} ivar_list_t;
-
 typedef struct class_ro_t {
     uint32_t flags;
     uint32_t instanceStart;
@@ -87,46 +216,48 @@ typedef struct class_ro_t {
 #ifdef __LP64__
     uint32_t reserved;
 #endif
-
+    
     const uint8_t * ivarLayout;
-
+    
     const char * name;
-    const method_list_t * baseMethods;
-    const protocol_list_t * baseProtocols;
+    method_list_t * baseMethodList;
+    protocol_list_t * baseProtocols;
     const ivar_list_t * ivars;
-
+    
     const uint8_t * weakIvarLayout;
-    const property_list_t *baseProperties;
+    property_list_t *baseProperties;
 } class_ro_t;
 
 typedef struct class_rw_t {
     uint32_t flags;
     uint32_t version;
-
+    
     const class_ro_t *ro;
-
-    union {
-        method_list_t **method_lists;  // RW_METHOD_ARRAY == 1
-        method_list_t *method_list;    // RW_METHOD_ARRAY == 0
-    };
-    struct chained_property_list *properties;
-    const protocol_list_t ** protocols;
-
-    struct class_t *firstSubclass;
-    struct class_t *nextSiblingClass;
+    
+    method_array_t methods;
+    property_array_t properties;
+    protocol_array_t protocols;
+    
+    Class firstSubclass;
+    Class nextSiblingClass;
+    
+    char *demangledName;
 } class_rw_t;
 
 typedef struct class_t {
     struct class_t *isa;
     struct class_t *superclass;
+#pragma clang diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     Cache cache;
+#pragma clang diagnostic pop
     IMP *vtable;
     uintptr_t data_NEVER_USE;  // class_rw_t * plus custom rr/alloc flags
 } class_t;
 
 
 // ======================================================================
-#pragma mark - CF-635/CFRuntime.h -
+#pragma mark - CF-1153.18/CFRuntime.h -
 // ======================================================================
 
 typedef struct __CFRuntimeBase {
@@ -139,7 +270,7 @@ typedef struct __CFRuntimeBase {
 
 
 // ======================================================================
-#pragma mark - CF-635/CFInternal.h -
+#pragma mark - CF-1153.18/CFInternal.h -
 // ======================================================================
 
 #if defined(__BIG_ENDIAN__)
@@ -164,7 +295,7 @@ typedef struct __CFRuntimeBase {
 
 
 // ======================================================================
-#pragma mark - CF-635/CFString.c -
+#pragma mark - CF-1153.18/CFString.c -
 // ======================================================================
 
 // This is separate for C++
@@ -192,9 +323,6 @@ struct __CFString {
         struct __inline1 {
             CFIndex length;
         } inline1;                                      // Bytes follow the length
-        struct __inline2 {
-            uint8_t length;
-        } inline2;                                      // Not part of official CF, but this type exists.
         struct __notInlineImmutable1 {
             void *buffer;                               // Note that the buffer is in the same place for all non-inline variants of CFString
             CFIndex length;
@@ -217,21 +345,21 @@ struct __CFString {
  D = explicit deallocator for contents (for mutable objects, allocator)
  C = length field is CFIndex (rather than UInt32); only meaningful for 64-bit, really
  if needed this bit (valuable real-estate) can be given up for another bit elsewhere, since this info is needed just for 64-bit
-
+ 
  Also need (only for mutable)
  F = is fixed
  G = has gap
  Cap, DesCap = capacity
-
+ 
  B7 B6 B5 B4 B3 B2 B1 B0
  U  N  L  C  I
-
+ 
  B6 B5
  0  0   inline contents
  0  1   E (freed with default allocator)
  1  0   E (not freed)
  1  1   E D
-
+ 
  !!! Note: Constant CFStrings use the bit patterns:
  C8 (11001000 = default allocator, not inline, not freed contents; 8-bit; has NULL byte; doesn't have length; is immutable)
  D0 (11010000 = default allocator, not inline, not freed contents; Unicode; is immutable)
@@ -242,22 +370,22 @@ enum {
     __kCFFreeContentsWhenDoneMask = 0x020,
     __kCFFreeContentsWhenDone = 0x020,
     __kCFContentsMask = 0x060,
-	__kCFHasInlineContents = 0x000,
-	__kCFNotInlineContentsNoFree = 0x040,		// Don't free
-	__kCFNotInlineContentsDefaultFree = 0x020,	// Use allocator's free function
-	__kCFNotInlineContentsCustomFree = 0x060,		// Use a specially provided free function
+    __kCFHasInlineContents = 0x000,
+    __kCFNotInlineContentsNoFree = 0x040,		// Don't free
+    __kCFNotInlineContentsDefaultFree = 0x020,	// Use allocator's free function
+    __kCFNotInlineContentsCustomFree = 0x060,		// Use a specially provided free function
     __kCFHasContentsAllocatorMask = 0x060,
     __kCFHasContentsAllocator = 0x060,		// (For mutable strings) use a specially provided allocator
     __kCFHasContentsDeallocatorMask = 0x060,
     __kCFHasContentsDeallocator = 0x060,
     __kCFIsMutableMask = 0x01,
-	__kCFIsMutable = 0x01,
+    __kCFIsMutable = 0x01,
     __kCFIsUnicodeMask = 0x10,
-	__kCFIsUnicode = 0x10,
+    __kCFIsUnicode = 0x10,
     __kCFHasNullByteMask = 0x08,
-	__kCFHasNullByte = 0x08,
+    __kCFHasNullByte = 0x08,
     __kCFHasLengthByteMask = 0x04,
-	__kCFHasLengthByte = 0x04,
+    __kCFHasLengthByte = 0x04,
     // !!! Bit 0x02 has been freed up
 };
 
@@ -273,11 +401,22 @@ enum {
  */
 CF_INLINE Boolean __CFStrIsMutable(CFStringRef str)                 {return (str->base._cfinfo[CF_INFO_BITS] & __kCFIsMutableMask) == __kCFIsMutable;}
 CF_INLINE Boolean __CFStrIsInline(CFStringRef str)                  {return (str->base._cfinfo[CF_INFO_BITS] & __kCFContentsMask) == __kCFHasInlineContents;}
+CF_INLINE Boolean __CFStrFreeContentsWhenDone(CFStringRef str)      {return (str->base._cfinfo[CF_INFO_BITS] & __kCFFreeContentsWhenDoneMask) == __kCFFreeContentsWhenDone;}
+CF_INLINE Boolean __CFStrHasContentsDeallocator(CFStringRef str)    {return (str->base._cfinfo[CF_INFO_BITS] & __kCFHasContentsDeallocatorMask) == __kCFHasContentsDeallocator;}
 CF_INLINE Boolean __CFStrIsUnicode(CFStringRef str)                 {return (str->base._cfinfo[CF_INFO_BITS] & __kCFIsUnicodeMask) == __kCFIsUnicode;}
+CF_INLINE Boolean __CFStrIsEightBit(CFStringRef str)                {return (str->base._cfinfo[CF_INFO_BITS] & __kCFIsUnicodeMask) != __kCFIsUnicode;}
+CF_INLINE Boolean __CFStrHasNullByte(CFStringRef str)               {return (str->base._cfinfo[CF_INFO_BITS] & __kCFHasNullByteMask) == __kCFHasNullByte;}
 CF_INLINE Boolean __CFStrHasLengthByte(CFStringRef str)             {return (str->base._cfinfo[CF_INFO_BITS] & __kCFHasLengthByteMask) == __kCFHasLengthByte;}
 CF_INLINE Boolean __CFStrHasExplicitLength(CFStringRef str)         {return (str->base._cfinfo[CF_INFO_BITS] & (__kCFIsMutableMask | __kCFHasLengthByteMask)) != __kCFHasLengthByte;}	// Has explicit length if (1) mutable or (2) not mutable and no length byte
+CF_INLINE Boolean __CFStrIsConstant(CFStringRef str) {
+#if __LP64__
+    return str->base._rc == 0;
+#else
+    return (str->base._cfinfo[CF_RC_BITS]) == 0;
+#endif
+}
 
-/* Returns ptr to the buffer (which might include the length byte)
+/* Returns ptr to the buffer (which might include the length byte).
  */
 CF_INLINE const void *__CFStrContents(CFStringRef str) {
     if (__CFStrIsInline(str)) {
@@ -289,23 +428,23 @@ CF_INLINE const void *__CFStrContents(CFStringRef str) {
 
 
 // ======================================================================
-#pragma mark - CF-635/CFURL.c -
+#pragma mark - CF-1153.18/CFURL.c -
 // ======================================================================
 
 struct __CFURL {
     CFRuntimeBase _cfBase;
     UInt32 _flags;
-    CFStringEncoding _encoding; // The encoding to use when asked to remove percent escapes; this is never consulted if IS_OLD_UTF8_STYLE is set.
-    CFStringRef _string; // Never NULL; the meaning of _string depends on URL_PATH_TYPE(myURL) (see above)
+    CFStringEncoding _encoding; // The encoding to use when asked to remove percent escapes
+    CFStringRef _string; // Never NULL
     CFURLRef _base;
-    CFRange *ranges;
-    struct _CFURLAdditionalData* extra;
-    void *_resourceInfo;    // For use by CarbonCore to cache property values. Retained and released by CFURL.
+    struct _CFURLAdditionalData* _extra;
+    void *_resourceInfo;    // For use by CoreServicesInternal to cache property values. Retained and released by CFURL.
+    CFRange _ranges[1]; // variable length (1 to 9) array of ranges
 };
 
 
 // ======================================================================
-#pragma mark - CF-635/CFDate.c -
+#pragma mark - CF-1153.18/CFDate.c -
 // ======================================================================
 
 struct __CFDate {
@@ -318,7 +457,7 @@ struct __CFDate {
 
 
 // ======================================================================
-#pragma mark - CF-635/CFNumber.c -
+#pragma mark - CF-1153.18/CFNumber.c -
 // ======================================================================
 
 struct __CFNumber {
@@ -329,7 +468,7 @@ struct __CFNumber {
 
 
 // ======================================================================
-#pragma mark - CF-635/CFArray.c -
+#pragma mark - CF-1153.18/CFArray.c -
 // ======================================================================
 
 struct __CFArrayBucket {
@@ -347,7 +486,7 @@ struct __CFArray {
     CFIndex _count;		/* number of objects */
     CFIndex _mutations;
     int32_t _mutInProgress;
-    __strong void *_store;           /* can be NULL when MutableDeque */
+    /* __strong */ void *_store;           /* can be NULL when MutableDeque */
 };
 
 /* Flag bits */
@@ -369,7 +508,7 @@ CF_INLINE CFIndex __CFArrayGetType(CFArrayRef array) {
 CF_INLINE CFIndex __CFArrayGetSizeOfType(CFIndex t) {
     CFIndex size = 0;
     size += sizeof(struct __CFArray);
-    if (__CFBitfieldGetValue((unsigned)t, 3, 2) == __kCFArrayHasCustomCallBacks) {
+    if (__CFBitfieldGetValue((unsigned long)t, 3, 2) == __kCFArrayHasCustomCallBacks) {
         size += sizeof(CFArrayCallBacks);
     }
     return size;
@@ -391,7 +530,7 @@ CF_INLINE struct __CFArrayBucket *__CFArrayGetBucketsPtr(CFArrayRef array) {
 
 
 // ======================================================================
-#pragma mark - CF-635/CFBasicHash.h -
+#pragma mark - CF-1153.18/CFBasicHash.h -
 // ======================================================================
 
 typedef struct __CFBasicHash *CFBasicHashRef;
@@ -400,76 +539,22 @@ typedef const struct __CFBasicHash *CFConstBasicHashRef;
 typedef struct __CFBasicHashCallbacks CFBasicHashCallbacks;
 
 struct __CFBasicHashCallbacks {
-    CFBasicHashCallbacks *(*copyCallbacks)(CFConstBasicHashRef ht, CFAllocatorRef allocator, CFBasicHashCallbacks *cb);	// Return new value
-    void (*freeCallbacks)(CFConstBasicHashRef ht, CFAllocatorRef allocator, CFBasicHashCallbacks *cb);
-    uintptr_t (*retainValue)(CFConstBasicHashRef ht, uintptr_t stack_value);	// Return 2nd arg or new value
-    uintptr_t (*retainKey)(CFConstBasicHashRef ht, uintptr_t stack_key);	// Return 2nd arg or new key
-    void (*releaseValue)(CFConstBasicHashRef ht, uintptr_t stack_value);
-    void (*releaseKey)(CFConstBasicHashRef ht, uintptr_t stack_key);
-    Boolean (*equateValues)(CFConstBasicHashRef ht, uintptr_t coll_value1, uintptr_t stack_value2); // 2nd arg is in-collection value, 3rd arg is probe parameter OR in-collection value for a second collection
-    Boolean (*equateKeys)(CFConstBasicHashRef ht, uintptr_t coll_key1, uintptr_t stack_key2); // 2nd arg is in-collection key, 3rd arg is probe parameter
-    uintptr_t (*hashKey)(CFConstBasicHashRef ht, uintptr_t stack_key);
-    uintptr_t (*getIndirectKey)(CFConstBasicHashRef ht, uintptr_t coll_value);	// Return key; 2nd arg is in-collection value
-    CFStringRef (*copyValueDescription)(CFConstBasicHashRef ht, uintptr_t stack_value);
-    CFStringRef (*copyKeyDescription)(CFConstBasicHashRef ht, uintptr_t stack_key);
-    uintptr_t context[0]; // variable size; any pointers in here must remain valid as long as the CFBasicHash
+    uintptr_t (*retainValue)(CFAllocatorRef alloc, uintptr_t stack_value);	// Return 2nd arg or new value
+    uintptr_t (*retainKey)(CFAllocatorRef alloc, uintptr_t stack_key);	// Return 2nd arg or new key
+    void (*releaseValue)(CFAllocatorRef alloc, uintptr_t stack_value);
+    void (*releaseKey)(CFAllocatorRef alloc, uintptr_t stack_key);
+    Boolean (*equateValues)(uintptr_t coll_value1, uintptr_t stack_value2); // 1st arg is in-collection value, 2nd arg is probe parameter OR in-collection value for a second collection
+    Boolean (*equateKeys)(uintptr_t coll_key1, uintptr_t stack_key2); // 1st arg is in-collection key, 2nd arg is probe parameter
+    CFHashCode (*hashKey)(uintptr_t stack_key);
+    uintptr_t (*getIndirectKey)(uintptr_t coll_value);	// Return key; 1st arg is in-collection value
+    CFStringRef (*copyValueDescription)(uintptr_t stack_value);
+    CFStringRef (*copyKeyDescription)(uintptr_t stack_key);
 };
 
 
 // ======================================================================
-#pragma mark - CF-635/CFBasicHash.m -
+#pragma mark - CF-1153.18/CFBasicHash.c -
 // ======================================================================
-
-typedef union {
-    uintptr_t neutral;
-    id strong;
-    id weak;
-} CFBasicHashValue;
-
-struct __CFBasicHash {
-    CFRuntimeBase base;
-    struct { // 128 bits
-        uint8_t hash_style:2;
-        uint8_t fast_grow:1;
-        uint8_t keys_offset:1;
-        uint8_t counts_offset:2;
-        uint8_t counts_width:2;
-        uint8_t hashes_offset:2;
-        uint8_t strong_values:1;
-        uint8_t strong_keys:1;
-        uint8_t weak_values:1;
-        uint8_t weak_keys:1;
-        uint8_t int_values:1;
-        uint8_t int_keys:1;
-        uint8_t indirect_keys:1;
-        uint8_t compactable_keys:1;
-        uint8_t compactable_values:1;
-        uint8_t finalized:1;
-        uint8_t __2:4;
-        uint8_t num_buckets_idx;  /* index to number of buckets */
-        uint32_t used_buckets;    /* number of used buckets */
-        uint8_t __8:8;
-        uint8_t __9:8;
-        uint16_t special_bits;
-        uint16_t deleted;
-        uint16_t mutations;
-    } bits;
-    __strong CFBasicHashCallbacks *callbacks;
-    void *pointers[1];
-};
-
-CF_INLINE CFBasicHashValue *__CFBasicHashGetValues(CFConstBasicHashRef ht) {
-    return (CFBasicHashValue *)ht->pointers[0];
-}
-
-CF_INLINE CFBasicHashValue *__CFBasicHashGetKeys(CFConstBasicHashRef ht) {
-    return (CFBasicHashValue *)ht->pointers[ht->bits.keys_offset];
-}
-
-CF_INLINE void *__CFBasicHashGetCounts(CFConstBasicHashRef ht) {
-    return (void *)ht->pointers[ht->bits.counts_offset];
-}
-
 
 // Prime numbers. Values above 100 have been adjusted up so that the
 // malloced block size will be just below a multiple of 512; values
@@ -492,6 +577,61 @@ static const uintptr_t __CFBasicHashTableSizes[64] = {
 #endif
 };
 
+typedef union {
+    uintptr_t neutral;
+    void* Xstrong; // Changed from type 'id'
+    void* Xweak; // Changed from type 'id'
+} CFBasicHashValue;
+
+struct __CFBasicHash {
+    CFRuntimeBase base;
+    struct { // 192 bits
+        uint16_t mutations;
+        uint8_t hash_style:2;
+        uint8_t keys_offset:1;
+        uint8_t counts_offset:2;
+        uint8_t counts_width:2;
+        uint8_t hashes_offset:2;
+        uint8_t strong_values:1;
+        uint8_t strong_keys:1;
+        uint8_t weak_values:1;
+        uint8_t weak_keys:1;
+        uint8_t int_values:1;
+        uint8_t int_keys:1;
+        uint8_t indirect_keys:1;
+        uint32_t used_buckets;      /* number of used buckets */
+        uint64_t deleted:16;
+        uint64_t num_buckets_idx:8; /* index to number of buckets */
+        uint64_t __kret:10;
+        uint64_t __vret:10;
+        uint64_t __krel:10;
+        uint64_t __vrel:10;
+        uint64_t __:1;
+        uint64_t null_rc:1;
+        uint64_t fast_grow:1;
+        uint64_t finalized:1;
+        uint64_t __kdes:10;
+        uint64_t __vdes:10;
+        uint64_t __kequ:10;
+        uint64_t __vequ:10;
+        uint64_t __khas:10;
+        uint64_t __kget:10;
+    } bits;
+    void *pointers[1];
+};
+
+CF_INLINE CFBasicHashValue *__CFBasicHashGetValues(CFConstBasicHashRef ht) {
+    return (CFBasicHashValue *)ht->pointers[0];
+}
+
+CF_INLINE CFBasicHashValue *__CFBasicHashGetKeys(CFConstBasicHashRef ht) {
+    return (CFBasicHashValue *)ht->pointers[ht->bits.keys_offset];
+}
+
+CF_INLINE void *__CFBasicHashGetCounts(CFConstBasicHashRef ht) {
+    return (void *)ht->pointers[ht->bits.counts_offset];
+}
+
 CF_INLINE uintptr_t __CFBasicHashGetSlotCount(CFConstBasicHashRef ht, CFIndex idx) {
     void *counts = __CFBasicHashGetCounts(ht);
     switch (ht->bits.counts_width) {
@@ -501,20 +641,6 @@ CF_INLINE uintptr_t __CFBasicHashGetSlotCount(CFConstBasicHashRef ht, CFIndex id
         case 3: return (uintptr_t)((uint64_t *)counts)[idx];
     }
     return 0;
-}
-
-
-//__private_extern__ CFIndex CFBasicHashGetCount(CFConstBasicHashRef ht) {
-CF_INLINE CFIndex __CFBasicHashGetCount(CFConstBasicHashRef ht) {
-    if (ht->bits.counts_offset) {
-        CFIndex total = 0L;
-        CFIndex cnt = (CFIndex)__CFBasicHashTableSizes[ht->bits.num_buckets_idx];
-        for (CFIndex idx = 0; idx < cnt; idx++) {
-            total += __CFBasicHashGetSlotCount(ht, idx);
-        }
-        return total;
-    }
-    return (CFIndex)ht->bits.used_buckets;
 }
 
 

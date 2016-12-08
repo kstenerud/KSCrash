@@ -57,26 +57,4 @@
            onFailure:(void(^)(NSHTTPURLResponse* response, NSData* data)) failureBlock
              onError:(void(^)(NSError* error)) errorBlock;
 
-/** Send an HTTP request.
- * The request gets sent via the global dispatch queue.
- * Result blocks will be invoked on the main thread.
- *
- * @param request The request to send.
- *
- * @param priority The queue priority.
- *
- * @param successBlock Gets executed when the request completes successfully.
- *
- * @param failureBlock Gets executed if the request fails or receives an HTTP
- *                     response indicating failure.
- *
- * @param errorBlock Gets executed if an error prevents the request from being
- *                   sent or an invalid (non-HTTP) response is received.
- */
-- (void) sendRequest:(NSURLRequest*) request
-            priority:(dispatch_queue_priority_t) priority
-           onSuccess:(void(^)(NSHTTPURLResponse* response, NSData* data)) successBlock
-           onFailure:(void(^)(NSHTTPURLResponse* response, NSData* data)) failureBlock
-             onError:(void(^)(NSError* error)) errorBlock;
-
 @end

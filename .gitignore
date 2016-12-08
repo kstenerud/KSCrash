@@ -20,3 +20,4 @@ Thumbs.db
 .~*
 *.orig
 *.xccheckout
+Carthage/Build

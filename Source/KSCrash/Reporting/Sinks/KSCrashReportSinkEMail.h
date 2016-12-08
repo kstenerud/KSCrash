@@ -39,7 +39,7 @@
 /**
  * @param recipients List of email addresses to send to.
  * @param subject What to put in the subject field.
- * @param A message to accompany the reports (optional - nil = ignore).
+ * @param message A message to accompany the reports (optional - nil = ignore).
  * @param filenameFmt How to name the attachments. You may use "%d" to differentiate
  *                    when multiple reports are sent at once.
  *                    Note: With the default filter set, files are gzipped text.
@@ -52,7 +52,7 @@
 /**
  * @param recipients List of email addresses to send to.
  * @param subject What to put in the subject field.
- * @param A message to accompany the reports (optional - nil = ignore).
+ * @param message A message to accompany the reports (optional - nil = ignore).
  * @param filenameFmt How to name the attachments. You may use "%d" to differentiate
  *                    when multiple reports are sent at once.
  *                    Note: With the default filter set, files are gzipped text.

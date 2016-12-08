@@ -29,16 +29,15 @@
 
 #include "KSFileUtils.h"
 #include "KSJSONCodec.h"
-#include "KSMach.h"
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
 #include <errno.h>
 #include <fcntl.h>
-#include <mach/mach_time.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 
@@ -68,15 +67,11 @@ static const char* g_stateFilePath;
 static KSCrash_State* g_state;
 
 
-// Avoiding static functions due to linker issues.
-
 // ============================================================================
 #pragma mark - JSON Encoding -
 // ============================================================================
 
-int kscrashstate_i_onBooleanElement(const char* const name,
-                                    const bool value,
-                                    void* const userData)
+static int onBooleanElement(const char* const name, const bool value, void* const userData)
 {
     KSCrash_State* state = userData;
 
@@ -88,9 +83,7 @@ int kscrashstate_i_onBooleanElement(const char* const name,
     return KSJSON_OK;
 }
 
-int kscrashstate_i_onFloatingPointElement(const char* const name,
-                                          const double value,
-                                          void* const userData)
+static int onFloatingPointElement(const char* const name, const double value, void* const userData)
 {
     KSCrash_State* state = userData;
 
@@ -106,9 +99,7 @@ int kscrashstate_i_onFloatingPointElement(const char* const name,
     return KSJSON_OK;
 }
 
-int kscrashstate_i_onIntegerElement(const char* const name,
-                                    const long long value,
-                                    void* const userData)
+static int onIntegerElement(const char* const name, const int64_t value, void* const userData)
 {
     KSCrash_State* state = userData;
 
@@ -130,40 +121,37 @@ int kscrashstate_i_onIntegerElement(const char* const name,
     }
 
     // FP value might have been written as a whole number.
-    return kscrashstate_i_onFloatingPointElement(name, value, userData);
+    return onFloatingPointElement(name, value, userData);
 }
 
-int kscrashstate_i_onNullElement(__unused const char* const name,
-                                 __unused void* const userData)
+static int onNullElement(__unused const char* const name, __unused void* const userData)
 {
     return KSJSON_OK;
 }
 
-int kscrashstate_i_onStringElement(__unused const char* const name,
-                                   __unused const char* const value,
-                                   __unused void* const userData)
+static int onStringElement(__unused const char* const name,
+                           __unused const char* const value,
+                           __unused void* const userData)
 {
     return KSJSON_OK;
 }
 
-int kscrashstate_i_onBeginObject(__unused const char* const name,
-                                 __unused void* const userData)
+static int onBeginObject(__unused const char* const name, __unused void* const userData)
 {
     return KSJSON_OK;
 }
 
-int kscrashstate_i_onBeginArray(__unused const char* const name,
-                                __unused void* const userData)
+static int onBeginArray(__unused const char* const name, __unused void* const userData)
 {
     return KSJSON_OK;
 }
 
-int kscrashstate_i_onEndContainer(__unused void* const userData)
+static int onEndContainer(__unused void* const userData)
 {
     return KSJSON_OK;
 }
 
-int kscrashstate_i_onEndData(__unused void* const userData)
+static int onEndData(__unused void* const userData)
 {
     return KSJSON_OK;
 }
@@ -171,12 +159,10 @@ int kscrashstate_i_onEndData(__unused void* const userData)
 
 /** Callback for adding JSON data.
  */
-int kscrashstate_i_addJSONData(const char* const data,
-                               const size_t length,
-                               void* const userData)
+static int addJSONData(const char* const data, const int length, void* const userData)
 {
     const int fd = *((int*)userData);
-    const bool success = ksfu_writeBytesToFD(fd, data, (ssize_t)length);
+    const bool success = ksfu_writeBytesToFD(fd, data, length);
     return success ? KSJSON_OK : KSJSON_ERROR_CANNOT_ADD_DATA;
 }
 
@@ -184,6 +170,18 @@ int kscrashstate_i_addJSONData(const char* const data,
 // ============================================================================
 #pragma mark - Utility -
 // ============================================================================
+
+static double getCurentTime()
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return tv.tv_sec + (double)tv.tv_usec / 1000000.0;
+}
+
+static double timeSince(double timeInSeconds)
+{
+    return getCurentTime() - timeInSeconds;
+}
 
 /** Load the persistent state portion of a crash context.
  *
@@ -193,7 +191,7 @@ int kscrashstate_i_addJSONData(const char* const data,
  *
  * @return true if the operation was successful.
  */
-bool kscrashstate_i_loadState(KSCrash_State* const context,
+bool loadState(KSCrash_State* const context,
                               const char* const path)
 {
     // Stop if the file doesn't exist.
@@ -206,7 +204,7 @@ bool kscrashstate_i_loadState(KSCrash_State* const context,
     close(fd);
 
     char* data;
-    size_t length;
+    int length;
     if(!ksfu_readEntireFile(path, &data, &length))
     {
         KSLOG_ERROR("%s: Could not load file", path);
@@ -214,20 +212,23 @@ bool kscrashstate_i_loadState(KSCrash_State* const context,
     }
 
     KSJSONDecodeCallbacks callbacks;
-    callbacks.onBeginArray = kscrashstate_i_onBeginArray;
-    callbacks.onBeginObject = kscrashstate_i_onBeginObject;
-    callbacks.onBooleanElement = kscrashstate_i_onBooleanElement;
-    callbacks.onEndContainer = kscrashstate_i_onEndContainer;
-    callbacks.onEndData = kscrashstate_i_onEndData;
-    callbacks.onFloatingPointElement = kscrashstate_i_onFloatingPointElement;
-    callbacks.onIntegerElement = kscrashstate_i_onIntegerElement;
-    callbacks.onNullElement = kscrashstate_i_onNullElement;
-    callbacks.onStringElement = kscrashstate_i_onStringElement;
+    callbacks.onBeginArray = onBeginArray;
+    callbacks.onBeginObject = onBeginObject;
+    callbacks.onBooleanElement = onBooleanElement;
+    callbacks.onEndContainer = onEndContainer;
+    callbacks.onEndData = onEndData;
+    callbacks.onFloatingPointElement = onFloatingPointElement;
+    callbacks.onIntegerElement = onIntegerElement;
+    callbacks.onNullElement = onNullElement;
+    callbacks.onStringElement = onStringElement;
 
-    size_t errorOffset = 0;
+    int errorOffset = 0;
 
+    char stringBuffer[1000];
     const int result = ksjson_decode(data,
-                                     length,
+                                     (int)length,
+                                     stringBuffer,
+                                     sizeof(stringBuffer),
                                      &callbacks,
                                      context,
                                      &errorOffset);
@@ -243,13 +244,13 @@ bool kscrashstate_i_loadState(KSCrash_State* const context,
 
 /** Save the persistent state portion of a crash context.
  *
- * @param context The context to save from.
+ * @param state The context to save from.
  *
  * @param path The path to the file to create.
  *
  * @return true if the operation was successful.
  */
-bool kscrashstate_i_saveState(const KSCrash_State* const state,
+bool saveState(const KSCrash_State* const state,
                               const char* const path)
 {
     int fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0644);
@@ -264,7 +265,7 @@ bool kscrashstate_i_saveState(const KSCrash_State* const state,
     KSJSONEncodeContext JSONContext;
     ksjson_beginEncode(&JSONContext,
                        true,
-                       kscrashstate_i_addJSONData,
+                       addJSONData,
                        &fd);
 
     int result;
@@ -327,32 +328,35 @@ done:
 #pragma mark - API -
 // ============================================================================
 
-bool kscrashstate_init(const char* const stateFilePath,
-                       KSCrash_State* const state)
+bool kscrashstate_init(const char* const stateFilePath, KSCrash_State* const state)
 {
-    g_stateFilePath = stateFilePath;
+    g_stateFilePath = strdup(stateFilePath);
     g_state = state;
 
-    kscrashstate_i_loadState(state, stateFilePath);
+    loadState(g_state, g_stateFilePath);
+    return kscrashstate_reset();
+}
 
-    state->sessionsSinceLaunch = 1;
-    state->activeDurationSinceLaunch = 0;
-    state->backgroundDurationSinceLaunch = 0;
-    if(state->crashedLastLaunch)
+bool kscrashstate_reset()
+{
+    g_state->sessionsSinceLaunch = 1;
+    g_state->activeDurationSinceLaunch = 0;
+    g_state->backgroundDurationSinceLaunch = 0;
+    if(g_state->crashedLastLaunch)
     {
-        state->activeDurationSinceLastCrash = 0;
-        state->backgroundDurationSinceLastCrash = 0;
-        state->launchesSinceLastCrash = 0;
-        state->sessionsSinceLastCrash = 0;
+        g_state->activeDurationSinceLastCrash = 0;
+        g_state->backgroundDurationSinceLastCrash = 0;
+        g_state->launchesSinceLastCrash = 0;
+        g_state->sessionsSinceLastCrash = 0;
     }
-    state->crashedThisLaunch = false;
-
+    g_state->crashedThisLaunch = false;
+    
     // Simulate first transition to foreground
-    state->launchesSinceLastCrash++;
-    state->sessionsSinceLastCrash++;
-    state->applicationIsInForeground = true;
-
-    return kscrashstate_i_saveState(state, stateFilePath);
+    g_state->launchesSinceLastCrash++;
+    g_state->sessionsSinceLastCrash++;
+    g_state->applicationIsInForeground = true;
+    
+    return saveState(g_state, g_stateFilePath);
 }
 
 void kscrashstate_notifyAppActive(const bool isActive)
@@ -362,12 +366,11 @@ void kscrashstate_notifyAppActive(const bool isActive)
     state->applicationIsActive = isActive;
     if(isActive)
     {
-        state->appStateTransitionTime = mach_absolute_time();
+        state->appStateTransitionTime = getCurentTime();
     }
     else
     {
-        double duration = ksmach_timeDifferenceInSeconds(mach_absolute_time(),
-                                                         state->appStateTransitionTime);
+        double duration = timeSince(state->appStateTransitionTime);
         state->activeDurationSinceLaunch += duration;
         state->activeDurationSinceLastCrash += duration;
     }
@@ -381,8 +384,7 @@ void kscrashstate_notifyAppInForeground(const bool isInForeground)
     state->applicationIsInForeground = isInForeground;
     if(isInForeground)
     {
-        double duration = ksmach_timeDifferenceInSeconds(mach_absolute_time(),
-                                                         state->appStateTransitionTime);
+        double duration = getCurentTime() - state->appStateTransitionTime;
         state->backgroundDurationSinceLaunch += duration;
         state->backgroundDurationSinceLastCrash += duration;
         state->sessionsSinceLastCrash++;
@@ -390,8 +392,8 @@ void kscrashstate_notifyAppInForeground(const bool isInForeground)
     }
     else
     {
-        state->appStateTransitionTime = mach_absolute_time();
-        kscrashstate_i_saveState(state, stateFilePath);
+        state->appStateTransitionTime = getCurentTime();
+        saveState(state, stateFilePath);
     }
 }
 
@@ -400,10 +402,9 @@ void kscrashstate_notifyAppTerminate(void)
     KSCrash_State* const state = g_state;
     const char* const stateFilePath = g_stateFilePath;
 
-    const double duration = ksmach_timeDifferenceInSeconds(mach_absolute_time(),
-                                                           state->appStateTransitionTime);
+    const double duration = timeSince(state->appStateTransitionTime);
     state->backgroundDurationSinceLastCrash += duration;
-    kscrashstate_i_saveState(state, stateFilePath);
+    saveState(state, stateFilePath);
 }
 
 void kscrashstate_notifyAppCrash(void)
@@ -411,8 +412,7 @@ void kscrashstate_notifyAppCrash(void)
     KSCrash_State* const state = g_state;
     const char* const stateFilePath = g_stateFilePath;
 
-    const double duration = ksmach_timeDifferenceInSeconds(mach_absolute_time(),
-                                                           state->appStateTransitionTime);
+    const double duration = timeSince(state->appStateTransitionTime);
     if(state->applicationIsActive)
     {
         state->activeDurationSinceLaunch += duration;
@@ -424,7 +424,7 @@ void kscrashstate_notifyAppCrash(void)
         state->backgroundDurationSinceLastCrash += duration;
     }
     state->crashedThisLaunch = true;
-    kscrashstate_i_saveState(state, stateFilePath);
+    saveState(state, stateFilePath);
 }
 
 const KSCrash_State* const kscrashstate_currentState(void)

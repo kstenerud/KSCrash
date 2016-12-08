@@ -33,8 +33,8 @@ extern "C" {
 #endif
 
 
-#include <CoreFoundation/CoreFoundation.h>
-#include <mach/kern_return.h>
+#include <stdbool.h>
+#include <stdint.h>
 
 
 typedef enum
@@ -61,7 +61,7 @@ typedef struct
 {
     const char* name;
     const char* type;
-    size_t index;
+    int index;
 } KSObjCIvar;
 
 
@@ -78,6 +78,20 @@ void ksobjc_init(void);
 #pragma mark - Basic Objective-C Queries -
 //======================================================================
 
+/** Check if a pointer is a tagged pointer or not.
+ *
+ * @param pointer The pointer to check.
+ * @return true if it's a tagged pointer.
+ */
+bool ksobjc_isTaggedPointer(const void* const pointer);
+
+/** Check if a pointer is a valid tagged pointer.
+ *
+ * @param pointer The pointer to check.
+ * @return true if it's a valid tagged pointer.
+ */
+bool ksobjc_isValidTaggedPointer(const void* const pointer);
+    
 /** Query a pointer to see what kind of object it points to.
  * If the pointer points to a class, this method will verify that its basic
  * class data and ivars are valid,
@@ -121,7 +135,7 @@ const void* ksobjc_isaPointer(const void* objectOrClassPtr);
  *
  * @param classPtr Pointer to a valid class.
  *
- * @param the super class.
+ * @return the super class.
  */
 const void* ksobjc_superClass(const void* classPtr);
 
@@ -160,13 +174,22 @@ bool ksobjc_isRootClass(const void* classPtr);
  */
 const char* ksobjc_className(const void* classPtr);
 
+/** Get the name of an object's class.
+ * This also handles tagged pointers.
+ *
+ * @param objectPtr Pointer to a valid object.
+ *
+ * @return the name, or NULL if the name is inaccessible.
+ */
+const char* ksobjc_objectClassName(const void* objectPtr);
+
 /** Check if a class has a specific name.
  *
  * @param classPtr Pointer to a valid class.
  *
  * @param className The class name to compare against.
  *
- * @param true if the class has the specified name.
+ * @return true if the class has the specified name.
  */
 bool ksobjc_isClassNamed(const void* const classPtr, const char* const className);
 
@@ -177,7 +200,7 @@ bool ksobjc_isClassNamed(const void* const classPtr, const char* const className
  *
  * @param className The class name to compare against.
  *
- * @param true if the class is of the specified type or a subclass of that type.
+ * @return true if the class is of the specified type or a subclass of that type.
  */
 bool ksobjc_isKindOfClass(const void* classPtr, const char* className);
 
@@ -187,7 +210,7 @@ bool ksobjc_isKindOfClass(const void* classPtr, const char* className);
  *
  * @return The number of ivars.
  */
-size_t ksobjc_ivarCount(const void* classPtr);
+int ksobjc_ivarCount(const void* classPtr);
 
 /** Get information about ivars in a class.
  *
@@ -199,7 +222,7 @@ size_t ksobjc_ivarCount(const void* classPtr);
  *
  * @return The number of ivars copied.
  */
-size_t ksobjc_ivarList(const void* classPtr, KSObjCIvar* dstIvars, size_t ivarsCount);
+int ksobjc_ivarList(const void* classPtr, KSObjCIvar* dstIvars, int ivarsCount);
 
 /** Get ivar information by name/
  *
@@ -223,7 +246,15 @@ bool ksobjc_ivarNamed(const void* const classPtr, const char* name, KSObjCIvar* 
  *
  * @return true if the operation was successful.
  */
-bool ksobjc_ivarValue(const void* objectPtr, size_t ivarIndex, void* dst);
+bool ksobjc_ivarValue(const void* objectPtr, int ivarIndex, void* dst);
+
+/* Get the payload from a tagged pointer.
+ *
+ * @param objectPtr Pointer to a valid object.
+ *
+ * @return the payload value.
+ */
+uintptr_t ksobjc_taggedPointerPayload(const void* taggedObjectPtr);
 
 /** Generate a description of an object.
  *
@@ -237,17 +268,13 @@ bool ksobjc_ivarValue(const void* objectPtr, size_t ivarIndex, void* dst);
  *
  * @param object the object to generate a description for.
  *
- * @param string The string to copy data from.
- *
  * @param buffer The buffer to copy into.
  *
  * @param bufferLength The length of the buffer.
  *
  * @return the number of bytes copied (not including null terminator).
  */
-size_t ksobjc_getDescription(void* object,
-                             char* buffer,
-                             size_t bufferLength);
+int ksobjc_getDescription(void* object, char* buffer, int bufferLength);
 
 /** Get the class type of an object.
  * There are a number of common class types that KSObjC understamds,
@@ -276,7 +303,7 @@ bool ksobjc_numberIsFloat(const void* object);
  * @param object The number.
  * @return The value.
  */
-Float64 ksobjc_numberAsFloat(const void* object);
+double ksobjc_numberAsFloat(const void* object);
 
 /** Get the contents of a number as an integer value.
  * If the number was stored as floating point, it will be
@@ -289,18 +316,18 @@ int64_t ksobjc_numberAsInteger(const void* object);
 
 /** Copy the contents of a date object.
  *
- * @param date The date to copy data from.
+ * @param datePtr The date to copy data from.
  *
  * @return Time interval since Jan 1 2001 00:00:00 GMT.
  */
-CFAbsoluteTime ksobjc_dateContents(const void* datePtr);
+double ksobjc_dateContents(const void* datePtr);
 
 /** Copy the contents of a URL object.
  *
  * dst will be null terminated unless maxLength is 0.
  * If the string doesn't fit, it will be truncated.
  *
- * @param url The URL to copy data from.
+ * @param nsurl The URL to copy data from.
  *
  * @param dst The destination to copy into.
  *
@@ -308,7 +335,7 @@ CFAbsoluteTime ksobjc_dateContents(const void* datePtr);
  *
  * @return the number of bytes copied (not including null terminator).
  */
-size_t ksobjc_copyURLContents(const void* nsurl, char* dst, size_t maxLength);
+int ksobjc_copyURLContents(const void* nsurl, char* dst, int maxLength);
 
 /** Get the length of a string in characters.
  *
@@ -316,7 +343,7 @@ size_t ksobjc_copyURLContents(const void* nsurl, char* dst, size_t maxLength);
  *
  * @return The length of the string.
  */
-size_t ksobjc_stringLength(const void* const stringPtr);
+int ksobjc_stringLength(const void* const stringPtr);
 
 /** Copy the contents of a string object.
  *
@@ -331,7 +358,7 @@ size_t ksobjc_stringLength(const void* const stringPtr);
  *
  * @return the number of bytes copied (not including null terminator).
  */
-size_t ksobjc_copyStringContents(const void* string, char* dst, size_t maxLength);
+int ksobjc_copyStringContents(const void* string, char* dst, int maxLength);
 
 /** Get an NSArray's count.
  *
@@ -339,7 +366,7 @@ size_t ksobjc_copyStringContents(const void* string, char* dst, size_t maxLength
  *
  * @return The array's count.
  */
-size_t ksobjc_arrayCount(const void* arrayPtr);
+int ksobjc_arrayCount(const void* arrayPtr);
 
 /** Get an NSArray's contents.
  *
@@ -351,7 +378,7 @@ size_t ksobjc_arrayCount(const void* arrayPtr);
  *
  * @return The number of items copied.
  */
-size_t ksobjc_arrayContents(const void* arrayPtr, uintptr_t* contents, size_t count);
+int ksobjc_arrayContents(const void* arrayPtr, uintptr_t* contents, int count);
 
 
 //======================================================================
@@ -374,7 +401,7 @@ bool ksobjc_dictionaryFirstEntry(const void* dict, uintptr_t* key, uintptr_t* va
 
 /** UNIMPLEMENTED
  */
-size_t ksobjc_dictionaryCount(const void* dict);
+int ksobjc_dictionaryCount(const void* dict);
 
 
 #ifdef __cplusplus

@@ -26,6 +26,7 @@
 
 
 #import <XCTest/XCTest.h>
+#include <mach-o/dyld.h>
 
 #import "KSDynamicLinker.h"
 

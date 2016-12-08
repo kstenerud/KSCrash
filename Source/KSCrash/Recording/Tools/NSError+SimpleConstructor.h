@@ -35,7 +35,7 @@
  *
  * @param domain The domain
  * @param code The code
- * @param description Description of the error (gets placed into the user data with the key
+ * @param fmt Description of the error (gets placed into the user data with the key
  *                    NSLocalizedDescriptionKey).
  */
 + (NSError*) errorWithDomain:(NSString*) domain
@@ -47,7 +47,7 @@
  * @param error Error pointer to fill (ignored if nil).
  * @param domain The domain
  * @param code The code
- * @param description Description of the error (gets placed into the user data with the key
+ * @param fmt Description of the error (gets placed into the user data with the key
  *                    NSLocalizedDescriptionKey).
  * @return NO (to keep the analyzer happy).
  */

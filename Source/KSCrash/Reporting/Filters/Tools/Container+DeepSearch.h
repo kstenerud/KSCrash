@@ -69,7 +69,7 @@
  * A failed lookup returns nil, except in the case of a failed array-style
  * lookup, in which case it may throw an "index out of range" exception.
  *
- * @param deepKey: A set of keys to drill down with.
+ * @param deepKey A set of keys to drill down with.
  */
 - (id) objectForDeepKey:(NSArray*) deepKey;
 
@@ -79,7 +79,7 @@
  * A failed lookup returns nil, except in the case of a failed array-style
  * lookup, in which case it may throw an "index out of range" exception.
  *
- * @param keyPath: A full key path, separated by slash (e.g. @"a/b/c")
+ * @param keyPath A full key path, separated by slash (e.g. @"a/b/c")
  */
 - (id) objectForKeyPath:(NSString*) keyPath;
 
@@ -147,7 +147,7 @@
  * A failed lookup returns nil, except in the case of a failed array-style
  * lookup, in which case it may throw an "index out of range" exception.
  *
- * @param deepKey: A set of keys to drill down with.
+ * @param deepKey A set of keys to drill down with.
  */
 - (id) objectForDeepKey:(NSArray*) deepKey;
 
@@ -157,7 +157,7 @@
  * A failed lookup returns nil, except in the case of a failed array-style
  * lookup, in which case it may throw an "index out of range" exception.
  *
- * @param keyPath: A full key path, separated by slash (e.g. @"a/b/c")
+ * @param keyPath A full key path, separated by slash (e.g. @"a/b/c")
  */
 - (id) objectForKeyPath:(NSString*) keyPath;
 

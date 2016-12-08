@@ -27,18 +27,17 @@
 
 #import "KSCrashReportSinkEMail.h"
 
-#import "ARCSafe_MemMgmt.h"
-#import "KSCrashCallCompletion.h"
 #import "KSCrashReportFilterAppleFmt.h"
 #import "KSCrashReportFilterBasic.h"
 #import "KSCrashReportFilterGZip.h"
 #import "KSCrashReportFilterJSON.h"
 #import "NSError+SimpleConstructor.h"
+#import "KSSystemCapabilities.h"
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
 
-#ifdef __IPHONE_OS_VERSION_MAX_ALLOWED
+#if KSCRASH_HAS_MESSAGEUI
 #import <MessageUI/MessageUI.h>
 
 
@@ -69,15 +68,7 @@
 
 + (KSCrashMailProcess*) process
 {
-    return as_autorelease([[self alloc] init]);
-}
-
-- (void) dealloc
-{
-    as_release(_reports);
-    as_release(_onCompletion);
-    as_release(_dummyVC);
-    as_superdealloc();
+    return [[self alloc] init];
 }
 
 - (void) startWithController:(MFMailComposeViewController*) controller
@@ -117,23 +108,23 @@
     switch (result)
     {
         case MFMailComposeResultSent:
-            kscrash_i_callCompletion(self.onCompletion, self.reports, YES, nil);
+            kscrash_callCompletion(self.onCompletion, self.reports, YES, nil);
             break;
         case MFMailComposeResultSaved:
-            kscrash_i_callCompletion(self.onCompletion, self.reports, YES, nil);
+            kscrash_callCompletion(self.onCompletion, self.reports, YES, nil);
             break;
         case MFMailComposeResultCancelled:
-            kscrash_i_callCompletion(self.onCompletion, self.reports, NO,
+            kscrash_callCompletion(self.onCompletion, self.reports, NO,
                                      [NSError errorWithDomain:[[self class] description]
                                                          code:0
                                                   description:@"User cancelled"]);
             break;
         case MFMailComposeResultFailed:
-            kscrash_i_callCompletion(self.onCompletion, self.reports, NO, error);
+            kscrash_callCompletion(self.onCompletion, self.reports, NO, error);
             break;
         default:
         {
-            kscrash_i_callCompletion(self.onCompletion, self.reports, NO,
+            kscrash_callCompletion(self.onCompletion, self.reports, NO,
                                      [NSError errorWithDomain:[[self class] description]
                                                          code:0
                                                   description:@"Unknown MFMailComposeResult: %d", result]);
@@ -143,8 +134,8 @@
 
 - (void) presentModalVC:(UIViewController*) vc
 {
-	self.dummyVC = as_autorelease([[UIViewController alloc] initWithNibName:nil bundle:nil]);
-	self.dummyVC.view = as_autorelease([[UIView alloc] init]);
+	self.dummyVC = [[UIViewController alloc] initWithNibName:nil bundle:nil];
+	self.dummyVC.view = [[UIView alloc] init];
 
     UIWindow* window = [[[UIApplication sharedApplication] delegate] window];
     [window addSubview:self.dummyVC.view];
@@ -211,10 +202,10 @@
                                        message:(NSString*) message
                                    filenameFmt:(NSString*) filenameFmt
 {
-    return as_autorelease([[self alloc] initWithRecipients:recipients
-                                                   subject:subject
-                                                   message:message
-                                               filenameFmt:filenameFmt]);
+    return [[self alloc] initWithRecipients:recipients
+                                    subject:subject
+                                    message:message
+                                filenameFmt:filenameFmt];
 }
 
 - (id) initWithRecipients:(NSArray*) recipients
@@ -230,15 +221,6 @@
         self.filenameFmt = filenameFmt;
     }
     return self;
-}
-
-- (void) dealloc
-{
-    as_release(_recipients);
-    as_release(_subject);
-    as_release(_message);
-    as_release(_filenameFmt);
-    as_superdealloc();
 }
 
 - (id <KSCrashReportFilter>) defaultCrashReportFilterSet
@@ -265,20 +247,20 @@
 {
     if(![MFMailComposeViewController canSendMail])
     {
-        [as_autorelease([[UIAlertView alloc] initWithTitle:@"Email Error"
-                                                   message:@"This device is not configured to send email."
-                                                  delegate:nil
-                                         cancelButtonTitle:@"OK"
-                                         otherButtonTitles:nil]) show];
+        [[[UIAlertView alloc] initWithTitle:@"Email Error"
+                                    message:@"This device is not configured to send email."
+                                   delegate:nil
+                          cancelButtonTitle:@"OK"
+                          otherButtonTitles:nil] show];
 
-        kscrash_i_callCompletion(onCompletion, reports, NO,
+        kscrash_callCompletion(onCompletion, reports, NO,
                                  [NSError errorWithDomain:[[self class] description]
                                                      code:0
                                               description:@"E-Mail not enabled on device"]);
         return;
     }
 
-    MFMailComposeViewController* mailController = as_autorelease([[MFMailComposeViewController alloc] init]);
+    MFMailComposeViewController* mailController = [[MFMailComposeViewController alloc] init];
     [mailController setToRecipients:self.recipients];
     [mailController setSubject:self.subject];
     if(self.message != nil)
@@ -297,10 +279,9 @@
                                                       BOOL completed,
                                                       NSError* error)
                         {
-                            kscrash_i_callCompletion(onCompletion, filteredReports, completed, error);
+                            kscrash_callCompletion(onCompletion, filteredReports, completed, error);
                             dispatch_async(dispatch_get_main_queue(), ^
                                            {
-                                               as_release(process);
                                                process = nil;
                                            });
                         }];
@@ -320,10 +301,10 @@
                                        message:(NSString*) message
                                    filenameFmt:(NSString*) filenameFmt
 {
-    return as_autorelease([[self alloc] initWithRecipients:recipients
-                                                   subject:subject
-                                                   message:message
-                                               filenameFmt:filenameFmt]);
+    return [[self alloc] initWithRecipients:recipients
+                                    subject:subject
+                                    message:message
+                                filenameFmt:filenameFmt];
 }
 
 - (id) initWithRecipients:(__unused NSArray*) recipients
@@ -342,10 +323,10 @@
         NSString* report = [[NSString alloc] initWithData:[reportData gunzippedWithError:nil] encoding:NSUTF8StringEncoding];
         NSLog(@"Report\n%@", report);
     }
-    kscrash_i_callCompletion(onCompletion, reports, NO,
+    kscrash_callCompletion(onCompletion, reports, NO,
                              [NSError errorWithDomain:[[self class] description]
                                                  code:0
-                                          description:@"Cannot send mail on Mac OS X"]);
+                                          description:@"Cannot send mail on this platform"]);
 }
 
 - (id <KSCrashReportFilter>) defaultCrashReportFilterSet

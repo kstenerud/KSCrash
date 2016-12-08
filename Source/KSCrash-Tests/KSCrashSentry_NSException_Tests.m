@@ -27,6 +27,7 @@
 
 #import <XCTest/XCTest.h>
 
+#import "KSCrashSentry_Context.h"
 #import "KSCrashSentry_NSException.h"
 
 

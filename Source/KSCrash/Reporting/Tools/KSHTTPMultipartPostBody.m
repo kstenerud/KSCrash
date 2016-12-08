@@ -27,8 +27,8 @@
 
 #import "KSHTTPMultipartPostBody.h"
 
-#import "ARCSafe_MemMgmt.h"
 #import "NSMutableData+AppendUTF8.h"
+#import "NSString+URLEncode.h"
 
 
 /**
@@ -73,10 +73,10 @@
               contentType:(NSString*) contentType
                  filename:(NSString*) filename
 {
-    return as_autorelease([[self alloc] initWithData:data
-                                                name:name
-                                         contentType:contentType
-                                            filename:filename]);
+    return [[self alloc] initWithData:data
+                                 name:name
+                          contentType:contentType
+                             filename:filename];
 }
 
 - (id) initWithData:(NSData*) data
@@ -86,24 +86,15 @@
 {
     NSParameterAssert(data);
     NSParameterAssert(name);
-
+    
     if((self = [super init]))
     {
-        _data = as_retain(data);
-        _name = as_retain(name);
-        _contentType = as_retain(contentType);
-        _filename = as_retain(filename);
+        _data = data;
+        _name = name;
+        _contentType = contentType;
+        _filename = filename;
     }
     return self;
-}
-
-- (void) dealloc
-{
-    as_release(_data);
-    as_release(_name);
-    as_release(_contentType);
-    as_release(_filename);
-    as_superdealloc();
 }
 
 @end
@@ -112,37 +103,32 @@
 @interface KSHTTPMultipartPostBody ()
 
 @property(nonatomic,readwrite,retain) NSMutableArray* fields;
+@property(nonatomic,readwrite,retain) NSString* boundary;
 
 @end
 
 
 @implementation KSHTTPMultipartPostBody
 
-static NSString* g_boundary = @"uyw$gHGJ[fsR}tt932_shGwqdbanbvVMJje%Y2ewy78";
-
 @synthesize contentType = _contentType;
 @synthesize fields = _fields;
+@synthesize boundary = _boundary;
 
 + (KSHTTPMultipartPostBody*) body
 {
-    return as_autorelease([[self alloc] init]);
+    return [[self alloc] init];
 }
 
 - (id) init
 {
     if((self = [super init]))
     {
+        NSString *uuid = [[NSUUID UUID] UUIDString];
+        _boundary = [[uuid lowercaseString] stringByReplacingOccurrencesOfString:@"-" withString:@""];
         _fields = [[NSMutableArray alloc] init];
-        _contentType = [[NSString alloc] initWithFormat:@"multipart/form-data; boundary=%@", g_boundary];
+        _contentType = [[NSString alloc] initWithFormat:@"multipart/form-data; boundary=%@", _boundary];
     }
     return self;
-}
-
-- (void) dealloc
-{
-    as_release(_fields);
-    as_release(_contentType);
-    as_superdealloc();
 }
 
 - (void) appendData:(NSData*) data
@@ -168,6 +154,11 @@ static NSString* g_boundary = @"uyw$gHGJ[fsR}tt932_shGwqdbanbvVMJje%Y2ewy78";
             filename:filename];
 }
 
+- (NSString*) toStringWithQuotesEscaped:(NSString*) value
+{
+    return [value stringByReplacingOccurrencesOfString:@"\"" withString:@"\\\""];
+}
+
 - (NSData*) data
 {
     NSUInteger baseSize = 0;
@@ -175,31 +166,37 @@ static NSString* g_boundary = @"uyw$gHGJ[fsR}tt932_shGwqdbanbvVMJje%Y2ewy78";
     {
         baseSize += [desc.data length] + 200;
     }
-
+    
     NSMutableData* data = [NSMutableData dataWithCapacity:baseSize];
+    BOOL firstFieldSent = NO;
     for(KSHTTPPostField* field in _fields)
     {
-        [data appendUTF8Format:@"--%@\r\n", g_boundary];
+        if (firstFieldSent) {
+            [data appendUTF8String:@"\r\n"];
+        } else {
+            firstFieldSent = YES;
+        }
+        [data appendUTF8Format:@"--%@\r\n", _boundary];
         if(field.filename != nil)
         {
             [data appendUTF8Format:@"Content-Disposition: form-data; name=\"%@\"; filename=\"%@\"\r\n",
-             [field.name stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding],
-             [field.filename stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
+             [self toStringWithQuotesEscaped:field.name],
+             [self toStringWithQuotesEscaped:field.filename]];
         }
         else
         {
             [data appendUTF8Format:@"Content-Disposition: form-data; name=\"%@\"\r\n",
-             [field.name stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
+             [self toStringWithQuotesEscaped:field.name]];
         }
         if(field.contentType != nil)
         {
             [data appendUTF8Format:@"Content-Type: %@\r\n", field.contentType];
         }
-        [data appendUTF8Format:@"\r\n", g_boundary];
+        [data appendUTF8Format:@"\r\n", _boundary];
         [data appendData:field.data];
     }
-    [data appendUTF8Format:@"\r\n--%@--\r\n", g_boundary];
-
+    [data appendUTF8Format:@"\r\n--%@--\r\n", _boundary];
+    
     return data;
 }
 

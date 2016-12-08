@@ -37,7 +37,8 @@ extern "C" {
 #endif
 
 
-#include "KSCrashContext.h"
+#include "KSCrashType.h"
+#include "KSCrashReportWriter.h"
 
 #include <stdbool.h>
 
@@ -45,21 +46,11 @@ extern "C" {
 /** Install the crash reporter. The reporter will record the next crash and then
  * terminate the program.
  *
- * @param crashReportFilePath The file to store the next crash report to.
- *
- * @param recrashReportFilePath If the system crashes during crash handling,
- *                              store a second, minimal report here.
- *
- * @param stateFilePath File to store persistent state in.
- *
- * @param crashID The unique identifier to assign to the next crash report.
+ * @param installPath Directory to install to.
  *
  * @return The crash types that are being handled.
  */
-KSCrashType kscrash_install(const char* const crashReportFilePath,
-                            const char* const recrashReportFilePath,
-                            const char* stateFilePath,
-                            const char* crashID);
+KSCrashType kscrash_install(const char* appName, const char* const installPath);
 
 /** Set the crash types that will be handled.
  * Some crash types may not be enabled depending on circumstances (e.g. running
@@ -76,20 +67,8 @@ KSCrashType kscrash_setHandlingCrashTypes(KSCrashType crashTypes);
 
 /** Reinstall the crash reporter. Useful for resetting the crash reporter
  * after a "soft" crash.
- *
- * @param crashReportFilePath The file to store the next crash report to.
- *
- * @param recrashReportFilePath If the system crashes during crash handling,
- *                              store a second, minimal report here.
- *
- * @param stateFilePath File to store persistent state in.
- *
- * @param crashID The unique identifier to assign to the next crash report.
  */
-void kscrash_reinstall(const char* const crashReportFilePath,
-                       const char* const recrashReportFilePath,
-                       const char* const stateFilePath,
-                       const char* const crashID);
+void kscrash_reinstall();
 
 /** Set the user-supplied data in JSON format.
  *
@@ -97,21 +76,6 @@ void kscrash_reinstall(const char* const crashReportFilePath,
  *                     NULL = delete.
  */
 void kscrash_setUserInfoJSON(const char* const userInfoJSON);
-
-/** Set the size of the cache to use for on-device zombie tracking.
- * Every deallocated object will be hashed based on its address modulus the cache
- * size, so the bigger the cache, the less likely a hash collision (missed zombie).
- * It is best to profile your app to determine how many objects are allocated at
- * a time before choosing this value, but in general you'll want a value of
- * at least 16384.
- * Each cache entry will occupy 8 bytes for 32-bit architectures and 16 bytes
- * for 64-bit architectures.
- *
- * Note: Value must be a power-of-2. 0 = no zombie checking.
- *
- * Default: 0
- */
-void kscrash_setZombieCacheSize(size_t zombieCacheSize);
 
 /** Set the maximum time to allow the main thread to run without returning.
  * If a task occupies the main thread for longer than this interval, the
@@ -148,7 +112,7 @@ void kscrash_setSearchThreadNames(bool shouldSearchThreadNames);
 */
 void kscrash_setSearchQueueNames(bool shouldSearchQueueNames);
 
-/** If YES, introspect memory contents during a crash.
+/** If true, introspect memory contents during a crash.
  * Any Objective-C objects or C strings near the stack pointer or referenced by
  * cpu registers or exceptions will be recorded in the crash report, along with
  * their contents.
@@ -157,13 +121,20 @@ void kscrash_setSearchQueueNames(bool shouldSearchQueueNames);
  */
 void kscrash_setIntrospectMemory(bool introspectMemory);
 
+/** If true, monitor all Objective-C/Swift deallocations and keep track of any
+ * accesses after deallocation.
+ *
+ * Default: false
+ */
+void kscrash_setCatchZombies(bool catchZombies);
+
 /** List of Objective-C classes that should never be introspected.
  * Whenever a class in this list is encountered, only the class name will be recorded.
  * This can be useful for information security concerns.
  *
  * Default: NULL
  */
-void kscrash_setDoNotIntrospectClasses(const char** doNotIntrospectClasses, size_t length);
+void kscrash_setDoNotIntrospectClasses(const char** doNotIntrospectClasses, int length);
 
 
 /** If YES, user reported exceptions will suspend all threads during report generation.
@@ -187,27 +158,37 @@ void kscrash_setSuspendThreadsForUserReported(bool suspendThreadsForUserReported
  */
 void kscrash_setCrashNotifyCallback(const KSReportWriteCallback onCrashNotify);
 
+/** Set if KSLOG messages should be redirected from STDOUT to a file.
+ * Redirect file will be at [install-path]/Data/ConsoleLog.txt
+ *
+ * @param shouldRedirectToFile If true, redirect to a file.
+ */
+void kscrash_setRedirectConsoleLogToFile(bool shouldRedirectToFile);
+
 /** Report a custom, user defined exception.
  * This can be useful when dealing with scripting languages.
  *
  * If terminateProgram is true, all sentries will be uninstalled and the application will
  * terminate with an abort().
  *
+ * @param name The exception name (for namespacing exception types).
+ *
  * @param reason A description of why the exception occurred.
+ *
+ * @param language A unique language identifier.
  *
  * @param lineOfCode A copy of the offending line of code (NULL = ignore).
  *
- * @param stackTrace An array of strings representing the call stack leading to the exception.
- *
- * @param stackTraceCount The length of the stack trace array (0 = ignore).
+ * @param stackTrace JSON encoded array containing stack trace information (one frame per array entry).
+ *                   The frame structure can be anything you want, including bare strings.
  *
  * @param terminateProgram If true, do not return from this function call. Terminate the program instead.
  */
 void kscrash_reportUserException(const char* name,
                                  const char* reason,
+                                 const char* language,
                                  const char* lineOfCode,
-                                 const char** stackTrace,
-                                 size_t stackTraceCount,
+                                 const char* stackTrace,
                                  bool terminateProgram);
 
 #ifdef __cplusplus

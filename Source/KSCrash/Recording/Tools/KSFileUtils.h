@@ -39,8 +39,9 @@ extern "C" {
 
 #include <stdbool.h>
 #include <stdarg.h>
-#include <sys/types.h>
 
+
+#define KSFU_MAX_PATH_LENGTH 500
 
 /** Get the last entry in a file path. Assumes UNIX style separators.
  *
@@ -60,7 +61,7 @@ const char* ksfu_lastPathEntry(const char* path);
  *
  * @return true if the operation was successful.
  */
-bool ksfu_writeBytesToFD(const int fd, const char* bytes, ssize_t length);
+bool ksfu_writeBytesToFD(const int fd, const char* bytes, int length);
 
 /** Read bytes from a file descriptor.
  *
@@ -72,19 +73,19 @@ bool ksfu_writeBytesToFD(const int fd, const char* bytes, ssize_t length);
  *
  * @return true if the operation was successful.
  */
-bool ksfu_readBytesFromFD(const int fd, char* bytes, ssize_t length);
+bool ksfu_readBytesFromFD(const int fd, char* bytes, int length);
 
-/** Read an entire file.
+/** Read an entire file. Returns a buffer of file size + 1, null terminated.
  *
  * @param path The path to the file.
  *
  * @param data Place to store a pointer to the loaded data (must be freed).
  *
- * @param length Place to store the length of the loaded data.
+ * @param length Place to store the length of the loaded data (can be NULL).
  *
  * @return true if the operation was successful.
  */
-bool ksfu_readEntireFile(const char* path, char** data, size_t* length);
+bool ksfu_readEntireFile(const char* path, char** data, int* length);
 
 /** Write a string to a file.
  *
@@ -128,7 +129,33 @@ bool ksfu_writeFmtArgsToFD(const int fd, const char* fmt, va_list args);
  *
  * @return The number of bytes read.
  */
-ssize_t ksfu_readLineFromFD(const int fd, char* buffer, int maxLength);
+int ksfu_readLineFromFD(const int fd, char* buffer, int maxLength);
+
+/** Make all directories in a path.
+ *
+ * @param absolutePath The full, absolute path to create.
+ *
+ * @return true if successful.
+ */
+bool ksfu_makePath(const char* absolutePath);
+
+/** Remove a file or directory.
+ *
+ * @param path Path to the file to remove.
+ *
+ * @param mustExist If true, and the path doesn't exist, log an error.
+ *
+ * @return true if successful.
+ */
+bool ksfu_removeFile(const char* path, bool mustExist);
+
+/** Delete the contents of a directory.
+ *
+ * @param path The path of the directory whose contents to delete.
+ *
+ * @return true if successful.
+ */
+bool ksfu_deleteContentsOfPath(const char* path);
 
 
 #ifdef __cplusplus

@@ -52,11 +52,11 @@ void kscrashsentry_resumeThreads(void);
 
 /** Prepare the context for handling a new crash.
  */
-void kscrashsentry_beginHandlingCrash(KSCrash_SentryContext* context);
+void kscrashsentry_beginHandlingCrash(struct KSCrash_SentryContext* context);
 
 /** Clear a crash sentry context.
  */
-void kscrashsentry_clearContext(KSCrash_SentryContext* context);
+void kscrashsentry_clearContext(struct KSCrash_SentryContext* context);
 
     
 #ifdef __cplusplus

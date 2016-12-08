@@ -24,12 +24,14 @@
 // THE SOFTWARE.
 //
 
+#include <TargetConditionals.h>
 
 #include "KSCrashSentry_Signal.h"
+#include "KSCrashSentry_Context.h"
 #include "KSCrashSentry_Private.h"
 
 #include "KSSignalInfo.h"
-#include "KSMach.h"
+#include "KSThread.h"
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
@@ -38,6 +40,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 
 // ============================================================================
@@ -50,8 +53,10 @@
  */
 static volatile sig_atomic_t g_installed = 0;
 
+#if KSCRASH_HAS_SIGNAL_STACK
 /** Our custom signal stack. The signal handler will use this as its stack. */
 static stack_t g_signalStack = {0};
+#endif
 
 /** Signal handlers that were installed before we installed ours. */
 static struct sigaction* g_previousSignalHandlers = NULL;
@@ -64,23 +69,19 @@ static KSCrash_SentryContext* g_context;
 #pragma mark - Callbacks -
 // ============================================================================
 
-// Avoiding static functions due to linker issues.
-
 /** Our custom signal handler.
  * Restore the default signal handlers, record the signal information, and
  * write a crash report.
  * Once we're done, re-raise the signal and let the default handlers deal with
  * it.
  *
- * @param signal The signal that was raised.
+ * @param sigNum The signal that was raised.
  *
  * @param signalInfo Information about the signal.
  *
  * @param userContext Other contextual information.
  */
-void kssighndl_i_handleSignal(int sigNum,
-                              siginfo_t* signalInfo,
-                              void* userContext)
+static void handleSignal(int sigNum, siginfo_t* signalInfo, void* userContext)
 {
     KSLOG_DEBUG("Trapped signal %d", sigNum);
     if(g_installed)
@@ -103,7 +104,7 @@ void kssighndl_i_handleSignal(int sigNum,
 
         KSLOG_DEBUG("Filling out context.");
         g_context->crashType = KSCrashTypeSignal;
-        g_context->offendingThread = ksmach_thread_self();
+        g_context->offendingThread = ksthread_self();
         g_context->registersAreValid = true;
         g_context->faultAddress = (uintptr_t)signalInfo->si_addr;
         g_context->signal.userContext = userContext;
@@ -142,6 +143,8 @@ bool kscrashsentry_installSignalHandler(KSCrash_SentryContext* context)
 
     g_context = context;
 
+#if KSCRASH_HAS_SIGNAL_STACK
+
     if(g_signalStack.ss_size == 0)
     {
         KSLOG_DEBUG("Allocating signal stack area.");
@@ -155,6 +158,7 @@ bool kscrashsentry_installSignalHandler(KSCrash_SentryContext* context)
         KSLOG_ERROR("signalstack: %s", strerror(errno));
         goto failed;
     }
+#endif
 
     const int* fatalSignals = kssignal_fatalSignals();
     int fatalSignalsCount = kssignal_numFatalSignals();
@@ -172,7 +176,7 @@ bool kscrashsentry_installSignalHandler(KSCrash_SentryContext* context)
     action.sa_flags |= SA_64REGSET;
 #endif
     sigemptyset(&action.sa_mask);
-    action.sa_sigaction = &kssighndl_i_handleSignal;
+    action.sa_sigaction = &handleSignal;
 
     for(int i = 0; i < fatalSignalsCount; i++)
     {

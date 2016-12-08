@@ -26,7 +26,6 @@
 
 
 #import "KSCrashInstallation.h"
-#import "ARCSafe_MemMgmt.h"
 
 
 /** Implement a property to be used as a "key". */
@@ -34,8 +33,8 @@
 @synthesize NAME##Key = _##NAME##Key; \
 - (void) set##NAMEUPPER##Key:(NSString*) value \
 { \
-    as_autorelease_noref(_##NAME##Key); \
-    _##NAME##Key = as_retain(value); \
+    _##NAME##Key; \
+    _##NAME##Key = value; \
     [self reportFieldForProperty:@#NAME setKey:value]; \
 }
 
@@ -44,8 +43,8 @@
 @synthesize NAME = _##NAME; \
 - (void) set##NAMEUPPER:(TYPE) value \
 { \
-    as_autorelease_noref(_##NAME); \
-    _##NAME = as_retain(value); \
+    _##NAME; \
+    _##NAME = value; \
     [self reportFieldForProperty:@#NAME setValue:value]; \
 }
 

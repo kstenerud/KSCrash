@@ -38,6 +38,8 @@ extern "C" {
 
 #include "KSCrashSentry.h"
 
+#include <stdbool.h>
+
 
 /** Install the deadlock handler.
  *
@@ -45,7 +47,7 @@ extern "C" {
  *
  * @return true if installation was succesful.
  */
-bool kscrashsentry_installDeadlockHandler(KSCrash_SentryContext* context);
+bool kscrashsentry_installDeadlockHandler(struct KSCrash_SentryContext* context);
 
 /** Uninstall our custome NSException handler.
  */

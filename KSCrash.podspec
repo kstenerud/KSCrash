@@ -1,29 +1,45 @@
 Pod::Spec.new do |s|
+  IOS_DEPLOYMENT_TARGET = '6.0' unless defined? IOS_DEPLOYMENT_TARGET
   s.name         = "KSCrash"
-  s.version      = "0.0.4"
+  s.version      = "1.11.2"
   s.summary      = "The Ultimate iOS Crash Reporter"
   s.homepage     = "https://github.com/kstenerud/KSCrash"
   s.license     = { :type => 'KSCrash license agreement', :file => 'LICENSE' }
   s.author       = { "Karl Stenerud" => "kstenerud@gmail.com" }
-  s.platform     = :ios, '5.0'
+  s.ios.deployment_target =  IOS_DEPLOYMENT_TARGET
+  s.osx.deployment_target =  '10.8'
+  s.tvos.deployment_target =  '9.0'
+  s.watchos.deployment_target =  '2.0'
   s.source       = { :git => "https://github.com/kstenerud/KSCrash.git", :tag=>s.version.to_s }
   s.frameworks = 'Foundation'
   s.libraries = 'c++', 'z'
   s.xcconfig = { 'GCC_ENABLE_CPP_EXCEPTIONS' => 'YES' }
-  
+  s.default_subspecs = 'Installations'
+
   s.subspec 'Recording' do |recording|
     recording.source_files   = 'Source/KSCrash/Recording/**/*.{h,m,mm,c,cpp}',
-                               'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h' 
+                               'Source/KSCrash/llvm/**/*.{h,m,mm,c,cpp}',
+                               'Source/KSCrash/swift/**/*.{h,m,mm,c,cpp}',
+                               'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h'
+    recording.public_header_files = 'Source/KSCrash/Recording/KSCrash.h',
+                                    'Source/KSCrash/Recording/KSCrashC.h',
+                                    'Source/KSCrash/Recording/KSCrashReportWriter.h',
+                                    'Source/KSCrash/Recording/KSCrashType.h',
+                                    'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h'
+
+    recording.subspec 'Tools' do |tools|
+      tools.source_files = 'Source/KSCrash/Recording/Tools/*.h'
+    end
   end
 
   s.subspec 'Reporting' do |reporting|
     reporting.dependency 'KSCrash/Recording'
 
-    reporting.subspec 'Filters' do |filters|      
+    reporting.subspec 'Filters' do |filters|
       filters.subspec 'Base' do |base|
         base.source_files = 'Source/KSCrash/Reporting/Filters/Tools/**/*.{h,m,mm,c,cpp}',
-                            'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h',
-                            'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.m'
+                            'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h'
+        base.public_header_files = 'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h'
       end
 
       filters.subspec 'Alert' do |alert|
@@ -44,6 +60,12 @@ Pod::Spec.new do |s|
                              'Source/KSCrash/Reporting/Filters/KSCrashReportFilterBasic.m'
       end
 
+      filters.subspec 'Stringify' do |stringify|
+        stringify.dependency 'KSCrash/Reporting/Filters/Base'
+        stringify.source_files = 'Source/KSCrash/Reporting/Filters/KSCrashReportFilterStringify.h',
+                                 'Source/KSCrash/Reporting/Filters/KSCrashReportFilterStringify.m'
+      end
+
       filters.subspec 'GZip' do |gzip|
         gzip.dependency 'KSCrash/Reporting/Filters/Base'
         gzip.source_files = 'Source/KSCrash/Reporting/Filters/KSCrashReportFilterGZip.h',
@@ -55,35 +77,45 @@ Pod::Spec.new do |s|
         json.source_files = 'Source/KSCrash/Reporting/Filters/KSCrashReportFilterJSON.h',
                             'Source/KSCrash/Reporting/Filters/KSCrashReportFilterJSON.m'
       end
-      
+
       filters.subspec 'Sets' do |sets|
         sets.dependency 'KSCrash/Reporting/Filters/Base'
         sets.dependency 'KSCrash/Reporting/Filters/AppleFmt'
         sets.dependency 'KSCrash/Reporting/Filters/Basic'
+        sets.dependency 'KSCrash/Reporting/Filters/Stringify'
         sets.dependency 'KSCrash/Reporting/Filters/GZip'
         sets.dependency 'KSCrash/Reporting/Filters/JSON'
-        
+
         sets.source_files = 'Source/KSCrash/Reporting/Filters/KSCrashReportFilterSets.h',
                             'Source/KSCrash/Reporting/Filters/KSCrashReportFilterSets.m'
+      end
+
+      filters.subspec 'Tools' do |tools|
+        tools.source_files = 'Source/KSCrash/Reporting/Filters/Tools/**/*.{h,m,mm,c,cpp}'
       end
 
     end
 
     reporting.subspec 'Tools' do |tools|
-      tools.frameworks = 'SystemConfiguration'
-      tools.source_files = 'Source/KSCrash/Reporting/Tools/**/*.{h,m,mm,c,cpp}'
+      tools.ios.frameworks = 'SystemConfiguration'
+      tools.tvos.frameworks = 'SystemConfiguration'
+      tools.osx.frameworks = 'SystemConfiguration'
+      tools.source_files = 'Source/KSCrash/Reporting/Tools/**/*.{h,m,mm,c,cpp}',
+                           'Source/KSCrash/Recording/KSSystemCapabilities.h'
+    end
 
+    reporting.subspec 'MessageUI' do |messageui|
     end
 
     reporting.subspec 'Sinks' do |sinks|
-      sinks.frameworks = 'MessageUI'
+      sinks.ios.frameworks = 'MessageUI'
       sinks.dependency 'KSCrash/Reporting/Filters'
       sinks.dependency 'KSCrash/Reporting/Tools'
       sinks.source_files = 'Source/KSCrash/Reporting/Sinks/**/*.{h,m,mm,c,cpp}'
     end
 
   end
-  
+
   s.subspec 'Installations' do |installations|
     installations.dependency 'KSCrash/Recording'
     installations.dependency 'KSCrash/Reporting'

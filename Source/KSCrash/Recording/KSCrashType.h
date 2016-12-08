@@ -26,6 +26,10 @@
 #ifndef HDR_KSCrashType_h
 #define HDR_KSCrashType_h
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 /** Different ways an application can crash:
  * - Mach kernel exception
@@ -80,6 +84,13 @@ typedef enum
  */
 #define KSCrashTypeProductionSafe (KSCrashTypeAll & (~KSCrashTypeExperimental))
 
+#define KSCrashTypeNone 0
+
 const char* kscrashtype_name(KSCrashType crashType);
+
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // HDR_KSCrashType_h

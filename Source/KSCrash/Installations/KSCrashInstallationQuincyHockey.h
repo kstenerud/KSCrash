@@ -124,6 +124,6 @@
 /** App identifier you received from Hockey (mandatory) */
 @property(nonatomic, readwrite, retain) NSString* appIdentifier;
 
-+ (KSCrashInstallationHockey*) sharedInstance;
++ (instancetype) sharedInstance;
 
 @end

@@ -27,9 +27,6 @@
 
 #import "KSCrashReportFilterJSON.h"
 
-#import "ARCSafe_MemMgmt.h"
-#import "KSCrashCallCompletion.h"
-
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
 
@@ -47,7 +44,7 @@
 
 + (KSCrashReportFilterJSONEncode*) filterWithOptions:(KSJSONEncodeOption) options
 {
-    return as_autorelease([(KSCrashReportFilterJSONEncode*)[self alloc] initWithOptions:options]);
+    return [(KSCrashReportFilterJSONEncode*)[self alloc] initWithOptions:options];
 }
 
 - (id) initWithOptions:(KSJSONEncodeOption) options
@@ -71,7 +68,7 @@
                                          error:&error];
         if(jsonData == nil)
         {
-            kscrash_i_callCompletion(onCompletion, filteredReports, NO, error);
+            kscrash_callCompletion(onCompletion, filteredReports, NO, error);
             return;
         }
         else
@@ -80,7 +77,7 @@
         }
     }
 
-    kscrash_i_callCompletion(onCompletion, filteredReports, YES, nil);
+    kscrash_callCompletion(onCompletion, filteredReports, YES, nil);
 }
 
 @end
@@ -99,7 +96,7 @@
 
 + (KSCrashReportFilterJSONDecode*) filterWithOptions:(KSJSONDecodeOption) options
 {
-    return as_autorelease([(KSCrashReportFilterJSONDecode*)[self alloc] initWithOptions:options]);
+    return [(KSCrashReportFilterJSONDecode*)[self alloc] initWithOptions:options];
 }
 
 - (id) initWithOptions:(KSJSONDecodeOption) options
@@ -123,7 +120,7 @@
                                              error:&error];
         if(report == nil)
         {
-            kscrash_i_callCompletion(onCompletion, filteredReports, NO, error);
+            kscrash_callCompletion(onCompletion, filteredReports, NO, error);
             return;
         }
         else
@@ -132,7 +129,7 @@
         }
     }
 
-    kscrash_i_callCompletion(onCompletion, filteredReports, YES, nil);
+    kscrash_callCompletion(onCompletion, filteredReports, YES, nil);
 }
 
 @end

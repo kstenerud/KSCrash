@@ -38,8 +38,7 @@ extern "C" {
 
 
 #include <dlfcn.h>
-#include <mach/mach.h>
-#include <pthread.h>
+#include <mach/mach_types.h>
 
 
 /** Generate a backtrace on the specified mach thread (async-safe).
@@ -57,21 +56,6 @@ extern "C" {
 int ksbt_backtraceThread(thread_t thread,
                          uintptr_t* backtraceBuffer,
                          int maxEntries);
-
-/** Generate a backtrace on the specified posix thread (async-safe).
- *
- * @param thread The thread to generate a backtrace for.
- *
- * @param backtraceBuffer A buffer to hold the backtrace.
- *
- * @param maxEntries The maximum number of trace entries to generate (must not
- *                   be larger than backtraceBuffer can hold).
- *
- * @return The number of backtrace entries generated.
- */
-int ksbt_backtracePthread(pthread_t thread,
-                          uintptr_t* backtraceBuffer,
-                          int maxEntries);
 
 /** Generate a backtrace on the currently running thread (async-safe).
  *
@@ -101,7 +85,7 @@ int ksbt_backtraceSelf(uintptr_t* backtraceBuffer,
  *
  * @param numEntries The number of entries to examine.
  *
- * @param numEntries The number of entries skipped from the start of this backtrace.
+ * @param skippedEntries The number of entries skipped from the start of this backtrace.
  */
 void ksbt_symbolicate(const uintptr_t* backtraceBuffer,
                       Dl_info* symbolsBuffer,

@@ -24,28 +24,28 @@
 // THE SOFTWARE.
 //
 
-
 #import "KSCrashReportFilterAlert.h"
 
-#import "ARCSafe_MemMgmt.h"
-#import "KSCrashCallCompletion.h"
+#import "KSSystemCapabilities.h"
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
 
-#ifdef __IPHONE_OS_VERSION_MAX_ALLOWED
+#if KSCRASH_HAS_ALERTVIEW
+
+#if KSCRASH_HAS_UIKIT
 #import <UIKit/UIKit.h>
 #endif
 
 
 @interface KSCrashAlertViewProcess : NSObject
-#ifdef __IPHONE_OS_VERSION_MAX_ALLOWED
+#if KSCRASH_HAS_UIALERTVIEW
 <UIAlertViewDelegate>
 #endif
 
 @property(nonatomic,readwrite,retain) NSArray* reports;
 @property(nonatomic,readwrite,copy) KSCrashReportFilterCompletion onCompletion;
-#ifdef __IPHONE_OS_VERSION_MAX_ALLOWED
+#if KSCRASH_HAS_UIALERTVIEW
 @property(nonatomic,readwrite,retain) UIAlertView* alertView;
 #endif
 @property(nonatomic,readwrite,assign) NSInteger expectedButtonIndex;
@@ -65,24 +65,14 @@
 
 @synthesize reports = _reports;
 @synthesize onCompletion = _onCompletion;
-#ifdef __IPHONE_OS_VERSION_MAX_ALLOWED
+#if KSCRASH_HAS_UIALERTVIEW
 @synthesize alertView = _alertView;
 #endif
 @synthesize expectedButtonIndex = _expectedButtonIndex;
 
 + (KSCrashAlertViewProcess*) process
 {
-    return as_autorelease([[self alloc] init]);
-}
-
-- (void) dealloc
-{
-#ifdef __IPHONE_OS_VERSION_MAX_ALLOWED
-    as_release(_alertView);
-#endif
-    as_release(_reports);
-    as_release(_onCompletion);
-    as_superdealloc();
+    return [[self alloc] init];
 }
 
 - (void) startWithTitle:(NSString*) title
@@ -97,8 +87,8 @@
     self.onCompletion = onCompletion;
     self.expectedButtonIndex = noAnswer == nil ? 0 : 1;
 
-#ifdef __IPHONE_OS_VERSION_MAX_ALLOWED
-    self.alertView = as_autorelease([[UIAlertView alloc] init]);
+#if KSCRASH_HAS_UIALERTVIEW
+    self.alertView = [[UIAlertView alloc] init];
     self.alertView.title = title;
     self.alertView.message = message;
     if(noAnswer != nil)
@@ -110,7 +100,7 @@
     
     KSLOG_TRACE(@"Showing alert view");
     [self.alertView show];
-#else
+#elif KSCRASH_HAS_NSALERT
     NSAlert *alert = [[NSAlert alloc] init];
     [alert addButtonWithTitle:yesAnswer];
     if(noAnswer != nil)
@@ -125,14 +115,14 @@
     {
         success = noAnswer != nil;
     }
-    kscrash_i_callCompletion(self.onCompletion, self.reports, success, nil);
+    kscrash_callCompletion(self.onCompletion, self.reports, success, nil);
 #endif
 }
 
 - (void) alertView:(__unused id) alertView clickedButtonAtIndex:(NSInteger) buttonIndex
 {
     BOOL success = buttonIndex == self.expectedButtonIndex;
-    kscrash_i_callCompletion(self.onCompletion, self.reports, success, nil);
+    kscrash_callCompletion(self.onCompletion, self.reports, success, nil);
 }
 
 @end
@@ -159,10 +149,10 @@
                                     yesAnswer:(NSString*) yesAnswer
                                      noAnswer:(NSString*) noAnswer
 {
-    return as_autorelease([[self alloc] initWithTitle:title
-                                              message:message
-                                            yesAnswer:yesAnswer
-                                             noAnswer:noAnswer]);
+    return [[self alloc] initWithTitle:title
+                               message:message
+                             yesAnswer:yesAnswer
+                              noAnswer:noAnswer];
 }
 
 - (id) initWithTitle:(NSString*) title
@@ -178,15 +168,6 @@
         self.noAnswer = noAnswer;
     }
     return self;
-}
-
-- (void) dealloc
-{
-    as_release(_title);
-    as_release(_message);
-    as_release(_yesAnswer);
-    as_release(_noAnswer);
-    as_superdealloc();
 }
 
 - (void) filterReports:(NSArray*) reports
@@ -206,10 +187,9 @@
                                                  NSError* error)
                         {
                             KSLOG_TRACE(@"alert process complete");
-                            kscrash_i_callCompletion(onCompletion, filteredReports, completed, error);
+                            kscrash_callCompletion(onCompletion, filteredReports, completed, error);
                             dispatch_async(dispatch_get_main_queue(), ^
                                            {
-                                               as_release(process);
                                                process = nil;
                                            });
                         }];
@@ -217,3 +197,41 @@
 }
 
 @end
+
+#else
+
+@implementation KSCrashReportFilterAlert
+
++ (KSCrashReportFilterAlert*) filterWithTitle:(NSString*) title
+                                      message:(NSString*) message
+                                    yesAnswer:(NSString*) yesAnswer
+                                     noAnswer:(NSString*) noAnswer
+{
+    return [[self alloc] initWithTitle:title
+                               message:message
+                             yesAnswer:yesAnswer
+                              noAnswer:noAnswer];
+}
+
+- (id) initWithTitle:(__unused NSString*) title
+             message:(__unused NSString*) message
+           yesAnswer:(__unused NSString*) yesAnswer
+            noAnswer:(__unused NSString*) noAnswer
+{
+    if((self = [super init]))
+    {
+        KSLOG_WARN(@"Alert filter not available on this platform.");
+    }
+    return self;
+}
+
+- (void) filterReports:(NSArray*) reports
+          onCompletion:(KSCrashReportFilterCompletion) onCompletion
+{
+    KSLOG_WARN(@"Alert filter not available on this platform.");
+    kscrash_callCompletion(onCompletion, reports, YES, nil);
+}
+
+@end
+
+#endif

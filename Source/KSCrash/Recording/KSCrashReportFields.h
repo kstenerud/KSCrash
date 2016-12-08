@@ -33,6 +33,7 @@
 
 #define KSCrashReportType_Minimal          "minimal"
 #define KSCrashReportType_Standard         "standard"
+#define KSCrashReportType_Custom           "custom"
 
 
 #pragma mark - Memory Types -
@@ -63,6 +64,7 @@
 #define KSCrashField_FirstObject           "first_object"
 #define KSCrashField_Index                 "index"
 #define KSCrashField_Ivars                 "ivars"
+#define KSCrashField_Language              "language"
 #define KSCrashField_Name                  "name"
 #define KSCrashField_ReferencedObject      "referenced_object"
 #define KSCrashField_Type                  "type"
@@ -165,8 +167,6 @@
 #define KSCrashField_Crash                 "crash"
 #define KSCrashField_Diagnosis             "diagnosis"
 #define KSCrashField_ID                    "id"
-#define KSCrashField_Major                 "major"
-#define KSCrashField_Minor                 "minor"
 #define KSCrashField_ProcessName           "process_name"
 #define KSCrashField_Report                "report"
 #define KSCrashField_Timestamp             "timestamp"
@@ -178,12 +178,10 @@
 #pragma mark Standard
 #define KSCrashField_AppStats              "application_stats"
 #define KSCrashField_BinaryImages          "binary_images"
-#define KSCrashField_SystemAtCrash         "system_atcrash"
 #define KSCrashField_System                "system"
 #define KSCrashField_Memory                "memory"
 #define KSCrashField_Threads               "threads"
 #define KSCrashField_User                  "user"
-#define KSCrashField_UserAtCrash           "user_atcrash"
 
 #pragma mark Incomplete
 #define KSCrashField_Incomplete            "incomplete"

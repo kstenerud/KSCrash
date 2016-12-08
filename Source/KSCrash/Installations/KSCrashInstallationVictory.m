@@ -27,35 +27,30 @@
 
 #import "KSCrashInstallationVictory.h"
 #import "KSCrashInstallation+Private.h"
-#import "ARCSafe_MemMgmt.h"
-#import "KSSingleton.h"
+#import "KSCrashReportFilterBasic.h"
 #import "KSCrashReportSinkVictory.h"
 
 
 @implementation KSCrashInstallationVictory
 
-IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrashInstallationVictory)
-
 @synthesize url = _url;
 @synthesize userName = _userName;
 @synthesize userEmail = _userEmail;
 
-- (id) init
++ (instancetype) sharedInstance
 {
-    if((self = [super initWithRequiredProperties:[NSArray arrayWithObjects:
-                                                   @"url",
-                                                   nil]]))
-    {
-    }
-    return self;
+    static KSCrashInstallationVictory *sharedInstance = nil;
+    static dispatch_once_t onceToken;
+    
+    dispatch_once(&onceToken, ^{
+        sharedInstance = [[KSCrashInstallationVictory alloc] init];
+    });
+    return sharedInstance;
 }
 
-- (void) dealloc
+- (id) init
 {
-    as_release(_url);
-    as_release(_userName);
-    as_release(_userEmail);
-    as_superdealloc();
+    return [super initWithRequiredProperties:[NSArray arrayWithObjects: @"url", nil]];
 }
 
 - (id<KSCrashReportFilter>) sink

@@ -44,7 +44,7 @@
 @interface KSCrashReportConverter_Tests : FileBasedTestCase @end
 
 @implementation KSCrashReportConverter_Tests
-
+#if 0
 - (void) setUp
 {
     [super setUp];
@@ -87,5 +87,5 @@
 //    
 //    XCTAssertTrue([converted isEqualToString:expected], @"");
 }
-
+#endif
 @end

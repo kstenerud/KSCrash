@@ -39,6 +39,8 @@ extern "C" {
 
 #include "KSCrashSentry.h"
 
+#include <stdbool.h>
+
 
 /** Install our custom NSException handler.
  *
@@ -46,7 +48,7 @@ extern "C" {
  *
  * @return true if installation was succesful.
  */
-bool kscrashsentry_installNSExceptionHandler(KSCrash_SentryContext* context);
+bool kscrashsentry_installNSExceptionHandler(struct KSCrash_SentryContext* context);
 
 /** Uninstall our custome NSException handler.
  */

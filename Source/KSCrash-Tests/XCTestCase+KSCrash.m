@@ -26,7 +26,6 @@
 
 
 #import "XCTestCase+KSCrash.h"
-#import "ARCSafe_MemMgmt.h"
 
 
 @implementation XCTestCase (XCTestCase_KSCrash)

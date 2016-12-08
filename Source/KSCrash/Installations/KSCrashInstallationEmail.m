@@ -27,10 +27,8 @@
 
 #import "KSCrashInstallationEmail.h"
 #import "KSCrashInstallation+Private.h"
-#import "ARCSafe_MemMgmt.h"
 #import "KSCrashReportSinkEMail.h"
 #import "KSCrashReportFilterAlert.h"
-#import "KSSingleton.h"
 
 
 @interface KSCrashInstallationEmail ()
@@ -42,14 +40,23 @@
 
 @implementation KSCrashInstallationEmail
 
-IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrashInstallationEmail)
-
 @synthesize recipients = _recipients;
 @synthesize subject = _subject;
 @synthesize message = _message;
 @synthesize filenameFmt = _filenameFmt;
 @synthesize reportStyle = _reportStyle;
 @synthesize defaultFilenameFormats = _defaultFilenameFormats;
+
++ (instancetype) sharedInstance
+{
+    static KSCrashInstallationEmail *sharedInstance = nil;
+    static dispatch_once_t onceToken;
+    
+    dispatch_once(&onceToken, ^{
+        sharedInstance = [[KSCrashInstallationEmail alloc] init];
+    });
+    return sharedInstance;
+}
 
 - (id) init
 {
@@ -70,16 +77,6 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrashInstallationEmail)
         [self setReportStyle:KSCrashEmailReportStyleJSON useDefaultFilenameFormat:YES];
     }
     return self;
-}
-
-- (void) dealloc
-{
-    as_release(_recipients);
-    as_release(_subject);
-    as_release(_message);
-    as_release(_filenameFmt);
-    as_release(_defaultFilenameFormats);
-    as_superdealloc();
 }
 
 - (void) setReportStyle:(KSCrashEmailReportStyle)reportStyle
@@ -104,10 +101,8 @@ useDefaultFilenameFormat:(BOOL) useDefaultFilenameFormat
     {
         case KSCrashEmailReportStyleApple:
             return [sink defaultCrashReportFilterSetAppleFmt];
-            break;
         case KSCrashEmailReportStyleJSON:
             return [sink defaultCrashReportFilterSet];
-            break;
     }
 }
 

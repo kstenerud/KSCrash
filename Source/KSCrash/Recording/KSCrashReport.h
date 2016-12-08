@@ -57,7 +57,7 @@ void kscrashreport_writeStandardReport(KSCrash_Context* crashContext,
  *
  * @param path The file to write to.
  */
-void kscrashreport_writeMinimalReport(KSCrash_Context* const crashContext,
+void kscrashreport_writeRecrashReport(KSCrash_Context* const crashContext,
                                       const char* path);
 
 /** Write minimal information about the crash to the log.

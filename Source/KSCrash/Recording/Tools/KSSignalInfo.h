@@ -37,7 +37,7 @@ extern "C" {
 #endif
 
 
-#include <mach/mach.h>
+#include <mach/mach_types.h>
 
 
 /** Get the name of a signal.

@@ -26,7 +26,6 @@
 
 
 #import "FileBasedTestCase.h"
-#import "ARCSafe_MemMgmt.h"
 #include <stdio.h>
 #include <fcntl.h>
 
@@ -98,7 +97,7 @@
     NSMutableData* data = [NSMutableData dataWithLength:(NSUInteger)stringLength];
     bool result = ksfu_readBytesFromFD(fd, [data mutableBytes], stringLength);
     XCTAssertTrue(result, @"");
-    NSString* actual = as_autorelease([[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]);
+    NSString* actual = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
     XCTAssertNil(error, @"");
     XCTAssertEqualObjects(actual, expected, @"");
 }
@@ -136,11 +135,11 @@
     int fd = open([path UTF8String], O_RDONLY);
     XCTAssertTrue(fd >= 0, @"");
     char* bytes;
-    size_t readLength;
+    int readLength;
     bool result = ksfu_readEntireFile([path UTF8String], &bytes, &readLength);
     XCTAssertTrue(result, @"");
-    NSMutableData* data = [NSMutableData dataWithBytesNoCopy:bytes length:readLength freeWhenDone:YES];
-    NSString* actual = as_autorelease([[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]);
+    NSMutableData* data = [NSMutableData dataWithBytesNoCopy:bytes length:(unsigned)readLength freeWhenDone:YES];
+    NSString* actual = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
     XCTAssertNil(error, @"");
     XCTAssertEqualObjects(actual, expected, @"");
 }
@@ -162,10 +161,10 @@
     int fd = open([path UTF8String], O_RDONLY);
     XCTAssertTrue(fd >= 0, @"");
     char* bytes;
-    size_t readLength;
+    int readLength;
     bool result = ksfu_readEntireFile([path UTF8String], &bytes, &readLength);
     XCTAssertTrue(result, @"");
-    NSMutableData* actual = [NSMutableData dataWithBytesNoCopy:bytes length:readLength freeWhenDone:YES];
+    NSMutableData* actual = [NSMutableData dataWithBytesNoCopy:bytes length:(unsigned)readLength freeWhenDone:YES];
     XCTAssertEqualObjects(actual, expected, @"");
 }
 
@@ -237,28 +236,28 @@
     int fd = open([path UTF8String], O_RDONLY);
     XCTAssertTrue(fd >= 0, @"");
     NSMutableData* data = [NSMutableData dataWithLength:100];
-    ssize_t bytesRead;
+    int bytesRead;
     NSString* actual;
 
     bytesRead = ksfu_readLineFromFD(fd, [data mutableBytes], 100);
     XCTAssertTrue(bytesRead > 0, @"");
-    actual = as_autorelease([[NSString alloc] initWithBytes:[data bytes]
-                                                     length:(NSUInteger)bytesRead
-                                                   encoding:NSUTF8StringEncoding]);
+    actual = [[NSString alloc] initWithBytes:[data bytes]
+                                      length:(NSUInteger)bytesRead
+                                    encoding:NSUTF8StringEncoding];
     XCTAssertEqualObjects(actual, expected1, @"");
 
     bytesRead = ksfu_readLineFromFD(fd, [data mutableBytes], 100);
     XCTAssertTrue(bytesRead > 0, @"");
-    actual = as_autorelease([[NSString alloc] initWithBytes:[data bytes]
-                                                     length:(NSUInteger)bytesRead
-                                                   encoding:NSUTF8StringEncoding]);
+    actual = [[NSString alloc] initWithBytes:[data bytes]
+                                      length:(NSUInteger)bytesRead
+                                    encoding:NSUTF8StringEncoding];
     XCTAssertEqualObjects(actual, expected2, @"");
 
     bytesRead = ksfu_readLineFromFD(fd, [data mutableBytes], 100);
     XCTAssertTrue(bytesRead > 0, @"");
-    actual = as_autorelease([[NSString alloc] initWithBytes:[data bytes]
-                                                     length:(NSUInteger)bytesRead
-                                                   encoding:NSUTF8StringEncoding]);
+    actual = [[NSString alloc] initWithBytes:[data bytes]
+                                      length:(NSUInteger)bytesRead
+                                    encoding:NSUTF8StringEncoding];
     XCTAssertEqualObjects(actual, expected3, @"");
 
     bytesRead = ksfu_readLineFromFD(fd, [data mutableBytes], 100);

@@ -29,22 +29,13 @@
  *
  * Benefits:
  * - Very low CPU overhead.
- * - Low memory overhead (user controllable).
+ * - Low memory overhead.
  *
  * Limitations:
  * - Not guaranteed to catch all zombies.
  * - Can generate false positives or incorrect class names.
  * - KSZombie itself must be compiled with ARC disabled. You can enable ARC in
  *   your app, but KSZombie must be compiled in a separate library if you do.
- *
- * Internally, it uses a cache which is keyed off the object's address.
- * This gives fast lookups, but at the same time introduces the possibility
- * for collisions. You can mitigate this by choosing a larger cache size.
- * The total memory that will be used is 8 bytes * cache size (16 bytes on
- * 64-bit architectures). You should run your application through a profiler to
- * determine how often objects are deallocated in order to decide how large a
- * cache is optimal for your needs, however you probably shouldn't go lower than
- * 16384.
  */
 
 #ifndef HDR_KSZombie_h
@@ -54,17 +45,13 @@
 extern "C" {
 #endif
 
+#include <stdbool.h>
 
-/** Install the zombie tracker.
+/** Enable/disable the zombie tracker.
  *
- * @param cacheSize The size of the zombie cache. Must be a multiple of 2 and
- *                  greater than 1.
+ * @param isEnabled If true, track zombies (default false)
  */
-void kszombie_install(size_t cacheSize);
-
-/** Uninstall the zombie tracker.
- */
-void kszombie_uninstall(void);
+void kszombie_setEnabled(bool isEnabled);
 
 /** Get the class of a deallocated object pointer, if it was tracked.
  *
@@ -91,18 +78,6 @@ const char* kszombie_lastDeallocedNSExceptionName(void);
  * @return The reason.
  */
 const char* kszombie_lastDeallocedNSExceptionReason(void);
-
-/** Get the call stack from the last exception to be deallocated.
- *
- * @return The call stack.
- */
-const uintptr_t* kszombie_lastDeallocedNSExceptionCallStack(void);
-
-/** Get the length of the call stack from the last exception to be deallocated.
- *
- * @return The call stack length.
- */
-const size_t kszombie_lastDeallocedNSExceptionCallStackLength(void);
 
 
 #ifdef __cplusplus

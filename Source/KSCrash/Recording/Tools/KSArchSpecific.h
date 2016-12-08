@@ -37,8 +37,6 @@ extern "C" {
 #endif
 
 
-#include <sys/_structs.h>
-
 #ifdef __LP64__
     #define STRUCT_NLIST struct nlist_64
 #else

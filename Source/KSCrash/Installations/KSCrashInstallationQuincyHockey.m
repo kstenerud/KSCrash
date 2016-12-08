@@ -27,11 +27,9 @@
 
 #import "KSCrashInstallationQuincyHockey.h"
 
-#import "ARCSafe_MemMgmt.h"
 #import "KSCrashInstallation+Private.h"
 #import "KSCrashReportFields.h"
 #import "KSCrashReportSinkQuincyHockey.h"
-#import "KSSingleton.h"
 #import "NSError+SimpleConstructor.h"
 
 
@@ -66,20 +64,6 @@ IMPLEMENT_REPORT_PROPERTY(crashDescription, CrashDescription, NSString*);
     return self;
 }
 
-- (void) dealloc
-{
-    as_release(_userID);
-    as_release(_userIDKey);
-    as_release(_userName);
-    as_release(_userNameKey);
-    as_release(_contactEmail);
-    as_release(_contactEmailKey);
-    as_release(_crashDescription);
-    as_release(_crashDescriptionKey);
-    as_release(_extraDescriptionKeys);
-    as_superdealloc();
-}
-
 - (NSArray*) allCrashDescriptionKeys
 {
     NSMutableArray* keys = [NSMutableArray array];
@@ -99,24 +83,22 @@ IMPLEMENT_REPORT_PROPERTY(crashDescription, CrashDescription, NSString*);
 
 @implementation KSCrashInstallationQuincy
 
-IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrashInstallationQuincy)
-
 @synthesize url = _url;
+
++ (instancetype) sharedInstance
+{
+    static KSCrashInstallationQuincy *sharedInstance = nil;
+    static dispatch_once_t onceToken;
+    
+    dispatch_once(&onceToken, ^{
+        sharedInstance = [[KSCrashInstallationQuincy alloc] init];
+    });
+    return sharedInstance;
+}
 
 - (id) init
 {
-    if((self = [super initWithRequiredProperties:[NSArray arrayWithObjects:
-                                                  @"url",
-                                                  nil]]))
-    {
-    }
-    return self;
-}
-
-- (void) dealloc
-{
-    as_release(_url);
-    as_superdealloc();
+    return [super initWithRequiredProperties:[NSArray arrayWithObjects: @"url", nil]];
 }
 
 - (id<KSCrashReportFilter>) sink
@@ -135,9 +117,18 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrashInstallationQuincy)
 
 @implementation KSCrashInstallationHockey
 
-IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrashInstallationHockey)
-
 @synthesize appIdentifier = _appIdentifier;
+
++ (instancetype) sharedInstance
+{
+    static KSCrashInstallationHockey *sharedInstance = nil;
+    static dispatch_once_t onceToken;
+    
+    dispatch_once(&onceToken, ^{
+        sharedInstance = [[KSCrashInstallationHockey alloc] init];
+    });
+    return sharedInstance;
+}
 
 - (id) init
 {
@@ -147,12 +138,6 @@ IMPLEMENT_EXCLUSIVE_SHARED_INSTANCE(KSCrashInstallationHockey)
     {
     }
     return self;
-}
-
-- (void) dealloc
-{
-    as_release(_appIdentifier);
-    as_superdealloc();
 }
 
 - (id<KSCrashReportFilter>) sink

@@ -26,8 +26,10 @@
 
 
 #import "KSCrashSentry_NSException.h"
+#include "KSCrashSentry_Context.h"
 #import "KSCrashSentry_Private.h"
-#include "KSMach.h"
+#include "KSThread.h"
+#import <Foundation/Foundation.h>
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -54,14 +56,12 @@ static KSCrash_SentryContext* g_context;
 #pragma mark - Callbacks -
 // ============================================================================
 
-// Avoiding static methods due to linker issue.
-
 /** Our custom excepetion handler.
  * Fetch the stack trace from the exception and write a report.
  *
  * @param exception The exception that was raised.
  */
-void ksnsexc_i_handleException(NSException* exception)
+static void handleException(NSException* exception)
 {
     KSLOG_DEBUG(@"Trapped exception %@", exception);
     if(g_installed)
@@ -91,7 +91,7 @@ void ksnsexc_i_handleException(NSException* exception)
         }
 
         g_context->crashType = KSCrashTypeNSException;
-        g_context->offendingThread = ksmach_thread_self();
+        g_context->offendingThread = ksthread_self();
         g_context->registersAreValid = false;
         g_context->NSException.name = strdup([[exception name] UTF8String]);
         g_context->crashReason = strdup([[exception reason] UTF8String]);
@@ -135,7 +135,7 @@ bool kscrashsentry_installNSExceptionHandler(KSCrash_SentryContext* const contex
     g_previousUncaughtExceptionHandler = NSGetUncaughtExceptionHandler();
 
     KSLOG_DEBUG(@"Setting new handler.");
-    NSSetUncaughtExceptionHandler(&ksnsexc_i_handleException);
+    NSSetUncaughtExceptionHandler(&handleException);
 
     return true;
 }

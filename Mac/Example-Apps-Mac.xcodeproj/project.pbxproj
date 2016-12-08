@@ -17,7 +17,7 @@
 		CB62412917EBCBA2006471F1 /* libKSCrashLib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = CB62412817EBCBA2006471F1 /* libKSCrashLib.a */; };
 		CB62414417EBCC97006471F1 /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = CB62414317EBCC97006471F1 /* libz.dylib */; };
 		CB62414617EBCC9E006471F1 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB62414517EBCC9E006471F1 /* SystemConfiguration.framework */; };
-		CB62414A17EBCCBC006471F1 /* libstdc++.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = CB62414917EBCCBC006471F1 /* libstdc++.dylib */; };
+		CB8F1DD71CCAF4050022CDF0 /* libc++.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = CB8F1DD61CCAF4050022CDF0 /* libc++.tbd */; };
 		CBF3CE6517F578CC001AC307 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB62401617EBB430006471F1 /* Cocoa.framework */; };
 		CBF3CE6B17F578CC001AC307 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = CBF3CE6917F578CC001AC307 /* InfoPlist.strings */; };
 		CBF3CE6D17F578CC001AC307 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF3CE6C17F578CC001AC307 /* main.m */; };
@@ -56,6 +56,7 @@
 		CB62414517EBCC9E006471F1 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = System/Library/Frameworks/SystemConfiguration.framework; sourceTree = SDKROOT; };
 		CB62414717EBCCA9006471F1 /* libc++.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libc++.dylib"; path = "usr/lib/libc++.dylib"; sourceTree = SDKROOT; };
 		CB62414917EBCCBC006471F1 /* libstdc++.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libstdc++.dylib"; path = "usr/lib/libstdc++.dylib"; sourceTree = SDKROOT; };
+		CB8F1DD61CCAF4050022CDF0 /* libc++.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = "libc++.tbd"; path = "usr/lib/libc++.tbd"; sourceTree = SDKROOT; };
 		CBF3CE6417F578CC001AC307 /* Crash-Tester.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Crash-Tester.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		CBF3CE6817F578CC001AC307 /* Crash-Tester-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Crash-Tester-Info.plist"; sourceTree = "<group>"; };
 		CBF3CE6A17F578CC001AC307 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
@@ -68,7 +69,6 @@
 		CBF3CE7817F578CC001AC307 /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
 		CBF3CE9117F65857001AC307 /* Crasher.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Crasher.h; path = "../../Source/Common-Examples/Crasher.h"; sourceTree = "<group>"; };
 		CBF3CE9217F65857001AC307 /* Crasher.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = Crasher.mm; path = "../../Source/Common-Examples/Crasher.mm"; sourceTree = "<group>"; };
-		CBF3CE9417F65B12001AC307 /* ARCSafe_MemMgmt.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ARCSafe_MemMgmt.h; path = "../../Source/Common-Examples/ARCSafe_MemMgmt.h"; sourceTree = "<group>"; };
 		CBF3CE9517F65B12001AC307 /* LoadableCategory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = LoadableCategory.h; path = "../../Source/Common-Examples/LoadableCategory.h"; sourceTree = "<group>"; };
 		CBF3CE9617F65B51001AC307 /* libKSCrashLib.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libKSCrashLib.a; path = "../../../Library/Developer/Xcode/DerivedData/Mac-beusbddefllzqoanxuparffwsspt/Build/Products/Debug/libKSCrashLib.a"; sourceTree = "<group>"; };
 		CBF3CEA217F67E9D001AC307 /* CrashTesterCommands.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = CrashTesterCommands.h; path = "../../Source/Common-Examples/CrashTesterCommands.h"; sourceTree = "<group>"; };
@@ -80,7 +80,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CB62414A17EBCCBC006471F1 /* libstdc++.dylib in Frameworks */,
+				CB8F1DD71CCAF4050022CDF0 /* libc++.tbd in Frameworks */,
 				CB62414617EBCC9E006471F1 /* SystemConfiguration.framework in Frameworks */,
 				CB62414417EBCC97006471F1 /* libz.dylib in Frameworks */,
 				CB62412917EBCBA2006471F1 /* libKSCrashLib.a in Frameworks */,
@@ -125,6 +125,7 @@
 		CB62401517EBB430006471F1 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				CB8F1DD61CCAF4050022CDF0 /* libc++.tbd */,
 				CBF3CE9617F65B51001AC307 /* libKSCrashLib.a */,
 				CB62414917EBCCBC006471F1 /* libstdc++.dylib */,
 				CB62414717EBCCA9006471F1 /* libc++.dylib */,
@@ -178,7 +179,6 @@
 			children = (
 				CBF3CE7217F578CC001AC307 /* AppDelegate.h */,
 				CBF3CE7317F578CC001AC307 /* AppDelegate.m */,
-				CBF3CE9417F65B12001AC307 /* ARCSafe_MemMgmt.h */,
 				CB02647617F69E79003E0AED /* Configuration.h */,
 				CBF3CE9117F65857001AC307 /* Crasher.h */,
 				CBF3CE9217F65857001AC307 /* Crasher.mm */,
@@ -247,7 +247,7 @@
 		CB62400B17EBB430006471F1 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0500;
+				LastUpgradeCheck = 0800;
 				ORGANIZATIONNAME = "Karl Stenerud";
 			};
 			buildConfigurationList = CB62400E17EBB430006471F1 /* Build configuration list for PBXProject "Example-Apps-Mac" */;
@@ -381,13 +381,19 @@
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"DEBUG=1",
@@ -418,14 +424,19 @@
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -454,6 +465,7 @@
 				);
 				INFOPLIST_FILE = "Simple-Example/Simple-Example-Info.plist";
 				OTHER_LDFLAGS = "-ObjC";
+				PRODUCT_BUNDLE_IDENTIFIER = "org.stenerud.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WRAPPER_EXTENSION = app;
 			};
@@ -472,6 +484,7 @@
 				GCC_PREFIX_HEADER = "Simple-Example/Simple-Example-Prefix.pch";
 				INFOPLIST_FILE = "Simple-Example/Simple-Example-Info.plist";
 				OTHER_LDFLAGS = "-ObjC";
+				PRODUCT_BUNDLE_IDENTIFIER = "org.stenerud.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WRAPPER_EXTENSION = app;
 			};
@@ -517,6 +530,7 @@
 					"$(USER_LIBRARY_DIR)/Developer/Xcode/DerivedData/Mac-beusbddefllzqoanxuparffwsspt/Build/Products/Debug",
 				);
 				OTHER_LDFLAGS = "-ObjC";
+				PRODUCT_BUNDLE_IDENTIFIER = "org.stenerud.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WRAPPER_EXTENSION = app;
 			};
@@ -558,6 +572,7 @@
 					"$(USER_LIBRARY_DIR)/Developer/Xcode/DerivedData/Mac-beusbddefllzqoanxuparffwsspt/Build/Products/Debug",
 				);
 				OTHER_LDFLAGS = "-ObjC";
+				PRODUCT_BUNDLE_IDENTIFIER = "org.stenerud.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WRAPPER_EXTENSION = app;
 			};

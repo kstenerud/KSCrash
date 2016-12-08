@@ -7,23 +7,11 @@
 //
 
 #import "AppDelegate.h"
-#import "ARCSafe_MemMgmt.h"
 #import "Crasher.h"
 #import "CrashTesterCommands.h"
 #import "Configuration.h"
 
-#import <KSCrash/KSCrashAdvanced.h>
-#import <KSCrash/KSCrashReportFilterSets.h>
-#import <KSCrash/KSCrashReportFilter.h>
-#import <KSCrash/KSCrashReportFilterAppleFmt.h>
-#import <KSCrash/KSCrashReportFilterBasic.h>
-#import <KSCrash/KSCrashReportFilterGZip.h>
-#import <KSCrash/KSCrashReportFilterJSON.h>
-#import <KSCrash/KSCrashReportSinkConsole.h>
-#import <KSCrash/KSCrashReportSinkEMail.h>
-#import <KSCrash/KSCrashReportSinkQuincyHockey.h>
-#import <KSCrash/KSCrashReportSinkStandard.h>
-#import <KSCrash/KSCrashReportSinkVictory.h>
+#import <KSCrash/KSCrash.h>
 
 @interface AppDelegate ()
 
@@ -69,7 +57,6 @@ static void onCrash(const KSCrashReportWriter* writer)
     [handler redirectConsoleLogsToDefaultFile];
 #endif
 
-    handler.zombieCacheSize = 16384;
     handler.deadlockWatchdogInterval = 5.0f;
     handler.printTraceToStdout = YES;
     handler.onCrash = onCrash;
@@ -90,7 +77,7 @@ static void onCrash(const KSCrashReportWriter* writer)
 - (void)applicationDidFinishLaunching:(__unused NSNotification *)aNotification
 {
     [self installCrashHandler];
-    self.crasher = as_autorelease([[Crasher alloc] init]);
+    self.crasher = [[Crasher alloc] init];
     [self updateReportCount];
 }
 

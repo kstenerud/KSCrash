@@ -39,7 +39,6 @@ extern "C" {
 
 
 #include <stdbool.h>
-#include <stdint.h>
 
 
 typedef struct
@@ -75,12 +74,9 @@ typedef struct
     /** If true, the application crashed on this launch. */
     bool crashedThisLaunch;
 
-    /** Timestamp for when the app was launched (mach_absolute_time()) */
-    uint64_t appLaunchTime;
-
-    /** Timestamp for when the app state was last changed (active<-> inactive,
-     * background<->foreground) (mach_absolute_time()) */
-    uint64_t appStateTransitionTime;
+    /** Timestamp for when the app state was last changed (active<->inactive,
+     * background<->foreground) */
+    double appStateTransitionTime;
 
     /** If true, the application is currently active. */
     bool applicationIsActive;
@@ -101,6 +97,10 @@ typedef struct
  */
 bool kscrashstate_init(const char* stateFilePath, KSCrash_State* state);
 
+/** Reset the crash state.
+ */
+bool kscrashstate_reset();
+
 /** Notify the crash reporter of the application active state.
  *
  * @param isActive true if the application is active, otherwise false.
@@ -109,7 +109,7 @@ void kscrashstate_notifyAppActive(bool isActive);
 
 /** Notify the crash reporter of the application foreground/background state.
  *
- * @param isActive true if the application is in the foreground, false if
+ * @param isInForeground true if the application is in the foreground, false if
  *                 it is in the background.
  */
 void kscrashstate_notifyAppInForeground(bool isInForeground);

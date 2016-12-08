@@ -40,7 +40,6 @@ extern "C" {
 #include <stdbool.h>
 #include <stdint.h>
 #include <sys/sysctl.h>
-#include <sys/types.h>
 
 
 /** Get an int32 value via sysctl.
@@ -129,10 +128,7 @@ uint64_t kssysctl_uint64ForName(const char* name);
  * @return The number of bytes written (or that would have been written if
  *         value is NULL).
  */
-size_t kssysctl_string(int major_cmd,
-                       int minor_cmd,
-                       char* value,
-                       size_t maxSize);
+int kssysctl_string(int major_cmd, int minor_cmd, char* value, int maxSize);
 
 /** Get a string value via sysctl by name.
  *
@@ -146,7 +142,7 @@ size_t kssysctl_string(int major_cmd,
  * @return The number of bytes written (or that would have been written if
  *         value is NULL).
  */
-size_t kssysctl_stringForName(const char* name, char* value, size_t maxSize);
+int kssysctl_stringForName(const char* name, char* value, int maxSize);
 
 /** Get a timeval value via sysctl.
  *
@@ -181,7 +177,7 @@ bool kssysctl_getProcessInfo(int pid, struct kinfo_proc* procInfo);
  *
  * @param name Interface name (e.g. "en1").
  *
- * @param macAddressBuff 6 bytes of storage to hold the MAC address.
+ * @param macAddressBuffer 6 bytes of storage to hold the MAC address.
  *
  * @return true if the address was successfully retrieved.
  */

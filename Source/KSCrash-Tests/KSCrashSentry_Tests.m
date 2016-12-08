@@ -28,6 +28,7 @@
 #import <XCTest/XCTest.h>
 
 #import "KSCrashSentry.h"
+#import "KSCrashSentry_Context.h"
 #import "KSCrashSentry_Private.h"
 
 static void onCrash(void)

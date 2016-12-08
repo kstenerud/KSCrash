@@ -127,9 +127,7 @@ static const unsigned int g_hexConversion[] =
     INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV, INV,
 };
 
-bool ksstring_extractHexValue(const char* string,
-                              size_t stringLength,
-                              uint64_t* const result)
+bool ksstring_extractHexValue(const char* string, int stringLength, uint64_t* const result)
 {
     if(stringLength > 0)
     {
@@ -137,7 +135,7 @@ bool ksstring_extractHexValue(const char* string,
         const unsigned char* const end = current + stringLength;
         for(;;)
         {
-            current = (const unsigned char*)strnstr((const char*)current, "0x", (size_t)(end - current));
+            current = (const unsigned char*)strnstr((const char*)current, "0x", (unsigned)(end - current));
             unlikely_if(!current)
             {
                 return false;

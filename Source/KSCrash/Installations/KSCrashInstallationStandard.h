@@ -33,6 +33,6 @@
 /** The URL to connect to. */
 @property(nonatomic,readwrite,retain) NSURL* url;
 
-+ (KSCrashInstallationStandard*) sharedInstance;
++ (instancetype) sharedInstance;
 
 @end

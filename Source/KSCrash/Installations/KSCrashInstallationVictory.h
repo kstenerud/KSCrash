@@ -45,6 +45,6 @@
 /** The user email of crash information *optional */
 @property(nonatomic,readwrite,retain) NSString* userEmail;
 
-+ (KSCrashInstallationVictory*) sharedInstance;
++ (instancetype) sharedInstance;
 
 @end

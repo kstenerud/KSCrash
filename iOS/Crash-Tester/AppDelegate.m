@@ -5,12 +5,10 @@
 //
 
 #import "AppDelegate.h"
-#import "ARCSafe_MemMgmt.h"
 #import "AppDelegate+UI.h"
 #import "Configuration.h"
 
 #import <KSCrash/KSCrash.h>
-#import <KSCrash/KSCrashAdvanced.h>
 
 
 /* Example app that demonstrates the many ways in which an application
@@ -28,7 +26,8 @@ static void onCrash(const KSCrashReportWriter* writer)
 {
     if(g_crashInHandler)
     {
-        printf(NULL);
+        char* buff = NULL;
+        buff[0] = 'a';
     }
     writer->addStringElement(writer, "test", "test");
     writer->addStringElement(writer, "intl2", "テスト２");
@@ -59,11 +58,12 @@ static void onCrash(const KSCrashReportWriter* writer)
     [handler redirectConsoleLogsToDefaultFile];
 #endif
     
-    handler.zombieCacheSize = 16384;
     handler.deadlockWatchdogInterval = 5.0f;
+    handler.catchZombies = YES;
     handler.searchThreadNames = YES;
     handler.searchQueueNames = YES;
-    handler.printTraceToStdout = YES;
+//    handler.printTraceToStdout = YES;
+//    [handler redirectConsoleLogsToDefaultFile];
     handler.onCrash = onCrash;
     handler.userInfo = [NSDictionary dictionaryWithObjectsAndKeys:
                         @"\"quote\"", @"quoted value",
@@ -82,20 +82,12 @@ static void onCrash(const KSCrashReportWriter* writer)
 - (BOOL)application:(__unused UIApplication*) application didFinishLaunchingWithOptions:(__unused NSDictionary*) launchOptions
 {
     [self installCrashHandler];
-    self.crasher = as_autorelease([[Crasher alloc] init]);
+    self.crasher = [[Crasher alloc] init];
 
-    self.window = as_autorelease([[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]]);
+    self.window = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
     self.window.rootViewController = [self createRootViewController];
     [self.window makeKeyAndVisible];
     return YES;
-}
-
-- (void) dealloc
-{
-    as_release(_viewController);
-    as_release(_window);
-    as_release(_crasher);
-    as_superdealloc();
 }
 
 @end

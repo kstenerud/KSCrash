@@ -38,8 +38,12 @@ extern "C" {
 
 
 #include <stdbool.h>
-#include <sys/types.h>
+#include <stdint.h>
 
+/* Tells the encoder to automatically determine the length of a field value.
+ * Currently, this is done using strlen().
+ */
+#define KSJSON_SIZE_AUTOMATIC -1
 
 enum
 {
@@ -49,21 +53,24 @@ enum
     /** Encoding or decoding: Encountered an unexpected or invalid character */
     KSJSON_ERROR_INVALID_CHARACTER = 1,
 
+    /** Decoding: Source data was too long. */
+    KSJSON_ERROR_DATA_TOO_LONG = 2,
+
     /** Encoding: addJSONData could not handle the data.
      * This code is not used by the decoder, but is meant to be returned by
      * the addJSONData callback method if it couldn't handle the data.
      */
-    KSJSON_ERROR_CANNOT_ADD_DATA = 2,
+    KSJSON_ERROR_CANNOT_ADD_DATA = 3,
 
     /** Decoding: Source data appears to be truncated. */
-    KSJSON_ERROR_INCOMPLETE = 3,
+    KSJSON_ERROR_INCOMPLETE = 4,
 
     /** Decoding: Parsing failed due to bad data structure/type/contents.
      * This code is not used by the decoder, but is meant to be returned
      * by the user callback methods if the decoded data is incorrect for
      * semantic or structural reasons.
      */
-    KSJSON_ERROR_INVALID_DATA = 4,
+    KSJSON_ERROR_INVALID_DATA = 5,
 };
 
 /** Get a description for an error code.
@@ -90,9 +97,7 @@ const char* ksjson_stringForError(const int error);
  * @return KSJSON_OK if the data was handled.
  *         otherwise KSJSON_ERROR_CANNOT_ADD_DATA.
  */
-typedef int (*KSJSONAddDataFunc)(const char* data,
-size_t length,
-void* userData);
+typedef int (*KSJSONAddDataFunc)(const char* data, int length, void* userData);
 
 typedef struct
 {
@@ -163,7 +168,7 @@ int ksjson_addBooleanElement(KSJSONEncodeContext* context,
  */
 int ksjson_addIntegerElement(KSJSONEncodeContext* context,
                              const char* name,
-                             long long value);
+                             int64_t value);
 
 /** Add a floating point element.
  *
@@ -198,14 +203,14 @@ int ksjson_addNullElement(KSJSONEncodeContext* context,
  *
  * @param value The element's value.
  *
- * @param lengththe length of the string.
+ * @param length the length of the string, or KSJSON_SIZE_AUTOMATIC.
  *
  * @return KSJSON_OK if the process was successful.
  */
 int ksjson_addStringElement(KSJSONEncodeContext* context,
                             const char* name,
                             const char* value,
-                            size_t length);
+                            int length);
 
 /** Start an incrementally-built string element.
  *
@@ -232,7 +237,7 @@ int ksjson_beginStringElement(KSJSONEncodeContext* context,
  */
 int ksjson_appendStringElement(KSJSONEncodeContext* context,
                                const char* value,
-                               size_t length);
+                               int length);
 
 /** End an incrementally-built string element.
  *
@@ -250,14 +255,14 @@ int ksjson_endStringElement(KSJSONEncodeContext* context);
  *
  * @param value The element's value.
  *
- * @param lengththe length of the data.
+ * @param length The length of the data.
  *
  * @return KSJSON_OK if the process was successful.
  */
 int ksjson_addDataElement(KSJSONEncodeContext* const context,
                           const char* name,
                           const char* value,
-                          size_t length);
+                          int length);
 
 /** Start an incrementally-built data element. The element will be converted
  * to string-coded hex.
@@ -285,7 +290,7 @@ int ksjson_beginDataElement(KSJSONEncodeContext* const context,
  */
 int ksjson_appendDataElement(KSJSONEncodeContext* const context,
                              const char* const value,
-                             size_t length);
+                             int length);
 
 /** End an incrementally-built data element.
  *
@@ -297,20 +302,23 @@ int ksjson_endDataElement(KSJSONEncodeContext* const context);
 
 /** Add a pre-formatted JSON element.
  *
- * @param context The encoding context.
+ * @param encodeContext The encoding context.
  *
  * @param name The element's name.
  *
- * @param value The element's value. MUST BE VALID JSON!
+ * @param jsonData The element's value. MUST BE VALID JSON!
  *
- * @param length The length of the element.
+ * @param jsonDataLength The length of the element.
+ *
+ * @param closeLastContainer If false, do not close the last container.
  *
  * @return KSJSON_OK if the process was successful.
  */
-int ksjson_addJSONElement(KSJSONEncodeContext* context,
-                          const char* restrict name,
-                          const char* restrict value,
-                          size_t length);
+int ksjson_addJSONElement(KSJSONEncodeContext* const encodeContext,
+                          const char* restrict const name,
+                          const char* restrict const jsonData,
+                          const int jsonDataLength,
+                          const bool closeLastContainer);
 
 /** Begin a new object container.
  *
@@ -334,6 +342,32 @@ int ksjson_beginObject(KSJSONEncodeContext* context,
 int ksjson_beginArray(KSJSONEncodeContext* context,
                       const char* name);
 
+/** Begin a generic JSON element, adding any necessary JSON preamble text,
+ *  including commas and names.
+ *  Note: This does not add any object or array specifiers ('{', '[').
+ *
+ * @param context The JSON context.
+ *
+ * @param name The name of the next element (only needed if parent is a dictionary).
+ */
+int ksjson_beginElement(KSJSONEncodeContext* const context,
+                        const char* const name);
+
+/** Add JSON data manually.
+ * This function just passes your data directly through, even if it's malforned.
+ *
+ * @param context The encoding context.
+ *
+ * @param data The data to write.
+ *
+ * @param length The length of the data.
+ *
+ * @return KSJSON_OK if the process was successful.
+ */
+int ksjson_addRawJSONData(KSJSONEncodeContext* const context,
+                          const char* const data,
+                          const int length);
+
 /** End the current container and return to the next higher level.
  *
  * @param context The encoding context.
@@ -342,6 +376,20 @@ int ksjson_beginArray(KSJSONEncodeContext* context,
  */
 int ksjson_endContainer(KSJSONEncodeContext* context);
 
+/** Decode and add JSON data from a file.
+ *
+ * @param context The encoding context.
+ *
+ * @param name The name to give the top element from the file.
+ *
+ * @param filename The file to read from.
+ *
+ * @param closeLastContainer If false, do not close the last container.
+ */
+int ksjson_addJSONFromFile(KSJSONEncodeContext* const context,
+                           const char* restrict const name,
+                           const char* restrict const filename,
+                           const bool closeLastContainer);
 
 
 // ============================================================================
@@ -394,7 +442,7 @@ typedef struct KSJSONDecodeCallbacks
      * @return KSJSON_OK if decoding should continue.
      */
     int (*onIntegerElement)(const char* name,
-                            long long value,
+                            int64_t value,
                             void* userData);
 
     /** Called when a null element is decoded.
@@ -470,6 +518,11 @@ typedef struct KSJSONDecodeCallbacks
  *
  * @param length Length of the data.
  *
+ * @param stringBuffer A buffer to use for decoding strings.
+ *                     Note: 1/4 of this buffer will be used for dictionary name decoding.
+ *
+ * @param stringBufferLength The length of the string buffer.
+ *
  * @param callbacks The callbacks to call while decoding.
  *
  * @param userData Any data you would like passed to the callbacks.
@@ -480,10 +533,12 @@ typedef struct KSJSONDecodeCallbacks
  * @return KSJSON_OK if succesful. An error code otherwise.
  */
 int ksjson_decode(const char* data,
-                  size_t length,
+                  int length,
+                  char* stringBuffer,
+                  int stringBufferLength,
                   KSJSONDecodeCallbacks* callbacks,
                   void* userData,
-                  size_t* errorOffset);
+                  int* errorOffset);
 
 
 #ifdef __cplusplus

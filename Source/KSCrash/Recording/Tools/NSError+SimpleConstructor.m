@@ -26,12 +26,6 @@
 
 #import "NSError+SimpleConstructor.h"
 
-#if __has_feature(objc_arc)
-    #define as_autorelease(X)        (X)
-#else
-    #define as_autorelease(X)       [(X) autorelease]
-#endif
-
 
 @implementation NSError (SimpleConstructor)
 
@@ -40,8 +34,7 @@
     va_list args;
     va_start(args, fmt);
     
-    NSString* desc = as_autorelease([[NSString alloc] initWithFormat:fmt
-                                                           arguments:args]);
+    NSString* desc = [[NSString alloc] initWithFormat:fmt arguments:args];
     va_end(args);
     
     return [NSError errorWithDomain:domain
@@ -60,8 +53,7 @@
         va_list args;
         va_start(args, fmt);
         
-        NSString* desc = as_autorelease([[NSString alloc] initWithFormat:fmt
-                                                               arguments:args]);
+        NSString* desc = [[NSString alloc] initWithFormat:fmt arguments:args];
         va_end(args);
         
         *error = [NSError errorWithDomain:domain

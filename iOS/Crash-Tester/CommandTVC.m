@@ -5,7 +5,6 @@
 //
 
 #import "CommandTVC.h"
-#import "ARCSafe_MemMgmt.h"
 
 
 @implementation CommandEntry
@@ -18,9 +17,9 @@
                     accessoryType:(UITableViewCellAccessoryType) accessoryType
                             block:(void (^)(UIViewController* controller)) block
 {
-    return as_autorelease([[self alloc] initWithName:name
-                                       accessoryType:accessoryType
-                                               block:block]);
+    return [[self alloc] initWithName:name
+                        accessoryType:accessoryType
+                                block:block];
 }
 
 - (id) initWithName:(NSString*) name
@@ -34,13 +33,6 @@
         self.block = block;
     }
     return self;
-}
-
-- (void) dealloc
-{
-    as_release(_name);
-    as_release(_block);
-    as_superdealloc();
 }
 
 - (void) executeWithViewController:(UIViewController*) controller
@@ -69,13 +61,6 @@
         self.commands = [NSMutableArray array];
     }
     return self;
-}
-
-- (void) dealloc
-{
-    as_release(_commands);
-    as_release(_getTitleBlock);
-    as_superdealloc();
 }
 
 - (void) viewWillAppear:(BOOL)animated
@@ -111,8 +96,8 @@
     
     if(cell == nil)
     {
-        cell = as_autorelease([[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault
-                                                     reuseIdentifier:CellIdentifier]);
+        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault
+                                      reuseIdentifier:CellIdentifier];
     }
     CommandEntry* command = [self.commands objectAtIndex:(NSUInteger)indexPath.row];
     cell.textLabel.text = command.name;

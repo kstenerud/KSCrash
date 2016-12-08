@@ -37,11 +37,11 @@ extern "C" {
 #endif
 
 
-#include "KSCrashSentry.h"
+#include "KSCrashType.h"
+#include "KSCrashSentry_Context.h"
 #include "KSCrashReportWriter.h"
 #include "KSCrashState.h"
 
-#include <signal.h>
 #include <stdbool.h>
 
 typedef struct
@@ -57,7 +57,7 @@ typedef struct
      * Whenever a class in this list is encountered, only the class name will be recorded.
      */
     const char** restrictedClasses;
-    size_t restrictedClassesCount;
+    int restrictedClassesCount;
 } KSCrash_IntrospectionRules;
 
 typedef struct

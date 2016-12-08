@@ -76,6 +76,6 @@ typedef enum
 - (void) setReportStyle:(KSCrashEmailReportStyle)reportStyle
 useDefaultFilenameFormat:(BOOL) useDefaultFilenameFormat;
 
-+ (KSCrashInstallationEmail*) sharedInstance;
++ (instancetype) sharedInstance;
 
 @end

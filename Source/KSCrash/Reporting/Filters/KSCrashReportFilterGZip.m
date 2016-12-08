@@ -26,8 +26,6 @@
 
 
 #import "KSCrashReportFilterGZip.h"
-#import "ARCSafe_MemMgmt.h"
-#import "KSCrashCallCompletion.h"
 #import "NSData+GZip.h"
 
 
@@ -43,7 +41,7 @@
 
 + (KSCrashReportFilterGZipCompress*) filterWithCompressionLevel:(int) compressionLevel
 {
-    return as_autorelease([[self alloc] initWithCompressionLevel:compressionLevel]);
+    return [[self alloc] initWithCompressionLevel:compressionLevel];
 }
 
 - (id) initWithCompressionLevel:(int) compressionLevel
@@ -66,7 +64,7 @@
                                                                error:&error];
         if(compressedData == nil)
         {
-            kscrash_i_callCompletion(onCompletion, filteredReports, NO, error);
+            kscrash_callCompletion(onCompletion, filteredReports, NO, error);
             return;
         }
         else
@@ -75,7 +73,7 @@
         }
     }
 
-    kscrash_i_callCompletion(onCompletion, filteredReports, YES, nil);
+    kscrash_callCompletion(onCompletion, filteredReports, YES, nil);
 }
 
 @end
@@ -85,7 +83,7 @@
 
 + (KSCrashReportFilterGZipDecompress*) filter
 {
-    return as_autorelease([[self alloc] init]);
+    return [[self alloc] init];
 }
 
 - (void) filterReports:(NSArray*) reports
@@ -98,7 +96,7 @@
         NSData* decompressedData = [report gunzippedWithError:&error];
         if(decompressedData == nil)
         {
-            kscrash_i_callCompletion(onCompletion, filteredReports, NO, error);
+            kscrash_callCompletion(onCompletion, filteredReports, NO, error);
             return;
         }
         else
@@ -107,7 +105,7 @@
         }
     }
 
-    kscrash_i_callCompletion(onCompletion, filteredReports, YES, nil);
+    kscrash_callCompletion(onCompletion, filteredReports, YES, nil);
 }
 
 @end

@@ -157,16 +157,18 @@ extern "C" {
 
 #ifdef __OBJC__
 
+#import <CoreFoundation/CoreFoundation.h>
+
 void i_kslog_logObjC(const char* level,
                      const char* file,
                      int line,
                      const char* function,
-                     NSString* fmt, ...);
+                     CFStringRef fmt, ...);
 
-void i_kslog_logObjCBasic(NSString* fmt, ...);
+void i_kslog_logObjCBasic(CFStringRef fmt, ...);
 
-#define i_KSLOG_FULL i_kslog_logObjC
-#define i_KSLOG_BASIC i_kslog_logObjCBasic
+#define i_KSLOG_FULL(LEVEL,FILE,LINE,FUNCTION,FMT,...) i_kslog_logObjC(LEVEL,FILE,LINE,FUNCTION,(__bridge CFStringRef)FMT,##__VA_ARGS__)
+#define i_KSLOG_BASIC(FMT, ...) i_kslog_logObjCBasic((__bridge CFStringRef)FMT,##__VA_ARGS__)
 
 #else // __OBJC__
 

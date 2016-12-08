@@ -27,8 +27,6 @@
 
 #import "KSCrashReportSinkStandard.h"
 
-#import "ARCSafe_MemMgmt.h"
-#import "KSCrashCallCompletion.h"
 #import "KSHTTPMultipartPostBody.h"
 #import "KSHTTPRequestSender.h"
 #import "NSData+GZip.h"
@@ -57,7 +55,7 @@
 
 + (KSCrashReportSinkStandard*) sinkWithURL:(NSURL*) url
 {
-    return as_autorelease([[self alloc] initWithURL:url]);
+    return [[self alloc] initWithURL:url];
 }
 
 - (id) initWithURL:(NSURL*) url
@@ -67,13 +65,6 @@
         self.url = url;
     }
     return self;
-}
-
-- (void) dealloc
-{
-    as_release(_reachableOperation);
-    as_release(_url);
-    as_superdealloc();
 }
 
 - (id <KSCrashReportFilter>) defaultCrashReportFilterSet
@@ -94,7 +85,7 @@
                                      error:&error];
     if(jsonData == nil)
     {
-        kscrash_i_callCompletion(onCompletion, reports, NO, error);
+        kscrash_callCompletion(onCompletion, reports, NO, error);
         return;
     }
 
@@ -124,18 +115,17 @@
         [[KSHTTPRequestSender sender] sendRequest:request
                                         onSuccess:^(__unused NSHTTPURLResponse* response, __unused NSData* data)
          {
-             kscrash_i_callCompletion(onCompletion, reports, YES, nil);
+             kscrash_callCompletion(onCompletion, reports, YES, nil);
          } onFailure:^(NSHTTPURLResponse* response, NSData* data)
          {
-             NSString* text = as_autorelease([[NSString alloc] initWithData:data
-                                                                   encoding:NSUTF8StringEncoding]);
-             kscrash_i_callCompletion(onCompletion, reports, NO,
+             NSString* text = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+             kscrash_callCompletion(onCompletion, reports, NO,
                                       [NSError errorWithDomain:[[self class] description]
                                                           code:response.statusCode
                                                    description:text]);
          } onError:^(NSError* error2)
          {
-             kscrash_i_callCompletion(onCompletion, reports, NO, error2);
+             kscrash_callCompletion(onCompletion, reports, NO, error2);
          }];
     }];
 }

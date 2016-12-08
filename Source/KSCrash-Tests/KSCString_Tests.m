@@ -41,13 +41,13 @@
     KSCString* actual = [KSCString stringWithString:expected];
     BOOL matches = strcmp([expected cStringUsingEncoding:NSUTF8StringEncoding], actual.bytes) == 0;
     XCTAssertTrue(matches, @"");
-    XCTAssertEqual(actual.length, (size_t)[expected length], @"");
+    XCTAssertEqual(actual.length, expected.length, @"");
 }
 
 - (void) testCString
 {
     const char* expected = "Expected";
-    size_t expectedLength = strlen(expected);
+    NSUInteger expectedLength = strlen(expected);
     KSCString* actual = [KSCString stringWithCString:expected];
     BOOL matches = strcmp(expected, actual.bytes) == 0;
     XCTAssertTrue(matches, @"");
@@ -57,7 +57,7 @@
 - (void) testNSData
 {
     const char* expected = "Expected";
-    size_t expectedLength = strlen(expected);
+    NSUInteger expectedLength = strlen(expected);
     NSData* source = [NSData dataWithBytes:expected length:expectedLength];
     KSCString* actual = [KSCString stringWithData:source];
     BOOL matches = strcmp(expected, actual.bytes) == 0;
@@ -68,7 +68,7 @@
 - (void) testData
 {
     const char* expected = "Expected";
-    size_t expectedLength = strlen(expected);
+    NSUInteger expectedLength = strlen(expected);
     KSCString* actual = [KSCString stringWithData:expected length:expectedLength];
     BOOL matches = strcmp(expected, actual.bytes) == 0;
     XCTAssertTrue(matches, @"");

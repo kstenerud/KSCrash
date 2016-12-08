@@ -6,6 +6,7 @@
 #import "AppDelegate.h"
 
 #import <KSCrash/KSCrash.h> // TODO: Remove this
+#import <KSCrash/KSCrashInstallation+Alert.h>
 #import <KSCrash/KSCrashInstallationStandard.h>
 #import <KSCrash/KSCrashInstallationQuincyHockey.h>
 #import <KSCrash/KSCrashInstallationEmail.h>

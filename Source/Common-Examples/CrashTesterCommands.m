@@ -8,9 +8,8 @@
 
 #import "CrashTesterCommands.h"
 #import "Configuration.h"
-#import "ARCSafe_MemMgmt.h"
 
-#import <KSCrash/KSCrashAdvanced.h>
+#import <KSCrash/KSCrash.h>
 #import <KSCrash/KSCrashReportFilterSets.h>
 #import <KSCrash/KSCrashReportFilter.h>
 #import <KSCrash/KSCrashReportFilterAppleFmt.h>
@@ -43,15 +42,15 @@
 {
     va_list args;
     va_start(args, fmt);
-    NSString* message = as_autorelease([[NSString alloc] initWithFormat:fmt arguments:args]);
+    NSString* message = [[NSString alloc] initWithFormat:fmt arguments:args];
     va_end(args);
 
 #ifdef __IPHONE_OS_VERSION_MAX_ALLOWED
-    [as_autorelease([[UIAlertView alloc] initWithTitle:title
-                                               message:message
-                                              delegate:nil
-                                     cancelButtonTitle:@"OK"
-                                     otherButtonTitles:nil]) show];
+    [[[UIAlertView alloc] initWithTitle:title
+                                message:message
+                               delegate:nil
+                      cancelButtonTitle:@"OK"
+                      otherButtonTitles:nil] show];
 #else
     NSAlert *alert = [[NSAlert alloc] init];
     [alert addButtonWithTitle:@"OK"];
