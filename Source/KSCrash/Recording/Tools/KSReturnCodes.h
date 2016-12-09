@@ -1,9 +1,7 @@
 //
-//  ksmemory_Tests.m
+//  KSReturnCodes.h
 //
-//  Created by Karl Stenerud on 2012-03-03.
-//
-//  Copyright (c) 2012 Karl Stenerud. All rights reserved.
+// Copyright 2016 Karl Stenerud.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -24,20 +22,36 @@
 // THE SOFTWARE.
 //
 
+#ifndef HDR_KSReturnCodes_h
+#define HDR_KSReturnCodes_h
 
-#import <XCTest/XCTest.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-#import "KSDebug.h"
+#include <stdint.h>
+    
+    /** Get the name of a mach exception.
+     *
+     * @param exceptionType The exception type.
+     *
+     * @return The exception's name or NULL if not found.
+     */
+    const char* ksrc_exceptionName(int64_t exceptionType);
+    
+    /** Get the name of a mach kernel return code.
+     *
+     * @param returnCode The return code.
+     *
+     * @return The code's name or NULL if not found.
+     */
+    const char* ksmemory_kernelReturnCodeName(int64_t returnCode);
+    
 
-
-@interface KSDebug_Tests : XCTestCase @end
-
-@implementation KSDebug_Tests
-
-- (void) testIsBeingTraced
-{
-    bool traced = ksdebug_isBeingTraced();
-    XCTAssertTrue(traced, @"");
+    
+    
+#ifdef __cplusplus
 }
+#endif
 
-@end
+#endif // HDR_KSReturnCodes_h

@@ -34,7 +34,8 @@
 #include "KSFileUtils.h"
 #include "KSJSONCodec.h"
 #include "KSCPU.h"
-#include "KSMach.h"
+#include "KSMemory.h"
+#include "KSReturnCodes.h"
 #include "KSThread.h"
 #include "KSObjC.h"
 #include "KSSignalInfo.h"
@@ -397,7 +398,7 @@ static bool isValidString(const void* const address)
         // Wrapped around the address range.
         return false;
     }
-    if(ksmach_copyMem(address, buffer, sizeof(buffer)) != KERN_SUCCESS)
+    if(!ksmem_copySafely(address, buffer, sizeof(buffer)))
     {
         return false;
     }
@@ -478,8 +479,8 @@ static void logCrashType(const KSCrash_SentryContext* const sentryContext)
         {
             int machExceptionType = sentryContext->mach.type;
             kern_return_t machCode = (kern_return_t)sentryContext->mach.code;
-            const char* machExceptionName = ksmach_exceptionName(machExceptionType);
-            const char* machCodeName = machCode == 0 ? NULL : ksmach_kernelReturnCodeName(machCode);
+            const char* machExceptionName = ksrc_exceptionName(machExceptionType);
+            const char* machCodeName = machCode == 0 ? NULL : ksmemory_kernelReturnCodeName(machCode);
             KSLOGBASIC_INFO("App crashed due to mach exception: [%s: %s] at %p",
                             machExceptionName, machCodeName, sentryContext->faultAddress);
             break;
@@ -1150,7 +1151,7 @@ static void writeStackContents(const KSCrashReportWriter* const writer,
         writer->addBooleanElement(writer, KSCrashField_Overflow, isStackOverflow);
         uint8_t stackBuffer[kStackContentsTotalDistance * sizeof(sp)];
         int copyLength = (int)(highAddress - lowAddress);
-        if(ksmach_copyMem((void*)lowAddress, stackBuffer, copyLength) == KERN_SUCCESS)
+        if(ksmem_copySafely((void*)lowAddress, stackBuffer, copyLength))
         {
             writer->addDataElement(writer, KSCrashField_Contents, (void*)stackBuffer, copyLength);
         }
@@ -1195,7 +1196,7 @@ static void writeNotableStackContents(const KSCrashReportWriter* const writer,
     char nameBuffer[40];
     for(uintptr_t address = lowAddress; address < highAddress; address += sizeof(address))
     {
-        if(ksmach_copyMem((void*)address, &contentsAsPointer, sizeof(contentsAsPointer)) == KERN_SUCCESS)
+        if(ksmem_copySafely((void*)address, &contentsAsPointer, sizeof(contentsAsPointer)))
         {
             sprintf(nameBuffer, "stack@%p", (void*)address);
             writeMemoryContentsIfNotable(writer, nameBuffer, contentsAsPointer);
@@ -1573,8 +1574,8 @@ static void writeMemoryInfo(const KSCrashReportWriter* const writer, const char*
 {
     writer->beginObject(writer, key);
     {
-        writer->addUIntegerElement(writer, KSCrashField_Usable, ksmach_usableMemory());
-        writer->addUIntegerElement(writer, KSCrashField_Free, ksmach_freeMemory());
+        writer->addUIntegerElement(writer, KSCrashField_Usable, ksmem_usableMemory());
+        writer->addUIntegerElement(writer, KSCrashField_Free, ksmem_freeMemory());
     }
     writer->endContainer(writer);
 }
@@ -1642,8 +1643,8 @@ static void writeError(const KSCrashReportWriter* const writer,
             break;
     }
 
-    const char* machExceptionName = ksmach_exceptionName(machExceptionType);
-    const char* machCodeName = machCode == 0 ? NULL : ksmach_kernelReturnCodeName(machCode);
+    const char* machExceptionName = ksrc_exceptionName(machExceptionType);
+    const char* machCodeName = machCode == 0 ? NULL : ksmemory_kernelReturnCodeName(machCode);
     const char* sigName = kssignal_signalName(sigNum);
     const char* sigCodeName = kssignal_signalCodeName(sigNum, sigCode);
 

@@ -1,5 +1,5 @@
 //
-//  KSMach_Tests.m
+//  ksmemory_Tests.m
 //
 //  Created by Karl Stenerud on 2012-03-03.
 //
@@ -27,51 +27,23 @@
 
 #import <XCTest/XCTest.h>
 
-#import "KSMach.h"
+#import "KSMemory.h"
 #import "TestThread.h"
 
 
-@interface KSMach_Tests : XCTestCase @end
+@interface KSMemory_Tests : XCTestCase @end
 
-@implementation KSMach_Tests
-
-- (void) testExceptionName
-{
-    NSString* expected = @"EXC_ARITHMETIC";
-    NSString* actual = [NSString stringWithCString:ksmach_exceptionName(EXC_ARITHMETIC)
-                                          encoding:NSUTF8StringEncoding];
-    XCTAssertEqualObjects(actual, expected, @"");
-}
-
-- (void) testVeryHighExceptionName
-{
-    const char* result = ksmach_exceptionName(100000);
-    XCTAssertTrue(result == NULL, @"");
-}
-
-- (void) testKernReturnCodeName
-{
-    NSString* expected = @"KERN_FAILURE";
-    NSString* actual = [NSString stringWithCString:ksmach_kernelReturnCodeName(KERN_FAILURE)
-                                          encoding:NSUTF8StringEncoding];
-    XCTAssertEqualObjects(actual, expected, @"");
-}
-
-- (void) testVeryHighKernReturnCodeName
-{
-    const char* result = ksmach_kernelReturnCodeName(100000);
-    XCTAssertTrue(result == NULL, @"");
-}
+@implementation KSMemory_Tests
 
 - (void) testFreeMemory
 {
-    uint64_t freeMem = ksmach_freeMemory();
+    uint64_t freeMem = ksmem_freeMemory();
     XCTAssertTrue(freeMem > 0, @"");
 }
 
 - (void) testUsableMemory
 {
-    uint64_t usableMem = ksmach_usableMemory();
+    uint64_t usableMem = ksmem_usableMemory();
     XCTAssertTrue(usableMem > 0, @"");
 }
 
@@ -80,8 +52,8 @@
     char buff[100];
     char buff2[100] = {1,2,3,4,5};
     
-    kern_return_t result = ksmach_copyMem(buff2, buff, sizeof(buff));
-    XCTAssertEqual(result, KERN_SUCCESS, @"");
+    bool result = ksmem_copySafely(buff2, buff, sizeof(buff));
+    XCTAssertTrue(result, @"");
     int memCmpResult = memcmp(buff, buff2, sizeof(buff));
     XCTAssertEqual(memCmpResult, 0, @"");
 }
@@ -91,8 +63,8 @@
     char buff[100];
     char* buff2 = NULL;
     
-    kern_return_t result = ksmach_copyMem(buff2, buff, sizeof(buff));
-    XCTAssertTrue(result != KERN_SUCCESS, @"");
+    bool result = ksmem_copySafely(buff2, buff, sizeof(buff));
+    XCTAssertFalse(result, @"");
 }
 
 - (void) testCopyMemBad
@@ -100,8 +72,8 @@
     char buff[100];
     char* buff2 = (char*)-1;
     
-    kern_return_t result = ksmach_copyMem(buff2, buff, sizeof(buff));
-    XCTAssertTrue(result != KERN_SUCCESS, @"");
+    bool result = ksmem_copySafely(buff2, buff, sizeof(buff));
+    XCTAssertFalse(result, @"");
 }
 
 - (void) testCopyMaxPossibleMem
@@ -109,7 +81,7 @@
     char buff[1000];
     char buff2[5] = {1,2,3,4,5};
     
-    int copied = ksmach_copyMaxPossibleMem(buff2, buff, sizeof(buff));
+    int copied = ksmem_copyMaxPossible(buff2, buff, sizeof(buff));
     XCTAssertTrue(copied >= 5, @"");
     int memCmpResult = memcmp(buff, buff2, sizeof(buff2));
     XCTAssertEqual(memCmpResult, 0, @"");
@@ -120,7 +92,7 @@
     char buff[1000];
     char* buff2 = NULL;
     
-    int copied = ksmach_copyMaxPossibleMem(buff2, buff, sizeof(buff));
+    int copied = ksmem_copyMaxPossible(buff2, buff, sizeof(buff));
     XCTAssertTrue(copied == 0, @"");
 }
 
@@ -129,7 +101,7 @@
     char buff[1000];
     char* buff2 = (char*)-1;
     
-    int copied = ksmach_copyMaxPossibleMem(buff2, buff, sizeof(buff));
+    int copied = ksmem_copyMaxPossible(buff2, buff, sizeof(buff));
     XCTAssertTrue(copied == 0, @"");
 }
 

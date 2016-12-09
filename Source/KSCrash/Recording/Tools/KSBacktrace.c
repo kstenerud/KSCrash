@@ -29,7 +29,7 @@
 
 #include "KSCPU.h"
 #include "KSDynamicLinker.h"
-#include "KSMach.h"
+#include "KSMemory.h"
 
 
 /** Point at which ksbt_backtraceLength() will give up trying to count.
@@ -88,14 +88,14 @@ int ksbt_backtraceLength(const KSMachineContext context)
     KSFrameEntry frame = {0};
     const uintptr_t framePtr = kscpu_framePointer(context);
     if(framePtr == 0 ||
-       ksmach_copyMem((void*)framePtr, &frame, sizeof(frame)) != KERN_SUCCESS)
+       !ksmem_copySafely((void*)framePtr, &frame, sizeof(frame)))
     {
         return 1;
     }
     for(int i = 1; i < kBacktraceGiveUpPoint; i++)
     {
         if(frame.previous == 0 ||
-           ksmach_copyMem(frame.previous, &frame, sizeof(frame)) != KERN_SUCCESS)
+           !ksmem_copySafely(frame.previous, &frame, sizeof(frame)))
         {
             return i;
         }
@@ -110,20 +110,20 @@ bool ksbt_isBacktraceTooLong(const KSMachineContext context, int maxLength)
 
     if(instructionAddress == 0)
     {
-        return 0;
+        return false;
     }
 
     KSFrameEntry frame = {0};
     const uintptr_t framePtr = kscpu_framePointer(context);
     if(framePtr == 0 ||
-       ksmach_copyMem((void*)framePtr, &frame, sizeof(frame)) != KERN_SUCCESS)
+       !ksmem_copySafely((void*)framePtr, &frame, sizeof(frame)))
     {
-        return 1;
+        return false;
     }
     for(int i = 1; i < maxLength; i++)
     {
         if(frame.previous == 0 ||
-           ksmach_copyMem(frame.previous, &frame, sizeof(frame)) != KERN_SUCCESS)
+           !ksmem_copySafely(frame.previous, &frame, sizeof(frame)))
         {
             return false;
         }
@@ -176,14 +176,14 @@ int ksbt_backtrace(const KSMachineContext context,
 
     const uintptr_t framePtr = kscpu_framePointer(context);
     if(framePtr == 0 ||
-       ksmach_copyMem((void*)framePtr, &frame, sizeof(frame)) != KERN_SUCCESS)
+       !ksmem_copySafely((void*)framePtr, &frame, sizeof(frame)))
     {
         return 0;
     }
     for(int j = 1; j < skipEntries; j++)
     {
         if(frame.previous == 0 ||
-           ksmach_copyMem(frame.previous, &frame, sizeof(frame)) != KERN_SUCCESS)
+           !ksmem_copySafely(frame.previous, &frame, sizeof(frame)))
         {
             return 0;
         }
@@ -194,7 +194,7 @@ int ksbt_backtrace(const KSMachineContext context,
         backtraceBuffer[i] = frame.return_address;
         if(backtraceBuffer[i] == 0 ||
            frame.previous == 0 ||
-           ksmach_copyMem(frame.previous, &frame, sizeof(frame)) != KERN_SUCCESS)
+           !ksmem_copySafely(frame.previous, &frame, sizeof(frame)))
         {
             break;
         }

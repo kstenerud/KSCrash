@@ -14,7 +14,7 @@
 //
 
 // This file contains structures and constants copied from Apple header
-// files, arranged for use in KSMach.
+// files, arranged for use in KSMemory.
 
 #ifndef HDR_KSMachApple_h
 #define HDR_KSMachApple_h

@@ -25,11 +25,10 @@
 //
 
 #import "KSCrashSentry_Deadlock.h"
-#include "KSCrashSentry_Context.h"
+#import "KSCrashSentry_Context.h"
 #import "KSCrashSentry_Private.h"
 #import "KSThread.h"
 #import <Foundation/Foundation.h>
-#include <mach/mach_types.h>
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -68,7 +67,7 @@ static NSTimeInterval g_watchdogInterval = 0;
 @interface KSCrashDeadlockMonitor: NSObject
 
 @property(nonatomic, readwrite, retain) NSThread* monitorThread;
-@property(nonatomic, readwrite, assign) thread_t mainThread;
+@property(nonatomic, readwrite, assign) KSThread mainThread;
 @property(atomic, readwrite, assign) BOOL awaitingResponse;
 
 @end
@@ -90,7 +89,7 @@ static NSTimeInterval g_watchdogInterval = 0;
 
         dispatch_async(dispatch_get_main_queue(), ^
         {
-            self.mainThread = (thread_t)ksthread_self();
+            self.mainThread = ksthread_self();
         });
     }
     return self;

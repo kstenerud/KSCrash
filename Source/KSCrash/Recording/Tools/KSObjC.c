@@ -28,7 +28,7 @@
 #include "KSObjC.h"
 #include "KSObjCApple.h"
 
-#include "KSMach.h"
+#include "KSMemory.h"
 #include "KSString.h"
 #include "KSDynamicLinker.h"
 
@@ -208,7 +208,7 @@ static inline bool isValidObject(const void* object)
     }
 
     struct class_t data;
-    return ksmach_copyMem(object, &data, sizeof(data)) == KERN_SUCCESS;
+    return ksmem_copySafely(object, &data, sizeof(data));
 }
 
 static inline bool hasValidISAPointer(const void* object)
@@ -217,7 +217,7 @@ static inline bool hasValidISAPointer(const void* object)
     const struct class_t* ptr = object;
     const void* isaPtr = decodeIsaPointer(ptr->isa);
     struct class_t data;
-    return ksmach_copyMem(isaPtr, &data, sizeof(data)) == KERN_SUCCESS;
+    return ksmem_copySafely(isaPtr, &data, sizeof(data));
 }
 
 const void* getIsaPointer(const void* const objectOrClassPtr)
@@ -492,7 +492,7 @@ static bool isValidName(const char* const name, const int maxLength)
     }
 
     char buffer[maxLength];
-    int length = ksmach_copyMaxPossibleMem(name, buffer, maxLength);
+    int length = ksmem_copyMaxPossible(name, buffer, maxLength);
     if(length == 0 || !VALID_NAME_START_CHAR(name[0]))
     {
         return false;
@@ -522,7 +522,7 @@ static bool isValidIvarType(const char* const type)
         return false;
     }
 
-    int length = ksmach_copyMaxPossibleMem(type, buffer, maxLength);
+    int length = ksmem_copyMaxPossible(type, buffer, maxLength);
     if(length == 0 || !VALID_TYPE_CHAR(type[0]))
     {
         return false;
@@ -545,15 +545,15 @@ static bool containsValidROData(const void* const classPtr)
     struct class_t class;
     struct class_rw_t rw;
     struct class_ro_t ro;
-    if(ksmach_copyMem(classPtr, &class, sizeof(class)) != KERN_SUCCESS)
+    if(!ksmem_copySafely(classPtr, &class, sizeof(class)))
     {
         return false;
     }
-    if(ksmach_copyMem(getClassRW(&class), &rw, sizeof(rw)) != KERN_SUCCESS)
+    if(!ksmem_copySafely(getClassRW(&class), &rw, sizeof(rw)))
     {
         return false;
     }
-    if(ksmach_copyMem(rw.ro, &ro, sizeof(ro)) != KERN_SUCCESS)
+    if(!ksmem_copySafely(rw.ro, &ro, sizeof(ro)))
     {
         return false;
     }
@@ -570,7 +570,7 @@ static bool containsValidIvarData(const void* const classPtr)
     }
     
     struct ivar_list_t ivarsBuffer;
-    if(ksmach_copyMem(ivars, &ivarsBuffer, sizeof(ivarsBuffer)) != KERN_SUCCESS)
+    if(!ksmem_copySafely(ivars, &ivarsBuffer, sizeof(ivarsBuffer)))
     {
         return false;
     }
@@ -581,12 +581,12 @@ static bool containsValidIvarData(const void* const classPtr)
         uint8_t* ivarPtr = (uint8_t*)(&ivars->first) + ivars->entsizeAndFlags;
         for(uint32_t i = 1; i < ivarsBuffer.count; i++)
         {
-            if(ksmach_copyMem(ivarPtr, &ivar, sizeof(ivar)) != KERN_SUCCESS)
+            if(!ksmem_copySafely(ivarPtr, &ivar, sizeof(ivar)))
             {
                 return false;
             }
             uintptr_t offset;
-            if(ksmach_copyMem(ivar.offset, &offset, sizeof(offset)) != KERN_SUCCESS)
+            if(!ksmem_copySafely(ivar.offset, &offset, sizeof(offset)))
             {
                 return false;
             }
@@ -813,7 +813,7 @@ bool ksobjc_ivarValue(const void* const objectPtr, int ivarIndex, void* dst)
     const struct ivar_t* ivar = (void*)(ivarPtr + ivars->entsizeAndFlags * (unsigned)ivarIndex);
     
     uintptr_t valuePtr = (uintptr_t)objectPtr + (uintptr_t)*ivar->offset;
-    if(ksmach_copyMem((void*)valuePtr, dst, (int)ivar->size) != KERN_SUCCESS)
+    if(!ksmem_copySafely((void*)valuePtr, dst, (int)ivar->size))
     {
         return false;
     }
@@ -945,14 +945,14 @@ static bool stringIsValid(const void* const stringPtr)
     struct __CFString temp;
     uint8_t oneByte;
     CFIndex length = -1;
-    if(ksmach_copyMem(string, &temp, sizeof(string->base)) != KERN_SUCCESS)
+    if(!ksmem_copySafely(string, &temp, sizeof(string->base)))
     {
         return false;
     }
     
     if(__CFStrIsInline(string))
     {
-        if(ksmach_copyMem(&string->variants.inline1, &temp, sizeof(string->variants.inline1)) != KERN_SUCCESS)
+        if(!ksmem_copySafely(&string->variants.inline1, &temp, sizeof(string->variants.inline1)))
         {
             return false;
         }
@@ -960,7 +960,7 @@ static bool stringIsValid(const void* const stringPtr)
     }
     else if(__CFStrIsMutable(string))
     {
-        if(ksmach_copyMem(&string->variants.notInlineMutable, &temp, sizeof(string->variants.notInlineMutable)) != KERN_SUCCESS)
+        if(!ksmem_copySafely(&string->variants.notInlineMutable, &temp, sizeof(string->variants.notInlineMutable)))
         {
             return false;
         }
@@ -968,7 +968,7 @@ static bool stringIsValid(const void* const stringPtr)
     }
     else if(!__CFStrHasLengthByte(string))
     {
-        if(ksmach_copyMem(&string->variants.notInlineImmutable1, &temp, sizeof(string->variants.notInlineImmutable1)) != KERN_SUCCESS)
+        if(!ksmem_copySafely(&string->variants.notInlineImmutable1, &temp, sizeof(string->variants.notInlineImmutable1)))
         {
             return false;
         }
@@ -976,11 +976,11 @@ static bool stringIsValid(const void* const stringPtr)
     }
     else
     {
-        if(ksmach_copyMem(&string->variants.notInlineImmutable2, &temp, sizeof(string->variants.notInlineImmutable2)) != KERN_SUCCESS)
+        if(!ksmem_copySafely(&string->variants.notInlineImmutable2, &temp, sizeof(string->variants.notInlineImmutable2)))
         {
             return false;
         }
-        if(ksmach_copyMem(__CFStrContents(string), &oneByte, sizeof(oneByte)) != KERN_SUCCESS)
+        if(!ksmem_copySafely(__CFStrContents(string), &oneByte, sizeof(oneByte)))
         {
             return false;
         }
@@ -993,7 +993,7 @@ static bool stringIsValid(const void* const stringPtr)
     }
     else if(length > 0)
     {
-        if(ksmach_copyMem(stringStart(string), &oneByte, sizeof(oneByte)) != KERN_SUCCESS)
+        if(!ksmem_copySafely(stringStart(string), &oneByte, sizeof(oneByte)))
         {
             return false;
         }
@@ -1144,7 +1144,7 @@ static int copy8BitString(const void* const src, void* const dst, int charCount,
     {
         charCount = maxByteCount - 1;
     }
-    unlikely_if(ksmach_copyMem(src, dst, charCount) != KERN_SUCCESS)
+    unlikely_if(!ksmem_copySafely(src, dst, charCount))
     {
         *((uint8_t*)dst) = 0;
         return 0;
@@ -1203,7 +1203,7 @@ static int taggedStringDescription(const void* object, char* buffer, __unused in
 static bool urlIsValid(const void* const urlPtr)
 {
     struct __CFURL url;
-    if(ksmach_copyMem(urlPtr, &url, sizeof(url)) != KERN_SUCCESS)
+    if(!ksmem_copySafely(urlPtr, &url, sizeof(url)))
     {
         return false;
     }
@@ -1237,7 +1237,7 @@ static int urlDescription(const void* object, char* buffer, int bufferLength)
 static bool dateIsValid(const void* const datePtr)
 {
     struct __CFDate temp;
-    return ksmach_copyMem(datePtr, &temp, sizeof(temp)) == KERN_SUCCESS;
+    return ksmem_copySafely(datePtr, &temp, sizeof(temp));
 }
 
 CFAbsoluteTime ksobjc_dateContents(const void* const datePtr)
@@ -1340,7 +1340,7 @@ bool ksobjc_numberIsFloat(const void* object)
 static bool numberIsValid(const void* const datePtr)
 {
     struct __CFNumber temp;
-    return ksmach_copyMem(datePtr, &temp, sizeof(temp)) == KERN_SUCCESS;
+    return ksmem_copySafely(datePtr, &temp, sizeof(temp));
 }
 
 static int numberDescription(const void* object, char* buffer, int bufferLength)
@@ -1404,11 +1404,7 @@ static inline bool nsarrayIsMutable(const void* const arrayPtr)
 static inline bool nsarrayIsValid(const void* const arrayPtr)
 {
     struct NSArray temp;
-    if(ksmach_copyMem(arrayPtr, &temp, sizeof(temp.basic)) != KERN_SUCCESS)
-    {
-        return false;
-    }
-    return true;
+    return ksmem_copySafely(arrayPtr, &temp, sizeof(temp.basic));
 }
 
 static inline int nsarrayCount(const void* const arrayPtr)
@@ -1435,7 +1431,7 @@ static int nsarrayContents(const void* const arrayPtr, uintptr_t* contents, int 
         return 0;
     }
     
-    if(ksmach_copyMem(&array->basic.firstEntry, contents, (int)sizeof(*contents) * count) != KERN_SUCCESS)
+    if(!ksmem_copySafely(&array->basic.firstEntry, contents, (int)sizeof(*contents) * count))
     {
         return 0;
     }
@@ -1446,7 +1442,7 @@ static int nsarrayContents(const void* const arrayPtr, uintptr_t* contents, int 
 static inline bool cfarrayIsValid(const void* const arrayPtr)
 {
     struct __CFArray temp;
-    if(ksmach_copyMem(arrayPtr, &temp, sizeof(temp)) != KERN_SUCCESS)
+    if(!ksmem_copySafely(arrayPtr, &temp, sizeof(temp)))
     {
         return false;
     }
@@ -1456,7 +1452,7 @@ static inline bool cfarrayIsValid(const void* const arrayPtr)
         if(array->_store != NULL)
         {
             struct __CFArrayDeque deque;
-            if(ksmach_copyMem(array->_store, &deque, sizeof(deque)) != KERN_SUCCESS)
+            if(!ksmem_copySafely(array->_store, &deque, sizeof(deque)))
             {
                 return false;
             }
@@ -1489,7 +1485,7 @@ static int cfarrayContents(const void* const arrayPtr, uintptr_t* contents, int 
     }
     
     const void* firstEntry = cfarrayData(array);
-    if(ksmach_copyMem(firstEntry, contents, (int)sizeof(*contents) * count) != KERN_SUCCESS)
+    if(!ksmem_copySafely(firstEntry, contents, (int)sizeof(*contents) * count))
     {
         return 0;
     }
@@ -1563,8 +1559,7 @@ bool ksobjc_dictionaryFirstEntry(const void* dict, uintptr_t* key, uintptr_t* va
 
     // Ensure memory is valid.
     struct __CFBasicHash copy;
-    kern_return_t kr = KERN_SUCCESS;
-    if((kr = ksmach_copyMem(dict, &copy, sizeof(copy))) != KERN_SUCCESS)
+    if(!ksmem_copySafely(dict, &copy, sizeof(copy)))
     {
         return false;
     }
@@ -1574,50 +1569,47 @@ bool ksobjc_dictionaryFirstEntry(const void* dict, uintptr_t* key, uintptr_t* va
     uintptr_t* values = (uintptr_t*)ht->pointers;
     
     // Dereference key and value pointers.
-    if((kr = ksmach_copyMem(keys, &keys, sizeof(keys))) != KERN_SUCCESS)
+    if(!ksmem_copySafely(keys, &keys, sizeof(keys)))
     {
         return false;
     }
     
-    if((kr = ksmach_copyMem(values, &values, sizeof(values))) != KERN_SUCCESS)
+    if(!ksmem_copySafely(values, &values, sizeof(values)))
     {
         return false;
     }
     
     // Copy to destination.
-    if((kr = ksmach_copyMem(keys, key, sizeof(*key))) != KERN_SUCCESS)
+    if(!ksmem_copySafely(keys, key, sizeof(*key)))
     {
         return false;
     }
-    if((kr = ksmach_copyMem(values, value, sizeof(*value))) != KERN_SUCCESS)
+    if(!ksmem_copySafely(values, value, sizeof(*value)))
     {
         return false;
     }
     return true;
 }
 
-//kern_return_t ksobjc_dictionaryContents(const void* dict, uintptr_t* keys, uintptr_t* values, CFIndex* count)
+//bool ksobjc_dictionaryContents(const void* dict, uintptr_t* keys, uintptr_t* values, CFIndex* count)
 //{
 //    struct CFBasicHash copy;
 //    void* pointers[100];
 //
-//    kern_return_t kr = KERN_SUCCESS;
-//    if((kr = ksmach_copyMem(dict, &copy, sizeof(copy))) != KERN_SUCCESS)
+//    if(!ksmem_copySafely(dict, &copy, sizeof(copy)))
 //    {
-//        return kr;
+//        return false;
 //    }
 //
 //    struct CFBasicHash* ht = (struct CFBasicHash*)dict;
 //    int values_offset = 0;
 //    int keys_offset = copy.bits.keys_offset;
-//    if((kr = ksmach_copyMem(&ht->pointers, pointers, sizeof(*pointers) * keys_offset)) != KERN_SUCCESS)
+//    if(!ksmem_copySafely(&ht->pointers, pointers, sizeof(*pointers) * keys_offset))
 //    {
-//        return kr;
+//        return false;
 //    }
 //
-//
-//
-//    return kr;
+//    return true;
 //}
 
 int ksobjc_dictionaryCount(const void* dict)

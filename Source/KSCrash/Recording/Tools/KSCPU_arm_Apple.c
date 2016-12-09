@@ -1,5 +1,5 @@
 //
-//  KSMach_Arm.c
+//  KSCPU_arm.c
 //
 //  Created by Karl Stenerud on 2012-01-29.
 //

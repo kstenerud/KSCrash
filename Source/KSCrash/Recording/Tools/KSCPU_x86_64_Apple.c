@@ -1,5 +1,5 @@
 //
-//  KSMach_x86_64.c
+//  KSCPU_x86_64.c
 //
 //  Created by Karl Stenerud on 2012-01-29.
 //

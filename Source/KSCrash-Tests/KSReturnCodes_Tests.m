@@ -1,5 +1,5 @@
 //
-//  ksmemory_Tests.m
+//  KSReturnCodes_Tests.m
 //
 //  Created by Karl Stenerud on 2012-03-03.
 //
@@ -27,17 +27,41 @@
 
 #import <XCTest/XCTest.h>
 
-#import "KSDebug.h"
+#import "KSReturnCodes.h"
+#include <mach/exception_types.h>
+#include <mach/kern_return.h>
 
 
-@interface KSDebug_Tests : XCTestCase @end
+@interface KSReturnCodes_Tests : XCTestCase @end
 
-@implementation KSDebug_Tests
+@implementation KSReturnCodes_Tests
 
-- (void) testIsBeingTraced
+- (void) testExceptionName
 {
-    bool traced = ksdebug_isBeingTraced();
-    XCTAssertTrue(traced, @"");
+    NSString* expected = @"EXC_ARITHMETIC";
+    NSString* actual = [NSString stringWithCString:ksrc_exceptionName(EXC_ARITHMETIC)
+                                          encoding:NSUTF8StringEncoding];
+    XCTAssertEqualObjects(actual, expected, @"");
+}
+
+- (void) testVeryHighExceptionName
+{
+    const char* result = ksrc_exceptionName(100000);
+    XCTAssertTrue(result == NULL, @"");
+}
+
+- (void) testKernReturnCodeName
+{
+    NSString* expected = @"KERN_FAILURE";
+    NSString* actual = [NSString stringWithCString:ksmemory_kernelReturnCodeName(KERN_FAILURE)
+                                          encoding:NSUTF8StringEncoding];
+    XCTAssertEqualObjects(actual, expected, @"");
+}
+
+- (void) testVeryHighKernReturnCodeName
+{
+    const char* result = ksmemory_kernelReturnCodeName(100000);
+    XCTAssertTrue(result == NULL, @"");
 }
 
 @end

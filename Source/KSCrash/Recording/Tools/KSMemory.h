@@ -1,5 +1,5 @@
 //
-//  KSMach.h
+//  KSMemory.h
 //
 //  Created by Karl Stenerud on 2012-01-29.
 //
@@ -29,16 +29,16 @@
  */
 
 
-#ifndef HDR_KSMach_h
-#define HDR_KSMach_h
+#ifndef HDR_ksmemory_h
+#define HDR_ksmemory_h
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 
-#include <mach/mach_types.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 
 // ============================================================================
@@ -49,29 +49,13 @@ extern "C" {
  *
  * @return total free memory.
  */
-uint64_t ksmach_freeMemory(void);
+uint64_t ksmem_freeMemory(void);
 
 /** Get the total memory that is currently usable.
  *
  * @return total usable memory.
  */
-uint64_t ksmach_usableMemory(void);
-
-/** Get the name of a mach exception.
- *
- * @param exceptionType The exception type.
- *
- * @return The exception's name or NULL if not found.
- */
-const char* ksmach_exceptionName(exception_type_t exceptionType);
-
-/** Get the name of a mach kernel return code.
- *
- * @param returnCode The return code.
- *
- * @return The code's name or NULL if not found.
- */
-const char* ksmach_kernelReturnCodeName(kern_return_t returnCode);
+uint64_t ksmem_usableMemory(void);
 
 
 // ============================================================================
@@ -87,9 +71,9 @@ const char* ksmach_kernelReturnCodeName(kern_return_t returnCode);
  *
  * @param numBytes The number of bytes to copy.
  *
- * @return KERN_SUCCESS or an error code.
+ * @return true if successful.
  */
-kern_return_t ksmach_copyMem(const void* src, void* dst, int numBytes);
+bool ksmem_copySafely(const void* src, void* dst, int numBytes);
 
 /** Copies up to numBytes of data from src to dest, stopping if memory
  * becomes inaccessible.
@@ -102,10 +86,10 @@ kern_return_t ksmach_copyMem(const void* src, void* dst, int numBytes);
  *
  * @return The number of bytes actually copied.
  */
-int ksmach_copyMaxPossibleMem(const void* src, void* dst, int numBytes);
+int ksmem_copyMaxPossible(const void* src, void* dst, int numBytes);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // HDR_KSMach_h
+#endif // HDR_ksmemory_h
