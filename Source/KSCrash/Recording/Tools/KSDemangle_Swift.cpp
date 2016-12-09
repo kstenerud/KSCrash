@@ -1,5 +1,5 @@
 //
-//  DemangleSwift.cc
+//  KSDemangle_Swift.cc
 //
 //  Created by Karl Stenerud on 2016-11-04.
 //
@@ -26,9 +26,9 @@
 
 
 #include "Demangle.h"
-#include "DemangleSwift.h"
+#include "KSDemangle_Swift.h"
 
-extern "C" char* demangleSwift(const char* mangledSymbol)
+extern "C" char* ksdm_demangleSwift(const char* mangledSymbol)
 {
     swift::Demangle::DemangleOptions options = swift::Demangle::DemangleOptions::SimplifiedUIDemangleOptions();
     std::string demangled = swift::Demangle::demangleSymbolAsString(mangledSymbol, options);

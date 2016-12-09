@@ -1,5 +1,5 @@
 //
-//  DemangleSwift.h
+//  KSDemangle_CPP.h
 //
 //  Created by Karl Stenerud on 2016-11-04.
 //
@@ -24,24 +24,24 @@
 // THE SOFTWARE.
 //
 
-#ifndef HDR_DemangleSwift_h
-#define HDR_DemangleSwift_h
+#ifndef HDR_KSDemangle_CPP_h
+#define HDR_KSDemangle_CPP_h
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/** Demangle a Swift symbol.
+/** Demangle a C++ symbol.
  *
  * @param mangledSymbol The mangled symbol.
  *
  * @return A demangled symbol, or NULL if demangling failed.
  *         MEMORY MANAGEMENT WARNING: User is responsible for calling free() on the returned value.
  */
-char* demangleSwift(const char* mangledSymbol);
-    
+char* ksdm_demangleCPP(const char* mangledSymbol);
+
 #ifdef __cplusplus
 }
 #endif
 
-#endif // HDR_DemangleSwift_h
+#endif // HDR_KSDemangle_CPP_h

@@ -1,9 +1,7 @@
 //
-//  DemangleCPP.h
+// KSDate.h
 //
-//  Created by Karl Stenerud on 2016-11-04.
-//
-//  Copyright (c) 2012 Karl Stenerud. All rights reserved.
+// Copyright 2016 Karl Stenerud.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -24,24 +22,17 @@
 // THE SOFTWARE.
 //
 
-#ifndef HDR_DemangleCPP_h
-#define HDR_DemangleCPP_h
+#ifndef KSDate_h
+#define KSDate_h
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <sys/types.h>
 
-/** Demangle a C++ symbol.
+/** Convert a UNIX timestamp to an RFC3339 string representation.
  *
- * @param mangledSymbol The mangled symbol.
+ * @param timestamp The date to convert.
  *
- * @return A demangled symbol, or NULL if demangling failed.
- *         MEMORY MANAGEMENT WARNING: User is responsible for calling free() on the returned value.
+ * @param buffer21Chars A buffer of at least 21 chars to hold the RFC3339 date string.
  */
-char* demangleCPP(const char* mangledSymbol);
+void ksdate_utcStringFromTimestamp(time_t timestamp, char* buffer21Chars);
 
-#ifdef __cplusplus
-}
-#endif
-
-#endif // HDR_DemangleCPP_h
+#endif /* KSDate_h */

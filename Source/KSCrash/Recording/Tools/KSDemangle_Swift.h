@@ -1,7 +1,9 @@
 //
-// RFC3339UTFString.h
+//  KSDemangle_Swift.h
 //
-// Copyright 2016 Karl Stenerud.
+//  Created by Karl Stenerud on 2016-11-04.
+//
+//  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,17 +24,24 @@
 // THE SOFTWARE.
 //
 
-#ifndef RFC3339DateToolC_h
-#define RFC3339DateToolC_h
+#ifndef HDR_KSDemangle_Swift_h
+#define HDR_KSDemangle_Swift_h
 
-#include <sys/types.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-/** Convert a UNIX timestamp to an RFC3339 string representation.
+/** Demangle a Swift symbol.
  *
- * @param timestamp The date to convert.
+ * @param mangledSymbol The mangled symbol.
  *
- * @param buffer21Chars A buffer of at least 21 chars to hold the RFC3339 date string.
+ * @return A demangled symbol, or NULL if demangling failed.
+ *         MEMORY MANAGEMENT WARNING: User is responsible for calling free() on the returned value.
  */
-void rfc3339UtcStringFromUNIXTimestamp(time_t timestamp, char* buffer21Chars);
+char* ksdm_demangleSwift(const char* mangledSymbol);
+    
+#ifdef __cplusplus
+}
+#endif
 
-#endif /* RFC3339DateToolC_h */
+#endif // HDR_KSDemangle_Swift_h

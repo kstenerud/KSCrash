@@ -24,7 +24,7 @@
 
 
 #import <XCTest/XCTest.h>
-#import "RFC3339UTFString.h"
+#import "KSDate.h"
 
 
 @interface RFC3339DateTool_Tests : XCTestCase @end
@@ -33,7 +33,7 @@ NSString* stringFromDate(NSDate* date)
 {
     char string[21];
     time_t timestamp = (time_t)date.timeIntervalSince1970;
-    rfc3339UtcStringFromUNIXTimestamp(timestamp, string);
+    ksdate_utcStringFromTimestamp(timestamp, string);
     return [NSString stringWithUTF8String:string];
 }
 

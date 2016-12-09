@@ -1,7 +1,9 @@
 //
-//  RFC3339UTFString.c
+//  KSDemangle_CPP.cpp
 //
-// Copyright 2016 Karl Stenerud.
+//  Created by Karl Stenerud on 2016-11-04.
+//
+//  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,19 +24,14 @@
 // THE SOFTWARE.
 //
 
-#include "RFC3339UTFString.h"
-#include <stdio.h>
-#include <time.h>
 
-void rfc3339UtcStringFromUNIXTimestamp(time_t timestamp, char* buffer21Chars)
+#include <cxxabi.h>
+#include "KSDemangle_CPP.h"
+#include "KSLogger.h"
+
+extern "C" char* ksdm_demangleCPP(const char* mangledSymbol)
 {
-    struct tm result = {0};
-    gmtime_r(&timestamp, &result);
-    snprintf(buffer21Chars, 21, "%04d-%02d-%02dT%02d:%02d:%02dZ",
-             result.tm_year + 1900,
-             result.tm_mon+1,
-             result.tm_mday,
-             result.tm_hour,
-             result.tm_min,
-             result.tm_sec);
+    int status = 0;
+    char* demangled = __cxxabiv1::__cxa_demangle(mangledSymbol, NULL, NULL, &status);
+    return status == 0 ? demangled : NULL;
 }

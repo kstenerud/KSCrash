@@ -29,7 +29,7 @@
 
 #import "KSJSONCodec.h"
 #import "NSError+SimpleConstructor.h"
-#import "RFC3339UTFString.h"
+#import "KSDate.h"
 
 
 @interface KSJSONCodec ()
@@ -414,7 +414,7 @@ static int encodeObject(KSJSONCodec* codec, id object, NSString* name, KSJSONEnc
     {
         char string[21];
         time_t timestamp = (time_t)((NSDate*)object).timeIntervalSince1970;
-        rfc3339UtcStringFromUNIXTimestamp(timestamp, string);
+        ksdate_utcStringFromTimestamp(timestamp, string);
         NSData* data = [NSData dataWithBytes:string length:strnlen(string, 20)];
         return ksjson_addStringElement(context, cName, data.bytes, (int)data.length);
     }
