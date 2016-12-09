@@ -39,7 +39,8 @@ extern "C" {
     char ksmc_##NAME##_storage[ksmc_contextSize()]; \
     KSMachineContext NAME = (KSMachineContext)ksmc_##NAME##_storage
 
-typedef void* KSMachineContext;
+struct struct_KSMachineContext;
+typedef struct struct_KSMachineContext* KSMachineContext;
     
 int ksmc_contextSize();
 
