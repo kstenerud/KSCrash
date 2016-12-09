@@ -37,7 +37,9 @@
 #import "KSCrashSentry_Context.h"
 #import "KSCrashState.h"
 #import "KSJSONCodecObjC.h"
+#import "KSMachineContext.h"
 #import "KSSystemInfo.h"
+#import "KSThread.h"
 #import "NSData+GZip.h"
 
 #endif /* KSCrashFramework_h */

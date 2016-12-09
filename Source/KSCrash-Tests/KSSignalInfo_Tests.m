@@ -28,6 +28,7 @@
 #import <XCTest/XCTest.h>
 
 #import "KSSignalInfo.h"
+#include <mach/exception_types.h>
 
 
 @interface KSSignalInfo_Tests : XCTestCase @end

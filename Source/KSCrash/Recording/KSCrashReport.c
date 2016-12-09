@@ -48,6 +48,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <mach/exception_types.h>
 #include <mach-o/dyld.h>
 #include <stdio.h>
 #include <string.h>

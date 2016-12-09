@@ -26,6 +26,7 @@
 
 #include <mach/exception_types.h>
 #include <mach/kern_return.h>
+#include <stdlib.h>
 
 #define RETURN_NAME_FOR_ENUM(A) case A: return #A
 

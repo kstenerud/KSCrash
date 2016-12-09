@@ -37,7 +37,7 @@ extern "C" {
 #endif
 
 
-#include <mach/mach_types.h>
+#include <stdint.h>
 
 
 /** Get the name of a signal.
@@ -78,8 +78,7 @@ int kssignal_numFatalSignals(void);
  *
  * @return The matching signal, or 0 if not found.
  */
-int kssignal_signalForMachException(int exception,
-                                    mach_exception_code_t code);
+int kssignal_signalForMachException(int exception, int64_t code);
 
 /** Get the mach exception equivalent of a signal.
  *

@@ -27,6 +27,7 @@
 
 #include "KSSignalInfo.h"
 
+#include <mach/exception_types.h>
 #include <signal.h>
 #include <stdlib.h>
 
@@ -50,7 +51,7 @@ typedef struct
 static const KSSignalCodeInfo g_sigIllCodes[] =
 {
     ENUM_NAME_MAPPING(ILL_NOOP),
-    ENUM_NAME_MAPPING(EXC_CRASH),
+    ENUM_NAME_MAPPING(ILL_ILLOPC),
     ENUM_NAME_MAPPING(ILL_ILLTRP),
     ENUM_NAME_MAPPING(ILL_PRVOPC),
     ENUM_NAME_MAPPING(ILL_ILLOPN),

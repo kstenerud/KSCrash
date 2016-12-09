@@ -199,9 +199,9 @@
 		CB25A5D71DF22F4000EC2B02 /* KSThread_Apple.c in Sources */ = {isa = PBXBuildFile; fileRef = CB25A5D51DF22F4000EC2B02 /* KSThread_Apple.c */; };
 		CB25A5D81DF22F4000EC2B02 /* KSThread_Apple.c in Sources */ = {isa = PBXBuildFile; fileRef = CB25A5D51DF22F4000EC2B02 /* KSThread_Apple.c */; };
 		CB25A5D91DF22F4000EC2B02 /* KSThread_Apple.c in Sources */ = {isa = PBXBuildFile; fileRef = CB25A5D51DF22F4000EC2B02 /* KSThread_Apple.c */; };
-		CB25A5DA1DF22F4000EC2B02 /* KSThread.h in Headers */ = {isa = PBXBuildFile; fileRef = CB25A5D61DF22F4000EC2B02 /* KSThread.h */; };
-		CB25A5DB1DF22F4000EC2B02 /* KSThread.h in Headers */ = {isa = PBXBuildFile; fileRef = CB25A5D61DF22F4000EC2B02 /* KSThread.h */; };
-		CB25A5DC1DF22F4000EC2B02 /* KSThread.h in Headers */ = {isa = PBXBuildFile; fileRef = CB25A5D61DF22F4000EC2B02 /* KSThread.h */; };
+		CB25A5DA1DF22F4000EC2B02 /* KSThread.h in Headers */ = {isa = PBXBuildFile; fileRef = CB25A5D61DF22F4000EC2B02 /* KSThread.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		CB25A5DB1DF22F4000EC2B02 /* KSThread.h in Headers */ = {isa = PBXBuildFile; fileRef = CB25A5D61DF22F4000EC2B02 /* KSThread.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		CB25A5DC1DF22F4000EC2B02 /* KSThread.h in Headers */ = {isa = PBXBuildFile; fileRef = CB25A5D61DF22F4000EC2B02 /* KSThread.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CB25A5DE1DF231E600EC2B02 /* KSThread_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB25A5DD1DF231E600EC2B02 /* KSThread_Tests.m */; };
 		CB25A5EF1DF2396700EC2B02 /* KSDebug.c in Sources */ = {isa = PBXBuildFile; fileRef = CB25A5ED1DF2396700EC2B02 /* KSDebug.c */; };
 		CB25A5F01DF2396700EC2B02 /* KSDebug.c in Sources */ = {isa = PBXBuildFile; fileRef = CB25A5ED1DF2396700EC2B02 /* KSDebug.c */; };
@@ -216,9 +216,9 @@
 		CB25A6121DF25EF100EC2B02 /* KSMachineContext_Apple.c in Sources */ = {isa = PBXBuildFile; fileRef = CB25A6101DF25EF100EC2B02 /* KSMachineContext_Apple.c */; };
 		CB25A6131DF25EF100EC2B02 /* KSMachineContext_Apple.c in Sources */ = {isa = PBXBuildFile; fileRef = CB25A6101DF25EF100EC2B02 /* KSMachineContext_Apple.c */; };
 		CB25A6141DF25EF100EC2B02 /* KSMachineContext_Apple.c in Sources */ = {isa = PBXBuildFile; fileRef = CB25A6101DF25EF100EC2B02 /* KSMachineContext_Apple.c */; };
-		CB25A6151DF25EF100EC2B02 /* KSMachineContext.h in Headers */ = {isa = PBXBuildFile; fileRef = CB25A6111DF25EF100EC2B02 /* KSMachineContext.h */; };
-		CB25A6161DF25EF100EC2B02 /* KSMachineContext.h in Headers */ = {isa = PBXBuildFile; fileRef = CB25A6111DF25EF100EC2B02 /* KSMachineContext.h */; };
-		CB25A6171DF25EF100EC2B02 /* KSMachineContext.h in Headers */ = {isa = PBXBuildFile; fileRef = CB25A6111DF25EF100EC2B02 /* KSMachineContext.h */; };
+		CB25A6151DF25EF100EC2B02 /* KSMachineContext.h in Headers */ = {isa = PBXBuildFile; fileRef = CB25A6111DF25EF100EC2B02 /* KSMachineContext.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		CB25A6161DF25EF100EC2B02 /* KSMachineContext.h in Headers */ = {isa = PBXBuildFile; fileRef = CB25A6111DF25EF100EC2B02 /* KSMachineContext.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		CB25A6171DF25EF100EC2B02 /* KSMachineContext.h in Headers */ = {isa = PBXBuildFile; fileRef = CB25A6111DF25EF100EC2B02 /* KSMachineContext.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CB25A6191DF278D900EC2B02 /* KSMachineContext_Apple.h in Headers */ = {isa = PBXBuildFile; fileRef = CB25A6181DF278D900EC2B02 /* KSMachineContext_Apple.h */; };
 		CB25A61A1DF278D900EC2B02 /* KSMachineContext_Apple.h in Headers */ = {isa = PBXBuildFile; fileRef = CB25A6181DF278D900EC2B02 /* KSMachineContext_Apple.h */; };
 		CB25A61B1DF278D900EC2B02 /* KSMachineContext_Apple.h in Headers */ = {isa = PBXBuildFile; fileRef = CB25A6181DF278D900EC2B02 /* KSMachineContext_Apple.h */; };
