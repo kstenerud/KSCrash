@@ -35,35 +35,110 @@ extern "C" {
 #include "KSThread.h"
 #include <stdbool.h>
 
+/** Suspend the runtime environment.
+ */
+void ksmc_suspendEnvironment();
+
+/** Resume the runtime environment.
+ */
+void ksmc_resumeEnvironment();
+
+/** Create a new machine context on the stack.
+ * This macro creates a storage object on the stack, as well as a pointer of
+ * type KSMachineContext in the current scope, which points to the storage object.
+ *
+ * Example usage: KSMC_NEW_CONTEXT(a_context);
+ * This creates a new pointer at the current scope that behaves as if:
+ *     KSMachineContext a_context = some_storage_location;
+ *
+ * @param NAME The C identifier to give the pointer.
+ */
 #define KSMC_NEW_CONTEXT(NAME) \
     char ksmc_##NAME##_storage[ksmc_contextSize()]; \
     KSMachineContext NAME = (KSMachineContext)ksmc_##NAME##_storage
 
+/* Dummy type info to give better type safety */
 struct struct_KSMachineContext;
 typedef struct struct_KSMachineContext* KSMachineContext;
-    
+
+/** Get the internal size of a machine context.
+ */
 int ksmc_contextSize();
 
+/** Fill in a machine context from a thread.
+ *
+ * @param thread The thread to get information from.
+ * @param destinationContext The context to fill.
+ * @param isCrashedContext Used to indicate that this is the thread that crashed,
+ *
+ * @return true if successful.
+ */
 bool ksmc_getContextForThread(KSThread thread, KSMachineContext destinationContext, bool isCrashedContext);
+
+/** Fill in a machine context from a signal handler.
+ * A signal handler context is always assumed to be a crashed context.
+ *
+ * @param signalUserContext The signal context to get information from.
+ * @param destinationContext The context to fill.
+ *
+ * @return true if successful.
+ */
 bool ksmc_getContextForSignal(void* signalUserContext, KSMachineContext destinationContext);
 
-KSThread ksmc_getContextThread(const KSMachineContext context);
-void ksmc_suspendEnvironment();
-void ksmc_resumeEnvironment();
+/** Get the thread associated with a machine context.
+ *
+ * @param context The machine context.
+ *
+ * @return The associated thread.
+ */
+KSThread ksmc_getThreadFromContext(const KSMachineContext context);
+
+/** Get the number of threads stored in a machine context.
+ *
+ * @param context The machine context.
+ *
+ * @return The number of threads.
+ */
 int ksmc_getThreadCount(const KSMachineContext context);
+
+/** Get a thread from a machine context.
+ *
+ * @param context The machine context.
+ * @param index The index of the thread to retrieve.
+ *
+ * @return The thread.
+ */
 KSThread ksmc_getThreadAtIndex(const KSMachineContext context, int index);
-    /** Get the index of a thread.
-     *
-     * @param thread The thread.
-     *
-     * @return The thread's index, or -1 if it couldn't be determined.
-     */
+
+/** Get the index of a thread.
+ *
+ * @param context The machine context.
+ * @param thread The thread.
+ *
+ * @return The thread's index, or -1 if it couldn't be determined.
+ */
 int ksmc_indexOfThread(const KSMachineContext context, KSThread thread);
-    bool ksmc_isCrashedContext(const KSMachineContext context);
-    bool ksmc_canHaveCPUState(KSMachineContext context);
-    bool ksmc_canHaveNormalStackTrace(KSMachineContext context);
-    bool ksmc_canHaveCustomStackTrace(KSMachineContext context);
-    bool ksmc_hasValidExceptionRegisters(const KSMachineContext context);
+
+/** Check if this is a crashed context.
+ */
+bool ksmc_isCrashedContext(const KSMachineContext context);
+
+/** Check if this context can have stored CPU state.
+ */
+bool ksmc_canHaveCPUState(KSMachineContext context);
+
+/** Check if this context can have a normal stack trace.
+ */
+bool ksmc_canHaveNormalStackTrace(KSMachineContext context);
+
+/** Check if this context can have a user-supplied custom stack trace.
+ */
+bool ksmc_canHaveCustomStackTrace(KSMachineContext context);
+
+/** Check if this context has valid exception registers.
+ */
+bool ksmc_hasValidExceptionRegisters(const KSMachineContext context);
+
 
 #ifdef __cplusplus
 }

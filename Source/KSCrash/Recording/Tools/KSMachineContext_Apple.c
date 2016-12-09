@@ -97,7 +97,7 @@ int ksmc_contextSize()
     return sizeof(InternalMachineContext);
 }
 
-KSThread ksmc_getContextThread(const KSMachineContext context)
+KSThread ksmc_getThreadFromContext(const KSMachineContext context)
 {
     InternalMachineContext* internalContext = (InternalMachineContext*)context;
     return internalContext->thisThread;

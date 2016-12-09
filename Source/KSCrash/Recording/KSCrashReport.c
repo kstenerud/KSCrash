@@ -1375,7 +1375,7 @@ static void writeThread(const KSCrashReportWriter* const writer,
     uintptr_t backtraceBuffer[kMaxBacktraceDepth];
     int backtraceLength = sizeof(backtraceBuffer) / sizeof(*backtraceBuffer);
     int skippedEntries = 0;
-    KSThread thread = ksmc_getContextThread(machineContext);
+    KSThread thread = ksmc_getThreadFromContext(machineContext);
 
     uintptr_t* backtrace = getBacktrace(crash,
                                         machineContext,
@@ -1438,7 +1438,7 @@ static void writeAllThreads(const KSCrashReportWriter* const writer,
                             bool searchQueueNames)
 {
     KSMachineContext context = crash->offendingMachineContext;
-    KSThread offendingThread = ksmc_getContextThread(context);
+    KSThread offendingThread = ksmc_getThreadFromContext(context);
     int threadCount = ksmc_getThreadCount(context);
     KSMC_NEW_CONTEXT(machineContext);
 
@@ -1924,7 +1924,7 @@ void kscrashreport_writeRecrashReport(KSCrash_Context* const crashContext, const
             writeError(writer, KSCrashField_Error, &crashContext->crash);
             flushBufferedWriter(&bufferedWriter);
             int threadIndex = ksmc_indexOfThread(crashContext->crash.offendingMachineContext,
-                                                 ksmc_getContextThread(crashContext->crash.offendingMachineContext));
+                                                 ksmc_getThreadFromContext(crashContext->crash.offendingMachineContext));
             writeThread(writer,
                         KSCrashField_CrashedThread,
                         &crashContext->crash,
