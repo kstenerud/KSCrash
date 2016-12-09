@@ -25,12 +25,17 @@
 //
 
 #include "KSDynamicLinker.h"
-#include "KSArchSpecific.h"
 
 #include <limits.h>
 #include <mach-o/dyld.h>
 #include <mach-o/nlist.h>
 #include <string.h>
+
+#ifdef __LP64__
+    #define STRUCT_NLIST struct nlist_64
+#else
+    #define STRUCT_NLIST struct nlist
+#endif
 
 
 uint32_t ksdl_imageNamed(const char* const imageName, bool exactMatch)

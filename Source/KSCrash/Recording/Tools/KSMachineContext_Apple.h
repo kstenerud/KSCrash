@@ -31,12 +31,17 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-    
-#include "KSArchSpecific.h"
+
 #include <mach/mach_types.h>
 #include <stdbool.h>
 #include <sys/ucontext.h>
-    
+
+#ifdef __arm64__
+    #define STRUCT_MCONTEXT_L _STRUCT_MCONTEXT64
+#else
+    #define STRUCT_MCONTEXT_L _STRUCT_MCONTEXT
+#endif
+
 typedef struct
 {
     thread_t thisThread;
