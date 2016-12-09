@@ -26,6 +26,7 @@
 #include "KSCrashSentry_Context.h"
 #include "KSCrashSentry_Private.h"
 #include "KSThread.h"
+#include "KSMachineContext.h"
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
@@ -159,10 +160,12 @@ catch(TYPE value)\
         }
 
         KSLOG_DEBUG("Suspending all threads.");
-        kscrashsentry_suspendThreads();
+        ksmc_suspendEnvironment();
 
         g_context->crashType = KSCrashTypeCPPException;
-        g_context->offendingThread = ksthread_self();
+        KSMC_NEW_CONTEXT(machineContext);
+        g_context->offendingMachineContext = machineContext;
+        ksmc_getContextForThread(ksthread_self(), machineContext, true);
         g_context->registersAreValid = false;
         g_context->stackTrace = g_stackTrace + 1; // Don't record __cxa_throw stack entry
         g_context->stackTraceLength = g_stackTraceCount - 1;
@@ -174,7 +177,7 @@ catch(TYPE value)\
 
         KSLOG_DEBUG("Crash handling complete. Restoring original handlers.");
         kscrashsentry_uninstall((KSCrashType)KSCrashTypeAll);
-        kscrashsentry_resumeThreads();
+        ksmc_resumeEnvironment();
     }
     else
     {

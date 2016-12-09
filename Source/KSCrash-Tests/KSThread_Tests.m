@@ -35,15 +35,6 @@
 
 @implementation KSThread_Tests
 
-- (void) testSuspendThreads
-{
-    bool success;
-    success = ksthread_suspendAllThreads();
-    XCTAssertTrue(success, @"");
-    success = ksthread_resumeAllThreads();
-    XCTAssertTrue(success, @"");
-}
-
 // TODO: Disabling this until I figure out what's wrong with queue names.
 //- (void) testGetQueueName
 //{

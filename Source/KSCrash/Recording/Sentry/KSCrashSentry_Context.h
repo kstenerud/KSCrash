@@ -33,8 +33,9 @@ extern "C" {
 #endif
 
 #include "KSCrashType.h"
-    
-#include <mach/mach_types.h>
+#include "KSThread.h"
+#include "KSMachineContext.h"
+
 #include <signal.h>
 #include <stdbool.h>
 
@@ -56,7 +57,7 @@ typedef struct KSCrash_SentryContext
     // Implementation defined values. Caller does not initialize these.
     
     /** Threads reserved by the crash handlers, which must not be suspended. */
-    thread_t reservedThreads[KSCrashReservedThreadTypeCount];
+    KSThread reservedThreads[KSCrashReservedThreadTypeCount];
     
     /** If true, the crash handling system is currently handling a crash.
      * When false, all values below this field are considered invalid.
@@ -73,7 +74,7 @@ typedef struct KSCrash_SentryContext
     bool isStackOverflow;
     
     /** The thread that caused the problem. */
-    thread_t offendingThread;
+    KSMachineContext offendingMachineContext;
     
     /** Address that caused the fault. */
     uintptr_t faultAddress;

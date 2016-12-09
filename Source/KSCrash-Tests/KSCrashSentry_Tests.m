@@ -50,10 +50,10 @@ static void onCrash(void)
 
 - (void) testSuspendResumeThreads
 {
-    kscrashsentry_suspendThreads();
-    kscrashsentry_suspendThreads();
-    kscrashsentry_resumeThreads();
-    kscrashsentry_resumeThreads();
+    ksmc_suspendEnvironment();
+    ksmc_suspendEnvironment();
+    ksmc_resumeEnvironment();
+    ksmc_resumeEnvironment();
 }
 
 @end

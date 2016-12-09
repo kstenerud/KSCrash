@@ -36,41 +36,28 @@
 extern "C" {
 #endif
 
-
+#include "KSMachineContext.h"
 #include <dlfcn.h>
-#include <mach/mach_types.h>
 
 
 /** Generate a backtrace on the specified mach thread (async-safe).
  *
  *
- * @param thread The thread to generate a backtrace for.
+ * @param context The machine context to generate a backtrace for.
  *
  * @param backtraceBuffer A buffer to hold the backtrace.
+ *
+ * @param skipEntries The number of entries to skip before filling the backtrace buffer.
  *
  * @param maxEntries The maximum number of trace entries to generate (must not
  *                   be larger than backtraceBuffer can hold).
  *
  * @return The number of backtrace entries generated.
  */
-int ksbt_backtraceThread(thread_t thread,
-                         uintptr_t* backtraceBuffer,
-                         int maxEntries);
-
-/** Generate a backtrace on the currently running thread (async-safe).
- *
- * Note: This function seems to get a bit confused at times due to stack
- *       activity. Use at own risk.
- *
- * @param backtraceBuffer A buffer to hold the backtrace.
- *
- * @param maxEntries The maximum number of trace entries to generate (must not
- *                   be larger than backtraceBuffer can hold).
- *
- * @return The number of backtrace entries generated.
- */
-int ksbt_backtraceSelf(uintptr_t* backtraceBuffer,
-                       int maxEntries);
+int ksbt_backtrace(const KSMachineContext context,
+                   uintptr_t*const backtraceBuffer,
+                   const int skipEntries,
+                   const int maxEntries);
 
 /** Symbolicate a backtrace (async-safe).
  *
@@ -91,6 +78,28 @@ void ksbt_symbolicate(const uintptr_t* backtraceBuffer,
                       Dl_info* symbolsBuffer,
                       int numEntries,
                       int skippedEntries);
+
+/** Count how many entries there are in a potential backtrace.
+ *
+ * This is useful for intelligently generating a backtrace after a stack
+ * overflow.
+ *
+ * @param context The machine context to check the backtrace for.
+ *
+ * @return The number of backtrace entries.
+ */
+int ksbt_backtraceLength(const KSMachineContext context);
+
+
+/** Check if a backtrace is too long.
+ *
+ * @param context The machine context to check the backtrace for.
+ *
+ * @param maxLength The give up point.
+ *
+ * @return true if the backtrace is longer than maxLength.
+ */
+bool ksbt_isBacktraceTooLong(const KSMachineContext context, int maxLength);
 
 
 #ifdef __cplusplus

@@ -32,11 +32,11 @@ extern "C" {
 #endif
 
 
-#include "KSArchSpecific.h"
-
-#include <mach/mach_types.h>
+#include <sys/types.h>
 #include <stdbool.h>
 
+
+typedef uintptr_t KSThread;
 
 /** Get a thread's name. Internally, a thread name will
  * never be more than 64 characters long.
@@ -49,7 +49,7 @@ extern "C" {
  *
  * @return true if a name was found.
  */
-bool ksthread_getThreadName(const thread_t thread, char* const buffer, int bufLength);
+bool ksthread_getThreadName(const KSThread thread, char* const buffer, int bufLength);
 
 /** Get the name of a thread's dispatch queue. Internally, a queue name will
  * never be more than 64 characters long.
@@ -62,7 +62,7 @@ bool ksthread_getThreadName(const thread_t thread, char* const buffer, int bufLe
  *
  * @return true if a name or label was found.
  */
-bool ksthread_getQueueName(thread_t thread, char* buffer, int bufLength);
+bool ksthread_getQueueName(KSThread thread, char* buffer, int bufLength);
 
 /* Get the current mach thread ID.
  * mach_thread_self() receives a send right for the thread port which needs to
@@ -71,39 +71,7 @@ bool ksthread_getQueueName(thread_t thread, char* buffer, int bufLength);
  *
  * @return The current thread ID.
  */
-thread_t ksthread_self();
-
-/** Suspend all threads except for the current one.
- *
- * @return true if thread suspention was at least partially successful.
- */
-bool ksthread_suspendAllThreads(void);
-
-/** Suspend all threads except for the current one and the specified threads.
- *
- * @param exceptThreads The threads to avoid suspending.
- *
- * @param exceptThreadsCount The number of threads to avoid suspending.
- *
- * @return true if thread suspention was at least partially successful.
- */
-bool ksthread_suspendAllThreadsExcept(thread_t* exceptThreads, int exceptThreadsCount);
-
-/** Resume all threads except for the current one.
- *
- * @return true if thread resumption was at least partially successful.
- */
-bool ksthread_resumeAllThreads(void);
-
-/** Resume all threads except for the current one and the specified threads.
- *
- * @param exceptThreads The threads to avoid resuming.
- *
- * @param exceptThreadsCount The number of threads to avoid resuming.
- *
- * @return true if thread resumption was at least partially successful.
- */
-bool ksthread_resumeAllThreadsExcept(thread_t* exceptThreads, int exceptThreadsCount);
+KSThread ksthread_self();
 
 
 #ifdef __cplusplus

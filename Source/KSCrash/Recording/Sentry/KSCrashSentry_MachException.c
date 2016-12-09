@@ -149,28 +149,6 @@ static KSCrash_SentryContext* g_context;
 #pragma mark - Utility -
 // ============================================================================
 
-/** Get all parts of the machine state required for a dump.
- * This includes basic thread state, and exception registers.
- *
- * @param thread The thread to get state for.
- *
- * @param machineContext The machine context to fill out.
- */
-static bool fetchMachineState(const thread_t thread, STRUCT_MCONTEXT_L* const machineContext)
-{
-    if(!kscpu_threadState(thread, machineContext))
-    {
-        return false;
-    }
-
-    if(!kscpu_exceptionState(thread, machineContext))
-    {
-        return false;
-    }
-
-    return true;
-}
-
 /** Restore the original mach exception ports.
  */
 static void restoreExceptionPorts(void)
@@ -223,7 +201,7 @@ static void* handleExceptions(void* const userData)
     if(threadName == kThreadSecondary)
     {
         KSLOG_DEBUG("This is the secondary thread. Suspending.");
-        thread_suspend(ksthread_self());
+        thread_suspend((thread_t)ksthread_self());
     }
 
     for(;;)
@@ -257,7 +235,7 @@ static void* handleExceptions(void* const userData)
         KSLOG_DEBUG("Exception handler is installed. Continuing exception handling.");
 
         KSLOG_DEBUG("Suspending all threads");
-        kscrashsentry_suspendThreads();
+        ksmc_suspendEnvironment();
 
         // Switch to the secondary thread if necessary, or uninstall the handler
         // to avoid a death loop.
@@ -287,22 +265,23 @@ static void* handleExceptions(void* const userData)
 
         // Fill out crash information
         KSLOG_DEBUG("Fetching machine state.");
-        STRUCT_MCONTEXT_L machineContext;
-        if(fetchMachineState(exceptionMessage.thread.name, &machineContext))
+        KSMC_NEW_CONTEXT(machineContext);
+        g_context->offendingMachineContext = machineContext;
+        if(ksmc_getContextForThread(exceptionMessage.thread.name, machineContext, true))
         {
+            KSLOG_TRACE("Fault address 0x%x, instruction address 0x%x", kscpu_faultAddress(machineContext), kscpu_instructionAddress(machineContext));
             if(exceptionMessage.exception == EXC_BAD_ACCESS)
             {
-                g_context->faultAddress = kscpu_faultAddress(&machineContext);
+                g_context->faultAddress = kscpu_faultAddress(machineContext);
             }
             else
             {
-                g_context->faultAddress = kscpu_instructionAddress(&machineContext);
+                g_context->faultAddress = kscpu_instructionAddress(machineContext);
             }
         }
 
         KSLOG_DEBUG("Filling out context.");
         g_context->crashType = KSCrashTypeMachException;
-        g_context->offendingThread = exceptionMessage.thread.name;
         g_context->registersAreValid = true;
         g_context->mach.type = exceptionMessage.exception;
         g_context->mach.code = exceptionMessage.code[0];
@@ -315,7 +294,7 @@ static void* handleExceptions(void* const userData)
 
         KSLOG_DEBUG("Crash handling complete. Restoring original handlers.");
         kscrashsentry_uninstall(KSCrashTypeAsyncSafe);
-        kscrashsentry_resumeThreads();
+        ksmc_resumeEnvironment();
     }
 
     KSLOG_DEBUG("Replying to mach exception message.");
@@ -476,7 +455,7 @@ void kscrashsentry_uninstallMachHandler(void)
 
     restoreExceptionPorts();
 
-    thread_t thread_self = ksthread_self();
+    thread_t thread_self = (thread_t)ksthread_self();
 
     if(g_primaryPThread != 0 && g_primaryMachThread != thread_self)
     {

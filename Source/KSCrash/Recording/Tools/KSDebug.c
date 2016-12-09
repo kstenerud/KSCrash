@@ -30,10 +30,10 @@
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
-#include <dispatch/dispatch.h>
 #include <errno.h>
 #include <string.h>
 #include <sys/sysctl.h>
+#include <unistd.h>
 
 
 /** Check if the current process is being traced or not.

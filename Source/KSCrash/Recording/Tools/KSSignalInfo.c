@@ -28,6 +28,7 @@
 #include "KSSignalInfo.h"
 
 #include <signal.h>
+#include <stdlib.h>
 
 
 typedef struct

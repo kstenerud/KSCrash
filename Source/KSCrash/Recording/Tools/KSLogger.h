@@ -229,7 +229,7 @@ void i_kslog_logCBasic(const char* fmt, ...);
 
 
 #ifndef KSLogger_Level
-    #define KSLogger_Level KSLogger_Level_Info
+    #define KSLogger_Level KSLogger_Level_Trace
 #endif
 
 #ifndef KSLogger_LocalLevel

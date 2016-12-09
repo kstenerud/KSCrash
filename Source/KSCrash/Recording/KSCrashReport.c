@@ -27,7 +27,7 @@
 
 #include "KSCrashReport.h"
 
-#include "KSBacktrace_Private.h"
+#include "KSBacktrace.h"
 #include "KSCrashReportFields.h"
 #include "KSCrashReportWriter.h"
 #include "KSDynamicLinker.h"
@@ -47,7 +47,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <mach/mach.h>
 #include <mach-o/dyld.h>
 #include <stdio.h>
 #include <string.h>
@@ -74,12 +73,6 @@
 
 /** Default number of objects, subobjects, and ivars to record from a memory loc */
 #define kDefaultMemorySearchDepth 15
-
-/** Length at which we consider a backtrace to represent a stack overflow.
- * If it reaches this point, we start cutting off from the top of the stack
- * rather than the bottom.
- */
-#define kStackOverflowThreshold 200
 
 /** Maximum number of lines to print when printing a stack trace to the console.
  */
@@ -411,82 +404,16 @@ static bool isValidString(const void* const address)
     return ksstring_isNullTerminatedUTF8String(buffer, kMinStringLength, sizeof(buffer));
 }
 
-/** Get all parts of the machine state required for a dump.
- * This includes basic thread state, and exception registers.
+/** Get the backtrace for the specified machine context.
  *
- * @param thread The thread to get state for.
- *
- * @param machineContextBuffer The machine context to fill out.
- */
-static bool fetchMachineState(const thread_t thread, STRUCT_MCONTEXT_L* const machineContextBuffer)
-{
-    if(!kscpu_threadState(thread, machineContextBuffer))
-    {
-        return false;
-    }
-
-    if(!kscpu_exceptionState(thread, machineContextBuffer))
-    {
-        return false;
-    }
-
-    return true;
-}
-
-/** Get the machine context for the specified thread.
- *
- * This function will choose how to fetch the machine context based on what kind
- * of thread it is (current, crashed, other), and what kind of crash occured.
- * It may store the context in machineContextBuffer unless it can be fetched
- * directly from memory. Do not count on machineContextBuffer containing
+ * This function will choose how to fetch the backtrace based on the crash and
+ * machine context. It may store the backtrace in backtraceBuffer unless it can
+ * be fetched directly from memory. Do not count on backtraceBuffer containing
  * anything. Always use the return value.
  *
  * @param crash The crash handler context.
  *
- * @param thread The thread to get a machine context for.
- *
- * @param machineContextBuffer A place to store the context, if needed.
- *
- * @return A pointer to the crash context, or NULL if not found.
- */
-static STRUCT_MCONTEXT_L* getMachineContext(const KSCrash_SentryContext* const crash,
-                                            const thread_t thread,
-                                            STRUCT_MCONTEXT_L* const machineContextBuffer)
-{
-    if(thread == crash->offendingThread)
-    {
-        if(crash->crashType == KSCrashTypeSignal)
-        {
-            return ((SignalUserContext*)crash->signal.userContext)->UC_MCONTEXT;
-        }
-    }
-
-    if(thread == ksthread_self())
-    {
-        return NULL;
-    }
-
-    if(!fetchMachineState(thread, machineContextBuffer))
-    {
-        KSLOG_ERROR("Failed to fetch machine state for thread %d", thread);
-        return NULL;
-    }
-
-    return machineContextBuffer;
-}
-
-/** Get the backtrace for the specified thread.
- *
- * This function will choose how to fetch the backtrace based on machine context
- * availability andwhat kind of crash occurred. It may store the backtrace in
- * backtraceBuffer unless it can be fetched directly from memory. Do not count
- * on backtraceBuffer containing anything. Always use the return value.
- *
- * @param crash The crash handler context.
- *
- * @param thread The thread to get a machine context for.
- *
- * @param machineContext The machine context (can be NULL).
+ * @param machineContext The machine context.
  *
  * @param backtraceBuffer A place to store the backtrace, if needed.
  *
@@ -499,67 +426,39 @@ static STRUCT_MCONTEXT_L* getMachineContext(const KSCrash_SentryContext* const c
  * @return The backtrace, or NULL if not found.
  */
 static uintptr_t* getBacktrace(const KSCrash_SentryContext* const crash,
-                               const thread_t thread,
-                               const STRUCT_MCONTEXT_L* const machineContext,
+                               const KSMachineContext machineContext,
                                uintptr_t* const backtraceBuffer,
                                int* const backtraceLength,
                                int* const skippedEntries)
 {
-    if(thread == crash->offendingThread)
+    if(ksmc_canHaveCustomStackTrace(machineContext) && crash->stackTrace != NULL && crash->stackTraceLength > 0)
     {
-        if(crash->stackTrace != NULL &&
-           crash->stackTraceLength > 0 &&
-           (crash->crashType & (KSCrashTypeCPPException | KSCrashTypeNSException | KSCrashTypeUserReported)))
+        *backtraceLength = crash->stackTraceLength;
+        if(skippedEntries != NULL)
         {
-            *backtraceLength = crash->stackTraceLength;
-            return crash->stackTrace;
+            *skippedEntries = 0;
         }
+        return crash->stackTrace;
     }
 
-    if(machineContext == NULL)
+    if(ksmc_canHaveNormalStackTrace(machineContext))
     {
-        return NULL;
+        int actualSkippedEntries = 0;
+        int actualLength = ksbt_backtraceLength(machineContext);
+        if(actualLength > *backtraceLength)
+        {
+            actualSkippedEntries = actualLength - *backtraceLength;
+        }
+        
+        *backtraceLength = ksbt_backtrace(machineContext, backtraceBuffer, actualSkippedEntries, *backtraceLength);
+        if(skippedEntries != NULL)
+        {
+            *skippedEntries = actualSkippedEntries;
+        }
+        return backtraceBuffer;
     }
 
-    int actualSkippedEntries = 0;
-    int actualLength = ksbt_backtraceLength(machineContext);
-    if(actualLength >= kStackOverflowThreshold)
-    {
-        actualSkippedEntries = actualLength - *backtraceLength;
-    }
-
-    *backtraceLength = ksbt_backtraceThreadState(machineContext,
-                                                 backtraceBuffer,
-                                                 actualSkippedEntries,
-                                                 *backtraceLength);
-    if(skippedEntries != NULL)
-    {
-        *skippedEntries = actualSkippedEntries;
-    }
-    return backtraceBuffer;
-}
-
-/** Check if the stack for the specified thread has overflowed.
- *
- * @param crash The crash handler context.
- *
- * @param thread The thread to check.
- *
- * @return true if the thread's stack has overflowed.
- */
-static bool isStackOverflow(const KSCrash_SentryContext* const crash,
-                             const thread_t thread)
-{
-    STRUCT_MCONTEXT_L concreteMachineContext;
-    STRUCT_MCONTEXT_L* machineContext = getMachineContext(crash,
-                                                          thread,
-                                                          &concreteMachineContext);
-    if(machineContext == NULL)
-    {
-        return false;
-    }
-
-    return ksbt_isBacktraceTooLong(machineContext, kStackOverflowThreshold);
+    return NULL;
 }
 
 
@@ -680,19 +579,12 @@ static void logBacktrace(const uintptr_t* const backtrace, const int backtraceLe
  */
 static void logCrashThreadBacktrace(const KSCrash_SentryContext* const crash)
 {
-    thread_t thread = crash->offendingThread;
-    STRUCT_MCONTEXT_L concreteMachineContext;
     uintptr_t concreteBacktrace[kMaxStackTracePrintLines];
     int backtraceLength = sizeof(concreteBacktrace) / sizeof(*concreteBacktrace);
 
-    STRUCT_MCONTEXT_L* machineContext = getMachineContext(crash,
-                                                          thread,
-                                                          &concreteMachineContext);
-
     int skippedEntries = 0;
     uintptr_t* backtrace = getBacktrace(crash,
-                                        thread,
-                                        machineContext,
+                                        crash->offendingMachineContext,
                                         concreteBacktrace,
                                         &backtraceLength,
                                         &skippedEntries);
@@ -1232,7 +1124,7 @@ static void writeBacktrace(const KSCrashReportWriter* const writer,
  */
 static void writeStackContents(const KSCrashReportWriter* const writer,
                                const char* const key,
-                               const STRUCT_MCONTEXT_L* const machineContext,
+                               const KSMachineContext machineContext,
                                const bool isStackOverflow)
 {
     uintptr_t sp = kscpu_stackPointer(machineContext);
@@ -1281,7 +1173,7 @@ static void writeStackContents(const KSCrashReportWriter* const writer,
  * @param forwardDistance The distance past the end of the stack to check.
  */
 static void writeNotableStackContents(const KSCrashReportWriter* const writer,
-                                      const STRUCT_MCONTEXT_L* const machineContext,
+                                      const KSMachineContext machineContext,
                                       const int backDistance,
                                       const int forwardDistance)
 {
@@ -1324,7 +1216,7 @@ static void writeNotableStackContents(const KSCrashReportWriter* const writer,
  */
 static void writeBasicRegisters(const KSCrashReportWriter* const writer,
                                 const char* const key,
-                                const STRUCT_MCONTEXT_L* const machineContext)
+                                const KSMachineContext machineContext)
 {
     char registerNameBuff[30];
     const char* registerName;
@@ -1356,7 +1248,7 @@ static void writeBasicRegisters(const KSCrashReportWriter* const writer,
  */
 static void writeExceptionRegisters(const KSCrashReportWriter* const writer,
                                     const char* const key,
-                                    const STRUCT_MCONTEXT_L* const machineContext)
+                                    const KSMachineContext machineContext)
 {
     char registerNameBuff[30];
     const char* registerName;
@@ -1385,18 +1277,15 @@ static void writeExceptionRegisters(const KSCrashReportWriter* const writer,
  * @param key The object key, if needed.
  *
  * @param machineContext The context to retrieve the registers from.
- *
- * @param isCrashedContext If true, this context represents the crashing thread.
  */
 static void writeRegisters(const KSCrashReportWriter* const writer,
                            const char* const key,
-                           const STRUCT_MCONTEXT_L* const machineContext,
-                           const bool isCrashedContext)
+                           const KSMachineContext machineContext)
 {
     writer->beginObject(writer, key);
     {
         writeBasicRegisters(writer, KSCrashField_Basic, machineContext);
-        if(isCrashedContext)
+        if(ksmc_hasValidExceptionRegisters(machineContext))
         {
             writeExceptionRegisters(writer, KSCrashField_Exception, machineContext);
         }
@@ -1411,7 +1300,7 @@ static void writeRegisters(const KSCrashReportWriter* const writer,
  * @param machineContext The context to retrieve the registers from.
  */
 static void writeNotableRegisters(const KSCrashReportWriter* const writer,
-                                  const STRUCT_MCONTEXT_L* const machineContext)
+                                  const KSMachineContext machineContext)
 {
     char registerNameBuff[30];
     const char* registerName;
@@ -1442,7 +1331,7 @@ static void writeNotableRegisters(const KSCrashReportWriter* const writer,
  */
 static void writeNotableAddresses(const KSCrashReportWriter* const writer,
                                   const char* const key,
-                                  const STRUCT_MCONTEXT_L* const machineContext)
+                                  const KSMachineContext machineContext)
 {
     writer->beginObject(writer, key);
     {
@@ -1463,9 +1352,7 @@ static void writeNotableAddresses(const KSCrashReportWriter* const writer,
  *
  * @param crash The crash handler context.
  *
- * @param thread The thread to write about.
- *
- * @param index The thread's index relative to all threads.
+ * @param machineContext The context whose thread to write about.
  *
  * @param shouldWriteNotableAddresses If true, write any notable addresses found.
  *
@@ -1476,23 +1363,21 @@ static void writeNotableAddresses(const KSCrashReportWriter* const writer,
 static void writeThread(const KSCrashReportWriter* const writer,
                         const char* const key,
                         const KSCrash_SentryContext* const crash,
-                        const thread_t thread,
-                        const int index,
+                        const KSMachineContext machineContext,
+                        const int threadIndex,
                         const bool shouldWriteNotableAddresses,
                         const bool searchThreadNames,
                         const bool searchQueueNames)
 {
-    bool isCrashedThread = thread == crash->offendingThread;
+    bool isCrashedThread = ksmc_isCrashedContext(machineContext);
+    KSLOG_DEBUG("Writing thread %d. is crashed: %d", threadIndex, isCrashedThread);
     char nameBuffer[128];
-    STRUCT_MCONTEXT_L machineContextBuffer;
     uintptr_t backtraceBuffer[kMaxBacktraceDepth];
     int backtraceLength = sizeof(backtraceBuffer) / sizeof(*backtraceBuffer);
     int skippedEntries = 0;
-
-    STRUCT_MCONTEXT_L* machineContext = getMachineContext(crash, thread, &machineContextBuffer);
+    KSThread thread = ksmc_getContextThread(machineContext);
 
     uintptr_t* backtrace = getBacktrace(crash,
-                                        thread,
                                         machineContext,
                                         backtraceBuffer,
                                         &backtraceLength,
@@ -1502,20 +1387,13 @@ static void writeThread(const KSCrashReportWriter* const writer,
     {
         if(backtrace != NULL)
         {
-            writeBacktrace(writer,
-                           KSCrashField_Backtrace,
-                           backtrace,
-                           backtraceLength,
-                           skippedEntries);
+            writeBacktrace(writer, KSCrashField_Backtrace, backtrace, backtraceLength, skippedEntries);
         }
-        if(machineContext != NULL)
+        if(ksmc_canHaveCPUState(machineContext))
         {
-            writeRegisters(writer,
-                           KSCrashField_Registers,
-                           machineContext,
-                           isCrashedThread);
+            writeRegisters(writer, KSCrashField_Registers, machineContext);
         }
-        writer->addIntegerElement(writer, KSCrashField_Index, index);
+        writer->addIntegerElement(writer, KSCrashField_Index, threadIndex);
         if(searchThreadNames)
         {
             if(ksthread_getThreadName(thread, nameBuffer, sizeof(nameBuffer)) && nameBuffer[0] != 0)
@@ -1523,7 +1401,8 @@ static void writeThread(const KSCrashReportWriter* const writer,
                 writer->addStringElement(writer, KSCrashField_Name, nameBuffer);
             }
         }
-        if (searchQueueNames) {
+        if(searchQueueNames)
+        {
             if(ksthread_getQueueName(thread, nameBuffer, sizeof(nameBuffer)) && nameBuffer[0] != 0)
             {
                 writer->addStringElement(writer, KSCrashField_DispatchQueue, nameBuffer);
@@ -1531,17 +1410,12 @@ static void writeThread(const KSCrashReportWriter* const writer,
         }
         writer->addBooleanElement(writer, KSCrashField_Crashed, isCrashedThread);
         writer->addBooleanElement(writer, KSCrashField_CurrentThread, thread == ksthread_self());
-        if(isCrashedThread && machineContext != NULL)
+        if(isCrashedThread)
         {
-            writeStackContents(writer,
-                               KSCrashField_Stack,
-                               machineContext,
-                               skippedEntries > 0);
+            writeStackContents(writer, KSCrashField_Stack, machineContext, skippedEntries > 0);
             if(shouldWriteNotableAddresses)
             {
-                writeNotableAddresses(writer,
-                                      KSCrashField_NotableAddresses,
-                                      machineContext);
+                writeNotableAddresses(writer, KSCrashField_NotableAddresses, machineContext);
             }
         }
     }
@@ -1563,72 +1437,30 @@ static void writeAllThreads(const KSCrashReportWriter* const writer,
                             bool searchThreadNames,
                             bool searchQueueNames)
 {
-    const task_t thisTask = mach_task_self();
-    thread_act_array_t threads;
-    mach_msg_type_number_t numThreads;
-    kern_return_t kr;
-
-    if((kr = task_threads(thisTask, &threads, &numThreads)) != KERN_SUCCESS)
-    {
-        KSLOG_ERROR("task_threads: %s", mach_error_string(kr));
-        return;
-    }
+    KSMachineContext context = crash->offendingMachineContext;
+    KSThread offendingThread = ksmc_getContextThread(context);
+    int threadCount = ksmc_getThreadCount(context);
+    KSMC_NEW_CONTEXT(machineContext);
 
     // Fetch info for all threads.
     writer->beginArray(writer, key);
     {
-        for(mach_msg_type_number_t i = 0; i < numThreads; i++)
+        KSLOG_DEBUG("Writing %d threads.", threadCount);
+        for(int i = 0; i < threadCount; i++)
         {
-            writeThread(writer, NULL, crash, threads[i], (int)i, writeNotableAddresses, searchThreadNames, searchQueueNames);
+            KSThread thread = ksmc_getThreadAtIndex(context, i);
+            if(thread == offendingThread)
+            {
+                writeThread(writer, NULL, crash, context, i, writeNotableAddresses, searchThreadNames, searchQueueNames);
+            }
+            else
+            {
+                ksmc_getContextForThread(thread, machineContext, false);
+                writeThread(writer, NULL, crash, machineContext, i, writeNotableAddresses, searchThreadNames, searchQueueNames);
+            }
         }
     }
     writer->endContainer(writer);
-
-    // Clean up.
-    for(mach_msg_type_number_t i = 0; i < numThreads; i++)
-    {
-        mach_port_deallocate(thisTask, threads[i]);
-    }
-    vm_deallocate(thisTask, (vm_address_t)threads, sizeof(thread_t) * numThreads);
-}
-
-/** Get the index of a thread.
- *
- * @param thread The thread.
- *
- * @return The thread's index, or -1 if it couldn't be determined.
- */
-static int threadIndex(const thread_t thread)
-{
-    int index = -1;
-    const task_t thisTask = mach_task_self();
-    thread_act_array_t threads;
-    mach_msg_type_number_t numThreads;
-    kern_return_t kr;
-
-    if((kr = task_threads(thisTask, &threads, &numThreads)) != KERN_SUCCESS)
-    {
-        KSLOG_ERROR("task_threads: %s", mach_error_string(kr));
-        return -1;
-    }
-
-    for(mach_msg_type_number_t i = 0; i < numThreads; i++)
-    {
-        if(threads[i] == thread)
-        {
-            index = (int)i;
-            break;
-        }
-    }
-
-    // Clean up.
-    for(mach_msg_type_number_t i = 0; i < numThreads; i++)
-    {
-        mach_port_deallocate(thisTask, threads[i]);
-    }
-    vm_deallocate(thisTask, (vm_address_t)threads, sizeof(thread_t) * numThreads);
-
-    return index;
 }
 
 #pragma mark Global Report Data
@@ -2035,24 +1867,11 @@ static void prepareReportWriter(KSCrashReportWriter* const writer, KSJSONEncodeC
     writer->context = context;
 }
 
-/** Record whether the crashed thread had a stack overflow or not.
- *
- * @param crashContext the context.
- */
-static void updateStackOverflowStatus(KSCrash_Context* const crashContext)
-{
-    // TODO: This feels weird. Shouldn't be mutating the context.
-    if(isStackOverflow(&crashContext->crash, crashContext->crash.offendingThread))
-    {
-        KSLOG_TRACE("Stack overflow detected.");
-        crashContext->crash.isStackOverflow = true;
-    }
-}
-
 static void callUserCrashHandler(KSCrash_Context* const crashContext, KSCrashReportWriter* writer)
 {
     crashContext->config.onCrashNotify(writer);
 }
+
 
 // ============================================================================
 #pragma mark - Main API -
@@ -2077,8 +1896,6 @@ void kscrashreport_writeRecrashReport(KSCrash_Context* const crashContext, const
 
     g_introspectionRules = &crashContext->config.introspectionRules;
     
-    updateStackOverflowStatus(crashContext);
-
     KSJSONEncodeContext jsonContext;
     jsonContext.userData = &bufferedWriter;
     KSCrashReportWriter concreteWriter;
@@ -2104,14 +1921,16 @@ void kscrashreport_writeRecrashReport(KSCrash_Context* const crashContext, const
 
         writer->beginObject(writer, KSCrashField_Crash);
         {
+            writeError(writer, KSCrashField_Error, &crashContext->crash);
+            flushBufferedWriter(&bufferedWriter);
+            int threadIndex = ksmc_indexOfThread(crashContext->crash.offendingMachineContext,
+                                                 ksmc_getContextThread(crashContext->crash.offendingMachineContext));
             writeThread(writer,
                         KSCrashField_CrashedThread,
                         &crashContext->crash,
-                        crashContext->crash.offendingThread,
-                        threadIndex(crashContext->crash.offendingThread),
+                        crashContext->crash.offendingMachineContext,
+                        threadIndex,
                         false, false, false);
-            flushBufferedWriter(&bufferedWriter);
-            writeError(writer, KSCrashField_Error, &crashContext->crash);
             flushBufferedWriter(&bufferedWriter);
         }
         writer->endContainer(writer);
@@ -2133,8 +1952,6 @@ void kscrashreport_writeStandardReport(KSCrash_Context* const crashContext, cons
     }
     
     g_introspectionRules = &crashContext->config.introspectionRules;
-
-    updateStackOverflowStatus(crashContext);
 
     KSJSONEncodeContext jsonContext;
     jsonContext.userData = &bufferedWriter;
@@ -2176,14 +1993,14 @@ void kscrashreport_writeStandardReport(KSCrash_Context* const crashContext, cons
 
         writer->beginObject(writer, KSCrashField_Crash);
         {
+            writeError(writer, KSCrashField_Error, &crashContext->crash);
+            flushBufferedWriter(&bufferedWriter);
             writeAllThreads(writer,
                             KSCrashField_Threads,
                             &crashContext->crash,
                             crashContext->config.introspectionRules.enabled,
                             crashContext->config.searchThreadNames,
                             crashContext->config.searchQueueNames);
-            flushBufferedWriter(&bufferedWriter);
-            writeError(writer, KSCrashField_Error, &crashContext->crash);
             flushBufferedWriter(&bufferedWriter);
         }
         writer->endContainer(writer);

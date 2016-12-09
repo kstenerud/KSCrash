@@ -32,11 +32,10 @@ extern "C" {
 #endif
 
 
-#include "KSArchSpecific.h"
+#include "KSMachineContext.h"
 
-#include <mach/mach_types.h>
 #include <stdbool.h>
-#include <sys/ucontext.h>
+#include <stdint.h>
 
 /** Get the current CPU architecture.
  *
@@ -47,65 +46,45 @@ const char* kscpu_currentArch(void);
 /** Get the frame pointer for a machine context.
  * The frame pointer marks the top of the call stack.
  *
- * @param machineContext The machine context.
+ * @param context The machine context.
  *
  * @return The context's frame pointer.
  */
-uintptr_t kscpu_framePointer(const STRUCT_MCONTEXT_L* machineContext);
+uintptr_t kscpu_framePointer(const KSMachineContext context);
 
 /** Get the current stack pointer for a machine context.
  *
- * @param machineContext The machine context.
+ * @param context The machine context.
  *
  * @return The context's stack pointer.
  */
-uintptr_t kscpu_stackPointer(const STRUCT_MCONTEXT_L* machineContext);
+uintptr_t kscpu_stackPointer(const KSMachineContext context);
 
 /** Get the address of the instruction about to be, or being executed by a
  * machine context.
  *
- * @param machineContext The machine context.
+ * @param context The machine context.
  *
  * @return The context's next instruction address.
  */
-uintptr_t kscpu_instructionAddress(const STRUCT_MCONTEXT_L* machineContext);
+uintptr_t kscpu_instructionAddress(const KSMachineContext context);
 
 /** Get the address stored in the link register (arm only). This may
  * contain the first return address of the stack.
  *
- * @param machineContext The machine context.
+ * @param context The machine context.
  *
  * @return The link register value.
  */
-uintptr_t kscpu_linkRegister(const STRUCT_MCONTEXT_L* machineContext);
+uintptr_t kscpu_linkRegister(const KSMachineContext context);
 
 /** Get the address whose access caused the last fault.
  *
- * @param machineContext The machine context.
+ * @param context The machine context.
  *
  * @return The faulting address.
  */
-uintptr_t kscpu_faultAddress(const STRUCT_MCONTEXT_L* machineContext);
-
-/** Get a thread's thread state and place it in a machine context.
- *
- * @param thread The thread to fetch state for.
- *
- * @param machineContext The machine context to store the state in.
- *
- * @return true if successful.
- */
-bool kscpu_threadState(thread_t thread, STRUCT_MCONTEXT_L* machineContext);
-
-/** Get a thread's exception state and place it in a machine context.
- *
- * @param thread The thread to fetch state for.
- *
- * @param machineContext The machine context to store the state in.
- *
- * @return true if successful.
- */
-bool kscpu_exceptionState(thread_t thread, STRUCT_MCONTEXT_L* machineContext);
+uintptr_t kscpu_faultAddress(const KSMachineContext context);
 
 /** Get the number of normal (not floating point or exception) registers the
  *  currently running CPU has.
@@ -128,7 +107,7 @@ const char* kscpu_registerName(int regNumber);
  *
  * @return The register's current value.
  */
-uint64_t kscpu_registerValue(const STRUCT_MCONTEXT_L* machineContext, int regNumber);
+uint64_t kscpu_registerValue(const KSMachineContext context, int regNumber);
 
 /** Get the number of exception registers the currently running CPU has.
  *
@@ -150,14 +129,15 @@ const char* kscpu_exceptionRegisterName(int regNumber);
  *
  * @return The register's current value.
  */
-uint64_t kscpu_exceptionRegisterValue(const STRUCT_MCONTEXT_L* machineContext, int regNumber);
+uint64_t kscpu_exceptionRegisterValue(const KSMachineContext context, int regNumber);
 
 /** Get the direction in which the stack grows on the current architecture.
  *
  * @return 1 or -1, depending on which direction the stack grows in.
  */
 int kscpu_stackGrowDirection(void);
-    
+
+    void kscpu_getState(KSMachineContext context);
     
 #ifdef __cplusplus
 }

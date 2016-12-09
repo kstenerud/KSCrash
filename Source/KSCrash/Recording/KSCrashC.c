@@ -62,6 +62,7 @@ static KSCrash_Context g_crashReportContext =
     }
 };
 
+static bool g_redirectToLogFile = false;
 static char* g_logFilePath;
 
 
@@ -140,6 +141,8 @@ KSCrashType kscrash_install(const char* appName, const char* const installPath)
 
     snprintf(path, sizeof(path), "%s/Data/ConsoleLog.txt", installPath);
     g_logFilePath = strdup(path);
+    // Ensure this is set properly.
+    kscrash_setRedirectConsoleLogToFile(g_redirectToLogFile);
 
     if(context->config.introspectionRules.enabled)
     {
@@ -283,6 +286,7 @@ void kscrash_setCrashNotifyCallback(const KSReportWriteCallback onCrashNotify)
 
 void kscrash_setRedirectConsoleLogToFile(bool shouldRedirectToFile)
 {
+    g_redirectToLogFile = shouldRedirectToFile;
     char* path = shouldRedirectToFile ? g_logFilePath : NULL;
     kslog_setLogFilename(path, true);
 }

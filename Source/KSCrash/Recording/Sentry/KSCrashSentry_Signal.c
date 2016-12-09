@@ -31,7 +31,7 @@
 #include "KSCrashSentry_Private.h"
 
 #include "KSSignalInfo.h"
-#include "KSThread.h"
+#include "KSMachineContext.h"
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
@@ -92,7 +92,7 @@ static void handleSignal(int sigNum, siginfo_t* signalInfo, void* userContext)
         KSLOG_DEBUG("Signal handler is installed. Continuing signal handling.");
 
         KSLOG_DEBUG("Suspending all threads.");
-        kscrashsentry_suspendThreads();
+        ksmc_suspendEnvironment();
 
         if(wasHandlingCrash)
         {
@@ -104,7 +104,9 @@ static void handleSignal(int sigNum, siginfo_t* signalInfo, void* userContext)
 
         KSLOG_DEBUG("Filling out context.");
         g_context->crashType = KSCrashTypeSignal;
-        g_context->offendingThread = ksthread_self();
+        KSMC_NEW_CONTEXT(machineContext);
+        g_context->offendingMachineContext = machineContext;
+        ksmc_getContextForSignal(userContext, machineContext);
         g_context->registersAreValid = true;
         g_context->faultAddress = (uintptr_t)signalInfo->si_addr;
         g_context->signal.userContext = userContext;
@@ -117,7 +119,7 @@ static void handleSignal(int sigNum, siginfo_t* signalInfo, void* userContext)
 
         KSLOG_DEBUG("Crash handling complete. Restoring original handlers.");
         kscrashsentry_uninstall(KSCrashTypeAsyncSafe);
-        kscrashsentry_resumeThreads();
+        ksmc_resumeEnvironment();
     }
 
     KSLOG_DEBUG("Re-raising signal for regular handlers to catch.");

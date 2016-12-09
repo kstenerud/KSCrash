@@ -727,6 +727,7 @@ int ksobjc_ivarCount(const void* const classPtr)
 
 int ksobjc_ivarList(const void* const classPtr, KSObjCIvar* dstIvars, int ivarsCount)
 {
+    // TODO: Check this for a possible bad access.
     if(dstIvars == NULL)
     {
         return 0;

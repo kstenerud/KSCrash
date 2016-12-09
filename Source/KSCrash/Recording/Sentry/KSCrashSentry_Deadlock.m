@@ -29,6 +29,7 @@
 #import "KSCrashSentry_Private.h"
 #import "KSThread.h"
 #import <Foundation/Foundation.h>
+#include <mach/mach_types.h>
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -89,7 +90,7 @@ static NSTimeInterval g_watchdogInterval = 0;
 
         dispatch_async(dispatch_get_main_queue(), ^
         {
-            self.mainThread = ksthread_self();
+            self.mainThread = (thread_t)ksthread_self();
         });
     }
     return self;
@@ -121,7 +122,9 @@ static NSTimeInterval g_watchdogInterval = 0;
 
     KSLOG_DEBUG(@"Filling out context.");
     g_context->crashType = KSCrashTypeMainThreadDeadlock;
-    g_context->offendingThread = self.mainThread;
+    KSMC_NEW_CONTEXT(machineContext);
+    g_context->offendingMachineContext = machineContext;
+    ksmc_getContextForThread(ksthread_self(), machineContext, false);
     g_context->registersAreValid = false;
     
     KSLOG_DEBUG(@"Calling main crash handler.");

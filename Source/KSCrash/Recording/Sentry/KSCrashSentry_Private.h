@@ -36,20 +36,6 @@ extern "C" {
 #include "KSCrashSentry.h"
 
 
-/** Suspend all non-reserved threads.
- *
- * Reserved threads include the current thread and all threads in
- "reservedThreads" in the context.
- */
-void kscrashsentry_suspendThreads(void);
-
-/** Resume all non-reserved threads.
- *
- * Reserved threads include the current thread and all threads in
- * "reservedThreads" in the context.
- */
-void kscrashsentry_resumeThreads(void);
-
 /** Prepare the context for handling a new crash.
  */
 void kscrashsentry_beginHandlingCrash(struct KSCrash_SentryContext* context);

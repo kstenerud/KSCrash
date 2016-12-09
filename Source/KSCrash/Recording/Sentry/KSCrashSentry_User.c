@@ -67,7 +67,7 @@ void kscrashsentry_reportUserException(const char* name,
         kscrashsentry_beginHandlingCrash(g_context);
 
         KSLOG_DEBUG("Suspending all threads");
-        kscrashsentry_suspendThreads();
+        ksmc_suspendEnvironment();
 
         KSLOG_DEBUG("Fetching call stack.");
         int callstackCount = 100;
@@ -81,7 +81,9 @@ void kscrashsentry_reportUserException(const char* name,
 
         KSLOG_DEBUG("Filling out context.");
         g_context->crashType = KSCrashTypeUserReported;
-        g_context->offendingThread = ksthread_self();
+        KSMC_NEW_CONTEXT(machineContext);
+        g_context->offendingMachineContext = machineContext;
+        ksmc_getContextForThread(ksthread_self(), machineContext, true);
         g_context->registersAreValid = false;
         g_context->crashReason = reason;
         g_context->stackTrace = callstack;
@@ -97,13 +99,13 @@ void kscrashsentry_reportUserException(const char* name,
         if(terminateProgram)
         {
             kscrashsentry_uninstall(KSCrashTypeAll);
-            kscrashsentry_resumeThreads();
+            ksmc_resumeEnvironment();
             abort();
         }
         else
         {
             kscrashsentry_clearContext(g_context);
-            kscrashsentry_resumeThreads();
+            ksmc_resumeEnvironment();
         }
     }
 }

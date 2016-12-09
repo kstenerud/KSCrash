@@ -1,7 +1,7 @@
 //
-//  KSCPU_Apple.h
+//  KSMachineContext_Apple.h
 //
-//  Created by Karl Stenerud on 2012-01-29.
+//  Created by Karl Stenerud on 2016-12-02.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,35 +24,34 @@
 // THE SOFTWARE.
 //
 
-#ifndef HDR_KSCPU_Apple_h
-#define HDR_KSCPU_Apple_h
+
+#ifndef HDR_KSMachineContext_Apple_h
+#define HDR_KSMachineContext_Apple_h
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-
-#include <mach/mach_types.h>
     
-/** Fill in state information about a thread.
- *
- * @param thread The thread to get information about.
- *
- * @param state Pointer to buffer for state information.
- *
- * @param flavor The kind of information to get (arch specific).
- *
- * @param stateCount Number of entries in the state information buffer.
- *
- * @return true if state fetching was successful.
- */
-bool kscpu_i_fillState(thread_t thread,
-                       thread_state_t state,
-                       thread_state_flavor_t flavor,
-                       mach_msg_type_number_t stateCount);
-   
+#include "KSArchSpecific.h"
+#include <mach/mach_types.h>
+#include <stdbool.h>
+#include <sys/ucontext.h>
+    
+typedef struct
+{
+    thread_t thisThread;
+    thread_t allThreads[100];
+    int threadCount;
+    bool isCrashedContext;
+    bool isCurrentThread;
+    bool isStackOverflow;
+    bool isSignalContext;
+    STRUCT_MCONTEXT_L machineContext;
+} InternalMachineContext;
+    
+    
 #ifdef __cplusplus
 }
 #endif
 
-#endif // HDR_KSCPU_Apple_h
+#endif // HDR_KSMachineContext_Apple_h

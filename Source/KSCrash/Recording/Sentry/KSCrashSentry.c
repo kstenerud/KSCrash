@@ -98,11 +98,6 @@ static int g_sentriesCount = sizeof(g_sentries) / sizeof(*g_sentries);
 /** Context to fill with crash information. */
 static KSCrash_SentryContext* g_context = NULL;
 
-/** Keeps track of whether threads have already been suspended or not.
- * This won't handle multiple suspends in a row.
- */
-static bool g_threads_are_running = true;
-
 
 // ============================================================================
 #pragma mark - API -
@@ -164,68 +159,6 @@ void kscrashsentry_uninstall(KSCrashType crashTypes)
 // ============================================================================
 #pragma mark - Private API -
 // ============================================================================
-
-void kscrashsentry_suspendThreads(void)
-{
-    KSLOG_DEBUG("Suspending threads.");
-    if(!g_threads_are_running)
-    {
-        KSLOG_DEBUG("Threads already suspended.");
-        return;
-    }
-
-    if(g_context != NULL)
-    {
-        int numThreads = sizeof(g_context->reservedThreads) / sizeof(g_context->reservedThreads[0]);
-        KSLOG_DEBUG("Suspending all threads except for %d reserved threads.", numThreads);
-        if(ksthread_suspendAllThreadsExcept(g_context->reservedThreads, numThreads))
-        {
-            KSLOG_DEBUG("Suspend successful.");
-            g_threads_are_running = false;
-        }
-    }
-    else
-    {
-        KSLOG_DEBUG("Suspending all threads.");
-        if(ksthread_suspendAllThreads())
-        {
-            KSLOG_DEBUG("Suspend successful.");
-            g_threads_are_running = false;
-        }
-    }
-    KSLOG_DEBUG("Suspend complete.");
-}
-
-void kscrashsentry_resumeThreads(void)
-{
-    KSLOG_DEBUG("Resuming threads.");
-    if(g_threads_are_running)
-    {
-        KSLOG_DEBUG("Threads already resumed.");
-        return;
-    }
-
-    if(g_context != NULL)
-    {
-        int numThreads = sizeof(g_context->reservedThreads) / sizeof(g_context->reservedThreads[0]);
-        KSLOG_DEBUG("Resuming all threads except for %d reserved threads.", numThreads);
-        if(ksthread_resumeAllThreadsExcept(g_context->reservedThreads, numThreads))
-        {
-            KSLOG_DEBUG("Resume successful.");
-            g_threads_are_running = true;
-        }
-    }
-    else
-    {
-        KSLOG_DEBUG("Resuming all threads.");
-        if(ksthread_resumeAllThreads())
-        {
-            KSLOG_DEBUG("Resume successful.");
-            g_threads_are_running = true;
-        }
-    }
-    KSLOG_DEBUG("Resume complete.");
-}
 
 void kscrashsentry_clearContext(KSCrash_SentryContext* context)
 {

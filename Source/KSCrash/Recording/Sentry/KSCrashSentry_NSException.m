@@ -79,7 +79,7 @@ static void handleException(NSException* exception)
         }
 
         KSLOG_DEBUG(@"Suspending all threads.");
-        kscrashsentry_suspendThreads();
+        ksmc_suspendEnvironment();
 
         KSLOG_DEBUG(@"Filling out context.");
         NSArray* addresses = [exception callStackReturnAddresses];
@@ -91,7 +91,9 @@ static void handleException(NSException* exception)
         }
 
         g_context->crashType = KSCrashTypeNSException;
-        g_context->offendingThread = ksthread_self();
+        KSMC_NEW_CONTEXT(machineContext);
+        g_context->offendingMachineContext = machineContext;
+        ksmc_getContextForThread(ksthread_self(), machineContext, true);
         g_context->registersAreValid = false;
         g_context->NSException.name = strdup([[exception name] UTF8String]);
         g_context->crashReason = strdup([[exception reason] UTF8String]);
@@ -102,6 +104,9 @@ static void handleException(NSException* exception)
         KSLOG_DEBUG(@"Calling main crash handler.");
         g_context->onCrash();
 
+        free(callstack);
+        free((void*)g_context->NSException.name);
+        free((void*)g_context->crashReason);
 
         KSLOG_DEBUG(@"Crash handling complete. Restoring original handlers.");
         kscrashsentry_uninstall(KSCrashTypeAll);

@@ -28,6 +28,7 @@
 #import <XCTest/XCTest.h>
 
 #import "KSCPU.h"
+#import "KSMachineContext.h"
 #import "TestThread.h"
 
 #import <mach/mach.h>
@@ -37,7 +38,7 @@
 
 @implementation KSCPU_Tests
 
-- (void) testThreadState
+- (void) testCPUState
 {
     TestThread* thread = [[TestThread alloc] init];
     [thread start];
@@ -46,9 +47,8 @@
     kr = thread_suspend(thread.thread);
     XCTAssertTrue(kr == KERN_SUCCESS, @"");
     
-    _STRUCT_MCONTEXT machineContext;
-    bool success = kscpu_threadState(thread.thread, &machineContext);
-    XCTAssertTrue(success, @"");
+    KSMC_NEW_CONTEXT(machineContext);
+    kscpu_getState(machineContext);
     
     int numRegisters = kscpu_numRegisters();
     for(int i = 0; i < numRegisters; i++)
@@ -62,7 +62,7 @@
     XCTAssertTrue(name == NULL, @"");
     uint64_t value = kscpu_registerValue(&machineContext, 1000000);
     XCTAssertTrue(value == 0, @"");
-    
+
     uintptr_t address;
     address = kscpu_framePointer(&machineContext);
     XCTAssertTrue(address != 0, @"");
@@ -70,39 +70,22 @@
     XCTAssertTrue(address != 0, @"");
     address = kscpu_instructionAddress(&machineContext);
     XCTAssertTrue(address != 0, @"");
-    
-    thread_resume(thread.thread);
-    [thread cancel];
-}
 
-- (void) testExceptionState
-{
-    TestThread* thread = [[TestThread alloc] init];
-    [thread start];
-    [NSThread sleepForTimeInterval:0.1];
-    kern_return_t kr;
-    kr = thread_suspend(thread.thread);
-    XCTAssertTrue(kr == KERN_SUCCESS, @"");
-    
-    _STRUCT_MCONTEXT machineContext;
-    bool success = kscpu_exceptionState(thread.thread, &machineContext);
-    XCTAssertTrue(success, @"");
-    
-    int numRegisters = kscpu_numExceptionRegisters();
+    numRegisters = kscpu_numExceptionRegisters();
     for(int i = 0; i < numRegisters; i++)
     {
-        const char* name = kscpu_exceptionRegisterName(i);
+        name = kscpu_exceptionRegisterName(i);
         XCTAssertTrue(name != NULL, @"Register %d was NULL", i);
         kscpu_exceptionRegisterValue(&machineContext, i);
     }
     
-    const char* name = kscpu_exceptionRegisterName(1000000);
+    name = kscpu_exceptionRegisterName(1000000);
     XCTAssertTrue(name == NULL, @"");
-    uint64_t value = kscpu_exceptionRegisterValue(&machineContext, 1000000);
+    value = kscpu_exceptionRegisterValue(&machineContext, 1000000);
     XCTAssertTrue(value == 0, @"");
     
     kscpu_faultAddress(&machineContext);
-    
+
     thread_resume(thread.thread);
     [thread cancel];
 }
