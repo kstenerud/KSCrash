@@ -100,35 +100,40 @@ uint64_t ksmem_usableMemory(void)
     return 0;
 }
 
-bool ksmem_copySafely(const void* const src, void* const dst, const int numBytes)
+static inline int copySafely(const void* restrict const src, void* restrict const dst, const int byteCount)
 {
     vm_size_t bytesCopied = 0;
-    return vm_read_overwrite(mach_task_self(),
-                             (vm_address_t)src,
-                             (vm_size_t)numBytes,
-                             (vm_address_t)dst,
-                             &bytesCopied) == KERN_SUCCESS;
-}
-
-int ksmem_copyMaxPossible(const void* const src, void* const dst, const int numBytes)
-{
-    const uint8_t* pSrc = src;
-    const uint8_t* pSrcMax = (uint8_t*)src + numBytes;
-    const uint8_t* pSrcEnd = (uint8_t*)src + numBytes;
-    uint8_t* pDst = dst;
-
-    int bytesCopied = 0;
-
-    // Short-circuit if no memory is readable
-    if(!ksmem_copySafely(src, dst, 1))
+    kern_return_t result = vm_read_overwrite(mach_task_self(),
+                                             (vm_address_t)src,
+                                             (vm_size_t)byteCount,
+                                             (vm_address_t)dst,
+                                             &bytesCopied);
+    if(result != KERN_SUCCESS)
     {
         return 0;
     }
-    else if(numBytes <= 1)
-    {
-        return numBytes;
-    }
+    return (int)bytesCopied;
+}
 
+static inline int copyMaxPossible(const void* restrict const src, void* restrict const dst, const int byteCount)
+{
+    const uint8_t* pSrc = src;
+    const uint8_t* pSrcMax = (uint8_t*)src + byteCount;
+    const uint8_t* pSrcEnd = (uint8_t*)src + byteCount;
+    uint8_t* pDst = dst;
+    
+    int bytesCopied = 0;
+    
+    // Short-circuit if no memory is readable
+    if(copySafely(src, dst, 1) != 1)
+    {
+        return 0;
+    }
+    else if(byteCount <= 1)
+    {
+        return byteCount;
+    }
+    
     for(;;)
     {
         int copyLength = (int)(pSrcEnd - pSrc);
@@ -136,8 +141,8 @@ int ksmem_copyMaxPossible(const void* const src, void* const dst, const int numB
         {
             break;
         }
-
-        if(ksmem_copySafely(pSrc, pDst, copyLength))
+        
+        if(copySafely(pSrc, pDst, copyLength) == copyLength)
         {
             bytesCopied += copyLength;
             pSrc += copyLength;
@@ -155,4 +160,56 @@ int ksmem_copyMaxPossible(const void* const src, void* const dst, const int numB
         }
     }
     return bytesCopied;
+}
+
+static char g_memoryTestBuffer[10240];
+static inline bool isMemoryReadable(const void* const memory, const int byteCount)
+{
+    const int testBufferSize = sizeof(g_memoryTestBuffer);
+    int bytesRemaining = byteCount;
+    
+    while(bytesRemaining > 0)
+    {
+        int bytesToCopy = bytesRemaining > testBufferSize ? testBufferSize : bytesRemaining;
+        if(copySafely(memory, g_memoryTestBuffer, bytesToCopy) != bytesToCopy)
+        {
+            break;
+        }
+        bytesRemaining -= bytesToCopy;
+    }
+    return bytesRemaining == 0;
+}
+
+int ksmem_maxReadableBytes(const void* const memory, const int tryByteCount)
+{
+    const int testBufferSize = sizeof(g_memoryTestBuffer);
+    const uint8_t* currentPosition = memory;
+    int bytesRemaining = tryByteCount;
+
+    while(bytesRemaining > testBufferSize)
+    {
+        if(!isMemoryReadable(currentPosition, testBufferSize))
+        {
+            break;
+        }
+        currentPosition += testBufferSize;
+        bytesRemaining -= testBufferSize;
+    }
+    bytesRemaining -= copyMaxPossible(currentPosition, g_memoryTestBuffer, testBufferSize);
+    return tryByteCount - bytesRemaining;
+}
+
+bool ksmem_isMemoryReadable(const void* const memory, const int byteCount)
+{
+    return isMemoryReadable(memory, byteCount);
+}
+
+int ksmem_copyMaxPossible(const void* restrict const src, void* restrict const dst, const int byteCount)
+{
+    return copyMaxPossible(src, dst, byteCount);
+}
+
+bool ksmem_copySafely(const void* restrict const src, void* restrict const dst, const int byteCount)
+{
+    return copySafely(src, dst, byteCount);
 }

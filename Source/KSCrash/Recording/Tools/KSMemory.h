@@ -62,6 +62,24 @@ uint64_t ksmem_usableMemory(void);
 #pragma mark - Utility -
 // ============================================================================
 
+/** Test if the specified memory is safe to read from.
+ *
+ * @param memory A pointer to the memory to test.
+ * @param byteCount The number of bytes to test.
+ *
+ * @return True if the memory can be safely read.
+ */
+bool ksmem_isReadableMemory(const void* const memory, const int byteCount);
+
+/** Test how much memory is readable from the specified pointer.
+ *
+ * @param memory A pointer to the memory to test.
+ * @param tryByteCount The number of bytes to test.
+ *
+ * @return The number of bytes that are readable from that address.
+ */
+int ksmem_maxReadableBytes(const void* const memory, const int tryByteCount);
+
 /** Copy memory safely. If the memory is not accessible, returns false
  * rather than crashing.
  *
@@ -69,11 +87,11 @@ uint64_t ksmem_usableMemory(void);
  *
  * @param dst The location to copy to.
  *
- * @param numBytes The number of bytes to copy.
+ * @param byteCount The number of bytes to copy.
  *
  * @return true if successful.
  */
-bool ksmem_copySafely(const void* src, void* dst, int numBytes);
+bool ksmem_copySafely(const void* restrict const src, void* restrict const dst, int byteCount);
 
 /** Copies up to numBytes of data from src to dest, stopping if memory
  * becomes inaccessible.
@@ -82,11 +100,11 @@ bool ksmem_copySafely(const void* src, void* dst, int numBytes);
  *
  * @param dst The location to copy to.
  *
- * @param numBytes The number of bytes to copy.
+ * @param byteCount The number of bytes to copy.
  *
  * @return The number of bytes actually copied.
  */
-int ksmem_copyMaxPossible(const void* src, void* dst, int numBytes);
+int ksmem_copyMaxPossible(const void* restrict const src, void* restrict const dst, int byteCount);
 
 #ifdef __cplusplus
 }
