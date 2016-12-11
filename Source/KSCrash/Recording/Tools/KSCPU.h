@@ -50,7 +50,7 @@ const char* kscpu_currentArch(void);
  *
  * @return The context's frame pointer.
  */
-uintptr_t kscpu_framePointer(const KSMachineContext context);
+uintptr_t kscpu_framePointer(const struct KSMachineContext* const context);
 
 /** Get the current stack pointer for a machine context.
  *
@@ -58,7 +58,7 @@ uintptr_t kscpu_framePointer(const KSMachineContext context);
  *
  * @return The context's stack pointer.
  */
-uintptr_t kscpu_stackPointer(const KSMachineContext context);
+uintptr_t kscpu_stackPointer(const struct KSMachineContext* const context);
 
 /** Get the address of the instruction about to be, or being executed by a
  * machine context.
@@ -67,7 +67,7 @@ uintptr_t kscpu_stackPointer(const KSMachineContext context);
  *
  * @return The context's next instruction address.
  */
-uintptr_t kscpu_instructionAddress(const KSMachineContext context);
+uintptr_t kscpu_instructionAddress(const struct KSMachineContext* const context);
 
 /** Get the address stored in the link register (arm only). This may
  * contain the first return address of the stack.
@@ -76,7 +76,7 @@ uintptr_t kscpu_instructionAddress(const KSMachineContext context);
  *
  * @return The link register value.
  */
-uintptr_t kscpu_linkRegister(const KSMachineContext context);
+uintptr_t kscpu_linkRegister(const struct KSMachineContext* const context);
 
 /** Get the address whose access caused the last fault.
  *
@@ -84,7 +84,7 @@ uintptr_t kscpu_linkRegister(const KSMachineContext context);
  *
  * @return The faulting address.
  */
-uintptr_t kscpu_faultAddress(const KSMachineContext context);
+uintptr_t kscpu_faultAddress(const struct KSMachineContext* const context);
 
 /** Get the number of normal (not floating point or exception) registers the
  *  currently running CPU has.
@@ -107,7 +107,7 @@ const char* kscpu_registerName(int regNumber);
  *
  * @return The register's current value.
  */
-uint64_t kscpu_registerValue(const KSMachineContext context, int regNumber);
+uint64_t kscpu_registerValue(const struct KSMachineContext* const context, int regNumber);
 
 /** Get the number of exception registers the currently running CPU has.
  *
@@ -129,7 +129,7 @@ const char* kscpu_exceptionRegisterName(int regNumber);
  *
  * @return The register's current value.
  */
-uint64_t kscpu_exceptionRegisterValue(const KSMachineContext context, int regNumber);
+uint64_t kscpu_exceptionRegisterValue(const struct KSMachineContext* const context, int regNumber);
 
 /** Get the direction in which the stack grows on the current architecture.
  *
@@ -137,7 +137,11 @@ uint64_t kscpu_exceptionRegisterValue(const KSMachineContext context, int regNum
  */
 int kscpu_stackGrowDirection(void);
 
-    void kscpu_getState(KSMachineContext context);
+/** Fetch the CPU state for this context and store it in the context.
+ *
+ * @param destinationContext The context to fill.
+ */
+void kscpu_getState(struct KSMachineContext* destinationContext);
     
 #ifdef __cplusplus
 }

@@ -54,7 +54,7 @@ extern "C" {
  *
  * @return The number of backtrace entries generated.
  */
-int ksbt_backtrace(const KSMachineContext context,
+int ksbt_backtrace(const struct KSMachineContext* const context,
                    uintptr_t*const backtraceBuffer,
                    const int skipEntries,
                    const int maxEntries);
@@ -88,7 +88,7 @@ void ksbt_symbolicate(const uintptr_t* backtraceBuffer,
  *
  * @return The number of backtrace entries.
  */
-int ksbt_backtraceLength(const KSMachineContext context);
+int ksbt_backtraceLength(const struct KSMachineContext* const context);
 
 
 /** Check if a backtrace is too long.
@@ -99,7 +99,7 @@ int ksbt_backtraceLength(const KSMachineContext context);
  *
  * @return true if the backtrace is longer than maxLength.
  */
-bool ksbt_isBacktraceTooLong(const KSMachineContext context, int maxLength);
+bool ksbt_isBacktraceTooLong(const struct KSMachineContext* const context, int maxLength);
 
 
 #ifdef __cplusplus

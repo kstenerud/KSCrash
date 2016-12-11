@@ -428,7 +428,7 @@ static bool isValidString(const void* const address)
  * @return The backtrace, or NULL if not found.
  */
 static uintptr_t* getBacktrace(const KSCrash_MonitorContext* const crash,
-                               const KSMachineContext machineContext,
+                               const struct KSMachineContext* const machineContext,
                                uintptr_t* const backtraceBuffer,
                                int* const backtraceLength,
                                int* const skippedEntries)
@@ -1126,7 +1126,7 @@ static void writeBacktrace(const KSCrashReportWriter* const writer,
  */
 static void writeStackContents(const KSCrashReportWriter* const writer,
                                const char* const key,
-                               const KSMachineContext machineContext,
+                               const struct KSMachineContext* const machineContext,
                                const bool isStackOverflow)
 {
     uintptr_t sp = kscpu_stackPointer(machineContext);
@@ -1175,7 +1175,7 @@ static void writeStackContents(const KSCrashReportWriter* const writer,
  * @param forwardDistance The distance past the end of the stack to check.
  */
 static void writeNotableStackContents(const KSCrashReportWriter* const writer,
-                                      const KSMachineContext machineContext,
+                                      const struct KSMachineContext* const machineContext,
                                       const int backDistance,
                                       const int forwardDistance)
 {
@@ -1218,7 +1218,7 @@ static void writeNotableStackContents(const KSCrashReportWriter* const writer,
  */
 static void writeBasicRegisters(const KSCrashReportWriter* const writer,
                                 const char* const key,
-                                const KSMachineContext machineContext)
+                                const struct KSMachineContext* const machineContext)
 {
     char registerNameBuff[30];
     const char* registerName;
@@ -1250,7 +1250,7 @@ static void writeBasicRegisters(const KSCrashReportWriter* const writer,
  */
 static void writeExceptionRegisters(const KSCrashReportWriter* const writer,
                                     const char* const key,
-                                    const KSMachineContext machineContext)
+                                    const struct KSMachineContext* const machineContext)
 {
     char registerNameBuff[30];
     const char* registerName;
@@ -1282,7 +1282,7 @@ static void writeExceptionRegisters(const KSCrashReportWriter* const writer,
  */
 static void writeRegisters(const KSCrashReportWriter* const writer,
                            const char* const key,
-                           const KSMachineContext machineContext)
+                           const struct KSMachineContext* const machineContext)
 {
     writer->beginObject(writer, key);
     {
@@ -1302,7 +1302,7 @@ static void writeRegisters(const KSCrashReportWriter* const writer,
  * @param machineContext The context to retrieve the registers from.
  */
 static void writeNotableRegisters(const KSCrashReportWriter* const writer,
-                                  const KSMachineContext machineContext)
+                                  const struct KSMachineContext* const machineContext)
 {
     char registerNameBuff[30];
     const char* registerName;
@@ -1333,7 +1333,7 @@ static void writeNotableRegisters(const KSCrashReportWriter* const writer,
  */
 static void writeNotableAddresses(const KSCrashReportWriter* const writer,
                                   const char* const key,
-                                  const KSMachineContext machineContext)
+                                  const struct KSMachineContext* const machineContext)
 {
     writer->beginObject(writer, key);
     {
@@ -1365,7 +1365,7 @@ static void writeNotableAddresses(const KSCrashReportWriter* const writer,
 static void writeThread(const KSCrashReportWriter* const writer,
                         const char* const key,
                         const KSCrash_MonitorContext* const crash,
-                        const KSMachineContext machineContext,
+                        const struct KSMachineContext* const machineContext,
                         const int threadIndex,
                         const bool shouldWriteNotableAddresses,
                         const bool searchThreadNames,
@@ -1439,7 +1439,7 @@ static void writeAllThreads(const KSCrashReportWriter* const writer,
                             bool searchThreadNames,
                             bool searchQueueNames)
 {
-    KSMachineContext context = crash->offendingMachineContext;
+    const struct KSMachineContext* const context = crash->offendingMachineContext;
     KSThread offendingThread = ksmc_getThreadFromContext(context);
     int threadCount = ksmc_getThreadCount(context);
     KSMC_NEW_CONTEXT(machineContext);

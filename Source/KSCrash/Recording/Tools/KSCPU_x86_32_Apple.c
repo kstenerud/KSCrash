@@ -58,39 +58,30 @@ static const int g_exceptionRegisterNamesCount =
 sizeof(g_exceptionRegisterNames) / sizeof(*g_exceptionRegisterNames);
 
 
-static inline const InternalMachineContext* const getInternalContext(const KSMachineContext context)
+uintptr_t kscpu_framePointer(const KSMachineContext* const context)
 {
-    return ( const InternalMachineContext* const)context;
+    return context->machineContext.__ss.__ebp;
 }
 
-uintptr_t kscpu_framePointer(const KSMachineContext context)
+uintptr_t kscpu_stackPointer(const KSMachineContext* const context)
 {
-    const InternalMachineContext* const internalContext = getInternalContext(context);
-    return internalContext->machineContext.__ss.__ebp;
+    return context->machineContext.__ss.__esp;
 }
 
-uintptr_t kscpu_stackPointer(const KSMachineContext context)
+uintptr_t kscpu_instructionAddress(const KSMachineContext* const context)
 {
-    const InternalMachineContext* const internalContext = getInternalContext(context);
-    return internalContext->machineContext.__ss.__esp;
+    return context->machineContext.__ss.__eip;
 }
 
-uintptr_t kscpu_instructionAddress(const KSMachineContext context)
-{
-    const InternalMachineContext* const internalContext = getInternalContext(context);
-    return internalContext->machineContext.__ss.__eip;
-}
-
-uintptr_t kscpu_linkRegister(__unused const KSMachineContext context)
+uintptr_t kscpu_linkRegister(__unused const KSMachineContext* const context)
 {
     return 0;
 }
 
-void kscpu_getState(KSMachineContext context)
+void kscpu_getState(KSMachineContext* context)
 {
-    InternalMachineContext* internalContext = (InternalMachineContext*)context;
-    thread_t thread = internalContext->thisThread;
-    STRUCT_MCONTEXT_L* const machineContext = &internalContext->machineContext;
+    thread_t thread = context->thisThread;
+    STRUCT_MCONTEXT_L* const machineContext = &context->machineContext;
 
     kscpu_i_fillState(thread, (thread_state_t)&machineContext->__ss, x86_THREAD_STATE32, x86_THREAD_STATE32_COUNT);
     kscpu_i_fillState(thread, (thread_state_t)&machineContext->__es, x86_EXCEPTION_STATE32, x86_EXCEPTION_STATE32_COUNT);
@@ -110,43 +101,42 @@ const char* kscpu_registerName(const int regNumber)
     return NULL;
 }
 
-uint64_t kscpu_registerValue(const KSMachineContext context, const int regNumber)
+uint64_t kscpu_registerValue(const KSMachineContext* const context, const int regNumber)
 {
-    const InternalMachineContext* const internalContext = getInternalContext(context);
     switch(regNumber)
     {
         case 0:
-            return internalContext->machineContext.__ss.__eax;
+            return context->machineContext.__ss.__eax;
         case 1:
-            return internalContext->machineContext.__ss.__ebx;
+            return context->machineContext.__ss.__ebx;
         case 2:
-            return internalContext->machineContext.__ss.__ecx;
+            return context->machineContext.__ss.__ecx;
         case 3:
-            return internalContext->machineContext.__ss.__edx;
+            return context->machineContext.__ss.__edx;
         case 4:
-            return internalContext->machineContext.__ss.__edi;
+            return context->machineContext.__ss.__edi;
         case 5:
-            return internalContext->machineContext.__ss.__esi;
+            return context->machineContext.__ss.__esi;
         case 6:
-            return internalContext->machineContext.__ss.__ebp;
+            return context->machineContext.__ss.__ebp;
         case 7:
-            return internalContext->machineContext.__ss.__esp;
+            return context->machineContext.__ss.__esp;
         case 8:
-            return internalContext->machineContext.__ss.__ss;
+            return context->machineContext.__ss.__ss;
         case 9:
-            return internalContext->machineContext.__ss.__eflags;
+            return context->machineContext.__ss.__eflags;
         case 10:
-            return internalContext->machineContext.__ss.__eip;
+            return context->machineContext.__ss.__eip;
         case 11:
-            return internalContext->machineContext.__ss.__cs;
+            return context->machineContext.__ss.__cs;
         case 12:
-            return internalContext->machineContext.__ss.__ds;
+            return context->machineContext.__ss.__ds;
         case 13:
-            return internalContext->machineContext.__ss.__es;
+            return context->machineContext.__ss.__es;
         case 14:
-            return internalContext->machineContext.__ss.__fs;
+            return context->machineContext.__ss.__fs;
         case 15:
-            return internalContext->machineContext.__ss.__gs;
+            return context->machineContext.__ss.__gs;
     }
 
     KSLOG_ERROR("Invalid register number: %d", regNumber);
@@ -168,27 +158,25 @@ const char* kscpu_exceptionRegisterName(const int regNumber)
     return NULL;
 }
 
-uint64_t kscpu_exceptionRegisterValue(const KSMachineContext context, const int regNumber)
+uint64_t kscpu_exceptionRegisterValue(const KSMachineContext* const context, const int regNumber)
 {
-    const InternalMachineContext* const internalContext = getInternalContext(context);
     switch(regNumber)
     {
         case 0:
-            return internalContext->machineContext.__es.__trapno;
+            return context->machineContext.__es.__trapno;
         case 1:
-            return internalContext->machineContext.__es.__err;
+            return context->machineContext.__es.__err;
         case 2:
-            return internalContext->machineContext.__es.__faultvaddr;
+            return context->machineContext.__es.__faultvaddr;
     }
 
     KSLOG_ERROR("Invalid register number: %d", regNumber);
     return 0;
 }
 
-uintptr_t kscpu_faultAddress(const KSMachineContext context)
+uintptr_t kscpu_faultAddress(const KSMachineContext* const context)
 {
-    const InternalMachineContext* const internalContext = getInternalContext(context);
-    return internalContext->machineContext.__es.__faultvaddr;
+    return context->machineContext.__es.__faultvaddr;
 }
 
 int kscpu_stackGrowDirection(void)

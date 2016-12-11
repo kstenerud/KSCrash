@@ -74,7 +74,7 @@ typedef struct KSCrash_MonitorContext
     bool isStackOverflow;
     
     /** The thread that caused the problem. */
-    KSMachineContext offendingMachineContext;
+    struct KSMachineContext* offendingMachineContext;
     
     /** Address that caused the fault. */
     uintptr_t faultAddress;

@@ -76,7 +76,7 @@ typedef struct KSFrameEntry
     const uintptr_t return_address;
 } KSFrameEntry;
 
-int ksbt_backtraceLength(const KSMachineContext context)
+int ksbt_backtraceLength(const struct KSMachineContext* const context)
 {
     const uintptr_t instructionAddress = kscpu_instructionAddress(context);
 
@@ -104,7 +104,7 @@ int ksbt_backtraceLength(const KSMachineContext context)
     return kBacktraceGiveUpPoint;
 }
 
-bool ksbt_isBacktraceTooLong(const KSMachineContext context, int maxLength)
+bool ksbt_isBacktraceTooLong(const struct KSMachineContext* const context, int maxLength)
 {
     const uintptr_t instructionAddress = kscpu_instructionAddress(context);
 
@@ -132,7 +132,7 @@ bool ksbt_isBacktraceTooLong(const KSMachineContext context, int maxLength)
     return true;
 }
 
-int ksbt_backtrace(const KSMachineContext context,
+int ksbt_backtrace(const struct KSMachineContext* const context,
                    uintptr_t*const backtraceBuffer,
                    const int skipEntries,
                    const int maxEntries)

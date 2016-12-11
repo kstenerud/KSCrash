@@ -49,15 +49,14 @@ static KSThread* g_reservedThreads;
 static int g_reservedThreadsCount;
 
 
-static inline bool isStackOverflow(KSMachineContext context)
+static inline bool isStackOverflow(const KSMachineContext* const context)
 {
     static int stackOverflowThreshold = 200;
     return ksbt_isBacktraceTooLong(context, stackOverflowThreshold);
 }
 
-static inline bool getThreadList(KSMachineContext context)
+static inline bool getThreadList(KSMachineContext* context)
 {
-    InternalMachineContext* internalContext = (InternalMachineContext*)context;
     const task_t thisTask = mach_task_self();
     KSLOG_DEBUG("Getting thread list");
     kern_return_t kr;
@@ -69,9 +68,9 @@ static inline bool getThreadList(KSMachineContext context)
         KSLOG_ERROR("task_threads: %s", mach_error_string(kr));
         return false;
     }
-    KSLOG_TRACE("Got %d threads", internalContext->threadCount);
+    KSLOG_TRACE("Got %d threads", context->threadCount);
     int threadCount = (int)actualThreadCount;
-    int maxThreadCount = sizeof(internalContext->allThreads) / sizeof(internalContext->allThreads[0]);
+    int maxThreadCount = sizeof(context->allThreads) / sizeof(context->allThreads[0]);
     if(threadCount > maxThreadCount)
     {
         KSLOG_ERROR("Thread count %d is higher than maximum of %d", threadCount, maxThreadCount);
@@ -79,13 +78,13 @@ static inline bool getThreadList(KSMachineContext context)
     }
     for(int i = 0; i < threadCount; i++)
     {
-        internalContext->allThreads[i] = threads[i];
+        context->allThreads[i] = threads[i];
     }
-    internalContext->threadCount = threadCount;
+    context->threadCount = threadCount;
 
     for(mach_msg_type_number_t i = 0; i < actualThreadCount; i++)
     {
-        mach_port_deallocate(thisTask, internalContext->allThreads[i]);
+        mach_port_deallocate(thisTask, context->allThreads[i]);
     }
     vm_deallocate(thisTask, (vm_address_t)threads, sizeof(thread_t) * actualThreadCount);
 
@@ -94,27 +93,25 @@ static inline bool getThreadList(KSMachineContext context)
 
 int ksmc_contextSize()
 {
-    return sizeof(InternalMachineContext);
+    return sizeof(KSMachineContext);
 }
 
-KSThread ksmc_getThreadFromContext(const KSMachineContext context)
+KSThread ksmc_getThreadFromContext(const KSMachineContext* const context)
 {
-    InternalMachineContext* internalContext = (InternalMachineContext*)context;
-    return internalContext->thisThread;
+    return context->thisThread;
 }
 
-bool ksmc_getContextForThread(KSThread thread, KSMachineContext destinationContext, bool isCrashedContext)
+bool ksmc_getContextForThread(KSThread thread, KSMachineContext* destinationContext, bool isCrashedContext)
 {
     KSLOG_DEBUG("Fill thread 0x%x context into %p. is crashed = %d", thread, destinationContext, isCrashedContext);
-    InternalMachineContext* internalContext = (InternalMachineContext*)destinationContext;
-    memset(internalContext, 0, sizeof(*internalContext));
-    internalContext->thisThread = (thread_t)thread;
-    internalContext->isCurrentThread = thread == ksthread_self();
-    internalContext->isCrashedContext = isCrashedContext;
-    internalContext->isSignalContext = false;
+    memset(destinationContext, 0, sizeof(*destinationContext));
+    destinationContext->thisThread = (thread_t)thread;
+    destinationContext->isCurrentThread = thread == ksthread_self();
+    destinationContext->isCrashedContext = isCrashedContext;
+    destinationContext->isSignalContext = false;
     if(ksmc_isCrashedContext(destinationContext))
     {
-        internalContext->isStackOverflow = isStackOverflow(destinationContext);
+        destinationContext->isStackOverflow = isStackOverflow(destinationContext);
         getThreadList(destinationContext);
     }
     if(ksmc_canHaveCPUState(destinationContext))
@@ -125,16 +122,15 @@ bool ksmc_getContextForThread(KSThread thread, KSMachineContext destinationConte
     return true;
 }
 
-bool ksmc_getContextForSignal(void* signalUserContext, KSMachineContext destinationContext)
+bool ksmc_getContextForSignal(void* signalUserContext, KSMachineContext* destinationContext)
 {
     KSLOG_DEBUG("Get context from signal user context and put into %p.", destinationContext);
-    InternalMachineContext* internalContext = (InternalMachineContext*)destinationContext;
     _STRUCT_MCONTEXT* sourceContext = ((SignalUserContext*)signalUserContext)->UC_MCONTEXT;
-    memcpy(&internalContext->machineContext, sourceContext, sizeof(internalContext->machineContext));
-    internalContext->thisThread = (thread_t)ksthread_self();
-    internalContext->isCrashedContext = true;
-    internalContext->isSignalContext = true;
-    internalContext->isStackOverflow = isStackOverflow(destinationContext);
+    memcpy(&destinationContext->machineContext, sourceContext, sizeof(destinationContext->machineContext));
+    destinationContext->thisThread = (thread_t)ksthread_self();
+    destinationContext->isCrashedContext = true;
+    destinationContext->isSignalContext = true;
+    destinationContext->isStackOverflow = isStackOverflow(destinationContext);
     getThreadList(destinationContext);
     KSLOG_TRACE("Context retrieved.");
     return true;
@@ -238,27 +234,24 @@ void ksmc_resumeEnvironment()
 #endif
 }
 
-int ksmc_getThreadCount(const KSMachineContext context)
+int ksmc_getThreadCount(const KSMachineContext* const context)
 {
-    InternalMachineContext* internalContext = (InternalMachineContext*)context;
-    return internalContext->threadCount;
+    return context->threadCount;
 }
 
-KSThread ksmc_getThreadAtIndex(const KSMachineContext context, int index)
+KSThread ksmc_getThreadAtIndex(const KSMachineContext* const context, int index)
 {
-    InternalMachineContext* internalContext = (InternalMachineContext*)context;
-    return internalContext->allThreads[index];
+    return context->allThreads[index];
     
 }
 
-int ksmc_indexOfThread(const KSMachineContext context, KSThread thread)
+int ksmc_indexOfThread(const KSMachineContext* const context, KSThread thread)
 {
-    InternalMachineContext* internalContext = (InternalMachineContext*)context;
-    KSLOG_TRACE("check thread vs %d threads", internalContext->threadCount);
-    for(int i = 0; i < (int)internalContext->threadCount; i++)
+    KSLOG_TRACE("check thread vs %d threads", context->threadCount);
+    for(int i = 0; i < (int)context->threadCount; i++)
     {
-        KSLOG_TRACE("%d: %x vs %x", i, thread, internalContext->allThreads[i]);
-        if(internalContext->allThreads[i] == thread)
+        KSLOG_TRACE("%d: %x vs %x", i, thread, context->allThreads[i]);
+        if(context->allThreads[i] == thread)
         {
             return i;
         }
@@ -266,40 +259,37 @@ int ksmc_indexOfThread(const KSMachineContext context, KSThread thread)
     return -1;
 }
 
-bool ksmc_isCrashedContext(const KSMachineContext context)
+bool ksmc_isCrashedContext(const KSMachineContext* const context)
 {
-    InternalMachineContext* internalContext = (InternalMachineContext*)context;
-    return internalContext->isCrashedContext;
+    return context->isCrashedContext;
 }
 
-static inline bool isContextForCurrentThread(const KSMachineContext context)
+static inline bool isContextForCurrentThread(const KSMachineContext* const context)
 {
-    InternalMachineContext* internalContext = (InternalMachineContext*)context;
-    return internalContext->isCurrentThread;
+    return context->isCurrentThread;
 }
 
-static inline bool isSignalContext(const KSMachineContext context)
+static inline bool isSignalContext(const KSMachineContext* const context)
 {
-    InternalMachineContext* internalContext = (InternalMachineContext*)context;
-    return internalContext->isSignalContext;
+    return context->isSignalContext;
 }
 
-bool ksmc_canHaveCPUState(KSMachineContext context)
+bool ksmc_canHaveCPUState(const KSMachineContext* const context)
 {
     return !isContextForCurrentThread(context) || isSignalContext(context);
 }
 
-bool ksmc_canHaveNormalStackTrace(KSMachineContext context)
+bool ksmc_canHaveNormalStackTrace(const KSMachineContext* const context)
 {
     return !isContextForCurrentThread(context) || isSignalContext(context);
 }
 
-bool ksmc_canHaveCustomStackTrace(KSMachineContext context)
+bool ksmc_canHaveCustomStackTrace(const KSMachineContext* const context)
 {
     return ksmc_isCrashedContext(context);
 }
 
-bool ksmc_hasValidExceptionRegisters(const KSMachineContext context)
+bool ksmc_hasValidExceptionRegisters(const KSMachineContext* const context)
 {
     return ksmc_canHaveCPUState(context) && ksmc_isCrashedContext(context);
 }
