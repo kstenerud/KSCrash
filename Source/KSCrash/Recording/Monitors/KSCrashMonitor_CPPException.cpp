@@ -1,5 +1,5 @@
 //
-//  KSCrashSentry_CPPException.c
+//  KSCrashMonitor_CPPException.c
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -22,9 +22,8 @@
 // THE SOFTWARE.
 //
 
-#include "KSCrashSentry_CPPException.h"
-#include "KSCrashSentry_Context.h"
-#include "KSCrashSentry_Private.h"
+#include "KSCrashMonitor_CPPException.h"
+#include "KSCrashMonitorContext.h"
 #include "KSThread.h"
 #include "KSMachineContext.h"
 
@@ -68,7 +67,7 @@ static uintptr_t g_stackTrace[STACKTRACE_BUFFER_LENGTH];
 static int g_stackTraceCount = 0;
 
 /** Context to fill with crash information. */
-static KSCrash_SentryContext* g_context;
+static KSCrash_MonitorContext* g_context;
 
 
 // ============================================================================
@@ -150,19 +149,19 @@ catch(TYPE value)\
         g_captureNextStackTrace = (g_installed != 0);
 
         bool wasHandlingCrash = g_context->handlingCrash;
-        kscrashsentry_beginHandlingCrash(g_context);
+        kscrashmonitor_beginHandlingCrash(g_context);
 
         if(wasHandlingCrash)
         {
             KSLOG_INFO("Detected crash in the crash reporter. Restoring original handlers.");
             g_context->crashedDuringCrashHandling = true;
-            kscrashsentry_uninstall((KSCrashType)KSCrashTypeAll);
+            kscrashmonitor_uninstall((KSCrashMonitorType)KSCrashMonitorTypeAll);
         }
 
         KSLOG_DEBUG("Suspending all threads.");
         ksmc_suspendEnvironment();
 
-        g_context->crashType = KSCrashTypeCPPException;
+        g_context->crashType = KSCrashMonitorTypeCPPException;
         KSMC_NEW_CONTEXT(machineContext);
         g_context->offendingMachineContext = machineContext;
         ksmc_getContextForThread(ksthread_self(), machineContext, true);
@@ -176,7 +175,7 @@ catch(TYPE value)\
         g_context->onCrash();
 
         KSLOG_DEBUG("Crash handling complete. Restoring original handlers.");
-        kscrashsentry_uninstall((KSCrashType)KSCrashTypeAll);
+        kscrashmonitor_uninstall((KSCrashMonitorType)KSCrashMonitorTypeAll);
         ksmc_resumeEnvironment();
     }
     else
@@ -192,7 +191,7 @@ catch(TYPE value)\
 #pragma mark - Public API -
 // ============================================================================
 
-extern "C" bool kscrashsentry_installCPPExceptionHandler(KSCrash_SentryContext* context)
+extern "C" bool kscrashmonitor_installCPPExceptionHandler(KSCrash_MonitorContext* context)
 {
     KSLOG_DEBUG("Installing C++ exception handler.");
 
@@ -210,7 +209,7 @@ extern "C" bool kscrashsentry_installCPPExceptionHandler(KSCrash_SentryContext* 
     return true;
 }
 
-extern "C" void kscrashsentry_uninstallCPPExceptionHandler(void)
+extern "C" void kscrashmonitor_uninstallCPPExceptionHandler(void)
 {
     KSLOG_DEBUG("Uninstalling C++ exception handler.");
     if(!g_installed)

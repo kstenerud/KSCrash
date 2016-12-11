@@ -1,5 +1,5 @@
 //
-//  KSCrashSentry.c
+//  KSCrashMonitor.c
 //
 //  Created by Karl Stenerud on 2012-02-12.
 //
@@ -25,16 +25,15 @@
 //
 
 
-#include "KSCrashSentry.h"
-#include "KSCrashSentry_Context.h"
-#include "KSCrashSentry_Private.h"
+#include "KSCrashMonitor.h"
+#include "KSCrashMonitorContext.h"
 
-#include "KSCrashSentry_Deadlock.h"
-#include "KSCrashSentry_MachException.h"
-#include "KSCrashSentry_CPPException.h"
-#include "KSCrashSentry_NSException.h"
-#include "KSCrashSentry_Signal.h"
-#include "KSCrashSentry_User.h"
+#include "KSCrashMonitor_Deadlock.h"
+#include "KSCrashMonitor_MachException.h"
+#include "KSCrashMonitor_CPPException.h"
+#include "KSCrashMonitor_NSException.h"
+#include "KSCrashMonitor_Signal.h"
+#include "KSCrashMonitor_User.h"
 #include "KSDebug.h"
 #include "KSThread.h"
 #include "KSSystemCapabilities.h"
@@ -51,85 +50,85 @@
 
 typedef struct
 {
-    KSCrashType crashType;
-    bool (*install)(KSCrash_SentryContext* context);
+    KSCrashMonitorType monitorType;
+    bool (*install)(KSCrash_MonitorContext* context);
     void (*uninstall)(void);
-} CrashSentry;
+} Monitor;
 
-static CrashSentry g_sentries[] =
+static Monitor g_monitors[] =
 {
 #if KSCRASH_HAS_MACH
     {
-        KSCrashTypeMachException,
-        kscrashsentry_installMachHandler,
-        kscrashsentry_uninstallMachHandler,
+        KSCrashMonitorTypeMachException,
+        kscrashmonitor_installMachHandler,
+        kscrashmonitor_uninstallMachHandler,
     },
 #endif
 #if KSCRASH_HAS_SIGNAL
     {
-        KSCrashTypeSignal,
-        kscrashsentry_installSignalHandler,
-        kscrashsentry_uninstallSignalHandler,
+        KSCrashMonitorTypeSignal,
+        kscrashmonitor_installSignalHandler,
+        kscrashmonitor_uninstallSignalHandler,
     },
 #endif
     {
-        KSCrashTypeCPPException,
-        kscrashsentry_installCPPExceptionHandler,
-        kscrashsentry_uninstallCPPExceptionHandler,
+        KSCrashMonitorTypeCPPException,
+        kscrashmonitor_installCPPExceptionHandler,
+        kscrashmonitor_uninstallCPPExceptionHandler,
     },
     {
-        KSCrashTypeNSException,
-        kscrashsentry_installNSExceptionHandler,
-        kscrashsentry_uninstallNSExceptionHandler,
+        KSCrashMonitorTypeNSException,
+        kscrashmonitor_installNSExceptionHandler,
+        kscrashmonitor_uninstallNSExceptionHandler,
     },
     {
-        KSCrashTypeMainThreadDeadlock,
-        kscrashsentry_installDeadlockHandler,
-        kscrashsentry_uninstallDeadlockHandler,
+        KSCrashMonitorTypeMainThreadDeadlock,
+        kscrashmonitor_installDeadlockHandler,
+        kscrashmonitor_uninstallDeadlockHandler,
     },
     {
-        KSCrashTypeUserReported,
-        kscrashsentry_installUserExceptionHandler,
-        kscrashsentry_uninstallUserExceptionHandler,
+        KSCrashMonitorTypeUserReported,
+        kscrashmonitor_installUserExceptionHandler,
+        kscrashmonitor_uninstallUserExceptionHandler,
     },
 };
-static int g_sentriesCount = sizeof(g_sentries) / sizeof(*g_sentries);
+static int g_monitorsCount = sizeof(g_monitors) / sizeof(*g_monitors);
 
 /** Context to fill with crash information. */
-static KSCrash_SentryContext* g_context = NULL;
+static KSCrash_MonitorContext* g_context = NULL;
 
 
 // ============================================================================
 #pragma mark - API -
 // ============================================================================
 
-KSCrashType kscrashsentry_installWithContext(KSCrash_SentryContext* context,
-                                             KSCrashType crashTypes,
+KSCrashMonitorType kscrashmonitor_installWithContext(KSCrash_MonitorContext* context,
+                                             KSCrashMonitorType monitorTypes,
                                              void (*onCrash)(void))
 {
     if(ksdebug_isBeingTraced())
     {
         KSLOGBASIC_WARN("KSCrash: App is running in a debugger. Only user reported events will be handled.");
-        crashTypes = KSCrashTypeUserReported;
+        monitorTypes = KSCrashMonitorTypeUserReported;
     }
     else
     {
-        KSLOG_DEBUG("Installing handlers with context %p, crash types 0x%x.", context, crashTypes);
+        KSLOG_DEBUG("Installing handlers with context %p, crash types 0x%x.", context, monitorTypes);
     }
 
     g_context = context;
-    kscrashsentry_clearContext(g_context);
+    kscrashmonitor_clearContext(g_context);
     g_context->onCrash = onCrash;
 
-    KSCrashType installed = KSCrashTypeNone;
-    for(int i = 0; i < g_sentriesCount; i++)
+    KSCrashMonitorType installed = KSCrashMonitorTypeNone;
+    for(int i = 0; i < g_monitorsCount; i++)
     {
-        CrashSentry* sentry = &g_sentries[i];
-        if(sentry->crashType & crashTypes)
+        Monitor* monitor = &g_monitors[i];
+        if(monitor->monitorType & monitorTypes)
         {
-            if(sentry->install == NULL || sentry->install(context))
+            if(monitor->install == NULL || monitor->install(context))
             {
-                installed |= sentry->crashType;
+                installed |= monitor->monitorType;
             }
         }
     }
@@ -138,17 +137,17 @@ KSCrashType kscrashsentry_installWithContext(KSCrash_SentryContext* context,
     return installed;
 }
 
-void kscrashsentry_uninstall(KSCrashType crashTypes)
+void kscrashmonitor_uninstall(KSCrashMonitorType monitorTypes)
 {
-    KSLOG_DEBUG("Uninstalling handlers with crash types 0x%x.", crashTypes);
-    for(int i = 0; i < g_sentriesCount; i++)
+    KSLOG_DEBUG("Uninstalling handlers with crash types 0x%x.", monitorTypes);
+    for(int i = 0; i < g_monitorsCount; i++)
     {
-        CrashSentry* sentry = &g_sentries[i];
-        if(sentry->crashType & crashTypes)
+        Monitor* monitor = &g_monitors[i];
+        if(monitor->monitorType & monitorTypes)
         {
-            if(sentry->install != NULL)
+            if(monitor->install != NULL)
             {
-                sentry->uninstall();
+                monitor->uninstall();
             }
         }
     }
@@ -160,15 +159,15 @@ void kscrashsentry_uninstall(KSCrashType crashTypes)
 #pragma mark - Private API -
 // ============================================================================
 
-void kscrashsentry_clearContext(KSCrash_SentryContext* context)
+void kscrashmonitor_clearContext(KSCrash_MonitorContext* context)
 {
     void (*onCrash)(void) = context->onCrash;
     memset(context, 0, sizeof(*context));
     context->onCrash = onCrash;
 }
 
-void kscrashsentry_beginHandlingCrash(KSCrash_SentryContext* context)
+void kscrashmonitor_beginHandlingCrash(KSCrash_MonitorContext* context)
 {
-    kscrashsentry_clearContext(context);
+    kscrashmonitor_clearContext(context);
     context->handlingCrash = true;
 }

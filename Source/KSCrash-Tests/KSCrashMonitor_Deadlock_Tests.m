@@ -1,5 +1,5 @@
 //
-//  KSCrashSentry_NSException_Tests.m
+//  KSCrashMonitor_Deadlock_Tests.m
 //
 //  Created by Karl Stenerud on 2013-01-26.
 //
@@ -27,35 +27,36 @@
 
 #import <XCTest/XCTest.h>
 
-#import "KSCrashSentry_Context.h"
-#import "KSCrashSentry_NSException.h"
+#import "KSCrashMonitorContext.h"
+#import "KSCrashMonitor_Deadlock.h"
 
 
-@interface KSCrashSentry_NSException_Tests : XCTestCase @end
+@interface KSCrashMonitor_Deadlock_Tests : XCTestCase @end
 
 
-@implementation KSCrashSentry_NSException_Tests
+@implementation KSCrashMonitor_Deadlock_Tests
 
 - (void) testInstallAndRemove
 {
     bool success;
-    KSCrash_SentryContext context;
-    success = kscrashsentry_installNSExceptionHandler(&context);
+    KSCrash_MonitorContext context;
+    kscrashmonitor_setDeadlockHandlerWatchdogInterval(10);
+    success = kscrashmonitor_installDeadlockHandler(&context);
     XCTAssertTrue(success, @"");
     [NSThread sleepForTimeInterval:0.1];
-    kscrashsentry_uninstallNSExceptionHandler();
+    kscrashmonitor_uninstallDeadlockHandler();
 }
 
 - (void) testDoubleInstallAndRemove
 {
     bool success;
-    KSCrash_SentryContext context;
-    success = kscrashsentry_installNSExceptionHandler(&context);
+    KSCrash_MonitorContext context;
+    success = kscrashmonitor_installDeadlockHandler(&context);
     XCTAssertTrue(success, @"");
-    success = kscrashsentry_installNSExceptionHandler(&context);
+    success = kscrashmonitor_installDeadlockHandler(&context);
     XCTAssertTrue(success, @"");
-    kscrashsentry_uninstallNSExceptionHandler();
-    kscrashsentry_uninstallNSExceptionHandler();
+    kscrashmonitor_uninstallDeadlockHandler();
+    kscrashmonitor_uninstallDeadlockHandler();
 }
 
 @end

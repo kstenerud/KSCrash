@@ -32,7 +32,7 @@
 
 #import "KSCrashReportFields.h"
 #import "KSJSONCodecObjC.h"
-#import "KSSystemInfo.h"
+#import "KSCrashMonitor_System.h"
 
 
 #if defined(__LP64__)

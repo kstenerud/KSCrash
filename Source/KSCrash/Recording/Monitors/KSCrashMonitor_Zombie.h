@@ -1,5 +1,5 @@
 //
-//  KSZombie.h
+//  KSCrashMonitor_Zombie.h
 //
 //  Created by Karl Stenerud on 2012-09-15.
 //

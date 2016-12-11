@@ -39,7 +39,7 @@
 #include "KSThread.h"
 #include "KSObjC.h"
 #include "KSSignalInfo.h"
-#include "KSZombie.h"
+#include "KSCrashMonitor_Zombie.h"
 #include "KSString.h"
 #include "KSCrashReportVersion.h"
 
@@ -427,7 +427,7 @@ static bool isValidString(const void* const address)
  *
  * @return The backtrace, or NULL if not found.
  */
-static uintptr_t* getBacktrace(const KSCrash_SentryContext* const crash,
+static uintptr_t* getBacktrace(const KSCrash_MonitorContext* const crash,
                                const KSMachineContext machineContext,
                                uintptr_t* const backtraceBuffer,
                                int* const backtraceLength,
@@ -470,54 +470,54 @@ static uintptr_t* getBacktrace(const KSCrash_SentryContext* const crash,
 
 /** Print the crash type and location to the log.
  *
- * @param sentryContext The crash sentry context.
+ * @param monitorContext The crash monitor context.
  */
-static void logCrashType(const KSCrash_SentryContext* const sentryContext)
+static void logCrashType(const KSCrash_MonitorContext* const monitorContext)
 {
-    switch(sentryContext->crashType)
+    switch(monitorContext->crashType)
     {
-        case KSCrashTypeMachException:
+        case KSCrashMonitorTypeMachException:
         {
-            int machExceptionType = sentryContext->mach.type;
-            kern_return_t machCode = (kern_return_t)sentryContext->mach.code;
+            int machExceptionType = monitorContext->mach.type;
+            kern_return_t machCode = (kern_return_t)monitorContext->mach.code;
             const char* machExceptionName = ksrc_exceptionName(machExceptionType);
             const char* machCodeName = machCode == 0 ? NULL : ksmemory_kernelReturnCodeName(machCode);
             KSLOGBASIC_INFO("App crashed due to mach exception: [%s: %s] at %p",
-                            machExceptionName, machCodeName, sentryContext->faultAddress);
+                            machExceptionName, machCodeName, monitorContext->faultAddress);
             break;
         }
-        case KSCrashTypeCPPException:
+        case KSCrashMonitorTypeCPPException:
         {
             KSLOG_INFO("App crashed due to C++ exception: %s: %s",
-                       sentryContext->CPPException.name,
-                       sentryContext->crashReason);
+                       monitorContext->CPPException.name,
+                       monitorContext->crashReason);
             break;
         }
-        case KSCrashTypeNSException:
+        case KSCrashMonitorTypeNSException:
         {
             KSLOGBASIC_INFO("App crashed due to NSException: %s: %s",
-                            sentryContext->NSException.name,
-                            sentryContext->crashReason);
+                            monitorContext->NSException.name,
+                            monitorContext->crashReason);
             break;
         }
-        case KSCrashTypeSignal:
+        case KSCrashMonitorTypeSignal:
         {
-            int sigNum = sentryContext->signal.signalInfo->si_signo;
-            int sigCode = sentryContext->signal.signalInfo->si_code;
+            int sigNum = monitorContext->signal.signalInfo->si_signo;
+            int sigCode = monitorContext->signal.signalInfo->si_code;
             const char* sigName = kssignal_signalName(sigNum);
             const char* sigCodeName = kssignal_signalCodeName(sigNum, sigCode);
             KSLOGBASIC_INFO("App crashed due to signal: [%s, %s] at %08x",
-                            sigName, sigCodeName, sentryContext->faultAddress);
+                            sigName, sigCodeName, monitorContext->faultAddress);
             break;
         }
-        case KSCrashTypeMainThreadDeadlock:
+        case KSCrashMonitorTypeMainThreadDeadlock:
         {
             KSLOGBASIC_INFO("Main thread deadlocked");
             break;
         }
-        case KSCrashTypeUserReported:
+        case KSCrashMonitorTypeUserReported:
         {
-            KSLOG_INFO("App crashed due to user specified exception: %s", sentryContext->crashReason);
+            KSLOG_INFO("App crashed due to user specified exception: %s", monitorContext->crashReason);
             break;
         }
     }
@@ -579,7 +579,7 @@ static void logBacktrace(const uintptr_t* const backtrace, const int backtraceLe
  *
  * @param crash The crash handler context.
  */
-static void logCrashThreadBacktrace(const KSCrash_SentryContext* const crash)
+static void logCrashThreadBacktrace(const KSCrash_MonitorContext* const crash)
 {
     uintptr_t concreteBacktrace[kMaxStackTracePrintLines];
     int backtraceLength = sizeof(concreteBacktrace) / sizeof(*concreteBacktrace);
@@ -1364,7 +1364,7 @@ static void writeNotableAddresses(const KSCrashReportWriter* const writer,
  */
 static void writeThread(const KSCrashReportWriter* const writer,
                         const char* const key,
-                        const KSCrash_SentryContext* const crash,
+                        const KSCrash_MonitorContext* const crash,
                         const KSMachineContext machineContext,
                         const int threadIndex,
                         const bool shouldWriteNotableAddresses,
@@ -1434,7 +1434,7 @@ static void writeThread(const KSCrashReportWriter* const writer,
  */
 static void writeAllThreads(const KSCrashReportWriter* const writer,
                             const char* const key,
-                            const KSCrash_SentryContext* const crash,
+                            const KSCrash_MonitorContext* const crash,
                             bool writeNotableAddresses,
                             bool searchThreadNames,
                             bool searchQueueNames)
@@ -1591,7 +1591,7 @@ static void writeMemoryInfo(const KSCrashReportWriter* const writer, const char*
  */
 static void writeError(const KSCrashReportWriter* const writer,
                        const char* const key,
-                       const KSCrash_SentryContext* const crash)
+                       const KSCrash_MonitorContext* const crash)
 {
     int machExceptionType = 0;
     kern_return_t machCode = 0;
@@ -1604,9 +1604,9 @@ static void writeError(const KSCrashReportWriter* const writer,
     // Gather common info.
     switch(crash->crashType)
     {
-        case KSCrashTypeMainThreadDeadlock:
+        case KSCrashMonitorTypeMainThreadDeadlock:
             break;
-        case KSCrashTypeMachException:
+        case KSCrashMonitorTypeMachException:
             machExceptionType = crash->mach.type;
             machCode = (kern_return_t)crash->mach.code;
             if(machCode == KERN_PROTECTION_FAILURE && crash->isStackOverflow)
@@ -1620,24 +1620,24 @@ static void writeError(const KSCrashReportWriter* const writer,
 
             sigNum = kssignal_signalForMachException(machExceptionType, machCode);
             break;
-        case KSCrashTypeCPPException:
+        case KSCrashMonitorTypeCPPException:
             machExceptionType = EXC_CRASH;
             sigNum = SIGABRT;
             crashReason = crash->crashReason;
             exceptionName = crash->CPPException.name;
             break;
-        case KSCrashTypeNSException:
+        case KSCrashMonitorTypeNSException:
             machExceptionType = EXC_CRASH;
             sigNum = SIGABRT;
             exceptionName = crash->NSException.name;
             crashReason = crash->crashReason;
             break;
-        case KSCrashTypeSignal:
+        case KSCrashMonitorTypeSignal:
             sigNum = crash->signal.signalInfo->si_signo;
             sigCode = crash->signal.signalInfo->si_code;
             machExceptionType = kssignal_machExceptionForSignal(sigNum);
             break;
-        case KSCrashTypeUserReported:
+        case KSCrashMonitorTypeUserReported:
             machExceptionType = EXC_CRASH;
             sigNum = SIGABRT;
             crashReason = crash->crashReason;
@@ -1691,15 +1691,15 @@ static void writeError(const KSCrashReportWriter* const writer,
         // Gather specific info.
         switch(crash->crashType)
         {
-            case KSCrashTypeMainThreadDeadlock:
+            case KSCrashMonitorTypeMainThreadDeadlock:
                 writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_Deadlock);
                 break;
                 
-            case KSCrashTypeMachException:
+            case KSCrashMonitorTypeMachException:
                 writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_Mach);
                 break;
 
-            case KSCrashTypeCPPException:
+            case KSCrashMonitorTypeCPPException:
             {
                 writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_CPPException);
                 writer->beginObject(writer, KSCrashField_CPPException);
@@ -1709,7 +1709,7 @@ static void writeError(const KSCrashReportWriter* const writer,
                 writer->endContainer(writer);
                 break;
             }
-            case KSCrashTypeNSException:
+            case KSCrashMonitorTypeNSException:
             {
                 writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_NSException);
                 writer->beginObject(writer, KSCrashField_NSException);
@@ -1720,11 +1720,11 @@ static void writeError(const KSCrashReportWriter* const writer,
                 writer->endContainer(writer);
                 break;
             }
-            case KSCrashTypeSignal:
+            case KSCrashMonitorTypeSignal:
                 writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_Signal);
                 break;
 
-            case KSCrashTypeUserReported:
+            case KSCrashMonitorTypeUserReported:
             {
                 writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_User);
                 writer->beginObject(writer, KSCrashField_UserReported);
@@ -2032,7 +2032,7 @@ void kscrashreport_writeStandardReport(KSCrash_Context* const crashContext, cons
 
 void kscrashreport_logCrash(const KSCrash_Context* const crashContext)
 {
-    const KSCrash_SentryContext* crash = &crashContext->crash;
+    const KSCrash_MonitorContext* crash = &crashContext->crash;
     logCrashType(crash);
     logCrashThreadBacktrace(&crashContext->crash);
 }

@@ -1,5 +1,5 @@
 //
-//  KSCrashSentry_Deadlock.m
+//  KSCrashMonitor_Deadlock.m
 //
 //  Created by Karl Stenerud on 2012-12-09.
 //
@@ -24,9 +24,8 @@
 // THE SOFTWARE.
 //
 
-#import "KSCrashSentry_Deadlock.h"
-#import "KSCrashSentry_Context.h"
-#import "KSCrashSentry_Private.h"
+#import "KSCrashMonitor_Deadlock.h"
+#import "KSCrashMonitorContext.h"
 #import "KSThread.h"
 #import <Foundation/Foundation.h>
 
@@ -53,7 +52,7 @@ static volatile sig_atomic_t g_installed = 0;
 static KSCrashDeadlockMonitor* g_monitor;
 
 /** Context to fill with crash information. */
-static KSCrash_SentryContext* g_context;
+static KSCrash_MonitorContext* g_context;
 
 /** Interval between watchdog pulses. */
 static NSTimeInterval g_watchdogInterval = 0;
@@ -117,10 +116,10 @@ static NSTimeInterval g_watchdogInterval = 0;
 
 - (void) handleDeadlock
 {
-    kscrashsentry_beginHandlingCrash(g_context);
+    kscrashmonitor_beginHandlingCrash(g_context);
 
     KSLOG_DEBUG(@"Filling out context.");
-    g_context->crashType = KSCrashTypeMainThreadDeadlock;
+    g_context->crashType = KSCrashMonitorTypeMainThreadDeadlock;
     KSMC_NEW_CONTEXT(machineContext);
     g_context->offendingMachineContext = machineContext;
     ksmc_getContextForThread(ksthread_self(), machineContext, false);
@@ -131,7 +130,7 @@ static NSTimeInterval g_watchdogInterval = 0;
     
     
     KSLOG_DEBUG(@"Crash handling complete. Restoring original handlers.");
-    kscrashsentry_uninstall(KSCrashTypeAll);
+    kscrashmonitor_uninstall(KSCrashMonitorTypeAll);
     
     KSLOG_DEBUG(@"Calling abort()");
     abort();
@@ -174,7 +173,7 @@ static NSTimeInterval g_watchdogInterval = 0;
 #pragma mark - API -
 // ============================================================================
 
-bool kscrashsentry_installDeadlockHandler(KSCrash_SentryContext* context)
+bool kscrashmonitor_installDeadlockHandler(KSCrash_MonitorContext* context)
 {
     KSLOG_DEBUG(@"Installing deadlock handler.");
     if(g_installed)
@@ -191,7 +190,7 @@ bool kscrashsentry_installDeadlockHandler(KSCrash_SentryContext* context)
     return true;
 }
 
-void kscrashsentry_uninstallDeadlockHandler(void)
+void kscrashmonitor_uninstallDeadlockHandler(void)
 {
     KSLOG_DEBUG(@"Uninstalling deadlock handler.");
     if(!g_installed)
@@ -207,7 +206,7 @@ void kscrashsentry_uninstallDeadlockHandler(void)
     g_installed = 0;
 }
 
-void kscrashsentry_setDeadlockHandlerWatchdogInterval(double value)
+void kscrashmonitor_setDeadlockHandlerWatchdogInterval(double value)
 {
     g_watchdogInterval = value;
 }

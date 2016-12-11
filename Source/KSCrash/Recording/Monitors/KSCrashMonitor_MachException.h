@@ -1,7 +1,7 @@
 //
-//  KSCrashSentry_Signal_Tests.m
+//  KSCrashMonitor_MachException.h
 //
-//  Created by Karl Stenerud on 2013-01-26.
+//  Created by Karl Stenerud on 2012-02-04.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -25,37 +25,36 @@
 //
 
 
-#import <XCTest/XCTest.h>
-
-#import "KSCrashSentry_Context.h"
-#import "KSCrashSentry_Signal.h"
+/* Catches mach exceptions.
+ */
 
 
-@interface KSCrashSentry_Signal_Tests : XCTestCase @end
+#ifndef HDR_KSCrashMonitor_MachException_h
+#define HDR_KSCrashMonitor_MachException_h
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include "KSCrashMonitor.h"
+#include <stdbool.h>
 
 
-@implementation KSCrashSentry_Signal_Tests
+/** Install our custom mach exception handler.
+ *
+ * @param context Contextual information for the crash handler.
+ *
+ * @return true if installation was succesful.
+ */
+bool kscrashmonitor_installMachHandler(struct KSCrash_MonitorContext* context);
 
-- (void) testInstallAndRemove
-{
-    bool success;
-    KSCrash_SentryContext context;
-    success = kscrashsentry_installSignalHandler(&context);
-    XCTAssertTrue(success, @"");
-    [NSThread sleepForTimeInterval:0.1];
-    kscrashsentry_uninstallSignalHandler();
+/** Uninstall our custom mach exception handler.
+ */
+void kscrashmonitor_uninstallMachHandler(void);
+
+
+#ifdef __cplusplus
 }
+#endif
 
-- (void) testDoubleInstallAndRemove
-{
-    bool success;
-    KSCrash_SentryContext context;
-    success = kscrashsentry_installSignalHandler(&context);
-    XCTAssertTrue(success, @"");
-    success = kscrashsentry_installSignalHandler(&context);
-    XCTAssertTrue(success, @"");
-    kscrashsentry_uninstallSignalHandler();
-    kscrashsentry_uninstallSignalHandler();
-}
-
-@end
+#endif // HDR_KSCrashMonitor_MachException_h

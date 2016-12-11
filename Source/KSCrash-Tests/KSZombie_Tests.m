@@ -27,7 +27,7 @@
 
 #import <XCTest/XCTest.h>
 
-#import "KSZombie.h"
+#import "KSCrashMonitor_Zombie.h"
 
 
 @interface KSZombie_Tests : XCTestCase @end

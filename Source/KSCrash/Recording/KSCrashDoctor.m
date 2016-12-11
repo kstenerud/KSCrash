@@ -8,7 +8,7 @@
 
 #import "KSCrashDoctor.h"
 #import "KSCrashReportFields.h"
-#import "KSSystemInfo.h"
+#import "KSCrashMonitor_System.h"
 
 
 typedef enum

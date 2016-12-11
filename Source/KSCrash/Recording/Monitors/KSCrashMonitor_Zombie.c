@@ -25,7 +25,7 @@
 //
 
 
-#include "KSZombie.h"
+#include "KSCrashMonitor_Zombie.h"
 #include "KSObjC.h"
 #include "KSLogger.h"
 

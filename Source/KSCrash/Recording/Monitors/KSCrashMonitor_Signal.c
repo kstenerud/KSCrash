@@ -1,5 +1,5 @@
 //
-//  KSCrashSentry_Signal.c
+//  KSCrashMonitor_Signal.c
 //
 //  Created by Karl Stenerud on 2012-01-28.
 //
@@ -26,9 +26,8 @@
 
 #include <TargetConditionals.h>
 
-#include "KSCrashSentry_Signal.h"
-#include "KSCrashSentry_Context.h"
-#include "KSCrashSentry_Private.h"
+#include "KSCrashMonitor_Signal.h"
+#include "KSCrashMonitorContext.h"
 
 #include "KSSignalInfo.h"
 #include "KSMachineContext.h"
@@ -62,7 +61,7 @@ static stack_t g_signalStack = {0};
 static struct sigaction* g_previousSignalHandlers = NULL;
 
 /** Context to fill with crash information. */
-static KSCrash_SentryContext* g_context;
+static KSCrash_MonitorContext* g_context;
 
 
 // ============================================================================
@@ -87,7 +86,7 @@ static void handleSignal(int sigNum, siginfo_t* signalInfo, void* userContext)
     if(g_installed)
     {
         bool wasHandlingCrash = g_context->handlingCrash;
-        kscrashsentry_beginHandlingCrash(g_context);
+        kscrashmonitor_beginHandlingCrash(g_context);
 
         KSLOG_DEBUG("Signal handler is installed. Continuing signal handling.");
 
@@ -98,12 +97,12 @@ static void handleSignal(int sigNum, siginfo_t* signalInfo, void* userContext)
         {
             KSLOG_INFO("Detected crash in the crash reporter. Restoring original handlers.");
             g_context->crashedDuringCrashHandling = true;
-            kscrashsentry_uninstall(KSCrashTypeAsyncSafe);
+            kscrashmonitor_uninstall(KSCrashMonitorTypeAsyncSafe);
         }
 
 
         KSLOG_DEBUG("Filling out context.");
-        g_context->crashType = KSCrashTypeSignal;
+        g_context->crashType = KSCrashMonitorTypeSignal;
         KSMC_NEW_CONTEXT(machineContext);
         g_context->offendingMachineContext = machineContext;
         ksmc_getContextForSignal(userContext, machineContext);
@@ -118,7 +117,7 @@ static void handleSignal(int sigNum, siginfo_t* signalInfo, void* userContext)
 
 
         KSLOG_DEBUG("Crash handling complete. Restoring original handlers.");
-        kscrashsentry_uninstall(KSCrashTypeAsyncSafe);
+        kscrashmonitor_uninstall(KSCrashMonitorTypeAsyncSafe);
         ksmc_resumeEnvironment();
     }
 
@@ -132,7 +131,7 @@ static void handleSignal(int sigNum, siginfo_t* signalInfo, void* userContext)
 #pragma mark - API -
 // ============================================================================
 
-bool kscrashsentry_installSignalHandler(KSCrash_SentryContext* context)
+bool kscrashmonitor_installSignalHandler(KSCrash_MonitorContext* context)
 {
     KSLOG_DEBUG("Installing signal handler.");
 
@@ -210,7 +209,7 @@ failed:
     return false;
 }
 
-void kscrashsentry_uninstallSignalHandler(void)
+void kscrashmonitor_uninstallSignalHandler(void)
 {
     KSLOG_DEBUG("Uninstalling signal handlers.");
     if(!g_installed)

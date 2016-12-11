@@ -1,5 +1,5 @@
 //
-//  KSCrashSentry_Signal.h
+//  KSCrashMonitor_NSException.h
 //
 //  Created by Karl Stenerud on 2012-01-28.
 //
@@ -25,38 +25,38 @@
 //
 
 
-/* Catches fatal unix signals.
+/* Catches Objective-C exceptions.
  */
 
 
-#ifndef HDR_KSCrashSentry_Signal_h
-#define HDR_KSCrashSentry_Signal_h
+#ifndef HDR_KSCrashMonitor_NSException_h
+#define HDR_KSCrashMonitor_NSException_h
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 
-#include "KSCrashSentry.h"
+#include "KSCrashMonitor.h"
 
 #include <stdbool.h>
 
 
-/** Install our custom signal handler.
+/** Install our custom NSException handler.
  *
  * @param context The crash context to fill out when a crash occurs.
  *
  * @return true if installation was succesful.
  */
-bool kscrashsentry_installSignalHandler(struct KSCrash_SentryContext* context);
+bool kscrashmonitor_installNSExceptionHandler(struct KSCrash_MonitorContext* context);
 
-/** Uninstall our custom signal handlers and restore the previous ones.
+/** Uninstall our custome NSException handler.
  */
-void kscrashsentry_uninstallSignalHandler(void);
+void kscrashmonitor_uninstallNSExceptionHandler(void);
 
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // HDR_KSCrashSentry_Signal_h
+#endif // HDR_KSCrashMonitor_NSException_h

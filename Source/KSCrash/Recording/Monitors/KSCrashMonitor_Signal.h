@@ -1,7 +1,7 @@
 //
-//  KSCrashSentry_MachException.h
+//  KSCrashMonitor_Signal.h
 //
-//  Created by Karl Stenerud on 2012-02-04.
+//  Created by Karl Stenerud on 2012-01-28.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -25,36 +25,38 @@
 //
 
 
-/* Catches mach exceptions.
+/* Catches fatal unix signals.
  */
 
 
-#ifndef HDR_KSCrashSentry_MachException_h
-#define HDR_KSCrashSentry_MachException_h
+#ifndef HDR_KSCrashMonitor_Signal_h
+#define HDR_KSCrashMonitor_Signal_h
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include "KSCrashSentry.h"
+
+#include "KSCrashMonitor.h"
+
 #include <stdbool.h>
 
 
-/** Install our custom mach exception handler.
+/** Install our custom signal handler.
  *
- * @param context Contextual information for the crash handler.
+ * @param context The crash context to fill out when a crash occurs.
  *
  * @return true if installation was succesful.
  */
-bool kscrashsentry_installMachHandler(struct KSCrash_SentryContext* context);
+bool kscrashmonitor_installSignalHandler(struct KSCrash_MonitorContext* context);
 
-/** Uninstall our custom mach exception handler.
+/** Uninstall our custom signal handlers and restore the previous ones.
  */
-void kscrashsentry_uninstallMachHandler(void);
+void kscrashmonitor_uninstallSignalHandler(void);
 
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // HDR_KSCrashSentry_MachException_h
+#endif // HDR_KSCrashMonitor_Signal_h

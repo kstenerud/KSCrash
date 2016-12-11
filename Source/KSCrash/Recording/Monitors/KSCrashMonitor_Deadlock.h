@@ -1,5 +1,7 @@
 //
-//  KSCrashSentry_CPPException.h
+//  KSCrashMonitor_Deadlock.h
+//
+//  Created by Karl Stenerud on 2012-12-09.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -22,31 +24,45 @@
 // THE SOFTWARE.
 //
 
-#ifndef HDR_KSCrashSentry_CPPException_h
-#define HDR_KSCrashSentry_CPPException_h
+/* Catches deadlocks in threads and queues.
+ */
+
+
+#ifndef HDR_KSCrashMonitor_Deadlock_h
+#define HDR_KSCrashMonitor_Deadlock_h
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include "KSCrashSentry.h"
+
+#include "KSCrashMonitor.h"
+
+#include <stdbool.h>
 
 
-/** Install the C++ exception handler.
+/** Install the deadlock handler.
  *
- * @param context Contextual information for the crash handler.
+ * @param context The crash context to fill out when a crash occurs.
  *
  * @return true if installation was succesful.
  */
-bool kscrashsentry_installCPPExceptionHandler(KSCrash_SentryContext* context);
+bool kscrashmonitor_installDeadlockHandler(struct KSCrash_MonitorContext* context);
 
-/** Uninstall the C++ exception handler.
+/** Uninstall our custome NSException handler.
  */
-void kscrashsentry_uninstallCPPExceptionHandler(void);
+void kscrashmonitor_uninstallDeadlockHandler(void);
+
+/** Set the interval between watchdog checks on the main thread.
+ * Default is 5 seconds.
+ *
+ * @param value The number of seconds between checks (0 = disabled).
+ */
+void kscrashmonitor_setDeadlockHandlerWatchdogInterval(double value);
 
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // HDR_KSCrashSentry_CPPException_h
+#endif // HDR_KSCrashMonitor_Deadlock_h

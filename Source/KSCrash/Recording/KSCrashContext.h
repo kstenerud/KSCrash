@@ -37,8 +37,8 @@ extern "C" {
 #endif
 
 
-#include "KSCrashType.h"
-#include "KSCrashSentry_Context.h"
+#include "KSCrashMonitorType.h"
+#include "KSCrashMonitorContext.h"
 #include "KSCrashReportWriter.h"
 #include "KSCrashState.h"
 
@@ -84,7 +84,7 @@ typedef struct
     bool searchQueueNames;
 
     /** The types of crashes that will be handled. */
-    KSCrashType handlingCrashTypes;
+    KSCrashMonitorType monitoring;
 
     /** Rules for introspecting Objective-C objects. */
     KSCrash_IntrospectionRules introspectionRules;
@@ -101,7 +101,7 @@ typedef struct
 {
     KSCrash_Configuration config;
     KSCrash_State state;
-    KSCrash_SentryContext crash;
+    KSCrash_MonitorContext crash;
 } KSCrash_Context;
 
 

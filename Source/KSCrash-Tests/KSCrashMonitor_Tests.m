@@ -1,7 +1,7 @@
 //
-//  KSCrashSentry_Deadlock_Tests.m
+//  KSCrashMonitor_Tests.m
 //
-//  Created by Karl Stenerud on 2013-01-26.
+//  Created by Karl Stenerud on 2013-03-09.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -27,36 +27,32 @@
 
 #import <XCTest/XCTest.h>
 
-#import "KSCrashSentry_Context.h"
-#import "KSCrashSentry_Deadlock.h"
+#import "KSCrashMonitor.h"
+#import "KSCrashMonitorContext.h"
 
-
-@interface KSCrashSentry_Deadlock_Tests : XCTestCase @end
-
-
-@implementation KSCrashSentry_Deadlock_Tests
-
-- (void) testInstallAndRemove
+static void onCrash(void)
 {
-    bool success;
-    KSCrash_SentryContext context;
-    kscrashsentry_setDeadlockHandlerWatchdogInterval(10);
-    success = kscrashsentry_installDeadlockHandler(&context);
-    XCTAssertTrue(success, @"");
-    [NSThread sleepForTimeInterval:0.1];
-    kscrashsentry_uninstallDeadlockHandler();
+    // Do nothing
 }
 
-- (void) testDoubleInstallAndRemove
+@interface KSCrashMonitor_Tests : XCTestCase @end
+
+
+@implementation KSCrashMonitor_Tests
+
+- (void) testInstallUninstall
 {
-    bool success;
-    KSCrash_SentryContext context;
-    success = kscrashsentry_installDeadlockHandler(&context);
-    XCTAssertTrue(success, @"");
-    success = kscrashsentry_installDeadlockHandler(&context);
-    XCTAssertTrue(success, @"");
-    kscrashsentry_uninstallDeadlockHandler();
-    kscrashsentry_uninstallDeadlockHandler();
+    KSCrash_MonitorContext context;
+    kscrashmonitor_installWithContext(&context, KSCrashMonitorTypeAll, onCrash);
+    kscrashmonitor_uninstall(KSCrashMonitorTypeAll);
+}
+
+- (void) testSuspendResumeThreads
+{
+    ksmc_suspendEnvironment();
+    ksmc_suspendEnvironment();
+    ksmc_resumeEnvironment();
+    ksmc_resumeEnvironment();
 }
 
 @end

@@ -11,7 +11,7 @@ compiled without the layers adjacent or above.
     |    +--------------------------------------------------------+
     |    | Crash Reporting | Crash Recording | Crash Report Store |
     +----+-----------------+-----------------+--------------------+
-    |       Filters        |      Sentry     |
+    |       Filters        |     Monitors    |
     +----------------------+-----------------+
 
 
@@ -54,7 +54,7 @@ Processes, transforms, and sends reports to a remote system.
 Primary entry point: KSCrash.h
 
 
-### Sentry
+### Monitors
 
 Traps application errors and passes control to a supplied function.
 It handles the following errors:
@@ -64,7 +64,7 @@ It handles the following errors:
 * NSException
 * Main Thread Deadlock
 
-Primary entry point: KSCrashSentry.h
+Primary entry point: KSCrashMonitor.h
 
 
 ### Filters

@@ -29,7 +29,7 @@
 
 #import "KSCrashReportWriter.h"
 #import "KSCrashReportFilter.h"
-#import "KSCrashType.h"
+#import "KSCrashMonitorType.h"
 
 typedef enum
 {
@@ -74,11 +74,11 @@ typedef enum
  */
 @property(nonatomic,readwrite,assign) KSCDeleteBehavior deleteBehaviorAfterSendAll;
 
-/** The crash types that are being handled.
- * Note: This value may change once KSCrash is installed if some handlers
+/** The monitors that will or have been installed.
+ * Note: This value may change once KSCrash is installed if some monitors
  *       fail to install.
  */
-@property(nonatomic,readwrite,assign) KSCrashType handlingCrashTypes;
+@property(nonatomic,readwrite,assign) KSCrashMonitorType monitoring;
 
 /** Maximum time to allow the main thread to run without returning.
  * If a task occupies the main thread for longer than this interval, the

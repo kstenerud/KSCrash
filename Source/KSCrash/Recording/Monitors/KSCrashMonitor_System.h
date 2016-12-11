@@ -1,5 +1,5 @@
 //
-//  KSSystemInfo.h
+//  KSCrashMonitor_System.h
 //
 //  Created by Karl Stenerud on 2012-02-05.
 //
@@ -24,8 +24,8 @@
 // THE SOFTWARE.
 //
 
-#ifndef KSCrash_KSSystemInfo_h
-#define KSCrash_KSSystemInfo_h
+#ifndef KSCrashMonitor_System_h
+#define KSCrashMonitor_System_h
 
 #ifdef __cplusplus
 extern "C" {
@@ -76,26 +76,6 @@ char* kssysteminfo_copyProcessName(void);
     
 #ifdef __cplusplus
 }
-#endif
-
-
-#ifdef __OBJC__
-
-#import <Foundation/Foundation.h>
-
-/**
- * Provides system information useful for a crash report.
- */
-@interface KSSystemInfo : NSObject
-
-/** Get the system info.
- *
- * @return The system info.
- */
-+ (NSDictionary*) systemInfo;
-
-@end
-
 #endif
 
 #endif

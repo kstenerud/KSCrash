@@ -37,7 +37,7 @@ extern "C" {
 #endif
 
 
-#include "KSCrashType.h"
+#include "KSCrashMonitorType.h"
 #include "KSCrashReportWriter.h"
 
 #include <stdbool.h>
@@ -50,20 +50,20 @@ extern "C" {
  *
  * @return The crash types that are being handled.
  */
-KSCrashType kscrash_install(const char* appName, const char* const installPath);
+KSCrashMonitorType kscrash_install(const char* appName, const char* const installPath);
 
 /** Set the crash types that will be handled.
  * Some crash types may not be enabled depending on circumstances (e.g. running
  * in a debugger).
  *
- * @param crashTypes The crash types to handle.
+ * @param monitors The monitors to install.
  *
- * @return The crash types that are now behing handled. If KSCrash has been
- *         installed, the return value represents the crash sentries that were
- *         successfully installed. Otherwise it represents which sentries it
+ * @return The monitors that were installed. If KSCrash has been
+ *         installed, the return value represents the monitors that were
+ *         successfully installed. Otherwise it represents which monitors it
  *         will attempt to activate when KSCrash installs.
  */
-KSCrashType kscrash_setHandlingCrashTypes(KSCrashType crashTypes);
+KSCrashMonitorType kscrash_setMonitoring(KSCrashMonitorType monitors);
 
 /** Reinstall the crash reporter. Useful for resetting the crash reporter
  * after a "soft" crash.

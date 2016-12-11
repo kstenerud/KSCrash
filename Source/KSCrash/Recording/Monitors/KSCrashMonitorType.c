@@ -1,7 +1,5 @@
 //
-//  KSCrashSentry_NSException.h
-//
-//  Created by Karl Stenerud on 2012-01-28.
+//  KSCrashMonitorType.c
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -25,38 +23,36 @@
 //
 
 
-/* Catches Objective-C exceptions.
- */
+#include "KSCrashMonitorType.h"
+
+#include <stdlib.h>
 
 
-#ifndef HDR_KSCrashSentry_NSException_h
-#define HDR_KSCrashSentry_NSException_h
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-
-#include "KSCrashSentry.h"
-
-#include <stdbool.h>
-
-
-/** Install our custom NSException handler.
- *
- * @param context The crash context to fill out when a crash occurs.
- *
- * @return true if installation was succesful.
- */
-bool kscrashsentry_installNSExceptionHandler(struct KSCrash_SentryContext* context);
-
-/** Uninstall our custome NSException handler.
- */
-void kscrashsentry_uninstallNSExceptionHandler(void);
+static const struct
+{
+    const KSCrashMonitorType type;
+    const char* const name;
+} g_monitorTypes[] =
+{
+#define MONITORTYPE(NAME) {NAME, #NAME}
+    MONITORTYPE(KSCrashMonitorTypeMachException),
+    MONITORTYPE(KSCrashMonitorTypeSignal),
+    MONITORTYPE(KSCrashMonitorTypeCPPException),
+    MONITORTYPE(KSCrashMonitorTypeNSException),
+    MONITORTYPE(KSCrashMonitorTypeMainThreadDeadlock),
+    MONITORTYPE(KSCrashMonitorTypeUserReported),
+};
+static const int g_monitorTypesCount = sizeof(g_monitorTypes) / sizeof(*g_monitorTypes);
 
 
-#ifdef __cplusplus
+const char* kscrashmonitortype_name(const KSCrashMonitorType monitorType)
+{
+    for(int i = 0; i < g_monitorTypesCount; i++)
+    {
+        if(g_monitorTypes[i].type == monitorType)
+        {
+            return g_monitorTypes[i].name;
+        }
+    }
+    return NULL;
 }
-#endif
-
-#endif // HDR_KSCrashSentry_NSException_h

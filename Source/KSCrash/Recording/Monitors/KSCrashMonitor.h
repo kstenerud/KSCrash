@@ -1,5 +1,5 @@
 //
-//  KSCrashSentry.h
+//  KSCrashMonitor.h
 //
 //  Created by Karl Stenerud on 2012-02-12.
 //
@@ -29,41 +29,52 @@
  */
 
 
-#ifndef HDR_KSCrashSentry_h
-#define HDR_KSCrashSentry_h
+#ifndef HDR_KSCrashMonitor_h
+#define HDR_KSCrashMonitor_h
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 
-#include "KSCrashType.h"
+#include "KSCrashMonitorType.h"
 
-struct KSCrash_SentryContext;
+struct KSCrash_MonitorContext;
 
-/** Install crash sentry.
+/** Install monitors.
  *
  * @param context Contextual information for the crash handlers.
  *
- * @param crashTypes The crash types to install handlers for.
+ * @param monitorTypers The crash types to install handlers for.
  *
  * @param onCrash Function to call when a crash occurs.
  *
  * @return which crash handlers were installed successfully.
  */
-KSCrashType kscrashsentry_installWithContext(struct KSCrash_SentryContext* context,
-                                             KSCrashType crashTypes,
-                                             void (*onCrash)(void));
+KSCrashMonitorType kscrashmonitor_installWithContext(struct KSCrash_MonitorContext* context,
+                                                KSCrashMonitorType monitorTypers,
+                                                void (*onCrash)(void));
 
-/** Uninstall crash sentry.
+/** Uninstall monitors.
  *
- * @param crashTypes The crash types to install handlers for.
+ * @param monitorTypers The crash types to install handlers for.
  */
-void kscrashsentry_uninstall(KSCrashType crashTypes);
+void kscrashmonitor_uninstall(KSCrashMonitorType monitorTypers);
+
+
+// Internal API
+
+/** Prepare the context for handling a new crash.
+ */
+void kscrashmonitor_beginHandlingCrash(struct KSCrash_MonitorContext* context);
+
+/** Clear a monitor context.
+ */
+void kscrashmonitor_clearContext(struct KSCrash_MonitorContext* context);
 
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // HDR_KSCrashSentry_h
+#endif // HDR_KSCrashMonitor_h

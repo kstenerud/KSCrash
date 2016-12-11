@@ -1,5 +1,7 @@
 //
-//  KSCrashType.c
+//  KSCrashMonitor_NSException_Tests.m
+//
+//  Created by Karl Stenerud on 2013-01-26.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -23,36 +25,37 @@
 //
 
 
-#include "KSCrashType.h"
+#import <XCTest/XCTest.h>
 
-#include <stdlib.h>
+#import "KSCrashMonitorContext.h"
+#import "KSCrashMonitor_NSException.h"
 
 
-static const struct
+@interface KSCrashMonitor_NSException_Tests : XCTestCase @end
+
+
+@implementation KSCrashMonitor_NSException_Tests
+
+- (void) testInstallAndRemove
 {
-    const KSCrashType type;
-    const char* const name;
-} g_crashTypes[] =
-{
-#define CRASHTYPE(NAME) {NAME, #NAME}
-    CRASHTYPE(KSCrashTypeMachException),
-    CRASHTYPE(KSCrashTypeSignal),
-    CRASHTYPE(KSCrashTypeCPPException),
-    CRASHTYPE(KSCrashTypeNSException),
-    CRASHTYPE(KSCrashTypeMainThreadDeadlock),
-    CRASHTYPE(KSCrashTypeUserReported),
-};
-static const int g_crashTypesCount = sizeof(g_crashTypes) / sizeof(*g_crashTypes);
-
-
-const char* kscrashtype_name(const KSCrashType crashType)
-{
-    for(int i = 0; i < g_crashTypesCount; i++)
-    {
-        if(g_crashTypes[i].type == crashType)
-        {
-            return g_crashTypes[i].name;
-        }
-    }
-    return NULL;
+    bool success;
+    KSCrash_MonitorContext context;
+    success = kscrashmonitor_installNSExceptionHandler(&context);
+    XCTAssertTrue(success, @"");
+    [NSThread sleepForTimeInterval:0.1];
+    kscrashmonitor_uninstallNSExceptionHandler();
 }
+
+- (void) testDoubleInstallAndRemove
+{
+    bool success;
+    KSCrash_MonitorContext context;
+    success = kscrashmonitor_installNSExceptionHandler(&context);
+    XCTAssertTrue(success, @"");
+    success = kscrashmonitor_installNSExceptionHandler(&context);
+    XCTAssertTrue(success, @"");
+    kscrashmonitor_uninstallNSExceptionHandler();
+    kscrashmonitor_uninstallNSExceptionHandler();
+}
+
+@end

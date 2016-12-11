@@ -1,7 +1,7 @@
 //
-//  KSCrashSentry_Tests.m
+//  KSCrashMonitor_Signal_Tests.m
 //
-//  Created by Karl Stenerud on 2013-03-09.
+//  Created by Karl Stenerud on 2013-01-26.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -27,33 +27,35 @@
 
 #import <XCTest/XCTest.h>
 
-#import "KSCrashSentry.h"
-#import "KSCrashSentry_Context.h"
-#import "KSCrashSentry_Private.h"
+#import "KSCrashMonitorContext.h"
+#import "KSCrashMonitor_Signal.h"
 
-static void onCrash(void)
+
+@interface KSCrashMonitor_Signal_Tests : XCTestCase @end
+
+
+@implementation KSCrashMonitor_Signal_Tests
+
+- (void) testInstallAndRemove
 {
-    // Do nothing
+    bool success;
+    KSCrash_MonitorContext context;
+    success = kscrashmonitor_installSignalHandler(&context);
+    XCTAssertTrue(success, @"");
+    [NSThread sleepForTimeInterval:0.1];
+    kscrashmonitor_uninstallSignalHandler();
 }
 
-@interface KSCrashSentry_Tests : XCTestCase @end
-
-
-@implementation KSCrashSentry_Tests
-
-- (void) testInstallUninstall
+- (void) testDoubleInstallAndRemove
 {
-    KSCrash_SentryContext context;
-    kscrashsentry_installWithContext(&context, KSCrashTypeAll, onCrash);
-    kscrashsentry_uninstall(KSCrashTypeAll);
-}
-
-- (void) testSuspendResumeThreads
-{
-    ksmc_suspendEnvironment();
-    ksmc_suspendEnvironment();
-    ksmc_resumeEnvironment();
-    ksmc_resumeEnvironment();
+    bool success;
+    KSCrash_MonitorContext context;
+    success = kscrashmonitor_installSignalHandler(&context);
+    XCTAssertTrue(success, @"");
+    success = kscrashmonitor_installSignalHandler(&context);
+    XCTAssertTrue(success, @"");
+    kscrashmonitor_uninstallSignalHandler();
+    kscrashmonitor_uninstallSignalHandler();
 }
 
 @end

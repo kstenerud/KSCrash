@@ -1,5 +1,5 @@
 //
-//  KSCrashSentry_MachException.c
+//  KSCrashMonitor_MachException.c
 //
 //  Created by Karl Stenerud on 2012-02-04.
 //
@@ -25,9 +25,8 @@
 //
 
 
-#include "KSCrashSentry_MachException.h"
-#include "KSCrashSentry_Context.h"
-#include "KSCrashSentry_Private.h"
+#include "KSCrashMonitor_MachException.h"
+#include "KSCrashMonitorContext.h"
 #include "KSCPU.h"
 #include "KSThread.h"
 #include "KSSystemCapabilities.h"
@@ -142,7 +141,7 @@ static pthread_t g_secondaryPThread;
 static thread_t g_secondaryMachThread;
 
 /** Context to fill with crash information. */
-static KSCrash_SentryContext* g_context;
+static KSCrash_MonitorContext* g_context;
 
 
 // ============================================================================
@@ -230,7 +229,7 @@ static void* handleExceptions(void* const userData)
     if(g_installed)
     {
         bool wasHandlingCrash = g_context->handlingCrash;
-        kscrashsentry_beginHandlingCrash(g_context);
+        kscrashmonitor_beginHandlingCrash(g_context);
 
         KSLOG_DEBUG("Exception handler is installed. Continuing exception handling.");
 
@@ -260,7 +259,7 @@ static void* handleExceptions(void* const userData)
             // The crash reporter itself crashed. Make a note of this and
             // uninstall all handlers so that we don't get stuck in a loop.
             g_context->crashedDuringCrashHandling = true;
-            kscrashsentry_uninstall(KSCrashTypeAsyncSafe);
+            kscrashmonitor_uninstall(KSCrashMonitorTypeAsyncSafe);
         }
 
         // Fill out crash information
@@ -281,7 +280,7 @@ static void* handleExceptions(void* const userData)
         }
 
         KSLOG_DEBUG("Filling out context.");
-        g_context->crashType = KSCrashTypeMachException;
+        g_context->crashType = KSCrashMonitorTypeMachException;
         g_context->registersAreValid = true;
         g_context->mach.type = exceptionMessage.exception;
         g_context->mach.code = exceptionMessage.code[0];
@@ -293,7 +292,7 @@ static void* handleExceptions(void* const userData)
 
 
         KSLOG_DEBUG("Crash handling complete. Restoring original handlers.");
-        kscrashsentry_uninstall(KSCrashTypeAsyncSafe);
+        kscrashmonitor_uninstall(KSCrashMonitorTypeAsyncSafe);
         ksmc_resumeEnvironment();
     }
 
@@ -319,7 +318,7 @@ static void* handleExceptions(void* const userData)
 #pragma mark - API -
 // ============================================================================
 
-bool kscrashsentry_installMachHandler(KSCrash_SentryContext* const context)
+bool kscrashmonitor_installMachHandler(KSCrash_MonitorContext* const context)
 {
     KSLOG_DEBUG("Installing mach exception handler.");
 
@@ -409,7 +408,7 @@ bool kscrashsentry_installMachHandler(KSCrash_SentryContext* const context)
         goto failed;
     }
     g_secondaryMachThread = pthread_mach_thread_np(g_secondaryPThread);
-    context->reservedThreads[KSCrashReservedThreadTypeMachSecondary] = g_secondaryMachThread;
+    context->reservedThreads[KSCrashReservedThreadTypeRecrashMonitor] = g_secondaryMachThread;
 
     KSLOG_DEBUG("Creating primary exception thread.");
     error = pthread_create(&g_primaryPThread,
@@ -423,7 +422,7 @@ bool kscrashsentry_installMachHandler(KSCrash_SentryContext* const context)
     }
     pthread_attr_destroy(&attr);
     g_primaryMachThread = pthread_mach_thread_np(g_primaryPThread);
-    context->reservedThreads[KSCrashReservedThreadTypeMachPrimary] = g_primaryMachThread;
+    context->reservedThreads[KSCrashReservedThreadTypeCrashMonitor] = g_primaryMachThread;
 
     KSLOG_DEBUG("Mach exception handler installed.");
     return true;
@@ -435,12 +434,12 @@ failed:
     {
         pthread_attr_destroy(&attr);
     }
-    kscrashsentry_uninstallMachHandler();
+    kscrashmonitor_uninstallMachHandler();
     return false;
 }
 
 
-void kscrashsentry_uninstallMachHandler(void)
+void kscrashmonitor_uninstallMachHandler(void)
 {
     KSLOG_DEBUG("Uninstalling mach exception handler.");
 
@@ -492,13 +491,13 @@ void kscrashsentry_uninstallMachHandler(void)
 
 #else
 
-bool kscrashsentry_installMachHandler(__unused KSCrash_SentryContext* const context)
+bool kscrashmonitor_installMachHandler(__unused KSCrash_MonitorContext* const context)
 {
     KSLOG_WARN("Mach exception handler not available on this platform.");
     return false;
 }
 
-void kscrashsentry_uninstallMachHandler(void)
+void kscrashmonitor_uninstallMachHandler(void)
 {
 }
 

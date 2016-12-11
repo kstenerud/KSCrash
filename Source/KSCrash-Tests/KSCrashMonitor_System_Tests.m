@@ -1,5 +1,5 @@
 //
-//  KSSystemInfo_Tests.m
+//  KSCrashMonitor_System_Tests.m
 //
 //  Created by Karl Stenerud on 2013-01-26.
 //
@@ -26,19 +26,13 @@
 
 #import <XCTest/XCTest.h>
 
-#import "KSSystemInfo.h"
+#import "KSCrashMonitor_System.h"
 
 
-@interface KSSystemInfo_Tests : XCTestCase @end
+@interface KSCrashMonitor_System_Tests : XCTestCase @end
 
 
-@implementation KSSystemInfo_Tests
-
-- (void) testSystemInfo
-{
-    NSDictionary* info = [KSSystemInfo systemInfo];
-    XCTAssertNotNil(info, @"");
-}
+@implementation KSCrashMonitor_System_Tests
 
 - (void) testSystemInfoJSON
 {
@@ -56,16 +50,26 @@
     }
 }
 
+- (NSDictionary*) getSystemInfo
+{
+    const char* json = kssysteminfo_toJSON();
+    NSData* data = [NSData dataWithBytes:json length:strlen(json)];
+    NSError* error = nil;
+    NSDictionary* result = [NSJSONSerialization JSONObjectWithData:data options:0 error:&error];
+    XCTAssertNil(error);
+    return result;
+}
+
 - (void) testExecutablePathIsNotNull
 {
-    NSDictionary* info = [KSSystemInfo systemInfo];
+    NSDictionary* info = [self getSystemInfo];
     id executablePath = info[@KSSystemField_ExecutablePath];
     XCTAssertNotEqual(executablePath, [NSNull null]);
 }
 
 - (void) testExecutablePathIsValid
 {
-    NSDictionary* info = [KSSystemInfo systemInfo];
+    NSDictionary* info = [self getSystemInfo];
     NSString* executablePath = info[@KSSystemField_ExecutablePath];
     NSDictionary* infoDictionary = [[NSBundle mainBundle] infoDictionary];
     NSString* executableName = infoDictionary[@"CFBundleExecutable"];

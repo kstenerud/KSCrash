@@ -222,7 +222,7 @@ installation.url = [NSURL URLWithString:@"https://put.your.url.here/api/v1/crash
 }
 ```
 
-This will install the crash sentry system (which intercepts crashes and stores
+This will install the crash monitor system (which intercepts crashes and stores
 reports to disk). Note that there are other properties you can and probably
 will want to set for the various installations.
 

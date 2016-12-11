@@ -96,7 +96,7 @@ static NSString* getBasePath()
 @synthesize sink = _sink;
 @synthesize userInfo = _userInfo;
 @synthesize deleteBehaviorAfterSendAll = _deleteBehaviorAfterSendAll;
-@synthesize handlingCrashTypes = _handlingCrashTypes;
+@synthesize monitoring = _monitoring;
 @synthesize deadlockWatchdogInterval = _deadlockWatchdogInterval;
 @synthesize printTraceToStdout = _printTraceToStdout;
 @synthesize onCrash = _onCrash;
@@ -171,9 +171,9 @@ static NSString* getBasePath()
     kscrash_setUserInfoJSON([userInfoJSON bytes]);
 }
 
-- (void) setHandlingCrashTypes:(KSCrashType)handlingCrashTypes
+- (void) setMonitoring:(KSCrashMonitorType)monitoring
 {
-    _handlingCrashTypes = kscrash_setHandlingCrashTypes(handlingCrashTypes);
+    _monitoring = kscrash_setMonitoring(monitoring);
 }
 
 - (void) setDeadlockWatchdogInterval:(double) deadlockWatchdogInterval
@@ -240,9 +240,9 @@ static NSString* getBasePath()
 
 - (BOOL) install
 {
-    _handlingCrashTypes = kscrash_install(self.bundleName.UTF8String,
+    _monitoring = kscrash_install(self.bundleName.UTF8String,
                                           self.basePath.UTF8String);
-    if(self.handlingCrashTypes == 0)
+    if(self.monitoring == 0)
     {
         return false;
     }

@@ -34,11 +34,11 @@
 #import "KSCrashReportSinkQuincyHockey.h"
 #import "KSCrashReportSinkStandard.h"
 #import "KSCrashReportSinkVictory.h"
-#import "KSCrashSentry_Context.h"
+#import "KSCrashMonitorContext.h"
 #import "KSCrashState.h"
 #import "KSJSONCodecObjC.h"
 #import "KSMachineContext.h"
-#import "KSSystemInfo.h"
+#import "KSCrashMonitor_System.h"
 #import "KSThread.h"
 #import "NSData+GZip.h"
 

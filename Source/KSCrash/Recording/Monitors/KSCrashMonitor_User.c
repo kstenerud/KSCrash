@@ -1,5 +1,5 @@
 //
-//  KSCrashSentry_User.c
+//  KSCrashMonitor_User.c
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -22,9 +22,8 @@
 // THE SOFTWARE.
 //
 
-#include "KSCrashSentry_User.h"
-#include "KSCrashSentry_Context.h"
-#include "KSCrashSentry_Private.h"
+#include "KSCrashMonitor_User.h"
+#include "KSCrashMonitorContext.h"
 #include "KSThread.h"
 
 //#define KSLogger_LocalLevel TRACE
@@ -35,23 +34,23 @@
 
 
 /** Context to fill with crash information. */
-static KSCrash_SentryContext* g_context;
+static KSCrash_MonitorContext* g_context;
 
 
-bool kscrashsentry_installUserExceptionHandler(KSCrash_SentryContext* const context)
+bool kscrashmonitor_installUserExceptionHandler(KSCrash_MonitorContext* const context)
 {
     KSLOG_DEBUG("Installing user exception handler.");
     g_context = context;
     return true;
 }
 
-void kscrashsentry_uninstallUserExceptionHandler(void)
+void kscrashmonitor_uninstallUserExceptionHandler(void)
 {
     KSLOG_DEBUG("Uninstalling user exception handler.");
     g_context = NULL;
 }
 
-void kscrashsentry_reportUserException(const char* name,
+void kscrashmonitor_reportUserException(const char* name,
                                        const char* reason,
                                        const char* language,
                                        const char* lineOfCode,
@@ -60,11 +59,11 @@ void kscrashsentry_reportUserException(const char* name,
 {
     if(g_context == NULL)
     {
-        KSLOG_WARN("User-reported exception sentry is not installed. Exception has not been recorded.");
+        KSLOG_WARN("User-reported exception monitor is not installed. Exception has not been recorded.");
     }
     else
     {
-        kscrashsentry_beginHandlingCrash(g_context);
+        kscrashmonitor_beginHandlingCrash(g_context);
 
         KSLOG_DEBUG("Suspending all threads");
         ksmc_suspendEnvironment();
@@ -80,7 +79,7 @@ void kscrashsentry_reportUserException(const char* name,
         }
 
         KSLOG_DEBUG("Filling out context.");
-        g_context->crashType = KSCrashTypeUserReported;
+        g_context->crashType = KSCrashMonitorTypeUserReported;
         KSMC_NEW_CONTEXT(machineContext);
         g_context->offendingMachineContext = machineContext;
         ksmc_getContextForThread(ksthread_self(), machineContext, true);
@@ -98,13 +97,13 @@ void kscrashsentry_reportUserException(const char* name,
 
         if(terminateProgram)
         {
-            kscrashsentry_uninstall(KSCrashTypeAll);
+            kscrashmonitor_uninstall(KSCrashMonitorTypeAll);
             ksmc_resumeEnvironment();
             abort();
         }
         else
         {
-            kscrashsentry_clearContext(g_context);
+            kscrashmonitor_clearContext(g_context);
             ksmc_resumeEnvironment();
         }
     }

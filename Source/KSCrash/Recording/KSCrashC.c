@@ -29,13 +29,13 @@
 
 #include "KSCrashReport.h"
 #include "KSCrashReportStore.h"
-#include "KSCrashSentry_Deadlock.h"
-#include "KSCrashSentry_User.h"
+#include "KSCrashMonitor_Deadlock.h"
+#include "KSCrashMonitor_User.h"
 #include "KSFileUtils.h"
 #include "KSObjC.h"
 #include "KSString.h"
-#include "KSSystemInfo.h"
-#include "KSZombie.h"
+#include "KSCrashMonitor_System.h"
+#include "KSCrashMonitor_Zombie.h"
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
@@ -58,7 +58,7 @@ static KSCrash_Context g_crashReportContext =
 {
     .config =
     {
-        .handlingCrashTypes = KSCrashTypeProductionSafe
+        .monitoring = KSCrashMonitorTypeProductionSafe
     }
 };
 
@@ -113,7 +113,7 @@ static void onCrash(void)
 #pragma mark - API -
 // ============================================================================
 
-KSCrashType kscrash_install(const char* appName, const char* const installPath)
+KSCrashMonitorType kscrash_install(const char* appName, const char* const installPath)
 {
     KSLOG_DEBUG("Installing crash reporter.");
 
@@ -122,7 +122,7 @@ KSCrashType kscrash_install(const char* appName, const char* const installPath)
     if(g_installed)
     {
         KSLOG_DEBUG("Crash reporter already installed.");
-        return context->config.handlingCrashTypes;
+        return context->config.monitoring;
     }
     g_installed = 1;
 
@@ -152,13 +152,13 @@ KSCrashType kscrash_install(const char* appName, const char* const installPath)
     kscrash_reinstall();
 
 
-    KSCrashType crashTypes = kscrash_setHandlingCrashTypes(context->config.handlingCrashTypes);
+    KSCrashMonitorType monitors = kscrash_setMonitoring(context->config.monitoring);
 
     context->config.systemInfoJSON = kssysteminfo_toJSON();
     context->config.processName = kssysteminfo_copyProcessName();
 
     KSLOG_DEBUG("Installation complete.");
-    return crashTypes;
+    return monitors;
 }
 
 void kscrash_reinstall()
@@ -191,18 +191,18 @@ void kscrash_reinstall()
     kscrashstate_reset();
 }
 
-KSCrashType kscrash_setHandlingCrashTypes(KSCrashType crashTypes)
+KSCrashMonitorType kscrash_setMonitoring(KSCrashMonitorType monitors)
 {
     KSCrash_Context* context = crashContext();
-    context->config.handlingCrashTypes = crashTypes;
+    context->config.monitoring = monitors;
     
     if(g_installed)
     {
-        kscrashsentry_uninstall(~crashTypes);
-        crashTypes = kscrashsentry_installWithContext(&context->crash, crashTypes, onCrash);
+        kscrashmonitor_uninstall(~monitors);
+        monitors = kscrashmonitor_installWithContext(&context->crash, monitors, onCrash);
     }
 
-    return crashTypes;
+    return monitors;
 }
 
 void kscrash_setUserInfoJSON(const char* const userInfoJSON)
@@ -214,7 +214,7 @@ void kscrash_setUserInfoJSON(const char* const userInfoJSON)
 
 void kscrash_setDeadlockWatchdogInterval(double deadlockWatchdogInterval)
 {
-    kscrashsentry_setDeadlockHandlerWatchdogInterval(deadlockWatchdogInterval);
+    kscrashmonitor_setDeadlockHandlerWatchdogInterval(deadlockWatchdogInterval);
 }
 
 void kscrash_setPrintTraceToStdout(bool printTraceToStdout)
@@ -298,7 +298,7 @@ void kscrash_reportUserException(const char* name,
                                  const char* stackTrace,
                                  bool terminateProgram)
 {
-    kscrashsentry_reportUserException(name,
+    kscrashmonitor_reportUserException(name,
                                       reason,
                                       language,
                                       lineOfCode,

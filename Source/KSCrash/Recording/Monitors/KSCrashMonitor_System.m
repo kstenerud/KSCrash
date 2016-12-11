@@ -1,5 +1,5 @@
 //
-//  KSSystemInfo.m
+//  KSCrashMonitor_System.m
 //
 //  Created by Karl Stenerud on 2012-02-05.
 //
@@ -25,7 +25,7 @@
 //
 
 
-#import "KSSystemInfo.h"
+#import "KSCrashMonitor_System.h"
 
 #import "KSDynamicLinker.h"
 #import "KSCPU.h"
@@ -43,7 +43,16 @@
 #include <mach-o/dyld.h>
 
 
-@implementation KSSystemInfo
+#import <Foundation/Foundation.h>
+
+/**
+ * Provides system information useful for a crash report.
+ */
+@interface KSCrashMonitor_System : NSObject
+
+@end
+
+@implementation KSCrashMonitor_System
 
 // ============================================================================
 #pragma mark - Utility -
@@ -351,19 +360,19 @@
 
 + (NSString*) buildType
 {
-    if([KSSystemInfo isSimulatorBuild])
+    if([KSCrashMonitor_System isSimulatorBuild])
     {
         return @"simulator";
     }
-    if([KSSystemInfo isDebugBuild])
+    if([KSCrashMonitor_System isDebugBuild])
     {
         return @"debug";
     }
-    if([KSSystemInfo isTestBuild])
+    if([KSCrashMonitor_System isTestBuild])
     {
         return @"test";
     }
-    if([KSSystemInfo hasAppStoreReceipt])
+    if([KSCrashMonitor_System hasAppStoreReceipt])
     {
         return @"app store";
     }
@@ -452,7 +461,7 @@ static inline id safeValue(id value)
     sysInfo[@KSSystemField_ProcessID] = safeValue([NSNumber numberWithInt:[NSProcessInfo processInfo].processIdentifier]);
     sysInfo[@KSSystemField_ParentProcessID] = safeValue([NSNumber numberWithInt:getppid()]);
     sysInfo[@KSSystemField_DeviceAppHash] = safeValue([self deviceAndAppHash]);
-    sysInfo[@KSSystemField_BuildType] = safeValue([KSSystemInfo buildType]);
+    sysInfo[@KSSystemField_BuildType] = safeValue([KSCrashMonitor_System buildType]);
     sysInfo[@KSSystemField_Storage] = [self storageSize];
     
     NSDictionary* memory = [NSDictionary dictionaryWithObject:[self int64Sysctl:@"hw.memsize"] forKey:@KSSystemField_Size];
@@ -466,7 +475,7 @@ static inline id safeValue(id value)
 const char* kssysteminfo_toJSON(void)
 {
     NSError* error;
-    NSDictionary* systemInfo = [NSMutableDictionary dictionaryWithDictionary:[KSSystemInfo systemInfo]];
+    NSDictionary* systemInfo = [NSMutableDictionary dictionaryWithDictionary:[KSCrashMonitor_System systemInfo]];
     NSMutableData* jsonData = (NSMutableData*)[KSJSONCodec encode:systemInfo
                                                           options:KSJSONEncodeOptionSorted
                                                             error:&error];

@@ -1,5 +1,5 @@
 //
-//  KSCrashSentry.h
+//  KSCrashMonitorContext.h
 //
 //  Created by Karl Stenerud on 2012-02-12.
 //
@@ -25,14 +25,14 @@
 //
 
 
-#ifndef HDR_KSCrashSentryContext_h
-#define HDR_KSCrashSentryContext_h
+#ifndef HDR_KSCrashMonitorContext_h
+#define HDR_KSCrashMonitorContext_h
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include "KSCrashType.h"
+#include "KSCrashMonitorType.h"
 #include "KSThread.h"
 #include "KSMachineContext.h"
 
@@ -41,12 +41,12 @@ extern "C" {
 
 typedef enum
 {
-    KSCrashReservedThreadTypeMachPrimary,
-    KSCrashReservedThreadTypeMachSecondary,
+    KSCrashReservedThreadTypeCrashMonitor,
+    KSCrashReservedThreadTypeRecrashMonitor,
     KSCrashReservedThreadTypeCount
 } KSCrashReservedTheadType;
 
-typedef struct KSCrash_SentryContext
+typedef struct KSCrash_MonitorContext
 {
     // Caller defined values. Caller must fill these out prior to installation.
     
@@ -81,7 +81,7 @@ typedef struct KSCrash_SentryContext
     
     /** The type of crash that occurred.
      * This determines which other fields are valid. */
-    KSCrashType crashType;
+    KSCrashMonitorType crashType;
     
     /** Short description of why the crash occurred. */
     const char* crashReason;
@@ -142,11 +142,11 @@ typedef struct KSCrash_SentryContext
         const char* customStackTrace;
     } userException;
     
-} KSCrash_SentryContext;
+} KSCrash_MonitorContext;
     
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // HDR_KSCrashSentryContext_h
+#endif // HDR_KSCrashMonitorContext_h
