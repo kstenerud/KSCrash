@@ -24,7 +24,7 @@ Pod::Spec.new do |s|
     recording.public_header_files = 'Source/KSCrash/Recording/KSCrash.h',
                                     'Source/KSCrash/Recording/KSCrashC.h',
                                     'Source/KSCrash/Recording/KSCrashReportWriter.h',
-                                    'Source/KSCrash/Recording/KSMonitorType.h',
+                                    'Source/KSCrash/Recording/Monitors/KSCrashMonitorType.h',
                                     'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h'
 
     recording.subspec 'Tools' do |tools|
