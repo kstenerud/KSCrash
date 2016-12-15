@@ -154,61 +154,6 @@ static uintptr_t segmentBaseOfImageIndex(const uint32_t idx)
     return 0;
 }
 
-/** Get the address of a symbol in the specified image.
- *
- * @param imageIdx The index of the image to search.
- * @param symbolName The symbol to search for.
- * @return The address of the symbol or NULL if not found.
- */
-static const void* getSymbolAddrInImage(uint32_t imageIdx, const char* symbolName)
-{
-    const struct mach_header* header = _dyld_get_image_header(imageIdx);
-    if(header == NULL)
-    {
-        return NULL;
-    }
-    const uintptr_t imageVMAddrSlide = (uintptr_t)_dyld_get_image_vmaddr_slide(imageIdx);
-    const uintptr_t segmentBase = segmentBaseOfImageIndex(imageIdx) + imageVMAddrSlide;
-    if(segmentBase == 0)
-    {
-        return NULL;
-    }
-    uintptr_t cmdPtr = firstCmdAfterHeader(header);
-    if(cmdPtr == 0)
-    {
-        return NULL;
-    }
-    for(uint32_t iCmd = 0; iCmd < header->ncmds; iCmd++)
-    {
-        const struct load_command* loadCmd = (struct load_command*)cmdPtr;
-        if(loadCmd->cmd == LC_SYMTAB)
-        {
-            const struct symtab_command* symtabCmd = (struct symtab_command*)cmdPtr;
-            const STRUCT_NLIST* symbolTable = (STRUCT_NLIST*)(segmentBase + symtabCmd->symoff);
-            const uintptr_t stringTable = segmentBase + symtabCmd->stroff;
-            
-            for(uint32_t iSym = 0; iSym < symtabCmd->nsyms; iSym++)
-            {
-                // If n_value is 0, the symbol refers to an external object.
-                if(symbolTable[iSym].n_value != 0)
-                {
-                    const char* sname = (char*)((intptr_t)stringTable + (intptr_t)symbolTable[iSym].n_un.n_strx);
-                    if(*sname == '_')
-                    {
-                        sname++;
-                    }
-                    if(strcmp(sname, symbolName) == 0)
-                    {
-                        return (void*)(symbolTable[iSym].n_value + imageVMAddrSlide);
-                    }
-                }
-            }
-        }
-        cmdPtr += loadCmd->cmdsize;
-    }
-    return NULL;
-}
-
 uint32_t ksdl_imageNamed(const char* const imageName, bool exactMatch)
 {
     if(imageName != NULL)
@@ -352,7 +297,7 @@ int ksdl_imageCount()
 
 bool ksdl_getBinaryImage(int index, KSBinaryImage* buffer)
 {
-    const struct mach_header* header = _dyld_get_image_header(index);
+    const struct mach_header* header = _dyld_get_image_header((unsigned)index);
     if(header == NULL)
     {
         return false;
@@ -408,7 +353,7 @@ bool ksdl_getBinaryImage(int index, KSBinaryImage* buffer)
     buffer->address = (uintptr_t)header;
     buffer->vmAddress = imageVmAddr;
     buffer->size = imageSize;
-    buffer->name = _dyld_get_image_name(index);
+    buffer->name = _dyld_get_image_name((unsigned)index);
     buffer->uuid = uuid;
     buffer->cpuType = header->cputype;
     buffer->cpuSubType = header->cpusubtype;

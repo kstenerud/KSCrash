@@ -36,8 +36,8 @@ extern "C" {
 
 typedef struct
 {
-    uintptr_t address;
-    uintptr_t vmAddress;
+    uint64_t address;
+    uint64_t vmAddress;
     uint64_t size;
     const char* name;
     const uint8_t* uuid;
