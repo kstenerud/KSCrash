@@ -1,6 +1,10 @@
 1.12.0:
 
+Moved the OS-specific code into leaf modules. All of the central modules from KSCrashC.c down are POSIX now.
+Many of the lower level APIs have changed, and less headers are public.
+
 - CHANGED [KSCrash reportUserException] now takes an additional parameter `logAllThreads`, which controls whether other threads are suspended and logged.
+- ADDED   New monitor types, and a new default: KSCrashMonitorTypeProductionSafeMinimal. See KSCrashMonitorType.h
 
 
 1.11.2:

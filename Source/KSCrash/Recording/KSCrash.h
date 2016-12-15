@@ -77,6 +77,8 @@ typedef enum
 /** The monitors that will or have been installed.
  * Note: This value may change once KSCrash is installed if some monitors
  *       fail to install.
+ *
+ * Default: KSCrashMonitorTypeProductionSafeMinimal
  */
 @property(nonatomic,readwrite,assign) KSCrashMonitorType monitoring;
 
@@ -84,6 +86,9 @@ typedef enum
  * If a task occupies the main thread for longer than this interval, the
  * watchdog will consider the queue deadlocked and shut down the app and write a
  * crash report.
+ *
+ * Note: You must have added KSCrashMonitorTypeMainThreadDeadlock to the monitoring
+ *       property in order for this to have any effect.
  *
  * Warning: Make SURE that nothing in your app that runs on the main thread takes
  * longer to complete than this value or it WILL get shut down! This includes
