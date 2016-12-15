@@ -42,8 +42,7 @@
 #if KSCRASH_HAS_UIKIT
 #import <UIKit/UIKit.h>
 #endif
-#include <mach/mach_error.h>
-#include <mach/mach_host.h>
+#include <mach/mach.h>
 #include <mach-o/dyld.h>
 
 
