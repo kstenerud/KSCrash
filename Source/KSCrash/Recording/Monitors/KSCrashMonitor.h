@@ -38,39 +38,57 @@ extern "C" {
 
 
 #include "KSCrashMonitorType.h"
+#include "KSThread.h"
+    
+#include <stdbool.h>
 
 struct KSCrash_MonitorContext;
 
-/** Install monitors.
+
+// ============================================================================
+#pragma mark - External API -
+// ============================================================================
+
+/** Set which monitors are active.
  *
- * @param context Contextual information for the crash handlers.
- *
- * @param monitorTypers The crash types to install handlers for.
- *
- * @param onCrash Function to call when a crash occurs.
- *
- * @return which crash handlers were installed successfully.
+ * @param monitorTypes Which monitors should be active.
  */
-KSCrashMonitorType kscrashmonitor_installWithContext(struct KSCrash_MonitorContext* context,
-                                                KSCrashMonitorType monitorTypers,
-                                                void (*onCrash)(void));
+void kscm_setActiveMonitors(KSCrashMonitorType monitorTypes);
 
-/** Uninstall monitors.
+/** Get the currently active monitors.
+ */
+KSCrashMonitorType kscm_getActiveMonitors();
+
+/** Set the callback to call when an event is captured.
  *
- * @param monitorTypers The crash types to install handlers for.
+ * @param onEvent Called whenever an event is captured.
  */
-void kscrashmonitor_uninstall(KSCrashMonitorType monitorTypers);
+void kscm_setEventCallback(void (*onEvent)(struct KSCrash_MonitorContext* monitorContext));
 
 
-// Internal API
+// ============================================================================
+#pragma mark - Internal API -
+// ============================================================================
 
-/** Prepare the context for handling a new crash.
+typedef struct
+{
+    void (*setEnabled)(bool isEnabled);
+    bool (*isEnabled)();
+    void (*notifyExceptionEvent)(struct KSCrash_MonitorContext* eventContext);
+} KSCrashMonitorAPI;
+
+/** Notify that a fatal exception has been captured.
+ *  This allows the system to take appropriate steps in preparation.
+ *
+ * @oaram isAsyncSafeEnvironment If true, only async-safe functions are allowed from now on.
  */
-void kscrashmonitor_beginHandlingCrash(struct KSCrash_MonitorContext* context);
+bool kscm_notifyFatalExceptionCaptured(bool isAsyncSafeEnvironment);
 
-/** Clear a monitor context.
+/** Start general exception processing.
+ *
+ * @oaram context Contextual information about the exception.
  */
-void kscrashmonitor_clearContext(struct KSCrash_MonitorContext* context);
+void kscm_handleException(struct KSCrash_MonitorContext* context);
 
 
 #ifdef __cplusplus

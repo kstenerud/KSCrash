@@ -1,5 +1,5 @@
 //
-//  KSCrashState.h
+//  KSCrashMonitor_AppState.h
 //
 //  Created by Karl Stenerud on 2012-02-05.
 //
@@ -30,13 +30,14 @@
  */
 
 
-#ifndef HDR_KSCrashState_h
-#define HDR_KSCrashState_h
+#ifndef HDR_KSCrashMonitor_AppState_h
+#define HDR_KSCrashMonitor_AppState_h
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+#include "KSCrashMonitor.h"
 
 #include <stdbool.h>
 
@@ -44,58 +45,54 @@ extern "C" {
 typedef struct
 {
     // Saved data
-
+    
     /** Total active time elapsed since the last crash. */
     double activeDurationSinceLastCrash;
-
+    
     /** Total time backgrounded elapsed since the last crash. */
     double backgroundDurationSinceLastCrash;
-
+    
     /** Number of app launches since the last crash. */
     int launchesSinceLastCrash;
-
+    
     /** Number of sessions (launch, resume from suspend) since last crash. */
     int sessionsSinceLastCrash;
-
+    
     /** Total active time elapsed since launch. */
     double activeDurationSinceLaunch;
-
+    
     /** Total time backgrounded elapsed since launch. */
     double backgroundDurationSinceLaunch;
-
+    
     /** Number of sessions (launch, resume from suspend) since app launch. */
     int sessionsSinceLaunch;
-
+    
     /** If true, the application crashed on the previous launch. */
     bool crashedLastLaunch;
-
+    
     // Live data
-
+    
     /** If true, the application crashed on this launch. */
     bool crashedThisLaunch;
-
+    
     /** Timestamp for when the app state was last changed (active<->inactive,
      * background<->foreground) */
     double appStateTransitionTime;
-
+    
     /** If true, the application is currently active. */
     bool applicationIsActive;
-
+    
     /** If true, the application is currently in the foreground. */
     bool applicationIsInForeground;
-
-} KSCrash_State;
-
+    
+} KSCrash_AppState;
+    
 
 /** Initialize the state monitor.
  *
  * @param stateFilePath Where to store on-disk representation of state.
- *
- * @param state Where to store in-memory representation of state.
- *
- * @return true if initialization was successful.
  */
-bool kscrashstate_init(const char* stateFilePath, KSCrash_State* state);
+void kscrashstate_initialize(const char* stateFilePath);
 
 /** Reset the crash state.
  */
@@ -124,11 +121,15 @@ void kscrashstate_notifyAppCrash(void);
 
 /** Read-only access into the current state.
  */
-const KSCrash_State* const kscrashstate_currentState(void);
+const KSCrash_AppState* const kscrashstate_currentState(void);
+
+/** Access the Monitor API.
+ */
+KSCrashMonitorAPI* kscm_appstate_getAPI();
 
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // HDR_KSCrashState_h
+#endif // HDR_KSCrashMonitor_AppState_h

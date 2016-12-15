@@ -39,8 +39,7 @@
 
 
 static const int g_maxReports = 5;
-static int64_t g_nextCrashID;
-static int64_t g_nextUserReportID;
+static _Atomic(int64_t) g_nextUniqueID;
 static const char* g_appName;
 static const char* g_reportsPath;
 static pthread_mutex_t g_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -167,8 +166,7 @@ static void initializeIDs()
                      + (int64_t)time.tm_year * 61 * 60 * 24 * 366;
     baseID <<= 23;
 
-    g_nextCrashID = baseID | 0x400000;
-    g_nextUserReportID = baseID;
+    g_nextUniqueID = baseID;
 }
 
 
@@ -185,11 +183,10 @@ void kscrs_initialize(const char* appName, const char* reportsPath)
     pthread_mutex_unlock(&g_mutex);
 }
 
-void kscrs_getCrashReportPath(char* crashReportPathBuffer)
+void kscrs_getNextCrashReportPath(char* crashReportPathBuffer)
 {
-    pthread_mutex_lock(&g_mutex);
-    getCrashReportPathByID(g_nextCrashID, crashReportPathBuffer);
-    pthread_mutex_unlock(&g_mutex);
+    int64_t currentID = g_nextUniqueID++;
+    getCrashReportPathByID(currentID, crashReportPathBuffer);
 }
 
 int kscrs_getReportCount()
@@ -219,12 +216,12 @@ char* kscrs_readReport(int64_t reportID)
     return result;
 }
 
-void kscrs_addUserReport(const char* report, int reportLength)
+int64_t kscrs_addUserReport(const char* report, int reportLength)
 {
     pthread_mutex_lock(&g_mutex);
+    int64_t currentID = g_nextUniqueID++;
     char crashReportPath[KSCRS_MAX_PATH_LENGTH];
-    getCrashReportPathByID(g_nextUserReportID, crashReportPath);
-    g_nextUserReportID++;
+    getCrashReportPathByID(currentID, crashReportPath);
 
     int fd = open(crashReportPath, O_WRONLY | O_CREAT, 0644);
     if(fd < 0)
@@ -250,6 +247,8 @@ done:
         close(fd);
     }
     pthread_mutex_unlock(&g_mutex);
+
+    return currentID;
 }
 
 void kscrs_deleteAllReports()
@@ -257,22 +256,4 @@ void kscrs_deleteAllReports()
     pthread_mutex_lock(&g_mutex);
     ksfu_deleteContentsOfPath(g_reportsPath);
     pthread_mutex_unlock(&g_mutex);
-}
-
-
-// Internal API
-
-void kscrsi_incrementCrashReportIndex()
-{
-    g_nextCrashID++;
-}
-
-int64_t kscrsi_getNextCrashReportID()
-{
-    return g_nextCrashID;
-}
-
-int64_t kscrsi_getNextUserReportID()
-{
-    return g_nextUserReportID;
 }

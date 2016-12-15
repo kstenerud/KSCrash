@@ -1657,11 +1657,6 @@ KSObjCClassType ksobjc_objectClassType(const void* object)
 }
 
 
-void ksobjc_init(void)
-{
-}
-
-
 //__NSArrayReversed
 //__NSCFBoolean
 //__NSCFDictionary

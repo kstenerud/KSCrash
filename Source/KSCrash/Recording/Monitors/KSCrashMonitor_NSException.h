@@ -39,20 +39,10 @@ extern "C" {
 
 #include "KSCrashMonitor.h"
 
-#include <stdbool.h>
 
-
-/** Install our custom NSException handler.
- *
- * @param context The crash context to fill out when a crash occurs.
- *
- * @return true if installation was succesful.
+/** Access the Monitor API.
  */
-bool kscrashmonitor_installNSExceptionHandler(struct KSCrash_MonitorContext* context);
-
-/** Uninstall our custome NSException handler.
- */
-void kscrashmonitor_uninstallNSExceptionHandler(void);
+KSCrashMonitorAPI* kscm_nsexception_getAPI();
 
 
 #ifdef __cplusplus

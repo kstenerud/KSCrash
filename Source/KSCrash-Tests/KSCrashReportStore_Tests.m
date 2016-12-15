@@ -48,6 +48,17 @@
 @synthesize reportStorePath = _reportStorePath;
 @synthesize reportCounter = _reportCounter;
 
+- (int64_t) getReportIDFromPath:(NSString*) path
+{
+    const char* filename = path.lastPathComponent.UTF8String;
+    char scanFormat[100];
+    sprintf(scanFormat, "%s-report-%%llx.json", self.appName.UTF8String);
+    
+    int64_t reportID = 0;
+    sscanf(filename, scanFormat, &reportID);
+    return reportID;
+}
+
 - (void) setUp
 {
     [super setUp];
@@ -76,20 +87,16 @@
 - (int64_t) writeCrashReportWithStringContents:(NSString*) contents
 {
     NSData* crashData = [contents dataUsingEncoding:NSUTF8StringEncoding];
-    int64_t reportID = kscrsi_getNextCrashReportID();
     char crashReportPath[KSCRS_MAX_PATH_LENGTH];
-    kscrs_getCrashReportPath(crashReportPath);
+    kscrs_getNextCrashReportPath(crashReportPath);
     [crashData writeToFile:[NSString stringWithUTF8String:crashReportPath] atomically:YES];
-    kscrsi_incrementCrashReportIndex();
-    return reportID;
+    return [self getReportIDFromPath:[NSString stringWithUTF8String:crashReportPath]];
 }
 
 - (int64_t) writeUserReportWithStringContents:(NSString*) contents
 {
     NSData* data = [contents dataUsingEncoding:NSUTF8StringEncoding];
-    int64_t reportID = kscrsi_getNextUserReportID();
-    kscrs_addUserReport(data.bytes, (int)data.length);
-    return reportID;
+    return kscrs_addUserReport(data.bytes, (int)data.length);
 }
 
 - (void) loadReportID:(int64_t) reportID
@@ -185,9 +192,8 @@
 {
     int reportStorePrunesTo = 5;
     [self prepareReportStoreWithPathEnd:@"testDeleteAllReports"];
-    [self writeCrashReportWithStringContents:@"c1"];
-    // User reports should be pruned first, starting with the oldest.
     int64_t prunedReportID = [self writeUserReportWithStringContents:@"u1"];
+    [self writeCrashReportWithStringContents:@"c1"];
     [self writeUserReportWithStringContents:@"u2"];
     [self writeCrashReportWithStringContents:@"c2"];
     [self writeCrashReportWithStringContents:@"c3"];

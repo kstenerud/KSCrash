@@ -1,5 +1,5 @@
 //
-//  KSCrashState_Tests.m
+//  KSCrashMonitor_AppState_Tests.m
 //
 //  Created by Karl Stenerud on 2012-02-05.
 //
@@ -28,21 +28,26 @@
 #import "FileBasedTestCase.h"
 #import "XCTestCase+KSCrash.h"
 
-#import "KSCrashState.h"
+#import "KSCrashMonitor_AppState.h"
 
 
-@interface KSCrashState_Tests : FileBasedTestCase@end
+@interface KSCrashMonitor_AppState_Tests : FileBasedTestCase @end
 
 
-@implementation KSCrashState_Tests
+@implementation KSCrashMonitor_AppState_Tests
+
+- (void) initializeCrashState
+{
+    NSString* stateFile = [self.tempPath stringByAppendingPathComponent:@"state.json"];
+    kscrashstate_initialize([stateFile cStringUsingEncoding:NSUTF8StringEncoding]);
+    kscm_setActiveMonitors(KSCrashMonitorTypeNone);
+    kscm_setActiveMonitors(KSCrashMonitorTypeApplicationState);
+}
 
 - (void) testInitRelaunch
 {
-    KSCrash_State context = {0};
-    NSString* stateFile = [self.tempPath stringByAppendingPathComponent:@"state.json"];
-
-    kscrashstate_init([stateFile cStringUsingEncoding:NSUTF8StringEncoding],
-                      &context);
+    [self initializeCrashState];
+    KSCrash_AppState context = *kscrashstate_currentState();
 
     XCTAssertTrue(context.applicationIsInForeground, @"");
     XCTAssertFalse(context.applicationIsActive, @"");
@@ -59,9 +64,8 @@
     XCTAssertFalse(context.crashedThisLaunch, @"");
     XCTAssertFalse(context.crashedLastLaunch, @"");
 
-    memset(&context, 0, sizeof(context));
-    kscrashstate_init([stateFile cStringUsingEncoding:NSUTF8StringEncoding],
-                      &context);
+    [self initializeCrashState];
+    context = *kscrashstate_currentState();
 
     XCTAssertTrue(context.applicationIsInForeground, @"");
     XCTAssertFalse(context.applicationIsActive, @"");
@@ -81,16 +85,14 @@
 
 - (void) testInitCrash
 {
-    KSCrash_State context = {0};
-    NSString* stateFile = [self.tempPath stringByAppendingPathComponent:@"state.json"];
+    [self initializeCrashState];
+    KSCrash_AppState context = *kscrashstate_currentState();
 
-    kscrashstate_init([stateFile cStringUsingEncoding:NSUTF8StringEncoding],
-                      &context);
-    KSCrash_State checkpoint0 = context;
+    KSCrash_AppState checkpoint0 = *kscrashstate_currentState();
 
     usleep(1);
     kscrashstate_notifyAppCrash();
-    KSCrash_State checkpointC = context;
+    KSCrash_AppState checkpointC = *kscrashstate_currentState();
 
     XCTAssertTrue(checkpointC.applicationIsInForeground ==
                  checkpoint0.applicationIsInForeground, @"");
@@ -116,9 +118,8 @@
     XCTAssertTrue(checkpointC.crashedThisLaunch, @"");
     XCTAssertFalse(checkpointC.crashedLastLaunch, @"");
 
-    memset(&context, 0, sizeof(context));
-    kscrashstate_init([stateFile cStringUsingEncoding:NSUTF8StringEncoding],
-                      &context);
+    [self initializeCrashState];
+    context = *kscrashstate_currentState();
 
     XCTAssertTrue(context.applicationIsInForeground, @"");
     XCTAssertFalse(context.applicationIsActive, @"");
@@ -138,16 +139,15 @@
 
 - (void) testActRelaunch
 {
-    KSCrash_State context = {0};
-    NSString* stateFile = [self.tempPath stringByAppendingPathComponent:@"state.json"];
-
-    kscrashstate_init([stateFile cStringUsingEncoding:NSUTF8StringEncoding],
-                      &context);
-    KSCrash_State checkpoint0 = context;
+    [self initializeCrashState];
+    KSCrash_AppState context = *kscrashstate_currentState();
+    
+    KSCrash_AppState checkpoint0 = *kscrashstate_currentState();
 
     usleep(1);
     kscrashstate_notifyAppActive(true);
-    KSCrash_State checkpoint1 = context;
+
+    KSCrash_AppState checkpoint1 = *kscrashstate_currentState();
 
     XCTAssertTrue(checkpoint1.applicationIsInForeground ==
                  checkpoint0.applicationIsInForeground, @"");
@@ -175,10 +175,9 @@
     XCTAssertFalse(checkpoint1.crashedLastLaunch, @"");
 
     usleep(1);
-    memset(&context, 0, sizeof(context));
-    kscrashstate_init([stateFile cStringUsingEncoding:NSUTF8StringEncoding],
-                      &context);
-
+    [self initializeCrashState];
+    context = *kscrashstate_currentState();
+    
     XCTAssertTrue(context.applicationIsInForeground, @"");
     XCTAssertFalse(context.applicationIsActive, @"");
 
@@ -197,18 +196,14 @@
 
 - (void) testActCrash
 {
-    KSCrash_State context = {0};
-    NSString* stateFile = [self.tempPath stringByAppendingPathComponent:@"state.json"];
-
-    kscrashstate_init([stateFile cStringUsingEncoding:NSUTF8StringEncoding],
-                      &context);
+    [self initializeCrashState];
     usleep(1);
     kscrashstate_notifyAppActive(true);
-    KSCrash_State checkpoint0 = context;
+    KSCrash_AppState checkpoint0 = *kscrashstate_currentState();
 
     usleep(1);
     kscrashstate_notifyAppCrash();
-    KSCrash_State checkpointC = context;
+    KSCrash_AppState checkpointC = *kscrashstate_currentState();
 
     XCTAssertTrue(checkpointC.applicationIsInForeground ==
                  checkpoint0.applicationIsInForeground, @"");
@@ -234,9 +229,8 @@
     XCTAssertTrue(checkpointC.crashedThisLaunch, @"");
     XCTAssertFalse(checkpointC.crashedLastLaunch, @"");
 
-    memset(&context, 0, sizeof(context));
-    kscrashstate_init([stateFile cStringUsingEncoding:NSUTF8StringEncoding],
-                      &context);
+    [self initializeCrashState];
+    KSCrash_AppState context = *kscrashstate_currentState();
 
     XCTAssertTrue(context.applicationIsInForeground, @"");
     XCTAssertFalse(context.applicationIsActive, @"");
@@ -256,18 +250,14 @@
 
 - (void) testActDeactRelaunch
 {
-    KSCrash_State context = {0};
-    NSString* stateFile = [self.tempPath stringByAppendingPathComponent:@"state.json"];
-
-    kscrashstate_init([stateFile cStringUsingEncoding:NSUTF8StringEncoding],
-                      &context);
+    [self initializeCrashState];
     usleep(1);
     kscrashstate_notifyAppActive(true);
-    KSCrash_State checkpoint0 = context;
+    KSCrash_AppState checkpoint0 = *kscrashstate_currentState();
 
     usleep(1);
     kscrashstate_notifyAppActive(false);
-    KSCrash_State checkpoint1 = context;
+    KSCrash_AppState checkpoint1 = *kscrashstate_currentState();
 
     XCTAssertTrue(checkpoint1.applicationIsInForeground ==
                  checkpoint0.applicationIsInForeground, @"");
@@ -295,10 +285,8 @@
     XCTAssertFalse(checkpoint1.crashedLastLaunch, @"");
 
     usleep(1);
-    memset(&context, 0, sizeof(context));
-    kscrashstate_init([stateFile cStringUsingEncoding:NSUTF8StringEncoding],
-                      &context);
-    KSCrash_State checkpointR = context;
+    [self initializeCrashState];
+    KSCrash_AppState checkpointR = *kscrashstate_currentState();
 
     XCTAssertTrue(checkpointR.applicationIsInForeground, @"");
     XCTAssertFalse(checkpointR.applicationIsActive, @"");
@@ -319,20 +307,17 @@
 
 - (void) testActDeactCrash
 {
-    KSCrash_State context = {0};
-    NSString* stateFile = [self.tempPath stringByAppendingPathComponent:@"state.json"];
-
-    kscrashstate_init([stateFile cStringUsingEncoding:NSUTF8StringEncoding],
-                      &context);
+    [self initializeCrashState];
+    KSCrash_AppState context = *kscrashstate_currentState();
     usleep(1);
     kscrashstate_notifyAppActive(true);
     usleep(1);
     kscrashstate_notifyAppActive(false);
-    KSCrash_State checkpoint0 = context;
+    KSCrash_AppState checkpoint0 = *kscrashstate_currentState();
 
     usleep(1);
     kscrashstate_notifyAppCrash();
-    KSCrash_State checkpointC = context;
+    KSCrash_AppState checkpointC = *kscrashstate_currentState();
 
     XCTAssertTrue(checkpointC.applicationIsInForeground ==
                  checkpoint0.applicationIsInForeground, @"");
@@ -358,9 +343,8 @@
     XCTAssertTrue(checkpointC.crashedThisLaunch, @"");
     XCTAssertFalse(checkpointC.crashedLastLaunch, @"");
 
-    memset(&context, 0, sizeof(context));
-    kscrashstate_init([stateFile cStringUsingEncoding:NSUTF8StringEncoding],
-                      &context);
+    [self initializeCrashState];
+    context = *kscrashstate_currentState();
 
     XCTAssertTrue(context.applicationIsInForeground, @"");
     XCTAssertFalse(context.applicationIsActive, @"");
@@ -380,20 +364,16 @@
 
 - (void) testActDeactBGRelaunch
 {
-    KSCrash_State context = {0};
-    NSString* stateFile = [self.tempPath stringByAppendingPathComponent:@"state.json"];
-
-    kscrashstate_init([stateFile cStringUsingEncoding:NSUTF8StringEncoding],
-                      &context);
+    [self initializeCrashState];
     usleep(1);
     kscrashstate_notifyAppActive(true);
     usleep(1);
     kscrashstate_notifyAppActive(false);
-    KSCrash_State checkpoint0 = context;
+    KSCrash_AppState checkpoint0 = *kscrashstate_currentState();
 
     usleep(1);
     kscrashstate_notifyAppInForeground(false);
-    KSCrash_State checkpoint1 = context;
+    KSCrash_AppState checkpoint1 = *kscrashstate_currentState();
 
     XCTAssertTrue(checkpoint1.applicationIsInForeground !=
                  checkpoint0.applicationIsInForeground, @"");
@@ -421,10 +401,8 @@
     XCTAssertFalse(checkpoint1.crashedLastLaunch, @"");
 
     usleep(1);
-    memset(&context, 0, sizeof(context));
-    kscrashstate_init([stateFile cStringUsingEncoding:NSUTF8StringEncoding],
-                      &context);
-    KSCrash_State checkpointR = context;
+    [self initializeCrashState];
+    KSCrash_AppState checkpointR = *kscrashstate_currentState();
 
     XCTAssertTrue(checkpointR.applicationIsInForeground, @"");
     XCTAssertFalse(checkpointR.applicationIsActive, @"");
@@ -444,26 +422,20 @@
 
 - (void) testActDeactBGTerminate
 {
-    KSCrash_State context = {0};
-    NSString* stateFile = [self.tempPath stringByAppendingPathComponent:@"state.json"];
-
-    kscrashstate_init([stateFile cStringUsingEncoding:NSUTF8StringEncoding],
-                      &context);
+    [self initializeCrashState];
     usleep(1);
     kscrashstate_notifyAppActive(true);
     usleep(1);
     kscrashstate_notifyAppActive(false);
     usleep(1);
     kscrashstate_notifyAppInForeground(false);
-    KSCrash_State checkpoint0 = context;
+    KSCrash_AppState checkpoint0 = *kscrashstate_currentState();
     usleep(1);
     kscrashstate_notifyAppTerminate();
 
     usleep(1);
-    memset(&context, 0, sizeof(context));
-    kscrashstate_init([stateFile cStringUsingEncoding:NSUTF8StringEncoding],
-                      &context);
-    KSCrash_State checkpointR = context;
+    [self initializeCrashState];
+    KSCrash_AppState checkpointR = *kscrashstate_currentState();
 
     XCTAssertTrue(checkpointR.applicationIsInForeground, @"");
     XCTAssertFalse(checkpointR.applicationIsActive, @"");
@@ -483,22 +455,19 @@
 
 - (void) testActDeactBGCrash
 {
-    KSCrash_State context = {0};
-    NSString* stateFile = [self.tempPath stringByAppendingPathComponent:@"state.json"];
-
-    kscrashstate_init([stateFile cStringUsingEncoding:NSUTF8StringEncoding],
-                      &context);
+    [self initializeCrashState];
+    KSCrash_AppState context = *kscrashstate_currentState();
     usleep(1);
     kscrashstate_notifyAppActive(true);
     usleep(1);
     kscrashstate_notifyAppActive(false);
     usleep(1);
     kscrashstate_notifyAppInForeground(false);
-    KSCrash_State checkpoint0 = context;
+    KSCrash_AppState checkpoint0 = *kscrashstate_currentState();
 
     usleep(1);
     kscrashstate_notifyAppCrash();
-    KSCrash_State checkpointC = context;
+    KSCrash_AppState checkpointC = *kscrashstate_currentState();
 
     XCTAssertTrue(checkpointC.applicationIsInForeground ==
                  checkpoint0.applicationIsInForeground, @"");
@@ -524,9 +493,8 @@
     XCTAssertTrue(checkpointC.crashedThisLaunch, @"");
     XCTAssertFalse(checkpointC.crashedLastLaunch, @"");
 
-    memset(&context, 0, sizeof(context));
-    kscrashstate_init([stateFile cStringUsingEncoding:NSUTF8StringEncoding],
-                      &context);
+    [self initializeCrashState];
+    context = *kscrashstate_currentState();
 
     XCTAssertTrue(context.applicationIsInForeground, @"");
     XCTAssertFalse(context.applicationIsActive, @"");
@@ -546,11 +514,7 @@
 
 - (void) testActDeactBGFGRelaunch
 {
-    KSCrash_State context = {0};
-    NSString* stateFile = [self.tempPath stringByAppendingPathComponent:@"state.json"];
-
-    kscrashstate_init([stateFile cStringUsingEncoding:NSUTF8StringEncoding],
-                      &context);
+    [self initializeCrashState];
     usleep(1);
     kscrashstate_notifyAppActive(true);
     usleep(1);
@@ -558,11 +522,11 @@
     usleep(1);
     kscrashstate_notifyAppInForeground(false);
     usleep(1);
-    KSCrash_State checkpoint0 = context;
+    KSCrash_AppState checkpoint0 = *kscrashstate_currentState();
 
     usleep(1);
     kscrashstate_notifyAppInForeground(true);
-    KSCrash_State checkpoint1 = context;
+    KSCrash_AppState checkpoint1 = *kscrashstate_currentState();
 
     XCTAssertTrue(checkpoint1.applicationIsInForeground !=
                  checkpoint0.applicationIsInForeground, @"");
@@ -590,10 +554,8 @@
     XCTAssertFalse(checkpoint1.crashedLastLaunch, @"");
 
     usleep(1);
-    memset(&context, 0, sizeof(context));
-    kscrashstate_init([stateFile cStringUsingEncoding:NSUTF8StringEncoding],
-                      &context);
-    KSCrash_State checkpointR = context;
+    [self initializeCrashState];
+    KSCrash_AppState checkpointR = *kscrashstate_currentState();
 
     XCTAssertTrue(checkpointR.applicationIsInForeground, @"");
     XCTAssertFalse(checkpointR.applicationIsActive, @"");
@@ -614,11 +576,8 @@
 
 - (void) testActDeactBGFGCrash
 {
-    KSCrash_State context = {0};
-    NSString* stateFile = [self.tempPath stringByAppendingPathComponent:@"state.json"];
-
-    kscrashstate_init([stateFile cStringUsingEncoding:NSUTF8StringEncoding],
-                      &context);
+    [self initializeCrashState];
+    KSCrash_AppState context = *kscrashstate_currentState();
     usleep(1);
     kscrashstate_notifyAppActive(true);
     usleep(1);
@@ -627,11 +586,11 @@
     kscrashstate_notifyAppInForeground(false);
     usleep(1);
     kscrashstate_notifyAppInForeground(true);
-    KSCrash_State checkpoint0 = context;
+    KSCrash_AppState checkpoint0 = *kscrashstate_currentState();
 
     usleep(1);
     kscrashstate_notifyAppCrash();
-    KSCrash_State checkpointC = context;
+    KSCrash_AppState checkpointC = *kscrashstate_currentState();
 
     XCTAssertTrue(checkpointC.applicationIsInForeground ==
                  checkpoint0.applicationIsInForeground, @"");
@@ -657,9 +616,8 @@
     XCTAssertTrue(checkpointC.crashedThisLaunch, @"");
     XCTAssertFalse(checkpointC.crashedLastLaunch, @"");
 
-    memset(&context, 0, sizeof(context));
-    kscrashstate_init([stateFile cStringUsingEncoding:NSUTF8StringEncoding],
-                      &context);
+    [self initializeCrashState];
+    context = *kscrashstate_currentState();
 
     XCTAssertTrue(context.applicationIsInForeground, @"");
     XCTAssertFalse(context.applicationIsActive, @"");

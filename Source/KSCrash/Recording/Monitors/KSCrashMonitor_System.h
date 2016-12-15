@@ -31,49 +31,15 @@
 extern "C" {
 #endif
 
-#define KSSystemField_AppStartTime "app_start_time"
-#define KSSystemField_AppUUID "app_uuid"
-#define KSSystemField_BootTime "boot_time"
-#define KSSystemField_BundleID "CFBundleIdentifier"
-#define KSSystemField_BundleName "CFBundleName"
-#define KSSystemField_BundleShortVersion "CFBundleShortVersionString"
-#define KSSystemField_BundleVersion "CFBundleVersion"
-#define KSSystemField_CPUArch "cpu_arch"
-#define KSSystemField_CPUType "cpu_type"
-#define KSSystemField_CPUSubType "cpu_subtype"
-#define KSSystemField_BinaryCPUType "binary_cpu_type"
-#define KSSystemField_BinaryCPUSubType "binary_cpu_subtype"
-#define KSSystemField_DeviceAppHash "device_app_hash"
-#define KSSystemField_Executable "CFBundleExecutable"
-#define KSSystemField_ExecutablePath "CFBundleExecutablePath"
-#define KSSystemField_Jailbroken "jailbroken"
-#define KSSystemField_KernelVersion "kernel_version"
-#define KSSystemField_Machine "machine"
-#define KSSystemField_Memory "memory"
-#define KSSystemField_Model "model"
-#define KSSystemField_OSVersion "os_version"
-#define KSSystemField_ParentProcessID "parent_process_id"
-#define KSSystemField_ProcessID "process_id"
-#define KSSystemField_ProcessName "process_name"
-#define KSSystemField_Size "size"
-#define KSSystemField_Storage "storage"
-#define KSSystemField_SystemName "system_name"
-#define KSSystemField_SystemVersion "system_version"
-#define KSSystemField_TimeZone "time_zone"
-#define KSSystemField_BuildType "build_type"
 
-/** Get the complete system info dictionary encoded to JSON.
- *
- * @return System info as JSON. Caller is responsible for calling free().
- */
-const char* kssysteminfo_toJSON(void);
+#include "KSCrashMonitor.h"
 
-/** Create a copy of the current process name.
- *
- * @return The process name. Caller is responsible for calling free().
+
+/** Access the Monitor API.
  */
-char* kssysteminfo_copyProcessName(void);
-    
+KSCrashMonitorAPI* kscm_system_getAPI();
+
+
 #ifdef __cplusplus
 }
 #endif

@@ -1,5 +1,5 @@
 //
-//  KSZombie_Tests.m
+//  KSCrashMonitor_Zombie_Tests.m
 //
 //  Created by Karl Stenerud on 2013-01-26.
 //
@@ -30,10 +30,10 @@
 #import "KSCrashMonitor_Zombie.h"
 
 
-@interface KSZombie_Tests : XCTestCase @end
+@interface KSCrashMonitor_Zombie_Tests : XCTestCase @end
 
 
-@implementation KSZombie_Tests
+@implementation KSCrashMonitor_Zombie_Tests
 
 - (void) setUp
 {

@@ -27,71 +27,77 @@
 
 #import "KSCrashMonitor_System.h"
 
-#import "KSDynamicLinker.h"
 #import "KSCPU.h"
+#import "KSCrashMonitorContext.h"
+#import "KSDate.h"
+#import "KSDynamicLinker.h"
 #import "KSSysCtl.h"
-#import "KSJSONCodecObjC.h"
 #import "KSSystemCapabilities.h"
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
 
+#import <Foundation/Foundation.h>
 #import <CommonCrypto/CommonDigest.h>
 #if KSCRASH_HAS_UIKIT
 #import <UIKit/UIKit.h>
 #endif
+#include <mach/mach_error.h>
+#include <mach/mach_host.h>
 #include <mach-o/dyld.h>
 
 
-#import <Foundation/Foundation.h>
+typedef struct
+{
+    const char* systemName;
+    const char* systemVersion;
+    const char* machine;
+    const char* model;
+    const char* kernelVersion;
+    const char* osVersion;
+    bool isJailbroken;
+    const char* bootTime;
+    const char* appStartTime;
+    const char* executablePath;
+    const char* executableName;
+    const char* bundleID;
+    const char* bundleName;
+    const char* bundleVersion;
+    const char* bundleShortVersion;
+    const char* appID;
+    const char* cpuArchitecture;
+    int cpuType;
+    int cpuSubType;
+    int binaryCPUType;
+    int binaryCPUSubType;
+    const char* timezone;
+    const char* processName;
+    int processID;
+    int parentProcessID;
+    const char* deviceAppHash;
+    const char* buildType;
+    uint64_t storageSize;
+    uint64_t memorySize;
+} SystemData;
 
-/**
- * Provides system information useful for a crash report.
- */
-@interface KSCrashMonitor_System : NSObject
+static SystemData g_systemData;
 
-@end
+static volatile bool g_isEnabled = false;
 
-@implementation KSCrashMonitor_System
 
 // ============================================================================
 #pragma mark - Utility -
 // ============================================================================
 
-/** Get a sysctl value as an NSNumber.
- *
- * @param name The sysctl name.
- *
- * @return The result of the sysctl call.
- */
-+ (NSNumber*) int32Sysctl:(NSString*) name
+const char* cString(NSString* str)
 {
-    return [NSNumber numberWithInt:
-            kssysctl_int32ForName([name cStringUsingEncoding:NSUTF8StringEncoding])];
+    return str == NULL ? NULL : strdup(str.UTF8String);
 }
 
-/** Get a sysctl value as an NSNumber.
- *
- * @param name The sysctl name.
- *
- * @return The result of the sysctl call.
- */
-+ (NSNumber*) int64Sysctl:(NSString*) name
-{
-    return [NSNumber numberWithLongLong:
-            kssysctl_int64ForName([name cStringUsingEncoding:NSUTF8StringEncoding])];
-}
-
-/** Get a sysctl value as an NSString.
- *
- * @param name The sysctl name.
- *
- * @return The result of the sysctl call.
- */
-+ (NSString*) stringSysctl:(NSString*) name
+static NSString* nsstringSysctl(NSString* name)
 {
     NSString* str = nil;
-    int size = (int)kssysctl_stringForName([name cStringUsingEncoding:NSUTF8StringEncoding], NULL, 0);
+    int size = (int)kssysctl_stringForName(name.UTF8String, NULL, 0);
     
     if(size <= 0)
     {
@@ -100,14 +106,43 @@
     
     NSMutableData* value = [NSMutableData dataWithLength:(unsigned)size];
     
-    if(kssysctl_stringForName([name cStringUsingEncoding:NSUTF8StringEncoding],
-                              value.mutableBytes,
-                              size) != 0)
+    if(kssysctl_stringForName(name.UTF8String, value.mutableBytes, size) != 0)
     {
         str = [NSString stringWithCString:value.mutableBytes encoding:NSUTF8StringEncoding];
     }
     
     return str;
+}
+
+/** Get a sysctl value as a null terminated string.
+ *
+ * @param name The sysctl name.
+ *
+ * @return The result of the sysctl call.
+ */
+static const char* stringSysctl(const char* name)
+{
+    int size = (int)kssysctl_stringForName(name, NULL, 0);
+    if(size <= 0)
+    {
+        return NULL;
+    }
+
+    char* value = malloc((size_t)size);
+    if(kssysctl_stringForName(name, value, size) <= 0)
+    {
+        free(value);
+        return NULL;
+    }
+    
+    return value;
+}
+
+static const char* dateString(time_t date)
+{
+    char* buffer = malloc(21);
+    ksdate_utcStringFromTimestamp(date, buffer);
+    return buffer;
 }
 
 /** Get a sysctl value as an NSDate.
@@ -116,17 +151,68 @@
  *
  * @return The result of the sysctl call.
  */
-+ (NSDate*) dateSysctl:(NSString*) name
+static const char* dateSysctl(const char* name)
 {
-    NSDate* result = nil;
+    struct timeval value = kssysctl_timevalForName(name);
+    return dateString(value.tv_sec);
+}
+
+/** Get the current VM stats.
+ *
+ * @param vmStats Gets filled with the VM stats.
+ *
+ * @param pageSize gets filled with the page size.
+ *
+ * @return true if the operation was successful.
+ */
+static bool VMStats(vm_statistics_data_t* const vmStats, vm_size_t* const pageSize)
+{
+    kern_return_t kr;
+    const mach_port_t hostPort = mach_host_self();
     
-    struct timeval value = kssysctl_timevalForName([name cStringUsingEncoding:NSUTF8StringEncoding]);
-    if(!(value.tv_sec == 0 && value.tv_usec == 0))
+    if((kr = host_page_size(hostPort, pageSize)) != KERN_SUCCESS)
     {
-        result = [NSDate dateWithTimeIntervalSince1970:(NSTimeInterval)value.tv_sec];
+        KSLOG_ERROR(@"host_page_size: %s", mach_error_string(kr));
+        return false;
     }
     
-    return result;
+    mach_msg_type_number_t hostSize = sizeof(*vmStats) / sizeof(natural_t);
+    kr = host_statistics(hostPort,
+                         HOST_VM_INFO,
+                         (host_info_t)vmStats,
+                         &hostSize);
+    if(kr != KERN_SUCCESS)
+    {
+        KSLOG_ERROR(@"host_statistics: %s", mach_error_string(kr));
+        return false;
+    }
+    
+    return true;
+}
+
+static uint64_t freeMemory(void)
+{
+    vm_statistics_data_t vmStats;
+    vm_size_t pageSize;
+    if(VMStats(&vmStats, &pageSize))
+    {
+        return ((uint64_t)pageSize) * vmStats.free_count;
+    }
+    return 0;
+}
+
+static uint64_t usableMemory(void)
+{
+    vm_statistics_data_t vmStats;
+    vm_size_t pageSize;
+    if(VMStats(&vmStats, &pageSize))
+    {
+        return ((uint64_t)pageSize) * (vmStats.active_count +
+                                       vmStats.inactive_count +
+                                       vmStats.wire_count +
+                                       vmStats.free_count);
+    }
+    return 0;
 }
 
 /** Convert raw UUID bytes to a human-readable string.
@@ -135,20 +221,20 @@
  *
  * @return The human readable form of the UUID.
  */
-+ (NSString*) uuidBytesToString:(const uint8_t*) uuidBytes
+static const char* uuidBytesToString(const uint8_t* uuidBytes)
 {
     CFUUIDRef uuidRef = CFUUIDCreateFromUUIDBytes(NULL, *((CFUUIDBytes*)uuidBytes));
     NSString* str = (__bridge_transfer NSString*)CFUUIDCreateString(NULL, uuidRef);
     CFRelease(uuidRef);
     
-    return str;
+    return cString(str);
 }
 
 /** Get this application's executable path.
  *
  * @return Executable path.
  */
-+ (NSString*) executablePath
+static NSString* getExecutablePath()
 {
     NSBundle* mainBundle = [NSBundle mainBundle];
     NSDictionary* infoDict = [mainBundle infoDictionary];
@@ -161,27 +247,128 @@
  *
  * @return The UUID.
  */
-+ (NSString*) appUUID
+static const char* getAppUUID()
 {
-    NSString* result = nil;
+    const char* result = nil;
     
-    NSString* exePath = [self executablePath];
+    NSString* exePath = getExecutablePath();
     
     if(exePath != nil)
     {
-        const uint8_t* uuidBytes = ksdl_imageUUID([exePath UTF8String], true);
+        const uint8_t* uuidBytes = ksdl_imageUUID(exePath.UTF8String, true);
         if(uuidBytes == NULL)
         {
             // OSX app image path is a lie.
-            uuidBytes = ksdl_imageUUID([exePath.lastPathComponent UTF8String], false);
+            uuidBytes = ksdl_imageUUID(exePath.lastPathComponent.UTF8String, false);
         }
         if(uuidBytes != NULL)
         {
-            result = [self uuidBytesToString:uuidBytes];
+            result = uuidBytesToString(uuidBytes);
         }
     }
     
     return result;
+}
+
+/** Get the current CPU's architecture.
+ *
+ * @return The current CPU archutecture.
+ */
+static const char* getCPUArchForCPUType(cpu_type_t cpuType, cpu_subtype_t subType)
+{
+    switch(cpuType)
+    {
+        case CPU_TYPE_ARM:
+        {
+            switch (subType)
+            {
+                case CPU_SUBTYPE_ARM_V6:
+                    return "armv6";
+                case CPU_SUBTYPE_ARM_V7:
+                    return "armv7";
+                case CPU_SUBTYPE_ARM_V7F:
+                    return "armv7f";
+                case CPU_SUBTYPE_ARM_V7K:
+                    return "armv7k";
+#ifdef CPU_SUBTYPE_ARM_V7S
+                case CPU_SUBTYPE_ARM_V7S:
+                    return "armv7s";
+#endif
+            }
+            break;
+        }
+        case CPU_TYPE_X86:
+            return "x86";
+        case CPU_TYPE_X86_64:
+            return "x86_64";
+    }
+    
+    return NULL;
+}
+
+static const char* getCurrentCPUArch()
+{
+    const char* result = getCPUArchForCPUType(kssysctl_int32ForName("hw.cputype"),
+                                            kssysctl_int32ForName("hw.cpusubtype"));
+
+    if(result == NULL)
+    {
+        result = kscpu_currentArch();
+    }
+    return result;
+}
+
+/** Check if the current device is jailbroken.
+ *
+ * @return YES if the device is jailbroken.
+ */
+static bool isJailbroken()
+{
+    return ksdl_imageNamed("MobileSubstrate", false) != UINT32_MAX;
+}
+
+/** Check if the current build is a debug build.
+ *
+ * @return YES if the app was built in debug mode.
+ */
+static bool isDebugBuild()
+{
+#ifdef DEBUG
+    return YES;
+#else
+    return NO;
+#endif
+}
+
+/** Check if this code is built for the simulator.
+ *
+ * @return YES if this is a simulator build.
+ */
+static bool isSimulatorBuild()
+{
+#if TARGET_OS_SIMULATOR
+    return YES;
+#else
+    return NO;
+#endif
+}
+
+/** The file path for the bundle’s App Store receipt.
+ *
+ * @return App Store receipt for iOS 7+, nil otherwise.
+ */
+static NSString* getReceiptUrlPath()
+{
+    NSString* path = nil;
+#if KSCRASH_HOST_IOS
+    // For iOS 6 compatibility
+    if ([[UIDevice currentDevice].systemVersion compare:@"7" options:NSNumericSearch] != NSOrderedAscending) {
+#endif
+        path = [NSBundle mainBundle].appStoreReceiptURL.path;
+#if KSCRASH_HOST_IOS
+    }
+#endif
+    return path;
 }
 
 /** Generate a 20 byte SHA1 hash that remains unique across a single device and
@@ -190,7 +377,7 @@
  *
  * @return The stringified hex representation of the hash for this device + app.
  */
-+ (NSString*) deviceAndAppHash
+static const char* getDeviceAndAppHash()
 {
     NSMutableData* data = nil;
     
@@ -208,13 +395,13 @@
     }
     
     // Append some device-specific data.
-    [data appendData:(NSData* _Nonnull )[[self stringSysctl:@"hw.machine"] dataUsingEncoding:NSUTF8StringEncoding]];
-    [data appendData:(NSData* _Nonnull )[[self stringSysctl:@"hw.model"] dataUsingEncoding:NSUTF8StringEncoding]];
-    [data appendData:(NSData* _Nonnull )[[self currentCPUArch] dataUsingEncoding:NSUTF8StringEncoding]];
+    [data appendData:(NSData* _Nonnull )[nsstringSysctl(@"hw.machine") dataUsingEncoding:NSUTF8StringEncoding]];
+    [data appendData:(NSData* _Nonnull )[nsstringSysctl(@"hw.model") dataUsingEncoding:NSUTF8StringEncoding]];
+    const char* cpuArch = getCurrentCPUArch();
+    [data appendBytes:cpuArch length:strlen(cpuArch)];
     
     // Append the bundle ID.
-    NSData* bundleID = [[[NSBundle mainBundle] bundleIdentifier]
-                        dataUsingEncoding:NSUTF8StringEncoding];
+    NSData* bundleID = [[[NSBundle mainBundle] bundleIdentifier] dataUsingEncoding:NSUTF8StringEncoding];
     if(bundleID != nil)
     {
         [data appendData:bundleID];
@@ -230,104 +417,7 @@
         [hash appendFormat:@"%02x", sha[i]];
     }
     
-    return hash;
-}
-
-/** Get the current CPU's architecture.
- *
- * @return The current CPU archutecture.
- */
-+ (NSString*) CPUArchForCPUType:(cpu_type_t) cpuType subType:(cpu_subtype_t) subType
-{
-    switch(cpuType)
-    {
-        case CPU_TYPE_ARM:
-        {
-            switch (subType)
-            {
-                case CPU_SUBTYPE_ARM_V6:
-                    return @"armv6";
-                case CPU_SUBTYPE_ARM_V7:
-                    return @"armv7";
-                case CPU_SUBTYPE_ARM_V7F:
-                    return @"armv7f";
-                case CPU_SUBTYPE_ARM_V7K:
-                    return @"armv7k";
-#ifdef CPU_SUBTYPE_ARM_V7S
-                case CPU_SUBTYPE_ARM_V7S:
-                    return @"armv7s";
-#endif
-            }
-            break;
-        }
-        case CPU_TYPE_X86:
-            return @"x86";
-        case CPU_TYPE_X86_64:
-            return @"x86_64";
-    }
-    
-    return nil;
-}
-
-+ (NSString*) currentCPUArch
-{
-    NSString* result = [self CPUArchForCPUType:kssysctl_int32ForName("hw.cputype")
-                                       subType:kssysctl_int32ForName("hw.cpusubtype")];
-    
-    return result ?:[NSString stringWithUTF8String:kscpu_currentArch()];
-}
-
-/** Check if the current device is jailbroken.
- *
- * @return YES if the device is jailbroken.
- */
-+ (BOOL) isJailbroken
-{
-    return ksdl_imageNamed("MobileSubstrate", false) != UINT32_MAX;
-}
-
-/** Check if the current build is a debug build.
- *
- * @return YES if the app was built in debug mode.
- */
-+ (BOOL) isDebugBuild
-{
-#ifdef DEBUG
-    return YES;
-#else
-    return NO;
-#endif
-}
-
-/** Check if this code is built for the simulator.
- *
- * @return YES if this is a simulator build.
- */
-+ (BOOL) isSimulatorBuild
-{
-#if TARGET_OS_SIMULATOR
-    return YES;
-#else
-    return NO;
-#endif
-}
-
-/** The file path for the bundle’s App Store receipt.
- *
- * @return App Store receipt for iOS 7+, nil otherwise.
- */
-+ (NSString*)receiptUrlPath
-{
-    NSString* path = nil;
-#if KSCRASH_HOST_IOS
-    // For iOS 6 compatibility
-    if ([[UIDevice currentDevice].systemVersion compare:@"7" options:NSNumericSearch] != NSOrderedAscending) {
-#endif
-        path = [NSBundle mainBundle].appStoreReceiptURL.path;
-#if KSCRASH_HOST_IOS
-    }
-#endif
-    return path;
+    return cString(hash);
 }
 
 /** Check if the current build is a "testing" build.
@@ -335,9 +425,9 @@
  *
  * @return YES if this is a testing build.
  */
-+ (BOOL) isTestBuild
+static bool isTestBuild()
 {
-    return [[self receiptUrlPath].lastPathComponent isEqualToString:@"sandboxReceipt"];
+    return [getReceiptUrlPath().lastPathComponent isEqualToString:@"sandboxReceipt"];
 }
 
 /** Check if the app has an app store receipt.
@@ -345,155 +435,190 @@
  *
  * @return YES if there is an app store receipt.
  */
-+ (BOOL) hasAppStoreReceipt
+static bool hasAppStoreReceipt()
 {
-    NSString* receiptPath = [self receiptUrlPath];
+    NSString* receiptPath = getReceiptUrlPath();
     if(receiptPath == nil)
     {
         return NO;
     }
-    BOOL isAppStoreReceipt = [receiptPath.lastPathComponent isEqualToString:@"receipt"];
-    BOOL receiptExists = [[NSFileManager defaultManager] fileExistsAtPath:receiptPath];
+    bool isAppStoreReceipt = [receiptPath.lastPathComponent isEqualToString:@"receipt"];
+    bool receiptExists = [[NSFileManager defaultManager] fileExistsAtPath:receiptPath];
     
     return isAppStoreReceipt && receiptExists;
 }
 
-+ (NSString*) buildType
+static const char* getBuildType()
 {
-    if([KSCrashMonitor_System isSimulatorBuild])
+    if(isSimulatorBuild())
     {
-        return @"simulator";
+        return "simulator";
     }
-    if([KSCrashMonitor_System isDebugBuild])
+    if(isDebugBuild())
     {
-        return @"debug";
+        return "debug";
     }
-    if([KSCrashMonitor_System isTestBuild])
+    if(isTestBuild())
     {
-        return @"test";
+        return "test";
     }
-    if([KSCrashMonitor_System hasAppStoreReceipt])
+    if(hasAppStoreReceipt())
     {
-        return @"app store";
+        return "app store";
     }
-    return @"unknown";
+    return "unknown";
 }
 
-+ (NSNumber*) storageSize
+static uint64_t getStorageSize()
 {
-    return [[[NSFileManager defaultManager] attributesOfFileSystemForPath:NSHomeDirectory() error:nil] objectForKey:NSFileSystemSize];
-}
-
-static inline id safeValue(id value)
-{
-    return value == nil ? [NSNull null] : value;
+    NSNumber* storageSize = [[[NSFileManager defaultManager] attributesOfFileSystemForPath:NSHomeDirectory() error:nil] objectForKey:NSFileSystemSize];
+    return storageSize.unsignedLongLongValue;
 }
 
 // ============================================================================
 #pragma mark - API -
 // ============================================================================
 
-+ (NSDictionary*) systemInfo
+static void initialize()
 {
-    NSMutableDictionary* sysInfo = [NSMutableDictionary dictionary];
-    
-    NSBundle* mainBundle = [NSBundle mainBundle];
-    NSDictionary* infoDict = [mainBundle infoDictionary];
-    const struct mach_header* header = _dyld_get_image_header(0);
-    
+    static bool isInitialized = false;
+    if(!isInitialized)
+    {
+        isInitialized = true;
+
+        NSBundle* mainBundle = [NSBundle mainBundle];
+        NSDictionary* infoDict = [mainBundle infoDictionary];
+        const struct mach_header* header = _dyld_get_image_header(0);
+
 #if KSCRASH_HAS_UIDEVICE
-    sysInfo[@KSSystemField_SystemName] = safeValue([UIDevice currentDevice].systemName);
-    sysInfo[@KSSystemField_SystemVersion] = safeValue([UIDevice currentDevice].systemVersion);
+        g_systemData.systemName = cString([UIDevice currentDevice].systemName);
+        g_systemData.systemVersion = cString([UIDevice currentDevice].systemVersion);
 #else
 #if KSCRASH_HOST_MAC
-    sysInfo[@KSSystemField_SystemName] = @"macOS";
+        g_systemData.systemName = "macOS";
 #endif
 #if KSCRASH_HOST_WATCH
-    sysInfo[@KSSystemField_SystemName] = @"watchOS";
+        g_systemData.systemName = "watchOS";
 #endif
-    NSOperatingSystemVersion version =[NSProcessInfo processInfo].operatingSystemVersion;
-    NSString* systemVersion;
-    if(version.patchVersion == 0)
-    {
-        systemVersion = [NSString stringWithFormat:@"%ld.%ld", (long)version.majorVersion, (long)version.minorVersion];
-    }
-    else
-    {
-        systemVersion = [NSString stringWithFormat:@"%ld.%ld.%ld", (long)version.majorVersion, (long)version.minorVersion, (long)version.patchVersion];
-    }
-    sysInfo[@KSSystemField_SystemVersion] = safeValue(systemVersion);
+        NSOperatingSystemVersion version = [NSProcessInfo processInfo].operatingSystemVersion;
+        NSString* systemVersion;
+        if(version.patchVersion == 0)
+        {
+            systemVersion = [NSString stringWithFormat:@"%ld.%ld", (long)version.majorVersion, (long)version.minorVersion];
+        }
+        else
+        {
+            systemVersion = [NSString stringWithFormat:@"%ld.%ld.%ld", (long)version.majorVersion, (long)version.minorVersion, (long)version.patchVersion];
+        }
+        g_systemData.systemVersion = cString(systemVersion);
 #endif
-    if([self isSimulatorBuild])
-    {
-        NSString* model = [NSProcessInfo processInfo].environment[@"SIMULATOR_MODEL_IDENTIFIER"];
-        sysInfo[@KSSystemField_Machine] = safeValue(model);
-        sysInfo[@KSSystemField_Model] = safeValue(@"simulator");
-    }
-    else
-    {
+        if(isSimulatorBuild())
+        {
+            g_systemData.machine = cString([NSProcessInfo processInfo].environment[@"SIMULATOR_MODEL_IDENTIFIER"]);
+            g_systemData.model = "simulator";
+        }
+        else
+        {
 #if KSCRASH_HOST_MAC
-        // MacOS has the machine in the model field, and no model
-        sysInfo[@KSSystemField_Machine] = safeValue([self stringSysctl:@"hw.model"]);
+            // MacOS has the machine in the model field, and no model
+            g_systemData.machine = stringSysctl("hw.model");
 #else
-        sysInfo[@KSSystemField_Machine] = safeValue([self stringSysctl:@"hw.machine"]);
-        sysInfo[@KSSystemField_Model] = safeValue([self stringSysctl:@"hw.model"]);
+            g_systemData.machine = stringSysctl("hw.machine");
+            g_systemData.model = stringSysctl("hw.model");
 #endif
+        }
+        
+        g_systemData.kernelVersion = stringSysctl("kern.version");
+        g_systemData.osVersion = stringSysctl("kern.osversion");
+        g_systemData.isJailbroken = isJailbroken();
+        g_systemData.bootTime = dateSysctl("kern.boottime");
+        g_systemData.appStartTime = dateString(time(NULL));
+        g_systemData.executablePath = cString(getExecutablePath());
+        g_systemData.executableName = cString(infoDict[@"CFBundleExecutable"]);
+        g_systemData.bundleID = cString(infoDict[@"CFBundleIdentifier"]);
+        g_systemData.bundleName = cString(infoDict[@"CFBundleName"]);
+        g_systemData.bundleVersion = cString(infoDict[@"CFBundleVersion"]);
+        g_systemData.bundleShortVersion = cString(infoDict[@"CFBundleShortVersionString"]);
+        g_systemData.appID = getAppUUID();
+        g_systemData.cpuArchitecture = getCurrentCPUArch();
+        g_systemData.cpuType = kssysctl_int32ForName("hw.cputype");
+        g_systemData.cpuSubType = kssysctl_int32ForName("hw.cpusubtype");
+        g_systemData.binaryCPUType = header->cputype;
+        g_systemData.binaryCPUSubType = header->cpusubtype;
+        g_systemData.timezone = cString([NSTimeZone localTimeZone].abbreviation);
+        g_systemData.processName = cString([NSProcessInfo processInfo].processName);
+        g_systemData.processID = [NSProcessInfo processInfo].processIdentifier;
+        g_systemData.parentProcessID = getppid();
+        g_systemData.deviceAppHash = getDeviceAndAppHash();
+        g_systemData.buildType = getBuildType();
+        g_systemData.storageSize = getStorageSize();
+        g_systemData.memorySize = kssysctl_uint64ForName("hw.memsize");
     }
-    sysInfo[@KSSystemField_KernelVersion] = safeValue([self stringSysctl:@"kern.version"]);
-    sysInfo[@KSSystemField_OSVersion] = safeValue([self stringSysctl:@"kern.osversion"]);
-    sysInfo[@KSSystemField_Jailbroken] = safeValue([NSNumber numberWithBool:[self isJailbroken]]);
-    sysInfo[@KSSystemField_BootTime] = safeValue([self dateSysctl:@"kern.boottime"]);
-    sysInfo[@KSSystemField_AppStartTime] = safeValue([NSDate date]);
-    sysInfo[@KSSystemField_ExecutablePath] = safeValue([self executablePath]);
-    sysInfo[@KSSystemField_Executable] = safeValue([infoDict objectForKey:@"CFBundleExecutable"]);
-    sysInfo[@KSSystemField_BundleID] = safeValue([infoDict objectForKey:@"CFBundleIdentifier"]);
-    sysInfo[@KSSystemField_BundleName] = safeValue([infoDict objectForKey:@"CFBundleName"]);
-    sysInfo[@KSSystemField_BundleVersion] = safeValue([infoDict objectForKey:@"CFBundleVersion"]);
-    sysInfo[@KSSystemField_BundleShortVersion] = safeValue([infoDict objectForKey:@"CFBundleShortVersionString"]);
-    sysInfo[@KSSystemField_AppUUID] = safeValue([self appUUID]);
-    sysInfo[@KSSystemField_CPUArch] = safeValue([self currentCPUArch]);
-    sysInfo[@KSSystemField_CPUType] = safeValue([self int32Sysctl:@"hw.cputype"]);
-    sysInfo[@KSSystemField_CPUSubType] = safeValue([self int32Sysctl:@"hw.cpusubtype"]);
-    sysInfo[@KSSystemField_BinaryCPUType] = safeValue([NSNumber numberWithInt:header->cputype]);
-    sysInfo[@KSSystemField_BinaryCPUSubType] = safeValue([NSNumber numberWithInt:header->cpusubtype]);
-    sysInfo[@KSSystemField_TimeZone] = safeValue([[NSTimeZone localTimeZone] abbreviation]);
-    sysInfo[@KSSystemField_ProcessName] = safeValue([NSProcessInfo processInfo].processName);
-    sysInfo[@KSSystemField_ProcessID] = safeValue([NSNumber numberWithInt:[NSProcessInfo processInfo].processIdentifier]);
-    sysInfo[@KSSystemField_ParentProcessID] = safeValue([NSNumber numberWithInt:getppid()]);
-    sysInfo[@KSSystemField_DeviceAppHash] = safeValue([self deviceAndAppHash]);
-    sysInfo[@KSSystemField_BuildType] = safeValue([KSCrashMonitor_System buildType]);
-    sysInfo[@KSSystemField_Storage] = [self storageSize];
-    
-    NSDictionary* memory = [NSDictionary dictionaryWithObject:[self int64Sysctl:@"hw.memsize"] forKey:@KSSystemField_Size];
-    sysInfo[@KSSystemField_Memory] = safeValue(memory);
-    
-    return sysInfo;
 }
 
-@end
-
-const char* kssysteminfo_toJSON(void)
+static void setEnabled(bool isEnabled)
 {
-    NSError* error;
-    NSDictionary* systemInfo = [NSMutableDictionary dictionaryWithDictionary:[KSCrashMonitor_System systemInfo]];
-    NSMutableData* jsonData = (NSMutableData*)[KSJSONCodec encode:systemInfo
-                                                          options:KSJSONEncodeOptionSorted
-                                                            error:&error];
-    if(error != nil)
+    if(isEnabled != g_isEnabled)
     {
-        KSLOG_ERROR(@"Could not serialize system info: %@", error);
-        return NULL;
+        g_isEnabled = isEnabled;
+        if(isEnabled)
+        {
+            initialize();
+        }
     }
-    if(![jsonData isKindOfClass:[NSMutableData class]])
-    {
-        jsonData = [NSMutableData dataWithData:jsonData];
-    }
-    
-    [jsonData appendBytes:"\0" length:1];
-    return strdup([jsonData bytes]);
 }
 
-char* kssysteminfo_copyProcessName(void)
+static bool isEnabled()
 {
-    return strdup([[NSProcessInfo processInfo].processName UTF8String]);
+    return g_isEnabled;
+}
+
+static void notifyExceptionEvent(KSCrash_MonitorContext* eventContext)
+{
+    if(g_isEnabled)
+    {
+#define COPY_REFERENCE(NAME) eventContext->System.NAME = g_systemData.NAME
+        COPY_REFERENCE(systemName);
+        COPY_REFERENCE(systemVersion);
+        COPY_REFERENCE(machine);
+        COPY_REFERENCE(model);
+        COPY_REFERENCE(kernelVersion);
+        COPY_REFERENCE(osVersion);
+        COPY_REFERENCE(isJailbroken);
+        COPY_REFERENCE(bootTime);
+        COPY_REFERENCE(appStartTime);
+        COPY_REFERENCE(executablePath);
+        COPY_REFERENCE(executableName);
+        COPY_REFERENCE(bundleID);
+        COPY_REFERENCE(bundleName);
+        COPY_REFERENCE(bundleVersion);
+        COPY_REFERENCE(bundleShortVersion);
+        COPY_REFERENCE(appID);
+        COPY_REFERENCE(cpuArchitecture);
+        COPY_REFERENCE(cpuType);
+        COPY_REFERENCE(cpuSubType);
+        COPY_REFERENCE(binaryCPUType);
+        COPY_REFERENCE(binaryCPUSubType);
+        COPY_REFERENCE(timezone);
+        COPY_REFERENCE(processName);
+        COPY_REFERENCE(processID);
+        COPY_REFERENCE(parentProcessID);
+        COPY_REFERENCE(deviceAppHash);
+        COPY_REFERENCE(buildType);
+        COPY_REFERENCE(storageSize);
+        COPY_REFERENCE(memorySize);
+        eventContext->System.freeMemory = freeMemory();
+        eventContext->System.usableMemory = usableMemory();
+    }
+}
+
+KSCrashMonitorAPI* kscm_system_getAPI()
+{
+    static KSCrashMonitorAPI api =
+    {
+        .setEnabled = setEnabled,
+        .isEnabled = isEnabled,
+        .notifyExceptionEvent = notifyExceptionEvent
+    };
+    return &api;
 }

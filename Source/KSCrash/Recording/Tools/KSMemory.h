@@ -38,29 +38,7 @@ extern "C" {
 
 
 #include <stdbool.h>
-#include <stdint.h>
 
-
-// ============================================================================
-#pragma mark - General Information -
-// ============================================================================
-
-/** Get the total memory that is currently free.
- *
- * @return total free memory.
- */
-uint64_t ksmem_freeMemory(void);
-
-/** Get the total memory that is currently usable.
- *
- * @return total usable memory.
- */
-uint64_t ksmem_usableMemory(void);
-
-
-// ============================================================================
-#pragma mark - Utility -
-// ============================================================================
 
 /** Test if the specified memory is safe to read from.
  *

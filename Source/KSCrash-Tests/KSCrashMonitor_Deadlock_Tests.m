@@ -38,25 +38,28 @@
 
 - (void) testInstallAndRemove
 {
-    bool success;
-    KSCrash_MonitorContext context;
-    kscrashmonitor_setDeadlockHandlerWatchdogInterval(10);
-    success = kscrashmonitor_installDeadlockHandler(&context);
-    XCTAssertTrue(success, @"");
+    KSCrashMonitorAPI* api = kscm_deadlock_getAPI();
+    kscm_setDeadlockHandlerWatchdogInterval(10);
+    api->setEnabled(true);
+    XCTAssertTrue(api->isEnabled());
     [NSThread sleepForTimeInterval:0.1];
-    kscrashmonitor_uninstallDeadlockHandler();
+    api->setEnabled(false);
+    XCTAssertFalse(api->isEnabled());
 }
 
 - (void) testDoubleInstallAndRemove
 {
-    bool success;
-    KSCrash_MonitorContext context;
-    success = kscrashmonitor_installDeadlockHandler(&context);
-    XCTAssertTrue(success, @"");
-    success = kscrashmonitor_installDeadlockHandler(&context);
-    XCTAssertTrue(success, @"");
-    kscrashmonitor_uninstallDeadlockHandler();
-    kscrashmonitor_uninstallDeadlockHandler();
+    KSCrashMonitorAPI* api = kscm_deadlock_getAPI();
+    
+    api->setEnabled(true);
+    XCTAssertTrue(api->isEnabled());
+    api->setEnabled(true);
+    XCTAssertTrue(api->isEnabled());
+
+    api->setEnabled(false);
+    XCTAssertFalse(api->isEnabled());
+    api->setEnabled(false);
+    XCTAssertFalse(api->isEnabled());
 }
 
 @end

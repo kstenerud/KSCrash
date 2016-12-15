@@ -24,49 +24,47 @@
 
 #include "KSCrashMonitor_User.h"
 #include "KSCrashMonitorContext.h"
+#include "KSID.h"
 #include "KSThread.h"
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
 #include <execinfo.h>
+#include <memory.h>
 #include <stdlib.h>
 
 
 /** Context to fill with crash information. */
-static KSCrash_MonitorContext* g_context;
+
+static volatile bool g_isEnabled = false;
 
 
-bool kscrashmonitor_installUserExceptionHandler(KSCrash_MonitorContext* const context)
+void kscm_reportUserException(const char* name,
+                              const char* reason,
+                              const char* language,
+                              const char* lineOfCode,
+                              const char* stackTrace,
+                              bool logAllThreads,
+                              bool terminateProgram)
 {
-    KSLOG_DEBUG("Installing user exception handler.");
-    g_context = context;
-    return true;
-}
-
-void kscrashmonitor_uninstallUserExceptionHandler(void)
-{
-    KSLOG_DEBUG("Uninstalling user exception handler.");
-    g_context = NULL;
-}
-
-void kscrashmonitor_reportUserException(const char* name,
-                                       const char* reason,
-                                       const char* language,
-                                       const char* lineOfCode,
-                                       const char* stackTrace,
-                                       bool terminateProgram)
-{
-    if(g_context == NULL)
+    if(!g_isEnabled)
     {
         KSLOG_WARN("User-reported exception monitor is not installed. Exception has not been recorded.");
     }
     else
     {
-        kscrashmonitor_beginHandlingCrash(g_context);
+        if(logAllThreads)
+        {
+            ksmc_suspendEnvironment();
+        }
+        if(terminateProgram)
+        {
+            kscm_notifyFatalExceptionCaptured(false);
+        }
 
-        KSLOG_DEBUG("Suspending all threads");
-        ksmc_suspendEnvironment();
+        KSCrash_MonitorContext context;
+        memset(&context, 0, sizeof(context));
 
         KSLOG_DEBUG("Fetching call stack.");
         int callstackCount = 100;
@@ -79,32 +77,51 @@ void kscrashmonitor_reportUserException(const char* name,
         }
 
         KSLOG_DEBUG("Filling out context.");
-        g_context->crashType = KSCrashMonitorTypeUserReported;
+        char eventID[37];
+        ksid_generate(eventID);
+        context.crashType = KSCrashMonitorTypeUserReported;
+        context.eventID = eventID;
         KSMC_NEW_CONTEXT(machineContext);
-        g_context->offendingMachineContext = machineContext;
+        context.offendingMachineContext = machineContext;
         ksmc_getContextForThread(ksthread_self(), machineContext, true);
-        g_context->registersAreValid = false;
-        g_context->crashReason = reason;
-        g_context->stackTrace = callstack;
-        g_context->stackTraceLength = callstackCount;
-        g_context->userException.name = name;
-        g_context->userException.language = language;
-        g_context->userException.lineOfCode = lineOfCode;
-        g_context->userException.customStackTrace = stackTrace;
+        context.registersAreValid = false;
+        context.crashReason = reason;
+        context.stackTrace = callstack;
+        context.stackTraceLength = callstackCount;
+        context.userException.name = name;
+        context.userException.language = language;
+        context.userException.lineOfCode = lineOfCode;
+        context.userException.customStackTrace = stackTrace;
 
-        KSLOG_DEBUG("Calling main crash handler.");
-        g_context->onCrash();
+        kscm_handleException(&context);
 
+        if(logAllThreads)
+        {
+            ksmc_resumeEnvironment();
+        }
         if(terminateProgram)
         {
-            kscrashmonitor_uninstall(KSCrashMonitorTypeAll);
-            ksmc_resumeEnvironment();
             abort();
         }
-        else
-        {
-            kscrashmonitor_clearContext(g_context);
-            ksmc_resumeEnvironment();
-        }
     }
+}
+
+static void setEnabled(bool isEnabled)
+{
+    g_isEnabled = isEnabled;
+}
+
+static bool isEnabled()
+{
+    return g_isEnabled;
+}
+
+KSCrashMonitorAPI* kscm_user_getAPI()
+{
+    static KSCrashMonitorAPI api =
+    {
+        .setEnabled = setEnabled,
+        .isEnabled = isEnabled
+    };
+    return &api;
 }

@@ -200,7 +200,7 @@ typedef enum
 - (CPUFamily) cpuFamily:(NSDictionary*) report
 {
     NSDictionary* system = [self systemReport:report];
-    NSString* cpuArch = [system objectForKey:@KSSystemField_CPUArch];
+    NSString* cpuArch = [system objectForKey:@KSCrashField_CPUArch];
     if([cpuArch rangeOfString:@"arm"].location == 0)
     {
         return CPUFamilyArm;

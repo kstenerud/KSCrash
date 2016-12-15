@@ -32,7 +32,7 @@
 #import "KSCrashReportFields.h"
 #import "KSCrashReportFixer.h"
 #import "KSCrashReportStore.h"
-#import "KSCrashState.h"
+#import "KSCrashMonitor_AppState.h"
 #import "KSJSONCodecObjC.h"
 #import "NSError+SimpleConstructor.h"
 
@@ -142,6 +142,7 @@ static NSString* getBasePath()
         self.searchQueueNames = NO;
         self.introspectMemory = YES;
         self.catchZombies = NO;
+        self.monitoring = KSCrashMonitorTypeProductionSafeMinimal;
     }
     return self;
 }
@@ -215,7 +216,7 @@ static NSString* getBasePath()
 - (void) setCatchZombies:(BOOL)catchZombies
 {
     _catchZombies = catchZombies;
-    kscrash_setCatchZombies(catchZombies);
+    self.monitoring |= KSCrashMonitorTypeZombie;
 }
 
 - (void) setDoNotIntrospectClasses:(NSArray *)doNotIntrospectClasses
@@ -326,6 +327,7 @@ static NSString* getBasePath()
                     language:(NSString*) language
                   lineOfCode:(NSString*) lineOfCode
                   stackTrace:(NSArray*) stackTrace
+               logAllThreads:(BOOL) logAllThreads
             terminateProgram:(BOOL) terminateProgram
 {
     const char* cName = [name cStringUsingEncoding:NSUTF8StringEncoding];
@@ -347,6 +349,7 @@ static NSString* getBasePath()
                                 cLanguage,
                                 cLineOfCode,
                                 cStackTrace,
+                                logAllThreads,
                                 terminateProgram);
 }
 

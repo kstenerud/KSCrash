@@ -24,6 +24,7 @@
 
 #include "KSCrashMonitor_CPPException.h"
 #include "KSCrashMonitorContext.h"
+#include "KSID.h"
 #include "KSThread.h"
 #include "KSMachineContext.h"
 
@@ -53,7 +54,7 @@
 // ============================================================================
 
 /** True if this handler has been installed. */
-static volatile sig_atomic_t g_installed = 0;
+static volatile bool g_isEnabled = false;
 
 /** True if the handler should capture the next stack trace. */
 static bool g_captureNextStackTrace = false;
@@ -66,9 +67,9 @@ static uintptr_t g_stackTrace[STACKTRACE_BUFFER_LENGTH];
 /** Number of backtrace entries in the most recent exception. */
 static int g_stackTraceCount = 0;
 
-/** Context to fill with crash information. */
-static KSCrash_MonitorContext* g_context;
+static char g_eventID[37];
 
+static KSCrash_MonitorContext g_monitorContext;
 
 // ============================================================================
 #pragma mark - Callbacks -
@@ -99,6 +100,7 @@ extern "C"
 
 static void CPPExceptionTerminate(void)
 {
+    ksmc_suspendEnvironment();
     KSLOG_DEBUG("Trapped c++ exception");
     const char* name = NULL;
     std::type_info* tinfo = __cxxabiv1::__cxa_current_exception_type();
@@ -109,6 +111,10 @@ static void CPPExceptionTerminate(void)
     
     if(name == NULL || strcmp(name, "NSException") != 0)
     {
+        kscm_notifyFatalExceptionCaptured(false);
+        KSCrash_MonitorContext* crashContext = &g_monitorContext;
+        memset(crashContext, 0, sizeof(*crashContext));
+
         char descriptionBuff[DESCRIPTION_BUFFER_LENGTH];
         const char* description = descriptionBuff;
         descriptionBuff[0] = 0;
@@ -146,43 +152,30 @@ catch(TYPE value)\
         {
             description = NULL;
         }
-        g_captureNextStackTrace = (g_installed != 0);
+        g_captureNextStackTrace = g_isEnabled;
 
-        bool wasHandlingCrash = g_context->handlingCrash;
-        kscrashmonitor_beginHandlingCrash(g_context);
-
-        if(wasHandlingCrash)
-        {
-            KSLOG_INFO("Detected crash in the crash reporter. Restoring original handlers.");
-            g_context->crashedDuringCrashHandling = true;
-            kscrashmonitor_uninstall((KSCrashMonitorType)KSCrashMonitorTypeAll);
-        }
-
-        KSLOG_DEBUG("Suspending all threads.");
-        ksmc_suspendEnvironment();
-
-        g_context->crashType = KSCrashMonitorTypeCPPException;
+        KSLOG_DEBUG("Filling out context.");
+        crashContext->crashType = KSCrashMonitorTypeCPPException;
+        crashContext->eventID = g_eventID;
+        crashContext->registersAreValid = false;
+        crashContext->stackTrace = g_stackTrace + 1; // Don't record __cxa_throw stack entry
+        crashContext->stackTraceLength = g_stackTraceCount - 1;
+        crashContext->CPPException.name = name;
+        crashContext->exceptionName = name;
+        crashContext->crashReason = description;
         KSMC_NEW_CONTEXT(machineContext);
-        g_context->offendingMachineContext = machineContext;
         ksmc_getContextForThread(ksthread_self(), machineContext, true);
-        g_context->registersAreValid = false;
-        g_context->stackTrace = g_stackTrace + 1; // Don't record __cxa_throw stack entry
-        g_context->stackTraceLength = g_stackTraceCount - 1;
-        g_context->CPPException.name = name;
-        g_context->crashReason = description;
+        crashContext->offendingMachineContext = machineContext;
 
-        KSLOG_DEBUG("Calling main crash handler.");
-        g_context->onCrash();
-
-        KSLOG_DEBUG("Crash handling complete. Restoring original handlers.");
-        kscrashmonitor_uninstall((KSCrashMonitorType)KSCrashMonitorTypeAll);
-        ksmc_resumeEnvironment();
+        kscm_handleException(crashContext);
     }
     else
     {
         KSLOG_DEBUG("Detected NSException. Letting the current NSException handler deal with it.");
     }
+    ksmc_resumeEnvironment();
 
+    KSLOG_DEBUG("Calling original terminate handler.");
     g_originalTerminateHandler();
 }
 
@@ -191,34 +184,35 @@ catch(TYPE value)\
 #pragma mark - Public API -
 // ============================================================================
 
-extern "C" bool kscrashmonitor_installCPPExceptionHandler(KSCrash_MonitorContext* context)
+static void setEnabled(bool isEnabled)
 {
-    KSLOG_DEBUG("Installing C++ exception handler.");
-
-    if(g_installed)
+    if(isEnabled != g_isEnabled)
     {
-        KSLOG_DEBUG("C++ exception handler already installed.");
-        return true;
+        g_isEnabled = isEnabled;
+        if(isEnabled)
+        {
+            ksid_generate(g_eventID);
+            g_originalTerminateHandler = std::set_terminate(CPPExceptionTerminate);
+        }
+        else
+        {
+            std::set_terminate(g_originalTerminateHandler);
+        }
+        g_captureNextStackTrace = isEnabled;
     }
-    g_installed = 1;
-
-    g_context = context;
-
-    g_originalTerminateHandler = std::set_terminate(CPPExceptionTerminate);
-    g_captureNextStackTrace = true;
-    return true;
 }
 
-extern "C" void kscrashmonitor_uninstallCPPExceptionHandler(void)
+static bool isEnabled()
 {
-    KSLOG_DEBUG("Uninstalling C++ exception handler.");
-    if(!g_installed)
-    {
-        KSLOG_DEBUG("C++ exception handler already uninstalled.");
-        return;
-    }
+    return g_isEnabled;
+}
 
-    g_captureNextStackTrace = false;
-    std::set_terminate(g_originalTerminateHandler);
-    g_installed = 0;
+extern "C" KSCrashMonitorAPI* kscm_cppexception_getAPI()
+{
+    static KSCrashMonitorAPI api =
+    {
+        .setEnabled = setEnabled,
+        .isEnabled = isEnabled
+    };
+    return &api;
 }

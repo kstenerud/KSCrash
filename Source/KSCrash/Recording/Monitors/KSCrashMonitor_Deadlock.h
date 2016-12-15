@@ -40,25 +40,17 @@ extern "C" {
 
 #include <stdbool.h>
 
-
-/** Install the deadlock handler.
- *
- * @param context The crash context to fill out when a crash occurs.
- *
- * @return true if installation was succesful.
- */
-bool kscrashmonitor_installDeadlockHandler(struct KSCrash_MonitorContext* context);
-
-/** Uninstall our custome NSException handler.
- */
-void kscrashmonitor_uninstallDeadlockHandler(void);
-
+    
 /** Set the interval between watchdog checks on the main thread.
  * Default is 5 seconds.
  *
  * @param value The number of seconds between checks (0 = disabled).
  */
-void kscrashmonitor_setDeadlockHandlerWatchdogInterval(double value);
+void kscm_setDeadlockHandlerWatchdogInterval(double value);
+
+/** Access the Monitor API.
+ */
+KSCrashMonitorAPI* kscm_deadlock_getAPI();
 
 
 #ifdef __cplusplus

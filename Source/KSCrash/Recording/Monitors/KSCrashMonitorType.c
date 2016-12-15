@@ -41,6 +41,9 @@ static const struct
     MONITORTYPE(KSCrashMonitorTypeNSException),
     MONITORTYPE(KSCrashMonitorTypeMainThreadDeadlock),
     MONITORTYPE(KSCrashMonitorTypeUserReported),
+    MONITORTYPE(KSCrashMonitorTypeSystem),
+    MONITORTYPE(KSCrashMonitorTypeApplicationState),
+    MONITORTYPE(KSCrashMonitorTypeZombie),
 };
 static const int g_monitorTypesCount = sizeof(g_monitorTypes) / sizeof(*g_monitorTypes);
 

@@ -27,6 +27,7 @@
 
 #import "KSCrashMonitor_NSException.h"
 #include "KSCrashMonitorContext.h"
+#include "KSID.h"
 #include "KSThread.h"
 #import <Foundation/Foundation.h>
 
@@ -38,17 +39,12 @@
 #pragma mark - Globals -
 // ============================================================================
 
-/** Flag noting if we've installed our custom handlers or not.
- * It's not fully thread safe, but it's safer than locking and slightly better
- * than nothing.
- */
-static volatile sig_atomic_t g_installed = 0;
+static volatile bool g_isEnabled = 0;
+
+static KSCrash_MonitorContext g_monitorContext;
 
 /** The exception handler that was in place before we installed ours. */
 static NSUncaughtExceptionHandler* g_previousUncaughtExceptionHandler;
-
-/** Context to fill with crash information. */
-static KSCrash_MonitorContext* g_context;
 
 
 // ============================================================================
@@ -63,22 +59,10 @@ static KSCrash_MonitorContext* g_context;
 static void handleException(NSException* exception)
 {
     KSLOG_DEBUG(@"Trapped exception %@", exception);
-    if(g_installed)
+    if(g_isEnabled)
     {
-        bool wasHandlingCrash = g_context->handlingCrash;
-        kscrashmonitor_beginHandlingCrash(g_context);
-
-        KSLOG_DEBUG(@"Exception handler is installed. Continuing exception handling.");
-
-        if(wasHandlingCrash)
-        {
-            KSLOG_INFO(@"Detected crash in the crash reporter. Restoring original handlers.");
-            g_context->crashedDuringCrashHandling = true;
-            kscrashmonitor_uninstall(KSCrashMonitorTypeAll);
-        }
-
-        KSLOG_DEBUG(@"Suspending all threads.");
         ksmc_suspendEnvironment();
+        kscm_notifyFatalExceptionCaptured(false);
 
         KSLOG_DEBUG(@"Filling out context.");
         NSArray* addresses = [exception callStackReturnAddresses];
@@ -89,26 +73,27 @@ static void handleException(NSException* exception)
             callstack[i] = [[addresses objectAtIndex:i] unsignedLongValue];
         }
 
-        g_context->crashType = KSCrashMonitorTypeNSException;
+        char eventID[37];
+        ksid_generate(eventID);
+        KSCrash_MonitorContext* crashContext = &g_monitorContext;
+        memset(crashContext, 0, sizeof(*crashContext));
+        crashContext->crashType = KSCrashMonitorTypeNSException;
+        crashContext->eventID = eventID;
         KSMC_NEW_CONTEXT(machineContext);
-        g_context->offendingMachineContext = machineContext;
+        crashContext->offendingMachineContext = machineContext;
         ksmc_getContextForThread(ksthread_self(), machineContext, true);
-        g_context->registersAreValid = false;
-        g_context->NSException.name = strdup([[exception name] UTF8String]);
-        g_context->crashReason = strdup([[exception reason] UTF8String]);
-        g_context->stackTrace = callstack;
-        g_context->stackTraceLength = (int)numFrames;
+        crashContext->registersAreValid = false;
+        crashContext->NSException.name = [[exception name] UTF8String];
+        crashContext->exceptionName = crashContext->NSException.name;
+        crashContext->crashReason = [[exception reason] UTF8String];
+        crashContext->stackTrace = callstack;
+        crashContext->stackTraceLength = (int)numFrames;
 
 
         KSLOG_DEBUG(@"Calling main crash handler.");
-        g_context->onCrash();
+        kscm_handleException(crashContext);
 
         free(callstack);
-        free((void*)g_context->NSException.name);
-        free((void*)g_context->crashReason);
-
-        KSLOG_DEBUG(@"Crash handling complete. Restoring original handlers.");
-        kscrashmonitor_uninstall(KSCrashMonitorTypeAll);
 
         if (g_previousUncaughtExceptionHandler != NULL)
         {
@@ -123,37 +108,38 @@ static void handleException(NSException* exception)
 #pragma mark - API -
 // ============================================================================
 
-bool kscrashmonitor_installNSExceptionHandler(KSCrash_MonitorContext* const context)
+static void setEnabled(bool isEnabled)
 {
-    KSLOG_DEBUG(@"Installing NSException handler.");
-    if(g_installed)
+    if(isEnabled != g_isEnabled)
     {
-        KSLOG_DEBUG(@"NSException handler already installed.");
-        return true;
+        g_isEnabled = isEnabled;
+        if(isEnabled)
+        {
+            KSLOG_DEBUG(@"Backing up original handler.");
+            g_previousUncaughtExceptionHandler = NSGetUncaughtExceptionHandler();
+            
+            KSLOG_DEBUG(@"Setting new handler.");
+            NSSetUncaughtExceptionHandler(&handleException);
+        }
+        else
+        {
+            KSLOG_DEBUG(@"Restoring original handler.");
+            NSSetUncaughtExceptionHandler(g_previousUncaughtExceptionHandler);
+        }
     }
-    g_installed = 1;
-
-    g_context = context;
-
-    KSLOG_DEBUG(@"Backing up original handler.");
-    g_previousUncaughtExceptionHandler = NSGetUncaughtExceptionHandler();
-
-    KSLOG_DEBUG(@"Setting new handler.");
-    NSSetUncaughtExceptionHandler(&handleException);
-
-    return true;
 }
 
-void kscrashmonitor_uninstallNSExceptionHandler(void)
+static bool isEnabled()
 {
-    KSLOG_DEBUG(@"Uninstalling NSException handler.");
-    if(!g_installed)
-    {
-        KSLOG_DEBUG(@"NSException handler was already uninstalled.");
-        return;
-    }
+    return g_isEnabled;
+}
 
-    KSLOG_DEBUG(@"Restoring original handler.");
-    NSSetUncaughtExceptionHandler(g_previousUncaughtExceptionHandler);
-    g_installed = 0;
+KSCrashMonitorAPI* kscm_nsexception_getAPI()
+{
+    static KSCrashMonitorAPI api =
+    {
+        .setEnabled = setEnabled,
+        .isEnabled = isEnabled
+    };
+    return &api;
 }

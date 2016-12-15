@@ -137,6 +137,12 @@ bool ksmc_canHaveCustomStackTrace(const struct KSMachineContext* const context);
  */
 bool ksmc_hasValidExceptionRegisters(const struct KSMachineContext* const context);
 
+/** Add a thread to the reserved threads list.
+ *
+ * @param thread The thread to add to the list.
+ */
+void ksmc_addReservedThread(KSThread thread);
+
 
 #ifdef __cplusplus
 }

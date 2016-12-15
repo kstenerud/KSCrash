@@ -35,18 +35,6 @@
 
 @implementation KSMemory_Tests
 
-- (void) testFreeMemory
-{
-    uint64_t freeMem = ksmem_freeMemory();
-    XCTAssertTrue(freeMem > 0, @"");
-}
-
-- (void) testUsableMemory
-{
-    uint64_t usableMem = ksmem_usableMemory();
-    XCTAssertTrue(usableMem > 0, @"");
-}
-
 - (void) testCopyMem
 {
     char buff[100];

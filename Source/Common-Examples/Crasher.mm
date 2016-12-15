@@ -250,6 +250,7 @@ int g_crasher_denominator = 0;
                                          language:language
                                        lineOfCode:lineOfCode
                                        stackTrace:stackTrace
+                                    logAllThreads:YES
                                  terminateProgram:NO];
 }
 

@@ -38,24 +38,27 @@
 
 - (void) testInstallAndRemove
 {
-    bool success;
-    KSCrash_MonitorContext context;
-    success = kscrashmonitor_installSignalHandler(&context);
-    XCTAssertTrue(success, @"");
+    KSCrashMonitorAPI* api = kscm_signal_getAPI();
+    api->setEnabled(true);
+    XCTAssertTrue(api->isEnabled());
     [NSThread sleepForTimeInterval:0.1];
-    kscrashmonitor_uninstallSignalHandler();
+    api->setEnabled(false);
+    XCTAssertFalse(api->isEnabled());
 }
 
 - (void) testDoubleInstallAndRemove
 {
-    bool success;
-    KSCrash_MonitorContext context;
-    success = kscrashmonitor_installSignalHandler(&context);
-    XCTAssertTrue(success, @"");
-    success = kscrashmonitor_installSignalHandler(&context);
-    XCTAssertTrue(success, @"");
-    kscrashmonitor_uninstallSignalHandler();
-    kscrashmonitor_uninstallSignalHandler();
+    KSCrashMonitorAPI* api = kscm_signal_getAPI();
+    
+    api->setEnabled(true);
+    XCTAssertTrue(api->isEnabled());
+    api->setEnabled(true);
+    XCTAssertTrue(api->isEnabled());
+    
+    api->setEnabled(false);
+    XCTAssertFalse(api->isEnabled());
+    api->setEnabled(false);
+    XCTAssertFalse(api->isEnabled());
 }
 
 @end

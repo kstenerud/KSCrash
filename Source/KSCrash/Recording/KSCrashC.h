@@ -65,11 +65,6 @@ KSCrashMonitorType kscrash_install(const char* appName, const char* const instal
  */
 KSCrashMonitorType kscrash_setMonitoring(KSCrashMonitorType monitors);
 
-/** Reinstall the crash reporter. Useful for resetting the crash reporter
- * after a "soft" crash.
- */
-void kscrash_reinstall();
-
 /** Set the user-supplied data in JSON format.
  *
  * @param userInfoJSON Pre-baked JSON containing user-supplied information.
@@ -121,13 +116,6 @@ void kscrash_setSearchQueueNames(bool shouldSearchQueueNames);
  */
 void kscrash_setIntrospectMemory(bool introspectMemory);
 
-/** If true, monitor all Objective-C/Swift deallocations and keep track of any
- * accesses after deallocation.
- *
- * Default: false
- */
-void kscrash_setCatchZombies(bool catchZombies);
-
 /** List of Objective-C classes that should never be introspected.
  * Whenever a class in this list is encountered, only the class name will be recorded.
  * This can be useful for information security concerns.
@@ -173,6 +161,9 @@ void kscrash_setRedirectConsoleLogToFile(bool shouldRedirectToFile);
  * @param stackTrace JSON encoded array containing stack trace information (one frame per array entry).
  *                   The frame structure can be anything you want, including bare strings.
  *
+ * @param logAllThreads If true, suspend all threads and log their state. Note that this incurs a
+ *                      performance penalty, so it's best to use only on fatal errors.
+ *
  * @param terminateProgram If true, do not return from this function call. Terminate the program instead.
  */
 void kscrash_reportUserException(const char* name,
@@ -180,6 +171,7 @@ void kscrash_reportUserException(const char* name,
                                  const char* language,
                                  const char* lineOfCode,
                                  const char* stackTrace,
+                                 bool logAllThreads,
                                  bool terminateProgram);
 
 #ifdef __cplusplus

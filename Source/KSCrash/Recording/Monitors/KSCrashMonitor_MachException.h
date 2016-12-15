@@ -40,17 +40,9 @@ extern "C" {
 #include <stdbool.h>
 
 
-/** Install our custom mach exception handler.
- *
- * @param context Contextual information for the crash handler.
- *
- * @return true if installation was succesful.
+/** Access the Monitor API.
  */
-bool kscrashmonitor_installMachHandler(struct KSCrash_MonitorContext* context);
-
-/** Uninstall our custom mach exception handler.
- */
-void kscrashmonitor_uninstallMachHandler(void);
+KSCrashMonitorAPI* kscm_machexception_getAPI();
 
 
 #ifdef __cplusplus

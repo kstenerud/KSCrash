@@ -36,36 +36,86 @@
 extern "C" {
 #endif
 
+#import "KSCrashReportWriter.h"
+#import "KSCrashMonitorContext.h"
 
-#include "KSCrashContext.h"
+#include <stdbool.h>
 
 
+// ============================================================================
+#pragma mark - Configuration -
+// ============================================================================
+    
+/** Set custom user information to be stored in the report.
+ *
+ * @param userInfoJSON The user information, in JSON format.
+ */
+void kscrashreport_setUserInfoJSON(const char* const userInfoJSON);
+
+/** Configure whether to print a stack trace to stdout on crash.
+ *
+ * @param shouldPrintTraceToStdout If true, print a trace on crash.
+ */
+void kscrashreport_setPrintTraceToStdout(bool shouldPrintTraceToStdout);
+
+/** Configure whether to search threads for thread names.
+ *
+ * @param shouldSearchThreadNames If true, search thread names.
+ */
+void kscrashreport_setSearchThreadNames(bool shouldSearchThreadNames);
+
+/** Configure whether to search threads for queue names.
+ *
+ * @param shouldSearchQueueNames If true, search thread names.
+ */
+void kscrashreport_setSearchQueueNames(bool shouldSearchQueueNames);
+
+/** Configure whether to introspect any interesting memory locations.
+ *  This can find things like strings or Objective-C classes.
+ *
+ * @param shouldIntrospectMemory If true, introspect memory.
+ */
+void kscrashreport_setIntrospectMemory(bool shouldIntrospectMemory);
+
+/** Specify which objective-c classes should not be introspected.
+ *
+ * @param doNotIntrospectClasses Array of class names.
+ * @param length Length of the array.
+ */
+void kscrashreport_setDoNotIntrospectClasses(const char** doNotIntrospectClasses, int length);
+
+/** Set the function to call when writing the user section of the report.
+ *  This allows the user to add more fields to the user section at the time of the crash.
+ *  Note: Only async-safe functions are allowed in the callback.
+ *
+ * @param userSectionWriteCallback The user section write callback.
+ */
+void kscrashreport_setUserSectionWriteCallback(const KSReportWriteCallback userSectionWriteCallback);
+
+
+// ============================================================================
+#pragma mark - Main API -
+// ============================================================================
+    
 /** Write a standard crash report to a file.
  *
- * @param crashContext Contextual information about the crash and environment.
- *                     The caller must fill this out before passing it in.
+ * @param monitorContext Contextual information about the crash and environment.
+ *                       The caller must fill this out before passing it in.
  *
  * @param path The file to write to.
  */
-void kscrashreport_writeStandardReport(KSCrash_Context* crashContext,
+void kscrashreport_writeStandardReport(const struct KSCrash_MonitorContext* const monitorContext,
                                        const char* path);
 
 /** Write a minimal crash report to a file.
  *
- * @param crashContext Contextual information about the crash and environment.
- *                     The caller must fill this out before passing it in.
+ * @param monitorContext Contextual information about the crash and environment.
+ *                       The caller must fill this out before passing it in.
  *
  * @param path The file to write to.
  */
-void kscrashreport_writeRecrashReport(KSCrash_Context* const crashContext,
+void kscrashreport_writeRecrashReport(const struct KSCrash_MonitorContext* const monitorContext,
                                       const char* path);
-
-/** Write minimal information about the crash to the log.
- *
- * @param crashContext Contextual information about the crash and environment.
- *                     The caller must fill this out before passing it in.
- */
-void kscrashreport_logCrash(const KSCrash_Context* const crashContext);
 
 
 #ifdef __cplusplus

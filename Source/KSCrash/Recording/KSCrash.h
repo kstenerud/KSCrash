@@ -256,6 +256,9 @@ typedef enum
  *
  * @param stackTrace An array of frames (dictionaries or strings) representing the call stack leading to the exception (nil = ignore).
  *
+ * @param logAllThreads If true, suspend all threads and log their state. Note that this incurs a
+ *                      performance penalty, so it's best to use only on fatal errors.
+ *
  * @param terminateProgram If true, do not return from this function call. Terminate the program instead.
  */
 - (void) reportUserException:(NSString*) name
@@ -263,6 +266,7 @@ typedef enum
                     language:(NSString*) language
                   lineOfCode:(NSString*) lineOfCode
                   stackTrace:(NSArray*) stackTrace
+               logAllThreads:(BOOL) logAllThreads
             terminateProgram:(BOOL) terminateProgram;
 
 @end

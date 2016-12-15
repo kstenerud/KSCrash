@@ -33,31 +33,20 @@ extern "C" {
 #endif
 
 #include "KSCrashMonitorType.h"
-#include "KSThread.h"
 #include "KSMachineContext.h"
 
-#include <signal.h>
 #include <stdbool.h>
-
-typedef enum
-{
-    KSCrashReservedThreadTypeCrashMonitor,
-    KSCrashReservedThreadTypeRecrashMonitor,
-    KSCrashReservedThreadTypeCount
-} KSCrashReservedTheadType;
+#include <stdint.h>
 
 typedef struct KSCrash_MonitorContext
 {
-    // Caller defined values. Caller must fill these out prior to installation.
+    /** Unique identifier for this event. */
+    const char* eventID;
     
-    /** Called by the crash handler when a crash is detected. */
-    void (*onCrash)(void);
-    
-    
-    // Implementation defined values. Caller does not initialize these.
-    
-    /** Threads reserved by the crash handlers, which must not be suspended. */
-    KSThread reservedThreads[KSCrashReservedThreadTypeCount];
+    /** If true, the environment has crashed hard, and only async-safe
+     *  functions should be used.
+     */
+    bool requiresAsyncSafety;
     
     /** If true, the crash handling system is currently handling a crash.
      * When false, all values below this field are considered invalid.
@@ -73,7 +62,7 @@ typedef struct KSCrash_MonitorContext
     /** True if the crash system has detected a stack overflow. */
     bool isStackOverflow;
     
-    /** The thread that caused the problem. */
+    /** The machine context that generated the event. */
     struct KSMachineContext* offendingMachineContext;
     
     /** Address that caused the fault. */
@@ -82,6 +71,9 @@ typedef struct KSCrash_MonitorContext
     /** The type of crash that occurred.
      * This determines which other fields are valid. */
     KSCrashMonitorType crashType;
+    
+    /** The name of the exception that caused the crash, if any. */
+    const char* exceptionName;
     
     /** Short description of why the crash occurred. */
     const char* crashReason;
@@ -122,9 +114,8 @@ typedef struct KSCrash_MonitorContext
     {
         /** User context information. */
         const void* userContext;
-        
-        /** Signal information. */
-        const siginfo_t* signalInfo;
+        int signum;
+        int sigcode;
     } signal;
     
     struct
@@ -141,7 +132,96 @@ typedef struct KSCrash_MonitorContext
         /** The user-supplied JSON encoded stack trace. */
         const char* customStackTrace;
     } userException;
+
+    struct
+    {
+        /** Total active time elapsed since the last crash. */
+        double activeDurationSinceLastCrash;
+        
+        /** Total time backgrounded elapsed since the last crash. */
+        double backgroundDurationSinceLastCrash;
+        
+        /** Number of app launches since the last crash. */
+        int launchesSinceLastCrash;
+        
+        /** Number of sessions (launch, resume from suspend) since last crash. */
+        int sessionsSinceLastCrash;
+        
+        /** Total active time elapsed since launch. */
+        double activeDurationSinceLaunch;
+        
+        /** Total time backgrounded elapsed since launch. */
+        double backgroundDurationSinceLaunch;
+        
+        /** Number of sessions (launch, resume from suspend) since app launch. */
+        int sessionsSinceLaunch;
+        
+        /** If true, the application crashed on the previous launch. */
+        bool crashedLastLaunch;
+        
+        /** If true, the application crashed on this launch. */
+        bool crashedThisLaunch;
+        
+        /** Timestamp for when the app state was last changed (active<->inactive,
+         * background<->foreground) */
+        double appStateTransitionTime;
+        
+        /** If true, the application is currently active. */
+        bool applicationIsActive;
+        
+        /** If true, the application is currently in the foreground. */
+        bool applicationIsInForeground;
+        
+    } AppState;
     
+    /* Misc system information */
+    struct
+    {
+        const char* systemName;
+        const char* systemVersion;
+        const char* machine;
+        const char* model;
+        const char* kernelVersion;
+        const char* osVersion;
+        bool isJailbroken;
+        const char* bootTime;
+        const char* appStartTime;
+        const char* executablePath;
+        const char* executableName;
+        const char* bundleID;
+        const char* bundleName;
+        const char* bundleVersion;
+        const char* bundleShortVersion;
+        const char* appID;
+        const char* cpuArchitecture;
+        int cpuType;
+        int cpuSubType;
+        int binaryCPUType;
+        int binaryCPUSubType;
+        const char* timezone;
+        const char* processName;
+        int processID;
+        int parentProcessID;
+        const char* deviceAppHash;
+        const char* buildType;
+        uint64_t storageSize;
+        uint64_t memorySize;
+        uint64_t freeMemory;
+        uint64_t usableMemory;
+    } System;
+    
+    struct
+    {
+        /** Address of the last deallocated exception. */
+        uintptr_t address;
+
+        /** Name of the last deallocated exception. */
+        const char* name;
+
+        /** Reason field from the last deallocated exception. */
+        const char* reason;
+    } ZombieException;
+
 } KSCrash_MonitorContext;
     
 

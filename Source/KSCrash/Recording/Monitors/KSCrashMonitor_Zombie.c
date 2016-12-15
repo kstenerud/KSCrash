@@ -26,6 +26,7 @@
 
 
 #include "KSCrashMonitor_Zombie.h"
+#include "KSCrashMonitorContext.h"
 #include "KSObjC.h"
 #include "KSLogger.h"
 
@@ -49,6 +50,8 @@ typedef struct
 
 static volatile Zombie* g_zombieCache;
 static unsigned g_zombieHashMask;
+
+static volatile bool g_isEnabled = false;
 
 static struct
 {
@@ -142,11 +145,12 @@ static void installDealloc_ ## CLASS() \
     Method method = class_getInstanceMethod(objc_getClass(#CLASS), sel_registerName("dealloc")); \
     g_originalDealloc_ ## CLASS = method_getImplementation(method); \
     method_setImplementation(method, (IMP)handleDealloc_ ## CLASS); \
-} \
-static void uninstallDealloc_ ## CLASS() \
-{ \
-    method_setImplementation(class_getInstanceMethod(objc_getClass(#CLASS), sel_registerName("dealloc")), g_originalDealloc_ ## CLASS); \
 }
+// TODO: Uninstall doesn't work.
+//static void uninstallDealloc_ ## CLASS() \
+//{ \
+//    method_setImplementation(class_getInstanceMethod(objc_getClass(#CLASS), sel_registerName("dealloc")), g_originalDealloc_ ## CLASS); \
+//}
 
 CREATE_ZOMBIE_HANDLER_INSTALLER(NSObject)
 CREATE_ZOMBIE_HANDLER_INSTALLER(NSProxy)
@@ -172,32 +176,20 @@ static void install()
     installDealloc_NSProxy();
 }
 
-static void uninstall(void)
-{
-    uninstallDealloc_NSObject();
-    uninstallDealloc_NSProxy();
-
-    void* ptr = (void*)g_zombieCache;
-    g_zombieCache = NULL;
-    dispatch_time_t tenSeconds = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(10.0 * NSEC_PER_SEC));
-    dispatch_after(tenSeconds, dispatch_get_main_queue(), ^
-    {
-        free(ptr);
-    });
-}
-
-void kszombie_setEnabled(bool shouldEnable)
-{
-    bool isCurrentlyEnabled = g_zombieCache != NULL;
-    if(shouldEnable && !isCurrentlyEnabled)
-    {
-        install();
-    }
-    else if(!shouldEnable && isCurrentlyEnabled)
-    {
-        uninstall();
-    }
-}
+// TODO: Uninstall doesn't work.
+//static void uninstall(void)
+//{
+//    uninstallDealloc_NSObject();
+//    uninstallDealloc_NSProxy();
+//
+//    void* ptr = (void*)g_zombieCache;
+//    g_zombieCache = NULL;
+//    dispatch_time_t tenSeconds = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(10.0 * NSEC_PER_SEC));
+//    dispatch_after(tenSeconds, dispatch_get_main_queue(), ^
+//    {
+//        free(ptr);
+//    });
+//}
 
 const char* kszombie_className(const void* object)
 {
@@ -215,17 +207,46 @@ const char* kszombie_className(const void* object)
     return NULL;
 }
 
-const void* kszombie_lastDeallocedNSExceptionAddress(void)
+static void setEnabled(bool isEnabled)
 {
-    return g_lastDeallocedException.address;
+    if(isEnabled != g_isEnabled)
+    {
+        g_isEnabled = isEnabled;
+        if(isEnabled)
+        {
+            install();
+        }
+        else
+        {
+            // TODO: Uninstall doesn't work.
+            g_isEnabled = true;
+//            uninstall();
+        }
+    }
 }
 
-const char* kszombie_lastDeallocedNSExceptionName(void)
+static bool isEnabled()
 {
-    return g_lastDeallocedException.name;
+    return g_isEnabled;
 }
 
-const char* kszombie_lastDeallocedNSExceptionReason(void)
+static void notifyExceptionEvent(KSCrash_MonitorContext* eventContext)
 {
-    return g_lastDeallocedException.reason;
+    if(g_isEnabled)
+    {
+        eventContext->ZombieException.address = (uintptr_t)g_lastDeallocedException.address;
+        eventContext->ZombieException.name = g_lastDeallocedException.name;
+        eventContext->ZombieException.reason = g_lastDeallocedException.reason;
+    }
+}
+
+KSCrashMonitorAPI* kscm_zombie_getAPI()
+{
+    static KSCrashMonitorAPI api =
+    {
+        .setEnabled = setEnabled,
+        .isEnabled = isEnabled,
+        .notifyExceptionEvent = notifyExceptionEvent
+    };
+    return &api;
 }

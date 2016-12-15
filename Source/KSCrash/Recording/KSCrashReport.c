@@ -48,22 +48,14 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <mach/exception_types.h>
 #include <mach-o/dyld.h>
 #include <stdio.h>
+#include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
-
-
-#ifdef __arm64__
-    #include <sys/_types/_ucontext64.h>
-    #define UC_MCONTEXT uc_mcontext64
-    typedef ucontext64_t SignalUserContext;
-#else
-    #define UC_MCONTEXT uc_mcontext
-    typedef ucontext_t SignalUserContext;
-#endif
 
 
 // ============================================================================
@@ -125,7 +117,28 @@ static const char g_hexNybbles[] =
 #pragma mark - Runtime Config -
 // ============================================================================
 
-static KSCrash_IntrospectionRules* g_introspectionRules;
+typedef struct
+{
+    /** If YES, introspect memory contents during a crash.
+     * Any Objective-C objects or C strings near the stack pointer or referenced by
+     * cpu registers or exceptions will be recorded in the crash report, along with
+     * their contents.
+     */
+    bool enabled;
+    
+    /** List of classes that should never be introspected.
+     * Whenever a class in this list is encountered, only the class name will be recorded.
+     */
+    const char** restrictedClasses;
+    int restrictedClassesCount;
+} KSCrash_IntrospectionRules;
+
+static const char* g_userInfoJSON;
+static bool g_shouldPrintTraceToStdout;
+static bool g_shouldSearchThreadNames;
+static bool g_shouldSearchQueueNames;
+static KSCrash_IntrospectionRules g_introspectionRules;
+static KSReportWriteCallback g_userSectionWriteCallback;
 
 
 #pragma mark Callbacks
@@ -502,8 +515,8 @@ static void logCrashType(const KSCrash_MonitorContext* const monitorContext)
         }
         case KSCrashMonitorTypeSignal:
         {
-            int sigNum = monitorContext->signal.signalInfo->si_signo;
-            int sigCode = monitorContext->signal.signalInfo->si_code;
+            int sigNum = monitorContext->signal.signum;
+            int sigCode = monitorContext->signal.sigcode;
             const char* sigName = kssignal_signalName(sigNum);
             const char* sigCodeName = kssignal_signalCodeName(sigNum, sigCode);
             KSLOGBASIC_INFO("App crashed due to signal: [%s, %s] at %08x",
@@ -520,6 +533,8 @@ static void logCrashType(const KSCrash_MonitorContext* const monitorContext)
             KSLOG_INFO("App crashed due to user specified exception: %s", monitorContext->crashReason);
             break;
         }
+        default:
+            KSLOGBASIC_INFO("Unknwn cause: 0x%x", monitorContext->crashType);
     }
 }
 
@@ -595,6 +610,12 @@ static void logCrashThreadBacktrace(const KSCrash_MonitorContext* const crash)
     {
         logBacktrace(backtrace, backtraceLength, skippedEntries);
     }
+}
+
+static void logCrash(const KSCrash_MonitorContext* const monitorContext)
+{
+    logCrashType(monitorContext);
+    logCrashThreadBacktrace(monitorContext);
 }
 
 
@@ -850,11 +871,11 @@ static void writeUnknownObjectContents(const KSCrashReportWriter* const writer,
 
 static bool isRestrictedClass(const char* name)
 {
-    if(g_introspectionRules->restrictedClasses != NULL)
+    if(g_introspectionRules.restrictedClasses != NULL)
     {
-        for(int i = 0; i < g_introspectionRules->restrictedClassesCount; i++)
+        for(int i = 0; i < g_introspectionRules.restrictedClassesCount; i++)
         {
-            if(strcmp(name, g_introspectionRules->restrictedClasses[i]) == 0)
+            if(strcmp(name, g_introspectionRules.restrictedClasses[i]) == 0)
             {
                 return true;
             }
@@ -1571,12 +1592,15 @@ static void writeBinaryImages(const KSCrashReportWriter* const writer, const cha
  *
  * @param key The object key, if needed.
  */
-static void writeMemoryInfo(const KSCrashReportWriter* const writer, const char* const key)
+static void writeMemoryInfo(const KSCrashReportWriter* const writer,
+                            const char* const key,
+                            const KSCrash_MonitorContext* const monitorContext)
 {
     writer->beginObject(writer, key);
     {
-        writer->addUIntegerElement(writer, KSCrashField_Usable, ksmem_usableMemory());
-        writer->addUIntegerElement(writer, KSCrashField_Free, ksmem_freeMemory());
+        writer->addUIntegerElement(writer, KSCrashField_Size, monitorContext->System.memorySize);
+        writer->addUIntegerElement(writer, KSCrashField_Usable, monitorContext->System.usableMemory);
+        writer->addUIntegerElement(writer, KSCrashField_Free, monitorContext->System.freeMemory);
     }
     writer->endContainer(writer);
 }
@@ -1593,88 +1617,37 @@ static void writeError(const KSCrashReportWriter* const writer,
                        const char* const key,
                        const KSCrash_MonitorContext* const crash)
 {
-    int machExceptionType = 0;
-    kern_return_t machCode = 0;
-    kern_return_t machSubCode = 0;
-    int sigNum = 0;
-    int sigCode = 0;
-    const char* exceptionName = NULL;
-    const char* crashReason = NULL;
-
-    // Gather common info.
-    switch(crash->crashType)
-    {
-        case KSCrashMonitorTypeMainThreadDeadlock:
-            break;
-        case KSCrashMonitorTypeMachException:
-            machExceptionType = crash->mach.type;
-            machCode = (kern_return_t)crash->mach.code;
-            if(machCode == KERN_PROTECTION_FAILURE && crash->isStackOverflow)
-            {
-                // A stack overflow should return KERN_INVALID_ADDRESS, but
-                // when a stack blasts through the guard pages at the top of the stack,
-                // it generates KERN_PROTECTION_FAILURE. Correct for this.
-                machCode = KERN_INVALID_ADDRESS;
-            }
-            machSubCode = (kern_return_t)crash->mach.subcode;
-
-            sigNum = kssignal_signalForMachException(machExceptionType, machCode);
-            break;
-        case KSCrashMonitorTypeCPPException:
-            machExceptionType = EXC_CRASH;
-            sigNum = SIGABRT;
-            crashReason = crash->crashReason;
-            exceptionName = crash->CPPException.name;
-            break;
-        case KSCrashMonitorTypeNSException:
-            machExceptionType = EXC_CRASH;
-            sigNum = SIGABRT;
-            exceptionName = crash->NSException.name;
-            crashReason = crash->crashReason;
-            break;
-        case KSCrashMonitorTypeSignal:
-            sigNum = crash->signal.signalInfo->si_signo;
-            sigCode = crash->signal.signalInfo->si_code;
-            machExceptionType = kssignal_machExceptionForSignal(sigNum);
-            break;
-        case KSCrashMonitorTypeUserReported:
-            machExceptionType = EXC_CRASH;
-            sigNum = SIGABRT;
-            crashReason = crash->crashReason;
-            break;
-    }
-
-    const char* machExceptionName = ksrc_exceptionName(machExceptionType);
-    const char* machCodeName = machCode == 0 ? NULL : ksmemory_kernelReturnCodeName(machCode);
-    const char* sigName = kssignal_signalName(sigNum);
-    const char* sigCodeName = kssignal_signalCodeName(sigNum, sigCode);
+    const char* machExceptionName = ksrc_exceptionName(crash->mach.type);
+    const char* machCodeName = crash->mach.code == 0 ? NULL : ksmemory_kernelReturnCodeName(crash->mach.code);
+    const char* sigName = kssignal_signalName(crash->signal.signum);
+    const char* sigCodeName = kssignal_signalCodeName(crash->signal.signum, crash->signal.sigcode);
 
     writer->beginObject(writer, key);
     {
         writer->beginObject(writer, KSCrashField_Mach);
         {
-            writer->addUIntegerElement(writer, KSCrashField_Exception, (unsigned)machExceptionType);
+            writer->addUIntegerElement(writer, KSCrashField_Exception, (unsigned)crash->mach.type);
             if(machExceptionName != NULL)
             {
                 writer->addStringElement(writer, KSCrashField_ExceptionName, machExceptionName);
             }
-            writer->addUIntegerElement(writer, KSCrashField_Code, (unsigned)machCode);
+            writer->addUIntegerElement(writer, KSCrashField_Code, (unsigned)crash->mach.code);
             if(machCodeName != NULL)
             {
                 writer->addStringElement(writer, KSCrashField_CodeName, machCodeName);
             }
-            writer->addUIntegerElement(writer, KSCrashField_Subcode, (unsigned)machSubCode);
+            writer->addUIntegerElement(writer, KSCrashField_Subcode, (unsigned)crash->mach.subcode);
         }
         writer->endContainer(writer);
 
         writer->beginObject(writer, KSCrashField_Signal);
         {
-            writer->addUIntegerElement(writer, KSCrashField_Signal, (unsigned)sigNum);
+            writer->addUIntegerElement(writer, KSCrashField_Signal, (unsigned)crash->signal.signum);
             if(sigName != NULL)
             {
                 writer->addStringElement(writer, KSCrashField_Name, sigName);
             }
-            writer->addUIntegerElement(writer, KSCrashField_Code, (unsigned)sigCode);
+            writer->addUIntegerElement(writer, KSCrashField_Code, (unsigned)crash->signal.sigcode);
             if(sigCodeName != NULL)
             {
                 writer->addStringElement(writer, KSCrashField_CodeName, sigCodeName);
@@ -1683,9 +1656,9 @@ static void writeError(const KSCrashReportWriter* const writer,
         writer->endContainer(writer);
 
         writer->addUIntegerElement(writer, KSCrashField_Address, crash->faultAddress);
-        if(crashReason != NULL)
+        if(crash->crashReason != NULL)
         {
-            writer->addStringElement(writer, KSCrashField_Reason, crashReason);
+            writer->addStringElement(writer, KSCrashField_Reason, crash->crashReason);
         }
 
         // Gather specific info.
@@ -1704,7 +1677,7 @@ static void writeError(const KSCrashReportWriter* const writer,
                 writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_CPPException);
                 writer->beginObject(writer, KSCrashField_CPPException);
                 {
-                    writer->addStringElement(writer, KSCrashField_Name, exceptionName);
+                    writer->addStringElement(writer, KSCrashField_Name, crash->CPPException.name);
                 }
                 writer->endContainer(writer);
                 break;
@@ -1714,8 +1687,8 @@ static void writeError(const KSCrashReportWriter* const writer,
                 writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_NSException);
                 writer->beginObject(writer, KSCrashField_NSException);
                 {
-                    writer->addStringElement(writer, KSCrashField_Name, exceptionName);
-                    writeAddressReferencedByString(writer, KSCrashField_ReferencedObject, crashReason);
+                    writer->addStringElement(writer, KSCrashField_Name, crash->NSException.name);
+                    writeAddressReferencedByString(writer, KSCrashField_ReferencedObject, crash->crashReason);
                 }
                 writer->endContainer(writer);
                 break;
@@ -1746,6 +1719,11 @@ static void writeError(const KSCrashReportWriter* const writer,
                 writer->endContainer(writer);
                 break;
             }
+            case KSCrashMonitorTypeSystem:
+            case KSCrashMonitorTypeApplicationState:
+            case KSCrashMonitorTypeZombie:
+                KSLOG_ERROR("Crash monitor type 0x%x shouldn't be able to cause events!", crash->crashType);
+                break;
         }
     }
     writer->endContainer(writer);
@@ -1757,23 +1735,25 @@ static void writeError(const KSCrashReportWriter* const writer,
  *
  * @param key The object key, if needed.
  *
- * @param state The persistent crash handler state.
+ * @param monitorContext The event monitor context.
  */
-static void writeAppStats(const KSCrashReportWriter* const writer, const char* const key, KSCrash_State* state)
+static void writeAppStats(const KSCrashReportWriter* const writer,
+                          const char* const key,
+                          const KSCrash_MonitorContext* const monitorContext)
 {
     writer->beginObject(writer, key);
     {
-        writer->addBooleanElement(writer, KSCrashField_AppActive, state->applicationIsActive);
-        writer->addBooleanElement(writer, KSCrashField_AppInFG, state->applicationIsInForeground);
+        writer->addBooleanElement(writer, KSCrashField_AppActive, monitorContext->AppState.applicationIsActive);
+        writer->addBooleanElement(writer, KSCrashField_AppInFG, monitorContext->AppState.applicationIsInForeground);
 
-        writer->addIntegerElement(writer, KSCrashField_LaunchesSinceCrash, state->launchesSinceLastCrash);
-        writer->addIntegerElement(writer, KSCrashField_SessionsSinceCrash, state->sessionsSinceLastCrash);
-        writer->addFloatingPointElement(writer, KSCrashField_ActiveTimeSinceCrash, state->activeDurationSinceLastCrash);
-        writer->addFloatingPointElement(writer, KSCrashField_BGTimeSinceCrash, state->backgroundDurationSinceLastCrash);
+        writer->addIntegerElement(writer, KSCrashField_LaunchesSinceCrash, monitorContext->AppState.launchesSinceLastCrash);
+        writer->addIntegerElement(writer, KSCrashField_SessionsSinceCrash, monitorContext->AppState.sessionsSinceLastCrash);
+        writer->addFloatingPointElement(writer, KSCrashField_ActiveTimeSinceCrash, monitorContext->AppState.activeDurationSinceLastCrash);
+        writer->addFloatingPointElement(writer, KSCrashField_BGTimeSinceCrash, monitorContext->AppState.backgroundDurationSinceLastCrash);
 
-        writer->addIntegerElement(writer, KSCrashField_SessionsSinceLaunch, state->sessionsSinceLaunch);
-        writer->addFloatingPointElement(writer, KSCrashField_ActiveTimeSinceLaunch, state->activeDurationSinceLaunch);
-        writer->addFloatingPointElement(writer, KSCrashField_BGTimeSinceLaunch, state->backgroundDurationSinceLaunch);
+        writer->addIntegerElement(writer, KSCrashField_SessionsSinceLaunch, monitorContext->AppState.sessionsSinceLaunch);
+        writer->addFloatingPointElement(writer, KSCrashField_ActiveTimeSinceLaunch, monitorContext->AppState.activeDurationSinceLaunch);
+        writer->addFloatingPointElement(writer, KSCrashField_BGTimeSinceLaunch, monitorContext->AppState.backgroundDurationSinceLaunch);
     }
     writer->endContainer(writer);
 }
@@ -1785,19 +1765,19 @@ static void writeAppStats(const KSCrashReportWriter* const writer, const char* c
  * @param key The object key, if needed.
  */
 static void writeProcessState(const KSCrashReportWriter* const writer,
-                               const char* const key)
+                              const char* const key,
+                              const KSCrash_MonitorContext* const monitorContext)
 {
     writer->beginObject(writer, key);
     {
-        const void* excAddress = kszombie_lastDeallocedNSExceptionAddress();
-        if(excAddress != NULL)
+        if(monitorContext->ZombieException.address != 0)
         {
             writer->beginObject(writer, KSCrashField_LastDeallocedNSException);
             {
-                writer->addUIntegerElement(writer, KSCrashField_Address, (uintptr_t)excAddress);
-                writer->addStringElement(writer, KSCrashField_Name, kszombie_lastDeallocedNSExceptionName());
-                writer->addStringElement(writer, KSCrashField_Reason, kszombie_lastDeallocedNSExceptionReason());
-                writeAddressReferencedByString(writer, KSCrashField_ReferencedObject, kszombie_lastDeallocedNSExceptionReason());
+                writer->addUIntegerElement(writer, KSCrashField_Address, monitorContext->ZombieException.address);
+                writer->addStringElement(writer, KSCrashField_Name, monitorContext->ZombieException.name);
+                writer->addStringElement(writer, KSCrashField_Reason, monitorContext->ZombieException.reason);
+                writeAddressReferencedByString(writer, KSCrashField_ReferencedObject, monitorContext->ZombieException.reason);
             }
             writer->endContainer(writer);
         }
@@ -1869,17 +1849,12 @@ static void prepareReportWriter(KSCrashReportWriter* const writer, KSJSONEncodeC
     writer->context = context;
 }
 
-static void callUserCrashHandler(KSCrash_Context* const crashContext, KSCrashReportWriter* writer)
-{
-    crashContext->config.onCrashNotify(writer);
-}
-
 
 // ============================================================================
 #pragma mark - Main API -
 // ============================================================================
 
-void kscrashreport_writeRecrashReport(KSCrash_Context* const crashContext, const char* const path)
+void kscrashreport_writeRecrashReport(const KSCrash_MonitorContext* const monitorContext, const char* const path)
 {
     BufferedWriter bufferedWriter = {{0}};
     static char tempPath[1000];
@@ -1896,8 +1871,6 @@ void kscrashreport_writeRecrashReport(KSCrash_Context* const crashContext, const
         return;
     }
 
-    g_introspectionRules = &crashContext->config.introspectionRules;
-    
     KSJSONEncodeContext jsonContext;
     jsonContext.userData = &bufferedWriter;
     KSCrashReportWriter concreteWriter;
@@ -1917,20 +1890,20 @@ void kscrashreport_writeRecrashReport(KSCrash_Context* const crashContext, const
         writeReportInfo(writer,
                         KSCrashField_Report,
                         KSCrashReportType_Minimal,
-                        crashContext->config.crashID,
-                        crashContext->config.processName);
+                        monitorContext->eventID,
+                        monitorContext->System.processName);
         flushBufferedWriter(&bufferedWriter);
 
         writer->beginObject(writer, KSCrashField_Crash);
         {
-            writeError(writer, KSCrashField_Error, &crashContext->crash);
+            writeError(writer, KSCrashField_Error, monitorContext);
             flushBufferedWriter(&bufferedWriter);
-            int threadIndex = ksmc_indexOfThread(crashContext->crash.offendingMachineContext,
-                                                 ksmc_getThreadFromContext(crashContext->crash.offendingMachineContext));
+            int threadIndex = ksmc_indexOfThread(monitorContext->offendingMachineContext,
+                                                 ksmc_getThreadFromContext(monitorContext->offendingMachineContext));
             writeThread(writer,
                         KSCrashField_CrashedThread,
-                        &crashContext->crash,
-                        crashContext->crash.offendingMachineContext,
+                        monitorContext,
+                        monitorContext->offendingMachineContext,
                         threadIndex,
                         false, false, false);
             flushBufferedWriter(&bufferedWriter);
@@ -1943,8 +1916,55 @@ void kscrashreport_writeRecrashReport(KSCrash_Context* const crashContext, const
     closeBufferedWriter(&bufferedWriter);
 }
 
-void kscrashreport_writeStandardReport(KSCrash_Context* const crashContext, const char* const path)
+static void writeSystemInfo(const KSCrashReportWriter* const writer,
+                            const char* const key,
+                            const KSCrash_MonitorContext* const monitorContext)
 {
+    writer->beginObject(writer, key);
+    {
+        writer->addStringElement(writer, KSCrashField_SystemName, monitorContext->System.systemName);
+        writer->addStringElement(writer, KSCrashField_SystemVersion, monitorContext->System.systemVersion);
+        writer->addStringElement(writer, KSCrashField_Machine, monitorContext->System.machine);
+        writer->addStringElement(writer, KSCrashField_Model, monitorContext->System.model);
+        writer->addStringElement(writer, KSCrashField_KernelVersion, monitorContext->System.kernelVersion);
+        writer->addStringElement(writer, KSCrashField_OSVersion, monitorContext->System.osVersion);
+        writer->addBooleanElement(writer, KSCrashField_Jailbroken, monitorContext->System.isJailbroken);
+        writer->addStringElement(writer, KSCrashField_BootTime, monitorContext->System.bootTime);
+        writer->addStringElement(writer, KSCrashField_AppStartTime, monitorContext->System.appStartTime);
+        writer->addStringElement(writer, KSCrashField_ExecutablePath, monitorContext->System.executablePath);
+        writer->addStringElement(writer, KSCrashField_Executable, monitorContext->System.executableName);
+        writer->addStringElement(writer, KSCrashField_BundleID, monitorContext->System.bundleID);
+        writer->addStringElement(writer, KSCrashField_BundleName, monitorContext->System.bundleName);
+        writer->addStringElement(writer, KSCrashField_BundleVersion, monitorContext->System.bundleVersion);
+        writer->addStringElement(writer, KSCrashField_BundleShortVersion, monitorContext->System.bundleShortVersion);
+        writer->addStringElement(writer, KSCrashField_AppUUID, monitorContext->System.appID);
+        writer->addStringElement(writer, KSCrashField_CPUArch, monitorContext->System.cpuArchitecture);
+        writer->addIntegerElement(writer, KSCrashField_CPUType, monitorContext->System.cpuType);
+        writer->addIntegerElement(writer, KSCrashField_CPUSubType, monitorContext->System.cpuSubType);
+        writer->addIntegerElement(writer, KSCrashField_BinaryCPUType, monitorContext->System.binaryCPUType);
+        writer->addIntegerElement(writer, KSCrashField_BinaryCPUSubType, monitorContext->System.binaryCPUSubType);
+        writer->addStringElement(writer, KSCrashField_TimeZone, monitorContext->System.timezone);
+        writer->addStringElement(writer, KSCrashField_ProcessName, monitorContext->System.processName);
+        writer->addIntegerElement(writer, KSCrashField_ProcessID, monitorContext->System.processID);
+        writer->addIntegerElement(writer, KSCrashField_ParentProcessID, monitorContext->System.parentProcessID);
+        writer->addStringElement(writer, KSCrashField_DeviceAppHash, monitorContext->System.deviceAppHash);
+        writer->addStringElement(writer, KSCrashField_BuildType, monitorContext->System.buildType);
+        writer->addIntegerElement(writer, KSCrashField_Storage, (int64_t)monitorContext->System.storageSize);
+
+        writeMemoryInfo(writer, KSCrashField_Memory, monitorContext);
+        writeAppStats(writer, KSCrashField_AppStats, monitorContext);
+    }
+    writer->endContainer(writer);
+
+}
+
+void kscrashreport_writeStandardReport(const KSCrash_MonitorContext* const monitorContext, const char* const path)
+{
+    if(g_shouldPrintTraceToStdout)
+    {
+        logCrash(monitorContext);
+    }
+
     KSLOG_INFO("Writing crash report to %s", path);
     BufferedWriter bufferedWriter = {{0}};
 
@@ -1953,8 +1973,6 @@ void kscrashreport_writeStandardReport(KSCrash_Context* const crashContext, cons
         return;
     }
     
-    g_introspectionRules = &crashContext->config.introspectionRules;
-
     KSJSONEncodeContext jsonContext;
     jsonContext.userData = &bufferedWriter;
     KSCrashReportWriter concreteWriter;
@@ -1968,58 +1986,46 @@ void kscrashreport_writeStandardReport(KSCrash_Context* const crashContext, cons
         writeReportInfo(writer,
                         KSCrashField_Report,
                         KSCrashReportType_Standard,
-                        crashContext->config.crashID,
-                        crashContext->config.processName);
+                        monitorContext->eventID,
+                        monitorContext->System.processName);
         flushBufferedWriter(&bufferedWriter);
 
         writeBinaryImages(writer, KSCrashField_BinaryImages);
         flushBufferedWriter(&bufferedWriter);
 
-        writeProcessState(writer, KSCrashField_ProcessState);
+        writeProcessState(writer, KSCrashField_ProcessState, monitorContext);
         flushBufferedWriter(&bufferedWriter);
 
-        if(crashContext->config.systemInfoJSON != NULL)
-        {
-            addJSONElement(writer, KSCrashField_System, crashContext->config.systemInfoJSON, false);
-            flushBufferedWriter(&bufferedWriter);
-        }
-        else
-        {
-            writer->beginObject(writer, KSCrashField_System);
-        }
-        writeMemoryInfo(writer, KSCrashField_Memory);
+        writeSystemInfo(writer, KSCrashField_System, monitorContext);
         flushBufferedWriter(&bufferedWriter);
-        writeAppStats(writer, KSCrashField_AppStats, &crashContext->state);
-        flushBufferedWriter(&bufferedWriter);
-        writer->endContainer(writer);
 
         writer->beginObject(writer, KSCrashField_Crash);
         {
-            writeError(writer, KSCrashField_Error, &crashContext->crash);
+            writeError(writer, KSCrashField_Error, monitorContext);
             flushBufferedWriter(&bufferedWriter);
             writeAllThreads(writer,
                             KSCrashField_Threads,
-                            &crashContext->crash,
-                            crashContext->config.introspectionRules.enabled,
-                            crashContext->config.searchThreadNames,
-                            crashContext->config.searchQueueNames);
+                            monitorContext,
+                            g_introspectionRules.enabled,
+                            g_shouldSearchThreadNames,
+                            g_shouldSearchQueueNames);
             flushBufferedWriter(&bufferedWriter);
         }
         writer->endContainer(writer);
 
-        if(crashContext->config.userInfoJSON != NULL)
+        if(g_userInfoJSON != NULL)
         {
-            addJSONElement(writer, KSCrashField_User, crashContext->config.userInfoJSON, false);
+            addJSONElement(writer, KSCrashField_User, g_userInfoJSON, false);
             flushBufferedWriter(&bufferedWriter);
         }
         else
         {
             writer->beginObject(writer, KSCrashField_User);
         }
-        if(crashContext->config.onCrashNotify != NULL)
+        if(g_userSectionWriteCallback != NULL)
         {
             flushBufferedWriter(&bufferedWriter);
-            callUserCrashHandler(crashContext, writer);
+            g_userSectionWriteCallback(writer);
             flushBufferedWriter(&bufferedWriter);
         }
         writer->endContainer(writer);
@@ -2030,9 +2036,72 @@ void kscrashreport_writeStandardReport(KSCrash_Context* const crashContext, cons
     closeBufferedWriter(&bufferedWriter);
 }
 
-void kscrashreport_logCrash(const KSCrash_Context* const crashContext)
+
+
+void kscrashreport_setUserInfoJSON(const char* const userInfoJSON)
 {
-    const KSCrash_MonitorContext* crash = &crashContext->crash;
-    logCrashType(crash);
-    logCrashThreadBacktrace(&crashContext->crash);
+    KSLOG_TRACE("set userInfoJSON to %p", userInfoJSON);
+    ksstring_replace(&g_userInfoJSON, userInfoJSON);
+}
+
+void kscrashreport_setPrintTraceToStdout(bool shouldPrintTraceToStdout)
+{
+    g_shouldPrintTraceToStdout = shouldPrintTraceToStdout;
+}
+
+void kscrashreport_setSearchThreadNames(bool shouldSearchThreadNames)
+{
+    g_shouldSearchThreadNames = shouldSearchThreadNames;
+}
+
+void kscrashreport_setSearchQueueNames(bool shouldSearchQueueNames)
+{
+    g_shouldSearchQueueNames = shouldSearchQueueNames;
+}
+
+void kscrashreport_setIntrospectMemory(bool shouldIntrospectMemory)
+{
+    g_introspectionRules.enabled = shouldIntrospectMemory;
+}
+
+void kscrashreport_setDoNotIntrospectClasses(const char** doNotIntrospectClasses, int length)
+{
+    const char** oldClasses = g_introspectionRules.restrictedClasses;
+    int oldClassesLength = g_introspectionRules.restrictedClassesCount;
+    const char** newClasses = NULL;
+    int newClassesLength = 0;
+    
+    if(doNotIntrospectClasses != NULL && length > 0)
+    {
+        newClassesLength = length;
+        newClasses = malloc(sizeof(*newClasses) * (unsigned)newClassesLength);
+        if(newClasses == NULL)
+        {
+            KSLOG_ERROR("Could not allocate memory");
+            return;
+        }
+        
+        for(int i = 0; i < newClassesLength; i++)
+        {
+            newClasses[i] = strdup(doNotIntrospectClasses[i]);
+        }
+    }
+    
+    g_introspectionRules.restrictedClasses = newClasses;
+    g_introspectionRules.restrictedClassesCount = newClassesLength;
+    
+    if(oldClasses != NULL)
+    {
+        for(int i = 0; i < oldClassesLength; i++)
+        {
+            free((void*)oldClasses[i]);
+        }
+        free(oldClasses);
+    }
+}
+
+void kscrashreport_setUserSectionWriteCallback(const KSReportWriteCallback userSectionWriteCallback)
+{
+    KSLOG_TRACE("Set userSectionWriteCallback to %p", userSectionWriteCallback);
+    g_userSectionWriteCallback = userSectionWriteCallback;
 }

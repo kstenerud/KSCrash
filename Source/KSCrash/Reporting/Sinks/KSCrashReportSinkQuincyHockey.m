@@ -273,7 +273,7 @@ crashDescriptionKeys:(NSArray*) crashDescriptionKeys
     }
     
     NSDictionary* systemInfo = [standardReport objectForKey:@KSCrashField_System];
-    NSString* processPath = [systemInfo objectForKey:@KSSystemField_ExecutablePath];
+    NSString* processPath = [systemInfo objectForKey:@KSCrashField_ExecutablePath];
     NSString* appContainerPath = [[processPath stringByDeletingLastPathComponent] stringByDeletingLastPathComponent];
     
     for(NSDictionary* image in binaryImages)

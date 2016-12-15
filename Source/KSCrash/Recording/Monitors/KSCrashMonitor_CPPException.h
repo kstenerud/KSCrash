@@ -32,17 +32,9 @@ extern "C" {
 #include "KSCrashMonitor.h"
 
 
-/** Install the C++ exception handler.
- *
- * @param context Contextual information for the crash handler.
- *
- * @return true if installation was succesful.
+/** Access the Monitor API.
  */
-bool kscrashmonitor_installCPPExceptionHandler(KSCrash_MonitorContext* context);
-
-/** Uninstall the C++ exception handler.
- */
-void kscrashmonitor_uninstallCPPExceptionHandler(void);
+KSCrashMonitorAPI* kscm_cppexception_getAPI();
 
 
 #ifdef __cplusplus

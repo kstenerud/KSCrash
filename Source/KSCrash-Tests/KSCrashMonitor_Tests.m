@@ -30,21 +30,14 @@
 #import "KSCrashMonitor.h"
 #import "KSCrashMonitorContext.h"
 
-static void onCrash(void)
-{
-    // Do nothing
-}
-
 @interface KSCrashMonitor_Tests : XCTestCase @end
-
 
 @implementation KSCrashMonitor_Tests
 
 - (void) testInstallUninstall
 {
-    KSCrash_MonitorContext context;
-    kscrashmonitor_installWithContext(&context, KSCrashMonitorTypeAll, onCrash);
-    kscrashmonitor_uninstall(KSCrashMonitorTypeAll);
+    kscm_setActiveMonitors(KSCrashMonitorTypeAll);
+    kscm_setActiveMonitors(KSCrashMonitorTypeNone);
 }
 
 - (void) testSuspendResumeThreads

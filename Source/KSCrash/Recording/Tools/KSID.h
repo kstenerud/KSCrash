@@ -1,9 +1,7 @@
 //
-//  KSCrashMonitor_Signal.h
+//  KSID.h
 //
-//  Created by Karl Stenerud on 2012-01-28.
-//
-//  Copyright (c) 2012 Karl Stenerud. All rights reserved.
+//  Copyright (c) 2016 Karl Stenerud. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -24,29 +22,23 @@
 // THE SOFTWARE.
 //
 
-
-/* Catches fatal unix signals.
- */
-
-
-#ifndef HDR_KSCrashMonitor_Signal_h
-#define HDR_KSCrashMonitor_Signal_h
+#ifndef HDR_KSID_h
+#define HDR_KSID_h
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+    
 
-
-#include "KSCrashMonitor.h"
-
-
-/** Access the Monitor API.
+/** Generate a new human readabale, null terminated, globally unique ID string.
+ *
+ * @param destinationBuffer37Bytes Buffer of at least 37 bytes to hold the ID.
  */
-KSCrashMonitorAPI* kscm_signal_getAPI();
-
-
+void ksid_generate(char* destinationBuffer37Bytes);
+    
+    
 #ifdef __cplusplus
 }
 #endif
 
-#endif // HDR_KSCrashMonitor_Signal_h
+#endif // HDR_KSID_h

@@ -24,16 +24,17 @@
 // THE SOFTWARE.
 //
 
-#include <TargetConditionals.h>
-
 #include "KSCrashMonitor_Signal.h"
 #include "KSCrashMonitorContext.h"
-
+#include "KSID.h"
 #include "KSSignalInfo.h"
 #include "KSMachineContext.h"
+#include "KSSystemCapabilities.h"
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
+
+#if KSCRASH_HAS_SIGNAL
 
 #include <errno.h>
 #include <signal.h>
@@ -46,11 +47,9 @@
 #pragma mark - Globals -
 // ============================================================================
 
-/** Flag noting if we've installed our custom handlers or not.
- * It's not fully thread safe, but it's safer than locking and slightly better
- * than nothing.
- */
-static volatile sig_atomic_t g_installed = 0;
+static volatile bool g_isEnabled = false;
+
+static KSCrash_MonitorContext g_monitorContext;
 
 #if KSCRASH_HAS_SIGNAL_STACK
 /** Our custom signal stack. The signal handler will use this as its stack. */
@@ -60,9 +59,7 @@ static stack_t g_signalStack = {0};
 /** Signal handlers that were installed before we installed ours. */
 static struct sigaction* g_previousSignalHandlers = NULL;
 
-/** Context to fill with crash information. */
-static KSCrash_MonitorContext* g_context;
-
+char g_eventID[37];
 
 // ============================================================================
 #pragma mark - Callbacks -
@@ -83,41 +80,26 @@ static KSCrash_MonitorContext* g_context;
 static void handleSignal(int sigNum, siginfo_t* signalInfo, void* userContext)
 {
     KSLOG_DEBUG("Trapped signal %d", sigNum);
-    if(g_installed)
+    if(g_isEnabled)
     {
-        bool wasHandlingCrash = g_context->handlingCrash;
-        kscrashmonitor_beginHandlingCrash(g_context);
-
-        KSLOG_DEBUG("Signal handler is installed. Continuing signal handling.");
-
-        KSLOG_DEBUG("Suspending all threads.");
         ksmc_suspendEnvironment();
-
-        if(wasHandlingCrash)
-        {
-            KSLOG_INFO("Detected crash in the crash reporter. Restoring original handlers.");
-            g_context->crashedDuringCrashHandling = true;
-            kscrashmonitor_uninstall(KSCrashMonitorTypeAsyncSafe);
-        }
-
+        kscm_notifyFatalExceptionCaptured(false);
 
         KSLOG_DEBUG("Filling out context.");
-        g_context->crashType = KSCrashMonitorTypeSignal;
+        KSCrash_MonitorContext* crashContext = &g_monitorContext;
+        memset(crashContext, 0, sizeof(*crashContext));
+        crashContext->crashType = KSCrashMonitorTypeSignal;
+        crashContext->eventID = g_eventID;
         KSMC_NEW_CONTEXT(machineContext);
-        g_context->offendingMachineContext = machineContext;
+        crashContext->offendingMachineContext = machineContext;
         ksmc_getContextForSignal(userContext, machineContext);
-        g_context->registersAreValid = true;
-        g_context->faultAddress = (uintptr_t)signalInfo->si_addr;
-        g_context->signal.userContext = userContext;
-        g_context->signal.signalInfo = signalInfo;
+        crashContext->registersAreValid = true;
+        crashContext->faultAddress = (uintptr_t)signalInfo->si_addr;
+        crashContext->signal.userContext = userContext;
+        crashContext->signal.signum = signalInfo->si_signo;
+        crashContext->signal.sigcode = signalInfo->si_code;
 
-
-        KSLOG_DEBUG("Calling main crash handler.");
-        g_context->onCrash();
-
-
-        KSLOG_DEBUG("Crash handling complete. Restoring original handlers.");
-        kscrashmonitor_uninstall(KSCrashMonitorTypeAsyncSafe);
+        kscm_handleException(crashContext);
         ksmc_resumeEnvironment();
     }
 
@@ -131,18 +113,9 @@ static void handleSignal(int sigNum, siginfo_t* signalInfo, void* userContext)
 #pragma mark - API -
 // ============================================================================
 
-bool kscrashmonitor_installSignalHandler(KSCrash_MonitorContext* context)
+static bool installSignalHandler()
 {
     KSLOG_DEBUG("Installing signal handler.");
-
-    if(g_installed)
-    {
-        KSLOG_DEBUG("Signal handler already installed.");
-        return true;
-    }
-    g_installed = 1;
-
-    g_context = context;
 
 #if KSCRASH_HAS_SIGNAL_STACK
 
@@ -205,18 +178,12 @@ bool kscrashmonitor_installSignalHandler(KSCrash_MonitorContext* context)
 
 failed:
     KSLOG_DEBUG("Failed to install signal handlers.");
-    g_installed = 0;
     return false;
 }
 
-void kscrashmonitor_uninstallSignalHandler(void)
+static void uninstallSignalHandler(void)
 {
     KSLOG_DEBUG("Uninstalling signal handlers.");
-    if(!g_installed)
-    {
-        KSLOG_DEBUG("Signal handlers were already uninstalled.");
-        return;
-    }
 
     const int* fatalSignals = kssignal_fatalSignals();
     int fatalSignalsCount = kssignal_numFatalSignals();
@@ -228,6 +195,52 @@ void kscrashmonitor_uninstallSignalHandler(void)
     }
     
     KSLOG_DEBUG("Signal handlers uninstalled.");
-    g_installed = 0;
 }
 
+static void setEnabled(bool isEnabled)
+{
+    if(isEnabled != g_isEnabled)
+    {
+        g_isEnabled = isEnabled;
+        if(isEnabled)
+        {
+            ksid_generate(g_eventID);
+            if(!installSignalHandler())
+            {
+                return;
+            }
+        }
+        else
+        {
+            uninstallSignalHandler();
+        }
+    }
+}
+
+static bool isEnabled()
+{
+    return g_isEnabled;
+}
+
+static void notifyExceptionEvent(struct KSCrash_MonitorContext* eventContext)
+{
+    if(!(eventContext->crashType & (KSCrashMonitorTypeSignal | KSCrashMonitorTypeMachException)))
+    {
+        eventContext->signal.signum = SIGABRT;
+    }
+}
+
+#endif
+
+KSCrashMonitorAPI* kscm_signal_getAPI()
+{
+    static KSCrashMonitorAPI api =
+    {
+#if KSCRASH_HAS_SIGNAL
+        .setEnabled = setEnabled,
+        .isEnabled = isEnabled,
+        .notifyExceptionEvent = notifyExceptionEvent
+#endif
+    };
+    return &api;
+}

@@ -37,7 +37,6 @@
 #include "KSLogger.h"
 
 #ifdef __arm64__
-    #include <sys/_types/_ucontext64.h>
     #define UC_MCONTEXT uc_mcontext64
     typedef ucontext64_t SignalUserContext;
 #else
@@ -45,8 +44,10 @@
     typedef ucontext_t SignalUserContext;
 #endif
 
-static KSThread* g_reservedThreads;
-static int g_reservedThreadsCount;
+static KSThread g_reservedThreads[10];
+static int g_reservedThreadsMaxIndex = sizeof(g_reservedThreads) / sizeof(g_reservedThreads[0]) - 1;
+static int g_reservedThreadsCount = 0;
+
 
 
 static inline bool isStackOverflow(const KSMachineContext* const context)
@@ -136,10 +137,15 @@ bool ksmc_getContextForSignal(void* signalUserContext, KSMachineContext* destina
     return true;
 }
 
-void ksmc_setReservedThreads(KSThread* threads, int threadCount)
+void ksmc_addReservedThread(KSThread thread)
 {
-    g_reservedThreads = threads;
-    g_reservedThreadsCount = threadCount;
+    int nextIndex = g_reservedThreadsCount;
+    if(nextIndex > g_reservedThreadsMaxIndex)
+    {
+        KSLOG_ERROR("Too many reserved threads (%d). Max is %d", nextIndex, g_reservedThreadsMaxIndex);
+        return;
+    }
+    g_reservedThreads[g_reservedThreadsCount++] = thread;
 }
 
 #if KSCRASH_HAS_THREADS_API

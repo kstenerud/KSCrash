@@ -35,19 +35,6 @@ extern "C" {
 #include <stdbool.h>
 
 
-/** Install the user exception handler.
- *
- * @param context Contextual information for the crash handler.
- *
- * @return true if installation was succesful.
- */
-bool kscrashmonitor_installUserExceptionHandler(struct KSCrash_MonitorContext* context);
-
-/** Uninstall the user exception handler.
- */
-void kscrashmonitor_uninstallUserExceptionHandler(void);
-
-
 /** Report a custom, user defined exception.
  * If terminateProgram is true, all sentries will be uninstalled and the application will
  * terminate with an abort().
@@ -63,14 +50,22 @@ void kscrashmonitor_uninstallUserExceptionHandler(void);
  * @param stackTrace JSON encoded array containing stack trace information (one frame per array entry).
  *                   The frame structure can be anything you want, including bare strings.
  *
+ * @param logAllThreads If true, suspend all threads and log their state. Note that this incurs a
+ *                      performance penalty, so it's best to use only on fatal errors.
+ *
  * @param terminateProgram If true, do not return from this function call. Terminate the program instead.
  */
-void kscrashmonitor_reportUserException(const char* name,
-                                       const char* reason,
-                                       const char* language,
-                                       const char* lineOfCode,
-                                       const char* stackTrace,
-                                       bool terminateProgram);
+void kscm_reportUserException(const char* name,
+                              const char* reason,
+                              const char* language,
+                              const char* lineOfCode,
+                              const char* stackTrace,
+                              bool logAllThreads,
+                              bool terminateProgram);
+
+/** Access the Monitor API.
+ */
+KSCrashMonitorAPI* kscm_user_getAPI();
 
 
 #ifdef __cplusplus
