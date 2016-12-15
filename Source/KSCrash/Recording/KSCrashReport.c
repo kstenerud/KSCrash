@@ -48,7 +48,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <mach-o/dyld.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -492,7 +491,7 @@ static void logCrashType(const KSCrash_MonitorContext* const monitorContext)
         case KSCrashMonitorTypeMachException:
         {
             int machExceptionType = monitorContext->mach.type;
-            kern_return_t machCode = (kern_return_t)monitorContext->mach.code;
+            int64_t machCode = monitorContext->mach.code;
             const char* machExceptionName = ksrc_exceptionName(machExceptionType);
             const char* machCodeName = machCode == 0 ? NULL : ksmemory_kernelReturnCodeName(machCode);
             KSLOGBASIC_INFO("App crashed due to mach exception: [%s: %s] at %p",
@@ -1498,70 +1497,23 @@ static void writeAllThreads(const KSCrashReportWriter* const writer,
  */
 static void writeBinaryImage(const KSCrashReportWriter* const writer,
                              const char* const key,
-                             const uint32_t index)
+                             const int index)
 {
-    const struct mach_header* header = _dyld_get_image_header(index);
-    if(header == NULL)
+    KSBinaryImage image = {0};
+    if(!ksdl_getBinaryImage(index, &image))
     {
         return;
-    }
-
-    uintptr_t cmdPtr = ksdl_firstCmdAfterHeader(header);
-    if(cmdPtr == 0)
-    {
-        return;
-    }
-
-    // Look for the TEXT segment to get the image size.
-    // Also look for a UUID command.
-    uint64_t imageSize = 0;
-    uint64_t imageVmAddr = 0;
-    uint8_t* uuid = NULL;
-
-    for(uint32_t iCmd = 0; iCmd < header->ncmds; iCmd++)
-    {
-        struct load_command* loadCmd = (struct load_command*)cmdPtr;
-        switch(loadCmd->cmd)
-        {
-            case LC_SEGMENT:
-            {
-                struct segment_command* segCmd = (struct segment_command*)cmdPtr;
-                if(strcmp(segCmd->segname, SEG_TEXT) == 0)
-                {
-                    imageSize = segCmd->vmsize;
-                    imageVmAddr = segCmd->vmaddr;
-                }
-                break;
-            }
-            case LC_SEGMENT_64:
-            {
-                struct segment_command_64* segCmd = (struct segment_command_64*)cmdPtr;
-                if(strcmp(segCmd->segname, SEG_TEXT) == 0)
-                {
-                    imageSize = segCmd->vmsize;
-                    imageVmAddr = segCmd->vmaddr;
-                }
-                break;
-            }
-            case LC_UUID:
-            {
-                struct uuid_command* uuidCmd = (struct uuid_command*)cmdPtr;
-                uuid = uuidCmd->uuid;
-                break;
-            }
-        }
-        cmdPtr += loadCmd->cmdsize;
     }
 
     writer->beginObject(writer, key);
     {
-        writer->addUIntegerElement(writer, KSCrashField_ImageAddress, (uintptr_t)header);
-        writer->addUIntegerElement(writer, KSCrashField_ImageVmAddress, imageVmAddr);
-        writer->addUIntegerElement(writer, KSCrashField_ImageSize, imageSize);
-        writer->addStringElement(writer, KSCrashField_Name, _dyld_get_image_name(index));
-        writer->addUUIDElement(writer, KSCrashField_UUID, uuid);
-        writer->addIntegerElement(writer, KSCrashField_CPUType, header->cputype);
-        writer->addIntegerElement(writer, KSCrashField_CPUSubType, header->cpusubtype);
+        writer->addUIntegerElement(writer, KSCrashField_ImageAddress, image.address);
+        writer->addUIntegerElement(writer, KSCrashField_ImageVmAddress, image.vmAddress);
+        writer->addUIntegerElement(writer, KSCrashField_ImageSize, image.size);
+        writer->addStringElement(writer, KSCrashField_Name, image.name);
+        writer->addUUIDElement(writer, KSCrashField_UUID, image.uuid);
+        writer->addIntegerElement(writer, KSCrashField_CPUType, image.cpuType);
+        writer->addIntegerElement(writer, KSCrashField_CPUSubType, image.cpuSubType);
     }
     writer->endContainer(writer);
 }
@@ -1574,11 +1526,11 @@ static void writeBinaryImage(const KSCrashReportWriter* const writer,
  */
 static void writeBinaryImages(const KSCrashReportWriter* const writer, const char* const key)
 {
-    const uint32_t imageCount = _dyld_image_count();
+    const int imageCount = ksdl_imageCount();
 
     writer->beginArray(writer, key);
     {
-        for(uint32_t iImg = 0; iImg < imageCount; iImg++)
+        for(int iImg = 0; iImg < imageCount; iImg++)
         {
             writeBinaryImage(writer, NULL, iImg);
         }

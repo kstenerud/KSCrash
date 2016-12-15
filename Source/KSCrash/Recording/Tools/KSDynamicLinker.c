@@ -38,6 +38,177 @@
 #endif
 
 
+/** Get the address of the first command following a header (which will be of
+ * type struct load_command).
+ *
+ * @param header The header to get commands for.
+ *
+ * @return The address of the first command, or NULL if none was found (which
+ *         should not happen unless the header or image is corrupt).
+ */
+static uintptr_t firstCmdAfterHeader(const struct mach_header* const header)
+{
+    switch(header->magic)
+    {
+        case MH_MAGIC:
+        case MH_CIGAM:
+            return (uintptr_t)(header + 1);
+        case MH_MAGIC_64:
+        case MH_CIGAM_64:
+            return (uintptr_t)(((struct mach_header_64*)header) + 1);
+        default:
+            // Header is corrupt
+            return 0;
+    }
+}
+
+/** Get the image index that the specified address is part of.
+ *
+ * @param address The address to examine.
+ * @return The index of the image it is part of, or UINT_MAX if none was found.
+ */
+static uint32_t imageIndexContainingAddress(const uintptr_t address)
+{
+    const uint32_t imageCount = _dyld_image_count();
+    const struct mach_header* header = 0;
+    
+    for(uint32_t iImg = 0; iImg < imageCount; iImg++)
+    {
+        header = _dyld_get_image_header(iImg);
+        if(header != NULL)
+        {
+            // Look for a segment command with this address within its range.
+            uintptr_t addressWSlide = address - (uintptr_t)_dyld_get_image_vmaddr_slide(iImg);
+            uintptr_t cmdPtr = firstCmdAfterHeader(header);
+            if(cmdPtr == 0)
+            {
+                continue;
+            }
+            for(uint32_t iCmd = 0; iCmd < header->ncmds; iCmd++)
+            {
+                const struct load_command* loadCmd = (struct load_command*)cmdPtr;
+                if(loadCmd->cmd == LC_SEGMENT)
+                {
+                    const struct segment_command* segCmd = (struct segment_command*)cmdPtr;
+                    if(addressWSlide >= segCmd->vmaddr &&
+                       addressWSlide < segCmd->vmaddr + segCmd->vmsize)
+                    {
+                        return iImg;
+                    }
+                }
+                else if(loadCmd->cmd == LC_SEGMENT_64)
+                {
+                    const struct segment_command_64* segCmd = (struct segment_command_64*)cmdPtr;
+                    if(addressWSlide >= segCmd->vmaddr &&
+                       addressWSlide < segCmd->vmaddr + segCmd->vmsize)
+                    {
+                        return iImg;
+                    }
+                }
+                cmdPtr += loadCmd->cmdsize;
+            }
+        }
+    }
+    return UINT_MAX;
+}
+
+/** Get the segment base address of the specified image.
+ *
+ * This is required for any symtab command offsets.
+ *
+ * @param idx The image index.
+ * @return The image's base address, or 0 if none was found.
+ */
+static uintptr_t segmentBaseOfImageIndex(const uint32_t idx)
+{
+    const struct mach_header* header = _dyld_get_image_header(idx);
+    
+    // Look for a segment command and return the file image address.
+    uintptr_t cmdPtr = firstCmdAfterHeader(header);
+    if(cmdPtr == 0)
+    {
+        return 0;
+    }
+    for(uint32_t i = 0;i < header->ncmds; i++)
+    {
+        const struct load_command* loadCmd = (struct load_command*)cmdPtr;
+        if(loadCmd->cmd == LC_SEGMENT)
+        {
+            const struct segment_command* segmentCmd = (struct segment_command*)cmdPtr;
+            if(strcmp(segmentCmd->segname, SEG_LINKEDIT) == 0)
+            {
+                return segmentCmd->vmaddr - segmentCmd->fileoff;
+            }
+        }
+        else if(loadCmd->cmd == LC_SEGMENT_64)
+        {
+            const struct segment_command_64* segmentCmd = (struct segment_command_64*)cmdPtr;
+            if(strcmp(segmentCmd->segname, SEG_LINKEDIT) == 0)
+            {
+                return (uintptr_t)(segmentCmd->vmaddr - segmentCmd->fileoff);
+            }
+        }
+        cmdPtr += loadCmd->cmdsize;
+    }
+    
+    return 0;
+}
+
+/** Get the address of a symbol in the specified image.
+ *
+ * @param imageIdx The index of the image to search.
+ * @param symbolName The symbol to search for.
+ * @return The address of the symbol or NULL if not found.
+ */
+static const void* getSymbolAddrInImage(uint32_t imageIdx, const char* symbolName)
+{
+    const struct mach_header* header = _dyld_get_image_header(imageIdx);
+    if(header == NULL)
+    {
+        return NULL;
+    }
+    const uintptr_t imageVMAddrSlide = (uintptr_t)_dyld_get_image_vmaddr_slide(imageIdx);
+    const uintptr_t segmentBase = segmentBaseOfImageIndex(imageIdx) + imageVMAddrSlide;
+    if(segmentBase == 0)
+    {
+        return NULL;
+    }
+    uintptr_t cmdPtr = firstCmdAfterHeader(header);
+    if(cmdPtr == 0)
+    {
+        return NULL;
+    }
+    for(uint32_t iCmd = 0; iCmd < header->ncmds; iCmd++)
+    {
+        const struct load_command* loadCmd = (struct load_command*)cmdPtr;
+        if(loadCmd->cmd == LC_SYMTAB)
+        {
+            const struct symtab_command* symtabCmd = (struct symtab_command*)cmdPtr;
+            const STRUCT_NLIST* symbolTable = (STRUCT_NLIST*)(segmentBase + symtabCmd->symoff);
+            const uintptr_t stringTable = segmentBase + symtabCmd->stroff;
+            
+            for(uint32_t iSym = 0; iSym < symtabCmd->nsyms; iSym++)
+            {
+                // If n_value is 0, the symbol refers to an external object.
+                if(symbolTable[iSym].n_value != 0)
+                {
+                    const char* sname = (char*)((intptr_t)stringTable + (intptr_t)symbolTable[iSym].n_un.n_strx);
+                    if(*sname == '_')
+                    {
+                        sname++;
+                    }
+                    if(strcmp(sname, symbolName) == 0)
+                    {
+                        return (void*)(symbolTable[iSym].n_value + imageVMAddrSlide);
+                    }
+                }
+            }
+        }
+        cmdPtr += loadCmd->cmdsize;
+    }
+    return NULL;
+}
+
 uint32_t ksdl_imageNamed(const char* const imageName, bool exactMatch)
 {
     if(imageName != NULL)
@@ -76,7 +247,7 @@ const uint8_t* ksdl_imageUUID(const char* const imageName, bool exactMatch)
             const struct mach_header* header = _dyld_get_image_header(iImg);
             if(header != NULL)
             {
-                uintptr_t cmdPtr = ksdl_firstCmdAfterHeader(header);
+                uintptr_t cmdPtr = firstCmdAfterHeader(header);
                 if(cmdPtr != 0)
                 {
                     for(uint32_t iCmd = 0;iCmd < header->ncmds; iCmd++)
@@ -96,102 +267,6 @@ const uint8_t* ksdl_imageUUID(const char* const imageName, bool exactMatch)
     return NULL;
 }
 
-uintptr_t ksdl_firstCmdAfterHeader(const struct mach_header* const header)
-{
-    switch(header->magic)
-    {
-        case MH_MAGIC:
-        case MH_CIGAM:
-            return (uintptr_t)(header + 1);
-        case MH_MAGIC_64:
-        case MH_CIGAM_64:
-            return (uintptr_t)(((struct mach_header_64*)header) + 1);
-        default:
-            // Header is corrupt
-            return 0;
-    }
-}
-
-uint32_t ksdl_imageIndexContainingAddress(const uintptr_t address)
-{
-    const uint32_t imageCount = _dyld_image_count();
-    const struct mach_header* header = 0;
-
-    for(uint32_t iImg = 0; iImg < imageCount; iImg++)
-    {
-        header = _dyld_get_image_header(iImg);
-        if(header != NULL)
-        {
-            // Look for a segment command with this address within its range.
-            uintptr_t addressWSlide = address - (uintptr_t)_dyld_get_image_vmaddr_slide(iImg);
-            uintptr_t cmdPtr = ksdl_firstCmdAfterHeader(header);
-            if(cmdPtr == 0)
-            {
-                continue;
-            }
-            for(uint32_t iCmd = 0; iCmd < header->ncmds; iCmd++)
-            {
-                const struct load_command* loadCmd = (struct load_command*)cmdPtr;
-                if(loadCmd->cmd == LC_SEGMENT)
-                {
-                    const struct segment_command* segCmd = (struct segment_command*)cmdPtr;
-                    if(addressWSlide >= segCmd->vmaddr &&
-                       addressWSlide < segCmd->vmaddr + segCmd->vmsize)
-                    {
-                        return iImg;
-                    }
-                }
-                else if(loadCmd->cmd == LC_SEGMENT_64)
-                {
-                    const struct segment_command_64* segCmd = (struct segment_command_64*)cmdPtr;
-                    if(addressWSlide >= segCmd->vmaddr &&
-                       addressWSlide < segCmd->vmaddr + segCmd->vmsize)
-                    {
-                        return iImg;
-                    }
-                }
-                cmdPtr += loadCmd->cmdsize;
-            }
-        }
-    }
-    return UINT_MAX;
-}
-
-uintptr_t ksdl_segmentBaseOfImageIndex(const uint32_t idx)
-{
-    const struct mach_header* header = _dyld_get_image_header(idx);
-
-    // Look for a segment command and return the file image address.
-    uintptr_t cmdPtr = ksdl_firstCmdAfterHeader(header);
-    if(cmdPtr == 0)
-    {
-        return 0;
-    }
-    for(uint32_t i = 0;i < header->ncmds; i++)
-    {
-        const struct load_command* loadCmd = (struct load_command*)cmdPtr;
-        if(loadCmd->cmd == LC_SEGMENT)
-        {
-            const struct segment_command* segmentCmd = (struct segment_command*)cmdPtr;
-            if(strcmp(segmentCmd->segname, SEG_LINKEDIT) == 0)
-            {
-                return segmentCmd->vmaddr - segmentCmd->fileoff;
-            }
-        }
-        else if(loadCmd->cmd == LC_SEGMENT_64)
-        {
-            const struct segment_command_64* segmentCmd = (struct segment_command_64*)cmdPtr;
-            if(strcmp(segmentCmd->segname, SEG_LINKEDIT) == 0)
-            {
-                return (uintptr_t)(segmentCmd->vmaddr - segmentCmd->fileoff);
-            }
-        }
-        cmdPtr += loadCmd->cmdsize;
-    }
-
-    return 0;
-}
-
 bool ksdl_dladdr(const uintptr_t address, Dl_info* const info)
 {
     info->dli_fname = NULL;
@@ -199,7 +274,7 @@ bool ksdl_dladdr(const uintptr_t address, Dl_info* const info)
     info->dli_sname = NULL;
     info->dli_saddr = NULL;
 
-    const uint32_t idx = ksdl_imageIndexContainingAddress(address);
+    const uint32_t idx = imageIndexContainingAddress(address);
     if(idx == UINT_MAX)
     {
         return false;
@@ -207,7 +282,7 @@ bool ksdl_dladdr(const uintptr_t address, Dl_info* const info)
     const struct mach_header* header = _dyld_get_image_header(idx);
     const uintptr_t imageVMAddrSlide = (uintptr_t)_dyld_get_image_vmaddr_slide(idx);
     const uintptr_t addressWithSlide = address - imageVMAddrSlide;
-    const uintptr_t segmentBase = ksdl_segmentBaseOfImageIndex(idx) + imageVMAddrSlide;
+    const uintptr_t segmentBase = segmentBaseOfImageIndex(idx) + imageVMAddrSlide;
     if(segmentBase == 0)
     {
         return false;
@@ -219,7 +294,7 @@ bool ksdl_dladdr(const uintptr_t address, Dl_info* const info)
     // Find symbol tables and get whichever symbol is closest to the address.
     const STRUCT_NLIST* bestMatch = NULL;
     uintptr_t bestDistance = ULONG_MAX;
-    uintptr_t cmdPtr = ksdl_firstCmdAfterHeader(header);
+    uintptr_t cmdPtr = firstCmdAfterHeader(header);
     if(cmdPtr == 0)
     {
         return false;
@@ -270,66 +345,73 @@ bool ksdl_dladdr(const uintptr_t address, Dl_info* const info)
     return true;
 }
 
-const void* ksdl_getSymbolAddrInImage(uint32_t imageIdx, const char* symbolName)
+int ksdl_imageCount()
 {
-    const struct mach_header* header = _dyld_get_image_header(imageIdx);
+    return (int)_dyld_image_count();
+}
+
+bool ksdl_getBinaryImage(int index, KSBinaryImage* buffer)
+{
+    const struct mach_header* header = _dyld_get_image_header(index);
     if(header == NULL)
     {
-        return NULL;
+        return false;
     }
-    const uintptr_t imageVMAddrSlide = (uintptr_t)_dyld_get_image_vmaddr_slide(imageIdx);
-    const uintptr_t segmentBase = ksdl_segmentBaseOfImageIndex(imageIdx) + imageVMAddrSlide;
-    if(segmentBase == 0)
-    {
-        return NULL;
-    }
-    uintptr_t cmdPtr = ksdl_firstCmdAfterHeader(header);
+    
+    uintptr_t cmdPtr = firstCmdAfterHeader(header);
     if(cmdPtr == 0)
     {
-        return NULL;
+        return false;
     }
+    
+    // Look for the TEXT segment to get the image size.
+    // Also look for a UUID command.
+    uint64_t imageSize = 0;
+    uint64_t imageVmAddr = 0;
+    uint8_t* uuid = NULL;
+    
     for(uint32_t iCmd = 0; iCmd < header->ncmds; iCmd++)
     {
-        const struct load_command* loadCmd = (struct load_command*)cmdPtr;
-        if(loadCmd->cmd == LC_SYMTAB)
+        struct load_command* loadCmd = (struct load_command*)cmdPtr;
+        switch(loadCmd->cmd)
         {
-            const struct symtab_command* symtabCmd = (struct symtab_command*)cmdPtr;
-            const STRUCT_NLIST* symbolTable = (STRUCT_NLIST*)(segmentBase + symtabCmd->symoff);
-            const uintptr_t stringTable = segmentBase + symtabCmd->stroff;
-
-            for(uint32_t iSym = 0; iSym < symtabCmd->nsyms; iSym++)
+            case LC_SEGMENT:
             {
-                // If n_value is 0, the symbol refers to an external object.
-                if(symbolTable[iSym].n_value != 0)
+                struct segment_command* segCmd = (struct segment_command*)cmdPtr;
+                if(strcmp(segCmd->segname, SEG_TEXT) == 0)
                 {
-                    const char* sname = (char*)((intptr_t)stringTable + (intptr_t)symbolTable[iSym].n_un.n_strx);
-                    if(*sname == '_')
-                    {
-                        sname++;
-                    }
-                    if(strcmp(sname, symbolName) == 0)
-                    {
-                        return (void*)(symbolTable[iSym].n_value + imageVMAddrSlide);
-                    }
+                    imageSize = segCmd->vmsize;
+                    imageVmAddr = segCmd->vmaddr;
                 }
+                break;
+            }
+            case LC_SEGMENT_64:
+            {
+                struct segment_command_64* segCmd = (struct segment_command_64*)cmdPtr;
+                if(strcmp(segCmd->segname, SEG_TEXT) == 0)
+                {
+                    imageSize = segCmd->vmsize;
+                    imageVmAddr = segCmd->vmaddr;
+                }
+                break;
+            }
+            case LC_UUID:
+            {
+                struct uuid_command* uuidCmd = (struct uuid_command*)cmdPtr;
+                uuid = uuidCmd->uuid;
+                break;
             }
         }
         cmdPtr += loadCmd->cmdsize;
     }
-    return NULL;
-}
 
-const void* ksdl_getSymbolAddrInAnyImage(const char* symbolName)
-{
-    const uint32_t imageCount = _dyld_image_count();
-
-    for(uint32_t iImg = 0; iImg < imageCount; iImg++)
-    {
-        const void* symbolAddr = ksdl_getSymbolAddrInImage(iImg, symbolName);
-        if(symbolAddr != NULL)
-        {
-            return symbolAddr;
-        }
-    }
-    return NULL;
+    buffer->address = (uintptr_t)header;
+    buffer->vmAddress = imageVmAddr;
+    buffer->size = imageSize;
+    buffer->name = _dyld_get_image_name(index);
+    buffer->uuid = uuid;
+    buffer->cpuType = header->cputype;
+    buffer->cpuSubType = header->cpusubtype;
+    
+    return true;
 }
