@@ -152,6 +152,11 @@ static NSString* getBasePath()
 #pragma mark - API -
 // ============================================================================
 
+- (NSDictionary*) userInfo
+{
+   return _userInfo;
+}
+
 - (void) setUserInfo:(NSDictionary*) userInfo
 {
     @synchronized (self)
