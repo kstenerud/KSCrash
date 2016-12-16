@@ -48,6 +48,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -1992,8 +1993,23 @@ void kscrashreport_writeStandardReport(const KSCrash_MonitorContext* const monit
 
 void kscrashreport_setUserInfoJSON(const char* const userInfoJSON)
 {
+    static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
     KSLOG_TRACE("set userInfoJSON to %p", userInfoJSON);
-    ksstring_replace(&g_userInfoJSON, userInfoJSON);
+
+    pthread_mutex_lock(&mutex);
+    if(g_userInfoJSON != NULL)
+    {
+        free((void*)g_userInfoJSON);
+    }
+    if(userInfoJSON == NULL)
+    {
+        g_userInfoJSON = NULL;
+    }
+    else
+    {
+        g_userInfoJSON = strdup(userInfoJSON);
+    }
+    pthread_mutex_unlock(&mutex);
 }
 
 void kscrashreport_setPrintTraceToStdout(bool shouldPrintTraceToStdout)

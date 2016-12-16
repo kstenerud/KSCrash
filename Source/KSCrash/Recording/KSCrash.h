@@ -61,7 +61,7 @@ typedef enum
  *
  * Default: nil
  */
-@property(nonatomic,readwrite,retain) NSDictionary* userInfo;
+@property(atomic,readwrite,retain) NSDictionary* userInfo;
 
 /** What to do after sending reports via sendAllReportsWithCompletion:
  *

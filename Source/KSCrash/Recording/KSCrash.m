@@ -154,22 +154,25 @@ static NSString* getBasePath()
 
 - (void) setUserInfo:(NSDictionary*) userInfo
 {
-    NSError* error = nil;
-    NSData* userInfoJSON = nil;
-    if(userInfo != nil)
+    @synchronized (self)
     {
-        userInfoJSON = [self nullTerminated:[KSJSONCodec encode:userInfo
-                                                        options:KSJSONEncodeOptionSorted
-                                                          error:&error]];
-        if(error != NULL)
+        NSError* error = nil;
+        NSData* userInfoJSON = nil;
+        if(userInfo != nil)
         {
-            KSLOG_ERROR(@"Could not serialize user info: %@", error);
-            return;
+            userInfoJSON = [self nullTerminated:[KSJSONCodec encode:userInfo
+                                                            options:KSJSONEncodeOptionSorted
+                                                              error:&error]];
+            if(error != NULL)
+            {
+                KSLOG_ERROR(@"Could not serialize user info: %@", error);
+                return;
+            }
         }
+        
+        _userInfo = userInfo;
+        kscrash_setUserInfoJSON([userInfoJSON bytes]);
     }
-    
-    _userInfo = userInfo;
-    kscrash_setUserInfoJSON([userInfoJSON bytes]);
 }
 
 - (void) setMonitoring:(KSCrashMonitorType)monitoring

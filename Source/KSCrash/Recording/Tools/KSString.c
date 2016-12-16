@@ -166,19 +166,3 @@ bool ksstring_extractHexValue(const char* string, int stringLength, uint64_t* co
     }
     return false;
 }
-
-void ksstring_replace(const char** dest, const char* replacement)
-{
-    if(*dest != NULL)
-    {
-        free((void*)*dest);
-    }
-    if(replacement == NULL)
-    {
-        *dest = NULL;
-    }
-    else
-    {
-        *dest = strdup(replacement);
-    }
-}
