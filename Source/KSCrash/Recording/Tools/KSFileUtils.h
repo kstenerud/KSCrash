@@ -83,9 +83,13 @@ bool ksfu_readBytesFromFD(const int fd, char* bytes, int length);
  *
  * @param length Place to store the length of the loaded data (can be NULL).
  *
+ * @param maxLength the maximum amount of bytes to read. It will skip beginning
+ *                  bytes if necessary, and always get the latter part of the file.
+ *                  0 = no maximum.
+ *
  * @return true if the operation was successful.
  */
-bool ksfu_readEntireFile(const char* path, char** data, int* length);
+bool ksfu_readEntireFile(const char* path, char** data, int* length, int maxLength);
 
 /** Write a string to a file.
  *

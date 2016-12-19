@@ -205,7 +205,7 @@ bool loadState(const char* const path)
 
     char* data;
     int length;
-    if(!ksfu_readEntireFile(path, &data, &length))
+    if(!ksfu_readEntireFile(path, &data, &length, 50000))
     {
         KSLOG_ERROR("%s: Could not load file", path);
         return false;

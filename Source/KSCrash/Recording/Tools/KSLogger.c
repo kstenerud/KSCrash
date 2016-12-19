@@ -94,23 +94,27 @@ static inline void writeFmtToLog(const char* fmt, ...)
 #if KSLOGGER_CBufferSize > 0
 
 /** The file descriptor where log entries get written. */
-static int g_fd = STDOUT_FILENO;
+static int g_fd = -1;
 
 
 static void writeToLog(const char* const str)
 {
-    int bytesToWrite = (int)strlen(str);
-    const char* pos = str;
-    while(bytesToWrite > 0)
+    if(g_fd >= 0)
     {
-        int bytesWritten = (int)write(g_fd, pos, (unsigned)bytesToWrite);
-        unlikely_if(bytesWritten == -1)
+        int bytesToWrite = (int)strlen(str);
+        const char* pos = str;
+        while(bytesToWrite > 0)
         {
-            return;
+            int bytesWritten = (int)write(g_fd, pos, (unsigned)bytesToWrite);
+            unlikely_if(bytesWritten == -1)
+            {
+                break;
+            }
+            bytesToWrite -= bytesWritten;
+            pos += bytesWritten;
         }
-        bytesToWrite -= bytesWritten;
-        pos += bytesWritten;
     }
+    write(STDOUT_FILENO, str, strlen(str));
 }
 
 static inline void writeFmtArgsToLog(const char* fmt, va_list args)
@@ -143,22 +147,20 @@ static inline void setLogFD(int fd)
 
 bool kslog_setLogFilename(const char* filename, bool overwrite)
 {
-    if(filename == NULL)
+    int fd = -1;
+    if(filename != NULL)
     {
-        setLogFD(STDOUT_FILENO);
-        return true;
-    }
-    
-    int openMask = O_WRONLY | O_CREAT;
-    if(overwrite)
-    {
-        openMask |= O_TRUNC;
-    }
-    int fd = open(filename, openMask, 0644);
-    unlikely_if(fd < 0)
-    {
-        writeFmtToLog("KSLogger: Could not open %s: %s", filename, strerror(errno));
-        return false;
+        int openMask = O_WRONLY | O_CREAT;
+        if(overwrite)
+        {
+            openMask |= O_TRUNC;
+        }
+        fd = open(filename, openMask, 0644);
+        unlikely_if(fd < 0)
+        {
+            writeFmtToLog("KSLogger: Could not open %s: %s", filename, strerror(errno));
+            return false;
+        }
     }
     
     setLogFD(fd);
@@ -180,12 +182,11 @@ static inline void setLogFD(FILE* file)
 
 void writeToLog(const char* const str)
 {
-    unlikely_if(g_file == NULL)
+    if(g_file != NULL)
     {
-        g_file = stdout;
+        fprintf(g_file, "%s", str);
     }
-    
-    fprintf(g_file, "%s", str);
+    fprintf(stdout, "%s", str);
 }
 
 static inline void writeFmtArgsToLog(const char* fmt, va_list args)
@@ -212,17 +213,15 @@ static inline void flushLog(void)
 
 bool kslog_setLogFilename(const char* filename, bool overwrite)
 {
-    if(filename == NULL)
+    FILE* file = NULL;
+    if(filename != NULL)
     {
-        setLogFD(stdout);
-        return true;
-    }
-    
-    FILE* file = fopen(filename, overwrite ? "wb" : "ab");
-    unlikely_if(file == NULL)
-    {
-        writeFmtToLog("KSLogger: Could not open %s: %s", filename, strerror(errno));
-        return false;
+        file = fopen(filename, overwrite ? "wb" : "ab");
+        unlikely_if(file == NULL)
+        {
+            writeFmtToLog("KSLogger: Could not open %s: %s", filename, strerror(errno));
+            return false;
+        }
     }
     
     setLogFD(file);

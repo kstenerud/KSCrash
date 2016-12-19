@@ -251,12 +251,13 @@ bool ksfu_readBytesFromFD(const int fd, char* const bytes, int length)
     return true;
 }
 
-bool ksfu_readEntireFile(const char* const path, char** data, int* length)
+bool ksfu_readEntireFile(const char* const path, char** data, int* length, int maxLength)
 {
     bool isSuccessful = false;
     int bytesRead = 0;
     char* mem = NULL;
     int fd = -1;
+    int bytesToRead = maxLength;
 
     struct stat st;
     if(stat(path, &st) < 0)
@@ -270,6 +271,19 @@ bool ksfu_readEntireFile(const char* const path, char** data, int* length)
     {
         KSLOG_ERROR("Could not open %s: %s", path, strerror(errno));
         goto done;
+    }
+
+    if(bytesToRead >= (int)st.st_size)
+    {
+        bytesToRead = (int)st.st_size;
+    }
+    else if(maxLength > 0)
+    {
+        if(lseek(fd, -bytesToRead, SEEK_END) < 0)
+        {
+            KSLOG_ERROR("Could not seek to %d from end of %s: %s", -bytesToRead, path, strerror(errno));
+            goto done;
+        }
     }
 
     mem = malloc((unsigned)st.st_size + 1);

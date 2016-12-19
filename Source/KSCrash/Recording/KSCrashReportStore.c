@@ -211,7 +211,7 @@ char* kscrs_readReport(int64_t reportID)
     char path[KSCRS_MAX_PATH_LENGTH];
     getCrashReportPathByID(reportID, path);
     char* result;
-    ksfu_readEntireFile(path, &result, NULL);
+    ksfu_readEntireFile(path, &result, NULL, 2000000);
     pthread_mutex_unlock(&g_mutex);
     return result;
 }
