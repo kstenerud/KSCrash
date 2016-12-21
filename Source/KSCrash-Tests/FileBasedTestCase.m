@@ -45,4 +45,21 @@
     [self removePath:self.tempPath];
 }
 
+- (NSString*) generateTempFilePath
+{
+    return [[self createTempPath] stringByAppendingPathComponent:@"temp.txt"];
+}
+
+- (NSString*) generateFileWithData:(NSData*) data
+{
+    NSString* path = [self generateTempFilePath];
+    [data writeToFile:path atomically:YES];
+    return path;
+}
+
+- (NSString*) generateFileWithString:(NSString*) string
+{
+    return [self generateFileWithData:[string dataUsingEncoding:NSUTF8StringEncoding]];
+}
+
 @end

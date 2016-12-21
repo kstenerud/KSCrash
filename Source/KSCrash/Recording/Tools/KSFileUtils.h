@@ -161,6 +161,112 @@ bool ksfu_removeFile(const char* path, bool mustExist);
  */
 bool ksfu_deleteContentsOfPath(const char* path);
 
+/** Buffered writer structure. Everything inside should be considered internal use only. */
+typedef struct
+{
+    char* buffer;
+    int bufferLength;
+    int position;
+    int fd;
+} KSBufferedWriter;
+
+/** Open a file for buffered writing.
+ *
+ * @param writer The writer to initialize.
+ *
+ * @param path The path of the file to open.
+ *
+ * @param writeBuffer Memory to use as the write buffer.
+ *
+ * @param writeBufferLength Length of the memory to use as the write buffer.
+ *
+ * @return True if the file was successfully opened.
+ */
+bool ksfu_openBufferedWriter(KSBufferedWriter* writer, const char* const path, char* writeBuffer, int writeBufferLength);
+
+/** Close a buffered writer.
+ *
+ * @param writer The writer to close.
+ */
+void ksfu_closeBufferedWriter(KSBufferedWriter* writer);
+
+/** Write to a buffered writer.
+ *
+ * @param writer The writer to write to.
+ *
+ * @param data The data to write.
+ *
+ * @param length The length of the data to write.
+ *
+ * @return True if the data was successfully written.
+ */
+bool ksfu_writeBufferedWriter(KSBufferedWriter* writer, const char* restrict const data, const int length);
+
+/** Flush a buffered writer, writing all uncommitted data to disk.
+ *
+ * @param writer The writer to flush.
+ *
+ * @return True if the buffer was successfully flushed.
+ */
+bool ksfu_flushBufferedWriter(KSBufferedWriter* writer);
+
+/** Buffered reader structure. Everything inside should be considered internal use only. */
+typedef struct
+{
+    char* buffer;
+    int bufferLength;
+    int dataStartPos;
+    int dataEndPos;
+    int fd;
+} KSBufferedReader;
+
+/** Open a file for buffered reading.
+ *
+ * @param reader The reader to initialize.
+ *
+ * @param path The path to the file to open.
+ *
+ * @param readBuffer The memory to use for buffered reading.
+ *
+ * @param readBufferLength The length of the memory to use for buffered reading.
+ *
+ * @return True if the file was successfully opened.
+ */
+bool ksfu_openBufferedReader(KSBufferedReader* reader, const char* const path, char* readBuffer, int readBufferLength);
+
+/** Close a buffered reader.
+ *
+ * @param reader The reader to close.
+ */
+void ksfu_closeBufferedReader(KSBufferedReader* reader);
+
+/** Read from a buffered reader.
+ *
+ * @param reader The reader to read from.
+ *
+ * @param dstBuffer The buffer to read into.
+ *
+ * @param byteCount The number of bytes to read.
+ *
+ * @return The number of bytes actually read.
+ */
+int ksfu_readBufferedReader(KSBufferedReader* reader, char* dstBuffer, int byteCount);
+
+/** Read from a buffered reader until the specified character is encountered.
+ *
+ * @param reader The reader to read from.
+ *
+ * @param ch The character to look for.
+ *
+ * @param dstBuffer The buffer to read into.
+ *
+ * @param length in: The maximum number of bytes to read before giving up the search.
+ *              out: The actual number of bytes read.
+ *
+ * @return True if the character was found before giving up.
+ */
+bool ksfu_readBufferedReaderUntilChar(KSBufferedReader* reader, int ch, char* dstBuffer, int* length);
+
 
 #ifdef __cplusplus
 }

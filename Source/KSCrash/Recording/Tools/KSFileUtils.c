@@ -444,3 +444,192 @@ bool ksfu_deleteContentsOfPath(const char* path)
     
     return deletePathContents(path, false);
 }
+
+bool ksfu_openBufferedWriter(KSBufferedWriter* writer, const char* const path, char* writeBuffer, int writeBufferLength)
+{
+    writer->buffer = writeBuffer;
+    writer->bufferLength = writeBufferLength;
+    writer->position = 0;
+    writer->fd = open(path, O_RDWR | O_CREAT | O_EXCL, 0644);
+    if(writer->fd < 0)
+    {
+        KSLOG_ERROR("Could not open crash report file %s: %s", path, strerror(errno));
+        return false;
+    }
+    return true;
+}
+
+void ksfu_closeBufferedWriter(KSBufferedWriter* writer)
+{
+    if(writer->fd > 0)
+    {
+        ksfu_flushBufferedWriter(writer);
+        close(writer->fd);
+        writer->fd = -1;
+    }
+}
+
+bool ksfu_writeBufferedWriter(KSBufferedWriter* writer, const char* restrict const data, const int length)
+{
+    if(length > writer->bufferLength - writer->position)
+    {
+        ksfu_flushBufferedWriter(writer);
+    }
+    if(length > writer->bufferLength)
+    {
+        return ksfu_writeBytesToFD(writer->fd, data, length);
+    }
+    memcpy(writer->buffer + writer->position, data, length);
+    writer->position += length;
+    return true;
+}
+
+bool ksfu_flushBufferedWriter(KSBufferedWriter* writer)
+{
+    if(writer->fd > 0 && writer->position > 0)
+    {
+        if(!ksfu_writeBytesToFD(writer->fd, writer->buffer, writer->position))
+        {
+            return false;
+        }
+        writer->position = 0;
+    }
+    return true;
+}
+
+static inline bool isReadBufferEmpty(KSBufferedReader* reader)
+{
+    return reader->dataEndPos == reader->dataStartPos;
+}
+
+static bool fillReadBuffer(KSBufferedReader* reader)
+{
+    if(reader->dataStartPos > 0)
+    {
+        memmove(reader->buffer, reader->buffer + reader->dataStartPos, reader->dataStartPos);
+        reader->dataEndPos -= reader->dataStartPos;
+        reader->dataStartPos = 0;
+        reader->buffer[reader->dataEndPos] = '\0';
+    }
+    int bytesToRead = reader->bufferLength - reader->dataEndPos;
+    if(bytesToRead <= 0)
+    {
+        return true;
+    }
+    int bytesRead = read(reader->fd, reader->buffer + reader->dataEndPos, (size_t)bytesToRead);
+    if(bytesRead < 0)
+    {
+        KSLOG_ERROR("Could not read: %s", strerror(errno));
+        return false;
+    }
+    else
+    {
+        reader->dataEndPos += bytesRead;
+        reader->buffer[reader->dataEndPos] = '\0';
+    }
+    return true;
+}
+
+int ksfu_readBufferedReader(KSBufferedReader* reader, char* dstBuffer, int byteCount)
+{
+    int bytesRemaining = byteCount;
+    int bytesConsumed = 0;
+    char* pDst = dstBuffer;
+    while(bytesRemaining > 0)
+    {
+        int bytesInReader = reader->dataEndPos - reader->dataStartPos;
+        if(bytesInReader <= 0)
+        {
+            if(!fillReadBuffer(reader))
+            {
+                break;
+            }
+            bytesInReader = reader->dataEndPos - reader->dataStartPos;
+            if(bytesInReader <= 0)
+            {
+                break;
+            }
+        }
+        int bytesToCopy = bytesInReader <= bytesRemaining ? bytesInReader : bytesRemaining;
+        char* pSrc = reader->buffer + reader->dataStartPos;
+        memcpy(pDst, pSrc, bytesToCopy);
+        pDst += bytesToCopy;
+        reader->dataStartPos += bytesToCopy;
+        bytesConsumed += bytesToCopy;
+        bytesRemaining -= bytesToCopy;
+    }
+    
+    return bytesConsumed;
+}
+
+bool ksfu_readBufferedReaderUntilChar(KSBufferedReader* reader, int ch, char* dstBuffer, int* length)
+{
+    int bytesRemaining = *length;
+    int bytesConsumed = 0;
+    char* pDst = dstBuffer;
+    while(bytesRemaining > 0)
+    {
+        int bytesInReader = reader->dataEndPos - reader->dataStartPos;
+        int bytesToCopy = bytesInReader <= bytesRemaining ? bytesInReader : bytesRemaining;
+        char* pSrc = reader->buffer + reader->dataStartPos;
+        char* pChar = strchr(pSrc, ch);
+        bool isFound = pChar != NULL;
+        if(isFound)
+        {
+            int bytesToChar = pChar - pSrc;
+            if(bytesToChar < bytesToCopy)
+            {
+                bytesToCopy = bytesToChar;
+            }
+        }
+        memcpy(pDst, pSrc, bytesToCopy);
+        pDst += bytesToCopy;
+        reader->dataStartPos += bytesToCopy;
+        bytesConsumed += bytesToCopy;
+        bytesRemaining -= bytesToCopy;
+        if(isFound)
+        {
+            *length = bytesConsumed;
+            return true;
+        }
+        if(bytesRemaining > 0)
+        {
+            fillReadBuffer(reader);
+            if(isReadBufferEmpty(reader))
+            {
+                break;
+            }
+        }
+    }
+    
+    *length = bytesConsumed;
+    return false;
+}
+
+bool ksfu_openBufferedReader(KSBufferedReader* reader, const char* const path, char* readBuffer, int readBufferLength)
+{
+    readBuffer[0] = '\0';
+    readBuffer[readBufferLength - 1] = '\0';
+    reader->buffer = readBuffer;
+    reader->bufferLength = readBufferLength - 1;
+    reader->dataStartPos = 0;
+    reader->dataEndPos = 0;
+    reader->fd = open(path, O_RDONLY);
+    if(reader->fd < 0)
+    {
+        KSLOG_ERROR("Could not open file %s: %s", path, strerror(errno));
+        return false;
+    }
+    fillReadBuffer(reader);
+    return true;
+}
+
+void ksfu_closeBufferedReader(KSBufferedReader* reader)
+{
+    if(reader->fd > 0)
+    {
+        close(reader->fd);
+        reader->fd = -1;
+    }
+}
+

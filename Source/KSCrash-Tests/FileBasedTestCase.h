@@ -32,4 +32,8 @@
 
 @property(nonatomic,readwrite,retain) NSString* tempPath;
 
+- (NSString*) generateTempFilePath;
+- (NSString*) generateFileWithData:(NSData*) data;
+- (NSString*) generateFileWithString:(NSString*) string;
+
 @end
