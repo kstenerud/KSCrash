@@ -82,7 +82,6 @@ static NSArray* g_test_strings;
                        @"abcdefghijklmno",
                        @"abcdefghijklmnop",
                        ];
-    ksobjc_init();
 }
 
 - (NSArray*) componentsOfBasicDescription:(NSString*) description
