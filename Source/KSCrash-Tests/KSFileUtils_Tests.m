@@ -143,7 +143,7 @@
     int dstBufferSize = 5;
     NSString* fileContents = @"12345";
     int ch = '3';
-    NSString* expectedDataRead = @"12";
+    NSString* expectedDataRead = @"123";
     int expectedBytesRead = (int)expectedDataRead.length;
     int bytesRead = dstBufferSize;
     char readBuffer[readBufferSize];
@@ -165,7 +165,7 @@
     int dstBufferSize = 5;
     NSString* fileContents = @"12345";
     int ch = '1';
-    NSString* expectedDataRead = @"";
+    NSString* expectedDataRead = @"1";
     int expectedBytesRead = (int)expectedDataRead.length;
     int bytesRead = dstBufferSize;
     char readBuffer[readBufferSize];
@@ -187,7 +187,7 @@
     int dstBufferSize = 5;
     NSString* fileContents = @"12345";
     int ch = '5';
-    NSString* expectedDataRead = @"1234";
+    NSString* expectedDataRead = @"12345";
     int expectedBytesRead = (int)expectedDataRead.length;
     int bytesRead = dstBufferSize;
     char readBuffer[readBufferSize];
@@ -231,7 +231,7 @@
     int dstBufferSize = 10;
     NSString* fileContents = @"1234567890";
     int ch = '9';
-    NSString* expectedDataRead = @"12345678";
+    NSString* expectedDataRead = @"123456789";
     int expectedBytesRead = (int)expectedDataRead.length;
     int bytesRead = dstBufferSize;
     char readBuffer[readBufferSize];

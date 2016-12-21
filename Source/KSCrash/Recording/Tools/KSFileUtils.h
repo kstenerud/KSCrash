@@ -253,6 +253,7 @@ void ksfu_closeBufferedReader(KSBufferedReader* reader);
 int ksfu_readBufferedReader(KSBufferedReader* reader, char* dstBuffer, int byteCount);
 
 /** Read from a buffered reader until the specified character is encountered.
+ * All bytes up to and including the character will be read.
  *
  * @param reader The reader to read from.
  *

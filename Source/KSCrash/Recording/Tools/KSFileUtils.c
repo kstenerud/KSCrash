@@ -576,7 +576,7 @@ bool ksfu_readBufferedReaderUntilChar(KSBufferedReader* reader, int ch, char* ds
         bool isFound = pChar != NULL;
         if(isFound)
         {
-            int bytesToChar = pChar - pSrc;
+            int bytesToChar = pChar - pSrc + 1;
             if(bytesToChar < bytesToCopy)
             {
                 bytesToCopy = bytesToChar;
