@@ -137,12 +137,11 @@ void kscrash_setDoNotIntrospectClasses(const char** doNotIntrospectClasses, int 
  */
 void kscrash_setCrashNotifyCallback(const KSReportWriteCallback onCrashNotify);
 
-/** Set if KSLOG messages should be redirected from STDOUT to a file.
- * Redirect file will be at [install-path]/Data/ConsoleLog.txt
+/** Set if KSLOG console messages should be appended to the report.
  *
- * @param shouldRedirectToFile If true, redirect to a file.
+ * @param shouldAddConsoleLogToReport If true, add the log to the report.
  */
-void kscrash_setRedirectConsoleLogToFile(bool shouldRedirectToFile);
+void kscrash_setAddConsoleLogToReport(bool shouldAddConsoleLogToReport);
 
 /** Report a custom, user defined exception.
  * This can be useful when dealing with scripting languages.

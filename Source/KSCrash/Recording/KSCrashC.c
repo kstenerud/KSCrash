@@ -54,8 +54,8 @@
 /** True if KSCrash has been installed. */
 static volatile bool g_installed = 0;
 
-static bool g_redirectToLogFile = false;
-static char* g_logFilePath;
+static bool g_shouldAddConsoleLogToReport = false;
+char g_consoleLogPath[KSFU_MAX_PATH_LENGTH];
 static KSCrashMonitorType g_monitoring = KSCrashMonitorTypeProductionSafeMinimal;
 static char g_lastCrashReportFilePath[KSFU_MAX_PATH_LENGTH];
 
@@ -73,6 +73,7 @@ static void onCrash(struct KSCrash_MonitorContext* monitorContext)
     KSLOG_DEBUG("Updating application state to note crash.");
     kscrashstate_notifyAppCrash();
 
+    monitorContext->consoleLogPath = g_shouldAddConsoleLogToReport ? g_consoleLogPath : NULL;
 
     if(monitorContext->crashedDuringCrashHandling)
     {
@@ -113,10 +114,8 @@ KSCrashMonitorType kscrash_install(const char* appName, const char* const instal
     snprintf(path, sizeof(path), "%s/Data/CrashState.json", installPath);
     kscrashstate_initialize(path);
 
-    snprintf(path, sizeof(path), "%s/Data/ConsoleLog.txt", installPath);
-    g_logFilePath = strdup(path);
-    // Ensure this is set properly.
-    kscrash_setRedirectConsoleLogToFile(g_redirectToLogFile);
+    snprintf(g_consoleLogPath, sizeof(g_consoleLogPath), "%s/Data/ConsoleLog.txt", installPath);
+    kslog_setLogFilename(g_consoleLogPath, true);
 
     kscm_setEventCallback(onCrash);
     KSCrashMonitorType monitors = kscrash_setMonitoring(g_monitoring);
@@ -178,11 +177,9 @@ void kscrash_setCrashNotifyCallback(const KSReportWriteCallback onCrashNotify)
     kscrashreport_setUserSectionWriteCallback(onCrashNotify);
 }
 
-void kscrash_setRedirectConsoleLogToFile(bool shouldRedirectToFile)
+void kscrash_setAddConsoleLogToReport(bool shouldAddConsoleLogToReport)
 {
-    g_redirectToLogFile = shouldRedirectToFile;
-    char* path = shouldRedirectToFile ? g_logFilePath : NULL;
-    kslog_setLogFilename(path, true);
+    g_shouldAddConsoleLogToReport = shouldAddConsoleLogToReport;
 }
 
 void kscrash_reportUserException(const char* name,

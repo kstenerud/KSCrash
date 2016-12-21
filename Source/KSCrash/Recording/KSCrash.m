@@ -108,7 +108,7 @@ static NSString* getBasePath()
 @synthesize catchZombies = _catchZombies;
 @synthesize doNotIntrospectClasses = _doNotIntrospectClasses;
 @synthesize demangleLanguages = _demangleLanguages;
-@synthesize redirectConsoleLogToFile = _redirectConsoleLogToFile;
+@synthesize addConsoleLogToReport = _addConsoleLogToReport;
 
 
 // ============================================================================
@@ -507,10 +507,10 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
     return reports;
 }
 
-- (void) setRedirectConsoleLogToFile:(BOOL) shouldRedirectToFile
+- (void) setAddConsoleLogToReport:(BOOL) shouldAddConsoleLogToReport
 {
-    _redirectConsoleLogToFile = shouldRedirectToFile;
-    kscrash_setRedirectConsoleLogToFile(shouldRedirectToFile);
+    _addConsoleLogToReport = shouldAddConsoleLogToReport;
+    kscrash_setAddConsoleLogToReport(shouldAddConsoleLogToReport);
 }
 
 

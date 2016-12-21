@@ -222,6 +222,9 @@ typedef struct KSCrash_MonitorContext
         const char* reason;
     } ZombieException;
 
+    /** Full path to the console log, if any. */
+    const char* consoleLogPath;
+
 } KSCrash_MonitorContext;
     
 

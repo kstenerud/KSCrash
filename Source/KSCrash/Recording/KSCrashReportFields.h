@@ -165,6 +165,7 @@
 #pragma mark - Report -
 
 #define KSCrashField_Crash                 "crash"
+#define KSCrashField_Debug                 "debug"
 #define KSCrashField_Diagnosis             "diagnosis"
 #define KSCrashField_ID                    "id"
 #define KSCrashField_ProcessName           "process_name"
@@ -182,6 +183,7 @@
 #define KSCrashField_Memory                "memory"
 #define KSCrashField_Threads               "threads"
 #define KSCrashField_User                  "user"
+#define KSCrashField_ConsoleLog            "console_log"
 
 #pragma mark Incomplete
 #define KSCrashField_Incomplete            "incomplete"

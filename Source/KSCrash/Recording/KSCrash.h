@@ -176,10 +176,9 @@ typedef enum
  */
 @property(nonatomic,readwrite,assign) BOOL printTraceToStdout;
 
-/** Redirect KSCrash's console log messages to a file inside the Data dir.
- * @return true if the operation was successful.
+/** Add a copy of KSCrash's console log messages to the crash report.
  */
-@property(nonatomic,readwrite,assign) BOOL redirectConsoleLogToFile;
+@property(nonatomic,readwrite,assign) BOOL addConsoleLogToReport;
 
 /** Which languages to demangle when getting stack traces (default KSCrashDemangleLanguageAll) */
 @property(nonatomic,readwrite,assign) KSCrashDemangleLanguage demangleLanguages;
