@@ -348,32 +348,6 @@ static int encodeObject(KSJSONCodec* codec, id object, NSString* name, KSJSONEnc
         {
             return result;
         }
-        if(codec->_sorted)
-        {
-            object = [object sortedArrayUsingComparator:^NSComparisonResult(id obj1, id obj2)
-                      {
-                          Class cls1 = [obj1 class];
-                          Class cls2 = [obj2 class];
-                          if(cls1 == cls2)
-                          {
-                              if([obj1 respondsToSelector:@selector(compare:)])
-                              {
-                                  // Cast to keep the compiler happy.
-                                  return [(NSNumber*)obj1 compare:obj2];
-                              }
-                              return NSOrderedSame;
-                          }
-                          if(cls1 == [NSString class] && cls2 == [NSNumber class])
-                          {
-                              return [(NSString*)obj1 compare:[NSString stringWithFormat:@"%@", obj2]];
-                          }
-                          if(cls1 == [NSNumber class] && cls2 == [NSString class])
-                          {
-                              return [(NSString*)[NSString stringWithFormat:@"%@", obj1] compare:obj2];
-                          }
-                          return NSOrderedSame;
-                      }];
-        }
         for(id subObject in object)
         {
             if((result = encodeObject(codec, subObject, NULL, context)) != KSJSON_OK)
