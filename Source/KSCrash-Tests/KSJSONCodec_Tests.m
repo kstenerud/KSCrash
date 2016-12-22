@@ -249,32 +249,6 @@ static NSString* toString(NSData* data)
     XCTAssertEqualObjects(result, original, @"");
 }
 
-- (void)testSerializeDeserializeArrayMultipleEntriesSorted
-{
-    NSError* error = (NSError*)self;
-    NSString* expected = @"[\"One\",\"Three\",\"Two\"]";
-    id original = [NSArray arrayWithObjects:
-                   @"One",
-                   @"Two",
-                   @"Three",
-                   nil];
-    id sorted = [NSArray arrayWithObjects:
-                 @"One",
-                 @"Three",
-                 @"Two",
-                 nil];
-    NSString* jsonString = toString([KSJSONCodec encode:original
-                                                options:KSJSONEncodeOptionSorted
-                                                  error:&error]);
-    XCTAssertNotNil(jsonString, @"");
-    XCTAssertNil(error, @"");
-    XCTAssertEqualObjects(jsonString, expected, @"");
-    id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
-    XCTAssertNotNil(result, @"");
-    XCTAssertNil(error, @"");
-    XCTAssertEqualObjects(result, sorted, @"");
-}
-
 - (void)testSerializeDeserializeArrayWithArray
 {
     NSError* error = (NSError*)self;
