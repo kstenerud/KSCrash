@@ -1,3 +1,13 @@
+1.13.0:
+
+Console logs are no longer visible when launched on a device without the debugger for some reason.
+In order to get access to KSCrash logs, you can now add a copy of the logs to the new "debug" section in the crash report.
+
+- REMOVED KSCrash.redirectConsoleLogToFile
+- REMOVED KSCrash.printTraceToStdout
+- ADDED   KSCrash.addConsoleLogToReport
+
+
 1.12.0:
 
 Moved the OS-specific code into leaf modules. All of the central modules from KSCrashC.c down are POSIX now.
