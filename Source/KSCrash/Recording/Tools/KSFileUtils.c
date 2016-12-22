@@ -273,11 +273,11 @@ bool ksfu_readEntireFile(const char* const path, char** data, int* length, int m
         goto done;
     }
 
-    if(bytesToRead >= (int)st.st_size)
+    if(bytesToRead == 0 || bytesToRead >= (int)st.st_size)
     {
         bytesToRead = (int)st.st_size;
     }
-    else if(maxLength > 0)
+    else if(bytesToRead > 0)
     {
         if(lseek(fd, -bytesToRead, SEEK_END) < 0)
         {
@@ -286,19 +286,19 @@ bool ksfu_readEntireFile(const char* const path, char** data, int* length, int m
         }
     }
 
-    mem = malloc((unsigned)st.st_size + 1);
+    mem = malloc((unsigned)bytesToRead + 1);
     if(mem == NULL)
     {
         KSLOG_ERROR("Out of memory");
         goto done;
     }
 
-    if(!ksfu_readBytesFromFD(fd, mem, (int)st.st_size))
+    if(!ksfu_readBytesFromFD(fd, mem, bytesToRead))
     {
         goto done;
     }
 
-    bytesRead = (int)st.st_size;
+    bytesRead = bytesToRead;
     mem[bytesRead] = '\0';
     isSuccessful = true;
 
