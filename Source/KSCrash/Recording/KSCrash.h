@@ -170,12 +170,6 @@ typedef enum
  */
 @property(nonatomic,readwrite,assign) KSReportWriteCallback onCrash;
 
-/** If YES, print a stack trace to stdout when a crash occurs.
- *
- * Default: NO
- */
-@property(nonatomic,readwrite,assign) BOOL printTraceToStdout;
-
 /** Add a copy of KSCrash's console log messages to the crash report.
  */
 @property(nonatomic,readwrite,assign) BOOL addConsoleLogToReport;

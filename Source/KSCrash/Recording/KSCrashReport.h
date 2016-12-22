@@ -52,12 +52,6 @@ extern "C" {
  */
 void kscrashreport_setUserInfoJSON(const char* const userInfoJSON);
 
-/** Configure whether to print a stack trace to stdout on crash.
- *
- * @param shouldPrintTraceToStdout If true, print a trace on crash.
- */
-void kscrashreport_setPrintTraceToStdout(bool shouldPrintTraceToStdout);
-
 /** Configure whether to search threads for thread names.
  *
  * @param shouldSearchThreadNames If true, search thread names.

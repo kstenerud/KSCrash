@@ -98,7 +98,6 @@ static NSString* getBasePath()
 @synthesize deleteBehaviorAfterSendAll = _deleteBehaviorAfterSendAll;
 @synthesize monitoring = _monitoring;
 @synthesize deadlockWatchdogInterval = _deadlockWatchdogInterval;
-@synthesize printTraceToStdout = _printTraceToStdout;
 @synthesize onCrash = _onCrash;
 @synthesize bundleName = _bundleName;
 @synthesize basePath = _basePath;
@@ -189,12 +188,6 @@ static NSString* getBasePath()
 {
     _deadlockWatchdogInterval = deadlockWatchdogInterval;
     kscrash_setDeadlockWatchdogInterval(deadlockWatchdogInterval);
-}
-
-- (void) setPrintTraceToStdout:(BOOL)printTraceToStdout
-{
-    _printTraceToStdout = printTraceToStdout;
-    kscrash_setPrintTraceToStdout(printTraceToStdout);
 }
 
 - (void) setOnCrash:(KSReportWriteCallback) onCrash

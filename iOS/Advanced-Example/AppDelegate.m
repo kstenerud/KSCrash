@@ -163,7 +163,6 @@ static void advanced_crash_callback(const KSCrashReportWriter* writer)
     handler.deadlockWatchdogInterval = 8;
     handler.userInfo = @{@"someKey": @"someValue"};
     handler.onCrash = advanced_crash_callback;
-    handler.printTraceToStdout = YES;
     handler.searchThreadNames = YES;
     handler.searchQueueNames = YES;
 

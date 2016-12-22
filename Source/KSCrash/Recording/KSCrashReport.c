@@ -134,7 +134,6 @@ typedef struct
 } KSCrash_IntrospectionRules;
 
 static const char* g_userInfoJSON;
-static bool g_shouldPrintTraceToStdout;
 static bool g_shouldSearchThreadNames;
 static bool g_shouldSearchQueueNames;
 static KSCrash_IntrospectionRules g_introspectionRules;
@@ -443,148 +442,6 @@ static uintptr_t* getBacktrace(const KSCrash_MonitorContext* const crash,
     }
 
     return NULL;
-}
-
-
-// ============================================================================
-#pragma mark - Console Logging -
-// ============================================================================
-
-/** Print the crash type and location to the log.
- *
- * @param monitorContext The crash monitor context.
- */
-static void logCrashType(const KSCrash_MonitorContext* const monitorContext)
-{
-    switch(monitorContext->crashType)
-    {
-        case KSCrashMonitorTypeMachException:
-        {
-            int machExceptionType = monitorContext->mach.type;
-            int64_t machCode = monitorContext->mach.code;
-            const char* machExceptionName = ksrc_exceptionName(machExceptionType);
-            const char* machCodeName = machCode == 0 ? NULL : ksmemory_kernelReturnCodeName(machCode);
-            KSLOGBASIC_INFO("App crashed due to mach exception: [%s: %s] at %p",
-                            machExceptionName, machCodeName, monitorContext->faultAddress);
-            break;
-        }
-        case KSCrashMonitorTypeCPPException:
-        {
-            KSLOG_INFO("App crashed due to C++ exception: %s: %s",
-                       monitorContext->CPPException.name,
-                       monitorContext->crashReason);
-            break;
-        }
-        case KSCrashMonitorTypeNSException:
-        {
-            KSLOGBASIC_INFO("App crashed due to NSException: %s: %s",
-                            monitorContext->NSException.name,
-                            monitorContext->crashReason);
-            break;
-        }
-        case KSCrashMonitorTypeSignal:
-        {
-            int sigNum = monitorContext->signal.signum;
-            int sigCode = monitorContext->signal.sigcode;
-            const char* sigName = kssignal_signalName(sigNum);
-            const char* sigCodeName = kssignal_signalCodeName(sigNum, sigCode);
-            KSLOGBASIC_INFO("App crashed due to signal: [%s, %s] at %08x",
-                            sigName, sigCodeName, monitorContext->faultAddress);
-            break;
-        }
-        case KSCrashMonitorTypeMainThreadDeadlock:
-        {
-            KSLOGBASIC_INFO("Main thread deadlocked");
-            break;
-        }
-        case KSCrashMonitorTypeUserReported:
-        {
-            KSLOG_INFO("App crashed due to user specified exception: %s", monitorContext->crashReason);
-            break;
-        }
-        default:
-            KSLOGBASIC_INFO("Unknwn cause: 0x%x", monitorContext->crashType);
-    }
-}
-
-/** Print a backtrace entry in the standard format to the log.
- *
- * @param entryNum The backtrace entry number.
- *
- * @param address The program counter value (instruction address).
- *
- * @param dlInfo Information about the nearest symbols to the address.
- */
-static void logBacktraceEntry(const int entryNum, const uintptr_t address, const Dl_info* const dlInfo)
-{
-    char faddrBuff[20];
-    char saddrBuff[20];
-
-    const char* fname = ksfu_lastPathEntry(dlInfo->dli_fname);
-    if(fname == NULL)
-    {
-        sprintf(faddrBuff, POINTER_FMT, (uintptr_t)dlInfo->dli_fbase);
-        fname = faddrBuff;
-    }
-
-    uintptr_t offset = address - (uintptr_t)dlInfo->dli_saddr;
-    const char* sname = dlInfo->dli_sname;
-    if(sname == NULL)
-    {
-        sprintf(saddrBuff, POINTER_SHORT_FMT, (uintptr_t)dlInfo->dli_fbase);
-        sname = saddrBuff;
-        offset = address - (uintptr_t)dlInfo->dli_fbase;
-    }
-
-    KSLOGBASIC_ALWAYS(TRACE_FMT, entryNum, fname, address, sname, offset);
-}
-
-/** Print a backtrace to the log.
- *
- * @param backtrace The backtrace to print.
- *
- * @param backtraceLength The length of the backtrace.
- */
-static void logBacktrace(const uintptr_t* const backtrace, const int backtraceLength, const int skippedEntries)
-{
-    if(backtraceLength > 0)
-    {
-        Dl_info symbolicated[backtraceLength];
-        ksbt_symbolicate(backtrace, symbolicated, backtraceLength, skippedEntries);
-
-        for(int i = 0; i < backtraceLength; i++)
-        {
-            logBacktraceEntry(i, backtrace[i], &symbolicated[i]);
-        }
-    }
-}
-
-/** Print the backtrace for the crashed thread to the log.
- *
- * @param crash The crash handler context.
- */
-static void logCrashThreadBacktrace(const KSCrash_MonitorContext* const crash)
-{
-    uintptr_t concreteBacktrace[kMaxStackTracePrintLines];
-    int backtraceLength = sizeof(concreteBacktrace) / sizeof(*concreteBacktrace);
-
-    int skippedEntries = 0;
-    uintptr_t* backtrace = getBacktrace(crash,
-                                        crash->offendingMachineContext,
-                                        concreteBacktrace,
-                                        &backtraceLength,
-                                        &skippedEntries);
-
-    if(backtrace != NULL)
-    {
-        logBacktrace(backtrace, backtraceLength, skippedEntries);
-    }
-}
-
-static void logCrash(const KSCrash_MonitorContext* const monitorContext)
-{
-    logCrashType(monitorContext);
-    logCrashThreadBacktrace(monitorContext);
 }
 
 
@@ -1898,11 +1755,6 @@ static void writeDebugInfo(const KSCrashReportWriter* const writer,
 
 void kscrashreport_writeStandardReport(const KSCrash_MonitorContext* const monitorContext, const char* const path)
 {
-    if(g_shouldPrintTraceToStdout)
-    {
-        logCrash(monitorContext);
-    }
-
     KSLOG_INFO("Writing crash report to %s", path);
     char writeBuffer[1024];
     KSBufferedWriter bufferedWriter;
@@ -1998,11 +1850,6 @@ void kscrashreport_setUserInfoJSON(const char* const userInfoJSON)
         g_userInfoJSON = strdup(userInfoJSON);
     }
     pthread_mutex_unlock(&mutex);
-}
-
-void kscrashreport_setPrintTraceToStdout(bool shouldPrintTraceToStdout)
-{
-    g_shouldPrintTraceToStdout = shouldPrintTraceToStdout;
 }
 
 void kscrashreport_setSearchThreadNames(bool shouldSearchThreadNames)

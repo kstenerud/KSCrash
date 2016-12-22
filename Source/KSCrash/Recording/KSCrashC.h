@@ -89,12 +89,6 @@ void kscrash_setUserInfoJSON(const char* const userInfoJSON);
  */
 void kscrash_setDeadlockWatchdogInterval(double deadlockWatchdogInterval);
 
-/** Set whether or not to print a stack trace to stdout when a crash occurs.
- *
- * Default: false
- */
-void kscrash_setPrintTraceToStdout(bool printTraceToStdout);
-
 /** If true, search for thread names where appropriate.
  * Thread name searching is not async-safe, and so comes with the risk of
  * timing out and panicking in thread_lock().

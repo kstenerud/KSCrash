@@ -147,11 +147,6 @@ void kscrash_setDeadlockWatchdogInterval(double deadlockWatchdogInterval)
     kscm_setDeadlockHandlerWatchdogInterval(deadlockWatchdogInterval);
 }
 
-void kscrash_setPrintTraceToStdout(bool printTraceToStdout)
-{
-    kscrashreport_setPrintTraceToStdout(printTraceToStdout);
-}
-
 void kscrash_setSearchThreadNames(bool shouldSearchThreadNames)
 {
     kscrashreport_setSearchThreadNames(shouldSearchThreadNames);
