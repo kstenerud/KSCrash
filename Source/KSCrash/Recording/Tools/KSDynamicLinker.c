@@ -273,15 +273,19 @@ bool ksdl_dladdr(const uintptr_t address, Dl_info* const info)
             if(bestMatch != NULL)
             {
                 info->dli_saddr = (void*)(bestMatch->n_value + imageVMAddrSlide);
-                info->dli_sname = (char*)((intptr_t)stringTable + (intptr_t)bestMatch->n_un.n_strx);
-                if(*info->dli_sname == '_')
+                if(bestMatch->n_desc == 16)
                 {
-                    info->dli_sname++;
-                }
-                // This happens if all symbols have been stripped.
-                if(info->dli_saddr == info->dli_fbase && bestMatch->n_type == 3)
-                {
+                    // This image has been stripped. The name is meaningless, and
+                    // almost certainly resolves to "_mh_execute_header"
                     info->dli_sname = NULL;
+                }
+                else
+                {
+                    info->dli_sname = (char*)((intptr_t)stringTable + (intptr_t)bestMatch->n_un.n_strx);
+                    if(*info->dli_sname == '_')
+                    {
+                        info->dli_sname++;
+                    }
                 }
                 break;
             }
