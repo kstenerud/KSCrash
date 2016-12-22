@@ -516,7 +516,7 @@ static bool fillReadBuffer(KSBufferedReader* reader)
     {
         return true;
     }
-    int bytesRead = read(reader->fd, reader->buffer + reader->dataEndPos, (size_t)bytesToRead);
+    int bytesRead = (int)read(reader->fd, reader->buffer + reader->dataEndPos, (size_t)bytesToRead);
     if(bytesRead < 0)
     {
         KSLOG_ERROR("Could not read: %s", strerror(errno));
@@ -576,7 +576,7 @@ bool ksfu_readBufferedReaderUntilChar(KSBufferedReader* reader, int ch, char* ds
         bool isFound = pChar != NULL;
         if(isFound)
         {
-            int bytesToChar = pChar - pSrc + 1;
+            int bytesToChar = (int)(pChar - pSrc) + 1;
             if(bytesToChar < bytesToCopy)
             {
                 bytesToCopy = bytesToChar;

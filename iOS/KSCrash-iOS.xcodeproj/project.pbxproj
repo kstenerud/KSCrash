@@ -14,7 +14,7 @@
 		03DE7C461C84DF8100F789BA /* KSCrashReportFields.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D3217EB765C0056DA83 /* KSCrashReportFields.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		03DE7C471C84DF8100F789BA /* KSCrashReportWriter.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D4D17EB765C0056DA83 /* KSCrashReportWriter.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		03DE7C481C84DF8100F789BA /* KSCrashMonitor_AppState.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D5D17EB765C0056DA83 /* KSCrashMonitor_AppState.c */; };
-		03DE7C491C84DF8100F789BA /* KSCrashMonitor_AppState.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D5E17EB765C0056DA83 /* KSCrashMonitor_AppState.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		03DE7C491C84DF8100F789BA /* KSCrashMonitor_AppState.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D5E17EB765C0056DA83 /* KSCrashMonitor_AppState.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		03DE7C4A1C84DF8100F789BA /* KSCrashMonitorType.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D5F17EB765C0056DA83 /* KSCrashMonitorType.c */; };
 		03DE7C4B1C84DF8100F789BA /* KSCrashMonitorType.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D6017EB765C0056DA83 /* KSCrashMonitorType.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		03DE7C4C1C84DF8100F789BA /* KSCrashMonitor_System.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D8317EB765C0056DA83 /* KSCrashMonitor_System.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -358,7 +358,7 @@
 		CBF53E5817EB7EA80056DA83 /* KSCrashReport.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D3117EB765C0056DA83 /* KSCrashReport.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBF53E5917EB7EA80056DA83 /* KSCrashReportFields.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D3217EB765C0056DA83 /* KSCrashReportFields.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBF53E5A17EB7EA80056DA83 /* KSCrashReportWriter.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D4D17EB765C0056DA83 /* KSCrashReportWriter.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		CBF53E5B17EB7EA80056DA83 /* KSCrashMonitor_AppState.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D5E17EB765C0056DA83 /* KSCrashMonitor_AppState.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		CBF53E5B17EB7EA80056DA83 /* KSCrashMonitor_AppState.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D5E17EB765C0056DA83 /* KSCrashMonitor_AppState.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBF53E5C17EB7EA80056DA83 /* KSCrashMonitorType.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D6017EB765C0056DA83 /* KSCrashMonitorType.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CBF53E5D17EB7EA80056DA83 /* KSCrashMonitor_System.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D8317EB765C0056DA83 /* KSCrashMonitor_System.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBF53E5F17EB7EA80056DA83 /* KSCrashMonitor.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D5C17EB765C0056DA83 /* KSCrashMonitor.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -473,7 +473,7 @@
 		EDF2BEC21CCF15AD004BADF4 /* KSCrash.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D1B17EB765C0056DA83 /* KSCrash.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		EDF2BEC41CCF15AD004BADF4 /* KSCrashC.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D1F17EB765C0056DA83 /* KSCrashC.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		EDF2BEC61CCF15AD004BADF4 /* KSCrashMonitor.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D5C17EB765C0056DA83 /* KSCrashMonitor.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		EDF2BEC71CCF15AD004BADF4 /* KSCrashMonitor_AppState.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D5E17EB765C0056DA83 /* KSCrashMonitor_AppState.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		EDF2BEC71CCF15AD004BADF4 /* KSCrashMonitor_AppState.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D5E17EB765C0056DA83 /* KSCrashMonitor_AppState.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		EDF2BEC81CCF15AD004BADF4 /* KSJSONCodecObjC.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D6B17EB765C0056DA83 /* KSJSONCodecObjC.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		EDF2BEC91CCF15AD004BADF4 /* KSCrashMonitorType.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D6017EB765C0056DA83 /* KSCrashMonitorType.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		EDF2BECA1CCF15AD004BADF4 /* KSCrashReportWriter.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D4D17EB765C0056DA83 /* KSCrashReportWriter.h */; settings = {ATTRIBUTES = (Public, ); }; };
