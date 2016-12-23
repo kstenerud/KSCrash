@@ -1551,6 +1551,7 @@ static void prepareReportWriter(KSCrashReportWriter* const writer, KSJSONEncodeC
     writer->addUIntegerElement = addUIntegerElement;
     writer->addStringElement = addStringElement;
     writer->addTextFileElement = addTextFileElement;
+    writer->addTextFileLinesElement = addTextLinesFromFile;
     writer->addJSONFileElement = addJSONElementFromFile;
     writer->addDataElement = addDataElement;
     writer->beginDataElement = beginDataElement;
