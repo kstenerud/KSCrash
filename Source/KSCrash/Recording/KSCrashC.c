@@ -192,4 +192,8 @@ void kscrash_reportUserException(const char* name,
                              stackTrace,
                              logAllThreads,
                              terminateProgram);
+    if(g_shouldAddConsoleLogToReport)
+    {
+        kslog_clearLogFile();
+    }
 }

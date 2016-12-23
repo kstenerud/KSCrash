@@ -258,6 +258,9 @@ void i_kslog_logCBasic(const char* fmt, ...);
  */
 bool kslog_setLogFilename(const char* filename, bool overwrite);
 
+/** Clear the log file. */
+bool kslog_clearLogFile();
+
 /** Tests if the logger would print at the specified level.
  *
  * @param LEVEL The level to test for. One of:

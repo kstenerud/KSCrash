@@ -57,6 +57,8 @@
 #define KSLOGGER_CBufferSize 1024
 #endif
 
+/** Where console logs will be written */
+static char g_logFilename[1024];
 
 /** Write a formatted string to the log.
  *
@@ -147,7 +149,8 @@ static inline void setLogFD(int fd)
 
 bool kslog_setLogFilename(const char* filename, bool overwrite)
 {
-    int fd = -1;
+    static int fd = -1;
+    int oldFd = fd;
     if(filename != NULL)
     {
         int openMask = O_WRONLY | O_CREAT;
@@ -162,7 +165,16 @@ bool kslog_setLogFilename(const char* filename, bool overwrite)
             return false;
         }
     }
+    if(filename != g_logFilename)
+    {
+        strncpy(g_logFilename, filename, sizeof(g_logFilename));
+    }
     
+    if(oldFd > 0)
+    {
+        close(oldFd);
+    }
+
     setLogFD(fd);
     return true;
 }
@@ -213,7 +225,8 @@ static inline void flushLog(void)
 
 bool kslog_setLogFilename(const char* filename, bool overwrite)
 {
-    FILE* file = NULL;
+    static FILE* file = NULL;
+    FILE* oldFile = file;
     if(filename != NULL)
     {
         file = fopen(filename, overwrite ? "wb" : "ab");
@@ -223,12 +236,26 @@ bool kslog_setLogFilename(const char* filename, bool overwrite)
             return false;
         }
     }
-    
+    if(filename != g_logFilename)
+    {
+        strncpy(g_logFilename, filename, sizeof(g_logFilename));
+    }
+
+    if(oldFile != NULL)
+    {
+        fclose(oldFile);
+    }
+
     setLogFD(file);
     return true;
 }
 
 #endif
+
+bool kslog_clearLogFile()
+{
+    return kslog_setLogFilename(g_logFilename, true);
+}
 
 
 // ===========================================================================
