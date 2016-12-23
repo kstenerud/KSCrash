@@ -1,3 +1,20 @@
+1.13.1:
+
+Replaced backtrace system with stack walkers.
+Moved more functionality into KSCrash.c.
+
+- ADDED   KSCrashReportWriter.addTextFileLinesElement()
+- ADDED   kscrash_notifyAppActive()
+- ADDED   kscrash_notifyAppInForeground()
+- ADDED   kscrash_notifyAppTerminate()
+- ADDED   kscrash_notifyAppCrash()
+- ADDED   kscrash_getReportCount()
+- ADDED   kscrash_getReportIDs()
+- ADDED   kscrash_readReport()
+- ADDED   kscrash_addUserReport()
+- ADDED   kscrash_deleteAllReports()
+
+
 1.13.0:
 
 Console logs are no longer visible when launched on a device without the debugger for some reason.
