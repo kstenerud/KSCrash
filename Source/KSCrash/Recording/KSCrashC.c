@@ -28,6 +28,7 @@
 #include "KSCrashC.h"
 
 #include "KSCrashReport.h"
+#include "KSCrashReportFixer.h"
 #include "KSCrashReportStore.h"
 #include "KSCrashMonitor_Deadlock.h"
 #include "KSCrashMonitor_User.h"
@@ -196,4 +197,69 @@ void kscrash_reportUserException(const char* name,
     {
         kslog_clearLogFile();
     }
+}
+
+void kscrash_notifyAppActive(bool isActive)
+{
+    kscrashstate_notifyAppActive(isActive);
+}
+
+void kscrash_notifyAppInForeground(bool isInForeground)
+{
+    kscrashstate_notifyAppInForeground(isInForeground);
+}
+
+void kscrash_notifyAppTerminate(void)
+{
+    kscrashstate_notifyAppTerminate();
+}
+
+void kscrash_notifyAppCrash(void)
+{
+    kscrashstate_notifyAppCrash();
+}
+
+int kscrash_getReportCount()
+{
+    return kscrs_getReportCount();
+}
+
+int kscrash_getReportIDs(int64_t* reportIDs, int count)
+{
+    return kscrs_getReportIDs(reportIDs, count);
+}
+
+char* kscrash_readReport(int64_t reportID)
+{
+    if(reportID <= 0)
+    {
+        KSLOG_ERROR("Report ID was %llx", reportID);
+        return NULL;
+    }
+
+    char* rawReport = kscrs_readReport(reportID);
+    if(rawReport == NULL)
+    {
+        KSLOG_ERROR("Failed to load report ID %llx", reportID);
+        return NULL;
+    }
+
+    char* fixedReport = kscrf_fixupCrashReport(rawReport);
+    if(fixedReport == NULL)
+    {
+        KSLOG_ERROR("Failed to fixup report ID %llx", reportID);
+    }
+
+    free(rawReport);
+    return fixedReport;
+}
+
+int64_t kscrash_addUserReport(const char* report, int reportLength)
+{
+    return kscrs_addUserReport(report, reportLength);
+}
+
+void kscrash_deleteAllReports()
+{
+    kscrs_deleteAllReports();
 }

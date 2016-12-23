@@ -167,6 +167,69 @@ void kscrash_reportUserException(const char* name,
                                  bool logAllThreads,
                                  bool terminateProgram);
 
+    
+#pragma mark -- Notifications --
+
+/** Notify the crash reporter of the application active state.
+ *
+ * @param isActive true if the application is active, otherwise false.
+ */
+void kscrash_notifyAppActive(bool isActive);
+
+/** Notify the crash reporter of the application foreground/background state.
+ *
+ * @param isInForeground true if the application is in the foreground, false if
+ *                 it is in the background.
+ */
+void kscrash_notifyAppInForeground(bool isInForeground);
+
+/** Notify the crash reporter that the application is terminating.
+ */
+void kscrash_notifyAppTerminate(void);
+
+/** Notify the crash reporter that the application has crashed.
+ */
+void kscrash_notifyAppCrash(void);
+
+    
+#pragma mark -- Reporting --
+
+/** Get the number of reports on disk.
+ */
+int kscrash_getReportCount();
+
+/** Get a list of IDs for all reports on disk.
+ *
+ * @param reportIDs An array big enough to hold all report IDs.
+ * @param count How many reports the array can hold.
+ *
+ * @return The number of report IDs that were placed in the array.
+ */
+int kscrash_getReportIDs(int64_t* reportIDs, int count);
+
+/** Read a report.
+ *
+ * @param reportID The report's ID.
+ *
+ * @return The NULL terminated report, or NULL if not found.
+ *         MEMORY MANAGEMENT WARNING: User is responsible for calling free() on the returned value.
+ */
+char* kscrash_readReport(int64_t reportID);
+
+/** Add a custom report to the store.
+ *
+ * @param report The report's contents (must be JSON encoded).
+ * @param reportLength The length of the report in bytes.
+ *
+ * @return the new report's ID.
+ */
+int64_t kscrash_addUserReport(const char* report, int reportLength);
+
+/** Delete all reports on disk.
+ */
+void kscrash_deleteAllReports();
+
+
 #ifdef __cplusplus
 }
 #endif

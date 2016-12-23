@@ -30,8 +30,6 @@
 #import "KSCrashC.h"
 #import "KSCrashDoctor.h"
 #import "KSCrashReportFields.h"
-#import "KSCrashReportFixer.h"
-#import "KSCrashReportStore.h"
 #import "KSCrashMonitor_AppState.h"
 #import "KSJSONCodecObjC.h"
 #import "NSError+SimpleConstructor.h"
@@ -312,7 +310,7 @@ static NSString* getBasePath()
          if((self.deleteBehaviorAfterSendAll == KSCDeleteOnSucess && completed) ||
             self.deleteBehaviorAfterSendAll == KSCDeleteAlways)
          {
-             kscrs_deleteAllReports();
+             kscrash_deleteAllReports();
          }
          kscrash_callCompletion(onCompletion, filteredReports, completed, error);
      }];
@@ -320,7 +318,7 @@ static NSString* getBasePath()
 
 - (void) deleteAllReports
 {
-    kscrs_deleteAllReports();
+    kscrash_deleteAllReports();
 }
 
 - (void) reportUserException:(NSString*) name
@@ -375,7 +373,7 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
 
 - (int) reportCount
 {
-    return kscrs_getReportCount();
+    return kscrash_getReportCount();
 }
 
 - (void) sendReports:(NSArray*) reports onCompletion:(KSCrashReportFilterCompletion) onCompletion
@@ -404,40 +402,12 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
 
 - (NSData*) loadCrashReportJSONWithID:(int64_t) reportID
 {
-    // Have to do this the ugly way in order to avoid use of exceptions :/
-    char* rawReport = NULL;
-    char* fixedReport = NULL;
-    NSData* jsonData = nil;
-
-    if(reportID <= 0)
+    char* report = kscrash_readReport(reportID);
+    if(report != NULL)
     {
-        KSLOG_ERROR(@"Report ID was %llx", reportID);
-        return nil;
+        return [NSData dataWithBytesNoCopy:report length:strlen(report) freeWhenDone:YES];
     }
-    rawReport = kscrs_readReport(reportID);
-    if(rawReport == NULL)
-    {
-        KSLOG_ERROR(@"Failed to load report ID %llx", reportID);
-    }
-    else
-    {
-        fixedReport = kscrf_fixupCrashReport(rawReport);
-        if(fixedReport == NULL)
-        {
-            KSLOG_ERROR(@"Failed to fixup report ID %llx", reportID);
-        }
-    }
-
-    if(fixedReport != NULL)
-    {
-        jsonData = [NSData dataWithBytesNoCopy:fixedReport length:strlen(fixedReport) freeWhenDone:YES];
-        rawReport = NULL;
-    }
-    if(rawReport != NULL)
-    {
-        free(rawReport);
-    }
-    return jsonData;
+    return nil;
 }
 
 - (void) doctorReport:(NSMutableDictionary*) report
@@ -484,9 +454,9 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
 
 - (NSArray*) allReports
 {
-    int reportCount = kscrs_getReportCount();
+    int reportCount = kscrash_getReportCount();
     int64_t reportIDs[reportCount];
-    reportCount = kscrs_getReportIDs(reportIDs, reportCount);
+    reportCount = kscrash_getReportIDs(reportIDs, reportCount);
     NSMutableArray* reports = [NSMutableArray arrayWithCapacity:(NSUInteger)reportCount];
     for(int i = 0; i < reportCount; i++)
     {
@@ -524,32 +494,32 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
 
 
 // ============================================================================
-#pragma mark - Callbacks -
+#pragma mark - Notifications -
 // ============================================================================
 
 - (void) applicationDidBecomeActive
 {
-    kscrashstate_notifyAppActive(true);
+    kscrash_notifyAppActive(true);
 }
 
 - (void) applicationWillResignActive
 {
-    kscrashstate_notifyAppActive(false);
+    kscrash_notifyAppActive(false);
 }
 
 - (void) applicationDidEnterBackground
 {
-    kscrashstate_notifyAppInForeground(false);
+    kscrash_notifyAppInForeground(false);
 }
 
 - (void) applicationWillEnterForeground
 {
-    kscrashstate_notifyAppInForeground(true);
+    kscrash_notifyAppInForeground(true);
 }
 
 - (void) applicationWillTerminate
 {
-    kscrashstate_notifyAppTerminate();
+    kscrash_notifyAppTerminate();
 }
 
 @end
