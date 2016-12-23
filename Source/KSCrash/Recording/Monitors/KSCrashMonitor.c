@@ -165,10 +165,10 @@ void kscm_setActiveMonitors(KSCrashMonitorType monitorTypes)
         if(!hasWarned)
         {
             hasWarned = true;
-            KSLOGBASIC_WARN("    *********************** Crash Handler Notice ***********************");
-            KSLOGBASIC_WARN("    *    App is running in a debugger. Masking out unsafe monitors.    *");
-            KSLOGBASIC_WARN("    * This means that most crashes WILL NOT BE CAUGHT while debugging! *");
-            KSLOGBASIC_WARN("    ********************************************************************");
+            KSLOGBASIC_WARN("    ************************ Crash Handler Notice ************************");
+            KSLOGBASIC_WARN("    *     App is running in a debugger. Masking out unsafe monitors.     *");
+            KSLOGBASIC_WARN("    * This means that most crashes WILL NOT BE RECORDED while debugging! *");
+            KSLOGBASIC_WARN("    **********************************************************************");
         }
         monitorTypes &= KSCrashMonitorTypeDebuggerSafe;
     }
