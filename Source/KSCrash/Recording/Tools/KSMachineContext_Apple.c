@@ -27,9 +27,9 @@
 #include "KSMachineContext_Apple.h"
 #include "KSMachineContext.h"
 #include "KSSystemCapabilities.h"
-#include "KSBacktrace.h"
 #include "KSCPU.h"
 #include "KSCPU_Apple.h"
+#include "KSStackCursor_MachineContext.h"
 
 #include <mach/mach.h>
 
@@ -52,8 +52,12 @@ static int g_reservedThreadsCount = 0;
 
 static inline bool isStackOverflow(const KSMachineContext* const context)
 {
-    static int stackOverflowThreshold = 200;
-    return ksbt_isBacktraceTooLong(context, stackOverflowThreshold);
+    KSStackCursor stackCursor;
+    kssc_initWithMachineContext(&stackCursor, KSSC_STACK_OVERFLOW_THRESHOLD, context);
+    while(stackCursor.advanceCursor(&stackCursor))
+    {
+    }
+    return stackCursor.isMaxDepth(&stackCursor);
 }
 
 static inline bool getThreadList(KSMachineContext* context)
@@ -110,14 +114,14 @@ bool ksmc_getContextForThread(KSThread thread, KSMachineContext* destinationCont
     destinationContext->isCurrentThread = thread == ksthread_self();
     destinationContext->isCrashedContext = isCrashedContext;
     destinationContext->isSignalContext = false;
+    if(ksmc_canHaveCPUState(destinationContext))
+    {
+        kscpu_getState(destinationContext);
+    }
     if(ksmc_isCrashedContext(destinationContext))
     {
         destinationContext->isStackOverflow = isStackOverflow(destinationContext);
         getThreadList(destinationContext);
-    }
-    if(ksmc_canHaveCPUState(destinationContext))
-    {
-        kscpu_getState(destinationContext);
     }
     KSLOG_TRACE("Context retrieved.");
     return true;

@@ -27,7 +27,6 @@
 
 #include "KSCrashReport.h"
 
-#include "KSBacktrace.h"
 #include "KSCrashReportFields.h"
 #include "KSCrashReportWriter.h"
 #include "KSDynamicLinker.h"
@@ -42,6 +41,8 @@
 #include "KSCrashMonitor_Zombie.h"
 #include "KSString.h"
 #include "KSCrashReportVersion.h"
+#include "KSStackCursor_Backtrace.h"
+#include "KSStackCursor_MachineContext.h"
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
@@ -50,11 +51,8 @@
 #include <fcntl.h>
 #include <pthread.h>
 #include <stdio.h>
-#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
-#include <time.h>
 #include <unistd.h>
 
 
@@ -62,15 +60,8 @@
 #pragma mark - Constants -
 // ============================================================================
 
-/** Maximum depth allowed for a backtrace. */
-#define kMaxBacktraceDepth 150
-
 /** Default number of objects, subobjects, and ivars to record from a memory loc */
 #define kDefaultMemorySearchDepth 15
-
-/** Maximum number of lines to print when printing a stack trace to the console.
- */
-#define kMaxStackTracePrintLines 40
 
 /** How far to search the stack (in pointer sized jumps) for notable data. */
 #define kStackNotableSearchBackDistance 20
@@ -398,50 +389,27 @@ static bool isValidString(const void* const address)
  *
  * @param machineContext The machine context.
  *
- * @param backtraceBuffer A place to store the backtrace, if needed.
+ * @param cursor The stack cursor to fill.
  *
- * @param backtraceLength In: The length of backtraceBuffer.
- *                        Out: The length of the backtrace.
- *
- * @param skippedEntries Out: The number of entries that were skipped due to
- *                             stack overflow.
- *
- * @return The backtrace, or NULL if not found.
+ * @return True if the cursor was filled.
  */
-static uintptr_t* getBacktrace(const KSCrash_MonitorContext* const crash,
-                               const struct KSMachineContext* const machineContext,
-                               uintptr_t* const backtraceBuffer,
-                               int* const backtraceLength,
-                               int* const skippedEntries)
+static bool getStackCursor(const KSCrash_MonitorContext* const crash,
+                           const struct KSMachineContext* const machineContext,
+                           KSStackCursor *cursor)
 {
+    kssc_initCursor(cursor, 0, 0);
     if(ksmc_canHaveCustomStackTrace(machineContext) && crash->stackTrace != NULL && crash->stackTraceLength > 0)
     {
-        *backtraceLength = crash->stackTraceLength;
-        if(skippedEntries != NULL)
-        {
-            *skippedEntries = 0;
-        }
-        return crash->stackTrace;
+        kssc_initWithBacktrace(cursor, KSSC_STACK_OVERFLOW_THRESHOLD, crash->stackTrace, crash->stackTraceLength);
+        return true;
     }
 
     if(ksmc_canHaveNormalStackTrace(machineContext))
     {
-        int actualSkippedEntries = 0;
-        int actualLength = ksbt_backtraceLength(machineContext);
-        if(actualLength > *backtraceLength)
-        {
-            actualSkippedEntries = actualLength - *backtraceLength;
-        }
-        
-        *backtraceLength = ksbt_backtrace(machineContext, backtraceBuffer, actualSkippedEntries, *backtraceLength);
-        if(skippedEntries != NULL)
-        {
-            *skippedEntries = actualSkippedEntries;
-        }
-        return backtraceBuffer;
+        kssc_initWithMachineContext(cursor, KSSC_STACK_OVERFLOW_THRESHOLD, machineContext);
+        return true;
     }
-
-    return NULL;
+    return false;
 }
 
 
@@ -886,78 +854,52 @@ static void writeAddressReferencedByString(const KSCrashReportWriter* const writ
 
 #pragma mark Backtrace
 
-/** Write a backtrace entry to the report.
- *
- * @param writer The writer.
- *
- * @param key The object key, if needed.
- *
- * @param address The memory address.
- *
- * @param info Information about the nearest symbols to the address.
- */
-static void writeBacktraceEntry(const KSCrashReportWriter* const writer,
-                                const char* const key,
-                                const uintptr_t address,
-                                const Dl_info* const info)
-{
-    writer->beginObject(writer, key);
-    {
-        if(info->dli_fname != NULL)
-        {
-            writer->addStringElement(writer, KSCrashField_ObjectName, ksfu_lastPathEntry(info->dli_fname));
-        }
-        writer->addUIntegerElement(writer, KSCrashField_ObjectAddr, (uintptr_t)info->dli_fbase);
-        if(info->dli_sname != NULL)
-        {
-            const char* sname = info->dli_sname;
-            writer->addStringElement(writer, KSCrashField_SymbolName, sname);
-        }
-        writer->addUIntegerElement(writer, KSCrashField_SymbolAddr, (uintptr_t)info->dli_saddr);
-        writer->addUIntegerElement(writer, KSCrashField_InstructionAddr, address);
-    }
-    writer->endContainer(writer);
-}
-
 /** Write a backtrace to the report.
  *
  * @param writer The writer to write the backtrace to.
  *
  * @param key The object key, if needed.
  *
- * @param backtrace The backtrace to write.
- *
- * @param backtraceLength Length of the backtrace.
- *
- * @param skippedEntries The number of entries that were skipped before the
- *                       beginning of backtrace.
+ * @param stackCursor The stack cursor to read from.
  */
 static void writeBacktrace(const KSCrashReportWriter* const writer,
                            const char* const key,
-                           const uintptr_t* const backtrace,
-                           const int backtraceLength,
-                           const int skippedEntries)
+                           KSStackCursor* stackCursor)
 {
     writer->beginObject(writer, key);
     {
         writer->beginArray(writer, KSCrashField_Contents);
         {
-            if(backtraceLength > 0)
+            while(!stackCursor->isMaxDepth(stackCursor))
             {
-                Dl_info symbolicated[backtraceLength];
-                ksbt_symbolicate(backtrace, symbolicated, backtraceLength, skippedEntries);
-
-                for(int i = 0; i < backtraceLength; i++)
+                stackCursor->symbolicate(stackCursor);
+                writer->beginObject(writer, NULL);
                 {
-                    writeBacktraceEntry(writer, NULL, backtrace[i], &symbolicated[i]);
+                    if(stackCursor->stackEntry.imageName != NULL)
+                    {
+                        writer->addStringElement(writer, KSCrashField_ObjectName, ksfu_lastPathEntry(stackCursor->stackEntry.imageName));
+                    }
+                    writer->addUIntegerElement(writer, KSCrashField_ObjectAddr, stackCursor->stackEntry.imageAddress);
+                    if(stackCursor->stackEntry.symbolName != NULL)
+                    {
+                        writer->addStringElement(writer, KSCrashField_SymbolName, stackCursor->stackEntry.symbolName);
+                    }
+                    writer->addUIntegerElement(writer, KSCrashField_SymbolAddr, stackCursor->stackEntry.symbolAddress);
+                    writer->addUIntegerElement(writer, KSCrashField_InstructionAddr, stackCursor->stackEntry.address);
+                }
+                writer->endContainer(writer);
+                if(!stackCursor->advanceCursor(stackCursor))
+                {
+                    break;
                 }
             }
         }
         writer->endContainer(writer);
-        writer->addIntegerElement(writer, KSCrashField_Skipped, skippedEntries);
+        writer->addIntegerElement(writer, KSCrashField_Skipped, 0);
     }
     writer->endContainer(writer);
 }
+                              
 
 #pragma mark Stack
 
@@ -1219,24 +1161,18 @@ static void writeThread(const KSCrashReportWriter* const writer,
                         const bool searchQueueNames)
 {
     bool isCrashedThread = ksmc_isCrashedContext(machineContext);
-    KSLOG_DEBUG("Writing thread %d. is crashed: %d", threadIndex, isCrashedThread);
     char nameBuffer[128];
-    uintptr_t backtraceBuffer[kMaxBacktraceDepth];
-    int backtraceLength = sizeof(backtraceBuffer) / sizeof(*backtraceBuffer);
-    int skippedEntries = 0;
     KSThread thread = ksmc_getThreadFromContext(machineContext);
+    KSLOG_DEBUG("Writing thread %x (index %d). is crashed: %d", thread, threadIndex, isCrashedThread);
 
-    uintptr_t* backtrace = getBacktrace(crash,
-                                        machineContext,
-                                        backtraceBuffer,
-                                        &backtraceLength,
-                                        &skippedEntries);
+    KSStackCursor stackCursor;
+    bool hasBacktrace = getStackCursor(crash, machineContext, &stackCursor);
 
     writer->beginObject(writer, key);
     {
-        if(backtrace != NULL)
+        if(hasBacktrace)
         {
-            writeBacktrace(writer, KSCrashField_Backtrace, backtrace, backtraceLength, skippedEntries);
+            writeBacktrace(writer, KSCrashField_Backtrace, &stackCursor);
         }
         if(ksmc_canHaveCPUState(machineContext))
         {
@@ -1261,7 +1197,7 @@ static void writeThread(const KSCrashReportWriter* const writer,
         writer->addBooleanElement(writer, KSCrashField_CurrentThread, thread == ksthread_self());
         if(isCrashedThread)
         {
-            writeStackContents(writer, KSCrashField_Stack, machineContext, skippedEntries > 0);
+            writeStackContents(writer, KSCrashField_Stack, machineContext, stackCursor.isMaxDepth(&stackCursor));
             if(shouldWriteNotableAddresses)
             {
                 writeNotableAddresses(writer, KSCrashField_NotableAddresses, machineContext);
