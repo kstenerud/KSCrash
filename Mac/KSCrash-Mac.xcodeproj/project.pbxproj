@@ -1814,10 +1814,12 @@
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
 				FRAMEWORK_VERSION = A;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "KSCrash/KSCrash-Prefix.pch";
 				INFOPLIST_FILE = "KSCrash/KSCrash-Info.plist";
+				LD_DYLIB_INSTALL_NAME = "@rpath/$(EXECUTABLE_PATH)";
 				MODULEMAP_FILE = ../Source/Framework/module.modulemap;
 				PRODUCT_BUNDLE_IDENTIFIER = "org.stenerud.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = KSCrash;
@@ -1833,10 +1835,12 @@
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
 				FRAMEWORK_VERSION = A;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "KSCrash/KSCrash-Prefix.pch";
 				INFOPLIST_FILE = "KSCrash/KSCrash-Info.plist";
+				LD_DYLIB_INSTALL_NAME = "@rpath/$(EXECUTABLE_PATH)";
 				MODULEMAP_FILE = ../Source/Framework/module.modulemap;
 				PRODUCT_BUNDLE_IDENTIFIER = "org.stenerud.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = KSCrash;
