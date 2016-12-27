@@ -207,6 +207,8 @@ typedef enum
 /** The total number of unsent reports. Note: This is an expensive operation. */
 @property(nonatomic,readonly,assign) int reportCount;
 
+/** Information about the operating system and environment */
+@property(nonatomic,readonly,strong) NSDictionary* systemInfo;
 
 #pragma mark - API -
 

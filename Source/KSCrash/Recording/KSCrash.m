@@ -33,6 +33,8 @@
 #import "KSCrashMonitor_AppState.h"
 #import "KSJSONCodecObjC.h"
 #import "NSError+SimpleConstructor.h"
+#import "KSCrashMonitorContext.h"
+#import "KSCrashMonitor_System.h"
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -236,6 +238,49 @@ static NSString* getBasePath()
         }
         kscrash_setDoNotIntrospectClasses(classes, (int)count);
     }
+}
+
+- (NSDictionary*) systemInfo
+{
+    KSCrash_MonitorContext fakeEvent;
+    kscm_system_getAPI()->addContextualInfoToEvent(&fakeEvent);
+    NSMutableDictionary* dict = [NSMutableDictionary new];
+
+#define COPY_STRING(A) if (fakeEvent.System.A) dict[@#A] = [NSString stringWithUTF8String:fakeEvent.System.A]
+#define COPY_PRIMITIVE(A) dict[@#A] = @(fakeEvent.System.A)
+    COPY_STRING(systemName);
+    COPY_STRING(systemVersion);
+    COPY_STRING(machine);
+    COPY_STRING(model);
+    COPY_STRING(kernelVersion);
+    COPY_STRING(osVersion);
+    COPY_PRIMITIVE(isJailbroken);
+    COPY_STRING(bootTime);
+    COPY_STRING(appStartTime);
+    COPY_STRING(executablePath);
+    COPY_STRING(executableName);
+    COPY_STRING(bundleID);
+    COPY_STRING(bundleName);
+    COPY_STRING(bundleVersion);
+    COPY_STRING(bundleShortVersion);
+    COPY_STRING(appID);
+    COPY_STRING(cpuArchitecture);
+    COPY_PRIMITIVE(cpuType);
+    COPY_PRIMITIVE(cpuSubType);
+    COPY_PRIMITIVE(binaryCPUType);
+    COPY_PRIMITIVE(binaryCPUSubType);
+    COPY_STRING(timezone);
+    COPY_STRING(processName);
+    COPY_PRIMITIVE(processID);
+    COPY_PRIMITIVE(parentProcessID);
+    COPY_STRING(deviceAppHash);
+    COPY_STRING(buildType);
+    COPY_PRIMITIVE(storageSize);
+    COPY_PRIMITIVE(memorySize);
+    COPY_PRIMITIVE(freeMemory);
+    COPY_PRIMITIVE(usableMemory);
+
+    return dict;
 }
 
 - (BOOL) install
