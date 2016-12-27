@@ -1,3 +1,9 @@
+1.13.3:
+
+Fixed bad dynamic library reference in the Mac project file.
+
+- ADDED   KSCrash.systemInfo
+
 1.13.1:
 
 Replaced backtrace system with stack walkers.
