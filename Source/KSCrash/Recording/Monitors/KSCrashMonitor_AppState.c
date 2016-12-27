@@ -456,7 +456,7 @@ static bool isEnabled()
 }
 
 
-static void notifyExceptionEvent(KSCrash_MonitorContext* eventContext)
+static void addContextualInfoToEvent(KSCrash_MonitorContext* eventContext)
 {
     if(g_isEnabled)
     {
@@ -481,7 +481,7 @@ KSCrashMonitorAPI* kscm_appstate_getAPI()
     {
         .setEnabled = setEnabled,
         .isEnabled = isEnabled,
-        .notifyExceptionEvent = notifyExceptionEvent
+        .addContextualInfoToEvent = addContextualInfoToEvent
     };
     return &api;
 }

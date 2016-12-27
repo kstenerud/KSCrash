@@ -564,7 +564,7 @@ static bool isEnabled()
     return g_isEnabled;
 }
 
-static void notifyExceptionEvent(struct KSCrash_MonitorContext* eventContext)
+static void addContextualInfoToEvent(struct KSCrash_MonitorContext* eventContext)
 {
     if(eventContext->crashType == KSCrashMonitorTypeSignal)
     {
@@ -585,7 +585,7 @@ KSCrashMonitorAPI* kscm_machexception_getAPI()
 #if KSCRASH_HAS_MACH
         .setEnabled = setEnabled,
         .isEnabled = isEnabled,
-        .notifyExceptionEvent = notifyExceptionEvent
+        .addContextualInfoToEvent = addContextualInfoToEvent
 #endif
     };
     return &api;

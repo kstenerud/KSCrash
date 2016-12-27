@@ -143,12 +143,12 @@ static inline bool isMonitorEnabled(Monitor* monitor)
     return false;
 }
 
-static inline void notifyExceptionEvent(Monitor* monitor, struct KSCrash_MonitorContext* eventContext)
+static inline void addContextualInfoToEvent(Monitor* monitor, struct KSCrash_MonitorContext* eventContext)
 {
     KSCrashMonitorAPI* api = getAPI(monitor);
-    if(api != NULL && api->notifyExceptionEvent != NULL)
+    if(api != NULL && api->addContextualInfoToEvent != NULL)
     {
-        api->notifyExceptionEvent(eventContext);
+        api->addContextualInfoToEvent(eventContext);
     }
 }
 
@@ -238,7 +238,7 @@ void kscm_handleException(struct KSCrash_MonitorContext* context)
         Monitor* monitor = &g_monitors[i];
         if(isMonitorEnabled(monitor))
         {
-            notifyExceptionEvent(monitor, context);
+            addContextualInfoToEvent(monitor, context);
         }
     }
 
