@@ -521,7 +521,7 @@ typedef enum
         {
             NSDictionary* exception = [errorReport objectForKey:@KSCrashField_NSException];
             NSString* name = [exception objectForKey:@KSCrashField_Name];
-            NSString* reason = [exception objectForKey:@KSCrashField_Reason];
+            NSString* reason = [exception objectForKey:@KSCrashField_Reason]? [exception objectForKey:@KSCrashField_Reason]:[errorReport objectForKey:@KSCrashField_Reason];
             return [self appendOriginatingCall:[NSString stringWithFormat:@"Application threw exception %@: %@",
                                                 name, reason]
                                       callName:lastFunctionName];
