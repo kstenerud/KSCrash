@@ -39,7 +39,9 @@
 
 
 static const int g_maxReports = 5;
-static _Atomic(int64_t) g_nextUniqueID;
+// Have to use max 32-bit atomics because of MIPS.
+static _Atomic(uint32_t) g_nextUniqueIDLow;
+static int64_t g_nextUniqueIDHigh;
 static const char* g_appName;
 static const char* g_reportsPath;
 static pthread_mutex_t g_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -58,6 +60,10 @@ static int compareInt64(const void* a, const void* b)
     return 0;
 }
 
+static inline int64_t getNextUniqueID()
+{
+    return g_nextUniqueIDHigh + g_nextUniqueIDLow++;
+}
 
 static void getCrashReportPathByID(int64_t id, char* pathBuffer)
 {
@@ -159,14 +165,15 @@ static void initializeIDs()
     time(&rawTime);
     struct tm time;
     gmtime_r(&rawTime, &time);
-    int64_t baseID = (int64_t)time.tm_sec
-                     + (int64_t)time.tm_min * 61
-                     + (int64_t)time.tm_hour * 61 * 60
-                     + (int64_t)time.tm_yday * 61 * 60 * 24
-                     + (int64_t)time.tm_year * 61 * 60 * 24 * 366;
+    int64_t baseID = (uint64_t)time.tm_sec
+                   + (uint64_t)time.tm_min * 61
+                   + (uint64_t)time.tm_hour * 61 * 60
+                   + (uint64_t)time.tm_yday * 61 * 60 * 24
+                   + (uint64_t)time.tm_year * 61 * 60 * 24 * 366;
     baseID <<= 23;
 
-    g_nextUniqueID = baseID;
+    g_nextUniqueIDHigh = baseID & ~0xffffffff;
+    g_nextUniqueIDLow = (uint32_t)(baseID & 0xffffffff);
 }
 
 
@@ -185,8 +192,7 @@ void kscrs_initialize(const char* appName, const char* reportsPath)
 
 void kscrs_getNextCrashReportPath(char* crashReportPathBuffer)
 {
-    int64_t currentID = g_nextUniqueID++;
-    getCrashReportPathByID(currentID, crashReportPathBuffer);
+    getCrashReportPathByID(getNextUniqueID(), crashReportPathBuffer);
 }
 
 int kscrs_getReportCount()
@@ -219,7 +225,7 @@ char* kscrs_readReport(int64_t reportID)
 int64_t kscrs_addUserReport(const char* report, int reportLength)
 {
     pthread_mutex_lock(&g_mutex);
-    int64_t currentID = g_nextUniqueID++;
+    int64_t currentID = getNextUniqueID();
     char crashReportPath[KSCRS_MAX_PATH_LENGTH];
     getCrashReportPathByID(currentID, crashReportPath);
 
