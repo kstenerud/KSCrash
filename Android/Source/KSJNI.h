@@ -1,7 +1,7 @@
 //
-// KSDate.h
+//  KSJNI.h
 //
-// Copyright 2016 Karl Stenerud.
+//  Copyright (c) 2016 Karl Stenerud. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,26 +22,23 @@
 // THE SOFTWARE.
 //
 
-#ifndef KSDate_h
-#define KSDate_h
+#ifndef HDR_KSJNI_h
+#define HDR_KSJNI_h
+
+#include <jni.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 
-#include <sys/types.h>
+void ksjni_init(JNIEnv* jniEnv);
 
-/** Convert a UNIX timestamp to an RFC3339 string representation.
- *
- * @param timestamp The date to convert.
- *
- * @param buffer21Chars A buffer of at least 21 chars to hold the RFC3339 date string.
- */
-void ksdate_utcStringFromTimestamp(time_t timestamp, char* buffer21Chars);
+JNIEnv* ksjni_getEnv();
+
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* KSDate_h */
+#endif // HDR_KSJNI_h

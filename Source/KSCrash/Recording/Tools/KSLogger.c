@@ -26,6 +26,7 @@
 
 
 #include "KSLogger.h"
+#include "KSSystemCapabilities.h"
 
 // ===========================================================================
 #pragma mark - Common -
@@ -286,6 +287,7 @@ void i_kslog_logC(const char* const level,
 #pragma mark - Objective-C -
 // ===========================================================================
 
+#if KSCRASH_HAS_OBJC
 #include <CoreFoundation/CoreFoundation.h>
 
 void i_kslog_logObjCBasic(CFStringRef fmt, ...)
@@ -343,3 +345,4 @@ void i_kslog_logObjC(const char* const level,
     }
     CFRelease(logFmt);
 }
+#endif // KSCRASH_HAS_OBJC
