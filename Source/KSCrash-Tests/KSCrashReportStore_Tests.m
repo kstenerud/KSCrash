@@ -190,7 +190,8 @@
 
 - (void) testPruneReports
 {
-    int reportStorePrunesTo = 5;
+    int reportStorePrunesTo = 7;
+    kscrs_setMaxReportCount(reportStorePrunesTo);
     [self prepareReportStoreWithPathEnd:@"testDeleteAllReports"];
     int64_t prunedReportID = [self writeUserReportWithStringContents:@"u1"];
     [self writeCrashReportWithStringContents:@"c1"];
@@ -198,7 +199,9 @@
     [self writeCrashReportWithStringContents:@"c2"];
     [self writeCrashReportWithStringContents:@"c3"];
     [self writeUserReportWithStringContents:@"u3"];
-    [self expectHasReportCount:6];
+    [self writeCrashReportWithStringContents:@"c4"];
+    [self writeCrashReportWithStringContents:@"c5"];
+    [self expectHasReportCount:8];
     // Calls kscrs_initialize() again, which prunes the reports.
     [self prepareReportStoreWithPathEnd:@"testDeleteAllReports"];
     [self expectHasReportCount:reportStorePrunesTo];

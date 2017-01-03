@@ -137,6 +137,12 @@ void kscrash_setCrashNotifyCallback(const KSReportWriteCallback onCrashNotify);
  */
 void kscrash_setAddConsoleLogToReport(bool shouldAddConsoleLogToReport);
 
+/** Set the maximum number of reports allowed on disk before old ones get deleted.
+ *
+ * @param maxReportCount The maximum number of reports.
+ */
+void kscrash_setMaxReportCount(int maxReportCount);
+
 /** Report a custom, user defined exception.
  * This can be useful when dealing with scripting languages.
  *

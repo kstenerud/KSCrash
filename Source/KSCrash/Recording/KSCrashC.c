@@ -178,6 +178,11 @@ void kscrash_setAddConsoleLogToReport(bool shouldAddConsoleLogToReport)
     g_shouldAddConsoleLogToReport = shouldAddConsoleLogToReport;
 }
 
+void kscrash_setMaxReportCount(int maxReportCount)
+{
+    kscrs_setMaxReportCount(maxReportCount);
+}
+
 void kscrash_reportUserException(const char* name,
                                  const char* reason,
                                  const char* language,

@@ -108,6 +108,7 @@ static NSString* getBasePath()
 @synthesize doNotIntrospectClasses = _doNotIntrospectClasses;
 @synthesize demangleLanguages = _demangleLanguages;
 @synthesize addConsoleLogToReport = _addConsoleLogToReport;
+@synthesize maxReportCount = _maxReportCount;
 
 
 // ============================================================================
@@ -141,6 +142,7 @@ static NSString* getBasePath()
         self.searchQueueNames = NO;
         self.introspectMemory = YES;
         self.catchZombies = NO;
+        self.maxReportCount = 5;
         self.monitoring = KSCrashMonitorTypeProductionSafeMinimal;
     }
     return self;
@@ -238,6 +240,12 @@ static NSString* getBasePath()
         }
         kscrash_setDoNotIntrospectClasses(classes, (int)count);
     }
+}
+
+- (void) setMaxReportCount:(int)maxReportCount
+{
+    _maxReportCount = maxReportCount;
+    kscrash_setMaxReportCount(maxReportCount);
 }
 
 - (NSDictionary*) systemInfo

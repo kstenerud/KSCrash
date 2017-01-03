@@ -150,6 +150,12 @@ typedef enum
  */
 @property(nonatomic,readwrite,retain) NSArray* doNotIntrospectClasses;
 
+/** The maximum number of reports allowed on disk before old ones get deleted.
+ *
+ * Default: 5
+ */
+@property(nonatomic,readwrite,assign) int maxReportCount;
+
 /** The report sink where reports get sent.
  * This MUST be set or else the reporter will not send reports (although it will
  * still record them).

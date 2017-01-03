@@ -38,7 +38,7 @@
 #include <unistd.h>
 
 
-static const int g_maxReports = 5;
+static int g_maxReportCount = 5;
 // Have to use max 32-bit atomics because of MIPS.
 static _Atomic(uint32_t) g_nextUniqueIDLow;
 static int64_t g_nextUniqueIDHigh;
@@ -147,12 +147,12 @@ done:
 static void pruneReports()
 {
     int reportCount = getReportCount();
-    if(reportCount > g_maxReports)
+    if(reportCount > g_maxReportCount)
     {
         int64_t reportIDs[reportCount];
         reportCount = getReportIDs(reportIDs, reportCount);
         
-        for(int i = 0; i < reportCount - g_maxReports; i++)
+        for(int i = 0; i < reportCount - g_maxReportCount; i++)
         {
             deleteReportWithID(reportIDs[i]);
         }
@@ -165,11 +165,11 @@ static void initializeIDs()
     time(&rawTime);
     struct tm time;
     gmtime_r(&rawTime, &time);
-    int64_t baseID = (uint64_t)time.tm_sec
-                   + (uint64_t)time.tm_min * 61
-                   + (uint64_t)time.tm_hour * 61 * 60
-                   + (uint64_t)time.tm_yday * 61 * 60 * 24
-                   + (uint64_t)time.tm_year * 61 * 60 * 24 * 366;
+    int64_t baseID = (int64_t)time.tm_sec
+                   + (int64_t)time.tm_min * 61
+                   + (int64_t)time.tm_hour * 61 * 60
+                   + (int64_t)time.tm_yday * 61 * 60 * 24
+                   + (int64_t)time.tm_year * 61 * 60 * 24 * 366;
     baseID <<= 23;
 
     g_nextUniqueIDHigh = baseID & ~0xffffffff;
@@ -262,4 +262,9 @@ void kscrs_deleteAllReports()
     pthread_mutex_lock(&g_mutex);
     ksfu_deleteContentsOfPath(g_reportsPath);
     pthread_mutex_unlock(&g_mutex);
+}
+
+void kscrs_setMaxReportCount(int maxReportCount)
+{
+    g_maxReportCount = maxReportCount;
 }
