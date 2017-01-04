@@ -35,7 +35,7 @@
 
 - (void) main
 {
-    self.thread = ksthread_self();
+    self.thread = (thread_t)ksthread_self();
     while(!self.isCancelled)
     {
         [[self class] sleepForTimeInterval:0.1];
