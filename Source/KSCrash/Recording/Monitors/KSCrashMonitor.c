@@ -72,10 +72,7 @@ static Monitor g_monitors[] =
         .getAPI = kscm_signal_getAPI,
     },
 #endif
-    {
-        .monitorType = KSCrashMonitorTypeCPPException,
-        .getAPI = kscm_cppexception_getAPI,
-    },
+#if KSCRASH_HAS_OBJC
     {
         .monitorType = KSCrashMonitorTypeNSException,
         .getAPI = kscm_nsexception_getAPI,
@@ -83,6 +80,15 @@ static Monitor g_monitors[] =
     {
         .monitorType = KSCrashMonitorTypeMainThreadDeadlock,
         .getAPI = kscm_deadlock_getAPI,
+    },
+    {
+        .monitorType = KSCrashMonitorTypeZombie,
+        .getAPI = kscm_zombie_getAPI,
+    },
+#endif
+    {
+        .monitorType = KSCrashMonitorTypeCPPException,
+        .getAPI = kscm_cppexception_getAPI,
     },
     {
         .monitorType = KSCrashMonitorTypeUserReported,
@@ -95,10 +101,6 @@ static Monitor g_monitors[] =
     {
         .monitorType = KSCrashMonitorTypeApplicationState,
         .getAPI = kscm_appstate_getAPI,
-    },
-    {
-        .monitorType = KSCrashMonitorTypeZombie,
-        .getAPI = kscm_zombie_getAPI,
     },
 };
 static int g_monitorsCount = sizeof(g_monitors) / sizeof(*g_monitors);
