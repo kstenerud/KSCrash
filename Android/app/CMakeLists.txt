@@ -10,7 +10,8 @@ cmake_minimum_required(VERSION 3.4.1)
 # Gradle automatically packages shared libraries with your APK.
 
 include_directories(${CMAKE_SOURCE_DIR}/../Source)
-include_directories(${CMAKE_SOURCE_DIR}/../Source/Tools)
+include_directories(${CMAKE_SOURCE_DIR}/../Source/monitors)
+include_directories(${CMAKE_SOURCE_DIR}/../Source/tools)
 include_directories(${CMAKE_SOURCE_DIR}/../../Source/KSCrash)
 include_directories(${CMAKE_SOURCE_DIR}/../../Source/KSCrash/Recording)
 include_directories(${CMAKE_SOURCE_DIR}/../../Source/KSCrash/Recording/Monitors)
