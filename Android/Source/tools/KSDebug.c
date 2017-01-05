@@ -43,9 +43,11 @@
  */
 bool ksdebug_isBeingTraced(void)
 {
-    int fd = open("/proc/self/status", O_RDONLY);
+    const char* filename = "/proc/self/status";
+    int fd = open(filename, O_RDONLY);
     if(fd < 0)
     {
+        KSLOG_ERROR("Error opening %s: %s", filename, strerror(errno));
         return false;
     }
 
@@ -54,6 +56,7 @@ bool ksdebug_isBeingTraced(void)
     close(fd);
     if(bytesRead <= 0)
     {
+        KSLOG_ERROR("Error reading %s: %s", filename, strerror(errno));
         return false;
     }
 
