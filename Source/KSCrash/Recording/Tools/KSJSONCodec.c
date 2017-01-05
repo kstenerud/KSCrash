@@ -30,6 +30,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -359,7 +360,7 @@ int ksjson_addIntegerElement(KSJSONEncodeContext* const context,
         return result;
     }
     char buff[30];
-    sprintf(buff, "%lld", value);
+    sprintf(buff, "%" PRId64, value);
     return addJSONData(context, buff, (int)strlen(buff));
 }
 
