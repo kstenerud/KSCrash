@@ -1,8 +1,8 @@
 1.14.0:
 
-More underlying changes to support the Android port. These shouldn't alter the outside observed behavior.
+VERY minimal, experimental Android support. Don't expect much from this yet.
 
-Added new monitor mode KSCrashMonitorTypeManual, which disables all automatic crash reporting.
+Added new monitor mode KSCrashMonitorTypeManual, which effectively disables any automatic crash reporting.
 
 
 1.13.3:
