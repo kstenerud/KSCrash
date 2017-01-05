@@ -121,6 +121,16 @@ typedef enum
 /** Production safe monitors, minus the optional ones. */
 #define KSCrashMonitorTypeProductionSafeMinimal (KSCrashMonitorTypeProductionSafe & (~KSCrashMonitorTypeOptional))
 
+/** Monitors that are required for proper operation.
+ * These add essential information to the reports, but do not trigger reporting.
+ */
+#define KSCrashMonitorTypeRequired (KSCrashMonitorTypeSystem | KSCrashMonitorTypeApplicationState)
+
+/** Effectively disables automatica reporting. The only way to generate a report
+ * in this mode is by manually calling kscrash_reportUserException().
+ */
+#define KSCrashMonitorTypeManual (KSCrashMonitorTypeRequired | KSCrashMonitorTypeUserReported)
+
 #define KSCrashMonitorTypeNone 0
 
 const char* kscrashmonitortype_name(KSCrashMonitorType monitorType);
