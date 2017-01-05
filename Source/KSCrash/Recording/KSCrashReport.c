@@ -1371,7 +1371,7 @@ static void writeError(const KSCrashReportWriter* const writer,
 {
     writer->beginObject(writer, key);
     {
-#if KSCRASH_HAS_MACH
+#if KSCRASH_HOST_APPLE
         writer->beginObject(writer, KSCrashField_Mach);
         {
             const char* machExceptionName = ksmach_exceptionName(crash->mach.type);
