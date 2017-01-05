@@ -33,6 +33,8 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <stdlib.h>
 
 
 /** Check if the current process is being traced or not.
@@ -41,6 +43,28 @@
  */
 bool ksdebug_isBeingTraced(void)
 {
-	// TODO
-	return false;
+    int fd = open("/proc/self/status", O_RDONLY);
+    if(fd < 0)
+    {
+        return false;
+    }
+
+    char buffer[1000];
+    int bytesRead = read(fd, buffer, sizeof(buffer) - 1);
+    close(fd);
+    if(bytesRead <= 0)
+    {
+        return false;
+    }
+
+    buffer[bytesRead] = 0;
+    const char tracerPidText[] = "TracerPid:";
+    const char* tracerPointer = strstr(buffer, tracerPidText);
+    if(tracerPointer == NULL)
+    {
+        return false;
+    }
+
+    tracerPointer += sizeof(tracerPidText);
+    return atoi(tracerPointer) > 0;
 }
