@@ -24,16 +24,18 @@
 // THE SOFTWARE.
 //
 
+#include "KSCrashMonitor_System.h"
 
-#import "KSCrashMonitor_System.h"
-
-#import "KSCrashMonitorContext.h"
-#import "KSDate.h"
-#import "KSSysCtl.h"
-#import "KSSystemCapabilities.h"
+#include "KSCrashMonitorContext.h"
+#include "KSDate.h"
+#include "KSSystemCapabilities.h"
+#include <sys/types.h>
+#include <stdbool.h>
+#include <memory.h>
+#include <time.h>
 
 //#define KSLogger_LocalLevel TRACE
-#import "KSLogger.h"
+#include "KSLogger.h"
 
 
 typedef struct
@@ -78,47 +80,11 @@ static volatile bool g_isEnabled = false;
 #pragma mark - Utility -
 // ============================================================================
 
-/** Get a sysctl value as a null terminated string.
- *
- * @param name The sysctl name.
- *
- * @return The result of the sysctl call.
- */
-static const char* stringSysctl(const char* name)
-{
-    int size = (int)kssysctl_stringForName(name, NULL, 0);
-    if(size <= 0)
-    {
-        return NULL;
-    }
-
-    char* value = malloc((size_t)size);
-    if(kssysctl_stringForName(name, value, size) <= 0)
-    {
-        free(value);
-        return NULL;
-    }
-    
-    return value;
-}
-
 static const char* dateString(time_t date)
 {
     char* buffer = malloc(21);
     ksdate_utcStringFromTimestamp(date, buffer);
     return buffer;
-}
-
-/** Get a sysctl value as an NSDate.
- *
- * @param name The sysctl name.
- *
- * @return The result of the sysctl call.
- */
-static const char* dateSysctl(const char* name)
-{
-    struct timeval value = kssysctl_timevalForName(name);
-    return dateString(value.tv_sec);
 }
 
 /** Check if the current build is a debug build.
@@ -128,9 +94,9 @@ static const char* dateSysctl(const char* name)
 static bool isDebugBuild()
 {
 #ifdef DEBUG
-    return YES;
+    return true;
 #else
-    return NO;
+    return false;
 #endif
 }
 
@@ -147,6 +113,7 @@ static void initialize()
         isInitialized = true;
 
         g_systemData.appStartTime = dateString(time(NULL));
+        // TODO: The rest.
     }
 }
 

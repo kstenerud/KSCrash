@@ -28,6 +28,7 @@ add_library( # Sets the name of the library.
              # file are automatically included.
              ${CMAKE_SOURCE_DIR}/../Source/kscrash-lib.cpp
              ${CMAKE_SOURCE_DIR}/../Source/KSJNI.cpp
+             ${CMAKE_SOURCE_DIR}/../Source/monitors/KSCrashMonitor_System.c
              ${CMAKE_SOURCE_DIR}/../Source/tools/KSID.cpp
              ${CMAKE_SOURCE_DIR}/../Source/tools/KSStackCursor_SelfThread.c
              ${CMAKE_SOURCE_DIR}/../Source/tools/KSSymbolicator.c
