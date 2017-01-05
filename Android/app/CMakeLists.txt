@@ -29,13 +29,19 @@ add_library( # Sets the name of the library.
              ${CMAKE_SOURCE_DIR}/../Source/kscrash-lib.cpp
              ${CMAKE_SOURCE_DIR}/../Source/KSJNI.cpp
              ${CMAKE_SOURCE_DIR}/../Source/monitors/KSCrashMonitor_System.c
+             ${CMAKE_SOURCE_DIR}/../Source/tools/KSDebug.c
              ${CMAKE_SOURCE_DIR}/../Source/tools/KSID.cpp
+             ${CMAKE_SOURCE_DIR}/../Source/tools/KSMachineContext.c
              ${CMAKE_SOURCE_DIR}/../Source/tools/KSStackCursor_SelfThread.c
              ${CMAKE_SOURCE_DIR}/../Source/tools/KSSymbolicator.c
+             ${CMAKE_SOURCE_DIR}/../Source/tools/KSThread.c
              ${CMAKE_SOURCE_DIR}/../../Source/KSCrash/Recording/KSCrashReportFixer.c
              ${CMAKE_SOURCE_DIR}/../../Source/KSCrash/Recording/KSCrashReportStore.c
+             ${CMAKE_SOURCE_DIR}/../../Source/KSCrash/Recording/Monitors/KSCrashMonitor.c
              ${CMAKE_SOURCE_DIR}/../../Source/KSCrash/Recording/Monitors/KSCrashMonitor_AppState.c
-#             ${CMAKE_SOURCE_DIR}/../../Source/KSCrash/Recording/Monitors/KSCrashMonitor_User.c
+             ${CMAKE_SOURCE_DIR}/../../Source/KSCrash/Recording/Monitors/KSCrashMonitor_CPPException.cpp
+             ${CMAKE_SOURCE_DIR}/../../Source/KSCrash/Recording/Monitors/KSCrashMonitor_Signal.c
+             ${CMAKE_SOURCE_DIR}/../../Source/KSCrash/Recording/Monitors/KSCrashMonitor_User.c
              ${CMAKE_SOURCE_DIR}/../../Source/KSCrash/Recording/Monitors/KSCrashMonitorType.c
              ${CMAKE_SOURCE_DIR}/../../Source/KSCrash/Recording/Tools/KSString.c
              ${CMAKE_SOURCE_DIR}/../../Source/KSCrash/Recording/Tools/KSDate.c
