@@ -1,5 +1,5 @@
 //
-//  KSStackCursor_Backtrace.h
+//  KSStackCursor_SelfThread.h
 //
 //  Copyright (c) 2016 Karl Stenerud. All rights reserved.
 //
@@ -23,8 +23,8 @@
 //
 
 
-#ifndef KSStackCursor_Backtrace_h
-#define KSStackCursor_Backtrace_h
+#ifndef KSStackCursor_SelfThread_h
+#define KSStackCursor_SelfThread_h
 
 #ifdef __cplusplus
 extern "C" {
@@ -33,31 +33,19 @@ extern "C" {
     
 #include "KSStackCursor.h"
 
-/** Exposed for other internal systems to use.
- */
-typedef struct
-{
-    int skippedEntries;
-    int backtraceLength;
-    const uintptr_t* backtrace;
-} KSStackCursor_Backtrace_Context;
-    
-
-/** Initialize a stack cursor for an existing backtrace (array of addresses).
+/** Initialize a stack cursor for the current thread.
+ *  You may want to skip some entries to account for the trace immediately leading
+ *  up to this init function.
  *
  * @param cursor The stack cursor to initialize.
  *
- * @param backtrace The existing backtrace to walk.
- *
- * @param backtraceLength The length of the backtrace.
- *
  * @param skipEntries The number of stack entries to skip.
  */
-void kssc_initWithBacktrace(KSStackCursor *cursor, const uintptr_t* backtrace, int backtraceLength, int skipEntries);
+void kssc_initSelfThread(KSStackCursor *cursor, int skipEntries);
     
     
 #ifdef __cplusplus
 }
 #endif
 
-#endif // KSStackCursor_Backtrace_h
+#endif // KSStackCursor_SelfThread_h

@@ -37,7 +37,7 @@ extern "C" {
  *
  * @param cursor The stack cursor to initialize.
  *
- * @param maxStackDepth The stack depth at which to consider it a stack overflow and give up.
+ * @param maxStackDepth The max depth to search before giving up.
  *
  * @param machineContext The machine context whose stack to walk.
  */

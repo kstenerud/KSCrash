@@ -1,5 +1,5 @@
 //
-//  KSStackCursor_Backtrace.h
+//  KSStackCursor_SelfThread.c
 //
 //  Copyright (c) 2016 Karl Stenerud. All rights reserved.
 //
@@ -23,41 +23,24 @@
 //
 
 
-#ifndef KSStackCursor_Backtrace_h
-#define KSStackCursor_Backtrace_h
+#include "KSStackCursor_SelfThread.h"
+#include "KSStackCursor_Backtrace.h"
+#include <execinfo.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-    
-    
-#include "KSStackCursor.h"
+//#define KSLogger_LocalLevel TRACE
+#include "KSLogger.h"
 
-/** Exposed for other internal systems to use.
- */
+#define MAX_BACKTRACE_LENGTH (KSSC_CONTEXT_SIZE - sizeof(KSStackCursor_Backtrace_Context) / sizeof(void*) - 1)
+
 typedef struct
 {
-    int skippedEntries;
-    int backtraceLength;
-    const uintptr_t* backtrace;
-} KSStackCursor_Backtrace_Context;
-    
+    KSStackCursor_Backtrace_Context SelfThreadContextSpacer;
+    uintptr_t backtrace[0];
+} SelfThreadContext;
 
-/** Initialize a stack cursor for an existing backtrace (array of addresses).
- *
- * @param cursor The stack cursor to initialize.
- *
- * @param backtrace The existing backtrace to walk.
- *
- * @param backtraceLength The length of the backtrace.
- *
- * @param skipEntries The number of stack entries to skip.
- */
-void kssc_initWithBacktrace(KSStackCursor *cursor, const uintptr_t* backtrace, int backtraceLength, int skipEntries);
-    
-    
-#ifdef __cplusplus
+void kssc_initSelfThread(KSStackCursor *cursor, int skipEntries)
+{
+    SelfThreadContext* context = (SelfThreadContext*)cursor->context;
+    int backtraceLength = backtrace((void**)context->backtrace, MAX_BACKTRACE_LENGTH);
+    kssc_initWithBacktrace(cursor, context->backtrace, backtraceLength, skipEntries + 1);
 }
-#endif
-
-#endif // KSStackCursor_Backtrace_h

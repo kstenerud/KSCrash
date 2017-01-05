@@ -28,6 +28,7 @@
 #import "KSCrashMonitorContext.h"
 #import "KSID.h"
 #import "KSThread.h"
+#import "KSStackCursor_MachineContext.h"
 #import <Foundation/Foundation.h>
 
 //#define KSLogger_LocalLevel TRACE
@@ -109,17 +110,21 @@ static NSTimeInterval g_watchdogInterval = 0;
     ksmc_suspendEnvironment();
     kscm_notifyFatalExceptionCaptured(false);
 
-    KSLOG_DEBUG(@"Filling out context.");
+    KSMC_NEW_CONTEXT(machineContext);
+    ksmc_getContextForThread(g_mainQueueThread, machineContext, false);
+    KSStackCursor stackCursor;
+    kssc_initWithMachineContext(&stackCursor, 100, machineContext);
     char eventID[37];
     ksid_generate(eventID);
+
+    KSLOG_DEBUG(@"Filling out context.");
     KSCrash_MonitorContext* crashContext = &g_monitorContext;
     memset(crashContext, 0, sizeof(*crashContext));
     crashContext->crashType = KSCrashMonitorTypeMainThreadDeadlock;
     crashContext->eventID = eventID;
     crashContext->registersAreValid = false;
-    KSMC_NEW_CONTEXT(machineContext);
-    ksmc_getContextForThread(ksthread_self(), machineContext, false);
     crashContext->offendingMachineContext = machineContext;
+    crashContext->stackCursor = &stackCursor;
     
     kscm_handleException(crashContext);
     ksmc_resumeEnvironment();

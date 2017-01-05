@@ -36,6 +36,8 @@ extern "C" {
 #include <stdbool.h>
 #include <sys/types.h>
 
+#define KSSC_CONTEXT_SIZE 100
+
 /** Point at which to give up walking a stack and consider it a stack overflow. */
 #define KSSC_STACK_OVERFLOW_THRESHOLD 150
 
@@ -60,38 +62,47 @@ typedef struct KSStackCursor
     } stackEntry;
     struct
     {
-        /** Current depth as we walk the stack. */
+        /** Current depth as we walk the stack (1-based). */
         int currentDepth;
         
-        /** Maximum stack depth before we'll give up. */
-        int maxDepth;
+        /** If true, cursor has given up walking the stack. */
+        bool hasGivenUp;
     } state;
-    
+
+    /** Reset the cursor back to the beginning. */
+    void (*resetCursor)(struct KSStackCursor*);
+
     /** Advance the cursor to the next stack entry. */
     bool (*advanceCursor)(struct KSStackCursor*);
     
     /** Attempt to symbolicate the current address, filling in the fields in stackEntry. */
     bool (*symbolicate)(struct KSStackCursor*);
     
-    /** If true, we have reached maximum stack depth. */
-    bool (*isMaxDepth)(struct KSStackCursor*);
-    
     /** Internal context-specific information. */
-    char context[sizeof(void*) * 20];
+    void* context[KSSC_CONTEXT_SIZE];
 } KSStackCursor;
 
 
 /** Common initialization routine for a stack cursor.
- *  INTERNAL FUNCTION. Do not call directly.
+ *  Note: This is intended primarily for other cursors to call.
  *
  * @param cursor The cursor to initialize.
  *
- * @param maxStackDepth The stack depth at which to consider it a stack overflow and give up.
+ * @param resetCursor Function that will reset the cursor (NULL = default: Do nothing).
  *
- * @param instructionAddress The address at the top of the stack.
+ * @param advanceCursor Function to advance the cursor (NULL = default: Do nothing and return false).
  */
-void kssc_initCursor(KSStackCursor *cursor, int maxStackDepth, uintptr_t instructionAddress);
-    
+void kssc_initCursor(KSStackCursor *cursor,
+                     void (*resetCursor)(KSStackCursor*),
+                     bool (*advanceCursor)(KSStackCursor*));
+
+/** Reset a cursor.
+ *  INTERNAL METHOD. Do not call!
+ *
+ * @param cursor The cursor to reset.
+ */
+void kssc_resetCursor(KSStackCursor *cursor);
+
     
 #ifdef __cplusplus
 }

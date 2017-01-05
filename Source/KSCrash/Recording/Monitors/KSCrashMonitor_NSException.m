@@ -26,6 +26,7 @@
 
 
 #import "KSCrashMonitor_NSException.h"
+#import "KSStackCursor_Backtrace.h"
 #include "KSCrashMonitorContext.h"
 #include "KSID.h"
 #include "KSThread.h"
@@ -66,28 +67,30 @@ static void handleException(NSException* exception)
 
         KSLOG_DEBUG(@"Filling out context.");
         NSArray* addresses = [exception callStackReturnAddresses];
-        NSUInteger numFrames = [addresses count];
+        NSUInteger numFrames = addresses.count;
         uintptr_t* callstack = malloc(numFrames * sizeof(*callstack));
         for(NSUInteger i = 0; i < numFrames; i++)
         {
-            callstack[i] = [[addresses objectAtIndex:i] unsignedLongValue];
+            callstack[i] = (uintptr_t)[addresses[i] unsignedLongLongValue];
         }
 
         char eventID[37];
         ksid_generate(eventID);
+        KSMC_NEW_CONTEXT(machineContext);
+        ksmc_getContextForThread(ksthread_self(), machineContext, true);
+        KSStackCursor cursor;
+        kssc_initWithBacktrace(&cursor, callstack, (int)numFrames, 0);
+
         KSCrash_MonitorContext* crashContext = &g_monitorContext;
         memset(crashContext, 0, sizeof(*crashContext));
         crashContext->crashType = KSCrashMonitorTypeNSException;
         crashContext->eventID = eventID;
-        KSMC_NEW_CONTEXT(machineContext);
         crashContext->offendingMachineContext = machineContext;
-        ksmc_getContextForThread(ksthread_self(), machineContext, true);
         crashContext->registersAreValid = false;
         crashContext->NSException.name = [[exception name] UTF8String];
         crashContext->exceptionName = crashContext->NSException.name;
         crashContext->crashReason = [[exception reason] UTF8String];
-        crashContext->stackTrace = callstack;
-        crashContext->stackTraceLength = (int)numFrames;
+        crashContext->stackCursor = &cursor;
 
 
         KSLOG_DEBUG(@"Calling main crash handler.");

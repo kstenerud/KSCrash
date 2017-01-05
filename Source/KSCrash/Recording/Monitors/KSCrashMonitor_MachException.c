@@ -31,6 +31,7 @@
 #include "KSID.h"
 #include "KSThread.h"
 #include "KSSystemCapabilities.h"
+#include "KSStackCursor_MachineContext.h"
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
@@ -116,6 +117,7 @@ typedef struct
 static volatile bool g_isEnabled = false;
 
 static KSCrash_MonitorContext g_monitorContext;
+static KSStackCursor g_stackCursor;
 
 static bool g_isHandlingCrash = false;
 
@@ -326,8 +328,10 @@ static void* handleExceptions(void* const userData)
         KSMC_NEW_CONTEXT(machineContext);
         KSCrash_MonitorContext* crashContext = &g_monitorContext;
         crashContext->offendingMachineContext = machineContext;
+        kssc_initCursor(&g_stackCursor, NULL, NULL);
         if(ksmc_getContextForThread(exceptionMessage.thread.name, machineContext, true))
         {
+            kssc_initWithMachineContext(&g_stackCursor, 100, machineContext);
             KSLOG_TRACE("Fault address 0x%x, instruction address 0x%x", kscpu_faultAddress(machineContext), kscpu_instructionAddress(machineContext));
             if(exceptionMessage.exception == EXC_BAD_ACCESS)
             {
@@ -354,6 +358,7 @@ static void* handleExceptions(void* const userData)
             crashContext->mach.code = KERN_INVALID_ADDRESS;
         }
         crashContext->signal.signum = signalForMachException(crashContext->mach.type, crashContext->mach.code);
+        crashContext->stackCursor = &g_stackCursor;
 
         kscm_handleException(crashContext);
 

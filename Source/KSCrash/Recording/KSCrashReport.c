@@ -397,19 +397,14 @@ static bool getStackCursor(const KSCrash_MonitorContext* const crash,
                            const struct KSMachineContext* const machineContext,
                            KSStackCursor *cursor)
 {
-    kssc_initCursor(cursor, 0, 0);
-    if(ksmc_canHaveCustomStackTrace(machineContext) && crash->stackTrace != NULL && crash->stackTraceLength > 0)
+    if(ksmc_getThreadFromContext(machineContext) == ksmc_getThreadFromContext(crash->offendingMachineContext))
     {
-        kssc_initWithBacktrace(cursor, KSSC_STACK_OVERFLOW_THRESHOLD, crash->stackTrace, crash->stackTraceLength);
+        *cursor = *((KSStackCursor*)crash->stackCursor);
         return true;
     }
 
-    if(ksmc_canHaveNormalStackTrace(machineContext))
-    {
-        kssc_initWithMachineContext(cursor, KSSC_STACK_OVERFLOW_THRESHOLD, machineContext);
-        return true;
-    }
-    return false;
+    kssc_initWithMachineContext(cursor, KSSC_STACK_OVERFLOW_THRESHOLD, machineContext);
+    return true;
 }
 
 
@@ -870,28 +865,26 @@ static void writeBacktrace(const KSCrashReportWriter* const writer,
     {
         writer->beginArray(writer, KSCrashField_Contents);
         {
-            while(!stackCursor->isMaxDepth(stackCursor))
+            while(stackCursor->advanceCursor(stackCursor))
             {
-                stackCursor->symbolicate(stackCursor);
                 writer->beginObject(writer, NULL);
                 {
-                    if(stackCursor->stackEntry.imageName != NULL)
+                    if(stackCursor->symbolicate(stackCursor))
                     {
-                        writer->addStringElement(writer, KSCrashField_ObjectName, ksfu_lastPathEntry(stackCursor->stackEntry.imageName));
+                        if(stackCursor->stackEntry.imageName != NULL)
+                        {
+                            writer->addStringElement(writer, KSCrashField_ObjectName, ksfu_lastPathEntry(stackCursor->stackEntry.imageName));
+                        }
+                        writer->addUIntegerElement(writer, KSCrashField_ObjectAddr, stackCursor->stackEntry.imageAddress);
+                        if(stackCursor->stackEntry.symbolName != NULL)
+                        {
+                            writer->addStringElement(writer, KSCrashField_SymbolName, stackCursor->stackEntry.symbolName);
+                        }
+                        writer->addUIntegerElement(writer, KSCrashField_SymbolAddr, stackCursor->stackEntry.symbolAddress);
                     }
-                    writer->addUIntegerElement(writer, KSCrashField_ObjectAddr, stackCursor->stackEntry.imageAddress);
-                    if(stackCursor->stackEntry.symbolName != NULL)
-                    {
-                        writer->addStringElement(writer, KSCrashField_SymbolName, stackCursor->stackEntry.symbolName);
-                    }
-                    writer->addUIntegerElement(writer, KSCrashField_SymbolAddr, stackCursor->stackEntry.symbolAddress);
                     writer->addUIntegerElement(writer, KSCrashField_InstructionAddr, stackCursor->stackEntry.address);
                 }
                 writer->endContainer(writer);
-                if(!stackCursor->advanceCursor(stackCursor))
-                {
-                    break;
-                }
             }
         }
         writer->endContainer(writer);
@@ -1197,7 +1190,7 @@ static void writeThread(const KSCrashReportWriter* const writer,
         writer->addBooleanElement(writer, KSCrashField_CurrentThread, thread == ksthread_self());
         if(isCrashedThread)
         {
-            writeStackContents(writer, KSCrashField_Stack, machineContext, stackCursor.isMaxDepth(&stackCursor));
+            writeStackContents(writer, KSCrashField_Stack, machineContext, stackCursor.state.hasGivenUp);
             if(shouldWriteNotableAddresses)
             {
                 writeNotableAddresses(writer, KSCrashField_NotableAddresses, machineContext);

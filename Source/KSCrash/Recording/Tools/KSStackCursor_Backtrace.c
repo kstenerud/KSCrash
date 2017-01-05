@@ -28,32 +28,30 @@
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
-
-typedef struct
-{
-    const uintptr_t* backtrace;
-    int backtraceLength;
-} BacktraceCursor;
-
-
 static bool advanceCursor(KSStackCursor *cursor)
 {
-    BacktraceCursor* cursorContext = (BacktraceCursor*)cursor->context;
-    if(cursor->state.currentDepth < cursor->state.maxDepth && cursor->state.currentDepth + 1 < cursorContext->backtraceLength)
+    KSStackCursor_Backtrace_Context* context = (KSStackCursor_Backtrace_Context*)cursor->context;
+    int endDepth = context->backtraceLength - context->skippedEntries;
+    if(cursor->state.currentDepth < endDepth)
     {
-        cursor->state.currentDepth++;
-        cursor->stackEntry.address = cursorContext->backtrace[cursor->state.currentDepth];
-        return true;
+        int currentIndex = cursor->state.currentDepth + context->skippedEntries;
+        uintptr_t nextAddress = context->backtrace[currentIndex];
+        // Bug: The system sometimes gives a backtrace with an extra 0x00000001 at the end.
+        if(nextAddress > 1)
+        {
+            cursor->stackEntry.address = context->backtrace[currentIndex];
+            cursor->state.currentDepth++;
+            return true;
+        }
     }
     return false;
 }
 
-void kssc_initWithBacktrace(KSStackCursor *cursor, int maxStackDepth, const uintptr_t* backtrace, int backtraceLength)
+void kssc_initWithBacktrace(KSStackCursor *cursor, const uintptr_t* backtrace, int backtraceLength, int skipEntries)
 {
-    kssc_initCursor(cursor, maxStackDepth, backtrace[0]);
-    cursor->advanceCursor = advanceCursor;
-
-    BacktraceCursor* cursorContext = (BacktraceCursor*)cursor->context;
-    cursorContext->backtrace = backtrace;
-    cursorContext->backtraceLength = backtraceLength;
+    kssc_initCursor(cursor, kssc_resetCursor, advanceCursor);
+    KSStackCursor_Backtrace_Context* context = (KSStackCursor_Backtrace_Context*)cursor->context;
+    context->skippedEntries = skipEntries;
+    context->backtraceLength = backtraceLength;
+    context->backtrace = backtrace;
 }

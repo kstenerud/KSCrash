@@ -77,12 +77,11 @@ typedef struct KSCrash_MonitorContext
     
     /** Short description of why the crash occurred. */
     const char* crashReason;
-    
-    /** The stack trace. */
-    uintptr_t* stackTrace;
-    
-    /** Length of the stack trace. */
-    int stackTraceLength;
+
+    /** The stack cursor for the trace leading up to the crash.
+     *  Note: Actual type is KSStackCursor*
+     */
+    void* stackCursor;
     
     struct
     {

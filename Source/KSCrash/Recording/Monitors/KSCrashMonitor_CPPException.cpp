@@ -27,13 +27,13 @@
 #include "KSID.h"
 #include "KSThread.h"
 #include "KSMachineContext.h"
+#include "KSStackCursor_SelfThread.h"
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
 #include <cxxabi.h>
 #include <dlfcn.h>
-#include <execinfo.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -61,15 +61,14 @@ static bool g_captureNextStackTrace = false;
 
 static std::terminate_handler g_originalTerminateHandler;
 
-/** Buffer for the backtrace of the most recent exception. */
-static uintptr_t g_stackTrace[STACKTRACE_BUFFER_LENGTH];
-
-/** Number of backtrace entries in the most recent exception. */
-static int g_stackTraceCount = 0;
-
 static char g_eventID[37];
 
 static KSCrash_MonitorContext g_monitorContext;
+
+// TODO: Thread local storage is not supported < ios 9.
+// Find some other way to do thread local. Maybe storage with lookup by tid?
+static KSStackCursor g_stackCursor;
+
 
 // ============================================================================
 #pragma mark - Callbacks -
@@ -85,7 +84,7 @@ extern "C"
     {
         if(g_captureNextStackTrace)
         {
-            g_stackTraceCount = backtrace((void**)g_stackTrace, sizeof(g_stackTrace) / sizeof(*g_stackTrace));
+            kssc_initSelfThread(&g_stackCursor, 1);
         }
         
         static cxa_throw_type orig_cxa_throw = NULL;
@@ -154,18 +153,20 @@ catch(TYPE value)\
         }
         g_captureNextStackTrace = g_isEnabled;
 
+        // TODO: Should this be done here? Maybe better in the exception handler?
+        KSMC_NEW_CONTEXT(machineContext);
+        ksmc_getContextForThread(ksthread_self(), machineContext, true);
+
         KSLOG_DEBUG("Filling out context.");
         crashContext->crashType = KSCrashMonitorTypeCPPException;
         crashContext->eventID = g_eventID;
         crashContext->registersAreValid = false;
-        crashContext->stackTrace = g_stackTrace + 1; // Don't record __cxa_throw stack entry
-        crashContext->stackTraceLength = g_stackTraceCount - 1;
+        crashContext->stackCursor = &g_stackCursor;
         crashContext->CPPException.name = name;
         crashContext->exceptionName = name;
         crashContext->crashReason = description;
-        KSMC_NEW_CONTEXT(machineContext);
-        ksmc_getContextForThread(ksthread_self(), machineContext, true);
         crashContext->offendingMachineContext = machineContext;
+        crashContext->stackCursor = &g_stackCursor;
 
         kscm_handleException(crashContext);
     }
