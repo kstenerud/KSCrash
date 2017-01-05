@@ -49,7 +49,9 @@ typedef struct
 
 static const KSSignalCodeInfo g_sigIllCodes[] =
 {
+#ifdef ILL_NOOP
     ENUM_NAME_MAPPING(ILL_NOOP),
+#endif
     ENUM_NAME_MAPPING(ILL_ILLOPC),
     ENUM_NAME_MAPPING(ILL_ILLTRP),
     ENUM_NAME_MAPPING(ILL_PRVOPC),
@@ -69,7 +71,9 @@ static const KSSignalCodeInfo g_sigTrapCodes[] =
 
 static const KSSignalCodeInfo g_sigFPECodes[] =
 {
+#ifdef FPE_NOOP
     ENUM_NAME_MAPPING(FPE_NOOP),
+#endif
     ENUM_NAME_MAPPING(FPE_FLTDIV),
     ENUM_NAME_MAPPING(FPE_FLTOVF),
     ENUM_NAME_MAPPING(FPE_FLTUND),
@@ -82,7 +86,9 @@ static const KSSignalCodeInfo g_sigFPECodes[] =
 
 static const KSSignalCodeInfo g_sigBusCodes[] =
 {
+#ifdef BUS_NOOP
     ENUM_NAME_MAPPING(BUS_NOOP),
+#endif
     ENUM_NAME_MAPPING(BUS_ADRALN),
     ENUM_NAME_MAPPING(BUS_ADRERR),
     ENUM_NAME_MAPPING(BUS_OBJERR),
@@ -90,7 +96,9 @@ static const KSSignalCodeInfo g_sigBusCodes[] =
 
 static const KSSignalCodeInfo g_sigSegVCodes[] =
 {
+#ifdef SEGV_NOOP
     ENUM_NAME_MAPPING(SEGV_NOOP),
+#endif
     ENUM_NAME_MAPPING(SEGV_MAPERR),
     ENUM_NAME_MAPPING(SEGV_ACCERR),
 };
