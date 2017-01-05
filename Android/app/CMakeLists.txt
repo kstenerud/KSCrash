@@ -29,6 +29,8 @@ add_library( # Sets the name of the library.
              ${CMAKE_SOURCE_DIR}/../Source/kscrash-lib.cpp
              ${CMAKE_SOURCE_DIR}/../Source/KSJNI.cpp
              ${CMAKE_SOURCE_DIR}/../Source/tools/KSID.cpp
+             ${CMAKE_SOURCE_DIR}/../Source/tools/KSStackCursor_SelfThread.c
+             ${CMAKE_SOURCE_DIR}/../Source/tools/KSSymbolicator.c
              ${CMAKE_SOURCE_DIR}/../../Source/KSCrash/Recording/KSCrashReportFixer.c
              ${CMAKE_SOURCE_DIR}/../../Source/KSCrash/Recording/KSCrashReportStore.c
              ${CMAKE_SOURCE_DIR}/../../Source/KSCrash/Recording/Monitors/KSCrashMonitor_AppState.c
@@ -40,7 +42,8 @@ add_library( # Sets the name of the library.
              ${CMAKE_SOURCE_DIR}/../../Source/KSCrash/Recording/Tools/KSFileUtils.c
              ${CMAKE_SOURCE_DIR}/../../Source/KSCrash/Recording/Tools/KSJSONCodec.c
              ${CMAKE_SOURCE_DIR}/../../Source/KSCrash/Recording/Tools/KSLogger.c
-#             ${CMAKE_SOURCE_DIR}/../../Source/KSCrash/Recording/Tools/KSStackCursor.c
+             ${CMAKE_SOURCE_DIR}/../../Source/KSCrash/Recording/Tools/KSStackCursor.c
+             ${CMAKE_SOURCE_DIR}/../../Source/KSCrash/Recording/Tools/KSStackCursor_Backtrace.c
              ${CMAKE_SOURCE_DIR}/../../Source/KSCrash/Recording/Tools/KSString.c
            )
 
