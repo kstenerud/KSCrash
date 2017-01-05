@@ -1,3 +1,10 @@
+1.14.0:
+
+More underlying changes to support the Android port. These shouldn't alter the outside observed behavior.
+
+Added new monitor mode KSCrashMonitorTypeManual, which disables all automatic crash reporting.
+
+
 1.13.3:
 
 Fixed bad dynamic library reference in the Mac project file.
