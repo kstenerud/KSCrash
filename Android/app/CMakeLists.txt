@@ -38,8 +38,8 @@ add_library( # Sets the name of the library.
              ${CMAKE_SOURCE_DIR}/../Source/tools/KSStackCursor_SelfThread.c
              ${CMAKE_SOURCE_DIR}/../Source/tools/KSSymbolicator.c
              ${CMAKE_SOURCE_DIR}/../Source/tools/KSThread.c
-#             ${CMAKE_SOURCE_DIR}/../../Source/KSCrash/Recording/KSCrashC.c
-#             ${CMAKE_SOURCE_DIR}/../../Source/KSCrash/Recording/KSCrashReport.c
+             ${CMAKE_SOURCE_DIR}/../../Source/KSCrash/Recording/KSCrashC.c
+             ${CMAKE_SOURCE_DIR}/../../Source/KSCrash/Recording/KSCrashReport.c
              ${CMAKE_SOURCE_DIR}/../../Source/KSCrash/Recording/KSCrashReportFixer.c
              ${CMAKE_SOURCE_DIR}/../../Source/KSCrash/Recording/KSCrashReportStore.c
              ${CMAKE_SOURCE_DIR}/../../Source/KSCrash/Recording/Monitors/KSCrashMonitor.c

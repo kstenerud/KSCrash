@@ -43,6 +43,7 @@
 #include "KSCrashReportVersion.h"
 #include "KSStackCursor_Backtrace.h"
 #include "KSStackCursor_MachineContext.h"
+#include "KSSystemCapabilities.h"
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
@@ -673,6 +674,90 @@ static bool isRestrictedClass(const char* name)
     return false;
 }
 
+static void writeZombieIfPresent(const KSCrashReportWriter* const writer,
+                                 const char* const key,
+                                 const uintptr_t address)
+{
+#if KSCRASH_HAS_OBJC
+    const void* object = (const void*)address;
+    const char* zombieClassName = kszombie_className(object);
+    if(zombieClassName != NULL)
+    {
+        writer->addStringElement(writer, key, zombieClassName);
+    }
+#endif
+}
+
+static bool writeObjCObject(const KSCrashReportWriter* const writer,
+                            const uintptr_t address,
+                            int* limit)
+{
+#if KSCRASH_HAS_OBJC
+    const void* object = (const void*)address;
+    switch(ksobjc_objectType(object))
+    {
+        case KSObjCTypeClass:
+            writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_Class);
+            writer->addStringElement(writer, KSCrashField_Class, ksobjc_className(object));
+            return true;
+        case KSObjCTypeObject:
+        {
+            writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_Object);
+            const char* className = ksobjc_objectClassName(object);
+            writer->addStringElement(writer, KSCrashField_Class, className);
+            if(!isRestrictedClass(className))
+            {
+                switch(ksobjc_objectClassType(object))
+                {
+                    case KSObjCClassTypeString:
+                        writeNSStringContents(writer, KSCrashField_Value, address, limit);
+                        return true;
+                    case KSObjCClassTypeURL:
+                        writeURLContents(writer, KSCrashField_Value, address, limit);
+                        return true;
+                    case KSObjCClassTypeDate:
+                        writeDateContents(writer, KSCrashField_Value, address, limit);
+                        return true;
+                    case KSObjCClassTypeArray:
+                        if(*limit > 0)
+                        {
+                            writeArrayContents(writer, KSCrashField_FirstObject, address, limit);
+                        }
+                        return true;
+                    case KSObjCClassTypeNumber:
+                        writeNumberContents(writer, KSCrashField_Value, address, limit);
+                        return true;
+                    case KSObjCClassTypeDictionary:
+                    case KSObjCClassTypeException:
+                        // TODO: Implement these.
+                        if(*limit > 0)
+                        {
+                            writeUnknownObjectContents(writer, KSCrashField_Ivars, address, limit);
+                        }
+                        return true;
+                    case KSObjCClassTypeUnknown:
+                        if(*limit > 0)
+                        {
+                            writeUnknownObjectContents(writer, KSCrashField_Ivars, address, limit);
+                        }
+                        return true;
+                }
+            }
+            break;
+        }
+        case KSObjCTypeBlock:
+            writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_Block);
+            const char* className = ksobjc_objectClassName(object);
+            writer->addStringElement(writer, KSCrashField_Class, className);
+            return true;
+        case KSObjCTypeUnknown:
+            break;
+    }
+#endif
+
+    return false;
+}
+
 /** Write the contents of a memory location.
  * Also writes meta information about the data.
  *
@@ -694,82 +779,22 @@ static void writeMemoryContents(const KSCrashReportWriter* const writer,
     writer->beginObject(writer, key);
     {
         writer->addUIntegerElement(writer, KSCrashField_Address, address);
-        const char* zombieClassName = kszombie_className(object);
-        if(zombieClassName != NULL)
+        writeZombieIfPresent(writer, KSCrashField_LastDeallocObject, address);
+        if(!writeObjCObject(writer, address, limit))
         {
-            writer->addStringElement(writer, KSCrashField_LastDeallocObject, zombieClassName);
-        }
-        switch(ksobjc_objectType(object))
-        {
-            case KSObjCTypeUnknown:
-                if(object == NULL)
-                {
-                    writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_NullPointer);
-                }
-                else if(isValidString(object))
-                {
-                    writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_String);
-                    writer->addStringElement(writer, KSCrashField_Value, (const char*)object);
-                }
-                else
-                {
-                    writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_Unknown);
-                }
-                break;
-            case KSObjCTypeClass:
-                writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_Class);
-                writer->addStringElement(writer, KSCrashField_Class, ksobjc_className(object));
-                break;
-            case KSObjCTypeObject:
+            if(object == NULL)
             {
-                writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_Object);
-                const char* className = ksobjc_objectClassName(object);
-                writer->addStringElement(writer, KSCrashField_Class, className);
-                if(!isRestrictedClass(className))
-                {
-                    switch(ksobjc_objectClassType(object))
-                    {
-                        case KSObjCClassTypeString:
-                            writeNSStringContents(writer, KSCrashField_Value, address, limit);
-                            break;
-                        case KSObjCClassTypeURL:
-                            writeURLContents(writer, KSCrashField_Value, address, limit);
-                            break;
-                        case KSObjCClassTypeDate:
-                            writeDateContents(writer, KSCrashField_Value, address, limit);
-                            break;
-                        case KSObjCClassTypeArray:
-                            if(*limit > 0)
-                            {
-                                writeArrayContents(writer, KSCrashField_FirstObject, address, limit);
-                            }
-                            break;
-                        case KSObjCClassTypeNumber:
-                            writeNumberContents(writer, KSCrashField_Value, address, limit);
-                            break;
-                        case KSObjCClassTypeDictionary:
-                        case KSObjCClassTypeException:
-                            // TODO: Implement these.
-                            if(*limit > 0)
-                            {
-                                writeUnknownObjectContents(writer, KSCrashField_Ivars, address, limit);
-                            }
-                            break;
-                        case KSObjCClassTypeUnknown:
-                            if(*limit > 0)
-                            {
-                                writeUnknownObjectContents(writer, KSCrashField_Ivars, address, limit);
-                            }
-                            break;
-                    }
-                }
-                break;
+                writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_NullPointer);
             }
-            case KSObjCTypeBlock:
-                writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_Block);
-                const char* className = ksobjc_objectClassName(object);
-                writer->addStringElement(writer, KSCrashField_Class, className);
-                break;
+            else if(isValidString(object))
+            {
+                writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_String);
+                writer->addStringElement(writer, KSCrashField_Value, (const char*)object);
+            }
+            else
+            {
+                writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_Unknown);
+            }
         }
     }
     writer->endContainer(writer);
@@ -782,6 +807,7 @@ static bool isValidPointer(const uintptr_t address)
         return false;
     }
 
+#if KSCRASH_HAS_OBJC
     if(ksobjc_isTaggedPointer((const void*)address))
     {
         if(!ksobjc_isValidTaggedPointer((const void*)address))
@@ -789,8 +815,38 @@ static bool isValidPointer(const uintptr_t address)
             return false;
         }
     }
-    
+#endif
+
     return true;
+}
+
+static bool isNotableAddress(const uintptr_t address)
+{
+    if(!isValidPointer(address))
+    {
+        return false;
+    }
+    
+    const void* object = (const void*)address;
+
+#if KSCRASH_HAS_OBJC
+    if(kszombie_className(object) != NULL)
+    {
+        return true;
+    }
+
+    if(ksobjc_objectType(object) != KSObjCTypeUnknown)
+    {
+        return true;
+    }
+#endif
+
+    if(isValidString(object))
+    {
+        return true;
+    }
+
+    return false;
 }
 
 /** Write the contents of a memory location only if it contains notable data.
@@ -806,23 +862,11 @@ static void writeMemoryContentsIfNotable(const KSCrashReportWriter* const writer
                                          const char* const key,
                                          const uintptr_t address)
 {
-    if(!isValidPointer(address))
+    if(isNotableAddress(address))
     {
-        return;
+        int limit = kDefaultMemorySearchDepth;
+        writeMemoryContents(writer, key, address, &limit);
     }
-
-    const void* object = (const void*)address;
-    
-    if(ksobjc_objectType(object) == KSObjCTypeUnknown &&
-       kszombie_className(object) == NULL &&
-       !isValidString(object))
-    {
-        // Nothing notable about this memory location.
-        return;
-    }
-
-    int limit = kDefaultMemorySearchDepth;
-    writeMemoryContents(writer, key, address, &limit);
 }
 
 /** Look for a hex value in a string and try to write whatever it references.
@@ -1325,15 +1369,13 @@ static void writeError(const KSCrashReportWriter* const writer,
                        const char* const key,
                        const KSCrash_MonitorContext* const crash)
 {
-    const char* machExceptionName = ksmach_exceptionName(crash->mach.type);
-    const char* machCodeName = crash->mach.code == 0 ? NULL : ksmach_kernelReturnCodeName(crash->mach.code);
-    const char* sigName = kssignal_signalName(crash->signal.signum);
-    const char* sigCodeName = kssignal_signalCodeName(crash->signal.signum, crash->signal.sigcode);
-
     writer->beginObject(writer, key);
     {
+#if KSCRASH_HAS_MACH
         writer->beginObject(writer, KSCrashField_Mach);
         {
+            const char* machExceptionName = ksmach_exceptionName(crash->mach.type);
+            const char* machCodeName = crash->mach.code == 0 ? NULL : ksmach_kernelReturnCodeName(crash->mach.code);
             writer->addUIntegerElement(writer, KSCrashField_Exception, (unsigned)crash->mach.type);
             if(machExceptionName != NULL)
             {
@@ -1347,9 +1389,11 @@ static void writeError(const KSCrashReportWriter* const writer,
             writer->addUIntegerElement(writer, KSCrashField_Subcode, (unsigned)crash->mach.subcode);
         }
         writer->endContainer(writer);
-
+#endif
         writer->beginObject(writer, KSCrashField_Signal);
         {
+            const char* sigName = kssignal_signalName(crash->signal.signum);
+            const char* sigCodeName = kssignal_signalCodeName(crash->signal.signum, crash->signal.sigcode);
             writer->addUIntegerElement(writer, KSCrashField_Signal, (unsigned)crash->signal.signum);
             if(sigName != NULL)
             {

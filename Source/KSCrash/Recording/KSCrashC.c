@@ -145,7 +145,9 @@ void kscrash_setUserInfoJSON(const char* const userInfoJSON)
 
 void kscrash_setDeadlockWatchdogInterval(double deadlockWatchdogInterval)
 {
+#if KSCRASH_HAS_OBJC
     kscm_setDeadlockHandlerWatchdogInterval(deadlockWatchdogInterval);
+#endif
 }
 
 void kscrash_setSearchThreadNames(bool shouldSearchThreadNames)
