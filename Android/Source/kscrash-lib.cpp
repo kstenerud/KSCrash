@@ -2,11 +2,26 @@
 #include <string>
 #include "KSJNI.h"
 #include "KSDate.h"
+#include "KSCrashC.h"
 
 extern "C" JNIEXPORT void JNICALL
-Java_org_stenerud_kscrash_KSCrash_install(JNIEnv *env, jobject instance) {
-    ksjni_init(env);
+Java_org_stenerud_kscrash_KSCrash_install__Ljava_lang_String_2Ljava_lang_String_2(JNIEnv *env,
+                                                                                  jobject instance,
+                                                                                  jstring appName_,
+                                                                                  jstring installDir_) {
+    const char *appName = env->GetStringUTFChars(appName_, 0);
+    const char *installDir = env->GetStringUTFChars(installDir_, 0);
 
+    ksjni_init(env);
+    kscrash_install(appName, installDir);
+
+    env->ReleaseStringUTFChars(appName_, appName);
+    env->ReleaseStringUTFChars(installDir_, installDir);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_org_stenerud_kscrash_KSCrash_deleteAllReports(JNIEnv *env, jobject instance) {
+    kscrash_deleteAllReports();
 }
 
 extern "C"

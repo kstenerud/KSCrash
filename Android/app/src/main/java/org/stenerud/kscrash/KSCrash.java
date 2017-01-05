@@ -1,5 +1,9 @@
 package org.stenerud.kscrash;
 
+import android.content.Context;
+
+import java.io.File;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -10,27 +14,27 @@ public class KSCrash extends Object
         System.loadLibrary("kscrash-lib");
     }
 
-    private KSCrash()
-    {
-
-    }
+    private KSCrash() {}
 
     public static KSCrash getInstance()
     {
         return instance;
     }
 
-    public native void install();
+    public void install(Context context) throws IOException {
+        String appName = context.getApplicationInfo().processName;
+        File installDir = new File(context.getCacheDir().getAbsolutePath(), "KSCrash");
+        install(appName, installDir.getCanonicalPath());
+    }
+
+    public native void install(String appName, String installDir);
 
     public void sendAllReportsWithCallback(IKSCrashFilterCompletionCallback callback)
     {
 
     }
 
-    public void deleteAllReports()
-    {
-
-    }
+    public native void deleteAllReports();
 
     public void reportUserException(String name,
                                     String reason,

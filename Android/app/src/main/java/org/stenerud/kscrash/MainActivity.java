@@ -4,6 +4,8 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.widget.TextView;
 
+import java.io.IOException;
+
 public class MainActivity extends AppCompatActivity {
 
     @Override
@@ -11,7 +13,12 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        KSCrash.getInstance().install();
+        try {
+            KSCrash.getInstance().install(getApplicationContext());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
         // Example of a call to a native method
         TextView tv = (TextView) findViewById(R.id.sample_text);
         String result = stringFromTimestamp(0);
