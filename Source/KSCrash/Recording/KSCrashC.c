@@ -39,6 +39,7 @@
 #include "KSCrashMonitor_Zombie.h"
 #include "KSCrashMonitor_AppState.h"
 #include "KSCrashMonitorContext.h"
+#include "KSSystemCapabilities.h"
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
