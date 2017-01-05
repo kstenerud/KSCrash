@@ -1,5 +1,5 @@
 //
-//  KSReturnCodes.h
+//  KSMach.h
 //
 // Copyright 2016 Karl Stenerud.
 //
@@ -22,36 +22,53 @@
 // THE SOFTWARE.
 //
 
-#ifndef HDR_KSReturnCodes_h
-#define HDR_KSReturnCodes_h
+#ifndef HDR_KSMach_h
+#define HDR_KSMach_h
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <stdint.h>
-    
-    /** Get the name of a mach exception.
-     *
-     * @param exceptionType The exception type.
-     *
-     * @return The exception's name or NULL if not found.
-     */
-    const char* ksrc_exceptionName(int64_t exceptionType);
-    
-    /** Get the name of a mach kernel return code.
-     *
-     * @param returnCode The return code.
-     *
-     * @return The code's name or NULL if not found.
-     */
-    const char* ksmemory_kernelReturnCodeName(int64_t returnCode);
-    
 
-    
-    
+#include <stdint.h>
+
+/** Get the name of a mach exception.
+ *
+ * @param exceptionType The exception type.
+ *
+ * @return The exception's name or NULL if not found.
+ */
+const char* ksmach_exceptionName(int64_t exceptionType);
+
+/** Get the name of a mach kernel return code.
+ *
+ * @param returnCode The return code.
+ *
+ * @return The code's name or NULL if not found.
+ */
+const char* ksmach_kernelReturnCodeName(int64_t returnCode);
+
+/** Get the signal equivalent of a mach exception.
+ *
+ * @param exception The mach exception.
+ *
+ * @param code The mach exception code.
+ *
+ * @return The matching signal, or 0 if not found.
+ */
+int ksmach_signalForMachException(int exception, int64_t code);
+
+/** Get the mach exception equivalent of a signal.
+ *
+ * @param signal The signal.
+ *
+ * @return The matching mach exception, or 0 if not found.
+ */
+int ksmach_machExceptionForSignal(int signal);
+
+
 #ifdef __cplusplus
 }
 #endif
 
-#endif // HDR_KSReturnCodes_h
+#endif // HDR_KSMach_h

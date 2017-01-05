@@ -34,7 +34,7 @@
 #include "KSJSONCodec.h"
 #include "KSCPU.h"
 #include "KSMemory.h"
-#include "KSReturnCodes.h"
+#include "KSMach.h"
 #include "KSThread.h"
 #include "KSObjC.h"
 #include "KSSignalInfo.h"
@@ -1325,8 +1325,8 @@ static void writeError(const KSCrashReportWriter* const writer,
                        const char* const key,
                        const KSCrash_MonitorContext* const crash)
 {
-    const char* machExceptionName = ksrc_exceptionName(crash->mach.type);
-    const char* machCodeName = crash->mach.code == 0 ? NULL : ksmemory_kernelReturnCodeName(crash->mach.code);
+    const char* machExceptionName = ksmach_exceptionName(crash->mach.type);
+    const char* machCodeName = crash->mach.code == 0 ? NULL : ksmach_kernelReturnCodeName(crash->mach.code);
     const char* sigName = kssignal_signalName(crash->signal.signum);
     const char* sigCodeName = kssignal_signalCodeName(crash->signal.signum, crash->signal.sigcode);
 

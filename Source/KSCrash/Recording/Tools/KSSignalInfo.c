@@ -27,7 +27,6 @@
 
 #include "KSSignalInfo.h"
 
-#include <mach/mach.h>
 #include <signal.h>
 #include <stdlib.h>
 
@@ -166,69 +165,3 @@ int kssignal_numFatalSignals(void)
     return g_fatalSignalsCount;
 }
 
-#define EXC_UNIX_BAD_SYSCALL 0x10000 /* SIGSYS */
-#define EXC_UNIX_BAD_PIPE    0x10001 /* SIGPIPE */
-#define EXC_UNIX_ABORT       0x10002 /* SIGABRT */
-
-int kssignal_machExceptionForSignal(const int sigNum)
-{
-    switch(sigNum)
-    {
-        case SIGFPE:
-            return EXC_ARITHMETIC;
-        case SIGSEGV:
-            return EXC_BAD_ACCESS;
-        case SIGBUS:
-            return EXC_BAD_ACCESS;
-        case SIGILL:
-            return EXC_BAD_INSTRUCTION;
-        case SIGTRAP:
-            return EXC_BREAKPOINT;
-        case SIGEMT:
-            return EXC_EMULATION;
-        case SIGSYS:
-            return EXC_UNIX_BAD_SYSCALL;
-        case SIGPIPE:
-            return EXC_UNIX_BAD_PIPE;
-        case SIGABRT:
-            // The Apple reporter uses EXC_CRASH instead of EXC_UNIX_ABORT
-            return EXC_CRASH;
-        case SIGKILL:
-            return EXC_SOFT_SIGNAL;
-    }
-    return 0;
-}
-
-int kssignal_signalForMachException(const int exception,
-                                    const mach_exception_code_t code)
-{
-    switch(exception)
-    {
-        case EXC_ARITHMETIC:
-            return SIGFPE;
-        case EXC_BAD_ACCESS:
-            return code == KERN_INVALID_ADDRESS ? SIGSEGV : SIGBUS;
-        case EXC_BAD_INSTRUCTION:
-            return SIGILL;
-        case EXC_BREAKPOINT:
-            return SIGTRAP;
-        case EXC_EMULATION:
-            return SIGEMT;
-        case EXC_SOFTWARE:
-        {
-            switch (code)
-            {
-                case EXC_UNIX_BAD_SYSCALL:
-                    return SIGSYS;
-                case EXC_UNIX_BAD_PIPE:
-                    return SIGPIPE;
-                case EXC_UNIX_ABORT:
-                    return SIGABRT;
-                case EXC_SOFT_SIGNAL:
-                    return SIGKILL;
-            }
-            break;
-        }
-    }
-    return 0;
-}
