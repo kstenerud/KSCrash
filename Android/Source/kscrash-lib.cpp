@@ -156,3 +156,25 @@ Java_org_stenerud_kscrash_MainActivity_stringFromTimestamp(JNIEnv *env, jobject 
     ksdate_utcStringFromTimestamp(timestamp, buffer);
     return env->NewStringUTF(buffer);
 }
+
+extern "C" JNIEXPORT void JNICALL
+Java_org_stenerud_kscrash_MainActivity_causeNativeCrash(JNIEnv *env, jobject instance) {
+    char* str = "hello";
+    char* ptr = NULL;
+    strcpy(ptr, str);
+}
+
+#import <exception>
+class MyException: public std::exception
+{
+public:
+    virtual const char* what() const _GLIBCXX_USE_NOEXCEPT;
+};
+const char* MyException::what() const _GLIBCXX_USE_NOEXCEPT
+{
+    return "Something bad happened...";
+}
+extern "C" JNIEXPORT void JNICALL
+Java_org_stenerud_kscrash_MainActivity_causeCPPException(JNIEnv *env, jobject instance) {
+    throw MyException();
+}

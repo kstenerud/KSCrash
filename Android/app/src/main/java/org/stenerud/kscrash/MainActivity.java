@@ -2,6 +2,7 @@ package org.stenerud.kscrash;
 
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
@@ -21,10 +22,24 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace();
         }
 
-        final Button button = (Button) findViewById(R.id.button);
-        button.setOnClickListener(new View.OnClickListener() {
+        final Button javaButton = (Button) findViewById(R.id.button_java);
+        javaButton.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 KSCrash.getInstance().reportJavaException(new IllegalArgumentException("Testing reason"));
+            }
+        });
+
+        final Button nativeButton = (Button) findViewById(R.id.button_native);
+        nativeButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                causeNativeCrash();
+            }
+        });
+
+        final Button cppButton = (Button) findViewById(R.id.button_cpp);
+        cppButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                causeCPPException();
             }
         });
 
@@ -39,4 +54,6 @@ public class MainActivity extends AppCompatActivity {
      * which is packaged with this application.
      */
     public native String stringFromTimestamp(long timestamp);
+    private native void causeNativeCrash();
+    private native void causeCPPException();
 }

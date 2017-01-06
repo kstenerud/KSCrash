@@ -17,11 +17,28 @@
         android:text="Hello World!" />
 
     <Button
-        android:text="Crash"
+        android:text="Java Exception"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_below="@+id/sample_text"
         android:layout_centerHorizontal="true"
         android:layout_marginTop="41dp"
-        android:id="@+id/button" />
+        android:id="@+id/button_java" />
+
+    <Button
+        android:text="Native Crash"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/button_native"
+        android:layout_below="@+id/button_java"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="33dp" />
+
+    <Button
+        android:text="C++ Exception"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerVertical="true"
+        android:layout_centerHorizontal="true"
+        android:id="@+id/button_cpp" />
 </RelativeLayout>
