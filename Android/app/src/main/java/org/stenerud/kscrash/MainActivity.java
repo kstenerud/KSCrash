@@ -25,7 +25,7 @@ public class MainActivity extends AppCompatActivity {
         final Button javaButton = (Button) findViewById(R.id.button_java);
         javaButton.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
-                KSCrash.getInstance().reportJavaException(new IllegalArgumentException("Testing reason"));
+                throw new IllegalArgumentException("Argument was illegal or something");
             }
         });
 

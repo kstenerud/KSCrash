@@ -52,6 +52,8 @@ public class KSCrash extends Object
     }
     private KSCrash() {}
 
+    private static Thread.UncaughtExceptionHandler oldUncaughtExceptionHandler;
+
     /** Install the crash reporter.
      *
      * @param context The application context.
@@ -60,6 +62,16 @@ public class KSCrash extends Object
         String appName = context.getApplicationInfo().processName;
         File installDir = new File(context.getCacheDir().getAbsolutePath(), "KSCrash");
         install(appName, installDir.getCanonicalPath());
+
+        // TODO: Put this elsewhere
+        oldUncaughtExceptionHandler = Thread.getDefaultUncaughtExceptionHandler();
+        Thread.setDefaultUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+            @Override
+            public void uncaughtException(Thread t, Throwable e) {
+                KSCrash.this.reportJavaException(e);
+                KSCrash.oldUncaughtExceptionHandler.uncaughtException(t, e);
+            }
+        });
     }
 
     /** Delete all reports on disk.
@@ -113,7 +125,7 @@ public class KSCrash extends Object
      *
      * @param exception The exception.
      */
-    public void reportJavaException(Exception exception) {
+    public void reportJavaException(Throwable exception) {
         try {
             JSONArray array = new JSONArray();
             for(StackTraceElement element: exception.getStackTrace())
