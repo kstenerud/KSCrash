@@ -42,8 +42,8 @@ static void init()
         JNIEnv* env = ksjni_getEnv();
         g_uuidClass = env->FindClass("java/util/UUID");
         g_newGuidMethod = env->GetStaticMethodID(g_uuidClass, "randomUUID", "()Ljava/util/UUID;");
-        g_msbMethod = env->GetMethodID(g_uuidClass, "get(unsigned)msbBits", "()J");
-        g_lsbMethod = env->GetMethodID(g_uuidClass, "get(unsigned)lsbBits", "()J");
+        g_msbMethod = env->GetMethodID(g_uuidClass, "getMostSignificantBits", "()J");
+        g_lsbMethod = env->GetMethodID(g_uuidClass, "getLeastSignificantBits", "()J");
     }
 }
 
