@@ -151,7 +151,7 @@ static bool installSignalHandler()
 
     struct sigaction action = {{0}};
     action.sa_flags = SA_SIGINFO | SA_ONSTACK;
-#ifdef __LP64__
+#if KSCRASH_HOST_APPLE && defined(__LP64__)
     action.sa_flags |= SA_64REGSET;
 #endif
     sigemptyset(&action.sa_mask);
