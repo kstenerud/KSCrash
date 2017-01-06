@@ -8,7 +8,7 @@ static jclass java_util_ArrayList;
 static jmethodID java_util_ArrayList_;
 static jmethodID java_util_ArrayList_add;
 
-JNIEXPORT void JNICALL
+extern "C" JNIEXPORT void JNICALL
 Java_org_stenerud_kscrash_KSCrash_internalReportUserException(JNIEnv *env, jobject instance,
                                                               jstring name_, jstring reason_,
                                                               jstring language_, jstring lineOfCode_,

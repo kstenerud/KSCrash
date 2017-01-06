@@ -50,10 +50,13 @@ static void init()
 void ksid_generate(char* destinationBuffer37Bytes)
 {
     init();
-    JNIEnv* env = ksjni_getEnv();
-    jobject javaUuid = env->CallStaticObjectMethod(g_uuidClass, g_newGuidMethod);
-    jlong msb = env->CallLongMethod(javaUuid, g_msbMethod);
-    jlong lsb = env->CallLongMethod(javaUuid, g_lsbMethod);
+    // TODO: Figure out why this doesn't work.
+//    JNIEnv* env = ksjni_getEnv();
+//    jobject javaUuid = env->CallStaticObjectMethod(g_uuidClass, g_newGuidMethod);
+//    jlong msb = env->CallLongMethod(javaUuid, g_msbMethod);
+//    jlong lsb = env->CallLongMethod(javaUuid, g_lsbMethod);
+    jlong msb = 1;
+    jlong lsb = 1;
 
     sprintf(destinationBuffer37Bytes,
           "%02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X",
