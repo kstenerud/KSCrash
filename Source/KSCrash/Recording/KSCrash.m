@@ -39,6 +39,7 @@
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
 
+#include <inttypes.h>
 #if KSCRASH_HAS_UIKIT
 #import <UIKit/UIKit.h>
 #endif
@@ -477,7 +478,7 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
                                                      error:&error];
     if(error != nil)
     {
-        KSLOG_ERROR(@"Encountered error loading crash report %llx: %@", reportID, error);
+        KSLOG_ERROR(@"Encountered error loading crash report %" PRIx64 ": %@", reportID, error);
     }
     if(crashReport == nil)
     {

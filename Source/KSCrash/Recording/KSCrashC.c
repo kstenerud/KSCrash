@@ -45,6 +45,7 @@
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -234,21 +235,21 @@ char* kscrash_readReport(int64_t reportID)
 {
     if(reportID <= 0)
     {
-        KSLOG_ERROR("Report ID was %llx", reportID);
+        KSLOG_ERROR("Report ID was %" PRIx64, reportID);
         return NULL;
     }
 
     char* rawReport = kscrs_readReport(reportID);
     if(rawReport == NULL)
     {
-        KSLOG_ERROR("Failed to load report ID %llx", reportID);
+        KSLOG_ERROR("Failed to load report ID %" PRIx64, reportID);
         return NULL;
     }
 
     char* fixedReport = kscrf_fixupCrashReport(rawReport);
     if(fixedReport == NULL)
     {
-        KSLOG_ERROR("Failed to fixup report ID %llx", reportID);
+        KSLOG_ERROR("Failed to fixup report ID %" PRIx64, reportID);
     }
 
     free(rawReport);

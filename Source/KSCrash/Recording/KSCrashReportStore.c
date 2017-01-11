@@ -31,6 +31,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -74,7 +75,7 @@ static void getCrashReportPathByID(int64_t id, char* pathBuffer)
 static int64_t getReportIDFromFilename(const char* filename)
 {
     char scanFormat[100];
-    sprintf(scanFormat, "%s-report-%%llx.json", g_appName);
+    sprintf(scanFormat, "%s-report-%%" PRIx64 ".json", g_appName);
     
     int64_t reportID = 0;
     sscanf(filename, scanFormat, &reportID);
@@ -244,7 +245,7 @@ int64_t kscrs_addUserReport(const char* report, int reportLength)
     }
     else if(bytesWritten < reportLength)
     {
-        KSLOG_ERROR("Expected to write %lull bytes to file %s, but only wrote %ll", crashReportPath, reportLength, bytesWritten);
+        KSLOG_ERROR("Expected to write %d bytes to file %s, but only wrote %d", crashReportPath, reportLength, bytesWritten);
     }
 
 done:

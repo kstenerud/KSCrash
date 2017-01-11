@@ -46,6 +46,7 @@ typedef unsigned int NSUInteger;
 #endif
 #include <CoreFoundation/CFBase.h>
 #include <CoreGraphics/CGBase.h>
+#include <inttypes.h>
 #include <objc/runtime.h>
 
 
@@ -1351,13 +1352,13 @@ static int numberDescription(const void* object, char* buffer, int bufferLength)
 
     if(ksobjc_numberIsFloat(object))
     {
-        int64_t value = ksobjc_numberAsInteger(object);
-        pBuffer += stringPrintf(pBuffer, (int)(pEnd - pBuffer), ": %ld", value);
+        Float64 value = ksobjc_numberAsFloat(object);
+        pBuffer += stringPrintf(pBuffer, (int)(pEnd - pBuffer), ": %lf", value);
     }
     else
     {
-        Float64 value = ksobjc_numberAsFloat(object);
-        pBuffer += stringPrintf(pBuffer, (int)(pEnd - pBuffer), ": %lf", value);
+        int64_t value = ksobjc_numberAsInteger(object);
+        pBuffer += stringPrintf(pBuffer, (int)(pEnd - pBuffer), ": %" PRId64, value);
     }
 
     return (int)(pBuffer - buffer);
@@ -1375,7 +1376,7 @@ static int taggedNumberDescription(const void* object, char* buffer, int bufferL
 
     int64_t value = extractTaggedNSNumber(object);
     pBuffer += taggedObjectDescription(object, pBuffer, (int)(pEnd - pBuffer));
-    pBuffer += stringPrintf(pBuffer, (int)(pEnd - pBuffer), ": %ld", value);
+    pBuffer += stringPrintf(pBuffer, (int)(pEnd - pBuffer), ": %" PRId64, value);
 
     return (int)(pBuffer - buffer);
 }

@@ -36,6 +36,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
@@ -110,7 +111,7 @@ static int onIntegerElement(const char* const name, const int64_t value, void* c
     {
         if(value != kFormatVersion)
         {
-            KSLOG_ERROR("Expected version 1 but got %lld", value);
+            KSLOG_ERROR("Expected version 1 but got %" PRId64, value);
             return KSJSON_ERROR_INVALID_DATA;
         }
     }

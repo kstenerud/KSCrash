@@ -503,11 +503,11 @@ static void initialize()
         NSString* systemVersion;
         if(version.patchVersion == 0)
         {
-            systemVersion = [NSString stringWithFormat:@"%ld.%ld", (long)version.majorVersion, (long)version.minorVersion];
+            systemVersion = [NSString stringWithFormat:@"%d.%d", (int)version.majorVersion, (int)version.minorVersion];
         }
         else
         {
-            systemVersion = [NSString stringWithFormat:@"%ld.%ld.%ld", (long)version.majorVersion, (long)version.minorVersion, (long)version.patchVersion];
+            systemVersion = [NSString stringWithFormat:@"%d.%d.%d", (int)version.majorVersion, (int)version.minorVersion, (int)version.patchVersion];
         }
         g_systemData.systemVersion = cString(systemVersion);
 #endif

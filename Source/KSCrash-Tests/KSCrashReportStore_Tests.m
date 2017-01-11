@@ -30,6 +30,8 @@
 
 #import "KSCrashReportStore.h"
 
+#include <inttypes.h>
+
 
 #define REPORT_PREFIX @"CrashReport-KSCrashTest"
 
@@ -52,7 +54,7 @@
 {
     const char* filename = path.lastPathComponent.UTF8String;
     char scanFormat[100];
-    sprintf(scanFormat, "%s-report-%%llx.json", self.appName.UTF8String);
+    sprintf(scanFormat, "%s-report-%%" PRIx64 ".json", self.appName.UTF8String);
     
     int64_t reportID = 0;
     sscanf(filename, scanFormat, &reportID);
