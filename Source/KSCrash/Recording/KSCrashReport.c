@@ -44,6 +44,7 @@
 #include "KSStackCursor_Backtrace.h"
 #include "KSStackCursor_MachineContext.h"
 #include "KSSystemCapabilities.h"
+#include "KSCrashCachedData.h"
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
@@ -126,8 +127,6 @@ typedef struct
 } KSCrash_IntrospectionRules;
 
 static const char* g_userInfoJSON;
-static bool g_shouldSearchThreadNames;
-static bool g_shouldSearchQueueNames;
 static KSCrash_IntrospectionRules g_introspectionRules;
 static KSReportWriteCallback g_userSectionWriteCallback;
 
@@ -1183,22 +1182,15 @@ static void writeNotableAddresses(const KSCrashReportWriter* const writer,
  * @param machineContext The context whose thread to write about.
  *
  * @param shouldWriteNotableAddresses If true, write any notable addresses found.
- *
- * @param searchThreadNames If true, search thread names as well.
- *
- * @param searchQueueNames If true, search queue names as well.
  */
 static void writeThread(const KSCrashReportWriter* const writer,
                         const char* const key,
                         const KSCrash_MonitorContext* const crash,
                         const struct KSMachineContext* const machineContext,
                         const int threadIndex,
-                        const bool shouldWriteNotableAddresses,
-                        const bool searchThreadNames,
-                        const bool searchQueueNames)
+                        const bool shouldWriteNotableAddresses)
 {
     bool isCrashedThread = ksmc_isCrashedContext(machineContext);
-    char nameBuffer[128];
     KSThread thread = ksmc_getThreadFromContext(machineContext);
     KSLOG_DEBUG("Writing thread %x (index %d). is crashed: %d", thread, threadIndex, isCrashedThread);
 
@@ -1216,19 +1208,15 @@ static void writeThread(const KSCrashReportWriter* const writer,
             writeRegisters(writer, KSCrashField_Registers, machineContext);
         }
         writer->addIntegerElement(writer, KSCrashField_Index, threadIndex);
-        if(searchThreadNames)
+        const char* name = ksccd_getThreadName(thread);
+        if(name != NULL)
         {
-            if(ksthread_getThreadName(thread, nameBuffer, sizeof(nameBuffer)) && nameBuffer[0] != 0)
-            {
-                writer->addStringElement(writer, KSCrashField_Name, nameBuffer);
-            }
+            writer->addStringElement(writer, KSCrashField_Name, name);
         }
-        if(searchQueueNames)
+        name = ksccd_getQueueName(thread);
+        if(name != NULL)
         {
-            if(ksthread_getQueueName(thread, nameBuffer, sizeof(nameBuffer)) && nameBuffer[0] != 0)
-            {
-                writer->addStringElement(writer, KSCrashField_DispatchQueue, nameBuffer);
-            }
+            writer->addStringElement(writer, KSCrashField_DispatchQueue, name);
         }
         writer->addBooleanElement(writer, KSCrashField_Crashed, isCrashedThread);
         writer->addBooleanElement(writer, KSCrashField_CurrentThread, thread == ksthread_self());
@@ -1255,9 +1243,7 @@ static void writeThread(const KSCrashReportWriter* const writer,
 static void writeAllThreads(const KSCrashReportWriter* const writer,
                             const char* const key,
                             const KSCrash_MonitorContext* const crash,
-                            bool writeNotableAddresses,
-                            bool searchThreadNames,
-                            bool searchQueueNames)
+                            bool writeNotableAddresses)
 {
     const struct KSMachineContext* const context = crash->offendingMachineContext;
     KSThread offendingThread = ksmc_getThreadFromContext(context);
@@ -1273,12 +1259,12 @@ static void writeAllThreads(const KSCrashReportWriter* const writer,
             KSThread thread = ksmc_getThreadAtIndex(context, i);
             if(thread == offendingThread)
             {
-                writeThread(writer, NULL, crash, context, i, writeNotableAddresses, searchThreadNames, searchQueueNames);
+                writeThread(writer, NULL, crash, context, i, writeNotableAddresses);
             }
             else
             {
                 ksmc_getContextForThread(thread, machineContext, false);
-                writeThread(writer, NULL, crash, machineContext, i, writeNotableAddresses, searchThreadNames, searchQueueNames);
+                writeThread(writer, NULL, crash, machineContext, i, writeNotableAddresses);
             }
         }
     }
@@ -1625,6 +1611,8 @@ void kscrashreport_writeRecrashReport(const KSCrash_MonitorContext* const monito
         return;
     }
 
+    ksccd_freeze();
+
     KSJSONEncodeContext jsonContext;
     jsonContext.userData = &bufferedWriter;
     KSCrashReportWriter concreteWriter;
@@ -1659,7 +1647,7 @@ void kscrashreport_writeRecrashReport(const KSCrash_MonitorContext* const monito
                         monitorContext,
                         monitorContext->offendingMachineContext,
                         threadIndex,
-                        false, false, false);
+                        false);
             ksfu_flushBufferedWriter(&bufferedWriter);
         }
         writer->endContainer(writer);
@@ -1668,6 +1656,7 @@ void kscrashreport_writeRecrashReport(const KSCrash_MonitorContext* const monito
 
     ksjson_endEncode(getJsonContext(writer));
     ksfu_closeBufferedWriter(&bufferedWriter);
+    ksccd_unfreeze();
 }
 
 static void writeSystemInfo(const KSCrashReportWriter* const writer,
@@ -1737,6 +1726,8 @@ void kscrashreport_writeStandardReport(const KSCrash_MonitorContext* const monit
     {
         return;
     }
+
+    ksccd_freeze();
     
     KSJSONEncodeContext jsonContext;
     jsonContext.userData = &bufferedWriter;
@@ -1771,9 +1762,7 @@ void kscrashreport_writeStandardReport(const KSCrash_MonitorContext* const monit
             writeAllThreads(writer,
                             KSCrashField_Threads,
                             monitorContext,
-                            g_introspectionRules.enabled,
-                            g_shouldSearchThreadNames,
-                            g_shouldSearchQueueNames);
+                            g_introspectionRules.enabled);
             ksfu_flushBufferedWriter(&bufferedWriter);
         }
         writer->endContainer(writer);
@@ -1801,6 +1790,7 @@ void kscrashreport_writeStandardReport(const KSCrash_MonitorContext* const monit
     
     ksjson_endEncode(getJsonContext(writer));
     ksfu_closeBufferedWriter(&bufferedWriter);
+    ksccd_unfreeze();
 }
 
 
@@ -1824,16 +1814,6 @@ void kscrashreport_setUserInfoJSON(const char* const userInfoJSON)
         g_userInfoJSON = strdup(userInfoJSON);
     }
     pthread_mutex_unlock(&mutex);
-}
-
-void kscrashreport_setSearchThreadNames(bool shouldSearchThreadNames)
-{
-    g_shouldSearchThreadNames = shouldSearchThreadNames;
-}
-
-void kscrashreport_setSearchQueueNames(bool shouldSearchQueueNames)
-{
-    g_shouldSearchQueueNames = shouldSearchQueueNames;
 }
 
 void kscrashreport_setIntrospectMemory(bool shouldIntrospectMemory)

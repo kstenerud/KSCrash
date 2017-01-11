@@ -101,8 +101,6 @@ static NSString* getBasePath()
 @synthesize onCrash = _onCrash;
 @synthesize bundleName = _bundleName;
 @synthesize basePath = _basePath;
-@synthesize searchThreadNames = _searchThreadNames;
-@synthesize searchQueueNames = _searchQueueNames;
 @synthesize introspectMemory = _introspectMemory;
 @synthesize catchZombies = _catchZombies;
 @synthesize doNotIntrospectClasses = _doNotIntrospectClasses;
@@ -138,8 +136,6 @@ static NSString* getBasePath()
             return nil;
         }
         self.deleteBehaviorAfterSendAll = KSCDeleteAlways;
-        self.searchThreadNames = NO;
-        self.searchQueueNames = NO;
         self.introspectMemory = YES;
         self.catchZombies = NO;
         self.maxReportCount = 5;
@@ -196,18 +192,6 @@ static NSString* getBasePath()
 {
     _onCrash = onCrash;
     kscrash_setCrashNotifyCallback(onCrash);
-}
-
-- (void) setSearchThreadNames:(BOOL)searchThreadNames
-{
-    _searchThreadNames = searchThreadNames;
-    kscrash_setSearchThreadNames(searchThreadNames);
-}
-
-- (void) setSearchQueueNames:(BOOL)searchQueueNames
-{
-    _searchQueueNames = searchQueueNames;
-    kscrash_setSearchQueueNames(searchQueueNames);
 }
 
 - (void) setIntrospectMemory:(BOOL) introspectMemory

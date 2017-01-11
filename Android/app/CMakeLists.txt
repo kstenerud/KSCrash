@@ -27,6 +27,7 @@ add_library( # Sets the name of the library.
              # Associated headers in the same location as their source
              # file are automatically included.
              ${CMAKE_SOURCE_DIR}/../Source/kscrash-lib.cpp
+             ${CMAKE_SOURCE_DIR}/../Source/KSCrashCachedData.c
              ${CMAKE_SOURCE_DIR}/../Source/KSJNI.cpp
              ${CMAKE_SOURCE_DIR}/../Source/monitors/KSCrashMonitor_System.c
              ${CMAKE_SOURCE_DIR}/../Source/tools/KSCPU.c

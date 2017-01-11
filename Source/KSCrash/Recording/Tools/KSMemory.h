@@ -47,7 +47,7 @@ extern "C" {
  *
  * @return True if the memory can be safely read.
  */
-bool ksmem_isReadableMemory(const void* const memory, const int byteCount);
+bool ksmem_isMemoryReadable(const void* const memory, const int byteCount);
 
 /** Test how much memory is readable from the specified pointer.
  *

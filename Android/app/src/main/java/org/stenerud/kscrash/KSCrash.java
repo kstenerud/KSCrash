@@ -221,12 +221,6 @@ public class KSCrash
      */
     public native void setMaxReportCount(int maxReportCount);
 
-    /** If true, search for thread names where appropriate.
-     * Thread name searching is not async-safe, and so comes with the risk of
-     * timing out and panicking in thread_lock().
-     */
-    public native void setSearchThreadNames(boolean shouldSearchThreadNames);
-
     /** If true, introspect memory contents during a crash.
      * C strings near the stack pointer or referenced by cpu registers or exceptions will be
      * recorded in the crash report, along with their contents.

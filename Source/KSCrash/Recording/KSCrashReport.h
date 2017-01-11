@@ -52,18 +52,6 @@ extern "C" {
  */
 void kscrashreport_setUserInfoJSON(const char* const userInfoJSON);
 
-/** Configure whether to search threads for thread names.
- *
- * @param shouldSearchThreadNames If true, search thread names.
- */
-void kscrashreport_setSearchThreadNames(bool shouldSearchThreadNames);
-
-/** Configure whether to search threads for queue names.
- *
- * @param shouldSearchQueueNames If true, search thread names.
- */
-void kscrashreport_setSearchQueueNames(bool shouldSearchQueueNames);
-
 /** Configure whether to introspect any interesting memory locations.
  *  This can find things like strings or Objective-C classes.
  *

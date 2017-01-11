@@ -27,6 +27,7 @@
 
 #include "KSCrashC.h"
 
+#include "KSCrashCachedData.h"
 #include "KSCrashReport.h"
 #include "KSCrashReportFixer.h"
 #include "KSCrashReportStore.h"
@@ -118,6 +119,8 @@ KSCrashMonitorType kscrash_install(const char* appName, const char* const instal
 
     snprintf(g_consoleLogPath, sizeof(g_consoleLogPath), "%s/Data/ConsoleLog.txt", installPath);
     kslog_setLogFilename(g_consoleLogPath, true);
+    
+    ksccd_init(60);
 
     kscm_setEventCallback(onCrash);
     KSCrashMonitorType monitors = kscrash_setMonitoring(g_monitoring);
@@ -149,16 +152,6 @@ void kscrash_setDeadlockWatchdogInterval(double deadlockWatchdogInterval)
 #if KSCRASH_HAS_OBJC
     kscm_setDeadlockHandlerWatchdogInterval(deadlockWatchdogInterval);
 #endif
-}
-
-void kscrash_setSearchThreadNames(bool shouldSearchThreadNames)
-{
-    kscrashreport_setSearchThreadNames(shouldSearchThreadNames);
-}
-
-void kscrash_setSearchQueueNames(bool shouldSearchQueueNames)
-{
-    kscrashreport_setSearchQueueNames(shouldSearchQueueNames);
 }
 
 void kscrash_setIntrospectMemory(bool introspectMemory)

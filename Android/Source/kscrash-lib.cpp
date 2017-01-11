@@ -146,12 +146,6 @@ Java_org_stenerud_kscrash_KSCrash_setAddConsoleLogToReport(JNIEnv *env, jobject 
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_org_stenerud_kscrash_KSCrash_setSearchThreadNames(JNIEnv *env, jobject instance,
-                                                       jboolean shouldSearchThreadNames) {
-    kscrash_setSearchThreadNames(shouldSearchThreadNames);
-}
-
-extern "C" JNIEXPORT void JNICALL
 Java_org_stenerud_kscrash_KSCrash_install__Ljava_lang_String_2Ljava_lang_String_2(JNIEnv *env,
                                                                                   jobject instance,
                                                                                   jstring appName_,
