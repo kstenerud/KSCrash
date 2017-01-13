@@ -36,4 +36,5 @@ dependencies {
     })
     compile 'com.android.support:appcompat-v7:25.1.0'
     testCompile 'junit:junit:4.12'
+    testCompile 'org.json:json:20140107'
 }

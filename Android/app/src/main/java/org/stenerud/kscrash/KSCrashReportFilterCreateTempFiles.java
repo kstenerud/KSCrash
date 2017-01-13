@@ -45,10 +45,10 @@ public class KSCrashReportFilterCreateTempFiles implements KSCrashReportFilter {
     @Override
     public void filterReports(List reports, CompletionCallback completionCallback) throws KSCrashReportFilteringFailedException {
         try {
-            List<String> filenames = new LinkedList<String>();
+            List<File> files = new LinkedList<File>();
             int index = 1;
             for(Object report: reports) {
-                File tempFile = File.createTempFile("report-" + index, this.extension);
+                File tempFile = File.createTempFile("report-" + index + ".", this.extension);
                 OutputStream outStream = new FileOutputStream(tempFile);
                 if(report instanceof String) {
                     Writer out = new OutputStreamWriter(outStream, "UTF-8");
@@ -66,10 +66,10 @@ public class KSCrashReportFilterCreateTempFiles implements KSCrashReportFilter {
                 } else {
                     throw new IllegalArgumentException("Unhandled class type: " + report.getClass());
                 }
-                reports.add(tempFile);
+                files.add(tempFile);
                 index++;
             }
-            completionCallback.onCompletion(filenames);
+            completionCallback.onCompletion(files);
         } catch (Throwable error) {
             throw new KSCrashReportFilteringFailedException(error, reports);
         }
