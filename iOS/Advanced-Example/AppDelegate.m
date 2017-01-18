@@ -163,8 +163,6 @@ static void advanced_crash_callback(const KSCrashReportWriter* writer)
     handler.deadlockWatchdogInterval = 8;
     handler.userInfo = @{@"someKey": @"someValue"};
     handler.onCrash = advanced_crash_callback;
-    handler.searchThreadNames = YES;
-    handler.searchQueueNames = YES;
 
     // Do not introspect class SensitiveInfo (see MainVC)
     // When added to the "do not introspect" list, the Objective-C introspector

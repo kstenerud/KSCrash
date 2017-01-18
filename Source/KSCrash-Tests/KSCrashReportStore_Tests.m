@@ -30,6 +30,8 @@
 
 #import "KSCrashReportStore.h"
 
+#include <inttypes.h>
+
 
 #define REPORT_PREFIX @"CrashReport-KSCrashTest"
 
@@ -52,7 +54,7 @@
 {
     const char* filename = path.lastPathComponent.UTF8String;
     char scanFormat[100];
-    sprintf(scanFormat, "%s-report-%%llx.json", self.appName.UTF8String);
+    sprintf(scanFormat, "%s-report-%%" PRIx64 ".json", self.appName.UTF8String);
     
     int64_t reportID = 0;
     sscanf(filename, scanFormat, &reportID);
@@ -190,7 +192,8 @@
 
 - (void) testPruneReports
 {
-    int reportStorePrunesTo = 5;
+    int reportStorePrunesTo = 7;
+    kscrs_setMaxReportCount(reportStorePrunesTo);
     [self prepareReportStoreWithPathEnd:@"testDeleteAllReports"];
     int64_t prunedReportID = [self writeUserReportWithStringContents:@"u1"];
     [self writeCrashReportWithStringContents:@"c1"];
@@ -198,7 +201,9 @@
     [self writeCrashReportWithStringContents:@"c2"];
     [self writeCrashReportWithStringContents:@"c3"];
     [self writeUserReportWithStringContents:@"u3"];
-    [self expectHasReportCount:6];
+    [self writeCrashReportWithStringContents:@"c4"];
+    [self writeCrashReportWithStringContents:@"c5"];
+    [self expectHasReportCount:8];
     // Calls kscrs_initialize() again, which prunes the reports.
     [self prepareReportStoreWithPathEnd:@"testDeleteAllReports"];
     [self expectHasReportCount:reportStorePrunesTo];

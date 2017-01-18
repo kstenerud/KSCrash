@@ -1,3 +1,17 @@
+1.15.0:
+
+Removed at-crash thread name and queue name searching since they can't be made async-safe without some nasty hacks.
+
+- REMOVED KSCrash.searchThreadNames
+- REMOVED KSCrash.searchQueueNames
+
+1.14.0:
+
+VERY minimal, experimental Android support. Don't expect much from this yet.
+
+Added new monitor mode KSCrashMonitorTypeManual, which effectively disables any automatic crash reporting.
+
+
 1.13.3:
 
 Fixed bad dynamic library reference in the Mac project file.

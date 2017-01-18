@@ -89,18 +89,6 @@ void kscrash_setUserInfoJSON(const char* const userInfoJSON);
  */
 void kscrash_setDeadlockWatchdogInterval(double deadlockWatchdogInterval);
 
-/** If true, search for thread names where appropriate.
- * Thread name searching is not async-safe, and so comes with the risk of
- * timing out and panicking in thread_lock().
- */
-void kscrash_setSearchThreadNames(bool shouldSearchThreadNames);
-
-/** If true, search for dispatch queue names where appropriate.
-* Queue name searching is not async-safe, and so comes with the risk of
-* timing out and panicking in thread_lock().
-*/
-void kscrash_setSearchQueueNames(bool shouldSearchQueueNames);
-
 /** If true, introspect memory contents during a crash.
  * Any Objective-C objects or C strings near the stack pointer or referenced by
  * cpu registers or exceptions will be recorded in the crash report, along with
@@ -136,6 +124,12 @@ void kscrash_setCrashNotifyCallback(const KSReportWriteCallback onCrashNotify);
  * @param shouldAddConsoleLogToReport If true, add the log to the report.
  */
 void kscrash_setAddConsoleLogToReport(bool shouldAddConsoleLogToReport);
+
+/** Set the maximum number of reports allowed on disk before old ones get deleted.
+ *
+ * @param maxReportCount The maximum number of reports.
+ */
+void kscrash_setMaxReportCount(int maxReportCount);
 
 /** Report a custom, user defined exception.
  * This can be useful when dealing with scripting languages.

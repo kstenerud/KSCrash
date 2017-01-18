@@ -56,8 +56,6 @@ static void onCrash(const KSCrashReportWriter* writer)
 
     handler.deadlockWatchdogInterval = 5.0f;
     handler.catchZombies = YES;
-    handler.searchThreadNames = YES;
-    handler.searchQueueNames = YES;
 //    handler.addConsoleLogToReport = YES;
     handler.onCrash = onCrash;
     handler.userInfo = [NSDictionary dictionaryWithObjectsAndKeys:

@@ -26,11 +26,11 @@
 #include "KSCrashMonitorContext.h"
 #include "KSID.h"
 #include "KSThread.h"
+#include "KSStackCursor_SelfThread.h"
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
-#include <execinfo.h>
 #include <memory.h>
 #include <stdlib.h>
 
@@ -63,35 +63,27 @@ void kscm_reportUserException(const char* name,
             kscm_notifyFatalExceptionCaptured(false);
         }
 
-        KSCrash_MonitorContext context;
-        memset(&context, 0, sizeof(context));
-
-        KSLOG_DEBUG("Fetching call stack.");
-        int callstackCount = 100;
-        uintptr_t callstack[callstackCount];
-        callstackCount = backtrace((void**)callstack, callstackCount);
-        if(callstackCount <= 0)
-        {
-            KSLOG_ERROR("backtrace() returned call stack length of %d", callstackCount);
-            callstackCount = 0;
-        }
-
-        KSLOG_DEBUG("Filling out context.");
         char eventID[37];
         ksid_generate(eventID);
+        KSMC_NEW_CONTEXT(machineContext);
+        ksmc_getContextForThread(ksthread_self(), machineContext, true);
+        KSStackCursor stackCursor;
+        kssc_initSelfThread(&stackCursor, 0);
+
+
+        KSLOG_DEBUG("Filling out context.");
+        KSCrash_MonitorContext context;
+        memset(&context, 0, sizeof(context));
         context.crashType = KSCrashMonitorTypeUserReported;
         context.eventID = eventID;
-        KSMC_NEW_CONTEXT(machineContext);
         context.offendingMachineContext = machineContext;
-        ksmc_getContextForThread(ksthread_self(), machineContext, true);
         context.registersAreValid = false;
         context.crashReason = reason;
-        context.stackTrace = callstack;
-        context.stackTraceLength = callstackCount;
         context.userException.name = name;
         context.userException.language = language;
         context.userException.lineOfCode = lineOfCode;
         context.userException.customStackTrace = stackTrace;
+        context.stackCursor = &stackCursor;
 
         kscm_handleException(&context);
 

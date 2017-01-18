@@ -34,7 +34,7 @@
 #include "KSJSONCodec.h"
 #include "KSCPU.h"
 #include "KSMemory.h"
-#include "KSReturnCodes.h"
+#include "KSMach.h"
 #include "KSThread.h"
 #include "KSObjC.h"
 #include "KSSignalInfo.h"
@@ -43,6 +43,8 @@
 #include "KSCrashReportVersion.h"
 #include "KSStackCursor_Backtrace.h"
 #include "KSStackCursor_MachineContext.h"
+#include "KSSystemCapabilities.h"
+#include "KSCrashCachedData.h"
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
@@ -74,21 +76,6 @@
 
 /** The minimum length for a valid string. */
 #define kMinStringLength 4
-
-
-// ============================================================================
-#pragma mark - Formatting -
-// ============================================================================
-
-#if defined(__LP64__)
-    #define TRACE_FMT         "%-4d%-31s 0x%016lx %s + %lu"
-    #define POINTER_FMT       "0x%016lx"
-    #define POINTER_SHORT_FMT "0x%lx"
-#else
-    #define TRACE_FMT         "%-4d%-31s 0x%08lx %s + %lu"
-    #define POINTER_FMT       "0x%08lx"
-    #define POINTER_SHORT_FMT "0x%lx"
-#endif
 
 
 // ============================================================================
@@ -125,8 +112,6 @@ typedef struct
 } KSCrash_IntrospectionRules;
 
 static const char* g_userInfoJSON;
-static bool g_shouldSearchThreadNames;
-static bool g_shouldSearchQueueNames;
 static KSCrash_IntrospectionRules g_introspectionRules;
 static KSReportWriteCallback g_userSectionWriteCallback;
 
@@ -397,19 +382,14 @@ static bool getStackCursor(const KSCrash_MonitorContext* const crash,
                            const struct KSMachineContext* const machineContext,
                            KSStackCursor *cursor)
 {
-    kssc_initCursor(cursor, 0, 0);
-    if(ksmc_canHaveCustomStackTrace(machineContext) && crash->stackTrace != NULL && crash->stackTraceLength > 0)
+    if(ksmc_getThreadFromContext(machineContext) == ksmc_getThreadFromContext(crash->offendingMachineContext))
     {
-        kssc_initWithBacktrace(cursor, KSSC_STACK_OVERFLOW_THRESHOLD, crash->stackTrace, crash->stackTraceLength);
+        *cursor = *((KSStackCursor*)crash->stackCursor);
         return true;
     }
 
-    if(ksmc_canHaveNormalStackTrace(machineContext))
-    {
-        kssc_initWithMachineContext(cursor, KSSC_STACK_OVERFLOW_THRESHOLD, machineContext);
-        return true;
-    }
-    return false;
+    kssc_initWithMachineContext(cursor, KSSC_STACK_OVERFLOW_THRESHOLD, machineContext);
+    return true;
 }
 
 
@@ -678,6 +658,90 @@ static bool isRestrictedClass(const char* name)
     return false;
 }
 
+static void writeZombieIfPresent(const KSCrashReportWriter* const writer,
+                                 const char* const key,
+                                 const uintptr_t address)
+{
+#if KSCRASH_HAS_OBJC
+    const void* object = (const void*)address;
+    const char* zombieClassName = kszombie_className(object);
+    if(zombieClassName != NULL)
+    {
+        writer->addStringElement(writer, key, zombieClassName);
+    }
+#endif
+}
+
+static bool writeObjCObject(const KSCrashReportWriter* const writer,
+                            const uintptr_t address,
+                            int* limit)
+{
+#if KSCRASH_HAS_OBJC
+    const void* object = (const void*)address;
+    switch(ksobjc_objectType(object))
+    {
+        case KSObjCTypeClass:
+            writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_Class);
+            writer->addStringElement(writer, KSCrashField_Class, ksobjc_className(object));
+            return true;
+        case KSObjCTypeObject:
+        {
+            writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_Object);
+            const char* className = ksobjc_objectClassName(object);
+            writer->addStringElement(writer, KSCrashField_Class, className);
+            if(!isRestrictedClass(className))
+            {
+                switch(ksobjc_objectClassType(object))
+                {
+                    case KSObjCClassTypeString:
+                        writeNSStringContents(writer, KSCrashField_Value, address, limit);
+                        return true;
+                    case KSObjCClassTypeURL:
+                        writeURLContents(writer, KSCrashField_Value, address, limit);
+                        return true;
+                    case KSObjCClassTypeDate:
+                        writeDateContents(writer, KSCrashField_Value, address, limit);
+                        return true;
+                    case KSObjCClassTypeArray:
+                        if(*limit > 0)
+                        {
+                            writeArrayContents(writer, KSCrashField_FirstObject, address, limit);
+                        }
+                        return true;
+                    case KSObjCClassTypeNumber:
+                        writeNumberContents(writer, KSCrashField_Value, address, limit);
+                        return true;
+                    case KSObjCClassTypeDictionary:
+                    case KSObjCClassTypeException:
+                        // TODO: Implement these.
+                        if(*limit > 0)
+                        {
+                            writeUnknownObjectContents(writer, KSCrashField_Ivars, address, limit);
+                        }
+                        return true;
+                    case KSObjCClassTypeUnknown:
+                        if(*limit > 0)
+                        {
+                            writeUnknownObjectContents(writer, KSCrashField_Ivars, address, limit);
+                        }
+                        return true;
+                }
+            }
+            break;
+        }
+        case KSObjCTypeBlock:
+            writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_Block);
+            const char* className = ksobjc_objectClassName(object);
+            writer->addStringElement(writer, KSCrashField_Class, className);
+            return true;
+        case KSObjCTypeUnknown:
+            break;
+    }
+#endif
+
+    return false;
+}
+
 /** Write the contents of a memory location.
  * Also writes meta information about the data.
  *
@@ -699,82 +763,22 @@ static void writeMemoryContents(const KSCrashReportWriter* const writer,
     writer->beginObject(writer, key);
     {
         writer->addUIntegerElement(writer, KSCrashField_Address, address);
-        const char* zombieClassName = kszombie_className(object);
-        if(zombieClassName != NULL)
+        writeZombieIfPresent(writer, KSCrashField_LastDeallocObject, address);
+        if(!writeObjCObject(writer, address, limit))
         {
-            writer->addStringElement(writer, KSCrashField_LastDeallocObject, zombieClassName);
-        }
-        switch(ksobjc_objectType(object))
-        {
-            case KSObjCTypeUnknown:
-                if(object == NULL)
-                {
-                    writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_NullPointer);
-                }
-                else if(isValidString(object))
-                {
-                    writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_String);
-                    writer->addStringElement(writer, KSCrashField_Value, (const char*)object);
-                }
-                else
-                {
-                    writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_Unknown);
-                }
-                break;
-            case KSObjCTypeClass:
-                writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_Class);
-                writer->addStringElement(writer, KSCrashField_Class, ksobjc_className(object));
-                break;
-            case KSObjCTypeObject:
+            if(object == NULL)
             {
-                writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_Object);
-                const char* className = ksobjc_objectClassName(object);
-                writer->addStringElement(writer, KSCrashField_Class, className);
-                if(!isRestrictedClass(className))
-                {
-                    switch(ksobjc_objectClassType(object))
-                    {
-                        case KSObjCClassTypeString:
-                            writeNSStringContents(writer, KSCrashField_Value, address, limit);
-                            break;
-                        case KSObjCClassTypeURL:
-                            writeURLContents(writer, KSCrashField_Value, address, limit);
-                            break;
-                        case KSObjCClassTypeDate:
-                            writeDateContents(writer, KSCrashField_Value, address, limit);
-                            break;
-                        case KSObjCClassTypeArray:
-                            if(*limit > 0)
-                            {
-                                writeArrayContents(writer, KSCrashField_FirstObject, address, limit);
-                            }
-                            break;
-                        case KSObjCClassTypeNumber:
-                            writeNumberContents(writer, KSCrashField_Value, address, limit);
-                            break;
-                        case KSObjCClassTypeDictionary:
-                        case KSObjCClassTypeException:
-                            // TODO: Implement these.
-                            if(*limit > 0)
-                            {
-                                writeUnknownObjectContents(writer, KSCrashField_Ivars, address, limit);
-                            }
-                            break;
-                        case KSObjCClassTypeUnknown:
-                            if(*limit > 0)
-                            {
-                                writeUnknownObjectContents(writer, KSCrashField_Ivars, address, limit);
-                            }
-                            break;
-                    }
-                }
-                break;
+                writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_NullPointer);
             }
-            case KSObjCTypeBlock:
-                writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_Block);
-                const char* className = ksobjc_objectClassName(object);
-                writer->addStringElement(writer, KSCrashField_Class, className);
-                break;
+            else if(isValidString(object))
+            {
+                writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_String);
+                writer->addStringElement(writer, KSCrashField_Value, (const char*)object);
+            }
+            else
+            {
+                writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_Unknown);
+            }
         }
     }
     writer->endContainer(writer);
@@ -787,6 +791,7 @@ static bool isValidPointer(const uintptr_t address)
         return false;
     }
 
+#if KSCRASH_HAS_OBJC
     if(ksobjc_isTaggedPointer((const void*)address))
     {
         if(!ksobjc_isValidTaggedPointer((const void*)address))
@@ -794,8 +799,38 @@ static bool isValidPointer(const uintptr_t address)
             return false;
         }
     }
-    
+#endif
+
     return true;
+}
+
+static bool isNotableAddress(const uintptr_t address)
+{
+    if(!isValidPointer(address))
+    {
+        return false;
+    }
+    
+    const void* object = (const void*)address;
+
+#if KSCRASH_HAS_OBJC
+    if(kszombie_className(object) != NULL)
+    {
+        return true;
+    }
+
+    if(ksobjc_objectType(object) != KSObjCTypeUnknown)
+    {
+        return true;
+    }
+#endif
+
+    if(isValidString(object))
+    {
+        return true;
+    }
+
+    return false;
 }
 
 /** Write the contents of a memory location only if it contains notable data.
@@ -811,23 +846,11 @@ static void writeMemoryContentsIfNotable(const KSCrashReportWriter* const writer
                                          const char* const key,
                                          const uintptr_t address)
 {
-    if(!isValidPointer(address))
+    if(isNotableAddress(address))
     {
-        return;
+        int limit = kDefaultMemorySearchDepth;
+        writeMemoryContents(writer, key, address, &limit);
     }
-
-    const void* object = (const void*)address;
-    
-    if(ksobjc_objectType(object) == KSObjCTypeUnknown &&
-       kszombie_className(object) == NULL &&
-       !isValidString(object))
-    {
-        // Nothing notable about this memory location.
-        return;
-    }
-
-    int limit = kDefaultMemorySearchDepth;
-    writeMemoryContents(writer, key, address, &limit);
 }
 
 /** Look for a hex value in a string and try to write whatever it references.
@@ -870,28 +893,26 @@ static void writeBacktrace(const KSCrashReportWriter* const writer,
     {
         writer->beginArray(writer, KSCrashField_Contents);
         {
-            while(!stackCursor->isMaxDepth(stackCursor))
+            while(stackCursor->advanceCursor(stackCursor))
             {
-                stackCursor->symbolicate(stackCursor);
                 writer->beginObject(writer, NULL);
                 {
-                    if(stackCursor->stackEntry.imageName != NULL)
+                    if(stackCursor->symbolicate(stackCursor))
                     {
-                        writer->addStringElement(writer, KSCrashField_ObjectName, ksfu_lastPathEntry(stackCursor->stackEntry.imageName));
+                        if(stackCursor->stackEntry.imageName != NULL)
+                        {
+                            writer->addStringElement(writer, KSCrashField_ObjectName, ksfu_lastPathEntry(stackCursor->stackEntry.imageName));
+                        }
+                        writer->addUIntegerElement(writer, KSCrashField_ObjectAddr, stackCursor->stackEntry.imageAddress);
+                        if(stackCursor->stackEntry.symbolName != NULL)
+                        {
+                            writer->addStringElement(writer, KSCrashField_SymbolName, stackCursor->stackEntry.symbolName);
+                        }
+                        writer->addUIntegerElement(writer, KSCrashField_SymbolAddr, stackCursor->stackEntry.symbolAddress);
                     }
-                    writer->addUIntegerElement(writer, KSCrashField_ObjectAddr, stackCursor->stackEntry.imageAddress);
-                    if(stackCursor->stackEntry.symbolName != NULL)
-                    {
-                        writer->addStringElement(writer, KSCrashField_SymbolName, stackCursor->stackEntry.symbolName);
-                    }
-                    writer->addUIntegerElement(writer, KSCrashField_SymbolAddr, stackCursor->stackEntry.symbolAddress);
                     writer->addUIntegerElement(writer, KSCrashField_InstructionAddr, stackCursor->stackEntry.address);
                 }
                 writer->endContainer(writer);
-                if(!stackCursor->advanceCursor(stackCursor))
-                {
-                    break;
-                }
             }
         }
         writer->endContainer(writer);
@@ -1146,22 +1167,15 @@ static void writeNotableAddresses(const KSCrashReportWriter* const writer,
  * @param machineContext The context whose thread to write about.
  *
  * @param shouldWriteNotableAddresses If true, write any notable addresses found.
- *
- * @param searchThreadNames If true, search thread names as well.
- *
- * @param searchQueueNames If true, search queue names as well.
  */
 static void writeThread(const KSCrashReportWriter* const writer,
                         const char* const key,
                         const KSCrash_MonitorContext* const crash,
                         const struct KSMachineContext* const machineContext,
                         const int threadIndex,
-                        const bool shouldWriteNotableAddresses,
-                        const bool searchThreadNames,
-                        const bool searchQueueNames)
+                        const bool shouldWriteNotableAddresses)
 {
     bool isCrashedThread = ksmc_isCrashedContext(machineContext);
-    char nameBuffer[128];
     KSThread thread = ksmc_getThreadFromContext(machineContext);
     KSLOG_DEBUG("Writing thread %x (index %d). is crashed: %d", thread, threadIndex, isCrashedThread);
 
@@ -1179,25 +1193,21 @@ static void writeThread(const KSCrashReportWriter* const writer,
             writeRegisters(writer, KSCrashField_Registers, machineContext);
         }
         writer->addIntegerElement(writer, KSCrashField_Index, threadIndex);
-        if(searchThreadNames)
+        const char* name = ksccd_getThreadName(thread);
+        if(name != NULL)
         {
-            if(ksthread_getThreadName(thread, nameBuffer, sizeof(nameBuffer)) && nameBuffer[0] != 0)
-            {
-                writer->addStringElement(writer, KSCrashField_Name, nameBuffer);
-            }
+            writer->addStringElement(writer, KSCrashField_Name, name);
         }
-        if(searchQueueNames)
+        name = ksccd_getQueueName(thread);
+        if(name != NULL)
         {
-            if(ksthread_getQueueName(thread, nameBuffer, sizeof(nameBuffer)) && nameBuffer[0] != 0)
-            {
-                writer->addStringElement(writer, KSCrashField_DispatchQueue, nameBuffer);
-            }
+            writer->addStringElement(writer, KSCrashField_DispatchQueue, name);
         }
         writer->addBooleanElement(writer, KSCrashField_Crashed, isCrashedThread);
         writer->addBooleanElement(writer, KSCrashField_CurrentThread, thread == ksthread_self());
         if(isCrashedThread)
         {
-            writeStackContents(writer, KSCrashField_Stack, machineContext, stackCursor.isMaxDepth(&stackCursor));
+            writeStackContents(writer, KSCrashField_Stack, machineContext, stackCursor.state.hasGivenUp);
             if(shouldWriteNotableAddresses)
             {
                 writeNotableAddresses(writer, KSCrashField_NotableAddresses, machineContext);
@@ -1218,9 +1228,7 @@ static void writeThread(const KSCrashReportWriter* const writer,
 static void writeAllThreads(const KSCrashReportWriter* const writer,
                             const char* const key,
                             const KSCrash_MonitorContext* const crash,
-                            bool writeNotableAddresses,
-                            bool searchThreadNames,
-                            bool searchQueueNames)
+                            bool writeNotableAddresses)
 {
     const struct KSMachineContext* const context = crash->offendingMachineContext;
     KSThread offendingThread = ksmc_getThreadFromContext(context);
@@ -1236,12 +1244,12 @@ static void writeAllThreads(const KSCrashReportWriter* const writer,
             KSThread thread = ksmc_getThreadAtIndex(context, i);
             if(thread == offendingThread)
             {
-                writeThread(writer, NULL, crash, context, i, writeNotableAddresses, searchThreadNames, searchQueueNames);
+                writeThread(writer, NULL, crash, context, i, writeNotableAddresses);
             }
             else
             {
                 ksmc_getContextForThread(thread, machineContext, false);
-                writeThread(writer, NULL, crash, machineContext, i, writeNotableAddresses, searchThreadNames, searchQueueNames);
+                writeThread(writer, NULL, crash, machineContext, i, writeNotableAddresses);
             }
         }
     }
@@ -1335,15 +1343,13 @@ static void writeError(const KSCrashReportWriter* const writer,
                        const char* const key,
                        const KSCrash_MonitorContext* const crash)
 {
-    const char* machExceptionName = ksrc_exceptionName(crash->mach.type);
-    const char* machCodeName = crash->mach.code == 0 ? NULL : ksmemory_kernelReturnCodeName(crash->mach.code);
-    const char* sigName = kssignal_signalName(crash->signal.signum);
-    const char* sigCodeName = kssignal_signalCodeName(crash->signal.signum, crash->signal.sigcode);
-
     writer->beginObject(writer, key);
     {
+#if KSCRASH_HOST_APPLE
         writer->beginObject(writer, KSCrashField_Mach);
         {
+            const char* machExceptionName = ksmach_exceptionName(crash->mach.type);
+            const char* machCodeName = crash->mach.code == 0 ? NULL : ksmach_kernelReturnCodeName(crash->mach.code);
             writer->addUIntegerElement(writer, KSCrashField_Exception, (unsigned)crash->mach.type);
             if(machExceptionName != NULL)
             {
@@ -1357,9 +1363,11 @@ static void writeError(const KSCrashReportWriter* const writer,
             writer->addUIntegerElement(writer, KSCrashField_Subcode, (unsigned)crash->mach.subcode);
         }
         writer->endContainer(writer);
-
+#endif
         writer->beginObject(writer, KSCrashField_Signal);
         {
+            const char* sigName = kssignal_signalName(crash->signal.signum);
+            const char* sigCodeName = kssignal_signalCodeName(crash->signal.signum, crash->signal.sigcode);
             writer->addUIntegerElement(writer, KSCrashField_Signal, (unsigned)crash->signal.signum);
             if(sigName != NULL)
             {
@@ -1591,6 +1599,8 @@ void kscrashreport_writeRecrashReport(const KSCrash_MonitorContext* const monito
         return;
     }
 
+    ksccd_freeze();
+
     KSJSONEncodeContext jsonContext;
     jsonContext.userData = &bufferedWriter;
     KSCrashReportWriter concreteWriter;
@@ -1625,7 +1635,7 @@ void kscrashreport_writeRecrashReport(const KSCrash_MonitorContext* const monito
                         monitorContext,
                         monitorContext->offendingMachineContext,
                         threadIndex,
-                        false, false, false);
+                        false);
             ksfu_flushBufferedWriter(&bufferedWriter);
         }
         writer->endContainer(writer);
@@ -1634,6 +1644,7 @@ void kscrashreport_writeRecrashReport(const KSCrash_MonitorContext* const monito
 
     ksjson_endEncode(getJsonContext(writer));
     ksfu_closeBufferedWriter(&bufferedWriter);
+    ksccd_unfreeze();
 }
 
 static void writeSystemInfo(const KSCrashReportWriter* const writer,
@@ -1703,6 +1714,8 @@ void kscrashreport_writeStandardReport(const KSCrash_MonitorContext* const monit
     {
         return;
     }
+
+    ksccd_freeze();
     
     KSJSONEncodeContext jsonContext;
     jsonContext.userData = &bufferedWriter;
@@ -1737,9 +1750,7 @@ void kscrashreport_writeStandardReport(const KSCrash_MonitorContext* const monit
             writeAllThreads(writer,
                             KSCrashField_Threads,
                             monitorContext,
-                            g_introspectionRules.enabled,
-                            g_shouldSearchThreadNames,
-                            g_shouldSearchQueueNames);
+                            g_introspectionRules.enabled);
             ksfu_flushBufferedWriter(&bufferedWriter);
         }
         writer->endContainer(writer);
@@ -1767,6 +1778,7 @@ void kscrashreport_writeStandardReport(const KSCrash_MonitorContext* const monit
     
     ksjson_endEncode(getJsonContext(writer));
     ksfu_closeBufferedWriter(&bufferedWriter);
+    ksccd_unfreeze();
 }
 
 
@@ -1790,16 +1802,6 @@ void kscrashreport_setUserInfoJSON(const char* const userInfoJSON)
         g_userInfoJSON = strdup(userInfoJSON);
     }
     pthread_mutex_unlock(&mutex);
-}
-
-void kscrashreport_setSearchThreadNames(bool shouldSearchThreadNames)
-{
-    g_shouldSearchThreadNames = shouldSearchThreadNames;
-}
-
-void kscrashreport_setSearchQueueNames(bool shouldSearchQueueNames)
-{
-    g_shouldSearchQueueNames = shouldSearchQueueNames;
 }
 
 void kscrashreport_setIntrospectMemory(bool shouldIntrospectMemory)

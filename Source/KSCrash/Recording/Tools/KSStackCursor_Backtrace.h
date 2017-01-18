@@ -33,17 +33,27 @@ extern "C" {
     
 #include "KSStackCursor.h"
 
+/** Exposed for other internal systems to use.
+ */
+typedef struct
+{
+    int skippedEntries;
+    int backtraceLength;
+    const uintptr_t* backtrace;
+} KSStackCursor_Backtrace_Context;
+    
+
 /** Initialize a stack cursor for an existing backtrace (array of addresses).
  *
  * @param cursor The stack cursor to initialize.
  *
- * @param maxStackDepth The stack depth at which to consider it a stack overflow and give up.
- *
  * @param backtrace The existing backtrace to walk.
  *
- * @oaram backtraceLength The length of the backtrace.
+ * @param backtraceLength The length of the backtrace.
+ *
+ * @param skipEntries The number of stack entries to skip.
  */
-void kssc_initWithBacktrace(KSStackCursor *cursor, int maxStackDepth, const uintptr_t* backtrace, int backtraceLength);
+void kssc_initWithBacktrace(KSStackCursor *cursor, const uintptr_t* backtrace, int backtraceLength, int skipEntries);
     
     
 #ifdef __cplusplus

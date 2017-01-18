@@ -57,7 +57,7 @@ static inline bool isStackOverflow(const KSMachineContext* const context)
     while(stackCursor.advanceCursor(&stackCursor))
     {
     }
-    return stackCursor.isMaxDepth(&stackCursor);
+    return stackCursor.state.hasGivenUp;
 }
 
 static inline bool getThreadList(KSMachineContext* context)
@@ -287,16 +287,6 @@ static inline bool isSignalContext(const KSMachineContext* const context)
 bool ksmc_canHaveCPUState(const KSMachineContext* const context)
 {
     return !isContextForCurrentThread(context) || isSignalContext(context);
-}
-
-bool ksmc_canHaveNormalStackTrace(const KSMachineContext* const context)
-{
-    return !isContextForCurrentThread(context) || isSignalContext(context);
-}
-
-bool ksmc_canHaveCustomStackTrace(const KSMachineContext* const context)
-{
-    return ksmc_isCrashedContext(context);
 }
 
 bool ksmc_hasValidExceptionRegisters(const KSMachineContext* const context)

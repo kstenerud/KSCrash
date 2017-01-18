@@ -28,6 +28,7 @@
 #import "KSCrashReportFilterAppleFmt.h"
 
 
+#import <inttypes.h>
 #import <mach/machine.h>
 
 #import "KSCrashReportFields.h"
@@ -36,17 +37,17 @@
 
 
 #if defined(__LP64__)
-    #define FMT_PTR_SHORT        @"0x%lx"
-    #define FMT_PTR_LONG         @"0x%016lx"
-    #define FMT_PTR_RJ           @"%#18lx"
-    #define FMT_OFFSET           @"%lu"
+    #define FMT_LONG_DIGITS "16"
+    #define FMT_RJ_SPACES "18"
 #else
-    #define FMT_PTR_SHORT        @"0x%lx"
-    #define FMT_PTR_LONG         @"0x%08lx"
-    #define FMT_PTR_RJ           @"%#10lx"
-    #define FMT_OFFSET           @"%lu"
+    #define FMT_LONG_DIGITS "8"
+    #define FMT_RJ_SPACES "10"
 #endif
 
+#define FMT_PTR_SHORT        @"0x%" PRIxPTR
+#define FMT_PTR_LONG         @"0x%0" FMT_LONG_DIGITS PRIxPTR
+#define FMT_PTR_RJ           @"%#" FMT_RJ_SPACES PRIxPTR
+#define FMT_OFFSET           @"%" PRIuPTR
 #define FMT_TRACE_PREAMBLE       @"%-4d%-31s " FMT_PTR_LONG
 #define FMT_TRACE_UNSYMBOLICATED FMT_PTR_SHORT @" + " FMT_OFFSET
 #define FMT_TRACE_SYMBOLICATED   @"%@ + " FMT_OFFSET

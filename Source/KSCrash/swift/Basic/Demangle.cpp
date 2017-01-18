@@ -30,6 +30,7 @@
 #include "Optional.h"
 #include "StringRef.h"
 #include <functional>
+#include <inttypes.h>
 #include <vector>
 #include <cstdio>
 #include <cstdlib>
@@ -45,13 +46,13 @@ static void unreachable(const char *Message) {
 
 DemanglerPrinter &DemanglerPrinter::operator<<(unsigned long long n) & {
   char buffer[32];
-  snprintf(buffer, sizeof(buffer), "%llu", n);
+  snprintf(buffer, sizeof(buffer), "%" PRIu64, n);
   Stream.append(buffer);
   return *this;
 }
 DemanglerPrinter &DemanglerPrinter::operator<<(long long n) & {
   char buffer[32];
-  snprintf(buffer, sizeof(buffer), "%lld",n);
+  snprintf(buffer, sizeof(buffer), "%" PRId64, n);
   Stream.append(buffer);
   return *this;
 }

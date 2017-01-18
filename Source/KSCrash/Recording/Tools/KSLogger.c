@@ -26,6 +26,7 @@
 
 
 #include "KSLogger.h"
+#include "KSSystemCapabilities.h"
 
 // ===========================================================================
 #pragma mark - Common -
@@ -150,7 +151,6 @@ static inline void setLogFD(int fd)
 bool kslog_setLogFilename(const char* filename, bool overwrite)
 {
     static int fd = -1;
-    int oldFd = fd;
     if(filename != NULL)
     {
         int openMask = O_WRONLY | O_CREAT;
@@ -164,17 +164,12 @@ bool kslog_setLogFilename(const char* filename, bool overwrite)
             writeFmtToLog("KSLogger: Could not open %s: %s", filename, strerror(errno));
             return false;
         }
-    }
-    if(filename != g_logFilename)
-    {
-        strncpy(g_logFilename, filename, sizeof(g_logFilename));
+        if(filename != g_logFilename)
+        {
+            strncpy(g_logFilename, filename, sizeof(g_logFilename));
+        }
     }
     
-    if(oldFd > 0)
-    {
-        close(oldFd);
-    }
-
     setLogFD(fd);
     return true;
 }
@@ -292,6 +287,7 @@ void i_kslog_logC(const char* const level,
 #pragma mark - Objective-C -
 // ===========================================================================
 
+#if KSCRASH_HAS_OBJC
 #include <CoreFoundation/CoreFoundation.h>
 
 void i_kslog_logObjCBasic(CFStringRef fmt, ...)
@@ -349,3 +345,4 @@ void i_kslog_logObjC(const char* const level,
     }
     CFRelease(logFmt);
 }
+#endif // KSCRASH_HAS_OBJC

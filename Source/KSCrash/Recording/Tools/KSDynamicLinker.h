@@ -33,6 +33,7 @@ extern "C" {
 
 
 #include <dlfcn.h>
+#include <stdbool.h>
 #include <stdint.h>
 
 typedef struct

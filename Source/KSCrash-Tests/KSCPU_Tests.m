@@ -48,6 +48,7 @@
     XCTAssertTrue(kr == KERN_SUCCESS, @"");
     
     KSMC_NEW_CONTEXT(machineContext);
+    ksmc_getContextForThread(thread.thread, machineContext, NO);
     kscpu_getState(machineContext);
     
     int numRegisters = kscpu_numRegisters();

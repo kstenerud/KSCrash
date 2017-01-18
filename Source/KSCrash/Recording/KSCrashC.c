@@ -27,6 +27,7 @@
 
 #include "KSCrashC.h"
 
+#include "KSCrashCachedData.h"
 #include "KSCrashReport.h"
 #include "KSCrashReportFixer.h"
 #include "KSCrashReportStore.h"
@@ -39,10 +40,12 @@
 #include "KSCrashMonitor_Zombie.h"
 #include "KSCrashMonitor_AppState.h"
 #include "KSCrashMonitorContext.h"
+#include "KSSystemCapabilities.h"
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -117,6 +120,8 @@ KSCrashMonitorType kscrash_install(const char* appName, const char* const instal
 
     snprintf(g_consoleLogPath, sizeof(g_consoleLogPath), "%s/Data/ConsoleLog.txt", installPath);
     kslog_setLogFilename(g_consoleLogPath, true);
+    
+    ksccd_init(60);
 
     kscm_setEventCallback(onCrash);
     KSCrashMonitorType monitors = kscrash_setMonitoring(g_monitoring);
@@ -145,17 +150,9 @@ void kscrash_setUserInfoJSON(const char* const userInfoJSON)
 
 void kscrash_setDeadlockWatchdogInterval(double deadlockWatchdogInterval)
 {
+#if KSCRASH_HAS_OBJC
     kscm_setDeadlockHandlerWatchdogInterval(deadlockWatchdogInterval);
-}
-
-void kscrash_setSearchThreadNames(bool shouldSearchThreadNames)
-{
-    kscrashreport_setSearchThreadNames(shouldSearchThreadNames);
-}
-
-void kscrash_setSearchQueueNames(bool shouldSearchQueueNames)
-{
-    kscrashreport_setSearchQueueNames(shouldSearchQueueNames);
+#endif
 }
 
 void kscrash_setIntrospectMemory(bool introspectMemory)
@@ -176,6 +173,11 @@ void kscrash_setCrashNotifyCallback(const KSReportWriteCallback onCrashNotify)
 void kscrash_setAddConsoleLogToReport(bool shouldAddConsoleLogToReport)
 {
     g_shouldAddConsoleLogToReport = shouldAddConsoleLogToReport;
+}
+
+void kscrash_setMaxReportCount(int maxReportCount)
+{
+    kscrs_setMaxReportCount(maxReportCount);
 }
 
 void kscrash_reportUserException(const char* name,
@@ -233,21 +235,21 @@ char* kscrash_readReport(int64_t reportID)
 {
     if(reportID <= 0)
     {
-        KSLOG_ERROR("Report ID was %llx", reportID);
+        KSLOG_ERROR("Report ID was %" PRIx64, reportID);
         return NULL;
     }
 
     char* rawReport = kscrs_readReport(reportID);
     if(rawReport == NULL)
     {
-        KSLOG_ERROR("Failed to load report ID %llx", reportID);
+        KSLOG_ERROR("Failed to load report ID %" PRIx64, reportID);
         return NULL;
     }
 
     char* fixedReport = kscrf_fixupCrashReport(rawReport);
     if(fixedReport == NULL)
     {
-        KSLOG_ERROR("Failed to fixup report ID %llx", reportID);
+        KSLOG_ERROR("Failed to fixup report ID %" PRIx64, reportID);
     }
 
     free(rawReport);

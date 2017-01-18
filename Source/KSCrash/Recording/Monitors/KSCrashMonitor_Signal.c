@@ -30,6 +30,7 @@
 #include "KSSignalInfo.h"
 #include "KSMachineContext.h"
 #include "KSSystemCapabilities.h"
+#include "KSStackCursor_MachineContext.h"
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
@@ -50,6 +51,7 @@
 static volatile bool g_isEnabled = false;
 
 static KSCrash_MonitorContext g_monitorContext;
+static KSStackCursor g_stackCursor;
 
 #if KSCRASH_HAS_SIGNAL_STACK
 /** Our custom signal stack. The signal handler will use this as its stack. */
@@ -86,18 +88,21 @@ static void handleSignal(int sigNum, siginfo_t* signalInfo, void* userContext)
         kscm_notifyFatalExceptionCaptured(false);
 
         KSLOG_DEBUG("Filling out context.");
+        KSMC_NEW_CONTEXT(machineContext);
+        ksmc_getContextForSignal(userContext, machineContext);
+        kssc_initWithMachineContext(&g_stackCursor, 100, machineContext);
+
         KSCrash_MonitorContext* crashContext = &g_monitorContext;
         memset(crashContext, 0, sizeof(*crashContext));
         crashContext->crashType = KSCrashMonitorTypeSignal;
         crashContext->eventID = g_eventID;
-        KSMC_NEW_CONTEXT(machineContext);
         crashContext->offendingMachineContext = machineContext;
-        ksmc_getContextForSignal(userContext, machineContext);
         crashContext->registersAreValid = true;
         crashContext->faultAddress = (uintptr_t)signalInfo->si_addr;
         crashContext->signal.userContext = userContext;
         crashContext->signal.signum = signalInfo->si_signo;
         crashContext->signal.sigcode = signalInfo->si_code;
+        crashContext->stackCursor = &g_stackCursor;
 
         kscm_handleException(crashContext);
         ksmc_resumeEnvironment();
@@ -146,7 +151,7 @@ static bool installSignalHandler()
 
     struct sigaction action = {{0}};
     action.sa_flags = SA_SIGINFO | SA_ONSTACK;
-#ifdef __LP64__
+#if KSCRASH_HOST_APPLE && defined(__LP64__)
     action.sa_flags |= SA_64REGSET;
 #endif
     sigemptyset(&action.sa_mask);

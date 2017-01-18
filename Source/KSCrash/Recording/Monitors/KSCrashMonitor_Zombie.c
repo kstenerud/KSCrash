@@ -161,7 +161,7 @@ static void install()
     g_zombieCache = calloc(cacheSize, sizeof(*g_zombieCache));
     if(g_zombieCache == NULL)
     {
-        KSLOG_ERROR("Error: Could not allocate %ld bytes of memory. KSZombie NOT installed!",
+        KSLOG_ERROR("Error: Could not allocate %u bytes of memory. KSZombie NOT installed!",
               cacheSize * sizeof(*g_zombieCache));
         return;
     }

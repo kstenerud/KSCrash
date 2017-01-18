@@ -28,6 +28,7 @@
 #include "KSThread.h"
 
 #include "KSSystemCapabilities.h"
+#include "KSMemory.h"
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
@@ -71,6 +72,11 @@ bool ksthread_getQueueName(const KSThread thread, char* const buffer, int bufLen
     
     thread_identifier_info_t idInfo = (thread_identifier_info_t)info;
     dispatch_queue_t* dispatch_queue_ptr = (dispatch_queue_t*)idInfo->dispatch_qaddr;
+    if(!ksmem_isMemoryReadable(dispatch_queue_ptr, sizeof(*dispatch_queue_ptr)))
+    {
+        KSLOG_DEBUG("Thread %p has an invalid dispatch queue pointer %p", thread, dispatch_queue_ptr);
+        return false;
+    }
     //thread_handle shouldn't be 0 also, because
     //identifier_info->dispatch_qaddr =  identifier_info->thread_handle + get_dispatchqueue_offset_from_proc(thread->task->bsd_info);
     if(dispatch_queue_ptr == NULL || idInfo->thread_handle == 0 || *dispatch_queue_ptr == NULL)

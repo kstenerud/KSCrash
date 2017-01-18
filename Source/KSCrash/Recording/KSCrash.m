@@ -39,6 +39,7 @@
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
 
+#include <inttypes.h>
 #if KSCRASH_HAS_UIKIT
 #import <UIKit/UIKit.h>
 #endif
@@ -101,13 +102,12 @@ static NSString* getBasePath()
 @synthesize onCrash = _onCrash;
 @synthesize bundleName = _bundleName;
 @synthesize basePath = _basePath;
-@synthesize searchThreadNames = _searchThreadNames;
-@synthesize searchQueueNames = _searchQueueNames;
 @synthesize introspectMemory = _introspectMemory;
 @synthesize catchZombies = _catchZombies;
 @synthesize doNotIntrospectClasses = _doNotIntrospectClasses;
 @synthesize demangleLanguages = _demangleLanguages;
 @synthesize addConsoleLogToReport = _addConsoleLogToReport;
+@synthesize maxReportCount = _maxReportCount;
 
 
 // ============================================================================
@@ -137,10 +137,9 @@ static NSString* getBasePath()
             return nil;
         }
         self.deleteBehaviorAfterSendAll = KSCDeleteAlways;
-        self.searchThreadNames = NO;
-        self.searchQueueNames = NO;
         self.introspectMemory = YES;
         self.catchZombies = NO;
+        self.maxReportCount = 5;
         self.monitoring = KSCrashMonitorTypeProductionSafeMinimal;
     }
     return self;
@@ -196,18 +195,6 @@ static NSString* getBasePath()
     kscrash_setCrashNotifyCallback(onCrash);
 }
 
-- (void) setSearchThreadNames:(BOOL)searchThreadNames
-{
-    _searchThreadNames = searchThreadNames;
-    kscrash_setSearchThreadNames(searchThreadNames);
-}
-
-- (void) setSearchQueueNames:(BOOL)searchQueueNames
-{
-    _searchQueueNames = searchQueueNames;
-    kscrash_setSearchQueueNames(searchQueueNames);
-}
-
 - (void) setIntrospectMemory:(BOOL) introspectMemory
 {
     _introspectMemory = introspectMemory;
@@ -238,6 +225,12 @@ static NSString* getBasePath()
         }
         kscrash_setDoNotIntrospectClasses(classes, (int)count);
     }
+}
+
+- (void) setMaxReportCount:(int)maxReportCount
+{
+    _maxReportCount = maxReportCount;
+    kscrash_setMaxReportCount(maxReportCount);
 }
 
 - (NSDictionary*) systemInfo
@@ -485,7 +478,7 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
                                                      error:&error];
     if(error != nil)
     {
-        KSLOG_ERROR(@"Encountered error loading crash report %llx: %@", reportID, error);
+        KSLOG_ERROR(@"Encountered error loading crash report %" PRIx64 ": %@", reportID, error);
     }
     if(crashReport == nil)
     {
@@ -571,7 +564,7 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
 
 
 //! Project version number for KSCrashFramework.
-const double KSCrashFrameworkVersionNumber = 1.134;
+const double KSCrashFrameworkVersionNumber = 1.150;
 
 //! Project version string for KSCrashFramework.
-const unsigned char KSCrashFrameworkVersionString[] = "1.13.4";
+const unsigned char KSCrashFrameworkVersionString[] = "1.15.0";

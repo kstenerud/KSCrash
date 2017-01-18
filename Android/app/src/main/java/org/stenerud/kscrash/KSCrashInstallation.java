@@ -1,7 +1,5 @@
 //
-//  KSReturnCodes.h
-//
-// Copyright 2016 Karl Stenerud.
+//  Copyright (c) 2017 Karl Stenerud. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,36 +20,32 @@
 // THE SOFTWARE.
 //
 
-#ifndef HDR_KSReturnCodes_h
-#define HDR_KSReturnCodes_h
+package org.stenerud.kscrash;
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+import android.content.Context;
 
-#include <stdint.h>
-    
-    /** Get the name of a mach exception.
-     *
-     * @param exceptionType The exception type.
-     *
-     * @return The exception's name or NULL if not found.
-     */
-    const char* ksrc_exceptionName(int64_t exceptionType);
-    
-    /** Get the name of a mach kernel return code.
-     *
-     * @param returnCode The return code.
-     *
-     * @return The code's name or NULL if not found.
-     */
-    const char* ksmemory_kernelReturnCodeName(int64_t returnCode);
-    
+import java.io.IOException;
+import java.util.List;
 
-    
-    
-#ifdef __cplusplus
+public class KSCrashInstallation {
+    public List<KSCrashReportFilter> reportFilters;
+
+    public KSCrashInstallation(List<KSCrashReportFilter> reportFilters) {
+        this.reportFilters = reportFilters;
+    }
+
+    public void install(Context context) throws IOException {
+        KSCrash.getInstance().install(context);
+    }
+
+    public void sendOutstandingReports(KSCrashReportFilter.CompletionCallback callback) {
+        List reports = KSCrash.getInstance().getAllReports();
+        KSCrashReportFilter pipeline = new KSCrashReportFilterPipeline(reportFilters);
+        try {
+            pipeline.filterReports(reports, callback);
+        } catch (KSCrashReportFilteringFailedException e) {
+            // TODO
+            e.printStackTrace();
+        }
+    }
 }
-#endif
-
-#endif // HDR_KSReturnCodes_h

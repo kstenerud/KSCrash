@@ -1,7 +1,7 @@
 //
-//  KSReturnCodes_Tests.m
+//  KSThread.c
 //
-//  Created by Karl Stenerud on 2012-03-03.
+//  Created by Karl Stenerud on 2012-01-29.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -25,43 +25,27 @@
 //
 
 
-#import <XCTest/XCTest.h>
+#include "KSThread.h"
 
-#import "KSReturnCodes.h"
-#include <mach/exception_types.h>
-#include <mach/kern_return.h>
+#include "KSSystemCapabilities.h"
+
+//#define KSLogger_LocalLevel TRACE
+#include "KSLogger.h"
+
+#include <pthread.h>
 
 
-@interface KSReturnCodes_Tests : XCTestCase @end
-
-@implementation KSReturnCodes_Tests
-
-- (void) testExceptionName
+KSThread ksthread_self()
 {
-    NSString* expected = @"EXC_ARITHMETIC";
-    NSString* actual = [NSString stringWithCString:ksrc_exceptionName(EXC_ARITHMETIC)
-                                          encoding:NSUTF8StringEncoding];
-    XCTAssertEqualObjects(actual, expected, @"");
+    return (KSThread)pthread_self();
 }
 
-- (void) testVeryHighExceptionName
+bool ksthread_getThreadName(const KSThread thread, char* const buffer, int bufLength)
 {
-    const char* result = ksrc_exceptionName(100000);
-    XCTAssertTrue(result == NULL, @"");
+    return NULL;
 }
 
-- (void) testKernReturnCodeName
+bool ksthread_getQueueName(const KSThread thread, char* const buffer, int bufLength)
 {
-    NSString* expected = @"KERN_FAILURE";
-    NSString* actual = [NSString stringWithCString:ksmemory_kernelReturnCodeName(KERN_FAILURE)
-                                          encoding:NSUTF8StringEncoding];
-    XCTAssertEqualObjects(actual, expected, @"");
+    return NULL;
 }
-
-- (void) testVeryHighKernReturnCodeName
-{
-    const char* result = ksmemory_kernelReturnCodeName(100000);
-    XCTAssertTrue(result == NULL, @"");
-}
-
-@end

@@ -125,14 +125,6 @@ bool ksmc_isCrashedContext(const struct KSMachineContext* const context);
  */
 bool ksmc_canHaveCPUState(const struct KSMachineContext* const context);
 
-/** Check if this context can have a normal stack trace.
- */
-bool ksmc_canHaveNormalStackTrace(const struct KSMachineContext* const context);
-
-/** Check if this context can have a user-supplied custom stack trace.
- */
-bool ksmc_canHaveCustomStackTrace(const struct KSMachineContext* const context);
-
 /** Check if this context has valid exception registers.
  */
 bool ksmc_hasValidExceptionRegisters(const struct KSMachineContext* const context);
