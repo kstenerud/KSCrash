@@ -120,6 +120,9 @@
 #define KSCrashField_ImageAddress          "image_addr"
 #define KSCrashField_ImageVmAddress        "image_vmaddr"
 #define KSCrashField_ImageSize             "image_size"
+#define KSCrashField_ImageMajorVersion     "major_version"
+#define KSCrashField_ImageMinorVersion     "minor_version"
+#define KSCrashField_ImageRevisionVersion  "revision_version"
 
 
 #pragma mark - Memory -
