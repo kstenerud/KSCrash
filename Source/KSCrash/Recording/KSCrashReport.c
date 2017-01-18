@@ -1285,6 +1285,9 @@ static void writeBinaryImage(const KSCrashReportWriter* const writer,
         writer->addUUIDElement(writer, KSCrashField_UUID, image.uuid);
         writer->addIntegerElement(writer, KSCrashField_CPUType, image.cpuType);
         writer->addIntegerElement(writer, KSCrashField_CPUSubType, image.cpuSubType);
+        writer->addIntegerElement(writer, KSCrashField_ImageMajorVersion, image.majorVersion);
+        writer->addIntegerElement(writer, KSCrashField_ImageMinorVersion, image.minorVersion);
+        writer->addIntegerElement(writer, KSCrashField_ImageRevisionVersion, image.revisionVersion);
     }
     writer->endContainer(writer);
 }

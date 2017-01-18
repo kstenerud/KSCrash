@@ -45,6 +45,9 @@ typedef struct
     const uint8_t* uuid;
     int cpuType;
     int cpuSubType;
+    uint64_t majorVersion;
+    uint64_t minorVersion;
+    uint64_t revisionVersion;
 } KSBinaryImage;
 
 /** Get the number of loaded binary images.
