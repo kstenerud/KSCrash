@@ -23,29 +23,52 @@
 package org.stenerud.kscrash;
 
 import android.content.Context;
+import android.util.Log;
 
 import java.io.IOException;
 import java.util.List;
 
 public class KSCrashInstallation {
-    public List<KSCrashReportFilter> reportFilters;
+    private Context context;
+    private List<KSCrashReportFilter> reportFilters;
 
-    public KSCrashInstallation(List<KSCrashReportFilter> reportFilters) {
+    public KSCrashInstallation(Context context, List<KSCrashReportFilter> reportFilters) {
+        this.context = context;
         this.reportFilters = reportFilters;
     }
 
-    public void install(Context context) throws IOException {
-        KSCrash.getInstance().install(context);
+    public void install() throws IOException {
+        KSCrash.getInstance().install(this.context);
     }
 
     public void sendOutstandingReports(KSCrashReportFilter.CompletionCallback callback) {
-        List reports = KSCrash.getInstance().getAllReports();
-        KSCrashReportFilter pipeline = new KSCrashReportFilterPipeline(reportFilters);
-        try {
-            pipeline.filterReports(reports, callback);
-        } catch (KSCrashReportFilteringFailedException e) {
-            // TODO
-            e.printStackTrace();
+        final List reports = KSCrash.getInstance().getAllReports();
+        if(reports.size() > 0) {
+            if (callback == null) {
+                callback = new KSCrashReportFilter.CompletionCallback() {
+                    @Override
+                    public void onCompletion(List reports) throws KSCrashReportFilteringFailedException {
+                        // Do nothing.
+                    }
+                };
+            }
+            KSCrashReportFilter pipeline = new KSCrashReportFilterPipeline(reportFilters);
+            try {
+                pipeline.filterReports(reports, new KSCrashReportFilter.CompletionCallback() {
+                    @Override
+                    public void onCompletion(List filteredReports) throws KSCrashReportFilteringFailedException {
+                        Log.i("Crash Reporter", "Sent " + reports.size() + " reports.");
+                    }
+                });
+            } catch (KSCrashReportFilteringFailedException e) {
+                Log.e("KSCrash", "Error sending reports", e);
+            }
+        } else {
+            Log.i("Crash Reporter", "No reports to send.");
         }
+    }
+
+    public void sendOutstandingReports() {
+        sendOutstandingReports(null);
     }
 }
