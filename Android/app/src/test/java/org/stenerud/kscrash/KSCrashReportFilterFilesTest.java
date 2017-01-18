@@ -4,6 +4,7 @@ import org.junit.Test;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -32,6 +33,13 @@ public class KSCrashReportFilterFilesTest {
         assertTrue("File " + file + " exists when it shouldn't", false);
     }
 
+    private File createTempDir() throws IOException {
+        File tempFile = File.createTempFile("tempdir","");
+        tempFile.delete();
+        tempFile.mkdir();
+        return tempFile;
+    }
+
     @Test
     public void test_create_files() throws Exception {
         final List reports = new LinkedList();
@@ -39,7 +47,7 @@ public class KSCrashReportFilterFilesTest {
         reports.add("two");
         reports.add("three");
 
-        KSCrashReportFilter createFilter = new KSCrashReportFilterCreateTempFiles("txt");
+        KSCrashReportFilter createFilter = new KSCrashReportFilterCreateTempFiles(createTempDir(), "report", "txt");
 
         createFilter.filterReports(reports, new KSCrashReportFilter.CompletionCallback() {
             @Override
@@ -62,7 +70,7 @@ public class KSCrashReportFilterFilesTest {
         reports.add("two");
         reports.add("three");
 
-        KSCrashReportFilter createFilter = new KSCrashReportFilterCreateTempFiles("txt");
+        KSCrashReportFilter createFilter = new KSCrashReportFilterCreateTempFiles(createTempDir(), "report", "txt");
         KSCrashReportFilter deleteFilter = new KSCrashReportFilterDeleteFiles();
         List filters = new LinkedList();
         filters.add(createFilter);
