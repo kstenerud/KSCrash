@@ -15,9 +15,10 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
         try {
-            KSCrash.getInstance().install(getApplicationContext());
+            KSCrashInstallation installation = new KSCrashInstallationEmail(this, "nobody@nowhere.com");
+            installation.install();
+            installation.sendOutstandingReports();
         } catch (IOException e) {
             e.printStackTrace();
         }
