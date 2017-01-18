@@ -38,8 +38,12 @@ import java.util.List;
  * Output: File
  */
 public class KSCrashReportFilterCreateTempFiles implements KSCrashReportFilter {
+    private File tempDir;
+    private String prefix;
     private String extension;
-    public KSCrashReportFilterCreateTempFiles(String extension) {
+    public KSCrashReportFilterCreateTempFiles(File tempDir, String prefix, String extension) {
+        this.tempDir = tempDir;
+        this.prefix = prefix;
         this.extension = extension;
     }
     @Override
@@ -48,7 +52,7 @@ public class KSCrashReportFilterCreateTempFiles implements KSCrashReportFilter {
             List<File> files = new LinkedList<File>();
             int index = 1;
             for(Object report: reports) {
-                File tempFile = File.createTempFile("report-" + index + ".", this.extension);
+                File tempFile = new File(this.tempDir, this.prefix + "-" + index + "." + this.extension);
                 OutputStream outStream = new FileOutputStream(tempFile);
                 if(report instanceof String) {
                     Writer out = new OutputStreamWriter(outStream, "UTF-8");
