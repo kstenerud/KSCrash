@@ -1,9 +1,15 @@
+1.15.1:
+
+Added version fields to binary images.
+
+
 1.15.0:
 
 Removed at-crash thread name and queue name searching since they can't be made async-safe without some nasty hacks.
 
 - REMOVED KSCrash.searchThreadNames
 - REMOVED KSCrash.searchQueueNames
+
 
 1.14.0:
 
