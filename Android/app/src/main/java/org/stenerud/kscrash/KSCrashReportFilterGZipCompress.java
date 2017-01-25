@@ -22,7 +22,6 @@
 
 package org.stenerud.kscrash;
 
-import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;

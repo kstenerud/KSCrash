@@ -32,7 +32,12 @@ import java.util.List;
 
 /**
  * Take the contents of each report and store it in a temp file.
- * The files themselves are passed on.
+ * The files will be named using incrementing numbers of the form:
+ *     [prefix]-[index].[extension]
+ *
+ * Index starts at 1
+ *
+ * The files themselves are passed on to the completion handler.
  *
  * Input: String or byte[]
  * Output: File
@@ -41,6 +46,14 @@ public class KSCrashReportFilterCreateTempFiles implements KSCrashReportFilter {
     private File tempDir;
     private String prefix;
     private String extension;
+
+    /**
+     * Constructor.
+     *
+     * @param tempDir The directory to create the temporary files in.
+     * @param prefix What prefix to use for the files.
+     * @param extension What extension to use for the files.
+     */
     public KSCrashReportFilterCreateTempFiles(File tempDir, String prefix, String extension) {
         this.tempDir = tempDir;
         this.prefix = prefix;
@@ -49,6 +62,7 @@ public class KSCrashReportFilterCreateTempFiles implements KSCrashReportFilter {
     @Override
     public void filterReports(List reports, CompletionCallback completionCallback) throws KSCrashReportFilteringFailedException {
         try {
+            tempDir.mkdir();
             List<File> files = new LinkedList<File>();
             int index = 1;
             for(Object report: reports) {
