@@ -188,36 +188,16 @@ static bool isValidTaggedPointer(const void* object)
     return false;
 }
 
-const void* decodeIsaPointer(const void* const isaPointer)
+const struct class_t* decodeIsaPointer(const void* const isaPointer)
 {
 #if ISA_TAG_MASK
     uintptr_t isa = (uintptr_t)isaPointer;
     if(isa & ISA_TAG_MASK)
     {
-        return (const void*)(isa & ISA_MASK);
+        return (const struct class_t*)(isa & ISA_MASK);
     }
 #endif
-    return isaPointer;
-}
-
-static inline bool isValidObject(const void* object)
-{
-    if(isTaggedPointer(object))
-    {
-        return isValidTaggedPointer(object);
-    }
-
-    struct class_t data;
-    return ksmem_copySafely(object, &data, sizeof(data));
-}
-
-static inline bool hasValidISAPointer(const void* object)
-{
-    // Note: Assuming that this isn't a tagged pointer!
-    const struct class_t* ptr = object;
-    const void* isaPtr = decodeIsaPointer(ptr->isa);
-    struct class_t data;
-    return ksmem_copySafely(isaPtr, &data, sizeof(data));
+    return (const struct class_t*)isaPointer;
 }
 
 const void* getIsaPointer(const void* const objectOrClassPtr)
@@ -542,18 +522,18 @@ static bool isValidIvarType(const char* const type)
 
 static bool containsValidROData(const void* const classPtr)
 {
-    struct class_t class;
-    struct class_rw_t rw;
-    struct class_ro_t ro;
-    if(!ksmem_copySafely(classPtr, &class, sizeof(class)))
+    const struct class_t* const class = classPtr;
+    if(!ksmem_isMemoryReadable(class, sizeof(*class)))
     {
         return false;
     }
-    if(!ksmem_copySafely(getClassRW(&class), &rw, sizeof(rw)))
+    class_rw_t* rw = getClassRW(class);
+    if(!ksmem_isMemoryReadable(rw, sizeof(*rw)))
     {
         return false;
     }
-    if(!ksmem_copySafely(rw.ro, &ro, sizeof(ro)))
+    const class_ro_t* ro = getClassRO(class);
+    if(!ksmem_isMemoryReadable(ro, sizeof(*ro)))
     {
         return false;
     }
@@ -568,25 +548,26 @@ static bool containsValidIvarData(const void* const classPtr)
     {
         return true;
     }
-    
-    struct ivar_list_t ivarsBuffer;
-    if(!ksmem_copySafely(ivars, &ivarsBuffer, sizeof(ivarsBuffer)))
+    if(!ksmem_isMemoryReadable(ivars, sizeof(*ivars)))
     {
         return false;
     }
-
+    
     if(ivars->count > 0)
     {
         struct ivar_t ivar;
         uint8_t* ivarPtr = (uint8_t*)(&ivars->first) + ivars->entsizeAndFlags;
-        for(uint32_t i = 1; i < ivarsBuffer.count; i++)
+        for(uint32_t i = 1; i < ivars->count; i++)
         {
             if(!ksmem_copySafely(ivarPtr, &ivar, sizeof(ivar)))
             {
                 return false;
             }
-            uintptr_t offset;
-            if(!ksmem_copySafely(ivar.offset, &offset, sizeof(offset)))
+            if(!ksmem_isMemoryReadable(ivarPtr, (int)ivars->entsizeAndFlags))
+            {
+                return false;
+            }
+            if(!ksmem_isMemoryReadable(ivar.offset, sizeof(*ivar.offset)))
             {
                 return false;
             }
@@ -609,6 +590,56 @@ static bool containsValidClassName(const void* const classPtr)
     const struct class_ro_t* ro = getClassRO(classPtr);
     return isValidName(ro->name, kMaxNameLength);
 }
+
+static bool hasValidIsaPointer(const void* object) {
+    const struct class_t* isaPtr = getIsaPointer(object);
+    return ksmem_isMemoryReadable(isaPtr, sizeof(*isaPtr));
+}
+
+static inline bool isValidClass(const void* classPtr)
+{
+    const class_t* class = classPtr;
+    if(!ksmem_isMemoryReadable(class, sizeof(*class)))
+    {
+        return false;
+    }
+    if(!containsValidROData(class))
+    {
+        return false;
+    }
+    if(!containsValidClassName(class))
+    {
+        return false;
+    }
+    if(!containsValidIvarData(class))
+    {
+        return false;
+    }
+    return true;
+}
+
+static inline bool isValidObject(const void* objectPtr)
+{
+    if(isTaggedPointer(objectPtr))
+    {
+        return isValidTaggedPointer(objectPtr);
+    }
+    const class_t* object = objectPtr;
+    if(!ksmem_isMemoryReadable(object, sizeof(*object)))
+    {
+        return false;
+    }
+    if(!hasValidIsaPointer(object))
+    {
+        return false;
+    }
+    if(!isValidClass(getIsaPointer(object)))
+    {
+        return false;
+    }
+    return true;
+}
+
 
 
 //======================================================================
@@ -856,23 +887,14 @@ KSObjCType ksobjc_objectType(const void* objectOrClassPtr)
     {
         return KSObjCTypeUnknown;
     }
-
-    if(!hasValidISAPointer(objectOrClassPtr))
-    {
-        return KSObjCTypeUnknown;
-    }
-
-    const struct class_t* isa = getIsaPointer(objectOrClassPtr);
-
-    if(!containsValidROData(isa))
-    {
-        return KSObjCTypeUnknown;
-    }
-    if(!containsValidClassName(isa))
+    
+    if(!isValidClass(objectOrClassPtr))
     {
         return KSObjCTypeUnknown;
     }
     
+    const struct class_t* isa = getIsaPointer(objectOrClassPtr);
+
     if(isBlockClass(isa))
     {
         return KSObjCTypeBlock;
@@ -880,15 +902,6 @@ KSObjCType ksobjc_objectType(const void* objectOrClassPtr)
     if(!isMetaClass(isa))
     {
         return KSObjCTypeObject;
-    }
-    
-    if(!containsValidIvarData(isa))
-    {
-        return KSObjCTypeUnknown;
-    }
-    if(!containsValidClassName(isa))
-    {
-        return KSObjCTypeUnknown;
     }
     
     return KSObjCTypeClass;

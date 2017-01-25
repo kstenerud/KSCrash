@@ -143,14 +143,14 @@ static NSArray* g_test_strings;
 {
     id object = [KSObjC_Tests new];
     KSObjCType type = ksobjc_objectType((__bridge void *)(object));
-    XCTAssertTrue(type == KSObjCTypeObject, @"");
+    XCTAssertTrue(type == KSObjCTypeObject, @"Type was %d", type);
 }
 
 - (void) testObjectTypeObject2
 {
     id object = @"Test";
     KSObjCType type = ksobjc_objectType((__bridge void *)(object));
-    XCTAssertTrue(type == KSObjCTypeObject, @"");
+    XCTAssertTrue(type == KSObjCTypeObject, @"Type was %d", type);
 }
 
 - (void) testObjectTypeBlock
