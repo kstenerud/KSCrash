@@ -26,7 +26,6 @@ import org.json.JSONObject;
 
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Encodes objects into a JSON encoded string.
@@ -37,10 +36,19 @@ import java.util.Map;
 public class KSCrashReportFilterJSONEncode implements KSCrashReportFilter {
     private int indentDepth = -1;
 
+    /**
+     * Constructor.
+     *
+     * @param indentDepth The depth to indent while pretty printing (-1 = do not pretty print).
+     */
     public KSCrashReportFilterJSONEncode(int indentDepth) {
         this.indentDepth = indentDepth;
     }
 
+    /**
+     * Constructor.
+     * Do not pretty print.
+     */
     public KSCrashReportFilterJSONEncode() {
         this(-1);
     }

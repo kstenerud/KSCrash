@@ -1,5 +1,6 @@
 package org.stenerud.kscrash;
 
+import org.json.JSONObject;
 import org.junit.Test;
 
 import java.util.HashMap;
@@ -19,7 +20,7 @@ public class KSCrashReportFilterJSONEncodeTest {
         final String expected = "{}";
         Map dictionary = new HashMap();
         List reports = new LinkedList();
-        reports.add(dictionary);
+        reports.add(new JSONObject(dictionary));
         KSCrashReportFilter filter = new KSCrashReportFilterJSONEncode();
         filter.filterReports(reports, new KSCrashReportFilter.CompletionCallback() {
             @Override
