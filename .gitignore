@@ -20,4 +20,5 @@ Thumbs.db
 .~*
 *.orig
 *.xccheckout
+*.xcscmblueprint
 Carthage/Build

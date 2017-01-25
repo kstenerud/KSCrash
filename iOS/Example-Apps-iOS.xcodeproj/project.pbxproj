@@ -34,6 +34,8 @@
 		CBC43EA71C5ABA1F0083A11B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CBC43EA61C5ABA1F0083A11B /* Assets.xcassets */; };
 		CBC43EAA1C5ABA1F0083A11B /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = CBC43EA81C5ABA1F0083A11B /* LaunchScreen.storyboard */; };
 		CBC43EB51C5AC11F0083A11B /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = CBC43EB41C5AC11F0083A11B /* libz.tbd */; };
+		CBE56EB31E390BEA004EC9E0 /* CrashLib.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CBE56E461E390A97004EC9E0 /* CrashLib.framework */; };
+		CBE56EB41E390BEA004EC9E0 /* CrashLib.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = CBE56E461E390A97004EC9E0 /* CrashLib.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		CBF3CDDE17F574B5001AC307 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB8E576617EBB16D000C56D3 /* Foundation.framework */; };
 		CBF3CDDF17F574B5001AC307 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB8E576817EBB16D000C56D3 /* CoreGraphics.framework */; };
 		CBF3CDE017F574B5001AC307 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB8E576A17EBB16D000C56D3 /* UIKit.framework */; };
@@ -63,6 +65,23 @@
 		CBF3CEA717F67EA9001AC307 /* CrashTesterCommands.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF3CEA617F67EA9001AC307 /* CrashTesterCommands.m */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		CBE56E451E390A97004EC9E0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CBE56E411E390A96004EC9E0 /* CrashLib.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = CBE56E361E390A96004EC9E0;
+			remoteInfo = CrashLib;
+		};
+		CBE56EB51E390BEA004EC9E0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CBE56E411E390A96004EC9E0 /* CrashLib.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = CBE56E351E390A96004EC9E0;
+			remoteInfo = CrashLib;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXCopyFilesBuildPhase section */
 		CB8F1DCF1CCAF0E00022CDF0 /* Embed Frameworks */ = {
 			isa = PBXCopyFilesBuildPhase;
@@ -71,6 +90,17 @@
 			dstSubfolderSpec = 10;
 			files = (
 				CB8F1DCE1CCAF0DF0022CDF0 /* KSCrash.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CBE56EB71E390BEB004EC9E0 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				CBE56EB41E390BEA004EC9E0 /* CrashLib.framework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -113,6 +143,7 @@
 		CBC43EB11C5ABC0B0083A11B /* BridgeHeader.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BridgeHeader.h; sourceTree = "<group>"; };
 		CBC43EB21C5ABD6B0083A11B /* libstdc++.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = "libstdc++.tbd"; path = "usr/lib/libstdc++.tbd"; sourceTree = SDKROOT; };
 		CBC43EB41C5AC11F0083A11B /* libz.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libz.tbd; path = usr/lib/libz.tbd; sourceTree = SDKROOT; };
+		CBE56E411E390A96004EC9E0 /* CrashLib.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = CrashLib.xcodeproj; path = CrashLib/CrashLib.xcodeproj; sourceTree = "<group>"; };
 		CBF3CDDD17F574B5001AC307 /* Advanced-Example.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Advanced-Example.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		CBF3CDE317F574B5001AC307 /* Advanced-Example-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Advanced-Example-Info.plist"; sourceTree = "<group>"; };
 		CBF3CDE517F574B5001AC307 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
@@ -200,6 +231,7 @@
 				CB0C95691C5BF90200166B50 /* libc++.tbd in Frameworks */,
 				CBF3CE5D17F57798001AC307 /* SystemConfiguration.framework in Frameworks */,
 				CBF3CE5C17F57794001AC307 /* MessageUI.framework in Frameworks */,
+				CBE56EB31E390BEA004EC9E0 /* CrashLib.framework in Frameworks */,
 				CBF3CE5B17F5778E001AC307 /* libKSCrashLib.a in Frameworks */,
 				CBF3CE2017F576C0001AC307 /* CoreGraphics.framework in Frameworks */,
 				CBF3CE2117F576C0001AC307 /* UIKit.framework in Frameworks */,
@@ -213,6 +245,7 @@
 		CB8E575A17EBB16D000C56D3 = {
 			isa = PBXGroup;
 			children = (
+				CBE56E411E390A96004EC9E0 /* CrashLib.xcodeproj */,
 				CB8F1DCC1CCAF0DF0022CDF0 /* KSCrash.framework */,
 				CB8E57A317EBB1AF000C56D3 /* Simple-Example */,
 				CBF3CDE117F574B5001AC307 /* Advanced-Example */,
@@ -296,6 +329,14 @@
 				CBC43EB11C5ABC0B0083A11B /* BridgeHeader.h */,
 			);
 			path = "Swift-Tester";
+			sourceTree = "<group>";
+		};
+		CBE56E421E390A96004EC9E0 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				CBE56E461E390A97004EC9E0 /* CrashLib.framework */,
+			);
+			name = Products;
 			sourceTree = "<group>";
 		};
 		CBF3CDE117F574B5001AC307 /* Advanced-Example */ = {
@@ -438,10 +479,12 @@
 				CBF3CE1A17F576C0001AC307 /* Sources */,
 				CBF3CE1B17F576C0001AC307 /* Frameworks */,
 				CBF3CE1C17F576C0001AC307 /* Resources */,
+				CBE56EB71E390BEB004EC9E0 /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				CBE56EB61E390BEA004EC9E0 /* PBXTargetDependency */,
 			);
 			name = "Crash-Tester";
 			productName = "Crash-Tester";
@@ -473,6 +516,12 @@
 			mainGroup = CB8E575A17EBB16D000C56D3;
 			productRefGroup = CB8E576417EBB16D000C56D3 /* Products */;
 			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = CBE56E421E390A96004EC9E0 /* Products */;
+					ProjectRef = CBE56E411E390A96004EC9E0 /* CrashLib.xcodeproj */;
+				},
+			);
 			projectRoot = "";
 			targets = (
 				CB8E579E17EBB1AF000C56D3 /* Simple-Example */,
@@ -482,6 +531,16 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXReferenceProxy section */
+		CBE56E461E390A97004EC9E0 /* CrashLib.framework */ = {
+			isa = PBXReferenceProxy;
+			fileType = wrapper.framework;
+			path = CrashLib.framework;
+			remoteRef = CBE56E451E390A97004EC9E0 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+/* End PBXReferenceProxy section */
 
 /* Begin PBXResourcesBuildPhase section */
 		CB8E579D17EBB1AF000C56D3 /* Resources */ = {
@@ -586,6 +645,14 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		CBE56EB61E390BEA004EC9E0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = CrashLib;
+			targetProxy = CBE56EB51E390BEA004EC9E0 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
 		CB8E57A617EBB1AF000C56D3 /* InfoPlist.strings */ = {
@@ -866,6 +933,7 @@
 		CBF3CE4917F576C0001AC307 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = LaunchImage;
 				CLANG_WARN_CXX0X_EXTENSIONS = YES;
@@ -900,6 +968,7 @@
 				GCC_WARN_UNUSED_LABEL = YES;
 				GCC_WARN_UNUSED_PARAMETER = YES;
 				INFOPLIST_FILE = "Crash-Tester/Crash-Tester-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				OTHER_LDFLAGS = "-ObjC";
 				PRODUCT_BUNDLE_IDENTIFIER = "org.stenerud.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -910,6 +979,7 @@
 		CBF3CE4A17F576C0001AC307 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = LaunchImage;
 				CLANG_WARN_CXX0X_EXTENSIONS = YES;
@@ -940,6 +1010,7 @@
 				GCC_WARN_UNUSED_LABEL = YES;
 				GCC_WARN_UNUSED_PARAMETER = YES;
 				INFOPLIST_FILE = "Crash-Tester/Crash-Tester-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				OTHER_LDFLAGS = "-ObjC";
 				PRODUCT_BUNDLE_IDENTIFIER = "org.stenerud.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = "$(TARGET_NAME)";

@@ -1,0 +1,3 @@
+[submodule "Source/CrashProbe"]
+	path = Source/CrashProbe
+	url = https://github.com/bitstadium/CrashProbe.git

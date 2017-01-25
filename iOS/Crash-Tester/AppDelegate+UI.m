@@ -22,8 +22,8 @@
 #import <KSCrash/KSCrashReportSinkQuincyHockey.h>
 #import <KSCrash/KSCrashReportSinkStandard.h>
 #import <KSCrash/KSCrashReportSinkVictory.h>
-
-
+#import <CrashLib/CrashLib.h>
+#import <CrashLib/CRLFramelessDWARF.h>
 
 MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
 
@@ -56,10 +56,10 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
 - (void) setBackButton:(UIViewController*) controller
 {
     controller.navigationItem.backBarButtonItem =
-        [[UIBarButtonItem alloc] initWithTitle:@"Back"
-                                         style:UIBarButtonItemStyleDone
-                                        target:nil
-                                        action:nil];
+    [[UIBarButtonItem alloc] initWithTitle:@"Back"
+                                     style:UIBarButtonItemStyleDone
+                                    target:nil
+                                    action:nil];
 }
 
 #pragma mark Commands
@@ -92,6 +92,16 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
           [controller.navigationController pushViewController:cmdController animated:YES];
       }]];
     
+    
+    [commands addObject:
+     [CommandEntry commandWithName:@"CrashProbe Crashes"
+                     accessoryType:UITableViewCellAccessoryDisclosureIndicator
+                             block:^(UIViewController* controller)
+      {
+          CommandTVC* cmdController = [self commandTVCWithCommands:[blockSelf crash2Commands]];
+          cmdController.title = @"CrashProbe Crashes";
+          [controller.navigationController pushViewController:cmdController animated:YES];
+      }]];
     return commands;
 }
 
@@ -203,7 +213,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
       {
           [CrashTesterCommands mailSideBySideWithUserAndSystemData];
       }]];
-
+    
     return commands;
 }
 
@@ -250,7 +260,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
       {
           [CrashTesterCommands printSideBySide];
       }]];
-
+    
     [commands addObject:
      [CommandEntry commandWithName:@"Apple Style + user & system data"
                      accessoryType:UITableViewCellAccessoryNone
@@ -258,7 +268,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
       {
           [CrashTesterCommands printSideBySideWithUserAndSystemData];
       }]];
-
+    
     return commands;
 }
 
@@ -364,7 +374,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
       {
           [self.crasher throwUncaughtCPPException];
       }]];
-
+    
     [commands addObject:
      [CommandEntry commandWithName:@"Bad Pointer"
                      accessoryType:UITableViewCellAccessoryNone
@@ -428,7 +438,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
       {
           [self.crasher doIllegalInstruction];
       }]];
-
+    
     [commands addObject:
      [CommandEntry commandWithName:@"Deallocated Object"
                      accessoryType:UITableViewCellAccessoryNone
@@ -436,7 +446,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
       {
           [self.crasher accessDeallocatedObject];
       }]];
-
+    
     [commands addObject:
      [CommandEntry commandWithName:@"Deallocated Proxy"
                      accessoryType:UITableViewCellAccessoryNone
@@ -444,7 +454,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
       {
           [self.crasher accessDeallocatedPtrProxy];
       }]];
-
+    
     [commands addObject:
      [CommandEntry commandWithName:@"Corrupt Memory"
                      accessoryType:UITableViewCellAccessoryNone
@@ -452,7 +462,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
       {
           [self.crasher corruptMemory];
       }]];
-
+    
     [commands addObject:
      [CommandEntry commandWithName:@"Zombie NSException"
                      accessoryType:UITableViewCellAccessoryNone
@@ -460,7 +470,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
       {
           [self.crasher zombieNSException];
       }]];
-
+    
     [commands addObject:
      [CommandEntry commandWithName:@"Crash in Handler"
                      accessoryType:UITableViewCellAccessoryNone
@@ -469,7 +479,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
           blockSelf.crashInHandler = YES;
           [self.crasher dereferenceBadPointer];
       }]];
-
+    
     [commands addObject:
      [CommandEntry commandWithName:@"Deadlock main queue"
                      accessoryType:UITableViewCellAccessoryNone
@@ -477,7 +487,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
       {
           [self.crasher deadlock];
       }]];
-
+    
     [commands addObject:
      [CommandEntry commandWithName:@"Deadlock pthread"
                      accessoryType:UITableViewCellAccessoryNone
@@ -485,7 +495,7 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
       {
           [self.crasher pthreadAPICrash];
       }]];
-
+    
     [commands addObject:
      [CommandEntry commandWithName:@"User Defined (soft) Crash"
                      accessoryType:UITableViewCellAccessoryNone
@@ -493,8 +503,48 @@ MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
       {
           [self.crasher userDefinedCrash];
       }]];
+    
+    
+    return commands;
+}
 
+#define NEW_CRASH(TEXT, CLASS) \
+[commands addObject: \
+[CommandEntry commandWithName:TEXT \
+accessoryType:UITableViewCellAccessoryNone \
+block:^(__unused UIViewController* controller) \
+{ \
+[[CLASS new] crash]; \
+}]]
 
+- (NSArray*) crash2Commands
+{
+    NSMutableArray* commands = [NSMutableArray array];
+    __block AppDelegate* blockSelf = self;
+    
+    NEW_CRASH(@"Async Safe Thread", CRLCrashAsyncSafeThread);
+    NEW_CRASH(@"CXX Exception", CRLCrashCXXException);
+    NEW_CRASH(@"ObjC Exception", CRLCrashObjCException);
+    NEW_CRASH(@"NSLog", CRLCrashNSLog);
+    NEW_CRASH(@"ObjC Msg Send", CRLCrashObjCMsgSend);
+    NEW_CRASH(@"Released Object", CRLCrashReleasedObject);
+    NEW_CRASH(@"RO Page", CRLCrashROPage);
+    NEW_CRASH(@"Privileged Instruction", CRLCrashPrivInst);
+    NEW_CRASH(@"Undefined Instruction", CRLCrashUndefInst);
+    NEW_CRASH(@"NULL", CRLCrashNULL);
+    NEW_CRASH(@"Garbage", CRLCrashGarbage);
+    NEW_CRASH(@"NX Page", CRLCrashNXPage);
+    NEW_CRASH(@"Stack Guard", CRLCrashStackGuard);
+    NEW_CRASH(@"Trap", CRLCrashTrap);
+    NEW_CRASH(@"Abort", CRLCrashAbort);
+    NEW_CRASH(@"Corrupt Malloc", CRLCrashCorruptMalloc);
+    NEW_CRASH(@"Corrupt ObjC", CRLCrashCorruptObjC);
+    NEW_CRASH(@"Overwrite Link Register", CRLCrashOverwriteLinkRegister);
+    NEW_CRASH(@"Smash Stack Bottom", CRLCrashSmashStackBottom);
+    NEW_CRASH(@"Smash Stack Top", CRLCrashSmashStackTop);
+    NEW_CRASH(@"Frameless Dwarf", CRLFramelessDWARF);
+    
+    
     return commands;
 }
 
