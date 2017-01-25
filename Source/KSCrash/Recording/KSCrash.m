@@ -107,6 +107,7 @@ static NSString* getBasePath()
 @synthesize doNotIntrospectClasses = _doNotIntrospectClasses;
 @synthesize demangleLanguages = _demangleLanguages;
 @synthesize addConsoleLogToReport = _addConsoleLogToReport;
+@synthesize printPreviousLog = _printPreviousLog;
 @synthesize maxReportCount = _maxReportCount;
 
 
@@ -512,6 +513,12 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
 {
     _addConsoleLogToReport = shouldAddConsoleLogToReport;
     kscrash_setAddConsoleLogToReport(shouldAddConsoleLogToReport);
+}
+
+- (void) setPrintPreviousLog:(BOOL) shouldPrintPreviousLog
+{
+    _printPreviousLog = shouldPrintPreviousLog;
+    kscrash_setPrintPreviousLog(shouldPrintPreviousLog);
 }
 
 

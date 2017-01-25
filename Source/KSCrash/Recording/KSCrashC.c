@@ -59,9 +59,28 @@
 static volatile bool g_installed = 0;
 
 static bool g_shouldAddConsoleLogToReport = false;
+static bool g_shouldPrintPreviousLog = false;
 char g_consoleLogPath[KSFU_MAX_PATH_LENGTH];
 static KSCrashMonitorType g_monitoring = KSCrashMonitorTypeProductionSafeMinimal;
 static char g_lastCrashReportFilePath[KSFU_MAX_PATH_LENGTH];
+
+
+// ============================================================================
+#pragma mark - Utility -
+// ============================================================================
+
+static void printPreviousLog(const char* filePath)
+{
+    char* data;
+    int length;
+    if(ksfu_readEntireFile(filePath, &data, &length, 0))
+    {
+        printf("\nvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv Previous Log vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n\n");
+        printf("%s\n", data);
+        printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n");
+        fflush(stdout);
+    }
+}
 
 
 // ============================================================================
@@ -119,6 +138,10 @@ KSCrashMonitorType kscrash_install(const char* appName, const char* const instal
     kscrashstate_initialize(path);
 
     snprintf(g_consoleLogPath, sizeof(g_consoleLogPath), "%s/Data/ConsoleLog.txt", installPath);
+    if(g_shouldPrintPreviousLog)
+    {
+        printPreviousLog(g_consoleLogPath);
+    }
     kslog_setLogFilename(g_consoleLogPath, true);
     
     ksccd_init(60);
@@ -173,6 +196,11 @@ void kscrash_setCrashNotifyCallback(const KSReportWriteCallback onCrashNotify)
 void kscrash_setAddConsoleLogToReport(bool shouldAddConsoleLogToReport)
 {
     g_shouldAddConsoleLogToReport = shouldAddConsoleLogToReport;
+}
+
+void kscrash_setPrintPreviousLog(bool shouldPrintPreviousLog)
+{
+    g_shouldPrintPreviousLog = shouldPrintPreviousLog;
 }
 
 void kscrash_setMaxReportCount(int maxReportCount)

@@ -158,6 +158,11 @@ typedef enum
  */
 @property(nonatomic,readwrite,assign) BOOL addConsoleLogToReport;
 
+/** Print the previous app run log to the console when installing KSCrash.
+ *  This is primarily for debugging purposes.
+ */
+@property(nonatomic,readwrite,assign) BOOL printPreviousLog;
+
 /** Which languages to demangle when getting stack traces (default KSCrashDemangleLanguageAll) */
 @property(nonatomic,readwrite,assign) KSCrashDemangleLanguage demangleLanguages;
 

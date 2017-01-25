@@ -57,6 +57,7 @@ static void onCrash(const KSCrashReportWriter* writer)
     handler.deadlockWatchdogInterval = 5.0f;
     handler.catchZombies = YES;
 //    handler.addConsoleLogToReport = YES;
+//    handler.printPreviousLog = YES;
     handler.onCrash = onCrash;
     handler.userInfo = [NSDictionary dictionaryWithObjectsAndKeys:
                         @"\"quote\"", @"quoted value",

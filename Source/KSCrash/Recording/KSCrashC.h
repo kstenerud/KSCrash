@@ -125,6 +125,11 @@ void kscrash_setCrashNotifyCallback(const KSReportWriteCallback onCrashNotify);
  */
 void kscrash_setAddConsoleLogToReport(bool shouldAddConsoleLogToReport);
 
+/** Set if KSCrash should print the previous log to the console on startup.
+ *  This is for debugging purposes.
+ */
+void kscrash_setPrintPreviousLog(bool shouldPrintPreviousLog);
+
 /** Set the maximum number of reports allowed on disk before old ones get deleted.
  *
  * @param maxReportCount The maximum number of reports.
