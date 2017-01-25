@@ -24,6 +24,7 @@
 #import <KSCrash/KSCrashReportSinkVictory.h>
 #import <CrashLib/CrashLib.h>
 #import <CrashLib/CRLFramelessDWARF.h>
+#import <objc/runtime.h>
 
 MAKE_CATEGORIES_LOADABLE(AppDelegate_UI)
 
@@ -517,10 +518,30 @@ block:^(__unused UIViewController* controller) \
 [[CLASS new] crash]; \
 }]]
 
+- (CRLCrash*) getSwiftCrashObject
+{
+    unsigned int classCount = 0;
+    Class* classes = objc_copyClassList(&classCount);
+    Class foundClass = nil;
+    
+    for(unsigned int i=0; i < classCount; i++)
+    {
+        Class testClass = classes[i];
+        if (testClass != NULL &&
+            class_getSuperclass(testClass) == [CRLCrash class] &&
+            strstr(class_getName(testClass), "CRLCrashSwift") != NULL)
+        {
+            foundClass = testClass;
+            break;
+        }
+    }
+    free(classes);
+    return [foundClass new];
+}
+
 - (NSArray*) crash2Commands
 {
     NSMutableArray* commands = [NSMutableArray array];
-    __block AppDelegate* blockSelf = self;
     
     NEW_CRASH(@"Async Safe Thread", CRLCrashAsyncSafeThread);
     NEW_CRASH(@"CXX Exception", CRLCrashCXXException);
@@ -543,7 +564,15 @@ block:^(__unused UIViewController* controller) \
     NEW_CRASH(@"Smash Stack Bottom", CRLCrashSmashStackBottom);
     NEW_CRASH(@"Smash Stack Top", CRLCrashSmashStackTop);
     NEW_CRASH(@"Frameless Dwarf", CRLFramelessDWARF);
-    
+
+    [commands addObject: \
+     [CommandEntry commandWithName:@"Swift" \
+                     accessoryType:UITableViewCellAccessoryNone \
+                             block:^(__unused UIViewController* controller) \
+    { \
+        [[self getSwiftCrashObject] crash]; \
+    }]];
+
     
     return commands;
 }
