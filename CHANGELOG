@@ -1,3 +1,14 @@
+1.15.2:
+
+Added HTTP report submission to Android.
+
+Cleaned up Objective-C introspection.
+
+Added new option to print the last recorded console log on startup (for debugging).
+
+Added CrashProbe's crashes to the Crash-Tester app. Note that many of these crashes are improperly marked "noreturn", which completely breaks crash reporting (the only noreturn function you'd ever actually call is abort(), and it provides a proper trace to the signal handler). Others, such as "Smash Stack Bottom", are pretty much useless since there's no reliable way to deal with that in the wild.
+
+
 1.15.1:
 
 Added version fields to binary images.
