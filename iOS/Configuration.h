@@ -24,7 +24,7 @@
 // JSON API configuration.
 #define kReportHost @"localhost"
 //#define kReportHost @"192.168.1.214"
-#define kReportURL [NSURL URLWithString:@"http://" kReportHost @":8000/api/crashes/"]
+#define kReportURL [NSURL URLWithString:@"http://" kReportHost @":5000/crashreport"]
 
 
 #endif
