@@ -100,6 +100,24 @@
     
     KSLOG_TRACE(@"Showing alert view");
     [self.alertView show];
+#elif KSCRASH_HAS_UIALERTCONTROLLER
+    UIAlertController *alertController = [UIAlertController alertControllerWithTitle:title
+                                                                             message:message
+                                                                      preferredStyle:UIAlertControllerStyleAlert];
+    UIAlertAction *yesAction = [UIAlertAction actionWithTitle:yesAnswer
+                                                        style:UIAlertActionStyleDefault
+                                                      handler:^(UIAlertAction * _Nonnull action) {
+                                                          kscrash_callCompletion(self.onCompletion, self.reports, YES, nil);
+                                                      }];
+    UIAlertAction *noAction = [UIAlertAction actionWithTitle:noAnswer
+                                                       style:UIAlertActionStyleCancel
+                                                     handler:^(UIAlertAction * _Nonnull action) {
+                                                         kscrash_callCompletion(self.onCompletion, self.reports, NO, nil);
+                                                     }];
+    [alertController addAction:yesAction];
+    [alertController addAction:noAction];
+    UIWindow *keyWindow = [[UIApplication sharedApplication] keyWindow];
+    [keyWindow.rootViewController presentViewController:alertController animated:YES completion:NULL];
 #elif KSCRASH_HAS_NSALERT
     NSAlert *alert = [[NSAlert alloc] init];
     [alert addButtonWithTitle:yesAnswer];
