@@ -166,7 +166,6 @@ catch(TYPE value)\
         crashContext->exceptionName = name;
         crashContext->crashReason = description;
         crashContext->offendingMachineContext = machineContext;
-        crashContext->stackCursor = &g_stackCursor;
 
         kscm_handleException(crashContext);
     }
