@@ -166,7 +166,6 @@ catch(TYPE value)\
         crashContext->exceptionName = name;
         crashContext->crashReason = description;
         crashContext->offendingMachineContext = machineContext;
-        crashContext->stackCursor = &g_stackCursor;
 
         kscm_handleException(crashContext);
     }
@@ -185,6 +184,16 @@ catch(TYPE value)\
 #pragma mark - Public API -
 // ============================================================================
 
+static void initialize()
+{
+    static bool isInitialized = false;
+    if(!isInitialized)
+    {
+        isInitialized = true;
+        kssc_initCursor(&g_stackCursor, NULL, NULL);
+    }
+}
+
 static void setEnabled(bool isEnabled)
 {
     if(isEnabled != g_isEnabled)
@@ -192,6 +201,8 @@ static void setEnabled(bool isEnabled)
         g_isEnabled = isEnabled;
         if(isEnabled)
         {
+            initialize();
+
             ksid_generate(g_eventID);
             g_originalTerminateHandler = std::set_terminate(CPPExceptionTerminate);
         }
