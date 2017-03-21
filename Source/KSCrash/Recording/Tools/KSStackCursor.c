@@ -32,6 +32,7 @@
 
 static bool g_advanceCursor(__unused KSStackCursor *cursor)
 {
+    KSLOG_WARN("No stack cursor has been set. For C++, this means that hooking __cxa_throw() failed for some reason. Embedded frameworks can cause this: https://github.com/kstenerud/KSCrash/issues/205");
     return false;
 }
 
