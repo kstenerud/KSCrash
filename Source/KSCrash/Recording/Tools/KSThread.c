@@ -71,6 +71,11 @@ bool ksthread_getQueueName(const KSThread thread, char* const buffer, int bufLen
     }
     
     thread_identifier_info_t idInfo = (thread_identifier_info_t)info;
+    if(ksmem_isMemoryReadable(idInfo, sizeof(*idInfo)))
+    {
+        KSLOG_DEBUG("Thread %p has an invalid thread identifier info %p", thread, idInfo);
+        return false;
+    }
     dispatch_queue_t* dispatch_queue_ptr = (dispatch_queue_t*)idInfo->dispatch_qaddr;
     if(!ksmem_isMemoryReadable(dispatch_queue_ptr, sizeof(*dispatch_queue_ptr)))
     {
