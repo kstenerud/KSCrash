@@ -257,7 +257,7 @@
 		CB8E563817EB9AFD000C56D3 /* KSCrashMonitor_System.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E562A17EB9AFD000C56D3 /* KSCrashMonitor_System.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CB8E563917EB9AFD000C56D3 /* KSCrashMonitor_System.m in Sources */ = {isa = PBXBuildFile; fileRef = CB8E562B17EB9AFD000C56D3 /* KSCrashMonitor_System.m */; };
 		CB8E564C17EB9B35000C56D3 /* KSCrashMonitor.c in Sources */ = {isa = PBXBuildFile; fileRef = CB8E563D17EB9B35000C56D3 /* KSCrashMonitor.c */; };
-		CB8E564D17EB9B35000C56D3 /* KSCrashMonitor.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E563E17EB9B35000C56D3 /* KSCrashMonitor.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CB8E564D17EB9B35000C56D3 /* KSCrashMonitor.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E563E17EB9B35000C56D3 /* KSCrashMonitor.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CB8E564E17EB9B35000C56D3 /* KSCrashMonitor_CPPException.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E563F17EB9B35000C56D3 /* KSCrashMonitor_CPPException.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB8E564F17EB9B35000C56D3 /* KSCrashMonitor_CPPException.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CB8E564017EB9B35000C56D3 /* KSCrashMonitor_CPPException.cpp */; };
 		CB8E565017EB9B35000C56D3 /* KSCrashMonitor_Deadlock.h in Headers */ = {isa = PBXBuildFile; fileRef = CB8E564117EB9B35000C56D3 /* KSCrashMonitor_Deadlock.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -1242,6 +1242,7 @@
 				CB8E56BF17EB9B7E000C56D3 /* KSCrashReportFilterBasic.h in Headers */,
 				CB8E56C117EB9B7E000C56D3 /* KSCrashReportFilterGZip.h in Headers */,
 				CB8E56C317EB9B7E000C56D3 /* KSCrashReportFilterJSON.h in Headers */,
+				CB8E564D17EB9B35000C56D3 /* KSCrashMonitor.h in Headers */,
 				CB8E56C517EB9B7E000C56D3 /* KSCrashReportFilterSets.h in Headers */,
 				CB18069E1E0DA09B00239506 /* KSStackCursor_Backtrace.h in Headers */,
 				CB8E56C717EB9B7E000C56D3 /* KSCrashReportSinkConsole.h in Headers */,
@@ -1277,7 +1278,6 @@
 				CB2686151C694E4400EE4EB3 /* llvm-config.h in Headers */,
 				CB9821B01DFA070300164220 /* KSMachineContext_Apple.h in Headers */,
 				CB8E56FB17EB9B89000C56D3 /* NSMutableData+AppendUTF8.h in Headers */,
-				CB8E564D17EB9B35000C56D3 /* KSCrashMonitor.h in Headers */,
 				CB8E565417EB9B35000C56D3 /* KSCrashMonitor_NSException.h in Headers */,
 				CB25A5C11DF2209000EC2B02 /* KSCPU.h in Headers */,
 				CBBD3AAE1CAD98A300DBB897 /* KSCrashInstallationConsole.h in Headers */,
