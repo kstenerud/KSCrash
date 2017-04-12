@@ -122,7 +122,7 @@
 		CBEE5D071CB86989005EAF61 /* KSCrashMonitor_System.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C621CB86989005EAF61 /* KSCrashMonitor_System.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CBEE5D081CB86989005EAF61 /* KSCrashMonitor_System.m in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C631CB86989005EAF61 /* KSCrashMonitor_System.m */; };
 		CBEE5D0A1CB86989005EAF61 /* KSCrashMonitor.c in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C661CB86989005EAF61 /* KSCrashMonitor.c */; };
-		CBEE5D0B1CB86989005EAF61 /* KSCrashMonitor.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C671CB86989005EAF61 /* KSCrashMonitor.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CBEE5D0B1CB86989005EAF61 /* KSCrashMonitor.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C671CB86989005EAF61 /* KSCrashMonitor.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CBEE5D0C1CB86989005EAF61 /* KSCrashMonitor_CPPException.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C681CB86989005EAF61 /* KSCrashMonitor_CPPException.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CBEE5D0D1CB86989005EAF61 /* KSCrashMonitor_CPPException.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CBEE5C691CB86989005EAF61 /* KSCrashMonitor_CPPException.cpp */; };
 		CBEE5D0E1CB86989005EAF61 /* KSCrashMonitor_Deadlock.h in Headers */ = {isa = PBXBuildFile; fileRef = CBEE5C6A1CB86989005EAF61 /* KSCrashMonitor_Deadlock.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -884,6 +884,7 @@
 				CBEE5D271CB86989005EAF61 /* KSLogger.h in Headers */,
 				CBA1A53F1DD25049007B1CE7 /* KSDemangle_Swift.h in Headers */,
 				CBA1A53D1DD25049007B1CE7 /* KSDemangle_CPP.h in Headers */,
+				CBEE5D0B1CB86989005EAF61 /* KSCrashMonitor.h in Headers */,
 				CBEE5D051CB86989005EAF61 /* KSCrashMonitorType.h in Headers */,
 				CBEE5D361CB86989005EAF61 /* KSSignalInfo.h in Headers */,
 				CB5658041E1DD448005A8302 /* KSSymbolicator.h in Headers */,
@@ -891,7 +892,6 @@
 				CBEE5D071CB86989005EAF61 /* KSCrashMonitor_System.h in Headers */,
 				CBEE5D001CB86989005EAF61 /* KSCrashReportVersion.h in Headers */,
 				CBEE5CEF1CB86989005EAF61 /* AlignOf.h in Headers */,
-				CBEE5D0B1CB86989005EAF61 /* KSCrashMonitor.h in Headers */,
 				CBA8A0D61E25D3AB0019B5B9 /* KSCrashCachedData.h in Headers */,
 				CBEE5D6B1CB86989005EAF61 /* KSReachabilityKSCrash.h in Headers */,
 				CBEE5DBE1CBC14CF005EAF61 /* NSString+URLEncode.h in Headers */,

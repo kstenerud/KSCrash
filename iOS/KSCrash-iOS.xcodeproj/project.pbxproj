@@ -23,7 +23,7 @@
 		03DE7C511C84DF8100F789BA /* KSCrashDoctor.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D2317EB765C0056DA83 /* KSCrashDoctor.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		03DE7C521C84DF8100F789BA /* KSCrashDoctor.m in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D2417EB765C0056DA83 /* KSCrashDoctor.m */; };
 		03DE7C531C84DF8600F789BA /* KSCrashMonitor.c in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D5B17EB765C0056DA83 /* KSCrashMonitor.c */; };
-		03DE7C541C84DF8600F789BA /* KSCrashMonitor.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D5C17EB765C0056DA83 /* KSCrashMonitor.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		03DE7C541C84DF8600F789BA /* KSCrashMonitor.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D5C17EB765C0056DA83 /* KSCrashMonitor.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		03DE7C551C84DF8600F789BA /* KSCrashMonitor_CPPException.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D4E17EB765C0056DA83 /* KSCrashMonitor_CPPException.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		03DE7C561C84DF8600F789BA /* KSCrashMonitor_CPPException.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D4F17EB765C0056DA83 /* KSCrashMonitor_CPPException.cpp */; };
 		03DE7C571C84DF8600F789BA /* KSCrashMonitor_Deadlock.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D5017EB765C0056DA83 /* KSCrashMonitor_Deadlock.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -1317,7 +1317,6 @@
 				CB5633CD1DD5392A0023CEB6 /* KSCrashMonitorContext.h in Headers */,
 				CB41F0651E0B9EBD00A1C9D7 /* KSStackCursor.h in Headers */,
 				CB41F06D1E0C4E9800A1C9D7 /* KSStackCursor_Backtrace.h in Headers */,
-				03DE7C541C84DF8600F789BA /* KSCrashMonitor.h in Headers */,
 				03DE7C491C84DF8100F789BA /* KSCrashMonitor_AppState.h in Headers */,
 				03DE7C7F1C84DFAB00F789BA /* KSJSONCodecObjC.h in Headers */,
 				03DE7C4B1C84DF8100F789BA /* KSCrashMonitorType.h in Headers */,
@@ -1338,6 +1337,7 @@
 				03DE7CB21C84DFB700F789BA /* KSCrashReportFilterGZip.h in Headers */,
 				03DE7CAA1C84DFB600F789BA /* KSCrashReportFilter.h in Headers */,
 				03DE7CAE1C84DFB600F789BA /* KSCrashReportFilterAppleFmt.h in Headers */,
+				03DE7C541C84DF8600F789BA /* KSCrashMonitor.h in Headers */,
 				03DE7CB01C84DFB600F789BA /* KSCrashReportFilterBasic.h in Headers */,
 				03DE7CCE1C84DFCD00F789BA /* KSCrashInstallationStandard.h in Headers */,
 				CBA8A0C91E2561210019B5B9 /* KSCrashCachedData.h in Headers */,
