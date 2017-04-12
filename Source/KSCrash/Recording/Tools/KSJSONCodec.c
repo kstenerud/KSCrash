@@ -240,11 +240,12 @@ static int addQuotedEscapedString(KSJSONEncodeContext* const context,
     {
         return result;
     }
-    unlikely_if((result = addEscapedString(context, string, length)) != KSJSON_OK)
-    {
-        return result;
-    }
-    return addJSONData(context, "\"", 1);
+    result = addEscapedString(context, string, length);
+
+    // Always close string, even if we failed to write its content
+    int closeResult = addJSONData(context, "\"", 1);
+
+    return result || closeResult;
 }
 
 int ksjson_beginElement(KSJSONEncodeContext* const context, const char* const name)
