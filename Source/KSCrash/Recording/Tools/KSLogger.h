@@ -165,10 +165,7 @@ void i_kslog_logObjC(const char* level,
                      const char* function,
                      CFStringRef fmt, ...);
 
-void i_kslog_logObjCBasic(CFStringRef fmt, ...);
-
 #define i_KSLOG_FULL(LEVEL,FILE,LINE,FUNCTION,FMT,...) i_kslog_logObjC(LEVEL,FILE,LINE,FUNCTION,(__bridge CFStringRef)FMT,##__VA_ARGS__)
-#define i_KSLOG_BASIC(FMT, ...) i_kslog_logObjCBasic((__bridge CFStringRef)FMT,##__VA_ARGS__)
 
 #else // __OBJC__
 
@@ -178,10 +175,7 @@ void i_kslog_logC(const char* level,
                   const char* function,
                   const char* fmt, ...);
 
-void i_kslog_logCBasic(const char* fmt, ...);
-
 #define i_KSLOG_FULL i_kslog_logC
-#define i_KSLOG_BASIC i_kslog_logCBasic
 
 #endif // __OBJC__
 
@@ -244,6 +238,10 @@ void i_kslog_logCBasic(const char* fmt, ...);
                  FMT, \
                  ##__VA_ARGS__)
 
+#define a_KSLOG_BASIC(FMT, ...) \
+    i_KSLOG_FULL(0, 0, -1, 0, \
+                 FMT, \
+                 ##__VA_ARGS__)
 
 
 // ============================================================================
@@ -289,7 +287,7 @@ void kslog_setLogToStdout(bool enabled);
  * @param FMT The format specifier, followed by its arguments.
  */
 #define KSLOG_ALWAYS(FMT, ...) a_KSLOG_FULL("FORCE", FMT, ##__VA_ARGS__)
-#define KSLOGBASIC_ALWAYS(FMT, ...) i_KSLOG_BASIC(FMT, ##__VA_ARGS__)
+#define KSLOGBASIC_ALWAYS(FMT, ...) a_KSLOG_BASIC(FMT, ##__VA_ARGS__)
 
 
 /** Log an error.
@@ -299,7 +297,7 @@ void kslog_setLogToStdout(bool enabled);
  */
 #if KSLOG_PRINTS_AT_LEVEL(KSLogger_Level_Error)
     #define KSLOG_ERROR(FMT, ...) a_KSLOG_FULL("ERROR", FMT, ##__VA_ARGS__)
-    #define KSLOGBASIC_ERROR(FMT, ...) i_KSLOG_BASIC(FMT, ##__VA_ARGS__)
+    #define KSLOGBASIC_ERROR(FMT, ...) a_KSLOG_BASIC(FMT, ##__VA_ARGS__)
 #else
     #define KSLOG_ERROR(FMT, ...)
     #define KSLOGBASIC_ERROR(FMT, ...)
@@ -312,7 +310,7 @@ void kslog_setLogToStdout(bool enabled);
  */
 #if KSLOG_PRINTS_AT_LEVEL(KSLogger_Level_Warn)
     #define KSLOG_WARN(FMT, ...)  a_KSLOG_FULL("WARN ", FMT, ##__VA_ARGS__)
-    #define KSLOGBASIC_WARN(FMT, ...) i_KSLOG_BASIC(FMT, ##__VA_ARGS__)
+    #define KSLOGBASIC_WARN(FMT, ...) a_KSLOG_BASIC(FMT, ##__VA_ARGS__)
 #else
     #define KSLOG_WARN(FMT, ...)
     #define KSLOGBASIC_WARN(FMT, ...)
@@ -325,7 +323,7 @@ void kslog_setLogToStdout(bool enabled);
  */
 #if KSLOG_PRINTS_AT_LEVEL(KSLogger_Level_Info)
     #define KSLOG_INFO(FMT, ...)  a_KSLOG_FULL("INFO ", FMT, ##__VA_ARGS__)
-    #define KSLOGBASIC_INFO(FMT, ...) i_KSLOG_BASIC(FMT, ##__VA_ARGS__)
+    #define KSLOGBASIC_INFO(FMT, ...) a_KSLOG_BASIC(FMT, ##__VA_ARGS__)
 #else
     #define KSLOG_INFO(FMT, ...)
     #define KSLOGBASIC_INFO(FMT, ...)
@@ -338,7 +336,7 @@ void kslog_setLogToStdout(bool enabled);
  */
 #if KSLOG_PRINTS_AT_LEVEL(KSLogger_Level_Debug)
     #define KSLOG_DEBUG(FMT, ...) a_KSLOG_FULL("DEBUG", FMT, ##__VA_ARGS__)
-    #define KSLOGBASIC_DEBUG(FMT, ...) i_KSLOG_BASIC(FMT, ##__VA_ARGS__)
+    #define KSLOGBASIC_DEBUG(FMT, ...) a_KSLOG_BASIC(FMT, ##__VA_ARGS__)
 #else
     #define KSLOG_DEBUG(FMT, ...)
     #define KSLOGBASIC_DEBUG(FMT, ...)
@@ -351,7 +349,7 @@ void kslog_setLogToStdout(bool enabled);
  */
 #if KSLOG_PRINTS_AT_LEVEL(KSLogger_Level_Trace)
     #define KSLOG_TRACE(FMT, ...) a_KSLOG_FULL("TRACE", FMT, ##__VA_ARGS__)
-    #define KSLOGBASIC_TRACE(FMT, ...) i_KSLOG_BASIC(FMT, ##__VA_ARGS__)
+    #define KSLOGBASIC_TRACE(FMT, ...) a_KSLOG_BASIC(FMT, ##__VA_ARGS__)
 #else
     #define KSLOG_TRACE(FMT, ...)
     #define KSLOGBASIC_TRACE(FMT, ...)

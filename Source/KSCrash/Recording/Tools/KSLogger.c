@@ -272,12 +272,17 @@ void kslog_setLogToStdout(bool enabled)
 #pragma mark - C -
 // ===========================================================================
 
-void i_kslog_logCBasic(const char* const fmt, ...)
+static void i_kslog_log(const char* const level,
+                        const char* const file,
+                        const int line,
+                        const char* const function,
+                        const char* const fmt, va_list args)
 {
-    va_list args;
-    va_start(args,fmt);
+    if(level && file && line >= 0 && function)
+    {
+        writeFmtToLog("%s: %s (%u): %s: ", level, lastPathEntry(file), line, function);
+    }
     writeFmtArgsToLog(fmt, args);
-    va_end(args);
     writeToLog("\n");
     flushLog();
 }
@@ -288,13 +293,10 @@ void i_kslog_logC(const char* const level,
                   const char* const function,
                   const char* const fmt, ...)
 {
-    writeFmtToLog("%s: %s (%u): %s: ", level, lastPathEntry(file), line, function);
     va_list args;
     va_start(args,fmt);
-    writeFmtArgsToLog(fmt, args);
+    i_kslog_log(level, file, line, function, fmt, args);
     va_end(args);
-    writeToLog("\n");
-    flushLog();
 }
 
 
@@ -305,59 +307,33 @@ void i_kslog_logC(const char* const level,
 #if KSCRASH_HAS_OBJC
 #include <CoreFoundation/CoreFoundation.h>
 
-void i_kslog_logObjCBasic(CFStringRef fmt, ...)
-{
-    if(fmt == NULL)
-    {
-        writeToLog("(null)");
-        return;
-    }
-    
-    va_list args;
-    va_start(args,fmt);
-    CFStringRef entry = CFStringCreateWithFormatAndArguments(NULL, NULL, fmt, args);
-    va_end(args);
-    
-    int bufferLength = (int)CFStringGetLength(entry) * 4 + 1;
-    char* stringBuffer = malloc((unsigned)bufferLength);
-    if(CFStringGetCString(entry, stringBuffer, (CFIndex)bufferLength, kCFStringEncodingUTF8))
-    {
-        writeToLog(stringBuffer);
-    }
-    else
-    {
-        writeToLog("Could not convert log string to UTF-8. No logging performed.");
-    }
-    writeToLog("\n");
-    
-    free(stringBuffer);
-    CFRelease(entry);
-}
-
 void i_kslog_logObjC(const char* const level,
                      const char* const file,
                      const int line,
                      const char* const function,
                      CFStringRef fmt, ...)
 {
-    CFStringRef logFmt = NULL;
     if(fmt == NULL)
     {
-        logFmt = CFStringCreateWithCString(NULL, "%s: %s (%u): %s: (null)", kCFStringEncodingUTF8);
-        i_kslog_logObjCBasic(logFmt, level, lastPathEntry(file), line, function);
+        i_kslog_logC(level, file, line, function, "(null)");
     }
     else
     {
-        va_list args;
-        va_start(args,fmt);
-        CFStringRef entry = CFStringCreateWithFormatAndArguments(NULL, NULL, fmt, args);
-        va_end(args);
-        
-        logFmt = CFStringCreateWithCString(NULL, "%s: %s (%u): %s: %@", kCFStringEncodingUTF8);
-        i_kslog_logObjCBasic(logFmt, level, lastPathEntry(file), line, function, entry);
-        
-        CFRelease(entry);
+        int bufferLength = (int)CFStringGetLength(fmt) * 4 + 1;
+        char* stringBuffer = malloc((unsigned)bufferLength);
+        if(CFStringGetCString(fmt, stringBuffer, (CFIndex)bufferLength, kCFStringEncodingUTF8))
+        {
+            va_list args;
+            va_start(args,fmt);
+            i_kslog_log(level, file, line, function, stringBuffer, args);
+            va_end(args);
+        }
+        else
+        {
+            i_kslog_logC(level, file, line, function,
+                "Could not convert log string to UTF-8. No logging performed.");
+        }
+        free(stringBuffer);
     }
-    CFRelease(logFmt);
 }
 #endif // KSCRASH_HAS_OBJC
