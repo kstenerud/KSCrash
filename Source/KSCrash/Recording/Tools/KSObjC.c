@@ -310,7 +310,8 @@ static int extractTaggedNSString(const void* const object, char* buffer, int buf
     {
         for(int i = 0; i < copyLength; i++)
         {
-            buffer[i] = (char)(value & 0xff);
+            // ASCII case, limit to bottom 7 bits just in case
+            buffer[i] = (char)(value & 0xf7);
             value >>= 8;
         }
     }

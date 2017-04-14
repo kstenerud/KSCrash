@@ -107,7 +107,7 @@ const char* ksjson_stringForError(const int error)
  *
  * @param length The length of the data.
  *
- * @return true if the data was handled successfully.
+ * @return KSJSON_OK if the data was handled successfully.
  */
 #define addJSONData(CONTEXT,DATA,LENGTH) \
     (CONTEXT)->addJSONData(DATA, LENGTH, (CONTEXT)->userData)
@@ -120,7 +120,7 @@ const char* ksjson_stringForError(const int error)
  *
  * @param length The length of the string.
  *
- * @return true if the data was handled successfully.
+ * @return KSJSON_OK if the data was handled successfully.
  */
 static int appendEscapedString(KSJSONEncodeContext* const context,
                                const char* restrict const string,
@@ -194,7 +194,7 @@ static int appendEscapedString(KSJSONEncodeContext* const context,
  *
  * @param length The length of the string.
  *
- * @return true if the data was handled successfully.
+ * @return KSJSON_OK if the data was handled successfully.
  */
 static int addEscapedString(KSJSONEncodeContext* const context,
                             const char* restrict const string,
@@ -229,7 +229,7 @@ static int addEscapedString(KSJSONEncodeContext* const context,
  *
  * @param length The length of the string.
  *
- * @return true if the data was handled successfully.
+ * @return KSJSON_OK if the data was handled successfully.
  */
 static int addQuotedEscapedString(KSJSONEncodeContext* const context,
                                   const char* restrict const string,
@@ -240,11 +240,12 @@ static int addQuotedEscapedString(KSJSONEncodeContext* const context,
     {
         return result;
     }
-    unlikely_if((result = addEscapedString(context, string, length)) != KSJSON_OK)
-    {
-        return result;
-    }
-    return addJSONData(context, "\"", 1);
+    result = addEscapedString(context, string, length);
+
+    // Always close string, even if we failed to write its content
+    int closeResult = addJSONData(context, "\"", 1);
+
+    return result || closeResult;
 }
 
 int ksjson_beginElement(KSJSONEncodeContext* const context, const char* const name)
