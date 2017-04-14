@@ -272,12 +272,23 @@ void kslog_setLogToStdout(bool enabled)
 #pragma mark - C -
 // ===========================================================================
 
+static KSLogFunction g_logCallback = NULL;
+
+void kslog_setLogCallback(KSLogFunction function)
+{
+    g_logCallback = function;
+}
+
 static void i_kslog_log(const char* const level,
                         const char* const file,
                         const int line,
                         const char* const function,
                         const char* const fmt, va_list args)
 {
+    if (g_logCallback)
+    {
+        g_logCallback(level, file, line, function, fmt, args);
+    }
     if(level && file && line >= 0 && function)
     {
         writeFmtToLog("%s: %s (%u): %s: ", level, lastPathEntry(file), line, function);

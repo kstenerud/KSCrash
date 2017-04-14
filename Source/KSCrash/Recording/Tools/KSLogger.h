@@ -153,6 +153,7 @@ extern "C" {
 
 
 #include <stdbool.h>
+#include <stdarg.h>
 
 
 #ifdef __OBJC__
@@ -266,6 +267,22 @@ bool kslog_clearLogFile();
  * By default stdout logging is disabled.
  */
 void kslog_setLogToStdout(bool enabled);
+
+typedef void (*KSLogFunction)(const char* level, const char* file,
+                     int line, const char* function,
+                     const char* fmt, va_list args);
+
+/** Set a function responsible for logging.
+ *
+ * When set, will deliver logging to this function
+ * in addition to file and stdout output (if enabled).
+ *
+ * WARNING: Only call async-safe functions from this function!
+ * DO NOT call Objective-C methods!!!
+ *
+ * @param function The function that should handle logging.
+ */
+void kslog_setLogCallback(KSLogFunction function);
 
 /** Tests if the logger would print at the specified level.
  *
