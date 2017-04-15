@@ -261,6 +261,14 @@ bool kslog_setLogFilename(const char* filename, bool overwrite);
 /** Clear the log file. */
 bool kslog_clearLogFile();
 
+/** Set whether or not to log to stdout.
+ *
+ * @param enabled Whether or not stdout logging should be enabled.
+ *
+ * By default stdout logging is disabled.
+ */
+void kslog_setLogToStdout(bool enabled);
+
 /** Tests if the logger would print at the specified level.
  *
  * @param LEVEL The level to test for. One of:

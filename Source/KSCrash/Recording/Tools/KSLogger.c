@@ -61,6 +61,9 @@
 /** Where console logs will be written */
 static char g_logFilename[1024];
 
+/** Whether logs should be written to stdout */
+static bool g_logToStdout = false;
+
 /** Write a formatted string to the log.
  *
  * @param fmt The format string, followed by its arguments.
@@ -117,7 +120,10 @@ static void writeToLog(const char* const str)
             pos += bytesWritten;
         }
     }
-    write(STDOUT_FILENO, str, strlen(str));
+    if(g_logToStdout)
+    {
+        write(STDOUT_FILENO, str, strlen(str));
+    }
 }
 
 static inline void writeFmtArgsToLog(const char* fmt, va_list args)
@@ -193,23 +199,28 @@ void writeToLog(const char* const str)
     {
         fprintf(g_file, "%s", str);
     }
-    fprintf(stdout, "%s", str);
+    if(g_logToStdout)
+    {
+        fprintf(stdout, "%s", str);
+    }
 }
 
 static inline void writeFmtArgsToLog(const char* fmt, va_list args)
 {
-    unlikely_if(g_file == NULL)
-    {
-        g_file = stdout;
-    }
-    
     if(fmt == NULL)
     {
         writeToLog("(null)");
     }
     else
     {
-        vfprintf(g_file, fmt, args);
+        if(g_file != NULL)
+        {
+            vfprintf(g_file, fmt, args);
+        }
+        if(g_logToStdout)
+        {
+            vfprintf(stdout, fmt, args);
+        }
     }
 }
 
@@ -252,6 +263,10 @@ bool kslog_clearLogFile()
     return kslog_setLogFilename(g_logFilename, true);
 }
 
+void kslog_setLogToStdout(bool enabled)
+{
+    g_logToStdout = enabled;
+}
 
 // ===========================================================================
 #pragma mark - C -
