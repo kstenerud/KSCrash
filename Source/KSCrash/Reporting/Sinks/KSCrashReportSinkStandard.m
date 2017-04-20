@@ -120,9 +120,11 @@
          {
              NSString* text = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
              kscrash_callCompletion(onCompletion, reports, NO,
-                                      [NSError errorWithDomain:[[self class] description]
-                                                          code:response.statusCode
-                                                   description:text]);
+                                    [NSError errorWithDomain:[[self class] description]
+                                                        code:response.statusCode
+                                                    userInfo:[NSDictionary dictionaryWithObject:text
+                                                                                         forKey:NSLocalizedDescriptionKey]
+                                     ]);
          } onError:^(NSError* error2)
          {
              kscrash_callCompletion(onCompletion, reports, NO, error2);
