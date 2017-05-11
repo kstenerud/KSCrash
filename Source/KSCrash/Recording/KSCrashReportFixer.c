@@ -285,7 +285,7 @@ char* kscrf_fixupCrashReport(const char* crashReport)
     int stringBufferLength = 10000;
     char* stringBuffer = malloc((unsigned)stringBufferLength);
     int crashReportLength = (int)strlen(crashReport);
-    int fixedReportLength = (int)(crashReportLength * 1.5);
+    int fixedReportLength = (int)(crashReportLength * 15);
     char* fixedReport = malloc((unsigned)fixedReportLength);
     KSJSONEncodeContext encodeContext;
     FixupContext fixupContext =
