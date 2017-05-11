@@ -1,16 +1,16 @@
 Pod::Spec.new do |s|
   IOS_DEPLOYMENT_TARGET = '6.0' unless defined? IOS_DEPLOYMENT_TARGET
   s.name         = "KSCrashAblyFork"
-  s.version      = "1.15.8"
+  s.version      = "1.15.8-ably"
   s.summary      = "The Ultimate iOS Crash Reporter"
-  s.homepage     = "https://github.com/ably-forks/KSCrashAblyFork"
+  s.homepage     = "https://github.com/ably-forks/KSCrash"
   s.license     = { :type => 'KSCrash license agreement', :file => 'LICENSE' }
   s.author       = { "Karl Stenerud" => "kstenerud@gmail.com" }
   s.ios.deployment_target =  IOS_DEPLOYMENT_TARGET
   s.osx.deployment_target =  '10.8'
   s.tvos.deployment_target =  '9.0'
   s.watchos.deployment_target =  '2.0'
-  s.source       = { :git => "git@github.com:ably-forks/KSCrash.git", :tag => 'master' }
+  s.source       = { :git => "https://github.com/ably-forks/KSCrash.git", :tag => s.version.to_s }
   s.frameworks = 'Foundation'
   s.libraries = 'c++', 'z'
   s.xcconfig = { 'GCC_ENABLE_CPP_EXCEPTIONS' => 'YES' }
