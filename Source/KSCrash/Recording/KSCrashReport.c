@@ -1707,7 +1707,7 @@ static void writeDebugInfo(const KSCrashReportWriter* const writer,
 void kscrashreport_writeStandardReport(const KSCrash_MonitorContext* const monitorContext, const char* const path)
 {
     KSLOG_INFO("Writing crash report to %s", path);
-    char writeBuffer[1024];
+    char writeBuffer[1024 * 100];
     KSBufferedWriter bufferedWriter;
 
     if(!ksfu_openBufferedWriter(&bufferedWriter, path, writeBuffer, sizeof(writeBuffer)))

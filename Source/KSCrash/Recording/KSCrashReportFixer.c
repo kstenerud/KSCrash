@@ -282,7 +282,7 @@ char* kscrf_fixupCrashReport(const char* crashReport)
         .onNullElement = onNullElement,
         .onStringElement = onStringElement,
     };
-    int stringBufferLength = 10000;
+    int stringBufferLength = 100000;
     char* stringBuffer = malloc((unsigned)stringBufferLength);
     int crashReportLength = (int)strlen(crashReport);
     int fixedReportLength = (int)(crashReportLength * 15);

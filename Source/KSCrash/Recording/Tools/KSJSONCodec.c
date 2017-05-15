@@ -1358,7 +1358,7 @@ int ksjson_addJSONElement(KSJSONEncodeContext* const encodeContext,
         .onStringElement = addJSONFromFile_onStringElement,
     };
     char nameBuffer[100] = {0};
-    char stringBuffer[500] = {0};
+    char stringBuffer[5000] = {0};
     KSJSONDecodeContext decodeContext =
     {
         .bufferPtr = jsonData,

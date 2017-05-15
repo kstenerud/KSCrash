@@ -435,7 +435,7 @@ static int encodeObject(KSJSONCodec* codec, id object, NSString* name, KSJSONEnc
 {
     KSJSONCodec* codec = [self codecWithEncodeOptions:0
                                         decodeOptions:decodeOptions];
-    NSMutableData* stringData = [NSMutableData dataWithLength:10001];
+    NSMutableData* stringData = [NSMutableData dataWithLength:100001];
     int errorOffset;
     int result = ksjson_decode(JSONData.bytes,
                                (int)JSONData.length,
