@@ -37,6 +37,9 @@
 #import <UIKit/UIKit.h>
 #endif
 
+#if KSCRASH_HAS_NSALERT
+#import <AppKit/AppKit.h>
+#endif 
 
 @interface KSCrashAlertViewProcess : NSObject
 #if KSCRASH_HAS_UIALERTVIEW
