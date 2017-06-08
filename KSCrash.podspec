@@ -123,4 +123,12 @@ Pod::Spec.new do |s|
     installations.source_files = 'Source/KSCrash/Installations/**/*.{h,m,mm,c,cpp}'
   end
 
+  s.subspec 'Core' do |core|
+    core.dependency 'KSCrash/Reporting/Filters/Basic'
+    core.source_files = 'Source/KSCrash/Installations/KSCrashInstallation.h',
+                        'Source/KSCrash/Installations/KSCrashInstallation.m',
+                        'Source/KSCrash/Installations/KSCrashInstallation+Private.h',
+                        'Source/KSCrash/Reporting/Tools/KSCString.{h,m}'
+  end
+
 end
