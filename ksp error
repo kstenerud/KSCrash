@@ -1,0 +1,293 @@
+// Temp fix: apply crew mass in VAB/SPH
+@PART[*]:HAS[@MODULE[ModuleWheelDeployment]]:FOR[zzzRealismOverhaul]
+{
+	@MODULE[ModuleWheelDeployment]
+	{
+		%shieldedCanDeploy = True
+	}
+}
+
+// Set up solar panel displays.
+@PART[*]:HAS[@MODULE[ModuleDeployableSolarPanel]]:FOR[ROSolar]
+{
+	@MODULE[ModuleDeployableSolarPanel],*:HAS[!RESOURCE[*]]
+	{
+		RESOURCE
+		{
+			name = ElectricCharge
+			rate = #$../chargeRate$
+		}
+	}
+	@MODULE[ModuleDeployableSolarPanel],*
+	{
+		%flowUnits = Watts
+		%flowFormat = N1
+		%flowMult = 1000
+	}
+}
+
+@PART[*]:HAS[@MODULE[*]:HAS[@RESOURCE[ElectricCharge]]]:FOR[zzzElectricityUnits]
+{
+	@MODULE,*:HAS[@RESOURCE[ElectricCharge]]
+	{
+		@RESOURCE[ElectricCharge]
+		{
+			%varyTime = False
+			%useSI = True
+			%displayUnitMult = 1000
+			%unitName = Watts
+		}
+	}
+}
+
+@PART[*]:HAS[@MODULE[ModuleGenerator]]:FOR[zzzElectricityUnits]
+{
+	@MODULE[ModuleGenerator],*
+	{
+		@INPUT_RESOURCE[ElectricCharge]
+		{
+			%varyTime = False
+			%useSI = True
+			%displayUnitMult = 1000
+			%unitName = Watts
+		}
+		@OUTPUT_RESOURCE[ElectricCharge]
+		{
+			%varyTime = False
+			%useSI = True
+			%displayUnitMult = 1000
+			%unitName = Watts
+		}
+	}
+}
+
+//  ==================================================
+//  Set a pre-RO maximum temperature (800°C, 1472°F).
+//  ==================================================
+
+@PART[*]:HAS[!MODULE[ModuleEngines*],!MODULE[ModuleHeatShield],~RSSROConfig[]]:BEFORE[RealismOverhaul]
+{
+	%maxTemp = 1073.15
+}
+
+//  ==================================================
+//  Convert the engine modules to be compatible with
+//  RealFuels.
+//  ==================================================
+
+@PART[*]:HAS[@MODULE[ModuleEngines*],!MODULE[ModuleEnginesRF],!MODULE[ModuleEnginesAJE*]]:FOR[zzzRealismOverhaul]
+{
+	@MODULE[ModuleEngines*],*
+	{
+		@name = ModuleEnginesRF
+	}
+
+	@MODULE[ModuleEngineConfigs],*:HAS[#type[ModuleEngines*]]
+	{
+		%type = ModuleEnginesRF
+	}
+
+	@MODULE[ModuleHybridEngine],*:HAS[#type[ModuleEngines*]]
+	{
+		%type = ModuleEnginesRF
+	}
+}
+
+//  ==================================================
+//  Set pre-RO impact & G tolerances, along with node
+//  breaking force and torque.
+//  ==================================================
+
+@PART[*]:HAS[~crashTolerance[>12]]:BEFORE[RealismOverhaul]
+{
+	%crashTolerance = 12
+}
+
+@PART[*]:HAS[~gTolerance[<50]]:BEFORE[RealismOverhaul]
+{
+    %gTolerance = 100
+}
+
+@PART[*]:HAS[~breakingForce[]]:BEFORE[RealismOverhaul]
+{
+	%breakingForce = 250
+	%breakingTorque = 250
+}
+
+//  ==================================================
+//  Force all parts to use full physics.
+
+//  FIXME: no longer needed from 1.0.x onwards?
+//  ==================================================
+
+@PART[*]:HAS[#PhysicsSignificance[>0]]:BEFORE[RealismOverhaul]
+{
+	@PhysicsSignificance = 0
+}
+
+//  ==================================================
+//  Allow the engines to be activated while shielded.
+//  ==================================================
+
+@PART[*]:HAS[@MODULE[ModuleEngines*]]:FOR[zzzRealismOverhaul]
+{
+	@MODULE[ModuleEngines*],*
+	{
+		%shieldedCanActivate = True
+		%exhaustDamageMultiplier = 20
+		%exhaustDamageFalloffPower = 1
+		%exhaustDamageMaxMutliplier = 1.0
+		%exhaustDamageSplashbackMult = 0.1
+		%exhaustDamageSplashbackMaxMutliplier = 0.1
+	}
+}
+
+//  ==================================================
+//  Add MJ, KER and kOS support to all command parts.
+//  ==================================================
+
+@PART[*]:HAS[@MODULE[ModuleCommand],!MODULE[MechJebCore]]:NEEDS[MechJeb2]:AFTER[RealismOverhaul]
+{
+    MODULE
+    {
+        name = MechJebCore
+
+        MechJebLocalSettings {
+            MechJebModuleCustomWindowEditor { unlockTechs = start }
+            MechJebModuleSmartASS { unlockTechs = start }
+            MechJebModuleManeuverPlanner { unlockTechs = start }
+            MechJebModuleNodeEditor { unlockTechs = start }
+            MechJebModuleTranslatron { unlockTechs = start }
+            MechJebModuleWarpHelper { unlockTechs = start }
+            MechJebModuleAttitudeAdjustment { unlockTechs = start }
+            MechJebModuleThrustWindow { unlockTechs = start }
+            MechJebModuleRCSBalancerWindow { unlockTechs = start }
+            MechJebModuleRoverWindow { unlockTechs = start }
+            MechJebModuleAscentGuidance { unlockTechs = start }
+            MechJebModuleLandingGuidance { unlockTechs = start }
+            MechJebModuleSpaceplaneGuidance { unlockTechs = start }
+            MechJebModuleDockingGuidance { unlockTechs = start }
+            MechJebModuleRendezvousAutopilotWindow { unlockTechs = start }
+            MechJebModuleRendezvousGuidance { unlockTechs = start }
+        }
+    }
+}
+
+@PART[*]:HAS[@MODULE[ModuleCommand],!MODULE[FlightEngineerModule]]:NEEDS[KerbalEngineer]:AFTER[RealismOverhaul]
+{
+	MODULE
+	{
+		name = FlightEngineerModule
+	}
+}
+
+@PART[*]:HAS[@MODULE[ModuleCommand],!MODULE[kOSProcessor]]:NEEDS[kOS]:AFTER[RealismOverhaul]
+{
+	MODULE
+	{
+		name = kOSProcessor
+		diskSpace = 5000
+	}
+}
+
+//  ==================================================
+//  Add Telemachus support to all antenna parts.
+//  ==================================================
+
+@PART[*]:HAS[@MODULE[ModuleRTAntenna*]|@MODULE[ModuleDataTransmitter],!MODULE[TelemachusDataLink]]:NEEDS[Telemachus]:AFTER[RealismOverhaul]
+{
+	MODULE
+	{
+		name = TelemachusDataLink
+	}
+
+	MODULE
+	{
+		name = TelemachusPowerDrain
+		powerConsumptionBase = 0.001
+		powerConsumptionIncrease = 0.001
+	}
+}
+
+//  ==================================================
+//  Allow decoupler propellant cross - feeding.
+//  ==================================================
+
+@PART[*]:HAS[@MODULE[ModuleAnchoredDecoupler]|@MODULE[ModuleDecouple],!MODULE[ModuleToggleCrossfeed]]:FOR[zzzRealismOverhaul]
+{
+    MODULE
+    {
+        name = ModuleToggleCrossfeed
+        crossfeedStatus = False
+        toggleEditor = True
+        toggleFlight = True
+    }
+}
+
+//  ==================================================
+//  RSS/RO generic stuff.
+
+//  *   Move the parts to the appropriate categories if FilterExtensions is installed.
+//  *   Hide all parts that are not compatible with RO (either WIP or NON).
+//  *   Tag all WIP or NON RO parts appropriately.
+//  *   Cleanup RSS/RO part tags.
+//  ==================================================
+
+@PART[*]:HAS[~RSSROConfig[]]:FOR[zzzRealismOverhaul]
+{
+    %category:NEEDS[FilterExtensions,!NoNonRO] = 97
+    %category:NEEDS[!FilterExtensions,NoNonRO] = -1
+    @title ^=:^:non RO - :
+    @description ^=:$: (PART NOT SUPPORTED BY RO):
+}
+
+@PART[*]:HAS[#RSSROConfig[False]]:FOR[zzzRealismOverhaul]
+{
+    %category:NEEDS[FilterExtensions,!NoNonRO] = 96
+    %category:NEEDS[!FilterExtensions,NoNonRO] = -1
+    @title ^=:^:WIP RO - :
+    @description ^=:$: (PART IN PROGRESS, MAY NOT WORK):
+}
+
+@PART[*]:HAS[#RSSROConfig[*]]:FOR[zzzTagCleanup]
+{
+    !RSSROConfig = NULL
+}
+
+// ******** DRE ********
+// DRE don't change temps
+@PART[*]:HAS[#RSSROConfig[*],@MODULE[ModuleAeroReentry]]:NEEDS[DeadlyReentry]:FOR[zzzRealismOverhaul]
+{
+	@MODULE[ModuleAeroReentry]
+	{
+		%leaveTemp = True
+	}
+}
+
+@PART[*]:HAS[#RSSROConfig[*],!MODULE[ModuleAeroReentry]]:NEEDS[DeadlyReentry]:FOR[zzzRealismOverhaul]
+{
+	MODULE
+	{
+		name = ModuleAeroReentry
+		skinHeatConductivity = 0.001
+		leaveTemp = True
+	}
+}
+
+// Fix a DRE case where it changes away from Ablator but we expect Ablator.
+@PART[*]:HAS[!MODULE[ModuleAblator],@MODULE[ModuleHeatShield]]:BEFORE[RealismOverhaul]
+{
+	@MODULE[ModuleHeatShield]
+	{
+		@name = ModuleAblator
+	}
+}
+
+@PART[*]:HAS[@MODULE[ModuleAblator],!MODULE[ModuleHeatShield]]:NEEDS[DeadlyReentry]:AFTER[RealismOverhaul]
+{
+	@MODULE[ModuleAblator]
+	{
+		@name = ModuleHeatShield
+		%depletedMaxTemp = 1200
+	}
+}
