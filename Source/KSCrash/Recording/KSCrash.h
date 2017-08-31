@@ -166,6 +166,8 @@ typedef enum
 /** Which languages to demangle when getting stack traces (default KSCrashDemangleLanguageAll) */
 @property(nonatomic,readwrite,assign) KSCrashDemangleLanguage demangleLanguages;
 
+/** Exposes the uncaughtExceptionHandler if set from KSCrash. Is nil if debugger is running. **/
+@property (nonatomic, assign) NSUncaughtExceptionHandler *uncaughtExceptionHandler;
 
 #pragma mark - Information -
 
