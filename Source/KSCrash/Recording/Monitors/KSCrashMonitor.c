@@ -55,7 +55,7 @@
 typedef struct
 {
     KSCrashMonitorType monitorType;
-    KSCrashMonitorAPI* (*getAPI)();
+    KSCrashMonitorAPI* (*getAPI)(void);
 } Monitor;
 
 static Monitor g_monitors[] =

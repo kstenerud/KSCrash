@@ -96,7 +96,7 @@ void kscrashstate_initialize(const char* stateFilePath);
 
 /** Reset the crash state.
  */
-bool kscrashstate_reset();
+bool kscrashstate_reset(void);
 
 /** Notify the crash reporter of the application active state.
  *
@@ -125,7 +125,7 @@ const KSCrash_AppState* const kscrashstate_currentState(void);
 
 /** Access the Monitor API.
  */
-KSCrashMonitorAPI* kscm_appstate_getAPI();
+KSCrashMonitorAPI* kscm_appstate_getAPI(void);
 
 
 #ifdef __cplusplus

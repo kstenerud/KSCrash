@@ -37,7 +37,7 @@ extern "C" {
 
 /** Access the Monitor API.
  */
-KSCrashMonitorAPI* kscm_system_getAPI();
+    KSCrashMonitorAPI* kscm_system_getAPI(void);
 
 
 #ifdef __cplusplus

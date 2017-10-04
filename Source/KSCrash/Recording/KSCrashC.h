@@ -195,7 +195,7 @@ void kscrash_notifyAppCrash(void);
 
 /** Get the number of reports on disk.
  */
-int kscrash_getReportCount();
+int kscrash_getReportCount(void);
 
 /** Get a list of IDs for all reports on disk.
  *
@@ -226,7 +226,7 @@ int64_t kscrash_addUserReport(const char* report, int reportLength);
 
 /** Delete all reports on disk.
  */
-void kscrash_deleteAllReports();
+void kscrash_deleteAllReports(void);
 
 
 #ifdef __cplusplus
