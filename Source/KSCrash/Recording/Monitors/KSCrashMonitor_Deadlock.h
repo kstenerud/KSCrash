@@ -50,7 +50,7 @@ void kscm_setDeadlockHandlerWatchdogInterval(double value);
 
 /** Access the Monitor API.
  */
-KSCrashMonitorAPI* kscm_deadlock_getAPI();
+KSCrashMonitorAPI* kscm_deadlock_getAPI(void);
 
 
 #ifdef __cplusplus

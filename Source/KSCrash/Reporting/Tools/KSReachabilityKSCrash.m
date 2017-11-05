@@ -304,14 +304,14 @@ static void onReachabilityChanged(__unused SCNetworkReachabilityRef target,
 
 + (KSReachableOperationKSCrash*) operationWithHost:(NSString*) host
                                          allowWWAN:(BOOL) allowWWAN
-                                             block:(void(^)()) block
+                                             block:(void(^)(void)) block
 {
     return [[self alloc] initWithHost:host allowWWAN:allowWWAN block:block];
 }
 
 - (id) initWithHost:(NSString*) host
           allowWWAN:(BOOL) allowWWAN
-              block:(void(^)()) block
+              block:(void(^)(void)) block
 {
     if((self = [super init]))
     {

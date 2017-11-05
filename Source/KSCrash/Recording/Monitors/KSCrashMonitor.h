@@ -57,7 +57,7 @@ void kscm_setActiveMonitors(KSCrashMonitorType monitorTypes);
 
 /** Get the currently active monitors.
  */
-KSCrashMonitorType kscm_getActiveMonitors();
+KSCrashMonitorType kscm_getActiveMonitors(void);
 
 /** Set the callback to call when an event is captured.
  *
@@ -73,7 +73,7 @@ void kscm_setEventCallback(void (*onEvent)(struct KSCrash_MonitorContext* monito
 typedef struct
 {
     void (*setEnabled)(bool isEnabled);
-    bool (*isEnabled)();
+    bool (*isEnabled)(void);
     void (*addContextualInfoToEvent)(struct KSCrash_MonitorContext* eventContext);
 } KSCrashMonitorAPI;
 

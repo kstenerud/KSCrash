@@ -52,7 +52,7 @@ typedef struct
 
 /** Get the number of loaded binary images.
  */
-int ksdl_imageCount();
+int ksdl_imageCount(void);
 
 /** Get information about a binary image.
  *

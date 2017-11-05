@@ -259,7 +259,7 @@ void i_kslog_logCBasic(const char* fmt, ...);
 bool kslog_setLogFilename(const char* filename, bool overwrite);
 
 /** Clear the log file. */
-bool kslog_clearLogFile();
+bool kslog_clearLogFile(void);
 
 /** Tests if the logger would print at the specified level.
  *
