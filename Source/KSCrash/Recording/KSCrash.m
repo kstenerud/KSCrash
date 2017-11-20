@@ -128,10 +128,15 @@ static NSString* getBasePath()
 
 - (id) init
 {
+    return [self initWithBasePath:getBasePath()];
+}
+
+- (id) initWithBasePath:(NSString *)basePath
+{
     if((self = [super init]))
     {
         self.bundleName = getBundleName();
-        self.basePath = getBasePath();
+        self.basePath = basePath;
         if(self.basePath == nil)
         {
             KSLOG_ERROR(@"Failed to initialize crash handler. Crash reporting disabled.");
