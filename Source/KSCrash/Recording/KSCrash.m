@@ -109,6 +109,7 @@ static NSString* getBasePath()
 @synthesize addConsoleLogToReport = _addConsoleLogToReport;
 @synthesize printPreviousLog = _printPreviousLog;
 @synthesize maxReportCount = _maxReportCount;
+@synthesize uncaughtExceptionHandler = _uncaughtExceptionHandler;
 
 
 // ============================================================================
