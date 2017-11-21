@@ -499,7 +499,8 @@ static void initialize()
 #if KSCRASH_HOST_WATCH
         g_systemData.systemName = "watchOS";
 #endif
-        NSOperatingSystemVersion version = [NSProcessInfo processInfo].operatingSystemVersion;
+        NSOperatingSystemVersion version = {0};
+        @available(macOS 10.10, *) version = [NSProcessInfo processInfo].operatingSystemVersion;
         NSString* systemVersion;
         if(version.patchVersion == 0)
         {

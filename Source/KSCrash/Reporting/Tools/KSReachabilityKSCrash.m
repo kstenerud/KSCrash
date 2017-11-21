@@ -365,16 +365,16 @@ static void onReachabilityChanged(__unused SCNetworkReachabilityRef target,
 
 @implementation KSReachableOperationKSCrash
 
-+ (KSReachableOperationKSCrash*) operationWithHost:(NSString*) host
++ (KSReachableOperationKSCrash*) operationWithHost:(NSString*) hostname
                                          allowWWAN:(BOOL) allowWWAN
-                                             block:(void(^)()) block
+                                             block:(void(^)(void)) block;
 {
     return [[self alloc] initWithHost:host allowWWAN:allowWWAN block:block];
 }
 
-- (id) initWithHost:(__unused NSString*) host
+- (id) initWithHost:(__unused NSString*) hostname
           allowWWAN:(__unused BOOL) allowWWAN
-              block:(void(^)()) block
+              block:(void(^)(void)) block;
 {
     if((self = [super init]))
     {
