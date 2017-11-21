@@ -500,7 +500,9 @@ static void initialize()
         g_systemData.systemName = "watchOS";
 #endif
         NSOperatingSystemVersion version = {0};
-        @available(macOS 10.10, *) version = [NSProcessInfo processInfo].operatingSystemVersion;
+        if(@available(macOS 10.10, *)) {
+            version = [NSProcessInfo processInfo].operatingSystemVersion;
+        }
         NSString* systemVersion;
         if(version.patchVersion == 0)
         {
