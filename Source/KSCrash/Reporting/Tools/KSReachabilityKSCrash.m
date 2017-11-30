@@ -365,7 +365,7 @@ static void onReachabilityChanged(__unused SCNetworkReachabilityRef target,
 
 @implementation KSReachableOperationKSCrash
 
-+ (KSReachableOperationKSCrash*) operationWithHost:(NSString*) hostname
++ (KSReachableOperationKSCrash*) operationWithHost:(NSString*) host
                                          allowWWAN:(BOOL) allowWWAN
                                              block:(void(^)(void)) block;
 {
