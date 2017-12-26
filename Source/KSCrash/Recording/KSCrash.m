@@ -35,6 +35,7 @@
 #import "NSError+SimpleConstructor.h"
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitor_System.h"
+#import "KSSystemCapabilities.h"
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
