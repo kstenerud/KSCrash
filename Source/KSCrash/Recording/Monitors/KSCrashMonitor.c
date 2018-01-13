@@ -246,9 +246,12 @@ void kscm_handleException(struct KSCrash_MonitorContext* context)
 
     g_onExceptionEvent(context);
 
-    if(g_handlingFatalException && !g_crashedDuringExceptionHandling)
-    {
-        KSLOG_DEBUG("Exception is fatal. Restoring original handlers.");
-        kscm_setActiveMonitors(KSCrashMonitorTypeNone);
+    if (context->currentSnapshotUserReported) {
+        g_handlingFatalException = false;
+    } else {
+        if(g_handlingFatalException && !g_crashedDuringExceptionHandling) {
+            KSLOG_DEBUG("Exception is fatal. Restoring original handlers.");
+            kscm_setActiveMonitors(KSCrashMonitorTypeNone);
+        }
     }
 }

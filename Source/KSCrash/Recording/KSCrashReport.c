@@ -1414,6 +1414,7 @@ static void writeError(const KSCrashReportWriter* const writer,
                 writer->beginObject(writer, KSCrashField_NSException);
                 {
                     writer->addStringElement(writer, KSCrashField_Name, crash->NSException.name);
+                    writer->addStringElement(writer, KSCrashField_UserInfo, crash->NSException.userInfo);
                     writeAddressReferencedByString(writer, KSCrashField_ReferencedObject, crash->crashReason);
                 }
                 writer->endContainer(writer);
@@ -1767,7 +1768,9 @@ void kscrashreport_writeStandardReport(const KSCrash_MonitorContext* const monit
         if(g_userSectionWriteCallback != NULL)
         {
             ksfu_flushBufferedWriter(&bufferedWriter);
-            g_userSectionWriteCallback(writer);
+            if (monitorContext->currentSnapshotUserReported == false) {
+                g_userSectionWriteCallback(writer);
+            }
         }
         writer->endContainer(writer);
         ksfu_flushBufferedWriter(&bufferedWriter);

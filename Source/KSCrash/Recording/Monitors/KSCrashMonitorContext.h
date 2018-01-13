@@ -42,7 +42,11 @@ typedef struct KSCrash_MonitorContext
 {
     /** Unique identifier for this event. */
     const char* eventID;
-    
+    /**
+     If true, so reported user exception will have the current snapshot.
+     */
+    bool currentSnapshotUserReported;
+
     /** If true, the environment has crashed hard, and only async-safe
      *  functions should be used.
      */
@@ -99,7 +103,9 @@ typedef struct KSCrash_MonitorContext
     {
         /** The exception name. */
         const char* name;
-        
+
+        /** The exception userInfo. */
+        const char* userInfo;
     } NSException;
     
     struct

@@ -93,9 +93,10 @@ static void printPreviousLog(const char* filePath)
  */
 static void onCrash(struct KSCrash_MonitorContext* monitorContext)
 {
-    KSLOG_DEBUG("Updating application state to note crash.");
-    kscrashstate_notifyAppCrash();
-
+    if (monitorContext->currentSnapshotUserReported == false) {
+        KSLOG_DEBUG("Updating application state to note crash.");
+        kscrashstate_notifyAppCrash();
+    }
     monitorContext->consoleLogPath = g_shouldAddConsoleLogToReport ? g_consoleLogPath : NULL;
 
     if(monitorContext->crashedDuringCrashHandling)
