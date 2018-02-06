@@ -172,6 +172,9 @@ typedef enum
 /** Exposes the uncaughtExceptionHandler if set from KSCrash. Is nil if debugger is running. **/
 @property (nonatomic, assign) NSUncaughtExceptionHandler *uncaughtExceptionHandler;
 
+/** Exposes the currentSnapshotUserReportedExceptionHandler if set from KSCrash. Is nil if debugger is running. **/
+@property (nonatomic, assign) NSUncaughtExceptionHandler *currentSnapshotUserReportedExceptionHandler;
+
 #pragma mark - Information -
 
 /** Total active time elapsed since the last crash. */

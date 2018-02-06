@@ -57,8 +57,8 @@ static NSUncaughtExceptionHandler* g_previousUncaughtExceptionHandler;
  *
  * @param exception The exception that was raised.
  */
-static void handleException(NSException* exception)
-{
+
+static void handleException(NSException* exception, BOOL currentSnapshotUserReported) {
     KSLOG_DEBUG(@"Trapped exception %@", exception);
     if(g_isEnabled)
     {
@@ -88,16 +88,19 @@ static void handleException(NSException* exception)
         crashContext->offendingMachineContext = machineContext;
         crashContext->registersAreValid = false;
         crashContext->NSException.name = [[exception name] UTF8String];
+        crashContext->NSException.userInfo = [[NSString stringWithFormat:@"%@", exception.userInfo] UTF8String];
         crashContext->exceptionName = crashContext->NSException.name;
         crashContext->crashReason = [[exception reason] UTF8String];
         crashContext->stackCursor = &cursor;
-
+        crashContext->currentSnapshotUserReported = currentSnapshotUserReported;
 
         KSLOG_DEBUG(@"Calling main crash handler.");
         kscm_handleException(crashContext);
 
         free(callstack);
-
+        if (currentSnapshotUserReported) {
+            ksmc_resumeEnvironment();
+        }
         if (g_previousUncaughtExceptionHandler != NULL)
         {
             KSLOG_DEBUG(@"Calling original exception handler.");
@@ -106,6 +109,13 @@ static void handleException(NSException* exception)
     }
 }
 
+static void handleCurrentSnapshotUserReportedException(NSException* exception) {
+    handleException(exception, true);
+}
+
+static void handleUncaughtException(NSException* exception) {
+    handleException(exception, false);
+}
 
 // ============================================================================
 #pragma mark - API -
@@ -122,8 +132,9 @@ static void setEnabled(bool isEnabled)
             g_previousUncaughtExceptionHandler = NSGetUncaughtExceptionHandler();
             
             KSLOG_DEBUG(@"Setting new handler.");
-            NSSetUncaughtExceptionHandler(&handleException);
-            KSCrash.sharedInstance.uncaughtExceptionHandler = &handleException;
+            NSSetUncaughtExceptionHandler(&handleUncaughtException);
+            KSCrash.sharedInstance.uncaughtExceptionHandler = &handleUncaughtException;
+            KSCrash.sharedInstance.currentSnapshotUserReportedExceptionHandler = &handleCurrentSnapshotUserReportedException;
         }
         else
         {

@@ -10,6 +10,7 @@
 #import <KSCrash/KSCrashInstallationQuincyHockey.h>
 #import <KSCrash/KSCrashInstallationEmail.h>
 #import <KSCrash/KSCrashInstallationVictory.h>
+#import <KSCrash/KSCrashInstallationConsole.h>
 #import <KSCrash/KSCrash.h>
 
 
@@ -50,11 +51,13 @@ didFinishLaunchingWithOptions:(__unused NSDictionary *) launchOptions
     
     
     // Create an installation (choose one)
-//    KSCrashInstallation* installation = [self makeStandardInstallation];
-    self.crashInstallation = [self makeEmailInstallation];
-//    self.crashInstallation = [self makeHockeyInstallation];
-//    self.crashInstallation = [self makeQuincyInstallation];
-//    self.crashInstallation = [self makeVictoryInstallation];
+
+    self.crashInstallation = [self makeConsoleInstallation];
+    //    self.crashInstallation = [self makeStandardInstallation];
+    //    self.crashInstallation = [self makeEmailInstallation];
+    //    self.crashInstallation = [self makeHockeyInstallation];
+    //    self.crashInstallation = [self makeQuincyInstallation];
+    //    self.crashInstallation = [self makeVictoryInstallation];
     
     
     // Install the crash handler. This should be done as early as possible.
@@ -65,6 +68,12 @@ didFinishLaunchingWithOptions:(__unused NSDictionary *) launchOptions
     [self configureAdvancedSettings];
     
     // Crash reports will be sent by LoaderVC.
+}
+
+
+- (KSCrashInstallation*) makeConsoleInstallation
+{
+    return [KSCrashInstallationConsole new];
 }
 
 - (KSCrashInstallation*) makeEmailInstallation
@@ -153,6 +162,7 @@ static void advanced_crash_callback(const KSCrashReportWriter* writer)
 {
     // You can add extra user data at crash time if you want.
     writer->addBooleanElement(writer, "some_bool_value", NO);
+    NSLog(@"***advanced_crash_callback");
 }
 
 - (void) configureAdvancedSettings
@@ -163,6 +173,7 @@ static void advanced_crash_callback(const KSCrashReportWriter* writer)
     handler.deadlockWatchdogInterval = 8;
     handler.userInfo = @{@"someKey": @"someValue"};
     handler.onCrash = advanced_crash_callback;
+    handler.monitoring = KSCrashMonitorTypeProductionSafe;
 
     // Do not introspect class SensitiveInfo (see MainVC)
     // When added to the "do not introspect" list, the Objective-C introspector
