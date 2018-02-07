@@ -31,8 +31,8 @@
 
 void ksccd_init(int pollingIntervalInSeconds);
 
-void ksccd_freeze();
-void ksccd_unfreeze();
+void ksccd_freeze(void);
+void ksccd_unfreeze(void);
 
 KSThread* ksccd_getAllThreads(int* threadCount);
 

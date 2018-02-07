@@ -37,11 +37,11 @@ extern "C" {
 
 /** Suspend the runtime environment.
  */
-void ksmc_suspendEnvironment();
+void ksmc_suspendEnvironment(void);
 
 /** Resume the runtime environment.
  */
-void ksmc_resumeEnvironment();
+void ksmc_resumeEnvironment(void);
 
 /** Create a new machine context on the stack.
  * This macro creates a storage object on the stack, as well as a pointer of type
@@ -61,7 +61,7 @@ struct KSMachineContext;
 
 /** Get the internal size of a machine context.
  */
-int ksmc_contextSize();
+int ksmc_contextSize(void);
 
 /** Fill in a machine context from a thread.
  *

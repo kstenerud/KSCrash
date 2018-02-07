@@ -71,7 +71,7 @@ bool ksthread_getQueueName(KSThread thread, char* buffer, int bufLength);
  *
  * @return The current thread ID.
  */
-KSThread ksthread_self();
+KSThread ksthread_self(void);
 
 
 #ifdef __cplusplus

@@ -130,7 +130,7 @@
  */
 + (KSReachableOperationKSCrash*) operationWithHost:(NSString*) hostname
                                          allowWWAN:(BOOL) allowWWAN
-                                             block:(void(^)()) block;
+                                             block:(void(^)(void)) block;
 
 /** Constructor.
  *
@@ -146,6 +146,6 @@
  */
 - (id) initWithHost:(NSString*) hostname
           allowWWAN:(BOOL) allowWWAN
-              block:(void(^)()) block;
+              block:(void(^)(void)) block;
 
 @end
