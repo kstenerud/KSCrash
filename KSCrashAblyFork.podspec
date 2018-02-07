@@ -8,7 +8,6 @@ Pod::Spec.new do |s|
   s.author       = { "Karl Stenerud" => "kstenerud@gmail.com" }
   s.ios.deployment_target =  IOS_DEPLOYMENT_TARGET
   s.osx.deployment_target =  '10.8'
-  s.tvos.deployment_target =  '9.0'
   s.watchos.deployment_target =  '2.0'
   s.source       = { :git => "https://github.com/ably-forks/KSCrash.git", :tag => s.version.to_s }
   s.frameworks = 'Foundation'
@@ -99,7 +98,6 @@ Pod::Spec.new do |s|
 
     reporting.subspec 'Tools' do |tools|
       tools.ios.frameworks = 'SystemConfiguration'
-      tools.tvos.frameworks = 'SystemConfiguration'
       tools.osx.frameworks = 'SystemConfiguration'
       tools.source_files = 'Source/KSCrash/Reporting/Tools/**/*.{h,m,mm,c,cpp}',
                            'Source/KSCrash/Recording/KSSystemCapabilities.h'
