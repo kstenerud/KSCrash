@@ -228,7 +228,11 @@ int64_t kscrash_addUserReport(const char* report, int reportLength);
  */
 void kscrash_deleteAllReports(void);
 
-void kscrash_deleteReportWithID(int64_t id);
+/** Delete report.
+ *
+ * @param report_id An ID of report to delete.
+ */
+void kscrash_deleteReportWithID(int64_t reportId);
 
 
 #ifdef __cplusplus
