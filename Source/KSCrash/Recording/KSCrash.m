@@ -529,7 +529,7 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
     NSMutableArray* reports = [NSMutableArray arrayWithCapacity:(NSUInteger)reportCount];
     for(int i = 0; i < reportCount; i++)
     {
-        NSDictionary* report = [self reportWithID:@(reportIDs[i])];
+        NSDictionary* report = [self reportWithIntID:reportIDs[i]];
         if(report != nil)
         {
             [reports addObject:report];
