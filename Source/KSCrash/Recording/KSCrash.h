@@ -253,7 +253,7 @@ typedef enum
 
 /** Delete report.
  *
- * @param report_id An ID of report to delete.
+ * @param reportID An ID of report to delete.
  */
 - (void) deleteReportWithID:(NSNumber*) reportID;
 
