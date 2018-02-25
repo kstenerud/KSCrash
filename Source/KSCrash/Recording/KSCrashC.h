@@ -228,6 +228,8 @@ int64_t kscrash_addUserReport(const char* report, int reportLength);
  */
 void kscrash_deleteAllReports(void);
 
+void kscrash_deleteReportWithID(int64_t id);
+
 
 #ifdef __cplusplus
 }

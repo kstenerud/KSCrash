@@ -85,6 +85,8 @@ int64_t kscrs_addUserReport(const char* report, int reportLength);
  */
 void kscrs_deleteAllReports(void);
 
+void kscrs_deleteReportWithID(int64_t id);
+
 /** Set the maximum number of reports allowed on disk before old ones get deleted.
  *
  * @param maxReportCount The maximum number of reports.
