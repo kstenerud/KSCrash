@@ -87,9 +87,9 @@ void kscrs_deleteAllReports(void);
 
 /** Delete report.
  *
- * @param report_id An ID of report to delete.
+ * @param reportID An ID of report to delete.
  */
-void kscrs_deleteReportWithID(int64_t reportId);
+void kscrs_deleteReportWithID(int64_t reportID);
 
 /** Set the maximum number of reports allowed on disk before old ones get deleted.
  *

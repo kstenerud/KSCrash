@@ -230,9 +230,9 @@ void kscrash_deleteAllReports(void);
 
 /** Delete report.
  *
- * @param report_id An ID of report to delete.
+ * @param reportID An ID of report to delete.
  */
-void kscrash_deleteReportWithID(int64_t reportId);
+void kscrash_deleteReportWithID(int64_t reportID);
 
 
 #ifdef __cplusplus

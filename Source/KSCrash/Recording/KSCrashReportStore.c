@@ -258,10 +258,10 @@ void kscrs_deleteAllReports()
     pthread_mutex_unlock(&g_mutex);
 }
 
-void kscrs_deleteReportWithID(int64_t reportId)
+void kscrs_deleteReportWithID(int64_t reportID)
 {
     char path[KSCRS_MAX_PATH_LENGTH];
-    getCrashReportPathByID(reportId, path);
+    getCrashReportPathByID(reportID, path);
     ksfu_removeFile(path, true);
 }
 
