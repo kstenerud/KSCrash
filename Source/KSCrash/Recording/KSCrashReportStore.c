@@ -82,13 +82,6 @@ static int64_t getReportIDFromFilename(const char* filename)
     return reportID;
 }
 
-static void deleteReportWithID(int64_t id)
-{
-    char path[KSCRS_MAX_PATH_LENGTH];
-    getCrashReportPathByID(id, path);
-    ksfu_removeFile(path, true);
-}
-
 static int getReportCount()
 {
     int count = 0;
@@ -155,7 +148,7 @@ static void pruneReports()
         
         for(int i = 0; i < reportCount - g_maxReportCount; i++)
         {
-            deleteReportWithID(reportIDs[i]);
+            kscrs_deleteReportWithID(reportIDs[i]);
         }
     }
 }
@@ -263,6 +256,13 @@ void kscrs_deleteAllReports()
     pthread_mutex_lock(&g_mutex);
     ksfu_deleteContentsOfPath(g_reportsPath);
     pthread_mutex_unlock(&g_mutex);
+}
+
+void kscrs_deleteReportWithID(int64_t reportID)
+{
+    char path[KSCRS_MAX_PATH_LENGTH];
+    getCrashReportPathByID(reportID, path);
+    ksfu_removeFile(path, true);
 }
 
 void kscrs_setMaxReportCount(int maxReportCount)

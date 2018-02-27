@@ -233,9 +233,29 @@ typedef enum
  */
 - (void) sendAllReportsWithCompletion:(KSCrashReportFilterCompletion) onCompletion;
 
+/** Get all unsent report IDs.
+ *
+ * @return An array with report IDs.
+ */
+- (NSArray*) reportIDs;
+
+/** Get report.
+ *
+ * @param reportID An ID of report.
+ *
+ * @return A dictionary with report fields. See KSCrashReportFields.h for available fields.
+ */
+- (NSDictionary*) reportWithID:(NSNumber*) reportID;
+
 /** Delete all unsent reports.
  */
 - (void) deleteAllReports;
+
+/** Delete report.
+ *
+ * @param reportID An ID of report to delete.
+ */
+- (void) deleteReportWithID:(NSNumber*) reportID;
 
 /** Report a custom, user defined exception.
  * This can be useful when dealing with scripting languages.

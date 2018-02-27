@@ -294,3 +294,8 @@ void kscrash_deleteAllReports()
 {
     kscrs_deleteAllReports();
 }
+
+void kscrash_deleteReportWithID(int64_t reportID)
+{
+    kscrs_deleteReportWithID(reportID);
+}
