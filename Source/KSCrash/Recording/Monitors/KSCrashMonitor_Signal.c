@@ -199,7 +199,9 @@ static void uninstallSignalHandler(void)
         sigaction(fatalSignals[i], &g_previousSignalHandlers[i], NULL);
     }
     
+#if KSCRASH_HAS_SIGNAL_STACK
     g_signalStack = (stack_t){0};
+#endif
     KSLOG_DEBUG("Signal handlers uninstalled.");
 }
 
