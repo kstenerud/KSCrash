@@ -61,7 +61,7 @@ static stack_t g_signalStack = {0};
 /** Signal handlers that were installed before we installed ours. */
 static struct sigaction* g_previousSignalHandlers = NULL;
 
-char g_eventID[37];
+static char g_eventID[37];
 
 // ============================================================================
 #pragma mark - Callbacks -
