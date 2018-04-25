@@ -46,7 +46,7 @@
  * =====
  *
  * Set the log level in your "Preprocessor Macros" build setting. You may choose
- * TRACE, DEBUG, INFO, WARN, ERROR. If nothing is set, it defaults to INFO.
+ * TRACE, DEBUG, INFO, WARN, ERROR. If nothing is set, it defaults to ERROR.
  *
  * Example: KSLogger_Level=WARN
  *
@@ -229,7 +229,7 @@ void i_kslog_logCBasic(const char* fmt, ...);
 
 
 #ifndef KSLogger_Level
-    #define KSLogger_Level KSLogger_Level_Info
+    #define KSLogger_Level KSLogger_Level_Error
 #endif
 
 #ifndef KSLogger_LocalLevel
