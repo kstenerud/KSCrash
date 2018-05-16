@@ -55,6 +55,7 @@ static _Atomic(int) g_semaphoreCount;
 
 static void updateThreadList()
 {
+    const task_t thisTask = mach_task_self();
     int oldThreadsCount = g_allThreadsCount;
     KSThread* allMachThreads = NULL;
     KSThread* allPThreads = NULL;
@@ -63,7 +64,7 @@ static void updateThreadList()
 
     mach_msg_type_number_t allThreadsCount;
     thread_act_array_t threads;
-    task_threads(mach_task_self(), &threads, &allThreadsCount);
+    task_threads(thisTask, &threads, &allThreadsCount);
     
     allMachThreads = calloc(allThreadsCount, sizeof(*allMachThreads));
     allPThreads = calloc(allThreadsCount, sizeof(*allPThreads));
@@ -126,6 +127,12 @@ static void updateThreadList()
         }
         free(allQueueNames);
     }
+    
+    for(mach_msg_type_number_t i = 0; i < allThreadsCount; i++)
+    {
+        mach_port_deallocate(thisTask, threads[i]);
+    }
+    vm_deallocate(thisTask, (vm_address_t)threads, sizeof(thread_t) * allThreadsCount);
 }
 
 static void* monitorCachedData(__unused void* const userData)
