@@ -105,7 +105,6 @@ static NSString* getBasePath()
 @synthesize bundleName = _bundleName;
 @synthesize basePath = _basePath;
 @synthesize introspectMemory = _introspectMemory;
-@synthesize catchZombies = _catchZombies;
 @synthesize doNotIntrospectClasses = _doNotIntrospectClasses;
 @synthesize demangleLanguages = _demangleLanguages;
 @synthesize addConsoleLogToReport = _addConsoleLogToReport;
@@ -217,10 +216,21 @@ static NSString* getBasePath()
     kscrash_setIntrospectMemory(introspectMemory);
 }
 
+- (BOOL) catchZombies
+{
+    return (self.monitoring & KSCrashMonitorTypeZombie) != 0;
+}
+
 - (void) setCatchZombies:(BOOL)catchZombies
 {
-    _catchZombies = catchZombies;
-    self.monitoring |= KSCrashMonitorTypeZombie;
+    if(catchZombies)
+    {
+        self.monitoring |= KSCrashMonitorTypeZombie;
+    }
+    else
+    {
+        self.monitoring &= (KSCrashMonitorType)~KSCrashMonitorTypeZombie;
+    }
 }
 
 - (void) setDoNotIntrospectClasses:(NSArray *)doNotIntrospectClasses
