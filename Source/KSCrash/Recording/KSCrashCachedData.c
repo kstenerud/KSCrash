@@ -52,6 +52,7 @@ static const char** g_allThreadNames;
 static const char** g_allQueueNames;
 static int g_allThreadsCount;
 static _Atomic(int) g_semaphoreCount;
+static bool g_searchQueueNames = false;
 
 static void updateThreadList()
 {
@@ -81,7 +82,7 @@ static void updateThreadList()
         {
             allThreadNames[i] = strdup(buffer);
         }
-        if(ksthread_getQueueName((KSThread)thread, buffer, sizeof(buffer)) && buffer[0] != 0)
+        if(g_searchQueueNames && ksthread_getQueueName((KSThread)thread, buffer, sizeof(buffer)) && buffer[0] != 0)
         {
             allQueueNames[i] = strdup(buffer);
         }
@@ -183,6 +184,11 @@ void ksccd_unfreeze()
         // Handle extra calls to unfreeze somewhat gracefully.
         g_semaphoreCount++;
     }
+}
+
+void ksccd_setSearchQueueNames(bool searchQueueNames)
+{
+    g_searchQueueNames = searchQueueNames;
 }
 
 KSThread* ksccd_getAllThreads(int* threadCount)

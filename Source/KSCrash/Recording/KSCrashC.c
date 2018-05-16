@@ -179,6 +179,11 @@ void kscrash_setDeadlockWatchdogInterval(double deadlockWatchdogInterval)
 #endif
 }
 
+void kscrash_setSearchQueueNames(bool searchQueueNames)
+{
+    ksccd_setSearchQueueNames(searchQueueNames);
+}
+
 void kscrash_setIntrospectMemory(bool introspectMemory)
 {
     kscrashreport_setIntrospectMemory(introspectMemory);

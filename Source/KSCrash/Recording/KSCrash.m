@@ -100,6 +100,7 @@ static NSString* getBasePath()
 @synthesize deleteBehaviorAfterSendAll = _deleteBehaviorAfterSendAll;
 @synthesize monitoring = _monitoring;
 @synthesize deadlockWatchdogInterval = _deadlockWatchdogInterval;
+@synthesize searchQueueNames = _searchQueueNames;
 @synthesize onCrash = _onCrash;
 @synthesize bundleName = _bundleName;
 @synthesize basePath = _basePath;
@@ -148,6 +149,7 @@ static NSString* getBasePath()
         self.introspectMemory = YES;
         self.catchZombies = NO;
         self.maxReportCount = 5;
+        self.searchQueueNames = NO;
         self.monitoring = KSCrashMonitorTypeProductionSafeMinimal;
     }
     return self;
@@ -195,6 +197,12 @@ static NSString* getBasePath()
 {
     _deadlockWatchdogInterval = deadlockWatchdogInterval;
     kscrash_setDeadlockWatchdogInterval(deadlockWatchdogInterval);
+}
+
+- (void) setSearchQueueNames:(bool) searchQueueNames
+{
+    _searchQueueNames = searchQueueNames;
+    kscrash_setSearchQueueNames(searchQueueNames);
 }
 
 - (void) setOnCrash:(KSReportWriteCallback) onCrash
