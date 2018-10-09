@@ -51,7 +51,7 @@ NAME { \
 #   define ISA_MASK     0x00007ffffffffff8UL
 #elif defined(__arm64__)
 #   define ISA_TAG_MASK 1UL
-#   define ISA_MASK     0x00000001fffffff8UL
+#   define ISA_MASK     0x0000000ffffffff8UL
 #else
 #   define ISA_TAG_MASK 0UL
 #   define ISA_MASK     ~1UL
