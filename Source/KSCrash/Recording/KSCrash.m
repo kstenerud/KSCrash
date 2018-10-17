@@ -100,11 +100,11 @@ static NSString* getBasePath()
 @synthesize deleteBehaviorAfterSendAll = _deleteBehaviorAfterSendAll;
 @synthesize monitoring = _monitoring;
 @synthesize deadlockWatchdogInterval = _deadlockWatchdogInterval;
+@synthesize searchQueueNames = _searchQueueNames;
 @synthesize onCrash = _onCrash;
 @synthesize bundleName = _bundleName;
 @synthesize basePath = _basePath;
 @synthesize introspectMemory = _introspectMemory;
-@synthesize catchZombies = _catchZombies;
 @synthesize doNotIntrospectClasses = _doNotIntrospectClasses;
 @synthesize demangleLanguages = _demangleLanguages;
 @synthesize addConsoleLogToReport = _addConsoleLogToReport;
@@ -148,6 +148,7 @@ static NSString* getBasePath()
         self.introspectMemory = YES;
         self.catchZombies = NO;
         self.maxReportCount = 5;
+        self.searchQueueNames = NO;
         self.monitoring = KSCrashMonitorTypeProductionSafeMinimal;
     }
     return self;
@@ -197,6 +198,12 @@ static NSString* getBasePath()
     kscrash_setDeadlockWatchdogInterval(deadlockWatchdogInterval);
 }
 
+- (void) setSearchQueueNames:(bool) searchQueueNames
+{
+    _searchQueueNames = searchQueueNames;
+    kscrash_setSearchQueueNames(searchQueueNames);
+}
+
 - (void) setOnCrash:(KSReportWriteCallback) onCrash
 {
     _onCrash = onCrash;
@@ -209,10 +216,21 @@ static NSString* getBasePath()
     kscrash_setIntrospectMemory(introspectMemory);
 }
 
+- (BOOL) catchZombies
+{
+    return (self.monitoring & KSCrashMonitorTypeZombie) != 0;
+}
+
 - (void) setCatchZombies:(BOOL)catchZombies
 {
-    _catchZombies = catchZombies;
-    self.monitoring |= KSCrashMonitorTypeZombie;
+    if(catchZombies)
+    {
+        self.monitoring |= KSCrashMonitorTypeZombie;
+    }
+    else
+    {
+        self.monitoring &= (KSCrashMonitorType)~KSCrashMonitorTypeZombie;
+    }
 }
 
 - (void) setDoNotIntrospectClasses:(NSArray *)doNotIntrospectClasses

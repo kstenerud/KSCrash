@@ -107,6 +107,16 @@ typedef enum
  */
 @property(nonatomic,readwrite,assign) double deadlockWatchdogInterval;
 
+/** If YES, attempt to fetch dispatch queue names for each running thread.
+ *
+ * WARNING: There is a chance that this will crash on a ksthread_getQueueName() call!
+ *
+ * Enable at your own risk.
+ *
+ * Default: NO
+ */
+@property(nonatomic,readwrite,assign) BOOL searchQueueNames;
+
 /** If YES, introspect memory contents during a crash.
  * Any Objective-C objects or C strings near the stack pointer or referenced by
  * cpu registers or exceptions will be recorded in the crash report, along with
