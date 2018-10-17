@@ -43,12 +43,14 @@ extern "C" {
  */
 void kscrs_initialize(const char* appName, const char* reportsPath);
 
-/** Get the path to the next crash report to be generated.
+/** Get the next crash report to be generated.
  * Max length for paths is KSCRS_MAX_PATH_LENGTH
  *
  * @param crashReportPathBuffer Buffer to store the crash report path.
+ *
+ * @return the report ID of the next report.
  */
-void kscrs_getNextCrashReportPath(char* crashReportPathBuffer);
+int64_t kscrs_getNextCrashReport(char* crashReportPathBuffer);
 
 /** Get the number of reports on disk.
  */

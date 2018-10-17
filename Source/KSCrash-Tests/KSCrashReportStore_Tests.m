@@ -90,7 +90,7 @@
 {
     NSData* crashData = [contents dataUsingEncoding:NSUTF8StringEncoding];
     char crashReportPath[KSCRS_MAX_PATH_LENGTH];
-    kscrs_getNextCrashReportPath(crashReportPath);
+    kscrs_getNextCrashReport(crashReportPath);
     [crashData writeToFile:[NSString stringWithUTF8String:crashReportPath] atomically:YES];
     return [self getReportIDFromPath:[NSString stringWithUTF8String:crashReportPath]];
 }

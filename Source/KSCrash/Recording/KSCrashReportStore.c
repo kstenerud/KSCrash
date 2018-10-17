@@ -184,9 +184,14 @@ void kscrs_initialize(const char* appName, const char* reportsPath)
     pthread_mutex_unlock(&g_mutex);
 }
 
-void kscrs_getNextCrashReportPath(char* crashReportPathBuffer)
+int64_t kscrs_getNextCrashReport(char* crashReportPathBuffer)
 {
-    getCrashReportPathByID(getNextUniqueID(), crashReportPathBuffer);
+    int64_t nextID = getNextUniqueID();
+    if(crashReportPathBuffer)
+    {
+        getCrashReportPathByID(nextID, crashReportPathBuffer);
+    }
+    return nextID;
 }
 
 int kscrs_getReportCount()
