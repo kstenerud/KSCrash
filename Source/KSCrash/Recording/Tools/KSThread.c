@@ -91,7 +91,12 @@ bool ksthread_getQueueName(const KSThread thread, char* const buffer, int bufLen
     }
     
     dispatch_queue_t dispatch_queue = *dispatch_queue_ptr;
-    const char* queue_name = dispatch_queue_get_label(dispatch_queue);
+    
+    const char* queue_name = NULL;
+    if (dispatch_queue == dispatch_get_main_queue()) {
+        queue_name = dispatch_queue_get_label(dispatch_get_main_queue());
+    }
+    
     if(queue_name == NULL)
     {
         KSLOG_TRACE("Error while getting dispatch queue name : %p", dispatch_queue);
