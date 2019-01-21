@@ -143,8 +143,8 @@ How to Use KSCrash
    dependency)
    
 2. Add the following system frameworks & libraries to your project:
-   * libc++.dylib
-   * libz.dylib
+   * libc++.dylib (libc++.tbd in newer versions)
+   * libz.dylib (libz.tbd in newer versions)
    * MessageUI.framework (iOS only)
    * SystemConfiguration.framework
 
