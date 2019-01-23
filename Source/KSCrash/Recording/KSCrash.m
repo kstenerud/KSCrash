@@ -387,7 +387,7 @@ static NSString* getBasePath()
 
 - (void) deleteReportWithID:(NSNumber*) reportID
 {
-    kscrash_deleteReportWithID([reportID longValue]);
+    kscrash_deleteReportWithID([reportID longLongValue]);
 }
 
 - (void) reportUserException:(NSString*) name
@@ -501,14 +501,14 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
     NSMutableArray* reportIDs = [NSMutableArray arrayWithCapacity:(NSUInteger)reportCount];
     for(int i = 0; i < reportCount; i++)
     {
-        [reportIDs addObject:@(reportIDsC[i])];
+        [reportIDs addObject:[NSNumber numberWithLongLong:reportIDsC[i]]];
     }
     return reportIDs;
 }
 
 - (NSDictionary*) reportWithID:(NSNumber*) reportID
 {
-    return [self reportWithIntID:[reportID longValue]];
+    return [self reportWithIntID:[reportID longLongValue]];
 }
 
 - (NSDictionary*) reportWithIntID:(int64_t) reportID
