@@ -114,7 +114,7 @@ static bool advanceCursor(KSStackCursor *cursor)
     nextAddress = context->currentFrame.return_address;
     
 successfulExit:
-    cursor->stackEntry.address = nextAddress;
+    cursor->stackEntry.address = kscpu_normaliseInstructionPointer(nextAddress);
     cursor->state.currentDepth++;
     return true;
 }

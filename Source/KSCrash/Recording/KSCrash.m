@@ -198,7 +198,7 @@ static NSString* getBasePath()
     kscrash_setDeadlockWatchdogInterval(deadlockWatchdogInterval);
 }
 
-- (void) setSearchQueueNames:(bool) searchQueueNames
+- (void) setSearchQueueNames:(BOOL) searchQueueNames
 {
     _searchQueueNames = searchQueueNames;
     kscrash_setSearchQueueNames(searchQueueNames);
