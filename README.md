@@ -55,6 +55,16 @@ of a lot more that they COULD do. Here are some key features of KSCrash:
 
 ### What's New?
 
+#### Call for help!
+
+My life has changed enough over the past few years that I can't keep up with giving KSCrash the love it needs.
+
+![I want you](https://c1.staticflickr.com/9/8787/28351252396_eeec9bb146.jpg)
+
+I'm looking for someone to help me maintain this package, make sure issues get handled, merges are properly vetted, and code quality remains high. Please contact me personally (kstenerud at my gmail address) or comment in https://github.com/kstenerud/KSCrash/issues/313
+
+
+
 #### VERY VERY VERY preliminary Android support.
 
 And I do mean PRELIMINARY. Most stuff doesn't work, but it does compile.
