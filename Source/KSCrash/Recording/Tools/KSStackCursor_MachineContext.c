@@ -39,6 +39,45 @@
  * and seems to work fine in ARM as well. I haven't included the args pointer
  * since it's not needed in this context.
  */
+
+/*
+ 
+ comment by @SecondDog
+ 
+ try to explain why it is work in arm64:
+ 
+ as we know ,arm stack layout is like this:
+ so the pre FP should be *(current FP - 32)
+ 
+ -------------  <---------- current FP
+ | PC         |
+ -------------  <---------- current FP - 8
+ | LR         |
+ -------------  <---------- current FP - 16
+ | SP         |
+ -------------  <---------- current FP - 24
+ | FP(pre)    |
+ -------------  <---------- current FP - 32
+ 
+ the struct FrameEntry is defined like this
+ typedef struct FrameEntry
+ {
+ struct FrameEntry* previous; <----- this pointer is 8 byte in arm64
+ uintptr_t return_address;  <------ this value is also 8 byte
+ } FrameEntry; <----- 16byte total
+ 
+ 
+ but the arm64 call stack is like this.
+ -------------
+ | LR(x30)     |
+ -------------
+ | pre FP(x29) |
+ -------------  <-----Current FP
+ 
+ so copy 16 byte data to the FrameEntry is just fit in arm64,so it works fine in arm64
+ 
+ */
+
 typedef struct FrameEntry
 {
     /** The previous frame in the list. */
