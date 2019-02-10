@@ -257,7 +257,16 @@ static NSDictionary* g_registerOrders;
         }
 #ifdef CPU_TYPE_ARM64
         case CPU_TYPE_ARM64:
+        {
+            switch (minorCode)
+            {
+#ifdef CPU_SUBTYPE_ARM64E
+                case CPU_SUBTYPE_ARM64E:
+                    return @"arm64e";
+#endif
+            }
             return @"arm64";
+        }
 #endif
         case CPU_TYPE_X86:
             return @"i386";
@@ -564,7 +573,7 @@ static NSDictionary* g_registerOrders;
     {
         [str appendFormat:@"Object referenced by NSException:\n%@\n", [self JSONForObject:referencedObject]];
     }
-    
+
     NSDictionary* crashedThread = [self crashedThread:report];
     if(crashedThread != nil)
     {
