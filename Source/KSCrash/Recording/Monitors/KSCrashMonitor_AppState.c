@@ -321,6 +321,22 @@ done:
     return true;
 }
 
+static void updateAppState(void)
+{
+    const double duration = timeSince(g_state.appStateTransitionTime);
+    g_state.appStateTransitionTime = getCurentTime();
+    
+    if(g_state.applicationIsActive)
+    {
+        g_state.activeDurationSinceLaunch += duration;
+        g_state.activeDurationSinceLastCrash += duration;
+    }
+    else if(!g_state.applicationIsInForeground)
+    {
+        g_state.backgroundDurationSinceLaunch += duration;
+        g_state.backgroundDurationSinceLastCrash += duration;
+    }
+}
 
 // ============================================================================
 #pragma mark - API -
@@ -417,18 +433,7 @@ void kscrashstate_notifyAppCrash(void)
     if(g_isEnabled)
     {
         const char* const stateFilePath = g_stateFilePath;
-
-        const double duration = timeSince(g_state.appStateTransitionTime);
-        if(g_state.applicationIsActive)
-        {
-            g_state.activeDurationSinceLaunch += duration;
-            g_state.activeDurationSinceLastCrash += duration;
-        }
-        else if(!g_state.applicationIsInForeground)
-        {
-            g_state.backgroundDurationSinceLaunch += duration;
-            g_state.backgroundDurationSinceLastCrash += duration;
-        }
+        updateAppState();
         g_state.crashedThisLaunch = true;
         saveState(stateFilePath);
     }
@@ -461,6 +466,7 @@ static void addContextualInfoToEvent(KSCrash_MonitorContext* eventContext)
 {
     if(g_isEnabled)
     {
+        updateAppState();
         eventContext->AppState.activeDurationSinceLastCrash = g_state.activeDurationSinceLastCrash;
         eventContext->AppState.activeDurationSinceLaunch = g_state.activeDurationSinceLaunch;
         eventContext->AppState.applicationIsActive = g_state.applicationIsActive;
