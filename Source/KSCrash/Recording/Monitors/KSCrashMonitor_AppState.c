@@ -193,7 +193,7 @@ static double timeSince(double timeInSeconds)
  *
  * @return true if the operation was successful.
  */
-bool loadState(const char* const path)
+static bool loadState(const char* const path)
 {
     // Stop if the file doesn't exist.
     // This is expected on the first run of the app.
@@ -249,7 +249,7 @@ bool loadState(const char* const path)
  *
  * @return true if the operation was successful.
  */
-bool saveState(const char* const path)
+static bool saveState(const char* const path)
 {
     int fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0644);
     if(fd < 0)
