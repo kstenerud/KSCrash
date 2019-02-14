@@ -35,6 +35,7 @@
 #import "KSJSONCodecObjC.h"
 #import "KSCrashMonitor_System.h"
 
+#define CPU_SUBTYPE_ARM64E              ((cpu_subtype_t) 2)
 
 #if defined(__LP64__)
     #define FMT_LONG_DIGITS "16"
