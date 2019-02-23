@@ -53,6 +53,7 @@ static const char** g_allQueueNames;
 static int g_allThreadsCount;
 static _Atomic(int) g_semaphoreCount;
 static bool g_searchQueueNames = false;
+static bool g_hasThreadStarted = false;
 
 static void updateThreadList()
 {
@@ -160,6 +161,10 @@ static void* monitorCachedData(__unused void* const userData)
 
 void ksccd_init(int pollingIntervalInSeconds)
 {
+    if (g_hasThreadStarted == true) {
+        return ;
+    }
+    g_hasThreadStarted = true;
     g_pollingIntervalInSeconds = pollingIntervalInSeconds;
     pthread_attr_t attr;
     pthread_attr_init(&attr);
