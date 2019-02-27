@@ -437,6 +437,10 @@ bool ksfu_removeFile(const char* path, bool mustExist)
 
 bool ksfu_deleteContentsOfPath(const char* path)
 {
+    if(path == NULL)
+    {
+        return false;
+    }
     if(!canDeletePath(path))
     {
         return false;
