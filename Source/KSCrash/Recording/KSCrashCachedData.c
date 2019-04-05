@@ -35,7 +35,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
-
+#include <pthread.h>
 
 #define SWAP_POINTERS(A, B) \
 { \
@@ -54,6 +54,7 @@ static int g_allThreadsCount;
 static _Atomic(int) g_semaphoreCount;
 static bool g_searchQueueNames = false;
 static bool g_hasThreadStarted = false;
+static pthread_mutex_t g_cachedData_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static void updateThreadList()
 {
@@ -95,12 +96,14 @@ static void updateThreadList()
         }
     }
     
+    pthread_mutex_lock(&g_cachedData_mutex);
     g_allThreadsCount = g_allThreadsCount < (int)allThreadsCount ? g_allThreadsCount : (int)allThreadsCount;
     SWAP_POINTERS(g_allMachThreads, allMachThreads);
     SWAP_POINTERS(g_allPThreads, allPThreads);
     SWAP_POINTERS(g_allThreadNames, allThreadNames);
     SWAP_POINTERS(g_allQueueNames, allQueueNames);
     g_allThreadsCount = (int)allThreadsCount;
+    pthread_mutex_unlock(&g_cachedData_mutex);
 
     if(allMachThreads != NULL)
     {
@@ -210,39 +213,47 @@ void ksccd_setSearchQueueNames(bool searchQueueNames)
 
 KSThread* ksccd_getAllThreads(int* threadCount)
 {
+    pthread_mutex_lock(&g_cachedData_mutex);
     if(threadCount != NULL)
     {
         *threadCount = g_allThreadsCount;
     }
+    pthread_mutex_unlock(&g_cachedData_mutex);
     return g_allMachThreads;
 }
 
 const char* ksccd_getThreadName(KSThread thread)
 {
+    pthread_mutex_lock(&g_cachedData_mutex);
     if(g_allThreadNames != NULL)
     {
         for(int i = 0; i < g_allThreadsCount; i++)
         {
             if(g_allMachThreads[i] == thread)
             {
+                pthread_mutex_unlock(&g_cachedData_mutex);
                 return g_allThreadNames[i];
             }
         }
     }
+    pthread_mutex_unlock(&g_cachedData_mutex);
     return NULL;
 }
 
 const char* ksccd_getQueueName(KSThread thread)
 {
+    pthread_mutex_lock(&g_cachedData_mutex);
     if(g_allQueueNames != NULL)
     {
         for(int i = 0; i < g_allThreadsCount; i++)
         {
             if(g_allMachThreads[i] == thread)
             {
+                pthread_mutex_unlock(&g_cachedData_mutex);
                 return g_allQueueNames[i];
             }
         }
     }
+    pthread_mutex_unlock(&g_cachedData_mutex);
     return NULL;
 }

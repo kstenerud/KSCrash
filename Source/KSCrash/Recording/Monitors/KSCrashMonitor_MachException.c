@@ -147,6 +147,8 @@ static thread_t g_secondaryMachThread;
 static char g_primaryEventID[37];
 static char g_secondaryEventID[37];
 
+static pthread_mutex_t g_MachException_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 // ============================================================================
 #pragma mark - Utility -
 // ============================================================================
@@ -278,11 +280,17 @@ static void* handleExceptions(void* const userData)
         KSLOG_DEBUG("Waiting for mach exception");
 
         // Wait for a message.
+        mach_port_t exceptionPort;
+
+        pthread_mutex_lock(&g_MachException_mutex);
+        exceptionPort = g_exceptionPort;
+        pthread_mutex_unlock(&g_MachException_mutex);
+
         kern_return_t kr = mach_msg(&exceptionMessage.header,
                                     MACH_RCV_MSG,
                                     0,
                                     sizeof(exceptionMessage),
-                                    g_exceptionPort,
+                                    exceptionPort,
                                     MACH_MSG_TIMEOUT_NONE,
                                     MACH_PORT_NULL);
         if(kr == KERN_SUCCESS)
@@ -429,7 +437,9 @@ static void uninstallExceptionHandler()
         g_secondaryPThread = 0;
     }
     
+    pthread_mutex_lock(&g_MachException_mutex);
     g_exceptionPort = MACH_PORT_NULL;
+    pthread_mutex_unlock(&g_MachException_mutex);    
     KSLOG_DEBUG("Mach exception handlers uninstalled.");
 }
 
@@ -464,6 +474,7 @@ static bool installExceptionHandler()
         goto failed;
     }
 
+    pthread_mutex_lock(&g_MachException_mutex);
     if(g_exceptionPort == MACH_PORT_NULL)
     {
         KSLOG_DEBUG("Allocating new port with receive rights.");
@@ -473,6 +484,7 @@ static bool installExceptionHandler()
         if(kr != KERN_SUCCESS)
         {
             KSLOG_ERROR("mach_port_allocate: %s", mach_error_string(kr));
+            pthread_mutex_unlock(&g_MachException_mutex);
             goto failed;
         }
 
@@ -484,6 +496,7 @@ static bool installExceptionHandler()
         if(kr != KERN_SUCCESS)
         {
             KSLOG_ERROR("mach_port_insert_right: %s", mach_error_string(kr));
+            pthread_mutex_unlock(&g_MachException_mutex);
             goto failed;
         }
     }
@@ -497,8 +510,10 @@ static bool installExceptionHandler()
     if(kr != KERN_SUCCESS)
     {
         KSLOG_ERROR("task_set_exception_ports: %s", mach_error_string(kr));
+        pthread_mutex_unlock(&g_MachException_mutex);
         goto failed;
     }
+    pthread_mutex_unlock(&g_MachException_mutex);
 
     KSLOG_DEBUG("Creating secondary exception thread (suspended).");
     pthread_attr_init(&attr);
