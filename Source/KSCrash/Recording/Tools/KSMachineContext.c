@@ -112,6 +112,7 @@ bool ksmc_getContextForThread(KSThread thread, KSMachineContext* destinationCont
     memset(destinationContext, 0, sizeof(*destinationContext));
     destinationContext->thisThread = (thread_t)thread;
     destinationContext->isCurrentThread = thread == ksthread_self();
+    destinationContext->isMainThread = thread == ksthread_main();
     destinationContext->isCrashedContext = isCrashedContext;
     destinationContext->isSignalContext = false;
     if(ksmc_canHaveCPUState(destinationContext))
@@ -133,6 +134,7 @@ bool ksmc_getContextForSignal(void* signalUserContext, KSMachineContext* destina
     _STRUCT_MCONTEXT* sourceContext = ((SignalUserContext*)signalUserContext)->UC_MCONTEXT;
     memcpy(&destinationContext->machineContext, sourceContext, sizeof(destinationContext->machineContext));
     destinationContext->thisThread = (thread_t)ksthread_self();
+    destinationContext->isMainThread = ksthread_self() == ksthread_main();
     destinationContext->isCrashedContext = true;
     destinationContext->isSignalContext = true;
     destinationContext->isStackOverflow = isStackOverflow(destinationContext);
@@ -292,4 +294,8 @@ bool ksmc_canHaveCPUState(const KSMachineContext* const context)
 bool ksmc_hasValidExceptionRegisters(const KSMachineContext* const context)
 {
     return ksmc_canHaveCPUState(context) && ksmc_isCrashedContext(context);
+}
+
+bool ksmc_isMainThread(const KSMachineContext* const context) {
+    return context->isMainThread;
 }

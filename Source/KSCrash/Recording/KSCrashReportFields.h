@@ -107,6 +107,7 @@
 #define KSCrashField_Basic                 "basic"
 #define KSCrashField_Crashed               "crashed"
 #define KSCrashField_CurrentThread         "current_thread"
+#define KSCrashField_MainThread            "main_thread"
 #define KSCrashField_DispatchQueue         "dispatch_queue"
 #define KSCrashField_NotableAddresses      "notable_addresses"
 #define KSCrashField_Registers             "registers"

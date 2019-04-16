@@ -33,6 +33,7 @@ extern "C" {
 #endif
 
 #include "KSThread.h"
+#include "KSThread_Main.h"
 #include <stdbool.h>
 
 /** Suspend the runtime environment.
@@ -135,6 +136,9 @@ bool ksmc_hasValidExceptionRegisters(const struct KSMachineContext* const contex
  */
 void ksmc_addReservedThread(KSThread thread);
 
+/** Check if this is a main thread crash.
+ */
+bool ksmc_isMainThread(const struct KSMachineContext* const context);
 
 #ifdef __cplusplus
 }

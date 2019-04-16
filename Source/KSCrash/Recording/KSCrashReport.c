@@ -1176,6 +1176,7 @@ static void writeThread(const KSCrashReportWriter* const writer,
                         const bool shouldWriteNotableAddresses)
 {
     bool isCrashedThread = ksmc_isCrashedContext(machineContext);
+    bool isMainThread = ksmc_isMainThread(machineContext);
     KSThread thread = ksmc_getThreadFromContext(machineContext);
     KSLOG_DEBUG("Writing thread %x (index %d). is crashed: %d", thread, threadIndex, isCrashedThread);
 
@@ -1205,6 +1206,7 @@ static void writeThread(const KSCrashReportWriter* const writer,
         }
         writer->addBooleanElement(writer, KSCrashField_Crashed, isCrashedThread);
         writer->addBooleanElement(writer, KSCrashField_CurrentThread, thread == ksthread_self());
+        writer->addBooleanElement(writer, KSCrashField_MainThread, thread == ksthread_main());
         if(isCrashedThread)
         {
             writeStackContents(writer, KSCrashField_Stack, machineContext, stackCursor.state.hasGivenUp);
