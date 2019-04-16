@@ -1206,7 +1206,7 @@ static void writeThread(const KSCrashReportWriter* const writer,
         }
         writer->addBooleanElement(writer, KSCrashField_Crashed, isCrashedThread);
         writer->addBooleanElement(writer, KSCrashField_CurrentThread, thread == ksthread_self());
-        writer->addBooleanElement(writer, KSCrashField_MainThread, thread == ksthread_main());
+        writer->addBooleanElement(writer, KSCrashField_MainThread, isMainThread);
         if(isCrashedThread)
         {
             writeStackContents(writer, KSCrashField_Stack, machineContext, stackCursor.state.hasGivenUp);
