@@ -56,7 +56,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
+#include <sys/time.h>
 
 // ============================================================================
 #pragma mark - Constants -
@@ -1530,10 +1530,14 @@ static void writeReportInfo(const KSCrashReportWriter* const writer,
 {
     writer->beginObject(writer, key);
     {
+        struct timeval tp;
+        gettimeofday(&tp, NULL);
+        long int microseconds = tp.tv_sec * 1000000 + tp.tv_usec;
+        
         writer->addStringElement(writer, KSCrashField_Version, KSCRASH_REPORT_VERSION);
         writer->addStringElement(writer, KSCrashField_ID, reportID);
         writer->addStringElement(writer, KSCrashField_ProcessName, processName);
-        writer->addIntegerElement(writer, KSCrashField_Timestamp, time(NULL));
+        writer->addIntegerElement(writer, KSCrashField_Timestamp, microseconds);
         writer->addStringElement(writer, KSCrashField_Type, type);
     }
     writer->endContainer(writer);
