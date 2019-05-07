@@ -433,6 +433,24 @@ static int stringPrintf(char* buffer, int bufferLength, const char* fmt, ...)
     return printLength;
 }
 
+const struct ivar_list_t *getIvarList(const void* const classPtr)
+{
+    const struct ivar_list_t* ivars = getClassRO(classPtr)->ivars;
+    if (ivars == NULL)
+    {
+        class_t *superclass = ((class_t *)classPtr)->superclass;
+        if (superclass == NULL)
+        {
+            return NULL;
+        }
+        else
+        {
+            return getIvarList(superclass);
+        }
+    }
+    
+    return ivars;
+}
 
 //======================================================================
 #pragma mark - Validation -
@@ -803,7 +821,11 @@ bool ksobjc_ivarNamed(const void* const classPtr, const char* name, KSObjCIvar* 
     {
         return false;
     }
-    const struct ivar_list_t* ivars = getClassRO(classPtr)->ivars;
+    const struct ivar_list_t* ivars = getIvarList(classPtr);
+    if (ivars == NULL)
+    {
+        return false;
+    }
     uintptr_t ivarPtr = (uintptr_t)&ivars->first;
     const struct ivar_t* ivar = (void*)ivarPtr;
     for(int i = 0; i < (int)ivars->count; i++)
@@ -843,7 +865,11 @@ bool ksobjc_ivarValue(const void* const objectPtr, int ivarIndex, void* dst)
     }
 
     const void* const classPtr = getIsaPointer(objectPtr);
-    const struct ivar_list_t* ivars = getClassRO(classPtr)->ivars;
+    const struct ivar_list_t* ivars = getIvarList(classPtr);
+    if (ivars == NULL)
+    {
+        return false;
+    }
     if(ivarIndex >= (int)ivars->count)
     {
         return false;
