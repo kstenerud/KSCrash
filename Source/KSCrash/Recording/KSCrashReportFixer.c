@@ -160,8 +160,8 @@ static int onIntegerElement(const char* const name,
     int result = KSJSON_OK;
     if(shouldFixDate(context, name))
     {
-        char buffer[21];
-        ksdate_utcStringFromTimestamp((time_t)value, buffer);
+        char buffer[28];
+        ksdate_utcStringFromMicroseconds(value, buffer);
 
         result = ksjson_addStringElement(context->encodeContext, name, buffer, (int)strlen(buffer));
     }

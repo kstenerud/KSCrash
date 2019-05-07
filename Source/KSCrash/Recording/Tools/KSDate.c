@@ -38,3 +38,15 @@ void ksdate_utcStringFromTimestamp(time_t timestamp, char* buffer21Chars)
              result.tm_min,
              result.tm_sec);
 }
+
+void ksdate_utcStringFromMicroseconds(int64_t microseconds, char* buffer28Chars)
+{
+    struct tm result = {0};
+    time_t curtime = (time_t)(microseconds / 1000000);
+    long micros = (time_t)(microseconds % 1000000);
+    
+    gmtime_r(&curtime, &result);
+    char buf[20];
+    strftime(buf, 20,"%FT%T", &result);
+    sprintf(buffer28Chars, "%s.%06ldZ", buf, micros);
+}
