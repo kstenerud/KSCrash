@@ -120,17 +120,6 @@ static bool advanceCursor(KSStackCursor *cursor)
         goto successfulExit;
     }
 
-    if(context->linkRegister == 0 && !context->isPastFramePointer)
-    {
-        // Link register, if available, is the second address in the trace.
-        context->linkRegister = kscpu_linkRegister(context->machineContext);
-        if(context->linkRegister != 0)
-        {
-            nextAddress = context->linkRegister;
-            goto successfulExit;
-        }
-    }
-
     if(context->currentFrame.previous == NULL)
     {
         if(context->isPastFramePointer)
