@@ -328,11 +328,15 @@ static void updateAppState(void)
     
     if(g_state.applicationIsActive)
     {
+        KSLOG_TRACE("Updating activeDurationSinceLaunch: %f and activeDurationSinceLastCrash: %f with duration: %f",
+                    g_state.activeDurationSinceLaunch, g_state.activeDurationSinceLastCrash, duration);
         g_state.activeDurationSinceLaunch += duration;
         g_state.activeDurationSinceLastCrash += duration;
     }
     else if(!g_state.applicationIsInForeground)
     {
+        KSLOG_TRACE("Updating backgroundDurationSinceLaunch: %f and backgroundDurationSinceLastCrash: %f with duration: %f",
+                    g_state.backgroundDurationSinceLaunch, g_state.backgroundDurationSinceLastCrash, duration);
         g_state.backgroundDurationSinceLaunch += duration;
         g_state.backgroundDurationSinceLastCrash += duration;
     }
@@ -345,7 +349,19 @@ static void updateAppState(void)
 void kscrashstate_initialize(const char* const stateFilePath)
 {
     g_stateFilePath = strdup(stateFilePath);
-    memset(&g_state, 0, sizeof(g_state));
+
+    g_state.activeDurationSinceLastCrash = 0.0;
+    g_state.backgroundDurationSinceLastCrash = 0.0;
+    g_state.launchesSinceLastCrash = 0;
+    g_state.sessionsSinceLastCrash = 0;
+    g_state.activeDurationSinceLaunch = 0.0;
+    g_state.backgroundDurationSinceLaunch = 0.0;
+    g_state.sessionsSinceLaunch = 0;
+    g_state.crashedLastLaunch = false;
+    g_state.crashedThisLaunch = false;
+    g_state.applicationIsActive = true;
+    g_state.applicationIsInForeground = false;
+
     loadState(g_stateFilePath);
 }
 
@@ -369,10 +385,18 @@ bool kscrashstate_reset()
         g_state.launchesSinceLastCrash++;
         g_state.sessionsSinceLastCrash++;
         g_state.applicationIsInForeground = true;
-        
+
         return saveState(g_stateFilePath);
     }
     return false;
+}
+
+void kscrashstate_notifyObjCLoad(void)
+{
+    KSLOG_TRACE("KSCrash has been loaded!");
+    g_state.applicationIsInForeground = false;
+    g_state.applicationIsActive = true;
+    g_state.appStateTransitionTime = getCurentTime();
 }
 
 void kscrashstate_notifyAppActive(const bool isActive)
@@ -382,11 +406,14 @@ void kscrashstate_notifyAppActive(const bool isActive)
         g_state.applicationIsActive = isActive;
         if(isActive)
         {
+            KSLOG_TRACE("Updating transition time from: %f to: %f", g_state.appStateTransitionTime, getCurentTime());
             g_state.appStateTransitionTime = getCurentTime();
         }
         else
         {
             double duration = timeSince(g_state.appStateTransitionTime);
+            KSLOG_TRACE("Updating activeDurationSinceLaunch: %f and activeDurationSinceLastCrash: %f with duration: %f",
+                        g_state.activeDurationSinceLaunch, g_state.activeDurationSinceLastCrash, duration);
             g_state.activeDurationSinceLaunch += duration;
             g_state.activeDurationSinceLastCrash += duration;
         }
@@ -403,6 +430,8 @@ void kscrashstate_notifyAppInForeground(const bool isInForeground)
         if(isInForeground)
         {
             double duration = getCurentTime() - g_state.appStateTransitionTime;
+            KSLOG_TRACE("Updating backgroundDurationSinceLaunch: %f and backgroundDurationSinceLastCrash: %f with duration: %f",
+                        g_state.backgroundDurationSinceLaunch, g_state.backgroundDurationSinceLastCrash, duration);
             g_state.backgroundDurationSinceLaunch += duration;
             g_state.backgroundDurationSinceLastCrash += duration;
             g_state.sessionsSinceLastCrash++;
@@ -421,7 +450,7 @@ void kscrashstate_notifyAppTerminate(void)
     if(g_isEnabled)
     {
         const char* const stateFilePath = g_stateFilePath;
-
+        updateAppState();
         const double duration = timeSince(g_state.appStateTransitionTime);
         g_state.backgroundDurationSinceLastCrash += duration;
         saveState(stateFilePath);
@@ -430,6 +459,7 @@ void kscrashstate_notifyAppTerminate(void)
 
 void kscrashstate_notifyAppCrash(void)
 {
+    KSLOG_TRACE("Trying to update AppState. g_isEnabled: %d", g_isEnabled);
     if(g_isEnabled)
     {
         const char* const stateFilePath = g_stateFilePath;
