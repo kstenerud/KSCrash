@@ -349,19 +349,6 @@ static void updateAppState(void)
 void kscrashstate_initialize(const char* const stateFilePath)
 {
     g_stateFilePath = strdup(stateFilePath);
-
-    g_state.activeDurationSinceLastCrash = 0.0;
-    g_state.backgroundDurationSinceLastCrash = 0.0;
-    g_state.launchesSinceLastCrash = 0;
-    g_state.sessionsSinceLastCrash = 0;
-    g_state.activeDurationSinceLaunch = 0.0;
-    g_state.backgroundDurationSinceLaunch = 0.0;
-    g_state.sessionsSinceLaunch = 0;
-    g_state.crashedLastLaunch = false;
-    g_state.crashedThisLaunch = false;
-    g_state.applicationIsActive = true;
-    g_state.applicationIsInForeground = false;
-
     loadState(g_stateFilePath);
 }
 
@@ -394,6 +381,7 @@ bool kscrashstate_reset()
 void kscrashstate_notifyObjCLoad(void)
 {
     KSLOG_TRACE("KSCrash has been loaded!");
+    memset(&g_state, 0, sizeof(g_state));
     g_state.applicationIsInForeground = false;
     g_state.applicationIsActive = true;
     g_state.appStateTransitionTime = getCurentTime();
@@ -451,8 +439,6 @@ void kscrashstate_notifyAppTerminate(void)
     {
         const char* const stateFilePath = g_stateFilePath;
         updateAppState();
-        const double duration = timeSince(g_state.appStateTransitionTime);
-        g_state.backgroundDurationSinceLastCrash += duration;
         saveState(stateFilePath);
     }
 }

@@ -119,54 +119,13 @@ static NSString* getBasePath()
 
 + (void)load
 {
-    [self classDidBecomeLoaded];
+    [[self class] classDidBecomeLoaded];
 }
 
 + (void)initialize
 {
     if (self == [KSCrash class]) {
-#if KSCRASH_HAS_UIAPPLICATION
-        NSNotificationCenter* nCenter = [NSNotificationCenter defaultCenter];
-        [nCenter addObserver:self
-                    selector:@selector(applicationDidBecomeActive)
-                        name:UIApplicationDidBecomeActiveNotification
-                      object:nil];
-        [nCenter addObserver:self
-                    selector:@selector(applicationWillResignActive)
-                        name:UIApplicationWillResignActiveNotification
-                      object:nil];
-        [nCenter addObserver:self
-                    selector:@selector(applicationDidEnterBackground)
-                        name:UIApplicationDidEnterBackgroundNotification
-                      object:nil];
-        [nCenter addObserver:self
-                    selector:@selector(applicationWillEnterForeground)
-                        name:UIApplicationWillEnterForegroundNotification
-                      object:nil];
-        [nCenter addObserver:self
-                    selector:@selector(applicationWillTerminate)
-                        name:UIApplicationWillTerminateNotification
-                      object:nil];
-#endif
-#if KSCRASH_HAS_NSEXTENSION
-        NSNotificationCenter* nCenter = [NSNotificationCenter defaultCenter];
-        [nCenter addObserver:self
-                    selector:@selector(applicationDidBecomeActive)
-                        name:NSExtensionHostDidBecomeActiveNotification
-                      object:nil];
-        [nCenter addObserver:self
-                    selector:@selector(applicationWillResignActive)
-                        name:NSExtensionHostWillResignActiveNotification
-                      object:nil];
-        [nCenter addObserver:self
-                    selector:@selector(applicationDidEnterBackground)
-                        name:NSExtensionHostDidEnterBackgroundNotification
-                      object:nil];
-        [nCenter addObserver:self
-                    selector:@selector(applicationWillEnterForeground)
-                        name:NSExtensionHostWillEnterForegroundNotification
-                      object:nil];
-#endif
+        [[self class] subscribeToNotifications];
     }
 }
 
@@ -599,6 +558,52 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
 // ============================================================================
 #pragma mark - Notifications -
 // ============================================================================
+
++ (void) subscribeToNotifications
+{
+#if KSCRASH_HAS_UIAPPLICATION
+    NSNotificationCenter* nCenter = [NSNotificationCenter defaultCenter];
+    [nCenter addObserver:self
+                selector:@selector(applicationDidBecomeActive)
+                    name:UIApplicationDidBecomeActiveNotification
+                  object:nil];
+    [nCenter addObserver:self
+                selector:@selector(applicationWillResignActive)
+                    name:UIApplicationWillResignActiveNotification
+                  object:nil];
+    [nCenter addObserver:self
+                selector:@selector(applicationDidEnterBackground)
+                    name:UIApplicationDidEnterBackgroundNotification
+                  object:nil];
+    [nCenter addObserver:self
+                selector:@selector(applicationWillEnterForeground)
+                    name:UIApplicationWillEnterForegroundNotification
+                  object:nil];
+    [nCenter addObserver:self
+                selector:@selector(applicationWillTerminate)
+                    name:UIApplicationWillTerminateNotification
+                  object:nil];
+#endif
+#if KSCRASH_HAS_NSEXTENSION
+    NSNotificationCenter* nCenter = [NSNotificationCenter defaultCenter];
+    [nCenter addObserver:self
+                selector:@selector(applicationDidBecomeActive)
+                    name:NSExtensionHostDidBecomeActiveNotification
+                  object:nil];
+    [nCenter addObserver:self
+                selector:@selector(applicationWillResignActive)
+                    name:NSExtensionHostWillResignActiveNotification
+                  object:nil];
+    [nCenter addObserver:self
+                selector:@selector(applicationDidEnterBackground)
+                    name:NSExtensionHostDidEnterBackgroundNotification
+                  object:nil];
+    [nCenter addObserver:self
+                selector:@selector(applicationWillEnterForeground)
+                    name:NSExtensionHostWillEnterForegroundNotification
+                  object:nil];
+#endif
+}
 
 + (void) classDidBecomeLoaded
 {
