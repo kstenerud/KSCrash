@@ -50,6 +50,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+typedef enum
+{
+    KSApplicationStateNone,
+    KSApplicationStateDidBecomeActive,
+    KSApplicationStateWillResignActiveActive,
+    KSApplicationStateDidEnterBackground,
+    KSApplicationStateWillEnterForeground,
+    KSApplicationStateWillTerminate
+} KSApplicationState;
 
 // ============================================================================
 #pragma mark - Globals -
@@ -64,7 +73,7 @@ static char g_consoleLogPath[KSFU_MAX_PATH_LENGTH];
 static KSCrashMonitorType g_monitoring = KSCrashMonitorTypeProductionSafeMinimal;
 static char g_lastCrashReportFilePath[KSFU_MAX_PATH_LENGTH];
 static KSReportWrittenCallback g_reportWrittenCallback;
-
+static KSApplicationState g_lastApplicationState = KSApplicationStateNone;
 
 // ============================================================================
 #pragma mark - Utility -
@@ -83,6 +92,25 @@ static void printPreviousLog(const char* filePath)
     }
 }
 
+static void notifyOfBeforeInstallationState(void)
+{
+    KSLOG_DEBUG("Notifying of pre-installation state");
+    switch (g_lastApplicationState)
+    {
+        case KSApplicationStateDidBecomeActive:
+            return kscrash_notifyAppActive(true);
+        case KSApplicationStateWillResignActiveActive:
+            return kscrash_notifyAppActive(false);
+        case KSApplicationStateDidEnterBackground:
+            return kscrash_notifyAppInForeground(false);
+        case KSApplicationStateWillEnterForeground:
+            return kscrash_notifyAppInForeground(true);
+        case KSApplicationStateWillTerminate:
+            return kscrash_notifyAppTerminate();
+        default:
+            return;
+    }
+}
 
 // ============================================================================
 #pragma mark - Callbacks -
@@ -157,6 +185,9 @@ KSCrashMonitorType kscrash_install(const char* appName, const char* const instal
     KSCrashMonitorType monitors = kscrash_setMonitoring(g_monitoring);
 
     KSLOG_DEBUG("Installation complete.");
+
+    notifyOfBeforeInstallationState();
+
     return monitors;
 }
 
@@ -246,19 +277,40 @@ void kscrash_reportUserException(const char* name,
     }
 }
 
+void kscrash_notifyObjCLoad(void)
+{
+    kscrashstate_notifyObjCLoad();
+}
+
 void kscrash_notifyAppActive(bool isActive)
 {
-    kscrashstate_notifyAppActive(isActive);
+    if (g_installed)
+    {
+        kscrashstate_notifyAppActive(isActive);
+    }
+    g_lastApplicationState = isActive
+        ? KSApplicationStateDidBecomeActive
+        : KSApplicationStateWillResignActiveActive;
 }
 
 void kscrash_notifyAppInForeground(bool isInForeground)
 {
-    kscrashstate_notifyAppInForeground(isInForeground);
+    if (g_installed)
+    {
+        kscrashstate_notifyAppInForeground(isInForeground);
+    }
+    g_lastApplicationState = isInForeground
+        ? KSApplicationStateWillEnterForeground
+        : KSApplicationStateDidEnterBackground;
 }
 
 void kscrash_notifyAppTerminate(void)
 {
-    kscrashstate_notifyAppTerminate();
+    if (g_installed)
+    {
+        kscrashstate_notifyAppTerminate();
+    }
+    g_lastApplicationState = KSApplicationStateWillTerminate;
 }
 
 void kscrash_notifyAppCrash(void)
