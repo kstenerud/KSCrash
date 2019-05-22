@@ -39,6 +39,7 @@
 
 #define MAX_DEPTH 100
 #define MAX_NAME_LENGTH 100
+#define REPORT_VERSION_COMPONENTS_COUNT 3
 
 static char* datePaths[][MAX_DEPTH] =
 {
@@ -56,9 +57,17 @@ static char* demanglePaths[][MAX_DEPTH] =
 };
 static int demanglePathsCount = sizeof(demanglePaths) / sizeof(*demanglePaths);
 
+static char* versionPaths[][MAX_DEPTH] =
+{
+    {"", KSCrashField_Report, KSCrashField_Version},
+    {"", KSCrashField_RecrashReport, KSCrashField_Report, KSCrashField_Version},
+};
+static int versionPathsCount = sizeof(versionPaths) / sizeof(*versionPaths);
+
 typedef struct
 {
     KSJSONEncodeContext* encodeContext;
+    int reportVersionComponents[REPORT_VERSION_COMPONENTS_COUNT];
     char objectPath[MAX_DEPTH][MAX_NAME_LENGTH];
     int currentDepth;
     char* outputPtr;
@@ -126,6 +135,24 @@ static bool matchesAPath(FixupContext* context, const char* name, char* paths[][
     return false;
 }
 
+static bool matchesMinVersion(FixupContext* context, int major, int minor, int patch)
+{
+    // Works only for report version 3.1.0 and above. See KSCrashReportVersion.h
+    if(context->reportVersionComponents[0] < major)
+    {
+        return false;
+    }
+    if(context->reportVersionComponents[1] < minor)
+    {
+        return false;
+    }
+    if(context->reportVersionComponents[2] < patch)
+    {
+        return false;
+    }
+    return true;
+}
+
 static bool shouldDemangle(FixupContext* context, const char* name)
 {
     return matchesAPath(context, name, demanglePaths, demanglePathsCount);
@@ -134,6 +161,11 @@ static bool shouldDemangle(FixupContext* context, const char* name)
 static bool shouldFixDate(FixupContext* context, const char* name)
 {
     return matchesAPath(context, name, datePaths, datePathsCount);
+}
+
+static bool shouldSaveVersion(FixupContext* context, const char* name)
+{
+    return matchesAPath(context, name, versionPaths, versionPathsCount);
 }
 
 static int onBooleanElement(const char* const name,
@@ -161,7 +193,15 @@ static int onIntegerElement(const char* const name,
     if(shouldFixDate(context, name))
     {
         char buffer[28];
-        ksdate_utcStringFromMicroseconds(value, buffer);
+
+        if(matchesMinVersion(context, 3, 3, 0))
+        {
+            ksdate_utcStringFromMicroseconds(value, buffer);
+        }
+        else
+        {
+            ksdate_utcStringFromTimestamp(value, buffer);
+        }
 
         result = ksjson_addStringElement(context->encodeContext, name, buffer, (int)strlen(buffer));
     }
@@ -204,6 +244,20 @@ static int onStringElement(const char* const name,
     if(demangled != NULL)
     {
         free(demangled);
+    }
+    if(shouldSaveVersion(context, name))
+    {
+        memset(&(context->reportVersionComponents), 0,
+               sizeof(*context->reportVersionComponents) * REPORT_VERSION_COMPONENTS_COUNT);
+        int versionPartsIndex = 0;
+        char* mutableValue = strdup(value);
+        char* versionPart = strtok(mutableValue, ".");
+        while(versionPart != NULL && versionPartsIndex < REPORT_VERSION_COMPONENTS_COUNT)
+        {
+            context->reportVersionComponents[versionPartsIndex++] = atoi(versionPart);
+            versionPart = strtok(NULL, ".");
+        }
+        free(mutableValue);
     }
     return result;
 }
@@ -291,6 +345,7 @@ char* kscrf_fixupCrashReport(const char* crashReport)
     FixupContext fixupContext =
     {
         .encodeContext = &encodeContext,
+        .reportVersionComponents = {0},
         .currentDepth = 0,
         .outputPtr = fixedReport,
         .outputBytesLeft = fixedReportLength,
