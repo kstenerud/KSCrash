@@ -240,8 +240,7 @@ static int onStringElement(const char* const name,
     }
     if(shouldSaveVersion(context, name))
     {
-        memset(&(context->reportVersionComponents), 0,
-               sizeof(*context->reportVersionComponents) * REPORT_VERSION_COMPONENTS_COUNT);
+        memset(context->reportVersionComponents, 0, sizeof(context->reportVersionComponents));
         int versionPartsIndex = 0;
         char* mutableValue = strdup(value);
         char* versionPart = strtok(mutableValue, ".");
