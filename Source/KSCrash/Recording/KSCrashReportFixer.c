@@ -138,19 +138,12 @@ static bool matchesAPath(FixupContext* context, const char* name, char* paths[][
 static bool matchesMinVersion(FixupContext* context, int major, int minor, int patch)
 {
     // Works only for report version 3.1.0 and above. See KSCrashReportVersion.h
-    if(context->reportVersionComponents[0] < major)
-    {
-        return false;
-    }
-    if(context->reportVersionComponents[1] < minor)
-    {
-        return false;
-    }
-    if(context->reportVersionComponents[2] < patch)
-    {
-        return false;
-    }
-    return true;
+    bool result = false;
+    int *parts = context->reportVersionComponents;
+    result = result || (parts[0] > major);
+    result = result || (parts[0] == major && parts[1] > minor);
+    result = result || (parts[0] == major && parts[1] == minor && parts[2] >= patch);
+    return result;
 }
 
 static bool shouldDemangle(FixupContext* context, const char* name)
