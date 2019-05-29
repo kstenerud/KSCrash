@@ -428,7 +428,7 @@ static NSDictionary* g_registerOrders;
     NSDictionary* system = [self systemReport:report];
     NSDictionary* reportInfo = [self infoReport:report];
     NSString *reportID = [reportInfo objectForKey:@KSCrashField_ID];
-    NSDate* crashTime = [g_rfc3339DateFormatter dateFromString:[reportInfo objectForKey:@KSCrashField_Timestamp]];
+    NSDate* crashTime = [g_rfc3339DateFormatter dateFromString:[NSString stringWithFormat:@"%@",[reportInfo objectForKey:@KSCrashField_Timestamp]]];
 
     return [self headerStringForSystemInfo:system reportID:reportID crashTime:crashTime];
 }
