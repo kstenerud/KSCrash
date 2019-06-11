@@ -241,6 +241,13 @@ what features KSCrash has, and how to use them:
 
 
 
+Understanding the KSCrash Codebase
+----------------------------------
+
+I've written a quick code tour [here](CODE_TOUR.md)
+
+
+
 Advanced Usage
 --------------
 
