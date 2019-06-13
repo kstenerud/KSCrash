@@ -193,7 +193,7 @@ static int onIntegerElement(const char* const name,
         }
         else
         {
-            ksdate_utcStringFromTimestamp(value, buffer);
+            ksdate_utcStringFromTimestamp((time_t)value, buffer);
         }
 
         result = ksjson_addStringElement(context->encodeContext, name, buffer, (int)strlen(buffer));
