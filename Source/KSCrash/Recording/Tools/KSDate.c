@@ -32,7 +32,7 @@ void ksdate_utcStringFromTimestamp(time_t timestamp, char* buffer21Chars)
     gmtime_r(&timestamp, &result);
     snprintf(buffer21Chars, 21, "%04d-%02d-%02dT%02d:%02d:%02dZ",
              result.tm_year + 1900,
-             result.tm_mon+1,
+             result.tm_mon + 1,
              result.tm_mday,
              result.tm_hour,
              result.tm_min,
@@ -43,10 +43,15 @@ void ksdate_utcStringFromMicroseconds(int64_t microseconds, char* buffer28Chars)
 {
     struct tm result = {0};
     time_t curtime = (time_t)(microseconds / 1000000);
-    long micros = (time_t)(microseconds % 1000000);
-    
+    long micros = (long)(microseconds % 1000000);
+
     gmtime_r(&curtime, &result);
-    char buf[20];
-    strftime(buf, 20,"%FT%T", &result);
-    sprintf(buffer28Chars, "%s.%06ldZ", buf, micros);
+    snprintf(buffer28Chars, 28, "%04d-%02d-%02dT%02d:%02d:%02d.%06ldZ",
+             result.tm_year + 1900,
+             result.tm_mon + 1,
+             result.tm_mday,
+             result.tm_hour,
+             result.tm_min,
+             result.tm_sec,
+             micros);
 }

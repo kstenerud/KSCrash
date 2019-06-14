@@ -1532,7 +1532,7 @@ static void writeReportInfo(const KSCrashReportWriter* const writer,
     {
         struct timeval tp;
         gettimeofday(&tp, NULL);
-        long int microseconds = tp.tv_sec * 1000000 + tp.tv_usec;
+        int64_t microseconds = ((int64_t)tp.tv_sec) * 1000000 + tp.tv_usec;
         
         writer->addStringElement(writer, KSCrashField_Version, KSCRASH_REPORT_VERSION);
         writer->addStringElement(writer, KSCrashField_ID, reportID);
