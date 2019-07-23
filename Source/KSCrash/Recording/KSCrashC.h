@@ -194,6 +194,10 @@ void kscrash_reportUserException(const char* name,
     
 #pragma mark -- Notifications --
 
+/** Notify the crash reporter of KSCrash being added to Objective-C runtime system.
+ */
+void kscrash_notifyObjCLoad(void);
+
 /** Notify the crash reporter of the application active state.
  *
  * @param isActive true if the application is active, otherwise false.

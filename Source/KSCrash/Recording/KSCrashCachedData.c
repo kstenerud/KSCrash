@@ -66,8 +66,13 @@ static void updateThreadList()
 
     mach_msg_type_number_t allThreadsCount;
     thread_act_array_t threads;
-    task_threads(thisTask, &threads, &allThreadsCount);
-    
+    kern_return_t kr;
+    if((kr = task_threads(thisTask, &threads, &allThreadsCount)) != KERN_SUCCESS)
+    {
+        KSLOG_ERROR("task_threads: %s", mach_error_string(kr));
+        return;
+    }
+
     allMachThreads = calloc(allThreadsCount, sizeof(*allMachThreads));
     allPThreads = calloc(allThreadsCount, sizeof(*allPThreads));
     allThreadNames = calloc(allThreadsCount, sizeof(*allThreadNames));
