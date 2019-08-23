@@ -50,10 +50,10 @@
 #define kThreadPrimary "KSCrash Exception Handler (Primary)"
 #define kThreadSecondary "KSCrash Exception Handler (Secondary)"
 
-#if defined __arm__ || defined __i386__
-    #define MACH_ERROR_CODE_MASK 0xFFFFFFFF
-#elif defined __arm64__ || defined __x86_64__
+#if __LP64__
     #define MACH_ERROR_CODE_MASK 0xFFFFFFFFFFFFFFFF
+#else
+    #define MACH_ERROR_CODE_MASK 0xFFFFFFFF
 #endif
 
 // ============================================================================
