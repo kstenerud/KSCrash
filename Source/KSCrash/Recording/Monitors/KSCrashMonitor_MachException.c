@@ -50,6 +50,11 @@
 #define kThreadPrimary "KSCrash Exception Handler (Primary)"
 #define kThreadSecondary "KSCrash Exception Handler (Secondary)"
 
+#if __LP64__
+    #define MACH_ERROR_CODE_MASK 0xFFFFFFFFFFFFFFFF
+#else
+    #define MACH_ERROR_CODE_MASK 0xFFFFFFFF
+#endif
 
 // ============================================================================
 #pragma mark - Types -
@@ -348,8 +353,8 @@ static void* handleExceptions(void* const userData)
         crashContext->eventID = eventID;
         crashContext->registersAreValid = true;
         crashContext->mach.type = exceptionMessage.exception;
-        crashContext->mach.code = exceptionMessage.code[0];
-        crashContext->mach.subcode = exceptionMessage.code[1];
+        crashContext->mach.code = exceptionMessage.code[0] & MACH_ERROR_CODE_MASK;
+        crashContext->mach.subcode = exceptionMessage.code[1] & MACH_ERROR_CODE_MASK;
         if(crashContext->mach.code == KERN_PROTECTION_FAILURE && crashContext->isStackOverflow)
         {
             // A stack overflow should return KERN_INVALID_ADDRESS, but
