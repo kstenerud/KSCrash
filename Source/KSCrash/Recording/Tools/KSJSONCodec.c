@@ -365,6 +365,20 @@ int ksjson_addIntegerElement(KSJSONEncodeContext* const context,
     return addJSONData(context, buff, (int)strlen(buff));
 }
 
+int ksjson_addUIntegerElement(KSJSONEncodeContext* const context,
+                             const char* const name,
+                             uint64_t value)
+{
+    int result = ksjson_beginElement(context, name);
+    unlikely_if(result != KSJSON_OK)
+    {
+        return result;
+    }
+    char buff[30];
+    sprintf(buff, "%" PRIu64, value);
+    return addJSONData(context, buff, (int)strlen(buff));
+}
+
 int ksjson_addNullElement(KSJSONEncodeContext* const context,
                           const char* const name)
 {

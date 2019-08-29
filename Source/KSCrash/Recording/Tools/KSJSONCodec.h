@@ -170,6 +170,20 @@ int ksjson_addIntegerElement(KSJSONEncodeContext* context,
                              const char* name,
                              int64_t value);
 
+/** Add an unsigned integer element.
+ *
+ * @param context The encoding context.
+ *
+ * @param name The element's name.
+ *
+ * @param value The element's value.
+ *
+ * @return KSJSON_OK if the process was successful.
+ */
+int ksjson_addUIntegerElement(KSJSONEncodeContext* const context,
+                              const char* const name,
+                              uint64_t value);
+    
 /** Add a floating point element.
  *
  * @param context The encoding context.

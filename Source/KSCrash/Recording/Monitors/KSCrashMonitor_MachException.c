@@ -324,7 +324,7 @@ static void* handleExceptions(void* const userData)
         }
         else
         {
-            KSLOG_DEBUG("This is the secondary exception thread. Restoring original exception ports.");
+            KSLOG_DEBUG("This is the secondary exception thread.");// Restoring original exception ports.");
 //            restoreExceptionPorts();
         }
 
@@ -337,7 +337,8 @@ static void* handleExceptions(void* const userData)
         if(ksmc_getContextForThread(exceptionMessage.thread.name, machineContext, true))
         {
             kssc_initWithMachineContext(&g_stackCursor, 100, machineContext);
-            KSLOG_TRACE("Fault address 0x%x, instruction address 0x%x", kscpu_faultAddress(machineContext), kscpu_instructionAddress(machineContext));
+            KSLOG_TRACE("Fault address %p, instruction address %p",
+                        kscpu_faultAddress(machineContext), kscpu_instructionAddress(machineContext));
             if(exceptionMessage.exception == EXC_BAD_ACCESS)
             {
                 crashContext->faultAddress = kscpu_faultAddress(machineContext);

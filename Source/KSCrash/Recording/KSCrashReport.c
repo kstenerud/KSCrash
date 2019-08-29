@@ -135,7 +135,7 @@ static void addIntegerElement(const KSCrashReportWriter* const writer, const cha
 
 static void addUIntegerElement(const KSCrashReportWriter* const writer, const char* const key, const uint64_t value)
 {
-    ksjson_addIntegerElement(getJsonContext(writer), key, (int64_t)value);
+    ksjson_addUIntegerElement(getJsonContext(writer), key, value);
 }
 
 static void addStringElement(const KSCrashReportWriter* const writer, const char* const key, const char* const value)
