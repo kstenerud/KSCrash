@@ -1360,7 +1360,7 @@ static void writeError(const KSCrashReportWriter* const writer,
             {
                 writer->addStringElement(writer, KSCrashField_CodeName, machCodeName);
             }
-            writer->addUIntegerElement(writer, KSCrashField_Subcode, (unsigned)crash->mach.subcode);
+            writer->addUIntegerElement(writer, KSCrashField_Subcode, (size_t)crash->mach.subcode);
         }
         writer->endContainer(writer);
 #endif
