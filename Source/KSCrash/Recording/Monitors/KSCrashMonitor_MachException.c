@@ -357,8 +357,8 @@ static void* handleExceptions(void* const userData)
         crashContext->eventID = eventID;
         crashContext->registersAreValid = true;
         crashContext->mach.type = exceptionMessage.exception;
-        crashContext->mach.code = exceptionMessage.code[0] & MACH_ERROR_CODE_MASK;
-        crashContext->mach.subcode = exceptionMessage.code[1] & MACH_ERROR_CODE_MASK;
+        crashContext->mach.code = exceptionMessage.code[0] & (int64_t)MACH_ERROR_CODE_MASK;
+        crashContext->mach.subcode = exceptionMessage.code[1] & (int64_t)MACH_ERROR_CODE_MASK;
         if(crashContext->mach.code == KERN_PROTECTION_FAILURE && crashContext->isStackOverflow)
         {
             // A stack overflow should return KERN_INVALID_ADDRESS, but
@@ -501,7 +501,7 @@ static bool installExceptionHandler()
     kr = task_set_exception_ports(thisTask,
                                   mask,
                                   g_exceptionPort,
-                                  EXCEPTION_DEFAULT | MACH_EXCEPTION_CODES,
+                                  (int)(EXCEPTION_DEFAULT | MACH_EXCEPTION_CODES),
                                   THREAD_STATE_NONE);
     if(kr != KERN_SUCCESS)
     {
