@@ -99,7 +99,9 @@ extern "C"
 
 static void CPPExceptionTerminate(void)
 {
-    ksmc_suspendEnvironment();
+    thread_act_array_t threads = NULL;
+    mach_msg_type_number_t numThreads = 0;
+    ksmc_suspendEnvironment(&threads, &numThreads);
     KSLOG_DEBUG("Trapped c++ exception");
     const char* name = NULL;
     std::type_info* tinfo = __cxxabiv1::__cxa_current_exception_type();
@@ -173,7 +175,7 @@ catch(TYPE value)\
     {
         KSLOG_DEBUG("Detected NSException. Letting the current NSException handler deal with it.");
     }
-    ksmc_resumeEnvironment();
+    ksmc_resumeEnvironment(threads, numThreads);
 
     KSLOG_DEBUG("Calling original terminate handler.");
     g_originalTerminateHandler();

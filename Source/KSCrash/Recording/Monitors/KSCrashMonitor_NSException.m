@@ -62,7 +62,9 @@ static void handleException(NSException* exception, BOOL currentSnapshotUserRepo
     KSLOG_DEBUG(@"Trapped exception %@", exception);
     if(g_isEnabled)
     {
-        ksmc_suspendEnvironment();
+        thread_act_array_t threads = NULL;
+        mach_msg_type_number_t numThreads = 0;
+        ksmc_suspendEnvironment(&threads, &numThreads);
         kscm_notifyFatalExceptionCaptured(false);
 
         KSLOG_DEBUG(@"Filling out context.");
@@ -99,7 +101,7 @@ static void handleException(NSException* exception, BOOL currentSnapshotUserRepo
 
         free(callstack);
         if (currentSnapshotUserReported) {
-            ksmc_resumeEnvironment();
+            ksmc_resumeEnvironment(threads, numThreads);
         }
         if (g_previousUncaughtExceptionHandler != NULL)
         {
