@@ -54,9 +54,11 @@ void kscm_reportUserException(const char* name,
     }
     else
     {
+        thread_act_array_t threads = NULL;
+        mach_msg_type_number_t numThreads = 0;
         if(logAllThreads)
         {
-            ksmc_suspendEnvironment();
+            ksmc_suspendEnvironment(&threads, &numThreads);
         }
         if(terminateProgram)
         {
@@ -89,7 +91,7 @@ void kscm_reportUserException(const char* name,
 
         if(logAllThreads)
         {
-            ksmc_resumeEnvironment();
+            ksmc_resumeEnvironment(threads, numThreads);
         }
         if(terminateProgram)
         {
