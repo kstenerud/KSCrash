@@ -47,8 +47,7 @@
 #pragma mark - Constants -
 // ============================================================================
 
-#define kThreadPrimary "KSCrash Exception Handler (Primary)"
-#define kThreadSecondary "KSCrash Exception Handler (Secondary)"
+#define kHandleExceptionThread "KSCrash Exception Handler"
 
 #if __LP64__
     #define MACH_ERROR_CODE_MASK 0xFFFFFFFFFFFFFFFF
@@ -141,16 +140,11 @@ static struct
 /** Our exception port. */
 static mach_port_t g_exceptionPort = MACH_PORT_NULL;
 
-/** Primary exception handler thread. */
-static pthread_t g_primaryPThread;
-static thread_t g_primaryMachThread;
+/** Exception handler thread. */
+static pthread_t g_handleExceptionPThread;
+static thread_t g_handleExceptionMachThread;
 
-/** Secondary exception handler thread in case crash handler crashes. */
-static pthread_t g_secondaryPThread;
-static thread_t g_secondaryMachThread;
-
-static char g_primaryEventID[37];
-static char g_secondaryEventID[37];
+static char g_exceptionEventID[37];
 
 // ============================================================================
 #pragma mark - Utility -
@@ -267,16 +261,10 @@ static void* handleExceptions(void* const userData)
 {
     MachExceptionMessage exceptionMessage = {{0}};
     MachReplyMessage replyMessage = {{0}};
-    char* eventID = g_primaryEventID;
+    char* eventID = g_exceptionEventID;
 
     const char* threadName = (const char*) userData;
     pthread_setname_np(threadName);
-    if(threadName == kThreadSecondary)
-    {
-        KSLOG_DEBUG("This is the secondary thread. Suspending.");
-        thread_suspend((thread_t)ksthread_self());
-        eventID = g_secondaryEventID;
-    }
 
     for(;;)
     {
@@ -311,24 +299,8 @@ static void* handleExceptions(void* const userData)
 
         KSLOG_DEBUG("Exception handler is installed. Continuing exception handling.");
 
-
-        // Switch to the secondary thread if necessary, or uninstall the handler
-        // to avoid a death loop.
-        if(ksthread_self() == g_primaryMachThread)
-        {
-            KSLOG_DEBUG("This is the primary exception thread. Activating secondary thread.");
-// TODO: This was put here to avoid a freeze. Does secondary thread ever fire?
-            restoreExceptionPorts();
-            if(thread_resume(g_secondaryMachThread) != KERN_SUCCESS)
-            {
-                KSLOG_DEBUG("Could not activate secondary thread. Restoring original exception ports.");
-            }
-        }
-        else
-        {
-            KSLOG_DEBUG("This is the secondary exception thread. Restoring original exception ports.");
-//            restoreExceptionPorts();
-        }
+        // Uninstall the handler to avoid a freeze.
+        restoreExceptionPorts();
 
         // Fill out crash information
         KSLOG_DEBUG("Fetching machine state.");
@@ -400,40 +372,23 @@ static void uninstallExceptionHandler()
 {
     KSLOG_DEBUG("Uninstalling mach exception handler.");
     
-    // NOTE: Do not deallocate the exception port. If a secondary crash occurs
-    // it will hang the process.
-    
     restoreExceptionPorts();
     
     thread_t thread_self = (thread_t)ksthread_self();
     
-    if(g_primaryPThread != 0 && g_primaryMachThread != thread_self)
+    if(g_handleExceptionPThread != 0 && g_handleExceptionMachThread != thread_self)
     {
-        KSLOG_DEBUG("Canceling primary exception thread.");
+        KSLOG_DEBUG("Canceling exception thread.");
         if(g_isHandlingCrash)
         {
-            thread_terminate(g_primaryMachThread);
+            thread_terminate(g_handleExceptionMachThread);
         }
         else
         {
-            pthread_cancel(g_primaryPThread);
+            pthread_cancel(g_handleExceptionPThread);
         }
-        g_primaryMachThread = 0;
-        g_primaryPThread = 0;
-    }
-    if(g_secondaryPThread != 0 && g_secondaryMachThread != thread_self)
-    {
-        KSLOG_DEBUG("Canceling secondary exception thread.");
-        if(g_isHandlingCrash)
-        {
-            thread_terminate(g_secondaryMachThread);
-        }
-        else
-        {
-            pthread_cancel(g_secondaryPThread);
-        }
-        g_secondaryMachThread = 0;
-        g_secondaryPThread = 0;
+        g_handleExceptionMachThread = 0;
+        g_handleExceptionPThread = 0;
     }
     
     g_exceptionPort = MACH_PORT_NULL;
@@ -507,35 +462,23 @@ static bool installExceptionHandler()
         goto failed;
     }
 
-    KSLOG_DEBUG("Creating secondary exception thread (suspended).");
     pthread_attr_init(&attr);
     attributes_created = true;
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-    error = pthread_create(&g_secondaryPThread,
-                           &attr,
-                           &handleExceptions,
-                           kThreadSecondary);
-    if(error != 0)
-    {
-        KSLOG_ERROR("pthread_create_suspended_np: %s", strerror(error));
-        goto failed;
-    }
-    g_secondaryMachThread = pthread_mach_thread_np(g_secondaryPThread);
-    ksmc_addReservedThread(g_secondaryMachThread);
 
-    KSLOG_DEBUG("Creating primary exception thread.");
-    error = pthread_create(&g_primaryPThread,
+    KSLOG_DEBUG("Creating handle exception thread.");
+    error = pthread_create(&g_handleExceptionPThread,
                            &attr,
                            &handleExceptions,
-                           kThreadPrimary);
+                           kHandleExceptionThread);
     if(error != 0)
     {
         KSLOG_ERROR("pthread_create: %s", strerror(error));
         goto failed;
     }
     pthread_attr_destroy(&attr);
-    g_primaryMachThread = pthread_mach_thread_np(g_primaryPThread);
-    ksmc_addReservedThread(g_primaryMachThread);
+    g_handleExceptionMachThread = pthread_mach_thread_np(g_handleExceptionPThread);
+    ksmc_addReservedThread(g_handleExceptionMachThread);
 
     KSLOG_DEBUG("Mach exception handler installed.");
     return true;
@@ -558,8 +501,7 @@ static void setEnabled(bool isEnabled)
         g_isEnabled = isEnabled;
         if(isEnabled)
         {
-            ksid_generate(g_primaryEventID);
-            ksid_generate(g_secondaryEventID);
+            ksid_generate(g_exceptionEventID);
             if(!installExceptionHandler())
             {
                 return;
