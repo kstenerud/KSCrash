@@ -62,6 +62,7 @@
 
 /** A mach exception message (according to ux_exception.c, xnu-1699.22.81).
  */
+#pragma pack(4)
 typedef struct
 {
     /** Mach header. */
@@ -99,9 +100,11 @@ typedef struct
     /** Padding to avoid RCV_TOO_LARGE. */
     char                       padding[512];
 } MachExceptionMessage;
+#pragma pack()
 
 /** A mach reply message (according to ux_exception.c, xnu-1699.22.81).
  */
+#pragma pack(4)
 typedef struct
 {
     /** Mach header. */
@@ -113,7 +116,7 @@ typedef struct
     /** Return code. */
     kern_return_t     returnCode;
 } MachReplyMessage;
-
+#pragma pack()
 
 // ============================================================================
 #pragma mark - Globals -
@@ -299,7 +302,7 @@ static void* handleExceptions(void* const userData)
         KSLOG_ERROR("mach_msg: %s", mach_error_string(kr));
     }
 
-    KSLOG_DEBUG("Trapped mach exception code 0x%x, subcode 0x%x",
+    KSLOG_DEBUG("Trapped mach exception code 0x%llx, subcode 0x%llx",
                 exceptionMessage.code[0], exceptionMessage.code[1]);
     if(g_isEnabled)
     {
@@ -326,7 +329,7 @@ static void* handleExceptions(void* const userData)
         }
         else
         {
-            KSLOG_DEBUG("This is the secondary exception thread. Restoring original exception ports.");
+            KSLOG_DEBUG("This is the secondary exception thread.");// Restoring original exception ports.");
 //            restoreExceptionPorts();
         }
 
@@ -339,7 +342,8 @@ static void* handleExceptions(void* const userData)
         if(ksmc_getContextForThread(exceptionMessage.thread.name, machineContext, true))
         {
             kssc_initWithMachineContext(&g_stackCursor, 100, machineContext);
-            KSLOG_TRACE("Fault address 0x%x, instruction address 0x%x", kscpu_faultAddress(machineContext), kscpu_instructionAddress(machineContext));
+            KSLOG_TRACE("Fault address %p, instruction address %p",
+                        kscpu_faultAddress(machineContext), kscpu_instructionAddress(machineContext));
             if(exceptionMessage.exception == EXC_BAD_ACCESS)
             {
                 crashContext->faultAddress = kscpu_faultAddress(machineContext);
@@ -355,8 +359,8 @@ static void* handleExceptions(void* const userData)
         crashContext->eventID = eventID;
         crashContext->registersAreValid = true;
         crashContext->mach.type = exceptionMessage.exception;
-        crashContext->mach.code = exceptionMessage.code[0] & MACH_ERROR_CODE_MASK;
-        crashContext->mach.subcode = exceptionMessage.code[1] & MACH_ERROR_CODE_MASK;
+        crashContext->mach.code = exceptionMessage.code[0] & (int64_t)MACH_ERROR_CODE_MASK;
+        crashContext->mach.subcode = exceptionMessage.code[1] & (int64_t)MACH_ERROR_CODE_MASK;
         if(crashContext->mach.code == KERN_PROTECTION_FAILURE && crashContext->isStackOverflow)
         {
             // A stack overflow should return KERN_INVALID_ADDRESS, but
@@ -499,7 +503,7 @@ static bool installExceptionHandler()
     kr = task_set_exception_ports(thisTask,
                                   mask,
                                   g_exceptionPort,
-                                  EXCEPTION_DEFAULT,
+                                  (int)(EXCEPTION_DEFAULT | MACH_EXCEPTION_CODES),
                                   THREAD_STATE_NONE);
     if(kr != KERN_SUCCESS)
     {

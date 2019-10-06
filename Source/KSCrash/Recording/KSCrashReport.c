@@ -135,7 +135,7 @@ static void addIntegerElement(const KSCrashReportWriter* const writer, const cha
 
 static void addUIntegerElement(const KSCrashReportWriter* const writer, const char* const key, const uint64_t value)
 {
-    ksjson_addIntegerElement(getJsonContext(writer), key, (int64_t)value);
+    ksjson_addUIntegerElement(getJsonContext(writer), key, value);
 }
 
 static void addStringElement(const KSCrashReportWriter* const writer, const char* const key, const char* const value)
@@ -1360,7 +1360,7 @@ static void writeError(const KSCrashReportWriter* const writer,
             {
                 writer->addStringElement(writer, KSCrashField_CodeName, machCodeName);
             }
-            writer->addUIntegerElement(writer, KSCrashField_Subcode, (unsigned)crash->mach.subcode);
+            writer->addUIntegerElement(writer, KSCrashField_Subcode, (size_t)crash->mach.subcode);
         }
         writer->endContainer(writer);
 #endif
