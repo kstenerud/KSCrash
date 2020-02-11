@@ -80,9 +80,11 @@ typedef enum
     KSCrashMonitorTypeMainThreadDeadlock | \
     KSCrashMonitorTypeUserReported       | \
     KSCrashMonitorTypeSystem             | \
-    KSCrashMonitorTypeApplicationState   | \
-    KSCrashMonitorTypeZombie               \
+    KSCrashMonitorTypeApplicationState     \
 )
+//    KSCrashMonitorTypeApplicationState   | \
+//    KSCrashMonitorTypeZombie               \
+//)
 
 #define KSCrashMonitorTypeExperimental     \
 (                                          \
