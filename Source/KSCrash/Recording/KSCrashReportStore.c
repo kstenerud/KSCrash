@@ -166,7 +166,7 @@ static void initializeIDs()
                    + (int64_t)time.tm_year * 61 * 60 * 24 * 366;
     baseID <<= 23;
 
-    g_nextUniqueIDHigh = baseID & ~0xffffffff;
+    g_nextUniqueIDHigh = baseID & ~(int64_t)0xffffffff;
     g_nextUniqueIDLow = (uint32_t)(baseID & 0xffffffff);
 }
 
