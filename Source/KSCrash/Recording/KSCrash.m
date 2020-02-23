@@ -85,7 +85,7 @@ static NSString* getBasePath()
         return nil;
     }
     NSString* pathEnd = [@"KSCrash" stringByAppendingPathComponent:getBundleName()];
-    return [cachePath stringByAppendingPathComponent:pathEnd];
+    return [cachePath stringByAppendingPathComponent:[pathEnd stringByReplacingOccurrencesOfString:@" " withString:@"-"]];
 }
 
 
