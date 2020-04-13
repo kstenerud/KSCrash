@@ -49,6 +49,7 @@ typedef struct KSMachineContext
     int threadCount;
     bool isCrashedContext;
     bool isCurrentThread;
+    bool isMainThread;
     bool isStackOverflow;
     bool isSignalContext;
     STRUCT_MCONTEXT_L machineContext;
