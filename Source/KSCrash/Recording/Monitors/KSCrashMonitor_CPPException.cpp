@@ -32,6 +32,8 @@
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
+#include "KSCxaThrowSwapper.h"
+
 #include <cxxabi.h>
 #include <dlfcn.h>
 #include <stdio.h>
@@ -59,6 +61,8 @@ static volatile bool g_isEnabled = false;
 /** True if the handler should capture the next stack trace. */
 static bool g_captureNextStackTrace = false;
 
+static bool g_cxaSwapEnabled = false;
+
 static std::terminate_handler g_originalTerminateHandler;
 
 static char g_eventID[37];
@@ -69,10 +73,18 @@ static KSCrash_MonitorContext g_monitorContext;
 // Find some other way to do thread local. Maybe storage with lookup by tid?
 static KSStackCursor g_stackCursor;
 
-
 // ============================================================================
 #pragma mark - Callbacks -
 // ============================================================================
+
+static void captureStackTrace(void* thrown_exception, std::type_info* tinfo, void (*dest)(void*))
+{
+    if(g_captureNextStackTrace)
+    {
+        kssc_initSelfThread(&g_stackCursor, 1); // Meant to be `2` (captureStackTrace, __cxa_throw_decorator),
+                                                // but sometimes one of the frames lost. Temporary fix with `1`.
+    }
+}
 
 typedef void (*cxa_throw_type)(void*, std::type_info*, void (*)(void*));
 
@@ -82,12 +94,14 @@ extern "C"
 
     void __cxa_throw(void* thrown_exception, std::type_info* tinfo, void (*dest)(void*))
     {
-        if(g_captureNextStackTrace)
-        {
-            kssc_initSelfThread(&g_stackCursor, 1);
-        }
-        
         static cxa_throw_type orig_cxa_throw = NULL;
+        if (g_cxaSwapEnabled == false)
+        {
+            if(g_captureNextStackTrace)
+            {
+                kssc_initSelfThread(&g_stackCursor, 1);
+            }
+        }
         unlikely_if(orig_cxa_throw == NULL)
         {
             orig_cxa_throw = (cxa_throw_type) dlsym(RTLD_NEXT, "__cxa_throw");
@@ -219,6 +233,15 @@ static void setEnabled(bool isEnabled)
 static bool isEnabled()
 {
     return g_isEnabled;
+}
+
+extern "C" void kscm_enableSwapCxaThrow(void)
+{
+    if (g_cxaSwapEnabled != true)
+    {
+        ksct_swap(captureStackTrace);
+        g_cxaSwapEnabled = true;
+    }
 }
 
 extern "C" KSCrashMonitorAPI* kscm_cppexception_getAPI()

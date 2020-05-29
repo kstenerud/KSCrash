@@ -92,7 +92,7 @@ static void handleSignal(int sigNum, siginfo_t* signalInfo, void* userContext)
         KSLOG_DEBUG("Filling out context.");
         KSMC_NEW_CONTEXT(machineContext);
         ksmc_getContextForSignal(userContext, machineContext);
-        kssc_initWithMachineContext(&g_stackCursor, 100, machineContext);
+        kssc_initWithMachineContext(&g_stackCursor, KSSC_MAX_STACK_DEPTH, machineContext);
 
         KSCrash_MonitorContext* crashContext = &g_monitorContext;
         memset(crashContext, 0, sizeof(*crashContext));

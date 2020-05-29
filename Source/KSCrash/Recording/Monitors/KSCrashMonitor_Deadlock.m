@@ -115,7 +115,7 @@ static NSTimeInterval g_watchdogInterval = 0;
     KSMC_NEW_CONTEXT(machineContext);
     ksmc_getContextForThread(g_mainQueueThread, machineContext, false);
     KSStackCursor stackCursor;
-    kssc_initWithMachineContext(&stackCursor, 100, machineContext);
+    kssc_initWithMachineContext(&stackCursor, KSSC_MAX_STACK_DEPTH, machineContext);
     char eventID[37];
     ksid_generate(eventID);
 

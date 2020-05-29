@@ -52,6 +52,11 @@
 #define CALL_INSTRUCTION_FROM_RETURN_ADDRESS(A) (DETAG_INSTRUCTION_ADDRESS((A)) - 1)
 
 
+uintptr_t kssymbolicator_callInstructionAddress(const uintptr_t returnAddress)
+{
+    return CALL_INSTRUCTION_FROM_RETURN_ADDRESS(returnAddress);
+}
+
 bool kssymbolicator_symbolicate(KSStackCursor *cursor)
 {
     Dl_info symbolsBuffer;

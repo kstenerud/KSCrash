@@ -34,6 +34,14 @@ extern "C" {
 #include "KSStackCursor.h"
 #include <stdbool.h>
 
+/** Call instruction address is different from return address.
+ *
+ * @param returnAddress The return address of fuction call.
+ *
+ * @return Call address of the function.
+ */
+uintptr_t kssymbolicator_callInstructionAddress(const uintptr_t returnAddress);
+
 /** Symbolicate a stack cursor.
  *
  * @param cursor The cursor to symbolicate.

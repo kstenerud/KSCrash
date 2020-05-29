@@ -124,6 +124,8 @@
 #define KSCrashField_ImageMajorVersion     "major_version"
 #define KSCrashField_ImageMinorVersion     "minor_version"
 #define KSCrashField_ImageRevisionVersion  "revision_version"
+#define KSCrashField_ImageCrashInfoMessage    "crash_info_message"
+#define KSCrashField_ImageCrashInfoMessage2   "crash_info_message2"
 
 
 #pragma mark - Memory -

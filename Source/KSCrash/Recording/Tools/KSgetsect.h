@@ -1,7 +1,7 @@
 //
-//  KSCrashMonitor_CPPException.h
+//  KSgetsect.h
 //
-//  Copyright (c) 2012 Karl Stenerud. All rights reserved.
+//  Copyright (c) 2019 YANDEX LLC. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,26 +22,28 @@
 // THE SOFTWARE.
 //
 
-#ifndef HDR_KSCrashMonitor_CPPException_h
-#define HDR_KSCrashMonitor_CPPException_h
+#ifndef KSgetsect_h
+#define KSgetsect_h
+
+#include <mach-o/loader.h>
 
 #ifdef __cplusplus
 extern "C" {
-#endif
-
-#include "KSCrashMonitor.h"
-
-/** Enable swapping of __cxa_trow symbol with lazy symbols table
+#endif /* __cplusplus */
+/**
+ * This routine returns the segment_command structure for the named segment
+ * if it exist in the passed mach header. Otherwise it returns zero.
+ * It just looks through the load commands. Since these are mapped into the text
+ * segment they are read only and thus const.
  */
-void kscm_enableSwapCxaThrow(void);
-
-/** Access the Monitor API.
- */
-KSCrashMonitorAPI* kscm_cppexception_getAPI(void);
-
+#ifndef __LP64__
+const struct segment_command *ksgs_getsegbynamefromheader(const struct mach_header *mhp, char *segname);
+#else /* defined(__LP64__) */
+const struct segment_command_64 *ksgs_getsegbynamefromheader(const struct mach_header_64 *mhp, char *segname);
+#endif /* defined(__LP64__) */
 
 #ifdef __cplusplus
 }
-#endif
+#endif /* __cplusplus */
 
-#endif // HDR_KSCrashMonitor_CPPException_h
+#endif /* KSgetsect_h */
