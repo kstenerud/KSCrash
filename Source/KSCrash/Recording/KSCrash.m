@@ -397,7 +397,7 @@ static NSString* getBasePath()
 
 - (void) enableSwapOfCxaThrow
 {
-    kscrash_enableSwapCxaThrow();
+    enableSwapCxaThrow();
 }
 
 // ============================================================================

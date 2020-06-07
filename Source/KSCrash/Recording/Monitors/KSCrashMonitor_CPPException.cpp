@@ -77,13 +77,20 @@ static KSStackCursor g_stackCursor;
 #pragma mark - Callbacks -
 // ============================================================================
 
-static void captureStackTrace(void* thrown_exception, std::type_info* tinfo, void (*dest)(void*))
+static void captureStackTrace()
 {
     if(g_captureNextStackTrace)
     {
-        kssc_initSelfThread(&g_stackCursor, 1); // Meant to be `2` (captureStackTrace, __cxa_throw_decorator),
-                                                // but sometimes one of the frames lost. Temporary fix with `1`.
+        // TODO: Meant to be `3` (captureStackTrace, __cxa_throw_decorator), but sometimes one of the frames lost.
+        // Temporary fix with `2`.
+        const int skip_entries = 2;
+        kssc_initSelfThread(&g_stackCursor, skip_entries);
     }
+}
+
+static void captureStackTrace(void* thrown_exception, std::type_info* tinfo, void (*dest)(void*))
+{
+    captureStackTrace();
 }
 
 typedef void (*cxa_throw_type)(void*, std::type_info*, void (*)(void*));
@@ -97,10 +104,7 @@ extern "C"
         static cxa_throw_type orig_cxa_throw = NULL;
         if (g_cxaSwapEnabled == false)
         {
-            if(g_captureNextStackTrace)
-            {
-                kssc_initSelfThread(&g_stackCursor, 1);
-            }
+            captureStackTrace();
         }
         unlikely_if(orig_cxa_throw == NULL)
         {

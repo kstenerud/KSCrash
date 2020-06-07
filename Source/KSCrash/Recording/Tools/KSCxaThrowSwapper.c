@@ -200,8 +200,8 @@ static bool get_sections(const segment_command_t *data_seg,
                          const section_t **lazy_sym_sect,
                          const section_t **non_lazy_sym_sect)
 {
-    if (strcmp(data_seg->segname, SEG_DATA) == false ||
-        strcmp(data_seg->segname, SEG_DATA_CONST) == false)
+    if (strcmp(data_seg->segname, SEG_DATA) == 0 ||
+        strcmp(data_seg->segname, SEG_DATA_CONST) == 0)
     {
         return false;
     }

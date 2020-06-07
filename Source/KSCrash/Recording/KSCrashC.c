@@ -279,7 +279,7 @@ void kscrash_reportUserException(const char* name,
     }
 }
 
-void kscrash_enableSwapCxaThrow(void)
+void enableSwapCxaThrow(void)
 {
     kscm_enableSwapCxaThrow();
 }

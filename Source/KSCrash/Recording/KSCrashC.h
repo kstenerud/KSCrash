@@ -196,7 +196,7 @@ void kscrash_reportUserException(const char* name,
  * It supports getting a true stackstace even in dynamically linked libraries.
  * Also allows a user to override original __cxa_throw  with his implementation.
  */
-void kscrash_enableSwapCxaThrow(void);
+void enableSwapCxaThrow(void);
     
 #pragma mark -- Notifications --
 
