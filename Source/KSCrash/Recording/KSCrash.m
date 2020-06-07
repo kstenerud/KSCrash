@@ -85,7 +85,7 @@ static NSString* getBasePath()
         return nil;
     }
     NSString* pathEnd = [@"KSCrash" stringByAppendingPathComponent:getBundleName()];
-    return [cachePath stringByAppendingPathComponent:[pathEnd stringByReplacingOccurrencesOfString:@" " withString:@"-"]];
+    return [cachePath stringByAppendingPathComponent:pathEnd];
 }
 
 
@@ -371,16 +371,21 @@ static NSString* getBasePath()
     const char* cReason = [reason cStringUsingEncoding:NSUTF8StringEncoding];
     const char* cLanguage = [language cStringUsingEncoding:NSUTF8StringEncoding];
     const char* cLineOfCode = [lineOfCode cStringUsingEncoding:NSUTF8StringEncoding];
-    NSError* error = nil;
-    NSData* jsonData = [KSJSONCodec encode:stackTrace options:0 error:&error];
-    if(jsonData == nil || error != nil)
+    const char* cStackTrace = NULL;
+    
+    if(stackTrace != nil)
     {
-        KSLOG_ERROR(@"Error encoding stack trace to JSON: %@", error);
-        // Don't return, since we can still record other useful information.
+        NSError* error = nil;
+        NSData* jsonData = [KSJSONCodec encode:stackTrace options:0 error:&error];
+        if(jsonData == nil || error != nil)
+        {
+            KSLOG_ERROR(@"Error encoding stack trace to JSON: %@", error);
+            // Don't return, since we can still record other useful information.
+        }
+        NSString* jsonString = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
+        cStackTrace = [jsonString cStringUsingEncoding:NSUTF8StringEncoding];
     }
-    NSString* jsonString = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
-    const char* cStackTrace = [jsonString cStringUsingEncoding:NSUTF8StringEncoding];
-
+    
     kscrash_reportUserException(cName,
                                 cReason,
                                 cLanguage,
@@ -388,6 +393,11 @@ static NSString* getBasePath()
                                 cStackTrace,
                                 logAllThreads,
                                 terminateProgram);
+}
+
+- (void) enableSwapOfCxaThrow
+{
+    enableSwapCxaThrow();
 }
 
 // ============================================================================

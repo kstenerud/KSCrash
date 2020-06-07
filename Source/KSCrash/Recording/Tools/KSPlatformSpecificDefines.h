@@ -1,7 +1,7 @@
 //
-//  KSCrashMonitor_CPPException.h
+//  KSPlatformSpecificDefines.h
 //
-//  Copyright (c) 2012 Karl Stenerud. All rights reserved.
+//  Copyright (c) 2019 YANDEX LLC. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,26 +22,24 @@
 // THE SOFTWARE.
 //
 
-#ifndef HDR_KSCrashMonitor_CPPException_h
-#define HDR_KSCrashMonitor_CPPException_h
+#ifndef KSPlatformSpecificDefines_h
+#define KSPlatformSpecificDefines_h
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <mach-o/loader.h>
+#include <mach-o/nlist.h>
 
-#include "KSCrashMonitor.h"
+#ifdef __LP64__
+typedef struct mach_header_64 mach_header_t;
+typedef struct segment_command_64 segment_command_t;
+typedef struct section_64 section_t;
+typedef struct nlist_64 nlist_t;
+#define LC_SEGMENT_ARCH_DEPENDENT LC_SEGMENT_64
+#else /* __LP64__ */
+typedef struct mach_header mach_header_t;
+typedef struct segment_command segment_command_t;
+typedef struct section section_t;
+typedef struct nlist nlist_t;
+#define LC_SEGMENT_ARCH_DEPENDENT LC_SEGMENT
+#endif /* __LP64__ */
 
-/** Enable swapping of __cxa_trow symbol with lazy symbols table
- */
-void kscm_enableSwapCxaThrow(void);
-
-/** Access the Monitor API.
- */
-KSCrashMonitorAPI* kscm_cppexception_getAPI(void);
-
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif // HDR_KSCrashMonitor_CPPException_h
+#endif /* KSPlatformSpecificDefines_h */

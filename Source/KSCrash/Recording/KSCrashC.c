@@ -31,6 +31,7 @@
 #include "KSCrashReport.h"
 #include "KSCrashReportFixer.h"
 #include "KSCrashReportStore.h"
+#include "KSCrashMonitor_CPPException.h"
 #include "KSCrashMonitor_Deadlock.h"
 #include "KSCrashMonitor_User.h"
 #include "KSFileUtils.h"
@@ -276,6 +277,11 @@ void kscrash_reportUserException(const char* name,
     {
         kslog_clearLogFile();
     }
+}
+
+void enableSwapCxaThrow(void)
+{
+    kscm_enableSwapCxaThrow();
 }
 
 void kscrash_notifyObjCLoad(void)

@@ -1,7 +1,7 @@
 //
-//  KSCrashMonitor_CPPException.h
+//  KSCxaThrowSwapper.h
 //
-//  Copyright (c) 2012 Karl Stenerud. All rights reserved.
+//  Copyright (c) 2019 YANDEX LLC. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,26 +22,24 @@
 // THE SOFTWARE.
 //
 
-#ifndef HDR_KSCrashMonitor_CPPException_h
-#define HDR_KSCrashMonitor_CPPException_h
+#ifndef KSCxaThrowSwapper_h
+#define KSCxaThrowSwapper_h
 
 #ifdef __cplusplus
+
+#include <typeinfo>
+
 extern "C" {
+
+typedef void (*cxa_throw_type)(void *, std::type_info *, void (*)(void *));
+#else
+typedef void (*cxa_throw_type)(void *, void *, void (*)(void *));
 #endif
 
-#include "KSCrashMonitor.h"
-
-/** Enable swapping of __cxa_trow symbol with lazy symbols table
- */
-void kscm_enableSwapCxaThrow(void);
-
-/** Access the Monitor API.
- */
-KSCrashMonitorAPI* kscm_cppexception_getAPI(void);
-
+int ksct_swap(const cxa_throw_type handler);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // HDR_KSCrashMonitor_CPPException_h
+#endif /* KSCxaThrowSwapper_h */

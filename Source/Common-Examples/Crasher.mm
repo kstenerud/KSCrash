@@ -133,9 +133,12 @@ int g_crasher_denominator = 0;
     *g_crasher_null_ptr = 1;
 }
 
+static volatile int counter = 0; // To prevent recursion optimization
+
 - (void) causeStackOverflow
 {
     [self causeStackOverflow];
+    counter++;
 }
 
 - (void) doAbort
