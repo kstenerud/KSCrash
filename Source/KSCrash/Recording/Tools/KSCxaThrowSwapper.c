@@ -200,8 +200,8 @@ static bool get_sections(const segment_command_t *data_seg,
                          const section_t **lazy_sym_sect,
                          const section_t **non_lazy_sym_sect)
 {
-    if (strcmp(data_seg->segname, SEG_DATA) == 0 ||
-        strcmp(data_seg->segname, SEG_DATA_CONST) == 0)
+    if (strcmp(data_seg->segname, SEG_DATA) != 0 &&
+        strcmp(data_seg->segname, SEG_DATA_CONST) != 0)
     {
         return false;
     }
@@ -332,17 +332,21 @@ static void rebind_symbols_for_image(const struct mach_header *header, intptr_t 
     const segment_command_t *data_seg = ksgs_getsegbynamefromheader((mach_header_t *) header, SEG_DATA);
     if (data_seg != NULL)
     {
-        get_sections(data_seg, &lazy_sym_sect, &non_lazy_sym_sect);
-        perform_rebinding_with_section(lazy_sym_sect, slide, symtab, strtab, indirect_symtab);
-        perform_rebinding_with_section(non_lazy_sym_sect, slide, symtab, strtab, indirect_symtab);
+        if (get_sections(data_seg, &lazy_sym_sect, &non_lazy_sym_sect))
+        {
+            perform_rebinding_with_section(lazy_sym_sect, slide, symtab, strtab, indirect_symtab);
+            perform_rebinding_with_section(non_lazy_sym_sect, slide, symtab, strtab, indirect_symtab);
+        }
     }
     
     const segment_command_t *data_const_seg = ksgs_getsegbynamefromheader((mach_header_t *) header, SEG_DATA_CONST);
     if (data_const_seg != NULL)
     {
-        get_sections(data_seg, &lazy_sym_sect, &non_lazy_sym_sect);
-        perform_rebinding_with_section(lazy_sym_sect, slide, symtab, strtab, indirect_symtab);
-        perform_rebinding_with_section(non_lazy_sym_sect, slide, symtab, strtab, indirect_symtab);
+        if (get_sections(data_seg, &lazy_sym_sect, &non_lazy_sym_sect))
+        {
+            perform_rebinding_with_section(lazy_sym_sect, slide, symtab, strtab, indirect_symtab);
+            perform_rebinding_with_section(non_lazy_sym_sect, slide, symtab, strtab, indirect_symtab);
+        }
     }
 }
 
