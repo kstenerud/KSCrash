@@ -48,44 +48,19 @@
 #include "KSgetsect.h"
 #include <string.h>
 
-#ifndef __LP64__
-const struct segment_command *ksgs_getsegbynamefromheader(const struct mach_header *mhp, char *segname)
+const segment_command_t *ksgs_getsegbynamefromheader(const mach_header_t *header, const char *seg_name)
 {
-    struct segment_command *sgp;
-    uint32_t i;
+    segment_command_t *sgp;
+    unsigned long i;
 
-    sgp = (struct segment_command *) ((char *) mhp + sizeof(struct mach_header));
-    for (i = 0; i < mhp->ncmds; i++)
+    sgp = (segment_command_t *) ((uintptr_t) header + sizeof(mach_header_t));
+    for (i = 0; i < header->ncmds; i++)
     {
-        if (sgp->cmd == LC_SEGMENT)
+        if (sgp->cmd == LC_SEGMENT_ARCH_DEPENDENT && strncmp(sgp->segname, seg_name, sizeof(sgp->segname)) == 0)
         {
-            if (strncmp(sgp->segname, segname, sizeof(sgp->segname)) == 0)
-            {
-                return sgp;
-            }
+            return sgp;
         }
-        sgp = (struct segment_command *) ((char *) sgp + sgp->cmdsize);
+        sgp = (segment_command_t *) ((uintptr_t) sgp + sgp->cmdsize);
     }
-    return NULL;
+    return (segment_command_t *) NULL;
 }
-#else /* defined(__LP64__) */
-const struct segment_command_64 *ksgs_getsegbynamefromheader(const struct mach_header_64 *mhp, char *segname)
-{
-    struct segment_command_64 *sgp;
-    uint32_t i;
-
-    sgp = (struct segment_command_64 *) ((char *) mhp + sizeof(struct mach_header_64));
-    for (i = 0; i < mhp->ncmds; i++)
-    {
-        if (sgp->cmd == LC_SEGMENT_64)
-        {
-            if (strncmp(sgp->segname, segname, sizeof(sgp->segname)) == 0)
-            {
-                return sgp;
-            }
-        }
-        sgp = (struct segment_command_64 *) ((char *) sgp + sgp->cmdsize);
-    }
-    return NULL;
-}
-#endif /* defined(__LP64__) */
