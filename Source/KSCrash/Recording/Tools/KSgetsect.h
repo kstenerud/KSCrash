@@ -25,22 +25,20 @@
 #ifndef KSgetsect_h
 #define KSgetsect_h
 
-#include <mach-o/loader.h>
-
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
+
+#include <mach-o/loader.h>
+#include "KSPlatformSpecificDefines.h"
+
 /**
  * This routine returns the segment_command structure for the named segment
  * if it exist in the passed mach header. Otherwise it returns zero.
  * It just looks through the load commands. Since these are mapped into the text
  * segment they are read only and thus const.
  */
-#ifndef __LP64__
-const struct segment_command *ksgs_getsegbynamefromheader(const struct mach_header *mhp, char *segname);
-#else /* defined(__LP64__) */
-const struct segment_command_64 *ksgs_getsegbynamefromheader(const struct mach_header_64 *mhp, char *segname);
-#endif /* defined(__LP64__) */
+const segment_command_t *ksgs_getsegbynamefromheader(const mach_header_t *header, const char *seg_name);
 
 #ifdef __cplusplus
 }
