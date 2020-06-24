@@ -342,7 +342,7 @@ static void rebind_symbols_for_image(const struct mach_header *header, intptr_t 
     const segment_command_t *data_const_seg = ksgs_getsegbynamefromheader((mach_header_t *) header, SEG_DATA_CONST);
     if (data_const_seg != NULL)
     {
-        if (get_sections(data_seg, &lazy_sym_sect, &non_lazy_sym_sect))
+        if (get_sections(data_const_seg, &lazy_sym_sect, &non_lazy_sym_sect))
         {
             perform_rebinding_with_section(lazy_sym_sect, slide, symtab, strtab, indirect_symtab);
             perform_rebinding_with_section(non_lazy_sym_sect, slide, symtab, strtab, indirect_symtab);
