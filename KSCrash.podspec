@@ -15,7 +15,7 @@ Pod::Spec.new do |s|
   s.libraries = 'c++', 'z'
   s.xcconfig = { 'GCC_ENABLE_CPP_EXCEPTIONS' => 'YES' }
   s.default_subspecs = 'Installations'
-  
+
   s.subspec 'Recording' do |recording|
     recording.compiler_flags = '-fno-optimize-sibling-calls'
     recording.source_files   = 'Source/KSCrash/Recording/**/*.{h,m,mm,c,cpp}',
