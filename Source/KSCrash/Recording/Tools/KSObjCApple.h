@@ -230,8 +230,32 @@ typedef struct class_ro_t {
     property_list_t *baseProperties;
 } class_ro_t;
 
+#if (defined __MAC_10_15_4) || (defined __IPHONE_13_4)
+// @see https://opensource.apple.com/source/objc4/objc4-781/runtime/objc-gdb.h
+#define KS_OBJC_CLASS_ABI_VERSION_MAX 1
+#endif
+
+struct class_rw_ext_t {
+    const class_ro_t *ro;
+    method_array_t methods;
+    property_array_t properties;
+    protocol_array_t protocols;
+    char *demangledName;
+    uint32_t version;
+};
+
 typedef struct class_rw_t {
     uint32_t flags;
+#ifdef KS_OBJC_CLASS_ABI_VERSION_MAX
+    uint16_t witness;
+    uint16_t index;
+    
+    uintptr_t ro_or_rw_ext;
+    
+    Class firstSubclass;
+    Class nextSiblingClass;
+    
+#else
     uint32_t version;
     
     const class_ro_t *ro;
@@ -244,6 +268,8 @@ typedef struct class_rw_t {
     Class nextSiblingClass;
     
     char *demangledName;
+#endif
+    
 } class_rw_t;
 
 typedef struct class_t {

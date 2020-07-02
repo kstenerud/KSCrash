@@ -227,7 +227,25 @@ static inline struct class_rw_t* getClassRW(const struct class_t* const class)
 
 static inline const struct class_ro_t* getClassRO(const struct class_t* const class)
 {
+#ifdef KS_OBJC_CLASS_ABI_VERSION_MAX
+    class_rw_t *rw = getClassRW(class);
+    uintptr_t ext_ptr = rw->ro_or_rw_ext;
+    /* When objc_class_abi_version >= 1, it's a tagged union based on the low bit:
+    * 0: class_ro_t  1: class_rw_ext_t
+    * @see https://opensource.apple.com/source/objc4/objc4-781/runtime/objc-runtime-new.h */
+    if (ext_ptr & 0x1UL) {
+        ext_ptr &= ~0x1UL;
+        struct class_rw_ext_t *rw_ext = (struct class_rw_ext_t *)ext_ptr;
+        return rw_ext->ro;
+    } else {
+        ext_ptr &= ~0x1UL;
+        struct class_ro_t *ro = (struct class_ro_t *)ext_ptr;
+        return ro;
+    }
+
+#else
     return getClassRW(class)->ro;
+#endif
 }
 
 static inline const void* getSuperClass(const void* const classPtr)
