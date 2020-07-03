@@ -252,3 +252,31 @@ KSCrashMonitorAPI* kscm_signal_getAPI()
     };
     return &api;
 }
+
+uintptr_t emb_previousSignalHandler()
+{
+    uintptr_t p = 0;
+    if (g_previousSignalHandlers)
+    {
+        p = (uintptr_t)g_previousSignalHandlers->sa_sigaction;
+    }
+    return p;
+}
+
+uintptr_t emb_currentSignalHandler()
+{
+    const int* fatalSignals = kssignal_fatalSignals();
+    int fatalSignalsCount = kssignal_numFatalSignals();
+    struct sigaction* signalHandlers = malloc(sizeof(*signalHandlers)
+                                              * (unsigned)fatalSignalsCount);
+    for(int i = 0; i < fatalSignalsCount; i++)
+    {
+        sigaction(fatalSignals[i], NULL, &signalHandlers[i]);
+    }
+    uintptr_t p = 0;
+    if (signalHandlers)
+    {
+        p = (uintptr_t)signalHandlers->sa_sigaction;
+    }
+    return p;
+}

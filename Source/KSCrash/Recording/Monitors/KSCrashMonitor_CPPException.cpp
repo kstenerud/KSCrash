@@ -228,3 +228,24 @@ extern "C" KSCrashMonitorAPI* kscm_cppexception_getAPI()
     };
     return &api;
 }
+
+extern "C" uintptr_t emb_previousTerminateHandler()
+{
+    uintptr_t p = 0;
+    if (g_originalTerminateHandler)
+    {
+        p = (uintptr_t)g_originalTerminateHandler;
+    }
+    return p;
+}
+
+extern "C" uintptr_t emb_currentTerminateHandler()
+{
+    std::terminate_handler current = std::get_terminate();
+    uintptr_t p = 0;
+    if (current)
+    {
+        p = (uintptr_t)current;
+    }
+    return p;
+}
