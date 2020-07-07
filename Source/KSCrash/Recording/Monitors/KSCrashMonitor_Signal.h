@@ -44,6 +44,8 @@ extern "C" {
  */
 KSCrashMonitorAPI* kscm_signal_getAPI(void);
 
+uintptr_t emb_previousSignalHandler(void);
+uintptr_t emb_currentSignalHandler(void);
 
 #ifdef __cplusplus
 }

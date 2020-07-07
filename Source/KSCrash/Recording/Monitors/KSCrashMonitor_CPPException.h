@@ -36,6 +36,8 @@ extern "C" {
  */
 KSCrashMonitorAPI* kscm_cppexception_getAPI(void);
 
+uintptr_t emb_previousTerminateHandler(void);
+uintptr_t emb_currentTerminateHandler(void);
 
 #ifdef __cplusplus
 }
