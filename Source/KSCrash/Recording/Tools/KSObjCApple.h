@@ -110,6 +110,15 @@ NAME { \
 #endif
 
 // ======================================================================
+#pragma mark - objc4-781/runtime/objc-internal.h -
+// ======================================================================
+#if __ARM_ARCH_7K__ >= 2  ||  (__arm64__ && !__LP64__)
+#   define SUPPORT_INDEXED_ISA 1
+#else
+#   define SUPPORT_INDEXED_ISA 0
+#endif
+
+// ======================================================================
 #pragma mark - objc4-680/runtime/objc-internal.h -
 // ======================================================================
 
@@ -230,11 +239,6 @@ typedef struct class_ro_t {
     property_list_t *baseProperties;
 } class_ro_t;
 
-#if (defined __MAC_10_15_4) || (defined __IPHONE_13_4)
-// @see https://opensource.apple.com/source/objc4/objc4-781/runtime/objc-gdb.h
-#define KS_OBJC_CLASS_ABI_VERSION_MAX 1
-#endif
-
 struct class_rw_ext_t {
     const class_ro_t *ro;
     method_array_t methods;
@@ -246,30 +250,15 @@ struct class_rw_ext_t {
 
 typedef struct class_rw_t {
     uint32_t flags;
-#ifdef KS_OBJC_CLASS_ABI_VERSION_MAX
     uint16_t witness;
+#if SUPPORT_INDEXED_ISA
     uint16_t index;
-    
-    uintptr_t ro_or_rw_ext;
-    
-    Class firstSubclass;
-    Class nextSiblingClass;
-    
-#else
-    uint32_t version;
-    
-    const class_ro_t *ro;
-    
-    method_array_t methods;
-    property_array_t properties;
-    protocol_array_t protocols;
-    
-    Class firstSubclass;
-    Class nextSiblingClass;
-    
-    char *demangledName;
 #endif
     
+    uintptr_t ro_or_rw_ext;
+    Class firstSubclass;
+    Class nextSiblingClass;
+
 } class_rw_t;
 
 typedef struct class_t {
