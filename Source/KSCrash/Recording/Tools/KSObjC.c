@@ -550,7 +550,6 @@ static bool containsValidExtData(class_rw_t *rw)
             return false;
         }
     }
-    
     return true;
 }
 
@@ -566,11 +565,9 @@ static bool containsValidROData(const void* const classPtr)
     {
         return false;
     }
-    
     if (!containsValidExtData(rw)) {
         return false;
     }
-    
     const class_ro_t* ro = getClassRO(class);
     if(!ksmem_isMemoryReadable(ro, sizeof(*ro)))
     {
@@ -578,7 +575,6 @@ static bool containsValidROData(const void* const classPtr)
     }
     return true;
 }
-
 
 static bool containsValidIvarData(const void* const classPtr)
 {
