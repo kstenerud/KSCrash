@@ -274,7 +274,7 @@ static void* handleExceptions(void* const userData)
 
     const char* threadName = (const char*) userData;
     pthread_setname_np(threadName);
-    if(threadName == kThreadSecondary)
+    if(strcmp(threadName, kThreadSecondary))
     {
         KSLOG_DEBUG("This is the secondary thread. Suspending.");
         thread_suspend((thread_t)ksthread_self());

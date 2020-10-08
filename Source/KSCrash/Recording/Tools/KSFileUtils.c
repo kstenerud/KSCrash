@@ -84,8 +84,7 @@ static int dirContentsCount(const char* path)
         return 0;
     }
 
-    struct dirent* ent;
-    while((ent = readdir(dir)))
+    while((readdir(dir)))
     {
         count++;
     }
