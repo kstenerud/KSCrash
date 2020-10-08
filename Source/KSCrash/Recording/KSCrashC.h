@@ -191,6 +191,12 @@ void kscrash_reportUserException(const char* name,
                                  bool logAllThreads,
                                  bool terminateProgram);
 
+/** Experimental feature. Works like LD_PRELOAD. Enable C++ exceptions catching with __cxa_throw swap,
+ * by updating pointers in the indirect symbol table, which is located in the __LINKEDIT segment.
+ * It supports getting a true stackstace even in dynamically linked libraries.
+ * Also allows a user to override original __cxa_throw  with his implementation.
+ */
+void enableSwapCxaThrow(void);
     
 #pragma mark -- Notifications --
 

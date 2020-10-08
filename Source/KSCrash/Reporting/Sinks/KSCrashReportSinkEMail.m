@@ -247,11 +247,15 @@
 {
     if(![MFMailComposeViewController canSendMail])
     {
-        [[[UIAlertView alloc] initWithTitle:@"Email Error"
-                                    message:@"This device is not configured to send email."
-                                   delegate:nil
-                          cancelButtonTitle:@"OK"
-                          otherButtonTitles:nil] show];
+        UIAlertController *alertController = [UIAlertController alertControllerWithTitle:@"Email Error"
+                                                                       message:@"This device is not configured to send email."
+                                                                preferredStyle:UIAlertControllerStyleAlert];
+        UIAlertAction *okAction = [UIAlertAction actionWithTitle:@"OK"
+                                                            style:UIAlertActionStyleDefault
+                                                         handler:nil];
+        [alertController addAction:okAction];
+        UIWindow *keyWindow = [[UIApplication sharedApplication] keyWindow];
+        [keyWindow.rootViewController presentViewController:alertController animated:YES completion:NULL];
 
         kscrash_callCompletion(onCompletion, reports, NO,
                                  [NSError errorWithDomain:[[self class] description]

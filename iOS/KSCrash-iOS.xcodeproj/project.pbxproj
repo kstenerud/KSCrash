@@ -231,6 +231,15 @@
 		632D8E0A1EDFFA6700A9A62E /* KSCrashInstallationStandard.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = CBF53D2C17EB765C0056DA83 /* KSCrashInstallationStandard.h */; };
 		632D8E0B1EDFFA6700A9A62E /* KSCrashInstallationVictory.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = CBF53D2E17EB765C0056DA83 /* KSCrashInstallationVictory.h */; };
 		632D8E0C1EDFFA6700A9A62E /* KSCrash.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = CBF53D1B17EB765C0056DA83 /* KSCrash.h */; };
+		6E88903A2D19543240A97BD9 /* KSgetsect.h in Headers */ = {isa = PBXBuildFile; fileRef = 6E889C3CA8DE0FCD76ABD019 /* KSgetsect.h */; };
+		6E88906398B1BE3E14C1425F /* KSgetsect.h in Headers */ = {isa = PBXBuildFile; fileRef = 6E889C3CA8DE0FCD76ABD019 /* KSgetsect.h */; };
+		6E88933B3529832C6B990928 /* KSCxaThrowSwapper.c in Sources */ = {isa = PBXBuildFile; fileRef = 6E889A12BAE413442C0DA527 /* KSCxaThrowSwapper.c */; };
+		6E8893FA6D0A849FD6F00842 /* KSgetsect.c in Sources */ = {isa = PBXBuildFile; fileRef = 6E8894847F02F7B05F31FE4F /* KSgetsect.c */; };
+		6E889783AAA2CC2831E0FE2D /* KSgetsect.h in Headers */ = {isa = PBXBuildFile; fileRef = 6E889C3CA8DE0FCD76ABD019 /* KSgetsect.h */; };
+		6E8899D36C151ADB2EC7B7E7 /* KSCxaThrowSwapper.c in Sources */ = {isa = PBXBuildFile; fileRef = 6E889A12BAE413442C0DA527 /* KSCxaThrowSwapper.c */; };
+		6E889AE634130C8F37C2875A /* KSgetsect.c in Sources */ = {isa = PBXBuildFile; fileRef = 6E8894847F02F7B05F31FE4F /* KSgetsect.c */; };
+		6E889B651331FD97EEB0C42F /* KSgetsect.c in Sources */ = {isa = PBXBuildFile; fileRef = 6E8894847F02F7B05F31FE4F /* KSgetsect.c */; };
+		6E889F76F8DCC4749067A458 /* KSCxaThrowSwapper.c in Sources */ = {isa = PBXBuildFile; fileRef = 6E889A12BAE413442C0DA527 /* KSCxaThrowSwapper.c */; };
 		CB02648017F7CEC5003E0AED /* KSCPU_arm64.c in Sources */ = {isa = PBXBuildFile; fileRef = CB02647E17F7CEC5003E0AED /* KSCPU_arm64.c */; };
 		CB02648217F8D853003E0AED /* KSCrashMonitor_CPPException.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D4F17EB765C0056DA83 /* KSCrashMonitor_CPPException.cpp */; };
 		CB0264A917FA5B13003E0AED /* Container+DeepSearch_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB02648317FA5B12003E0AED /* Container+DeepSearch_Tests.m */; };
@@ -801,6 +810,10 @@
 		03DE7CD61C84E1F400F789BA /* libz.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libz.tbd; path = usr/lib/libz.tbd; sourceTree = SDKROOT; };
 		03DE7D0F1C84FB9E00F789BA /* module.modulemap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = "sourcecode.module-map"; name = module.modulemap; path = ../../Source/Framework/module.modulemap; sourceTree = "<group>"; };
 		03DE7DA91C879A0200F789BA /* KSCrashFramework.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSCrashFramework.h; path = ../../Source/Framework/KSCrashFramework.h; sourceTree = "<group>"; };
+		6E8894847F02F7B05F31FE4F /* KSgetsect.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSgetsect.c; path = ../../Source/KSCrash/Recording/Tools/KSgetsect.c; sourceTree = "<group>"; };
+		6E889A12BAE413442C0DA527 /* KSCxaThrowSwapper.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSCxaThrowSwapper.c; path = ../../Source/KSCrash/Recording/Tools/KSCxaThrowSwapper.c; sourceTree = "<group>"; };
+		6E889A8EEFCE259D2B1D7CA7 /* KSCxaThrowSwapper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSCxaThrowSwapper.h; path = ../../Source/KSCrash/Recording/Tools/KSCxaThrowSwapper.h; sourceTree = "<group>"; };
+		6E889C3CA8DE0FCD76ABD019 /* KSgetsect.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSgetsect.h; path = ../../Source/KSCrash/Recording/Tools/KSgetsect.h; sourceTree = "<group>"; };
 		CB02647E17F7CEC5003E0AED /* KSCPU_arm64.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSCPU_arm64.c; path = ../../Source/KSCrash/Recording/Tools/KSCPU_arm64.c; sourceTree = "<group>"; };
 		CB02648317FA5B12003E0AED /* Container+DeepSearch_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "Container+DeepSearch_Tests.m"; path = "../../Source/KSCrash-Tests/Container+DeepSearch_Tests.m"; sourceTree = "<group>"; };
 		CB02648417FA5B12003E0AED /* FileBasedTestCase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = FileBasedTestCase.h; path = "../../Source/KSCrash-Tests/FileBasedTestCase.h"; sourceTree = "<group>"; };
@@ -1430,6 +1443,10 @@
 				CB25A5D61DF22F4000EC2B02 /* KSThread.h */,
 				CBF53D8D17EB765C0056DA83 /* NSError+SimpleConstructor.h */,
 				CBF53D8E17EB765C0056DA83 /* NSError+SimpleConstructor.m */,
+				6E889A8EEFCE259D2B1D7CA7 /* KSCxaThrowSwapper.h */,
+				6E889C3CA8DE0FCD76ABD019 /* KSgetsect.h */,
+				6E8894847F02F7B05F31FE4F /* KSgetsect.c */,
+				6E889A12BAE413442C0DA527 /* KSCxaThrowSwapper.c */,
 			);
 			name = Tools;
 			sourceTree = "<group>";
@@ -1609,6 +1626,7 @@
 				03DE7C961C84DFAB00F789BA /* KSCrashMonitor_Zombie.h in Headers */,
 				03DE7C5A1C84DF8600F789BA /* KSCrashMonitor_MachException.h in Headers */,
 				03DE7C951C84DFAB00F789BA /* KSSysCtl.h in Headers */,
+				6E88906398B1BE3E14C1425F /* KSgetsect.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1712,6 +1730,7 @@
 				CB9821C31DFB359B00164220 /* KSMach.h in Headers */,
 				CBC43F381C5AF2B10083A11B /* Malloc.h in Headers */,
 				CBF53E6F17EB7EA80056DA83 /* KSMemory.h in Headers */,
+				6E889783AAA2CC2831E0FE2D /* KSgetsect.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1816,6 +1835,7 @@
 				EDF2BF191CCF15AD004BADF4 /* KSCrashMonitor_Zombie.h in Headers */,
 				EDF2BF1A1CCF15AD004BADF4 /* KSCrashMonitor_MachException.h in Headers */,
 				EDF2BF1B1CCF15AD004BADF4 /* KSSysCtl.h in Headers */,
+				6E88903A2D19543240A97BD9 /* KSgetsect.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2041,6 +2061,8 @@
 				CB41F06A1E0C4E9800A1C9D7 /* KSStackCursor_Backtrace.c in Sources */,
 				CB9821C11DFB359B00164220 /* KSMach.c in Sources */,
 				03DE7C601C84DF8600F789BA /* KSCrashMonitor_User.c in Sources */,
+				6E8893FA6D0A849FD6F00842 /* KSgetsect.c in Sources */,
+				6E889F76F8DCC4749067A458 /* KSCxaThrowSwapper.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2124,6 +2146,8 @@
 				CB41F0691E0C4E9800A1C9D7 /* KSStackCursor_Backtrace.c in Sources */,
 				CB9821C01DFB359B00164220 /* KSMach.c in Sources */,
 				CBF53DE017EB765C0056DA83 /* KSCrashReportSinkStandard.m in Sources */,
+				6E889AE634130C8F37C2875A /* KSgetsect.c in Sources */,
+				6E88933B3529832C6B990928 /* KSCxaThrowSwapper.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2253,6 +2277,8 @@
 				CB41F06B1E0C4E9800A1C9D7 /* KSStackCursor_Backtrace.c in Sources */,
 				CB9821C21DFB359B00164220 /* KSMach.c in Sources */,
 				EDF2BEBC1CCF15AD004BADF4 /* KSCrashMonitor_User.c in Sources */,
+				6E889B651331FD97EEB0C42F /* KSgetsect.c in Sources */,
+				6E8899D36C151ADB2EC7B7E7 /* KSCxaThrowSwapper.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

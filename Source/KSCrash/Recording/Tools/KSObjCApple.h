@@ -110,6 +110,15 @@ NAME { \
 #endif
 
 // ======================================================================
+#pragma mark - objc4-781/runtime/objc-internal.h -
+// ======================================================================
+#if __ARM_ARCH_7K__ >= 2  ||  (__arm64__ && !__LP64__)
+#   define SUPPORT_INDEXED_ISA 1
+#else
+#   define SUPPORT_INDEXED_ISA 0
+#endif
+
+// ======================================================================
 #pragma mark - objc4-680/runtime/objc-internal.h -
 // ======================================================================
 
@@ -230,20 +239,26 @@ typedef struct class_ro_t {
     property_list_t *baseProperties;
 } class_ro_t;
 
-typedef struct class_rw_t {
-    uint32_t flags;
-    uint32_t version;
-    
+struct class_rw_ext_t {
     const class_ro_t *ro;
-    
     method_array_t methods;
     property_array_t properties;
     protocol_array_t protocols;
+    char *demangledName;
+    uint32_t version;
+};
+
+typedef struct class_rw_t {
+    uint32_t flags;
+    uint16_t witness;
+#if SUPPORT_INDEXED_ISA
+    uint16_t index;
+#endif
     
+    uintptr_t ro_or_rw_ext;
     Class firstSubclass;
     Class nextSiblingClass;
-    
-    char *demangledName;
+
 } class_rw_t;
 
 typedef struct class_t {

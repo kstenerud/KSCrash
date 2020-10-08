@@ -50,6 +50,11 @@
 #define kThreadPrimary "KSCrash Exception Handler (Primary)"
 #define kThreadSecondary "KSCrash Exception Handler (Secondary)"
 
+#if __LP64__
+    #define MACH_ERROR_CODE_MASK 0xFFFFFFFFFFFFFFFF
+#else
+    #define MACH_ERROR_CODE_MASK 0xFFFFFFFF
+#endif
 
 // ============================================================================
 #pragma mark - Types -
@@ -57,6 +62,7 @@
 
 /** A mach exception message (according to ux_exception.c, xnu-1699.22.81).
  */
+#pragma pack(4)
 typedef struct
 {
     /** Mach header. */
@@ -94,9 +100,11 @@ typedef struct
     /** Padding to avoid RCV_TOO_LARGE. */
     char                       padding[512];
 } MachExceptionMessage;
+#pragma pack()
 
 /** A mach reply message (according to ux_exception.c, xnu-1699.22.81).
  */
+#pragma pack(4)
 typedef struct
 {
     /** Mach header. */
@@ -108,7 +116,7 @@ typedef struct
     /** Return code. */
     kern_return_t     returnCode;
 } MachReplyMessage;
-
+#pragma pack()
 
 // ============================================================================
 #pragma mark - Globals -
@@ -294,11 +302,13 @@ static void* handleExceptions(void* const userData)
         KSLOG_ERROR("mach_msg: %s", mach_error_string(kr));
     }
 
-    KSLOG_DEBUG("Trapped mach exception code 0x%x, subcode 0x%x",
+    KSLOG_DEBUG("Trapped mach exception code 0x%llx, subcode 0x%llx",
                 exceptionMessage.code[0], exceptionMessage.code[1]);
     if(g_isEnabled)
     {
-        ksmc_suspendEnvironment();
+        thread_act_array_t threads = NULL;
+        mach_msg_type_number_t numThreads = 0;
+        ksmc_suspendEnvironment(&threads, &numThreads);
         g_isHandlingCrash = true;
         kscm_notifyFatalExceptionCaptured(true);
 
@@ -319,7 +329,7 @@ static void* handleExceptions(void* const userData)
         }
         else
         {
-            KSLOG_DEBUG("This is the secondary exception thread. Restoring original exception ports.");
+            KSLOG_DEBUG("This is the secondary exception thread.");// Restoring original exception ports.");
 //            restoreExceptionPorts();
         }
 
@@ -331,8 +341,9 @@ static void* handleExceptions(void* const userData)
         kssc_initCursor(&g_stackCursor, NULL, NULL);
         if(ksmc_getContextForThread(exceptionMessage.thread.name, machineContext, true))
         {
-            kssc_initWithMachineContext(&g_stackCursor, 100, machineContext);
-            KSLOG_TRACE("Fault address 0x%x, instruction address 0x%x", kscpu_faultAddress(machineContext), kscpu_instructionAddress(machineContext));
+            kssc_initWithMachineContext(&g_stackCursor, KSSC_MAX_STACK_DEPTH, machineContext);
+            KSLOG_TRACE("Fault address %p, instruction address %p",
+                        kscpu_faultAddress(machineContext), kscpu_instructionAddress(machineContext));
             if(exceptionMessage.exception == EXC_BAD_ACCESS)
             {
                 crashContext->faultAddress = kscpu_faultAddress(machineContext);
@@ -348,8 +359,8 @@ static void* handleExceptions(void* const userData)
         crashContext->eventID = eventID;
         crashContext->registersAreValid = true;
         crashContext->mach.type = exceptionMessage.exception;
-        crashContext->mach.code = exceptionMessage.code[0];
-        crashContext->mach.subcode = exceptionMessage.code[1];
+        crashContext->mach.code = exceptionMessage.code[0] & (int64_t)MACH_ERROR_CODE_MASK;
+        crashContext->mach.subcode = exceptionMessage.code[1] & (int64_t)MACH_ERROR_CODE_MASK;
         if(crashContext->mach.code == KERN_PROTECTION_FAILURE && crashContext->isStackOverflow)
         {
             // A stack overflow should return KERN_INVALID_ADDRESS, but
@@ -364,7 +375,7 @@ static void* handleExceptions(void* const userData)
 
         KSLOG_DEBUG("Crash handling complete. Restoring original handlers.");
         g_isHandlingCrash = false;
-        ksmc_resumeEnvironment();
+        ksmc_resumeEnvironment(threads, numThreads);
     }
 
     KSLOG_DEBUG("Replying to mach exception message.");
@@ -492,7 +503,7 @@ static bool installExceptionHandler()
     kr = task_set_exception_ports(thisTask,
                                   mask,
                                   g_exceptionPort,
-                                  EXCEPTION_DEFAULT,
+                                  (int)(EXCEPTION_DEFAULT | MACH_EXCEPTION_CODES),
                                   THREAD_STATE_NONE);
     if(kr != KERN_SUCCESS)
     {

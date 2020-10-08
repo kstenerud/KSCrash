@@ -109,15 +109,22 @@ static bool advanceCursor(KSStackCursor *cursor)
         return false;
     }
     
-    if(context->instructionAddress == 0)
+    if(context->instructionAddress == 0 && cursor->state.currentDepth == 0)
     {
         context->instructionAddress = kscpu_instructionAddress(context->machineContext);
-        if(context->instructionAddress == 0)
-        {
-            return false;
-        }
         nextAddress = context->instructionAddress;
         goto successfulExit;
+    }
+    
+    if(context->linkRegister == 0 && !context->isPastFramePointer)
+    {
+        // Link register, if available, is the second address in the trace.
+        context->linkRegister = kscpu_linkRegister(context->machineContext);
+        if(context->linkRegister != 0)
+        {
+            nextAddress = context->linkRegister;
+            goto successfulExit;
+        }
     }
 
     if(context->currentFrame.previous == NULL)
