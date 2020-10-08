@@ -17,6 +17,7 @@ Pod::Spec.new do |s|
   s.default_subspecs = 'Installations'
 
   s.subspec 'Recording' do |recording|
+    recording.compiler_flags = '-fno-optimize-sibling-calls'
     recording.source_files   = 'Source/KSCrash/Recording/**/*.{h,m,mm,c,cpp}',
                                'Source/KSCrash/llvm/**/*.{h,m,mm,c,cpp}',
                                'Source/KSCrash/swift/**/*.{h,m,mm,c,cpp}',
@@ -30,6 +31,7 @@ Pod::Spec.new do |s|
 
     recording.subspec 'Tools' do |tools|
       tools.source_files = 'Source/KSCrash/Recording/Tools/*.h'
+      tools.compiler_flags = '-fno-optimize-sibling-calls'
     end
   end
 

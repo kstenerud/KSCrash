@@ -29,15 +29,30 @@
 #include <limits.h>
 #include <mach-o/dyld.h>
 #include <mach-o/nlist.h>
+#include <mach-o/getsect.h>
 #include <string.h>
 
 #include "KSLogger.h"
+#include "KSMemory.h"
+#include "KSPlatformSpecificDefines.h"
 
-#ifdef __LP64__
-    #define STRUCT_NLIST struct nlist_64
-#else
-    #define STRUCT_NLIST struct nlist
+#ifndef KSDL_MaxCrashInfoStringLength
+    #define KSDL_MaxCrashInfoStringLength 1024
 #endif
+
+#pragma pack(8)
+typedef struct {
+    unsigned version;
+    const char* message;
+    const char* signature;
+    const char* backtrace;
+    const char* message2;
+    void* reserved;
+    void* reserved2;
+    void* reserved3; // First introduced in version 5
+} crash_info_t;
+#pragma pack()
+#define KSDL_SECT_CRASH_INFO "__crash_info"
 
 
 /** Get the address of the first command following a header (which will be of
@@ -239,7 +254,7 @@ bool ksdl_dladdr(const uintptr_t address, Dl_info* const info)
     info->dli_fbase = (void*)header;
 
     // Find symbol tables and get whichever symbol is closest to the address.
-    const STRUCT_NLIST* bestMatch = NULL;
+    const nlist_t* bestMatch = NULL;
     uintptr_t bestDistance = ULONG_MAX;
     uintptr_t cmdPtr = firstCmdAfterHeader(header);
     if(cmdPtr == 0)
@@ -252,7 +267,7 @@ bool ksdl_dladdr(const uintptr_t address, Dl_info* const info)
         if(loadCmd->cmd == LC_SYMTAB)
         {
             const struct symtab_command* symtabCmd = (struct symtab_command*)cmdPtr;
-            const STRUCT_NLIST* symbolTable = (STRUCT_NLIST*)(segmentBase + symtabCmd->symoff);
+            const nlist_t* symbolTable = (nlist_t*)(segmentBase + symtabCmd->symoff);
             const uintptr_t stringTable = segmentBase + symtabCmd->stroff;
 
             for(uint32_t iSym = 0; iSym < symtabCmd->nsyms; iSym++)
@@ -296,6 +311,71 @@ bool ksdl_dladdr(const uintptr_t address, Dl_info* const info)
     return true;
 }
 
+static bool isValidCrashInfoMessage(const char* str)
+{
+    if(str == NULL)
+    {
+        return false;
+    }
+    int maxReadableBytes = ksmem_maxReadableBytes(str, KSDL_MaxCrashInfoStringLength + 1);
+    if(maxReadableBytes == 0)
+    {
+        return false;
+    }
+    for(int i = 0; i < maxReadableBytes; ++i) {
+        if(str[i] == 0)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+static void getCrashInfo(const struct mach_header* header, KSBinaryImage* buffer)
+{
+    unsigned long size = 0;
+    crash_info_t* crashInfo =
+        (crash_info_t*)getsectiondata((mach_header_t*)header, SEG_DATA, KSDL_SECT_CRASH_INFO, &size);
+    if(crashInfo == NULL)
+    {
+        return;
+    }
+
+    KSLOG_TRACE("Found crash info section in binary: %s", buffer->name);
+    const unsigned int minimalSize = offsetof(crash_info_t, reserved); // Include message and message2
+    if(size < minimalSize)
+    {
+        KSLOG_TRACE("Skipped reading crash info: section is too small");
+        return;
+    }
+    if(!ksmem_isMemoryReadable(crashInfo, minimalSize))
+    {
+        KSLOG_TRACE("Skipped reading crash info: section memory is not readable");
+        return;
+    }
+    if(crashInfo->version != 4 && crashInfo->version != 5)
+    {
+        KSLOG_TRACE("Skipped reading crash info: invalid version '%d'", crashInfo->version);
+        return;
+    }
+    if(crashInfo->message == NULL && crashInfo->message2 == NULL)
+    {
+        KSLOG_TRACE("Skipped reading crash info: both messages are null");
+        return;
+    }
+
+    if(isValidCrashInfoMessage(crashInfo->message))
+    {
+        KSLOG_DEBUG("Found first message: %s", crashInfo->message);
+        buffer->crashInfoMessage = crashInfo->message;
+    }
+    if(isValidCrashInfoMessage(crashInfo->message2))
+    {
+        KSLOG_DEBUG("Found second message: %s", crashInfo->message2);
+        buffer->crashInfoMessage2 = crashInfo->message2;
+    }
+}
+
 int ksdl_imageCount()
 {
     return (int)_dyld_image_count();
@@ -309,6 +389,12 @@ bool ksdl_getBinaryImage(int index, KSBinaryImage* buffer)
         return false;
     }
     
+    return ksdl_getBinaryImageForHeader((const void*)header, _dyld_get_image_name((unsigned)index), buffer);
+}
+
+bool ksdl_getBinaryImageForHeader(const void* const header_ptr, const char* const image_name, KSBinaryImage* buffer)
+{
+    const struct mach_header* header = (const struct mach_header*)header_ptr;
     uintptr_t cmdPtr = firstCmdAfterHeader(header);
     if(cmdPtr == 0)
     {
@@ -367,13 +453,14 @@ bool ksdl_getBinaryImage(int index, KSBinaryImage* buffer)
     buffer->address = (uintptr_t)header;
     buffer->vmAddress = imageVmAddr;
     buffer->size = imageSize;
-    buffer->name = _dyld_get_image_name((unsigned)index);
+    buffer->name = image_name;
     buffer->uuid = uuid;
     buffer->cpuType = header->cputype;
     buffer->cpuSubType = header->cpusubtype;
     buffer->majorVersion = version >> 16;
     buffer->minorVersion = (version >> 8) & 0xff;
     buffer->revisionVersion = version & 0xff;
+    getCrashInfo(header, buffer);
     
     return true;
 }

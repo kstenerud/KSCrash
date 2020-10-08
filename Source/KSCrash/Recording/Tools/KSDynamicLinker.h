@@ -48,6 +48,8 @@ typedef struct
     uint64_t majorVersion;
     uint64_t minorVersion;
     uint64_t revisionVersion;
+    const char* crashInfoMessage;
+    const char* crashInfoMessage2;
 } KSBinaryImage;
 
 /** Get the number of loaded binary images.
@@ -63,6 +65,18 @@ int ksdl_imageCount(void);
  * @return True if the image was successfully queried.
  */
 bool ksdl_getBinaryImage(int index, KSBinaryImage* buffer);
+
+/** Get information about a binary image based on mach_header.
+ *
+ * @param header_ptr The pointer to mach_header of the image.
+ *
+ * @param image_name The name of the image.
+ *
+ * @param buffer A structure to hold the information.
+ *
+ * @return True if the image was successfully queried.
+ */
+bool ksdl_getBinaryImageForHeader(const void* const header_ptr, const char* const image_name, KSBinaryImage* buffer);
 
 /** Find a loaded binary image with the specified name.
  *

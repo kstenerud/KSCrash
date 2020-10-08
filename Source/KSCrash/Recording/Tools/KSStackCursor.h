@@ -41,6 +41,9 @@ extern "C" {
 /** Point at which to give up walking a stack and consider it a stack overflow. */
 #define KSSC_STACK_OVERFLOW_THRESHOLD 150
 
+/** The max depth to search before giving up. */
+#define KSSC_MAX_STACK_DEPTH 500
+
 typedef struct KSStackCursor
 {
     struct

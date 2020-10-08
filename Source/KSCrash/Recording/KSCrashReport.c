@@ -135,7 +135,7 @@ static void addIntegerElement(const KSCrashReportWriter* const writer, const cha
 
 static void addUIntegerElement(const KSCrashReportWriter* const writer, const char* const key, const uint64_t value)
 {
-    ksjson_addIntegerElement(getJsonContext(writer), key, (int64_t)value);
+    ksjson_addUIntegerElement(getJsonContext(writer), key, value);
 }
 
 static void addStringElement(const KSCrashReportWriter* const writer, const char* const key, const char* const value)
@@ -1288,6 +1288,14 @@ static void writeBinaryImage(const KSCrashReportWriter* const writer,
         writer->addUIntegerElement(writer, KSCrashField_ImageMajorVersion, image.majorVersion);
         writer->addUIntegerElement(writer, KSCrashField_ImageMinorVersion, image.minorVersion);
         writer->addUIntegerElement(writer, KSCrashField_ImageRevisionVersion, image.revisionVersion);
+        if(image.crashInfoMessage != NULL)
+        {
+            writer->addStringElement(writer, KSCrashField_ImageCrashInfoMessage, image.crashInfoMessage);
+        }
+        if(image.crashInfoMessage2 != NULL)
+        {
+            writer->addStringElement(writer, KSCrashField_ImageCrashInfoMessage2, image.crashInfoMessage2);
+        }
     }
     writer->endContainer(writer);
 }
@@ -1360,7 +1368,7 @@ static void writeError(const KSCrashReportWriter* const writer,
             {
                 writer->addStringElement(writer, KSCrashField_CodeName, machCodeName);
             }
-            writer->addUIntegerElement(writer, KSCrashField_Subcode, (unsigned)crash->mach.subcode);
+            writer->addUIntegerElement(writer, KSCrashField_Subcode, (size_t)crash->mach.subcode);
         }
         writer->endContainer(writer);
 #endif

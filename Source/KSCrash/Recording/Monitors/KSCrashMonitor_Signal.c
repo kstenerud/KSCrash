@@ -84,13 +84,15 @@ static void handleSignal(int sigNum, siginfo_t* signalInfo, void* userContext)
     KSLOG_DEBUG("Trapped signal %d", sigNum);
     if(g_isEnabled)
     {
-        ksmc_suspendEnvironment();
+        thread_act_array_t threads = NULL;
+        mach_msg_type_number_t numThreads = 0;
+        ksmc_suspendEnvironment(&threads, &numThreads);
         kscm_notifyFatalExceptionCaptured(false);
 
         KSLOG_DEBUG("Filling out context.");
         KSMC_NEW_CONTEXT(machineContext);
         ksmc_getContextForSignal(userContext, machineContext);
-        kssc_initWithMachineContext(&g_stackCursor, 100, machineContext);
+        kssc_initWithMachineContext(&g_stackCursor, KSSC_MAX_STACK_DEPTH, machineContext);
 
         KSCrash_MonitorContext* crashContext = &g_monitorContext;
         memset(crashContext, 0, sizeof(*crashContext));
@@ -105,7 +107,7 @@ static void handleSignal(int sigNum, siginfo_t* signalInfo, void* userContext)
         crashContext->stackCursor = &g_stackCursor;
 
         kscm_handleException(crashContext);
-        ksmc_resumeEnvironment();
+        ksmc_resumeEnvironment(threads, numThreads);
     }
 
     KSLOG_DEBUG("Re-raising signal for regular handlers to catch.");
