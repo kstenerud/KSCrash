@@ -26,7 +26,7 @@
 
 
 #import "KSCrashReportFilterGZip.h"
-#import "NSData+GZip.h"
+#import "NSData+KSGZip.h"
 
 
 @interface KSCrashReportFilterGZipCompress ()

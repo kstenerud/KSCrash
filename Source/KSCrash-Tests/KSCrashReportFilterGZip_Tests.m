@@ -28,7 +28,7 @@
 #import <XCTest/XCTest.h>
 
 #import "KSCrashReportFilterGZip.h"
-#import "NSData+GZip.h"
+#import "NSData+KSGZip.h"
 
 
 @interface KSCrashReportFilterGZip_Tests : XCTestCase @end
