@@ -93,26 +93,6 @@ static const char* cString(NSString* str)
     return str == NULL ? NULL : strdup(str.UTF8String);
 }
 
-static NSString* nsstringSysctl(NSString* name)
-{
-    NSString* str = nil;
-    int size = (int)kssysctl_stringForName(name.UTF8String, NULL, 0);
-    
-    if(size <= 0)
-    {
-        return @"";
-    }
-    
-    NSMutableData* value = [NSMutableData dataWithLength:(unsigned)size];
-    
-    if(kssysctl_stringForName(name.UTF8String, value.mutableBytes, size) != 0)
-    {
-        str = [NSString stringWithCString:value.mutableBytes encoding:NSUTF8StringEncoding];
-    }
-    
-    return str;
-}
-
 /** Get a sysctl value as a null terminated string.
  *
  * @param name The sysctl name.
@@ -142,18 +122,6 @@ static const char* dateString(time_t date)
     char* buffer = malloc(21);
     ksdate_utcStringFromTimestamp(date, buffer);
     return buffer;
-}
-
-/** Get a sysctl value as an NSDate.
- *
- * @param name The sysctl name.
- *
- * @return The result of the sysctl call.
- */
-static const char* dateSysctl(const char* name)
-{
-    struct timeval value = kssysctl_timevalForName(name);
-    return dateString(value.tv_sec);
 }
 
 /** Get the current VM stats.
@@ -336,7 +304,7 @@ static const char* getCurrentCPUArch()
  */
 static bool isJailbroken()
 {
-    return ksdl_imageNamed("MobileSubstrate", false) != UINT32_MAX;
+    return false;
 }
 
 /** Check if the current build is a debug build.
@@ -395,45 +363,7 @@ static NSString* getReceiptUrlPath()
  */
 static const char* getDeviceAndAppHash()
 {
-    NSMutableData* data = nil;
-    
-#if KSCRASH_HAS_UIDEVICE
-    if([[UIDevice currentDevice] respondsToSelector:@selector(identifierForVendor)])
-    {
-        data = [NSMutableData dataWithLength:16];
-        [[UIDevice currentDevice].identifierForVendor getUUIDBytes:data.mutableBytes];
-    }
-    else
-#endif
-    {
-        data = [NSMutableData dataWithLength:6];
-        kssysctl_getMacAddress("en0", [data mutableBytes]);
-    }
-    
-    // Append some device-specific data.
-    [data appendData:(NSData* _Nonnull )[nsstringSysctl(@"hw.machine") dataUsingEncoding:NSUTF8StringEncoding]];
-    [data appendData:(NSData* _Nonnull )[nsstringSysctl(@"hw.model") dataUsingEncoding:NSUTF8StringEncoding]];
-    const char* cpuArch = getCurrentCPUArch();
-    [data appendBytes:cpuArch length:strlen(cpuArch)];
-    
-    // Append the bundle ID.
-    NSData* bundleID = [[[NSBundle mainBundle] bundleIdentifier] dataUsingEncoding:NSUTF8StringEncoding];
-    if(bundleID != nil)
-    {
-        [data appendData:bundleID];
-    }
-    
-    // SHA the whole thing.
-    uint8_t sha[CC_SHA1_DIGEST_LENGTH];
-    CC_SHA1([data bytes], (CC_LONG)[data length], sha);
-    
-    NSMutableString* hash = [NSMutableString string];
-    for(unsigned i = 0; i < sizeof(sha); i++)
-    {
-        [hash appendFormat:@"%02x", sha[i]];
-    }
-    
-    return cString(hash);
+    return "";
 }
 
 /** Check if the current build is a "testing" build.
@@ -487,8 +417,7 @@ static const char* getBuildType()
 
 static uint64_t getStorageSize()
 {
-    NSNumber* storageSize = [[[NSFileManager defaultManager] attributesOfFileSystemForPath:NSHomeDirectory() error:nil] objectForKey:NSFileSystemSize];
-    return storageSize.unsignedLongLongValue;
+    return 0;
 }
 
 // ============================================================================
@@ -548,10 +477,10 @@ static void initialize()
 #endif
         }
         
-        g_systemData.kernelVersion = stringSysctl("kern.version");
-        g_systemData.osVersion = stringSysctl("kern.osversion");
+        g_systemData.kernelVersion = "";
+        g_systemData.osVersion = "";
         g_systemData.isJailbroken = isJailbroken();
-        g_systemData.bootTime = dateSysctl("kern.boottime");
+        g_systemData.bootTime = "";
         g_systemData.appStartTime = dateString(time(NULL));
         g_systemData.executablePath = cString(getExecutablePath());
         g_systemData.executableName = cString(infoDict[@"CFBundleExecutable"]);
@@ -561,14 +490,14 @@ static void initialize()
         g_systemData.bundleShortVersion = cString(infoDict[@"CFBundleShortVersionString"]);
         g_systemData.appID = getAppUUID();
         g_systemData.cpuArchitecture = getCurrentCPUArch();
-        g_systemData.cpuType = kssysctl_int32ForName("hw.cputype");
-        g_systemData.cpuSubType = kssysctl_int32ForName("hw.cpusubtype");
+        g_systemData.cpuType = 0;
+        g_systemData.cpuSubType = 0;
         g_systemData.binaryCPUType = header->cputype;
         g_systemData.binaryCPUSubType = header->cpusubtype;
         g_systemData.timezone = cString([NSTimeZone localTimeZone].abbreviation);
-        g_systemData.processName = cString([NSProcessInfo processInfo].processName);
-        g_systemData.processID = [NSProcessInfo processInfo].processIdentifier;
-        g_systemData.parentProcessID = getppid();
+        g_systemData.processName = "";
+        g_systemData.processID = 0;
+        g_systemData.parentProcessID = 0;
         g_systemData.deviceAppHash = getDeviceAndAppHash();
         g_systemData.buildType = getBuildType();
         g_systemData.storageSize = getStorageSize();
