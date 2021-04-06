@@ -35,6 +35,7 @@ extern "C" {
 
 #include <stdbool.h>
 #include <stdint.h>
+#include "TargetConditionals.h"
 
 
 typedef enum
