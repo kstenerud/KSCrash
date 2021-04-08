@@ -20,7 +20,7 @@ Pod::Spec.new do |s|
     recording.compiler_flags = '-fno-optimize-sibling-calls'
     recording.source_files   = 'Source/KSCrash/Recording/**/*.{h,m,mm,c,cpp}',
                                'Source/KSCrash/llvm/**/*.{h,m,mm,c,cpp}',
-                               'Source/KSCrash/swift/**/*.{h,m,mm,c,cpp}',
+                               'Source/KSCrash/swift/**/*.{h,m,mm,c,cpp,def}',
                                'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h'
     recording.public_header_files = 'Source/KSCrash/Recording/KSCrash.h',
                                     'Source/KSCrash/Recording/KSCrashC.h',
