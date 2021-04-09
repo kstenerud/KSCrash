@@ -296,7 +296,7 @@
 
 #else
 
-#import "NSData+GZip.h"
+#import "NSData+KSGZip.h"
 
 @implementation KSCrashReportSinkEMail
 

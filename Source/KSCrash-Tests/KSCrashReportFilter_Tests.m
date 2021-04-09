@@ -31,7 +31,7 @@
 #import "KSCrashReportFilterBasic.h"
 #import "KSCrashReportFilterGZip.h"
 #import "KSCrashReportFilterJSON.h"
-#import "NSData+GZip.h"
+#import "NSData+KSGZip.h"
 #import "NSError+SimpleConstructor.h"
 
 

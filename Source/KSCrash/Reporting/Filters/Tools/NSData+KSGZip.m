@@ -25,7 +25,7 @@
 //
 
 
-#import "NSData+GZip.h"
+#import "NSData+KSGZip.h"
 
 #import "NSError+SimpleConstructor.h"
 #import <zlib.h>
@@ -60,7 +60,7 @@ static NSString* zlibError(int errorCode)
     return [NSString stringWithFormat:@"Unknown error: %d", errorCode];
 }
 
-@implementation NSData (GZip)
+@implementation NSData (KSGZip)
 
 - (NSData*) gzippedWithCompressionLevel:(int) compressionLevel
                                   error:(NSError* __autoreleasing *) error

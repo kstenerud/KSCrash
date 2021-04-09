@@ -26,7 +26,7 @@
 
 
 #import <XCTest/XCTest.h>
-#import "NSData+GZip.h"
+#import "NSData+KSGZip.h"
 
 
 @interface NSData_Gzip_Tests : XCTestCase @end
