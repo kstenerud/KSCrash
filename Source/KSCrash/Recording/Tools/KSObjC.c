@@ -49,6 +49,8 @@ typedef unsigned int NSUInteger;
 #include <inttypes.h>
 #include <objc/runtime.h>
 
+#include "TargetConditionals.h"
+
 
 #define kMaxNameLength 128
 
