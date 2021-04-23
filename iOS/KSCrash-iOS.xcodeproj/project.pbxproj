@@ -240,6 +240,90 @@
 		6E889AE634130C8F37C2875A /* KSgetsect.c in Sources */ = {isa = PBXBuildFile; fileRef = 6E8894847F02F7B05F31FE4F /* KSgetsect.c */; };
 		6E889B651331FD97EEB0C42F /* KSgetsect.c in Sources */ = {isa = PBXBuildFile; fileRef = 6E8894847F02F7B05F31FE4F /* KSgetsect.c */; };
 		6E889F76F8DCC4749067A458 /* KSCxaThrowSwapper.c in Sources */ = {isa = PBXBuildFile; fileRef = 6E889A12BAE413442C0DA527 /* KSCxaThrowSwapper.c */; };
+		97BB896B26337E2B008ED481 /* Platform.h in Headers */ = {isa = PBXBuildFile; fileRef = 97BB895A26337E2B008ED481 /* Platform.h */; };
+		97BB896C26337E2B008ED481 /* Demangler.h in Headers */ = {isa = PBXBuildFile; fileRef = 97BB895B26337E2B008ED481 /* Demangler.h */; };
+		97BB896D26337E2B008ED481 /* StandardTypesMangling.def in Resources */ = {isa = PBXBuildFile; fileRef = 97BB895C26337E2B008ED481 /* StandardTypesMangling.def */; };
+		97BB896E26337E2B008ED481 /* STLExtras.h in Headers */ = {isa = PBXBuildFile; fileRef = 97BB895D26337E2B008ED481 /* STLExtras.h */; };
+		97BB896F26337E2B008ED481 /* Visibility.h in Headers */ = {isa = PBXBuildFile; fileRef = 97BB895E26337E2B008ED481 /* Visibility.h */; };
+		97BB897026337E2B008ED481 /* DemangleNodes.def in Resources */ = {isa = PBXBuildFile; fileRef = 97BB895F26337E2B008ED481 /* DemangleNodes.def */; };
+		97BB897126337E2B008ED481 /* OldDemangler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896026337E2B008ED481 /* OldDemangler.cpp */; };
+		97BB897226337E2B008ED481 /* Demangler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896126337E2B008ED481 /* Demangler.cpp */; };
+		97BB897326337E2B008ED481 /* Config.h in Headers */ = {isa = PBXBuildFile; fileRef = 97BB896226337E2B008ED481 /* Config.h */; };
+		97BB897426337E2B008ED481 /* ValueWitnessMangling.def in Resources */ = {isa = PBXBuildFile; fileRef = 97BB896326337E2B008ED481 /* ValueWitnessMangling.def */; };
+		97BB897526337E2B008ED481 /* Context.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896426337E2B008ED481 /* Context.cpp */; };
+		97BB897626337E2B008ED481 /* ManglingUtils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896526337E2B008ED481 /* ManglingUtils.cpp */; };
+		97BB897726337E2B008ED481 /* ManglingUtils.h in Headers */ = {isa = PBXBuildFile; fileRef = 97BB896626337E2B008ED481 /* ManglingUtils.h */; };
+		97BB897826337E2B008ED481 /* NodePrinter.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896726337E2B008ED481 /* NodePrinter.cpp */; };
+		97BB897926337E2B008ED481 /* ReferenceStorage.def in Resources */ = {isa = PBXBuildFile; fileRef = 97BB896826337E2B008ED481 /* ReferenceStorage.def */; };
+		97BB897A26337E2B008ED481 /* ManglingMacros.h in Headers */ = {isa = PBXBuildFile; fileRef = 97BB896926337E2B008ED481 /* ManglingMacros.h */; };
+		97BB897B26337E2B008ED481 /* SwiftDemangle.h in Headers */ = {isa = PBXBuildFile; fileRef = 97BB896A26337E2B008ED481 /* SwiftDemangle.h */; };
+		97BB898726337EE2008ED481 /* Config.h in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896226337E2B008ED481 /* Config.h */; };
+		97BB898826337EE2008ED481 /* DemangleNodes.def in Sources */ = {isa = PBXBuildFile; fileRef = 97BB895F26337E2B008ED481 /* DemangleNodes.def */; };
+		97BB898926337EE2008ED481 /* Demangler.h in Sources */ = {isa = PBXBuildFile; fileRef = 97BB895B26337E2B008ED481 /* Demangler.h */; };
+		97BB898A26337EE2008ED481 /* ManglingMacros.h in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896926337E2B008ED481 /* ManglingMacros.h */; };
+		97BB898B26337EE2008ED481 /* ManglingUtils.h in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896626337E2B008ED481 /* ManglingUtils.h */; };
+		97BB898C26337EE2008ED481 /* Platform.h in Sources */ = {isa = PBXBuildFile; fileRef = 97BB895A26337E2B008ED481 /* Platform.h */; };
+		97BB898D26337EE2008ED481 /* ReferenceStorage.def in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896826337E2B008ED481 /* ReferenceStorage.def */; };
+		97BB898E26337EE2008ED481 /* StandardTypesMangling.def in Sources */ = {isa = PBXBuildFile; fileRef = 97BB895C26337E2B008ED481 /* StandardTypesMangling.def */; };
+		97BB898F26337EE3008ED481 /* STLExtras.h in Sources */ = {isa = PBXBuildFile; fileRef = 97BB895D26337E2B008ED481 /* STLExtras.h */; };
+		97BB899026337EE3008ED481 /* SwiftDemangle.h in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896A26337E2B008ED481 /* SwiftDemangle.h */; };
+		97BB899126337EE3008ED481 /* ValueWitnessMangling.def in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896326337E2B008ED481 /* ValueWitnessMangling.def */; };
+		97BB899226337EE3008ED481 /* Visibility.h in Sources */ = {isa = PBXBuildFile; fileRef = 97BB895E26337E2B008ED481 /* Visibility.h */; };
+		97BB899326337EE3008ED481 /* Demangle.h in Sources */ = {isa = PBXBuildFile; fileRef = CBC43F161C5AF2B10083A11B /* Demangle.h */; };
+		97BB899426337EE3008ED481 /* DemangleNodes.h in Sources */ = {isa = PBXBuildFile; fileRef = CBC43F171C5AF2B10083A11B /* DemangleNodes.h */; };
+		97BB899526337EE3008ED481 /* Fallthrough.h in Sources */ = {isa = PBXBuildFile; fileRef = CBC43F181C5AF2B10083A11B /* Fallthrough.h */; };
+		97BB899626337EE3008ED481 /* LLVM.h in Sources */ = {isa = PBXBuildFile; fileRef = CBC43F191C5AF2B10083A11B /* LLVM.h */; };
+		97BB899726337EE3008ED481 /* Malloc.h in Sources */ = {isa = PBXBuildFile; fileRef = CBC43F1A1C5AF2B10083A11B /* Malloc.h */; };
+		97BB899826337EE3008ED481 /* Punycode.h in Sources */ = {isa = PBXBuildFile; fileRef = CBC43F1C1C5AF2B10083A11B /* Punycode.h */; };
+		97BB899926337EE3008ED481 /* SwiftStrings.h in Sources */ = {isa = PBXBuildFile; fileRef = CBC43F1D1C5AF2B10083A11B /* SwiftStrings.h */; };
+		97BB899E26337EFF008ED481 /* Config.h in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896226337E2B008ED481 /* Config.h */; };
+		97BB899F26337EFF008ED481 /* Context.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896426337E2B008ED481 /* Context.cpp */; };
+		97BB89A026337EFF008ED481 /* DemangleNodes.def in Sources */ = {isa = PBXBuildFile; fileRef = 97BB895F26337E2B008ED481 /* DemangleNodes.def */; };
+		97BB89A126337EFF008ED481 /* Demangler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896126337E2B008ED481 /* Demangler.cpp */; };
+		97BB89A226337EFF008ED481 /* Demangler.h in Sources */ = {isa = PBXBuildFile; fileRef = 97BB895B26337E2B008ED481 /* Demangler.h */; };
+		97BB89A326337EFF008ED481 /* ManglingMacros.h in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896926337E2B008ED481 /* ManglingMacros.h */; };
+		97BB89A426337EFF008ED481 /* ManglingUtils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896526337E2B008ED481 /* ManglingUtils.cpp */; };
+		97BB89A526337EFF008ED481 /* ManglingUtils.h in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896626337E2B008ED481 /* ManglingUtils.h */; };
+		97BB89A626337EFF008ED481 /* NodePrinter.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896726337E2B008ED481 /* NodePrinter.cpp */; };
+		97BB89A726337EFF008ED481 /* OldDemangler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896026337E2B008ED481 /* OldDemangler.cpp */; };
+		97BB89A826337EFF008ED481 /* Platform.h in Sources */ = {isa = PBXBuildFile; fileRef = 97BB895A26337E2B008ED481 /* Platform.h */; };
+		97BB89A926337EFF008ED481 /* ReferenceStorage.def in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896826337E2B008ED481 /* ReferenceStorage.def */; };
+		97BB89AA26337F00008ED481 /* StandardTypesMangling.def in Sources */ = {isa = PBXBuildFile; fileRef = 97BB895C26337E2B008ED481 /* StandardTypesMangling.def */; };
+		97BB89AB26337F00008ED481 /* STLExtras.h in Sources */ = {isa = PBXBuildFile; fileRef = 97BB895D26337E2B008ED481 /* STLExtras.h */; };
+		97BB89AC26337F00008ED481 /* SwiftDemangle.h in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896A26337E2B008ED481 /* SwiftDemangle.h */; };
+		97BB89AD26337F00008ED481 /* ValueWitnessMangling.def in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896326337E2B008ED481 /* ValueWitnessMangling.def */; };
+		97BB89AE26337F00008ED481 /* Visibility.h in Sources */ = {isa = PBXBuildFile; fileRef = 97BB895E26337E2B008ED481 /* Visibility.h */; };
+		97BB89AF26337F00008ED481 /* Demangle.h in Sources */ = {isa = PBXBuildFile; fileRef = CBC43F161C5AF2B10083A11B /* Demangle.h */; };
+		97BB89B026337F00008ED481 /* DemangleNodes.h in Sources */ = {isa = PBXBuildFile; fileRef = CBC43F171C5AF2B10083A11B /* DemangleNodes.h */; };
+		97BB89B126337F00008ED481 /* Fallthrough.h in Sources */ = {isa = PBXBuildFile; fileRef = CBC43F181C5AF2B10083A11B /* Fallthrough.h */; };
+		97BB89B226337F00008ED481 /* LLVM.h in Sources */ = {isa = PBXBuildFile; fileRef = CBC43F191C5AF2B10083A11B /* LLVM.h */; };
+		97BB89B326337F00008ED481 /* Malloc.h in Sources */ = {isa = PBXBuildFile; fileRef = CBC43F1A1C5AF2B10083A11B /* Malloc.h */; };
+		97BB89B426337F00008ED481 /* Punycode.h in Sources */ = {isa = PBXBuildFile; fileRef = CBC43F1C1C5AF2B10083A11B /* Punycode.h */; };
+		97BB89B526337F00008ED481 /* SwiftStrings.h in Sources */ = {isa = PBXBuildFile; fileRef = CBC43F1D1C5AF2B10083A11B /* SwiftStrings.h */; };
+		97BB89BA26337F23008ED481 /* Config.h in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896226337E2B008ED481 /* Config.h */; };
+		97BB89BB26337F23008ED481 /* Context.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896426337E2B008ED481 /* Context.cpp */; };
+		97BB89BC26337F23008ED481 /* DemangleNodes.def in Sources */ = {isa = PBXBuildFile; fileRef = 97BB895F26337E2B008ED481 /* DemangleNodes.def */; };
+		97BB89BD26337F23008ED481 /* Demangler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896126337E2B008ED481 /* Demangler.cpp */; };
+		97BB89BE26337F23008ED481 /* Demangler.h in Sources */ = {isa = PBXBuildFile; fileRef = 97BB895B26337E2B008ED481 /* Demangler.h */; };
+		97BB89BF26337F23008ED481 /* ManglingMacros.h in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896926337E2B008ED481 /* ManglingMacros.h */; };
+		97BB89C026337F23008ED481 /* ManglingUtils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896526337E2B008ED481 /* ManglingUtils.cpp */; };
+		97BB89C126337F23008ED481 /* ManglingUtils.h in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896626337E2B008ED481 /* ManglingUtils.h */; };
+		97BB89C226337F23008ED481 /* NodePrinter.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896726337E2B008ED481 /* NodePrinter.cpp */; };
+		97BB89C326337F23008ED481 /* OldDemangler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896026337E2B008ED481 /* OldDemangler.cpp */; };
+		97BB89C426337F23008ED481 /* Platform.h in Sources */ = {isa = PBXBuildFile; fileRef = 97BB895A26337E2B008ED481 /* Platform.h */; };
+		97BB89C526337F23008ED481 /* ReferenceStorage.def in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896826337E2B008ED481 /* ReferenceStorage.def */; };
+		97BB89C626337F23008ED481 /* StandardTypesMangling.def in Sources */ = {isa = PBXBuildFile; fileRef = 97BB895C26337E2B008ED481 /* StandardTypesMangling.def */; };
+		97BB89C726337F23008ED481 /* STLExtras.h in Sources */ = {isa = PBXBuildFile; fileRef = 97BB895D26337E2B008ED481 /* STLExtras.h */; };
+		97BB89C826337F23008ED481 /* SwiftDemangle.h in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896A26337E2B008ED481 /* SwiftDemangle.h */; };
+		97BB89C926337F23008ED481 /* ValueWitnessMangling.def in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896326337E2B008ED481 /* ValueWitnessMangling.def */; };
+		97BB89CA26337F23008ED481 /* Visibility.h in Sources */ = {isa = PBXBuildFile; fileRef = 97BB895E26337E2B008ED481 /* Visibility.h */; };
+		97BB89CB26337F23008ED481 /* Demangle.h in Sources */ = {isa = PBXBuildFile; fileRef = CBC43F161C5AF2B10083A11B /* Demangle.h */; };
+		97BB89CC26337F23008ED481 /* DemangleNodes.h in Sources */ = {isa = PBXBuildFile; fileRef = CBC43F171C5AF2B10083A11B /* DemangleNodes.h */; };
+		97BB89CD26337F23008ED481 /* Fallthrough.h in Sources */ = {isa = PBXBuildFile; fileRef = CBC43F181C5AF2B10083A11B /* Fallthrough.h */; };
+		97BB89CE26337F23008ED481 /* LLVM.h in Sources */ = {isa = PBXBuildFile; fileRef = CBC43F191C5AF2B10083A11B /* LLVM.h */; };
+		97BB89CF26337F23008ED481 /* Malloc.h in Sources */ = {isa = PBXBuildFile; fileRef = CBC43F1A1C5AF2B10083A11B /* Malloc.h */; };
+		97BB89D026337F23008ED481 /* Punycode.h in Sources */ = {isa = PBXBuildFile; fileRef = CBC43F1C1C5AF2B10083A11B /* Punycode.h */; };
+		97BB89D126337F23008ED481 /* SwiftStrings.h in Sources */ = {isa = PBXBuildFile; fileRef = CBC43F1D1C5AF2B10083A11B /* SwiftStrings.h */; };
 		CB02648017F7CEC5003E0AED /* KSCPU_arm64.c in Sources */ = {isa = PBXBuildFile; fileRef = CB02647E17F7CEC5003E0AED /* KSCPU_arm64.c */; };
 		CB02648217F8D853003E0AED /* KSCrashMonitor_CPPException.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CBF53D4F17EB765C0056DA83 /* KSCrashMonitor_CPPException.cpp */; };
 		CB0264A917FA5B13003E0AED /* Container+DeepSearch_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = CB02648317FA5B12003E0AED /* Container+DeepSearch_Tests.m */; };
@@ -814,6 +898,23 @@
 		6E889A12BAE413442C0DA527 /* KSCxaThrowSwapper.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSCxaThrowSwapper.c; path = ../../Source/KSCrash/Recording/Tools/KSCxaThrowSwapper.c; sourceTree = "<group>"; };
 		6E889A8EEFCE259D2B1D7CA7 /* KSCxaThrowSwapper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSCxaThrowSwapper.h; path = ../../Source/KSCrash/Recording/Tools/KSCxaThrowSwapper.h; sourceTree = "<group>"; };
 		6E889C3CA8DE0FCD76ABD019 /* KSgetsect.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSgetsect.h; path = ../../Source/KSCrash/Recording/Tools/KSgetsect.h; sourceTree = "<group>"; };
+		97BB895A26337E2B008ED481 /* Platform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Platform.h; sourceTree = "<group>"; };
+		97BB895B26337E2B008ED481 /* Demangler.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Demangler.h; sourceTree = "<group>"; };
+		97BB895C26337E2B008ED481 /* StandardTypesMangling.def */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = StandardTypesMangling.def; sourceTree = "<group>"; };
+		97BB895D26337E2B008ED481 /* STLExtras.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = STLExtras.h; sourceTree = "<group>"; };
+		97BB895E26337E2B008ED481 /* Visibility.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Visibility.h; sourceTree = "<group>"; };
+		97BB895F26337E2B008ED481 /* DemangleNodes.def */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = DemangleNodes.def; sourceTree = "<group>"; };
+		97BB896026337E2B008ED481 /* OldDemangler.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = OldDemangler.cpp; sourceTree = "<group>"; };
+		97BB896126337E2B008ED481 /* Demangler.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Demangler.cpp; sourceTree = "<group>"; };
+		97BB896226337E2B008ED481 /* Config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Config.h; sourceTree = "<group>"; };
+		97BB896326337E2B008ED481 /* ValueWitnessMangling.def */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ValueWitnessMangling.def; sourceTree = "<group>"; };
+		97BB896426337E2B008ED481 /* Context.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Context.cpp; sourceTree = "<group>"; };
+		97BB896526337E2B008ED481 /* ManglingUtils.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ManglingUtils.cpp; sourceTree = "<group>"; };
+		97BB896626337E2B008ED481 /* ManglingUtils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ManglingUtils.h; sourceTree = "<group>"; };
+		97BB896726337E2B008ED481 /* NodePrinter.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = NodePrinter.cpp; sourceTree = "<group>"; };
+		97BB896826337E2B008ED481 /* ReferenceStorage.def */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ReferenceStorage.def; sourceTree = "<group>"; };
+		97BB896926337E2B008ED481 /* ManglingMacros.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ManglingMacros.h; sourceTree = "<group>"; };
+		97BB896A26337E2B008ED481 /* SwiftDemangle.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SwiftDemangle.h; sourceTree = "<group>"; };
 		CB02647E17F7CEC5003E0AED /* KSCPU_arm64.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSCPU_arm64.c; path = ../../Source/KSCrash/Recording/Tools/KSCPU_arm64.c; sourceTree = "<group>"; };
 		CB02648317FA5B12003E0AED /* Container+DeepSearch_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "Container+DeepSearch_Tests.m"; path = "../../Source/KSCrash-Tests/Container+DeepSearch_Tests.m"; sourceTree = "<group>"; };
 		CB02648417FA5B12003E0AED /* FileBasedTestCase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = FileBasedTestCase.h; path = "../../Source/KSCrash-Tests/FileBasedTestCase.h"; sourceTree = "<group>"; };
@@ -1283,6 +1384,23 @@
 		CBC43F141C5AF2B10083A11B /* Basic */ = {
 			isa = PBXGroup;
 			children = (
+				97BB896226337E2B008ED481 /* Config.h */,
+				97BB896426337E2B008ED481 /* Context.cpp */,
+				97BB895F26337E2B008ED481 /* DemangleNodes.def */,
+				97BB896126337E2B008ED481 /* Demangler.cpp */,
+				97BB895B26337E2B008ED481 /* Demangler.h */,
+				97BB896926337E2B008ED481 /* ManglingMacros.h */,
+				97BB896526337E2B008ED481 /* ManglingUtils.cpp */,
+				97BB896626337E2B008ED481 /* ManglingUtils.h */,
+				97BB896726337E2B008ED481 /* NodePrinter.cpp */,
+				97BB896026337E2B008ED481 /* OldDemangler.cpp */,
+				97BB895A26337E2B008ED481 /* Platform.h */,
+				97BB896826337E2B008ED481 /* ReferenceStorage.def */,
+				97BB895C26337E2B008ED481 /* StandardTypesMangling.def */,
+				97BB895D26337E2B008ED481 /* STLExtras.h */,
+				97BB896A26337E2B008ED481 /* SwiftDemangle.h */,
+				97BB896326337E2B008ED481 /* ValueWitnessMangling.def */,
+				97BB895E26337E2B008ED481 /* Visibility.h */,
 				CBC43F151C5AF2B10083A11B /* Demangle.cpp */,
 				CBC43F161C5AF2B10083A11B /* Demangle.h */,
 				CBC43F171C5AF2B10083A11B /* DemangleNodes.h */,
@@ -1540,9 +1658,11 @@
 				CB41F0651E0B9EBD00A1C9D7 /* KSStackCursor.h in Headers */,
 				CB41F06D1E0C4E9800A1C9D7 /* KSStackCursor_Backtrace.h in Headers */,
 				03DE7C491C84DF8100F789BA /* KSCrashMonitor_AppState.h in Headers */,
+				97BB897726337E2B008ED481 /* ManglingUtils.h in Headers */,
 				03DE7C7F1C84DFAB00F789BA /* KSJSONCodecObjC.h in Headers */,
 				03DE7C4B1C84DF8100F789BA /* KSCrashMonitorType.h in Headers */,
 				03DE7C471C84DF8100F789BA /* KSCrashReportWriter.h in Headers */,
+				97BB896E26337E2B008ED481 /* STLExtras.h in Headers */,
 				03DE7C4F1C84DF8100F789BA /* KSCrashReportStore.h in Headers */,
 				03DE7CA61C84DFB100F789BA /* KSCrashReportSinkStandard.h in Headers */,
 				03DE7CA01C84DFB100F789BA /* KSCrashReportSinkConsole.h in Headers */,
@@ -1569,6 +1689,7 @@
 				03DE7CCA1C84DFCD00F789BA /* KSCrashInstallationEmail.h in Headers */,
 				CB9821C41DFB359B00164220 /* KSMach.h in Headers */,
 				CBA997721C9214AD00D12149 /* KSCrashReportVersion.h in Headers */,
+				97BB896C26337E2B008ED481 /* Demangler.h in Headers */,
 				CB41F0751E0C4F8B00A1C9D7 /* KSStackCursor_MachineContext.h in Headers */,
 				03DE7C451C84DF8100F789BA /* KSCrashReport.h in Headers */,
 				CB25A5DB1DF22F4000EC2B02 /* KSThread.h in Headers */,
@@ -1589,9 +1710,11 @@
 				03DE7C511C84DF8100F789BA /* KSCrashDoctor.h in Headers */,
 				CB25A5BB1DF2182A00EC2B02 /* KSCPU.h in Headers */,
 				CB94D35E1CAC11B000806679 /* KSCrashInstallationConsole.h in Headers */,
+				97BB896B26337E2B008ED481 /* Platform.h in Headers */,
 				03DE7C6B1C84DFA400F789BA /* Demangle.h in Headers */,
 				03DE7C691C84DF9F00F789BA /* type_traits.h in Headers */,
 				03DE7C8C1C84DFAB00F789BA /* KSObjCApple.h in Headers */,
+				97BB897B26337E2B008ED481 /* SwiftDemangle.h in Headers */,
 				03DE7CC11C84DFC100F789BA /* KSHTTPRequestSender.h in Headers */,
 				03DE7C6C1C84DFA400F789BA /* DemangleNodes.h in Headers */,
 				03DE7C7C1C84DFAB00F789BA /* KSFileUtils.h in Headers */,
@@ -1606,6 +1729,7 @@
 				03DE7C671C84DF9F00F789BA /* Casting.h in Headers */,
 				03DE7C681C84DF9F00F789BA /* Compiler.h in Headers */,
 				03DE7C7E1C84DFAB00F789BA /* KSJSONCodec.h in Headers */,
+				97BB897326337E2B008ED481 /* Config.h in Headers */,
 				03DE7CC31C84DFC100F789BA /* KSReachabilityKSCrash.h in Headers */,
 				03DE7C721C84DFA400F789BA /* SwiftStrings.h in Headers */,
 				03DE7C6F1C84DFA400F789BA /* Malloc.h in Headers */,
@@ -1620,9 +1744,11 @@
 				03DE7C6D1C84DFA400F789BA /* Fallthrough.h in Headers */,
 				CB25A5F31DF2396700EC2B02 /* KSDebug.h in Headers */,
 				03DE7C621C84DF9200F789BA /* None.h in Headers */,
+				97BB896F26337E2B008ED481 /* Visibility.h in Headers */,
 				03DE7C8B1C84DFAB00F789BA /* KSObjC.h in Headers */,
 				03DE7CB81C84DFBC00F789BA /* Container+DeepSearch.h in Headers */,
 				03DE7C5F1C84DF8600F789BA /* KSCrashMonitor_Signal.h in Headers */,
+				97BB897A26337E2B008ED481 /* ManglingMacros.h in Headers */,
 				03DE7C961C84DFAB00F789BA /* KSCrashMonitor_Zombie.h in Headers */,
 				03DE7C5A1C84DF8600F789BA /* KSCrashMonitor_MachException.h in Headers */,
 				03DE7C951C84DFAB00F789BA /* KSSysCtl.h in Headers */,
@@ -1958,6 +2084,10 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				97BB897426337E2B008ED481 /* ValueWitnessMangling.def in Resources */,
+				97BB897926337E2B008ED481 /* ReferenceStorage.def in Resources */,
+				97BB897026337E2B008ED481 /* DemangleNodes.def in Resources */,
+				97BB896D26337E2B008ED481 /* StandardTypesMangling.def in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1986,6 +2116,25 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				97BB898726337EE2008ED481 /* Config.h in Sources */,
+				97BB898826337EE2008ED481 /* DemangleNodes.def in Sources */,
+				97BB898926337EE2008ED481 /* Demangler.h in Sources */,
+				97BB898A26337EE2008ED481 /* ManglingMacros.h in Sources */,
+				97BB898B26337EE2008ED481 /* ManglingUtils.h in Sources */,
+				97BB898C26337EE2008ED481 /* Platform.h in Sources */,
+				97BB898D26337EE2008ED481 /* ReferenceStorage.def in Sources */,
+				97BB898E26337EE2008ED481 /* StandardTypesMangling.def in Sources */,
+				97BB898F26337EE3008ED481 /* STLExtras.h in Sources */,
+				97BB899026337EE3008ED481 /* SwiftDemangle.h in Sources */,
+				97BB899126337EE3008ED481 /* ValueWitnessMangling.def in Sources */,
+				97BB899226337EE3008ED481 /* Visibility.h in Sources */,
+				97BB899326337EE3008ED481 /* Demangle.h in Sources */,
+				97BB899426337EE3008ED481 /* DemangleNodes.h in Sources */,
+				97BB899526337EE3008ED481 /* Fallthrough.h in Sources */,
+				97BB899626337EE3008ED481 /* LLVM.h in Sources */,
+				97BB899726337EE3008ED481 /* Malloc.h in Sources */,
+				97BB899826337EE3008ED481 /* Punycode.h in Sources */,
+				97BB899926337EE3008ED481 /* SwiftStrings.h in Sources */,
 				03DE7C561C84DF8600F789BA /* KSCrashMonitor_CPPException.cpp in Sources */,
 				03DE7CCF1C84DFCD00F789BA /* KSCrashInstallationStandard.m in Sources */,
 				03DE7C791C84DFAB00F789BA /* KSDynamicLinker.c in Sources */,
@@ -1998,7 +2147,9 @@
 				CB5657DC1E1CB8CE005A8302 /* KSSymbolicator.c in Sources */,
 				03DE7C9B1C84DFAB00F789BA /* NSError+SimpleConstructor.m in Sources */,
 				03DE7C881C84DFAB00F789BA /* KSCPU_x86_64.c in Sources */,
+				97BB897526337E2B008ED481 /* Context.cpp in Sources */,
 				03DE7CC41C84DFC100F789BA /* KSReachabilityKSCrash.m in Sources */,
+				97BB897226337E2B008ED481 /* Demangler.cpp in Sources */,
 				CB94D3601CAC11B000806679 /* KSCrashInstallationConsole.m in Sources */,
 				03DE7C4D1C84DF8100F789BA /* KSCrashMonitor_System.m in Sources */,
 				CB94D3661CAC190900806679 /* KSCrashReportFilterStringify.m in Sources */,
@@ -2009,6 +2160,7 @@
 				03DE7C701C84DFA400F789BA /* Punycode.cpp in Sources */,
 				03DE7C521C84DF8100F789BA /* KSCrashDoctor.m in Sources */,
 				03DE7C7D1C84DFAB00F789BA /* KSJSONCodec.c in Sources */,
+				97BB897126337E2B008ED481 /* OldDemangler.cpp in Sources */,
 				03DE7C411C84DF8100F789BA /* KSCrashC.c in Sources */,
 				CB8F1DC91CCADB2A0022CDF0 /* KSCrashInstallation+Alert.m in Sources */,
 				CB25A5F01DF2396700EC2B02 /* KSDebug.c in Sources */,
@@ -2040,9 +2192,11 @@
 				CBB61CC21E0035E4000C24A6 /* KSID.c in Sources */,
 				03DE7CA71C84DFB100F789BA /* KSCrashReportSinkStandard.m in Sources */,
 				CBA8A0C61E2561210019B5B9 /* KSCrashCachedData.c in Sources */,
+				97BB897826337E2B008ED481 /* NodePrinter.cpp in Sources */,
 				03DE7CBE1C84DFC100F789BA /* KSCString.m in Sources */,
 				03DE7CBC1C84DFBC00F789BA /* NSData+KSGZip.m in Sources */,
 				03DE7C8A1C84DFAB00F789BA /* KSObjC.c in Sources */,
+				97BB897626337E2B008ED481 /* ManglingUtils.cpp in Sources */,
 				03DE7CB51C84DFB700F789BA /* KSCrashReportFilterJSON.m in Sources */,
 				03DE7CC91C84DFCD00F789BA /* KSCrashInstallation.m in Sources */,
 				03DE7C8F1C84DFAB00F789BA /* KSSignalInfo.c in Sources */,
@@ -2071,6 +2225,30 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				97BB89BA26337F23008ED481 /* Config.h in Sources */,
+				97BB89BB26337F23008ED481 /* Context.cpp in Sources */,
+				97BB89BC26337F23008ED481 /* DemangleNodes.def in Sources */,
+				97BB89BD26337F23008ED481 /* Demangler.cpp in Sources */,
+				97BB89BE26337F23008ED481 /* Demangler.h in Sources */,
+				97BB89BF26337F23008ED481 /* ManglingMacros.h in Sources */,
+				97BB89C026337F23008ED481 /* ManglingUtils.cpp in Sources */,
+				97BB89C126337F23008ED481 /* ManglingUtils.h in Sources */,
+				97BB89C226337F23008ED481 /* NodePrinter.cpp in Sources */,
+				97BB89C326337F23008ED481 /* OldDemangler.cpp in Sources */,
+				97BB89C426337F23008ED481 /* Platform.h in Sources */,
+				97BB89C526337F23008ED481 /* ReferenceStorage.def in Sources */,
+				97BB89C626337F23008ED481 /* StandardTypesMangling.def in Sources */,
+				97BB89C726337F23008ED481 /* STLExtras.h in Sources */,
+				97BB89C826337F23008ED481 /* SwiftDemangle.h in Sources */,
+				97BB89C926337F23008ED481 /* ValueWitnessMangling.def in Sources */,
+				97BB89CA26337F23008ED481 /* Visibility.h in Sources */,
+				97BB89CB26337F23008ED481 /* Demangle.h in Sources */,
+				97BB89CC26337F23008ED481 /* DemangleNodes.h in Sources */,
+				97BB89CD26337F23008ED481 /* Fallthrough.h in Sources */,
+				97BB89CE26337F23008ED481 /* LLVM.h in Sources */,
+				97BB89CF26337F23008ED481 /* Malloc.h in Sources */,
+				97BB89D026337F23008ED481 /* Punycode.h in Sources */,
+				97BB89D126337F23008ED481 /* SwiftStrings.h in Sources */,
 				CBF53E2917EB765C0056DA83 /* KSReachabilityKSCrash.m in Sources */,
 				CBF53DE317EB765C0056DA83 /* KSCrashReportSinkVictory.m in Sources */,
 				CBF53DC817EB765C0056DA83 /* KSCrashReportFilterAppleFmt.m in Sources */,
@@ -2202,6 +2380,30 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				97BB899E26337EFF008ED481 /* Config.h in Sources */,
+				97BB899F26337EFF008ED481 /* Context.cpp in Sources */,
+				97BB89A026337EFF008ED481 /* DemangleNodes.def in Sources */,
+				97BB89A126337EFF008ED481 /* Demangler.cpp in Sources */,
+				97BB89A226337EFF008ED481 /* Demangler.h in Sources */,
+				97BB89A326337EFF008ED481 /* ManglingMacros.h in Sources */,
+				97BB89A426337EFF008ED481 /* ManglingUtils.cpp in Sources */,
+				97BB89A526337EFF008ED481 /* ManglingUtils.h in Sources */,
+				97BB89A626337EFF008ED481 /* NodePrinter.cpp in Sources */,
+				97BB89A726337EFF008ED481 /* OldDemangler.cpp in Sources */,
+				97BB89A826337EFF008ED481 /* Platform.h in Sources */,
+				97BB89A926337EFF008ED481 /* ReferenceStorage.def in Sources */,
+				97BB89AA26337F00008ED481 /* StandardTypesMangling.def in Sources */,
+				97BB89AB26337F00008ED481 /* STLExtras.h in Sources */,
+				97BB89AC26337F00008ED481 /* SwiftDemangle.h in Sources */,
+				97BB89AD26337F00008ED481 /* ValueWitnessMangling.def in Sources */,
+				97BB89AE26337F00008ED481 /* Visibility.h in Sources */,
+				97BB89AF26337F00008ED481 /* Demangle.h in Sources */,
+				97BB89B026337F00008ED481 /* DemangleNodes.h in Sources */,
+				97BB89B126337F00008ED481 /* Fallthrough.h in Sources */,
+				97BB89B226337F00008ED481 /* LLVM.h in Sources */,
+				97BB89B326337F00008ED481 /* Malloc.h in Sources */,
+				97BB89B426337F00008ED481 /* Punycode.h in Sources */,
+				97BB89B526337F00008ED481 /* SwiftStrings.h in Sources */,
 				EDF2BE7A1CCF15AD004BADF4 /* KSCrashMonitor_CPPException.cpp in Sources */,
 				EDF2BE7B1CCF15AD004BADF4 /* KSCrashInstallationStandard.m in Sources */,
 				EDF2BE7C1CCF15AD004BADF4 /* KSDynamicLinker.c in Sources */,
