@@ -1075,7 +1075,7 @@ static int decodeElement(const char* const name, KSJSONDecodeContext* context)
                     break;
                 }
                 accum *= 10;
-                int nextDigit = (*context->bufferPtr - '0');
+                uint64_t nextDigit = (uint64_t)(*context->bufferPtr - '0');
                 unlikely_if((isOverflow = accum > (ULLONG_MAX - nextDigit)))
                 {
                     break;
@@ -1093,7 +1093,7 @@ static int decodeElement(const char* const name, KSJSONDecodeContext* context)
             {
                 if(sign > 0 || accum <= ((uint64_t)LLONG_MAX + 1))
                 {
-                    int64_t signedAccum = accum;
+                    int64_t signedAccum = (int64_t)accum;
                     signedAccum *= sign;
                     return context->callbacks->onIntegerElement(name, signedAccum, context->userData);
                 }

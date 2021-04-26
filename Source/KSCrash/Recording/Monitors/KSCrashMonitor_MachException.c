@@ -47,8 +47,8 @@
 #pragma mark - Constants -
 // ============================================================================
 
-#define kThreadPrimary "KSCrash Exception Handler (Primary)"
-#define kThreadSecondary "KSCrash Exception Handler (Secondary)"
+static const char* kThreadPrimary = "KSCrash Exception Handler (Primary)";
+static const char* kThreadSecondary = "KSCrash Exception Handler (Secondary)";
 
 #if __LP64__
     #define MACH_ERROR_CODE_MASK 0xFFFFFFFFFFFFFFFF
@@ -518,7 +518,7 @@ static bool installExceptionHandler()
     error = pthread_create(&g_secondaryPThread,
                            &attr,
                            &handleExceptions,
-                           kThreadSecondary);
+                           (void*)kThreadSecondary);
     if(error != 0)
     {
         KSLOG_ERROR("pthread_create_suspended_np: %s", strerror(error));
@@ -531,7 +531,7 @@ static bool installExceptionHandler()
     error = pthread_create(&g_primaryPThread,
                            &attr,
                            &handleExceptions,
-                           kThreadPrimary);
+                           (void*)kThreadPrimary);
     if(error != 0)
     {
         KSLOG_ERROR("pthread_create: %s", strerror(error));

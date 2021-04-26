@@ -38,7 +38,8 @@
 
 #ifdef __arm64__
     #define UC_MCONTEXT uc_mcontext64
-    typedef ucontext64_t SignalUserContext;
+
+typedef ucontext64_t SignalUserContext;
 #else
     #define UC_MCONTEXT uc_mcontext
     typedef ucontext_t SignalUserContext;
@@ -165,7 +166,7 @@ static inline bool isThreadInList(thread_t thread, KSThread* list, int listCount
 }
 #endif
 
-void ksmc_suspendEnvironment(thread_act_array_t *suspendedThreads, mach_msg_type_number_t *numSuspendedThreads)
+void ksmc_suspendEnvironment(__unused thread_act_array_t *suspendedThreads, __unused mach_msg_type_number_t *numSuspendedThreads)
 {
 #if KSCRASH_HAS_THREADS_API
     KSLOG_DEBUG("Suspending environment.");
@@ -196,7 +197,7 @@ void ksmc_suspendEnvironment(thread_act_array_t *suspendedThreads, mach_msg_type
 #endif
 }
 
-void ksmc_resumeEnvironment(thread_act_array_t threads, mach_msg_type_number_t numThreads)
+void ksmc_resumeEnvironment(__unused thread_act_array_t threads, __unused mach_msg_type_number_t numThreads)
 {
 #if KSCRASH_HAS_THREADS_API
     KSLOG_DEBUG("Resuming environment.");

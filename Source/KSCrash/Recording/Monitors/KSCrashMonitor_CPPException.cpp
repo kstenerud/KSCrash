@@ -77,7 +77,7 @@ static KSStackCursor g_stackCursor;
 #pragma mark - Callbacks -
 // ============================================================================
 
-static void captureStackTrace(void* thrown_exception, std::type_info* tinfo, void (*dest)(void*))
+static void captureStackTrace(void*, std::type_info*, void (*)(void*))
 {
     if(g_captureNextStackTrace)
     {

@@ -23,12 +23,12 @@
     [super viewDidAppear:animated];
     
     // Send all outstanding reports, then show the main view controller.
-    AppDelegate* appDelegate = [UIApplication sharedApplication].delegate;
+    AppDelegate* appDelegate = (AppDelegate*)[UIApplication sharedApplication].delegate;
     [appDelegate.crashInstallation sendAllReportsWithCompletion:^(NSArray* reports, BOOL completed, NSError* error)
      {
          if(completed)
          {
-             NSLog(@"Sent %d reports", [reports count]);
+             NSLog(@"Sent %lu reports", (unsigned long)[reports count]);
          }
          else
          {

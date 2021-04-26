@@ -302,7 +302,6 @@
 		97BB89B526337F00008ED481 /* SwiftStrings.h in Sources */ = {isa = PBXBuildFile; fileRef = CBC43F1D1C5AF2B10083A11B /* SwiftStrings.h */; };
 		97BB89BA26337F23008ED481 /* Config.h in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896226337E2B008ED481 /* Config.h */; };
 		97BB89BB26337F23008ED481 /* Context.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896426337E2B008ED481 /* Context.cpp */; };
-		97BB89BC26337F23008ED481 /* DemangleNodes.def in Sources */ = {isa = PBXBuildFile; fileRef = 97BB895F26337E2B008ED481 /* DemangleNodes.def */; };
 		97BB89BD26337F23008ED481 /* Demangler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896126337E2B008ED481 /* Demangler.cpp */; };
 		97BB89BE26337F23008ED481 /* Demangler.h in Sources */ = {isa = PBXBuildFile; fileRef = 97BB895B26337E2B008ED481 /* Demangler.h */; };
 		97BB89BF26337F23008ED481 /* ManglingMacros.h in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896926337E2B008ED481 /* ManglingMacros.h */; };
@@ -311,11 +310,8 @@
 		97BB89C226337F23008ED481 /* NodePrinter.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896726337E2B008ED481 /* NodePrinter.cpp */; };
 		97BB89C326337F23008ED481 /* OldDemangler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896026337E2B008ED481 /* OldDemangler.cpp */; };
 		97BB89C426337F23008ED481 /* Platform.h in Sources */ = {isa = PBXBuildFile; fileRef = 97BB895A26337E2B008ED481 /* Platform.h */; };
-		97BB89C526337F23008ED481 /* ReferenceStorage.def in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896826337E2B008ED481 /* ReferenceStorage.def */; };
-		97BB89C626337F23008ED481 /* StandardTypesMangling.def in Sources */ = {isa = PBXBuildFile; fileRef = 97BB895C26337E2B008ED481 /* StandardTypesMangling.def */; };
 		97BB89C726337F23008ED481 /* STLExtras.h in Sources */ = {isa = PBXBuildFile; fileRef = 97BB895D26337E2B008ED481 /* STLExtras.h */; };
 		97BB89C826337F23008ED481 /* SwiftDemangle.h in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896A26337E2B008ED481 /* SwiftDemangle.h */; };
-		97BB89C926337F23008ED481 /* ValueWitnessMangling.def in Sources */ = {isa = PBXBuildFile; fileRef = 97BB896326337E2B008ED481 /* ValueWitnessMangling.def */; };
 		97BB89CA26337F23008ED481 /* Visibility.h in Sources */ = {isa = PBXBuildFile; fileRef = 97BB895E26337E2B008ED481 /* Visibility.h */; };
 		97BB89CB26337F23008ED481 /* Demangle.h in Sources */ = {isa = PBXBuildFile; fileRef = CBC43F161C5AF2B10083A11B /* Demangle.h */; };
 		97BB89CC26337F23008ED481 /* DemangleNodes.h in Sources */ = {isa = PBXBuildFile; fileRef = CBC43F171C5AF2B10083A11B /* DemangleNodes.h */; };
@@ -2046,7 +2042,7 @@
 		CB52178417EB735D007CB3C1 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0900;
+				LastUpgradeCheck = 1240;
 				ORGANIZATIONNAME = "Karl Stenerud";
 				TargetAttributes = {
 					03DE7B691C84DEF700F789BA = {
@@ -2227,7 +2223,6 @@
 			files = (
 				97BB89BA26337F23008ED481 /* Config.h in Sources */,
 				97BB89BB26337F23008ED481 /* Context.cpp in Sources */,
-				97BB89BC26337F23008ED481 /* DemangleNodes.def in Sources */,
 				97BB89BD26337F23008ED481 /* Demangler.cpp in Sources */,
 				97BB89BE26337F23008ED481 /* Demangler.h in Sources */,
 				97BB89BF26337F23008ED481 /* ManglingMacros.h in Sources */,
@@ -2236,11 +2231,8 @@
 				97BB89C226337F23008ED481 /* NodePrinter.cpp in Sources */,
 				97BB89C326337F23008ED481 /* OldDemangler.cpp in Sources */,
 				97BB89C426337F23008ED481 /* Platform.h in Sources */,
-				97BB89C526337F23008ED481 /* ReferenceStorage.def in Sources */,
-				97BB89C626337F23008ED481 /* StandardTypesMangling.def in Sources */,
 				97BB89C726337F23008ED481 /* STLExtras.h in Sources */,
 				97BB89C826337F23008ED481 /* SwiftDemangle.h in Sources */,
-				97BB89C926337F23008ED481 /* ValueWitnessMangling.def in Sources */,
 				97BB89CA26337F23008ED481 /* Visibility.h in Sources */,
 				97BB89CB26337F23008ED481 /* Demangle.h in Sources */,
 				97BB89CC26337F23008ED481 /* DemangleNodes.h in Sources */,
@@ -2533,7 +2525,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				INFOPLIST_FILE = "KSCrash/KSCrash-Info.plist";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 9.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
 				MODULEMAP_FILE = ../Source/Framework/module.modulemap;
 				MTL_ENABLE_DEBUG_INFO = YES;
@@ -2566,7 +2558,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				INFOPLIST_FILE = "KSCrash/KSCrash-Info.plist";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 9.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
 				MODULEMAP_FILE = ../Source/Framework/module.modulemap;
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -2583,6 +2575,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_RAND = YES;
@@ -2610,6 +2603,7 @@
 				CLANG_WARN_OBJC_MISSING_PROPERTY_SYNTHESIS = YES;
 				CLANG_WARN_OBJC_REPEATED_USE_OF_WEAK = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = YES;
@@ -2647,7 +2641,7 @@
 				GCC_WARN_UNUSED_LABEL = YES;
 				GCC_WARN_UNUSED_PARAMETER = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 9.0;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_LDFLAGS = "-ObjC";
 				SDKROOT = iphoneos;
@@ -2658,6 +2652,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_RAND = YES;
@@ -2685,6 +2680,7 @@
 				CLANG_WARN_OBJC_MISSING_PROPERTY_SYNTHESIS = YES;
 				CLANG_WARN_OBJC_REPEATED_USE_OF_WEAK = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = YES;
@@ -2715,7 +2711,7 @@
 				GCC_WARN_UNUSED_LABEL = YES;
 				GCC_WARN_UNUSED_PARAMETER = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 9.0;
 				OTHER_LDFLAGS = "-ObjC";
 				SDKROOT = iphoneos;
 				VALIDATE_PRODUCT = YES;
@@ -2808,7 +2804,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				INFOPLIST_FILE = "$(SRCROOT)/KSCrash/KSCrash_static-Info.plist";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 9.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
 				MACH_O_TYPE = staticlib;
 				MODULEMAP_FILE = ../Source/Framework/module.modulemap;
@@ -2842,7 +2838,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				INFOPLIST_FILE = "$(SRCROOT)/KSCrash/KSCrash_static-Info.plist";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 9.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
 				MACH_O_TYPE = staticlib;
 				MODULEMAP_FILE = ../Source/Framework/module.modulemap;

@@ -86,7 +86,7 @@ useDefaultFilenameFormat:(BOOL) useDefaultFilenameFormat
 
     if(useDefaultFilenameFormat)
     {
-        self.filenameFmt = [self.defaultFilenameFormats objectForKey:[NSNumber numberWithInt:reportStyle]];
+        self.filenameFmt = [self.defaultFilenameFormats objectForKey:[NSNumber numberWithInt:(int)reportStyle]];
     }
 }
 
