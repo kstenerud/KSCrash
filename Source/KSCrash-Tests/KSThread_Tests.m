@@ -30,41 +30,42 @@
 #import "KSThread.h"
 #import "TestThread.h"
 
+#include <mach/mach.h>
+
 
 @interface KSThread_Tests : XCTestCase @end
 
 @implementation KSThread_Tests
 
-// TODO: Disabling this until I figure out what's wrong with queue names.
-//- (void) testGetQueueName
-//{
-//    kern_return_t kr;
-//    const task_t thisTask = mach_task_self();
-//    thread_act_array_t threads;
-//    mach_msg_type_number_t numThreads;
-//
-//    kr = task_threads(thisTask, &threads, &numThreads);
-//    XCTAssertTrue(kr == KERN_SUCCESS, @"");
-//
-//    bool success = false;
-//    char buffer[100];
-//    for(mach_msg_type_number_t i = 0; i < numThreads; i++)
-//    {
-//        thread_t thread = threads[i];
-//        if(ksthread_getQueueName(thread, buffer, sizeof(buffer)))
-//        {
-//            success = true;
-//            break;
-//        }
-//    }
-//
-//    for(mach_msg_type_number_t i = 0; i < numThreads; i++)
-//    {
-//        mach_port_deallocate(thisTask, threads[i]);
-//    }
-//    vm_deallocate(thisTask, (vm_address_t)threads, sizeof(thread_t) * numThreads);
-//
-//    XCTAssertTrue(success, @"");
-//}
+- (void) testGetQueueName
+{
+    kern_return_t kr;
+    const task_t thisTask = mach_task_self();
+    thread_act_array_t threads;
+    mach_msg_type_number_t numThreads;
+
+    kr = task_threads(thisTask, &threads, &numThreads);
+    XCTAssertTrue(kr == KERN_SUCCESS, @"");
+
+    bool success = false;
+    char buffer[100];
+    for(mach_msg_type_number_t i = 0; i < numThreads; i++)
+    {
+        thread_t thread = threads[i];
+        if(ksthread_getQueueName(thread, buffer, sizeof(buffer)))
+        {
+            success = true;
+            break;
+        }
+    }
+
+    for(mach_msg_type_number_t i = 0; i < numThreads; i++)
+    {
+        mach_port_deallocate(thisTask, threads[i]);
+    }
+    vm_deallocate(thisTask, (vm_address_t)threads, sizeof(thread_t) * numThreads);
+
+    XCTAssertTrue(success, @"");
+}
 
 @end
