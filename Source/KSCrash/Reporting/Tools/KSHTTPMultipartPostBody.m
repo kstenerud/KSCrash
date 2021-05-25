@@ -156,7 +156,7 @@
 
 - (NSString*) toStringWithQuotesEscaped:(NSString*) value
 {
-    return [value stringByReplacingOccurrencesOfString:@"\"" withString:@"\\\""];
+    return value == nil ? @"" : [value stringByReplacingOccurrencesOfString:@"\"" withString:@"\\\""];
 }
 
 - (NSData*) data
