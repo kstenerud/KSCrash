@@ -118,7 +118,7 @@
 		CB736FD41D9B6F0E00E3230F /* NSError+SimpleConstructor.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736FA71D9B6F0E00E3230F /* NSError+SimpleConstructor.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB736FD51D9B6F0E00E3230F /* NSError+SimpleConstructor.m in Sources */ = {isa = PBXBuildFile; fileRef = CB736FA81D9B6F0E00E3230F /* NSError+SimpleConstructor.m */; };
 		CB736FE21D9B6F4D00E3230F /* None.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736FDF1D9B6F4D00E3230F /* None.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		CB736FE31D9B6F4D00E3230F /* Optional.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736FE01D9B6F4D00E3230F /* Optional.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CB736FE31D9B6F4D00E3230F /* KSOptional.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736FE01D9B6F4D00E3230F /* KSOptional.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB736FE41D9B6F4D00E3230F /* StringRef.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736FE11D9B6F4D00E3230F /* StringRef.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB736FE61D9B6F5500E3230F /* llvm-config.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736FE51D9B6F5500E3230F /* llvm-config.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB736FEB1D9B6F5D00E3230F /* AlignOf.h in Headers */ = {isa = PBXBuildFile; fileRef = CB736FE71D9B6F5D00E3230F /* AlignOf.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -318,7 +318,7 @@
 		CB736FA71D9B6F0E00E3230F /* NSError+SimpleConstructor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSError+SimpleConstructor.h"; path = "../../Source/KSCrash/Recording/Tools/NSError+SimpleConstructor.h"; sourceTree = "<group>"; };
 		CB736FA81D9B6F0E00E3230F /* NSError+SimpleConstructor.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSError+SimpleConstructor.m"; path = "../../Source/KSCrash/Recording/Tools/NSError+SimpleConstructor.m"; sourceTree = "<group>"; };
 		CB736FDF1D9B6F4D00E3230F /* None.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = None.h; path = ../../Source/KSCrash/llvm/ADT/None.h; sourceTree = "<group>"; };
-		CB736FE01D9B6F4D00E3230F /* Optional.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Optional.h; path = ../../Source/KSCrash/llvm/ADT/Optional.h; sourceTree = "<group>"; };
+		CB736FE01D9B6F4D00E3230F /* KSOptional.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSOptional.h; path = ../../Source/KSCrash/llvm/ADT/KSOptional.h; sourceTree = "<group>"; };
 		CB736FE11D9B6F4D00E3230F /* StringRef.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = StringRef.h; path = ../../Source/KSCrash/llvm/ADT/StringRef.h; sourceTree = "<group>"; };
 		CB736FE51D9B6F5500E3230F /* llvm-config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "llvm-config.h"; path = "../../Source/KSCrash/llvm/Config/llvm-config.h"; sourceTree = "<group>"; };
 		CB736FE71D9B6F5D00E3230F /* AlignOf.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = AlignOf.h; path = ../../Source/KSCrash/llvm/Support/AlignOf.h; sourceTree = "<group>"; };
@@ -612,7 +612,7 @@
 			isa = PBXGroup;
 			children = (
 				CB736FDF1D9B6F4D00E3230F /* None.h */,
-				CB736FE01D9B6F4D00E3230F /* Optional.h */,
+				CB736FE01D9B6F4D00E3230F /* KSOptional.h */,
 				CB736FE11D9B6F4D00E3230F /* StringRef.h */,
 			);
 			name = ADT;
@@ -868,7 +868,7 @@
 				CB7370241D9B6FA800E3230F /* KSCrashReportFilterStringify.h in Headers */,
 				63289D571DED6ABF0089E031 /* KSCrashReportFixer.h in Headers */,
 				CB73707C1D9BB77500E3230F /* KSReachabilityKSCrash.h in Headers */,
-				CB736FE31D9B6F4D00E3230F /* Optional.h in Headers */,
+				CB736FE31D9B6F4D00E3230F /* KSOptional.h in Headers */,
 				CB25A60F1DF23F2A00EC2B02 /* KSCPU_Apple.h in Headers */,
 				CB736FE41D9B6F4D00E3230F /* StringRef.h in Headers */,
 				CB7370221D9B6FA800E3230F /* KSCrashReportFilterSets.h in Headers */,

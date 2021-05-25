@@ -20,7 +20,7 @@
 #include "ManglingUtils.h"
 #include "SwiftStrings.h"
 #include "Punycode.h"
-#include "Optional.h"
+#include "KSOptional.h"
 #include <functional>
 #include <vector>
 #include <cstdio>

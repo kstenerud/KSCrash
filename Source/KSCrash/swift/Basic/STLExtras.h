@@ -18,7 +18,7 @@
 #define SWIFT_BASIC_INTERLEAVE_H
 
 #include "LLVM.h"
-#include "Optional.h"
+#include "KSOptional.h"
 //#include "llvm/ADT/STLExtras.h"
 #include "Casting.h"
 #include <algorithm>

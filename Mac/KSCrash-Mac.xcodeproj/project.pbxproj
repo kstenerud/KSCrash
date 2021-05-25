@@ -86,8 +86,8 @@
 		CB25A60B1DF23F0C00EC2B02 /* KSCPU_Apple.h in Headers */ = {isa = PBXBuildFile; fileRef = CB25A6091DF23F0C00EC2B02 /* KSCPU_Apple.h */; };
 		CB26860F1C694E4400EE4EB3 /* None.h in Headers */ = {isa = PBXBuildFile; fileRef = CB2685F81C694E4400EE4EB3 /* None.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB2686101C694E4400EE4EB3 /* None.h in Headers */ = {isa = PBXBuildFile; fileRef = CB2685F81C694E4400EE4EB3 /* None.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		CB2686111C694E4400EE4EB3 /* Optional.h in Headers */ = {isa = PBXBuildFile; fileRef = CB2685F91C694E4400EE4EB3 /* Optional.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		CB2686121C694E4400EE4EB3 /* Optional.h in Headers */ = {isa = PBXBuildFile; fileRef = CB2685F91C694E4400EE4EB3 /* Optional.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CB2686111C694E4400EE4EB3 /* KSOptional.h in Headers */ = {isa = PBXBuildFile; fileRef = CB2685F91C694E4400EE4EB3 /* KSOptional.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CB2686121C694E4400EE4EB3 /* KSOptional.h in Headers */ = {isa = PBXBuildFile; fileRef = CB2685F91C694E4400EE4EB3 /* KSOptional.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB2686131C694E4400EE4EB3 /* StringRef.h in Headers */ = {isa = PBXBuildFile; fileRef = CB2685FA1C694E4400EE4EB3 /* StringRef.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB2686141C694E4400EE4EB3 /* StringRef.h in Headers */ = {isa = PBXBuildFile; fileRef = CB2685FA1C694E4400EE4EB3 /* StringRef.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CB2686151C694E4400EE4EB3 /* llvm-config.h in Headers */ = {isa = PBXBuildFile; fileRef = CB2685FC1C694E4400EE4EB3 /* llvm-config.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -493,7 +493,7 @@
 		CB25A5F81DF23B5D00EC2B02 /* KSDebug.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSDebug.h; path = ../../Source/KSCrash/Recording/Tools/KSDebug.h; sourceTree = "<group>"; };
 		CB25A6091DF23F0C00EC2B02 /* KSCPU_Apple.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSCPU_Apple.h; path = ../../Source/KSCrash/Recording/Tools/KSCPU_Apple.h; sourceTree = "<group>"; };
 		CB2685F81C694E4400EE4EB3 /* None.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = None.h; sourceTree = "<group>"; };
-		CB2685F91C694E4400EE4EB3 /* Optional.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Optional.h; sourceTree = "<group>"; };
+		CB2685F91C694E4400EE4EB3 /* KSOptional.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KSOptional.h; sourceTree = "<group>"; };
 		CB2685FA1C694E4400EE4EB3 /* StringRef.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = StringRef.h; sourceTree = "<group>"; };
 		CB2685FC1C694E4400EE4EB3 /* llvm-config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "llvm-config.h"; sourceTree = "<group>"; };
 		CB2685FD1C694E4400EE4EB3 /* LICENSE.TXT */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LICENSE.TXT; sourceTree = "<group>"; };
@@ -761,7 +761,7 @@
 			isa = PBXGroup;
 			children = (
 				CB2685F81C694E4400EE4EB3 /* None.h */,
-				CB2685F91C694E4400EE4EB3 /* Optional.h */,
+				CB2685F91C694E4400EE4EB3 /* KSOptional.h */,
 				CB2685FA1C694E4400EE4EB3 /* StringRef.h */,
 			);
 			path = ADT;
@@ -1258,7 +1258,7 @@
 				CB6240B117EBCA74006471F1 /* KSCrashMonitor_AppState.h in Headers */,
 				830AB8702361D28900CB4BF8 /* KSgetsect.h in Headers */,
 				CBBD3AAF1CAD98A300DBB897 /* KSCrashInstallationConsole.h in Headers */,
-				CB2686121C694E4400EE4EB3 /* Optional.h in Headers */,
+				CB2686121C694E4400EE4EB3 /* KSOptional.h in Headers */,
 				CBA1A5331DD24FB5007B1CE7 /* KSDemangle_Swift.h in Headers */,
 				CB6240AD17EBCA74006471F1 /* KSCrashReport.h in Headers */,
 				CB62410017EBCA74006471F1 /* KSCrashDoctor.h in Headers */,
@@ -1398,7 +1398,7 @@
 				CB26861C1C694E4400EE4EB3 /* Compiler.h in Headers */,
 				CB8E56EB17EB9B89000C56D3 /* KSCString.h in Headers */,
 				CB8E569817EB9B43000C56D3 /* KSString.h in Headers */,
-				CB2686111C694E4400EE4EB3 /* Optional.h in Headers */,
+				CB2686111C694E4400EE4EB3 /* KSOptional.h in Headers */,
 				CB8E562E17EB9AFD000C56D3 /* KSCrashC.h in Headers */,
 				CB2686301C694E4400EE4EB3 /* SwiftStrings.h in Headers */,
 				9729E5CA2633934F00AE3237 /* Config.h in Headers */,
