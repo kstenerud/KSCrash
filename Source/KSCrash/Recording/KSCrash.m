@@ -140,6 +140,15 @@ static NSString* getBasePath()
     return sharedInstance;
 }
 
+- (void)setBasePath:(NSString *)basePath
+{
+    _basePath = basePath;
+    if(_basePath == nil)
+    {
+        KSLOG_ERROR(@"Failed to initialize crash handler. Crash reporting disabled.");
+    }
+}
+
 - (id) init
 {
     return [self initWithBasePath:getBasePath()];

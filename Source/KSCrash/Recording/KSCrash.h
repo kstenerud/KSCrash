@@ -55,6 +55,13 @@ typedef enum
 
 #pragma mark - Configuration -
 
+/**
+ Custom your own base path here, but make sure that set it before -[KSCrash install] called!
+
+ @param basePath Your own base path.
+ */
+- (void)setBasePath:(NSString *)basePath;
+
 /** Init KSCrash instance with custom base path. */
 - (id) initWithBasePath:(NSString *)basePath;
 
