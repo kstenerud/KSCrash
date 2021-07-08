@@ -89,7 +89,7 @@ static inline bool getThreadList(KSMachineContext* context)
 
     for(mach_msg_type_number_t i = 0; i < actualThreadCount; i++)
     {
-        mach_port_deallocate(thisTask, context->allThreads[i]);
+        mach_port_deallocate(thisTask, threads[i]);
     }
     vm_deallocate(thisTask, (vm_address_t)threads, sizeof(thread_t) * actualThreadCount);
 
