@@ -174,7 +174,7 @@ static int onElement(KSJSONCodec* codec, NSString* name, id element)
         return KSJSON_ERROR_INVALID_DATA;
     }
 
-    if([codec->_currentContainer isKindOfClass:[NSMutableDictionary class]])
+    if([codec->_currentContainer isKindOfClass:[NSMutableDictionary class]] && name != nil)
     {
         [(NSMutableDictionary*)codec->_currentContainer setValue:element
                                                           forKey:name];
