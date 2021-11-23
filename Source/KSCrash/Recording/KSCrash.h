@@ -231,6 +231,17 @@ typedef enum
  */
 - (BOOL) install;
 
+/** Re-install all of the previously installed crash handlers if needed.
+ *
+ *  This is specifically for getting around other SDKs setting crash handlers that prevent
+ *  KSCrashs' crash handler from being called
+ *
+ *  Note: this should always be called after -(void)install is called. Otherwise it will not do anything.
+ */
+
+- (void) reinstallCrashHandler;
+
+
 /** Send all outstanding crash reports to the current sink.
  * It will only attempt to send the most recent 5 reports. All others will be
  * deleted. Once the reports are successfully sent to the server, they may be

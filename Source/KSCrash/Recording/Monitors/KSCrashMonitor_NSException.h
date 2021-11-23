@@ -43,7 +43,7 @@ extern "C" {
 /** Access the Monitor API.
  */
 KSCrashMonitorAPI* kscm_nsexception_getAPI(void);
-
+extern void forceExceptionHandlerToTopOfStack(void);
 
 #ifdef __cplusplus
 }

@@ -52,6 +52,8 @@ extern "C" {
  */
 KSCrashMonitorType kscrash_install(const char* appName, const char* const installPath);
 
+void kscrash_re_install(void);
+
 /** Set the crash types that will be handled.
  * Some crash types may not be enabled depending on circumstances (e.g. running
  * in a debugger).

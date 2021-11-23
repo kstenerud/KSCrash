@@ -326,6 +326,15 @@ static NSString* getBasePath()
     return true;
 }
 
+- (void) reinstallCrashHandler
+{
+    // only re install if we are intalled and tracking type NSException
+    if(_monitoring & KSCrashMonitorTypeNSException)
+    {
+        kscrash_re_install();
+    }
+}
+
 - (void) sendAllReportsWithCompletion:(KSCrashReportFilterCompletion) onCompletion
 {
     NSArray* reports = [self allReports];

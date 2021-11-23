@@ -44,10 +44,13 @@ static volatile bool g_isEnabled = 0;
 
 static KSCrash_MonitorContext g_monitorContext;
 
+static volatile bool g_alreadyHandleException = false;
+
 /** The exception handler that was in place before we installed ours. */
 static NSUncaughtExceptionHandler* g_previousUncaughtExceptionHandler;
 
-
+/* The previous exception handler that was installed before we originally installed our exception handler*/
+static NSUncaughtExceptionHandler* g_previousMiddleUncaughtExceptionHandler;
 // ============================================================================
 #pragma mark - Callbacks -
 // ============================================================================
@@ -62,6 +65,17 @@ static void handleException(NSException* exception, BOOL currentSnapshotUserRepo
     KSLOG_DEBUG(@"Trapped exception %@", exception);
     if(g_isEnabled)
     {
+        // early out if we have already handled this exception calling the previously set exception handler
+        if(g_alreadyHandleException)
+        {
+            if(g_previousMiddleUncaughtExceptionHandler != 0)
+            {
+                g_previousMiddleUncaughtExceptionHandler(exception);
+            }
+            
+            return;
+        }
+        
         thread_act_array_t threads = NULL;
         mach_msg_type_number_t numThreads = 0;
         ksmc_suspendEnvironment(&threads, &numThreads);
@@ -99,6 +113,8 @@ static void handleException(NSException* exception, BOOL currentSnapshotUserRepo
         KSLOG_DEBUG(@"Calling main crash handler.");
         kscm_handleException(crashContext);
 
+        g_alreadyHandleException = true;
+        
         free(callstack);
         if (currentSnapshotUserReported) {
             ksmc_resumeEnvironment(threads, numThreads);
@@ -143,6 +159,24 @@ static void setEnabled(bool isEnabled)
             KSLOG_DEBUG(@"Restoring original handler.");
             NSSetUncaughtExceptionHandler(g_previousUncaughtExceptionHandler);
         }
+    }
+}
+
+void forceExceptionHandlerToTopOfStack()
+{
+    KSLOG_DEBUG("checking if exception hanlder needs to be re installed.");
+    
+    NSUncaughtExceptionHandler* previousUncaughtExceptionHandler = NSGetUncaughtExceptionHandler();
+    if(previousUncaughtExceptionHandler != &handleUncaughtException)
+    {
+        KSLOG_DEBUG(@"forcing custom handler to top of stack.");
+        g_previousMiddleUncaughtExceptionHandler = g_previousUncaughtExceptionHandler;
+        g_previousUncaughtExceptionHandler = previousUncaughtExceptionHandler;
+        NSSetUncaughtExceptionHandler(&handleUncaughtException);
+    }
+    else
+    {
+        KSLOG_DEBUG(@"custom handler already top of stack.");
     }
 }
 

@@ -42,7 +42,7 @@
 #include "KSCrashMonitor_AppState.h"
 #include "KSCrashMonitorContext.h"
 #include "KSSystemCapabilities.h"
-
+#include "KSCrashMonitor_NSException.h"
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
@@ -160,7 +160,7 @@ KSCrashMonitorType kscrash_install(const char* appName, const char* const instal
     if(g_installed)
     {
         KSLOG_DEBUG("Crash reporter already installed.");
-        return g_monitoring;
+        return kscm_getActiveMonitors();
     }
     g_installed = 1;
 
@@ -193,17 +193,29 @@ KSCrashMonitorType kscrash_install(const char* appName, const char* const instal
     return monitors;
 }
 
+
+
+void kscrash_re_install()
+{
+    if(g_installed == 0)
+    {
+        KSLOG_DEBUG("install required to be called before re install");
+        return;
+    }
+    
+    forceExceptionHandlerToTopOfStack();
+}
+
 KSCrashMonitorType kscrash_setMonitoring(KSCrashMonitorType monitors)
 {
-    g_monitoring = monitors;
-    
     if(g_installed)
     {
         kscm_setActiveMonitors(monitors);
         return kscm_getActiveMonitors();
     }
-    // Return what we will be monitoring in future.
-    return g_monitoring;
+    
+    // Return none because we are not installed yet and therefore not monitoring.
+    return KSCrashMonitorTypeNone;
 }
 
 void kscrash_setUserInfoJSON(const char* const userInfoJSON)
