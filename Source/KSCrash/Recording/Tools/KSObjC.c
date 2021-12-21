@@ -924,16 +924,11 @@ KSObjCType ksobjc_objectType(const void* objectOrClassPtr)
         return KSObjCTypeObject;
     }
     
-    if(!isValidObject(objectOrClassPtr))
+    if(!isValidObject(objectOrClassPtr) && !isValidClass(objectOrClassPtr))
     {
         return KSObjCTypeUnknown;
     }
-    
-    if(!isValidClass(objectOrClassPtr))
-    {
-        return KSObjCTypeUnknown;
-    }
-    
+        
     const struct class_t* isa = getIsaPointer(objectOrClassPtr);
 
     if(isBlockClass(isa))
