@@ -76,6 +76,15 @@ static void handleException(NSException* exception, BOOL currentSnapshotUserRepo
             return;
         }
         
+        // this key is set if it is an RN js crash, so we want to ignore that as we already catch that through the RN sdk.
+        //https://github.com/facebook/react-native/blob/af793dd14dc416b239169a2035ccc8cb824335be/React/Base/RCTAssert.m#L139
+        if (exception.userInfo[@"RCTUntruncatedMessageKey"] != nil)
+        {
+            KSLOG_DEBUG(@"Ignoring RN Crash because it's a duplicate.");
+            
+            return;
+        }
+        
         thread_act_array_t threads = NULL;
         mach_msg_type_number_t numThreads = 0;
         ksmc_suspendEnvironment(&threads, &numThreads);
