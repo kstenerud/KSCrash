@@ -131,16 +131,14 @@ void kscrash_setCrashNotifyCallback(const KSReportWriteCallback onCrashNotify);
 
 typedef void (*KSReportWrittenCallback)(int64_t reportID);
 
-/** Set the callback to invoke upon finishing writing a crash report.
+/** Set the callback to invoke upon finishing writing a crash report. Default is @c NULL .
  *
- * WARNING: Only call async-safe functions from this function! DO NOT call
- * Objective-C methods!!!
+ * @warning Only call async-safe functions from this function! DO NOT call
+ * Objective-C methods!!! See https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man2/sigaction.2.html.
  *
  * @param onReportWrittenNotify Function to call after writing a crash report to
  *                      give the callee an opportunity to react to the report.
  *                      NULL = ignore.
- *
- * Default: NULL
  */
 void kscrash_setReportWrittenCallback(const KSReportWrittenCallback onReportWrittenNotify);
 
