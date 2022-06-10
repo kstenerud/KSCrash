@@ -111,7 +111,6 @@ static void handleSignal(int sigNum, siginfo_t* signalInfo, void* userContext)
     }
 
     KSLOG_DEBUG("Re-raising signal for regular handlers to catch.");
-    // This is technically not allowed, but it works in OSX and iOS.
     raise(sigNum);
 }
 
