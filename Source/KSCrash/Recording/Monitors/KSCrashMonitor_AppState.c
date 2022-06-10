@@ -175,7 +175,7 @@ static int addJSONData(const char* const data, const int length, void* const use
 #pragma mark - Utility -
 // ============================================================================
 
-static double getCurentTime()
+static double getCurrentTime()
 {
     struct timeval tv;
     gettimeofday(&tv, NULL);
@@ -184,7 +184,7 @@ static double getCurentTime()
 
 static double timeSince(double timeInSeconds)
 {
-    return getCurentTime() - timeInSeconds;
+    return getCurrentTime() - timeInSeconds;
 }
 
 /** Load the persistent state portion of a crash context.
@@ -324,7 +324,7 @@ done:
 static void updateAppState(void)
 {
     const double duration = timeSince(g_state.appStateTransitionTime);
-    g_state.appStateTransitionTime = getCurentTime();
+    g_state.appStateTransitionTime = getCurrentTime();
     
     if(g_state.applicationIsActive)
     {
@@ -384,7 +384,7 @@ void kscrashstate_notifyObjCLoad(void)
     memset(&g_state, 0, sizeof(g_state));
     g_state.applicationIsInForeground = false;
     g_state.applicationIsActive = true;
-    g_state.appStateTransitionTime = getCurentTime();
+    g_state.appStateTransitionTime = getCurrentTime();
 }
 
 void kscrashstate_notifyAppActive(const bool isActive)
@@ -394,8 +394,8 @@ void kscrashstate_notifyAppActive(const bool isActive)
         g_state.applicationIsActive = isActive;
         if(isActive)
         {
-            KSLOG_TRACE("Updating transition time from: %f to: %f", g_state.appStateTransitionTime, getCurentTime());
-            g_state.appStateTransitionTime = getCurentTime();
+            KSLOG_TRACE("Updating transition time from: %f to: %f", g_state.appStateTransitionTime, getCurrentTime());
+            g_state.appStateTransitionTime = getCurrentTime();
         }
         else
         {
@@ -417,7 +417,7 @@ void kscrashstate_notifyAppInForeground(const bool isInForeground)
         g_state.applicationIsInForeground = isInForeground;
         if(isInForeground)
         {
-            double duration = getCurentTime() - g_state.appStateTransitionTime;
+            double duration = getCurrentTime() - g_state.appStateTransitionTime;
             KSLOG_TRACE("Updating backgroundDurationSinceLaunch: %f and backgroundDurationSinceLastCrash: %f with duration: %f",
                         g_state.backgroundDurationSinceLaunch, g_state.backgroundDurationSinceLastCrash, duration);
             g_state.backgroundDurationSinceLaunch += duration;
@@ -427,7 +427,7 @@ void kscrashstate_notifyAppInForeground(const bool isInForeground)
         }
         else
         {
-            g_state.appStateTransitionTime = getCurentTime();
+            g_state.appStateTransitionTime = getCurrentTime();
             saveState(stateFilePath);
         }
     }
