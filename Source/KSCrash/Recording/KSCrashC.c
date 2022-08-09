@@ -37,6 +37,7 @@
 #include "KSFileUtils.h"
 #include "KSObjC.h"
 #include "KSString.h"
+#include "KSCrashMonitor_Signal.h"
 #include "KSCrashMonitor_System.h"
 #include "KSCrashMonitor_Zombie.h"
 #include "KSCrashMonitor_AppState.h"
@@ -50,6 +51,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
+#include <mach-o/dyld.h>
+#include <dlfcn.h>
 
 typedef enum
 {
@@ -75,6 +79,7 @@ static KSCrashMonitorType g_monitoring = KSCrashMonitorTypeProductionSafeMinimal
 static char g_lastCrashReportFilePath[KSFU_MAX_PATH_LENGTH];
 static KSReportWrittenCallback g_reportWrittenCallback;
 static KSApplicationState g_lastApplicationState = KSApplicationStateNone;
+static char* kscrash_binaryImagePathForAddress(uintptr_t ptr);
 
 // ============================================================================
 #pragma mark - Utility -
@@ -193,8 +198,6 @@ KSCrashMonitorType kscrash_install(const char* appName, const char* const instal
     return monitors;
 }
 
-
-
 void kscrash_re_install()
 {
     if(g_installed == 0)
@@ -204,6 +207,93 @@ void kscrash_re_install()
     }
     
     forceExceptionHandlerToTopOfStack();
+    
+    KSLOG_DEBUG("Re Installation complete.");
+}
+
+// path must be null terminated
+// the returned char must be free()d
+char* lastComponentPath(const char* path)
+{
+    const char* last = NULL;
+    const char *ptr = path;
+    
+    while(ptr != NULL && *ptr != 0)
+    {
+        if(*ptr == '/')
+        {
+            last = ptr + 1;
+        }
+        
+        ptr++;
+    }
+    
+    if(last && *last != 0)
+    {
+        size_t len = strlen(last);
+        char* ret = (char*)malloc(sizeof(char) * (len + 1));
+        memcpy(ret, last, len);
+        ret[len] = 0;
+        
+        return ret;
+    }
+    
+    return NULL;
+}
+
+struct KSCrash_SignalInfo* kscrash_getSignalInfo()
+{
+    int numPointers = 0;
+    uintptr_t* pointers = kscm_getInstalledSignalFunctionPointers(&numPointers);
+    
+    if(numPointers == 0)
+    {
+        return NULL;
+    }
+    
+    struct KSCrash_SignalInfo* list = malloc(sizeof(struct KSCrash_SignalInfo));
+    KSCrash_initSignalInfo(list);
+    
+    struct KSCrash_SignalInfo* start = list;
+    
+    list->functionPointer = pointers[0];
+    list->modulePath = kscrash_binaryImagePathForAddress(list->functionPointer);
+    list->moduleName = lastComponentPath(list->modulePath);
+    list->isEmbraceHandler = addressIsSignalHandler(list->functionPointer) ? 1 : 0;
+    
+    for(int i=1;i<numPointers;i++)
+    {
+        struct KSCrash_SignalInfo* c = malloc(sizeof(struct KSCrash_SignalInfo));
+        KSCrash_initSignalInfo(c);
+        
+        c->functionPointer = pointers[i];
+        c->modulePath = kscrash_binaryImagePathForAddress(c->functionPointer);
+        c->moduleName = lastComponentPath(c->modulePath);
+        c->isEmbraceHandler = addressIsSignalHandler(c->functionPointer) ? 1 : 0;
+        
+        list->next = c;
+        list = c;
+    }
+    
+    free(pointers);
+    
+    return start;
+}
+
+char* kscrash_binaryImagePathForAddress(uintptr_t ptr)
+{
+    Dl_info image_info;
+    if (dladdr((const void *)ptr, &image_info) == 0) {
+        KSLOG_WARN("Could not get info for binary image.");
+        return NULL;
+    }
+    
+    size_t len = strlen(image_info.dli_fname);
+    char* ret = malloc(sizeof(char) * len + 1);
+    strncpy(ret, image_info.dli_fname, len);
+    ret[len] = 0;
+    
+    return ret;
 }
 
 KSCrashMonitorType kscrash_setMonitoring(KSCrashMonitorType monitors)

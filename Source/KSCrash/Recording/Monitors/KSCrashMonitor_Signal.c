@@ -115,6 +115,10 @@ static void handleSignal(int sigNum, siginfo_t* signalInfo, void* userContext)
     raise(sigNum);
 }
 
+bool addressIsSignalHandler(uintptr_t address)
+{
+    return address == ((uintptr_t)&handleSignal);
+}
 
 // ============================================================================
 #pragma mark - API -

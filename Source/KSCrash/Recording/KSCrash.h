@@ -242,6 +242,12 @@ typedef enum
 - (void) reinstallCrashHandler;
 
 
+/*
+ * Returns an array of dictionarys that contains information about the installed monitors. Currently this only contains the active function pointer and module name for each.
+ */
+
+- (NSArray*) getInstalledSignalInformation;
+
 /** Send all outstanding crash reports to the current sink.
  * It will only attempt to send the most recent 5 reports. All others will be
  * deleted. Once the reports are successfully sent to the server, they may be

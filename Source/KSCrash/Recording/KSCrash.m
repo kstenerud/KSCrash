@@ -34,6 +34,7 @@
 #import "KSJSONCodecObjC.h"
 #import "NSError+SimpleConstructor.h"
 #import "KSCrashMonitorContext.h"
+#import "KSCrashSignalInfo.h"
 #import "KSCrashMonitor_System.h"
 #import "KSSystemCapabilities.h"
 
@@ -333,6 +334,37 @@ static NSString* getBasePath()
     {
         kscrash_re_install();
     }
+}
+
+- (NSArray*) getInstalledSignalInformation
+{
+    NSMutableArray* array = [NSMutableArray new];
+    
+    
+    if(_monitoring & KSCrashMonitorTypeSignal)
+    {
+        struct KSCrash_SignalInfo* list = kscrash_getSignalInfo();
+        struct KSCrash_SignalInfo* itr = list;
+        
+        if(list)
+        {
+            do{
+                NSNumber* number = [NSNumber numberWithLongLong:(long long)itr->functionPointer];
+                NSString* path = itr->modulePath ? [NSString stringWithUTF8String:itr->modulePath] : @"Module Path Not Found";
+                NSString* name = itr->moduleName ? [NSString stringWithUTF8String:itr->moduleName] : @"Module Name Not Found";
+                NSNumber* num = [NSNumber numberWithShort:itr->isEmbraceHandler];
+                NSDictionary* dict = [NSDictionary dictionaryWithObjects:@[number,path, name, num] forKeys:@[@"SignalFunctionPointer",@"SignalMoudlePath",@"SignalMoudleName", @"SignalHandlerIsEmbrace"]];
+                
+                [array addObject:dict];
+                
+                itr = itr->next;
+            } while(itr != NULL);
+        }
+        
+        KSCrash_freeSignalInfoList(list);
+    }
+    
+    return array;
 }
 
 - (void) sendAllReportsWithCompletion:(KSCrashReportFilterCompletion) onCompletion

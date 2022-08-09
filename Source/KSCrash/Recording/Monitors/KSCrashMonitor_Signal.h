@@ -47,6 +47,9 @@ KSCrashMonitorAPI* kscm_signal_getAPI(void);
 uintptr_t emb_previousSignalHandler(void);
 uintptr_t emb_currentSignalHandler(void);
 
+extern bool addressIsSignalHandler(uintptr_t address);
+
+
 #ifdef __cplusplus
 }
 #endif

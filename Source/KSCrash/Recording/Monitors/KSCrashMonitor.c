@@ -42,7 +42,11 @@
 #include "KSThread.h"
 #include "KSSystemCapabilities.h"
 
+#include "KSSignalInfo.h"
+
 #include <memory.h>
+#include <stdlib.h>
+#include <signal.h>
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
@@ -205,6 +209,38 @@ void kscm_setActiveMonitors(KSCrashMonitorType monitorTypes)
 KSCrashMonitorType kscm_getActiveMonitors()
 {
     return g_activeMonitors;
+}
+
+uintptr_t* kscm_getInstalledSignalFunctionPointers(int* arraySize)
+{
+    int numPointers = 0;
+    
+    const int* fatalSignals = kssignal_fatalSignals();
+    int fatalSignalsCount = kssignal_numFatalSignals();
+    
+    uintptr_t* funcArray = (uintptr_t*)malloc(sizeof(uintptr_t) * fatalSignalsCount);
+    uintptr_t* start = funcArray;
+    
+    for(int i = 0; i < fatalSignalsCount; i++)
+    {
+        struct sigaction sa = {0};
+        if(sigaction(fatalSignals[i], 0, &sa) == 0)
+        {
+            uintptr_t func =  (uintptr_t)sa.sa_sigaction;
+            *funcArray = func;
+            numPointers++;
+            funcArray++;
+        }
+    }
+    
+    *arraySize = numPointers;
+    if(numPointers > 0)
+    {
+        return start;
+    }
+    
+    free(funcArray);
+    return NULL;
 }
 
 

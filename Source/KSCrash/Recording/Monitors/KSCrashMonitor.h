@@ -44,7 +44,6 @@ extern "C" {
 
 struct KSCrash_MonitorContext;
 
-
 // ============================================================================
 #pragma mark - External API -
 // ============================================================================
@@ -54,6 +53,14 @@ struct KSCrash_MonitorContext;
  * @param monitorTypes Which monitors should be active.
  */
 void kscm_setActiveMonitors(KSCrashMonitorType monitorTypes);
+
+/** Gets the function pointers for every active monitor
+ *  @param arraySize the number of found functions stored in the pointer array
+ *
+ *  @return The array containing all found function pointers or NULL if none are found. This is dynamically allocated and must be release with free()
+ */
+
+uintptr_t* kscm_getInstalledSignalFunctionPointers(int* arraySize);
 
 /** Get the currently active monitors.
  */

@@ -39,9 +39,9 @@ extern "C" {
 
 #include "KSCrashMonitorType.h"
 #include "KSCrashReportWriter.h"
+#include "KSCrashSignalInfo.h"
 
 #include <stdbool.h>
-
 
 /** Install the crash reporter. The reporter will record the next crash and then
  * terminate the program.
@@ -66,6 +66,16 @@ void kscrash_re_install(void);
  *         will attempt to activate when KSCrash installs.
  */
 KSCrashMonitorType kscrash_setMonitoring(KSCrashMonitorType monitors);
+
+/** Set the crash types that will be handled.
+ * Some crash types may not be enabled depending on circumstances (e.g. running
+ * in a debugger).
+ *
+ *
+ * @return A linked list of SignalInfo Structs that contains information about the requested monitors or NULL if none were found. This must be freed with KSCrash_freeMonitorInfoList if not NULL
+ */
+
+struct KSCrash_SignalInfo* kscrash_getSignalInfo(void);
 
 /** Set the user-supplied data in JSON format.
  *
