@@ -44,10 +44,14 @@ extern "C" {
  */
 KSCrashMonitorAPI* kscm_signal_getAPI(void);
 
+struct sigaction* emb_previousSignalHandlers(void);
 uintptr_t emb_previousSignalHandler(void);
 uintptr_t emb_currentSignalHandler(void);
 
+bool emb_reInstaallSignalHandlers(void);
+
 extern bool addressIsSignalHandler(uintptr_t address);
+
 
 
 #ifdef __cplusplus

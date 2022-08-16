@@ -340,7 +340,6 @@ static NSString* getBasePath()
 {
     NSMutableArray* array = [NSMutableArray new];
     
-    
     if(_monitoring & KSCrashMonitorTypeSignal)
     {
         struct KSCrash_SignalInfo* list = kscrash_getSignalInfo();

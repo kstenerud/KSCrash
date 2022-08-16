@@ -246,6 +246,11 @@ static void addContextualInfoToEvent(struct KSCrash_MonitorContext* eventContext
 
 #endif
 
+bool emb_reInstaallSignalHandlers(void)
+{
+    return installSignalHandler();
+}
+
 KSCrashMonitorAPI* kscm_signal_getAPI()
 {
     static KSCrashMonitorAPI api =
@@ -257,6 +262,11 @@ KSCrashMonitorAPI* kscm_signal_getAPI()
 #endif
     };
     return &api;
+}
+
+struct sigaction* emb_previousSignalHandlers()
+{
+    return g_previousSignalHandlers;
 }
 
 uintptr_t emb_previousSignalHandler()

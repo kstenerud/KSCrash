@@ -213,34 +213,25 @@ KSCrashMonitorType kscm_getActiveMonitors()
 
 uintptr_t* kscm_getInstalledSignalFunctionPointers(int* arraySize)
 {
-    int numPointers = 0;
-    
-    const int* fatalSignals = kssignal_fatalSignals();
     int fatalSignalsCount = kssignal_numFatalSignals();
     
-    uintptr_t* funcArray = (uintptr_t*)malloc(sizeof(uintptr_t) * fatalSignalsCount);
-    uintptr_t* start = funcArray;
+    emb_reInstaallSignalHandlers();
     
-    for(int i = 0; i < fatalSignalsCount; i++)
+    struct sigaction* signals = emb_previousSignalHandlers();
+    
+    if(signals == NULL)
     {
-        struct sigaction sa = {0};
-        if(sigaction(fatalSignals[i], 0, &sa) == 0)
-        {
-            uintptr_t func =  (uintptr_t)sa.sa_sigaction;
-            *funcArray = func;
-            numPointers++;
-            funcArray++;
-        }
+        return NULL;
     }
     
-    *arraySize = numPointers;
-    if(numPointers > 0)
+    uintptr_t* pointers = (uintptr_t*)malloc(sizeof(uintptr_t) * fatalSignalsCount);
+    
+    for(size_t i=0;i<fatalSignalsCount;i++)
     {
-        return start;
+        pointers[i] =  (uintptr_t)signals[i].sa_sigaction;
     }
     
-    free(funcArray);
-    return NULL;
+    return pointers;
 }
 
 
