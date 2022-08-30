@@ -221,16 +221,18 @@ uintptr_t* kscm_getInstalledSignalFunctionPointers(int* arraySize)
     
     if(signals == NULL)
     {
+        *arraySize = 0;
         return NULL;
     }
     
     uintptr_t* pointers = (uintptr_t*)malloc(sizeof(uintptr_t) * fatalSignalsCount);
     
-    for(size_t i=0;i<fatalSignalsCount;i++)
+    for(int i=0;i<fatalSignalsCount;i++)
     {
         pointers[i] =  (uintptr_t)signals[i].sa_sigaction;
     }
     
+    *arraySize = fatalSignalsCount;
     return pointers;
 }
 
