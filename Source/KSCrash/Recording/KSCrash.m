@@ -358,9 +358,8 @@ static NSString* getBasePath()
                 
                 itr = itr->next;
             } while(itr != NULL);
+            KSCrash_freeSignalInfoList(list);
         }
-        
-        KSCrash_freeSignalInfoList(list);
     }
     
     return array;

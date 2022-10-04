@@ -63,6 +63,9 @@ static struct sigaction* g_previousSignalHandlers = NULL;
 
 static char g_eventID[37];
 
+/** This is using to avoid an infinite loop in the signal handler. There is one edge case tha may happen which cause any signal handler installed before our signal handlers to not get called if we get replaced by someone else later. */
+static bool g_handleSignalHasBeenCalled = false;
+
 // ============================================================================
 #pragma mark - Callbacks -
 // ============================================================================
@@ -81,6 +84,9 @@ static char g_eventID[37];
  */
 static void handleSignal(int sigNum, siginfo_t* signalInfo, void* userContext)
 {
+    if (g_handleSignalHasBeenCalled) return;
+    g_handleSignalHasBeenCalled = true;
+    
     KSLOG_DEBUG("Trapped signal %d", sigNum);
     if(g_isEnabled)
     {
@@ -153,6 +159,7 @@ static bool installSignalHandler()
         KSLOG_DEBUG("Allocating memory to store previous signal handlers.");
         g_previousSignalHandlers = malloc(sizeof(*g_previousSignalHandlers)
                                           * (unsigned)fatalSignalsCount);
+        memset(g_previousSignalHandlers, 0, sizeof(*g_previousSignalHandlers)* (unsigned)fatalSignalsCount);
     }
 
     struct sigaction action = {{0}};
@@ -179,7 +186,15 @@ static bool installSignalHandler()
             // Try to reverse the damage
             for(i--;i >= 0; i--)
             {
-                sigaction(fatalSignals[i], &g_previousSignalHandlers[i], NULL);
+                if (g_previousSignalHandlers[i].sa_handler == NULL) {
+                    sigaction(fatalSignals[i], &g_previousSignalHandlers[i], NULL);
+                } else {
+                    struct sigaction previousSingalHandler;
+                    sigaction(fatalSignals[i], &previousSingalHandler, NULL);
+                    if (previousSingalHandler.sa_handler != g_previousSignalHandlers[i].sa_handler) {
+                        g_previousSignalHandlers[i] = previousSingalHandler;
+                    }
+                }
             }
             goto failed;
         }
@@ -209,6 +224,8 @@ static void uninstallSignalHandler(void)
     g_signalStack = (stack_t){0};
 #endif
     KSLOG_DEBUG("Signal handlers uninstalled.");
+    
+    memset(g_previousSignalHandlers, 0, sizeof(*g_previousSignalHandlers)* (unsigned)fatalSignalsCount);
 }
 
 static void setEnabled(bool isEnabled)
