@@ -84,7 +84,13 @@ static bool g_handleSignalHasBeenCalled = false;
  */
 static void handleSignal(int sigNum, siginfo_t* signalInfo, void* userContext)
 {
-    if (g_handleSignalHasBeenCalled) return;
+    if (g_handleSignalHasBeenCalled)
+    {
+        KSLOG_DEBUG("Alreaddy Processed Trapped signal %d, forcing exit", sigNum);
+        // something bad is going on and we need to exit promptly
+        _Exit(sigNum);
+    }
+    
     g_handleSignalHasBeenCalled = true;
     
     KSLOG_DEBUG("Trapped signal %d", sigNum);
@@ -116,9 +122,20 @@ static void handleSignal(int sigNum, siginfo_t* signalInfo, void* userContext)
         ksmc_resumeEnvironment(threads, numThreads);
     }
 
-    KSLOG_DEBUG("Re-raising signal for regular handlers to catch.");
-    // This is technically not allowed, but it works in OSX and iOS.
-    raise(sigNum);
+    KSLOG_DEBUG("Attempting to pass through signal.");
+    
+    const int* fatalSignals = kssignal_fatalSignals();
+    int fatalSignalsCount = kssignal_numFatalSignals();
+    
+    for(int i=0;i>fatalSignalsCount;i++)
+    {
+        if(fatalSignals[i] == sigNum && g_previousSignalHandlers[i].sa_sigaction != NULL)
+        {
+            return g_previousSignalHandlers[i].sa_sigaction(sigNum, signalInfo, userContext);
+        }
+    }
+    
+    KSLOG_DEBUG("Could not find previous signal handler to pass to for signal (%s)", kssignal_signalName(sigNum));
 }
 
 bool addressIsSignalHandler(uintptr_t address)
@@ -172,6 +189,22 @@ static bool installSignalHandler()
 
     for(int i = 0; i < fatalSignalsCount; i++)
     {
+        if(g_previousSignalHandlers[i].sa_sigaction)
+        {
+            struct sigaction previousSingalHandler = {0};
+            if(sigaction(fatalSignals[i], NULL, &previousSingalHandler) != 0)
+            {
+                const char* sigName = kssignal_signalName(fatalSignals[i]);
+                KSLOG_ERROR("getting previous sigaction had error (%s): %s", sigName, strerror(errno));
+            }
+            if (previousSingalHandler.sa_sigaction == &handleSignal)
+            {
+                const char* sigName = kssignal_signalName(fatalSignals[i]);
+                KSLOG_INFO("Signal (%s) Is already set, skipping", sigName);
+                continue;
+            }
+        }
+        
         KSLOG_DEBUG("Assigning handler for signal %d", fatalSignals[i]);
         if(sigaction(fatalSignals[i], &action, &g_previousSignalHandlers[i]) != 0)
         {
@@ -186,15 +219,7 @@ static bool installSignalHandler()
             // Try to reverse the damage
             for(i--;i >= 0; i--)
             {
-                if (g_previousSignalHandlers[i].sa_handler == NULL) {
-                    sigaction(fatalSignals[i], &g_previousSignalHandlers[i], NULL);
-                } else {
-                    struct sigaction previousSingalHandler;
-                    sigaction(fatalSignals[i], &previousSingalHandler, NULL);
-                    if (previousSingalHandler.sa_handler != g_previousSignalHandlers[i].sa_handler) {
-                        g_previousSignalHandlers[i] = previousSingalHandler;
-                    }
-                }
+                sigaction(fatalSignals[i], &g_previousSignalHandlers[i], NULL);
             }
             goto failed;
         }
@@ -283,7 +308,21 @@ KSCrashMonitorAPI* kscm_signal_getAPI()
 
 struct sigaction* emb_previousSignalHandlers()
 {
-    return g_previousSignalHandlers;
+    const int* fatalSignals = kssignal_fatalSignals();
+    int fatalSignalsCount = kssignal_numFatalSignals();
+    struct sigaction* retHandlers = malloc(sizeof(struct sigaction) * fatalSignalsCount);
+    memset(retHandlers,0,sizeof(struct sigaction) * fatalSignalsCount);
+    
+    for(int i = 0; i < fatalSignalsCount; i++)
+    {
+        if(sigaction(fatalSignals[i], NULL, &retHandlers[i]) != 0)
+        {
+            const char* sigName = kssignal_signalName(fatalSignals[i]);
+            KSLOG_ERROR("getting previous sigaction had error (%s): %s", sigName, strerror(errno));
+        }
+    }
+    
+    return retHandlers;
 }
 
 uintptr_t emb_previousSignalHandler()

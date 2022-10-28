@@ -215,9 +215,9 @@ uintptr_t* kscm_getInstalledSignalFunctionPointers(int* arraySize)
 {
     int fatalSignalsCount = kssignal_numFatalSignals();
     
-    emb_reInstaallSignalHandlers();
-    
     struct sigaction* signals = emb_previousSignalHandlers();
+    
+    emb_reInstaallSignalHandlers();
     
     if(signals == NULL)
     {
@@ -233,6 +233,8 @@ uintptr_t* kscm_getInstalledSignalFunctionPointers(int* arraySize)
     }
     
     *arraySize = fatalSignalsCount;
+    free(signals);
+    
     return pointers;
 }
 
