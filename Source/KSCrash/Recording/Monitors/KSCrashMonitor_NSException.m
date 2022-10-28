@@ -173,7 +173,7 @@ static void setEnabled(bool isEnabled)
 
 void forceExceptionHandlerToTopOfStack()
 {
-    KSLOG_DEBUG("checking if exception hanlder needs to be re installed.");
+    KSLOG_DEBUG(@"checking if exception hanlder needs to be re installed.");
     
     NSUncaughtExceptionHandler* previousUncaughtExceptionHandler = NSGetUncaughtExceptionHandler();
     if(previousUncaughtExceptionHandler != &handleUncaughtException)
