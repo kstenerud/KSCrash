@@ -217,7 +217,7 @@ uintptr_t* kscm_getInstalledSignalFunctionPointers(int* arraySize)
     
     struct sigaction* signals = emb_previousSignalHandlers();
     
-    emb_reInstaallSignalHandlers();
+    emb_reInstallSignalHandlers();
     
     if(signals == NULL)
     {

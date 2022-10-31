@@ -86,7 +86,7 @@ static void handleSignal(int sigNum, siginfo_t* signalInfo, void* userContext)
 {
     if (g_handleSignalHasBeenCalled)
     {
-        KSLOG_DEBUG("Alreaddy Processed Trapped signal %d, forcing exit", sigNum);
+        KSLOG_DEBUG("Already Processed Trapped signal %d, forcing exit", sigNum);
         // something bad is going on and we need to exit promptly
         _Exit(sigNum);
     }
@@ -191,13 +191,13 @@ static bool installSignalHandler()
     {
         if(g_previousSignalHandlers[i].sa_sigaction)
         {
-            struct sigaction previousSingalHandler = {0};
-            if(sigaction(fatalSignals[i], NULL, &previousSingalHandler) != 0)
+            struct sigaction previousSignalHandler = {0};
+            if(sigaction(fatalSignals[i], NULL, &previousSignalHandler) != 0)
             {
                 const char* sigName = kssignal_signalName(fatalSignals[i]);
                 KSLOG_ERROR("getting previous sigaction had error (%s): %s", sigName, strerror(errno));
             }
-            if (previousSingalHandler.sa_sigaction == &handleSignal)
+            if (previousSignalHandler.sa_sigaction == &handleSignal)
             {
                 const char* sigName = kssignal_signalName(fatalSignals[i]);
                 KSLOG_INFO("Signal (%s) Is already set, skipping", sigName);
@@ -288,7 +288,7 @@ static void addContextualInfoToEvent(struct KSCrash_MonitorContext* eventContext
 
 #endif
 
-bool emb_reInstaallSignalHandlers(void)
+bool emb_reInstallSignalHandlers(void)
 {
     return installSignalHandler();
 }
