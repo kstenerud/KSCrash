@@ -273,11 +273,9 @@ bool ksdl_dladdr(const uintptr_t address, Dl_info* const info)
 
             for(uint32_t iSym = 0; iSym < symtabCmd->nsyms; iSym++)
             {
-                // When building with Xcode 14, symbol which n_type field equal
-                // to N_ENSYM will put the actual address to n_value field, see
-                // <mach-o/stab.h>
-                if (symbolTable[iSym].n_type == N_BNSYM ||
-                    symbolTable[iSym].n_type == N_ENSYM) {
+                // Skip all debug N_STAB symbols
+                if ((symbolTable[iSym].n_type & N_STAB) > 0) 
+                {
                     continue;
                 }
 
