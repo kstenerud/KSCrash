@@ -274,7 +274,7 @@ bool ksdl_dladdr(const uintptr_t address, Dl_info* const info)
             for(uint32_t iSym = 0; iSym < symtabCmd->nsyms; iSym++)
             {
                 // Skip all debug N_STAB symbols
-                if ((symbolTable[iSym].n_type & N_STAB) > 0) 
+                if ((symbolTable[iSym].n_type & N_STAB) != 0) 
                 {
                     continue;
                 }
