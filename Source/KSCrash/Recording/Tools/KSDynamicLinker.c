@@ -29,6 +29,7 @@
 #include <limits.h>
 #include <mach-o/dyld.h>
 #include <mach-o/nlist.h>
+#include <mach-o/stab.h>
 #include <mach-o/getsect.h>
 #include <string.h>
 
@@ -272,6 +273,12 @@ bool ksdl_dladdr(const uintptr_t address, Dl_info* const info)
 
             for(uint32_t iSym = 0; iSym < symtabCmd->nsyms; iSym++)
             {
+                // Skip all debug N_STAB symbols
+                if ((symbolTable[iSym].n_type & N_STAB) != 0) 
+                {
+                    continue;
+                }
+
                 // If n_value is 0, the symbol refers to an external object.
                 if(symbolTable[iSym].n_value != 0)
                 {
