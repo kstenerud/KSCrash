@@ -144,11 +144,14 @@ enum
 #   define WORD_SHIFT 3UL
 #   define WORD_MASK 7UL
 #   define WORD_BITS 64
+#   define FAST_DATA_MASK          0x00007ffffffffff8UL
 #else
 #   define WORD_SHIFT 2UL
 #   define WORD_MASK 3UL
 #   define WORD_BITS 32
+#   define FAST_DATA_MASK        0xfffffffcUL
 #endif
+
 
 
 // ======================================================================
