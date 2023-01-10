@@ -179,7 +179,7 @@ static void crashCallback(const KSCrashReportWriter* writer)
 - (id) init
 {
     [NSException raise:NSInternalInconsistencyException
-                format:@"%@ does not support init. Subclasses must call initWithMaxReportFieldCount:requiredProperties:", [self class]];
+                format:@"%@ does not support init. Subclasses must call initWithRequiredProperties:", [self class]];
     return nil;
 }
 

@@ -42,10 +42,16 @@
 
 - (void) testSuspendResumeThreads
 {
-    ksmc_suspendEnvironment();
-    ksmc_suspendEnvironment();
-    ksmc_resumeEnvironment();
-    ksmc_resumeEnvironment();
+    thread_act_array_t threads1 = NULL;
+    mach_msg_type_number_t numThreads1 = 0;
+    ksmc_suspendEnvironment(&threads1, &numThreads1);
+
+    thread_act_array_t threads2 = NULL;
+    mach_msg_type_number_t numThreads2 = 0;
+    ksmc_suspendEnvironment(&threads2, &numThreads2);
+
+    ksmc_resumeEnvironment(threads2, numThreads2);
+    ksmc_resumeEnvironment(threads1, numThreads1);
 }
 
 @end
