@@ -1198,6 +1198,21 @@ static void writeThread(const KSCrashReportWriter* const writer,
         {
             writer->addStringElement(writer, KSCrashField_Name, name);
         }
+        else if(isCrashedThread) 
+        {
+            char buffer[1000];
+            buffer[0] = '\0';
+            thread_t tt = (thread_t)thread;
+            pthread_t pt = pthread_from_mach_thread_np(tt);
+            if(pt) 
+            {
+                int result = pthread_getname_np(pt, buffer, sizeof(buffer));
+                if(result == 0) 
+                {
+                    writer->addStringElement(writer, KSCrashField_Name, buffer);
+                }
+            }
+        }
         name = ksccd_getQueueName(thread);
         if(name != NULL)
         {
