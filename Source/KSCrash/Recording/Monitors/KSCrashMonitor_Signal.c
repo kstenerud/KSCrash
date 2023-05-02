@@ -350,5 +350,8 @@ uintptr_t emb_currentSignalHandler()
     {
         p = (uintptr_t)signalHandlers->sa_sigaction;
     }
+    
+    free(signalHandlers);
+    
     return p;
 }

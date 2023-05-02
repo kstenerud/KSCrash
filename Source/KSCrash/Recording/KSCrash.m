@@ -420,9 +420,10 @@ static NSString* getBasePath()
         {
             KSLOG_ERROR(@"Error encoding stack trace to JSON: %@", error);
             // Don't return, since we can still record other useful information.
+        } else {
+            NSString* jsonString = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
+            cStackTrace = [jsonString cStringUsingEncoding:NSUTF8StringEncoding];
         }
-        NSString* jsonString = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
-        cStackTrace = [jsonString cStringUsingEncoding:NSUTF8StringEncoding];
     }
     
     kscrash_reportUserException(cName,
