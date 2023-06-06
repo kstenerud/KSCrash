@@ -1,6 +1,7 @@
-KSCrash
+[KSCrash](2023-06-06_kscrash.md)
 =======
 
++ (instancetype) sharedInstanceWithPath:(NSString *)customPath;
 #### The Ultimate Crash Reporter
 
 
