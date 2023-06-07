@@ -118,6 +118,9 @@ static NSString* getBasePath()
 #pragma mark - Lifecycle -
 // ============================================================================
 
+static KSCrash *sharedInstance = nil;
+static dispatch_once_t onceToken;
+
 + (void)load
 {
     [[self class] classDidBecomeLoaded];
@@ -132,11 +135,16 @@ static NSString* getBasePath()
 
 + (instancetype) sharedInstance
 {
-    static KSCrash *sharedInstance = nil;
-    static dispatch_once_t onceToken;
-    
     dispatch_once(&onceToken, ^{
         sharedInstance = [[KSCrash alloc] init];
+    });
+    return sharedInstance;
+}
+
++ (instancetype) sharedInstanceWithBasePath:(NSString *)basePath
+{
+    dispatch_once(&onceToken, ^{
+        sharedInstance = [[KSCrash alloc] initWithBasePath:basePath];
     });
     return sharedInstance;
 }
