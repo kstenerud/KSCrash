@@ -135,9 +135,6 @@ static dispatch_once_t onceToken;
 
 + (instancetype) sharedInstance
 {
-    static KSCrash *sharedInstance = nil;
-    static dispatch_once_t onceToken;
-    
     dispatch_once(&onceToken, ^{
         sharedInstance = [[KSCrash alloc] init];
     });
