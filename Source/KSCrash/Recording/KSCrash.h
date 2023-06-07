@@ -223,6 +223,12 @@ typedef enum
  */
 + (KSCrash*) sharedInstance;
 
+/** Get the singleton instance of the crash reporter with specific base path.
+ *
+ * @param basePath The path where crashes and other information will be saved.
+ */
++ (KSCrash *) sharedInstanceWithBasePath:(NSString *)basePath;
+
 /** Install the crash reporter.
  * The reporter will record crashes, but will not send any crash reports unless
  * sink is set.
