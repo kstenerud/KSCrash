@@ -63,6 +63,9 @@ static struct sigaction* g_previousSignalHandlers = NULL;
 
 static char g_eventID[37];
 
+/** This is using to avoid an infinite loop in the signal handler. There is one edge case tha may happen which cause any signal handler installed before our signal handlers to not get called if we get replaced by someone else later. */
+static bool g_handleSignalHasBeenCalled = false;
+
 // ============================================================================
 #pragma mark - Callbacks -
 // ============================================================================
@@ -81,6 +84,15 @@ static char g_eventID[37];
  */
 static void handleSignal(int sigNum, siginfo_t* signalInfo, void* userContext)
 {
+    if (g_handleSignalHasBeenCalled)
+    {
+        KSLOG_DEBUG("Already Processed Trapped signal %d, forcing exit", sigNum);
+        // something bad is going on and we need to exit promptly
+        _Exit(sigNum);
+    }
+    
+    g_handleSignalHasBeenCalled = true;
+    
     KSLOG_DEBUG("Trapped signal %d", sigNum);
     if(g_isEnabled)
     {
@@ -110,11 +122,26 @@ static void handleSignal(int sigNum, siginfo_t* signalInfo, void* userContext)
         ksmc_resumeEnvironment(threads, numThreads);
     }
 
-    KSLOG_DEBUG("Re-raising signal for regular handlers to catch.");
-    // This is technically not allowed, but it works in OSX and iOS.
-    raise(sigNum);
+    KSLOG_DEBUG("Attempting to pass through signal.");
+    
+    const int* fatalSignals = kssignal_fatalSignals();
+    int fatalSignalsCount = kssignal_numFatalSignals();
+    
+    for(int i=0;i>fatalSignalsCount;i++)
+    {
+        if(fatalSignals[i] == sigNum && g_previousSignalHandlers[i].sa_sigaction != NULL)
+        {
+            return g_previousSignalHandlers[i].sa_sigaction(sigNum, signalInfo, userContext);
+        }
+    }
+    
+    KSLOG_DEBUG("Could not find previous signal handler to pass to for signal (%s)", kssignal_signalName(sigNum));
 }
 
+bool addressIsSignalHandler(uintptr_t address)
+{
+    return address == ((uintptr_t)&handleSignal);
+}
 
 // ============================================================================
 #pragma mark - API -
@@ -149,6 +176,7 @@ static bool installSignalHandler()
         KSLOG_DEBUG("Allocating memory to store previous signal handlers.");
         g_previousSignalHandlers = malloc(sizeof(*g_previousSignalHandlers)
                                           * (unsigned)fatalSignalsCount);
+        memset(g_previousSignalHandlers, 0, sizeof(*g_previousSignalHandlers)* (unsigned)fatalSignalsCount);
     }
 
     struct sigaction action = {{0}};
@@ -161,6 +189,22 @@ static bool installSignalHandler()
 
     for(int i = 0; i < fatalSignalsCount; i++)
     {
+        if(g_previousSignalHandlers[i].sa_sigaction)
+        {
+            struct sigaction previousSignalHandler = {0};
+            if(sigaction(fatalSignals[i], NULL, &previousSignalHandler) != 0)
+            {
+                const char* sigName = kssignal_signalName(fatalSignals[i]);
+                KSLOG_ERROR("getting previous sigaction had error (%s): %s", sigName, strerror(errno));
+            }
+            if (previousSignalHandler.sa_sigaction == &handleSignal)
+            {
+                const char* sigName = kssignal_signalName(fatalSignals[i]);
+                KSLOG_INFO("Signal (%s) Is already set, skipping", sigName);
+                continue;
+            }
+        }
+        
         KSLOG_DEBUG("Assigning handler for signal %d", fatalSignals[i]);
         if(sigaction(fatalSignals[i], &action, &g_previousSignalHandlers[i]) != 0)
         {
@@ -205,6 +249,8 @@ static void uninstallSignalHandler(void)
     g_signalStack = (stack_t){0};
 #endif
     KSLOG_DEBUG("Signal handlers uninstalled.");
+    
+    memset(g_previousSignalHandlers, 0, sizeof(*g_previousSignalHandlers)* (unsigned)fatalSignalsCount);
 }
 
 static void setEnabled(bool isEnabled)
@@ -242,6 +288,11 @@ static void addContextualInfoToEvent(struct KSCrash_MonitorContext* eventContext
 
 #endif
 
+bool emb_reInstallSignalHandlers(void)
+{
+    return installSignalHandler();
+}
+
 KSCrashMonitorAPI* kscm_signal_getAPI()
 {
     static KSCrashMonitorAPI api =
@@ -253,6 +304,25 @@ KSCrashMonitorAPI* kscm_signal_getAPI()
 #endif
     };
     return &api;
+}
+
+struct sigaction* emb_previousSignalHandlers()
+{
+    const int* fatalSignals = kssignal_fatalSignals();
+    int fatalSignalsCount = kssignal_numFatalSignals();
+    struct sigaction* retHandlers = malloc(sizeof(struct sigaction) * fatalSignalsCount);
+    memset(retHandlers,0,sizeof(struct sigaction) * fatalSignalsCount);
+    
+    for(int i = 0; i < fatalSignalsCount; i++)
+    {
+        if(sigaction(fatalSignals[i], NULL, &retHandlers[i]) != 0)
+        {
+            const char* sigName = kssignal_signalName(fatalSignals[i]);
+            KSLOG_ERROR("getting previous sigaction had error (%s): %s", sigName, strerror(errno));
+        }
+    }
+    
+    return retHandlers;
 }
 
 uintptr_t emb_previousSignalHandler()
@@ -280,5 +350,8 @@ uintptr_t emb_currentSignalHandler()
     {
         p = (uintptr_t)signalHandlers->sa_sigaction;
     }
+    
+    free(signalHandlers);
+    
     return p;
 }

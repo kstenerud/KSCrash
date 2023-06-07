@@ -34,6 +34,7 @@
 #import "KSJSONCodecObjC.h"
 #import "NSError+SimpleConstructor.h"
 #import "KSCrashMonitorContext.h"
+#import "KSCrashSignalInfo.h"
 #import "KSCrashMonitor_System.h"
 #import "KSSystemCapabilities.h"
 
@@ -326,6 +327,44 @@ static NSString* getBasePath()
     return true;
 }
 
+- (void) reinstallCrashHandler
+{
+    // only re install if we are intalled and tracking type NSException
+    if(_monitoring & KSCrashMonitorTypeNSException)
+    {
+        kscrash_re_install();
+    }
+}
+
+- (NSArray*) getInstalledSignalInformation
+{
+    NSMutableArray* array = [NSMutableArray new];
+    
+    if(_monitoring & KSCrashMonitorTypeSignal)
+    {
+        struct KSCrash_SignalInfo* list = kscrash_getSignalInfo();
+        struct KSCrash_SignalInfo* itr = list;
+        
+        if(list)
+        {
+            do{
+                NSNumber* number = [NSNumber numberWithLongLong:(long long)itr->functionPointer];
+                NSString* path = itr->modulePath ? [NSString stringWithUTF8String:itr->modulePath] : @"Module Path Not Found";
+                NSString* name = itr->moduleName ? [NSString stringWithUTF8String:itr->moduleName] : @"Module Name Not Found";
+                NSNumber* num = [NSNumber numberWithShort:itr->isEmbraceHandler];
+                NSDictionary* dict = [NSDictionary dictionaryWithObjects:@[number,path, name, num] forKeys:@[@"SignalFunctionPointer",@"SignalMoudlePath",@"SignalMoudleName", @"SignalHandlerIsEmbrace"]];
+                
+                [array addObject:dict];
+                
+                itr = itr->next;
+            } while(itr != NULL);
+            KSCrash_freeSignalInfoList(list);
+        }
+    }
+    
+    return array;
+}
+
 - (void) sendAllReportsWithCompletion:(KSCrashReportFilterCompletion) onCompletion
 {
     NSArray* reports = [self allReports];
@@ -381,9 +420,10 @@ static NSString* getBasePath()
         {
             KSLOG_ERROR(@"Error encoding stack trace to JSON: %@", error);
             // Don't return, since we can still record other useful information.
+        } else {
+            NSString* jsonString = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
+            cStackTrace = [jsonString cStringUsingEncoding:NSUTF8StringEncoding];
         }
-        NSString* jsonString = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
-        cStackTrace = [jsonString cStringUsingEncoding:NSUTF8StringEncoding];
     }
     
     kscrash_reportUserException(cName,

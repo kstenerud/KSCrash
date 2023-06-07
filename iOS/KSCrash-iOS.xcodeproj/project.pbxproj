@@ -135,6 +135,12 @@
 		03DE7CD51C84E02A00F789BA /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB52178F17EB735D007CB3C1 /* Foundation.framework */; };
 		03DE7CD71C84E1F400F789BA /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 03DE7CD61C84E1F400F789BA /* libz.tbd */; };
 		03DE7DAA1C879A0200F789BA /* KSCrashFramework.h in Headers */ = {isa = PBXBuildFile; fileRef = 03DE7DA91C879A0200F789BA /* KSCrashFramework.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		3E2D8A7D28BDB4D000CD8F92 /* KSCrashSignalInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = 3E2D8A7B28BDB4D000CD8F92 /* KSCrashSignalInfo.h */; };
+		3E2D8A7E28BDB4D000CD8F92 /* KSCrashSignalInfo.c in Sources */ = {isa = PBXBuildFile; fileRef = 3E2D8A7C28BDB4D000CD8F92 /* KSCrashSignalInfo.c */; };
+		3E2D8A8028BE79F500CD8F92 /* KSCrashSignalHandlerInfo_Test.m in Sources */ = {isa = PBXBuildFile; fileRef = 3E2D8A7F28BE79F500CD8F92 /* KSCrashSignalHandlerInfo_Test.m */; };
+		3E2D8A8128BE7B8000CD8F92 /* KSCrashSignalInfo.c in Sources */ = {isa = PBXBuildFile; fileRef = 3E2D8A7C28BDB4D000CD8F92 /* KSCrashSignalInfo.c */; };
+		3E2D8A8228BE7D5C00CD8F92 /* Demangle.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CBC43F151C5AF2B10083A11B /* Demangle.cpp */; };
+		3E2D8A8728BE81F500CD8F92 /* libswiftDemangle.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 3E2D8A8628BE81F500CD8F92 /* libswiftDemangle.tbd */; };
 		632D8DAD1EDFFA6700A9A62E /* KSCrashC.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = CBF53D1F17EB765C0056DA83 /* KSCrashC.h */; };
 		632D8DAE1EDFFA6700A9A62E /* KSCrashCachedData.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = CBA8A0C41E2561210019B5B9 /* KSCrashCachedData.h */; };
 		632D8DAF1EDFFA6700A9A62E /* KSCrashDoctor.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = CBF53D2317EB765C0056DA83 /* KSCrashDoctor.h */; };
@@ -810,6 +816,11 @@
 		03DE7CD61C84E1F400F789BA /* libz.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libz.tbd; path = usr/lib/libz.tbd; sourceTree = SDKROOT; };
 		03DE7D0F1C84FB9E00F789BA /* module.modulemap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = "sourcecode.module-map"; name = module.modulemap; path = ../../Source/Framework/module.modulemap; sourceTree = "<group>"; };
 		03DE7DA91C879A0200F789BA /* KSCrashFramework.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSCrashFramework.h; path = ../../Source/Framework/KSCrashFramework.h; sourceTree = "<group>"; };
+		3E2D8A7B28BDB4D000CD8F92 /* KSCrashSignalInfo.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSCrashSignalInfo.h; path = ../../Source/KSCrash/Recording/Monitors/KSCrashSignalInfo.h; sourceTree = "<group>"; };
+		3E2D8A7C28BDB4D000CD8F92 /* KSCrashSignalInfo.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSCrashSignalInfo.c; path = ../../Source/KSCrash/Recording/Monitors/KSCrashSignalInfo.c; sourceTree = "<group>"; };
+		3E2D8A7F28BE79F500CD8F92 /* KSCrashSignalHandlerInfo_Test.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = KSCrashSignalHandlerInfo_Test.m; sourceTree = "<group>"; };
+		3E2D8A8428BE7E8500CD8F92 /* libLLVM.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libLLVM.tbd; path = usr/lib/libLLVM.tbd; sourceTree = SDKROOT; };
+		3E2D8A8628BE81F500CD8F92 /* libswiftDemangle.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libswiftDemangle.tbd; path = usr/lib/swift/libswiftDemangle.tbd; sourceTree = SDKROOT; };
 		6E8894847F02F7B05F31FE4F /* KSgetsect.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSgetsect.c; path = ../../Source/KSCrash/Recording/Tools/KSgetsect.c; sourceTree = "<group>"; };
 		6E889A12BAE413442C0DA527 /* KSCxaThrowSwapper.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSCxaThrowSwapper.c; path = ../../Source/KSCrash/Recording/Tools/KSCxaThrowSwapper.c; sourceTree = "<group>"; };
 		6E889A8EEFCE259D2B1D7CA7 /* KSCxaThrowSwapper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSCxaThrowSwapper.h; path = ../../Source/KSCrash/Recording/Tools/KSCxaThrowSwapper.h; sourceTree = "<group>"; };
@@ -1073,6 +1084,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3E2D8A8728BE81F500CD8F92 /* libswiftDemangle.tbd in Frameworks */,
 				CB7A6CEE17FB9E2800997792 /* libKSCrashLib.a in Frameworks */,
 				CB0264D417FA6101003E0AED /* libz.dylib in Frameworks */,
 				CB0264D217FA60D3003E0AED /* MessageUI.framework in Frameworks */,
@@ -1119,6 +1131,8 @@
 		CB52178E17EB735D007CB3C1 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				3E2D8A8628BE81F500CD8F92 /* libswiftDemangle.tbd */,
+				3E2D8A8428BE7E8500CD8F92 /* libLLVM.tbd */,
 				03DE7CD61C84E1F400F789BA /* libz.tbd */,
 				CB0264D317FA6101003E0AED /* libz.dylib */,
 				CB0264D117FA60D3003E0AED /* MessageUI.framework */,
@@ -1206,6 +1220,7 @@
 				CB25A5CE1DF229F100EC2B02 /* TestThread.m */,
 				CB0264A717FA5B13003E0AED /* XCTestCase+KSCrash.h */,
 				CB0264A817FA5B13003E0AED /* XCTestCase+KSCrash.m */,
+				3E2D8A7F28BE79F500CD8F92 /* KSCrashSignalHandlerInfo_Test.m */,
 			);
 			path = KSCrashTests;
 			sourceTree = "<group>";
@@ -1356,6 +1371,8 @@
 		CBF53E5117EB76B10056DA83 /* Monitors */ = {
 			isa = PBXGroup;
 			children = (
+				3E2D8A7C28BDB4D000CD8F92 /* KSCrashSignalInfo.c */,
+				3E2D8A7B28BDB4D000CD8F92 /* KSCrashSignalInfo.h */,
 				CBF53D5D17EB765C0056DA83 /* KSCrashMonitor_AppState.c */,
 				CBF53D5E17EB765C0056DA83 /* KSCrashMonitor_AppState.h */,
 				CBF53D4F17EB765C0056DA83 /* KSCrashMonitor_CPPException.cpp */,
@@ -1590,6 +1607,7 @@
 				CB25A5BB1DF2182A00EC2B02 /* KSCPU.h in Headers */,
 				CB94D35E1CAC11B000806679 /* KSCrashInstallationConsole.h in Headers */,
 				03DE7C6B1C84DFA400F789BA /* Demangle.h in Headers */,
+				3E2D8A7D28BDB4D000CD8F92 /* KSCrashSignalInfo.h in Headers */,
 				03DE7C691C84DF9F00F789BA /* type_traits.h in Headers */,
 				03DE7C8C1C84DFAB00F789BA /* KSObjCApple.h in Headers */,
 				03DE7CC11C84DFC100F789BA /* KSHTTPRequestSender.h in Headers */,
@@ -1936,6 +1954,7 @@
 			developmentRegion = English;
 			hasScannedForEncodings = 0;
 			knownRegions = (
+				English,
 				en,
 				Base,
 			);
@@ -2021,6 +2040,7 @@
 				03DE7C441C84DF8100F789BA /* KSCrashReport.c in Sources */,
 				03DE7CA11C84DFB100F789BA /* KSCrashReportSinkConsole.m in Sources */,
 				03DE7CC21C84DFC100F789BA /* KSHTTPRequestSender.m in Sources */,
+				3E2D8A7E28BDB4D000CD8F92 /* KSCrashSignalInfo.c in Sources */,
 				03DE7C531C84DF8600F789BA /* KSCrashMonitor.c in Sources */,
 				CB41F0791E0C992400A1C9D7 /* KSStackCursor.c in Sources */,
 				CB69B8E61DC0F15C002713B1 /* KSCrashReportStore.c in Sources */,
@@ -2134,6 +2154,7 @@
 				CBF53DCB17EB765C0056DA83 /* KSCrashReportFilterBasic.m in Sources */,
 				CBF53E3E17EB765C0056DA83 /* KSCrashMonitor_Zombie.c in Sources */,
 				CBF53D9617EB765C0056DA83 /* Container+DeepSearch.m in Sources */,
+				3E2D8A8128BE7B8000CD8F92 /* KSCrashSignalInfo.c in Sources */,
 				CBF53DC517EB765C0056DA83 /* KSCrashReportFilterAlert.m in Sources */,
 				CBF53DA017EB765C0056DA83 /* KSCrash.m in Sources */,
 				CB5657EB1E1D8A71005A8302 /* KSStackCursor_SelfThread.c in Sources */,
@@ -2155,6 +2176,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3E2D8A8028BE79F500CD8F92 /* KSCrashSignalHandlerInfo_Test.m in Sources */,
 				CB0264CA17FA5B13003E0AED /* NSMutableData+AppendUTF8_Tests.m in Sources */,
 				CB0264B217FA5B13003E0AED /* KSCrashReportFilterGZip_Tests.m in Sources */,
 				CB0264CB17FA5B13003E0AED /* RFC3339UTFString_Tests.m in Sources */,
@@ -2192,6 +2214,7 @@
 				CB0264CC17FA5B13003E0AED /* XCTestCase+KSCrash.m in Sources */,
 				CBA8A0CC1E2579FE0019B5B9 /* KSCrashCachedData_Tests.m in Sources */,
 				CB0C19C61DD1265B005B2F80 /* KSCrashReportFixer_Tests.m in Sources */,
+				3E2D8A8228BE7D5C00CD8F92 /* Demangle.cpp in Sources */,
 				CB0264C317FA5B13003E0AED /* KSString_Tests.m in Sources */,
 				CB0264BD17FA5B13003E0AED /* KSJSONCodec_Tests.m in Sources */,
 			);
@@ -2564,6 +2587,10 @@
 					"$(inherited)",
 				);
 				INFOPLIST_FILE = "KSCrashTests/KSCrashTests-Info.plist";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/usr/lib/swift",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = "org.stenerud.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WRAPPER_EXTENSION = xctest;
@@ -2581,6 +2608,10 @@
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "KSCrash/KSCrash-Prefix.pch";
 				INFOPLIST_FILE = "KSCrashTests/KSCrashTests-Info.plist";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/usr/lib/swift",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = "org.stenerud.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WRAPPER_EXTENSION = xctest;

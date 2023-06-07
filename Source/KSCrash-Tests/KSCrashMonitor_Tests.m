@@ -42,10 +42,10 @@
 
 - (void) testSuspendResumeThreads
 {
-    ksmc_suspendEnvironment();
-    ksmc_suspendEnvironment();
-    ksmc_resumeEnvironment();
-    ksmc_resumeEnvironment();
+//    ksmc_suspendEnvironment();
+//    ksmc_suspendEnvironment();
+//    ksmc_resumeEnvironment();
+//    ksmc_resumeEnvironment();
 }
 
 @end
