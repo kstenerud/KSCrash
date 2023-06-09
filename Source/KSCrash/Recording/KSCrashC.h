@@ -43,6 +43,8 @@ extern "C" {
 
 #include <stdbool.h>
 
+bool kscrash_is_installed(void);
+
 /** Install the crash reporter. The reporter will record the next crash and then
  * terminate the program.
  *

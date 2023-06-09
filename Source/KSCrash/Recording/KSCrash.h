@@ -217,6 +217,7 @@ typedef enum
 /** Information about the operating system and environment */
 @property(nonatomic,readonly,strong) NSDictionary* systemInfo;
 
+@property(class,readonly) BOOL wasInstalled;
 #pragma mark - API -
 
 /** Get the singleton instance of the crash reporter.

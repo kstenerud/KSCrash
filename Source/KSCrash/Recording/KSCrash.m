@@ -323,6 +323,11 @@ static dispatch_once_t onceToken;
     return dict;
 }
 
++ (BOOL) wasInstalled
+{
+    return kscrash_is_installed();
+}
+
 - (BOOL) install
 {
     _monitoring = kscrash_install(self.bundleName.UTF8String,
