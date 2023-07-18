@@ -46,17 +46,26 @@ typedef enum
     KSCDeleteAlways
 } KSCDeleteBehavior;
 
+@protocol KSCrashReportReader <NSObject>
+
+- (NSArray*)reportIDs;
+- (NSDictionary*) reportWithID:(NSNumber*) reportID;
+- (void) deleteAllReports;
+- (void) deleteReportWithID:(NSNumber*) reportID;
+
+@end
+
 /**
  * Reports any crashes that occur in the application.
  *
  * The crash reports will be located in $APP_HOME/Library/Caches/KSCrashReports
  */
-@interface KSCrash : NSObject
+@interface KSCrash : NSObject <KSCrashReportReader>
 
 #pragma mark - Configuration -
 
-/** Init KSCrash instance with custom base path. */
-- (id) initWithBasePath:(NSString *)basePath;
+/** Init KSCrash instance with custom base path and custom bundle name. */
+- (id) initWithBasePath:(NSString *)basePath andBundleName:(NSString *)bundleName;
 
 /** A dictionary containing any info you'd like to appear in crash reports. Must
  * contain only JSON-safe data: NSString for keys, and NSDictionary, NSArray,
@@ -227,8 +236,9 @@ typedef enum
 /** Get the singleton instance of the crash reporter with specific base path.
  *
  * @param basePath The path where crashes and other information will be saved.
- */
-+ (KSCrash *) sharedInstanceWithBasePath:(NSString *)basePath;
+ * @param bundleName The bundle name that will be used for the crash report filename.
+ *  */
++ (KSCrash *) sharedInstanceWithBasePath:(NSString *)basePath andBundleName:(NSString *)bundleName;
 
 /** Install the crash reporter.
  * The reporter will record crashes, but will not send any crash reports unless

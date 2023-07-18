@@ -284,6 +284,7 @@ void kscrash_deleteAllReports(void);
 void kscrash_deleteReportWithID(int64_t reportID);
 
 
+
 #ifdef __cplusplus
 }
 #endif

@@ -141,24 +141,25 @@ static dispatch_once_t onceToken;
     return sharedInstance;
 }
 
-+ (instancetype) sharedInstanceWithBasePath:(NSString *)basePath
++ (instancetype) sharedInstanceWithBasePath:(NSString *)basePath andBundleName:(NSString *)bundleName
 {
     dispatch_once(&onceToken, ^{
-        sharedInstance = [[KSCrash alloc] initWithBasePath:basePath];
+        sharedInstance = [[KSCrash alloc] initWithBasePath:basePath andBundleName:bundleName];
     });
     return sharedInstance;
 }
 
 - (id) init
 {
-    return [self initWithBasePath:getBasePath()];
+    return [self initWithBasePath:getBasePath() andBundleName:getBundleName()];
 }
 
-- (id) initWithBasePath:(NSString *)basePath
+- (id) initWithBasePath:(NSString *)basePath andBundleName:(NSString *)bundleName;
 {
     if((self = [super init]))
     {
-        self.bundleName = getBundleName();
+        //This bundle name is used only the crash report file name
+        self.bundleName = bundleName;
         self.basePath = basePath;
         if(self.basePath == nil)
         {
