@@ -50,6 +50,8 @@ typedef struct
     uint64_t revisionVersion;
     const char* crashInfoMessage;
     const char* crashInfoMessage2;
+    const char* crashInfoBacktrace;
+    const char* crashInfoSignature;
 } KSBinaryImage;
 
 /** Get the number of loaded binary images.
