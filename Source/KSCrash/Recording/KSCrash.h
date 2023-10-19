@@ -291,6 +291,14 @@ typedef enum
  */
 - (NSDictionary*) reportWithID:(NSNumber*) reportID;
 
+/** Get report raw data.
+ *
+ * @param reportID An ID of report.
+ *
+ * @return A dictionary with report fields. See KSCrashReportFields.h for available fields.
+ */
+- (NSData*) reportDataWithID:(NSNumber*) reportID;
+
 /** Delete all unsent reports.
  */
 - (void) deleteAllReports;

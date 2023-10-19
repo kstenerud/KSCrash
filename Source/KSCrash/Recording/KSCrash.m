@@ -572,6 +572,10 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
     return crashReport;
 }
 
+- (NSData*) reportDataWithID:(NSNumber*) reportID {
+    return [self loadCrashReportJSONWithID:reportID.longLongValue];
+}
+
 - (NSArray*) allReports
 {
     int reportCount = kscrash_getReportCount();
