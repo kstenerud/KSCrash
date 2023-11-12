@@ -32,14 +32,22 @@
 #include <mach/mach.h>
 #include <mach-o/arch.h>
 
+#if KSCRASH_HOST_VISION
+#include <mach-o/utils.h>
+#endif
+
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
 
 const char* kscpu_currentArch(void)
 {
+#if KSCRASH_HOST_VISION
+    return macho_arch_name_for_mach_header(NULL);
+#else
     const NXArchInfo* archInfo = NXGetLocalArchInfo();
     return archInfo == NULL ? NULL : archInfo->name;
+#endif
 }
 
 #if KSCRASH_HAS_THREADS_API
