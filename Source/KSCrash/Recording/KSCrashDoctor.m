@@ -493,7 +493,7 @@ typedef enum
 {
     if(callName != nil && ![callName isEqualToString:@"main"])
     {
-        return [string stringByAppendingFormat:@"\nOriginated at or in a subcall of %@", callName];
+        return [string stringByAppendingFormat:@"\n Originated at or in a subcall of %@", callName];
     }
     return string;
 }
