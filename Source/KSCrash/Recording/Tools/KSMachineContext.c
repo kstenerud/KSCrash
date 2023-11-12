@@ -96,7 +96,7 @@ static inline bool getThreadList(KSMachineContext* context)
     return true;
 }
 
-int ksmc_contextSize()
+int ksmc_contextSize(void)
 {
     return sizeof(KSMachineContext);
 }

@@ -400,7 +400,7 @@ static void* handleExceptions(void* const userData)
 #pragma mark - API -
 // ============================================================================
 
-static void uninstallExceptionHandler()
+static void uninstallExceptionHandler(void)
 {
     KSLOG_DEBUG("Uninstalling mach exception handler.");
     
@@ -444,7 +444,7 @@ static void uninstallExceptionHandler()
     KSLOG_DEBUG("Mach exception handlers uninstalled.");
 }
 
-static bool installExceptionHandler()
+static bool installExceptionHandler(void)
 {
     KSLOG_DEBUG("Installing mach exception handler.");
 
@@ -576,7 +576,7 @@ static void setEnabled(bool isEnabled)
     }
 }
 
-static bool isEnabled()
+static bool isEnabled(void)
 {
     return g_isEnabled;
 }
@@ -595,7 +595,7 @@ static void addContextualInfoToEvent(struct KSCrash_MonitorContext* eventContext
 
 #endif
 
-KSCrashMonitorAPI* kscm_machexception_getAPI()
+KSCrashMonitorAPI* kscm_machexception_getAPI(void)
 {
     static KSCrashMonitorAPI api =
     {

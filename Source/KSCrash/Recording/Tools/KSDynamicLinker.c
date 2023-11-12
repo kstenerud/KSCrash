@@ -383,7 +383,7 @@ static void getCrashInfo(const struct mach_header* header, KSBinaryImage* buffer
     }
 }
 
-int ksdl_imageCount()
+int ksdl_imageCount(void)
 {
     return (int)_dyld_image_count();
 }

@@ -55,7 +55,7 @@ static _Atomic(int) g_semaphoreCount;
 static bool g_searchQueueNames = false;
 static bool g_hasThreadStarted = false;
 
-static void updateThreadList()
+static void updateThreadList(void)
 {
     const task_t thisTask = mach_task_self();
     int oldThreadsCount = g_allThreadsCount;
@@ -185,7 +185,7 @@ void ksccd_init(int pollingIntervalInSeconds)
     pthread_attr_destroy(&attr);
 }
 
-void ksccd_freeze()
+void ksccd_freeze(void)
 {
     if(g_semaphoreCount++ <= 0)
     {
@@ -194,7 +194,7 @@ void ksccd_freeze()
     }
 }
 
-void ksccd_unfreeze()
+void ksccd_unfreeze(void)
 {
     if(--g_semaphoreCount < 0)
     {

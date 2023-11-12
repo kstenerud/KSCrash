@@ -172,7 +172,7 @@ static NSTimeInterval g_watchdogInterval = 0;
 #pragma mark - API -
 // ============================================================================
 
-static void initialize()
+static void initialize(void)
 {
     static bool isInitialized = false;
     if(!isInitialized)
@@ -202,12 +202,12 @@ static void setEnabled(bool isEnabled)
     }
 }
 
-static bool isEnabled()
+static bool isEnabled(void)
 {
     return g_isEnabled;
 }
 
-KSCrashMonitorAPI* kscm_deadlock_getAPI()
+KSCrashMonitorAPI* kscm_deadlock_getAPI(void)
 {
     static KSCrashMonitorAPI api =
     {

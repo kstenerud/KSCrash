@@ -202,7 +202,7 @@ void kscm_setActiveMonitors(KSCrashMonitorType monitorTypes)
     g_activeMonitors = activeMonitors;
 }
 
-KSCrashMonitorType kscm_getActiveMonitors()
+KSCrashMonitorType kscm_getActiveMonitors(void)
 {
     return g_activeMonitors;
 }

@@ -58,7 +58,7 @@
 @end
 
 
-static NSString* getBundleName()
+static NSString* getBundleName(void)
 {
     NSString* bundleName = [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleName"];
     if(bundleName == nil)
@@ -68,7 +68,7 @@ static NSString* getBundleName()
     return bundleName;
 }
 
-static NSString* getBasePath()
+static NSString* getBasePath(void)
 {
     NSArray* directories = NSSearchPathForDirectoriesInDomains(NSCachesDirectory,
                                                                NSUserDomainMask,

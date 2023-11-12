@@ -325,7 +325,7 @@ void kscrash_notifyAppCrash(void)
     kscrashstate_notifyAppCrash();
 }
 
-int kscrash_getReportCount()
+int kscrash_getReportCount(void)
 {
     return kscrs_getReportCount();
 }
@@ -365,7 +365,7 @@ int64_t kscrash_addUserReport(const char* report, int reportLength)
     return kscrs_addUserReport(report, reportLength);
 }
 
-void kscrash_deleteAllReports()
+void kscrash_deleteAllReports(void)
 {
     kscrs_deleteAllReports();
 }

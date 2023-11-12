@@ -146,12 +146,12 @@ static void setEnabled(bool isEnabled)
     }
 }
 
-static bool isEnabled()
+static bool isEnabled(void)
 {
     return g_isEnabled;
 }
 
-KSCrashMonitorAPI* kscm_nsexception_getAPI()
+KSCrashMonitorAPI* kscm_nsexception_getAPI(void)
 {
     static KSCrashMonitorAPI api =
     {

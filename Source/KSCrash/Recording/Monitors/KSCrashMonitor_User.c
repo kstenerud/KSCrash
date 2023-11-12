@@ -105,12 +105,12 @@ static void setEnabled(bool isEnabled)
     g_isEnabled = isEnabled;
 }
 
-static bool isEnabled()
+static bool isEnabled(void)
 {
     return g_isEnabled;
 }
 
-KSCrashMonitorAPI* kscm_user_getAPI()
+KSCrashMonitorAPI* kscm_user_getAPI(void)
 {
     static KSCrashMonitorAPI api =
     {

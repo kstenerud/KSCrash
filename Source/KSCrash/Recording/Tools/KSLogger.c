@@ -247,7 +247,7 @@ bool kslog_setLogFilename(const char* filename, bool overwrite)
 
 #endif
 
-bool kslog_clearLogFile()
+bool kslog_clearLogFile(void)
 {
     return kslog_setLogFilename(g_logFilename, true);
 }
