@@ -9,6 +9,8 @@
 /* Begin PBXBuildFile section */
 		03082CD51D9181F600935324 /* KSCrashMonitor_Zombie.c in Sources */ = {isa = PBXBuildFile; fileRef = 03082CD41D9181F600935324 /* KSCrashMonitor_Zombie.c */; };
 		03B07DB41D089690007B4758 /* KSCrashFramework.h in Headers */ = {isa = PBXBuildFile; fileRef = 03B07DB21D089690007B4758 /* KSCrashFramework.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		419099132B014768005BEDB4 /* KSCPU_arm64.c in Sources */ = {isa = PBXBuildFile; fileRef = 419099122B014768005BEDB4 /* KSCPU_arm64.c */; };
+		419099142B0148B2005BEDB4 /* KSCPU_arm64.c in Sources */ = {isa = PBXBuildFile; fileRef = 419099122B014768005BEDB4 /* KSCPU_arm64.c */; };
 		830AB8672361D25A00CB4BF8 /* KSCxaThrowSwapper.c in Sources */ = {isa = PBXBuildFile; fileRef = 830AB8652361D25A00CB4BF8 /* KSCxaThrowSwapper.c */; };
 		830AB8682361D25A00CB4BF8 /* KSCxaThrowSwapper.c in Sources */ = {isa = PBXBuildFile; fileRef = 830AB8652361D25A00CB4BF8 /* KSCxaThrowSwapper.c */; };
 		830AB8692361D25A00CB4BF8 /* KSCxaThrowSwapper.h in Headers */ = {isa = PBXBuildFile; fileRef = 830AB8662361D25A00CB4BF8 /* KSCxaThrowSwapper.h */; };
@@ -453,6 +455,7 @@
 		03082CD41D9181F600935324 /* KSCrashMonitor_Zombie.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSCrashMonitor_Zombie.c; path = ../../Source/KSCrash/Recording/Monitors/KSCrashMonitor_Zombie.c; sourceTree = "<group>"; };
 		03B07DB21D089690007B4758 /* KSCrashFramework.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSCrashFramework.h; path = ../../Source/Framework/KSCrashFramework.h; sourceTree = "<group>"; };
 		03B07DB31D089690007B4758 /* module.modulemap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = "sourcecode.module-map"; name = module.modulemap; path = ../../Source/Framework/module.modulemap; sourceTree = "<group>"; };
+		419099122B014768005BEDB4 /* KSCPU_arm64.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSCPU_arm64.c; path = ../../Source/KSCrash/Recording/Tools/KSCPU_arm64.c; sourceTree = "<group>"; };
 		830AB8652361D25A00CB4BF8 /* KSCxaThrowSwapper.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSCxaThrowSwapper.c; path = ../../Source/KSCrash/Recording/Tools/KSCxaThrowSwapper.c; sourceTree = "<group>"; };
 		830AB8662361D25A00CB4BF8 /* KSCxaThrowSwapper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSCxaThrowSwapper.h; path = ../../Source/KSCrash/Recording/Tools/KSCxaThrowSwapper.h; sourceTree = "<group>"; };
 		830AB86B2361D28900CB4BF8 /* KSgetsect.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KSgetsect.c; path = ../../Source/KSCrash/Recording/Tools/KSgetsect.c; sourceTree = "<group>"; };
@@ -1061,6 +1064,7 @@
 		CB8E563C17EB9B10000C56D3 /* Tools */ = {
 			isa = PBXGroup;
 			children = (
+				419099122B014768005BEDB4 /* KSCPU_arm64.c */,
 				CB25A6091DF23F0C00EC2B02 /* KSCPU_Apple.h */,
 				CB8E566B17EB9B43000C56D3 /* KSCPU_x86_32.c */,
 				CB8E566C17EB9B43000C56D3 /* KSCPU_x86_64.c */,
@@ -1604,6 +1608,7 @@
 				CB6240C417EBCA74006471F1 /* KSCrashMonitor_User.c in Sources */,
 				CB6240D617EBCA74006471F1 /* KSCPU_x86_32.c in Sources */,
 				CB7A6C9917FB9A1000997792 /* KSDynamicLinker.c in Sources */,
+				419099142B0148B2005BEDB4 /* KSCPU_arm64.c in Sources */,
 				CB25A5C01DF2209000EC2B02 /* KSCPU.c in Sources */,
 				CB62410B17EBCA74006471F1 /* KSHTTPMultipartPostBody.m in Sources */,
 				CB6240FF17EBCA74006471F1 /* KSCrashReportSinkVictory.m in Sources */,
@@ -1692,6 +1697,7 @@
 				CB8E568417EB9B43000C56D3 /* KSJSONCodec.c in Sources */,
 				CB25A5BF1DF2209000EC2B02 /* KSCPU.c in Sources */,
 				CB8E571217EB9BA8000C56D3 /* KSCrashInstallation.m in Sources */,
+				419099132B014768005BEDB4 /* KSCPU_arm64.c in Sources */,
 				CB7A6C9617FB99E800997792 /* KSDynamicLinker.c in Sources */,
 				CB2851011E0214E600C90D80 /* KSID.c in Sources */,
 				CB8E561917EB9AA5000C56D3 /* KSCrash.m in Sources */,
