@@ -42,15 +42,9 @@
 #endif 
 
 @interface KSCrashAlertViewProcess : NSObject
-#if KSCRASH_HAS_UIALERTVIEW
-<UIAlertViewDelegate>
-#endif
 
 @property(nonatomic,readwrite,retain) NSArray* reports;
 @property(nonatomic,readwrite,copy) KSCrashReportFilterCompletion onCompletion;
-#if KSCRASH_HAS_UIALERTVIEW
-@property(nonatomic,readwrite,retain) UIAlertView* alertView;
-#endif
 @property(nonatomic,readwrite,assign) NSInteger expectedButtonIndex;
 
 + (KSCrashAlertViewProcess*) process;
@@ -68,9 +62,6 @@
 
 @synthesize reports = _reports;
 @synthesize onCompletion = _onCompletion;
-#if KSCRASH_HAS_UIALERTVIEW
-@synthesize alertView = _alertView;
-#endif
 @synthesize expectedButtonIndex = _expectedButtonIndex;
 
 + (KSCrashAlertViewProcess*) process
@@ -90,20 +81,7 @@
     self.onCompletion = onCompletion;
     self.expectedButtonIndex = noAnswer == nil ? 0 : 1;
 
-#if KSCRASH_HAS_UIALERTVIEW
-    self.alertView = [[UIAlertView alloc] init];
-    self.alertView.title = title;
-    self.alertView.message = message;
-    if(noAnswer != nil)
-    {
-        [self.alertView addButtonWithTitle:noAnswer];
-    }
-    [self.alertView addButtonWithTitle:yesAnswer];
-    self.alertView.delegate = self;
-    
-    KSLOG_TRACE(@"Showing alert view");
-    [self.alertView show];
-#elif KSCRASH_HAS_UIALERTCONTROLLER
+#if KSCRASH_HAS_UIALERTCONTROLLER
     UIAlertController *alertController = [UIAlertController alertControllerWithTitle:title
                                                                              message:message
                                                                       preferredStyle:UIAlertControllerStyleAlert];
