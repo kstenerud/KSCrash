@@ -1,5 +1,5 @@
 Pod::Spec.new do |s|
-  IOS_DEPLOYMENT_TARGET = '6.0' unless defined? IOS_DEPLOYMENT_TARGET
+  IOS_DEPLOYMENT_TARGET = '11.0' unless defined? IOS_DEPLOYMENT_TARGET
   s.name         = "KSCrash"
   s.version      = "1.15.27"
   s.summary      = "The Ultimate iOS Crash Reporter"
@@ -8,7 +8,7 @@ Pod::Spec.new do |s|
   s.author       = { "Karl Stenerud" => "kstenerud@gmail.com" }
   s.ios.deployment_target =  IOS_DEPLOYMENT_TARGET
   s.osx.deployment_target =  '10.8'
-  s.tvos.deployment_target =  '9.0'
+  s.tvos.deployment_target =  '11.0'
   s.watchos.deployment_target =  '2.0'
   s.source       = { :git => "https://github.com/kstenerud/KSCrash.git", :tag=>s.version.to_s }
   s.frameworks = 'Foundation'
