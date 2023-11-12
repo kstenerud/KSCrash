@@ -1296,6 +1296,14 @@ static void writeBinaryImage(const KSCrashReportWriter* const writer,
         {
             writer->addStringElement(writer, KSCrashField_ImageCrashInfoMessage2, image.crashInfoMessage2);
         }
+        if(image.crashInfoBacktrace != NULL)
+        {
+            writer->addStringElement(writer, KSCrashField_ImageCrashInfoBacktrace, image.crashInfoBacktrace);
+        }
+        if(image.crashInfoSignature != NULL)
+        {
+            writer->addStringElement(writer, KSCrashField_ImageCrashInfoSignature, image.crashInfoSignature);
+        }
     }
     writer->endContainer(writer);
 }

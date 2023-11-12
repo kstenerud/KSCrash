@@ -38,7 +38,7 @@
 #include "KSPlatformSpecificDefines.h"
 
 #ifndef KSDL_MaxCrashInfoStringLength
-    #define KSDL_MaxCrashInfoStringLength 1024
+    #define KSDL_MaxCrashInfoStringLength 4096
 #endif
 
 #pragma pack(8)
@@ -380,6 +380,16 @@ static void getCrashInfo(const struct mach_header* header, KSBinaryImage* buffer
     {
         KSLOG_DEBUG("Found second message: %s", crashInfo->message2);
         buffer->crashInfoMessage2 = crashInfo->message2;
+    }
+    if(isValidCrashInfoMessage(crashInfo->backtrace))
+    {
+        KSLOG_DEBUG("Found backtrace: %s", crashInfo->backtrace);
+        buffer->crashInfoBacktrace = crashInfo->backtrace;
+    }
+    if(isValidCrashInfoMessage(crashInfo->signature))
+    {
+        KSLOG_DEBUG("Found signature: %s", crashInfo->signature);
+        buffer->crashInfoSignature = crashInfo->signature;
     }
 }
 
