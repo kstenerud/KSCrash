@@ -265,11 +265,13 @@ static NSDictionary* g_registerOrders;
 
 - (NSString*) CPUArchForMajor:(cpu_type_t) majorCode minor:(cpu_subtype_t) minorCode
 {
-    // In Apple platforms we can use this nice function to get the name of a particular architecture
+#ifdef __APPLE__
+    // In Apple platforms we can use this function to get the name of a particular architecture
     const NXArchInfo* info = NXGetArchInfoFromCpuType(majorCode, minorCode);
     if (info && info->name) {
         return [[NSString alloc] initWithUTF8String: info->name];
     }
+#endif
 
     switch(majorCode)
     {
@@ -504,8 +506,6 @@ static NSDictionary* g_registerOrders;
     NSMutableString* str = [NSMutableString string];
 
     NSArray* binaryImages = [self binaryImagesReport:report];
-    //NSDictionary* system = [self systemReport:report];
-    //NSString* executablePath = [system objectForKey:@KSCrashField_ExecutablePath];
 
     [str appendString:@"\nBinary Images:\n"];
     if(binaryImages)
@@ -530,13 +530,10 @@ static NSDictionary* g_registerOrders;
             NSString* path = [image objectForKey:@KSCrashField_Name];
             NSString* name = [path lastPathComponent];
             NSString* uuid = [self toCompactUUID:[image objectForKey:@KSCrashField_UUID]];
-            //NSString* isBaseImage = (path && [executablePath isEqualToString:path]) ? @"+" : @" ";
-            NSString* isBaseImage = @"";
             NSString* arch = [self CPUArchForMajor:cpuType minor:cpuSubtype];
-            [str appendFormat:FMT_PTR_RJ @" - " FMT_PTR_RJ @" %@%@ %@  <%@> %@\n",
+            [str appendFormat:FMT_PTR_RJ @" - " FMT_PTR_RJ @" %@ %@  <%@> %@\n",
              imageAddr,
              imageAddr + imageSize - 1,
-             isBaseImage,
              name,
              arch,
              uuid,
