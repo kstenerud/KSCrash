@@ -31,5 +31,9 @@
 	</array>
 	<key>NSPrivacyTracking</key>
 	<false/>
+    <key>NSPrivacyTrackingDomains</key>
+    <array/>
+    <key>NSPrivacyCollectedDataTypes</key>
+    <array/>
 </dict>
 </plist>
