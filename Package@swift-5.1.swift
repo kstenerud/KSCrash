@@ -1,4 +1,4 @@
-// swift-tools-version:5.3
+// swift-tools-version:5.1
 
 import PackageDescription
 
@@ -42,9 +42,6 @@ let package = Package(
             exclude: [
                 "Monitors",
                 "Tools"
-            ],
-            resources: [
-                .copy("PrivacyInfo.xcprivacy")
             ],
             publicHeadersPath: ".",
             cxxSettings: [

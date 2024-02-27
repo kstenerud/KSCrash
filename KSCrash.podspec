@@ -29,6 +29,8 @@ Pod::Spec.new do |s|
                                     'Source/KSCrash/Recording/Monitors/KSCrashMonitorType.h',
                                     'Source/KSCrash/Reporting/Filters/KSCrashReportFilter.h'
 
+    recording.resource_bundles = { 'KSCrashPrivacy' => 'Source/KSCrash/Recording/PrivacyInfo.xcprivacy' }
+
     recording.subspec 'Tools' do |tools|
       tools.source_files = 'Source/KSCrash/Recording/Tools/*.h'
       tools.compiler_flags = '-fno-optimize-sibling-calls'
