@@ -16,6 +16,8 @@ Pod::Spec.new do |s|
   s.xcconfig = { 'GCC_ENABLE_CPP_EXCEPTIONS' => 'YES' }
   s.default_subspecs = 'Installations'
 
+  s.resource_bundles = { 'KSCrashPrivacy' => 'Source/KSCrash/Recording/PrivacyInfo.xcprivacy' }
+
   s.subspec 'Recording' do |recording|
     recording.compiler_flags = '-fno-optimize-sibling-calls'
     recording.source_files   = 'Source/KSCrash/Recording/**/*.{h,m,mm,c,cpp}',
