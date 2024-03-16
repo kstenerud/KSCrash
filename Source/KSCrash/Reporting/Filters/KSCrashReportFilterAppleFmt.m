@@ -30,12 +30,11 @@
 
 #import <inttypes.h>
 #import <mach/machine.h>
+#include <mach-o/arch.h>
 
 #import "KSCrashReportFields.h"
 #import "KSJSONCodecObjC.h"
 #import "KSCrashMonitor_System.h"
-
-#define CPU_SUBTYPE_ARM64E              ((cpu_subtype_t) 2)
 
 #if defined(__LP64__)
     #define FMT_LONG_DIGITS "16"
@@ -47,9 +46,10 @@
 
 #define FMT_PTR_SHORT        @"0x%" PRIxPTR
 #define FMT_PTR_LONG         @"0x%0" FMT_LONG_DIGITS PRIxPTR
-#define FMT_PTR_RJ           @"%#" FMT_RJ_SPACES PRIxPTR
+//#define FMT_PTR_RJ           @"%#" FMT_RJ_SPACES PRIxPTR
+#define FMT_PTR_RJ           @"%#" PRIxPTR
 #define FMT_OFFSET           @"%" PRIuPTR
-#define FMT_TRACE_PREAMBLE       @"%-4d%-31s " FMT_PTR_LONG
+#define FMT_TRACE_PREAMBLE       @"%-4d%-30s\t" FMT_PTR_LONG
 #define FMT_TRACE_UNSYMBOLICATED FMT_PTR_SHORT @" + " FMT_OFFSET
 #define FMT_TRACE_SYMBOLICATED   @"%@ + " FMT_OFFSET
 
@@ -74,9 +74,12 @@
  *
  * @param CPUArch The CPU architecture name.
  *
+ * @param isSystemInfoHeader Whether it is going to be used or not for system Information header
+ *
  * @return the major CPU type.
+
  */
-- (NSString*) CPUType:(NSString*) CPUArch;
+- (NSString*) CPUType:(NSString*) CPUArch isSystemInfoHeader:(BOOL) isSystemInfoHeader;
 
 /** Determine the CPU architecture based on major/minor CPU architecture codes.
  *
@@ -95,6 +98,29 @@
  * @return the UUID in compact form.
  */
 - (NSString*) toCompactUUID:(NSString*) uuid;
+
+@end
+
+@interface NSString (CompareRegisterNames)
+
+- (NSComparisonResult)kscrash_compareRegisterName:(NSString *)other;
+
+@end
+
+@implementation NSString (CompareRegisterNames)
+
+- (NSComparisonResult)kscrash_compareRegisterName:(NSString *)other {
+    BOOL containsNum = [self rangeOfCharacterFromSet:[NSCharacterSet decimalDigitCharacterSet]].location != NSNotFound;
+    BOOL otherContainsNum = [other rangeOfCharacterFromSet:[NSCharacterSet decimalDigitCharacterSet]].location != NSNotFound;
+
+    if (containsNum && !otherContainsNum) {
+        return NSOrderedAscending;
+    } else if (!containsNum && otherContainsNum) {
+        return NSOrderedDescending;
+    } else {
+        return [self localizedStandardCompare:other];
+    }
+}
 
 @end
 
@@ -212,8 +238,12 @@ static NSDictionary* g_registerOrders;
     kscrash_callCompletion(onCompletion, filteredReports, YES, nil);
 }
 
-- (NSString*) CPUType:(NSString*) CPUArch
+- (NSString*) CPUType:(NSString*) CPUArch isSystemInfoHeader:(BOOL) isSystemInfoHeader
 {
+    if(isSystemInfoHeader && [CPUArch rangeOfString:@"arm64e"].location == 0)
+    {
+        return @"ARM-64 (Native)";
+    }
     if([CPUArch rangeOfString:@"arm64"].location == 0)
     {
         return @"ARM-64";
@@ -235,6 +265,14 @@ static NSDictionary* g_registerOrders;
 
 - (NSString*) CPUArchForMajor:(cpu_type_t) majorCode minor:(cpu_subtype_t) minorCode
 {
+#ifdef __APPLE__
+    // In Apple platforms we can use this function to get the name of a particular architecture
+    const NXArchInfo* info = NXGetArchInfoFromCpuType(majorCode, minorCode);
+    if (info && info->name) {
+        return [[NSString alloc] initWithUTF8String: info->name];
+    }
+#endif
+
     switch(majorCode)
     {
         case CPU_TYPE_ARM:
@@ -256,19 +294,15 @@ static NSDictionary* g_registerOrders;
             }
             return @"arm";
         }
-#ifdef CPU_TYPE_ARM64
         case CPU_TYPE_ARM64:
         {
             switch (minorCode)
             {
-#ifdef CPU_SUBTYPE_ARM64E
                 case CPU_SUBTYPE_ARM64E:
                     return @"arm64e";
-#endif
             }
             return @"arm64";
         }
-#endif
         case CPU_TYPE_X86:
             return @"i386";
         case CPU_TYPE_X86_64:
@@ -438,29 +472,31 @@ static NSDictionary* g_registerOrders;
     NSMutableString* str = [NSMutableString string];
     NSString* executablePath = [system objectForKey:@KSCrashField_ExecutablePath];
     NSString* cpuArch = [system objectForKey:@KSCrashField_CPUArch];
-    NSString* cpuArchType = [self CPUType:cpuArch];
+    NSString* cpuArchType = [self CPUType:cpuArch isSystemInfoHeader:YES];
+    NSString* parentProcess = @"launchd"; // In iOS and most macOS regulard apps "launchd" is always the launcher. This might need a fix for other kind of apps
+    NSString* processRole = @"Foreground"; // In iOS and most macOS regulard apps the role is "Foreground". This might need a fix for other kind of apps
 
     [str appendFormat:@"Incident Identifier: %@\n", reportID];
     [str appendFormat:@"CrashReporter Key:   %@\n", [system objectForKey:@KSCrashField_DeviceAppHash]];
     [str appendFormat:@"Hardware Model:      %@\n", [system objectForKey:@KSCrashField_Machine]];
-    [str appendFormat:@"Process:         %@ [%@]\n",
+    [str appendFormat:@"Process:             %@ [%@]\n",
      [system objectForKey:@KSCrashField_ProcessName],
      [system objectForKey:@KSCrashField_ProcessID]];
-    [str appendFormat:@"Path:            %@\n", executablePath];
-    [str appendFormat:@"Identifier:      %@\n", [system objectForKey:@KSCrashField_BundleID]];
-    [str appendFormat:@"Version:         %@ (%@)\n",
+    [str appendFormat:@"Path:                %@\n", executablePath];
+    [str appendFormat:@"Identifier:          %@\n", [system objectForKey:@KSCrashField_BundleID]];
+    [str appendFormat:@"Version:             %@ (%@)\n",
      [system objectForKey:@KSCrashField_BundleVersion],
      [system objectForKey:@KSCrashField_BundleShortVersion]];
-    [str appendFormat:@"Code Type:       %@\n", cpuArchType];
-    [str appendFormat:@"Parent Process:  ? [%@]\n",
-     [system objectForKey:@KSCrashField_ParentProcessID]];
+    [str appendFormat:@"Code Type:           %@\n", cpuArchType];
+    [str appendFormat:@"Role:                %@\n", processRole];
+    [str appendFormat:@"Parent Process:      %@ [%@]\n", parentProcess, [system objectForKey:@KSCrashField_ParentProcessID]];
     [str appendFormat:@"\n"];
-    [str appendFormat:@"Date/Time:       %@\n", [self stringFromDate:crashTime]];
-    [str appendFormat:@"OS Version:      %@ %@ (%@)\n",
+    [str appendFormat:@"Date/Time:           %@\n", [self stringFromDate:crashTime]];
+    [str appendFormat:@"OS Version:          %@ %@ (%@)\n",
      [system objectForKey:@KSCrashField_SystemName],
      [system objectForKey:@KSCrashField_SystemVersion],
      [system objectForKey:@KSCrashField_OSVersion]];
-    [str appendFormat:@"Report Version:  104\n"];
+    [str appendFormat:@"Report Version:      104\n"];
 
     return str;
 }
@@ -470,8 +506,6 @@ static NSDictionary* g_registerOrders;
     NSMutableString* str = [NSMutableString string];
 
     NSArray* binaryImages = [self binaryImagesReport:report];
-    NSDictionary* system = [self systemReport:report];
-    NSString* executablePath = [system objectForKey:@KSCrashField_ExecutablePath];
 
     [str appendString:@"\nBinary Images:\n"];
     if(binaryImages)
@@ -496,18 +530,18 @@ static NSDictionary* g_registerOrders;
             NSString* path = [image objectForKey:@KSCrashField_Name];
             NSString* name = [path lastPathComponent];
             NSString* uuid = [self toCompactUUID:[image objectForKey:@KSCrashField_UUID]];
-            NSString* isBaseImage = (path && [executablePath isEqualToString:path]) ? @"+" : @" ";
-
-            [str appendFormat:FMT_PTR_RJ @" - " FMT_PTR_RJ @" %@%@ %@  <%@> %@\n",
+            NSString* arch = [self CPUArchForMajor:cpuType minor:cpuSubtype];
+            [str appendFormat:FMT_PTR_RJ @" - " FMT_PTR_RJ @" %@ %@  <%@> %@\n",
              imageAddr,
              imageAddr + imageSize - 1,
-             isBaseImage,
              name,
-             [self CPUArchForMajor:cpuType minor:cpuSubtype],
+             arch,
              uuid,
              path];
         }
     }
+
+    [str appendString:@"\nEOF\n\n"];
 
     return str;
 }
@@ -522,7 +556,7 @@ static NSDictionary* g_registerOrders;
     }
     int threadIndex = [[thread objectForKey:@KSCrashField_Index] intValue];
 
-    NSString* cpuArchType = [self CPUType:cpuArch];
+    NSString* cpuArchType = [self CPUType:cpuArch isSystemInfoHeader:NO];
 
     NSMutableString* str = [NSMutableString string];
 
@@ -533,7 +567,7 @@ static NSDictionary* g_registerOrders;
     NSArray* regOrder = [g_registerOrders objectForKey:cpuArch];
     if(regOrder == nil)
     {
-        regOrder = [[registers allKeys] sortedArrayUsingSelector:@selector(compare:)];
+        regOrder = [[registers allKeys] sortedArrayUsingSelector:@selector(kscrash_compareRegisterName:)];
     }
     NSUInteger numRegisters = [regOrder count];
     NSUInteger i = 0;
@@ -719,7 +753,7 @@ static NSDictionary* g_registerOrders;
      machCodeName,
      (uintptr_t)[[error objectForKey:@KSCrashField_Address] longLongValue]];
 
-    [str appendFormat:@"Crashed Thread:  %d\n",
+    [str appendFormat:@"Triggered by Thread:  %d\n",
      [[thread objectForKey:@KSCrashField_Index] intValue]];
 
     if(nsexception != nil)

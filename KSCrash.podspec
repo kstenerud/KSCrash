@@ -1,7 +1,7 @@
 Pod::Spec.new do |s|
   IOS_DEPLOYMENT_TARGET = '11.0' unless defined? IOS_DEPLOYMENT_TARGET
   s.name         = "KSCrash"
-  s.version      = "1.16.1"
+  s.version      = "1.17.0"
   s.summary      = "The Ultimate iOS Crash Reporter"
   s.homepage     = "https://github.com/kstenerud/KSCrash"
   s.license     = { :type => 'KSCrash license agreement', :file => 'LICENSE' }
@@ -16,6 +16,8 @@ Pod::Spec.new do |s|
   s.libraries = 'c++', 'z'
   s.xcconfig = { 'GCC_ENABLE_CPP_EXCEPTIONS' => 'YES' }
   s.default_subspecs = 'Installations'
+
+  s.resource_bundles = { 'KSCrashPrivacy' => 'Source/KSCrash/Recording/PrivacyInfo.xcprivacy' }
 
   s.subspec 'Recording' do |recording|
     recording.compiler_flags = '-fno-optimize-sibling-calls'
