@@ -31,10 +31,7 @@
 
 #include <mach/mach.h>
 #include <mach-o/arch.h>
-
-#if KSCRASH_HOST_VISION
 #include <mach-o/utils.h>
-#endif
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
@@ -42,11 +39,18 @@
 
 const char* kscpu_currentArch(void)
 {
-#if KSCRASH_HOST_VISION
-    return macho_arch_name_for_mach_header(NULL);
-#else
-    const NXArchInfo* archInfo = NXGetLocalArchInfo();
-    return archInfo == NULL ? NULL : archInfo->name;
+#if !KSCRASH_HOST_VISION
+    if(__builtin_available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 8.0, *))
+#endif
+    {
+        return macho_arch_name_for_mach_header(NULL);
+    }
+#if !KSCRASH_HOST_VISION
+    else 
+    {
+        const NXArchInfo* archInfo = NXGetLocalArchInfo();
+        return archInfo == NULL ? NULL : archInfo->name;
+    }
 #endif
 }
 
