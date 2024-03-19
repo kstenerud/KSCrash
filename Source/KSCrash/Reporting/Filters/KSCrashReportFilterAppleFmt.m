@@ -930,4 +930,12 @@ static NSDictionary* g_registerOrders;
     return str;
 }
 
+- (NSString *)appleStringForReport:(NSDictionary *)report
+{
+    if (![dict objectForKey:@KSCrashField_BinaryImages] || ![dict objectForKey:@KSCrashField_Crash]) {
+        return nil;
+    }
+    return [self toAppleFormat:dict];
+}
+
 @end

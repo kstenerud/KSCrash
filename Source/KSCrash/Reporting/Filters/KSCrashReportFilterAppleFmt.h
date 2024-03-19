@@ -112,4 +112,16 @@ typedef enum
 
 - (NSString*)headerStringForSystemInfo:(NSDictionary*)system reportID:(NSString*)reportID crashTime:(NSDate*)crashTime;
 
+/** Converts report to Apple format.
+*
+* NSArray *reportIDs = [[KSCrash sharedInstance] reportIDs];
+* NSDictionary *report = reportIDs[0];
+*
+* To use this API converts your `report` if you wanna creat a custom report.
+* To solve this issue(#390)
+*
+*Input: NSDictionary
+*Output: NSString
+*/
+- (NSString *)appleStringForReport:(NSDictionary *)report;
 @end
