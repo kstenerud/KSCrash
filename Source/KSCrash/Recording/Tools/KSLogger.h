@@ -153,6 +153,7 @@ extern "C" {
 
 
 #include <stdbool.h>
+#include <stdarg.h>
 
 
 #ifdef __OBJC__
@@ -165,10 +166,7 @@ void i_kslog_logObjC(const char* level,
                      const char* function,
                      CFStringRef fmt, ...);
 
-void i_kslog_logObjCBasic(CFStringRef fmt, ...);
-
 #define i_KSLOG_FULL(LEVEL,FILE,LINE,FUNCTION,FMT,...) i_kslog_logObjC(LEVEL,FILE,LINE,FUNCTION,(__bridge CFStringRef)FMT,##__VA_ARGS__)
-#define i_KSLOG_BASIC(FMT, ...) i_kslog_logObjCBasic((__bridge CFStringRef)FMT,##__VA_ARGS__)
 
 #else // __OBJC__
 
@@ -178,10 +176,7 @@ void i_kslog_logC(const char* level,
                   const char* function,
                   const char* fmt, ...);
 
-void i_kslog_logCBasic(const char* fmt, ...);
-
 #define i_KSLOG_FULL i_kslog_logC
-#define i_KSLOG_BASIC i_kslog_logCBasic
 
 #endif // __OBJC__
 
@@ -244,6 +239,10 @@ void i_kslog_logCBasic(const char* fmt, ...);
                  FMT, \
                  ##__VA_ARGS__)
 
+#define a_KSLOG_BASIC(FMT, ...) \
+    i_KSLOG_FULL(0, 0, -1, 0, \
+                 FMT, \
+                 ##__VA_ARGS__)
 
 
 // ============================================================================
@@ -260,6 +259,30 @@ bool kslog_setLogFilename(const char* filename, bool overwrite);
 
 /** Clear the log file. */
 bool kslog_clearLogFile(void);
+
+/** Set whether or not to log to stdout.
+ *
+ * @param enabled Whether or not stdout logging should be enabled.
+ *
+ * By default stdout logging is disabled.
+ */
+void kslog_setLogToStdout(bool enabled);
+
+typedef void (*KSLogFunction)(const char* level, const char* file,
+                     int line, const char* function,
+                     const char* fmt, va_list args);
+
+/** Set a function responsible for logging.
+ *
+ * When set, will deliver logging to this function
+ * in addition to file and stdout output (if enabled).
+ *
+ * WARNING: Only call async-safe functions from this function!
+ * DO NOT call Objective-C methods!!!
+ *
+ * @param function The function that should handle logging.
+ */
+void kslog_setLogCallback(KSLogFunction function);
 
 /** Tests if the logger would print at the specified level.
  *
@@ -281,7 +304,7 @@ bool kslog_clearLogFile(void);
  * @param FMT The format specifier, followed by its arguments.
  */
 #define KSLOG_ALWAYS(FMT, ...) a_KSLOG_FULL("FORCE", FMT, ##__VA_ARGS__)
-#define KSLOGBASIC_ALWAYS(FMT, ...) i_KSLOG_BASIC(FMT, ##__VA_ARGS__)
+#define KSLOGBASIC_ALWAYS(FMT, ...) a_KSLOG_BASIC(FMT, ##__VA_ARGS__)
 
 
 /** Log an error.
@@ -291,7 +314,7 @@ bool kslog_clearLogFile(void);
  */
 #if KSLOG_PRINTS_AT_LEVEL(KSLogger_Level_Error)
     #define KSLOG_ERROR(FMT, ...) a_KSLOG_FULL("ERROR", FMT, ##__VA_ARGS__)
-    #define KSLOGBASIC_ERROR(FMT, ...) i_KSLOG_BASIC(FMT, ##__VA_ARGS__)
+    #define KSLOGBASIC_ERROR(FMT, ...) a_KSLOG_BASIC(FMT, ##__VA_ARGS__)
 #else
     #define KSLOG_ERROR(FMT, ...)
     #define KSLOGBASIC_ERROR(FMT, ...)
@@ -304,7 +327,7 @@ bool kslog_clearLogFile(void);
  */
 #if KSLOG_PRINTS_AT_LEVEL(KSLogger_Level_Warn)
     #define KSLOG_WARN(FMT, ...)  a_KSLOG_FULL("WARN ", FMT, ##__VA_ARGS__)
-    #define KSLOGBASIC_WARN(FMT, ...) i_KSLOG_BASIC(FMT, ##__VA_ARGS__)
+    #define KSLOGBASIC_WARN(FMT, ...) a_KSLOG_BASIC(FMT, ##__VA_ARGS__)
 #else
     #define KSLOG_WARN(FMT, ...)
     #define KSLOGBASIC_WARN(FMT, ...)
@@ -317,7 +340,7 @@ bool kslog_clearLogFile(void);
  */
 #if KSLOG_PRINTS_AT_LEVEL(KSLogger_Level_Info)
     #define KSLOG_INFO(FMT, ...)  a_KSLOG_FULL("INFO ", FMT, ##__VA_ARGS__)
-    #define KSLOGBASIC_INFO(FMT, ...) i_KSLOG_BASIC(FMT, ##__VA_ARGS__)
+    #define KSLOGBASIC_INFO(FMT, ...) a_KSLOG_BASIC(FMT, ##__VA_ARGS__)
 #else
     #define KSLOG_INFO(FMT, ...)
     #define KSLOGBASIC_INFO(FMT, ...)
@@ -330,7 +353,7 @@ bool kslog_clearLogFile(void);
  */
 #if KSLOG_PRINTS_AT_LEVEL(KSLogger_Level_Debug)
     #define KSLOG_DEBUG(FMT, ...) a_KSLOG_FULL("DEBUG", FMT, ##__VA_ARGS__)
-    #define KSLOGBASIC_DEBUG(FMT, ...) i_KSLOG_BASIC(FMT, ##__VA_ARGS__)
+    #define KSLOGBASIC_DEBUG(FMT, ...) a_KSLOG_BASIC(FMT, ##__VA_ARGS__)
 #else
     #define KSLOG_DEBUG(FMT, ...)
     #define KSLOGBASIC_DEBUG(FMT, ...)
@@ -343,7 +366,7 @@ bool kslog_clearLogFile(void);
  */
 #if KSLOG_PRINTS_AT_LEVEL(KSLogger_Level_Trace)
     #define KSLOG_TRACE(FMT, ...) a_KSLOG_FULL("TRACE", FMT, ##__VA_ARGS__)
-    #define KSLOGBASIC_TRACE(FMT, ...) i_KSLOG_BASIC(FMT, ##__VA_ARGS__)
+    #define KSLOGBASIC_TRACE(FMT, ...) a_KSLOG_BASIC(FMT, ##__VA_ARGS__)
 #else
     #define KSLOG_TRACE(FMT, ...)
     #define KSLOGBASIC_TRACE(FMT, ...)
