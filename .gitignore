@@ -22,3 +22,5 @@ Thumbs.db
 *.xccheckout
 *.xcscmblueprint
 Carthage/Build
+.swiftpm/xcode/xcshareddata
+.build
