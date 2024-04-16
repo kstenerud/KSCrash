@@ -24,6 +24,8 @@
 // THE SOFTWARE.
 //
 
+#ifdef __OBJC__
+
 #import <Foundation/Foundation.h>
 
 /**
@@ -64,3 +66,5 @@
 + (BOOL) clearError:(NSError**) error;
 
 @end
+
+#endif

@@ -27,7 +27,7 @@
 
 #include <cxxabi.h>
 #include "KSDemangle_CPP.h"
-#include "KSLogger.h"
+//#include "KSLogger.h"
 
 extern "C" char* ksdm_demangleCPP(const char* mangledSymbol)
 {

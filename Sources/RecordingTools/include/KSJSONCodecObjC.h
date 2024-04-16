@@ -24,9 +24,9 @@
 // THE SOFTWARE.
 //
 
+#ifdef __OBJC__
 
 #import <Foundation/Foundation.h>
-
 
 /** Optional behavior when encoding JSON data */
 typedef enum
@@ -39,7 +39,6 @@ typedef enum
     /** Sort object contents by key name */
     KSJSONEncodeOptionSorted = 2,
 } KSJSONEncodeOption;
-
 
 /** Optional behavior when decoding JSON data */
 typedef enum
@@ -103,3 +102,5 @@ typedef enum
         error:(NSError**) error;
 
 @end
+
+#endif
