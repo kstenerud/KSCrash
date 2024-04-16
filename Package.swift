@@ -35,13 +35,9 @@ let package = Package(
         .target(
             name: "RecordingTools",
             dependencies: [
-                "RecordingToolsCxx",
+                "KSCrashSwift",
                 "KSCrashLLVM",
             ]
-        ),
-        .target(
-            name: "RecordingToolsCxx",
-            dependencies: ["KSCrashSwift"]
         ),
         .target(
             name: "KSCrashSwift",
