@@ -34,7 +34,6 @@
 
 #import "KSCrashReportFields.h"
 #import "KSJSONCodecObjC.h"
-#import "KSCrashMonitor_System.h"
 
 #if defined(__LP64__)
     #define FMT_LONG_DIGITS "16"

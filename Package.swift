@@ -12,10 +12,18 @@ let package = Package(
     ],
     products: [
         .library(
-            name: "Filters",
+            name: "Reporting",
             targets: [
-                "FiltersBase",
-//                "FiltersBasic",
+                "ReportingTools",
+                "ReportingSinks",
+                "FilterBase",
+                "FilterAlert",
+                "FilterAppleFmt",
+                "FilterBasic",
+                "FilterStringify",
+                "FilterGZip",
+                "FilterJSON",
+                "FilterSets",
             ]
         ),
         .library(
@@ -24,35 +32,116 @@ let package = Package(
         ),
     ],
     targets: [
+        //MARK: - Recording
         .target(
             name: "Recording",
             dependencies: [
                 "RecordingTools",
-                "FiltersBase",
+                "FilterBase",
             ],
             cSettings: [.headerSearchPath("Monitors")]
         ),
         .target(
             name: "RecordingTools",
             dependencies: [
+                "CommonTools",
                 "KSCrashSwift",
                 "KSCrashLLVM",
             ]
         ),
+        .target(name: "CommonTools"),
+        //MARK: - Peporting
         .target(
-            name: "KSCrashSwift",
-            dependencies: [
-                "KSCrashLLVM"
+            name: "ReportingTools",
+            dependencies: ["CommonTools"],
+            linkerSettings: [
+                .linkedFramework("SystemConfiguration", .when(platforms: [.iOS, .tvOS, .macOS]))
             ]
         ),
-        .target(name: "KSCrashLLVM"),
-
-        .target(name: "FiltersBase"),
         .target(
-            name: "FiltersTools",
-            publicHeadersPath: "."
+            name: "ReportingSinks",
+            dependencies: [
+                "CommonTools",
+                "ReportingTools",
+                "FilterBase",
+                "FilterAlert",
+                "FilterAppleFmt",
+                "FilterBasic",
+                "FilterStringify",
+                "FilterGZip",
+                "FilterJSON",
+            ],
+            linkerSettings: [
+                .linkedFramework("MessageUI", .when(platforms: [.iOS]))
+            ]
         ),
-//        .target(name: "FiltersBasic"),
+        // MARK: - Filters
+        .target(name: "FilterBase"),
+        .target(
+            name: "FilterTools",
+            dependencies: ["CommonTools"]
+        ),
+        .target(
+            name: "FilterAlert",
+            dependencies: [
+                "FilterBase",
+                "CommonTools",
+                "RecordingTools", // KSLogger
+            ]
+        ),
+        .target(
+            name: "FilterAppleFmt",
+            dependencies: [
+                "FilterBase",
+                "Recording", // KSCrashReportFields
+            ]
+        ),
+        .target(
+            name: "FilterBasic",
+            dependencies: [
+                "CommonTools",
+                "FilterBase",
+                "FilterTools",
+                "RecordingTools", // KSLogger
+            ]
+        ),
+        .target(
+            name: "FilterStringify",
+            dependencies: ["FilterBase"]
+        ),
+        .target(
+            name: "FilterGZip",
+            dependencies: [
+                "FilterBase",
+                "FilterTools",
+            ]
+        ),
+        .target(
+            name: "FilterJSON",
+            dependencies: [
+                "FilterBase",
+                "RecordingTools", // KSJSONCodecObjC
+            ]
+        ),
+        .target(
+            name: "FilterSets",
+            dependencies: [
+                "Recording", // KSCrashReportFields
+                "FilterBase",
+                "FilterAlert",
+                "FilterAppleFmt",
+                "FilterBasic",
+                "FilterStringify",
+                "FilterGZip",
+                "FilterJSON",
+            ]
+        ),
+        //MARK: - Forks
+        .target(
+            name: "KSCrashSwift",
+            dependencies: ["KSCrashLLVM"]
+        ),
+        .target(name: "KSCrashLLVM"),
     ],
     cxxLanguageStandard: .gnucxx11
 )
