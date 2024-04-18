@@ -34,12 +34,24 @@ let package = Package(
             name: "Installations",
             targets: ["Installations"]
         ),
+        .library(
+            name: "Core",
+            targets: ["Core"]
+        ),
     ],
     targets: [
-        //MARK: - Installations
+        .target(
+            name: "Core",
+            dependencies: [
+                "FilterBasic",
+                "Recording", // KSCrashReportWriter
+                "ReportingTools", // KSCString
+            ]
+        ),
         .target(
             name: "Installations",
             dependencies: [
+                "Core",
                 "Recording",
                 "FilterBase",
                 "ReportingSinks",
