@@ -30,8 +30,21 @@ let package = Package(
             name: "Recording",
             targets: ["Recording"]
         ),
+        .library(
+            name: "Installations",
+            targets: ["Installations"]
+        ),
     ],
     targets: [
+        //MARK: - Installations
+        .target(
+            name: "Installations",
+            dependencies: [
+                "Recording",
+                "FilterBase",
+                "ReportingSinks",
+            ]
+        ),
         //MARK: - Recording
         .target(
             name: "Recording",
