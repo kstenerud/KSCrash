@@ -14,153 +14,60 @@ let package = Package(
         .library(
             name: "Reporting",
             targets: [
-                "ReportingTools",
-                "ReportingSinks",
-                "FilterBase",
-                "FilterAlert",
-                "FilterAppleFmt",
-                "FilterBasic",
-                "FilterStringify",
-                "FilterGZip",
-                "FilterJSON",
-                "FilterSets",
+                "KSCrashFilters",
+                "KSCrashSinks",
+                "KSCrashInstallations",
             ]
         ),
-        .library(
-            name: "Recording",
-            targets: ["Recording"]
-        ),
-        .library(
-            name: "Installations",
-            targets: ["Installations"]
-        ),
-        .library(
-            name: "Core",
-            targets: ["Core"]
+        .library(name: "Filters", targets: ["KSCrashFilters"]),
+        .library(name: "Sinks", targets: ["KSCrashSinks"]),
+        .library(name: "Installations", targets: ["KSCrashInstallations"]),
+        .library(name: "Recording", targets: ["KSCrashRecording"]
         ),
     ],
     targets: [
         .target(
-            name: "Core",
+            name: "KSCrashRecording",
             dependencies: [
-                "FilterBasic",
-                "Recording", // KSCrashReportWriter
-                "ReportingTools", // KSCString
-            ]
-        ),
-        .target(
-            name: "Installations",
-            dependencies: [
-                "Core",
-                "Recording",
-                "FilterBase",
-                "ReportingSinks",
-            ]
-        ),
-        //MARK: - Recording
-        .target(
-            name: "Recording",
-            dependencies: [
-                "RecordingTools",
-                "FilterBase",
+                "KSCrashRecordingCore",
             ],
             cSettings: [.headerSearchPath("Monitors")]
         ),
         .target(
-            name: "RecordingTools",
+            name: "KSCrashFilters",
             dependencies: [
-                "CommonTools",
+                "KSCrashRecording",
+                "KSCrashRecordingCore",
+                "KSCrashReportingCore",
+            ]
+        ),
+        .target(
+            name: "KSCrashSinks",
+            dependencies: [
+                "KSCrashRecording",
+                "KSCrashFilters",
+            ]
+        ),.target(
+            name: "KSCrashInstallations",
+            dependencies: [
+                "KSCrashFilters",
+                "KSCrashSinks",
+                "KSCrashRecording",
+            ]
+        ),
+        .target(
+            name: "KSCrashRecordingCore",
+            dependencies: [
+                "KSCrashCore",
                 "KSCrashSwift",
                 "KSCrashLLVM",
             ]
         ),
-        .target(name: "CommonTools"),
-        //MARK: - Peporting
         .target(
-            name: "ReportingTools",
-            dependencies: ["CommonTools"],
-            linkerSettings: [
-                .linkedFramework("SystemConfiguration", .when(platforms: [.iOS, .tvOS, .macOS]))
-            ]
+            name: "KSCrashReportingCore",
+            dependencies: ["KSCrashCore"]
         ),
-        .target(
-            name: "ReportingSinks",
-            dependencies: [
-                "CommonTools",
-                "ReportingTools",
-                "FilterBase",
-                "FilterAlert",
-                "FilterAppleFmt",
-                "FilterBasic",
-                "FilterStringify",
-                "FilterGZip",
-                "FilterJSON",
-            ],
-            linkerSettings: [
-                .linkedFramework("MessageUI", .when(platforms: [.iOS]))
-            ]
-        ),
-        // MARK: - Filters
-        .target(name: "FilterBase"),
-        .target(
-            name: "FilterTools",
-            dependencies: ["CommonTools"]
-        ),
-        .target(
-            name: "FilterAlert",
-            dependencies: [
-                "FilterBase",
-                "CommonTools",
-                "RecordingTools", // KSLogger
-            ]
-        ),
-        .target(
-            name: "FilterAppleFmt",
-            dependencies: [
-                "FilterBase",
-                "Recording", // KSCrashReportFields
-            ]
-        ),
-        .target(
-            name: "FilterBasic",
-            dependencies: [
-                "CommonTools",
-                "FilterBase",
-                "FilterTools",
-                "RecordingTools", // KSLogger
-            ]
-        ),
-        .target(
-            name: "FilterStringify",
-            dependencies: ["FilterBase"]
-        ),
-        .target(
-            name: "FilterGZip",
-            dependencies: [
-                "FilterBase",
-                "FilterTools",
-            ]
-        ),
-        .target(
-            name: "FilterJSON",
-            dependencies: [
-                "FilterBase",
-                "RecordingTools", // KSJSONCodecObjC
-            ]
-        ),
-        .target(
-            name: "FilterSets",
-            dependencies: [
-                "Recording", // KSCrashReportFields
-                "FilterBase",
-                "FilterAlert",
-                "FilterAppleFmt",
-                "FilterBasic",
-                "FilterStringify",
-                "FilterGZip",
-                "FilterJSON",
-            ]
-        ),
+        .target(name: "KSCrashCore"),
         //MARK: - Forks
         .target(
             name: "KSCrashSwift",
