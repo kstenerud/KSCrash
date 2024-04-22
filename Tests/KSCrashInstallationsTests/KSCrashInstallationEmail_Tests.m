@@ -27,7 +27,7 @@
 
 #import <XCTest/XCTest.h>
 
-#import <KSCrash/KSCrashInstallation+Alert.h>
+#import "KSCrashInstallation+Alert.h"
 #import "KSCrashInstallationEmail.h"
 
 
