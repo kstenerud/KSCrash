@@ -1,0 +1,59 @@
+name: CocoaPods Lint for Multiple Platforms and Configurations
+
+on:
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: iOS
+            config: ''
+          - platform: iOS
+            config: '--use-libraries'
+          - platform: iOS
+            config: '--use-libraries --use-modular-headers'
+          - platform: iOS
+            config: '--use-static-frameworks'
+          - platform: macOS
+            config: ''
+          - platform: macOS
+            config: '--use-libraries'
+          - platform: macOS
+            config: '--use-libraries --use-modular-headers'
+          - platform: macOS
+            config: '--use-static-frameworks'
+          - platform: tvOS
+            config: ''
+          - platform: tvOS
+            config: '--use-libraries'
+          - platform: tvOS
+            config: '--use-libraries --use-modular-headers'
+          - platform: tvOS
+            config: '--use-static-frameworks'
+          - platform: watchOS
+            config: ''
+          - platform: watchOS
+            config: '--use-libraries'
+          - platform: watchOS
+            config: '--use-libraries --use-modular-headers'
+          - platform: watchOS
+            config: '--use-static-frameworks'
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 2.7
+
+      - name: Install CocoaPods
+        run: sudo gem install cocoapods
+
+      - name: Lint Podspec
+        run: pod lib lint --verbose --platform=${{ matrix.platform }} ${{ matrix.config }}
+        shell: bash
