@@ -49,11 +49,11 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: 2.7
+          ruby-version: 3.0
 
       - name: Install CocoaPods
         run: sudo gem install cocoapods
 
       - name: Lint Podspec
-        run: pod lib lint --verbose --platform=${{ matrix.platform }} ${{ matrix.config }}
+        run: pod lib lint --verbose --platforms=${{ matrix.platform }} ${{ matrix.config }}
         shell: bash
