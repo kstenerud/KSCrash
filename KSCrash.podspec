@@ -18,8 +18,8 @@ Pod::Spec.new do |s|
 
   configure_subspec = lambda do |subs|
     module_name = subs.name.gsub('/', '')
-    subs.source_files = "Sources/#{module_name}/**/*.{h,m,mm,c,cpp,def}"
-    subs.public_header_files = "Sources/#{module_name}/include/*.{h,def}"
+    subs.source_files = "Sources/#{module_name}/**/*.{h,m,mm,c,cpp}"
+    subs.public_header_files = "Sources/#{module_name}/include/*.h"
   end
 
   s.subspec 'Recording' do |recording|
@@ -53,31 +53,17 @@ Pod::Spec.new do |s|
 
   s.subspec 'RecordingCore' do |recording_core|
     recording_core.dependency 'KSCrash/Core'
-    recording_core.dependency 'KSCrash/Swift'
-    recording_core.dependency 'KSCrash/LLVM'
 
     configure_subspec.call(recording_core)
   end
 
   s.subspec 'ReportingCore' do |reporting_core|
     reporting_core.dependency 'KSCrash/Core'
-    reporting_core.dependency 'KSCrash/Swift'
-    reporting_core.dependency 'KSCrash/LLVM'
 
     configure_subspec.call(reporting_core)
   end
 
   s.subspec 'Core' do |core|
     configure_subspec.call(core)
-  end
-
-  s.subspec 'Swift' do |swift|
-    swift.dependency 'KSCrash/LLVM'
-
-    configure_subspec.call(swift)
-  end
-
-  s.subspec 'LLVM' do |llvm|
-    configure_subspec.call(llvm)
   end
 end
