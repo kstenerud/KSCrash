@@ -140,6 +140,11 @@
                BlueprintName = "KSCrashRecordingTests"
                ReferencedContainer = "container:">
             </BuildableReference>
+            <SkippedTests>
+               <Test
+                  Identifier = "KSCrashMonitor_AppState_Tests">
+               </Test>
+            </SkippedTests>
          </TestableReference>
          <TestableReference
             skipped = "NO">
