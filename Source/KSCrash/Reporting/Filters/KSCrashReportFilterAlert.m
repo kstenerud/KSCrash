@@ -108,7 +108,8 @@
     }
     [alert setMessageText:title];
     [alert setInformativeText:message];
-    [alert setAlertStyle:NSInformationalAlertStyle];
+    [alert setAlertStyle:NSAlertStyleInformational];
+    
     BOOL success = NO;
     if([alert runModal] == NSAlertFirstButtonReturn)
     {
