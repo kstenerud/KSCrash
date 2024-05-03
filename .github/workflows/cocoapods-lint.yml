@@ -48,5 +48,5 @@ jobs:
         uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: workspace-${{ matrix.platform }}-${{ matrix.config }}
+          name: workspace-${{ matrix.platform }}${{ matrix.config }}
           path: ${{ steps.lint.outputs.validation_dir }}
