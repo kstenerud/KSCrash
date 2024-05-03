@@ -37,8 +37,10 @@ jobs:
         run: sudo gem install cocoapods
 
       - name: Lint Podspec
+        id: lint
         run: |
           validation_dir=$(mktemp -d)
+          echo "validation_dir=${validation_dir}" >> $GITHUB_OUTPUT
           pod lib lint --verbose --platforms=${{ matrix.platform }} ${{ matrix.config }} --no-clean --validation-dir="${validation_dir}"
         shell: bash
 
@@ -47,4 +49,4 @@ jobs:
         if: failure()
         with:
           name: workspace-${{ matrix.platform }}-${{ matrix.config }}
-          path: ${validation_dir}
+          path: ${{ steps.lint.outputs.validation_dir }}
