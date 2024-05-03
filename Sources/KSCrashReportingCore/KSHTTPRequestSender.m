@@ -99,25 +99,11 @@
            onFailure:(void(^)(NSHTTPURLResponse* response, NSData* data)) failureBlock
              onError:(void(^)(NSError* error)) errorBlock
 {
-#if __IPHONE_OS_VERSION_MAX_ALLOWED < 70000
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^
-    {
-        @autoreleasepool {
-            NSURLResponse* response = nil;
-            NSError* error = nil;
-            NSData* data = [NSURLConnection sendSynchronousRequest:request
-                                                 returningResponse:&response
-                                                             error:&error];
-            [self handleResponse:response data:data error:error onSuccess:successBlock onFailure:failureBlock onError:errorBlock];
-        }
-    });
-#else
     NSURLSession* session = [NSURLSession sharedSession];
     NSURLSessionTask* task = [session dataTaskWithRequest:request completionHandler:^(NSData * _Nullable data, NSURLResponse * _Nullable response, NSError * _Nullable error) {
         [self handleResponse:response data:data error:error onSuccess:successBlock onFailure:failureBlock onError:errorBlock];
     }];
     [task resume];
-#endif
 }
 
 @end
