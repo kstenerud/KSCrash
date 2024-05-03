@@ -9,14 +9,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [iOS, macOS, tvOS, watchOS]
-        config: ['']
         include:
           - platform: iOS
-            config: ['--use-libraries', '--use-libraries --use-modular-headers', '--use-static-frameworks']
-          # - platform: macOS
-          #   config: '--allow-warnings'
-
+            config: ''
+          - platform: iOS
+            config: '--use-libraries'
+          - platform: iOS
+            config: '--use-libraries --use-modular-headers'
+          - platform: iOS
+            config: '--use-static-frameworks'
+          - platform: macOS
+            config: ''
+          - platform: tvOS
+            config: ''
+          - platform: watchOS
+            config: ''
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
@@ -29,16 +36,19 @@ jobs:
       - name: Install CocoaPods
         run: sudo gem install cocoapods
 
-      - name: Create Validation Directory
-        run: mkdir -p validation-dir
-
       - name: Lint Podspec
-        run: pod lib lint --verbose --platforms=${{ matrix.platform }} ${{ matrix.config }} --no-clean --validation-dir=./validation-dir
-        # continue-on-error removed to ensure the workflow fails on lint errors
+        run: |
+          validation_dir=$(mktemp -d)
+          pod lib lint --verbose --platforms=${{ matrix.platform }} ${{ matrix.config }} --no-clean --validation-dir="${validation_dir}"
+          if [ $? -ne 0 ]; then
+            echo "Lint failed. Archiving workspace for inspection."
+            zip -r workspace.zip "${validation_dir}"
+          fi
+        shell: bash
 
-      - name: Upload Artifacts if Lint Fails
-        if: failure()  # This step runs only if the previous step fails
+      - name: Upload Workspace Artifact
         uses: actions/upload-artifact@v3
+        if: failure()
         with:
-          name: lint-workspace-${{ matrix.platform }}-${{ github.run_id }}
-          path: ./validation-dir  # This directory is where the lint artifacts are stored
+          name: workspace-${{ matrix.platform }}-${{ matrix.config }}
+          path: workspace.zip
