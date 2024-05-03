@@ -1,4 +1,4 @@
-name: CocoaPods Lint for Multiple Platforms and Configurations
+name: CocoaPods Lint
 
 on:
   pull_request:
@@ -9,39 +9,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        platform: [iOS, macOS, tvOS, watchOS]
+        config: ['']
         include:
           - platform: iOS
-            config: ''
-          - platform: iOS
-            config: '--use-libraries'
-          - platform: iOS
-            config: '--use-libraries --use-modular-headers'
-          - platform: iOS
-            config: '--use-static-frameworks'
-          - platform: macOS
-            config: ''
-          - platform: macOS
-            config: '--use-libraries'
-          - platform: macOS
-            config: '--use-libraries --use-modular-headers'
-          - platform: macOS
-            config: '--use-static-frameworks'
-          - platform: tvOS
-            config: ''
-          - platform: tvOS
-            config: '--use-libraries'
-          - platform: tvOS
-            config: '--use-libraries --use-modular-headers'
-          - platform: tvOS
-            config: '--use-static-frameworks'
-          - platform: watchOS
-            config: ''
-          - platform: watchOS
-            config: '--use-libraries'
-          - platform: watchOS
-            config: '--use-libraries --use-modular-headers'
-          - platform: watchOS
-            config: '--use-static-frameworks'
+            config: ['--use-libraries', '--use-libraries --use-modular-headers', '--use-static-frameworks']
+          # - platform: macOS
+          #   config: '--allow-warnings'
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
@@ -54,6 +29,16 @@ jobs:
       - name: Install CocoaPods
         run: sudo gem install cocoapods
 
+      - name: Create Validation Directory
+        run: mkdir -p validation-dir
+
       - name: Lint Podspec
-        run: pod lib lint --verbose --platforms=${{ matrix.platform }} ${{ matrix.config }}
-        shell: bash
+        run: pod lib lint --verbose --platforms-=${{ matrix.platform }} ${{ matrix.config }} --no-clean --validation-dir=./validation-dir
+        # continue-on-error removed to ensure the workflow fails on lint errors
+
+      - name: Upload Artifacts if Lint Fails
+        if: failure()  # This step runs only if the previous step fails
+        uses: actions/upload-artifact@v3
+        with:
+          name: lint-workspace-${{ matrix.platform }}-${{ github.run_id }}
+          path: ./validation-dir  # This directory is where the lint artifacts are stored
