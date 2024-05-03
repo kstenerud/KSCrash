@@ -40,10 +40,6 @@ jobs:
         run: |
           validation_dir=$(mktemp -d)
           pod lib lint --verbose --platforms=${{ matrix.platform }} ${{ matrix.config }} --no-clean --validation-dir="${validation_dir}"
-          if [ $? -ne 0 ]; then
-            echo "Lint failed. Archiving workspace for inspection."
-            zip -r workspace.zip "${validation_dir}"
-          fi
         shell: bash
 
       - name: Upload Workspace Artifact
@@ -51,4 +47,4 @@ jobs:
         if: failure()
         with:
           name: workspace-${{ matrix.platform }}-${{ matrix.config }}
-          path: workspace.zip
+          path: ${validation_dir}
