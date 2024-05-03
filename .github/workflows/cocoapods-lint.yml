@@ -33,7 +33,7 @@ jobs:
         run: mkdir -p validation-dir
 
       - name: Lint Podspec
-        run: pod lib lint --verbose --platforms-=${{ matrix.platform }} ${{ matrix.config }} --no-clean --validation-dir=./validation-dir
+        run: pod lib lint --verbose --platforms=${{ matrix.platform }} ${{ matrix.config }} --no-clean --validation-dir=./validation-dir
         # continue-on-error removed to ensure the workflow fails on lint errors
 
       - name: Upload Artifacts if Lint Fails
