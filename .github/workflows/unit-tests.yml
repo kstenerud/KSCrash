@@ -1,0 +1,31 @@
+name: Run Unit Tests
+
+on:
+  pull_request:
+
+jobs:
+  unit-tests:
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - iOS
+          - macOS
+          - watchOS
+          - tvOS
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Use Latest Stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Run Unit Tests
+        uses: mxcl/xcodebuild@v2
+        with:
+          workspace: ".swiftpm/xcode/package.xcworkspace"
+          scheme: "KSCrash-Package"
+          platform: ${{ matrix.platform }}
