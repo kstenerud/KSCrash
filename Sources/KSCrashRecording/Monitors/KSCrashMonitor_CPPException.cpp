@@ -77,7 +77,7 @@ static KSStackCursor g_stackCursor;
 #pragma mark - Callbacks -
 // ============================================================================
 
-static void captureStackTrace(void*, std::type_info*, void (*)(void*))
+static void captureStackTrace(void*, std::type_info*, void (*)(void*)) __attribute__((disable_tail_calls))
 {
     if(g_captureNextStackTrace)
     {
@@ -91,7 +91,7 @@ extern "C"
 {
     void __cxa_throw(void* thrown_exception, std::type_info* tinfo, void (*dest)(void*)) __attribute__ ((weak));
 
-    void __cxa_throw(void* thrown_exception, std::type_info* tinfo, void (*dest)(void*))
+    void __cxa_throw(void* thrown_exception, std::type_info* tinfo, void (*dest)(void*)) __attribute__((disable_tail_calls))
     {
         static cxa_throw_type orig_cxa_throw = NULL;
         if (g_cxaSwapEnabled == false)
