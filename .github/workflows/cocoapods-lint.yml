@@ -1,0 +1,52 @@
+name: CocoaPods Lint
+
+on:
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: iOS
+            config: ''
+          - platform: iOS
+            config: '--use-libraries'
+          - platform: iOS
+            config: '--use-libraries --use-modular-headers'
+          - platform: iOS
+            config: '--use-static-frameworks'
+          - platform: macOS
+            config: ''
+          - platform: tvOS
+            config: ''
+          - platform: watchOS
+            config: ''
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.0
+
+      - name: Install CocoaPods
+        run: sudo gem install cocoapods
+
+      - name: Lint Podspec
+        id: lint
+        run: |
+          validation_dir=$(mktemp -d)
+          echo "validation_dir=${validation_dir}" >> $GITHUB_OUTPUT
+          pod lib lint --verbose --platforms=${{ matrix.platform }} ${{ matrix.config }} --no-clean --validation-dir="${validation_dir}"
+        shell: bash
+
+      - name: Upload Workspace Artifact
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: workspace-${{ matrix.platform }}${{ matrix.config }}
+          path: ${{ steps.lint.outputs.validation_dir }}

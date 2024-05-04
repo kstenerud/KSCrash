@@ -103,10 +103,14 @@ let package = Package(
 
     .target(
       name: "KSCrashRecordingCore",
-      dependencies: [
-        "KSCrashCore",
-        "KSCrashSwift",
-        "KSCrashLLVM",
+      dependencies: ["KSCrashCore"],
+      cSettings: [
+        .headerSearchPath("swift"),
+        .headerSearchPath("swift/Basic"),
+        .headerSearchPath("llvm"),
+        .headerSearchPath("llvm/ADT"),
+        .headerSearchPath("llvm/Config"),
+        .headerSearchPath("llvm/Support"),
       ]
     ),
     .testTarget(
@@ -115,8 +119,6 @@ let package = Package(
         "KSCrashTestTools",
         "KSCrashRecordingCore",
         "KSCrashCore",
-        "KSCrashSwift",
-        "KSCrashLLVM",
       ]
     ),
 
@@ -143,14 +145,6 @@ let package = Package(
     .target(
       name: "KSCrashTestTools",
       dependencies: ["KSCrashRecordingCore"]
-    ),
-    //MARK: - Forks
-    .target(
-      name: "KSCrashSwift",
-      dependencies: ["KSCrashLLVM"]
-    ),
-    .target(
-      name: "KSCrashLLVM"
     ),
   ],
   cxxLanguageStandard: .gnucxx11
