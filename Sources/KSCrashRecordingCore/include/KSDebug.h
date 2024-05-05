@@ -31,14 +31,12 @@
 
 #ifndef HDR_KSDebug_h
 #define HDR_KSDebug_h
+    
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-    
-    
-#include <stdbool.h>
-    
     
 /** Check if the current process is being traced or not.
  *

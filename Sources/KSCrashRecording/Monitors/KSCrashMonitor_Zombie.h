@@ -41,13 +41,12 @@
 #ifndef HDR_KSZombie_h
 #define HDR_KSZombie_h
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "KSCrashMonitor.h"
 #include <stdbool.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /** Get the class of a deallocated object pointer, if it was tracked.
  *

@@ -33,14 +33,12 @@
 #ifndef HDR_KSCrashReportWriter_h
 #define HDR_KSCrashReportWriter_h
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-
 #include <stdbool.h>
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * Encapsulates report writing functionality.

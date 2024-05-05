@@ -25,11 +25,11 @@
 #ifndef HDR_KSCrashMonitor_CPPException_h
 #define HDR_KSCrashMonitor_CPPException_h
 
+#include "KSCrashMonitor.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include "KSCrashMonitor.h"
 
 /** Enable swapping of __cxa_trow symbol with lazy symbols table
  */

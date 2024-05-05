@@ -25,12 +25,11 @@
 #ifndef KSDate_h
 #define KSDate_h
 
+#include <sys/types.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-
-#include <sys/types.h>
 
 /** Convert a UNIX timestamp to an RFC3339 string representation.
  *

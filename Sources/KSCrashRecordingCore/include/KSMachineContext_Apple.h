@@ -28,13 +28,13 @@
 #ifndef HDR_KSMachineContext_Apple_h
 #define HDR_KSMachineContext_Apple_h
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <mach/mach_types.h>
 #include <stdbool.h>
 #include <sys/ucontext.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #ifdef __arm64__
     #define STRUCT_MCONTEXT_L _STRUCT_MCONTEXT64

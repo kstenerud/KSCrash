@@ -26,13 +26,12 @@
 #ifndef KSSymbolicator_h
 #define KSSymbolicator_h
 
+#include "KSStackCursor.h"
+#include <stdbool.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-
-#include "KSStackCursor.h"
-#include <stdbool.h>
 
 /** Call instruction address is different from return address.
  *

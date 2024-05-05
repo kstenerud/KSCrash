@@ -25,16 +25,15 @@
 
 #ifndef KSStackCursor_h
 #define KSStackCursor_h
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-    
     
 #include "KSMachineContext.h"
 
 #include <stdbool.h>
 #include <sys/types.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define KSSC_CONTEXT_SIZE 100
 

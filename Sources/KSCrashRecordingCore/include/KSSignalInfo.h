@@ -32,13 +32,11 @@
 #ifndef HDR_KSSignalInfo_h
 #define HDR_KSSignalInfo_h
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-
-#include <stdint.h>
-
 
 /** Get the name of a signal.
  *

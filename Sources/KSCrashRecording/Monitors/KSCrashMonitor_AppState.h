@@ -33,14 +33,13 @@
 #ifndef HDR_KSCrashMonitor_AppState_h
 #define HDR_KSCrashMonitor_AppState_h
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "KSCrashMonitor.h"
 
 #include <stdbool.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct
 {

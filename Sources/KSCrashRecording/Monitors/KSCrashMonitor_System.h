@@ -27,12 +27,11 @@
 #ifndef KSCrashMonitor_System_h
 #define KSCrashMonitor_System_h
 
+#include "KSCrashMonitor.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-
-#include "KSCrashMonitor.h"
 
 
 /** Access the Monitor API.

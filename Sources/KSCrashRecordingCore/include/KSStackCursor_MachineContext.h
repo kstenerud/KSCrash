@@ -25,13 +25,12 @@
 
 #ifndef KSStackCursor_MachineContext_h
 #define KSStackCursor_MachineContext_h
+    
+#include "KSStackCursor.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-    
-    
-#include "KSStackCursor.h"
 
 /** Initialize a stack cursor for a machine context.
  *

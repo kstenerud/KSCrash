@@ -32,16 +32,14 @@
 #ifndef HDR_KSCrashC_h
 #define HDR_KSCrashC_h
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-
 #include "KSCrashMonitorType.h"
 #include "KSCrashReportWriter.h"
 
 #include <stdbool.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /** Install the crash reporter. The reporter will record the next crash and then
  * terminate the program.
