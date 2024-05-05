@@ -19,14 +19,12 @@
 #ifndef HDR_KSObjCApple_h
 #define HDR_KSObjCApple_h
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-
 #include <objc/objc.h>
 #include <CoreFoundation/CoreFoundation.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define MAKE_LIST_T(TYPE) \
 typedef struct TYPE##_list_t { \

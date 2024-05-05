@@ -25,12 +25,12 @@
 #ifndef KSgetsect_h
 #define KSgetsect_h
 
+#include <mach-o/loader.h>
+#include "KSPlatformSpecificDefines.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
-
-#include <mach-o/loader.h>
-#include "KSPlatformSpecificDefines.h"
 
 /**
  * This routine returns the segment_command structure for the named segment

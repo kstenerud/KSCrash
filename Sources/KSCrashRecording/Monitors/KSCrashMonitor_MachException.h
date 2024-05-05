@@ -32,12 +32,12 @@
 #ifndef HDR_KSCrashMonitor_MachException_h
 #define HDR_KSCrashMonitor_MachException_h
 
+#include "KSCrashMonitor.h"
+#include <stdbool.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include "KSCrashMonitor.h"
-#include <stdbool.h>
 
 
 /** Access the Monitor API.

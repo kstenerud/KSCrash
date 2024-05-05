@@ -147,13 +147,11 @@
 #ifndef HDR_KSLogger_h
 #define HDR_KSLogger_h
 
+#include <stdbool.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-
-#include <stdbool.h>
-
 
 #ifdef __OBJC__
 

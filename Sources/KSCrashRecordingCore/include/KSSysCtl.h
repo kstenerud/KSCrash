@@ -32,15 +32,13 @@
 #ifndef HDR_KSSysCtl_h
 #define HDR_KSSysCtl_h
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-
 #include <stdbool.h>
 #include <stdint.h>
 #include <sys/sysctl.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /** Get an int32 value via sysctl.
  *

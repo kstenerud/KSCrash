@@ -27,12 +27,11 @@
 #ifndef HDR_KSCrashReportStore_h
 #define HDR_KSCrashReportStore_h
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-
-#include <stdint.h>
 
 #define KSCRS_MAX_PATH_LENGTH 500
 

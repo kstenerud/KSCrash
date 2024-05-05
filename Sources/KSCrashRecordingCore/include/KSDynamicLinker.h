@@ -27,14 +27,13 @@
 #ifndef HDR_KSDynamicLinker_h
 #define HDR_KSDynamicLinker_h
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-
 #include <dlfcn.h>
 #include <stdbool.h>
 #include <stdint.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct
 {

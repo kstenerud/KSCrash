@@ -32,15 +32,14 @@
 #ifndef HDR_KSCrashReport_h
 #define HDR_KSCrashReport_h
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #import "KSCrashReportWriter.h"
 #import "KSCrashMonitorContext.h"
 
 #include <stdbool.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 // ============================================================================
 #pragma mark - Configuration -

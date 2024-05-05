@@ -32,15 +32,14 @@
 #ifndef HDR_KSCrashMonitor_h
 #define HDR_KSCrashMonitor_h
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-
 #include "KSCrashMonitorType.h"
 #include "KSThread.h"
     
 #include <stdbool.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 struct KSCrash_MonitorContext;
 

@@ -25,12 +25,11 @@
 #ifndef HDR_KSMach_h
 #define HDR_KSMach_h
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-
-#include <stdint.h>
 
 /** Get the name of a mach exception.
  *

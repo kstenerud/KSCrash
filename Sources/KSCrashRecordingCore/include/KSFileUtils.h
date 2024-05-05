@@ -32,14 +32,12 @@
 #ifndef HDR_KSFileUtils_h
 #define HDR_KSFileUtils_h
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-
 #include <stdbool.h>
 #include <stdarg.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define KSFU_MAX_PATH_LENGTH 500
 

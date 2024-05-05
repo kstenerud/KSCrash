@@ -25,14 +25,13 @@
 #ifndef HDR_KSCrashMonitor_User_h
 #define HDR_KSCrashMonitor_User_h
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-
 #include "KSCrashMonitor.h"
 
 #include <stdbool.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 
 /** Report a custom, user defined exception.

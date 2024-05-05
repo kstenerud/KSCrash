@@ -27,13 +27,12 @@
 #ifndef HDR_KSCPU_Apple_h
 #define HDR_KSCPU_Apple_h
 
+#include <mach/mach_types.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-
-#include <mach/mach_types.h>
-    
 /** Fill in state information about a thread.
  *
  * @param thread The thread to get information about.

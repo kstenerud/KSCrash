@@ -27,15 +27,14 @@
 #ifndef HDR_KSCPU_h
 #define HDR_KSCPU_h
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-
 #include "KSMachineContext.h"
 
 #include <stdbool.h>
 #include <stdint.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /** Get the current CPU architecture.
  *

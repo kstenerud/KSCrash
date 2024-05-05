@@ -27,14 +27,12 @@
 #ifndef HDR_KSThread_h
 #define HDR_KSThread_h
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-
 #include <sys/types.h>
 #include <stdbool.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef uintptr_t KSThread;
 
