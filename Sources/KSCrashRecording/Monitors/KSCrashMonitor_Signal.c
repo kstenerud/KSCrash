@@ -239,17 +239,32 @@ static void addContextualInfoToEvent(struct KSCrash_MonitorContext* eventContext
     }
 }
 
+#else
+
+static void setEnabled(bool isEnabled)
+{
+    // Not supported
+}
+
+static bool isEnabled(void)
+{
+    return false;
+}
+
+static void addContextualInfoToEvent(struct KSCrash_MonitorContext* eventContext)
+{
+    // Not supported
+}
+
 #endif
 
 KSCrashMonitorAPI* kscm_signal_getAPI(void)
 {
     static KSCrashMonitorAPI api =
     {
-#if KSCRASH_HAS_SIGNAL
         .setEnabled = setEnabled,
         .isEnabled = isEnabled,
         .addContextualInfoToEvent = addContextualInfoToEvent
-#endif
     };
     return &api;
 }

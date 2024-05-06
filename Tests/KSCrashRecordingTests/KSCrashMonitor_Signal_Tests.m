@@ -27,14 +27,16 @@
 
 #import <XCTest/XCTest.h>
 
+#import "KSSystemCapabilities.h"
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitor_Signal.h"
-
 
 @interface KSCrashMonitor_Signal_Tests : XCTestCase @end
 
 
 @implementation KSCrashMonitor_Signal_Tests
+
+#if KSCRASH_HAS_SIGNAL
 
 - (void) testInstallAndRemove
 {
@@ -60,5 +62,22 @@
     api->setEnabled(false);
     XCTAssertFalse(api->isEnabled());
 }
+
+#else
+
+- (void) testNoImplementation
+{
+    KSCrashMonitorAPI* api = kscm_signal_getAPI();
+    
+    KSCrash_MonitorContext context;
+    api->addContextualInfoToEvent(&context);
+
+    api->setEnabled(true);
+    XCTAssertFalse(api->isEnabled());
+    api->setEnabled(false);
+    XCTAssertFalse(api->isEnabled());
+}
+
+#endif
 
 @end

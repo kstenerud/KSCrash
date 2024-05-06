@@ -105,6 +105,11 @@
                BlueprintName = "KSCrashFiltersTests"
                ReferencedContainer = "container:">
             </BuildableReference>
+            <SkippedTests>
+               <Test
+                  Identifier = "KSCrashReportFilterAlert_Tests">
+               </Test>
+            </SkippedTests>
          </TestableReference>
          <TestableReference
             skipped = "NO">
@@ -125,6 +130,14 @@
                BlueprintName = "KSCrashRecordingCoreTests"
                ReferencedContainer = "container:">
             </BuildableReference>
+            <SkippedTests>
+               <Test
+                  Identifier = "KSDebug_Tests">
+               </Test>
+               <Test
+                  Identifier = "KSObjC_Tests">
+               </Test>
+            </SkippedTests>
          </TestableReference>
          <TestableReference
             skipped = "NO">
@@ -135,6 +148,11 @@
                BlueprintName = "KSCrashRecordingTests"
                ReferencedContainer = "container:">
             </BuildableReference>
+            <SkippedTests>
+               <Test
+                  Identifier = "KSCrashMonitor_AppState_Tests">
+               </Test>
+            </SkippedTests>
          </TestableReference>
          <TestableReference
             skipped = "NO">

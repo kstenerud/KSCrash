@@ -9,6 +9,12 @@
 #import <XCTest/XCTest.h>
 #import "KSCrashReportFixer.h"
 
+#ifdef SWIFTPM_MODULE_BUNDLE
+#define KS_TEST_MODULE_BUNDLE SWIFTPM_MODULE_BUNDLE
+#else
+#define KS_TEST_MODULE_BUNDLE ([NSBundle bundleForClass:[self class]])
+#endif
+
 @interface KSCrashReportFixer_Tests : XCTestCase
 
 @end
@@ -27,7 +33,7 @@
 
 - (void)testLoadCrash
 {
-    NSBundle* bundle = [NSBundle bundleForClass:[self class]];
+    NSBundle* bundle = KS_TEST_MODULE_BUNDLE;
     NSString* rawPath = [bundle pathForResource:@"raw" ofType:@"json"];
     NSData* rawData = [NSData dataWithContentsOfFile:rawPath];
     char* fixedBytes = kscrf_fixupCrashReport(rawData.bytes);

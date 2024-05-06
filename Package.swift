@@ -51,6 +51,9 @@ let package = Package(
         "KSCrashRecording",
         "KSCrashRecordingCore",
       ],
+      resources: [
+        .process("Resources"),
+      ],
       cSettings: [
         .headerSearchPath("../../Sources/KSCrashRecording"),
         .headerSearchPath("../../Sources/KSCrashRecording/Monitors"),
