@@ -353,6 +353,23 @@ static int extractTaggedNSString(const void* const object, char* buffer, int buf
     return length;
 }
 
+#define TAGGED_DATE_EXPONENT_BIAS 0x3ef  // Define the bias value appropriately
+
+static uint64_t decodeExponent(uint64_t exp) {
+    // Assume exp is a 7-bit value and needs to be sign-extended to 64 bits.
+    // Check the most significant bit (sign bit) of the 7-bit number.
+    if (exp & (1ULL << 6)) {
+        // If the sign bit is set, extend the sign through the upper bits.
+        exp |= ~((1ULL << 7) - 1);  // Set all bits above the 7th bit.
+    } else {
+        // If the sign bit is not set, clear all upper bits.
+        exp &= (1ULL << 7) - 1;
+    }
+
+    // Add the bias to the now sign-extended exponent.
+    return exp + TAGGED_DATE_EXPONENT_BIAS;
+}
+
 /** Extract a tagged NSDate's time value as an absolute time.
  *
  * @param object The NSDate object (must be a tagged pointer).
@@ -360,11 +377,36 @@ static int extractTaggedNSString(const void* const object, char* buffer, int buf
  */
 static CFAbsoluteTime extractTaggedNSDate(const void* const object)
 {
+    #pragma pack(4)
+    struct TaggedDoubleBits {
+        uint64_t fraction : 52; // unsigned
+        uint64_t exponent : 7;  // signed
+        uint64_t sign : 1;
+        uint64_t unused : 4; // placeholder for pointer tag bits
+    };
+
+    #pragma pack(4)
+    struct DoubleBits {
+        uint64_t fraction : 52; // unsigned
+        uint64_t exponent : 11; // signed
+        uint64_t sign : 1;
+    };
+
     uintptr_t payload = getTaggedPayload(object);
+
+
     // Payload is a 60-bit float. Fortunately we can just cast across from
     // an integer pointer after shifting out the upper 4 bits.
-    payload <<= 4;
-    CFAbsoluteTime value = *((CFAbsoluteTime*)&payload);
+//    payload <<= 4;
+    struct TaggedDoubleBits encodedBits = *((struct TaggedDoubleBits *)&payload);
+//    assert(encodedBits.unused == 0);
+
+    struct DoubleBits decodedBits;
+    decodedBits.sign = encodedBits.sign;
+    decodedBits.fraction = encodedBits.fraction;
+    decodedBits.exponent = decodeExponent(encodedBits.exponent);
+
+    CFAbsoluteTime value = *((CFAbsoluteTime*)&decodedBits);
     return value;
 }
 
