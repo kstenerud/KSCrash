@@ -27,12 +27,14 @@
 
 #import <XCTest/XCTest.h>
 
+#import "KSSystemCapabilities.h"
 #import "KSCPU.h"
 #import "KSMachineContext.h"
 #import "TestThread.h"
 
 #import <mach/mach.h>
 
+#if KSCRASH_HAS_THREADS_API
 
 @interface KSCPU_Tests : XCTestCase @end
 
@@ -97,3 +99,5 @@
 }
 
 @end
+
+#endif
