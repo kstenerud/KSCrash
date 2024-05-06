@@ -156,15 +156,9 @@ static const char* g_blockBaseClassName = "NSBlock";
 #pragma mark - Utility -
 //======================================================================
 
-#if SUPPORT_TAGGED_POINTERS
-static bool isTaggedPointer(const void* pointer) {return (((uintptr_t)pointer) & TAG_MASK) != 0; }
-static int getTaggedSlot(const void* pointer) { return (int)((((uintptr_t)pointer) >> TAG_SLOT_SHIFT) & TAG_SLOT_MASK); }
-static uintptr_t getTaggedPayload(const void* pointer) { return (((uintptr_t)pointer) << TAG_PAYLOAD_LSHIFT) >> TAG_PAYLOAD_RSHIFT; }
-#else
-static bool isTaggedPointer(__unused const void* pointer) { return false; }
-static int getTaggedSlot(__unused const void* pointer) { return 0; }
-static uintptr_t getTaggedPayload(const void* pointer) { return (uintptr_t)pointer; }
-#endif
+static bool isTaggedPointer(const void* pointer) { return _objc_isTaggedPointer(pointer); }
+static int getTaggedSlot(const void* pointer) { return (int)_objc_getTaggedPointerTag(pointer); }
+static uintptr_t getTaggedPayload(const void* pointer) { return _objc_getTaggedPointerValue(pointer); }
 
 /** Get class data for a tagged pointer.
  *
