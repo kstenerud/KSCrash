@@ -6,24 +6,25 @@ on:
 jobs:
   lint:
     runs-on: macos-latest
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
         include:
           - platform: iOS
-            config: ''
+            config: ""
           - platform: iOS
-            config: '--use-libraries'
+            config: "--use-libraries"
           - platform: iOS
-            config: '--use-libraries --use-modular-headers'
+            config: "--use-libraries --use-modular-headers"
           - platform: iOS
-            config: '--use-static-frameworks'
+            config: "--use-static-frameworks"
           - platform: macOS
-            config: ''
+            config: ""
           - platform: tvOS
-            config: ''
+            config: ""
           - platform: watchOS
-            config: ''
+            config: ""
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4

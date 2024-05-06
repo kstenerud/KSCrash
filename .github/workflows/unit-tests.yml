@@ -6,6 +6,7 @@ on:
 jobs:
   unit-tests:
     runs-on: macos-latest
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
