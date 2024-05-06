@@ -57,31 +57,10 @@ NAME { \
 #   define ISA_MASK     ~1UL
 #endif
 
-
 // ======================================================================
 #pragma mark - objc4-912.3/runtime/objc-config.h -
 // ======================================================================
 
-// Define SUPPORT_TAGGED_POINTERS=1 to enable tagged pointer objects
-// Be sure to edit tagged pointer SPI in objc-internal.h as well.
-#if !__LP64__
-#   define SUPPORT_TAGGED_POINTERS 0
-#else
-#   define SUPPORT_TAGGED_POINTERS 1
-#endif
-
-// Define SUPPORT_MSB_TAGGED_POINTERS to use the MSB
-// as the tagged pointer marker instead of the LSB.
-// Be sure to edit tagged pointer SPI in objc-internal.h as well.
-#if !SUPPORT_TAGGED_POINTERS  ||  ((TARGET_OS_OSX || TARGET_OS_MACCATALYST) && __x86_64__)
-#   define SUPPORT_MSB_TAGGED_POINTERS 0
-#else
-#   define SUPPORT_MSB_TAGGED_POINTERS 1
-#endif
-
-// ======================================================================
-#pragma mark - objc4-912.3/runtime/objc-config.h -
-// ======================================================================
 #if __ARM_ARCH_7K__ >= 2  ||  (__arm64__ && !__LP64__)
 #   define SUPPORT_INDEXED_ISA 1
 #else
@@ -90,7 +69,21 @@ NAME { \
 
 // ======================================================================
 #pragma mark - objc4-912.3/runtime/objc-internal.h -
+// With removed nullability to suppress warning
 // ======================================================================
+
+#if __LP64__
+#define OBJC_HAVE_TAGGED_POINTERS 1
+#endif
+
+#if OBJC_HAVE_TAGGED_POINTERS
+
+// Tagged pointer layout and usage is subject to change on different OS versions.
+
+// Tag indexes 0..<7 have a 60-bit payload.
+// Tag index 7 is reserved.
+// Tag indexes 8..<264 have a 52-bit payload.
+// Tag index 264 is reserved.
 
 #if __has_feature(objc_fixed_enum)  ||  __cplusplus >= 201103L
 enum objc_tag_index_t : uint16_t
@@ -153,6 +146,44 @@ enum
 typedef enum objc_tag_index_t objc_tag_index_t;
 #endif
 
+
+// Returns true if tagged pointers are enabled.
+// The other functions below must not be called if tagged pointers are disabled.
+static inline bool
+_objc_taggedPointersEnabled(void);
+
+// Create a tagged pointer object with the given tag and payload.
+// Assumes the tag is valid.
+// Assumes tagged pointers are enabled.
+// The payload will be silently truncated to fit.
+static inline void *
+_objc_makeTaggedPointer(objc_tag_index_t tag, uintptr_t payload);
+
+// Return true if ptr is a tagged pointer object.
+// Does not check the validity of ptr's class.
+static inline bool
+_objc_isTaggedPointer(const void *ptr);
+
+// Extract the tag value from the given tagged pointer object.
+// Assumes ptr is a valid tagged pointer object.
+// Does not check the validity of ptr's tag.
+static inline objc_tag_index_t
+_objc_getTaggedPointerTag(const void *ptr);
+
+// Extract the payload from the given tagged pointer object.
+// Assumes ptr is a valid tagged pointer object.
+// The payload value is zero-extended.
+static inline uintptr_t
+_objc_getTaggedPointerValue(const void *ptr);
+
+// Extract the payload from the given tagged pointer object.
+// Assumes ptr is a valid tagged pointer object.
+// The payload value is sign-extended.
+static inline intptr_t
+_objc_getTaggedPointerSignedValue(const void *ptr);
+
+// Don't use the values below. Use the declarations above.
+
 #if __arm64__
 // ARM64 uses a new tagged pointer scheme where normal tags are in
 // the low bits, extended tags are in the high bits, and half of the
@@ -182,6 +213,9 @@ typedef enum objc_tag_index_t objc_tag_index_t;
 #endif
 
 #define _OBJC_TAG_EXT_INDEX_MASK 0xff
+// array slot has no extra bits
+#define _OBJC_TAG_EXT_SLOT_COUNT 256
+#define _OBJC_TAG_EXT_SLOT_MASK 0xff
 
 #if OBJC_SPLIT_TAGGED_POINTERS
 #   define _OBJC_TAG_MASK (1UL<<63)
@@ -221,29 +255,8 @@ typedef enum objc_tag_index_t objc_tag_index_t;
 #   define _OBJC_TAG_EXT_PAYLOAD_RSHIFT 12
 #endif
 
-static inline bool
-_objc_isTaggedPointer(const void * _Nullable ptr)
-{
-    return ((uintptr_t)ptr & _OBJC_TAG_MASK) == _OBJC_TAG_MASK;
-}
-
-#if OBJC_SPLIT_TAGGED_POINTERS
+// Map of tags to obfuscated tags.
 extern uintptr_t objc_debug_taggedpointer_obfuscator;
-# else
-uintptr_t objc_debug_taggedpointer_obfuscator = 0
-#endif
-
-static inline uintptr_t
-_objc_decodeTaggedPointer_noPermute_withObfuscator(const void * _Nullable ptr,
-                                                   uintptr_t obfuscator)
-{
-    uintptr_t value = (uintptr_t)ptr;
-#if OBJC_SPLIT_TAGGED_POINTERS
-    if ((value & _OBJC_TAG_NO_OBFUSCATION_MASK) == _OBJC_TAG_NO_OBFUSCATION_MASK)
-        return value;
-#endif
-    return value ^ obfuscator;
-}
 
 #if OBJC_SPLIT_TAGGED_POINTERS
 extern uint8_t objc_debug_tag60_permutations[8];
@@ -260,8 +273,35 @@ static inline uintptr_t _objc_obfuscatedTagToBasicTag(uintptr_t tag) {
 }
 #endif
 
+static inline void *
+_objc_encodeTaggedPointer_withObfuscator(uintptr_t ptr, uintptr_t obfuscator)
+{
+    uintptr_t value = (obfuscator ^ ptr);
+#if OBJC_SPLIT_TAGGED_POINTERS
+    if ((value & _OBJC_TAG_NO_OBFUSCATION_MASK) == _OBJC_TAG_NO_OBFUSCATION_MASK)
+        return (void *)ptr;
+    uintptr_t basicTag = (value >> _OBJC_TAG_INDEX_SHIFT) & _OBJC_TAG_INDEX_MASK;
+    uintptr_t permutedTag = _objc_basicTagToObfuscatedTag(basicTag);
+    value &= ~(_OBJC_TAG_INDEX_MASK << _OBJC_TAG_INDEX_SHIFT);
+    value |= permutedTag << _OBJC_TAG_INDEX_SHIFT;
+#endif
+    return (void *)value;
+}
+
 static inline uintptr_t
-_objc_decodeTaggedPointer_withObfuscator(const void * _Nullable ptr,
+_objc_decodeTaggedPointer_noPermute_withObfuscator(const void *ptr,
+                                                   uintptr_t obfuscator)
+{
+    uintptr_t value = (uintptr_t)ptr;
+#if OBJC_SPLIT_TAGGED_POINTERS
+    if ((value & _OBJC_TAG_NO_OBFUSCATION_MASK) == _OBJC_TAG_NO_OBFUSCATION_MASK)
+        return value;
+#endif
+    return value ^ obfuscator;
+}
+
+static inline uintptr_t
+_objc_decodeTaggedPointer_withObfuscator(const void *ptr,
                                          uintptr_t obfuscator)
 {
     uintptr_t value
@@ -275,8 +315,82 @@ _objc_decodeTaggedPointer_withObfuscator(const void * _Nullable ptr,
     return value;
 }
 
+static inline void *
+_objc_encodeTaggedPointer(uintptr_t ptr)
+{
+    return _objc_encodeTaggedPointer_withObfuscator(ptr, objc_debug_taggedpointer_obfuscator);
+}
+
+static inline uintptr_t
+_objc_decodeTaggedPointer_noPermute(const void *ptr)
+{
+    return _objc_decodeTaggedPointer_noPermute_withObfuscator(ptr, objc_debug_taggedpointer_obfuscator);
+}
+
+static inline uintptr_t
+_objc_decodeTaggedPointer(const void *ptr)
+{
+    return _objc_decodeTaggedPointer_withObfuscator(ptr, objc_debug_taggedpointer_obfuscator);
+}
+
+static inline bool
+_objc_taggedPointersEnabled(void)
+{
+    extern uintptr_t objc_debug_taggedpointer_mask;
+    return (objc_debug_taggedpointer_mask != 0);
+}
+
+__attribute__((no_sanitize("unsigned-shift-base")))
+static inline void *
+_objc_makeTaggedPointer_withObfuscator(objc_tag_index_t tag, uintptr_t value,
+                                       uintptr_t obfuscator)
+{
+    // PAYLOAD_LSHIFT and PAYLOAD_RSHIFT are the payload extraction shifts.
+    // They are reversed here for payload insertion.
+
+    // ASSERT(_objc_taggedPointersEnabled());
+    if (tag <= OBJC_TAG_Last60BitPayload) {
+        // ASSERT(((value << _OBJC_TAG_PAYLOAD_RSHIFT) >> _OBJC_TAG_PAYLOAD_LSHIFT) == value);
+        uintptr_t result =
+        (_OBJC_TAG_MASK |
+         ((uintptr_t)tag << _OBJC_TAG_INDEX_SHIFT) |
+         ((value << _OBJC_TAG_PAYLOAD_RSHIFT) >> _OBJC_TAG_PAYLOAD_LSHIFT));
+        return _objc_encodeTaggedPointer_withObfuscator(result, obfuscator);
+    } else {
+        // ASSERT(tag >= OBJC_TAG_First52BitPayload);
+        // ASSERT(tag <= OBJC_TAG_Last52BitPayload);
+        // ASSERT(((value << _OBJC_TAG_EXT_PAYLOAD_RSHIFT) >> _OBJC_TAG_EXT_PAYLOAD_LSHIFT) == value);
+        uintptr_t result =
+        (_OBJC_TAG_EXT_MASK |
+         ((uintptr_t)(tag - OBJC_TAG_First52BitPayload) << _OBJC_TAG_EXT_INDEX_SHIFT) |
+         ((value << _OBJC_TAG_EXT_PAYLOAD_RSHIFT) >> _OBJC_TAG_EXT_PAYLOAD_LSHIFT));
+        return _objc_encodeTaggedPointer_withObfuscator(result, obfuscator);
+    }
+}
+
+static inline void *
+_objc_makeTaggedPointer(objc_tag_index_t tag, uintptr_t value)
+{
+    return _objc_makeTaggedPointer_withObfuscator(tag, value, objc_debug_taggedpointer_obfuscator);
+}
+
+static inline bool
+_objc_isTaggedPointer(const void *ptr)
+{
+    return ((uintptr_t)ptr & _OBJC_TAG_MASK) == _OBJC_TAG_MASK;
+}
+
+static inline bool
+_objc_isTaggedPointerOrNil(const void *ptr)
+{
+    // this function is here so that clang can turn this into
+    // a comparison with NULL when this is appropriate
+    // it turns out it's not able to in many cases without this
+    return !ptr || ((uintptr_t)ptr & _OBJC_TAG_MASK) == _OBJC_TAG_MASK;
+}
+
 static inline objc_tag_index_t
-_objc_getTaggedPointerTag_withObfuscator(const void * _Nullable ptr,
+_objc_getTaggedPointerTag_withObfuscator(const void *ptr,
                                          uintptr_t obfuscator)
 {
     // ASSERT(_objc_isTaggedPointer(ptr));
@@ -290,15 +404,9 @@ _objc_getTaggedPointerTag_withObfuscator(const void * _Nullable ptr,
     }
 }
 
-static inline objc_tag_index_t
-_objc_getTaggedPointerTag(const void * _Nullable ptr)
-{
-    return _objc_getTaggedPointerTag_withObfuscator(ptr, objc_debug_taggedpointer_obfuscator);
-}
-
 __attribute__((no_sanitize("unsigned-shift-base")))
 static inline uintptr_t
-_objc_getTaggedPointerValue_withObfuscator(const void * _Nullable ptr,
+_objc_getTaggedPointerValue_withObfuscator(const void *ptr,
                                            uintptr_t obfuscator)
 {
     // ASSERT(_objc_isTaggedPointer(ptr));
@@ -311,11 +419,57 @@ _objc_getTaggedPointerValue_withObfuscator(const void * _Nullable ptr,
     }
 }
 
+__attribute__((no_sanitize("unsigned-shift-base")))
+static inline intptr_t
+_objc_getTaggedPointerSignedValue_withObfuscator(const void *ptr,
+                                                 uintptr_t obfuscator)
+{
+    // ASSERT(_objc_isTaggedPointer(ptr));
+    uintptr_t value = _objc_decodeTaggedPointer_noPermute_withObfuscator(ptr, obfuscator);
+    uintptr_t basicTag = (value >> _OBJC_TAG_INDEX_SHIFT) & _OBJC_TAG_INDEX_MASK;
+    if (basicTag == _OBJC_TAG_INDEX_MASK) {
+        return ((intptr_t)value << _OBJC_TAG_EXT_PAYLOAD_LSHIFT) >> _OBJC_TAG_EXT_PAYLOAD_RSHIFT;
+    } else {
+        return ((intptr_t)value << _OBJC_TAG_PAYLOAD_LSHIFT) >> _OBJC_TAG_PAYLOAD_RSHIFT;
+    }
+}
+
+static inline objc_tag_index_t
+_objc_getTaggedPointerTag(const void *ptr)
+{
+    return _objc_getTaggedPointerTag_withObfuscator(ptr, objc_debug_taggedpointer_obfuscator);
+}
+
 static inline uintptr_t
-_objc_getTaggedPointerValue(const void * _Nullable ptr)
+_objc_getTaggedPointerValue(const void *ptr)
 {
     return _objc_getTaggedPointerValue_withObfuscator(ptr, objc_debug_taggedpointer_obfuscator);
 }
+
+static inline intptr_t
+_objc_getTaggedPointerSignedValue(const void *ptr)
+{
+    return _objc_getTaggedPointerSignedValue_withObfuscator(ptr, objc_debug_taggedpointer_obfuscator);
+}
+
+#   if OBJC_SPLIT_TAGGED_POINTERS
+static inline void *
+_objc_getTaggedPointerRawPointerValue(const void *ptr) {
+    return (void *)((uintptr_t)ptr & _OBJC_TAG_CONSTANT_POINTER_MASK);
+}
+#   endif
+
+#else
+
+// Just check for nil when we don't support tagged pointers.
+static inline bool
+_objc_isTaggedPointerOrNil(const void *ptr)
+{
+    return !ptr;
+}
+
+// OBJC_HAVE_TAGGED_POINTERS
+#endif
 
 // ======================================================================
 #pragma mark - objc4-680/runtime/objc-os.h -
