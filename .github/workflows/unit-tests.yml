@@ -19,6 +19,7 @@ jobs:
           - macOS
           - watchOS
           - tvOS
+          - mac-catalyst
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
