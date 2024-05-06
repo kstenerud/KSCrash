@@ -42,13 +42,17 @@
                                                                      yesAnswer:@"YES"
                                                                       noAnswer:@"NO"];
     
+    XCTestExpectation *expectation = [self expectationWithDescription:@"Filter completion"];
     [filter filterReports:[NSArray array] onCompletion:^(__unused NSArray* filteredReports,
                                                          BOOL completed,
                                                          NSError* error)
      {
          XCTAssertTrue(completed, @"");
          XCTAssertNil(error, @"");
+        [expectation fulfill];
      }];
+
+    [self waitForExpectations:@[expectation] timeout:0.2];
 }
 
 @end

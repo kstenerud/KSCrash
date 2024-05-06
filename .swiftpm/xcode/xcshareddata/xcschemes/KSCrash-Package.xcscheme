@@ -105,6 +105,11 @@
                BlueprintName = "KSCrashFiltersTests"
                ReferencedContainer = "container:">
             </BuildableReference>
+            <SkippedTests>
+               <Test
+                  Identifier = "KSCrashReportFilterAlert_Tests">
+               </Test>
+            </SkippedTests>
          </TestableReference>
          <TestableReference
             skipped = "NO">
