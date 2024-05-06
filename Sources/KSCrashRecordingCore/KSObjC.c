@@ -300,13 +300,8 @@ static bool isTaggedPointerNSDate(const void* const object)
  */
 static int64_t extractTaggedNSNumber(const void* const object)
 {
-    intptr_t signedPointer = (intptr_t)object;
-#if SUPPORT_TAGGED_POINTERS
-    intptr_t value = (signedPointer << TAG_PAYLOAD_LSHIFT) >> TAG_PAYLOAD_RSHIFT;
-#else
-    intptr_t value = signedPointer & 0;
-#endif
-    
+    intptr_t value = _objc_getTaggedPointerSignedValue(object);
+
     // The lower 4 bits encode type information so shift them out.
     return (int64_t)(value >> 4);
 }
