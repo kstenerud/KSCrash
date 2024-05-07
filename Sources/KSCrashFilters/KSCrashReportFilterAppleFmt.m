@@ -26,11 +26,12 @@
 
 
 #import "KSCrashReportFilterAppleFmt.h"
-
+#import "KSSystemCapabilities.h"
 
 #import <inttypes.h>
 #import <mach/machine.h>
 #include <mach-o/arch.h>
+#include <mach-o/utils.h>
 
 #import "KSCrashReportFields.h"
 #import "KSJSONCodecObjC.h"
@@ -264,12 +265,28 @@ static NSDictionary* g_registerOrders;
 
 - (NSString*) CPUArchForMajor:(cpu_type_t) majorCode minor:(cpu_subtype_t) minorCode
 {
-#ifdef __APPLE__
+#if KSCRASH_HOST_APPLE
     // In Apple platforms we can use this function to get the name of a particular architecture
-    const NXArchInfo* info = NXGetArchInfoFromCpuType(majorCode, minorCode);
-    if (info && info->name) {
-        return [[NSString alloc] initWithUTF8String: info->name];
+#if !KSCRASH_HOST_VISION
+    if(@available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 8.0, *))
+#endif
+    {
+        const char *archName = macho_arch_name_for_cpu_type(majorCode, minorCode);
+        if(archName)
+        {
+            return [[NSString alloc] initWithUTF8String:archName];
+        }
     }
+#if !KSCRASH_HOST_VISION
+    else 
+    {
+        const NXArchInfo* info = NXGetArchInfoFromCpuType(majorCode, minorCode);
+        if (info && info->name) 
+        {
+            return [[NSString alloc] initWithUTF8String:info->name];
+        }
+    }
+#endif
 #endif
 
     switch(majorCode)
