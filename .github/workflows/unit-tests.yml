@@ -14,12 +14,27 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform:
-          - iOS
-          - macOS
-          - watchOS
-          - tvOS
-          - mac-catalyst
+        include:
+          - platform: iOS
+            os-version: latest
+          - platform: iOS
+            os-version: 12.0
+          - platform: macOS
+            os-version: latest
+          - platform: macOS
+            os-version: 10.14
+          - platform: watchOS
+            os-version: latest
+          - platform: watchOS
+            os-version: 5.0
+          - platform: tvOS
+            os-version: latest
+          - platform: tvOS
+            os-version: 12.0
+          - platform: mac-catalyst
+            os-version: latest
+          - platform: mac-catalyst
+            os-version: 10.14
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -35,3 +50,4 @@ jobs:
           workspace: ".swiftpm/xcode/package.xcworkspace"
           scheme: "KSCrash-Package"
           platform: ${{ matrix.platform }}
+          os-version: ${{ matrix.os-version }}
