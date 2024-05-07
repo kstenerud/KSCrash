@@ -1,5 +1,5 @@
 Pod::Spec.new do |s|
-  IOS_DEPLOYMENT_TARGET = '11.0' unless defined? IOS_DEPLOYMENT_TARGET
+  IOS_DEPLOYMENT_TARGET = '12.0' unless defined? IOS_DEPLOYMENT_TARGET
   s.name         = "KSCrash"
   s.version      = "1.17.1"
   s.summary      = "The Ultimate iOS Crash Reporter"
@@ -7,9 +7,9 @@ Pod::Spec.new do |s|
   s.license      = { :type => 'KSCrash license agreement', :file => 'LICENSE' }
   s.author       = { "Karl Stenerud" => "kstenerud@gmail.com" }
   s.ios.deployment_target = IOS_DEPLOYMENT_TARGET
-  s.osx.deployment_target = '10.13'
-  s.tvos.deployment_target = '11.0'
-  s.watchos.deployment_target = '4.0'
+  s.osx.deployment_target = '10.14'
+  s.tvos.deployment_target = '12.0'
+  s.watchos.deployment_target = '5.0'
   s.source       = { :git => "https://github.com/kstenerud/KSCrash.git", :tag=>s.version.to_s }
   s.frameworks   = 'Foundation'
   s.libraries    = 'c++', 'z'
