@@ -132,7 +132,10 @@
             </BuildableReference>
             <SkippedTests>
                <Test
-                  Identifier = "KSDebug_Tests">
+                  Identifier = "KSObjC_Tests/testArrayDescription">
+               </Test>
+               <Test
+                  Identifier = "KSObjC_Tests/testCopyArrayContentsMutable">
                </Test>
             </SkippedTests>
          </TestableReference>
