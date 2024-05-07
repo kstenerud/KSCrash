@@ -20,6 +20,7 @@ jobs:
           - watchOS
           - tvOS
           - mac-catalyst
+          - visionOS
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -30,7 +31,7 @@ jobs:
           xcode-version: latest-stable
 
       - name: Run Unit Tests
-        uses: bamx23/xcodebuild@node20
+        uses: bamx23/xcodebuild@vision-os
         with:
           workspace: ".swiftpm/xcode/package.xcworkspace"
           scheme: "KSCrash-Package"

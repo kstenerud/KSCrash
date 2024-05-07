@@ -10,6 +10,7 @@ Pod::Spec.new do |s|
   s.osx.deployment_target = '10.13'
   s.tvos.deployment_target = '11.0'
   s.watchos.deployment_target = '4.0'
+  s.visionos.deployment_target =  '1.0'
   s.source       = { :git => "https://github.com/kstenerud/KSCrash.git", :tag=>s.version.to_s }
   s.frameworks   = 'Foundation'
   s.libraries    = 'c++', 'z'
