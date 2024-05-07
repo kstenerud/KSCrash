@@ -134,9 +134,6 @@
                <Test
                   Identifier = "KSDebug_Tests">
                </Test>
-               <Test
-                  Identifier = "KSObjC_Tests">
-               </Test>
             </SkippedTests>
          </TestableReference>
          <TestableReference
