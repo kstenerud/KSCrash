@@ -162,8 +162,8 @@ static int getTaggedSlot(const void* pointer) { return (int)_objc_getTaggedPoint
 static uintptr_t getTaggedPayload(const void* pointer) { return _objc_getTaggedPointerValue(pointer); }
 static intptr_t getTaggedSignedPayload(const void* pointer) { return _objc_getTaggedPointerSignedValue(pointer); }
 #else
-static bool isTaggedPointer(const void* pointer) { return false; }
-static int getTaggedSlot(const void* pointer) { return 0; }
+static bool isTaggedPointer(__unused const void* pointer) { return false; }
+static int getTaggedSlot(__unused const void* pointer) { return 0; }
 static uintptr_t getTaggedPayload(const void* pointer) { return (uintptr_t)pointer; }
 static intptr_t getTaggedSignedPayload(const void* pointer) { return (intptr_t)pointer; }
 #endif
@@ -409,7 +409,7 @@ static CFAbsoluteTime extractTaggedNSDate(const void* const object)
         } bits;
     } encodedBits = { .raw = getTaggedPayload(object) };
 
-    if (encodedBits.raw == 0) 
+    if (encodedBits.raw == 0)
     {
         return 0.0;
     }
