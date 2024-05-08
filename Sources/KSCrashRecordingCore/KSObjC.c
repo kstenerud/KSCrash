@@ -361,61 +361,80 @@ static int extractTaggedNSString(const void* const object, char* buffer, int buf
     return length;
 }
 
-#define TAGGED_DATE_EXPONENT_BIAS 0x3ef  // Define the bias value appropriately
+/** Decodes the exponent of a tagged NSDate pointer.
+ *
+ * @param exp The 7-bit exponent value from the tagged NSDate pointer.
+ * @return The decoded exponent value as a 64-bit unsigned integer.
+ *
+ * @note This function is based on the LLVM code in the Cocoa.cpp file: https://github.com/apple/llvm-project/blob/5dc9d563e5a6cd2cdd44117697dead98955ccddf/lldb/source/Plugins/Language/ObjC/Cocoa.cpp#L934
+ */
+static uint64_t decodeExponent(uint64_t exp)
+{
+    // Bias value for tagged pointer exponents.
+    // Recommended values:
+    // 0x3e3: encodes all dates between distantPast and distantFuture
+    //   except for the range within about 1e-28 second of the reference date.
+    // 0x3ef: encodes all dates for a few million years beyond distantPast and
+    //   distantFuture, except within about 1e-25 second of the reference date.
+    static const int taggedDateExponentBias = 0x3ef;
 
-static uint64_t decodeExponent(uint64_t exp) {
-    // Assume exp is a 7-bit value and needs to be sign-extended to 64 bits.
-    // Check the most significant bit (sign bit) of the 7-bit number.
-    if (exp & (1ULL << 6)) {
-        // If the sign bit is set, extend the sign through the upper bits.
-        exp |= ~((1ULL << 7) - 1);  // Set all bits above the 7th bit.
-    } else {
-        // If the sign bit is not set, clear all upper bits.
-        exp &= (1ULL << 7) - 1;
-    }
+    // Sign-extend the 7-bit exponent to 64 bits
+    const uint64_t signBit = 1ULL << 6;
+    const uint64_t extendMask = ~((1ULL << 7) - 1);
+    exp = (exp ^ signBit) - signBit;
+    exp &= (1ULL << 7) - 1;
+    exp |= extendMask & -((exp & signBit) != 0);
 
-    // Add the bias to the now sign-extended exponent.
-    return exp + TAGGED_DATE_EXPONENT_BIAS;
+    // Add the bias to the sign-extended exponent
+    return exp + taggedDateExponentBias;
 }
 
 /** Extract a tagged NSDate's time value as an absolute time.
  *
  * @param object The NSDate object (must be a tagged pointer).
  * @return The date's absolute time.
+ *
+ * @note This function is based on the LLVM code in the Cocoa.cpp file: https://github.com/apple/llvm-project/blob/5dc9d563e5a6cd2cdd44117697dead98955ccddf/lldb/source/Plugins/Language/ObjC/Cocoa.cpp#L913-L958
  */
 static CFAbsoluteTime extractTaggedNSDate(const void* const object)
 {
     #pragma pack(4)
-    struct TaggedDoubleBits {
-        uint64_t fraction : 52; // unsigned
-        uint64_t exponent : 7;  // signed
-        uint64_t sign : 1;
-        uint64_t unused : 4; // placeholder for pointer tag bits
-    };
+    union {
+        uintptr_t raw;
+        struct {
+            uint64_t fraction : 52;
+            uint64_t exponent : 7;
+            uint64_t sign : 1;
+            uint64_t unused : 4;
+        } bits;
+    } encodedBits = { .raw = getTaggedPayload(object) };
+
+    if (encodedBits.raw == 0) 
+    {
+        return 0.0;
+    }
+    if (encodedBits.raw == UINT64_MAX) 
+    {
+        return -0.0;
+    }
 
     #pragma pack(4)
-    struct DoubleBits {
-        uint64_t fraction : 52; // unsigned
-        uint64_t exponent : 11; // signed
-        uint64_t sign : 1;
+    union {
+        CFAbsoluteTime value;
+        struct {
+            uint64_t fraction : 52;
+            uint64_t exponent : 11;
+            uint64_t sign : 1;
+        } bits;
+    } decodedBits = {
+        .bits = {
+            .fraction = encodedBits.bits.fraction,
+            .exponent = decodeExponent(encodedBits.bits.exponent),
+            .sign = encodedBits.bits.sign
+        }
     };
 
-    uintptr_t payload = getTaggedPayload(object);
-
-
-    // Payload is a 60-bit float. Fortunately we can just cast across from
-    // an integer pointer after shifting out the upper 4 bits.
-//    payload <<= 4;
-    struct TaggedDoubleBits encodedBits = *((struct TaggedDoubleBits *)&payload);
-//    assert(encodedBits.unused == 0);
-
-    struct DoubleBits decodedBits;
-    decodedBits.sign = encodedBits.sign;
-    decodedBits.fraction = encodedBits.fraction;
-    decodedBits.exponent = decodeExponent(encodedBits.exponent);
-
-    CFAbsoluteTime value = *((CFAbsoluteTime*)&decodedBits);
-    return value;
+    return decodedBits.value;
 }
 
 /** Get any special class metadata we have about the specified class.
