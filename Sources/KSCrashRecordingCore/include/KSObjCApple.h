@@ -76,8 +76,6 @@ NAME { \
 #define OBJC_HAVE_TAGGED_POINTERS 1
 #endif
 
-#if OBJC_HAVE_TAGGED_POINTERS
-
 // Tagged pointer layout and usage is subject to change on different OS versions.
 
 // Tag indexes 0..<7 have a 60-bit payload.
@@ -146,6 +144,7 @@ enum
 typedef enum objc_tag_index_t objc_tag_index_t;
 #endif
 
+#if OBJC_HAVE_TAGGED_POINTERS // (KSCrash) This line is moved here to make `objc_tag_index_t` enum visible for i386.
 
 // Returns true if tagged pointers are enabled.
 // The other functions below must not be called if tagged pointers are disabled.

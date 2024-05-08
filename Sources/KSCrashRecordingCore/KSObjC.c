@@ -156,9 +156,17 @@ static const char* g_blockBaseClassName = "NSBlock";
 #pragma mark - Utility -
 //======================================================================
 
+#if OBJC_HAVE_TAGGED_POINTERS
 static bool isTaggedPointer(const void* pointer) { return _objc_isTaggedPointer(pointer); }
 static int getTaggedSlot(const void* pointer) { return (int)_objc_getTaggedPointerTag(pointer); }
 static uintptr_t getTaggedPayload(const void* pointer) { return _objc_getTaggedPointerValue(pointer); }
+static intptr_t getTaggedSignedPayload(const void* pointer) { return _objc_getTaggedPointerSignedValue(pointer); }
+#else
+static bool isTaggedPointer(const void* pointer) { return false; }
+static int getTaggedSlot(const void* pointer) { return 0; }
+static uintptr_t getTaggedPayload(const void* pointer) { return (uintptr_t)pointer; }
+static intptr_t getTaggedSignedPayload(const void* pointer) { return (intptr_t)pointer; }
+#endif
 
 /** Get class data for a tagged pointer.
  *
@@ -300,7 +308,7 @@ static bool isTaggedPointerNSDate(const void* const object)
  */
 static int64_t extractTaggedNSNumber(const void* const object)
 {
-    intptr_t value = _objc_getTaggedPointerSignedValue(object);
+    intptr_t value = getTaggedSignedPayload(object);
 
     // The lower 4 bits encode type information so shift them out.
     return (int64_t)(value >> 4);
