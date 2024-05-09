@@ -360,7 +360,7 @@ static int extractTaggedNSString(const void* const object, char* buffer, int buf
 
     return length;
 }
-
+#if OBJC_HAVE_TAGGED_POINTERS
 /** Decodes the exponent of a tagged NSDate pointer.
  *
  * @param exp The 7-bit exponent value from the tagged NSDate pointer.
@@ -436,7 +436,7 @@ static CFAbsoluteTime extractTaggedNSDate(const void* const object)
 
     return decodedBits.value;
 }
-
+#endif
 /** Get any special class metadata we have about the specified class.
  * It will return a generic metadata object if the type is not recognized.
  *
@@ -914,6 +914,7 @@ bool ksobjc_ivarNamed(const void* const classPtr, const char* name, KSObjCIvar* 
 
 bool ksobjc_ivarValue(const void* const objectPtr, int ivarIndex, void* dst)
 {
+#if OBJC_HAVE_TAGGED_POINTERS
     if(isTaggedPointer(objectPtr))
     {
         // Naively assume they want "value".
@@ -932,7 +933,7 @@ bool ksobjc_ivarValue(const void* const objectPtr, int ivarIndex, void* dst)
         }
         return false;
     }
-
+#endif
     const void* const classPtr = getIsaPointer(objectPtr);
     const struct ivar_list_t* ivars = getClassRO(classPtr)->ivars;
     if(ivarIndex >= (int)ivars->count)
@@ -1349,10 +1350,12 @@ static bool dateIsValid(const void* const datePtr)
 
 CFAbsoluteTime ksobjc_dateContents(const void* const datePtr)
 {
+#if OBJC_HAVE_TAGGED_POINTERS
     if(isValidTaggedPointer(datePtr))
     {
         return extractTaggedNSDate(datePtr);
     }
+#endif
     const struct __CFDate* date = datePtr;
     return date->_time;
 }
@@ -1376,6 +1379,7 @@ static bool taggedDateIsValid(const void* const datePtr)
 
 static int taggedDateDescription(const void* object, char* buffer, int bufferLength)
 {
+#if OBJC_HAVE_TAGGED_POINTERS
     char* pBuffer = buffer;
     char* pEnd = buffer + bufferLength;
 
@@ -1384,6 +1388,9 @@ static int taggedDateDescription(const void* object, char* buffer, int bufferLen
     pBuffer += stringPrintf(pBuffer, (int)(pEnd - pBuffer), ": %f", time);
 
     return (int)(pBuffer - buffer);
+#else
+    return 0;
+#endif
 }
 
 
