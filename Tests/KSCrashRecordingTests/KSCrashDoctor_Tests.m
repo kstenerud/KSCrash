@@ -1,13 +1,7 @@
 #import <XCTest/XCTest.h>
 
 #import "KSCrashDoctor.h"
-
-// This is duplicated from `KSCrashReportFixer_Tests.m`
-#ifdef SWIFTPM_MODULE_BUNDLE
-#define KS_TEST_MODULE_BUNDLE SWIFTPM_MODULE_BUNDLE
-#else
-#define KS_TEST_MODULE_BUNDLE ([NSBundle bundleForClass:[self class]])
-#endif
+#import "KSTestModuleConfig.h"
 
 @interface KSCrashDoctor_Tests : XCTestCase @end
 
