@@ -8,12 +8,7 @@
 
 #import <XCTest/XCTest.h>
 #import "KSCrashReportFixer.h"
-
-#ifdef SWIFTPM_MODULE_BUNDLE
-#define KS_TEST_MODULE_BUNDLE SWIFTPM_MODULE_BUNDLE
-#else
-#define KS_TEST_MODULE_BUNDLE ([NSBundle bundleForClass:[self class]])
-#endif
+#import "KSTestModuleConfig.h"
 
 @interface KSCrashReportFixer_Tests : XCTestCase
 
