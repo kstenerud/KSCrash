@@ -9,18 +9,38 @@ concurrency:
 
 jobs:
   unit-tests:
-    runs-on: macos-latest
-    timeout-minutes: 10
+    runs-on: "macos-${{ matrix.macos-version || 'latest' }}"
     strategy:
       fail-fast: false
       matrix:
-        platform:
-          - iOS
-          - macOS
-          - watchOS
-          - tvOS
-          - mac-catalyst
-          - visionOS
+        include:
+          - platform: iOS
+          - platform: iOS
+            os-version: ~12.4.0
+            runtime: "12.4"
+            macos-version: "12"
+
+          - platform: macOS
+          - platform: macOS
+            macos-version: "11"
+
+          - platform: watchOS
+          - platform: watchOS
+            os-version: ~6.0.0
+            runtime: "6.0"
+            macos-version: "12"
+
+          - platform: tvOS
+          - platform: tvOS
+            os-version: ~12.4.0
+            runtime: "12.4"
+            macos-version: "12"
+
+          - platform: mac-catalyst
+          - platform: mac-catalyst
+            macos-version: "11"
+
+          - platform: visionOS
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -30,9 +50,24 @@ jobs:
         with:
           xcode-version: latest-stable
 
+      - name: Cache
+        if: ${{ matrix.runtime }}
+        uses: actions/cache@v3
+        with:
+          path: "~/Downloads"
+          key: ${{ runner.os }}-runtimes-downloads-${{ matrix.platform }}-${{ matrix.runtime }}
+
+      - name: Install Simulator
+        if: ${{ matrix.runtime }}
+        shell: bash
+        timeout-minutes: 30
+        run: sudo xcodes runtimes install --keep-archive '${{ matrix.platform }} ${{ matrix.runtime }}'
+
       - name: Run Unit Tests
-        uses: bamx23/xcodebuild@vision-os
+        uses: bamx23/xcodebuild@os-version
+        timeout-minutes: 10
         with:
           workspace: ".swiftpm/xcode/package.xcworkspace"
           scheme: "KSCrash-Package"
           platform: ${{ matrix.platform }}
+          os-version: ${{ matrix.os-version }}
