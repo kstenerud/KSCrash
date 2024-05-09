@@ -735,7 +735,6 @@ static NSArray* g_test_strings;
 
 - (void) testArrayDescription
 {
-#if 0
     NSArray* array = [NSArray arrayWithObjects:@"test", nil];
     void* arrayPtr = (__bridge void*)array;
     NSString* expectedClassName = [NSString stringWithCString:class_getName([array class]) encoding:NSUTF8StringEncoding];
@@ -758,7 +757,6 @@ static NSArray* g_test_strings;
     expectedClassName = [NSString stringWithCString:class_getName([expectedTheRest class]) encoding:NSUTF8StringEncoding];
     XCTAssertEqualObjects(className, expectedClassName, @"");
     XCTAssertEqualObjects(theRest, expectedTheRest, @"");
-#endif
 }
 
 - (void) testCopyArrayContentsImmutable

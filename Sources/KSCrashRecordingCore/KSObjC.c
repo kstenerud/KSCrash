@@ -156,14 +156,16 @@ static const char* g_blockBaseClassName = "NSBlock";
 #pragma mark - Utility -
 //======================================================================
 
-#if SUPPORT_TAGGED_POINTERS
-static bool isTaggedPointer(const void* pointer) {return (((uintptr_t)pointer) & TAG_MASK) != 0; }
-static int getTaggedSlot(const void* pointer) { return (int)((((uintptr_t)pointer) >> TAG_SLOT_SHIFT) & TAG_SLOT_MASK); }
-static uintptr_t getTaggedPayload(const void* pointer) { return (((uintptr_t)pointer) << TAG_PAYLOAD_LSHIFT) >> TAG_PAYLOAD_RSHIFT; }
+#if OBJC_HAVE_TAGGED_POINTERS
+static bool isTaggedPointer(const void* pointer) { return _objc_isTaggedPointer(pointer); }
+static int getTaggedSlot(const void* pointer) { return (int)_objc_getTaggedPointerTag(pointer); }
+static uintptr_t getTaggedPayload(const void* pointer) { return _objc_getTaggedPointerValue(pointer); }
+static intptr_t getTaggedSignedPayload(const void* pointer) { return _objc_getTaggedPointerSignedValue(pointer); }
 #else
 static bool isTaggedPointer(__unused const void* pointer) { return false; }
 static int getTaggedSlot(__unused const void* pointer) { return 0; }
 static uintptr_t getTaggedPayload(const void* pointer) { return (uintptr_t)pointer; }
+static intptr_t getTaggedSignedPayload(const void* pointer) { return (intptr_t)pointer; }
 #endif
 
 /** Get class data for a tagged pointer.
@@ -306,13 +308,8 @@ static bool isTaggedPointerNSDate(const void* const object)
  */
 static int64_t extractTaggedNSNumber(const void* const object)
 {
-    intptr_t signedPointer = (intptr_t)object;
-#if SUPPORT_TAGGED_POINTERS
-    intptr_t value = (signedPointer << TAG_PAYLOAD_LSHIFT) >> TAG_PAYLOAD_RSHIFT;
-#else
-    intptr_t value = signedPointer & 0;
-#endif
-    
+    intptr_t value = getTaggedSignedPayload(object);
+
     // The lower 4 bits encode type information so shift them out.
     return (int64_t)(value >> 4);
 }
@@ -363,22 +360,83 @@ static int extractTaggedNSString(const void* const object, char* buffer, int buf
 
     return length;
 }
+#if OBJC_HAVE_TAGGED_POINTERS
+/** Decodes the exponent of a tagged NSDate pointer.
+ *
+ * @param exp The 7-bit exponent value from the tagged NSDate pointer.
+ * @return The decoded exponent value as a 64-bit unsigned integer.
+ *
+ * @note This function is based on the LLVM code in the Cocoa.cpp file: https://github.com/apple/llvm-project/blob/5dc9d563e5a6cd2cdd44117697dead98955ccddf/lldb/source/Plugins/Language/ObjC/Cocoa.cpp#L934
+ */
+static uint64_t decodeExponent(uint64_t exp)
+{
+    // Bias value for tagged pointer exponents.
+    // Recommended values:
+    // 0x3e3: encodes all dates between distantPast and distantFuture
+    //   except for the range within about 1e-28 second of the reference date.
+    // 0x3ef: encodes all dates for a few million years beyond distantPast and
+    //   distantFuture, except within about 1e-25 second of the reference date.
+    static const int taggedDateExponentBias = 0x3ef;
+
+    // Sign-extend the 7-bit exponent to 64 bits
+    const uint64_t signBit = 1ULL << 6;
+    const uint64_t extendMask = ~((1ULL << 7) - 1);
+    exp = (exp ^ signBit) - signBit;
+    exp &= (1ULL << 7) - 1;
+    exp |= extendMask & -((exp & signBit) != 0);
+
+    // Add the bias to the sign-extended exponent
+    return exp + taggedDateExponentBias;
+}
 
 /** Extract a tagged NSDate's time value as an absolute time.
  *
  * @param object The NSDate object (must be a tagged pointer).
  * @return The date's absolute time.
+ *
+ * @note This function is based on the LLVM code in the Cocoa.cpp file: https://github.com/apple/llvm-project/blob/5dc9d563e5a6cd2cdd44117697dead98955ccddf/lldb/source/Plugins/Language/ObjC/Cocoa.cpp#L913-L958
  */
 static CFAbsoluteTime extractTaggedNSDate(const void* const object)
 {
-    uintptr_t payload = getTaggedPayload(object);
-    // Payload is a 60-bit float. Fortunately we can just cast across from
-    // an integer pointer after shifting out the upper 4 bits.
-    payload <<= 4;
-    CFAbsoluteTime value = *((CFAbsoluteTime*)&payload);
-    return value;
-}
+    #pragma pack(4)
+    union {
+        uintptr_t raw;
+        struct {
+            uint64_t fraction : 52;
+            uint64_t exponent : 7;
+            uint64_t sign : 1;
+            uint64_t unused : 4;
+        } bits;
+    } encodedBits = { .raw = getTaggedPayload(object) };
 
+    if (encodedBits.raw == 0)
+    {
+        return 0.0;
+    }
+    if (encodedBits.raw == UINT64_MAX) 
+    {
+        return -0.0;
+    }
+
+    #pragma pack(4)
+    union {
+        CFAbsoluteTime value;
+        struct {
+            uint64_t fraction : 52;
+            uint64_t exponent : 11;
+            uint64_t sign : 1;
+        } bits;
+    } decodedBits = {
+        .bits = {
+            .fraction = encodedBits.bits.fraction,
+            .exponent = decodeExponent(encodedBits.bits.exponent),
+            .sign = encodedBits.bits.sign
+        }
+    };
+
+    return decodedBits.value;
+}
+#endif
 /** Get any special class metadata we have about the specified class.
  * It will return a generic metadata object if the type is not recognized.
  *
@@ -856,6 +914,7 @@ bool ksobjc_ivarNamed(const void* const classPtr, const char* name, KSObjCIvar* 
 
 bool ksobjc_ivarValue(const void* const objectPtr, int ivarIndex, void* dst)
 {
+#if OBJC_HAVE_TAGGED_POINTERS
     if(isTaggedPointer(objectPtr))
     {
         // Naively assume they want "value".
@@ -874,7 +933,7 @@ bool ksobjc_ivarValue(const void* const objectPtr, int ivarIndex, void* dst)
         }
         return false;
     }
-
+#endif
     const void* const classPtr = getIsaPointer(objectPtr);
     const struct ivar_list_t* ivars = getClassRO(classPtr)->ivars;
     if(ivarIndex >= (int)ivars->count)
@@ -1291,10 +1350,12 @@ static bool dateIsValid(const void* const datePtr)
 
 CFAbsoluteTime ksobjc_dateContents(const void* const datePtr)
 {
+#if OBJC_HAVE_TAGGED_POINTERS
     if(isValidTaggedPointer(datePtr))
     {
         return extractTaggedNSDate(datePtr);
     }
+#endif
     const struct __CFDate* date = datePtr;
     return date->_time;
 }
@@ -1318,6 +1379,7 @@ static bool taggedDateIsValid(const void* const datePtr)
 
 static int taggedDateDescription(const void* object, char* buffer, int bufferLength)
 {
+#if OBJC_HAVE_TAGGED_POINTERS
     char* pBuffer = buffer;
     char* pEnd = buffer + bufferLength;
 
@@ -1326,6 +1388,9 @@ static int taggedDateDescription(const void* object, char* buffer, int bufferLen
     pBuffer += stringPrintf(pBuffer, (int)(pEnd - pBuffer), ": %f", time);
 
     return (int)(pBuffer - buffer);
+#else
+    return 0;
+#endif
 }
 
 

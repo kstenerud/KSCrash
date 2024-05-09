@@ -5,10 +5,10 @@ import PackageDescription
 let package = Package(
   name: "KSCrash",
   platforms: [
-    .iOS(.v11),
-    .tvOS(.v11),
-    .watchOS(.v4),
-    .macOS(.v10_13),
+    .iOS(.v12),
+    .tvOS(.v12),
+    .watchOS(.v5),
+    .macOS(.v10_14),
   ],
   products: [
     .library(
