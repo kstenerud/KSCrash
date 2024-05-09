@@ -2,14 +2,20 @@
 
 #import "KSCrashDoctor.h"
 
-@interface KSCrashDoctor_Tests : XCTestCase @end
+// This is duplicated from `KSCrashReportFixer_Tests.m`
+#ifdef SWIFTPM_MODULE_BUNDLE
+#define KS_TEST_MODULE_BUNDLE SWIFTPM_MODULE_BUNDLE
+#else
+#define KS_TEST_MODULE_BUNDLE ([NSBundle bundleForClass:[self class]])
+#endif
 
+@interface KSCrashDoctor_Tests : XCTestCase @end
 
 @implementation KSCrashDoctor_Tests
 
 - (NSDictionary<NSString *, id> *)_crashReportAsJSON:(NSString *)filename
 {
-    NSURL *url = [[NSBundle bundleForClass:self.class] URLForResource:filename withExtension:@"json"];
+    NSURL *url = [KS_TEST_MODULE_BUNDLE URLForResource:filename withExtension:@"json"];
     NSData *data = [NSData dataWithContentsOfURL:url];
     return [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
 }
