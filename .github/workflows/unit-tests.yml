@@ -18,7 +18,7 @@ jobs:
           - platform: iOS
             os-version: ~12.4.0
             runtime: "12.4"
-            macos-version: "12"
+            macos-version: "11"
 
           - platform: macOS
           - platform: macOS
@@ -28,13 +28,13 @@ jobs:
           - platform: watchOS
             os-version: ~6.0.0
             runtime: "6.0"
-            macos-version: "12"
+            macos-version: "11"
 
           - platform: tvOS
           - platform: tvOS
             os-version: ~12.4.0
             runtime: "12.4"
-            macos-version: "12"
+            macos-version: "11"
 
           - platform: mac-catalyst
           - platform: mac-catalyst
