@@ -31,11 +31,28 @@
 
 #include <mach/mach.h>
 #include <mach-o/arch.h>
+
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 160000 // Xcode 14
 #include <mach-o/utils.h>
+#define _HAS_MACH_O_UTILS 1
+#else
+#define _HAS_MACH_O_UTILS 0
+#endif
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
+
+static inline const char* kscpu_currentArch_nx(void) 
+{
+#if KSCRASH_HOST_VISION
+    // This branch is never called as for visionOS `_HAS_MACH_O_UTILS` is `1`
+    return NULL;
+#else
+    const NXArchInfo* archInfo = NXGetLocalArchInfo();
+    return archInfo == NULL ? NULL : archInfo->name;
+#endif
+}
 
 const char* kscpu_currentArch(void)
 {
@@ -43,13 +60,47 @@ const char* kscpu_currentArch(void)
     if(__builtin_available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 8.0, *))
 #endif
     {
+#if _HAS_MACH_O_UTILS
         return macho_arch_name_for_mach_header(NULL);
+#else
+        return kscpu_currentArch_nx();
+#endif
     }
 #if !KSCRASH_HOST_VISION
     else 
     {
-        const NXArchInfo* archInfo = NXGetLocalArchInfo();
-        return archInfo == NULL ? NULL : archInfo->name;
+        return kscpu_currentArch_nx();
+    }
+#endif
+}
+
+static inline const char* kscpu_archForCPU_nx(cpu_type_t majorCode, cpu_subtype_t minorCode)
+{
+#if KSCRASH_HOST_VISION
+    // This branch is never called as for visionOS `_HAS_MACH_O_UTILS` is `1`
+    return NULL;
+#else
+    const NXArchInfo* info = NXGetArchInfoFromCpuType(majorCode, minorCode);
+    return info == NULL ? NULL : info->name;
+#endif
+}
+
+const char* kscpu_archForCPU(cpu_type_t majorCode, cpu_subtype_t minorCode)
+{
+#if !KSCRASH_HOST_VISION
+    if(__builtin_available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 8.0, *))
+#endif
+    {
+#if _HAS_MACH_O_UTILS
+        return macho_arch_name_for_cpu_type(majorCode, minorCode);
+#else
+        return kscpu_archForCPU_nx(majorCode, minorCode);
+#endif
+    }
+#if !KSCRASH_HOST_VISION
+    else
+    {
+        return kscpu_archForCPU_nx(majorCode, minorCode);
     }
 #endif
 }

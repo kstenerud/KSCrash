@@ -42,6 +42,15 @@ extern "C" {
  */
 const char* kscpu_currentArch(void);
 
+/** Get the CPU architecture for given major and minor codes.
+ *
+ * @param majorCode The major code as defined in kernel.
+ * @param minorCode The minor code as defined in kernel.
+ *
+ * @return The architecture name.
+ */
+const char* kscpu_archForCPU(cpu_type_t majorCode, cpu_subtype_t minorCode);
+
 /** Get the frame pointer for a machine context.
  * The frame pointer marks the top of the call stack.
  *
