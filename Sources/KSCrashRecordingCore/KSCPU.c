@@ -42,67 +42,58 @@
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
-
-static inline const char* kscpu_currentArch_nx(void) 
+#if !_HAS_MACH_O_UTILS || !KSCRASH_HOST_VISION
+static inline const char* currentArch_nx(void)
 {
-#if KSCRASH_HOST_VISION
-    // This branch is never called as for visionOS `_HAS_MACH_O_UTILS` is `1`
-    return NULL;
-#else
     const NXArchInfo* archInfo = NXGetLocalArchInfo();
     return archInfo == NULL ? NULL : archInfo->name;
-#endif
 }
+
+static inline const char* archForCPU_nx(cpu_type_t majorCode, cpu_subtype_t minorCode)
+{
+    const NXArchInfo* info = NXGetArchInfoFromCpuType(majorCode, minorCode);
+    return info == NULL ? NULL : info->name;
+}
+#endif
 
 const char* kscpu_currentArch(void)
 {
+#if _HAS_MACH_O_UTILS
 #if !KSCRASH_HOST_VISION
     if(__builtin_available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 8.0, *))
 #endif
     {
-#if _HAS_MACH_O_UTILS
         return macho_arch_name_for_mach_header(NULL);
-#else
-        return kscpu_currentArch_nx();
-#endif
     }
 #if !KSCRASH_HOST_VISION
     else 
     {
-        return kscpu_currentArch_nx();
+        return currentArch_nx();
     }
 #endif
-}
-
-static inline const char* kscpu_archForCPU_nx(cpu_type_t majorCode, cpu_subtype_t minorCode)
-{
-#if KSCRASH_HOST_VISION
-    // This branch is never called as for visionOS `_HAS_MACH_O_UTILS` is `1`
-    return NULL;
-#else
-    const NXArchInfo* info = NXGetArchInfoFromCpuType(majorCode, minorCode);
-    return info == NULL ? NULL : info->name;
-#endif
+#else // _HAS_MACH_O_UTILS
+    return currentArch_nx();
+#endif // _HAS_MACH_O_UTILS
 }
 
 const char* kscpu_archForCPU(cpu_type_t majorCode, cpu_subtype_t minorCode)
 {
+#if _HAS_MACH_O_UTILS
 #if !KSCRASH_HOST_VISION
     if(__builtin_available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 8.0, *))
 #endif
     {
-#if _HAS_MACH_O_UTILS
         return macho_arch_name_for_cpu_type(majorCode, minorCode);
-#else
-        return kscpu_archForCPU_nx(majorCode, minorCode);
-#endif
     }
 #if !KSCRASH_HOST_VISION
     else
     {
-        return kscpu_archForCPU_nx(majorCode, minorCode);
+        return archForCPU_nx(majorCode, minorCode);
     }
 #endif
+#else // _HAS_MACH_O_UTILS
+    return archForCPU_nx(majorCode, minorCode);
+#endif // _HAS_MACH_O_UTILS
 }
 
 #if KSCRASH_HAS_THREADS_API
