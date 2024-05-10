@@ -18,29 +18,32 @@ jobs:
           - platform: iOS
             os-version: ~12.4.0
             runtime: "12.4"
-            macos-version: "11"
-
-          - platform: macOS
-          - platform: macOS
-            macos-version: "11"
+            macos-version: "12"
+            xcode-version: "13.4.1"
 
           - platform: watchOS
           - platform: watchOS
             os-version: ~6.0.0
             runtime: "6.0"
-            macos-version: "11"
+            macos-version: "12"
+            xcode-version: "13.4.1"
 
           - platform: tvOS
           - platform: tvOS
             os-version: ~12.4.0
             runtime: "12.4"
-            macos-version: "11"
-
-          - platform: mac-catalyst
-          - platform: mac-catalyst
-            macos-version: "11"
+            macos-version: "12"
+            xcode-version: "13.4.1"
 
           - platform: visionOS
+
+          - platform: macOS
+          - platform: macOS
+            macos-version: "11"
+
+          - platform: mac-catalyst
+          - platform: mac-catalyst
+            macos-version: "11"
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -48,7 +51,7 @@ jobs:
       - name: Use Latest Stable Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: latest-stable
+          xcode-version: ${{ matrix.xcode-version || 'latest-stable' }}
 
       - name: Cache
         if: ${{ matrix.runtime }}
