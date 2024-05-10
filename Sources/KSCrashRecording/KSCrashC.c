@@ -34,6 +34,7 @@
 #include "KSCrashMonitor_CPPException.h"
 #include "KSCrashMonitor_Deadlock.h"
 #include "KSCrashMonitor_User.h"
+#include "KSCrashMonitor_Memory.h"
 #include "KSFileUtils.h"
 #include "KSObjC.h"
 #include "KSString.h"
@@ -173,7 +174,21 @@ KSCrashMonitorType kscrash_install(const char* appName, const char* const instal
     ksfu_makePath(path);
     snprintf(path, sizeof(path), "%s/Data/CrashState.json", installPath);
     kscrashstate_initialize(path);
-
+    
+    snprintf(path, sizeof(path), "%s/Data", installPath);
+    ksfu_makePath(path);
+    snprintf(path, sizeof(path), "%s/Data/memory", installPath);
+    ksmemory_initialize(path);
+    if (ksmemory_previous_session_was_terminated_due_to_memory()) {
+        kscrash_reportUserException("OOM",
+                                    "Ran Out Of Memory",
+                                    NULL,
+                                    "",
+                                    "__MEMORY_PRESSURE_LEVEL_IS_TERMINAL___OOM_IS_IMMINENT__",
+                                    false,
+                                    false);
+    }
+    
     snprintf(g_consoleLogPath, sizeof(g_consoleLogPath), "%s/Data/ConsoleLog.txt", installPath);
     if(g_shouldPrintPreviousLog)
     {

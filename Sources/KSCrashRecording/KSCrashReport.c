@@ -1440,6 +1440,18 @@ static void writeError(const KSCrashReportWriter* const writer,
                 writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_Signal);
                 break;
 
+            case KSCrashMonitorTypeMemoryTermination:
+            {
+                writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_MemoryTermination);
+                writer->beginObject(writer, KSCrashField_MemoryTermination);
+                {
+                    writer->addUIntegerElement(writer, KSCrashField_MemoryPressure, crash->AppMemory.pressure);
+                    writer->addUIntegerElement(writer, KSCrashField_MemoryLevel, crash->AppMemory.level);
+                }
+                writer->endContainer(writer);
+            }
+                break;
+                
             case KSCrashMonitorTypeUserReported:
             {
                 writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_User);
@@ -1668,6 +1680,21 @@ void kscrashreport_writeRecrashReport(const KSCrash_MonitorContext* const monito
     ksccd_unfreeze();
 }
 
+static void writeAppMemoryInfo(const KSCrashReportWriter* const writer,
+                               const char* const key,
+                               const KSCrash_MonitorContext* const monitorContext)
+{
+    writer->beginObject(writer, key);
+    {
+        writer->addUIntegerElement(writer, KSCrashField_MemoryFootprint, monitorContext->AppMemory.footprint);
+        writer->addUIntegerElement(writer, KSCrashField_MemoryRemaining, monitorContext->AppMemory.remaining);
+        writer->addUIntegerElement(writer, KSCrashField_MemoryPressure, monitorContext->AppMemory.pressure);
+        writer->addUIntegerElement(writer, KSCrashField_MemoryLevel, monitorContext->AppMemory.level);
+        writer->addUIntegerElement(writer, KSCrashField_MemoryLimit, monitorContext->AppMemory.limit);
+    }
+    writer->endContainer(writer);
+}
+
 static void writeSystemInfo(const KSCrashReportWriter* const writer,
                             const char* const key,
                             const KSCrash_MonitorContext* const monitorContext)
@@ -1705,6 +1732,7 @@ static void writeSystemInfo(const KSCrashReportWriter* const writer,
 
         writeMemoryInfo(writer, KSCrashField_Memory, monitorContext);
         writeAppStats(writer, KSCrashField_AppStats, monitorContext);
+        writeAppMemoryInfo(writer, KSCrashField_AppMemory, monitorContext);
     }
     writer->endContainer(writer);
 

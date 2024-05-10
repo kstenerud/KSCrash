@@ -226,7 +226,28 @@ typedef struct KSCrash_MonitorContext
         /** Reason field from the last deallocated exception. */
         const char* reason;
     } ZombieException;
-
+    
+    struct
+    {
+        /** measurement taken time in microseconds. */
+        int64_t timestamp;
+        
+        /** memory pressure  `KSCrashAppMemoryPressure` */
+        uint8_t pressure;
+        
+        /** amount of app memory used */
+        uint64_t footprint;
+        
+        /** amount of app memory remaining */
+        uint64_t remaining;
+        
+        /** high water mark for footprint (footprint +  remaining)*/
+        uint64_t limit;
+        
+        /** memory level  `KSCrashAppMemoryLevel` (KSCrashAppMemory.level) */
+        uint8_t level;
+    } AppMemory;
+    
     /** Full path to the console log, if any. */
     const char* consoleLogPath;
 

@@ -54,7 +54,7 @@
 #define KSCrashExcType_NSException         "nsexception"
 #define KSCrashExcType_Signal              "signal"
 #define KSCrashExcType_User                "user"
-
+#define KSCrashExcType_MemoryTermination   "memory_termination"
 
 #pragma mark - Common -
 
@@ -71,6 +71,8 @@
 #define KSCrashField_Type                  "type"
 #define KSCrashField_UUID                  "uuid"
 #define KSCrashField_Value                 "value"
+#define KSCrashField_MemoryLimit           "memory_limit"
+#define KSCrashField_MemoryPressure        "memory_pressure"
 
 #define KSCrashField_Error                 "error"
 #define KSCrashField_JSONData              "json_data"
@@ -180,6 +182,8 @@
 #define KSCrashField_Report                "report"
 #define KSCrashField_Timestamp             "timestamp"
 #define KSCrashField_Version               "version"
+#define KSCrashField_AppMemory             "app_memory"
+#define KSCrashField_MemoryTermination     "memory_termination"
 
 #pragma mark Minimal
 #define KSCrashField_CrashedThread         "crashed_thread"
@@ -227,5 +231,11 @@
 #define KSCrashField_SystemVersion         "system_version"
 #define KSCrashField_TimeZone              "time_zone"
 #define KSCrashField_BuildType             "build_type"
+
+#pragma mark App Memory
+#define KSCrashField_MemoryFootprint        "memory_footprint"
+#define KSCrashField_MemoryRemaining        "memory_remaining"
+#define KSCrashField_MemoryPressure         "memory_pressure"
+#define KSCrashField_MemoryLevel            "memory_level"
 
 #endif

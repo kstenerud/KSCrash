@@ -69,6 +69,9 @@ typedef enum
     
     /* Keeps track of zombies, and injects the last zombie NSException. */
     KSCrashMonitorTypeZombie             = 0x100,
+    
+    /* Keeps track of memory to use heuristics to solve OOMs at startup. */
+    KSCrashMonitorTypeMemoryTermination  = 0x200
 } KSCrashMonitorType;
 
 #define KSCrashMonitorTypeAll              \
@@ -81,7 +84,8 @@ typedef enum
     KSCrashMonitorTypeUserReported       | \
     KSCrashMonitorTypeSystem             | \
     KSCrashMonitorTypeApplicationState   | \
-    KSCrashMonitorTypeZombie               \
+    KSCrashMonitorTypeZombie             | \
+    KSCrashMonitorTypeMemoryTermination    \
 )
 
 #define KSCrashMonitorTypeExperimental     \
@@ -89,12 +93,18 @@ typedef enum
     KSCrashMonitorTypeMainThreadDeadlock   \
 )
 
+/*
 #define KSCrashMonitorTypeDebuggerUnsafe   \
 (                                          \
     KSCrashMonitorTypeMachException      | \
     KSCrashMonitorTypeSignal             | \
     KSCrashMonitorTypeCPPException       | \
     KSCrashMonitorTypeNSException          \
+)
+*/
+#define KSCrashMonitorTypeDebuggerUnsafe   \
+(                                          \
+    KSCrashMonitorTypeMachException     \
 )
 
 #define KSCrashMonitorTypeAsyncSafe        \
@@ -124,7 +134,7 @@ typedef enum
 /** Monitors that are required for proper operation.
  * These add essential information to the reports, but do not trigger reporting.
  */
-#define KSCrashMonitorTypeRequired (KSCrashMonitorTypeSystem | KSCrashMonitorTypeApplicationState)
+#define KSCrashMonitorTypeRequired (KSCrashMonitorTypeSystem | KSCrashMonitorTypeApplicationState | KSCrashMonitorTypeMemory)
 
 /** Effectively disables automatica reporting. The only way to generate a report
  * in this mode is by manually calling kscrash_reportUserException().
