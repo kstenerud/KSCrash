@@ -51,7 +51,7 @@ NS_ASSUME_NONNULL_BEGIN
     if (self = [super init]) {
         _heartbeatQueue = dispatch_queue_create_with_target(
                                                             "com.kscrash.memory.heartbeat", DISPATCH_QUEUE_SERIAL,
-                                                            dispatch_get_global_queue(QOS_CLASS_UTILITY, 0));
+                                                            dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0));
         _level = KSCrashAppMemoryStateNormal;
         _pressure = KSCrashAppMemoryStateNormal;
     }
@@ -89,6 +89,7 @@ NS_ASSUME_NONNULL_BEGIN
     dispatch_source_set_timer(_limitSource, dispatch_time(DISPATCH_TIME_NOW, 0), NSEC_PER_SEC,
                               NSEC_PER_SEC / 10);
     dispatch_activate(_limitSource);
+    
     
 #if TARGET_OS_IOS
     // We won't always hit this depending on how the system is setup in the app,

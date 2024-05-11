@@ -1783,9 +1783,11 @@ void kscrashreport_writeStandardReport(const KSCrash_MonitorContext* const monit
                         monitorContext->System.processName);
         ksfu_flushBufferedWriter(&bufferedWriter);
 
-        writeBinaryImages(writer, KSCrashField_BinaryImages);
-        ksfu_flushBufferedWriter(&bufferedWriter);
-
+        if (!monitorContext->omitBinaryImages) {
+            writeBinaryImages(writer, KSCrashField_BinaryImages);
+            ksfu_flushBufferedWriter(&bufferedWriter);
+        }
+        
         writeProcessState(writer, KSCrashField_ProcessState, monitorContext);
         ksfu_flushBufferedWriter(&bufferedWriter);
 

@@ -87,6 +87,11 @@ typedef struct KSCrash_MonitorContext
      */
     void* stackCursor;
     
+    /** If true, don't output binary images.
+     *  This can be useful in cases where we have no stack.
+     */
+    bool omitBinaryImages;
+    
     struct
     {
         /** The mach exception type. */
@@ -250,6 +255,9 @@ typedef struct KSCrash_MonitorContext
     
     /** Full path to the console log, if any. */
     const char* consoleLogPath;
+    
+    /** Absolute path where this report should be written (use default value if NULL)*/
+    const char* reportPath;
 
 } KSCrash_MonitorContext;
     

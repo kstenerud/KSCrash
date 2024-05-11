@@ -503,6 +503,11 @@ typedef enum
     return [report[@KSCrashField_Signal][@KSCrashField_Signal] integerValue] == SIGTERM;
 }
 
+- (BOOL)isMemoryTermination:(NSDictionary *)report
+{
+    return [report[@KSCrashField_Type] isEqualToString:@KSCrashExcType_MemoryTermination];
+}
+
 - (NSString*) diagnoseCrash:(NSDictionary*) report
 {
     @try
@@ -565,6 +570,10 @@ typedef enum
         
         if([self isGracefulTerminationRequest:errorReport]) {
             return @"The OS request the app be gracefully terminated.";
+        }
+        
+        if ([self isMemoryTermination:errorReport]) {
+            return @"The app was terminated due to running out of memory (OOM).";
         }
         
         return nil;

@@ -64,9 +64,9 @@ KSCrashMonitorAPI* kscm_memory_getAPI(void);
 
 /** Initialize the memory monitor.
  *
- * @param path Where to store on-disk representation of state.
+ * @param root The install path of the KSCrash system.
  */
-void ksmemory_initialize(const char* path);
+void ksmemory_initialize(const char* installPath);
 
 /** Returns true if the previous session was terminated due to memory.
  */

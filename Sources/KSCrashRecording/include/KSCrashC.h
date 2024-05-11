@@ -245,6 +245,7 @@ int kscrash_getReportIDs(int64_t* reportIDs, int count);
  *         MEMORY MANAGEMENT WARNING: User is responsible for calling free() on the returned value.
  */
 char* kscrash_readReport(int64_t reportID);
+char* kscrash_readReportAtPath(const char* path);
 
 /** Add a custom report to the store.
  *

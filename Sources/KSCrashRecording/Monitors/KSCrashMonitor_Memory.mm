@@ -26,12 +26,14 @@
 #import "KSCrashMonitor_Memory.h"
 
 #import "KSCrash.h"
+#import "KSCrashC.h"
 #import "KSCrashMonitorContext.h"
 #import "KSCrashAppMemory.h"
 #import "KSID.h"
 #import "KSStackCursor.h"
 #import "KSStackCursor_SelfThread.h"
 #import "KSStackCursor_MachineContext.h"
+#import "KSCrashReportFields.h"
 
 #import <Foundation/Foundation.h>
 #import <mutex>
@@ -44,8 +46,12 @@
 // ============================================================================
 
 static volatile bool g_isEnabled = 0;
+static volatile bool g_hasPostEnable = 0;
 
 static KSCrash_MonitorContext g_monitorContext;
+
+// Install path for the crash system
+static NSURL *g_installURL = nil;
 
 // The memory tracker
 @class MemoryTracker;
@@ -56,6 +62,7 @@ static std::mutex g_lock [[clang::no_destroy]];
 static KSCrash_Memory *g_memory = NULL;
 
 // last memory write from the previous session
+static KSCrash_Memory g_previousSessionMemory;
 static KSCrashAppMemory *g_previousSessionAppMemory = nil;
 
 // ============================================================================
@@ -156,12 +163,14 @@ static void ksmemory_write_possible_oom();
 
 static void setEnabled(bool isEnabled)
 {
-    if(isEnabled != g_isEnabled)
+    if (isEnabled != g_isEnabled)
     {
         g_isEnabled = isEnabled;
         if(isEnabled)
         {
-            g_memoryTracker = [[MemoryTracker alloc] init];
+            if (g_hasPostEnable) {
+                g_memoryTracker = [[MemoryTracker alloc] init];
+            }
         }
         else
         {
@@ -192,11 +201,48 @@ static void addContextualInfoToEvent(KSCrash_MonitorContext* eventContext)
     }
 }
 
+static NSURL *kscm_memory_oom_breacrumb_URL() {
+    return [g_installURL URLByAppendingPathComponent:@"Data/oom_breadcrumb_report.json"];
+}
+
 static void notifyPostSystemEnable()
 {
+    g_hasPostEnable = 1;
+    
+    // here we check to see if the previous run was an OOM
+    // if it was, we load up the report created in the previous
+    // session and modify it, save it out to the reports location,
+    // and let the system run its course.
+    if (g_previousSessionAppMemory.isOutOfMemory) {
+        NSURL *url = kscm_memory_oom_breacrumb_URL();
+        const char *reportContents = kscrash_readReportAtPath(url.path.UTF8String);
+        if (reportContents) {
+            NSData *data = [NSData dataWithBytes:reportContents length:strlen(reportContents)];
+            NSMutableDictionary *json = [[NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingMutableContainers|NSJSONReadingMutableLeaves error:nil] mutableCopy];
+            if (json) {
+                json[@KSCrashField_System][@KSCrashField_AppMemory] = g_previousSessionAppMemory.serialize;
+                json[@KSCrashField_Report][@KSCrashField_Timestamp] = @(g_previousSessionMemory.timestamp);
+                json[@KSCrashField_Crash][@KSCrashField_Error][@KSCrashExcType_MemoryTermination] = g_previousSessionAppMemory.serialize;
+                json[@KSCrashField_Crash][@KSCrashField_Error][@KSCrashExcType_Mach] = nil;
+                json[@KSCrashField_Crash][@KSCrashField_Error][@KSCrashExcType_Signal] = @{
+                    @KSCrashField_Signal: @(SIGKILL),
+                    @KSCrashField_Name: @"SIGKILL",
+                };
+                
+                data = [NSJSONSerialization dataWithJSONObject:json options:NSJSONWritingPrettyPrinted error:nil];
+                kscrash_addUserReport((const char *)data.bytes, data.length);
+            }
+            free((void *)reportContents);
+        }
+    }
+    
+    // remove the old breadcrumb oom file
+    unlink(kscm_memory_oom_breacrumb_URL().path.UTF8String);
+
     if (g_isEnabled)
     {
         ksmemory_write_possible_oom();
+        g_memoryTracker = [[MemoryTracker alloc] init];
     }
 }
 
@@ -240,8 +286,9 @@ static void ksmemory_read(const char* path)
     
     KSCrash_Memory memory = {};
     memcpy(&memory, mem, size);
+    g_previousSessionMemory = memory;
     
-    g_previousSessionAppMemory = [[KSCrashAppMemory alloc] initWithFootprint:memory.footprint 
+    g_previousSessionAppMemory = [[KSCrashAppMemory alloc] initWithFootprint:memory.footprint
                                                                    remaining:memory.remaining
                                                                     pressure:(KSCrashAppMemoryState)memory.pressure];
     
@@ -291,9 +338,11 @@ static void ksmemory_map(const char* path)
 
 static void ksmemory_write_possible_oom()
 {
+    NSURL *reportURL = kscm_memory_oom_breacrumb_URL();
+    const char *reportPath = reportURL.path.UTF8String;
+    
     thread_act_array_t threads = NULL;
     mach_msg_type_number_t numThreads = 0;
-    ksmc_suspendEnvironment(&threads, &numThreads);
     kscm_notifyFatalExceptionCaptured(false);
     
     KSMC_NEW_CONTEXT(machineContext);
@@ -301,32 +350,32 @@ static void ksmemory_write_possible_oom()
     KSStackCursor stackCursor;
     kssc_initWithMachineContext(&stackCursor, KSSC_MAX_STACK_DEPTH, machineContext);
     
+    char eventID[37];
+    ksid_generate(eventID);
+    
     KSCrash_MonitorContext context;
     memset(&context, 0, sizeof(context));
     context.crashType = KSCrashMonitorTypeMemoryTermination;
-    context.eventID = "memory_termination";
+    context.eventID = eventID;
     context.registersAreValid = false;
     context.offendingMachineContext = machineContext;
     context.currentSnapshotUserReported = true;
-    {
-        std::lock_guard<std::mutex> l(g_lock);
-        if (g_memory) {
-            context.AppMemory = {
-                .level = g_memory->level,
-                .footprint = g_memory->footprint,
-                .pressure = g_memory->pressure,
-                .remaining = g_memory->remaining,
-                .limit = g_memory->limit,
-                .timestamp = g_memory->timestamp,
-            };
-        }
-    }
     
+    // we don't need all the images, we have no stack
+    context.omitBinaryImages = true;
+    
+    // _reportPath_ only valid within this scope
+    context.reportPath = reportPath;
+
     kscm_handleException(&context);
 }
 
-void ksmemory_initialize(const char* path)
+void ksmemory_initialize(const char* installPath)
 {
+    g_installURL = [NSURL fileURLWithPath:@(installPath)];
+    NSURL *memoryURL = [[g_installURL URLByAppendingPathComponent:@"Data"] URLByAppendingPathComponent:@"memory"];
+    const char *path = memoryURL.path.UTF8String;
+    
     // load up the old data
     ksmemory_read(path);
     
