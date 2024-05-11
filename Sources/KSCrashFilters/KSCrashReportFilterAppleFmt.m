@@ -623,7 +623,7 @@ static NSDictionary* g_registerOrders;
         }
 
         NSDictionary* notableAddresses = [crashedThread objectForKey:@KSCrashField_NotableAddresses];
-        if(notableAddresses != nil)
+        if(notableAddresses.count)
         {
             [str appendFormat:@"\nNotable Addresses:\n%@\n", [self JSONForObject:notableAddresses]];
         }
@@ -653,7 +653,13 @@ static NSDictionary* g_registerOrders;
     {
         [str appendFormat:@"\nApplication Stats:\n%@\n", [self JSONForObject:appStats]];
     }
-
+    
+    NSDictionary* memoryStats = [system objectForKey:@KSCrashField_AppMemory];
+    if(memoryStats != nil)
+    {
+        [str appendFormat:@"\nMemory Statistics:\n%@\n", [self JSONForObject:memoryStats]];
+    }
+    
     NSDictionary* crashReport = [report objectForKey:@KSCrashField_Crash];
     NSString* diagnosis = [crashReport objectForKey:@KSCrashField_Diagnosis];
     if(diagnosis != nil)

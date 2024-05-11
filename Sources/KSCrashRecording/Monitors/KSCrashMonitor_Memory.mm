@@ -41,6 +41,10 @@
 
 #import "KSLogger.h"
 
+#if TARGET_OS_IOS
+#import <UIKit/UIKit.h>
+#endif
+
 // ============================================================================
 #pragma mark - Globals -
 // ============================================================================
@@ -63,7 +67,121 @@ static KSCrash_Memory *g_memory = NULL;
 
 // last memory write from the previous session
 static KSCrash_Memory g_previousSessionMemory;
-static KSCrashAppMemory *g_previousSessionAppMemory = nil;
+
+// App state tracking
+@class AppStateTracker;
+static AppStateTracker *g_AppStateTracker = nil;
+
+// ============================================================================
+#pragma mark - App State Tracking -
+// ============================================================================
+
+static int64_t kscm_microseconds(void)
+{
+    struct timeval tp;
+    gettimeofday(&tp, NULL);
+    int64_t microseconds = ((int64_t)tp.tv_sec) * 1000000 + tp.tv_usec;
+    return microseconds;
+}
+
+@interface AppStateTracker : NSObject {
+    NSNotificationCenter *_center;
+    NSArray<id<NSObject>> *_registrations;
+    std::atomic<KSCrash_ApplicationTransitionState> _state;
+}
+
+- (instancetype)initWithNotificationCenter:(NSNotificationCenter *)notificationCenter NS_DESIGNATED_INITIALIZER;
+- (instancetype)init NS_UNAVAILABLE;
++ (instancetype)new NS_UNAVAILABLE;
+
+@property (atomic, readonly) KSCrash_ApplicationTransitionState transitionState;
+
+@end
+
+@implementation AppStateTracker
+
++ (void)load
+{
+    g_AppStateTracker = [[AppStateTracker alloc] initWithNotificationCenter:NSNotificationCenter.defaultCenter];
+}
+
+- (instancetype)initWithNotificationCenter:(NSNotificationCenter *)notificationCenter
+{
+    if (self = [super init]) {
+        _center = notificationCenter;
+        _registrations = nil;
+        _state = KSCrash_ApplicationTransitionStateNone;
+    }
+    return self;
+}
+
+- (void)dealloc
+{
+    [self stop];
+}
+
+- (KSCrash_ApplicationTransitionState)transitionState
+{
+    return _state.load();
+}
+
+- (void)_setTransitionState:(KSCrash_ApplicationTransitionState)newState
+{
+    if (_state.exchange(newState) != newState) {
+        std::lock_guard<std::mutex> l(g_lock);
+        if (g_memory) {
+            g_memory->state = newState;
+        }
+    }
+}
+
+#define OBSERVE(center, name, block) \
+    [center addObserverForName:name \
+    object:nil \
+    queue:nil \
+    usingBlock:^(NSNotification *notification)block] \
+
+- (void)start
+{
+    if (_registrations) {
+        return;
+    }
+    
+#if TARGET_OS_IOS
+    _registrations = @[
+        
+        OBSERVE(_center, UIApplicationDidFinishLaunchingNotification, {
+            [self _setTransitionState:KSCrash_ApplicationTransitionStateLaunching];
+        }),
+        OBSERVE(_center, UIApplicationWillEnterForegroundNotification, {
+            [self _setTransitionState:KSCrash_ApplicationTransitionStateForegrounding];
+        }),
+        OBSERVE(_center, UIApplicationDidBecomeActiveNotification, {
+            [self _setTransitionState:KSCrash_ApplicationTransitionStateActive];
+        }),
+        OBSERVE(_center, UIApplicationWillResignActiveNotification, {
+            [self _setTransitionState:KSCrash_ApplicationTransitionStateDeactivating];
+        }),
+        OBSERVE(_center, UIApplicationDidEnterBackgroundNotification, {
+            [self _setTransitionState:KSCrash_ApplicationTransitionStateBackground];
+        }),
+        OBSERVE(_center, UIApplicationWillTerminateNotification, {
+            [self _setTransitionState:KSCrash_ApplicationTransitionStateTerminating];
+        }),
+    ];
+#endif
+}
+
+- (void)stop
+{
+    NSArray<id<NSObject>> *registraions = [_registrations copy];
+    _registrations = nil;
+    for (id<NSObject> registraion in registraions) {
+        [_center removeObserver:registraion];
+    }
+}
+
+@end
 
 // ============================================================================
 #pragma mark - Tracking -
@@ -101,18 +219,15 @@ static KSCrashAppMemory *g_previousSessionAppMemory = nil;
     if (!g_memory) {
         return;
     }
-    
-    struct timeval tp;
-    gettimeofday(&tp, NULL);
-    int64_t microseconds = ((int64_t)tp.tv_sec) * 1000000 + tp.tv_usec;
-    
+
     *g_memory = (KSCrash_Memory){
         .footprint = memory.footprint,
         .remaining = memory.remaining,
         .limit = memory.limit,
         .pressure = (uint8_t)memory.pressure,
         .level = (uint8_t)memory.level,
-        .timestamp = microseconds,
+        .timestamp = kscm_microseconds(),
+        .state = g_AppStateTracker.transitionState,
     };
 }
 
@@ -184,20 +299,15 @@ static bool isEnabled(void)
     return g_isEnabled;
 }
 
-static void addContextualInfoToEvent(KSCrash_MonitorContext* eventContext)
-{
-    if (g_isEnabled)
-    {
-        // Not sure if I can lock here or not, we might be in an async only state.
-        std::lock_guard<std::mutex> l(g_lock);
-        if (g_memory) {
-            eventContext->AppMemory.footprint = g_memory->footprint;
-            eventContext->AppMemory.pressure = g_memory->pressure;
-            eventContext->AppMemory.remaining = g_memory->remaining;
-            eventContext->AppMemory.limit = g_memory->limit;
-            eventContext->AppMemory.level = g_memory->level;
-            eventContext->AppMemory.timestamp = g_memory->timestamp;
-        }
+static NSString *kscm_app_transition_state_to_string(KSCrash_ApplicationTransitionState state) {
+    switch (state) {
+        case KSCrash_ApplicationTransitionStateNone: return @"none";
+        case KSCrash_ApplicationTransitionStateActive: return @"active";
+        case KSCrash_ApplicationTransitionStateLaunching: return @"launching";
+        case KSCrash_ApplicationTransitionStateBackground: return @"background";
+        case KSCrash_ApplicationTransitionStateTerminating: return @"terminating";
+        case KSCrash_ApplicationTransitionStateDeactivating: return @"deactivating";
+        case KSCrash_ApplicationTransitionStateForegrounding: return @"foregrounding";
     }
 }
 
@@ -205,24 +315,60 @@ static NSURL *kscm_memory_oom_breacrumb_URL() {
     return [g_installURL URLByAppendingPathComponent:@"Data/oom_breadcrumb_report.json"];
 }
 
-static void notifyPostSystemEnable()
+static void addContextualInfoToEvent(KSCrash_MonitorContext* eventContext)
 {
-    g_hasPostEnable = 1;
-    
-    // here we check to see if the previous run was an OOM
-    // if it was, we load up the report created in the previous
-    // session and modify it, save it out to the reports location,
-    // and let the system run its course.
-    if (g_previousSessionAppMemory.isOutOfMemory) {
+    if (g_isEnabled)
+    {
+        // Not sure if I can lock here or not, we might be in an async only state.
+        // Chances are we don't really need to anyway.
+        std::lock_guard<std::mutex> l(g_lock);
+        if (g_memory) {
+            eventContext->AppMemory.footprint = g_memory->footprint;
+            // `.UTF8String` here is ok because the implementation uses constants,
+            // so they're built into the app and will always exist.
+            eventContext->AppMemory.pressure = KSCrashAppMemoryStateToString((KSCrashAppMemoryState)g_memory->pressure).UTF8String;
+            eventContext->AppMemory.remaining = g_memory->remaining;
+            eventContext->AppMemory.limit = g_memory->limit;
+            eventContext->AppMemory.level = KSCrashAppMemoryStateToString((KSCrashAppMemoryState)g_memory->level).UTF8String;
+            eventContext->AppMemory.timestamp = g_memory->timestamp;
+            eventContext->AppMemory.state = kscm_app_transition_state_to_string(g_memory->state).UTF8String;
+        }
+    }
+}
+
+static NSDictionary<NSString *, id> *kscm_memory_serialize(KSCrash_Memory *const memory)
+{
+    return @{
+        @KSCrashField_MemoryFootprint: @(memory->footprint),
+        @KSCrashField_MemoryRemaining: @(memory->remaining),
+        @KSCrashField_MemoryLimit: @(memory->limit),
+        @KSCrashField_MemoryPressure: KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memory->pressure),
+        @KSCrashField_MemoryLevel: KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memory->level),
+        @KSCrashField_Timestamp: @(memory->timestamp),
+        @KSCrashField_AppTransitionState: kscm_app_transition_state_to_string(memory->state),
+    };
+}
+
+/**
+ here we check to see if the previous run was an OOM
+ if it was, we load up the report created in the previous
+ session and modify it, save it out to the reports location,
+ and let the system run its course.
+ */
+static void kscm_memory_check_for_oom_in_previous_session()
+{
+    if (ksmemory_previous_session_was_terminated_due_to_memory()) {
         NSURL *url = kscm_memory_oom_breacrumb_URL();
         const char *reportContents = kscrash_readReportAtPath(url.path.UTF8String);
         if (reportContents) {
+            
             NSData *data = [NSData dataWithBytes:reportContents length:strlen(reportContents)];
             NSMutableDictionary *json = [[NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingMutableContainers|NSJSONReadingMutableLeaves error:nil] mutableCopy];
+            
             if (json) {
-                json[@KSCrashField_System][@KSCrashField_AppMemory] = g_previousSessionAppMemory.serialize;
+                json[@KSCrashField_System][@KSCrashField_AppMemory] = kscm_memory_serialize(&g_previousSessionMemory);
                 json[@KSCrashField_Report][@KSCrashField_Timestamp] = @(g_previousSessionMemory.timestamp);
-                json[@KSCrashField_Crash][@KSCrashField_Error][@KSCrashExcType_MemoryTermination] = g_previousSessionAppMemory.serialize;
+                json[@KSCrashField_Crash][@KSCrashField_Error][@KSCrashExcType_MemoryTermination] =kscm_memory_serialize(&g_previousSessionMemory);
                 json[@KSCrashField_Crash][@KSCrashField_Error][@KSCrashExcType_Mach] = nil;
                 json[@KSCrashField_Crash][@KSCrashField_Error][@KSCrashExcType_Signal] = @{
                     @KSCrashField_Signal: @(SIGKILL),
@@ -238,6 +384,19 @@ static void notifyPostSystemEnable()
     
     // remove the old breadcrumb oom file
     unlink(kscm_memory_oom_breacrumb_URL().path.UTF8String);
+}
+
+/**
+ This is called after all monitors are enabled.
+ */
+static void notifyPostSystemEnable()
+{
+    if (g_hasPostEnable) {
+        return;
+    }
+    g_hasPostEnable = 1;
+    
+    kscm_memory_check_for_oom_in_previous_session();
 
     if (g_isEnabled)
     {
@@ -258,6 +417,9 @@ KSCrashMonitorAPI* kscm_memory_getAPI(void)
     return &api;
 }
 
+/**
+ Read the previous sessions memory data.
+ */
 static void ksmemory_read(const char* path)
 {
     int fd = open(path, O_RDWR, 0644);
@@ -288,15 +450,16 @@ static void ksmemory_read(const char* path)
     memcpy(&memory, mem, size);
     g_previousSessionMemory = memory;
     
-    g_previousSessionAppMemory = [[KSCrashAppMemory alloc] initWithFootprint:memory.footprint
-                                                                   remaining:memory.remaining
-                                                                    pressure:(KSCrashAppMemoryState)memory.pressure];
-    
     close(fd);
     unlink(path);
     free(mem);
 }
 
+/**
+ Mapping memory to a file on disk. This allows us to simply treat the location
+ in memory as a structure and the kernel will ensure it is on disk. This is also
+ crash resistant.
+ */
 static void ksmemory_map(const char* path)
 {
     int fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0644);
@@ -329,13 +492,24 @@ static void ksmemory_map(const char* path)
             .pressure = (uint8_t)memory.pressure,
             .level = (uint8_t)memory.level,
             .limit = memory.limit,
-            .timestamp = 0, // put good time in here
+            .timestamp = kscm_microseconds(),
+            .state = g_AppStateTracker.transitionState,
         };
     }
     
     close(fd);
 }
 
+/**
+ What we're doing here is writing a file out that can be reused
+ on restart if the data shows us there was a memory issue.
+ 
+ If an OOM did happen, we'll modify this file
+ (see `kscm_memory_check_for_oom_in_previous_session`),
+ then write it back out using the normal writing procedure to write reports. This
+ leads to the system seeing the report as if it had always been there and will
+ then report an OOM.
+ */
 static void ksmemory_write_possible_oom()
 {
     NSURL *reportURL = kscm_memory_oom_breacrumb_URL();
@@ -350,7 +524,7 @@ static void ksmemory_write_possible_oom()
     KSStackCursor stackCursor;
     kssc_initWithMachineContext(&stackCursor, KSSC_MAX_STACK_DEPTH, machineContext);
     
-    char eventID[37];
+    char eventID[37] = {0};
     ksid_generate(eventID);
     
     KSCrash_MonitorContext context;
@@ -385,5 +559,6 @@ void ksmemory_initialize(const char* installPath)
 
 bool ksmemory_previous_session_was_terminated_due_to_memory(void)
 {
-    return g_previousSessionAppMemory.isOutOfMemory;
+    return g_previousSessionMemory.state >= KSCrashAppMemoryStateCritical ||
+    g_previousSessionMemory.pressure >= KSCrashAppMemoryStateCritical;
 }

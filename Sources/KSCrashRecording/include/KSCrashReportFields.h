@@ -237,5 +237,6 @@
 #define KSCrashField_MemoryRemaining        "memory_remaining"
 #define KSCrashField_MemoryPressure         "memory_pressure"
 #define KSCrashField_MemoryLevel            "memory_level"
+#define KSCrashField_AppTransitionState     "app_transition_state"
 
 #endif

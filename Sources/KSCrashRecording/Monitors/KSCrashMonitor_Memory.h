@@ -36,10 +36,22 @@
 extern "C" {
 #endif
 
+/** States of transition for the application */
+enum {
+    KSCrash_ApplicationTransitionStateNone = 0,
+    KSCrash_ApplicationTransitionStateLaunching,
+    KSCrash_ApplicationTransitionStateForegrounding,
+    KSCrash_ApplicationTransitionStateActive,
+    KSCrash_ApplicationTransitionStateDeactivating,
+    KSCrash_ApplicationTransitionStateBackground,
+    KSCrash_ApplicationTransitionStateTerminating,
+};
+typedef uint8_t KSCrash_ApplicationTransitionState;
+
 /** App Memory */
 typedef struct KSCrash_Memory {
     
-    /** timestamp oin microseconds */
+    /** timestamp in microseconds */
     int64_t timestamp;
     
     /** memory pressure  `KSCrashAppMemoryPressure` */
@@ -56,6 +68,9 @@ typedef struct KSCrash_Memory {
     
     /** memory level  `KSCrashAppMemoryLevel` (KSCrashAppMemory.level) */
     uint8_t level;
+    
+    /** transition state of the app */
+    KSCrash_ApplicationTransitionState state;
 } KSCrash_Memory;
 
 /** Access the Monitor API.

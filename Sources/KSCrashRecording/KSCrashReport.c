@@ -1688,9 +1688,10 @@ static void writeAppMemoryInfo(const KSCrashReportWriter* const writer,
     {
         writer->addUIntegerElement(writer, KSCrashField_MemoryFootprint, monitorContext->AppMemory.footprint);
         writer->addUIntegerElement(writer, KSCrashField_MemoryRemaining, monitorContext->AppMemory.remaining);
-        writer->addUIntegerElement(writer, KSCrashField_MemoryPressure, monitorContext->AppMemory.pressure);
-        writer->addUIntegerElement(writer, KSCrashField_MemoryLevel, monitorContext->AppMemory.level);
+        writer->addStringElement(writer, KSCrashField_MemoryPressure, monitorContext->AppMemory.pressure);
+        writer->addStringElement(writer, KSCrashField_MemoryLevel, monitorContext->AppMemory.level);
         writer->addUIntegerElement(writer, KSCrashField_MemoryLimit, monitorContext->AppMemory.limit);
+        writer->addStringElement(writer, KSCrashField_AppTransitionState, monitorContext->AppMemory.state);
     }
     writer->endContainer(writer);
 }

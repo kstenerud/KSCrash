@@ -238,7 +238,7 @@ typedef struct KSCrash_MonitorContext
         int64_t timestamp;
         
         /** memory pressure  `KSCrashAppMemoryPressure` */
-        uint8_t pressure;
+        const char* pressure;
         
         /** amount of app memory used */
         uint64_t footprint;
@@ -250,7 +250,10 @@ typedef struct KSCrash_MonitorContext
         uint64_t limit;
         
         /** memory level  `KSCrashAppMemoryLevel` (KSCrashAppMemory.level) */
-        uint8_t level;
+        const char* level;
+        
+        /** transition state of the app */
+        const char* state;
     } AppMemory;
     
     /** Full path to the console log, if any. */
