@@ -23,9 +23,11 @@ jobs:
 
           - platform: watchOS
           - platform: watchOS
-            os-version: ~6.2.0
-            macos-version: "11"
-            xcode-version: "11.7"
+            os-version: ~7.4.0
+            runtime: "7.4"
+            macos-version: "12"
+            xcode-version: "13.4.1"
+          # TODO: Test with an older watchOS version if possible
 
           - platform: tvOS
           - platform: tvOS
