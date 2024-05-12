@@ -140,15 +140,6 @@
                <Test
                   Identifier = "KSObjC_Tests/testCopyArrayContentsMutable">
                </Test>
-               <Test
-                  Identifier = "KSObjC_Tests/testDateDescription">
-               </Test>
-               <Test
-                  Identifier = "KSObjC_Tests/testDateIsValid">
-               </Test>
-               <Test
-                  Identifier = "KSObjC_Tests/testGetDateContents">
-               </Test>
             </SkippedTests>
          </TestableReference>
          <TestableReference
