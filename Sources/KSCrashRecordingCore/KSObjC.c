@@ -402,7 +402,7 @@ static CFAbsoluteTime extractTaggedNSDate(const void* const object)
 
     if (kCFCoreFoundationVersionNumber > 1600) // https://github.com/apple/llvm-project/blob/5dc9d563e5a6cd2cdd44117697dead98955ccddf/lldb/source/Plugins/Language/ObjC/Cocoa.cpp#L1041
     {
-        union EncodedBits {
+        union {
             uintptr_t raw;
             struct {
                 uint64_t fraction : 52;
@@ -417,7 +417,7 @@ static CFAbsoluteTime extractTaggedNSDate(const void* const object)
         if (encodedBits.raw == UINT64_MAX)
             return -0.0;
 
-        union DecodedBits {
+        union {
             CFAbsoluteTime value;
             struct {
                 uint64_t fraction : 52;
@@ -438,8 +438,11 @@ static CFAbsoluteTime extractTaggedNSDate(const void* const object)
     {
         // Payload is a 60-bit float. Fortunately we can just cast across from
         // an integer pointer after shifting out the upper 4 bits.
-        payload <<= 4;
-        return *((CFAbsoluteTime*)&payload);
+        union {
+            CFAbsoluteTime value;
+            uintptr_t raw;
+        } payloadBits = { .raw = payload << 4 };
+        return payloadBits.value;
     }
 }
 #endif
