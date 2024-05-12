@@ -398,43 +398,49 @@ static uint64_t decodeExponent(uint64_t exp)
  */
 static CFAbsoluteTime extractTaggedNSDate(const void* const object)
 {
-    #pragma pack(4)
-    union {
-        uintptr_t raw;
-        struct {
-            uint64_t fraction : 52;
-            uint64_t exponent : 7;
-            uint64_t sign : 1;
-            uint64_t unused : 4;
-        } bits;
-    } encodedBits = { .raw = getTaggedPayload(object) };
+    uintptr_t payload = getTaggedPayload(object);
 
-    if (encodedBits.raw == 0)
+    if (kCFCoreFoundationVersionNumber > 1600) // https://github.com/apple/llvm-project/blob/5dc9d563e5a6cd2cdd44117697dead98955ccddf/lldb/source/Plugins/Language/ObjC/Cocoa.cpp#L1041
     {
-        return 0.0;
+        union EncodedBits {
+            uintptr_t raw;
+            struct {
+                uint64_t fraction : 52;
+                uint64_t exponent : 7;
+                uint64_t sign : 1;
+                uint64_t unused : 4;
+            } bits;
+        } encodedBits = { .raw = payload };
+
+        if (encodedBits.raw == 0)
+            return 0.0;
+        if (encodedBits.raw == UINT64_MAX)
+            return -0.0;
+
+        union DecodedBits {
+            CFAbsoluteTime value;
+            struct {
+                uint64_t fraction : 52;
+                uint64_t exponent : 11;
+                uint64_t sign : 1;
+            } bits;
+        } decodedBits = {
+            .bits = {
+                .fraction = encodedBits.bits.fraction,
+                .exponent = decodeExponent(encodedBits.bits.exponent),
+                .sign = encodedBits.bits.sign
+            }
+        };
+
+        return decodedBits.value;
     }
-    if (encodedBits.raw == UINT64_MAX) 
+    else
     {
-        return -0.0;
+        // Payload is a 60-bit float. Fortunately we can just cast across from
+        // an integer pointer after shifting out the upper 4 bits.
+        payload <<= 4;
+        return *((CFAbsoluteTime*)&payload);
     }
-
-    #pragma pack(4)
-    union {
-        CFAbsoluteTime value;
-        struct {
-            uint64_t fraction : 52;
-            uint64_t exponent : 11;
-            uint64_t sign : 1;
-        } bits;
-    } decodedBits = {
-        .bits = {
-            .fraction = encodedBits.bits.fraction,
-            .exponent = decodeExponent(encodedBits.bits.exponent),
-            .sign = encodedBits.bits.sign
-        }
-    };
-
-    return decodedBits.value;
 }
 #endif
 /** Get any special class metadata we have about the specified class.
