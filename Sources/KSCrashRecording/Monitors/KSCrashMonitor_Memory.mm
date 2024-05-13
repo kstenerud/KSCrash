@@ -53,8 +53,6 @@
 static volatile bool g_isEnabled = 0;
 static volatile bool g_hasPostEnable = 0;
 
-static KSCrash_MonitorContext g_monitorContext;
-
 // Install path for the crash system
 static NSURL *g_installURL = nil;
 

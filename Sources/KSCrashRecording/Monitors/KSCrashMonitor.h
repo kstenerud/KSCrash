@@ -74,7 +74,7 @@ typedef struct
     void (*setEnabled)(bool isEnabled);
     bool (*isEnabled)(void);
     void (*addContextualInfoToEvent)(struct KSCrash_MonitorContext* eventContext);
-    void (*notifyPostSystemEnable)();
+    void (*notifyPostSystemEnable)(void);
 } KSCrashMonitorAPI;
 
 /** Notify that a fatal exception has been captured.

@@ -73,11 +73,6 @@ static void getCrashReportPathByID(int64_t id, char* pathBuffer)
     
 }
 
-static void getCrashReportPathWithRelativePath(const char* relativePath, char* pathBuffer)
-{
-    snprintf(pathBuffer, KSCRS_MAX_PATH_LENGTH, "%s/%s.json", g_installPath, relativePath);
-}
-
 static int64_t getReportIDFromFilename(const char* filename)
 {
     char scanFormat[100];
