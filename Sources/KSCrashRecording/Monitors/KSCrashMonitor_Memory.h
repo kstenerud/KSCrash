@@ -79,7 +79,7 @@ KSCrashMonitorAPI* kscm_memory_getAPI(void);
 
 /** Initialize the memory monitor.
  *
- * @param root The install path of the KSCrash system.
+ * @param installPath The install path of the KSCrash system.
  */
 void ksmemory_initialize(const char* installPath);
 

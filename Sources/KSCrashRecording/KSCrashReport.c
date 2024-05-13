@@ -1445,8 +1445,8 @@ static void writeError(const KSCrashReportWriter* const writer,
                 writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_MemoryTermination);
                 writer->beginObject(writer, KSCrashField_MemoryTermination);
                 {
-                    writer->addUIntegerElement(writer, KSCrashField_MemoryPressure, crash->AppMemory.pressure);
-                    writer->addUIntegerElement(writer, KSCrashField_MemoryLevel, crash->AppMemory.level);
+                    writer->addStringElement(writer, KSCrashField_MemoryPressure, crash->AppMemory.pressure);
+                    writer->addStringElement(writer, KSCrashField_MemoryLevel, crash->AppMemory.level);
                 }
                 writer->endContainer(writer);
             }

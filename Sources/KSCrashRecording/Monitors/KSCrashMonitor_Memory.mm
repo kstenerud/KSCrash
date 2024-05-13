@@ -38,6 +38,7 @@
 #import <Foundation/Foundation.h>
 #import <mutex>
 #import <sys/time.h>
+#import <sys/mman.h>
 
 #import "KSLogger.h"
 
@@ -147,26 +148,29 @@ static int64_t kscm_microseconds(void)
         return;
     }
     
+    // TODO: What other supported platforms need something like this???
 #if TARGET_OS_IOS
+    
+    __weak typeof(self)weakMe = self;
     _registrations = @[
         
         OBSERVE(_center, UIApplicationDidFinishLaunchingNotification, {
-            [self _setTransitionState:KSCrash_ApplicationTransitionStateLaunching];
+            [weakMe _setTransitionState:KSCrash_ApplicationTransitionStateLaunching];
         }),
         OBSERVE(_center, UIApplicationWillEnterForegroundNotification, {
-            [self _setTransitionState:KSCrash_ApplicationTransitionStateForegrounding];
+            [weakMe _setTransitionState:KSCrash_ApplicationTransitionStateForegrounding];
         }),
         OBSERVE(_center, UIApplicationDidBecomeActiveNotification, {
-            [self _setTransitionState:KSCrash_ApplicationTransitionStateActive];
+            [weakMe _setTransitionState:KSCrash_ApplicationTransitionStateActive];
         }),
         OBSERVE(_center, UIApplicationWillResignActiveNotification, {
-            [self _setTransitionState:KSCrash_ApplicationTransitionStateDeactivating];
+            [weakMe _setTransitionState:KSCrash_ApplicationTransitionStateDeactivating];
         }),
         OBSERVE(_center, UIApplicationDidEnterBackgroundNotification, {
-            [self _setTransitionState:KSCrash_ApplicationTransitionStateBackground];
+            [weakMe _setTransitionState:KSCrash_ApplicationTransitionStateBackground];
         }),
         OBSERVE(_center, UIApplicationWillTerminateNotification, {
-            [self _setTransitionState:KSCrash_ApplicationTransitionStateTerminating];
+            [weakMe _setTransitionState:KSCrash_ApplicationTransitionStateTerminating];
         }),
     ];
 #endif
@@ -201,6 +205,7 @@ static int64_t kscm_microseconds(void)
         _tracker.delegate = self;
         [_tracker start];
     }
+    return self;
 }
 
 - (void)dealloc
@@ -210,7 +215,7 @@ static int64_t kscm_microseconds(void)
 
 - (KSCrashAppMemory *)memory
 {
-    _tracker.currentAppMemory;
+    return _tracker.currentAppMemory;
 }
 
 - (void)_updateMappedMemoryFrom:(KSCrashAppMemory *)memory
@@ -309,6 +314,7 @@ static NSString *kscm_app_transition_state_to_string(KSCrash_ApplicationTransiti
         case KSCrash_ApplicationTransitionStateDeactivating: return @"deactivating";
         case KSCrash_ApplicationTransitionStateForegrounding: return @"foregrounding";
     }
+    return @"unknown";
 }
 
 static NSURL *kscm_memory_oom_breacrumb_URL() {
@@ -376,7 +382,7 @@ static void kscm_memory_check_for_oom_in_previous_session()
                 };
                 
                 data = [NSJSONSerialization dataWithJSONObject:json options:NSJSONWritingPrettyPrinted error:nil];
-                kscrash_addUserReport((const char *)data.bytes, data.length);
+                kscrash_addUserReport((const char *)data.bytes, (int)data.length);
             }
             free((void *)reportContents);
         }
@@ -477,8 +483,8 @@ static void ksmemory_map(const char* path)
     
     if (write(fd, "", 1) == -1) {
         close(fd);
-        return;
         unlink(path);
+        return;
     }
     
     void *ptr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
@@ -515,8 +521,6 @@ static void ksmemory_write_possible_oom()
     NSURL *reportURL = kscm_memory_oom_breacrumb_URL();
     const char *reportPath = reportURL.path.UTF8String;
     
-    thread_act_array_t threads = NULL;
-    mach_msg_type_number_t numThreads = 0;
     kscm_notifyFatalExceptionCaptured(false);
     
     KSMC_NEW_CONTEXT(machineContext);

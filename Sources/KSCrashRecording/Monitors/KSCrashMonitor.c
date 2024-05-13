@@ -256,9 +256,12 @@ void kscm_handleException(struct KSCrash_MonitorContext* context)
             addContextualInfoToEvent(monitor, context);
         }
     }
-
-    g_onExceptionEvent(context);
-
+    
+    if (g_onExceptionEvent)
+    {
+        g_onExceptionEvent(context);
+    }
+    
     if (context->currentSnapshotUserReported) {
         g_handlingFatalException = false;
     } else {
