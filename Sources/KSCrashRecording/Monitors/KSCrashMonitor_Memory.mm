@@ -102,6 +102,7 @@ static int64_t kscm_microseconds(void)
 + (void)load
 {
     g_AppStateTracker = [[AppStateTracker alloc] initWithNotificationCenter:NSNotificationCenter.defaultCenter];
+    [g_AppStateTracker start];
 }
 
 - (instancetype)initWithNotificationCenter:(NSNotificationCenter *)notificationCenter
