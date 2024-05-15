@@ -1521,24 +1521,33 @@ static inline bool nsarrayIsValid(const void* const arrayPtr)
     return ksmem_copySafely(arrayPtr, &temp, sizeof(temp.basic));
 }
 
+/** 
+ * Get the count of elements in an NSArray.
+ *
+ * @note This function is based on the LLVM code in the NSArray.cpp file:
+ * https://github.com/apple/llvm-project/blob/29180d27e709b76965cc02c338188e37f2df9e7f/lldb/source/Plugins/Language/ObjC/NSArray.cpp#L396-L412
+ */
 static inline int nsarrayCount(const void* const arrayPtr)
 {
-    if (
-        (kCFCoreFoundationVersionNumber > 1437 && strcmp(ksobjc_objectClassName(arrayPtr), "__NSArrayM") == 0) ||
-        (kCFCoreFoundationVersionNumber > 1436 && strcmp(ksobjc_objectClassName(arrayPtr), "__NSFrozenArrayM") == 0)
-        ) // https://github.com/apple/llvm-project/blob/29180d27e709b76965cc02c338188e37f2df9e7f/lldb/source/Plugins/Language/ObjC/NSArray.cpp#L396
+    const char* const className = ksobjc_objectClassName(arrayPtr);
+    bool isMutable = kCFCoreFoundationVersionNumber > 1437 && strcmp(className, "__NSArrayM") == 0;
+    bool isFrozen = kCFCoreFoundationVersionNumber > 1436 && strcmp(className, "__NSFrozenArrayM") == 0;
+
+    if (isMutable || isFrozen)
     {
         typedef struct __attribute__((packed)) {
-            uintptr_t _cow;   // Control word
-            uintptr_t _data;  // Pointer to data
-            uint32_t _offset; // Data offset
-            uint32_t _size;   // Total size of the data
-            uint32_t _muts;   // Mutation count
-            uint32_t _used;   // Number of used entries (this is what we're interested in)
-        } KSDesc;
+            uintptr_t _cow;
+            uintptr_t _data;
+            uint32_t _offset;
+            uint32_t _size;
+            uint32_t _muts;
+            uint32_t _used;
+        } KSNSArrayDescriptor;
 
-        KSDesc descriptor = {0};
-        if (ksmem_copySafely((uintptr_t)arrayPtr + sizeof(uintptr_t), &descriptor, sizeof(KSDesc)))
+        KSNSArrayDescriptor descriptor = {0};
+        if (ksmem_copySafely((const void *)((uintptr_t)arrayPtr + sizeof(uintptr_t)),
+                             &descriptor,
+                             sizeof(KSNSArrayDescriptor)))
         {
             return descriptor._used;
         }
@@ -1546,9 +1555,8 @@ static inline int nsarrayCount(const void* const arrayPtr)
     else
     {
         const struct NSArray* array = arrayPtr;
-        return array->basic.count < 0 ? 0 : (int)array->basic.count;
+        return (array->basic.count >= 0) ? (int)array->basic.count : 0;
     }
-    return 0;
 }
 
 static int nsarrayContents(const void* const arrayPtr, uintptr_t* contents, int count)
