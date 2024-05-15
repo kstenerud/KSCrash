@@ -138,9 +138,6 @@
                   Identifier = "KSObjC_Tests/testArrayDescription">
                </Test>
                <Test
-                  Identifier = "KSObjC_Tests/testCopyArrayContentsMutable">
-               </Test>
-               <Test
                   Identifier = "KSObjC_Tests/testDateDescription">
                </Test>
                <Test
