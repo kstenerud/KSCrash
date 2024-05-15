@@ -1557,6 +1557,7 @@ static inline int nsarrayCount(const void* const arrayPtr)
         const struct NSArray* array = arrayPtr;
         return (array->basic.count >= 0) ? (int)array->basic.count : 0;
     }
+    return 0;
 }
 
 static int nsarrayContents(const void* const arrayPtr, uintptr_t* contents, int count)
