@@ -1523,8 +1523,32 @@ static inline bool nsarrayIsValid(const void* const arrayPtr)
 
 static inline int nsarrayCount(const void* const arrayPtr)
 {
-    const struct NSArray* array = arrayPtr;
-    return array->basic.count < 0 ? 0 : (int)array->basic.count;
+    if (
+        (kCFCoreFoundationVersionNumber > 1437 && strcmp(ksobjc_objectClassName(arrayPtr), "__NSArrayM") == 0) ||
+        (kCFCoreFoundationVersionNumber > 1436 && strcmp(ksobjc_objectClassName(arrayPtr), "__NSFrozenArrayM") == 0)
+        ) // https://github.com/apple/llvm-project/blob/29180d27e709b76965cc02c338188e37f2df9e7f/lldb/source/Plugins/Language/ObjC/NSArray.cpp#L396
+    {
+        typedef struct __attribute__((packed)) {
+            uintptr_t _cow;   // Control word
+            uintptr_t _data;  // Pointer to data
+            uint32_t _offset; // Data offset
+            uint32_t _size;   // Total size of the data
+            uint32_t _muts;   // Mutation count
+            uint32_t _used;   // Number of used entries (this is what we're interested in)
+        } KSDesc;
+
+        KSDesc descriptor = {0};
+        if (ksmem_copySafely((uintptr_t)arrayPtr + sizeof(uintptr_t), &descriptor, sizeof(KSDesc)))
+        {
+            return descriptor._used;
+        }
+    }
+    else
+    {
+        const struct NSArray* array = arrayPtr;
+        return array->basic.count < 0 ? 0 : (int)array->basic.count;
+    }
+    return 0;
 }
 
 static int nsarrayContents(const void* const arrayPtr, uintptr_t* contents, int count)
