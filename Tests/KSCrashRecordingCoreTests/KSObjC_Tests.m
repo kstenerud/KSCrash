@@ -735,7 +735,7 @@ static NSArray* g_test_strings;
 
 - (void) testArrayDescription
 {
-    NSArray* array = [NSArray arrayWithObjects:@"test", nil];
+    NSArray* array = [NSArray arrayWithObjects:@"test", nil]; // __NSSingleObjectArrayI
     void* arrayPtr = (__bridge void*)array;
     NSString* expectedClassName = [NSString stringWithCString:class_getName([array class]) encoding:NSUTF8StringEncoding];
     NSString* expectedTheRest = @"\"test\"";

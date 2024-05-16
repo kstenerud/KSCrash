@@ -135,9 +135,6 @@
                   Identifier = "KSDebug_Tests">
                </Test>
                <Test
-                  Identifier = "KSObjC_Tests/testArrayDescription">
-               </Test>
-               <Test
                   Identifier = "KSObjC_Tests/testDateDescription">
                </Test>
                <Test

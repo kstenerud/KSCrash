@@ -118,22 +118,23 @@ static int taggedStringDescription(const void* object, char* buffer, int bufferL
 
 static ClassData g_classData[] =
 {
-    {"__NSCFString",         KSObjCClassTypeString,  ClassSubtypeNone,             true,  stringIsValid,     stringDescription},
-    {"NSCFString",           KSObjCClassTypeString,  ClassSubtypeNone,             true,  stringIsValid,     stringDescription},
-    {"__NSCFConstantString", KSObjCClassTypeString,  ClassSubtypeNone,             true,  stringIsValid,     stringDescription},
-    {"NSCFConstantString",   KSObjCClassTypeString,  ClassSubtypeNone,             true,  stringIsValid,     stringDescription},
-    {"__NSArray0",           KSObjCClassTypeArray,   ClassSubtypeNSArrayImmutable, false, arrayIsValid,      arrayDescription},
-    {"__NSArrayI",           KSObjCClassTypeArray,   ClassSubtypeNSArrayImmutable, false, arrayIsValid,      arrayDescription},
-    {"__NSArrayM",           KSObjCClassTypeArray,   ClassSubtypeNSArrayMutable,   true,  arrayIsValid,      arrayDescription},
-    {"__NSCFArray",          KSObjCClassTypeArray,   ClassSubtypeCFArray,          false, arrayIsValid,      arrayDescription},
-    {"NSCFArray",            KSObjCClassTypeArray,   ClassSubtypeCFArray,          false, arrayIsValid,      arrayDescription},
-    {"__NSDate",             KSObjCClassTypeDate,    ClassSubtypeNone,             false, dateIsValid,       dateDescription},
-    {"NSDate",               KSObjCClassTypeDate,    ClassSubtypeNone,             false, dateIsValid,       dateDescription},
-    {"__NSCFNumber",         KSObjCClassTypeNumber,  ClassSubtypeNone,             false, numberIsValid,     numberDescription},
-    {"NSCFNumber",           KSObjCClassTypeNumber,  ClassSubtypeNone,             false, numberIsValid,     numberDescription},
-    {"NSNumber",             KSObjCClassTypeNumber,  ClassSubtypeNone,             false, numberIsValid,     numberDescription},
-    {"NSURL",                KSObjCClassTypeURL,     ClassSubtypeNone,             false, urlIsValid,        urlDescription},
-    {NULL,                   KSObjCClassTypeUnknown, ClassSubtypeNone,             false, objectIsValid,     objectDescription},
+    {"__NSCFString",           KSObjCClassTypeString,  ClassSubtypeNone,             true,  stringIsValid,     stringDescription},
+    {"NSCFString",             KSObjCClassTypeString,  ClassSubtypeNone,             true,  stringIsValid,     stringDescription},
+    {"__NSCFConstantString",   KSObjCClassTypeString,  ClassSubtypeNone,             true,  stringIsValid,     stringDescription},
+    {"NSCFConstantString",     KSObjCClassTypeString,  ClassSubtypeNone,             true,  stringIsValid,     stringDescription},
+    {"__NSArray0",             KSObjCClassTypeArray,   ClassSubtypeNSArrayImmutable, false, arrayIsValid,      arrayDescription},
+    {"__NSArrayI",             KSObjCClassTypeArray,   ClassSubtypeNSArrayImmutable, false, arrayIsValid,      arrayDescription},
+    {"__NSArrayM",             KSObjCClassTypeArray,   ClassSubtypeNSArrayMutable,   true,  arrayIsValid,      arrayDescription},
+    {"__NSCFArray",            KSObjCClassTypeArray,   ClassSubtypeCFArray,          false, arrayIsValid,      arrayDescription},
+    {"__NSSingleObjectArrayI", KSObjCClassTypeArray,   ClassSubtypeNSArrayImmutable, false, arrayIsValid,      arrayDescription},
+    {"NSCFArray",              KSObjCClassTypeArray,   ClassSubtypeCFArray,          false, arrayIsValid,      arrayDescription},
+    {"__NSDate",               KSObjCClassTypeDate,    ClassSubtypeNone,             false, dateIsValid,       dateDescription},
+    {"NSDate",                 KSObjCClassTypeDate,    ClassSubtypeNone,             false, dateIsValid,       dateDescription},
+    {"__NSCFNumber",           KSObjCClassTypeNumber,  ClassSubtypeNone,             false, numberIsValid,     numberDescription},
+    {"NSCFNumber",             KSObjCClassTypeNumber,  ClassSubtypeNone,             false, numberIsValid,     numberDescription},
+    {"NSNumber",               KSObjCClassTypeNumber,  ClassSubtypeNone,             false, numberIsValid,     numberDescription},
+    {"NSURL",                  KSObjCClassTypeURL,     ClassSubtypeNone,             false, urlIsValid,        urlDescription},
+    {NULL,                     KSObjCClassTypeUnknown, ClassSubtypeNone,             false, objectIsValid,     objectDescription},
 };
 
 static ClassData g_taggedClassData[] =
@@ -1552,6 +1553,14 @@ static inline int nsarrayCount(const void* const arrayPtr)
             return descriptor._used;
         }
     }
+    else if (strcmp(className, "__NSSingleObjectArrayI") == 0)
+    {
+        return 1;
+    }
+    else if (strcmp(className, "__NSArray0") == 0)
+    {
+        return 0;
+    }
     else
     {
         const struct NSArray* array = arrayPtr;
@@ -1562,8 +1571,8 @@ static inline int nsarrayCount(const void* const arrayPtr)
 
 static int nsarrayContents(const void* const arrayPtr, uintptr_t* contents, int count)
 {
-    const struct NSArray* array = arrayPtr;
     int actualCount = nsarrayCount(arrayPtr);
+    const char* const className = ksobjc_objectClassName(arrayPtr);
 
     if(actualCount < (CFIndex)count)
     {
@@ -1579,7 +1588,25 @@ static int nsarrayContents(const void* const arrayPtr, uintptr_t* contents, int 
         return 0;
     }
     
-    if(!ksmem_copySafely(&array->basic.firstEntry, contents, (int)sizeof(*contents) * count))
+    id entry = NULL;
+
+    if (strcmp(className, "__NSSingleObjectArrayI") == 0)
+    {
+        typedef struct {
+            uintptr_t isa;
+            uintptr_t firstEntry;
+        } KSNSSingleObjectArrayI;
+
+        const KSNSSingleObjectArrayI *arrayI = (const KSNSSingleObjectArrayI *)arrayPtr;
+        entry = (id)arrayI->firstEntry;
+    }
+    else
+    {
+        const struct NSArray* array = arrayPtr;
+        entry = array->basic.firstEntry;
+    }
+    
+    if(!ksmem_copySafely(&entry, contents, (int)sizeof(*contents) * count))
     {
         return 0;
     }
