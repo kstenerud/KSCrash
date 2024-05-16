@@ -1501,7 +1501,7 @@ static int taggedNumberDescription(const void* object, char* buffer, int bufferL
 #pragma mark - NSArray -
 //======================================================================
 
-/*
+/**
  * For old types
  */
 struct NSArray
@@ -1514,8 +1514,25 @@ struct NSArray
     } basic;
 };
 
-/*
- * For new types like __NSSingleObjectArrayI, __NSArrayM, __NSFrozenArrayM
+
+/**
+ * @struct NSArrayDescriptor
+ * @brief Descriptor for new types like `__NSSingleObjectArrayI`, `__NSArrayM`, `__NSFrozenArrayM`.
+ *
+ * This structure is used to describe the internal representation of various mutable and single-object NSArray types.
+ * It is adapted from the LLVM `NSArrayM` descriptor to provide compatibility with different types of arrays,
+ * such as `__NSSingleObjectArrayI`, `__NSArrayM`, and `__NSFrozenArrayM`.
+ *
+ * @details This structure was inspired by the LLVM code found in the NSArray.cpp file:
+ * https://github.com/apple/llvm-project/blob/29180d27e709b76965cc02c338188e37f2df9e7f/lldb/source/Plugins/Language/ObjC/NSArray.cpp#L148-L156
+ * The first two fields, `_cow` (which often represents ISA) and `_data`, are also applicable for cases with `__NSSingleObjectArrayI`.
+ *
+ * Many older versions of Foundation have different layouts and logic for different array types. Therefore, it is crucial
+ * not to use these fields directly without inspecting Apple's code and making additional checks. This structure is used
+ * here because it fits the current needs, but if something else is required (such as implementing mutable array contents),
+ * it may require a different struct.
+ *
+ * @note The `packed` attribute ensures that there is no padding between the fields of the structure.
  */
 typedef struct __attribute__((packed)) {
     uintptr_t _cow;
