@@ -1563,14 +1563,15 @@ static inline int nsarrayCount(const void* const arrayPtr)
 static int nsarrayContents(const void* const arrayPtr, uintptr_t* contents, int count)
 {
     const struct NSArray* array = arrayPtr;
-    
-    if(array->basic.count < (CFIndex)count)
+    int actualCount = nsarrayCount(arrayPtr);
+
+    if(actualCount < (CFIndex)count)
     {
-        if(array->basic.count <= 0)
+        if(actualCount <= 0)
         {
             return 0;
         }
-        count = (int)array->basic.count;
+        count = actualCount;
     }
     // TODO: implement this (requires bit-field unpacking) in ksobj_ivarValue
     if(nsarrayIsMutable(arrayPtr))
@@ -1584,7 +1585,6 @@ static int nsarrayContents(const void* const arrayPtr, uintptr_t* contents, int 
     }
     return count;
 }
-
 
 static inline bool cfarrayIsValid(const void* const arrayPtr)
 {
