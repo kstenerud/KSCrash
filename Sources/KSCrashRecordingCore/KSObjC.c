@@ -1525,16 +1525,18 @@ struct NSArray
  *
  * @details This structure was inspired by the LLVM code found in the NSArray.cpp file:
  * https://github.com/apple/llvm-project/blob/29180d27e709b76965cc02c338188e37f2df9e7f/lldb/source/Plugins/Language/ObjC/NSArray.cpp#L148-L156
- * The first two fields, `_cow` (which often represents ISA) and `_data`, are also applicable for cases with `__NSSingleObjectArrayI`.
+ * The first two fields, `_cow` (which often represents ISA) and `_data`, are also applicable for cases with
+ * `__NSSingleObjectArrayI`.
  *
- * Many older versions of Foundation have different layouts and logic for different array types. Therefore, it is crucial
- * not to use these fields directly without inspecting Apple's code and making additional checks. This structure is used
- * here because it fits the current needs, but if something else is required (such as implementing mutable array contents),
- * it may require a different struct.
+ * Many older versions of Foundation have different layouts and logic for different array types. Therefore, it is
+ * crucial not to use these fields directly without inspecting Apple's code and making additional checks. This structure
+ * is used here because it fits the current needs, but if something else is required (such as implementing mutable array
+ * contents), it may require a different struct.
  *
  * @note The `packed` attribute ensures that there is no padding between the fields of the structure.
  */
-typedef struct __attribute__((packed)) {
+typedef struct __attribute__((packed))
+{
     uintptr_t _cow;
     uintptr_t _data;
     uint32_t _offset;
@@ -1554,7 +1556,7 @@ static inline bool nsarrayIsValid(const void* const arrayPtr)
     return ksmem_copySafely(arrayPtr, &temp, sizeof(temp.basic));
 }
 
-/** 
+/**
  * Get the count of elements in an NSArray.
  *
  * @note This function is based on the LLVM code in the NSArray.cpp file:
@@ -1568,9 +1570,8 @@ static inline int nsarrayCount(const void* const arrayPtr)
 
     if (isMutable || isFrozen)
     {
-        NSArrayDescriptor descriptor = {0};
-        if (ksmem_copySafely((const void *)((uintptr_t)arrayPtr + sizeof(uintptr_t)),
-                             &descriptor,
+        NSArrayDescriptor descriptor = { 0 };
+        if (ksmem_copySafely((const void*)((uintptr_t)arrayPtr + sizeof(uintptr_t)), &descriptor,
                              sizeof(NSArrayDescriptor)))
         {
             return descriptor._used;
@@ -1592,10 +1593,10 @@ static inline int nsarrayCount(const void* const arrayPtr)
     return 0;
 }
 
-static int nsarrayContents(const void *const arrayPtr, uintptr_t *contents, int count)
+static int nsarrayContents(const void* const arrayPtr, uintptr_t* contents, int count)
 {
     int actualCount = nsarrayCount(arrayPtr);
-    const char *const className = ksobjc_objectClassName(arrayPtr);
+    const char* const className = ksobjc_objectClassName(arrayPtr);
 
     if (actualCount < count)
     {
@@ -1611,19 +1612,19 @@ static int nsarrayContents(const void *const arrayPtr, uintptr_t *contents, int 
         return 0;
     }
 
-    const uintptr_t *entry = NULL;
+    const uintptr_t* entry = NULL;
 
     if (strcmp(className, "__NSSingleObjectArrayI") == 0)
     {
-        const NSArrayDescriptor *arrayI = (const NSArrayDescriptor *)arrayPtr;
+        const NSArrayDescriptor* arrayI = (const NSArrayDescriptor*)arrayPtr;
         // Using a temp variable to handle aligment of NSArrayDescriptor
         uintptr_t temp_data = arrayI->_data;
         entry = &temp_data;
     }
     else
     {
-        const struct NSArray *array = (const struct NSArray *)arrayPtr;
-        entry = (const uintptr_t *)&array->basic.firstEntry;
+        const struct NSArray* array = (const struct NSArray*)arrayPtr;
+        entry = (const uintptr_t*)&array->basic.firstEntry;
     }
 
     if (!ksmem_copySafely(entry, contents, sizeof(*contents) * count))
