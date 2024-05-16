@@ -1575,43 +1575,45 @@ static inline int nsarrayCount(const void* const arrayPtr)
     return 0;
 }
 
-static int nsarrayContents(const void* const arrayPtr, uintptr_t* contents, int count)
+static int nsarrayContents(const void *const arrayPtr, uintptr_t *contents, int count)
 {
     int actualCount = nsarrayCount(arrayPtr);
-    const char* const className = ksobjc_objectClassName(arrayPtr);
+    const char *const className = ksobjc_objectClassName(arrayPtr);
 
-    if(actualCount < (CFIndex)count)
+    if (actualCount < count)
     {
-        if(actualCount <= 0)
+        if (actualCount <= 0)
         {
             return 0;
         }
         count = actualCount;
     }
-    // TODO: implement this (requires bit-field unpacking) in ksobj_ivarValue
-    if(nsarrayIsMutable(arrayPtr))
+
+    if (nsarrayIsMutable(arrayPtr))
     {
         return 0;
     }
-    
-    id entry = NULL;
 
-    // https://github.com/apple/llvm-project/blob/29180d27e709b76965cc02c338188e37f2df9e7f/lldb/source/Plugins/Language/ObjC/NSArray.cpp#L772-L787
+    const uintptr_t *entry = NULL;
+
     if (strcmp(className, "__NSSingleObjectArrayI") == 0)
     {
         const NSArrayDescriptor *arrayI = (const NSArrayDescriptor *)arrayPtr;
-        entry = (id)arrayI->_data;
+        // Using a temp variable to handle aligment of NSArrayDescriptor
+        uintptr_t temp_data = arrayI->_data;
+        entry = &temp_data;
     }
     else
     {
-        const struct NSArray* array = arrayPtr;
-        entry = array->basic.firstEntry;
+        const struct NSArray *array = (const struct NSArray *)arrayPtr;
+        entry = (const uintptr_t *)&array->basic.firstEntry;
     }
-    
-    if(!ksmem_copySafely(&entry, contents, (int)sizeof(*contents) * count))
+
+    if (!ksmem_copySafely(entry, contents, sizeof(*contents) * count))
     {
         return 0;
     }
+
     return count;
 }
 
