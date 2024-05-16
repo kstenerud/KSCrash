@@ -1501,6 +1501,9 @@ static int taggedNumberDescription(const void* object, char* buffer, int bufferL
 #pragma mark - NSArray -
 //======================================================================
 
+/*
+ * For old types
+ */
 struct NSArray
 {
     struct
@@ -1510,6 +1513,18 @@ struct NSArray
         id firstEntry;
     } basic;
 };
+
+/*
+ * For new types like __NSSingleObjectArrayI, __NSArrayM, __NSFrozenArrayM
+ */
+typedef struct __attribute__((packed)) {
+    uintptr_t _cow;
+    uintptr_t _data;
+    uint32_t _offset;
+    uint32_t _size;
+    uint32_t _muts;
+    uint32_t _used;
+} NSArrayDescriptor;
 
 static inline bool nsarrayIsMutable(const void* const arrayPtr)
 {
@@ -1536,19 +1551,10 @@ static inline int nsarrayCount(const void* const arrayPtr)
 
     if (isMutable || isFrozen)
     {
-        typedef struct __attribute__((packed)) {
-            uintptr_t _cow;
-            uintptr_t _data;
-            uint32_t _offset;
-            uint32_t _size;
-            uint32_t _muts;
-            uint32_t _used;
-        } KSNSArrayDescriptor;
-
-        KSNSArrayDescriptor descriptor = {0};
+        NSArrayDescriptor descriptor = {0};
         if (ksmem_copySafely((const void *)((uintptr_t)arrayPtr + sizeof(uintptr_t)),
                              &descriptor,
-                             sizeof(KSNSArrayDescriptor)))
+                             sizeof(NSArrayDescriptor)))
         {
             return descriptor._used;
         }
@@ -1590,15 +1596,11 @@ static int nsarrayContents(const void* const arrayPtr, uintptr_t* contents, int 
     
     id entry = NULL;
 
+    // https://github.com/apple/llvm-project/blob/29180d27e709b76965cc02c338188e37f2df9e7f/lldb/source/Plugins/Language/ObjC/NSArray.cpp#L772-L787
     if (strcmp(className, "__NSSingleObjectArrayI") == 0)
     {
-        typedef struct {
-            uintptr_t isa;
-            uintptr_t firstEntry;
-        } KSNSSingleObjectArrayI;
-
-        const KSNSSingleObjectArrayI *arrayI = (const KSNSSingleObjectArrayI *)arrayPtr;
-        entry = (id)arrayI->firstEntry;
+        const NSArrayDescriptor *arrayI = (const NSArrayDescriptor *)arrayPtr;
+        entry = (id)arrayI->_data;
     }
     else
     {

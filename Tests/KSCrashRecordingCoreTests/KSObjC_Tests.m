@@ -761,7 +761,7 @@ static NSArray* g_test_strings;
 
 - (void) testCopyArrayContentsImmutable
 {
-    NSArray* array = [NSArray arrayWithObjects:@"1", @"2", @"3", @"4", nil];
+    NSArray* array = [NSArray arrayWithObjects:@"1", @"2", @"3", @"4", nil]; // __NSArrayI
     void* arrayPtr = (__bridge void*)array;
     int expectedCount = (int)array.count;
     int count = ksobjc_arrayCount(arrayPtr);
