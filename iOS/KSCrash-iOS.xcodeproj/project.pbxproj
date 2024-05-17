@@ -764,6 +764,8 @@
 		EDF2BF191CCF15AD004BADF4 /* KSCrashMonitor_Zombie.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D8717EB765C0056DA83 /* KSCrashMonitor_Zombie.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		EDF2BF1A1CCF15AD004BADF4 /* KSCrashMonitor_MachException.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D5317EB765C0056DA83 /* KSCrashMonitor_MachException.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		EDF2BF1B1CCF15AD004BADF4 /* KSSysCtl.h in Headers */ = {isa = PBXBuildFile; fileRef = CBF53D8217EB765C0056DA83 /* KSSysCtl.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		FAAE9FAB2BEAAD3B003E2C83 /* KSCrashDoctor_Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = FAAE9FAA2BEAAD3B003E2C83 /* KSCrashDoctor_Tests.m */; };
+		FAAE9FAD2BEAB0B0003E2C83 /* sigterm.json in Resources */ = {isa = PBXBuildFile; fileRef = FAAE9FAC2BEAB0B0003E2C83 /* sigterm.json */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1146,6 +1148,8 @@
 		DCA19E2E18817BA200DCA792 /* KSCrashReportFilterSets.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KSCrashReportFilterSets.h; path = ../../Source/KSCrash/Reporting/Filters/KSCrashReportFilterSets.h; sourceTree = "<group>"; };
 		EDF2BF211CCF15AD004BADF4 /* KSCrash.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = KSCrash.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		EDF2BF281CCF1A27004BADF4 /* KSCrash_static-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "KSCrash_static-Info.plist"; sourceTree = "<group>"; };
+		FAAE9FAA2BEAAD3B003E2C83 /* KSCrashDoctor_Tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KSCrashDoctor_Tests.m; path = "../../Source/KSCrash-Tests/KSCrashDoctor_Tests.m"; sourceTree = "<group>"; };
+		FAAE9FAC2BEAB0B0003E2C83 /* sigterm.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; name = sigterm.json; path = ../../tests/sigterm.json; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1262,6 +1266,7 @@
 				CB02648417FA5B12003E0AED /* FileBasedTestCase.h */,
 				CB02648517FA5B12003E0AED /* FileBasedTestCase.m */,
 				CB25A5CB1DF2292F00EC2B02 /* KSCPU_Tests.m */,
+				FAAE9FAA2BEAAD3B003E2C83 /* KSCrashDoctor_Tests.m */,
 				CBA8A0CB1E2579FE0019B5B9 /* KSCrashCachedData_Tests.m */,
 				CB02648617FA5B12003E0AED /* KSCrashInstallationEmail_Tests.m */,
 				CB02648717FA5B12003E0AED /* KSCrashInstallationQuincyHockey_Tests.m */,
@@ -1310,6 +1315,7 @@
 		CB6D131517EB743A00BC2C04 /* Supporting Files */ = {
 			isa = PBXGroup;
 			children = (
+				FAAE9FAC2BEAB0B0003E2C83 /* sigterm.json */,
 				CB0C19C71DD143A6005B2F80 /* processed.json */,
 				CB0C19C81DD143A6005B2F80 /* raw.json */,
 				CB6D131617EB743A00BC2C04 /* KSCrashTests-Info.plist */,
@@ -2092,6 +2098,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				CB0C19C91DD143A6005B2F80 /* processed.json in Resources */,
+				FAAE9FAD2BEAB0B0003E2C83 /* sigterm.json in Resources */,
 				CB0264BA17FA5B13003E0AED /* KSCrashTests-Info.plist in Resources */,
 				CB0C19CA1DD143A6005B2F80 /* raw.json in Resources */,
 				CB6D134917EB758A00BC2C04 /* InfoPlist.strings in Resources */,
@@ -2354,6 +2361,7 @@
 				CB0264B317FA5B13003E0AED /* KSCrashReportFilterJSON_Tests.m in Sources */,
 				CB0264B117FA5B13003E0AED /* KSCrashReportFilterAlert_Tests.m in Sources */,
 				CB25A5CC1DF2292F00EC2B02 /* KSCPU_Tests.m in Sources */,
+				FAAE9FAB2BEAAD3B003E2C83 /* KSCrashDoctor_Tests.m in Sources */,
 				CB0264C917FA5B13003E0AED /* NSError+SimpleConstructor_Tests.m in Sources */,
 				CB0264C717FA5B13003E0AED /* NSData+Gzip_Tests.m in Sources */,
 				CB0264AF17FA5B13003E0AED /* KSCrashReportConverter_Tests.m in Sources */,
