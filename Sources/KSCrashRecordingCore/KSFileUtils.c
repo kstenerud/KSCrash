@@ -475,14 +475,17 @@ void ksfu_closeBufferedWriter(KSBufferedWriter* writer)
 
 bool ksfu_writeBufferedWriter(KSBufferedWriter* writer, const char* restrict const data, const int length)
 {
-    if(length > writer->bufferLength - writer->position)
-    {
-        ksfu_flushBufferedWriter(writer);
-    }
     if(length > writer->bufferLength)
     {
         return ksfu_writeBytesToFD(writer->fd, data, length);
     }
+    if(length > writer->bufferLength - writer->position)
+    {
+      if (!ksfu_flushBufferedWriter(writer)) {
+          return false;
+      }
+    }
+
     memcpy(writer->buffer + writer->position, data, length);
     writer->position += length;
     return true;
