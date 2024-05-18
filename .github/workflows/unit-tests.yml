@@ -63,9 +63,11 @@ jobs:
 
       - name: Install Simulator
         if: ${{ matrix.runtime }}
-        shell: bash
-        timeout-minutes: 30
-        run: sudo xcodes runtimes install --keep-archive '${{ matrix.platform }} ${{ matrix.runtime }}'
+        uses: nick-fields/retry@v2
+        with:
+          timeout_minutes: 20
+          max_attempts: 3
+          command: sudo xcodes runtimes install --keep-archive '${{ matrix.platform }} ${{ matrix.runtime }}'
 
       - name: Run Unit Tests
         uses: bamx23/xcodebuild@os-version
