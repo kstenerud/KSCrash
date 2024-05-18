@@ -135,10 +135,13 @@
                   Identifier = "KSDebug_Tests">
                </Test>
                <Test
-                  Identifier = "KSObjC_Tests/testArrayDescription">
+                  Identifier = "KSObjC_Tests/testDateDescription">
                </Test>
                <Test
-                  Identifier = "KSObjC_Tests/testCopyArrayContentsMutable">
+                  Identifier = "KSObjC_Tests/testDateIsValid">
+               </Test>
+               <Test
+                  Identifier = "KSObjC_Tests/testGetDateContents">
                </Test>
                <Test
                   Identifier = "KSObjC_Tests/testDateDescription">

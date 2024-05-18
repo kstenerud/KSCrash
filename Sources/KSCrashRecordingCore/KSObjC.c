@@ -118,22 +118,23 @@ static int taggedStringDescription(const void* object, char* buffer, int bufferL
 
 static ClassData g_classData[] =
 {
-    {"__NSCFString",         KSObjCClassTypeString,  ClassSubtypeNone,             true,  stringIsValid,     stringDescription},
-    {"NSCFString",           KSObjCClassTypeString,  ClassSubtypeNone,             true,  stringIsValid,     stringDescription},
-    {"__NSCFConstantString", KSObjCClassTypeString,  ClassSubtypeNone,             true,  stringIsValid,     stringDescription},
-    {"NSCFConstantString",   KSObjCClassTypeString,  ClassSubtypeNone,             true,  stringIsValid,     stringDescription},
-    {"__NSArray0",           KSObjCClassTypeArray,   ClassSubtypeNSArrayImmutable, false, arrayIsValid,      arrayDescription},
-    {"__NSArrayI",           KSObjCClassTypeArray,   ClassSubtypeNSArrayImmutable, false, arrayIsValid,      arrayDescription},
-    {"__NSArrayM",           KSObjCClassTypeArray,   ClassSubtypeNSArrayMutable,   true,  arrayIsValid,      arrayDescription},
-    {"__NSCFArray",          KSObjCClassTypeArray,   ClassSubtypeCFArray,          false, arrayIsValid,      arrayDescription},
-    {"NSCFArray",            KSObjCClassTypeArray,   ClassSubtypeCFArray,          false, arrayIsValid,      arrayDescription},
-    {"__NSDate",             KSObjCClassTypeDate,    ClassSubtypeNone,             false, dateIsValid,       dateDescription},
-    {"NSDate",               KSObjCClassTypeDate,    ClassSubtypeNone,             false, dateIsValid,       dateDescription},
-    {"__NSCFNumber",         KSObjCClassTypeNumber,  ClassSubtypeNone,             false, numberIsValid,     numberDescription},
-    {"NSCFNumber",           KSObjCClassTypeNumber,  ClassSubtypeNone,             false, numberIsValid,     numberDescription},
-    {"NSNumber",             KSObjCClassTypeNumber,  ClassSubtypeNone,             false, numberIsValid,     numberDescription},
-    {"NSURL",                KSObjCClassTypeURL,     ClassSubtypeNone,             false, urlIsValid,        urlDescription},
-    {NULL,                   KSObjCClassTypeUnknown, ClassSubtypeNone,             false, objectIsValid,     objectDescription},
+    {"__NSCFString",           KSObjCClassTypeString,  ClassSubtypeNone,             true,  stringIsValid,     stringDescription},
+    {"NSCFString",             KSObjCClassTypeString,  ClassSubtypeNone,             true,  stringIsValid,     stringDescription},
+    {"__NSCFConstantString",   KSObjCClassTypeString,  ClassSubtypeNone,             true,  stringIsValid,     stringDescription},
+    {"NSCFConstantString",     KSObjCClassTypeString,  ClassSubtypeNone,             true,  stringIsValid,     stringDescription},
+    {"__NSArray0",             KSObjCClassTypeArray,   ClassSubtypeNSArrayImmutable, false, arrayIsValid,      arrayDescription},
+    {"__NSArrayI",             KSObjCClassTypeArray,   ClassSubtypeNSArrayImmutable, false, arrayIsValid,      arrayDescription},
+    {"__NSArrayM",             KSObjCClassTypeArray,   ClassSubtypeNSArrayMutable,   true,  arrayIsValid,      arrayDescription},
+    {"__NSCFArray",            KSObjCClassTypeArray,   ClassSubtypeCFArray,          false, arrayIsValid,      arrayDescription},
+    {"__NSSingleObjectArrayI", KSObjCClassTypeArray,   ClassSubtypeNSArrayImmutable, false, arrayIsValid,      arrayDescription},
+    {"NSCFArray",              KSObjCClassTypeArray,   ClassSubtypeCFArray,          false, arrayIsValid,      arrayDescription},
+    {"__NSDate",               KSObjCClassTypeDate,    ClassSubtypeNone,             false, dateIsValid,       dateDescription},
+    {"NSDate",                 KSObjCClassTypeDate,    ClassSubtypeNone,             false, dateIsValid,       dateDescription},
+    {"__NSCFNumber",           KSObjCClassTypeNumber,  ClassSubtypeNone,             false, numberIsValid,     numberDescription},
+    {"NSCFNumber",             KSObjCClassTypeNumber,  ClassSubtypeNone,             false, numberIsValid,     numberDescription},
+    {"NSNumber",               KSObjCClassTypeNumber,  ClassSubtypeNone,             false, numberIsValid,     numberDescription},
+    {"NSURL",                  KSObjCClassTypeURL,     ClassSubtypeNone,             false, urlIsValid,        urlDescription},
+    {NULL,                     KSObjCClassTypeUnknown, ClassSubtypeNone,             false, objectIsValid,     objectDescription},
 };
 
 static ClassData g_taggedClassData[] =
@@ -1500,6 +1501,9 @@ static int taggedNumberDescription(const void* object, char* buffer, int bufferL
 #pragma mark - NSArray -
 //======================================================================
 
+/**
+ * For old types
+ */
 struct NSArray
 {
     struct
@@ -1509,6 +1513,37 @@ struct NSArray
         id firstEntry;
     } basic;
 };
+
+
+/**
+ * @struct NSArrayDescriptor
+ * @brief Descriptor for new types like `__NSSingleObjectArrayI`, `__NSArrayM`, `__NSFrozenArrayM`.
+ *
+ * This structure is used to describe the internal representation of various mutable and single-object NSArray types.
+ * It is adapted from the LLVM `NSArrayM` descriptor to provide compatibility with different types of arrays,
+ * such as `__NSSingleObjectArrayI`, `__NSArrayM`, and `__NSFrozenArrayM`.
+ *
+ * @details This structure was inspired by the LLVM code found in the NSArray.cpp file:
+ * https://github.com/apple/llvm-project/blob/29180d27e709b76965cc02c338188e37f2df9e7f/lldb/source/Plugins/Language/ObjC/NSArray.cpp#L148-L156
+ * The first two fields, `_cow` (which often represents ISA) and `_data`, are also applicable for cases with
+ * `__NSSingleObjectArrayI`.
+ *
+ * Many older versions of Foundation have different layouts and logic for different array types. Therefore, it is
+ * crucial not to use these fields directly without inspecting Apple's code and making additional checks. This structure
+ * is used here because it fits the current needs, but if something else is required (such as implementing mutable array
+ * contents), it may require a different struct.
+ *
+ * @note The `packed` attribute ensures that there is no padding between the fields of the structure.
+ */
+typedef struct __attribute__((packed))
+{
+    uintptr_t _cow;
+    uintptr_t _data;
+    uint32_t _offset;
+    uint32_t _size;
+    uint32_t _muts;
+    uint32_t _used;
+} NSArrayDescriptor;
 
 static inline bool nsarrayIsMutable(const void* const arrayPtr)
 {
@@ -1521,37 +1556,84 @@ static inline bool nsarrayIsValid(const void* const arrayPtr)
     return ksmem_copySafely(arrayPtr, &temp, sizeof(temp.basic));
 }
 
+/**
+ * Get the count of elements in an NSArray.
+ *
+ * @note This function is based on the LLVM code in the NSArray.cpp file:
+ * https://github.com/apple/llvm-project/blob/29180d27e709b76965cc02c338188e37f2df9e7f/lldb/source/Plugins/Language/ObjC/NSArray.cpp#L396-L412
+ */
 static inline int nsarrayCount(const void* const arrayPtr)
 {
-    const struct NSArray* array = arrayPtr;
-    return array->basic.count < 0 ? 0 : (int)array->basic.count;
+    const char* const className = ksobjc_objectClassName(arrayPtr);
+    bool isMutable = kCFCoreFoundationVersionNumber > 1437 && strcmp(className, "__NSArrayM") == 0;
+    bool isFrozen = kCFCoreFoundationVersionNumber > 1436 && strcmp(className, "__NSFrozenArrayM") == 0;
+
+    if (isMutable || isFrozen)
+    {
+        NSArrayDescriptor descriptor = { 0 };
+        if (ksmem_copySafely((const void*)((uintptr_t)arrayPtr + sizeof(uintptr_t)), &descriptor,
+                             sizeof(NSArrayDescriptor)))
+        {
+            return descriptor._used;
+        }
+    }
+    else if (strcmp(className, "__NSSingleObjectArrayI") == 0)
+    {
+        return 1;
+    }
+    else if (strcmp(className, "__NSArray0") == 0)
+    {
+        return 0;
+    }
+    else
+    {
+        const struct NSArray* array = arrayPtr;
+        return (array->basic.count >= 0) ? (int)array->basic.count : 0;
+    }
+    return 0;
 }
 
 static int nsarrayContents(const void* const arrayPtr, uintptr_t* contents, int count)
 {
-    const struct NSArray* array = arrayPtr;
-    
-    if(array->basic.count < (CFIndex)count)
+    int actualCount = nsarrayCount(arrayPtr);
+    const char* const className = ksobjc_objectClassName(arrayPtr);
+
+    if (actualCount < count)
     {
-        if(array->basic.count <= 0)
+        if (actualCount <= 0)
         {
             return 0;
         }
-        count = (int)array->basic.count;
+        count = actualCount;
     }
-    // TODO: implement this (requires bit-field unpacking) in ksobj_ivarValue
-    if(nsarrayIsMutable(arrayPtr))
+
+    if (nsarrayIsMutable(arrayPtr))
     {
         return 0;
     }
-    
-    if(!ksmem_copySafely(&array->basic.firstEntry, contents, (int)sizeof(*contents) * count))
+
+    const uintptr_t* entry = NULL;
+
+    if (strcmp(className, "__NSSingleObjectArrayI") == 0)
+    {
+        const NSArrayDescriptor* arrayI = (const NSArrayDescriptor*)arrayPtr;
+        // Using a temp variable to handle aligment of NSArrayDescriptor
+        uintptr_t temp_data = arrayI->_data;
+        entry = &temp_data;
+    }
+    else
+    {
+        const struct NSArray* array = (const struct NSArray*)arrayPtr;
+        entry = (const uintptr_t*)&array->basic.firstEntry;
+    }
+
+    if (!ksmem_copySafely(entry, contents, sizeof(*contents) * count))
     {
         return 0;
     }
+
     return count;
 }
-
 
 static inline bool cfarrayIsValid(const void* const arrayPtr)
 {

@@ -735,7 +735,7 @@ static NSArray* g_test_strings;
 
 - (void) testArrayDescription
 {
-    NSArray* array = [NSArray arrayWithObjects:@"test", nil];
+    NSArray* array = [NSArray arrayWithObjects:@"test", nil]; // __NSSingleObjectArrayI
     void* arrayPtr = (__bridge void*)array;
     NSString* expectedClassName = [NSString stringWithCString:class_getName([array class]) encoding:NSUTF8StringEncoding];
     NSString* expectedTheRest = @"\"test\"";
@@ -761,7 +761,7 @@ static NSArray* g_test_strings;
 
 - (void) testCopyArrayContentsImmutable
 {
-    NSArray* array = [NSArray arrayWithObjects:@"1", @"2", @"3", @"4", nil];
+    NSArray* array = [NSArray arrayWithObjects:@"1", @"2", @"3", @"4", nil]; // __NSArrayI
     void* arrayPtr = (__bridge void*)array;
     int expectedCount = (int)array.count;
     int count = ksobjc_arrayCount(arrayPtr);
@@ -792,7 +792,7 @@ static NSArray* g_test_strings;
 
 - (void) testCopyArrayContentsMutable
 {
-    NSMutableArray* array = [NSMutableArray arrayWithObjects:@"1", @"2", @"3", @"4", nil];
+    NSMutableArray* array = [NSMutableArray arrayWithObjects:@"1", @"2", @"3", @"4", nil]; // __NSArrayM
     void* arrayPtr = (__bridge void*)array;
     int expectedCount = (int)array.count;
     int count = ksobjc_arrayCount(arrayPtr);
@@ -800,6 +800,23 @@ static NSArray* g_test_strings;
     uintptr_t contents[10];
     int copied = ksobjc_arrayContents(arrayPtr, contents, sizeof(contents));
     int expectedCopied = 0;
+    XCTAssertEqual(copied, expectedCopied, @"");
+}
+
+- (void) testCopyArrayContentsCopyOfMutable
+{
+    NSMutableArray *array = [NSMutableArray array];
+    int size = 100;
+    for (NSUInteger i = 0; i < size; i++) { [array addObject:@(i)]; }
+
+    NSArray *copy = array.copy; // __NSFrozenArrayM
+    void* arrayPtr = (__bridge void*)copy;
+    int expectedCount = (int)array.count;
+    int count = ksobjc_arrayCount(arrayPtr);
+    XCTAssertEqual(count, expectedCount, @"");
+    uintptr_t contents[size + 10];
+    int copied = ksobjc_arrayContents(arrayPtr, contents, (int)sizeof(contents));
+    int expectedCopied = size;
     XCTAssertEqual(copied, expectedCopied, @"");
 }
 
