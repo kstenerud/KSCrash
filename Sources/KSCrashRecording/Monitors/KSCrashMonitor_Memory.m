@@ -122,22 +122,56 @@ static AppStateTracker *g_AppStateTracker = nil;
 #pragma mark - App State Tracking -
 // ============================================================================
 
+/**
+ AppStateTracker
+ 
+ This system tracks the app state, but also gives insight into the transitions
+ from launch to termination. One reason why this is useful is that when a user
+ brings a running process to the foreground, it goes through an animation from
+ background to foreground that is not accounted for in UIApplicationState but
+ is still visible to users. If the app crashes or is temrinated during that time, the
+ application state is `UIApplicationStateBackground` which is usually not
+ accounted for in crash systems. This newer method with transitions included in
+ the state is much more complete and allows products to be much more reliable
+ and handle areas of the app that are very important to users but rarely handled
+ by apps.
+ 
+ We'll keep it private for now until it is integrated with `KSCrashMonitor_AppState`.
+ */
 @protocol AppStateTrackerObserving <NSObject>
 - (void)appStateTrackerDidChangeApplicationTransitionState:(KSCrash_ApplicationTransitionState)transitionState;
 @end
 
 typedef void (^AppStateTrackerBlockObserverBlock)(KSCrash_ApplicationTransitionState transitionState);
 @interface AppStateTrackerBlockObserver : NSObject <AppStateTrackerObserving>
+
 @property (nonatomic, copy) AppStateTrackerBlockObserverBlock block;
+@property (nonatomic, weak) id<AppStateTrackerObserving> object;
+
+- (BOOL)shouldReap;
+
 @end
+
 @implementation AppStateTrackerBlockObserver
+
 - (void)appStateTrackerDidChangeApplicationTransitionState:(KSCrash_ApplicationTransitionState)transitionState
 {
     AppStateTrackerBlockObserverBlock block = self.block;
     if (block) {
         block(transitionState);
     }
+    
+    id<AppStateTrackerObserving> object = self.object;
+    if (object) {
+        [object appStateTrackerDidChangeApplicationTransitionState:transitionState];
+    }
 }
+
+- (BOOL)shouldReap
+{
+    return self.block == nil && self.object == nil;
+}
+
 @end
 
 @interface AppStateTracker : NSObject {
@@ -166,10 +200,12 @@ typedef void (^AppStateTrackerBlockObserverBlock)(KSCrash_ApplicationTransitionS
 
 @implementation AppStateTracker
 
+static id<AppStateTrackerObserving> S_OBS = nil;
+
 + (void)load
 {
     g_AppStateTracker = [[AppStateTracker alloc] initWithNotificationCenter:NSNotificationCenter.defaultCenter];
-    [g_AppStateTracker addObserverWithBlock:^(KSCrash_ApplicationTransitionState transitionState) {
+    S_OBS = [g_AppStateTracker addObserverWithBlock:^(KSCrash_ApplicationTransitionState transitionState) {
         _ks_memory_update(^(KSCrash_Memory *mem) {
             mem->state = transitionState;
         });
@@ -196,25 +232,67 @@ typedef void (^AppStateTrackerBlockObserverBlock)(KSCrash_ApplicationTransitionS
     [self stop];
 }
 
-- (void)addObserver:(id<AppStateTrackerObserving>)observer
+// Observers are either an object passed in that
+// implements `AppStateTrackerObserving` or a block.
+// Both will be wrapped in a `AppStateTrackerBlockObserver`.
+// if a block, then it'll simply call the block.
+// If the object, we'll keep a weak reference to it.
+// Objects will be reaped when their block and their object
+// is nil.
+// We'll reap on add and removal or any type of observer.
+- (void)_locked_reapObserversOrObject:(id)object
+{
+    NSMutableArray *toRemove = [NSMutableArray array];
+    for (AppStateTrackerBlockObserver *obj in _observers) {
+        if ((obj.object != nil && obj.object == object) || [obj shouldReap]) {
+            [toRemove addObject:obj];
+            obj.object = nil;
+            obj.block = nil;
+        }
+    }
+    [_observers removeObjectsInArray:toRemove];
+}
+
+- (void)_addObserver:(AppStateTrackerBlockObserver *)observer
 {
     os_unfair_lock_lock(&_lock);
     [_observers addObject:observer];
+    [self _locked_reapObserversOrObject:nil];
     os_unfair_lock_unlock(&_lock);
+}
+
+- (void)addObserver:(id<AppStateTrackerObserving>)observer
+{
+    AppStateTrackerBlockObserver *obs = [[AppStateTrackerBlockObserver alloc] init];
+    obs.object = observer;
+    [self _addObserver:obs];
 }
 
 - (id<AppStateTrackerObserving>)addObserverWithBlock:(AppStateTrackerBlockObserverBlock)block
 {
     AppStateTrackerBlockObserver *obs = [[AppStateTrackerBlockObserver alloc] init];
     obs.block = [block copy];
-    [self addObserver:obs];
+    [self _addObserver:obs];
     return obs;
 }
 
 - (void)removeObserver:(id<AppStateTrackerObserving>)observer
 {
     os_unfair_lock_lock(&_lock);
-    [_observers removeObject:observer];
+    
+    // Observers added with a block
+    if ([observer isKindOfClass:AppStateTrackerBlockObserver.class]) {
+        AppStateTrackerBlockObserver *obs = (AppStateTrackerBlockObserver *)observer;
+        obs.block = nil;
+        obs.object = nil;
+        [self _locked_reapObserversOrObject:nil];
+    }
+    
+    // observers added with an object
+    else {
+        [self _locked_reapObserversOrObject:observer];
+    }
+    
     os_unfair_lock_unlock(&_lock);
 }
 
