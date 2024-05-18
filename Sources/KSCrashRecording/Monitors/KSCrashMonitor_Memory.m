@@ -685,7 +685,7 @@ void ksmemory_initialize(const char* installPath)
     ksmemory_map(path);
 }
 
-bool ksmemory_previous_session_was_terminated_due_to_memory(BOOL *userPerceptible)
+bool ksmemory_previous_session_was_terminated_due_to_memory(bool *userPerceptible)
 {
     // We might care if the user might have seen the OOM
     if (userPerceptible) {
