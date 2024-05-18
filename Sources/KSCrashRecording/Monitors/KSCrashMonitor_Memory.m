@@ -60,9 +60,34 @@ static NSURL *g_installURL = nil;
 @class MemoryTracker;
 static MemoryTracker *g_memoryTracker = nil;
 
-// file mapped memory
-static os_unfair_lock g_lock = OS_UNFAIR_LOCK_INIT;
+// file mapped memory.
+// Never touch `g_memory` directly,
+// always call `_ks_memory_update`.
+// ex:
+// _ks_memory_update(^(KSCrash_Memory *mem){
+//      mem->x = ...
+//  });
+static os_unfair_lock g_memoryLock = OS_UNFAIR_LOCK_INIT;
 static KSCrash_Memory *g_memory = NULL;
+
+static KSCrash_Memory _ks_memory_copy(void) {
+    KSCrash_Memory copy;
+    {
+        os_unfair_lock_lock(&g_memoryLock);
+        copy = *g_memory;
+        os_unfair_lock_unlock(&g_memoryLock);
+    }
+    return copy;
+}
+
+static void _ks_memory_update(void (^block)(KSCrash_Memory *mem)) {
+    if (!block) {
+        return;
+    }
+    os_unfair_lock_lock(&g_memoryLock);
+    block(g_memory);
+    os_unfair_lock_unlock(&g_memoryLock);
+}
 
 // last memory write from the previous session
 static KSCrash_Memory g_previousSessionMemory;
@@ -130,11 +155,9 @@ typedef void (^AppStateTrackerBlockObserverBlock)(KSCrash_ApplicationTransitionS
 
 + (void)appStateTrackerDidChangeApplicationTransitionState:(KSCrash_ApplicationTransitionState)transitionState
 {
-    os_unfair_lock_lock(&g_lock);
-    if (g_memory) {
-        g_memory->state = transitionState;
-    }
-    os_unfair_lock_unlock(&g_lock);
+    _ks_memory_update(^(KSCrash_Memory *mem) {
+        mem->state = transitionState;
+    });
 }
 
 - (instancetype)initWithNotificationCenter:(NSNotificationCenter *)notificationCenter
@@ -288,9 +311,8 @@ typedef void (^AppStateTrackerBlockObserverBlock)(KSCrash_ApplicationTransitionS
 
 - (void)_updateMappedMemoryFrom:(KSCrashAppMemory *)memory
 {
-    os_unfair_lock_lock(&g_lock);
-    if (g_memory) {
-        *g_memory = (KSCrash_Memory){
+    _ks_memory_update(^(KSCrash_Memory *mem) {
+        *mem = (KSCrash_Memory){
             .footprint = memory.footprint,
             .remaining = memory.remaining,
             .limit = memory.limit,
@@ -299,8 +321,7 @@ typedef void (^AppStateTrackerBlockObserverBlock)(KSCrash_ApplicationTransitionS
             .timestamp = kscm_microseconds(),
             .state = g_AppStateTracker.transitionState,
         };
-    }
-    os_unfair_lock_unlock(&g_lock);
+    });
 }
 
 - (void)appMemoryTracker:(KSCrashAppMemoryTracker *)tracker memory:(KSCrashAppMemory *)memory changed:(KSCrashAppMemoryTrackerChangeType)changes
@@ -395,15 +416,8 @@ static void addContextualInfoToEvent(KSCrash_MonitorContext* eventContext)
         // Not sure if I can lock here or not, we might be in an async only state.
         // Chances are we don't really need to anyway.
         // In any case, make a copy of the data so we don't keep the lock for long.
-        KSCrash_Memory memCopy = {0};
-        {
-            os_unfair_lock_lock(&g_lock);
-            if (g_memory) {
-                memCopy = *g_memory;
-            }
-            os_unfair_lock_unlock(&g_lock);
-        }
-        
+        KSCrash_Memory memCopy = _ks_memory_copy();
+
         // Not async safe.
         eventContext->AppMemory.footprint = memCopy.footprint;
         // `.UTF8String` here is ok because the implementation uses constants,
@@ -567,15 +581,17 @@ static void ksmemory_map(const char* path)
         g_memory = (KSCrash_Memory *)ptr;
         
         KSCrashAppMemory *memory = g_memoryTracker.memory;
-        *g_memory = (KSCrash_Memory){
-            .footprint = memory.footprint,
-            .remaining = memory.remaining,
-            .pressure = (uint8_t)memory.pressure,
-            .level = (uint8_t)memory.level,
-            .limit = memory.limit,
-            .timestamp = kscm_microseconds(),
-            .state = g_AppStateTracker.transitionState,
-        };
+        _ks_memory_update(^(KSCrash_Memory *mem) {
+            *mem = (KSCrash_Memory){
+                .footprint = memory.footprint,
+                .remaining = memory.remaining,
+                .pressure = (uint8_t)memory.pressure,
+                .level = (uint8_t)memory.level,
+                .limit = memory.limit,
+                .timestamp = kscm_microseconds(),
+                .state = g_AppStateTracker.transitionState,
+            };
+        });
     }
     
     close(fd);
