@@ -34,9 +34,9 @@
 #import "KSStackCursor_SelfThread.h"
 #import "KSStackCursor_MachineContext.h"
 #import "KSCrashReportFields.h"
+#import "KSDate.h"
 
 #import <Foundation/Foundation.h>
-#import <sys/time.h>
 #import <sys/mman.h>
 #import <os/lock.h>
 
@@ -99,15 +99,6 @@ static AppStateTracker *g_AppStateTracker = nil;
 // ============================================================================
 #pragma mark - App State Tracking -
 // ============================================================================
-
-static int64_t kscm_microseconds(void)
-{
-    struct timeval tp;
-    gettimeofday(&tp, NULL);
-    int64_t microseconds = ((int64_t)tp.tv_sec) * 1000000 + tp.tv_usec;
-    return microseconds;
-}
-
 
 @protocol AppStateTrackerObserving <NSObject>
 - (void)appStateTrackerDidChangeApplicationTransitionState:(KSCrash_ApplicationTransitionState)transitionState;
@@ -318,7 +309,7 @@ typedef void (^AppStateTrackerBlockObserverBlock)(KSCrash_ApplicationTransitionS
             .limit = memory.limit,
             .pressure = (uint8_t)memory.pressure,
             .level = (uint8_t)memory.level,
-            .timestamp = kscm_microseconds(),
+            .timestamp = ksdate_microseconds(),
             .state = g_AppStateTracker.transitionState,
         };
     });
@@ -588,7 +579,7 @@ static void ksmemory_map(const char* path)
                 .pressure = (uint8_t)memory.pressure,
                 .level = (uint8_t)memory.level,
                 .limit = memory.limit,
-                .timestamp = kscm_microseconds(),
+                .timestamp = ksdate_microseconds(),
                 .state = g_AppStateTracker.transitionState,
             };
         });

@@ -47,6 +47,11 @@ void ksdate_utcStringFromTimestamp(time_t timestamp, char* buffer21Chars);
  */
 void ksdate_utcStringFromMicroseconds(int64_t microseconds, char* buffer28Chars);
 
+/** Returns microseconds from `gettimeofday`
+ *
+ */
+int64_t ksdate_microseconds(void);
+
 #ifdef __cplusplus
 }
 #endif
