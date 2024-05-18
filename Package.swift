@@ -42,11 +42,11 @@ let package = Package(
       dependencies: [
         .target(name: Targets.recordingCore)
       ],
-      resources: privacyResource,
+      resources: privacyResources,
       cSettings: [.headerSearchPath("Monitors")]
     ),
     .testTarget(
-      name: "\(Targets.recording)Tests",
+      name: Targets.recording.tests,
       dependencies: [
         .target(name: Targets.testTools),
         .target(name: Targets.recording),
@@ -68,10 +68,10 @@ let package = Package(
         .target(name: Targets.recordingCore),
         .target(name: Targets.reportingCore),
       ],
-      resources: privacyResource
+      resources: privacyResources
     ),
     .testTarget(
-      name: "\(Targets.filters)Tests",
+      name: Targets.filters.tests,
       dependencies: [
         .target(name: Targets.filters),
         .target(name: Targets.recording),
@@ -86,7 +86,7 @@ let package = Package(
         .target(name: Targets.recording),
         .target(name: Targets.filters),
       ],
-      resources: privacyResource
+      resources: privacyResources
     ),
 
     .target(
@@ -96,10 +96,10 @@ let package = Package(
         .target(name: Targets.sinks),
         .target(name: Targets.recording),
       ],
-      resources: privacyResource
+      resources: privacyResources
     ),
     .testTarget(
-      name: "\(Targets.installations)Tests",
+      name: Targets.installations.tests,
       dependencies: [
         .target(name: Targets.installations),
         .target(name: Targets.filters),
@@ -113,7 +113,7 @@ let package = Package(
       dependencies: [
         .target(name: Targets.core)
       ],
-      resources: privacyResource,
+      resources: privacyResources,
       cSettings: [
         .headerSearchPath("swift"),
         .headerSearchPath("swift/Basic"),
@@ -124,7 +124,7 @@ let package = Package(
       ]
     ),
     .testTarget(
-      name: "\(Targets.recordingCore)Tests",
+      name: Targets.recordingCore.tests,
       dependencies: [
         .target(name: Targets.testTools),
         .target(name: Targets.recordingCore),
@@ -137,10 +137,10 @@ let package = Package(
       dependencies: [
         .target(name: Targets.core)
       ],
-      resources: privacyResource
+      resources: privacyResources
     ),
     .testTarget(
-      name: "\(Targets.reportingCore)Tests",
+      name: Targets.reportingCore.tests,
       dependencies: [
         .target(name: Targets.reportingCore),
         .target(name: Targets.core),
@@ -149,10 +149,10 @@ let package = Package(
 
     .target(
       name: Targets.core,
-      resources: privacyResource
+      resources: privacyResources
     ),
     .testTarget(
-      name: "\(Targets.core)Tests",
+      name: Targets.core.tests,
       dependencies: [
         .target(name: Targets.core)
       ]
@@ -179,6 +179,12 @@ enum Targets {
   static let testTools = "KSCrashTestTools"
 }
 
-let privacyResource: [Resource] = [
+extension String {
+  var tests: String {
+    return "\(self)Tests"
+  }
+}
+
+let privacyResources: [Resource] = [
   .copy("Resources/PrivacyInfo.xcprivacy")
 ]
