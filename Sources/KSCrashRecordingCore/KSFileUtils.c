@@ -660,7 +660,7 @@ void *ksfu_mmap(const char* path, int size)
         KSLOG_ERROR("Could not write file %s: %s", path, strerror(errno));
         close(fd);
         unlink(path);
-        return;
+        return NULL;
     }
     
     void *ptr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
