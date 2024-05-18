@@ -42,6 +42,9 @@ let package = Package(
       dependencies: [
         "KSCrashRecordingCore"
       ],
+      resources: [
+        .copy("Resources/PrivacyInfo.xcprivacy")
+      ],
       cSettings: [.headerSearchPath("Monitors")]
     ),
     .testTarget(
@@ -52,7 +55,7 @@ let package = Package(
         "KSCrashRecordingCore",
       ],
       resources: [
-        .process("Resources"),
+        .process("Resources")
       ],
       cSettings: [
         .headerSearchPath("../../Sources/KSCrashRecording"),
@@ -66,6 +69,9 @@ let package = Package(
         "KSCrashRecording",
         "KSCrashRecordingCore",
         "KSCrashReportingCore",
+      ],
+      resources: [
+        .copy("Resources/PrivacyInfo.xcprivacy")
       ]
     ),
     .testTarget(
@@ -83,6 +89,9 @@ let package = Package(
       dependencies: [
         "KSCrashRecording",
         "KSCrashFilters",
+      ],
+      resources: [
+        .copy("Resources/PrivacyInfo.xcprivacy")
       ]
     ),
 
@@ -92,6 +101,9 @@ let package = Package(
         "KSCrashFilters",
         "KSCrashSinks",
         "KSCrashRecording",
+      ],
+      resources: [
+        .copy("Resources/PrivacyInfo.xcprivacy")
       ]
     ),
     .testTarget(
@@ -107,6 +119,9 @@ let package = Package(
     .target(
       name: "KSCrashRecordingCore",
       dependencies: ["KSCrashCore"],
+      resources: [
+        .copy("Resources/PrivacyInfo.xcprivacy")
+      ],
       cSettings: [
         .headerSearchPath("swift"),
         .headerSearchPath("swift/Basic"),
@@ -127,7 +142,10 @@ let package = Package(
 
     .target(
       name: "KSCrashReportingCore",
-      dependencies: ["KSCrashCore"]
+      dependencies: ["KSCrashCore"],
+      resources: [
+        .copy("Resources/PrivacyInfo.xcprivacy")
+      ]
     ),
     .testTarget(
       name: "KSCrashReportingCoreTests",
@@ -138,7 +156,10 @@ let package = Package(
     ),
 
     .target(
-      name: "KSCrashCore"
+      name: "KSCrashCore",
+      resources: [
+        .copy("Resources/PrivacyInfo.xcprivacy")
+      ]
     ),
     .testTarget(
       name: "KSCrashCoreTests",
