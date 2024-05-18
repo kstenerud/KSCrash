@@ -14,99 +14,106 @@ let package = Package(
     .library(
       name: "Reporting",
       targets: [
-        "KSCrashFilters",
-        "KSCrashSinks",
-        "KSCrashInstallations",
+        Targets.filters,
+        Targets.sinks,
+        Targets.installations,
       ]
     ),
     .library(
       name: "Filters",
-      targets: ["KSCrashFilters"]
+      targets: [Targets.filters]
     ),
     .library(
       name: "Sinks",
-      targets: ["KSCrashSinks"]
+      targets: [Targets.sinks]
     ),
     .library(
       name: "Installations",
-      targets: ["KSCrashInstallations"]
+      targets: [Targets.installations]
     ),
     .library(
       name: "Recording",
-      targets: ["KSCrashRecording"]
+      targets: [Targets.recording]
     ),
   ],
   targets: [
     .target(
-      name: "KSCrashRecording",
+      name: Targets.recording,
       dependencies: [
-        "KSCrashRecordingCore"
+        .target(name: Targets.recordingCore)
       ],
+      resources: privacyResources,
       cSettings: [.headerSearchPath("Monitors")]
     ),
     .testTarget(
-      name: "KSCrashRecordingTests",
+      name: Targets.recording.tests,
       dependencies: [
-        "KSCrashTestTools",
-        "KSCrashRecording",
-        "KSCrashRecordingCore",
+        .target(name: Targets.testTools),
+        .target(name: Targets.recording),
+        .target(name: Targets.recordingCore),
       ],
       resources: [
-        .process("Resources"),
+        .process("Resources")
       ],
       cSettings: [
-        .headerSearchPath("../../Sources/KSCrashRecording"),
-        .headerSearchPath("../../Sources/KSCrashRecording/Monitors"),
+        .headerSearchPath("../../Sources/\(Targets.recording)"),
+        .headerSearchPath("../../Sources/\(Targets.recording)/Monitors"),
       ]
     ),
 
     .target(
-      name: "KSCrashFilters",
+      name: Targets.filters,
       dependencies: [
-        "KSCrashRecording",
-        "KSCrashRecordingCore",
-        "KSCrashReportingCore",
-      ]
+        .target(name: Targets.recording),
+        .target(name: Targets.recordingCore),
+        .target(name: Targets.reportingCore),
+      ],
+      resources: privacyResources
     ),
     .testTarget(
-      name: "KSCrashFiltersTests",
+      name: Targets.filters.tests,
       dependencies: [
-        "KSCrashFilters",
-        "KSCrashRecording",
-        "KSCrashRecordingCore",
-        "KSCrashReportingCore",
+        .target(name: Targets.filters),
+        .target(name: Targets.recording),
+        .target(name: Targets.recordingCore),
+        .target(name: Targets.reportingCore),
       ]
     ),
 
     .target(
-      name: "KSCrashSinks",
+      name: Targets.sinks,
       dependencies: [
-        "KSCrashRecording",
-        "KSCrashFilters",
-      ]
+        .target(name: Targets.recording),
+        .target(name: Targets.filters),
+      ],
+      resources: privacyResources
     ),
 
     .target(
-      name: "KSCrashInstallations",
+      name: Targets.installations,
       dependencies: [
-        "KSCrashFilters",
-        "KSCrashSinks",
-        "KSCrashRecording",
-      ]
+        .target(name: Targets.filters),
+        .target(name: Targets.sinks),
+        .target(name: Targets.recording),
+      ],
+      resources: privacyResources
     ),
     .testTarget(
-      name: "KSCrashInstallationsTests",
+      name: Targets.installations.tests,
       dependencies: [
-        "KSCrashInstallations",
-        "KSCrashFilters",
-        "KSCrashSinks",
-        "KSCrashRecording",
+        .target(name: Targets.installations),
+        .target(name: Targets.filters),
+        .target(name: Targets.sinks),
+        .target(name: Targets.recording),
       ]
     ),
 
     .target(
-      name: "KSCrashRecordingCore",
-      dependencies: ["KSCrashCore"],
+      name: Targets.recordingCore,
+      dependencies: [
+        .target(name: Targets.core)
+      ],
+      resources: privacyResources,
       cSettings: [
         .headerSearchPath("swift"),
         .headerSearchPath("swift/Basic"),
@@ -117,38 +124,67 @@ let package = Package(
       ]
     ),
     .testTarget(
-      name: "KSCrashRecordingCoreTests",
+      name: Targets.recordingCore.tests,
       dependencies: [
-        "KSCrashTestTools",
-        "KSCrashRecordingCore",
-        "KSCrashCore",
+        .target(name: Targets.testTools),
+        .target(name: Targets.recordingCore),
+        .target(name: Targets.core),
       ]
     ),
 
     .target(
-      name: "KSCrashReportingCore",
-      dependencies: ["KSCrashCore"]
+      name: Targets.reportingCore,
+      dependencies: [
+        .target(name: Targets.core)
+      ],
+      resources: privacyResources
     ),
     .testTarget(
-      name: "KSCrashReportingCoreTests",
+      name: Targets.reportingCore.tests,
       dependencies: [
-        "KSCrashReportingCore",
-        "KSCrashCore",
+        .target(name: Targets.reportingCore),
+        .target(name: Targets.core),
       ]
     ),
 
     .target(
-      name: "KSCrashCore"
+      name: Targets.core,
+      resources: privacyResources
     ),
     .testTarget(
-      name: "KSCrashCoreTests",
-      dependencies: ["KSCrashCore"]
+      name: Targets.core.tests,
+      dependencies: [
+        .target(name: Targets.core)
+      ]
     ),
 
     .target(
-      name: "KSCrashTestTools",
-      dependencies: ["KSCrashRecordingCore"]
+      name: Targets.testTools,
+      dependencies: [
+        .target(name: Targets.recordingCore)
+      ]
     ),
   ],
   cxxLanguageStandard: .gnucxx11
 )
+
+enum Targets {
+  static let recording = "KSCrashRecording"
+  static let filters = "KSCrashFilters"
+  static let sinks = "KSCrashSinks"
+  static let installations = "KSCrashInstallations"
+  static let recordingCore = "KSCrashRecordingCore"
+  static let reportingCore = "KSCrashReportingCore"
+  static let core = "KSCrashCore"
+  static let testTools = "KSCrashTestTools"
+}
+
+extension String {
+  var tests: String {
+    return "\(self)Tests"
+  }
+}
+
+let privacyResources: [Resource] = [
+  .copy("Resources/PrivacyInfo.xcprivacy")
+]
