@@ -2,7 +2,7 @@
 
 #import <mach/mach.h>
 #import <mach/task.h>
-#import <atomic>
+#import <os/lock.h>
 
 #if TARGET_OS_IOS
 #import <UIKit/UIKit.h>
@@ -39,9 +39,11 @@ NS_ASSUME_NONNULL_BEGIN
     dispatch_queue_t _heartbeatQueue;
     dispatch_source_t _pressureSource;
     dispatch_source_t _limitSource;
-    std::atomic<uint64_t> _footprint;
-    std::atomic<KSCrashAppMemoryState> _pressure;
-    std::atomic<KSCrashAppMemoryState> _level;
+    
+    os_unfair_lock _lock;
+    uint64_t _footprint;
+    KSCrashAppMemoryState _pressure;
+    KSCrashAppMemoryState _level;
 }
 @end
 
@@ -49,6 +51,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (instancetype)init {
     if (self = [super init]) {
+        _lock = OS_UNFAIR_LOCK_INIT;
         _heartbeatQueue = dispatch_queue_create_with_target(
                                                             "com.kscrash.memory.heartbeat", DISPATCH_QUEUE_SERIAL,
                                                             dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0));
@@ -145,20 +148,45 @@ NS_ASSUME_NONNULL_BEGIN
     [self.delegate appMemoryTracker:self memory:memory changed:changes];
 }
 
+// in case of unsigned values
+// ie: MAX(x,y) - MIN(x,y)
+#define _KSABS_DIFF(x,y) x > y ? x - y : y - x
+
 - (void)_heartbeat:(BOOL)sendObservers {
 
     // This handles the memory limit.
     KSCrashAppMemory *memory = [self currentAppMemory];
     
     KSCrashAppMemoryState newLevel = memory.level;
-    KSCrashAppMemoryState oldLevel = _level.exchange(newLevel);
-    
     uint64_t newFootprint = memory.footprint;
-    uint64_t oldFootprint = _footprint.exchange(newFootprint);
+    
+    // the amount footprint needs to change for any footprint notifs.
+    const uint64_t kKSCrashFootprintMinChange = 1e6;
+    
+    KSCrashAppMemoryState oldLevel;
+    uint64_t oldFootprint;
+    BOOL footprintChanged = NO;
+    {
+        os_unfair_lock_lock(&_lock);
+        
+        oldLevel = _level;
+        _level = newLevel;
+        
+        // For the footprint, we don't need very granular changes,
+        // changing a few bytes here or there won't mke a difference,
+        // we're looking for anything larger, in this case, 1MB.
+        oldFootprint = _footprint;
+        if (_KSABS_DIFF(newFootprint, _footprint) > kKSCrashFootprintMinChange) {
+            _footprint = newFootprint;
+            footprintChanged = YES;
+        }
+        
+        os_unfair_lock_unlock(&_lock);
+    }
     
     KSCrashAppMemoryTrackerChangeType changes = (newLevel != oldLevel) ? KSCrashAppMemoryTrackerChangeTypeLevel : KSCrashAppMemoryTrackerChangeTypeNone;
-    // if the footprint has changed by at least 1MB
-    if ( ABS(newFootprint - oldFootprint) > 1e6) {
+    
+    if (footprintChanged) {
         changes |= KSCrashAppMemoryTrackerChangeTypeFootprint;
     }
     
@@ -195,48 +223,67 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)_memoryPressureChanged:(BOOL)sendObservers {
     // This handles system based memory pressure.
-    KSCrashAppMemoryState pressure = KSCrashAppMemoryStateNormal;
+    KSCrashAppMemoryState newPressure = KSCrashAppMemoryStateNormal;
     dispatch_source_memorypressure_flags_t flags = dispatch_source_get_data(_pressureSource);
     switch (flags) {
         case DISPATCH_MEMORYPRESSURE_NORMAL:
         {
-            pressure = KSCrashAppMemoryStateNormal;
+            newPressure = KSCrashAppMemoryStateNormal;
         }
             break;
             
         case DISPATCH_MEMORYPRESSURE_WARN:
         {
-            pressure = KSCrashAppMemoryStateWarn;
+            newPressure = KSCrashAppMemoryStateWarn;
         }
             break;
             
         case DISPATCH_MEMORYPRESSURE_CRITICAL:
         {
-            pressure = KSCrashAppMemoryStateCritical;
+            newPressure = KSCrashAppMemoryStateCritical;
         }
             break;
     }
 
-    KSCrashAppMemoryState oldPressure = _pressure.exchange(pressure);
-    if (oldPressure != pressure && sendObservers) {
+    KSCrashAppMemoryState oldPressure;
+    {
+        os_unfair_lock_lock(&_lock);
+        oldPressure = _pressure;
+        _pressure = newPressure;
+        os_unfair_lock_unlock(&_lock);
+    }
+    
+    if (oldPressure != newPressure && sendObservers) {
         [self _handleMemoryChange:[self currentAppMemory]
                              type:KSCrashAppMemoryTrackerChangeTypePressure];
         [[NSNotificationCenter defaultCenter]
          postNotificationName:KSCrashAppMemoryPressureChangedNotification
          object:self
          userInfo:@{
-            KSCrashAppMemoryNewValueKey : @(pressure),
+            KSCrashAppMemoryNewValueKey : @(newPressure),
             KSCrashAppMemoryOldValueKey : @(oldPressure)
         }];
     }
 }
 
 - (KSCrashAppMemoryState)pressure {
-    return _pressure.load();
+    KSCrashAppMemoryState state;
+    {
+        os_unfair_lock_lock(&_lock);
+        state = _pressure;
+        os_unfair_lock_unlock(&_lock);
+    }
+    return state;
 }
 
 - (KSCrashAppMemoryState)level {
-    return _level.load();
+    KSCrashAppMemoryState state;
+    {
+        os_unfair_lock_lock(&_lock);
+        state = _level;
+        os_unfair_lock_unlock(&_lock);
+    }
+    return state;
 }
 
 @end
