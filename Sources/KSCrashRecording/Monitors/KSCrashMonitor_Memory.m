@@ -158,7 +158,9 @@ typedef void (^AppStateTrackerBlockObserverBlock)(KSCrash_ApplicationTransitionS
         _observers = [NSMutableArray array];
         _center = notificationCenter;
         _registrations = nil;
-        _transitionState = KSCrash_ApplicationTransitionStateNone;
+        
+        BOOL isPrewarm = [NSProcessInfo.processInfo.environment[@"ActivePrewarm"] boolValue];
+        _transitionState = isPrewarm ? KSCrash_ApplicationTransitionStateStartup : KSCrash_ApplicationTransitionStateStartup;
     }
     return self;
 }
@@ -230,10 +232,20 @@ typedef void (^AppStateTrackerBlockObserverBlock)(KSCrash_ApplicationTransitionS
         return;
     }
     
+    __weak typeof(self)weakMe = self;
+    
+    // Register a normal `exit` callback so we don't think it's an OOM.
+    atexit_b(^{
+        [weakMe _setTransitionState:KSCrash_ApplicationTransitionStateExiting];
+    });
+    
     // TODO: What other supported platforms need something like this???
 #if TARGET_OS_IOS
-    
-    __weak typeof(self)weakMe = self;
+
+    // register all normal lifecycle events
+    // in the future, we could also look at scene lifecycle
+    // events but in reality, we don't actually need to,
+    // it could just give us more granularity.
     _registrations = @[
         
         OBSERVE(_center, UIApplicationDidFinishLaunchingNotification, {
@@ -385,11 +397,13 @@ static bool isEnabled(void)
 
 static NSString *kscm_app_transition_state_to_string(KSCrash_ApplicationTransitionState state) {
     switch (state) {
-        case KSCrash_ApplicationTransitionStateNone: return @"none";
+        case KSCrash_ApplicationTransitionStateStartup: return @"startup";
+        case KSCrash_ApplicationTransitionStateStartupPrewarm: return @"prewarm";
         case KSCrash_ApplicationTransitionStateActive: return @"active";
         case KSCrash_ApplicationTransitionStateLaunching: return @"launching";
         case KSCrash_ApplicationTransitionStateBackground: return @"background";
         case KSCrash_ApplicationTransitionStateTerminating: return @"terminating";
+        case KSCrash_ApplicationTransitionStateExiting: return @"exiting";
         case KSCrash_ApplicationTransitionStateDeactivating: return @"deactivating";
         case KSCrash_ApplicationTransitionStateForegrounding: return @"foregrounding";
     }
@@ -443,28 +457,39 @@ static NSDictionary<NSString *, id> *kscm_memory_serialize(KSCrash_Memory *const
  */
 static void kscm_memory_check_for_oom_in_previous_session()
 {
-    if (ksmemory_previous_session_was_terminated_due_to_memory()) {
-        NSURL *url = kscm_memory_oom_breacrumb_URL();
-        const char *reportContents = kscrash_readReportAtPath(url.path.UTF8String);
-        if (reportContents) {
-            
-            NSData *data = [NSData dataWithBytes:reportContents length:strlen(reportContents)];
-            NSMutableDictionary *json = [[NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingMutableContainers|NSJSONReadingMutableLeaves error:nil] mutableCopy];
-            
-            if (json) {
-                json[@KSCrashField_System][@KSCrashField_AppMemory] = kscm_memory_serialize(&g_previousSessionMemory);
-                json[@KSCrashField_Report][@KSCrashField_Timestamp] = @(g_previousSessionMemory.timestamp);
-                json[@KSCrashField_Crash][@KSCrashField_Error][@KSCrashExcType_MemoryTermination] =kscm_memory_serialize(&g_previousSessionMemory);
-                json[@KSCrashField_Crash][@KSCrashField_Error][@KSCrashExcType_Mach] = nil;
-                json[@KSCrashField_Crash][@KSCrashField_Error][@KSCrashExcType_Signal] = @{
-                    @KSCrashField_Signal: @(SIGKILL),
-                    @KSCrashField_Name: @"SIGKILL",
-                };
+    // And OOM should be the last thng we check for. For example,
+    // If memory is critical but before being jetisoned we encounter
+    // a programming error and receiving a Mach event or signal that
+    // indicates a crash, we should process that on startup and ignore
+    // and indication of an OOM.
+    bool userPerceivedOOM = NO;
+    if (ksmemory_previous_session_was_terminated_due_to_memory(&userPerceivedOOM)) {
+        
+        // We only report an OOM that the user might have seen.
+        // Ignore this check if we want to report all OOM, foreground and background.
+        if (userPerceivedOOM) {
+            NSURL *url = kscm_memory_oom_breacrumb_URL();
+            const char *reportContents = kscrash_readReportAtPath(url.path.UTF8String);
+            if (reportContents) {
                 
-                data = [NSJSONSerialization dataWithJSONObject:json options:NSJSONWritingPrettyPrinted error:nil];
-                kscrash_addUserReport((const char *)data.bytes, (int)data.length);
+                NSData *data = [NSData dataWithBytes:reportContents length:strlen(reportContents)];
+                NSMutableDictionary *json = [[NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingMutableContainers|NSJSONReadingMutableLeaves error:nil] mutableCopy];
+                
+                if (json) {
+                    json[@KSCrashField_System][@KSCrashField_AppMemory] = kscm_memory_serialize(&g_previousSessionMemory);
+                    json[@KSCrashField_Report][@KSCrashField_Timestamp] = @(g_previousSessionMemory.timestamp);
+                    json[@KSCrashField_Crash][@KSCrashField_Error][@KSCrashExcType_MemoryTermination] =kscm_memory_serialize(&g_previousSessionMemory);
+                    json[@KSCrashField_Crash][@KSCrashField_Error][@KSCrashExcType_Mach] = nil;
+                    json[@KSCrashField_Crash][@KSCrashField_Error][@KSCrashExcType_Signal] = @{
+                        @KSCrashField_Signal: @(SIGKILL),
+                        @KSCrashField_Name: @"SIGKILL",
+                    };
+                    
+                    data = [NSJSONSerialization dataWithJSONObject:json options:NSJSONWritingPrettyPrinted error:nil];
+                    kscrash_addUserReport((const char *)data.bytes, (int)data.length);
+                }
+                free((void *)reportContents);
             }
-            free((void *)reportContents);
         }
     }
     
@@ -542,7 +567,7 @@ static void ksmemory_read(const char* path)
     }
     
     // check app transition state
-    if (memory.state > KSCrash_ApplicationTransitionStateTerminating) {
+    if (memory.state > KSCrash_ApplicationTransitionStateExiting) {
         return;
     }
     
@@ -652,8 +677,33 @@ void ksmemory_initialize(const char* installPath)
     ksmemory_map(path);
 }
 
-bool ksmemory_previous_session_was_terminated_due_to_memory(void)
+bool ksmemory_previous_session_was_terminated_due_to_memory(BOOL *userPerceptible)
 {
-    return g_previousSessionMemory.state >= KSCrashAppMemoryStateCritical ||
-    g_previousSessionMemory.pressure >= KSCrashAppMemoryStateCritical;
+    // We might care if the user might have seen the OOM
+    if (userPerceptible) {
+        *userPerceptible = ksapp_transition_state_is_user_perceptible(g_previousSessionMemory.state);
+    }
+    
+    // level or pressure is critical++
+    return g_previousSessionMemory.level >= KSCrashAppMemoryStateCritical ||
+            g_previousSessionMemory.pressure >= KSCrashAppMemoryStateCritical;
+}
+
+bool ksapp_transition_state_is_user_perceptible(KSCrash_ApplicationTransitionState state)
+{
+    switch (state) {
+        case KSCrash_ApplicationTransitionStateStartupPrewarm:
+        case KSCrash_ApplicationTransitionStateBackground:
+        case KSCrash_ApplicationTransitionStateTerminating:
+        case KSCrash_ApplicationTransitionStateExiting:
+            return NO;
+            
+        case KSCrash_ApplicationTransitionStateStartup:
+        case KSCrash_ApplicationTransitionStateLaunching:
+        case KSCrash_ApplicationTransitionStateForegrounding:
+        case KSCrash_ApplicationTransitionStateActive:
+        case KSCrash_ApplicationTransitionStateDeactivating:
+            return YES;
+    }
+    return NO;
 }

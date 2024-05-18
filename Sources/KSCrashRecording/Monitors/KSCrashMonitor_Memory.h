@@ -38,17 +38,23 @@ extern "C" {
 
 /** States of transition for the application */
 enum {
-    KSCrash_ApplicationTransitionStateNone = 0,
+    KSCrash_ApplicationTransitionStateStartup = 0,
+    KSCrash_ApplicationTransitionStateStartupPrewarm,
     KSCrash_ApplicationTransitionStateLaunching,
     KSCrash_ApplicationTransitionStateForegrounding,
     KSCrash_ApplicationTransitionStateActive,
     KSCrash_ApplicationTransitionStateDeactivating,
     KSCrash_ApplicationTransitionStateBackground,
     KSCrash_ApplicationTransitionStateTerminating,
+    KSCrash_ApplicationTransitionStateExiting,
 };
 typedef uint8_t KSCrash_ApplicationTransitionState;
 
-/** 
+/** Returns true if the transition state is user perceptible.
+ */
+bool ksapp_transition_state_is_user_perceptible(KSCrash_ApplicationTransitionState state);
+
+/**
  App Memory
  */
 typedef struct KSCrash_Memory {
@@ -74,7 +80,7 @@ typedef struct KSCrash_Memory {
     /** transition state of the app */
     KSCrash_ApplicationTransitionState state;
     
-    /** padding for a 40 byte structure. */
+    /** padding for a nice 40 byte structure which is where most compilers will end up. */
     uint8_t pad[5];
 } KSCrash_Memory;
 
@@ -90,7 +96,7 @@ void ksmemory_initialize(const char* installPath);
 
 /** Returns true if the previous session was terminated due to memory.
  */
-bool ksmemory_previous_session_was_terminated_due_to_memory(void);
+bool ksmemory_previous_session_was_terminated_due_to_memory(bool *userPerceptible);
 
 #ifdef __cplusplus
 }
