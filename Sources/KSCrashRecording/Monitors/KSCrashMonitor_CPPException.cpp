@@ -83,6 +83,7 @@ static void captureStackTrace(void*, std::type_info*, void (*)(void*)) __attribu
     {
         kssc_initSelfThread(&g_stackCursor, 2);
     }
+    __asm__ __volatile__(""); // thwart tail-call optimization
 }
 
 typedef void (*cxa_throw_type)(void*, std::type_info*, void (*)(void*));
@@ -103,6 +104,7 @@ extern "C"
             orig_cxa_throw = (cxa_throw_type) dlsym(RTLD_NEXT, "__cxa_throw");
         }
         orig_cxa_throw(thrown_exception, tinfo, dest);
+        __asm__ __volatile__(""); // thwart tail-call optimization
         __builtin_unreachable();
     }
 }
