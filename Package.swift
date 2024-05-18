@@ -42,7 +42,9 @@ let package = Package(
       dependencies: [
         .target(name: Targets.recordingCore)
       ],
-      resources: privacyResources,
+      resources: [
+        .copy("Resources/PrivacyInfo.xcprivacy")
+      ],
       cSettings: [.headerSearchPath("Monitors")]
     ),
     .testTarget(
@@ -68,7 +70,9 @@ let package = Package(
         .target(name: Targets.recordingCore),
         .target(name: Targets.reportingCore),
       ],
-      resources: privacyResources
+      resources: [
+        .copy("Resources/PrivacyInfo.xcprivacy")
+      ]
     ),
     .testTarget(
       name: Targets.filters.tests,
@@ -86,7 +90,9 @@ let package = Package(
         .target(name: Targets.recording),
         .target(name: Targets.filters),
       ],
-      resources: privacyResources
+      resources: [
+        .copy("Resources/PrivacyInfo.xcprivacy")
+      ]
     ),
 
     .target(
@@ -96,7 +102,9 @@ let package = Package(
         .target(name: Targets.sinks),
         .target(name: Targets.recording),
       ],
-      resources: privacyResources
+      resources: [
+        .copy("Resources/PrivacyInfo.xcprivacy")
+      ]
     ),
     .testTarget(
       name: Targets.installations.tests,
@@ -113,7 +121,9 @@ let package = Package(
       dependencies: [
         .target(name: Targets.core)
       ],
-      resources: privacyResources,
+      resources: [
+        .copy("Resources/PrivacyInfo.xcprivacy")
+      ],
       cSettings: [
         .headerSearchPath("swift"),
         .headerSearchPath("swift/Basic"),
@@ -137,7 +147,9 @@ let package = Package(
       dependencies: [
         .target(name: Targets.core)
       ],
-      resources: privacyResources
+      resources: [
+        .copy("Resources/PrivacyInfo.xcprivacy")
+      ]
     ),
     .testTarget(
       name: Targets.reportingCore.tests,
@@ -149,7 +161,9 @@ let package = Package(
 
     .target(
       name: Targets.core,
-      resources: privacyResources
+      resources: [
+        .copy("Resources/PrivacyInfo.xcprivacy")
+      ]
     ),
     .testTarget(
       name: Targets.core.tests,
@@ -184,7 +198,3 @@ extension String {
     return "\(self)Tests"
   }
 }
-
-let privacyResources: [Resource] = [
-  .copy("Resources/PrivacyInfo.xcprivacy")
-]
