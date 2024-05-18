@@ -481,9 +481,10 @@ bool ksfu_writeBufferedWriter(KSBufferedWriter* writer, const char* restrict con
     }
     if(length > writer->bufferLength - writer->position)
     {
-      if (!ksfu_flushBufferedWriter(writer)) {
-          return false;
-      }
+        if (!ksfu_flushBufferedWriter(writer))
+        {
+            return false;
+        }
     }
 
     memcpy(writer->buffer + writer->position, data, length);
