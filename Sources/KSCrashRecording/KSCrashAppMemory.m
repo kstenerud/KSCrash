@@ -344,6 +344,7 @@ NSString *KSCrashAppMemoryStateToString(KSCrashAppMemoryState state) {
         case KSCrashAppMemoryStateTerminal:
             return @"terminal";
     }
+    assert(state <= KSCrashAppMemoryStateTerminal);
 }
 
 KSCrashAppMemoryState KSCrashAppMemoryStateFromString(NSString *const state) {

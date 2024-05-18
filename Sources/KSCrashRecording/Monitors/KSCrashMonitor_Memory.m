@@ -71,10 +71,12 @@ static os_unfair_lock g_memoryLock = OS_UNFAIR_LOCK_INIT;
 static KSCrash_Memory *g_memory = NULL;
 
 static KSCrash_Memory _ks_memory_copy(void) {
-    KSCrash_Memory copy;
+    KSCrash_Memory copy = {0};
     {
         os_unfair_lock_lock(&g_memoryLock);
-        copy = *g_memory;
+        if (g_memory) {
+            copy = *g_memory;
+        }
         os_unfair_lock_unlock(&g_memoryLock);
     }
     return copy;
@@ -85,7 +87,9 @@ static void _ks_memory_update(void (^block)(KSCrash_Memory *mem)) {
         return;
     }
     os_unfair_lock_lock(&g_memoryLock);
-    block(g_memory);
+    if (g_memory) {
+        block(g_memory);
+    }
     os_unfair_lock_unlock(&g_memoryLock);
 }
 
@@ -104,11 +108,18 @@ static AppStateTracker *g_AppStateTracker = nil;
 - (void)appStateTrackerDidChangeApplicationTransitionState:(KSCrash_ApplicationTransitionState)transitionState;
 @end
 
-typedef void (^AppStateTrackerBlockObserverBlock)(KSCrash_ApplicationTransitionState);
+typedef void (^AppStateTrackerBlockObserverBlock)(KSCrash_ApplicationTransitionState transitionState);
 @interface AppStateTrackerBlockObserver : NSObject <AppStateTrackerObserving>
 @property (nonatomic, copy) AppStateTrackerBlockObserverBlock block;
 @end
 @implementation AppStateTrackerBlockObserver
+- (void)appStateTrackerDidChangeApplicationTransitionState:(KSCrash_ApplicationTransitionState)transitionState
+{
+    AppStateTrackerBlockObserverBlock block = self.block;
+    if (block) {
+        block(transitionState);
+    }
+}
 @end
 
 @interface AppStateTracker : NSObject {
@@ -140,15 +151,12 @@ typedef void (^AppStateTrackerBlockObserverBlock)(KSCrash_ApplicationTransitionS
 + (void)load
 {
     g_AppStateTracker = [[AppStateTracker alloc] initWithNotificationCenter:NSNotificationCenter.defaultCenter];
-    [g_AppStateTracker addObserver:self];
+    [g_AppStateTracker addObserverWithBlock:^(KSCrash_ApplicationTransitionState transitionState) {
+        _ks_memory_update(^(KSCrash_Memory *mem) {
+            mem->state = transitionState;
+        });
+    }];
     [g_AppStateTracker start];
-}
-
-+ (void)appStateTrackerDidChangeApplicationTransitionState:(KSCrash_ApplicationTransitionState)transitionState
-{
-    _ks_memory_update(^(KSCrash_Memory *mem) {
-        mem->state = transitionState;
-    });
 }
 
 - (instancetype)initWithNotificationCenter:(NSNotificationCenter *)notificationCenter
@@ -541,7 +549,7 @@ static void ksmemory_read(const char* path)
     
     size_t size = sizeof(KSCrash_Memory);
     KSCrash_Memory memory = {};
-    if (!ksfu_readBytesFromFD(fd, &memory, size)) {
+    if (!ksfu_readBytesFromFD(fd, (char *)&memory, (int)size)) {
         close(fd);
         unlink(path);
         return;
