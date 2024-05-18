@@ -69,8 +69,7 @@ NS_ASSUME_NONNULL_BEGIN
     }
     
     // memory pressure
-    uintptr_t mask = DISPATCH_MEMORYPRESSURE_NORMAL | DISPATCH_MEMORYPRESSURE_WARN |
-    DISPATCH_MEMORYPRESSURE_CRITICAL;
+    uintptr_t mask = DISPATCH_MEMORYPRESSURE_NORMAL | DISPATCH_MEMORYPRESSURE_WARN | DISPATCH_MEMORYPRESSURE_CRITICAL;
     _pressureSource = dispatch_source_create(DISPATCH_SOURCE_TYPE_MEMORYPRESSURE, 0, mask,
                                              dispatch_get_main_queue());
     
@@ -198,13 +197,26 @@ NS_ASSUME_NONNULL_BEGIN
     // This handles system based memory pressure.
     KSCrashAppMemoryState pressure = KSCrashAppMemoryStateNormal;
     dispatch_source_memorypressure_flags_t flags = dispatch_source_get_data(_pressureSource);
-    if (flags == DISPATCH_MEMORYPRESSURE_NORMAL) {
-        pressure = KSCrashAppMemoryStateNormal;
-    } else if (flags == DISPATCH_MEMORYPRESSURE_WARN) {
-        pressure = KSCrashAppMemoryStateWarn;
-    } else if (flags == DISPATCH_MEMORYPRESSURE_CRITICAL) {
-        pressure = KSCrashAppMemoryStateCritical;
+    switch (flags) {
+        case DISPATCH_MEMORYPRESSURE_NORMAL:
+        {
+            pressure = KSCrashAppMemoryStateNormal;
+        }
+            break;
+            
+        case DISPATCH_MEMORYPRESSURE_WARN:
+        {
+            pressure = KSCrashAppMemoryStateWarn;
+        }
+            break;
+            
+        case DISPATCH_MEMORYPRESSURE_CRITICAL:
+        {
+            pressure = KSCrashAppMemoryStateCritical;
+        }
+            break;
     }
+
     KSCrashAppMemoryState oldPressure = _pressure.exchange(pressure);
     if (oldPressure != pressure && sendObservers) {
         [self _handleMemoryChange:[self currentAppMemory]
@@ -242,37 +254,6 @@ NS_ASSUME_NONNULL_BEGIN
     return self;
 }
 
-- (nullable instancetype)initWithJSONObject:(NSDictionary *)jsonObject {
-    NSNumber *const footprintRef = jsonObject[@"memory_footprint"];
-    NSNumber *const remainingRef = jsonObject[@"memory_remaining"];
-    NSString *const pressureRef = jsonObject[@"memory_pressure"];
-    
-    uint64_t footprint = 0;
-    if ([footprintRef isKindOfClass:NSNumber.class]) {
-        footprint = footprintRef.unsignedLongLongValue;
-    } else if ([footprintRef isKindOfClass:NSString.class]) {
-        footprint = ((NSString *)footprintRef).longLongValue;
-    } else {
-        return nil;
-    }
-    
-    uint64_t remaining = 0;
-    if ([remainingRef isKindOfClass:NSNumber.class]) {
-        remaining = remainingRef.unsignedLongLongValue;
-    } else if ([remainingRef isKindOfClass:NSString.class]) {
-        remaining = ((NSString *)remainingRef).longLongValue;
-    } else {
-        return nil;
-    }
-    
-    KSCrashAppMemoryState pressure = KSCrashAppMemoryStateNormal;
-    if ([pressureRef isKindOfClass:NSString.class]) {
-        pressure = KSCrashAppMemoryStateFromString(pressureRef);
-    }
-    
-    return [self initWithFootprint:footprint remaining:remaining pressure:pressure];
-}
-
 - (BOOL)isEqual:(id)object {
     if (![object isKindOfClass:self.class]) {
         return NO;
@@ -280,16 +261,6 @@ NS_ASSUME_NONNULL_BEGIN
     KSCrashAppMemory *comp = (KSCrashAppMemory *)object;
     return comp.footprint == self.footprint && comp.remaining == self.remaining &&
     comp.pressure == self.pressure;
-}
-
-- (nonnull NSDictionary<NSString *, id> *)serialize {
-    return @{
-        @"memory_footprint" : @(self.footprint),
-        @"memory_remaining" : @(self.remaining),
-        @"memory_limit" : @(self.limit),
-        @"memory_level" : KSCrashAppMemoryStateToString(self.level),
-        @"memory_pressure" : KSCrashAppMemoryStateToString(self.pressure)
-    };
 }
 
 - (uint64_t)limit {

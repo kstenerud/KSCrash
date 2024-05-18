@@ -94,9 +94,6 @@ typedef NS_ENUM(NSUInteger, KSCrashAppMemoryState) {
 // True when the app is totally out of memory.
 - (BOOL)isOutOfMemory;
 
-// A serialized version of the instance.
-- (nonnull NSDictionary<NSString *, id> *)serialize;
-
 @end
 
 /**
@@ -109,7 +106,6 @@ FOUNDATION_EXPORT KSCrashAppMemoryState KSCrashAppMemoryStateFromString(NSString
  Internal and for tests.
  */
 @interface KSCrashAppMemory ()
-- (nullable instancetype)initWithJSONObject:(NSDictionary *)jsonObject;
 - (instancetype)initWithFootprint:(uint64_t)footprint
                         remaining:(uint64_t)remaining
                          pressure:(KSCrashAppMemoryState)pressure NS_DESIGNATED_INITIALIZER;
