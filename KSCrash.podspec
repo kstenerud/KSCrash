@@ -21,6 +21,7 @@ Pod::Spec.new do |s|
     module_name = subs.name.gsub('/', '')
     subs.source_files = "Sources/#{module_name}/**/*.{h,m,mm,c,cpp,def}"
     subs.public_header_files = "Sources/#{module_name}/include/*.h"
+    subs.resource_bundles = { module_name => "Sources/#{module_name}/Resources/PrivacyInfo.xcprivacy" }
   end
 
   s.subspec 'Recording' do |recording|
