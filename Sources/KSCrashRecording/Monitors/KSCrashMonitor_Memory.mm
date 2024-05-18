@@ -111,6 +111,8 @@ static int64_t kscm_microseconds(void)
         _center = notificationCenter;
         _registrations = nil;
         _state = KSCrash_ApplicationTransitionStateNone;
+        int x = sizeof(KSCrash_Memory);
+        (void)x;
     }
     return self;
 }

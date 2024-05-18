@@ -48,14 +48,15 @@ enum {
 };
 typedef uint8_t KSCrash_ApplicationTransitionState;
 
-/** App Memory */
+/** 
+ App Memory
+ Special alignment due to mapping to disk
+ */
+#pragma pack(push,1)
 typedef struct KSCrash_Memory {
     
     /** timestamp in microseconds */
     int64_t timestamp;
-    
-    /** memory pressure  `KSCrashAppMemoryPressure` */
-    uint8_t pressure;
     
     /** amount of app memory used */
     uint64_t footprint;
@@ -66,12 +67,22 @@ typedef struct KSCrash_Memory {
     /** high water mark for footprint (footprint +  remaining)*/
     uint64_t limit;
     
+    /** memory pressure  `KSCrashAppMemoryPressure` */
+    uint8_t pressure;
+    
     /** memory level  `KSCrashAppMemoryLevel` (KSCrashAppMemory.level) */
     uint8_t level;
     
     /** transition state of the app */
     KSCrash_ApplicationTransitionState state;
+    
+    /** padding for a 40 byte structure. */
+    uint8_t pad[5];
 } KSCrash_Memory;
+
+static_assert(sizeof(struct KSCrash_Memory) == 40);
+
+#pragma pack(pop)
 
 /** Access the Monitor API.
  */
