@@ -50,9 +50,7 @@ typedef uint8_t KSCrash_ApplicationTransitionState;
 
 /** 
  App Memory
- Special alignment due to mapping to disk
  */
-#pragma pack(push,1)
 typedef struct KSCrash_Memory {
     
     /** timestamp in microseconds */
@@ -79,10 +77,6 @@ typedef struct KSCrash_Memory {
     /** padding for a 40 byte structure. */
     uint8_t pad[5];
 } KSCrash_Memory;
-
-static_assert(sizeof(struct KSCrash_Memory) == 40);
-
-#pragma pack(pop)
 
 /** Access the Monitor API.
  */

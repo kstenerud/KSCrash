@@ -36,9 +36,9 @@
 #import "KSCrashReportFields.h"
 
 #import <Foundation/Foundation.h>
-#import <mutex>
 #import <sys/time.h>
 #import <sys/mman.h>
+#import <os/lock.h>
 
 #import "KSLogger.h"
 
@@ -61,7 +61,7 @@ static NSURL *g_installURL = nil;
 static MemoryTracker *g_memoryTracker = nil;
 
 // file mapped memory
-static std::mutex g_lock [[clang::no_destroy]];
+static os_unfair_lock g_lock = OS_UNFAIR_LOCK_INIT;
 static KSCrash_Memory *g_memory = NULL;
 
 // last memory write from the previous session
@@ -83,10 +83,27 @@ static int64_t kscm_microseconds(void)
     return microseconds;
 }
 
+
+@protocol AppStateTrackerObserving <NSObject>
+- (void)appStateTrackerDidChangeApplicationTransitionState:(KSCrash_ApplicationTransitionState)transitionState;
+@end
+
+typedef void (^AppStateTrackerBlockObserverBlock)(KSCrash_ApplicationTransitionState);
+@interface AppStateTrackerBlockObserver : NSObject <AppStateTrackerObserving>
+@property (nonatomic, copy) AppStateTrackerBlockObserverBlock block;
+@end
+@implementation AppStateTrackerBlockObserver
+@end
+
 @interface AppStateTracker : NSObject {
+    
     NSNotificationCenter *_center;
     NSArray<id<NSObject>> *_registrations;
-    std::atomic<KSCrash_ApplicationTransitionState> _state;
+    
+    // transition state and observers protected by the lock
+    os_unfair_lock _lock;
+    KSCrash_ApplicationTransitionState _transitionState;
+    NSMutableArray<id<AppStateTrackerObserving>> *_observers;
 }
 
 - (instancetype)initWithNotificationCenter:(NSNotificationCenter *)notificationCenter NS_DESIGNATED_INITIALIZER;
@@ -95,6 +112,11 @@ static int64_t kscm_microseconds(void)
 
 @property (atomic, readonly) KSCrash_ApplicationTransitionState transitionState;
 
+- (void)addObserver:(id<AppStateTrackerObserving>)observer;
+- (id<AppStateTrackerObserving>)addObserverWithBlock:(AppStateTrackerBlockObserverBlock)block;
+
+- (void)removeObserver:(id<AppStateTrackerObserving>)observer;
+
 @end
 
 @implementation AppStateTracker
@@ -102,15 +124,27 @@ static int64_t kscm_microseconds(void)
 + (void)load
 {
     g_AppStateTracker = [[AppStateTracker alloc] initWithNotificationCenter:NSNotificationCenter.defaultCenter];
+    [g_AppStateTracker addObserver:self];
     [g_AppStateTracker start];
+}
+
++ (void)appStateTrackerDidChangeApplicationTransitionState:(KSCrash_ApplicationTransitionState)transitionState
+{
+    os_unfair_lock_lock(&g_lock);
+    if (g_memory) {
+        g_memory->state = transitionState;
+    }
+    os_unfair_lock_unlock(&g_lock);
 }
 
 - (instancetype)initWithNotificationCenter:(NSNotificationCenter *)notificationCenter
 {
     if (self = [super init]) {
+        _lock = OS_UNFAIR_LOCK_INIT;
+        _observers = [NSMutableArray array];
         _center = notificationCenter;
         _registrations = nil;
-        _state = KSCrash_ApplicationTransitionStateNone;
+        _transitionState = KSCrash_ApplicationTransitionStateNone;
     }
     return self;
 }
@@ -120,18 +154,53 @@ static int64_t kscm_microseconds(void)
     [self stop];
 }
 
-- (KSCrash_ApplicationTransitionState)transitionState
+- (void)addObserver:(id<AppStateTrackerObserving>)observer
 {
-    return _state.load();
+    os_unfair_lock_lock(&_lock);
+    [_observers addObject:observer];
+    os_unfair_lock_unlock(&_lock);
 }
 
-- (void)_setTransitionState:(KSCrash_ApplicationTransitionState)newState
+- (id<AppStateTrackerObserving>)addObserverWithBlock:(AppStateTrackerBlockObserverBlock)block
 {
-    if (_state.exchange(newState) != newState) {
-        std::lock_guard<std::mutex> l(g_lock);
-        if (g_memory) {
-            g_memory->state = newState;
+    AppStateTrackerBlockObserver *obs = [[AppStateTrackerBlockObserver alloc] init];
+    obs.block = [block copy];
+    [self addObserver:obs];
+    return obs;
+}
+
+- (void)removeObserver:(id<AppStateTrackerObserving>)observer
+{
+    os_unfair_lock_lock(&_lock);
+    [_observers removeObject:observer];
+    os_unfair_lock_unlock(&_lock);
+}
+
+- (KSCrash_ApplicationTransitionState)transitionState
+{
+    KSCrash_ApplicationTransitionState ret;
+    {
+        os_unfair_lock_lock(&_lock);
+        ret = _transitionState;
+        os_unfair_lock_unlock(&_lock);
+    }
+    return ret;
+}
+
+- (void)_setTransitionState:(KSCrash_ApplicationTransitionState)transitionState
+{
+    NSArray<id<AppStateTrackerObserving>> *observers = nil;
+    {
+        os_unfair_lock_lock(&_lock);
+        if (_transitionState != transitionState) {
+            _transitionState = transitionState;
+            observers = [_observers copy];
         }
+        os_unfair_lock_unlock(&_lock);
+    }
+    
+    for (id<AppStateTrackerObserving> obs in observers) {
+        [obs appStateTrackerDidChangeApplicationTransitionState:transitionState];
     }
 }
 
@@ -219,20 +288,19 @@ static int64_t kscm_microseconds(void)
 
 - (void)_updateMappedMemoryFrom:(KSCrashAppMemory *)memory
 {
-    std::lock_guard<std::mutex> l(g_lock);
-    if (!g_memory) {
-        return;
+    os_unfair_lock_lock(&g_lock);
+    if (g_memory) {
+        *g_memory = (KSCrash_Memory){
+            .footprint = memory.footprint,
+            .remaining = memory.remaining,
+            .limit = memory.limit,
+            .pressure = (uint8_t)memory.pressure,
+            .level = (uint8_t)memory.level,
+            .timestamp = kscm_microseconds(),
+            .state = g_AppStateTracker.transitionState,
+        };
     }
-
-    *g_memory = (KSCrash_Memory){
-        .footprint = memory.footprint,
-        .remaining = memory.remaining,
-        .limit = memory.limit,
-        .pressure = (uint8_t)memory.pressure,
-        .level = (uint8_t)memory.level,
-        .timestamp = kscm_microseconds(),
-        .state = g_AppStateTracker.transitionState,
-    };
+    os_unfair_lock_unlock(&g_lock);
 }
 
 - (void)appMemoryTracker:(KSCrashAppMemoryTracker *)tracker memory:(KSCrashAppMemory *)memory changed:(KSCrashAppMemoryTrackerChangeType)changes
@@ -326,18 +394,26 @@ static void addContextualInfoToEvent(KSCrash_MonitorContext* eventContext)
     {
         // Not sure if I can lock here or not, we might be in an async only state.
         // Chances are we don't really need to anyway.
-        std::lock_guard<std::mutex> l(g_lock);
-        if (g_memory) {
-            eventContext->AppMemory.footprint = g_memory->footprint;
-            // `.UTF8String` here is ok because the implementation uses constants,
-            // so they're built into the app and will always exist.
-            eventContext->AppMemory.pressure = KSCrashAppMemoryStateToString((KSCrashAppMemoryState)g_memory->pressure).UTF8String;
-            eventContext->AppMemory.remaining = g_memory->remaining;
-            eventContext->AppMemory.limit = g_memory->limit;
-            eventContext->AppMemory.level = KSCrashAppMemoryStateToString((KSCrashAppMemoryState)g_memory->level).UTF8String;
-            eventContext->AppMemory.timestamp = g_memory->timestamp;
-            eventContext->AppMemory.state = kscm_app_transition_state_to_string(g_memory->state).UTF8String;
+        // In any case, make a copy of the data so we don't keep the lock for long.
+        KSCrash_Memory memCopy = {0};
+        {
+            os_unfair_lock_lock(&g_lock);
+            if (g_memory) {
+                memCopy = *g_memory;
+            }
+            os_unfair_lock_unlock(&g_lock);
         }
+        
+        // Not async safe.
+        eventContext->AppMemory.footprint = memCopy.footprint;
+        // `.UTF8String` here is ok because the implementation uses constants,
+        // so they're built into the app and will always exist.
+        eventContext->AppMemory.pressure = KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memCopy.pressure).UTF8String;
+        eventContext->AppMemory.remaining = memCopy.remaining;
+        eventContext->AppMemory.limit = memCopy.limit;
+        eventContext->AppMemory.level = KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memCopy.level).UTF8String;
+        eventContext->AppMemory.timestamp = memCopy.timestamp;
+        eventContext->AppMemory.state = kscm_app_transition_state_to_string(memCopy.state).UTF8String;
     }
 }
 
