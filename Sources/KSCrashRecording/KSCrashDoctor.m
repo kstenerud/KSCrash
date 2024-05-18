@@ -498,6 +498,11 @@ typedef enum
     return string;
 }
 
+- (BOOL) isGracefulTerminationRequest:(NSDictionary *)report
+{
+    return [report[@KSCrashField_Signal][@KSCrashField_Signal] integerValue] == SIGTERM;
+}
+
 - (NSString*) diagnoseCrash:(NSDictionary*) report
 {
     @try
@@ -556,6 +561,10 @@ typedef enum
             }
             return [self appendOriginatingCall:[NSString stringWithFormat:@"Attempted to dereference garbage pointer %p.", (void*)address]
                                       callName:lastFunctionName];
+        }
+        
+        if([self isGracefulTerminationRequest:errorReport]) {
+            return @"The OS request the app be gracefully terminated.";
         }
         
         return nil;
