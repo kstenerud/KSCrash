@@ -14,114 +14,106 @@ let package = Package(
     .library(
       name: "Reporting",
       targets: [
-        "KSCrashFilters",
-        "KSCrashSinks",
-        "KSCrashInstallations",
+        Targets.filters,
+        Targets.sinks,
+        Targets.installations,
       ]
     ),
     .library(
       name: "Filters",
-      targets: ["KSCrashFilters"]
+      targets: [Targets.filters]
     ),
     .library(
       name: "Sinks",
-      targets: ["KSCrashSinks"]
+      targets: [Targets.sinks]
     ),
     .library(
       name: "Installations",
-      targets: ["KSCrashInstallations"]
+      targets: [Targets.installations]
     ),
     .library(
       name: "Recording",
-      targets: ["KSCrashRecording"]
+      targets: [Targets.recording]
     ),
   ],
   targets: [
     .target(
-      name: "KSCrashRecording",
+      name: Targets.recording,
       dependencies: [
-        "KSCrashRecordingCore"
+        .target(name: Targets.recordingCore)
       ],
-      resources: [
-        .copy("Resources/PrivacyInfo.xcprivacy")
-      ],
+      resources: privacyResource,
       cSettings: [.headerSearchPath("Monitors")]
     ),
     .testTarget(
-      name: "KSCrashRecordingTests",
+      name: "\(Targets.recording)Tests",
       dependencies: [
-        "KSCrashTestTools",
-        "KSCrashRecording",
-        "KSCrashRecordingCore",
+        .target(name: Targets.testTools),
+        .target(name: Targets.recording),
+        .target(name: Targets.recordingCore),
       ],
       resources: [
         .process("Resources")
       ],
       cSettings: [
-        .headerSearchPath("../../Sources/KSCrashRecording"),
-        .headerSearchPath("../../Sources/KSCrashRecording/Monitors"),
+        .headerSearchPath("../../Sources/\(Targets.recording)"),
+        .headerSearchPath("../../Sources/\(Targets.recording)/Monitors"),
       ]
     ),
 
     .target(
-      name: "KSCrashFilters",
+      name: Targets.filters,
       dependencies: [
-        "KSCrashRecording",
-        "KSCrashRecordingCore",
-        "KSCrashReportingCore",
+        .target(name: Targets.recording),
+        .target(name: Targets.recordingCore),
+        .target(name: Targets.reportingCore),
       ],
-      resources: [
-        .copy("Resources/PrivacyInfo.xcprivacy")
-      ]
+      resources: privacyResource
     ),
     .testTarget(
-      name: "KSCrashFiltersTests",
+      name: "\(Targets.filters)Tests",
       dependencies: [
-        "KSCrashFilters",
-        "KSCrashRecording",
-        "KSCrashRecordingCore",
-        "KSCrashReportingCore",
+        .target(name: Targets.filters),
+        .target(name: Targets.recording),
+        .target(name: Targets.recordingCore),
+        .target(name: Targets.reportingCore),
       ]
     ),
 
     .target(
-      name: "KSCrashSinks",
+      name: Targets.sinks,
       dependencies: [
-        "KSCrashRecording",
-        "KSCrashFilters",
+        .target(name: Targets.recording),
+        .target(name: Targets.filters),
       ],
-      resources: [
-        .copy("Resources/PrivacyInfo.xcprivacy")
-      ]
+      resources: privacyResource
     ),
 
     .target(
-      name: "KSCrashInstallations",
+      name: Targets.installations,
       dependencies: [
-        "KSCrashFilters",
-        "KSCrashSinks",
-        "KSCrashRecording",
+        .target(name: Targets.filters),
+        .target(name: Targets.sinks),
+        .target(name: Targets.recording),
       ],
-      resources: [
-        .copy("Resources/PrivacyInfo.xcprivacy")
-      ]
+      resources: privacyResource
     ),
     .testTarget(
-      name: "KSCrashInstallationsTests",
+      name: "\(Targets.installations)Tests",
       dependencies: [
-        "KSCrashInstallations",
-        "KSCrashFilters",
-        "KSCrashSinks",
-        "KSCrashRecording",
+        .target(name: Targets.installations),
+        .target(name: Targets.filters),
+        .target(name: Targets.sinks),
+        .target(name: Targets.recording),
       ]
     ),
 
     .target(
-      name: "KSCrashRecordingCore",
-      dependencies: ["KSCrashCore"],
-      resources: [
-        .copy("Resources/PrivacyInfo.xcprivacy")
+      name: Targets.recordingCore,
+      dependencies: [
+        .target(name: Targets.core)
       ],
+      resources: privacyResource,
       cSettings: [
         .headerSearchPath("swift"),
         .headerSearchPath("swift/Basic"),
@@ -132,44 +124,61 @@ let package = Package(
       ]
     ),
     .testTarget(
-      name: "KSCrashRecordingCoreTests",
+      name: "\(Targets.recordingCore)Tests",
       dependencies: [
-        "KSCrashTestTools",
-        "KSCrashRecordingCore",
-        "KSCrashCore",
+        .target(name: Targets.testTools),
+        .target(name: Targets.recordingCore),
+        .target(name: Targets.core),
       ]
     ),
 
     .target(
-      name: "KSCrashReportingCore",
-      dependencies: ["KSCrashCore"],
-      resources: [
-        .copy("Resources/PrivacyInfo.xcprivacy")
-      ]
+      name: Targets.reportingCore,
+      dependencies: [
+        .target(name: Targets.core)
+      ],
+      resources: privacyResource
     ),
     .testTarget(
-      name: "KSCrashReportingCoreTests",
+      name: "\(Targets.reportingCore)Tests",
       dependencies: [
-        "KSCrashReportingCore",
-        "KSCrashCore",
+        .target(name: Targets.reportingCore),
+        .target(name: Targets.core),
       ]
     ),
 
     .target(
-      name: "KSCrashCore",
-      resources: [
-        .copy("Resources/PrivacyInfo.xcprivacy")
-      ]
+      name: Targets.core,
+      resources: privacyResource
     ),
     .testTarget(
-      name: "KSCrashCoreTests",
-      dependencies: ["KSCrashCore"]
+      name: "\(Targets.core)Tests",
+      dependencies: [
+        .target(name: Targets.core)
+      ]
     ),
 
     .target(
-      name: "KSCrashTestTools",
-      dependencies: ["KSCrashRecordingCore"]
+      name: Targets.testTools,
+      dependencies: [
+        .target(name: Targets.recordingCore)
+      ]
     ),
   ],
   cxxLanguageStandard: .gnucxx11
 )
+
+enum Targets {
+  static let recording = "KSCrashRecording"
+  static let filters = "KSCrashFilters"
+  static let sinks = "KSCrashSinks"
+  static let installations = "KSCrashInstallations"
+  static let recordingCore = "KSCrashRecordingCore"
+  static let reportingCore = "KSCrashReportingCore"
+  static let core = "KSCrashCore"
+  static let testTools = "KSCrashTestTools"
+}
+
+let privacyResource: [Resource] = [
+  .copy("Resources/PrivacyInfo.xcprivacy")
+]
