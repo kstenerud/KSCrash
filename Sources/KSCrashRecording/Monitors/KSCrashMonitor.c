@@ -243,6 +243,9 @@ bool kscm_notifyFatalExceptionCaptured(bool isAsyncSafeEnvironment)
 
 void kscm_handleException(struct KSCrash_MonitorContext* context)
 {
+    // we're handling a crash if the crash type is fatal
+    context->handlingCrash = context->handlingCrash || ((context->crashType & KSCrashMonitorTypeFatal) != KSCrashMonitorTypeNone);
+    
     context->requiresAsyncSafety = g_requiresAsyncSafety;
     if(g_crashedDuringExceptionHandling)
     {
@@ -270,4 +273,7 @@ void kscm_handleException(struct KSCrash_MonitorContext* context)
             kscm_setActiveMonitors(KSCrashMonitorTypeNone);
         }
     }
+    
+    // done hanlding the crash
+    context->handlingCrash = false;
 }

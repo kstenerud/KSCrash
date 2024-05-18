@@ -88,6 +88,15 @@ typedef enum
     KSCrashMonitorTypeMemoryTermination    \
 )
 
+#define KSCrashMonitorTypeFatal            \
+(                                          \
+    KSCrashMonitorTypeMachException      | \
+    KSCrashMonitorTypeSignal             | \
+    KSCrashMonitorTypeCPPException       | \
+    KSCrashMonitorTypeNSException        | \
+    KSCrashMonitorTypeMainThreadDeadlock   \
+)
+
 #define KSCrashMonitorTypeExperimental     \
 (                                          \
     KSCrashMonitorTypeMainThreadDeadlock   \

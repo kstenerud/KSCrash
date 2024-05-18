@@ -80,8 +80,11 @@ typedef struct KSCrash_Memory {
     /** transition state of the app */
     KSCrash_ApplicationTransitionState state;
     
+    /** The process for this data had a fatal exception/event of some type */
+    uint8_t fatal;
+    
     /** padding for a nice 40 byte structure which is where most compilers will end up. */
-    uint8_t pad[5];
+    uint8_t pad[4];
 } KSCrash_Memory;
 
 /** Access the Monitor API.

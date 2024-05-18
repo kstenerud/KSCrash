@@ -518,6 +518,14 @@ static NSURL *kscm_memory_oom_breadcrumb_URL(void) {
 
 static void addContextualInfoToEvent(KSCrash_MonitorContext* eventContext)
 {
+    // TODO: Make this fully async safe
+    
+    // we'll use this when reading this back on the next run
+    // to know if an OOM is even possible.
+    _ks_memory_update(^(KSCrash_Memory *mem) {
+        mem->fatal = eventContext->handlingCrash ? 1 : 0;
+    });
+    
     if (g_isEnabled)
     {
         // Not sure if I can lock here or not, we might be in an async only state.
@@ -690,6 +698,11 @@ static void ksmemory_read(const char* path)
         return;
     }
     
+    // Fatal will onyl ever be 0 or 1, otherwise we bail.
+    if (memory.fatal > 1) {
+        return;
+    }
+    
     g_previousSessionMemory = memory;
     
     close(fd);
@@ -720,6 +733,7 @@ static void ksmemory_map(const char* path)
             .limit = memory.limit,
             .timestamp = ksdate_microseconds(),
             .state = g_AppStateTracker.transitionState,
+            .fatal = 0,
         };
     });
 }
@@ -739,7 +753,7 @@ static void ksmemory_write_possible_oom(void)
     NSURL *reportURL = kscm_memory_oom_breadcrumb_URL();
     const char *reportPath = reportURL.path.UTF8String;
     
-    kscm_notifyFatalExceptionCaptured(false);
+    //kscm_notifyFatalExceptionCaptured(false);
     
     KSMC_NEW_CONTEXT(machineContext);
     ksmc_getContextForThread(ksthread_self(), machineContext, false);
@@ -781,6 +795,14 @@ void ksmemory_initialize(const char* installPath)
 
 bool ksmemory_previous_session_was_terminated_due_to_memory(bool *userPerceptible)
 {
+    // If we had any kind of fatal, even if the data says an OOM, it wasn't an OOM.
+    // The idea is that we could have been very close to an OOM then some
+    // exception/event occured that terminated/crashed the app. We don't want to report
+    // that as an OOM.
+    if (g_previousSessionMemory.fatal) {
+        return NO;
+    }
+    
     // We might care if the user might have seen the OOM
     if (userPerceptible) {
         *userPerceptible = ksapp_transition_state_is_user_perceptible(g_previousSessionMemory.state);
