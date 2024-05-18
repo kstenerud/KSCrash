@@ -37,8 +37,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/mman.h>
 #include <unistd.h>
-
 
 /** Buffer size to use in the "writeFmt" functions.
  * If the formatted output length would exceed this value, it is truncated.
@@ -641,3 +641,37 @@ void ksfu_closeBufferedReader(KSBufferedReader* reader)
     }
 }
 
+void *ksfu_mmap(const char* path, int size)
+{
+    int fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0644);
+    if (fd == -1) {
+        KSLOG_ERROR("Could not open file %s: %s", path, strerror(errno));
+        return NULL;
+    }
+    
+    if (lseek(fd, size, SEEK_SET) == -1) {
+        KSLOG_ERROR("Could not seek file %s: %s", path, strerror(errno));
+        close(fd);
+        unlink(path);
+        return NULL;
+    }
+    
+    if (write(fd, "", 1) == -1) {
+        KSLOG_ERROR("Could not write file %s: %s", path, strerror(errno));
+        close(fd);
+        unlink(path);
+        return;
+    }
+    
+    void *ptr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    
+    if (ptr == MAP_FAILED) {
+        KSLOG_ERROR("Could not mmap file %s: %s", path, strerror(errno));
+        // This comes before close which is ok since it'll happen
+        // when all fd's are closed.
+        unlink(path);
+    }
+    
+    close(fd);
+    return ptr;
+}

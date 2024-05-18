@@ -35,9 +35,9 @@
 #import "KSStackCursor_MachineContext.h"
 #import "KSCrashReportFields.h"
 #import "KSDate.h"
+#import "KSFileUtils.h"
 
 #import <Foundation/Foundation.h>
-#import <sys/mman.h>
 #import <os/lock.h>
 
 #import "KSLogger.h"
@@ -508,37 +508,65 @@ KSCrashMonitorAPI* kscm_memory_getAPI(void)
  */
 static void ksmemory_read(const char* path)
 {
-    int fd = open(path, O_RDWR, 0644);
+    int fd = open(path, O_RDONLY, 0644);
     if (fd == -1) {
         unlink(path);
         return;
     }
     
     size_t size = sizeof(KSCrash_Memory);
-    void *mem = malloc(size);
-    if (!mem) {
-        close(fd);
-        unlink(path);
-        return;
-    }
-    
-    memset(mem, 0, size);
-    
-    size_t count = read(fd, mem, size);
-    if (count != size) {
-        close(fd);
-        unlink(path);
-        free(mem);
-        return;
-    }
-    
     KSCrash_Memory memory = {};
-    memcpy(&memory, mem, size);
+    if (!ksfu_readBytesFromFD(fd, &memory, size)) {
+        close(fd);
+        unlink(path);
+        return;
+    }
+    
+    // validate some of the data before doing anything with it.
+    
+    // check the timestamp, let's say it's valid for the last week
+    // do we really want crash reports older than a week anyway??
+    const uint64_t kUS_in_day = 8.64e+10;
+    const uint64_t kUS_in_week = kUS_in_day * 7;
+    uint64_t now = ksdate_microseconds();
+    if (memory.timestamp <= 0 || memory.timestamp == INT64_MAX || memory.timestamp < now - kUS_in_week) {
+        return;
+    }
+    
+    // check pressure and level are in ranges
+    if (memory.level > KSCrashAppMemoryStateTerminal) {
+        return;
+    }
+    if (memory.pressure > KSCrashAppMemoryStateTerminal) {
+        return;
+    }
+    
+    // check app transition state
+    if (memory.state > KSCrash_ApplicationTransitionStateTerminating) {
+        return;
+    }
+    
+    // Footprint and remaining should always = limit
+    if (memory.footprint + memory.remaining != memory.limit) {
+        return;
+    }
+    
+    // if we're at max, we likely overflowed or set a negative value,
+    // in any case, we're counting this as a possible error and bailing.
+    if (memory.footprint == UINT64_MAX) {
+        return;
+    }
+    if (memory.remaining == UINT64_MAX) {
+        return;
+    }
+    if (memory.limit == UINT64_MAX) {
+        return;
+    }
+    
     g_previousSessionMemory = memory;
     
     close(fd);
     unlink(path);
-    free(mem);
 }
 
 /**
@@ -548,44 +576,25 @@ static void ksmemory_read(const char* path)
  */
 static void ksmemory_map(const char* path)
 {
-    int fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0644);
-    if (fd == -1) {
-        unlink(path);
+    void *ptr = ksfu_mmap(path, sizeof(KSCrash_Memory));
+    if (!ptr) {
         return;
     }
     
-    size_t size = sizeof(KSCrash_Memory);
-    if (lseek(fd, size, SEEK_SET) == -1) {
-        close(fd);
-        unlink(path);
-        return;
-    }
+    g_memory = (KSCrash_Memory *)ptr;
+    KSCrashAppMemory *memory = g_memoryTracker.memory;
     
-    if (write(fd, "", 1) == -1) {
-        close(fd);
-        unlink(path);
-        return;
-    }
-    
-    void *ptr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    if (ptr != MAP_FAILED) {
-        g_memory = (KSCrash_Memory *)ptr;
-        
-        KSCrashAppMemory *memory = g_memoryTracker.memory;
-        _ks_memory_update(^(KSCrash_Memory *mem) {
-            *mem = (KSCrash_Memory){
-                .footprint = memory.footprint,
-                .remaining = memory.remaining,
-                .pressure = (uint8_t)memory.pressure,
-                .level = (uint8_t)memory.level,
-                .limit = memory.limit,
-                .timestamp = ksdate_microseconds(),
-                .state = g_AppStateTracker.transitionState,
-            };
-        });
-    }
-    
-    close(fd);
+    _ks_memory_update(^(KSCrash_Memory *mem) {
+        *mem = (KSCrash_Memory){
+            .footprint = memory.footprint,
+            .remaining = memory.remaining,
+            .pressure = (uint8_t)memory.pressure,
+            .level = (uint8_t)memory.level,
+            .limit = memory.limit,
+            .timestamp = ksdate_microseconds(),
+            .state = g_AppStateTracker.transitionState,
+        };
+    });
 }
 
 /**
