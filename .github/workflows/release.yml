@@ -1,0 +1,73 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release'
+        required: true
+
+jobs:
+  release:
+    runs-on: macos-latest
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.0'
+
+      - name: Install CocoaPods
+        run: gem install cocoapods
+
+      - name: Update version in podspec
+        run: sed -i '' 's/s.version      = "[^"]*"/s.version      = "${{ github.event.inputs.version }}"/' KSCrash.podspec
+
+      - name: Update version in source code
+        run: |
+          formatted_version_number=$(echo "${{ github.event.inputs.version }}" | awk -F. '{printf("%d.%02d%02d\n", $1, $2, $3)}')
+          sed -i '' 's/const double KSCrashFrameworkVersionNumber = [^;]*/const double KSCrashFrameworkVersionNumber = '"$formatted_version_number"'/' Sources/KSCrashRecording/KSCrash.m
+          sed -i '' 's/const unsigned char KSCrashFrameworkVersionString\[\] = "[^"]*"/const unsigned char KSCrashFrameworkVersionString[] = "${{ github.event.inputs.version }}"/' Sources/KSCrashRecording/KSCrash.m
+
+      - name: Commit version update
+        id: commit_version
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add .
+          git commit -m "Update version to ${{ github.event.inputs.version }}"
+          git push
+
+      - name: Create git tag
+        id: create_tag
+        run: |
+          git tag ${{ github.event.inputs.version }}
+          git push origin ${{ github.event.inputs.version }}
+
+      - name: Publish to CocoaPods
+        env:
+          COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
+        run: pod trunk push KSCrash.podspec --verbose
+
+  rollback:
+    runs-on: macos-latest
+    needs: release
+    if: failure()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Delete git tag locally
+        run: git tag -d ${{ github.event.inputs.version }}
+
+      - name: Delete git tag remotely
+        run: git push --delete origin ${{ github.event.inputs.version }}
+
+      - name: Revert version commit
+        run: |
+          git revert --no-commit HEAD
+          git commit -m "Revert version update due to failed release"
+          git push
