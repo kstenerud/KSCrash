@@ -45,6 +45,7 @@
 #include "KSStackCursor_MachineContext.h"
 #include "KSSystemCapabilities.h"
 #include "KSCrashCachedData.h"
+#include "KSDate.h"
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
