@@ -47,6 +47,24 @@
 #endif
 
 // ============================================================================
+#pragma mark - Forward declarations -
+// ============================================================================
+
+static KSCrash_Memory _ks_memory_copy(void);
+static void _ks_memory_update(void (^block)(KSCrash_Memory *mem));
+static void ksmemory_write_possible_oom(void);
+static void setEnabled(bool isEnabled);
+static bool isEnabled(void);
+static NSString *kscm_app_transition_state_to_string(KSCrash_ApplicationTransitionState state);
+static NSURL *kscm_memory_oom_breadcrumb_URL(void);
+static void addContextualInfoToEvent(KSCrash_MonitorContext* eventContext);
+static NSDictionary<NSString *, id> *kscm_memory_serialize(KSCrash_Memory *const memory);
+static void kscm_memory_check_for_oom_in_previous_session(void);
+static void notifyPostSystemEnable(void);
+static void ksmemory_read(const char* path);
+static void ksmemory_map(const char* path);
+
+// ============================================================================
 #pragma mark - Globals -
 // ============================================================================
 
@@ -378,8 +396,6 @@ typedef void (^AppStateTrackerBlockObserverBlock)(KSCrash_ApplicationTransitionS
 #pragma mark - API -
 // ============================================================================
 
-static void ksmemory_write_possible_oom();
-
 static void setEnabled(bool isEnabled)
 {
     if (isEnabled != g_isEnabled)
@@ -418,7 +434,7 @@ static NSString *kscm_app_transition_state_to_string(KSCrash_ApplicationTransiti
     return @"unknown";
 }
 
-static NSURL *kscm_memory_oom_breacrumb_URL() {
+static NSURL *kscm_memory_oom_breadcrumb_URL(void) {
     return [g_installURL URLByAppendingPathComponent:@"Data/oom_breadcrumb_report.json"];
 }
 
@@ -463,7 +479,7 @@ static NSDictionary<NSString *, id> *kscm_memory_serialize(KSCrash_Memory *const
  session and modify it, save it out to the reports location,
  and let the system run its course.
  */
-static void kscm_memory_check_for_oom_in_previous_session()
+static void kscm_memory_check_for_oom_in_previous_session(void)
 {
     // And OOM should be the last thng we check for. For example,
     // If memory is critical but before being jetisoned we encounter
@@ -476,7 +492,7 @@ static void kscm_memory_check_for_oom_in_previous_session()
         // We only report an OOM that the user might have seen.
         // Ignore this check if we want to report all OOM, foreground and background.
         if (userPerceivedOOM) {
-            NSURL *url = kscm_memory_oom_breacrumb_URL();
+            NSURL *url = kscm_memory_oom_breadcrumb_URL();
             const char *reportContents = kscrash_readReportAtPath(url.path.UTF8String);
             if (reportContents) {
                 
@@ -502,13 +518,13 @@ static void kscm_memory_check_for_oom_in_previous_session()
     }
     
     // remove the old breadcrumb oom file
-    unlink(kscm_memory_oom_breacrumb_URL().path.UTF8String);
+    unlink(kscm_memory_oom_breadcrumb_URL().path.UTF8String);
 }
 
 /**
  This is called after all monitors are enabled.
  */
-static void notifyPostSystemEnable()
+static void notifyPostSystemEnable(void)
 {
     if (g_hasPostEnable) {
         return;
@@ -640,9 +656,9 @@ static void ksmemory_map(const char* path)
  leads to the system seeing the report as if it had always been there and will
  then report an OOM.
  */
-static void ksmemory_write_possible_oom()
+static void ksmemory_write_possible_oom(void)
 {
-    NSURL *reportURL = kscm_memory_oom_breacrumb_URL();
+    NSURL *reportURL = kscm_memory_oom_breadcrumb_URL();
     const char *reportPath = reportURL.path.UTF8String;
     
     kscm_notifyFatalExceptionCaptured(false);
