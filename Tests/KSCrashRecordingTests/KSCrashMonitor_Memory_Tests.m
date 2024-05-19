@@ -68,7 +68,7 @@
     
     // setup
     NSURL *installURL = [NSURL fileURLWithPath:@"/tmp/kscrash" isDirectory:YES];
-    NSURL *reportsPath = [[installURL URLByAppendingPathComponent:@"Data"] URLByAppendingPathComponent:@"Reports"];
+    NSURL *reportsPath = [installURL URLByAppendingPathComponent:@"Reports"];
     NSURL *memoryURL = [[installURL URLByAppendingPathComponent:@"Data"] URLByAppendingPathComponent:@"memory"];
     NSURL *breadcrumbURL = [[installURL URLByAppendingPathComponent:@"Data"] URLByAppendingPathComponent:@"oom_breadcrumb_report.json"];
     
@@ -77,10 +77,11 @@
     [mngr removeItemAtURL:memoryURL error:nil];
     [mngr removeItemAtURL:breadcrumbURL error:nil];
     
+    
     // init
-    kscrash_setMonitoring(KSCrashMonitorTypeMemoryTermination);
     kscrash_install("test", installURL.path.UTF8String);
-
+    kscrash_setMonitoring(KSCrashMonitorTypeMemoryTermination);
+    
     // init memory API
     KSCrashMonitorAPI* api = kscm_memory_getAPI();
     XCTAssertTrue(api->isEnabled());
@@ -91,12 +92,11 @@
     XCTAssertFalse(oomed);
     XCTAssertTrue(userPerceptible);
 
+#if TARGET_OS_IOS
     // notify we're launching and becoming active
     [[NSNotificationCenter defaultCenter] postNotificationName:UIApplicationDidFinishLaunchingNotification object:nil];
     [[NSNotificationCenter defaultCenter] postNotificationName:UIApplicationDidBecomeActiveNotification object:nil];
-    
-    // Pump the runloop a bit
-    [[NSRunLoop mainRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0]];
+#endif
     
     // disable
     kscrash_setMonitoring(KSCrashMonitorTypeNone);
