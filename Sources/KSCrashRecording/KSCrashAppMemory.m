@@ -29,11 +29,19 @@ NS_ASSUME_NONNULL_BEGIN
  
  Memory Level is useful in the foreground as well as background. It indicates where the app is
  within its memory limit. That limit being calculated by the addition of `remaining` and
- `footprint`. Using this data, we can also make informaed decisions around foreground and background
+ `footprint`. Using this data, we can also make informed decisions around foreground and background
  memory terminations, aka. OOMs.
  
  See: https://github.com/naftaly/Footprint
  */
+
+// I'm not protecting this.
+// It should be set once at start if you want to change it for tests.
+static KSCrashAppMemoryProvider gMemoryProvider = nil;
+FOUNDATION_EXPORT void __KSCrashAppMemorySetProvider(KSCrashAppMemoryProvider provider)
+{
+    gMemoryProvider = [provider copy];
+}
 
 @interface KSCrashAppMemoryTracker () {
     dispatch_queue_t _heartbeatQueue;
@@ -123,25 +131,34 @@ NS_ASSUME_NONNULL_BEGIN
 }
 
 - (nullable KSCrashAppMemory *)currentAppMemory {
-    task_vm_info_data_t info = {};
-    mach_msg_type_number_t count = TASK_VM_INFO_COUNT;
-    kern_return_t err = task_info(mach_task_self(), TASK_VM_INFO, (task_info_t)&info, &count);
-    if (err != KERN_SUCCESS) {
-        return nil;
-    }
+    __weak typeof(self)weakMe = self;
     
+    const KSCrashAppMemoryProvider provider = ^KSCrashAppMemory *{
+        
+        KSCrashAppMemoryState pressure = weakMe.pressure;
+        
+        task_vm_info_data_t info = {};
+        mach_msg_type_number_t count = TASK_VM_INFO_COUNT;
+        kern_return_t err = task_info(mach_task_self(), TASK_VM_INFO, (task_info_t)&info, &count);
+        if (err != KERN_SUCCESS) {
+            return nil;
+        }
+        
 #if TARGET_OS_SIMULATOR
-    // in simulator, remaining is always 0. So let's fake it.
-    // How about a limit of 3GB.
-    uint64_t limit = 3000000000;
-    uint64_t remaining = limit < info.phys_footprint ? 0 : limit - info.phys_footprint;
+        // in simulator, remaining is always 0. So let's fake it.
+        // How about a limit of 3GB.
+        uint64_t limit = 3000000000;
+        uint64_t remaining = limit < info.phys_footprint ? 0 : limit - info.phys_footprint;
 #else
-    uint64_t remaining = info.limit_bytes_remaining;
+        uint64_t remaining = info.limit_bytes_remaining;
 #endif
+        
+        return [[KSCrashAppMemory alloc] initWithFootprint:info.phys_footprint
+                                                 remaining:remaining
+                                                  pressure:pressure];
+    };
     
-    return [[KSCrashAppMemory alloc] initWithFootprint:info.phys_footprint
-                                             remaining:remaining
-                                              pressure:_pressure];
+    return gMemoryProvider ? gMemoryProvider() : provider();
 }
 
 - (void)_handleMemoryChange:(KSCrashAppMemory *)memory type:(KSCrashAppMemoryTrackerChangeType)changes {
@@ -213,7 +230,12 @@ NS_ASSUME_NONNULL_BEGIN
         // NOTE: Some teams might want to do this in prod.
         // For example, we could send a SIGTERM so the system
         // catches a stack trace.
-        if (newLevel == KSCrashAppMemoryStateTerminal) {
+        static BOOL sIsRunningInTests;
+        static dispatch_once_t onceToken;
+        dispatch_once(&onceToken, ^{
+            sIsRunningInTests = NSProcessInfo.processInfo.environment[@"XCTestSessionIdentifier"] != nil;
+        });
+        if (!sIsRunningInTests && newLevel == KSCrashAppMemoryStateTerminal) {
             kill(getpid(), SIGKILL);
             _exit(0);
         }

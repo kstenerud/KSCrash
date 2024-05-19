@@ -145,4 +145,8 @@ typedef NS_OPTIONS(NSUInteger, KSCrashAppMemoryTrackerChangeType) {
 
 @end
 
+
+typedef KSCrashAppMemory * _Nonnull (^KSCrashAppMemoryProvider)(void);
+FOUNDATION_EXPORT void __KSCrashAppMemorySetProvider(KSCrashAppMemoryProvider provider);
+
 NS_ASSUME_NONNULL_END

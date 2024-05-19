@@ -200,12 +200,10 @@ typedef void (^AppStateTrackerBlockObserverBlock)(KSCrash_ApplicationTransitionS
 
 @implementation AppStateTracker
 
-static id<AppStateTrackerObserving> S_OBS = nil;
-
 + (void)load
 {
     g_AppStateTracker = [[AppStateTracker alloc] initWithNotificationCenter:NSNotificationCenter.defaultCenter];
-    S_OBS = [g_AppStateTracker addObserverWithBlock:^(KSCrash_ApplicationTransitionState transitionState) {
+    [g_AppStateTracker addObserverWithBlock:^(KSCrash_ApplicationTransitionState transitionState) {
         _ks_memory_update(^(KSCrash_Memory *mem) {
             mem->state = transitionState;
         });
@@ -437,6 +435,7 @@ static id<AppStateTrackerObserving> S_OBS = nil;
         [self _updateMappedMemoryFrom:memory];
     }
     
+#if KSCRASH_MEMORY_STATE_NONFATAL_REPORT
     if ((changes & KSCrashAppMemoryTrackerChangeTypeLevel) &&
         memory.level >= KSCrashAppMemoryStateCritical) {
 
@@ -466,6 +465,8 @@ static id<AppStateTrackerObserving> S_OBS = nil;
                                         logAllThreads:NO
                                      terminateProgram:NO];
     }
+#endif
+    
 }
 
 @end
@@ -752,9 +753,7 @@ static void ksmemory_write_possible_oom(void)
 {
     NSURL *reportURL = kscm_memory_oom_breadcrumb_URL();
     const char *reportPath = reportURL.path.UTF8String;
-    
-    //kscm_notifyFatalExceptionCaptured(false);
-    
+
     KSMC_NEW_CONTEXT(machineContext);
     ksmc_getContextForThread(ksthread_self(), machineContext, false);
     KSStackCursor stackCursor;
@@ -782,9 +781,14 @@ static void ksmemory_write_possible_oom(void)
 
 void ksmemory_initialize(const char* installPath)
 {
+    g_hasPostEnable = 0;
     g_installURL = [NSURL fileURLWithPath:@(installPath)];
-    NSURL *memoryURL = [[g_installURL URLByAppendingPathComponent:@"Data"] URLByAppendingPathComponent:@"memory"];
+    NSURL *dataURL = [g_installURL URLByAppendingPathComponent:@"Data"];
+    NSURL *memoryURL = [dataURL URLByAppendingPathComponent:@"memory"];
     const char *path = memoryURL.path.UTF8String;
+    
+    // Make sure the folder exists
+    [[NSFileManager defaultManager] createDirectoryAtURL:dataURL withIntermediateDirectories:YES attributes:nil error:nil];
     
     // load up the old data
     ksmemory_read(path);
