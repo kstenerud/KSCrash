@@ -31,28 +31,11 @@
 #define KSCrashMonitor_Memory_h
 
 #include "KSCrashMonitor.h"
+#include "KSCrashAppTransitionState.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-/** States of transition for the application */
-enum {
-    KSCrash_ApplicationTransitionStateStartup = 0,
-    KSCrash_ApplicationTransitionStateStartupPrewarm,
-    KSCrash_ApplicationTransitionStateLaunching,
-    KSCrash_ApplicationTransitionStateForegrounding,
-    KSCrash_ApplicationTransitionStateActive,
-    KSCrash_ApplicationTransitionStateDeactivating,
-    KSCrash_ApplicationTransitionStateBackground,
-    KSCrash_ApplicationTransitionStateTerminating,
-    KSCrash_ApplicationTransitionStateExiting,
-};
-typedef uint8_t KSCrash_ApplicationTransitionState;
-
-/** Returns true if the transition state is user perceptible.
- */
-bool ksapp_transition_state_is_user_perceptible(KSCrash_ApplicationTransitionState state);
 
 /**
  App Memory
@@ -78,7 +61,7 @@ typedef struct KSCrash_Memory {
     uint8_t level;
     
     /** transition state of the app */
-    KSCrash_ApplicationTransitionState state;
+    KSCrashAppTransitionState state;
     
     /** The process for this data had a fatal exception/event of some type */
     uint8_t fatal;

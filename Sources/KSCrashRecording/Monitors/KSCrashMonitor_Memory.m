@@ -37,6 +37,7 @@
 #import "KSCrashReportFields.h"
 #import "KSDate.h"
 #import "KSFileUtils.h"
+#import "KSCrashAppStateTracker.h"
 
 #import <Foundation/Foundation.h>
 #import <os/lock.h>
@@ -56,7 +57,6 @@ static void _ks_memory_update(void (^block)(KSCrash_Memory *mem));
 static void ksmemory_write_possible_oom(void);
 static void setEnabled(bool isEnabled);
 static bool isEnabled(void);
-static NSString *kscm_app_transition_state_to_string(KSCrash_ApplicationTransitionState state);
 static NSURL *kscm_memory_oom_breadcrumb_URL(void);
 static void addContextualInfoToEvent(KSCrash_MonitorContext* eventContext);
 static NSDictionary<NSString *, id> *kscm_memory_serialize(KSCrash_Memory *const memory);
@@ -78,6 +78,9 @@ static NSURL *g_installURL = nil;
 // The memory tracker
 @class MemoryTracker;
 static MemoryTracker *g_memoryTracker = nil;
+
+// Observer token for app state transitions.
+static id<KSCrashAppStateTrackerObserving> g_appStateObserver = nil;
 
 // file mapped memory.
 // Never touch `g_memory` directly,
@@ -115,278 +118,9 @@ static void _ks_memory_update(void (^block)(KSCrash_Memory *mem)) {
 // last memory write from the previous session
 static KSCrash_Memory g_previousSessionMemory;
 
-// App state tracking
-@class AppStateTracker;
-static AppStateTracker *g_AppStateTracker = nil;
-
 // ============================================================================
 #pragma mark - App State Tracking -
 // ============================================================================
-
-/**
- AppStateTracker
- 
- This system tracks the app state, but also gives insight into the transitions
- from launch to termination. One reason why this is useful is that when a user
- brings a running process to the foreground, it goes through an animation from
- background to foreground that is not accounted for in UIApplicationState but
- is still visible to users. If the app crashes or is temrinated during that time, the
- application state is `UIApplicationStateBackground` which is usually not
- accounted for in crash systems. This newer method with transitions included in
- the state is much more complete and allows products to be much more reliable
- and handle areas of the app that are very important to users but rarely handled
- by apps.
- 
- We'll keep it private for now until it is integrated with `KSCrashMonitor_AppState`.
- */
-@protocol AppStateTrackerObserving <NSObject>
-- (void)appStateTrackerDidChangeApplicationTransitionState:(KSCrash_ApplicationTransitionState)transitionState;
-@end
-
-typedef void (^AppStateTrackerBlockObserverBlock)(KSCrash_ApplicationTransitionState transitionState);
-@interface AppStateTrackerBlockObserver : NSObject <AppStateTrackerObserving>
-
-@property (nonatomic, copy) AppStateTrackerBlockObserverBlock block;
-@property (nonatomic, weak) id<AppStateTrackerObserving> object;
-
-- (BOOL)shouldReap;
-
-@end
-
-@implementation AppStateTrackerBlockObserver
-
-- (void)appStateTrackerDidChangeApplicationTransitionState:(KSCrash_ApplicationTransitionState)transitionState
-{
-    AppStateTrackerBlockObserverBlock block = self.block;
-    if (block) {
-        block(transitionState);
-    }
-    
-    id<AppStateTrackerObserving> object = self.object;
-    if (object) {
-        [object appStateTrackerDidChangeApplicationTransitionState:transitionState];
-    }
-}
-
-- (BOOL)shouldReap
-{
-    return self.block == nil && self.object == nil;
-}
-
-@end
-
-@interface AppStateTracker : NSObject {
-    
-    NSNotificationCenter *_center;
-    NSArray<id<NSObject>> *_registrations;
-    
-    // transition state and observers protected by the lock
-    os_unfair_lock _lock;
-    KSCrash_ApplicationTransitionState _transitionState;
-    NSMutableArray<id<AppStateTrackerObserving>> *_observers;
-}
-
-- (instancetype)initWithNotificationCenter:(NSNotificationCenter *)notificationCenter NS_DESIGNATED_INITIALIZER;
-- (instancetype)init NS_UNAVAILABLE;
-+ (instancetype)new NS_UNAVAILABLE;
-
-@property (atomic, readonly) KSCrash_ApplicationTransitionState transitionState;
-
-- (void)addObserver:(id<AppStateTrackerObserving>)observer;
-- (id<AppStateTrackerObserving>)addObserverWithBlock:(AppStateTrackerBlockObserverBlock)block;
-
-- (void)removeObserver:(id<AppStateTrackerObserving>)observer;
-
-@end
-
-@implementation AppStateTracker
-
-+ (void)load
-{
-    g_AppStateTracker = [[AppStateTracker alloc] initWithNotificationCenter:NSNotificationCenter.defaultCenter];
-    [g_AppStateTracker addObserverWithBlock:^(KSCrash_ApplicationTransitionState transitionState) {
-        _ks_memory_update(^(KSCrash_Memory *mem) {
-            mem->state = transitionState;
-        });
-    }];
-    [g_AppStateTracker start];
-}
-
-- (instancetype)initWithNotificationCenter:(NSNotificationCenter *)notificationCenter
-{
-    if (self = [super init]) {
-        _lock = OS_UNFAIR_LOCK_INIT;
-        _observers = [NSMutableArray array];
-        _center = notificationCenter;
-        _registrations = nil;
-        
-        BOOL isPrewarm = [NSProcessInfo.processInfo.environment[@"ActivePrewarm"] boolValue];
-        _transitionState = isPrewarm ? KSCrash_ApplicationTransitionStateStartupPrewarm : KSCrash_ApplicationTransitionStateStartup;
-    }
-    return self;
-}
-
-- (void)dealloc
-{
-    [self stop];
-}
-
-// Observers are either an object passed in that
-// implements `AppStateTrackerObserving` or a block.
-// Both will be wrapped in a `AppStateTrackerBlockObserver`.
-// if a block, then it'll simply call the block.
-// If the object, we'll keep a weak reference to it.
-// Objects will be reaped when their block and their object
-// is nil.
-// We'll reap on add and removal or any type of observer.
-- (void)_locked_reapObserversOrObject:(id)object
-{
-    NSMutableArray *toRemove = [NSMutableArray array];
-    for (AppStateTrackerBlockObserver *obj in _observers) {
-        if ((obj.object != nil && obj.object == object) || [obj shouldReap]) {
-            [toRemove addObject:obj];
-            obj.object = nil;
-            obj.block = nil;
-        }
-    }
-    [_observers removeObjectsInArray:toRemove];
-}
-
-- (void)_addObserver:(AppStateTrackerBlockObserver *)observer
-{
-    os_unfair_lock_lock(&_lock);
-    [_observers addObject:observer];
-    [self _locked_reapObserversOrObject:nil];
-    os_unfair_lock_unlock(&_lock);
-}
-
-- (void)addObserver:(id<AppStateTrackerObserving>)observer
-{
-    AppStateTrackerBlockObserver *obs = [[AppStateTrackerBlockObserver alloc] init];
-    obs.object = observer;
-    [self _addObserver:obs];
-}
-
-- (id<AppStateTrackerObserving>)addObserverWithBlock:(AppStateTrackerBlockObserverBlock)block
-{
-    AppStateTrackerBlockObserver *obs = [[AppStateTrackerBlockObserver alloc] init];
-    obs.block = [block copy];
-    [self _addObserver:obs];
-    return obs;
-}
-
-- (void)removeObserver:(id<AppStateTrackerObserving>)observer
-{
-    os_unfair_lock_lock(&_lock);
-    
-    // Observers added with a block
-    if ([observer isKindOfClass:AppStateTrackerBlockObserver.class]) {
-        AppStateTrackerBlockObserver *obs = (AppStateTrackerBlockObserver *)observer;
-        obs.block = nil;
-        obs.object = nil;
-        [self _locked_reapObserversOrObject:nil];
-    }
-    
-    // observers added with an object
-    else {
-        [self _locked_reapObserversOrObject:observer];
-    }
-    
-    os_unfair_lock_unlock(&_lock);
-}
-
-- (KSCrash_ApplicationTransitionState)transitionState
-{
-    KSCrash_ApplicationTransitionState ret;
-    {
-        os_unfair_lock_lock(&_lock);
-        ret = _transitionState;
-        os_unfair_lock_unlock(&_lock);
-    }
-    return ret;
-}
-
-- (void)_setTransitionState:(KSCrash_ApplicationTransitionState)transitionState
-{
-    NSArray<id<AppStateTrackerObserving>> *observers = nil;
-    {
-        os_unfair_lock_lock(&_lock);
-        if (_transitionState != transitionState) {
-            _transitionState = transitionState;
-            observers = [_observers copy];
-        }
-        os_unfair_lock_unlock(&_lock);
-    }
-    
-    for (id<AppStateTrackerObserving> obs in observers) {
-        [obs appStateTrackerDidChangeApplicationTransitionState:transitionState];
-    }
-}
-
-#define OBSERVE(center, name, block) \
-    [center addObserverForName:name \
-    object:nil \
-    queue:nil \
-    usingBlock:^(NSNotification *notification)block] \
-
-- (void)start
-{
-    if (_registrations) {
-        return;
-    }
-    
-    __weak typeof(self)weakMe = self;
-    
-    // Register a normal `exit` callback so we don't think it's an OOM.
-    atexit_b(^{
-        [weakMe _setTransitionState:KSCrash_ApplicationTransitionStateExiting];
-    });
-    
-#if TARGET_OS_IOS || TARGET_OS_MACCATALYST || TARGET_OS_TV
-    
-    // register all normal lifecycle events
-    // in the future, we could also look at scene lifecycle
-    // events but in reality, we don't actually need to,
-    // it could just give us more granularity.
-    _registrations = @[
-        
-        OBSERVE(_center, UIApplicationDidFinishLaunchingNotification, {
-            [weakMe _setTransitionState:KSCrash_ApplicationTransitionStateLaunching];
-        }),
-        OBSERVE(_center, UIApplicationWillEnterForegroundNotification, {
-            [weakMe _setTransitionState:KSCrash_ApplicationTransitionStateForegrounding];
-        }),
-        OBSERVE(_center, UIApplicationDidBecomeActiveNotification, {
-            [weakMe _setTransitionState:KSCrash_ApplicationTransitionStateActive];
-        }),
-        OBSERVE(_center, UIApplicationWillResignActiveNotification, {
-            [weakMe _setTransitionState:KSCrash_ApplicationTransitionStateDeactivating];
-        }),
-        OBSERVE(_center, UIApplicationDidEnterBackgroundNotification, {
-            [weakMe _setTransitionState:KSCrash_ApplicationTransitionStateBackground];
-        }),
-        OBSERVE(_center, UIApplicationWillTerminateNotification, {
-            [weakMe _setTransitionState:KSCrash_ApplicationTransitionStateTerminating];
-        }),
-    ];
-    
-#else
-    // on other platforms that don't have UIApplication
-    // we simply state that the app is active in order to report OOMs.
-    [self _setTransitionState:KSCrash_ApplicationTransitionStateActive];
-#endif
-}
-
-- (void)stop
-{
-    NSArray<id<NSObject>> *registraions = [_registrations copy];
-    _registrations = nil;
-    for (id<NSObject> registraion in registraions) {
-        [_center removeObserver:registraion];
-    }
-}
-
-@end
 
 // ============================================================================
 #pragma mark - Tracking -
@@ -429,7 +163,7 @@ typedef void (^AppStateTrackerBlockObserverBlock)(KSCrash_ApplicationTransitionS
             .pressure = (uint8_t)memory.pressure,
             .level = (uint8_t)memory.level,
             .timestamp = ksdate_microseconds(),
-            .state = g_AppStateTracker.transitionState,
+            .state = KSCrashAppStateTracker.shared.transitionState,
         };
     });
 }
@@ -490,10 +224,19 @@ static void setEnabled(bool isEnabled)
             if (g_hasPostEnable) {
                 g_memoryTracker = [[MemoryTracker alloc] init];
             }
+            
+            g_appStateObserver = [KSCrashAppStateTracker.shared addObserverWithBlock:^(KSCrashAppTransitionState transitionState) {
+                _ks_memory_update(^(KSCrash_Memory *mem) {
+                    mem->state = transitionState;
+                });
+            }];
+            
         }
         else
         {
             g_memoryTracker = nil;
+            [KSCrashAppStateTracker.shared removeObserver:g_appStateObserver];
+            g_appStateObserver = nil;
         }
     }
 }
@@ -501,21 +244,6 @@ static void setEnabled(bool isEnabled)
 static bool isEnabled(void)
 {
     return g_isEnabled;
-}
-
-static NSString *kscm_app_transition_state_to_string(KSCrash_ApplicationTransitionState state) {
-    switch (state) {
-        case KSCrash_ApplicationTransitionStateStartup: return @"startup";
-        case KSCrash_ApplicationTransitionStateStartupPrewarm: return @"prewarm";
-        case KSCrash_ApplicationTransitionStateActive: return @"active";
-        case KSCrash_ApplicationTransitionStateLaunching: return @"launching";
-        case KSCrash_ApplicationTransitionStateBackground: return @"background";
-        case KSCrash_ApplicationTransitionStateTerminating: return @"terminating";
-        case KSCrash_ApplicationTransitionStateExiting: return @"exiting";
-        case KSCrash_ApplicationTransitionStateDeactivating: return @"deactivating";
-        case KSCrash_ApplicationTransitionStateForegrounding: return @"foregrounding";
-    }
-    return @"unknown";
 }
 
 static NSURL *kscm_memory_oom_breadcrumb_URL(void) {
@@ -548,7 +276,7 @@ static void addContextualInfoToEvent(KSCrash_MonitorContext* eventContext)
         eventContext->AppMemory.limit = memCopy.limit;
         eventContext->AppMemory.level = KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memCopy.level).UTF8String;
         eventContext->AppMemory.timestamp = memCopy.timestamp;
-        eventContext->AppMemory.state = kscm_app_transition_state_to_string(memCopy.state).UTF8String;
+        eventContext->AppMemory.state = ksapp_transition_state_to_string(memCopy.state);
     }
 }
 
@@ -561,7 +289,7 @@ static NSDictionary<NSString *, id> *kscm_memory_serialize(KSCrash_Memory *const
         @KSCrashField_MemoryPressure: KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memory->pressure),
         @KSCrashField_MemoryLevel: KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memory->level),
         @KSCrashField_Timestamp: @(memory->timestamp),
-        @KSCrashField_AppTransitionState: kscm_app_transition_state_to_string(memory->state),
+        @KSCrashField_AppTransitionState: @(ksapp_transition_state_to_string(memory->state)),
     };
 }
 
@@ -688,7 +416,7 @@ static void ksmemory_read(const char* path)
     }
     
     // check app transition state
-    if (memory.state > KSCrash_ApplicationTransitionStateExiting) {
+    if (memory.state > KSCrashAppTransitionStateExiting) {
         return;
     }
     
@@ -740,7 +468,7 @@ static void ksmemory_map(const char* path)
             .level = (uint8_t)memory.level,
             .limit = memory.limit,
             .timestamp = ksdate_microseconds(),
-            .state = g_AppStateTracker.transitionState,
+            .state = KSCrashAppStateTracker.shared.transitionState,
             .fatal = 0,
         };
     });
@@ -822,23 +550,4 @@ bool ksmemory_previous_session_was_terminated_due_to_memory(bool *userPerceptibl
     // level or pressure is critical++
     return g_previousSessionMemory.level >= KSCrashAppMemoryStateCritical ||
             g_previousSessionMemory.pressure >= KSCrashAppMemoryStateCritical;
-}
-
-bool ksapp_transition_state_is_user_perceptible(KSCrash_ApplicationTransitionState state)
-{
-    switch (state) {
-        case KSCrash_ApplicationTransitionStateStartupPrewarm:
-        case KSCrash_ApplicationTransitionStateBackground:
-        case KSCrash_ApplicationTransitionStateTerminating:
-        case KSCrash_ApplicationTransitionStateExiting:
-            return NO;
-            
-        case KSCrash_ApplicationTransitionStateStartup:
-        case KSCrash_ApplicationTransitionStateLaunching:
-        case KSCrash_ApplicationTransitionStateForegrounding:
-        case KSCrash_ApplicationTransitionStateActive:
-        case KSCrash_ApplicationTransitionStateDeactivating:
-            return YES;
-    }
-    return NO;
 }
