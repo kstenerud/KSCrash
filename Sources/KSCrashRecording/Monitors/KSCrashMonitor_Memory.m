@@ -25,6 +25,7 @@
 //
 #import "KSCrashMonitor_Memory.h"
 
+#import "KSSystemCapabilities.h"
 #import "KSCrash.h"
 #import "KSCrashC.h"
 #import "KSCrashMonitorContext.h"
@@ -220,7 +221,7 @@ typedef void (^AppStateTrackerBlockObserverBlock)(KSCrash_ApplicationTransitionS
         _registrations = nil;
         
         BOOL isPrewarm = [NSProcessInfo.processInfo.environment[@"ActivePrewarm"] boolValue];
-        _transitionState = isPrewarm ? KSCrash_ApplicationTransitionStateStartup : KSCrash_ApplicationTransitionStateStartup;
+        _transitionState = isPrewarm ? KSCrash_ApplicationTransitionStateStartupPrewarm : KSCrash_ApplicationTransitionStateStartup;
     }
     return self;
 }
@@ -341,9 +342,8 @@ typedef void (^AppStateTrackerBlockObserverBlock)(KSCrash_ApplicationTransitionS
         [weakMe _setTransitionState:KSCrash_ApplicationTransitionStateExiting];
     });
     
-    // TODO: What other supported platforms need something like this???
-#if TARGET_OS_IOS
-
+#if TARGET_OS_IOS || TARGET_OS_MACCATALYST || TARGET_OS_TV
+    
     // register all normal lifecycle events
     // in the future, we could also look at scene lifecycle
     // events but in reality, we don't actually need to,
@@ -369,6 +369,11 @@ typedef void (^AppStateTrackerBlockObserverBlock)(KSCrash_ApplicationTransitionS
             [weakMe _setTransitionState:KSCrash_ApplicationTransitionStateTerminating];
         }),
     ];
+    
+#else
+    // on other platforms that don't have UIApplication
+    // we simply state that the app is active in order to report OOMs.
+    [self _setTransitionState:KSCrash_ApplicationTransitionStateActive];
 #endif
 }
 
@@ -640,11 +645,12 @@ KSCrashMonitorAPI* kscm_memory_getAPI(void)
 }
 
 /**
- Read the previous sessions memory data.
+ Read the previous sessions memory data,
+ and unlinks the file to remove any trace of it.
  */
 static void ksmemory_read(const char* path)
 {
-    int fd = open(path, O_RDONLY, 0644);
+    int fd = open(path, O_RDONLY);
     if (fd == -1) {
         unlink(path);
         return;
@@ -657,6 +663,10 @@ static void ksmemory_read(const char* path)
         unlink(path);
         return;
     }
+    
+    // get rid of the file, we don't want it anymore.
+    close(fd);
+    unlink(path);
     
     // validate some of the data before doing anything with it.
     
@@ -705,9 +715,6 @@ static void ksmemory_read(const char* path)
     }
     
     g_previousSessionMemory = memory;
-    
-    close(fd);
-    unlink(path);
 }
 
 /**
