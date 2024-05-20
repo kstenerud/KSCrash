@@ -21,4 +21,11 @@
     XCTAssertEqual(diagnostic, @"The OS request the app be gracefully terminated.");
 }
 
+- (void) testOOM
+{
+    id report = [self _crashReportAsJSON:@"oom"];
+    NSString *diagnostic = [[[KSCrashDoctor alloc] init] diagnoseCrash:report];
+    XCTAssertEqual(diagnostic, @"The app was terminated due to running out of memory (OOM).");
+}
+
 @end

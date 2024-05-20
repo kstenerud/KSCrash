@@ -165,16 +165,41 @@
 
 - (void) testTransitionState
 {
-    XCTAssertFalse( ksapp_transition_state_is_user_perceptible(KSCrash_ApplicationTransitionStateStartupPrewarm));
-    XCTAssertFalse( ksapp_transition_state_is_user_perceptible(KSCrash_ApplicationTransitionStateBackground));
-    XCTAssertFalse( ksapp_transition_state_is_user_perceptible(KSCrash_ApplicationTransitionStateTerminating));
-    XCTAssertFalse( ksapp_transition_state_is_user_perceptible(KSCrash_ApplicationTransitionStateExiting));
+    XCTAssertFalse(ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionStateStartupPrewarm));
+    XCTAssertFalse(ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionStateBackground));
+    XCTAssertFalse(ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionStateTerminating));
+    XCTAssertFalse(ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionStateExiting));
     
-    XCTAssertTrue( ksapp_transition_state_is_user_perceptible(KSCrash_ApplicationTransitionStateStartup));
-    XCTAssertTrue( ksapp_transition_state_is_user_perceptible(KSCrash_ApplicationTransitionStateLaunching));
-    XCTAssertTrue( ksapp_transition_state_is_user_perceptible(KSCrash_ApplicationTransitionStateForegrounding));
-    XCTAssertTrue( ksapp_transition_state_is_user_perceptible(KSCrash_ApplicationTransitionStateActive));
-    XCTAssertTrue( ksapp_transition_state_is_user_perceptible(KSCrash_ApplicationTransitionStateDeactivating));
+    XCTAssertTrue(ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionStateStartup));
+    XCTAssertTrue(ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionStateLaunching));
+    XCTAssertTrue(ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionStateForegrounding));
+    XCTAssertTrue(ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionStateActive));
+    XCTAssertTrue(ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionStateDeactivating));
+}
+
+static KSCrashAppMemory *Memory(uint64_t footprint) {
+    return [[KSCrashAppMemory alloc] initWithFootprint:footprint remaining:100-footprint pressure:KSCrashAppMemoryStateNormal];
+}
+
+- (void) testAppMemory
+{
+    XCTAssertEqual(Memory(0).level, KSCrashAppMemoryStateNormal);
+    XCTAssertEqual(Memory(25).level, KSCrashAppMemoryStateWarn);
+    XCTAssertEqual(Memory(50).level, KSCrashAppMemoryStateUrgent);
+    XCTAssertEqual(Memory(75).level, KSCrashAppMemoryStateCritical);
+    XCTAssertEqual(Memory(95).level, KSCrashAppMemoryStateTerminal);
+    
+    XCTAssertEqual(Memory(0).isOutOfMemory, NO);
+    XCTAssertEqual(Memory(25).isOutOfMemory, NO);
+    XCTAssertEqual(Memory(50).isOutOfMemory, NO);
+    XCTAssertEqual(Memory(75).isOutOfMemory, YES);
+    XCTAssertEqual(Memory(95).isOutOfMemory, YES);
+    
+    KSCrashAppMemory *memory = Memory(50);
+    
+    XCTAssertEqual(memory.footprint, 50);
+    XCTAssertEqual(memory.remaining, 50);
+    XCTAssertEqual(memory.limit, 100);
 }
 
 @end
