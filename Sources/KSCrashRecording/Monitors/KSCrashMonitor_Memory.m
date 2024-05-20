@@ -252,29 +252,26 @@ static NSURL *kscm_memory_oom_breadcrumb_URL(void) {
 
 static void addContextualInfoToEvent(KSCrash_MonitorContext* eventContext)
 {
-    // TODO: Make this fully async safe
+    bool asyncSafeOnly = eventContext->requiresAsyncSafety;
     
     // we'll use this when reading this back on the next run
     // to know if an OOM is even possible.
-    _ks_memory_update(^(KSCrash_Memory *mem) {
-        mem->fatal = eventContext->handlingCrash ? 1 : 0;
-    });
+    if (asyncSafeOnly) {
+        g_memory->fatal = eventContext->handlingCrash ? 1 : 0;
+    } else {
+        _ks_memory_update(^(KSCrash_Memory *mem) {
+            mem->fatal = eventContext->handlingCrash ? 1 : 0;
+        });
+    }
     
     if (g_isEnabled)
     {
-        // Not sure if I can lock here or not, we might be in an async only state.
-        // Chances are we don't really need to anyway.
-        // In any case, make a copy of the data so we don't keep the lock for long.
-        KSCrash_Memory memCopy = _ks_memory_copy();
-
-        // Not async safe.
+        KSCrash_Memory memCopy = asyncSafeOnly ? *g_memory : _ks_memory_copy();
         eventContext->AppMemory.footprint = memCopy.footprint;
-        // `.UTF8String` here is ok because the implementation uses constants,
-        // so they're built into the app and will always exist.
-        eventContext->AppMemory.pressure = KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memCopy.pressure).UTF8String;
+        eventContext->AppMemory.pressure = KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memCopy.pressure);
         eventContext->AppMemory.remaining = memCopy.remaining;
         eventContext->AppMemory.limit = memCopy.limit;
-        eventContext->AppMemory.level = KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memCopy.level).UTF8String;
+        eventContext->AppMemory.level = KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memCopy.level);
         eventContext->AppMemory.timestamp = memCopy.timestamp;
         eventContext->AppMemory.state = ksapp_transition_state_to_string(memCopy.state);
     }
@@ -286,8 +283,8 @@ static NSDictionary<NSString *, id> *kscm_memory_serialize(KSCrash_Memory *const
         @KSCrashField_MemoryFootprint: @(memory->footprint),
         @KSCrashField_MemoryRemaining: @(memory->remaining),
         @KSCrashField_MemoryLimit: @(memory->limit),
-        @KSCrashField_MemoryPressure: KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memory->pressure),
-        @KSCrashField_MemoryLevel: KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memory->level),
+        @KSCrashField_MemoryPressure: @(KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memory->pressure)),
+        @KSCrashField_MemoryLevel: @(KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memory->level)),
         @KSCrashField_Timestamp: @(memory->timestamp),
         @KSCrashField_AppTransitionState: @(ksapp_transition_state_to_string(memory->state)),
     };

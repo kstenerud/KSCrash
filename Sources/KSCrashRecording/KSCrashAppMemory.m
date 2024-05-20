@@ -353,18 +353,18 @@ FOUNDATION_EXPORT void __KSCrashAppMemorySetProvider(KSCrashAppMemoryProvider pr
 
 @end
 
-NSString *KSCrashAppMemoryStateToString(KSCrashAppMemoryState state) {
+const char *KSCrashAppMemoryStateToString(KSCrashAppMemoryState state) {
     switch (state) {
         case KSCrashAppMemoryStateNormal:
-            return @"normal";
+            return "normal";
         case KSCrashAppMemoryStateWarn:
-            return @"warn";
+            return "warn";
         case KSCrashAppMemoryStateUrgent:
-            return @"urgent";
+            return "urgent";
         case KSCrashAppMemoryStateCritical:
-            return @"critical";
+            return "critical";
         case KSCrashAppMemoryStateTerminal:
-            return @"terminal";
+            return "terminal";
     }
     assert(state <= KSCrashAppMemoryStateTerminal);
 }

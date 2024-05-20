@@ -102,8 +102,10 @@ typedef NS_ENUM(NSUInteger, KSCrashAppMemoryState) {
 
 /**
  * Helpers to convert to and from pressure/level and strings.
+ * `KSCrashAppMemoryStateToString` returns a `const char*`
+ * because it needs to be async safe.
  */
-FOUNDATION_EXPORT NSString *KSCrashAppMemoryStateToString(KSCrashAppMemoryState state);
+FOUNDATION_EXPORT const char *KSCrashAppMemoryStateToString(KSCrashAppMemoryState state);
 FOUNDATION_EXPORT KSCrashAppMemoryState KSCrashAppMemoryStateFromString(NSString *const state);
 
 /**
