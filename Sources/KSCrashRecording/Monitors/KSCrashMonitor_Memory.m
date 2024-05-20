@@ -291,7 +291,7 @@ static NSDictionary<NSString *, id> *kscm_memory_serialize(KSCrash_Memory *const
 }
 
 /**
- here we check to see if the previous run was an OOM
+ Check to see if the previous run was an OOM
  if it was, we load up the report created in the previous
  session and modify it, save it out to the reports location,
  and let the system run its course.
