@@ -1,0 +1,79 @@
+name: Run Unit Tests
+
+on:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-tests:
+    runs-on: "macos-${{ matrix.macos-version || 'latest' }}"
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: iOS
+          - platform: iOS
+            os-version: ~12.4.0
+            runtime: "12.4"
+            macos-version: "12"
+            xcode-version: "13.4.1"
+
+          - platform: watchOS
+          - platform: watchOS
+            os-version: ~7.4.0
+            runtime: "7.4"
+            macos-version: "12"
+            xcode-version: "13.4.1"
+          # TODO: Test with an older watchOS version if possible
+
+          - platform: tvOS
+          - platform: tvOS
+            os-version: ~12.4.0
+            runtime: "12.4"
+            macos-version: "12"
+            xcode-version: "13.4.1"
+
+          - platform: visionOS
+
+          - platform: macOS
+          - platform: macOS
+            macos-version: "11"
+
+          - platform: mac-catalyst
+          - platform: mac-catalyst
+            macos-version: "11"
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Use Latest Stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: ${{ matrix.xcode-version || 'latest-stable' }}
+
+      - name: Cache
+        if: ${{ matrix.runtime }}
+        uses: actions/cache@v3
+        with:
+          path: "~/Downloads"
+          key: ${{ runner.os }}-runtimes-downloads-${{ matrix.platform }}-${{ matrix.runtime }}
+
+      - name: Install Simulator
+        if: ${{ matrix.runtime }}
+        uses: nick-fields/retry@v2
+        with:
+          timeout_minutes: 20
+          max_attempts: 3
+          command: sudo xcodes runtimes install --keep-archive '${{ matrix.platform }} ${{ matrix.runtime }}'
+
+      - name: Run Unit Tests
+        uses: bamx23/xcodebuild@os-version
+        timeout-minutes: 10
+        with:
+          workspace: ".swiftpm/xcode/package.xcworkspace"
+          scheme: "KSCrash-Package"
+          platform: ${{ matrix.platform }}
+          os-version: ${{ matrix.os-version }}
