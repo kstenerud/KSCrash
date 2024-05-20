@@ -28,6 +28,7 @@
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitor_Memory.h"
 #import "KSCrashReportStore.h"
+#import "KSCrashAppStateTracker.h"
 
 @interface KSCrashMonitor_Memory_Tests : XCTestCase @end
 
@@ -200,6 +201,55 @@ static KSCrashAppMemory *Memory(uint64_t footprint) {
     XCTAssertEqual(memory.footprint, 50);
     XCTAssertEqual(memory.remaining, 50);
     XCTAssertEqual(memory.limit, 100);
+}
+
+- (void)testAppStateTrackerNoPrewarm
+{
+    NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
+    setenv("ActivePrewarm", "0", 1);
+    __block KSCrashAppTransitionState state;
+    
+    KSCrashAppStateTracker *tracker = [KSCrashAppStateTracker new];
+    [tracker addObserverWithBlock:^(KSCrashAppTransitionState transitionState) {
+        state = transitionState;
+    }];
+    
+    XCTAssertEqual(tracker.transitionState, KSCrashAppTransitionStateStartup);
+    
+    [tracker start];
+    
+#if TARGET_OS_IOS
+    [center postNotificationName:UIApplicationDidFinishLaunchingNotification object:nil];
+    XCTAssertEqual(tracker.transitionState, KSCrashAppTransitionStateLaunching);
+    XCTAssertEqual(tracker.transitionState, state);
+    
+    [center postNotificationName:UIApplicationWillEnterForegroundNotification object:nil];
+    XCTAssertEqual(tracker.transitionState, KSCrashAppTransitionStateForegrounding);
+    XCTAssertEqual(tracker.transitionState, state);
+    
+    [center postNotificationName:UIApplicationDidBecomeActiveNotification object:nil];
+    XCTAssertEqual(tracker.transitionState, KSCrashAppTransitionStateActive);
+    XCTAssertEqual(tracker.transitionState, state);
+    
+    [center postNotificationName:UIApplicationWillResignActiveNotification object:nil];
+    XCTAssertEqual(tracker.transitionState, KSCrashAppTransitionStateDeactivating);
+    XCTAssertEqual(tracker.transitionState, state);
+    
+    [center postNotificationName:UIApplicationDidEnterBackgroundNotification object:nil];
+    XCTAssertEqual(tracker.transitionState, KSCrashAppTransitionStateBackground);
+    XCTAssertEqual(tracker.transitionState, state);
+    
+    [center postNotificationName:UIApplicationDidFinishLaunchingNotification object:nil];
+    XCTAssertEqual(tracker.transitionState, KSCrashAppTransitionStateLaunching);
+    XCTAssertEqual(tracker.transitionState, state);
+    
+    [center postNotificationName:UIApplicationWillTerminateNotification object:nil];
+    XCTAssertEqual(tracker.transitionState, KSCrashAppTransitionStateTerminating);
+    XCTAssertEqual(tracker.transitionState, state);
+#else
+    XCTAssertEqual(tracker.transitionState, KSCrashAppTransitionStateActive);
+    XCTAssertEqual(tracker.transitionState, state);
+#endif
 }
 
 @end
