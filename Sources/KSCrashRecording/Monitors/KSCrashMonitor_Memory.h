@@ -1,6 +1,8 @@
 //
 //  KSCrashMonitor_Memory.h
 //
+//  Created by Alexander Cohen on 2024-05-20.
+//
 //  Copyright (c) 2024 Alexander Cohen. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy

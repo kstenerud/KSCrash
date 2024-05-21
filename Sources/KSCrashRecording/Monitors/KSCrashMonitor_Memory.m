@@ -1,9 +1,9 @@
 //
-//  KSCrashMonitor_NSException.m
+//  KSCrashMonitor_Memory.h
 //
-//  Created by Karl Stenerud on 2012-01-28.
+//  Created by Alexander Cohen on 2024-05-20.
 //
-//  Copyright (c) 2012 Karl Stenerud. All rights reserved.
+//  Copyright (c) 2024 Alexander Cohen. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -38,6 +38,7 @@
 #import "KSDate.h"
 #import "KSFileUtils.h"
 #import "KSCrashAppStateTracker.h"
+#import "KSCrashAppMemoryTracker.h"
 
 #import <Foundation/Foundation.h>
 #import <os/lock.h>

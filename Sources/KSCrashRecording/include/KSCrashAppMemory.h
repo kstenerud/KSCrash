@@ -117,38 +117,4 @@ FOUNDATION_EXPORT KSCrashAppMemoryState KSCrashAppMemoryStateFromString(NSString
                          pressure:(KSCrashAppMemoryState)pressure NS_DESIGNATED_INITIALIZER;
 @end
 
-typedef NS_OPTIONS(NSUInteger, KSCrashAppMemoryTrackerChangeType) {
-    KSCrashAppMemoryTrackerChangeTypeNone       = 0,
-    KSCrashAppMemoryTrackerChangeTypeLevel      = 1 << 0,
-    KSCrashAppMemoryTrackerChangeTypePressure   = 1 << 1,
-    KSCrashAppMemoryTrackerChangeTypeFootprint  = 1 << 2,
-};
-
-@protocol KSCrashAppMemoryTrackerDelegate;
-@interface KSCrashAppMemoryTracker : NSObject
-
-@property(atomic, readonly) KSCrashAppMemoryState pressure;
-@property(atomic, readonly) KSCrashAppMemoryState level;
-
-@property(nonatomic, weak) id<KSCrashAppMemoryTrackerDelegate> delegate;
-
-- (void)start;
-- (void)stop;
-
-- (nullable KSCrashAppMemory *)currentAppMemory;
-
-@end
-
-@protocol KSCrashAppMemoryTrackerDelegate <NSObject>
-
-- (void)appMemoryTracker:(KSCrashAppMemoryTracker *)tracker
-                  memory:(KSCrashAppMemory *)memory
-                 changed:(KSCrashAppMemoryTrackerChangeType)changes;
-
-@end
-
-
-typedef KSCrashAppMemory * _Nonnull (^KSCrashAppMemoryProvider)(void);
-FOUNDATION_EXPORT void __KSCrashAppMemorySetProvider(KSCrashAppMemoryProvider provider);
-
 NS_ASSUME_NONNULL_END
