@@ -66,7 +66,7 @@ typedef struct KSCrash_Memory {
     KSCrashAppTransitionState state;
     
     /** The process for this data had a fatal exception/event of some type */
-    uint8_t fatal;
+    bool fatal;
     
     /** padding for a nice 40 byte structure which is where most compilers will end up. */
     uint8_t pad[4];

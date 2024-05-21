@@ -258,10 +258,10 @@ static void addContextualInfoToEvent(KSCrash_MonitorContext* eventContext)
     // we'll use this when reading this back on the next run
     // to know if an OOM is even possible.
     if (asyncSafeOnly) {
-        g_memory->fatal = eventContext->handlingCrash ? 1 : 0;
+        g_memory->fatal = eventContext->handlingCrash;
     } else {
         _ks_memory_update(^(KSCrash_Memory *mem) {
-            mem->fatal = eventContext->handlingCrash ? 1 : 0;
+            mem->fatal = eventContext->handlingCrash;
         });
     }
     
@@ -434,12 +434,7 @@ static void ksmemory_read(const char* path)
     if (memory.limit == UINT64_MAX) {
         return;
     }
-    
-    // Fatal will onyl ever be 0 or 1, otherwise we bail.
-    if (memory.fatal > 1) {
-        return;
-    }
-    
+
     g_previousSessionMemory = memory;
 }
 
@@ -467,7 +462,7 @@ static void ksmemory_map(const char* path)
             .limit = memory.limit,
             .timestamp = ksdate_microseconds(),
             .state = KSCrashAppStateTracker.shared.transitionState,
-            .fatal = 0,
+            .fatal = false,
         };
     });
 }
