@@ -2,6 +2,17 @@ name: CocoaPods Lint
 
 on:
   pull_request:
+    paths:
+      - 'Sources/**'
+      - 'KSCrash.podspec'
+      - '.github/workflows/cocoapods-lint.yml'
+
+  push:
+    branches:
+      - master
+
+  schedule:
+    - cron: '0 0 1 * *'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -10,7 +21,7 @@ concurrency:
 jobs:
   lint:
     runs-on: macos-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:

@@ -2,6 +2,18 @@ name: Run Unit Tests
 
 on:
   pull_request:
+    paths:
+      - 'Sources/**'
+      - 'Package.swift'
+      - '.github/workflows/unit-tests.yml'
+      - '.swiftpm/xcode/xcshareddata/xcschemes/**'
+
+  push:
+    branches:
+      - master
+
+  schedule:
+    - cron: '0 0 1 * *'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
