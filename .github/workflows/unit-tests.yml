@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'Sources/**'
+      - 'Tests/**'
       - 'Package.swift'
       - '.github/workflows/unit-tests.yml'
       - '.swiftpm/xcode/xcshareddata/xcschemes/**'
