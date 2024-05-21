@@ -108,13 +108,4 @@ typedef NS_ENUM(NSUInteger, KSCrashAppMemoryState) {
 FOUNDATION_EXPORT const char *KSCrashAppMemoryStateToString(KSCrashAppMemoryState state);
 FOUNDATION_EXPORT KSCrashAppMemoryState KSCrashAppMemoryStateFromString(NSString *const state);
 
-/**
- * Internal and for tests.
- */
-@interface KSCrashAppMemory ()
-- (instancetype)initWithFootprint:(uint64_t)footprint
-                        remaining:(uint64_t)remaining
-                         pressure:(KSCrashAppMemoryState)pressure NS_DESIGNATED_INITIALIZER;
-@end
-
 NS_ASSUME_NONNULL_END

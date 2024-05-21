@@ -1,5 +1,7 @@
 #import "KSCrashAppMemory.h"
 
+#import "KSCrashAppMemory+Private.h"
+
 #import <mach/mach.h>
 #import <mach/task.h>
 #import <os/lock.h>

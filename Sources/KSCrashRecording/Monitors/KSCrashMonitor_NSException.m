@@ -135,17 +135,8 @@ static void setEnabled(bool isEnabled)
             
             KSLOG_DEBUG(@"Setting new handler.");
             NSSetUncaughtExceptionHandler(&handleUncaughtException);
-            
-            // --- WARNING ---
-            // This is in a `dispatch_async` as it's too dangerous,
-            // we're calling `KSCrash.sharedInstance` from a place
-            // that can easilly recurse into `KSCrash.sharedInstance`
-            // depending on the state of the system.
-            // We really shouldn't be doing this at all.
-            dispatch_async(dispatch_get_main_queue(), ^{
-                KSCrash.sharedInstance.uncaughtExceptionHandler = &handleUncaughtException;
-                KSCrash.sharedInstance.currentSnapshotUserReportedExceptionHandler = &handleCurrentSnapshotUserReportedException;
-            });
+            KSCrash.sharedInstance.uncaughtExceptionHandler = &handleUncaughtException;
+            KSCrash.sharedInstance.currentSnapshotUserReportedExceptionHandler = &handleCurrentSnapshotUserReportedException;
         }
         else
         {

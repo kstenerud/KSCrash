@@ -1,5 +1,7 @@
 #import "KSCrashAppMemoryTracker.h"
 
+#import "KSCrashAppMemory+Private.h"
+
 #import <mach/mach.h>
 #import <mach/task.h>
 #import <os/lock.h>
@@ -247,21 +249,15 @@ FOUNDATION_EXPORT void __KSCrashAppMemorySetProvider(KSCrashAppMemoryProvider pr
     dispatch_source_memorypressure_flags_t flags = dispatch_source_get_data(_pressureSource);
     switch (flags) {
         case DISPATCH_MEMORYPRESSURE_NORMAL:
-        {
             newPressure = KSCrashAppMemoryStateNormal;
-        }
             break;
             
         case DISPATCH_MEMORYPRESSURE_WARN:
-        {
             newPressure = KSCrashAppMemoryStateWarn;
-        }
             break;
             
         case DISPATCH_MEMORYPRESSURE_CRITICAL:
-        {
             newPressure = KSCrashAppMemoryStateCritical;
-        }
             break;
     }
     
