@@ -29,6 +29,7 @@
 #import "KSCrashMonitor_Memory.h"
 #import "KSCrashReportStore.h"
 #import "KSCrashAppStateTracker.h"
+#import "KSCrashAppMemory+Private.h"
 
 @interface KSCrashMonitor_Memory_Tests : XCTestCase @end
 
@@ -61,6 +62,8 @@
 
 - (void) testInstallation
 {
+    (void)KSCrash.sharedInstance;
+    
     __KSCrashAppMemorySetProvider(^KSCrashAppMemory * _Nonnull{
         return [[KSCrashAppMemory alloc] initWithFootprint:100
                                                  remaining:0

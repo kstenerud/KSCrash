@@ -102,18 +102,9 @@ typedef enum
     KSCrashMonitorTypeMainThreadDeadlock   \
 )
 
-/*
 #define KSCrashMonitorTypeDebuggerUnsafe   \
 (                                          \
-    KSCrashMonitorTypeMachException      | \
-    KSCrashMonitorTypeSignal             | \
-    KSCrashMonitorTypeCPPException       | \
-    KSCrashMonitorTypeNSException          \
-)
-*/
-#define KSCrashMonitorTypeDebuggerUnsafe   \
-(                                          \
-    KSCrashMonitorTypeMachException     \
+    KSCrashMonitorTypeMachException        \
 )
 
 #define KSCrashMonitorTypeAsyncSafe        \
