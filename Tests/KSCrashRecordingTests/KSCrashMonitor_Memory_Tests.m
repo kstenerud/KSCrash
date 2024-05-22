@@ -35,6 +35,12 @@
 
 @implementation KSCrashMonitor_Memory_Tests
 
+- (void)setUp
+{
+    [super setUp];
+    setenv("ActivePrewarm", "0", 1);
+}
+
 - (void) testInstallAndRemove
 {
     KSCrashMonitorAPI* api = kscm_memory_getAPI();
@@ -97,7 +103,7 @@
     XCTAssertFalse(oomed);
     XCTAssertTrue(userPerceptible);
 
-#if TARGET_OS_IOS
+#if KSCRASH_HAS_UIAPPLICATION
     // notify we're launching and becoming active
     [[NSNotificationCenter defaultCenter] postNotificationName:UIApplicationDidFinishLaunchingNotification object:nil];
     [[NSNotificationCenter defaultCenter] postNotificationName:UIApplicationDidBecomeActiveNotification object:nil];
@@ -107,11 +113,11 @@
     kscrash_setMonitoring(KSCrashMonitorTypeNone);
     XCTAssertFalse(api->isEnabled());
     
-    kscrash_setMonitoring(KSCrashMonitorTypeMemoryTermination);
-    XCTAssertTrue(api->isEnabled());
-    
     // init again
     ksmemory_initialize(installURL.path.UTF8String, dataURL.path.UTF8String);
+    
+    kscrash_setMonitoring(KSCrashMonitorTypeMemoryTermination);
+    XCTAssertTrue(api->isEnabled());
     
     // notify the system is enabled
     api->notifyPostSystemEnable();
@@ -222,7 +228,7 @@ static KSCrashAppMemory *Memory(uint64_t footprint) {
     
     [tracker start];
     
-#if TARGET_OS_IOS
+#if KSCRASH_HAS_UIAPPLICATION
     [center postNotificationName:UIApplicationDidFinishLaunchingNotification object:nil];
     XCTAssertEqual(tracker.transitionState, KSCrashAppTransitionStateLaunching);
     XCTAssertEqual(tracker.transitionState, state);

@@ -1,12 +1,13 @@
 #import "KSCrashAppMemoryTracker.h"
 
 #import "KSCrashAppMemory+Private.h"
+#import "KSSystemCapabilities.h"
 
 #import <mach/mach.h>
 #import <mach/task.h>
 #import <os/lock.h>
 
-#if TARGET_OS_IOS
+#if KSCRASH_HAS_UIAPPLICATION
 #import <UIKit/UIKit.h>
 #endif
 
@@ -101,7 +102,7 @@ FOUNDATION_EXPORT void __KSCrashAppMemorySetProvider(KSCrashAppMemoryProvider pr
     dispatch_activate(_limitSource);
     
     
-#if TARGET_OS_IOS
+#if KSCRASH_HAS_UIAPPLICATION
     // We won't always hit this depending on how the system is setup in the app,
     // but at least we can try.
     [[NSNotificationCenter defaultCenter] addObserver:self
@@ -112,7 +113,7 @@ FOUNDATION_EXPORT void __KSCrashAppMemorySetProvider(KSCrashAppMemoryProvider pr
     [self _handleMemoryChange:[self currentAppMemory] type:KSCrashAppMemoryTrackerChangeTypeNone];
 }
 
-#if TARGET_OS_IOS
+#if KSCRASH_HAS_UIAPPLICATION
 - (void)_appDidFinishLaunching {
     [self _handleMemoryChange:[self currentAppMemory] type:KSCrashAppMemoryTrackerChangeTypeNone];
 }

@@ -6,7 +6,7 @@
 #import <mach/task.h>
 #import <os/lock.h>
 
-#if TARGET_OS_IOS
+#if KSCRASH_HAS_UIAPPLICATION
 #import <UIKit/UIKit.h>
 #endif
 

@@ -25,10 +25,12 @@
 //
 #import "KSCrashAppStateTracker.h"
 
+#import "KSSystemCapabilities.h"
+
 #import <Foundation/Foundation.h>
 #import <os/lock.h>
 
-#if TARGET_OS_IOS
+#if KSCRASH_HAS_UIAPPLICATION
 #import <UIKit/UIKit.h>
 #endif
 
@@ -276,7 +278,7 @@ usingBlock:^(NSNotification *notification)block] \
         [weakMe _exitCalled];
     });
     
-#if TARGET_OS_IOS
+#if KSCRASH_HAS_UIAPPLICATION
     
     // register all normal lifecycle events
     // in the future, we could also look at scene lifecycle
