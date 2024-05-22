@@ -49,6 +49,11 @@
 #import <UIKit/UIKit.h>
 #endif
 
+const int32_t KSCrash_Memory_Magic = 'kscm';
+
+const uint8_t KSCrash_Memory_Version_1 = 1;
+const uint8_t KSCrash_Memory_CurrentVersion = KSCrash_Memory_Version_1;
+
 // ============================================================================
 #pragma mark - Forward declarations -
 // ============================================================================
@@ -76,10 +81,12 @@ static volatile bool g_hasPostEnable = 0;
 
 // Install path for the crash system
 static NSURL *g_installURL = nil;
+static NSURL *g_dataURL = nil;
+static NSURL *g_memoryURL = nil;
 
 // The memory tracker
-@class MemoryTracker;
-static MemoryTracker *g_memoryTracker = nil;
+@class _KSCrashMonitor_MemoryTracker;
+static _KSCrashMonitor_MemoryTracker *g_memoryTracker = nil;
 
 // Observer token for app state transitions.
 static id<KSCrashAppStateTrackerObserving> g_appStateObserver = nil;
@@ -120,6 +127,8 @@ static void _ks_memory_update(void (^block)(KSCrash_Memory *mem)) {
 static void _ks_memory_update_from_app_memory(KSCrashAppMemory *const memory) {
     _ks_memory_update(^(KSCrash_Memory *mem) {
         *mem = (KSCrash_Memory){
+            .magic = KSCrash_Memory_Magic,
+            .version = KSCrash_Memory_CurrentVersion,
             .footprint = memory.footprint,
             .remaining = memory.remaining,
             .limit = memory.limit,
@@ -138,12 +147,12 @@ static KSCrash_Memory g_previousSessionMemory;
 #pragma mark - Tracking -
 // ============================================================================
 
-@interface MemoryTracker : NSObject <KSCrashAppMemoryTrackerDelegate> {
+@interface _KSCrashMonitor_MemoryTracker : NSObject <KSCrashAppMemoryTrackerDelegate> {
     KSCrashAppMemoryTracker *_tracker;
 }
 @end
 
-@implementation MemoryTracker
+@implementation _KSCrashMonitor_MemoryTracker
 
 - (instancetype)init
 {
@@ -223,10 +232,10 @@ static void setEnabled(bool isEnabled)
         g_isEnabled = isEnabled;
         if(isEnabled)
         {
-            if (g_hasPostEnable) {
-                g_memoryTracker = [[MemoryTracker alloc] init];
-            }
+            g_memoryTracker = [[_KSCrashMonitor_MemoryTracker alloc] init];
             
+            ksmemory_map(g_memoryURL.path.UTF8String);
+
             g_appStateObserver = [KSCrashAppStateTracker.shared addObserverWithBlock:^(KSCrashAppTransitionState transitionState) {
                 _ks_memory_update(^(KSCrash_Memory *mem) {
                     mem->state = transitionState;
@@ -249,7 +258,7 @@ static bool isEnabled(void)
 }
 
 static NSURL *kscm_memory_oom_breadcrumb_URL(void) {
-    return [g_installURL URLByAppendingPathComponent:@"Data/oom_breadcrumb_report.json"];
+    return [g_dataURL URLByAppendingPathComponent:@"oom_breadcrumb_report.json"];
 }
 
 static void addContextualInfoToEvent(KSCrash_MonitorContext* eventContext)
@@ -350,12 +359,15 @@ static void notifyPostSystemEnable(void)
     }
     g_hasPostEnable = 1;
     
+    // Usually we'd do something like this `setEnabled`,
+    // but in this case not all monitors are ready in `seEnabled`
+    // so we simply do it after everything is enabled.
+    
     kscm_memory_check_for_oom_in_previous_session();
 
     if (g_isEnabled)
     {
         ksmemory_write_possible_oom();
-        g_memoryTracker = [[MemoryTracker alloc] init];
     }
 }
 
@@ -385,6 +397,11 @@ static void ksmemory_read(const char* path)
     
     size_t size = sizeof(KSCrash_Memory);
     KSCrash_Memory memory = {};
+    
+    // This will fail is we don't receive exactly _size_.
+    // In the future, we need to read and allow getting back something
+    // that is not exactly _size_, then check the version to see
+    // what we can or cannot use in the structure.
     if (!ksfu_readBytesFromFD(fd, (char *)&memory, (int)size)) {
         close(fd);
         unlink(path);
@@ -396,6 +413,20 @@ static void ksmemory_read(const char* path)
     unlink(path);
     
     // validate some of the data before doing anything with it.
+    
+    // check magic
+    if (memory.magic != KSCrash_Memory_Magic) {
+        return;
+    }
+    
+    // check version
+    if (memory.version == 0 || memory.version > KSCrash_Memory_CurrentVersion) {
+        return;
+    }
+    
+    // ---
+    // START KSCrash_Memory_Version_1_0
+    // ---
     
     // check the timestamp, let's say it's valid for the last week
     // do we really want crash reports older than a week anyway??
@@ -419,11 +450,6 @@ static void ksmemory_read(const char* path)
         return;
     }
     
-    // Footprint and remaining should always = limit
-    if (memory.footprint + memory.remaining != memory.limit) {
-        return;
-    }
-    
     // if we're at max, we likely overflowed or set a negative value,
     // in any case, we're counting this as a possible error and bailing.
     if (memory.footprint == UINT64_MAX) {
@@ -435,7 +461,16 @@ static void ksmemory_read(const char* path)
     if (memory.limit == UINT64_MAX) {
         return;
     }
-
+    
+    // Footprint and remaining should always = limit
+    if (memory.footprint + memory.remaining != memory.limit) {
+        return;
+    }
+    
+    // ---
+    // END KSCrash_Memory_Version_1_0
+    // ---
+    
     g_previousSessionMemory = memory;
 }
 
@@ -495,22 +530,18 @@ static void ksmemory_write_possible_oom(void)
     kscm_handleException(&context);
 }
 
-void ksmemory_initialize(const char* installPath)
+void ksmemory_initialize(const char* installPath, const char *dataPath)
 {
     g_hasPostEnable = 0;
     g_installURL = [NSURL fileURLWithPath:@(installPath)];
-    NSURL *dataURL = [g_installURL URLByAppendingPathComponent:@"Data"];
-    NSURL *memoryURL = [dataURL URLByAppendingPathComponent:@"memory"];
-    const char *path = memoryURL.path.UTF8String;
+    g_dataURL = [NSURL fileURLWithPath:@(dataPath)];
+    g_memoryURL = [g_dataURL URLByAppendingPathComponent:@"memory.bin"];
     
     // Make sure the folder exists
-    [[NSFileManager defaultManager] createDirectoryAtURL:dataURL withIntermediateDirectories:YES attributes:nil error:nil];
+    [[NSFileManager defaultManager] createDirectoryAtURL:g_dataURL withIntermediateDirectories:YES attributes:nil error:nil];
     
-    // load up the old data
-    ksmemory_read(path);
-    
-    // map new data
-    ksmemory_map(path);
+    // load up the old memory data
+    ksmemory_read(g_memoryURL.path.UTF8String);
 }
 
 bool ksmemory_previous_session_was_terminated_due_to_memory(bool *userPerceptible)

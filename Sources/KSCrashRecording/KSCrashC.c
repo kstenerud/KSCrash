@@ -176,10 +176,10 @@ KSCrashMonitorType kscrash_install(const char* appName, const char* const instal
 
     snprintf(path, sizeof(path), "%s/Data", installPath);
     ksfu_makePath(path);
+    ksmemory_initialize(installPath, path);
+    
     snprintf(path, sizeof(path), "%s/Data/CrashState.json", installPath);
     kscrashstate_initialize(path);
-
-    ksmemory_initialize(installPath);
 
     snprintf(g_consoleLogPath, sizeof(g_consoleLogPath), "%s/Data/ConsoleLog.txt", installPath);
     if(g_shouldPrintPreviousLog)

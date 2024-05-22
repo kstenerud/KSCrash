@@ -39,10 +39,19 @@
 extern "C" {
 #endif
 
+extern const uint8_t KSCrash_Memory_Version_1_0;
+extern const uint8_t KSCrash_Memory_CurrentVersion;
+
 /**
  App Memory
  */
 typedef struct KSCrash_Memory {
+    
+    /** magic header */
+    int32_t magic;
+    
+    /** current version of the struct */
+    int8_t version;
     
     /** timestamp in microseconds */
     int64_t timestamp;
@@ -68,8 +77,6 @@ typedef struct KSCrash_Memory {
     /** The process for this data had a fatal exception/event of some type */
     bool fatal;
     
-    /** padding for a nice 40 byte structure which is where most compilers will end up. */
-    uint8_t pad[4];
 } KSCrash_Memory;
 
 /** Access the Monitor API.
@@ -79,10 +86,16 @@ KSCrashMonitorAPI* kscm_memory_getAPI(void);
 /** Initialize the memory monitor.
  *
  * @param installPath The install path of the KSCrash system.
+ *
+ * @param dataPath The data path of the KSCrash system.
  */
-void ksmemory_initialize(const char* installPath);
+void ksmemory_initialize(const char* installPath, const char *dataPath);
 
 /** Returns true if the previous session was terminated due to memory.
+ *
+ * @param userPerceptible Set to true if the termination was visible
+ * to the user or if they might have perceived it in any way (ie: app was active, or
+ * during some sort of transition from background to active). Can be NULL.
  */
 bool ksmemory_previous_session_was_terminated_due_to_memory(bool *userPerceptible);
 

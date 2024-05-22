@@ -72,9 +72,10 @@
     
     // setup
     NSURL *installURL = [NSURL fileURLWithPath:@"/tmp/kscrash" isDirectory:YES];
+    NSURL *dataURL = [installURL URLByAppendingPathComponent:@"Data"];
     NSURL *reportsPath = [installURL URLByAppendingPathComponent:@"Reports"];
-    NSURL *memoryURL = [[installURL URLByAppendingPathComponent:@"Data"] URLByAppendingPathComponent:@"memory"];
-    NSURL *breadcrumbURL = [[installURL URLByAppendingPathComponent:@"Data"] URLByAppendingPathComponent:@"oom_breadcrumb_report.json"];
+    NSURL *memoryURL = [dataURL URLByAppendingPathComponent:@"memory.bin"];
+    NSURL *breadcrumbURL = [dataURL URLByAppendingPathComponent:@"oom_breadcrumb_report.json"];
     
     // clear old files in case
     NSFileManager *mngr = [NSFileManager new];
@@ -110,7 +111,7 @@
     XCTAssertTrue(api->isEnabled());
     
     // init again
-    ksmemory_initialize(installURL.path.UTF8String);
+    ksmemory_initialize(installURL.path.UTF8String, dataURL.path.UTF8String);
     
     // notify the system is enabled
     api->notifyPostSystemEnable();

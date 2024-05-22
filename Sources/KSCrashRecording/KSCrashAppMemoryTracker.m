@@ -154,13 +154,7 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
 }
 
 - (nullable KSCrashAppMemory *)currentAppMemory {
-    
-    __weak typeof(self)weakMe = self;
-    const KSCrashAppMemoryProvider provider = ^KSCrashAppMemory *{
-        return _ProvideCrashAppMemory(weakMe.pressure);
-    };
-    
-    return gMemoryProvider ? gMemoryProvider() : provider();
+    return gMemoryProvider ? gMemoryProvider() : _ProvideCrashAppMemory(_pressure);
 }
 
 - (void)_handleMemoryChange:(KSCrashAppMemory *)memory type:(KSCrashAppMemoryTrackerChangeType)changes {

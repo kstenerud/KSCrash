@@ -254,6 +254,15 @@ object:nil \
 queue:nil \
 usingBlock:^(NSNotification *notification)block] \
 
+- (void)_exitCalled
+{
+    // _registrations is nil when the system is stopped
+    if (!_registrations) {
+        return;
+    }
+    [self _setTransitionState:KSCrashAppTransitionStateExiting];
+}
+
 - (void)start
 {
     if (_registrations) {
@@ -264,7 +273,7 @@ usingBlock:^(NSNotification *notification)block] \
     
     // Register a normal `exit` callback so we don't think it's an OOM.
     atexit_b(^{
-        [weakMe _setTransitionState:KSCrashAppTransitionStateExiting];
+        [weakMe _exitCalled];
     });
     
 #if TARGET_OS_IOS

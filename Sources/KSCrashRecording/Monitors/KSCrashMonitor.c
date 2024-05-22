@@ -202,7 +202,7 @@ void kscm_setActiveMonitors(KSCrashMonitorType monitorTypes)
             activeMonitors &= ~monitor->monitorType;
         }
     }
-    
+
     KSLOG_DEBUG("Active monitors are now 0x%x.", activeMonitors);
     g_activeMonitors = activeMonitors;
     

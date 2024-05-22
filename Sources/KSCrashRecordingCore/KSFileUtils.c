@@ -242,9 +242,14 @@ bool ksfu_readBytesFromFD(const int fd, char* const bytes, int length)
         int bytesRead = (int)read(fd, pos, (unsigned)length);
         if(bytesRead == -1)
         {
-            KSLOG_ERROR("Could not write to fd %d: %s", fd, strerror(errno));
+            KSLOG_ERROR("Could not read fd %d: %s", fd, strerror(errno));
+            return false;
+        } 
+        else if (bytesRead == 0) {
+            KSLOG_ERROR("Read returns 0 bytes, likely EOF for fd %d: %s", fd, strerror(errno));
             return false;
         }
+        
         length -= bytesRead;
         pos += bytesRead;
     }
