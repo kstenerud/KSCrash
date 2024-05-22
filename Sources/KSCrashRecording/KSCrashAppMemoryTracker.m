@@ -130,32 +130,34 @@ FOUNDATION_EXPORT void __KSCrashAppMemorySetProvider(KSCrashAppMemoryProvider pr
     }
 }
 
-- (nullable KSCrashAppMemory *)currentAppMemory {
-    __weak typeof(self)weakMe = self;
+static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState pressure)
+{
+    task_vm_info_data_t info = {};
+    mach_msg_type_number_t count = TASK_VM_INFO_COUNT;
+    kern_return_t err = task_info(mach_task_self(), TASK_VM_INFO, (task_info_t)&info, &count);
+    if (err != KERN_SUCCESS) {
+        return nil;
+    }
     
-    const KSCrashAppMemoryProvider provider = ^KSCrashAppMemory *{
-        
-        KSCrashAppMemoryState pressure = weakMe.pressure;
-        
-        task_vm_info_data_t info = {};
-        mach_msg_type_number_t count = TASK_VM_INFO_COUNT;
-        kern_return_t err = task_info(mach_task_self(), TASK_VM_INFO, (task_info_t)&info, &count);
-        if (err != KERN_SUCCESS) {
-            return nil;
-        }
-        
 #if TARGET_OS_SIMULATOR
-        // in simulator, remaining is always 0. So let's fake it.
-        // How about a limit of 3GB.
-        uint64_t limit = 3000000000;
-        uint64_t remaining = limit < info.phys_footprint ? 0 : limit - info.phys_footprint;
+    // in simulator, remaining is always 0. So let's fake it.
+    // How about a limit of 3GB.
+    uint64_t limit = 3000000000;
+    uint64_t remaining = limit < info.phys_footprint ? 0 : limit - info.phys_footprint;
 #else
-        uint64_t remaining = info.limit_bytes_remaining;
+    uint64_t remaining = info.limit_bytes_remaining;
 #endif
-        
-        return [[KSCrashAppMemory alloc] initWithFootprint:info.phys_footprint
-                                                 remaining:remaining
-                                                  pressure:pressure];
+    
+    return [[KSCrashAppMemory alloc] initWithFootprint:info.phys_footprint
+                                             remaining:remaining
+                                              pressure:pressure];
+}
+
+- (nullable KSCrashAppMemory *)currentAppMemory {
+    
+    __weak typeof(self)weakMe = self;
+    const KSCrashAppMemoryProvider provider = ^KSCrashAppMemory *{
+        return _ProvideCrashAppMemory(weakMe.pressure);
     };
     
     return gMemoryProvider ? gMemoryProvider() : provider();
@@ -177,11 +179,7 @@ FOUNDATION_EXPORT void __KSCrashAppMemorySetProvider(KSCrashAppMemoryProvider pr
     KSCrashAppMemoryState newLevel = memory.level;
     uint64_t newFootprint = memory.footprint;
     
-    // the amount footprint needs to change for any footprint notifs.
-    const uint64_t kKSCrashFootprintMinChange = 1e6;
-    
     KSCrashAppMemoryState oldLevel;
-    uint64_t oldFootprint;
     BOOL footprintChanged = NO;
     {
         os_unfair_lock_lock(&_lock);
@@ -189,10 +187,12 @@ FOUNDATION_EXPORT void __KSCrashAppMemorySetProvider(KSCrashAppMemoryProvider pr
         oldLevel = _level;
         _level = newLevel;
         
+        // the amount footprint needs to change for any footprint notifs.
+        const uint64_t kKSCrashFootprintMinChange = 1 << 20; // 1 MiB
+        
         // For the footprint, we don't need very granular changes,
         // changing a few bytes here or there won't mke a difference,
-        // we're looking for anything larger, in this case, 1MB.
-        oldFootprint = _footprint;
+        // we're looking for anything larger.
         if (_KSABS_DIFF(newFootprint, _footprint) > kKSCrashFootprintMinChange) {
             _footprint = newFootprint;
             footprintChanged = YES;
@@ -231,11 +231,14 @@ FOUNDATION_EXPORT void __KSCrashAppMemorySetProvider(KSCrashAppMemoryProvider pr
         // For example, we could send a SIGTERM so the system
         // catches a stack trace.
         static BOOL sIsRunningInTests;
+        static BOOL sSimulatorMemoryKillEnabled;
         static dispatch_once_t onceToken;
         dispatch_once(&onceToken, ^{
-            sIsRunningInTests = NSProcessInfo.processInfo.environment[@"XCTestSessionIdentifier"] != nil;
+            NSDictionary<NSString *, NSString *> *env = NSProcessInfo.processInfo.environment;
+            sIsRunningInTests = env[@"XCTestSessionIdentifier"] != nil;
+            sSimulatorMemoryKillEnabled = [env[@"KSCRASH_SIM_MEMORY_TERMINATION_ENABLED"] boolValue];
         });
-        if (!sIsRunningInTests && newLevel == KSCrashAppMemoryStateTerminal) {
+        if (sSimulatorMemoryKillEnabled && !sIsRunningInTests && newLevel == KSCrashAppMemoryStateTerminal) {
             kill(getpid(), SIGKILL);
             _exit(0);
         }

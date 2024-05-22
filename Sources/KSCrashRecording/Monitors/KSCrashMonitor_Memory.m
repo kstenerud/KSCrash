@@ -55,6 +55,7 @@
 
 static KSCrash_Memory _ks_memory_copy(void);
 static void _ks_memory_update(void (^block)(KSCrash_Memory *mem));
+static void _ks_memory_update_from_app_memory(KSCrashAppMemory *const memory);
 static void ksmemory_write_possible_oom(void);
 static void setEnabled(bool isEnabled);
 static bool isEnabled(void);
@@ -116,12 +117,22 @@ static void _ks_memory_update(void (^block)(KSCrash_Memory *mem)) {
     os_unfair_lock_unlock(&g_memoryLock);
 }
 
+static void _ks_memory_update_from_app_memory(KSCrashAppMemory *const memory) {
+    _ks_memory_update(^(KSCrash_Memory *mem) {
+        *mem = (KSCrash_Memory){
+            .footprint = memory.footprint,
+            .remaining = memory.remaining,
+            .limit = memory.limit,
+            .pressure = (uint8_t)memory.pressure,
+            .level = (uint8_t)memory.level,
+            .timestamp = ksdate_microseconds(),
+            .state = KSCrashAppStateTracker.shared.transitionState,
+        };
+    });
+}
+
 // last memory write from the previous session
 static KSCrash_Memory g_previousSessionMemory;
-
-// ============================================================================
-#pragma mark - App State Tracking -
-// ============================================================================
 
 // ============================================================================
 #pragma mark - Tracking -
@@ -156,17 +167,7 @@ static KSCrash_Memory g_previousSessionMemory;
 
 - (void)_updateMappedMemoryFrom:(KSCrashAppMemory *)memory
 {
-    _ks_memory_update(^(KSCrash_Memory *mem) {
-        *mem = (KSCrash_Memory){
-            .footprint = memory.footprint,
-            .remaining = memory.remaining,
-            .limit = memory.limit,
-            .pressure = (uint8_t)memory.pressure,
-            .level = (uint8_t)memory.level,
-            .timestamp = ksdate_microseconds(),
-            .state = KSCrashAppStateTracker.shared.transitionState,
-        };
-    });
+    _ks_memory_update_from_app_memory(memory);
 }
 
 - (void)appMemoryTracker:(KSCrashAppMemoryTracker *)tracker memory:(KSCrashAppMemory *)memory changed:(KSCrashAppMemoryTrackerChangeType)changes
@@ -451,20 +452,7 @@ static void ksmemory_map(const char* path)
     }
     
     g_memory = (KSCrash_Memory *)ptr;
-    KSCrashAppMemory *memory = g_memoryTracker.memory;
-    
-    _ks_memory_update(^(KSCrash_Memory *mem) {
-        *mem = (KSCrash_Memory){
-            .footprint = memory.footprint,
-            .remaining = memory.remaining,
-            .pressure = (uint8_t)memory.pressure,
-            .level = (uint8_t)memory.level,
-            .limit = memory.limit,
-            .timestamp = ksdate_microseconds(),
-            .state = KSCrashAppStateTracker.shared.transitionState,
-            .fatal = false,
-        };
-    });
+    _ks_memory_update_from_app_memory(g_memoryTracker.memory);
 }
 
 /**
