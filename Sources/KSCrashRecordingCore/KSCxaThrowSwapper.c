@@ -51,6 +51,7 @@
 #include "KSCxaThrowSwapper.h"
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <execinfo.h>
 #include <dlfcn.h>
 #include <string.h>
@@ -234,7 +235,7 @@ static bool get_sections(const segment_command_t *data_seg,
             default:
                 break;
         }
-        if (local_non_lazy_sym_sect != NULL && local_lazy_sym_sect != NULL)
+        if (local_non_lazy_sym_sect != NULL || local_lazy_sym_sect != NULL)
         {
             return true;
         }
@@ -256,7 +257,11 @@ static void perform_rebinding_with_section(const section_t *section,
     if (isDataConst)
     {
         oldProtection = get_protection(indirect_symbol_bindings);
-        mprotect(indirect_symbol_bindings, section->size, PROT_READ | PROT_WRITE);
+        if (mprotect(indirect_symbol_bindings, section->size, PROT_READ | PROT_WRITE) != 0)
+        {
+            perror("mprotect failed");
+            return;
+        }
     }
     for (uint i = 0; i < section->size / sizeof(void *); i++)
     {
@@ -334,8 +339,12 @@ static void rebind_symbols_for_image(const struct mach_header *header, intptr_t 
     {
         if (get_sections(data_seg, &lazy_sym_sect, &non_lazy_sym_sect))
         {
-            perform_rebinding_with_section(lazy_sym_sect, slide, symtab, strtab, indirect_symtab);
-            perform_rebinding_with_section(non_lazy_sym_sect, slide, symtab, strtab, indirect_symtab);
+            if (lazy_sym_sect != NULL) {
+                perform_rebinding_with_section(lazy_sym_sect, slide, symtab, strtab, indirect_symtab);
+            }
+            if (non_lazy_sym_sect != NULL) {
+                perform_rebinding_with_section(non_lazy_sym_sect, slide, symtab, strtab, indirect_symtab);
+            }
         }
     }
     
@@ -344,8 +353,12 @@ static void rebind_symbols_for_image(const struct mach_header *header, intptr_t 
     {
         if (get_sections(data_const_seg, &lazy_sym_sect, &non_lazy_sym_sect))
         {
-            perform_rebinding_with_section(lazy_sym_sect, slide, symtab, strtab, indirect_symtab);
-            perform_rebinding_with_section(non_lazy_sym_sect, slide, symtab, strtab, indirect_symtab);
+            if (lazy_sym_sect != NULL) {
+                perform_rebinding_with_section(lazy_sym_sect, slide, symtab, strtab, indirect_symtab);
+            }
+            if (non_lazy_sym_sect != NULL) {
+                perform_rebinding_with_section(non_lazy_sym_sect, slide, symtab, strtab, indirect_symtab);
+            }
         }
     }
 }
