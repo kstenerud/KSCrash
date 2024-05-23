@@ -33,6 +33,16 @@ extern "C" {
 #endif /* __cplusplus */
 
 /**
+ * This routine returns the `load_command` structure for the specified command type
+ * if it exists in the passed mach header. Otherwise, it returns `NULL`.
+ *
+ * @param header Pointer to the mach_header structure.
+ * @param command_type The type of the command to search for.
+ * @return Pointer to the `load_command` structure if found, otherwise `NULL`.
+ */
+const struct load_command* ksmacho_getCommandByTypeFromHeader(const mach_header_t* header, uint32_t command_type);
+
+/**
  * This routine returns the `segment_command` structure for the named segment
  * if it exists in the passed mach header. Otherwise, it returns `NULL`.
  * It just looks through the load commands. Since these are mapped into the text
@@ -45,24 +55,6 @@ extern "C" {
 const segment_command_t* ksmacho_getSegmentByNameFromHeader(const mach_header_t* header, const char* seg_name);
 
 /**
- * This routine returns the protection attributes for a given memory section.
- *
- * @param sectionStart Pointer to the start of the memory section.
- * @return Protection attributes of the section.
- */
-vm_prot_t ksmacho_getSectionProtection(void* sectionStart);
-
-/**
- * This routine returns the `load_command` structure for the specified command type
- * if it exists in the passed mach header. Otherwise, it returns `NULL`.
- *
- * @param header Pointer to the mach_header structure.
- * @param command_type The type of the command to search for.
- * @return Pointer to the `load_command` structure if found, otherwise `NULL`.
- */
-const struct load_command* ksmacho_getCommandByTypeFromHeader(const mach_header_t* header, uint32_t command_type);
-
-/**
  * This routine returns the section structure for the specified `SECTION_TYPE` flag
  * from mach-o/loader.h if it exists in the passed segment command. Otherwise, it returns `NULL`.
  *
@@ -72,6 +64,13 @@ const struct load_command* ksmacho_getCommandByTypeFromHeader(const mach_header_
  */
 const section_t* ksmacho_getSectionByTypeFlagFromSegment(const segment_command_t* dataSegment, uint32_t flag);
 
+/**
+ * This routine returns the protection attributes for a given memory section.
+ *
+ * @param sectionStart Pointer to the start of the memory section.
+ * @return Protection attributes of the section.
+ */
+vm_prot_t ksmacho_getSectionProtection(void* sectionStart);
 
 #ifdef __cplusplus
 }

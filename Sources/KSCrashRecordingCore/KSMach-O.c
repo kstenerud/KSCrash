@@ -52,6 +52,32 @@
 #include <mach/mach.h>
 #include <string.h>
 
+const struct load_command* ksmacho_getCommandByTypeFromHeader(const mach_header_t* header, uint32_t commandType)
+{
+    KSLOG_TRACE("Getting command by type %u in Mach header at %p", commandType, header);
+
+    if (header == NULL)
+    {
+        KSLOG_ERROR("Header is NULL");
+        return NULL;
+    }
+
+    uintptr_t current = (uintptr_t)header + sizeof(mach_header_t);
+    struct load_command* loadCommand = NULL;
+
+    for (uint commandIndex = 0; commandIndex < header->ncmds; commandIndex++)
+    {
+        loadCommand = (struct load_command*)current;
+        if (loadCommand->cmd == commandType)
+        {
+            return loadCommand;
+        }
+        current += loadCommand->cmdsize;
+    }
+    KSLOG_WARN("Command type %u not found", commandType);
+    return NULL;
+}
+
 const segment_command_t* ksmacho_getSegmentByNameFromHeader(const mach_header_t* header, const char* segmentName)
 {
     KSLOG_TRACE("Searching for segment %s in Mach header at %p", segmentName, header);
@@ -81,63 +107,6 @@ const segment_command_t* ksmacho_getSegmentByNameFromHeader(const mach_header_t*
     return NULL;
 }
 
-vm_prot_t ksmacho_getSectionProtection(void* sectionStart)
-{
-    KSLOG_TRACE("Getting protection for section starting at %p", sectionStart);
-
-    mach_port_t task = mach_task_self();
-    vm_size_t size = 0;
-    vm_address_t address = (vm_address_t)sectionStart;
-    memory_object_name_t object;
-#if __LP64__
-    mach_msg_type_number_t count = VM_REGION_BASIC_INFO_COUNT_64;
-    vm_region_basic_info_data_64_t info;
-    kern_return_t info_ret =
-        vm_region_64(task, &address, &size, VM_REGION_BASIC_INFO_64, (vm_region_info_64_t)&info, &count, &object);
-#else
-    mach_msg_type_number_t count = VM_REGION_BASIC_INFO_COUNT;
-    vm_region_basic_info_data_t info;
-    kern_return_t info_ret =
-        vm_region(task, &address, &size, VM_REGION_BASIC_INFO, (vm_region_info_t)&info, &count, &object);
-#endif
-    if (info_ret == KERN_SUCCESS)
-    {
-        KSLOG_DEBUG("Protection obtained: %d", info.protection);
-        return info.protection;
-    }
-    else
-    {
-        KSLOG_ERROR("Failed to get protection for section: %s", mach_error_string(info_ret));
-        return VM_PROT_READ;
-    }
-}
-
-const struct load_command* ksmacho_getCommandByTypeFromHeader(const mach_header_t* header, uint32_t commandType)
-{
-    KSLOG_TRACE("Getting command by type %u in Mach header at %p", commandType, header);
-
-    if (header == NULL)
-    {
-        KSLOG_ERROR("Header is NULL");
-        return NULL;
-    }
-
-    uintptr_t current = (uintptr_t)header + sizeof(mach_header_t);
-    struct load_command* loadCommand = NULL;
-
-    for (uint commandIndex = 0; commandIndex < header->ncmds; commandIndex++)
-    {
-        loadCommand = (struct load_command*)current;
-        if (loadCommand->cmd == commandType)
-        {
-            return loadCommand;
-        }
-        current += loadCommand->cmdsize;
-    }
-    KSLOG_WARN("Command type %u not found", commandType);
-    return NULL;
-}
-
 const section_t* ksmacho_getSectionByTypeFlagFromSegment(const segment_command_t* segmentCommand, uint32_t flag)
 {
     KSLOG_TRACE("Getting section by flag %u in segment %s", flag, segmentCommand->segname);
@@ -162,4 +131,35 @@ const section_t* ksmacho_getSectionByTypeFlagFromSegment(const segment_command_t
 
     KSLOG_DEBUG("Section with flag %u not found in segment %s", flag, segmentCommand->segname);
     return NULL;
+}
+
+vm_prot_t ksmacho_getSectionProtection(void* sectionStart)
+{
+    KSLOG_TRACE("Getting protection for section starting at %p", sectionStart);
+
+    mach_port_t task = mach_task_self();
+    vm_size_t size = 0;
+    vm_address_t address = (vm_address_t)sectionStart;
+    memory_object_name_t object;
+#if __LP64__
+    mach_msg_type_number_t count = VM_REGION_BASIC_INFO_COUNT_64;
+    vm_region_basic_info_data_64_t info;
+    kern_return_t info_ret =
+    vm_region_64(task, &address, &size, VM_REGION_BASIC_INFO_64, (vm_region_info_64_t)&info, &count, &object);
+#else
+    mach_msg_type_number_t count = VM_REGION_BASIC_INFO_COUNT;
+    vm_region_basic_info_data_t info;
+    kern_return_t info_ret =
+    vm_region(task, &address, &size, VM_REGION_BASIC_INFO, (vm_region_info_t)&info, &count, &object);
+#endif
+    if (info_ret == KERN_SUCCESS)
+    {
+        KSLOG_DEBUG("Protection obtained: %d", info.protection);
+        return info.protection;
+    }
+    else
+    {
+        KSLOG_ERROR("Failed to get protection for section: %s", mach_error_string(info_ret));
+        return VM_PROT_READ;
+    }
 }
