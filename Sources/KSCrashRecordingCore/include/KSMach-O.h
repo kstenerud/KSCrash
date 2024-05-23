@@ -25,8 +25,8 @@
 #ifndef KSMachO_h
 #define KSMachO_h
 
-#include <mach/vm_prot.h>
 #include "KSPlatformSpecificDefines.h"
+#include <mach/vm_prot.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -42,7 +42,7 @@ extern "C" {
  * @param seg_name The name of the segment to search for.
  * @return Pointer to the segment_command structure if found, otherwise NULL.
  */
-const segment_command_t *ksmacho_getSegmentByNameFromHeader(const mach_header_t *header, const char *seg_name);
+const segment_command_t* ksmacho_getSegmentByNameFromHeader(const mach_header_t* header, const char* seg_name);
 
 /**
  * This routine returns the protection attributes for a given memory section.
@@ -50,7 +50,7 @@ const segment_command_t *ksmacho_getSegmentByNameFromHeader(const mach_header_t 
  * @param sectionStart Pointer to the start of the memory section.
  * @return Protection attributes of the section.
  */
-vm_prot_t ksmacho_getSectionProtection(void *sectionStart);
+vm_prot_t ksmacho_getSectionProtection(void* sectionStart);
 
 /**
  * This routine returns the load_command structure for the specified command type
@@ -60,7 +60,7 @@ vm_prot_t ksmacho_getSectionProtection(void *sectionStart);
  * @param command_type The type of the command to search for.
  * @return Pointer to the load_command structure if found, otherwise NULL.
  */
-const struct load_command *ksmacho_getCommandByTypeFromHeader(const mach_header_t *header, uint32_t command_type);
+const struct load_command* ksmacho_getCommandByTypeFromHeader(const mach_header_t* header, uint32_t command_type);
 
 /**
  * This routine returns the section structure for the specified flag
@@ -70,8 +70,7 @@ const struct load_command *ksmacho_getCommandByTypeFromHeader(const mach_header_
  * @param flag The flag of the section to search for.
  * @return Pointer to the section structure if found, otherwise NULL.
  */
-const section_t *ksmacho_getSectionByFlagFromSegment(const segment_command_t *dataSegment, uint32_t flag);
-
+const section_t* ksmacho_getSectionByFlagFromSegment(const segment_command_t* dataSegment, uint32_t flag);
 
 #ifdef __cplusplus
 }

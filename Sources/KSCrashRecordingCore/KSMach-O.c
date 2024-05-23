@@ -1,5 +1,5 @@
 //
-//  KSgetsect.c
+//  KSMach-O.c
 //
 //  Copyright (c) 2019 YANDEX LLC. All rights reserved.
 //
@@ -21,7 +21,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 //
-// Modification of getsegbyname.c
+// Contains code of getsegbyname.c
 // https://opensource.apple.com/source/cctools/cctools-921/libmacho/getsegbyname.c.auto.html
 // Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
 //
@@ -46,46 +46,53 @@
 //
 
 #include "KSMach-O.h"
-#include <string.h>
-#include <mach/mach.h>
-#include <mach-o/loader.h>
+
 #include "KSLogger.h"
+#include <mach-o/loader.h>
+#include <mach/mach.h>
+#include <string.h>
 
-const segment_command_t *ksmacho_getSegmentByNameFromHeader(const mach_header_t *header, const char *seg_name)
+const segment_command_t* ksmacho_getSegmentByNameFromHeader(const mach_header_t* header, const char* segmentName)
 {
-    segment_command_t *sgp;
-    unsigned long i;
+    KSLOG_TRACE("Searching for segment %s in Mach header at %p", segmentName, header);
 
-    sgp = (segment_command_t *) ((uintptr_t) header + sizeof(mach_header_t));
-    for (i = 0; i < header->ncmds; i++)
+    const segment_command_t* segmentCommand;
+    unsigned long commandIndex;
+
+    segmentCommand = (segment_command_t*)((uintptr_t)header + sizeof(mach_header_t));
+    for (commandIndex = 0; commandIndex < header->ncmds; commandIndex++)
     {
-        if (sgp->cmd == LC_SEGMENT_ARCH_DEPENDENT && strncmp(sgp->segname, seg_name, sizeof(sgp->segname)) == 0)
+        if (segmentCommand->cmd == LC_SEGMENT_ARCH_DEPENDENT &&
+            strncmp(segmentCommand->segname, segmentName, sizeof(segmentCommand->segname)) == 0)
         {
-            return sgp;
+            KSLOG_DEBUG("Segment %s found at %p", segmentName, segmentCommand);
+            return segmentCommand;
         }
-        sgp = (segment_command_t *) ((uintptr_t) sgp + sgp->cmdsize);
+        segmentCommand = (segment_command_t*)((uintptr_t)segmentCommand + segmentCommand->cmdsize);
     }
-    return (segment_command_t *) NULL;
+
+    KSLOG_WARN("Segment %s not found in Mach header at %p", segmentName, header);
+    return NULL;
 }
 
-vm_prot_t ksmacho_getSectionProtection(void *sectionStart)
+vm_prot_t ksmacho_getSectionProtection(void* sectionStart)
 {
     KSLOG_TRACE("Getting protection for section starting at %p", sectionStart);
 
     mach_port_t task = mach_task_self();
     vm_size_t size = 0;
-    vm_address_t address = (vm_address_t) sectionStart;
+    vm_address_t address = (vm_address_t)sectionStart;
     memory_object_name_t object;
 #if __LP64__
     mach_msg_type_number_t count = VM_REGION_BASIC_INFO_COUNT_64;
     vm_region_basic_info_data_64_t info;
     kern_return_t info_ret =
-    vm_region_64(task, &address, &size, VM_REGION_BASIC_INFO_64, (vm_region_info_64_t) &info, &count, &object);
+        vm_region_64(task, &address, &size, VM_REGION_BASIC_INFO_64, (vm_region_info_64_t)&info, &count, &object);
 #else
     mach_msg_type_number_t count = VM_REGION_BASIC_INFO_COUNT;
     vm_region_basic_info_data_t info;
     kern_return_t info_ret =
-    vm_region(task, &address, &size, VM_REGION_BASIC_INFO, (vm_region_info_t)&info, &count, &object);
+        vm_region(task, &address, &size, VM_REGION_BASIC_INFO, (vm_region_info_t)&info, &count, &object);
 #endif
     if (info_ret == KERN_SUCCESS)
     {
@@ -99,7 +106,7 @@ vm_prot_t ksmacho_getSectionProtection(void *sectionStart)
     }
 }
 
-const struct load_command *ksmacho_getCommandByTypeFromHeader(const mach_header_t *header, uint32_t command_type)
+const struct load_command* ksmacho_getCommandByTypeFromHeader(const mach_header_t* header, uint32_t commandType)
 {
     if (header == NULL)
     {
@@ -107,42 +114,38 @@ const struct load_command *ksmacho_getCommandByTypeFromHeader(const mach_header_
         return NULL;
     }
 
-    uintptr_t cur = (uintptr_t)header + sizeof(mach_header_t);
-    struct load_command *cur_seg_cmd = NULL;
+    uintptr_t current = (uintptr_t)header + sizeof(mach_header_t);
+    struct load_command* loadCommand = NULL;
 
-    for (uint i = 0; i < header->ncmds; i++)
+    for (uint commandIndex = 0; commandIndex < header->ncmds; commandIndex++)
     {
-        cur_seg_cmd = (struct load_command *)cur;
-        if (cur_seg_cmd->cmd == command_type)
+        loadCommand = (struct load_command*)current;
+        if (loadCommand->cmd == commandType)
         {
-            return cur_seg_cmd;
+            return loadCommand;
         }
-        cur += cur_seg_cmd->cmdsize;
+        current += loadCommand->cmdsize;
     }
-    KSLOG_WARN("Command type %u not found", command_type);
+    KSLOG_WARN("Command type %u not found", commandType);
     return NULL;
 }
 
-const section_t *ksmacho_getSectionByFlagFromSegment(const segment_command_t *dataSegment, uint32_t flag)
+const section_t* ksmacho_getSectionByFlagFromSegment(const segment_command_t* segmentCommand, uint32_t flag)
 {
-    KSLOG_TRACE("Getting section by flag %u in segment %s", flag, dataSegment->segname);
+    KSLOG_TRACE("Getting section by flag %u in segment %s", flag, segmentCommand->segname);
 
-    if (strcmp(dataSegment->segname, SEG_DATA) != 0 && strcmp(dataSegment->segname, SEG_DATA_CONST) != 0)
-    {
-        return NULL;
-    }
-    uintptr_t cur = (uintptr_t)dataSegment + sizeof(segment_command_t);
-    const section_t *sect = NULL;
+    uintptr_t current = (uintptr_t)segmentCommand + sizeof(segment_command_t);
+    const section_t* section = NULL;
 
-    for (uint j = 0; j < dataSegment->nsects; j++)
+    for (uint sectionIndex = 0; sectionIndex < segmentCommand->nsects; sectionIndex++)
     {
-        sect = (const section_t *)(cur + j * sizeof(section_t));
-        if ((sect->flags & SECTION_TYPE) == flag)
+        section = (const section_t*)(current + sectionIndex * sizeof(section_t));
+        if ((section->flags & SECTION_TYPE) == flag)
         {
-            return sect;
+            return section;
         }
     }
 
-    KSLOG_DEBUG("Section with flag %u not found in segment %s", flag, dataSegment->segname);
+    KSLOG_DEBUG("Section with flag %u not found in segment %s", flag, segmentCommand->segname);
     return NULL;
 }
