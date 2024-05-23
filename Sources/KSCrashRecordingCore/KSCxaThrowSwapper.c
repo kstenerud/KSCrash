@@ -258,9 +258,12 @@ static void rebind_symbols_for_image(const struct mach_header *header, intptr_t 
         return;
     }
 
-    const struct symtab_command *symtab_cmd = (struct symtab_command *)ksmacho_getCommandByTypeFromHeader((const mach_header_t *)header, LC_SYMTAB);
-    const struct dysymtab_command *dysymtab_cmd = (struct dysymtab_command *)ksmacho_getCommandByTypeFromHeader((const mach_header_t *)header, LC_DYSYMTAB);
-    const segment_command_t *linkedit_segment = ksmacho_getSegmentByNameFromHeader((mach_header_t *)header, SEG_LINKEDIT);
+    const struct symtab_command *symtab_cmd = 
+        (struct symtab_command *)ksmacho_getCommandByTypeFromHeader((const mach_header_t *)header, LC_SYMTAB);
+    const struct dysymtab_command *dysymtab_cmd = 
+        (struct dysymtab_command *)ksmacho_getCommandByTypeFromHeader((const mach_header_t *)header, LC_DYSYMTAB);
+    const segment_command_t *linkedit_segment = 
+        ksmacho_getSegmentByNameFromHeader((mach_header_t *)header, SEG_LINKEDIT);
 
     if (symtab_cmd == NULL || dysymtab_cmd == NULL || linkedit_segment == NULL)
     {
