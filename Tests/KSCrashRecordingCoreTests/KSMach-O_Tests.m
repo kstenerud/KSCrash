@@ -9,10 +9,10 @@
 #import <XCTest/XCTest.h>
 #import <mach-o/loader.h>
 
-@interface KSMachOTests : XCTestCase
+@interface KSMach_O_Tests : XCTestCase
 @end
 
-@implementation KSMachOTests
+@implementation KSMach_O_Tests
 
 - (void)testGetSegmentByNameFromHeader_TextSegment
 {
@@ -349,6 +349,16 @@
     // Deallocate the memory region
     result = vm_deallocate(mach_task_self(), address, size);
     XCTAssertEqual(result, KERN_SUCCESS);
+}
+
+- (void)testGetSectionProtection_FailureScenario
+{
+    // Call the function under test with an invalid memory address
+    vm_address_t invalidAddress = 0xFFFFFFFFFFFFFFFFULL;
+    vm_prot_t actualProtection = ksmacho_getSectionProtection((void*)invalidAddress);
+
+    // Verify the expected default protection value
+    XCTAssertEqual(actualProtection, VM_PROT_READ, @"Expected default protection value of VM_PROT_READ");
 }
 
 @end
