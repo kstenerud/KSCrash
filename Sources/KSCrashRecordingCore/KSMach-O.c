@@ -130,7 +130,7 @@ const struct load_command* ksmacho_getCommandByTypeFromHeader(const mach_header_
     return NULL;
 }
 
-const section_t* ksmacho_getSectionByFlagFromSegment(const segment_command_t* segmentCommand, uint32_t flag)
+const section_t* ksmacho_getSectionByTypeFlagFromSegment(const segment_command_t* segmentCommand, uint32_t flag)
 {
     KSLOG_TRACE("Getting section by flag %u in segment %s", flag, segmentCommand->segname);
 

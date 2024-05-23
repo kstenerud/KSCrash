@@ -224,8 +224,8 @@ static void process_segment(const struct mach_header *header,
     const segment_command_t *segment = ksmacho_getSegmentByNameFromHeader((mach_header_t *)header, segname);
     if (segment != NULL)
     {
-        const section_t *lazy_sym_sect = ksmacho_getSectionByFlagFromSegment(segment, S_LAZY_SYMBOL_POINTERS);
-        const section_t *non_lazy_sym_sect = ksmacho_getSectionByFlagFromSegment(segment, S_NON_LAZY_SYMBOL_POINTERS);
+        const section_t *lazy_sym_sect = ksmacho_getSectionByTypeFlagFromSegment(segment, S_LAZY_SYMBOL_POINTERS);
+        const section_t *non_lazy_sym_sect = ksmacho_getSectionByTypeFlagFromSegment(segment, S_NON_LAZY_SYMBOL_POINTERS);
 
         if (lazy_sym_sect != NULL)
         {

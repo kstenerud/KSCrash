@@ -33,14 +33,14 @@ extern "C" {
 #endif /* __cplusplus */
 
 /**
- * This routine returns the segment_command structure for the named segment
- * if it exists in the passed mach header. Otherwise, it returns zero.
+ * This routine returns the `segment_command` structure for the named segment
+ * if it exists in the passed mach header. Otherwise, it returns `NULL`.
  * It just looks through the load commands. Since these are mapped into the text
  * segment, they are read-only and thus const.
  *
  * @param header Pointer to the mach_header structure.
  * @param seg_name The name of the segment to search for.
- * @return Pointer to the segment_command structure if found, otherwise NULL.
+ * @return Pointer to the `segment_command` structure if found, otherwise `NULL`.
  */
 const segment_command_t* ksmacho_getSegmentByNameFromHeader(const mach_header_t* header, const char* seg_name);
 
@@ -53,24 +53,25 @@ const segment_command_t* ksmacho_getSegmentByNameFromHeader(const mach_header_t*
 vm_prot_t ksmacho_getSectionProtection(void* sectionStart);
 
 /**
- * This routine returns the load_command structure for the specified command type
- * if it exists in the passed mach header. Otherwise, it returns zero.
+ * This routine returns the `load_command` structure for the specified command type
+ * if it exists in the passed mach header. Otherwise, it returns `NULL`.
  *
  * @param header Pointer to the mach_header structure.
  * @param command_type The type of the command to search for.
- * @return Pointer to the load_command structure if found, otherwise NULL.
+ * @return Pointer to the `load_command` structure if found, otherwise `NULL`.
  */
 const struct load_command* ksmacho_getCommandByTypeFromHeader(const mach_header_t* header, uint32_t command_type);
 
 /**
- * This routine returns the section structure for the specified flag
- * if it exists in the passed segment command. Otherwise, it returns zero.
+ * This routine returns the section structure for the specified `SECTION_TYPE` flag
+ * from mach-o/loader.h if it exists in the passed segment command. Otherwise, it returns `NULL`.
  *
  * @param dataSegment Pointer to the segment_command structure.
- * @param flag The flag of the section to search for.
- * @return Pointer to the section structure if found, otherwise NULL.
+ * @param flag The `SECTION_TYPE` flag of the section to search for.
+ * @return Pointer to the section structure if found, otherwise `NULL`.
  */
-const section_t* ksmacho_getSectionByFlagFromSegment(const segment_command_t* dataSegment, uint32_t flag);
+const section_t* ksmacho_getSectionByTypeFlagFromSegment(const segment_command_t* dataSegment, uint32_t flag);
+
 
 #ifdef __cplusplus
 }
