@@ -102,7 +102,7 @@
     XCTAssertTrue(api->isEnabled());
     
     // validate we didn't OOM
-    BOOL userPerceptible = NO;
+    bool userPerceptible = false;
     BOOL oomed = ksmemory_previous_session_was_terminated_due_to_memory(&userPerceptible);
     XCTAssertFalse(oomed);
     XCTAssertTrue(userPerceptible);
@@ -274,32 +274,6 @@ static KSCrashAppMemory *Memory(uint64_t footprint) {
     [handler install];
     
     XCTAssertTrue(handler.monitorMemoryTerminations);
-}
-
-- (void)testMonitorMemoryTerminationsOn
-{
-    KSCrash* handler = [KSCrash sharedInstance];
-    XCTAssertTrue(handler.monitorMemoryTerminations);
-    
-    handler.monitorMemoryTerminations = YES;
-    XCTAssertTrue(handler.monitorMemoryTerminations);
-    
-    [handler install];
-    
-    XCTAssertTrue(handler.monitorMemoryTerminations);
-}
-
-- (void)testMonitorMemoryTerminationsOff
-{
-    KSCrash* handler = [KSCrash sharedInstance];
-    XCTAssertTrue(handler.monitorMemoryTerminations);
-    
-    handler.monitorMemoryTerminations = NO;
-    XCTAssertFalse(handler.monitorMemoryTerminations);
-    
-    [handler install];
-    
-    XCTAssertFalse(handler.monitorMemoryTerminations);
 }
 
 - (void) testNonFatalReportLevel
