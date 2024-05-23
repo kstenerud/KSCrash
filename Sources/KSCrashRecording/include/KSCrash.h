@@ -133,6 +133,12 @@ typedef enum
  */
 @property(nonatomic,readwrite,assign) BOOL catchZombies;
 
+/** If YES, monitor for memory terminations (OOMs).
+ *
+ * Default: YES
+ */
+@property(nonatomic,readwrite,assign) BOOL monitorMemoryTerminations;
+
 /** List of Objective-C classes that should never be introspected.
  * Whenever a class in this list is encountered, only the class name will be recorded.
  * This can be useful for information security concerns.

@@ -38,6 +38,10 @@
 - (void)setUp
 {
     [super setUp];
+    
+    // reset defaults
+    ksmemory_set_nonfatal_report_level(KSCrash_Memory_NonFatalReportLevelNone);
+    [KSCrash sharedInstance].monitorMemoryTerminations = YES;
     setenv("ActivePrewarm", "0", 1);
 }
 
@@ -114,7 +118,7 @@
     XCTAssertFalse(api->isEnabled());
     
     // init again
-    ksmemory_initialize(installURL.path.UTF8String, dataURL.path.UTF8String);
+    ksmemory_initialize(dataURL.path.UTF8String);
     
     kscrash_setMonitoring(KSCrashMonitorTypeMemoryTermination);
     XCTAssertTrue(api->isEnabled());
@@ -260,6 +264,53 @@ static KSCrashAppMemory *Memory(uint64_t footprint) {
     XCTAssertEqual(tracker.transitionState, KSCrashAppTransitionStateActive);
     XCTAssertEqual(tracker.transitionState, state);
 #endif
+}
+
+- (void)testMonitorMemoryTerminationsDefault
+{
+    KSCrash* handler = [KSCrash sharedInstance];
+    XCTAssertTrue(handler.monitorMemoryTerminations);
+    
+    [handler install];
+    
+    XCTAssertTrue(handler.monitorMemoryTerminations);
+}
+
+- (void)testMonitorMemoryTerminationsOn
+{
+    KSCrash* handler = [KSCrash sharedInstance];
+    XCTAssertTrue(handler.monitorMemoryTerminations);
+    
+    handler.monitorMemoryTerminations = YES;
+    XCTAssertTrue(handler.monitorMemoryTerminations);
+    
+    [handler install];
+    
+    XCTAssertTrue(handler.monitorMemoryTerminations);
+}
+
+- (void)testMonitorMemoryTerminationsOff
+{
+    KSCrash* handler = [KSCrash sharedInstance];
+    XCTAssertTrue(handler.monitorMemoryTerminations);
+    
+    handler.monitorMemoryTerminations = NO;
+    XCTAssertFalse(handler.monitorMemoryTerminations);
+    
+    [handler install];
+    
+    XCTAssertFalse(handler.monitorMemoryTerminations);
+}
+
+- (void) testNonFatalReportLevel
+{
+    XCTAssertEqual(ksmemory_get_nonfatal_report_level(), KSCrash_Memory_NonFatalReportLevelNone);
+    
+    ksmemory_set_nonfatal_report_level(12);
+    XCTAssertEqual(ksmemory_get_nonfatal_report_level(), 12);
+    
+    ksmemory_set_nonfatal_report_level(KSCrashAppMemoryStateUrgent);
+    XCTAssertEqual(ksmemory_get_nonfatal_report_level(), KSCrashAppMemoryStateUrgent);
 }
 
 @end

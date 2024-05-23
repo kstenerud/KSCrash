@@ -2,14 +2,6 @@
 
 #import "KSCrashAppMemory+Private.h"
 
-#import <mach/mach.h>
-#import <mach/task.h>
-#import <os/lock.h>
-
-#if KSCRASH_HAS_UIAPPLICATION
-#import <UIKit/UIKit.h>
-#endif
-
 NS_ASSUME_NONNULL_BEGIN
 
 @implementation KSCrashAppMemory

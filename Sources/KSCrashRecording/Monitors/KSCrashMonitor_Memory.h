@@ -42,6 +42,9 @@ extern "C" {
 extern const uint8_t KSCrash_Memory_Version_1_0;
 extern const uint8_t KSCrash_Memory_CurrentVersion;
 
+/** Non-Fatal report level where we don't report at all */
+extern const uint8_t KSCrash_Memory_NonFatalReportLevelNone;
+
 /**
  App Memory
  */
@@ -85,11 +88,9 @@ KSCrashMonitorAPI* kscm_memory_getAPI(void);
 
 /** Initialize the memory monitor.
  *
- * @param installPath The install path of the KSCrash system.
- *
  * @param dataPath The data path of the KSCrash system.
  */
-void ksmemory_initialize(const char* installPath, const char *dataPath);
+void ksmemory_initialize(const char *dataPath);
 
 /** Returns true if the previous session was terminated due to memory.
  *
@@ -98,6 +99,19 @@ void ksmemory_initialize(const char* installPath, const char *dataPath);
  * during some sort of transition from background to active). Can be NULL.
  */
 bool ksmemory_previous_session_was_terminated_due_to_memory(bool *userPerceptible);
+
+/** Sets the minimum level at which to report non-fatals.
+ *
+ * @param level Minimum level at which we report non-fatals.
+ *
+ * @notes Default to no reporting. Use _KSCrash_Memory_NonFatalReportLevelNone_
+ * to turn this feature off. Use any value in `KSCrashAppMemoryState` as a level.
+ */
+void ksmemory_set_nonfatal_report_level(uint8_t level);
+
+/** Returns the minimum level at which memory non-fatals are reported.
+ */
+uint8_t ksmemory_get_nonfatal_report_level(void);
 
 #ifdef __cplusplus
 }

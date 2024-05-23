@@ -54,6 +54,8 @@ const int32_t KSCrash_Memory_Magic = 'kscm';
 const uint8_t KSCrash_Memory_Version_1 = 1;
 const uint8_t KSCrash_Memory_CurrentVersion = KSCrash_Memory_Version_1;
 
+const uint8_t KSCrash_Memory_NonFatalReportLevelNone = KSCrashAppMemoryStateTerminal + 1;
+
 // ============================================================================
 #pragma mark - Forward declarations -
 // ============================================================================
@@ -79,8 +81,10 @@ static void ksmemory_map(const char* path);
 static volatile bool g_isEnabled = 0;
 static volatile bool g_hasPostEnable = 0;
 
+// Minimum non-fatal reporting level
+static uint8_t g_MinimumNonFatalReportingLevel = KSCrash_Memory_NonFatalReportLevelNone;
+
 // Install path for the crash system
-static NSURL *g_installURL = nil;
 static NSURL *g_dataURL = nil;
 static NSURL *g_memoryURL = nil;
 
@@ -185,37 +189,35 @@ static KSCrash_Memory g_previousSessionMemory;
         [self _updateMappedMemoryFrom:memory];
     }
     
-#if KSCRASH_MEMORY_STATE_NONFATAL_REPORT
     if ((changes & KSCrashAppMemoryTrackerChangeTypeLevel) &&
-        memory.level >= KSCrashAppMemoryStateCritical) {
+        memory.level >= g_MinimumNonFatalReportingLevel) {
 
-        NSString *level = KSCrashAppMemoryStateToString(memory.level).uppercaseString;
+        NSString *level = @(KSCrashAppMemoryStateToString(memory.level)).uppercaseString;
         NSString *reason = [NSString stringWithFormat:@"Memory Level Is %@", level];
         
         [[KSCrash sharedInstance] reportUserException:@"Memory Level"
                                                reason:reason
                                              language:@""
                                            lineOfCode:@"0"
-                                           stackTrace:@[@"__MEMORY_LEVEL_HIGH___OOM_IS_IMMINENT__"]
+                                           stackTrace:@[@"__MEMORY_LEVEL__NON_FATAL__"]
                                         logAllThreads:NO
                                      terminateProgram:NO];
     }
     
     if ((changes & KSCrashAppMemoryTrackerChangeTypePressure) &&
-        memory.pressure >= KSCrashAppMemoryStateCritical) {
+        memory.pressure >= g_MinimumNonFatalReportingLevel) {
 
-        NSString *pressure = KSCrashAppMemoryStateToString(memory.pressure).uppercaseString;
+        NSString *pressure = @(KSCrashAppMemoryStateToString(memory.pressure)).uppercaseString;
         NSString *reason = [NSString stringWithFormat:@"Memory Pressure Is %@", pressure];
         
         [[KSCrash sharedInstance] reportUserException:@"Memory Pressure "
                                                reason:reason
                                              language:@""
                                            lineOfCode:@"0"
-                                           stackTrace:@[@"__MEMORY_PRESSURE_HIGH___OOM_IS_IMMINENT__"]
+                                           stackTrace:@[@"__MEMORY_PRESSURE__NON_FATAL__"]
                                         logAllThreads:NO
                                      terminateProgram:NO];
     }
-#endif
     
 }
 
@@ -530,10 +532,9 @@ static void ksmemory_write_possible_oom(void)
     kscm_handleException(&context);
 }
 
-void ksmemory_initialize(const char* installPath, const char *dataPath)
+void ksmemory_initialize(const char *dataPath)
 {
     g_hasPostEnable = 0;
-    g_installURL = [NSURL fileURLWithPath:@(installPath)];
     g_dataURL = [NSURL fileURLWithPath:@(dataPath)];
     g_memoryURL = [g_dataURL URLByAppendingPathComponent:@"memory.bin"];
     
@@ -562,4 +563,14 @@ bool ksmemory_previous_session_was_terminated_due_to_memory(bool *userPerceptibl
     // level or pressure is critical++
     return g_previousSessionMemory.level >= KSCrashAppMemoryStateCritical ||
             g_previousSessionMemory.pressure >= KSCrashAppMemoryStateCritical;
+}
+
+void ksmemory_set_nonfatal_report_level(uint8_t level)
+{
+    g_MinimumNonFatalReportingLevel = level;
+}
+
+uint8_t ksmemory_get_nonfatal_report_level(void)
+{
+    return g_MinimumNonFatalReportingLevel;
 }

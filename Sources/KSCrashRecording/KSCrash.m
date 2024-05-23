@@ -245,6 +245,23 @@ static NSString* getBasePath(void)
     }
 }
 
+- (BOOL)monitorMemoryTerminations
+{
+    return (self.monitoring & KSCrashMonitorTypeMemoryTermination) != 0;
+}
+
+- (void)setMonitorMemoryTerminations:(BOOL)monitorMemoryTerminations
+{
+    if (monitorMemoryTerminations) 
+    {
+        self.monitoring |= KSCrashMonitorTypeMemoryTermination;
+    }
+    else
+    {
+        self.monitoring &= (KSCrashMonitorType)~KSCrashMonitorTypeMemoryTermination;
+    }
+}
+
 - (void) setDoNotIntrospectClasses:(NSArray *)doNotIntrospectClasses
 {
     _doNotIntrospectClasses = doNotIntrospectClasses;

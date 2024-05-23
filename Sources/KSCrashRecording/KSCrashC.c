@@ -176,7 +176,7 @@ KSCrashMonitorType kscrash_install(const char* appName, const char* const instal
 
     snprintf(path, sizeof(path), "%s/Data", installPath);
     ksfu_makePath(path);
-    ksmemory_initialize(installPath, path);
+    ksmemory_initialize(path);
     
     snprintf(path, sizeof(path), "%s/Data/CrashState.json", installPath);
     kscrashstate_initialize(path);
