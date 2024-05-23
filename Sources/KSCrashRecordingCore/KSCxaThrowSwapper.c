@@ -63,13 +63,9 @@
 #include <mach-o/dyld.h>
 #include <mach-o/nlist.h>
 
-#include "KSgetsect.h"
+#include "KSMach-O.h"
 #include "KSPlatformSpecificDefines.h"
 #include "KSLogger.h"
-
-#ifndef SEG_DATA_CONST
-#define SEG_DATA_CONST  "__DATA_CONST"
-#endif
 
 typedef struct
 {
@@ -143,61 +139,6 @@ static void __cxa_throw_decorator(void *thrown_exception, void *tinfo, void (*de
     }
 }
 
-static vm_prot_t get_protection(void *sectionStart)
-{
-    KSLOG_TRACE("Getting protection for section starting at %p", sectionStart);
-
-    mach_port_t task = mach_task_self();
-    vm_size_t size = 0;
-    vm_address_t address = (vm_address_t) sectionStart;
-    memory_object_name_t object;
-#if __LP64__
-    mach_msg_type_number_t count = VM_REGION_BASIC_INFO_COUNT_64;
-    vm_region_basic_info_data_64_t info;
-    kern_return_t info_ret =
-    vm_region_64(task, &address, &size, VM_REGION_BASIC_INFO_64, (vm_region_info_64_t) &info, &count, &object);
-#else
-    mach_msg_type_number_t count = VM_REGION_BASIC_INFO_COUNT;
-    vm_region_basic_info_data_t info;
-    kern_return_t info_ret =
-    vm_region(task, &address, &size, VM_REGION_BASIC_INFO, (vm_region_info_t)&info, &count, &object);
-#endif
-    if (info_ret == KERN_SUCCESS)
-    {
-        KSLOG_DEBUG("Protection obtained: %d", info.protection);
-        return info.protection;
-    }
-    else
-    {
-        KSLOG_ERROR("Failed to get protection for section: %s", mach_error_string(info_ret));
-        return VM_PROT_READ;
-    }
-}
-
-static struct load_command *getCommand(const mach_header_t *header, uint32_t command_type)
-{
-    if (header == NULL)
-    {
-        KSLOG_ERROR("Header is NULL");
-        return NULL;
-    }
-
-    uintptr_t cur = (uintptr_t)header + sizeof(mach_header_t);
-    struct load_command *cur_seg_cmd = NULL;
-
-    for (uint i = 0; i < header->ncmds; i++)
-    {
-        cur_seg_cmd = (struct load_command *)cur;
-        if (cur_seg_cmd->cmd == command_type)
-        {
-            return cur_seg_cmd;
-        }
-        cur += cur_seg_cmd->cmdsize;
-    }
-    KSLOG_WARN("Command type %u not found", command_type);
-    return NULL;
-}
-
 static void perform_rebinding_with_section(const section_t *dataSection,
                                            intptr_t slide,
                                            nlist_t *symtab,
@@ -212,7 +153,7 @@ static void perform_rebinding_with_section(const section_t *dataSection,
     vm_prot_t oldProtection = VM_PROT_READ;
     if (isDataConst)
     {
-        oldProtection = get_protection(indirect_symbol_bindings);
+        oldProtection = ksmacho_getSectionProtection(indirect_symbol_bindings);
         if (mprotect(indirect_symbol_bindings, dataSection->size, PROT_READ | PROT_WRITE) != 0)
         {
             KSLOG_ERROR("mprotect failed to set PROT_READ | PROT_WRITE for section %s,%s: %s",
@@ -271,30 +212,6 @@ static void perform_rebinding_with_section(const section_t *dataSection,
     }
 }
 
-static const section_t *get_section_by_flag(const segment_command_t *dataSegment, uint32_t flag)
-{
-    KSLOG_TRACE("Getting section by flag %u in segment %s", flag, dataSegment->segname);
-
-    if (strcmp(dataSegment->segname, SEG_DATA) != 0 && strcmp(dataSegment->segname, SEG_DATA_CONST) != 0)
-    {
-        return NULL;
-    }
-    uintptr_t cur = (uintptr_t)dataSegment + sizeof(segment_command_t);
-    const section_t *sect = NULL;
-
-    for (uint j = 0; j < dataSegment->nsects; j++)
-    {
-        sect = (const section_t *)(cur + j * sizeof(section_t));
-        if ((sect->flags & SECTION_TYPE) == flag)
-        {
-            return sect;
-        }
-    }
-
-    KSLOG_DEBUG("Section with flag %u not found in segment %s", flag, dataSegment->segname);
-    return NULL;
-}
-
 static void process_segment(const struct mach_header *header,
                             intptr_t slide,
                             const char *segname,
@@ -307,8 +224,8 @@ static void process_segment(const struct mach_header *header,
     const segment_command_t *segment = ksmacho_getSegmentByNameFromHeader((mach_header_t *)header, segname);
     if (segment != NULL)
     {
-        const section_t *lazy_sym_sect = get_section_by_flag(segment, S_LAZY_SYMBOL_POINTERS);
-        const section_t *non_lazy_sym_sect = get_section_by_flag(segment, S_NON_LAZY_SYMBOL_POINTERS);
+        const section_t *lazy_sym_sect = ksmacho_getSectionByFlagFromSegment(segment, S_LAZY_SYMBOL_POINTERS);
+        const section_t *non_lazy_sym_sect = ksmacho_getSectionByFlagFromSegment(segment, S_NON_LAZY_SYMBOL_POINTERS);
 
         if (lazy_sym_sect != NULL)
         {
@@ -341,8 +258,8 @@ static void rebind_symbols_for_image(const struct mach_header *header, intptr_t 
         return;
     }
 
-    const struct symtab_command *symtab_cmd = (struct symtab_command *)getCommand((const mach_header_t *)header, LC_SYMTAB);
-    const struct dysymtab_command *dysymtab_cmd = (struct dysymtab_command *)getCommand((const mach_header_t *)header, LC_DYSYMTAB);
+    const struct symtab_command *symtab_cmd = (struct symtab_command *)ksmacho_getCommandByTypeFromHeader((const mach_header_t *)header, LC_SYMTAB);
+    const struct dysymtab_command *dysymtab_cmd = (struct dysymtab_command *)ksmacho_getCommandByTypeFromHeader((const mach_header_t *)header, LC_DYSYMTAB);
     const segment_command_t *linkedit_segment = ksmacho_getSegmentByNameFromHeader((mach_header_t *)header, SEG_LINKEDIT);
 
     if (symtab_cmd == NULL || dysymtab_cmd == NULL || linkedit_segment == NULL)
