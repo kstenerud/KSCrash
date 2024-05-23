@@ -51,7 +51,9 @@
 #include "KSCxaThrowSwapper.h"
 
 #include <stdlib.h>
+#include <errno.h>
 #include <stdio.h>
+#include <string.h>
 #include <execinfo.h>
 #include <dlfcn.h>
 #include <string.h>
@@ -63,6 +65,7 @@
 
 #include "KSgetsect.h"
 #include "KSPlatformSpecificDefines.h"
+#include "KSLogger.h"
 
 #ifndef SEG_DATA_CONST
 #define SEG_DATA_CONST  "__DATA_CONST"
@@ -176,26 +179,29 @@ static struct load_command *getCommand(const mach_header_t *header, uint32_t com
     return NULL;
 }
 
-static void perform_rebinding_with_section(const section_t *section,
+static void perform_rebinding_with_section(const section_t *dataSection,
                                            intptr_t slide,
                                            nlist_t *symtab,
                                            char *strtab,
                                            uint32_t *indirect_symtab)
 {
-    const bool isDataConst = strcmp(section->segname, SEG_DATA_CONST) == 0;
-    uint32_t *indirect_symbol_indices = indirect_symtab + section->reserved1;
-    void **indirect_symbol_bindings = (void **) ((uintptr_t) slide + section->addr);
+    const bool isDataConst = strcmp(dataSection->segname, SEG_DATA_CONST) == 0;
+    uint32_t *indirect_symbol_indices = indirect_symtab + dataSection->reserved1;
+    void **indirect_symbol_bindings = (void **) ((uintptr_t) slide + dataSection->addr);
     vm_prot_t oldProtection = VM_PROT_READ;
     if (isDataConst)
     {
         oldProtection = get_protection(indirect_symbol_bindings);
-        if (mprotect(indirect_symbol_bindings, section->size, PROT_READ | PROT_WRITE) != 0)
+        if (mprotect(indirect_symbol_bindings, dataSection->size, PROT_READ | PROT_WRITE) != 0)
         {
-            perror("mprotect failed");
+            KSLOG_ERROR("mprotect failed to set PROT_READ | PROT_WRITE for section %s,%s: %s",
+                        dataSection->segname,
+                        dataSection->sectname,
+                        strerror(errno));
             return;
         }
     }
-    for (uint i = 0; i < section->size / sizeof(void *); i++)
+    for (uint i = 0; i < dataSection->size / sizeof(void *); i++)
     {
         uint32_t symtab_index = indirect_symbol_indices[i];
         if (symtab_index == INDIRECT_SYMBOL_ABS ||
@@ -210,7 +216,7 @@ static void perform_rebinding_with_section(const section_t *section,
         if (symbol_name_longer_than_1 && strcmp(&symbol_name[1], g_cxa_throw_name) == 0)
         {
             Dl_info info;
-            if (dladdr(section, &info) != 0)
+            if (dladdr(dataSection, &info) != 0)
             {
                 KSAddressPair pair = {(uintptr_t) info.dli_fbase, (uintptr_t) indirect_symbol_bindings[i]};
                 addPair(pair);
@@ -234,7 +240,13 @@ static void perform_rebinding_with_section(const section_t *section,
         {
             protection |= PROT_EXEC;
         }
-        mprotect(indirect_symbol_bindings, section->size, protection);
+        if (mprotect(indirect_symbol_bindings, dataSection->size, protection) != 0)
+        {
+            KSLOG_ERROR("mprotect failed to restore protection for section %s,%s: %s",
+                        dataSection->segname,
+                        dataSection->sectname,
+                        strerror(errno));
+        }
     }
 }
 
@@ -286,10 +298,10 @@ static void process_segment(const struct mach_header *header,
 static void rebind_symbols_for_image(const struct mach_header *header, intptr_t slide)
 {
     Dl_info info;
-    if (dladdr(header, &info) == 0) { return; }
+    if (slide == 0 || dladdr(header, &info) == 0) { return; }
 
-    const struct symtab_command *symtab_cmd = (struct symtab_command *)getCommand(header, LC_SYMTAB);
-    const struct dysymtab_command *dysymtab_cmd = (struct dysymtab_command *)getCommand(header, LC_DYSYMTAB);
+    const struct symtab_command *symtab_cmd = (struct symtab_command*)getCommand((const mach_header_t*)header, LC_SYMTAB);
+    const struct dysymtab_command *dysymtab_cmd = (struct dysymtab_command*)getCommand((const mach_header_t*)header, LC_DYSYMTAB);
     const segment_command_t *linkedit_segment = ksgs_getsegbynamefromheader((mach_header_t *) header, SEG_LINKEDIT);
 
     if (symtab_cmd == NULL || dysymtab_cmd == NULL || linkedit_segment == NULL) { return; }
