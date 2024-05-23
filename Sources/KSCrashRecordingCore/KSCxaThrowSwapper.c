@@ -156,7 +156,7 @@ static void perform_rebinding_with_section(const section_t *dataSection,
         oldProtection = ksmacho_getSectionProtection(indirect_symbol_bindings);
         if (mprotect(indirect_symbol_bindings, dataSection->size, PROT_READ | PROT_WRITE) != 0)
         {
-            KSLOG_ERROR("mprotect failed to set PROT_READ | PROT_WRITE for section %s,%s: %s",
+            KSLOG_DEBUG("mprotect failed to set PROT_READ | PROT_WRITE for section %s,%s: %s",
                         dataSection->segname,
                         dataSection->sectname,
                         strerror(errno));
