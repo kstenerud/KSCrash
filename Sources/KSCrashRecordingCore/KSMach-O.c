@@ -55,6 +55,12 @@
 const segment_command_t* ksmacho_getSegmentByNameFromHeader(const mach_header_t* header, const char* segmentName)
 {
     KSLOG_TRACE("Searching for segment %s in Mach header at %p", segmentName, header);
+    
+    if (header == NULL)
+    {
+        KSLOG_ERROR("Header is NULL");
+        return NULL;
+    }
 
     const segment_command_t* segmentCommand;
     unsigned long commandIndex;
@@ -108,6 +114,8 @@ vm_prot_t ksmacho_getSectionProtection(void* sectionStart)
 
 const struct load_command* ksmacho_getCommandByTypeFromHeader(const mach_header_t* header, uint32_t commandType)
 {
+    KSLOG_TRACE("Getting command by type %u in Mach header at %p", commandType, header);
+
     if (header == NULL)
     {
         KSLOG_ERROR("Header is NULL");
@@ -133,6 +141,12 @@ const struct load_command* ksmacho_getCommandByTypeFromHeader(const mach_header_
 const section_t* ksmacho_getSectionByTypeFlagFromSegment(const segment_command_t* segmentCommand, uint32_t flag)
 {
     KSLOG_TRACE("Getting section by flag %u in segment %s", flag, segmentCommand->segname);
+    
+    if (segmentCommand == NULL)
+    {
+        KSLOG_ERROR("Segment is NULL");
+        return NULL;
+    }
 
     uintptr_t current = (uintptr_t)segmentCommand + sizeof(segment_command_t);
     const section_t* section = NULL;
