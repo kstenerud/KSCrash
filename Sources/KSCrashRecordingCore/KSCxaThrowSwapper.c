@@ -154,94 +154,26 @@ static vm_prot_t get_protection(void *sectionStart)
     }
 }
 
-static bool get_commands(const struct mach_header *header,
-                         const struct symtab_command **symtab_cmd,
-                         const struct dysymtab_command **dysymtab_cmd)
+static struct load_command *getCommand(const mach_header_t *header, uint32_t command_type)
 {
-    segment_command_t *cur_seg_cmd = NULL;
-    uintptr_t cur = (uintptr_t) header + sizeof(mach_header_t);
-    
-    const struct symtab_command *local_symtab_cmd = NULL;
-    const struct dysymtab_command *local_dysymtab_cmd = NULL;
-    
-    for (uint i = 0; i < header->ncmds; i++, cur += cur_seg_cmd->cmdsize)
+    if (header == NULL)
     {
-        cur_seg_cmd = (segment_command_t *) cur;
-        switch (cur_seg_cmd->cmd)
-        {
-            case LC_SYMTAB:
-                local_symtab_cmd = (const struct symtab_command *) cur_seg_cmd;
-                if (symtab_cmd != NULL)
-                {
-                    *symtab_cmd = local_symtab_cmd;
-                }
-                break;
-            case LC_DYSYMTAB:
-                local_dysymtab_cmd = (const struct dysymtab_command *) cur_seg_cmd;
-                if (dysymtab_cmd != NULL)
-                {
-                    *dysymtab_cmd = local_dysymtab_cmd;
-                }
-                break;
-            default:
-                break;
-        }
-        
-        if (local_symtab_cmd != NULL &&
-            local_dysymtab_cmd != NULL &&
-            local_dysymtab_cmd->nindirectsyms != 0)
-        {
-            return true;
-        }
+        return NULL;
     }
-    return false;
-}
 
-static bool get_sections(const segment_command_t *data_seg,
-                         const section_t **lazy_sym_sect,
-                         const section_t **non_lazy_sym_sect)
-{
-    if (strcmp(data_seg->segname, SEG_DATA) != 0 &&
-        strcmp(data_seg->segname, SEG_DATA_CONST) != 0)
+    uintptr_t cur = (uintptr_t)header + sizeof(mach_header_t);
+    struct load_command *cur_seg_cmd = NULL;
+
+    for (uint i = 0; i < header->ncmds; i++)
     {
-        return false;
-    }
-    
-    const section_t *local_lazy_sym_sect = NULL;
-    const section_t *local_non_lazy_sym_sect = NULL;
-    
-    uintptr_t cur = (uintptr_t) data_seg;
-    const section_t *sect = NULL;
-    for (uint j = 0; j < data_seg->nsects; j++)
-    {
-        sect = (const section_t *) (cur + sizeof(segment_command_t)) + j;
-        const uint32_t section_type = sect->flags & SECTION_TYPE;
-        switch (section_type)
+        cur_seg_cmd = (struct load_command *)cur;
+        if (cur_seg_cmd->cmd == command_type)
         {
-            case S_LAZY_SYMBOL_POINTERS:
-                local_lazy_sym_sect = sect;
-                if (lazy_sym_sect != NULL)
-                {
-                    *lazy_sym_sect = local_lazy_sym_sect;
-                }
-                break;
-            case S_NON_LAZY_SYMBOL_POINTERS:
-                local_non_lazy_sym_sect = sect;
-                if (non_lazy_sym_sect != NULL)
-                {
-                    *non_lazy_sym_sect = local_non_lazy_sym_sect;
-                }
-                break;
-            default:
-                break;
+            return cur_seg_cmd;
         }
-        if (local_non_lazy_sym_sect != NULL || local_lazy_sym_sect != NULL)
-        {
-            return true;
-        }
+        cur += cur_seg_cmd->cmdsize;
     }
-    
-    return false;
+    return NULL;
 }
 
 static void perform_rebinding_with_section(const section_t *section,
@@ -306,23 +238,62 @@ static void perform_rebinding_with_section(const section_t *section,
     }
 }
 
+static const section_t *get_section_by_flag(const segment_command_t *dataSegment, uint32_t flag)
+{
+    if (strcmp(dataSegment->segname, SEG_DATA) != 0 && strcmp(dataSegment->segname, SEG_DATA_CONST) != 0)
+    {
+        return false;
+    }
+    uintptr_t cur = (uintptr_t)dataSegment + sizeof(segment_command_t);
+    const section_t *sect = NULL;
+
+    for (uint j = 0; j < dataSegment->nsects; j++)
+    {
+        sect = (const section_t *)(cur + j * sizeof(section_t));
+        if ((sect->flags & SECTION_TYPE) == flag)
+        {
+            return sect;
+        }
+    }
+
+    return NULL;
+}
+
+static void process_segment(const struct mach_header *header,
+                            intptr_t slide,
+                            const char *segname,
+                            nlist_t *symtab,
+                            char *strtab,
+                            uint32_t *indirect_symtab)
+{
+    const segment_command_t *segment = ksgs_getsegbynamefromheader((mach_header_t *)header, segname);
+    if (segment != NULL)
+    {
+        const section_t *lazy_sym_sect = get_section_by_flag(segment, S_LAZY_SYMBOL_POINTERS);
+        const section_t *non_lazy_sym_sect = get_section_by_flag(segment, S_NON_LAZY_SYMBOL_POINTERS);
+
+        if (lazy_sym_sect != NULL)
+        {
+            perform_rebinding_with_section(lazy_sym_sect, slide, symtab, strtab, indirect_symtab);
+        }
+        if (non_lazy_sym_sect != NULL)
+        {
+            perform_rebinding_with_section(non_lazy_sym_sect, slide, symtab, strtab, indirect_symtab);
+        }
+    }
+}
+
 static void rebind_symbols_for_image(const struct mach_header *header, intptr_t slide)
 {
     Dl_info info;
-    if (dladdr(header, &info) == 0)
-    {
-        return;
-    }
+    if (dladdr(header, &info) == 0) { return; }
 
-    const struct symtab_command *symtab_cmd = NULL;
-    const struct dysymtab_command *dysymtab_cmd = NULL;
-    if (get_commands(header, &symtab_cmd, &dysymtab_cmd) == false)
-    {
-        return;
-    }
-    
+    const struct symtab_command *symtab_cmd = (struct symtab_command *)getCommand(header, LC_SYMTAB);
+    const struct dysymtab_command *dysymtab_cmd = (struct dysymtab_command *)getCommand(header, LC_DYSYMTAB);
     const segment_command_t *linkedit_segment = ksgs_getsegbynamefromheader((mach_header_t *) header, SEG_LINKEDIT);
-    
+
+    if (symtab_cmd == NULL || dysymtab_cmd == NULL || linkedit_segment == NULL) { return; }
+
     // Find base symbol/string table addresses
     uintptr_t linkedit_base = (uintptr_t) slide + linkedit_segment->vmaddr - linkedit_segment->fileoff;
     nlist_t *symtab = (nlist_t *) (linkedit_base + symtab_cmd->symoff);
@@ -331,36 +302,8 @@ static void rebind_symbols_for_image(const struct mach_header *header, intptr_t 
     // Get indirect symbol table (array of uint32_t indices into symbol table)
     uint32_t *indirect_symtab = (uint32_t *) (linkedit_base + dysymtab_cmd->indirectsymoff);
 
-    const section_t *lazy_sym_sect = NULL;
-    const section_t *non_lazy_sym_sect = NULL;
-    
-    const segment_command_t *data_seg = ksgs_getsegbynamefromheader((mach_header_t *) header, SEG_DATA);
-    if (data_seg != NULL)
-    {
-        if (get_sections(data_seg, &lazy_sym_sect, &non_lazy_sym_sect))
-        {
-            if (lazy_sym_sect != NULL) {
-                perform_rebinding_with_section(lazy_sym_sect, slide, symtab, strtab, indirect_symtab);
-            }
-            if (non_lazy_sym_sect != NULL) {
-                perform_rebinding_with_section(non_lazy_sym_sect, slide, symtab, strtab, indirect_symtab);
-            }
-        }
-    }
-    
-    const segment_command_t *data_const_seg = ksgs_getsegbynamefromheader((mach_header_t *) header, SEG_DATA_CONST);
-    if (data_const_seg != NULL)
-    {
-        if (get_sections(data_const_seg, &lazy_sym_sect, &non_lazy_sym_sect))
-        {
-            if (lazy_sym_sect != NULL) {
-                perform_rebinding_with_section(lazy_sym_sect, slide, symtab, strtab, indirect_symtab);
-            }
-            if (non_lazy_sym_sect != NULL) {
-                perform_rebinding_with_section(non_lazy_sym_sect, slide, symtab, strtab, indirect_symtab);
-            }
-        }
-    }
+    process_segment(header, slide, SEG_DATA, symtab, strtab, indirect_symtab);
+    process_segment(header, slide, SEG_DATA_CONST, symtab, strtab, indirect_symtab);
 }
 
 int ksct_swap(const cxa_throw_type handler)
