@@ -304,7 +304,7 @@ static void process_segment(const struct mach_header *header,
 {
     KSLOG_DEBUG("Processing segment %s", segname);
 
-    const segment_command_t *segment = ksgs_getsegbynamefromheader((mach_header_t *)header, segname);
+    const segment_command_t *segment = ksmacho_getSegmentByNameFromHeader((mach_header_t *)header, segname);
     if (segment != NULL)
     {
         const section_t *lazy_sym_sect = get_section_by_flag(segment, S_LAZY_SYMBOL_POINTERS);
@@ -343,7 +343,7 @@ static void rebind_symbols_for_image(const struct mach_header *header, intptr_t 
 
     const struct symtab_command *symtab_cmd = (struct symtab_command *)getCommand((const mach_header_t *)header, LC_SYMTAB);
     const struct dysymtab_command *dysymtab_cmd = (struct dysymtab_command *)getCommand((const mach_header_t *)header, LC_DYSYMTAB);
-    const segment_command_t *linkedit_segment = ksgs_getsegbynamefromheader((mach_header_t *)header, SEG_LINKEDIT);
+    const segment_command_t *linkedit_segment = ksmacho_getSegmentByNameFromHeader((mach_header_t *)header, SEG_LINKEDIT);
 
     if (symtab_cmd == NULL || dysymtab_cmd == NULL || linkedit_segment == NULL)
     {
