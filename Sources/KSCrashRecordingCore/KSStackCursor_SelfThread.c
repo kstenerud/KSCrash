@@ -38,9 +38,10 @@ typedef struct
     uintptr_t backtrace[0];
 } SelfThreadContext;
 
-void kssc_initSelfThread(KSStackCursor *cursor, int skipEntries)
+void kssc_initSelfThread(KSStackCursor *cursor, int skipEntries) __attribute__((disable_tail_calls))
 {
     SelfThreadContext* context = (SelfThreadContext*)cursor->context;
     int backtraceLength = backtrace((void**)context->backtrace, MAX_BACKTRACE_LENGTH);
     kssc_initWithBacktrace(cursor, context->backtrace, backtraceLength, skipEntries + 1);
+    __asm__ __volatile__(""); // thwart tail-call optimization
 }
