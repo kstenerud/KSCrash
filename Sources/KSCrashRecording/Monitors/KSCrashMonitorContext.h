@@ -87,6 +87,11 @@ typedef struct KSCrash_MonitorContext
      */
     void* stackCursor;
     
+    /** If true, don't output binary images.
+     *  This can be useful in cases where we have no stack.
+     */
+    bool omitBinaryImages;
+    
     struct
     {
         /** The mach exception type. */
@@ -226,9 +231,36 @@ typedef struct KSCrash_MonitorContext
         /** Reason field from the last deallocated exception. */
         const char* reason;
     } ZombieException;
-
+    
+    struct
+    {
+        /** measurement taken time in microseconds. */
+        int64_t timestamp;
+        
+        /** memory pressure  `KSCrashAppMemoryPressure` */
+        const char* pressure;
+        
+        /** amount of app memory used */
+        uint64_t footprint;
+        
+        /** amount of app memory remaining */
+        uint64_t remaining;
+        
+        /** high water mark for footprint (footprint +  remaining)*/
+        uint64_t limit;
+        
+        /** memory level  `KSCrashAppMemoryLevel` (KSCrashAppMemory.level) */
+        const char* level;
+        
+        /** transition state of the app */
+        const char* state;
+    } AppMemory;
+    
     /** Full path to the console log, if any. */
     const char* consoleLogPath;
+    
+    /** Absolute path where this report should be written (use default value if NULL)*/
+    const char* reportPath;
 
 } KSCrash_MonitorContext;
     

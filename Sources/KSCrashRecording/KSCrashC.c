@@ -34,6 +34,7 @@
 #include "KSCrashMonitor_CPPException.h"
 #include "KSCrashMonitor_Deadlock.h"
 #include "KSCrashMonitor_User.h"
+#include "KSCrashMonitor_Memory.h"
 #include "KSFileUtils.h"
 #include "KSObjC.h"
 #include "KSString.h"
@@ -134,6 +135,10 @@ static void onCrash(struct KSCrash_MonitorContext* monitorContext)
     {
         kscrashreport_writeRecrashReport(monitorContext, g_lastCrashReportFilePath);
     }
+    else if (monitorContext->reportPath)
+    {
+        kscrashreport_writeStandardReport(monitorContext, monitorContext->reportPath);
+    }
     else
     {
         char crashReportFilePath[KSFU_MAX_PATH_LENGTH];
@@ -167,10 +172,12 @@ KSCrashMonitorType kscrash_install(const char* appName, const char* const instal
     char path[KSFU_MAX_PATH_LENGTH];
     snprintf(path, sizeof(path), "%s/Reports", installPath);
     ksfu_makePath(path);
-    kscrs_initialize(appName, path);
+    kscrs_initialize(appName, installPath, path);
 
     snprintf(path, sizeof(path), "%s/Data", installPath);
     ksfu_makePath(path);
+    ksmemory_initialize(path);
+    
     snprintf(path, sizeof(path), "%s/Data/CrashState.json", installPath);
     kscrashstate_initialize(path);
 
@@ -333,6 +340,25 @@ int kscrash_getReportCount(void)
 int kscrash_getReportIDs(int64_t* reportIDs, int count)
 {
     return kscrs_getReportIDs(reportIDs, count);
+}
+
+char* kscrash_readReportAtPath(const char* path)
+{
+    if(!path)
+    {
+        return NULL;
+    }
+    
+    char* rawReport = kscrs_readReportAtPath(path);
+    if(rawReport == NULL)
+    {
+        return NULL;
+    }
+    
+    char* fixedReport = kscrf_fixupCrashReport(rawReport);
+
+    free(rawReport);
+    return fixedReport;
 }
 
 char* kscrash_readReport(int64_t reportID)

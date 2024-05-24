@@ -1,7 +1,9 @@
 //
-// KSDate.h
+//  KSCrashAppTransitionState.h
 //
-// Copyright 2016 Karl Stenerud.
+//  Created by Alexander Cohen on 2024-05-20.
+//
+//  Copyright (c) 2024 Alexander Cohen. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -21,39 +23,42 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 //
+#ifndef KSCrashAppTransitionState_h
+#define KSCrashAppTransitionState_h
 
-#ifndef KSDate_h
-#define KSDate_h
-
-#include <sys/types.h>
+#include <stdint.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/** Convert a UNIX timestamp to an RFC3339 string representation.
- *
- * @param timestamp The date to convert.
- *
- * @param buffer21Chars A buffer of at least 21 chars to hold the RFC3339 date string.
- */
-void ksdate_utcStringFromTimestamp(time_t timestamp, char* buffer21Chars);
+/** States of transition for the application */
+enum {
+    KSCrashAppTransitionStateStartup = 0,
+    KSCrashAppTransitionStateStartupPrewarm,
+    KSCrashAppTransitionStateLaunching,
+    KSCrashAppTransitionStateForegrounding,
+    KSCrashAppTransitionStateActive,
+    KSCrashAppTransitionStateDeactivating,
+    KSCrashAppTransitionStateBackground,
+    KSCrashAppTransitionStateTerminating,
+    KSCrashAppTransitionStateExiting,
+};
+typedef uint8_t KSCrashAppTransitionState;
 
-/** Convert microseconds returned from `gettimeofday` to an RFC3339 string representation.
- *
- * @param microseconds The microseconds to convert.
- *
- * @param buffer28Chars A buffer of at least 28 chars to hold the RFC3339 date string with milliseconds precision.
+/**
+ * Returns true if the transition state is user perceptible.
  */
-void ksdate_utcStringFromMicroseconds(int64_t microseconds, char* buffer28Chars);
+bool ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionState state);
 
-/** Returns microseconds from `gettimeofday`
- *
+/**
+ * Returns a string for the app state passed in.
  */
-int64_t ksdate_microseconds(void);
+const char *ksapp_transition_state_to_string(KSCrashAppTransitionState state);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* KSDate_h */
+#endif /* KSCrashAppTransitionState_h */

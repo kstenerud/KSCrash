@@ -266,6 +266,18 @@ int ksfu_readBufferedReader(KSBufferedReader* reader, char* dstBuffer, int byteC
  */
 bool ksfu_readBufferedReaderUntilChar(KSBufferedReader* reader, int ch, char* dstBuffer, int* length);
 
+/** Memory maps an entire file of size and returns the mapped pointer.
+ *
+ * @param path The path to the file.
+ *
+ * @param size The size of the map.
+ *
+ * @return the mapped pointer if successful, NULL otherwise.
+ * The return value must be unmapped using `munmap` when done
+ * with the returned pointer. It is ok to let the pointer live up to termination,
+ * the system will unmap on termination if required.
+ */
+void *ksfu_mmap(const char* path, int size);
 
 #ifdef __cplusplus
 }

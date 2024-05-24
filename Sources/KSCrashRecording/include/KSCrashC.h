@@ -246,6 +246,15 @@ int kscrash_getReportIDs(int64_t* reportIDs, int count);
  */
 char* kscrash_readReport(int64_t reportID);
 
+/** Read a report at a specified path.
+ *
+ * @param path The full path to the report.
+ *
+ * @return The NULL terminated report, or NULL if not found.
+ *         MEMORY MANAGEMENT WARNING: User is responsible for calling free() on the returned value.
+ */
+char* kscrash_readReportAtPath(const char* path);
+
 /** Add a custom report to the store.
  *
  * @param report The report's contents (must be JSON encoded).

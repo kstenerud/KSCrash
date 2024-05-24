@@ -38,6 +38,7 @@
 #include "KSCrashMonitor_User.h"
 #include "KSCrashMonitor_AppState.h"
 #include "KSCrashMonitor_Zombie.h"
+#include "KSCrashMonitor_Memory.h"
 #include "KSDebug.h"
 #include "KSThread.h"
 #include "KSSystemCapabilities.h"
@@ -101,6 +102,10 @@ static Monitor g_monitors[] =
     {
         .monitorType = KSCrashMonitorTypeApplicationState,
         .getAPI = kscm_appstate_getAPI,
+    },
+    {
+        .monitorType = KSCrashMonitorTypeMemoryTermination,
+        .getAPI = kscm_memory_getAPI,
     },
 };
 static int g_monitorsCount = sizeof(g_monitors) / sizeof(*g_monitors);
@@ -200,6 +205,14 @@ void kscm_setActiveMonitors(KSCrashMonitorType monitorTypes)
 
     KSLOG_DEBUG("Active monitors are now 0x%x.", activeMonitors);
     g_activeMonitors = activeMonitors;
+    
+    for(int i = 0; i < g_monitorsCount; i++)
+    {
+        Monitor* monitor = &g_monitors[i];
+        if (monitor->getAPI() && monitor->getAPI()->notifyPostSystemEnable) {
+            monitor->getAPI()->notifyPostSystemEnable();
+        }
+    }
 }
 
 KSCrashMonitorType kscm_getActiveMonitors(void)
@@ -230,6 +243,9 @@ bool kscm_notifyFatalExceptionCaptured(bool isAsyncSafeEnvironment)
 
 void kscm_handleException(struct KSCrash_MonitorContext* context)
 {
+    // we're handling a crash if the crash type is fatal
+    context->handlingCrash = context->handlingCrash || ((context->crashType & KSCrashMonitorTypeFatal) != KSCrashMonitorTypeNone);
+    
     context->requiresAsyncSafety = g_requiresAsyncSafety;
     if(g_crashedDuringExceptionHandling)
     {
@@ -243,9 +259,12 @@ void kscm_handleException(struct KSCrash_MonitorContext* context)
             addContextualInfoToEvent(monitor, context);
         }
     }
-
-    g_onExceptionEvent(context);
-
+    
+    if (g_onExceptionEvent)
+    {
+        g_onExceptionEvent(context);
+    }
+    
     if (context->currentSnapshotUserReported) {
         g_handlingFatalException = false;
     } else {
@@ -254,4 +273,7 @@ void kscm_handleException(struct KSCrash_MonitorContext* context)
             kscm_setActiveMonitors(KSCrashMonitorTypeNone);
         }
     }
+    
+    // done hanlding the crash
+    context->handlingCrash = false;
 }

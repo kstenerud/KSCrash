@@ -45,6 +45,7 @@
 #include "KSStackCursor_MachineContext.h"
 #include "KSSystemCapabilities.h"
 #include "KSCrashCachedData.h"
+#include "KSDate.h"
 
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
@@ -1440,6 +1441,18 @@ static void writeError(const KSCrashReportWriter* const writer,
                 writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_Signal);
                 break;
 
+            case KSCrashMonitorTypeMemoryTermination:
+            {
+                writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_MemoryTermination);
+                writer->beginObject(writer, KSCrashField_MemoryTermination);
+                {
+                    writer->addStringElement(writer, KSCrashField_MemoryPressure, crash->AppMemory.pressure);
+                    writer->addStringElement(writer, KSCrashField_MemoryLevel, crash->AppMemory.level);
+                }
+                writer->endContainer(writer);
+            }
+                break;
+                
             case KSCrashMonitorTypeUserReported:
             {
                 writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_User);
@@ -1546,14 +1559,10 @@ static void writeReportInfo(const KSCrashReportWriter* const writer,
 {
     writer->beginObject(writer, key);
     {
-        struct timeval tp;
-        gettimeofday(&tp, NULL);
-        int64_t microseconds = ((int64_t)tp.tv_sec) * 1000000 + tp.tv_usec;
-        
         writer->addStringElement(writer, KSCrashField_Version, KSCRASH_REPORT_VERSION);
         writer->addStringElement(writer, KSCrashField_ID, reportID);
         writer->addStringElement(writer, KSCrashField_ProcessName, processName);
-        writer->addIntegerElement(writer, KSCrashField_Timestamp, microseconds);
+        writer->addIntegerElement(writer, KSCrashField_Timestamp, ksdate_microseconds());
         writer->addStringElement(writer, KSCrashField_Type, type);
     }
     writer->endContainer(writer);
@@ -1668,6 +1677,22 @@ void kscrashreport_writeRecrashReport(const KSCrash_MonitorContext* const monito
     ksccd_unfreeze();
 }
 
+static void writeAppMemoryInfo(const KSCrashReportWriter* const writer,
+                               const char* const key,
+                               const KSCrash_MonitorContext* const monitorContext)
+{
+    writer->beginObject(writer, key);
+    {
+        writer->addUIntegerElement(writer, KSCrashField_MemoryFootprint, monitorContext->AppMemory.footprint);
+        writer->addUIntegerElement(writer, KSCrashField_MemoryRemaining, monitorContext->AppMemory.remaining);
+        writer->addStringElement(writer, KSCrashField_MemoryPressure, monitorContext->AppMemory.pressure);
+        writer->addStringElement(writer, KSCrashField_MemoryLevel, monitorContext->AppMemory.level);
+        writer->addUIntegerElement(writer, KSCrashField_MemoryLimit, monitorContext->AppMemory.limit);
+        writer->addStringElement(writer, KSCrashField_AppTransitionState, monitorContext->AppMemory.state);
+    }
+    writer->endContainer(writer);
+}
+
 static void writeSystemInfo(const KSCrashReportWriter* const writer,
                             const char* const key,
                             const KSCrash_MonitorContext* const monitorContext)
@@ -1705,6 +1730,7 @@ static void writeSystemInfo(const KSCrashReportWriter* const writer,
 
         writeMemoryInfo(writer, KSCrashField_Memory, monitorContext);
         writeAppStats(writer, KSCrashField_AppStats, monitorContext);
+        writeAppMemoryInfo(writer, KSCrashField_AppMemory, monitorContext);
     }
     writer->endContainer(writer);
 
@@ -1755,9 +1781,11 @@ void kscrashreport_writeStandardReport(const KSCrash_MonitorContext* const monit
                         monitorContext->System.processName);
         ksfu_flushBufferedWriter(&bufferedWriter);
 
-        writeBinaryImages(writer, KSCrashField_BinaryImages);
-        ksfu_flushBufferedWriter(&bufferedWriter);
-
+        if (!monitorContext->omitBinaryImages) {
+            writeBinaryImages(writer, KSCrashField_BinaryImages);
+            ksfu_flushBufferedWriter(&bufferedWriter);
+        }
+        
         writeProcessState(writer, KSCrashField_ProcessState, monitorContext);
         ksfu_flushBufferedWriter(&bufferedWriter);
 

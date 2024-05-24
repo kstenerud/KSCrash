@@ -38,9 +38,10 @@ extern "C" {
 /** Initialize the report store.
  *
  * @param appName The application's name.
+ * @param installPath Full path to directory where the crash system writes files.
  * @param reportsPath Full path to directory where the reports are to be stored (path will be created if needed).
  */
-void kscrs_initialize(const char* appName, const char* reportsPath);
+void kscrs_initialize(const char* appName, const char* installPath, const char* reportsPath);
 
 /** Get the next crash report to be generated.
  * Max length for paths is KSCRS_MAX_PATH_LENGTH
@@ -72,6 +73,7 @@ int kscrs_getReportIDs(int64_t* reportIDs, int count);
  *         MEMORY MANAGEMENT WARNING: User is responsible for calling free() on the returned value.
  */
 char* kscrs_readReport(int64_t reportID);
+char* kscrs_readReportAtPath(const char *path);
 
 /** Add a custom report to the store.
  *

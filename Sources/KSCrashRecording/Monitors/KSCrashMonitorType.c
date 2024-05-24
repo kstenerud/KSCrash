@@ -44,6 +44,7 @@ static const struct
     MONITORTYPE(KSCrashMonitorTypeSystem),
     MONITORTYPE(KSCrashMonitorTypeApplicationState),
     MONITORTYPE(KSCrashMonitorTypeZombie),
+    MONITORTYPE(KSCrashMonitorTypeMemoryTermination),
 };
 static const int g_monitorTypesCount = sizeof(g_monitorTypes) / sizeof(*g_monitorTypes);
 

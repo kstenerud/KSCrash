@@ -204,7 +204,9 @@ typedef struct KSCrashReportWriter
      *
      * @param name The name to give this element.
      *
-     * @param value A pointer to the JSON data.
+     * @param jsonElement A pointer to the JSON data.
+     *
+     * @param closeLastContainer If false, do not close the last container.
      */
     void (*addJSONElement)(const struct KSCrashReportWriter* writer,
                            const char* name,
