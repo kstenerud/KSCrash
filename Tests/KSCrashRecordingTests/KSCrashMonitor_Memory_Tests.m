@@ -41,7 +41,7 @@
     
     // reset defaults
     ksmemory_set_nonfatal_report_level(KSCrash_Memory_NonFatalReportLevelNone);
-    [KSCrash sharedInstance].monitorMemoryTerminations = YES;
+    ksmemory_set_fatal_reports_enabled(true);
     setenv("ActivePrewarm", "0", 1);
 }
 
@@ -266,14 +266,25 @@ static KSCrashAppMemory *Memory(uint64_t footprint) {
 #endif
 }
 
-- (void)testMonitorMemoryTerminationsDefault
+- (void)testReportMemoryTerminationsDefault
 {
     KSCrash* handler = [KSCrash sharedInstance];
-    XCTAssertTrue(handler.monitorMemoryTerminations);
+    XCTAssertTrue(handler.reportsMemoryTerminations);
     
     [handler install];
     
-    XCTAssertTrue(handler.monitorMemoryTerminations);
+    XCTAssertTrue(handler.reportsMemoryTerminations);
+}
+
+- (void)testReportMemoryTerminationsOff
+{
+    KSCrash* handler = [KSCrash sharedInstance];
+    XCTAssertTrue(handler.reportsMemoryTerminations);
+
+    handler.reportsMemoryTerminations = NO;
+    [handler install];
+    
+    XCTAssertFalse(handler.reportsMemoryTerminations);
 }
 
 - (void) testNonFatalReportLevel

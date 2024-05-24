@@ -36,6 +36,7 @@
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitor_System.h"
 #import "KSSystemCapabilities.h"
+#import "KSCrashMonitor_Memory.h"
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -245,21 +246,14 @@ static NSString* getBasePath(void)
     }
 }
 
-- (BOOL)monitorMemoryTerminations
+- (BOOL)reportsMemoryTerminations
 {
-    return (self.monitoring & KSCrashMonitorTypeMemoryTermination) != 0;
+    return ksmemory_get_fatal_reports_enabled();
 }
 
-- (void)setMonitorMemoryTerminations:(BOOL)monitorMemoryTerminations
+- (void)setReportsMemoryTerminations:(BOOL)reportsMemoryTerminations
 {
-    if (monitorMemoryTerminations) 
-    {
-        self.monitoring |= KSCrashMonitorTypeMemoryTermination;
-    }
-    else
-    {
-        self.monitoring &= (KSCrashMonitorType)~KSCrashMonitorTypeMemoryTermination;
-    }
+    ksmemory_set_fatal_reports_enabled(reportsMemoryTerminations);
 }
 
 - (void) setDoNotIntrospectClasses:(NSArray *)doNotIntrospectClasses

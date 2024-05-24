@@ -134,7 +134,7 @@ typedef enum
 /** Monitors that are required for proper operation.
  * These add essential information to the reports, but do not trigger reporting.
  */
-#define KSCrashMonitorTypeRequired (KSCrashMonitorTypeSystem | KSCrashMonitorTypeApplicationState | KSCrashMonitorTypeMemory)
+#define KSCrashMonitorTypeRequired (KSCrashMonitorTypeSystem | KSCrashMonitorTypeApplicationState | KSCrashMonitorTypeMemoryTermination)
 
 /** Effectively disables automatica reporting. The only way to generate a report
  * in this mode is by manually calling kscrash_reportUserException().

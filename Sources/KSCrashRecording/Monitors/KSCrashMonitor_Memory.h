@@ -113,6 +113,17 @@ void ksmemory_set_nonfatal_report_level(uint8_t level);
  */
 uint8_t ksmemory_get_nonfatal_report_level(void);
 
+/** Enables or disables sending reports for memory terminations.
+ *  Default to true.
+ *
+ * @param enabled if true, reports will be sent.
+ */
+void ksmemory_set_fatal_reports_enabled(bool enabled);
+
+/** Returns true if fatal reports are enabled.
+ */
+bool ksmemory_get_fatal_reports_enabled(void);
+
 #ifdef __cplusplus
 }
 #endif

@@ -81,8 +81,9 @@ static void ksmemory_map(const char* path);
 static volatile bool g_isEnabled = 0;
 static volatile bool g_hasPostEnable = 0;
 
-// Minimum non-fatal reporting level
+// What we're reporting
 static uint8_t g_MinimumNonFatalReportingLevel = KSCrash_Memory_NonFatalReportLevelNone;
+static bool g_FatalReportsEnabled = true;
 
 // Install path for the crash system
 static NSURL *g_dataURL = nil;
@@ -210,7 +211,7 @@ static KSCrash_Memory g_previousSessionMemory;
         NSString *pressure = @(KSCrashAppMemoryStateToString(memory.pressure)).uppercaseString;
         NSString *reason = [NSString stringWithFormat:@"Memory Pressure Is %@", pressure];
         
-        [[KSCrash sharedInstance] reportUserException:@"Memory Pressure "
+        [[KSCrash sharedInstance] reportUserException:@"Memory Pressure"
                                                reason:reason
                                              language:@""
                                            lineOfCode:@"0"
@@ -311,13 +312,15 @@ static NSDictionary<NSString *, id> *kscm_memory_serialize(KSCrash_Memory *const
  */
 static void kscm_memory_check_for_oom_in_previous_session(void)
 {
-    // And OOM should be the last thng we check for. For example,
+    // An OOM should be the last thng we check for. For example,
     // If memory is critical but before being jetisoned we encounter
     // a programming error and receiving a Mach event or signal that
     // indicates a crash, we should process that on startup and ignore
     // and indication of an OOM.
     bool userPerceivedOOM = NO;
-    if (ksmemory_previous_session_was_terminated_due_to_memory(&userPerceivedOOM)) {
+    if (g_FatalReportsEnabled &&
+        ksmemory_previous_session_was_terminated_due_to_memory(&userPerceivedOOM)) 
+    {
         
         // We only report an OOM that the user might have seen.
         // Ignore this check if we want to report all OOM, foreground and background.
@@ -537,10 +540,7 @@ void ksmemory_initialize(const char *dataPath)
     g_hasPostEnable = 0;
     g_dataURL = [NSURL fileURLWithPath:@(dataPath)];
     g_memoryURL = [g_dataURL URLByAppendingPathComponent:@"memory.bin"];
-    
-    // Make sure the folder exists
-    [[NSFileManager defaultManager] createDirectoryAtURL:g_dataURL withIntermediateDirectories:YES attributes:nil error:nil];
-    
+
     // load up the old memory data
     ksmemory_read(g_memoryURL.path.UTF8String);
 }
@@ -573,4 +573,14 @@ void ksmemory_set_nonfatal_report_level(uint8_t level)
 uint8_t ksmemory_get_nonfatal_report_level(void)
 {
     return g_MinimumNonFatalReportingLevel;
+}
+
+void ksmemory_set_fatal_reports_enabled(bool enabled)
+{
+    g_FatalReportsEnabled = enabled;
+}
+
+bool ksmemory_get_fatal_reports_enabled(void)
+{
+    return g_FatalReportsEnabled;
 }
