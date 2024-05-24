@@ -42,4 +42,8 @@ typedef struct nlist nlist_t;
 #define LC_SEGMENT_ARCH_DEPENDENT LC_SEGMENT
 #endif /* __LP64__ */
 
+#ifndef SEG_DATA_CONST
+#define SEG_DATA_CONST  "__DATA_CONST"
+#endif /* SEG_DATA_CONST */
+
 #endif /* KSPlatformSpecificDefines_h */
