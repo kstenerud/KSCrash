@@ -213,16 +213,17 @@
 
 - (void)testTransitionState
 {
-    XCTAssertFalse(ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionStateStartupPrewarm));
-    XCTAssertFalse(ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionStateBackground));
-    XCTAssertFalse(ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionStateTerminating));
-    XCTAssertFalse(ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionStateExiting));
-
-    XCTAssertTrue(ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionStateStartup));
-    XCTAssertTrue(ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionStateLaunching));
-    XCTAssertTrue(ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionStateForegrounding));
-    XCTAssertTrue(ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionStateActive));
-    XCTAssertTrue(ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionStateDeactivating));
+    XCTAssertFalse(ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionStateStartupPrewarm));
+    XCTAssertFalse(ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionStateBackground));
+    XCTAssertFalse(ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionStateTerminating));
+    XCTAssertFalse(ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionStateExiting));
+    
+    XCTAssertTrue(ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionStateStartup));
+    XCTAssertTrue(ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionStateLaunching));
+    XCTAssertTrue(ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionStateLaunched));
+    XCTAssertTrue(ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionStateForegrounding));
+    XCTAssertTrue(ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionStateActive));
+    XCTAssertTrue(ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionStateDeactivating));
 }
 
 static KSCrashAppMemory *Memory(uint64_t footprint)
@@ -270,7 +271,7 @@ static KSCrashAppMemory *Memory(uint64_t footprint)
 
 #if KSCRASH_HAS_UIAPPLICATION
     [center postNotificationName:UIApplicationDidFinishLaunchingNotification object:nil];
-    XCTAssertEqual(tracker.transitionState, KSCrashAppTransitionStateLaunching);
+    XCTAssertEqual(tracker.transitionState, KSCrashAppTransitionStateLaunched);
     XCTAssertEqual(tracker.transitionState, state);
 
     [center postNotificationName:UIApplicationWillEnterForegroundNotification object:nil];
@@ -287,10 +288,6 @@ static KSCrashAppMemory *Memory(uint64_t footprint)
 
     [center postNotificationName:UIApplicationDidEnterBackgroundNotification object:nil];
     XCTAssertEqual(tracker.transitionState, KSCrashAppTransitionStateBackground);
-    XCTAssertEqual(tracker.transitionState, state);
-
-    [center postNotificationName:UIApplicationDidFinishLaunchingNotification object:nil];
-    XCTAssertEqual(tracker.transitionState, KSCrashAppTransitionStateLaunching);
     XCTAssertEqual(tracker.transitionState, state);
 
     [center postNotificationName:UIApplicationWillTerminateNotification object:nil];

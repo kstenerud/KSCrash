@@ -51,6 +51,7 @@ enum
     KSCrashAppTransitionStateStartup = 0,
     KSCrashAppTransitionStateStartupPrewarm,
     KSCrashAppTransitionStateLaunching,
+    KSCrashAppTransitionStateLaunched,
     KSCrashAppTransitionStateForegrounding,
     KSCrashAppTransitionStateActive,
     KSCrashAppTransitionStateDeactivating,

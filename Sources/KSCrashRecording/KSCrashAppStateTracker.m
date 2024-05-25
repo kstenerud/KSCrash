@@ -34,32 +34,23 @@
 #import <UIKit/UIKit.h>
 #endif
 
-const char *ksapp_transitionStateToString(KSCrashAppTransitionState state)
-{
+const char *ksapp_transition_state_to_string(KSCrashAppTransitionState state) {
     switch (state) {
-        case KSCrashAppTransitionStateStartup:
-            return "startup";
-        case KSCrashAppTransitionStateStartupPrewarm:
-            return "prewarm";
-        case KSCrashAppTransitionStateActive:
-            return "active";
-        case KSCrashAppTransitionStateLaunching:
-            return "launching";
-        case KSCrashAppTransitionStateBackground:
-            return "background";
-        case KSCrashAppTransitionStateTerminating:
-            return "terminating";
-        case KSCrashAppTransitionStateExiting:
-            return "exiting";
-        case KSCrashAppTransitionStateDeactivating:
-            return "deactivating";
-        case KSCrashAppTransitionStateForegrounding:
-            return "foregrounding";
+        case KSCrashAppTransitionStateStartup: return "startup";
+        case KSCrashAppTransitionStateStartupPrewarm: return "prewarm";
+        case KSCrashAppTransitionStateActive: return "active";
+        case KSCrashAppTransitionStateLaunching: return "launching";
+        case KSCrashAppTransitionStateLaunched: return "launched";
+        case KSCrashAppTransitionStateBackground: return "background";
+        case KSCrashAppTransitionStateTerminating: return "terminating";
+        case KSCrashAppTransitionStateExiting: return "exiting";
+        case KSCrashAppTransitionStateDeactivating: return "deactivating";
+        case KSCrashAppTransitionStateForegrounding: return "foregrounding";
     }
     return "unknown";
 }
 
-bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
+bool ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionState state)
 {
     switch (state) {
         case KSCrashAppTransitionStateStartupPrewarm:
@@ -67,9 +58,10 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
         case KSCrashAppTransitionStateTerminating:
         case KSCrashAppTransitionStateExiting:
             return NO;
-
+            
         case KSCrashAppTransitionStateStartup:
         case KSCrashAppTransitionStateLaunching:
+        case KSCrashAppTransitionStateLaunched:
         case KSCrashAppTransitionStateForegrounding:
         case KSCrashAppTransitionStateActive:
         case KSCrashAppTransitionStateDeactivating:
@@ -80,10 +72,10 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
 
 @interface KSCrashAppStateTrackerBlockObserver : NSObject <KSCrashAppStateTrackerObserving>
 
-@property(nonatomic, copy) KSCrashAppStateTrackerObserverBlock block;
-@property(nonatomic, weak) id<KSCrashAppStateTrackerObserving> object;
+@property (nonatomic, copy) KSCrashAppStateTrackerObserverBlock block;
+@property (nonatomic, weak) id<KSCrashAppStateTrackerObserving> object;
 
-@property(nonatomic, weak) KSCrashAppStateTracker *tracker;
+@property (nonatomic, weak) KSCrashAppStateTracker *tracker;
 
 - (BOOL)shouldReap;
 
@@ -91,14 +83,13 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
 
 @implementation KSCrashAppStateTrackerBlockObserver
 
-- (void)appStateTracker:(nonnull KSCrashAppStateTracker *)tracker
-    didTransitionToState:(KSCrashAppTransitionState)transitionState
+- (void)appStateTracker:(nonnull KSCrashAppStateTracker *)tracker didTransitionToState:(KSCrashAppTransitionState)transitionState
 {
     KSCrashAppStateTrackerObserverBlock block = self.block;
     if (block) {
         block(transitionState);
     }
-
+    
     id<KSCrashAppStateTrackerObserving> object = self.object;
     if (object) {
         [object appStateTracker:self.tracker didTransitionToState:transitionState];
@@ -113,14 +104,20 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
 @end
 
 @interface KSCrashAppStateTracker () {
+    
     NSNotificationCenter *_center;
     NSArray<id<NSObject>> *_registrations;
-
+    
     // transition state and observers protected by the lock
     os_unfair_lock _lock;
     KSCrashAppTransitionState _transitionState;
+    BOOL _transitionComplete;
     NSMutableArray<id<KSCrashAppStateTrackerObserving>> *_observers;
+    BOOL _proxied;
 }
+
+@property (nonatomic, assign) BOOL proxied;
+
 @end
 
 @implementation KSCrashAppStateTracker
@@ -128,10 +125,10 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
 + (void)load
 {
     // to work well, we need this to run as early as possible.
-    (void)[KSCrashAppStateTracker sharedInstance];
+    (void)[KSCrashAppStateTracker shared];
 }
 
-+ (instancetype)sharedInstance
++ (instancetype)shared
 {
     static KSCrashAppStateTracker *sTracker;
     static dispatch_once_t onceToken;
@@ -154,7 +151,7 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
         _observers = [NSMutableArray array];
         _center = notificationCenter;
         _registrations = nil;
-
+        
         BOOL isPrewarm = [NSProcessInfo.processInfo.environment[@"ActivePrewarm"] boolValue];
         _transitionState = isPrewarm ? KSCrashAppTransitionStateStartupPrewarm : KSCrashAppTransitionStateStartup;
     }
@@ -164,6 +161,15 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
 - (void)dealloc
 {
     [self stop];
+}
+
+- (void)setProxied:(BOOL)proxied
+{
+    _proxied = proxied;
+    if (proxied) {
+        [self stop];
+        _registrations = @[];
+    }
 }
 
 // Observers are either an object passed in that
@@ -215,7 +221,7 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
 - (void)removeObserver:(id<KSCrashAppStateTrackerObserving>)observer
 {
     os_unfair_lock_lock(&_lock);
-
+    
     // Observers added with a block
     if ([observer isKindOfClass:KSCrashAppStateTrackerBlockObserver.class]) {
         KSCrashAppStateTrackerBlockObserver *obs = (KSCrashAppStateTrackerBlockObserver *)observer;
@@ -223,12 +229,12 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
         obs.object = nil;
         [self _locked_reapObserversOrObject:nil];
     }
-
+    
     // observers added with an object
     else {
         [self _locked_reapObserversOrObject:observer];
     }
-
+    
     os_unfair_lock_unlock(&_lock);
 }
 
@@ -243,25 +249,70 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
     return ret;
 }
 
+- (void)_locked_completeState:(KSCrashAppTransitionState)transitionState
+{
+    if (_transitionState != transitionState || _transitionComplete) {
+        return;
+    }
+    
+    _transitionComplete = YES;
+    NSLog(@"[AC] %s, completed: %d", ksapp_transition_state_to_string(transitionState), _transitionComplete);
+    
+    // send delegate
+    // ie: didCompleteTransition or something...
+}
+
+- (void)_completeState:(KSCrashAppTransitionState)transitionState
+{
+    os_unfair_lock_lock(&_lock);
+    [self _locked_completeState:transitionState];
+    os_unfair_lock_unlock(&_lock);
+}
+
 - (void)_setTransitionState:(KSCrashAppTransitionState)transitionState
 {
+    BOOL completeOnNextLoop = NO;
     NSArray<id<KSCrashAppStateTrackerObserving>> *observers = nil;
     {
         os_unfair_lock_lock(&_lock);
+        
         if (_transitionState != transitionState) {
+            
+            // finalize the current state
+            [self _locked_completeState:_transitionState];
+            
+            // move to the next state
             _transitionState = transitionState;
+            _transitionComplete = NO;
+            completeOnNextLoop = YES;
             observers = [_observers copy];
         }
+        
         os_unfair_lock_unlock(&_lock);
     }
-
-    for (id<KSCrashAppStateTrackerObserving> obs in observers) {
-        [obs appStateTracker:self didTransitionToState:transitionState];
+    
+    if (observers) {
+        NSLog(@"[AC] %s, completed: %d", ksapp_transition_state_to_string(transitionState), _transitionComplete);
+        
+        for (id<KSCrashAppStateTrackerObserving> obs in observers) {
+            [obs appStateTracker:self didTransitionToState:transitionState];
+        }
+    }
+    
+    
+    if (completeOnNextLoop) {
+        __weak typeof(self)weakMe = self;
+        CFRunLoopPerformBlock(CFRunLoopGetCurrent(), kCFRunLoopCommonModes, ^{
+            [weakMe _locked_completeState:transitionState];
+        });
     }
 }
 
 #define OBSERVE(center, name, block) \
-    [center addObserverForName:name object:nil queue:nil usingBlock:^(NSNotification * notification) block]
+[center addObserverForName:name \
+object:nil \
+queue:nil \
+usingBlock:^(NSNotification *notification)block] \
 
 - (void)_exitCalled
 {
@@ -277,36 +328,42 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
     if (_registrations) {
         return;
     }
-
-    __weak typeof(self) weakMe = self;
-
+    
+    __weak typeof(self)weakMe = self;
+    
     // Register a normal `exit` callback so we don't think it's an OOM.
     atexit_b(^{
         [weakMe _exitCalled];
     });
-
+    
 #if KSCRASH_HAS_UIAPPLICATION
-
+    
     // register all normal lifecycle events
     // in the future, we could also look at scene lifecycle
     // events but in reality, we don't actually need to,
     // it could just give us more granularity.
     _registrations = @[
-
-        OBSERVE(_center, UIApplicationDidFinishLaunchingNotification,
-                { [weakMe _setTransitionState:KSCrashAppTransitionStateLaunching]; }),
-        OBSERVE(_center, UIApplicationWillEnterForegroundNotification,
-                { [weakMe _setTransitionState:KSCrashAppTransitionStateForegrounding]; }),
-        OBSERVE(_center, UIApplicationDidBecomeActiveNotification,
-                { [weakMe _setTransitionState:KSCrashAppTransitionStateActive]; }),
-        OBSERVE(_center, UIApplicationWillResignActiveNotification,
-                { [weakMe _setTransitionState:KSCrashAppTransitionStateDeactivating]; }),
-        OBSERVE(_center, UIApplicationDidEnterBackgroundNotification,
-                { [weakMe _setTransitionState:KSCrashAppTransitionStateBackground]; }),
-        OBSERVE(_center, UIApplicationWillTerminateNotification,
-                { [weakMe _setTransitionState:KSCrashAppTransitionStateTerminating]; }),
+        
+        OBSERVE(_center, UIApplicationDidFinishLaunchingNotification, {
+            [weakMe _setTransitionState:KSCrashAppTransitionStateLaunched];
+        }),
+        OBSERVE(_center, UIApplicationWillEnterForegroundNotification, {
+            [weakMe _setTransitionState:KSCrashAppTransitionStateForegrounding];
+        }),
+        OBSERVE(_center, UIApplicationDidBecomeActiveNotification, {
+            [weakMe _setTransitionState:KSCrashAppTransitionStateActive];
+        }),
+        OBSERVE(_center, UIApplicationWillResignActiveNotification, {
+            [weakMe _setTransitionState:KSCrashAppTransitionStateDeactivating];
+        }),
+        OBSERVE(_center, UIApplicationDidEnterBackgroundNotification, {
+            [weakMe _setTransitionState:KSCrashAppTransitionStateBackground];
+        }),
+        OBSERVE(_center, UIApplicationWillTerminateNotification, {
+            [weakMe _setTransitionState:KSCrashAppTransitionStateTerminating];
+        }),
     ];
-
+    
 #else
     // on other platforms that don't have UIApplication
     // we simply state that the app is active in order to report OOMs.
@@ -324,3 +381,5 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
 }
 
 @end
+
+
