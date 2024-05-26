@@ -54,6 +54,7 @@
 
 #import <objc/runtime.h>
 #import <map>
+#import <string>
 
 #import <UIKit/UIKit.h>
 
