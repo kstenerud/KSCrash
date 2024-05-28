@@ -1,0 +1,95 @@
+{
+  "process" : {
+
+  },
+  "system" : {
+    "binary_cpu_type" : 16777228,
+    "boot_time" : "2024-04-18T21:52:46Z",
+    "CFBundleName" : "xctest",
+    "app_uuid" : "74DD09ED-D0D2-3291-A8E4-F95A6027A525",
+    "process_name" : "xctest",
+    "system_version" : "1.1",
+    "device_app_hash" : "0308d5c6e6b4e172c59da6d76ff0e1636a5ce591",
+    "storage" : 994662584320,
+    "memory" : {
+      "free" : 337657856,
+      "size" : 25769803776,
+      "usable" : 16561504256
+    },
+    "application_stats" : {
+      "background_time_since_last_crash" : 0,
+      "active_time_since_launch" : 0.46947699999999998,
+      "sessions_since_last_crash" : 30,
+      "launches_since_last_crash" : 30,
+      "active_time_since_last_crash" : 17.845500000000001,
+      "application_active" : true,
+      "sessions_since_launch" : 1,
+      "application_in_foreground" : true,
+      "background_time_since_launch" : 0
+    },
+    "CFBundleVersion" : "22720",
+    "app_memory" : {
+      "memory_level" : "terminal",
+      "memory_footprint" : 100,
+      "memory_remaining" : 0,
+      "memory_limit" : 100,
+      "app_transition_state" : "active",
+      "memory_pressure" : "normal",
+      "timestamp" : 1716226564474658
+    },
+    "cpu_type" : 16777228,
+    "CFBundleShortVersionString" : "15.4",
+    "binary_cpu_subtype" : 0,
+    "system_name" : "visionOS",
+    "app_start_time" : "2024-05-20T17:36:04Z",
+    "CFBundleExecutable" : "xctest",
+    "process_id" : 13565,
+    "cpu_subtype" : 2,
+    "CFBundleIdentifier" : "com.apple.dt.xctest.tool",
+    "cpu_arch" : "arm64e",
+    "model" : "simulator",
+    "os_version" : "23E224",
+    "jailbroken" : false,
+    "time_zone" : "EDT",
+    "CFBundleExecutablePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/XRSimulator.platform\/Developer\/Library\/Xcode\/Agents\/xctest",
+    "build_type" : "simulator",
+    "machine" : "RealityDevice14,1",
+    "kernel_version" : "Darwin Kernel Version 23.4.0: Fri Mar 15 00:11:08 PDT 2024; root:xnu-10063.101.17~1\/RELEASE_ARM64_T8122",
+    "parent_process_id" : 13566
+  },
+  "crash" : {
+    "error" : {
+      "address" : 0,
+      "memory_termination" : {
+        "memory_level" : "terminal",
+        "memory_footprint" : 100,
+        "memory_remaining" : 0,
+        "memory_limit" : 100,
+        "app_transition_state" : "active",
+        "memory_pressure" : "normal",
+        "timestamp" : 1716226564474658
+      },
+      "signal" : {
+        "name" : "SIGKILL",
+        "signal" : 9
+      },
+      "type" : "memory_termination"
+    },
+    "threads" : [
+
+    ]
+  },
+  "report" : {
+    "process_name" : "xctest",
+    "id" : "A686D4F9-5708-4E24-ADF3-24216C15F0ED",
+    "timestamp" : 1716226564474658,
+    "type" : "standard",
+    "version" : "3.3.0"
+  },
+  "debug" : {
+
+  },
+  "user" : {
+
+  }
+}
