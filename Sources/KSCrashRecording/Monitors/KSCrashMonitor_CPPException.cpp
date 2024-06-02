@@ -69,6 +69,10 @@ static char g_eventID[37];
 
 static KSCrash_MonitorContext g_monitorContext;
 
+static const KSCrashMonitorProperty g_monitorProperties = KSCrashMonitorPropertyFatal;
+
+static const char* const g_monitorName = "KSCrashMonitorTypeCPPException";
+
 // TODO: Thread local storage is not supported < ios 9.
 // Find some other way to do thread local. Maybe storage with lookup by tid?
 static KSStackCursor g_stackCursor;
@@ -172,7 +176,8 @@ catch(TYPE value)\
         ksmc_getContextForThread(ksthread_self(), machineContext, true);
 
         KSLOG_DEBUG("Filling out context.");
-        crashContext->crashType = KSCrashMonitorTypeCPPException;
+        crashContext->monitorName = g_monitorName;
+        crashContext->monitorProperties = g_monitorProperties;
         crashContext->eventID = g_eventID;
         crashContext->registersAreValid = false;
         crashContext->stackCursor = &g_stackCursor;
@@ -206,6 +211,16 @@ static void initialize()
         isInitialized = true;
         kssc_initCursor(&g_stackCursor, NULL, NULL);
     }
+}
+
+static const char* const name()
+{
+    return g_monitorName;
+}
+
+static KSCrashMonitorProperty properties()
+{
+    return g_monitorProperties;
 }
 
 static void setEnabled(bool isEnabled)
@@ -246,6 +261,8 @@ extern "C" KSCrashMonitorAPI* kscm_cppexception_getAPI()
 {
     static KSCrashMonitorAPI api =
     {
+        .name = name,
+        .properties = properties,
         .setEnabled = setEnabled,
         .isEnabled = isEnabled
     };
