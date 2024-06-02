@@ -25,6 +25,7 @@
 //
 
 #include "KSCrashMonitor_Signal.h"
+#include "KSCrashMonitor_MachException.h"
 #include "KSCrashMonitorContext.h"
 #include "KSID.h"
 #include "KSSignalInfo.h"
@@ -47,6 +48,9 @@
 // ============================================================================
 #pragma mark - Globals -
 // ============================================================================
+
+static const KSCrashMonitorProperty g_monitorProperties = KSCrashMonitorPropertyFatal | KSCrashMonitorPropertyAsyncSafe;
+static const char* const g_monitorName = "KSCrashMonitorTypeSignal";
 
 static volatile bool g_isEnabled = false;
 
@@ -96,7 +100,8 @@ static void handleSignal(int sigNum, siginfo_t* signalInfo, void* userContext)
 
         KSCrash_MonitorContext* crashContext = &g_monitorContext;
         memset(crashContext, 0, sizeof(*crashContext));
-        crashContext->crashType = KSCrashMonitorTypeSignal;
+        crashContext->monitorName = g_monitorName;
+        crashContext->monitorProperties = g_monitorProperties;
         crashContext->eventID = g_eventID;
         crashContext->offendingMachineContext = machineContext;
         crashContext->registersAreValid = true;
@@ -206,6 +211,16 @@ static void uninstallSignalHandler(void)
     KSLOG_DEBUG("Signal handlers uninstalled.");
 }
 
+static const char* const name()
+{
+    return g_monitorName;
+}
+
+static KSCrashMonitorProperty properties()
+{
+    return g_monitorProperties;
+}
+
 static void setEnabled(bool isEnabled)
 {
     if(isEnabled != g_isEnabled)
@@ -233,13 +248,27 @@ static bool isEnabled(void)
 
 static void addContextualInfoToEvent(struct KSCrash_MonitorContext* eventContext)
 {
-    if(!(eventContext->crashType & (KSCrashMonitorTypeSignal | KSCrashMonitorTypeMachException)))
+    const KSCrashMonitorAPI* machAPI = kscm_machexception_getAPI();
+    const char* machName = (machAPI && machAPI->name) ? machAPI->name() : NULL;
+
+    if(!(strcmp(eventContext->monitorName, name()) == 0 ||
+         strcmp(eventContext->monitorName, machName) == 0))
     {
         eventContext->signal.signum = SIGABRT;
     }
 }
 
 #else
+
+static const char* const name()
+{
+    return NULL;
+}
+
+static KSCrashMonitorProperty properties()
+{
+    return KSCrashMonitorPropertyNone;
+}
 
 static void setEnabled(bool isEnabled)
 {
@@ -262,6 +291,8 @@ KSCrashMonitorAPI* kscm_signal_getAPI(void)
 {
     static KSCrashMonitorAPI api =
     {
+        .name = name,
+        .properties = properties,
         .setEnabled = setEnabled,
         .isEnabled = isEnabled,
         .addContextualInfoToEvent = addContextualInfoToEvent
