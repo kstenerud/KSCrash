@@ -40,6 +40,9 @@
 #pragma mark - Globals -
 // ============================================================================
 
+static const KSCrashMonitorProperty g_monitorProperties = KSCrashMonitorPropertyFatal;
+static const char* const g_monitorName = "KSCrashMonitorTypeNSException";
+
 static volatile bool g_isEnabled = 0;
 
 static KSCrash_MonitorContext g_monitorContext;
@@ -85,7 +88,8 @@ static void handleException(NSException* exception, BOOL currentSnapshotUserRepo
 
         KSCrash_MonitorContext* crashContext = &g_monitorContext;
         memset(crashContext, 0, sizeof(*crashContext));
-        crashContext->crashType = KSCrashMonitorTypeNSException;
+        crashContext->monitorName = g_monitorName;
+        crashContext->monitorProperties = g_monitorProperties;
         crashContext->eventID = eventID;
         crashContext->offendingMachineContext = machineContext;
         crashContext->registersAreValid = false;
@@ -146,6 +150,16 @@ static void setEnabled(bool isEnabled)
     }
 }
 
+static const char* const name()
+{
+    return g_monitorName;
+}
+
+static KSCrashMonitorProperty properties()
+{
+    return g_monitorProperties;
+}
+
 static bool isEnabled(void)
 {
     return g_isEnabled;
@@ -155,6 +169,8 @@ KSCrashMonitorAPI* kscm_nsexception_getAPI(void)
 {
     static KSCrashMonitorAPI api =
     {
+        .name = name,
+        .properties = properties,
         .setEnabled = setEnabled,
         .isEnabled = isEnabled
     };
