@@ -24,8 +24,8 @@
 // THE SOFTWARE.
 //
 
-
 #include "KSCrashMonitor_MachException.h"
+#include "KSCrashMonitor_Signal.h"
 #include "KSCrashMonitorContext.h"
 #include "KSCPU.h"
 #include "KSID.h"
@@ -42,7 +42,6 @@
 #include <pthread.h>
 #include <signal.h>
 
-
 // ============================================================================
 #pragma mark - Constants -
 // ============================================================================
@@ -55,6 +54,10 @@ static const char* kThreadSecondary = "KSCrash Exception Handler (Secondary)";
 #else
     #define MACH_ERROR_CODE_MASK 0xFFFFFFFF
 #endif
+
+static const KSCrashMonitorProperty g_monitorProperties = KSCrashMonitorPropertyFatal |
+                                                          KSCrashMonitorPropertyDebuggerUnsafe;
+static const char* const g_monitorName = "KSCrashMonitorTypeMachException";
 
 // ============================================================================
 #pragma mark - Types -
@@ -355,7 +358,8 @@ static void* handleExceptions(void* const userData)
         }
 
         KSLOG_DEBUG("Filling out context.");
-        crashContext->crashType = KSCrashMonitorTypeMachException;
+        crashContext->monitorName = g_monitorName;
+        crashContext->monitorProperties = g_monitorProperties;
         crashContext->eventID = eventID;
         crashContext->registersAreValid = true;
         crashContext->mach.type = exceptionMessage.exception;
@@ -403,14 +407,14 @@ static void* handleExceptions(void* const userData)
 static void uninstallExceptionHandler(void)
 {
     KSLOG_DEBUG("Uninstalling mach exception handler.");
-    
+
     // NOTE: Do not deallocate the exception port. If a secondary crash occurs
     // it will hang the process.
-    
+
     restoreExceptionPorts();
-    
+
     thread_t thread_self = (thread_t)ksthread_self();
-    
+
     if(g_primaryPThread != 0 && g_primaryMachThread != thread_self)
     {
         KSLOG_DEBUG("Canceling primary exception thread.");
@@ -439,7 +443,7 @@ static void uninstallExceptionHandler(void)
         g_secondaryMachThread = 0;
         g_secondaryPThread = 0;
     }
-    
+
     g_exceptionPort = MACH_PORT_NULL;
     KSLOG_DEBUG("Mach exception handlers uninstalled.");
 }
@@ -555,6 +559,16 @@ failed:
     return false;
 }
 
+static const char* const name()
+{
+    return g_monitorName;
+}
+
+static KSCrashMonitorProperty properties()
+{
+    return g_monitorProperties;
+}
+
 static void setEnabled(bool isEnabled)
 {
     if(isEnabled != g_isEnabled)
@@ -583,11 +597,14 @@ static bool isEnabled(void)
 
 static void addContextualInfoToEvent(struct KSCrash_MonitorContext* eventContext)
 {
-    if(eventContext->crashType == KSCrashMonitorTypeSignal)
+    const KSCrashMonitorAPI* signalAPI = kscm_signal_getAPI();
+    const char* signalName = (signalAPI && signalAPI->name) ? signalAPI->name() : NULL;
+
+    if(signalName && strcmp(eventContext->monitorName, signalName) == 0)
     {
         eventContext->mach.type = machExceptionForSignal(eventContext->signal.signum);
     }
-    else if(eventContext->crashType != KSCrashMonitorTypeMachException)
+    else if(strcmp(eventContext->monitorName, name()) != 0)
     {
         eventContext->mach.type = EXC_CRASH;
     }
@@ -600,6 +617,8 @@ KSCrashMonitorAPI* kscm_machexception_getAPI(void)
     static KSCrashMonitorAPI api =
     {
 #if KSCRASH_HAS_MACH
+        .name = name,
+        .properties = properties,
         .setEnabled = setEnabled,
         .isEnabled = isEnabled,
         .addContextualInfoToEvent = addContextualInfoToEvent
