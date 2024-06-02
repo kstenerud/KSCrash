@@ -56,6 +56,7 @@ static const char* kThreadSecondary = "KSCrash Exception Handler (Secondary)";
 #endif
 
 static const KSCrashMonitorProperty g_monitorProperties = KSCrashMonitorPropertyFatal |
+                                                          KSCrashMonitorPropertyAsyncSafe |
                                                           KSCrashMonitorPropertyDebuggerUnsafe;
 static const char* const g_monitorName = "KSCrashMonitorTypeMachException";
 
