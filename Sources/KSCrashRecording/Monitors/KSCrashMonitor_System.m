@@ -83,6 +83,7 @@ static SystemData g_systemData;
 
 static volatile bool g_isEnabled = false;
 
+static const char* const g_monitorName = "KSCrashMonitorTypeSystem";
 
 // ============================================================================
 #pragma mark - Utility -
@@ -559,6 +560,11 @@ static void initialize(void)
     }
 }
 
+static const char* const name()
+{
+    return g_monitorName;
+}
+
 static void setEnabled(bool isEnabled)
 {
     if(isEnabled != g_isEnabled)
@@ -619,6 +625,7 @@ KSCrashMonitorAPI* kscm_system_getAPI(void)
 {
     static KSCrashMonitorAPI api =
     {
+        .name = name,
         .setEnabled = setEnabled,
         .isEnabled = isEnabled,
         .addContextualInfoToEvent = addContextualInfoToEvent
