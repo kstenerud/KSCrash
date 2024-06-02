@@ -28,8 +28,8 @@
 #ifndef HDR_KSCrashMonitorContext_h
 #define HDR_KSCrashMonitorContext_h
 
-#include "KSCrashMonitorType.h"
 #include "KSMachineContext.h"
+#include "KSCrashMonitorProperty.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -40,6 +40,7 @@ extern "C" {
 
 typedef struct KSCrash_MonitorContext
 {
+
     /** Unique identifier for this event. */
     const char* eventID;
     /**
@@ -72,10 +73,13 @@ typedef struct KSCrash_MonitorContext
     /** Address that caused the fault. */
     uintptr_t faultAddress;
     
-    /** The type of crash that occurred.
+    /** Name of the monitor that captured the crash.
      * This determines which other fields are valid. */
-    KSCrashMonitorType crashType;
+    const char* monitorName;
     
+    /** Properties of the monitor that fired exception processing */
+    KSCrashMonitorProperty monitorProperties;
+
     /** The name of the exception that caused the crash, if any. */
     const char* exceptionName;
     
