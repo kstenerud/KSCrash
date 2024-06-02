@@ -56,6 +56,10 @@ static KSThread g_mainQueueThread;
 /** Interval between watchdog pulses. */
 static NSTimeInterval g_watchdogInterval = 0;
 
+static const KSCrashMonitorProperty g_monitorProperties = KSCrashMonitorPropertyFatal;
+
+static const char* const g_monitorName = "KSCrashMonitorTypeMainThreadDeadlock";
+
 
 // ============================================================================
 #pragma mark - X -
@@ -122,7 +126,8 @@ static NSTimeInterval g_watchdogInterval = 0;
     KSLOG_DEBUG(@"Filling out context.");
     KSCrash_MonitorContext* crashContext = &g_monitorContext;
     memset(crashContext, 0, sizeof(*crashContext));
-    crashContext->crashType = KSCrashMonitorTypeMainThreadDeadlock;
+    crashContext->monitorName = g_monitorName;
+    crashContext->monitorProperties = g_monitorProperties;
     crashContext->eventID = eventID;
     crashContext->registersAreValid = false;
     crashContext->offendingMachineContext = machineContext;
@@ -182,6 +187,16 @@ static void initialize(void)
     }
 }
 
+static const char* const name()
+{
+    return g_monitorName;
+}
+
+static KSCrashMonitorProperty properties()
+{
+    return g_monitorProperties;
+}
+
 static void setEnabled(bool isEnabled)
 {
     if(isEnabled != g_isEnabled)
@@ -211,6 +226,8 @@ KSCrashMonitorAPI* kscm_deadlock_getAPI(void)
 {
     static KSCrashMonitorAPI api =
     {
+        .name = name,
+        .properties = properties,
         .setEnabled = setEnabled,
         .isEnabled = isEnabled
     };
