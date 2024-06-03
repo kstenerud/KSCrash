@@ -57,7 +57,7 @@
 #define kKeySessionsSinceLastCrash "sessionsSinceLastCrash"
 #define kKeySessionsSinceLaunch "sessionsSinceLaunch"
 
-
+static const char* const g_monitorName = "KSCrashMonitorTypeApplicationState";
 
 // ============================================================================
 #pragma mark - Globals -
@@ -460,6 +460,11 @@ const KSCrash_AppState* const kscrashstate_currentState(void)
     return &g_state;
 }
 
+static const char* const name()
+{
+    return g_monitorName;
+}
+
 static void setEnabled(bool isEnabled)
 {
     if(isEnabled != g_isEnabled)
@@ -502,6 +507,7 @@ KSCrashMonitorAPI* kscm_appstate_getAPI(void)
 {
     static KSCrashMonitorAPI api =
     {
+        .name = name,
         .setEnabled = setEnabled,
         .isEnabled = isEnabled,
         .addContextualInfoToEvent = addContextualInfoToEvent
