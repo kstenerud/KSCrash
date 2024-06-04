@@ -44,7 +44,6 @@ extern "C" {
 struct KSCrash_MonitorContext;
 typedef struct KSCrashMonitorAPI KSCrashMonitorAPI;
 
-typedef int KSCrashMonitorType;
 // ============================================================================
 #pragma mark - External API -
 // ============================================================================

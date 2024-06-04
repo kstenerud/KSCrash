@@ -26,6 +26,10 @@
 #ifndef HDR_KSCrashMonitorType_h
 #define HDR_KSCrashMonitorType_h
 
+#ifdef __OBJC__
+#include <Foundation/Foundation.h>
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -39,112 +43,94 @@ extern "C" {
  * - Deadlock on the main thread
  * - User reported custom exception
  */
-typedef enum
+typedef
+#ifdef __OBJC__
+NS_OPTIONS(NSUInteger, KSCrashMonitorType)
+#else /* __OBJC__ */
+enum
+#endif /* __OBJC__ */
 {
-    /* Captures and reports Mach exceptions. */
-    KSCrashMonitorTypeMachException      = 0x01,
-    
-    /* Captures and reports POSIX signals. */
-    KSCrashMonitorTypeSignal             = 0x02,
-    
-    /* Captures and reports C++ exceptions.
-     * Note: This will slightly slow down exception processing.
-     */
-    KSCrashMonitorTypeCPPException       = 0x04,
-    
-    /* Captures and reports NSExceptions. */
-    KSCrashMonitorTypeNSException        = 0x08,
-    
-    /* Detects and reports a deadlock in the main thread. */
-    KSCrashMonitorTypeMainThreadDeadlock = 0x10,
-    
-    /* Accepts and reports user-generated exceptions. */
-    KSCrashMonitorTypeUserReported       = 0x20,
-    
-    /* Keeps track of and injects system information. */
-    KSCrashMonitorTypeSystem             = 0x40,
-    
-    /* Keeps track of and injects application state. */
-    KSCrashMonitorTypeApplicationState   = 0x80,
-    
-    /* Keeps track of zombies, and injects the last zombie NSException. */
-    KSCrashMonitorTypeZombie             = 0x100,
-    
-    /* Keeps track of memory to use heuristics to solve OOMs at startup. */
-    KSCrashMonitorTypeMemoryTermination  = 0x200
-} KSCrashMonitorType;
+    KSCrashMonitorTypeNone                 = 0,
+    KSCrashMonitorTypeMachException        = 1 << 0,
+    KSCrashMonitorTypeSignal               = 1 << 1,
+    KSCrashMonitorTypeCPPException         = 1 << 2,
+    KSCrashMonitorTypeNSException          = 1 << 3,
+    KSCrashMonitorTypeMainThreadDeadlock   = 1 << 4,
+    KSCrashMonitorTypeUserReported         = 1 << 5,
+    KSCrashMonitorTypeSystem               = 1 << 6,
+    KSCrashMonitorTypeApplicationState     = 1 << 7,
+    KSCrashMonitorTypeZombie               = 1 << 8,
+    KSCrashMonitorTypeMemoryTermination    = 1 << 9,
 
-#define KSCrashMonitorTypeAll              \
-(                                          \
-    KSCrashMonitorTypeMachException      | \
-    KSCrashMonitorTypeSignal             | \
-    KSCrashMonitorTypeCPPException       | \
-    KSCrashMonitorTypeNSException        | \
-    KSCrashMonitorTypeMainThreadDeadlock | \
-    KSCrashMonitorTypeUserReported       | \
-    KSCrashMonitorTypeSystem             | \
-    KSCrashMonitorTypeApplicationState   | \
-    KSCrashMonitorTypeZombie             | \
-    KSCrashMonitorTypeMemoryTermination    \
-)
+    KSCrashMonitorTypeAll = (
+                             KSCrashMonitorTypeMachException |
+                             KSCrashMonitorTypeSignal |
+                             KSCrashMonitorTypeCPPException |
+                             KSCrashMonitorTypeNSException |
+                             KSCrashMonitorTypeMainThreadDeadlock |
+                             KSCrashMonitorTypeUserReported |
+                             KSCrashMonitorTypeSystem |
+                             KSCrashMonitorTypeApplicationState |
+                             KSCrashMonitorTypeZombie |
+                             KSCrashMonitorTypeMemoryTermination
+                             ),
 
-#define KSCrashMonitorTypeFatal            \
-(                                          \
-    KSCrashMonitorTypeMachException      | \
-    KSCrashMonitorTypeSignal             | \
-    KSCrashMonitorTypeCPPException       | \
-    KSCrashMonitorTypeNSException        | \
-    KSCrashMonitorTypeMainThreadDeadlock   \
-)
+    KSCrashMonitorTypeFatal = (
+                               KSCrashMonitorTypeMachException |
+                               KSCrashMonitorTypeSignal |
+                               KSCrashMonitorTypeCPPException |
+                               KSCrashMonitorTypeNSException |
+                               KSCrashMonitorTypeMainThreadDeadlock
+                               ),
 
-#define KSCrashMonitorTypeExperimental     \
-(                                          \
-    KSCrashMonitorTypeMainThreadDeadlock   \
-)
+    KSCrashMonitorTypeExperimental = (
+                                      KSCrashMonitorTypeMainThreadDeadlock
+                                      ),
 
-#define KSCrashMonitorTypeDebuggerUnsafe   \
-(                                          \
-    KSCrashMonitorTypeMachException        \
-)
+    KSCrashMonitorTypeDebuggerUnsafe = (
+                                        KSCrashMonitorTypeMachException
+                                        ),
 
-#define KSCrashMonitorTypeAsyncSafe        \
-(                                          \
-    KSCrashMonitorTypeMachException      | \
-    KSCrashMonitorTypeSignal               \
-)
+    KSCrashMonitorTypeAsyncSafe = (
+                                   KSCrashMonitorTypeMachException |
+                                   KSCrashMonitorTypeSignal
+                                   ),
 
-#define KSCrashMonitorTypeOptional         \
-(                                          \
-    KSCrashMonitorTypeZombie               \
-)
-    
-#define KSCrashMonitorTypeAsyncUnsafe (KSCrashMonitorTypeAll & (~KSCrashMonitorTypeAsyncSafe))
+    KSCrashMonitorTypeOptional = (
+                                  KSCrashMonitorTypeZombie
+                                  ),
 
-/** Monitors that are safe to enable in a debugger. */
-#define KSCrashMonitorTypeDebuggerSafe (KSCrashMonitorTypeAll & (~KSCrashMonitorTypeDebuggerUnsafe))
+    KSCrashMonitorTypeAsyncUnsafe = (
+                                     KSCrashMonitorTypeAll & (~KSCrashMonitorTypeAsyncSafe)
+                                     ),
 
-/** Monitors that are safe to use in a production environment.
- * All other monitors should be considered experimental.
- */
-#define KSCrashMonitorTypeProductionSafe (KSCrashMonitorTypeAll & (~KSCrashMonitorTypeExperimental))
+    KSCrashMonitorTypeDebuggerSafe = (
+                                      KSCrashMonitorTypeAll & (~KSCrashMonitorTypeDebuggerUnsafe)
+                                      ),
 
-/** Production safe monitors, minus the optional ones. */
-#define KSCrashMonitorTypeProductionSafeMinimal (KSCrashMonitorTypeProductionSafe & (~KSCrashMonitorTypeOptional))
+    KSCrashMonitorTypeProductionSafe = (
+                                        KSCrashMonitorTypeAll & (~KSCrashMonitorTypeExperimental)
+                                        ),
 
-/** Monitors that are required for proper operation.
- * These add essential information to the reports, but do not trigger reporting.
- */
-#define KSCrashMonitorTypeRequired (KSCrashMonitorTypeSystem | KSCrashMonitorTypeApplicationState | KSCrashMonitorTypeMemoryTermination)
+    KSCrashMonitorTypeProductionSafeMinimal = (
+                                               KSCrashMonitorTypeProductionSafe & (~KSCrashMonitorTypeOptional)
+                                               ),
 
-/** Effectively disables automatica reporting. The only way to generate a report
- * in this mode is by manually calling kscrash_reportUserException().
- */
-#define KSCrashMonitorTypeManual (KSCrashMonitorTypeRequired | KSCrashMonitorTypeUserReported)
+    KSCrashMonitorTypeRequired = (
+                                  KSCrashMonitorTypeSystem |
+                                  KSCrashMonitorTypeApplicationState |
+                                  KSCrashMonitorTypeMemoryTermination
+                                  ),
 
-#define KSCrashMonitorTypeNone 0
-
-const char* kscrashmonitortype_name(KSCrashMonitorType monitorType);
-
+    KSCrashMonitorTypeManual = (
+                                KSCrashMonitorTypeRequired |
+                                KSCrashMonitorTypeUserReported
+                                )
+}
+#ifndef __OBJC__
+KSCrashMonitorType
+#endif
+;
 
 #ifdef __cplusplus
 }
