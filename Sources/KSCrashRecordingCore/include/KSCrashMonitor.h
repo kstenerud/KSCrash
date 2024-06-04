@@ -58,7 +58,7 @@ void kscm_disableAllMonitors();
 
 /** Get the currently active monitors.
  */
-KSCrashMonitorType kscm_getActiveMonitors(void);
+//KSCrashMonitorType kscm_getActiveMonitors(void);
 
 void kscm_addMonitor(KSCrashMonitorAPI* api);
 

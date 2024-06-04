@@ -75,7 +75,6 @@ typedef struct
     int parentProcessID;
     const char* deviceAppHash;
     const char* buildType;
-    uint64_t storageSize;
     uint64_t memorySize;
 } SystemData;
 
@@ -473,12 +472,6 @@ static const char* getBuildType(void)
     return "unknown";
 }
 
-static uint64_t getStorageSize(void)
-{
-    NSNumber* storageSize = [[[NSFileManager defaultManager] attributesOfFileSystemForPath:NSHomeDirectory() error:nil] objectForKey:NSFileSystemSize];
-    return storageSize.unsignedLongLongValue;
-}
-
 // ============================================================================
 #pragma mark - API -
 // ============================================================================
@@ -555,7 +548,6 @@ static void initialize(void)
         g_systemData.parentProcessID = getppid();
         g_systemData.deviceAppHash = getDeviceAndAppHash();
         g_systemData.buildType = getBuildType();
-        g_systemData.storageSize = getStorageSize();
         g_systemData.memorySize = kssysctl_uint64ForName("hw.memsize");
     }
 }
@@ -614,7 +606,6 @@ static void addContextualInfoToEvent(KSCrash_MonitorContext* eventContext)
         COPY_REFERENCE(parentProcessID);
         COPY_REFERENCE(deviceAppHash);
         COPY_REFERENCE(buildType);
-        COPY_REFERENCE(storageSize);
         COPY_REFERENCE(memorySize);
         eventContext->System.freeMemory = freeMemory();
         eventContext->System.usableMemory = usableMemory();

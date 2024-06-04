@@ -35,6 +35,10 @@ let package = Package(
       name: "Recording",
       targets: [Targets.recording]
     ),
+    .library(
+        name: "DiscSpaceMonitor",
+        targets: [Targets.discSpaceMonitor]
+    ),
   ],
   targets: [
     .target(
@@ -173,6 +177,13 @@ let package = Package(
     ),
 
     .target(
+        name: Targets.discSpaceMonitor,
+        dependencies: [
+            .target(name: Targets.recordingCore)
+        ]
+    ),
+
+    .target(
       name: Targets.testTools,
       dependencies: [
         .target(name: Targets.recordingCore)
@@ -190,6 +201,7 @@ enum Targets {
   static let recordingCore = "KSCrashRecordingCore"
   static let reportingCore = "KSCrashReportingCore"
   static let core = "KSCrashCore"
+  static let discSpaceMonitor = "KSCrashDiscSpaceMonitor"
   static let testTools = "KSCrashTestTools"
 }
 
