@@ -98,6 +98,11 @@ static inline const char* getMonitorNameForLogging(KSCrashMonitorAPI* api)
 #pragma mark - API -
 // ============================================================================
 
+void kscm_setEventCallback(void (*onEvent)(struct KSCrash_MonitorContext* monitorContext))
+{
+    g_onExceptionEvent = onEvent;
+}
+
 void kscm_activateMonitors()
 {
     // Check for debugger and async safety
