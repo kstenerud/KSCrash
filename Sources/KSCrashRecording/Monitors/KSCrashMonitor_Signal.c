@@ -26,6 +26,7 @@
 
 #include "KSCrashMonitor_Signal.h"
 #include "KSCrashMonitor_MachException.h"
+#include "KSCrashMonitorHelper.h"
 #include "KSCrashMonitorContext.h"
 #include "KSID.h"
 #include "KSSignalInfo.h"
@@ -248,11 +249,10 @@ static bool isEnabled(void)
 
 static void addContextualInfoToEvent(struct KSCrash_MonitorContext* eventContext)
 {
-    const KSCrashMonitorAPI* machAPI = kscm_machexception_getAPI();
-    const char* machName = (machAPI && machAPI->name) ? machAPI->name() : NULL;
+    const char *machName = kscm_getMonitorName(kscm_machexception_getAPI());
 
     if(!(strcmp(eventContext->monitorName, name()) == 0 ||
-         strcmp(eventContext->monitorName, machName) == 0))
+         (machName && strcmp(eventContext->monitorName, machName) == 0)))
     {
         eventContext->signal.signum = SIGABRT;
     }

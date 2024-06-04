@@ -25,6 +25,7 @@
 //
 
 #include "KSCrashMonitor_MachException.h"
+#include "KSCrashMonitorHelper.h"
 #include "KSCrashMonitor_Signal.h"
 #include "KSCrashMonitorContext.h"
 #include "KSCPU.h"
@@ -598,8 +599,7 @@ static bool isEnabled(void)
 
 static void addContextualInfoToEvent(struct KSCrash_MonitorContext* eventContext)
 {
-    const KSCrashMonitorAPI* signalAPI = kscm_signal_getAPI();
-    const char* signalName = (signalAPI && signalAPI->name) ? signalAPI->name() : NULL;
+    const char* signalName = kscm_getMonitorName(kscm_signal_getAPI());
 
     if(signalName && strcmp(eventContext->monitorName, signalName) == 0)
     {

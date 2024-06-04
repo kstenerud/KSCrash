@@ -26,6 +26,7 @@
 
 
 #include "KSCrashMonitor.h"
+#include "KSCrashMonitorHelper.h"
 #include "KSCrashMonitorContext.h"
 
 #include "KSDebug.h"
@@ -86,59 +87,11 @@ static void freeMonitorFuncList(MonitorList* list)
     list->capacity = 0;
 }
 
-// ============================================================================
-#pragma mark - Monitor helpers -
-// ============================================================================
+#pragma mark - Helpers
 
-static inline void setMonitorEnabled(KSCrashMonitorAPI* api, bool isEnabled)
+static inline const char* getMonitorNameForLogging(KSCrashMonitorAPI* api)
 {
-    if (api != NULL && api->setEnabled != NULL)
-    {
-        api->setEnabled(isEnabled);
-    }
-}
-
-static inline bool isMonitorEnabled(KSCrashMonitorAPI* api)
-{
-    if (api != NULL && api->isEnabled != NULL)
-    {
-        return api->isEnabled();
-    }
-    return false;
-}
-
-static inline const char* getMonitorName(KSCrashMonitorAPI* api)
-{
-    if (api != NULL && api->name != NULL)
-    {
-        return api->name();
-    }
-    return "Unknown";
-}
-
-static inline KSCrashMonitorProperty getMonitorProperties(KSCrashMonitorAPI* api)
-{
-    if (api != NULL && api->properties != NULL)
-    {
-        return api->properties();
-    }
-    return KSCrashMonitorPropertyNone;
-}
-
-static inline void addContextualInfoToEvent(KSCrashMonitorAPI* api, struct KSCrash_MonitorContext* eventContext)
-{
-    if (api != NULL && api->addContextualInfoToEvent != NULL)
-    {
-        api->addContextualInfoToEvent(eventContext);
-    }
-}
-
-static inline void notifyPostSystemEnable(KSCrashMonitorAPI* api)
-{
-    if (api != NULL && api->notifyPostSystemEnable != NULL)
-    {
-        api->notifyPostSystemEnable();
-    }
+    return kscm_getMonitorName(api) ?: "Unknown";
 }
 
 // ============================================================================
@@ -173,7 +126,7 @@ void kscm_activateMonitors()
     for (size_t i = 0; i < g_monitors.count; i++)
     {
         KSCrashMonitorAPI* api = g_monitors.functions[i]();
-        KSCrashMonitorProperty properties = getMonitorProperties(api);
+        KSCrashMonitorProperty properties = kscm_getMonitorProperties(api);
         bool shouldEnable = true;
 
         if (isDebuggerUnsafe && (properties & KSCrashMonitorPropertyDebuggerUnsafe))
@@ -186,7 +139,7 @@ void kscm_activateMonitors()
             shouldEnable = false;
         }
 
-        setMonitorEnabled(api, shouldEnable);
+        kscm_setMonitorEnabled(api, shouldEnable);
     }
 
     // Log active monitors
@@ -194,13 +147,13 @@ void kscm_activateMonitors()
     for (size_t i = 0; i < g_monitors.count; i++)
     {
         KSCrashMonitorAPI* api = g_monitors.functions[i]();
-        if (isMonitorEnabled(api))
+        if (kscm_isMonitorEnabled(api))
         {
-            KSLOG_DEBUG("Monitor %s is enabled.", getMonitorName(api));
+            KSLOG_DEBUG("Monitor %s is enabled.", getMonitorNameForLogging(api));
         }
         else
         {
-            KSLOG_DEBUG("Monitor %s is disabled.", getMonitorName(api));
+            KSLOG_DEBUG("Monitor %s is disabled.", getMonitorNameForLogging(api));
         }
     }
 
@@ -208,7 +161,7 @@ void kscm_activateMonitors()
     for (size_t i = 0; i < g_monitors.count; i++)
     {
         KSCrashMonitorAPI* api = g_monitors.functions[i]();
-        notifyPostSystemEnable(api);
+        kscm_notifyPostSystemEnable(api);
     }
 }
 
@@ -217,7 +170,7 @@ void kscm_disableAllMonitors()
     for (size_t i = 0; i < g_monitors.count; i++)
     {
         KSCrashMonitorAPI* api = g_monitors.functions[i]();
-        setMonitorEnabled(api, false);
+        kscm_setMonitorEnabled(api, false);
     }
     KSLOG_DEBUG("All monitors have been disabled.");
 }
@@ -225,7 +178,7 @@ void kscm_disableAllMonitors()
 void kscm_addMonitor(KSCrashMonitorAPI* api)
 {
     addMonitorFunc(&g_monitors, (GetMonitorAPIFunc)api);
-    KSLOG_DEBUG("Monitor %s injected.", getMonitorName(api));
+    KSLOG_DEBUG("Monitor %s injected.", getMonitorNameForLogging(api));
 }
 
 //KSCrashMonitorType kscm_getActiveMonitors(void)
@@ -270,9 +223,9 @@ void kscm_handleException(struct KSCrash_MonitorContext* context)
     for (size_t i = 0; i < g_monitors.count; i++)
     {
         KSCrashMonitorAPI* api = g_monitors.functions[i]();
-        if (isMonitorEnabled(api))
+        if (kscm_isMonitorEnabled(api))
         {
-            addContextualInfoToEvent(api, context);
+            kscm_addContextualInfoToEvent(api, context);
         }
     }
 
