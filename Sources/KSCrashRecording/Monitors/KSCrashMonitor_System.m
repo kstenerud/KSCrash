@@ -55,7 +55,6 @@ typedef struct
     const char* kernelVersion;
     const char* osVersion;
     bool isJailbroken;
-    const char* bootTime;
     const char* appStartTime;
     const char* executablePath;
     const char* executableName;
@@ -142,18 +141,6 @@ static const char* dateString(time_t date)
     char* buffer = malloc(21);
     ksdate_utcStringFromTimestamp(date, buffer);
     return buffer;
-}
-
-/** Get a sysctl value as an NSDate.
- *
- * @param name The sysctl name.
- *
- * @return The result of the sysctl call.
- */
-static const char* dateSysctl(const char* name)
-{
-    struct timeval value = kssysctl_timevalForName(name);
-    return dateString(value.tv_sec);
 }
 
 /** Get the current VM stats.
@@ -528,7 +515,6 @@ static void initialize(void)
         g_systemData.kernelVersion = stringSysctl("kern.version");
         g_systemData.osVersion = stringSysctl("kern.osversion");
         g_systemData.isJailbroken = isJailbroken();
-        g_systemData.bootTime = dateSysctl("kern.boottime");
         g_systemData.appStartTime = dateString(time(NULL));
         g_systemData.executablePath = cString(getExecutablePath());
         g_systemData.executableName = cString(infoDict[@"CFBundleExecutable"]);
@@ -586,7 +572,6 @@ static void addContextualInfoToEvent(KSCrash_MonitorContext* eventContext)
         COPY_REFERENCE(kernelVersion);
         COPY_REFERENCE(osVersion);
         COPY_REFERENCE(isJailbroken);
-        COPY_REFERENCE(bootTime);
         COPY_REFERENCE(appStartTime);
         COPY_REFERENCE(executablePath);
         COPY_REFERENCE(executableName);

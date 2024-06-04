@@ -36,8 +36,12 @@ let package = Package(
       targets: [Targets.recording]
     ),
     .library(
-        name: "DiscSpaceMonitor",
-        targets: [Targets.discSpaceMonitor]
+      name: "DiscSpaceMonitor",
+      targets: [Targets.discSpaceMonitor]
+    ),
+    .library(
+      name: "BootTimeMonitor",
+      targets: [Targets.bootTimeMonitor]
     ),
   ],
   targets: [
@@ -177,10 +181,17 @@ let package = Package(
     ),
 
     .target(
-        name: Targets.discSpaceMonitor,
-        dependencies: [
-            .target(name: Targets.recordingCore)
-        ]
+      name: Targets.discSpaceMonitor,
+      dependencies: [
+        .target(name: Targets.recordingCore)
+      ]
+    ),
+
+    .target(
+      name: Targets.bootTimeMonitor,
+      dependencies: [
+        .target(name: Targets.recordingCore)
+      ]
     ),
 
     .target(
@@ -202,6 +213,7 @@ enum Targets {
   static let reportingCore = "KSCrashReportingCore"
   static let core = "KSCrashCore"
   static let discSpaceMonitor = "KSCrashDiscSpaceMonitor"
+  static let bootTimeMonitor = "KSCrashBootTimeMonitor"
   static let testTools = "KSCrashTestTools"
 }
 
