@@ -66,10 +66,10 @@ typedef enum
     KSApplicationStateWillTerminate
 } KSApplicationState;
 
-static struct KSCrashMonitorMapping {
+static const struct KSCrashMonitorMapping {
     KSCrashMonitorType type;
     KSCrashMonitorAPI* (*getAPI)(void);
-} monitorMappings[] = {
+} g_monitorMappings[] = {
     {KSCrashMonitorTypeMachException, kscm_machexception_getAPI},
     {KSCrashMonitorTypeSignal, kscm_signal_getAPI},
     {KSCrashMonitorTypeCPPException, kscm_cppexception_getAPI},
@@ -82,7 +82,7 @@ static struct KSCrashMonitorMapping {
     {KSCrashMonitorTypeMemoryTermination, kscm_memory_getAPI}
 };
 
-static size_t monitorMappingCount = sizeof(monitorMappings) / sizeof(monitorMappings[0]);
+static const size_t g_monitorMappingCount = sizeof(g_monitorMappings) / sizeof(g_monitorMappings[0]);
 
 // ============================================================================
 #pragma mark - Globals -
@@ -228,11 +228,11 @@ KSCrashMonitorType kscrash_setMonitoring(KSCrashMonitorType monitorTypes)
     g_monitoring = monitorTypes;
 
     if(g_installed) {
-        for (size_t i = 0; i < monitorMappingCount; i++)
+        for (size_t i = 0; i < g_monitorMappingCount; i++)
         {
-            if (monitorTypes & monitorMappings[i].type)
+            if (monitorTypes & g_monitorMappings[i].type)
             {
-                KSCrashMonitorAPI* api = monitorMappings[i].getAPI();
+                KSCrashMonitorAPI* api = g_monitorMappings[i].getAPI();
                 if (api != NULL)
                 {
                     kscm_addMonitor(api);
