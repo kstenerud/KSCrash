@@ -184,6 +184,9 @@ let package = Package(
       name: Targets.discSpaceMonitor,
       dependencies: [
         .target(name: Targets.recordingCore)
+      ],
+      resources: [
+        .copy("Resources/PrivacyInfo.xcprivacy")
       ]
     ),
 
