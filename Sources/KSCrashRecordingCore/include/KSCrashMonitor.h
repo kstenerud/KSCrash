@@ -52,9 +52,9 @@ typedef struct KSCrashMonitorAPI KSCrashMonitorAPI;
  *
  * @param monitorTypes Which monitors should be active.
  */
-void kscm_activateMonitors();
+void kscm_activateMonitors(void);
 
-void kscm_disableAllMonitors();
+void kscm_disableAllMonitors(void);
 
 /** Get the currently active monitors.
  */
