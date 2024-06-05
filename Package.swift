@@ -194,6 +194,9 @@ let package = Package(
       name: Targets.bootTimeMonitor,
       dependencies: [
         .target(name: Targets.recordingCore)
+      ],
+      resources: [
+        .copy("Resources/PrivacyInfo.xcprivacy")
       ]
     ),
 
