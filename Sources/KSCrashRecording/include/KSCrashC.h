@@ -39,9 +39,8 @@ extern "C" {
 
 #include "KSCrashMonitorType.h"
 #include "KSCrashReportWriter.h"
-
+#include "KSCrashSignalInfo.h"
 #include <stdbool.h>
-
 
 /** Install the crash reporter. The reporter will record the next crash and then
  * terminate the program.
@@ -269,6 +268,29 @@ void kscrash_deleteAllReports(void);
  */
 void kscrash_deleteReportWithID(int64_t reportID);
 
+
+# pragma mark -- Embrace Specific --
+
+/** Reads report at certain path;
+ *
+ * @param path the path where the report should be.
+ */
+char* kscrash_readReportAtPath(const char* path);
+
+/** Checks if KSCrash is already installed or not.
+ *
+ * @return wether it's true or false that KSCrash is installed.
+ */
+bool kscrash_is_installed(void);
+
+/** Re installs KSCrash to force crash handlers to be from KSCrash
+ */
+void kscrash_re_install();
+
+/**
+
+ */
+struct KSCrash_SignalInfo* kscrash_getSignalInfo();
 
 #ifdef __cplusplus
 }
