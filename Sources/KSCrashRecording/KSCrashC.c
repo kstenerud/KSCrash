@@ -45,6 +45,7 @@
 #include "KSCrashMonitorContext.h"
 #include "KSSystemCapabilities.h"
 #include "KSCrashMonitor_NSException.h"
+#include "KSCrashSignalInfo.h"
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
