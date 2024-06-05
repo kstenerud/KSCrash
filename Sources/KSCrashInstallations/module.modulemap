@@ -1,0 +1,4 @@
+module KSCrashInstallations {
+    umbrella header "./include/KSCrashInstallations.h"
+    export *
+}
