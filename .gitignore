@@ -26,3 +26,7 @@ Carthage/Build
 .build
 .swiftpm/xcode/xcuserdata
 .swiftpm/package.xcworkspace/xcuserdata
+### TUIST ###
+*.xcworkspace
+*.xcodeproj
+Derived/

@@ -1,0 +1,4 @@
+module KSCrashReportingCore {
+    umbrella header "./include/KSCrashReportingCore.h"
+    export *
+}
