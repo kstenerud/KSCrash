@@ -60,6 +60,18 @@ Pod::Spec.new do |s|
     configure_subspec.call(recording_core)
   end
 
+  s.subspec 'BootTimeMonitor' do |boot_time_monitor|
+    recording_core.dependency 'KSCrash/RecordingCore'
+
+    configure_subspec.call(boot_time_monitor)
+  end
+
+  s.subspec 'DiscSpaceMonitor' do |disc_space_monitor|
+    recording_core.dependency 'KSCrash/RecordingCore'
+
+    configure_subspec.call(disc_space_monitor)
+  end
+
   s.subspec 'ReportingCore' do |reporting_core|
     reporting_core.dependency 'KSCrash/Core'
     reporting_core.ios.frameworks = 'SystemConfiguration'
