@@ -258,14 +258,14 @@ static void addContextualInfoToEvent(struct KSCrash_MonitorContext* eventContext
     }
 }
 
-#else
+#else /* KSCRASH_HAS_SIGNAL_STACK */
 
-static const char* const name()
+static const char* const name(void)
 {
     return NULL;
 }
 
-static KSCrashMonitorProperty properties()
+static KSCrashMonitorProperty properties(void)
 {
     return KSCrashMonitorPropertyNone;
 }
@@ -285,7 +285,7 @@ static void addContextualInfoToEvent(struct KSCrash_MonitorContext* eventContext
     // Not supported
 }
 
-#endif
+#endif /* KSCRASH_HAS_SIGNAL_STACK */
 
 KSCrashMonitorAPI* kscm_signal_getAPI(void)
 {
