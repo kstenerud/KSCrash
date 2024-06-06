@@ -7,6 +7,8 @@
 
 #import "KSCrashMonitor_DiscSpace.h"
 
+#import "KSCrashMonitorContext.h"
+
 #import <Foundation/Foundation.h>
 
 static volatile bool g_isEnabled = false;

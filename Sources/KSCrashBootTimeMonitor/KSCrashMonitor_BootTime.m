@@ -7,6 +7,11 @@
 
 #import "KSCrashMonitor_BootTime.h"
 
+#import "KSCrashMonitorContext.h"
+#import "KSSysCtl.h"
+#import "KSDate.h"
+
+#import <sys/types.h>
 #import <Foundation/Foundation.h>
 
 static volatile bool g_isEnabled = false;
