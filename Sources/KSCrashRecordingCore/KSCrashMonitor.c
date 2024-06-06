@@ -79,13 +79,22 @@ static void addMonitorFunc(MonitorList* list, KSCrashMonitorAPI* func)
     list->functions[list->count++] = func;
 }
 
-__attribute__((unused)) // Unused for now. Left for completeness.
 static void freeMonitorFuncList(MonitorList* list)
 {
     free(list->functions);
     list->functions = NULL;
     list->count = 0;
     list->capacity = 0;
+}
+
+__attribute__((unused)) // For tests. Declared as extern in TestCase
+void kscm_resetState(void)
+{
+    freeMonitorFuncList(&g_monitors);
+    g_handlingFatalException = false;
+    g_crashedDuringExceptionHandling = false;
+    g_requiresAsyncSafety = false;
+    g_onExceptionEvent = NULL;
 }
 
 #pragma mark - Helpers
