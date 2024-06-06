@@ -81,8 +81,6 @@ static SystemData g_systemData;
 
 static volatile bool g_isEnabled = false;
 
-static const char* const g_monitorName = "KSCrashMonitorTypeSystem";
-
 // ============================================================================
 #pragma mark - Utility -
 // ============================================================================
@@ -538,9 +536,9 @@ static void initialize(void)
     }
 }
 
-static const char* const name()
+static const char* const name(void)
 {
-    return g_monitorName;
+    return "KSCrashMonitorTypeSystem";
 }
 
 static void setEnabled(bool isEnabled)

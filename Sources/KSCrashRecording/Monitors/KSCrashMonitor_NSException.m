@@ -40,9 +40,6 @@
 #pragma mark - Globals -
 // ============================================================================
 
-static const KSCrashMonitorProperty g_monitorProperties = KSCrashMonitorPropertyFatal;
-static const char* const g_monitorName = "KSCrashMonitorTypeNSException";
-
 static volatile bool g_isEnabled = 0;
 
 static KSCrash_MonitorContext g_monitorContext;
@@ -50,6 +47,8 @@ static KSCrash_MonitorContext g_monitorContext;
 /** The exception handler that was in place before we installed ours. */
 static NSUncaughtExceptionHandler* g_previousUncaughtExceptionHandler;
 
+static const char* const name(void);
+static KSCrashMonitorProperty properties(void);
 
 // ============================================================================
 #pragma mark - Callbacks -
@@ -88,8 +87,8 @@ static void handleException(NSException* exception, BOOL currentSnapshotUserRepo
 
         KSCrash_MonitorContext* crashContext = &g_monitorContext;
         memset(crashContext, 0, sizeof(*crashContext));
-        crashContext->monitorName = g_monitorName;
-        crashContext->monitorProperties = g_monitorProperties;
+        crashContext->monitorName = name();
+        crashContext->monitorProperties = properties();
         crashContext->eventID = eventID;
         crashContext->offendingMachineContext = machineContext;
         crashContext->registersAreValid = false;
@@ -150,14 +149,14 @@ static void setEnabled(bool isEnabled)
     }
 }
 
-static const char* const name()
+static const char* const name(void)
 {
-    return g_monitorName;
+    return "KSCrashMonitorTypeNSException";
 }
 
-static KSCrashMonitorProperty properties()
+static KSCrashMonitorProperty properties(void)
 {
-    return g_monitorProperties;
+    return KSCrashMonitorPropertyFatal;
 }
 
 static bool isEnabled(void)

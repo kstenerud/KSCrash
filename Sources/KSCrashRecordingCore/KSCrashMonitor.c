@@ -79,6 +79,7 @@ static void addMonitorFunc(MonitorList* list, KSCrashMonitorAPI* func)
     list->functions[list->count++] = func;
 }
 
+__attribute__((unused)) // Unused for now. Left for completeness.
 static void freeMonitorFuncList(MonitorList* list)
 {
     free(list->functions);
@@ -89,6 +90,7 @@ static void freeMonitorFuncList(MonitorList* list)
 
 #pragma mark - Helpers
 
+__attribute__((unused)) // Suppress unused function warnings, especially in release builds.
 static inline const char* getMonitorNameForLogging(KSCrashMonitorAPI* api)
 {
     return kscm_getMonitorName(api) ?: "Unknown";
@@ -103,7 +105,7 @@ void kscm_setEventCallback(void (*onEvent)(struct KSCrash_MonitorContext* monito
     g_onExceptionEvent = onEvent;
 }
 
-void kscm_activateMonitors()
+void kscm_activateMonitors(void)
 {
     // Check for debugger and async safety
     bool isDebuggerUnsafe = ksdebug_isBeingTraced();
@@ -170,7 +172,7 @@ void kscm_activateMonitors()
     }
 }
 
-void kscm_disableAllMonitors()
+void kscm_disableAllMonitors(void)
 {
     for (size_t i = 0; i < g_monitors.count; i++)
     {

@@ -50,9 +50,6 @@
 #pragma mark - Globals -
 // ============================================================================
 
-static const KSCrashMonitorProperty g_monitorProperties = KSCrashMonitorPropertyFatal | KSCrashMonitorPropertyAsyncSafe;
-static const char* const g_monitorName = "KSCrashMonitorTypeSignal";
-
 static volatile bool g_isEnabled = false;
 
 static KSCrash_MonitorContext g_monitorContext;
@@ -67,6 +64,9 @@ static stack_t g_signalStack = {0};
 static struct sigaction* g_previousSignalHandlers = NULL;
 
 static char g_eventID[37];
+
+static const char* const name(void);
+static KSCrashMonitorProperty properties(void);
 
 // ============================================================================
 #pragma mark - Callbacks -
@@ -101,8 +101,8 @@ static void handleSignal(int sigNum, siginfo_t* signalInfo, void* userContext)
 
         KSCrash_MonitorContext* crashContext = &g_monitorContext;
         memset(crashContext, 0, sizeof(*crashContext));
-        crashContext->monitorName = g_monitorName;
-        crashContext->monitorProperties = g_monitorProperties;
+        crashContext->monitorName = name();
+        crashContext->monitorProperties = properties();
         crashContext->eventID = g_eventID;
         crashContext->offendingMachineContext = machineContext;
         crashContext->registersAreValid = true;
@@ -212,14 +212,14 @@ static void uninstallSignalHandler(void)
     KSLOG_DEBUG("Signal handlers uninstalled.");
 }
 
-static const char* const name()
+static const char* const name(void)
 {
-    return g_monitorName;
+    return "KSCrashMonitorTypeSignal";
 }
 
-static KSCrashMonitorProperty properties()
+static KSCrashMonitorProperty properties(void)
 {
-    return g_monitorProperties;
+    return KSCrashMonitorPropertyFatal | KSCrashMonitorPropertyAsyncSafe;
 }
 
 static void setEnabled(bool isEnabled)

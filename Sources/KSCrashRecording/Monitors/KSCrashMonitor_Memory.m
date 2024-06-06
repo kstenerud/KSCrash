@@ -56,8 +56,6 @@ const uint8_t KSCrash_Memory_CurrentVersion = KSCrash_Memory_Version_1;
 
 const uint8_t KSCrash_Memory_NonFatalReportLevelNone = KSCrashAppMemoryStateTerminal + 1;
 
-static const char* const g_monitorName = "KSCrashMonitorTypeMemoryTermination";
-
 // ============================================================================
 #pragma mark - Forward declarations -
 // ============================================================================
@@ -230,9 +228,9 @@ static KSCrash_Memory g_previousSessionMemory;
 #pragma mark - API -
 // ============================================================================
 
-static const char* const name()
+static const char* const name(void)
 {
-    return g_monitorName;
+    return "KSCrashMonitorTypeMemoryTermination";
 }
 
 static void setEnabled(bool isEnabled)
@@ -528,7 +526,7 @@ static void ksmemory_write_possible_oom(void)
     
     KSCrash_MonitorContext context;
     memset(&context, 0, sizeof(context));
-    context.monitorName = g_monitorName;
+    context.monitorName = name();
     context.eventID = eventID;
     context.registersAreValid = false;
     context.offendingMachineContext = machineContext;

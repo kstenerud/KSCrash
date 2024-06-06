@@ -40,8 +40,6 @@
 #define likely_if(x) if(__builtin_expect(x,1))
 #define unlikely_if(x) if(__builtin_expect(x,0))
 
-static const char* const g_monitorName = "KSCrashMonitorTypeZombie";
-
 typedef struct
 {
     const void* object;
@@ -207,9 +205,9 @@ const char* kszombie_className(const void* object)
     return NULL;
 }
 
-static const char* const name()
+static const char* const name(void)
 {
-    return g_monitorName;
+    return "KSCrashMonitorTypeZombie";
 }
 
 static void setEnabled(bool isEnabled)

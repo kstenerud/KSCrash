@@ -56,10 +56,8 @@ static const char* kThreadSecondary = "KSCrash Exception Handler (Secondary)";
     #define MACH_ERROR_CODE_MASK 0xFFFFFFFF
 #endif
 
-static const KSCrashMonitorProperty g_monitorProperties = KSCrashMonitorPropertyFatal |
-                                                          KSCrashMonitorPropertyAsyncSafe |
-                                                          KSCrashMonitorPropertyDebuggerUnsafe;
-static const char* const g_monitorName = "KSCrashMonitorTypeMachException";
+static const char* const name(void);
+static KSCrashMonitorProperty properties(void);
 
 // ============================================================================
 #pragma mark - Types -
@@ -360,8 +358,8 @@ static void* handleExceptions(void* const userData)
         }
 
         KSLOG_DEBUG("Filling out context.");
-        crashContext->monitorName = g_monitorName;
-        crashContext->monitorProperties = g_monitorProperties;
+        crashContext->monitorName = name();
+        crashContext->monitorProperties = properties();
         crashContext->eventID = eventID;
         crashContext->registersAreValid = true;
         crashContext->mach.type = exceptionMessage.exception;
@@ -561,14 +559,16 @@ failed:
     return false;
 }
 
-static const char* const name()
+static const char* const name(void)
 {
-    return g_monitorName;
+    return "KSCrashMonitorTypeMachException";
 }
 
-static KSCrashMonitorProperty properties()
+static KSCrashMonitorProperty properties(void)
 {
-    return g_monitorProperties;
+    return KSCrashMonitorPropertyFatal |
+           KSCrashMonitorPropertyAsyncSafe |
+           KSCrashMonitorPropertyDebuggerUnsafe;
 }
 
 static void setEnabled(bool isEnabled)

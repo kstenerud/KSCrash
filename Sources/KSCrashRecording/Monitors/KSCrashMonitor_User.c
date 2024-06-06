@@ -34,7 +34,7 @@
 #include <memory.h>
 #include <stdlib.h>
 
-static const char* const g_monitorName = "KSCrashMonitorTypeUserReported";
+static const char* const monitorName(void);
 
 /** Context to fill with crash information. */
 
@@ -77,7 +77,7 @@ void kscm_reportUserException(const char* name,
         KSLOG_DEBUG("Filling out context.");
         KSCrash_MonitorContext context;
         memset(&context, 0, sizeof(context));
-        context.monitorName = g_monitorName;
+        context.monitorName = monitorName();
         context.eventID = eventID;
         context.offendingMachineContext = machineContext;
         context.registersAreValid = false;
@@ -101,9 +101,9 @@ void kscm_reportUserException(const char* name,
     }
 }
 
-static const char* const name()
+static const char* const monitorName(void)
 {
-    return g_monitorName;
+    return "KSCrashMonitorTypeUserReported";
 }
 
 static void setEnabled(bool isEnabled)
@@ -120,7 +120,7 @@ KSCrashMonitorAPI* kscm_user_getAPI(void)
 {
     static KSCrashMonitorAPI api =
     {
-        .name = name,
+        .name = monitorName,
         .setEnabled = setEnabled,
         .isEnabled = isEnabled
     };

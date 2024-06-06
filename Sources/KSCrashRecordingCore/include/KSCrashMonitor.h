@@ -42,16 +42,21 @@ extern "C" {
 #endif
 
 struct KSCrash_MonitorContext;
-typedef struct KSCrashMonitorAPI KSCrashMonitorAPI;
+
+typedef struct
+{
+    const char* const (*name)(void);
+    KSCrashMonitorProperty (*properties)(void);
+    void (*setEnabled)(bool isEnabled);
+    bool (*isEnabled)(void);
+    void (*addContextualInfoToEvent)(struct KSCrash_MonitorContext* eventContext);
+    void (*notifyPostSystemEnable)(void);
+} KSCrashMonitorAPI;
 
 // ============================================================================
 #pragma mark - External API -
 // ============================================================================
 
-/** Set which monitors are active.
- *
- * @param monitorTypes Which monitors should be active.
- */
 void kscm_activateMonitors(void);
 
 void kscm_disableAllMonitors(void);
@@ -72,16 +77,6 @@ void kscm_setEventCallback(void (*onEvent)(struct KSCrash_MonitorContext* monito
 // ============================================================================
 #pragma mark - Internal API -
 // ============================================================================
-
-struct KSCrashMonitorAPI
-{
-    const char* const (*name)(void);
-    KSCrashMonitorProperty (*properties)(void);
-    void (*setEnabled)(bool isEnabled);
-    bool (*isEnabled)(void);
-    void (*addContextualInfoToEvent)(struct KSCrash_MonitorContext* eventContext);
-    void (*notifyPostSystemEnable)(void);
-};
 
 /** Notify that a fatal exception has been captured.
  *  This allows the system to take appropriate steps in preparation.
