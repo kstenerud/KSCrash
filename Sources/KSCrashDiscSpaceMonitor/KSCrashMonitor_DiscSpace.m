@@ -22,7 +22,7 @@ static uint64_t getStorageSize(void)
 
 #pragma mark - API -
 
-static const char* const name()
+static const char* const name(void)
 {
     return "KSCrashMonitorTypeDiscSpace";
 }

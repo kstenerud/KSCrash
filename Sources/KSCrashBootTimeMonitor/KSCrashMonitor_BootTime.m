@@ -27,7 +27,7 @@ static const char* dateSysctl(const char* name)
 
 #pragma mark - API -
 
-static const char* const name()
+static const char* const name(void)
 {
     return "KSCrashMonitorTypeBootTime";
 }
