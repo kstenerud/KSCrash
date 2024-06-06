@@ -458,7 +458,7 @@ const KSCrash_AppState* const kscrashstate_currentState(void)
     return &g_state;
 }
 
-static const char* const name(void)
+static const char* name(void)
 {
     return "KSCrashMonitorTypeApplicationState";
 }

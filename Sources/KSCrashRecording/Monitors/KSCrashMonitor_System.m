@@ -536,7 +536,7 @@ static void initialize(void)
     }
 }
 
-static const char* const name(void)
+static const char* name(void)
 {
     return "KSCrashMonitorTypeSystem";
 }

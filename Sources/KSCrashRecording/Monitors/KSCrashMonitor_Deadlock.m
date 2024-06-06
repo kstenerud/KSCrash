@@ -60,7 +60,7 @@ static NSTimeInterval g_watchdogInterval = 0;
 #pragma mark - X -
 // ============================================================================
 
-static const char* const name(void);
+static const char* name(void);
 static KSCrashMonitorProperty properties(void);
 
 @interface KSCrashDeadlockMonitor: NSObject
@@ -185,7 +185,7 @@ static void initialize(void)
     }
 }
 
-static const char* const name(void)
+static const char* name(void)
 {
     return "KSCrashMonitorTypeMainThreadDeadlock";
 }

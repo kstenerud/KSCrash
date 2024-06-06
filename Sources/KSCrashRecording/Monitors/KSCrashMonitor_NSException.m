@@ -47,7 +47,7 @@ static KSCrash_MonitorContext g_monitorContext;
 /** The exception handler that was in place before we installed ours. */
 static NSUncaughtExceptionHandler* g_previousUncaughtExceptionHandler;
 
-static const char* const name(void);
+static const char* name(void);
 static KSCrashMonitorProperty properties(void);
 
 // ============================================================================
@@ -149,7 +149,7 @@ static void setEnabled(bool isEnabled)
     }
 }
 
-static const char* const name(void)
+static const char* name(void)
 {
     return "KSCrashMonitorTypeNSException";
 }

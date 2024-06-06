@@ -205,7 +205,7 @@ const char* kszombie_className(const void* object)
     return NULL;
 }
 
-static const char* const name(void)
+static const char* name(void)
 {
     return "KSCrashMonitorTypeZombie";
 }

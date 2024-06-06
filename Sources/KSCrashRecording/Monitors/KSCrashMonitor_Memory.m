@@ -228,7 +228,7 @@ static KSCrash_Memory g_previousSessionMemory;
 #pragma mark - API -
 // ============================================================================
 
-static const char* const name(void)
+static const char* name(void)
 {
     return "KSCrashMonitorTypeMemoryTermination";
 }

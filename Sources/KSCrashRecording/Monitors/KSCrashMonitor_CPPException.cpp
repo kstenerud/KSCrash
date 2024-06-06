@@ -213,7 +213,7 @@ static void initialize()
     }
 }
 
-static const char* const name()
+static const char* name()
 {
     return g_monitorName;
 }

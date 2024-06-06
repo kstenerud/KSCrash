@@ -56,7 +56,7 @@ static const char* kThreadSecondary = "KSCrash Exception Handler (Secondary)";
     #define MACH_ERROR_CODE_MASK 0xFFFFFFFF
 #endif
 
-static const char* const name(void);
+static const char* name(void);
 static KSCrashMonitorProperty properties(void);
 
 // ============================================================================
@@ -559,7 +559,7 @@ failed:
     return false;
 }
 
-static const char* const name(void)
+static const char* name(void)
 {
     return "KSCrashMonitorTypeMachException";
 }

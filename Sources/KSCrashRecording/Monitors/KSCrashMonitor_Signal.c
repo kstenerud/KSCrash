@@ -65,7 +65,7 @@ static struct sigaction* g_previousSignalHandlers = NULL;
 
 static char g_eventID[37];
 
-static const char* const name(void);
+static const char* name(void);
 static KSCrashMonitorProperty properties(void);
 
 // ============================================================================
@@ -212,7 +212,7 @@ static void uninstallSignalHandler(void)
     KSLOG_DEBUG("Signal handlers uninstalled.");
 }
 
-static const char* const name(void)
+static const char* name(void)
 {
     return "KSCrashMonitorTypeSignal";
 }
@@ -260,7 +260,7 @@ static void addContextualInfoToEvent(struct KSCrash_MonitorContext* eventContext
 
 #else /* KSCRASH_HAS_SIGNAL_STACK */
 
-static const char* const name(void)
+static const char* name(void)
 {
     return NULL;
 }

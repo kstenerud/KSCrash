@@ -34,7 +34,7 @@
 #include <memory.h>
 #include <stdlib.h>
 
-static const char* const monitorName(void);
+static const char* monitorName(void);
 
 /** Context to fill with crash information. */
 
@@ -101,7 +101,7 @@ void kscm_reportUserException(const char* name,
     }
 }
 
-static const char* const monitorName(void)
+static const char* monitorName(void)
 {
     return "KSCrashMonitorTypeUserReported";
 }
