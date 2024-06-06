@@ -36,6 +36,7 @@
 #pragma mark - Dummy monitor -
 
 static bool g_dummyEnabledState = false;
+static bool g_dummyPostSystemEnabled = false;
 static const char* const g_eventID = "TestEventID";
 
 static const char* dummyMonitorName(void) { return "Dummy Monitor"; }
@@ -54,20 +55,10 @@ static void dummyAddContextualInfoToEvent(struct KSCrash_MonitorContext* eventCo
     }
 }
 
-static void dummyNotifyPostSystemEnable(void)
-{
-    // No-op for this dummy implementation
-}
+static void dummyNotifyPostSystemEnable(void) { g_dummyPostSystemEnabled = true; }
 
 // Create a dummy monitor API
-KSCrashMonitorAPI g_dummyMonitor = {
-    .name = dummyMonitorName,
-    .properties = dummyMonitorProperties,
-    .setEnabled = dummySetEnabled,
-    .isEnabled = dummyIsEnabled,
-    .addContextualInfoToEvent = dummyAddContextualInfoToEvent,
-    .notifyPostSystemEnable = dummyNotifyPostSystemEnable,
-};
+KSCrashMonitorAPI g_dummyMonitor = {};
 
 #pragma mark - Tests -
 
@@ -80,10 +71,21 @@ extern void kscm_resetState(void);
 - (void)setUp
 {
     [super setUp];
+
+    g_dummyMonitor.name = dummyMonitorName;
+    g_dummyMonitor.properties = dummyMonitorProperties;
+    g_dummyMonitor.setEnabled = dummySetEnabled;
+    g_dummyMonitor.isEnabled = dummyIsEnabled;
+    g_dummyMonitor.addContextualInfoToEvent = dummyAddContextualInfoToEvent;
+    g_dummyMonitor.notifyPostSystemEnable = dummyNotifyPostSystemEnable;
+
     g_dummyEnabledState = false;
+    g_dummyPostSystemEnabled = false;
     exceptionHandled = NO;
     kscm_resetState();
 }
+
+#pragma mark - Monitor Activation Tests
 
 - (void)testAddingAndActivatingMonitors
 {
@@ -100,6 +102,92 @@ extern void kscm_resetState(void);
     kscm_disableAllMonitors();  // Disable all monitors
     XCTAssertFalse(g_dummyMonitor.isEnabled(), @"The monitor should be disabled after calling disable all.");
 }
+
+- (void)testAddMonitorMultipleTimes
+{
+    kscm_addMonitor(&g_dummyMonitor);
+    kscm_addMonitor(&g_dummyMonitor);
+    kscm_activateMonitors();
+    XCTAssertTrue(g_dummyMonitor.isEnabled(), @"The monitor should be enabled after multiple additions.");
+}
+
+#pragma mark - Monitor API Null Checks
+
+- (void)testAddMonitorWithNullAPI
+{
+    kscm_addMonitor(NULL);
+    kscm_activateMonitors();
+    // No assertion needed, just verifying no crash occurred
+}
+
+- (void)testMonitorAPIWithNullName
+{
+    KSCrashMonitorAPI partialMonitor = g_dummyMonitor;
+    partialMonitor.name = NULL;  // Set name to NULL
+    kscm_addMonitor(&partialMonitor);
+    kscm_activateMonitors();
+    XCTAssertTrue(partialMonitor.isEnabled(), @"The monitor should still be enabled with a NULL name.");
+}
+
+- (void)testMonitorAPIWithNullProperties
+{
+    KSCrashMonitorAPI partialMonitor = g_dummyMonitor;
+    partialMonitor.properties = NULL;  // Set properties to NULL
+    kscm_addMonitor(&partialMonitor);
+    kscm_activateMonitors();
+    XCTAssertTrue(partialMonitor.isEnabled(), @"The monitor should still be enabled with NULL properties.");
+}
+
+- (void)testMonitorAPIWithNullSetEnabled
+{
+    KSCrashMonitorAPI partialMonitor = g_dummyMonitor;
+    partialMonitor.setEnabled = NULL;  // Set setEnabled to NULL
+    kscm_addMonitor(&partialMonitor);
+    kscm_activateMonitors();
+    // Verify no crash occurred, no assertion needed
+}
+
+- (void)testMonitorAPIWithNullIsEnabled
+{
+    KSCrashMonitorAPI partialMonitor = g_dummyMonitor;
+    partialMonitor.isEnabled = NULL;  // Set isEnabled to NULL
+    kscm_addMonitor(&partialMonitor);
+    kscm_activateMonitors();
+    // Verify no crash occurred, no assertion needed
+}
+
+- (void)testMonitorAPIWithNullAddContextualInfoToEvent
+{
+    KSCrashMonitorAPI partialMonitor = g_dummyMonitor;
+    partialMonitor.addContextualInfoToEvent = NULL;  // Set addContextualInfoToEvent to NULL
+    kscm_addMonitor(&partialMonitor);
+    kscm_activateMonitors();
+
+    struct KSCrash_MonitorContext context = { 0 };
+    kscm_handleException(&context);  // Handle the exception
+    XCTAssertEqual(context.eventID, NULL, @"The eventID should remain NULL when addContextualInfoToEvent is NULL.");
+}
+
+- (void)testMonitorAPIWithNullNotifyPostSystemEnable
+{
+    KSCrashMonitorAPI partialMonitor = g_dummyMonitor;
+    partialMonitor.notifyPostSystemEnable = NULL;  // Set notifyPostSystemEnable to NULL
+    kscm_addMonitor(&partialMonitor);
+    kscm_activateMonitors();
+    // Verify no crash occurred, no assertion needed
+}
+
+- (void)testPartialMonitorActivation
+{
+    KSCrashMonitorAPI partialMonitor = g_dummyMonitor;
+    partialMonitor.name = NULL;
+    partialMonitor.setEnabled = NULL;
+    kscm_addMonitor(&partialMonitor);
+    kscm_activateMonitors();
+    // Verify no crash occurred, no assertion needed
+}
+
+#pragma mark - Monitor Exception Handling Tests
 
 - (void)testHandlingCrashEvent
 {
@@ -159,8 +247,8 @@ extern void kscm_resetState(void);
     kscm_notifyFatalExceptionCaptured(false);    // Set g_crashedDuringExceptionHandling to true
     kscm_handleException(&context);              // Handle the exception
     XCTAssertTrue(
-        context.crashedDuringCrashHandling,
-        @"The context's crashedDuringCrashHandling should be true when g_crashedDuringExceptionHandling is true.");
+                  context.crashedDuringCrashHandling,
+                  @"The context's crashedDuringCrashHandling should be true when g_crashedDuringExceptionHandling is true.");
 }
 
 - (void)testHandleExceptionCurrentSnapshotUserReported
@@ -178,6 +266,29 @@ extern void kscm_resetState(void);
     // by ensuring that the monitor is still enabled because g_handlingFatalException should be false now
     XCTAssertTrue(g_dummyMonitor.isEnabled(),
                   @"The monitor should still be enabled when the snapshot is user-reported.");
+}
+
+- (void)testExceptionHandlingWithNonFatalMonitor
+{
+    kscm_addMonitor(&g_dummyMonitor);
+    kscm_activateMonitors();
+    XCTAssertTrue(g_dummyMonitor.isEnabled(), @"The monitor should be enabled after activation.");
+
+    struct KSCrash_MonitorContext context = { 0 };
+    context.monitorProperties = 0;  // Indicate that the exception is non-fatal
+    kscm_handleException(&context);
+
+    XCTAssertTrue(g_dummyMonitor.isEnabled(),
+                  @"The monitor should remain enabled after handling a non-fatal exception.");
+}
+
+- (void)testEventCallbackWithNonFatalException
+{
+    kscm_setEventCallback(myEventCallback);
+    struct KSCrash_MonitorContext context = { 0 };
+    context.monitorProperties = 0;  // Indicate non-fatal exception
+    kscm_handleException(&context);
+    XCTAssertTrue(exceptionHandled, @"The event callback should handle the non-fatal exception.");
 }
 
 @end
