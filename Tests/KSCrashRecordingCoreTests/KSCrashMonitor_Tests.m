@@ -62,9 +62,9 @@ KSCrashMonitorAPI g_dummyMonitor = {};
 
 #pragma mark - Tests -
 
-static BOOL exceptionHandled = NO;
+static BOOL g_exceptionHandled = NO;
 
-static void myEventCallback(struct KSCrash_MonitorContext* context) { exceptionHandled = YES; }
+static void myEventCallback(struct KSCrash_MonitorContext* context) { g_exceptionHandled = YES; }
 
 extern void kscm_resetState(void);
 
@@ -81,7 +81,7 @@ extern void kscm_resetState(void);
 
     g_dummyEnabledState = false;
     g_dummyPostSystemEnabled = false;
-    exceptionHandled = NO;
+    g_exceptionHandled = NO;
     kscm_resetState();
 }
 
@@ -195,7 +195,7 @@ extern void kscm_resetState(void);
     struct KSCrash_MonitorContext context = { 0 };
     context.monitorProperties = KSCrashMonitorPropertyFatal;
     kscm_handleException(&context);  // Handle the exception
-    XCTAssertTrue(exceptionHandled, @"The exception should have been handled by the event callback.");
+    XCTAssertTrue(g_exceptionHandled, @"The exception should have been handled by the event callback.");
 }
 
 - (void)testCrashDuringExceptionHandling
@@ -288,7 +288,7 @@ extern void kscm_resetState(void);
     struct KSCrash_MonitorContext context = { 0 };
     context.monitorProperties = 0;  // Indicate non-fatal exception
     kscm_handleException(&context);
-    XCTAssertTrue(exceptionHandled, @"The event callback should handle the non-fatal exception.");
+    XCTAssertTrue(g_exceptionHandled, @"The event callback should handle the non-fatal exception.");
 }
 
 @end

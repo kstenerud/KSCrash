@@ -201,6 +201,16 @@ void kscm_addMonitor(KSCrashMonitorAPI* api)
         isInitialized = true;
     }
 
+    // Check for duplicate monitors
+    for (size_t i = 0; i < g_monitors.count; i++)
+    {
+        if (g_monitors.functions[i] == api)
+        {
+            KSLOG_DEBUG("Monitor %s already exists. Skipping addition.", getMonitorNameForLogging(api));
+            return;
+        }
+    }
+
     addMonitorFunc(&g_monitors, api);
     KSLOG_DEBUG("Monitor %s injected.", getMonitorNameForLogging(api));
 }
