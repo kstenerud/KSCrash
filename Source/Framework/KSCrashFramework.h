@@ -37,6 +37,6 @@
 #import "KSCrashReportSinkVictory.h"
 #import "KSCrashReportWriter.h"
 #import "KSJSONCodecObjC.h"
-#import "NSData+GZip.h"
+#import "NSData+KSGZip.h"
 
 #endif /* KSCrashFramework_h */

@@ -1,0 +1,4 @@
+module KSCrashSinks {
+    umbrella header "./include/KSCrashSinks.h"
+    export *
+}

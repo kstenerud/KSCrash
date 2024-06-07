@@ -1,4 +1,5 @@
-[KSCrash](2023-06-06_kscrash.md)
+
+KSCrash
 =======
 
 #### The Ultimate Crash Reporter
@@ -151,7 +152,7 @@ How to Use KSCrash
 
 1. Add the framework to your project (or add the KSCrash project as a
    dependency)
-   
+
 2. Add the following system frameworks & libraries to your project:
    * libc++.dylib (libc++.tbd in newer versions)
    * libz.dylib (libz.tbd in newer versions)
@@ -196,7 +197,7 @@ KSCrashInstallationEmail* installation = [KSCrashInstallationEmail sharedInstanc
 installation.recipients = @[@"some@email.address"];
 
 // Optional (Email): Send Apple-style reports instead of JSON
-[installation setReportStyle:KSCrashEmailReportStyleApple useDefaultFilenameFormat:YES]; 
+[installation setReportStyle:KSCrashEmailReportStyleApple useDefaultFilenameFormat:YES];
 
 // Optional: Add an alert confirmation (recommended for email installation)
 [installation addConditionalAlertWithTitle:@"Crash Detected"

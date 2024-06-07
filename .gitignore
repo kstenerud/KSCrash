@@ -22,3 +22,11 @@ Thumbs.db
 *.xccheckout
 *.xcscmblueprint
 Carthage/Build
+### SPM ###
+.build
+.swiftpm/xcode/xcuserdata
+.swiftpm/package.xcworkspace/xcuserdata
+### TUIST ###
+*.xcworkspace
+*.xcodeproj
+Derived/

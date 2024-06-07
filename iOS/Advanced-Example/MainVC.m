@@ -75,7 +75,7 @@
 }
 
 - (void) sendAllExceptions {
-    AppDelegate* appDelegate = [UIApplication sharedApplication].delegate;
+    AppDelegate* appDelegate = (AppDelegate*)[UIApplication sharedApplication].delegate;
 
     [appDelegate.crashInstallation sendAllReportsWithCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error) {
         if(completed) {

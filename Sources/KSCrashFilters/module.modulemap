@@ -1,0 +1,4 @@
+module KSCrashFilters {
+    umbrella header "./include/KSCrashFilters.h"
+    export *
+}
