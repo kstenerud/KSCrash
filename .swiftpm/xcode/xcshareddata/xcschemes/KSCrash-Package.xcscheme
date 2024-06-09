@@ -194,6 +194,16 @@
                ReferencedContainer = "container:">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "KSCrashDiscSpaceMonitorTests"
+               BuildableName = "KSCrashDiscSpaceMonitorTests"
+               BlueprintName = "KSCrashDiscSpaceMonitorTests"
+               ReferencedContainer = "container:">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction

@@ -189,6 +189,13 @@ let package = Package(
         .copy("Resources/PrivacyInfo.xcprivacy")
       ]
     ),
+    .testTarget(
+        name: Targets.discSpaceMonitor.tests,
+        dependencies: [
+            .target(name: Targets.discSpaceMonitor),
+            .target(name: Targets.recordingCore)
+        ]
+    ),
 
     .target(
       name: Targets.bootTimeMonitor,
