@@ -57,22 +57,37 @@ typedef struct
 #pragma mark - External API -
 // ============================================================================
 
+/**
+ * Activates all added crash monitors.
+ */
 void kscm_activateMonitors(void);
 
+/**
+ * Disables all active crash monitors.
+ */
 void kscm_disableAllMonitors(void);
 
-/** Get the currently active monitors.
+/**
+ * Adds a crash monitor to the system.
+ *
+ * @param api Pointer to the monitor's API.
  */
-//KSCrashMonitorType kscm_getActiveMonitors(void);
-
 void kscm_addMonitor(KSCrashMonitorAPI* api);
 
-/** Set the callback to call when an event is captured.
+/**
+ * Sets the callback for event capture.
  *
- * @param onEvent Called whenever an event is captured.
+ * @param onEvent Callback function for events.
  */
 void kscm_setEventCallback(void (*onEvent)(struct KSCrash_MonitorContext* monitorContext));
 
+// Uncomment and implement if needed.
+/**
+ * Retrieves active crash monitors.
+ *
+ * @return Active monitors.
+ */
+//KSCrashMonitorType kscm_getActiveMonitors(void);
 
 // ============================================================================
 #pragma mark - Internal API -
