@@ -56,24 +56,6 @@ typedef struct
 
 static CrashHandlerData* g_crashHandlerData;
 
-
-static void crashCallback(const KSCrashReportWriter* writer)
-{
-    for(int i = 0; i < g_crashHandlerData->reportFieldsCount; i++)
-    {
-        ReportField* field = g_crashHandlerData->reportFields[i];
-        if(field->key != NULL && field->value != NULL)
-        {
-            writer->addJSONElement(writer, field->key, field->value, true);
-        }
-    }
-    if(g_crashHandlerData->userCrashCallback != NULL)
-    {
-        g_crashHandlerData->userCrashCallback(writer);
-    }
-}
-
-
 @interface KSCrashInstReportField: NSObject
 
 @property(nonatomic,readonly,assign) int index;
@@ -204,7 +186,8 @@ static void crashCallback(const KSCrashReportWriter* writer)
         if(g_crashHandlerData == self.crashHandlerData)
         {
             g_crashHandlerData = NULL;
-            handler.onCrash = NULL;
+// FIXME: Mutating the inner state
+//            handler.onCrash = NULL;
         }
     }
 }
@@ -322,8 +305,24 @@ static void crashCallback(const KSCrashReportWriter* writer)
     @synchronized(handler)
     {
         g_crashHandlerData = self.crashHandlerData;
-        handler.onCrash = crashCallback;
-        [handler install];
+
+        KSCrashConfiguration* config = [[KSCrashConfiguration alloc] init];
+        config.crashNotifyCallback = ^(const struct KSCrashReportWriter * _Nonnull writer) {
+            for(int i = 0; i < g_crashHandlerData->reportFieldsCount; i++)
+            {
+                ReportField* field = g_crashHandlerData->reportFields[i];
+                if(field->key != NULL && field->value != NULL)
+                {
+                    writer->addJSONElement(writer, field->key, field->value, true);
+                }
+            }
+            if(g_crashHandlerData->userCrashCallback != NULL)
+            {
+                g_crashHandlerData->userCrashCallback(writer);
+            }
+        };
+
+        [handler installWithConfiguration:config];
     }
 }
 

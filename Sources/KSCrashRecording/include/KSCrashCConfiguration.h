@@ -8,6 +8,9 @@
 #ifndef KSCrashCConfiguration_h
 #define KSCrashCConfiguration_h
 
+#include "KSCrashMonitorType.h"
+#include "KSCrashReportWriter.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -139,7 +142,7 @@ typedef struct {
      * **Default**: false
      */
     bool enableSwapCxaThrow;
-} KSCrashConfiguration;
+} KSCrashConfig;
 
 #define KSCrashConfiguration_Default \
 KSCrashConfiguration { \

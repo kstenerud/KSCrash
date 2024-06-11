@@ -77,7 +77,7 @@ extern "C" {
  * @note Once installed, the crash reporter cannot be re-installed or modified
  * without restarting the application.
  */
-void kscrash_install(const char* appName, const char* const installPath, KSCrashConfiguration configuration);
+void kscrash_install(const char* appName, const char* const installPath, KSCrashConfig configuration);
 
 /** Set the user-supplied data in JSON format.
  *
@@ -85,6 +85,14 @@ void kscrash_install(const char* appName, const char* const installPath, KSCrash
  *                     NULL = delete.
  */
 void kscrash_setUserInfoJSON(const char* const userInfoJSON);
+
+/** Get a copy of the user-supplied data in JSON format.
+ *
+ * @return A string containing the JSON user-supplied information,
+ *         or NULL if no information is set.
+ *         The caller is responsible for freeing the returned string.
+ */
+const char* kscrash_getUserInfoJSON(void);
 
 /** Report a custom, user defined exception.
  * This can be useful when dealing with scripting languages.

@@ -38,12 +38,13 @@
                                                        yesAnswer:yesAnswer
                                                         noAnswer:noAnswer]];
     KSCrash* handler = [KSCrash sharedInstance];
-    if(handler.deleteBehaviorAfterSendAll == KSCDeleteOnSucess)
-    {
-        // Better to delete always, or else the user will keep getting nagged
-        // until he presses "yes"!
-        handler.deleteBehaviorAfterSendAll = KSCDeleteAlways;
-    }
+// FIXME: Accessing config
+//    if(handler.deleteBehaviorAfterSendAll == KSCDeleteOnSucess)
+//    {
+//        // Better to delete always, or else the user will keep getting nagged
+//        // until he presses "yes"!
+//        handler.deleteBehaviorAfterSendAll = KSCDeleteAlways;
+//    }
 }
 
 - (void) addUnconditionalAlertWithTitle:(NSString*) title

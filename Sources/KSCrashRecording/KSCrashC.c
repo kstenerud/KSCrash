@@ -201,7 +201,7 @@ static void setMonitors(KSCrashMonitorType monitorTypes)
     return g_monitoring;
 }
 
-void handleConfiguration(KSCrashConfiguration* configuration)
+void handleConfiguration(KSCrashConfig* configuration)
 {
     if (configuration->userInfoJSON != NULL)
     {
@@ -234,7 +234,7 @@ void handleConfiguration(KSCrashConfiguration* configuration)
 #pragma mark - API -
 // ============================================================================
 
-void kscrash_install(const char* appName, const char* const installPath, KSCrashConfiguration configuration)
+void kscrash_install(const char* appName, const char* const installPath, KSCrashConfig configuration)
 {
     KSLOG_DEBUG("Installing crash reporter.");
 
@@ -280,6 +280,11 @@ void kscrash_install(const char* appName, const char* const installPath, KSCrash
 void kscrash_setUserInfoJSON(const char* const userInfoJSON)
 {
     kscrashreport_setUserInfoJSON(userInfoJSON);
+}
+
+const char* kscrash_getUserInfoJSON(void)
+{
+    return kscrashreport_getUserInfoJSON();
 }
 
 void kscrash_reportUserException(const char* name,
