@@ -55,9 +55,6 @@ typedef enum
 
 #pragma mark - Configuration -
 
-/** Init KSCrash instance with custom base path. */
-- (id) initWithBasePath:(NSString *)basePath;
-
 /** A dictionary containing any info you'd like to appear in crash reports. Must
  * contain only JSON-safe data: NSString for keys, and NSDictionary, NSArray,
  * NSString, NSDate, and NSNumber for values.
@@ -192,6 +189,13 @@ typedef enum
 /** Exposes the currentSnapshotUserReportedExceptionHandler if set from KSCrash. Is nil if debugger is running. **/
 @property (nonatomic, assign) NSUncaughtExceptionHandler *currentSnapshotUserReportedExceptionHandler;
 
+/** Experimental feature. Works like `LD_PRELOAD`. Enable C++ exceptions catching with `__cxa_throw` swap,
+ * by updating pointers in the indirect symbol table, which is located in the `__LINKEDIT` segment.
+ * It supports getting a true stackstace even in dynamically linked libraries.
+ * Also allows a user to override original `__cxa_throw`  with his implementation.
+ */
+- (void) enableSwapOfCxaThrow;
+
 #pragma mark - Information -
 
 /** Total active time elapsed since the last crash. */
@@ -230,6 +234,9 @@ typedef enum
 @property(nonatomic,readonly,strong) NSDictionary* systemInfo;
 
 #pragma mark - API -
+
+/** Init KSCrash instance with custom base path. */
+- (id) initWithBasePath:(NSString *)basePath;
 
 /** Get the singleton instance of the crash reporter.
  */
@@ -307,13 +314,6 @@ typedef enum
                   stackTrace:(NSArray*) stackTrace
                logAllThreads:(BOOL) logAllThreads
             terminateProgram:(BOOL) terminateProgram;
-
-/** Experimental feature. Works like LD_PRELOAD. Enable C++ exceptions catching with __cxa_throw swap,
- * by updating pointers in the indirect symbol table, which is located in the __LINKEDIT segment.
- * It supports getting a true stackstace even in dynamically linked libraries.
- * Also allows a user to override original __cxa_throw  with his implementation.
- */
-- (void) enableSwapOfCxaThrow;
 
 @end
 
