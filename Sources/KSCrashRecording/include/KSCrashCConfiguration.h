@@ -25,8 +25,6 @@ typedef struct {
  */
 typedef void (*KSReportWrittenCallback)(int64_t reportID);
 
-typedef enum KSCrashMonitorType;
-
 /** Configuration for KSCrash settings.
  */
 typedef struct {
