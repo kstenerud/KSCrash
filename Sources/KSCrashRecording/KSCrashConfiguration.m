@@ -35,7 +35,7 @@
 
 - (KSCrashConfig)toCConfiguration
 {
-    KSCrashConfig config;
+    KSCrashConfig config = KSCrashConfig_Default;
 
     config.monitors = self.monitors;
     config.userInfoJSON = self.userInfoJSON ? [self jsonStringFromDictionary:self.userInfoJSON] : NULL;
@@ -44,8 +44,12 @@
     config.enableMemoryIntrospection = self.enableMemoryIntrospection;
     config.doNotIntrospectClasses.strings = [self createCStringArrayFromNSArray:self.doNotIntrospectClasses];
     config.doNotIntrospectClasses.length = (int)[self.doNotIntrospectClasses count];
-    config.crashNotifyCallback = (KSReportWriteCallback)imp_implementationWithBlock(self.crashNotifyCallback);
-    config.reportWrittenCallback = (KSReportWrittenCallback)imp_implementationWithBlock(self.reportWrittenCallback);
+    if (self.crashNotifyCallback) {
+        config.crashNotifyCallback = (KSReportWriteCallback)imp_implementationWithBlock(self.crashNotifyCallback);
+    }
+    if (config.reportWrittenCallback) {
+        config.reportWrittenCallback = (KSReportWrittenCallback)imp_implementationWithBlock(self.reportWrittenCallback);
+    }
     config.addConsoleLogToReport = self.addConsoleLogToReport;
     config.printPreviousLogOnStartup = self.printPreviousLogOnStartup;
     config.maxReportCount = self.maxReportCount;
