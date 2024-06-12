@@ -51,6 +51,7 @@
 #include <mach-o/loader.h>
 #include <mach/mach.h>
 #include <string.h>
+#include <sys/types.h>
 
 const struct load_command* ksmacho_getCommandByTypeFromHeader(const mach_header_t* header, uint32_t commandType)
 {
