@@ -94,9 +94,10 @@
     
     
     // init
-    kscrash_setMonitoring(KSCrashMonitorTypeMemoryTermination);
-    kscrash_install("test", installURL.path.UTF8String);
-
+    KSCrashConfig config = KSCrashConfiguration_Default;
+    config.monitors = KSCrashMonitorTypeMemoryTermination;
+    kscrash_install("test", installURL.path.UTF8String, config);
+    
     // init memory API
     KSCrashMonitorAPI* api = kscm_memory_getAPI();
     XCTAssertTrue(api->isEnabled());
@@ -272,27 +273,6 @@ static KSCrashAppMemory *Memory(uint64_t footprint) {
     XCTAssertEqual(tracker.transitionState, KSCrashAppTransitionStateActive);
     XCTAssertEqual(tracker.transitionState, state);
 #endif
-}
-
-- (void)testReportMemoryTerminationsDefault
-{
-    KSCrash* handler = [KSCrash sharedInstance];
-    XCTAssertTrue(handler.reportsMemoryTerminations);
-    
-    [handler install];
-    
-    XCTAssertTrue(handler.reportsMemoryTerminations);
-}
-
-- (void)testReportMemoryTerminationsOff
-{
-    KSCrash* handler = [KSCrash sharedInstance];
-    XCTAssertTrue(handler.reportsMemoryTerminations);
-
-    handler.reportsMemoryTerminations = NO;
-    [handler install];
-    
-    XCTAssertFalse(handler.reportsMemoryTerminations);
 }
 
 - (void) testNonFatalReportLevel

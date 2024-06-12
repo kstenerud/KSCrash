@@ -15,13 +15,6 @@
 extern "C" {
 #endif
 
-/** Structure to hold an array of strings with their length.
- */
-typedef struct {
-    const char** strings; /**< Array of strings. */
-    int length; /**< Length of the array. */
-} KSCrashStringArray;
-
 /** Callback type for when a crash report is written.
  *
  * @param reportID The ID of the report that was written.
@@ -84,7 +77,10 @@ typedef struct {
      *
      * **Default**: NULL
      */
-    KSCrashStringArray doNotIntrospectClasses;
+    struct {
+        const char** strings; /**< Array of strings. */
+        int length; /**< Length of the array. */
+    } doNotIntrospectClasses;
 
     /** Callback to invoke upon a crash.
      *
@@ -145,7 +141,7 @@ typedef struct {
 } KSCrashConfig;
 
 #define KSCrashConfiguration_Default \
-KSCrashConfiguration { \
+{ \
 .monitors = KSCrashMonitorTypeProductionSafeMinimal, \
 .userInfoJSON = NULL, \
 .deadlockWatchdogInterval = 0.0, \
