@@ -26,6 +26,7 @@
 
 
 #import "KSCrash.h"
+#import "KSCrash+Private.h"
 
 #import "KSCrashConfiguration+Private.h"
 #import "KSCrashC.h"
