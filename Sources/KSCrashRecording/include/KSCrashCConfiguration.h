@@ -146,7 +146,7 @@ typedef struct {
 
 #define KSCrashConfiguration_Default \
 KSCrashConfiguration { \
-.monitors = 0, \
+.monitors = KSCrashMonitorTypeProductionSafeMinimal, \
 .userInfoJSON = NULL, \
 .deadlockWatchdogInterval = 0.0, \
 .enableQueueNameSearch = false, \

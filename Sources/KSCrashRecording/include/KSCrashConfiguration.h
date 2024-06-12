@@ -21,6 +21,8 @@ typedef NS_ENUM(NSUInteger, KSCDeleteBehavior) {
 
 /** The crash types that will be handled.
  * Some crash types may not be enabled depending on circumstances (e.g., running in a debugger).
+ * 
+ * **Default**: `KSCrashMonitorTypeProductionSafeMinimal`
  */
 @property (nonatomic, assign) KSCrashMonitorType monitors;
 

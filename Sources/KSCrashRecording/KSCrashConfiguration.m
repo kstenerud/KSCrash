@@ -16,7 +16,7 @@
     self = [super init];
     if (self)
     {
-        _monitors = 0;
+        _monitors = KSCrashMonitorTypeProductionSafeMinimal;
         _userInfoJSON = nil;
         _deadlockWatchdogInterval = 0.0;
         _enableQueueNameSearch = NO;

@@ -197,8 +197,6 @@ static void setMonitors(KSCrashMonitorType monitorTypes)
             }
         }
     }
-
-    return g_monitoring;
 }
 
 void handleConfiguration(KSCrashConfig* configuration)

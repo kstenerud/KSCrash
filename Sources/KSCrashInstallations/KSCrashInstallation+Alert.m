@@ -37,8 +37,8 @@
                                                          message:message
                                                        yesAnswer:yesAnswer
                                                         noAnswer:noAnswer]];
-    KSCrash* handler = [KSCrash sharedInstance];
 // FIXME: Accessing config
+//    KSCrash* handler = [KSCrash sharedInstance];
 //    if(handler.deleteBehaviorAfterSendAll == KSCDeleteOnSucess)
 //    {
 //        // Better to delete always, or else the user will keep getting nagged

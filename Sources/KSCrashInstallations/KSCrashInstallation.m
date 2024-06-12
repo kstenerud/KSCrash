@@ -27,6 +27,7 @@
 
 #import "KSCrashInstallation.h"
 #import "KSCrashInstallation+Private.h"
+#import "KSCrashConfiguration.h"
 #import "KSCrashReportFilterBasic.h"
 #import "KSCrash.h"
 #import "KSCString.h"
