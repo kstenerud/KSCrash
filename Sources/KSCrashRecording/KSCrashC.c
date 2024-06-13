@@ -267,7 +267,7 @@ void kscrash_install(const char* appName, const char* const installPath, KSCrash
     ksccd_init(60);
 
     kscm_setEventCallback(onCrash);
-    setMonitors(g_monitoring);
+    setMonitors(configuration.monitors);
     kscm_activateMonitors();
 
     KSLOG_DEBUG("Installation complete.");
