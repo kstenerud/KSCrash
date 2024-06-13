@@ -29,19 +29,19 @@ jobs:
         include:
           - platform: iOS
           - platform: iOS
-            os-version: ~13.7.0
+            os-version: ~14.5.0
             macos-version: "11"
             xcode-version: "12.5.1"
 
           - platform: watchOS
           - platform: watchOS
-            os-version: ~6.2.0
+            os-version: ~7.4.0
             macos-version: "11"
             xcode-version: "12.5.1"
 
           - platform: tvOS
           - platform: tvOS
-            os-version: ~13.4.0
+            os-version: ~14.5.0
             macos-version: "11"
             xcode-version: "12.5.1"
 
