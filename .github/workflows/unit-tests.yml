@@ -3,18 +3,18 @@ name: Run Unit Tests
 on:
   pull_request:
     paths:
-      - 'Sources/**'
-      - 'Tests/**'
-      - 'Package.swift'
-      - '.github/workflows/unit-tests.yml'
-      - '.swiftpm/xcode/xcshareddata/xcschemes/**'
+      - "Sources/**"
+      - "Tests/**"
+      - "Package.swift"
+      - ".github/workflows/unit-tests.yml"
+      - ".swiftpm/xcode/xcshareddata/xcschemes/**"
 
   push:
     branches:
       - master
 
   schedule:
-    - cron: '0 0 1 * *'
+    - cron: "0 0 1 * *"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -29,25 +29,21 @@ jobs:
         include:
           - platform: iOS
           - platform: iOS
-            os-version: ~12.4.0
-            runtime: "12.4"
-            macos-version: "12"
-            xcode-version: "13.4.1"
+            os-version: ~13.7.0
+            macos-version: "11"
+            xcode-version: "11.7"
 
           - platform: watchOS
           - platform: watchOS
-            os-version: ~7.4.0
-            runtime: "7.4"
-            macos-version: "12"
-            xcode-version: "13.4.1"
-          # TODO: Test with an older watchOS version if possible
+            os-version: ~6.2.0
+            macos-version: "11"
+            xcode-version: "11.7"
 
           - platform: tvOS
           - platform: tvOS
-            os-version: ~12.4.0
-            runtime: "12.4"
-            macos-version: "12"
-            xcode-version: "13.4.1"
+            os-version: ~13.4.0
+            macos-version: "11"
+            xcode-version: "11.7"
 
           - platform: visionOS
 
@@ -66,21 +62,6 @@ jobs:
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: ${{ matrix.xcode-version || 'latest-stable' }}
-
-      - name: Cache
-        if: ${{ matrix.runtime }}
-        uses: actions/cache@v3
-        with:
-          path: "~/Downloads"
-          key: ${{ runner.os }}-runtimes-downloads-${{ matrix.platform }}-${{ matrix.runtime }}
-
-      - name: Install Simulator
-        if: ${{ matrix.runtime }}
-        uses: nick-fields/retry@v2
-        with:
-          timeout_minutes: 20
-          max_attempts: 3
-          command: sudo xcodes runtimes install --keep-archive '${{ matrix.platform }} ${{ matrix.runtime }}'
 
       - name: Run Unit Tests
         uses: bamx23/xcodebuild@os-version
