@@ -42,7 +42,7 @@
     installation.userName = nil;
     installation.userEmail = nil;
     
-    [installation install];
+    [installation installWithConfiguration:nil];
     [installation sendAllReportsWithCompletion:^(__unused NSArray *filteredReports, BOOL completed, NSError *error)
      {
          // There are no reports, so this will succeed.

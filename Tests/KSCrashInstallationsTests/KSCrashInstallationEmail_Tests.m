@@ -44,7 +44,7 @@
     installation.message = @"message";
     installation.filenameFmt = @"someFile.txt.gz";
     [installation addConditionalAlertWithTitle:@"title" message:@"message" yesAnswer:@"Yes" noAnswer:@"No"];
-    [installation install];
+    [installation installWithConfiguration:nil];
     [installation sendAllReportsWithCompletion:^(__unused NSArray *filteredReports, BOOL completed, NSError *error)
      {
          // There are no reports, so this will succeed.
@@ -61,7 +61,7 @@
     installation.message = nil;
     installation.filenameFmt = nil;
     [installation addUnconditionalAlertWithTitle:@"title" message:@"message" dismissButtonText:@"dismiss"];
-    [installation install];
+    [installation installWithConfiguration:nil];
     [installation sendAllReportsWithCompletion:^(__unused NSArray *filteredReports, BOOL completed, NSError *error)
      {
          XCTAssertFalse(completed, @"");

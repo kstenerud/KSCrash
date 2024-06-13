@@ -94,7 +94,7 @@
     
     
     // init
-    KSCrashConfig config = KSCrashConfig_Default;
+    KSCrashCConfiguration config = KSCrashConfig_Default;
     config.monitors = KSCrashMonitorTypeMemoryTermination;
     kscrash_install("test", installURL.path.UTF8String, config);
     
