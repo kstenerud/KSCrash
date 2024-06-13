@@ -300,15 +300,17 @@ static CrashHandlerData* g_crashHandlerData;
     }
 }
 
-- (void) install
+- (void) installWithConfiguration:(KSCrashConfiguration*) configuration
 {
     KSCrash* handler = [KSCrash sharedInstance];
     @synchronized(handler)
     {
         g_crashHandlerData = self.crashHandlerData;
 
-        KSCrashConfiguration* config = [[KSCrashConfiguration alloc] init];
-        config.crashNotifyCallback = ^(const struct KSCrashReportWriter * _Nonnull writer) {
+        if (configuration == nil) {
+            configuration = [[KSCrashConfiguration alloc] init];
+        }
+        configuration.crashNotifyCallback = ^(const struct KSCrashReportWriter * _Nonnull writer) {
             for(int i = 0; i < g_crashHandlerData->reportFieldsCount; i++)
             {
                 ReportField* field = g_crashHandlerData->reportFields[i];
@@ -323,7 +325,7 @@ static CrashHandlerData* g_crashHandlerData;
             }
         };
 
-        [handler installWithConfiguration:config];
+        [handler installWithConfiguration:configuration];
     }
 }
 
