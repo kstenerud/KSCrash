@@ -138,9 +138,9 @@ typedef struct {
      * **Default**: false
      */
     bool enableSwapCxaThrow;
-} KSCrashConfig;
+} KSCrashCConfiguration;
 
-#define KSCrashConfig_Default (KSCrashConfig) { \
+#define KSCrashConfig_Default (KSCrashCConfiguration) { \
 .monitors = KSCrashMonitorTypeProductionSafeMinimal, \
 .userInfoJSON = NULL, \
 .deadlockWatchdogInterval = 0.0, \

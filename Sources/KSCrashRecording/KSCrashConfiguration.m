@@ -33,9 +33,9 @@
     return self;
 }
 
-- (KSCrashConfig)toCConfiguration
+- (KSCrashCConfiguration)toCConfiguration
 {
-    KSCrashConfig config = KSCrashConfig_Default;
+    KSCrashCConfiguration config = KSCrashConfig_Default;
 
     config.monitors = self.monitors;
     config.userInfoJSON = self.userInfoJSON ? [self jsonStringFromDictionary:self.userInfoJSON] : NULL;

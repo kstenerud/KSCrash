@@ -13,7 +13,7 @@
 
 @interface KSCrashConfiguration()
 
-- (KSCrashConfig)toCConfiguration;
+- (KSCrashCConfiguration)toCConfiguration;
 
 @end
 

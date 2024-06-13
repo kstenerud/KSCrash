@@ -199,7 +199,7 @@ static void setMonitors(KSCrashMonitorType monitorTypes)
     }
 }
 
-void handleConfiguration(KSCrashConfig* configuration)
+void handleConfiguration(KSCrashCConfiguration* configuration)
 {
     if (configuration->userInfoJSON != NULL)
     {
@@ -232,7 +232,7 @@ void handleConfiguration(KSCrashConfig* configuration)
 #pragma mark - API -
 // ============================================================================
 
-void kscrash_install(const char* appName, const char* const installPath, KSCrashConfig configuration)
+void kscrash_install(const char* appName, const char* const installPath, KSCrashCConfiguration configuration)
 {
     KSLOG_DEBUG("Installing crash reporter.");
 

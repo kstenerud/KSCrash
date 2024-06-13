@@ -77,7 +77,7 @@ extern "C" {
  * @note Once installed, the crash reporter cannot be re-installed or modified
  * without restarting the application.
  */
-void kscrash_install(const char* appName, const char* const installPath, KSCrashConfig configuration);
+void kscrash_install(const char* appName, const char* const installPath, KSCrashCConfiguration configuration);
 
 /** Set the user-supplied data in JSON format.
  *
