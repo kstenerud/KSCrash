@@ -93,8 +93,9 @@
     copy.deadlockWatchdogInterval = self.deadlockWatchdogInterval;
     copy.enableQueueNameSearch = self.enableQueueNameSearch;
     copy.enableMemoryIntrospection = self.enableMemoryIntrospection;
-    copy.doNotIntrospectClasses = [[NSArray allocWithZone:zone] initWithArray:self.doNotIntrospectClasses
-                                                                    copyItems:YES];
+    copy.doNotIntrospectClasses = self.doNotIntrospectClasses 
+        ? [[NSArray allocWithZone:zone] initWithArray:self.doNotIntrospectClasses copyItems:YES]
+        : nil;
     copy.crashNotifyCallback = [self.crashNotifyCallback copy];
     copy.reportWrittenCallback = [self.reportWrittenCallback copy];
     copy.addConsoleLogToReport = self.addConsoleLogToReport;
