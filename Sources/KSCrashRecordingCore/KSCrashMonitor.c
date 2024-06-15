@@ -41,7 +41,7 @@
 
 typedef struct
 {
-    KSCrashMonitorAPI** functions; // Array of MonitorAPIs
+    KSCrashMonitorAPI** apis; // Array of MonitorAPIs
     size_t count;
     size_t capacity;
 } MonitorList;
@@ -64,7 +64,7 @@ static void initializeMonitorFuncList(MonitorList* list)
 {
     list->count = 0;
     list->capacity = INITIAL_MONITOR_CAPACITY;
-    list->functions = (KSCrashMonitorAPI**)malloc(list->capacity * sizeof(KSCrashMonitorAPI*));
+    list->apis = (KSCrashMonitorAPI**)malloc(list->capacity * sizeof(KSCrashMonitorAPI*));
 }
 
 static void addMonitorFunc(MonitorList* list, KSCrashMonitorAPI* func)
@@ -72,15 +72,15 @@ static void addMonitorFunc(MonitorList* list, KSCrashMonitorAPI* func)
     if (list->count >= list->capacity)
     {
         list->capacity *= 2;
-        list->functions = (KSCrashMonitorAPI**)realloc(list->functions, list->capacity * sizeof(KSCrashMonitorAPI*));
+        list->apis = (KSCrashMonitorAPI**)realloc(list->apis, list->capacity * sizeof(KSCrashMonitorAPI*));
     }
-    list->functions[list->count++] = func;
+    list->apis[list->count++] = func;
 }
 
 static void freeMonitorFuncList(MonitorList* list)
 {
-    free(list->functions);
-    list->functions = NULL;
+    free(list->apis);
+    list->apis = NULL;
     list->count = 0;
     list->capacity = 0;
 }
@@ -139,7 +139,7 @@ void kscm_activateMonitors(void)
     // Enable or disable monitors
     for (size_t i = 0; i < g_monitors.count; i++)
     {
-        KSCrashMonitorAPI* api = g_monitors.functions[i];
+        KSCrashMonitorAPI* api = g_monitors.apis[i];
         KSCrashMonitorProperty properties = kscm_getMonitorProperties(api);
         bool shouldEnable = true;
 
@@ -160,7 +160,7 @@ void kscm_activateMonitors(void)
     KSLOG_DEBUG("Active monitors are now:");
     for (size_t i = 0; i < g_monitors.count; i++)
     {
-        KSCrashMonitorAPI* api = g_monitors.functions[i];
+        KSCrashMonitorAPI* api = g_monitors.apis[i];
         if (kscm_isMonitorEnabled(api))
         {
             KSLOG_DEBUG("Monitor %s is enabled.", getMonitorNameForLogging(api));
@@ -174,7 +174,7 @@ void kscm_activateMonitors(void)
     // Notify monitors about system enable
     for (size_t i = 0; i < g_monitors.count; i++)
     {
-        KSCrashMonitorAPI* api = g_monitors.functions[i];
+        KSCrashMonitorAPI* api = g_monitors.apis[i];
         kscm_notifyPostSystemEnable(api);
     }
 }
@@ -183,7 +183,7 @@ void kscm_disableAllMonitors(void)
 {
     for (size_t i = 0; i < g_monitors.count; i++)
     {
-        KSCrashMonitorAPI* api = g_monitors.functions[i];
+        KSCrashMonitorAPI* api = g_monitors.apis[i];
         kscm_setMonitorEnabled(api, false);
     }
     KSLOG_DEBUG("All monitors have been disabled.");
@@ -202,7 +202,8 @@ void kscm_addMonitor(KSCrashMonitorAPI* api)
     // Check for duplicate monitors
     for (size_t i = 0; i < g_monitors.count; i++)
     {
-        if (g_monitors.functions[i] == api)
+        if (strcmp(kscm_getMonitorId(g_monitors.apis[i]),
+                   kscm_getMonitorId(api)  == 0))
         {
             KSLOG_DEBUG("Monitor %s already exists. Skipping addition.", getMonitorNameForLogging(api));
             return;
@@ -254,7 +255,7 @@ void kscm_handleException(struct KSCrash_MonitorContext* context)
     // Add contextual info to the event for all enabled monitors
     for (size_t i = 0; i < g_monitors.count; i++)
     {
-        KSCrashMonitorAPI* api = g_monitors.functions[i];
+        KSCrashMonitorAPI* api = g_monitors.apis[i];
         if (kscm_isMonitorEnabled(api))
         {
             kscm_addContextualInfoToEvent(api, context);
