@@ -175,3 +175,8 @@ bool ksstring_extractHexValue(const char* string, int stringLength, uint64_t* co
     }
     return false;
 }
+
+bool ksstring_safeStrcmp(const char* str1, const char* str2)
+{
+    return (str1 != NULL && str2 != NULL && strcmp(str1, str2) == 0);
+}

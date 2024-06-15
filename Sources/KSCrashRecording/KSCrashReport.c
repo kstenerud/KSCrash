@@ -27,6 +27,7 @@
 
 #include "KSCrashReport.h"
 
+#include "KSString.h"
 #include "KSCrashReportFields.h"
 #include "KSCrashReportWriter.h"
 #include "KSDynamicLinker.h"
@@ -655,18 +656,13 @@ static void writeUnknownObjectContents(const KSCrashReportWriter* const writer,
     writer->endContainer(writer);
 }
 
-static bool safeStrcmp(const char* str1, const char* str2)
-{
-    return (str1 != NULL && str2 != NULL && strcmp(str1, str2) == 0);
-}
-
 static bool isRestrictedClass(const char* name)
 {
     if(g_introspectionRules.restrictedClasses != NULL)
     {
         for(int i = 0; i < g_introspectionRules.restrictedClassesCount; i++)
         {
-            if(safeStrcmp(name, g_introspectionRules.restrictedClasses[i]))
+            if(ksstring_safeStrcmp(name, g_introspectionRules.restrictedClasses[i]))
             {
                 return true;
             }
@@ -1366,7 +1362,7 @@ static void writeMemoryInfo(const KSCrashReportWriter* const writer,
 
 static bool isCrashOfMonitorType(const KSCrash_MonitorContext* const crash, const KSCrashMonitorAPI* monitorAPI)
 {
-    return safeStrcmp(crash->monitorId, kscm_getMonitorId(monitorAPI));
+    return ksstring_safeStrcmp(crash->monitorId, kscm_getMonitorId(monitorAPI));
 }
 
 /** Write information about the error leading to the crash to the report.
