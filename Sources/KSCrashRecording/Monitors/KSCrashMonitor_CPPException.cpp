@@ -177,7 +177,7 @@ catch(TYPE value)\
 
         KSLOG_DEBUG("Filling out context.");
         crashContext->monitorId = g_monitorName;
-        crashContext->monitorProperties = g_monitorProperties;
+        crashContext->monitorFlags = g_monitorProperties;
         crashContext->eventID = g_eventID;
         crashContext->registersAreValid = false;
         crashContext->stackCursor = &g_stackCursor;

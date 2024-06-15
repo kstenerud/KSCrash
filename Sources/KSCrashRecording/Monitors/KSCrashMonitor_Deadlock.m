@@ -125,7 +125,7 @@ static KSCrashMonitorProperty properties(void);
     KSCrash_MonitorContext* crashContext = &g_monitorContext;
     memset(crashContext, 0, sizeof(*crashContext));
     crashContext->monitorId = monitorId();
-    crashContext->monitorProperties = properties();
+    crashContext->monitorFlags = properties();
     crashContext->eventID = eventID;
     crashContext->registersAreValid = false;
     crashContext->offendingMachineContext = machineContext;

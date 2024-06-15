@@ -242,7 +242,7 @@ bool kscm_notifyFatalExceptionCaptured(bool isAsyncSafeEnvironment)
 void kscm_handleException(struct KSCrash_MonitorContext* context)
 {
     // We're handling a crash if the crash type is fatal
-    bool hasFatalProperty = (context->monitorProperties & KSCrashMonitorPropertyFatal) != KSCrashMonitorPropertyNone;
+    bool hasFatalProperty = (context->monitorFlags & KSCrashMonitorPropertyFatal) != KSCrashMonitorPropertyNone;
     context->handlingCrash = context->handlingCrash || hasFatalProperty;
 
     context->requiresAsyncSafety = g_requiresAsyncSafety;

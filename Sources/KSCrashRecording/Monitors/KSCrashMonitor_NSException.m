@@ -88,7 +88,7 @@ static void handleException(NSException* exception, BOOL currentSnapshotUserRepo
         KSCrash_MonitorContext* crashContext = &g_monitorContext;
         memset(crashContext, 0, sizeof(*crashContext));
         crashContext->monitorId = monitorId();
-        crashContext->monitorProperties = properties();
+        crashContext->monitorFlags = properties();
         crashContext->eventID = eventID;
         crashContext->offendingMachineContext = machineContext;
         crashContext->registersAreValid = false;

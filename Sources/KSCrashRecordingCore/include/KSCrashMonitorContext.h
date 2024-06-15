@@ -78,7 +78,7 @@ typedef struct KSCrash_MonitorContext
     const char* monitorId;
     
     /** Properties of the monitor that fired exception processing */
-    KSCrashMonitorProperty monitorProperties;
+    KSCrashMonitorProperty monitorFlags;
 
     /** The name of the exception that caused the crash, if any. */
     const char* exceptionName;

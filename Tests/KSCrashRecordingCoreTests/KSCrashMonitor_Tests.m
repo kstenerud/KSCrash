@@ -193,7 +193,7 @@ extern void kscm_resetState(void);
 {
     kscm_setEventCallback(myEventCallback);  // Set the event callback
     struct KSCrash_MonitorContext context = { 0 };
-    context.monitorProperties = KSCrashMonitorPropertyFatal;
+    context.monitorFlags = KSCrashMonitorPropertyFatal;
     kscm_handleException(&context);  // Handle the exception
     XCTAssertTrue(g_exceptionHandled, @"The exception should have been handled by the event callback.");
 }
@@ -227,7 +227,7 @@ extern void kscm_resetState(void);
     XCTAssertTrue(g_dummyMonitor.isEnabled(), @"The monitor should be enabled after activation.");
     struct KSCrash_MonitorContext context = { 0 };
     context.currentSnapshotUserReported = false;              // Simulate that the exception is not user-reported
-    context.monitorProperties = KSCrashMonitorPropertyFatal;  // Indicate that the exception is fatal
+    context.monitorFlags = KSCrashMonitorPropertyFatal;  // Indicate that the exception is fatal
     kscm_handleException(&context);
     XCTAssertTrue(g_dummyMonitor.isEnabled(),
                   @"The monitor should still be enabled before fatal exception handling logic.");
@@ -258,7 +258,7 @@ extern void kscm_resetState(void);
     XCTAssertTrue(g_dummyMonitor.isEnabled(), @"The monitor should be enabled after activation.");
     struct KSCrash_MonitorContext context = { 0 };
     context.currentSnapshotUserReported = true;               // Simulate that the snapshot is user-reported
-    context.monitorProperties = KSCrashMonitorPropertyFatal;  // Indicate that the exception is fatal
+    context.monitorFlags = KSCrashMonitorPropertyFatal;  // Indicate that the exception is fatal
     kscm_notifyFatalExceptionCaptured(false);                 // Simulate capturing a fatal exception
     kscm_handleException(&context);                           // Handle the exception
 
@@ -275,7 +275,7 @@ extern void kscm_resetState(void);
     XCTAssertTrue(g_dummyMonitor.isEnabled(), @"The monitor should be enabled after activation.");
 
     struct KSCrash_MonitorContext context = { 0 };
-    context.monitorProperties = 0;  // Indicate that the exception is non-fatal
+    context.monitorFlags = 0;  // Indicate that the exception is non-fatal
     kscm_handleException(&context);
 
     XCTAssertTrue(g_dummyMonitor.isEnabled(),
@@ -286,7 +286,7 @@ extern void kscm_resetState(void);
 {
     kscm_setEventCallback(myEventCallback);
     struct KSCrash_MonitorContext context = { 0 };
-    context.monitorProperties = 0;  // Indicate non-fatal exception
+    context.monitorFlags = 0;  // Indicate non-fatal exception
     kscm_handleException(&context);
     XCTAssertTrue(g_exceptionHandled, @"The event callback should handle the non-fatal exception.");
 }

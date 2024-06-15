@@ -102,7 +102,7 @@ static void handleSignal(int sigNum, siginfo_t* signalInfo, void* userContext)
         KSCrash_MonitorContext* crashContext = &g_monitorContext;
         memset(crashContext, 0, sizeof(*crashContext));
         crashContext->monitorId = monitorId();
-        crashContext->monitorProperties = properties();
+        crashContext->monitorFlags = properties();
         crashContext->eventID = g_eventID;
         crashContext->offendingMachineContext = machineContext;
         crashContext->registersAreValid = true;

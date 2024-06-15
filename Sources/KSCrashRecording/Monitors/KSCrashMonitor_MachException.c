@@ -359,7 +359,7 @@ static void* handleExceptions(void* const userData)
 
         KSLOG_DEBUG("Filling out context.");
         crashContext->monitorId = monitorId();
-        crashContext->monitorProperties = properties();
+        crashContext->monitorFlags = properties();
         crashContext->eventID = eventID;
         crashContext->registersAreValid = true;
         crashContext->mach.type = exceptionMessage.exception;
