@@ -56,7 +56,7 @@ static const char* kThreadSecondary = "KSCrash Exception Handler (Secondary)";
     #define MACH_ERROR_CODE_MASK 0xFFFFFFFF
 #endif
 
-static const char* name(void);
+static const char* monitorId(void);
 static KSCrashMonitorProperty properties(void);
 
 // ============================================================================
@@ -358,7 +358,7 @@ static void* handleExceptions(void* const userData)
         }
 
         KSLOG_DEBUG("Filling out context.");
-        crashContext->monitorName = name();
+        crashContext->monitorName = monitorId();
         crashContext->monitorProperties = properties();
         crashContext->eventID = eventID;
         crashContext->registersAreValid = true;
@@ -559,7 +559,7 @@ failed:
     return false;
 }
 
-static const char* name(void)
+static const char* monitorId(void)
 {
     return "KSCrashMonitorTypeMachException";
 }
@@ -605,7 +605,7 @@ static void addContextualInfoToEvent(struct KSCrash_MonitorContext* eventContext
     {
         eventContext->mach.type = machExceptionForSignal(eventContext->signal.signum);
     }
-    else if(strcmp(eventContext->monitorName, name()) != 0)
+    else if(strcmp(eventContext->monitorName, monitorId()) != 0)
     {
         eventContext->mach.type = EXC_CRASH;
     }
@@ -618,7 +618,7 @@ KSCrashMonitorAPI* kscm_machexception_getAPI(void)
     static KSCrashMonitorAPI api =
     {
 #if KSCRASH_HAS_MACH
-        .name = name,
+        .monitorId = monitorId,
         .properties = properties,
         .setEnabled = setEnabled,
         .isEnabled = isEnabled,

@@ -228,7 +228,7 @@ static KSCrash_Memory g_previousSessionMemory;
 #pragma mark - API -
 // ============================================================================
 
-static const char* name(void)
+static const char* monitorId(void)
 {
     return "KSCrashMonitorTypeMemoryTermination";
 }
@@ -385,7 +385,7 @@ KSCrashMonitorAPI* kscm_memory_getAPI(void)
 {
     static KSCrashMonitorAPI api =
     {
-        .name = name,
+        .monitorId = monitorId,
         .setEnabled = setEnabled,
         .isEnabled = isEnabled,
         .addContextualInfoToEvent = addContextualInfoToEvent,
@@ -526,7 +526,7 @@ static void ksmemory_write_possible_oom(void)
     
     KSCrash_MonitorContext context;
     memset(&context, 0, sizeof(context));
-    context.monitorName = name();
+    context.monitorName = monitorId();
     context.eventID = eventID;
     context.registersAreValid = false;
     context.offendingMachineContext = machineContext;

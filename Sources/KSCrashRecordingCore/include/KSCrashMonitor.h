@@ -45,7 +45,7 @@ struct KSCrash_MonitorContext;
 
 typedef struct
 {
-    const char* (*name)(void);
+    const char* (*monitorId)(void);
     KSCrashMonitorProperty (*properties)(void);
     void (*setEnabled)(bool isEnabled);
     bool (*isEnabled)(void);

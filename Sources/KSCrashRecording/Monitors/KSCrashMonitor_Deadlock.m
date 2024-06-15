@@ -60,7 +60,7 @@ static NSTimeInterval g_watchdogInterval = 0;
 #pragma mark - X -
 // ============================================================================
 
-static const char* name(void);
+static const char* monitorId(void);
 static KSCrashMonitorProperty properties(void);
 
 @interface KSCrashDeadlockMonitor: NSObject
@@ -124,7 +124,7 @@ static KSCrashMonitorProperty properties(void);
     KSLOG_DEBUG(@"Filling out context.");
     KSCrash_MonitorContext* crashContext = &g_monitorContext;
     memset(crashContext, 0, sizeof(*crashContext));
-    crashContext->monitorName = name();
+    crashContext->monitorName = monitorId();
     crashContext->monitorProperties = properties();
     crashContext->eventID = eventID;
     crashContext->registersAreValid = false;
@@ -185,7 +185,7 @@ static void initialize(void)
     }
 }
 
-static const char* name(void)
+static const char* monitorId(void)
 {
     return "KSCrashMonitorTypeMainThreadDeadlock";
 }
@@ -224,7 +224,7 @@ KSCrashMonitorAPI* kscm_deadlock_getAPI(void)
 {
     static KSCrashMonitorAPI api =
     {
-        .name = name,
+        .monitorId = monitorId,
         .properties = properties,
         .setEnabled = setEnabled,
         .isEnabled = isEnabled

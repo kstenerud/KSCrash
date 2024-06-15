@@ -213,7 +213,7 @@ static void initialize()
     }
 }
 
-static const char* name()
+static const char* monitorId()
 {
     return g_monitorName;
 }
@@ -261,7 +261,7 @@ extern "C" KSCrashMonitorAPI* kscm_cppexception_getAPI()
 {
     static KSCrashMonitorAPI api =
     {
-        .name = name,
+        .monitorId = monitorId,
         .properties = properties,
         .setEnabled = setEnabled,
         .isEnabled = isEnabled

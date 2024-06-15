@@ -205,7 +205,7 @@ const char* kszombie_className(const void* object)
     return NULL;
 }
 
-static const char* name(void)
+static const char* monitorId(void)
 {
     return "KSCrashMonitorTypeZombie";
 }
@@ -247,7 +247,7 @@ KSCrashMonitorAPI* kscm_zombie_getAPI(void)
 {
     static KSCrashMonitorAPI api =
     {
-        .name = name,
+        .monitorId = monitorId,
         .setEnabled = setEnabled,
         .isEnabled = isEnabled,
         .addContextualInfoToEvent = addContextualInfoToEvent

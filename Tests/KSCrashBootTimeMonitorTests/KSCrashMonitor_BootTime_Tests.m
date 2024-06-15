@@ -107,7 +107,7 @@ extern void kscm_bootTime_resetState(void);
 - (void)testMonitorName
 {
     KSCrashMonitorAPI* bootTimeMonitor = kscm_boottime_getAPI();
-    XCTAssertEqual(strcmp(bootTimeMonitor->name(), "KSCrashMonitorTypeBootTime"), 0,
+    XCTAssertEqual(strcmp(bootTimeMonitor->monitorId(), "KSCrashMonitorTypeBootTime"), 0,
                    @"The monitor name should be 'KSCrashMonitorTypeBootTime'.");
 }
 

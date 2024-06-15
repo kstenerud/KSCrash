@@ -72,7 +72,7 @@ extern void kscm_resetState(void);
 {
     [super setUp];
 
-    g_dummyMonitor.name = dummyMonitorName;
+    g_dummyMonitor.monitorId = dummyMonitorName;
     g_dummyMonitor.properties = dummyMonitorProperties;
     g_dummyMonitor.setEnabled = dummySetEnabled;
     g_dummyMonitor.isEnabled = dummyIsEnabled;
@@ -123,7 +123,7 @@ extern void kscm_resetState(void);
 - (void)testMonitorAPIWithNullName
 {
     KSCrashMonitorAPI partialMonitor = g_dummyMonitor;
-    partialMonitor.name = NULL;  // Set name to NULL
+    partialMonitor.monitorId = NULL;  // Set name to NULL
     kscm_addMonitor(&partialMonitor);
     kscm_activateMonitors();
     XCTAssertTrue(partialMonitor.isEnabled(), @"The monitor should still be enabled with a NULL name.");
@@ -180,7 +180,7 @@ extern void kscm_resetState(void);
 - (void)testPartialMonitorActivation
 {
     KSCrashMonitorAPI partialMonitor = g_dummyMonitor;
-    partialMonitor.name = NULL;
+    partialMonitor.monitorId = NULL;
     partialMonitor.setEnabled = NULL;
     kscm_addMonitor(&partialMonitor);
     kscm_activateMonitors();

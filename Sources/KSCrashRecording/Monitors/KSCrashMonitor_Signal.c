@@ -65,7 +65,7 @@ static struct sigaction* g_previousSignalHandlers = NULL;
 
 static char g_eventID[37];
 
-static const char* name(void);
+static const char* monitorId(void);
 static KSCrashMonitorProperty properties(void);
 
 // ============================================================================
@@ -101,7 +101,7 @@ static void handleSignal(int sigNum, siginfo_t* signalInfo, void* userContext)
 
         KSCrash_MonitorContext* crashContext = &g_monitorContext;
         memset(crashContext, 0, sizeof(*crashContext));
-        crashContext->monitorName = name();
+        crashContext->monitorName = monitorId();
         crashContext->monitorProperties = properties();
         crashContext->eventID = g_eventID;
         crashContext->offendingMachineContext = machineContext;
@@ -212,7 +212,7 @@ static void uninstallSignalHandler(void)
     KSLOG_DEBUG("Signal handlers uninstalled.");
 }
 
-static const char* name(void)
+static const char* monitorId(void)
 {
     return "KSCrashMonitorTypeSignal";
 }
@@ -251,7 +251,7 @@ static void addContextualInfoToEvent(struct KSCrash_MonitorContext* eventContext
 {
     const char *machName = kscm_getMonitorName(kscm_machexception_getAPI());
 
-    if(!(strcmp(eventContext->monitorName, name()) == 0 ||
+    if(!(strcmp(eventContext->monitorName, monitorId()) == 0 ||
          (machName && strcmp(eventContext->monitorName, machName) == 0)))
     {
         eventContext->signal.signum = SIGABRT;
@@ -291,7 +291,7 @@ KSCrashMonitorAPI* kscm_signal_getAPI(void)
 {
     static KSCrashMonitorAPI api =
     {
-        .name = name,
+        .monitorId = monitorId,
         .properties = properties,
         .setEnabled = setEnabled,
         .isEnabled = isEnabled,

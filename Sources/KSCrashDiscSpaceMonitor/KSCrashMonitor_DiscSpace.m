@@ -49,7 +49,7 @@ static uint64_t getStorageSize(void)
 
 #pragma mark - API -
 
-static const char* name(void)
+static const char* monitorId(void)
 {
     return "KSCrashMonitorTypeDiscSpace";
 }
@@ -79,7 +79,7 @@ KSCrashMonitorAPI* kscm_discspace_getAPI(void)
 {
     static KSCrashMonitorAPI api =
     {
-        .name = name,
+        .monitorId = monitorId,
         .setEnabled = setEnabled,
         .isEnabled = isEnabled,
         .addContextualInfoToEvent = addContextualInfoToEvent

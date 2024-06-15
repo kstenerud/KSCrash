@@ -47,7 +47,7 @@ static KSCrash_MonitorContext g_monitorContext;
 /** The exception handler that was in place before we installed ours. */
 static NSUncaughtExceptionHandler* g_previousUncaughtExceptionHandler;
 
-static const char* name(void);
+static const char* monitorId(void);
 static KSCrashMonitorProperty properties(void);
 
 // ============================================================================
@@ -87,7 +87,7 @@ static void handleException(NSException* exception, BOOL currentSnapshotUserRepo
 
         KSCrash_MonitorContext* crashContext = &g_monitorContext;
         memset(crashContext, 0, sizeof(*crashContext));
-        crashContext->monitorName = name();
+        crashContext->monitorName = monitorId();
         crashContext->monitorProperties = properties();
         crashContext->eventID = eventID;
         crashContext->offendingMachineContext = machineContext;
@@ -149,7 +149,7 @@ static void setEnabled(bool isEnabled)
     }
 }
 
-static const char* name(void)
+static const char* monitorId(void)
 {
     return "KSCrashMonitorTypeNSException";
 }
@@ -168,7 +168,7 @@ KSCrashMonitorAPI* kscm_nsexception_getAPI(void)
 {
     static KSCrashMonitorAPI api =
     {
-        .name = name,
+        .monitorId = monitorId,
         .properties = properties,
         .setEnabled = setEnabled,
         .isEnabled = isEnabled

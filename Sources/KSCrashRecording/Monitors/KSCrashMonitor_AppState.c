@@ -458,7 +458,7 @@ const KSCrash_AppState* const kscrashstate_currentState(void)
     return &g_state;
 }
 
-static const char* name(void)
+static const char* monitorId(void)
 {
     return "KSCrashMonitorTypeApplicationState";
 }
@@ -505,7 +505,7 @@ KSCrashMonitorAPI* kscm_appstate_getAPI(void)
 {
     static KSCrashMonitorAPI api =
     {
-        .name = name,
+        .monitorId = monitorId,
         .setEnabled = setEnabled,
         .isEnabled = isEnabled,
         .addContextualInfoToEvent = addContextualInfoToEvent
