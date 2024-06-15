@@ -94,9 +94,9 @@
     
     
     // init
-    kscrash_install("test", installURL.path.UTF8String);
     kscrash_setMonitoring(KSCrashMonitorTypeMemoryTermination);
-    
+    kscrash_install("test", installURL.path.UTF8String);
+
     // init memory API
     KSCrashMonitorAPI* api = kscm_memory_getAPI();
     XCTAssertTrue(api->isEnabled());
