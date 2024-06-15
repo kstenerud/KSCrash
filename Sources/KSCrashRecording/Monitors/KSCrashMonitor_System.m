@@ -538,7 +538,7 @@ static void initialize(void)
 
 static const char* monitorId(void)
 {
-    return "KSCrashMonitorTypeSystem";
+    return "System";
 }
 
 static void setEnabled(bool isEnabled)

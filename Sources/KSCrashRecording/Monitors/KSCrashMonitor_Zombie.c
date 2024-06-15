@@ -207,7 +207,7 @@ const char* kszombie_className(const void* object)
 
 static const char* monitorId(void)
 {
-    return "KSCrashMonitorTypeZombie";
+    return "Zombie";
 }
 
 static void setEnabled(bool isEnabled)

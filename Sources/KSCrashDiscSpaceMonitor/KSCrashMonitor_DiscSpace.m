@@ -51,7 +51,7 @@ static uint64_t getStorageSize(void)
 
 static const char* monitorId(void)
 {
-    return "KSCrashMonitorTypeDiscSpace";
+    return "DiscSpace";
 }
 
 static void setEnabled(bool isEnabled)

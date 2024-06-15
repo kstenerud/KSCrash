@@ -212,7 +212,7 @@ static void initialize()
 
 static const char* monitorId()
 {
-    return "KSCrashMonitorTypeCPPException";
+    return "CPPException";
 }
 
 static KSCrashMonitorFlag monitorFlags()

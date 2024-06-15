@@ -59,7 +59,7 @@ static const char* dateSysctl(const char* name)
 
 static const char* monitorId(void)
 {
-    return "KSCrashMonitorTypeBootTime";
+    return "BootTime";
 }
 
 static void setEnabled(bool isEnabled)

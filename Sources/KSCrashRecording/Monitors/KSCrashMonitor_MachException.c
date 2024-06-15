@@ -558,7 +558,7 @@ failed:
 
 static const char* monitorId(void)
 {
-    return "KSCrashMonitorTypeMachException";
+    return "MachException";
 }
 
 static KSCrashMonitorFlag monitorFlags(void)

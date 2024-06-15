@@ -460,7 +460,7 @@ const KSCrash_AppState* const kscrashstate_currentState(void)
 
 static const char* monitorId(void)
 {
-    return "KSCrashMonitorTypeApplicationState";
+    return "ApplicationState";
 }
 
 static void setEnabled(bool isEnabled)

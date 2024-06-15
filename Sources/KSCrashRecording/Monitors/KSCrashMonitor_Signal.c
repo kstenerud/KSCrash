@@ -211,7 +211,7 @@ static void uninstallSignalHandler(void)
 
 static const char* monitorId(void)
 {
-    return "KSCrashMonitorTypeSignal";
+    return "Signal";
 }
 
 static KSCrashMonitorFlag monitorFlags(void)

@@ -35,8 +35,6 @@
 #include <memory.h>
 #include <stdlib.h>
 
-static const char* monitorId(void);
-
 /** Context to fill with crash information. */
 
 static volatile bool g_isEnabled = false;
@@ -104,7 +102,7 @@ void kscm_reportUserException(const char* name,
 
 static const char* monitorId(void)
 {
-    return "KSCrashMonitorTypeUserReported";
+    return "UserReported";
 }
 
 static void setEnabled(bool isEnabled)

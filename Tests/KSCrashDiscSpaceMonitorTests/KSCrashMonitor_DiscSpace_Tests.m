@@ -82,8 +82,8 @@ extern void kscm_discSpace_resetState(void);
 - (void)testMonitorName
 {
     KSCrashMonitorAPI* discSpaceMonitor = kscm_discspace_getAPI();
-    XCTAssertEqual(strcmp(discSpaceMonitor->monitorId(), "KSCrashMonitorTypeDiscSpace"), 0,
-                   @"The monitor name should be 'KSCrashMonitorTypeDiscSpace'.");
+    XCTAssertEqual(strcmp(discSpaceMonitor->monitorId(), "DiscSpace"), 0,
+                   @"The monitor name should be 'DiscSpace'.");
 }
 
 @end

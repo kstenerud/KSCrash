@@ -149,7 +149,7 @@ static void setEnabled(bool isEnabled)
 
 static const char* monitorId(void)
 {
-    return "KSCrashMonitorTypeNSException";
+    return "NSException";
 }
 
 static KSCrashMonitorFlag monitorFlags(void)

@@ -231,7 +231,7 @@ static KSCrash_Memory g_previousSessionMemory;
 
 static const char* monitorId(void)
 {
-    return "KSCrashMonitorTypeMemoryTermination";
+    return "MemoryTermination";
 }
 
 static void setEnabled(bool isEnabled)
