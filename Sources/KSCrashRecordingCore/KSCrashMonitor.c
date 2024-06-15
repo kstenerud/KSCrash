@@ -39,8 +39,6 @@
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
-typedef KSCrashMonitorAPI* (*GetMonitorAPIFunc)(void);
-
 typedef struct
 {
     KSCrashMonitorAPI** functions; // Array of MonitorAPIs
@@ -48,7 +46,7 @@ typedef struct
     size_t capacity;
 } MonitorList;
 
-#define INITIAL_MONITOR_CAPACITY 10
+#define INITIAL_MONITOR_CAPACITY 15
 
 // ============================================================================
 #pragma mark - Globals -
