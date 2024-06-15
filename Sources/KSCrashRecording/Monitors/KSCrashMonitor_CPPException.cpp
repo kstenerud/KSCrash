@@ -176,7 +176,7 @@ catch(TYPE value)\
         ksmc_getContextForThread(ksthread_self(), machineContext, true);
 
         KSLOG_DEBUG("Filling out context.");
-        crashContext->monitorName = g_monitorName;
+        crashContext->monitorId = g_monitorName;
         crashContext->monitorProperties = g_monitorProperties;
         crashContext->eventID = g_eventID;
         crashContext->registersAreValid = false;

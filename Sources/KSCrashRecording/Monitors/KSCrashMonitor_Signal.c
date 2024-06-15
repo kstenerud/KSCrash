@@ -101,7 +101,7 @@ static void handleSignal(int sigNum, siginfo_t* signalInfo, void* userContext)
 
         KSCrash_MonitorContext* crashContext = &g_monitorContext;
         memset(crashContext, 0, sizeof(*crashContext));
-        crashContext->monitorName = monitorId();
+        crashContext->monitorId = monitorId();
         crashContext->monitorProperties = properties();
         crashContext->eventID = g_eventID;
         crashContext->offendingMachineContext = machineContext;
@@ -251,8 +251,8 @@ static void addContextualInfoToEvent(struct KSCrash_MonitorContext* eventContext
 {
     const char *machName = kscm_getMonitorName(kscm_machexception_getAPI());
 
-    if(!(strcmp(eventContext->monitorName, monitorId()) == 0 ||
-         (machName && strcmp(eventContext->monitorName, machName) == 0)))
+    if(!(strcmp(eventContext->monitorId, monitorId()) == 0 ||
+         (machName && strcmp(eventContext->monitorId, machName) == 0)))
     {
         eventContext->signal.signum = SIGABRT;
     }

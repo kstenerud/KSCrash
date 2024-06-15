@@ -77,7 +77,7 @@ void kscm_reportUserException(const char* name,
         KSLOG_DEBUG("Filling out context.");
         KSCrash_MonitorContext context;
         memset(&context, 0, sizeof(context));
-        context.monitorName = monitorId();
+        context.monitorId = monitorId();
         context.eventID = eventID;
         context.offendingMachineContext = machineContext;
         context.registersAreValid = false;

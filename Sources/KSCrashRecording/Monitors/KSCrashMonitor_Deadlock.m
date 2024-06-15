@@ -124,7 +124,7 @@ static KSCrashMonitorProperty properties(void);
     KSLOG_DEBUG(@"Filling out context.");
     KSCrash_MonitorContext* crashContext = &g_monitorContext;
     memset(crashContext, 0, sizeof(*crashContext));
-    crashContext->monitorName = monitorId();
+    crashContext->monitorId = monitorId();
     crashContext->monitorProperties = properties();
     crashContext->eventID = eventID;
     crashContext->registersAreValid = false;

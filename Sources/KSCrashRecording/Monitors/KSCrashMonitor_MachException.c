@@ -358,7 +358,7 @@ static void* handleExceptions(void* const userData)
         }
 
         KSLOG_DEBUG("Filling out context.");
-        crashContext->monitorName = monitorId();
+        crashContext->monitorId = monitorId();
         crashContext->monitorProperties = properties();
         crashContext->eventID = eventID;
         crashContext->registersAreValid = true;
@@ -601,11 +601,11 @@ static void addContextualInfoToEvent(struct KSCrash_MonitorContext* eventContext
 {
     const char* signalName = kscm_getMonitorName(kscm_signal_getAPI());
 
-    if(signalName && strcmp(eventContext->monitorName, signalName) == 0)
+    if(signalName && strcmp(eventContext->monitorId, signalName) == 0)
     {
         eventContext->mach.type = machExceptionForSignal(eventContext->signal.signum);
     }
-    else if(strcmp(eventContext->monitorName, monitorId()) != 0)
+    else if(strcmp(eventContext->monitorId, monitorId()) != 0)
     {
         eventContext->mach.type = EXC_CRASH;
     }

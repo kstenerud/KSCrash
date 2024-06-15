@@ -1366,7 +1366,7 @@ static void writeMemoryInfo(const KSCrashReportWriter* const writer,
 
 static bool isCrashOfMonitorType(const KSCrash_MonitorContext* const crash, const KSCrashMonitorAPI* monitorAPI)
 {
-    return safeStrcmp(crash->monitorName, kscm_getMonitorName(monitorAPI));
+    return safeStrcmp(crash->monitorId, kscm_getMonitorName(monitorAPI));
 }
 
 /** Write information about the error leading to the crash to the report.
@@ -1492,11 +1492,11 @@ static void writeError(const KSCrashReportWriter* const writer,
                  isCrashOfMonitorType(crash, kscm_appstate_getAPI()) ||
                  isCrashOfMonitorType(crash, kscm_zombie_getAPI()))
         {
-            KSLOG_ERROR("Crash monitor type %s shouldn't be able to cause events!", crash->monitorName);
+            KSLOG_ERROR("Crash monitor type %s shouldn't be able to cause events!", crash->monitorId);
         }
         else
         {
-            KSLOG_ERROR("Unknown crash monitor type: %s", crash->monitorName);
+            KSLOG_ERROR("Unknown crash monitor type: %s", crash->monitorId);
         }
     }
     writer->endContainer(writer);
