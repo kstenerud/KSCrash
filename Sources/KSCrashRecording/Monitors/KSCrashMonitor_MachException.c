@@ -57,9 +57,6 @@ static const char* kThreadSecondary = "KSCrash Exception Handler (Secondary)";
     #define MACH_ERROR_CODE_MASK 0xFFFFFFFF
 #endif
 
-static const char* monitorId(void);
-static KSCrashMonitorProperty properties(void);
-
 // ============================================================================
 #pragma mark - Types -
 // ============================================================================
@@ -564,11 +561,11 @@ static const char* monitorId(void)
     return "KSCrashMonitorTypeMachException";
 }
 
-static KSCrashMonitorProperty properties(void)
+static KSCrashMonitorFlag monitorFlags(void)
 {
-    return KSCrashMonitorPropertyFatal |
-           KSCrashMonitorPropertyAsyncSafe |
-           KSCrashMonitorPropertyDebuggerUnsafe;
+    return KSCrashMonitorFlagFatal |
+           KSCrashMonitorFlagAsyncSafe |
+           KSCrashMonitorFlagDebuggerUnsafe;
 }
 
 static void setEnabled(bool isEnabled)
@@ -619,7 +616,7 @@ KSCrashMonitorAPI* kscm_machexception_getAPI(void)
     {
 #if KSCRASH_HAS_MACH
         .monitorId = monitorId,
-        .properties = properties,
+        .monitorFlags = monitorFlags,
         .setEnabled = setEnabled,
         .isEnabled = isEnabled,
         .addContextualInfoToEvent = addContextualInfoToEvent

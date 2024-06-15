@@ -66,9 +66,6 @@ static struct sigaction* g_previousSignalHandlers = NULL;
 
 static char g_eventID[37];
 
-static const char* monitorId(void);
-static KSCrashMonitorProperty properties(void);
-
 // ============================================================================
 #pragma mark - Callbacks -
 // ============================================================================
@@ -217,9 +214,9 @@ static const char* monitorId(void)
     return "KSCrashMonitorTypeSignal";
 }
 
-static KSCrashMonitorProperty properties(void)
+static KSCrashMonitorFlag monitorFlags(void)
 {
-    return KSCrashMonitorPropertyFatal | KSCrashMonitorPropertyAsyncSafe;
+    return KSCrashMonitorFlagFatal | KSCrashMonitorFlagAsyncSafe;
 }
 
 static void setEnabled(bool isEnabled)
@@ -292,7 +289,7 @@ KSCrashMonitorAPI* kscm_signal_getAPI(void)
     static KSCrashMonitorAPI api =
     {
         .monitorId = monitorId,
-        .properties = properties,
+        .monitorFlags = monitorFlags,
         .setEnabled = setEnabled,
         .isEnabled = isEnabled,
         .addContextualInfoToEvent = addContextualInfoToEvent

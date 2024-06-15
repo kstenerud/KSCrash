@@ -29,7 +29,7 @@
 #define HDR_KSCrashMonitorContext_h
 
 #include "KSMachineContext.h"
-#include "KSCrashMonitorProperty.h"
+#include "KSCrashMonitorFlag.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -77,8 +77,8 @@ typedef struct KSCrash_MonitorContext
      * This determines which other fields are valid. */
     const char* monitorId;
     
-    /** Properties of the monitor that fired exception processing */
-    KSCrashMonitorProperty monitorFlags;
+    /** Flags of the monitor that fired exception processing */
+    KSCrashMonitorFlag monitorFlags;
 
     /** The name of the exception that caused the crash, if any. */
     const char* exceptionName;

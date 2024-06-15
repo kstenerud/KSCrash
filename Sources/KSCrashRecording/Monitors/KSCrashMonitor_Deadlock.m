@@ -62,9 +62,6 @@ static NSTimeInterval g_watchdogInterval = 0;
 #pragma mark - X -
 // ============================================================================
 
-static const char* monitorId(void);
-static KSCrashMonitorProperty properties(void);
-
 @interface KSCrashDeadlockMonitor: NSObject
 
 @property(nonatomic, readwrite, retain) NSThread* monitorThread;
@@ -191,9 +188,9 @@ static const char* monitorId(void)
     return "KSCrashMonitorTypeMainThreadDeadlock";
 }
 
-static KSCrashMonitorProperty properties(void)
+static KSCrashMonitorFlag monitorFlags(void)
 {
-    return KSCrashMonitorPropertyFatal;
+    return KSCrashMonitorFlagFatal;
 }
 
 static void setEnabled(bool isEnabled)
@@ -226,7 +223,7 @@ KSCrashMonitorAPI* kscm_deadlock_getAPI(void)
     static KSCrashMonitorAPI api =
     {
         .monitorId = monitorId,
-        .properties = properties,
+        .monitorFlags = monitorFlags,
         .setEnabled = setEnabled,
         .isEnabled = isEnabled
     };

@@ -140,15 +140,15 @@ void kscm_activateMonitors(void)
     for (size_t i = 0; i < g_monitors.count; i++)
     {
         KSCrashMonitorAPI* api = g_monitors.apis[i];
-        KSCrashMonitorProperty properties = kscm_getMonitorProperties(api);
+        KSCrashMonitorFlag flags = kscm_getMonitorFlags(api);
         bool shouldEnable = true;
 
-        if (isDebuggerUnsafe && (properties & KSCrashMonitorPropertyDebuggerUnsafe))
+        if (isDebuggerUnsafe && (flags & KSCrashMonitorFlagDebuggerUnsafe))
         {
             shouldEnable = false;
         }
 
-        if (isAsyncSafeRequired && !(properties & KSCrashMonitorPropertyAsyncSafe))
+        if (isAsyncSafeRequired && !(flags & KSCrashMonitorFlagAsyncSafe))
         {
             shouldEnable = false;
         }
@@ -203,7 +203,7 @@ void kscm_addMonitor(KSCrashMonitorAPI* api)
     for (size_t i = 0; i < g_monitors.count; i++)
     {
         if (strcmp(kscm_getMonitorId(g_monitors.apis[i]),
-                   kscm_getMonitorId(api)  == 0))
+                   kscm_getMonitorId(api)) == 0)
         {
             KSLOG_DEBUG("Monitor %s already exists. Skipping addition.", getMonitorNameForLogging(api));
             return;
@@ -243,7 +243,7 @@ bool kscm_notifyFatalExceptionCaptured(bool isAsyncSafeEnvironment)
 void kscm_handleException(struct KSCrash_MonitorContext* context)
 {
     // We're handling a crash if the crash type is fatal
-    bool hasFatalProperty = (context->monitorFlags & KSCrashMonitorPropertyFatal) != KSCrashMonitorPropertyNone;
+    bool hasFatalProperty = (context->monitorFlags & KSCrashMonitorFlagFatal) != KSCrashMonitorFlagNone;
     context->handlingCrash = context->handlingCrash || hasFatalProperty;
 
     context->requiresAsyncSafety = g_requiresAsyncSafety;

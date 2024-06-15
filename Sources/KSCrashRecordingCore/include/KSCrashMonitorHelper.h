@@ -59,13 +59,13 @@ static inline const char* kscm_getMonitorId(const KSCrashMonitorAPI* api)
     return NULL;
 }
 
-static inline KSCrashMonitorProperty kscm_getMonitorProperties(const KSCrashMonitorAPI* api)
+static inline KSCrashMonitorFlag kscm_getMonitorFlags(const KSCrashMonitorAPI* api)
 {
-    if (api != NULL && api->properties != NULL)
+    if (api != NULL && api->monitorFlags != NULL)
     {
-        return api->properties();
+        return api->monitorFlags();
     }
-    return KSCrashMonitorPropertyNone;
+    return KSCrashMonitorFlagNone;
 }
 
 static inline void kscm_addContextualInfoToEvent(const KSCrashMonitorAPI* api, struct KSCrash_MonitorContext* eventContext)

@@ -39,7 +39,7 @@ void inline ksmc_fillMonitorContext(KSCrash_MonitorContext* monitorContext, KSCr
 {
     if (monitorContext) {
         monitorContext->monitorId = kscm_getMonitorId(monitorApi);
-        monitorContext->monitorFlags = kscm_getMonitorProperties(monitorApi);
+        monitorContext->monitorFlags = kscm_getMonitorFlags(monitorApi);
     }
 }
 

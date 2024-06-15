@@ -49,9 +49,6 @@ static KSCrash_MonitorContext g_monitorContext;
 /** The exception handler that was in place before we installed ours. */
 static NSUncaughtExceptionHandler* g_previousUncaughtExceptionHandler;
 
-static const char* monitorId(void);
-static KSCrashMonitorProperty properties(void);
-
 // ============================================================================
 #pragma mark - Callbacks -
 // ============================================================================
@@ -155,9 +152,9 @@ static const char* monitorId(void)
     return "KSCrashMonitorTypeNSException";
 }
 
-static KSCrashMonitorProperty properties(void)
+static KSCrashMonitorFlag monitorFlags(void)
 {
-    return KSCrashMonitorPropertyFatal;
+    return KSCrashMonitorFlagFatal;
 }
 
 static bool isEnabled(void)
@@ -170,7 +167,7 @@ KSCrashMonitorAPI* kscm_nsexception_getAPI(void)
     static KSCrashMonitorAPI api =
     {
         .monitorId = monitorId,
-        .properties = properties,
+        .monitorFlags = monitorFlags,
         .setEnabled = setEnabled,
         .isEnabled = isEnabled
     };

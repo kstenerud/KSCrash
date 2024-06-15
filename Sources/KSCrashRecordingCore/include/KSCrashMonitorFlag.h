@@ -33,20 +33,20 @@ extern "C" {
 
 typedef enum
 {
-    /** Indicates that no properties are set. */
-    KSCrashMonitorPropertyNone = 0,
+    /** Indicates that no flags are set. */
+    KSCrashMonitorFlagNone = 0,
 
-    /** Indicates that the program cannot continue execution if a monitor with this property is triggered. */
-    KSCrashMonitorPropertyFatal = 1 << 0,
+    /** Indicates that the program cannot continue execution if a monitor with this flag is triggered. */
+    KSCrashMonitorFlagFatal = 1 << 0,
 
-    /** Indicates that the monitor with this property will not be enabled if a debugger is attached. */
-    KSCrashMonitorPropertyDebuggerUnsafe = 1 << 1,
+    /** Indicates that the monitor with this flag will not be enabled if a debugger is attached. */
+    KSCrashMonitorFlagDebuggerUnsafe = 1 << 1,
 
     /** Indicates that the monitor is safe to be used in an asynchronous environment.
-     * Monitors without this property are considered unsafe for asynchronous operations by default. */
-    KSCrashMonitorPropertyAsyncSafe = 1 << 2,
+     * Monitors without this flag are considered unsafe for asynchronous operations by default. */
+    KSCrashMonitorFlagAsyncSafe = 1 << 2,
 
-} KSCrashMonitorProperty;
+} KSCrashMonitorFlag;
 
 #ifdef __cplusplus
 }

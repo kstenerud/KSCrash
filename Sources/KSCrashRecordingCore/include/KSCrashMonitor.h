@@ -33,7 +33,7 @@
 #define HDR_KSCrashMonitor_h
 
 #include "KSThread.h"
-#include "KSCrashMonitorProperty.h"
+#include "KSCrashMonitorFlag.h"
 
 #include <stdbool.h>
 
@@ -46,7 +46,7 @@ struct KSCrash_MonitorContext;
 typedef struct
 {
     const char* (*monitorId)(void);
-    KSCrashMonitorProperty (*properties)(void);
+    KSCrashMonitorFlag (*monitorFlags)(void);
     void (*setEnabled)(bool isEnabled);
     bool (*isEnabled)(void);
     void (*addContextualInfoToEvent)(struct KSCrash_MonitorContext* eventContext);
