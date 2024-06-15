@@ -227,15 +227,20 @@ KSCrashMonitorType kscrash_setMonitoring(KSCrashMonitorType monitorTypes)
 {
     g_monitoring = monitorTypes;
 
-    if(g_installed) {
+    if (g_installed)
+    {
         for (size_t i = 0; i < g_monitorMappingCount; i++)
         {
-            if (monitorTypes & g_monitorMappings[i].type)
+            KSCrashMonitorAPI* api = g_monitorMappings[i].getAPI();
+            if (api != NULL)
             {
-                KSCrashMonitorAPI* api = g_monitorMappings[i].getAPI();
-                if (api != NULL)
+                if (monitorTypes & g_monitorMappings[i].type)
                 {
                     kscm_addMonitor(api);
+                }
+                else
+                {
+                    kscm_removeMonitor(api);
                 }
             }
         }

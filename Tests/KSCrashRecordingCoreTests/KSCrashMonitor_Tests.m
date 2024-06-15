@@ -39,7 +39,8 @@ static bool g_dummyEnabledState = false;
 static bool g_dummyPostSystemEnabled = false;
 static const char* const g_eventID = "TestEventID";
 
-static const char* dummyMonitorName(void) { return "Dummy Monitor"; }
+static const char* dummyMonitorId(void) { return "Dummy Monitor"; }
+static const char* newMonitorId(void) { return "New Monitor"; }
 
 static KSCrashMonitorFlag dummyMonitorFlags(void) { return KSCrashMonitorFlagAsyncSafe; }
 
@@ -72,7 +73,7 @@ extern void kscm_resetState(void);
 {
     [super setUp];
 
-    g_dummyMonitor.monitorId = dummyMonitorName;
+    g_dummyMonitor.monitorId = dummyMonitorId;
     g_dummyMonitor.monitorFlags = dummyMonitorFlags;
     g_dummyMonitor.setEnabled = dummySetEnabled;
     g_dummyMonitor.isEnabled = dummyIsEnabled;
@@ -289,6 +290,124 @@ extern void kscm_resetState(void);
     context.monitorFlags = 0;  // Indicate non-fatal exception
     kscm_handleException(&context);
     XCTAssertTrue(g_exceptionHandled, @"The event callback should handle the non-fatal exception.");
+}
+
+#pragma mark - Monitor Removal Tests
+
+- (void)testRemovingMonitor
+{
+    // Add the dummy monitor first
+    kscm_addMonitor(&g_dummyMonitor);
+    kscm_activateMonitors();
+    XCTAssertTrue(g_dummyMonitor.isEnabled(), @"The monitor should be enabled after adding.");
+
+    // Remove the dummy monitor
+    kscm_removeMonitor(&g_dummyMonitor);
+    kscm_activateMonitors();
+    XCTAssertFalse(g_dummyMonitor.isEnabled(), @"The monitor should be disabled after removal.");
+}
+
+- (void)testRemoveMonitorNotAdded
+{
+    KSCrashMonitorAPI newMonitor = g_dummyMonitor;
+    newMonitor.monitorId = newMonitorId; // Set monitorId as a function pointer
+
+    kscm_removeMonitor(&newMonitor); // Remove without adding
+    kscm_activateMonitors();
+
+    // Verify that no crash occurred and the state remains unchanged
+    XCTAssertFalse(newMonitor.isEnabled ? newMonitor.isEnabled() : NO, @"The new monitor should not be enabled, as it was never added.");
+    XCTAssertFalse(g_dummyMonitor.isEnabled(), @"The dummy monitor should still be disabled as it's not related.");
+}
+
+- (void)testRemoveNullMonitor
+{
+    // Attempt to remove a NULL monitor
+    kscm_removeMonitor(NULL);
+    kscm_activateMonitors();
+
+    // Verify that no crash occurred and no state was altered
+    XCTAssertFalse(g_dummyMonitor.isEnabled(), @"The dummy monitor should still be disabled, as NULL removal is a no-op.");
+}
+
+- (void)testRemoveMonitorTwice
+{
+    // Add and then remove the dummy monitor
+    kscm_addMonitor(&g_dummyMonitor);
+    kscm_activateMonitors();
+    XCTAssertTrue(g_dummyMonitor.isEnabled(), @"The monitor should be enabled after adding.");
+
+    kscm_removeMonitor(&g_dummyMonitor);
+    kscm_activateMonitors();
+    XCTAssertFalse(g_dummyMonitor.isEnabled(), @"The monitor should be disabled after the first removal.");
+
+    // Try to remove the dummy monitor again
+    kscm_removeMonitor(&g_dummyMonitor);
+    kscm_activateMonitors();
+    XCTAssertFalse(g_dummyMonitor.isEnabled(), @"The monitor should remain disabled after a second removal attempt.");
+}
+
+- (void)testRemoveMonitorAndReAdd
+{
+    // Add, remove, and then re-add the dummy monitor
+    kscm_addMonitor(&g_dummyMonitor);
+    kscm_activateMonitors();
+    XCTAssertTrue(g_dummyMonitor.isEnabled(), @"The monitor should be enabled after adding.");
+
+    kscm_removeMonitor(&g_dummyMonitor);
+    kscm_activateMonitors();
+    XCTAssertFalse(g_dummyMonitor.isEnabled(), @"The monitor should be disabled after removal.");
+
+    kscm_addMonitor(&g_dummyMonitor);
+    kscm_activateMonitors();
+    XCTAssertTrue(g_dummyMonitor.isEnabled(), @"The monitor should be enabled again after re-adding.");
+}
+
+- (void)testRemoveMonitorWithNullSetEnabled
+{
+    // Test removing a monitor with a NULL setEnabled function
+    KSCrashMonitorAPI partialMonitor = g_dummyMonitor;
+    partialMonitor.setEnabled = NULL;
+
+    kscm_addMonitor(&partialMonitor);
+    kscm_activateMonitors();
+    // Check if it was added without issues
+    // There won't be a direct assertion here since we can't check enabled state
+    // but we're ensuring it didn't crash or cause issues
+
+    kscm_removeMonitor(&partialMonitor);
+    kscm_activateMonitors();
+    // Again, no assertion needed, just ensuring no crash or issue occurred
+}
+
+- (void)testRemoveMonitorWithNullIsEnabled
+{
+    // Test removing a monitor with a NULL isEnabled function
+    KSCrashMonitorAPI partialMonitor = g_dummyMonitor;
+    partialMonitor.isEnabled = NULL;
+
+    kscm_addMonitor(&partialMonitor);
+    kscm_activateMonitors();
+    // No direct assertion here for enabled state due to NULL function
+
+    kscm_removeMonitor(&partialMonitor);
+    kscm_activateMonitors();
+    // Ensuring no crash or issue occurred during removal
+}
+
+- (void)testRemoveMonitorWithNullMonitorId
+{
+    // Test removing a monitor with a NULL monitorId function
+    KSCrashMonitorAPI partialMonitor = g_dummyMonitor;
+    partialMonitor.monitorId = NULL;
+
+    kscm_addMonitor(&partialMonitor);
+    kscm_activateMonitors();
+    // No direct assertion here for name due to NULL function
+
+    kscm_removeMonitor(&partialMonitor);
+    kscm_activateMonitors();
+    // Ensuring no crash or issue occurred during removal
 }
 
 @end

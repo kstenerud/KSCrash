@@ -75,6 +75,13 @@ void kscm_disableAllMonitors(void);
 void kscm_addMonitor(KSCrashMonitorAPI* api);
 
 /**
+ * Remove a crash monitor from the system.
+ *
+ * @param api Pointer to the monitor's API.
+ */
+void kscm_removeMonitor(KSCrashMonitorAPI* api);
+
+/**
  * Sets the callback for event capture.
  *
  * @param onEvent Callback function for events.

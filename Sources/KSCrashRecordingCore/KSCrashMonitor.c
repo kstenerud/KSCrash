@@ -60,14 +60,14 @@ static bool g_requiresAsyncSafety = false;
 
 static void (*g_onExceptionEvent)(struct KSCrash_MonitorContext* monitorContext);
 
-static void initializeMonitorFuncList(MonitorList* list)
+static void initializeMonitorList(MonitorList* list)
 {
     list->count = 0;
     list->capacity = INITIAL_MONITOR_CAPACITY;
     list->apis = (KSCrashMonitorAPI**)malloc(list->capacity * sizeof(KSCrashMonitorAPI*));
 }
 
-static void addMonitorFunc(MonitorList* list, KSCrashMonitorAPI* func)
+static void addMonitor(MonitorList* list, KSCrashMonitorAPI* func)
 {
     if (list->count >= list->capacity)
     {
@@ -75,6 +75,40 @@ static void addMonitorFunc(MonitorList* list, KSCrashMonitorAPI* func)
         list->apis = (KSCrashMonitorAPI**)realloc(list->apis, list->capacity * sizeof(KSCrashMonitorAPI*));
     }
     list->apis[list->count++] = func;
+}
+
+static void removeMonitor(MonitorList* list, KSCrashMonitorAPI* api)
+{
+    if (list == NULL || api == NULL)
+    {
+        KSLOG_DEBUG("Either list or func is NULL. Removal operation aborted.");
+        return;
+    }
+
+    bool found = false;
+
+    for (size_t i = 0; i < list->count; i++)
+    {
+        if (list->apis[i] == api)
+        {
+            found = true;
+
+            kscm_setMonitorEnabled(list->apis[i], false);
+
+            // Replace the current monitor with the last monitor in the list
+            list->apis[i] = list->apis[list->count - 1];
+            list->count--;
+            list->apis[list->count] = NULL;
+
+            KSLOG_DEBUG("Monitor %s removed from the list.", getMonitorNameForLogging(func));
+            break;
+        }
+    }
+
+    if (!found)
+    {
+        KSLOG_DEBUG("Monitor %s not found in the list. No removal performed.", getMonitorNameForLogging(func));
+    }
 }
 
 static void freeMonitorFuncList(MonitorList* list)
@@ -195,7 +229,7 @@ void kscm_addMonitor(KSCrashMonitorAPI* api)
 
     if (!isInitialized)
     {
-        initializeMonitorFuncList(&g_monitors);
+        initializeMonitorList(&g_monitors);
         isInitialized = true;
     }
 
@@ -210,8 +244,19 @@ void kscm_addMonitor(KSCrashMonitorAPI* api)
         }
     }
 
-    addMonitorFunc(&g_monitors, api);
+    addMonitor(&g_monitors, api);
     KSLOG_DEBUG("Monitor %s injected.", getMonitorNameForLogging(api));
+}
+
+void kscm_removeMonitor(KSCrashMonitorAPI* api)
+{
+    if (api == NULL)
+    {
+        KSLOG_DEBUG("Attempted to remove a NULL monitor. Operation aborted.");
+        return;
+    }
+
+    removeMonitor(&g_monitors, api);
 }
 
 //KSCrashMonitorType kscm_getActiveMonitors(void)
