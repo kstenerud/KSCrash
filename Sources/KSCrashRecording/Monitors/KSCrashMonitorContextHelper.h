@@ -35,7 +35,7 @@
 extern "C" {
 #endif
 
-void inline ksmc_fillMonitorContext(KSCrash_MonitorContext* monitorContext, KSCrashMonitorAPI* monitorApi)
+static void inline ksmc_fillMonitorContext(KSCrash_MonitorContext* monitorContext, KSCrashMonitorAPI* monitorApi)
 {
     if (monitorContext) {
         monitorContext->monitorId = kscm_getMonitorId(monitorApi);
