@@ -255,37 +255,11 @@ static void addContextualInfoToEvent(struct KSCrash_MonitorContext* eventContext
     }
 }
 
-#else /* KSCRASH_HAS_SIGNAL_STACK */
-
-static const char* name(void)
-{
-    return NULL;
-}
-
-static KSCrashMonitorProperty properties(void)
-{
-    return KSCrashMonitorPropertyNone;
-}
-
-static void setEnabled(bool isEnabled)
-{
-    // Not supported
-}
-
-static bool isEnabled(void)
-{
-    return false;
-}
-
-static void addContextualInfoToEvent(struct KSCrash_MonitorContext* eventContext)
-{
-    // Not supported
-}
-
-#endif /* KSCRASH_HAS_SIGNAL_STACK */
+#endif /* KSCRASH_HAS_SIGNAL */
 
 KSCrashMonitorAPI* kscm_signal_getAPI(void)
 {
+#if KSCRASH_HAS_SIGNAL
     static KSCrashMonitorAPI api =
     {
         .monitorId = monitorId,
@@ -295,4 +269,7 @@ KSCrashMonitorAPI* kscm_signal_getAPI(void)
         .addContextualInfoToEvent = addContextualInfoToEvent
     };
     return &api;
+#else
+    return NULL;
+#endif
 }

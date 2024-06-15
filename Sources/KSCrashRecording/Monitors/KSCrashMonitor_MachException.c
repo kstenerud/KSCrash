@@ -612,15 +612,18 @@ static void addContextualInfoToEvent(struct KSCrash_MonitorContext* eventContext
 
 KSCrashMonitorAPI* kscm_machexception_getAPI(void)
 {
+#if KSCRASH_HAS_MACH
     static KSCrashMonitorAPI api =
     {
-#if KSCRASH_HAS_MACH
+
         .monitorId = monitorId,
         .monitorFlags = monitorFlags,
         .setEnabled = setEnabled,
         .isEnabled = isEnabled,
         .addContextualInfoToEvent = addContextualInfoToEvent
-#endif
     };
     return &api;
+#else
+    return NULL;
+#endif
 }

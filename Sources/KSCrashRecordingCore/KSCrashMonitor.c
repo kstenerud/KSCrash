@@ -30,6 +30,7 @@
 #include "KSCrashMonitorContext.h"
 
 #include "KSDebug.h"
+#include "KSString.h"
 #include "KSThread.h"
 #include "KSSystemCapabilities.h"
 
@@ -236,8 +237,8 @@ void kscm_addMonitor(KSCrashMonitorAPI* api)
     // Check for duplicate monitors
     for (size_t i = 0; i < g_monitors.count; i++)
     {
-        if (strcmp(kscm_getMonitorId(g_monitors.apis[i]),
-                   kscm_getMonitorId(api)) == 0)
+        if (ksstring_safeStrcmp(kscm_getMonitorId(g_monitors.apis[i]),
+                                kscm_getMonitorId(api)) == 0)
         {
             KSLOG_DEBUG("Monitor %s already exists. Skipping addition.", getMonitorNameForLogging(api));
             return;
