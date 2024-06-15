@@ -23,6 +23,8 @@
 //
 
 #include "KSCrashMonitor_CPPException.h"
+
+#include "KSCrashMonitorContextHelper.h"
 #include "KSCrashMonitorContext.h"
 #include "KSID.h"
 #include "KSThread.h"
@@ -176,8 +178,7 @@ catch(TYPE value)\
         ksmc_getContextForThread(ksthread_self(), machineContext, true);
 
         KSLOG_DEBUG("Filling out context.");
-        crashContext->monitorId = g_monitorName;
-        crashContext->monitorFlags = g_monitorProperties;
+        ksmc_fillMonitorContext(crashContext, kscm_cppexception_getAPI());
         crashContext->eventID = g_eventID;
         crashContext->registersAreValid = false;
         crashContext->stackCursor = &g_stackCursor;

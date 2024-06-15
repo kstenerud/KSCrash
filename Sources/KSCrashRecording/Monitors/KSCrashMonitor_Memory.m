@@ -26,6 +26,7 @@
 #import "KSCrashMonitor_Memory.h"
 
 #import "KSSystemCapabilities.h"
+#import "KSCrashMonitorContextHelper.h"
 #import "KSCrash.h"
 #import "KSCrashC.h"
 #import "KSCrashMonitorContext.h"
@@ -526,7 +527,7 @@ static void ksmemory_write_possible_oom(void)
     
     KSCrash_MonitorContext context;
     memset(&context, 0, sizeof(context));
-    context.monitorId = monitorId();
+    ksmc_fillMonitorContext(&context, kscm_memory_getAPI());
     context.eventID = eventID;
     context.registersAreValid = false;
     context.offendingMachineContext = machineContext;

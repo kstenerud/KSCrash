@@ -23,6 +23,7 @@
 //
 
 #include "KSCrashMonitor_User.h"
+#include "KSCrashMonitorContextHelper.h"
 #include "KSCrashMonitorContext.h"
 #include "KSID.h"
 #include "KSThread.h"
@@ -77,7 +78,7 @@ void kscm_reportUserException(const char* name,
         KSLOG_DEBUG("Filling out context.");
         KSCrash_MonitorContext context;
         memset(&context, 0, sizeof(context));
-        context.monitorId = monitorId();
+        ksmc_fillMonitorContext(&context, kscm_user_getAPI());
         context.eventID = eventID;
         context.offendingMachineContext = machineContext;
         context.registersAreValid = false;

@@ -100,7 +100,7 @@ void kscm_resetState(void)
 __attribute__((unused)) // Suppress unused function warnings, especially in release builds.
 static inline const char* getMonitorNameForLogging(KSCrashMonitorAPI* api)
 {
-    return kscm_getMonitorName(api) ?: "Unknown";
+    return kscm_getMonitorId(api) ?: "Unknown";
 }
 
 // ============================================================================

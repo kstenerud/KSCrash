@@ -50,7 +50,7 @@ static inline bool kscm_isMonitorEnabled(const KSCrashMonitorAPI* api)
     return false;
 }
 
-static inline const char* kscm_getMonitorName(const KSCrashMonitorAPI* api)
+static inline const char* kscm_getMonitorId(const KSCrashMonitorAPI* api)
 {
     if (api != NULL && api->monitorId != NULL)
     {

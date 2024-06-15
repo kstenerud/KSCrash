@@ -25,7 +25,9 @@
 //
 
 #import "KSCrashMonitor_Deadlock.h"
+
 #import "KSCrashMonitorContext.h"
+#import "KSCrashMonitorContextHelper.h"
 #import "KSID.h"
 #import "KSThread.h"
 #import "KSStackCursor_MachineContext.h"
@@ -124,8 +126,7 @@ static KSCrashMonitorProperty properties(void);
     KSLOG_DEBUG(@"Filling out context.");
     KSCrash_MonitorContext* crashContext = &g_monitorContext;
     memset(crashContext, 0, sizeof(*crashContext));
-    crashContext->monitorId = monitorId();
-    crashContext->monitorFlags = properties();
+    ksmc_fillMonitorContext(crashContext, kscm_deadlock_getAPI());
     crashContext->eventID = eventID;
     crashContext->registersAreValid = false;
     crashContext->offendingMachineContext = machineContext;

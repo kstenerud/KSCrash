@@ -26,6 +26,7 @@
 
 #include "KSCrashMonitor_MachException.h"
 #include "KSCrashMonitorHelper.h"
+#include "KSCrashMonitorContextHelper.h"
 #include "KSCrashMonitor_Signal.h"
 #include "KSCrashMonitorContext.h"
 #include "KSCPU.h"
@@ -358,8 +359,7 @@ static void* handleExceptions(void* const userData)
         }
 
         KSLOG_DEBUG("Filling out context.");
-        crashContext->monitorId = monitorId();
-        crashContext->monitorFlags = properties();
+        ksmc_fillMonitorContext(crashContext, kscm_machexception_getAPI());
         crashContext->eventID = eventID;
         crashContext->registersAreValid = true;
         crashContext->mach.type = exceptionMessage.exception;
@@ -599,7 +599,7 @@ static bool isEnabled(void)
 
 static void addContextualInfoToEvent(struct KSCrash_MonitorContext* eventContext)
 {
-    const char* signalName = kscm_getMonitorName(kscm_signal_getAPI());
+    const char* signalName = kscm_getMonitorId(kscm_signal_getAPI());
 
     if(signalName && strcmp(eventContext->monitorId, signalName) == 0)
     {

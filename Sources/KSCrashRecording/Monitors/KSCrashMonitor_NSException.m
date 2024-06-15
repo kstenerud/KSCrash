@@ -24,8 +24,10 @@
 // THE SOFTWARE.
 //
 
-#import "KSCrash.h"
 #import "KSCrashMonitor_NSException.h"
+
+#import "KSCrash.h"
+#import "KSCrashMonitorContextHelper.h"
 #import "KSStackCursor_Backtrace.h"
 #include "KSCrashMonitorContext.h"
 #include "KSID.h"
@@ -87,8 +89,7 @@ static void handleException(NSException* exception, BOOL currentSnapshotUserRepo
 
         KSCrash_MonitorContext* crashContext = &g_monitorContext;
         memset(crashContext, 0, sizeof(*crashContext));
-        crashContext->monitorId = monitorId();
-        crashContext->monitorFlags = properties();
+        ksmc_fillMonitorContext(crashContext, kscm_nsexception_getAPI());
         crashContext->eventID = eventID;
         crashContext->offendingMachineContext = machineContext;
         crashContext->registersAreValid = false;
