@@ -33,7 +33,7 @@
 extern "C" {
 #endif
 
-static inline void kscm_setMonitorEnabled(KSCrashMonitorAPI* api, bool isEnabled)
+static inline void kscm_setMonitorEnabled(const KSCrashMonitorAPI* api, bool isEnabled)
 {
     if (api != NULL && api->setEnabled != NULL)
     {
@@ -41,7 +41,7 @@ static inline void kscm_setMonitorEnabled(KSCrashMonitorAPI* api, bool isEnabled
     }
 }
 
-static inline bool kscm_isMonitorEnabled(KSCrashMonitorAPI* api)
+static inline bool kscm_isMonitorEnabled(const KSCrashMonitorAPI* api)
 {
     if (api != NULL && api->isEnabled != NULL)
     {
@@ -50,7 +50,7 @@ static inline bool kscm_isMonitorEnabled(KSCrashMonitorAPI* api)
     return false;
 }
 
-static inline const char* kscm_getMonitorName(KSCrashMonitorAPI* api)
+static inline const char* kscm_getMonitorName(const KSCrashMonitorAPI* api)
 {
     if (api != NULL && api->name != NULL)
     {
@@ -59,7 +59,7 @@ static inline const char* kscm_getMonitorName(KSCrashMonitorAPI* api)
     return NULL;
 }
 
-static inline KSCrashMonitorProperty kscm_getMonitorProperties(KSCrashMonitorAPI* api)
+static inline KSCrashMonitorProperty kscm_getMonitorProperties(const KSCrashMonitorAPI* api)
 {
     if (api != NULL && api->properties != NULL)
     {
@@ -68,7 +68,7 @@ static inline KSCrashMonitorProperty kscm_getMonitorProperties(KSCrashMonitorAPI
     return KSCrashMonitorPropertyNone;
 }
 
-static inline void kscm_addContextualInfoToEvent(KSCrashMonitorAPI* api, struct KSCrash_MonitorContext* eventContext)
+static inline void kscm_addContextualInfoToEvent(const KSCrashMonitorAPI* api, struct KSCrash_MonitorContext* eventContext)
 {
     if (api != NULL && api->addContextualInfoToEvent != NULL)
     {
@@ -76,7 +76,7 @@ static inline void kscm_addContextualInfoToEvent(KSCrashMonitorAPI* api, struct 
     }
 }
 
-static inline void kscm_notifyPostSystemEnable(KSCrashMonitorAPI* api)
+static inline void kscm_notifyPostSystemEnable(const KSCrashMonitorAPI* api)
 {
     if (api != NULL && api->notifyPostSystemEnable != NULL)
     {

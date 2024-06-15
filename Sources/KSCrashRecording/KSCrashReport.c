@@ -1364,6 +1364,11 @@ static void writeMemoryInfo(const KSCrashReportWriter* const writer,
     writer->endContainer(writer);
 }
 
+static bool isCrashOfMonitorType(const KSCrash_MonitorContext* const crash, const KSCrashMonitorAPI* monitorAPI)
+{
+    return safeStrcmp(crash->monitorName, kscm_getMonitorName(monitorAPI));
+}
+
 /** Write information about the error leading to the crash to the report.
  *
  * @param writer The writer.
@@ -1420,36 +1425,7 @@ static void writeError(const KSCrashReportWriter* const writer,
             writer->addStringElement(writer, KSCrashField_Reason, crash->crashReason);
         }
 
-        // Gather specific info.
-        const char* machExceptionName = kscm_getMonitorName(kscm_machexception_getAPI());
-        const char* signalName = kscm_getMonitorName(kscm_signal_getAPI());
-        const char* cppExceptionName = kscm_getMonitorName(kscm_cppexception_getAPI());
-        const char* nsExceptionName = kscm_getMonitorName(kscm_nsexception_getAPI());
-        const char* deadlockName = kscm_getMonitorName(kscm_deadlock_getAPI());
-        const char* userReportName = kscm_getMonitorName(kscm_user_getAPI());
-        const char* memoryTerminationName = kscm_getMonitorName(kscm_memory_getAPI());
-        const char* systemName = kscm_getMonitorName(kscm_system_getAPI());
-        const char* appStateName = kscm_getMonitorName(kscm_appstate_getAPI());
-        const char* zombieName = kscm_getMonitorName(kscm_zombie_getAPI());
-
-        if (safeStrcmp(crash->monitorName, deadlockName))
-        {
-            writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_Deadlock);
-        }
-        else if (safeStrcmp(crash->monitorName, machExceptionName))
-        {
-            writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_Mach);
-        }
-        else if (safeStrcmp(crash->monitorName, cppExceptionName))
-        {
-            writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_CPPException);
-            writer->beginObject(writer, KSCrashField_CPPException);
-            {
-                writer->addStringElement(writer, KSCrashField_Name, crash->CPPException.name);
-            }
-            writer->endContainer(writer);
-        }
-        else if (safeStrcmp(crash->monitorName, nsExceptionName))
+        if (isCrashOfMonitorType(crash, kscm_nsexception_getAPI()))
         {
             writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_NSException);
             writer->beginObject(writer, KSCrashField_NSException);
@@ -1460,11 +1436,28 @@ static void writeError(const KSCrashReportWriter* const writer,
             }
             writer->endContainer(writer);
         }
-        else if (safeStrcmp(crash->monitorName, signalName))
+        else if (isCrashOfMonitorType(crash, kscm_machexception_getAPI()))
+        {
+            writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_Mach);
+        }
+        else if (isCrashOfMonitorType(crash, kscm_signal_getAPI()))
         {
             writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_Signal);
         }
-        else if (safeStrcmp(crash->monitorName, memoryTerminationName))
+        else if (isCrashOfMonitorType(crash, kscm_cppexception_getAPI()))
+        {
+            writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_CPPException);
+            writer->beginObject(writer, KSCrashField_CPPException);
+            {
+                writer->addStringElement(writer, KSCrashField_Name, crash->CPPException.name);
+            }
+            writer->endContainer(writer);
+        }
+        else if (isCrashOfMonitorType(crash, kscm_deadlock_getAPI()))
+        {
+            writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_Deadlock);
+        }
+        else if (isCrashOfMonitorType(crash, kscm_memory_getAPI()))
         {
             writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_MemoryTermination);
             writer->beginObject(writer, KSCrashField_MemoryTermination);
@@ -1474,7 +1467,7 @@ static void writeError(const KSCrashReportWriter* const writer,
             }
             writer->endContainer(writer);
         }
-        else if (safeStrcmp(crash->monitorName, userReportName))
+        else if (isCrashOfMonitorType(crash, kscm_user_getAPI()))
         {
             writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_User);
             writer->beginObject(writer, KSCrashField_UserReported);
@@ -1495,9 +1488,9 @@ static void writeError(const KSCrashReportWriter* const writer,
             }
             writer->endContainer(writer);
         }
-        else if (safeStrcmp(crash->monitorName, systemName) ||
-                 safeStrcmp(crash->monitorName, appStateName) ||
-                 safeStrcmp(crash->monitorName, zombieName))
+        else if (isCrashOfMonitorType(crash, kscm_system_getAPI()) ||
+                 isCrashOfMonitorType(crash, kscm_appstate_getAPI()) ||
+                 isCrashOfMonitorType(crash, kscm_zombie_getAPI()))
         {
             KSLOG_ERROR("Crash monitor type %s shouldn't be able to cause events!", crash->monitorName);
         }
@@ -1505,7 +1498,6 @@ static void writeError(const KSCrashReportWriter* const writer,
         {
             KSLOG_ERROR("Unknown crash monitor type: %s", crash->monitorName);
         }
-
     }
     writer->endContainer(writer);
 }
