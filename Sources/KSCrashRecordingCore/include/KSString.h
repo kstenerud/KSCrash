@@ -56,6 +56,16 @@ bool ksstring_isNullTerminatedUTF8String(const void* memory, int minLength, int 
  */
 bool ksstring_extractHexValue(const char* string, int stringLength, uint64_t* result);
 
+/** Safely compares two strings for equality.
+ *
+ * Compares `str1` and `str2` using `strcmp` only if both are non-NULL.
+ *
+ * @param str1 The first string, can be NULL.
+ * @param str2 The second string, can be NULL.
+ *
+ * @return `true` if both strings are non-NULL and identical, otherwise `false`.
+ */
+bool ksstring_safeStrcmp(const char* str1, const char* str2);
 
 #ifdef __cplusplus
 }

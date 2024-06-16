@@ -27,6 +27,7 @@
 
 #include "KSCrashReport.h"
 
+#include "KSString.h"
 #include "KSCrashReportFields.h"
 #include "KSCrashReportWriter.h"
 #include "KSDynamicLinker.h"
@@ -38,6 +39,17 @@
 #include "KSThread.h"
 #include "KSObjC.h"
 #include "KSSignalInfo.h"
+#include "KSCrashMonitorHelper.h"
+#include "KSCrashMonitor_MachException.h"
+#include "KSCrashMonitor_Signal.h"
+#include "KSCrashMonitor_CPPException.h"
+#include "KSCrashMonitor_NSException.h"
+#include "KSCrashMonitor_Deadlock.h"
+#include "KSCrashMonitor_User.h"
+#include "KSCrashMonitor_Memory.h"
+#include "KSCrashMonitor_Deadlock.h"
+#include "KSCrashMonitor_System.h"
+#include "KSCrashMonitor_AppState.h"
 #include "KSCrashMonitor_Zombie.h"
 #include "KSString.h"
 #include "KSCrashReportVersion.h"
@@ -650,7 +662,7 @@ static bool isRestrictedClass(const char* name)
     {
         for(int i = 0; i < g_introspectionRules.restrictedClassesCount; i++)
         {
-            if(strcmp(name, g_introspectionRules.restrictedClasses[i]) == 0)
+            if(ksstring_safeStrcmp(name, g_introspectionRules.restrictedClasses[i]))
             {
                 return true;
             }
@@ -1348,6 +1360,11 @@ static void writeMemoryInfo(const KSCrashReportWriter* const writer,
     writer->endContainer(writer);
 }
 
+static inline bool isCrashOfMonitorType(const KSCrash_MonitorContext* const crash, const KSCrashMonitorAPI* monitorAPI)
+{
+    return ksstring_safeStrcmp(crash->monitorId, kscm_getMonitorId(monitorAPI));
+}
+
 /** Write information about the error leading to the crash to the report.
  *
  * @param writer The writer.
@@ -1404,82 +1421,78 @@ static void writeError(const KSCrashReportWriter* const writer,
             writer->addStringElement(writer, KSCrashField_Reason, crash->crashReason);
         }
 
-        // Gather specific info.
-        switch(crash->crashType)
+        if (isCrashOfMonitorType(crash, kscm_nsexception_getAPI()))
         {
-            case KSCrashMonitorTypeMainThreadDeadlock:
-                writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_Deadlock);
-                break;
-                
-            case KSCrashMonitorTypeMachException:
-                writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_Mach);
-                break;
-
-            case KSCrashMonitorTypeCPPException:
+            writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_NSException);
+            writer->beginObject(writer, KSCrashField_NSException);
             {
-                writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_CPPException);
-                writer->beginObject(writer, KSCrashField_CPPException);
-                {
-                    writer->addStringElement(writer, KSCrashField_Name, crash->CPPException.name);
-                }
-                writer->endContainer(writer);
-                break;
+                writer->addStringElement(writer, KSCrashField_Name, crash->NSException.name);
+                writer->addStringElement(writer, KSCrashField_UserInfo, crash->NSException.userInfo);
+                writeAddressReferencedByString(writer, KSCrashField_ReferencedObject, crash->crashReason);
             }
-            case KSCrashMonitorTypeNSException:
+            writer->endContainer(writer);
+        }
+        else if (isCrashOfMonitorType(crash, kscm_machexception_getAPI()))
+        {
+            writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_Mach);
+        }
+        else if (isCrashOfMonitorType(crash, kscm_signal_getAPI()))
+        {
+            writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_Signal);
+        }
+        else if (isCrashOfMonitorType(crash, kscm_cppexception_getAPI()))
+        {
+            writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_CPPException);
+            writer->beginObject(writer, KSCrashField_CPPException);
             {
-                writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_NSException);
-                writer->beginObject(writer, KSCrashField_NSException);
-                {
-                    writer->addStringElement(writer, KSCrashField_Name, crash->NSException.name);
-                    writer->addStringElement(writer, KSCrashField_UserInfo, crash->NSException.userInfo);
-                    writeAddressReferencedByString(writer, KSCrashField_ReferencedObject, crash->crashReason);
-                }
-                writer->endContainer(writer);
-                break;
+                writer->addStringElement(writer, KSCrashField_Name, crash->CPPException.name);
             }
-            case KSCrashMonitorTypeSignal:
-                writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_Signal);
-                break;
-
-            case KSCrashMonitorTypeMemoryTermination:
+            writer->endContainer(writer);
+        }
+        else if (isCrashOfMonitorType(crash, kscm_deadlock_getAPI()))
+        {
+            writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_Deadlock);
+        }
+        else if (isCrashOfMonitorType(crash, kscm_memory_getAPI()))
+        {
+            writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_MemoryTermination);
+            writer->beginObject(writer, KSCrashField_MemoryTermination);
             {
-                writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_MemoryTermination);
-                writer->beginObject(writer, KSCrashField_MemoryTermination);
-                {
-                    writer->addStringElement(writer, KSCrashField_MemoryPressure, crash->AppMemory.pressure);
-                    writer->addStringElement(writer, KSCrashField_MemoryLevel, crash->AppMemory.level);
-                }
-                writer->endContainer(writer);
+                writer->addStringElement(writer, KSCrashField_MemoryPressure, crash->AppMemory.pressure);
+                writer->addStringElement(writer, KSCrashField_MemoryLevel, crash->AppMemory.level);
             }
-                break;
-                
-            case KSCrashMonitorTypeUserReported:
+            writer->endContainer(writer);
+        }
+        else if (isCrashOfMonitorType(crash, kscm_user_getAPI()))
+        {
+            writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_User);
+            writer->beginObject(writer, KSCrashField_UserReported);
             {
-                writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_User);
-                writer->beginObject(writer, KSCrashField_UserReported);
+                writer->addStringElement(writer, KSCrashField_Name, crash->userException.name);
+                if (crash->userException.language != NULL)
                 {
-                    writer->addStringElement(writer, KSCrashField_Name, crash->userException.name);
-                    if(crash->userException.language != NULL)
-                    {
-                        writer->addStringElement(writer, KSCrashField_Language, crash->userException.language);
-                    }
-                    if(crash->userException.lineOfCode != NULL)
-                    {
-                        writer->addStringElement(writer, KSCrashField_LineOfCode, crash->userException.lineOfCode);
-                    }
-                    if(crash->userException.customStackTrace != NULL)
-                    {
-                        writer->addJSONElement(writer, KSCrashField_Backtrace, crash->userException.customStackTrace, true);
-                    }
+                    writer->addStringElement(writer, KSCrashField_Language, crash->userException.language);
                 }
-                writer->endContainer(writer);
-                break;
+                if (crash->userException.lineOfCode != NULL)
+                {
+                    writer->addStringElement(writer, KSCrashField_LineOfCode, crash->userException.lineOfCode);
+                }
+                if (crash->userException.customStackTrace != NULL)
+                {
+                    writer->addJSONElement(writer, KSCrashField_Backtrace, crash->userException.customStackTrace, true);
+                }
             }
-            case KSCrashMonitorTypeSystem:
-            case KSCrashMonitorTypeApplicationState:
-            case KSCrashMonitorTypeZombie:
-                KSLOG_ERROR("Crash monitor type 0x%x shouldn't be able to cause events!", crash->crashType);
-                break;
+            writer->endContainer(writer);
+        }
+        else if (isCrashOfMonitorType(crash, kscm_system_getAPI()) ||
+                 isCrashOfMonitorType(crash, kscm_appstate_getAPI()) ||
+                 isCrashOfMonitorType(crash, kscm_zombie_getAPI()))
+        {
+            KSLOG_ERROR("Crash monitor type %s shouldn't be able to cause events!", crash->monitorId);
+        }
+        else
+        {
+            KSLOG_WARN("Unknown crash monitor type: %s", crash->monitorId);
         }
     }
     writer->endContainer(writer);

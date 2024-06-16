@@ -22,9 +22,12 @@
 // THE SOFTWARE.
 //
 
-
 #ifndef HDR_KSCrashMonitorType_h
 #define HDR_KSCrashMonitorType_h
+
+#ifdef __OBJC__
+#include <Foundation/Foundation.h>
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -39,112 +42,107 @@ extern "C" {
  * - Deadlock on the main thread
  * - User reported custom exception
  */
-typedef enum
+typedef
+#ifdef __OBJC__
+NS_OPTIONS(NSUInteger, KSCrashMonitorType)
+#else /* __OBJC__ */
+enum
+#endif /* __OBJC__ */
 {
-    /* Captures and reports Mach exceptions. */
-    KSCrashMonitorTypeMachException      = 0x01,
-    
-    /* Captures and reports POSIX signals. */
-    KSCrashMonitorTypeSignal             = 0x02,
-    
-    /* Captures and reports C++ exceptions.
-     * Note: This will slightly slow down exception processing.
-     */
-    KSCrashMonitorTypeCPPException       = 0x04,
-    
-    /* Captures and reports NSExceptions. */
-    KSCrashMonitorTypeNSException        = 0x08,
-    
-    /* Detects and reports a deadlock in the main thread. */
-    KSCrashMonitorTypeMainThreadDeadlock = 0x10,
-    
-    /* Accepts and reports user-generated exceptions. */
-    KSCrashMonitorTypeUserReported       = 0x20,
-    
-    /* Keeps track of and injects system information. */
-    KSCrashMonitorTypeSystem             = 0x40,
-    
-    /* Keeps track of and injects application state. */
-    KSCrashMonitorTypeApplicationState   = 0x80,
-    
-    /* Keeps track of zombies, and injects the last zombie NSException. */
-    KSCrashMonitorTypeZombie             = 0x100,
-    
-    /* Keeps track of memory to use heuristics to solve OOMs at startup. */
-    KSCrashMonitorTypeMemoryTermination  = 0x200
-} KSCrashMonitorType;
+    /** No monitoring. */
+    KSCrashMonitorTypeNone               = 0,
 
-#define KSCrashMonitorTypeAll              \
-(                                          \
-    KSCrashMonitorTypeMachException      | \
-    KSCrashMonitorTypeSignal             | \
-    KSCrashMonitorTypeCPPException       | \
-    KSCrashMonitorTypeNSException        | \
-    KSCrashMonitorTypeMainThreadDeadlock | \
-    KSCrashMonitorTypeUserReported       | \
-    KSCrashMonitorTypeSystem             | \
-    KSCrashMonitorTypeApplicationState   | \
-    KSCrashMonitorTypeZombie             | \
-    KSCrashMonitorTypeMemoryTermination    \
-)
+    /** Monitor Mach kernel exceptions. */
+    KSCrashMonitorTypeMachException      = 1 << 0,
 
-#define KSCrashMonitorTypeFatal            \
-(                                          \
-    KSCrashMonitorTypeMachException      | \
-    KSCrashMonitorTypeSignal             | \
-    KSCrashMonitorTypeCPPException       | \
-    KSCrashMonitorTypeNSException        | \
-    KSCrashMonitorTypeMainThreadDeadlock   \
-)
+    /** Monitor fatal signals. */
+    KSCrashMonitorTypeSignal             = 1 << 1,
 
-#define KSCrashMonitorTypeExperimental     \
-(                                          \
-    KSCrashMonitorTypeMainThreadDeadlock   \
-)
+    /** Monitor uncaught C++ exceptions. */
+    KSCrashMonitorTypeCPPException       = 1 << 2,
 
-#define KSCrashMonitorTypeDebuggerUnsafe   \
-(                                          \
-    KSCrashMonitorTypeMachException        \
-)
+    /** Monitor uncaught Objective-C NSExceptions. */
+    KSCrashMonitorTypeNSException        = 1 << 3,
 
-#define KSCrashMonitorTypeAsyncSafe        \
-(                                          \
-    KSCrashMonitorTypeMachException      | \
-    KSCrashMonitorTypeSignal               \
-)
+    /** Detect deadlocks on the main thread. */
+    KSCrashMonitorTypeMainThreadDeadlock = 1 << 4,
 
-#define KSCrashMonitorTypeOptional         \
-(                                          \
-    KSCrashMonitorTypeZombie               \
-)
-    
-#define KSCrashMonitorTypeAsyncUnsafe (KSCrashMonitorTypeAll & (~KSCrashMonitorTypeAsyncSafe))
+    /** Monitor user-reported custom exceptions. */
+    KSCrashMonitorTypeUserReported       = 1 << 5,
 
-/** Monitors that are safe to enable in a debugger. */
-#define KSCrashMonitorTypeDebuggerSafe (KSCrashMonitorTypeAll & (~KSCrashMonitorTypeDebuggerUnsafe))
+    /** Track and inject system information. */
+    KSCrashMonitorTypeSystem             = 1 << 6,
 
-/** Monitors that are safe to use in a production environment.
- * All other monitors should be considered experimental.
- */
-#define KSCrashMonitorTypeProductionSafe (KSCrashMonitorTypeAll & (~KSCrashMonitorTypeExperimental))
+    /** Track and inject application state information. */
+    KSCrashMonitorTypeApplicationState   = 1 << 7,
 
-/** Production safe monitors, minus the optional ones. */
-#define KSCrashMonitorTypeProductionSafeMinimal (KSCrashMonitorTypeProductionSafe & (~KSCrashMonitorTypeOptional))
+    /** Track memory issues and last zombie NSException. */
+    KSCrashMonitorTypeZombie             = 1 << 8,
 
-/** Monitors that are required for proper operation.
- * These add essential information to the reports, but do not trigger reporting.
- */
-#define KSCrashMonitorTypeRequired (KSCrashMonitorTypeSystem | KSCrashMonitorTypeApplicationState | KSCrashMonitorTypeMemoryTermination)
+    /** Monitor memory to detect OOMs at startup. */
+    KSCrashMonitorTypeMemoryTermination  = 1 << 9,
 
-/** Effectively disables automatica reporting. The only way to generate a report
- * in this mode is by manually calling kscrash_reportUserException().
- */
-#define KSCrashMonitorTypeManual (KSCrashMonitorTypeRequired | KSCrashMonitorTypeUserReported)
+    /** Enable all monitoring options. */
+    KSCrashMonitorTypeAll = (
+                             KSCrashMonitorTypeMachException |
+                             KSCrashMonitorTypeSignal |
+                             KSCrashMonitorTypeCPPException |
+                             KSCrashMonitorTypeNSException |
+                             KSCrashMonitorTypeMainThreadDeadlock |
+                             KSCrashMonitorTypeUserReported |
+                             KSCrashMonitorTypeSystem |
+                             KSCrashMonitorTypeApplicationState |
+                             KSCrashMonitorTypeZombie |
+                             KSCrashMonitorTypeMemoryTermination
+                             ),
 
-#define KSCrashMonitorTypeNone 0
+    /** Fatal monitors track exceptions that lead to error termination of the process.. */
+    KSCrashMonitorTypeFatal = (
+                               KSCrashMonitorTypeMachException |
+                               KSCrashMonitorTypeSignal |
+                               KSCrashMonitorTypeCPPException |
+                               KSCrashMonitorTypeNSException |
+                               KSCrashMonitorTypeMainThreadDeadlock
+                               ),
 
-const char* kscrashmonitortype_name(KSCrashMonitorType monitorType);
+    /** Enable experimental monitoring options. */
+    KSCrashMonitorTypeExperimental = KSCrashMonitorTypeMainThreadDeadlock,
 
+    /** Monitor options unsafe for use with a debugger. */
+    KSCrashMonitorTypeDebuggerUnsafe = KSCrashMonitorTypeMachException,
+
+    /** Monitor options that are async-safe. */
+    KSCrashMonitorTypeAsyncSafe = (KSCrashMonitorTypeMachException | KSCrashMonitorTypeSignal),
+
+    /** Optional monitor options. */
+    KSCrashMonitorTypeOptional = KSCrashMonitorTypeZombie,
+
+    /** Monitor options that are async-unsafe. */
+    KSCrashMonitorTypeAsyncUnsafe = (KSCrashMonitorTypeAll & (~KSCrashMonitorTypeAsyncSafe)),
+
+    /** Monitor options safe to enable in a debugger. */
+    KSCrashMonitorTypeDebuggerSafe = (KSCrashMonitorTypeAll & (~KSCrashMonitorTypeDebuggerUnsafe)),
+
+    /** Monitor options safe for production environments. */
+    KSCrashMonitorTypeProductionSafe = (KSCrashMonitorTypeAll & (~KSCrashMonitorTypeExperimental)),
+
+    /** Minimal set of production-safe monitor options. */
+    KSCrashMonitorTypeProductionSafeMinimal = (KSCrashMonitorTypeProductionSafe & (~KSCrashMonitorTypeOptional)),
+
+    /** Required monitor options for essential operation. */
+    KSCrashMonitorTypeRequired = (
+                                  KSCrashMonitorTypeSystem |
+                                  KSCrashMonitorTypeApplicationState |
+                                  KSCrashMonitorTypeMemoryTermination
+                                  ),
+
+    /** Disable automatic reporting; only manual reports are allowed. */
+    KSCrashMonitorTypeManual = (KSCrashMonitorTypeRequired | KSCrashMonitorTypeUserReported)
+}
+#ifndef __OBJC__
+KSCrashMonitorType
+#endif
+;
 
 #ifdef __cplusplus
 }

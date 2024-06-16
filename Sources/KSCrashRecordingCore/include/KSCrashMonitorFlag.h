@@ -1,5 +1,7 @@
 //
-//  KSCrashMonitorType.c
+//  KSCrashMonitorProperty.h
+//
+//  Created by Gleb Linnik on 29.05.2024.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -22,41 +24,32 @@
 // THE SOFTWARE.
 //
 
+#ifndef KSCrashMonitorProperty_h
+#define KSCrashMonitorProperty_h
 
-#include "KSCrashMonitorType.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-#include <stdlib.h>
-
-
-static const struct
+typedef enum
 {
-    const KSCrashMonitorType type;
-    const char* const name;
-} g_monitorTypes[] =
-{
-#define MONITORTYPE(NAME) {NAME, #NAME}
-    MONITORTYPE(KSCrashMonitorTypeMachException),
-    MONITORTYPE(KSCrashMonitorTypeSignal),
-    MONITORTYPE(KSCrashMonitorTypeCPPException),
-    MONITORTYPE(KSCrashMonitorTypeNSException),
-    MONITORTYPE(KSCrashMonitorTypeMainThreadDeadlock),
-    MONITORTYPE(KSCrashMonitorTypeUserReported),
-    MONITORTYPE(KSCrashMonitorTypeSystem),
-    MONITORTYPE(KSCrashMonitorTypeApplicationState),
-    MONITORTYPE(KSCrashMonitorTypeZombie),
-    MONITORTYPE(KSCrashMonitorTypeMemoryTermination),
-};
-static const int g_monitorTypesCount = sizeof(g_monitorTypes) / sizeof(*g_monitorTypes);
+    /** Indicates that no flags are set. */
+    KSCrashMonitorFlagNone = 0,
 
+    /** Indicates that the program cannot continue execution if a monitor with this flag is triggered. */
+    KSCrashMonitorFlagFatal = 1 << 0,
 
-const char* kscrashmonitortype_name(const KSCrashMonitorType monitorType)
-{
-    for(int i = 0; i < g_monitorTypesCount; i++)
-    {
-        if(g_monitorTypes[i].type == monitorType)
-        {
-            return g_monitorTypes[i].name;
-        }
-    }
-    return NULL;
+    /** Indicates that the monitor with this flag will not be enabled if a debugger is attached. */
+    KSCrashMonitorFlagDebuggerUnsafe = 1 << 1,
+
+    /** Indicates that the monitor is safe to be used in an asynchronous environment.
+     * Monitors without this flag are considered unsafe for asynchronous operations by default. */
+    KSCrashMonitorFlagAsyncSafe = 1 << 2,
+
+} KSCrashMonitorFlag;
+
+#ifdef __cplusplus
 }
+#endif
+
+#endif /* KSCrashMonitorProperty_h */

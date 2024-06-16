@@ -1,7 +1,7 @@
 //
-//  KSCrashMonitor_Signal_Tests.m
-//
-//  Created by Karl Stenerud on 2013-01-26.
+//  KSCrashMonitor_BootTime.h
+//  
+//  Created by Gleb Linnik on 04.06.2024.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -25,52 +25,21 @@
 //
 
 
-#import <XCTest/XCTest.h>
+#ifndef KSCrashMonitor_BootTime_h
+#define KSCrashMonitor_BootTime_h
 
-#import "KSSystemCapabilities.h"
-#import "KSCrashMonitorContext.h"
-#import "KSCrashMonitor_Signal.h"
+#include "KSCrashMonitor.h"
 
-@interface KSCrashMonitor_Signal_Tests : XCTestCase @end
-
-
-@implementation KSCrashMonitor_Signal_Tests
-
-#if KSCRASH_HAS_SIGNAL
-
-- (void) testInstallAndRemove
-{
-    KSCrashMonitorAPI* api = kscm_signal_getAPI();
-    api->setEnabled(true);
-    XCTAssertTrue(api->isEnabled());
-    [NSThread sleepForTimeInterval:0.1];
-    api->setEnabled(false);
-    XCTAssertFalse(api->isEnabled());
-}
-
-- (void) testDoubleInstallAndRemove
-{
-    KSCrashMonitorAPI* api = kscm_signal_getAPI();
-    
-    api->setEnabled(true);
-    XCTAssertTrue(api->isEnabled());
-    api->setEnabled(true);
-    XCTAssertTrue(api->isEnabled());
-    
-    api->setEnabled(false);
-    XCTAssertFalse(api->isEnabled());
-    api->setEnabled(false);
-    XCTAssertFalse(api->isEnabled());
-}
-
-#else
-
-- (void) testNoImplementation
-{
-    KSCrashMonitorAPI* api = kscm_signal_getAPI();
-    XCTAssertTrue(api == NULL);
-}
-
+#ifdef __cplusplus
+extern "C" {
 #endif
 
-@end
+/** Access the Monitor API.
+ */
+KSCrashMonitorAPI* kscm_boottime_getAPI(void);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* KSCrashMonitor_BootTime_h */

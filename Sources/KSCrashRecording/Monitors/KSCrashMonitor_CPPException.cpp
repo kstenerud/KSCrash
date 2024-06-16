@@ -23,6 +23,8 @@
 //
 
 #include "KSCrashMonitor_CPPException.h"
+
+#include "KSCrashMonitorContextHelper.h"
 #include "KSCrashMonitorContext.h"
 #include "KSID.h"
 #include "KSThread.h"
@@ -173,7 +175,7 @@ catch(TYPE value)\
         ksmc_getContextForThread(ksthread_self(), machineContext, true);
 
         KSLOG_DEBUG("Filling out context.");
-        crashContext->crashType = KSCrashMonitorTypeCPPException;
+        ksmc_fillMonitorContext(crashContext, kscm_cppexception_getAPI());
         crashContext->eventID = g_eventID;
         crashContext->registersAreValid = false;
         crashContext->stackCursor = &g_stackCursor;
@@ -207,6 +209,16 @@ static void initialize()
         isInitialized = true;
         kssc_initCursor(&g_stackCursor, NULL, NULL);
     }
+}
+
+static const char* monitorId()
+{
+    return "CPPException";
+}
+
+static KSCrashMonitorFlag monitorFlags()
+{
+    return KSCrashMonitorFlagFatal;
 }
 
 static void setEnabled(bool isEnabled)
@@ -247,6 +259,8 @@ extern "C" KSCrashMonitorAPI* kscm_cppexception_getAPI()
 {
     static KSCrashMonitorAPI api =
     {
+        .monitorId = monitorId,
+        .monitorFlags = monitorFlags,
         .setEnabled = setEnabled,
         .isEnabled = isEnabled
     };
