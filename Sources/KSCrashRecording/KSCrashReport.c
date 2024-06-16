@@ -1360,7 +1360,7 @@ static void writeMemoryInfo(const KSCrashReportWriter* const writer,
     writer->endContainer(writer);
 }
 
-static bool isCrashOfMonitorType(const KSCrash_MonitorContext* const crash, const KSCrashMonitorAPI* monitorAPI)
+static inline bool isCrashOfMonitorType(const KSCrash_MonitorContext* const crash, const KSCrashMonitorAPI* monitorAPI)
 {
     return ksstring_safeStrcmp(crash->monitorId, kscm_getMonitorId(monitorAPI));
 }
@@ -1492,7 +1492,7 @@ static void writeError(const KSCrashReportWriter* const writer,
         }
         else
         {
-            KSLOG_ERROR("Unknown crash monitor type: %s", crash->monitorId);
+            KSLOG_WARN("Unknown crash monitor type: %s", crash->monitorId);
         }
     }
     writer->endContainer(writer);

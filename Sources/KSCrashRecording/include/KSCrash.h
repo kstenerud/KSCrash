@@ -221,7 +221,12 @@ typedef enum
 /** The total number of unsent reports. Note: This is an expensive operation. */
 @property(nonatomic,readonly,assign) int reportCount;
 
-/** Information about the operating system and environment */
+/** Information about the operating system and environment.
+ *
+ * @note `bootTime` and `storageSize` are not populated in this property.
+ * To access these values, refer to the optional
+ * `KSCrashBootTimeMonitor` and `KSCrashDiscSpaceMonitor` modules.
+ */
 @property(nonatomic,readonly,strong) NSDictionary* systemInfo;
 
 #pragma mark - API -

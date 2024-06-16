@@ -68,17 +68,17 @@ static void initializeMonitorList(MonitorList* list)
     list->apis = (KSCrashMonitorAPI**)malloc(list->capacity * sizeof(KSCrashMonitorAPI*));
 }
 
-static void addMonitor(MonitorList* list, KSCrashMonitorAPI* func)
+static void addMonitor(MonitorList* list, KSCrashMonitorAPI* api)
 {
     if (list->count >= list->capacity)
     {
         list->capacity *= 2;
         list->apis = (KSCrashMonitorAPI**)realloc(list->apis, list->capacity * sizeof(KSCrashMonitorAPI*));
     }
-    list->apis[list->count++] = func;
+    list->apis[list->count++] = api;
 }
 
-static void removeMonitor(MonitorList* list, KSCrashMonitorAPI* api)
+static void removeMonitor(MonitorList* list, const KSCrashMonitorAPI* api)
 {
     if (list == NULL || api == NULL)
     {
@@ -133,7 +133,7 @@ void kscm_resetState(void)
 #pragma mark - Helpers
 
 __attribute__((unused)) // Suppress unused function warnings, especially in release builds.
-static inline const char* getMonitorNameForLogging(KSCrashMonitorAPI* api)
+static inline const char* getMonitorNameForLogging(const KSCrashMonitorAPI* api)
 {
     return kscm_getMonitorId(api) ?: "Unknown";
 }
@@ -249,7 +249,7 @@ void kscm_addMonitor(KSCrashMonitorAPI* api)
     KSLOG_DEBUG("Monitor %s injected.", getMonitorNameForLogging(api));
 }
 
-void kscm_removeMonitor(KSCrashMonitorAPI* api)
+void kscm_removeMonitor(const KSCrashMonitorAPI* api)
 {
     if (api == NULL)
     {
@@ -289,8 +289,8 @@ bool kscm_notifyFatalExceptionCaptured(bool isAsyncSafeEnvironment)
 void kscm_handleException(struct KSCrash_MonitorContext* context)
 {
     // We're handling a crash if the crash type is fatal
-    bool hasFatalProperty = (context->monitorFlags & KSCrashMonitorFlagFatal) != KSCrashMonitorFlagNone;
-    context->handlingCrash = context->handlingCrash || hasFatalProperty;
+    bool hasFatalFlag = (context->monitorFlags & KSCrashMonitorFlagFatal) != KSCrashMonitorFlagNone;
+    context->handlingCrash = context->handlingCrash || hasFatalFlag;
 
     context->requiresAsyncSafety = g_requiresAsyncSafety;
     if (g_crashedDuringExceptionHandling)

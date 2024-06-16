@@ -79,7 +79,7 @@ void kscm_addMonitor(KSCrashMonitorAPI* api);
  *
  * @param api Pointer to the monitor's API.
  */
-void kscm_removeMonitor(KSCrashMonitorAPI* api);
+void kscm_removeMonitor(const KSCrashMonitorAPI* api);
 
 /**
  * Sets the callback for event capture.
