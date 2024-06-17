@@ -293,7 +293,7 @@ static void addContextualInfoToEvent(KSCrash_MonitorContext* eventContext)
         eventContext->AppMemory.limit = memCopy.limit;
         eventContext->AppMemory.level = KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memCopy.level);
         eventContext->AppMemory.timestamp = memCopy.timestamp;
-        eventContext->AppMemory.state = ksapp_transition_state_to_string(memCopy.state);
+        eventContext->AppMemory.state = ksapp_transitionStateToString(memCopy.state);
     }
 }
 
@@ -306,7 +306,7 @@ static NSDictionary<NSString *, id> *kscm_memory_serialize(KSCrash_Memory *const
         @KSCrashField_MemoryPressure: @(KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memory->pressure)),
         @KSCrashField_MemoryLevel: @(KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memory->level)),
         @KSCrashField_Timestamp: @(memory->timestamp),
-        @KSCrashField_AppTransitionState: @(ksapp_transition_state_to_string(memory->state)),
+        @KSCrashField_AppTransitionState: @(ksapp_transitionStateToString(memory->state)),
     };
 }
 
@@ -564,7 +564,7 @@ bool ksmemory_previous_session_was_terminated_due_to_memory(bool *userPerceptibl
     
     // We might care if the user might have seen the OOM
     if (userPerceptible) {
-        *userPerceptible = ksapp_transition_state_is_user_perceptible(g_previousSessionMemory.state);
+        *userPerceptible = ksapp_transitionStateIsUserPerceptible(g_previousSessionMemory.state);
     }
     
     // level or pressure is critical++

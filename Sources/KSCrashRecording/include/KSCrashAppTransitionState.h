@@ -28,13 +28,21 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#ifdef __OBJC__
+#include <Foundation/Foundation.h>
+#endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 /** States of transition for the application */
-enum {
+#ifdef __OBJC__
+typedef NS_ENUM(uint8_t, KSCrashAppTransitionState)
+#else
+enum
+#endif
+{
     KSCrashAppTransitionStateStartup = 0,
     KSCrashAppTransitionStateStartupPrewarm,
     KSCrashAppTransitionStateLaunching,
@@ -44,18 +52,21 @@ enum {
     KSCrashAppTransitionStateBackground,
     KSCrashAppTransitionStateTerminating,
     KSCrashAppTransitionStateExiting,
-};
-typedef uint8_t KSCrashAppTransitionState;
+}
+#ifndef __OBJC__ 
+typedef uint8_t KSCrashAppTransitionState
+#endif
+;
 
 /**
  * Returns true if the transition state is user perceptible.
  */
-bool ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionState state);
+bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state);
 
 /**
  * Returns a string for the app state passed in.
  */
-const char *ksapp_transition_state_to_string(KSCrashAppTransitionState state);
+const char *ksapp_transitionStateToString(KSCrashAppTransitionState state);
 
 #ifdef __cplusplus
 }

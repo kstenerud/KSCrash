@@ -34,7 +34,7 @@
 #import <UIKit/UIKit.h>
 #endif
 
-const char *ksapp_transition_state_to_string(KSCrashAppTransitionState state) {
+const char *ksapp_transitionStateToString(KSCrashAppTransitionState state) {
     switch (state) {
         case KSCrashAppTransitionStateStartup: return "startup";
         case KSCrashAppTransitionStateStartupPrewarm: return "prewarm";
@@ -49,7 +49,7 @@ const char *ksapp_transition_state_to_string(KSCrashAppTransitionState state) {
     return "unknown";
 }
 
-bool ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionState state)
+bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
 {
     switch (state) {
         case KSCrashAppTransitionStateStartupPrewarm:
