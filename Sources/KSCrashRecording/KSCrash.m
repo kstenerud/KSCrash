@@ -251,7 +251,7 @@ static NSString* getBasePath(void)
 
 - (BOOL) installWithConfiguration:(KSCrashConfiguration*) configuration
 {
-    self.configuration = [configuration copy];
+    self.configuration = [configuration copy] ?: [KSCrashConfiguration new];
     kscrash_install(self.bundleName.UTF8String, self.basePath.UTF8String, [self.configuration toCConfiguration]);
 
     return true;
