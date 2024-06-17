@@ -311,17 +311,22 @@ static CrashHandlerData* g_crashHandlerData;
             configuration = [[KSCrashConfiguration alloc] init];
         }
         configuration.crashNotifyCallback = ^(const struct KSCrashReportWriter * _Nonnull writer) {
-            for(int i = 0; i < g_crashHandlerData->reportFieldsCount; i++)
+            CrashHandlerData* crashHandlerData = g_crashHandlerData;
+            if(crashHandlerData == NULL)
             {
-                ReportField* field = g_crashHandlerData->reportFields[i];
+                return;
+            }
+            for(int i = 0; i < crashHandlerData->reportFieldsCount; i++)
+            {
+                ReportField* field = crashHandlerData->reportFields[i];
                 if(field->key != NULL && field->value != NULL)
                 {
                     writer->addJSONElement(writer, field->key, field->value, true);
                 }
             }
-            if(g_crashHandlerData->userCrashCallback != NULL)
+            if(crashHandlerData->userCrashCallback != NULL)
             {
-                g_crashHandlerData->userCrashCallback(writer);
+                crashHandlerData->userCrashCallback(writer);
             }
         };
 
