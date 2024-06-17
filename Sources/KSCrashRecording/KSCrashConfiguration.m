@@ -35,18 +35,35 @@
     self = [super init];
     if (self)
     {
-        _monitors = KSCrashMonitorTypeProductionSafeMinimal;
-        _userInfoJSON = nil;
-        _deadlockWatchdogInterval = 0.0;
-        _enableQueueNameSearch = NO;
-        _enableMemoryIntrospection = NO;
+        KSCrashCConfiguration cConfig = KSCrashCConfiguration_Default();
+        _monitors = cConfig.monitors;
+
+        if (cConfig.userInfoJSON != NULL)
+        {
+            NSData *data = [NSData dataWithBytes:cConfig.userInfoJSON length:strlen(cConfig.userInfoJSON)];
+            NSError *error = nil;
+            _userInfoJSON = [NSJSONSerialization JSONObjectWithData:data options:0 error:&error];
+            if (error)
+            {
+                _userInfoJSON = nil;  // Handle the error appropriately
+            }
+        }
+        else
+        {
+            _userInfoJSON = nil;
+        }
+
+        _deadlockWatchdogInterval = cConfig.deadlockWatchdogInterval;
+        _enableQueueNameSearch = cConfig.enableQueueNameSearch ? YES : NO;
+        _enableMemoryIntrospection = cConfig.enableMemoryIntrospection ? YES : NO;
         _doNotIntrospectClasses = nil;
         _crashNotifyCallback = nil;
         _reportWrittenCallback = nil;
-        _addConsoleLogToReport = NO;
-        _printPreviousLogOnStartup = NO;
-        _maxReportCount = 5;
-        _enableSwapCxaThrow = NO;
+        _addConsoleLogToReport = cConfig.addConsoleLogToReport ? YES : NO;
+        _printPreviousLogOnStartup = cConfig.printPreviousLogOnStartup ? YES : NO;
+        _maxReportCount = cConfig.maxReportCount;
+        _enableSwapCxaThrow = cConfig.enableSwapCxaThrow ? YES : NO;
+
         _deleteBehaviorAfterSendAll = KSCDeleteAlways;  // Used only in Obj-C interface
     }
     return self;
