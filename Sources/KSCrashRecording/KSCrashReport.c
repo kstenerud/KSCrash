@@ -664,7 +664,7 @@ static bool isRestrictedClass(const char* name)
     {
         for(int i = 0; i < g_introspectionRules.restrictedClassesCount; i++)
         {
-            if(ksstring_safeStrcmp(name, g_introspectionRules.restrictedClasses[i]))
+            if(ksstring_safeStrcmp(name, g_introspectionRules.restrictedClasses[i]) == 0)
             {
                 return true;
             }
@@ -1364,7 +1364,7 @@ static void writeMemoryInfo(const KSCrashReportWriter* const writer,
 
 static inline bool isCrashOfMonitorType(const KSCrash_MonitorContext* const crash, const KSCrashMonitorAPI* monitorAPI)
 {
-    return ksstring_safeStrcmp(crash->monitorId, kscm_getMonitorId(monitorAPI));
+    return ksstring_safeStrcmp(crash->monitorId, kscm_getMonitorId(monitorAPI)) == 0;
 }
 
 /** Write information about the error leading to the crash to the report.

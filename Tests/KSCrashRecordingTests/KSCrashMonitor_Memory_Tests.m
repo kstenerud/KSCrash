@@ -80,13 +80,19 @@
                                                   pressure:KSCrashAppMemoryStateNormal];
     });
     
-    // setup
-    NSURL *installURL = [NSURL fileURLWithPath:@"/tmp/kscrash" isDirectory:YES];
+    // Generate a unique identifier
+    NSString *uniqueIdentifier = [[NSUUID UUID] UUIDString];
+
+    // Construct the temporary directory path with the unique identifier
+    NSString *uniqueTempPath = [NSString stringWithFormat:@"/tmp/kscrash_%@", uniqueIdentifier];
+
+    // Setup
+    NSURL *installURL = [NSURL fileURLWithPath:uniqueTempPath isDirectory:YES];
     NSURL *dataURL = [installURL URLByAppendingPathComponent:@"Data"];
     NSURL *reportsPath = [installURL URLByAppendingPathComponent:@"Reports"];
     NSURL *memoryURL = [dataURL URLByAppendingPathComponent:@"memory.bin"];
     NSURL *breadcrumbURL = [dataURL URLByAppendingPathComponent:@"oom_breadcrumb_report.json"];
-    
+
     // clear old files in case
     NSFileManager *mngr = [NSFileManager new];
     [mngr removeItemAtURL:memoryURL error:nil];
@@ -118,6 +124,7 @@
     // FIXME: The call to `kscrash_setMonitoring(KSCrashMonitorTypeNone)` is temporarily commented out
     // because the public API is not fully formed yet. Currently using `kscm_disableAllMonitors()`
     // as a replacement to disable all monitors.
+    kscm_removeMonitor(kscm_memory_getAPI());
     kscm_disableAllMonitors();
     XCTAssertFalse(api->isEnabled());
 
