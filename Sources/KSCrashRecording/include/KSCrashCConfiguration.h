@@ -140,19 +140,22 @@ typedef struct {
     bool enableSwapCxaThrow;
 } KSCrashCConfiguration;
 
-#define KSCrashConfig_Default (KSCrashCConfiguration) { \
-.monitors = KSCrashMonitorTypeProductionSafeMinimal, \
-.userInfoJSON = NULL, \
-.deadlockWatchdogInterval = 0.0, \
-.enableQueueNameSearch = false, \
-.enableMemoryIntrospection = false, \
-.doNotIntrospectClasses = { NULL, 0 }, \
-.crashNotifyCallback = NULL, \
-.reportWrittenCallback = NULL, \
-.addConsoleLogToReport = false, \
-.printPreviousLogOnStartup = false, \
-.maxReportCount = 5, \
-.enableSwapCxaThrow = false \
+static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
+{
+    return (KSCrashCConfiguration) {
+        .monitors = KSCrashMonitorTypeProductionSafeMinimal,
+        .userInfoJSON = NULL,
+        .deadlockWatchdogInterval = 0.0,
+        .enableQueueNameSearch = false,
+        .enableMemoryIntrospection = false,
+        .doNotIntrospectClasses = { .strings = NULL, .length = 0 },
+        .crashNotifyCallback = NULL,
+        .reportWrittenCallback = NULL,
+        .addConsoleLogToReport = false,
+        .printPreviousLogOnStartup = false,
+        .maxReportCount = 5,
+        .enableSwapCxaThrow = false
+    };
 }
 
 #ifdef __cplusplus
