@@ -41,14 +41,14 @@
 #define MAX_NAME_LENGTH 100
 #define REPORT_VERSION_COMPONENTS_COUNT 3
 
-static char* datePaths[][MAX_DEPTH] =
+static const char* datePaths[][MAX_DEPTH] =
 {
     {"", KSCrashField_Report, KSCrashField_Timestamp},
     {"", KSCrashField_RecrashReport, KSCrashField_Report, KSCrashField_Timestamp},
 };
 static int datePathsCount = sizeof(datePaths) / sizeof(*datePaths);
 
-static char* demanglePaths[][MAX_DEPTH] =
+static const char* demanglePaths[][MAX_DEPTH] =
 {
     {"", KSCrashField_Crash, KSCrashField_Threads, "", KSCrashField_Backtrace, KSCrashField_Contents, "", KSCrashField_SymbolName},
     {"", KSCrashField_RecrashReport, KSCrashField_Crash, KSCrashField_Threads, "", KSCrashField_Backtrace, KSCrashField_Contents, "", KSCrashField_SymbolName},
@@ -57,7 +57,7 @@ static char* demanglePaths[][MAX_DEPTH] =
 };
 static int demanglePathsCount = sizeof(demanglePaths) / sizeof(*demanglePaths);
 
-static char* versionPaths[][MAX_DEPTH] =
+static const char* versionPaths[][MAX_DEPTH] =
 {
     {"", KSCrashField_Report, KSCrashField_Version},
     {"", KSCrashField_RecrashReport, KSCrashField_Report, KSCrashField_Version},
@@ -102,7 +102,7 @@ static bool decreaseDepth(FixupContext* context)
     return true;
 }
 
-static bool matchesPath(FixupContext* context, char** path, const char* finalName)
+static bool matchesPath(FixupContext* context, const char** path, const char* finalName)
 {
     if(finalName == NULL)
     {
@@ -123,7 +123,7 @@ static bool matchesPath(FixupContext* context, char** path, const char* finalNam
     return true;
 }
 
-static bool matchesAPath(FixupContext* context, const char* name, char* paths[][MAX_DEPTH], int pathsCount)
+static bool matchesAPath(FixupContext* context, const char* name, const char* paths[][MAX_DEPTH], int pathsCount)
 {
     for(int i = 0; i < pathsCount; i++)
     {

@@ -300,13 +300,13 @@ static void addContextualInfoToEvent(KSCrash_MonitorContext* eventContext)
 static NSDictionary<NSString *, id> *kscm_memory_serialize(KSCrash_Memory *const memory)
 {
     return @{
-        @KSCrashField_MemoryFootprint: @(memory->footprint),
-        @KSCrashField_MemoryRemaining: @(memory->remaining),
-        @KSCrashField_MemoryLimit: @(memory->limit),
-        @KSCrashField_MemoryPressure: @(KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memory->pressure)),
-        @KSCrashField_MemoryLevel: @(KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memory->level)),
-        @KSCrashField_Timestamp: @(memory->timestamp),
-        @KSCrashField_AppTransitionState: @(ksapp_transitionStateToString(memory->state)),
+        KSCrashField_MemoryFootprint: @(memory->footprint),
+        KSCrashField_MemoryRemaining: @(memory->remaining),
+        KSCrashField_MemoryLimit: @(memory->limit),
+        KSCrashField_MemoryPressure: @(KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memory->pressure)),
+        KSCrashField_MemoryLevel: @(KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memory->level)),
+        KSCrashField_Timestamp: @(memory->timestamp),
+        KSCrashField_AppTransitionState: @(ksapp_transitionStateToString(memory->state)),
     };
 }
 
@@ -339,13 +339,13 @@ static void kscm_memory_check_for_oom_in_previous_session(void)
                 NSMutableDictionary *json = [[NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingMutableContainers|NSJSONReadingMutableLeaves error:nil] mutableCopy];
                 
                 if (json) {
-                    json[@KSCrashField_System][@KSCrashField_AppMemory] = kscm_memory_serialize(&g_previousSessionMemory);
-                    json[@KSCrashField_Report][@KSCrashField_Timestamp] = @(g_previousSessionMemory.timestamp);
-                    json[@KSCrashField_Crash][@KSCrashField_Error][@KSCrashExcType_MemoryTermination] =kscm_memory_serialize(&g_previousSessionMemory);
-                    json[@KSCrashField_Crash][@KSCrashField_Error][@KSCrashExcType_Mach] = nil;
-                    json[@KSCrashField_Crash][@KSCrashField_Error][@KSCrashExcType_Signal] = @{
-                        @KSCrashField_Signal: @(SIGKILL),
-                        @KSCrashField_Name: @"SIGKILL",
+                    json[KSCrashField_System][KSCrashField_AppMemory] = kscm_memory_serialize(&g_previousSessionMemory);
+                    json[KSCrashField_Report][KSCrashField_Timestamp] = @(g_previousSessionMemory.timestamp);
+                    json[KSCrashField_Crash][KSCrashField_Error][KSCrashExcType_MemoryTermination] =kscm_memory_serialize(&g_previousSessionMemory);
+                    json[KSCrashField_Crash][KSCrashField_Error][KSCrashExcType_Mach] = nil;
+                    json[KSCrashField_Crash][KSCrashField_Error][KSCrashExcType_Signal] = @{
+                        KSCrashField_Signal: @(SIGKILL),
+                        KSCrashField_Name: @"SIGKILL",
                     };
                     
                     data = [NSJSONSerialization dataWithJSONObject:json options:NSJSONWritingPrettyPrinted error:nil];

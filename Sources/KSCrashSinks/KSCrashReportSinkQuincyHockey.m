@@ -267,19 +267,19 @@ crashDescriptionKeys:(NSArray*) crashDescriptionKeys
 - (NSString*) uuidsFromReport:(NSDictionary*) standardReport
 {
     NSMutableString* uuidString = [NSMutableString string];
-    NSArray* binaryImages = [standardReport objectForKey:@KSCrashField_BinaryImages];
+    NSArray* binaryImages = [standardReport objectForKey:KSCrashField_BinaryImages];
     if(binaryImages == nil)
     {
         return @"";
     }
     
-    NSDictionary* systemInfo = [standardReport objectForKey:@KSCrashField_System];
-    NSString* processPath = [systemInfo objectForKey:@KSCrashField_ExecutablePath];
+    NSDictionary* systemInfo = [standardReport objectForKey:KSCrashField_System];
+    NSString* processPath = [systemInfo objectForKey:KSCrashField_ExecutablePath];
     NSString* appContainerPath = [[processPath stringByDeletingLastPathComponent] stringByDeletingLastPathComponent];
     
     for(NSDictionary* image in binaryImages)
     {
-        NSString* imagePath = [[image objectForKey:@KSCrashField_Name] stringByStandardizingPath];
+        NSString* imagePath = [[image objectForKey:KSCrashField_Name] stringByStandardizingPath];
         NSString* imageType;
         if(processPath && [imagePath isEqualToString:processPath])
         {
@@ -296,7 +296,7 @@ crashDescriptionKeys:(NSArray*) crashDescriptionKeys
             continue;
         }
         
-        NSString* uuid = [image objectForKey:@KSCrashField_UUID];
+        NSString* uuid = [image objectForKey:KSCrashField_UUID];
         if(uuid == nil)
         {
             uuid = @"???";
@@ -305,8 +305,8 @@ crashDescriptionKeys:(NSArray*) crashDescriptionKeys
         {
             uuid = [[uuid lowercaseString] stringByReplacingOccurrencesOfString:@"-" withString:@""];
         }
-        cpu_type_t cpuType = [[image objectForKey:@KSCrashField_CPUType] intValue];
-        cpu_subtype_t cpuSubType = [[image objectForKey:@KSCrashField_CPUSubType] intValue];
+        cpu_type_t cpuType = [[image objectForKey:KSCrashField_CPUType] intValue];
+        cpu_subtype_t cpuSubType = [[image objectForKey:KSCrashField_CPUSubType] intValue];
         NSString* arch = [self quincyArchFromCpuType:cpuType cpuSubType:cpuSubType];
         [uuidString appendFormat:@"<uuid type=\"%@\" arch=\"%@\">%@</uuid>", imageType, arch, uuid];
     }
@@ -318,13 +318,13 @@ crashDescriptionKeys:(NSArray*) crashDescriptionKeys
 {
     NSDictionary* report = [reportTuple objectForKey:kFilterKeyStandard];
     NSString* appleReport = [reportTuple objectForKey:kFilterKeyApple];
-    NSDictionary* systemDict = [report objectForKey:@KSCrashField_System];
+    NSDictionary* systemDict = [report objectForKey:KSCrashField_System];
     NSString* userID = self.userIDKey == nil ? nil : [self blankForNil:[report objectForKeyPath:self.userIDKey]];
     NSString* userName = self.userNameKey == nil ? nil : [self blankForNil:[report objectForKeyPath:self.userNameKey]];
     NSString* contactEmail = self.contactEmailKey == nil ? nil : [self blankForNil:[report objectForKeyPath:self.contactEmailKey]];
     NSString* crashReportDescription = [self.crashDescriptionKeys count] == 0 ? nil : [self descriptionForReport:report keys:self.crashDescriptionKeys];
     NSString* uuids = [self uuidsFromReport:report];
-    NSDictionary* reportInfo = [report objectForKey:@KSCrashField_Report];
+    NSDictionary* reportInfo = [report objectForKey:KSCrashField_Report];
     
     NSString* result = [NSString stringWithFormat:
                         @"\n    <crash>\n"
@@ -352,7 +352,7 @@ crashDescriptionKeys:(NSArray*) crashDescriptionKeys
                         [systemDict objectForKey:@"machine"],
                         [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleVersion"],
                         [systemDict objectForKey:@"CFBundleVersion"],
-                        [reportInfo objectForKey:@KSCrashField_ID],
+                        [reportInfo objectForKey:KSCrashField_ID],
                         [self cdataEscaped:appleReport],
                         userID,
                         userName,

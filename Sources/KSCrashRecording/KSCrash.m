@@ -386,15 +386,15 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
 
 - (void) doctorReport:(NSMutableDictionary*) report
 {
-    NSMutableDictionary* crashReport = report[@KSCrashField_Crash];
+    NSMutableDictionary* crashReport = report[KSCrashField_Crash];
     if(crashReport != nil)
     {
-        crashReport[@KSCrashField_Diagnosis] = [[KSCrashDoctor doctor] diagnoseCrash:report];
+        crashReport[KSCrashField_Diagnosis] = [[KSCrashDoctor doctor] diagnoseCrash:report];
     }
-    crashReport = report[@KSCrashField_RecrashReport][@KSCrashField_Crash];
+    crashReport = report[KSCrashField_RecrashReport][KSCrashField_Crash];
     if(crashReport != nil)
     {
-        crashReport[@KSCrashField_Diagnosis] = [[KSCrashDoctor doctor] diagnoseCrash:report];
+        crashReport[KSCrashField_Diagnosis] = [[KSCrashDoctor doctor] diagnoseCrash:report];
     }
 }
 

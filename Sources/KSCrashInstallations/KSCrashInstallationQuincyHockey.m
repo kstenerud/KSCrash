@@ -37,7 +37,7 @@
 #define kQuincyDefaultKeyUserName @"user_name"
 #define kQuincyDefaultKeyContactEmail @"contact_email"
 #define kQuincyDefaultKeyDescription @"crash_description"
-#define kQuincyDefaultKeysExtraDescription [NSArray arrayWithObjects:@"/" @KSCrashField_System, @"/" @KSCrashField_User, nil]
+#define kQuincyDefaultKeysExtraDescription [NSArray arrayWithObjects:@"/", KSCrashField_System, @"/", KSCrashField_User, nil]
 
 
 @implementation KSCrashInstallationBaseQuincyHockey

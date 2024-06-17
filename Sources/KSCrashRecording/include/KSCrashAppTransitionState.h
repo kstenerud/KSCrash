@@ -52,11 +52,10 @@ enum
     KSCrashAppTransitionStateBackground,
     KSCrashAppTransitionStateTerminating,
     KSCrashAppTransitionStateExiting,
-}
-#ifndef __OBJC__ 
-typedef uint8_t KSCrashAppTransitionState
+};
+#ifndef __OBJC__
+typedef uint8_t KSCrashAppTransitionState;
 #endif
-;
 
 /**
  * Returns true if the transition state is user perceptible.

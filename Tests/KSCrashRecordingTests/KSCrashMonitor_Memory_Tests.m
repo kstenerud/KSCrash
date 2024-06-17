@@ -168,26 +168,26 @@
     NSUInteger oomReports = 0;
     for (NSDictionary<NSString *, id> *report in reports) {
         
-        if (![report[@KSCrashField_Crash][@KSCrashField_Error][@KSCrashField_Type] isEqualToString:@KSCrashExcType_MemoryTermination]) {
+        if (![report[KSCrashField_Crash][KSCrashField_Error][KSCrashField_Type] isEqualToString:KSCrashExcType_MemoryTermination]) {
             continue;
         }
         
         oomReports++;
         
-        XCTAssertEqualObjects(report[@KSCrashField_System][@KSCrashField_AppMemory][@KSCrashField_MemoryLevel], @"terminal");
-        XCTAssertEqualObjects(report[@KSCrashField_System][@KSCrashField_AppMemory][@KSCrashField_MemoryPressure], @"normal");
-        XCTAssertEqualObjects(report[@KSCrashField_System][@KSCrashField_AppMemory][@KSCrashField_MemoryFootprint], @(100));
-        XCTAssertEqualObjects(report[@KSCrashField_System][@KSCrashField_AppMemory][@KSCrashField_MemoryRemaining], @(0));
-        XCTAssertEqualObjects(report[@KSCrashField_System][@KSCrashField_AppMemory][@KSCrashField_MemoryLimit], @(100));
+        XCTAssertEqualObjects(report[KSCrashField_System][KSCrashField_AppMemory][KSCrashField_MemoryLevel], @"terminal");
+        XCTAssertEqualObjects(report[KSCrashField_System][KSCrashField_AppMemory][KSCrashField_MemoryPressure], @"normal");
+        XCTAssertEqualObjects(report[KSCrashField_System][KSCrashField_AppMemory][KSCrashField_MemoryFootprint], @(100));
+        XCTAssertEqualObjects(report[KSCrashField_System][KSCrashField_AppMemory][KSCrashField_MemoryRemaining], @(0));
+        XCTAssertEqualObjects(report[KSCrashField_System][KSCrashField_AppMemory][KSCrashField_MemoryLimit], @(100));
         
-        XCTAssertEqualObjects(report[@KSCrashField_Crash][@KSCrashField_Error][@KSCrashField_MemoryTermination][@KSCrashField_MemoryLevel], @"terminal");
-        XCTAssertEqualObjects(report[@KSCrashField_Crash][@KSCrashField_Error][@KSCrashField_MemoryTermination][@KSCrashField_MemoryPressure], @"normal");
-        XCTAssertEqualObjects(report[@KSCrashField_Crash][@KSCrashField_Error][@KSCrashField_MemoryTermination][@KSCrashField_MemoryFootprint], @(100));
-        XCTAssertEqualObjects(report[@KSCrashField_Crash][@KSCrashField_Error][@KSCrashField_MemoryTermination][@KSCrashField_MemoryRemaining], @(0));
-        XCTAssertEqualObjects(report[@KSCrashField_Crash][@KSCrashField_Error][@KSCrashField_MemoryTermination][@KSCrashField_MemoryLimit], @(100));
+        XCTAssertEqualObjects(report[KSCrashField_Crash][KSCrashField_Error][KSCrashField_MemoryTermination][KSCrashField_MemoryLevel], @"terminal");
+        XCTAssertEqualObjects(report[KSCrashField_Crash][KSCrashField_Error][KSCrashField_MemoryTermination][KSCrashField_MemoryPressure], @"normal");
+        XCTAssertEqualObjects(report[KSCrashField_Crash][KSCrashField_Error][KSCrashField_MemoryTermination][KSCrashField_MemoryFootprint], @(100));
+        XCTAssertEqualObjects(report[KSCrashField_Crash][KSCrashField_Error][KSCrashField_MemoryTermination][KSCrashField_MemoryRemaining], @(0));
+        XCTAssertEqualObjects(report[KSCrashField_Crash][KSCrashField_Error][KSCrashField_MemoryTermination][KSCrashField_MemoryLimit], @(100));
         
-        XCTAssertEqualObjects(report [@KSCrashField_Crash][@KSCrashField_Error][@KSCrashExcType_Signal][@KSCrashField_Signal], @(SIGKILL));
-        XCTAssertEqualObjects(report [@KSCrashField_Crash][@KSCrashField_Error][@KSCrashExcType_Signal][@KSCrashField_Name], @"SIGKILL");
+        XCTAssertEqualObjects(report [KSCrashField_Crash][KSCrashField_Error][KSCrashExcType_Signal][KSCrashField_Signal], @(SIGKILL));
+        XCTAssertEqualObjects(report [KSCrashField_Crash][KSCrashField_Error][KSCrashExcType_Signal][KSCrashField_Name], @"SIGKILL");
         
     }
     
