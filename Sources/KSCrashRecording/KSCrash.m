@@ -137,7 +137,7 @@ static NSString* getBasePath(void)
     return [self initWithBasePath:getBasePath()];
 }
 
-- (id) initWithBasePath:(NSString *)basePath
+- (instancetype) initWithBasePath:(NSString *)basePath
 {
     if((self = [super init]))
     {

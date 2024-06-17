@@ -104,7 +104,7 @@
 #pragma mark - API -
 
 /** Init KSCrash instance with custom base path. */
-- (id) initWithBasePath:(NSString*) basePath;
+- (instancetype) initWithBasePath:(NSString*) basePath;
 
 /** Get the singleton instance of the crash reporter.
  */
