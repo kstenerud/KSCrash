@@ -30,6 +30,8 @@
 #import "KSCrashReportFilter.h"
 #import "KSCrashReportWriter.h"
 
+NS_ASSUME_NONNULL_BEGIN
+
 @class KSCrashConfiguration;
 
 /**
@@ -47,7 +49,7 @@
  *
  * Default: nil
  */
-@property (atomic, readwrite, retain) NSDictionary* userInfo;
+@property (atomic, readwrite, strong, nullable) NSDictionary<NSString*, id>* userInfo;
 
 /** The report sink where reports get sent.
  * This MUST be set or else the reporter will not send reports (although it will
@@ -56,7 +58,7 @@
  * Note: If you use an installation, it will automatically set this property.
  *       Do not modify it in such a case.
  */
-@property (nonatomic, readwrite, retain) id<KSCrashReportFilter> sink;
+@property (nonatomic, readwrite, strong, nullable) id<KSCrashReportFilter> sink;
 
 #pragma mark - Information -
 
@@ -128,13 +130,10 @@
  *
  * @param onCompletion Called when sending is complete (nil = ignore).
  */
-- (void) sendAllReportsWithCompletion:(KSCrashReportFilterCompletion) onCompletion;
+- (void) sendAllReportsWithCompletion:(nullable KSCrashReportFilterCompletion) onCompletion;
 
-/** Get all unsent report IDs.
- *
- * @return An array with report IDs.
- */
-- (NSArray*) reportIDs;
+/** Get all unsent report IDs. */
+@property(nonatomic,readonly,strong) NSArray<NSNumber*>* reportIDs;
 
 /** Get report.
  *
@@ -142,7 +141,7 @@
  *
  * @return A dictionary with report fields. See KSCrashReportFields.h for available fields.
  */
-- (NSDictionary*) reportWithID:(NSNumber*) reportID;
+- (nullable NSDictionary<NSString*, id>*) reportWithID:(NSInteger) reportID;
 
 /** Delete all unsent reports.
  */
@@ -152,7 +151,7 @@
  *
  * @param reportID An ID of report to delete.
  */
-- (void) deleteReportWithID:(NSNumber*) reportID;
+- (void) deleteReportWithID:(NSInteger) reportID;
 
 /** Report a custom, user defined exception.
  * This can be useful when dealing with scripting languages.
@@ -176,10 +175,10 @@
  * @param terminateProgram If true, do not return from this function call. Terminate the program instead.
  */
 - (void)reportUserException:(NSString*)name
-                     reason:(NSString*)reason
-                   language:(NSString*)language
-                 lineOfCode:(NSString*)lineOfCode
-                 stackTrace:(NSArray*)stackTrace
+                     reason:(nullable NSString*)reason
+                   language:(nullable NSString*)language
+                 lineOfCode:(nullable NSString*)lineOfCode
+                 stackTrace:(nullable NSArray*)stackTrace
               logAllThreads:(BOOL)logAllThreads
            terminateProgram:(BOOL)terminateProgram;
 
@@ -190,3 +189,5 @@ FOUNDATION_EXPORT const double KSCrashFrameworkVersionNumber;
 
 //! Project version string for KSCrashFramework.
 FOUNDATION_EXPORT const unsigned char KSCrashFrameworkVersionString[];
+
+NS_ASSUME_NONNULL_END

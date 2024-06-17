@@ -246,7 +246,7 @@ static NSString* getBasePath(void)
     COPY_PRIMITIVE(freeMemory);
     COPY_PRIMITIVE(usableMemory);
 
-    return dict;
+    return [dict copy];
 }
 
 - (BOOL) installWithConfiguration:(KSCrashConfiguration*) configuration
@@ -285,9 +285,9 @@ static NSString* getBasePath(void)
     kscrash_deleteAllReports();
 }
 
-- (void) deleteReportWithID:(NSNumber*) reportID
+- (void) deleteReportWithID:(NSInteger) reportID
 {
-    kscrash_deleteReportWithID([reportID longLongValue]);
+    kscrash_deleteReportWithID(reportID);
 }
 
 - (void) reportUserException:(NSString*) name
@@ -398,7 +398,7 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
     }
 }
 
-- (NSArray*)reportIDs
+- (NSArray<NSNumber*>*)reportIDs
 {
     int reportCount = kscrash_getReportCount();
     int64_t reportIDsC[reportCount];
@@ -408,15 +408,10 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
     {
         [reportIDs addObject:[NSNumber numberWithLongLong:reportIDsC[i]]];
     }
-    return reportIDs;
+    return [reportIDs copy];
 }
 
-- (NSDictionary*) reportWithID:(NSNumber*) reportID
-{
-    return [self reportWithIntID:[reportID longLongValue]];
-}
-
-- (NSDictionary*) reportWithIntID:(int64_t) reportID
+- (NSDictionary*) reportWithID:(NSInteger) reportID
 {
     NSData* jsonData = [self loadCrashReportJSONWithID:reportID];
     if(jsonData == nil)
@@ -441,7 +436,7 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
     }
     [self doctorReport:crashReport];
 
-    return crashReport;
+    return [crashReport copy];
 }
 
 - (NSArray*) allReports
@@ -452,7 +447,7 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
     NSMutableArray* reports = [NSMutableArray arrayWithCapacity:(NSUInteger)reportCount];
     for(int i = 0; i < reportCount; i++)
     {
-        NSDictionary* report = [self reportWithIntID:reportIDs[i]];
+        NSDictionary* report = [self reportWithID:reportIDs[i]];
         if(report != nil)
         {
             [reports addObject:report];
