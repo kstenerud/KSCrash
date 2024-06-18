@@ -77,19 +77,42 @@ jobs:
 
       - name: Fetch all tags
         run: |
+          echo "Fetching all tags..."
           git fetch --tags
+          echo "Tags fetched successfully."
 
       - name: Delete git tag locally
         run: |
+          echo "Attempting to delete local tag ${{ github.event.inputs.version }}..."
           git tag -d ${{ github.event.inputs.version }} || echo "Tag not found locally"
+          echo "Local tag deletion process completed."
 
       - name: Delete git tag remotely
         run: |
+          echo "Attempting to delete remote tag ${{ github.event.inputs.version }}..."
           git push --delete origin ${{ github.event.inputs.version }} || echo "Tag not found on remote"
+          echo "Remote tag deletion process completed."
+
+      - name: Pull latest changes
+        run: |
+          echo "Pulling latest changes from release-action branch..."
+          git pull origin release-action
+          echo "Latest changes pulled successfully."
 
       - name: Revert version commit
         run: |
+          echo "Identifying the last commit..."
           previous_commit=$(git rev-list -n 1 HEAD)
+          echo "Last commit identified: $previous_commit"
+          echo "Attempting to revert commit $previous_commit..."
           git revert --no-commit $previous_commit
+          echo "Revert command executed."
+          echo "Committing the revert with a message..."
           git commit -m "Revert version update due to failed release"
-          git push
+          echo "Revert commit completed."
+
+      - name: Push revert
+        run: |
+          echo "Pushing reverted changes to remote..."
+          git push || { echo "Push failed. Checking remote status..."; git status; exit 1; }
+          echo "Push completed."
