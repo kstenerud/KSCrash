@@ -75,10 +75,10 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic,readonly,assign) NSTimeInterval backgroundDurationSinceLastCrash;
 
 /** Number of app launches since the last crash. */
-@property(nonatomic,readonly,assign) int launchesSinceLastCrash;
+@property(nonatomic,readonly,assign) NSInteger launchesSinceLastCrash;
 
 /** Number of sessions (launch, resume from suspend) since last crash. */
-@property(nonatomic,readonly,assign) int sessionsSinceLastCrash;
+@property(nonatomic,readonly,assign) NSInteger sessionsSinceLastCrash;
 
 /** Total active time elapsed since launch. */
 @property(nonatomic,readonly,assign) NSTimeInterval activeDurationSinceLaunch;
@@ -87,13 +87,13 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic,readonly,assign) NSTimeInterval backgroundDurationSinceLaunch;
 
 /** Number of sessions (launch, resume from suspend) since app launch. */
-@property(nonatomic,readonly,assign) int sessionsSinceLaunch;
+@property(nonatomic,readonly,assign) NSInteger sessionsSinceLaunch;
 
 /** If true, the application crashed on the previous launch. */
 @property(nonatomic,readonly,assign) BOOL crashedLastLaunch;
 
 /** The total number of unsent reports. Note: This is an expensive operation. */
-@property(nonatomic,readonly,assign) int reportCount;
+@property(nonatomic,readonly,assign) NSInteger reportCount;
 
 /** Information about the operating system and environment.
  *
@@ -141,7 +141,7 @@ NS_ASSUME_NONNULL_BEGIN
  *
  * @return A dictionary with report fields. See KSCrashReportFields.h for available fields.
  */
-- (nullable NSDictionary<NSString*, id>*) reportForID:(NSInteger) reportID NS_SWIFT_NAME(report(for:));
+- (nullable NSDictionary<NSString*, id>*) reportForID:(int64_t) reportID NS_SWIFT_NAME(report(for:));
 
 /** Delete all unsent reports.
  */
@@ -151,7 +151,7 @@ NS_ASSUME_NONNULL_BEGIN
  *
  * @param reportID An ID of report to delete.
  */
-- (void) deleteReportWithID:(NSInteger) reportID NS_SWIFT_NAME(deleteReport(with:));
+- (void) deleteReportWithID:(int64_t) reportID NS_SWIFT_NAME(deleteReport(with:));
 
 /** Report a custom, user defined exception.
  * This can be useful when dealing with scripting languages.

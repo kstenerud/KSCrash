@@ -285,7 +285,7 @@ static NSString* getBasePath(void)
     kscrash_deleteAllReports();
 }
 
-- (void) deleteReportWithID:(NSInteger) reportID
+- (void) deleteReportWithID:(int64_t) reportID
 {
     kscrash_deleteReportWithID(reportID);
 }
@@ -338,14 +338,14 @@ static NSString* getBasePath(void)
 
 SYNTHESIZE_CRASH_STATE_PROPERTY(NSTimeInterval, activeDurationSinceLastCrash)
 SYNTHESIZE_CRASH_STATE_PROPERTY(NSTimeInterval, backgroundDurationSinceLastCrash)
-SYNTHESIZE_CRASH_STATE_PROPERTY(int, launchesSinceLastCrash)
-SYNTHESIZE_CRASH_STATE_PROPERTY(int, sessionsSinceLastCrash)
+SYNTHESIZE_CRASH_STATE_PROPERTY(NSInteger, launchesSinceLastCrash)
+SYNTHESIZE_CRASH_STATE_PROPERTY(NSInteger, sessionsSinceLastCrash)
 SYNTHESIZE_CRASH_STATE_PROPERTY(NSTimeInterval, activeDurationSinceLaunch)
 SYNTHESIZE_CRASH_STATE_PROPERTY(NSTimeInterval, backgroundDurationSinceLaunch)
-SYNTHESIZE_CRASH_STATE_PROPERTY(int, sessionsSinceLaunch)
+SYNTHESIZE_CRASH_STATE_PROPERTY(NSInteger, sessionsSinceLaunch)
 SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
 
-- (int) reportCount
+- (NSInteger) reportCount
 {
     return kscrash_getReportCount();
 }
@@ -411,7 +411,7 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
     return [reportIDs copy];
 }
 
-- (NSDictionary*) reportForID:(NSInteger) reportID
+- (NSDictionary*) reportForID:(int64_t) reportID
 {
     NSData* jsonData = [self loadCrashReportJSONWithID:reportID];
     if(jsonData == nil)
