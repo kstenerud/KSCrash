@@ -10,7 +10,6 @@ on:
 jobs:
   release:
     runs-on: macos-latest
-    environment: production
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -49,7 +48,7 @@ jobs:
 
       - name: Publish to CocoaPods
         env:
-          COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
+          COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_PASSWORD }}
         run: pod trunk push KSCrash.podspec --verbose
 
   rollback:
