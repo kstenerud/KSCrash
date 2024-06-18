@@ -143,7 +143,8 @@ static struct
 } g_previousExceptionPorts;
 
 /** Our exception port. */
-static mach_port_t g_exceptionPort = MACH_PORT_NULL;
+static mach_port_t g_taskExceptionPort = MACH_PORT_NULL;
+static mach_port_t g_threadExceptionPort = MACH_PORT_NULL;
 
 /** Primary exception handler thread. */
 static pthread_t g_primaryPThread;
@@ -155,6 +156,13 @@ static thread_t g_secondaryMachThread;
 
 static char g_primaryEventID[37];
 static char g_secondaryEventID[37];
+
+exception_mask_t g_ExceptionMask = EXC_MASK_BAD_ACCESS |
+EXC_MASK_BAD_INSTRUCTION |
+EXC_MASK_ARITHMETIC |
+EXC_MASK_SOFTWARE |
+EXC_MASK_BREAKPOINT;
+
 
 // ============================================================================
 #pragma mark - Utility -
@@ -275,23 +283,38 @@ static void* handleExceptions(void* const userData)
 
     const char* threadName = (const char*) userData;
     pthread_setname_np(threadName);
-    if(threadName == kThreadSecondary)
+    bool isSecondaryThread = threadName == kThreadSecondary;
+    if(isSecondaryThread)
     {
         KSLOG_DEBUG("This is the secondary thread. Suspending.");
         thread_suspend((thread_t)ksthread_self());
         eventID = g_secondaryEventID;
     }
+    else
+    {
+        thread_t thread_self = mach_thread_self();
+        mach_port_deallocate(mach_task_self(), thread_self);
+        kern_return_t kr = thread_set_exception_ports(thread_self,
+                                                      g_ExceptionMask,
+                                                      g_threadExceptionPort,
+                                                      (int)(EXCEPTION_DEFAULT | MACH_EXCEPTION_CODES),
+                                                      THREAD_STATE_NONE);
+        if(kr != KERN_SUCCESS)
+        {
+            KSLOG_ERROR("thread_set_exception_ports: %s", mach_error_string(kr));
+          return NULL;
+        }
+    }
 
     for(;;)
     {
         KSLOG_DEBUG("Waiting for mach exception");
-
         // Wait for a message.
         kern_return_t kr = mach_msg(&exceptionMessage.header,
                                     MACH_RCV_MSG,
                                     0,
                                     sizeof(exceptionMessage),
-                                    g_exceptionPort,
+                                    isSecondaryThread ? g_threadExceptionPort : g_taskExceptionPort,
                                     MACH_MSG_TIMEOUT_NONE,
                                     MACH_PORT_NULL);
         if(kr == KERN_SUCCESS)
@@ -307,6 +330,21 @@ static void* handleExceptions(void* const userData)
                 exceptionMessage.code[0], exceptionMessage.code[1]);
     if(g_isEnabled)
     {
+        // Switch to the secondary thread if necessary, or uninstall the handler
+        // to avoid a death loop.
+        if(ksthread_self() == g_primaryMachThread)
+        {
+            KSLOG_DEBUG("This is the primary exception thread. Activating secondary thread.");
+            restoreExceptionPorts();
+            if(thread_resume(g_secondaryMachThread) != KERN_SUCCESS)
+            {
+                KSLOG_DEBUG("Could not activate secondary thread. Restoring original  exception ports.");
+            }
+        }
+        else
+        {
+            KSLOG_DEBUG("This is the secondary exception thread.");
+        }
         thread_act_array_t threads = NULL;
         mach_msg_type_number_t numThreads = 0;
         ksmc_suspendEnvironment(&threads, &numThreads);
@@ -314,25 +352,6 @@ static void* handleExceptions(void* const userData)
         kscm_notifyFatalExceptionCaptured(true);
 
         KSLOG_DEBUG("Exception handler is installed. Continuing exception handling.");
-
-
-        // Switch to the secondary thread if necessary, or uninstall the handler
-        // to avoid a death loop.
-        if(ksthread_self() == g_primaryMachThread)
-        {
-            KSLOG_DEBUG("This is the primary exception thread. Activating secondary thread.");
-// TODO: This was put here to avoid a freeze. Does secondary thread ever fire?
-            restoreExceptionPorts();
-            if(thread_resume(g_secondaryMachThread) != KERN_SUCCESS)
-            {
-                KSLOG_DEBUG("Could not activate secondary thread. Restoring original exception ports.");
-            }
-        }
-        else
-        {
-            KSLOG_DEBUG("This is the secondary exception thread.");// Restoring original exception ports.");
-//            restoreExceptionPorts();
-        }
 
         // Fill out crash information
         KSLOG_DEBUG("Fetching machine state.");
@@ -441,7 +460,7 @@ static void uninstallExceptionHandler(void)
         g_secondaryPThread = 0;
     }
 
-    g_exceptionPort = MACH_PORT_NULL;
+    g_taskExceptionPort = MACH_PORT_NULL;
     KSLOG_DEBUG("Mach exception handlers uninstalled.");
 }
 
@@ -456,15 +475,9 @@ static bool installExceptionHandler(void)
     int error;
 
     const task_t thisTask = mach_task_self();
-    exception_mask_t mask = EXC_MASK_BAD_ACCESS |
-    EXC_MASK_BAD_INSTRUCTION |
-    EXC_MASK_ARITHMETIC |
-    EXC_MASK_SOFTWARE |
-    EXC_MASK_BREAKPOINT;
-
     KSLOG_DEBUG("Backing up original exception ports.");
     kr = task_get_exception_ports(thisTask,
-                                  mask,
+                                  g_ExceptionMask,
                                   g_previousExceptionPorts.masks,
                                   &g_previousExceptionPorts.count,
                                   g_previousExceptionPorts.ports,
@@ -476,12 +489,12 @@ static bool installExceptionHandler(void)
         goto failed;
     }
 
-    if(g_exceptionPort == MACH_PORT_NULL)
+    if(g_taskExceptionPort == MACH_PORT_NULL)
     {
         KSLOG_DEBUG("Allocating new port with receive rights.");
         kr = mach_port_allocate(thisTask,
                                 MACH_PORT_RIGHT_RECEIVE,
-                                &g_exceptionPort);
+                                &g_taskExceptionPort);
         if(kr != KERN_SUCCESS)
         {
             KSLOG_ERROR("mach_port_allocate: %s", mach_error_string(kr));
@@ -490,8 +503,32 @@ static bool installExceptionHandler(void)
 
         KSLOG_DEBUG("Adding send rights to port.");
         kr = mach_port_insert_right(thisTask,
-                                    g_exceptionPort,
-                                    g_exceptionPort,
+                                    g_taskExceptionPort,
+                                    g_taskExceptionPort,
+                                    MACH_MSG_TYPE_MAKE_SEND);
+        if(kr != KERN_SUCCESS)
+        {
+            KSLOG_ERROR("mach_port_insert_right: %s", mach_error_string(kr));
+            goto failed;
+        }
+    }
+    
+    if(g_threadExceptionPort == MACH_PORT_NULL)
+    {
+        KSLOG_DEBUG("Allocating new port with receive rights.");
+        kr = mach_port_allocate(thisTask,
+                                MACH_PORT_RIGHT_RECEIVE,
+                                &g_threadExceptionPort);
+        if(kr != KERN_SUCCESS)
+        {
+            KSLOG_ERROR("mach_port_allocate: %s", mach_error_string(kr));
+            goto failed;
+        }
+
+        KSLOG_DEBUG("Adding send rights to port.");
+        kr = mach_port_insert_right(thisTask,
+                                    g_threadExceptionPort,
+                                    g_threadExceptionPort,
                                     MACH_MSG_TYPE_MAKE_SEND);
         if(kr != KERN_SUCCESS)
         {
@@ -502,8 +539,8 @@ static bool installExceptionHandler(void)
 
     KSLOG_DEBUG("Installing port as exception handler.");
     kr = task_set_exception_ports(thisTask,
-                                  mask,
-                                  g_exceptionPort,
+                                  g_ExceptionMask,
+                                  g_taskExceptionPort,
                                   (int)(EXCEPTION_DEFAULT | MACH_EXCEPTION_CODES),
                                   THREAD_STATE_NONE);
     if(kr != KERN_SUCCESS)
