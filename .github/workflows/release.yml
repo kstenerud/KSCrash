@@ -62,7 +62,8 @@ jobs:
       - name: Publish to CocoaPods
         env:
           COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_PASSWORD }}
-        run: pod trunk push KSCrash.podspec --verbose
+        # run: pod trunk push KSCrash.podspec --verbose
+        run: exit 1 # fail to test `rollback`
 
   rollback:
     runs-on: macos-latest
