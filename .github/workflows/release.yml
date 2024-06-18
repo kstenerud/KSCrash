@@ -108,6 +108,8 @@ jobs:
           git revert --no-commit $previous_commit
           echo "Revert command executed."
           echo "Committing the revert with a message..."
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git commit -m "Revert version update due to failed release"
           echo "Revert commit completed."
 
