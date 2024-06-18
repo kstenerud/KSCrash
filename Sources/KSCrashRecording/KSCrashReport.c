@@ -125,6 +125,8 @@ typedef struct
 } KSCrash_IntrospectionRules;
 
 static const char* g_userInfoJSON;
+static pthread_mutex_t g_userInfoMutex = PTHREAD_MUTEX_INITIALIZER;
+
 static KSCrash_IntrospectionRules g_introspectionRules;
 static KSReportWriteCallback g_userSectionWriteCallback;
 
@@ -662,7 +664,7 @@ static bool isRestrictedClass(const char* name)
     {
         for(int i = 0; i < g_introspectionRules.restrictedClassesCount; i++)
         {
-            if(ksstring_safeStrcmp(name, g_introspectionRules.restrictedClasses[i]))
+            if(ksstring_safeStrcmp(name, g_introspectionRules.restrictedClasses[i]) == 0)
             {
                 return true;
             }
@@ -1362,7 +1364,7 @@ static void writeMemoryInfo(const KSCrashReportWriter* const writer,
 
 static inline bool isCrashOfMonitorType(const KSCrash_MonitorContext* const crash, const KSCrashMonitorAPI* monitorAPI)
 {
-    return ksstring_safeStrcmp(crash->monitorId, kscm_getMonitorId(monitorAPI));
+    return ksstring_safeStrcmp(crash->monitorId, kscm_getMonitorId(monitorAPI)) == 0;
 }
 
 /** Write information about the error leading to the crash to the report.
@@ -1846,18 +1848,16 @@ void kscrashreport_writeStandardReport(const KSCrash_MonitorContext* const monit
 }
 
 
-
 void kscrashreport_setUserInfoJSON(const char* const userInfoJSON)
 {
-    static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-    KSLOG_TRACE("set userInfoJSON to %p", userInfoJSON);
+    KSLOG_TRACE("Setting userInfoJSON to %p", userInfoJSON);
 
-    pthread_mutex_lock(&mutex);
-    if(g_userInfoJSON != NULL)
+    pthread_mutex_lock(&g_userInfoMutex);
+    if (g_userInfoJSON != NULL)
     {
         free((void*)g_userInfoJSON);
     }
-    if(userInfoJSON == NULL)
+    if (userInfoJSON == NULL)
     {
         g_userInfoJSON = NULL;
     }
@@ -1865,7 +1865,21 @@ void kscrashreport_setUserInfoJSON(const char* const userInfoJSON)
     {
         g_userInfoJSON = strdup(userInfoJSON);
     }
-    pthread_mutex_unlock(&mutex);
+    pthread_mutex_unlock(&g_userInfoMutex);
+}
+
+const char* kscrashreport_getUserInfoJSON(void)
+{
+    const char* userInfoJSONCopy = NULL;
+
+    pthread_mutex_lock(&g_userInfoMutex);
+    if (g_userInfoJSON != NULL)
+    {
+        userInfoJSONCopy = strdup(g_userInfoJSON);
+    }
+    pthread_mutex_unlock(&g_userInfoMutex);
+
+    return userInfoJSONCopy;
 }
 
 void kscrashreport_setIntrospectMemory(bool shouldIntrospectMemory)

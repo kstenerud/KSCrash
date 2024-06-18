@@ -24,27 +24,13 @@
 // THE SOFTWARE.
 //
 
-
 #import <Foundation/Foundation.h>
 
-#import "KSCrashReportWriter.h"
-#import "KSCrashReportFilter.h"
 #import "KSCrashMonitorType.h"
+#import "KSCrashReportFilter.h"
+#import "KSCrashReportWriter.h"
 
-typedef enum
-{
-    KSCrashDemangleLanguageNone = 0,
-    KSCrashDemangleLanguageCPlusPlus = 1,
-    KSCrashDemangleLanguageSwift = 2,
-    KSCrashDemangleLanguageAll = ~1
-} KSCrashDemangleLanguage;
-
-typedef enum
-{
-    KSCDeleteNever,
-    KSCDeleteOnSucess,
-    KSCDeleteAlways
-} KSCDeleteBehavior;
+@class KSCrashConfiguration;
 
 /**
  * Reports any crashes that occur in the application.
@@ -55,104 +41,13 @@ typedef enum
 
 #pragma mark - Configuration -
 
-/** Init KSCrash instance with custom base path. */
-- (id) initWithBasePath:(NSString *)basePath;
-
 /** A dictionary containing any info you'd like to appear in crash reports. Must
  * contain only JSON-safe data: NSString for keys, and NSDictionary, NSArray,
  * NSString, NSDate, and NSNumber for values.
  *
  * Default: nil
  */
-@property(atomic,readwrite,retain) NSDictionary* userInfo;
-
-/** What to do after sending reports via sendAllReportsWithCompletion:
- *
- * - Use KSCDeleteNever if you will manually manage the reports.
- * - Use KSCDeleteAlways if you will be using an alert confirmation (otherwise it
- *   will nag the user incessantly until he selects "yes").
- * - Use KSCDeleteOnSuccess for all other situations.
- *
- * Default: KSCDeleteAlways
- */
-@property(nonatomic,readwrite,assign) KSCDeleteBehavior deleteBehaviorAfterSendAll;
-
-/** The monitors that will or have been installed.
- * Note: This value may change once KSCrash is installed if some monitors
- *       fail to install.
- *
- * Default: KSCrashMonitorTypeProductionSafeMinimal
- */
-@property(nonatomic,readwrite,assign) KSCrashMonitorType monitoring;
-
-/** Maximum time to allow the main thread to run without returning.
- * If a task occupies the main thread for longer than this interval, the
- * watchdog will consider the queue deadlocked and shut down the app and write a
- * crash report.
- *
- * Note: You must have added KSCrashMonitorTypeMainThreadDeadlock to the monitoring
- *       property in order for this to have any effect.
- *
- * Warning: Make SURE that nothing in your app that runs on the main thread takes
- * longer to complete than this value or it WILL get shut down! This includes
- * your app startup process, so you may need to push app initialization to
- * another thread, or perhaps set this to a higher value until your application
- * has been fully initialized.
- *
- * WARNING: This is still causing false positives in some cases. Use at own risk!
- *
- * 0 = Disabled.
- *
- * Default: 0
- */
-@property(nonatomic,readwrite,assign) double deadlockWatchdogInterval;
-
-/** If YES, attempt to fetch dispatch queue names for each running thread.
- *
- * WARNING: There is a chance that this will crash on a ksthread_getQueueName() call!
- *
- * Enable at your own risk.
- *
- * Default: NO
- */
-@property(nonatomic,readwrite,assign) BOOL searchQueueNames;
-
-/** If YES, introspect memory contents during a crash.
- * Any Objective-C objects or C strings near the stack pointer or referenced by
- * cpu registers or exceptions will be recorded in the crash report, along with
- * their contents.
- *
- * Default: YES
- */
-@property(nonatomic,readwrite,assign) BOOL introspectMemory;
-
-/** If YES, monitor all Objective-C/Swift deallocations and keep track of any
- * accesses after deallocation.
- *
- * Default: NO
- */
-@property(nonatomic,readwrite,assign) BOOL catchZombies;
-
-/** If YES, reports OOMs. Otherwise, will still collect memory data
- * unless memory termination monitoring is off.
- *
- * Default: YES
- */
-@property(nonatomic,readwrite,assign) BOOL reportsMemoryTerminations;
-
-/** List of Objective-C classes that should never be introspected.
- * Whenever a class in this list is encountered, only the class name will be recorded.
- * This can be useful for information security concerns.
- *
- * Default: nil
- */
-@property(nonatomic,readwrite,retain) NSArray* doNotIntrospectClasses;
-
-/** The maximum number of reports allowed on disk before old ones get deleted.
- *
- * Default: 5
- */
-@property(nonatomic,readwrite,assign) int maxReportCount;
+@property (atomic, readwrite, retain) NSDictionary* userInfo;
 
 /** The report sink where reports get sent.
  * This MUST be set or else the reporter will not send reports (although it will
@@ -161,38 +56,15 @@ typedef enum
  * Note: If you use an installation, it will automatically set this property.
  *       Do not modify it in such a case.
  */
-@property(nonatomic,readwrite,retain) id<KSCrashReportFilter> sink;
-
-/** C Function to call during a crash report to give the callee an opportunity to
- * add to the report. NULL = ignore.
- *
- * WARNING: Only call async-safe functions from this function! DO NOT call
- * Objective-C methods!!!
- *
- * Note: If you use an installation, it will automatically set this property.
- *       Do not modify it in such a case.
- */
-@property(nonatomic,readwrite,assign) KSReportWriteCallback onCrash;
-
-/** Add a copy of KSCrash's console log messages to the crash report.
- */
-@property(nonatomic,readwrite,assign) BOOL addConsoleLogToReport;
-
-/** Print the previous app run log to the console when installing KSCrash.
- *  This is primarily for debugging purposes.
- */
-@property(nonatomic,readwrite,assign) BOOL printPreviousLog;
-
-/** Which languages to demangle when getting stack traces (default KSCrashDemangleLanguageAll) */
-@property(nonatomic,readwrite,assign) KSCrashDemangleLanguage demangleLanguages;
-
-/** Exposes the uncaughtExceptionHandler if set from KSCrash. Is nil if debugger is running. **/
-@property (nonatomic, assign) NSUncaughtExceptionHandler *uncaughtExceptionHandler;
-
-/** Exposes the currentSnapshotUserReportedExceptionHandler if set from KSCrash. Is nil if debugger is running. **/
-@property (nonatomic, assign) NSUncaughtExceptionHandler *currentSnapshotUserReportedExceptionHandler;
+@property (nonatomic, readwrite, retain) id<KSCrashReportFilter> sink;
 
 #pragma mark - Information -
+
+/** Exposes the uncaughtExceptionHandler if set from KSCrash. Is nil if debugger is running. */
+@property(nonatomic,readonly,assign) NSUncaughtExceptionHandler* uncaughtExceptionHandler;
+
+/** Exposes the currentSnapshotUserReportedExceptionHandler if set from KSCrash.  Is nil if debugger is running. */
+@property(nonatomic,readonly,assign) NSUncaughtExceptionHandler* currentSnapshotUserReportedExceptionHandler;
 
 /** Total active time elapsed since the last crash. */
 @property(nonatomic,readonly,assign) NSTimeInterval activeDurationSinceLastCrash;
@@ -231,6 +103,9 @@ typedef enum
 
 #pragma mark - API -
 
+/** Init KSCrash instance with custom base path. */
+- (instancetype) initWithBasePath:(NSString*) basePath;
+
 /** Get the singleton instance of the crash reporter.
  */
 + (KSCrash*) sharedInstance;
@@ -241,7 +116,7 @@ typedef enum
  *
  * @return YES if the reporter successfully installed.
  */
-- (BOOL) install;
+- (BOOL) installWithConfiguration:(KSCrashConfiguration*) configuration;
 
 /** Send all outstanding crash reports to the current sink.
  * It will only attempt to send the most recent 5 reports. All others will be
@@ -300,23 +175,15 @@ typedef enum
  *
  * @param terminateProgram If true, do not return from this function call. Terminate the program instead.
  */
-- (void) reportUserException:(NSString*) name
-                      reason:(NSString*) reason
-                    language:(NSString*) language
-                  lineOfCode:(NSString*) lineOfCode
-                  stackTrace:(NSArray*) stackTrace
-               logAllThreads:(BOOL) logAllThreads
-            terminateProgram:(BOOL) terminateProgram;
-
-/** Experimental feature. Works like LD_PRELOAD. Enable C++ exceptions catching with __cxa_throw swap,
- * by updating pointers in the indirect symbol table, which is located in the __LINKEDIT segment.
- * It supports getting a true stackstace even in dynamically linked libraries.
- * Also allows a user to override original __cxa_throw  with his implementation.
- */
-- (void) enableSwapOfCxaThrow;
+- (void)reportUserException:(NSString*)name
+                     reason:(NSString*)reason
+                   language:(NSString*)language
+                 lineOfCode:(NSString*)lineOfCode
+                 stackTrace:(NSArray*)stackTrace
+              logAllThreads:(BOOL)logAllThreads
+           terminateProgram:(BOOL)terminateProgram;
 
 @end
-
 
 //! Project version number for KSCrashFramework.
 FOUNDATION_EXPORT const double KSCrashFrameworkVersionNumber;

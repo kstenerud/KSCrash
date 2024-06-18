@@ -55,6 +55,7 @@ typedef struct
 
 static MonitorList g_monitors = {};
 
+static bool g_areMonitorsInitialized = false;
 static bool g_handlingFatalException = false;
 static bool g_crashedDuringExceptionHandling = false;
 static bool g_requiresAsyncSafety = false;
@@ -118,6 +119,8 @@ static void freeMonitorFuncList(MonitorList* list)
     list->apis = NULL;
     list->count = 0;
     list->capacity = 0;
+
+    g_areMonitorsInitialized = false;
 }
 
 __attribute__((unused)) // For tests. Declared as extern in TestCase
@@ -224,29 +227,43 @@ void kscm_disableAllMonitors(void)
     KSLOG_DEBUG("All monitors have been disabled.");
 }
 
-void kscm_addMonitor(KSCrashMonitorAPI* api)
+bool kscm_addMonitor(KSCrashMonitorAPI* api)
 {
-    static bool isInitialized = false;
+    if (api == NULL)
+    {
+        KSLOG_DEBUG("Attempted to add a NULL monitor. Operation aborted.");
+        return false;
+    }
 
-    if (!isInitialized)
+    const char* newMonitorId = kscm_getMonitorId(api);
+    if (newMonitorId == NULL)
+    {
+        KSLOG_DEBUG("Monitor has a NULL ID. Operation aborted.");
+        return false;
+    }
+
+    if (!g_areMonitorsInitialized)
     {
         initializeMonitorList(&g_monitors);
-        isInitialized = true;
+        g_areMonitorsInitialized = true;
     }
 
     // Check for duplicate monitors
     for (size_t i = 0; i < g_monitors.count; i++)
     {
-        if (ksstring_safeStrcmp(kscm_getMonitorId(g_monitors.apis[i]),
-                                kscm_getMonitorId(api)) == 0)
+        KSCrashMonitorAPI* existingApi = g_monitors.apis[i];
+        const char* existingMonitorId = kscm_getMonitorId(existingApi);
+
+        if (ksstring_safeStrcmp(existingMonitorId, newMonitorId) == 0)
         {
             KSLOG_DEBUG("Monitor %s already exists. Skipping addition.", getMonitorNameForLogging(api));
-            return;
+            return false;
         }
     }
 
     addMonitor(&g_monitors, api);
     KSLOG_DEBUG("Monitor %s injected.", getMonitorNameForLogging(api));
+    return true;
 }
 
 void kscm_removeMonitor(const KSCrashMonitorAPI* api)

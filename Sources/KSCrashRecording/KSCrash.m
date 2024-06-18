@@ -26,7 +26,9 @@
 
 
 #import "KSCrash.h"
+#import "KSCrash+Private.h"
 
+#import "KSCrashConfiguration+Private.h"
 #import "KSCrashC.h"
 #import "KSCrashDoctor.h"
 #import "KSCrashReportFields.h"
@@ -55,6 +57,7 @@
 
 @property(nonatomic,readwrite,retain) NSString* bundleName;
 @property(nonatomic,readwrite,retain) NSString* basePath;
+@property(nonatomic,strong) KSCrashConfiguration* configuration;
 
 @end
 
@@ -97,20 +100,8 @@ static NSString* getBasePath(void)
 // ============================================================================
 
 @synthesize sink = _sink;
-@synthesize userInfo = _userInfo;
-@synthesize deleteBehaviorAfterSendAll = _deleteBehaviorAfterSendAll;
-@synthesize monitoring = _monitoring;
-@synthesize deadlockWatchdogInterval = _deadlockWatchdogInterval;
-@synthesize searchQueueNames = _searchQueueNames;
-@synthesize onCrash = _onCrash;
 @synthesize bundleName = _bundleName;
 @synthesize basePath = _basePath;
-@synthesize introspectMemory = _introspectMemory;
-@synthesize doNotIntrospectClasses = _doNotIntrospectClasses;
-@synthesize demangleLanguages = _demangleLanguages;
-@synthesize addConsoleLogToReport = _addConsoleLogToReport;
-@synthesize printPreviousLog = _printPreviousLog;
-@synthesize maxReportCount = _maxReportCount;
 @synthesize uncaughtExceptionHandler = _uncaughtExceptionHandler;
 @synthesize currentSnapshotUserReportedExceptionHandler = _currentSnapshotUserReportedExceptionHandler;
 
@@ -146,7 +137,7 @@ static NSString* getBasePath(void)
     return [self initWithBasePath:getBasePath()];
 }
 
-- (id) initWithBasePath:(NSString *)basePath
+- (instancetype) initWithBasePath:(NSString *)basePath
 {
     if((self = [super init]))
     {
@@ -157,93 +148,52 @@ static NSString* getBasePath(void)
             KSLOG_ERROR(@"Failed to initialize crash handler. Crash reporting disabled.");
             return nil;
         }
-        self.deleteBehaviorAfterSendAll = KSCDeleteAlways;
-        self.introspectMemory = YES;
-        self.catchZombies = NO;
-        self.maxReportCount = 5;
-        self.searchQueueNames = NO;
-        self.monitoring = KSCrashMonitorTypeProductionSafeMinimal;
     }
     return self;
 }
-
 
 // ============================================================================
 #pragma mark - API -
 // ============================================================================
 
-- (NSDictionary*) userInfo
+- (NSDictionary* )userInfo
 {
-   return _userInfo;
+    const char *userInfoJSON = kscrash_getUserInfoJSON();
+    if (userInfoJSON != NULL)
+    {
+        NSError *error = nil;
+        NSData *jsonData = [NSData dataWithBytes:userInfoJSON length:strlen(userInfoJSON)];
+        NSDictionary *userInfoDict = [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:&error];
+        free((void *)userInfoJSON); // Free the allocated memory
+
+        if (error != nil)
+        {
+            KSLOG_ERROR(@"Error parsing JSON: %@", error.localizedDescription);
+            return nil;
+        }
+        return userInfoDict;
+    }
+    return nil;
 }
 
 - (void) setUserInfo:(NSDictionary*) userInfo
 {
-    @synchronized (self)
+    NSError *error = nil;
+    NSData *userInfoJSON = nil;
+
+    if (userInfo != nil)
     {
-        NSError* error = nil;
-        NSData* userInfoJSON = nil;
-        if(userInfo != nil)
+        userInfoJSON = [NSJSONSerialization dataWithJSONObject:userInfo options:NSJSONWritingSortedKeys error:&error];
+
+        if (error != nil)
         {
-            userInfoJSON = [self nullTerminated:[KSJSONCodec encode:userInfo
-                                                            options:KSJSONEncodeOptionSorted
-                                                              error:&error]];
-            if(error != NULL)
-            {
-                KSLOG_ERROR(@"Could not serialize user info: %@", error);
-                return;
-            }
+            KSLOG_ERROR(@"Could not serialize user info: %@", error.localizedDescription);
+            return;
         }
-        
-        _userInfo = userInfo;
-        kscrash_setUserInfoJSON([userInfoJSON bytes]);
     }
-}
 
-- (void) setMonitoring:(KSCrashMonitorType)monitoring
-{
-    _monitoring = kscrash_setMonitoring(monitoring);
-}
-
-- (void) setDeadlockWatchdogInterval:(double) deadlockWatchdogInterval
-{
-    _deadlockWatchdogInterval = deadlockWatchdogInterval;
-    kscrash_setDeadlockWatchdogInterval(deadlockWatchdogInterval);
-}
-
-- (void) setSearchQueueNames:(BOOL) searchQueueNames
-{
-    _searchQueueNames = searchQueueNames;
-    kscrash_setSearchQueueNames(searchQueueNames);
-}
-
-- (void) setOnCrash:(KSReportWriteCallback) onCrash
-{
-    _onCrash = onCrash;
-    kscrash_setCrashNotifyCallback(onCrash);
-}
-
-- (void) setIntrospectMemory:(BOOL) introspectMemory
-{
-    _introspectMemory = introspectMemory;
-    kscrash_setIntrospectMemory(introspectMemory);
-}
-
-- (BOOL) catchZombies
-{
-    return (self.monitoring & KSCrashMonitorTypeZombie) != 0;
-}
-
-- (void) setCatchZombies:(BOOL)catchZombies
-{
-    if(catchZombies)
-    {
-        self.monitoring |= KSCrashMonitorTypeZombie;
-    }
-    else
-    {
-        self.monitoring &= (KSCrashMonitorType)~KSCrashMonitorTypeZombie;
-    }
+    const char *userInfoCString = userInfoJSON ? [userInfoJSON bytes] : NULL;
+    kscrash_setUserInfoJSON(userInfoCString);
 }
 
 - (BOOL)reportsMemoryTerminations
@@ -254,32 +204,6 @@ static NSString* getBasePath(void)
 - (void)setReportsMemoryTerminations:(BOOL)reportsMemoryTerminations
 {
     ksmemory_set_fatal_reports_enabled(reportsMemoryTerminations);
-}
-
-- (void) setDoNotIntrospectClasses:(NSArray *)doNotIntrospectClasses
-{
-    _doNotIntrospectClasses = doNotIntrospectClasses;
-    NSUInteger count = [doNotIntrospectClasses count];
-    if(count == 0)
-    {
-        kscrash_setDoNotIntrospectClasses(nil, 0);
-    }
-    else
-    {
-        NSMutableData* data = [NSMutableData dataWithLength:count * sizeof(const char*)];
-        const char** classes = data.mutableBytes;
-        for(unsigned i = 0; i < count; i++)
-        {
-            classes[i] = [[doNotIntrospectClasses objectAtIndex:i] cStringUsingEncoding:NSUTF8StringEncoding];
-        }
-        kscrash_setDoNotIntrospectClasses(classes, (int)count);
-    }
-}
-
-- (void) setMaxReportCount:(int)maxReportCount
-{
-    _maxReportCount = maxReportCount;
-    kscrash_setMaxReportCount(maxReportCount);
 }
 
 - (NSDictionary*) systemInfo
@@ -325,14 +249,10 @@ static NSString* getBasePath(void)
     return dict;
 }
 
-- (BOOL) install
+- (BOOL) installWithConfiguration:(KSCrashConfiguration*) configuration
 {
-    _monitoring = kscrash_install(self.bundleName.UTF8String,
-                                          self.basePath.UTF8String);
-    if(self.monitoring == 0)
-    {
-        return false;
-    }
+    self.configuration = [configuration copy] ?: [KSCrashConfiguration new];
+    kscrash_install(self.bundleName.UTF8String, self.basePath.UTF8String, [self.configuration toCConfiguration]);
 
     return true;
 }
@@ -351,8 +271,8 @@ static NSString* getBasePath(void)
          {
              KSLOG_ERROR(@"Failed to send reports: %@", error);
          }
-         if((self.deleteBehaviorAfterSendAll == KSCDeleteOnSucess && completed) ||
-            self.deleteBehaviorAfterSendAll == KSCDeleteAlways)
+         if((self.configuration.deleteBehaviorAfterSendAll == KSCDeleteOnSucess && completed) ||
+            self.configuration.deleteBehaviorAfterSendAll == KSCDeleteAlways)
          {
              kscrash_deleteAllReports();
          }
@@ -404,11 +324,6 @@ static NSString* getBasePath(void)
                                 cStackTrace,
                                 logAllThreads,
                                 terminateProgram);
-}
-
-- (void) enableSwapOfCxaThrow
-{
-    enableSwapCxaThrow();
 }
 
 // ============================================================================
@@ -546,19 +461,6 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
     
     return reports;
 }
-
-- (void) setAddConsoleLogToReport:(BOOL) shouldAddConsoleLogToReport
-{
-    _addConsoleLogToReport = shouldAddConsoleLogToReport;
-    kscrash_setAddConsoleLogToReport(shouldAddConsoleLogToReport);
-}
-
-- (void) setPrintPreviousLog:(BOOL) shouldPrintPreviousLog
-{
-    _printPreviousLog = shouldPrintPreviousLog;
-    kscrash_setPrintPreviousLog(shouldPrintPreviousLog);
-}
-
 
 // ============================================================================
 #pragma mark - Utility -

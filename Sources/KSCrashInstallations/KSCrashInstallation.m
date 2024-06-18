@@ -27,6 +27,7 @@
 
 #import "KSCrashInstallation.h"
 #import "KSCrashInstallation+Private.h"
+#import "KSCrashConfiguration.h"
 #import "KSCrashReportFilterBasic.h"
 #import "KSCrash.h"
 #import "KSCString.h"
@@ -55,24 +56,6 @@ typedef struct
 
 
 static CrashHandlerData* g_crashHandlerData;
-
-
-static void crashCallback(const KSCrashReportWriter* writer)
-{
-    for(int i = 0; i < g_crashHandlerData->reportFieldsCount; i++)
-    {
-        ReportField* field = g_crashHandlerData->reportFields[i];
-        if(field->key != NULL && field->value != NULL)
-        {
-            writer->addJSONElement(writer, field->key, field->value, true);
-        }
-    }
-    if(g_crashHandlerData->userCrashCallback != NULL)
-    {
-        g_crashHandlerData->userCrashCallback(writer);
-    }
-}
-
 
 @interface KSCrashInstReportField: NSObject
 
@@ -204,7 +187,8 @@ static void crashCallback(const KSCrashReportWriter* writer)
         if(g_crashHandlerData == self.crashHandlerData)
         {
             g_crashHandlerData = NULL;
-            handler.onCrash = NULL;
+// FIXME: Mutating the inner state
+//            handler.onCrash = NULL;
         }
     }
 }
@@ -316,14 +300,37 @@ static void crashCallback(const KSCrashReportWriter* writer)
     }
 }
 
-- (void) install
+- (void) installWithConfiguration:(KSCrashConfiguration*) configuration
 {
     KSCrash* handler = [KSCrash sharedInstance];
     @synchronized(handler)
     {
         g_crashHandlerData = self.crashHandlerData;
-        handler.onCrash = crashCallback;
-        [handler install];
+
+        if (configuration == nil) {
+            configuration = [[KSCrashConfiguration alloc] init];
+        }
+        configuration.crashNotifyCallback = ^(const struct KSCrashReportWriter * _Nonnull writer) {
+            CrashHandlerData* crashHandlerData = g_crashHandlerData;
+            if(crashHandlerData == NULL)
+            {
+                return;
+            }
+            for(int i = 0; i < crashHandlerData->reportFieldsCount; i++)
+            {
+                ReportField* field = crashHandlerData->reportFields[i];
+                if(field->key != NULL && field->value != NULL)
+                {
+                    writer->addJSONElement(writer, field->key, field->value, true);
+                }
+            }
+            if(crashHandlerData->userCrashCallback != NULL)
+            {
+                crashHandlerData->userCrashCallback(writer);
+            }
+        };
+
+        [handler installWithConfiguration:configuration];
     }
 }
 

@@ -1,9 +1,9 @@
 //
-//  KSCrashInstallationStandard_Tests.m
+//  KSCrash+Private.h
 //
-//  Created by Kelp on 2013-03-14.
+//  Created by Gleb Linnik on 11.06.2024.
 //
-//  Copyright (c) 2013 Karl Stenerud. All rights reserved.
+//  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -24,31 +24,16 @@
 // THE SOFTWARE.
 //
 
+#ifndef KSCrash_Private_h
+#define KSCrash_Private_h
 
-#import <XCTest/XCTest.h>
+#import "KSCrash.h"
 
-#import "KSCrashInstallationVictory.h"
+@interface KSCrash()
 
-
-@interface KSCrashInstallationVictory_Tests : XCTestCase @end
-
-
-@implementation KSCrashInstallationVictory_Tests
-
-- (void) testInstall
-{
-    KSCrashInstallationVictory* installation = [KSCrashInstallationVictory sharedInstance];
-    installation.url = [NSURL URLWithString:@"https://victory-demo.appspot.com/api/v1/crash/0571f5f6-652d-413f-8043-0e9531e1b689"];
-    installation.userName = nil;
-    installation.userEmail = nil;
-    
-    [installation installWithConfiguration:nil];
-    [installation sendAllReportsWithCompletion:^(__unused NSArray *filteredReports, BOOL completed, NSError *error)
-     {
-         // There are no reports, so this will succeed.
-         XCTAssertTrue(completed, @"");
-         XCTAssertNil(error, @"");
-     }];
-}
+@property (nonatomic, readwrite, assign) NSUncaughtExceptionHandler *uncaughtExceptionHandler;
+@property (nonatomic, readwrite, assign) NSUncaughtExceptionHandler *currentSnapshotUserReportedExceptionHandler;
 
 @end
+
+#endif /* KSCrash_Private_h */
