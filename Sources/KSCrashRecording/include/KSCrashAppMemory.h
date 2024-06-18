@@ -59,14 +59,17 @@
 NS_ASSUME_NONNULL_BEGIN
 
 /** Notification sent when the memory level changes. */
-FOUNDATION_EXPORT NSNotificationName const KSCrashAppMemoryLevelChangedNotification;
+FOUNDATION_EXPORT NSNotificationName const KSCrashAppMemoryLevelChangedNotification 
+NS_SWIFT_NAME(AppMemoryLevelChangedNotification);
 
 /** Notification sent when the memory pressure changes. */
-FOUNDATION_EXPORT NSNotificationName const KSCrashAppMemoryPressureChangedNotification;
+FOUNDATION_EXPORT NSNotificationName const KSCrashAppMemoryPressureChangedNotification 
+NS_SWIFT_NAME(AppMemoryPressureChangedNotification);
 
 /** Notification keys that hold new and old values in the _userInfo_ dictionary. */
-FOUNDATION_EXPORT NSString *const KSCrashAppMemoryNewValueKey;
-FOUNDATION_EXPORT NSString *const KSCrashAppMemoryOldValueKey;
+typedef NSString *KSCrashAppMemoryKeys NS_TYPED_ENUM NS_SWIFT_NAME(AppMemoryKeys);
+FOUNDATION_EXPORT KSCrashAppMemoryKeys const KSCrashAppMemoryNewValueKey NS_SWIFT_NAME(newValue);
+FOUNDATION_EXPORT KSCrashAppMemoryKeys const KSCrashAppMemoryOldValueKey NS_SWIFT_NAME(oldValue); 
 
 /** The memory state for level and pressure. */
 typedef NS_ENUM(NSUInteger, KSCrashAppMemoryState) {
@@ -88,12 +91,13 @@ typedef NS_ENUM(NSUInteger, KSCrashAppMemoryState) {
 
     /** You have been or will be terminated. Out-Of-Memory. SIGKILL. */
     KSCrashAppMemoryStateTerminal
-};
+} NS_SWIFT_NAME(AppMemoryState);
 
 /**
  * AppMemory is a simple container object for everything important on Apple platforms
  * surrounding memory.
  */
+NS_SWIFT_NAME(AppMemory)
 @interface KSCrashAppMemory : NSObject
 
 - (instancetype)init NS_UNAVAILABLE;
@@ -122,7 +126,7 @@ typedef NS_ENUM(NSUInteger, KSCrashAppMemoryState) {
 @property(readonly, nonatomic, assign) KSCrashAppMemoryState pressure;
 
 /** True when the app is totally out of memory. */
-- (BOOL)isOutOfMemory;
+@property(readonly, nonatomic, assign) BOOL isOutOfMemory;
 
 @end
 
@@ -131,7 +135,9 @@ typedef NS_ENUM(NSUInteger, KSCrashAppMemoryState) {
  * `KSCrashAppMemoryStateToString` returns a `const char*`
  * because it needs to be async safe.
  */
-FOUNDATION_EXPORT const char *KSCrashAppMemoryStateToString(KSCrashAppMemoryState state);
-FOUNDATION_EXPORT KSCrashAppMemoryState KSCrashAppMemoryStateFromString(NSString *const state);
+FOUNDATION_EXPORT const char *KSCrashAppMemoryStateToString(KSCrashAppMemoryState state) 
+NS_SWIFT_NAME(string(from:));
+FOUNDATION_EXPORT KSCrashAppMemoryState KSCrashAppMemoryStateFromString(NSString *const string)
+NS_SWIFT_NAME(memoryState(from:));
 
 NS_ASSUME_NONNULL_END
