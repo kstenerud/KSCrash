@@ -1,7 +1,7 @@
 //
-//  KSCrashMonitor_Tests.m
+//  KSMachineContext_Tests.m
 //
-//  Created by Karl Stenerud on 2013-03-09.
+//  Created by Gleb Linnik on 06.06.2024.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,21 +24,13 @@
 // THE SOFTWARE.
 //
 
-
 #import <XCTest/XCTest.h>
 
-#import "KSCrashMonitor.h"
 #import "KSCrashMonitorContext.h"
 
-@interface KSCrashMonitor_Tests : XCTestCase @end
+@interface KSMachineContext_Tests : XCTestCase @end
 
-@implementation KSCrashMonitor_Tests
-
-- (void) testInstallUninstall
-{
-    kscm_setActiveMonitors(KSCrashMonitorTypeAll);
-    kscm_setActiveMonitors(KSCrashMonitorTypeNone);
-}
+@implementation KSMachineContext_Tests
 
 - (void) testSuspendResumeThreads
 {

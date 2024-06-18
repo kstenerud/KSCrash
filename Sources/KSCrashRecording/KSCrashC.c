@@ -31,6 +31,10 @@
 #include "KSCrashReport.h"
 #include "KSCrashReportFixer.h"
 #include "KSCrashReportStore.h"
+#include "KSCrashMonitorType.h"
+#include "KSCrashMonitor_MachException.h"
+#include "KSCrashMonitor_Signal.h"
+#include "KSCrashMonitor_NSException.h"
 #include "KSCrashMonitor_CPPException.h"
 #include "KSCrashMonitor_Deadlock.h"
 #include "KSCrashMonitor_User.h"
@@ -61,6 +65,24 @@ typedef enum
     KSApplicationStateWillEnterForeground,
     KSApplicationStateWillTerminate
 } KSApplicationState;
+
+static const struct KSCrashMonitorMapping {
+    KSCrashMonitorType type;
+    KSCrashMonitorAPI* (*getAPI)(void);
+} g_monitorMappings[] = {
+    {KSCrashMonitorTypeMachException, kscm_machexception_getAPI},
+    {KSCrashMonitorTypeSignal, kscm_signal_getAPI},
+    {KSCrashMonitorTypeCPPException, kscm_cppexception_getAPI},
+    {KSCrashMonitorTypeNSException, kscm_nsexception_getAPI},
+    {KSCrashMonitorTypeMainThreadDeadlock, kscm_deadlock_getAPI},
+    {KSCrashMonitorTypeUserReported, kscm_user_getAPI},
+    {KSCrashMonitorTypeSystem, kscm_system_getAPI},
+    {KSCrashMonitorTypeApplicationState, kscm_appstate_getAPI},
+    {KSCrashMonitorTypeZombie, kscm_zombie_getAPI},
+    {KSCrashMonitorTypeMemoryTermination, kscm_memory_getAPI}
+};
+
+static const size_t g_monitorMappingCount = sizeof(g_monitorMappings) / sizeof(g_monitorMappings[0]);
 
 // ============================================================================
 #pragma mark - Globals -
@@ -192,6 +214,7 @@ KSCrashMonitorType kscrash_install(const char* appName, const char* const instal
 
     kscm_setEventCallback(onCrash);
     KSCrashMonitorType monitors = kscrash_setMonitoring(g_monitoring);
+    kscm_activateMonitors();
 
     KSLOG_DEBUG("Installation complete.");
 
@@ -200,16 +223,29 @@ KSCrashMonitorType kscrash_install(const char* appName, const char* const instal
     return monitors;
 }
 
-KSCrashMonitorType kscrash_setMonitoring(KSCrashMonitorType monitors)
+KSCrashMonitorType kscrash_setMonitoring(KSCrashMonitorType monitorTypes)
 {
-    g_monitoring = monitors;
-    
-    if(g_installed)
+    g_monitoring = monitorTypes;
+
+    if (g_installed)
     {
-        kscm_setActiveMonitors(monitors);
-        return kscm_getActiveMonitors();
+        for (size_t i = 0; i < g_monitorMappingCount; i++)
+        {
+            KSCrashMonitorAPI* api = g_monitorMappings[i].getAPI();
+            if (api != NULL)
+            {
+                if (monitorTypes & g_monitorMappings[i].type)
+                {
+                    kscm_addMonitor(api);
+                }
+                else
+                {
+                    kscm_removeMonitor(api);
+                }
+            }
+        }
     }
-    // Return what we will be monitoring in future.
+
     return g_monitoring;
 }
 

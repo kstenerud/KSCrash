@@ -26,6 +26,7 @@
 #import "KSCrashMonitor_Memory.h"
 
 #import "KSSystemCapabilities.h"
+#import "KSCrashMonitorContextHelper.h"
 #import "KSCrash.h"
 #import "KSCrashC.h"
 #import "KSCrashMonitorContext.h"
@@ -228,6 +229,11 @@ static KSCrash_Memory g_previousSessionMemory;
 #pragma mark - API -
 // ============================================================================
 
+static const char* monitorId(void)
+{
+    return "MemoryTermination";
+}
+
 static void setEnabled(bool isEnabled)
 {
     if (isEnabled != g_isEnabled)
@@ -380,6 +386,7 @@ KSCrashMonitorAPI* kscm_memory_getAPI(void)
 {
     static KSCrashMonitorAPI api =
     {
+        .monitorId = monitorId,
         .setEnabled = setEnabled,
         .isEnabled = isEnabled,
         .addContextualInfoToEvent = addContextualInfoToEvent,
@@ -520,7 +527,7 @@ static void ksmemory_write_possible_oom(void)
     
     KSCrash_MonitorContext context;
     memset(&context, 0, sizeof(context));
-    context.crashType = KSCrashMonitorTypeMemoryTermination;
+    ksmc_fillMonitorContext(&context, kscm_memory_getAPI());
     context.eventID = eventID;
     context.registersAreValid = false;
     context.offendingMachineContext = machineContext;

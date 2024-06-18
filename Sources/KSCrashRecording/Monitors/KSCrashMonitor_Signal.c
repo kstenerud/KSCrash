@@ -25,6 +25,9 @@
 //
 
 #include "KSCrashMonitor_Signal.h"
+#include "KSCrashMonitorContextHelper.h"
+#include "KSCrashMonitor_MachException.h"
+#include "KSCrashMonitorHelper.h"
 #include "KSCrashMonitorContext.h"
 #include "KSID.h"
 #include "KSSignalInfo.h"
@@ -96,7 +99,7 @@ static void handleSignal(int sigNum, siginfo_t* signalInfo, void* userContext)
 
         KSCrash_MonitorContext* crashContext = &g_monitorContext;
         memset(crashContext, 0, sizeof(*crashContext));
-        crashContext->crashType = KSCrashMonitorTypeSignal;
+        ksmc_fillMonitorContext(crashContext, kscm_signal_getAPI());
         crashContext->eventID = g_eventID;
         crashContext->offendingMachineContext = machineContext;
         crashContext->registersAreValid = true;
@@ -206,6 +209,16 @@ static void uninstallSignalHandler(void)
     KSLOG_DEBUG("Signal handlers uninstalled.");
 }
 
+static const char* monitorId(void)
+{
+    return "Signal";
+}
+
+static KSCrashMonitorFlag monitorFlags(void)
+{
+    return KSCrashMonitorFlagFatal | KSCrashMonitorFlagAsyncSafe;
+}
+
 static void setEnabled(bool isEnabled)
 {
     if(isEnabled != g_isEnabled)
@@ -233,38 +246,30 @@ static bool isEnabled(void)
 
 static void addContextualInfoToEvent(struct KSCrash_MonitorContext* eventContext)
 {
-    if(!(eventContext->crashType & (KSCrashMonitorTypeSignal | KSCrashMonitorTypeMachException)))
+    const char *machName = kscm_getMonitorId(kscm_machexception_getAPI());
+
+    if(!(strcmp(eventContext->monitorId, monitorId()) == 0 ||
+         (machName && strcmp(eventContext->monitorId, machName) == 0)))
     {
         eventContext->signal.signum = SIGABRT;
     }
 }
 
-#else
-
-static void setEnabled(bool isEnabled)
-{
-    // Not supported
-}
-
-static bool isEnabled(void)
-{
-    return false;
-}
-
-static void addContextualInfoToEvent(struct KSCrash_MonitorContext* eventContext)
-{
-    // Not supported
-}
-
-#endif
+#endif /* KSCRASH_HAS_SIGNAL */
 
 KSCrashMonitorAPI* kscm_signal_getAPI(void)
 {
+#if KSCRASH_HAS_SIGNAL
     static KSCrashMonitorAPI api =
     {
+        .monitorId = monitorId,
+        .monitorFlags = monitorFlags,
         .setEnabled = setEnabled,
         .isEnabled = isEnabled,
         .addContextualInfoToEvent = addContextualInfoToEvent
     };
     return &api;
+#else
+    return NULL;
+#endif
 }

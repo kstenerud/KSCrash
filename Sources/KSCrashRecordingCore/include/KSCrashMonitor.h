@@ -32,9 +32,9 @@
 #ifndef HDR_KSCrashMonitor_h
 #define HDR_KSCrashMonitor_h
 
-#include "KSCrashMonitorType.h"
 #include "KSThread.h"
-    
+#include "KSCrashMonitorFlag.h"
+
 #include <stdbool.h>
 
 #ifdef __cplusplus
@@ -43,39 +43,62 @@ extern "C" {
 
 struct KSCrash_MonitorContext;
 
-
-// ============================================================================
-#pragma mark - External API -
-// ============================================================================
-
-/** Set which monitors are active.
- *
- * @param monitorTypes Which monitors should be active.
- */
-void kscm_setActiveMonitors(KSCrashMonitorType monitorTypes);
-
-/** Get the currently active monitors.
- */
-KSCrashMonitorType kscm_getActiveMonitors(void);
-
-/** Set the callback to call when an event is captured.
- *
- * @param onEvent Called whenever an event is captured.
- */
-void kscm_setEventCallback(void (*onEvent)(struct KSCrash_MonitorContext* monitorContext));
-
-
-// ============================================================================
-#pragma mark - Internal API -
-// ============================================================================
-
 typedef struct
 {
+    const char* (*monitorId)(void);
+    KSCrashMonitorFlag (*monitorFlags)(void);
     void (*setEnabled)(bool isEnabled);
     bool (*isEnabled)(void);
     void (*addContextualInfoToEvent)(struct KSCrash_MonitorContext* eventContext);
     void (*notifyPostSystemEnable)(void);
 } KSCrashMonitorAPI;
+
+// ============================================================================
+#pragma mark - External API -
+// ============================================================================
+
+/**
+ * Activates all added crash monitors.
+ */
+void kscm_activateMonitors(void);
+
+/**
+ * Disables all active crash monitors.
+ */
+void kscm_disableAllMonitors(void);
+
+/**
+ * Adds a crash monitor to the system.
+ *
+ * @param api Pointer to the monitor's API.
+ */
+void kscm_addMonitor(KSCrashMonitorAPI* api);
+
+/**
+ * Remove a crash monitor from the system.
+ *
+ * @param api Pointer to the monitor's API.
+ */
+void kscm_removeMonitor(const KSCrashMonitorAPI* api);
+
+/**
+ * Sets the callback for event capture.
+ *
+ * @param onEvent Callback function for events.
+ */
+void kscm_setEventCallback(void (*onEvent)(struct KSCrash_MonitorContext* monitorContext));
+
+// Uncomment and implement if needed.
+/**
+ * Retrieves active crash monitors.
+ *
+ * @return Active monitors.
+ */
+//KSCrashMonitorType kscm_getActiveMonitors(void);
+
+// ============================================================================
+#pragma mark - Internal API -
+// ============================================================================
 
 /** Notify that a fatal exception has been captured.
  *  This allows the system to take appropriate steps in preparation.
@@ -89,7 +112,6 @@ bool kscm_notifyFatalExceptionCaptured(bool isAsyncSafeEnvironment);
  * @oaram context Contextual information about the exception.
  */
 void kscm_handleException(struct KSCrash_MonitorContext* context);
-
 
 #ifdef __cplusplus
 }

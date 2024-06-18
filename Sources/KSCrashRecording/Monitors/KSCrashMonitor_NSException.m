@@ -24,8 +24,10 @@
 // THE SOFTWARE.
 //
 
-#import "KSCrash.h"
 #import "KSCrashMonitor_NSException.h"
+
+#import "KSCrash.h"
+#import "KSCrashMonitorContextHelper.h"
 #import "KSStackCursor_Backtrace.h"
 #include "KSCrashMonitorContext.h"
 #include "KSID.h"
@@ -46,7 +48,6 @@ static KSCrash_MonitorContext g_monitorContext;
 
 /** The exception handler that was in place before we installed ours. */
 static NSUncaughtExceptionHandler* g_previousUncaughtExceptionHandler;
-
 
 // ============================================================================
 #pragma mark - Callbacks -
@@ -85,7 +86,7 @@ static void handleException(NSException* exception, BOOL currentSnapshotUserRepo
 
         KSCrash_MonitorContext* crashContext = &g_monitorContext;
         memset(crashContext, 0, sizeof(*crashContext));
-        crashContext->crashType = KSCrashMonitorTypeNSException;
+        ksmc_fillMonitorContext(crashContext, kscm_nsexception_getAPI());
         crashContext->eventID = eventID;
         crashContext->offendingMachineContext = machineContext;
         crashContext->registersAreValid = false;
@@ -146,6 +147,16 @@ static void setEnabled(bool isEnabled)
     }
 }
 
+static const char* monitorId(void)
+{
+    return "NSException";
+}
+
+static KSCrashMonitorFlag monitorFlags(void)
+{
+    return KSCrashMonitorFlagFatal;
+}
+
 static bool isEnabled(void)
 {
     return g_isEnabled;
@@ -155,6 +166,8 @@ KSCrashMonitorAPI* kscm_nsexception_getAPI(void)
 {
     static KSCrashMonitorAPI api =
     {
+        .monitorId = monitorId,
+        .monitorFlags = monitorFlags,
         .setEnabled = setEnabled,
         .isEnabled = isEnabled
     };

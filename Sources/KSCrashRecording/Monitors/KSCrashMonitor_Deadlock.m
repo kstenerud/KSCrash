@@ -25,7 +25,9 @@
 //
 
 #import "KSCrashMonitor_Deadlock.h"
+
 #import "KSCrashMonitorContext.h"
+#import "KSCrashMonitorContextHelper.h"
 #import "KSID.h"
 #import "KSThread.h"
 #import "KSStackCursor_MachineContext.h"
@@ -55,7 +57,6 @@ static KSThread g_mainQueueThread;
 
 /** Interval between watchdog pulses. */
 static NSTimeInterval g_watchdogInterval = 0;
-
 
 // ============================================================================
 #pragma mark - X -
@@ -122,7 +123,7 @@ static NSTimeInterval g_watchdogInterval = 0;
     KSLOG_DEBUG(@"Filling out context.");
     KSCrash_MonitorContext* crashContext = &g_monitorContext;
     memset(crashContext, 0, sizeof(*crashContext));
-    crashContext->crashType = KSCrashMonitorTypeMainThreadDeadlock;
+    ksmc_fillMonitorContext(crashContext, kscm_deadlock_getAPI());
     crashContext->eventID = eventID;
     crashContext->registersAreValid = false;
     crashContext->offendingMachineContext = machineContext;
@@ -182,6 +183,16 @@ static void initialize(void)
     }
 }
 
+static const char* monitorId(void)
+{
+    return "MainThreadDeadlock";
+}
+
+static KSCrashMonitorFlag monitorFlags(void)
+{
+    return KSCrashMonitorFlagFatal;
+}
+
 static void setEnabled(bool isEnabled)
 {
     if(isEnabled != g_isEnabled)
@@ -211,6 +222,8 @@ KSCrashMonitorAPI* kscm_deadlock_getAPI(void)
 {
     static KSCrashMonitorAPI api =
     {
+        .monitorId = monitorId,
+        .monitorFlags = monitorFlags,
         .setEnabled = setEnabled,
         .isEnabled = isEnabled
     };

@@ -94,9 +94,9 @@
     
     
     // init
-    kscrash_install("test", installURL.path.UTF8String);
     kscrash_setMonitoring(KSCrashMonitorTypeMemoryTermination);
-    
+    kscrash_install("test", installURL.path.UTF8String);
+
     // init memory API
     KSCrashMonitorAPI* api = kscm_memory_getAPI();
     XCTAssertTrue(api->isEnabled());
@@ -114,15 +114,23 @@
 #endif
     
     // disable
-    kscrash_setMonitoring(KSCrashMonitorTypeNone);
+    // FIXME: The call to `kscrash_setMonitoring(KSCrashMonitorTypeNone)` is temporarily commented out
+    // because the public API is not fully formed yet. Currently using `kscm_disableAllMonitors()`
+    // as a replacement to disable all monitors.
+    kscm_disableAllMonitors();
     XCTAssertFalse(api->isEnabled());
-    
+
     // init again
     ksmemory_initialize(dataURL.path.UTF8String);
-    
-    kscrash_setMonitoring(KSCrashMonitorTypeMemoryTermination);
+
+    // FIXME: The call to `kscrash_setMonitoring(KSCrashMonitorTypeMemoryTermination)` is commented out
+    // as reinitialization of monitors is currently unavailable. Instead, using `kscm_addMonitor(kscm_memory_getAPI())`
+    // and `kscm_activateMonitors()` to enable the memory monitor.
+    kscm_addMonitor(kscm_memory_getAPI());
+    kscm_activateMonitors();
+
     XCTAssertTrue(api->isEnabled());
-    
+
     // notify the system is enabled
     api->notifyPostSystemEnable();
     

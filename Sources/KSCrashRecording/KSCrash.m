@@ -297,7 +297,7 @@ static NSString* getBasePath(void)
     COPY_STRING(kernelVersion);
     COPY_STRING(osVersion);
     COPY_PRIMITIVE(isJailbroken);
-    COPY_STRING(bootTime);
+    COPY_STRING(bootTime); // this field is populated in an optional monitor
     COPY_STRING(appStartTime);
     COPY_STRING(executablePath);
     COPY_STRING(executableName);
@@ -317,7 +317,7 @@ static NSString* getBasePath(void)
     COPY_PRIMITIVE(parentProcessID);
     COPY_STRING(deviceAppHash);
     COPY_STRING(buildType);
-    COPY_PRIMITIVE(storageSize);
+    COPY_PRIMITIVE(storageSize); // this field is populated in an optional monitor
     COPY_PRIMITIVE(memorySize);
     COPY_PRIMITIVE(freeMemory);
     COPY_PRIMITIVE(usableMemory);
