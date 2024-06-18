@@ -101,7 +101,7 @@ NS_ASSUME_NONNULL_BEGIN
  * To access these values, refer to the optional
  * `KSCrashBootTimeMonitor` and `KSCrashDiscSpaceMonitor` modules.
  */
-@property(nonatomic,readonly,strong) NSDictionary* systemInfo;
+@property(nonatomic,readonly,strong) NSDictionary<NSString*, id>* systemInfo;
 
 #pragma mark - API -
 
@@ -110,7 +110,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 /** Get the singleton instance of the crash reporter.
  */
-+ (KSCrash*) sharedInstance;
++ (KSCrash*) sharedInstance NS_SWIFT_NAME(shared());
 
 /** Install the crash reporter.
  * The reporter will record crashes, but will not send any crash reports unless
@@ -141,7 +141,7 @@ NS_ASSUME_NONNULL_BEGIN
  *
  * @return A dictionary with report fields. See KSCrashReportFields.h for available fields.
  */
-- (nullable NSDictionary<NSString*, id>*) reportWithID:(NSInteger) reportID;
+- (nullable NSDictionary<NSString*, id>*) reportForID:(NSInteger) reportID NS_SWIFT_NAME(report(for:));
 
 /** Delete all unsent reports.
  */
@@ -151,7 +151,7 @@ NS_ASSUME_NONNULL_BEGIN
  *
  * @param reportID An ID of report to delete.
  */
-- (void) deleteReportWithID:(NSInteger) reportID;
+- (void) deleteReportWithID:(NSInteger) reportID NS_SWIFT_NAME(deleteReport(with:));
 
 /** Report a custom, user defined exception.
  * This can be useful when dealing with scripting languages.

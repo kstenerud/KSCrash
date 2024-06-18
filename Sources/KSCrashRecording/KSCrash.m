@@ -411,7 +411,7 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
     return [reportIDs copy];
 }
 
-- (NSDictionary*) reportWithID:(NSInteger) reportID
+- (NSDictionary*) reportForID:(NSInteger) reportID
 {
     NSData* jsonData = [self loadCrashReportJSONWithID:reportID];
     if(jsonData == nil)
@@ -447,7 +447,7 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
     NSMutableArray* reports = [NSMutableArray arrayWithCapacity:(NSUInteger)reportCount];
     for(int i = 0; i < reportCount; i++)
     {
-        NSDictionary* report = [self reportWithID:reportIDs[i]];
+        NSDictionary* report = [self reportForID:reportIDs[i]];
         if(report != nil)
         {
             [reports addObject:report];
