@@ -54,7 +54,7 @@ typedef void (^KSCrashAppStateTrackerObserverBlock)(KSCrashAppTransitionState tr
  * The shared tracker. Use this unless you absolutely need your own tracker,
  * at which point you can simply allocate your own.
  */
-+ (instancetype)shared;
++ (instancetype)sharedInstance;
 
 - (instancetype)initWithNotificationCenter:(NSNotificationCenter *)notificationCenter NS_DESIGNATED_INITIALIZER;
 

@@ -141,7 +141,7 @@ static void _ks_memory_update_from_app_memory(KSCrashAppMemory *const memory) {
             .pressure = (uint8_t)memory.pressure,
             .level = (uint8_t)memory.level,
             .timestamp = ksdate_microseconds(),
-            .state = KSCrashAppStateTracker.shared.transitionState,
+            .state = KSCrashAppStateTracker.sharedInstance.transitionState,
         };
     });
 }
@@ -245,7 +245,7 @@ static void setEnabled(bool isEnabled)
             
             ksmemory_map(g_memoryURL.path.UTF8String);
 
-            g_appStateObserver = [KSCrashAppStateTracker.shared addObserverWithBlock:^(KSCrashAppTransitionState transitionState) {
+            g_appStateObserver = [KSCrashAppStateTracker.sharedInstance addObserverWithBlock:^(KSCrashAppTransitionState transitionState) {
                 _ks_memory_update(^(KSCrash_Memory *mem) {
                     mem->state = transitionState;
                 });
@@ -255,7 +255,7 @@ static void setEnabled(bool isEnabled)
         else
         {
             g_memoryTracker = nil;
-            [KSCrashAppStateTracker.shared removeObserver:g_appStateObserver];
+            [KSCrashAppStateTracker.sharedInstance removeObserver:g_appStateObserver];
             g_appStateObserver = nil;
         }
     }

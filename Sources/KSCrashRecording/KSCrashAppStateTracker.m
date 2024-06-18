@@ -118,10 +118,10 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
 + (void)load
 {
     // to work well, we need this to run as early as possible.
-    (void)[KSCrashAppStateTracker shared];
+    (void)[KSCrashAppStateTracker sharedInstance];
 }
 
-+ (instancetype)shared
++ (instancetype)sharedInstance
 {
     static KSCrashAppStateTracker *sTracker;
     static dispatch_once_t onceToken;
