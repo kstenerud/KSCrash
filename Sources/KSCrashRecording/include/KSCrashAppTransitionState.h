@@ -36,6 +36,10 @@
 extern "C" {
 #endif
 
+#ifndef NS_SWIFT_NAME
+#define NS_SWIFT_NAME(_name)
+#endif
+
 /** States of transition for the application */
 #ifdef __OBJC__
 typedef NS_ENUM(uint8_t, KSCrashAppTransitionState)
@@ -52,7 +56,7 @@ enum
     KSCrashAppTransitionStateBackground,
     KSCrashAppTransitionStateTerminating,
     KSCrashAppTransitionStateExiting,
-};
+} NS_SWIFT_NAME(AppTransitionState);
 #ifndef __OBJC__
 typedef uint8_t KSCrashAppTransitionState;
 #endif
@@ -60,12 +64,14 @@ typedef uint8_t KSCrashAppTransitionState;
 /**
  * Returns true if the transition state is user perceptible.
  */
-bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state);
+bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
+NS_SWIFT_NAME(isUserPerceptible(transitionState:));
 
 /**
  * Returns a string for the app state passed in.
  */
-const char *ksapp_transitionStateToString(KSCrashAppTransitionState state);
+const char *ksapp_transitionStateToString(KSCrashAppTransitionState state)
+NS_SWIFT_NAME(string(for:));
 
 #ifdef __cplusplus
 }
