@@ -34,7 +34,7 @@ typedef NS_ENUM(NSUInteger, KSCDeleteBehavior) {
     KSCDeleteNever,
     KSCDeleteOnSucess,
     KSCDeleteAlways
-};
+} NS_SWIFT_NAME(DeleteBehavior);
 
 @interface KSCrashConfiguration : NSObject <NSCopying>
 
@@ -99,7 +99,7 @@ typedef NS_ENUM(NSUInteger, KSCDeleteBehavior) {
  *
  * This function is called during the crash reporting process, providing an opportunity
  * to add additional information to the crash report. Only async-safe functions should
- * be called from this function. Avoid calling Objective-C methods.
+ * be called from this function. Avoid calling Objective-C/Swift methods.
  *
  * **Default**: NULL
  */
