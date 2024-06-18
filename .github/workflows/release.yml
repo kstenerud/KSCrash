@@ -58,15 +58,24 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Fetch all tags
+        run: |
+          git fetch --tags
 
       - name: Delete git tag locally
-        run: git tag -d ${{ github.event.inputs.version }}
+        run: |
+          git tag -d ${{ github.event.inputs.version }} || echo "Tag not found locally"
 
       - name: Delete git tag remotely
-        run: git push --delete origin ${{ github.event.inputs.version }}
+        run: |
+          git push --delete origin ${{ github.event.inputs.version }} || echo "Tag not found on remote"
 
       - name: Revert version commit
         run: |
-          git revert --no-commit HEAD
+          previous_commit=$(git rev-list -n 1 HEAD~1)
+          git revert --no-commit $previous_commit
           git commit -m "Revert version update due to failed release"
           git push
