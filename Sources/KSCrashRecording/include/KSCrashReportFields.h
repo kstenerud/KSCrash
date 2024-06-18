@@ -47,9 +47,13 @@ typedef const char* KSCrashReportField;
 #define KSCRF_DEFINE_CONSTANT(type, name, swift_name, string) \
     static type const type##_##name NS_SWIFT_NAME(swift_name) = KSCRF_CONVERT_STRING(string);
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #pragma mark - Report Types -
 
-typedef KSCrashReportField KSCrashReportType NS_TYPED_ENUM;
+typedef KSCrashReportField KSCrashReportType NS_TYPED_ENUM NS_SWIFT_NAME(ReportType);
 
 KSCRF_DEFINE_CONSTANT(KSCrashReportType, Minimal, minimal, "minimal")
 KSCRF_DEFINE_CONSTANT(KSCrashReportType, Standard, standard, "standard")
@@ -57,7 +61,7 @@ KSCRF_DEFINE_CONSTANT(KSCrashReportType, Custom, custom, "custom")
 
 #pragma mark - Memory Types -
 
-typedef KSCrashReportField KSCrashMemType NS_TYPED_ENUM;
+typedef KSCrashReportField KSCrashMemType NS_TYPED_ENUM NS_SWIFT_NAME(MemoryType);
 
 KSCRF_DEFINE_CONSTANT(KSCrashMemType, Block, block, "objc_block")
 KSCRF_DEFINE_CONSTANT(KSCrashMemType, Class, class, "objc_class")
@@ -68,7 +72,7 @@ KSCRF_DEFINE_CONSTANT(KSCrashMemType, Unknown, unknown, "unknown")
 
 #pragma mark - Exception Types -
 
-typedef KSCrashReportField KSCrashExcType NS_TYPED_ENUM;
+typedef KSCrashReportField KSCrashExcType NS_TYPED_ENUM NS_SWIFT_NAME(ExceptionType);
 
 KSCRF_DEFINE_CONSTANT(KSCrashExcType, CPPException, cppException, "cpp_exception")
 KSCRF_DEFINE_CONSTANT(KSCrashExcType, Deadlock, deadlock, "deadlock")
@@ -80,7 +84,7 @@ KSCRF_DEFINE_CONSTANT(KSCrashExcType, MemoryTermination, memoryTermination, "mem
 
 #pragma mark - Common -
 
-typedef KSCrashReportField KSCrashField NS_TYPED_ENUM;
+typedef KSCrashReportField KSCrashField NS_TYPED_ENUM NS_SWIFT_NAME(CrashField);
 
 KSCRF_DEFINE_CONSTANT(KSCrashField, Address, address, "address")
 KSCRF_DEFINE_CONSTANT(KSCrashField, Contents, contents, "contents")
@@ -240,4 +244,8 @@ KSCRF_DEFINE_CONSTANT(KSCrashField, MemoryPressure, memoryPressure, "memory_pres
 KSCRF_DEFINE_CONSTANT(KSCrashField, MemoryLevel, memoryLevel, "memory_level")
 KSCRF_DEFINE_CONSTANT(KSCrashField, AppTransitionState, appTransitionState, "app_transition_state")
 
+#ifdef __cplusplus
+}
 #endif
+
+#endif // HDR_KSCrashReportFields_h
