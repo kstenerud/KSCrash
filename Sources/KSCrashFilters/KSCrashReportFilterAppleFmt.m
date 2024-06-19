@@ -193,7 +193,7 @@ static NSDictionary* g_registerOrders;
     return [[self alloc] initWithReportStyle:reportStyle];
 }
 
-- (id) initWithReportStyle:(KSAppleReportStyle) reportStyle
+- (instancetype) initWithReportStyle:(KSAppleReportStyle) reportStyle
 {
     if((self = [super init]))
     {
@@ -468,7 +468,9 @@ static NSDictionary* g_registerOrders;
     return [self headerStringForSystemInfo:system reportID:reportID crashTime:crashTime];
 }
 
-- (NSString*)headerStringForSystemInfo:(NSDictionary*)system reportID:(NSString*)reportID crashTime:(NSDate*)crashTime
+- (NSString*)headerStringForSystemInfo:(NSDictionary<NSString*, id>*)system
+                              reportID:(nullable NSString*)reportID
+                             crashTime:(nullable NSDate*)crashTime
 {
     NSMutableString* str = [NSMutableString string];
     NSString* executablePath = [system objectForKey:KSCrashField_ExecutablePath];
