@@ -145,9 +145,9 @@
 @synthesize noAnswer = _noAnswer;
 
 + (KSCrashReportFilterAlert*) filterWithTitle:(NSString*) title
-                                      message:(NSString*) message
+                                      message:(nullable NSString*) message
                                     yesAnswer:(NSString*) yesAnswer
-                                     noAnswer:(NSString*) noAnswer
+                                     noAnswer:(nullable NSString*) noAnswer;
 {
     return [[self alloc] initWithTitle:title
                                message:message
@@ -155,10 +155,10 @@
                               noAnswer:noAnswer];
 }
 
-- (id) initWithTitle:(NSString*) title
-             message:(NSString*) message
-           yesAnswer:(NSString*) yesAnswer
-            noAnswer:(NSString*) noAnswer
+- (instancetype) initWithTitle:(NSString*) title
+                       message:(nullable NSString*) message
+                     yesAnswer:(NSString*) yesAnswer
+                      noAnswer:(nullable NSString*) noAnswer;
 {
     if((self = [super init]))
     {

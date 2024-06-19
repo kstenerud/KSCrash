@@ -47,7 +47,7 @@ NS_SWIFT_UNAVAILABLE("Use Swift closures instead!");
  * A filter receives a set of reports, possibly transforms them, and then
  * calls a completion method.
  */
-NS_SWIFT_NAME(ReportFilter)
+NS_SWIFT_NAME(CrashReportFilter)
 @protocol KSCrashReportFilter <NSObject>
 
 /** Filter the specified reports.

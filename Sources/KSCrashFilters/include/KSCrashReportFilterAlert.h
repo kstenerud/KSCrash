@@ -28,6 +28,7 @@
 #import <Foundation/Foundation.h>
 #import "KSCrashReportFilter.h"
 
+NS_ASSUME_NONNULL_BEGIN
 
 /** Pops up a standard alert window and awaits a user response before continuing.
  *
@@ -39,6 +40,7 @@
  * Input: Any
  * Output: Same as input (passthrough)
  */
+NS_SWIFT_NAME(CrashReportFilterAlert)
 @interface KSCrashReportFilterAlert : NSObject <KSCrashReportFilter>
 
 /**
@@ -49,9 +51,9 @@
  *                 proceed unconditionally.
  */
 + (KSCrashReportFilterAlert*) filterWithTitle:(NSString*) title
-                                      message:(NSString*) message
+                                      message:(nullable NSString*) message
                                     yesAnswer:(NSString*) yesAnswer
-                                     noAnswer:(NSString*) noAnswer;
+                                     noAnswer:(nullable NSString*) noAnswer;
 
 /**
  * @param title The title of the alert.
@@ -60,9 +62,11 @@
  * @param noAnswer The text to put in the "no" button. If nil, the filter will
  *                 proceed unconditionally.
  */
-- (id) initWithTitle:(NSString*) title
-             message:(NSString*) message
-           yesAnswer:(NSString*) yesAnswer
-            noAnswer:(NSString*) noAnswer;
+- (instancetype) initWithTitle:(NSString*) title
+                       message:(nullable NSString*) message
+                     yesAnswer:(NSString*) yesAnswer
+                      noAnswer:(nullable NSString*) noAnswer;
 
 @end
+
+NS_ASSUME_NONNULL_END
