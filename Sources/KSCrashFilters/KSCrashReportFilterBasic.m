@@ -65,7 +65,7 @@
 @synthesize filters = _filters;
 @synthesize keys = _keys;
 
-- (id) initWithFilters:(NSArray*) filters keys:(NSArray*) keys
+- (instancetype) initWithFilters:(NSArray*) filters keys:(NSArray<NSString*>*) keys
 {
     if((self = [super init]))
     {
@@ -118,10 +118,15 @@
     NSMutableArray* filters = [NSMutableArray array];
     NSMutableArray* keys = [NSMutableArray array];
     ksva_iterate_list(firstFilter, [self argBlockWithFilters:filters andKeys:keys]);
+    return [[self class] filterWithFilters:filters keys:keys];
+}
+
++ (KSCrashReportFilterCombine *)filterWithFilters:(NSArray*)filters keys:(NSArray<NSString*>*)keys
+{
     return [[self alloc] initWithFilters:filters keys:keys];
 }
 
-- (id) initWithFiltersAndKeys:(id) firstFilter, ...
+- (instancetype) initWithFiltersAndKeys:(id) firstFilter, ...
 {
     NSMutableArray* filters = [NSMutableArray array];
     NSMutableArray* keys = [NSMutableArray array];
@@ -245,16 +250,21 @@
 + (KSCrashReportFilterPipeline*) filterWithFilters:(id) firstFilter, ...
 {
     ksva_list_to_nsarray(firstFilter, filters);
+    return [[self class] filterWithFiltersArray:filters];
+}
+
++ (KSCrashReportFilterPipeline*) filterWithFiltersArray:(NSArray*) filters
+{
     return [[self alloc] initWithFiltersArray:filters];
 }
 
-- (id) initWithFilters:(id) firstFilter, ...
+- (instancetype) initWithFilters:(id) firstFilter, ...
 {
     ksva_list_to_nsarray(firstFilter, filters);
     return [self initWithFiltersArray:filters];
 }
 
-- (id) initWithFiltersArray:(NSArray*) filters
+- (instancetype) initWithFiltersArray:(NSArray*) filters
 {
     if((self = [super init]))
     {
@@ -369,8 +379,8 @@
     return [[self alloc] initWithKey:key allowNotFound:allowNotFound];
 }
 
-- (id) initWithKey:(id)key
-     allowNotFound:(BOOL) allowNotFound
+- (instancetype) initWithKey:(id)key
+               allowNotFound:(BOOL) allowNotFound
 {
     if((self = [super init]))
     {
@@ -421,7 +431,7 @@
 @interface KSCrashReportFilterConcatenate ()
 
 @property(nonatomic, readwrite, retain) NSString* separatorFmt;
-@property(nonatomic, readwrite, retain) NSArray* keys;
+@property(nonatomic, readwrite, retain) NSArray<NSString*>* keys;
 
 @end
 
@@ -433,16 +443,21 @@
 + (KSCrashReportFilterConcatenate*) filterWithSeparatorFmt:(NSString*) separatorFmt keys:(id) firstKey, ...
 {
     ksva_list_to_nsarray(firstKey, keys);
+    return [[self class] filterWithSeparatorFmt:separatorFmt keysArray:keys];
+}
+
++ (KSCrashReportFilterConcatenate*) filterWithSeparatorFmt:(NSString*) separatorFmt keysArray:(NSArray<NSString*>*) keys
+{
     return [[self alloc] initWithSeparatorFmt:separatorFmt keysArray:keys];
 }
 
-- (id) initWithSeparatorFmt:(NSString*) separatorFmt keys:(id) firstKey, ...
+- (instancetype) initWithSeparatorFmt:(NSString*) separatorFmt keys:(id) firstKey, ...
 {
     ksva_list_to_nsarray(firstKey, keys);
     return [self initWithSeparatorFmt:separatorFmt keysArray:keys];
 }
 
-- (id) initWithSeparatorFmt:(NSString*) separatorFmt keysArray:(NSArray*) keys
+- (instancetype) initWithSeparatorFmt:(NSString*) separatorFmt keysArray:(NSArray<NSString*>*) keys
 {
     if((self = [super init]))
     {
@@ -507,16 +522,21 @@
 + (KSCrashReportFilterSubset*) filterWithKeys:(id) firstKeyPath, ...
 {
     ksva_list_to_nsarray(firstKeyPath, keyPaths);
+    return [[self class] filterWithKeysArray:keyPaths];
+}
+
++ (KSCrashReportFilterSubset*) filterWithKeysArray:(NSArray<NSString*>*) keyPaths
+{
     return [[self alloc] initWithKeysArray:keyPaths];
 }
 
-- (id) initWithKeys:(id) firstKeyPath, ...
+- (instancetype) initWithKeys:(id) firstKeyPath, ...
 {
     ksva_list_to_nsarray(firstKeyPath, keyPaths);
     return [self initWithKeysArray:keyPaths];
 }
 
-- (id) initWithKeysArray:(NSArray*) keyPaths
+- (instancetype) initWithKeysArray:(NSArray<NSString*>*) keyPaths
 {
     if((self = [super init]))
     {
