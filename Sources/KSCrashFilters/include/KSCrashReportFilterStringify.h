@@ -25,10 +25,17 @@
 
 #import "KSCrashReportFilter.h"
 
+#import <Foundation/Foundation.h>
+
+NS_ASSUME_NONNULL_BEGIN
+
 /** Converts objects into strings.
  */
+NS_SWIFT_NAME(CrashReportFilterStringify)
 @interface KSCrashReportFilterStringify : NSObject <KSCrashReportFilter>
 
 + (KSCrashReportFilterStringify*) filter;
 
 @end
+
+NS_ASSUME_NONNULL_END
