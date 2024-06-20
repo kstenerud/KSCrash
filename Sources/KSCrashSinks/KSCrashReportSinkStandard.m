@@ -58,7 +58,7 @@
     return [[self alloc] initWithURL:url];
 }
 
-- (id) initWithURL:(NSURL*) url
+- (instancetype) initWithURL:(NSURL*) url
 {
     if((self = [super init]))
     {

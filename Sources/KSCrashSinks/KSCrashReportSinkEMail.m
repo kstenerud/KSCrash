@@ -197,9 +197,9 @@
 @synthesize message = _message;
 @synthesize filenameFmt = _filenameFmt;
 
-+ (KSCrashReportSinkEMail*) sinkWithRecipients:(NSArray*) recipients
++ (KSCrashReportSinkEMail*) sinkWithRecipients:(NSArray<NSString*>*) recipients
                                        subject:(NSString*) subject
-                                       message:(NSString*) message
+                                       message:(nullable NSString*) message
                                    filenameFmt:(NSString*) filenameFmt
 {
     return [[self alloc] initWithRecipients:recipients
@@ -208,10 +208,10 @@
                                 filenameFmt:filenameFmt];
 }
 
-- (id) initWithRecipients:(NSArray*) recipients
-                  subject:(NSString*) subject
-                  message:(NSString*) message
-              filenameFmt:(NSString*) filenameFmt
+- (instancetype) initWithRecipients:(NSArray<NSString*>*) recipients
+                            subject:(NSString*) subject
+                            message:(nullable NSString*) message
+                        filenameFmt:(NSString*) filenameFmt
 {
     if((self = [super init]))
     {

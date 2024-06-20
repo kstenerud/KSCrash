@@ -27,12 +27,16 @@
 
 #import "KSCrashReportFilter.h"
 
+#import <Foundation/Foundation.h>
+
+NS_ASSUME_NONNULL_BEGIN
 
 /** Sends reports to Quincy.
  *
  * Input: NSDictionary
  * Output: Same as input (passthrough)
  */
+NS_SWIFT_NAME(CrashReportSinkQuincy)
 @interface KSCrashReportSinkQuincy : NSObject <KSCrashReportFilter>
 
 /** If YES, wait until the host becomes reachable before trying to send.
@@ -43,16 +47,16 @@
 @property(nonatomic,readwrite,assign) BOOL waitUntilReachable;
 
 + (KSCrashReportSinkQuincy*) sinkWithURL:(NSURL*) url
-                               userIDKey:(NSString*) userIDKey
-                             userNameKey:(NSString*) userNameKey
-                         contactEmailKey:(NSString*) contactEmailKey
-                    crashDescriptionKeys:(NSArray*) crashDescriptionKeys;
+                               userIDKey:(nullable NSString*) userIDKey
+                             userNameKey:(nullable NSString*) userNameKey
+                         contactEmailKey:(nullable NSString*) contactEmailKey
+                    crashDescriptionKeys:(nullable NSArray*) crashDescriptionKeys;
 
-- (id) initWithURL:(NSURL*) url
-         userIDKey:(NSString*) userIDKey
-       userNameKey:(NSString*) userNameKey
-   contactEmailKey:(NSString*) contactEmailKey
-crashDescriptionKeys:(NSArray*) crashDescriptionKeys;
+- (instancetype) initWithURL:(NSURL*) url
+                   userIDKey:(nullable NSString*) userIDKey
+                 userNameKey:(nullable NSString*) userNameKey
+             contactEmailKey:(nullable NSString*) contactEmailKey
+        crashDescriptionKeys:(nullable NSArray*) crashDescriptionKeys;
 
 - (id <KSCrashReportFilter>) defaultCrashReportFilterSet;
 
@@ -64,18 +68,21 @@ crashDescriptionKeys:(NSArray*) crashDescriptionKeys;
  * Input: NSDictionary
  * Output: Same as input (passthrough)
  */
+NS_SWIFT_NAME(CrashReportSinkHockey)
 @interface KSCrashReportSinkHockey : KSCrashReportSinkQuincy
 
 + (KSCrashReportSinkHockey*) sinkWithAppIdentifier:(NSString*) appIdentifier
-                                         userIDKey:(NSString*) userIDKey
-                                       userNameKey:(NSString*) userNameKey
-                                   contactEmailKey:(NSString*) contactEmailKey
-                              crashDescriptionKeys:(NSArray*) crashDescriptionKeys;
+                                         userIDKey:(nullable NSString*) userIDKey
+                                       userNameKey:(nullable NSString*) userNameKey
+                                   contactEmailKey:(nullable NSString*) contactEmailKey
+                              crashDescriptionKeys:(nullable NSArray*) crashDescriptionKeys;
 
-- (id) initWithAppIdentifier:(NSString*) appIdentifier
-                   userIDKey:(NSString*) userIDKey
-                 userNameKey:(NSString*) userNameKey
-             contactEmailKey:(NSString*) contactEmailKey
-        crashDescriptionKeys:(NSArray*) crashDescriptionKeys;
+- (instancetype) initWithAppIdentifier:(NSString*) appIdentifier
+                             userIDKey:(nullable NSString*) userIDKey
+                           userNameKey:(nullable NSString*) userNameKey
+                       contactEmailKey:(nullable NSString*) contactEmailKey
+                  crashDescriptionKeys:(nullable NSArray*) crashDescriptionKeys;
 
 @end
+
+NS_ASSUME_NONNULL_END

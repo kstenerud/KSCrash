@@ -27,6 +27,9 @@
 
 #import "KSCrashReportFilter.h"
 
+#import <Foundation/Foundation.h>
+
+NS_ASSUME_NONNULL_BEGIN
 
 /**
  * Sends crash reports to Victory server.
@@ -34,6 +37,7 @@
  * Input: NSDictionary
  * Output: Same as input (passthrough)
  */
+NS_SWIFT_NAME(CrashReportSinkVictory)
 @interface KSCrashReportSinkVictory : NSObject <KSCrashReportFilter>
 
 /** Constructor.
@@ -43,8 +47,8 @@
  * @param userEmail The user email of crash information *optional
  */
 + (KSCrashReportSinkVictory*) sinkWithURL:(NSURL*) url
-                                   userName:(NSString*) userName
-                                  userEmail:(NSString*) userEmail;;
+                                 userName:(nullable NSString*) userName
+                                userEmail:(nullable NSString*) userEmail;
 
 /** Constructor.
  *
@@ -52,10 +56,12 @@
  * @param userName The user name of crash information *required. If value is nil it will be replaced with UIDevice.currentDevice.name
  * @param userEmail The user email of crash information *optional
  */
-- (id) initWithURL:(NSURL*) url
-          userName:(NSString*) userName
-         userEmail:(NSString*) userEmail;
+- (instancetype) initWithURL:(NSURL*) url
+                    userName:(nullable NSString*) userName
+                   userEmail:(nullable NSString*) userEmail;
 
 - (id <KSCrashReportFilter>) defaultCrashReportFilterSet;
 
 @end
+
+NS_ASSUME_NONNULL_END

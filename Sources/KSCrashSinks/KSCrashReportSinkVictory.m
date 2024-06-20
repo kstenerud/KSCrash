@@ -69,9 +69,9 @@
     return [[self alloc] initWithURL:url userName:userName userEmail:userEmail];
 }
 
-- (id) initWithURL:(NSURL*) url
-          userName:(NSString*) userName
-         userEmail:(NSString*) userEmail
+- (instancetype) initWithURL:(NSURL*) url
+                    userName:(NSString*) userName
+                   userEmail:(NSString*) userEmail
 {
     if((self = [super init]))
     {

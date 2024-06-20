@@ -51,12 +51,12 @@
 
 @interface KSCrashReportSinkQuincy ()
 
-@property(nonatomic, readwrite, retain) NSString* userIDKey;
-@property(nonatomic, readwrite, retain) NSString* userNameKey;
-@property(nonatomic, readwrite, retain) NSString* contactEmailKey;
-@property(nonatomic, readwrite, retain) NSArray* crashDescriptionKeys;
-@property(nonatomic,readwrite,retain) NSURL* url;
-@property(nonatomic,readwrite,retain) KSReachableOperationKSCrash* reachableOperation;
+@property(nonatomic, readwrite, retain, nullable) NSString* userIDKey;
+@property(nonatomic, readwrite, retain, nullable) NSString* userNameKey;
+@property(nonatomic, readwrite, retain, nullable) NSString* contactEmailKey;
+@property(nonatomic, readwrite, retain, nullable) NSArray* crashDescriptionKeys;
+@property(nonatomic, readwrite, retain) NSURL* url;
+@property(nonatomic, readwrite, retain) KSReachableOperationKSCrash* reachableOperation;
 
 @end
 
@@ -84,11 +84,11 @@
                 crashDescriptionKeys:crashDescriptionKeys];
 }
 
-- (id) initWithURL:(NSURL*) url
-         userIDKey:(NSString*) userIDKey
-       userNameKey:(NSString*) userNameKey
-   contactEmailKey:(NSString*) contactEmailKey
-crashDescriptionKeys:(NSArray*) crashDescriptionKeys
+- (instancetype) initWithURL:(NSURL*) url
+                   userIDKey:(NSString*) userIDKey
+                 userNameKey:(NSString*) userNameKey
+             contactEmailKey:(NSString*) contactEmailKey
+        crashDescriptionKeys:(NSArray*) crashDescriptionKeys
 {
     if((self = [super init]))
     {
@@ -487,11 +487,11 @@ crashDescriptionKeys:(NSArray*) crashDescriptionKeys
                           crashDescriptionKeys:crashDescriptionKeys];
 }
 
-- (id) initWithAppIdentifier:(NSString*) appIdentifier
-                   userIDKey:(NSString*) userIDKey
-                 userNameKey:(NSString*) userNameKey
-             contactEmailKey:(NSString*) contactEmailKey
-        crashDescriptionKeys:(NSArray*) crashDescriptionKeys
+- (instancetype) initWithAppIdentifier:(NSString*) appIdentifier
+                             userIDKey:(NSString*) userIDKey
+                           userNameKey:(NSString*) userNameKey
+                       contactEmailKey:(NSString*) contactEmailKey
+                  crashDescriptionKeys:(NSArray*) crashDescriptionKeys
 {
     if((self = [super initWithURL:[self urlWithAppIdentifier:appIdentifier]
                         userIDKey:userIDKey
