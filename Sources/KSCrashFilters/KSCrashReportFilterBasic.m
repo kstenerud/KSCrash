@@ -55,8 +55,6 @@
 @property(nonatomic,readwrite,retain) NSArray* filters;
 @property(nonatomic,readwrite,retain) NSArray* keys;
 
-- (id) initWithFilters:(NSArray*) filters keys:(NSArray*) keys;
-
 @end
 
 
