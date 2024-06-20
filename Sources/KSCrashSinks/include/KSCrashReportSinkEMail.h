@@ -47,10 +47,10 @@ NS_SWIFT_NAME(CrashReportSinkEmail)
  *                    Note: With the default filter set, files are gzipped text.
  * @return A new instance of KSCrashReportSinkEMail configured with the specified parameters.
  */
-+ (KSCrashReportSinkEMail*) sinkWithRecipients:(NSArray<NSString*>*) recipients
-                                       subject:(NSString*) subject
-                                       message:(nullable NSString*) message
-                                   filenameFmt:(NSString*) filenameFmt;
++ (instancetype) sinkWithRecipients:(NSArray<NSString*>*) recipients
+                            subject:(NSString*) subject
+                            message:(nullable NSString*) message
+                        filenameFmt:(NSString*) filenameFmt;
 
 /**
  * @param recipients List of email addresses to send to.

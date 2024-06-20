@@ -40,7 +40,7 @@ NS_ASSUME_NONNULL_BEGIN
 NS_SWIFT_NAME(CrashReportFilterJSONEncode)
 @interface KSCrashReportFilterJSONEncode : NSObject <KSCrashReportFilter>
 
-+ (KSCrashReportFilterJSONEncode*) filterWithOptions:(KSJSONEncodeOption) options;
++ (instancetype) filterWithOptions:(KSJSONEncodeOption) options;
 
 - (instancetype) initWithOptions:(KSJSONEncodeOption) options;
 
@@ -55,7 +55,7 @@ NS_SWIFT_NAME(CrashReportFilterJSONEncode)
 NS_SWIFT_NAME(CrashReportFilterJSONDecode)
 @interface KSCrashReportFilterJSONDecode : NSObject <KSCrashReportFilter>
 
-+ (KSCrashReportFilterJSONDecode*) filterWithOptions:(KSJSONDecodeOption) options;
++ (instancetype) filterWithOptions:(KSJSONDecodeOption) options;
 
 - (instancetype) initWithOptions:(KSJSONDecodeOption) options;
 

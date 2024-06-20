@@ -132,7 +132,7 @@ static NSString* getBasePath(void)
     return sharedInstance;
 }
 
-- (id) init
+- (instancetype) init
 {
     return [self initWithBasePath:getBasePath()];
 }

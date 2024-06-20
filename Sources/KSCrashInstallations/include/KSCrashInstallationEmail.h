@@ -43,19 +43,19 @@ NS_SWIFT_NAME(InstallationEmail)
 @interface KSCrashInstallationEmail : KSCrashInstallation
 
 /** List of email addresses to send to (mandatory) */
-@property(nonatomic,readwrite,retain) NSArray<NSString *> *recipients;
+@property(nonatomic,readwrite,copy) NSArray<NSString *> *recipients;
 
 /** Email subject (mandatory).
  *
  * Default: "Crash Report (YourBundleID)"
  */
-@property(nonatomic,readwrite,retain) NSString* subject;
+@property(nonatomic,readwrite,copy) NSString* subject;
 
 /** Message to accompany the reports (optional).
  *
  * Default: nil
  */
-@property(nonatomic,readwrite,retain,nullable) NSString* message;
+@property(nonatomic,readwrite,copy,nullable) NSString* message;
 
 /** How to name the attachments (mandatory)
  *
@@ -65,7 +65,7 @@ NS_SWIFT_NAME(InstallationEmail)
  *
  * Default: "crash-report-YourBundleID-%d.txt.gz"
  */
-@property(nonatomic,readwrite,retain) NSString* filenameFmt;
+@property(nonatomic,readwrite,copy) NSString* filenameFmt;
 
 /** Which report style to use.
  */

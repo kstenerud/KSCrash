@@ -110,7 +110,7 @@ typedef NS_ENUM(NSInteger, KSAppleReportStyle)
 NS_SWIFT_NAME(CrashReportFilterAppleFmt)
 @interface KSCrashReportFilterAppleFmt : NSObject <KSCrashReportFilter>
 
-+ (KSCrashReportFilterAppleFmt*) filterWithReportStyle:(KSAppleReportStyle) reportStyle;
++ (instancetype) filterWithReportStyle:(KSAppleReportStyle) reportStyle;
 
 - (instancetype) initWithReportStyle:(KSAppleReportStyle) reportStyle;
 

@@ -36,7 +36,7 @@
 
 @implementation KSCrashReportFilterPassthrough
 
-+ (KSCrashReportFilterPassthrough*) filter
++ (instancetype) filter
 {
     return [[self alloc] init];
 }
@@ -111,7 +111,7 @@
     return [block copy];
 }
 
-+ (KSCrashReportFilterCombine*) filterWithFiltersAndKeys:(id) firstFilter, ...
++ (instancetype) filterWithFiltersAndKeys:(id) firstFilter, ...
 {
     NSMutableArray* filters = [NSMutableArray array];
     NSMutableArray* keys = [NSMutableArray array];
@@ -119,7 +119,7 @@
     return [[self class] filterWithFilters:filters keys:keys];
 }
 
-+ (KSCrashReportFilterCombine *)filterWithFilters:(NSArray*)filters keys:(NSArray<NSString*>*)keys
++ (instancetype)filterWithFilters:(NSArray*)filters keys:(NSArray<NSString*>*)keys
 {
     return [[self alloc] initWithFilters:filters keys:keys];
 }
@@ -236,7 +236,7 @@
 
 @interface KSCrashReportFilterPipeline ()
 
-@property(nonatomic,readwrite,retain) NSArray* filters;
+@property(nonatomic,readwrite,copy) NSArray<id<KSCrashReportFilter>>* filters;
 
 @end
 
@@ -245,13 +245,13 @@
 
 @synthesize filters = _filters;
 
-+ (KSCrashReportFilterPipeline*) filterWithFilters:(id) firstFilter, ...
++ (instancetype) filterWithFilters:(id) firstFilter, ...
 {
     ksva_list_to_nsarray(firstFilter, filters);
     return [[self class] filterWithFiltersArray:filters];
 }
 
-+ (KSCrashReportFilterPipeline*) filterWithFiltersArray:(NSArray*) filters
++ (instancetype) filterWithFiltersArray:(NSArray*) filters
 {
     return [[self alloc] initWithFiltersArray:filters];
 }
@@ -371,14 +371,12 @@
 @synthesize key = _key;
 @synthesize allowNotFound = _allowNotFound;
 
-+ (KSCrashReportFilterObjectForKey*) filterWithKey:(id)key
-                                     allowNotFound:(BOOL) allowNotFound
++ (instancetype) filterWithKey:(id)key allowNotFound:(BOOL) allowNotFound
 {
     return [[self alloc] initWithKey:key allowNotFound:allowNotFound];
 }
 
-- (instancetype) initWithKey:(id)key
-               allowNotFound:(BOOL) allowNotFound
+- (instancetype) initWithKey:(id)key allowNotFound:(BOOL) allowNotFound
 {
     if((self = [super init]))
     {
@@ -438,13 +436,13 @@
 @synthesize separatorFmt = _separatorFmt;
 @synthesize keys = _keys;
 
-+ (KSCrashReportFilterConcatenate*) filterWithSeparatorFmt:(NSString*) separatorFmt keys:(id) firstKey, ...
++ (instancetype) filterWithSeparatorFmt:(NSString*) separatorFmt keys:(id) firstKey, ...
 {
     ksva_list_to_nsarray(firstKey, keys);
     return [[self class] filterWithSeparatorFmt:separatorFmt keysArray:keys];
 }
 
-+ (KSCrashReportFilterConcatenate*) filterWithSeparatorFmt:(NSString*) separatorFmt keysArray:(NSArray<NSString*>*) keys
++ (instancetype) filterWithSeparatorFmt:(NSString*) separatorFmt keysArray:(NSArray<NSString*>*) keys
 {
     return [[self alloc] initWithSeparatorFmt:separatorFmt keysArray:keys];
 }
@@ -517,13 +515,13 @@
 
 @synthesize keyPaths = _keyPaths;
 
-+ (KSCrashReportFilterSubset*) filterWithKeys:(id) firstKeyPath, ...
++ (instancetype) filterWithKeys:(id) firstKeyPath, ...
 {
     ksva_list_to_nsarray(firstKeyPath, keyPaths);
     return [[self class] filterWithKeysArray:keyPaths];
 }
 
-+ (KSCrashReportFilterSubset*) filterWithKeysArray:(NSArray<NSString*>*) keyPaths
++ (instancetype) filterWithKeysArray:(NSArray<NSString*>*) keyPaths
 {
     return [[self alloc] initWithKeysArray:keyPaths];
 }
@@ -586,7 +584,7 @@
 
 @implementation KSCrashReportFilterDataToString
 
-+ (KSCrashReportFilterDataToString*) filter
++ (instancetype) filter
 {
     return [[self alloc] init];
 }
@@ -609,7 +607,7 @@
 
 @implementation KSCrashReportFilterStringToData
 
-+ (KSCrashReportFilterStringToData*) filter
++ (instancetype) filter
 {
     return [[self alloc] init];
 }

@@ -188,7 +188,7 @@ static NSDictionary* g_registerOrders;
                         nil];
 }
 
-+ (KSCrashReportFilterAppleFmt*) filterWithReportStyle:(KSAppleReportStyle) reportStyle
++ (instancetype) filterWithReportStyle:(KSAppleReportStyle) reportStyle
 {
     return [[self alloc] initWithReportStyle:reportStyle];
 }

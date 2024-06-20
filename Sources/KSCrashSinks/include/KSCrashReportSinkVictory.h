@@ -46,9 +46,9 @@ NS_SWIFT_NAME(CrashReportSinkVictory)
  * @param userName The user name of crash information *required. If value is nil it will be replaced with UIDevice.currentDevice.name
  * @param userEmail The user email of crash information *optional
  */
-+ (KSCrashReportSinkVictory*) sinkWithURL:(NSURL*) url
-                                 userName:(nullable NSString*) userName
-                                userEmail:(nullable NSString*) userEmail;
++ (instancetype) sinkWithURL:(NSURL*) url
+                    userName:(nullable NSString*) userName
+                   userEmail:(nullable NSString*) userEmail;
 
 /** Constructor.
  *

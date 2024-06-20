@@ -197,10 +197,10 @@
 @synthesize message = _message;
 @synthesize filenameFmt = _filenameFmt;
 
-+ (KSCrashReportSinkEMail*) sinkWithRecipients:(NSArray<NSString*>*) recipients
-                                       subject:(NSString*) subject
-                                       message:(nullable NSString*) message
-                                   filenameFmt:(NSString*) filenameFmt
++ (instancetype) sinkWithRecipients:(NSArray<NSString*>*) recipients
+                            subject:(NSString*) subject
+                            message:(nullable NSString*) message
+                        filenameFmt:(NSString*) filenameFmt
 {
     return [[self alloc] initWithRecipients:recipients
                                     subject:subject

@@ -62,9 +62,9 @@
 @synthesize userEmail = _userEmail;
 @synthesize reachableOperation = _reachableOperation;
 
-+ (KSCrashReportSinkVictory*) sinkWithURL:(NSURL*) url
-                                   userName:(NSString*) userName
-                                  userEmail:(NSString*) userEmail
++ (instancetype) sinkWithURL:(NSURL*) url
+                    userName:(NSString*) userName
+                   userEmail:(NSString*) userEmail
 {
     return [[self alloc] initWithURL:url userName:userName userEmail:userEmail];
 }

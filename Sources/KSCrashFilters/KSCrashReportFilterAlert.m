@@ -144,10 +144,10 @@
 @synthesize yesAnswer = _yesAnswer;
 @synthesize noAnswer = _noAnswer;
 
-+ (KSCrashReportFilterAlert*) filterWithTitle:(NSString*) title
-                                      message:(nullable NSString*) message
-                                    yesAnswer:(NSString*) yesAnswer
-                                     noAnswer:(nullable NSString*) noAnswer;
++ (instancetype) filterWithTitle:(NSString*) title
+                         message:(nullable NSString*) message
+                       yesAnswer:(NSString*) yesAnswer
+                        noAnswer:(nullable NSString*) noAnswer;
 {
     return [[self alloc] initWithTitle:title
                                message:message

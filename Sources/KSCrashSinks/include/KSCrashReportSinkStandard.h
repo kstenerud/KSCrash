@@ -44,7 +44,7 @@ NS_SWIFT_NAME(CrashReportSinkStandard)
  *
  * @param url The URL to connect to.
  */
-+ (KSCrashReportSinkStandard*) sinkWithURL:(NSURL*) url;
++ (instancetype) sinkWithURL:(NSURL*) url;
 
 /** Constructor.
  *

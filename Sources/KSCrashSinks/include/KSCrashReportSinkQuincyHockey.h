@@ -46,11 +46,11 @@ NS_SWIFT_NAME(CrashReportSinkQuincy)
  */
 @property(nonatomic,readwrite,assign) BOOL waitUntilReachable;
 
-+ (KSCrashReportSinkQuincy*) sinkWithURL:(NSURL*) url
-                               userIDKey:(nullable NSString*) userIDKey
-                             userNameKey:(nullable NSString*) userNameKey
-                         contactEmailKey:(nullable NSString*) contactEmailKey
-                    crashDescriptionKeys:(nullable NSArray*) crashDescriptionKeys;
++ (instancetype) sinkWithURL:(NSURL*) url
+                   userIDKey:(nullable NSString*) userIDKey
+                 userNameKey:(nullable NSString*) userNameKey
+             contactEmailKey:(nullable NSString*) contactEmailKey
+        crashDescriptionKeys:(nullable NSArray*) crashDescriptionKeys;
 
 - (instancetype) initWithURL:(NSURL*) url
                    userIDKey:(nullable NSString*) userIDKey
@@ -71,11 +71,11 @@ NS_SWIFT_NAME(CrashReportSinkQuincy)
 NS_SWIFT_NAME(CrashReportSinkHockey)
 @interface KSCrashReportSinkHockey : KSCrashReportSinkQuincy
 
-+ (KSCrashReportSinkHockey*) sinkWithAppIdentifier:(NSString*) appIdentifier
-                                         userIDKey:(nullable NSString*) userIDKey
-                                       userNameKey:(nullable NSString*) userNameKey
-                                   contactEmailKey:(nullable NSString*) contactEmailKey
-                              crashDescriptionKeys:(nullable NSArray*) crashDescriptionKeys;
++ (instancetype) sinkWithAppIdentifier:(NSString*) appIdentifier
+                             userIDKey:(nullable NSString*) userIDKey
+                           userNameKey:(nullable NSString*) userNameKey
+                       contactEmailKey:(nullable NSString*) contactEmailKey
+                  crashDescriptionKeys:(nullable NSArray*) crashDescriptionKeys;
 
 - (instancetype) initWithAppIdentifier:(NSString*) appIdentifier
                              userIDKey:(nullable NSString*) userIDKey

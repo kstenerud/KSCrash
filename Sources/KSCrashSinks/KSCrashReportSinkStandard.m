@@ -53,7 +53,7 @@
 @synthesize url = _url;
 @synthesize reachableOperation = _reachableOperation;
 
-+ (KSCrashReportSinkStandard*) sinkWithURL:(NSURL*) url
++ (instancetype) sinkWithURL:(NSURL*) url
 {
     return [[self alloc] initWithURL:url];
 }

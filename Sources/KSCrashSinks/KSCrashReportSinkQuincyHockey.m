@@ -71,7 +71,7 @@
 @synthesize reachableOperation = _reachableOperation;
 @synthesize waitUntilReachable = _waitUntilReachable;
 
-+ (KSCrashReportSinkQuincy*) sinkWithURL:(NSURL*) url
++ (instancetype) sinkWithURL:(NSURL*) url
                                userIDKey:(NSString*) userIDKey
                              userNameKey:(NSString*) userNameKey
                          contactEmailKey:(NSString*) contactEmailKey
@@ -474,11 +474,11 @@
 
 @synthesize appIdentifier = _appIdentifier;
 
-+ (KSCrashReportSinkHockey*) sinkWithAppIdentifier:(NSString*) appIdentifier
-                                         userIDKey:(NSString*) userIDKey
-                                       userNameKey:(NSString*) userNameKey
-                                   contactEmailKey:(NSString*) contactEmailKey
-                              crashDescriptionKeys:(NSArray*) crashDescriptionKeys
++ (instancetype) sinkWithAppIdentifier:(NSString*) appIdentifier
+                             userIDKey:(NSString*) userIDKey
+                           userNameKey:(NSString*) userNameKey
+                       contactEmailKey:(NSString*) contactEmailKey
+                  crashDescriptionKeys:(NSArray*) crashDescriptionKeys
 {
     return [[self alloc] initWithAppIdentifier:appIdentifier
                                      userIDKey:userIDKey

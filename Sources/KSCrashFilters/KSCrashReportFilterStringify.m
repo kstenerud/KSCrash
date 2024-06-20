@@ -27,7 +27,7 @@
 
 @implementation KSCrashReportFilterStringify
 
-+ (KSCrashReportFilterStringify*) filter
++ (instancetype) filter
 {
     return [[self alloc] init];
 }

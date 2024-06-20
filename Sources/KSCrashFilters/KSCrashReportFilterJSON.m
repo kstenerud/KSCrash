@@ -42,7 +42,7 @@
 
 @synthesize encodeOptions = _encodeOptions;
 
-+ (KSCrashReportFilterJSONEncode*) filterWithOptions:(KSJSONEncodeOption) options
++ (instancetype) filterWithOptions:(KSJSONEncodeOption) options
 {
     return [[self alloc] initWithOptions:options];
 }
@@ -94,7 +94,7 @@
 
 @synthesize decodeOptions = _encodeOptions;
 
-+ (KSCrashReportFilterJSONDecode*) filterWithOptions:(KSJSONDecodeOption) options
++ (instancetype) filterWithOptions:(KSJSONDecodeOption) options
 {
     return [[self alloc] initWithOptions:options];
 }

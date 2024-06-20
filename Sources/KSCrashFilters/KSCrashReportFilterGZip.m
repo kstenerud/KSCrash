@@ -39,7 +39,7 @@
 
 @synthesize compressionLevel = _compressionLevel;
 
-+ (KSCrashReportFilterGZipCompress*) filterWithCompressionLevel:(NSInteger) compressionLevel
++ (instancetype) filterWithCompressionLevel:(NSInteger) compressionLevel
 {
     return [[self alloc] initWithCompressionLevel:compressionLevel];
 }
@@ -81,7 +81,7 @@
 
 @implementation KSCrashReportFilterGZipDecompress
 
-+ (KSCrashReportFilterGZipDecompress*) filter
++ (instancetype) filter
 {
     return [[self alloc] init];
 }
