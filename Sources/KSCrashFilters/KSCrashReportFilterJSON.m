@@ -44,10 +44,10 @@
 
 + (KSCrashReportFilterJSONEncode*) filterWithOptions:(KSJSONEncodeOption) options
 {
-    return [(KSCrashReportFilterJSONEncode*)[self alloc] initWithOptions:options];
+    return [[self alloc] initWithOptions:options];
 }
 
-- (id) initWithOptions:(KSJSONEncodeOption) options
+- (instancetype) initWithOptions:(KSJSONEncodeOption) options
 {
     if((self = [super init]))
     {
@@ -96,10 +96,10 @@
 
 + (KSCrashReportFilterJSONDecode*) filterWithOptions:(KSJSONDecodeOption) options
 {
-    return [(KSCrashReportFilterJSONDecode*)[self alloc] initWithOptions:options];
+    return [[self alloc] initWithOptions:options];
 }
 
-- (id) initWithOptions:(KSJSONDecodeOption) options
+- (instancetype) initWithOptions:(KSJSONDecodeOption) options
 {
     if((self = [super init]))
     {
