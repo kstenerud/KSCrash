@@ -24,6 +24,10 @@
 
 #import "KSCrashInstallation.h"
 
+#import <Foundation/Foundation.h>
+
+NS_ASSUME_NONNULL_BEGIN
+
 @interface KSCrashInstallation (Alert)
 
 /** Show an alert before sending any reports. Reports will only be sent if the user
@@ -35,9 +39,9 @@
  * @param noAnswer The text to display in the "no" box.
  */
 - (void) addConditionalAlertWithTitle:(NSString*) title
-                              message:(NSString*) message
+                              message:(nullable NSString*) message
                             yesAnswer:(NSString*) yesAnswer
-                             noAnswer:(NSString*) noAnswer;
+                             noAnswer:(nullable NSString*) noAnswer;
 
 /** Show an alert before sending any reports. Reports will be unconditionally sent
  * when the alert is dismissed.
@@ -47,7 +51,9 @@
  * @param dismissButtonText The text to display in the dismiss button.
  */
 - (void) addUnconditionalAlertWithTitle:(NSString*) title
-                                message:(NSString*) message
+                                message:(nullable NSString*) message
                       dismissButtonText:(NSString*) dismissButtonText;
 
 @end
+
+NS_ASSUME_NONNULL_END

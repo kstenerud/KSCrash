@@ -27,6 +27,9 @@
 
 #import "KSCrashInstallation.h"
 
+#import <Foundation/Foundation.h>
+
+NS_ASSUME_NONNULL_BEGIN
 
 /**
  Victory is an error reporting server in Python. It runs on Google App Engine.
@@ -36,15 +39,18 @@
  Your app could send error information to Victory with RESTful API.
  This is a demo site: https://victory-demo.appspot.com/
  */
+NS_SWIFT_NAME(InstallationVictory)
 @interface KSCrashInstallationVictory : KSCrashInstallation
 
 /** The URL to connect to. */
-@property(nonatomic,readwrite,retain) NSURL* url;
-/** The user name of crash information *required. If value is nil it will be replaced with UIDevice.currentDevice.name */
-@property(nonatomic,readwrite,retain) NSString* userName;
-/** The user email of crash information *optional */
-@property(nonatomic,readwrite,retain) NSString* userEmail;
+@property(nonatomic,readwrite,strong) NSURL* url;
+/** The user name of crash information *required*. If value is nil it will be replaced with UIDevice.currentDevice.name */
+@property(nonatomic,readwrite,copy) NSString* userName;
+/** The user email of crash information *optional* */
+@property(nonatomic,readwrite,copy,nullable) NSString* userEmail;
 
-+ (instancetype) sharedInstance;
++ (instancetype) sharedInstance NS_SWIFT_NAME(shared());
 
 @end
+
+NS_ASSUME_NONNULL_END

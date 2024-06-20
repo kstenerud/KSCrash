@@ -25,13 +25,20 @@
 
 #import "KSCrashInstallation.h"
 
+#import <Foundation/Foundation.h>
+
+NS_ASSUME_NONNULL_BEGIN
+
 /** Prints all reports to the console.
  * This class is intended for testing purposes.
  */
+NS_SWIFT_NAME(InstallationConsole)
 @interface KSCrashInstallationConsole : KSCrashInstallation
 
 @property(nonatomic,readwrite) BOOL printAppleFormat;
 
-+ (instancetype) sharedInstance;
++ (instancetype) sharedInstance NS_SWIFT_NAME(shared());
 
 @end
+
+NS_ASSUME_NONNULL_END

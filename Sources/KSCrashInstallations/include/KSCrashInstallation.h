@@ -29,6 +29,8 @@
 #import "KSCrashReportFilter.h"
 #import "KSCrashReportWriter.h"
 
+NS_ASSUME_NONNULL_BEGIN
+
 @class KSCrashConfiguration;
 
 /**
@@ -38,15 +40,16 @@
  *
  * This is an abstract class.
  */
+NS_SWIFT_NAME(Installation)
 @interface KSCrashInstallation : NSObject
 
 /** C Function to call during a crash report to give the callee an opportunity to
  * add to the report. NULL = ignore.
  *
  * WARNING: Only call async-safe functions from this function! DO NOT call
- * Objective-C methods!!!
+ * Swift/Objective-C methods!!!
  */
-@property(atomic,readwrite,assign) KSReportWriteCallback onCrash;
+@property(atomic,readwrite,assign,nullable) KSReportWriteCallback onCrash;
 
 /** Install this crash handler with a specific configuration.
  * Call this method instead of `-[KSCrash installWithConfiguration:]` to set up the crash handler
@@ -68,7 +71,7 @@
  *
  * @param onCompletion Called when sending is complete (nil = ignore).
  */
-- (void) sendAllReportsWithCompletion:(KSCrashReportFilterCompletion) onCompletion;
+- (void) sendAllReportsWithCompletion:(nullable KSCrashReportFilterCompletion) onCompletion;
 
 /** Add a filter that gets executed before all normal filters.
  * Prepended filters will be executed in the order in which they were added.
@@ -78,3 +81,5 @@
 - (void) addPreFilter:(id<KSCrashReportFilter>) filter;
 
 @end
+
+NS_ASSUME_NONNULL_END

@@ -24,23 +24,26 @@
 // THE SOFTWARE.
 //
 
-
 #import "KSCrashInstallation.h"
 
-typedef enum
-{
+#import <Foundation/Foundation.h>
+
+NS_ASSUME_NONNULL_BEGIN
+
+typedef NS_ENUM(NSUInteger, KSCrashEmailReportStyle) {
     KSCrashEmailReportStyleJSON,
     KSCrashEmailReportStyleApple,
-} KSCrashEmailReportStyle;
+} NS_SWIFT_NAME(EmailReportStyle);
 
 /**
  * Email installation.
  * Sends reports via email.
  */
+NS_SWIFT_NAME(InstallationEmail)
 @interface KSCrashInstallationEmail : KSCrashInstallation
 
 /** List of email addresses to send to (mandatory) */
-@property(nonatomic,readwrite,retain) NSArray* recipients;
+@property(nonatomic,readwrite,retain) NSArray<NSString *> *recipients;
 
 /** Email subject (mandatory).
  *
@@ -52,7 +55,7 @@ typedef enum
  *
  * Default: nil
  */
-@property(nonatomic,readwrite,retain) NSString* message;
+@property(nonatomic,readwrite,retain,nullable) NSString* message;
 
 /** How to name the attachments (mandatory)
  *
@@ -76,6 +79,8 @@ typedef enum
 - (void) setReportStyle:(KSCrashEmailReportStyle)reportStyle
 useDefaultFilenameFormat:(BOOL) useDefaultFilenameFormat;
 
-+ (instancetype) sharedInstance;
++ (instancetype) sharedInstance NS_SWIFT_NAME(shared());
 
 @end
+
+NS_ASSUME_NONNULL_END
