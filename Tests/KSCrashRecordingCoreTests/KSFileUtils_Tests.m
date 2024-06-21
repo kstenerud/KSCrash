@@ -587,4 +587,76 @@
     XCTAssertTrue(bytesRead == 0, @"");
 }
 
+- (void) testWriteBuffered_OrderOfEntries
+{
+    int writeBufferSize = 10;
+    NSString* logEntry1 = @"Log1";
+    NSString* logEntry2 = @"Log2";
+    NSString* logEntry3 = @"Log3";
+    char writeBuffer[writeBufferSize];
+    KSBufferedWriter writer;
+    NSString* path = [self generateTempFilePath];
+    XCTAssertTrue(ksfu_openBufferedWriter(&writer, path.UTF8String, writeBuffer, writeBufferSize));
+
+    XCTAssertTrue(ksfu_writeBufferedWriter(&writer, logEntry1.UTF8String, (int)logEntry1.length));
+    XCTAssertTrue(ksfu_writeBufferedWriter(&writer, logEntry2.UTF8String, (int)logEntry2.length));
+    XCTAssertTrue(ksfu_writeBufferedWriter(&writer, logEntry3.UTF8String, (int)logEntry3.length));
+
+    ksfu_closeBufferedWriter(&writer);
+    NSError* error = nil;
+    NSString* actualFileContents = [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:&error];
+    XCTAssertNil(error);
+    NSString* expectedContents = @"Log1Log2Log3";
+    XCTAssertEqualObjects(actualFileContents, expectedContents);
+}
+
+- (void) testWriteBuffered_OrderWithLargeData
+{
+    int writeBufferSize = 10;
+    NSString* logEntry1 = @"Small1";
+    NSString* logEntry2 = @"ThisIsLargeData";
+    NSString* logEntry3 = @"Small3";
+    char writeBuffer[writeBufferSize];
+    KSBufferedWriter writer;
+    NSString* path = [self generateTempFilePath];
+    XCTAssertTrue(ksfu_openBufferedWriter(&writer, path.UTF8String, writeBuffer, writeBufferSize));
+
+    XCTAssertTrue(ksfu_writeBufferedWriter(&writer, logEntry1.UTF8String, (int)logEntry1.length));
+    XCTAssertTrue(ksfu_writeBufferedWriter(&writer, logEntry2.UTF8String, (int)logEntry2.length));
+    XCTAssertTrue(ksfu_writeBufferedWriter(&writer, logEntry3.UTF8String, (int)logEntry3.length));
+
+    ksfu_closeBufferedWriter(&writer);
+    NSError* error = nil;
+    NSString* actualFileContents = [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:&error];
+    XCTAssertNil(error);
+    NSString* expectedContents = @"Small1ThisIsLargeDataSmall3";
+    XCTAssertEqualObjects(actualFileContents, expectedContents);
+}
+
+- (void) testWriteBuffered_FlushAndLargeWriteOrder
+{
+    int writeBufferSize = 10;
+    NSString* logEntry1 = @"Buffer1";
+    NSString* logEntry2 = @"Buffer2";
+    NSString* largeEntry = @"ThisIsLargeDataThatExceedsBufferSize";
+    NSString* logEntry3 = @"EndData";
+    char writeBuffer[writeBufferSize];
+    KSBufferedWriter writer;
+    NSString* path = [self generateTempFilePath];
+    XCTAssertTrue(ksfu_openBufferedWriter(&writer, path.UTF8String, writeBuffer, writeBufferSize));
+
+    XCTAssertTrue(ksfu_writeBufferedWriter(&writer, logEntry1.UTF8String, (int)logEntry1.length));
+    XCTAssertTrue(ksfu_writeBufferedWriter(&writer, logEntry2.UTF8String, (int)logEntry2.length));
+    // This should trigger a flush and write directly
+    XCTAssertTrue(ksfu_writeBufferedWriter(&writer, largeEntry.UTF8String, (int)largeEntry.length));
+    XCTAssertTrue(ksfu_writeBufferedWriter(&writer, logEntry3.UTF8String, (int)logEntry3.length));
+
+    ksfu_closeBufferedWriter(&writer);
+    NSError* error = nil;
+    NSString* actualFileContents = [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:&error];
+    XCTAssertNil(error);
+    NSString* expectedContents = @"Buffer1Buffer2ThisIsLargeDataThatExceedsBufferSizeEndData";
+    XCTAssertEqualObjects(actualFileContents, expectedContents);
+}
+
 @end
