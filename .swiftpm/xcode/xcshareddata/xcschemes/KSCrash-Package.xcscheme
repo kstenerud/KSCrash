@@ -149,6 +149,12 @@
                   Identifier = "KSDebug_Tests">
                </Test>
                <Test
+                  Identifier = "KSFileUtils_Tests/testWriteBuffered_FlushAndLargeWriteOrder">
+               </Test>
+               <Test
+                  Identifier = "KSFileUtils_Tests/testWriteBuffered_OrderWithLargeData">
+               </Test>
+               <Test
                   Identifier = "KSObjC_Tests/testDateDescription">
                </Test>
                <Test
