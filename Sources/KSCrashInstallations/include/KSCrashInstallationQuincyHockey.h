@@ -85,10 +85,10 @@ NS_SWIFT_NAME(InstallationBaseQuincyHockey)
 // The above properties will be written to the user section report using the
 // following keys.
 
-@property(nonatomic,readwrite,copy) NSString* userIDKey;
-@property(nonatomic,readwrite,copy) NSString* userNameKey;
-@property(nonatomic,readwrite,copy) NSString* contactEmailKey;
-@property(nonatomic,readwrite,copy) NSString* crashDescriptionKey;
+@property(nonatomic,readwrite,copy,nullable) NSString* userIDKey;
+@property(nonatomic,readwrite,copy,nullable) NSString* userNameKey;
+@property(nonatomic,readwrite,copy,nullable) NSString* contactEmailKey;
+@property(nonatomic,readwrite,copy,nullable) NSString* crashDescriptionKey;
 
 /** Data stored under these keys will be appended to the description
  * (in JSON format) before sending to Quincy/Hockey.

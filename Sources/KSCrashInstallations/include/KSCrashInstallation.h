@@ -62,7 +62,7 @@ NS_SWIFT_NAME(Installation)
  *       when using this method. The callback will be internally managed to ensure proper integration
  *       with the backend.
  */
-- (void) installWithConfiguration:(KSCrashConfiguration*) configuration;
+- (void) installWithConfiguration:(nullable KSCrashConfiguration*) configuration;
 
 /** Convenience method to call -[KSCrash sendAllReportsWithCompletion:].
  * This method will set the KSCrash sink and then send all outstanding reports.

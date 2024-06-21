@@ -60,7 +60,10 @@
 - (void) testQuincyInstallMissingProperties
 {
     KSCrashInstallationQuincy* installation = [KSCrashInstallationQuincy sharedInstance];
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnonnull"
     installation.url = nil;
+#pragma clang diagnostic pop
     [installation installWithConfiguration:nil];
     [installation sendAllReportsWithCompletion:^(__unused NSArray *filteredReports, BOOL completed, NSError *error)
      {

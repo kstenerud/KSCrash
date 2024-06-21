@@ -56,10 +56,13 @@
 - (void) testInstallInvalid
 {
     KSCrashInstallationEmail* installation = [KSCrashInstallationEmail sharedInstance];
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnonnull"
     installation.recipients = nil;
     installation.subject = nil;
     installation.message = nil;
     installation.filenameFmt = nil;
+#pragma clang diagnostic pop
     [installation addUnconditionalAlertWithTitle:@"title" message:@"message" dismissButtonText:@"dismiss"];
     [installation installWithConfiguration:nil];
     [installation sendAllReportsWithCompletion:^(__unused NSArray *filteredReports, BOOL completed, NSError *error)

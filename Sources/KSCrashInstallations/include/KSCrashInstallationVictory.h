@@ -45,7 +45,7 @@ NS_SWIFT_NAME(InstallationVictory)
 /** The URL to connect to. */
 @property(nonatomic,readwrite,strong) NSURL* url;
 /** The user name of crash information *required*. If value is nil it will be replaced with UIDevice.currentDevice.name */
-@property(nonatomic,readwrite,copy) NSString* userName;
+@property(nonatomic,readwrite,copy,nullable) NSString* userName;
 /** The user email of crash information *optional* */
 @property(nonatomic,readwrite,copy,nullable) NSString* userEmail;
 

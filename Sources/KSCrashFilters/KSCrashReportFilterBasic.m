@@ -278,15 +278,14 @@
                 [expandedFilters addObject:filter];
             }
         }
-        self.filters = expandedFilters;
+        self.filters = [expandedFilters copy];
     }
     return self;
 }
 
 - (void) addFilter:(id<KSCrashReportFilter>) filter
 {
-    NSMutableArray* mutableFilters = (NSMutableArray*)self.filters; // Shh! Don't tell anyone!
-    [mutableFilters insertObject:filter atIndex:0];
+    self.filters = [@[filter] arrayByAddingObjectsFromArray:self.filters];
 }
 
 - (void) filterReports:(NSArray*) reports
