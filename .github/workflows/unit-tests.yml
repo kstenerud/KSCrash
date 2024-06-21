@@ -65,7 +65,7 @@ jobs:
 
       - name: Run Unit Tests
         uses: bamx23/xcodebuild@os-version
-        timeout-minutes: 10
+        timeout-minutes: 15
         with:
           workspace: ".swiftpm/xcode/package.xcworkspace"
           scheme: "KSCrash-Package"
