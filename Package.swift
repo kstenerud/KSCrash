@@ -53,7 +53,10 @@ let package = Package(
       resources: [
         .copy("Resources/PrivacyInfo.xcprivacy")
       ],
-      cSettings: [.headerSearchPath("Monitors")]
+      cSettings: [
+        .headerSearchPath("."),
+        .headerSearchPath("Monitors"),
+      ]
     ),
     .testTarget(
       name: Targets.recording.tests,

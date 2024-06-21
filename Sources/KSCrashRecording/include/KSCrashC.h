@@ -34,6 +34,7 @@
 
 #include "KSCrashMonitorType.h"
 #include "KSCrashReportWriter.h"
+#include "KSCrashCConfiguration.h"
 
 #include <stdbool.h>
 
@@ -41,27 +42,42 @@
 extern "C" {
 #endif
 
-/** Install the crash reporter. The reporter will record the next crash and then
- * terminate the program.
+/**
+ * Install the crash reporter. This function initializes and configures the crash
+ * reporter for the specified application, allowing it to monitor and record crashes.
+ * Upon detecting a crash, the reporter will log detailed information and terminate
+ * the application to prevent further damage or inconsistent state.
  *
- * @param installPath Directory to install to.
+ * @param appName The name of the application.
+ *                This name will be used to identify the application in the crash reports.
+ *                It is essential for associating crash data with the specific application.
  *
- * @return The crash types that are being handled.
+ * @param installPath The directory where the crash reports and related data will be stored.
+ *                    The specified directory must be writable, as it will contain log files,
+ *                    crash data, and other diagnostic information.
+ *
+ * @param configuration A `KSCrashConfiguration` struct containing various settings and options
+ *                      for the crash reporter. This struct allows you to specify which types of crashes
+ *                      to monitor, user-supplied metadata, memory introspection options,
+ *                      and other advanced settings.
+ *                      Each field in the configuration struct has default values, which can be overridden
+ *                      to tailor the behavior of the crash reporter to your specific requirements.
+ *
+ * Example usage:
+ * ```
+ * KSCrashConfiguration config = KSCrashConfiguration_Default;
+ * config.monitors = KSCrashMonitorTypeAll;
+ * config.userInfoJSON = "{ \"user\": \"example\" }";
+ * kscrash_install("MyApp", "/path/to/install", config);
+ * ```
+ *
+ * @note This function must be called before any crashes occur to ensure that
+ * the crash reporter is properly set up and able to capture the relevant information.
+ *
+ * @note Once installed, the crash reporter cannot be re-installed or modified
+ * without restarting the application.
  */
-KSCrashMonitorType kscrash_install(const char* appName, const char* const installPath);
-
-/** Set the crash types that will be handled.
- * Some crash types may not be enabled depending on circumstances (e.g. running
- * in a debugger).
- *
- * @param monitors The monitors to install.
- *
- * @return The monitors that were installed. If KSCrash has been
- *         installed, the return value represents the monitors that were
- *         successfully installed. Otherwise it represents which monitors it
- *         will attempt to activate when KSCrash installs.
- */
-KSCrashMonitorType kscrash_setMonitoring(KSCrashMonitorType monitors);
+void kscrash_install(const char* appName, const char* const installPath, KSCrashCConfiguration configuration);
 
 /** Set the user-supplied data in JSON format.
  *
@@ -70,92 +86,13 @@ KSCrashMonitorType kscrash_setMonitoring(KSCrashMonitorType monitors);
  */
 void kscrash_setUserInfoJSON(const char* const userInfoJSON);
 
-/** Set the maximum time to allow the main thread to run without returning.
- * If a task occupies the main thread for longer than this interval, the
- * watchdog will consider the queue deadlocked and shut down the app and write a
- * crash report.
+/** Get a copy of the user-supplied data in JSON format.
  *
- * Warning: Make SURE that nothing in your app that runs on the main thread takes
- * longer to complete than this value or it WILL get shut down! This includes
- * your app startup process, so you may need to push app initialization to
- * another thread, or perhaps set this to a higher value until your application
- * has been fully initialized.
- *
- * 0 = Disabled.
- *
- * Default: 0
+ * @return A string containing the JSON user-supplied information,
+ *         or NULL if no information is set.
+ *         The caller is responsible for freeing the returned string.
  */
-void kscrash_setDeadlockWatchdogInterval(double deadlockWatchdogInterval);
-
-/** If true, attempt to fetch dispatch queue names for each running thread.
- *
- * WARNING: There is a chance that this will crash on a ksthread_getQueueName() call!
- *
- * Enable at your own risk.
- *
- * Default: false
- */
-void kscrash_setSearchQueueNames(bool searchQueueNames);
-
-/** If true, introspect memory contents during a crash.
- * Any Objective-C objects or C strings near the stack pointer or referenced by
- * cpu registers or exceptions will be recorded in the crash report, along with
- * their contents.
- *
- * Default: false
- */
-void kscrash_setIntrospectMemory(bool introspectMemory);
-
-/** List of Objective-C classes that should never be introspected.
- * Whenever a class in this list is encountered, only the class name will be recorded.
- * This can be useful for information security concerns.
- *
- * Default: NULL
- */
-void kscrash_setDoNotIntrospectClasses(const char** doNotIntrospectClasses, int length);
-
-/** Set the callback to invoke upon a crash.
- *
- * WARNING: Only call async-safe functions from this function! DO NOT call
- * Objective-C methods!!!
- *
- * @param onCrashNotify Function to call during a crash report to give the
- *                      callee an opportunity to add to the report.
- *                      NULL = ignore.
- *
- * Default: NULL
- */
-void kscrash_setCrashNotifyCallback(const KSReportWriteCallback onCrashNotify);
-
-typedef void (*KSReportWrittenCallback)(int64_t reportID);
-
-/** Set the callback to invoke upon finishing writing a crash report. Default is @c NULL .
- *
- * @warning Only call async-safe functions from this function! DO NOT call
- * Objective-C methods!!! See https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man2/sigaction.2.html.
- *
- * @param onReportWrittenNotify Function to call after writing a crash report to
- *                      give the callee an opportunity to react to the report.
- *                      NULL = ignore.
- */
-void kscrash_setReportWrittenCallback(const KSReportWrittenCallback onReportWrittenNotify);
-
-/** Set if KSLOG console messages should be appended to the report.
- *
- * @param shouldAddConsoleLogToReport If true, add the log to the report.
- */
-void kscrash_setAddConsoleLogToReport(bool shouldAddConsoleLogToReport);
-
-/** Set if KSCrash should print the previous log to the console on startup.
- *  This is for debugging purposes.
- */
-void kscrash_setPrintPreviousLog(bool shouldPrintPreviousLog);
-
-/** Set the maximum number of reports allowed on disk before old ones get deleted.
- *
- * @param maxReportCount The maximum number of reports.
- */
-void kscrash_setMaxReportCount(int maxReportCount);
+const char* kscrash_getUserInfoJSON(void);
 
 /** Report a custom, user defined exception.
  * This can be useful when dealing with scripting languages.
@@ -187,13 +124,6 @@ void kscrash_reportUserException(const char* name,
                                  bool logAllThreads,
                                  bool terminateProgram);
 
-/** Experimental feature. Works like LD_PRELOAD. Enable C++ exceptions catching with __cxa_throw swap,
- * by updating pointers in the indirect symbol table, which is located in the __LINKEDIT segment.
- * It supports getting a true stackstace even in dynamically linked libraries.
- * Also allows a user to override original __cxa_throw  with his implementation.
- */
-void enableSwapCxaThrow(void);
-    
 #pragma mark -- Notifications --
 
 /** Notify the crash reporter of KSCrash being added to Objective-C runtime system.
@@ -221,7 +151,7 @@ void kscrash_notifyAppTerminate(void);
  */
 void kscrash_notifyAppCrash(void);
 
-    
+
 #pragma mark -- Reporting --
 
 /** Get the number of reports on disk.

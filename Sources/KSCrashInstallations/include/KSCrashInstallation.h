@@ -29,6 +29,7 @@
 #import "KSCrashReportFilter.h"
 #import "KSCrashReportWriter.h"
 
+@class KSCrashConfiguration;
 
 /**
  * Crash system installation which handles backend-specific details.
@@ -47,10 +48,18 @@
  */
 @property(atomic,readwrite,assign) KSReportWriteCallback onCrash;
 
-/** Install this installation. Call this instead of -[KSCrash install] to install
- * with everything needed for your particular backend.
+/** Install this crash handler with a specific configuration.
+ * Call this method instead of `-[KSCrash installWithConfiguration:]` to set up the crash handler
+ * tailored for your specific backend requirements.
+ *
+ * @param configuration The configuration object containing the settings for the crash handler.
+ *                      If nil, a default KSCrashConfiguration will be used.
+ *
+ * @note The `crashNotifyCallback` property of the provided `KSCrashConfiguration` will not take effect
+ *       when using this method. The callback will be internally managed to ensure proper integration
+ *       with the backend.
  */
-- (void) install;
+- (void) installWithConfiguration:(KSCrashConfiguration*) configuration;
 
 /** Convenience method to call -[KSCrash sendAllReportsWithCompletion:].
  * This method will set the KSCrash sink and then send all outstanding reports.

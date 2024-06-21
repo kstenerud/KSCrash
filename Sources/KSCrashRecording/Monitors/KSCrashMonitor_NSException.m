@@ -27,6 +27,7 @@
 #import "KSCrashMonitor_NSException.h"
 
 #import "KSCrash.h"
+#import "KSCrash+Private.h"
 #import "KSCrashMonitorContextHelper.h"
 #import "KSStackCursor_Backtrace.h"
 #include "KSCrashMonitorContext.h"
