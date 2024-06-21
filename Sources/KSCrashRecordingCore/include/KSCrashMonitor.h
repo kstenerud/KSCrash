@@ -32,9 +32,9 @@
 #ifndef HDR_KSCrashMonitor_h
 #define HDR_KSCrashMonitor_h
 
-#include "KSCrashMonitorType.h"
 #include "KSThread.h"
-    
+#include "KSCrashMonitorFlag.h"
+
 #include <stdbool.h>
 
 #ifdef __cplusplus
@@ -43,53 +43,96 @@ extern "C" {
 
 struct KSCrash_MonitorContext;
 
-
-// ============================================================================
-#pragma mark - External API -
-// ============================================================================
-
-/** Set which monitors are active.
- *
- * @param monitorTypes Which monitors should be active.
- */
-void kscm_setActiveMonitors(KSCrashMonitorType monitorTypes);
-
-/** Get the currently active monitors.
- */
-KSCrashMonitorType kscm_getActiveMonitors(void);
-
-/** Set the callback to call when an event is captured.
- *
- * @param onEvent Called whenever an event is captured.
- */
-void kscm_setEventCallback(void (*onEvent)(struct KSCrash_MonitorContext* monitorContext));
-
-
-// ============================================================================
-#pragma mark - Internal API -
-// ============================================================================
-
 typedef struct
 {
+    const char* (*monitorId)(void);
+    KSCrashMonitorFlag (*monitorFlags)(void);
     void (*setEnabled)(bool isEnabled);
     bool (*isEnabled)(void);
     void (*addContextualInfoToEvent)(struct KSCrash_MonitorContext* eventContext);
     void (*notifyPostSystemEnable)(void);
 } KSCrashMonitorAPI;
 
+// ============================================================================
+#pragma mark - External API -
+// ============================================================================
+
+/**
+ * Activates all added crash monitors.
+ *
+ * Enables all monitors that have been added to the system. However, not all
+ * monitors may be activated due to certain conditions. Monitors that are
+ * considered unsafe in a debugging environment or require specific safety
+ * measures for asynchronous operations may not be activated. The function
+ * checks the current environment and adjusts the activation status of each
+ * monitor accordingly.
+ */
+void kscm_activateMonitors(void);
+
+/**
+ * Disables all active crash monitors.
+ *
+ * Turns off all currently active monitors.
+ */
+void kscm_disableAllMonitors(void);
+
+/**
+ * Adds a crash monitor to the system.
+ *
+ * @param api Pointer to the monitor's API.
+ * @return `true` if the monitor was successfully added, `false` if it was not.
+ *
+ * This function attempts to add a monitor to the system. Monitors with `NULL`
+ * identifiers or identical identifiers to already added monitors are not
+ * added to avoid issues and duplication. Even if a monitor is successfully
+ * added, it does not guarantee that the monitor will be activated. Activation
+ * depends on various factors, including the environment, debugger presence,
+ * and async safety requirements.
+ */
+bool kscm_addMonitor(KSCrashMonitorAPI* api);
+
+/**
+ * Removes a crash monitor from the system.
+ *
+ * @param api Pointer to the monitor's API.
+ *
+ * If the monitor is found, it is removed from the system.
+ */
+void kscm_removeMonitor(const KSCrashMonitorAPI* api);
+
+/**
+ * Sets the callback for event capture.
+ *
+ * @param onEvent Callback function for events.
+ *
+ * Registers a callback to be invoked when an event occurs.
+ */
+void kscm_setEventCallback(void (*onEvent)(struct KSCrash_MonitorContext* monitorContext));
+
+// Uncomment and implement if needed.
+/**
+ * Retrieves active crash monitors.
+ *
+ * @return Active monitors.
+ */
+//KSCrashMonitorType kscm_getActiveMonitors(void);
+
+// ============================================================================
+#pragma mark - Internal API -
+// ============================================================================
+
 /** Notify that a fatal exception has been captured.
  *  This allows the system to take appropriate steps in preparation.
  *
- * @oaram isAsyncSafeEnvironment If true, only async-safe functions are allowed from now on.
+ * @param isAsyncSafeEnvironment If true, only async-safe functions are allowed from now on.
  */
 bool kscm_notifyFatalExceptionCaptured(bool isAsyncSafeEnvironment);
 
 /** Start general exception processing.
  *
- * @oaram context Contextual information about the exception.
+ * @param context Contextual information about the exception.
  */
 void kscm_handleException(struct KSCrash_MonitorContext* context);
-
 
 #ifdef __cplusplus
 }

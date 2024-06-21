@@ -80,13 +80,19 @@
                                                   pressure:KSCrashAppMemoryStateNormal];
     });
     
-    // setup
-    NSURL *installURL = [NSURL fileURLWithPath:@"/tmp/kscrash" isDirectory:YES];
+    // Generate a unique identifier
+    NSString *uniqueIdentifier = [[NSUUID UUID] UUIDString];
+
+    // Construct the temporary directory path with the unique identifier
+    NSString *uniqueTempPath = [NSString stringWithFormat:@"/tmp/kscrash_%@", uniqueIdentifier];
+
+    // Setup
+    NSURL *installURL = [NSURL fileURLWithPath:uniqueTempPath isDirectory:YES];
     NSURL *dataURL = [installURL URLByAppendingPathComponent:@"Data"];
     NSURL *reportsPath = [installURL URLByAppendingPathComponent:@"Reports"];
     NSURL *memoryURL = [dataURL URLByAppendingPathComponent:@"memory.bin"];
     NSURL *breadcrumbURL = [dataURL URLByAppendingPathComponent:@"oom_breadcrumb_report.json"];
-    
+
     // clear old files in case
     NSFileManager *mngr = [NSFileManager new];
     [mngr removeItemAtURL:memoryURL error:nil];
@@ -94,8 +100,9 @@
     
     
     // init
-    kscrash_install("test", installURL.path.UTF8String);
-    kscrash_setMonitoring(KSCrashMonitorTypeMemoryTermination);
+    KSCrashCConfiguration config = KSCrashCConfiguration_Default();
+    config.monitors = KSCrashMonitorTypeMemoryTermination;
+    kscrash_install("test", installURL.path.UTF8String, config);
     
     // init memory API
     KSCrashMonitorAPI* api = kscm_memory_getAPI();
@@ -114,15 +121,24 @@
 #endif
     
     // disable
-    kscrash_setMonitoring(KSCrashMonitorTypeNone);
+    // FIXME: The call to `kscrash_setMonitoring(KSCrashMonitorTypeNone)` is temporarily commented out
+    // because the public API is not fully formed yet. Currently using `kscm_disableAllMonitors()`
+    // as a replacement to disable all monitors.
+    kscm_removeMonitor(kscm_memory_getAPI());
+    kscm_disableAllMonitors();
     XCTAssertFalse(api->isEnabled());
-    
+
     // init again
     ksmemory_initialize(dataURL.path.UTF8String);
-    
-    kscrash_setMonitoring(KSCrashMonitorTypeMemoryTermination);
+
+    // FIXME: The call to `kscrash_setMonitoring(KSCrashMonitorTypeMemoryTermination)` is commented out
+    // as reinitialization of monitors is currently unavailable. Instead, using `kscm_addMonitor(kscm_memory_getAPI())`
+    // and `kscm_activateMonitors()` to enable the memory monitor.
+    kscm_addMonitor(kscm_memory_getAPI());
+    kscm_activateMonitors();
+
     XCTAssertTrue(api->isEnabled());
-    
+
     // notify the system is enabled
     api->notifyPostSystemEnable();
     
@@ -264,27 +280,6 @@ static KSCrashAppMemory *Memory(uint64_t footprint) {
     XCTAssertEqual(tracker.transitionState, KSCrashAppTransitionStateActive);
     XCTAssertEqual(tracker.transitionState, state);
 #endif
-}
-
-- (void)testReportMemoryTerminationsDefault
-{
-    KSCrash* handler = [KSCrash sharedInstance];
-    XCTAssertTrue(handler.reportsMemoryTerminations);
-    
-    [handler install];
-    
-    XCTAssertTrue(handler.reportsMemoryTerminations);
-}
-
-- (void)testReportMemoryTerminationsOff
-{
-    KSCrash* handler = [KSCrash sharedInstance];
-    XCTAssertTrue(handler.reportsMemoryTerminations);
-
-    handler.reportsMemoryTerminations = NO;
-    [handler install];
-    
-    XCTAssertFalse(handler.reportsMemoryTerminations);
 }
 
 - (void) testNonFatalReportLevel

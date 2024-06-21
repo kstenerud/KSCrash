@@ -23,6 +23,8 @@
 //
 
 #include "KSCrashMonitor_CPPException.h"
+
+#include "KSCrashMonitorContextHelper.h"
 #include "KSCrashMonitorContext.h"
 #include "KSID.h"
 #include "KSThread.h"
@@ -40,6 +42,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <typeinfo>
+#include <exception>
 
 
 #define STACKTRACE_BUFFER_LENGTH 30
@@ -77,8 +80,12 @@ static KSStackCursor g_stackCursor;
 #pragma mark - Callbacks -
 // ============================================================================
 
-static void captureStackTrace(void*, std::type_info*, void (*)(void*)) __attribute__((disable_tail_calls))
+static void captureStackTrace(void*, std::type_info* tinfo, void (*)(void*)) __attribute__((disable_tail_calls))
 {
+    if (tinfo != nullptr && strcmp(tinfo->name(), "NSException") == 0)
+    {
+        return;
+    }
     if(g_captureNextStackTrace)
     {
         kssc_initSelfThread(&g_stackCursor, 2);
@@ -97,7 +104,7 @@ extern "C"
         static cxa_throw_type orig_cxa_throw = NULL;
         if (g_cxaSwapEnabled == false)
         {
-            captureStackTrace(NULL, NULL, NULL);
+            captureStackTrace(thrown_exception, tinfo, dest);
         }
         unlikely_if(orig_cxa_throw == NULL)
         {
@@ -172,7 +179,7 @@ catch(TYPE value)\
         ksmc_getContextForThread(ksthread_self(), machineContext, true);
 
         KSLOG_DEBUG("Filling out context.");
-        crashContext->crashType = KSCrashMonitorTypeCPPException;
+        ksmc_fillMonitorContext(crashContext, kscm_cppexception_getAPI());
         crashContext->eventID = g_eventID;
         crashContext->registersAreValid = false;
         crashContext->stackCursor = &g_stackCursor;
@@ -206,6 +213,16 @@ static void initialize()
         isInitialized = true;
         kssc_initCursor(&g_stackCursor, NULL, NULL);
     }
+}
+
+static const char* monitorId()
+{
+    return "CPPException";
+}
+
+static KSCrashMonitorFlag monitorFlags()
+{
+    return KSCrashMonitorFlagFatal;
 }
 
 static void setEnabled(bool isEnabled)
@@ -246,6 +263,8 @@ extern "C" KSCrashMonitorAPI* kscm_cppexception_getAPI()
 {
     static KSCrashMonitorAPI api =
     {
+        .monitorId = monitorId,
+        .monitorFlags = monitorFlags,
         .setEnabled = setEnabled,
         .isEnabled = isEnabled
     };

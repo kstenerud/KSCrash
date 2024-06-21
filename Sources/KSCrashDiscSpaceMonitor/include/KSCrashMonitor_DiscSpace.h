@@ -1,9 +1,9 @@
 //
-//  KSCrashInstallationStandard_Tests.m
+//  KSCrashMonitor_DiscSpace.h
+//  
+//  Created by Gleb Linnik on 04.06.2024.
 //
-//  Created by Kelp on 2013-03-14.
-//
-//  Copyright (c) 2013 Karl Stenerud. All rights reserved.
+//  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -24,31 +24,21 @@
 // THE SOFTWARE.
 //
 
+#ifndef KSCrashMonitor_DiscSpace_h
+#define KSCrashMonitor_DiscSpace_h
 
-#import <XCTest/XCTest.h>
+#include "KSCrashMonitor.h"
 
-#import "KSCrashInstallationVictory.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
 
+/** Access the Monitor API.
+ */
+KSCrashMonitorAPI* kscm_discspace_getAPI(void);
 
-@interface KSCrashInstallationVictory_Tests : XCTestCase @end
-
-
-@implementation KSCrashInstallationVictory_Tests
-
-- (void) testInstall
-{
-    KSCrashInstallationVictory* installation = [KSCrashInstallationVictory sharedInstance];
-    installation.url = [NSURL URLWithString:@"https://victory-demo.appspot.com/api/v1/crash/0571f5f6-652d-413f-8043-0e9531e1b689"];
-    installation.userName = nil;
-    installation.userEmail = nil;
-    
-    [installation installWithConfiguration:nil];
-    [installation sendAllReportsWithCompletion:^(__unused NSArray *filteredReports, BOOL completed, NSError *error)
-     {
-         // There are no reports, so this will succeed.
-         XCTAssertTrue(completed, @"");
-         XCTAssertNil(error, @"");
-     }];
+#ifdef __cplusplus
 }
+#endif
 
-@end
+#endif /* KSCrashMonitor_DiscSpace_h */

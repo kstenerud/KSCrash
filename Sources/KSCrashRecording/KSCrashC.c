@@ -31,6 +31,10 @@
 #include "KSCrashReport.h"
 #include "KSCrashReportFixer.h"
 #include "KSCrashReportStore.h"
+#include "KSCrashMonitorType.h"
+#include "KSCrashMonitor_MachException.h"
+#include "KSCrashMonitor_Signal.h"
+#include "KSCrashMonitor_NSException.h"
 #include "KSCrashMonitor_CPPException.h"
 #include "KSCrashMonitor_Deadlock.h"
 #include "KSCrashMonitor_User.h"
@@ -61,6 +65,24 @@ typedef enum
     KSApplicationStateWillEnterForeground,
     KSApplicationStateWillTerminate
 } KSApplicationState;
+
+static const struct KSCrashMonitorMapping {
+    KSCrashMonitorType type;
+    KSCrashMonitorAPI* (*getAPI)(void);
+} g_monitorMappings[] = {
+    {KSCrashMonitorTypeMachException, kscm_machexception_getAPI},
+    {KSCrashMonitorTypeSignal, kscm_signal_getAPI},
+    {KSCrashMonitorTypeCPPException, kscm_cppexception_getAPI},
+    {KSCrashMonitorTypeNSException, kscm_nsexception_getAPI},
+    {KSCrashMonitorTypeMainThreadDeadlock, kscm_deadlock_getAPI},
+    {KSCrashMonitorTypeUserReported, kscm_user_getAPI},
+    {KSCrashMonitorTypeSystem, kscm_system_getAPI},
+    {KSCrashMonitorTypeApplicationState, kscm_appstate_getAPI},
+    {KSCrashMonitorTypeZombie, kscm_zombie_getAPI},
+    {KSCrashMonitorTypeMemoryTermination, kscm_memory_getAPI}
+};
+
+static const size_t g_monitorMappingCount = sizeof(g_monitorMappings) / sizeof(g_monitorMappings[0]);
 
 // ============================================================================
 #pragma mark - Globals -
@@ -153,21 +175,75 @@ static void onCrash(struct KSCrash_MonitorContext* monitorContext)
     }
 }
 
+static void setMonitors(KSCrashMonitorType monitorTypes)
+{
+    g_monitoring = monitorTypes;
 
+    if (g_installed)
+    {
+        for (size_t i = 0; i < g_monitorMappingCount; i++)
+        {
+            KSCrashMonitorAPI* api = g_monitorMappings[i].getAPI();
+            if (api != NULL)
+            {
+                if (monitorTypes & g_monitorMappings[i].type)
+                {
+                    kscm_addMonitor(api);
+                }
+                else
+                {
+                    kscm_removeMonitor(api);
+                }
+            }
+        }
+    }
+}
+
+void handleConfiguration(KSCrashCConfiguration* configuration)
+{
+    if (configuration->userInfoJSON != NULL)
+    {
+        kscrashreport_setUserInfoJSON(configuration->userInfoJSON);
+    }
+#if KSCRASH_HAS_OBJC
+    kscm_setDeadlockHandlerWatchdogInterval(configuration->deadlockWatchdogInterval);
+#endif
+    ksccd_setSearchQueueNames(configuration->enableQueueNameSearch);
+    kscrashreport_setIntrospectMemory(configuration->enableMemoryIntrospection);
+
+    if (configuration->doNotIntrospectClasses.strings != NULL)
+    {
+        kscrashreport_setDoNotIntrospectClasses(configuration->doNotIntrospectClasses.strings, 
+                                                configuration->doNotIntrospectClasses.length);
+    }
+
+    kscrashreport_setUserSectionWriteCallback(configuration->crashNotifyCallback);
+    g_reportWrittenCallback = configuration->reportWrittenCallback;
+    g_shouldAddConsoleLogToReport = configuration->addConsoleLogToReport;
+    g_shouldPrintPreviousLog = configuration->printPreviousLogOnStartup;
+    kscrs_setMaxReportCount(configuration->maxReportCount);
+
+    if (configuration->enableSwapCxaThrow)
+    {
+        kscm_enableSwapCxaThrow();
+    }
+}
 // ============================================================================
 #pragma mark - API -
 // ============================================================================
 
-KSCrashMonitorType kscrash_install(const char* appName, const char* const installPath)
+void kscrash_install(const char* appName, const char* const installPath, KSCrashCConfiguration configuration)
 {
     KSLOG_DEBUG("Installing crash reporter.");
 
     if(g_installed)
     {
         KSLOG_DEBUG("Crash reporter already installed.");
-        return g_monitoring;
+        return;
     }
     g_installed = 1;
+
+    handleConfiguration(&configuration);
 
     char path[KSFU_MAX_PATH_LENGTH];
     snprintf(path, sizeof(path), "%s/Reports", installPath);
@@ -191,26 +267,12 @@ KSCrashMonitorType kscrash_install(const char* appName, const char* const instal
     ksccd_init(60);
 
     kscm_setEventCallback(onCrash);
-    KSCrashMonitorType monitors = kscrash_setMonitoring(g_monitoring);
+    setMonitors(configuration.monitors);
+    kscm_activateMonitors();
 
     KSLOG_DEBUG("Installation complete.");
 
     notifyOfBeforeInstallationState();
-
-    return monitors;
-}
-
-KSCrashMonitorType kscrash_setMonitoring(KSCrashMonitorType monitors)
-{
-    g_monitoring = monitors;
-    
-    if(g_installed)
-    {
-        kscm_setActiveMonitors(monitors);
-        return kscm_getActiveMonitors();
-    }
-    // Return what we will be monitoring in future.
-    return g_monitoring;
 }
 
 void kscrash_setUserInfoJSON(const char* const userInfoJSON)
@@ -218,51 +280,9 @@ void kscrash_setUserInfoJSON(const char* const userInfoJSON)
     kscrashreport_setUserInfoJSON(userInfoJSON);
 }
 
-void kscrash_setDeadlockWatchdogInterval(double deadlockWatchdogInterval)
+const char* kscrash_getUserInfoJSON(void)
 {
-#if KSCRASH_HAS_OBJC
-    kscm_setDeadlockHandlerWatchdogInterval(deadlockWatchdogInterval);
-#endif
-}
-
-void kscrash_setSearchQueueNames(bool searchQueueNames)
-{
-    ksccd_setSearchQueueNames(searchQueueNames);
-}
-
-void kscrash_setIntrospectMemory(bool introspectMemory)
-{
-    kscrashreport_setIntrospectMemory(introspectMemory);
-}
-
-void kscrash_setDoNotIntrospectClasses(const char** doNotIntrospectClasses, int length)
-{
-    kscrashreport_setDoNotIntrospectClasses(doNotIntrospectClasses, length);
-}
-
-void kscrash_setCrashNotifyCallback(const KSReportWriteCallback onCrashNotify)
-{
-    kscrashreport_setUserSectionWriteCallback(onCrashNotify);
-}
-
-void kscrash_setReportWrittenCallback(const KSReportWrittenCallback onReportWrittenNotify)
-{
-    g_reportWrittenCallback = onReportWrittenNotify;
-}
-
-void kscrash_setAddConsoleLogToReport(bool shouldAddConsoleLogToReport)
-{
-    g_shouldAddConsoleLogToReport = shouldAddConsoleLogToReport;
-}
-
-void kscrash_setPrintPreviousLog(bool shouldPrintPreviousLog)
-{
-    g_shouldPrintPreviousLog = shouldPrintPreviousLog;
-}
-
-void kscrash_setMaxReportCount(int maxReportCount)
-{
-    kscrs_setMaxReportCount(maxReportCount);
+    return kscrashreport_getUserInfoJSON();
 }
 
 void kscrash_reportUserException(const char* name,
@@ -284,11 +304,6 @@ void kscrash_reportUserException(const char* name,
     {
         kslog_clearLogFile();
     }
-}
-
-void enableSwapCxaThrow(void)
-{
-    kscm_enableSwapCxaThrow();
 }
 
 void kscrash_notifyObjCLoad(void)

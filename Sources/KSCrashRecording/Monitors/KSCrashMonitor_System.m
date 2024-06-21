@@ -55,7 +55,6 @@ typedef struct
     const char* kernelVersion;
     const char* osVersion;
     bool isJailbroken;
-    const char* bootTime;
     const char* appStartTime;
     const char* executablePath;
     const char* executableName;
@@ -75,14 +74,12 @@ typedef struct
     int parentProcessID;
     const char* deviceAppHash;
     const char* buildType;
-    uint64_t storageSize;
     uint64_t memorySize;
 } SystemData;
 
 static SystemData g_systemData;
 
 static volatile bool g_isEnabled = false;
-
 
 // ============================================================================
 #pragma mark - Utility -
@@ -142,18 +139,6 @@ static const char* dateString(time_t date)
     char* buffer = malloc(21);
     ksdate_utcStringFromTimestamp(date, buffer);
     return buffer;
-}
-
-/** Get a sysctl value as an NSDate.
- *
- * @param name The sysctl name.
- *
- * @return The result of the sysctl call.
- */
-static const char* dateSysctl(const char* name)
-{
-    struct timeval value = kssysctl_timevalForName(name);
-    return dateString(value.tv_sec);
 }
 
 /** Get the current VM stats.
@@ -472,12 +457,6 @@ static const char* getBuildType(void)
     return "unknown";
 }
 
-static uint64_t getStorageSize(void)
-{
-    NSNumber* storageSize = [[[NSFileManager defaultManager] attributesOfFileSystemForPath:NSHomeDirectory() error:nil] objectForKey:NSFileSystemSize];
-    return storageSize.unsignedLongLongValue;
-}
-
 // ============================================================================
 #pragma mark - API -
 // ============================================================================
@@ -534,7 +513,6 @@ static void initialize(void)
         g_systemData.kernelVersion = stringSysctl("kern.version");
         g_systemData.osVersion = stringSysctl("kern.osversion");
         g_systemData.isJailbroken = isJailbroken();
-        g_systemData.bootTime = dateSysctl("kern.boottime");
         g_systemData.appStartTime = dateString(time(NULL));
         g_systemData.executablePath = cString(getExecutablePath());
         g_systemData.executableName = cString(infoDict[@"CFBundleExecutable"]);
@@ -554,9 +532,13 @@ static void initialize(void)
         g_systemData.parentProcessID = getppid();
         g_systemData.deviceAppHash = getDeviceAndAppHash();
         g_systemData.buildType = getBuildType();
-        g_systemData.storageSize = getStorageSize();
         g_systemData.memorySize = kssysctl_uint64ForName("hw.memsize");
     }
+}
+
+static const char* monitorId(void)
+{
+    return "System";
 }
 
 static void setEnabled(bool isEnabled)
@@ -588,7 +570,6 @@ static void addContextualInfoToEvent(KSCrash_MonitorContext* eventContext)
         COPY_REFERENCE(kernelVersion);
         COPY_REFERENCE(osVersion);
         COPY_REFERENCE(isJailbroken);
-        COPY_REFERENCE(bootTime);
         COPY_REFERENCE(appStartTime);
         COPY_REFERENCE(executablePath);
         COPY_REFERENCE(executableName);
@@ -608,7 +589,6 @@ static void addContextualInfoToEvent(KSCrash_MonitorContext* eventContext)
         COPY_REFERENCE(parentProcessID);
         COPY_REFERENCE(deviceAppHash);
         COPY_REFERENCE(buildType);
-        COPY_REFERENCE(storageSize);
         COPY_REFERENCE(memorySize);
         eventContext->System.freeMemory = freeMemory();
         eventContext->System.usableMemory = usableMemory();
@@ -619,6 +599,7 @@ KSCrashMonitorAPI* kscm_system_getAPI(void)
 {
     static KSCrashMonitorAPI api =
     {
+        .monitorId = monitorId,
         .setEnabled = setEnabled,
         .isEnabled = isEnabled,
         .addContextualInfoToEvent = addContextualInfoToEvent

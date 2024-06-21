@@ -77,6 +77,20 @@
                ReferencedContainer = "container:">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "DiscSpaceMonitor"
+               BuildableName = "DiscSpaceMonitor"
+               BlueprintName = "DiscSpaceMonitor"
+               ReferencedContainer = "container:">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
@@ -167,6 +181,26 @@
                BlueprintIdentifier = "KSCrashReportingCoreTests"
                BuildableName = "KSCrashReportingCoreTests"
                BlueprintName = "KSCrashReportingCoreTests"
+               ReferencedContainer = "container:">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "KSCrashBootTimeMonitorTests"
+               BuildableName = "KSCrashBootTimeMonitorTests"
+               BlueprintName = "KSCrashBootTimeMonitorTests"
+               ReferencedContainer = "container:">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "KSCrashDiscSpaceMonitorTests"
+               BuildableName = "KSCrashDiscSpaceMonitorTests"
+               BlueprintName = "KSCrashDiscSpaceMonitorTests"
                ReferencedContainer = "container:">
             </BuildableReference>
          </TestableReference>

@@ -1,5 +1,7 @@
 //
-//  KSCrashMonitorType.c
+//  KSCrashConfiguration+Private.h
+//
+//  Created by Gleb Linnik on 11.06.2024.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -22,41 +24,16 @@
 // THE SOFTWARE.
 //
 
+#ifndef KSCrashConfiguration_Private_h
+#define KSCrashConfiguration_Private_h
 
-#include "KSCrashMonitorType.h"
+#import "KSCrashConfiguration.h"
+#import "KSCrashCConfiguration.h"
 
-#include <stdlib.h>
+@interface KSCrashConfiguration()
 
+- (KSCrashCConfiguration)toCConfiguration;
 
-static const struct
-{
-    const KSCrashMonitorType type;
-    const char* const name;
-} g_monitorTypes[] =
-{
-#define MONITORTYPE(NAME) {NAME, #NAME}
-    MONITORTYPE(KSCrashMonitorTypeMachException),
-    MONITORTYPE(KSCrashMonitorTypeSignal),
-    MONITORTYPE(KSCrashMonitorTypeCPPException),
-    MONITORTYPE(KSCrashMonitorTypeNSException),
-    MONITORTYPE(KSCrashMonitorTypeMainThreadDeadlock),
-    MONITORTYPE(KSCrashMonitorTypeUserReported),
-    MONITORTYPE(KSCrashMonitorTypeSystem),
-    MONITORTYPE(KSCrashMonitorTypeApplicationState),
-    MONITORTYPE(KSCrashMonitorTypeZombie),
-    MONITORTYPE(KSCrashMonitorTypeMemoryTermination),
-};
-static const int g_monitorTypesCount = sizeof(g_monitorTypes) / sizeof(*g_monitorTypes);
+@end
 
-
-const char* kscrashmonitortype_name(const KSCrashMonitorType monitorType)
-{
-    for(int i = 0; i < g_monitorTypesCount; i++)
-    {
-        if(g_monitorTypes[i].type == monitorType)
-        {
-            return g_monitorTypes[i].name;
-        }
-    }
-    return NULL;
-}
+#endif /* KSCrashConfiguration_Private_h */

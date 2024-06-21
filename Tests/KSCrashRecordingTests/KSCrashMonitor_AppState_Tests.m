@@ -40,8 +40,8 @@
 {
     NSString* stateFile = [self.tempPath stringByAppendingPathComponent:@"state.json"];
     kscrashstate_initialize([stateFile cStringUsingEncoding:NSUTF8StringEncoding]);
-    kscm_setActiveMonitors(KSCrashMonitorTypeNone);
-    kscm_setActiveMonitors(KSCrashMonitorTypeApplicationState);
+    kscm_appstate_getAPI()->setEnabled(false);
+    kscm_appstate_getAPI()->setEnabled(true);
 }
 
 - (void) testInitRelaunch

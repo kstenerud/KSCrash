@@ -1,9 +1,9 @@
 //
-//  KSCrashInstallationStandard_Tests.m
+//  KSCrashMonitorContextHelper.h
 //
-//  Created by Kelp on 2013-03-14.
+//  Created by Gleb Linnik on 15.06.2024.
 //
-//  Copyright (c) 2013 Karl Stenerud. All rights reserved.
+//  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -24,31 +24,27 @@
 // THE SOFTWARE.
 //
 
+#ifndef KSCrashMonitorContextHelper_h
+#define KSCrashMonitorContextHelper_h
 
-#import <XCTest/XCTest.h>
+#include "KSCrashMonitorContext.h"
+#include "KSCrashMonitor.h"
+#include "KSCrashMonitorHelper.h"
 
-#import "KSCrashInstallationVictory.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-
-@interface KSCrashInstallationVictory_Tests : XCTestCase @end
-
-
-@implementation KSCrashInstallationVictory_Tests
-
-- (void) testInstall
+static void inline ksmc_fillMonitorContext(KSCrash_MonitorContext* monitorContext, KSCrashMonitorAPI* monitorApi)
 {
-    KSCrashInstallationVictory* installation = [KSCrashInstallationVictory sharedInstance];
-    installation.url = [NSURL URLWithString:@"https://victory-demo.appspot.com/api/v1/crash/0571f5f6-652d-413f-8043-0e9531e1b689"];
-    installation.userName = nil;
-    installation.userEmail = nil;
-    
-    [installation installWithConfiguration:nil];
-    [installation sendAllReportsWithCompletion:^(__unused NSArray *filteredReports, BOOL completed, NSError *error)
-     {
-         // There are no reports, so this will succeed.
-         XCTAssertTrue(completed, @"");
-         XCTAssertNil(error, @"");
-     }];
+    if (monitorContext) {
+        monitorContext->monitorId = kscm_getMonitorId(monitorApi);
+        monitorContext->monitorFlags = kscm_getMonitorFlags(monitorApi);
+    }
 }
 
-@end
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* KSCrashMonitorContextHelper_h */

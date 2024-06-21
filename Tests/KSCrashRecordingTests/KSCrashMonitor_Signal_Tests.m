@@ -68,14 +68,7 @@
 - (void) testNoImplementation
 {
     KSCrashMonitorAPI* api = kscm_signal_getAPI();
-    
-    KSCrash_MonitorContext context;
-    api->addContextualInfoToEvent(&context);
-
-    api->setEnabled(true);
-    XCTAssertFalse(api->isEnabled());
-    api->setEnabled(false);
-    XCTAssertFalse(api->isEnabled());
+    XCTAssertTrue(api == NULL);
 }
 
 #endif

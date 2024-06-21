@@ -23,6 +23,7 @@
 //
 
 #include "KSCrashMonitor_User.h"
+#include "KSCrashMonitorContextHelper.h"
 #include "KSCrashMonitorContext.h"
 #include "KSID.h"
 #include "KSThread.h"
@@ -33,7 +34,6 @@
 
 #include <memory.h>
 #include <stdlib.h>
-
 
 /** Context to fill with crash information. */
 
@@ -76,7 +76,7 @@ void kscm_reportUserException(const char* name,
         KSLOG_DEBUG("Filling out context.");
         KSCrash_MonitorContext context;
         memset(&context, 0, sizeof(context));
-        context.crashType = KSCrashMonitorTypeUserReported;
+        ksmc_fillMonitorContext(&context, kscm_user_getAPI());
         context.eventID = eventID;
         context.offendingMachineContext = machineContext;
         context.registersAreValid = false;
@@ -100,6 +100,11 @@ void kscm_reportUserException(const char* name,
     }
 }
 
+static const char* monitorId(void)
+{
+    return "UserReported";
+}
+
 static void setEnabled(bool isEnabled)
 {
     g_isEnabled = isEnabled;
@@ -114,6 +119,7 @@ KSCrashMonitorAPI* kscm_user_getAPI(void)
 {
     static KSCrashMonitorAPI api =
     {
+        .monitorId = monitorId,
         .setEnabled = setEnabled,
         .isEnabled = isEnabled
     };

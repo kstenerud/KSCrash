@@ -1,7 +1,7 @@
 //
-//  KSCrashMonitor_Tests.m
+//  KSCrashMonitorProperty.h
 //
-//  Created by Karl Stenerud on 2013-03-09.
+//  Created by Gleb Linnik on 29.05.2024.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,34 +24,32 @@
 // THE SOFTWARE.
 //
 
+#ifndef KSCrashMonitorProperty_h
+#define KSCrashMonitorProperty_h
 
-#import <XCTest/XCTest.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-#import "KSCrashMonitor.h"
-#import "KSCrashMonitorContext.h"
-
-@interface KSCrashMonitor_Tests : XCTestCase @end
-
-@implementation KSCrashMonitor_Tests
-
-- (void) testInstallUninstall
+typedef enum
 {
-    kscm_setActiveMonitors(KSCrashMonitorTypeAll);
-    kscm_setActiveMonitors(KSCrashMonitorTypeNone);
+    /** Indicates that no flags are set. */
+    KSCrashMonitorFlagNone = 0,
+
+    /** Indicates that the program cannot continue execution if a monitor with this flag is triggered. */
+    KSCrashMonitorFlagFatal = 1 << 0,
+
+    /** Indicates that the monitor with this flag will not be enabled if a debugger is attached. */
+    KSCrashMonitorFlagDebuggerUnsafe = 1 << 1,
+
+    /** Indicates that the monitor is safe to be used in an asynchronous environment.
+     * Monitors without this flag are considered unsafe for asynchronous operations by default. */
+    KSCrashMonitorFlagAsyncSafe = 1 << 2,
+
+} KSCrashMonitorFlag;
+
+#ifdef __cplusplus
 }
+#endif
 
-- (void) testSuspendResumeThreads
-{
-    thread_act_array_t threads1 = NULL;
-    mach_msg_type_number_t numThreads1 = 0;
-    ksmc_suspendEnvironment(&threads1, &numThreads1);
-
-    thread_act_array_t threads2 = NULL;
-    mach_msg_type_number_t numThreads2 = 0;
-    ksmc_suspendEnvironment(&threads2, &numThreads2);
-
-    ksmc_resumeEnvironment(threads2, numThreads2);
-    ksmc_resumeEnvironment(threads1, numThreads1);
-}
-
-@end
+#endif /* KSCrashMonitorProperty_h */

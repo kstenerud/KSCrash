@@ -40,7 +40,6 @@
 #define likely_if(x) if(__builtin_expect(x,1))
 #define unlikely_if(x) if(__builtin_expect(x,0))
 
-
 typedef struct
 {
     const void* object;
@@ -206,6 +205,11 @@ const char* kszombie_className(const void* object)
     return NULL;
 }
 
+static const char* monitorId(void)
+{
+    return "Zombie";
+}
+
 static void setEnabled(bool isEnabled)
 {
     if(isEnabled != g_isEnabled)
@@ -243,6 +247,7 @@ KSCrashMonitorAPI* kscm_zombie_getAPI(void)
 {
     static KSCrashMonitorAPI api =
     {
+        .monitorId = monitorId,
         .setEnabled = setEnabled,
         .isEnabled = isEnabled,
         .addContextualInfoToEvent = addContextualInfoToEvent

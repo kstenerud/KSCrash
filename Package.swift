@@ -35,6 +35,14 @@ let package = Package(
       name: "Recording",
       targets: [Targets.recording]
     ),
+    .library(
+      name: "DiscSpaceMonitor",
+      targets: [Targets.discSpaceMonitor]
+    ),
+    .library(
+      name: "BootTimeMonitor",
+      targets: [Targets.bootTimeMonitor]
+    ),
   ],
   targets: [
     .target(
@@ -45,7 +53,10 @@ let package = Package(
       resources: [
         .copy("Resources/PrivacyInfo.xcprivacy")
       ],
-      cSettings: [.headerSearchPath("Monitors")]
+      cSettings: [
+        .headerSearchPath("."),
+        .headerSearchPath("Monitors"),
+      ]
     ),
     .testTarget(
       name: Targets.recording.tests,
@@ -173,6 +184,40 @@ let package = Package(
     ),
 
     .target(
+      name: Targets.discSpaceMonitor,
+      dependencies: [
+        .target(name: Targets.recordingCore)
+      ],
+      resources: [
+        .copy("Resources/PrivacyInfo.xcprivacy")
+      ]
+    ),
+    .testTarget(
+        name: Targets.discSpaceMonitor.tests,
+        dependencies: [
+            .target(name: Targets.discSpaceMonitor),
+            .target(name: Targets.recordingCore)
+        ]
+    ),
+
+    .target(
+      name: Targets.bootTimeMonitor,
+      dependencies: [
+        .target(name: Targets.recordingCore)
+      ],
+      resources: [
+        .copy("Resources/PrivacyInfo.xcprivacy")
+      ]
+    ),
+    .testTarget(
+        name: Targets.bootTimeMonitor.tests,
+        dependencies: [
+            .target(name: Targets.bootTimeMonitor),
+            .target(name: Targets.recordingCore)
+        ]
+    ),
+
+    .target(
       name: Targets.testTools,
       dependencies: [
         .target(name: Targets.recordingCore)
@@ -190,6 +235,8 @@ enum Targets {
   static let recordingCore = "KSCrashRecordingCore"
   static let reportingCore = "KSCrashReportingCore"
   static let core = "KSCrashCore"
+  static let discSpaceMonitor = "KSCrashDiscSpaceMonitor"
+  static let bootTimeMonitor = "KSCrashBootTimeMonitor"
   static let testTools = "KSCrashTestTools"
 }
 

@@ -48,7 +48,7 @@
     
     installation.url = [NSURL URLWithString:@"http://www.google.com"];
     
-    [installation install];
+    [installation installWithConfiguration:nil];
     [installation sendAllReportsWithCompletion:^(__unused NSArray *filteredReports, BOOL completed, NSError *error)
      {
          // There are no reports, so this will succeed.
@@ -61,7 +61,7 @@
 {
     KSCrashInstallationQuincy* installation = [KSCrashInstallationQuincy sharedInstance];
     installation.url = nil;
-    [installation install];
+    [installation installWithConfiguration:nil];
     [installation sendAllReportsWithCompletion:^(__unused NSArray *filteredReports, BOOL completed, NSError *error)
      {
          XCTAssertFalse(completed, @"");
@@ -73,7 +73,7 @@
 {
     KSCrashInstallationHockey* installation = [KSCrashInstallationHockey sharedInstance];
     installation.appIdentifier = @"some_app_id";
-    [installation install];
+    [installation installWithConfiguration:nil];
     [installation sendAllReportsWithCompletion:^(__unused NSArray *filteredReports, BOOL completed, NSError *error)
      {
          // There are no reports, so this will succeed.

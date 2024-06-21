@@ -179,4 +179,52 @@
     XCTAssertFalse(success, @"");
 }
 
+- (void)testSafeStrcmpBothStringsAreNull
+{
+    const char *str1 = NULL;
+    const char *str2 = NULL;
+    int result = ksstring_safeStrcmp(str1, str2);
+    XCTAssertEqual(result, 0, @"Expected 0 when both strings are NULL.");
+}
+
+- (void)testSafeStrcmpFirstStringIsNull
+{
+    const char *str1 = NULL;
+    const char *str2 = "test";
+    int result = ksstring_safeStrcmp(str1, str2);
+    XCTAssertTrue(result < 0, @"Expected a negative value when first string is NULL.");
+}
+
+- (void)testSafeStrcmpSecondStringIsNull
+{
+    const char *str1 = "test";
+    const char *str2 = NULL;
+    int result = ksstring_safeStrcmp(str1, str2);
+    XCTAssertTrue(result > 0, @"Expected a positive value when second string is NULL.");
+}
+
+- (void)testSafeStrcmpBothStringsAreEqual
+{
+    const char *str1 = "test";
+    const char *str2 = "test";
+    int result = ksstring_safeStrcmp(str1, str2);
+    XCTAssertEqual(result, 0, @"Expected 0 when both strings are identical.");
+}
+
+- (void)testSafeStrcmpFirstStringLessThanSecond
+{
+    const char *str1 = "abc";
+    const char *str2 = "def";
+    int result = ksstring_safeStrcmp(str1, str2);
+    XCTAssertTrue(result < 0, @"Expected a negative value when first string is less than second.");
+}
+
+- (void)testSafeStrcmpFirstStringGreaterThanSecond
+{
+    const char *str1 = "def";
+    const char *str2 = "abc";
+    int result = ksstring_safeStrcmp(str1, str2);
+    XCTAssertTrue(result > 0, @"Expected a positive value when first string is greater than second.");
+}
+
 @end
