@@ -26,3 +26,10 @@ Carthage/Build
 .build
 .swiftpm/xcode/xcuserdata
 .swiftpm/package.xcworkspace/xcuserdata
+### Samples ###
+/Derived
+/KSCrash.xcodeproj
+/KSCrashSampleWorkspace.xcworkspace
+/Samples/Common/.swiftpm
+/Samples/**/Derived
+/Samples/**/*.xcodeproj
