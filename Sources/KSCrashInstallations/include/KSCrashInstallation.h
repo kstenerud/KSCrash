@@ -40,7 +40,7 @@ NS_ASSUME_NONNULL_BEGIN
  *
  * This is an abstract class.
  */
-NS_SWIFT_NAME(Installation)
+NS_SWIFT_NAME(CrashInstallation)
 @interface KSCrashInstallation : NSObject
 
 /** C Function to call during a crash report to give the callee an opportunity to

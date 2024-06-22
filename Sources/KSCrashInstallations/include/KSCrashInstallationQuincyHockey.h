@@ -63,7 +63,7 @@ NS_ASSUME_NONNULL_BEGIN
  *
  * This is an abstract class.
  */
-NS_SWIFT_NAME(InstallationBaseQuincyHockey)
+NS_SWIFT_NAME(CrashInstallationBaseQuincyHockey)
 @interface KSCrashInstallationBaseQuincyHockey : KSCrashInstallation
 
 // ======================================================================
@@ -108,7 +108,7 @@ NS_SWIFT_NAME(InstallationBaseQuincyHockey)
 /**
  * Quincy installation.
  */
-NS_SWIFT_NAME(InstallationQuincy)
+NS_SWIFT_NAME(CrashInstallationQuincy)
 @interface KSCrashInstallationQuincy : KSCrashInstallationBaseQuincyHockey
 
 /** URL to send reports to (mandatory) */
@@ -122,7 +122,7 @@ NS_SWIFT_NAME(InstallationQuincy)
 /**
  * Hockey installation.
  */
-NS_SWIFT_NAME(InstallationHockey)
+NS_SWIFT_NAME(CrashInstallationHockey)
 @interface KSCrashInstallationHockey: KSCrashInstallationBaseQuincyHockey
 
 /** App identifier you received from Hockey (mandatory) */

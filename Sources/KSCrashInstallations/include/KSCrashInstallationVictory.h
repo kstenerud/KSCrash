@@ -39,7 +39,7 @@ NS_ASSUME_NONNULL_BEGIN
  Your app could send error information to Victory with RESTful API.
  This is a demo site: https://victory-demo.appspot.com/
  */
-NS_SWIFT_NAME(InstallationVictory)
+NS_SWIFT_NAME(CrashInstallationVictory)
 @interface KSCrashInstallationVictory : KSCrashInstallation
 
 /** The URL to connect to. */

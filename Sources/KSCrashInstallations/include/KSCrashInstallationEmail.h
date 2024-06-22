@@ -39,7 +39,7 @@ typedef NS_ENUM(NSUInteger, KSCrashEmailReportStyle) {
  * Email installation.
  * Sends reports via email.
  */
-NS_SWIFT_NAME(InstallationEmail)
+NS_SWIFT_NAME(CrashInstallationEmail)
 @interface KSCrashInstallationEmail : KSCrashInstallation
 
 /** List of email addresses to send to (mandatory) */

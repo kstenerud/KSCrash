@@ -32,7 +32,7 @@ NS_ASSUME_NONNULL_BEGIN
 /** Prints all reports to the console.
  * This class is intended for testing purposes.
  */
-NS_SWIFT_NAME(InstallationConsole)
+NS_SWIFT_NAME(CrashInstallationConsole)
 @interface KSCrashInstallationConsole : KSCrashInstallation
 
 @property(nonatomic,readwrite) BOOL printAppleFormat;

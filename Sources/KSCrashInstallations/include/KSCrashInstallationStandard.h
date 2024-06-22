@@ -31,7 +31,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-NS_SWIFT_NAME(InstallationStandard)
+NS_SWIFT_NAME(CrashInstallationStandard)
 @interface KSCrashInstallationStandard : KSCrashInstallation
 
 /** The URL to connect to. */
