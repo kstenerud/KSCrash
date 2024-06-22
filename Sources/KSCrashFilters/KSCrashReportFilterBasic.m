@@ -278,7 +278,7 @@
                 [expandedFilters addObject:filter];
             }
         }
-        self.filters = [expandedFilters copy];
+        _filters = [expandedFilters copy];
     }
     return self;
 }
