@@ -65,7 +65,7 @@ const struct load_command* ksmacho_getCommandByTypeFromHeader(const mach_header_
     uintptr_t current = (uintptr_t)header + sizeof(mach_header_t);
     struct load_command* loadCommand = NULL;
 
-    for (uint commandIndex = 0; commandIndex < header->ncmds; commandIndex++)
+    for (uint32_t commandIndex = 0; commandIndex < header->ncmds; commandIndex++)
     {
         loadCommand = (struct load_command*)current;
         if (loadCommand->cmd == commandType)
@@ -120,7 +120,7 @@ const section_t* ksmacho_getSectionByTypeFlagFromSegment(const segment_command_t
     uintptr_t current = (uintptr_t)segmentCommand + sizeof(segment_command_t);
     const section_t* section = NULL;
 
-    for (uint sectionIndex = 0; sectionIndex < segmentCommand->nsects; sectionIndex++)
+    for (uint32_t sectionIndex = 0; sectionIndex < segmentCommand->nsects; sectionIndex++)
     {
         section = (const section_t*)(current + sectionIndex * sizeof(section_t));
         if ((section->flags & SECTION_TYPE) == flag)
