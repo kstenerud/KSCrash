@@ -72,10 +72,10 @@
 @synthesize waitUntilReachable = _waitUntilReachable;
 
 + (instancetype) sinkWithURL:(NSURL*) url
-                               userIDKey:(NSString*) userIDKey
-                             userNameKey:(NSString*) userNameKey
-                         contactEmailKey:(NSString*) contactEmailKey
-                    crashDescriptionKeys:(NSArray*) crashDescriptionKeys
+                   userIDKey:(NSString*) userIDKey
+                 userNameKey:(NSString*) userNameKey
+             contactEmailKey:(NSString*) contactEmailKey
+        crashDescriptionKeys:(NSArray*) crashDescriptionKeys
 {
     return [[self alloc] initWithURL:url
                            userIDKey:userIDKey
