@@ -51,12 +51,12 @@
 
 @interface KSCrashReportSinkQuincy ()
 
-@property(nonatomic, readwrite, retain, nullable) NSString* userIDKey;
-@property(nonatomic, readwrite, retain, nullable) NSString* userNameKey;
-@property(nonatomic, readwrite, retain, nullable) NSString* contactEmailKey;
-@property(nonatomic, readwrite, retain, nullable) NSArray* crashDescriptionKeys;
-@property(nonatomic, readwrite, retain) NSURL* url;
-@property(nonatomic, readwrite, retain) KSReachableOperationKSCrash* reachableOperation;
+@property(nonatomic, readwrite, copy, nullable) NSString* userIDKey;
+@property(nonatomic, readwrite, copy, nullable) NSString* userNameKey;
+@property(nonatomic, readwrite, copy, nullable) NSString* contactEmailKey;
+@property(nonatomic, readwrite, copy, nullable) NSArray* crashDescriptionKeys;
+@property(nonatomic, readwrite, strong) NSURL* url;
+@property(nonatomic, readwrite, strong) KSReachableOperationKSCrash* reachableOperation;
 
 @end
 
