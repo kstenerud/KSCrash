@@ -137,6 +137,7 @@ NS_SWIFT_NAME(AppMemory)
  */
 FOUNDATION_EXPORT const char *KSCrashAppMemoryStateToString(KSCrashAppMemoryState state) 
 NS_SWIFT_NAME(string(from:));
+
 FOUNDATION_EXPORT KSCrashAppMemoryState KSCrashAppMemoryStateFromString(NSString *const string)
 NS_SWIFT_NAME(memoryState(from:));
 
