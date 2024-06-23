@@ -29,6 +29,8 @@
 #import "NSData+KSGZip.h"
 #import "KSCrashReport.h"
 
+//#define KSLogger_LocalLevel TRACE
+#import "KSLogger.h"
 
 @interface KSCrashReportFilterGZipCompress ()
 
@@ -63,8 +65,7 @@
         NSData* data = report.dataValue;
         if(data == nil)
         {
-            // TODO: Log or return error
-            [filteredReports addObject:report];
+            KSLOG_ERROR(@"Unexpected non-data report: %@", report);
             continue;
         }
 
@@ -104,6 +105,7 @@
         NSData* data = report.dataValue;
         if(data == nil)
         {
+            KSLOG_ERROR(@"Unexpected non-data report: %@", report);
             continue;
         }
 

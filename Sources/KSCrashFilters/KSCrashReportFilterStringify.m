@@ -33,17 +33,26 @@
     return [[self alloc] init];
 }
 
-- (NSString*) stringifyObject:(id) object
+- (NSString*) stringifyReport:(KSCrashReport*) report
 {
-    if([object isKindOfClass:[NSString class]])
+    if(report.stringValue != nil)
     {
-        return object;
+        return report.stringValue;
     }
-    if([object isKindOfClass:[NSData class]])
+    if(report.dataValue != nil)
     {
-        return [[NSString alloc] initWithData:object encoding:NSUTF8StringEncoding];
+        return [[NSString alloc] initWithData:report.dataValue encoding:NSUTF8StringEncoding];
     }
-    return [NSString stringWithFormat:@"%@", object];
+    if(report.dictionaryValue != nil)
+    {
+        if([NSJSONSerialization isValidJSONObject:report.dictionaryValue])
+        {
+            NSData* data = [NSJSONSerialization dataWithJSONObject:report.dictionaryValue options:0 error:nil];
+            return [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+        }
+        return [NSString stringWithFormat:@"%@", report.dictionaryValue];
+    }
+    return [NSString stringWithFormat:@"%@", report];
 }
 
 - (void) filterReports:(NSArray<KSCrashReport*>*) reports
@@ -52,7 +61,7 @@
     NSMutableArray<KSCrashReport*>* filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
     for(KSCrashReport* report in reports)
     {
-        NSString *reportString = [self stringifyObject:report];
+        NSString *reportString = [self stringifyReport:report];
         [filteredReports addObject:[KSCrashReport reportWithString:reportString]];
     }
     

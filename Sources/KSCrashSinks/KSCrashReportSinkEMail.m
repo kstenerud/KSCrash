@@ -88,7 +88,8 @@
         NSData* data = report.dataValue;
         if(data == nil)
         {
-            KSLOG_ERROR(@"Report has no data: %@", report);
+            KSLOG_ERROR(@"Unexpected non-data report: %@", report);
+            continue;
         }
         [controller addAttachmentData:data
                              mimeType:@"binary"

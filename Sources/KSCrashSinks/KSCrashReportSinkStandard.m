@@ -92,6 +92,10 @@
         {
             [jsonArray addObject:report.stringValue];
         }
+        else
+        {
+            KSLOG_ERROR(@"Unexpected non-dictionary/non-string report: %@", report);
+        }
     }
     NSData* jsonData = [KSJSONCodec encode:jsonArray
                                    options:KSJSONEncodeOptionSorted

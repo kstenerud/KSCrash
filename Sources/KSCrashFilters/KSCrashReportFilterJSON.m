@@ -66,7 +66,7 @@
         NSDictionary *reportDict = report.dictionaryValue;
         if(reportDict == nil)
         {
-            [filteredReports addObject:report];
+            KSLOG_ERROR(@"Unexpected non-dictionary report: %@", report);
             continue;
         }
 
@@ -125,6 +125,7 @@
         NSData *data = report.dataValue;
         if(data == nil)
         {
+            KSLOG_ERROR(@"Unexpected non-data report: %@", report);
             continue;
         }
 

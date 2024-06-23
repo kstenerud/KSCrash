@@ -499,6 +499,7 @@
         NSDictionary *reportDict = report.dictionaryValue;
         if(reportDict == nil)
         {
+            KSLOG_ERROR(@"Unexpected non-dictionary report: %@", report);
             continue;
         }
 
@@ -541,6 +542,7 @@
         NSData* data = report.dataValue;
         if(data == nil)
         {
+            KSLOG_ERROR(@"Unexpected non-data report: %@", report);
             continue;
         }
 
@@ -570,6 +572,7 @@
         NSString* string = report.stringValue;
         if(string == nil)
         {
+            KSLOG_ERROR(@"Unexpected non-string report: %@", report);
             continue;
         }
 

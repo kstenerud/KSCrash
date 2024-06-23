@@ -52,6 +52,11 @@
     int i = 0;
     for(KSCrashReport* report in reports)
     {
+        if(report.stringValue == nil)
+        {
+            KSLOG_ERROR(@"Unexpected non-string report: %@", report);
+            continue;
+        }
         printf("Report %d:\n%s\n", ++i, report.stringValue.UTF8String);
     }
 

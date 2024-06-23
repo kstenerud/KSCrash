@@ -227,7 +227,12 @@ static NSDictionary* g_registerOrders;
     for(KSCrashReport* report in reports)
     {
         NSDictionary *reportDict = report.dictionaryValue;
-        if(reportDict != nil && [self majorVersion:reportDict] == kExpectedMajorVersion)
+        if(reportDict == nil)
+        {
+            KSLOG_ERROR(@"Unexpected non-dictionary report: %@", report);
+            continue;
+        }
+        if([self majorVersion:reportDict] == kExpectedMajorVersion)
         {
             NSString* appleReportString = [self toAppleFormat:reportDict];
             if(appleReportString != nil)
