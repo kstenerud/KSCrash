@@ -1,6 +1,7 @@
 //
-//  KSCrashReportFilterStringify.m
-//  KSCrash
+//  KSCrashReport.m
+//
+//  Created by Nikolay Volosatov on 2024-06-23.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -23,39 +24,37 @@
 // THE SOFTWARE.
 //
 
-#import "KSCrashReportFilterStringify.h"
+#import "KSCrashReport.h"
 
-@implementation KSCrashReportFilterStringify
+@implementation KSCrashReport
 
-+ (instancetype) filter
+- (instancetype)initWithDictionaryValue:(NSDictionary<NSString *,id> *)dictionaryValue
+                            stringValue:(NSString *)stringValue
+                              dataValue:(NSData *)dataValue
 {
-    return [[self alloc] init];
+    self = [super init];
+    if(self != nil)
+    {
+        _dictionaryValue = [dictionaryValue copy];
+        _stringValue = [stringValue copy];
+        _dataValue = [dataValue copy];
+    }
+    return self;
 }
 
-- (NSString*) stringifyObject:(id) object
++ (instancetype) reportWithDictionary:(NSDictionary<NSString*, id>*) dictionaryValue
 {
-    if([object isKindOfClass:[NSString class]])
-    {
-        return object;
-    }
-    if([object isKindOfClass:[NSData class]])
-    {
-        return [[NSString alloc] initWithData:object encoding:NSUTF8StringEncoding];
-    }
-    return [NSString stringWithFormat:@"%@", object];
+    return [[KSCrashReport alloc] initWithDictionaryValue:dictionaryValue stringValue:nil dataValue:nil];
 }
 
-- (void) filterReports:(NSArray<KSCrashReport*>*) reports
-          onCompletion:(KSCrashReportFilterCompletion) onCompletion
++ (instancetype) reportWithString:(NSString*) stringValue
 {
-    NSMutableArray<KSCrashReport*>* filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
-    for(KSCrashReport* report in reports)
-    {
-        NSString *reportString = [self stringifyObject:report];
-        [filteredReports addObject:[KSCrashReport reportWithString:reportString]];
-    }
-    
-    kscrash_callCompletion(onCompletion, filteredReports, YES, nil);
+    return [[KSCrashReport alloc] initWithDictionaryValue:nil stringValue:stringValue dataValue:nil];
+}
+
++ (instancetype) reportWithData:(NSData*) dataValue
+{
+    return [[KSCrashReport alloc] initWithDictionaryValue:nil stringValue:nil dataValue:dataValue];
 }
 
 @end

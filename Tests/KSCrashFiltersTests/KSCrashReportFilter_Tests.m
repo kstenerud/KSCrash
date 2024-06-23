@@ -60,7 +60,7 @@
 @property(nonatomic,readwrite,assign) BOOL completed;
 @property(nonatomic,readwrite,retain) NSError* error;
 @property(nonatomic,readwrite,retain) NSTimer* timer;
-@property(nonatomic,readwrite,retain) NSArray* reports;
+@property(nonatomic,readwrite,retain) NSArray<KSCrashReport*>* reports;
 @property(nonatomic,readwrite,copy) KSCrashReportFilterCompletion onCompletion;
 
 @end
@@ -94,7 +94,7 @@
     return self;
 }
 
-- (void) filterReports:(NSArray*) reports
+- (void) filterReports:(NSArray<KSCrashReport*>*) reports
           onCompletion:(KSCrashReportFilterCompletion) onCompletion
 {
     self.reports = reports;
@@ -530,86 +530,6 @@
     [filter filterReports:expected1 onCompletion:^(__unused NSArray* filteredReports,
                                                    BOOL completed,
                                                    NSError* error)
-     {
-         XCTAssertFalse(completed, @"");
-         XCTAssertNotNil(error, @"");
-     }];
-}
-
-- (void) testObjectForKey
-{
-    NSString* key = @"someKey";
-    NSString* expected = @"value";
-    NSArray* reports = [NSArray arrayWithObjects:
-                        [NSDictionary dictionaryWithObject:expected forKey:key],
-                        nil];
-    
-    id<KSCrashReportFilter> filter = [KSCrashReportFilterObjectForKey filterWithKey:key allowNotFound:NO];
-
-    [filter filterReports:reports onCompletion:^(__unused NSArray* filteredReports,
-                                                 BOOL completed,
-                                                 NSError* error)
-     {
-         XCTAssertTrue(completed, @"");
-         XCTAssertNil(error, @"");
-         XCTAssertEqualObjects([filteredReports objectAtIndex:0], expected, @"");
-     }];
-}
-
-- (void) testObjectForKey2
-{
-    id key = [NSNumber numberWithInt:100];
-    NSString* expected = @"value";
-    NSArray* reports = [NSArray arrayWithObjects:
-                        [NSDictionary dictionaryWithObject:expected forKey:key],
-                        nil];
-    
-    id<KSCrashReportFilter> filter = [KSCrashReportFilterObjectForKey filterWithKey:key allowNotFound:NO];
-    
-    [filter filterReports:reports onCompletion:^(__unused NSArray* filteredReports,
-                                                 BOOL completed,
-                                                 NSError* error)
-     {
-         XCTAssertTrue(completed, @"");
-         XCTAssertNil(error, @"");
-         XCTAssertEqualObjects([filteredReports objectAtIndex:0], expected, @"");
-     }];
-}
-
-- (void) testObjectForKeyNotFoundAllowed
-{
-    NSString* key = @"someKey";
-    NSString* expected = @"value";
-    NSArray* reports = [NSArray arrayWithObjects:
-                        [NSDictionary dictionaryWithObject:expected forKey:key],
-                        nil];
-    
-    id<KSCrashReportFilter> filter = [KSCrashReportFilterObjectForKey filterWithKey:@"someOtherKey" allowNotFound:YES];
-    
-    [filter filterReports:reports onCompletion:^(__unused NSArray* filteredReports,
-                                                 BOOL completed,
-                                                 NSError* error)
-     {
-         XCTAssertTrue(completed, @"");
-         XCTAssertNil(error, @"");
-         NSDictionary* firstReport = filteredReports[0];
-         XCTAssertTrue(firstReport.count == 0, @"");
-     }];
-}
-
-- (void) testObjectForKeyNotFoundNotAllowed
-{
-    NSString* key = @"someKey";
-    NSString* expected = @"value";
-    NSArray* reports = [NSArray arrayWithObjects:
-                        [NSDictionary dictionaryWithObject:expected forKey:key],
-                        nil];
-    
-    id<KSCrashReportFilter> filter = [KSCrashReportFilterObjectForKey filterWithKey:@"someOtherKey" allowNotFound:NO];
-    
-    [filter filterReports:reports onCompletion:^(__unused NSArray* filteredReports,
-                                                 BOOL completed,
-                                                 NSError* error)
      {
          XCTAssertFalse(completed, @"");
          XCTAssertNotNil(error, @"");

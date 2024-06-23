@@ -219,18 +219,19 @@ static NSDictionary* g_registerOrders;
     return 0;
 }
 
-- (void) filterReports:(NSArray*) reports
+- (void) filterReports:(NSArray<KSCrashReport*>*) reports
           onCompletion:(KSCrashReportFilterCompletion) onCompletion
 {
-    NSMutableArray* filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
-    for(NSDictionary* report in reports)
+    NSMutableArray<KSCrashReport*>* filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
+    for(KSCrashReport* report in reports)
     {
-        if([self majorVersion:report] == kExpectedMajorVersion)
+        NSDictionary *reportDict = report.dictionaryValue;
+        if(reportDict != nil && [self majorVersion:reportDict] == kExpectedMajorVersion)
         {
-            id appleReport = [self toAppleFormat:report];
-            if(appleReport != nil)
+            NSString* appleReportString = [self toAppleFormat:reportDict];
+            if(appleReportString != nil)
             {
-                [filteredReports addObject:appleReport];
+                [filteredReports addObject:[KSCrashReport reportWithString:appleReportString]];
             }
         }
     }

@@ -1,5 +1,5 @@
 //
-//  KSCrashReport.h
+//  KSCrashReportC.h
 //
 //  Created by Karl Stenerud on 2012-01-28.
 //

@@ -53,15 +53,23 @@
     return self;
 }
 
-- (void) filterReports:(NSArray*) reports
+- (void) filterReports:(NSArray<KSCrashReport*>*) reports
           onCompletion:(KSCrashReportFilterCompletion) onCompletion
 {
-    NSMutableArray* filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
-    for(NSData* report in reports)
+    NSMutableArray<KSCrashReport*>* filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
+    for(KSCrashReport* report in reports)
     {
+        NSData* data = report.dataValue;
+        if(data == nil)
+        {
+            // TODO: Log or return error
+            [filteredReports addObject:report];
+            continue;
+        }
+
         NSError* error = nil;
-        NSData* compressedData = [report gzippedWithCompressionLevel:(int)self.compressionLevel
-                                                               error:&error];
+        NSData* compressedData = [data gzippedWithCompressionLevel:(int)self.compressionLevel
+                                                             error:&error];
         if(compressedData == nil)
         {
             kscrash_callCompletion(onCompletion, filteredReports, NO, error);
@@ -69,7 +77,7 @@
         }
         else
         {
-            [filteredReports addObject:compressedData];
+            [filteredReports addObject:[KSCrashReport reportWithData:compressedData]];
         }
     }
 
@@ -86,14 +94,20 @@
     return [[self alloc] init];
 }
 
-- (void) filterReports:(NSArray*) reports
+- (void) filterReports:(NSArray<KSCrashReport*>*) reports
           onCompletion:(KSCrashReportFilterCompletion) onCompletion
 {
-    NSMutableArray* filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
-    for(NSData* report in reports)
+    NSMutableArray<KSCrashReport*>* filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
+    for(KSCrashReport* report in reports)
     {
+        NSData* data = report.dataValue;
+        if(data == nil)
+        {
+            continue;
+        }
+
         NSError* error = nil;
-        NSData* decompressedData = [report gunzippedWithError:&error];
+        NSData* decompressedData = [data gunzippedWithError:&error];
         if(decompressedData == nil)
         {
             kscrash_callCompletion(onCompletion, filteredReports, NO, error);
@@ -101,7 +115,7 @@
         }
         else
         {
-            [filteredReports addObject:decompressedData];
+            [filteredReports addObject:[KSCrashReport reportWithData:decompressedData]];
         }
     }
 

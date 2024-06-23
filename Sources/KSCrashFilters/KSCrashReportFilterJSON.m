@@ -56,14 +56,21 @@
     return self;
 }
 
-- (void) filterReports:(NSArray*) reports
+- (void) filterReports:(NSArray<KSCrashReport*>*) reports
           onCompletion:(KSCrashReportFilterCompletion) onCompletion
 {
-    NSMutableArray* filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
-    for(NSDictionary* report in reports)
+    NSMutableArray<KSCrashReport*>* filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
+    for(KSCrashReport* report in reports)
     {
+        NSDictionary *reportDict = report.dictionaryValue;
+        if(reportDict == nil)
+        {
+            [filteredReports addObject:report];
+            continue;
+        }
+
         NSError* error = nil;
-        NSData* jsonData = [KSJSONCodec encode:report
+        NSData* jsonData = [KSJSONCodec encode:reportDict
                                        options:self.encodeOptions
                                          error:&error];
         if(jsonData == nil)
@@ -73,7 +80,7 @@
         }
         else
         {
-            [filteredReports addObject:jsonData];
+            [filteredReports addObject:[KSCrashReport reportWithData:jsonData]];
         }
     }
 
@@ -108,16 +115,22 @@
     return self;
 }
 
-- (void) filterReports:(NSArray*) reports
+- (void) filterReports:(NSArray<KSCrashReport*>*) reports
           onCompletion:(KSCrashReportFilterCompletion) onCompletion
 {
-    NSMutableArray* filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
-    for(NSData* data in reports)
+    NSMutableArray<KSCrashReport*>* filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
+    for(KSCrashReport* report in reports)
     {
+        NSData *data = report.dataValue;
+        if(data == nil)
+        {
+            continue;
+        }
+
         NSError* error = nil;
-        NSDictionary* report = [KSJSONCodec decode:data
-                                           options:self.decodeOptions
-                                             error:&error];
+        NSDictionary* decodedReport = [KSJSONCodec decode:data
+                                                  options:self.decodeOptions
+                                                    error:&error];
         if(report == nil)
         {
             kscrash_callCompletion(onCompletion, filteredReports, NO, error);
@@ -125,7 +138,7 @@
         }
         else
         {
-            [filteredReports addObject:report];
+            [filteredReports addObject:[KSCrashReport reportWithDictionary:decodedReport]];
         }
     }
 
