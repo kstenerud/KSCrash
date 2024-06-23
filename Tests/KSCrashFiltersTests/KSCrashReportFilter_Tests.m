@@ -33,6 +33,7 @@
 #import "KSCrashReportFilterJSON.h"
 #import "NSData+KSGZip.h"
 #import "NSError+SimpleConstructor.h"
+#import "KSCrashReport.h"
 
 
 @interface KSCrash_TestNilFilter: NSObject <KSCrashReportFilter>
@@ -117,15 +118,42 @@
 @end
 
 
-@interface KSCrashReportFilter_Tests : XCTestCase @end
+@interface KSCrashReportFilter_Tests : XCTestCase
+
+@property (nonatomic, copy) NSArray *reports;
+@property (nonatomic, copy) NSArray *reportsWithData;
+@property (nonatomic, copy) NSArray *reportsWithDict;
+
+@end
 
 @implementation KSCrashReportFilter_Tests
 
 #if __has_feature(objc_arc)
 
+- (void)setUp
+{
+    self.reports = @[
+        [KSCrashReport reportWithString:@"1"],
+        [KSCrashReport reportWithString:@"2"],
+        [KSCrashReport reportWithString:@"3"],
+    ];
+    self.reportsWithData = @[
+        [KSCrashReport reportWithData:[@"1" dataUsingEncoding:NSUTF8StringEncoding]],
+        [KSCrashReport reportWithData:[@"2" dataUsingEncoding:NSUTF8StringEncoding]],
+        [KSCrashReport reportWithData:[@"3" dataUsingEncoding:NSUTF8StringEncoding]],
+    ];
+    self.reportsWithDict = @[
+        [KSCrashReport reportWithDictionary:@{
+            @"first": @"1",
+            @"second": @"a",
+            @"third": @"b",
+        }],
+    ];
+}
+
 - (void) testPassthroughLeak
 {
-    __block NSArray* reports = [NSArray arrayWithObject:@""];
+    __block NSArray* reports = @[[KSCrashReport reportWithString:@""]];
     __weak id weakRef = reports;
 
     __block KSCrashReportFilterPassthrough* filter = [KSCrashReportFilterPassthrough filter];
@@ -145,67 +173,63 @@
 
 - (void) testPipeline
 {
-    NSArray* expected = [NSArray arrayWithObjects:@"1", @"2", @"3", nil];
     id<KSCrashReportFilter> filter = [KSCrashReportFilterPipeline filterWithFilters:
                                       [KSCrashReportFilterPassthrough filter],
                                       [KSCrashReportFilterPassthrough filter],
                                       nil];
     
-    [filter filterReports:expected onCompletion:^(NSArray* filteredReports,
-                                                  BOOL completed,
-                                                  NSError* error)
+    [filter filterReports:self.reports onCompletion:^(NSArray* filteredReports,
+                                                      BOOL completed,
+                                                      NSError* error)
      {
          XCTAssertTrue(completed, @"");
          XCTAssertNil(error, @"");
-         XCTAssertEqualObjects(expected, filteredReports, @"");
+         XCTAssertEqualObjects(filteredReports, self.reports, @"");
      }];
 }
 
 - (void) testPipelineInit
 {
-    NSArray* expected = [NSArray arrayWithObjects:@"1", @"2", @"3", nil];
     id<KSCrashReportFilter> filter = [[KSCrashReportFilterPipeline alloc] initWithFilters:
                                       [KSCrashReportFilterPassthrough filter],
                                       [KSCrashReportFilterPassthrough filter],
                                       nil];
     filter = filter;
     
-    [filter filterReports:expected onCompletion:^(NSArray* filteredReports,
-                                                  BOOL completed,
-                                                  NSError* error)
+    [filter filterReports:self.reports onCompletion:^(NSArray* filteredReports,
+                                                      BOOL completed,
+                                                      NSError* error)
      {
          XCTAssertTrue(completed, @"");
          XCTAssertNil(error, @"");
-         XCTAssertEqualObjects(expected, filteredReports, @"");
+         XCTAssertEqualObjects(filteredReports, self.reports, @"");
      }];
 }
 
 - (void) testPipelineNoFilters
 {
-    NSArray* expected = [NSArray arrayWithObjects:@"1", @"2", @"3", nil];
     id<KSCrashReportFilter> filter = [KSCrashReportFilterPipeline filterWithFilters:
                                       nil];
     
-    [filter filterReports:expected onCompletion:^(NSArray* filteredReports,
-                                                  BOOL completed,
-                                                  NSError* error)
+    [filter filterReports:self.reports onCompletion:^(NSArray* filteredReports,
+                                                      BOOL completed,
+                                                      NSError* error)
      {
          XCTAssertTrue(completed, @"");
          XCTAssertNil(error, @"");
-         XCTAssertEqualObjects(expected, filteredReports, @"");
+         XCTAssertEqualObjects(filteredReports, self.reports, @"");
      }];
 }
 
 - (void) testFilterPipelineIncomplete
 {
-    NSArray* expected1 = [NSArray arrayWithObjects:@"1", @"2", @"3", nil];
     id<KSCrashReportFilter> filter = [KSCrashReportFilterPipeline filterWithFilters:
                                       [KSCrash_TestFilter filterWithDelay:0 completed:NO error:nil],
                                       nil];
     
-    [filter filterReports:expected1 onCompletion:^(NSArray* filteredReports,
-                                                   BOOL completed,
-                                                   NSError* error)
+    [filter filterReports:self.reports onCompletion:^(NSArray* filteredReports,
+                                                      BOOL completed,
+                                                      NSError* error)
      {
          XCTAssertNotNil(filteredReports, @"");
          XCTAssertFalse(completed, @"");
@@ -215,14 +239,13 @@
 
 - (void) testFilterPipelineNilReports
 {
-    NSArray* expected1 = [NSArray arrayWithObjects:@"1", @"2", @"3", nil];
     id<KSCrashReportFilter> filter = [KSCrashReportFilterPipeline filterWithFilters:
                                       [KSCrash_TestNilFilter filter],
                                       nil];
     
-    [filter filterReports:expected1 onCompletion:^(NSArray* filteredReports,
-                                                   BOOL completed,
-                                                   NSError* error)
+    [filter filterReports:self.reports onCompletion:^(NSArray* filteredReports,
+                                                      BOOL completed,
+                                                      NSError* error)
      {
          XCTAssertNil(filteredReports, @"");
          XCTAssertFalse(completed, @"");
@@ -232,7 +255,7 @@
 
 - (void) testPiplelineLeak1
 {
-    __block NSArray* reports = [NSArray arrayWithObjects:@"one", @"two", nil];
+    __block NSArray* reports = [NSArray arrayWithArray:self.reports];
     __block id<KSCrashReportFilter> filter = [KSCrash_TestFilter filterWithDelay:0.1 completed:YES error:nil];
 
     __weak id weakReports = reports;
@@ -258,7 +281,7 @@
 
 - (void) testPiplelineLeak2
 {
-    __block NSArray* reports = [NSArray arrayWithObjects:@"one", @"two", nil];
+    __block NSArray* reports = [NSArray arrayWithArray:self.reports];
     __block id<KSCrashReportFilter> filter = [KSCrash_TestFilter filterWithDelay:0.1 completed:NO error:nil];
 
     __weak id weakReports = reports;
@@ -286,85 +309,65 @@
 
 - (void) testFilterPassthrough
 {
-    NSArray* expected = [NSArray arrayWithObjects:@"1", @"2", @"3", nil];
     id<KSCrashReportFilter> filter = [KSCrashReportFilterPassthrough filter];
 
-    [filter filterReports:expected onCompletion:^(NSArray* filteredReports,
-                                                  BOOL completed,
-                                                  NSError* error)
+    [filter filterReports:self.reports onCompletion:^(NSArray* filteredReports,
+                                                      BOOL completed,
+                                                      NSError* error)
      {
          XCTAssertTrue(completed, @"");
          XCTAssertNil(error, @"");
-         XCTAssertEqualObjects(expected, filteredReports, @"");
+         XCTAssertEqualObjects(filteredReports, self.reports, @"");
      }];
 }
 
 - (void) testFilterStringToData
 {
-    NSArray* source = [NSArray arrayWithObjects:@"1", @"2", @"3", nil];
-    NSArray* expected = [NSArray arrayWithObjects:
-                         (id _Nonnull)[@"1" dataUsingEncoding:NSUTF8StringEncoding],
-                         (id _Nonnull)[@"2" dataUsingEncoding:NSUTF8StringEncoding],
-                         (id _Nonnull)[@"3" dataUsingEncoding:NSUTF8StringEncoding],
-                         nil];
     id<KSCrashReportFilter> filter = [KSCrashReportFilterStringToData filter];
 
-    [filter filterReports:source onCompletion:^(NSArray* filteredReports,
+    [filter filterReports:self.reports onCompletion:^(NSArray* filteredReports,
                                                 BOOL completed,
                                                 NSError* error)
      {
          XCTAssertTrue(completed, @"");
          XCTAssertNil(error, @"");
-         XCTAssertEqualObjects(expected, filteredReports, @"");
+         XCTAssertEqualObjects(filteredReports, self.reportsWithData, @"");
      }];
 }
 
 - (void) testFilterDataToString
 {
-    NSArray* source = [NSArray arrayWithObjects:
-                       (id _Nonnull)[@"1" dataUsingEncoding:NSUTF8StringEncoding],
-                       (id _Nonnull)[@"2" dataUsingEncoding:NSUTF8StringEncoding],
-                       (id _Nonnull)[@"3" dataUsingEncoding:NSUTF8StringEncoding],
-                       nil];
-    NSArray* expected = [NSArray arrayWithObjects:@"1", @"2", @"3", nil];
     id<KSCrashReportFilter> filter = [KSCrashReportFilterDataToString filter];
 
-    [filter filterReports:source onCompletion:^(NSArray* filteredReports,
+    [filter filterReports:self.reportsWithData onCompletion:^(NSArray* filteredReports,
                                                 BOOL completed,
                                                 NSError* error)
      {
          XCTAssertTrue(completed, @"");
          XCTAssertNil(error, @"");
-         XCTAssertEqualObjects(expected, filteredReports, @"");
+         XCTAssertEqualObjects(filteredReports, self.reports, @"");
      }];
 }
 
 - (void) testFilterPipeline
 {
-    NSArray* expected = [NSArray arrayWithObjects:@"1", @"2", @"3", nil];
     id<KSCrashReportFilter> filter = [KSCrashReportFilterPipeline filterWithFilters:
                                       [KSCrashReportFilterStringToData filter],
                                       [KSCrashReportFilterDataToString filter],
                                       nil];
 
-    [filter filterReports:expected onCompletion:^(NSArray* filteredReports,
+    [filter filterReports:self.reports onCompletion:^(NSArray* filteredReports,
                                                   BOOL completed,
                                                   NSError* error)
      {
          XCTAssertTrue(completed, @"");
          XCTAssertNil(error, @"");
-         XCTAssertEqualObjects(expected, filteredReports, @"");
+         XCTAssertEqualObjects(filteredReports, self.reports, @"");
      }];
 }
 
 - (void) testFilterCombine
 {
-    NSArray* expected1 = [NSArray arrayWithObjects:@"1", @"2", @"3", nil];
-    NSArray* expected2 = [NSArray arrayWithObjects:
-                          (id _Nonnull)[@"1" dataUsingEncoding:NSUTF8StringEncoding],
-                          (id _Nonnull)[@"2" dataUsingEncoding:NSUTF8StringEncoding],
-                          (id _Nonnull)[@"3" dataUsingEncoding:NSUTF8StringEncoding],
-                          nil];
     id<KSCrashReportFilter> filter = [KSCrashReportFilterCombine filterWithFiltersAndKeys:
                                       [KSCrashReportFilterPassthrough filter],
                                       @"normal",
@@ -372,19 +375,21 @@
                                       @"data",
                                       nil];
 
-    [filter filterReports:expected1 onCompletion:^(NSArray* filteredReports,
-                                                   BOOL completed,
-                                                   NSError* error)
+    [filter filterReports:self.reports onCompletion:^(NSArray* filteredReports,
+                                                      BOOL completed,
+                                                      NSError* error)
      {
          XCTAssertTrue(completed, @"");
          XCTAssertNil(error, @"");
-         for(NSUInteger i = 0; i < [expected1 count]; i++)
+         for(NSUInteger i = 0; i < self.reports.count; i++)
          {
-             id exp1 = [expected1 objectAtIndex:i];
-             id exp2 = [expected2 objectAtIndex:i];
-             NSDictionary* entry = [filteredReports objectAtIndex:i];
-             id result1 = [entry objectForKey:@"normal"];
-             id result2 = [entry objectForKey:@"data"];
+             id exp1 = [[self.reports objectAtIndex:i] stringValue];
+             id exp2 = [[self.reportsWithData objectAtIndex:i] dataValue];
+             KSCrashReport* entry = [filteredReports objectAtIndex:i];
+             id result1 = entry.dictionaryValue[@"normal"];
+             id result2 = entry.dictionaryValue[@"data"];
+             XCTAssertNotNil(result1);
+             XCTAssertNotNil(result2);
              XCTAssertEqualObjects(result1, exp1, @"");
              XCTAssertEqualObjects(result2, exp2, @"");
          }
@@ -393,12 +398,6 @@
 
 - (void) testFilterCombineInit
 {
-    NSArray* expected1 = [NSArray arrayWithObjects:@"1", @"2", @"3", nil];
-    NSArray* expected2 = [NSArray arrayWithObjects:
-                          (id _Nonnull)[@"1" dataUsingEncoding:NSUTF8StringEncoding],
-                          (id _Nonnull)[@"2" dataUsingEncoding:NSUTF8StringEncoding],
-                          (id _Nonnull)[@"3" dataUsingEncoding:NSUTF8StringEncoding],
-                          nil];
     id<KSCrashReportFilter> filter = [[KSCrashReportFilterCombine alloc] initWithFiltersAndKeys:
                                       [KSCrashReportFilterPassthrough filter],
                                       @"normal",
@@ -407,19 +406,21 @@
                                       nil];
     filter = filter;
     
-    [filter filterReports:expected1 onCompletion:^(NSArray* filteredReports,
-                                                   BOOL completed,
-                                                   NSError* error)
+    [filter filterReports:self.reports onCompletion:^(NSArray* filteredReports,
+                                                      BOOL completed,
+                                                      NSError* error)
      {
          XCTAssertTrue(completed, @"");
          XCTAssertNil(error, @"");
-         for(NSUInteger i = 0; i < [expected1 count]; i++)
+         for(NSUInteger i = 0; i < [self.reports count]; i++)
          {
-             id exp1 = [expected1 objectAtIndex:i];
-             id exp2 = [expected2 objectAtIndex:i];
-             NSDictionary* entry = [filteredReports objectAtIndex:i];
-             id result1 = [entry objectForKey:@"normal"];
-             id result2 = [entry objectForKey:@"data"];
+             id exp1 = [[self.reports objectAtIndex:i] stringValue];
+             id exp2 = [[self.reportsWithData objectAtIndex:i] dataValue];
+             KSCrashReport* entry = [filteredReports objectAtIndex:i];
+             id result1 = entry.dictionaryValue[@"normal"];
+             id result2 = entry.dictionaryValue[@"data"];
+             XCTAssertNotNil(result1);
+             XCTAssertNotNil(result2);
              XCTAssertEqualObjects(result1, exp1, @"");
              XCTAssertEqualObjects(result2, exp2, @"");
          }
@@ -428,19 +429,18 @@
 
 - (void) testFilterCombineNoFilters
 {
-    NSArray* expected1 = [NSArray arrayWithObjects:@"1", @"2", @"3", nil];
     id<KSCrashReportFilter> filter = [KSCrashReportFilterCombine filterWithFiltersAndKeys:
                                       nil];
     
-    [filter filterReports:expected1 onCompletion:^(NSArray* filteredReports,
-                                                   BOOL completed,
-                                                   NSError* error)
+    [filter filterReports:self.reports onCompletion:^(NSArray* filteredReports,
+                                                      BOOL completed,
+                                                      NSError* error)
      {
          XCTAssertTrue(completed, @"");
          XCTAssertNil(error, @"");
-         for(NSUInteger i = 0; i < [expected1 count]; i++)
+         for(NSUInteger i = 0; i < [self.reports count]; i++)
          {
-             id exp = [expected1 objectAtIndex:i];
+             id exp = [self.reports objectAtIndex:i];
              NSString* entry = [filteredReports objectAtIndex:i];
              XCTAssertEqualObjects(entry, exp, @"");
          }
@@ -449,15 +449,14 @@
 
 - (void) testFilterCombineIncomplete
 {
-    NSArray* expected1 = [NSArray arrayWithObjects:@"1", @"2", @"3", nil];
     id<KSCrashReportFilter> filter = [KSCrashReportFilterCombine filterWithFiltersAndKeys:
                                       [KSCrash_TestFilter filterWithDelay:0 completed:NO error:nil],
                                       @"Blah",
                                       nil];
     
-    [filter filterReports:expected1 onCompletion:^(NSArray* filteredReports,
-                                                   BOOL completed,
-                                                   NSError* error)
+    [filter filterReports:self.reports onCompletion:^(NSArray* filteredReports,
+                                                      BOOL completed,
+                                                      NSError* error)
      {
          XCTAssertNotNil(filteredReports, @"");
          XCTAssertFalse(completed, @"");
@@ -467,15 +466,14 @@
 
 - (void) testFilterCombineNilReports
 {
-    NSArray* expected1 = [NSArray arrayWithObjects:@"1", @"2", @"3", nil];
     id<KSCrashReportFilter> filter = [KSCrashReportFilterCombine filterWithFiltersAndKeys:
                                       [KSCrash_TestNilFilter filter],
                                       @"Blah",
                                       nil];
     
-    [filter filterReports:expected1 onCompletion:^(NSArray* filteredReports,
-                                                   BOOL completed,
-                                                   NSError* error)
+    [filter filterReports:self.reports onCompletion:^(NSArray* filteredReports,
+                                                      BOOL completed,
+                                                      NSError* error)
      {
          XCTAssertNil(filteredReports, @"");
          XCTAssertFalse(completed, @"");
@@ -485,12 +483,6 @@
 
 - (void) testFilterCombineArray
 {
-    NSArray* expected1 = [NSArray arrayWithObjects:@"1", @"2", @"3", nil];
-    NSArray* expected2 = [NSArray arrayWithObjects:
-                          (id _Nonnull)[@"1" dataUsingEncoding:NSUTF8StringEncoding],
-                          (id _Nonnull)[@"2" dataUsingEncoding:NSUTF8StringEncoding],
-                          (id _Nonnull)[@"3" dataUsingEncoding:NSUTF8StringEncoding],
-                          nil];
     id<KSCrashReportFilter> filter = [KSCrashReportFilterCombine filterWithFiltersAndKeys:
                                       [NSArray arrayWithObject:[KSCrashReportFilterPassthrough filter]],
                                       @"normal",
@@ -498,19 +490,21 @@
                                       @"data",
                                       nil];
     
-    [filter filterReports:expected1 onCompletion:^(NSArray* filteredReports,
+    [filter filterReports:self.reports onCompletion:^(NSArray* filteredReports,
                                                    BOOL completed,
                                                    NSError* error)
      {
          XCTAssertTrue(completed, @"");
          XCTAssertNil(error, @"");
-         for(NSUInteger i = 0; i < [expected1 count]; i++)
+         for(NSUInteger i = 0; i < [self.reports count]; i++)
          {
-             id exp1 = [expected1 objectAtIndex:i];
-             id exp2 = [expected2 objectAtIndex:i];
-             NSDictionary* entry = [filteredReports objectAtIndex:i];
-             id result1 = [entry objectForKey:@"normal"];
-             id result2 = [entry objectForKey:@"data"];
+             id exp1 = [[self.reports objectAtIndex:i] stringValue];
+             id exp2 = [[self.reportsWithData objectAtIndex:i] dataValue];
+             KSCrashReport* entry = [filteredReports objectAtIndex:i];
+             id result1 = entry.dictionaryValue[@"normal"];
+             id result2 = entry.dictionaryValue[@"data"];
+             XCTAssertNotNil(result1);
+             XCTAssertNotNil(result2);
              XCTAssertEqualObjects(result1, exp1, @"");
              XCTAssertEqualObjects(result2, exp2, @"");
          }
@@ -519,7 +513,6 @@
 
 - (void) testFilterCombineMissingKey
 {
-    NSArray* expected1 = [NSArray arrayWithObjects:@"1", @"2", @"3", nil];
     id<KSCrashReportFilter> filter = [KSCrashReportFilterCombine filterWithFiltersAndKeys:
                                       [KSCrashReportFilterPassthrough filter],
                                       @"normal",
@@ -527,7 +520,7 @@
                                       // Missing key
                                       nil];
     
-    [filter filterReports:expected1 onCompletion:^(__unused NSArray* filteredReports,
+    [filter filterReports:self.reports onCompletion:^(__unused NSArray* filteredReports,
                                                    BOOL completed,
                                                    NSError* error)
      {
@@ -538,19 +531,13 @@
 
 - (void) testConcatenate
 {
-    NSArray* reports = [NSArray arrayWithObjects:
-                        [NSDictionary dictionaryWithObjectsAndKeys:
-                         @"1", @"first",
-                         @"a", @"second",
-                         nil],
-                        nil];
     NSString* expected = @"1,a";
     id<KSCrashReportFilter> filter = [KSCrashReportFilterConcatenate filterWithSeparatorFmt:@","
                                                                                        keys:@"first", @"second", nil];
     
-    [filter filterReports:reports onCompletion:^(NSArray* filteredReports,
-                                                 BOOL completed,
-                                                 NSError* error)
+    [filter filterReports:self.reportsWithDict onCompletion:^(NSArray* filteredReports,
+                                                              BOOL completed,
+                                                              NSError* error)
      {
          XCTAssertTrue(completed, @"");
          XCTAssertNil(error, @"");
@@ -560,20 +547,14 @@
 
 - (void) testConcatenateInit
 {
-    NSArray* reports = [NSArray arrayWithObjects:
-                        [NSDictionary dictionaryWithObjectsAndKeys:
-                         @"1", @"first",
-                         @"a", @"second",
-                         nil],
-                        nil];
     NSString* expected = @"1,a";
     id<KSCrashReportFilter> filter = [[KSCrashReportFilterConcatenate alloc] initWithSeparatorFmt:@","
                                                                                              keys:@"first", @"second", nil];
     filter = filter;
     
-    [filter filterReports:reports onCompletion:^(NSArray* filteredReports,
-                                                 BOOL completed,
-                                                 NSError* error)
+    [filter filterReports:self.reportsWithDict onCompletion:^(NSArray* filteredReports,
+                                                              BOOL completed,
+                                                              NSError* error)
      {
          XCTAssertTrue(completed, @"");
          XCTAssertNil(error, @"");
@@ -583,22 +564,15 @@
 
 - (void) testSubset
 {
-    NSArray* reports = [NSArray arrayWithObjects:
-                        [NSDictionary dictionaryWithObjectsAndKeys:
-                         @"1", @"first",
-                         @"a", @"second",
-                         @"b", @"third",
-                         nil],
-                        nil];
-    NSDictionary* expected = [NSDictionary dictionaryWithObjectsAndKeys:
-                              @"1", @"first",
-                              @"b", @"third",
-                              nil];
+    KSCrashReport* expected = [KSCrashReport reportWithDictionary:@{
+        @"first": @"1",
+        @"third": @"b",
+    }];
     id<KSCrashReportFilter> filter = [KSCrashReportFilterSubset filterWithKeys:@"first", @"third", nil];
     
-    [filter filterReports:reports onCompletion:^(NSArray* filteredReports,
-                                                 BOOL completed,
-                                                 NSError* error)
+    [filter filterReports:self.reportsWithDict onCompletion:^(NSArray* filteredReports,
+                                                              BOOL completed,
+                                                              NSError* error)
      {
          XCTAssertTrue(completed, @"");
          XCTAssertNil(error, @"");
@@ -608,18 +582,11 @@
 
 - (void) testSubsetBadKeyPath
 {
-    NSArray* reports = [NSArray arrayWithObjects:
-                        [NSDictionary dictionaryWithObjectsAndKeys:
-                         @"1", @"first",
-                         @"a", @"second",
-                         @"b", @"third",
-                         nil],
-                        nil];
     id<KSCrashReportFilter> filter = [KSCrashReportFilterSubset filterWithKeys:@"first", @"aaa", nil];
     
-    [filter filterReports:reports onCompletion:^(__unused NSArray* filteredReports,
-                                                 BOOL completed,
-                                                 NSError* error)
+    [filter filterReports:self.reportsWithDict onCompletion:^(__unused NSArray* filteredReports,
+                                                              BOOL completed,
+                                                              NSError* error)
      {
          XCTAssertFalse(completed, @"");
          XCTAssertNotNil(error, @"");
@@ -628,23 +595,16 @@
 
 - (void) testSubsetInit
 {
-    NSArray* reports = [NSArray arrayWithObjects:
-                        [NSDictionary dictionaryWithObjectsAndKeys:
-                         @"1", @"first",
-                         @"a", @"second",
-                         @"b", @"third",
-                         nil],
-                        nil];
-    NSDictionary* expected = [NSDictionary dictionaryWithObjectsAndKeys:
-                              @"1", @"first",
-                              @"b", @"third",
-                              nil];
+    KSCrashReport* expected = [KSCrashReport reportWithDictionary:@{
+        @"first": @"1",
+        @"third": @"b",
+    }];
     id<KSCrashReportFilter> filter = [[KSCrashReportFilterSubset alloc] initWithKeys:@"first", @"third", nil];
     filter = filter;
     
-    [filter filterReports:reports onCompletion:^(NSArray* filteredReports,
-                                                 BOOL completed,
-                                                 NSError* error)
+    [filter filterReports:self.reportsWithDict onCompletion:^(NSArray* filteredReports,
+                                                              BOOL completed,
+                                                              NSError* error)
      {
          XCTAssertTrue(completed, @"");
          XCTAssertNil(error, @"");
