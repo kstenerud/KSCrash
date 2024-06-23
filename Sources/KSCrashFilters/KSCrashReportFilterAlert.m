@@ -27,6 +27,7 @@
 #import "KSCrashReportFilterAlert.h"
 
 #import "KSSystemCapabilities.h"
+#import "KSCrashReport.h"
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -39,7 +40,7 @@
 
 #if KSCRASH_HAS_NSALERT
 #import <AppKit/AppKit.h>
-#endif 
+#endif
 
 @interface KSCrashAlertViewProcess : NSObject
 

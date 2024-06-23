@@ -27,6 +27,7 @@
 
 #import "KSCrashReportFilterAppleFmt.h"
 #import "KSSystemCapabilities.h"
+#import "KSCrashReport.h"
 
 #import <inttypes.h>
 #import <mach/machine.h>

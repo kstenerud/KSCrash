@@ -29,6 +29,7 @@
 #import "NSError+SimpleConstructor.h"
 #import "Container+DeepSearch.h"
 #import "KSVarArgs.h"
+#import "KSCrashReport.h"
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"

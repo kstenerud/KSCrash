@@ -33,6 +33,7 @@
 #import "KSCrashReportFilterJSON.h"
 #import "NSError+SimpleConstructor.h"
 #import "KSSystemCapabilities.h"
+#import "KSCrashReport.h"
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
