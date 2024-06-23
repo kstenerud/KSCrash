@@ -61,6 +61,7 @@
 
 @end
 
+static NSString *gCustomBasePath = nil;
 
 static NSString* getBundleName(void)
 {
@@ -74,6 +75,11 @@ static NSString* getBundleName(void)
 
 static NSString* getBasePath(void)
 {
+    if(gCustomBasePath != nil)
+    {
+        return gCustomBasePath;
+    }
+
     NSArray* directories = NSSearchPathForDirectoriesInDomains(NSCachesDirectory,
                                                                NSUserDomainMask,
                                                                YES);
@@ -121,23 +127,23 @@ static NSString* getBasePath(void)
     }
 }
 
++ (void) setBasePath:(NSString*) basePath;
+{
+    gCustomBasePath = [basePath copy];
+}
+
 + (instancetype) sharedInstance
 {
     static KSCrash *sharedInstance = nil;
     static dispatch_once_t onceToken;
     
     dispatch_once(&onceToken, ^{
-        sharedInstance = [[KSCrash alloc] init];
+        sharedInstance = [[KSCrash alloc] initWithBasePath:getBasePath()];
     });
     return sharedInstance;
 }
 
-- (instancetype) init
-{
-    return [self initWithBasePath:getBasePath()];
-}
-
-- (instancetype) initWithBasePath:(NSString *)basePath
+- (instancetype) initWithBasePath:(NSString*) basePath
 {
     if((self = [super init]))
     {
