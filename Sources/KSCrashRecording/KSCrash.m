@@ -62,6 +62,7 @@
 @end
 
 static NSString *gCustomBasePath = nil;
+static BOOL gIsSharedInstanceCreated = NO;
 
 static NSString* getBundleName(void)
 {
@@ -129,6 +130,14 @@ static NSString* getBasePath(void)
 
 + (void) setBasePath:(NSString*) basePath;
 {
+    if(basePath == gCustomBasePath || [basePath isEqualToString:gCustomBasePath])
+    {
+        return;
+    }
+    if(gIsSharedInstanceCreated)
+    {
+        KSLOG_WARN(@"A shared instance of KSCrash is already created. Can't change the base path to: %@", basePath);
+    }
     gCustomBasePath = [basePath copy];
 }
 
@@ -139,6 +148,7 @@ static NSString* getBasePath(void)
     
     dispatch_once(&onceToken, ^{
         sharedInstance = [[KSCrash alloc] initWithBasePath:getBasePath()];
+        gIsSharedInstanceCreated = YES;
     });
     return sharedInstance;
 }
