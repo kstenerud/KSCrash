@@ -105,8 +105,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 #pragma mark - API -
 
-- (instancetype) init __attribute((unavailable("Use `sharedInstance` instead.")));
-+ (instancetype) new __attribute((unavailable("Use `sharedInstance` instead.")));
+- (instancetype) init NS_UNAVAILABLE;
++ (instancetype) new NS_UNAVAILABLE;
 
 /**
  * Specifies a custom base path for KSCrash installation.
