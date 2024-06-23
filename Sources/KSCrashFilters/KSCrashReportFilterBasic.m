@@ -215,7 +215,7 @@
                                     NSArray* reportSet = reportSets[iSet];
                                     if(iReport < reportSet.count){
                                         KSCrashReport* report = reportSet[iReport];
-                                        dict[key] = report.dictionaryValue;
+                                        dict[key] = report.dictionaryValue ?: report.stringValue ?: report.dataValue;
                                     }
                                 }
                                 KSCrashReport* report = [KSCrashReport reportWithDictionary:dict];
