@@ -133,7 +133,7 @@
         NSDictionary* decodedReport = [KSJSONCodec decode:data
                                                   options:self.decodeOptions
                                                     error:&error];
-        if(report == nil)
+        if(decodedReport == nil)
         {
             kscrash_callCompletion(onCompletion, filteredReports, NO, error);
             return;
