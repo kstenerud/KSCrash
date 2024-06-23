@@ -25,6 +25,9 @@
 //
 
 import Foundation
+
+#if os(macOS)
+
 import AppKit
 
 class AppDelegate: NSObject, NSApplicationDelegate {
@@ -32,3 +35,5 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
 }
+
+#endif
