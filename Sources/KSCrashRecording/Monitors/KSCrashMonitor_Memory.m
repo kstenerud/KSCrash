@@ -141,7 +141,7 @@ static void _ks_memory_update_from_app_memory(KSCrashAppMemory *const memory) {
             .pressure = (uint8_t)memory.pressure,
             .level = (uint8_t)memory.level,
             .timestamp = ksdate_microseconds(),
-            .state = KSCrashAppStateTracker.shared.transitionState,
+            .state = KSCrashAppStateTracker.sharedInstance.transitionState,
         };
     });
 }
@@ -245,7 +245,7 @@ static void setEnabled(bool isEnabled)
             
             ksmemory_map(g_memoryURL.path.UTF8String);
 
-            g_appStateObserver = [KSCrashAppStateTracker.shared addObserverWithBlock:^(KSCrashAppTransitionState transitionState) {
+            g_appStateObserver = [KSCrashAppStateTracker.sharedInstance addObserverWithBlock:^(KSCrashAppTransitionState transitionState) {
                 _ks_memory_update(^(KSCrash_Memory *mem) {
                     mem->state = transitionState;
                 });
@@ -255,7 +255,7 @@ static void setEnabled(bool isEnabled)
         else
         {
             g_memoryTracker = nil;
-            [KSCrashAppStateTracker.shared removeObserver:g_appStateObserver];
+            [KSCrashAppStateTracker.sharedInstance removeObserver:g_appStateObserver];
             g_appStateObserver = nil;
         }
     }
@@ -293,20 +293,20 @@ static void addContextualInfoToEvent(KSCrash_MonitorContext* eventContext)
         eventContext->AppMemory.limit = memCopy.limit;
         eventContext->AppMemory.level = KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memCopy.level);
         eventContext->AppMemory.timestamp = memCopy.timestamp;
-        eventContext->AppMemory.state = ksapp_transition_state_to_string(memCopy.state);
+        eventContext->AppMemory.state = ksapp_transitionStateToString(memCopy.state);
     }
 }
 
 static NSDictionary<NSString *, id> *kscm_memory_serialize(KSCrash_Memory *const memory)
 {
     return @{
-        @KSCrashField_MemoryFootprint: @(memory->footprint),
-        @KSCrashField_MemoryRemaining: @(memory->remaining),
-        @KSCrashField_MemoryLimit: @(memory->limit),
-        @KSCrashField_MemoryPressure: @(KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memory->pressure)),
-        @KSCrashField_MemoryLevel: @(KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memory->level)),
-        @KSCrashField_Timestamp: @(memory->timestamp),
-        @KSCrashField_AppTransitionState: @(ksapp_transition_state_to_string(memory->state)),
+        KSCrashField_MemoryFootprint: @(memory->footprint),
+        KSCrashField_MemoryRemaining: @(memory->remaining),
+        KSCrashField_MemoryLimit: @(memory->limit),
+        KSCrashField_MemoryPressure: @(KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memory->pressure)),
+        KSCrashField_MemoryLevel: @(KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memory->level)),
+        KSCrashField_Timestamp: @(memory->timestamp),
+        KSCrashField_AppTransitionState: @(ksapp_transitionStateToString(memory->state)),
     };
 }
 
@@ -339,13 +339,13 @@ static void kscm_memory_check_for_oom_in_previous_session(void)
                 NSMutableDictionary *json = [[NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingMutableContainers|NSJSONReadingMutableLeaves error:nil] mutableCopy];
                 
                 if (json) {
-                    json[@KSCrashField_System][@KSCrashField_AppMemory] = kscm_memory_serialize(&g_previousSessionMemory);
-                    json[@KSCrashField_Report][@KSCrashField_Timestamp] = @(g_previousSessionMemory.timestamp);
-                    json[@KSCrashField_Crash][@KSCrashField_Error][@KSCrashExcType_MemoryTermination] =kscm_memory_serialize(&g_previousSessionMemory);
-                    json[@KSCrashField_Crash][@KSCrashField_Error][@KSCrashExcType_Mach] = nil;
-                    json[@KSCrashField_Crash][@KSCrashField_Error][@KSCrashExcType_Signal] = @{
-                        @KSCrashField_Signal: @(SIGKILL),
-                        @KSCrashField_Name: @"SIGKILL",
+                    json[KSCrashField_System][KSCrashField_AppMemory] = kscm_memory_serialize(&g_previousSessionMemory);
+                    json[KSCrashField_Report][KSCrashField_Timestamp] = @(g_previousSessionMemory.timestamp);
+                    json[KSCrashField_Crash][KSCrashField_Error][KSCrashExcType_MemoryTermination] =kscm_memory_serialize(&g_previousSessionMemory);
+                    json[KSCrashField_Crash][KSCrashField_Error][KSCrashExcType_Mach] = nil;
+                    json[KSCrashField_Crash][KSCrashField_Error][KSCrashExcType_Signal] = @{
+                        KSCrashField_Signal: @(SIGKILL),
+                        KSCrashField_Name: @"SIGKILL",
                     };
                     
                     data = [NSJSONSerialization dataWithJSONObject:json options:NSJSONWritingPrettyPrinted error:nil];
@@ -564,7 +564,7 @@ bool ksmemory_previous_session_was_terminated_due_to_memory(bool *userPerceptibl
     
     // We might care if the user might have seen the OOM
     if (userPerceptible) {
-        *userPerceptible = ksapp_transition_state_is_user_perceptible(g_previousSessionMemory.state);
+        *userPerceptible = ksapp_transitionStateIsUserPerceptible(g_previousSessionMemory.state);
     }
     
     // level or pressure is critical++

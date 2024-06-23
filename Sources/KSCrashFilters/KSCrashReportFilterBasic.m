@@ -36,7 +36,7 @@
 
 @implementation KSCrashReportFilterPassthrough
 
-+ (KSCrashReportFilterPassthrough*) filter
++ (instancetype) filter
 {
     return [[self alloc] init];
 }
@@ -55,8 +55,6 @@
 @property(nonatomic,readwrite,retain) NSArray* filters;
 @property(nonatomic,readwrite,retain) NSArray* keys;
 
-- (id) initWithFilters:(NSArray*) filters keys:(NSArray*) keys;
-
 @end
 
 
@@ -65,7 +63,7 @@
 @synthesize filters = _filters;
 @synthesize keys = _keys;
 
-- (id) initWithFilters:(NSArray*) filters keys:(NSArray*) keys
+- (instancetype) initWithFilters:(NSArray*) filters keys:(NSArray<NSString*>*) keys
 {
     if((self = [super init]))
     {
@@ -113,15 +111,20 @@
     return [block copy];
 }
 
-+ (KSCrashReportFilterCombine*) filterWithFiltersAndKeys:(id) firstFilter, ...
++ (instancetype) filterWithFiltersAndKeys:(id) firstFilter, ...
 {
     NSMutableArray* filters = [NSMutableArray array];
     NSMutableArray* keys = [NSMutableArray array];
     ksva_iterate_list(firstFilter, [self argBlockWithFilters:filters andKeys:keys]);
+    return [[self class] filterWithFilters:filters keys:keys];
+}
+
++ (instancetype)filterWithFilters:(NSArray*)filters keys:(NSArray<NSString*>*)keys
+{
     return [[self alloc] initWithFilters:filters keys:keys];
 }
 
-- (id) initWithFiltersAndKeys:(id) firstFilter, ...
+- (instancetype) initWithFiltersAndKeys:(id) firstFilter, ...
 {
     NSMutableArray* filters = [NSMutableArray array];
     NSMutableArray* keys = [NSMutableArray array];
@@ -233,7 +236,7 @@
 
 @interface KSCrashReportFilterPipeline ()
 
-@property(nonatomic,readwrite,retain) NSArray* filters;
+@property(nonatomic,readwrite,copy) NSArray<id<KSCrashReportFilter>>* filters;
 
 @end
 
@@ -242,19 +245,24 @@
 
 @synthesize filters = _filters;
 
-+ (KSCrashReportFilterPipeline*) filterWithFilters:(id) firstFilter, ...
++ (instancetype) filterWithFilters:(id) firstFilter, ...
 {
     ksva_list_to_nsarray(firstFilter, filters);
+    return [[self class] filterWithFiltersArray:filters];
+}
+
++ (instancetype) filterWithFiltersArray:(NSArray*) filters
+{
     return [[self alloc] initWithFiltersArray:filters];
 }
 
-- (id) initWithFilters:(id) firstFilter, ...
+- (instancetype) initWithFilters:(id) firstFilter, ...
 {
     ksva_list_to_nsarray(firstFilter, filters);
     return [self initWithFiltersArray:filters];
 }
 
-- (id) initWithFiltersArray:(NSArray*) filters
+- (instancetype) initWithFiltersArray:(NSArray*) filters
 {
     if((self = [super init]))
     {
@@ -270,15 +278,14 @@
                 [expandedFilters addObject:filter];
             }
         }
-        self.filters = expandedFilters;
+        _filters = [expandedFilters copy];
     }
     return self;
 }
 
 - (void) addFilter:(id<KSCrashReportFilter>) filter
 {
-    NSMutableArray* mutableFilters = (NSMutableArray*)self.filters; // Shh! Don't tell anyone!
-    [mutableFilters insertObject:filter atIndex:0];
+    self.filters = [@[filter] arrayByAddingObjectsFromArray:self.filters];
 }
 
 - (void) filterReports:(NSArray*) reports
@@ -363,14 +370,12 @@
 @synthesize key = _key;
 @synthesize allowNotFound = _allowNotFound;
 
-+ (KSCrashReportFilterObjectForKey*) filterWithKey:(id)key
-                                     allowNotFound:(BOOL) allowNotFound
++ (instancetype) filterWithKey:(id)key allowNotFound:(BOOL) allowNotFound
 {
     return [[self alloc] initWithKey:key allowNotFound:allowNotFound];
 }
 
-- (id) initWithKey:(id)key
-     allowNotFound:(BOOL) allowNotFound
+- (instancetype) initWithKey:(id)key allowNotFound:(BOOL) allowNotFound
 {
     if((self = [super init]))
     {
@@ -421,7 +426,7 @@
 @interface KSCrashReportFilterConcatenate ()
 
 @property(nonatomic, readwrite, retain) NSString* separatorFmt;
-@property(nonatomic, readwrite, retain) NSArray* keys;
+@property(nonatomic, readwrite, retain) NSArray<NSString*>* keys;
 
 @end
 
@@ -430,19 +435,24 @@
 @synthesize separatorFmt = _separatorFmt;
 @synthesize keys = _keys;
 
-+ (KSCrashReportFilterConcatenate*) filterWithSeparatorFmt:(NSString*) separatorFmt keys:(id) firstKey, ...
++ (instancetype) filterWithSeparatorFmt:(NSString*) separatorFmt keys:(id) firstKey, ...
 {
     ksva_list_to_nsarray(firstKey, keys);
+    return [[self class] filterWithSeparatorFmt:separatorFmt keysArray:keys];
+}
+
++ (instancetype) filterWithSeparatorFmt:(NSString*) separatorFmt keysArray:(NSArray<NSString*>*) keys
+{
     return [[self alloc] initWithSeparatorFmt:separatorFmt keysArray:keys];
 }
 
-- (id) initWithSeparatorFmt:(NSString*) separatorFmt keys:(id) firstKey, ...
+- (instancetype) initWithSeparatorFmt:(NSString*) separatorFmt keys:(id) firstKey, ...
 {
     ksva_list_to_nsarray(firstKey, keys);
     return [self initWithSeparatorFmt:separatorFmt keysArray:keys];
 }
 
-- (id) initWithSeparatorFmt:(NSString*) separatorFmt keysArray:(NSArray*) keys
+- (instancetype) initWithSeparatorFmt:(NSString*) separatorFmt keysArray:(NSArray<NSString*>*) keys
 {
     if((self = [super init]))
     {
@@ -504,19 +514,24 @@
 
 @synthesize keyPaths = _keyPaths;
 
-+ (KSCrashReportFilterSubset*) filterWithKeys:(id) firstKeyPath, ...
++ (instancetype) filterWithKeys:(id) firstKeyPath, ...
 {
     ksva_list_to_nsarray(firstKeyPath, keyPaths);
+    return [[self class] filterWithKeysArray:keyPaths];
+}
+
++ (instancetype) filterWithKeysArray:(NSArray<NSString*>*) keyPaths
+{
     return [[self alloc] initWithKeysArray:keyPaths];
 }
 
-- (id) initWithKeys:(id) firstKeyPath, ...
+- (instancetype) initWithKeys:(id) firstKeyPath, ...
 {
     ksva_list_to_nsarray(firstKeyPath, keyPaths);
     return [self initWithKeysArray:keyPaths];
 }
 
-- (id) initWithKeysArray:(NSArray*) keyPaths
+- (instancetype) initWithKeysArray:(NSArray<NSString*>*) keyPaths
 {
     if((self = [super init]))
     {
@@ -568,7 +583,7 @@
 
 @implementation KSCrashReportFilterDataToString
 
-+ (KSCrashReportFilterDataToString*) filter
++ (instancetype) filter
 {
     return [[self alloc] init];
 }
@@ -591,7 +606,7 @@
 
 @implementation KSCrashReportFilterStringToData
 
-+ (KSCrashReportFilterStringToData*) filter
++ (instancetype) filter
 {
     return [[self alloc] init];
 }

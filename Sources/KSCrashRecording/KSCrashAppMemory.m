@@ -63,24 +63,24 @@ const char *KSCrashAppMemoryStateToString(KSCrashAppMemoryState state) {
     assert(state <= KSCrashAppMemoryStateTerminal);
 }
 
-KSCrashAppMemoryState KSCrashAppMemoryStateFromString(NSString *const state) {
-    if ([state isEqualToString:@"normal"]) {
+KSCrashAppMemoryState KSCrashAppMemoryStateFromString(NSString *const string) {
+    if ([string isEqualToString:@"normal"]) {
         return KSCrashAppMemoryStateNormal;
     }
     
-    if ([state isEqualToString:@"warn"]) {
+    if ([string isEqualToString:@"warn"]) {
         return KSCrashAppMemoryStateWarn;
     }
     
-    if ([state isEqualToString:@"urgent"]) {
+    if ([string isEqualToString:@"urgent"]) {
         return KSCrashAppMemoryStateUrgent;
     }
     
-    if ([state isEqualToString:@"critical"]) {
+    if ([string isEqualToString:@"critical"]) {
         return KSCrashAppMemoryStateCritical;
     }
     
-    if ([state isEqualToString:@"terminal"]) {
+    if ([string isEqualToString:@"terminal"]) {
         return KSCrashAppMemoryStateTerminal;
     }
     

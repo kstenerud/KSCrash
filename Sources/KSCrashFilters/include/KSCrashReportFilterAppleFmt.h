@@ -27,6 +27,9 @@
 
 #import "KSCrashReportFilter.h"
 
+#import <Foundation/Foundation.h>
+
+NS_ASSUME_NONNULL_BEGIN
 
 /** Affects how an Apple-style crash report is generated.
  *
@@ -79,7 +82,7 @@
  * If you DO care about line numbers, have the dsym file handy, and will be
  * symbolicating offline, use KSAppleReportStyleSymbolicatedSideBySide.
  */
-typedef enum
+typedef NS_ENUM(NSInteger, KSAppleReportStyle)
 {
     /** Leave all stack trace entries unsymbolicated. */
     KSAppleReportStyleUnsymbolicated,
@@ -95,8 +98,8 @@ typedef enum
     KSAppleReportStyleSymbolicatedSideBySide,
 
     /** Symbolicate everything. */
-    KSAppleReportStyleSymbolicated,
-} KSAppleReportStyle;
+    KSAppleReportStyleSymbolicated
+} NS_SWIFT_NAME(AppleReportStyle);
 
 
 /** Converts to Apple format.
@@ -104,12 +107,17 @@ typedef enum
  * Input: NSDictionary
  * Output: NSString
  */
+NS_SWIFT_NAME(CrashReportFilterAppleFmt)
 @interface KSCrashReportFilterAppleFmt : NSObject <KSCrashReportFilter>
 
-+ (KSCrashReportFilterAppleFmt*) filterWithReportStyle:(KSAppleReportStyle) reportStyle;
++ (instancetype) filterWithReportStyle:(KSAppleReportStyle) reportStyle;
 
-- (id) initWithReportStyle:(KSAppleReportStyle) reportStyle;
+- (instancetype) initWithReportStyle:(KSAppleReportStyle) reportStyle;
 
-- (NSString*)headerStringForSystemInfo:(NSDictionary*)system reportID:(NSString*)reportID crashTime:(NSDate*)crashTime;
+- (NSString*)headerStringForSystemInfo:(NSDictionary<NSString*, id>*)system
+                              reportID:(nullable NSString*)reportID
+                             crashTime:(nullable NSDate*)crashTime;
 
 @end
+
+NS_ASSUME_NONNULL_END

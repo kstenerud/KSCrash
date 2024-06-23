@@ -28,10 +28,14 @@
 #import "KSCrashReportFilter.h"
 #import "KSCrashReportFilterAppleFmt.h"
 
+#import <Foundation/Foundation.h>
+
+NS_ASSUME_NONNULL_BEGIN
 
 /**
  * Common filter sets.
  */
+NS_SWIFT_NAME(CrashFilterSets)
 @interface KSCrashFilterSets : NSObject
 
 /** Create an Apple format filter that includes system and user data in JSON format.
@@ -40,3 +44,5 @@
                                                compressed:(BOOL) compressed;
 
 @end
+
+NS_ASSUME_NONNULL_END

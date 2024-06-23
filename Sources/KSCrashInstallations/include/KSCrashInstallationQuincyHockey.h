@@ -29,6 +29,7 @@
 #import "KSCrashInstallation.h"
 #import "KSCrashReportWriter.h"
 
+NS_ASSUME_NONNULL_BEGIN
 
 /**
  * Common properties to both Quincy and Hockey.
@@ -62,6 +63,7 @@
  *
  * This is an abstract class.
  */
+NS_SWIFT_NAME(CrashInstallationBaseQuincyHockey)
 @interface KSCrashInstallationBaseQuincyHockey : KSCrashInstallation
 
 // ======================================================================
@@ -70,10 +72,10 @@
 
 // The values of these properties will be written to the next crash report.
 
-@property(nonatomic,readwrite,retain) NSString* userID;
-@property(nonatomic,readwrite,retain) NSString* userName;
-@property(nonatomic,readwrite,retain) NSString* contactEmail;
-@property(nonatomic,readwrite,retain) NSString* crashDescription;
+@property(nonatomic,readwrite,copy,nullable) NSString* userID;
+@property(nonatomic,readwrite,copy,nullable) NSString* userName;
+@property(nonatomic,readwrite,copy,nullable) NSString* contactEmail;
+@property(nonatomic,readwrite,copy,nullable) NSString* crashDescription;
 
 
 // ======================================================================
@@ -83,15 +85,15 @@
 // The above properties will be written to the user section report using the
 // following keys.
 
-@property(nonatomic,readwrite,retain) NSString* userIDKey;
-@property(nonatomic,readwrite,retain) NSString* userNameKey;
-@property(nonatomic,readwrite,retain) NSString* contactEmailKey;
-@property(nonatomic,readwrite,retain) NSString* crashDescriptionKey;
+@property(nonatomic,readwrite,copy,nullable) NSString* userIDKey;
+@property(nonatomic,readwrite,copy,nullable) NSString* userNameKey;
+@property(nonatomic,readwrite,copy,nullable) NSString* contactEmailKey;
+@property(nonatomic,readwrite,copy,nullable) NSString* crashDescriptionKey;
 
 /** Data stored under these keys will be appended to the description
  * (in JSON format) before sending to Quincy/Hockey.
  */
-@property(nonatomic,readwrite,retain) NSArray* extraDescriptionKeys;
+@property(nonatomic,readwrite,copy) NSArray<NSString *>* extraDescriptionKeys;
 
 /** If YES, wait until the host becomes reachable before trying to send.
  * If NO, it will attempt to send right away, and either succeed or fail.
@@ -106,12 +108,13 @@
 /**
  * Quincy installation.
  */
+NS_SWIFT_NAME(CrashInstallationQuincy)
 @interface KSCrashInstallationQuincy : KSCrashInstallationBaseQuincyHockey
 
 /** URL to send reports to (mandatory) */
-@property(nonatomic, readwrite, retain) NSURL* url;
+@property(nonatomic, readwrite, strong) NSURL* url;
 
-+ (KSCrashInstallationQuincy*) sharedInstance;
++ (instancetype) sharedInstance NS_SWIFT_NAME(shared());
 
 @end
 
@@ -119,11 +122,14 @@
 /**
  * Hockey installation.
  */
+NS_SWIFT_NAME(CrashInstallationHockey)
 @interface KSCrashInstallationHockey: KSCrashInstallationBaseQuincyHockey
 
 /** App identifier you received from Hockey (mandatory) */
-@property(nonatomic, readwrite, retain) NSString* appIdentifier;
+@property(nonatomic, readwrite, copy) NSString* appIdentifier;
 
-+ (instancetype) sharedInstance;
++ (instancetype) sharedInstance NS_SWIFT_NAME(shared());
 
 @end
+
+NS_ASSUME_NONNULL_END

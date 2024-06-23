@@ -29,8 +29,8 @@
 #import <Foundation/Foundation.h>
 
 /** Optional behavior when encoding JSON data */
-typedef enum
-{
+typedef NS_ENUM(NSInteger, KSJSONEncodeOption) {
+    /** No special encoding options */
     KSJSONEncodeOptionNone = 0,
 
     /** Indent 4 spaces per object/array level */
@@ -38,32 +38,25 @@ typedef enum
 
     /** Sort object contents by key name */
     KSJSONEncodeOptionSorted = 2,
-} KSJSONEncodeOption;
+} NS_SWIFT_NAME(JSONEncodeOption);
 
 /** Optional behavior when decoding JSON data */
-typedef enum
-{
+typedef NS_ENUM(NSInteger, KSJSONDecodeOption) {
+    /** No special decoding options */
     KSJSONDecodeOptionNone = 0,
 
-    /** Normally, null elements get stored as [NSNull null].
-     * If this option is set, do not store anything when a null element is
-     * encountered inside an array.
-     */
+    /** Do not store null elements when encountered inside an array */
     KSJSONDecodeOptionIgnoreNullInArray = 1,
 
-    /** Normally, null elements get stored as [NSNull null].
-     * If this option is set, do not store anything when a null element is
-     * encountered inside an object.
-     */
+    /** Do not store null elements when encountered inside an object */
     KSJSONDecodeOptionIgnoreNullInObject = 2,
 
-    /** Convenience enum to ignore nulls in arrays and objects. */
+    /** Ignore null elements in both arrays and objects */
     KSJSONDecodeOptionIgnoreAllNulls = 3,
 
-    /** If an error is encountered, return the partially decoded object. */
+    /** Return the partially decoded object if an error is encountered */
     KSJSONDecodeOptionKeepPartialObject = 4,
-} KSJSONDecodeOption;
-
+} NS_SWIFT_NAME(JSONDecodeOption);
 
 /**
  * Encodes and decodes UTF-8 JSON data.

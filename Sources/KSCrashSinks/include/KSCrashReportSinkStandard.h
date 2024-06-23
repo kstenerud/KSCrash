@@ -27,6 +27,9 @@
 
 #import "KSCrashReportFilter.h"
 
+#import <Foundation/Foundation.h>
+
+NS_ASSUME_NONNULL_BEGIN
 
 /**
  * Sends crash reports to an HTTP server.
@@ -34,20 +37,23 @@
  * Input: NSDictionary
  * Output: Same as input (passthrough)
  */
+NS_SWIFT_NAME(CrashReportSinkStandard)
 @interface KSCrashReportSinkStandard : NSObject <KSCrashReportFilter>
 
 /** Constructor.
  *
  * @param url The URL to connect to.
  */
-+ (KSCrashReportSinkStandard*) sinkWithURL:(NSURL*) url;
++ (instancetype) sinkWithURL:(NSURL*) url;
 
 /** Constructor.
  *
  * @param url The URL to connect to.
  */
-- (id) initWithURL:(NSURL*) url;
+- (instancetype) initWithURL:(NSURL*) url;
 
 - (id <KSCrashReportFilter>) defaultCrashReportFilterSet;
 
 @end
+
+NS_ASSUME_NONNULL_END

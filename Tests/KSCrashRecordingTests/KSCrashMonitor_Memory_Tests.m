@@ -168,26 +168,26 @@
     NSUInteger oomReports = 0;
     for (NSDictionary<NSString *, id> *report in reports) {
         
-        if (![report[@KSCrashField_Crash][@KSCrashField_Error][@KSCrashField_Type] isEqualToString:@KSCrashExcType_MemoryTermination]) {
+        if (![report[KSCrashField_Crash][KSCrashField_Error][KSCrashField_Type] isEqualToString:KSCrashExcType_MemoryTermination]) {
             continue;
         }
         
         oomReports++;
         
-        XCTAssertEqualObjects(report[@KSCrashField_System][@KSCrashField_AppMemory][@KSCrashField_MemoryLevel], @"terminal");
-        XCTAssertEqualObjects(report[@KSCrashField_System][@KSCrashField_AppMemory][@KSCrashField_MemoryPressure], @"normal");
-        XCTAssertEqualObjects(report[@KSCrashField_System][@KSCrashField_AppMemory][@KSCrashField_MemoryFootprint], @(100));
-        XCTAssertEqualObjects(report[@KSCrashField_System][@KSCrashField_AppMemory][@KSCrashField_MemoryRemaining], @(0));
-        XCTAssertEqualObjects(report[@KSCrashField_System][@KSCrashField_AppMemory][@KSCrashField_MemoryLimit], @(100));
+        XCTAssertEqualObjects(report[KSCrashField_System][KSCrashField_AppMemory][KSCrashField_MemoryLevel], @"terminal");
+        XCTAssertEqualObjects(report[KSCrashField_System][KSCrashField_AppMemory][KSCrashField_MemoryPressure], @"normal");
+        XCTAssertEqualObjects(report[KSCrashField_System][KSCrashField_AppMemory][KSCrashField_MemoryFootprint], @(100));
+        XCTAssertEqualObjects(report[KSCrashField_System][KSCrashField_AppMemory][KSCrashField_MemoryRemaining], @(0));
+        XCTAssertEqualObjects(report[KSCrashField_System][KSCrashField_AppMemory][KSCrashField_MemoryLimit], @(100));
         
-        XCTAssertEqualObjects(report[@KSCrashField_Crash][@KSCrashField_Error][@KSCrashField_MemoryTermination][@KSCrashField_MemoryLevel], @"terminal");
-        XCTAssertEqualObjects(report[@KSCrashField_Crash][@KSCrashField_Error][@KSCrashField_MemoryTermination][@KSCrashField_MemoryPressure], @"normal");
-        XCTAssertEqualObjects(report[@KSCrashField_Crash][@KSCrashField_Error][@KSCrashField_MemoryTermination][@KSCrashField_MemoryFootprint], @(100));
-        XCTAssertEqualObjects(report[@KSCrashField_Crash][@KSCrashField_Error][@KSCrashField_MemoryTermination][@KSCrashField_MemoryRemaining], @(0));
-        XCTAssertEqualObjects(report[@KSCrashField_Crash][@KSCrashField_Error][@KSCrashField_MemoryTermination][@KSCrashField_MemoryLimit], @(100));
+        XCTAssertEqualObjects(report[KSCrashField_Crash][KSCrashField_Error][KSCrashField_MemoryTermination][KSCrashField_MemoryLevel], @"terminal");
+        XCTAssertEqualObjects(report[KSCrashField_Crash][KSCrashField_Error][KSCrashField_MemoryTermination][KSCrashField_MemoryPressure], @"normal");
+        XCTAssertEqualObjects(report[KSCrashField_Crash][KSCrashField_Error][KSCrashField_MemoryTermination][KSCrashField_MemoryFootprint], @(100));
+        XCTAssertEqualObjects(report[KSCrashField_Crash][KSCrashField_Error][KSCrashField_MemoryTermination][KSCrashField_MemoryRemaining], @(0));
+        XCTAssertEqualObjects(report[KSCrashField_Crash][KSCrashField_Error][KSCrashField_MemoryTermination][KSCrashField_MemoryLimit], @(100));
         
-        XCTAssertEqualObjects(report [@KSCrashField_Crash][@KSCrashField_Error][@KSCrashExcType_Signal][@KSCrashField_Signal], @(SIGKILL));
-        XCTAssertEqualObjects(report [@KSCrashField_Crash][@KSCrashField_Error][@KSCrashExcType_Signal][@KSCrashField_Name], @"SIGKILL");
+        XCTAssertEqualObjects(report [KSCrashField_Crash][KSCrashField_Error][KSCrashExcType_Signal][KSCrashField_Signal], @(SIGKILL));
+        XCTAssertEqualObjects(report [KSCrashField_Crash][KSCrashField_Error][KSCrashExcType_Signal][KSCrashField_Name], @"SIGKILL");
         
     }
     
@@ -196,16 +196,16 @@
 
 - (void) testTransitionState
 {
-    XCTAssertFalse(ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionStateStartupPrewarm));
-    XCTAssertFalse(ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionStateBackground));
-    XCTAssertFalse(ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionStateTerminating));
-    XCTAssertFalse(ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionStateExiting));
+    XCTAssertFalse(ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionStateStartupPrewarm));
+    XCTAssertFalse(ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionStateBackground));
+    XCTAssertFalse(ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionStateTerminating));
+    XCTAssertFalse(ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionStateExiting));
     
-    XCTAssertTrue(ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionStateStartup));
-    XCTAssertTrue(ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionStateLaunching));
-    XCTAssertTrue(ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionStateForegrounding));
-    XCTAssertTrue(ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionStateActive));
-    XCTAssertTrue(ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionStateDeactivating));
+    XCTAssertTrue(ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionStateStartup));
+    XCTAssertTrue(ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionStateLaunching));
+    XCTAssertTrue(ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionStateForegrounding));
+    XCTAssertTrue(ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionStateActive));
+    XCTAssertTrue(ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionStateDeactivating));
 }
 
 static KSCrashAppMemory *Memory(uint64_t footprint) {

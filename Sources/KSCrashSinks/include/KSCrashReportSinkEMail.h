@@ -28,12 +28,14 @@
 #import <Foundation/Foundation.h>
 #import "KSCrashReportFilter.h"
 
+NS_ASSUME_NONNULL_BEGIN
 
 /** Sends reports via email.
  *
  * Input: NSData
  * Output: Same as input (passthrough)
  */
+NS_SWIFT_NAME(CrashReportSinkEmail)
 @interface KSCrashReportSinkEMail : NSObject <KSCrashReportFilter>
 
 /**
@@ -43,11 +45,12 @@
  * @param filenameFmt How to name the attachments. You may use "%d" to differentiate
  *                    when multiple reports are sent at once.
  *                    Note: With the default filter set, files are gzipped text.
+ * @return A new instance of KSCrashReportSinkEMail configured with the specified parameters.
  */
-+ (KSCrashReportSinkEMail*) sinkWithRecipients:(NSArray*) recipients
-                                       subject:(NSString*) subject
-                                       message:(NSString*) message
-                                   filenameFmt:(NSString*) filenameFmt;
++ (instancetype) sinkWithRecipients:(NSArray<NSString*>*) recipients
+                            subject:(NSString*) subject
+                            message:(nullable NSString*) message
+                        filenameFmt:(NSString*) filenameFmt;
 
 /**
  * @param recipients List of email addresses to send to.
@@ -57,12 +60,14 @@
  *                    when multiple reports are sent at once.
  *                    Note: With the default filter set, files are gzipped text.
  */
-- (id) initWithRecipients:(NSArray*) recipients
-                  subject:(NSString*) subject
-                  message:(NSString*) message
-              filenameFmt:(NSString*) filenameFmt;
+- (instancetype) initWithRecipients:(NSArray<NSString*>*) recipients
+                            subject:(NSString*) subject
+                            message:(nullable NSString*) message
+                        filenameFmt:(NSString*) filenameFmt;
 
 - (id <KSCrashReportFilter>) defaultCrashReportFilterSet;
 - (id <KSCrashReportFilter>) defaultCrashReportFilterSetAppleFmt;
 
 @end
+
+NS_ASSUME_NONNULL_END

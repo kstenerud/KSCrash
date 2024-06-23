@@ -31,7 +31,7 @@
 
 @interface KSCrashReportFilterGZipCompress ()
 
-@property(nonatomic,readwrite,assign) int compressionLevel;
+@property(nonatomic,readwrite,assign) NSInteger compressionLevel;
 
 @end
 
@@ -39,12 +39,12 @@
 
 @synthesize compressionLevel = _compressionLevel;
 
-+ (KSCrashReportFilterGZipCompress*) filterWithCompressionLevel:(int) compressionLevel
++ (instancetype) filterWithCompressionLevel:(NSInteger) compressionLevel
 {
     return [[self alloc] initWithCompressionLevel:compressionLevel];
 }
 
-- (id) initWithCompressionLevel:(int) compressionLevel
+- (instancetype) initWithCompressionLevel:(NSInteger) compressionLevel
 {
     if((self = [super init]))
     {
@@ -60,7 +60,7 @@
     for(NSData* report in reports)
     {
         NSError* error = nil;
-        NSData* compressedData = [report gzippedWithCompressionLevel:self.compressionLevel
+        NSData* compressedData = [report gzippedWithCompressionLevel:(int)self.compressionLevel
                                                                error:&error];
         if(compressedData == nil)
         {
@@ -81,7 +81,7 @@
 
 @implementation KSCrashReportFilterGZipDecompress
 
-+ (KSCrashReportFilterGZipDecompress*) filter
++ (instancetype) filter
 {
     return [[self alloc] init];
 }

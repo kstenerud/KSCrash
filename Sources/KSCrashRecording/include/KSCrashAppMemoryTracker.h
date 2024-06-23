@@ -34,9 +34,11 @@ typedef NS_OPTIONS(NSUInteger, KSCrashAppMemoryTrackerChangeType) {
     KSCrashAppMemoryTrackerChangeTypeLevel      = 1 << 0,
     KSCrashAppMemoryTrackerChangeTypePressure   = 1 << 1,
     KSCrashAppMemoryTrackerChangeTypeFootprint  = 1 << 2,
-};
+} NS_SWIFT_NAME(AppMemoryTrackerChangeType);
 
 @protocol KSCrashAppMemoryTrackerDelegate;
+
+NS_SWIFT_NAME(AppMemoryTracker)
 @interface KSCrashAppMemoryTracker : NSObject
 
 @property(atomic, readonly) KSCrashAppMemoryState pressure;
@@ -44,13 +46,14 @@ typedef NS_OPTIONS(NSUInteger, KSCrashAppMemoryTrackerChangeType) {
 
 @property(nonatomic, weak) id<KSCrashAppMemoryTrackerDelegate> delegate;
 
+@property(nonatomic, readonly, nullable) KSCrashAppMemory *currentAppMemory;
+
 - (void)start;
 - (void)stop;
 
-- (nullable KSCrashAppMemory *)currentAppMemory;
-
 @end
 
+NS_SWIFT_NAME(AppMemoryTrackerDelegate)
 @protocol KSCrashAppMemoryTrackerDelegate <NSObject>
 
 - (void)appMemoryTracker:(KSCrashAppMemoryTracker *)tracker

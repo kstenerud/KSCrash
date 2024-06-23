@@ -39,8 +39,8 @@
     id<KSCrashReportFilter> appleFilter = [KSCrashReportFilterAppleFmt filterWithReportStyle:reportStyle];
     id<KSCrashReportFilter> userSystemFilter = [KSCrashReportFilterPipeline filterWithFilters:
                                                 [KSCrashReportFilterSubset filterWithKeys:
-                                                 @KSCrashField_System,
-                                                 @KSCrashField_User,
+                                                 KSCrashField_System,
+                                                 KSCrashField_User,
                                                  nil],
                                                 [KSCrashReportFilterJSONEncode filterWithOptions:KSJSONEncodeOptionPretty | KSJSONEncodeOptionSorted],
                                                 [KSCrashReportFilterDataToString filter],

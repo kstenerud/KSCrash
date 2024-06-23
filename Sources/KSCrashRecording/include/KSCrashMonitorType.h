@@ -33,6 +33,9 @@
 extern "C" {
 #endif
 
+#ifndef NS_SWIFT_NAME
+#define NS_SWIFT_NAME(_name)
+#endif
 
 /** Various aspects of the system that can be monitored:
  * - Mach kernel exception
@@ -138,7 +141,7 @@ enum
 
     /** Disable automatic reporting; only manual reports are allowed. */
     KSCrashMonitorTypeManual = (KSCrashMonitorTypeRequired | KSCrashMonitorTypeUserReported)
-}
+} NS_SWIFT_NAME(MonitorType)
 #ifndef __OBJC__
 KSCrashMonitorType
 #endif

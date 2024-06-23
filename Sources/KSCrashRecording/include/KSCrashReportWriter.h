@@ -36,6 +36,18 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#ifdef __OBJC__
+#include <Foundation/Foundation.h>
+#endif
+
+#ifndef NS_SWIFT_NAME
+#define NS_SWIFT_NAME(_name)
+#endif
+
+#ifndef NS_SWIFT_UNAVAILABLE
+#define NS_SWIFT_UNAVAILABLE(_msg)
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -241,9 +253,10 @@ typedef struct KSCrashReportWriter
     /** Internal contextual data for the writer */
     void* context;
 
-} KSCrashReportWriter;
+} NS_SWIFT_NAME(ReportWriter) KSCrashReportWriter;
 
-typedef void (*KSReportWriteCallback)(const KSCrashReportWriter* writer);
+typedef void (*KSReportWriteCallback)(const KSCrashReportWriter* writer)
+NS_SWIFT_UNAVAILABLE("Use Swift closures instead!");
 
 
 #ifdef __cplusplus

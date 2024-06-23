@@ -32,7 +32,7 @@
 
 @implementation KSCrashReportSinkConsole
 
-+ (KSCrashReportSinkConsole*) filter
++ (instancetype) filter
 {
     return [[self alloc] init];
 }
