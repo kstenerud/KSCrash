@@ -71,4 +71,9 @@
 #undef SAME_OR_EQUAL
 }
 
+- (NSString*) description
+{
+    return [(self.stringValue ?: self.dictionaryValue ?: self.dataValue) description];
+}
+
 @end
