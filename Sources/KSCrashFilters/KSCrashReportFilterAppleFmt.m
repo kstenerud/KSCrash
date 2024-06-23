@@ -37,6 +37,9 @@
 #import "KSJSONCodecObjC.h"
 #import "KSCPU.h"
 
+//#define KSLogger_LocalLevel TRACE
+#import "KSLogger.h"
+
 #if defined(__LP64__)
     #define FMT_LONG_DIGITS "16"
     #define FMT_RJ_SPACES "18"
