@@ -6,8 +6,8 @@ let package = Package(
   name: "KSCrashSamplesCommon",
   platforms: [
     .iOS(.v13),
-    .tvOS(.v12),
-    .watchOS(.v5),
+    .tvOS(.v13),
+    .watchOS(.v6),
     .macOS(.v10_15),
   ],
   products: [

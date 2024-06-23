@@ -5,5 +5,8 @@ let workspace = Workspace(
     projects: [
         "./Samples/iOS",
         "./Samples/macOS",
+        "./Samples/tvOS",
+        "./Samples/visionOS",
+        "./Samples/watchOS",
     ]
 )
