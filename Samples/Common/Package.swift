@@ -31,8 +31,8 @@ let package = Package(
     .target(
       name: "LibraryBridge",
       dependencies: [
-        .productItem(name: "Recording", package: "KSCrash"),
-        .productItem(name: "Reporting", package: "KSCrash"),
+        .product(name: "Recording", package: "KSCrash"),
+        .product(name: "Reporting", package: "KSCrash"),
       ]
     ),
     .target(
