@@ -371,6 +371,13 @@ static int encodeObject(KSJSONCodec* codec, id object, NSString* name, KSJSONEnc
         }
         for(id key in keys)
         {
+            if([key isKindOfClass:[NSString class]] == NO)
+            {
+                codec.error = [NSError errorWithDomain:@"KSJSONCodecObjC"
+                                                  code:0
+                                           description:@"Invalid key: %@", key];
+                return KSJSON_ERROR_INVALID_DATA;
+            }
             if((result = encodeObject(codec, [object valueForKey:key], key, context)) != KSJSON_OK)
             {
                 return result;
