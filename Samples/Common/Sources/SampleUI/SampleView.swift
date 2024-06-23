@@ -32,14 +32,20 @@ public struct SampleView: View {
     public init() { }
     
     public var body: some View {
-        VStack {
-            Text("Hello, World!")
-            Button("Crash") {
-                CrashTriggers.nsexception()
+        NavigationView {
+            List {
+                Section(header: Text("Crashes")) {
+                    Button("NSException") {
+                        CrashTriggers.nsexception()
+                    }
+                }
+                Section(header: Text("Reporting")) {
+                    Button("Log To Console") {
+                        ReportingSample.logToConsole()
+                    }
+                }
             }
-            Button("Log Crashes") {
-                ReportingSample.logToConsole()
-            }
+            .navigationTitle("KSCrash Sample")
         }
         .onAppear {
             RecordingSample.simpleInstall()
