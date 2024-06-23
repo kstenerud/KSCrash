@@ -1,5 +1,5 @@
 //
-//  App.swift
+//  AppDelegate.swift
 //
 //  Created by Nikolay Volosatov on 2024-06-23.
 //
@@ -24,16 +24,11 @@
 // THE SOFTWARE.
 //
 
-import SwiftUI
-import SampleUI
+import Foundation
+import AppKit
 
-@main
-struct SampleApp: App {
-    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    
-    var body: some Scene {
-        WindowGroup {
-            SampleView()
-        }
+class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        return true
     }
 }
