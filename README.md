@@ -48,9 +48,6 @@ of a lot more that they COULD do. Here are some key features of KSCrash:
 
 #### KSCrash can report to the following servers:
 
-* [Hockey](http://hockeyapp.net/)
-* [QuincyKit](https://github.com/TheRealKerni/QuincyKit)
-* [Victory](https://github.com/kelp404/Victory)
 * Email
 
 [Here are some examples of the reports it can generate.](https://github.com/kstenerud/KSCrash/tree/master/Example-Reports/_README.md)
@@ -171,27 +168,13 @@ How to Use KSCrash
 #import <KSCrash/KSCrash.h>
 // Include to use the standard reporter.
 #import <KSCrash/KSCrashInstallationStandard.h>
-// Include to use Quincy or Hockey.
-#import <KSCrash/KSCrashInstallationQuincyHockey.h>
 // Include to use the email reporter.
 #import <KSCrash/KSCrashInstallationEmail.h>
-// Include to use Victory.
-#import <KSCrash/KSCrashInstallationVictory.h>
 
 - (BOOL)application:(UIApplication*) application didFinishLaunchingWithOptions:(NSDictionary*) launchOptions
 {
 KSCrashInstallationStandard* installation = [KSCrashInstallationStandard sharedInstance];
 installation.url = [NSURL URLWithString:@"http://put.your.url.here"];
-
-// OR:
-
-KSCrashInstallationQuincy* installation = [KSCrashInstallationQuincy sharedInstance];
-installation.url = [NSURL URLWithString:@"http://put.your.url.here"];
-
-// OR:
-
-KSCrashInstallationHockey* installation = [KSCrashInstallationHockey sharedInstance];
-installation.appIdentifier = @"PUT_YOUR_HOCKEY_APP_ID_HERE";
 
 // OR:
 
@@ -206,14 +189,6 @@ installation.recipients = @[@"some@email.address"];
                                  message:@"The app crashed last time it was launched. Send a crash report?"
                                yesAnswer:@"Sure!"
                                 noAnswer:@"No thanks"];
-
-// OR:
-
-KSCrashInstallationVictory* installation = [KSCrashInstallationVictory sharedInstance];
-installation.url = [NSURL URLWithString:@"https://put.your.url.here/api/v1/crash/<application key>"];
-
-[installation install];
-    …
 }
 ```
 
