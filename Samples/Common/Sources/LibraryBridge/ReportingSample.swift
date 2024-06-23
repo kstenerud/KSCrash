@@ -32,8 +32,6 @@ import KSCrashSinks
 public class ReportingSample {
     public static func logToConsole() {
         KSCrash.shared().sink = CrashReportSinkConsole.filter().defaultCrashReportFilterSet()
-        KSCrash.shared().sendAllReports { _, _, _ in
-            print("All reports are sent")
-        }
+        KSCrash.shared().sendAllReports()
     }
 }
