@@ -57,4 +57,18 @@
     return [[KSCrashReport alloc] initWithDictionaryValue:nil stringValue:nil dataValue:dataValue];
 }
 
+- (BOOL) isEqual:(id) object
+{
+    if([object isKindOfClass:[KSCrashReport class]] == NO)
+    {
+        return NO;
+    }
+    KSCrashReport *other = object;
+#define SAME_OR_EQUAL(GETTER) ((self.GETTER) == (other.GETTER) || [(self.GETTER) isEqual:(other.GETTER)])
+    return SAME_OR_EQUAL(stringValue)
+        && SAME_OR_EQUAL(dictionaryValue)
+        && SAME_OR_EQUAL(dataValue);
+#undef SAME_OR_EQUAL
+}
+
 @end
