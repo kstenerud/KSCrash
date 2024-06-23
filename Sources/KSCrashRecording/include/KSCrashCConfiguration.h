@@ -27,6 +27,7 @@
 #ifndef KSCrashCConfiguration_h
 #define KSCrashCConfiguration_h
 
+#include <stdlib.h>
 #include "KSCrashMonitorType.h"
 #include "KSCrashReportWriter.h"
 
