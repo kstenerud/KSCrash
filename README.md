@@ -63,13 +63,6 @@ My life has changed enough over the past few years that I can't keep up with giv
 
 I'm looking for someone to help me maintain this package, make sure issues get handled, merges are properly vetted, and code quality remains high. Please contact me personally (kstenerud at my gmail address) or comment in https://github.com/kstenerud/KSCrash/issues/313
 
-
-
-#### VERY VERY VERY preliminary Android support.
-
-And I do mean PRELIMINARY. Most stuff doesn't work, but it does compile.
-Look in the Android subdir if you want to play around with it.
-
 #### C++ Exception Handling
 
 That's right! Normally if your app terminates due to an uncaught C++ exception,
