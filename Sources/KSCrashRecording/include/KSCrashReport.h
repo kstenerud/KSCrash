@@ -28,28 +28,48 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+typedef NS_ENUM(NSUInteger, KSCrashReportType) {
+    KSCrashReportTypeDictionary,
+    KSCrashReportTypeString,
+    KSCrashReportTypeData,
+};
+
 /**
  * A class that represent a recorded crash report.
- * Under the hood it can be a dictionary or a serialized data (e.g. JSON string).
+ * Under the hood it can be a dictionary or a serialized data (e.g. JSON data or formatted string).
  */
 NS_SWIFT_NAME(CrashReport)
 @interface KSCrashReport : NSObject
 
 /**
+ * This report type defines which one of the value properties below is populated.
+ */
+@property (nonatomic, readonly, assign) KSCrashReportType reportType;
+
+/**
  * A structured dictionary version of crash report.
+ * This is usually a raw report that can be serialized to JSON.
  */
 @property (nonatomic, readonly, nullable, copy) NSDictionary<NSString*, id>* dictionaryValue;
 
+/**
+ * A serialized or formatted string version of crash report.
+ */
 @property (nonatomic, readonly, nullable, copy) NSString* stringValue;
 
+/**
+ * A serialized data version of crash report.
+ * This usually contain a serialized JSON.
+ */
 @property (nonatomic, readonly, nullable, copy) NSData* dataValue;
 
-- (instancetype) init __attribute((unavailable));
-+ (instancetype) new __attribute((unavailable));
+- (instancetype) init NS_UNAVAILABLE;
++ (instancetype) new NS_UNAVAILABLE;
 
-- (instancetype) initWithDictionaryValue:(nullable NSDictionary<NSString*, id>*) dictionaryValue
-                             stringValue:(nullable NSString*) stringValue
-                               dataValue:(nullable NSData*) dataValue NS_DESIGNATED_INITIALIZER;
+- (instancetype) initWithReportType:(KSCrashReportType) reportType
+                    dictionaryValue:(nullable NSDictionary<NSString*, id>*) dictionaryValue
+                        stringValue:(nullable NSString*) stringValue
+                          dataValue:(nullable NSData*) dataValue NS_DESIGNATED_INITIALIZER;
 
 + (instancetype) reportWithDictionary:(NSDictionary<NSString*, id>*) dictionaryValue;
 + (instancetype) reportWithString:(NSString*) stringValue;
