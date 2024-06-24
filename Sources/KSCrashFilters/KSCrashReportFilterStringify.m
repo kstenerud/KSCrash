@@ -26,6 +26,9 @@
 #import "KSCrashReportFilterStringify.h"
 #import "KSCrashReport.h"
 
+//#define KSLogger_LocalLevel TRACE
+#import "KSLogger.h"
+
 @implementation KSCrashReportFilterStringify
 
 + (instancetype) filter
