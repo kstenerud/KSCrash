@@ -7,80 +7,37 @@ let project = Project(
     ],
     targets: [
         .target(
-            name: "iOS",
-            destinations: .iOS,
+            name: "Sample",
+            destinations: .allForSample,
             product: .app,
-            bundleId: .bundleId(for: "iOS"),
+            bundleId: "com.github.kstenerud.KSCrash.Sample",
             infoPlist: InfoPlist.extendingDefault(with: [
                 "UILaunchScreen": [
                     "UIImageName": "LaunchImage",
                     "UIBackgroundColor": "LaunchScreenColor",
                 ],
                 "UISupportedInterfaceOrientations": ["UIInterfaceOrientationPortrait"],
-                "CFBundleDisplayName": "KSCrash iOS",
-            ]),
-            sources: ["Sources/**"],
-            dependencies: .sample
-        ),
-        .target(
-            name: "macOS",
-            destinations: .macOS,
-            product: .app,
-            bundleId: .bundleId(for: "macOS"),
-            infoPlist: InfoPlist.extendingDefault(with: [
-                "CFBundleDisplayName": "KSCrash macOS",
-            ]),
-            sources: ["Sources/**"],
-            dependencies: .sample
-        ),
-        .target(
-            name: "tvOS",
-            destinations: .tvOS,
-            product: .app,
-            bundleId: .bundleId(for: "tvOS"),
-            infoPlist: InfoPlist.extendingDefault(with: [
-                "CFBundleDisplayName": "KSCrash tvOS",
-            ]),
-            sources: ["Sources/**"],
-            dependencies: .sample
-        ),
-        .target(
-            name: "visionOS",
-            destinations: .visionOS,
-            product: .app,
-            bundleId: .bundleId(for: "visionOS"),
-            infoPlist: InfoPlist.extendingDefault(with: [
-                "CFBundleDisplayName": "KSCrash visionOS",
-            ]),
-            sources: ["Sources/**"],
-            dependencies: .sample
-        ),
-        .target(
-            name: "watchOS",
-            destinations: .watchOS,
-            product: .app,
-            bundleId: .bundleId(for: "watchOS"),
-            infoPlist: InfoPlist.extendingDefault(with: [
-                "CFBundleDisplayName": "KSCrash watchOS",
+                "CFBundleDisplayName": "KSCrashSample",
                 "WKApplication": true,
                 "WKWatchOnly": true,
             ]),
             sources: ["Sources/**"],
-            dependencies: .sample
+            dependencies: [
+                .package(product: "SampleUI", type: .runtime),
+            ]
         ),
     ]
 )
 
-extension String {
-    static func bundleId(for target: StringLiteralType) -> Self {
-        "com.github.kstenerud.KSCrash.\(target)"
-    }
-}
-
-extension Array where Element == TargetDependency {
-    static var sample: Self {
-        [
-            .package(product: "SampleUI", type: .runtime),
+extension Set where Element == ProjectDescription.Destination {
+    static var allForSample: Self {
+        let sets: [Set<Destination>] = [
+            .iOS,
+            .macOS,
+            .tvOS,
+            .watchOS,
+            .visionOS,
         ]
+        return sets.reduce(.init()) { $0.union($1) }
     }
 }
