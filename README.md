@@ -125,78 +125,148 @@ The following features should be considered "unstable" and are disabled by defau
 
 - Deadlock detection
 
+# How to Install KSCrash
 
+## Swift Package Manager (SPM)
 
-How to Build KSCrash
---------------------
+### Option 1: Using Xcode UI
 
-1. Select the **KSCrash** scheme.
-2. Choose **iOS Device**.
-3. Select **Archive** from the **Products** menu.
+1. In Xcode, go to File > Add Packages...
+2. Enter: `https://github.com/kstenerud/KSCrash.git`
+3. Select the desired version/branch
+4. Choose your target(s)
+5. Click "Add Package"
 
-When it has finished building, it will show you the framework in Finder. You
-can use it like you would any other framework.
+### Option 2: Using Package.swift
 
+Add the following to your `Package.swift` file:
 
+```swift
+dependencies: [
+    .package(url: "https://github.com/kstenerud/KSCrash.git", from: "2.0.0-alpha.2")
+]
+```
 
-How to Use KSCrash
-------------------
+Then, include "Installations" as a dependency for your target:
 
-1. Add the framework to your project (or add the KSCrash project as a
-   dependency)
-   
-2. Add the following system frameworks & libraries to your project:
-   * libc++.dylib (libc++.tbd in newer versions)
-   * libz.dylib (libz.tbd in newer versions)
-   * MessageUI.framework (iOS only)
-   * SystemConfiguration.framework
+```swift
+targets: [
+    .target(
+        name: "YourTarget",
+        dependencies: [
+            .product(name: "Installations", package: "KSCrash"),
+        ]),
+]
+```
 
-3. Add the flag "-ObjC" to **Other Linker Flags** in your **Build Settings**
+## CocoaPods
 
-4. Add the following to your **[application: didFinishLaunchingWithOptions:]**
-   method in your app delegate:
+1. Add to your `Podfile`:
+   ```ruby
+   pod 'KSCrash'
+   ```
 
+2. Run:
+   ```
+   $ pod install
+   ```
 
-```objective-c
-#import <KSCrash/KSCrash.h>
-// Include to use the standard reporter.
-#import <KSCrash/KSCrashInstallationStandard.h>
-// Include to use the email reporter.
-#import <KSCrash/KSCrashInstallationEmail.h>
+3. Use the generated `.xcworkspace` file.
 
-- (BOOL)application:(UIApplication*) application didFinishLaunchingWithOptions:(NSDictionary*) launchOptions
-{
-KSCrashInstallationStandard* installation = [KSCrashInstallationStandard sharedInstance];
-installation.url = [NSURL URLWithString:@"http://put.your.url.here"];
+## Post-Installation Setup
 
-// OR:
+Add the following to your `AppDelegate.swift` file:
 
-KSCrashInstallationEmail* installation = [KSCrashInstallationEmail sharedInstance];
-installation.recipients = @[@"some@email.address"];
+### Import KSCrash
 
-// Optional (Email): Send Apple-style reports instead of JSON
-[installation setReportStyle:KSCrashEmailReportStyleApple useDefaultFilenameFormat:YES]; 
+For SPM:
 
-// Optional: Add an alert confirmation (recommended for email installation)
-[installation addConditionalAlertWithTitle:@"Crash Detected"
-                                 message:@"The app crashed last time it was launched. Send a crash report?"
-                               yesAnswer:@"Sure!"
-                                noAnswer:@"No thanks"];
+```swift
+import KSCrashInstallations
+```
+
+For CocoaPods:
+
+```swift
+import KSCrash
+```
+
+### Configure AppDelegate
+
+```swift
+class AppDelegate: UIResponder, UIApplicationDelegate {
+    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+
+        let installation = CrashInstallationStandard.shared()
+        installation.url = URL(string: "http://put.your.url.here")!
+
+        // Optional: Add an alert confirmation (recommended for email installation)
+        installation.addConditionalAlert(
+            withTitle: "Crash Detected",
+            message: "The app crashed last time it was launched. Send a crash report?",
+            yesAnswer: "Sure!",
+            noAnswer: "No thanks"
+        )
+
+        // Install the crash reporting system
+        let config = KSCrashConfiguration()
+        config.monitors = [.machException, .signal]
+        installation.install(with: config) // set `nil` for default config
+
+        return true
+    }
 }
 ```
 
-This will install the crash monitor system (which intercepts crashes and stores
-reports to disk). Note that there are other properties you can and probably
-will want to set for the various installations.
+### Other Installation Types
 
-Once you're ready to send any outstanding crash reports, call the following:
+#### Email Installation
 
-```objective-c
-[installation sendAllReportsWithCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error)
-{
- // Stuff to do when report sending is complete
-}];
+```swift
+let installation = CrashInstallationEmail.shared()
+installation.recipients = ["some@email.address"] // Specify recipients for email reports
+// Optional: Send Apple-style reports instead of JSON
+// installation.setReportStyle(.apple, useDefaultFilenameFormat: true) 
 ```
+
+#### Console Installation
+
+```swift
+let installation = CrashInstallationConsole.shared()
+installation.printAppleFormat = true // Print crash reports in Apple format for testing
+```
+
+### Sending Reports
+
+To send any outstanding crash reports, call:
+
+```swift
+installation.sendAllReports { reports, completed, error in
+    // Stuff to do when report sending is complete
+}
+```
+
+## Optional Modules
+
+KSCrash includes two optional modules: `BootTimeMonitor` and `DiscSpaceMonitor`. These modules are not included by default and must be explicitly added if needed. They contain privacy-concerning APIs that require showing crash reports to the user before sending this information off the device.
+
+To include these modules:
+
+- With CocoaPods:
+  ```ruby
+  pod 'KSCrash/BootTimeMonitor'
+  pod 'KSCrash/DiscSpaceMonitor'
+  ```
+
+- With SPM, add to your target dependencies:
+  ```swift
+  .product(name: "BootTimeMonitor", package: "KSCrash"),
+  .product(name: "DiscSpaceMonitor", package: "KSCrash"),
+  ```
+
+If these modules are linked, they act automatically and require no additional setup. It is the responsibility of the library user to implement the necessary UI for user consent.
+
+For more information, see Apple's documentation on [Disk space APIs](https://developer.apple.com/documentation/bundleresources/privacy_manifest_files/describing_use_of_required_reason_api#4278397) and [System boot time APIs](https://developer.apple.com/documentation/bundleresources/privacy_manifest_files/describing_use_of_required_reason_api#4278394).
 
 
 Recommended Reading
