@@ -46,10 +46,6 @@ of a lot more that they COULD do. Here are some key features of KSCrash:
 * Main thread deadlock (experimental)
 * Custom crashes (e.g. from scripting languages)
 
-#### KSCrash can report to the following servers:
-
-* Email
-
 [Here are some examples of the reports it can generate.](https://github.com/kstenerud/KSCrash/tree/master/Example-Reports/_README.md)
 
 How to Install KSCrash
@@ -107,7 +103,7 @@ Add the following to your `AppDelegate.swift` file:
 
 #### Import KSCrash
 
-For SPM:
+For Swift Package Manager:
 
 ```swift
 import KSCrashInstallations
