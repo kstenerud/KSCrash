@@ -52,6 +52,151 @@ of a lot more that they COULD do. Here are some key features of KSCrash:
 
 [Here are some examples of the reports it can generate.](https://github.com/kstenerud/KSCrash/tree/master/Example-Reports/_README.md)
 
+How to Install KSCrash
+----------------------
+
+### Swift Package Manager (SPM)
+
+#### Option 1: Using Xcode UI
+
+1. In Xcode, go to File > Add Packages...
+2. Enter: `https://github.com/kstenerud/KSCrash.git`
+3. Select the desired version/branch
+4. Choose your target(s)
+5. Click "Add Package"
+
+#### Option 2: Using Package.swift
+
+Add the following to your `Package.swift` file:
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/kstenerud/KSCrash.git", from: "2.0.0-alpha.2")
+]
+```
+
+Then, include "Installations" as a dependency for your target:
+
+```swift
+targets: [
+    .target(
+        name: "YourTarget",
+        dependencies: [
+            .product(name: "Installations", package: "KSCrash"),
+        ]),
+]
+```
+
+### CocoaPods
+
+1. Add to your `Podfile`:
+   ```ruby
+   pod 'KSCrash'
+   ```
+
+2. Run:
+   ```
+   $ pod install
+   ```
+
+3. Use the generated `.xcworkspace` file.
+
+### Post-Installation Setup
+
+Add the following to your `AppDelegate.swift` file:
+
+#### Import KSCrash
+
+For SPM:
+
+```swift
+import KSCrashInstallations
+```
+
+For CocoaPods:
+
+```swift
+import KSCrash
+```
+
+#### Configure AppDelegate
+
+```swift
+class AppDelegate: UIResponder, UIApplicationDelegate {
+    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+
+        let installation = CrashInstallationStandard.shared()
+        installation.url = URL(string: "http://put.your.url.here")!
+
+        // Optional: Add an alert confirmation (recommended for email installation)
+        installation.addConditionalAlert(
+            withTitle: "Crash Detected",
+            message: "The app crashed last time it was launched. Send a crash report?",
+            yesAnswer: "Sure!",
+            noAnswer: "No thanks"
+        )
+
+        // Install the crash reporting system
+        let config = KSCrashConfiguration()
+        config.monitors = [.machException, .signal]
+        installation.install(with: config) // set `nil` for default config
+
+        return true
+    }
+}
+```
+
+#### Other Installation Types
+
+##### Email Installation
+
+```swift
+let installation = CrashInstallationEmail.shared()
+installation.recipients = ["some@email.address"] // Specify recipients for email reports
+// Optional: Send Apple-style reports instead of JSON
+installation.setReportStyle(.apple, useDefaultFilenameFormat: true) 
+```
+
+##### Console Installation
+
+```swift
+let installation = CrashInstallationConsole.shared()
+installation.printAppleFormat = true // Print crash reports in Apple format for testing
+```
+
+#### Sending Reports
+
+To send any outstanding crash reports, call:
+
+```swift
+installation.sendAllReports { reports, completed, error in
+    // Stuff to do when report sending is complete
+}
+```
+
+### Optional Modules
+
+KSCrash includes two optional modules: `BootTimeMonitor` and `DiscSpaceMonitor`. These modules are not included by default and must be explicitly added if needed. They contain privacy-concerning APIs that require showing crash reports to the user before sending this information off the device.
+
+To include these modules:
+
+- With CocoaPods:
+  ```ruby
+  pod 'KSCrash/BootTimeMonitor'
+  pod 'KSCrash/DiscSpaceMonitor'
+  ```
+
+- With SPM, add to your target dependencies:
+  ```swift
+  .product(name: "BootTimeMonitor", package: "KSCrash"),
+  .product(name: "DiscSpaceMonitor", package: "KSCrash"),
+  ```
+
+If these modules are linked, they act automatically and require no additional setup. It is the responsibility of the library user to implement the necessary UI for user consent.
+
+For more information, see Apple's documentation on [Disk space APIs](https://developer.apple.com/documentation/bundleresources/privacy_manifest_files/describing_use_of_required_reason_api#4278397) and [System boot time APIs](https://developer.apple.com/documentation/bundleresources/privacy_manifest_files/describing_use_of_required_reason_api#4278394).
+
+
 
 ### What's New?
 
@@ -124,150 +269,6 @@ See KSCrash.h for details.
 The following features should be considered "unstable" and are disabled by default:
 
 - Deadlock detection
-
-# How to Install KSCrash
-
-## Swift Package Manager (SPM)
-
-### Option 1: Using Xcode UI
-
-1. In Xcode, go to File > Add Packages...
-2. Enter: `https://github.com/kstenerud/KSCrash.git`
-3. Select the desired version/branch
-4. Choose your target(s)
-5. Click "Add Package"
-
-### Option 2: Using Package.swift
-
-Add the following to your `Package.swift` file:
-
-```swift
-dependencies: [
-    .package(url: "https://github.com/kstenerud/KSCrash.git", from: "2.0.0-alpha.2")
-]
-```
-
-Then, include "Installations" as a dependency for your target:
-
-```swift
-targets: [
-    .target(
-        name: "YourTarget",
-        dependencies: [
-            .product(name: "Installations", package: "KSCrash"),
-        ]),
-]
-```
-
-## CocoaPods
-
-1. Add to your `Podfile`:
-   ```ruby
-   pod 'KSCrash'
-   ```
-
-2. Run:
-   ```
-   $ pod install
-   ```
-
-3. Use the generated `.xcworkspace` file.
-
-## Post-Installation Setup
-
-Add the following to your `AppDelegate.swift` file:
-
-### Import KSCrash
-
-For SPM:
-
-```swift
-import KSCrashInstallations
-```
-
-For CocoaPods:
-
-```swift
-import KSCrash
-```
-
-### Configure AppDelegate
-
-```swift
-class AppDelegate: UIResponder, UIApplicationDelegate {
-    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-
-        let installation = CrashInstallationStandard.shared()
-        installation.url = URL(string: "http://put.your.url.here")!
-
-        // Optional: Add an alert confirmation (recommended for email installation)
-        installation.addConditionalAlert(
-            withTitle: "Crash Detected",
-            message: "The app crashed last time it was launched. Send a crash report?",
-            yesAnswer: "Sure!",
-            noAnswer: "No thanks"
-        )
-
-        // Install the crash reporting system
-        let config = KSCrashConfiguration()
-        config.monitors = [.machException, .signal]
-        installation.install(with: config) // set `nil` for default config
-
-        return true
-    }
-}
-```
-
-### Other Installation Types
-
-#### Email Installation
-
-```swift
-let installation = CrashInstallationEmail.shared()
-installation.recipients = ["some@email.address"] // Specify recipients for email reports
-// Optional: Send Apple-style reports instead of JSON
-// installation.setReportStyle(.apple, useDefaultFilenameFormat: true) 
-```
-
-#### Console Installation
-
-```swift
-let installation = CrashInstallationConsole.shared()
-installation.printAppleFormat = true // Print crash reports in Apple format for testing
-```
-
-### Sending Reports
-
-To send any outstanding crash reports, call:
-
-```swift
-installation.sendAllReports { reports, completed, error in
-    // Stuff to do when report sending is complete
-}
-```
-
-## Optional Modules
-
-KSCrash includes two optional modules: `BootTimeMonitor` and `DiscSpaceMonitor`. These modules are not included by default and must be explicitly added if needed. They contain privacy-concerning APIs that require showing crash reports to the user before sending this information off the device.
-
-To include these modules:
-
-- With CocoaPods:
-  ```ruby
-  pod 'KSCrash/BootTimeMonitor'
-  pod 'KSCrash/DiscSpaceMonitor'
-  ```
-
-- With SPM, add to your target dependencies:
-  ```swift
-  .product(name: "BootTimeMonitor", package: "KSCrash"),
-  .product(name: "DiscSpaceMonitor", package: "KSCrash"),
-  ```
-
-If these modules are linked, they act automatically and require no additional setup. It is the responsibility of the library user to implement the necessary UI for user consent.
-
-For more information, see Apple's documentation on [Disk space APIs](https://developer.apple.com/documentation/bundleresources/privacy_manifest_files/describing_use_of_required_reason_api#4278397) and [System boot time APIs](https://developer.apple.com/documentation/bundleresources/privacy_manifest_files/describing_use_of_required_reason_api#4278394).
-
 
 Recommended Reading
 -------------------
