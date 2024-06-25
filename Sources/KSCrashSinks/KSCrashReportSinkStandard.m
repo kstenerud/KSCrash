@@ -33,6 +33,7 @@
 #import "KSJSONCodecObjC.h"
 #import "KSReachabilityKSCrash.h"
 #import "NSError+SimpleConstructor.h"
+#import "KSCrashReport.h"
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -72,7 +73,7 @@
     return self;
 }
 
-- (void) filterReports:(NSArray*) reports
+- (void) filterReports:(NSArray<KSCrashReport*>*) reports
           onCompletion:(KSCrashReportFilterCompletion) onCompletion
 {
     NSError* error = nil;
@@ -80,7 +81,23 @@
                                                            cachePolicy:NSURLRequestReloadIgnoringLocalCacheData
                                                        timeoutInterval:15];
     KSHTTPMultipartPostBody* body = [KSHTTPMultipartPostBody body];
-    NSData* jsonData = [KSJSONCodec encode:reports
+    NSMutableArray* jsonArray = [NSMutableArray array];
+    for (KSCrashReport* report in reports)
+    {
+        if(report.dictionaryValue != nil)
+        {
+            [jsonArray addObject:report.dictionaryValue];
+        }
+        else if (report.stringValue != nil)
+        {
+            [jsonArray addObject:report.stringValue];
+        }
+        else
+        {
+            KSLOG_ERROR(@"Unexpected non-dictionary/non-string report: %@", report);
+        }
+    }
+    NSData* jsonData = [KSJSONCodec encode:jsonArray
                                    options:KSJSONEncodeOptionSorted
                                      error:&error];
     if(jsonData == nil)

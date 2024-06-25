@@ -366,7 +366,7 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
     return kscrash_getReportCount();
 }
 
-- (void) sendReports:(NSArray*) reports onCompletion:(KSCrashReportFilterCompletion) onCompletion
+- (void) sendReports:(NSArray<KSCrashReport*>*) reports onCompletion:(KSCrashReportFilterCompletion) onCompletion
 {
     if([reports count] == 0)
     {

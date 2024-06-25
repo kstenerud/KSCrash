@@ -33,6 +33,7 @@
 #import "KSCrashReportFilterJSON.h"
 #import "NSError+SimpleConstructor.h"
 #import "KSSystemCapabilities.h"
+#import "KSCrashReport.h"
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -43,7 +44,7 @@
 
 @interface KSCrashMailProcess : NSObject <MFMailComposeViewControllerDelegate>
 
-@property(nonatomic,readwrite,retain) NSArray* reports;
+@property(nonatomic,readwrite,copy) NSArray<KSCrashReport*>* reports;
 @property(nonatomic,readwrite,copy) KSCrashReportFilterCompletion onCompletion;
 
 @property(nonatomic,readwrite,retain) UIViewController* dummyVC;
@@ -51,7 +52,7 @@
 + (KSCrashMailProcess*) process;
 
 - (void) startWithController:(MFMailComposeViewController*) controller
-                     reports:(NSArray*) reports
+                     reports:(NSArray<KSCrashReport*>*) reports
                  filenameFmt:(NSString*) filenameFmt
                 onCompletion:(KSCrashReportFilterCompletion) onCompletion;
 
@@ -72,28 +73,27 @@
 }
 
 - (void) startWithController:(MFMailComposeViewController*) controller
-                     reports:(NSArray*) reports
+                     reports:(NSArray<KSCrashReport*>*) reports
                  filenameFmt:(NSString*) filenameFmt
                 onCompletion:(KSCrashReportFilterCompletion) onCompletion
 {
-    self.reports = reports;
+    self.reports = [reports copy];
     self.onCompletion = onCompletion;
 
     controller.mailComposeDelegate = self;
 
     int i = 1;
-    for(NSData* report in reports)
+    for(KSCrashReport* report in reports)
     {
-        if(![report isKindOfClass:[NSData class]])
+        NSData* data = report.dataValue;
+        if(data == nil)
         {
-            KSLOG_ERROR(@"Report was of type %@", [report class]);
+            KSLOG_ERROR(@"Unexpected non-data report: %@", report);
+            continue;
         }
-        else
-        {
-            [controller addAttachmentData:report
-                                 mimeType:@"binary"
-                                 fileName:[NSString stringWithFormat:filenameFmt, i++]];
-        }
+        [controller addAttachmentData:data
+                             mimeType:@"binary"
+                             fileName:[NSString stringWithFormat:filenameFmt, i++]];
     }
 
     [self presentModalVC:controller];
@@ -242,7 +242,7 @@
             nil];
 }
 
-- (void) filterReports:(NSArray*) reports
+- (void) filterReports:(NSArray<KSCrashReport*>*) reports
           onCompletion:(KSCrashReportFilterCompletion) onCompletion
 {
     if(![MFMailComposeViewController canSendMail])
@@ -319,12 +319,11 @@
     return [super init];
 }
 
-- (void) filterReports:(NSArray*) reports
+- (void) filterReports:(NSArray<KSCrashReport*>*) reports
           onCompletion:(KSCrashReportFilterCompletion) onCompletion
 {
-    for(NSData* reportData in reports)
+    for(KSCrashReport* report in reports)
     {
-        NSString* report = [[NSString alloc] initWithData:[reportData gunzippedWithError:nil] encoding:NSUTF8StringEncoding];
         NSLog(@"Report\n%@", report);
     }
     kscrash_callCompletion(onCompletion, reports, NO,

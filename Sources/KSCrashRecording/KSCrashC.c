@@ -28,7 +28,7 @@
 #include "KSCrashC.h"
 
 #include "KSCrashCachedData.h"
-#include "KSCrashReport.h"
+#include "KSCrashReportC.h"
 #include "KSCrashReportFixer.h"
 #include "KSCrashReportStore.h"
 #include "KSCrashMonitorType.h"

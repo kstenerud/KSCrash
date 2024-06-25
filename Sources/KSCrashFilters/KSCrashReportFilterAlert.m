@@ -27,6 +27,7 @@
 #import "KSCrashReportFilterAlert.h"
 
 #import "KSSystemCapabilities.h"
+#import "KSCrashReport.h"
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -39,11 +40,11 @@
 
 #if KSCRASH_HAS_NSALERT
 #import <AppKit/AppKit.h>
-#endif 
+#endif
 
 @interface KSCrashAlertViewProcess : NSObject
 
-@property(nonatomic,readwrite,retain) NSArray* reports;
+@property(nonatomic,readwrite,copy) NSArray<KSCrashReport*>* reports;
 @property(nonatomic,readwrite,copy) KSCrashReportFilterCompletion onCompletion;
 @property(nonatomic,readwrite,assign) NSInteger expectedButtonIndex;
 
@@ -53,7 +54,7 @@
                 message:(NSString*) message
               yesAnswer:(NSString*) yesAnswer
                noAnswer:(NSString*) noAnswer
-                reports:(NSArray*) reports
+                reports:(NSArray<KSCrashReport*>*) reports
            onCompletion:(KSCrashReportFilterCompletion) onCompletion;
 
 @end
@@ -73,11 +74,11 @@
                 message:(NSString*) message
               yesAnswer:(NSString*) yesAnswer
                noAnswer:(NSString*) noAnswer
-                reports:(NSArray*) reports
+                reports:(NSArray<KSCrashReport*>*) reports
            onCompletion:(KSCrashReportFilterCompletion) onCompletion
 {
     KSLOG_TRACE(@"Starting alert view process");
-    self.reports = reports;
+    self.reports = [reports copy];
     self.onCompletion = onCompletion;
     self.expectedButtonIndex = noAnswer == nil ? 0 : 1;
 
@@ -170,7 +171,7 @@
     return self;
 }
 
-- (void) filterReports:(NSArray*) reports
+- (void) filterReports:(NSArray<KSCrashReport*>*) reports
           onCompletion:(KSCrashReportFilterCompletion) onCompletion
 {
     dispatch_async(dispatch_get_main_queue(), ^
@@ -225,7 +226,7 @@
     return self;
 }
 
-- (void) filterReports:(NSArray*) reports
+- (void) filterReports:(NSArray<KSCrashReport*>*) reports
           onCompletion:(KSCrashReportFilterCompletion) onCompletion
 {
     KSLOG_WARN(@"Alert filter not available on this platform.");

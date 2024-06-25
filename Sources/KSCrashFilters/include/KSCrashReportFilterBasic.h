@@ -152,33 +152,6 @@ NS_SWIFT_NAME(CrashReportFilterPipeline)
 
 
 /**
- * Extracts data associated with a key from each report.
- */
-NS_SWIFT_NAME(CrashReportFilterObjectForKey)
-@interface KSCrashReportFilterObjectForKey : NSObject <KSCrashReportFilter>
-
-/** Constructor.
- *
- * @param key The key to search for in each report. If the key is a string,
- *            it will be interpreted as a key path.
- * @param allowNotFound If NO, filtering will stop with an error if the key
- *                      was not found in a report.
- */
-+ (instancetype) filterWithKey:(id) key allowNotFound:(BOOL) allowNotFound;
-
-/** Initializer.
- *
- * @param key The key to search for in each report. If the key is a string,
- *            it will be interpreted as a key path.
- * @param allowNotFound If NO, filtering will stop with an error if the key
- *                      was not found in a report.
- */
-- (instancetype) initWithKey:(id) key allowNotFound:(BOOL) allowNotFound;
-
-@end
-
-
-/**
  * Takes values by key from the report and concatenates their string representations.
  *
  * Input: NSDictionary
