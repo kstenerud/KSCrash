@@ -278,7 +278,30 @@ what features KSCrash has, and how to use them:
 
 ## Understanding the KSCrash Codebase
 
-I've written a quick code tour [here](CODE_TOUR.md)
+KSCrash is structured into several modules, divided into public and private APIs:
+
+### Public API Modules
+
+1. **Recording**: `KSCrashRecording` - Handles crash event recording.
+2. **Reporting**:
+   - **Filters**: `KSCrashFilters` - Processes crash reports.
+   - **Sinks**: `KSCrashSinks` - Manages report destinations.
+   - **Installations**: `KSCrashInstallations` - Provides easy-to-use setups for different reporting scenarios.
+
+### Optional Modules
+
+- **DiscSpaceMonitor**: `KSCrashDiscSpaceMonitor` - Monitors available disk space.
+- **BootTimeMonitor**: `KSCrashBootTimeMonitor` - Tracks device boot time.
+
+### Private API Modules
+
+- `KSCrashRecordingCore`: Core functionality for crash recording.
+- `KSCrashReportingCore`: Core functionality for crash reporting.
+- `KSCrashCore`: Core system capabilities logic.
+
+Users should interact with the public API modules, while the private modules handle internal operations. The optional modules can be included for additional functionality as needed.
+
+**Also see a quick code tour [here](CODE_TOUR.md).**
 
 ## Advanced Usage
 
