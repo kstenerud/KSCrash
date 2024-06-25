@@ -50,12 +50,13 @@ jobs:
           sed -i '' "s/\.package(url: \"https:\/\/github.com\/kstenerud\/KSCrash.git\", .upToNextMajor(from: \"[^\"]*\"))/\.package(url: \"https:\/\/github.com\/kstenerud\/KSCrash.git\", .upToNextMajor(from: \"${{ github.event.inputs.version }}\"))/" README.md
           
           # Update CocoaPods version
-          if [[ "${{ github.event.inputs.version }}" == *"-"* ]]; then
+          VERSION="${{ github.event.inputs.version }}"
+          if [[ "$VERSION" == *"-"* ]]; then
             # It's a pre-release version, use the full version
-            sed -i '' "s/pod 'KSCrash'.*$/pod 'KSCrash', '~> ${{ github.event.inputs.version }}'/" README.md
+            sed -i '' "s/pod 'KSCrash'.*$/pod 'KSCrash', '~> $VERSION'/" README.md
           else
             # It's a release version, use major.minor
-            sed -i '' "s/pod 'KSCrash'.*$/pod 'KSCrash', '~> ${${{ github.event.inputs.version }}%.*}'/" README.md
+            sed -i '' "s/pod 'KSCrash'.*$/pod 'KSCrash', '~> ${VERSION%.*}'/" README.md
           fi
           
           echo "README.md updated with version ${{ github.event.inputs.version }}"
