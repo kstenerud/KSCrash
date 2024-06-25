@@ -389,16 +389,6 @@ to a file instead. I mostly use this for debugging KSCrash itself, but it could
 be useful for other purposes, so I've exposed an API for it.
 
 
-
-Examples
---------
-
-The workspace includes some example apps, which demonstrate common KSCrash
-usage. Please look at the top of AppDelegate.m in each app for a description
-of what it does.
-
-
-
 License
 -------
 
