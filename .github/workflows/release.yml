@@ -112,8 +112,8 @@ jobs:
 
       - name: Pull latest changes
         run: |
-          echo "Pulling latest changes from release-action branch..."
-          git pull origin release-action
+          echo "Pulling latest changes for the current branch..."
+          git pull origin "$(git branch --show-current)"
           echo "Latest changes pulled successfully."
 
       - name: Revert version commit
