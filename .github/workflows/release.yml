@@ -44,6 +44,22 @@ jobs:
           sed -i '' 's/const double KSCrashFrameworkVersionNumber = [^;]*/const double KSCrashFrameworkVersionNumber = '"$formatted_version_number"'/' Sources/KSCrashRecording/KSCrash.m
           sed -i '' 's/const unsigned char KSCrashFrameworkVersionString\[\] = "[^"]*"/const unsigned char KSCrashFrameworkVersionString[] = "${{ github.event.inputs.version }}"/' Sources/KSCrashRecording/KSCrash.m
 
+      - name: Update README
+        run: |
+          # Update SPM version
+          sed -i '' "s/\.package(url: \"https:\/\/github.com\/kstenerud\/KSCrash.git\", .upToNextMajor(from: \"[^\"]*\"))/\.package(url: \"https:\/\/github.com\/kstenerud\/KSCrash.git\", .upToNextMajor(from: \"${{ github.event.inputs.version }}\"))/" README.md
+          
+          # Update CocoaPods version
+          if [[ "${{ github.event.inputs.version }}" == *"-"* ]]; then
+            # It's a pre-release version, use the full version
+            sed -i '' "s/pod 'KSCrash'.*$/pod 'KSCrash', '~> ${{ github.event.inputs.version }}'/" README.md
+          else
+            # It's a release version, use major.minor
+            sed -i '' "s/pod 'KSCrash'.*$/pod 'KSCrash', '~> ${${{ github.event.inputs.version }}%.*}'/" README.md
+          fi
+          
+          echo "README.md updated with version ${{ github.event.inputs.version }}"
+
       - name: Commit version update
         id: commit_version
         run: |
