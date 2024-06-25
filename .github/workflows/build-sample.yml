@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'Sources/**/include/**'
+      - 'Package.swift'
       - 'Samples/**'
       - '.github/workflows/build-sample.yml'
 
