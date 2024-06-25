@@ -1,0 +1,69 @@
+name: Build Sample
+
+on:
+  pull_request:
+    paths:
+      - 'Sources/**/include/**'
+      - 'Package.swift'
+      - 'Samples/**'
+      - '.github/workflows/build-sample.yml'
+
+  push:
+    branches:
+      - master
+
+  schedule:
+    - cron: '0 0 1 * *'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sample:
+    runs-on: macos-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: iOS
+          - platform: macOS
+          - platform: tvOS
+          - platform: watchOS
+          - platform: visionOS
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Use Latest Stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Install visionOS Platform
+        if: matrix.platform == 'visionOS'
+        shell: bash
+        run: |
+          # See https://github.com/actions/runner-images/issues/8144#issuecomment-1902072070
+          defaults write com.apple.dt.Xcode AllowUnsupportedVisionOSHost -bool YES
+          defaults write com.apple.CoreSimulator AllowUnsupportedVisionOSHost -bool YES
+          xcodebuild -downloadPlatform visionOS
+
+      - name: Install Tuist
+        run: |
+          brew tap tuist/tuist
+          brew install tuist@4.18.0
+
+      - name: Generate Project
+        working-directory: ./Samples
+        run: tuist generate --verbose --no-open
+
+      - name: Run Build
+        uses: bamx23/xcodebuild@os-version
+        timeout-minutes: 10
+        with:
+          action: build
+          workspace: "Samples/KSCrashSamples.xcworkspace"
+          scheme: "Sample"
+          platform: ${{ matrix.platform }}
