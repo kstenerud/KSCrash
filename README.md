@@ -372,6 +372,29 @@ This takes whatever KSCrash would have printed to the console, and writes it
 to a file instead. I mostly use this for debugging KSCrash itself, but it could
 be useful for other purposes, so I've exposed an API for it.
 
+#### Out-of-Memory Crash Detection (KSCrashAppMemoryTracker)
+
+KSCrash now includes advanced memory tracking capabilities to help detect and prevent out-of-memory crashes. The `KSCrashAppMemoryTracker` class monitors your app's memory usage, pressure, and state transitions. It provides real-time updates on memory conditions, allowing you to respond dynamically to different memory states (Normal, Warn, Urgent, Critical, Terminal). By implementing the `KSCrashAppMemoryTrackerDelegate` protocol, you can receive notifications about memory changes and take appropriate actions to reduce memory usage, potentially avoiding system-initiated terminations due to memory pressure.
+
+To use this feature:
+
+```swift
+let memoryTracker = AppMemoryTracker()
+memoryTracker.delegate = self
+memoryTracker.start()
+```
+
+In your delegate method:
+
+```swift
+func appMemoryTracker(_ tracker: AppMemoryTracker, memory: AppMemory, changed changes: AppMemoryTrackerChangeType) {
+    if changes.contains(.level) {
+        // Respond to memory level changes
+    }
+}
+```
+
+This feature helps you implement proactive memory management strategies in your app.
 
 ## License
 
