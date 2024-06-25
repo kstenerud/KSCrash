@@ -62,6 +62,7 @@ jobs:
         uses: bamx23/xcodebuild@os-version
         timeout-minutes: 10
         with:
+          action: build
           workspace: "Samples/KSCrashSamples.xcworkspace"
           scheme: "Sample"
           platform: ${{ matrix.platform }}
