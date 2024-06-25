@@ -28,15 +28,15 @@
 
 @implementation KSCrashReport
 
-- (instancetype) initWithReportType:(KSCrashReportType) reportType
-                    dictionaryValue:(nullable NSDictionary<NSString*, id>*) dictionaryValue
-                        stringValue:(nullable NSString*) stringValue
-                          dataValue:(nullable NSData*) dataValue
+- (instancetype) initWithValueType:(KSCrashReportValueType) valueType
+                   dictionaryValue:(nullable NSDictionary<NSString*, id>*) dictionaryValue
+                       stringValue:(nullable NSString*) stringValue
+                         dataValue:(nullable NSData*) dataValue
 {
     self = [super init];
     if(self != nil)
     {
-        _reportType = reportType;
+        _valueType = valueType;
         _dictionaryValue = [dictionaryValue copy];
         _stringValue = [stringValue copy];
         _dataValue = [dataValue copy];
@@ -46,26 +46,26 @@
 
 + (instancetype) reportWithDictionary:(NSDictionary<NSString*, id>*) dictionaryValue
 {
-    return [[KSCrashReport alloc] initWithReportType:KSCrashReportTypeDictionary
-                                     dictionaryValue:dictionaryValue
-                                         stringValue:nil
-                                           dataValue:nil];
+    return [[KSCrashReport alloc] initWithValueType:KSCrashReportValueTypeDictionary
+                                    dictionaryValue:dictionaryValue
+                                        stringValue:nil
+                                          dataValue:nil];
 }
 
 + (instancetype) reportWithString:(NSString*) stringValue
 {
-    return [[KSCrashReport alloc] initWithReportType:KSCrashReportTypeString
-                                     dictionaryValue:nil
-                                         stringValue:stringValue
-                                           dataValue:nil];
+    return [[KSCrashReport alloc] initWithValueType:KSCrashReportValueTypeString
+                                    dictionaryValue:nil
+                                        stringValue:stringValue
+                                          dataValue:nil];
 }
 
 + (instancetype) reportWithData:(NSData*) dataValue
 {
-    return [[KSCrashReport alloc] initWithReportType:KSCrashReportTypeData
-                                     dictionaryValue:nil
-                                         stringValue:nil
-                                           dataValue:dataValue];
+    return [[KSCrashReport alloc] initWithValueType:KSCrashReportValueTypeData
+                                    dictionaryValue:nil
+                                        stringValue:nil
+                                          dataValue:dataValue];
 }
 
 - (BOOL) isEqual:(id) object
@@ -76,7 +76,7 @@
     }
     KSCrashReport *other = object;
 #define SAME_OR_EQUAL(GETTER) ((self.GETTER) == (other.GETTER) || [(self.GETTER) isEqual:(other.GETTER)])
-    return self.reportType == other.reportType
+    return self.valueType == other.valueType
         && SAME_OR_EQUAL(stringValue)
         && SAME_OR_EQUAL(dictionaryValue)
         && SAME_OR_EQUAL(dataValue);
@@ -85,13 +85,13 @@
 
 - (NSString*) description
 {
-    switch(self.reportType)
+    switch(self.valueType)
     {
-        case KSCrashReportTypeDictionary:
+        case KSCrashReportValueTypeDictionary:
             return [self.dictionaryValue description];
-        case KSCrashReportTypeString:
+        case KSCrashReportValueTypeString:
             return [self.stringValue description];
-        case KSCrashReportTypeData:
+        case KSCrashReportValueTypeData:
             return [self.dataValue description];
     }
 }

@@ -28,11 +28,11 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-typedef NS_ENUM(NSUInteger, KSCrashReportType) {
-    KSCrashReportTypeDictionary,
-    KSCrashReportTypeString,
-    KSCrashReportTypeData,
-};
+typedef NS_ENUM(NSUInteger, KSCrashReportValueType) {
+    KSCrashReportValueTypeDictionary,
+    KSCrashReportValueTypeString,
+    KSCrashReportValueTypeData,
+} NS_SWIFT_NAME(CrashReportValueType);
 
 /**
  * A class that represent a recorded crash report.
@@ -42,9 +42,9 @@ NS_SWIFT_NAME(CrashReport)
 @interface KSCrashReport : NSObject
 
 /**
- * This report type defines which one of the value properties below is populated.
+ * The type of the value of this crash report (dictionary, string, data)
  */
-@property (nonatomic, readonly, assign) KSCrashReportType reportType;
+@property (nonatomic, readonly, assign) KSCrashReportValueType valueType;
 
 /**
  * A structured dictionary version of crash report.
@@ -66,10 +66,10 @@ NS_SWIFT_NAME(CrashReport)
 - (instancetype) init NS_UNAVAILABLE;
 + (instancetype) new NS_UNAVAILABLE;
 
-- (instancetype) initWithReportType:(KSCrashReportType) reportType
-                    dictionaryValue:(nullable NSDictionary<NSString*, id>*) dictionaryValue
-                        stringValue:(nullable NSString*) stringValue
-                          dataValue:(nullable NSData*) dataValue NS_DESIGNATED_INITIALIZER;
+- (instancetype) initWithValueType:(KSCrashReportValueType) valueType
+                   dictionaryValue:(nullable NSDictionary<NSString*, id>*) dictionaryValue
+                       stringValue:(nullable NSString*) stringValue
+                         dataValue:(nullable NSData*) dataValue NS_DESIGNATED_INITIALIZER;
 
 + (instancetype) reportWithDictionary:(NSDictionary<NSString*, id>*) dictionaryValue;
 + (instancetype) reportWithString:(NSString*) stringValue;
