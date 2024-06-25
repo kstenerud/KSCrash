@@ -1,15 +1,13 @@
+# KSCrash
+
 [![Run Unit Tests](https://github.com/kstenerud/KSCrash/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/kstenerud/KSCrash/actions/workflows/unit-tests.yml) 
 [![CocoaPods Lint](https://github.com/kstenerud/KSCrash/actions/workflows/cocoapods-lint.yml/badge.svg)](https://github.com/kstenerud/KSCrash/actions/workflows/cocoapods-lint.yml) 
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fkstenerud%2FKSCrash%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/kstenerud/KSCrash)
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fkstenerud%2FKSCrash%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/kstenerud/KSCrash)
 
-KSCrash
-=======
-
 #### The Ultimate Crash Reporter
 
-
-### Another crash reporter? Why?
+## Another crash reporter? Why?
 
 Because while the existing crash reporters do report crashes, there's a heck
 of a lot more that they COULD do. Here are some key features of KSCrash:
@@ -39,7 +37,7 @@ of a lot more that they COULD do. Here are some key features of KSCrash:
 * Supports including extra data that the programmer supplies (before and during
   a crash).
 
-#### KSCrash handles the following kinds of crashes:
+### KSCrash handles the following kinds of crashes:
 
 * Mach kernel exceptions
 * Fatal signals
@@ -50,8 +48,15 @@ of a lot more that they COULD do. Here are some key features of KSCrash:
 
 [Here are some examples of the reports it can generate.](https://github.com/kstenerud/KSCrash/tree/master/Example-Reports/_README.md)
 
-How to Install KSCrash
-----------------------
+## Call for help!
+
+My life has changed enough over the past few years that I can't keep up with giving KSCrash the love it needs.
+
+![I want you](https://c1.staticflickr.com/9/8787/28351252396_eeec9bb146.jpg)
+
+I'm looking for someone to help me maintain this package, make sure issues get handled, merges are properly vetted, and code quality remains high. Please contact me personally (kstenerud at my gmail address) or comment in https://github.com/kstenerud/KSCrash/issues/313
+
+## How to Install KSCrash
 
 ### Swift Package Manager (SPM)
 
@@ -194,36 +199,30 @@ If these modules are linked, they act automatically and require no additional se
 
 For more information, see Apple's documentation on [Disk space APIs](https://developer.apple.com/documentation/bundleresources/privacy_manifest_files/describing_use_of_required_reason_api#4278397) and [System boot time APIs](https://developer.apple.com/documentation/bundleresources/privacy_manifest_files/describing_use_of_required_reason_api#4278394).
 
+## What's New?
 
+### Out-of-Memory Crash Detection
 
-### What's New?
+KSCrash now includes advanced memory tracking capabilities to help detect and prevent out-of-memory crashes. The new `KSCrashAppMemoryTracker` allows you to monitor your app's memory usage, pressure, and state transitions in real-time. This feature enables proactive memory management, helping you avoid system-initiated terminations due to excessive memory use. Check out the "Advanced Usage" section for more details on how to implement this in your app.
 
-#### Call for help!
-
-My life has changed enough over the past few years that I can't keep up with giving KSCrash the love it needs.
-
-![I want you](https://c1.staticflickr.com/9/8787/28351252396_eeec9bb146.jpg)
-
-I'm looking for someone to help me maintain this package, make sure issues get handled, merges are properly vetted, and code quality remains high. Please contact me personally (kstenerud at my gmail address) or comment in https://github.com/kstenerud/KSCrash/issues/313
-
-#### C++ Exception Handling
+### C++ Exception Handling
 
 That's right! Normally if your app terminates due to an uncaught C++ exception,
 all you get is this:
 
-	Thread 0 name:  Dispatch queue: com.apple.main-thread
-	Thread 0 Crashed:
-	0   libsystem_kernel.dylib          0x9750ea6a 0x974fa000 + 84586 (__pthread_kill + 10)
-	1   libsystem_sim_c.dylib           0x04d56578 0x4d0f000 + 292216 (abort + 137)
-	2   libc++abi.dylib                 0x04ed6f78 0x4ed4000 + 12152 (abort_message + 102)
-	3   libc++abi.dylib                 0x04ed4a20 0x4ed4000 + 2592 (_ZL17default_terminatev + 29)
-	4   libobjc.A.dylib                 0x013110d0 0x130b000 + 24784 (_ZL15_objc_terminatev + 109)
-	5   libc++abi.dylib                 0x04ed4a60 0x4ed4000 + 2656 (_ZL19safe_handler_callerPFvvE + 8)
-	6   libc++abi.dylib                 0x04ed4ac8 0x4ed4000 + 2760 (_ZSt9terminatev + 18)
-	7   libc++abi.dylib                 0x04ed5c48 0x4ed4000 + 7240 (__cxa_rethrow + 77)
-	8   libobjc.A.dylib                 0x01310fb8 0x130b000 + 24504 (objc_exception_rethrow + 42)
-	9   CoreFoundation                  0x01f2af98 0x1ef9000 + 204696 (CFRunLoopRunSpecific + 360)
-	...
+    Thread 0 name:  Dispatch queue: com.apple.main-thread
+    Thread 0 Crashed:
+    0   libsystem_kernel.dylib          0x9750ea6a 0x974fa000 + 84586 (__pthread_kill + 10)
+    1   libsystem_sim_c.dylib           0x04d56578 0x4d0f000 + 292216 (abort + 137)
+    2   libc++abi.dylib                 0x04ed6f78 0x4ed4000 + 12152 (abort_message + 102)
+    3   libc++abi.dylib                 0x04ed4a20 0x4ed4000 + 2592 (_ZL17default_terminatev + 29)
+    4   libobjc.A.dylib                 0x013110d0 0x130b000 + 24784 (_ZL15_objc_terminatev + 109)
+    5   libc++abi.dylib                 0x04ed4a60 0x4ed4000 + 2656 (_ZL19safe_handler_callerPFvvE + 8)
+    6   libc++abi.dylib                 0x04ed4ac8 0x4ed4000 + 2760 (_ZSt9terminatev + 18)
+    7   libc++abi.dylib                 0x04ed5c48 0x4ed4000 + 7240 (__cxa_rethrow + 77)
+    8   libobjc.A.dylib                 0x01310fb8 0x130b000 + 24504 (objc_exception_rethrow + 42)
+    9   CoreFoundation                  0x01f2af98 0x1ef9000 + 204696 (CFRunLoopRunSpecific + 360)
+    ...
 
 No way to track what the exception was or where it was thrown from!
 
@@ -247,20 +246,19 @@ Now with KSCrash, you get the uncaught exception type, description, and where it
     10  CoreFoundation                  0x01f2bf44 0x1efa000 + 204612 (CFRunLoopRunSpecific + 276)
     ...
 
-#### Custom Crashes & Stack Traces
+### Custom Crashes & Stack Traces
 
 You can now report your own custom crashes and stack traces (think scripting
 languages):
 ```objective-c
 - (void) reportUserException:(NSString*) name
-                  reason:(NSString*) reason
-              lineOfCode:(NSString*) lineOfCode
-              stackTrace:(NSArray*) stackTrace
-        terminateProgram:(BOOL) terminateProgram;
+                      reason:(NSString*) reason
+                  lineOfCode:(NSString*) lineOfCode
+                  stackTrace:(NSArray*) stackTrace
+            terminateProgram:(BOOL) terminateProgram;
 ```
 
 See KSCrash.h for details.
-
 
 ### Unstable Features
 
@@ -268,8 +266,7 @@ The following features should be considered "unstable" and are disabled by defau
 
 - Deadlock detection
 
-Recommended Reading
--------------------
+## Recommended Reading
 
 If possible, you should read the following header files to fully understand
 what features KSCrash has, and how to use them:
@@ -279,17 +276,11 @@ what features KSCrash has, and how to use them:
 * KSCrashInstallation(SPECIFIC TYPE).h
 * Architecture.md
 
-
-
-Understanding the KSCrash Codebase
-----------------------------------
+## Understanding the KSCrash Codebase
 
 I've written a quick code tour [here](CODE_TOUR.md)
 
-
-
-Advanced Usage
---------------
+## Advanced Usage
 
 ### Enabling on-device symbolication
 
@@ -298,19 +289,16 @@ build. To enable this, go to your app's build settings and set **Strip Style**
 to **Debugging Symbols**. Doing so increases your final binary size by about
 5%, but you get on-device symbolication.
 
-
 ### Enabling advanced functionality:
 
 KSCrash has advanced functionality that can be very useful when examining crash
 reports in the wild. Some involve minor trade-offs, so most of them are
 disabled by default.
 
-
 #### Custom User Data (userInfo in KSCrash.h)
 
 You can store custom user data to the next crash report by setting the
 **userInfo** property in KSCrash.h.
-
 
 #### Zombie Tracking (KSCrashMonitorTypeZombie in KSCrashMonitorType.h)
 
@@ -328,7 +316,6 @@ to debug your app, so this feature can be quite handy at times.
 
 Trade off: Zombie tracking at the cost of adding very slight overhead to object
            deallocation, and having some memory reserved.
-
 
 #### Deadlock Detection (KSCrashMonitorTypeMainThreadDeadlock in KSCrashMonitorType.h)
 
@@ -354,7 +341,6 @@ become impatient and shut down the app manually before the watchdog triggers!
 Trade off: Deadlock detection, but you must be a lot more careful about what
            runs on the main thread!
 
-
 #### Memory Introspection (introspectMemory in KSCrash.h)
 
 When an app crashes, there are usually objects and strings in memory that are
@@ -364,7 +350,6 @@ in the crash report.
 
 You can also specify a list of classes that should not be introspected by
 setting the **doNotIntrospectClasses** property in KSCrash.
-
 
 #### Custom crash handling code (onCrash in KSCrash.h)
 
@@ -381,7 +366,6 @@ report anyway, though your custom handler code may not fully run.
 Trade off: Custom crash handling code, but you must be careful what you put
            in it!
 
-
 #### KSCrash log redirection
 
 This takes whatever KSCrash would have printed to the console, and writes it
@@ -389,8 +373,7 @@ to a file instead. I mostly use this for debugging KSCrash itself, but it could
 be useful for other purposes, so I've exposed an API for it.
 
 
-License
--------
+## License
 
 Copyright (c) 2012 Karl Stenerud
 
