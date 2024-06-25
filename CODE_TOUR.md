@@ -16,11 +16,11 @@ These are the main parts of `KSCrashC.c`:
 
 #### Installation
 
-`kscrash_install()` installs and prepares the KSCrash system to handle crashes. You can configure KSCrash using the various configuration functions in this file (`kscrash_setMonitoring() and such`) before or after install.
+`kscrash_install()` installs and prepares the KSCrash system to handle crashes. You configure KSCrash by creating and populating a `KSCrashCConfiguration` struct with your desired settings. This configuration struct is then passed to the installation function, allowing you to set up all crash handling parameters in one step.
 
 #### Configuration
 
-All of the main configuration settings are set via `kscrash_setXYZ()`.
+All of the main configuration settings are set via `KSCrashCConfiguration`.
 
 #### App State
 
