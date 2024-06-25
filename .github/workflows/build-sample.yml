@@ -58,7 +58,7 @@ jobs:
         working-directory: ./Samples
         run: tuist generate --verbose --no-open
 
-      - name: Run Unit Tests
+      - name: Run Build
         uses: bamx23/xcodebuild@os-version
         timeout-minutes: 10
         with:
