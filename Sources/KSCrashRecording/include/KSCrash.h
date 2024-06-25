@@ -105,10 +105,24 @@ NS_ASSUME_NONNULL_BEGIN
 
 #pragma mark - API -
 
-/** Init KSCrash instance with custom base path. */
-- (instancetype) initWithBasePath:(NSString*) basePath;
+- (instancetype) init NS_UNAVAILABLE;
++ (instancetype) new NS_UNAVAILABLE;
+
+/**
+ * Specifies a custom base path for KSCrash installation.
+ * By default a "KSCrash" directory inside the default cache directory is used.
+ *
+ * @param basePath An absolute path to directory in which KSCrash stores the data.
+ *                 If `nil` the default directory is used.
+ *
+ * @note This method SHOULD be called before any use of `sharedInstance` method.
+ *       Any call of this method after that is ignored.
+ */
++ (void) setBasePath:(nullable NSString*) basePath;
 
 /** Get the singleton instance of the crash reporter.
+ *
+ * @note To specify a custom base direcory for KSCrash use `setBasePath:` method.
  */
 + (instancetype) sharedInstance NS_SWIFT_NAME(shared());
 
