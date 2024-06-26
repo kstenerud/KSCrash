@@ -74,7 +74,7 @@ Add the following to your `Package.swift` file:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/kstenerud/KSCrash.git", from: "2.0.0-alpha.2")
+    .package(url: "https://github.com/kstenerud/KSCrash.git", .upToNextMajor(from: "2.0.0-alpha.3"))
 ]
 ```
 
@@ -94,7 +94,7 @@ targets: [
 
 1. Add to your `Podfile`:
    ```ruby
-   pod 'KSCrash'
+   pod 'KSCrash', '~> 2.0.0-alpha.3'
    ```
 
 2. Run:

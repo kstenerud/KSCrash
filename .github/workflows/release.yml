@@ -44,6 +44,23 @@ jobs:
           sed -i '' 's/const double KSCrashFrameworkVersionNumber = [^;]*/const double KSCrashFrameworkVersionNumber = '"$formatted_version_number"'/' Sources/KSCrashRecording/KSCrash.m
           sed -i '' 's/const unsigned char KSCrashFrameworkVersionString\[\] = "[^"]*"/const unsigned char KSCrashFrameworkVersionString[] = "${{ github.event.inputs.version }}"/' Sources/KSCrashRecording/KSCrash.m
 
+      - name: Update README
+        run: |
+          # Update SPM version
+          sed -i '' "s/\.package(url: \"https:\/\/github.com\/kstenerud\/KSCrash.git\", .upToNextMajor(from: \"[^\"]*\"))/\.package(url: \"https:\/\/github.com\/kstenerud\/KSCrash.git\", .upToNextMajor(from: \"${{ github.event.inputs.version }}\"))/" README.md
+          
+          # Update CocoaPods version
+          VERSION="${{ github.event.inputs.version }}"
+          if [[ "$VERSION" == *"-"* ]]; then
+            # It's a pre-release version, use the full version
+            sed -i '' "s/pod 'KSCrash'.*$/pod 'KSCrash', '~> $VERSION'/" README.md
+          else
+            # It's a release version, use major.minor
+            sed -i '' "s/pod 'KSCrash'.*$/pod 'KSCrash', '~> ${VERSION%.*}'/" README.md
+          fi
+          
+          echo "README.md updated with version ${{ github.event.inputs.version }}"
+
       - name: Commit version update
         id: commit_version
         run: |
@@ -94,8 +111,8 @@ jobs:
 
       - name: Pull latest changes
         run: |
-          echo "Pulling latest changes from release-action branch..."
-          git pull origin release-action
+          echo "Pulling latest changes for the current branch..."
+          git pull origin "$(git branch --show-current)"
           echo "Latest changes pulled successfully."
 
       - name: Revert version commit
