@@ -34,7 +34,7 @@ public class ReportingSample {
         KSCrash.shared().sink = CrashReportSinkConsole.filter().defaultCrashReportFilterSet()
         KSCrash.shared().sendAllReports { reports, isSuccess, error in
             if isSuccess, let reports {
-                print("Logged \(reports.count) reoprts")
+                print("Logged \(reports.count) reports")
             } else {
                 print("Failed to log reports: \(error?.localizedDescription ?? "")")
             }
