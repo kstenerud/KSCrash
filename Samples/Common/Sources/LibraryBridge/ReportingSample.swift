@@ -32,6 +32,12 @@ import KSCrashSinks
 public class ReportingSample {
     public static func logToConsole() {
         KSCrash.shared().sink = CrashReportSinkConsole.filter().defaultCrashReportFilterSet()
-        KSCrash.shared().sendAllReports()
+        KSCrash.shared().sendAllReports { reports, isSuccess, error in
+            if isSuccess, let reports {
+                print("Logged \(reports.count) reoprts")
+            } else {
+                print("Failed to log reports: \(error?.localizedDescription ?? "")")
+            }
+        }
     }
 }

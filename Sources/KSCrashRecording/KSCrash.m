@@ -39,6 +39,7 @@
 #import "KSCrashMonitor_System.h"
 #import "KSSystemCapabilities.h"
 #import "KSCrashMonitor_Memory.h"
+#import "KSCrashReport.h"
 
 //#define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -427,7 +428,7 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
     return [reportIDs copy];
 }
 
-- (NSDictionary*) reportForID:(int64_t) reportID
+- (KSCrashReport*) reportForID:(int64_t) reportID
 {
     NSData* jsonData = [self loadCrashReportJSONWithID:reportID];
     if(jsonData == nil)
@@ -452,18 +453,18 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
     }
     [self doctorReport:crashReport];
 
-    return [crashReport copy];
+    return [KSCrashReport reportWithDictionary:crashReport];
 }
 
-- (NSArray*) allReports
+- (NSArray<KSCrashReport*>*) allReports
 {
     int reportCount = kscrash_getReportCount();
     int64_t reportIDs[reportCount];
     reportCount = kscrash_getReportIDs(reportIDs, reportCount);
-    NSMutableArray* reports = [NSMutableArray arrayWithCapacity:(NSUInteger)reportCount];
+    NSMutableArray<KSCrashReport*>* reports = [NSMutableArray arrayWithCapacity:(NSUInteger)reportCount];
     for(int i = 0; i < reportCount; i++)
     {
-        NSDictionary* report = [self reportForID:reportIDs[i]];
+        KSCrashReport* report = [self reportForID:reportIDs[i]];
         if(report != nil)
         {
             [reports addObject:report];
