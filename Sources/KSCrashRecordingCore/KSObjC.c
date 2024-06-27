@@ -115,39 +115,40 @@ static int taggedDateDescription(const void* object, char* buffer, int bufferLen
 static int taggedNumberDescription(const void* object, char* buffer, int bufferLength);
 static int taggedStringDescription(const void* object, char* buffer, int bufferLength);
 
-
+// clang-format off
 static ClassData g_classData[] =
 {
-    {"__NSCFString",           KSObjCClassTypeString,  ClassSubtypeNone,             true,  stringIsValid,     stringDescription},
-    {"NSCFString",             KSObjCClassTypeString,  ClassSubtypeNone,             true,  stringIsValid,     stringDescription},
-    {"__NSCFConstantString",   KSObjCClassTypeString,  ClassSubtypeNone,             true,  stringIsValid,     stringDescription},
-    {"NSCFConstantString",     KSObjCClassTypeString,  ClassSubtypeNone,             true,  stringIsValid,     stringDescription},
-    {"__NSArray0",             KSObjCClassTypeArray,   ClassSubtypeNSArrayImmutable, false, arrayIsValid,      arrayDescription},
-    {"__NSArrayI",             KSObjCClassTypeArray,   ClassSubtypeNSArrayImmutable, false, arrayIsValid,      arrayDescription},
-    {"__NSArrayM",             KSObjCClassTypeArray,   ClassSubtypeNSArrayMutable,   true,  arrayIsValid,      arrayDescription},
-    {"__NSCFArray",            KSObjCClassTypeArray,   ClassSubtypeCFArray,          false, arrayIsValid,      arrayDescription},
-    {"__NSSingleObjectArrayI", KSObjCClassTypeArray,   ClassSubtypeNSArrayImmutable, false, arrayIsValid,      arrayDescription},
-    {"NSCFArray",              KSObjCClassTypeArray,   ClassSubtypeCFArray,          false, arrayIsValid,      arrayDescription},
-    {"__NSDate",               KSObjCClassTypeDate,    ClassSubtypeNone,             false, dateIsValid,       dateDescription},
-    {"NSDate",                 KSObjCClassTypeDate,    ClassSubtypeNone,             false, dateIsValid,       dateDescription},
-    {"__NSCFNumber",           KSObjCClassTypeNumber,  ClassSubtypeNone,             false, numberIsValid,     numberDescription},
-    {"NSCFNumber",             KSObjCClassTypeNumber,  ClassSubtypeNone,             false, numberIsValid,     numberDescription},
-    {"NSNumber",               KSObjCClassTypeNumber,  ClassSubtypeNone,             false, numberIsValid,     numberDescription},
-    {"NSURL",                  KSObjCClassTypeURL,     ClassSubtypeNone,             false, urlIsValid,        urlDescription},
-    {NULL,                     KSObjCClassTypeUnknown, ClassSubtypeNone,             false, objectIsValid,     objectDescription},
+    {"__NSCFString",           KSObjCClassTypeString,  ClassSubtypeNone,             true,  stringIsValid, stringDescription},
+    {"NSCFString",             KSObjCClassTypeString,  ClassSubtypeNone,             true,  stringIsValid, stringDescription},
+    {"__NSCFConstantString",   KSObjCClassTypeString,  ClassSubtypeNone,             true,  stringIsValid, stringDescription},
+    {"NSCFConstantString",     KSObjCClassTypeString,  ClassSubtypeNone,             true,  stringIsValid, stringDescription},
+    {"__NSArray0",             KSObjCClassTypeArray,   ClassSubtypeNSArrayImmutable, false, arrayIsValid,  arrayDescription},
+    {"__NSArrayI",             KSObjCClassTypeArray,   ClassSubtypeNSArrayImmutable, false, arrayIsValid,  arrayDescription},
+    {"__NSArrayM",             KSObjCClassTypeArray,   ClassSubtypeNSArrayMutable,   true,  arrayIsValid,  arrayDescription},
+    {"__NSCFArray",            KSObjCClassTypeArray,   ClassSubtypeCFArray,          false, arrayIsValid,  arrayDescription},
+    {"__NSSingleObjectArrayI", KSObjCClassTypeArray,   ClassSubtypeNSArrayImmutable, false, arrayIsValid,  arrayDescription},
+    {"NSCFArray",              KSObjCClassTypeArray,   ClassSubtypeCFArray,          false, arrayIsValid,  arrayDescription},
+    {"__NSDate",               KSObjCClassTypeDate,    ClassSubtypeNone,             false, dateIsValid,   dateDescription},
+    {"NSDate",                 KSObjCClassTypeDate,    ClassSubtypeNone,             false, dateIsValid,   dateDescription},
+    {"__NSCFNumber",           KSObjCClassTypeNumber,  ClassSubtypeNone,             false, numberIsValid, numberDescription},
+    {"NSCFNumber",             KSObjCClassTypeNumber,  ClassSubtypeNone,             false, numberIsValid, numberDescription},
+    {"NSNumber",               KSObjCClassTypeNumber,  ClassSubtypeNone,             false, numberIsValid, numberDescription},
+    {"NSURL",                  KSObjCClassTypeURL,     ClassSubtypeNone,             false, urlIsValid,    urlDescription},
+    {NULL,                     KSObjCClassTypeUnknown, ClassSubtypeNone,             false, objectIsValid, objectDescription},
 };
 
 static ClassData g_taggedClassData[] =
 {
-    {"NSAtom",               KSObjCClassTypeUnknown, ClassSubtypeNone,             false, taggedObjectIsValid, taggedObjectDescription},
-    {NULL,                   KSObjCClassTypeUnknown, ClassSubtypeNone,             false, taggedObjectIsValid, taggedObjectDescription},
-    {"NSString",             KSObjCClassTypeString,  ClassSubtypeNone,             false, taggedStringIsValid, taggedStringDescription},
-    {"NSNumber",             KSObjCClassTypeNumber,  ClassSubtypeNone,             false, taggedNumberIsValid, taggedNumberDescription},
-    {"NSIndexPath",          KSObjCClassTypeUnknown, ClassSubtypeNone,             false, taggedObjectIsValid, taggedObjectDescription},
-    {"NSManagedObjectID",    KSObjCClassTypeUnknown, ClassSubtypeNone,             false, taggedObjectIsValid, taggedObjectDescription},
-    {"NSDate",               KSObjCClassTypeDate,    ClassSubtypeNone,             false, taggedDateIsValid,   taggedDateDescription},
-    {NULL,                   KSObjCClassTypeUnknown, ClassSubtypeNone,             false, taggedObjectIsValid, taggedObjectDescription},
+    {"NSAtom",            KSObjCClassTypeUnknown, ClassSubtypeNone, false, taggedObjectIsValid, taggedObjectDescription},
+    {NULL,                KSObjCClassTypeUnknown, ClassSubtypeNone, false, taggedObjectIsValid, taggedObjectDescription},
+    {"NSString",          KSObjCClassTypeString,  ClassSubtypeNone, false, taggedStringIsValid, taggedStringDescription},
+    {"NSNumber",          KSObjCClassTypeNumber,  ClassSubtypeNone, false, taggedNumberIsValid, taggedNumberDescription},
+    {"NSIndexPath",       KSObjCClassTypeUnknown, ClassSubtypeNone, false, taggedObjectIsValid, taggedObjectDescription},
+    {"NSManagedObjectID", KSObjCClassTypeUnknown, ClassSubtypeNone, false, taggedObjectIsValid, taggedObjectDescription},
+    {"NSDate",            KSObjCClassTypeDate,    ClassSubtypeNone, false, taggedDateIsValid,   taggedDateDescription},
+    {NULL,                KSObjCClassTypeUnknown, ClassSubtypeNone, false, taggedObjectIsValid, taggedObjectDescription},
 };
+// clang-format on
 static int g_taggedClassDataCount = sizeof(g_taggedClassData) / sizeof(*g_taggedClassData);
 
 static const char* g_blockBaseClassName = "NSBlock";

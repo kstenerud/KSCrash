@@ -1,0 +1,5 @@
+Sources/KSCrashRecordingCore/KSObjCApple.h
+Sources/KSCrashRecordingCore/llvm/*
+Sources/KSCrashRecordingCore/llvm/*/*
+Sources/KSCrashRecordingCore/swift/*
+Sources/KSCrashRecordingCore/swift/*/*

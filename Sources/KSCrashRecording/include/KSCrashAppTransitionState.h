@@ -40,6 +40,7 @@ extern "C" {
 #define NS_SWIFT_NAME(_name)
 #endif
 
+// clang-format off
 /** States of transition for the application */
 #ifdef __OBJC__
 typedef NS_ENUM(uint8_t, KSCrashAppTransitionState)
@@ -60,6 +61,7 @@ enum
 #ifndef __OBJC__
 typedef uint8_t KSCrashAppTransitionState;
 #endif
+// clang-format on
 
 /**
  * Returns true if the transition state is user perceptible.

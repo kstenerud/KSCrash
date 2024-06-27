@@ -1,36 +1,9 @@
 BasedOnStyle: Google
 IndentWidth: 4
-TabWidth: 4
-UseTab: Never
-ColumnLimit: 120
-BreakBeforeBraces: Custom
-BraceWrapping:
-  AfterClass: true
-  AfterControlStatement: true
-  AfterEnum: true
-  AfterFunction: true
-  AfterNamespace: true
-  AfterObjCDeclaration: true
-  AfterStruct: true
-  AfterUnion: true
-  BeforeCatch: true
-  BeforeElse: true
-  IndentBraces: false
-AllowShortIfStatementsOnASingleLine: true
-AllowShortCaseLabelsOnASingleLine: true
-AllowShortFunctionsOnASingleLine: All
-ObjCSpaceAfterProperty: true
 ObjCBlockIndentWidth: 4
-ObjCSpaceBeforeProtocolList: true
-SpaceAfterCStyleCast: false
-SpaceBeforeParens: ControlStatements
-SpaceBeforeRangeBasedForLoopColon: false
-SpacesInAngles: false
-SpacesInContainerLiterals: false
-SpacesInCStyleCastParentheses: false
-SpacesInParentheses: false
-SpacesInSquareBrackets: false
-Cpp11BracedListStyle: false
+ColumnLimit: 120
+BreakBeforeBraces: Linux
+PointerAlignment: Right
 DerivePointerAlignment: false
-PointerAlignment: Left
-IndentCaseLabels: true
+SpaceBeforeCpp11BracedList: true
+Cpp11BracedListStyle: false

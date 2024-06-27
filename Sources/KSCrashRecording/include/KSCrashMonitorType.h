@@ -37,6 +37,8 @@ extern "C" {
 #define NS_SWIFT_NAME(_name)
 #endif
 
+// clang-format off
+
 /** Various aspects of the system that can be monitored:
  * - Mach kernel exception
  * - Fatal signal
@@ -146,6 +148,8 @@ enum
 KSCrashMonitorType
 #endif
 ;
+
+// clang-format on
 
 #ifdef __cplusplus
 }

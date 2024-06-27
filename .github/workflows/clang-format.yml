@@ -1,0 +1,61 @@
+name: Clang Format Check
+on:
+  pull_request:
+    paths:
+      - 'Sources/**'
+      - 'Tests/**'
+      - 'Samples/Common/Sources/CrashTriggers/**'
+      - '.github/workflows/clang-format.yml'
+      - '.clang-format-ignore'
+
+jobs:
+  formatting-check:
+    name: Formatting Check
+    runs-on: ubuntu-latest
+    env:
+      DIRS: 'Sources Tests Samples/Common/Sources/CrashTriggers'
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install clang-format-18
+      run: |
+        wget https://apt.llvm.org/llvm.sh
+        chmod +x llvm.sh
+        sudo ./llvm.sh 18
+        sudo apt-get install -y clang-format-18
+
+    - name: Check formatting
+      id: check_format
+      run: |
+        find $DIRS -name '*.c' -o -name '*.cpp' -o -name '*.h' -o -name '*.m' -o -name '*.mm' | \
+        xargs -r clang-format-18 -style=file -n -Werror 2> clang_format_errors.log
+
+    - name: Suggest formatting fixes
+      if: failure()
+      run: |
+        echo "##[error]Formatting issues found. Please run clang-format-18 on your code."
+
+    - name: Create summary and annotations
+      if: failure()
+      run: |
+        echo "### Formatting issues found" >> $GITHUB_STEP_SUMMARY
+        echo "Please run clang-format-18 on your code." >> $GITHUB_STEP_SUMMARY
+        echo "Note: Some files may be excluded from formatting based on .clang-format-ignore file." >> $GITHUB_STEP_SUMMARY
+        echo "::group::Formatting issues"
+        awk '
+          /^.*error:/ {
+            split($0, parts, ":")
+            file=parts[1]
+            line=parts[2]
+            col=parts[3]
+            message=$0
+            getline code_line
+            getline caret_line
+            sub(/:.*$/, "", file)
+            sub(/[^0-9]/, "", line)
+            sub(/[^0-9]/, "", col)
+            # Remove the "error: " prefix from the message
+            sub(/^[^:]+: [^:]+: [^:]+: /, "", message)
+            print "::error file="file",line="line",col="col"::"message
+          }' clang_format_errors.log
+        echo "::endgroup::"

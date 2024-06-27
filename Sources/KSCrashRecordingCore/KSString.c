@@ -35,6 +35,7 @@
 #define likely_if(x) if(__builtin_expect(x,1))
 #define unlikely_if(x) if(__builtin_expect(x,0))
 
+// clang-format off
 static const int g_printableControlChars[0x20] =
 {
     // Only tab, CR, and LF are considered printable
@@ -58,6 +59,7 @@ static const int g_continuationByteCount[0x40] =
     2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
     3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 0, 0,
 };
+// clang-format on
 
 bool ksstring_isNullTerminatedUTF8String(const void* memory,
                                         int minLength,

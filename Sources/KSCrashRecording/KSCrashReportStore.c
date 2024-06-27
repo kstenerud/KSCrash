@@ -153,7 +153,7 @@ static void pruneReports(void)
         }
     }
 }
-
+// clang-format off
 static void initializeIDs(void)
 {
     time_t rawTime;
@@ -170,7 +170,7 @@ static void initializeIDs(void)
     g_nextUniqueIDHigh = baseID & ~(int64_t)0xffffffff;
     g_nextUniqueIDLow = (uint32_t)(baseID & 0xffffffff);
 }
-
+// clang-format on
 
 // Public API
 
