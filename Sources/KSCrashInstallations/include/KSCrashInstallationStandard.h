@@ -24,7 +24,6 @@
 // THE SOFTWARE.
 //
 
-
 #import "KSCrashInstallation.h"
 
 #import <Foundation/Foundation.h>
@@ -35,9 +34,9 @@ NS_SWIFT_NAME(CrashInstallationStandard)
 @interface KSCrashInstallationStandard : KSCrashInstallation
 
 /** The URL to connect to. */
-@property(nonatomic,readwrite,strong) NSURL* url;
+@property(nonatomic, readwrite, strong) NSURL *url;
 
-+ (instancetype) sharedInstance NS_SWIFT_NAME(shared());
++ (instancetype)sharedInstance NS_SWIFT_NAME(shared());
 
 @end
 

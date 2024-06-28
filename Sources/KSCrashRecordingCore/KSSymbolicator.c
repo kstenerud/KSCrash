@@ -22,10 +22,9 @@
 // THE SOFTWARE.
 //
 
-
 #include "KSSymbolicator.h"
-#include "KSDynamicLinker.h"
 
+#include "KSDynamicLinker.h"
 
 /** Remove any pointer tagging from an instruction address
  * On armv7 the least significant bit of the pointer distinguishes
@@ -51,7 +50,6 @@
  */
 #define CALL_INSTRUCTION_FROM_RETURN_ADDRESS(A) (DETAG_INSTRUCTION_ADDRESS((A)) - 1)
 
-
 uintptr_t kssymbolicator_callInstructionAddress(const uintptr_t returnAddress)
 {
     return CALL_INSTRUCTION_FROM_RETURN_ADDRESS(returnAddress);
@@ -60,15 +58,14 @@ uintptr_t kssymbolicator_callInstructionAddress(const uintptr_t returnAddress)
 bool kssymbolicator_symbolicate(KSStackCursor *cursor)
 {
     Dl_info symbolsBuffer;
-    if(ksdl_dladdr(CALL_INSTRUCTION_FROM_RETURN_ADDRESS(cursor->stackEntry.address), &symbolsBuffer))
-    {
+    if (ksdl_dladdr(CALL_INSTRUCTION_FROM_RETURN_ADDRESS(cursor->stackEntry.address), &symbolsBuffer)) {
         cursor->stackEntry.imageAddress = (uintptr_t)symbolsBuffer.dli_fbase;
         cursor->stackEntry.imageName = symbolsBuffer.dli_fname;
         cursor->stackEntry.symbolAddress = (uintptr_t)symbolsBuffer.dli_saddr;
         cursor->stackEntry.symbolName = symbolsBuffer.dli_sname;
         return true;
     }
-    
+
     cursor->stackEntry.imageAddress = 0;
     cursor->stackEntry.imageName = 0;
     cursor->stackEntry.symbolAddress = 0;

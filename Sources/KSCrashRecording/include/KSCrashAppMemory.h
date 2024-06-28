@@ -59,17 +59,15 @@
 NS_ASSUME_NONNULL_BEGIN
 
 /** Notification sent when the memory level changes. */
-FOUNDATION_EXPORT NSNotificationName const KSCrashAppMemoryLevelChangedNotification 
-NS_SWIFT_NAME(AppMemoryLevelChangedNotification);
+FOUNDATION_EXPORT NSNotificationName const KSCrashAppMemoryLevelChangedNotification NS_SWIFT_NAME(AppMemoryLevelChangedNotification);
 
 /** Notification sent when the memory pressure changes. */
-FOUNDATION_EXPORT NSNotificationName const KSCrashAppMemoryPressureChangedNotification 
-NS_SWIFT_NAME(AppMemoryPressureChangedNotification);
+FOUNDATION_EXPORT NSNotificationName const KSCrashAppMemoryPressureChangedNotification NS_SWIFT_NAME(AppMemoryPressureChangedNotification);
 
 /** Notification keys that hold new and old values in the _userInfo_ dictionary. */
 typedef NSString *KSCrashAppMemoryKeys NS_TYPED_ENUM NS_SWIFT_NAME(AppMemoryKeys);
 FOUNDATION_EXPORT KSCrashAppMemoryKeys const KSCrashAppMemoryNewValueKey NS_SWIFT_NAME(newValue);
-FOUNDATION_EXPORT KSCrashAppMemoryKeys const KSCrashAppMemoryOldValueKey NS_SWIFT_NAME(oldValue); 
+FOUNDATION_EXPORT KSCrashAppMemoryKeys const KSCrashAppMemoryOldValueKey NS_SWIFT_NAME(oldValue);
 
 /** The memory state for level and pressure. */
 typedef NS_ENUM(NSUInteger, KSCrashAppMemoryState) {
@@ -135,10 +133,9 @@ NS_SWIFT_NAME(AppMemory)
  * `KSCrashAppMemoryStateToString` returns a `const char*`
  * because it needs to be async safe.
  */
-FOUNDATION_EXPORT const char *KSCrashAppMemoryStateToString(KSCrashAppMemoryState state) 
-NS_SWIFT_NAME(string(from:));
+FOUNDATION_EXPORT const char *KSCrashAppMemoryStateToString(KSCrashAppMemoryState state) NS_SWIFT_NAME(string(from:));
 
 FOUNDATION_EXPORT KSCrashAppMemoryState KSCrashAppMemoryStateFromString(NSString *const string)
-NS_SWIFT_NAME(memoryState(from:));
+    NS_SWIFT_NAME(memoryState(from:));
 
 NS_ASSUME_NONNULL_END

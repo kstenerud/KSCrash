@@ -22,12 +22,12 @@
 // THE SOFTWARE.
 //
 
-
 #ifndef KSSymbolicator_h
 #define KSSymbolicator_h
 
-#include "KSStackCursor.h"
 #include <stdbool.h>
+
+#include "KSStackCursor.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -49,9 +49,8 @@ uintptr_t kssymbolicator_callInstructionAddress(const uintptr_t returnAddress);
  */
 bool kssymbolicator_symbolicate(KSStackCursor *cursor);
 
-    
 #ifdef __cplusplus
 }
 #endif
 
-#endif // KSSymbolicator_h
+#endif  // KSSymbolicator_h

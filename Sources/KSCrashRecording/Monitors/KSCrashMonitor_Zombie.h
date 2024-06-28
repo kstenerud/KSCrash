@@ -24,7 +24,6 @@
 // THE SOFTWARE.
 //
 
-
 /* Poor man's zombie tracking.
  *
  * Benefits:
@@ -41,8 +40,9 @@
 #ifndef HDR_KSZombie_h
 #define HDR_KSZombie_h
 
-#include "KSCrashMonitor.h"
 #include <stdbool.h>
+
+#include "KSCrashMonitor.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -54,15 +54,14 @@ extern "C" {
  *
  * @return The object's class name, or NULL if it wasn't found.
  */
-const char* kszombie_className(const void* object);
+const char *kszombie_className(const void *object);
 
 /** Access the Monitor API.
  */
-KSCrashMonitorAPI* kscm_zombie_getAPI(void);
-
+KSCrashMonitorAPI *kscm_zombie_getAPI(void);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // HDR_KSZombie_h
+#endif  // HDR_KSZombie_h

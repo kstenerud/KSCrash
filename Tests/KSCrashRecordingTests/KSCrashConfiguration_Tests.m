@@ -1,6 +1,6 @@
 //
 //  KSCrashConfiguration_Tests.m
-//  
+//
 //  Created by Gleb Linnik on 13.06.2024.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
@@ -25,8 +25,8 @@
 //
 
 #import <XCTest/XCTest.h>
-#import "KSCrashConfiguration.h"
 #import "KSCrashConfiguration+Private.h"
+#import "KSCrashConfiguration.h"
 
 @interface KSCrashConfigurationTests : XCTestCase
 @end
@@ -56,11 +56,11 @@
 {
     KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
     config.monitors = KSCrashMonitorTypeDebuggerSafe;
-    config.userInfoJSON = @{@"key": @"value"};
+    config.userInfoJSON = @{ @"key" : @"value" };
     config.deadlockWatchdogInterval = 5.0;
     config.enableQueueNameSearch = YES;
     config.enableMemoryIntrospection = YES;
-    config.doNotIntrospectClasses = @[@"ClassA", @"ClassB"];
+    config.doNotIntrospectClasses = @[ @"ClassA", @"ClassB" ];
     config.addConsoleLogToReport = YES;
     config.printPreviousLogOnStartup = YES;
     config.maxReportCount = 10;
@@ -83,8 +83,7 @@
     XCTAssertTrue(cConfig.enableSwapCxaThrow);
 
     // Free memory allocated for C string array
-    for (int i = 0; i < cConfig.doNotIntrospectClasses.length; i++)
-    {
+    for (int i = 0; i < cConfig.doNotIntrospectClasses.length; i++) {
         free((void *)cConfig.doNotIntrospectClasses.strings[i]);
     }
     free(cConfig.doNotIntrospectClasses.strings);
@@ -95,11 +94,11 @@
 {
     KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
     config.monitors = KSCrashMonitorTypeDebuggerSafe;
-    config.userInfoJSON = @{@"key": @"value"};
+    config.userInfoJSON = @{ @"key" : @"value" };
     config.deadlockWatchdogInterval = 5.0;
     config.enableQueueNameSearch = YES;
     config.enableMemoryIntrospection = YES;
-    config.doNotIntrospectClasses = @[@"ClassA", @"ClassB"];
+    config.doNotIntrospectClasses = @[ @"ClassA", @"ClassB" ];
     config.addConsoleLogToReport = YES;
     config.printPreviousLogOnStartup = YES;
     config.maxReportCount = 10;
@@ -108,11 +107,11 @@
     KSCrashConfiguration *copy = [config copy];
 
     XCTAssertEqual(copy.monitors, KSCrashMonitorTypeDebuggerSafe);
-    XCTAssertEqualObjects(copy.userInfoJSON, @{@"key": @"value"});
+    XCTAssertEqualObjects(copy.userInfoJSON, @{ @"key" : @"value" });
     XCTAssertEqual(copy.deadlockWatchdogInterval, 5.0);
     XCTAssertTrue(copy.enableQueueNameSearch);
     XCTAssertTrue(copy.enableMemoryIntrospection);
-    XCTAssertEqualObjects(copy.doNotIntrospectClasses, (@[@"ClassA", @"ClassB"]));
+    XCTAssertEqualObjects(copy.doNotIntrospectClasses, (@[ @"ClassA", @"ClassB" ]));
     XCTAssertTrue(copy.addConsoleLogToReport);
     XCTAssertTrue(copy.printPreviousLogOnStartup);
     XCTAssertEqual(copy.maxReportCount, 10);
@@ -155,7 +154,7 @@
 - (void)testSpecialCharactersInStrings
 {
     KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
-    config.userInfoJSON = @{@"key": @"value with special characters: @#$%^&*()"};
+    config.userInfoJSON = @{ @"key" : @"value with special characters: @#$%^&*()" };
     KSCrashCConfiguration cConfig = [config toCConfiguration];
 
     XCTAssertTrue(cConfig.userInfoJSON != NULL);

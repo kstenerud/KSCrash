@@ -27,8 +27,8 @@
 #ifndef HDR_KSThread_h
 #define HDR_KSThread_h
 
-#include <sys/types.h>
 #include <stdbool.h>
+#include <sys/types.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -47,7 +47,7 @@ typedef uintptr_t KSThread;
  *
  * @return true if a name was found.
  */
-bool ksthread_getThreadName(const KSThread thread, char* const buffer, int bufLength);
+bool ksthread_getThreadName(const KSThread thread, char *const buffer, int bufLength);
 
 /** Get the name of a thread's dispatch queue. Internally, a queue name will
  * never be more than 64 characters long.
@@ -60,7 +60,7 @@ bool ksthread_getThreadName(const KSThread thread, char* const buffer, int bufLe
  *
  * @return true if a name or label was found.
  */
-bool ksthread_getQueueName(KSThread thread, char* buffer, int bufLength);
+bool ksthread_getQueueName(KSThread thread, char *buffer, int bufLength);
 
 /* Get the current mach thread ID.
  * mach_thread_self() receives a send right for the thread port which needs to
@@ -71,9 +71,8 @@ bool ksthread_getQueueName(KSThread thread, char* buffer, int bufLength);
  */
 KSThread ksthread_self(void);
 
-
 #ifdef __cplusplus
 }
 #endif
 
-#endif // HDR_KSThread_h
+#endif  // HDR_KSThread_h

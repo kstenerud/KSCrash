@@ -41,7 +41,7 @@ extern "C" {
  * @param installPath Full path to directory where the crash system writes files.
  * @param reportsPath Full path to directory where the reports are to be stored (path will be created if needed).
  */
-void kscrs_initialize(const char* appName, const char* installPath, const char* reportsPath);
+void kscrs_initialize(const char *appName, const char *installPath, const char *reportsPath);
 
 /** Get the next crash report to be generated.
  * Max length for paths is KSCRS_MAX_PATH_LENGTH
@@ -50,7 +50,7 @@ void kscrs_initialize(const char* appName, const char* installPath, const char* 
  *
  * @return the report ID of the next report.
  */
-int64_t kscrs_getNextCrashReport(char* crashReportPathBuffer);
+int64_t kscrs_getNextCrashReport(char *crashReportPathBuffer);
 
 /** Get the number of reports on disk.
  */
@@ -63,7 +63,7 @@ int kscrs_getReportCount(void);
  *
  * @return The number of report IDs that were placed in the array.
  */
-int kscrs_getReportIDs(int64_t* reportIDs, int count);
+int kscrs_getReportIDs(int64_t *reportIDs, int count);
 
 /** Read a report.
  *
@@ -72,8 +72,8 @@ int kscrs_getReportIDs(int64_t* reportIDs, int count);
  * @return The NULL terminated report, or NULL if not found.
  *         MEMORY MANAGEMENT WARNING: User is responsible for calling free() on the returned value.
  */
-char* kscrs_readReport(int64_t reportID);
-char* kscrs_readReportAtPath(const char *path);
+char *kscrs_readReport(int64_t reportID);
+char *kscrs_readReportAtPath(const char *path);
 
 /** Add a custom report to the store.
  *
@@ -82,7 +82,7 @@ char* kscrs_readReportAtPath(const char *path);
  *
  * @return the new report's ID.
  */
-int64_t kscrs_addUserReport(const char* report, int reportLength);
+int64_t kscrs_addUserReport(const char *report, int reportLength);
 
 /** Delete all reports on disk.
  */
@@ -98,10 +98,10 @@ void kscrs_deleteReportWithID(int64_t reportID);
  *
  * @param maxReportCount The maximum number of reports.
  */
-    void kscrs_setMaxReportCount(int maxReportCount);
+void kscrs_setMaxReportCount(int maxReportCount);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // HDR_KSCrashReportStore_h
+#endif  // HDR_KSCrashReportStore_h

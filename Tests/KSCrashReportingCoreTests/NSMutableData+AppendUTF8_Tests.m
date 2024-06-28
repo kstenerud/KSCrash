@@ -24,33 +24,31 @@
 // THE SOFTWARE.
 //
 
-
 #import <XCTest/XCTest.h>
 
 #import "NSMutableData+AppendUTF8.h"
 
-
-@interface NSMutableData_AppendUTF8_Tests : XCTestCase @end
-
+@interface NSMutableData_AppendUTF8_Tests : XCTestCase
+@end
 
 @implementation NSMutableData_AppendUTF8_Tests
 
-- (void) testAppendUTF8String
+- (void)testAppendUTF8String
 {
-    NSString* expected = @"testテスト";
-    NSMutableData* data = [NSMutableData data];
+    NSString *expected = @"testテスト";
+    NSMutableData *data = [NSMutableData data];
     [data appendUTF8String:expected];
-    NSString* actual = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+    NSString *actual = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
 
     XCTAssertEqualObjects(actual, expected, @"");
 }
 
-- (void) testAppendUTF8Format
+- (void)testAppendUTF8Format
 {
-    NSString* expected = @"Testing 1 2.0 3";
-    NSMutableData* data = [NSMutableData data];
+    NSString *expected = @"Testing 1 2.0 3";
+    NSMutableData *data = [NSMutableData data];
     [data appendUTF8Format:@"Testing %d %.1f %@", 1, 2.0, @"3"];
-    NSString* actual = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+    NSString *actual = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
 
     XCTAssertEqualObjects(actual, expected, @"");
 }

@@ -24,7 +24,6 @@
 // THE SOFTWARE.
 //
 
-
 #import "KSCrashReportFilter.h"
 
 #import <Foundation/Foundation.h>
@@ -44,15 +43,15 @@ NS_SWIFT_NAME(CrashReportSinkStandard)
  *
  * @param url The URL to connect to.
  */
-+ (instancetype) sinkWithURL:(NSURL*) url;
++ (instancetype)sinkWithURL:(NSURL *)url;
 
 /** Constructor.
  *
  * @param url The URL to connect to.
  */
-- (instancetype) initWithURL:(NSURL*) url;
+- (instancetype)initWithURL:(NSURL *)url;
 
-- (id <KSCrashReportFilter>) defaultCrashReportFilterSet;
+- (id<KSCrashReportFilter>)defaultCrashReportFilterSet;
 
 @end
 

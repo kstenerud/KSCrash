@@ -26,31 +26,27 @@
 #import "KSCrashReportFilterStringify.h"
 #import "KSCrashReport.h"
 
-//#define KSLogger_LocalLevel TRACE
+// #define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
 
 @implementation KSCrashReportFilterStringify
 
-+ (instancetype) filter
++ (instancetype)filter
 {
     return [[self alloc] init];
 }
 
-- (NSString*) stringifyReport:(KSCrashReport*) report
+- (NSString *)stringifyReport:(KSCrashReport *)report
 {
-    if(report.stringValue != nil)
-    {
+    if (report.stringValue != nil) {
         return report.stringValue;
     }
-    if(report.dataValue != nil)
-    {
+    if (report.dataValue != nil) {
         return [[NSString alloc] initWithData:report.dataValue encoding:NSUTF8StringEncoding];
     }
-    if(report.dictionaryValue != nil)
-    {
-        if([NSJSONSerialization isValidJSONObject:report.dictionaryValue])
-        {
-            NSData* data = [NSJSONSerialization dataWithJSONObject:report.dictionaryValue options:0 error:nil];
+    if (report.dictionaryValue != nil) {
+        if ([NSJSONSerialization isValidJSONObject:report.dictionaryValue]) {
+            NSData *data = [NSJSONSerialization dataWithJSONObject:report.dictionaryValue options:0 error:nil];
             return [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
         }
         return [NSString stringWithFormat:@"%@", report.dictionaryValue];
@@ -58,16 +54,14 @@
     return [NSString stringWithFormat:@"%@", report];
 }
 
-- (void) filterReports:(NSArray<KSCrashReport*>*) reports
-          onCompletion:(KSCrashReportFilterCompletion) onCompletion
+- (void)filterReports:(NSArray<KSCrashReport *> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
-    NSMutableArray<KSCrashReport*>* filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
-    for(KSCrashReport* report in reports)
-    {
+    NSMutableArray<KSCrashReport *> *filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
+    for (KSCrashReport *report in reports) {
         NSString *reportString = [self stringifyReport:report];
         [filteredReports addObject:[KSCrashReport reportWithString:reportString]];
     }
-    
+
     kscrash_callCompletion(onCompletion, filteredReports, YES, nil);
 }
 

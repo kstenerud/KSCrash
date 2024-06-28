@@ -24,26 +24,24 @@
 // THE SOFTWARE.
 //
 
-
 #import <Foundation/Foundation.h>
-
 
 /**
  * Builds a multipart MIME HTTP body.
  */
-@interface KSHTTPMultipartPostBody: NSObject
+@interface KSHTTPMultipartPostBody : NSObject
 
 /** The content-type identifier for this body. */
-@property(nonatomic,readonly,retain) NSString* contentType;
+@property(nonatomic, readonly, retain) NSString *contentType;
 
 /** Constructor.
  *
  * @return A new body.
  */
-+ (KSHTTPMultipartPostBody*) body;
++ (KSHTTPMultipartPostBody *)body;
 
 /** This body's data, encoded for sending in an HTTP request. */
-- (NSData*) data;
+- (NSData *)data;
 
 /** Append a new data field to the body.
  *
@@ -55,10 +53,10 @@
  *
  * @param filename The field's filename (nil = omit).
  */
-- (void) appendData:(NSData*) data
-               name:(NSString*) name
-        contentType:(NSString*) contentType
-           filename:(NSString*) filename;
+- (void)appendData:(NSData *)data
+              name:(NSString *)name
+       contentType:(NSString *)contentType
+          filename:(NSString *)filename;
 
 /** Append a new UTF-8 encoded string field to the body.
  *
@@ -70,9 +68,9 @@
  *
  * @param filename The field's filename (nil = omit).
  */
-- (void) appendUTF8String:(NSString*) string
-                     name:(NSString*) name
-              contentType:(NSString*) contentType
-                 filename:(NSString*) filename;
+- (void)appendUTF8String:(NSString *)string
+                    name:(NSString *)name
+             contentType:(NSString *)contentType
+                filename:(NSString *)filename;
 
 @end

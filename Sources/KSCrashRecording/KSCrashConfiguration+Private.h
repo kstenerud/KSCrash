@@ -27,10 +27,10 @@
 #ifndef KSCrashConfiguration_Private_h
 #define KSCrashConfiguration_Private_h
 
-#import "KSCrashConfiguration.h"
 #import "KSCrashCConfiguration.h"
+#import "KSCrashConfiguration.h"
 
-@interface KSCrashConfiguration()
+@interface KSCrashConfiguration ()
 
 - (KSCrashCConfiguration)toCConfiguration;
 

@@ -24,52 +24,50 @@
 // THE SOFTWARE.
 //
 
-
 #import <XCTest/XCTest.h>
 
 #import "KSCString.h"
 
-
-@interface KSCString_Tests : XCTestCase @end
-
+@interface KSCString_Tests : XCTestCase
+@end
 
 @implementation KSCString_Tests
 
-- (void) testNSString
+- (void)testNSString
 {
-    NSString* expected = @"Expected";
-    KSCString* actual = [KSCString stringWithString:expected];
+    NSString *expected = @"Expected";
+    KSCString *actual = [KSCString stringWithString:expected];
     BOOL matches = strcmp([expected cStringUsingEncoding:NSUTF8StringEncoding], actual.bytes) == 0;
     XCTAssertTrue(matches, @"");
     XCTAssertEqual(actual.length, expected.length, @"");
 }
 
-- (void) testCString
+- (void)testCString
 {
-    const char* expected = "Expected";
+    const char *expected = "Expected";
     NSUInteger expectedLength = strlen(expected);
-    KSCString* actual = [KSCString stringWithCString:expected];
+    KSCString *actual = [KSCString stringWithCString:expected];
     BOOL matches = strcmp(expected, actual.bytes) == 0;
     XCTAssertTrue(matches, @"");
     XCTAssertEqual(actual.length, expectedLength, @"");
 }
 
-- (void) testNSData
+- (void)testNSData
 {
-    const char* expected = "Expected";
+    const char *expected = "Expected";
     NSUInteger expectedLength = strlen(expected);
-    NSData* source = [NSData dataWithBytes:expected length:expectedLength];
-    KSCString* actual = [KSCString stringWithData:source];
+    NSData *source = [NSData dataWithBytes:expected length:expectedLength];
+    KSCString *actual = [KSCString stringWithData:source];
     BOOL matches = strcmp(expected, actual.bytes) == 0;
     XCTAssertTrue(matches, @"");
     XCTAssertEqual(actual.length, expectedLength, @"");
 }
 
-- (void) testData
+- (void)testData
 {
-    const char* expected = "Expected";
+    const char *expected = "Expected";
     NSUInteger expectedLength = strlen(expected);
-    KSCString* actual = [KSCString stringWithData:expected length:expectedLength];
+    KSCString *actual = [KSCString stringWithData:expected length:expectedLength];
     BOOL matches = strcmp(expected, actual.bytes) == 0;
     XCTAssertTrue(matches, @"");
     XCTAssertEqual(actual.length, expectedLength, @"");

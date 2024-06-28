@@ -26,8 +26,8 @@
 #ifndef KSCrashAppTransitionState_h
 #define KSCrashAppTransitionState_h
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 #ifdef __OBJC__
 #include <Foundation/Foundation.h>
 #endif
@@ -40,6 +40,7 @@ extern "C" {
 #define NS_SWIFT_NAME(_name)
 #endif
 
+// clang-format off
 /** States of transition for the application */
 #ifdef __OBJC__
 typedef NS_ENUM(uint8_t, KSCrashAppTransitionState)
@@ -60,18 +61,18 @@ enum
 #ifndef __OBJC__
 typedef uint8_t KSCrashAppTransitionState;
 #endif
+// clang-format on
 
 /**
  * Returns true if the transition state is user perceptible.
  */
 bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
-NS_SWIFT_NAME(isUserPerceptible(transitionState:));
+    NS_SWIFT_NAME(isUserPerceptible(transitionState:));
 
 /**
  * Returns a string for the app state passed in.
  */
-const char *ksapp_transitionStateToString(KSCrashAppTransitionState state)
-NS_SWIFT_NAME(string(for:));
+const char *ksapp_transitionStateToString(KSCrashAppTransitionState state) NS_SWIFT_NAME(string(for:));
 
 #ifdef __cplusplus
 }

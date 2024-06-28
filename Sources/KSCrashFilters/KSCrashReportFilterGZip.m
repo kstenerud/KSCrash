@@ -24,17 +24,16 @@
 // THE SOFTWARE.
 //
 
-
 #import "KSCrashReportFilterGZip.h"
-#import "NSData+KSGZip.h"
 #import "KSCrashReport.h"
+#import "NSData+KSGZip.h"
 
-//#define KSLogger_LocalLevel TRACE
+// #define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
 
 @interface KSCrashReportFilterGZipCompress ()
 
-@property(nonatomic,readwrite,assign) NSInteger compressionLevel;
+@property(nonatomic, readwrite, assign) NSInteger compressionLevel;
 
 @end
 
@@ -42,43 +41,35 @@
 
 @synthesize compressionLevel = _compressionLevel;
 
-+ (instancetype) filterWithCompressionLevel:(NSInteger) compressionLevel
++ (instancetype)filterWithCompressionLevel:(NSInteger)compressionLevel
 {
     return [[self alloc] initWithCompressionLevel:compressionLevel];
 }
 
-- (instancetype) initWithCompressionLevel:(NSInteger) compressionLevel
+- (instancetype)initWithCompressionLevel:(NSInteger)compressionLevel
 {
-    if((self = [super init]))
-    {
+    if ((self = [super init])) {
         self.compressionLevel = compressionLevel;
     }
     return self;
 }
 
-- (void) filterReports:(NSArray<KSCrashReport*>*) reports
-          onCompletion:(KSCrashReportFilterCompletion) onCompletion
+- (void)filterReports:(NSArray<KSCrashReport *> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
-    NSMutableArray<KSCrashReport*>* filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
-    for(KSCrashReport* report in reports)
-    {
-        NSData* data = report.dataValue;
-        if(data == nil)
-        {
+    NSMutableArray<KSCrashReport *> *filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
+    for (KSCrashReport *report in reports) {
+        NSData *data = report.dataValue;
+        if (data == nil) {
             KSLOG_ERROR(@"Unexpected non-data report: %@", report);
             continue;
         }
 
-        NSError* error = nil;
-        NSData* compressedData = [data gzippedWithCompressionLevel:(int)self.compressionLevel
-                                                             error:&error];
-        if(compressedData == nil)
-        {
+        NSError *error = nil;
+        NSData *compressedData = [data gzippedWithCompressionLevel:(int)self.compressionLevel error:&error];
+        if (compressedData == nil) {
             kscrash_callCompletion(onCompletion, filteredReports, NO, error);
             return;
-        }
-        else
-        {
+        } else {
             [filteredReports addObject:[KSCrashReport reportWithData:compressedData]];
         }
     }
@@ -88,36 +79,29 @@
 
 @end
 
-
 @implementation KSCrashReportFilterGZipDecompress
 
-+ (instancetype) filter
++ (instancetype)filter
 {
     return [[self alloc] init];
 }
 
-- (void) filterReports:(NSArray<KSCrashReport*>*) reports
-          onCompletion:(KSCrashReportFilterCompletion) onCompletion
+- (void)filterReports:(NSArray<KSCrashReport *> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
-    NSMutableArray<KSCrashReport*>* filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
-    for(KSCrashReport* report in reports)
-    {
-        NSData* data = report.dataValue;
-        if(data == nil)
-        {
+    NSMutableArray<KSCrashReport *> *filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
+    for (KSCrashReport *report in reports) {
+        NSData *data = report.dataValue;
+        if (data == nil) {
             KSLOG_ERROR(@"Unexpected non-data report: %@", report);
             continue;
         }
 
-        NSError* error = nil;
-        NSData* decompressedData = [data gunzippedWithError:&error];
-        if(decompressedData == nil)
-        {
+        NSError *error = nil;
+        NSData *decompressedData = [data gunzippedWithError:&error];
+        if (decompressedData == nil) {
             kscrash_callCompletion(onCompletion, filteredReports, NO, error);
             return;
-        }
-        else
-        {
+        } else {
             [filteredReports addObject:[KSCrashReport reportWithData:decompressedData]];
         }
     }

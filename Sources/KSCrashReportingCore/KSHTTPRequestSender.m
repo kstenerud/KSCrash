@@ -24,85 +24,73 @@
 // THE SOFTWARE.
 //
 
-
 #import "KSHTTPRequestSender.h"
 #import "NSError+SimpleConstructor.h"
 
-
 @implementation KSHTTPRequestSender
 
-+ (KSHTTPRequestSender*) sender
++ (KSHTTPRequestSender *)sender
 {
     return [[self alloc] init];
 }
 
-- (void) handleResponse:(NSURLResponse*) response
-                   data:(NSData*) data
-                  error:(NSError*) error
-              onSuccess:(void(^)(NSHTTPURLResponse* response, NSData* data)) successBlock
-              onFailure:(void(^)(NSHTTPURLResponse* response, NSData* data)) failureBlock
-                onError:(void(^)(NSError* error)) errorBlock
+- (void)handleResponse:(NSURLResponse *)response
+                  data:(NSData *)data
+                 error:(NSError *)error
+             onSuccess:(void (^)(NSHTTPURLResponse *response, NSData *data))successBlock
+             onFailure:(void (^)(NSHTTPURLResponse *response, NSData *data))failureBlock
+               onError:(void (^)(NSError *error))errorBlock
 {
-    if(error == nil)
-    {
-        if(response == nil)
-        {
-            error = [NSError errorWithDomain:[[self class] description]
-                                        code:0
-                                 description:@"Response was nil"];
+    if (error == nil) {
+        if (response == nil) {
+            error = [NSError errorWithDomain:[[self class] description] code:0 description:@"Response was nil"];
         }
-        
-        if(![response isKindOfClass:[NSHTTPURLResponse class]])
-        {
+
+        if (![response isKindOfClass:[NSHTTPURLResponse class]]) {
             error = [NSError errorWithDomain:[[self class] description]
                                         code:0
-                                 description:@"Response was of type %@. Expected NSHTTPURLResponse",
-                     [response class]];
+                                 description:@"Response was of type %@. Expected NSHTTPURLResponse", [response class]];
         }
     }
-    
-    if(error == nil)
-    {
-        NSHTTPURLResponse* httpResponse = (NSHTTPURLResponse*)response;
-        if((httpResponse.statusCode / 100) != 2)
-        {
-            if(failureBlock != nil)
-            {
-                dispatch_async(dispatch_get_main_queue(), ^
-                               {
-                                   failureBlock(httpResponse, data);
-                               });
+
+    if (error == nil) {
+        NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)response;
+        if ((httpResponse.statusCode / 100) != 2) {
+            if (failureBlock != nil) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    failureBlock(httpResponse, data);
+                });
             }
+        } else if (successBlock != nil) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                successBlock(httpResponse, data);
+            });
         }
-        else if(successBlock != nil)
-        {
-            dispatch_async(dispatch_get_main_queue(), ^
-                           {
-                               successBlock(httpResponse, data);
-                           });
-        }
-    }
-    else
-    {
-        if(errorBlock != nil)
-        {
-            dispatch_async(dispatch_get_main_queue(), ^
-                           {
-                               errorBlock(error);
-                           });
+    } else {
+        if (errorBlock != nil) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                errorBlock(error);
+            });
         }
     }
 }
 
-- (void) sendRequest:(NSURLRequest*) request
-           onSuccess:(void(^)(NSHTTPURLResponse* response, NSData* data)) successBlock
-           onFailure:(void(^)(NSHTTPURLResponse* response, NSData* data)) failureBlock
-             onError:(void(^)(NSError* error)) errorBlock
+- (void)sendRequest:(NSURLRequest *)request
+          onSuccess:(void (^)(NSHTTPURLResponse *response, NSData *data))successBlock
+          onFailure:(void (^)(NSHTTPURLResponse *response, NSData *data))failureBlock
+            onError:(void (^)(NSError *error))errorBlock
 {
-    NSURLSession* session = [NSURLSession sharedSession];
-    NSURLSessionTask* task = [session dataTaskWithRequest:request completionHandler:^(NSData * _Nullable data, NSURLResponse * _Nullable response, NSError * _Nullable error) {
-        [self handleResponse:response data:data error:error onSuccess:successBlock onFailure:failureBlock onError:errorBlock];
-    }];
+    NSURLSession *session = [NSURLSession sharedSession];
+    NSURLSessionTask *task = [session
+        dataTaskWithRequest:request
+          completionHandler:^(NSData *_Nullable data, NSURLResponse *_Nullable response, NSError *_Nullable error) {
+              [self handleResponse:response
+                              data:data
+                             error:error
+                         onSuccess:successBlock
+                         onFailure:failureBlock
+                           onError:errorBlock];
+          }];
     [task resume];
 }
 

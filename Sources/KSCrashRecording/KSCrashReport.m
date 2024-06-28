@@ -28,14 +28,13 @@
 
 @implementation KSCrashReport
 
-- (instancetype) initWithValueType:(KSCrashReportValueType) valueType
-                   dictionaryValue:(nullable NSDictionary<NSString*, id>*) dictionaryValue
-                       stringValue:(nullable NSString*) stringValue
-                         dataValue:(nullable NSData*) dataValue
+- (instancetype)initWithValueType:(KSCrashReportValueType)valueType
+                  dictionaryValue:(nullable NSDictionary<NSString *, id> *)dictionaryValue
+                      stringValue:(nullable NSString *)stringValue
+                        dataValue:(nullable NSData *)dataValue
 {
     self = [super init];
-    if(self != nil)
-    {
+    if (self != nil) {
         _valueType = valueType;
         _dictionaryValue = [dictionaryValue copy];
         _stringValue = [stringValue copy];
@@ -44,7 +43,7 @@
     return self;
 }
 
-+ (instancetype) reportWithDictionary:(NSDictionary<NSString*, id>*) dictionaryValue
++ (instancetype)reportWithDictionary:(NSDictionary<NSString *, id> *)dictionaryValue
 {
     return [[KSCrashReport alloc] initWithValueType:KSCrashReportValueTypeDictionary
                                     dictionaryValue:dictionaryValue
@@ -52,7 +51,7 @@
                                           dataValue:nil];
 }
 
-+ (instancetype) reportWithString:(NSString*) stringValue
++ (instancetype)reportWithString:(NSString *)stringValue
 {
     return [[KSCrashReport alloc] initWithValueType:KSCrashReportValueTypeString
                                     dictionaryValue:nil
@@ -60,7 +59,7 @@
                                           dataValue:nil];
 }
 
-+ (instancetype) reportWithData:(NSData*) dataValue
++ (instancetype)reportWithData:(NSData *)dataValue
 {
     return [[KSCrashReport alloc] initWithValueType:KSCrashReportValueTypeData
                                     dictionaryValue:nil
@@ -68,25 +67,21 @@
                                           dataValue:dataValue];
 }
 
-- (BOOL) isEqual:(id) object
+- (BOOL)isEqual:(id)object
 {
-    if([object isKindOfClass:[KSCrashReport class]] == NO)
-    {
+    if ([object isKindOfClass:[KSCrashReport class]] == NO) {
         return NO;
     }
     KSCrashReport *other = object;
 #define SAME_OR_EQUAL(GETTER) ((self.GETTER) == (other.GETTER) || [(self.GETTER) isEqual:(other.GETTER)])
-    return self.valueType == other.valueType
-        && SAME_OR_EQUAL(stringValue)
-        && SAME_OR_EQUAL(dictionaryValue)
-        && SAME_OR_EQUAL(dataValue);
+    return self.valueType == other.valueType && SAME_OR_EQUAL(stringValue) && SAME_OR_EQUAL(dictionaryValue) &&
+           SAME_OR_EQUAL(dataValue);
 #undef SAME_OR_EQUAL
 }
 
-- (NSString*) description
+- (NSString *)description
 {
-    switch(self.valueType)
-    {
+    switch (self.valueType) {
         case KSCrashReportValueTypeDictionary:
             return [self.dictionaryValue description];
         case KSCrashReportValueTypeString:

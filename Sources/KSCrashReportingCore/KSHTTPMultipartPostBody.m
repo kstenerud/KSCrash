@@ -24,42 +24,39 @@
 // THE SOFTWARE.
 //
 
-
 #import "KSHTTPMultipartPostBody.h"
 
 #import "NSMutableData+AppendUTF8.h"
 #import "NSString+URLEncode.h"
 
-
 /**
  * Represents a single field in a multipart HTTP body.
  */
-@interface KSHTTPPostField: NSObject
+@interface KSHTTPPostField : NSObject
 
 /** This field's binary encoded contents. */
-@property(nonatomic,readonly,retain) NSData* data;
+@property(nonatomic, readonly, retain) NSData *data;
 
 /** This field's name. */
-@property(nonatomic,readonly,retain) NSString* name;
+@property(nonatomic, readonly, retain) NSString *name;
 
 /** This field's content-type. */
-@property(nonatomic,readonly,retain) NSString* contentType;
+@property(nonatomic, readonly, retain) NSString *contentType;
 
 /** This field's filename. */
-@property(nonatomic,readonly,retain) NSString* filename;
+@property(nonatomic, readonly, retain) NSString *filename;
 
-+ (KSHTTPPostField*) data:(NSData*) data
-                     name:(NSString*) name
-              contentType:(NSString*) contentType
-                 filename:(NSString*) filename;
++ (KSHTTPPostField *)data:(NSData *)data
+                     name:(NSString *)name
+              contentType:(NSString *)contentType
+                 filename:(NSString *)filename;
 
-- (id) initWithData:(NSData*) data
-               name:(NSString*) name
-        contentType:(NSString*) contentType
-           filename:(NSString*) filename;
+- (id)initWithData:(NSData *)data
+              name:(NSString *)name
+       contentType:(NSString *)contentType
+          filename:(NSString *)filename;
 
 @end
-
 
 @implementation KSHTTPPostField
 
@@ -68,27 +65,23 @@
 @synthesize contentType = _contentType;
 @synthesize filename = _filename;
 
-+ (KSHTTPPostField*) data:(NSData*) data
-                     name:(NSString*) name
-              contentType:(NSString*) contentType
-                 filename:(NSString*) filename
++ (KSHTTPPostField *)data:(NSData *)data
+                     name:(NSString *)name
+              contentType:(NSString *)contentType
+                 filename:(NSString *)filename
 {
-    return [[self alloc] initWithData:data
-                                 name:name
-                          contentType:contentType
-                             filename:filename];
+    return [[self alloc] initWithData:data name:name contentType:contentType filename:filename];
 }
 
-- (id) initWithData:(NSData*) data
-               name:(NSString*) name
-        contentType:(NSString*) contentType
-           filename:(NSString*) filename
+- (id)initWithData:(NSData *)data
+              name:(NSString *)name
+       contentType:(NSString *)contentType
+          filename:(NSString *)filename
 {
     NSParameterAssert(data);
     NSParameterAssert(name);
-    
-    if((self = [super init]))
-    {
+
+    if ((self = [super init])) {
         _data = data;
         _name = name;
         _contentType = contentType;
@@ -99,14 +92,12 @@
 
 @end
 
-
 @interface KSHTTPMultipartPostBody ()
 
-@property(nonatomic,readwrite,retain) NSMutableArray* fields;
-@property(nonatomic,readwrite,retain) NSString* boundary;
+@property(nonatomic, readwrite, retain) NSMutableArray *fields;
+@property(nonatomic, readwrite, retain) NSString *boundary;
 
 @end
-
 
 @implementation KSHTTPMultipartPostBody
 
@@ -114,15 +105,14 @@
 @synthesize fields = _fields;
 @synthesize boundary = _boundary;
 
-+ (KSHTTPMultipartPostBody*) body
++ (KSHTTPMultipartPostBody *)body
 {
     return [[self alloc] init];
 }
 
-- (id) init
+- (id)init
 {
-    if((self = [super init]))
-    {
+    if ((self = [super init])) {
         NSString *uuid = [[NSUUID UUID] UUIDString];
         _boundary = [[uuid lowercaseString] stringByReplacingOccurrencesOfString:@"-" withString:@""];
         _fields = [[NSMutableArray alloc] init];
@@ -131,74 +121,64 @@
     return self;
 }
 
-- (void) appendData:(NSData*) data
-               name:(NSString*) name
-        contentType:(NSString*) contentType
-           filename:(NSString*) filename
+- (void)appendData:(NSData *)data
+              name:(NSString *)name
+       contentType:(NSString *)contentType
+          filename:(NSString *)filename
 {
-    [_fields addObject:[KSHTTPPostField data:data
-                                        name:name
-                                 contentType:contentType
-                                    filename:filename]];
+    [_fields addObject:[KSHTTPPostField data:data name:name contentType:contentType filename:filename]];
 }
 
-- (void) appendUTF8String:(NSString*) string
-                     name:(NSString*) name
-              contentType:(NSString*) contentType
-                 filename:(NSString*) filename
+- (void)appendUTF8String:(NSString *)string
+                    name:(NSString *)name
+             contentType:(NSString *)contentType
+                filename:(NSString *)filename
 {
-    const char* cString = [string cStringUsingEncoding:NSUTF8StringEncoding];
+    const char *cString = [string cStringUsingEncoding:NSUTF8StringEncoding];
     [self appendData:[NSData dataWithBytes:cString length:strlen(cString)]
                 name:name
          contentType:contentType
             filename:filename];
 }
 
-- (NSString*) toStringWithQuotesEscaped:(NSString*) value
+- (NSString *)toStringWithQuotesEscaped:(NSString *)value
 {
     return [value stringByReplacingOccurrencesOfString:@"\"" withString:@"\\\""];
 }
 
-- (NSData*) data
+- (NSData *)data
 {
     NSUInteger baseSize = 0;
-    for(KSHTTPPostField* desc in _fields)
-    {
+    for (KSHTTPPostField *desc in _fields) {
         baseSize += [desc.data length] + 200;
     }
-    
-    NSMutableData* data = [NSMutableData dataWithCapacity:baseSize];
+
+    NSMutableData *data = [NSMutableData dataWithCapacity:baseSize];
     BOOL firstFieldSent = NO;
-    for(KSHTTPPostField* field in _fields)
-    {
+    for (KSHTTPPostField *field in _fields) {
         if (firstFieldSent) {
             [data appendUTF8String:@"\r\n"];
         } else {
             firstFieldSent = YES;
         }
         [data appendUTF8Format:@"--%@\r\n", _boundary];
-        if(field.filename != nil)
-        {
+        if (field.filename != nil) {
             [data appendUTF8Format:@"Content-Disposition: form-data; name=\"%@\"; filename=\"%@\"\r\n",
-             [self toStringWithQuotesEscaped:field.name],
-             [self toStringWithQuotesEscaped:field.filename]];
-        }
-        else
-        {
+                                   [self toStringWithQuotesEscaped:field.name],
+                                   [self toStringWithQuotesEscaped:field.filename]];
+        } else {
             [data appendUTF8Format:@"Content-Disposition: form-data; name=\"%@\"\r\n",
-             [self toStringWithQuotesEscaped:field.name]];
+                                   [self toStringWithQuotesEscaped:field.name]];
         }
-        if(field.contentType != nil)
-        {
+        if (field.contentType != nil) {
             [data appendUTF8Format:@"Content-Type: %@\r\n", field.contentType];
         }
         [data appendUTF8Format:@"\r\n", _boundary];
         [data appendData:field.data];
     }
     [data appendUTF8Format:@"\r\n--%@--\r\n", _boundary];
-    
+
     return data;
 }
 
 @end
-

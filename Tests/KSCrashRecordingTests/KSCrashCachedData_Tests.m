@@ -22,22 +22,20 @@
 // THE SOFTWARE.
 //
 
-
 #import <XCTest/XCTest.h>
 
 #import "KSCrashCachedData.h"
 #import "TestThread.h"
 
-
-@interface KSCrashCachedData_Tests : XCTestCase @end
-
+@interface KSCrashCachedData_Tests : XCTestCase
+@end
 
 @implementation KSCrashCachedData_Tests
 
-- (void) testGetThreadName
+- (void)testGetThreadName
 {
-    NSString* expectedName = @"This is a test thread";
-    TestThread* thread = [TestThread new];
+    NSString *expectedName = @"This is a test thread";
+    TestThread *thread = [TestThread new];
     thread.name = expectedName;
     [thread start];
     [NSThread sleepForTimeInterval:0.1];
@@ -45,9 +43,9 @@
     [NSThread sleepForTimeInterval:0.1];
     [thread cancel];
     ksccd_freeze();
-    const char* cName = ksccd_getThreadName(thread.thread);
+    const char *cName = ksccd_getThreadName(thread.thread);
     XCTAssertTrue(cName != NULL);
-    NSString* name = [NSString stringWithUTF8String:cName];
+    NSString *name = [NSString stringWithUTF8String:cName];
     XCTAssertEqualObjects(name, expectedName);
     ksccd_unfreeze();
 }

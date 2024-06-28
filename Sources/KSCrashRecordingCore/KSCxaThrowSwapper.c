@@ -50,25 +50,23 @@
 
 #include "KSCxaThrowSwapper.h"
 
-#include <stdlib.h>
-#include <errno.h>
-#include <stdio.h>
-#include <string.h>
-#include <execinfo.h>
 #include <dlfcn.h>
+#include <errno.h>
+#include <execinfo.h>
+#include <mach-o/dyld.h>
+#include <mach-o/nlist.h>
+#include <mach/mach.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/types.h>
-#include <mach/mach.h>
-#include <mach-o/dyld.h>
-#include <mach-o/nlist.h>
 
+#include "KSLogger.h"
 #include "KSMach-O.h"
 #include "KSPlatformSpecificDefines.h"
-#include "KSLogger.h"
 
-typedef struct
-{
+typedef struct {
     uintptr_t image;
     uintptr_t function;
 } KSAddressPair;
@@ -84,12 +82,10 @@ static void addPair(KSAddressPair pair)
 {
     KSLOG_DEBUG("Adding address pair: image=%p, function=%p", (void *)pair.image, (void *)pair.function);
 
-    if (g_cxa_originals_count == g_cxa_originals_capacity)
-    {
+    if (g_cxa_originals_count == g_cxa_originals_capacity) {
         g_cxa_originals_capacity *= 2;
-        g_cxa_originals = (KSAddressPair *) realloc(g_cxa_originals, sizeof(KSAddressPair) * g_cxa_originals_capacity);
-        if (g_cxa_originals == NULL)
-        {
+        g_cxa_originals = (KSAddressPair *)realloc(g_cxa_originals, sizeof(KSAddressPair) * g_cxa_originals_capacity);
+        if (g_cxa_originals == NULL) {
             KSLOG_ERROR("Failed to realloc memory for g_cxa_originals: %s", strerror(errno));
             return;
         }
@@ -101,15 +97,13 @@ static uintptr_t findAddress(void *address)
 {
     KSLOG_TRACE("Finding address for %p", address);
 
-    for (size_t i = 0; i < g_cxa_originals_count; i++)
-    {
-        if (g_cxa_originals[i].image == (uintptr_t) address)
-        {
+    for (size_t i = 0; i < g_cxa_originals_count; i++) {
+        if (g_cxa_originals[i].image == (uintptr_t)address) {
             return g_cxa_originals[i].function;
         }
     }
     KSLOG_WARN("Address %p not found", address);
-    return (uintptr_t) NULL;
+    return (uintptr_t)NULL;
 }
 
 static void __cxa_throw_decorator(void *thrown_exception, void *tinfo, void (*dest)(void *))
@@ -124,25 +118,19 @@ static void __cxa_throw_decorator(void *thrown_exception, void *tinfo, void (*de
     int count = backtrace(backtraceArr, k_requiredFrames);
 
     Dl_info info;
-    if (count >= k_requiredFrames)
-    {
-        if (dladdr(backtraceArr[k_requiredFrames - 1], &info) != 0)
-        {
+    if (count >= k_requiredFrames) {
+        if (dladdr(backtraceArr[k_requiredFrames - 1], &info) != 0) {
             uintptr_t function = findAddress(info.dli_fbase);
-            if (function != (uintptr_t) NULL)
-            {
+            if (function != (uintptr_t)NULL) {
                 KSLOG_TRACE("Calling original __cxa_throw function at %p", (void *)function);
-                cxa_throw_type original = (cxa_throw_type) function;
+                cxa_throw_type original = (cxa_throw_type)function;
                 original(thrown_exception, tinfo, dest);
             }
         }
     }
 }
 
-static void perform_rebinding_with_section(const section_t *dataSection,
-                                           intptr_t slide,
-                                           nlist_t *symtab,
-                                           char *strtab,
+static void perform_rebinding_with_section(const section_t *dataSection, intptr_t slide, nlist_t *symtab, char *strtab,
                                            uint32_t *indirect_symtab)
 {
     KSLOG_TRACE("Performing rebinding with section %s,%s", dataSection->segname, dataSection->sectname);
@@ -151,93 +139,69 @@ static void perform_rebinding_with_section(const section_t *dataSection,
     uint32_t *indirect_symbol_indices = indirect_symtab + dataSection->reserved1;
     void **indirect_symbol_bindings = (void **)((uintptr_t)slide + dataSection->addr);
     vm_prot_t oldProtection = VM_PROT_READ;
-    if (isDataConst)
-    {
+    if (isDataConst) {
         oldProtection = ksmacho_getSectionProtection(indirect_symbol_bindings);
-        if (mprotect(indirect_symbol_bindings, dataSection->size, PROT_READ | PROT_WRITE) != 0)
-        {
-            KSLOG_DEBUG("mprotect failed to set PROT_READ | PROT_WRITE for section %s,%s: %s",
-                        dataSection->segname,
-                        dataSection->sectname,
-                        strerror(errno));
+        if (mprotect(indirect_symbol_bindings, dataSection->size, PROT_READ | PROT_WRITE) != 0) {
+            KSLOG_DEBUG("mprotect failed to set PROT_READ | PROT_WRITE for section %s,%s: %s", dataSection->segname,
+                        dataSection->sectname, strerror(errno));
             return;
         }
     }
-    for (uint i = 0; i < dataSection->size / sizeof(void *); i++)
-    {
+    for (uint i = 0; i < dataSection->size / sizeof(void *); i++) {
         uint32_t symtab_index = indirect_symbol_indices[i];
-        if (symtab_index == INDIRECT_SYMBOL_ABS ||
-            symtab_index == INDIRECT_SYMBOL_LOCAL ||
-            symtab_index == (INDIRECT_SYMBOL_LOCAL | INDIRECT_SYMBOL_ABS))
-        {
+        if (symtab_index == INDIRECT_SYMBOL_ABS || symtab_index == INDIRECT_SYMBOL_LOCAL ||
+            symtab_index == (INDIRECT_SYMBOL_LOCAL | INDIRECT_SYMBOL_ABS)) {
             continue;
         }
         uint32_t strtab_offset = symtab[symtab_index].n_un.n_strx;
         char *symbol_name = strtab + strtab_offset;
         bool symbol_name_longer_than_1 = symbol_name[0] && symbol_name[1];
-        if (symbol_name_longer_than_1 && strcmp(&symbol_name[1], g_cxa_throw_name) == 0)
-        {
+        if (symbol_name_longer_than_1 && strcmp(&symbol_name[1], g_cxa_throw_name) == 0) {
             Dl_info info;
-            if (dladdr(dataSection, &info) != 0)
-            {
-                KSAddressPair pair = {(uintptr_t)info.dli_fbase, (uintptr_t)indirect_symbol_bindings[i]};
+            if (dladdr(dataSection, &info) != 0) {
+                KSAddressPair pair = { (uintptr_t)info.dli_fbase, (uintptr_t)indirect_symbol_bindings[i] };
                 addPair(pair);
             }
             indirect_symbol_bindings[i] = (void *)__cxa_throw_decorator;
             continue;
         }
     }
-    if (isDataConst)
-    {
+    if (isDataConst) {
         int protection = 0;
-        if (oldProtection & VM_PROT_READ)
-        {
+        if (oldProtection & VM_PROT_READ) {
             protection |= PROT_READ;
         }
-        if (oldProtection & VM_PROT_WRITE)
-        {
+        if (oldProtection & VM_PROT_WRITE) {
             protection |= PROT_WRITE;
         }
-        if (oldProtection & VM_PROT_EXECUTE)
-        {
+        if (oldProtection & VM_PROT_EXECUTE) {
             protection |= PROT_EXEC;
         }
-        if (mprotect(indirect_symbol_bindings, dataSection->size, protection) != 0)
-        {
-            KSLOG_ERROR("mprotect failed to restore protection for section %s,%s: %s",
-                        dataSection->segname,
-                        dataSection->sectname,
-                        strerror(errno));
+        if (mprotect(indirect_symbol_bindings, dataSection->size, protection) != 0) {
+            KSLOG_ERROR("mprotect failed to restore protection for section %s,%s: %s", dataSection->segname,
+                        dataSection->sectname, strerror(errno));
         }
     }
 }
 
-static void process_segment(const struct mach_header *header,
-                            intptr_t slide,
-                            const char *segname,
-                            nlist_t *symtab,
-                            char *strtab,
-                            uint32_t *indirect_symtab)
+static void process_segment(const struct mach_header *header, intptr_t slide, const char *segname, nlist_t *symtab,
+                            char *strtab, uint32_t *indirect_symtab)
 {
     KSLOG_DEBUG("Processing segment %s", segname);
 
     const segment_command_t *segment = ksmacho_getSegmentByNameFromHeader((mach_header_t *)header, segname);
-    if (segment != NULL)
-    {
+    if (segment != NULL) {
         const section_t *lazy_sym_sect = ksmacho_getSectionByTypeFlagFromSegment(segment, S_LAZY_SYMBOL_POINTERS);
-        const section_t *non_lazy_sym_sect = ksmacho_getSectionByTypeFlagFromSegment(segment, S_NON_LAZY_SYMBOL_POINTERS);
+        const section_t *non_lazy_sym_sect =
+            ksmacho_getSectionByTypeFlagFromSegment(segment, S_NON_LAZY_SYMBOL_POINTERS);
 
-        if (lazy_sym_sect != NULL)
-        {
+        if (lazy_sym_sect != NULL) {
             perform_rebinding_with_section(lazy_sym_sect, slide, symtab, strtab, indirect_symtab);
         }
-        if (non_lazy_sym_sect != NULL)
-        {
+        if (non_lazy_sym_sect != NULL) {
             perform_rebinding_with_section(non_lazy_sym_sect, slide, symtab, strtab, indirect_symtab);
         }
-    }
-    else
-    {
+    } else {
         KSLOG_WARN("Segment %s not found", segname);
     }
 }
@@ -252,21 +216,19 @@ static void rebind_symbols_for_image(const struct mach_header *header, intptr_t 
         return;
     }
     KSLOG_DEBUG("Image name: %s", info.dli_fname);
-    if (slide == 0)
-    {
+    if (slide == 0) {
         KSLOG_DEBUG("Zero slide, can't do anything with it");
         return;
     }
 
-    const struct symtab_command *symtab_cmd = 
+    const struct symtab_command *symtab_cmd =
         (struct symtab_command *)ksmacho_getCommandByTypeFromHeader((const mach_header_t *)header, LC_SYMTAB);
-    const struct dysymtab_command *dysymtab_cmd = 
+    const struct dysymtab_command *dysymtab_cmd =
         (struct dysymtab_command *)ksmacho_getCommandByTypeFromHeader((const mach_header_t *)header, LC_DYSYMTAB);
-    const segment_command_t *linkedit_segment = 
+    const segment_command_t *linkedit_segment =
         ksmacho_getSegmentByNameFromHeader((mach_header_t *)header, SEG_LINKEDIT);
 
-    if (symtab_cmd == NULL || dysymtab_cmd == NULL || linkedit_segment == NULL)
-    {
+    if (symtab_cmd == NULL || dysymtab_cmd == NULL || linkedit_segment == NULL) {
         KSLOG_WARN("Required commands or segments not found");
         return;
     }
@@ -287,29 +249,23 @@ int ksct_swap(const cxa_throw_type handler)
 {
     KSLOG_DEBUG("Swapping __cxa_throw handler");
 
-    if (g_cxa_originals == NULL)
-    {
+    if (g_cxa_originals == NULL) {
         g_cxa_originals_capacity = 25;
         g_cxa_originals = (KSAddressPair *)malloc(sizeof(KSAddressPair) * g_cxa_originals_capacity);
-        if (g_cxa_originals == NULL)
-        {
+        if (g_cxa_originals == NULL) {
             KSLOG_ERROR("Failed to allocate memory for g_cxa_originals: %s", strerror(errno));
             return -1;
         }
     }
     g_cxa_originals_count = 0;
 
-    if (g_cxa_throw_handler == NULL)
-    {
+    if (g_cxa_throw_handler == NULL) {
         g_cxa_throw_handler = handler;
         _dyld_register_func_for_add_image(rebind_symbols_for_image);
-    }
-    else
-    {
+    } else {
         g_cxa_throw_handler = handler;
         uint32_t c = _dyld_image_count();
-        for (uint32_t i = 0; i < c; i++)
-        {
+        for (uint32_t i = 0; i < c; i++) {
             rebind_symbols_for_image(_dyld_get_image_header(i), _dyld_get_image_vmaddr_slide(i));
         }
     }

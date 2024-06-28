@@ -38,19 +38,18 @@
 // First monitor
 static bool g_dummyEnabledState = false;
 static bool g_dummyPostSystemEnabled = false;
-static const char* const g_eventID = "TestEventID";
+static const char *const g_eventID = "TestEventID";
 
-static const char* dummyMonitorId(void) { return "Dummy Monitor"; }
-static const char* newMonitorId(void) { return "New Monitor"; }
+static const char *dummyMonitorId(void) { return "Dummy Monitor"; }
+static const char *newMonitorId(void) { return "New Monitor"; }
 
 static KSCrashMonitorFlag dummyMonitorFlags(void) { return KSCrashMonitorFlagAsyncSafe; }
 
 static void dummySetEnabled(bool isEnabled) { g_dummyEnabledState = isEnabled; }
 static bool dummyIsEnabled(void) { return g_dummyEnabledState; }
-static void dummyAddContextualInfoToEvent(struct KSCrash_MonitorContext* eventContext)
+static void dummyAddContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext)
 {
-    if (eventContext != NULL)
-    {
+    if (eventContext != NULL) {
         eventContext->eventID = g_eventID;
     }
 }
@@ -58,10 +57,10 @@ static void dummyAddContextualInfoToEvent(struct KSCrash_MonitorContext* eventCo
 static void dummyNotifyPostSystemEnable(void) { g_dummyPostSystemEnabled = true; }
 
 // Second monitor
-static const char* secondDummyMonitorId(void) { return "Second Dummy Monitor"; }
+static const char *secondDummyMonitorId(void) { return "Second Dummy Monitor"; }
 
 static bool g_secondDummyEnabledState = false;
-static const char* const g_secondEventID = "SecondEventID";
+static const char *const g_secondEventID = "SecondEventID";
 
 static void secondDummySetEnabled(bool isEnabled) { g_secondDummyEnabledState = isEnabled; }
 static bool secondDummyIsEnabled(void) { return g_secondDummyEnabledState; }
@@ -73,14 +72,14 @@ static KSCrashMonitorAPI g_secondDummyMonitor = {};
 
 static BOOL g_exceptionHandled = NO;
 
-static void myEventCallback(struct KSCrash_MonitorContext* context) { g_exceptionHandled = YES; }
+static void myEventCallback(struct KSCrash_MonitorContext *context) { g_exceptionHandled = YES; }
 
 extern void kscm_resetState(void);
 
 - (void)setUp
 {
     [super setUp];
-// First monitor
+    // First monitor
     g_dummyMonitor.monitorId = dummyMonitorId;
     g_dummyMonitor.monitorFlags = dummyMonitorFlags;
     g_dummyMonitor.setEnabled = dummySetEnabled;
@@ -90,12 +89,12 @@ extern void kscm_resetState(void);
     g_dummyEnabledState = false;
     g_dummyPostSystemEnabled = false;
     g_exceptionHandled = NO;
-// Second monitor
+    // Second monitor
     g_secondDummyMonitor.monitorId = secondDummyMonitorId;
     g_secondDummyMonitor.setEnabled = secondDummySetEnabled;
     g_secondDummyMonitor.isEnabled = secondDummyIsEnabled;
     g_secondDummyEnabledState = false;
-    
+
     kscm_resetState();
 }
 
@@ -104,7 +103,7 @@ extern void kscm_resetState(void);
 - (void)testAddingAndActivatingMonitors
 {
     XCTAssertTrue(kscm_addMonitor(&g_dummyMonitor), @"Monitor should be successfully added.");
-    kscm_activateMonitors();           // Activate all monitors
+    kscm_activateMonitors();  // Activate all monitors
     XCTAssertTrue(g_dummyMonitor.isEnabled(), @"The monitor should be enabled after activation.");
 }
 
@@ -232,7 +231,7 @@ extern void kscm_resetState(void);
     kscm_activateMonitors();
     XCTAssertTrue(g_dummyMonitor.isEnabled(), @"The monitor should be enabled after activation.");
     struct KSCrash_MonitorContext context = { 0 };
-    context.currentSnapshotUserReported = false;              // Simulate that the exception is not user-reported
+    context.currentSnapshotUserReported = false;     // Simulate that the exception is not user-reported
     context.monitorFlags = KSCrashMonitorFlagFatal;  // Indicate that the exception is fatal
     kscm_handleException(&context);
     XCTAssertTrue(g_dummyMonitor.isEnabled(),
@@ -253,8 +252,8 @@ extern void kscm_resetState(void);
     kscm_notifyFatalExceptionCaptured(false);    // Set g_crashedDuringExceptionHandling to true
     kscm_handleException(&context);              // Handle the exception
     XCTAssertTrue(
-                  context.crashedDuringCrashHandling,
-                  @"The context's crashedDuringCrashHandling should be true when g_crashedDuringExceptionHandling is true.");
+        context.crashedDuringCrashHandling,
+        @"The context's crashedDuringCrashHandling should be true when g_crashedDuringExceptionHandling is true.");
 }
 
 - (void)testHandleExceptionCurrentSnapshotUserReported
@@ -263,10 +262,10 @@ extern void kscm_resetState(void);
     kscm_activateMonitors();
     XCTAssertTrue(g_dummyMonitor.isEnabled(), @"The monitor should be enabled after activation.");
     struct KSCrash_MonitorContext context = { 0 };
-    context.currentSnapshotUserReported = true;               // Simulate that the snapshot is user-reported
+    context.currentSnapshotUserReported = true;      // Simulate that the snapshot is user-reported
     context.monitorFlags = KSCrashMonitorFlagFatal;  // Indicate that the exception is fatal
-    kscm_notifyFatalExceptionCaptured(false);                 // Simulate capturing a fatal exception
-    kscm_handleException(&context);                           // Handle the exception
+    kscm_notifyFatalExceptionCaptured(false);        // Simulate capturing a fatal exception
+    kscm_handleException(&context);                  // Handle the exception
 
     // Since we can't access g_handlingFatalException directly, we indirectly check its effect
     // by ensuring that the monitor is still enabled because g_handlingFatalException should be false now
@@ -315,13 +314,14 @@ extern void kscm_resetState(void);
 - (void)testRemoveMonitorNotAdded
 {
     KSCrashMonitorAPI newMonitor = g_dummyMonitor;
-    newMonitor.monitorId = newMonitorId; // Set monitorId as a function pointer
+    newMonitor.monitorId = newMonitorId;  // Set monitorId as a function pointer
 
-    kscm_removeMonitor(&newMonitor); // Remove without adding
+    kscm_removeMonitor(&newMonitor);  // Remove without adding
     kscm_activateMonitors();
 
     // Verify that no crash occurred and the state remains unchanged
-    XCTAssertFalse(newMonitor.isEnabled ? newMonitor.isEnabled() : NO, @"The new monitor should not be enabled, as it was never added.");
+    XCTAssertFalse(newMonitor.isEnabled ? newMonitor.isEnabled() : NO,
+                   @"The new monitor should not be enabled, as it was never added.");
     XCTAssertFalse(g_dummyMonitor.isEnabled(), @"The dummy monitor should still be disabled as it's not related.");
 }
 
@@ -332,7 +332,8 @@ extern void kscm_resetState(void);
     kscm_activateMonitors();
 
     // Verify that no crash occurred and no state was altered
-    XCTAssertFalse(g_dummyMonitor.isEnabled(), @"The dummy monitor should still be disabled, as NULL removal is a no-op.");
+    XCTAssertFalse(g_dummyMonitor.isEnabled(),
+                   @"The dummy monitor should still be disabled, as NULL removal is a no-op.");
 }
 
 - (void)testRemoveMonitorTwice

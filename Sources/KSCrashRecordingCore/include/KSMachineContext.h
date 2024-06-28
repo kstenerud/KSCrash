@@ -24,13 +24,13 @@
 // THE SOFTWARE.
 //
 
-
 #ifndef HDR_KSMachineContext_h
 #define HDR_KSMachineContext_h
 
-#include "KSThread.h"
-#include <stdbool.h>
 #include <mach/mach.h>
+#include <stdbool.h>
+
+#include "KSThread.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -54,9 +54,9 @@ void ksmc_resumeEnvironment(thread_act_array_t threads, mach_msg_type_number_t n
  *
  * @param NAME The C identifier to give the pointer.
  */
-#define KSMC_NEW_CONTEXT(NAME) \
+#define KSMC_NEW_CONTEXT(NAME)                      \
     char ksmc_##NAME##_storage[ksmc_contextSize()]; \
-    struct KSMachineContext* NAME = (struct KSMachineContext*)ksmc_##NAME##_storage
+    struct KSMachineContext *NAME = (struct KSMachineContext *)ksmc_##NAME##_storage
 
 struct KSMachineContext;
 
@@ -72,7 +72,7 @@ int ksmc_contextSize(void);
  *
  * @return true if successful.
  */
-bool ksmc_getContextForThread(KSThread thread, struct KSMachineContext* destinationContext, bool isCrashedContext);
+bool ksmc_getContextForThread(KSThread thread, struct KSMachineContext *destinationContext, bool isCrashedContext);
 
 /** Fill in a machine context from a signal handler.
  * A signal handler context is always assumed to be a crashed context.
@@ -82,7 +82,7 @@ bool ksmc_getContextForThread(KSThread thread, struct KSMachineContext* destinat
  *
  * @return true if successful.
  */
-bool ksmc_getContextForSignal(void* signalUserContext, struct KSMachineContext* destinationContext);
+bool ksmc_getContextForSignal(void *signalUserContext, struct KSMachineContext *destinationContext);
 
 /** Get the thread associated with a machine context.
  *
@@ -90,7 +90,7 @@ bool ksmc_getContextForSignal(void* signalUserContext, struct KSMachineContext* 
  *
  * @return The associated thread.
  */
-KSThread ksmc_getThreadFromContext(const struct KSMachineContext* const context);
+KSThread ksmc_getThreadFromContext(const struct KSMachineContext *const context);
 
 /** Get the number of threads stored in a machine context.
  *
@@ -98,7 +98,7 @@ KSThread ksmc_getThreadFromContext(const struct KSMachineContext* const context)
  *
  * @return The number of threads.
  */
-int ksmc_getThreadCount(const struct KSMachineContext* const context);
+int ksmc_getThreadCount(const struct KSMachineContext *const context);
 
 /** Get a thread from a machine context.
  *
@@ -107,7 +107,7 @@ int ksmc_getThreadCount(const struct KSMachineContext* const context);
  *
  * @return The thread.
  */
-KSThread ksmc_getThreadAtIndex(const struct KSMachineContext* const context, int index);
+KSThread ksmc_getThreadAtIndex(const struct KSMachineContext *const context, int index);
 
 /** Get the index of a thread.
  *
@@ -116,19 +116,19 @@ KSThread ksmc_getThreadAtIndex(const struct KSMachineContext* const context, int
  *
  * @return The thread's index, or -1 if it couldn't be determined.
  */
-int ksmc_indexOfThread(const struct KSMachineContext* const context, KSThread thread);
+int ksmc_indexOfThread(const struct KSMachineContext *const context, KSThread thread);
 
 /** Check if this is a crashed context.
  */
-bool ksmc_isCrashedContext(const struct KSMachineContext* const context);
+bool ksmc_isCrashedContext(const struct KSMachineContext *const context);
 
 /** Check if this context can have stored CPU state.
  */
-bool ksmc_canHaveCPUState(const struct KSMachineContext* const context);
+bool ksmc_canHaveCPUState(const struct KSMachineContext *const context);
 
 /** Check if this context has valid exception registers.
  */
-bool ksmc_hasValidExceptionRegisters(const struct KSMachineContext* const context);
+bool ksmc_hasValidExceptionRegisters(const struct KSMachineContext *const context);
 
 /** Add a thread to the reserved threads list.
  *
@@ -136,9 +136,8 @@ bool ksmc_hasValidExceptionRegisters(const struct KSMachineContext* const contex
  */
 void ksmc_addReservedThread(KSThread thread);
 
-
 #ifdef __cplusplus
 }
 #endif
 
-#endif // HDR_KSMachineContext_h
+#endif  // HDR_KSMachineContext_h

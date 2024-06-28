@@ -28,6 +28,6 @@
 
 @interface NSString (URLEncode)
 
-- (NSString*) URLEncoded;
+- (NSString *)URLEncoded;
 
 @end

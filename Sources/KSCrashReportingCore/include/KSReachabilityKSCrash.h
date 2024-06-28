@@ -24,7 +24,6 @@
 // THE SOFTWARE.
 //
 
-
 #import <Foundation/Foundation.h>
 #import "KSSystemCapabilities.h"
 #if KSCRASH_HAS_REACHABILITY
@@ -33,7 +32,6 @@
 
 /** This is the notification name used in the Apple reachability example. */
 #define kDefaultNetworkReachabilityChangedNotification @"kNetworkReachabilityChangedNotification"
-
 
 /** Monitors network connectivity.
  *
@@ -57,45 +55,41 @@
  * @param hostname The name or IP address of the host to monitor. If nil or
  *                 empty string, check reachability to the internet in general.
  */
-+ (KSReachabilityKSCrash*) reachabilityToHost:(NSString*) hostname;
++ (KSReachabilityKSCrash *)reachabilityToHost:(NSString *)hostname;
 
 /** Reachability to the local (wired or wifi) network.
  */
-+ (KSReachabilityKSCrash*) reachabilityToLocalNetwork;
-
++ (KSReachabilityKSCrash *)reachabilityToLocalNetwork;
 
 #pragma mark General Information
 
 /** The host we are monitoring reachability to, if any. */
-@property(nonatomic,readonly,retain) NSString* hostname;
-
+@property(nonatomic, readonly, retain) NSString *hostname;
 
 #pragma mark Notifications and Callbacks
 
 /** If non-nil, called whenever reachability flags change.
  * Block will be invoked on the main thread.
  */
-@property(nonatomic,readwrite,copy) void(^onReachabilityChanged)(KSReachabilityKSCrash* reachability);
+@property(nonatomic, readwrite, copy) void (^onReachabilityChanged)(KSReachabilityKSCrash *reachability);
 
 /** The notification to send when reachability changes (nil = don't send).
  * Default = nil
  */
-@property(nonatomic,readwrite,retain) NSString* notificationName;
-
+@property(nonatomic, readwrite, retain) NSString *notificationName;
 
 #pragma mark KVO Compliant Status Properties
 
 /** The current reachability flags. */
 #if KSCRASH_HAS_REACHABILITY
-@property(nonatomic,readonly,assign) SCNetworkReachabilityFlags flags;
+@property(nonatomic, readonly, assign) SCNetworkReachabilityFlags flags;
 #endif
 
 /** Whether the host is reachable or not. */
-@property(nonatomic,readonly,assign) BOOL reachable;
+@property(nonatomic, readonly, assign) BOOL reachable;
 
 /* If YES, the host is only reachable by WWAN (iOS only). */
-@property(nonatomic,readonly,assign) BOOL WWANOnly;
-
+@property(nonatomic, readonly, assign) BOOL WWANOnly;
 
 #pragma mark Utility
 
@@ -104,17 +98,15 @@
  *
  * @return YES if the flags were successfully updated.
  */
-- (BOOL) updateFlags;
+- (BOOL)updateFlags;
 
 @end
-
-
 
 /** A one-time operation to perform as soon as a host is deemed reachable.
  * The operation will only be performed once, regardless of how many times a
  * host becomes reachable.
  */
-@interface KSReachableOperationKSCrash: NSObject
+@interface KSReachableOperationKSCrash : NSObject
 
 /** Constructor.
  *
@@ -128,9 +120,9 @@
  * @param block The block to invoke when the host becomes reachable.
  *              Block will be invoked on the main thread.
  */
-+ (KSReachableOperationKSCrash*) operationWithHost:(NSString*) hostname
-                                         allowWWAN:(BOOL) allowWWAN
-                                             block:(void(^)(void)) block;
++ (KSReachableOperationKSCrash *)operationWithHost:(NSString *)hostname
+                                         allowWWAN:(BOOL)allowWWAN
+                                             block:(void (^)(void))block;
 
 /** Constructor.
  *
@@ -144,8 +136,6 @@
  * @param block The block to invoke when the host becomes reachable.
  *              Block will be invoked on the main thread.
  */
-- (id) initWithHost:(NSString*) hostname
-          allowWWAN:(BOOL) allowWWAN
-              block:(void(^)(void)) block;
+- (id)initWithHost:(NSString *)hostname allowWWAN:(BOOL)allowWWAN block:(void (^)(void))block;
 
 @end

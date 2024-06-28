@@ -24,40 +24,38 @@
 // THE SOFTWARE.
 //
 
-
 #import "KSCrashReportSinkEMail.h"
 
+#import "KSCrashReport.h"
 #import "KSCrashReportFilterAppleFmt.h"
 #import "KSCrashReportFilterBasic.h"
 #import "KSCrashReportFilterGZip.h"
 #import "KSCrashReportFilterJSON.h"
-#import "NSError+SimpleConstructor.h"
 #import "KSSystemCapabilities.h"
-#import "KSCrashReport.h"
+#import "NSError+SimpleConstructor.h"
 
-//#define KSLogger_LocalLevel TRACE
+// #define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
 
 #if KSCRASH_HAS_MESSAGEUI
 #import <MessageUI/MessageUI.h>
 
-
 @interface KSCrashMailProcess : NSObject <MFMailComposeViewControllerDelegate>
 
-@property(nonatomic,readwrite,copy) NSArray<KSCrashReport*>* reports;
-@property(nonatomic,readwrite,copy) KSCrashReportFilterCompletion onCompletion;
+@property(nonatomic, readwrite, copy) NSArray<KSCrashReport *> *reports;
+@property(nonatomic, readwrite, copy) KSCrashReportFilterCompletion onCompletion;
 
-@property(nonatomic,readwrite,retain) UIViewController* dummyVC;
+@property(nonatomic, readwrite, retain) UIViewController *dummyVC;
 
-+ (KSCrashMailProcess*) process;
++ (KSCrashMailProcess *)process;
 
-- (void) startWithController:(MFMailComposeViewController*) controller
-                     reports:(NSArray<KSCrashReport*>*) reports
-                 filenameFmt:(NSString*) filenameFmt
-                onCompletion:(KSCrashReportFilterCompletion) onCompletion;
+- (void)startWithController:(MFMailComposeViewController *)controller
+                    reports:(NSArray<KSCrashReport *> *)reports
+                filenameFmt:(NSString *)filenameFmt
+               onCompletion:(KSCrashReportFilterCompletion)onCompletion;
 
-- (void) presentModalVC:(UIViewController*) vc;
-- (void) dismissModalVC;
+- (void)presentModalVC:(UIViewController *)vc;
+- (void)dismissModalVC;
 
 @end
 
@@ -67,15 +65,15 @@
 @synthesize onCompletion = _onCompletion;
 @synthesize dummyVC = _dummyVC;
 
-+ (KSCrashMailProcess*) process
++ (KSCrashMailProcess *)process
 {
     return [[self alloc] init];
 }
 
-- (void) startWithController:(MFMailComposeViewController*) controller
-                     reports:(NSArray<KSCrashReport*>*) reports
-                 filenameFmt:(NSString*) filenameFmt
-                onCompletion:(KSCrashReportFilterCompletion) onCompletion
+- (void)startWithController:(MFMailComposeViewController *)controller
+                    reports:(NSArray<KSCrashReport *> *)reports
+                filenameFmt:(NSString *)filenameFmt
+               onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
     self.reports = [reports copy];
     self.onCompletion = onCompletion;
@@ -83,30 +81,25 @@
     controller.mailComposeDelegate = self;
 
     int i = 1;
-    for(KSCrashReport* report in reports)
-    {
-        NSData* data = report.dataValue;
-        if(data == nil)
-        {
+    for (KSCrashReport *report in reports) {
+        NSData *data = report.dataValue;
+        if (data == nil) {
             KSLOG_ERROR(@"Unexpected non-data report: %@", report);
             continue;
         }
-        [controller addAttachmentData:data
-                             mimeType:@"binary"
-                             fileName:[NSString stringWithFormat:filenameFmt, i++]];
+        [controller addAttachmentData:data mimeType:@"binary" fileName:[NSString stringWithFormat:filenameFmt, i++]];
     }
 
     [self presentModalVC:controller];
 }
 
-- (void) mailComposeController:(__unused MFMailComposeViewController*) mailController
-           didFinishWithResult:(MFMailComposeResult) result
-                         error:(NSError*) error
+- (void)mailComposeController:(__unused MFMailComposeViewController *)mailController
+          didFinishWithResult:(MFMailComposeResult)result
+                        error:(NSError *)error
 {
     [self dismissModalVC];
 
-    switch (result)
-    {
+    switch (result) {
         case MFMailComposeResultSent:
             kscrash_callCompletion(self.onCompletion, self.reports, YES, nil);
             break;
@@ -115,37 +108,33 @@
             break;
         case MFMailComposeResultCancelled:
             kscrash_callCompletion(self.onCompletion, self.reports, NO,
-                                     [NSError errorWithDomain:[[self class] description]
-                                                         code:0
-                                                  description:@"User cancelled"]);
+                                   [NSError errorWithDomain:[[self class] description]
+                                                       code:0
+                                                description:@"User cancelled"]);
             break;
         case MFMailComposeResultFailed:
             kscrash_callCompletion(self.onCompletion, self.reports, NO, error);
             break;
-        default:
-        {
+        default: {
             kscrash_callCompletion(self.onCompletion, self.reports, NO,
-                                     [NSError errorWithDomain:[[self class] description]
-                                                         code:0
-                                                  description:@"Unknown MFMailComposeResult: %d", result]);
+                                   [NSError errorWithDomain:[[self class] description]
+                                                       code:0
+                                                description:@"Unknown MFMailComposeResult: %d", result]);
         }
     }
 }
 
-- (void) presentModalVC:(UIViewController*) vc
+- (void)presentModalVC:(UIViewController *)vc
 {
-	self.dummyVC = [[UIViewController alloc] initWithNibName:nil bundle:nil];
-	self.dummyVC.view = [[UIView alloc] init];
+    self.dummyVC = [[UIViewController alloc] initWithNibName:nil bundle:nil];
+    self.dummyVC.view = [[UIView alloc] init];
 
-    UIWindow* window = [[[UIApplication sharedApplication] delegate] window];
+    UIWindow *window = [[[UIApplication sharedApplication] delegate] window];
     [window addSubview:self.dummyVC.view];
 
-    if([self.dummyVC respondsToSelector:@selector(presentViewController:animated:completion:)])
-    {
+    if ([self.dummyVC respondsToSelector:@selector(presentViewController:animated:completion:)]) {
         [self.dummyVC presentViewController:vc animated:YES completion:nil];
-    }
-    else
-    {
+    } else {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
         [self.dummyVC presentModalViewController:vc animated:YES];
@@ -153,18 +142,15 @@
     }
 }
 
-- (void) dismissModalVC
+- (void)dismissModalVC
 {
-    if([self.dummyVC respondsToSelector:@selector(dismissViewControllerAnimated:completion:)])
-    {
-        [self.dummyVC dismissViewControllerAnimated:YES completion:^
-         {
-             [self.dummyVC.view removeFromSuperview];
-             self.dummyVC = nil;
-         }];
-    }
-    else
-    {
+    if ([self.dummyVC respondsToSelector:@selector(dismissViewControllerAnimated:completion:)]) {
+        [self.dummyVC dismissViewControllerAnimated:YES
+                                         completion:^{
+                                             [self.dummyVC.view removeFromSuperview];
+                                             self.dummyVC = nil;
+                                         }];
+    } else {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
         [self.dummyVC dismissModalViewControllerAnimated:NO];
@@ -176,19 +162,17 @@
 
 @end
 
-
 @interface KSCrashReportSinkEMail ()
 
-@property(nonatomic,readwrite,retain) NSArray* recipients;
+@property(nonatomic, readwrite, retain) NSArray *recipients;
 
-@property(nonatomic,readwrite,retain) NSString* subject;
+@property(nonatomic, readwrite, retain) NSString *subject;
 
-@property(nonatomic,readwrite,retain) NSString* message;
+@property(nonatomic, readwrite, retain) NSString *message;
 
-@property(nonatomic,readwrite,retain) NSString* filenameFmt;
+@property(nonatomic, readwrite, retain) NSString *filenameFmt;
 
 @end
-
 
 @implementation KSCrashReportSinkEMail
 
@@ -197,24 +181,20 @@
 @synthesize message = _message;
 @synthesize filenameFmt = _filenameFmt;
 
-+ (instancetype) sinkWithRecipients:(NSArray<NSString*>*) recipients
-                            subject:(NSString*) subject
-                            message:(nullable NSString*) message
-                        filenameFmt:(NSString*) filenameFmt
++ (instancetype)sinkWithRecipients:(NSArray<NSString *> *)recipients
+                           subject:(NSString *)subject
+                           message:(nullable NSString *)message
+                       filenameFmt:(NSString *)filenameFmt
 {
-    return [[self alloc] initWithRecipients:recipients
-                                    subject:subject
-                                    message:message
-                                filenameFmt:filenameFmt];
+    return [[self alloc] initWithRecipients:recipients subject:subject message:message filenameFmt:filenameFmt];
 }
 
-- (instancetype) initWithRecipients:(NSArray<NSString*>*) recipients
-                            subject:(NSString*) subject
-                            message:(nullable NSString*) message
-                        filenameFmt:(NSString*) filenameFmt
+- (instancetype)initWithRecipients:(NSArray<NSString *> *)recipients
+                           subject:(NSString *)subject
+                           message:(nullable NSString *)message
+                       filenameFmt:(NSString *)filenameFmt
 {
-    if((self = [super init]))
-    {
+    if ((self = [super init])) {
         self.recipients = recipients;
         self.subject = subject;
         self.message = message;
@@ -223,73 +203,61 @@
     return self;
 }
 
-- (id <KSCrashReportFilter>) defaultCrashReportFilterSet
+- (id<KSCrashReportFilter>)defaultCrashReportFilterSet
 {
-    return [KSCrashReportFilterPipeline filterWithFilters:
-            [KSCrashReportFilterJSONEncode filterWithOptions:KSJSONEncodeOptionSorted | KSJSONEncodeOptionPretty],
-            [KSCrashReportFilterGZipCompress filterWithCompressionLevel:-1],
-            self,
-            nil];
+    return [KSCrashReportFilterPipeline
+        filterWithFilters:[KSCrashReportFilterJSONEncode
+                              filterWithOptions:KSJSONEncodeOptionSorted | KSJSONEncodeOptionPretty],
+                          [KSCrashReportFilterGZipCompress filterWithCompressionLevel:-1], self, nil];
 }
 
-- (id <KSCrashReportFilter>) defaultCrashReportFilterSetAppleFmt
+- (id<KSCrashReportFilter>)defaultCrashReportFilterSetAppleFmt
 {
-    return [KSCrashReportFilterPipeline filterWithFilters:
-            [KSCrashReportFilterAppleFmt filterWithReportStyle:KSAppleReportStyleSymbolicatedSideBySide],
-            [KSCrashReportFilterStringToData filter],
-            [KSCrashReportFilterGZipCompress filterWithCompressionLevel:-1],
-            self,
-            nil];
+    return [KSCrashReportFilterPipeline
+        filterWithFilters:[KSCrashReportFilterAppleFmt filterWithReportStyle:KSAppleReportStyleSymbolicatedSideBySide],
+                          [KSCrashReportFilterStringToData filter],
+                          [KSCrashReportFilterGZipCompress filterWithCompressionLevel:-1], self, nil];
 }
 
-- (void) filterReports:(NSArray<KSCrashReport*>*) reports
-          onCompletion:(KSCrashReportFilterCompletion) onCompletion
+- (void)filterReports:(NSArray<KSCrashReport *> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
-    if(![MFMailComposeViewController canSendMail])
-    {
-        UIAlertController *alertController = [UIAlertController alertControllerWithTitle:@"Email Error"
-                                                                       message:@"This device is not configured to send email."
-                                                                preferredStyle:UIAlertControllerStyleAlert];
-        UIAlertAction *okAction = [UIAlertAction actionWithTitle:@"OK"
-                                                            style:UIAlertActionStyleDefault
-                                                         handler:nil];
+    if (![MFMailComposeViewController canSendMail]) {
+        UIAlertController *alertController =
+            [UIAlertController alertControllerWithTitle:@"Email Error"
+                                                message:@"This device is not configured to send email."
+                                         preferredStyle:UIAlertControllerStyleAlert];
+        UIAlertAction *okAction = [UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil];
         [alertController addAction:okAction];
         UIWindow *keyWindow = [[UIApplication sharedApplication] keyWindow];
         [keyWindow.rootViewController presentViewController:alertController animated:YES completion:NULL];
 
         kscrash_callCompletion(onCompletion, reports, NO,
-                                 [NSError errorWithDomain:[[self class] description]
-                                                     code:0
-                                              description:@"E-Mail not enabled on device"]);
+                               [NSError errorWithDomain:[[self class] description]
+                                                   code:0
+                                            description:@"E-Mail not enabled on device"]);
         return;
     }
 
-    MFMailComposeViewController* mailController = [[MFMailComposeViewController alloc] init];
+    MFMailComposeViewController *mailController = [[MFMailComposeViewController alloc] init];
     [mailController setToRecipients:self.recipients];
     [mailController setSubject:self.subject];
-    if(self.message != nil)
-    {
+    if (self.message != nil) {
         [mailController setMessageBody:self.message isHTML:NO];
     }
-    NSString* filenameFmt = self.filenameFmt;
+    NSString *filenameFmt = self.filenameFmt;
 
-    dispatch_async(dispatch_get_main_queue(), ^
-                   {
-                       __block KSCrashMailProcess* process = [[KSCrashMailProcess alloc] init];
-                       [process startWithController:mailController
-                                            reports:reports
-                                        filenameFmt:filenameFmt
-                                       onCompletion:^(NSArray* filteredReports,
-                                                      BOOL completed,
-                                                      NSError* error)
-                        {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        __block KSCrashMailProcess *process = [[KSCrashMailProcess alloc] init];
+        [process startWithController:mailController
+                             reports:reports
+                         filenameFmt:filenameFmt
+                        onCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error) {
                             kscrash_callCompletion(onCompletion, filteredReports, completed, error);
-                            dispatch_async(dispatch_get_main_queue(), ^
-                                           {
-                                               process = nil;
-                                           });
+                            dispatch_async(dispatch_get_main_queue(), ^{
+                                process = nil;
+                            });
                         }];
-                   });
+    });
 }
 
 @end
@@ -300,55 +268,47 @@
 
 @implementation KSCrashReportSinkEMail
 
-+ (KSCrashReportSinkEMail*) sinkWithRecipients:(NSArray*) recipients
-                                       subject:(NSString*) subject
-                                       message:(NSString*) message
-                                   filenameFmt:(NSString*) filenameFmt
++ (KSCrashReportSinkEMail *)sinkWithRecipients:(NSArray *)recipients
+                                       subject:(NSString *)subject
+                                       message:(NSString *)message
+                                   filenameFmt:(NSString *)filenameFmt
 {
-    return [[self alloc] initWithRecipients:recipients
-                                    subject:subject
-                                    message:message
-                                filenameFmt:filenameFmt];
+    return [[self alloc] initWithRecipients:recipients subject:subject message:message filenameFmt:filenameFmt];
 }
 
-- (id) initWithRecipients:(__unused NSArray*) recipients
-                  subject:(__unused NSString*) subject
-                  message:(__unused NSString*) message
-              filenameFmt:(__unused NSString*) filenameFmt
+- (id)initWithRecipients:(__unused NSArray *)recipients
+                 subject:(__unused NSString *)subject
+                 message:(__unused NSString *)message
+             filenameFmt:(__unused NSString *)filenameFmt
 {
     return [super init];
 }
 
-- (void) filterReports:(NSArray<KSCrashReport*>*) reports
-          onCompletion:(KSCrashReportFilterCompletion) onCompletion
+- (void)filterReports:(NSArray<KSCrashReport *> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
-    for(KSCrashReport* report in reports)
-    {
+    for (KSCrashReport *report in reports) {
         NSLog(@"Report\n%@", report);
     }
     kscrash_callCompletion(onCompletion, reports, NO,
-                             [NSError errorWithDomain:[[self class] description]
-                                                 code:0
-                                          description:@"Cannot send mail on this platform"]);
+                           [NSError errorWithDomain:[[self class] description]
+                                               code:0
+                                        description:@"Cannot send mail on this platform"]);
 }
 
-- (id <KSCrashReportFilter>) defaultCrashReportFilterSet
+- (id<KSCrashReportFilter>)defaultCrashReportFilterSet
 {
-    return [KSCrashReportFilterPipeline filterWithFilters:
-            [KSCrashReportFilterJSONEncode filterWithOptions:KSJSONEncodeOptionSorted | KSJSONEncodeOptionPretty],
-            [KSCrashReportFilterGZipCompress filterWithCompressionLevel:-1],
-            self,
-            nil];
+    return [KSCrashReportFilterPipeline
+        filterWithFilters:[KSCrashReportFilterJSONEncode
+                              filterWithOptions:KSJSONEncodeOptionSorted | KSJSONEncodeOptionPretty],
+                          [KSCrashReportFilterGZipCompress filterWithCompressionLevel:-1], self, nil];
 }
 
-- (id <KSCrashReportFilter>) defaultCrashReportFilterSetAppleFmt
+- (id<KSCrashReportFilter>)defaultCrashReportFilterSetAppleFmt
 {
-    return [KSCrashReportFilterPipeline filterWithFilters:
-            [KSCrashReportFilterAppleFmt filterWithReportStyle:KSAppleReportStyleSymbolicatedSideBySide],
-            [KSCrashReportFilterStringToData filter],
-            [KSCrashReportFilterGZipCompress filterWithCompressionLevel:-1],
-            self,
-            nil];
+    return [KSCrashReportFilterPipeline
+        filterWithFilters:[KSCrashReportFilterAppleFmt filterWithReportStyle:KSAppleReportStyleSymbolicatedSideBySide],
+                          [KSCrashReportFilterStringToData filter],
+                          [KSCrashReportFilterGZipCompress filterWithCompressionLevel:-1], self, nil];
 }
 
 @end

@@ -24,17 +24,15 @@
 // THE SOFTWARE.
 //
 
-
 #include "KSDebug.h"
 
-//#define KSLogger_LocalLevel TRACE
-#include "KSLogger.h"
-
+// #define KSLogger_LocalLevel TRACE
 #include <errno.h>
 #include <string.h>
 #include <sys/sysctl.h>
 #include <unistd.h>
 
+#include "KSLogger.h"
 
 /** Check if the current process is being traced or not.
  *
@@ -44,13 +42,12 @@ bool ksdebug_isBeingTraced(void)
 {
     struct kinfo_proc procInfo;
     size_t structSize = sizeof(procInfo);
-    int mib[] = {CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid()};
-    
-    if(sysctl(mib, sizeof(mib)/sizeof(*mib), &procInfo, &structSize, NULL, 0) != 0)
-    {
+    int mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid() };
+
+    if (sysctl(mib, sizeof(mib) / sizeof(*mib), &procInfo, &structSize, NULL, 0) != 0) {
         KSLOG_ERROR("sysctl: %s", strerror(errno));
         return false;
     }
-    
+
     return (procInfo.kp_proc.p_flag & P_TRACED) != 0;
 }

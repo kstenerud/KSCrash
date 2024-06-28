@@ -24,28 +24,29 @@
 // THE SOFTWARE.
 //
 
-
 #import "NSMutableData+AppendUTF8.h"
-
 
 @implementation NSMutableData (AppendUTF8)
 
-- (void) appendUTF8String:(NSString*) string
+- (void)appendUTF8String:(NSString *)string
 {
-    const char* cstring = [string UTF8String];
+    const char *cstring = [string UTF8String];
     [self appendBytes:cstring length:strlen(cstring)];
 }
 
-- (void) appendUTF8Format:(NSString*) format, ...
+- (void)appendUTF8Format:(NSString *)format, ...
 {
     va_list args;
     va_start(args, format);
-    NSString* string = [[NSString alloc] initWithFormat:format arguments:args];
+    NSString *string = [[NSString alloc] initWithFormat:format arguments:args];
     va_end(args);
-    const char* cstring = [string UTF8String];
+    const char *cstring = [string UTF8String];
     [self appendBytes:cstring length:strlen(cstring)];
 }
 
 @end
 
-@interface NSMutableData_AppendUTF8_GHO92D : NSObject @end @implementation NSMutableData_AppendUTF8_GHO92D @end
+@interface NSMutableData_AppendUTF8_GHO92D : NSObject
+@end
+@implementation NSMutableData_AppendUTF8_GHO92D
+@end

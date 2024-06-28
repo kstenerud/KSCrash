@@ -24,7 +24,6 @@
 // THE SOFTWARE.
 //
 
-
 #import "KSCrashReportFilter.h"
 
 #import <Foundation/Foundation.h>
@@ -40,10 +39,9 @@ NS_ASSUME_NONNULL_BEGIN
 NS_SWIFT_NAME(CrashReportFilterPassthrough)
 @interface KSCrashReportFilterPassthrough : NSObject <KSCrashReportFilter>
 
-+ (instancetype) filter;
++ (instancetype)filter;
 
 @end
-
 
 /**
  * Passes reports to a series of subfilters, then stores the results of those operations
@@ -61,7 +59,7 @@ NS_SWIFT_NAME(CrashReportFilterCombine)
  *                    Each "filter" can be id<KSCrashReportFilter> or an NSArray
  *                    of filters (which gets wrapped in a pipeline filter).
  */
-+ (instancetype) filterWithFiltersAndKeys:(nullable id) firstFilter, ... NS_REQUIRES_NIL_TERMINATION;
++ (instancetype)filterWithFiltersAndKeys:(nullable id)firstFilter, ... NS_REQUIRES_NIL_TERMINATION;
 
 /** Constructor.
  *
@@ -72,7 +70,7 @@ NS_SWIFT_NAME(CrashReportFilterCombine)
  *                used to store the output of its respective filter in the final
  *                report dictionary.
  */
-+ (instancetype) filterWithFilters:(NSArray*) filters keys:(NSArray<NSString*>*) keys;
++ (instancetype)filterWithFilters:(NSArray *)filters keys:(NSArray<NSString *> *)keys;
 
 /** Initializer.
  *
@@ -80,7 +78,7 @@ NS_SWIFT_NAME(CrashReportFilterCombine)
  *                    Each "filter" can be id<KSCrashReportFilter> or an NSArray
  *                    of filters (which gets wrapped in a pipeline filter).
  */
-- (instancetype) initWithFiltersAndKeys:(nullable id)firstFilter, ... NS_REQUIRES_NIL_TERMINATION;
+- (instancetype)initWithFiltersAndKeys:(nullable id)firstFilter, ... NS_REQUIRES_NIL_TERMINATION;
 
 /** Initializer.
  *
@@ -91,10 +89,9 @@ NS_SWIFT_NAME(CrashReportFilterCombine)
  *                used to store the output of its respective filter in the final
  *                report dictionary.
  */
-- (instancetype) initWithFilters:(NSArray*) filters keys:(NSArray<NSString*>*) keys;
+- (instancetype)initWithFilters:(NSArray *)filters keys:(NSArray<NSString *> *)keys;
 
 @end
-
 
 /**
  * A pipeline of filters. Reports get passed through each subfilter in order.
@@ -106,7 +103,7 @@ NS_SWIFT_NAME(CrashReportFilterPipeline)
 @interface KSCrashReportFilterPipeline : NSObject <KSCrashReportFilter>
 
 /** The filters in this pipeline. */
-@property(nonatomic,readonly,copy) NSArray<id<KSCrashReportFilter>>* filters;
+@property(nonatomic, readonly, copy) NSArray<id<KSCrashReportFilter>> *filters;
 
 /** Constructor.
  *
@@ -114,7 +111,7 @@ NS_SWIFT_NAME(CrashReportFilterPipeline)
  *                    Each "filter" can be an id<KSCrashReportFilter> or an NSArray
  *                    containing filters or locations of filters (which get wrapped in a pipeline filter).
  */
-+ (instancetype) filterWithFilters:(nullable id) firstFilter, ... NS_REQUIRES_NIL_TERMINATION;
++ (instancetype)filterWithFilters:(nullable id)firstFilter, ... NS_REQUIRES_NIL_TERMINATION;
 
 /** Constructor using an array of filters.
  *
@@ -122,7 +119,7 @@ NS_SWIFT_NAME(CrashReportFilterPipeline)
  *                the KSCrashReportFilter protocol or a location of filters.
  *                Arrays of filters will be wrapped in a pipeline filter.
  */
-+ (instancetype) filterWithFiltersArray:(NSArray*) filters;
++ (instancetype)filterWithFiltersArray:(NSArray *)filters;
 
 /** Initializer.
  *
@@ -130,7 +127,7 @@ NS_SWIFT_NAME(CrashReportFilterPipeline)
  *                    Each "filter" can be an id<KSCrashReportFilter> or an NSArray
  *                    containing filters or locations of filters (which get wrapped in a pipeline filter).
  */
-- (instancetype) initWithFilters:(nullable id) firstFilter, ... NS_REQUIRES_NIL_TERMINATION;
+- (instancetype)initWithFilters:(nullable id)firstFilter, ... NS_REQUIRES_NIL_TERMINATION;
 
 /** Initializer using an array of filters.
  *
@@ -138,7 +135,7 @@ NS_SWIFT_NAME(CrashReportFilterPipeline)
  *                the KSCrashReportFilter protocol or a location of filters.
  *                Arrays of filters will be wrapped in a pipeline filter.
  */
-- (instancetype) initWithFiltersArray:(NSArray*) filters;
+- (instancetype)initWithFiltersArray:(NSArray *)filters;
 
 /** Adds a filter to the beginning of the pipeline.
  *
@@ -146,10 +143,9 @@ NS_SWIFT_NAME(CrashReportFilterPipeline)
  *               KSCrashReportFilter protocol. It will be inserted at the
  *               beginning of the existing filters in the pipeline.
  */
-- (void) addFilter:(id<KSCrashReportFilter>) filter;
+- (void)addFilter:(id<KSCrashReportFilter>)filter;
 
 @end
-
 
 /**
  * Takes values by key from the report and concatenates their string representations.
@@ -166,8 +162,7 @@ NS_SWIFT_NAME(CrashReportFilterConcatenate)
  *                     %@ in the formatting text to include the key name as well.
  * @param firstKey Series of keys to extract from the source report.
  */
-+ (instancetype) filterWithSeparatorFmt:(NSString*) separatorFmt
-                                   keys:(id) firstKey, ... NS_REQUIRES_NIL_TERMINATION;
++ (instancetype)filterWithSeparatorFmt:(NSString *)separatorFmt keys:(id)firstKey, ... NS_REQUIRES_NIL_TERMINATION;
 
 /** Constructor using an array of keys.
  *
@@ -176,8 +171,7 @@ NS_SWIFT_NAME(CrashReportFilterConcatenate)
  * @param keys         An array of keys whose corresponding values will be concatenated
  *                     from the source report.
  */
-+ (instancetype) filterWithSeparatorFmt:(NSString*) separatorFmt
-                              keysArray:(NSArray<NSString*>*) keys;
++ (instancetype)filterWithSeparatorFmt:(NSString *)separatorFmt keysArray:(NSArray<NSString *> *)keys;
 
 /** Initializer.
  *
@@ -185,8 +179,7 @@ NS_SWIFT_NAME(CrashReportFilterConcatenate)
  *                     %@ in the formatting text to include the key name as well.
  * @param firstKey Series of keys to extract from the source report.
  */
-- (instancetype) initWithSeparatorFmt:(NSString*) separatorFmt
-                                 keys:(id) firstKey, ... NS_REQUIRES_NIL_TERMINATION;
+- (instancetype)initWithSeparatorFmt:(NSString *)separatorFmt keys:(id)firstKey, ... NS_REQUIRES_NIL_TERMINATION;
 
 /** Initializer using an array of keys.
  *
@@ -195,11 +188,9 @@ NS_SWIFT_NAME(CrashReportFilterConcatenate)
  * @param keys         An array of keys whose corresponding values will be concatenated
  *                     from the source report.
  */
-- (instancetype) initWithSeparatorFmt:(NSString*) separatorFmt
-                            keysArray:(NSArray<NSString*>*) keys;
+- (instancetype)initWithSeparatorFmt:(NSString *)separatorFmt keysArray:(NSArray<NSString *> *)keys;
 
 @end
-
 
 /**
  * Fetches subsets of data from the source reports. All other data is discarded.
@@ -214,30 +205,29 @@ NS_SWIFT_NAME(CrashReportFilterSubset)
  *
  * @param firstKeyPath Series of key paths to search in the source reports.
  */
-+ (instancetype) filterWithKeys:(id) firstKeyPath, ... NS_REQUIRES_NIL_TERMINATION;
++ (instancetype)filterWithKeys:(id)firstKeyPath, ... NS_REQUIRES_NIL_TERMINATION;
 
 /** Constructor using an array of key paths.
  *
  * @param keyPaths An array of key paths to search for in the source reports.
  *                 Each key path will extract a subset of data from the reports.
  */
-+ (instancetype) filterWithKeysArray:(NSArray<NSString*>*) keyPaths;
++ (instancetype)filterWithKeysArray:(NSArray<NSString *> *)keyPaths;
 
 /** Initializer.
  *
  * @param firstKeyPath Series of key paths to search in the source reports.
  */
-- (instancetype) initWithKeys:(id) firstKeyPath, ... NS_REQUIRES_NIL_TERMINATION;
+- (instancetype)initWithKeys:(id)firstKeyPath, ... NS_REQUIRES_NIL_TERMINATION;
 
 /** Initializer using an array of key paths.
  *
  * @param keyPaths An array of key paths to search for in the source reports.
  *                 Each key path will extract a subset of data from the reports.
  */
-- (instancetype) initWithKeysArray:(NSArray<NSString*>*) keyPaths;
+- (instancetype)initWithKeysArray:(NSArray<NSString *> *)keyPaths;
 
 @end
-
 
 /**
  * Convert UTF-8 data to an NSString.
@@ -248,10 +238,9 @@ NS_SWIFT_NAME(CrashReportFilterSubset)
 NS_SWIFT_NAME(CrashReportFilterDataToString)
 @interface KSCrashReportFilterDataToString : NSObject <KSCrashReportFilter>
 
-+ (instancetype) filter;
++ (instancetype)filter;
 
 @end
-
 
 /**
  * Convert NSString to UTF-8 encoded NSData.
@@ -262,7 +251,7 @@ NS_SWIFT_NAME(CrashReportFilterDataToString)
 NS_SWIFT_NAME(CrashReportFilterStringToData)
 @interface KSCrashReportFilterStringToData : NSObject <KSCrashReportFilter>
 
-+ (instancetype) filter;
++ (instancetype)filter;
 
 @end
 

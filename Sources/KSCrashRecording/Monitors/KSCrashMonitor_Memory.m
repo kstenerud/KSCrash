@@ -25,21 +25,21 @@
 //
 #import "KSCrashMonitor_Memory.h"
 
-#import "KSSystemCapabilities.h"
-#import "KSCrashMonitorContextHelper.h"
 #import "KSCrash.h"
+#import "KSCrashAppMemory.h"
+#import "KSCrashAppMemoryTracker.h"
+#import "KSCrashAppStateTracker.h"
 #import "KSCrashC.h"
 #import "KSCrashMonitorContext.h"
-#import "KSCrashAppMemory.h"
-#import "KSID.h"
-#import "KSStackCursor.h"
-#import "KSStackCursor_SelfThread.h"
-#import "KSStackCursor_MachineContext.h"
+#import "KSCrashMonitorContextHelper.h"
 #import "KSCrashReportFields.h"
 #import "KSDate.h"
 #import "KSFileUtils.h"
-#import "KSCrashAppStateTracker.h"
-#import "KSCrashAppMemoryTracker.h"
+#import "KSID.h"
+#import "KSStackCursor.h"
+#import "KSStackCursor_MachineContext.h"
+#import "KSStackCursor_SelfThread.h"
+#import "KSSystemCapabilities.h"
 
 #import <Foundation/Foundation.h>
 #import <os/lock.h>
@@ -68,12 +68,12 @@ static void ksmemory_write_possible_oom(void);
 static void setEnabled(bool isEnabled);
 static bool isEnabled(void);
 static NSURL *kscm_memory_oom_breadcrumb_URL(void);
-static void addContextualInfoToEvent(KSCrash_MonitorContext* eventContext);
+static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext);
 static NSDictionary<NSString *, id> *kscm_memory_serialize(KSCrash_Memory *const memory);
 static void kscm_memory_check_for_oom_in_previous_session(void);
 static void notifyPostSystemEnable(void);
-static void ksmemory_read(const char* path);
-static void ksmemory_map(const char* path);
+static void ksmemory_read(const char *path);
+static void ksmemory_map(const char *path);
 
 // ============================================================================
 #pragma mark - Globals -
@@ -107,8 +107,9 @@ static id<KSCrashAppStateTrackerObserving> g_appStateObserver = nil;
 static os_unfair_lock g_memoryLock = OS_UNFAIR_LOCK_INIT;
 static KSCrash_Memory *g_memory = NULL;
 
-static KSCrash_Memory _ks_memory_copy(void) {
-    KSCrash_Memory copy = {0};
+static KSCrash_Memory _ks_memory_copy(void)
+{
+    KSCrash_Memory copy = { 0 };
     {
         os_unfair_lock_lock(&g_memoryLock);
         if (g_memory) {
@@ -119,7 +120,8 @@ static KSCrash_Memory _ks_memory_copy(void) {
     return copy;
 }
 
-static void _ks_memory_update(void (^block)(KSCrash_Memory *mem)) {
+static void _ks_memory_update(void (^block)(KSCrash_Memory *mem))
+{
     if (!block) {
         return;
     }
@@ -130,9 +132,10 @@ static void _ks_memory_update(void (^block)(KSCrash_Memory *mem)) {
     os_unfair_lock_unlock(&g_memoryLock);
 }
 
-static void _ks_memory_update_from_app_memory(KSCrashAppMemory *const memory) {
+static void _ks_memory_update_from_app_memory(KSCrashAppMemory *const memory)
+{
     _ks_memory_update(^(KSCrash_Memory *mem) {
-        *mem = (KSCrash_Memory){
+        *mem = (KSCrash_Memory) {
             .magic = KSCrash_Memory_Magic,
             .version = KSCrash_Memory_CurrentVersion,
             .footprint = memory.footprint,
@@ -185,42 +188,39 @@ static KSCrash_Memory g_previousSessionMemory;
     _ks_memory_update_from_app_memory(memory);
 }
 
-- (void)appMemoryTracker:(KSCrashAppMemoryTracker *)tracker memory:(KSCrashAppMemory *)memory changed:(KSCrashAppMemoryTrackerChangeType)changes
+- (void)appMemoryTracker:(KSCrashAppMemoryTracker *)tracker
+                  memory:(KSCrashAppMemory *)memory
+                 changed:(KSCrashAppMemoryTrackerChangeType)changes
 {
     if (changes & KSCrashAppMemoryTrackerChangeTypeFootprint) {
         [self _updateMappedMemoryFrom:memory];
     }
-    
-    if ((changes & KSCrashAppMemoryTrackerChangeTypeLevel) &&
-        memory.level >= g_MinimumNonFatalReportingLevel) {
 
+    if ((changes & KSCrashAppMemoryTrackerChangeTypeLevel) && memory.level >= g_MinimumNonFatalReportingLevel) {
         NSString *level = @(KSCrashAppMemoryStateToString(memory.level)).uppercaseString;
         NSString *reason = [NSString stringWithFormat:@"Memory Level Is %@", level];
-        
+
         [[KSCrash sharedInstance] reportUserException:@"Memory Level"
                                                reason:reason
                                              language:@""
                                            lineOfCode:@"0"
-                                           stackTrace:@[@"__MEMORY_LEVEL__NON_FATAL__"]
+                                           stackTrace:@[ @"__MEMORY_LEVEL__NON_FATAL__" ]
                                         logAllThreads:NO
                                      terminateProgram:NO];
     }
-    
-    if ((changes & KSCrashAppMemoryTrackerChangeTypePressure) &&
-        memory.pressure >= g_MinimumNonFatalReportingLevel) {
 
+    if ((changes & KSCrashAppMemoryTrackerChangeTypePressure) && memory.pressure >= g_MinimumNonFatalReportingLevel) {
         NSString *pressure = @(KSCrashAppMemoryStateToString(memory.pressure)).uppercaseString;
         NSString *reason = [NSString stringWithFormat:@"Memory Pressure Is %@", pressure];
-        
+
         [[KSCrash sharedInstance] reportUserException:@"Memory Pressure"
                                                reason:reason
                                              language:@""
                                            lineOfCode:@"0"
-                                           stackTrace:@[@"__MEMORY_PRESSURE__NON_FATAL__"]
+                                           stackTrace:@[ @"__MEMORY_PRESSURE__NON_FATAL__" ]
                                         logAllThreads:NO
                                      terminateProgram:NO];
     }
-    
 }
 
 @end
@@ -229,31 +229,25 @@ static KSCrash_Memory g_previousSessionMemory;
 #pragma mark - API -
 // ============================================================================
 
-static const char* monitorId(void)
-{
-    return "MemoryTermination";
-}
+static const char *monitorId(void) { return "MemoryTermination"; }
 
 static void setEnabled(bool isEnabled)
 {
-    if (isEnabled != g_isEnabled)
-    {
+    if (isEnabled != g_isEnabled) {
         g_isEnabled = isEnabled;
-        if(isEnabled)
-        {
+        if (isEnabled) {
             g_memoryTracker = [[_KSCrashMonitor_MemoryTracker alloc] init];
-            
+
             ksmemory_map(g_memoryURL.path.UTF8String);
 
-            g_appStateObserver = [KSCrashAppStateTracker.sharedInstance addObserverWithBlock:^(KSCrashAppTransitionState transitionState) {
-                _ks_memory_update(^(KSCrash_Memory *mem) {
-                    mem->state = transitionState;
-                });
-            }];
-            
-        }
-        else
-        {
+            g_appStateObserver = [KSCrashAppStateTracker.sharedInstance
+                addObserverWithBlock:^(KSCrashAppTransitionState transitionState) {
+                    _ks_memory_update(^(KSCrash_Memory *mem) {
+                        mem->state = transitionState;
+                    });
+                }];
+
+        } else {
             g_memoryTracker = nil;
             [KSCrashAppStateTracker.sharedInstance removeObserver:g_appStateObserver];
             g_appStateObserver = nil;
@@ -261,19 +255,17 @@ static void setEnabled(bool isEnabled)
     }
 }
 
-static bool isEnabled(void)
-{
-    return g_isEnabled;
-}
+static bool isEnabled(void) { return g_isEnabled; }
 
-static NSURL *kscm_memory_oom_breadcrumb_URL(void) {
+static NSURL *kscm_memory_oom_breadcrumb_URL(void)
+{
     return [g_dataURL URLByAppendingPathComponent:@"oom_breadcrumb_report.json"];
 }
 
-static void addContextualInfoToEvent(KSCrash_MonitorContext* eventContext)
+static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext)
 {
     bool asyncSafeOnly = eventContext->requiresAsyncSafety;
-    
+
     // we'll use this when reading this back on the next run
     // to know if an OOM is even possible.
     if (asyncSafeOnly) {
@@ -283,9 +275,8 @@ static void addContextualInfoToEvent(KSCrash_MonitorContext* eventContext)
             mem->fatal = eventContext->handlingCrash;
         });
     }
-    
-    if (g_isEnabled)
-    {
+
+    if (g_isEnabled) {
         KSCrash_Memory memCopy = asyncSafeOnly ? *g_memory : _ks_memory_copy();
         eventContext->AppMemory.footprint = memCopy.footprint;
         eventContext->AppMemory.pressure = KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memCopy.pressure);
@@ -300,13 +291,13 @@ static void addContextualInfoToEvent(KSCrash_MonitorContext* eventContext)
 static NSDictionary<NSString *, id> *kscm_memory_serialize(KSCrash_Memory *const memory)
 {
     return @{
-        KSCrashField_MemoryFootprint: @(memory->footprint),
-        KSCrashField_MemoryRemaining: @(memory->remaining),
-        KSCrashField_MemoryLimit: @(memory->limit),
-        KSCrashField_MemoryPressure: @(KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memory->pressure)),
-        KSCrashField_MemoryLevel: @(KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memory->level)),
-        KSCrashField_Timestamp: @(memory->timestamp),
-        KSCrashField_AppTransitionState: @(ksapp_transitionStateToString(memory->state)),
+        KSCrashField_MemoryFootprint : @(memory->footprint),
+        KSCrashField_MemoryRemaining : @(memory->remaining),
+        KSCrashField_MemoryLimit : @(memory->limit),
+        KSCrashField_MemoryPressure : @(KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memory->pressure)),
+        KSCrashField_MemoryLevel : @(KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memory->level)),
+        KSCrashField_Timestamp : @(memory->timestamp),
+        KSCrashField_AppTransitionState : @(ksapp_transitionStateToString(memory->state)),
     };
 }
 
@@ -324,30 +315,30 @@ static void kscm_memory_check_for_oom_in_previous_session(void)
     // indicates a crash, we should process that on startup and ignore
     // and indication of an OOM.
     bool userPerceivedOOM = NO;
-    if (g_FatalReportsEnabled &&
-        ksmemory_previous_session_was_terminated_due_to_memory(&userPerceivedOOM)) 
-    {
-        
+    if (g_FatalReportsEnabled && ksmemory_previous_session_was_terminated_due_to_memory(&userPerceivedOOM)) {
         // We only report an OOM that the user might have seen.
         // Ignore this check if we want to report all OOM, foreground and background.
         if (userPerceivedOOM) {
             NSURL *url = kscm_memory_oom_breadcrumb_URL();
             const char *reportContents = kscrash_readReportAtPath(url.path.UTF8String);
             if (reportContents) {
-                
                 NSData *data = [NSData dataWithBytes:reportContents length:strlen(reportContents)];
-                NSMutableDictionary *json = [[NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingMutableContainers|NSJSONReadingMutableLeaves error:nil] mutableCopy];
-                
+                NSMutableDictionary *json =
+                    [[NSJSONSerialization JSONObjectWithData:data
+                                                     options:NSJSONReadingMutableContainers | NSJSONReadingMutableLeaves
+                                                       error:nil] mutableCopy];
+
                 if (json) {
                     json[KSCrashField_System][KSCrashField_AppMemory] = kscm_memory_serialize(&g_previousSessionMemory);
                     json[KSCrashField_Report][KSCrashField_Timestamp] = @(g_previousSessionMemory.timestamp);
-                    json[KSCrashField_Crash][KSCrashField_Error][KSCrashExcType_MemoryTermination] =kscm_memory_serialize(&g_previousSessionMemory);
+                    json[KSCrashField_Crash][KSCrashField_Error][KSCrashExcType_MemoryTermination] =
+                        kscm_memory_serialize(&g_previousSessionMemory);
                     json[KSCrashField_Crash][KSCrashField_Error][KSCrashExcType_Mach] = nil;
                     json[KSCrashField_Crash][KSCrashField_Error][KSCrashExcType_Signal] = @{
-                        KSCrashField_Signal: @(SIGKILL),
-                        KSCrashField_Name: @"SIGKILL",
+                        KSCrashField_Signal : @(SIGKILL),
+                        KSCrashField_Name : @"SIGKILL",
                     };
-                    
+
                     data = [NSJSONSerialization dataWithJSONObject:json options:NSJSONWritingPrettyPrinted error:nil];
                     kscrash_addUserReport((const char *)data.bytes, (int)data.length);
                 }
@@ -355,7 +346,7 @@ static void kscm_memory_check_for_oom_in_previous_session(void)
             }
         }
     }
-    
+
     // remove the old breadcrumb oom file
     unlink(kscm_memory_oom_breadcrumb_URL().path.UTF8String);
 }
@@ -369,23 +360,21 @@ static void notifyPostSystemEnable(void)
         return;
     }
     g_hasPostEnable = 1;
-    
+
     // Usually we'd do something like this `setEnabled`,
     // but in this case not all monitors are ready in `seEnabled`
     // so we simply do it after everything is enabled.
-    
+
     kscm_memory_check_for_oom_in_previous_session();
 
-    if (g_isEnabled)
-    {
+    if (g_isEnabled) {
         ksmemory_write_possible_oom();
     }
 }
 
-KSCrashMonitorAPI* kscm_memory_getAPI(void)
+KSCrashMonitorAPI *kscm_memory_getAPI(void)
 {
-    static KSCrashMonitorAPI api =
-    {
+    static KSCrashMonitorAPI api = {
         .monitorId = monitorId,
         .setEnabled = setEnabled,
         .isEnabled = isEnabled,
@@ -399,17 +388,17 @@ KSCrashMonitorAPI* kscm_memory_getAPI(void)
  Read the previous sessions memory data,
  and unlinks the file to remove any trace of it.
  */
-static void ksmemory_read(const char* path)
+static void ksmemory_read(const char *path)
 {
     int fd = open(path, O_RDONLY);
     if (fd == -1) {
         unlink(path);
         return;
     }
-    
+
     size_t size = sizeof(KSCrash_Memory);
     KSCrash_Memory memory = {};
-    
+
     // This will fail is we don't receive exactly _size_.
     // In the future, we need to read and allow getting back something
     // that is not exactly _size_, then check the version to see
@@ -419,27 +408,27 @@ static void ksmemory_read(const char* path)
         unlink(path);
         return;
     }
-    
+
     // get rid of the file, we don't want it anymore.
     close(fd);
     unlink(path);
-    
+
     // validate some of the data before doing anything with it.
-    
+
     // check magic
     if (memory.magic != KSCrash_Memory_Magic) {
         return;
     }
-    
+
     // check version
     if (memory.version == 0 || memory.version > KSCrash_Memory_CurrentVersion) {
         return;
     }
-    
+
     // ---
     // START KSCrash_Memory_Version_1_0
     // ---
-    
+
     // check the timestamp, let's say it's valid for the last week
     // do we really want crash reports older than a week anyway??
     const uint64_t kUS_in_day = 8.64e+10;
@@ -448,7 +437,7 @@ static void ksmemory_read(const char* path)
     if (memory.timestamp <= 0 || memory.timestamp == INT64_MAX || memory.timestamp < now - kUS_in_week) {
         return;
     }
-    
+
     // check pressure and level are in ranges
     if (memory.level > KSCrashAppMemoryStateTerminal) {
         return;
@@ -456,12 +445,12 @@ static void ksmemory_read(const char* path)
     if (memory.pressure > KSCrashAppMemoryStateTerminal) {
         return;
     }
-    
+
     // check app transition state
     if (memory.state > KSCrashAppTransitionStateExiting) {
         return;
     }
-    
+
     // if we're at max, we likely overflowed or set a negative value,
     // in any case, we're counting this as a possible error and bailing.
     if (memory.footprint == UINT64_MAX) {
@@ -473,16 +462,16 @@ static void ksmemory_read(const char* path)
     if (memory.limit == UINT64_MAX) {
         return;
     }
-    
+
     // Footprint and remaining should always = limit
     if (memory.footprint + memory.remaining != memory.limit) {
         return;
     }
-    
+
     // ---
     // END KSCrash_Memory_Version_1_0
     // ---
-    
+
     g_previousSessionMemory = memory;
 }
 
@@ -491,13 +480,13 @@ static void ksmemory_read(const char* path)
  in memory as a structure and the kernel will ensure it is on disk. This is also
  crash resistant.
  */
-static void ksmemory_map(const char* path)
+static void ksmemory_map(const char *path)
 {
     void *ptr = ksfu_mmap(path, sizeof(KSCrash_Memory));
     if (!ptr) {
         return;
     }
-    
+
     g_memory = (KSCrash_Memory *)ptr;
     _ks_memory_update_from_app_memory(g_memoryTracker.memory);
 }
@@ -505,7 +494,7 @@ static void ksmemory_map(const char* path)
 /**
  What we're doing here is writing a file out that can be reused
  on restart if the data shows us there was a memory issue.
- 
+
  If an OOM did happen, we'll modify this file
  (see `kscm_memory_check_for_oom_in_previous_session`),
  then write it back out using the normal writing procedure to write reports. This
@@ -521,10 +510,10 @@ static void ksmemory_write_possible_oom(void)
     ksmc_getContextForThread(ksthread_self(), machineContext, false);
     KSStackCursor stackCursor;
     kssc_initWithMachineContext(&stackCursor, KSSC_MAX_STACK_DEPTH, machineContext);
-    
-    char eventID[37] = {0};
+
+    char eventID[37] = { 0 };
     ksid_generate(eventID);
-    
+
     KSCrash_MonitorContext context;
     memset(&context, 0, sizeof(context));
     ksmc_fillMonitorContext(&context, kscm_memory_getAPI());
@@ -532,10 +521,10 @@ static void ksmemory_write_possible_oom(void)
     context.registersAreValid = false;
     context.offendingMachineContext = machineContext;
     context.currentSnapshotUserReported = true;
-    
+
     // we don't need all the images, we have no stack
     context.omitBinaryImages = true;
-    
+
     // _reportPath_ only valid within this scope
     context.reportPath = reportPath;
 
@@ -561,33 +550,21 @@ bool ksmemory_previous_session_was_terminated_due_to_memory(bool *userPerceptibl
     if (g_previousSessionMemory.fatal) {
         return NO;
     }
-    
+
     // We might care if the user might have seen the OOM
     if (userPerceptible) {
         *userPerceptible = ksapp_transitionStateIsUserPerceptible(g_previousSessionMemory.state);
     }
-    
+
     // level or pressure is critical++
     return g_previousSessionMemory.level >= KSCrashAppMemoryStateCritical ||
-            g_previousSessionMemory.pressure >= KSCrashAppMemoryStateCritical;
+           g_previousSessionMemory.pressure >= KSCrashAppMemoryStateCritical;
 }
 
-void ksmemory_set_nonfatal_report_level(uint8_t level)
-{
-    g_MinimumNonFatalReportingLevel = level;
-}
+void ksmemory_set_nonfatal_report_level(uint8_t level) { g_MinimumNonFatalReportingLevel = level; }
 
-uint8_t ksmemory_get_nonfatal_report_level(void)
-{
-    return g_MinimumNonFatalReportingLevel;
-}
+uint8_t ksmemory_get_nonfatal_report_level(void) { return g_MinimumNonFatalReportingLevel; }
 
-void ksmemory_set_fatal_reports_enabled(bool enabled)
-{
-    g_FatalReportsEnabled = enabled;
-}
+void ksmemory_set_fatal_reports_enabled(bool enabled) { g_FatalReportsEnabled = enabled; }
 
-bool ksmemory_get_fatal_reports_enabled(void)
-{
-    return g_FatalReportsEnabled;
-}
+bool ksmemory_get_fatal_reports_enabled(void) { return g_FatalReportsEnabled; }

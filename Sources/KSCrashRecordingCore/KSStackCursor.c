@@ -22,17 +22,20 @@
 // THE SOFTWARE.
 //
 
-
 #include "KSStackCursor.h"
-#include "KSSymbolicator.h"
+
 #include <stdlib.h>
 
-//#define KSLogger_LocalLevel TRACE
+#include "KSSymbolicator.h"
+
+// #define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
 static bool g_advanceCursor(__unused KSStackCursor *cursor)
 {
-    KSLOG_WARN("No stack cursor has been set. For C++, this means that hooking __cxa_throw() failed for some reason. Embedded frameworks can cause this: https://github.com/kstenerud/KSCrash/issues/205");
+    KSLOG_WARN(
+        "No stack cursor has been set. For C++, this means that hooking __cxa_throw() failed for some reason. Embedded "
+        "frameworks can cause this: https://github.com/kstenerud/KSCrash/issues/205");
     return false;
 }
 
@@ -47,9 +50,8 @@ void kssc_resetCursor(KSStackCursor *cursor)
     cursor->stackEntry.symbolName = NULL;
 }
 
-void kssc_initCursor(KSStackCursor *cursor,
-                     void (*resetCursor)(KSStackCursor*),
-                     bool (*advanceCursor)(KSStackCursor*))
+void kssc_initCursor(KSStackCursor *cursor, void (*resetCursor)(KSStackCursor *),
+                     bool (*advanceCursor)(KSStackCursor *))
 {
     cursor->symbolicate = kssymbolicator_symbolicate;
     cursor->advanceCursor = advanceCursor != NULL ? advanceCursor : g_advanceCursor;

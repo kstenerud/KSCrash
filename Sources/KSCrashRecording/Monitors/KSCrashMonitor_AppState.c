@@ -24,16 +24,13 @@
 // THE SOFTWARE.
 //
 
-
 #include "KSCrashMonitor_AppState.h"
 
+#include "KSCrashMonitorContext.h"
 #include "KSFileUtils.h"
 #include "KSJSONCodec.h"
-#include "KSCrashMonitorContext.h"
 
-//#define KSLogger_LocalLevel TRACE
-#include "KSLogger.h"
-
+// #define KSLogger_LocalLevel TRACE
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
@@ -42,6 +39,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+#include "KSLogger.h"
 
 // ============================================================================
 #pragma mark - Constants -
@@ -62,7 +60,7 @@
 // ============================================================================
 
 /** Location where stat file is stored. */
-static const char* g_stateFilePath;
+static const char *g_stateFilePath;
 
 /** Current state. */
 static KSCrash_AppState g_state;
@@ -73,52 +71,43 @@ static volatile bool g_isEnabled = false;
 #pragma mark - JSON Encoding -
 // ============================================================================
 
-static int onBooleanElement(const char* const name, const bool value, void* const userData)
+static int onBooleanElement(const char *const name, const bool value, void *const userData)
 {
-    KSCrash_AppState* state = userData;
+    KSCrash_AppState *state = userData;
 
-    if(strcmp(name, kKeyCrashedLastLaunch) == 0)
-    {
+    if (strcmp(name, kKeyCrashedLastLaunch) == 0) {
         state->crashedLastLaunch = value;
     }
 
     return KSJSON_OK;
 }
 
-static int onFloatingPointElement(const char* const name, const double value, void* const userData)
+static int onFloatingPointElement(const char *const name, const double value, void *const userData)
 {
-    KSCrash_AppState* state = userData;
+    KSCrash_AppState *state = userData;
 
-    if(strcmp(name, kKeyActiveDurationSinceLastCrash) == 0)
-    {
+    if (strcmp(name, kKeyActiveDurationSinceLastCrash) == 0) {
         state->activeDurationSinceLastCrash = value;
     }
-    if(strcmp(name, kKeyBackgroundDurationSinceLastCrash) == 0)
-    {
+    if (strcmp(name, kKeyBackgroundDurationSinceLastCrash) == 0) {
         state->backgroundDurationSinceLastCrash = value;
     }
 
     return KSJSON_OK;
 }
 
-static int onIntegerElement(const char* const name, const int64_t value, void* const userData)
+static int onIntegerElement(const char *const name, const int64_t value, void *const userData)
 {
-    KSCrash_AppState* state = userData;
+    KSCrash_AppState *state = userData;
 
-    if(strcmp(name, kKeyFormatVersion) == 0)
-    {
-        if(value != kFormatVersion)
-        {
+    if (strcmp(name, kKeyFormatVersion) == 0) {
+        if (value != kFormatVersion) {
             KSLOG_ERROR("Expected version 1 but got %" PRId64, value);
             return KSJSON_ERROR_INVALID_DATA;
         }
-    }
-    else if(strcmp(name, kKeyLaunchesSinceLastCrash) == 0)
-    {
+    } else if (strcmp(name, kKeyLaunchesSinceLastCrash) == 0) {
         state->launchesSinceLastCrash = (int)value;
-    }
-    else if(strcmp(name, kKeySessionsSinceLastCrash) == 0)
-    {
+    } else if (strcmp(name, kKeySessionsSinceLastCrash) == 0) {
         state->sessionsSinceLastCrash = (int)value;
     }
 
@@ -126,48 +115,30 @@ static int onIntegerElement(const char* const name, const int64_t value, void* c
     return onFloatingPointElement(name, value, userData);
 }
 
-static int onNullElement(__unused const char* const name, __unused void* const userData)
+static int onNullElement(__unused const char *const name, __unused void *const userData) { return KSJSON_OK; }
+
+static int onStringElement(__unused const char *const name, __unused const char *const value,
+                           __unused void *const userData)
 {
     return KSJSON_OK;
 }
 
-static int onStringElement(__unused const char* const name,
-                           __unused const char* const value,
-                           __unused void* const userData)
-{
-    return KSJSON_OK;
-}
+static int onBeginObject(__unused const char *const name, __unused void *const userData) { return KSJSON_OK; }
 
-static int onBeginObject(__unused const char* const name, __unused void* const userData)
-{
-    return KSJSON_OK;
-}
+static int onBeginArray(__unused const char *const name, __unused void *const userData) { return KSJSON_OK; }
 
-static int onBeginArray(__unused const char* const name, __unused void* const userData)
-{
-    return KSJSON_OK;
-}
+static int onEndContainer(__unused void *const userData) { return KSJSON_OK; }
 
-static int onEndContainer(__unused void* const userData)
-{
-    return KSJSON_OK;
-}
-
-static int onEndData(__unused void* const userData)
-{
-    return KSJSON_OK;
-}
-
+static int onEndData(__unused void *const userData) { return KSJSON_OK; }
 
 /** Callback for adding JSON data.
  */
-static int addJSONData(const char* const data, const int length, void* const userData)
+static int addJSONData(const char *const data, const int length, void *const userData)
 {
-    const int fd = *((int*)userData);
+    const int fd = *((int *)userData);
     const bool success = ksfu_writeBytesToFD(fd, data, length);
     return success ? KSJSON_OK : KSJSON_ERROR_CANNOT_ADD_DATA;
 }
-
 
 // ============================================================================
 #pragma mark - Utility -
@@ -180,10 +151,7 @@ static double getCurrentTime(void)
     return tv.tv_sec + (double)tv.tv_usec / 1000000.0;
 }
 
-static double timeSince(double timeInSeconds)
-{
-    return getCurrentTime() - timeInSeconds;
-}
+static double timeSince(double timeInSeconds) { return getCurrentTime() - timeInSeconds; }
 
 /** Load the persistent state portion of a crash context.
  *
@@ -191,21 +159,19 @@ static double timeSince(double timeInSeconds)
  *
  * @return true if the operation was successful.
  */
-static bool loadState(const char* const path)
+static bool loadState(const char *const path)
 {
     // Stop if the file doesn't exist.
     // This is expected on the first run of the app.
     const int fd = open(path, O_RDONLY);
-    if(fd < 0)
-    {
+    if (fd < 0) {
         return false;
     }
     close(fd);
 
-    char* data;
+    char *data;
     int length;
-    if(!ksfu_readEntireFile(path, &data, &length, 50000))
-    {
+    if (!ksfu_readEntireFile(path, &data, &length, 50000)) {
         KSLOG_ERROR("%s: Could not load file", path);
         return false;
     }
@@ -224,18 +190,11 @@ static bool loadState(const char* const path)
     int errorOffset = 0;
 
     char stringBuffer[1000];
-    const int result = ksjson_decode(data,
-                                     (int)length,
-                                     stringBuffer,
-                                     sizeof(stringBuffer),
-                                     &callbacks,
-                                     &g_state,
-                                     &errorOffset);
+    const int result =
+        ksjson_decode(data, (int)length, stringBuffer, sizeof(stringBuffer), &callbacks, &g_state, &errorOffset);
     free(data);
-    if(result != KSJSON_OK)
-    {
-        KSLOG_ERROR("%s, offset %d: %s",
-                    path, errorOffset, ksjson_stringForError(result));
+    if (result != KSJSON_OK) {
+        KSLOG_ERROR("%s, offset %d: %s", path, errorOffset, ksjson_stringForError(result));
         return false;
     }
     return true;
@@ -247,73 +206,51 @@ static bool loadState(const char* const path)
  *
  * @return true if the operation was successful.
  */
-static bool saveState(const char* const path)
+static bool saveState(const char *const path)
 {
     int fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0644);
-    if(fd < 0)
-    {
-        KSLOG_ERROR("Could not open file %s for writing: %s",
-                    path,
-                    strerror(errno));
+    if (fd < 0) {
+        KSLOG_ERROR("Could not open file %s for writing: %s", path, strerror(errno));
         return false;
     }
 
     KSJSONEncodeContext JSONContext;
-    ksjson_beginEncode(&JSONContext,
-                       true,
-                       addJSONData,
-                       &fd);
+    ksjson_beginEncode(&JSONContext, true, addJSONData, &fd);
 
     int result;
-    if((result = ksjson_beginObject(&JSONContext, NULL)) != KSJSON_OK)
-    {
+    if ((result = ksjson_beginObject(&JSONContext, NULL)) != KSJSON_OK) {
         goto done;
     }
-    if((result = ksjson_addIntegerElement(&JSONContext,
-                                          kKeyFormatVersion,
-                                          kFormatVersion)) != KSJSON_OK)
-    {
+    if ((result = ksjson_addIntegerElement(&JSONContext, kKeyFormatVersion, kFormatVersion)) != KSJSON_OK) {
         goto done;
     }
     // Record this launch crashed state into "crashed last launch" field.
-    if((result = ksjson_addBooleanElement(&JSONContext,
-                                          kKeyCrashedLastLaunch,
-                                          g_state.crashedThisLaunch)) != KSJSON_OK)
-    {
+    if ((result = ksjson_addBooleanElement(&JSONContext, kKeyCrashedLastLaunch, g_state.crashedThisLaunch)) !=
+        KSJSON_OK) {
         goto done;
     }
-    if((result = ksjson_addFloatingPointElement(&JSONContext,
-                                                kKeyActiveDurationSinceLastCrash,
-                                                g_state.activeDurationSinceLastCrash)) != KSJSON_OK)
-    {
+    if ((result = ksjson_addFloatingPointElement(&JSONContext, kKeyActiveDurationSinceLastCrash,
+                                                 g_state.activeDurationSinceLastCrash)) != KSJSON_OK) {
         goto done;
     }
-    if((result = ksjson_addFloatingPointElement(&JSONContext,
-                                                kKeyBackgroundDurationSinceLastCrash,
-                                                g_state.backgroundDurationSinceLastCrash)) != KSJSON_OK)
-    {
+    if ((result = ksjson_addFloatingPointElement(&JSONContext, kKeyBackgroundDurationSinceLastCrash,
+                                                 g_state.backgroundDurationSinceLastCrash)) != KSJSON_OK) {
         goto done;
     }
-    if((result = ksjson_addIntegerElement(&JSONContext,
-                                          kKeyLaunchesSinceLastCrash,
-                                          g_state.launchesSinceLastCrash)) != KSJSON_OK)
-    {
+    if ((result = ksjson_addIntegerElement(&JSONContext, kKeyLaunchesSinceLastCrash, g_state.launchesSinceLastCrash)) !=
+        KSJSON_OK) {
         goto done;
     }
-    if((result = ksjson_addIntegerElement(&JSONContext,
-                                          kKeySessionsSinceLastCrash,
-                                          g_state.sessionsSinceLastCrash)) != KSJSON_OK)
-    {
+    if ((result = ksjson_addIntegerElement(&JSONContext, kKeySessionsSinceLastCrash, g_state.sessionsSinceLastCrash)) !=
+        KSJSON_OK) {
         goto done;
     }
     result = ksjson_endEncode(&JSONContext);
 
 done:
     close(fd);
-    if(result != KSJSON_OK)
-    {
-        KSLOG_ERROR("%s: %s",
-                    path, ksjson_stringForError(result));
+    if (result != KSJSON_OK) {
+        KSLOG_ERROR("%s: %s", path, ksjson_stringForError(result));
         return false;
     }
     return true;
@@ -323,18 +260,16 @@ static void updateAppState(void)
 {
     const double duration = timeSince(g_state.appStateTransitionTime);
     g_state.appStateTransitionTime = getCurrentTime();
-    
-    if(g_state.applicationIsActive)
-    {
+
+    if (g_state.applicationIsActive) {
         KSLOG_TRACE("Updating activeDurationSinceLaunch: %f and activeDurationSinceLastCrash: %f with duration: %f",
                     g_state.activeDurationSinceLaunch, g_state.activeDurationSinceLastCrash, duration);
         g_state.activeDurationSinceLaunch += duration;
         g_state.activeDurationSinceLastCrash += duration;
-    }
-    else if(!g_state.applicationIsInForeground)
-    {
-        KSLOG_TRACE("Updating backgroundDurationSinceLaunch: %f and backgroundDurationSinceLastCrash: %f with duration: %f",
-                    g_state.backgroundDurationSinceLaunch, g_state.backgroundDurationSinceLastCrash, duration);
+    } else if (!g_state.applicationIsInForeground) {
+        KSLOG_TRACE(
+            "Updating backgroundDurationSinceLaunch: %f and backgroundDurationSinceLastCrash: %f with duration: %f",
+            g_state.backgroundDurationSinceLaunch, g_state.backgroundDurationSinceLastCrash, duration);
         g_state.backgroundDurationSinceLaunch += duration;
         g_state.backgroundDurationSinceLastCrash += duration;
     }
@@ -344,7 +279,7 @@ static void updateAppState(void)
 #pragma mark - API -
 // ============================================================================
 
-void kscrashstate_initialize(const char* const stateFilePath)
+void kscrashstate_initialize(const char *const stateFilePath)
 {
     g_stateFilePath = strdup(stateFilePath);
     loadState(g_stateFilePath);
@@ -352,20 +287,18 @@ void kscrashstate_initialize(const char* const stateFilePath)
 
 bool kscrashstate_reset(void)
 {
-    if(g_isEnabled)
-    {
+    if (g_isEnabled) {
         g_state.sessionsSinceLaunch = 1;
         g_state.activeDurationSinceLaunch = 0;
         g_state.backgroundDurationSinceLaunch = 0;
-        if(g_state.crashedLastLaunch)
-        {
+        if (g_state.crashedLastLaunch) {
             g_state.activeDurationSinceLastCrash = 0;
             g_state.backgroundDurationSinceLastCrash = 0;
             g_state.launchesSinceLastCrash = 0;
             g_state.sessionsSinceLastCrash = 0;
         }
         g_state.crashedThisLaunch = false;
-        
+
         // Simulate first transition to foreground
         g_state.launchesSinceLastCrash++;
         g_state.sessionsSinceLastCrash++;
@@ -387,16 +320,12 @@ void kscrashstate_notifyObjCLoad(void)
 
 void kscrashstate_notifyAppActive(const bool isActive)
 {
-    if(g_isEnabled)
-    {
+    if (g_isEnabled) {
         g_state.applicationIsActive = isActive;
-        if(isActive)
-        {
+        if (isActive) {
             KSLOG_TRACE("Updating transition time from: %f to: %f", g_state.appStateTransitionTime, getCurrentTime());
             g_state.appStateTransitionTime = getCurrentTime();
-        }
-        else
-        {
+        } else {
             double duration = timeSince(g_state.appStateTransitionTime);
             KSLOG_TRACE("Updating activeDurationSinceLaunch: %f and activeDurationSinceLastCrash: %f with duration: %f",
                         g_state.activeDurationSinceLaunch, g_state.activeDurationSinceLastCrash, duration);
@@ -408,23 +337,20 @@ void kscrashstate_notifyAppActive(const bool isActive)
 
 void kscrashstate_notifyAppInForeground(const bool isInForeground)
 {
-    if(g_isEnabled)
-    {
-        const char* const stateFilePath = g_stateFilePath;
+    if (g_isEnabled) {
+        const char *const stateFilePath = g_stateFilePath;
 
         g_state.applicationIsInForeground = isInForeground;
-        if(isInForeground)
-        {
+        if (isInForeground) {
             double duration = getCurrentTime() - g_state.appStateTransitionTime;
-            KSLOG_TRACE("Updating backgroundDurationSinceLaunch: %f and backgroundDurationSinceLastCrash: %f with duration: %f",
-                        g_state.backgroundDurationSinceLaunch, g_state.backgroundDurationSinceLastCrash, duration);
+            KSLOG_TRACE(
+                "Updating backgroundDurationSinceLaunch: %f and backgroundDurationSinceLastCrash: %f with duration: %f",
+                g_state.backgroundDurationSinceLaunch, g_state.backgroundDurationSinceLastCrash, duration);
             g_state.backgroundDurationSinceLaunch += duration;
             g_state.backgroundDurationSinceLastCrash += duration;
             g_state.sessionsSinceLastCrash++;
             g_state.sessionsSinceLaunch++;
-        }
-        else
-        {
+        } else {
             g_state.appStateTransitionTime = getCurrentTime();
             saveState(stateFilePath);
         }
@@ -433,9 +359,8 @@ void kscrashstate_notifyAppInForeground(const bool isInForeground)
 
 void kscrashstate_notifyAppTerminate(void)
 {
-    if(g_isEnabled)
-    {
-        const char* const stateFilePath = g_stateFilePath;
+    if (g_isEnabled) {
+        const char *const stateFilePath = g_stateFilePath;
         updateAppState();
         saveState(stateFilePath);
     }
@@ -444,47 +369,33 @@ void kscrashstate_notifyAppTerminate(void)
 void kscrashstate_notifyAppCrash(void)
 {
     KSLOG_TRACE("Trying to update AppState. g_isEnabled: %d", g_isEnabled);
-    if(g_isEnabled)
-    {
-        const char* const stateFilePath = g_stateFilePath;
+    if (g_isEnabled) {
+        const char *const stateFilePath = g_stateFilePath;
         updateAppState();
         g_state.crashedThisLaunch = true;
         saveState(stateFilePath);
     }
 }
 
-const KSCrash_AppState* const kscrashstate_currentState(void)
-{
-    return &g_state;
-}
+const KSCrash_AppState *const kscrashstate_currentState(void) { return &g_state; }
 
-static const char* monitorId(void)
-{
-    return "ApplicationState";
-}
+static const char *monitorId(void) { return "ApplicationState"; }
 
 static void setEnabled(bool isEnabled)
 {
-    if(isEnabled != g_isEnabled)
-    {
+    if (isEnabled != g_isEnabled) {
         g_isEnabled = isEnabled;
-        if(isEnabled)
-        {
+        if (isEnabled) {
             kscrashstate_reset();
         }
     }
 }
 
-static bool isEnabled(void)
-{
-    return g_isEnabled;
-}
+static bool isEnabled(void) { return g_isEnabled; }
 
-
-static void addContextualInfoToEvent(KSCrash_MonitorContext* eventContext)
+static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext)
 {
-    if(g_isEnabled)
-    {
+    if (g_isEnabled) {
         updateAppState();
         eventContext->AppState.activeDurationSinceLastCrash = g_state.activeDurationSinceLastCrash;
         eventContext->AppState.activeDurationSinceLaunch = g_state.activeDurationSinceLaunch;
@@ -501,14 +412,11 @@ static void addContextualInfoToEvent(KSCrash_MonitorContext* eventContext)
     }
 }
 
-KSCrashMonitorAPI* kscm_appstate_getAPI(void)
+KSCrashMonitorAPI *kscm_appstate_getAPI(void)
 {
-    static KSCrashMonitorAPI api =
-    {
-        .monitorId = monitorId,
-        .setEnabled = setEnabled,
-        .isEnabled = isEnabled,
-        .addContextualInfoToEvent = addContextualInfoToEvent
-    };
+    static KSCrashMonitorAPI api = { .monitorId = monitorId,
+                                     .setEnabled = setEnabled,
+                                     .isEnabled = isEnabled,
+                                     .addContextualInfoToEvent = addContextualInfoToEvent };
     return &api;
 }

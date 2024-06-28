@@ -22,10 +22,9 @@
 // THE SOFTWARE.
 //
 
-
 #ifndef KSStackCursor_MachineContext_h
 #define KSStackCursor_MachineContext_h
-    
+
 #include "KSStackCursor.h"
 
 #ifdef __cplusplus
@@ -40,11 +39,11 @@ extern "C" {
  *
  * @param machineContext The machine context whose stack to walk.
  */
-void kssc_initWithMachineContext(KSStackCursor *cursor, int maxStackDepth, const struct KSMachineContext* machineContext);
-    
-    
+void kssc_initWithMachineContext(KSStackCursor *cursor, int maxStackDepth,
+                                 const struct KSMachineContext *machineContext);
+
 #ifdef __cplusplus
 }
 #endif
 
-#endif // KSStackCursor_MachineContext_h
+#endif  // KSStackCursor_MachineContext_h

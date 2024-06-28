@@ -24,28 +24,25 @@
 // THE SOFTWARE.
 //
 
-
 #import <XCTest/XCTest.h>
 
 #import "KSCrashInstallationStandard.h"
 
-
-@interface KSCrashInstallationStandard_Tests : XCTestCase @end
-
+@interface KSCrashInstallationStandard_Tests : XCTestCase
+@end
 
 @implementation KSCrashInstallationStandard_Tests
 
-- (void) testInstall
+- (void)testInstall
 {
-    KSCrashInstallationStandard* installation = [KSCrashInstallationStandard sharedInstance];
+    KSCrashInstallationStandard *installation = [KSCrashInstallationStandard sharedInstance];
     installation.url = [NSURL URLWithString:@"www.google.com"];
     [installation installWithConfiguration:nil];
-    [installation sendAllReportsWithCompletion:^(__unused NSArray *filteredReports, BOOL completed, NSError *error)
-     {
-         // There are no reports, so this will succeed.
-         XCTAssertTrue(completed, @"");
-         XCTAssertNil(error, @"");
-     }];
+    [installation sendAllReportsWithCompletion:^(__unused NSArray *filteredReports, BOOL completed, NSError *error) {
+        // There are no reports, so this will succeed.
+        XCTAssertTrue(completed, @"");
+        XCTAssertNil(error, @"");
+    }];
 }
 
 @end

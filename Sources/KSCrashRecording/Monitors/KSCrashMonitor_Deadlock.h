@@ -27,7 +27,6 @@
 /* Catches deadlocks in threads and queues.
  */
 
-
 #ifndef HDR_KSCrashMonitor_Deadlock_h
 #define HDR_KSCrashMonitor_Deadlock_h
 
@@ -35,12 +34,10 @@
 extern "C" {
 #endif
 
+#include <stdbool.h>
 
 #include "KSCrashMonitor.h"
 
-#include <stdbool.h>
-
-    
 /** Set the interval between watchdog checks on the main thread.
  * Default is 5 seconds.
  *
@@ -50,11 +47,10 @@ void kscm_setDeadlockHandlerWatchdogInterval(double value);
 
 /** Access the Monitor API.
  */
-KSCrashMonitorAPI* kscm_deadlock_getAPI(void);
-
+KSCrashMonitorAPI *kscm_deadlock_getAPI(void);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // HDR_KSCrashMonitor_Deadlock_h
+#endif  // HDR_KSCrashMonitor_Deadlock_h

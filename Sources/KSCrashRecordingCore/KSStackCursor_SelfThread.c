@@ -22,26 +22,26 @@
 // THE SOFTWARE.
 //
 
-
 #include "KSStackCursor_SelfThread.h"
-#include "KSStackCursor_Backtrace.h"
+
 #include <execinfo.h>
 
-//#define KSLogger_LocalLevel TRACE
+#include "KSStackCursor_Backtrace.h"
+
+// #define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
-#define MAX_BACKTRACE_LENGTH (KSSC_CONTEXT_SIZE - sizeof(KSStackCursor_Backtrace_Context) / sizeof(void*) - 1)
+#define MAX_BACKTRACE_LENGTH (KSSC_CONTEXT_SIZE - sizeof(KSStackCursor_Backtrace_Context) / sizeof(void *) - 1)
 
-typedef struct
-{
+typedef struct {
     KSStackCursor_Backtrace_Context SelfThreadContextSpacer;
     uintptr_t backtrace[0];
 } SelfThreadContext;
 
 void kssc_initSelfThread(KSStackCursor *cursor, int skipEntries) __attribute__((disable_tail_calls))
 {
-    SelfThreadContext* context = (SelfThreadContext*)cursor->context;
-    int backtraceLength = backtrace((void**)context->backtrace, MAX_BACKTRACE_LENGTH);
+    SelfThreadContext *context = (SelfThreadContext *)cursor->context;
+    int backtraceLength = backtrace((void **)context->backtrace, MAX_BACKTRACE_LENGTH);
     kssc_initWithBacktrace(cursor, context->backtrace, backtraceLength, skipEntries + 1);
-    __asm__ __volatile__(""); // thwart tail-call optimization
+    __asm__ __volatile__("");  // thwart tail-call optimization
 }

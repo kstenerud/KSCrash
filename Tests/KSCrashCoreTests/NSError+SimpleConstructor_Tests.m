@@ -24,54 +24,52 @@
 // THE SOFTWARE.
 //
 
-
 #import <XCTest/XCTest.h>
 
 #import "NSError+SimpleConstructor.h"
 
-
-@interface NSError_SimpleConstructor_Tests : XCTestCase @end
-
+@interface NSError_SimpleConstructor_Tests : XCTestCase
+@end
 
 @implementation NSError_SimpleConstructor_Tests
 
-- (void) testErrorWithDomain
+- (void)testErrorWithDomain
 {
-    NSError* error = [NSError errorWithDomain:@"Domain" code:10 description:@"A description %d", 1];
-    NSString* expectedDomain = @"Domain";
+    NSError *error = [NSError errorWithDomain:@"Domain" code:10 description:@"A description %d", 1];
+    NSString *expectedDomain = @"Domain";
     NSInteger expectedCode = 10;
-    NSString* expectedDescription = @"A description 1";
+    NSString *expectedDescription = @"A description 1";
     XCTAssertEqualObjects(error.domain, expectedDomain, @"");
     XCTAssertEqual(error.code, expectedCode, @"");
     XCTAssertEqualObjects(error.localizedDescription, expectedDescription, @"");
 }
 
-- (void) testFillError
+- (void)testFillError
 {
-    NSError* error = nil;
+    NSError *error = nil;
     [NSError fillError:&error withDomain:@"Domain" code:10 description:@"A description %d", 1];
-    NSString* expectedDomain = @"Domain";
+    NSString *expectedDomain = @"Domain";
     NSInteger expectedCode = 10;
-    NSString* expectedDescription = @"A description 1";
+    NSString *expectedDescription = @"A description 1";
     XCTAssertEqualObjects(error.domain, expectedDomain, @"");
     XCTAssertEqual(error.code, expectedCode, @"");
     XCTAssertEqualObjects(error.localizedDescription, expectedDescription, @"");
 }
 
-- (void) testFillErrorNil
+- (void)testFillErrorNil
 {
     [NSError fillError:nil withDomain:@"Domain" code:10 description:@"A description %d", 1];
 }
 
-- (void) testClearError
+- (void)testClearError
 {
-    NSError* error = [NSError errorWithDomain:@"" code:1 description:@""];
+    NSError *error = [NSError errorWithDomain:@"" code:1 description:@""];
     XCTAssertNotNil(error, @"");
     [NSError clearError:&error];
     XCTAssertNil(error, @"");
 }
 
-- (void) testClearErrorNil
+- (void)testClearErrorNil
 {
     [NSError clearError:nil];
 }

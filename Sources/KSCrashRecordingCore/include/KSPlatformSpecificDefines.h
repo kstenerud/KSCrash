@@ -43,7 +43,7 @@ typedef struct nlist nlist_t;
 #endif /* __LP64__ */
 
 #ifndef SEG_DATA_CONST
-#define SEG_DATA_CONST  "__DATA_CONST"
+#define SEG_DATA_CONST "__DATA_CONST"
 #endif /* SEG_DATA_CONST */
 
 #endif /* KSPlatformSpecificDefines_h */

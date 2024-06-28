@@ -29,10 +29,10 @@
 
 #import "KSCrash.h"
 
-@interface KSCrash()
+@interface KSCrash ()
 
-@property (nonatomic, readwrite, assign) NSUncaughtExceptionHandler *uncaughtExceptionHandler;
-@property (nonatomic, readwrite, assign) NSUncaughtExceptionHandler *currentSnapshotUserReportedExceptionHandler;
+@property(nonatomic, readwrite, assign) NSUncaughtExceptionHandler *uncaughtExceptionHandler;
+@property(nonatomic, readwrite, assign) NSUncaughtExceptionHandler *currentSnapshotUserReportedExceptionHandler;
 
 @end
 

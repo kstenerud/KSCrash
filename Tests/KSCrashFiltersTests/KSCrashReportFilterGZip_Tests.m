@@ -24,25 +24,22 @@
 // THE SOFTWARE.
 //
 
-
 #import <XCTest/XCTest.h>
 
+#import "KSCrashReport.h"
 #import "KSCrashReportFilterGZip.h"
 #import "NSData+KSGZip.h"
-#import "KSCrashReport.h"
-
 
 @interface KSCrashReportFilterGZip_Tests : XCTestCase
 
-@property (nonatomic, copy) NSArray* decompressedReports;
-@property (nonatomic, copy) NSArray* compressedReports;
+@property(nonatomic, copy) NSArray *decompressedReports;
+@property(nonatomic, copy) NSArray *compressedReports;
 
 @end
 
-
 @implementation KSCrashReportFilterGZip_Tests
 
-- (void) setUp
+- (void)setUp
 {
     self.decompressedReports = @[
         [KSCrashReport reportWithData:[@"this is a test" dataUsingEncoding:NSUTF8StringEncoding]],
@@ -50,40 +47,35 @@
         [KSCrashReport reportWithData:[@"testing is fun!" dataUsingEncoding:NSUTF8StringEncoding]],
     ];
 
-    NSError* error = nil;
-    NSMutableArray* compressed = [NSMutableArray array];
-    for(KSCrashReport* report in self.decompressedReports)
-    {
-        NSData* newData = [report.dataValue gzippedWithCompressionLevel:-1 error:&error];
+    NSError *error = nil;
+    NSMutableArray *compressed = [NSMutableArray array];
+    for (KSCrashReport *report in self.decompressedReports) {
+        NSData *newData = [report.dataValue gzippedWithCompressionLevel:-1 error:&error];
         [compressed addObject:[KSCrashReport reportWithData:newData]];
     }
     self.compressedReports = [compressed copy];
 }
 
-- (void) testFilterGZipCompress
+- (void)testFilterGZipCompress
 {
     id<KSCrashReportFilter> filter = [KSCrashReportFilterGZipCompress filterWithCompressionLevel:-1];
-    [filter filterReports:self.decompressedReports onCompletion:^(NSArray* filteredReports,
-                                                                  BOOL completed,
-                                                                  NSError* error2)
-     {
-         XCTAssertTrue(completed, @"");
-         XCTAssertNil(error2, @"");
-         XCTAssertEqualObjects(filteredReports, self.compressedReports, @"");
-     }];
+    [filter filterReports:self.decompressedReports
+             onCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error2) {
+                 XCTAssertTrue(completed, @"");
+                 XCTAssertNil(error2, @"");
+                 XCTAssertEqualObjects(filteredReports, self.compressedReports, @"");
+             }];
 }
 
-- (void) testFilterGZipDecompress
+- (void)testFilterGZipDecompress
 {
     id<KSCrashReportFilter> filter = [KSCrashReportFilterGZipDecompress filter];
-    [filter filterReports:self.compressedReports onCompletion:^(NSArray* filteredReports,
-                                                    BOOL completed,
-                                                    NSError* error2)
-     {
-         XCTAssertTrue(completed, @"");
-         XCTAssertNil(error2, @"");
-         XCTAssertEqualObjects(filteredReports, self.decompressedReports, @"");
-     }];
+    [filter filterReports:self.compressedReports
+             onCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error2) {
+                 XCTAssertTrue(completed, @"");
+                 XCTAssertNil(error2, @"");
+                 XCTAssertEqualObjects(filteredReports, self.decompressedReports, @"");
+             }];
 }
 
 @end

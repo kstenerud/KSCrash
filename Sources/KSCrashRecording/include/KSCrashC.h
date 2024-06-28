@@ -24,19 +24,17 @@
 // THE SOFTWARE.
 //
 
-
 /* Primary C entry point into the crash reporting system.
  */
-
 
 #ifndef HDR_KSCrashC_h
 #define HDR_KSCrashC_h
 
+#include <stdbool.h>
+
+#include "KSCrashCConfiguration.h"
 #include "KSCrashMonitorType.h"
 #include "KSCrashReportWriter.h"
-#include "KSCrashCConfiguration.h"
-
-#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -77,14 +75,14 @@ extern "C" {
  * @note Once installed, the crash reporter cannot be re-installed or modified
  * without restarting the application.
  */
-void kscrash_install(const char* appName, const char* const installPath, KSCrashCConfiguration configuration);
+void kscrash_install(const char *appName, const char *const installPath, KSCrashCConfiguration configuration);
 
 /** Set the user-supplied data in JSON format.
  *
  * @param userInfoJSON Pre-baked JSON containing user-supplied information.
  *                     NULL = delete.
  */
-void kscrash_setUserInfoJSON(const char* const userInfoJSON);
+void kscrash_setUserInfoJSON(const char *const userInfoJSON);
 
 /** Get a copy of the user-supplied data in JSON format.
  *
@@ -92,7 +90,7 @@ void kscrash_setUserInfoJSON(const char* const userInfoJSON);
  *         or NULL if no information is set.
  *         The caller is responsible for freeing the returned string.
  */
-const char* kscrash_getUserInfoJSON(void);
+const char *kscrash_getUserInfoJSON(void);
 
 /** Report a custom, user defined exception.
  * This can be useful when dealing with scripting languages.
@@ -116,15 +114,10 @@ const char* kscrash_getUserInfoJSON(void);
  *
  * @param terminateProgram If true, do not return from this function call. Terminate the program instead.
  */
-void kscrash_reportUserException(const char* name,
-                                 const char* reason,
-                                 const char* language,
-                                 const char* lineOfCode,
-                                 const char* stackTrace,
-                                 bool logAllThreads,
-                                 bool terminateProgram);
+void kscrash_reportUserException(const char *name, const char *reason, const char *language, const char *lineOfCode,
+                                 const char *stackTrace, bool logAllThreads, bool terminateProgram);
 
-#pragma mark -- Notifications --
+#pragma mark-- Notifications --
 
 /** Notify the crash reporter of KSCrash being added to Objective-C runtime system.
  */
@@ -151,8 +144,7 @@ void kscrash_notifyAppTerminate(void);
  */
 void kscrash_notifyAppCrash(void);
 
-
-#pragma mark -- Reporting --
+#pragma mark-- Reporting --
 
 /** Get the number of reports on disk.
  */
@@ -165,7 +157,7 @@ int kscrash_getReportCount(void);
  *
  * @return The number of report IDs that were placed in the array.
  */
-int kscrash_getReportIDs(int64_t* reportIDs, int count);
+int kscrash_getReportIDs(int64_t *reportIDs, int count);
 
 /** Read a report.
  *
@@ -174,7 +166,7 @@ int kscrash_getReportIDs(int64_t* reportIDs, int count);
  * @return The NULL terminated report, or NULL if not found.
  *         MEMORY MANAGEMENT WARNING: User is responsible for calling free() on the returned value.
  */
-char* kscrash_readReport(int64_t reportID);
+char *kscrash_readReport(int64_t reportID);
 
 /** Read a report at a specified path.
  *
@@ -183,7 +175,7 @@ char* kscrash_readReport(int64_t reportID);
  * @return The NULL terminated report, or NULL if not found.
  *         MEMORY MANAGEMENT WARNING: User is responsible for calling free() on the returned value.
  */
-char* kscrash_readReportAtPath(const char* path);
+char *kscrash_readReportAtPath(const char *path);
 
 /** Add a custom report to the store.
  *
@@ -192,7 +184,7 @@ char* kscrash_readReportAtPath(const char* path);
  *
  * @return the new report's ID.
  */
-int64_t kscrash_addUserReport(const char* report, int reportLength);
+int64_t kscrash_addUserReport(const char *report, int reportLength);
 
 /** Delete all reports on disk.
  */
@@ -204,9 +196,8 @@ void kscrash_deleteAllReports(void);
  */
 void kscrash_deleteReportWithID(int64_t reportID);
 
-
 #ifdef __cplusplus
 }
 #endif
 
-#endif // HDR_KSCrashC_h
+#endif  // HDR_KSCrashC_h

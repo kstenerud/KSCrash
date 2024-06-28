@@ -42,7 +42,7 @@ extern "C" {
  *
  * @param maxLength The maximum length to be considered a valid string.
  */
-bool ksstring_isNullTerminatedUTF8String(const void* memory, int minLength, int maxLength);
+bool ksstring_isNullTerminatedUTF8String(const void *memory, int minLength, int maxLength);
 
 /** Extract a hex value in the form "0x123456789abcdef" from a string.
  *
@@ -54,7 +54,7 @@ bool ksstring_isNullTerminatedUTF8String(const void* memory, int minLength, int 
  *
  * @return true if the operation was successful.
  */
-bool ksstring_extractHexValue(const char* string, int stringLength, uint64_t* result);
+bool ksstring_extractHexValue(const char *string, int stringLength, uint64_t *result);
 
 /** Safely compares two strings.
  *
@@ -73,11 +73,10 @@ bool ksstring_extractHexValue(const char* string, int stringLength, uint64_t* re
  *         - Returns a positive value if str1 is non-NULL and str2 is NULL,
  *           or if both strings are non-NULL and str1 is greater than str2.
  */
-int ksstring_safeStrcmp(const char* str1, const char* str2);
-
+int ksstring_safeStrcmp(const char *str1, const char *str2);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // HDR_KSString_h
+#endif  // HDR_KSString_h

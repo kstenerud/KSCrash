@@ -33,23 +33,18 @@
 - (instancetype)init
 {
     self = [super init];
-    if (self)
-    {
+    if (self) {
         KSCrashCConfiguration cConfig = KSCrashCConfiguration_Default();
         _monitors = cConfig.monitors;
 
-        if (cConfig.userInfoJSON != NULL)
-        {
+        if (cConfig.userInfoJSON != NULL) {
             NSData *data = [NSData dataWithBytes:cConfig.userInfoJSON length:strlen(cConfig.userInfoJSON)];
             NSError *error = nil;
             _userInfoJSON = [NSJSONSerialization JSONObjectWithData:data options:0 error:&error];
-            if (error)
-            {
+            if (error) {
                 _userInfoJSON = nil;  // Handle the error appropriately
             }
-        }
-        else
-        {
+        } else {
             _userInfoJSON = nil;
         }
 
@@ -94,44 +89,43 @@
     return config;
 }
 
-- (const char**)createCStringArrayFromNSArray:(NSArray<NSString*>*)nsArray
+- (const char **)createCStringArrayFromNSArray:(NSArray<NSString *> *)nsArray
 {
     if (!nsArray) return NULL;
 
-    const char** cArray = malloc(sizeof(char*) * [nsArray count]);
-    for (NSUInteger i = 0; i < [nsArray count]; i++)
-    {
+    const char **cArray = malloc(sizeof(char *) * [nsArray count]);
+    for (NSUInteger i = 0; i < [nsArray count]; i++) {
         cArray[i] = strdup([nsArray[i] UTF8String]);
     }
     return cArray;
 }
 
-- (const char*)jsonStringFromDictionary:(NSDictionary*)dictionary
+- (const char *)jsonStringFromDictionary:(NSDictionary *)dictionary
 {
-    NSError* error;
-    NSData* jsonData = [NSJSONSerialization dataWithJSONObject:dictionary options:0 error:&error];
-    if (!jsonData)
-    {
+    NSError *error;
+    NSData *jsonData = [NSJSONSerialization dataWithJSONObject:dictionary options:0 error:&error];
+    if (!jsonData) {
         NSLog(@"Error converting dictionary to JSON: %@", error.localizedDescription);
         return NULL;
     }
-    const char* jsonString = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding].UTF8String;
+    const char *jsonString = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding].UTF8String;
     return strdup(jsonString);  // strdup to ensure it's a copy that's safe to free later
 }
 
 #pragma mark - NSCopying
 
-- (nonnull id)copyWithZone:(nullable NSZone*)zone
+- (nonnull id)copyWithZone:(nullable NSZone *)zone
 {
-    KSCrashConfiguration* copy = [[KSCrashConfiguration allocWithZone:zone] init];
+    KSCrashConfiguration *copy = [[KSCrashConfiguration allocWithZone:zone] init];
     copy.monitors = self.monitors;
     copy.userInfoJSON = [self.userInfoJSON copyWithZone:zone];
     copy.deadlockWatchdogInterval = self.deadlockWatchdogInterval;
     copy.enableQueueNameSearch = self.enableQueueNameSearch;
     copy.enableMemoryIntrospection = self.enableMemoryIntrospection;
-    copy.doNotIntrospectClasses = self.doNotIntrospectClasses 
-        ? [[NSArray allocWithZone:zone] initWithArray:self.doNotIntrospectClasses copyItems:YES]
-        : nil;
+    copy.doNotIntrospectClasses = self.doNotIntrospectClasses
+                                      ? [[NSArray allocWithZone:zone] initWithArray:self.doNotIntrospectClasses
+                                                                          copyItems:YES]
+                                      : nil;
     copy.crashNotifyCallback = [self.crashNotifyCallback copy];
     copy.reportWrittenCallback = [self.reportWrittenCallback copy];
     copy.addConsoleLogToReport = self.addConsoleLogToReport;

@@ -24,42 +24,34 @@
 // THE SOFTWARE.
 //
 
-
 #import "KSCrashReportFilterSets.h"
-#import "KSCrashReportFilterBasic.h"
-#import "KSCrashReportFilterJSON.h"
-#import "KSCrashReportFilterGZip.h"
 #import "KSCrashReportFields.h"
+#import "KSCrashReportFilterBasic.h"
+#import "KSCrashReportFilterGZip.h"
+#import "KSCrashReportFilterJSON.h"
 
 @implementation KSCrashFilterSets
 
-+ (id<KSCrashReportFilter>) appleFmtWithUserAndSystemData:(KSAppleReportStyle) reportStyle
-                                               compressed:(BOOL) compressed
++ (id<KSCrashReportFilter>)appleFmtWithUserAndSystemData:(KSAppleReportStyle)reportStyle compressed:(BOOL)compressed
 {
     id<KSCrashReportFilter> appleFilter = [KSCrashReportFilterAppleFmt filterWithReportStyle:reportStyle];
-    id<KSCrashReportFilter> userSystemFilter = [KSCrashReportFilterPipeline filterWithFilters:
-                                                [KSCrashReportFilterSubset filterWithKeys:
-                                                 KSCrashField_System,
-                                                 KSCrashField_User,
-                                                 nil],
-                                                [KSCrashReportFilterJSONEncode filterWithOptions:KSJSONEncodeOptionPretty | KSJSONEncodeOptionSorted],
-                                                [KSCrashReportFilterDataToString filter],
-                                                nil];
+    id<KSCrashReportFilter> userSystemFilter = [KSCrashReportFilterPipeline
+        filterWithFilters:[KSCrashReportFilterSubset filterWithKeys:KSCrashField_System, KSCrashField_User, nil],
+                          [KSCrashReportFilterJSONEncode
+                              filterWithOptions:KSJSONEncodeOptionPretty | KSJSONEncodeOptionSorted],
+                          [KSCrashReportFilterDataToString filter], nil];
 
-    NSString* appleName = @"Apple Report";
-    NSString* userSystemName = @"User & System Data";
+    NSString *appleName = @"Apple Report";
+    NSString *userSystemName = @"User & System Data";
 
-    NSMutableArray* filters = [NSMutableArray arrayWithObjects:
-                               [KSCrashReportFilterCombine filterWithFiltersAndKeys:
-                                appleFilter, appleName,
-                                userSystemFilter, userSystemName,
-                                nil],
-                               [KSCrashReportFilterConcatenate filterWithSeparatorFmt:@"\n\n-------- %@ --------\n\n" keys:
-                                appleName, userSystemName, nil],
-                               nil];
+    NSMutableArray *filters = [NSMutableArray
+        arrayWithObjects:[KSCrashReportFilterCombine
+                             filterWithFiltersAndKeys:appleFilter, appleName, userSystemFilter, userSystemName, nil],
+                         [KSCrashReportFilterConcatenate filterWithSeparatorFmt:@"\n\n-------- %@ --------\n\n"
+                                                                           keys:appleName, userSystemName, nil],
+                         nil];
 
-    if(compressed)
-    {
+    if (compressed) {
         [filters addObject:[KSCrashReportFilterStringToData filter]];
         [filters addObject:[KSCrashReportFilterGZipCompress filterWithCompressionLevel:-1]];
     }

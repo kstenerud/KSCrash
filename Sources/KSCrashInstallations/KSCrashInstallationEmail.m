@@ -24,19 +24,16 @@
 // THE SOFTWARE.
 //
 
-
 #import "KSCrashInstallationEmail.h"
 #import "KSCrashInstallation+Private.h"
-#import "KSCrashReportSinkEMail.h"
 #import "KSCrashReportFilterAlert.h"
-
+#import "KSCrashReportSinkEMail.h"
 
 @interface KSCrashInstallationEmail ()
 
-@property(nonatomic,readwrite,retain) NSDictionary* defaultFilenameFormats;
+@property(nonatomic, readwrite, retain) NSDictionary *defaultFilenameFormats;
 
 @end
-
 
 @implementation KSCrashInstallationEmail
 
@@ -47,58 +44,50 @@
 @synthesize reportStyle = _reportStyle;
 @synthesize defaultFilenameFormats = _defaultFilenameFormats;
 
-+ (instancetype) sharedInstance
++ (instancetype)sharedInstance
 {
     static KSCrashInstallationEmail *sharedInstance = nil;
     static dispatch_once_t onceToken;
-    
+
     dispatch_once(&onceToken, ^{
         sharedInstance = [[KSCrashInstallationEmail alloc] init];
     });
     return sharedInstance;
 }
 
-- (id) init
+- (id)init
 {
-    if((self = [super initWithRequiredProperties:[NSArray arrayWithObjects:
-                                                  @"recipients",
-                                                  @"subject",
-                                                  @"filenameFmt",
-                                                  nil]]))
-    {
-        NSString* bundleName = [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleName"];
+    if ((self = [super
+             initWithRequiredProperties:[NSArray arrayWithObjects:@"recipients", @"subject", @"filenameFmt", nil]])) {
+        NSString *bundleName = [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleName"];
         self.subject = [NSString stringWithFormat:@"Crash Report (%@)", bundleName];
-        self.defaultFilenameFormats = [NSDictionary dictionaryWithObjectsAndKeys:
-                                       [NSString stringWithFormat:@"crash-report-%@-%%d.txt.gz", bundleName],
-                                       [NSNumber numberWithInt:KSCrashEmailReportStyleApple],
-                                       [NSString stringWithFormat:@"crash-report-%@-%%d.json.gz", bundleName],
-                                       [NSNumber numberWithInt:KSCrashEmailReportStyleJSON],
-                                       nil];
+        self.defaultFilenameFormats = [NSDictionary
+            dictionaryWithObjectsAndKeys:[NSString stringWithFormat:@"crash-report-%@-%%d.txt.gz", bundleName],
+                                         [NSNumber numberWithInt:KSCrashEmailReportStyleApple],
+                                         [NSString stringWithFormat:@"crash-report-%@-%%d.json.gz", bundleName],
+                                         [NSNumber numberWithInt:KSCrashEmailReportStyleJSON], nil];
         [self setReportStyle:KSCrashEmailReportStyleJSON useDefaultFilenameFormat:YES];
     }
     return self;
 }
 
-- (void) setReportStyle:(KSCrashEmailReportStyle)reportStyle
-useDefaultFilenameFormat:(BOOL) useDefaultFilenameFormat
+- (void)setReportStyle:(KSCrashEmailReportStyle)reportStyle useDefaultFilenameFormat:(BOOL)useDefaultFilenameFormat
 {
     self.reportStyle = reportStyle;
 
-    if(useDefaultFilenameFormat)
-    {
+    if (useDefaultFilenameFormat) {
         self.filenameFmt = [self.defaultFilenameFormats objectForKey:[NSNumber numberWithInt:(int)reportStyle]];
     }
 }
 
-- (id<KSCrashReportFilter>) sink
+- (id<KSCrashReportFilter>)sink
 {
-    KSCrashReportSinkEMail* sink = [KSCrashReportSinkEMail sinkWithRecipients:self.recipients
+    KSCrashReportSinkEMail *sink = [KSCrashReportSinkEMail sinkWithRecipients:self.recipients
                                                                       subject:self.subject
                                                                       message:self.message
                                                                   filenameFmt:self.filenameFmt];
-    
-    switch(self.reportStyle)
-    {
+
+    switch (self.reportStyle) {
         case KSCrashEmailReportStyleApple:
             return [sink defaultCrashReportFilterSetAppleFmt];
         case KSCrashEmailReportStyleJSON:

@@ -3,7 +3,8 @@
 #import "KSCrashDoctor.h"
 #import "KSTestModuleConfig.h"
 
-@interface KSCrashDoctor_Tests : XCTestCase @end
+@interface KSCrashDoctor_Tests : XCTestCase
+@end
 
 @implementation KSCrashDoctor_Tests
 
@@ -14,14 +15,14 @@
     return [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
 }
 
-- (void) testGracefulTermination
+- (void)testGracefulTermination
 {
     id report = [self _crashReportAsJSON:@"sigterm"];
     NSString *diagnostic = [[[KSCrashDoctor alloc] init] diagnoseCrash:report];
     XCTAssertEqual(diagnostic, @"The OS request the app be gracefully terminated.");
 }
 
-- (void) testOOM
+- (void)testOOM
 {
     id report = [self _crashReportAsJSON:@"oom"];
     NSString *diagnostic = [[[KSCrashDoctor alloc] init] diagnoseCrash:report];

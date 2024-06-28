@@ -22,34 +22,34 @@
 // THE SOFTWARE.
 //
 
-#import "KSCrashInstallation+Alert.h"
 #import "KSCrash.h"
+#import "KSCrashInstallation+Alert.h"
 #import "KSCrashReportFilterAlert.h"
 
 @implementation KSCrashInstallation (Alert)
 
-- (void) addConditionalAlertWithTitle:(NSString*) title
-                              message:(NSString*) message
-                            yesAnswer:(NSString*) yesAnswer
-                             noAnswer:(NSString*) noAnswer
+- (void)addConditionalAlertWithTitle:(NSString *)title
+                             message:(NSString *)message
+                           yesAnswer:(NSString *)yesAnswer
+                            noAnswer:(NSString *)noAnswer
 {
     [self addPreFilter:[KSCrashReportFilterAlert filterWithTitle:title
                                                          message:message
                                                        yesAnswer:yesAnswer
                                                         noAnswer:noAnswer]];
-// FIXME: Accessing config
-//    KSCrash* handler = [KSCrash sharedInstance];
-//    if(handler.deleteBehaviorAfterSendAll == KSCDeleteOnSucess)
-//    {
-//        // Better to delete always, or else the user will keep getting nagged
-//        // until he presses "yes"!
-//        handler.deleteBehaviorAfterSendAll = KSCDeleteAlways;
-//    }
+    // FIXME: Accessing config
+    //    KSCrash* handler = [KSCrash sharedInstance];
+    //    if(handler.deleteBehaviorAfterSendAll == KSCDeleteOnSucess)
+    //    {
+    //        // Better to delete always, or else the user will keep getting nagged
+    //        // until he presses "yes"!
+    //        handler.deleteBehaviorAfterSendAll = KSCDeleteAlways;
+    //    }
 }
 
-- (void) addUnconditionalAlertWithTitle:(NSString*) title
-                                message:(NSString*) message
-                      dismissButtonText:(NSString*) dismissButtonText
+- (void)addUnconditionalAlertWithTitle:(NSString *)title
+                               message:(NSString *)message
+                     dismissButtonText:(NSString *)dismissButtonText
 {
     [self addPreFilter:[KSCrashReportFilterAlert filterWithTitle:title
                                                          message:message

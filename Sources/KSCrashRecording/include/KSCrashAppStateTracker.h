@@ -46,7 +46,7 @@ NS_ASSUME_NONNULL_BEGIN
  */
 
 typedef void (^KSCrashAppStateTrackerObserverBlock)(KSCrashAppTransitionState transitionState)
-NS_SWIFT_UNAVAILABLE("Use Swift closures instead!");
+    NS_SWIFT_UNAVAILABLE("Use Swift closures instead!");
 
 @protocol KSCrashAppStateTrackerObserving;
 
@@ -61,9 +61,9 @@ NS_SWIFT_NAME(AppStateTracker)
 
 - (instancetype)initWithNotificationCenter:(NSNotificationCenter *)notificationCenter NS_DESIGNATED_INITIALIZER;
 
-@property (atomic, readonly) KSCrashAppTransitionState transitionState;
+@property(atomic, readonly) KSCrashAppTransitionState transitionState;
 
-/** 
+/**
  * Adds an observer that implements the _KSCrashAppStateTrackerObserving_ protocol.
  * You do not need to remove the observer as it is held weakly.
  */
@@ -79,7 +79,7 @@ NS_SWIFT_NAME(AppStateTracker)
 /** Removes an observer */
 - (void)removeObserver:(id<KSCrashAppStateTrackerObserving>)observer;
 
-/** 
+/**
  * Start/Stop
  *
  * WARNING: Don't call these on the shared tracker.

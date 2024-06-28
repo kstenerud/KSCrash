@@ -27,10 +27,10 @@
 #ifndef HDR_KSCPU_h
 #define HDR_KSCPU_h
 
-#include "KSMachineContext.h"
-
 #include <stdbool.h>
 #include <stdint.h>
+
+#include "KSMachineContext.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -40,7 +40,7 @@ extern "C" {
  *
  * @return The current architecture.
  */
-const char* kscpu_currentArch(void);
+const char *kscpu_currentArch(void);
 
 /** Get the CPU architecture for given major and minor codes.
  *
@@ -49,7 +49,7 @@ const char* kscpu_currentArch(void);
  *
  * @return The architecture name.
  */
-const char* kscpu_archForCPU(cpu_type_t majorCode, cpu_subtype_t minorCode);
+const char *kscpu_archForCPU(cpu_type_t majorCode, cpu_subtype_t minorCode);
 
 /** Get the frame pointer for a machine context.
  * The frame pointer marks the top of the call stack.
@@ -58,7 +58,7 @@ const char* kscpu_archForCPU(cpu_type_t majorCode, cpu_subtype_t minorCode);
  *
  * @return The context's frame pointer.
  */
-uintptr_t kscpu_framePointer(const struct KSMachineContext* const context);
+uintptr_t kscpu_framePointer(const struct KSMachineContext *const context);
 
 /** Get the current stack pointer for a machine context.
  *
@@ -66,7 +66,7 @@ uintptr_t kscpu_framePointer(const struct KSMachineContext* const context);
  *
  * @return The context's stack pointer.
  */
-uintptr_t kscpu_stackPointer(const struct KSMachineContext* const context);
+uintptr_t kscpu_stackPointer(const struct KSMachineContext *const context);
 
 /** Get the address of the instruction about to be, or being executed by a
  * machine context.
@@ -75,7 +75,7 @@ uintptr_t kscpu_stackPointer(const struct KSMachineContext* const context);
  *
  * @return The context's next instruction address.
  */
-uintptr_t kscpu_instructionAddress(const struct KSMachineContext* const context);
+uintptr_t kscpu_instructionAddress(const struct KSMachineContext *const context);
 
 /** Get the address stored in the link register (arm only). This may
  * contain the first return address of the stack.
@@ -84,7 +84,7 @@ uintptr_t kscpu_instructionAddress(const struct KSMachineContext* const context)
  *
  * @return The link register value.
  */
-uintptr_t kscpu_linkRegister(const struct KSMachineContext* const context);
+uintptr_t kscpu_linkRegister(const struct KSMachineContext *const context);
 
 /** Get the address whose access caused the last fault.
  *
@@ -92,7 +92,7 @@ uintptr_t kscpu_linkRegister(const struct KSMachineContext* const context);
  *
  * @return The faulting address.
  */
-uintptr_t kscpu_faultAddress(const struct KSMachineContext* const context);
+uintptr_t kscpu_faultAddress(const struct KSMachineContext *const context);
 
 /** Get the number of normal (not floating point or exception) registers the
  *  currently running CPU has.
@@ -107,7 +107,7 @@ int kscpu_numRegisters(void);
  *
  * @return The register's name or NULL if not found.
  */
-const char* kscpu_registerName(int regNumber);
+const char *kscpu_registerName(int regNumber);
 
 /** Get the value stored in a normal register.
  *
@@ -115,7 +115,7 @@ const char* kscpu_registerName(int regNumber);
  *
  * @return The register's current value.
  */
-uint64_t kscpu_registerValue(const struct KSMachineContext* const context, int regNumber);
+uint64_t kscpu_registerValue(const struct KSMachineContext *const context, int regNumber);
 
 /** Get the number of exception registers the currently running CPU has.
  *
@@ -129,7 +129,7 @@ int kscpu_numExceptionRegisters(void);
  *
  * @return The register's name or NULL if not found.
  */
-const char* kscpu_exceptionRegisterName(int regNumber);
+const char *kscpu_exceptionRegisterName(int regNumber);
 
 /** Get the value stored in an exception register.
  *
@@ -137,7 +137,7 @@ const char* kscpu_exceptionRegisterName(int regNumber);
  *
  * @return The register's current value.
  */
-uint64_t kscpu_exceptionRegisterValue(const struct KSMachineContext* const context, int regNumber);
+uint64_t kscpu_exceptionRegisterValue(const struct KSMachineContext *const context, int regNumber);
 
 /** Get the direction in which the stack grows on the current architecture.
  *
@@ -149,7 +149,7 @@ int kscpu_stackGrowDirection(void);
  *
  * @param destinationContext The context to fill.
  */
-void kscpu_getState(struct KSMachineContext* destinationContext);
+void kscpu_getState(struct KSMachineContext *destinationContext);
 
 /** Strip PAC from an instruction pointer.
  *
@@ -158,9 +158,9 @@ void kscpu_getState(struct KSMachineContext* destinationContext);
  * @return Instruction pointer without PAC.
  */
 uintptr_t kscpu_normaliseInstructionPointer(uintptr_t ip);
-    
+
 #ifdef __cplusplus
 }
 #endif
 
-#endif // HDR_KSCPU_h
+#endif  // HDR_KSCPU_h

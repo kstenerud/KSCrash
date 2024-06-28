@@ -30,10 +30,10 @@
 NS_ASSUME_NONNULL_BEGIN
 
 typedef NS_OPTIONS(NSUInteger, KSCrashAppMemoryTrackerChangeType) {
-    KSCrashAppMemoryTrackerChangeTypeNone       = 0,
-    KSCrashAppMemoryTrackerChangeTypeLevel      = 1 << 0,
-    KSCrashAppMemoryTrackerChangeTypePressure   = 1 << 1,
-    KSCrashAppMemoryTrackerChangeTypeFootprint  = 1 << 2,
+    KSCrashAppMemoryTrackerChangeTypeNone = 0,
+    KSCrashAppMemoryTrackerChangeTypeLevel = 1 << 0,
+    KSCrashAppMemoryTrackerChangeTypePressure = 1 << 1,
+    KSCrashAppMemoryTrackerChangeTypeFootprint = 1 << 2,
 } NS_SWIFT_NAME(AppMemoryTrackerChangeType);
 
 @protocol KSCrashAppMemoryTrackerDelegate;

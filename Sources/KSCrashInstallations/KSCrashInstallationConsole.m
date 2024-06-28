@@ -25,55 +25,48 @@
 
 #import "KSCrashInstallationConsole.h"
 #import "KSCrashInstallation+Private.h"
-#import "KSCrashReportSinkConsole.h"
 #import "KSCrashReportFilterAppleFmt.h"
 #import "KSCrashReportFilterBasic.h"
 #import "KSCrashReportFilterJSON.h"
 #import "KSCrashReportFilterStringify.h"
+#import "KSCrashReportSinkConsole.h"
 
 @implementation KSCrashInstallationConsole
 
 @synthesize printAppleFormat = _printAppleFormat;
 
-+ (instancetype) sharedInstance
++ (instancetype)sharedInstance
 {
     static KSCrashInstallationConsole *sharedInstance = nil;
     static dispatch_once_t onceToken;
-    
+
     dispatch_once(&onceToken, ^{
         sharedInstance = [[KSCrashInstallationConsole alloc] init];
     });
     return sharedInstance;
 }
 
-- (id) init
+- (id)init
 {
-    if((self = [super initWithRequiredProperties:nil]))
-    {
+    if ((self = [super initWithRequiredProperties:nil])) {
         self.printAppleFormat = NO;
     }
     return self;
 }
 
-- (id<KSCrashReportFilter>) sink
+- (id<KSCrashReportFilter>)sink
 {
     id<KSCrashReportFilter> formatFilter;
-    if(self.printAppleFormat)
-    {
+    if (self.printAppleFormat) {
         formatFilter = [KSCrashReportFilterAppleFmt filterWithReportStyle:KSAppleReportStyleSymbolicated];
-    }
-    else
-    {
-        formatFilter = [KSCrashReportFilterPipeline filterWithFilters:
-                        [KSCrashReportFilterJSONEncode filterWithOptions:KSJSONEncodeOptionPretty | KSJSONEncodeOptionSorted],
-                        [KSCrashReportFilterStringify new],
-                        nil];
+    } else {
+        formatFilter = [KSCrashReportFilterPipeline
+            filterWithFilters:[KSCrashReportFilterJSONEncode
+                                  filterWithOptions:KSJSONEncodeOptionPretty | KSJSONEncodeOptionSorted],
+                              [KSCrashReportFilterStringify new], nil];
     }
 
-    return [KSCrashReportFilterPipeline filterWithFilters:
-            formatFilter,
-            [KSCrashReportSinkConsole new],
-            nil];
+    return [KSCrashReportFilterPipeline filterWithFilters:formatFilter, [KSCrashReportSinkConsole new], nil];
 }
 
 @end

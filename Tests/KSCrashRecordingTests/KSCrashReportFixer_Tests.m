@@ -16,31 +16,34 @@
 
 @implementation KSCrashReportFixer_Tests
 
-- (void)setUp {
+- (void)setUp
+{
     [super setUp];
     // Put setup code here. This method is called before the invocation of each test method in the class.
 }
 
-- (void)tearDown {
+- (void)tearDown
+{
     // Put teardown code here. This method is called after the invocation of each test method in the class.
     [super tearDown];
 }
 
 - (void)testLoadCrash
 {
-    NSBundle* bundle = KS_TEST_MODULE_BUNDLE;
-    NSString* rawPath = [bundle pathForResource:@"raw" ofType:@"json"];
-    NSData* rawData = [NSData dataWithContentsOfFile:rawPath];
-    char* fixedBytes = kscrf_fixupCrashReport(rawData.bytes);
-//    NSLog(@"%@", [[NSString alloc] initWithData:[NSData dataWithBytes:fixedBytes length:strlen(fixedBytes)] encoding:NSUTF8StringEncoding]);
-    NSData* fixedData = [NSData dataWithBytesNoCopy:fixedBytes length:strlen(fixedBytes)];
-    NSError* error = nil;
+    NSBundle *bundle = KS_TEST_MODULE_BUNDLE;
+    NSString *rawPath = [bundle pathForResource:@"raw" ofType:@"json"];
+    NSData *rawData = [NSData dataWithContentsOfFile:rawPath];
+    char *fixedBytes = kscrf_fixupCrashReport(rawData.bytes);
+    //    NSLog(@"%@", [[NSString alloc] initWithData:[NSData dataWithBytes:fixedBytes length:strlen(fixedBytes)]
+    //    encoding:NSUTF8StringEncoding]);
+    NSData *fixedData = [NSData dataWithBytesNoCopy:fixedBytes length:strlen(fixedBytes)];
+    NSError *error = nil;
     id fixedObjects = [NSJSONSerialization JSONObjectWithData:fixedData options:0 error:&error];
     XCTAssertNil(error);
     XCTAssertNotNil(fixedObjects);
 
-    NSString* processedPath = [bundle pathForResource:@"processed" ofType:@"json"];
-    NSData* processedData = [NSData dataWithContentsOfFile:processedPath];
+    NSString *processedPath = [bundle pathForResource:@"processed" ofType:@"json"];
+    NSData *processedData = [NSData dataWithContentsOfFile:processedPath];
     id processedObjects = [NSJSONSerialization JSONObjectWithData:processedData options:0 error:&error];
     XCTAssertNil(error);
     XCTAssertNotNil(processedObjects);

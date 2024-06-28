@@ -44,36 +44,36 @@ NS_SWIFT_NAME(CrashReport)
 /**
  * The type of the value of this crash report (dictionary, string, data)
  */
-@property (nonatomic, readonly, assign) KSCrashReportValueType valueType;
+@property(nonatomic, readonly, assign) KSCrashReportValueType valueType;
 
 /**
  * A structured dictionary version of crash report.
  * This is usually a raw report that can be serialized to JSON.
  */
-@property (nonatomic, readonly, nullable, copy) NSDictionary<NSString*, id>* dictionaryValue;
+@property(nonatomic, readonly, nullable, copy) NSDictionary<NSString *, id> *dictionaryValue;
 
 /**
  * A serialized or formatted string version of crash report.
  */
-@property (nonatomic, readonly, nullable, copy) NSString* stringValue;
+@property(nonatomic, readonly, nullable, copy) NSString *stringValue;
 
 /**
  * A serialized data version of crash report.
  * This usually contain a serialized JSON.
  */
-@property (nonatomic, readonly, nullable, copy) NSData* dataValue;
+@property(nonatomic, readonly, nullable, copy) NSData *dataValue;
 
-- (instancetype) init NS_UNAVAILABLE;
-+ (instancetype) new NS_UNAVAILABLE;
+- (instancetype)init NS_UNAVAILABLE;
++ (instancetype)new NS_UNAVAILABLE;
 
-- (instancetype) initWithValueType:(KSCrashReportValueType) valueType
-                   dictionaryValue:(nullable NSDictionary<NSString*, id>*) dictionaryValue
-                       stringValue:(nullable NSString*) stringValue
-                         dataValue:(nullable NSData*) dataValue NS_DESIGNATED_INITIALIZER;
+- (instancetype)initWithValueType:(KSCrashReportValueType)valueType
+                  dictionaryValue:(nullable NSDictionary<NSString *, id> *)dictionaryValue
+                      stringValue:(nullable NSString *)stringValue
+                        dataValue:(nullable NSData *)dataValue NS_DESIGNATED_INITIALIZER;
 
-+ (instancetype) reportWithDictionary:(NSDictionary<NSString*, id>*) dictionaryValue;
-+ (instancetype) reportWithString:(NSString*) stringValue;
-+ (instancetype) reportWithData:(NSData*) dataValue;
++ (instancetype)reportWithDictionary:(NSDictionary<NSString *, id> *)dictionaryValue;
++ (instancetype)reportWithString:(NSString *)stringValue;
++ (instancetype)reportWithData:(NSData *)dataValue;
 
 @end
 

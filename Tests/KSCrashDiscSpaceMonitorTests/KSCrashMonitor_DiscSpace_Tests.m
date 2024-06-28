@@ -45,7 +45,7 @@ extern void kscm_discSpace_resetState(void);
 
 - (void)testMonitorActivation
 {
-    KSCrashMonitorAPI* discSpaceMonitor = kscm_discspace_getAPI();
+    KSCrashMonitorAPI *discSpaceMonitor = kscm_discspace_getAPI();
 
     XCTAssertFalse(discSpaceMonitor->isEnabled(), @"Disc space monitor should be initially disabled.");
     discSpaceMonitor->setEnabled(true);
@@ -56,7 +56,7 @@ extern void kscm_discSpace_resetState(void);
 
 - (void)testAddContextualInfoWhenEnabled
 {
-    KSCrashMonitorAPI* discSpaceMonitor = kscm_discspace_getAPI();
+    KSCrashMonitorAPI *discSpaceMonitor = kscm_discspace_getAPI();
     discSpaceMonitor->setEnabled(true);
 
     KSCrash_MonitorContext context = { 0 };
@@ -69,7 +69,7 @@ extern void kscm_discSpace_resetState(void);
 
 - (void)testNoContextualInfoWhenDisabled
 {
-    KSCrashMonitorAPI* discSpaceMonitor = kscm_discspace_getAPI();
+    KSCrashMonitorAPI *discSpaceMonitor = kscm_discspace_getAPI();
     discSpaceMonitor->setEnabled(false);
 
     KSCrash_MonitorContext context = { 0 };
@@ -81,9 +81,8 @@ extern void kscm_discSpace_resetState(void);
 
 - (void)testMonitorName
 {
-    KSCrashMonitorAPI* discSpaceMonitor = kscm_discspace_getAPI();
-    XCTAssertEqual(strcmp(discSpaceMonitor->monitorId(), "DiscSpace"), 0,
-                   @"The monitor name should be 'DiscSpace'.");
+    KSCrashMonitorAPI *discSpaceMonitor = kscm_discspace_getAPI();
+    XCTAssertEqual(strcmp(discSpaceMonitor->monitorId(), "DiscSpace"), 0, @"The monitor name should be 'DiscSpace'.");
 }
 
 @end

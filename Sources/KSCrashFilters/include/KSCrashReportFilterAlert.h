@@ -24,7 +24,6 @@
 // THE SOFTWARE.
 //
 
-
 #import <Foundation/Foundation.h>
 #import "KSCrashReportFilter.h"
 
@@ -50,10 +49,10 @@ NS_SWIFT_NAME(CrashReportFilterAlert)
  * @param noAnswer The text to put in the "no" button. If nil, the filter will
  *                 proceed unconditionally.
  */
-+ (instancetype) filterWithTitle:(NSString*) title
-                         message:(nullable NSString*) message
-                       yesAnswer:(NSString*) yesAnswer
-                        noAnswer:(nullable NSString*) noAnswer;
++ (instancetype)filterWithTitle:(NSString *)title
+                        message:(nullable NSString *)message
+                      yesAnswer:(NSString *)yesAnswer
+                       noAnswer:(nullable NSString *)noAnswer;
 
 /**
  * @param title The title of the alert.
@@ -62,10 +61,10 @@ NS_SWIFT_NAME(CrashReportFilterAlert)
  * @param noAnswer The text to put in the "no" button. If nil, the filter will
  *                 proceed unconditionally.
  */
-- (instancetype) initWithTitle:(NSString*) title
-                       message:(nullable NSString*) message
-                     yesAnswer:(NSString*) yesAnswer
-                      noAnswer:(nullable NSString*) noAnswer;
+- (instancetype)initWithTitle:(NSString *)title
+                      message:(nullable NSString *)message
+                    yesAnswer:(NSString *)yesAnswer
+                     noAnswer:(nullable NSString *)noAnswer;
 
 @end
 

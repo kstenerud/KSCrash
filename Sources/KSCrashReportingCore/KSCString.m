@@ -31,52 +31,50 @@
 @synthesize length = _length;
 @synthesize bytes = _bytes;
 
-+ (KSCString*) stringWithString:(NSString*) string
++ (KSCString *)stringWithString:(NSString *)string
 {
     return [[self alloc] initWithString:string];
 }
 
-+ (KSCString*) stringWithCString:(const char*) string
++ (KSCString *)stringWithCString:(const char *)string
 {
     return [[self alloc] initWithCString:string];
 }
 
-+ (KSCString*) stringWithData:(NSData*) data
++ (KSCString *)stringWithData:(NSData *)data
 {
     return [[self alloc] initWithData:data];
 }
 
-+ (KSCString*) stringWithData:(const char*) data length:(NSUInteger) length
++ (KSCString *)stringWithData:(const char *)data length:(NSUInteger)length
 {
     return [[self alloc] initWithData:data length:length];
 }
 
-- (id) initWithString:(NSString*) string
+- (id)initWithString:(NSString *)string
 {
     return [self initWithCString:[string cStringUsingEncoding:NSUTF8StringEncoding]];
 }
 
-- (id) initWithCString:(const char*) string
+- (id)initWithCString:(const char *)string
 {
-    if((self = [super init]))
-    {
+    if ((self = [super init])) {
         _bytes = strdup(string);
         _length = strlen(_bytes);
     }
     return self;
 }
 
-- (id) initWithData:(NSData*) data
+- (id)initWithData:(NSData *)data
 {
     return [self initWithData:data.bytes length:data.length];
 }
 
-- (id) initWithData:(const char*) data length:(NSUInteger) length
+- (id)initWithData:(const char *)data length:(NSUInteger)length
 {
-    if((self = [super init]))
-    {
+    if ((self = [super init])) {
         _length = length;
-        char* bytes = malloc((unsigned)_length+1);
+        char *bytes = malloc((unsigned)_length + 1);
         memcpy(bytes, data, _length);
         bytes[_length] = 0;
         _bytes = bytes;
@@ -84,11 +82,10 @@
     return self;
 }
 
-- (void) dealloc
+- (void)dealloc
 {
-    if(_bytes != NULL)
-    {
-        free((void*)_bytes);
+    if (_bytes != NULL) {
+        free((void *)_bytes);
     }
 }
 

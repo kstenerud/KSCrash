@@ -24,10 +24,8 @@
 // THE SOFTWARE.
 //
 
-
 /* Information about the signals we are interested in for a crash reporter.
  */
-
 
 #ifndef HDR_KSSignalInfo_h
 #define HDR_KSSignalInfo_h
@@ -44,7 +42,7 @@ extern "C" {
  *
  * @return The signal's name or NULL if not found.
  */
-const char* kssignal_signalName(int signal);
+const char *kssignal_signalName(int signal);
 
 /** Get the name of a signal's subcode.
  *
@@ -54,13 +52,13 @@ const char* kssignal_signalName(int signal);
  *
  * @return The code's name or NULL if not found.
  */
-const char* kssignal_signalCodeName(int signal, int code);
+const char *kssignal_signalCodeName(int signal, int code);
 
 /** Get a list of fatal signals.
  *
  * @return A list of fatal signals.
  */
-const int* kssignal_fatalSignals(void);
+const int *kssignal_fatalSignals(void);
 
 /** Get the size of the fatal signals list.
  *
@@ -68,9 +66,8 @@ const int* kssignal_fatalSignals(void);
  */
 int kssignal_numFatalSignals(void);
 
-
 #ifdef __cplusplus
 }
 #endif
 
-#endif // HDR_KSSignalInfo_h
+#endif  // HDR_KSSignalInfo_h

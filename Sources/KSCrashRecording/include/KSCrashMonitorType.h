@@ -37,6 +37,8 @@ extern "C" {
 #define NS_SWIFT_NAME(_name)
 #endif
 
+// clang-format off
+
 /** Various aspects of the system that can be monitored:
  * - Mach kernel exception
  * - Fatal signal
@@ -147,8 +149,10 @@ KSCrashMonitorType
 #endif
 ;
 
+// clang-format on
+
 #ifdef __cplusplus
 }
 #endif
 
-#endif // HDR_KSCrashMonitorType_h
+#endif  // HDR_KSCrashMonitorType_h

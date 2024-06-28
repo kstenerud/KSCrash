@@ -24,9 +24,7 @@
 // THE SOFTWARE.
 //
 
-
 #import <Foundation/Foundation.h>
-
 
 /** Encodes strings to UTF-8 format.
  */
@@ -36,12 +34,12 @@
  *
  * @param format Printf-stype format.
  */
-- (void) appendUTF8Format:(NSString*) format, ...;
+- (void)appendUTF8Format:(NSString *)format, ...;
 
 /** Append a string encoded as UTF-8.
  *
  * @param string The string to append.
  */
-- (void) appendUTF8String:(NSString*) string;
+- (void)appendUTF8String:(NSString *)string;
 
 @end
