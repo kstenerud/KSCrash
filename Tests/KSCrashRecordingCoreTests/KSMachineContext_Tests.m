@@ -28,11 +28,12 @@
 
 #import "KSCrashMonitorContext.h"
 
-@interface KSMachineContext_Tests : XCTestCase @end
+@interface KSMachineContext_Tests : XCTestCase
+@end
 
 @implementation KSMachineContext_Tests
 
-- (void) testSuspendResumeThreads
+- (void)testSuspendResumeThreads
 {
     thread_act_array_t threads1 = NULL;
     mach_msg_type_number_t numThreads1 = 0;

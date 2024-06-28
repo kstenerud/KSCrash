@@ -24,7 +24,6 @@
 // THE SOFTWARE.
 //
 
-
 #import "FileBasedTestCase.h"
 #import "XCTestCase+KSCrash.h"
 
@@ -32,15 +31,13 @@
 
 #include <inttypes.h>
 
-
 #define REPORT_PREFIX @"CrashReport-KSCrashTest"
-
 
 @interface KSCrashReportStore_Tests : FileBasedTestCase
 
-@property(nonatomic,readwrite,retain) NSString* appName;
-@property(nonatomic,readwrite,retain) NSString* reportStorePath;
-@property(atomic,readwrite,assign) int64_t reportCounter;
+@property(nonatomic, readwrite, retain) NSString *appName;
+@property(nonatomic, readwrite, retain) NSString *reportStorePath;
+@property(atomic, readwrite, assign) int64_t reportCounter;
 
 @end
 
@@ -50,126 +47,120 @@
 @synthesize reportStorePath = _reportStorePath;
 @synthesize reportCounter = _reportCounter;
 
-- (int64_t) getReportIDFromPath:(NSString*) path
+- (int64_t)getReportIDFromPath:(NSString *)path
 {
-    const char* filename = path.lastPathComponent.UTF8String;
+    const char *filename = path.lastPathComponent.UTF8String;
     char scanFormat[100];
     sprintf(scanFormat, "%s-report-%%" PRIx64 ".json", self.appName.UTF8String);
-    
+
     int64_t reportID = 0;
     sscanf(filename, scanFormat, &reportID);
     return reportID;
 }
 
-- (void) setUp
+- (void)setUp
 {
     [super setUp];
     self.appName = @"myapp";
 }
 
-- (void) prepareReportStoreWithPathEnd:(NSString*) pathEnd
+- (void)prepareReportStoreWithPathEnd:(NSString *)pathEnd
 {
     self.reportStorePath = [self.tempPath stringByAppendingPathComponent:pathEnd];
     kscrs_initialize(self.appName.UTF8String, self.tempPath.UTF8String, self.reportStorePath.UTF8String);
 }
 
-- (NSArray*) getReportIDs
+- (NSArray *)getReportIDs
 {
     int reportCount = kscrs_getReportCount();
     int64_t rawReportIDs[reportCount];
     reportCount = kscrs_getReportIDs(rawReportIDs, reportCount);
-    NSMutableArray* reportIDs = [NSMutableArray new];
-    for(int i = 0; i < reportCount; i++)
-    {
+    NSMutableArray *reportIDs = [NSMutableArray new];
+    for (int i = 0; i < reportCount; i++) {
         [reportIDs addObject:@(rawReportIDs[i])];
     }
     return reportIDs;
 }
 
-- (int64_t) writeCrashReportWithStringContents:(NSString*) contents
+- (int64_t)writeCrashReportWithStringContents:(NSString *)contents
 {
-    NSData* crashData = [contents dataUsingEncoding:NSUTF8StringEncoding];
+    NSData *crashData = [contents dataUsingEncoding:NSUTF8StringEncoding];
     char crashReportPath[KSCRS_MAX_PATH_LENGTH];
     kscrs_getNextCrashReport(crashReportPath);
     [crashData writeToFile:[NSString stringWithUTF8String:crashReportPath] atomically:YES];
     return [self getReportIDFromPath:[NSString stringWithUTF8String:crashReportPath]];
 }
 
-- (int64_t) writeUserReportWithStringContents:(NSString*) contents
+- (int64_t)writeUserReportWithStringContents:(NSString *)contents
 {
-    NSData* data = [contents dataUsingEncoding:NSUTF8StringEncoding];
+    NSData *data = [contents dataUsingEncoding:NSUTF8StringEncoding];
     return kscrs_addUserReport(data.bytes, (int)data.length);
 }
 
-- (void) loadReportID:(int64_t) reportID
-         reportString:(NSString* __autoreleasing *) reportString
+- (void)loadReportID:(int64_t)reportID reportString:(NSString *__autoreleasing *)reportString
 {
-    char* reportBytes = kscrs_readReport(reportID);
-    
-    if(reportBytes == NULL)
-    {
+    char *reportBytes = kscrs_readReport(reportID);
+
+    if (reportBytes == NULL) {
         reportString = nil;
-    }
-    else
-    {
-        *reportString = [[NSString alloc] initWithData:[NSData dataWithBytesNoCopy:reportBytes length:strlen(reportBytes)] encoding:NSUTF8StringEncoding];
+    } else {
+        *reportString = [[NSString alloc] initWithData:[NSData dataWithBytesNoCopy:reportBytes
+                                                                            length:strlen(reportBytes)]
+                                              encoding:NSUTF8StringEncoding];
     }
 }
 
-- (void) expectHasReportCount:(int) reportCount
+- (void)expectHasReportCount:(int)reportCount
 {
     XCTAssertEqual(kscrs_getReportCount(), reportCount);
 }
 
-- (void) expectReports:(NSArray*) reportIDs
-            areStrings:(NSArray*) reportStrings
+- (void)expectReports:(NSArray *)reportIDs areStrings:(NSArray *)reportStrings
 {
-    for(NSUInteger i = 0; i < reportIDs.count; i++)
-    {
+    for (NSUInteger i = 0; i < reportIDs.count; i++) {
         int64_t reportID = [reportIDs[i] longLongValue];
-        NSString* reportString = reportStrings[i];
-        NSString* loadedReportString;
+        NSString *reportString = reportStrings[i];
+        NSString *loadedReportString;
         [self loadReportID:reportID reportString:&loadedReportString];
         XCTAssertEqualObjects(loadedReportString, reportString);
     }
 }
 
-- (void) testReportStorePathExists
+- (void)testReportStorePathExists
 {
     [self prepareReportStoreWithPathEnd:@"somereports/blah/2/x"];
     XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:self.reportStorePath]);
 }
 
-- (void) testCrashReportCount1
+- (void)testCrashReportCount1
 {
     [self prepareReportStoreWithPathEnd:@"testCrashReportCount1"];
-    NSString* reportContents = @"Testing";
+    NSString *reportContents = @"Testing";
     [self writeCrashReportWithStringContents:reportContents];
     [self expectHasReportCount:1];
 }
 
-
-- (void) testStoresLoadsOneCrashReport
+- (void)testStoresLoadsOneCrashReport
 {
     [self prepareReportStoreWithPathEnd:@"testStoresLoadsOneCrashReport"];
-    NSString* reportContents = @"Testing";
+    NSString *reportContents = @"Testing";
     int64_t reportID = [self writeCrashReportWithStringContents:reportContents];
-    [self expectReports:@[@(reportID)] areStrings:@[reportContents]];
+    [self expectReports:@[ @(reportID) ] areStrings:@[ reportContents ]];
 }
 
-- (void) testStoresLoadsOneUserReport
+- (void)testStoresLoadsOneUserReport
 {
     [self prepareReportStoreWithPathEnd:@"testStoresLoadsOneUserReport"];
-    NSString* reportContents = @"Testing";
+    NSString *reportContents = @"Testing";
     int64_t reportID = [self writeUserReportWithStringContents:reportContents];
-    [self expectReports:@[@(reportID)] areStrings:@[reportContents]];
+    [self expectReports:@[ @(reportID) ] areStrings:@[ reportContents ]];
 }
 
-- (void) testStoresLoadsMultipleReports
+- (void)testStoresLoadsMultipleReports
 {
     [self prepareReportStoreWithPathEnd:@"testStoresLoadsMultipleReports"];
-    NSMutableArray* reportIDs = [NSMutableArray new];
-    NSArray* reportContents = @[@"report1", @"report2", @"report3", @"report4"];
+    NSMutableArray *reportIDs = [NSMutableArray new];
+    NSArray *reportContents = @[ @"report1", @"report2", @"report3", @"report4" ];
     [reportIDs addObject:@([self writeCrashReportWithStringContents:reportContents[0]])];
     [reportIDs addObject:@([self writeUserReportWithStringContents:reportContents[1]])];
     [reportIDs addObject:@([self writeUserReportWithStringContents:reportContents[2]])];
@@ -178,7 +169,7 @@
     [self expectReports:reportIDs areStrings:reportContents];
 }
 
-- (void) testDeleteAllReports
+- (void)testDeleteAllReports
 {
     [self prepareReportStoreWithPathEnd:@"testDeleteAllReports"];
     [self writeCrashReportWithStringContents:@"1"];
@@ -190,7 +181,7 @@
     [self expectHasReportCount:0];
 }
 
-- (void) testPruneReports
+- (void)testPruneReports
 {
     int reportStorePrunesTo = 7;
     kscrs_setMaxReportCount(reportStorePrunesTo);
@@ -207,17 +198,17 @@
     // Calls kscrs_initialize() again, which prunes the reports.
     [self prepareReportStoreWithPathEnd:@"testDeleteAllReports"];
     [self expectHasReportCount:reportStorePrunesTo];
-    NSArray* reportIDs = [self getReportIDs];
+    NSArray *reportIDs = [self getReportIDs];
     XCTAssertFalse([reportIDs containsObject:@(prunedReportID)]);
 }
 
-- (void) testStoresLoadsWithUnicodeAppName
+- (void)testStoresLoadsWithUnicodeAppName
 {
     self.appName = @"ЙогуртЙод";
     [self prepareReportStoreWithPathEnd:@"testStoresLoadsWithUnicodeAppName"];
-    NSString* reportContents = @"Testing";
+    NSString *reportContents = @"Testing";
     int64_t reportID = [self writeCrashReportWithStringContents:reportContents];
-    [self expectReports:@[@(reportID)] areStrings:@[reportContents]];
+    [self expectReports:@[ @(reportID) ] areStrings:@[ reportContents ]];
 }
 
 @end

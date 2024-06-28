@@ -33,53 +33,48 @@
 extern "C" {
 #endif
 
-static inline void kscm_setMonitorEnabled(const KSCrashMonitorAPI* api, bool isEnabled)
+static inline void kscm_setMonitorEnabled(const KSCrashMonitorAPI *api, bool isEnabled)
 {
-    if (api != NULL && api->setEnabled != NULL)
-    {
+    if (api != NULL && api->setEnabled != NULL) {
         api->setEnabled(isEnabled);
     }
 }
 
-static inline bool kscm_isMonitorEnabled(const KSCrashMonitorAPI* api)
+static inline bool kscm_isMonitorEnabled(const KSCrashMonitorAPI *api)
 {
-    if (api != NULL && api->isEnabled != NULL)
-    {
+    if (api != NULL && api->isEnabled != NULL) {
         return api->isEnabled();
     }
     return false;
 }
 
-static inline const char* kscm_getMonitorId(const KSCrashMonitorAPI* api)
+static inline const char *kscm_getMonitorId(const KSCrashMonitorAPI *api)
 {
-    if (api != NULL && api->monitorId != NULL)
-    {
+    if (api != NULL && api->monitorId != NULL) {
         return api->monitorId();
     }
     return NULL;
 }
 
-static inline KSCrashMonitorFlag kscm_getMonitorFlags(const KSCrashMonitorAPI* api)
+static inline KSCrashMonitorFlag kscm_getMonitorFlags(const KSCrashMonitorAPI *api)
 {
-    if (api != NULL && api->monitorFlags != NULL)
-    {
+    if (api != NULL && api->monitorFlags != NULL) {
         return api->monitorFlags();
     }
     return KSCrashMonitorFlagNone;
 }
 
-static inline void kscm_addContextualInfoToEvent(const KSCrashMonitorAPI* api, struct KSCrash_MonitorContext* eventContext)
+static inline void kscm_addContextualInfoToEvent(const KSCrashMonitorAPI *api,
+                                                 struct KSCrash_MonitorContext *eventContext)
 {
-    if (api != NULL && api->addContextualInfoToEvent != NULL)
-    {
+    if (api != NULL && api->addContextualInfoToEvent != NULL) {
         api->addContextualInfoToEvent(eventContext);
     }
 }
 
-static inline void kscm_notifyPostSystemEnable(const KSCrashMonitorAPI* api)
+static inline void kscm_notifyPostSystemEnable(const KSCrashMonitorAPI *api)
 {
-    if (api != NULL && api->notifyPostSystemEnable != NULL)
-    {
+    if (api != NULL && api->notifyPostSystemEnable != NULL) {
         api->notifyPostSystemEnable();
     }
 }

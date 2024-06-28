@@ -26,8 +26,8 @@
 #ifndef KSCrashAppTransitionState_h
 #define KSCrashAppTransitionState_h
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 #ifdef __OBJC__
 #include <Foundation/Foundation.h>
 #endif
@@ -67,13 +67,12 @@ typedef uint8_t KSCrashAppTransitionState;
  * Returns true if the transition state is user perceptible.
  */
 bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
-NS_SWIFT_NAME(isUserPerceptible(transitionState:));
+    NS_SWIFT_NAME(isUserPerceptible(transitionState:));
 
 /**
  * Returns a string for the app state passed in.
  */
-const char *ksapp_transitionStateToString(KSCrashAppTransitionState state)
-NS_SWIFT_NAME(string(for:));
+const char *ksapp_transitionStateToString(KSCrashAppTransitionState state) NS_SWIFT_NAME(string(for:));
 
 #ifdef __cplusplus
 }

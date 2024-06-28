@@ -27,15 +27,15 @@
 #ifndef KSCrashMonitorContextHelper_h
 #define KSCrashMonitorContextHelper_h
 
-#include "KSCrashMonitorContext.h"
 #include "KSCrashMonitor.h"
+#include "KSCrashMonitorContext.h"
 #include "KSCrashMonitorHelper.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-static void inline ksmc_fillMonitorContext(KSCrash_MonitorContext* monitorContext, KSCrashMonitorAPI* monitorApi)
+static void inline ksmc_fillMonitorContext(KSCrash_MonitorContext *monitorContext, KSCrashMonitorAPI *monitorApi)
 {
     if (monitorContext) {
         monitorContext->monitorId = kscm_getMonitorId(monitorApi);

@@ -24,18 +24,17 @@
 // THE SOFTWARE.
 //
 
-
 #import <XCTest/XCTest.h>
 
 #import "KSThread.h"
 #import "TestThread.h"
 
-
-@interface KSThread_Tests : XCTestCase @end
+@interface KSThread_Tests : XCTestCase
+@end
 
 @implementation KSThread_Tests
 
-- (void) testGetQueueName
+- (void)testGetQueueName
 {
     kern_return_t kr;
     const task_t thisTask = mach_task_self();
@@ -47,18 +46,15 @@
 
     bool success = false;
     char buffer[100];
-    for(mach_msg_type_number_t i = 0; i < numThreads; i++)
-    {
+    for (mach_msg_type_number_t i = 0; i < numThreads; i++) {
         thread_t thread = threads[i];
-        if(ksthread_getQueueName(thread, buffer, sizeof(buffer)))
-        {
+        if (ksthread_getQueueName(thread, buffer, sizeof(buffer))) {
             success = true;
             break;
         }
     }
 
-    for(mach_msg_type_number_t i = 0; i < numThreads; i++)
-    {
+    for (mach_msg_type_number_t i = 0; i < numThreads; i++) {
         mach_port_deallocate(thisTask, threads[i]);
     }
     vm_deallocate(thisTask, (vm_address_t)threads, sizeof(thread_t) * numThreads);

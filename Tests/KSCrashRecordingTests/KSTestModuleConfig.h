@@ -1,6 +1,6 @@
 //
 //  KSTestModuleConfig.h
-//  
+//
 //
 //  Created by Alexander Cohen on 5/9/24.
 //
@@ -18,4 +18,4 @@
 #endif
 #endif
 
-#endif // KSTestModuleConfig_h
+#endif  // KSTestModuleConfig_h

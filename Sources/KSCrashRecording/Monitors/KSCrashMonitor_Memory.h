@@ -24,16 +24,14 @@
 // THE SOFTWARE.
 //
 
-
 /* Monitor memory and records data for OOMs.
  */
-
 
 #ifndef KSCrashMonitor_Memory_h
 #define KSCrashMonitor_Memory_h
 
-#include "KSCrashMonitor.h"
 #include "KSCrashAppTransitionState.h"
+#include "KSCrashMonitor.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -49,42 +47,41 @@ extern const uint8_t KSCrash_Memory_NonFatalReportLevelNone;
  App Memory
  */
 typedef struct KSCrash_Memory {
-    
     /** magic header */
     int32_t magic;
-    
+
     /** current version of the struct */
     int8_t version;
-    
+
     /** timestamp in microseconds */
     int64_t timestamp;
-    
+
     /** amount of app memory used */
     uint64_t footprint;
-    
+
     /** amount of app memory remaining */
     uint64_t remaining;
-    
+
     /** high water mark for footprint (footprint +  remaining)*/
     uint64_t limit;
-    
+
     /** memory pressure  `KSCrashAppMemoryPressure` */
     uint8_t pressure;
-    
+
     /** memory level  `KSCrashAppMemoryLevel` (KSCrashAppMemory.level) */
     uint8_t level;
-    
+
     /** transition state of the app */
     KSCrashAppTransitionState state;
-    
+
     /** The process for this data had a fatal exception/event of some type */
     bool fatal;
-    
+
 } KSCrash_Memory;
 
 /** Access the Monitor API.
  */
-KSCrashMonitorAPI* kscm_memory_getAPI(void);
+KSCrashMonitorAPI *kscm_memory_getAPI(void);
 
 /** Initialize the memory monitor.
  *
@@ -128,4 +125,4 @@ bool ksmemory_get_fatal_reports_enabled(void);
 }
 #endif
 
-#endif // KSCrashMonitor_Memory_h
+#endif  // KSCrashMonitor_Memory_h

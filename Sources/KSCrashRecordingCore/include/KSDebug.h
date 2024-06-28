@@ -24,28 +24,26 @@
 // THE SOFTWARE.
 //
 
-
 /* Utility functions for querying the mach kernel.
  */
 
-
 #ifndef HDR_KSDebug_h
 #define HDR_KSDebug_h
-    
+
 #include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-    
+
 /** Check if the current process is being traced or not.
  *
  * @return true if we're being traced.
  */
 bool ksdebug_isBeingTraced(void);
-    
+
 #ifdef __cplusplus
 }
 #endif
 
-#endif // HDR_KSDebug_h
+#endif  // HDR_KSDebug_h

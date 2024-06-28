@@ -47,30 +47,28 @@
 
 #include "KSMach-O.h"
 
-#include "KSLogger.h"
 #include <mach-o/loader.h>
 #include <mach/mach.h>
 #include <string.h>
 #include <sys/types.h>
 
-const struct load_command* ksmacho_getCommandByTypeFromHeader(const mach_header_t* header, uint32_t commandType)
+#include "KSLogger.h"
+
+const struct load_command *ksmacho_getCommandByTypeFromHeader(const mach_header_t *header, uint32_t commandType)
 {
     KSLOG_TRACE("Getting command by type %u in Mach header at %p", commandType, header);
 
-    if (header == NULL)
-    {
+    if (header == NULL) {
         KSLOG_ERROR("Header is NULL");
         return NULL;
     }
 
     uintptr_t current = (uintptr_t)header + sizeof(mach_header_t);
-    struct load_command* loadCommand = NULL;
+    struct load_command *loadCommand = NULL;
 
-    for (uint commandIndex = 0; commandIndex < header->ncmds; commandIndex++)
-    {
-        loadCommand = (struct load_command*)current;
-        if (loadCommand->cmd == commandType)
-        {
+    for (uint commandIndex = 0; commandIndex < header->ncmds; commandIndex++) {
+        loadCommand = (struct load_command *)current;
+        if (loadCommand->cmd == commandType) {
             return loadCommand;
         }
         current += loadCommand->cmdsize;
@@ -79,53 +77,47 @@ const struct load_command* ksmacho_getCommandByTypeFromHeader(const mach_header_
     return NULL;
 }
 
-const segment_command_t* ksmacho_getSegmentByNameFromHeader(const mach_header_t* header, const char* segmentName)
+const segment_command_t *ksmacho_getSegmentByNameFromHeader(const mach_header_t *header, const char *segmentName)
 {
     KSLOG_TRACE("Searching for segment %s in Mach header at %p", segmentName, header);
-    
-    if (header == NULL)
-    {
+
+    if (header == NULL) {
         KSLOG_ERROR("Header is NULL");
         return NULL;
     }
 
-    const segment_command_t* segmentCommand;
+    const segment_command_t *segmentCommand;
     unsigned long commandIndex;
 
-    segmentCommand = (segment_command_t*)((uintptr_t)header + sizeof(mach_header_t));
-    for (commandIndex = 0; commandIndex < header->ncmds; commandIndex++)
-    {
+    segmentCommand = (segment_command_t *)((uintptr_t)header + sizeof(mach_header_t));
+    for (commandIndex = 0; commandIndex < header->ncmds; commandIndex++) {
         if (segmentCommand->cmd == LC_SEGMENT_ARCH_DEPENDENT &&
-            strncmp(segmentCommand->segname, segmentName, sizeof(segmentCommand->segname)) == 0)
-        {
+            strncmp(segmentCommand->segname, segmentName, sizeof(segmentCommand->segname)) == 0) {
             KSLOG_DEBUG("Segment %s found at %p", segmentName, segmentCommand);
             return segmentCommand;
         }
-        segmentCommand = (segment_command_t*)((uintptr_t)segmentCommand + segmentCommand->cmdsize);
+        segmentCommand = (segment_command_t *)((uintptr_t)segmentCommand + segmentCommand->cmdsize);
     }
 
     KSLOG_WARN("Segment %s not found in Mach header at %p", segmentName, header);
     return NULL;
 }
 
-const section_t* ksmacho_getSectionByTypeFlagFromSegment(const segment_command_t* segmentCommand, uint32_t flag)
+const section_t *ksmacho_getSectionByTypeFlagFromSegment(const segment_command_t *segmentCommand, uint32_t flag)
 {
     KSLOG_TRACE("Getting section by flag %u in segment %s", flag, segmentCommand->segname);
-    
-    if (segmentCommand == NULL)
-    {
+
+    if (segmentCommand == NULL) {
         KSLOG_ERROR("Segment is NULL");
         return NULL;
     }
 
     uintptr_t current = (uintptr_t)segmentCommand + sizeof(segment_command_t);
-    const section_t* section = NULL;
+    const section_t *section = NULL;
 
-    for (uint sectionIndex = 0; sectionIndex < segmentCommand->nsects; sectionIndex++)
-    {
-        section = (const section_t*)(current + sectionIndex * sizeof(section_t));
-        if ((section->flags & SECTION_TYPE) == flag)
-        {
+    for (uint sectionIndex = 0; sectionIndex < segmentCommand->nsects; sectionIndex++) {
+        section = (const section_t *)(current + sectionIndex * sizeof(section_t));
+        if ((section->flags & SECTION_TYPE) == flag) {
             return section;
         }
     }
@@ -134,7 +126,7 @@ const section_t* ksmacho_getSectionByTypeFlagFromSegment(const segment_command_t
     return NULL;
 }
 
-vm_prot_t ksmacho_getSectionProtection(void* sectionStart)
+vm_prot_t ksmacho_getSectionProtection(void *sectionStart)
 {
     KSLOG_TRACE("Getting protection for section starting at %p", sectionStart);
 
@@ -146,20 +138,17 @@ vm_prot_t ksmacho_getSectionProtection(void* sectionStart)
     mach_msg_type_number_t count = VM_REGION_BASIC_INFO_COUNT_64;
     vm_region_basic_info_data_64_t info;
     kern_return_t info_ret =
-    vm_region_64(task, &address, &size, VM_REGION_BASIC_INFO_64, (vm_region_info_64_t)&info, &count, &object);
+        vm_region_64(task, &address, &size, VM_REGION_BASIC_INFO_64, (vm_region_info_64_t)&info, &count, &object);
 #else
     mach_msg_type_number_t count = VM_REGION_BASIC_INFO_COUNT;
     vm_region_basic_info_data_t info;
     kern_return_t info_ret =
-    vm_region(task, &address, &size, VM_REGION_BASIC_INFO, (vm_region_info_t)&info, &count, &object);
+        vm_region(task, &address, &size, VM_REGION_BASIC_INFO, (vm_region_info_t)&info, &count, &object);
 #endif
-    if (info_ret == KERN_SUCCESS)
-    {
+    if (info_ret == KERN_SUCCESS) {
         KSLOG_DEBUG("Protection obtained: %d", info.protection);
         return info.protection;
-    }
-    else
-    {
+    } else {
         KSLOG_ERROR("Failed to get protection for section: %s", mach_error_string(info_ret));
         return VM_PROT_READ;
     }

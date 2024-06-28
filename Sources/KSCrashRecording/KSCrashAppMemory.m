@@ -8,7 +8,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (instancetype)initWithFootprint:(uint64_t)footprint
                         remaining:(uint64_t)remaining
-                         pressure:(KSCrashAppMemoryState)pressure {
+                         pressure:(KSCrashAppMemoryState)pressure
+{
     if (self = [super init]) {
         _footprint = footprint;
         _remaining = remaining;
@@ -17,37 +18,40 @@ NS_ASSUME_NONNULL_BEGIN
     return self;
 }
 
-- (BOOL)isEqual:(id)object {
+- (BOOL)isEqual:(id)object
+{
     if (![object isKindOfClass:self.class]) {
         return NO;
     }
     KSCrashAppMemory *comp = (KSCrashAppMemory *)object;
-    return comp.footprint == self.footprint && comp.remaining == self.remaining &&
-    comp.pressure == self.pressure;
+    return comp.footprint == self.footprint && comp.remaining == self.remaining && comp.pressure == self.pressure;
 }
 
-- (uint64_t)limit {
+- (uint64_t)limit
+{
     return _footprint + _remaining;
 }
 
-- (KSCrashAppMemoryState)level {
+- (KSCrashAppMemoryState)level
+{
     double usedRatio = (double)self.footprint / (double)self.limit;
-    
+
     return usedRatio < 0.25   ? KSCrashAppMemoryStateNormal
-    : usedRatio < 0.50 ? KSCrashAppMemoryStateWarn
-    : usedRatio < 0.75 ? KSCrashAppMemoryStateUrgent
-    : usedRatio < 0.95 ? KSCrashAppMemoryStateCritical
-    : KSCrashAppMemoryStateTerminal;
+           : usedRatio < 0.50 ? KSCrashAppMemoryStateWarn
+           : usedRatio < 0.75 ? KSCrashAppMemoryStateUrgent
+           : usedRatio < 0.95 ? KSCrashAppMemoryStateCritical
+                              : KSCrashAppMemoryStateTerminal;
 }
 
-- (BOOL)isOutOfMemory {
-    return self.level >= KSCrashAppMemoryStateCritical ||
-    self.pressure >= KSCrashAppMemoryStateCritical;
+- (BOOL)isOutOfMemory
+{
+    return self.level >= KSCrashAppMemoryStateCritical || self.pressure >= KSCrashAppMemoryStateCritical;
 }
 
 @end
 
-const char *KSCrashAppMemoryStateToString(KSCrashAppMemoryState state) {
+const char *KSCrashAppMemoryStateToString(KSCrashAppMemoryState state)
+{
     switch (state) {
         case KSCrashAppMemoryStateNormal:
             return "normal";
@@ -63,34 +67,33 @@ const char *KSCrashAppMemoryStateToString(KSCrashAppMemoryState state) {
     assert(state <= KSCrashAppMemoryStateTerminal);
 }
 
-KSCrashAppMemoryState KSCrashAppMemoryStateFromString(NSString *const string) {
+KSCrashAppMemoryState KSCrashAppMemoryStateFromString(NSString *const string)
+{
     if ([string isEqualToString:@"normal"]) {
         return KSCrashAppMemoryStateNormal;
     }
-    
+
     if ([string isEqualToString:@"warn"]) {
         return KSCrashAppMemoryStateWarn;
     }
-    
+
     if ([string isEqualToString:@"urgent"]) {
         return KSCrashAppMemoryStateUrgent;
     }
-    
+
     if ([string isEqualToString:@"critical"]) {
         return KSCrashAppMemoryStateCritical;
     }
-    
+
     if ([string isEqualToString:@"terminal"]) {
         return KSCrashAppMemoryStateTerminal;
     }
-    
+
     return KSCrashAppMemoryStateNormal;
 }
 
-NSNotificationName const KSCrashAppMemoryLevelChangedNotification =
-@"KSCrashAppMemoryLevelChangedNotification";
-NSNotificationName const KSCrashAppMemoryPressureChangedNotification =
-@"KSCrashAppMemoryPressureChangedNotification";
+NSNotificationName const KSCrashAppMemoryLevelChangedNotification = @"KSCrashAppMemoryLevelChangedNotification";
+NSNotificationName const KSCrashAppMemoryPressureChangedNotification = @"KSCrashAppMemoryPressureChangedNotification";
 NSString *const KSCrashAppMemoryNewValueKey = @"KSCrashAppMemoryNewValueKey";
 NSString *const KSCrashAppMemoryOldValueKey = @"KSCrashAppMemoryOldValueKey";
 

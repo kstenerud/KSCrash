@@ -1,6 +1,6 @@
 //
 //  KSCrashMonitor_DiscSpace.h
-//  
+//
 //  Created by Gleb Linnik on 04.06.2024.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
@@ -35,7 +35,7 @@ extern "C" {
 
 /** Access the Monitor API.
  */
-KSCrashMonitorAPI* kscm_discspace_getAPI(void);
+KSCrashMonitorAPI *kscm_discspace_getAPI(void);
 
 #ifdef __cplusplus
 }

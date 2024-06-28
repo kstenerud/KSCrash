@@ -24,20 +24,17 @@
 // THE SOFTWARE.
 //
 
-
 #import "TestThread.h"
 #import "KSThread.h"
-
 
 @implementation TestThread
 
 @synthesize thread = _thread;
 
-- (void) main
+- (void)main
 {
     self.thread = (thread_t)ksthread_self();
-    while(!self.isCancelled)
-    {
+    while (!self.isCancelled) {
         [[self class] sleepForTimeInterval:0.1];
     }
 }

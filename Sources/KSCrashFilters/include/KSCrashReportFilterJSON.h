@@ -24,7 +24,6 @@
 // THE SOFTWARE.
 //
 
-
 #import "KSCrashReportFilter.h"
 #import "KSJSONCodecObjC.h"
 
@@ -40,12 +39,11 @@ NS_ASSUME_NONNULL_BEGIN
 NS_SWIFT_NAME(CrashReportFilterJSONEncode)
 @interface KSCrashReportFilterJSONEncode : NSObject <KSCrashReportFilter>
 
-+ (instancetype) filterWithOptions:(KSJSONEncodeOption) options;
++ (instancetype)filterWithOptions:(KSJSONEncodeOption)options;
 
-- (instancetype) initWithOptions:(KSJSONEncodeOption) options;
+- (instancetype)initWithOptions:(KSJSONEncodeOption)options;
 
 @end
-
 
 /** Converts reports from JSON to dict.
  *
@@ -55,9 +53,9 @@ NS_SWIFT_NAME(CrashReportFilterJSONEncode)
 NS_SWIFT_NAME(CrashReportFilterJSONDecode)
 @interface KSCrashReportFilterJSONDecode : NSObject <KSCrashReportFilter>
 
-+ (instancetype) filterWithOptions:(KSJSONDecodeOption) options;
++ (instancetype)filterWithOptions:(KSJSONDecodeOption)options;
 
-- (instancetype) initWithOptions:(KSJSONDecodeOption) options;
+- (instancetype)initWithOptions:(KSJSONDecodeOption)options;
 
 @end
 

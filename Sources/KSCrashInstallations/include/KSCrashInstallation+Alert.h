@@ -38,10 +38,10 @@ NS_ASSUME_NONNULL_BEGIN
  * @param yesAnswer The text to display in the "yes" box.
  * @param noAnswer The text to display in the "no" box.
  */
-- (void) addConditionalAlertWithTitle:(NSString*) title
-                              message:(nullable NSString*) message
-                            yesAnswer:(NSString*) yesAnswer
-                             noAnswer:(nullable NSString*) noAnswer;
+- (void)addConditionalAlertWithTitle:(NSString *)title
+                             message:(nullable NSString *)message
+                           yesAnswer:(NSString *)yesAnswer
+                            noAnswer:(nullable NSString *)noAnswer;
 
 /** Show an alert before sending any reports. Reports will be unconditionally sent
  * when the alert is dismissed.
@@ -50,9 +50,9 @@ NS_ASSUME_NONNULL_BEGIN
  * @param message The message to show the user.
  * @param dismissButtonText The text to display in the dismiss button.
  */
-- (void) addUnconditionalAlertWithTitle:(NSString*) title
-                                message:(nullable NSString*) message
-                      dismissButtonText:(NSString*) dismissButtonText;
+- (void)addUnconditionalAlertWithTitle:(NSString *)title
+                               message:(nullable NSString *)message
+                     dismissButtonText:(NSString *)dismissButtonText;
 
 @end
 

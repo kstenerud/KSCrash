@@ -49,7 +49,7 @@ NS_ASSUME_NONNULL_BEGIN
  *
  * Default: nil
  */
-@property (atomic, readwrite, strong, nullable) NSDictionary<NSString*, id>* userInfo;
+@property(atomic, readwrite, strong, nullable) NSDictionary<NSString *, id> *userInfo;
 
 /** The report sink where reports get sent.
  * This MUST be set or else the reporter will not send reports (although it will
@@ -58,42 +58,42 @@ NS_ASSUME_NONNULL_BEGIN
  * Note: If you use an installation, it will automatically set this property.
  *       Do not modify it in such a case.
  */
-@property (nonatomic, readwrite, strong, nullable) id<KSCrashReportFilter> sink;
+@property(nonatomic, readwrite, strong, nullable) id<KSCrashReportFilter> sink;
 
 #pragma mark - Information -
 
 /** Exposes the uncaughtExceptionHandler if set from KSCrash. Is nil if debugger is running. */
-@property(nonatomic,readonly,assign) NSUncaughtExceptionHandler* uncaughtExceptionHandler;
+@property(nonatomic, readonly, assign) NSUncaughtExceptionHandler *uncaughtExceptionHandler;
 
 /** Exposes the currentSnapshotUserReportedExceptionHandler if set from KSCrash.  Is nil if debugger is running. */
-@property(nonatomic,readonly,assign) NSUncaughtExceptionHandler* currentSnapshotUserReportedExceptionHandler;
+@property(nonatomic, readonly, assign) NSUncaughtExceptionHandler *currentSnapshotUserReportedExceptionHandler;
 
 /** Total active time elapsed since the last crash. */
-@property(nonatomic,readonly,assign) NSTimeInterval activeDurationSinceLastCrash;
+@property(nonatomic, readonly, assign) NSTimeInterval activeDurationSinceLastCrash;
 
 /** Total time backgrounded elapsed since the last crash. */
-@property(nonatomic,readonly,assign) NSTimeInterval backgroundDurationSinceLastCrash;
+@property(nonatomic, readonly, assign) NSTimeInterval backgroundDurationSinceLastCrash;
 
 /** Number of app launches since the last crash. */
-@property(nonatomic,readonly,assign) NSInteger launchesSinceLastCrash;
+@property(nonatomic, readonly, assign) NSInteger launchesSinceLastCrash;
 
 /** Number of sessions (launch, resume from suspend) since last crash. */
-@property(nonatomic,readonly,assign) NSInteger sessionsSinceLastCrash;
+@property(nonatomic, readonly, assign) NSInteger sessionsSinceLastCrash;
 
 /** Total active time elapsed since launch. */
-@property(nonatomic,readonly,assign) NSTimeInterval activeDurationSinceLaunch;
+@property(nonatomic, readonly, assign) NSTimeInterval activeDurationSinceLaunch;
 
 /** Total time backgrounded elapsed since launch. */
-@property(nonatomic,readonly,assign) NSTimeInterval backgroundDurationSinceLaunch;
+@property(nonatomic, readonly, assign) NSTimeInterval backgroundDurationSinceLaunch;
 
 /** Number of sessions (launch, resume from suspend) since app launch. */
-@property(nonatomic,readonly,assign) NSInteger sessionsSinceLaunch;
+@property(nonatomic, readonly, assign) NSInteger sessionsSinceLaunch;
 
 /** If true, the application crashed on the previous launch. */
-@property(nonatomic,readonly,assign) BOOL crashedLastLaunch;
+@property(nonatomic, readonly, assign) BOOL crashedLastLaunch;
 
 /** The total number of unsent reports. Note: This is an expensive operation. */
-@property(nonatomic,readonly,assign) NSInteger reportCount;
+@property(nonatomic, readonly, assign) NSInteger reportCount;
 
 /** Information about the operating system and environment.
  *
@@ -101,12 +101,12 @@ NS_ASSUME_NONNULL_BEGIN
  * To access these values, refer to the optional
  * `KSCrashBootTimeMonitor` and `KSCrashDiscSpaceMonitor` modules.
  */
-@property(nonatomic,readonly,strong) NSDictionary<NSString*, id>* systemInfo;
+@property(nonatomic, readonly, strong) NSDictionary<NSString *, id> *systemInfo;
 
 #pragma mark - API -
 
-- (instancetype) init NS_UNAVAILABLE;
-+ (instancetype) new NS_UNAVAILABLE;
+- (instancetype)init NS_UNAVAILABLE;
++ (instancetype)new NS_UNAVAILABLE;
 
 /**
  * Specifies a custom base path for KSCrash installation.
@@ -118,13 +118,13 @@ NS_ASSUME_NONNULL_BEGIN
  * @note This method SHOULD be called before any use of `sharedInstance` method.
  *       Any call of this method after that is ignored.
  */
-+ (void) setBasePath:(nullable NSString*) basePath;
++ (void)setBasePath:(nullable NSString *)basePath;
 
 /** Get the singleton instance of the crash reporter.
  *
  * @note To specify a custom base direcory for KSCrash use `setBasePath:` method.
  */
-+ (instancetype) sharedInstance NS_SWIFT_NAME(shared());
++ (instancetype)sharedInstance NS_SWIFT_NAME(shared());
 
 /** Install the crash reporter.
  * The reporter will record crashes, but will not send any crash reports unless
@@ -132,7 +132,7 @@ NS_ASSUME_NONNULL_BEGIN
  *
  * @return YES if the reporter successfully installed.
  */
-- (BOOL) installWithConfiguration:(KSCrashConfiguration*) configuration;
+- (BOOL)installWithConfiguration:(KSCrashConfiguration *)configuration;
 
 /** Send all outstanding crash reports to the current sink.
  * It will only attempt to send the most recent 5 reports. All others will be
@@ -144,10 +144,10 @@ NS_ASSUME_NONNULL_BEGIN
  *
  * @param onCompletion Called when sending is complete (nil = ignore).
  */
-- (void) sendAllReportsWithCompletion:(nullable KSCrashReportFilterCompletion) onCompletion;
+- (void)sendAllReportsWithCompletion:(nullable KSCrashReportFilterCompletion)onCompletion;
 
 /** Get all unsent report IDs. */
-@property(nonatomic,readonly,strong) NSArray<NSNumber*>* reportIDs;
+@property(nonatomic, readonly, strong) NSArray<NSNumber *> *reportIDs;
 
 /** Get report.
  *
@@ -155,17 +155,17 @@ NS_ASSUME_NONNULL_BEGIN
  *
  * @return A crash report with a dictionary value. The dectionary fields are described in KSCrashReportFields.h.
  */
-- (nullable KSCrashReport*) reportForID:(int64_t) reportID NS_SWIFT_NAME(report(for:));
+- (nullable KSCrashReport *)reportForID:(int64_t)reportID NS_SWIFT_NAME(report(for:));
 
 /** Delete all unsent reports.
  */
-- (void) deleteAllReports;
+- (void)deleteAllReports;
 
 /** Delete report.
  *
  * @param reportID An ID of report to delete.
  */
-- (void) deleteReportWithID:(int64_t) reportID NS_SWIFT_NAME(deleteReport(with:));
+- (void)deleteReportWithID:(int64_t)reportID NS_SWIFT_NAME(deleteReport(with:));
 
 /** Report a custom, user defined exception.
  * This can be useful when dealing with scripting languages.
@@ -181,18 +181,19 @@ NS_ASSUME_NONNULL_BEGIN
  *
  * @param lineOfCode A copy of the offending line of code (nil = ignore).
  *
- * @param stackTrace An array of frames (dictionaries or strings) representing the call stack leading to the exception (nil = ignore).
+ * @param stackTrace An array of frames (dictionaries or strings) representing the call stack leading to the exception
+ * (nil = ignore).
  *
  * @param logAllThreads If true, suspend all threads and log their state. Note that this incurs a
  *                      performance penalty, so it's best to use only on fatal errors.
  *
  * @param terminateProgram If true, do not return from this function call. Terminate the program instead.
  */
-- (void)reportUserException:(NSString*)name
-                     reason:(nullable NSString*)reason
-                   language:(nullable NSString*)language
-                 lineOfCode:(nullable NSString*)lineOfCode
-                 stackTrace:(nullable NSArray*)stackTrace
+- (void)reportUserException:(NSString *)name
+                     reason:(nullable NSString *)reason
+                   language:(nullable NSString *)language
+                 lineOfCode:(nullable NSString *)lineOfCode
+                 stackTrace:(nullable NSArray *)stackTrace
               logAllThreads:(BOOL)logAllThreads
            terminateProgram:(BOOL)terminateProgram;
 

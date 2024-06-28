@@ -24,9 +24,7 @@
 // THE SOFTWARE.
 //
 
-
 #import <Foundation/Foundation.h>
-
 
 /**
  * Sends HTTP requests via the global dispatch queue, informing the caller of
@@ -36,7 +34,7 @@
 
 /** Constructor.
  */
-+ (KSHTTPRequestSender*) sender;
++ (KSHTTPRequestSender *)sender;
 
 /** Send an HTTP request.
  * The request gets sent via the global dispatch queue using default priority.
@@ -52,9 +50,9 @@
  * @param errorBlock Gets executed if an error prevents the request from being
  *                   sent or an invalid (non-HTTP) response is received.
  */
-- (void) sendRequest:(NSURLRequest*) request
-           onSuccess:(void(^)(NSHTTPURLResponse* response, NSData* data)) successBlock
-           onFailure:(void(^)(NSHTTPURLResponse* response, NSData* data)) failureBlock
-             onError:(void(^)(NSError* error)) errorBlock;
+- (void)sendRequest:(NSURLRequest *)request
+          onSuccess:(void (^)(NSHTTPURLResponse *response, NSData *data))successBlock
+          onFailure:(void (^)(NSHTTPURLResponse *response, NSData *data))failureBlock
+            onError:(void (^)(NSError *error))errorBlock;
 
 @end

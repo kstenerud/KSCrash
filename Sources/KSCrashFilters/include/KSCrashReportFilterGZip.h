@@ -24,7 +24,6 @@
 // THE SOFTWARE.
 //
 
-
 #import "KSCrashReportFilter.h"
 
 #import <Foundation/Foundation.h>
@@ -67,7 +66,7 @@ NS_SWIFT_NAME(CrashReportFilterGZipCompress)
  *                         - `KSCrashReportCompressionLevelDefault` (-1): Default compression level.
  *                         The compression level can be any integer value between 0 and 9.
  */
-+ (instancetype) filterWithCompressionLevel:(KSCrashReportCompressionLevel) compressionLevel;
++ (instancetype)filterWithCompressionLevel:(KSCrashReportCompressionLevel)compressionLevel;
 
 /** Initializer.
  *
@@ -78,7 +77,7 @@ NS_SWIFT_NAME(CrashReportFilterGZipCompress)
  *                         - `KSCrashReportCompressionLevelDefault` (-1): Default compression level.
  *                         The compression level can be any integer value between 0 and 9.
  */
-- (instancetype) initWithCompressionLevel:(KSCrashReportCompressionLevel) compressionLevel;
+- (instancetype)initWithCompressionLevel:(KSCrashReportCompressionLevel)compressionLevel;
 
 @end
 
@@ -94,7 +93,7 @@ NS_SWIFT_NAME(CrashReportFilterGZipDecompress)
  *
  * Creates an instance of the filter for Gzip decompression.
  */
-+ (instancetype) filter;
++ (instancetype)filter;
 
 @end
 

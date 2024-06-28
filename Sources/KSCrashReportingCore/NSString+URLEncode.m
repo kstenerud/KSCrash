@@ -28,7 +28,7 @@
 
 @implementation NSString (URLEncode)
 
-- (NSString*) URLEncoded
+- (NSString *)URLEncoded
 {
     return [self stringByAddingPercentEncodingWithAllowedCharacters:NSCharacterSet.URLQueryAllowedCharacterSet];
 }

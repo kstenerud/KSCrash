@@ -25,117 +25,105 @@
 //
 
 #include "KSCrashReportFields.h"
-#include "KSSystemCapabilities.h"
-#include "KSJSONCodec.h"
 #include "KSDemangle_CPP.h"
+#include "KSJSONCodec.h"
+#include "KSSystemCapabilities.h"
 #if KSCRASH_HAS_SWIFT
 #include "KSDemangle_Swift.h"
 #endif
-#include "KSDate.h"
-#include "KSLogger.h"
-
 #include <stdlib.h>
 #include <string.h>
+
+#include "KSDate.h"
+#include "KSLogger.h"
 
 #define MAX_DEPTH 100
 #define MAX_NAME_LENGTH 100
 #define REPORT_VERSION_COMPONENTS_COUNT 3
 
-static const char* datePaths[][MAX_DEPTH] =
-{
-    {"", KSCrashField_Report, KSCrashField_Timestamp},
-    {"", KSCrashField_RecrashReport, KSCrashField_Report, KSCrashField_Timestamp},
+static const char *datePaths[][MAX_DEPTH] = {
+    { "", KSCrashField_Report, KSCrashField_Timestamp },
+    { "", KSCrashField_RecrashReport, KSCrashField_Report, KSCrashField_Timestamp },
 };
 static int datePathsCount = sizeof(datePaths) / sizeof(*datePaths);
 
-static const char* demanglePaths[][MAX_DEPTH] =
-{
-    {"", KSCrashField_Crash, KSCrashField_Threads, "", KSCrashField_Backtrace, KSCrashField_Contents, "", KSCrashField_SymbolName},
-    {"", KSCrashField_RecrashReport, KSCrashField_Crash, KSCrashField_Threads, "", KSCrashField_Backtrace, KSCrashField_Contents, "", KSCrashField_SymbolName},
-    {"", KSCrashField_Crash, KSCrashField_Error, KSCrashField_CPPException, KSCrashField_Name},
-    {"", KSCrashField_RecrashReport, KSCrashField_Crash, KSCrashField_Error, KSCrashField_CPPException, KSCrashField_Name},
+static const char *demanglePaths[][MAX_DEPTH] = {
+    { "", KSCrashField_Crash, KSCrashField_Threads, "", KSCrashField_Backtrace, KSCrashField_Contents, "",
+      KSCrashField_SymbolName },
+    { "", KSCrashField_RecrashReport, KSCrashField_Crash, KSCrashField_Threads, "", KSCrashField_Backtrace,
+      KSCrashField_Contents, "", KSCrashField_SymbolName },
+    { "", KSCrashField_Crash, KSCrashField_Error, KSCrashField_CPPException, KSCrashField_Name },
+    { "", KSCrashField_RecrashReport, KSCrashField_Crash, KSCrashField_Error, KSCrashField_CPPException,
+      KSCrashField_Name },
 };
 static int demanglePathsCount = sizeof(demanglePaths) / sizeof(*demanglePaths);
 
-static const char* versionPaths[][MAX_DEPTH] =
-{
-    {"", KSCrashField_Report, KSCrashField_Version},
-    {"", KSCrashField_RecrashReport, KSCrashField_Report, KSCrashField_Version},
+static const char *versionPaths[][MAX_DEPTH] = {
+    { "", KSCrashField_Report, KSCrashField_Version },
+    { "", KSCrashField_RecrashReport, KSCrashField_Report, KSCrashField_Version },
 };
 static int versionPathsCount = sizeof(versionPaths) / sizeof(*versionPaths);
 
-typedef struct
-{
-    KSJSONEncodeContext* encodeContext;
+typedef struct {
+    KSJSONEncodeContext *encodeContext;
     int reportVersionComponents[REPORT_VERSION_COMPONENTS_COUNT];
     char objectPath[MAX_DEPTH][MAX_NAME_LENGTH];
     int currentDepth;
-    char* outputPtr;
+    char *outputPtr;
     int outputBytesLeft;
 } FixupContext;
 
-static bool increaseDepth(FixupContext* context, const char* name)
+static bool increaseDepth(FixupContext *context, const char *name)
 {
-    if(context->currentDepth >= MAX_DEPTH)
-    {
+    if (context->currentDepth >= MAX_DEPTH) {
         return false;
     }
-    if(name == NULL)
-    {
+    if (name == NULL) {
         *context->objectPath[context->currentDepth] = '\0';
-    }
-    else
-    {
+    } else {
         strncpy(context->objectPath[context->currentDepth], name, sizeof(context->objectPath[context->currentDepth]));
     }
     context->currentDepth++;
     return true;
 }
 
-static bool decreaseDepth(FixupContext* context)
+static bool decreaseDepth(FixupContext *context)
 {
-    if(context->currentDepth <= 0)
-    {
+    if (context->currentDepth <= 0) {
         return false;
     }
     context->currentDepth--;
     return true;
 }
 
-static bool matchesPath(FixupContext* context, const char** path, const char* finalName)
+static bool matchesPath(FixupContext *context, const char **path, const char *finalName)
 {
-    if(finalName == NULL)
-    {
+    if (finalName == NULL) {
         finalName = "";
     }
 
-    for(int i = 0;i < context->currentDepth; i++)
-    {
-        if(strncmp(context->objectPath[i], path[i], MAX_NAME_LENGTH) != 0)
-        {
+    for (int i = 0; i < context->currentDepth; i++) {
+        if (strncmp(context->objectPath[i], path[i], MAX_NAME_LENGTH) != 0) {
             return false;
         }
     }
-    if(strncmp(finalName, path[context->currentDepth], MAX_NAME_LENGTH) != 0)
-    {
+    if (strncmp(finalName, path[context->currentDepth], MAX_NAME_LENGTH) != 0) {
         return false;
     }
     return true;
 }
 
-static bool matchesAPath(FixupContext* context, const char* name, const char* paths[][MAX_DEPTH], int pathsCount)
+static bool matchesAPath(FixupContext *context, const char *name, const char *paths[][MAX_DEPTH], int pathsCount)
 {
-    for(int i = 0; i < pathsCount; i++)
-    {
-        if(matchesPath(context, paths[i], name))
-        {
+    for (int i = 0; i < pathsCount; i++) {
+        if (matchesPath(context, paths[i], name)) {
             return true;
         }
     }
     return false;
 }
 
-static bool matchesMinVersion(FixupContext* context, int major, int minor, int patch)
+static bool matchesMinVersion(FixupContext *context, int major, int minor, int patch)
 {
     // Works only for report version 3.1.0 and above. See KSCrashReportVersion.h
     bool result = false;
@@ -146,106 +134,85 @@ static bool matchesMinVersion(FixupContext* context, int major, int minor, int p
     return result;
 }
 
-static bool shouldDemangle(FixupContext* context, const char* name)
+static bool shouldDemangle(FixupContext *context, const char *name)
 {
     return matchesAPath(context, name, demanglePaths, demanglePathsCount);
 }
 
-static bool shouldFixDate(FixupContext* context, const char* name)
+static bool shouldFixDate(FixupContext *context, const char *name)
 {
     return matchesAPath(context, name, datePaths, datePathsCount);
 }
 
-static bool shouldSaveVersion(FixupContext* context, const char* name)
+static bool shouldSaveVersion(FixupContext *context, const char *name)
 {
     return matchesAPath(context, name, versionPaths, versionPathsCount);
 }
 
-static int onBooleanElement(const char* const name,
-                            const bool value,
-                            void* const userData)
+static int onBooleanElement(const char *const name, const bool value, void *const userData)
 {
-    FixupContext* context = (FixupContext*)userData;
+    FixupContext *context = (FixupContext *)userData;
     return ksjson_addBooleanElement(context->encodeContext, name, value);
 }
 
-static int onFloatingPointElement(const char* const name,
-                                  const double value,
-                                  void* const userData)
+static int onFloatingPointElement(const char *const name, const double value, void *const userData)
 {
-    FixupContext* context = (FixupContext*)userData;
+    FixupContext *context = (FixupContext *)userData;
     return ksjson_addFloatingPointElement(context->encodeContext, name, value);
 }
 
-static int onIntegerElement(const char* const name,
-                            const int64_t value,
-                            void* const userData)
+static int onIntegerElement(const char *const name, const int64_t value, void *const userData)
 {
-    FixupContext* context = (FixupContext*)userData;
+    FixupContext *context = (FixupContext *)userData;
     int result = KSJSON_OK;
-    if(shouldFixDate(context, name))
-    {
+    if (shouldFixDate(context, name)) {
         char buffer[28];
 
-        if(matchesMinVersion(context, 3, 3, 0))
-        {
+        if (matchesMinVersion(context, 3, 3, 0)) {
             ksdate_utcStringFromMicroseconds(value, buffer);
-        }
-        else
-        {
+        } else {
             ksdate_utcStringFromTimestamp((time_t)value, buffer);
         }
 
         result = ksjson_addStringElement(context->encodeContext, name, buffer, (int)strlen(buffer));
-    }
-    else
-    {
+    } else {
         result = ksjson_addIntegerElement(context->encodeContext, name, value);
     }
     return result;
 }
 
-static int onNullElement(const char* const name,
-                         void* const userData)
+static int onNullElement(const char *const name, void *const userData)
 {
-    FixupContext* context = (FixupContext*)userData;
+    FixupContext *context = (FixupContext *)userData;
     return ksjson_addNullElement(context->encodeContext, name);
 }
 
-static int onStringElement(const char* const name,
-                           const char* const value,
-                           void* const userData)
+static int onStringElement(const char *const name, const char *const value, void *const userData)
 {
-    FixupContext* context = (FixupContext*)userData;
-    const char* stringValue = value;
-    char* demangled = NULL;
-    if(shouldDemangle(context, name))
-    {
+    FixupContext *context = (FixupContext *)userData;
+    const char *stringValue = value;
+    char *demangled = NULL;
+    if (shouldDemangle(context, name)) {
         demangled = ksdm_demangleCPP(value);
 #if KSCRASH_HAS_SWIFT
-        if(demangled == NULL)
-        {
+        if (demangled == NULL) {
             demangled = ksdm_demangleSwift(value);
         }
 #endif
-        if(demangled != NULL)
-        {
+        if (demangled != NULL) {
             stringValue = demangled;
         }
     }
     int result = ksjson_addStringElement(context->encodeContext, name, stringValue, (int)strlen(stringValue));
-    if(demangled != NULL)
-    {
+    if (demangled != NULL) {
         free(demangled);
     }
-    if(shouldSaveVersion(context, name))
-    {
+    if (shouldSaveVersion(context, name)) {
         memset(context->reportVersionComponents, 0, sizeof(context->reportVersionComponents));
         int versionPartsIndex = 0;
-        char* mutableValue = strdup(value);
-        char* versionPart = strtok(mutableValue, ".");
-        while(versionPart != NULL && versionPartsIndex < REPORT_VERSION_COMPONENTS_COUNT)
-        {
+        char *mutableValue = strdup(value);
+        char *versionPart = strtok(mutableValue, ".");
+        while (versionPart != NULL && versionPartsIndex < REPORT_VERSION_COMPONENTS_COUNT) {
             context->reportVersionComponents[versionPartsIndex++] = atoi(versionPart);
             versionPart = strtok(NULL, ".");
         }
@@ -254,70 +221,62 @@ static int onStringElement(const char* const name,
     return result;
 }
 
-static int onBeginObject(const char* const name,
-                         void* const userData)
+static int onBeginObject(const char *const name, void *const userData)
 {
-    FixupContext* context = (FixupContext*)userData;
+    FixupContext *context = (FixupContext *)userData;
     int result = ksjson_beginObject(context->encodeContext, name);
-    if(!increaseDepth(context, name))
-    {
+    if (!increaseDepth(context, name)) {
         return KSJSON_ERROR_DATA_TOO_LONG;
     }
     return result;
 }
 
-static int onBeginArray(const char* const name,
-                        void* const userData)
+static int onBeginArray(const char *const name, void *const userData)
 {
-    FixupContext* context = (FixupContext*)userData;
+    FixupContext *context = (FixupContext *)userData;
     int result = ksjson_beginArray(context->encodeContext, name);
-    if(!increaseDepth(context, name))
-    {
+    if (!increaseDepth(context, name)) {
         return KSJSON_ERROR_DATA_TOO_LONG;
     }
     return result;
 }
 
-static int onEndContainer(void* const userData)
+static int onEndContainer(void *const userData)
 {
-    FixupContext* context = (FixupContext*)userData;
+    FixupContext *context = (FixupContext *)userData;
     int result = ksjson_endContainer(context->encodeContext);
-    if(!decreaseDepth(context))
-    {
+    if (!decreaseDepth(context)) {
         // Do something;
     }
     return result;
 }
 
-static int onEndData(__unused void* const userData)
+static int onEndData(__unused void *const userData)
 {
-    FixupContext* context = (FixupContext*)userData;
+    FixupContext *context = (FixupContext *)userData;
     return ksjson_endEncode(context->encodeContext);
 }
 
-static int addJSONData(const char* data, int length, void* userData)
+static int addJSONData(const char *data, int length, void *userData)
 {
-    FixupContext* context = (FixupContext*)userData;
-    if(length > context->outputBytesLeft)
-    {
+    FixupContext *context = (FixupContext *)userData;
+    if (length > context->outputBytesLeft) {
         return KSJSON_ERROR_DATA_TOO_LONG;
     }
     memcpy(context->outputPtr, data, length);
     context->outputPtr += length;
     context->outputBytesLeft -= length;
-    
+
     return KSJSON_OK;
 }
 
-char* kscrf_fixupCrashReport(const char* crashReport)
+char *kscrf_fixupCrashReport(const char *crashReport)
 {
-    if(crashReport == NULL)
-    {
+    if (crashReport == NULL) {
         return NULL;
     }
 
-    KSJSONDecodeCallbacks callbacks =
-    {
+    KSJSONDecodeCallbacks callbacks = {
         .onBeginArray = onBeginArray,
         .onBeginObject = onBeginObject,
         .onBooleanElement = onBooleanElement,
@@ -329,28 +288,27 @@ char* kscrf_fixupCrashReport(const char* crashReport)
         .onStringElement = onStringElement,
     };
     int stringBufferLength = 10000;
-    char* stringBuffer = malloc((unsigned)stringBufferLength);
+    char *stringBuffer = malloc((unsigned)stringBufferLength);
     int crashReportLength = (int)strlen(crashReport);
     int fixedReportLength = (int)(crashReportLength * 1.5);
-    char* fixedReport = malloc((unsigned)fixedReportLength);
+    char *fixedReport = malloc((unsigned)fixedReportLength);
     KSJSONEncodeContext encodeContext;
-    FixupContext fixupContext =
-    {
+    FixupContext fixupContext = {
         .encodeContext = &encodeContext,
-        .reportVersionComponents = {0},
+        .reportVersionComponents = { 0 },
         .currentDepth = 0,
         .outputPtr = fixedReport,
         .outputBytesLeft = fixedReportLength,
     };
-    
+
     ksjson_beginEncode(&encodeContext, true, addJSONData, &fixupContext);
-    
+
     int errorOffset = 0;
-    int result = ksjson_decode(crashReport, (int)strlen(crashReport), stringBuffer, stringBufferLength, &callbacks, &fixupContext, &errorOffset);
+    int result = ksjson_decode(crashReport, (int)strlen(crashReport), stringBuffer, stringBufferLength, &callbacks,
+                               &fixupContext, &errorOffset);
     *fixupContext.outputPtr = '\0';
     free(stringBuffer);
-    if(result != KSJSON_OK)
-    {
+    if (result != KSJSON_OK) {
         KSLOG_ERROR("Could not decode report: %s", ksjson_stringForError(result));
         free(fixedReport);
         return NULL;

@@ -24,10 +24,8 @@
 // THE SOFTWARE.
 //
 
-
 /* Catches Objective-C exceptions.
  */
-
 
 #ifndef HDR_KSCrashMonitor_NSException_h
 #define HDR_KSCrashMonitor_NSException_h
@@ -38,14 +36,12 @@
 extern "C" {
 #endif
 
-
 /** Access the Monitor API.
  */
-KSCrashMonitorAPI* kscm_nsexception_getAPI(void);
-
+KSCrashMonitorAPI *kscm_nsexception_getAPI(void);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // HDR_KSCrashMonitor_NSException_h
+#endif  // HDR_KSCrashMonitor_NSException_h

@@ -32,26 +32,26 @@
 @interface KSCString : NSObject
 
 /** Length of the string in bytes (not characters!). Length does not include null terminator. */
-@property(nonatomic,readonly,assign) NSUInteger length;
+@property(nonatomic, readonly, assign) NSUInteger length;
 
 /** String contents, including null terminator */
-@property(nonatomic,readonly,assign) const char* bytes;
+@property(nonatomic, readonly, assign) const char *bytes;
 
 /** Constructor for NSString */
-+ (KSCString*) stringWithString:(NSString*) string;
++ (KSCString *)stringWithString:(NSString *)string;
 
 /** Constructor for null-terminated C string (assumes UTF-8 encoding). */
-+ (KSCString*) stringWithCString:(const char*) string;
++ (KSCString *)stringWithCString:(const char *)string;
 
 /** Constructor for string contained in NSData (assumes UTF-8 encoding). */
-+ (KSCString*) stringWithData:(NSData*) data;
++ (KSCString *)stringWithData:(NSData *)data;
 
 /** Constructor for non-terminated string (assumes UTF-8 encoding). */
-+ (KSCString*) stringWithData:(const char*) data length:(NSUInteger) length;
++ (KSCString *)stringWithData:(const char *)data length:(NSUInteger)length;
 
-- (id) initWithString:(NSString*) string;
-- (id) initWithCString:(const char*) string;
-- (id) initWithData:(NSData*) data;
-- (id) initWithData:(const char*) data length:(NSUInteger) length;
+- (id)initWithString:(NSString *)string;
+- (id)initWithCString:(const char *)string;
+- (id)initWithData:(NSData *)data;
+- (id)initWithData:(const char *)data length:(NSUInteger)length;
 
 @end

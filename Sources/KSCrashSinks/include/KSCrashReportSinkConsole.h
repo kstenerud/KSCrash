@@ -24,7 +24,6 @@
 // THE SOFTWARE.
 //
 
-
 #import "KSCrashReportFilter.h"
 
 #import <Foundation/Foundation.h>
@@ -41,10 +40,10 @@ NS_SWIFT_NAME(CrashReportSinkConsole)
 @interface KSCrashReportSinkConsole : NSObject <KSCrashReportFilter>
 
 /** Creates a new filter for printing reports to the console. */
-+ (instancetype) filter;
++ (instancetype)filter;
 
 /** Returns the default crash report filter set. */
-- (id <KSCrashReportFilter>) defaultCrashReportFilterSet;
+- (id<KSCrashReportFilter>)defaultCrashReportFilterSet;
 
 @end
 

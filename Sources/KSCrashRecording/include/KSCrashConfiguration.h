@@ -1,6 +1,6 @@
 //
 //  KSCrashConfiguration.h
-//  
+//
 //  Created by Gleb Linnik on 11.06.2024.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
@@ -40,17 +40,17 @@ typedef NS_ENUM(NSUInteger, KSCDeleteBehavior) {
 
 /** The crash types that will be handled.
  * Some crash types may not be enabled depending on circumstances (e.g., running in a debugger).
- * 
+ *
  * **Default**: `KSCrashMonitorTypeProductionSafeMinimal`
  */
-@property (nonatomic, assign) KSCrashMonitorType monitors;
+@property(nonatomic, assign) KSCrashMonitorType monitors;
 
 /** User-supplied data in JSON format. NULL to delete.
  *
  * This JSON string contains user-specific data that will be included in
  * the crash report. If NULL is passed, any existing user data will be deleted.
  */
-@property (nonatomic, copy, nullable) NSDictionary <NSString*, id>* userInfoJSON;
+@property(nonatomic, copy, nullable) NSDictionary<NSString *, id> *userInfoJSON;
 
 /** The maximum time to allow the main thread to run without returning.
  *
@@ -63,7 +63,7 @@ typedef NS_ENUM(NSUInteger, KSCDeleteBehavior) {
  * application on a different thread or set this to a higher value until initialization
  * is complete.
  */
-@property (nonatomic, assign) double deadlockWatchdogInterval;
+@property(nonatomic, assign) double deadlockWatchdogInterval;
 
 /** If true, attempt to fetch dispatch queue names for each running thread.
  *
@@ -73,7 +73,7 @@ typedef NS_ENUM(NSUInteger, KSCDeleteBehavior) {
  *
  * **Default**: false
  */
-@property (nonatomic, assign) BOOL enableQueueNameSearch;
+@property(nonatomic, assign) BOOL enableQueueNameSearch;
 
 /** If true, introspect memory contents during a crash.
  *
@@ -83,7 +83,7 @@ typedef NS_ENUM(NSUInteger, KSCDeleteBehavior) {
  *
  * **Default**: false
  */
-@property (nonatomic, assign) BOOL enableMemoryIntrospection;
+@property(nonatomic, assign) BOOL enableMemoryIntrospection;
 
 /** List of Objective-C classes that should never be introspected.
  *
@@ -93,7 +93,7 @@ typedef NS_ENUM(NSUInteger, KSCDeleteBehavior) {
  *
  * **Default**: NULL
  */
-@property (nonatomic, strong, nullable) NSArray<NSString *> *doNotIntrospectClasses;
+@property(nonatomic, strong, nullable) NSArray<NSString *> *doNotIntrospectClasses;
 
 /** Callback to invoke upon a crash.
  *
@@ -103,7 +103,7 @@ typedef NS_ENUM(NSUInteger, KSCDeleteBehavior) {
  *
  * **Default**: NULL
  */
-@property (nonatomic, copy, nullable) void (^crashNotifyCallback)(const struct KSCrashReportWriter* writer);
+@property(nonatomic, copy, nullable) void (^crashNotifyCallback)(const struct KSCrashReportWriter *writer);
 
 /** Callback to invoke upon finishing writing a crash report.
  *
@@ -113,7 +113,7 @@ typedef NS_ENUM(NSUInteger, KSCDeleteBehavior) {
  *
  * **Default**: NULL
  */
-@property (nonatomic, copy, nullable) void (^reportWrittenCallback)(int64_t reportID);
+@property(nonatomic, copy, nullable) void (^reportWrittenCallback)(int64_t reportID);
 
 /** If true, append KSLOG console messages to the crash report.
  *
@@ -121,7 +121,7 @@ typedef NS_ENUM(NSUInteger, KSCDeleteBehavior) {
  *
  * **Default**: false
  */
-@property (nonatomic, assign) BOOL addConsoleLogToReport;
+@property(nonatomic, assign) BOOL addConsoleLogToReport;
 
 /** If true, print the previous log to the console on startup.
  *
@@ -130,7 +130,7 @@ typedef NS_ENUM(NSUInteger, KSCDeleteBehavior) {
  *
  * **Default**: false
  */
-@property (nonatomic, assign) BOOL printPreviousLogOnStartup;
+@property(nonatomic, assign) BOOL printPreviousLogOnStartup;
 
 /** The maximum number of crash reports allowed on disk before old ones get deleted.
  *
@@ -139,7 +139,7 @@ typedef NS_ENUM(NSUInteger, KSCDeleteBehavior) {
  *
  * **Default**: 5
  */
-@property (nonatomic, assign) int maxReportCount;
+@property(nonatomic, assign) int maxReportCount;
 
 /** If true, enable C++ exceptions catching with `__cxa_throw` swap.
  *
@@ -150,7 +150,7 @@ typedef NS_ENUM(NSUInteger, KSCDeleteBehavior) {
  *
  * **Default**: false
  */
-@property (nonatomic, assign) BOOL enableSwapCxaThrow;
+@property(nonatomic, assign) BOOL enableSwapCxaThrow;
 
 /** What to do after sending reports via sendAllReportsWithCompletion:
  *

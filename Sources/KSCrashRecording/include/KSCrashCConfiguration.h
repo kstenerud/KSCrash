@@ -28,6 +28,7 @@
 #define KSCrashCConfiguration_h
 
 #include <stdlib.h>
+
 #include "KSCrashMonitorType.h"
 #include "KSCrashReportWriter.h"
 
@@ -54,7 +55,7 @@ typedef struct {
      * This JSON string contains user-specific data that will be included in
      * the crash report. If NULL is passed, any existing user data will be deleted.
      */
-    const char* userInfoJSON;
+    const char *userInfoJSON;
 
     /** The maximum time to allow the main thread to run without returning.
      *
@@ -98,8 +99,8 @@ typedef struct {
      * **Default**: NULL
      */
     struct {
-        const char** strings; /**< Array of strings. */
-        int length; /**< Length of the array. */
+        const char **strings; /**< Array of strings. */
+        int length;           /**< Length of the array. */
     } doNotIntrospectClasses;
 
     /** Callback to invoke upon a crash.
@@ -162,20 +163,18 @@ typedef struct {
 
 static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
 {
-    return (KSCrashCConfiguration) {
-        .monitors = KSCrashMonitorTypeProductionSafeMinimal,
-        .userInfoJSON = NULL,
-        .deadlockWatchdogInterval = 0.0,
-        .enableQueueNameSearch = false,
-        .enableMemoryIntrospection = false,
-        .doNotIntrospectClasses = { .strings = NULL, .length = 0 },
-        .crashNotifyCallback = NULL,
-        .reportWrittenCallback = NULL,
-        .addConsoleLogToReport = false,
-        .printPreviousLogOnStartup = false,
-        .maxReportCount = 5,
-        .enableSwapCxaThrow = false
-    };
+    return (KSCrashCConfiguration) { .monitors = KSCrashMonitorTypeProductionSafeMinimal,
+                                     .userInfoJSON = NULL,
+                                     .deadlockWatchdogInterval = 0.0,
+                                     .enableQueueNameSearch = false,
+                                     .enableMemoryIntrospection = false,
+                                     .doNotIntrospectClasses = { .strings = NULL, .length = 0 },
+                                     .crashNotifyCallback = NULL,
+                                     .reportWrittenCallback = NULL,
+                                     .addConsoleLogToReport = false,
+                                     .printPreviousLogOnStartup = false,
+                                     .maxReportCount = 5,
+                                     .enableSwapCxaThrow = false };
 }
 
 #ifdef __cplusplus
@@ -183,4 +182,3 @@ static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
 #endif
 
 #endif /* KSCrashCConfiguration_h */
-

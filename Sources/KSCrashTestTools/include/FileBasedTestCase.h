@@ -24,16 +24,14 @@
 // THE SOFTWARE.
 //
 
-
 #import <XCTest/XCTest.h>
-
 
 @interface FileBasedTestCase : XCTestCase
 
-@property(nonatomic,readwrite,retain) NSString* tempPath;
+@property(nonatomic, readwrite, retain) NSString *tempPath;
 
-- (NSString*) generateTempFilePath;
-- (NSString*) generateFileWithData:(NSData*) data;
-- (NSString*) generateFileWithString:(NSString*) string;
+- (NSString *)generateTempFilePath;
+- (NSString *)generateFileWithData:(NSData *)data;
+- (NSString *)generateFileWithString:(NSString *)string;
 
 @end

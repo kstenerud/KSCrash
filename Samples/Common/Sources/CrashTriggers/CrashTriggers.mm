@@ -30,9 +30,7 @@
 
 + (void)nsexception
 {
-    NSException *exc = [NSException exceptionWithName:NSGenericException
-                                               reason:@"Test"
-                                             userInfo:@{ @"a": @"b"}];
+    NSException *exc = [NSException exceptionWithName:NSGenericException reason:@"Test" userInfo:@{ @"a" : @"b" }];
     [exc raise];
 }
 

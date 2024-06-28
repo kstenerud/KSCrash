@@ -24,221 +24,180 @@
 // THE SOFTWARE.
 //
 
-
 #import <XCTest/XCTest.h>
 
 #import "Container+DeepSearch.h"
 
-
-@interface Container_DeepSearch_Tests : XCTestCase @end
+@interface Container_DeepSearch_Tests : XCTestCase
+@end
 
 @implementation Container_DeepSearch_Tests
 
-- (void) testDeepSearchDictionary
+- (void)testDeepSearchDictionary
 {
     id expected = @"Object";
-    id container = [NSDictionary dictionaryWithObjectsAndKeys:
-                    [NSDictionary dictionaryWithObjectsAndKeys:
-                     [NSDictionary dictionaryWithObjectsAndKeys:
-                      expected, @"key3",
-                      nil], @"key2",
-                     nil], @"key1",
-                    nil];
+    id container = [NSDictionary
+        dictionaryWithObjectsAndKeys:[NSDictionary
+                                         dictionaryWithObjectsAndKeys:[NSDictionary
+                                                                          dictionaryWithObjectsAndKeys:expected,
+                                                                                                       @"key3", nil],
+                                                                      @"key2", nil],
+                                     @"key1", nil];
 
     id deepKey = [NSArray arrayWithObjects:@"key1", @"key2", @"key3", nil];
     id actual = [container objectForDeepKey:deepKey];
     XCTAssertEqualObjects(expected, actual, @"");
 }
 
-- (void) testDeepSearchDictionaryPath
+- (void)testDeepSearchDictionaryPath
 {
     id expected = @"Object";
-    id container = [NSDictionary dictionaryWithObjectsAndKeys:
-                    [NSDictionary dictionaryWithObjectsAndKeys:
-                     [NSDictionary dictionaryWithObjectsAndKeys:
-                      expected, @"key3",
-                      nil], @"key2",
-                     nil], @"key1",
-                    nil];
+    id container = [NSDictionary
+        dictionaryWithObjectsAndKeys:[NSDictionary
+                                         dictionaryWithObjectsAndKeys:[NSDictionary
+                                                                          dictionaryWithObjectsAndKeys:expected,
+                                                                                                       @"key3", nil],
+                                                                      @"key2", nil],
+                                     @"key1", nil];
 
     id actual = [container objectForKeyPath:@"key1/key2/key3"];
     XCTAssertEqualObjects(expected, actual, @"");
 }
 
-- (void) testDeepSearchDictionaryPathAbs
+- (void)testDeepSearchDictionaryPathAbs
 {
     id expected = @"Object";
-    id container = [NSDictionary dictionaryWithObjectsAndKeys:
-                    [NSDictionary dictionaryWithObjectsAndKeys:
-                     [NSDictionary dictionaryWithObjectsAndKeys:
-                      expected, @"key3",
-                      nil], @"key2",
-                     nil], @"key1",
-                    nil];
-    
+    id container = [NSDictionary
+        dictionaryWithObjectsAndKeys:[NSDictionary
+                                         dictionaryWithObjectsAndKeys:[NSDictionary
+                                                                          dictionaryWithObjectsAndKeys:expected,
+                                                                                                       @"key3", nil],
+                                                                      @"key2", nil],
+                                     @"key1", nil];
+
     id actual = [container objectForKeyPath:@"/key1/key2/key3"];
     XCTAssertEqualObjects(expected, actual, @"");
 }
 
-- (void) testDeepSearchDictionary2
+- (void)testDeepSearchDictionary2
 {
     id expected = @"Object";
-    id container = [NSDictionary dictionaryWithObjectsAndKeys:
-                    [NSDictionary dictionaryWithObjectsAndKeys:
-                     [NSDictionary dictionaryWithObjectsAndKeys:
-                      expected, @"3",
-                      nil], @"2",
-                     nil], @"1",
-                    nil];
+    id container = [NSDictionary
+        dictionaryWithObjectsAndKeys:[NSDictionary
+                                         dictionaryWithObjectsAndKeys:[NSDictionary
+                                                                          dictionaryWithObjectsAndKeys:expected, @"3",
+                                                                                                       nil],
+                                                                      @"2", nil],
+                                     @"1", nil];
 
     id deepKey = [NSArray arrayWithObjects:@"1", @"2", @"3", nil];
     id actual = [container objectForDeepKey:deepKey];
     XCTAssertEqualObjects(expected, actual, @"");
 }
 
-- (void) testDeepSearchDictionary2Path
+- (void)testDeepSearchDictionary2Path
 {
     id expected = @"Object";
-    id container = [NSDictionary dictionaryWithObjectsAndKeys:
-                    [NSDictionary dictionaryWithObjectsAndKeys:
-                     [NSDictionary dictionaryWithObjectsAndKeys:
-                      expected, @"3",
-                      nil], @"2",
-                     nil], @"1",
-                    nil];
+    id container = [NSDictionary
+        dictionaryWithObjectsAndKeys:[NSDictionary
+                                         dictionaryWithObjectsAndKeys:[NSDictionary
+                                                                          dictionaryWithObjectsAndKeys:expected, @"3",
+                                                                                                       nil],
+                                                                      @"2", nil],
+                                     @"1", nil];
 
     id actual = [container objectForKeyPath:@"1/2/3"];
     XCTAssertEqualObjects(expected, actual, @"");
 }
 
-- (void) testDeepSearchArray
+- (void)testDeepSearchArray
 {
     id expected = @"Object";
-    id container = [NSArray arrayWithObjects:
-                    [NSArray arrayWithObjects:
-                     @"blah",
-                     [NSArray arrayWithObjects:
-                      @"blah2",
-                      expected,
-                      nil],
-                     nil],
-                    nil];
+    id container = [NSArray
+        arrayWithObjects:[NSArray arrayWithObjects:@"blah", [NSArray arrayWithObjects:@"blah2", expected, nil], nil],
+                         nil];
 
-    id deepKey = [NSArray arrayWithObjects:
-                        [NSNumber numberWithInt:0],
-                        [NSNumber numberWithInt:1],
-                        [NSNumber numberWithInt:1],
-                        nil];
+    id deepKey = [NSArray
+        arrayWithObjects:[NSNumber numberWithInt:0], [NSNumber numberWithInt:1], [NSNumber numberWithInt:1], nil];
     id actual = [container objectForDeepKey:deepKey];
     XCTAssertEqualObjects(expected, actual, @"");
 }
 
-- (void) testDeepSearchArrayString
+- (void)testDeepSearchArrayString
 {
     id expected = @"Object";
-    id container = [NSArray arrayWithObjects:
-                    [NSArray arrayWithObjects:
-                     @"blah",
-                     [NSArray arrayWithObjects:
-                      @"blah2",
-                      expected,
-                      nil],
-                     nil],
-                    nil];
+    id container = [NSArray
+        arrayWithObjects:[NSArray arrayWithObjects:@"blah", [NSArray arrayWithObjects:@"blah2", expected, nil], nil],
+                         nil];
 
     id deepKey = [NSArray arrayWithObjects:@"0", @"1", @"1", nil];
     id actual = [container objectForDeepKey:deepKey];
     XCTAssertEqualObjects(expected, actual, @"");
 }
 
-- (void) testDeepSearchArrayString2
+- (void)testDeepSearchArrayString2
 {
-    id container = [NSArray arrayWithObjects:
-                    [NSArray arrayWithObjects:
-                     @"blah",
-                     [NSArray arrayWithObjects:
-                      @"blah2",
-                      nil],
-                     nil],
-                    nil];
+    id container = [NSArray
+        arrayWithObjects:[NSArray arrayWithObjects:@"blah", [NSArray arrayWithObjects:@"blah2", nil], nil], nil];
 
     id deepKey = [NSArray arrayWithObjects:@"0", @"1", @"key", nil];
     id actual = [container objectForDeepKey:deepKey];
     XCTAssertNil(actual, @"");
 }
 
-- (void) testDeepSearchArrayEmptyString
+- (void)testDeepSearchArrayEmptyString
 {
     id expected = @"Object";
-    id container = [NSArray arrayWithObjects:
-                    [NSArray arrayWithObjects:
-                     @"blah",
-                     [NSArray arrayWithObjects:
-                      expected,
-                      @"blah2",
-                      nil],
-                     nil],
-                    nil];
-    
+    id container = [NSArray
+        arrayWithObjects:[NSArray arrayWithObjects:@"blah", [NSArray arrayWithObjects:expected, @"blah2", nil], nil],
+                         nil];
+
     id deepKey = [NSArray arrayWithObjects:@"0", @"1", @"", nil];
     id actual = [container objectForDeepKey:deepKey];
     XCTAssertEqualObjects(expected, actual, @"");
 }
 
-- (void) testDeepSearchArrayPath
+- (void)testDeepSearchArrayPath
 {
     id expected = @"Object";
-    id container = [NSArray arrayWithObjects:
-                    [NSArray arrayWithObjects:
-                     @"blah",
-                     [NSArray arrayWithObjects:
-                      @"blah2",
-                      expected,
-                      nil],
-                     nil],
-                    nil];
+    id container = [NSArray
+        arrayWithObjects:[NSArray arrayWithObjects:@"blah", [NSArray arrayWithObjects:@"blah2", expected, nil], nil],
+                         nil];
 
     id actual = [container objectForKeyPath:@"0/1/1"];
     XCTAssertEqualObjects(expected, actual, @"");
 }
 
-- (void) testDeepSearchMixed
+- (void)testDeepSearchMixed
 {
     id expected = @"Object";
-    id container = [NSDictionary dictionaryWithObjectsAndKeys:
-                    [NSArray arrayWithObjects:
-                     @"blah",
-                     [NSDictionary dictionaryWithObjectsAndKeys:
-                      expected, @"key3",
-                      nil],
-                     nil], @"key1",
-                    nil];
+    id container = [NSDictionary
+        dictionaryWithObjectsAndKeys:[NSArray arrayWithObjects:@"blah",
+                                                               [NSDictionary
+                                                                   dictionaryWithObjectsAndKeys:expected, @"key3", nil],
+                                                               nil],
+                                     @"key1", nil];
 
-    id deepKey = [NSArray arrayWithObjects:
-                        @"key1",
-                        [NSNumber numberWithInt:1],
-                        @"key3", nil];
+    id deepKey = [NSArray arrayWithObjects:@"key1", [NSNumber numberWithInt:1], @"key3", nil];
     id actual = [container objectForDeepKey:deepKey];
     XCTAssertEqualObjects(expected, actual, @"");
 }
 
-- (void) testDeepSearchMixedPath
+- (void)testDeepSearchMixedPath
 {
     id expected = @"Object";
-    id container = [NSDictionary dictionaryWithObjectsAndKeys:
-                    [NSArray arrayWithObjects:
-                     @"blah",
-                     [NSDictionary dictionaryWithObjectsAndKeys:
-                      expected, @"key3",
-                      nil],
-                     nil], @"key1",
-                    nil];
+    id container = [NSDictionary
+        dictionaryWithObjectsAndKeys:[NSArray arrayWithObjects:@"blah",
+                                                               [NSDictionary
+                                                                   dictionaryWithObjectsAndKeys:expected, @"key3", nil],
+                                                               nil],
+                                     @"key1", nil];
 
     id actual = [container objectForKeyPath:@"key1/1/key3"];
     XCTAssertEqualObjects(expected, actual, @"");
 }
 
-- (void) testDeepSearchNotFound
+- (void)testDeepSearchNotFound
 {
     id container = [NSDictionary dictionary];
     id deepKey = [NSArray arrayWithObjects:@"key1", nil];
@@ -246,7 +205,7 @@
     XCTAssertNil(actual, @"");
 }
 
-- (void) testDeepSearchNotFoundArray
+- (void)testDeepSearchNotFoundArray
 {
     id container = [NSArray array];
     id deepKey = [NSArray arrayWithObjects:@"key1", nil];
@@ -254,256 +213,234 @@
     XCTAssertNil(actual, @"");
 }
 
-- (void) testDeepSearchNonContainerObject
+- (void)testDeepSearchNonContainerObject
 {
     id expected = @"Object";
-    id container = [NSDictionary dictionaryWithObjectsAndKeys:
-                    [NSArray arrayWithObjects:
-                     @"blah",
-                     [NSDictionary dictionaryWithObjectsAndKeys:
-                      expected, @"key3",
-                      nil],
-                     nil], @"key1",
-                    nil];
+    id container = [NSDictionary
+        dictionaryWithObjectsAndKeys:[NSArray arrayWithObjects:@"blah",
+                                                               [NSDictionary
+                                                                   dictionaryWithObjectsAndKeys:expected, @"key3", nil],
+                                                               nil],
+                                     @"key1", nil];
 
-    id deepKey = [NSArray arrayWithObjects:
-                        @"key1",
-                        [NSNumber numberWithInt:1],
-                        @"key3",
-                        @"key4", nil];
+    id deepKey = [NSArray arrayWithObjects:@"key1", [NSNumber numberWithInt:1], @"key3", @"key4", nil];
     id actual = [container objectForDeepKey:deepKey];
     XCTAssertNil(actual, @"");
 }
 
-- (void) testSetObjectForDeepKeyDict
+- (void)testSetObjectForDeepKeyDict
 {
     id expected = @"Object";
-    id container = [NSDictionary dictionaryWithObjectsAndKeys:
-                    [NSDictionary dictionaryWithObjectsAndKeys:
-                     [NSMutableDictionary dictionaryWithObjectsAndKeys:
-                      @"someObject", @"someKey",
-                      nil], @"key2",
-                     nil], @"key1",
-                    nil];
-    
+    id container = [NSDictionary
+        dictionaryWithObjectsAndKeys:[NSDictionary
+                                         dictionaryWithObjectsAndKeys:[NSMutableDictionary
+                                                                          dictionaryWithObjectsAndKeys:@"someObject",
+                                                                                                       @"someKey", nil],
+                                                                      @"key2", nil],
+                                     @"key1", nil];
+
     id deepKey = [NSArray arrayWithObjects:@"key1", @"key2", @"key3", nil];
     [container setObject:expected forDeepKey:deepKey];
     id actual = [container objectForDeepKey:deepKey];
     XCTAssertEqualObjects(expected, actual, @"");
 }
 
-- (void) testSetObjectForDeepKeyDictSimple
+- (void)testSetObjectForDeepKeyDictSimple
 {
     id expected = @"Object";
-    id container = [NSMutableDictionary dictionaryWithObjectsAndKeys:
-                      @"someObject", @"someKey",
-                    nil];
-    
+    id container = [NSMutableDictionary dictionaryWithObjectsAndKeys:@"someObject", @"someKey", nil];
+
     id deepKey = [NSArray arrayWithObjects:@"key1", nil];
     [container setObject:expected forDeepKey:deepKey];
     id actual = [container objectForDeepKey:deepKey];
     XCTAssertEqualObjects(expected, actual, @"");
 }
 
-- (void) testSetObjectForDeepKeyDictEmptyKey
+- (void)testSetObjectForDeepKeyDictEmptyKey
 {
     id expected = @"Object";
-    id container = [NSDictionary dictionaryWithObjectsAndKeys:
-                    [NSDictionary dictionaryWithObjectsAndKeys:
-                     [NSMutableDictionary dictionaryWithObjectsAndKeys:
-                      @"someObject", @"someKey",
-                      nil], @"key2",
-                     nil], @"key1",
-                    nil];
-    
+    id container = [NSDictionary
+        dictionaryWithObjectsAndKeys:[NSDictionary
+                                         dictionaryWithObjectsAndKeys:[NSMutableDictionary
+                                                                          dictionaryWithObjectsAndKeys:@"someObject",
+                                                                                                       @"someKey", nil],
+                                                                      @"key2", nil],
+                                     @"key1", nil];
+
     id deepKey = [NSArray array];
     XCTAssertThrows([container setObject:expected forDeepKey:deepKey], @"");
 }
 
-- (void) testSetObjectForDeepKeyArray
+- (void)testSetObjectForDeepKeyArray
 {
     id expected = @"Object";
-    id container = [NSArray arrayWithObjects:
-                    [NSDictionary dictionaryWithObjectsAndKeys:
-                     [NSMutableArray arrayWithObjects:
-                      @"someObject",
-                      nil], @"key2",
-                     nil],
-                    nil];
-    
+    id container =
+        [NSArray arrayWithObjects:[NSDictionary
+                                      dictionaryWithObjectsAndKeys:[NSMutableArray arrayWithObjects:@"someObject", nil],
+                                                                   @"key2", nil],
+                                  nil];
+
     id deepKey = [NSArray arrayWithObjects:@"0", @"key2", @"0", nil];
     [container setObject:expected forDeepKey:deepKey];
     id actual = [container objectForDeepKey:deepKey];
     XCTAssertEqualObjects(expected, actual, @"");
 }
 
-- (void) testSetObjectForKeyPathArray
+- (void)testSetObjectForKeyPathArray
 {
     id expected = @"Object";
-    id container = [NSArray arrayWithObjects:
-                    [NSDictionary dictionaryWithObjectsAndKeys:
-                     [NSMutableArray arrayWithObjects:
-                      @"someObject",
-                      nil], @"key2",
-                     nil],
-                    nil];
-    
+    id container =
+        [NSArray arrayWithObjects:[NSDictionary
+                                      dictionaryWithObjectsAndKeys:[NSMutableArray arrayWithObjects:@"someObject", nil],
+                                                                   @"key2", nil],
+                                  nil];
+
     id deepKey = @"0/key2/0";
     [container setObject:expected forKeyPath:deepKey];
     id actual = [container objectForKeyPath:deepKey];
     XCTAssertEqualObjects(expected, actual, @"");
 }
 
-- (void) testSetObjectForDeepKeyInvalidContainer
+- (void)testSetObjectForDeepKeyInvalidContainer
 {
     id expected = @"Object";
     id container = [NSDate date];
-    
+
     id deepKey = [NSArray arrayWithObjects:@"key1", @"key2", @"0", nil];
     XCTAssertThrows([container setObject:expected forDeepKey:deepKey], @"");
 }
 
-- (void) testSetObjectForDeepKeyImmutableArray
+- (void)testSetObjectForDeepKeyImmutableArray
 {
     id expected = @"Object";
-    id container = [NSArray arrayWithObjects:
-                    [NSDictionary dictionaryWithObjectsAndKeys:
-                     [NSArray arrayWithObjects:
-                      @"someObject",
-                      nil], @"key2",
-                     nil],
-                    nil];
-    
+    id container = [NSArray
+        arrayWithObjects:[NSDictionary
+                             dictionaryWithObjectsAndKeys:[NSArray arrayWithObjects:@"someObject", nil], @"key2", nil],
+                         nil];
+
     id deepKey = [NSArray arrayWithObjects:@"0", @"key2", @"0", nil];
     XCTAssertThrows([container setObject:expected forDeepKey:deepKey], @"");
 }
 
-- (void) testSetObjectForDeepKeyImmutableDict
+- (void)testSetObjectForDeepKeyImmutableDict
 {
     id expected = @"Object";
-    id container = [NSDictionary dictionaryWithObjectsAndKeys:
-                    [NSDictionary dictionaryWithObjectsAndKeys:
-                     [NSDictionary dictionaryWithObjectsAndKeys:
-                      @"someObject", @"someKey",
-                      nil], @"key2",
-                     nil], @"key1",
-                    nil];
-    
+    id container = [NSDictionary
+        dictionaryWithObjectsAndKeys:[NSDictionary
+                                         dictionaryWithObjectsAndKeys:[NSDictionary
+                                                                          dictionaryWithObjectsAndKeys:@"someObject",
+                                                                                                       @"someKey", nil],
+                                                                      @"key2", nil],
+                                     @"key1", nil];
+
     id deepKey = [NSArray arrayWithObjects:@"key1", @"key2", [NSDate date], nil];
     XCTAssertThrows([container setObject:expected forDeepKey:deepKey], @"");
 }
 
-- (void) testSetObjectForKeyPathDict
+- (void)testSetObjectForKeyPathDict
 {
     id expected = @"Object";
-    id container = [NSDictionary dictionaryWithObjectsAndKeys:
-                    [NSDictionary dictionaryWithObjectsAndKeys:
-                     [NSMutableDictionary dictionaryWithObjectsAndKeys:
-                      @"someObject", @"someKey",
-                      nil], @"key2",
-                     nil], @"key1",
-                    nil];
-    
+    id container = [NSDictionary
+        dictionaryWithObjectsAndKeys:[NSDictionary
+                                         dictionaryWithObjectsAndKeys:[NSMutableDictionary
+                                                                          dictionaryWithObjectsAndKeys:@"someObject",
+                                                                                                       @"someKey", nil],
+                                                                      @"key2", nil],
+                                     @"key1", nil];
+
     id deepKey = @"key1/key2/key3";
     [container setObject:expected forKeyPath:deepKey];
     id actual = [container objectForKeyPath:deepKey];
     XCTAssertEqualObjects(expected, actual, @"");
 }
 
-- (void) testRemoveObjectForDeepKeyDict
+- (void)testRemoveObjectForDeepKeyDict
 {
-    id container = [NSDictionary dictionaryWithObjectsAndKeys:
-                    [NSDictionary dictionaryWithObjectsAndKeys:
-                     [NSMutableDictionary dictionaryWithObjectsAndKeys:
-                      @"someObject", @"key3",
-                      nil], @"key2",
-                     nil], @"key1",
-                    nil];
-    
+    id container = [NSDictionary
+        dictionaryWithObjectsAndKeys:[NSDictionary
+                                         dictionaryWithObjectsAndKeys:[NSMutableDictionary
+                                                                          dictionaryWithObjectsAndKeys:@"someObject",
+                                                                                                       @"key3", nil],
+                                                                      @"key2", nil],
+                                     @"key1", nil];
+
     id deepKey = [NSArray arrayWithObjects:@"key1", @"key2", @"key3", nil];
     [container removeObjectForDeepKey:deepKey];
     id actual = [container objectForDeepKey:deepKey];
     XCTAssertNil(actual, @"");
 }
 
-- (void) testRemoveObjectForKeyPathDict
+- (void)testRemoveObjectForKeyPathDict
 {
-    id container = [NSDictionary dictionaryWithObjectsAndKeys:
-                    [NSDictionary dictionaryWithObjectsAndKeys:
-                     [NSMutableDictionary dictionaryWithObjectsAndKeys:
-                      @"someObject", @"key3",
-                      nil], @"key2",
-                     nil], @"key1",
-                    nil];
-    
+    id container = [NSDictionary
+        dictionaryWithObjectsAndKeys:[NSDictionary
+                                         dictionaryWithObjectsAndKeys:[NSMutableDictionary
+                                                                          dictionaryWithObjectsAndKeys:@"someObject",
+                                                                                                       @"key3", nil],
+                                                                      @"key2", nil],
+                                     @"key1", nil];
+
     id deepKey = @"key1/key2/key3";
     [container removeObjectForKeyPath:deepKey];
     id actual = [container objectForKeyPath:deepKey];
     XCTAssertNil(actual, @"");
 }
 
-- (void) testRemoveObjectForDeepKeyArray
+- (void)testRemoveObjectForDeepKeyArray
 {
-    id container = [NSArray arrayWithObjects:
-                    [NSDictionary dictionaryWithObjectsAndKeys:
-                     [NSMutableArray arrayWithObjects:
-                      @"someObject",
-                      nil], @"key2",
-                     nil],
-                    nil];
-    
+    id container =
+        [NSArray arrayWithObjects:[NSDictionary
+                                      dictionaryWithObjectsAndKeys:[NSMutableArray arrayWithObjects:@"someObject", nil],
+                                                                   @"key2", nil],
+                                  nil];
+
     id deepKey = [NSArray arrayWithObjects:@"0", @"key2", @"0", nil];
     [container removeObjectForDeepKey:deepKey];
     XCTAssertThrows([container objectForDeepKey:deepKey], @"");
 }
 
-- (void) testRemoveObjectForKeyPathArray
+- (void)testRemoveObjectForKeyPathArray
 {
-    id container = [NSArray arrayWithObjects:
-                    [NSDictionary dictionaryWithObjectsAndKeys:
-                     [NSMutableArray arrayWithObjects:
-                      @"someObject",
-                      nil], @"key2",
-                     nil],
-                    nil];
-    
+    id container =
+        [NSArray arrayWithObjects:[NSDictionary
+                                      dictionaryWithObjectsAndKeys:[NSMutableArray arrayWithObjects:@"someObject", nil],
+                                                                   @"key2", nil],
+                                  nil];
+
     id deepKey = @"0/key2/0";
     [container removeObjectForKeyPath:deepKey];
     XCTAssertThrows([container objectForKeyPath:deepKey], @"");
 }
 
-- (void) testRemoveObjectForDeepKeyInvalidContainer
+- (void)testRemoveObjectForDeepKeyInvalidContainer
 {
     id container = [NSDate date];
-    
+
     id deepKey = [NSArray arrayWithObjects:@"key1", @"key2", @"0", nil];
     XCTAssertThrows([container removeObjectForDeepKey:deepKey], @"");
 }
 
-- (void) testRemoveObjectForDeepKeyImmutableArray
+- (void)testRemoveObjectForDeepKeyImmutableArray
 {
-    id container = [NSArray arrayWithObjects:
-                    [NSDictionary dictionaryWithObjectsAndKeys:
-                     [NSArray arrayWithObjects:
-                      @"someObject",
-                      nil], @"key2",
-                     nil],
-                    nil];
-    
+    id container = [NSArray
+        arrayWithObjects:[NSDictionary
+                             dictionaryWithObjectsAndKeys:[NSArray arrayWithObjects:@"someObject", nil], @"key2", nil],
+                         nil];
+
     id deepKey = [NSArray arrayWithObjects:@"0", @"key2", @"0", nil];
     XCTAssertThrows([container removeObjectForDeepKey:deepKey], @"");
 }
 
-- (void) testRemoveObjectForDeepKeyImmutableDict
+- (void)testRemoveObjectForDeepKeyImmutableDict
 {
-    id container = [NSDictionary dictionaryWithObjectsAndKeys:
-                    [NSDictionary dictionaryWithObjectsAndKeys:
-                     [NSDictionary dictionaryWithObjectsAndKeys:
-                      @"someObject", @"someKey",
-                      nil], @"key2",
-                     nil], @"key1",
-                    nil];
-    
+    id container = [NSDictionary
+        dictionaryWithObjectsAndKeys:[NSDictionary
+                                         dictionaryWithObjectsAndKeys:[NSDictionary
+                                                                          dictionaryWithObjectsAndKeys:@"someObject",
+                                                                                                       @"someKey", nil],
+                                                                      @"key2", nil],
+                                     @"key1", nil];
+
     id deepKey = [NSArray arrayWithObjects:@"key1", @"key2", [NSDate date], nil];
     XCTAssertThrows([container removeObjectForDeepKey:deepKey], @"");
 }

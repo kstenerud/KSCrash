@@ -25,17 +25,18 @@
 //
 
 #include "KSCrashMonitor_MachException.h"
-#include "KSCrashMonitorHelper.h"
-#include "KSCrashMonitorContextHelper.h"
-#include "KSCrashMonitor_Signal.h"
-#include "KSCrashMonitorContext.h"
-#include "KSCPU.h"
-#include "KSID.h"
-#include "KSThread.h"
-#include "KSSystemCapabilities.h"
-#include "KSStackCursor_MachineContext.h"
 
-//#define KSLogger_LocalLevel TRACE
+#include "KSCPU.h"
+#include "KSCrashMonitorContext.h"
+#include "KSCrashMonitorContextHelper.h"
+#include "KSCrashMonitorHelper.h"
+#include "KSCrashMonitor_Signal.h"
+#include "KSID.h"
+#include "KSStackCursor_MachineContext.h"
+#include "KSSystemCapabilities.h"
+#include "KSThread.h"
+
+// #define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
 #if KSCRASH_HAS_MACH
@@ -48,13 +49,13 @@
 #pragma mark - Constants -
 // ============================================================================
 
-static const char* kThreadPrimary = "KSCrash Exception Handler (Primary)";
-static const char* kThreadSecondary = "KSCrash Exception Handler (Secondary)";
+static const char *kThreadPrimary = "KSCrash Exception Handler (Primary)";
+static const char *kThreadSecondary = "KSCrash Exception Handler (Secondary)";
 
 #if __LP64__
-    #define MACH_ERROR_CODE_MASK 0xFFFFFFFFFFFFFFFF
+#define MACH_ERROR_CODE_MASK 0xFFFFFFFFFFFFFFFF
 #else
-    #define MACH_ERROR_CODE_MASK 0xFFFFFFFF
+#define MACH_ERROR_CODE_MASK 0xFFFFFFFF
 #endif
 
 // ============================================================================
@@ -64,15 +65,14 @@ static const char* kThreadSecondary = "KSCrash Exception Handler (Secondary)";
 /** A mach exception message (according to ux_exception.c, xnu-1699.22.81).
  */
 #pragma pack(4)
-typedef struct
-{
+typedef struct {
     /** Mach header. */
-    mach_msg_header_t          header;
+    mach_msg_header_t header;
 
     // Start of the kernel processed data.
 
     /** Basic message body data. */
-    mach_msg_body_t            body;
+    mach_msg_body_t body;
 
     /** The thread that raised the exception. */
     mach_msg_port_descriptor_t thread;
@@ -83,13 +83,13 @@ typedef struct
     // End of the kernel processed data.
 
     /** Network Data Representation. */
-    NDR_record_t               NDR;
+    NDR_record_t NDR;
 
     /** The exception that was raised. */
-    exception_type_t           exception;
+    exception_type_t exception;
 
     /** The number of codes. */
-    mach_msg_type_number_t     codeCount;
+    mach_msg_type_number_t codeCount;
 
     /** Exception code and subcode. */
     // ux_exception.c defines this as mach_exception_data_t for some reason.
@@ -99,23 +99,22 @@ typedef struct
     mach_exception_data_type_t code[0];
 
     /** Padding to avoid RCV_TOO_LARGE. */
-    char                       padding[512];
+    char padding[512];
 } MachExceptionMessage;
 #pragma pack()
 
 /** A mach reply message (according to ux_exception.c, xnu-1699.22.81).
  */
 #pragma pack(4)
-typedef struct
-{
+typedef struct {
     /** Mach header. */
     mach_msg_header_t header;
 
     /** Network Data Representation. */
-    NDR_record_t      NDR;
+    NDR_record_t NDR;
 
     /** Return code. */
-    kern_return_t     returnCode;
+    kern_return_t returnCode;
 } MachReplyMessage;
 #pragma pack()
 
@@ -133,13 +132,12 @@ static bool g_isHandlingCrash = false;
 /** Holds exception port info regarding the previously installed exception
  * handlers.
  */
-static struct
-{
-    exception_mask_t        masks[EXC_TYPES_COUNT];
-    exception_handler_t     ports[EXC_TYPES_COUNT];
-    exception_behavior_t    behaviors[EXC_TYPES_COUNT];
-    thread_state_flavor_t   flavors[EXC_TYPES_COUNT];
-    mach_msg_type_number_t  count;
+static struct {
+    exception_mask_t masks[EXC_TYPES_COUNT];
+    exception_handler_t ports[EXC_TYPES_COUNT];
+    exception_behavior_t behaviors[EXC_TYPES_COUNT];
+    thread_state_flavor_t flavors[EXC_TYPES_COUNT];
+    mach_msg_type_number_t count;
 } g_previousExceptionPorts;
 
 /** Our exception port. */
@@ -165,8 +163,7 @@ static char g_secondaryEventID[37];
 static void restoreExceptionPorts(void)
 {
     KSLOG_DEBUG("Restoring original exception ports.");
-    if(g_previousExceptionPorts.count == 0)
-    {
+    if (g_previousExceptionPorts.count == 0) {
         KSLOG_DEBUG("Original exception ports were already restored.");
         return;
     }
@@ -175,18 +172,12 @@ static void restoreExceptionPorts(void)
     kern_return_t kr;
 
     // Reinstall old exception ports.
-    for(mach_msg_type_number_t i = 0; i < g_previousExceptionPorts.count; i++)
-    {
+    for (mach_msg_type_number_t i = 0; i < g_previousExceptionPorts.count; i++) {
         KSLOG_TRACE("Restoring port index %d", i);
-        kr = task_set_exception_ports(thisTask,
-                                      g_previousExceptionPorts.masks[i],
-                                      g_previousExceptionPorts.ports[i],
-                                      g_previousExceptionPorts.behaviors[i],
-                                      g_previousExceptionPorts.flavors[i]);
-        if(kr != KERN_SUCCESS)
-        {
-            KSLOG_ERROR("task_set_exception_ports: %s",
-                        mach_error_string(kr));
+        kr = task_set_exception_ports(thisTask, g_previousExceptionPorts.masks[i], g_previousExceptionPorts.ports[i],
+                                      g_previousExceptionPorts.behaviors[i], g_previousExceptionPorts.flavors[i]);
+        if (kr != KERN_SUCCESS) {
+            KSLOG_ERROR("task_set_exception_ports: %s", mach_error_string(kr));
         }
     }
     KSLOG_DEBUG("Exception ports restored.");
@@ -194,13 +185,12 @@ static void restoreExceptionPorts(void)
 }
 
 #define EXC_UNIX_BAD_SYSCALL 0x10000 /* SIGSYS */
-#define EXC_UNIX_BAD_PIPE    0x10001 /* SIGPIPE */
-#define EXC_UNIX_ABORT       0x10002 /* SIGABRT */
+#define EXC_UNIX_BAD_PIPE 0x10001    /* SIGPIPE */
+#define EXC_UNIX_ABORT 0x10002       /* SIGABRT */
 
 static int signalForMachException(exception_type_t exception, mach_exception_code_t code)
 {
-    switch(exception)
-    {
+    switch (exception) {
         case EXC_ARITHMETIC:
             return SIGFPE;
         case EXC_BAD_ACCESS:
@@ -211,10 +201,8 @@ static int signalForMachException(exception_type_t exception, mach_exception_cod
             return SIGTRAP;
         case EXC_EMULATION:
             return SIGEMT;
-        case EXC_SOFTWARE:
-        {
-            switch (code)
-            {
+        case EXC_SOFTWARE: {
+            switch (code) {
                 case EXC_UNIX_BAD_SYSCALL:
                     return SIGSYS;
                 case EXC_UNIX_BAD_PIPE:
@@ -232,8 +220,7 @@ static int signalForMachException(exception_type_t exception, mach_exception_cod
 
 static exception_type_t machExceptionForSignal(int sigNum)
 {
-    switch(sigNum)
-    {
+    switch (sigNum) {
         case SIGFPE:
             return EXC_ARITHMETIC;
         case SIGSEGV:
@@ -267,35 +254,27 @@ static exception_type_t machExceptionForSignal(int sigNum)
  * Wait for an exception message, uninstall our exception port, record the
  * exception information, and write a report.
  */
-static void* handleExceptions(void* const userData)
+static void *handleExceptions(void *const userData)
 {
-    MachExceptionMessage exceptionMessage = {{0}};
-    MachReplyMessage replyMessage = {{0}};
-    char* eventID = g_primaryEventID;
+    MachExceptionMessage exceptionMessage = { { 0 } };
+    MachReplyMessage replyMessage = { { 0 } };
+    char *eventID = g_primaryEventID;
 
-    const char* threadName = (const char*) userData;
+    const char *threadName = (const char *)userData;
     pthread_setname_np(threadName);
-    if(threadName == kThreadSecondary)
-    {
+    if (threadName == kThreadSecondary) {
         KSLOG_DEBUG("This is the secondary thread. Suspending.");
         thread_suspend((thread_t)ksthread_self());
         eventID = g_secondaryEventID;
     }
 
-    for(;;)
-    {
+    for (;;) {
         KSLOG_DEBUG("Waiting for mach exception");
 
         // Wait for a message.
-        kern_return_t kr = mach_msg(&exceptionMessage.header,
-                                    MACH_RCV_MSG,
-                                    0,
-                                    sizeof(exceptionMessage),
-                                    g_exceptionPort,
-                                    MACH_MSG_TIMEOUT_NONE,
-                                    MACH_PORT_NULL);
-        if(kr == KERN_SUCCESS)
-        {
+        kern_return_t kr = mach_msg(&exceptionMessage.header, MACH_RCV_MSG, 0, sizeof(exceptionMessage),
+                                    g_exceptionPort, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);
+        if (kr == KERN_SUCCESS) {
             break;
         }
 
@@ -303,10 +282,9 @@ static void* handleExceptions(void* const userData)
         KSLOG_ERROR("mach_msg: %s", mach_error_string(kr));
     }
 
-    KSLOG_DEBUG("Trapped mach exception code 0x%llx, subcode 0x%llx",
-                exceptionMessage.code[0], exceptionMessage.code[1]);
-    if(g_isEnabled)
-    {
+    KSLOG_DEBUG("Trapped mach exception code 0x%llx, subcode 0x%llx", exceptionMessage.code[0],
+                exceptionMessage.code[1]);
+    if (g_isEnabled) {
         thread_act_array_t threads = NULL;
         mach_msg_type_number_t numThreads = 0;
         ksmc_suspendEnvironment(&threads, &numThreads);
@@ -315,42 +293,33 @@ static void* handleExceptions(void* const userData)
 
         KSLOG_DEBUG("Exception handler is installed. Continuing exception handling.");
 
-
         // Switch to the secondary thread if necessary, or uninstall the handler
         // to avoid a death loop.
-        if(ksthread_self() == g_primaryMachThread)
-        {
+        if (ksthread_self() == g_primaryMachThread) {
             KSLOG_DEBUG("This is the primary exception thread. Activating secondary thread.");
-// TODO: This was put here to avoid a freeze. Does secondary thread ever fire?
+            // TODO: This was put here to avoid a freeze. Does secondary thread ever fire?
             restoreExceptionPorts();
-            if(thread_resume(g_secondaryMachThread) != KERN_SUCCESS)
-            {
+            if (thread_resume(g_secondaryMachThread) != KERN_SUCCESS) {
                 KSLOG_DEBUG("Could not activate secondary thread. Restoring original exception ports.");
             }
-        }
-        else
-        {
-            KSLOG_DEBUG("This is the secondary exception thread.");// Restoring original exception ports.");
-//            restoreExceptionPorts();
+        } else {
+            KSLOG_DEBUG("This is the secondary exception thread.");  // Restoring original exception ports.");
+                                                                     //            restoreExceptionPorts();
         }
 
         // Fill out crash information
         KSLOG_DEBUG("Fetching machine state.");
         KSMC_NEW_CONTEXT(machineContext);
-        KSCrash_MonitorContext* crashContext = &g_monitorContext;
+        KSCrash_MonitorContext *crashContext = &g_monitorContext;
         crashContext->offendingMachineContext = machineContext;
         kssc_initCursor(&g_stackCursor, NULL, NULL);
-        if(ksmc_getContextForThread(exceptionMessage.thread.name, machineContext, true))
-        {
+        if (ksmc_getContextForThread(exceptionMessage.thread.name, machineContext, true)) {
             kssc_initWithMachineContext(&g_stackCursor, KSSC_MAX_STACK_DEPTH, machineContext);
-            KSLOG_TRACE("Fault address %p, instruction address %p",
-                        kscpu_faultAddress(machineContext), kscpu_instructionAddress(machineContext));
-            if(exceptionMessage.exception == EXC_BAD_ACCESS)
-            {
+            KSLOG_TRACE("Fault address %p, instruction address %p", kscpu_faultAddress(machineContext),
+                        kscpu_instructionAddress(machineContext));
+            if (exceptionMessage.exception == EXC_BAD_ACCESS) {
                 crashContext->faultAddress = kscpu_faultAddress(machineContext);
-            }
-            else
-            {
+            } else {
                 crashContext->faultAddress = kscpu_instructionAddress(machineContext);
             }
         }
@@ -362,8 +331,7 @@ static void* handleExceptions(void* const userData)
         crashContext->mach.type = exceptionMessage.exception;
         crashContext->mach.code = exceptionMessage.code[0] & (int64_t)MACH_ERROR_CODE_MASK;
         crashContext->mach.subcode = exceptionMessage.code[1] & (int64_t)MACH_ERROR_CODE_MASK;
-        if(crashContext->mach.code == KERN_PROTECTION_FAILURE && crashContext->isStackOverflow)
-        {
+        if (crashContext->mach.code == KERN_PROTECTION_FAILURE && crashContext->isStackOverflow) {
             // A stack overflow should return KERN_INVALID_ADDRESS, but
             // when a stack blasts through the guard pages at the top of the stack,
             // it generates KERN_PROTECTION_FAILURE. Correct for this.
@@ -385,17 +353,11 @@ static void* handleExceptions(void* const userData)
     replyMessage.NDR = exceptionMessage.NDR;
     replyMessage.returnCode = KERN_FAILURE;
 
-    mach_msg(&replyMessage.header,
-             MACH_SEND_MSG,
-             sizeof(replyMessage),
-             0,
-             MACH_PORT_NULL,
-             MACH_MSG_TIMEOUT_NONE,
+    mach_msg(&replyMessage.header, MACH_SEND_MSG, sizeof(replyMessage), 0, MACH_PORT_NULL, MACH_MSG_TIMEOUT_NONE,
              MACH_PORT_NULL);
 
     return NULL;
 }
-
 
 // ============================================================================
 #pragma mark - API -
@@ -412,29 +374,21 @@ static void uninstallExceptionHandler(void)
 
     thread_t thread_self = (thread_t)ksthread_self();
 
-    if(g_primaryPThread != 0 && g_primaryMachThread != thread_self)
-    {
+    if (g_primaryPThread != 0 && g_primaryMachThread != thread_self) {
         KSLOG_DEBUG("Canceling primary exception thread.");
-        if(g_isHandlingCrash)
-        {
+        if (g_isHandlingCrash) {
             thread_terminate(g_primaryMachThread);
-        }
-        else
-        {
+        } else {
             pthread_cancel(g_primaryPThread);
         }
         g_primaryMachThread = 0;
         g_primaryPThread = 0;
     }
-    if(g_secondaryPThread != 0 && g_secondaryMachThread != thread_self)
-    {
+    if (g_secondaryPThread != 0 && g_secondaryMachThread != thread_self) {
         KSLOG_DEBUG("Canceling secondary exception thread.");
-        if(g_isHandlingCrash)
-        {
+        if (g_isHandlingCrash) {
             thread_terminate(g_secondaryMachThread);
-        }
-        else
-        {
+        } else {
             pthread_cancel(g_secondaryPThread);
         }
         g_secondaryMachThread = 0;
@@ -456,58 +410,38 @@ static bool installExceptionHandler(void)
     int error;
 
     const task_t thisTask = mach_task_self();
-    exception_mask_t mask = EXC_MASK_BAD_ACCESS |
-    EXC_MASK_BAD_INSTRUCTION |
-    EXC_MASK_ARITHMETIC |
-    EXC_MASK_SOFTWARE |
-    EXC_MASK_BREAKPOINT;
+    exception_mask_t mask =
+        EXC_MASK_BAD_ACCESS | EXC_MASK_BAD_INSTRUCTION | EXC_MASK_ARITHMETIC | EXC_MASK_SOFTWARE | EXC_MASK_BREAKPOINT;
 
     KSLOG_DEBUG("Backing up original exception ports.");
-    kr = task_get_exception_ports(thisTask,
-                                  mask,
-                                  g_previousExceptionPorts.masks,
-                                  &g_previousExceptionPorts.count,
-                                  g_previousExceptionPorts.ports,
-                                  g_previousExceptionPorts.behaviors,
+    kr = task_get_exception_ports(thisTask, mask, g_previousExceptionPorts.masks, &g_previousExceptionPorts.count,
+                                  g_previousExceptionPorts.ports, g_previousExceptionPorts.behaviors,
                                   g_previousExceptionPorts.flavors);
-    if(kr != KERN_SUCCESS)
-    {
+    if (kr != KERN_SUCCESS) {
         KSLOG_ERROR("task_get_exception_ports: %s", mach_error_string(kr));
         goto failed;
     }
 
-    if(g_exceptionPort == MACH_PORT_NULL)
-    {
+    if (g_exceptionPort == MACH_PORT_NULL) {
         KSLOG_DEBUG("Allocating new port with receive rights.");
-        kr = mach_port_allocate(thisTask,
-                                MACH_PORT_RIGHT_RECEIVE,
-                                &g_exceptionPort);
-        if(kr != KERN_SUCCESS)
-        {
+        kr = mach_port_allocate(thisTask, MACH_PORT_RIGHT_RECEIVE, &g_exceptionPort);
+        if (kr != KERN_SUCCESS) {
             KSLOG_ERROR("mach_port_allocate: %s", mach_error_string(kr));
             goto failed;
         }
 
         KSLOG_DEBUG("Adding send rights to port.");
-        kr = mach_port_insert_right(thisTask,
-                                    g_exceptionPort,
-                                    g_exceptionPort,
-                                    MACH_MSG_TYPE_MAKE_SEND);
-        if(kr != KERN_SUCCESS)
-        {
+        kr = mach_port_insert_right(thisTask, g_exceptionPort, g_exceptionPort, MACH_MSG_TYPE_MAKE_SEND);
+        if (kr != KERN_SUCCESS) {
             KSLOG_ERROR("mach_port_insert_right: %s", mach_error_string(kr));
             goto failed;
         }
     }
 
     KSLOG_DEBUG("Installing port as exception handler.");
-    kr = task_set_exception_ports(thisTask,
-                                  mask,
-                                  g_exceptionPort,
-                                  (int)(EXCEPTION_DEFAULT | MACH_EXCEPTION_CODES),
+    kr = task_set_exception_ports(thisTask, mask, g_exceptionPort, (int)(EXCEPTION_DEFAULT | MACH_EXCEPTION_CODES),
                                   THREAD_STATE_NONE);
-    if(kr != KERN_SUCCESS)
-    {
+    if (kr != KERN_SUCCESS) {
         KSLOG_ERROR("task_set_exception_ports: %s", mach_error_string(kr));
         goto failed;
     }
@@ -516,12 +450,8 @@ static bool installExceptionHandler(void)
     pthread_attr_init(&attr);
     attributes_created = true;
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-    error = pthread_create(&g_secondaryPThread,
-                           &attr,
-                           &handleExceptions,
-                           (void*)kThreadSecondary);
-    if(error != 0)
-    {
+    error = pthread_create(&g_secondaryPThread, &attr, &handleExceptions, (void *)kThreadSecondary);
+    if (error != 0) {
         KSLOG_ERROR("pthread_create_suspended_np: %s", strerror(error));
         goto failed;
     }
@@ -529,12 +459,8 @@ static bool installExceptionHandler(void)
     ksmc_addReservedThread(g_secondaryMachThread);
 
     KSLOG_DEBUG("Creating primary exception thread.");
-    error = pthread_create(&g_primaryPThread,
-                           &attr,
-                           &handleExceptions,
-                           (void*)kThreadPrimary);
-    if(error != 0)
-    {
+    error = pthread_create(&g_primaryPThread, &attr, &handleExceptions, (void *)kThreadPrimary);
+    if (error != 0) {
         KSLOG_ERROR("pthread_create: %s", strerror(error));
         goto failed;
     }
@@ -545,76 +471,57 @@ static bool installExceptionHandler(void)
     KSLOG_DEBUG("Mach exception handler installed.");
     return true;
 
-
 failed:
     KSLOG_DEBUG("Failed to install mach exception handler.");
-    if(attributes_created)
-    {
+    if (attributes_created) {
         pthread_attr_destroy(&attr);
     }
     uninstallExceptionHandler();
     return false;
 }
 
-static const char* monitorId(void)
-{
-    return "MachException";
-}
+static const char *monitorId(void) { return "MachException"; }
 
 static KSCrashMonitorFlag monitorFlags(void)
 {
-    return KSCrashMonitorFlagFatal |
-           KSCrashMonitorFlagAsyncSafe |
-           KSCrashMonitorFlagDebuggerUnsafe;
+    return KSCrashMonitorFlagFatal | KSCrashMonitorFlagAsyncSafe | KSCrashMonitorFlagDebuggerUnsafe;
 }
 
 static void setEnabled(bool isEnabled)
 {
-    if(isEnabled != g_isEnabled)
-    {
+    if (isEnabled != g_isEnabled) {
         g_isEnabled = isEnabled;
-        if(isEnabled)
-        {
+        if (isEnabled) {
             ksid_generate(g_primaryEventID);
             ksid_generate(g_secondaryEventID);
-            if(!installExceptionHandler())
-            {
+            if (!installExceptionHandler()) {
                 return;
             }
-        }
-        else
-        {
+        } else {
             uninstallExceptionHandler();
         }
     }
 }
 
-static bool isEnabled(void)
-{
-    return g_isEnabled;
-}
+static bool isEnabled(void) { return g_isEnabled; }
 
-static void addContextualInfoToEvent(struct KSCrash_MonitorContext* eventContext)
+static void addContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext)
 {
-    const char* signalName = kscm_getMonitorId(kscm_signal_getAPI());
+    const char *signalName = kscm_getMonitorId(kscm_signal_getAPI());
 
-    if(signalName && strcmp(eventContext->monitorId, signalName) == 0)
-    {
+    if (signalName && strcmp(eventContext->monitorId, signalName) == 0) {
         eventContext->mach.type = machExceptionForSignal(eventContext->signal.signum);
-    }
-    else if(strcmp(eventContext->monitorId, monitorId()) != 0)
-    {
+    } else if (strcmp(eventContext->monitorId, monitorId()) != 0) {
         eventContext->mach.type = EXC_CRASH;
     }
 }
 
 #endif
 
-KSCrashMonitorAPI* kscm_machexception_getAPI(void)
+KSCrashMonitorAPI *kscm_machexception_getAPI(void)
 {
 #if KSCRASH_HAS_MACH
-    static KSCrashMonitorAPI api =
-    {
+    static KSCrashMonitorAPI api = {
 
         .monitorId = monitorId,
         .monitorFlags = monitorFlags,

@@ -22,10 +22,9 @@
 // THE SOFTWARE.
 //
 
-
 #ifndef KSStackCursor_Backtrace_h
 #define KSStackCursor_Backtrace_h
-    
+
 #include "KSStackCursor.h"
 
 #ifdef __cplusplus
@@ -34,13 +33,11 @@ extern "C" {
 
 /** Exposed for other internal systems to use.
  */
-typedef struct
-{
+typedef struct {
     int skippedEntries;
     int backtraceLength;
-    const uintptr_t* backtrace;
+    const uintptr_t *backtrace;
 } KSStackCursor_Backtrace_Context;
-    
 
 /** Initialize a stack cursor for an existing backtrace (array of addresses).
  *
@@ -52,11 +49,10 @@ typedef struct
  *
  * @param skipEntries The number of stack entries to skip.
  */
-void kssc_initWithBacktrace(KSStackCursor *cursor, const uintptr_t* backtrace, int backtraceLength, int skipEntries);
-    
-    
+void kssc_initWithBacktrace(KSStackCursor *cursor, const uintptr_t *backtrace, int backtraceLength, int skipEntries);
+
 #ifdef __cplusplus
 }
 #endif
 
-#endif // KSStackCursor_Backtrace_h
+#endif  // KSStackCursor_Backtrace_h

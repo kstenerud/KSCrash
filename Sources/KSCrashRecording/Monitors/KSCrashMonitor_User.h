@@ -25,14 +25,13 @@
 #ifndef HDR_KSCrashMonitor_User_h
 #define HDR_KSCrashMonitor_User_h
 
-#include "KSCrashMonitor.h"
-
 #include <stdbool.h>
+
+#include "KSCrashMonitor.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
 
 /** Report a custom, user defined exception.
  * If terminateProgram is true, all sentries will be uninstalled and the application will
@@ -54,21 +53,15 @@ extern "C" {
  *
  * @param terminateProgram If true, do not return from this function call. Terminate the program instead.
  */
-void kscm_reportUserException(const char* name,
-                              const char* reason,
-                              const char* language,
-                              const char* lineOfCode,
-                              const char* stackTrace,
-                              bool logAllThreads,
-                              bool terminateProgram);
+void kscm_reportUserException(const char *name, const char *reason, const char *language, const char *lineOfCode,
+                              const char *stackTrace, bool logAllThreads, bool terminateProgram);
 
 /** Access the Monitor API.
  */
-KSCrashMonitorAPI* kscm_user_getAPI(void);
-
+KSCrashMonitorAPI *kscm_user_getAPI(void);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // HDR_KSCrashMonitor_User_h
+#endif  // HDR_KSCrashMonitor_User_h

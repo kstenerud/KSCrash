@@ -24,36 +24,34 @@
 // THE SOFTWARE.
 //
 
-
 #import "KSCrashInstallationStandard.h"
 #import "KSCrashInstallation+Private.h"
-#import "KSCrashReportSinkStandard.h"
 #import "KSCrashReportFilterBasic.h"
-
+#import "KSCrashReportSinkStandard.h"
 
 @implementation KSCrashInstallationStandard
 
 @synthesize url = _url;
 
-+ (instancetype) sharedInstance
++ (instancetype)sharedInstance
 {
     static KSCrashInstallationStandard *sharedInstance = nil;
     static dispatch_once_t onceToken;
-    
+
     dispatch_once(&onceToken, ^{
         sharedInstance = [[KSCrashInstallationStandard alloc] init];
     });
     return sharedInstance;
 }
 
-- (id) init
+- (id)init
 {
-    return [super initWithRequiredProperties:[NSArray arrayWithObjects: @"url", nil]];
+    return [super initWithRequiredProperties:[NSArray arrayWithObjects:@"url", nil]];
 }
 
-- (id<KSCrashReportFilter>) sink
+- (id<KSCrashReportFilter>)sink
 {
-    KSCrashReportSinkStandard* sink = [KSCrashReportSinkStandard sinkWithURL:self.url];
+    KSCrashReportSinkStandard *sink = [KSCrashReportSinkStandard sinkWithURL:self.url];
     return [KSCrashReportFilterPipeline filterWithFilters:[sink defaultCrashReportFilterSet], nil];
 }
 

@@ -24,63 +24,61 @@
 // THE SOFTWARE.
 //
 
-
 #import <XCTest/XCTest.h>
 
 #import "KSSignalInfo.h"
 
-
-@interface KSSignalInfo_Tests : XCTestCase @end
-
+@interface KSSignalInfo_Tests : XCTestCase
+@end
 
 @implementation KSSignalInfo_Tests
 
-- (void) testSignalName
+- (void)testSignalName
 {
-    NSString* expected = @"SIGBUS";
-    NSString* actual = [NSString stringWithCString:kssignal_signalName(SIGBUS) encoding:NSUTF8StringEncoding];
+    NSString *expected = @"SIGBUS";
+    NSString *actual = [NSString stringWithCString:kssignal_signalName(SIGBUS) encoding:NSUTF8StringEncoding];
     XCTAssertEqualObjects(actual, expected, @"");
 }
 
-- (void) testHighSignalName
+- (void)testHighSignalName
 {
-    const char* result = kssignal_signalName(90);
+    const char *result = kssignal_signalName(90);
     XCTAssertTrue(result == NULL, @"");
 }
 
-- (void) testNegativeSignalName
+- (void)testNegativeSignalName
 {
-    const char* result = kssignal_signalName(-1);
+    const char *result = kssignal_signalName(-1);
     XCTAssertTrue(result == NULL, @"");
 }
 
-- (void) testSignalCodeName
+- (void)testSignalCodeName
 {
-    NSString* expected = @"BUS_ADRERR";
-    NSString* actual = [NSString stringWithCString:kssignal_signalCodeName(SIGBUS, BUS_ADRERR)
+    NSString *expected = @"BUS_ADRERR";
+    NSString *actual = [NSString stringWithCString:kssignal_signalCodeName(SIGBUS, BUS_ADRERR)
                                           encoding:NSUTF8StringEncoding];
     XCTAssertEqualObjects(actual, expected, @"");
 }
 
-- (void) testHighSignalCodeName
+- (void)testHighSignalCodeName
 {
-    const char* result = kssignal_signalCodeName(SIGBUS, 90);
+    const char *result = kssignal_signalCodeName(SIGBUS, 90);
     XCTAssertTrue(result == NULL, @"");
 }
 
-- (void) testNegativeSignalCodeName
+- (void)testNegativeSignalCodeName
 {
-    const char* result = kssignal_signalCodeName(SIGBUS, -1);
+    const char *result = kssignal_signalCodeName(SIGBUS, -1);
     XCTAssertTrue(result == NULL, @"");
 }
 
-- (void) testFatalSignals
+- (void)testFatalSignals
 {
-    const int* fatalSignals = kssignal_fatalSignals();
+    const int *fatalSignals = kssignal_fatalSignals();
     XCTAssertTrue(fatalSignals != NULL, @"");
 }
 
-- (void) testNumFatalSignals
+- (void)testNumFatalSignals
 {
     int numSignals = kssignal_numFatalSignals();
     XCTAssertTrue(numSignals > 0, @"");

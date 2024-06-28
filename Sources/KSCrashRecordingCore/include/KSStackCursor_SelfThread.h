@@ -22,10 +22,9 @@
 // THE SOFTWARE.
 //
 
-
 #ifndef KSStackCursor_SelfThread_h
 #define KSStackCursor_SelfThread_h
-    
+
 #include "KSStackCursor.h"
 
 #ifdef __cplusplus
@@ -41,10 +40,9 @@ extern "C" {
  * @param skipEntries The number of stack entries to skip.
  */
 void kssc_initSelfThread(KSStackCursor *cursor, int skipEntries);
-    
-    
+
 #ifdef __cplusplus
 }
 #endif
 
-#endif // KSStackCursor_SelfThread_h
+#endif  // KSStackCursor_SelfThread_h

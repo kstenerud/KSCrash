@@ -35,9 +35,9 @@ NS_ASSUME_NONNULL_BEGIN
 NS_SWIFT_NAME(CrashInstallationConsole)
 @interface KSCrashInstallationConsole : KSCrashInstallation
 
-@property(nonatomic,readwrite) BOOL printAppleFormat;
+@property(nonatomic, readwrite) BOOL printAppleFormat;
 
-+ (instancetype) sharedInstance NS_SWIFT_NAME(shared());
++ (instancetype)sharedInstance NS_SWIFT_NAME(shared());
 
 @end
 

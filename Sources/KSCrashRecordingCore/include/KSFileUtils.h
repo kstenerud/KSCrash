@@ -24,16 +24,14 @@
 // THE SOFTWARE.
 //
 
-
 /* Basic file reading/writing functions.
  */
-
 
 #ifndef HDR_KSFileUtils_h
 #define HDR_KSFileUtils_h
 
-#include <stdbool.h>
 #include <stdarg.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -47,7 +45,7 @@ extern "C" {
  *
  * @return the last entry in the path.
  */
-const char* ksfu_lastPathEntry(const char* path);
+const char *ksfu_lastPathEntry(const char *path);
 
 /** Write bytes to a file descriptor.
  *
@@ -59,7 +57,7 @@ const char* ksfu_lastPathEntry(const char* path);
  *
  * @return true if the operation was successful.
  */
-bool ksfu_writeBytesToFD(const int fd, const char* bytes, int length);
+bool ksfu_writeBytesToFD(const int fd, const char *bytes, int length);
 
 /** Read bytes from a file descriptor.
  *
@@ -71,7 +69,7 @@ bool ksfu_writeBytesToFD(const int fd, const char* bytes, int length);
  *
  * @return true if the operation was successful.
  */
-bool ksfu_readBytesFromFD(const int fd, char* bytes, int length);
+bool ksfu_readBytesFromFD(const int fd, char *bytes, int length);
 
 /** Read an entire file. Returns a buffer of file size + 1, null terminated.
  *
@@ -87,7 +85,7 @@ bool ksfu_readBytesFromFD(const int fd, char* bytes, int length);
  *
  * @return true if the operation was successful.
  */
-bool ksfu_readEntireFile(const char* path, char** data, int* length, int maxLength);
+bool ksfu_readEntireFile(const char *path, char **data, int *length, int maxLength);
 
 /** Write a string to a file.
  *
@@ -97,7 +95,7 @@ bool ksfu_readEntireFile(const char* path, char** data, int* length, int maxLeng
  *
  * @return true if successful.
  */
-bool ksfu_writeStringToFD(const int fd, const char* string);
+bool ksfu_writeStringToFD(const int fd, const char *string);
 
 /** Write a formatted string to a file.
  *
@@ -107,7 +105,7 @@ bool ksfu_writeStringToFD(const int fd, const char* string);
  *
  * @return true if successful.
  */
-bool ksfu_writeFmtToFD(const int fd, const char* fmt, ...);
+bool ksfu_writeFmtToFD(const int fd, const char *fmt, ...);
 
 /** Write a formatted string to a file.
  *
@@ -119,7 +117,7 @@ bool ksfu_writeFmtToFD(const int fd, const char* fmt, ...);
  *
  * @return true if successful.
  */
-bool ksfu_writeFmtArgsToFD(const int fd, const char* fmt, va_list args);
+bool ksfu_writeFmtArgsToFD(const int fd, const char *fmt, va_list args);
 
 /** Read a single line from a file.
  *
@@ -131,7 +129,7 @@ bool ksfu_writeFmtArgsToFD(const int fd, const char* fmt, va_list args);
  *
  * @return The number of bytes read.
  */
-int ksfu_readLineFromFD(const int fd, char* buffer, int maxLength);
+int ksfu_readLineFromFD(const int fd, char *buffer, int maxLength);
 
 /** Make all directories in a path.
  *
@@ -139,7 +137,7 @@ int ksfu_readLineFromFD(const int fd, char* buffer, int maxLength);
  *
  * @return true if successful.
  */
-bool ksfu_makePath(const char* absolutePath);
+bool ksfu_makePath(const char *absolutePath);
 
 /** Remove a file or directory.
  *
@@ -149,7 +147,7 @@ bool ksfu_makePath(const char* absolutePath);
  *
  * @return true if successful.
  */
-bool ksfu_removeFile(const char* path, bool mustExist);
+bool ksfu_removeFile(const char *path, bool mustExist);
 
 /** Delete the contents of a directory.
  *
@@ -157,12 +155,11 @@ bool ksfu_removeFile(const char* path, bool mustExist);
  *
  * @return true if successful.
  */
-bool ksfu_deleteContentsOfPath(const char* path);
+bool ksfu_deleteContentsOfPath(const char *path);
 
 /** Buffered writer structure. Everything inside should be considered internal use only. */
-typedef struct
-{
-    char* buffer;
+typedef struct {
+    char *buffer;
     int bufferLength;
     int position;
     int fd;
@@ -180,13 +177,14 @@ typedef struct
  *
  * @return True if the file was successfully opened.
  */
-bool ksfu_openBufferedWriter(KSBufferedWriter* writer, const char* const path, char* writeBuffer, int writeBufferLength);
+bool ksfu_openBufferedWriter(KSBufferedWriter *writer, const char *const path, char *writeBuffer,
+                             int writeBufferLength);
 
 /** Close a buffered writer.
  *
  * @param writer The writer to close.
  */
-void ksfu_closeBufferedWriter(KSBufferedWriter* writer);
+void ksfu_closeBufferedWriter(KSBufferedWriter *writer);
 
 /** Write to a buffered writer.
  *
@@ -198,7 +196,7 @@ void ksfu_closeBufferedWriter(KSBufferedWriter* writer);
  *
  * @return True if the data was successfully written.
  */
-bool ksfu_writeBufferedWriter(KSBufferedWriter* writer, const char* restrict const data, const int length);
+bool ksfu_writeBufferedWriter(KSBufferedWriter *writer, const char *restrict const data, const int length);
 
 /** Flush a buffered writer, writing all uncommitted data to disk.
  *
@@ -206,12 +204,11 @@ bool ksfu_writeBufferedWriter(KSBufferedWriter* writer, const char* restrict con
  *
  * @return True if the buffer was successfully flushed.
  */
-bool ksfu_flushBufferedWriter(KSBufferedWriter* writer);
+bool ksfu_flushBufferedWriter(KSBufferedWriter *writer);
 
 /** Buffered reader structure. Everything inside should be considered internal use only. */
-typedef struct
-{
-    char* buffer;
+typedef struct {
+    char *buffer;
     int bufferLength;
     int dataStartPos;
     int dataEndPos;
@@ -230,13 +227,13 @@ typedef struct
  *
  * @return True if the file was successfully opened.
  */
-bool ksfu_openBufferedReader(KSBufferedReader* reader, const char* const path, char* readBuffer, int readBufferLength);
+bool ksfu_openBufferedReader(KSBufferedReader *reader, const char *const path, char *readBuffer, int readBufferLength);
 
 /** Close a buffered reader.
  *
  * @param reader The reader to close.
  */
-void ksfu_closeBufferedReader(KSBufferedReader* reader);
+void ksfu_closeBufferedReader(KSBufferedReader *reader);
 
 /** Read from a buffered reader.
  *
@@ -248,7 +245,7 @@ void ksfu_closeBufferedReader(KSBufferedReader* reader);
  *
  * @return The number of bytes actually read.
  */
-int ksfu_readBufferedReader(KSBufferedReader* reader, char* dstBuffer, int byteCount);
+int ksfu_readBufferedReader(KSBufferedReader *reader, char *dstBuffer, int byteCount);
 
 /** Read from a buffered reader until the specified character is encountered.
  * All bytes up to and including the character will be read.
@@ -264,7 +261,7 @@ int ksfu_readBufferedReader(KSBufferedReader* reader, char* dstBuffer, int byteC
  *
  * @return True if the character was found before giving up.
  */
-bool ksfu_readBufferedReaderUntilChar(KSBufferedReader* reader, int ch, char* dstBuffer, int* length);
+bool ksfu_readBufferedReaderUntilChar(KSBufferedReader *reader, int ch, char *dstBuffer, int *length);
 
 /** Memory maps an entire file of size and returns the mapped pointer.
  *
@@ -277,10 +274,10 @@ bool ksfu_readBufferedReaderUntilChar(KSBufferedReader* reader, int ch, char* ds
  * with the returned pointer. It is ok to let the pointer live up to termination,
  * the system will unmap on termination if required.
  */
-void *ksfu_mmap(const char* path, int size);
+void *ksfu_mmap(const char *path, int size);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // HDR_KSFileUtils_h
+#endif  // HDR_KSFileUtils_h

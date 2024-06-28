@@ -24,52 +24,41 @@
 // THE SOFTWARE.
 //
 
-
 #include "KSSysCtl.h"
 
-//#define KSLogger_LocalLevel TRACE
-#include "KSLogger.h"
-
+// #define KSLogger_LocalLevel TRACE
 #include <errno.h>
 #include <net/if.h>
 #include <net/if_dl.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 
+#include "KSLogger.h"
 
-#define CHECK_SYSCTL_NAME(TYPE, CALL) \
-if(0 != (CALL)) \
-{ \
-    KSLOG_ERROR("Could not get %s value for %s: %s", \
-                #CALL, name, strerror(errno)); \
-    return 0; \
-}
+#define CHECK_SYSCTL_NAME(TYPE, CALL)                                                   \
+    if (0 != (CALL)) {                                                                  \
+        KSLOG_ERROR("Could not get %s value for %s: %s", #CALL, name, strerror(errno)); \
+        return 0;                                                                       \
+    }
 
-#define CHECK_SYSCTL_CMD(TYPE, CALL) \
-if(0 != (CALL)) \
-{ \
-    KSLOG_ERROR("Could not get %s value for %d,%d: %s", \
-                #CALL, major_cmd, minor_cmd, strerror(errno)); \
-    return 0; \
-}
+#define CHECK_SYSCTL_CMD(TYPE, CALL)                                                                       \
+    if (0 != (CALL)) {                                                                                     \
+        KSLOG_ERROR("Could not get %s value for %d,%d: %s", #CALL, major_cmd, minor_cmd, strerror(errno)); \
+        return 0;                                                                                          \
+    }
 
 int32_t kssysctl_int32(const int major_cmd, const int minor_cmd)
 {
-    int cmd[2] = {major_cmd, minor_cmd};
+    int cmd[2] = { major_cmd, minor_cmd };
     int32_t value = 0;
     size_t size = sizeof(value);
 
-    CHECK_SYSCTL_CMD(int32, sysctl(cmd,
-                                   sizeof(cmd)/sizeof(*cmd),
-                                   &value,
-                                   &size,
-                                   NULL,
-                                   0));
+    CHECK_SYSCTL_CMD(int32, sysctl(cmd, sizeof(cmd) / sizeof(*cmd), &value, &size, NULL, 0));
 
     return value;
 }
 
-int32_t kssysctl_int32ForName(const char* const name)
+int32_t kssysctl_int32ForName(const char *const name)
 {
     int32_t value = 0;
     size_t size = sizeof(value);
@@ -81,21 +70,16 @@ int32_t kssysctl_int32ForName(const char* const name)
 
 uint32_t kssysctl_uint32(const int major_cmd, const int minor_cmd)
 {
-    int cmd[2] = {major_cmd, minor_cmd};
+    int cmd[2] = { major_cmd, minor_cmd };
     uint32_t value = 0;
     size_t size = sizeof(value);
 
-    CHECK_SYSCTL_CMD(uint32, sysctl(cmd,
-                                    sizeof(cmd)/sizeof(*cmd),
-                                    &value,
-                                    &size,
-                                    NULL,
-                                    0));
+    CHECK_SYSCTL_CMD(uint32, sysctl(cmd, sizeof(cmd) / sizeof(*cmd), &value, &size, NULL, 0));
 
     return value;
 }
 
-uint32_t kssysctl_uint32ForName(const char* const name)
+uint32_t kssysctl_uint32ForName(const char *const name)
 {
     uint32_t value = 0;
     size_t size = sizeof(value);
@@ -107,21 +91,16 @@ uint32_t kssysctl_uint32ForName(const char* const name)
 
 int64_t kssysctl_int64(const int major_cmd, const int minor_cmd)
 {
-    int cmd[2] = {major_cmd, minor_cmd};
+    int cmd[2] = { major_cmd, minor_cmd };
     int64_t value = 0;
     size_t size = sizeof(value);
 
-    CHECK_SYSCTL_CMD(int64, sysctl(cmd,
-                                   sizeof(cmd)/sizeof(*cmd),
-                                   &value,
-                                   &size,
-                                   NULL,
-                                   0));
+    CHECK_SYSCTL_CMD(int64, sysctl(cmd, sizeof(cmd) / sizeof(*cmd), &value, &size, NULL, 0));
 
     return value;
 }
 
-int64_t kssysctl_int64ForName(const char* const name)
+int64_t kssysctl_int64ForName(const char *const name)
 {
     int64_t value = 0;
     size_t size = sizeof(value);
@@ -133,21 +112,16 @@ int64_t kssysctl_int64ForName(const char* const name)
 
 uint64_t kssysctl_uint64(const int major_cmd, const int minor_cmd)
 {
-    int cmd[2] = {major_cmd, minor_cmd};
+    int cmd[2] = { major_cmd, minor_cmd };
     uint64_t value = 0;
     size_t size = sizeof(value);
 
-    CHECK_SYSCTL_CMD(uint64, sysctl(cmd,
-                                    sizeof(cmd)/sizeof(*cmd),
-                                    &value,
-                                    &size,
-                                    NULL,
-                                    0));
+    CHECK_SYSCTL_CMD(uint64, sysctl(cmd, sizeof(cmd) / sizeof(*cmd), &value, &size, NULL, 0));
 
     return value;
 }
 
-uint64_t kssysctl_uint64ForName(const char* const name)
+uint64_t kssysctl_uint64ForName(const char *const name)
 {
     uint64_t value = 0;
     size_t size = sizeof(value);
@@ -157,27 +131,17 @@ uint64_t kssysctl_uint64ForName(const char* const name)
     return value;
 }
 
-int kssysctl_string(const int major_cmd,
-                       const int minor_cmd,
-                       char*const value,
-                       const int maxSize)
+int kssysctl_string(const int major_cmd, const int minor_cmd, char *const value, const int maxSize)
 {
-    int cmd[2] = {major_cmd, minor_cmd};
+    int cmd[2] = { major_cmd, minor_cmd };
     size_t size = value == NULL ? 0 : (size_t)maxSize;
 
-    CHECK_SYSCTL_CMD(string, sysctl(cmd,
-                                    sizeof(cmd)/sizeof(*cmd),
-                                    value,
-                                    &size,
-                                    NULL,
-                                    0));
+    CHECK_SYSCTL_CMD(string, sysctl(cmd, sizeof(cmd) / sizeof(*cmd), value, &size, NULL, 0));
 
     return (int)size;
 }
 
-int kssysctl_stringForName(const char* const  name,
-                              char* const value,
-                              const int maxSize)
+int kssysctl_stringForName(const char *const name, char *const value, const int maxSize)
 {
     size_t size = value == NULL ? 0 : (size_t)maxSize;
 
@@ -188,94 +152,71 @@ int kssysctl_stringForName(const char* const  name,
 
 struct timeval kssysctl_timeval(const int major_cmd, const int minor_cmd)
 {
-    int cmd[2] = {major_cmd, minor_cmd};
-    struct timeval value = {0};
+    int cmd[2] = { major_cmd, minor_cmd };
+    struct timeval value = { 0 };
     size_t size = sizeof(value);
 
-    if(0 != sysctl(cmd, sizeof(cmd)/sizeof(*cmd), &value, &size, NULL, 0))
-    {
-        KSLOG_ERROR("Could not get timeval value for %d,%d: %s",
-                    major_cmd, minor_cmd, strerror(errno));
+    if (0 != sysctl(cmd, sizeof(cmd) / sizeof(*cmd), &value, &size, NULL, 0)) {
+        KSLOG_ERROR("Could not get timeval value for %d,%d: %s", major_cmd, minor_cmd, strerror(errno));
     }
 
     return value;
 }
 
-struct timeval kssysctl_timevalForName(const char* const name)
+struct timeval kssysctl_timevalForName(const char *const name)
 {
-    struct timeval value = {0};
+    struct timeval value = { 0 };
     size_t size = sizeof(value);
 
-    if(0 != sysctlbyname(name, &value, &size, NULL, 0))
-    {
-        KSLOG_ERROR("Could not get timeval value for %s: %s",
-                    name, strerror(errno));
+    if (0 != sysctlbyname(name, &value, &size, NULL, 0)) {
+        KSLOG_ERROR("Could not get timeval value for %s: %s", name, strerror(errno));
     }
 
     return value;
 }
 
-bool kssysctl_getProcessInfo(const int pid,
-                             struct kinfo_proc* const procInfo)
+bool kssysctl_getProcessInfo(const int pid, struct kinfo_proc *const procInfo)
 {
-    int cmd[4] = {CTL_KERN, KERN_PROC, KERN_PROC_PID, pid};
+    int cmd[4] = { CTL_KERN, KERN_PROC, KERN_PROC_PID, pid };
     size_t size = sizeof(*procInfo);
 
-    if(0 != sysctl(cmd, sizeof(cmd)/sizeof(*cmd), procInfo, &size, NULL, 0))
-    {
-        KSLOG_ERROR("Could not get the name for process %d: %s",
-                    pid, strerror(errno));
+    if (0 != sysctl(cmd, sizeof(cmd) / sizeof(*cmd), procInfo, &size, NULL, 0)) {
+        KSLOG_ERROR("Could not get the name for process %d: %s", pid, strerror(errno));
         return false;
     }
     return true;
 }
 
-bool kssysctl_getMacAddress(const char* const name,
-                            char* const macAddressBuffer)
+bool kssysctl_getMacAddress(const char *const name, char *const macAddressBuffer)
 {
     // Based off http://iphonedevelopertips.com/device/determine-mac-address.html
 
-    int mib[6] =
-    {
-        CTL_NET,
-        AF_ROUTE,
-        0,
-        AF_LINK,
-        NET_RT_IFLIST,
-        (int)if_nametoindex(name)
-    };
-    if(mib[5] == 0)
-    {
-        KSLOG_ERROR("Could not get interface index for %s: %s",
-                    name, strerror(errno));
+    int mib[6] = { CTL_NET, AF_ROUTE, 0, AF_LINK, NET_RT_IFLIST, (int)if_nametoindex(name) };
+    if (mib[5] == 0) {
+        KSLOG_ERROR("Could not get interface index for %s: %s", name, strerror(errno));
         return false;
     }
 
     size_t length;
-    if(sysctl(mib, 6, NULL, &length, NULL, 0) != 0)
-    {
-        KSLOG_ERROR("Could not get interface data for %s: %s",
-                    name, strerror(errno));
+    if (sysctl(mib, 6, NULL, &length, NULL, 0) != 0) {
+        KSLOG_ERROR("Could not get interface data for %s: %s", name, strerror(errno));
         return false;
     }
 
-    void* ifBuffer = malloc(length);
-    if(ifBuffer == NULL)
-    {
+    void *ifBuffer = malloc(length);
+    if (ifBuffer == NULL) {
         KSLOG_ERROR("Out of memory");
         return false;
     }
 
-    if(sysctl(mib, 6, ifBuffer, &length, NULL, 0) != 0)
-    {
-        KSLOG_ERROR("Could not get interface data for %s: %s",
-                    name, strerror(errno));
+    if (sysctl(mib, 6, ifBuffer, &length, NULL, 0) != 0) {
+        KSLOG_ERROR("Could not get interface data for %s: %s", name, strerror(errno));
         free(ifBuffer);
         return false;
     }
 
-    struct if_msghdr* msgHdr = (struct if_msghdr*) ifBuffer;
-    struct sockaddr_dl* sockaddr = (struct sockaddr_dl*) &msgHdr[1];
+    struct if_msghdr *msgHdr = (struct if_msghdr *)ifBuffer;
+    struct sockaddr_dl *sockaddr = (struct sockaddr_dl *)&msgHdr[1];
     memcpy(macAddressBuffer, LLADDR(sockaddr), 6);
 
     free(ifBuffer);

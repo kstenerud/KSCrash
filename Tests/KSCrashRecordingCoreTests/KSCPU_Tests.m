@@ -24,44 +24,43 @@
 // THE SOFTWARE.
 //
 
-
 #import <XCTest/XCTest.h>
 
-#import "KSSystemCapabilities.h"
 #import "KSCPU.h"
 #import "KSMachineContext.h"
+#import "KSSystemCapabilities.h"
 #import "TestThread.h"
 
 #import <mach/mach.h>
 
 #if KSCRASH_HAS_THREADS_API
 
-@interface KSCPU_Tests : XCTestCase @end
+@interface KSCPU_Tests : XCTestCase
+@end
 
 @implementation KSCPU_Tests
 
-- (void) testCPUState
+- (void)testCPUState
 {
-    TestThread* thread = [[TestThread alloc] init];
+    TestThread *thread = [[TestThread alloc] init];
     [thread start];
     [NSThread sleepForTimeInterval:0.1];
     kern_return_t kr;
     kr = thread_suspend(thread.thread);
     XCTAssertTrue(kr == KERN_SUCCESS, @"");
-    
+
     KSMC_NEW_CONTEXT(machineContext);
     ksmc_getContextForThread(thread.thread, machineContext, NO);
     kscpu_getState(machineContext);
-    
+
     int numRegisters = kscpu_numRegisters();
-    for(int i = 0; i < numRegisters; i++)
-    {
-        const char* name = kscpu_registerName(i);
+    for (int i = 0; i < numRegisters; i++) {
+        const char *name = kscpu_registerName(i);
         XCTAssertTrue(name != NULL, @"Register %d was NULL", i);
         kscpu_registerValue(machineContext, i);
     }
-    
-    const char* name = kscpu_registerName(1000000);
+
+    const char *name = kscpu_registerName(1000000);
     XCTAssertTrue(name == NULL, @"");
     uint64_t value = kscpu_registerValue(machineContext, 1000000);
     XCTAssertTrue(value == 0, @"");
@@ -75,25 +74,24 @@
     XCTAssertTrue(address != 0, @"");
 
     numRegisters = kscpu_numExceptionRegisters();
-    for(int i = 0; i < numRegisters; i++)
-    {
+    for (int i = 0; i < numRegisters; i++) {
         name = kscpu_exceptionRegisterName(i);
         XCTAssertTrue(name != NULL, @"Register %d was NULL", i);
         kscpu_exceptionRegisterValue(machineContext, i);
     }
-    
+
     name = kscpu_exceptionRegisterName(1000000);
     XCTAssertTrue(name == NULL, @"");
     value = kscpu_exceptionRegisterValue(machineContext, 1000000);
     XCTAssertTrue(value == 0, @"");
-    
+
     kscpu_faultAddress(machineContext);
 
     thread_resume(thread.thread);
     [thread cancel];
 }
 
-- (void) testStackGrowDirection
+- (void)testStackGrowDirection
 {
     kscpu_stackGrowDirection();
 }

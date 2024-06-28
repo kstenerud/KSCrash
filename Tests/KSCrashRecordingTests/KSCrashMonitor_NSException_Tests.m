@@ -24,21 +24,19 @@
 // THE SOFTWARE.
 //
 
-
 #import <XCTest/XCTest.h>
 
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitor_NSException.h"
 
-
-@interface KSCrashMonitor_NSException_Tests : XCTestCase @end
-
+@interface KSCrashMonitor_NSException_Tests : XCTestCase
+@end
 
 @implementation KSCrashMonitor_NSException_Tests
 
-- (void) testInstallAndRemove
+- (void)testInstallAndRemove
 {
-    KSCrashMonitorAPI* api = kscm_nsexception_getAPI();
+    KSCrashMonitorAPI *api = kscm_nsexception_getAPI();
     api->setEnabled(true);
     XCTAssertTrue(api->isEnabled());
     [NSThread sleepForTimeInterval:0.1];
@@ -46,15 +44,15 @@
     XCTAssertFalse(api->isEnabled());
 }
 
-- (void) testDoubleInstallAndRemove
+- (void)testDoubleInstallAndRemove
 {
-    KSCrashMonitorAPI* api = kscm_nsexception_getAPI();
-    
+    KSCrashMonitorAPI *api = kscm_nsexception_getAPI();
+
     api->setEnabled(true);
     XCTAssertTrue(api->isEnabled());
     api->setEnabled(true);
     XCTAssertTrue(api->isEnabled());
-    
+
     api->setEnabled(false);
     XCTAssertFalse(api->isEnabled());
     api->setEnabled(false);

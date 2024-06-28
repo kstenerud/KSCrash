@@ -24,10 +24,8 @@
 // THE SOFTWARE.
 //
 
-
 /* Utility functions for querying the mach kernel.
  */
-
 
 #ifndef HDR_ksmemory_h
 #define HDR_ksmemory_h
@@ -45,7 +43,7 @@ extern "C" {
  *
  * @return True if the memory can be safely read.
  */
-bool ksmem_isMemoryReadable(const void* const memory, const int byteCount);
+bool ksmem_isMemoryReadable(const void *const memory, const int byteCount);
 
 /** Test how much memory is readable from the specified pointer.
  *
@@ -54,7 +52,7 @@ bool ksmem_isMemoryReadable(const void* const memory, const int byteCount);
  *
  * @return The number of bytes that are readable from that address.
  */
-int ksmem_maxReadableBytes(const void* const memory, const int tryByteCount);
+int ksmem_maxReadableBytes(const void *const memory, const int tryByteCount);
 
 /** Copy memory safely. If the memory is not accessible, returns false
  * rather than crashing.
@@ -67,7 +65,7 @@ int ksmem_maxReadableBytes(const void* const memory, const int tryByteCount);
  *
  * @return true if successful.
  */
-bool ksmem_copySafely(const void* restrict const src, void* restrict const dst, int byteCount);
+bool ksmem_copySafely(const void *restrict const src, void *restrict const dst, int byteCount);
 
 /** Copies up to numBytes of data from src to dest, stopping if memory
  * becomes inaccessible.
@@ -80,10 +78,10 @@ bool ksmem_copySafely(const void* restrict const src, void* restrict const dst, 
  *
  * @return The number of bytes actually copied.
  */
-int ksmem_copyMaxPossible(const void* restrict const src, void* restrict const dst, int byteCount);
+int ksmem_copyMaxPossible(const void *restrict const src, void *restrict const dst, int byteCount);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // HDR_ksmemory_h
+#endif  // HDR_ksmemory_h

@@ -24,7 +24,6 @@
 // THE SOFTWARE.
 //
 
-
 #import <Foundation/Foundation.h>
 #import "KSCrashReportFilter.h"
 
@@ -47,10 +46,10 @@ NS_SWIFT_NAME(CrashReportSinkEmail)
  *                    Note: With the default filter set, files are gzipped text.
  * @return A new instance of KSCrashReportSinkEMail configured with the specified parameters.
  */
-+ (instancetype) sinkWithRecipients:(NSArray<NSString*>*) recipients
-                            subject:(NSString*) subject
-                            message:(nullable NSString*) message
-                        filenameFmt:(NSString*) filenameFmt;
++ (instancetype)sinkWithRecipients:(NSArray<NSString *> *)recipients
+                           subject:(NSString *)subject
+                           message:(nullable NSString *)message
+                       filenameFmt:(NSString *)filenameFmt;
 
 /**
  * @param recipients List of email addresses to send to.
@@ -60,13 +59,13 @@ NS_SWIFT_NAME(CrashReportSinkEmail)
  *                    when multiple reports are sent at once.
  *                    Note: With the default filter set, files are gzipped text.
  */
-- (instancetype) initWithRecipients:(NSArray<NSString*>*) recipients
-                            subject:(NSString*) subject
-                            message:(nullable NSString*) message
-                        filenameFmt:(NSString*) filenameFmt;
+- (instancetype)initWithRecipients:(NSArray<NSString *> *)recipients
+                           subject:(NSString *)subject
+                           message:(nullable NSString *)message
+                       filenameFmt:(NSString *)filenameFmt;
 
-- (id <KSCrashReportFilter>) defaultCrashReportFilterSet;
-- (id <KSCrashReportFilter>) defaultCrashReportFilterSetAppleFmt;
+- (id<KSCrashReportFilter>)defaultCrashReportFilterSet;
+- (id<KSCrashReportFilter>)defaultCrashReportFilterSetAppleFmt;
 
 @end
 

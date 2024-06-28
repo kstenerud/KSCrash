@@ -155,4 +155,4 @@ KSCrashMonitorType
 }
 #endif
 
-#endif // HDR_KSCrashMonitorType_h
+#endif  // HDR_KSCrashMonitorType_h

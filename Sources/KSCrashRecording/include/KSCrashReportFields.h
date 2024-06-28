@@ -29,10 +29,10 @@
 
 #ifdef __OBJC__
 #include <Foundation/Foundation.h>
-typedef NSString* KSCrashReportField;
+typedef NSString *KSCrashReportField;
 #define KSCRF_CONVERT_STRING(str) @str
 #else /* __OBJC__ */
-typedef const char* KSCrashReportField;
+typedef const char *KSCrashReportField;
 #define KSCRF_CONVERT_STRING(str) str
 #endif /* __OBJC__ */
 
@@ -248,4 +248,4 @@ KSCRF_DEFINE_CONSTANT(KSCrashField, AppTransitionState, appTransitionState, "app
 }
 #endif
 
-#endif // HDR_KSCrashReportFields_h
+#endif  // HDR_KSCrashReportFields_h

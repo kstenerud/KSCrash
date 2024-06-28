@@ -24,29 +24,26 @@
 // THE SOFTWARE.
 //
 
-
 /* Catches mach exceptions.
  */
-
 
 #ifndef HDR_KSCrashMonitor_MachException_h
 #define HDR_KSCrashMonitor_MachException_h
 
-#include "KSCrashMonitor.h"
 #include <stdbool.h>
+
+#include "KSCrashMonitor.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-
 /** Access the Monitor API.
  */
-KSCrashMonitorAPI* kscm_machexception_getAPI(void);
-
+KSCrashMonitorAPI *kscm_machexception_getAPI(void);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // HDR_KSCrashMonitor_MachException_h
+#endif  // HDR_KSCrashMonitor_MachException_h

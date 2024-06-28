@@ -31,8 +31,7 @@
 extern "C" {
 #endif
 
-typedef enum
-{
+typedef enum {
     /** Indicates that no flags are set. */
     KSCrashMonitorFlagNone = 0,
 

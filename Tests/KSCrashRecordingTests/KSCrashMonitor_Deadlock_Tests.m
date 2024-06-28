@@ -24,21 +24,19 @@
 // THE SOFTWARE.
 //
 
-
 #import <XCTest/XCTest.h>
 
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitor_Deadlock.h"
 
-
-@interface KSCrashMonitor_Deadlock_Tests : XCTestCase @end
-
+@interface KSCrashMonitor_Deadlock_Tests : XCTestCase
+@end
 
 @implementation KSCrashMonitor_Deadlock_Tests
 
-- (void) testInstallAndRemove
+- (void)testInstallAndRemove
 {
-    KSCrashMonitorAPI* api = kscm_deadlock_getAPI();
+    KSCrashMonitorAPI *api = kscm_deadlock_getAPI();
     kscm_setDeadlockHandlerWatchdogInterval(10);
     api->setEnabled(true);
     XCTAssertTrue(api->isEnabled());
@@ -47,10 +45,10 @@
     XCTAssertFalse(api->isEnabled());
 }
 
-- (void) testDoubleInstallAndRemove
+- (void)testDoubleInstallAndRemove
 {
-    KSCrashMonitorAPI* api = kscm_deadlock_getAPI();
-    
+    KSCrashMonitorAPI *api = kscm_deadlock_getAPI();
+
     api->setEnabled(true);
     XCTAssertTrue(api->isEnabled());
     api->setEnabled(true);

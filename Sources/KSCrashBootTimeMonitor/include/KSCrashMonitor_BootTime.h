@@ -1,6 +1,6 @@
 //
 //  KSCrashMonitor_BootTime.h
-//  
+//
 //  Created by Gleb Linnik on 04.06.2024.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
@@ -24,7 +24,6 @@
 // THE SOFTWARE.
 //
 
-
 #ifndef KSCrashMonitor_BootTime_h
 #define KSCrashMonitor_BootTime_h
 
@@ -36,7 +35,7 @@ extern "C" {
 
 /** Access the Monitor API.
  */
-KSCrashMonitorAPI* kscm_boottime_getAPI(void);
+KSCrashMonitorAPI *kscm_boottime_getAPI(void);
 
 #ifdef __cplusplus
 }

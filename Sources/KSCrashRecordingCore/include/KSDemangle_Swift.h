@@ -38,10 +38,10 @@ extern "C" {
  * @return A demangled symbol, or NULL if demangling failed.
  *         MEMORY MANAGEMENT WARNING: User is responsible for calling free() on the returned value.
  */
-char* ksdm_demangleSwift(const char* mangledSymbol);
-    
+char *ksdm_demangleSwift(const char *mangledSymbol);
+
 #ifdef __cplusplus
 }
 #endif
 
-#endif // HDR_KSDemangle_Swift_h
+#endif  // HDR_KSDemangle_Swift_h

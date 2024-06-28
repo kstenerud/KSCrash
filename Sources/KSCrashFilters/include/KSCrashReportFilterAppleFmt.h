@@ -24,7 +24,6 @@
 // THE SOFTWARE.
 //
 
-
 #import "KSCrashReportFilter.h"
 
 #import <Foundation/Foundation.h>
@@ -82,8 +81,7 @@ NS_ASSUME_NONNULL_BEGIN
  * If you DO care about line numbers, have the dsym file handy, and will be
  * symbolicating offline, use KSAppleReportStyleSymbolicatedSideBySide.
  */
-typedef NS_ENUM(NSInteger, KSAppleReportStyle)
-{
+typedef NS_ENUM(NSInteger, KSAppleReportStyle) {
     /** Leave all stack trace entries unsymbolicated. */
     KSAppleReportStyleUnsymbolicated,
 
@@ -101,7 +99,6 @@ typedef NS_ENUM(NSInteger, KSAppleReportStyle)
     KSAppleReportStyleSymbolicated
 } NS_SWIFT_NAME(AppleReportStyle);
 
-
 /** Converts to Apple format.
  *
  * Input: NSDictionary
@@ -110,13 +107,13 @@ typedef NS_ENUM(NSInteger, KSAppleReportStyle)
 NS_SWIFT_NAME(CrashReportFilterAppleFmt)
 @interface KSCrashReportFilterAppleFmt : NSObject <KSCrashReportFilter>
 
-+ (instancetype) filterWithReportStyle:(KSAppleReportStyle) reportStyle;
++ (instancetype)filterWithReportStyle:(KSAppleReportStyle)reportStyle;
 
-- (instancetype) initWithReportStyle:(KSAppleReportStyle) reportStyle;
+- (instancetype)initWithReportStyle:(KSAppleReportStyle)reportStyle;
 
-- (NSString*)headerStringForSystemInfo:(NSDictionary<NSString*, id>*)system
-                              reportID:(nullable NSString*)reportID
-                             crashTime:(nullable NSDate*)crashTime;
+- (NSString *)headerStringForSystemInfo:(NSDictionary<NSString *, id> *)system
+                               reportID:(nullable NSString *)reportID
+                              crashTime:(nullable NSDate *)crashTime;
 
 @end
 

@@ -24,17 +24,16 @@
 // THE SOFTWARE.
 //
 
-
 #import <XCTest/XCTest.h>
 
 #import "KSDebug.h"
 
-
-@interface KSDebug_Tests : XCTestCase @end
+@interface KSDebug_Tests : XCTestCase
+@end
 
 @implementation KSDebug_Tests
 
-- (void) testIsBeingTraced
+- (void)testIsBeingTraced
 {
     bool traced = ksdebug_isBeingTraced();
     XCTAssertTrue(traced, @"");
