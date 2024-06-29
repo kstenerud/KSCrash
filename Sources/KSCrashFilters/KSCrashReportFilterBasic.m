@@ -25,8 +25,8 @@
 //
 
 #import "KSCrashReportFilterBasic.h"
-#import "Container+DeepSearch.h"
 #import "KSCrashReport.h"
+#import "KSNSDictionaryHelper.h"
 #import "KSNSErrorHelper.h"
 #import "KSVarArgs.h"
 
@@ -360,7 +360,7 @@
             } else {
                 [concatenated appendFormat:self.separatorFmt, key];
             }
-            id object = [report.dictionaryValue objectForKeyPath:key];
+            id object = [KSNSDictionaryHelper objectInDictionary:report.dictionaryValue forKeyPath:key];
             [concatenated appendFormat:@"%@", object];
         }
         [filteredReports addObject:concatenated];
@@ -426,7 +426,7 @@
 
         NSMutableDictionary *subset = [NSMutableDictionary dictionary];
         for (NSString *keyPath in self.keyPaths) {
-            id object = [reportDict objectForKeyPath:keyPath];
+            id object = [KSNSDictionaryHelper objectInDictionary:reportDict forKeyPath:keyPath];
             if (object == nil) {
                 kscrash_callCompletion(onCompletion, filteredReports, NO,
                                        [KSNSErrorHelper errorWithDomain:[[self class] description]
