@@ -31,7 +31,7 @@
 /**
  * Simpler interface for constructing NSError objects.
  */
-@interface NSError (SimpleConstructor)
+@interface KSNSErrorHelper : NSObject
 
 /** Convenience constructor to make an error with the specified localized description.
  *

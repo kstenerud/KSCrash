@@ -27,8 +27,8 @@
 #import "KSCrashReportFilterBasic.h"
 #import "Container+DeepSearch.h"
 #import "KSCrashReport.h"
+#import "KSNSErrorHelper.h"
 #import "KSVarArgs.h"
-#import "NSError+SimpleConstructor.h"
 
 // #define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -130,9 +130,9 @@
     if (filterCount != [keys count]) {
         kscrash_callCompletion(
             onCompletion, reports, NO,
-            [NSError errorWithDomain:[[self class] description]
-                                code:0
-                         description:@"Key/filter mismatch (%d keys, %d filters", [keys count], filterCount]);
+            [KSNSErrorHelper errorWithDomain:[[self class] description]
+                                        code:0
+                                 description:@"Key/filter mismatch (%d keys, %d filters", [keys count], filterCount]);
         return;
     }
 
@@ -153,9 +153,9 @@
                 kscrash_callCompletion(onCompletion, filteredReports, completed, filterError);
             } else if (filteredReports == nil) {
                 kscrash_callCompletion(onCompletion, filteredReports, NO,
-                                       [NSError errorWithDomain:[[self class] description]
-                                                           code:0
-                                                    description:@"filteredReports was nil"]);
+                                       [KSNSErrorHelper errorWithDomain:[[self class] description]
+                                                                   code:0
+                                                            description:@"filteredReports was nil"]);
             }
             disposeOfCompletion();
             return;
@@ -272,9 +272,9 @@
                 kscrash_callCompletion(onCompletion, filteredReports, completed, filterError);
             } else if (filteredReports == nil) {
                 kscrash_callCompletion(onCompletion, filteredReports, NO,
-                                       [NSError errorWithDomain:[[self class] description]
-                                                           code:0
-                                                    description:@"filteredReports was nil"]);
+                                       [KSNSErrorHelper errorWithDomain:[[self class] description]
+                                                                   code:0
+                                                            description:@"filteredReports was nil"]);
             }
             disposeOfCompletion();
             return;
@@ -429,9 +429,9 @@
             id object = [reportDict objectForKeyPath:keyPath];
             if (object == nil) {
                 kscrash_callCompletion(onCompletion, filteredReports, NO,
-                                       [NSError errorWithDomain:[[self class] description]
-                                                           code:0
-                                                    description:@"Report did not have key path %@", keyPath]);
+                                       [KSNSErrorHelper errorWithDomain:[[self class] description]
+                                                                   code:0
+                                                            description:@"Report did not have key path %@", keyPath]);
                 return;
             }
             [subset setObject:object forKey:[keyPath lastPathComponent]];
@@ -490,9 +490,9 @@
         NSData *converted = [string dataUsingEncoding:NSUTF8StringEncoding];
         if (converted == nil) {
             kscrash_callCompletion(onCompletion, filteredReports, NO,
-                                   [NSError errorWithDomain:[[self class] description]
-                                                       code:0
-                                                description:@"Could not convert report to UTF-8"]);
+                                   [KSNSErrorHelper errorWithDomain:[[self class] description]
+                                                               code:0
+                                                        description:@"Could not convert report to UTF-8"]);
             return;
         } else {
             [filteredReports addObject:[KSCrashReport reportWithData:converted]];

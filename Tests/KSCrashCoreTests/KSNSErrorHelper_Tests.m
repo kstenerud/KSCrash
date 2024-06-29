@@ -26,16 +26,16 @@
 
 #import <XCTest/XCTest.h>
 
-#import "NSError+SimpleConstructor.h"
+#import "KSNSErrorHelper.h"
 
-@interface NSError_SimpleConstructor_Tests : XCTestCase
+@interface KSNSErrorHelper_Tests : XCTestCase
 @end
 
-@implementation NSError_SimpleConstructor_Tests
+@implementation KSNSErrorHelper_Tests
 
 - (void)testErrorWithDomain
 {
-    NSError *error = [NSError errorWithDomain:@"Domain" code:10 description:@"A description %d", 1];
+    NSError *error = [KSNSErrorHelper errorWithDomain:@"Domain" code:10 description:@"A description %d", 1];
     NSString *expectedDomain = @"Domain";
     NSInteger expectedCode = 10;
     NSString *expectedDescription = @"A description 1";
@@ -47,7 +47,7 @@
 - (void)testFillError
 {
     NSError *error = nil;
-    [NSError fillError:&error withDomain:@"Domain" code:10 description:@"A description %d", 1];
+    [KSNSErrorHelper fillError:&error withDomain:@"Domain" code:10 description:@"A description %d", 1];
     NSString *expectedDomain = @"Domain";
     NSInteger expectedCode = 10;
     NSString *expectedDescription = @"A description 1";
@@ -58,20 +58,20 @@
 
 - (void)testFillErrorNil
 {
-    [NSError fillError:nil withDomain:@"Domain" code:10 description:@"A description %d", 1];
+    [KSNSErrorHelper fillError:nil withDomain:@"Domain" code:10 description:@"A description %d", 1];
 }
 
 - (void)testClearError
 {
-    NSError *error = [NSError errorWithDomain:@"" code:1 description:@""];
+    NSError *error = [KSNSErrorHelper errorWithDomain:@"" code:1 description:@""];
     XCTAssertNotNil(error, @"");
-    [NSError clearError:&error];
+    [KSNSErrorHelper clearError:&error];
     XCTAssertNil(error, @"");
 }
 
 - (void)testClearErrorNil
 {
-    [NSError clearError:nil];
+    [KSNSErrorHelper clearError:nil];
 }
 
 @end

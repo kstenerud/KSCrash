@@ -24,9 +24,9 @@
 // THE SOFTWARE.
 //
 
-#import "NSError+SimpleConstructor.h"
+#import "KSNSErrorHelper.h"
 
-@implementation NSError (SimpleConstructor)
+@implementation KSNSErrorHelper
 
 + (NSError *)errorWithDomain:(NSString *)domain code:(NSInteger)code description:(NSString *)fmt, ...
 {
@@ -68,9 +68,4 @@
     return NO;
 }
 
-@end
-
-@interface NSError_SimpleConstructor_AOG8G : NSObject
-@end
-@implementation NSError_SimpleConstructor_AOG8G
 @end

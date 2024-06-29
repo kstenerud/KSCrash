@@ -33,7 +33,7 @@
 #import "KSCrashReportFilterBasic.h"
 #import "KSJSONCodecObjC.h"
 #import "KSLogger.h"
-#import "NSError+SimpleConstructor.h"
+#import "KSNSErrorHelper.h"
 
 /** Max number of properties that can be defined for writing to the report */
 #define kMaxProperties 500
@@ -229,9 +229,9 @@ static CrashHandlerData *g_crashHandlerData;
         }
     }
     if ([errors length] > 0) {
-        return [NSError errorWithDomain:[[self class] description]
-                                   code:0
-                            description:@"Installation properties failed validation: %@", errors];
+        return [KSNSErrorHelper errorWithDomain:[[self class] description]
+                                           code:0
+                                    description:@"Installation properties failed validation: %@", errors];
     }
     return nil;
 }
@@ -313,9 +313,9 @@ static CrashHandlerData *g_crashHandlerData;
     id<KSCrashReportFilter> sink = [self sink];
     if (sink == nil) {
         onCompletion(nil, NO,
-                     [NSError errorWithDomain:[[self class] description]
-                                         code:0
-                                  description:@"Sink was nil (subclasses must implement method \"sink\")"]);
+                     [KSNSErrorHelper errorWithDomain:[[self class] description]
+                                                 code:0
+                                          description:@"Sink was nil (subclasses must implement method \"sink\")"]);
         return;
     }
 

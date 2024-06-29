@@ -37,8 +37,8 @@
 #import "KSCrashReport.h"
 #import "KSCrashReportFields.h"
 #import "KSJSONCodecObjC.h"
+#import "KSNSErrorHelper.h"
 #import "KSSystemCapabilities.h"
-#import "NSError+SimpleConstructor.h"
 
 // #define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -346,9 +346,9 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
 
     if (self.sink == nil) {
         kscrash_callCompletion(onCompletion, reports, NO,
-                               [NSError errorWithDomain:[[self class] description]
-                                                   code:0
-                                            description:@"No sink set. Crash reports not sent."]);
+                               [KSNSErrorHelper errorWithDomain:[[self class] description]
+                                                           code:0
+                                                    description:@"No sink set. Crash reports not sent."]);
         return;
     }
 
