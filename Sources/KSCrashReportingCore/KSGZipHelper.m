@@ -1,5 +1,5 @@
 //
-//  NSData+GZip.m
+//  KSGZipHelper.m
 //
 //  Created by Karl Stenerud on 2012-02-19.
 //
@@ -24,7 +24,7 @@
 // THE SOFTWARE.
 //
 
-#import "NSData+KSGZip.h"
+#import "KSGZipHelper.h"
 
 #import <zlib.h>
 #import "KSNSErrorHelper.h"
@@ -56,18 +56,18 @@ static NSString *zlibError(int errorCode)
     return [NSString stringWithFormat:@"Unknown error: %d", errorCode];
 }
 
-@implementation NSData (KSGZip)
+@implementation KSGZipHelper
 
-- (NSData *)gzippedWithCompressionLevel:(int)compressionLevel error:(NSError *__autoreleasing *)error
++ (NSData *)gzippedData:(NSData *)data compressionLevel:(int)compressionLevel error:(NSError *__autoreleasing *)error
 {
-    uInt length = (uInt)[self length];
+    uInt length = (uInt)[data length];
     if (length == 0) {
         [KSNSErrorHelper clearError:error];
         return [NSData data];
     }
 
     z_stream stream = { 0 };
-    stream.next_in = (Bytef *)[self bytes];
+    stream.next_in = (Bytef *)[data bytes];
     stream.avail_in = length;
 
     int err;
@@ -107,16 +107,16 @@ static NSString *zlibError(int errorCode)
     return compressedData;
 }
 
-- (NSData *)gunzippedWithError:(NSError *__autoreleasing *)error
++ (NSData *)gunzippedData:(NSData *)data error:(NSError *__autoreleasing *)error
 {
-    uInt length = (uInt)[self length];
+    uInt length = (uInt)[data length];
     if (length == 0) {
         [KSNSErrorHelper clearError:error];
         return [NSData data];
     }
 
     z_stream stream = { 0 };
-    stream.next_in = (Bytef *)[self bytes];
+    stream.next_in = (Bytef *)[data bytes];
     stream.avail_in = length;
 
     int err;

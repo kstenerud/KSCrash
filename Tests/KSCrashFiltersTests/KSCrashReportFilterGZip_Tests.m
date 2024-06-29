@@ -28,7 +28,7 @@
 
 #import "KSCrashReport.h"
 #import "KSCrashReportFilterGZip.h"
-#import "NSData+KSGZip.h"
+#import "KSGZipHelper.h"
 
 @interface KSCrashReportFilterGZip_Tests : XCTestCase
 
@@ -50,7 +50,7 @@
     NSError *error = nil;
     NSMutableArray *compressed = [NSMutableArray array];
     for (KSCrashReport *report in self.decompressedReports) {
-        NSData *newData = [report.dataValue gzippedWithCompressionLevel:-1 error:&error];
+        NSData *newData = [KSGZipHelper gzippedData:report.dataValue compressionLevel:-1 error:&error];
         [compressed addObject:[KSCrashReport reportWithData:newData]];
     }
     self.compressedReports = [compressed copy];

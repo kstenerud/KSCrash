@@ -1,5 +1,5 @@
 //
-//  NSData+GZip.h
+//  KSGZipHelper.h
 //
 //  Created by Karl Stenerud on 2012-02-19.
 //
@@ -29,7 +29,7 @@
 /**
  * GNU zip/unzip support for NSData.
  */
-@interface NSData (KSGZip)
+@interface KSGZipHelper : NSObject
 
 /**
  * Gzip the data in this object (no header).
@@ -45,7 +45,7 @@
  *
  * @return A new NSData with the gzipped contents of this object.
  */
-- (NSData *)gzippedWithCompressionLevel:(int)compressionLevel error:(NSError **)error;
++ (NSData *)gzippedData:(NSData *)data compressionLevel:(int)compressionLevel error:(NSError **)error;
 
 /**
  * Gunzip the data in this object (no header).
@@ -55,6 +55,6 @@
  *
  * @return A new NSData with the gunzipped contents of this object.
  */
-- (NSData *)gunzippedWithError:(NSError **)error;
++ (NSData *)gunzippedData:(NSData *)data error:(NSError **)error;
 
 @end

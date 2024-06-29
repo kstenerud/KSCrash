@@ -31,7 +31,6 @@
 #import "KSCrashReportFilterBasic.h"
 #import "KSCrashReportFilterGZip.h"
 #import "KSCrashReportFilterJSON.h"
-#import "NSData+KSGZip.h"
 
 @interface KSCrash_TestNilFilter : NSObject <KSCrashReportFilter>
 

@@ -26,7 +26,7 @@
 
 #import "KSCrashReportFilterGZip.h"
 #import "KSCrashReport.h"
-#import "NSData+KSGZip.h"
+#import "KSGZipHelper.h"
 
 // #define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -65,7 +65,9 @@
         }
 
         NSError *error = nil;
-        NSData *compressedData = [data gzippedWithCompressionLevel:(int)self.compressionLevel error:&error];
+        NSData *compressedData = [KSGZipHelper gzippedData:data
+                                          compressionLevel:(int)self.compressionLevel
+                                                     error:&error];
         if (compressedData == nil) {
             kscrash_callCompletion(onCompletion, filteredReports, NO, error);
             return;
@@ -97,7 +99,7 @@
         }
 
         NSError *error = nil;
-        NSData *decompressedData = [data gunzippedWithError:&error];
+        NSData *decompressedData = [KSGZipHelper gunzippedData:data error:&error];
         if (decompressedData == nil) {
             kscrash_callCompletion(onCompletion, filteredReports, NO, error);
             return;
