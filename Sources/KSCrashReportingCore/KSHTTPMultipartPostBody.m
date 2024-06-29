@@ -26,8 +26,6 @@
 
 #import "KSHTTPMultipartPostBody.h"
 
-#import "NSString+URLEncode.h"
-
 static void appendUTF8String(NSMutableData *data, NSString *string)
 {
     const char *cstring = [string UTF8String];
