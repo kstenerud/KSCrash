@@ -264,7 +264,7 @@
 
 #else
 
-#import "NSData+KSGZip.h"
+#import "KSNSErrorHelper.h"
 
 @implementation KSCrashReportSinkEMail
 
@@ -290,9 +290,9 @@
         NSLog(@"Report\n%@", report);
     }
     kscrash_callCompletion(onCompletion, reports, NO,
-                           [NSError errorWithDomain:[[self class] description]
-                                               code:0
-                                        description:@"Cannot send mail on this platform"]);
+                           [KSNSErrorHelper errorWithDomain:[[self class] description]
+                                                       code:0
+                                                description:@"Cannot send mail on this platform"]);
 }
 
 - (id<KSCrashReportFilter>)defaultCrashReportFilterSet
