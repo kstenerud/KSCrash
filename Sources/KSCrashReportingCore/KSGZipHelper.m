@@ -155,9 +155,3 @@ static NSString *zlibError(int errorCode)
 }
 
 @end
-
-// Make this category auto-link
-@interface NSData_GZip_A0THJ4 : NSObject
-@end
-@implementation NSData_GZip_A0THJ4
-@end
