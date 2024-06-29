@@ -25,7 +25,7 @@
 //
 
 #import "FileBasedTestCase.h"
-#import "XCTestCase+KSCrash.h"
+#import "KSTestCaseUtils.h"
 
 @implementation FileBasedTestCase
 
@@ -34,18 +34,18 @@
 - (void)setUp
 {
     [super setUp];
-    self.tempPath = [self createTempPath];
+    self.tempPath = [KSTestCaseUtils createTempPath];
 }
 
 - (void)tearDown
 {
     [super tearDown];
-    [self removePath:self.tempPath];
+    [KSTestCaseUtils removePath:self.tempPath];
 }
 
 - (NSString *)generateTempFilePath
 {
-    return [[self createTempPath] stringByAppendingPathComponent:@"temp.txt"];
+    return [self.tempPath stringByAppendingPathComponent:@"temp.txt"];
 }
 
 - (NSString *)generateFileWithData:(NSData *)data

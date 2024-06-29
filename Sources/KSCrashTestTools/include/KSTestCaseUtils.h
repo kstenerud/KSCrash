@@ -1,5 +1,5 @@
 //
-//  SenTestCase+KSCrash.h
+//  KSTestCaseUtils.h
 //
 //  Created by Karl Stenerud on 2012-02-11.
 //
@@ -24,14 +24,14 @@
 // THE SOFTWARE.
 //
 
-#import <XCTest/XCTest.h>
+#import <Foundation/Foundation.h>
 
-@interface XCTestCase (XCTestCase_KSCrash)
+@interface KSTestCaseUtils : NSObject
 
-- (NSString *)createTempPath;
++ (NSString *)createTempPath;
 
-- (void)removePath:(NSString *)path;
++ (void)removePath:(NSString *)path;
 
-- (void)createTempReportsAtPath:(NSString *)reportsPath prefix:(NSString *)reportPrefix;
++ (void)createTempReportsAtPath:(NSString *)reportsPath prefix:(NSString *)reportPrefix;
 
 @end

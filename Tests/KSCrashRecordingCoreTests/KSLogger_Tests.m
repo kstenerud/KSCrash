@@ -25,7 +25,7 @@
 //
 
 #import <XCTest/XCTest.h>
-#import "XCTestCase+KSCrash.h"
+#import "KSTestCaseUtils.h"
 
 #import "KSLogger.h"
 
@@ -42,12 +42,12 @@
 - (void)setUp
 {
     [super setUp];
-    self.tempDir = [self createTempPath];
+    self.tempDir = [KSTestCaseUtils createTempPath];
 }
 
 - (void)tearDown
 {
-    [self removePath:self.tempDir];
+    [KSTestCaseUtils removePath:self.tempDir];
 }
 
 - (void)testLogError
