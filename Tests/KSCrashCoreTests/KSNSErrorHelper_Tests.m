@@ -1,5 +1,5 @@
 //
-//  NSError+SimpleConstructor_Tests.m
+//  KSNSErrorHelper_Tests.m
 //
 //  Created by Karl Stenerud on 2013-03-09.
 //

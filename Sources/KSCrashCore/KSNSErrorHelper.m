@@ -1,5 +1,5 @@
 //
-//  NSError+SimpleConstructor.m
+//  KSNSErrorHelper.m
 //
 //  Created by Karl Stenerud on 2013-02-09.
 //
