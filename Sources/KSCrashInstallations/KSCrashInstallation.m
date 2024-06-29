@@ -30,6 +30,7 @@
 #import "KSCrash.h"
 #import "KSCrashConfiguration.h"
 #import "KSCrashInstallation+Private.h"
+#import "KSCrashReportFilterAlert.h"
 #import "KSCrashReportFilterBasic.h"
 #import "KSJSONCodecObjC.h"
 #import "KSLogger.h"
