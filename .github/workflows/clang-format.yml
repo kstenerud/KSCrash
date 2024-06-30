@@ -7,6 +7,7 @@ on:
       - 'Samples/Common/Sources/CrashTriggers/**'
       - '.github/workflows/clang-format.yml'
       - '.clang-format-ignore'
+      - 'Makefile'
 
 jobs:
   formatting-check:
@@ -27,8 +28,7 @@ jobs:
     - name: Check formatting
       id: check_format
       run: |
-        find $DIRS -name '*.c' -o -name '*.cpp' -o -name '*.h' -o -name '*.m' -o -name '*.mm' | \
-        xargs -r clang-format-18 -style=file -n -Werror 2> clang_format_errors.log
+        make check-format 2>clang_format_errors.log
 
     - name: Suggest formatting fixes
       if: failure()
