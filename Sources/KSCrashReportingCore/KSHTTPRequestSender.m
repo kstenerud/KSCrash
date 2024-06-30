@@ -25,7 +25,7 @@
 //
 
 #import "KSHTTPRequestSender.h"
-#import "NSError+SimpleConstructor.h"
+#import "KSNSErrorHelper.h"
 
 @implementation KSHTTPRequestSender
 
@@ -43,13 +43,14 @@
 {
     if (error == nil) {
         if (response == nil) {
-            error = [NSError errorWithDomain:[[self class] description] code:0 description:@"Response was nil"];
+            error = [KSNSErrorHelper errorWithDomain:[[self class] description] code:0 description:@"Response was nil"];
         }
 
         if (![response isKindOfClass:[NSHTTPURLResponse class]]) {
-            error = [NSError errorWithDomain:[[self class] description]
-                                        code:0
-                                 description:@"Response was of type %@. Expected NSHTTPURLResponse", [response class]];
+            error = [KSNSErrorHelper
+                errorWithDomain:[[self class] description]
+                           code:0
+                    description:@"Response was of type %@. Expected NSHTTPURLResponse", [response class]];
         }
     }
 

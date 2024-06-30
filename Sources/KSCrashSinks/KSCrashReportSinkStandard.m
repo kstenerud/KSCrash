@@ -27,12 +27,11 @@
 #import "KSCrashReportSinkStandard.h"
 
 #import "KSCrashReport.h"
+#import "KSGZipHelper.h"
 #import "KSHTTPMultipartPostBody.h"
 #import "KSHTTPRequestSender.h"
 #import "KSJSONCodecObjC.h"
 #import "KSReachabilityKSCrash.h"
-#import "NSData+KSGZip.h"
-#import "NSError+SimpleConstructor.h"
 
 // #define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"

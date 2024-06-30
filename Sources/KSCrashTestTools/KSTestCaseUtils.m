@@ -1,5 +1,5 @@
 //
-//  SenTestCase+KSCrash.m
+//  KSTestCaseUtils.m
 //
 //  Created by Karl Stenerud on 2012-02-11.
 //
@@ -24,11 +24,12 @@
 // THE SOFTWARE.
 //
 
-#import "XCTestCase+KSCrash.h"
+#import "KSTestCaseUtils.h"
+#import <XCTest/XCTest.h>
 
-@implementation XCTestCase (XCTestCase_KSCrash)
+@implementation KSTestCaseUtils
 
-- (NSString *)createTempPath
++ (NSString *)createTempPath
 {
     NSString *path =
         [NSTemporaryDirectory() stringByAppendingString:[[NSProcessInfo processInfo] globallyUniqueString]];
@@ -39,12 +40,12 @@
     return path;
 }
 
-- (void)removePath:(NSString *)path
++ (void)removePath:(NSString *)path
 {
     [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
 }
 
-- (void)createTempReportsAtPath:(NSString *)reportsPath prefix:(NSString *)reportPrefix
++ (void)createTempReportsAtPath:(NSString *)reportsPath prefix:(NSString *)reportPrefix
 {
     NSError *error = nil;
     NSFileManager *fm = [NSFileManager defaultManager];

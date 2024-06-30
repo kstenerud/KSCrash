@@ -1,7 +1,7 @@
 //
-//  SenTestCase+KSCrash.h
+//  KSNSDictionaryHelper.h
 //
-//  Created by Karl Stenerud on 2012-02-11.
+//  Created by Nikolay Volosatov on 2024-06-29.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,14 +24,14 @@
 // THE SOFTWARE.
 //
 
-#import <XCTest/XCTest.h>
+#import <Foundation/Foundation.h>
 
-@interface XCTestCase (XCTestCase_KSCrash)
+NS_ASSUME_NONNULL_BEGIN
 
-- (NSString *)createTempPath;
+@interface KSNSDictionaryHelper : NSObject
 
-- (void)removePath:(NSString *)path;
-
-- (void)createTempReportsAtPath:(NSString *)reportsPath prefix:(NSString *)reportPrefix;
++ (id)objectInDictionary:(nullable NSDictionary *)dict forKeyPath:(nullable NSString *)keyPath;
 
 @end
+
+NS_ASSUME_NONNULL_END

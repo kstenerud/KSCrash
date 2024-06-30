@@ -1,5 +1,5 @@
 //
-//  NSData+GZip.m
+//  KSGZipHelper.m
 //
 //  Created by Karl Stenerud on 2012-02-19.
 //
@@ -24,10 +24,10 @@
 // THE SOFTWARE.
 //
 
-#import "NSData+KSGZip.h"
+#import "KSGZipHelper.h"
 
 #import <zlib.h>
-#import "NSError+SimpleConstructor.h"
+#import "KSNSErrorHelper.h"
 
 #define kBufferSize 4096
 
@@ -56,28 +56,28 @@ static NSString *zlibError(int errorCode)
     return [NSString stringWithFormat:@"Unknown error: %d", errorCode];
 }
 
-@implementation NSData (KSGZip)
+@implementation KSGZipHelper
 
-- (NSData *)gzippedWithCompressionLevel:(int)compressionLevel error:(NSError *__autoreleasing *)error
++ (NSData *)gzippedData:(NSData *)data compressionLevel:(int)compressionLevel error:(NSError *__autoreleasing *)error
 {
-    uInt length = (uInt)[self length];
+    uInt length = (uInt)[data length];
     if (length == 0) {
-        [NSError clearError:error];
+        [KSNSErrorHelper clearError:error];
         return [NSData data];
     }
 
     z_stream stream = { 0 };
-    stream.next_in = (Bytef *)[self bytes];
+    stream.next_in = (Bytef *)[data bytes];
     stream.avail_in = length;
 
     int err;
 
     err = deflateInit2(&stream, compressionLevel, Z_DEFLATED, (16 + MAX_WBITS), 9, Z_DEFAULT_STRATEGY);
     if (err != Z_OK) {
-        [NSError fillError:error
-                withDomain:[[self class] description]
-                      code:0
-               description:@"deflateInit2: %@", zlibError(err)];
+        [KSNSErrorHelper fillError:error
+                        withDomain:[[self class] description]
+                              code:0
+                       description:@"deflateInit2: %@", zlibError(err)];
         return nil;
     }
 
@@ -92,41 +92,41 @@ static NSString *zlibError(int errorCode)
     }
 
     if (err != Z_STREAM_END) {
-        [NSError fillError:error
-                withDomain:[[self class] description]
-                      code:0
-               description:@"deflate: %@", zlibError(err)];
+        [KSNSErrorHelper fillError:error
+                        withDomain:[[self class] description]
+                              code:0
+                       description:@"deflate: %@", zlibError(err)];
         deflateEnd(&stream);
         return nil;
     }
 
     [compressedData setLength:stream.total_out];
 
-    [NSError clearError:error];
+    [KSNSErrorHelper clearError:error];
     deflateEnd(&stream);
     return compressedData;
 }
 
-- (NSData *)gunzippedWithError:(NSError *__autoreleasing *)error
++ (NSData *)gunzippedData:(NSData *)data error:(NSError *__autoreleasing *)error
 {
-    uInt length = (uInt)[self length];
+    uInt length = (uInt)[data length];
     if (length == 0) {
-        [NSError clearError:error];
+        [KSNSErrorHelper clearError:error];
         return [NSData data];
     }
 
     z_stream stream = { 0 };
-    stream.next_in = (Bytef *)[self bytes];
+    stream.next_in = (Bytef *)[data bytes];
     stream.avail_in = length;
 
     int err;
 
     err = inflateInit2(&stream, 16 + MAX_WBITS);
     if (err != Z_OK) {
-        [NSError fillError:error
-                withDomain:[[self class] description]
-                      code:0
-               description:@"inflateInit2: %@", zlibError(err)];
+        [KSNSErrorHelper fillError:error
+                        withDomain:[[self class] description]
+                              code:0
+                       description:@"inflateInit2: %@", zlibError(err)];
         return nil;
     }
 
@@ -139,25 +139,19 @@ static NSString *zlibError(int errorCode)
         stream.next_out = buffer;
         err = inflate(&stream, Z_NO_FLUSH);
         if (err != Z_OK && err != Z_STREAM_END) {
-            [NSError fillError:error
-                    withDomain:[[self class] description]
-                          code:0
-                   description:@"inflate: %@", zlibError(err)];
+            [KSNSErrorHelper fillError:error
+                            withDomain:[[self class] description]
+                                  code:0
+                           description:@"inflate: %@", zlibError(err)];
             inflateEnd(&stream);
             return nil;
         }
         [expandedData appendBytes:buffer length:sizeof(buffer) - stream.avail_out];
     }
 
-    [NSError clearError:error];
+    [KSNSErrorHelper clearError:error];
     inflateEnd(&stream);
     return expandedData;
 }
 
-@end
-
-// Make this category auto-link
-@interface NSData_GZip_A0THJ4 : NSObject
-@end
-@implementation NSData_GZip_A0THJ4
 @end

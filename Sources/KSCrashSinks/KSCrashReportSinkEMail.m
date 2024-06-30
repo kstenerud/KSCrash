@@ -31,8 +31,8 @@
 #import "KSCrashReportFilterBasic.h"
 #import "KSCrashReportFilterGZip.h"
 #import "KSCrashReportFilterJSON.h"
+#import "KSNSErrorHelper.h"
 #import "KSSystemCapabilities.h"
-#import "NSError+SimpleConstructor.h"
 
 // #define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -108,18 +108,18 @@
             break;
         case MFMailComposeResultCancelled:
             kscrash_callCompletion(self.onCompletion, self.reports, NO,
-                                   [NSError errorWithDomain:[[self class] description]
-                                                       code:0
-                                                description:@"User cancelled"]);
+                                   [KSNSErrorHelper errorWithDomain:[[self class] description]
+                                                               code:0
+                                                        description:@"User cancelled"]);
             break;
         case MFMailComposeResultFailed:
             kscrash_callCompletion(self.onCompletion, self.reports, NO, error);
             break;
         default: {
             kscrash_callCompletion(self.onCompletion, self.reports, NO,
-                                   [NSError errorWithDomain:[[self class] description]
-                                                       code:0
-                                                description:@"Unknown MFMailComposeResult: %d", result]);
+                                   [KSNSErrorHelper errorWithDomain:[[self class] description]
+                                                               code:0
+                                                        description:@"Unknown MFMailComposeResult: %d", result]);
         }
     }
 }
@@ -232,9 +232,9 @@
         [keyWindow.rootViewController presentViewController:alertController animated:YES completion:NULL];
 
         kscrash_callCompletion(onCompletion, reports, NO,
-                               [NSError errorWithDomain:[[self class] description]
-                                                   code:0
-                                            description:@"E-Mail not enabled on device"]);
+                               [KSNSErrorHelper errorWithDomain:[[self class] description]
+                                                           code:0
+                                                    description:@"E-Mail not enabled on device"]);
         return;
     }
 
@@ -264,7 +264,7 @@
 
 #else
 
-#import "NSData+KSGZip.h"
+#import "KSNSErrorHelper.h"
 
 @implementation KSCrashReportSinkEMail
 
@@ -290,9 +290,9 @@
         NSLog(@"Report\n%@", report);
     }
     kscrash_callCompletion(onCompletion, reports, NO,
-                           [NSError errorWithDomain:[[self class] description]
-                                               code:0
-                                        description:@"Cannot send mail on this platform"]);
+                           [KSNSErrorHelper errorWithDomain:[[self class] description]
+                                                       code:0
+                                                description:@"Cannot send mail on this platform"]);
 }
 
 - (id<KSCrashReportFilter>)defaultCrashReportFilterSet

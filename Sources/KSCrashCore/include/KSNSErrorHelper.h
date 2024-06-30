@@ -1,5 +1,5 @@
 //
-//  NSError+SimpleConstructor.h
+//  KSNSErrorHelper.h
 //
 //  Created by Karl Stenerud on 2013-02-09.
 //
@@ -31,7 +31,7 @@
 /**
  * Simpler interface for constructing NSError objects.
  */
-@interface NSError (SimpleConstructor)
+@interface KSNSErrorHelper : NSObject
 
 /** Convenience constructor to make an error with the specified localized description.
  *

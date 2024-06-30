@@ -28,7 +28,7 @@
 
 #import "KSDate.h"
 #import "KSJSONCodec.h"
-#import "NSError+SimpleConstructor.h"
+#import "KSNSErrorHelper.h"
 
 @interface KSJSONCodec ()
 
@@ -157,9 +157,9 @@ static inline NSString *stringFromCString(const char *const string)
 static int onElement(KSJSONCodec *codec, NSString *name, id element)
 {
     if (codec->_currentContainer == nil) {
-        codec.error = [NSError errorWithDomain:@"KSJSONCodecObjC"
-                                          code:0
-                                   description:@"Type %@ not allowed as top level container", [element class]];
+        codec.error = [KSNSErrorHelper errorWithDomain:@"KSJSONCodecObjC"
+                                                  code:0
+                                           description:@"Type %@ not allowed as top level container", [element class]];
         return KSJSON_ERROR_INVALID_DATA;
     }
 
@@ -252,9 +252,9 @@ static int onEndContainer(void *const userData)
     KSJSONCodec *codec = (__bridge KSJSONCodec *)userData;
 
     if ([codec->_containerStack count] == 0) {
-        codec.error = [NSError errorWithDomain:@"KSJSONCodecObjC"
-                                          code:0
-                                   description:@"Already at the top level; no container left to end"];
+        codec.error = [KSNSErrorHelper errorWithDomain:@"KSJSONCodecObjC"
+                                                  code:0
+                                           description:@"Already at the top level; no container left to end"];
         return KSJSON_ERROR_INVALID_DATA;
     }
     [codec->_containerStack removeLastObject];
@@ -284,9 +284,9 @@ static int encodeObject(KSJSONCodec *codec, id object, NSString *name, KSJSONEnc
         NSData *data = [object dataUsingEncoding:NSUTF8StringEncoding];
         result = ksjson_addStringElement(context, cName, data.bytes, (int)data.length);
         if (result == KSJSON_ERROR_INVALID_CHARACTER) {
-            codec.error = [NSError errorWithDomain:@"KSJSONCodecObjC"
-                                              code:0
-                                       description:@"Invalid character in %@", object];
+            codec.error = [KSNSErrorHelper errorWithDomain:@"KSJSONCodecObjC"
+                                                      code:0
+                                               description:@"Invalid character in %@", object];
         }
         return result;
     }
@@ -328,7 +328,9 @@ static int encodeObject(KSJSONCodec *codec, id object, NSString *name, KSJSONEnc
         }
         for (id key in keys) {
             if ([key isKindOfClass:[NSString class]] == NO) {
-                codec.error = [NSError errorWithDomain:@"KSJSONCodecObjC" code:0 description:@"Invalid key: %@", key];
+                codec.error = [KSNSErrorHelper errorWithDomain:@"KSJSONCodecObjC"
+                                                          code:0
+                                                   description:@"Invalid key: %@", key];
                 return KSJSON_ERROR_INVALID_DATA;
             }
             if ((result = encodeObject(codec, [object valueForKey:key], key, context)) != KSJSON_OK) {
@@ -355,9 +357,9 @@ static int encodeObject(KSJSONCodec *codec, id object, NSString *name, KSJSONEnc
         return ksjson_addDataElement(context, cName, data.bytes, (int)data.length);
     }
 
-    codec.error = [NSError errorWithDomain:@"KSJSONCodecObjC"
-                                      code:0
-                               description:@"Could not determine type of %@", [object class]];
+    codec.error = [KSNSErrorHelper errorWithDomain:@"KSJSONCodecObjC"
+                                              code:0
+                                       description:@"Could not determine type of %@", [object class]];
     return KSJSON_ERROR_INVALID_DATA;
 }
 
@@ -385,9 +387,9 @@ static int encodeObject(KSJSONCodec *codec, id object, NSString *name, KSJSONEnc
     int result = ksjson_decode(JSONData.bytes, (int)JSONData.length, stringData.mutableBytes, (int)stringData.length,
                                codec.callbacks, (__bridge void *)codec, &errorOffset);
     if (result != KSJSON_OK && codec.error == nil) {
-        codec.error = [NSError errorWithDomain:@"KSJSONCodecObjC"
-                                          code:0
-                                   description:@"%s (offset %d)", ksjson_stringForError(result), errorOffset];
+        codec.error = [KSNSErrorHelper errorWithDomain:@"KSJSONCodecObjC"
+                                                  code:0
+                                           description:@"%s (offset %d)", ksjson_stringForError(result), errorOffset];
     }
     if (error != nil) {
         *error = codec.error;

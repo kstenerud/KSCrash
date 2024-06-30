@@ -1,7 +1,7 @@
 //
-//  NSString+URLEncode.m
+//  KSGZipHelper.h
 //
-//  Created by karl on 2016-04-11.
+//  Created by Karl Stenerud on 2012-02-19.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,13 +24,37 @@
 // THE SOFTWARE.
 //
 
-#import "NSString+URLEncode.h"
+#import <Foundation/Foundation.h>
 
-@implementation NSString (URLEncode)
+/**
+ * GNU zip/unzip support for NSData.
+ */
+@interface KSGZipHelper : NSObject
 
-- (NSString *)URLEncoded
-{
-    return [self stringByAddingPercentEncodingWithAllowedCharacters:NSCharacterSet.URLQueryAllowedCharacterSet];
-}
+/**
+ * Gzip the data in this object (no header).
+ *
+ * @param compressionLevel The GZip compression level to use:
+ *                         0 = no compression.
+ *                         1 = best speed.
+ *                         9 = best compression.
+ *                        -1 = default.
+ *
+ * @param error (optional) Set to any error that occurs, or nil if no error.
+ *              Pass nil to ignore.
+ *
+ * @return A new NSData with the gzipped contents of this object.
+ */
++ (NSData *)gzippedData:(NSData *)data compressionLevel:(int)compressionLevel error:(NSError **)error;
+
+/**
+ * Gunzip the data in this object (no header).
+ *
+ * @param error (optional) Set to any error that occurs, or nil if no error.
+ *              Pass nil to ignore.
+ *
+ * @return A new NSData with the gunzipped contents of this object.
+ */
++ (NSData *)gunzippedData:(NSData *)data error:(NSError **)error;
 
 @end

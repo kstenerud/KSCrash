@@ -30,10 +30,11 @@
 #import "KSCrash.h"
 #import "KSCrashConfiguration.h"
 #import "KSCrashInstallation+Private.h"
+#import "KSCrashReportFilterAlert.h"
 #import "KSCrashReportFilterBasic.h"
 #import "KSJSONCodecObjC.h"
 #import "KSLogger.h"
-#import "NSError+SimpleConstructor.h"
+#import "KSNSErrorHelper.h"
 
 /** Max number of properties that can be defined for writing to the report */
 #define kMaxProperties 500
@@ -229,9 +230,9 @@ static CrashHandlerData *g_crashHandlerData;
         }
     }
     if ([errors length] > 0) {
-        return [NSError errorWithDomain:[[self class] description]
-                                   code:0
-                            description:@"Installation properties failed validation: %@", errors];
+        return [KSNSErrorHelper errorWithDomain:[[self class] description]
+                                           code:0
+                                    description:@"Installation properties failed validation: %@", errors];
     }
     return nil;
 }
@@ -313,9 +314,9 @@ static CrashHandlerData *g_crashHandlerData;
     id<KSCrashReportFilter> sink = [self sink];
     if (sink == nil) {
         onCompletion(nil, NO,
-                     [NSError errorWithDomain:[[self class] description]
-                                         code:0
-                                  description:@"Sink was nil (subclasses must implement method \"sink\")"]);
+                     [KSNSErrorHelper errorWithDomain:[[self class] description]
+                                                 code:0
+                                          description:@"Sink was nil (subclasses must implement method \"sink\")"]);
         return;
     }
 
@@ -334,6 +335,35 @@ static CrashHandlerData *g_crashHandlerData;
 - (id<KSCrashReportFilter>)sink
 {
     return nil;
+}
+
+- (void)addConditionalAlertWithTitle:(NSString *)title
+                             message:(NSString *)message
+                           yesAnswer:(NSString *)yesAnswer
+                            noAnswer:(NSString *)noAnswer
+{
+    [self addPreFilter:[KSCrashReportFilterAlert filterWithTitle:title
+                                                         message:message
+                                                       yesAnswer:yesAnswer
+                                                        noAnswer:noAnswer]];
+    // FIXME: Accessing config
+    //    KSCrash* handler = [KSCrash sharedInstance];
+    //    if(handler.deleteBehaviorAfterSendAll == KSCDeleteOnSucess)
+    //    {
+    //        // Better to delete always, or else the user will keep getting nagged
+    //        // until he presses "yes"!
+    //        handler.deleteBehaviorAfterSendAll = KSCDeleteAlways;
+    //    }
+}
+
+- (void)addUnconditionalAlertWithTitle:(NSString *)title
+                               message:(NSString *)message
+                     dismissButtonText:(NSString *)dismissButtonText
+{
+    [self addPreFilter:[KSCrashReportFilterAlert filterWithTitle:title
+                                                         message:message
+                                                       yesAnswer:dismissButtonText
+                                                        noAnswer:nil]];
 }
 
 @end

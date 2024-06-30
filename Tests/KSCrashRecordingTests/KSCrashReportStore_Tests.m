@@ -25,7 +25,6 @@
 //
 
 #import "FileBasedTestCase.h"
-#import "XCTestCase+KSCrash.h"
 
 #import "KSCrashReportStore.h"
 

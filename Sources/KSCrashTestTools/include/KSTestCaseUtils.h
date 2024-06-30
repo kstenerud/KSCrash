@@ -1,7 +1,7 @@
 //
-//  NSMutableData+AppendUTF8.h
+//  KSTestCaseUtils.h
 //
-//  Created by Karl Stenerud on 2012-02-26.
+//  Created by Karl Stenerud on 2012-02-11.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -26,20 +26,12 @@
 
 #import <Foundation/Foundation.h>
 
-/** Encodes strings to UTF-8 format.
- */
-@interface NSMutableData (AppendUTF8)
+@interface KSTestCaseUtils : NSObject
 
-/** Append a string encoded as UTF-8.
- *
- * @param format Printf-stype format.
- */
-- (void)appendUTF8Format:(NSString *)format, ...;
++ (NSString *)createTempPath;
 
-/** Append a string encoded as UTF-8.
- *
- * @param string The string to append.
- */
-- (void)appendUTF8String:(NSString *)string;
++ (void)removePath:(NSString *)path;
+
++ (void)createTempReportsAtPath:(NSString *)reportsPath prefix:(NSString *)reportPrefix;
 
 @end
