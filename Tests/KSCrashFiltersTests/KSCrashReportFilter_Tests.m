@@ -54,9 +54,9 @@
 
 @property(nonatomic, readwrite, assign) NSTimeInterval delay;
 @property(nonatomic, readwrite, assign) BOOL completed;
-@property(nonatomic, readwrite, retain) NSError *error;
-@property(nonatomic, readwrite, retain) NSTimer *timer;
-@property(nonatomic, readwrite, retain) NSArray<KSCrashReport *> *reports;
+@property(nonatomic, readwrite, strong) NSError *error;
+@property(nonatomic, readwrite, strong) NSTimer *timer;
+@property(nonatomic, readwrite, copy) NSArray<KSCrashReport *> *reports;
 @property(nonatomic, readwrite, copy) KSCrashReportFilterCompletion onCompletion;
 
 @end

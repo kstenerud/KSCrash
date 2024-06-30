@@ -35,7 +35,7 @@
 #if KSCRASH_HAS_REACHABILITY
 @interface KSReachabilityKSCrash ()
 
-@property(nonatomic, readwrite, retain) NSString *hostname;
+@property(nonatomic, readwrite, copy) NSString *hostname;
 @property(nonatomic, readwrite, assign) SCNetworkReachabilityFlags flags;
 @property(nonatomic, readwrite, assign) BOOL reachable;
 @property(nonatomic, readwrite, assign) BOOL WWANOnly;
@@ -249,7 +249,7 @@ static void onReachabilityChanged(__unused SCNetworkReachabilityRef target, SCNe
 
 @interface KSReachableOperationKSCrash ()
 
-@property(nonatomic, readwrite, retain) KSReachabilityKSCrash *reachability;
+@property(nonatomic, readwrite, strong) KSReachabilityKSCrash *reachability;
 
 @end
 

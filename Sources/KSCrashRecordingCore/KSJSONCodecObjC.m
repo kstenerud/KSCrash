@@ -38,19 +38,19 @@
 @property(nonatomic, readwrite, assign) KSJSONDecodeCallbacks *callbacks;
 
 /** Stack of arrays/objects as the decoded content is built */
-@property(nonatomic, readwrite, retain) NSMutableArray *containerStack;
+@property(nonatomic, readwrite, strong) NSMutableArray *containerStack;
 
 /** Current array or object being decoded (weak ref) */
 @property(nonatomic, readwrite, assign) id currentContainer;
 
 /** Top level array or object in the decoded tree */
-@property(nonatomic, readwrite, retain) id topLevelContainer;
+@property(nonatomic, readwrite, strong) id topLevelContainer;
 
 /** Data that has been serialized into JSON form */
-@property(nonatomic, readwrite, retain) NSMutableData *serializedData;
+@property(nonatomic, readwrite, strong) NSMutableData *serializedData;
 
 /** Any error that has occurred */
-@property(nonatomic, readwrite, retain) NSError *error;
+@property(nonatomic, readwrite, strong) NSError *error;
 
 /** If true, pretty print while encoding */
 @property(nonatomic, readwrite, assign) bool prettyPrint;

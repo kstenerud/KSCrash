@@ -31,7 +31,7 @@
 
 @interface KSLogger_Tests : XCTestCase
 
-@property(nonatomic, readwrite, retain) NSString *tempDir;
+@property(nonatomic, readwrite, copy) NSString *tempDir;
 
 @end
 

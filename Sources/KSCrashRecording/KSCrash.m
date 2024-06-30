@@ -54,8 +54,8 @@
 
 @interface KSCrash ()
 
-@property(nonatomic, readwrite, retain) NSString *bundleName;
-@property(nonatomic, readwrite, retain) NSString *basePath;
+@property(nonatomic, readwrite, copy) NSString *bundleName;
+@property(nonatomic, readwrite, copy) NSString *basePath;
 @property(nonatomic, strong) KSCrashConfiguration *configuration;
 
 @end
@@ -145,13 +145,13 @@ static NSString *getBasePath(void)
 
 - (instancetype)initWithBasePath:(NSString *)basePath
 {
+    if (basePath == nil) {
+        KSLOG_ERROR(@"Failed to initialize crash handler. Crash reporting disabled.");
+        return nil;
+    }
     if ((self = [super init])) {
-        self.bundleName = getBundleName();
-        self.basePath = basePath;
-        if (self.basePath == nil) {
-            KSLOG_ERROR(@"Failed to initialize crash handler. Crash reporting disabled.");
-            return nil;
-        }
+        _bundleName = getBundleName();
+        _basePath = [basePath copy];
     }
     return self;
 }

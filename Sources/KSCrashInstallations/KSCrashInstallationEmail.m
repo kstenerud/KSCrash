@@ -31,7 +31,7 @@
 
 @interface KSCrashInstallationEmail ()
 
-@property(nonatomic, readwrite, retain) NSDictionary *defaultFilenameFormats;
+@property(nonatomic, readwrite, copy) NSDictionary *defaultFilenameFormats;
 
 @end
 
@@ -60,8 +60,8 @@
     if ((self = [super
              initWithRequiredProperties:[NSArray arrayWithObjects:@"recipients", @"subject", @"filenameFmt", nil]])) {
         NSString *bundleName = [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleName"];
-        self.subject = [NSString stringWithFormat:@"Crash Report (%@)", bundleName];
-        self.defaultFilenameFormats = [NSDictionary
+        _subject = [NSString stringWithFormat:@"Crash Report (%@)", bundleName];
+        _defaultFilenameFormats = [NSDictionary
             dictionaryWithObjectsAndKeys:[NSString stringWithFormat:@"crash-report-%@-%%d.txt.gz", bundleName],
                                          [NSNumber numberWithInt:KSCrashEmailReportStyleApple],
                                          [NSString stringWithFormat:@"crash-report-%@-%%d.json.gz", bundleName],

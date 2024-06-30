@@ -38,9 +38,9 @@
 
 @interface KSCrashReportSinkStandard ()
 
-@property(nonatomic, readwrite, retain) NSURL *url;
+@property(nonatomic, readwrite, strong) NSURL *url;
 
-@property(nonatomic, readwrite, retain) KSReachableOperationKSCrash *reachableOperation;
+@property(nonatomic, readwrite, strong) KSReachableOperationKSCrash *reachableOperation;
 
 @end
 

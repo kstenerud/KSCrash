@@ -34,8 +34,8 @@
 
 @interface KSCrashReportStore_Tests : FileBasedTestCase
 
-@property(nonatomic, readwrite, retain) NSString *appName;
-@property(nonatomic, readwrite, retain) NSString *reportStorePath;
+@property(nonatomic, readwrite, copy) NSString *appName;
+@property(nonatomic, readwrite, copy) NSString *reportStorePath;
 @property(atomic, readwrite, assign) int64_t reportCounter;
 
 @end

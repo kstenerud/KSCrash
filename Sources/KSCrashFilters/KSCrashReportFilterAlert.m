@@ -130,10 +130,10 @@
 
 @interface KSCrashReportFilterAlert ()
 
-@property(nonatomic, readwrite, retain) NSString *title;
-@property(nonatomic, readwrite, retain) NSString *message;
-@property(nonatomic, readwrite, retain) NSString *yesAnswer;
-@property(nonatomic, readwrite, retain) NSString *noAnswer;
+@property(nonatomic, readwrite, copy) NSString *title;
+@property(nonatomic, readwrite, copy) NSString *message;
+@property(nonatomic, readwrite, copy) NSString *yesAnswer;
+@property(nonatomic, readwrite, copy) NSString *noAnswer;
 
 @end
 
@@ -158,10 +158,10 @@
                      noAnswer:(nullable NSString *)noAnswer;
 {
     if ((self = [super init])) {
-        self.title = title;
-        self.message = message;
-        self.yesAnswer = yesAnswer;
-        self.noAnswer = noAnswer;
+        _title = [title copy];
+        _message = [message copy];
+        _yesAnswer = [yesAnswer copy];
+        _noAnswer = [noAnswer copy];
     }
     return self;
 }

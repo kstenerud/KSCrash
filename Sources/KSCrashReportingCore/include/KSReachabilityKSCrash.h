@@ -64,7 +64,7 @@
 #pragma mark General Information
 
 /** The host we are monitoring reachability to, if any. */
-@property(nonatomic, readonly, retain) NSString *hostname;
+@property(nonatomic, readonly, copy) NSString *hostname;
 
 #pragma mark Notifications and Callbacks
 
@@ -76,7 +76,7 @@
 /** The notification to send when reachability changes (nil = don't send).
  * Default = nil
  */
-@property(nonatomic, readwrite, retain) NSString *notificationName;
+@property(nonatomic, readwrite, copy) NSString *notificationName;
 
 #pragma mark KVO Compliant Status Properties
 

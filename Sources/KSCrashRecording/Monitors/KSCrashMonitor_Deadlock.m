@@ -62,7 +62,7 @@ static NSTimeInterval g_watchdogInterval = 0;
 
 @interface KSCrashDeadlockMonitor : NSObject
 
-@property(nonatomic, readwrite, retain) NSThread *monitorThread;
+@property(nonatomic, readwrite, strong) NSThread *monitorThread;
 @property(atomic, readwrite, assign) BOOL awaitingResponse;
 
 @end

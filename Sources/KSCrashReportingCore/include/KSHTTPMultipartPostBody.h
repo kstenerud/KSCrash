@@ -32,7 +32,7 @@
 @interface KSHTTPMultipartPostBody : NSObject
 
 /** The content-type identifier for this body. */
-@property(nonatomic, readonly, retain) NSString *contentType;
+@property(nonatomic, readonly, copy) NSString *contentType;
 
 /** Constructor.
  *

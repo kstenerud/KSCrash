@@ -57,12 +57,12 @@ static CrashHandlerData *g_crashHandlerData;
 @property(nonatomic, readonly, assign) int index;
 @property(nonatomic, readonly, assign) ReportField *field;
 
-@property(nonatomic, readwrite, retain) NSString *key;
-@property(nonatomic, readwrite, retain) id value;
+@property(nonatomic, readwrite, copy) NSString *key;
+@property(nonatomic, readwrite, strong) id value;
 
-@property(nonatomic, readwrite, retain) NSMutableData *fieldBacking;
-@property(nonatomic, readwrite, retain) KSCString *keyBacking;
-@property(nonatomic, readwrite, retain) KSCString *valueBacking;
+@property(nonatomic, readwrite, strong) NSMutableData *fieldBacking;
+@property(nonatomic, readwrite, strong) KSCString *keyBacking;
+@property(nonatomic, readwrite, strong) KSCString *valueBacking;
 
 @end
 
@@ -84,7 +84,7 @@ static CrashHandlerData *g_crashHandlerData;
 {
     if ((self = [super init])) {
         _index = index;
-        self.fieldBacking = [NSMutableData dataWithLength:sizeof(*self.field)];
+        _fieldBacking = [NSMutableData dataWithLength:sizeof(*self.field)];
     }
     return self;
 }
@@ -132,10 +132,10 @@ static CrashHandlerData *g_crashHandlerData;
 
 @property(nonatomic, readwrite, assign) int nextFieldIndex;
 @property(nonatomic, readonly, assign) CrashHandlerData *crashHandlerData;
-@property(nonatomic, readwrite, retain) NSMutableData *crashHandlerDataBacking;
-@property(nonatomic, readwrite, retain) NSMutableDictionary *fields;
-@property(nonatomic, readwrite, retain) NSArray *requiredProperties;
-@property(nonatomic, readwrite, retain) KSCrashReportFilterPipeline *prependedFilters;
+@property(nonatomic, readwrite, strong) NSMutableData *crashHandlerDataBacking;
+@property(nonatomic, readwrite, strong) NSMutableDictionary *fields;
+@property(nonatomic, readwrite, copy) NSArray *requiredProperties;
+@property(nonatomic, readwrite, strong) KSCrashReportFilterPipeline *prependedFilters;
 
 @end
 
@@ -157,12 +157,12 @@ static CrashHandlerData *g_crashHandlerData;
 - (id)initWithRequiredProperties:(NSArray *)requiredProperties
 {
     if ((self = [super init])) {
-        self.crashHandlerDataBacking =
+        _crashHandlerDataBacking =
             [NSMutableData dataWithLength:sizeof(*self.crashHandlerData) +
                                           sizeof(*self.crashHandlerData->reportFields) * kMaxProperties];
-        self.fields = [NSMutableDictionary dictionary];
-        self.requiredProperties = requiredProperties;
-        self.prependedFilters = [KSCrashReportFilterPipeline filterWithFilters:nil];
+        _fields = [NSMutableDictionary dictionary];
+        _requiredProperties = [requiredProperties copy];
+        _prependedFilters = [KSCrashReportFilterPipeline filterWithFilters:nil];
     }
     return self;
 }
