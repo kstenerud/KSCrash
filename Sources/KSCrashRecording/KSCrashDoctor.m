@@ -25,13 +25,6 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
 
 @implementation KSCrashDoctorParam
 
-@synthesize className = _className;
-@synthesize previousClassName = _previousClassName;
-@synthesize isInstance = _isInstance;
-@synthesize address = _address;
-@synthesize value = _value;
-@synthesize type = _type;
-
 @end
 
 @interface KSCrashDoctorFunctionCall : NSObject
@@ -42,9 +35,6 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
 @end
 
 @implementation KSCrashDoctorFunctionCall
-
-@synthesize name = _name;
-@synthesize params = _params;
 
 - (NSString *)descriptionForObjCCall
 {

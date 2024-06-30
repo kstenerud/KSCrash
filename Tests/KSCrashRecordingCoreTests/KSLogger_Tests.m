@@ -37,8 +37,6 @@
 
 @implementation KSLogger_Tests
 
-@synthesize tempDir = _tempDir;
-
 - (void)setUp
 {
     [super setUp];

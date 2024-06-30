@@ -95,16 +95,6 @@ static NSString *getBasePath(void)
 @implementation KSCrash
 
 // ============================================================================
-#pragma mark - Properties -
-// ============================================================================
-
-@synthesize sink = _sink;
-@synthesize bundleName = _bundleName;
-@synthesize basePath = _basePath;
-@synthesize uncaughtExceptionHandler = _uncaughtExceptionHandler;
-@synthesize currentSnapshotUserReportedExceptionHandler = _currentSnapshotUserReportedExceptionHandler;
-
-// ============================================================================
 #pragma mark - Lifecycle -
 // ============================================================================
 

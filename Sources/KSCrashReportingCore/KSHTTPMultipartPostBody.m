@@ -73,11 +73,6 @@ static void appendUTF8Format(NSMutableData *data, NSString *format, ...)
 
 @implementation KSHTTPPostField
 
-@synthesize data = _data;
-@synthesize name = _name;
-@synthesize contentType = _contentType;
-@synthesize filename = _filename;
-
 + (KSHTTPPostField *)data:(NSData *)data
                      name:(NSString *)name
               contentType:(NSString *)contentType
@@ -113,10 +108,6 @@ static void appendUTF8Format(NSMutableData *data, NSString *format, ...)
 @end
 
 @implementation KSHTTPMultipartPostBody
-
-@synthesize contentType = _contentType;
-@synthesize fields = _fields;
-@synthesize boundary = _boundary;
 
 + (KSHTTPMultipartPostBody *)body
 {

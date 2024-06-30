@@ -37,13 +37,6 @@
 
 @implementation KSCrashInstallationEmail
 
-@synthesize recipients = _recipients;
-@synthesize subject = _subject;
-@synthesize message = _message;
-@synthesize filenameFmt = _filenameFmt;
-@synthesize reportStyle = _reportStyle;
-@synthesize defaultFilenameFormats = _defaultFilenameFormats;
-
 + (instancetype)sharedInstance
 {
     static KSCrashInstallationEmail *sharedInstance = nil;

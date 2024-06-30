@@ -68,13 +68,6 @@ static CrashHandlerData *g_crashHandlerData;
 
 @implementation KSCrashInstReportField
 
-@synthesize index = _index;
-@synthesize key = _key;
-@synthesize value = _value;
-@synthesize fieldBacking = _fieldBacking;
-@synthesize keyBacking = _keyBacking;
-@synthesize valueBacking = _valueBacking;
-
 + (KSCrashInstReportField *)fieldWithIndex:(int)index
 {
     return [(KSCrashInstReportField *)[self alloc] initWithIndex:index];
@@ -140,12 +133,6 @@ static CrashHandlerData *g_crashHandlerData;
 @end
 
 @implementation KSCrashInstallation
-
-@synthesize nextFieldIndex = _nextFieldIndex;
-@synthesize crashHandlerDataBacking = _crashHandlerDataBacking;
-@synthesize fields = _fields;
-@synthesize requiredProperties = _requiredProperties;
-@synthesize prependedFilters = _prependedFilters;
 
 - (id)init
 {

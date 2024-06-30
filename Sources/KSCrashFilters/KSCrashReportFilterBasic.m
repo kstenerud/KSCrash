@@ -56,9 +56,6 @@
 
 @implementation KSCrashReportFilterCombine
 
-@synthesize filters = _filters;
-@synthesize keys = _keys;
-
 - (instancetype)initWithFilters:(NSArray *)filters keys:(NSArray<NSString *> *)keys
 {
     if ((self = [super init])) {
@@ -207,8 +204,6 @@
 
 @implementation KSCrashReportFilterPipeline
 
-@synthesize filters = _filters;
-
 + (instancetype)filterWithFilters:(id)firstFilter, ...
 {
     ksva_list_to_nsarray(firstFilter, filters);
@@ -310,9 +305,6 @@
 
 @implementation KSCrashReportFilterConcatenate
 
-@synthesize separatorFmt = _separatorFmt;
-@synthesize keys = _keys;
-
 + (instancetype)filterWithSeparatorFmt:(NSString *)separatorFmt keys:(id)firstKey, ...
 {
     ksva_list_to_nsarray(firstKey, keys);
@@ -377,8 +369,6 @@
 @end
 
 @implementation KSCrashReportFilterSubset
-
-@synthesize keyPaths = _keyPaths;
 
 + (instancetype)filterWithKeys:(id)firstKeyPath, ...
 {

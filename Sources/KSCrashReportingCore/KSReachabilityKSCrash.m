@@ -57,14 +57,6 @@ static void onReachabilityChanged(SCNetworkReachabilityRef target, SCNetworkReac
 
 @implementation KSReachabilityKSCrash
 
-@synthesize onReachabilityChanged = _onReachabilityChanged;
-@synthesize flags = _flags;
-@synthesize reachable = _reachable;
-@synthesize WWANOnly = _WWANOnly;
-@synthesize reachabilityRef = _reachabilityRef;
-@synthesize hostname = _hostname;
-@synthesize notificationName = _notificationName;
-
 + (KSReachabilityKSCrash *)reachabilityToHost:(NSString *)hostname
 {
     return [[self alloc] initWithHost:hostname];
@@ -132,7 +124,7 @@ static void onReachabilityChanged(SCNetworkReachabilityRef target, SCNetworkReac
             }
         });
 
-        self.reachabilityRef = reachabilityRef;
+        _reachabilityRef = reachabilityRef;
 
         return self;
     }
@@ -141,7 +133,7 @@ failed:
     if (reachabilityRef) {
         CFRelease(reachabilityRef);
     }
-    self.reachabilityRef = NULL;
+    _reachabilityRef = NULL;
     return nil;
 }
 
@@ -255,8 +247,6 @@ static void onReachabilityChanged(__unused SCNetworkReachabilityRef target, SCNe
 
 @implementation KSReachableOperationKSCrash
 
-@synthesize reachability = _reachability;
-
 + (KSReachableOperationKSCrash *)operationWithHost:(NSString *)host
                                          allowWWAN:(BOOL)allowWWAN
                                              block:(void (^)(void))block
@@ -267,14 +257,14 @@ static void onReachabilityChanged(__unused SCNetworkReachabilityRef target, SCNe
 - (id)initWithHost:(NSString *)host allowWWAN:(BOOL)allowWWAN block:(void (^)(void))block
 {
     if ((self = [super init])) {
-        self.reachability = [KSReachabilityKSCrash reachabilityToHost:host];
+        _reachability = [KSReachabilityKSCrash reachabilityToHost:host];
 
-        __unsafe_unretained KSReachableOperationKSCrash *blockSelf = self;
-        self.reachability.onReachabilityChanged = ^(KSReachabilityKSCrash *reachability) {
+        __weak __typeof(self) weakSelf = self;
+        _reachability.onReachabilityChanged = ^(KSReachabilityKSCrash *reachability) {
             if (reachability.reachable) {
                 if (allowWWAN || !reachability.WWANOnly) {
                     block();
-                    blockSelf.reachability = nil;
+                    weakSelf.reachability = nil;
                 }
             }
         };
@@ -287,12 +277,6 @@ static void onReachabilityChanged(__unused SCNetworkReachabilityRef target, SCNe
 #else
 
 @implementation KSReachabilityKSCrash
-
-@synthesize onReachabilityChanged = _onReachabilityChanged;
-@synthesize reachable = _reachable;
-@synthesize WWANOnly = _WWANOnly;
-@synthesize hostname = _hostname;
-@synthesize notificationName = _notificationName;
 
 + (KSReachabilityKSCrash *)reachabilityToHost:(__unused NSString *)hostname
 {

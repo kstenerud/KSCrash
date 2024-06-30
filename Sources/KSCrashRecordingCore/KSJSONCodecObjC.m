@@ -94,19 +94,6 @@
 
 @implementation KSJSONCodec
 
-#pragma mark Properties
-
-@synthesize topLevelContainer = _topLevelContainer;
-@synthesize currentContainer = _currentContainer;
-@synthesize containerStack = _containerStack;
-@synthesize callbacks = _callbacks;
-@synthesize serializedData = _serializedData;
-@synthesize error = _error;
-@synthesize prettyPrint = _prettyPrint;
-@synthesize sorted = _sorted;
-@synthesize ignoreNullsInArrays = _ignoreNullsInArrays;
-@synthesize ignoreNullsInObjects = _ignoreNullsInObjects;
-
 #pragma mark Constructors/Destructor
 
 + (KSJSONCodec *)codecWithEncodeOptions:(KSJSONEncodeOption)encodeOptions
@@ -118,21 +105,21 @@
 - (id)initWithEncodeOptions:(KSJSONEncodeOption)encodeOptions decodeOptions:(KSJSONDecodeOption)decodeOptions
 {
     if ((self = [super init])) {
-        self.containerStack = [NSMutableArray array];
-        self.callbacks = malloc(sizeof(*self.callbacks));
-        self.callbacks->onBeginArray = onBeginArray;
-        self.callbacks->onBeginObject = onBeginObject;
-        self.callbacks->onBooleanElement = onBooleanElement;
-        self.callbacks->onEndContainer = onEndContainer;
-        self.callbacks->onEndData = onEndData;
-        self.callbacks->onFloatingPointElement = onFloatingPointElement;
-        self.callbacks->onIntegerElement = onIntegerElement;
-        self.callbacks->onNullElement = onNullElement;
-        self.callbacks->onStringElement = onStringElement;
-        self.prettyPrint = (encodeOptions & KSJSONEncodeOptionPretty) != 0;
-        self.sorted = (encodeOptions & KSJSONEncodeOptionSorted) != 0;
-        self.ignoreNullsInArrays = (decodeOptions & KSJSONDecodeOptionIgnoreNullInArray) != 0;
-        self.ignoreNullsInObjects = (decodeOptions & KSJSONDecodeOptionIgnoreNullInObject) != 0;
+        _containerStack = [NSMutableArray array];
+        _callbacks = malloc(sizeof(*self.callbacks));
+        _callbacks->onBeginArray = onBeginArray;
+        _callbacks->onBeginObject = onBeginObject;
+        _callbacks->onBooleanElement = onBooleanElement;
+        _callbacks->onEndContainer = onEndContainer;
+        _callbacks->onEndData = onEndData;
+        _callbacks->onFloatingPointElement = onFloatingPointElement;
+        _callbacks->onIntegerElement = onIntegerElement;
+        _callbacks->onNullElement = onNullElement;
+        _callbacks->onStringElement = onStringElement;
+        _prettyPrint = (encodeOptions & KSJSONEncodeOptionPretty) != 0;
+        _sorted = (encodeOptions & KSJSONEncodeOptionSorted) != 0;
+        _ignoreNullsInArrays = (decodeOptions & KSJSONDecodeOptionIgnoreNullInArray) != 0;
+        _ignoreNullsInObjects = (decodeOptions & KSJSONDecodeOptionIgnoreNullInObject) != 0;
     }
     return self;
 }

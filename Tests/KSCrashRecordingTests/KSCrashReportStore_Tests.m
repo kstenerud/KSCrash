@@ -42,10 +42,6 @@
 
 @implementation KSCrashReportStore_Tests
 
-@synthesize appName = _appName;
-@synthesize reportStorePath = _reportStorePath;
-@synthesize reportCounter = _reportCounter;
-
 - (int64_t)getReportIDFromPath:(NSString *)path
 {
     const char *filename = path.lastPathComponent.UTF8String;

@@ -61,10 +61,6 @@
 
 @implementation KSCrashMailProcess
 
-@synthesize reports = _reports;
-@synthesize onCompletion = _onCompletion;
-@synthesize dummyVC = _dummyVC;
-
 + (KSCrashMailProcess *)process
 {
     return [[self alloc] init];
@@ -172,11 +168,6 @@
 @end
 
 @implementation KSCrashReportSinkEMail
-
-@synthesize recipients = _recipients;
-@synthesize subject = _subject;
-@synthesize message = _message;
-@synthesize filenameFmt = _filenameFmt;
 
 + (instancetype)sinkWithRecipients:(NSArray<NSString *> *)recipients
                            subject:(NSString *)subject

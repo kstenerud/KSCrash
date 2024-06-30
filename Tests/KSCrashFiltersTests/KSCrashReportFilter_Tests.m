@@ -63,13 +63,6 @@
 
 @implementation KSCrash_TestFilter
 
-@synthesize delay = _delay;
-@synthesize completed = _completed;
-@synthesize error = _error;
-@synthesize reports = _reports;
-@synthesize timer = _timer;
-@synthesize onCompletion = _onCompletion;
-
 + (KSCrash_TestFilter *)filterWithDelay:(NSTimeInterval)delay completed:(BOOL)completed error:(NSError *)error
 {
     return [[self alloc] initWithDelay:delay completed:completed error:error];
@@ -78,9 +71,9 @@
 - (id)initWithDelay:(NSTimeInterval)delay completed:(BOOL)completed error:(NSError *)error
 {
     if ((self = [super init])) {
-        self.delay = delay;
-        self.completed = completed;
-        self.error = error;
+        _delay = delay;
+        _completed = completed;
+        _error = error;
     }
     return self;
 }

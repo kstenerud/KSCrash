@@ -46,9 +46,6 @@
 
 @implementation KSCrashReportSinkStandard
 
-@synthesize url = _url;
-@synthesize reachableOperation = _reachableOperation;
-
 + (instancetype)sinkWithURL:(NSURL *)url
 {
     return [[self alloc] initWithURL:url];
@@ -57,7 +54,7 @@
 - (instancetype)initWithURL:(NSURL *)url
 {
     if ((self = [super init])) {
-        self.url = url;
+        _url = url;
     }
     return self;
 }
