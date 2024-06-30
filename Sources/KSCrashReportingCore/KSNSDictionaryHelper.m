@@ -26,39 +26,6 @@
 
 #import "KSNSDictionaryHelper.h"
 
-static BOOL isNumericString(NSString *str)
-{
-    if ([str length] == 0) {
-        return YES;
-    }
-    unichar ch = [str characterAtIndex:0];
-    return ch >= '0' && ch <= '9';
-}
-
-static id objectForDeepKey(id container, NSArray *deepKey)
-{
-    for (id key in deepKey) {
-        if ([container respondsToSelector:@selector(objectForKey:)]) {
-            container = [(NSDictionary *)container objectForKey:key];
-        } else {
-            if ([container respondsToSelector:@selector(objectAtIndex:)] &&
-                [key respondsToSelector:@selector(intValue)]) {
-                if ([key isKindOfClass:[NSString class]] && !isNumericString(key)) {
-                    return nil;
-                }
-                NSUInteger index = (NSUInteger)[key intValue];
-                container = [container objectAtIndex:index];
-            } else {
-                return nil;
-            }
-        }
-        if (container == nil) {
-            break;
-        }
-    }
-    return container;
-}
-
 @implementation KSNSDictionaryHelper
 
 + (id)objectInDictionary:(NSDictionary *)dict forKeyPath:(NSString *)keyPath
@@ -69,7 +36,36 @@ static id objectForDeepKey(id container, NSArray *deepKey)
     while ([keyPath length] > 0 && [keyPath characterAtIndex:0] == '/') {
         keyPath = [keyPath substringFromIndex:1];
     }
-    return objectForDeepKey(dict, [keyPath componentsSeparatedByString:@"/"]);
+
+    id result = dict;
+    for (id key in [keyPath componentsSeparatedByString:@"/"]) {
+        if ([result respondsToSelector:@selector(objectForKey:)]) {
+            result = [(NSDictionary *)result objectForKey:key];
+        } else {
+            if ([result respondsToSelector:@selector(objectAtIndex:)] && [key respondsToSelector:@selector(intValue)]) {
+                if ([key isKindOfClass:[NSString class]] && ![self isNumericString:key]) {
+                    return nil;
+                }
+                NSUInteger index = (NSUInteger)[key intValue];
+                result = [result objectAtIndex:index];
+            } else {
+                return nil;
+            }
+        }
+        if (result == nil) {
+            break;
+        }
+    }
+    return result;
+}
+
++ (BOOL)isNumericString:(NSString *)str
+{
+    if ([str length] == 0) {
+        return YES;
+    }
+    unichar ch = [str characterAtIndex:0];
+    return ch >= '0' && ch <= '9';
 }
 
 @end
