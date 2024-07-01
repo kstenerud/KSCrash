@@ -29,8 +29,6 @@
 
 @implementation TestThread
 
-@synthesize thread = _thread;
-
 - (void)main
 {
     self.thread = (thread_t)ksthread_self();

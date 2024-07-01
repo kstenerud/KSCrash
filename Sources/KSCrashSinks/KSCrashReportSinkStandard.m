@@ -38,16 +38,13 @@
 
 @interface KSCrashReportSinkStandard ()
 
-@property(nonatomic, readwrite, retain) NSURL *url;
+@property(nonatomic, readwrite, strong) NSURL *url;
 
-@property(nonatomic, readwrite, retain) KSReachableOperationKSCrash *reachableOperation;
+@property(nonatomic, readwrite, strong) KSReachableOperationKSCrash *reachableOperation;
 
 @end
 
 @implementation KSCrashReportSinkStandard
-
-@synthesize url = _url;
-@synthesize reachableOperation = _reachableOperation;
 
 + (instancetype)sinkWithURL:(NSURL *)url
 {
@@ -57,7 +54,7 @@
 - (instancetype)initWithURL:(NSURL *)url
 {
     if ((self = [super init])) {
-        self.url = url;
+        _url = url;
     }
     return self;
 }

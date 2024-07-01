@@ -39,8 +39,6 @@
 
 @implementation KSCrashReportFilterGZipCompress
 
-@synthesize compressionLevel = _compressionLevel;
-
 + (instancetype)filterWithCompressionLevel:(NSInteger)compressionLevel
 {
     return [[self alloc] initWithCompressionLevel:compressionLevel];
@@ -49,7 +47,7 @@
 - (instancetype)initWithCompressionLevel:(NSInteger)compressionLevel
 {
     if ((self = [super init])) {
-        self.compressionLevel = compressionLevel;
+        _compressionLevel = compressionLevel;
     }
     return self;
 }

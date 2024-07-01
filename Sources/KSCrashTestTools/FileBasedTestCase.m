@@ -29,8 +29,6 @@
 
 @implementation FileBasedTestCase
 
-@synthesize tempPath = _tempPath;
-
 - (void)setUp
 {
     [super setUp];

@@ -31,8 +31,6 @@
 
 @implementation KSCrashInstallationStandard
 
-@synthesize url = _url;
-
 + (instancetype)sharedInstance
 {
     static KSCrashInstallationStandard *sharedInstance = nil;

@@ -49,21 +49,18 @@
 
 @interface KSCrashReportFilterCombine ()
 
-@property(nonatomic, readwrite, retain) NSArray *filters;
-@property(nonatomic, readwrite, retain) NSArray *keys;
+@property(nonatomic, readwrite, copy) NSArray *filters;
+@property(nonatomic, readwrite, copy) NSArray *keys;
 
 @end
 
 @implementation KSCrashReportFilterCombine
 
-@synthesize filters = _filters;
-@synthesize keys = _keys;
-
 - (instancetype)initWithFilters:(NSArray *)filters keys:(NSArray<NSString *> *)keys
 {
     if ((self = [super init])) {
-        self.filters = filters;
-        self.keys = keys;
+        _filters = [filters copy];
+        _keys = [keys copy];
     }
     return self;
 }
@@ -207,8 +204,6 @@
 
 @implementation KSCrashReportFilterPipeline
 
-@synthesize filters = _filters;
-
 + (instancetype)filterWithFilters:(id)firstFilter, ...
 {
     ksva_list_to_nsarray(firstFilter, filters);
@@ -303,15 +298,12 @@
 
 @interface KSCrashReportFilterConcatenate ()
 
-@property(nonatomic, readwrite, retain) NSString *separatorFmt;
-@property(nonatomic, readwrite, retain) NSArray<NSString *> *keys;
+@property(nonatomic, readwrite, copy) NSString *separatorFmt;
+@property(nonatomic, readwrite, copy) NSArray<NSString *> *keys;
 
 @end
 
 @implementation KSCrashReportFilterConcatenate
-
-@synthesize separatorFmt = _separatorFmt;
-@synthesize keys = _keys;
 
 + (instancetype)filterWithSeparatorFmt:(NSString *)separatorFmt keys:(id)firstKey, ...
 {
@@ -342,8 +334,8 @@
             }
         }
 
-        self.separatorFmt = separatorFmt;
-        self.keys = realKeys;
+        _separatorFmt = [separatorFmt copy];
+        _keys = [realKeys copy];
     }
     return self;
 }
@@ -372,13 +364,11 @@
 
 @interface KSCrashReportFilterSubset ()
 
-@property(nonatomic, readwrite, retain) NSArray *keyPaths;
+@property(nonatomic, readwrite, copy) NSArray *keyPaths;
 
 @end
 
 @implementation KSCrashReportFilterSubset
-
-@synthesize keyPaths = _keyPaths;
 
 + (instancetype)filterWithKeys:(id)firstKeyPath, ...
 {
@@ -409,7 +399,7 @@
             }
         }
 
-        self.keyPaths = realKeyPaths;
+        _keyPaths = [realKeyPaths copy];
     }
     return self;
 }

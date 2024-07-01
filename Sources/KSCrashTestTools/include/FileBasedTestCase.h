@@ -28,7 +28,7 @@
 
 @interface FileBasedTestCase : XCTestCase
 
-@property(nonatomic, readwrite, retain) NSString *tempPath;
+@property(nonatomic, readwrite, copy) NSString *tempPath;
 
 - (NSString *)generateTempFilePath;
 - (NSString *)generateFileWithData:(NSData *)data;

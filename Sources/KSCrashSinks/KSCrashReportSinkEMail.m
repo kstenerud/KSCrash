@@ -45,7 +45,7 @@
 @property(nonatomic, readwrite, copy) NSArray<KSCrashReport *> *reports;
 @property(nonatomic, readwrite, copy) KSCrashReportFilterCompletion onCompletion;
 
-@property(nonatomic, readwrite, retain) UIViewController *dummyVC;
+@property(nonatomic, readwrite, strong) UIViewController *dummyVC;
 
 + (KSCrashMailProcess *)process;
 
@@ -60,10 +60,6 @@
 @end
 
 @implementation KSCrashMailProcess
-
-@synthesize reports = _reports;
-@synthesize onCompletion = _onCompletion;
-@synthesize dummyVC = _dummyVC;
 
 + (KSCrashMailProcess *)process
 {
@@ -164,22 +160,14 @@
 
 @interface KSCrashReportSinkEMail ()
 
-@property(nonatomic, readwrite, retain) NSArray *recipients;
-
-@property(nonatomic, readwrite, retain) NSString *subject;
-
-@property(nonatomic, readwrite, retain) NSString *message;
-
-@property(nonatomic, readwrite, retain) NSString *filenameFmt;
+@property(nonatomic, readwrite, copy) NSArray *recipients;
+@property(nonatomic, readwrite, copy) NSString *subject;
+@property(nonatomic, readwrite, copy) NSString *message;
+@property(nonatomic, readwrite, copy) NSString *filenameFmt;
 
 @end
 
 @implementation KSCrashReportSinkEMail
-
-@synthesize recipients = _recipients;
-@synthesize subject = _subject;
-@synthesize message = _message;
-@synthesize filenameFmt = _filenameFmt;
 
 + (instancetype)sinkWithRecipients:(NSArray<NSString *> *)recipients
                            subject:(NSString *)subject
@@ -195,10 +183,10 @@
                        filenameFmt:(NSString *)filenameFmt
 {
     if ((self = [super init])) {
-        self.recipients = recipients;
-        self.subject = subject;
-        self.message = message;
-        self.filenameFmt = filenameFmt;
+        _recipients = [recipients copy];
+        _subject = [subject copy];
+        _message = [message copy];
+        _filenameFmt = [filenameFmt copy];
     }
     return self;
 }

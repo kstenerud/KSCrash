@@ -130,8 +130,6 @@
 
 @implementation KSCrashReportFilterAppleFmt
 
-@synthesize reportStyle = _reportStyle;
-
 /** Date formatter for Apple date format in crash reports. */
 static NSDateFormatter *g_dateFormatter;
 
@@ -176,7 +174,7 @@ static NSDictionary *g_registerOrders;
 - (instancetype)initWithReportStyle:(KSAppleReportStyle)reportStyle
 {
     if ((self = [super init])) {
-        self.reportStyle = reportStyle;
+        _reportStyle = reportStyle;
     }
     return self;
 }

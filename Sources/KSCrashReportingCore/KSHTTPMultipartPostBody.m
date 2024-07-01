@@ -48,16 +48,16 @@ static void appendUTF8Format(NSMutableData *data, NSString *format, ...)
 @interface KSHTTPPostField : NSObject
 
 /** This field's binary encoded contents. */
-@property(nonatomic, readonly, retain) NSData *data;
+@property(nonatomic, readonly, copy) NSData *data;
 
 /** This field's name. */
-@property(nonatomic, readonly, retain) NSString *name;
+@property(nonatomic, readonly, copy) NSString *name;
 
 /** This field's content-type. */
-@property(nonatomic, readonly, retain) NSString *contentType;
+@property(nonatomic, readonly, copy) NSString *contentType;
 
 /** This field's filename. */
-@property(nonatomic, readonly, retain) NSString *filename;
+@property(nonatomic, readonly, copy) NSString *filename;
 
 + (KSHTTPPostField *)data:(NSData *)data
                      name:(NSString *)name
@@ -72,11 +72,6 @@ static void appendUTF8Format(NSMutableData *data, NSString *format, ...)
 @end
 
 @implementation KSHTTPPostField
-
-@synthesize data = _data;
-@synthesize name = _name;
-@synthesize contentType = _contentType;
-@synthesize filename = _filename;
 
 + (KSHTTPPostField *)data:(NSData *)data
                      name:(NSString *)name
@@ -95,10 +90,10 @@ static void appendUTF8Format(NSMutableData *data, NSString *format, ...)
     NSParameterAssert(name);
 
     if ((self = [super init])) {
-        _data = data;
-        _name = name;
-        _contentType = contentType;
-        _filename = filename;
+        _data = [data copy];
+        _name = [name copy];
+        _contentType = [contentType copy];
+        _filename = [filename copy];
     }
     return self;
 }
@@ -107,16 +102,12 @@ static void appendUTF8Format(NSMutableData *data, NSString *format, ...)
 
 @interface KSHTTPMultipartPostBody ()
 
-@property(nonatomic, readwrite, retain) NSMutableArray *fields;
-@property(nonatomic, readwrite, retain) NSString *boundary;
+@property(nonatomic, readwrite, strong) NSMutableArray *fields;
+@property(nonatomic, readwrite, copy) NSString *boundary;
 
 @end
 
 @implementation KSHTTPMultipartPostBody
-
-@synthesize contentType = _contentType;
-@synthesize fields = _fields;
-@synthesize boundary = _boundary;
 
 + (KSHTTPMultipartPostBody *)body
 {

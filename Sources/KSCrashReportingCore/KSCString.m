@@ -28,9 +28,6 @@
 
 @implementation KSCString
 
-@synthesize length = _length;
-@synthesize bytes = _bytes;
-
 + (KSCString *)stringWithString:(NSString *)string
 {
     return [[self alloc] initWithString:string];

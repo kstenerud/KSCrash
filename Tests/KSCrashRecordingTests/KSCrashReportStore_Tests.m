@@ -34,17 +34,13 @@
 
 @interface KSCrashReportStore_Tests : FileBasedTestCase
 
-@property(nonatomic, readwrite, retain) NSString *appName;
-@property(nonatomic, readwrite, retain) NSString *reportStorePath;
+@property(nonatomic, readwrite, copy) NSString *appName;
+@property(nonatomic, readwrite, copy) NSString *reportStorePath;
 @property(atomic, readwrite, assign) int64_t reportCounter;
 
 @end
 
 @implementation KSCrashReportStore_Tests
-
-@synthesize appName = _appName;
-@synthesize reportStorePath = _reportStorePath;
-@synthesize reportCounter = _reportCounter;
 
 - (int64_t)getReportIDFromPath:(NSString *)path
 {

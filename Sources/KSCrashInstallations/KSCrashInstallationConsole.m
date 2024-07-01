@@ -33,8 +33,6 @@
 
 @implementation KSCrashInstallationConsole
 
-@synthesize printAppleFormat = _printAppleFormat;
-
 + (instancetype)sharedInstance
 {
     static KSCrashInstallationConsole *sharedInstance = nil;
@@ -49,7 +47,7 @@
 - (id)init
 {
     if ((self = [super initWithRequiredProperties:nil])) {
-        self.printAppleFormat = NO;
+        _printAppleFormat = NO;
     }
     return self;
 }

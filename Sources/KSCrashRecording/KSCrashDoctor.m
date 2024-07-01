@@ -14,37 +14,27 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
 
 @interface KSCrashDoctorParam : NSObject
 
-@property(nonatomic, readwrite, retain) NSString *className;
-@property(nonatomic, readwrite, retain) NSString *previousClassName;
-@property(nonatomic, readwrite, retain) NSString *type;
+@property(nonatomic, readwrite, copy) NSString *className;
+@property(nonatomic, readwrite, copy) NSString *previousClassName;
+@property(nonatomic, readwrite, copy) NSString *type;
 @property(nonatomic, readwrite, assign) BOOL isInstance;
 @property(nonatomic, readwrite, assign) uintptr_t address;
-@property(nonatomic, readwrite, retain) NSString *value;
+@property(nonatomic, readwrite, copy) NSString *value;
 
 @end
 
 @implementation KSCrashDoctorParam
 
-@synthesize className = _className;
-@synthesize previousClassName = _previousClassName;
-@synthesize isInstance = _isInstance;
-@synthesize address = _address;
-@synthesize value = _value;
-@synthesize type = _type;
-
 @end
 
 @interface KSCrashDoctorFunctionCall : NSObject
 
-@property(nonatomic, readwrite, retain) NSString *name;
-@property(nonatomic, readwrite, retain) NSArray *params;
+@property(nonatomic, readwrite, copy) NSString *name;
+@property(nonatomic, readwrite, copy) NSArray *params;
 
 @end
 
 @implementation KSCrashDoctorFunctionCall
-
-@synthesize name = _name;
-@synthesize params = _params;
 
 - (NSString *)descriptionForObjCCall
 {

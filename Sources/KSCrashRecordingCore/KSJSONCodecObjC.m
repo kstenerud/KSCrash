@@ -38,19 +38,19 @@
 @property(nonatomic, readwrite, assign) KSJSONDecodeCallbacks *callbacks;
 
 /** Stack of arrays/objects as the decoded content is built */
-@property(nonatomic, readwrite, retain) NSMutableArray *containerStack;
+@property(nonatomic, readwrite, strong) NSMutableArray *containerStack;
 
 /** Current array or object being decoded (weak ref) */
 @property(nonatomic, readwrite, assign) id currentContainer;
 
 /** Top level array or object in the decoded tree */
-@property(nonatomic, readwrite, retain) id topLevelContainer;
+@property(nonatomic, readwrite, strong) id topLevelContainer;
 
 /** Data that has been serialized into JSON form */
-@property(nonatomic, readwrite, retain) NSMutableData *serializedData;
+@property(nonatomic, readwrite, strong) NSMutableData *serializedData;
 
 /** Any error that has occurred */
-@property(nonatomic, readwrite, retain) NSError *error;
+@property(nonatomic, readwrite, strong) NSError *error;
 
 /** If true, pretty print while encoding */
 @property(nonatomic, readwrite, assign) bool prettyPrint;
@@ -94,19 +94,6 @@
 
 @implementation KSJSONCodec
 
-#pragma mark Properties
-
-@synthesize topLevelContainer = _topLevelContainer;
-@synthesize currentContainer = _currentContainer;
-@synthesize containerStack = _containerStack;
-@synthesize callbacks = _callbacks;
-@synthesize serializedData = _serializedData;
-@synthesize error = _error;
-@synthesize prettyPrint = _prettyPrint;
-@synthesize sorted = _sorted;
-@synthesize ignoreNullsInArrays = _ignoreNullsInArrays;
-@synthesize ignoreNullsInObjects = _ignoreNullsInObjects;
-
 #pragma mark Constructors/Destructor
 
 + (KSJSONCodec *)codecWithEncodeOptions:(KSJSONEncodeOption)encodeOptions
@@ -118,21 +105,21 @@
 - (id)initWithEncodeOptions:(KSJSONEncodeOption)encodeOptions decodeOptions:(KSJSONDecodeOption)decodeOptions
 {
     if ((self = [super init])) {
-        self.containerStack = [NSMutableArray array];
-        self.callbacks = malloc(sizeof(*self.callbacks));
-        self.callbacks->onBeginArray = onBeginArray;
-        self.callbacks->onBeginObject = onBeginObject;
-        self.callbacks->onBooleanElement = onBooleanElement;
-        self.callbacks->onEndContainer = onEndContainer;
-        self.callbacks->onEndData = onEndData;
-        self.callbacks->onFloatingPointElement = onFloatingPointElement;
-        self.callbacks->onIntegerElement = onIntegerElement;
-        self.callbacks->onNullElement = onNullElement;
-        self.callbacks->onStringElement = onStringElement;
-        self.prettyPrint = (encodeOptions & KSJSONEncodeOptionPretty) != 0;
-        self.sorted = (encodeOptions & KSJSONEncodeOptionSorted) != 0;
-        self.ignoreNullsInArrays = (decodeOptions & KSJSONDecodeOptionIgnoreNullInArray) != 0;
-        self.ignoreNullsInObjects = (decodeOptions & KSJSONDecodeOptionIgnoreNullInObject) != 0;
+        _containerStack = [NSMutableArray array];
+        _callbacks = malloc(sizeof(*self.callbacks));
+        _callbacks->onBeginArray = onBeginArray;
+        _callbacks->onBeginObject = onBeginObject;
+        _callbacks->onBooleanElement = onBooleanElement;
+        _callbacks->onEndContainer = onEndContainer;
+        _callbacks->onEndData = onEndData;
+        _callbacks->onFloatingPointElement = onFloatingPointElement;
+        _callbacks->onIntegerElement = onIntegerElement;
+        _callbacks->onNullElement = onNullElement;
+        _callbacks->onStringElement = onStringElement;
+        _prettyPrint = (encodeOptions & KSJSONEncodeOptionPretty) != 0;
+        _sorted = (encodeOptions & KSJSONEncodeOptionSorted) != 0;
+        _ignoreNullsInArrays = (decodeOptions & KSJSONDecodeOptionIgnoreNullInArray) != 0;
+        _ignoreNullsInObjects = (decodeOptions & KSJSONDecodeOptionIgnoreNullInObject) != 0;
     }
     return self;
 }

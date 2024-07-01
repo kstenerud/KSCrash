@@ -62,23 +62,20 @@ static NSTimeInterval g_watchdogInterval = 0;
 
 @interface KSCrashDeadlockMonitor : NSObject
 
-@property(nonatomic, readwrite, retain) NSThread *monitorThread;
+@property(nonatomic, readwrite, strong) NSThread *monitorThread;
 @property(atomic, readwrite, assign) BOOL awaitingResponse;
 
 @end
 
 @implementation KSCrashDeadlockMonitor
 
-@synthesize monitorThread = _monitorThread;
-@synthesize awaitingResponse = _awaitingResponse;
-
 - (id)init
 {
     if ((self = [super init])) {
         // target (self) is retained until selector (runMonitor) exits.
-        self.monitorThread = [[NSThread alloc] initWithTarget:self selector:@selector(runMonitor) object:nil];
-        self.monitorThread.name = @"KSCrash Deadlock Detection Thread";
-        [self.monitorThread start];
+        _monitorThread = [[NSThread alloc] initWithTarget:self selector:@selector(runMonitor) object:nil];
+        _monitorThread.name = @"KSCrash Deadlock Detection Thread";
+        [_monitorThread start];
     }
     return self;
 }
