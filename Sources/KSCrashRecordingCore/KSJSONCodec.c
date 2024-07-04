@@ -29,8 +29,10 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <float.h>
 #include <inttypes.h>
 #include <limits.h>
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -276,27 +278,87 @@ int ksjson_addFloatingPointElement(KSJSONEncodeContext *const context, const cha
 {
     int result = ksjson_beginElement(context, name);
     unlikely_if(result != KSJSON_OK) { return result; }
-    char buff[30];
-    sprintf(buff, "%lg", value);
-    return addJSONData(context, buff, (int)strlen(buff));
+
+    char buff[64];
+    int written;
+
+    if (isnan(value)) {
+        written = snprintf(buff, sizeof(buff), "null");
+    } else if (isinf(value)) {
+        written = snprintf(buff, sizeof(buff), value > 0 ? "1e999" : "-1e999");
+    } else {
+        // Check if the value can be represented as a float
+        float floatValue = (float)value;
+        if (fabs(value - floatValue) <= FLT_EPSILON * fabs(value)) {
+            // It's within float precision, so format it as a float
+            written = snprintf(buff, sizeof(buff), "%.*g", FLT_DIG, floatValue);
+        } else {
+            // It's a double, so use full double precision
+            written = snprintf(buff, sizeof(buff), "%.*g", DBL_DIG, value);
+        }
+
+        // Ensure it's a valid JSON number
+        if (written > 0 && written < (int)sizeof(buff)) {
+            char *dot = strchr(buff, '.');
+            char *e = strchr(buff, 'e');
+            if (dot == NULL && e == NULL) {
+                // Add ".0" for integers
+                written = snprintf(buff, sizeof(buff), "%.1f", value);
+            } else if (dot != NULL && e == NULL) {
+                // Trim trailing zeros for fractions
+                char *end = buff + written - 1;
+                while (end > dot && *end == '0') {
+                    *end-- = '\0';
+                    written--;
+                }
+                // If we accidentally trimmed everything after the dot, add a zero back
+                if (end == dot) {
+                    *++end = '0';
+                    written++;
+                }
+            }
+        }
+    }
+
+    if (written < 0 || written >= (int)sizeof(buff)) {
+        return KSJSON_ERROR_INVALID_DATA;
+    }
+
+    return addJSONData(context, buff, written);
 }
 
 int ksjson_addIntegerElement(KSJSONEncodeContext *const context, const char *const name, int64_t value)
 {
     int result = ksjson_beginElement(context, name);
     unlikely_if(result != KSJSON_OK) { return result; }
-    char buff[30];
-    sprintf(buff, "%" PRId64, value);
-    return addJSONData(context, buff, (int)strlen(buff));
+
+    char buff[21];  // Enough for -9223372036854775808 to 9223372036854775807
+    int written;
+
+    written = snprintf(buff, sizeof(buff), "%" PRId64, value);
+
+    if (written < 0 || written >= (int)sizeof(buff)) {
+        return KSJSON_ERROR_INVALID_DATA;
+    }
+
+    return addJSONData(context, buff, written);
 }
 
 int ksjson_addUIntegerElement(KSJSONEncodeContext *const context, const char *const name, uint64_t value)
 {
     int result = ksjson_beginElement(context, name);
     unlikely_if(result != KSJSON_OK) { return result; }
-    char buff[30];
-    sprintf(buff, "%" PRIu64, value);
-    return addJSONData(context, buff, (int)strlen(buff));
+
+    char buff[21];  // Enough for 0 to 18446744073709551615
+    int written;
+
+    written = snprintf(buff, sizeof(buff), "%" PRIu64, value);
+
+    if (written < 0 || written >= (int)sizeof(buff)) {
+        return KSJSON_ERROR_INVALID_DATA;
+    }
+
+    return addJSONData(context, buff, written);
 }
 
 int ksjson_addNullElement(KSJSONEncodeContext *const context, const char *const name)
