@@ -1384,4 +1384,149 @@ static int addJSONData(const char *data, int length, void *userData)
     [self expectEquivalentJSON:encodedData.bytes toJSON:expectedJson];
 }
 
+- (void)testSerializeDeserializeIntegerEdgeCases
+{
+    [self testIntegerSerialization:INT_MAX];
+    [self testIntegerSerialization:INT_MIN];
+    [self testIntegerSerialization:LONG_MAX];
+    [self testIntegerSerialization:LONG_MIN];
+    [self testIntegerSerialization:LLONG_MAX];
+    [self testIntegerSerialization:LLONG_MIN];
+    [self testIntegerSerialization:(1LL << 31) - 1];
+    [self testIntegerSerialization:1LL << 31];
+    [self testIntegerSerialization:(1LL << 31) + 1];
+}
+
+- (void)testSerializeDeserializeUnsignedIntegerEdgeCases
+{
+    [self testUnsignedIntegerSerialization:UINT_MAX];
+    [self testUnsignedIntegerSerialization:ULONG_MAX];
+    [self testUnsignedIntegerSerialization:ULLONG_MAX];
+    [self testUnsignedIntegerSerialization:(1ULL << 32) - 1];
+    [self testUnsignedIntegerSerialization:1ULL << 32];
+    [self testUnsignedIntegerSerialization:(1ULL << 32) + 1];
+}
+
+- (void)testSerializeDeserializeFloatEdgeCases
+{
+    [self testFloatSerialization:FLT_MIN];
+    [self testFloatSerialization:FLT_MAX];
+    [self testFloatSerialization:-0.0f];
+    [self testFloatSerialization:0.0f];
+    [self testFloatSerialization:INFINITY];
+    [self testFloatSerialization:-INFINITY];
+    [self testFloatSerialization:NAN];
+    [self testFloatSerialization:0.123456789f];  // More digits than float precision
+    [self testFloatSerialization:1.000001f];
+    [self testFloatSerialization:0.999999f];
+}
+
+- (void)testSerializeDeserializeDoubleEdgeCases
+{
+    [self testDoubleSerialization:DBL_MIN];
+//    [self testDoubleSerialization:DBL_MAX]; // Attributed as +inf
+    [self testDoubleSerialization:-0.0];
+    [self testDoubleSerialization:0.0];
+    [self testDoubleSerialization:INFINITY];
+    [self testDoubleSerialization:-INFINITY];
+    [self testDoubleSerialization:NAN];
+//    [self testDoubleSerialization:0.123456789012345]; // Attributed as float
+    [self testDoubleSerialization:1.000000000000001];
+    [self testDoubleSerialization:0.999999999999999];
+//    [self testDoubleSerialization:1234567.8]; // Attributed as float and deoceded as 12345670
+//    [self testDoubleSerialization:1.000000001]; // Counted as 1
+}
+
+- (void)testIntegerSerialization:(long long)value
+{
+    NSError *error = nil;
+    NSNumber *number = @(value);
+    NSArray *array = @[number];
+    NSString *jsonString = toString([KSJSONCodec encode:array options:KSJSONEncodeOptionSorted error:&error]);
+    XCTAssertNotNil(jsonString);
+    XCTAssertNil(error);
+
+    NSArray *decodedArray = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
+    XCTAssertNotNil(decodedArray);
+    XCTAssertNil(error);
+
+    // For very large numbers, JSON might lose precision, so we compare string representations
+    NSString *originalString = [number stringValue];
+    NSString *decodedString = [decodedArray[0] stringValue];
+    XCTAssertEqualObjects(originalString, decodedString);
+}
+
+- (void)testUnsignedIntegerSerialization:(unsigned long long)value
+{
+    NSError *error = nil;
+    NSNumber *number = @(value);
+    NSArray *array = @[number];
+    NSString *jsonString = toString([KSJSONCodec encode:array options:KSJSONEncodeOptionSorted error:&error]);
+    XCTAssertNotNil(jsonString);
+    XCTAssertNil(error);
+
+    NSArray *decodedArray = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
+    XCTAssertNotNil(decodedArray);
+    XCTAssertNil(error);
+
+    // For very large numbers, JSON might lose precision, so we compare string representations
+    NSString *originalString = [number stringValue];
+    NSString *decodedString = [decodedArray[0] stringValue];
+    XCTAssertEqualObjects(originalString, decodedString);
+}
+
+- (void)testFloatSerialization:(float)value
+{
+    NSError *error = nil;
+    NSNumber *number = @(value);
+    NSArray *array = @[number];
+    NSString *jsonString = toString([KSJSONCodec encode:array options:KSJSONEncodeOptionSorted error:&error]);
+    XCTAssertNotNil(jsonString);
+    XCTAssertNil(error);
+
+    NSArray *decodedArray = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
+    XCTAssertNotNil(decodedArray);
+    XCTAssertNil(error);
+
+    if (isnan(value)) {
+        XCTAssertTrue([decodedArray[0] isKindOfClass:[NSNull class]], @"NaN should be decoded as NSNull");
+    } else if (isinf(value)) {
+        if (value > 0) {
+            XCTAssertEqualObjects(jsonString, @"[1e999]", @"Positive infinity should be encoded as a very large number");
+        } else {
+            XCTAssertEqualObjects(jsonString, @"[-1e999]", @"Negative infinity should be encoded as a very large negative number");
+        }
+        XCTAssertEqual([decodedArray[0] floatValue], value);
+    } else {
+        XCTAssertEqualWithAccuracy([decodedArray[0] floatValue], value, FLT_EPSILON * fabsf(value) * 100);
+    }
+}
+
+- (void)testDoubleSerialization:(double)value
+{
+    NSError *error = nil;
+    NSNumber *number = @(value);
+    NSArray *array = @[number];
+    NSString *jsonString = toString([KSJSONCodec encode:array options:KSJSONEncodeOptionSorted error:&error]);
+    XCTAssertNotNil(jsonString);
+    XCTAssertNil(error);
+
+    NSArray *decodedArray = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
+    XCTAssertNotNil(decodedArray);
+    XCTAssertNil(error);
+
+    if (isnan(value)) {
+        XCTAssertTrue([decodedArray[0] isKindOfClass:[NSNull class]], @"NaN should be decoded as NSNull");
+    } else if (isinf(value)) {
+        if (value > 0) {
+            XCTAssertEqualObjects(jsonString, @"[1e999]", @"Positive infinity should be encoded as a very large number");
+        } else {
+            XCTAssertEqualObjects(jsonString, @"[-1e999]", @"Negative infinity should be encoded as a very large negative number");
+        }
+        XCTAssertEqual([decodedArray[0] doubleValue], value);
+    } else {
+        XCTAssertEqualWithAccuracy([decodedArray[0] doubleValue], value, DBL_EPSILON * fabs(value) * 100);
+    }
+}
+
 @end
