@@ -1424,24 +1424,24 @@ static int addJSONData(const char *data, int length, void *userData)
 - (void)testSerializeDeserializeDoubleEdgeCases
 {
     [self testDoubleSerialization:DBL_MIN];
-//    [self testDoubleSerialization:DBL_MAX]; // Attributed as +inf
+    //    [self testDoubleSerialization:DBL_MAX]; // Attributed as +inf
     [self testDoubleSerialization:-0.0];
     [self testDoubleSerialization:0.0];
     [self testDoubleSerialization:INFINITY];
     [self testDoubleSerialization:-INFINITY];
     [self testDoubleSerialization:NAN];
-//    [self testDoubleSerialization:0.123456789012345]; // Attributed as float
+    //    [self testDoubleSerialization:0.123456789012345]; // Attributed as float
     [self testDoubleSerialization:1.000000000000001];
     [self testDoubleSerialization:0.999999999999999];
-//    [self testDoubleSerialization:1234567.8]; // Attributed as float and deoceded as 12345670
-//    [self testDoubleSerialization:1.000000001]; // Counted as 1
+    //    [self testDoubleSerialization:1234567.8]; // Attributed as float and deoceded as 12345670
+    //    [self testDoubleSerialization:1.000000001]; // Counted as 1
 }
 
 - (void)testIntegerSerialization:(long long)value
 {
     NSError *error = nil;
     NSNumber *number = @(value);
-    NSArray *array = @[number];
+    NSArray *array = @[ number ];
     NSString *jsonString = toString([KSJSONCodec encode:array options:KSJSONEncodeOptionSorted error:&error]);
     XCTAssertNotNil(jsonString);
     XCTAssertNil(error);
@@ -1460,7 +1460,7 @@ static int addJSONData(const char *data, int length, void *userData)
 {
     NSError *error = nil;
     NSNumber *number = @(value);
-    NSArray *array = @[number];
+    NSArray *array = @[ number ];
     NSString *jsonString = toString([KSJSONCodec encode:array options:KSJSONEncodeOptionSorted error:&error]);
     XCTAssertNotNil(jsonString);
     XCTAssertNil(error);
@@ -1479,7 +1479,7 @@ static int addJSONData(const char *data, int length, void *userData)
 {
     NSError *error = nil;
     NSNumber *number = @(value);
-    NSArray *array = @[number];
+    NSArray *array = @[ number ];
     NSString *jsonString = toString([KSJSONCodec encode:array options:KSJSONEncodeOptionSorted error:&error]);
     XCTAssertNotNil(jsonString);
     XCTAssertNil(error);
@@ -1492,9 +1492,11 @@ static int addJSONData(const char *data, int length, void *userData)
         XCTAssertTrue([decodedArray[0] isKindOfClass:[NSNull class]], @"NaN should be decoded as NSNull");
     } else if (isinf(value)) {
         if (value > 0) {
-            XCTAssertEqualObjects(jsonString, @"[1e999]", @"Positive infinity should be encoded as a very large number");
+            XCTAssertEqualObjects(jsonString, @"[1e999]",
+                                  @"Positive infinity should be encoded as a very large number");
         } else {
-            XCTAssertEqualObjects(jsonString, @"[-1e999]", @"Negative infinity should be encoded as a very large negative number");
+            XCTAssertEqualObjects(jsonString, @"[-1e999]",
+                                  @"Negative infinity should be encoded as a very large negative number");
         }
         XCTAssertEqual([decodedArray[0] floatValue], value);
     } else {
@@ -1506,7 +1508,7 @@ static int addJSONData(const char *data, int length, void *userData)
 {
     NSError *error = nil;
     NSNumber *number = @(value);
-    NSArray *array = @[number];
+    NSArray *array = @[ number ];
     NSString *jsonString = toString([KSJSONCodec encode:array options:KSJSONEncodeOptionSorted error:&error]);
     XCTAssertNotNil(jsonString);
     XCTAssertNil(error);
@@ -1519,9 +1521,11 @@ static int addJSONData(const char *data, int length, void *userData)
         XCTAssertTrue([decodedArray[0] isKindOfClass:[NSNull class]], @"NaN should be decoded as NSNull");
     } else if (isinf(value)) {
         if (value > 0) {
-            XCTAssertEqualObjects(jsonString, @"[1e999]", @"Positive infinity should be encoded as a very large number");
+            XCTAssertEqualObjects(jsonString, @"[1e999]",
+                                  @"Positive infinity should be encoded as a very large number");
         } else {
-            XCTAssertEqualObjects(jsonString, @"[-1e999]", @"Negative infinity should be encoded as a very large negative number");
+            XCTAssertEqualObjects(jsonString, @"[-1e999]",
+                                  @"Negative infinity should be encoded as a very large negative number");
         }
         XCTAssertEqual([decodedArray[0] doubleValue], value);
     } else {
