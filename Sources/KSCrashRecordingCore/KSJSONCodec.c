@@ -948,10 +948,21 @@ static int decodeElement(const char *const name, KSJSONDecodeContext *context)
             }
 
             if (!isFPChar(*context->bufferPtr) && !isOverflow) {
-                if (sign > 0 || accum <= ((uint64_t)LLONG_MAX + 1)) {
-                    int64_t signedAccum = (int64_t)accum;
-                    signedAccum *= sign;
-                    return context->callbacks->onIntegerElement(name, signedAccum, context->userData);
+                if (sign > 0) {
+                    if (accum <= (uint64_t)LLONG_MAX) {
+                        // Positive number within int64_t range
+                        return context->callbacks->onIntegerElement(name, (int64_t)accum, context->userData);
+                    } else {
+                        // Positive number exceeding int64_t range, use unsigned
+                        return context->callbacks->onUnsignedIntegerElement(name, accum, context->userData);
+                    }
+                } else {
+                    if (accum <= ((uint64_t)LLONG_MAX + 1)) {
+                        // Negative number within int64_t range
+                        int64_t signedAccum = -(int64_t)accum;
+                        return context->callbacks->onIntegerElement(name, signedAccum, context->userData);
+                    }
+                    // If negative and exceeding int64_t range, fall through to floating point
                 }
             }
 
@@ -1078,6 +1089,14 @@ static int addJSONFromFile_onIntegerElement(const char *const name, const int64_
     return result;
 }
 
+static int addJSONFromFile_onUnsignedIntegerElement(const char *const name, const uint64_t value, void *const userData)
+{
+    JSONFromFileContext *context = (JSONFromFileContext *)userData;
+    int result = ksjson_addUIntegerElement(context->encodeContext, name, value);
+    context->updateDecoderCallback(context);
+    return result;
+}
+
 static int addJSONFromFile_onNullElement(const char *const name, void *const userData)
 {
     JSONFromFileContext *context = (JSONFromFileContext *)userData;
@@ -1134,6 +1153,7 @@ int ksjson_addJSONFromFile(KSJSONEncodeContext *const encodeContext, const char 
         .onEndData = addJSONFromFile_onEndData,
         .onFloatingPointElement = addJSONFromFile_onFloatingPointElement,
         .onIntegerElement = addJSONFromFile_onIntegerElement,
+        .onUnsignedIntegerElement = addJSONFromFile_onUnsignedIntegerElement,
         .onNullElement = addJSONFromFile_onNullElement,
         .onStringElement = addJSONFromFile_onStringElement,
     };
@@ -1189,6 +1209,7 @@ int ksjson_addJSONElement(KSJSONEncodeContext *const encodeContext, const char *
         .onEndData = addJSONFromFile_onEndData,
         .onFloatingPointElement = addJSONFromFile_onFloatingPointElement,
         .onIntegerElement = addJSONFromFile_onIntegerElement,
+        .onUnsignedIntegerElement = addJSONFromFile_onUnsignedIntegerElement,
         .onNullElement = addJSONFromFile_onNullElement,
         .onStringElement = addJSONFromFile_onStringElement,
     };
