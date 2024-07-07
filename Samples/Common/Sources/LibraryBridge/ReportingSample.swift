@@ -35,6 +35,18 @@ public class ReportingSample {
         KSCrash.shared().sendAllReports { reports, isSuccess, error in
             if isSuccess, let reports {
                 print("Logged \(reports.count) reports")
+                for (idx, report) in reports.enumerated() {
+                    switch report {
+                    case let stringReport as CrashReportString:
+                        print("Report #\(idx) is a string (length is \(stringReport.value.count))")
+                    case let dictionaryReport as CrashReportDictionary:
+                        print("Report #\(idx) is a dictionary (number of keys is \(dictionaryReport.value.count))")
+                    case let dataReport as CrashReportData:
+                        print("Report #\(idx) is a binary data (size is \(dataReport.value.count) bytes)")
+                    default:
+                        print("Unknown report #\(idx): \(report.debugDescription ?? "?")")
+                    }
+                }
             } else {
                 print("Failed to log reports: \(error?.localizedDescription ?? "")")
             }
