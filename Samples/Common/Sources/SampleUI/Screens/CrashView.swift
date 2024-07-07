@@ -1,7 +1,7 @@
 //
-//  SampleView.swift
+//  CrashView.swift
 //
-//  Created by Nikolay Volosatov on 2024-06-23.
+//  Created by Nikolay Volosatov on 2024-07-07.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -25,26 +25,15 @@
 //
 
 import SwiftUI
-import LibraryBridge
 import CrashTriggers
 
-public struct SampleView: View {
-    public init() { }
-
-    @State var installed = false
-
-    public var body: some View {
-        NavigationView {
-            if installed {
-                List {
-                    NavigationLink("Crash", destination: CrashView())
-                    NavigationLink("Report", destination: ReportingView())
-                }
-                .navigationTitle("KSCrash Sample")
-            } else {
-                InstallView(installed: $installed)
-                .navigationTitle("Install")
+struct CrashView: View {
+    var body: some View {
+        List {
+            Button("NSException") {
+                CrashTriggers.nsexception()
             }
         }
+        .navigationTitle("Crash")
     }
 }
