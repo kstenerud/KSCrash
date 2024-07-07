@@ -53,7 +53,7 @@
         }
         return [NSString stringWithFormat:@"%@", value];
     }
-    return [report description];
+    return [report description] ?: @"Unknown";
 }
 
 - (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
