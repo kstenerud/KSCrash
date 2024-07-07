@@ -320,8 +320,13 @@ int ksjson_addFloatingPointElement(KSJSONEncodeContext *const context, const cha
         }
     }
 
-    if (written < 0 || written >= (int)sizeof(buff)) {
-        return KSJSON_ERROR_INVALID_DATA;
+    if (written < 0) {
+        // An encoding error occurred
+        return KSJSON_ERROR_INVALID_CHARACTER;
+    } else if (written >= (int)sizeof(buff)) {
+        // The number was too long to fit in the buffer
+        // Note: In this case, buff is still null-terminated, but truncated
+        return KSJSON_ERROR_DATA_TOO_LONG;
     }
 
     return addJSONData(context, buff, written);
