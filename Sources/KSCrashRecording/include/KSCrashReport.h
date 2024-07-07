@@ -29,13 +29,19 @@
 NS_ASSUME_NONNULL_BEGIN
 
 /**
- * A protocol that represent a recorded crash report.
+ * A protocol that represent a recorded or a filtered crash report.
+ *
+ * @see `KSCrashReportDictionary`, `KSCrashReportString` and `KSCrashReportData` are
+ *      the types of reports that provided and used by KSCrash.
  */
 NS_SWIFT_NAME(CrashReport)
 @protocol KSCrashReport <NSObject>
 
 /**
  * An underlying report value of any type (string, dictionary, data etc)
+ *
+ * @note It's preferable to safely cast to one of the implementations of `KSCrashReport`
+ *       and use a strongly typed value from there.
  */
 @property(nonatomic, readonly, nullable, strong) id untypedValue;
 
