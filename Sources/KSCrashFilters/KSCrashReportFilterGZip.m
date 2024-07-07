@@ -56,7 +56,7 @@
 {
     NSMutableArray<id<KSCrashReport>> *filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
     for (KSCrashReportData *report in reports) {
-        if ([report isKindOfClass:[KSCrashReportData class]] == NO || report.value == nil) {
+        if ([report isKindOfClass:[KSCrashReportData class]] == NO) {
             KSLOG_ERROR(@"Unexpected non-data report: %@", report);
             continue;
         }
@@ -89,7 +89,7 @@
 {
     NSMutableArray<id<KSCrashReport>> *filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
     for (KSCrashReportData *report in reports) {
-        if ([report isKindOfClass:[KSCrashReportData class]] == NO || report.value == nil) {
+        if ([report isKindOfClass:[KSCrashReportData class]] == NO) {
             KSLOG_ERROR(@"Unexpected non-data report: %@", report);
             continue;
         }

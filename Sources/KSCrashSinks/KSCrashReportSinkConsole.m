@@ -50,7 +50,7 @@
 {
     int i = 0;
     for (KSCrashReportString *report in reports) {
-        if ([report isKindOfClass:[KSCrashReportString class]] == NO || report.value == nil) {
+        if ([report isKindOfClass:[KSCrashReportString class]] == NO) {
             KSLOG_ERROR(@"Unexpected non-string report: %@", report);
             continue;
         }
