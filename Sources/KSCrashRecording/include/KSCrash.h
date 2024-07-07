@@ -33,6 +33,7 @@
 NS_ASSUME_NONNULL_BEGIN
 
 @class KSCrashConfiguration;
+@class KSCrashReportDictionary;
 
 /**
  * Reports any crashes that occur in the application.
@@ -155,7 +156,7 @@ NS_ASSUME_NONNULL_BEGIN
  *
  * @return A crash report with a dictionary value. The dectionary fields are described in KSCrashReportFields.h.
  */
-- (nullable id<KSCrashReport>)reportForID:(int64_t)reportID NS_SWIFT_NAME(report(for:));
+- (nullable KSCrashReportDictionary *)reportForID:(int64_t)reportID NS_SWIFT_NAME(report(for:));
 
 /** Delete all unsent reports.
  */
