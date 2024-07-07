@@ -29,8 +29,10 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <float.h>
 #include <inttypes.h>
 #include <limits.h>
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -216,6 +218,114 @@ static int addQuotedEscapedString(KSJSONEncodeContext *const context, const char
     return result || closeResult;
 }
 
+/** Check the result of snprintf and handle error cases.
+ *
+ * @param written The return value from snprintf.
+ * @param buffSize The size of the buffer passed to snprintf.
+ * @param bytesWritten Pointer to store the number of bytes written.
+ * @return KSJSON_OK if successful, or an error code.
+ */
+static int checkWriteResult(int written, size_t buffSize, int *bytesWritten)
+{
+    if (written < 0) {
+        // An encoding error occurred
+        return KSJSON_ERROR_INVALID_CHARACTER;
+    } else if (written >= (int)buffSize) {
+        // The number was too long to fit in the buffer
+        // Note: In this case, buffer is still null-terminated, but truncated
+        return KSJSON_ERROR_DATA_TOO_LONG;
+    }
+    *bytesWritten = written;
+    return KSJSON_OK;
+}
+
+/** Format a double value to a string buffer.
+ *
+ * @param buff The buffer to write to.
+ * @param buffSize The size of the buffer.
+ * @param value The double value to format.
+ * @param bytesWritten Pointer to store the number of bytes written.
+ * @return KSJSON_OK if successful, or an error code.
+ */
+static int formatDouble(char *buff, size_t buffSize, double value, int *bytesWritten)
+{
+    int written = 0;
+    if (isnan(value)) {
+        written = snprintf(buff, buffSize, "null");
+    } else if (isinf(value)) {
+        written = snprintf(buff, buffSize, value > 0 ? "1e999" : "-1e999");
+    } else {
+        float floatValue = (float)value;
+        if (fabs(value - floatValue) <= FLT_EPSILON * fabs(value)) {
+            written = snprintf(buff, buffSize, "%.*g", FLT_DIG, floatValue);
+        } else {
+            written = snprintf(buff, buffSize, "%.*g", DBL_DIG, value);
+        }
+
+        if (written > 0 && written < (int)buffSize) {
+            char *dot = strchr(buff, '.');
+            char *e = strchr(buff, 'e');
+            if (dot == NULL && e == NULL) {
+                written = snprintf(buff, buffSize, "%.1f", value);
+            } else if (dot != NULL && e == NULL) {
+                char *end = buff + written - 1;
+                while (end > dot && *end == '0') {
+                    *end-- = '\0';
+                    written--;
+                }
+                if (end == dot) {
+                    *++end = '0';
+                    written++;
+                }
+            }
+        }
+    }
+    return checkWriteResult(written, buffSize, bytesWritten);
+}
+
+/** Format an int64_t value to a string buffer.
+ *
+ * @param buff The buffer to write to.
+ * @param buffSize The size of the buffer.
+ * @param value The int64_t value to format.
+ * @param bytesWritten Pointer to store the number of bytes written.
+ * @return KSJSON_OK if successful, or an error code.
+ */
+static int formatInt64(char *buff, size_t buffSize, int64_t value, int *bytesWritten)
+{
+    int written = snprintf(buff, buffSize, "%" PRId64, value);
+    return checkWriteResult(written, buffSize, bytesWritten);
+}
+
+/** Format a uint64_t value to a string buffer.
+ *
+ * @param buff The buffer to write to.
+ * @param buffSize The size of the buffer.
+ * @param value The uint64_t value to format.
+ * @param bytesWritten Pointer to store the number of bytes written.
+ * @return KSJSON_OK if successful, or an error code.
+ */
+static int formatUint64(char *buff, size_t buffSize, uint64_t value, int *bytesWritten)
+{
+    int written = snprintf(buff, buffSize, "%" PRIu64, value);
+    return checkWriteResult(written, buffSize, bytesWritten);
+}
+
+/** Add a formatted number to the JSON encoding context.
+ *
+ * @param context The JSON encoding context.
+ * @param name The name of the element.
+ * @param buff The buffer containing the formatted number.
+ * @param written The number of characters in the formatted number.
+ * @return KSJSON_OK if successful, or an error code.
+ */
+static int addFormattedNumber(KSJSONEncodeContext *const context, const char *const name, const char *buff, int written)
+{
+    int result = ksjson_beginElement(context, name);
+    unlikely_if(result != KSJSON_OK) { return result; }
+    return addJSONData(context, buff, written);
+}
+
 int ksjson_beginElement(KSJSONEncodeContext *const context, const char *const name)
 {
     int result = KSJSON_OK;
@@ -274,29 +384,29 @@ int ksjson_addBooleanElement(KSJSONEncodeContext *const context, const char *con
 
 int ksjson_addFloatingPointElement(KSJSONEncodeContext *const context, const char *const name, double value)
 {
-    int result = ksjson_beginElement(context, name);
+    char buff[64];
+    int bytesWritten = 0;
+    int result = formatDouble(buff, sizeof(buff), value, &bytesWritten);
     unlikely_if(result != KSJSON_OK) { return result; }
-    char buff[30];
-    sprintf(buff, "%lg", value);
-    return addJSONData(context, buff, (int)strlen(buff));
+    return addFormattedNumber(context, name, buff, bytesWritten);
 }
 
 int ksjson_addIntegerElement(KSJSONEncodeContext *const context, const char *const name, int64_t value)
 {
-    int result = ksjson_beginElement(context, name);
+    char buff[21];
+    int bytesWritten = 0;
+    int result = formatInt64(buff, sizeof(buff), value, &bytesWritten);
     unlikely_if(result != KSJSON_OK) { return result; }
-    char buff[30];
-    sprintf(buff, "%" PRId64, value);
-    return addJSONData(context, buff, (int)strlen(buff));
+    return addFormattedNumber(context, name, buff, bytesWritten);
 }
 
 int ksjson_addUIntegerElement(KSJSONEncodeContext *const context, const char *const name, uint64_t value)
 {
-    int result = ksjson_beginElement(context, name);
+    char buff[21];
+    int bytesWritten = 0;
+    int result = formatUint64(buff, sizeof(buff), value, &bytesWritten);
     unlikely_if(result != KSJSON_OK) { return result; }
-    char buff[30];
-    sprintf(buff, "%" PRIu64, value);
-    return addJSONData(context, buff, (int)strlen(buff));
+    return addFormattedNumber(context, name, buff, bytesWritten);
 }
 
 int ksjson_addNullElement(KSJSONEncodeContext *const context, const char *const name)
@@ -886,10 +996,21 @@ static int decodeElement(const char *const name, KSJSONDecodeContext *context)
             }
 
             if (!isFPChar(*context->bufferPtr) && !isOverflow) {
-                if (sign > 0 || accum <= ((uint64_t)LLONG_MAX + 1)) {
-                    int64_t signedAccum = (int64_t)accum;
-                    signedAccum *= sign;
-                    return context->callbacks->onIntegerElement(name, signedAccum, context->userData);
+                if (sign > 0) {
+                    if (accum <= (uint64_t)LLONG_MAX) {
+                        // Positive number within int64_t range
+                        return context->callbacks->onIntegerElement(name, (int64_t)accum, context->userData);
+                    } else {
+                        // Positive number exceeding int64_t range, use unsigned
+                        return context->callbacks->onUnsignedIntegerElement(name, accum, context->userData);
+                    }
+                } else {
+                    if (accum <= ((uint64_t)LLONG_MAX + 1)) {
+                        // Negative number within int64_t range
+                        int64_t signedAccum = -(int64_t)accum;
+                        return context->callbacks->onIntegerElement(name, signedAccum, context->userData);
+                    }
+                    // If negative and exceeding int64_t range, fall through to floating point
                 }
             }
 
@@ -1016,6 +1137,14 @@ static int addJSONFromFile_onIntegerElement(const char *const name, const int64_
     return result;
 }
 
+static int addJSONFromFile_onUnsignedIntegerElement(const char *const name, const uint64_t value, void *const userData)
+{
+    JSONFromFileContext *context = (JSONFromFileContext *)userData;
+    int result = ksjson_addUIntegerElement(context->encodeContext, name, value);
+    context->updateDecoderCallback(context);
+    return result;
+}
+
 static int addJSONFromFile_onNullElement(const char *const name, void *const userData)
 {
     JSONFromFileContext *context = (JSONFromFileContext *)userData;
@@ -1072,6 +1201,7 @@ int ksjson_addJSONFromFile(KSJSONEncodeContext *const encodeContext, const char 
         .onEndData = addJSONFromFile_onEndData,
         .onFloatingPointElement = addJSONFromFile_onFloatingPointElement,
         .onIntegerElement = addJSONFromFile_onIntegerElement,
+        .onUnsignedIntegerElement = addJSONFromFile_onUnsignedIntegerElement,
         .onNullElement = addJSONFromFile_onNullElement,
         .onStringElement = addJSONFromFile_onStringElement,
     };
@@ -1127,6 +1257,7 @@ int ksjson_addJSONElement(KSJSONEncodeContext *const encodeContext, const char *
         .onEndData = addJSONFromFile_onEndData,
         .onFloatingPointElement = addJSONFromFile_onFloatingPointElement,
         .onIntegerElement = addJSONFromFile_onIntegerElement,
+        .onUnsignedIntegerElement = addJSONFromFile_onUnsignedIntegerElement,
         .onNullElement = addJSONFromFile_onNullElement,
         .onStringElement = addJSONFromFile_onStringElement,
     };

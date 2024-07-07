@@ -114,6 +114,7 @@
         _callbacks->onEndData = onEndData;
         _callbacks->onFloatingPointElement = onFloatingPointElement;
         _callbacks->onIntegerElement = onIntegerElement;
+        _callbacks->onUnsignedIntegerElement = onUnsignedIntegerElement;
         _callbacks->onNullElement = onNullElement;
         _callbacks->onStringElement = onStringElement;
         _prettyPrint = (encodeOptions & KSJSONEncodeOptionPretty) != 0;
@@ -193,6 +194,14 @@ static int onIntegerElement(const char *const cName, const int64_t value, void *
 {
     NSString *name = stringFromCString(cName);
     id element = [NSNumber numberWithLongLong:value];
+    KSJSONCodec *codec = (__bridge KSJSONCodec *)userData;
+    return onElement(codec, name, element);
+}
+
+static int onUnsignedIntegerElement(const char *const cName, const uint64_t value, void *const userData)
+{
+    NSString *name = stringFromCString(cName);
+    id element = [NSNumber numberWithUnsignedLongLong:value];
     KSJSONCodec *codec = (__bridge KSJSONCodec *)userData;
     return onElement(codec, name, element);
 }
@@ -279,7 +288,8 @@ static int encodeObject(KSJSONCodec *codec, id object, NSString *name, KSJSONEnc
     }
 
     if ([object isKindOfClass:[NSNumber class]]) {
-        switch (CFNumberGetType((__bridge CFNumberRef)object)) {
+        CFNumberType numberType = CFNumberGetType((__bridge CFNumberRef)object);
+        switch (numberType) {
             case kCFNumberFloat32Type:
             case kCFNumberFloat64Type:
             case kCFNumberFloatType:
@@ -287,9 +297,37 @@ static int encodeObject(KSJSONCodec *codec, id object, NSString *name, KSJSONEnc
             case kCFNumberDoubleType:
                 return ksjson_addFloatingPointElement(context, cName, [object doubleValue]);
             case kCFNumberCharType:
-                return ksjson_addBooleanElement(context, cName, [object boolValue]);
-            default:
-                return ksjson_addIntegerElement(context, cName, [object longLongValue]);
+                // Char could be signed or unsigned, so we need to check its value
+                if ([object charValue] == 0 || [object charValue] == 1) {
+                    return ksjson_addBooleanElement(context, cName, [object boolValue]);
+                }
+                // Fall through to integer handling if it's not a boolean
+            case kCFNumberSInt8Type:
+            case kCFNumberSInt16Type:
+            case kCFNumberSInt32Type:
+            case kCFNumberSInt64Type:
+            case kCFNumberShortType:
+            case kCFNumberIntType:
+            case kCFNumberLongType:
+            case kCFNumberLongLongType:
+            case kCFNumberNSIntegerType:
+            case kCFNumberCFIndexType:
+                // Check if the value is negative
+                if ([object compare:@0] == NSOrderedAscending) {
+                    return ksjson_addIntegerElement(context, cName, [object longLongValue]);
+                } else {
+                    // Non-negative value, could be larger than LLONG_MAX
+                    return ksjson_addUIntegerElement(context, cName, [object unsignedLongLongValue]);
+                }
+            default: {
+                // For any unhandled types, try unsigned first, then fall back to signed if needed
+                unsigned long long unsignedValue = [object unsignedLongLongValue];
+                if (unsignedValue > LLONG_MAX) {
+                    return ksjson_addUIntegerElement(context, cName, unsignedValue);
+                } else {
+                    return ksjson_addIntegerElement(context, cName, [object longLongValue]);
+                }
+            }
         }
     }
 
@@ -360,7 +398,7 @@ static int encodeObject(KSJSONCodec *codec, id object, NSString *name, KSJSONEnc
     KSJSONCodec *codec = [self codecWithEncodeOptions:encodeOptions decodeOptions:KSJSONDecodeOptionNone];
 
     int result = encodeObject(codec, object, NULL, &JSONContext);
-    if (error != nil) {
+    if (error != NULL) {
         *error = codec.error;
     }
     return result == KSJSON_OK ? data : nil;
@@ -378,7 +416,7 @@ static int encodeObject(KSJSONCodec *codec, id object, NSString *name, KSJSONEnc
                                                   code:0
                                            description:@"%s (offset %d)", ksjson_stringForError(result), errorOffset];
     }
-    if (error != nil) {
+    if (error != NULL) {
         *error = codec.error;
     }
 
