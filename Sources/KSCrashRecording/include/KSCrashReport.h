@@ -54,7 +54,7 @@ NS_SWIFT_NAME(CrashReportDictionary)
  * A structured dictionary version of crash report.
  * This is usually a raw report that can be serialized to JSON.
  */
-@property(nonatomic, readonly, nullable, copy) NSDictionary<NSString *, id> *value;
+@property(nonatomic, readonly, copy) NSDictionary<NSString *, id> *value;
 
 - (instancetype)init NS_UNAVAILABLE;
 + (instancetype)new NS_UNAVAILABLE;
@@ -69,7 +69,7 @@ NS_SWIFT_NAME(CrashReportString)
 /**
  * A serialized or formatted string version of crash report.
  */
-@property(nonatomic, readonly, nullable, copy) NSString *value;
+@property(nonatomic, readonly, copy) NSString *value;
 
 - (instancetype)init NS_UNAVAILABLE;
 + (instancetype)new NS_UNAVAILABLE;
@@ -85,7 +85,7 @@ NS_SWIFT_NAME(CrashReportData)
  * A serialized data version of crash report.
  * This usually contain a serialized JSON.
  */
-@property(nonatomic, readonly, nullable, copy) NSData *value;
+@property(nonatomic, readonly, copy) NSData *value;
 
 - (instancetype)init NS_UNAVAILABLE;
 + (instancetype)new NS_UNAVAILABLE;
