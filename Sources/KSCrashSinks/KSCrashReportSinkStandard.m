@@ -64,7 +64,7 @@
     return self;
 }
 
-- (void)filterReports:(NSArray<KSCrashReport *> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
+- (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
     NSError *error = nil;
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:self.url
@@ -72,11 +72,17 @@
                                                        timeoutInterval:15];
     KSHTTPMultipartPostBody *body = [KSHTTPMultipartPostBody body];
     NSMutableArray *jsonArray = [NSMutableArray array];
-    for (KSCrashReport *report in reports) {
-        if (report.dictionaryValue != nil) {
-            [jsonArray addObject:report.dictionaryValue];
-        } else if (report.stringValue != nil) {
-            [jsonArray addObject:report.stringValue];
+    for (id<KSCrashReport> report in reports) {
+        if ([report isKindOfClass:[KSCrashReportDictionary class]]) {
+            KSCrashReportDictionary *dReport = report;
+            if (dReport.value != nil) {
+                [jsonArray addObject:dReport.value];
+            }
+        } else if ([report isKindOfClass:[KSCrashReportString class]]) {
+            KSCrashReportString *sReport = report;
+            if (sReport.value != nil) {
+                [jsonArray addObject:sReport.value];
+            }
         } else {
             KSLOG_ERROR(@"Unexpected non-dictionary/non-string report: %@", report);
         }

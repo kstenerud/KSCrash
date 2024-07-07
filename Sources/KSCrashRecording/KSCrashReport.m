@@ -26,69 +26,44 @@
 
 #import "KSCrashReport.h"
 
-@implementation KSCrashReport
+#define REPORT_IMPL(NAME, TYPE)                                               \
+    @implementation NAME                                                      \
+                                                                              \
+    +(instancetype)reportWithValue : (TYPE)value                              \
+    {                                                                         \
+        return [[NAME alloc] initWithValue:value];                            \
+    }                                                                         \
+                                                                              \
+    -(instancetype)initWithValue : (TYPE)value                                \
+    {                                                                         \
+        self = [super init];                                                  \
+        if (self != nil) {                                                    \
+            _value = [value copy];                                            \
+        }                                                                     \
+        return self;                                                          \
+    }                                                                         \
+                                                                              \
+    -(id)untypedValue                                                         \
+    {                                                                         \
+        return _value;                                                        \
+    }                                                                         \
+                                                                              \
+    -(BOOL)isEqual : (id)object                                               \
+    {                                                                         \
+        if ([object isKindOfClass:[NAME class]] == NO) {                      \
+            return NO;                                                        \
+        }                                                                     \
+        NAME *other = object;                                                 \
+        return self.value == other.value || [self.value isEqual:other.value]; \
+    }                                                                         \
+                                                                              \
+    -(NSString *)description                                                  \
+    {                                                                         \
+        return [self.value description];                                      \
+    }                                                                         \
+                                                                              \
+    @end
 
-- (instancetype)initWithValueType:(KSCrashReportValueType)valueType
-                  dictionaryValue:(nullable NSDictionary<NSString *, id> *)dictionaryValue
-                      stringValue:(nullable NSString *)stringValue
-                        dataValue:(nullable NSData *)dataValue
-{
-    self = [super init];
-    if (self != nil) {
-        _valueType = valueType;
-        _dictionaryValue = [dictionaryValue copy];
-        _stringValue = [stringValue copy];
-        _dataValue = [dataValue copy];
-    }
-    return self;
-}
-
-+ (instancetype)reportWithDictionary:(NSDictionary<NSString *, id> *)dictionaryValue
-{
-    return [[KSCrashReport alloc] initWithValueType:KSCrashReportValueTypeDictionary
-                                    dictionaryValue:dictionaryValue
-                                        stringValue:nil
-                                          dataValue:nil];
-}
-
-+ (instancetype)reportWithString:(NSString *)stringValue
-{
-    return [[KSCrashReport alloc] initWithValueType:KSCrashReportValueTypeString
-                                    dictionaryValue:nil
-                                        stringValue:stringValue
-                                          dataValue:nil];
-}
-
-+ (instancetype)reportWithData:(NSData *)dataValue
-{
-    return [[KSCrashReport alloc] initWithValueType:KSCrashReportValueTypeData
-                                    dictionaryValue:nil
-                                        stringValue:nil
-                                          dataValue:dataValue];
-}
-
-- (BOOL)isEqual:(id)object
-{
-    if ([object isKindOfClass:[KSCrashReport class]] == NO) {
-        return NO;
-    }
-    KSCrashReport *other = object;
-#define SAME_OR_EQUAL(GETTER) ((self.GETTER) == (other.GETTER) || [(self.GETTER) isEqual:(other.GETTER)])
-    return self.valueType == other.valueType && SAME_OR_EQUAL(stringValue) && SAME_OR_EQUAL(dictionaryValue) &&
-           SAME_OR_EQUAL(dataValue);
-#undef SAME_OR_EQUAL
-}
-
-- (NSString *)description
-{
-    switch (self.valueType) {
-        case KSCrashReportValueTypeDictionary:
-            return [self.dictionaryValue description];
-        case KSCrashReportValueTypeString:
-            return [self.stringValue description];
-        case KSCrashReportValueTypeData:
-            return [self.dataValue description];
-    }
-}
-
-@end
+REPORT_IMPL(KSCrashReportDictionary, NSDictionary *)
+REPORT_IMPL(KSCrashReportString, NSString *)
+REPORT_IMPL(KSCrashReportData, NSData *)

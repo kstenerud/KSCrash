@@ -44,7 +44,7 @@
 
 @interface KSCrashAlertViewProcess : NSObject
 
-@property(nonatomic, readwrite, copy) NSArray<KSCrashReport *> *reports;
+@property(nonatomic, readwrite, copy) NSArray<id<KSCrashReport>> *reports;
 @property(nonatomic, readwrite, copy) KSCrashReportFilterCompletion onCompletion;
 @property(nonatomic, readwrite, assign) NSInteger expectedButtonIndex;
 
@@ -54,7 +54,7 @@
                message:(NSString *)message
              yesAnswer:(NSString *)yesAnswer
               noAnswer:(NSString *)noAnswer
-               reports:(NSArray<KSCrashReport *> *)reports
+               reports:(NSArray<id<KSCrashReport>> *)reports
           onCompletion:(KSCrashReportFilterCompletion)onCompletion;
 
 @end
@@ -70,7 +70,7 @@
                message:(NSString *)message
              yesAnswer:(NSString *)yesAnswer
               noAnswer:(NSString *)noAnswer
-               reports:(NSArray<KSCrashReport *> *)reports
+               reports:(NSArray<id<KSCrashReport>> *)reports
           onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
     KSLOG_TRACE(@"Starting alert view process");
@@ -157,7 +157,7 @@
     return self;
 }
 
-- (void)filterReports:(NSArray<KSCrashReport *> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
+- (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
     dispatch_async(dispatch_get_main_queue(), ^{
         KSLOG_TRACE(@"Launching new alert view process");
@@ -202,7 +202,7 @@
     return self;
 }
 
-- (void)filterReports:(NSArray<KSCrashReport *> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
+- (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
     KSLOG_WARN(@"Alert filter not available on this platform.");
     kscrash_callCompletion(onCompletion, reports, YES, nil);

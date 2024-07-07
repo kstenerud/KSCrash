@@ -28,52 +28,63 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-typedef NS_ENUM(NSUInteger, KSCrashReportValueType) {
-    KSCrashReportValueTypeDictionary,
-    KSCrashReportValueTypeString,
-    KSCrashReportValueTypeData,
-} NS_SWIFT_NAME(CrashReportValueType);
-
 /**
- * A class that represent a recorded crash report.
- * Under the hood it can be a dictionary or a serialized data (e.g. JSON data or formatted string).
+ * A protocol that represent a recorded crash report.
  */
 NS_SWIFT_NAME(CrashReport)
-@interface KSCrashReport : NSObject
+@protocol KSCrashReport <NSObject>
 
 /**
- * The type of the value of this crash report (dictionary, string, data)
+ * An underlying report value of any type (string, dictionary, data etc)
  */
-@property(nonatomic, readonly, assign) KSCrashReportValueType valueType;
+@property(nonatomic, readonly, nullable, strong) id untypedValue;
+
+@end
+
+NS_SWIFT_NAME(CrashReportDictionary)
+@interface KSCrashReportDictionary : NSObject <KSCrashReport>
 
 /**
  * A structured dictionary version of crash report.
  * This is usually a raw report that can be serialized to JSON.
  */
-@property(nonatomic, readonly, nullable, copy) NSDictionary<NSString *, id> *dictionaryValue;
+@property(nonatomic, readonly, nullable, copy) NSDictionary<NSString *, id> *value;
+
+- (instancetype)init NS_UNAVAILABLE;
++ (instancetype)new NS_UNAVAILABLE;
+
++ (instancetype)reportWithValue:(NSDictionary<NSString *, id> *)value;
+
+@end
+
+NS_SWIFT_NAME(CrashReportString)
+@interface KSCrashReportString : NSObject <KSCrashReport>
 
 /**
  * A serialized or formatted string version of crash report.
  */
-@property(nonatomic, readonly, nullable, copy) NSString *stringValue;
+@property(nonatomic, readonly, nullable, copy) NSString *value;
+
+- (instancetype)init NS_UNAVAILABLE;
++ (instancetype)new NS_UNAVAILABLE;
+
++ (instancetype)reportWithValue:(NSString *)value;
+
+@end
+
+NS_SWIFT_NAME(CrashReportData)
+@interface KSCrashReportData : NSObject <KSCrashReport>
 
 /**
  * A serialized data version of crash report.
  * This usually contain a serialized JSON.
  */
-@property(nonatomic, readonly, nullable, copy) NSData *dataValue;
+@property(nonatomic, readonly, nullable, copy) NSData *value;
 
 - (instancetype)init NS_UNAVAILABLE;
 + (instancetype)new NS_UNAVAILABLE;
 
-- (instancetype)initWithValueType:(KSCrashReportValueType)valueType
-                  dictionaryValue:(nullable NSDictionary<NSString *, id> *)dictionaryValue
-                      stringValue:(nullable NSString *)stringValue
-                        dataValue:(nullable NSData *)dataValue NS_DESIGNATED_INITIALIZER;
-
-+ (instancetype)reportWithDictionary:(NSDictionary<NSString *, id> *)dictionaryValue;
-+ (instancetype)reportWithString:(NSString *)stringValue;
-+ (instancetype)reportWithData:(NSData *)dataValue;
++ (instancetype)reportWithValue:(NSData *)value;
 
 @end
 

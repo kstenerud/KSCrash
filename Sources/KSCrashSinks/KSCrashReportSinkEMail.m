@@ -42,7 +42,7 @@
 
 @interface KSCrashMailProcess : NSObject <MFMailComposeViewControllerDelegate>
 
-@property(nonatomic, readwrite, copy) NSArray<KSCrashReport *> *reports;
+@property(nonatomic, readwrite, copy) NSArray<id<KSCrashReport>> *reports;
 @property(nonatomic, readwrite, copy) KSCrashReportFilterCompletion onCompletion;
 
 @property(nonatomic, readwrite, strong) UIViewController *dummyVC;
@@ -50,7 +50,7 @@
 + (KSCrashMailProcess *)process;
 
 - (void)startWithController:(MFMailComposeViewController *)controller
-                    reports:(NSArray<KSCrashReport *> *)reports
+                    reports:(NSArray<id<KSCrashReport>> *)reports
                 filenameFmt:(NSString *)filenameFmt
                onCompletion:(KSCrashReportFilterCompletion)onCompletion;
 
@@ -67,7 +67,7 @@
 }
 
 - (void)startWithController:(MFMailComposeViewController *)controller
-                    reports:(NSArray<KSCrashReport *> *)reports
+                    reports:(NSArray<id<KSCrashReport>> *)reports
                 filenameFmt:(NSString *)filenameFmt
                onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
@@ -77,13 +77,14 @@
     controller.mailComposeDelegate = self;
 
     int i = 1;
-    for (KSCrashReport *report in reports) {
-        NSData *data = report.dataValue;
-        if (data == nil) {
+    for (KSCrashReportData *report in reports) {
+        if ([report isKindOfClass:[KSCrashReportData class]] == NO || report.value == nil) {
             KSLOG_ERROR(@"Unexpected non-data report: %@", report);
             continue;
         }
-        [controller addAttachmentData:data mimeType:@"binary" fileName:[NSString stringWithFormat:filenameFmt, i++]];
+        [controller addAttachmentData:report.value
+                             mimeType:@"binary"
+                             fileName:[NSString stringWithFormat:filenameFmt, i++]];
     }
 
     [self presentModalVC:controller];
@@ -207,7 +208,7 @@
                           [KSCrashReportFilterGZipCompress filterWithCompressionLevel:-1], self, nil];
 }
 
-- (void)filterReports:(NSArray<KSCrashReport *> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
+- (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
     if (![MFMailComposeViewController canSendMail]) {
         UIAlertController *alertController =
@@ -272,9 +273,9 @@
     return [super init];
 }
 
-- (void)filterReports:(NSArray<KSCrashReport *> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
+- (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
-    for (KSCrashReport *report in reports) {
+    for (id<KSCrashReport> report in reports) {
         NSLog(@"Report\n%@", report);
     }
     kscrash_callCompletion(onCompletion, reports, NO,

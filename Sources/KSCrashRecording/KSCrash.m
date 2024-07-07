@@ -327,7 +327,7 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
     return kscrash_getReportCount();
 }
 
-- (void)sendReports:(NSArray<KSCrashReport *> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
+- (void)sendReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
     if ([reports count] == 0) {
         kscrash_callCompletion(onCompletion, reports, YES, nil);
@@ -381,7 +381,7 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
     return [reportIDs copy];
 }
 
-- (KSCrashReport *)reportForID:(int64_t)reportID
+- (id<KSCrashReport>)reportForID:(int64_t)reportID
 {
     NSData *jsonData = [self loadCrashReportJSONWithID:reportID];
     if (jsonData == nil) {
@@ -403,17 +403,17 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
     }
     [self doctorReport:crashReport];
 
-    return [KSCrashReport reportWithDictionary:crashReport];
+    return [KSCrashReportDictionary reportWithValue:crashReport];
 }
 
-- (NSArray<KSCrashReport *> *)allReports
+- (NSArray<id<KSCrashReport>> *)allReports
 {
     int reportCount = kscrash_getReportCount();
     int64_t reportIDs[reportCount];
     reportCount = kscrash_getReportIDs(reportIDs, reportCount);
-    NSMutableArray<KSCrashReport *> *reports = [NSMutableArray arrayWithCapacity:(NSUInteger)reportCount];
+    NSMutableArray<id<KSCrashReport>> *reports = [NSMutableArray arrayWithCapacity:(NSUInteger)reportCount];
     for (int i = 0; i < reportCount; i++) {
-        KSCrashReport *report = [self reportForID:reportIDs[i]];
+        id<KSCrashReport> report = [self reportForID:reportIDs[i]];
         if (report != nil) {
             [reports addObject:report];
         }

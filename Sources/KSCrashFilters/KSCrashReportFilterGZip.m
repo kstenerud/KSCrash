@@ -52,25 +52,24 @@
     return self;
 }
 
-- (void)filterReports:(NSArray<KSCrashReport *> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
+- (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
-    NSMutableArray<KSCrashReport *> *filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
-    for (KSCrashReport *report in reports) {
-        NSData *data = report.dataValue;
-        if (data == nil) {
+    NSMutableArray<id<KSCrashReport>> *filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
+    for (KSCrashReportData *report in reports) {
+        if ([report isKindOfClass:[KSCrashReportData class]] == NO || report.value == nil) {
             KSLOG_ERROR(@"Unexpected non-data report: %@", report);
             continue;
         }
 
         NSError *error = nil;
-        NSData *compressedData = [KSGZipHelper gzippedData:data
+        NSData *compressedData = [KSGZipHelper gzippedData:report.value
                                           compressionLevel:(int)self.compressionLevel
                                                      error:&error];
         if (compressedData == nil) {
             kscrash_callCompletion(onCompletion, filteredReports, NO, error);
             return;
         } else {
-            [filteredReports addObject:[KSCrashReport reportWithData:compressedData]];
+            [filteredReports addObject:[KSCrashReportData reportWithValue:compressedData]];
         }
     }
 
@@ -86,23 +85,22 @@
     return [[self alloc] init];
 }
 
-- (void)filterReports:(NSArray<KSCrashReport *> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
+- (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
-    NSMutableArray<KSCrashReport *> *filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
-    for (KSCrashReport *report in reports) {
-        NSData *data = report.dataValue;
-        if (data == nil) {
+    NSMutableArray<id<KSCrashReport>> *filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
+    for (KSCrashReportData *report in reports) {
+        if ([report isKindOfClass:[KSCrashReportData class]] == NO || report.value == nil) {
             KSLOG_ERROR(@"Unexpected non-data report: %@", report);
             continue;
         }
 
         NSError *error = nil;
-        NSData *decompressedData = [KSGZipHelper gunzippedData:data error:&error];
+        NSData *decompressedData = [KSGZipHelper gunzippedData:report.value error:&error];
         if (decompressedData == nil) {
             kscrash_callCompletion(onCompletion, filteredReports, NO, error);
             return;
         } else {
-            [filteredReports addObject:[KSCrashReport reportWithData:decompressedData]];
+            [filteredReports addObject:[KSCrashReportData reportWithValue:decompressedData]];
         }
     }
 

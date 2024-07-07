@@ -194,19 +194,18 @@ static NSDictionary *g_registerOrders;
     return 0;
 }
 
-- (void)filterReports:(NSArray<KSCrashReport *> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
+- (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
-    NSMutableArray<KSCrashReport *> *filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
-    for (KSCrashReport *report in reports) {
-        NSDictionary *reportDict = report.dictionaryValue;
-        if (reportDict == nil) {
+    NSMutableArray<id<KSCrashReport>> *filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
+    for (KSCrashReportDictionary *report in reports) {
+        if ([report isKindOfClass:[KSCrashReportDictionary class]] == NO || report.value == nil) {
             KSLOG_ERROR(@"Unexpected non-dictionary report: %@", report);
             continue;
         }
-        if ([self majorVersion:reportDict] == kExpectedMajorVersion) {
-            NSString *appleReportString = [self toAppleFormat:reportDict];
+        if ([self majorVersion:report.value] == kExpectedMajorVersion) {
+            NSString *appleReportString = [self toAppleFormat:report.value];
             if (appleReportString != nil) {
-                [filteredReports addObject:[KSCrashReport reportWithString:appleReportString]];
+                [filteredReports addObject:[KSCrashReportString reportWithValue:appleReportString]];
             }
         }
     }
