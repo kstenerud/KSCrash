@@ -36,30 +36,32 @@
     return [[self alloc] init];
 }
 
-- (NSString *)stringifyReport:(KSCrashReport *)report
+- (NSString *)stringifyReport:(id<KSCrashReport>)report
 {
-    if (report.stringValue != nil) {
-        return report.stringValue;
+    if ([report isKindOfClass:[KSCrashReportString class]]) {
+        return ((KSCrashReportString *)report).value;
     }
-    if (report.dataValue != nil) {
-        return [[NSString alloc] initWithData:report.dataValue encoding:NSUTF8StringEncoding];
+    if ([report isKindOfClass:[KSCrashReportData class]]) {
+        NSData *value = ((KSCrashReportData *)report).value;
+        return [[NSString alloc] initWithData:value encoding:NSUTF8StringEncoding];
     }
-    if (report.dictionaryValue != nil) {
-        if ([NSJSONSerialization isValidJSONObject:report.dictionaryValue]) {
-            NSData *data = [NSJSONSerialization dataWithJSONObject:report.dictionaryValue options:0 error:nil];
+    if ([report isKindOfClass:[KSCrashReportDictionary class]]) {
+        NSDictionary *value = ((KSCrashReportDictionary *)report).value;
+        if ([NSJSONSerialization isValidJSONObject:value]) {
+            NSData *data = [NSJSONSerialization dataWithJSONObject:value options:0 error:nil];
             return [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
         }
-        return [NSString stringWithFormat:@"%@", report.dictionaryValue];
+        return [NSString stringWithFormat:@"%@", value];
     }
-    return [NSString stringWithFormat:@"%@", report];
+    return [report description] ?: @"Unknown";
 }
 
-- (void)filterReports:(NSArray<KSCrashReport *> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
+- (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
-    NSMutableArray<KSCrashReport *> *filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
-    for (KSCrashReport *report in reports) {
+    NSMutableArray<id<KSCrashReport>> *filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
+    for (id<KSCrashReport> report in reports) {
         NSString *reportString = [self stringifyReport:report];
-        [filteredReports addObject:[KSCrashReport reportWithString:reportString]];
+        [filteredReports addObject:[KSCrashReportString reportWithValue:reportString]];
     }
 
     kscrash_callCompletion(onCompletion, filteredReports, YES, nil);

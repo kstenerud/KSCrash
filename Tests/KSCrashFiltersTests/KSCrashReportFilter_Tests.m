@@ -56,7 +56,7 @@
 @property(nonatomic, readwrite, assign) BOOL completed;
 @property(nonatomic, readwrite, strong) NSError *error;
 @property(nonatomic, readwrite, strong) NSTimer *timer;
-@property(nonatomic, readwrite, copy) NSArray<KSCrashReport *> *reports;
+@property(nonatomic, readwrite, copy) NSArray<id<KSCrashReport>> *reports;
 @property(nonatomic, readwrite, copy) KSCrashReportFilterCompletion onCompletion;
 
 @end
@@ -78,7 +78,7 @@
     return self;
 }
 
-- (void)filterReports:(NSArray<KSCrashReport *> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
+- (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
     self.reports = reports;
     self.onCompletion = onCompletion;
@@ -102,9 +102,9 @@
 
 @interface KSCrashReportFilter_Tests : XCTestCase
 
-@property(nonatomic, copy) NSArray *reports;
-@property(nonatomic, copy) NSArray *reportsWithData;
-@property(nonatomic, copy) NSArray *reportsWithDict;
+@property(nonatomic, copy) NSArray<KSCrashReportString *> *reports;
+@property(nonatomic, copy) NSArray<KSCrashReportData *> *reportsWithData;
+@property(nonatomic, copy) NSArray<KSCrashReportDictionary *> *reportsWithDict;
 
 @end
 
@@ -115,17 +115,17 @@
 - (void)setUp
 {
     self.reports = @[
-        [KSCrashReport reportWithString:@"1"],
-        [KSCrashReport reportWithString:@"2"],
-        [KSCrashReport reportWithString:@"3"],
+        [KSCrashReportString reportWithValue:@"1"],
+        [KSCrashReportString reportWithValue:@"2"],
+        [KSCrashReportString reportWithValue:@"3"],
     ];
     self.reportsWithData = @[
-        [KSCrashReport reportWithData:[@"1" dataUsingEncoding:NSUTF8StringEncoding]],
-        [KSCrashReport reportWithData:[@"2" dataUsingEncoding:NSUTF8StringEncoding]],
-        [KSCrashReport reportWithData:[@"3" dataUsingEncoding:NSUTF8StringEncoding]],
+        [KSCrashReportData reportWithValue:[@"1" dataUsingEncoding:NSUTF8StringEncoding]],
+        [KSCrashReportData reportWithValue:[@"2" dataUsingEncoding:NSUTF8StringEncoding]],
+        [KSCrashReportData reportWithValue:[@"3" dataUsingEncoding:NSUTF8StringEncoding]],
     ];
     self.reportsWithDict = @[
-        [KSCrashReport reportWithDictionary:@{
+        [KSCrashReportDictionary reportWithValue:@{
             @"first" : @"1",
             @"second" : @"a",
             @"third" : @"b",
@@ -135,7 +135,7 @@
 
 - (void)testPassthroughLeak
 {
-    __block NSArray *reports = @[ [KSCrashReport reportWithString:@""] ];
+    __block NSArray *reports = @[ [KSCrashReportString reportWithValue:@""] ];
     __weak id weakRef = reports;
 
     __block KSCrashReportFilterPassthrough *filter = [KSCrashReportFilterPassthrough filter];
@@ -320,11 +320,11 @@
                  XCTAssertTrue(completed, @"");
                  XCTAssertNil(error, @"");
                  for (NSUInteger i = 0; i < self.reports.count; i++) {
-                     id exp1 = [[self.reports objectAtIndex:i] stringValue];
-                     id exp2 = [[self.reportsWithData objectAtIndex:i] dataValue];
-                     KSCrashReport *entry = [filteredReports objectAtIndex:i];
-                     id result1 = entry.dictionaryValue[@"normal"];
-                     id result2 = entry.dictionaryValue[@"data"];
+                     id exp1 = [[self.reports objectAtIndex:i] value];
+                     id exp2 = [[self.reportsWithData objectAtIndex:i] value];
+                     KSCrashReportDictionary *entry = [filteredReports objectAtIndex:i];
+                     id result1 = entry.value[@"normal"];
+                     id result2 = entry.value[@"data"];
                      XCTAssertNotNil(result1);
                      XCTAssertNotNil(result2);
                      XCTAssertEqualObjects(result1, exp1, @"");
@@ -345,11 +345,11 @@
                  XCTAssertTrue(completed, @"");
                  XCTAssertNil(error, @"");
                  for (NSUInteger i = 0; i < [self.reports count]; i++) {
-                     id exp1 = [[self.reports objectAtIndex:i] stringValue];
-                     id exp2 = [[self.reportsWithData objectAtIndex:i] dataValue];
-                     KSCrashReport *entry = [filteredReports objectAtIndex:i];
-                     id result1 = entry.dictionaryValue[@"normal"];
-                     id result2 = entry.dictionaryValue[@"data"];
+                     id exp1 = [[self.reports objectAtIndex:i] value];
+                     id exp2 = [[self.reportsWithData objectAtIndex:i] value];
+                     KSCrashReportDictionary *entry = [filteredReports objectAtIndex:i];
+                     id result1 = entry.value[@"normal"];
+                     id result2 = entry.value[@"data"];
                      XCTAssertNotNil(result1);
                      XCTAssertNotNil(result2);
                      XCTAssertEqualObjects(result1, exp1, @"");
@@ -411,11 +411,11 @@
                  XCTAssertTrue(completed, @"");
                  XCTAssertNil(error, @"");
                  for (NSUInteger i = 0; i < [self.reports count]; i++) {
-                     id exp1 = [[self.reports objectAtIndex:i] stringValue];
-                     id exp2 = [[self.reportsWithData objectAtIndex:i] dataValue];
-                     KSCrashReport *entry = [filteredReports objectAtIndex:i];
-                     id result1 = entry.dictionaryValue[@"normal"];
-                     id result2 = entry.dictionaryValue[@"data"];
+                     id exp1 = [[self.reports objectAtIndex:i] value];
+                     id exp2 = [[self.reportsWithData objectAtIndex:i] value];
+                     KSCrashReportDictionary *entry = [filteredReports objectAtIndex:i];
+                     id result1 = entry.value[@"normal"];
+                     id result2 = entry.value[@"data"];
                      XCTAssertNotNil(result1);
                      XCTAssertNotNil(result2);
                      XCTAssertEqualObjects(result1, exp1, @"");
@@ -470,7 +470,7 @@
 
 - (void)testSubset
 {
-    KSCrashReport *expected = [KSCrashReport reportWithDictionary:@{
+    id<KSCrashReport> expected = [KSCrashReportDictionary reportWithValue:@{
         @"first" : @"1",
         @"third" : @"b",
     }];
@@ -497,7 +497,7 @@
 
 - (void)testSubsetInit
 {
-    KSCrashReport *expected = [KSCrashReport reportWithDictionary:@{
+    id<KSCrashReport> expected = [KSCrashReportDictionary reportWithValue:@{
         @"first" : @"1",
         @"third" : @"b",
     }];

@@ -28,7 +28,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@class KSCrashReport;
+@protocol KSCrashReport;
 
 /** Callback for filter operations.
  *
@@ -39,7 +39,7 @@ NS_ASSUME_NONNULL_BEGIN
  *                  user cancelling the operation).
  * @param error Non-nil if an error occurred.
  */
-typedef void (^KSCrashReportFilterCompletion)(NSArray<KSCrashReport *> *_Nullable filteredReports, BOOL completed,
+typedef void (^KSCrashReportFilterCompletion)(NSArray<id<KSCrashReport>> *_Nullable filteredReports, BOOL completed,
                                               NSError *_Nullable error)
     NS_SWIFT_UNAVAILABLE("Use Swift closures instead!");
 
@@ -55,7 +55,7 @@ NS_SWIFT_NAME(CrashReportFilter)
  * @param reports The reports to process.
  * @param onCompletion Block to call when processing is complete.
  */
-- (void)filterReports:(NSArray<KSCrashReport *> *)reports
+- (void)filterReports:(NSArray<id<KSCrashReport>> *)reports
          onCompletion:(nullable KSCrashReportFilterCompletion)onCompletion;
 
 @end
@@ -68,7 +68,7 @@ NS_SWIFT_NAME(CrashReportFilter)
  * @param error The parameter to send as "error".
  */
 static inline void kscrash_callCompletion(KSCrashReportFilterCompletion _Nullable onCompletion,
-                                          NSArray<KSCrashReport *> *_Nullable filteredReports, BOOL completed,
+                                          NSArray<id<KSCrashReport>> *_Nullable filteredReports, BOOL completed,
                                           NSError *_Nullable error)
 {
     if (onCompletion) {

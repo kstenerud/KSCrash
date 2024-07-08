@@ -40,7 +40,7 @@
     return [[self alloc] init];
 }
 
-- (void)filterReports:(NSArray<KSCrashReport *> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
+- (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
     kscrash_callCompletion(onCompletion, reports, YES, nil);
 }
@@ -113,7 +113,7 @@
     return [self initWithFilters:filters keys:keys];
 }
 
-- (void)filterReports:(NSArray<KSCrashReport *> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
+- (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
     NSArray *filters = self.filters;
     NSArray *keys = self.keys;
@@ -144,7 +144,7 @@
             filterCompletion = nil;
         });
     } copy];
-    filterCompletion = [^(NSArray<KSCrashReport *> *filteredReports, BOOL completed, NSError *filterError) {
+    filterCompletion = [^(NSArray<id<KSCrashReport>> *filteredReports, BOOL completed, NSError *filterError) {
         if (!completed || filteredReports == nil) {
             if (!completed) {
                 kscrash_callCompletion(onCompletion, filteredReports, completed, filterError);
@@ -169,18 +169,18 @@
         // All filters complete, or a filter failed.
         // Build final "filteredReports" array.
         NSUInteger reportCount = [(NSArray *)[reportSets objectAtIndex:0] count];
-        NSMutableArray<KSCrashReport *> *combinedReports = [NSMutableArray arrayWithCapacity:reportCount];
+        NSMutableArray<id<KSCrashReport>> *combinedReports = [NSMutableArray arrayWithCapacity:reportCount];
         for (NSUInteger iReport = 0; iReport < reportCount; iReport++) {
             NSMutableDictionary *dict = [NSMutableDictionary dictionaryWithCapacity:filterCount];
             for (NSUInteger iSet = 0; iSet < filterCount; iSet++) {
                 NSString *key = keys[iSet];
                 NSArray *reportSet = reportSets[iSet];
                 if (iReport < reportSet.count) {
-                    KSCrashReport *report = reportSet[iReport];
-                    dict[key] = report.dictionaryValue ?: report.stringValue ?: report.dataValue;
+                    id<KSCrashReport> report = reportSet[iReport];
+                    dict[key] = report.untypedValue;
                 }
             }
-            KSCrashReport *report = [KSCrashReport reportWithDictionary:dict];
+            id<KSCrashReport> report = [KSCrashReportDictionary reportWithValue:dict];
             [combinedReports addObject:report];
         }
 
@@ -242,7 +242,7 @@
     self.filters = [@[ filter ] arrayByAddingObjectsFromArray:self.filters];
 }
 
-- (void)filterReports:(NSArray<KSCrashReport *> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
+- (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
     NSArray *filters = self.filters;
     NSUInteger filterCount = [filters count];
@@ -261,7 +261,7 @@
             filterCompletion = nil;
         });
     } copy];
-    filterCompletion = [^(NSArray<KSCrashReport *> *filteredReports, BOOL completed, NSError *filterError) {
+    filterCompletion = [^(NSArray<id<KSCrashReport>> *filteredReports, BOOL completed, NSError *filterError) {
         if (!completed || filteredReports == nil) {
             if (!completed) {
                 kscrash_callCompletion(onCompletion, filteredReports, completed, filterError);
@@ -340,10 +340,14 @@
     return self;
 }
 
-- (void)filterReports:(NSArray<KSCrashReport *> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
+- (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
     NSMutableArray *filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
-    for (KSCrashReport *report in reports) {
+    for (KSCrashReportDictionary *report in reports) {
+        if ([report isKindOfClass:[KSCrashReportDictionary class]] == NO) {
+            KSLOG_ERROR(@"Unexpected non-dictionary report: %@", report);
+            continue;
+        }
         BOOL firstEntry = YES;
         NSMutableString *concatenated = [NSMutableString string];
         for (NSString *key in self.keys) {
@@ -352,7 +356,7 @@
             } else {
                 [concatenated appendFormat:self.separatorFmt, key];
             }
-            id object = [KSNSDictionaryHelper objectInDictionary:report.dictionaryValue forKeyPath:key];
+            id object = [KSNSDictionaryHelper objectInDictionary:report.value forKeyPath:key];
             [concatenated appendFormat:@"%@", object];
         }
         [filteredReports addObject:concatenated];
@@ -404,19 +408,18 @@
     return self;
 }
 
-- (void)filterReports:(NSArray<KSCrashReport *> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
+- (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
-    NSMutableArray<KSCrashReport *> *filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
-    for (KSCrashReport *report in reports) {
-        NSDictionary *reportDict = report.dictionaryValue;
-        if (reportDict == nil) {
+    NSMutableArray<id<KSCrashReport>> *filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
+    for (KSCrashReportDictionary *report in reports) {
+        if ([report isKindOfClass:[KSCrashReportDictionary class]] == NO) {
             KSLOG_ERROR(@"Unexpected non-dictionary report: %@", report);
             continue;
         }
 
         NSMutableDictionary *subset = [NSMutableDictionary dictionary];
         for (NSString *keyPath in self.keyPaths) {
-            id object = [KSNSDictionaryHelper objectInDictionary:reportDict forKeyPath:keyPath];
+            id object = [KSNSDictionaryHelper objectInDictionary:report.value forKeyPath:keyPath];
             if (object == nil) {
                 kscrash_callCompletion(onCompletion, filteredReports, NO,
                                        [KSNSErrorHelper errorWithDomain:[[self class] description]
@@ -426,7 +429,7 @@
             }
             [subset setObject:object forKey:[keyPath lastPathComponent]];
         }
-        KSCrashReport *subsetReport = [KSCrashReport reportWithDictionary:subset];
+        id<KSCrashReport> subsetReport = [KSCrashReportDictionary reportWithValue:subset];
         [filteredReports addObject:subsetReport];
     }
     kscrash_callCompletion(onCompletion, filteredReports, YES, nil);
@@ -441,18 +444,21 @@
     return [[self alloc] init];
 }
 
-- (void)filterReports:(NSArray<KSCrashReport *> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
+- (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
-    NSMutableArray<KSCrashReport *> *filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
-    for (KSCrashReport *report in reports) {
-        NSData *data = report.dataValue;
-        if (data == nil) {
+    NSMutableArray<id<KSCrashReport>> *filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
+    for (KSCrashReportData *report in reports) {
+        if ([report isKindOfClass:[KSCrashReportData class]] == NO) {
             KSLOG_ERROR(@"Unexpected non-data report: %@", report);
             continue;
         }
 
-        NSString *converted = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
-        [filteredReports addObject:[KSCrashReport reportWithString:converted]];
+        NSString *converted = [[NSString alloc] initWithData:report.value encoding:NSUTF8StringEncoding];
+        if (converted == nil) {
+            KSLOG_ERROR(@"Can't decode UTF8 string from binary data: %@", report);
+            continue;
+        }
+        [filteredReports addObject:[KSCrashReportString reportWithValue:converted]];
     }
 
     kscrash_callCompletion(onCompletion, filteredReports, YES, nil);
@@ -467,17 +473,16 @@
     return [[self alloc] init];
 }
 
-- (void)filterReports:(NSArray<KSCrashReport *> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
+- (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
-    NSMutableArray<KSCrashReport *> *filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
-    for (KSCrashReport *report in reports) {
-        NSString *string = report.stringValue;
-        if (string == nil) {
+    NSMutableArray<id<KSCrashReport>> *filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
+    for (KSCrashReportString *report in reports) {
+        if ([report isKindOfClass:[KSCrashReportString class]] == NO) {
             KSLOG_ERROR(@"Unexpected non-string report: %@", report);
             continue;
         }
 
-        NSData *converted = [string dataUsingEncoding:NSUTF8StringEncoding];
+        NSData *converted = [report.value dataUsingEncoding:NSUTF8StringEncoding];
         if (converted == nil) {
             kscrash_callCompletion(onCompletion, filteredReports, NO,
                                    [KSNSErrorHelper errorWithDomain:[[self class] description]
@@ -485,7 +490,7 @@
                                                         description:@"Could not convert report to UTF-8"]);
             return;
         } else {
-            [filteredReports addObject:[KSCrashReport reportWithData:converted]];
+            [filteredReports addObject:[KSCrashReportData reportWithValue:converted]];
         }
     }
 

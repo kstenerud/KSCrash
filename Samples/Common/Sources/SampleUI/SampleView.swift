@@ -43,6 +43,9 @@ public struct SampleView: View {
                     Button("Log To Console") {
                         ReportingSample.logToConsole()
                     }
+                    Button("Sample Custom Log To Console") {
+                        ReportingSample.sampleLogToConsole()
+                    }
                 }
             }
             .navigationTitle("KSCrash Sample")

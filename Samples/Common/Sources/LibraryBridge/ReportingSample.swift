@@ -35,9 +35,99 @@ public class ReportingSample {
         KSCrash.shared().sendAllReports { reports, isSuccess, error in
             if isSuccess, let reports {
                 print("Logged \(reports.count) reports")
+                for (idx, report) in reports.enumerated() {
+                    switch report {
+                    case let stringReport as CrashReportString:
+                        print("Report #\(idx) is a string (length is \(stringReport.value.count))")
+                    case let dictionaryReport as CrashReportDictionary:
+                        print("Report #\(idx) is a dictionary (number of keys is \(dictionaryReport.value.count))")
+                    case let dataReport as CrashReportData:
+                        print("Report #\(idx) is a binary data (size is \(dataReport.value.count) bytes)")
+                    default:
+                        print("Unknown report #\(idx): \(report.debugDescription ?? "?")")
+                    }
+                }
             } else {
                 print("Failed to log reports: \(error?.localizedDescription ?? "")")
             }
         }
+    }
+
+    public static func sampleLogToConsole() {
+        KSCrash.shared().sink = CrashReportFilterPipeline(filtersArray: [
+            SampleFilter(),
+            SampleSink(),
+        ])
+        KSCrash.shared().sendAllReports()
+    }
+}
+
+public class SampleCrashReport: NSObject, CrashReport {
+    public struct CrashedThread {
+        var index: Int
+        var callStack: [String]
+    }
+
+    public var untypedValue: Any? { crashedThread }
+
+    public let crashedThread: CrashedThread
+
+    public init?(_ report: CrashReportDictionary) {
+        guard let crashDict = report.value[CrashField.crash.rawValue] as? Dictionary<String, Any>,
+              let threadsArr = crashDict[CrashField.threads.rawValue] as? Array<Any>,
+              let crashedThreadDict = threadsArr
+                .compactMap({ $0 as? Dictionary<String, Any> })
+                .first(where: { ($0[CrashField.crashed.rawValue] as? Bool) ?? false }),
+              let crashedThreadIndex = crashedThreadDict[CrashField.index.rawValue] as? Int,
+              let backtrace = crashedThreadDict[CrashField.backtrace.rawValue] as? Dictionary<String, Any>,
+              let backtraceArr = backtrace[CrashField.contents.rawValue] as? Array<Any>
+        else { return nil }
+
+        crashedThread = .init(
+            index: crashedThreadIndex,
+            callStack: backtraceArr.enumerated().map { (idx: Int, bt: Any) -> String in
+                guard let bt = bt as? Dictionary<String, Any>,
+                      let objectName = bt[CrashField.objectName.rawValue] as? String,
+                      let instructionAddr = bt[CrashField.instructionAddr.rawValue] as? UInt64
+                else { return "\(idx)\t<malformed>" }
+
+                let symbolName = bt[CrashField.symbolName.rawValue] as? String
+                let symbolAddr = bt[CrashField.symbolAddr.rawValue] as? UInt64
+                let offset = symbolAddr.flatMap { instructionAddr - $0 } ?? 0
+                
+                let instructionAddrStr = "0x\(String(instructionAddr, radix: 16))"
+                let symbolAddrStr = "0x\(String(symbolAddr ?? instructionAddr, radix: 16))"
+
+                return "\(idx)\t\(objectName)\t\(instructionAddrStr) \(symbolName ?? symbolAddrStr) + \(offset)"
+            }
+        )
+    }
+}
+
+public class SampleFilter: NSObject, CrashReportFilter {
+    public func filterReports(_ reports: [any CrashReport], onCompletion: (([any CrashReport]?, Bool, (any Error)?) -> Void)? = nil) {
+        let filtered = reports.compactMap { report -> SampleCrashReport? in
+            guard let dictReport = report as? CrashReportDictionary else {
+                return nil
+            }
+            return SampleCrashReport(dictReport)
+        }
+        onCompletion?(filtered, true, nil)
+    }
+}
+
+public class SampleSink: NSObject, CrashReportFilter {
+    public func filterReports(_ reports: [any CrashReport], onCompletion: (([any CrashReport]?, Bool, (any Error)?) -> Void)? = nil) {
+        for (idx, report) in reports.enumerated() {
+            guard let sampleReport = report as? SampleCrashReport else {
+                continue
+            }
+            let lines = [
+                "Crash report #\(idx):",
+                "\tCrashed thread #\(sampleReport.crashedThread.index):",
+            ] + sampleReport.crashedThread.callStack.map { "\t\t\($0)" }
+            print(lines.joined(separator: "\n"))
+        }
+        onCompletion?(reports, true, nil)
     }
 }

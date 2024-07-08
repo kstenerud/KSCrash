@@ -51,23 +51,22 @@
     return self;
 }
 
-- (void)filterReports:(NSArray<KSCrashReport *> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
+- (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
-    NSMutableArray<KSCrashReport *> *filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
-    for (KSCrashReport *report in reports) {
-        NSDictionary *reportDict = report.dictionaryValue;
-        if (reportDict == nil) {
+    NSMutableArray<id<KSCrashReport>> *filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
+    for (KSCrashReportDictionary *report in reports) {
+        if ([report isKindOfClass:[KSCrashReportDictionary class]] == NO) {
             KSLOG_ERROR(@"Unexpected non-dictionary report: %@", report);
             continue;
         }
 
         NSError *error = nil;
-        NSData *jsonData = [KSJSONCodec encode:reportDict options:self.encodeOptions error:&error];
+        NSData *jsonData = [KSJSONCodec encode:report.value options:self.encodeOptions error:&error];
         if (jsonData == nil) {
             kscrash_callCompletion(onCompletion, filteredReports, NO, error);
             return;
         } else {
-            [filteredReports addObject:[KSCrashReport reportWithData:jsonData]];
+            [filteredReports addObject:[KSCrashReportData reportWithValue:jsonData]];
         }
     }
 
@@ -97,23 +96,22 @@
     return self;
 }
 
-- (void)filterReports:(NSArray<KSCrashReport *> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
+- (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
-    NSMutableArray<KSCrashReport *> *filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
-    for (KSCrashReport *report in reports) {
-        NSData *data = report.dataValue;
-        if (data == nil) {
+    NSMutableArray<id<KSCrashReport>> *filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
+    for (KSCrashReportData *report in reports) {
+        if ([report isKindOfClass:[KSCrashReportData class]] == NO) {
             KSLOG_ERROR(@"Unexpected non-data report: %@", report);
             continue;
         }
 
         NSError *error = nil;
-        NSDictionary *decodedReport = [KSJSONCodec decode:data options:self.decodeOptions error:&error];
-        if (decodedReport == nil) {
+        NSDictionary *decodedReport = [KSJSONCodec decode:report.value options:self.decodeOptions error:&error];
+        if (decodedReport == nil || [decodedReport isKindOfClass:[NSDictionary class]] == NO) {
             kscrash_callCompletion(onCompletion, filteredReports, NO, error);
             return;
         } else {
-            [filteredReports addObject:[KSCrashReport reportWithDictionary:decodedReport]];
+            [filteredReports addObject:[KSCrashReportDictionary reportWithValue:decodedReport]];
         }
     }
 

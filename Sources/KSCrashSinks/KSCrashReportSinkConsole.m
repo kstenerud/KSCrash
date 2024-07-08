@@ -46,15 +46,15 @@
                           nil];
 }
 
-- (void)filterReports:(NSArray<KSCrashReport *> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
+- (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
     int i = 0;
-    for (KSCrashReport *report in reports) {
-        if (report.stringValue == nil) {
+    for (KSCrashReportString *report in reports) {
+        if ([report isKindOfClass:[KSCrashReportString class]] == NO) {
             KSLOG_ERROR(@"Unexpected non-string report: %@", report);
             continue;
         }
-        printf("Report %d:\n%s\n", ++i, report.stringValue.UTF8String);
+        printf("Report %d:\n%s\n", ++i, report.value.UTF8String);
     }
 
     kscrash_callCompletion(onCompletion, reports, YES, nil);

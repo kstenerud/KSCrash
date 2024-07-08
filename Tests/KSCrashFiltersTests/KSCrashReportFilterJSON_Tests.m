@@ -41,14 +41,14 @@
 - (void)setUp
 {
     self.decodedReports = @[
-        [KSCrashReport reportWithDictionary:@{ @"a" : @"b" }],
-        [KSCrashReport reportWithDictionary:@{ @"1" : @ { @"2" : @"3" } }],
-        [KSCrashReport reportWithDictionary:@{ @"?" : @[ @1, @2, @3 ] }],
+        [KSCrashReportDictionary reportWithValue:@{ @"a" : @"b" }],
+        [KSCrashReportDictionary reportWithValue:@{ @"1" : @ { @"2" : @"3" } }],
+        [KSCrashReportDictionary reportWithValue:@{ @"?" : @[ @1, @2, @3 ] }],
     ];
     self.encodedReports = @[
-        [KSCrashReport reportWithData:[@"{\"a\":\"b\"}" dataUsingEncoding:NSUTF8StringEncoding]],
-        [KSCrashReport reportWithData:[@"{\"1\":{\"2\":\"3\"}}" dataUsingEncoding:NSUTF8StringEncoding]],
-        [KSCrashReport reportWithData:[@"{\"?\":[1,2,3]}" dataUsingEncoding:NSUTF8StringEncoding]],
+        [KSCrashReportData reportWithValue:[@"{\"a\":\"b\"}" dataUsingEncoding:NSUTF8StringEncoding]],
+        [KSCrashReportData reportWithValue:[@"{\"1\":{\"2\":\"3\"}}" dataUsingEncoding:NSUTF8StringEncoding]],
+        [KSCrashReportData reportWithValue:[@"{\"?\":[1,2,3]}" dataUsingEncoding:NSUTF8StringEncoding]],
     ];
 }
 
@@ -66,7 +66,7 @@
 - (void)testFilterJSONEncodeInvalid
 {
     NSArray *decoded = @[
-        [KSCrashReport reportWithDictionary:@{ @1 : @2 }],  // Not a JSON
+        [KSCrashReportDictionary reportWithValue:@{ @1 : @2 }],  // Not a JSON
     ];
 
     id<KSCrashReportFilter> filter = [KSCrashReportFilterJSONEncode filterWithOptions:0];
@@ -91,7 +91,7 @@
 - (void)testFilterJSONDencodeInvalid
 {
     NSArray *encoded = @[
-        [KSCrashReport reportWithData:[@"[\"1\"\",\"2\",\"3\"]" dataUsingEncoding:NSUTF8StringEncoding]],
+        [KSCrashReportData reportWithValue:[@"[\"1\"\",\"2\",\"3\"]" dataUsingEncoding:NSUTF8StringEncoding]],
     ];
 
     id<KSCrashReportFilter> filter = [KSCrashReportFilterJSONDecode filterWithOptions:0];

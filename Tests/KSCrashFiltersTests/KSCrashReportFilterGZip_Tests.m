@@ -42,16 +42,16 @@
 - (void)setUp
 {
     self.decompressedReports = @[
-        [KSCrashReport reportWithData:[@"this is a test" dataUsingEncoding:NSUTF8StringEncoding]],
-        [KSCrashReport reportWithData:[@"here is another test" dataUsingEncoding:NSUTF8StringEncoding]],
-        [KSCrashReport reportWithData:[@"testing is fun!" dataUsingEncoding:NSUTF8StringEncoding]],
+        [KSCrashReportData reportWithValue:[@"this is a test" dataUsingEncoding:NSUTF8StringEncoding]],
+        [KSCrashReportData reportWithValue:[@"here is another test" dataUsingEncoding:NSUTF8StringEncoding]],
+        [KSCrashReportData reportWithValue:[@"testing is fun!" dataUsingEncoding:NSUTF8StringEncoding]],
     ];
 
     NSError *error = nil;
     NSMutableArray *compressed = [NSMutableArray array];
-    for (KSCrashReport *report in self.decompressedReports) {
-        NSData *newData = [KSGZipHelper gzippedData:report.dataValue compressionLevel:-1 error:&error];
-        [compressed addObject:[KSCrashReport reportWithData:newData]];
+    for (KSCrashReportData *report in self.decompressedReports) {
+        NSData *newData = [KSGZipHelper gzippedData:report.value compressionLevel:-1 error:&error];
+        [compressed addObject:[KSCrashReportData reportWithValue:newData]];
     }
     self.compressedReports = [compressed copy];
 }
