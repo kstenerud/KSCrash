@@ -181,6 +181,12 @@ static int onIntegerElement(const char *const name, const int64_t value, void *c
     return result;
 }
 
+static int onUnsignedIntegerElement(const char *const name, const uint64_t value, void *const userData)
+{
+    FixupContext *context = (FixupContext *)userData;
+    return ksjson_addUIntegerElement(context->encodeContext, name, value);
+}
+
 static int onNullElement(const char *const name, void *const userData)
 {
     FixupContext *context = (FixupContext *)userData;
@@ -284,6 +290,7 @@ char *kscrf_fixupCrashReport(const char *crashReport)
         .onEndData = onEndData,
         .onFloatingPointElement = onFloatingPointElement,
         .onIntegerElement = onIntegerElement,
+        .onUnsignedIntegerElement = onUnsignedIntegerElement,
         .onNullElement = onNullElement,
         .onStringElement = onStringElement,
     };
