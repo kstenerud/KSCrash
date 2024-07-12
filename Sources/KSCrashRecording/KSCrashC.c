@@ -211,31 +211,55 @@ void handleConfiguration(KSCrashCConfiguration *configuration)
 #pragma mark - API -
 // ============================================================================
 
-void kscrash_install(const char *appName, const char *const installPath, KSCrashCConfiguration configuration)
+KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const installPath,
+                                        KSCrashCConfiguration configuration)
 {
     KSLOG_DEBUG("Installing crash reporter.");
 
     if (g_installed) {
         KSLOG_DEBUG("Crash reporter already installed.");
-        return;
+        return KSCrashInstallErrorAlreadyInstalled;
     }
-    g_installed = 1;
+
+    if (appName == NULL || installPath == NULL) {
+        KSLOG_ERROR("Invalid parameters: appName or installPath is NULL.");
+        return KSCrashInstallErrorInvalidParameter;
+    }
 
     handleConfiguration(&configuration);
 
     char path[KSFU_MAX_PATH_LENGTH];
-    snprintf(path, sizeof(path), "%s/Reports", installPath);
-    ksfu_makePath(path);
+    if (snprintf(path, sizeof(path), "%s/Reports", installPath) >= (int)sizeof(path)) {
+        KSLOG_ERROR("Path too long.");
+        return KSCrashInstallErrorPathTooLong;
+    }
+    if (ksfu_makePath(path) == false) {
+        KSLOG_ERROR("Could not create path: %s", path);
+        return KSCrashInstallErrorCouldNotCreatePath;
+    }
     kscrs_initialize(appName, installPath, path);
 
-    snprintf(path, sizeof(path), "%s/Data", installPath);
-    ksfu_makePath(path);
+    if (snprintf(path, sizeof(path), "%s/Data", installPath) >= (int)sizeof(path)) {
+        KSLOG_ERROR("Path too long.");
+        return KSCrashInstallErrorPathTooLong;
+    }
+    if (ksfu_makePath(path) == false) {
+        KSLOG_ERROR("Could not create path: %s", path);
+        return KSCrashInstallErrorCouldNotCreatePath;
+    }
     ksmemory_initialize(path);
 
-    snprintf(path, sizeof(path), "%s/Data/CrashState.json", installPath);
+    if (snprintf(path, sizeof(path), "%s/Data/CrashState.json", installPath) >= (int)sizeof(path)) {
+        KSLOG_ERROR("Path too long.");
+        return KSCrashInstallErrorPathTooLong;
+    }
     kscrashstate_initialize(path);
 
-    snprintf(g_consoleLogPath, sizeof(g_consoleLogPath), "%s/Data/ConsoleLog.txt", installPath);
+    if (snprintf(g_consoleLogPath, sizeof(g_consoleLogPath), "%s/Data/ConsoleLog.txt", installPath) >=
+        (int)sizeof(g_consoleLogPath)) {
+        KSLOG_ERROR("Console log path too long.");
+        return KSCrashInstallErrorPathTooLong;
+    }
     if (g_shouldPrintPreviousLog) {
         printPreviousLog(g_consoleLogPath);
     }
@@ -245,11 +269,16 @@ void kscrash_install(const char *appName, const char *const installPath, KSCrash
 
     kscm_setEventCallback(onCrash);
     setMonitors(configuration.monitors);
-    kscm_activateMonitors();
+    if (kscm_activateMonitors() == false) {
+        KSLOG_ERROR("No crash monitors are active");
+        return KSCrashInstallErrorNoActiveMonitors;
+    }
 
+    g_installed = true;
     KSLOG_DEBUG("Installation complete.");
 
     notifyOfBeforeInstallationState();
+    return 0;
 }
 
 void kscrash_setUserInfoJSON(const char *const userInfoJSON) { kscrashreport_setUserInfoJSON(userInfoJSON); }

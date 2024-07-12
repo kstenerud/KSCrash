@@ -63,8 +63,10 @@ typedef struct {
  * measures for asynchronous operations may not be activated. The function
  * checks the current environment and adjusts the activation status of each
  * monitor accordingly.
+ *
+ * @return bool True if at least one monitor was successfully activated, false if no monitors were activated.
  */
-void kscm_activateMonitors(void);
+bool kscm_activateMonitors(void);
 
 /**
  * Disables all active crash monitors.

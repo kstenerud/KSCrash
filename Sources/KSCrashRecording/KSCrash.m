@@ -240,12 +240,20 @@ static NSString *getBasePath(void)
     return [dict copy];
 }
 
-- (BOOL)installWithConfiguration:(KSCrashConfiguration *)configuration
+- (BOOL)installWithConfiguration:(KSCrashConfiguration *)configuration error:(NSError **)error
 {
     self.configuration = [configuration copy] ?: [KSCrashConfiguration new];
-    kscrash_install(self.bundleName.UTF8String, self.basePath.UTF8String, [self.configuration toCConfiguration]);
+    KSCrashInstallErrorCode result =
+        kscrash_install(self.bundleName.UTF8String, self.basePath.UTF8String, [self.configuration toCConfiguration]);
 
-    return true;
+    if (result != 0) {
+        if (error != NULL) {
+            *error = [self errorForInstallErrorCode:result];
+        }
+        return NO;
+    }
+
+    return YES;
 }
 
 - (void)sendAllReportsWithCompletion:(KSCrashReportFilterCompletion)onCompletion
@@ -434,6 +442,46 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
     NSMutableData *mutable = [NSMutableData dataWithData:data];
     [mutable appendBytes:"\0" length:1];
     return mutable;
+}
+
+- (NSError *)errorForInstallErrorCode:(KSCrashInstallErrorCode)errorCode
+{
+    NSString *errorDescription;
+    switch (errorCode) {
+        case KSCrashInstallErrorAlreadyInstalled:
+            errorDescription = @"KSCrash is already installed";
+            break;
+        case KSCrashInstallErrorInvalidParameter:
+            errorDescription = @"Invalid parameter provided";
+            break;
+        case KSCrashInstallErrorPathTooLong:
+            errorDescription = @"Path is too long";
+            break;
+        case KSCrashInstallErrorCouldNotCreatePath:
+            errorDescription = @"Could not create path";
+            break;
+        case KSCrashInstallErrorCouldNotInitializeStore:
+            errorDescription = @"Could not initialize crash report store";
+            break;
+        case KSCrashInstallErrorCouldNotInitializeMemory:
+            errorDescription = @"Could not initialize memory management";
+            break;
+        case KSCrashInstallErrorCouldNotInitializeCrashState:
+            errorDescription = @"Could not initialize crash state";
+            break;
+        case KSCrashInstallErrorCouldNotSetLogFilename:
+            errorDescription = @"Could not set log filename";
+            break;
+        case KSCrashInstallErrorNoActiveMonitors:
+            errorDescription = @"No crash monitors were activated";
+            break;
+        default:
+            errorDescription = @"Unknown error occurred";
+            break;
+    }
+    return [NSError errorWithDomain:KSCrashErrorDomain
+                               code:errorCode
+                           userInfo:@{ NSLocalizedDescriptionKey : errorDescription }];
 }
 
 // ============================================================================
