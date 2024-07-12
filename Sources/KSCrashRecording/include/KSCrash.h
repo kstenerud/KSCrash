@@ -130,7 +130,7 @@ NS_ASSUME_NONNULL_BEGIN
 /** Install the crash reporter.
  * The reporter will record crashes, but will not send any crash reports unless a sink is set.
  *
- * @param configuration The configuration to use for installation. If nil, a default configuration will be used.
+ * @param configuration The configuration to use for installation.
  * @param error A pointer to an NSError object. If an error occurs, this pointer is set to an actual error object
  *              containing the error information. You may specify nil for this parameter if you do not want
  *              the error information.
@@ -139,7 +139,7 @@ NS_ASSUME_NONNULL_BEGIN
  * @note If the installation fails, the error parameter will contain information about the failure reason.
  * @note Once installed, the crash reporter cannot be re-installed or modified without restarting the application.
  */
-- (BOOL)installWithConfiguration:(nullable KSCrashConfiguration *)configuration error:(NSError **)error;
+- (BOOL)installWithConfiguration:(KSCrashConfiguration *)configuration error:(NSError **)error;
 
 /** Send all outstanding crash reports to the current sink.
  * It will only attempt to send the most recent 5 reports. All others will be
