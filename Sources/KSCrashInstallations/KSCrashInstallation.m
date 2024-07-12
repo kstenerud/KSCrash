@@ -284,7 +284,7 @@ static CrashHandlerData *g_crashHandlerData;
             }
         };
 
-        [handler installWithConfiguration:configuration];
+        [handler installWithConfiguration:configuration error:NULL];
     }
 }
 
