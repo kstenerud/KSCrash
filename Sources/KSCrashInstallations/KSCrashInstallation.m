@@ -259,15 +259,12 @@ static CrashHandlerData *g_crashHandlerData;
     }
 }
 
-- (void)installWithConfiguration:(KSCrashConfiguration *)configuration
+- (BOOL)installWithConfiguration:(KSCrashConfiguration *)configuration error:(NSError **)error
 {
     KSCrash *handler = [KSCrash sharedInstance];
     @synchronized(handler) {
         g_crashHandlerData = self.crashHandlerData;
 
-        if (configuration == nil) {
-            configuration = [[KSCrashConfiguration alloc] init];
-        }
         configuration.crashNotifyCallback = ^(const struct KSCrashReportWriter *_Nonnull writer) {
             CrashHandlerData *crashHandlerData = g_crashHandlerData;
             if (crashHandlerData == NULL) {
@@ -284,7 +281,14 @@ static CrashHandlerData *g_crashHandlerData;
             }
         };
 
-        [handler installWithConfiguration:configuration error:NULL];
+        NSError *installError = nil;
+        BOOL success = [handler installWithConfiguration:configuration error:&installError];
+
+        if (success == NO && error != NULL) {
+            *error = installError;
+        }
+
+        return success;
     }
 }
 
