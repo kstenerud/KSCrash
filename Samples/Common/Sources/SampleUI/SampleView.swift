@@ -29,8 +29,11 @@ import LibraryBridge
 import CrashTriggers
 
 public struct SampleView: View {
+    @State private var showingInstallAlert = false
+    @State private var installErrorMessage: String = ""
+
     public init() { }
-    
+
     public var body: some View {
         NavigationView {
             List {
@@ -50,8 +53,20 @@ public struct SampleView: View {
             }
             .navigationTitle("KSCrash Sample")
         }
-        .onAppear {
-            RecordingSample.simpleInstall()
+        .onAppear(perform: installKSCrash)
+        .alert(isPresented: $showingInstallAlert) {
+            Alert(
+                title: Text("Installation Failed"),
+                message: Text(installErrorMessage),
+                dismissButton: .default(Text("OK"))
+            )
+        }
+    }
+
+    private func installKSCrash() {
+        if case let .failure(error) = RecordingSample.install() {
+            installErrorMessage = error.localizedDescription
+            showingInstallAlert = true
         }
     }
 }
