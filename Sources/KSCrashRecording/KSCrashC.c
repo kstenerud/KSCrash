@@ -276,7 +276,7 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     KSLOG_DEBUG("Installation complete.");
 
     notifyOfBeforeInstallationState();
-    return 0;
+    return KSCrashInstallErrorNone;
 }
 
 void kscrash_setUserInfoJSON(const char *const userInfoJSON) { kscrashreport_setUserInfoJSON(userInfoJSON); }

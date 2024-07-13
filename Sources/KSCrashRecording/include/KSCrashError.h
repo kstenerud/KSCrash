@@ -45,7 +45,8 @@ typedef
 #else  /* __OBJC__ */
     enum
 #endif /* __OBJC__ */
-{ KSCrashInstallErrorAlreadyInstalled = 1,
+{ KSCrashInstallErrorNone = 0,
+  KSCrashInstallErrorAlreadyInstalled,
   KSCrashInstallErrorInvalidParameter,
   KSCrashInstallErrorPathTooLong,
   KSCrashInstallErrorCouldNotCreatePath,

@@ -246,7 +246,7 @@ static NSString *getBasePath(void)
     KSCrashInstallErrorCode result =
         kscrash_install(self.bundleName.UTF8String, self.basePath.UTF8String, [self.configuration toCConfiguration]);
 
-    if (result != 0) {
+    if (result != KSCrashInstallErrorNone) {
         if (error != NULL) {
             *error = [self errorForInstallErrorCode:result];
         }
@@ -448,6 +448,9 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
 {
     NSString *errorDescription;
     switch (errorCode) {
+        case KSCrashInstallErrorNone:
+            errorDescription = @"No error";
+            break;
         case KSCrashInstallErrorAlreadyInstalled:
             errorDescription = @"KSCrash is already installed";
             break;
