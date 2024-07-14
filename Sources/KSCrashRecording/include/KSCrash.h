@@ -113,7 +113,7 @@ NS_ASSUME_NONNULL_BEGIN
  *
  * @note To specify a custom base direcory for KSCrash use `setBasePath:` method.
  */
-@property (class, readonly) KSCrash *sharedInstance NS_SWIFT_NAME(shared);
+@property(class, readonly) KSCrash *sharedInstance NS_SWIFT_NAME(shared);
 
 /**
  * Specifies a custom base path for KSCrash installation.

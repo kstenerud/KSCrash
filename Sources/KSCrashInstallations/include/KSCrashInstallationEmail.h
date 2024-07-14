@@ -42,7 +42,7 @@ typedef NS_ENUM(NSUInteger, KSCrashEmailReportStyle) {
 NS_SWIFT_NAME(CrashInstallationEmail)
 @interface KSCrashInstallationEmail : KSCrashInstallation
 
-@property (class, readonly) KSCrashInstallationEmail *sharedInstance NS_SWIFT_NAME(shared);
+@property(class, readonly) KSCrashInstallationEmail *sharedInstance NS_SWIFT_NAME(shared);
 
 /** List of email addresses to send to (mandatory) */
 @property(nonatomic, readwrite, copy) NSArray<NSString *> *recipients;

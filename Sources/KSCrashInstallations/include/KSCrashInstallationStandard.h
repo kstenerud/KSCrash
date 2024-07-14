@@ -33,7 +33,7 @@ NS_ASSUME_NONNULL_BEGIN
 NS_SWIFT_NAME(CrashInstallationStandard)
 @interface KSCrashInstallationStandard : KSCrashInstallation
 
-@property (class, readonly) KSCrashInstallationStandard *sharedInstance NS_SWIFT_NAME(shared);
+@property(class, readonly) KSCrashInstallationStandard *sharedInstance NS_SWIFT_NAME(shared);
 
 /** The URL to connect to. */
 @property(nonatomic, readwrite, strong) NSURL *url;
