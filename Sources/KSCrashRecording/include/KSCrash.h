@@ -109,6 +109,12 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)init NS_UNAVAILABLE;
 + (instancetype)new NS_UNAVAILABLE;
 
+/** Get the singleton instance of the crash reporter.
+ *
+ * @note To specify a custom base direcory for KSCrash use `setBasePath:` method.
+ */
+@property (class, readonly) KSCrash *sharedInstance NS_SWIFT_NAME(shared);
+
 /**
  * Specifies a custom base path for KSCrash installation.
  * By default a "KSCrash" directory inside the default cache directory is used.
@@ -120,12 +126,6 @@ NS_ASSUME_NONNULL_BEGIN
  *       Any call of this method after that is ignored.
  */
 + (void)setBasePath:(nullable NSString *)basePath;
-
-/** Get the singleton instance of the crash reporter.
- *
- * @note To specify a custom base direcory for KSCrash use `setBasePath:` method.
- */
-+ (instancetype)sharedInstance NS_SWIFT_NAME(shared());
 
 /** Install the crash reporter.
  * The reporter will record crashes, but will not send any crash reports unless

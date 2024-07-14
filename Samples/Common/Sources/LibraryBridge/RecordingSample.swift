@@ -30,6 +30,6 @@ import KSCrashRecording
 public class RecordingSample {
     public static func simpleInstall() {
         let config = KSCrashConfiguration()
-        KSCrash.shared().install(with: config)
+        KSCrash.shared.install(with: config)
     }
 }
