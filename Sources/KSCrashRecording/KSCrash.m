@@ -449,8 +449,7 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
     NSString *errorDescription;
     switch (errorCode) {
         case KSCrashInstallErrorNone:
-            errorDescription = @"No error";
-            break;
+            return nil;
         case KSCrashInstallErrorAlreadyInstalled:
             errorDescription = @"KSCrash is already installed";
             break;
