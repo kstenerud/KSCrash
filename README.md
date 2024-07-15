@@ -128,7 +128,7 @@ import KSCrash
 class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
 
-        let installation = CrashInstallationStandard.shared()
+        let installation = CrashInstallationStandard.shared
         installation.url = URL(string: "http://put.your.url.here")!
 
         // Optional: Add an alert confirmation (recommended for email installation)
@@ -154,7 +154,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 ##### Email Installation
 
 ```swift
-let installation = CrashInstallationEmail.shared()
+let installation = CrashInstallationEmail.shared
 installation.recipients = ["some@email.address"] // Specify recipients for email reports
 // Optional: Send Apple-style reports instead of JSON
 installation.setReportStyle(.apple, useDefaultFilenameFormat: true) 
@@ -163,7 +163,7 @@ installation.setReportStyle(.apple, useDefaultFilenameFormat: true)
 ##### Console Installation
 
 ```swift
-let installation = CrashInstallationConsole.shared()
+let installation = CrashInstallationConsole.shared
 installation.printAppleFormat = true // Print crash reports in Apple format for testing
 ```
 

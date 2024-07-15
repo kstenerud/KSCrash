@@ -43,7 +43,7 @@ public struct RecordingSample {
     public static func install() -> Result<Void, InstallationError> {
         do {
             let config = KSCrashConfiguration()
-            try KSCrash.shared().install(with: config)
+            try KSCrash.shared.install(with: config)
             print("KSCrash installed successfully")
             return .success(())
         } catch let error as KSCrashInstallError {

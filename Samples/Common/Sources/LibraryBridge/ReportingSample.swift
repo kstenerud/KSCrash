@@ -31,8 +31,8 @@ import KSCrashSinks
 
 public class ReportingSample {
     public static func logToConsole() {
-        KSCrash.shared().sink = CrashReportSinkConsole.filter().defaultCrashReportFilterSet()
-        KSCrash.shared().sendAllReports { reports, isSuccess, error in
+        KSCrash.shared.sink = CrashReportSinkConsole.filter().defaultCrashReportFilterSet()
+        KSCrash.shared.sendAllReports { reports, isSuccess, error in
             if isSuccess, let reports {
                 print("Logged \(reports.count) reports")
                 for (idx, report) in reports.enumerated() {
@@ -54,11 +54,11 @@ public class ReportingSample {
     }
 
     public static func sampleLogToConsole() {
-        KSCrash.shared().sink = CrashReportFilterPipeline(filtersArray: [
+        KSCrash.shared.sink = CrashReportFilterPipeline(filtersArray: [
             SampleFilter(),
             SampleSink(),
         ])
-        KSCrash.shared().sendAllReports()
+        KSCrash.shared.sendAllReports()
     }
 }
 
