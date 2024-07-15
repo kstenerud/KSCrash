@@ -51,17 +51,24 @@ NS_SWIFT_NAME(CrashInstallation)
 @property(atomic, readwrite, assign, nullable) KSReportWriteCallback onCrash;
 
 /** Install this crash handler with a specific configuration.
- * Call this method instead of `-[KSCrash installWithConfiguration:]` to set up the crash handler
+ * Call this method instead of `-[KSCrash installWithConfiguration:error:]` to set up the crash handler
  * tailored for your specific backend requirements.
  *
  * @param configuration The configuration object containing the settings for the crash handler.
- *                      If nil, a default KSCrashConfiguration will be used.
+ * @param error         On input, a pointer to an error object. If an error occurs, this pointer
+ *                      is set to an actual error object containing the error information.
+ *                      You may specify nil for this parameter if you do not want the error information.
+ *                      See KSCrashError.h for specific error codes that may be returned.
+ *
+ * @return YES if the installation was successful, NO otherwise.
  *
  * @note The `crashNotifyCallback` property of the provided `KSCrashConfiguration` will not take effect
  *       when using this method. The callback will be internally managed to ensure proper integration
  *       with the backend.
+ *
+ * @see KSCrashError.h for a complete list of possible error codes.
  */
-- (void)installWithConfiguration:(nullable KSCrashConfiguration *)configuration;
+- (BOOL)installWithConfiguration:(KSCrashConfiguration *)configuration error:(NSError **)error;
 
 /** Convenience method to call -[KSCrash sendAllReportsWithCompletion:].
  * This method will set the KSCrash sink and then send all outstanding reports.

@@ -27,9 +27,33 @@
 import Foundation
 import KSCrashRecording
 
-public class RecordingSample {
-    public static func simpleInstall() {
-        let config = KSCrashConfiguration()
-        KSCrash.shared.install(with: config)
+public struct RecordingSample {
+    public enum InstallationError: Error, LocalizedError {
+        case kscrashError(String)
+        case unexpectedError(String)
+
+        public var errorDescription: String? {
+            switch self {
+            case .kscrashError(let message), .unexpectedError(let message):
+                return message
+            }
+        }
+    }
+
+    public static func install() -> Result<Void, InstallationError> {
+        do {
+            let config = KSCrashConfiguration()
+            try KSCrash.shared.install(with: config)
+            print("KSCrash installed successfully")
+            return .success(())
+        } catch let error as KSCrashInstallError {
+            let message = error.localizedDescription
+            print("Failed to install KSCrash: \(message)")
+            return .failure(.kscrashError(message))
+        } catch {
+            let message = error.localizedDescription
+            print("Unexpected error during KSCrash installation: \(message)")
+            return .failure(.unexpectedError(message))
+        }
     }
 }

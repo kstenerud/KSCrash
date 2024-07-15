@@ -25,6 +25,7 @@
 //
 
 #import <XCTest/XCTest.h>
+#import <objc/runtime.h>
 
 #import "KSCrashMonitor.h"
 
@@ -114,6 +115,34 @@ extern void kscm_resetState(void);
     XCTAssertTrue(g_dummyMonitor.isEnabled(), @"The monitor should be enabled before disabling.");
     kscm_disableAllMonitors();  // Disable all monitors
     XCTAssertFalse(g_dummyMonitor.isEnabled(), @"The monitor should be disabled after calling disable all.");
+}
+
+- (void)testActivateMonitorsReturnsTrue
+{
+    XCTAssertTrue(kscm_addMonitor(&g_dummyMonitor), @"Monitor should be successfully added.");
+    XCTAssertTrue(kscm_activateMonitors(),
+                  @"activateMonitors should return true when at least one monitor is activated.");
+    XCTAssertTrue(g_dummyMonitor.isEnabled(), @"The monitor should be enabled after activation.");
+}
+
+- (void)testActivateMonitorsReturnsFalseWhenNoMonitorsActive
+{
+    // Don't add any monitors
+    XCTAssertFalse(kscm_activateMonitors(), @"activateMonitors should return false when no monitors are active.");
+}
+
+- (void)testActivateMonitorsReturnsFalseWhenAllMonitorsDisabled
+{
+    KSCrashMonitorAPI alwaysDisabledMonitor = g_dummyMonitor;
+    alwaysDisabledMonitor.setEnabled = (void (*)(bool))imp_implementationWithBlock(^(bool isEnabled) {
+        // pass
+    });
+    alwaysDisabledMonitor.isEnabled = (bool (*)(void))imp_implementationWithBlock(^{
+        return false;
+    });
+
+    XCTAssertTrue(kscm_addMonitor(&alwaysDisabledMonitor), @"Monitor should be successfully added.");
+    XCTAssertFalse(kscm_activateMonitors(), @"activateMonitors should return false when all monitors are disabled.");
 }
 
 #pragma mark - Monitor API Null Checks

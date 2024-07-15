@@ -144,7 +144,7 @@ void kscm_setEventCallback(void (*onEvent)(struct KSCrash_MonitorContext *monito
     g_onExceptionEvent = onEvent;
 }
 
-void kscm_activateMonitors(void)
+bool kscm_activateMonitors(void)
 {
     // Check for debugger and async safety
     bool isDebuggerUnsafe = ksdebug_isBeingTraced();
@@ -182,12 +182,15 @@ void kscm_activateMonitors(void)
         kscm_setMonitorEnabled(api, shouldEnable);
     }
 
+    bool anyMonitorActive = false;
+
     // Log active monitors
     KSLOG_DEBUG("Active monitors are now:");
     for (size_t i = 0; i < g_monitors.count; i++) {
         KSCrashMonitorAPI *api = g_monitors.apis[i];
         if (kscm_isMonitorEnabled(api)) {
             KSLOG_DEBUG("Monitor %s is enabled.", getMonitorNameForLogging(api));
+            anyMonitorActive = true;
         } else {
             KSLOG_DEBUG("Monitor %s is disabled.", getMonitorNameForLogging(api));
         }
@@ -198,6 +201,8 @@ void kscm_activateMonitors(void)
         KSCrashMonitorAPI *api = g_monitors.apis[i];
         kscm_notifyPostSystemEnable(api);
     }
+
+    return anyMonitorActive;
 }
 
 void kscm_disableAllMonitors(void)

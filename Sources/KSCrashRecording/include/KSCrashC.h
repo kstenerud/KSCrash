@@ -33,6 +33,7 @@
 #include <stdbool.h>
 
 #include "KSCrashCConfiguration.h"
+#include "KSCrashError.h"
 #include "KSCrashMonitorType.h"
 #include "KSCrashReportWriter.h"
 
@@ -54,19 +55,25 @@ extern "C" {
  *                    The specified directory must be writable, as it will contain log files,
  *                    crash data, and other diagnostic information.
  *
- * @param configuration A `KSCrashConfiguration` struct containing various settings and options
+ * @param configuration A `KSCrashCConfiguration` struct containing various settings and options
  *                      for the crash reporter. This struct allows you to specify which types of crashes
  *                      to monitor, user-supplied metadata, memory introspection options,
  *                      and other advanced settings.
  *                      Each field in the configuration struct has default values, which can be overridden
  *                      to tailor the behavior of the crash reporter to your specific requirements.
  *
+ * @return KSCrashInstallErrorCode indicating the result of the installation.
+ *         0 if installation was successful, other values indicate specific errors.
+ *
  * Example usage:
  * ```
- * KSCrashConfiguration config = KSCrashConfiguration_Default;
+ * KSCrashCConfiguration config = KSCrashCConfiguration_Default;
  * config.monitors = KSCrashMonitorTypeAll;
  * config.userInfoJSON = "{ \"user\": \"example\" }";
- * kscrash_install("MyApp", "/path/to/install", config);
+ * KSCrashInstallErrorCode result = kscrash_install("MyApp", "/path/to/install", config);
+ * if (result != 0) {
+ *     // Handle installation error
+ * }
  * ```
  *
  * @note This function must be called before any crashes occur to ensure that
@@ -75,7 +82,8 @@ extern "C" {
  * @note Once installed, the crash reporter cannot be re-installed or modified
  * without restarting the application.
  */
-void kscrash_install(const char *appName, const char *const installPath, KSCrashCConfiguration configuration);
+KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const installPath,
+                                        KSCrashCConfiguration configuration);
 
 /** Set the user-supplied data in JSON format.
  *

@@ -1,7 +1,7 @@
 //
-//  KSCrashInstallationStandard_Tests.m
+//  KSCrashError.h
 //
-//  Created by Karl Stenerud on 2013-03-09.
+//  Created by Gleb Linnik on 12.07.2024.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,25 +24,44 @@
 // THE SOFTWARE.
 //
 
-#import <XCTest/XCTest.h>
+#ifndef KSCrashError_h
+#define KSCrashError_h
 
-#import "KSCrashInstallationStandard.h"
+#ifdef __OBJC__
+#include <Foundation/Foundation.h>
+#endif
 
-@interface KSCrashInstallationStandard_Tests : XCTestCase
-@end
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-@implementation KSCrashInstallationStandard_Tests
+#ifdef __OBJC__
+static NSErrorDomain const KSCrashErrorDomain = @"KSCrashErrorDomain";
+#endif
 
-- (void)testInstall
-{
-    KSCrashInstallationStandard *installation = [KSCrashInstallationStandard sharedInstance];
-    installation.url = [NSURL URLWithString:@"www.google.com"];
-    [installation installWithConfiguration:[KSCrashConfiguration new] error:NULL];
-    [installation sendAllReportsWithCompletion:^(__unused NSArray *filteredReports, BOOL completed, NSError *error) {
-        // There are no reports, so this will succeed.
-        XCTAssertTrue(completed, @"");
-        XCTAssertNil(error, @"");
-    }];
+typedef
+#ifdef __OBJC__
+    NS_ERROR_ENUM(KSCrashErrorDomain, KSCrashInstallErrorCode)
+#else  /* __OBJC__ */
+    enum
+#endif /* __OBJC__ */
+{ KSCrashInstallErrorNone = 0,
+  KSCrashInstallErrorAlreadyInstalled,
+  KSCrashInstallErrorInvalidParameter,
+  KSCrashInstallErrorPathTooLong,
+  KSCrashInstallErrorCouldNotCreatePath,
+  KSCrashInstallErrorCouldNotInitializeStore,
+  KSCrashInstallErrorCouldNotInitializeMemory,
+  KSCrashInstallErrorCouldNotInitializeCrashState,
+  KSCrashInstallErrorCouldNotSetLogFilename,
+  KSCrashInstallErrorNoActiveMonitors }
+#ifndef __OBJC__
+KSCrashInstallErrorCode
+#endif
+    ;
+
+#ifdef __cplusplus
 }
+#endif
 
-@end
+#endif /* KSCrashError_h */
