@@ -53,8 +53,14 @@ struct InstallView: View {
                 NavigationLink("Monitors") {
                     MonitorTypeView(monitors: bridge.configBinding(for: \.monitors))
                 }
+                NavigationLink("User Info") {
+                    UserInfoInputView(userInfo: bridge.configBinding(for: \.userInfoJSON))
+                }
                 Toggle(isOn: bridge.configBinding(for: \.enableQueueNameSearch)) {
                     Text("Queue name search")
+                }
+                Toggle(isOn: bridge.configBinding(for: \.enableMemoryIntrospection)) {
+                    Text("Memory introspection")
                 }
                 Toggle(isOn: bridge.configBinding(for: \.addConsoleLogToReport)) {
                     Text("Add KSCrash console log to report")
