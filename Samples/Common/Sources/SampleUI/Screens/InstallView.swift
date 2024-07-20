@@ -56,21 +56,27 @@ struct InstallView: View {
                 NavigationLink("User Info") {
                     UserInfoInputView(userInfo: bridge.configBinding(for: \.userInfoJSON))
                 }
+                // TODO: Add deadlockWatchdogInterval
                 Toggle(isOn: bridge.configBinding(for: \.enableQueueNameSearch)) {
                     Text("Queue name search")
                 }
                 Toggle(isOn: bridge.configBinding(for: \.enableMemoryIntrospection)) {
                     Text("Memory introspection")
                 }
+                // TODO: Add doNotIntrospectClasses
+                // TODO: Add crashNotifyCallback
+                // TODO: Add reportWrittenCallback
                 Toggle(isOn: bridge.configBinding(for: \.addConsoleLogToReport)) {
                     Text("Add KSCrash console log to report")
                 }
                 Toggle(isOn: bridge.configBinding(for: \.printPreviousLogOnStartup)) {
                     Text("Print previous log on startup")
                 }
+                // TODO: Add maxReportCount
                 Toggle(isOn: bridge.configBinding(for: \.enableSwapCxaThrow)) {
                     Text("Swap __cxa_throw")
                 }
+                // TODO: Add deleteBehaviorAfterSendAll
             }
 
             Button("Skip install") {
