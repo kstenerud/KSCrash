@@ -29,17 +29,17 @@ import SwiftUI
 import LibraryBridge
 
 struct InstallView: View {
-    @ObservedObject var bridge = InstallBridge()
+    @ObservedObject var bridge: InstallBridge
 
-    @Binding var installed: Bool
+    @Binding var installSkipped: Bool
+
+    @State private var showingInstallAlert = false
 
     var body: some View {
         List {
             Button("Install") {
                 bridge.install()
-                installed = true
             }
-            .foregroundColor(.primary)
 
             Section(header: Text("Static Config")) {
                 Picker("Base path", selection: $bridge.basePath) {
@@ -68,9 +68,17 @@ struct InstallView: View {
             }
 
             Button("Skip install") {
-                installed = true
+                installSkipped = true
             }
-            .foregroundColor(.red)
+            .foregroundStyle(Color.red)
         }
+        .alert(isPresented: $showingInstallAlert) {
+            Alert(
+                title: Text("Installation Failed"),
+                message: Text(bridge.error?.errorDescription ?? ""),
+                dismissButton: .default(Text("OK"))
+            )
+        }
+        .onReceive(bridge.$error) { if $0 != nil { showingInstallAlert = true } }
     }
 }

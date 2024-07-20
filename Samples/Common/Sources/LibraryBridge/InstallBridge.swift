@@ -38,54 +38,33 @@ public enum BasePath: String, CaseIterable {
 public class InstallBridge: ObservableObject {
     public typealias MonitorType = KSCrashRecording.MonitorType
 
+    public enum InstallationError: Error, LocalizedError {
+        case kscrashError(String)
+        case unexpectedError(String)
+        case alreadyInstalled
+
+        public var errorDescription: String? {
+            switch self {
+            case .kscrashError(let message), .unexpectedError(let message):
+                return message
+            case .alreadyInstalled:
+                return "KSCrash is already installed"
+            }
+        }
+    }
+
     private static func setBasePath(_ value: BasePath) {
         let basePath = value.basePaths.first.flatMap { $0 + "/KSCrash" }
         print("Setting KSCrash base path to: \(basePath ?? "<default>")")
         KSCrash.setBasePath(basePath)
     }
 
-    public static let allRawMonitorTypes: [(String, MonitorType)] = [
-        ("machException", .machException),
-        ("signal", .signal),
-        ("cppException", .cppException),
-        ("nsException", .nsException),
-        ("mainThreadDeadlock", .mainThreadDeadlock),
-        ("userReported", .userReported),
-        ("system", .system),
-        ("applicationState", .applicationState),
-        ("zombie", .zombie),
-        ("memoryTermination", .memoryTermination),
-    ]
-
-    public static let allCompositeMonitorTypes: [(String, MonitorType)] = [
-        ("all", .all),
-        ("fatal", .fatal),
-        ("experimental", .experimental),
-        ("debuggerUnsafe", .debuggerUnsafe),
-        ("asyncSafe", .asyncSafe),
-        ("optional", .optional),
-        ("asyncUnsafe", .asyncUnsafe),
-        ("debuggerSafe", .debuggerSafe),
-        ("productionSafe", .productionSafe),
-        ("productionSafeMinimal", .productionSafeMinimal),
-        ("required", .required),
-        ("manual", .manual),
-    ]
-
     private var config: KSCrashConfiguration
     private var disposables = Set<AnyCancellable>()
 
     @Published public var basePath: BasePath = .default
-
-    public func configBinding<T>(for keyPath: WritableKeyPath<KSCrashConfiguration, T>) -> Binding<T> {
-        .init { [config] in
-            config[keyPath: keyPath]
-        } set: { [weak self] val in
-            self?.objectWillChange.send()
-            self?.config[keyPath: keyPath] = val
-        }
-
-    }
+    @Published public var installed: Bool = false
+    @Published public var error: InstallationError?
 
     public init() {
         config = .init()
@@ -97,8 +76,72 @@ public class InstallBridge: ObservableObject {
     }
 
     public func install() {
-        KSCrash.shared().install(with: config)
+        guard !installed else {
+            error = .alreadyInstalled
+            return
+        }
+
+        do {
+            try KSCrash.shared.install(with: config)
+            installed = true
+        } catch let error as KSCrashInstallError {
+            let message = error.localizedDescription
+            print("Failed to install KSCrash: \(message)")
+            self.error = .kscrashError(message)
+        } catch {
+            let message = error.localizedDescription
+            print("Unexpected error during KSCrash installation: \(message)")
+            self.error = .unexpectedError(message)
+        }
     }
+}
+
+// An utility method to simplify binding of config fields
+extension InstallBridge {
+    public func configBinding<T>(for keyPath: WritableKeyPath<KSCrashConfiguration, T>) -> Binding<T> {
+        .init { [config] in
+            config[keyPath: keyPath]
+        } set: { [weak self] val in
+            self?.objectWillChange.send()
+            self?.config[keyPath: keyPath] = val
+        }
+    }
+}
+
+// Monitor types are specified here
+extension InstallBridge {
+    public static let allRawMonitorTypes: [(MonitorType, String, String)] = [
+        (.machException, "Mach Exception", "Low-level system exceptions"),
+        (.signal, "Signal", "UNIX-style signals indicating abnormal program termination"),
+        (.cppException, "C++ Exception", "Unhandled exceptions in C++ code"),
+        (.nsException, "NSException", "Unhandled Objective-C exceptions"),
+        (.mainThreadDeadlock, "Main Thread Deadlock", "Situations where the main thread becomes unresponsive"),
+        (.memoryTermination, "Memory Termination", "Termination due to excessive memory usage"),
+        (.zombie, "Zombie", "Attempts to access deallocated objects"),
+        (.userReported, "User Reported", "Custom crash reports"),
+        (.system, "System", "Additional system information added to reports"),
+        (.applicationState, "Application State", "Application lifecycle added to report"),
+    ]
+
+    public static let allCompositeMonitorTypes: [(MonitorType, String)] = [
+        (.all, "All"),
+        (.fatal, "Fatal"),
+
+        (.productionSafe, "Production-safe"),
+        (.productionSafeMinimal, "Production-safe Minimal"),
+        (.experimental, "Experimental"),
+
+        (.required, "Required"),
+        (.optional, "Optional"),
+
+        (.debuggerSafe, "Debugger-safe"),
+        (.debuggerUnsafe, "Debugger-unsafe"),
+
+        (.asyncSafe, "Async-safe"),
+        (.asyncUnsafe, "Async-unsafe"),
+
+        (.manual, "Manual"),
+    ]
 }
 
 extension BasePath {

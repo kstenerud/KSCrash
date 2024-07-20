@@ -31,19 +31,37 @@ import CrashTriggers
 public struct SampleView: View {
     public init() { }
 
-    @State var installed = false
+    @ObservedObject var installBridge = InstallBridge()
+
+    @State private var installSkipped = false
 
     public var body: some View {
         NavigationView {
-            if installed {
+            if installBridge.installed || installSkipped {
                 List {
+                    Section {
+                        if installSkipped {
+                            Button("Back to Install") {
+                                installSkipped = false
+                            }
+                        } else {
+                            Text("KSCrash is installed successfully")
+                                .foregroundStyle(Color.secondary)
+                        }
+                    }
+
                     NavigationLink("Crash", destination: CrashView())
                     NavigationLink("Report", destination: ReportingView())
                 }
                 .navigationTitle("KSCrash Sample")
+                .transition(.slide)
             } else {
-                InstallView(installed: $installed)
-                .navigationTitle("Install")
+                InstallView(
+                    bridge: installBridge,
+                    installSkipped: $installSkipped
+                )
+                .navigationTitle("Install KSCrash")
+                .transition(.slide)
             }
         }
     }

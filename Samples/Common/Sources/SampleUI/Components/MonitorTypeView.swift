@@ -47,14 +47,19 @@ struct MonitorTypeView: View {
     var body: some View {
         List {
             Section(header: Text("Monitors")) {
-                ForEach(InstallBridge.allRawMonitorTypes, id: \.1.rawValue) { (name, monitor) in
+                ForEach(InstallBridge.allRawMonitorTypes, id: \.0.rawValue) { (monitor, name, description) in
                     Toggle(isOn: monitorBinding(monitor)) {
-                        Text(name)
+                        VStack(alignment: .leading) {
+                            Text(name)
+                            Text(description)
+                                .font(.caption)
+                                .foregroundStyle(Color.secondary)
+                        }
                     }
                 }
             }
             Section(header: Text("Composite")) {
-                ForEach(InstallBridge.allCompositeMonitorTypes, id: \.0) { (name, monitor) in
+                ForEach(InstallBridge.allCompositeMonitorTypes, id: \.1) { (monitor, name) in
                     HStack {
                         Text(name)
                         Spacer()
