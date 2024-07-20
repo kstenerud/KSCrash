@@ -93,13 +93,21 @@ struct UserInfoInputView: View {
     var body: some View {
         List {
             Section(header: Text("JSON text")) {
+#if os(tvOS) || os(watchOS)
+                Text("Editing is not available, use presets")
+                    .font(.caption)
+                    .foregroundStyle(Color.secondary)
+#else
                 TextEditor(text: textBinding)
                     .focused($isEditing)
                     .font(.caption.monospaced())
                     .autocorrectionDisabled()
+#if !os(macOS)
                     .textInputAutocapitalization(.never)
                     .keyboardType(.asciiCapable)
+#endif
                     .frame(minHeight: 200)
+#endif
             }
             Section(header: Text("Presets")) {
                 Button("nil") { setPreset(nil) }
