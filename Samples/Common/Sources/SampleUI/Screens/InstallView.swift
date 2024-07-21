@@ -39,7 +39,7 @@ struct InstallView: View {
         List {
             Button("Install") {
                 bridge.install()
-            }
+            }.accessibilityIdentifier(AccessibilityIdentifiers.InstallView.installButton)
 
             Section(header: Text("Static Config")) {
                 Picker("Base path", selection: $bridge.basePath) {

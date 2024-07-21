@@ -1,5 +1,5 @@
 //
-//  MainView.swift
+//  AccessibilityIdentifiers.swift
 //
 //  Created by Nikolay Volosatov on 2024-07-21.
 //
@@ -25,29 +25,19 @@
 //
 
 import Foundation
-import SwiftUI
 
-struct MainView: View {
-
-    @Binding var installSkipped: Bool
-
-    var body: some View {
-        List {
-            Section {
-                if installSkipped {
-                    Button("Back to Install") {
-                        installSkipped = false
-                    }
-                } else {
-                    Text("KSCrash is installed successfully")
-                        .foregroundStyle(Color.secondary)
-                }
-            }
-
-            NavigationLink("Crash", destination: CrashView())
-                .accessibilityIdentifier(AccessibilityIdentifiers.MainView.crashButton)
-            NavigationLink("Report", destination: ReportingView())
-                .accessibilityIdentifier(AccessibilityIdentifiers.MainView.reportButton)
-        }
+public enum AccessibilityIdentifiers {
+    public enum InstallView {
+        public static let installButton = "install.install-button"
+    }
+    public enum MainView {
+        public static let crashButton = "main.crash-button"
+        public static let reportButton = "main.report-button"
+    }
+    public enum CrashView {
+        public static let nsexceptionButton = "crash.nsexception-button"
+    }
+    public enum ReportView {
+        public static let consoleButton = "report.console-button"
     }
 }

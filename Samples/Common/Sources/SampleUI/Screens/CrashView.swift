@@ -32,7 +32,7 @@ struct CrashView: View {
         List {
             Button("NSException") {
                 CrashTriggers.nsexception()
-            }
+            }.accessibilityIdentifier(AccessibilityIdentifiers.CrashView.nsexceptionButton)
         }
         .navigationTitle("Crash")
     }

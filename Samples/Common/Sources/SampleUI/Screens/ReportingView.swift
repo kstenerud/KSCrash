@@ -32,7 +32,7 @@ struct ReportingView: View {
         List {
             Button("Log To Console") {
                 ReportingSample.logToConsole()
-            }
+            }.accessibilityIdentifier(AccessibilityIdentifiers.ReportView.consoleButton)
             Button("Sample Custom Log To Console") {
                 ReportingSample.sampleLogToConsole()
             }
