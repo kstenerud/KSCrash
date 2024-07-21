@@ -76,7 +76,6 @@ jobs:
       matrix:
         include:
           - platform: iOS
-          - platform: tvOS
           - platform: watchOS
     steps:
       - name: Checkout Code
