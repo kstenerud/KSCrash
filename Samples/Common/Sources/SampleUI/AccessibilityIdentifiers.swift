@@ -38,6 +38,7 @@ public enum AccessibilityIdentifiers {
         public static let nsexceptionButton = "crash.nsexception-button"
     }
     public enum ReportView {
+        public static let logToFileButton = "report.log-to-file-button"
         public static let consoleButton = "report.console-button"
     }
 }

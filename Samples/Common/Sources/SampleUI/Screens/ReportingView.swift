@@ -30,6 +30,11 @@ import LibraryBridge
 struct ReportingView: View {
     var body: some View {
         List {
+            if let url = ReportingSample.testReportFileURL {
+                Button("[TEST] Log To File") {
+                    ReportingSample.appleReportToFile(url)
+                }.accessibilityIdentifier(AccessibilityIdentifiers.ReportView.logToFileButton)
+            }
             Button("Log To Console") {
                 ReportingSample.logToConsole()
             }.accessibilityIdentifier(AccessibilityIdentifiers.ReportView.consoleButton)

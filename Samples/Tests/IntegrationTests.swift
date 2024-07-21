@@ -63,7 +63,6 @@ final class IntegrationTests: XCTestCase {
             .first
             .flatMap { reportsUrl.appending(component:$0).path() }
         XCTAssertNotNil(reportPath)
-        print(reportPath!)
         let report = try? JSONSerialization.jsonObject(with: Data(contentsOf: .init(filePath: reportPath!)))
         XCTAssertNotNil(report)
         var parsedReason: String?
@@ -75,12 +74,23 @@ final class IntegrationTests: XCTestCase {
         }
         XCTAssertEqual(parsedReason, "Test")
 
+        let appleReportUrl = installUrl.appending(component: "report.txt")
         app.launchEnvironment["KSCrashInstallPath"] = installUrl.path()
+        app.launchEnvironment["KSCrashReportToFile"] = appleReportUrl.path()
         app.launch()
 
         app.buttons[AccessibilityIdentifiers.InstallView.installButton].tap()
         app.buttons[AccessibilityIdentifiers.MainView.reportButton].tap()
-        app.buttons[AccessibilityIdentifiers.ReportView.consoleButton].tap()
+        app.buttons[AccessibilityIdentifiers.ReportView.logToFileButton].tap()
+
+        let fileExpectation = XCTNSPredicateExpectation(
+            predicate: .init { _, _ in FileManager.default.fileExists(atPath: appleReportUrl.path()) },
+            object: nil
+        )
+        wait(for: [fileExpectation], timeout: 3.0)
+
+        let appleReport = try? String(contentsOf: appleReportUrl)
+        XCTAssertTrue(appleReport?.contains("reason: 'Test'") ?? false)
 
         app.terminate()
     }

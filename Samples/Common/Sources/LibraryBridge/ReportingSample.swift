@@ -33,6 +33,11 @@ import Logging
 public class ReportingSample {
     private static let logger = Logger(label: "ReportingSample")
 
+    public static private(set) var testReportFileURL: URL? = {
+        ProcessInfo.processInfo.environment["KSCrashReportToFile"]
+            .flatMap { URL(fileURLWithPath: $0) }
+    }()
+
     public static func logToConsole() {
         KSCrash.shared.sink = CrashReportSinkConsole.filter().defaultCrashReportFilterSet()
         KSCrash.shared.sendAllReports { reports, isSuccess, error in
@@ -60,6 +65,14 @@ public class ReportingSample {
         KSCrash.shared.sink = CrashReportFilterPipeline(filtersArray: [
             SampleFilter(),
             SampleSink(),
+        ])
+        KSCrash.shared.sendAllReports()
+    }
+
+    public static func appleReportToFile(_ url: URL) {
+        KSCrash.shared.sink = CrashReportFilterPipeline(filtersArray: [
+            CrashReportFilterAppleFmt(),
+            FileSink(fileUrl: url),
         ])
         KSCrash.shared.sendAllReports()
     }
@@ -133,6 +146,35 @@ public class SampleSink: NSObject, CrashReportFilter {
             ] + sampleReport.crashedThread.callStack.map { "\t\t\($0)" }
             let text = lines.joined(separator: "\n")
             Self.logger.info("\(text)")
+        }
+        onCompletion?(reports, true, nil)
+    }
+}
+
+public class FileSink: NSObject, CrashReportFilter {
+    private static let logger = Logger(label: "FileSink")
+
+    let fileUrl: URL
+
+    public init(fileUrl: URL) {
+        self.fileUrl = fileUrl
+    }
+
+    public func filterReports(_ reports: [any CrashReport], onCompletion: (([any CrashReport]?, Bool, (any Error)?) -> Void)? = nil) {
+        for report in reports {
+            let data: Data
+            if let stringReport = report as? CrashReportString {
+                data = stringReport.value.data(using: .utf8)!
+            } else if let dataReport = report as? CrashReportData {
+                data = dataReport.value
+            } else {
+                continue
+            }
+            do {
+                try data.write(to: fileUrl)
+            } catch {
+                Self.logger.error("Failed to save report: \(error)")
+            }
         }
         onCompletion?(reports, true, nil)
     }
