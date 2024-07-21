@@ -26,6 +26,17 @@ let project = Project(
                 .package(product: "SampleUI", type: .runtime),
             ]
         ),
+        .target(
+            name: "SampleTests",
+            destinations: .allForSample.subtracting(.visionOS),
+            product: .uiTests,
+            bundleId: "com.github.kstenerud.KSCrash.Sample.Tests",
+            sources: ["Tests/**"],
+            dependencies: [
+                .target(name: "Sample"),
+                .package(product: "SampleUI", type: .runtime),
+            ]
+        ),
     ]
 )
 
