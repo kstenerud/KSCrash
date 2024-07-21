@@ -53,6 +53,9 @@ final class IntegrationTests: XCTestCase {
         app.buttons[AccessibilityIdentifiers.MainView.crashButton].tap()
         app.buttons[AccessibilityIdentifiers.CrashView.nsexceptionButton].tap()
 
+        let expectation = XCTNSPredicateExpectation(predicate: .init { _, _ in app.state == .notRunning }, object: nil)
+        wait(for: [expectation], timeout: 2.0)
+
         XCTAssertEqual(app.state, .notRunning)
         let reportsUrl = installUrl.appending(component: "Reports")
         let reportPath = try! FileManager.default
