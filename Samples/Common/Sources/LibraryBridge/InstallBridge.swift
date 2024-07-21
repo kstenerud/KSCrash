@@ -66,16 +66,23 @@ public class InstallBridge: ObservableObject {
     private var disposables = Set<AnyCancellable>()
 
     @Published public var basePath: BasePath = .default
+    @Published public var testOverridePath: String?
     @Published public var installed: Bool = false
     @Published public var error: InstallationError?
 
     public init() {
         config = .init()
 
-        $basePath
-            .removeDuplicates()
-            .sink(receiveValue: Self.setBasePath(_:))
-            .store(in: &disposables)
+        testOverridePath = ProcessInfo.processInfo.environment["KSCrashInstallPath"]
+
+        if let testOverridePath {
+            KSCrash.setBasePath(testOverridePath)
+        } else {
+            $basePath
+                .removeDuplicates()
+                .sink(receiveValue: Self.setBasePath(_:))
+                .store(in: &disposables)
+        }
     }
 
     public func install() {
