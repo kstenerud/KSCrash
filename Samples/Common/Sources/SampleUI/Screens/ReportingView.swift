@@ -1,7 +1,7 @@
 //
-//  SampleView.swift
+//  ReportingView.swift
 //
-//  Created by Nikolay Volosatov on 2024-06-23.
+//  Created by Nikolay Volosatov on 2024-07-07.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -26,29 +26,18 @@
 
 import SwiftUI
 import LibraryBridge
-import CrashTriggers
 
-public struct SampleView: View {
-    public init() { }
-
-    @ObservedObject var installBridge = InstallBridge()
-
-    @State private var installSkipped = false
-
-    public var body: some View {
-        NavigationView {
-            if installBridge.installed || installSkipped {
-                MainView(
-                    installSkipped: $installSkipped
-                )
-                .navigationTitle("KSCrash Sample")
-            } else {
-                InstallView(
-                    bridge: installBridge,
-                    installSkipped: $installSkipped
-                )
-                .navigationTitle("Install KSCrash")
+struct ReportingView: View {
+    var body: some View {
+        List {
+            Button("Log To Console") {
+                ReportingSample.logToConsole()
+            }
+            Button("Sample Custom Log To Console") {
+                ReportingSample.sampleLogToConsole()
             }
         }
+        .navigationTitle("Report")
     }
 }
+

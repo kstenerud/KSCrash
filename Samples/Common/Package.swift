@@ -1,14 +1,14 @@
-// swift-tools-version:5.3
+// swift-tools-version:5.7
 
 import PackageDescription
 
 let package = Package(
   name: "KSCrashSamplesCommon",
   platforms: [
-    .iOS(.v14),
-    .tvOS(.v14),
-    .watchOS(.v7),
-    .macOS(.v11),
+    .iOS(.v15),
+    .tvOS(.v15),
+    .watchOS(.v8),
+    .macOS(.v13),
   ],
   products: [
     .library(
@@ -26,6 +26,7 @@ let package = Package(
   ],
   dependencies: [
     .package(path: "../.."),
+    .package(url: "https://github.com/apple/swift-log.git", from: "1.0.0"),
   ],
   targets: [
     .target(
@@ -33,6 +34,7 @@ let package = Package(
       dependencies: [
         .product(name: "Recording", package: "KSCrash"),
         .product(name: "Reporting", package: "KSCrash"),
+        .product(name: "Logging", package: "swift-log"),
       ]
     ),
     .target(
@@ -43,6 +45,7 @@ let package = Package(
       dependencies: [
         .target(name: "LibraryBridge"),
         .target(name: "CrashTriggers"),
+        .product(name: "Logging", package: "swift-log"),
       ]
     )
   ]

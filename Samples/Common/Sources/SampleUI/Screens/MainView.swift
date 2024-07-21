@@ -1,7 +1,7 @@
 //
-//  RecordingSample.swift
+//  MainView.swift
 //
-//  Created by Nikolay Volosatov on 2024-06-23.
+//  Created by Nikolay Volosatov on 2024-07-21.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -25,35 +25,27 @@
 //
 
 import Foundation
-import KSCrashRecording
+import SwiftUI
 
-public struct RecordingSample {
-    public enum InstallationError: Error, LocalizedError {
-        case kscrashError(String)
-        case unexpectedError(String)
+struct MainView: View {
 
-        public var errorDescription: String? {
-            switch self {
-            case .kscrashError(let message), .unexpectedError(let message):
-                return message
+    @Binding var installSkipped: Bool
+
+    var body: some View {
+        List {
+            Section {
+                if installSkipped {
+                    Button("Back to Install") {
+                        installSkipped = false
+                    }
+                } else {
+                    Text("KSCrash is installed successfully")
+                        .foregroundStyle(Color.secondary)
+                }
             }
-        }
-    }
 
-    public static func install() -> Result<Void, InstallationError> {
-        do {
-            let config = KSCrashConfiguration()
-            try KSCrash.shared.install(with: config)
-            print("KSCrash installed successfully")
-            return .success(())
-        } catch let error as KSCrashInstallError {
-            let message = error.localizedDescription
-            print("Failed to install KSCrash: \(message)")
-            return .failure(.kscrashError(message))
-        } catch {
-            let message = error.localizedDescription
-            print("Unexpected error during KSCrash installation: \(message)")
-            return .failure(.unexpectedError(message))
+            NavigationLink("Crash", destination: CrashView())
+            NavigationLink("Report", destination: ReportingView())
         }
     }
 }
