@@ -28,27 +28,30 @@ import Foundation
 import KSCrashRecording
 import KSCrashFilters
 import KSCrashSinks
+import Logging
 
 public class ReportingSample {
+    private static let logger = Logger(label: "ReportingSample")
+
     public static func logToConsole() {
         KSCrash.shared.sink = CrashReportSinkConsole.filter().defaultCrashReportFilterSet()
         KSCrash.shared.sendAllReports { reports, isSuccess, error in
             if isSuccess, let reports {
-                print("Logged \(reports.count) reports")
+                Self.logger.info("Logged \(reports.count) reports")
                 for (idx, report) in reports.enumerated() {
                     switch report {
                     case let stringReport as CrashReportString:
-                        print("Report #\(idx) is a string (length is \(stringReport.value.count))")
+                        Self.logger.info("Report #\(idx) is a string (length is \(stringReport.value.count))")
                     case let dictionaryReport as CrashReportDictionary:
-                        print("Report #\(idx) is a dictionary (number of keys is \(dictionaryReport.value.count))")
+                        Self.logger.info("Report #\(idx) is a dictionary (number of keys is \(dictionaryReport.value.count))")
                     case let dataReport as CrashReportData:
-                        print("Report #\(idx) is a binary data (size is \(dataReport.value.count) bytes)")
+                        Self.logger.info("Report #\(idx) is a binary data (size is \(dataReport.value.count) bytes)")
                     default:
-                        print("Unknown report #\(idx): \(report.debugDescription ?? "?")")
+                        Self.logger.warning("Unknown report #\(idx): \(report.debugDescription ?? "?")")
                     }
                 }
             } else {
-                print("Failed to log reports: \(error?.localizedDescription ?? "")")
+                Self.logger.error("Failed to log reports: \(error?.localizedDescription ?? "")")
             }
         }
     }
@@ -117,6 +120,8 @@ public class SampleFilter: NSObject, CrashReportFilter {
 }
 
 public class SampleSink: NSObject, CrashReportFilter {
+    private static let logger = Logger(label: "SampleSink")
+
     public func filterReports(_ reports: [any CrashReport], onCompletion: (([any CrashReport]?, Bool, (any Error)?) -> Void)? = nil) {
         for (idx, report) in reports.enumerated() {
             guard let sampleReport = report as? SampleCrashReport else {
@@ -126,7 +131,8 @@ public class SampleSink: NSObject, CrashReportFilter {
                 "Crash report #\(idx):",
                 "\tCrashed thread #\(sampleReport.crashedThread.index):",
             ] + sampleReport.crashedThread.callStack.map { "\t\t\($0)" }
-            print(lines.joined(separator: "\n"))
+            let text = lines.joined(separator: "\n")
+            Self.logger.info("\(text)")
         }
         onCompletion?(reports, true, nil)
     }

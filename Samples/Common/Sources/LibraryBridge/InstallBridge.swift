@@ -28,6 +28,7 @@ import Foundation
 import Combine
 import SwiftUI
 import KSCrashRecording
+import Logging
 
 public enum BasePath: String, CaseIterable {
     case `default`
@@ -53,9 +54,11 @@ public class InstallBridge: ObservableObject {
         }
     }
 
+    private static let logger = Logger(label: "InstallBridge")
+
     private static func setBasePath(_ value: BasePath) {
         let basePath = value.basePaths.first.flatMap { $0 + "/KSCrash" }
-        print("Setting KSCrash base path to: \(basePath ?? "<default>")")
+        Self.logger.info("Setting KSCrash base path to: \(basePath ?? "<default>")")
         KSCrash.setBasePath(basePath)
     }
 
@@ -86,11 +89,11 @@ public class InstallBridge: ObservableObject {
             installed = true
         } catch let error as KSCrashInstallError {
             let message = error.localizedDescription
-            print("Failed to install KSCrash: \(message)")
+            Self.logger.error("Failed to install KSCrash: \(message)")
             self.error = .kscrashError(message)
         } catch {
             let message = error.localizedDescription
-            print("Unexpected error during KSCrash installation: \(message)")
+            Self.logger.error("Unexpected error during KSCrash installation: \(message)")
             self.error = .unexpectedError(message)
         }
     }
@@ -110,7 +113,7 @@ extension InstallBridge {
 
 // Monitor types are specified here
 extension InstallBridge {
-    public static let allRawMonitorTypes: [(MonitorType, String, String)] = [
+    public static let allRawMonitorTypes: [(monitor: MonitorType, name: String, description: String)] = [
         (.machException, "Mach Exception", "Low-level system exceptions"),
         (.signal, "Signal", "UNIX-style signals indicating abnormal program termination"),
         (.cppException, "C++ Exception", "Unhandled exceptions in C++ code"),
@@ -123,7 +126,7 @@ extension InstallBridge {
         (.applicationState, "Application State", "Application lifecycle added to report"),
     ]
 
-    public static let allCompositeMonitorTypes: [(MonitorType, String)] = [
+    public static let allCompositeMonitorTypes: [(monitor: MonitorType, name: String)] = [
         (.all, "All"),
         (.fatal, "Fatal"),
 

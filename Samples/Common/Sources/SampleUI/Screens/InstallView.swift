@@ -52,9 +52,11 @@ struct InstallView: View {
             Section(header: Text("Install Config")) {
                 NavigationLink("Monitors") {
                     MonitorTypeView(monitors: bridge.configBinding(for: \.monitors))
+                        .navigationTitle("Monitors")
                 }
                 NavigationLink("User Info") {
                     UserInfoInputView(userInfo: bridge.configBinding(for: \.userInfoJSON))
+                        .navigationTitle("User Info")
                 }
                 // TODO: Add deadlockWatchdogInterval
                 Toggle(isOn: bridge.configBinding(for: \.enableQueueNameSearch)) {

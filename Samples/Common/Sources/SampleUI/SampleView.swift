@@ -38,30 +38,16 @@ public struct SampleView: View {
     public var body: some View {
         NavigationView {
             if installBridge.installed || installSkipped {
-                List {
-                    Section {
-                        if installSkipped {
-                            Button("Back to Install") {
-                                installSkipped = false
-                            }
-                        } else {
-                            Text("KSCrash is installed successfully")
-                                .foregroundStyle(Color.secondary)
-                        }
-                    }
-
-                    NavigationLink("Crash", destination: CrashView())
-                    NavigationLink("Report", destination: ReportingView())
-                }
+                MainView(
+                    installSkipped: $installSkipped
+                )
                 .navigationTitle("KSCrash Sample")
-                .transition(.slide)
             } else {
                 InstallView(
                     bridge: installBridge,
                     installSkipped: $installSkipped
                 )
                 .navigationTitle("Install KSCrash")
-                .transition(.slide)
             }
         }
     }

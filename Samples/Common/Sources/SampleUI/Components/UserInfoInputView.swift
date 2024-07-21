@@ -27,8 +27,10 @@
 import Foundation
 import SwiftUI
 import LibraryBridge
+import Logging
 
 struct UserInfoInputView: View {
+    private static let logger = Logger(label: "UserInfoInputView")
 
     @Binding var userInfo: [String: Any]?
 
@@ -46,7 +48,7 @@ struct UserInfoInputView: View {
             )
             return String(data: encodedData, encoding: .utf8)!
         } catch {
-            print("Unexpected non-serializable user info: \(userInfo)")
+            Self.logger.error("Unexpected non-serializable user info: \(userInfo)")
             return nil
         }
     }
@@ -131,6 +133,5 @@ struct UserInfoInputView: View {
                 }
             }
         }
-        .navigationTitle("User Info")
     }
 }

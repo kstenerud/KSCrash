@@ -26,6 +26,7 @@ let package = Package(
   ],
   dependencies: [
     .package(path: "../.."),
+    .package(url: "https://github.com/apple/swift-log.git", from: "1.0.0"),
   ],
   targets: [
     .target(
@@ -33,6 +34,7 @@ let package = Package(
       dependencies: [
         .product(name: "Recording", package: "KSCrash"),
         .product(name: "Reporting", package: "KSCrash"),
+        .product(name: "Logging", package: "swift-log"),
       ]
     ),
     .target(
@@ -43,6 +45,7 @@ let package = Package(
       dependencies: [
         .target(name: "LibraryBridge"),
         .target(name: "CrashTriggers"),
+        .product(name: "Logging", package: "swift-log"),
       ]
     )
   ]
