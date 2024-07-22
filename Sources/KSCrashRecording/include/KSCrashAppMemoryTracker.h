@@ -25,7 +25,7 @@
 //
 #import <Foundation/Foundation.h>
 
-#import <KSCrashAppMemory.h>
+#import <KSCrash/KSCrashAppMemory.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
