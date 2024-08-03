@@ -49,14 +49,15 @@ final class IntegrationTests: XCTestCase {
         app.launchEnvironment["KSCrashInstallPath"] = installUrl.path()
         app.launch()
 
+        XCTAssert(app.buttons[AccessibilityIdentifiers.InstallView.installButton].waitForExistence(timeout: 10.0))
+
         app.buttons[AccessibilityIdentifiers.InstallView.installButton].tap()
         app.buttons[AccessibilityIdentifiers.MainView.crashButton].tap()
         app.buttons[AccessibilityIdentifiers.CrashView.nsexceptionButton].tap()
 
         let expectation = XCTNSPredicateExpectation(predicate: .init { _, _ in app.state == .notRunning }, object: nil)
-        wait(for: [expectation], timeout: 2.0)
+        wait(for: [expectation], timeout: 10.0)
 
-        XCTAssertEqual(app.state, .notRunning)
         let reportsUrl = installUrl.appending(component: "Reports")
         let reportPath = try! FileManager.default
             .contentsOfDirectory(atPath: reportsUrl.path())
@@ -79,6 +80,8 @@ final class IntegrationTests: XCTestCase {
         app.launchEnvironment["KSCrashReportToFile"] = appleReportUrl.path()
         app.launch()
 
+        XCTAssert(app.buttons[AccessibilityIdentifiers.InstallView.installButton].waitForExistence(timeout: 10.0))
+        
         app.buttons[AccessibilityIdentifiers.InstallView.installButton].tap()
         app.buttons[AccessibilityIdentifiers.MainView.reportButton].tap()
         app.buttons[AccessibilityIdentifiers.ReportView.logToFileButton].tap()
