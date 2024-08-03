@@ -30,10 +30,15 @@ import LibraryBridge
 struct ReportingView: View {
     var body: some View {
         List {
-            if let url = ReportingSample.testReportFileURL {
-                Button("[TEST] Log To File") {
-                    ReportingSample.appleReportToFile(url)
-                }.testId(.logToFileButton)
+            if let url = ReportingSample.testReportDirectoryUrl {
+                VStack {
+                    Button("[TEST] Log To Directory") {
+                        ReportingSample.appleReportToDirectory(url)
+                    }.testId(.testsOnly_logToDirectoryButton)
+                    Text(url.path)
+                        .font(.caption2)
+                        .foregroundStyle(Color.secondary)
+                }
             }
             Button("Log To Console") {
                 ReportingSample.logToConsole()
@@ -48,7 +53,7 @@ struct ReportingView: View {
 
 public extension TestElementId {
     enum ReportingViewElements: String {
-        case logToFileButton
+        case testsOnly_logToDirectoryButton
         case logToConsoleButton
         case sampleCustomLog
     }

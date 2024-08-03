@@ -33,8 +33,8 @@ import Logging
 public class ReportingSample {
     private static let logger = Logger(label: "ReportingSample")
 
-    public static private(set) var testReportFileURL: URL? = {
-        ProcessInfo.processInfo.environment["KSCrashReportToFile"]
+    public static private(set) var testReportDirectoryUrl: URL? = {
+        ProcessInfo.processInfo.environment["KSCrashReportToDirectory"]
             .flatMap { URL(fileURLWithPath: $0) }
     }()
 
@@ -69,10 +69,10 @@ public class ReportingSample {
         KSCrash.shared.sendAllReports()
     }
 
-    public static func appleReportToFile(_ url: URL) {
+    public static func appleReportToDirectory(_ url: URL) {
         KSCrash.shared.sink = CrashReportFilterPipeline(filtersArray: [
             CrashReportFilterAppleFmt(),
-            FileSink(fileUrl: url),
+            DirectorySink(url),
         ])
         KSCrash.shared.sendAllReports()
     }
@@ -151,17 +151,21 @@ public class SampleSink: NSObject, CrashReportFilter {
     }
 }
 
-public class FileSink: NSObject, CrashReportFilter {
-    private static let logger = Logger(label: "FileSink")
+public class DirectorySink: NSObject, CrashReportFilter {
+    private static let logger = Logger(label: "DirectorySink")
 
-    let fileUrl: URL
+    private let directoryUrl: URL
 
-    public init(fileUrl: URL) {
-        self.fileUrl = fileUrl
+    public init(_ directoryUrl: URL) {
+        self.directoryUrl = directoryUrl
     }
 
     public func filterReports(_ reports: [any CrashReport], onCompletion: (([any CrashReport]?, Bool, (any Error)?) -> Void)? = nil) {
-        for report in reports {
+        let prefix = UUID().uuidString
+        for (idx, report) in reports.enumerated() {
+            let fileName = "\(prefix)-\(idx).ips"
+            let fileUrl = directoryUrl.appendingPathComponent(fileName)
+
             let data: Data
             if let stringReport = report as? CrashReportString {
                 data = stringReport.value.data(using: .utf8)!
@@ -170,6 +174,7 @@ public class FileSink: NSObject, CrashReportFilter {
             } else {
                 continue
             }
+
             do {
                 try data.write(to: fileUrl)
             } catch {

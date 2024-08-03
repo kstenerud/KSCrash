@@ -34,7 +34,7 @@ class IntegrationTest: XCTestCase {
     private(set) var app: XCUIApplication!
 
     private(set) var installUrl: URL!
-    private(set) var appleReportUrl: URL!
+    private(set) var appleReportsUrl: URL!
 
     var appLaunchTimeout: TimeInterval = 10.0
     var appTerminateTimeout: TimeInterval = 5.0
@@ -52,14 +52,14 @@ class IntegrationTest: XCTestCase {
         installUrl = FileManager.default.temporaryDirectory
             .appending(component: "KSCrash")
             .appending(component: UUID().uuidString)
-        appleReportUrl = installUrl.appending(component: "report.txt")
+        appleReportsUrl = installUrl.appending(component: "__TEST_REPORTS__")
 
-        try FileManager.default.createDirectory(at: installUrl, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: appleReportsUrl, withIntermediateDirectories: true)
         log.info("KSCrash install path: \(installUrl.path())")
 
         app = XCUIApplication()
         app.launchEnvironment["KSCrashInstallPath"] = installUrl.path()
-        app.launchEnvironment["KSCrashReportToFile"] = appleReportUrl.path()
+        app.launchEnvironment["KSCrashReportToDirectory"] = appleReportsUrl.path()
     }
 
     override func tearDownWithError() throws {
@@ -136,15 +136,30 @@ class IntegrationTest: XCTestCase {
         return report
     }
 
+    private func findAppleReportUrl() throws -> URL {
+        enum Error: Swift.Error {
+            case reportNotFound
+        }
+
+        let reportPath = try FileManager.default
+            .contentsOfDirectory(atPath: appleReportsUrl.path())
+            .first
+            .flatMap { appleReportsUrl.appending(component:$0) }
+        guard let reportPath else { throw Error.reportNotFound }
+        return reportPath
+    }
+
     func readAppleReport() throws -> String {
-        let path = appleReportUrl.path()
         let fileExpectation = XCTNSPredicateExpectation(
-            predicate: .init { _, _ in FileManager.default.fileExists(atPath: path) },
-            object: nil
+            predicate: .init { innerSelf, _ in
+                (try? (innerSelf as! Self).findAppleReportUrl()) != nil
+            },
+            object: self
         )
         wait(for: [fileExpectation], timeout: reportTimeout)
 
-        let appleReport = try String(contentsOf: appleReportUrl)
+        let url = try findAppleReportUrl()
+        let appleReport = try String(contentsOf: url)
         return appleReport
     }
 
@@ -166,7 +181,7 @@ class IntegrationTest: XCTestCase {
         tapButtons([
             .installView(.installButton),
             .mainView(.reportButton),
-            .reportingView(.logToFileButton),
+            .reportingView(.testsOnly_logToDirectoryButton),
         ])
 
         let report = try readAppleReport()
