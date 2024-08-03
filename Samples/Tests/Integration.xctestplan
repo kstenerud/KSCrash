@@ -8,7 +8,7 @@
         "diagnosticCollectionPolicy" : "Never",
         "distributor" : "com.apple.TestFlight",
         "mainThreadCheckerEnabled" : false,
-        "maximumTestRepetitions" : 5,
+        "maximumTestRepetitions" : 3,
         "testRepetitionMode" : "retryOnFailure",
         "testTimeoutsEnabled" : true
       }
