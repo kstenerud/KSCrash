@@ -35,7 +35,17 @@ let project = Project(
             dependencies: [
                 .target(name: "Sample"),
                 .package(product: "SampleUI", type: .runtime),
-            ]
+            ],
+            additionalFiles: ["Tests/Integration.xctestplan"]
+        ),
+    ],
+    schemes: [
+        .scheme(
+            name: "Sample",
+            shared: true,
+            buildAction: .buildAction(targets: ["Sample"]),
+            testAction: .testPlans(["Tests/Integration.xctestplan"], configuration: .release, attachDebugger: false),
+            runAction: .runAction(executable: "Sample")
         ),
     ]
 )
