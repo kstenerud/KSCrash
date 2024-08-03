@@ -39,12 +39,23 @@ struct InstallView: View {
         List {
             Button("Install") {
                 bridge.install()
-            }
+            }.testId(.installButton)
 
             Section(header: Text("Static Config")) {
-                Picker("Base path", selection: $bridge.basePath) {
-                    ForEach(BasePath.allCases, id: \.self) { path in
-                        Text(path.rawValue)
+                if let testPath = bridge.testOverridePath {
+                    VStack(alignment: .leading) {
+                        Text("Base path override:")
+                        Text(testPath)
+                            .foregroundStyle(Color.secondary)
+                            .font(.caption)
+                            .minimumScaleFactor(0.2)
+
+                    }
+                } else {
+                    Picker("Base path", selection: $bridge.basePath) {
+                        ForEach(BasePath.allCases, id: \.self) { path in
+                            Text(path.rawValue)
+                        }
                     }
                 }
             }
@@ -94,5 +105,21 @@ struct InstallView: View {
             )
         }
         .onReceive(bridge.$error) { if $0 != nil { showingInstallAlert = true } }
+    }
+}
+
+public extension TestElementId {
+    enum InstallViewElements: String {
+        case installButton
+    }
+
+    static func installView(_ element: Self.InstallViewElements) -> Self {
+        return .id("install.\(element)")
+    }
+}
+
+private extension View {
+    func testId(_ element: TestElementId.InstallViewElements) -> some View {
+        self.testId(.installView(element))
     }
 }

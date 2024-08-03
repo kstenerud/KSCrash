@@ -27,11 +27,21 @@
 import SwiftUI
 import CrashTriggers
 
+public typealias CrashTriggerId = CrashTriggers.CrashTriggerId
+
+private typealias Helper = CrashTriggersList
+
 struct CrashView: View {
     var body: some View {
         List {
-            Button("NSException") {
-                CrashTriggers.nsexception()
+            ForEach(Helper.groupIds(), id: \.self) { groupId in
+                Section(header: Text(Helper.name(forGroup: groupId))) {
+                    ForEach(Helper.triggers(forGroup: groupId), id: \.rawValue) { triggerId in
+                        Button(Helper.name(forTrigger: triggerId)) {
+                            Helper.runTrigger(triggerId)
+                        }.testId(.id(triggerId.rawValue))
+                    }
+                }
             }
         }
         .navigationTitle("Crash")

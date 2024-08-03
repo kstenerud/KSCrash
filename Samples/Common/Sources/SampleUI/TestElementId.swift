@@ -1,7 +1,7 @@
 //
-//  CrashTriggers.h
+//  AccessibilityIdentifiers.swift
 //
-//  Created by Nikolay Volosatov on 2024-06-23.
+//  Created by Nikolay Volosatov on 2024-07-21.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,10 +24,20 @@
 // THE SOFTWARE.
 //
 
-#import <Foundation/Foundation.h>
+import SwiftUI
 
-@interface CrashTriggers : NSObject
+public struct TestElementId {
+    public var accessibilityId: String
+}
 
-+ (void)nsexception;
+public extension TestElementId {
+    static func id(_ val: String) -> Self {
+        .init(accessibilityId: val)
+    }
+}
 
-@end
+public extension View {
+    func testId(_ element: TestElementId) -> some View {
+        self.accessibilityIdentifier(element.accessibilityId)
+    }
+}

@@ -1,7 +1,7 @@
 //
-//  CrashTriggers.mm
+//  IntegrationTests.swift
 //
-//  Created by Nikolay Volosatov on 2024-06-23.
+//  Created by Nikolay Volosatov on 2024-07-21.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,14 +24,23 @@
 // THE SOFTWARE.
 //
 
-#import "CrashTriggers.h"
+import XCTest
+import SampleUI
 
-@implementation CrashTriggers
+final class IntegrationTests: IntegrationTest {
+    func testGenericNSException() throws {
+        launchAndCrash(.nsException_genericNSException)
 
-+ (void)nsexception
-{
-    NSException *exc = [NSException exceptionWithName:NSGenericException reason:@"Test" userInfo:@{ @"a" : @"b" }];
-    [exc raise];
+        let report = try readPartialCrashReport()
+        XCTAssertEqual(report.crash?.error?.reason, "Test")
+        XCTAssertTrue(try launchAndReportCrash().contains("reason: 'Test'"))
+    }
+
+    func testStackOverflow() throws {
+        launchAndCrash(.signal_abort)
+
+        let report = try readPartialCrashReport()
+        XCTAssertEqual(report.crash?.error?.type, "signal")
+        XCTAssertTrue(try launchAndReportCrash().contains("SIGABRT"))
+    }
 }
-
-@end

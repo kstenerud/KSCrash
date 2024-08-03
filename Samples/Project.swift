@@ -26,6 +26,27 @@ let project = Project(
                 .package(product: "SampleUI", type: .runtime),
             ]
         ),
+        .target(
+            name: "SampleTests",
+            destinations: .allForSample.subtracting(.visionOS),
+            product: .uiTests,
+            bundleId: "com.github.kstenerud.KSCrash.Sample.Tests",
+            sources: ["Tests/**"],
+            dependencies: [
+                .target(name: "Sample"),
+                .package(product: "SampleUI", type: .runtime),
+            ],
+            additionalFiles: ["Tests/Integration.xctestplan"]
+        ),
+    ],
+    schemes: [
+        .scheme(
+            name: "Sample",
+            shared: true,
+            buildAction: .buildAction(targets: ["Sample"]),
+            testAction: .testPlans(["Tests/Integration.xctestplan"], configuration: .release, attachDebugger: false),
+            runAction: .runAction(executable: "Sample")
+        ),
     ]
 )
 

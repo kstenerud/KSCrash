@@ -1,7 +1,7 @@
 //
-//  MainView.swift
+//  PartialCrashReport.swift
 //
-//  Created by Nikolay Volosatov on 2024-07-21.
+//  Created by Nikolay Volosatov on 2024-08-03.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -25,46 +25,23 @@
 //
 
 import Foundation
-import SwiftUI
+/*
+ if let crash = report["crash"] as? [String:Any],
+    let error = crash["error"] as? [String:Any],
+    let reason = error["reason"] as? String {
+     parsedReason = reason
+ }
+ */
 
-struct MainView: View {
-
-    @Binding var installSkipped: Bool
-
-    var body: some View {
-        List {
-            Section {
-                if installSkipped {
-                    Button("Back to Install") {
-                        installSkipped = false
-                    }
-                } else {
-                    Text("KSCrash is installed successfully")
-                        .foregroundStyle(Color.secondary)
-                }
-            }
-
-            NavigationLink("Crash", destination: CrashView())
-                .testId(.crashButton)
-            NavigationLink("Report", destination: ReportingView())
-                .testId(.reportButton)
+struct PartialCrashReport: Decodable {
+    struct Crash: Decodable {
+        struct Error: Decodable {
+            var reason: String?
+            var type: String?
         }
-    }
-}
 
-public extension TestElementId {
-    enum MainViewElements: String {
-        case crashButton
-        case reportButton
+        var error: Error?
     }
 
-    static func mainView(_ element: Self.MainViewElements) -> Self {
-        return .id("main.\(element)")
-    }
-}
-
-private extension View {
-    func testId(_ element: TestElementId.MainViewElements) -> some View {
-        self.testId(.mainView(element))
-    }
+    var crash: Crash?
 }
