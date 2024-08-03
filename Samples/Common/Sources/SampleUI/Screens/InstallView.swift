@@ -39,7 +39,7 @@ struct InstallView: View {
         List {
             Button("Install") {
                 bridge.install()
-            }.accessibilityIdentifier(AccessibilityIdentifiers.InstallView.installButton)
+            }.testId(.installButton)
 
             Section(header: Text("Static Config")) {
                 if let testPath = bridge.testOverridePath {
@@ -105,5 +105,21 @@ struct InstallView: View {
             )
         }
         .onReceive(bridge.$error) { if $0 != nil { showingInstallAlert = true } }
+    }
+}
+
+public extension TestElementId {
+    enum InstallViewElements: String {
+        case installButton
+    }
+
+    static func installView(_ element: Self.InstallViewElements) -> Self {
+        return .id("install.\(element)")
+    }
+}
+
+private extension View {
+    func testId(_ element: TestElementId.InstallViewElements) -> some View {
+        self.testId(.installView(element))
     }
 }

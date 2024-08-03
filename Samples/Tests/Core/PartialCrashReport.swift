@@ -1,7 +1,7 @@
 //
-//  AccessibilityIdentifiers.swift
+//  PartialCrashReport.swift
 //
-//  Created by Nikolay Volosatov on 2024-07-21.
+//  Created by Nikolay Volosatov on 2024-08-03.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -25,20 +25,22 @@
 //
 
 import Foundation
+/*
+ if let crash = report["crash"] as? [String:Any],
+    let error = crash["error"] as? [String:Any],
+    let reason = error["reason"] as? String {
+     parsedReason = reason
+ }
+ */
 
-public enum AccessibilityIdentifiers {
-    public enum InstallView {
-        public static let installButton = "install.install-button"
+struct PartialCrashReport: Decodable {
+    struct Crash: Decodable {
+        struct Error: Decodable {
+            var reason: String?
+        }
+
+        var error: Error?
     }
-    public enum MainView {
-        public static let crashButton = "main.crash-button"
-        public static let reportButton = "main.report-button"
-    }
-    public enum CrashView {
-        public static let nsexceptionButton = "crash.nsexception-button"
-    }
-    public enum ReportView {
-        public static let logToFileButton = "report.log-to-file-button"
-        public static let consoleButton = "report.console-button"
-    }
+
+    var crash: Crash?
 }

@@ -1,5 +1,5 @@
 //
-//  MainView.swift
+//  AccessibilityIdentifiers.swift
 //
 //  Created by Nikolay Volosatov on 2024-07-21.
 //
@@ -24,47 +24,20 @@
 // THE SOFTWARE.
 //
 
-import Foundation
 import SwiftUI
 
-struct MainView: View {
-
-    @Binding var installSkipped: Bool
-
-    var body: some View {
-        List {
-            Section {
-                if installSkipped {
-                    Button("Back to Install") {
-                        installSkipped = false
-                    }
-                } else {
-                    Text("KSCrash is installed successfully")
-                        .foregroundStyle(Color.secondary)
-                }
-            }
-
-            NavigationLink("Crash", destination: CrashView())
-                .testId(.crashButton)
-            NavigationLink("Report", destination: ReportingView())
-                .testId(.reportButton)
-        }
-    }
+public struct TestElementId {
+    public var accessibilityId: String
 }
 
 public extension TestElementId {
-    enum MainViewElements: String {
-        case crashButton
-        case reportButton
-    }
-
-    static func mainView(_ element: Self.MainViewElements) -> Self {
-        return .id("main.\(element)")
+    static func id(_ val: String) -> Self {
+        .init(accessibilityId: val)
     }
 }
 
-private extension View {
-    func testId(_ element: TestElementId.MainViewElements) -> some View {
-        self.testId(.mainView(element))
+public extension View {
+    func testId(_ element: TestElementId) -> some View {
+        self.accessibilityIdentifier(element.accessibilityId)
     }
 }

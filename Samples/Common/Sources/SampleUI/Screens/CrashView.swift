@@ -32,8 +32,24 @@ struct CrashView: View {
         List {
             Button("NSException") {
                 CrashTriggers.nsexception()
-            }.accessibilityIdentifier(AccessibilityIdentifiers.CrashView.nsexceptionButton)
+            }.testId(.nsexceptionButton)
         }
         .navigationTitle("Crash")
+    }
+}
+
+public extension TestElementId {
+    enum CrashViewElements: String {
+        case nsexceptionButton
+    }
+
+    static func crashView(_ element: Self.CrashViewElements) -> Self {
+        return .id("crash.\(element)")
+    }
+}
+
+private extension View {
+    func testId(_ element: TestElementId.CrashViewElements) -> some View {
+        self.testId(.crashView(element))
     }
 }

@@ -27,74 +27,12 @@
 import XCTest
 import SampleUI
 
-final class IntegrationTests: XCTestCase {
-
-    var installUrl: URL!
-
-    override func setUpWithError() throws {
-        continueAfterFailure = true
-        installUrl = FileManager.default.temporaryDirectory
-            .appending(component: "KSCrash")
-            .appending(component: UUID().uuidString)
-        try! FileManager.default.createDirectory(at: installUrl, withIntermediateDirectories: true)
-        print(installUrl.path())
-    }
-
-    override func tearDownWithError() throws {
-        try? FileManager.default.removeItem(at: installUrl)
-    }
-
+final class IntegrationTests: IntegrationTest {
     func testExample() throws {
-        let app = XCUIApplication()
-        app.launchEnvironment["KSCrashInstallPath"] = installUrl.path()
-        app.launch()
+        launchAndCrash(.nsexceptionButton)
 
-        XCTAssert(app.buttons[AccessibilityIdentifiers.InstallView.installButton].waitForExistence(timeout: 10.0))
-
-        app.buttons[AccessibilityIdentifiers.InstallView.installButton].tap()
-        app.buttons[AccessibilityIdentifiers.MainView.crashButton].tap()
-        app.buttons[AccessibilityIdentifiers.CrashView.nsexceptionButton].tap()
-
-        let expectation = XCTNSPredicateExpectation(predicate: .init { _, _ in app.state == .notRunning }, object: nil)
-        wait(for: [expectation], timeout: 10.0)
-
-        let reportsUrl = installUrl.appending(component: "Reports")
-        let reportPath = try! FileManager.default
-            .contentsOfDirectory(atPath: reportsUrl.path())
-            .first
-            .flatMap { reportsUrl.appending(component:$0).path() }
-        XCTAssertNotNil(reportPath)
-        let report = try? JSONSerialization.jsonObject(with: Data(contentsOf: .init(filePath: reportPath!)))
-        XCTAssertNotNil(report)
-        var parsedReason: String?
-        if let report = report as? [String:Any],
-           let crash = report["crash"] as? [String:Any],
-           let error = crash["error"] as? [String:Any],
-           let reason = error["reason"] as? String {
-            parsedReason = reason
-        }
-        XCTAssertEqual(parsedReason, "Test")
-
-        let appleReportUrl = installUrl.appending(component: "report.txt")
-        app.launchEnvironment["KSCrashInstallPath"] = installUrl.path()
-        app.launchEnvironment["KSCrashReportToFile"] = appleReportUrl.path()
-        app.launch()
-
-        XCTAssert(app.buttons[AccessibilityIdentifiers.InstallView.installButton].waitForExistence(timeout: 10.0))
-        
-        app.buttons[AccessibilityIdentifiers.InstallView.installButton].tap()
-        app.buttons[AccessibilityIdentifiers.MainView.reportButton].tap()
-        app.buttons[AccessibilityIdentifiers.ReportView.logToFileButton].tap()
-
-        let fileExpectation = XCTNSPredicateExpectation(
-            predicate: .init { _, _ in FileManager.default.fileExists(atPath: appleReportUrl.path()) },
-            object: nil
-        )
-        wait(for: [fileExpectation], timeout: 3.0)
-
-        let appleReport = try? String(contentsOf: appleReportUrl)
-        XCTAssertTrue(appleReport?.contains("reason: 'Test'") ?? false)
-
-        app.terminate()
+        let report = try readPartialCrashReport()
+        XCTAssertEqual(report.crash?.error?.reason, "Test")
+        XCTAssertTrue(try launchAndReportCrash().contains("reason: 'Test'"))
     }
 }

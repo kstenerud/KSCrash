@@ -33,16 +33,33 @@ struct ReportingView: View {
             if let url = ReportingSample.testReportFileURL {
                 Button("[TEST] Log To File") {
                     ReportingSample.appleReportToFile(url)
-                }.accessibilityIdentifier(AccessibilityIdentifiers.ReportView.logToFileButton)
+                }.testId(.logToFileButton)
             }
             Button("Log To Console") {
                 ReportingSample.logToConsole()
-            }.accessibilityIdentifier(AccessibilityIdentifiers.ReportView.consoleButton)
+            }.testId(.logToConsoleButton)
             Button("Sample Custom Log To Console") {
                 ReportingSample.sampleLogToConsole()
-            }
+            }.testId(.sampleCustomLog)
         }
         .navigationTitle("Report")
     }
 }
 
+public extension TestElementId {
+    enum ReportingViewElements: String {
+        case logToFileButton
+        case logToConsoleButton
+        case sampleCustomLog
+    }
+
+    static func reportingView(_ element: Self.ReportingViewElements) -> Self {
+        return .id("reporting.\(element)")
+    }
+}
+
+private extension View {
+    func testId(_ element: TestElementId.ReportingViewElements) -> some View {
+        self.testId(.reportingView(element))
+    }
+}
