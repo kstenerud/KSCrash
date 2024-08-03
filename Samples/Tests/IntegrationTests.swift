@@ -28,11 +28,19 @@ import XCTest
 import SampleUI
 
 final class IntegrationTests: IntegrationTest {
-    func testExample() throws {
-        launchAndCrash(.nsexceptionButton)
+    func testGenericNSException() throws {
+        launchAndCrash(.nsException_genericNSException)
 
         let report = try readPartialCrashReport()
         XCTAssertEqual(report.crash?.error?.reason, "Test")
         XCTAssertTrue(try launchAndReportCrash().contains("reason: 'Test'"))
+    }
+
+    func testStackOverflow() throws {
+        launchAndCrash(.signal_abort)
+
+        let report = try readPartialCrashReport()
+        XCTAssertEqual(report.crash?.error?.type, "signal")
+        XCTAssertTrue(try launchAndReportCrash().contains("SIGABRT"))
     }
 }

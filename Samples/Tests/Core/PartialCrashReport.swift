@@ -37,6 +37,7 @@ struct PartialCrashReport: Decodable {
     struct Crash: Decodable {
         struct Error: Decodable {
             var reason: String?
+            var type: String?
         }
 
         var error: Error?

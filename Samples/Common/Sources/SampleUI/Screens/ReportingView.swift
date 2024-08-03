@@ -31,7 +31,7 @@ struct ReportingView: View {
     var body: some View {
         List {
             if let url = ReportingSample.testReportDirectoryUrl {
-                VStack {
+                VStack(alignment: .leading) {
                     Button("[TEST] Log To Directory") {
                         ReportingSample.appleReportToDirectory(url)
                     }.testId(.testsOnly_logToDirectoryButton)

@@ -163,13 +163,13 @@ class IntegrationTest: XCTestCase {
         return appleReport
     }
 
-    func launchAndCrash(_ crashViewElement: TestElementId.CrashViewElements) {
+    func launchAndCrash(_ crashId: CrashTriggerId) {
         launchApp()
 
         tapButtons([
             .installView(.installButton),
             .mainView(.crashButton),
-            .crashView(crashViewElement),
+            .id(crashId.rawValue),
         ])
 
         waitForCrash()
