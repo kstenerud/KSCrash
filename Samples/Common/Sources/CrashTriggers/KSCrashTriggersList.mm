@@ -36,14 +36,17 @@
 {
     return @[
 #define __PROCESS_GROUP(GROUP, NAME) @ #GROUP,
-    __ALL_GROUPS
+        __ALL_GROUPS
 #undef __PROCESS_GROUP
     ];
 }
 
 + (NSString *)nameForGroup:(NSString *)groupId
 {
-#define __PROCESS_GROUP(GROUP, NAME) if ([groupId isEqualToString:@ #GROUP]) { return NAME; }
+#define __PROCESS_GROUP(GROUP, NAME)          \
+    if ([groupId isEqualToString:@ #GROUP]) { \
+        return NAME;                          \
+    }
     __ALL_GROUPS
 #undef __PROCESS_GROUP
     return @"Unknown";
@@ -52,7 +55,10 @@
 + (NSArray<KSCrashTriggerId> *)triggersForGroup:(NSString *)groupId
 {
     NSMutableArray<KSCrashTriggerId> *result = [NSMutableArray array];
-#define __PROCESS_TRIGGER(GROUP, ID, NAME) if ([groupId isEqualToString:@ #GROUP]) { [result addObject:TRIGGER_ID(GROUP, ID)]; }
+#define __PROCESS_TRIGGER(GROUP, ID, NAME)        \
+    if ([groupId isEqualToString:@ #GROUP]) {     \
+        [result addObject:TRIGGER_ID(GROUP, ID)]; \
+    }
     __ALL_TRIGGERS
 #undef __PROCESS_TRIGGER
     return result;
@@ -60,7 +66,10 @@
 
 + (NSString *)nameForTrigger:(KSCrashTriggerId)triggerId
 {
-#define __PROCESS_TRIGGER(GROUP, ID, NAME) if ([triggerId isEqualToString:TRIGGER_ID(GROUP, ID)]) { return NAME; }
+#define __PROCESS_TRIGGER(GROUP, ID, NAME)                   \
+    if ([triggerId isEqualToString:TRIGGER_ID(GROUP, ID)]) { \
+        return NAME;                                         \
+    }
     __ALL_TRIGGERS
 #undef __PROCESS_TRIGGER
     return @"Unknown";
@@ -68,7 +77,11 @@
 
 + (void)runTrigger:(KSCrashTriggerId)triggerId
 {
-#define __PROCESS_TRIGGER(GROUP, ID, NAME) if ([triggerId isEqualToString:TRIGGER_ID(GROUP, ID)]) { [self trigger_##GROUP##_##ID]; return; }
+#define __PROCESS_TRIGGER(GROUP, ID, NAME)                   \
+    if ([triggerId isEqualToString:TRIGGER_ID(GROUP, ID)]) { \
+        [self trigger_##GROUP##_##ID];                       \
+        return;                                              \
+    }
     __ALL_TRIGGERS
 #undef __PROCESS_TRIGGER
 }
@@ -92,11 +105,24 @@
     throw std::runtime_error("C++ exception");
 }
 
-+ (void)trigger_mach_threadAbort
++ (void)trigger_mach_badAccess
 {
-    thread_act_t thread = mach_thread_self();
-    thread_suspend(thread);
-    thread_abort(thread);  // This will cause a Mach exception
+    volatile int *ptr = (int *)0x42;
+    *ptr = 42;  // This will cause an EXC_BAD_ACCESS (SIGSEGV)
+}
+
++ (void)trigger_mach_busError
+{
+    char *ptr = (char *)malloc(sizeof(int));
+    int *intPtr = (int *)(ptr + 1);  // Misaligned pointer
+    *intPtr = 42;                    // This will cause an EXC_BAD_ACCESS (SIGBUS)
+    free(ptr);
+}
+
++ (void)trigger_mach_illegalInstruction
+{
+    void (*funcPtr)() = (void (*)())0xDEADBEEF;
+    funcPtr();  // This will cause an EXC_BAD_INSTRUCTION
 }
 
 + (void)trigger_signal_abort
