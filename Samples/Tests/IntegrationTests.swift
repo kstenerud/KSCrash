@@ -36,11 +36,11 @@ final class IntegrationTests: IntegrationTest {
         XCTAssertTrue(try launchAndReportCrash().contains("reason: 'Test'"))
     }
 
-    func testStackOverflow() throws {
-        launchAndCrash(.signal_abort)
+    func testCppRuntimeException() throws {
+        launchAndCrash(.cpp_runtimeException)
 
         let report = try readPartialCrashReport()
-        XCTAssertEqual(report.crash?.error?.type, "signal")
-        XCTAssertTrue(try launchAndReportCrash().contains("SIGABRT"))
+        XCTAssertEqual(report.crash?.error?.type, "cpp_exception")
+        XCTAssertTrue(try launchAndReportCrash().contains("C++ exception"))
     }
 }
