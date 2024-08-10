@@ -1,5 +1,5 @@
 //
-//  IntegrationTestsHelper.swift
+//  IntegrationTestBase.swift
 //
 //  Created by Nikolay Volosatov on 2024-08-03.
 //
@@ -28,7 +28,7 @@ import XCTest
 import SampleUI
 import Logging
 
-class IntegrationTest: XCTestCase {
+class IntegrationTestBase: XCTestCase {
 
     private(set) var log: Logger!
     private(set) var app: XCUIApplication!

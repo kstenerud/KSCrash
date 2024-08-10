@@ -27,7 +27,7 @@
 import XCTest
 import SampleUI
 
-final class IntegrationTests: IntegrationTest {
+final class NSExceptionTests: IntegrationTestBase {
     func testGenericNSException() throws {
         launchAndCrash(.nsException_genericNSException)
 
@@ -35,7 +35,9 @@ final class IntegrationTests: IntegrationTest {
         XCTAssertEqual(report.crash?.error?.reason, "Test")
         XCTAssertTrue(try launchAndReportCrash().contains("reason: 'Test'"))
     }
+}
 
+final class CppTests: IntegrationTestBase {
     func testCppRuntimeException() throws {
         launchAndCrash(.cpp_runtimeException)
 
