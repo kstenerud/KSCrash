@@ -35,10 +35,6 @@ private struct CrashTrigger: Identifiable {
     var id: CrashTriggerId
     var name: String
     var body: () -> Void
-
-    func passes(filter: String) -> Bool {
-        id.rawValue == filter || name.contains(filter)
-    }
 }
 
 private struct CrashGroup: Identifiable {
@@ -48,59 +44,33 @@ private struct CrashGroup: Identifiable {
 }
 
 struct CrashView: View {
-    @State var filter: String = ""
-
     private static let groups: [CrashGroup] = {
         Helper.groupIds().map { groupId in
-                .init(
-                    id: groupId,
-                    name: Helper.name(forGroup: groupId),
-                    triggers: Helper.triggers(forGroup: groupId).map { triggerId in
-                            .init(
-                                id: triggerId,
-                                name: Helper.name(forTrigger: triggerId),
-                                body: { Helper.runTrigger(triggerId) }
-                            )
-                    }
-                )
+            .init(
+                id: groupId,
+                name: Helper.name(forGroup: groupId),
+                triggers: Helper.triggers(forGroup: groupId).map { triggerId in
+                    .init(
+                        id: triggerId,
+                        name: Helper.name(forTrigger: triggerId),
+                        body: { Helper.runTrigger(triggerId) }
+                    )
+                }
+            )
         }
     }()
 
-    private func groupView(for group: CrashGroup) -> some View {
-        Section(header: Text(group.name)) {
-            ForEach(group.triggers) { trigger in
-                if filter.isEmpty || trigger.passes(filter: filter) {
-                    triggerView(for: trigger)
-                }
-            }
-        }
-    }
-
-    private func triggerView(for trigger: CrashTrigger) -> some View {
-        Button(trigger.name, action: trigger.body)
-            .testId(.id(trigger.id.rawValue))
-    }
-
     var body: some View {
         List {
-            TextField("Search", text: $filter)
-                .testId(.crashView(.searchTextInput))
             ForEach(Self.groups) { group in
-                if filter.isEmpty || group.triggers.contains(where: { $0.passes(filter: filter) }) {
-                    groupView(for: group)
+                Section(header: Text(group.name)) {
+                    ForEach(group.triggers) { trigger in
+                        Button(trigger.name, action: trigger.body)
+                            .testId(.id(trigger.id.rawValue))
+                    }
                 }
             }
         }
         .navigationTitle("Crash")
-    }
-}
-
-public extension TestElementId {
-    enum CrashViewElements: String {
-        case searchTextInput
-    }
-
-    static func crashView(_ element: Self.CrashViewElements) -> Self {
-        return .id("crash.\(element)")
     }
 }

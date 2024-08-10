@@ -96,7 +96,12 @@ class IntegrationTest: XCTestCase {
 
     func tapButtons(_ elements: [TestElementId]) {
         for element in elements {
-            XCTAssert(sampleButton(element).waitForExistence(timeout: screenLoadingTimeout))
+            let button = sampleButton(element)
+            _ = button.waitForExistence(timeout: screenLoadingTimeout)
+            while !button.exists {
+                app.swipeUp()
+                _ = button.waitForExistence(timeout: 0.25)
+            }
             sampleButton(element).tap()
         }
     }
@@ -105,18 +110,34 @@ class IntegrationTest: XCTestCase {
         XCTAssert(app.wait(for: .notRunning, timeout: appCrashTimeout), "App crash is expected")
     }
 
-    func readRawCrashReportData() throws -> Data {
+    private func findRawCrashReportUrl() throws -> URL {
         enum Error: Swift.Error {
             case reportNotFound
         }
 
         let reportsUrl = installUrl.appending(component: "Reports")
-        let reportPath = try FileManager.default
+        let reportUrl = try FileManager.default
             .contentsOfDirectory(atPath: reportsUrl.path())
             .first
-            .flatMap { reportsUrl.appending(component:$0).path() }
-        guard let reportPath else { throw Error.reportNotFound }
+            .flatMap { reportsUrl.appending(component:$0) }
+        guard let reportUrl else { throw Error.reportNotFound }
+        return reportUrl
+    }
 
+    func readRawCrashReportData() throws -> Data {
+        enum Error: Swift.Error {
+            case reportNotFound
+        }
+
+        let fileExpectation = XCTNSPredicateExpectation(
+            predicate: .init { innerSelf, _ in
+                (try? (innerSelf as! Self).findRawCrashReportUrl()) != nil
+            },
+            object: self
+        )
+        wait(for: [fileExpectation], timeout: reportTimeout)
+
+        let reportPath = try findRawCrashReportUrl().path()
         let reportData = try Data(contentsOf: .init(filePath: reportPath))
         return reportData
     }
@@ -173,12 +194,6 @@ class IntegrationTest: XCTestCase {
         tapButtons([
             .installView(.installButton),
             .mainView(.crashButton),
-        ])
-
-        let searchBox = sampleTextField(.crashView(.searchTextInput))
-        searchBox.tap()
-        searchBox.typeText(crashId.rawValue)
-        tapButtons([
             .id(crashId.rawValue),
         ])
 
