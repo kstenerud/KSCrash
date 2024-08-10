@@ -40,6 +40,19 @@ final class NSExceptionTests: IntegrationTestBase {
     }
 }
 
+final class MachTests: IntegrationTestBase {
+    func testBadAccess() throws {
+        try launchAndCrash(.mach_badAccess)
+
+        let rawReport = try readPartialCrashReport()
+        try rawReport.validate()
+        XCTAssertEqual(rawReport.crash?.error?.type, "mach")
+
+        let appleReport = try launchAndReportCrash()
+        XCTAssertTrue(appleReport.contains("SIGSEGV"))
+    }
+}
+
 final class CppTests: IntegrationTestBase {
     func testRuntimeException() throws {
         try launchAndCrash(.cpp_runtimeException)
