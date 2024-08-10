@@ -109,12 +109,16 @@ class IntegrationTestBase: XCTestCase {
                         throw Error.tooManyScrolls
                     }
 
+                    #if os(watchOS)
+                    app.swipeUp(velocity: .init(floatLiteral: 100.0))
+                    #else
                     app.swipeUp(velocity: .slow)
+                    #endif
                     _ = button.waitForExistence(timeout: 0.25)
                     scrollsLeft -= 1
                 }
             }
-            sampleButton(element).tap()
+            button.tap()
         }
     }
 
