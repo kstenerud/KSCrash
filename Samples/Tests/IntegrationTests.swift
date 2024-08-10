@@ -28,21 +28,36 @@ import XCTest
 import SampleUI
 
 final class NSExceptionTests: IntegrationTestBase {
-    func testGenericNSException() throws {
+    func testGenericException() throws {
         try launchAndCrash(.nsException_genericNSException)
 
-        let report = try readPartialCrashReport()
-        XCTAssertEqual(report.crash?.error?.reason, "Test")
-        XCTAssertTrue(try launchAndReportCrash().contains("reason: 'Test'"))
+        let rawReport = try readPartialCrashReport()
+        try rawReport.validate()
+        XCTAssertEqual(rawReport.crash?.error?.reason, "Test")
+
+        let appleReport = try launchAndReportCrash()
+        XCTAssertTrue(appleReport.contains("reason: 'Test'"))
     }
 }
 
 final class CppTests: IntegrationTestBase {
-    func testCppRuntimeException() throws {
+    func testRuntimeException() throws {
         try launchAndCrash(.cpp_runtimeException)
 
-        let report = try readPartialCrashReport()
-        XCTAssertEqual(report.crash?.error?.type, "cpp_exception")
-        XCTAssertTrue(try launchAndReportCrash().contains("C++ exception"))
+        let rawReport = try readPartialCrashReport()
+        try rawReport.validate()
+        XCTAssertEqual(rawReport.crash?.error?.type, "cpp_exception")
+
+        let appleReport = try launchAndReportCrash()
+        XCTAssertTrue(appleReport.contains("C++ exception"))
+    }
+}
+
+extension PartialCrashReport {
+    func validate() throws {
+        let crashedThread = self.crash?.threads?.first(where: { $0.crashed })
+        XCTAssertNotNil(crashedThread)
+        XCTAssertEqual(crashedThread?.index, 0)
+        XCTAssertGreaterThan(crashedThread?.backtrace.contents.count ?? 0, 0)
     }
 }

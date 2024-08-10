@@ -33,7 +33,28 @@ struct PartialCrashReport: Decodable {
             var type: String?
         }
 
+        struct Thread: Decodable {
+            struct Backtrace: Decodable {
+                struct Frame: Decodable {
+                    var instruction_addr: UInt64
+                    
+                    var object_addr: UInt64?
+                    var object_name: String?
+
+                    var symbol_addr: UInt64?
+                    var symbol_name: String?
+                }
+
+                var contents: [Frame]
+            }
+
+            var index: Int
+            var crashed: Bool
+            var backtrace: Backtrace
+        }
+
         var error: Error?
+        var threads: [Thread]?
     }
 
     var crash: Crash?
