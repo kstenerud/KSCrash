@@ -122,6 +122,16 @@ class IntegrationTestBase: XCTestCase {
         }
     }
 
+    func setToggle(_ element: TestElementId, val: Bool) {
+        let uiElement = self.app.switches[element.accessibilityId]
+        XCTAssert(uiElement.waitForExistence(timeout: screenLoadingTimeout))
+        let innerSwitch = uiElement.switches.firstMatch
+        let currentVal = (innerSwitch.value as? String) == "0"
+        if currentVal != val {
+            innerSwitch.tap()
+        }
+    }
+
     func waitForCrash() {
         XCTAssert(app.wait(for: .notRunning, timeout: appCrashTimeout), "App crash is expected")
     }
@@ -204,8 +214,10 @@ class IntegrationTestBase: XCTestCase {
         return appleReport
     }
 
-    func launchAndCrash(_ crashId: CrashTriggerId) throws {
+    func launchAndCrash(_ crashId: CrashTriggerId, installOverride: (() throws -> Void)? = nil) throws {
         launchApp()
+
+        try installOverride?()
 
         try tapButtons([
             .installView(.installButton),

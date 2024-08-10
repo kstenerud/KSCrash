@@ -88,7 +88,7 @@ struct InstallView: View {
                 // TODO: Add maxReportCount
                 Toggle(isOn: bridge.configBinding(for: \.enableSwapCxaThrow)) {
                     Text("Swap __cxa_throw")
-                }
+                }.testId(.swapCxaThrow)
                 // TODO: Add deleteBehaviorAfterSendAll
             }
 
@@ -111,6 +111,8 @@ struct InstallView: View {
 public extension TestElementId {
     enum InstallViewElements: String {
         case installButton
+
+        case swapCxaThrow
     }
 
     static func installView(_ element: Self.InstallViewElements) -> Self {
