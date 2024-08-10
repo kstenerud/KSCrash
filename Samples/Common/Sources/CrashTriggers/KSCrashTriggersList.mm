@@ -32,62 +32,6 @@
 
 @implementation KSCrashTriggersList
 
-+ (NSArray<NSString *> *)groupIds
-{
-    return @[
-#define __PROCESS_GROUP(GROUP, NAME) @ #GROUP,
-        __ALL_GROUPS
-#undef __PROCESS_GROUP
-    ];
-}
-
-+ (NSString *)nameForGroup:(NSString *)groupId
-{
-#define __PROCESS_GROUP(GROUP, NAME)          \
-    if ([groupId isEqualToString:@ #GROUP]) { \
-        return NAME;                          \
-    }
-    __ALL_GROUPS
-#undef __PROCESS_GROUP
-    return @"Unknown";
-}
-
-+ (NSArray<KSCrashTriggerId> *)triggersForGroup:(NSString *)groupId
-{
-    NSMutableArray<KSCrashTriggerId> *result = [NSMutableArray array];
-#define __PROCESS_TRIGGER(GROUP, ID, NAME)        \
-    if ([groupId isEqualToString:@ #GROUP]) {     \
-        [result addObject:TRIGGER_ID(GROUP, ID)]; \
-    }
-    __ALL_TRIGGERS
-#undef __PROCESS_TRIGGER
-    return result;
-}
-
-+ (NSString *)nameForTrigger:(KSCrashTriggerId)triggerId
-{
-#define __PROCESS_TRIGGER(GROUP, ID, NAME)                   \
-    if ([triggerId isEqualToString:TRIGGER_ID(GROUP, ID)]) { \
-        return NAME;                                         \
-    }
-    __ALL_TRIGGERS
-#undef __PROCESS_TRIGGER
-    return @"Unknown";
-}
-
-+ (void)runTrigger:(KSCrashTriggerId)triggerId
-{
-#define __PROCESS_TRIGGER(GROUP, ID, NAME)                   \
-    if ([triggerId isEqualToString:TRIGGER_ID(GROUP, ID)]) { \
-        [self trigger_##GROUP##_##ID];                       \
-        return;                                              \
-    }
-    __ALL_TRIGGERS
-#undef __PROCESS_TRIGGER
-}
-
-#pragma mark - All Triggers
-
 + (void)trigger_nsException_genericNSException
 {
     NSException *exc = [NSException exceptionWithName:NSGenericException reason:@"Test" userInfo:@{ @"a" : @"b" }];

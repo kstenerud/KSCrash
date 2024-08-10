@@ -45,23 +45,8 @@ NS_ASSUME_NONNULL_BEGIN
     __PROCESS_TRIGGER(signal, abort, @"Abort")                                   \
     __PROCESS_TRIGGER(other, stackOverflow, @"Stack overflow")
 
-typedef NSString *KSCrashTriggerId NS_TYPED_ENUM NS_SWIFT_NAME(CrashTriggerId);
-#define TRIGGER_ID(GROUP, ID) KSCrashTriggerId_##GROUP##_##ID
-#define __PROCESS_TRIGGER(GROUP, ID, NAME) \
-    static KSCrashTriggerId const TRIGGER_ID(GROUP, ID) NS_SWIFT_NAME(GROUP##_##ID) = @"trigger-" #GROUP "-" #ID;
-__ALL_TRIGGERS
-#undef __PROCESS_TRIGGER
-
 NS_SWIFT_NAME(CrashTriggersList)
 @interface KSCrashTriggersList : NSObject
-
-+ (NSArray<NSString *> *)groupIds;
-+ (NSString *)nameForGroup:(NSString *)groupId;
-
-+ (NSArray<KSCrashTriggerId> *)triggersForGroup:(NSString *)groupId;
-+ (NSString *)nameForTrigger:(KSCrashTriggerId)triggerId;
-
-+ (void)runTrigger:(KSCrashTriggerId)triggerId;
 
 #define __PROCESS_TRIGGER(GROUP, ID, NAME) +(void)trigger_##GROUP##_##ID;
 __ALL_TRIGGERS
