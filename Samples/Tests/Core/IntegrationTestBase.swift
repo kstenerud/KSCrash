@@ -200,10 +200,10 @@ class IntegrationTestBase: XCTestCase {
         return appleReport
     }
 
-    func launchAndCrash(_ crashId: CrashTriggerId) {
+    func launchAndCrash(_ crashId: CrashTriggerId) throws {
         launchApp()
 
-        tapButtons([
+        try tapButtons([
             .installView(.installButton),
             .mainView(.crashButton),
             .id(crashId.rawValue),
@@ -215,7 +215,7 @@ class IntegrationTestBase: XCTestCase {
     func launchAndReportCrash() throws -> String {
         launchApp()
 
-        tapButtons([
+        try tapButtons([
             .installView(.installButton),
             .mainView(.reportButton),
             .reportingView(.testsOnly_logToDirectoryButton),

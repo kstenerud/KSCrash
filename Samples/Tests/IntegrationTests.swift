@@ -29,7 +29,7 @@ import SampleUI
 
 final class NSExceptionTests: IntegrationTestBase {
     func testGenericNSException() throws {
-        launchAndCrash(.nsException_genericNSException)
+        try launchAndCrash(.nsException_genericNSException)
 
         let report = try readPartialCrashReport()
         XCTAssertEqual(report.crash?.error?.reason, "Test")
@@ -39,7 +39,7 @@ final class NSExceptionTests: IntegrationTestBase {
 
 final class CppTests: IntegrationTestBase {
     func testCppRuntimeException() throws {
-        launchAndCrash(.cpp_runtimeException)
+        try launchAndCrash(.cpp_runtimeException)
 
         let report = try readPartialCrashReport()
         XCTAssertEqual(report.crash?.error?.type, "cpp_exception")
