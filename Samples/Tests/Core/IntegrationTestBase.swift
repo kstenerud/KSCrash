@@ -95,13 +95,24 @@ class IntegrationTestBase: XCTestCase {
         app.textFields[element.accessibilityId]
     }
 
-    func tapButtons(_ elements: [TestElementId]) {
+    func tapButtons(_ elements: [TestElementId], scrollsLimit: Int = 10) throws {
+        enum Error: Swift.Error {
+            case tooManyScrolls
+        }
+
         for element in elements {
             let button = sampleButton(element)
-            _ = button.waitForExistence(timeout: screenLoadingTimeout)
-            while !button.exists {
-                app.swipeUp()
-                _ = button.waitForExistence(timeout: 0.25)
+            if !button.waitForExistence(timeout: screenLoadingTimeout) {
+                var scrollsLeft = scrollsLimit
+                while !button.exists {
+                    if scrollsLeft == 0 {
+                        throw Error.tooManyScrolls
+                    }
+
+                    app.swipeUp()
+                    _ = button.waitForExistence(timeout: 0.25)
+                    scrollsLeft -= 1
+                }
             }
             sampleButton(element).tap()
         }
