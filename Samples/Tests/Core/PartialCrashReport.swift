@@ -25,13 +25,6 @@
 //
 
 import Foundation
-/*
- if let crash = report["crash"] as? [String:Any],
-    let error = crash["error"] as? [String:Any],
-    let reason = error["reason"] as? String {
-     parsedReason = reason
- }
- */
 
 struct PartialCrashReport: Decodable {
     struct Crash: Decodable {

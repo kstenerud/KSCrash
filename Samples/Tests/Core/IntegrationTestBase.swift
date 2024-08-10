@@ -26,6 +26,7 @@
 
 import XCTest
 import SampleUI
+import CrashTriggers
 import Logging
 
 class IntegrationTestBase: XCTestCase {

@@ -27,8 +27,6 @@
 import SwiftUI
 import CrashTriggers
 
-public typealias CrashTriggerId = CrashTriggers.CrashTriggerId
-
 private typealias Helper = CrashTriggersHelper
 
 private struct CrashTrigger: Identifiable {
