@@ -76,7 +76,7 @@
 {
 #define __PROCESS_TRIGGER(GROUP, ID, NAME)                   \
     if ([triggerId isEqualToString:TRIGGER_ID(GROUP, ID)]) { \
-        [KSCrashTriggersList trigger_##GROUP##_##ID];                       \
+        [KSCrashTriggersList trigger_##GROUP##_##ID];        \
         return;                                              \
     }
     __ALL_TRIGGERS
