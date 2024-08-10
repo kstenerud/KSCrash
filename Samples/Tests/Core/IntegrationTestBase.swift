@@ -126,7 +126,7 @@ class IntegrationTestBase: XCTestCase {
         let uiElement = self.app.switches[element.accessibilityId]
         XCTAssert(uiElement.waitForExistence(timeout: screenLoadingTimeout))
         let innerSwitch = uiElement.switches.firstMatch
-        let currentVal = (innerSwitch.value as? String) == "0"
+        let currentVal = (innerSwitch.value as? String) == "1"
         if currentVal != val {
             innerSwitch.tap()
         }
