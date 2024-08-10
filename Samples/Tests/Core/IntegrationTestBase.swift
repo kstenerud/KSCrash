@@ -109,7 +109,7 @@ class IntegrationTestBase: XCTestCase {
                         throw Error.tooManyScrolls
                     }
 
-                    app.swipeUp()
+                    app.swipeUp(velocity: .slow)
                     _ = button.waitForExistence(timeout: 0.25)
                     scrollsLeft -= 1
                 }
