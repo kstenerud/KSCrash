@@ -90,6 +90,10 @@ class IntegrationTest: XCTestCase {
         app.buttons[element.accessibilityId]
     }
 
+    func sampleTextField(_ element: TestElementId) -> XCUIElement {
+        app.textFields[element.accessibilityId]
+    }
+
     func tapButtons(_ elements: [TestElementId]) {
         for element in elements {
             XCTAssert(sampleButton(element).waitForExistence(timeout: screenLoadingTimeout))
@@ -169,6 +173,12 @@ class IntegrationTest: XCTestCase {
         tapButtons([
             .installView(.installButton),
             .mainView(.crashButton),
+        ])
+
+        let searchBox = sampleTextField(.crashView(.searchTextInput))
+        searchBox.tap()
+        searchBox.typeText(crashId.rawValue)
+        tapButtons([
             .id(crashId.rawValue),
         ])
 
