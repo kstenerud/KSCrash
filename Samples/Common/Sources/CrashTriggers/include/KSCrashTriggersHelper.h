@@ -1,7 +1,7 @@
 //
-//  SampleView.swift
+//  KSCrashTriggersHelper.h
 //
-//  Created by Nikolay Volosatov on 2024-06-23.
+//  Created by Nikolay Volosatov on 2024-08-10.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,32 +24,28 @@
 // THE SOFTWARE.
 //
 
-import SwiftUI
-import LibraryBridge
-import CrashTriggers
-import IntegrationTestsHelper
+#import "KSCrashTriggersList.h"
 
-public struct SampleView: View {
-    public init() { }
+NS_ASSUME_NONNULL_BEGIN
 
-    @ObservedObject var installBridge = InstallBridge()
+typedef NSString *KSCrashTriggerId NS_TYPED_ENUM NS_SWIFT_NAME(CrashTriggerId);
+#define TRIGGER_ID(GROUP, ID) KSCrashTriggerId_##GROUP##_##ID
+#define __PROCESS_TRIGGER(GROUP, ID, NAME) \
+    static KSCrashTriggerId const TRIGGER_ID(GROUP, ID) NS_SWIFT_NAME(GROUP##_##ID) = @"trigger-" #GROUP "-" #ID;
+__ALL_TRIGGERS
+#undef __PROCESS_TRIGGER
 
-    @State private var installSkipped = false
+NS_SWIFT_NAME(CrashTriggersHelper)
+@interface KSCrashTriggersHelper : NSObject
 
-    public var body: some View {
-        NavigationView {
-            if installBridge.installed || installSkipped {
-                MainView(
-                    installSkipped: $installSkipped
-                )
-                .navigationTitle("KSCrash Sample")
-            } else {
-                InstallView(
-                    bridge: installBridge,
-                    installSkipped: $installSkipped
-                )
-                .navigationTitle("Install KSCrash")
-            }
-        }.onAppear { IntegrationTestRunner.runIfNeeded() }
-    }
-}
++ (NSArray<NSString *> *)groupIds;
++ (NSString *)nameForGroup:(NSString *)groupId;
+
++ (NSArray<KSCrashTriggerId> *)triggersForGroup:(NSString *)groupId;
++ (NSString *)nameForTrigger:(KSCrashTriggerId)triggerId;
+
++ (void)runTrigger:(KSCrashTriggerId)triggerId;
+
+@end
+
+NS_ASSUME_NONNULL_END

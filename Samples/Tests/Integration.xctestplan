@@ -1,0 +1,36 @@
+{
+  "configurations" : [
+    {
+      "id" : "A64F72D9-AEC5-4B40-B99F-6BE75D506E44",
+      "name" : "Main",
+      "options" : {
+        "defaultTestExecutionTimeAllowance" : 300,
+        "diagnosticCollectionPolicy" : "Never",
+        "distributor" : "com.apple.TestFlight",
+        "mainThreadCheckerEnabled" : false,
+        "maximumTestRepetitions" : 3,
+        "testRepetitionMode" : "retryOnFailure",
+        "testTimeoutsEnabled" : true
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "codeCoverage" : false,
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:KSCrashSamples.xcodeproj",
+      "identifier" : "EE786E304B276EE93740A7FE",
+      "name" : "Sample"
+    }
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:KSCrashSamples.xcodeproj",
+        "identifier" : "4691483D11AE1FD180B212BC",
+        "name" : "SampleTests"
+      }
+    }
+  ],
+  "version" : 1
+}

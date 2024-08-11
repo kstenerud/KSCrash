@@ -1,7 +1,7 @@
 //
-//  CrashTriggers.h
+//  CrashTriggerConfig.swift
 //
-//  Created by Nikolay Volosatov on 2024-06-23.
+//  Created by Nikolay Volosatov on 2024-08-11.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,10 +24,22 @@
 // THE SOFTWARE.
 //
 
-#import <Foundation/Foundation.h>
+import Foundation
+import CrashTriggers
 
-@interface CrashTriggers : NSObject
+public struct CrashTriggerConfig: Codable {
+    public var triggerId: CrashTriggerId
 
-+ (void)nsexception;
+    public init(triggerId: CrashTriggerId) {
+        self.triggerId = triggerId
+    }
+}
 
-@end
+extension CrashTriggerId: Codable {
+}
+
+extension CrashTriggerConfig {
+    func crash() {
+        CrashTriggersHelper.runTrigger(triggerId)
+    }
+}

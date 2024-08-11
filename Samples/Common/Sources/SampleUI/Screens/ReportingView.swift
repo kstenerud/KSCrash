@@ -40,4 +40,3 @@ struct ReportingView: View {
         .navigationTitle("Report")
     }
 }
-

@@ -1,7 +1,7 @@
 //
-//  SampleView.swift
+//  InstallConfig.swift
 //
-//  Created by Nikolay Volosatov on 2024-06-23.
+//  Created by Nikolay Volosatov on 2024-08-11.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,32 +24,25 @@
 // THE SOFTWARE.
 //
 
-import SwiftUI
-import LibraryBridge
-import CrashTriggers
-import IntegrationTestsHelper
+import Foundation
+import KSCrashRecording
 
-public struct SampleView: View {
-    public init() { }
+public struct InstallConfig: Codable {
+    public var installPath: String
+    public var isCxaThrowEnabled: Bool?
 
-    @ObservedObject var installBridge = InstallBridge()
+    public init(installPath: String) {
+        self.installPath = installPath
+    }
+}
 
-    @State private var installSkipped = false
-
-    public var body: some View {
-        NavigationView {
-            if installBridge.installed || installSkipped {
-                MainView(
-                    installSkipped: $installSkipped
-                )
-                .navigationTitle("KSCrash Sample")
-            } else {
-                InstallView(
-                    bridge: installBridge,
-                    installSkipped: $installSkipped
-                )
-                .navigationTitle("Install KSCrash")
-            }
-        }.onAppear { IntegrationTestRunner.runIfNeeded() }
+extension InstallConfig {
+    func install() throws {
+        KSCrash.setBasePath(installPath)
+        let config = KSCrashConfiguration()
+        if let isCxaThrowEnabled {
+            config.enableSwapCxaThrow = isCxaThrowEnabled
+        }
+        try KSCrash.shared.install(with: config)
     }
 }

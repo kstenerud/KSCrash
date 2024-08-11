@@ -27,11 +27,45 @@
 import SwiftUI
 import CrashTriggers
 
+private typealias Helper = CrashTriggersHelper
+
+private struct CrashTrigger: Identifiable {
+    var id: CrashTriggerId
+    var name: String
+    var body: () -> Void
+}
+
+private struct CrashGroup: Identifiable {
+    var id: String
+    var name: String
+    var triggers: [CrashTrigger]
+}
+
 struct CrashView: View {
+    private static let groups: [CrashGroup] = {
+        Helper.groupIds().map { groupId in
+            .init(
+                id: groupId,
+                name: Helper.name(forGroup: groupId),
+                triggers: Helper.triggers(forGroup: groupId).map { triggerId in
+                    .init(
+                        id: triggerId,
+                        name: Helper.name(forTrigger: triggerId),
+                        body: { Helper.runTrigger(triggerId) }
+                    )
+                }
+            )
+        }
+    }()
+
     var body: some View {
         List {
-            Button("NSException") {
-                CrashTriggers.nsexception()
+            ForEach(Self.groups) { group in
+                Section(header: Text(group.name)) {
+                    ForEach(group.triggers) { trigger in
+                        Button(trigger.name, action: trigger.body)
+                    }
+                }
             }
         }
         .navigationTitle("Crash")

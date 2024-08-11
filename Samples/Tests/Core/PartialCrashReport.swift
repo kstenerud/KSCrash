@@ -1,7 +1,7 @@
 //
-//  SampleView.swift
+//  PartialCrashReport.swift
 //
-//  Created by Nikolay Volosatov on 2024-06-23.
+//  Created by Nikolay Volosatov on 2024-08-03.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,32 +24,38 @@
 // THE SOFTWARE.
 //
 
-import SwiftUI
-import LibraryBridge
-import CrashTriggers
-import IntegrationTestsHelper
+import Foundation
 
-public struct SampleView: View {
-    public init() { }
+struct PartialCrashReport: Decodable {
+    struct Crash: Decodable {
+        struct Error: Decodable {
+            var reason: String?
+            var type: String?
+        }
 
-    @ObservedObject var installBridge = InstallBridge()
+        struct Thread: Decodable {
+            struct Backtrace: Decodable {
+                struct Frame: Decodable {
+                    var instruction_addr: UInt64
+                    
+                    var object_addr: UInt64?
+                    var object_name: String?
 
-    @State private var installSkipped = false
+                    var symbol_addr: UInt64?
+                    var symbol_name: String?
+                }
 
-    public var body: some View {
-        NavigationView {
-            if installBridge.installed || installSkipped {
-                MainView(
-                    installSkipped: $installSkipped
-                )
-                .navigationTitle("KSCrash Sample")
-            } else {
-                InstallView(
-                    bridge: installBridge,
-                    installSkipped: $installSkipped
-                )
-                .navigationTitle("Install KSCrash")
+                var contents: [Frame]
             }
-        }.onAppear { IntegrationTestRunner.runIfNeeded() }
+
+            var index: Int
+            var crashed: Bool
+            var backtrace: Backtrace
+        }
+
+        var error: Error?
+        var threads: [Thread]?
     }
+
+    var crash: Crash?
 }
