@@ -40,6 +40,8 @@ final class NSExceptionTests: IntegrationTestBase {
     }
 }
 
+#if os(iOS)
+
 final class MachTests: IntegrationTestBase {
     func testBadAccess() throws {
         try launchAndCrash(.mach_badAccess)
@@ -52,6 +54,8 @@ final class MachTests: IntegrationTestBase {
         XCTAssertTrue(appleReport.contains("SIGSEGV"))
     }
 }
+
+#endif
 
 final class CppTests: IntegrationTestBase {
     func testRuntimeException() throws {
