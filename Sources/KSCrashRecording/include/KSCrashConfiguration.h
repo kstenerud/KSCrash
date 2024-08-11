@@ -38,6 +38,8 @@ typedef NS_ENUM(NSUInteger, KSCDeleteBehavior) {
 
 @interface KSCrashConfiguration : NSObject <NSCopying>
 
+@property(nonatomic, copy, nullable) NSString *installPath;
+
 /** The crash types that will be handled.
  * Some crash types may not be enabled depending on circumstances (e.g., running in a debugger).
  *

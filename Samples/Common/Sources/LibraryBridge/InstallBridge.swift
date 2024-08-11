@@ -56,10 +56,10 @@ public class InstallBridge: ObservableObject {
 
     private static let logger = Logger(label: "InstallBridge")
 
-    private static func setBasePath(_ value: BasePath) {
+    private func setBasePath(_ value: BasePath) {
         let basePath = value.basePaths.first.flatMap { $0 + "/KSCrash" }
         Self.logger.info("Setting KSCrash base path to: \(basePath ?? "<default>")")
-        KSCrash.setBasePath(basePath)
+        config.installPath = basePath
     }
 
     private var config: KSCrashConfiguration
@@ -74,7 +74,7 @@ public class InstallBridge: ObservableObject {
 
         $basePath
             .removeDuplicates()
-            .sink(receiveValue: Self.setBasePath(_:))
+            .sink(receiveValue: setBasePath(_:))
             .store(in: &disposables)
     }
 
