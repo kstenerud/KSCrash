@@ -1,17 +1,15 @@
 name: Run Integration Tests
 
 on:
+  workflow_dispatch:
   pull_request:
     paths:
-      - 'Sources/**'
-      - 'Samples/**'
-      - 'Package.swift'
+      - 'Samples/Tests/**'
+      - 'Samples/Common/Sources/IntegrationTestsHelper/**'
       - '.github/workflows/integration-tests.yml'
-
   push:
     branches:
       - master
-
   schedule:
     - cron: '0 0 1 * *'
 
