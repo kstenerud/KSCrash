@@ -32,6 +32,8 @@ public final class IntegrationTestRunner {
         var install: InstallConfig?
         var crashTrigger: CrashTriggerConfig?
         var report: ReportConfig?
+
+        var delay: TimeInterval?
     }
 
     public static let runScriptAccessabilityId = "run-integration-test"
@@ -52,7 +54,7 @@ public final class IntegrationTestRunner {
             try! installConfig.install()
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + (script.delay ?? 0)) {
             if let crashTrigger = script.crashTrigger {
                 crashTrigger.crash()
             }
@@ -68,13 +70,13 @@ public final class IntegrationTestRunner {
 public extension IntegrationTestRunner {
     static let envKey = "KSCrashIntegrationScript"
 
-    static func script(crash: CrashTriggerConfig, install: InstallConfig? = nil) throws -> String {
-        let data = try JSONEncoder().encode(Script(install: install, crashTrigger: crash))
+    static func script(crash: CrashTriggerConfig, install: InstallConfig? = nil, delay: TimeInterval? = nil) throws -> String {
+        let data = try JSONEncoder().encode(Script(install: install, crashTrigger: crash, delay: delay))
         return data.base64EncodedString()
     }
 
-    static func script(report: ReportConfig, install: InstallConfig? = nil) throws -> String {
-        let data = try JSONEncoder().encode(Script(install: install, report: report))
+    static func script(report: ReportConfig, install: InstallConfig? = nil, delay: TimeInterval? = nil) throws -> String {
+        let data = try JSONEncoder().encode(Script(install: install, report: report, delay: delay))
         return data.base64EncodedString()
     }
 }

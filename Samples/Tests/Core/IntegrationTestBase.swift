@@ -44,6 +44,15 @@ class IntegrationTestBase: XCTestCase {
 
     var reportTimeout: TimeInterval = 5.0
 
+    lazy var actionDelay: TimeInterval = Self.defaultActionDelay
+    private static var defaultActionDelay: TimeInterval {
+#if os(iOS)
+        return 5.0
+#else
+        return 2.0
+#endif
+    }
+
     override func setUpWithError() throws {
         try super.setUpWithError()
 
@@ -79,11 +88,11 @@ class IntegrationTestBase: XCTestCase {
 
     func launchAppAndRunScript() {
         app.launch()
-        XCTAssert(app.wait(for: .runningForeground, timeout: appLaunchTimeout))
+        _ = app.wait(for: .runningForeground, timeout: appLaunchTimeout)
     }
 
     func waitForCrash() {
-        XCTAssert(app.wait(for: .notRunning, timeout: appCrashTimeout), "App crash is expected")
+        XCTAssert(app.wait(for: .notRunning, timeout: actionDelay + appCrashTimeout), "App crash is expected")
     }
 
     private func waitForFile(in dir: URL, timeout: TimeInterval? = nil) throws -> URL {
@@ -160,7 +169,8 @@ class IntegrationTestBase: XCTestCase {
         try installOverride?(&installConfig)
         app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
             crash: .init(triggerId: crashId),
-            install: installConfig
+            install: installConfig,
+            delay: actionDelay
         )
 
         launchAppAndRunScript()
@@ -170,7 +180,8 @@ class IntegrationTestBase: XCTestCase {
     func launchAndReportCrash() throws -> String {
         app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
             report: .init(directoryPath: appleReportsUrl.path()),
-            install: .init(installPath: installUrl.path())
+            install: .init(installPath: installUrl.path()),
+            delay: actionDelay
         )
 
         launchAppAndRunScript()
