@@ -45,26 +45,7 @@ struct MainView: View {
             }
 
             NavigationLink("Crash", destination: CrashView())
-                .testId(.crashButton)
             NavigationLink("Report", destination: ReportingView())
-                .testId(.reportButton)
         }
-    }
-}
-
-public extension TestElementId {
-    enum MainViewElements: String {
-        case crashButton
-        case reportButton
-    }
-
-    static func mainView(_ element: Self.MainViewElements) -> Self {
-        return .id("main.\(element)")
-    }
-}
-
-private extension View {
-    func testId(_ element: TestElementId.MainViewElements) -> some View {
-        self.testId(.mainView(element))
     }
 }

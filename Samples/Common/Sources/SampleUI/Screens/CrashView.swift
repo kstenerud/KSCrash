@@ -64,7 +64,6 @@ struct CrashView: View {
                 Section(header: Text(group.name)) {
                     ForEach(group.triggers) { trigger in
                         Button(trigger.name, action: trigger.body)
-                            .testId(.id(trigger.id.rawValue))
                     }
                 }
             }

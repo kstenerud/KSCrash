@@ -39,7 +39,7 @@ struct InstallView: View {
         List {
             Button("Install") {
                 bridge.install()
-            }.testId(.installButton)
+            }
 
             Section(header: Text("Static Config")) {
                 Picker("Base path", selection: $bridge.basePath) {
@@ -77,7 +77,7 @@ struct InstallView: View {
                 // TODO: Add maxReportCount
                 Toggle(isOn: bridge.configBinding(for: \.enableSwapCxaThrow)) {
                     Text("Swap __cxa_throw")
-                }.testId(.swapCxaThrow)
+                }
                 // TODO: Add deleteBehaviorAfterSendAll
             }
 
@@ -94,23 +94,5 @@ struct InstallView: View {
             )
         }
         .onReceive(bridge.$error) { if $0 != nil { showingInstallAlert = true } }
-    }
-}
-
-public extension TestElementId {
-    enum InstallViewElements: String {
-        case installButton
-
-        case swapCxaThrow
-    }
-
-    static func installView(_ element: Self.InstallViewElements) -> Self {
-        return .id("install.\(element)")
-    }
-}
-
-private extension View {
-    func testId(_ element: TestElementId.InstallViewElements) -> some View {
-        self.testId(.installView(element))
     }
 }

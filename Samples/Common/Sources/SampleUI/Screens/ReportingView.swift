@@ -32,29 +32,11 @@ struct ReportingView: View {
         List {
             Button("Log To Console") {
                 ReportingSample.logToConsole()
-            }.testId(.logToConsoleButton)
+            }
             Button("Sample Custom Log To Console") {
                 ReportingSample.sampleLogToConsole()
-            }.testId(.sampleCustomLog)
+            }
         }
         .navigationTitle("Report")
-    }
-}
-
-public extension TestElementId {
-    enum ReportingViewElements: String {
-        case testsOnly_logToDirectoryButton
-        case logToConsoleButton
-        case sampleCustomLog
-    }
-
-    static func reportingView(_ element: Self.ReportingViewElements) -> Self {
-        return .id("reporting.\(element)")
-    }
-}
-
-private extension View {
-    func testId(_ element: TestElementId.ReportingViewElements) -> some View {
-        self.testId(.reportingView(element))
     }
 }
