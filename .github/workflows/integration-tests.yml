@@ -29,6 +29,7 @@ jobs:
         include:
           - platform: iOS
           - platform: watchOS
+          - platform: tvOS
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
