@@ -28,8 +28,9 @@ jobs:
       matrix:
         include:
           - platform: iOS
-          - platform: watchOS
+          - platform: macOS
           - platform: tvOS
+          - platform: watchOS
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
