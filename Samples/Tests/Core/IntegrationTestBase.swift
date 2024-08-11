@@ -28,6 +28,7 @@ import XCTest
 import SampleUI
 import CrashTriggers
 import Logging
+import IntegrationTestsHelper
 
 class IntegrationTestBase: XCTestCase {
 
@@ -59,8 +60,6 @@ class IntegrationTestBase: XCTestCase {
         log.info("KSCrash install path: \(installUrl.path())")
 
         app = XCUIApplication()
-        app.launchEnvironment["KSCrashInstallPath"] = installUrl.path()
-        app.launchEnvironment["KSCrashReportToDirectory"] = appleReportsUrl.path()
     }
 
     override func tearDownWithError() throws {
@@ -79,57 +78,9 @@ class IntegrationTestBase: XCTestCase {
         try? FileManager.default.removeItem(at: installUrl)
     }
 
-    func launchApp() {
+    func launchAppAndRunScript() {
         app.launch()
-        XCTAssert(
-            sampleButton(.installView(.installButton))
-            .waitForExistence(timeout: appLaunchTimeout)
-        )
-    }
-
-    func sampleButton(_ element: TestElementId) -> XCUIElement {
-        app.buttons[element.accessibilityId]
-    }
-
-    func sampleTextField(_ element: TestElementId) -> XCUIElement {
-        app.textFields[element.accessibilityId]
-    }
-
-    func tapButtons(_ elements: [TestElementId], scrollsLimit: Int = 10) throws {
-        enum Error: Swift.Error {
-            case tooManyScrolls
-        }
-
-        for element in elements {
-            let button = sampleButton(element)
-            if !button.waitForExistence(timeout: screenLoadingTimeout) {
-                var scrollsLeft = scrollsLimit
-                while !button.exists {
-                    if scrollsLeft == 0 {
-                        throw Error.tooManyScrolls
-                    }
-
-                    #if os(watchOS)
-                    app.swipeUp(velocity: .init(floatLiteral: 100.0))
-                    #else
-                    app.swipeUp(velocity: .slow)
-                    #endif
-                    _ = button.waitForExistence(timeout: 0.25)
-                    scrollsLeft -= 1
-                }
-            }
-            button.tap()
-        }
-    }
-
-    func setToggle(_ element: TestElementId, val: Bool) {
-        let uiElement = self.app.switches[element.accessibilityId]
-        XCTAssert(uiElement.waitForExistence(timeout: screenLoadingTimeout))
-        let innerSwitch = uiElement.switches.firstMatch
-        let currentVal = (innerSwitch.value as? String) == "1"
-        if currentVal != val {
-            innerSwitch.tap()
-        }
+        XCTAssert(app.wait(for: .runningForeground, timeout: appLaunchTimeout))
     }
 
     func waitForCrash() {
@@ -214,29 +165,25 @@ class IntegrationTestBase: XCTestCase {
         return appleReport
     }
 
-    func launchAndCrash(_ crashId: CrashTriggerId, installOverride: (() throws -> Void)? = nil) throws {
-        launchApp()
+    func launchAndCrash(_ crashId: CrashTriggerId, installOverride: ((inout InstallConfig) throws -> Void)? = nil) throws {
+        var installConfig = InstallConfig(installPath: installUrl.path())
+        try installOverride?(&installConfig)
+        app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
+            crash: .init(triggerId: crashId),
+            install: installConfig
+        )
 
-        try installOverride?()
-
-        try tapButtons([
-            .installView(.installButton),
-            .mainView(.crashButton),
-            .id(crashId.rawValue),
-        ])
-
+        launchAppAndRunScript()
         waitForCrash()
     }
 
     func launchAndReportCrash() throws -> String {
-        launchApp()
+        app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
+            report: .init(directoryPath: appleReportsUrl.path()),
+            install: .init(installPath: installUrl.path())
+        )
 
-        try tapButtons([
-            .installView(.installButton),
-            .mainView(.reportButton),
-            .reportingView(.testsOnly_logToDirectoryButton),
-        ])
-
+        launchAppAndRunScript()
         let report = try readAppleReport()
         return report
     }

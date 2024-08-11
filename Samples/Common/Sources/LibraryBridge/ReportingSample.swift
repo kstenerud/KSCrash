@@ -33,11 +33,6 @@ import Logging
 public class ReportingSample {
     private static let logger = Logger(label: "ReportingSample")
 
-    public static private(set) var testReportDirectoryUrl: URL? = {
-        ProcessInfo.processInfo.environment["KSCrashReportToDirectory"]
-            .flatMap { URL(fileURLWithPath: $0) }
-    }()
-
     public static func logToConsole() {
         KSCrash.shared.sink = CrashReportSinkConsole.filter().defaultCrashReportFilterSet()
         KSCrash.shared.sendAllReports { reports, isSuccess, error in
@@ -65,14 +60,6 @@ public class ReportingSample {
         KSCrash.shared.sink = CrashReportFilterPipeline(filtersArray: [
             SampleFilter(),
             SampleSink(),
-        ])
-        KSCrash.shared.sendAllReports()
-    }
-
-    public static func appleReportToDirectory(_ url: URL) {
-        KSCrash.shared.sink = CrashReportFilterPipeline(filtersArray: [
-            CrashReportFilterAppleFmt(),
-            DirectorySink(url),
         ])
         KSCrash.shared.sendAllReports()
     }
@@ -146,40 +133,6 @@ public class SampleSink: NSObject, CrashReportFilter {
             ] + sampleReport.crashedThread.callStack.map { "\t\t\($0)" }
             let text = lines.joined(separator: "\n")
             Self.logger.info("\(text)")
-        }
-        onCompletion?(reports, true, nil)
-    }
-}
-
-public class DirectorySink: NSObject, CrashReportFilter {
-    private static let logger = Logger(label: "DirectorySink")
-
-    private let directoryUrl: URL
-
-    public init(_ directoryUrl: URL) {
-        self.directoryUrl = directoryUrl
-    }
-
-    public func filterReports(_ reports: [any CrashReport], onCompletion: (([any CrashReport]?, Bool, (any Error)?) -> Void)? = nil) {
-        let prefix = UUID().uuidString
-        for (idx, report) in reports.enumerated() {
-            let fileName = "\(prefix)-\(idx).ips"
-            let fileUrl = directoryUrl.appendingPathComponent(fileName)
-
-            let data: Data
-            if let stringReport = report as? CrashReportString {
-                data = stringReport.value.data(using: .utf8)!
-            } else if let dataReport = report as? CrashReportData {
-                data = dataReport.value
-            } else {
-                continue
-            }
-
-            do {
-                try data.write(to: fileUrl)
-            } catch {
-                Self.logger.error("Failed to save report: \(error)")
-            }
         }
         onCompletion?(reports, true, nil)
     }

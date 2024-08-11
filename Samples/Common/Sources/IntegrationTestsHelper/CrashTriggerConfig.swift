@@ -1,7 +1,7 @@
 //
-//  ReportingView.swift
+//  CrashTriggerConfig.swift
 //
-//  Created by Nikolay Volosatov on 2024-07-07.
+//  Created by Nikolay Volosatov on 2024-08-11.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,37 +24,22 @@
 // THE SOFTWARE.
 //
 
-import SwiftUI
-import LibraryBridge
+import Foundation
+import CrashTriggers
 
-struct ReportingView: View {
-    var body: some View {
-        List {
-            Button("Log To Console") {
-                ReportingSample.logToConsole()
-            }.testId(.logToConsoleButton)
-            Button("Sample Custom Log To Console") {
-                ReportingSample.sampleLogToConsole()
-            }.testId(.sampleCustomLog)
-        }
-        .navigationTitle("Report")
+public struct CrashTriggerConfig: Codable {
+    public var triggerId: CrashTriggerId
+
+    public init(triggerId: CrashTriggerId) {
+        self.triggerId = triggerId
     }
 }
 
-public extension TestElementId {
-    enum ReportingViewElements: String {
-        case testsOnly_logToDirectoryButton
-        case logToConsoleButton
-        case sampleCustomLog
-    }
-
-    static func reportingView(_ element: Self.ReportingViewElements) -> Self {
-        return .id("reporting.\(element)")
-    }
+extension CrashTriggerId: Codable {
 }
 
-private extension View {
-    func testId(_ element: TestElementId.ReportingViewElements) -> some View {
-        self.testId(.reportingView(element))
+extension CrashTriggerConfig {
+    func crash() {
+        CrashTriggersHelper.runTrigger(triggerId)
     }
 }

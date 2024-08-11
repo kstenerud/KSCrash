@@ -20,6 +20,10 @@ let package = Package(
       targets: ["CrashTriggers"]
     ),
     .library(
+        name: "IntegrationTestsHelper",
+        targets: ["IntegrationTestsHelper"]
+    ),
+    .library(
       name: "SampleUI",
       targets: ["SampleUI"]
     ),
@@ -41,10 +45,20 @@ let package = Package(
       name: "CrashTriggers"
     ),
     .target(
+        name: "IntegrationTestsHelper",
+        dependencies: [
+            .target(name: "CrashTriggers"),
+            .product(name: "Recording", package: "KSCrash"),
+            .product(name: "Reporting", package: "KSCrash"),
+            .product(name: "Logging", package: "swift-log"),
+        ]
+    ),
+    .target(
       name: "SampleUI",
       dependencies: [
         .target(name: "LibraryBridge"),
         .target(name: "CrashTriggers"),
+        .target(name: "IntegrationTestsHelper"),
         .product(name: "Logging", package: "swift-log"),
       ]
     )

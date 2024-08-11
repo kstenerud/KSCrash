@@ -36,6 +36,7 @@ let project = Project(
                 .target(name: "Sample"),
                 .package(product: "SampleUI", type: .runtime),
                 .package(product: "CrashTriggers", type: .runtime),
+                .package(product: "IntegrationTestsHelper", type: .runtime),
             ],
             additionalFiles: ["Tests/Integration.xctestplan"]
         ),

@@ -56,7 +56,7 @@ final class MachTests: IntegrationTestBase {
 final class CppTests: IntegrationTestBase {
     func testRuntimeException() throws {
         try launchAndCrash(.cpp_runtimeException) {
-            self.setToggle(.installView(.swapCxaThrow), val: true)
+            $0.isCxaThrowEnabled = true
         }
 
         let rawReport = try readPartialCrashReport()

@@ -1,7 +1,7 @@
 //
-//  ReportingView.swift
+//  InstallConfig.swift
 //
-//  Created by Nikolay Volosatov on 2024-07-07.
+//  Created by Nikolay Volosatov on 2024-08-11.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,37 +24,25 @@
 // THE SOFTWARE.
 //
 
-import SwiftUI
-import LibraryBridge
+import Foundation
+import KSCrashRecording
 
-struct ReportingView: View {
-    var body: some View {
-        List {
-            Button("Log To Console") {
-                ReportingSample.logToConsole()
-            }.testId(.logToConsoleButton)
-            Button("Sample Custom Log To Console") {
-                ReportingSample.sampleLogToConsole()
-            }.testId(.sampleCustomLog)
+public struct InstallConfig: Codable {
+    public var installPath: String
+    public var isCxaThrowEnabled: Bool?
+
+    public init(installPath: String) {
+        self.installPath = installPath
+    }
+}
+
+extension InstallConfig {
+    func install() throws {
+        KSCrash.setBasePath(installPath)
+        let config = KSCrashConfiguration()
+        if let isCxaThrowEnabled {
+            config.enableSwapCxaThrow = isCxaThrowEnabled
         }
-        .navigationTitle("Report")
-    }
-}
-
-public extension TestElementId {
-    enum ReportingViewElements: String {
-        case testsOnly_logToDirectoryButton
-        case logToConsoleButton
-        case sampleCustomLog
-    }
-
-    static func reportingView(_ element: Self.ReportingViewElements) -> Self {
-        return .id("reporting.\(element)")
-    }
-}
-
-private extension View {
-    func testId(_ element: TestElementId.ReportingViewElements) -> some View {
-        self.testId(.reportingView(element))
+        try KSCrash.shared.install(with: config)
     }
 }

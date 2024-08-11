@@ -42,20 +42,9 @@ struct InstallView: View {
             }.testId(.installButton)
 
             Section(header: Text("Static Config")) {
-                if let testPath = bridge.testOverridePath {
-                    VStack(alignment: .leading) {
-                        Text("Base path override:")
-                        Text(testPath)
-                            .foregroundStyle(Color.secondary)
-                            .font(.caption)
-                            .minimumScaleFactor(0.2)
-
-                    }
-                } else {
-                    Picker("Base path", selection: $bridge.basePath) {
-                        ForEach(BasePath.allCases, id: \.self) { path in
-                            Text(path.rawValue)
-                        }
+                Picker("Base path", selection: $bridge.basePath) {
+                    ForEach(BasePath.allCases, id: \.self) { path in
+                        Text(path.rawValue)
                     }
                 }
             }
