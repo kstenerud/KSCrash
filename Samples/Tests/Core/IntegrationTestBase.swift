@@ -42,7 +42,6 @@ class IntegrationTestBase: XCTestCase {
     var appTerminateTimeout: TimeInterval = 5.0
     var appCrashTimeout: TimeInterval = 10.0
 
-    var screenLoadingTimeout: TimeInterval = 1.0
     var reportTimeout: TimeInterval = 5.0
 
     override func setUpWithError() throws {
@@ -87,8 +86,31 @@ class IntegrationTestBase: XCTestCase {
         XCTAssert(app.wait(for: .notRunning, timeout: appCrashTimeout), "App crash is expected")
     }
 
-    private func findRawCrashReportUrl() throws -> URL {
+    private func waitForFile(in dir: URL, timeout: TimeInterval? = nil) throws -> URL {
         enum Error: Swift.Error {
+            case fileNotFound
+        }
+
+        let getFileUrl = {
+            let files = try FileManager.default.contentsOfDirectory(atPath: dir.path())
+            guard let fileName = files.first else {
+                throw Error.fileNotFound
+            }
+            return dir.appending(component: fileName)
+        }
+
+        if let timeout {
+            let fileExpectation = XCTNSPredicateExpectation(
+                predicate: .init { _, _ in (try? getFileUrl()) != nil },
+                object: nil
+            )
+            wait(for: [fileExpectation], timeout: timeout)
+        }
+        return try getFileUrl()
+    }
+
+    private func findRawCrashReportUrl() throws -> URL {
+        enum LocalError: Error {
             case reportNotFound
         }
 
@@ -97,37 +119,26 @@ class IntegrationTestBase: XCTestCase {
             .contentsOfDirectory(atPath: reportsUrl.path())
             .first
             .flatMap { reportsUrl.appending(component:$0) }
-        guard let reportUrl else { throw Error.reportNotFound }
+        guard let reportUrl else { throw LocalError.reportNotFound }
         return reportUrl
     }
 
     func readRawCrashReportData() throws -> Data {
-        enum Error: Swift.Error {
-            case reportNotFound
-        }
-
-        let fileExpectation = XCTNSPredicateExpectation(
-            predicate: .init { innerSelf, _ in
-                (try? (innerSelf as! Self).findRawCrashReportUrl()) != nil
-            },
-            object: self
-        )
-        wait(for: [fileExpectation], timeout: reportTimeout)
-
-        let reportPath = try findRawCrashReportUrl().path()
-        let reportData = try Data(contentsOf: .init(filePath: reportPath))
+        let reportsDirUrl = installUrl.appending(component: "Reports")
+        let reportUrl = try waitForFile(in: reportsDirUrl, timeout: reportTimeout)
+        let reportData = try Data(contentsOf: reportUrl)
         return reportData
     }
 
     func readRawCrashReport() throws -> [String: Any] {
-        enum Error: Swift.Error {
+        enum LocalError: Error {
             case unexpectedReportFormat
         }
 
         let reportData = try readRawCrashReportData()
         let reportObj = try JSONSerialization.jsonObject(with: reportData)
         let report = reportObj as? [String:Any]
-        guard let report else { throw Error.unexpectedReportFormat }
+        guard let report else { throw LocalError.unexpectedReportFormat }
 
         return report
     }
@@ -138,29 +149,8 @@ class IntegrationTestBase: XCTestCase {
         return report
     }
 
-    private func findAppleReportUrl() throws -> URL {
-        enum Error: Swift.Error {
-            case reportNotFound
-        }
-
-        let reportPath = try FileManager.default
-            .contentsOfDirectory(atPath: appleReportsUrl.path())
-            .first
-            .flatMap { appleReportsUrl.appending(component:$0) }
-        guard let reportPath else { throw Error.reportNotFound }
-        return reportPath
-    }
-
     func readAppleReport() throws -> String {
-        let fileExpectation = XCTNSPredicateExpectation(
-            predicate: .init { innerSelf, _ in
-                (try? (innerSelf as! Self).findAppleReportUrl()) != nil
-            },
-            object: self
-        )
-        wait(for: [fileExpectation], timeout: reportTimeout)
-
-        let url = try findAppleReportUrl()
+        let url = try waitForFile(in: appleReportsUrl, timeout: reportTimeout)
         let appleReport = try String(contentsOf: url)
         return appleReport
     }

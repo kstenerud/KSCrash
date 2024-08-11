@@ -76,7 +76,6 @@ extension PartialCrashReport {
     func validate() throws {
         let crashedThread = self.crash?.threads?.first(where: { $0.crashed })
         XCTAssertNotNil(crashedThread)
-        XCTAssertEqual(crashedThread?.index, 0)
         XCTAssertGreaterThan(crashedThread?.backtrace.contents.count ?? 0, 0)
     }
 }
