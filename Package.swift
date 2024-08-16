@@ -43,6 +43,10 @@ let package = Package(
       name: "BootTimeMonitor",
       targets: [Targets.bootTimeMonitor]
     ),
+    .library(
+      name: "DemangleFilter",
+      targets: [Targets.bootTimeMonitor]
+    ),
   ],
   targets: [
     .target(
@@ -134,14 +138,6 @@ let package = Package(
       ],
       resources: [
         .copy("Resources/PrivacyInfo.xcprivacy")
-      ],
-      cSettings: [
-        .headerSearchPath("swift"),
-        .headerSearchPath("swift/Basic"),
-        .headerSearchPath("llvm"),
-        .headerSearchPath("llvm/ADT"),
-        .headerSearchPath("llvm/Config"),
-        .headerSearchPath("llvm/Support"),
       ]
     ),
     .testTarget(
@@ -218,6 +214,21 @@ let package = Package(
     ),
 
     .target(
+      name: Targets.demangleFilter,
+      dependencies: [
+        .target(name: Targets.recording),
+      ],
+      cSettings: [
+        .headerSearchPath("swift"),
+        .headerSearchPath("swift/Basic"),
+        .headerSearchPath("llvm"),
+        .headerSearchPath("llvm/ADT"),
+        .headerSearchPath("llvm/Config"),
+        .headerSearchPath("llvm/Support"),
+      ]
+    ),
+
+    .target(
       name: Targets.testTools,
       dependencies: [
         .target(name: Targets.recordingCore)
@@ -237,6 +248,7 @@ enum Targets {
   static let core = "KSCrashCore"
   static let discSpaceMonitor = "KSCrashDiscSpaceMonitor"
   static let bootTimeMonitor = "KSCrashBootTimeMonitor"
+  static let demangleFilter = "KSCrashDemangleFilter"
   static let testTools = "KSCrashTestTools"
 }
 
