@@ -45,7 +45,7 @@ let package = Package(
     ),
     .library(
       name: "DemangleFilter",
-      targets: [Targets.bootTimeMonitor]
+      targets: [Targets.demangleFilter]
     ),
   ],
   targets: [
