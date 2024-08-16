@@ -2044,7 +2044,7 @@
                         {
                             "object_name": "Crash-Tester",
                             "object_addr": 929792,
-                            "symbol_name": "MyCPPClass::throwAnException()",
+                            "symbol_name": "_ZN10MyCPPClass16throwAnExceptionEv",
                             "symbol_addr": 940800,
                             "instruction_addr": 940935
                         },
@@ -2570,7 +2570,7 @@
             "reason": "Something bad happened...",
             "type": "cpp_exception",
             "cpp_exception": {
-                "name": "MyException"
+                "name": "11MyException"
             }
         }
     },
