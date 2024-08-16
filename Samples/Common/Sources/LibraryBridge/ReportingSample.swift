@@ -28,6 +28,7 @@ import Foundation
 import KSCrashRecording
 import KSCrashFilters
 import KSCrashSinks
+import KSCrashDemangleFilter
 import Logging
 
 public class ReportingSample {
@@ -58,6 +59,7 @@ public class ReportingSample {
 
     public static func sampleLogToConsole() {
         KSCrash.shared.sink = CrashReportFilterPipeline(filtersArray: [
+            CrashReportFilterDemangle(),
             SampleFilter(),
             SampleSink(),
         ])

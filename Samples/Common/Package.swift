@@ -38,6 +38,7 @@ let package = Package(
       dependencies: [
         .product(name: "Recording", package: "KSCrash"),
         .product(name: "Reporting", package: "KSCrash"),
+        .product(name: "DemangleFilter", package: "KSCrash"),
         .product(name: "Logging", package: "swift-log"),
       ]
     ),
