@@ -86,7 +86,7 @@
 + (id)demangleReportObj:(id)reportObj path:(NSArray<NSString *> *)path depth:(NSUInteger)depth
 {
     // Check for NSString and try demangle
-    if (depth == path.count - 1) {
+    if (depth == path.count) {
         if ([reportObj isKindOfClass:[NSString class]] == NO) {
             return nil;
         }
@@ -109,7 +109,7 @@
                 // Initializing the updated array only on first demangled result
                 result = [NSMutableArray arrayWithCapacity:reportArray.count];
                 for (NSUInteger subIdx = 0; subIdx < idx; ++subIdx) {
-                    result[subIdx] = reportArray[subIdx];
+                    [result addObject:reportArray[subIdx]];
                 }
             }
             result[idx] = demangled ?: obj;
