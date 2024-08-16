@@ -38,6 +38,12 @@ typedef NS_ENUM(NSUInteger, KSCDeleteBehavior) {
 
 @interface KSCrashConfiguration : NSObject <NSCopying>
 
+/** Specifies a custom base path for KSCrash installation.
+ * If `nil` the default directory is used:.
+ * The default directory is "KSCrash" inside the default cache directory.
+ *
+ * **Default**: `nil`
+ */
 @property(nonatomic, copy, nullable) NSString *installPath;
 
 /** The crash types that will be handled.

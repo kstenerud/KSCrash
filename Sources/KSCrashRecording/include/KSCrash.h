@@ -110,8 +110,6 @@ NS_ASSUME_NONNULL_BEGIN
 + (instancetype)new NS_UNAVAILABLE;
 
 /** Get the singleton instance of the crash reporter.
- *
- * @note To specify a custom base direcory for KSCrash use `setBasePath:` method.
  */
 @property(class, readonly) KSCrash *sharedInstance NS_SWIFT_NAME(shared);
 
