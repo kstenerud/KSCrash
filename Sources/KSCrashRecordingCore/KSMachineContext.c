@@ -28,6 +28,10 @@
 
 #include <mach/mach.h>
 
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 180100  // Xcode 16.1
+#include <sys/_types/_ucontext64.h>
+#endif
+
 #include "KSCPU.h"
 #include "KSCPU_Apple.h"
 #include "KSMachineContext_Apple.h"
