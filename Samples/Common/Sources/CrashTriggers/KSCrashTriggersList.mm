@@ -30,14 +30,14 @@
 #import <signal.h>
 #import <stdexcept>
 
-namespace sample_namespace {
-class Report {
-public:
-    static void crash() {
-        throw std::runtime_error("C++ exception");
-    }
+namespace sample_namespace
+{
+class Report
+{
+   public:
+    static void crash() { throw std::runtime_error("C++ exception"); }
 };
-}
+}  // namespace sample_namespace
 
 @implementation KSCrashTriggersList
 

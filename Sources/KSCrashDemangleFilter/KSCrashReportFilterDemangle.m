@@ -27,8 +27,8 @@
 #import "KSCrashReportFilterDemangle.h"
 
 #import "KSCrashReport.h"
-#import "KSSystemCapabilities.h"
 #import "KSDemangle_CPP.h"
+#import "KSSystemCapabilities.h"
 #if KSCRASH_HAS_SWIFT
 #import "KSDemangle_Swift.h"
 #endif
@@ -103,7 +103,7 @@
         }
         NSArray *reportArray = reportObj;
         NSMutableArray *__block result = nil;
-        [reportArray enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL * _Nonnull stop) {
+        [reportArray enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *_Nonnull stop) {
             id demangled = [self demangleReportObj:obj path:path depth:depth + 1];
             if (demangled != nil && result == nil) {
                 // Initializing the updated array only on first demangled result
@@ -134,12 +134,19 @@
 - (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
     NSArray *demanglePaths = @[
-        @[ KSCrashField_Crash, KSCrashField_Threads, @"", KSCrashField_Backtrace, KSCrashField_Contents, @"", KSCrashField_SymbolName ],
-        @[ KSCrashField_RecrashReport, KSCrashField_Crash, KSCrashField_Threads, @"", KSCrashField_Backtrace,
-          KSCrashField_Contents, @"", KSCrashField_SymbolName ],
+        @[
+            KSCrashField_Crash, KSCrashField_Threads, @"", KSCrashField_Backtrace, KSCrashField_Contents, @"",
+            KSCrashField_SymbolName
+        ],
+        @[
+            KSCrashField_RecrashReport, KSCrashField_Crash, KSCrashField_Threads, @"", KSCrashField_Backtrace,
+            KSCrashField_Contents, @"", KSCrashField_SymbolName
+        ],
         @[ KSCrashField_Crash, KSCrashField_Error, KSCrashField_CPPException, KSCrashField_Name ],
-        @[ KSCrashField_RecrashReport, KSCrashField_Crash, KSCrashField_Error, KSCrashField_CPPException,
-          KSCrashField_Name ],
+        @[
+            KSCrashField_RecrashReport, KSCrashField_Crash, KSCrashField_Error, KSCrashField_CPPException,
+            KSCrashField_Name
+        ],
     ];
 
     NSMutableArray<id<KSCrashReport>> *filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];

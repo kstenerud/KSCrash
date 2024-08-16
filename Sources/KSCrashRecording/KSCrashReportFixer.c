@@ -24,14 +24,14 @@
 // THE SOFTWARE.
 //
 
-#include "KSCrashReportFields.h"
-#include "KSJSONCodec.h"
-#include "KSSystemCapabilities.h"
 #include <stdlib.h>
 #include <string.h>
 
+#include "KSCrashReportFields.h"
 #include "KSDate.h"
+#include "KSJSONCodec.h"
 #include "KSLogger.h"
+#include "KSSystemCapabilities.h"
 
 #define MAX_DEPTH 100
 #define MAX_NAME_LENGTH 100
