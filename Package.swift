@@ -116,6 +116,7 @@ let package = Package(
         .target(name: Targets.filters),
         .target(name: Targets.sinks),
         .target(name: Targets.recording),
+        .target(name: Targets.demangleFilter),
       ],
       resources: [
         .copy("Resources/PrivacyInfo.xcprivacy")

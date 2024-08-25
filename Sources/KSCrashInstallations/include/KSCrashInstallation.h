@@ -50,6 +50,12 @@ NS_SWIFT_NAME(CrashInstallation)
  */
 @property(atomic, readwrite, assign, nullable) KSReportWriteCallback onCrash;
 
+/** Flag for disabling built-in demangling pre-filter.
+ * If enabled an additional KSCrashReportFilterDemangle filter will be applied first.
+ * @note Enabled by-default.
+ */
+@property(nonatomic, assign) BOOL isDemangleEnabled;
+
 /** Install this crash handler with a specific configuration.
  * Call this method instead of `-[KSCrash installWithConfiguration:error:]` to set up the crash handler
  * tailored for your specific backend requirements.

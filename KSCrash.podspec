@@ -50,6 +50,7 @@ Pod::Spec.new do |s|
     installations.dependency 'KSCrash/Filters'
     installations.dependency 'KSCrash/Sinks'
     installations.dependency 'KSCrash/Recording'
+    installations.dependency 'KSCrash/DemangleFilter'
 
     configure_subspec.call(installations)
   end
