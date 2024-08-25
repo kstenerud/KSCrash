@@ -218,6 +218,9 @@ let package = Package(
       dependencies: [
         .target(name: Targets.recording),
       ],
+      resources: [
+        .copy("Resources/PrivacyInfo.xcprivacy")
+      ],
       cSettings: [
         .headerSearchPath("swift"),
         .headerSearchPath("swift/Basic"),
