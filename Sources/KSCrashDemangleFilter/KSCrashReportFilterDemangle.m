@@ -131,6 +131,8 @@
     return [result copy];
 }
 
+#pragma mark - KSCrashReportFilter
+
 - (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
     NSArray *demanglePaths = @[
