@@ -74,10 +74,14 @@
 
 - (void)testCorrectSwiftSymbols
 {
-    XCTAssertEqualObjects([KSCrashReportFilterDemangle demangledSwiftSymbol:@"$s5HelloAAC8sayHelloyyF"], @"Hello.sayHello()");
-    XCTAssertEqualObjects([KSCrashReportFilterDemangle demangledSwiftSymbol:@"$s3Foo3BarC11doSomethingyyFZ"], @"static Bar.doSomething()");
-    XCTAssertEqualObjects([KSCrashReportFilterDemangle demangledSwiftSymbol:@"$s3app5ModelC5valueSSvg"], @"Model.value.getter");
-    XCTAssertEqualObjects([KSCrashReportFilterDemangle demangledSwiftSymbol:@"$s3Foo3BarC11doSomethingySiSS_SbtF"], @"Bar.doSomething(_:_:)");
+    XCTAssertEqualObjects([KSCrashReportFilterDemangle demangledSwiftSymbol:@"$s5HelloAAC8sayHelloyyF"],
+                          @"Hello.sayHello()");
+    XCTAssertEqualObjects([KSCrashReportFilterDemangle demangledSwiftSymbol:@"$s3Foo3BarC11doSomethingyyFZ"],
+                          @"static Bar.doSomething()");
+    XCTAssertEqualObjects([KSCrashReportFilterDemangle demangledSwiftSymbol:@"$s3app5ModelC5valueSSvg"],
+                          @"Model.value.getter");
+    XCTAssertEqualObjects([KSCrashReportFilterDemangle demangledSwiftSymbol:@"$s3Foo3BarC11doSomethingySiSS_SbtF"],
+                          @"Bar.doSomething(_:_:)");
 }
 
 #pragma mark - Report
@@ -86,71 +90,72 @@
 {
     KSCrashReportFilterDemangle *filter = [KSCrashReportFilterDemangle new];
     KSCrashReportDictionary *mangledReport = [KSCrashReportDictionary reportWithValue:@{
-        @"other_root_key": @"A",
-        KSCrashField_Crash: @{
-            @"other_crash_key": @"B",
-            KSCrashField_Threads: @[
+        @"other_root_key" : @"A",
+        KSCrashField_Crash : @ {
+            @"other_crash_key" : @"B",
+            KSCrashField_Threads : @[
                 @{
-                    KSCrashField_Backtrace: @{
-                        @"other_backtrace_key": @"C",
-                        KSCrashField_Contents: @[
+                    KSCrashField_Backtrace : @ {
+                        @"other_backtrace_key" : @"C",
+                        KSCrashField_Contents : @[
                             @{
-                                @"other_symbol_key": @"D",
-                                KSCrashField_SymbolName: @"_Z3foov",
+                                @"other_symbol_key" : @"D",
+                                KSCrashField_SymbolName : @"_Z3foov",
                             },
                             @{
-                                KSCrashField_SymbolName: @"$s5HelloAAC8sayHelloyyF",
+                                KSCrashField_SymbolName : @"$s5HelloAAC8sayHelloyyF",
                             },
                             @{
-                                KSCrashField_SymbolName: @"Not_Mangled()",
+                                KSCrashField_SymbolName : @"Not_Mangled()",
                             },
                         ],
                     },
                 },
                 @{
-                    @"empty_thread_key": @"F",
+                    @"empty_thread_key" : @"F",
                 },
             ],
         },
     }];
 
     KSCrashReportDictionary *expectedReport = [KSCrashReportDictionary reportWithValue:@{
-        @"other_root_key": @"A",
-        KSCrashField_Crash: @{
-            @"other_crash_key": @"B",
-            KSCrashField_Threads: @[
+        @"other_root_key" : @"A",
+        KSCrashField_Crash : @ {
+            @"other_crash_key" : @"B",
+            KSCrashField_Threads : @[
                 @{
-                    KSCrashField_Backtrace: @{
-                        @"other_backtrace_key": @"C",
-                        KSCrashField_Contents: @[
+                    KSCrashField_Backtrace : @ {
+                        @"other_backtrace_key" : @"C",
+                        KSCrashField_Contents : @[
                             @{
-                                @"other_symbol_key": @"D",
-                                KSCrashField_SymbolName: @"foo()",
+                                @"other_symbol_key" : @"D",
+                                KSCrashField_SymbolName : @"foo()",
                             },
                             @{
-                                KSCrashField_SymbolName: @"Hello.sayHello()",
+                                KSCrashField_SymbolName : @"Hello.sayHello()",
                             },
                             @{
-                                KSCrashField_SymbolName: @"Not_Mangled()",
+                                KSCrashField_SymbolName : @"Not_Mangled()",
                             },
                         ],
                     },
                 },
                 @{
-                    @"empty_thread_key": @"F",
+                    @"empty_thread_key" : @"F",
                 },
             ],
         },
     }];
 
     XCTestExpectation *expectation = [self expectationWithDescription:@"Filter callback called"];
-    [filter filterReports:@[mangledReport] onCompletion:^(NSArray<id<KSCrashReport>> *filteredReports, BOOL completed, NSError *error) {
-        KSCrashReportDictionary *demangledReport = filteredReports.firstObject;
-        XCTAssertEqualObjects(demangledReport, expectedReport);
-        [expectation fulfill];
-    }];
+    [filter filterReports:@[ mangledReport ]
+             onCompletion:^(NSArray<id<KSCrashReport>> *filteredReports, BOOL completed, NSError *error) {
+                 KSCrashReportDictionary *demangledReport = filteredReports.firstObject;
+                 XCTAssertEqualObjects(demangledReport, expectedReport);
+                 [expectation fulfill];
+             }];
 
-    [self waitForExpectations:@[expectation] timeout:0.1];
+    [self waitForExpectations:@[ expectation ] timeout:0.1];
 }
 
 @end
