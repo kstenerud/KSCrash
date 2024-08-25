@@ -27,6 +27,7 @@
 #import "KSCrashReportFilterDemangle.h"
 
 #import "KSCrashReport.h"
+#import "KSCrashReportFields.h"
 #import "KSDemangle_CPP.h"
 #import "KSSystemCapabilities.h"
 #if KSCRASH_HAS_SWIFT
