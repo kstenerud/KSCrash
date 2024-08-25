@@ -231,6 +231,13 @@ let package = Package(
         .headerSearchPath("llvm/Support"),
       ]
     ),
+    .testTarget(
+        name: Targets.demangleFilter.tests,
+        dependencies: [
+            .target(name: Targets.demangleFilter),
+            .target(name: Targets.recording),
+        ]
+    ),
 
     .target(
       name: Targets.testTools,
