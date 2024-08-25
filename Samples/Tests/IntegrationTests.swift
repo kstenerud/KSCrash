@@ -59,9 +59,7 @@ final class MachTests: IntegrationTestBase {
 
 final class CppTests: IntegrationTestBase {
     func testRuntimeException() throws {
-        try launchAndCrash(.cpp_runtimeException) {
-            $0.isCxaThrowEnabled = true
-        }
+        try launchAndCrash(.cpp_runtimeException)
 
         let rawReport = try readPartialCrashReport()
         try rawReport.validate()
