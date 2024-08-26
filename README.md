@@ -201,11 +201,11 @@ For more information, see Apple's documentation on [Disk space APIs](https://dev
 
 ### Optional Demangling
 
-KSCrash has an optional module that brings demangling for both C++ and Swift symbols: `DemangleFilter`. This module contains a KSCrash filter (`CrashReportFilterDemangle`) that can be used for demangling symbols in crash reports during the `sendAllReports` call *(if this filter is added to the filters pipeline)*.
+KSCrash has an optional module that provides demangling for both C++ and Swift symbols: `DemangleFilter`. This module contains a KSCrash filter (`CrashReportFilterDemangle`) that can be used for demangling symbols in crash reports during the `sendAllReports` call *(if this filter is added to the filters pipeline)*.
 
-This module is used automatically if you use `Installations` API. If you want to avoid demangling you can set `isDemangleEnabled` in `CrashInstallation` instance to `false`.
+This module is used automatically if you use the `Installations` API. If you want to avoid demangling, you can set `isDemangleEnabled` in the `CrashInstallation` instance to `false`.
 
-If you don't use `Installations` API you can include this module manually:
+If you don't use the `Installations` API, you can include this module manually:
 
 - With CocoaPods:
   ```ruby
@@ -217,7 +217,7 @@ If you don't use `Installations` API you can include this module manually:
   .product(name: "DemangleFilter", package: "KSCrash"),
   ```
 
-The `CrashReportFilterDemangle` class also has static API that you can use youself in case you need to demangle a C++ or a Swift symbol.
+The `CrashReportFilterDemangle` class also has a static API that you can use yourself in case you need to demangle a C++ or Swift symbol.
 
 ## What's New?
 
