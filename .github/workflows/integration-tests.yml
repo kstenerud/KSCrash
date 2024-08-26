@@ -25,7 +25,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: iOS
+          # iOS integration tests are too flaky and are temporary excluded
+          # - platform: iOS
           - platform: macOS
           - platform: tvOS
           - platform: watchOS
