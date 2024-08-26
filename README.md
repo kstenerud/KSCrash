@@ -177,9 +177,9 @@ installation.sendAllReports { reports, completed, error in
 }
 ```
 
-### Optional Modules
+### Optional Monitors
 
-KSCrash includes two optional modules: `BootTimeMonitor` and `DiscSpaceMonitor`. These modules are not included by default and must be explicitly added if needed. They contain privacy-concerning APIs that require showing crash reports to the user before sending this information off the device.
+KSCrash includes two optional monitor modules: `BootTimeMonitor` and `DiscSpaceMonitor`. These modules are not included by default and must be explicitly added if needed. They contain privacy-concerning APIs that require showing crash reports to the user before sending this information off the device.
 
 To include these modules:
 
@@ -198,6 +198,26 @@ To include these modules:
 If these modules are linked, they act automatically and require no additional setup. It is the responsibility of the library user to implement the necessary UI for user consent.
 
 For more information, see Apple's documentation on [Disk space APIs](https://developer.apple.com/documentation/bundleresources/privacy_manifest_files/describing_use_of_required_reason_api#4278397) and [System boot time APIs](https://developer.apple.com/documentation/bundleresources/privacy_manifest_files/describing_use_of_required_reason_api#4278394).
+
+### Optional Demangling
+
+KSCrash has an optional module that provides demangling for both C++ and Swift symbols: `DemangleFilter`. This module contains a KSCrash filter (`CrashReportFilterDemangle`) that can be used for demangling symbols in crash reports during the `sendAllReports` call *(if this filter is added to the filters pipeline)*.
+
+This module is used automatically if you use the `Installations` API. If you want to avoid demangling, you can set `isDemangleEnabled` in the `CrashInstallation` instance to `false`.
+
+If you don't use the `Installations` API, you can include this module manually:
+
+- With CocoaPods:
+  ```ruby
+  pod 'KSCrash/DemangleFilter'
+  ```
+
+- With SPM, add to your target dependencies:
+  ```swift
+  .product(name: "DemangleFilter", package: "KSCrash"),
+  ```
+
+The `CrashReportFilterDemangle` class also has a static API that you can use yourself in case you need to demangle a C++ or Swift symbol.
 
 ## What's New?
 
@@ -292,6 +312,7 @@ KSCrash is structured into several modules, divided into public and private APIs
 
 - **DiscSpaceMonitor**: `KSCrashDiscSpaceMonitor` - Monitors available disk space.
 - **BootTimeMonitor**: `KSCrashBootTimeMonitor` - Tracks device boot time.
+- **DemangleFilter**: `KSCrashDemangleFilter` - Demangle symbols in crashes as part of reporing pipeline.
 
 ### Private API Modules
 

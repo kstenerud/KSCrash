@@ -32,7 +32,7 @@ extern "C" char *ksdm_demangleSwift(const char *mangledSymbol)
 {
     swift::Demangle::DemangleOptions options = swift::Demangle::DemangleOptions::SimplifiedUIDemangleOptions();
     std::string demangled = swift::Demangle::demangleSymbolAsString(mangledSymbol, options);
-    if (demangled.length() == 0) {
+    if (demangled.length() == 0 || strcmp(mangledSymbol, demangled.c_str()) == 0) {
         return NULL;
     }
     return strdup(demangled.c_str());

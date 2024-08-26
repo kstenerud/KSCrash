@@ -91,6 +91,20 @@
                ReferencedContainer = "container:">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "DemangleFilter"
+               BuildableName = "DemangleFilter"
+               BlueprintName = "DemangleFilter"
+               ReferencedContainer = "container:">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
@@ -201,6 +215,16 @@
                BlueprintIdentifier = "KSCrashDiscSpaceMonitorTests"
                BuildableName = "KSCrashDiscSpaceMonitorTests"
                BlueprintName = "KSCrashDiscSpaceMonitorTests"
+               ReferencedContainer = "container:">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "KSCrashDemangleFilterTests"
+               BuildableName = "KSCrashDemangleFilterTests"
+               BlueprintName = "KSCrashDemangleFilterTests"
                ReferencedContainer = "container:">
             </BuildableReference>
          </TestableReference>

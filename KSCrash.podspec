@@ -50,6 +50,7 @@ Pod::Spec.new do |s|
     installations.dependency 'KSCrash/Filters'
     installations.dependency 'KSCrash/Sinks'
     installations.dependency 'KSCrash/Recording'
+    installations.dependency 'KSCrash/DemangleFilter'
 
     configure_subspec.call(installations)
   end
@@ -70,6 +71,12 @@ Pod::Spec.new do |s|
     disc_space_monitor.dependency 'KSCrash/RecordingCore'
 
     configure_subspec.call(disc_space_monitor)
+  end
+
+  s.subspec 'DemangleFilter' do |demangle_filter|
+    demangle_filter.dependency 'KSCrash/Recording'
+
+    configure_subspec.call(demangle_filter)
   end
 
   s.subspec 'ReportingCore' do |reporting_core|
