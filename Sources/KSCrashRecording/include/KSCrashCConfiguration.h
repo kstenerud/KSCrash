@@ -156,7 +156,7 @@ typedef struct {
      * accurate stack traces even in dynamically linked libraries and allows overriding
      * the original `__cxa_throw` with a custom implementation.
      *
-     * **Default**: false
+     * **Default**: true
      */
     bool enableSwapCxaThrow;
 } KSCrashCConfiguration;
@@ -174,7 +174,7 @@ static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
                                      .addConsoleLogToReport = false,
                                      .printPreviousLogOnStartup = false,
                                      .maxReportCount = 5,
-                                     .enableSwapCxaThrow = false };
+                                     .enableSwapCxaThrow = true };
 }
 
 #ifdef __cplusplus

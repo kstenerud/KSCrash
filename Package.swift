@@ -43,6 +43,10 @@ let package = Package(
       name: "BootTimeMonitor",
       targets: [Targets.bootTimeMonitor]
     ),
+    .library(
+      name: "DemangleFilter",
+      targets: [Targets.demangleFilter]
+    ),
   ],
   targets: [
     .target(
@@ -112,6 +116,7 @@ let package = Package(
         .target(name: Targets.filters),
         .target(name: Targets.sinks),
         .target(name: Targets.recording),
+        .target(name: Targets.demangleFilter),
       ],
       resources: [
         .copy("Resources/PrivacyInfo.xcprivacy")
@@ -134,14 +139,6 @@ let package = Package(
       ],
       resources: [
         .copy("Resources/PrivacyInfo.xcprivacy")
-      ],
-      cSettings: [
-        .headerSearchPath("swift"),
-        .headerSearchPath("swift/Basic"),
-        .headerSearchPath("llvm"),
-        .headerSearchPath("llvm/ADT"),
-        .headerSearchPath("llvm/Config"),
-        .headerSearchPath("llvm/Support"),
       ]
     ),
     .testTarget(
@@ -218,6 +215,31 @@ let package = Package(
     ),
 
     .target(
+      name: Targets.demangleFilter,
+      dependencies: [
+        .target(name: Targets.recording),
+      ],
+      resources: [
+        .copy("Resources/PrivacyInfo.xcprivacy")
+      ],
+      cSettings: [
+        .headerSearchPath("swift"),
+        .headerSearchPath("swift/Basic"),
+        .headerSearchPath("llvm"),
+        .headerSearchPath("llvm/ADT"),
+        .headerSearchPath("llvm/Config"),
+        .headerSearchPath("llvm/Support"),
+      ]
+    ),
+    .testTarget(
+        name: Targets.demangleFilter.tests,
+        dependencies: [
+            .target(name: Targets.demangleFilter),
+            .target(name: Targets.recording),
+        ]
+    ),
+
+    .target(
       name: Targets.testTools,
       dependencies: [
         .target(name: Targets.recordingCore)
@@ -237,6 +259,7 @@ enum Targets {
   static let core = "KSCrashCore"
   static let discSpaceMonitor = "KSCrashDiscSpaceMonitor"
   static let bootTimeMonitor = "KSCrashBootTimeMonitor"
+  static let demangleFilter = "KSCrashDemangleFilter"
   static let testTools = "KSCrashTestTools"
 }
 

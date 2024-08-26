@@ -30,6 +30,15 @@
 #import <signal.h>
 #import <stdexcept>
 
+namespace sample_namespace
+{
+class Report
+{
+   public:
+    static void crash() { throw std::runtime_error("C++ exception"); }
+};
+}  // namespace sample_namespace
+
 @implementation KSCrashTriggersList
 
 + (void)trigger_nsException_genericNSException
@@ -46,7 +55,7 @@
 
 + (void)trigger_cpp_runtimeException
 {
-    throw std::runtime_error("C++ exception");
+    sample_namespace::Report::crash();
 }
 
 + (void)trigger_mach_badAccess

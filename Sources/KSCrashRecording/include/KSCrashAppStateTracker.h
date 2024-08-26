@@ -24,7 +24,7 @@
 // THE SOFTWARE.
 //
 #import <Foundation/Foundation.h>
-#import <KSCrashAppTransitionState.h>
+#import "KSCrashAppTransitionState.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
