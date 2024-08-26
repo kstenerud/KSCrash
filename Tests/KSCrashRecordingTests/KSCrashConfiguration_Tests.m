@@ -48,7 +48,7 @@
     XCTAssertFalse(config.addConsoleLogToReport);
     XCTAssertFalse(config.printPreviousLogOnStartup);
     XCTAssertEqual(config.maxReportCount, 5);
-    XCTAssertFalse(config.enableSwapCxaThrow);
+    XCTAssertTrue(config.enableSwapCxaThrow);
     XCTAssertEqual(config.deleteBehaviorAfterSendAll, KSCDeleteAlways);
 }
 
@@ -64,7 +64,7 @@
     config.addConsoleLogToReport = YES;
     config.printPreviousLogOnStartup = YES;
     config.maxReportCount = 10;
-    config.enableSwapCxaThrow = YES;
+    config.enableSwapCxaThrow = NO;
 
     KSCrashCConfiguration cConfig = [config toCConfiguration];
 
@@ -80,7 +80,7 @@
     XCTAssertTrue(cConfig.addConsoleLogToReport);
     XCTAssertTrue(cConfig.printPreviousLogOnStartup);
     XCTAssertEqual(cConfig.maxReportCount, 10);
-    XCTAssertTrue(cConfig.enableSwapCxaThrow);
+    XCTAssertFalse(cConfig.enableSwapCxaThrow);
 
     // Free memory allocated for C string array
     for (int i = 0; i < cConfig.doNotIntrospectClasses.length; i++) {
@@ -102,7 +102,7 @@
     config.addConsoleLogToReport = YES;
     config.printPreviousLogOnStartup = YES;
     config.maxReportCount = 10;
-    config.enableSwapCxaThrow = YES;
+    config.enableSwapCxaThrow = NO;
 
     KSCrashConfiguration *copy = [config copy];
 
@@ -115,7 +115,7 @@
     XCTAssertTrue(copy.addConsoleLogToReport);
     XCTAssertTrue(copy.printPreviousLogOnStartup);
     XCTAssertEqual(copy.maxReportCount, 10);
-    XCTAssertTrue(copy.enableSwapCxaThrow);
+    XCTAssertFalse(copy.enableSwapCxaThrow);
     XCTAssertEqual(copy.deleteBehaviorAfterSendAll, KSCDeleteAlways);
 }
 

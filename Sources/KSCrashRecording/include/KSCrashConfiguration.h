@@ -148,7 +148,7 @@ typedef NS_ENUM(NSUInteger, KSCDeleteBehavior) {
  * accurate stack traces even in dynamically linked libraries and allows overriding
  * the original `__cxa_throw` with a custom implementation.
  *
- * **Default**: false
+ * **Default**: true
  */
 @property(nonatomic, assign) BOOL enableSwapCxaThrow;
 
