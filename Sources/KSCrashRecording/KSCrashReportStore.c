@@ -170,12 +170,12 @@ static void initializeIDs(void)
 
 void kscrs_initialize(const char *appName, const char *reportsPath)
 {
-    char *oldAppName = NULL;
-    char *oldReportsPath = NULL;
+    const char *previousAppName = NULL;
+    const char *previousReportsPath = NULL;
 
     pthread_mutex_lock(&g_mutex);
-    oldAppName = g_appName;
-    oldReportsPath = g_reportsPath;
+    previousAppName = g_appName;
+    previousReportsPath = g_reportsPath;
     g_appName = strdup(appName);
     g_reportsPath = strdup(reportsPath);
     ksfu_makePath(reportsPath);
@@ -183,13 +183,13 @@ void kscrs_initialize(const char *appName, const char *reportsPath)
     initializeIDs();
     pthread_mutex_unlock(&g_mutex);
 
-    if (oldAppName) {
-        KSLOG_WARN("Reports app name is changed from '%s' to '%s'", oldAppName, appName);
-        free(oldAppName);
+    if (previousAppName) {
+        KSLOG_WARN("Reports app name is changed from '%s' to '%s'", previousAppName, appName);
+        free((void *)previousAppName);
     }
-    if (oldReportsPath) {
-        KSLOG_WARN("Reports path is changed from '%s' to '%s'", oldReportsPath, reportsPath);
-        free(oldReportsPath);
+    if (previousReportsPath) {
+        KSLOG_WARN("Reports path is changed from '%s' to '%s'", previousReportsPath, reportsPath);
+        free((void *)previousReportsPath);
     }
 }
 
