@@ -45,7 +45,6 @@ static _Atomic(uint32_t) g_nextUniqueIDLow;
 static int64_t g_nextUniqueIDHigh;
 static const char *g_appName;
 static const char *g_reportsPath;
-static const char *g_installPath;
 static pthread_mutex_t g_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static int compareInt64(const void *a, const void *b)
@@ -157,12 +156,10 @@ static void initializeIDs(void)
 
 // Public API
 
-void kscrs_initialize(const char *appName, const char *installPath, const char *reportsPath)
+void kscrs_initialize(const char *appName, const char *reportsPath)
 {
     pthread_mutex_lock(&g_mutex);
     g_appName = strdup(appName);
-    g_installPath = strdup(installPath);
-    ksfu_makePath(installPath);
     g_reportsPath = strdup(reportsPath);
     ksfu_makePath(reportsPath);
     pruneReports();

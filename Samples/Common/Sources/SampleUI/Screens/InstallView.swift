@@ -31,8 +31,6 @@ import LibraryBridge
 struct InstallView: View {
     @ObservedObject var bridge: InstallBridge
 
-    @Binding var installSkipped: Bool
-
     @State private var showingInstallAlert = false
 
     var body: some View {
@@ -82,7 +80,7 @@ struct InstallView: View {
             }
 
             Button("Skip install") {
-                installSkipped = true
+                bridge.installReportsOnly()
             }
             .foregroundStyle(Color.red)
         }

@@ -85,6 +85,10 @@ extern "C" {
 KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const installPath,
                                         KSCrashCConfiguration configuration);
 
+/** TODO: Add docs
+ */
+KSCrashInstallErrorCode kscrash_installReports(const char *appName, const char *const installPath);
+
 /** Set the user-supplied data in JSON format.
  *
  * @param userInfoJSON Pre-baked JSON containing user-supplied information.

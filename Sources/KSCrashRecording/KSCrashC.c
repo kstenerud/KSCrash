@@ -86,6 +86,8 @@ static const size_t g_monitorMappingCount = sizeof(g_monitorMappings) / sizeof(g
 
 /** True if KSCrash has been installed. */
 static volatile bool g_installed = 0;
+/** True if the reports store has been installed. */
+static volatile bool g_reportsInstalled = 0;
 
 static bool g_shouldAddConsoleLogToReport = false;
 static bool g_shouldPrintPreviousLog = false;
@@ -209,6 +211,21 @@ void handleConfiguration(KSCrashCConfiguration *configuration)
 #pragma mark - API -
 // ============================================================================
 
+static KSCrashInstallErrorCode installReportsStore(const char *appName, const char *const installPath)
+{
+    char path[KSFU_MAX_PATH_LENGTH];
+    if (snprintf(path, sizeof(path), "%s/Reports", installPath) >= (int)sizeof(path)) {
+        KSLOG_ERROR("Reports path is too long.");
+        return KSCrashInstallErrorPathTooLong;
+    }
+    if (ksfu_makePath(path) == false) {
+        KSLOG_ERROR("Could not create path: %s", path);
+        return KSCrashInstallErrorCouldNotCreatePath;
+    }
+    kscrs_initialize(appName, path);
+    return KSCrashInstallErrorNone;
+}
+
 KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const installPath,
                                         KSCrashCConfiguration configuration)
 {
@@ -226,19 +243,16 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
 
     handleConfiguration(&configuration);
 
-    char path[KSFU_MAX_PATH_LENGTH];
-    if (snprintf(path, sizeof(path), "%s/Reports", installPath) >= (int)sizeof(path)) {
-        KSLOG_ERROR("Path too long.");
-        return KSCrashInstallErrorPathTooLong;
+    if (g_reportsInstalled == false) {
+        KSCrashInstallErrorCode result = installReportsStore(appName, installPath);
+        if (result != KSCrashInstallErrorNone) {
+            return result;
+        }
     }
-    if (ksfu_makePath(path) == false) {
-        KSLOG_ERROR("Could not create path: %s", path);
-        return KSCrashInstallErrorCouldNotCreatePath;
-    }
-    kscrs_initialize(appName, installPath, path);
 
+    char path[KSFU_MAX_PATH_LENGTH];
     if (snprintf(path, sizeof(path), "%s/Data", installPath) >= (int)sizeof(path)) {
-        KSLOG_ERROR("Path too long.");
+        KSLOG_ERROR("Data path is too long.");
         return KSCrashInstallErrorPathTooLong;
     }
     if (ksfu_makePath(path) == false) {
@@ -248,14 +262,14 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     ksmemory_initialize(path);
 
     if (snprintf(path, sizeof(path), "%s/Data/CrashState.json", installPath) >= (int)sizeof(path)) {
-        KSLOG_ERROR("Path too long.");
+        KSLOG_ERROR("Crash state path is too long.");
         return KSCrashInstallErrorPathTooLong;
     }
     kscrashstate_initialize(path);
 
     if (snprintf(g_consoleLogPath, sizeof(g_consoleLogPath), "%s/Data/ConsoleLog.txt", installPath) >=
         (int)sizeof(g_consoleLogPath)) {
-        KSLOG_ERROR("Console log path too long.");
+        KSLOG_ERROR("Console log path is too long.");
         return KSCrashInstallErrorPathTooLong;
     }
     if (g_shouldPrintPreviousLog) {
@@ -276,6 +290,29 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     KSLOG_DEBUG("Installation complete.");
 
     notifyOfBeforeInstallationState();
+    return KSCrashInstallErrorNone;
+}
+
+KSCrashInstallErrorCode kscrash_installReports(const char *appName, const char *const installPath)
+{
+    KSLOG_DEBUG("Installing reports store.");
+
+    if (g_reportsInstalled) {
+        KSLOG_DEBUG("Crash reporter already installed.");
+        return KSCrashInstallErrorAlreadyInstalled;
+    }
+
+    if (appName == NULL || installPath == NULL) {
+        KSLOG_ERROR("Invalid parameters: appName or installPath is NULL.");
+        return KSCrashInstallErrorInvalidParameter;
+    }
+
+    KSCrashInstallErrorCode result = installReportsStore(appName, installPath);
+    if (result != KSCrashInstallErrorNone) {
+        return result;
+    }
+
+    g_reportsInstalled = true;
     return KSCrashInstallErrorNone;
 }
 

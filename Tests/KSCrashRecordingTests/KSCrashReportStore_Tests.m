@@ -62,7 +62,7 @@
 - (void)prepareReportStoreWithPathEnd:(NSString *)pathEnd
 {
     self.reportStorePath = [self.tempPath stringByAppendingPathComponent:pathEnd];
-    kscrs_initialize(self.appName.UTF8String, self.tempPath.UTF8String, self.reportStorePath.UTF8String);
+    kscrs_initialize(self.appName.UTF8String, self.reportStorePath.UTF8String);
 }
 
 - (NSArray *)getReportIDs
