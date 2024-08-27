@@ -235,10 +235,10 @@ static NSString *getDefaultInstallPath(void)
     return YES;
 }
 
-- (BOOL)installReportsOnlyWithInstallPath:(NSString *)installPath error:(NSError **)error
+- (BOOL)setupReportStoreWithPath:(NSString *)installPath error:(NSError **)error
 {
     KSCrashInstallErrorCode result =
-        kscrash_installReports(self.bundleName.UTF8String, (installPath ?: getDefaultInstallPath()).UTF8String);
+        kscrash_setupReportsStore(self.bundleName.UTF8String, (installPath ?: getDefaultInstallPath()).UTF8String);
 
     if (result != KSCrashInstallErrorNone) {
         if (error != NULL) {

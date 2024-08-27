@@ -79,8 +79,8 @@ struct InstallView: View {
                 // TODO: Add deleteBehaviorAfterSendAll
             }
 
-            Button("Skip install") {
-                bridge.installReportsOnly()
+            Button("Only set up reports") {
+                bridge.setupReportsOnly()
             }
             .foregroundStyle(Color.red)
         }

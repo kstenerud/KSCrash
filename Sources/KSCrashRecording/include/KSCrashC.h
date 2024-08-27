@@ -87,7 +87,7 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
 
 /** TODO: Add docs
  */
-KSCrashInstallErrorCode kscrash_installReports(const char *appName, const char *const installPath);
+KSCrashInstallErrorCode kscrash_setupReportsStore(const char *appName, const char *const installPath);
 
 /** Set the user-supplied data in JSON format.
  *

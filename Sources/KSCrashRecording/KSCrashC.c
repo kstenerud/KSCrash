@@ -86,8 +86,6 @@ static const size_t g_monitorMappingCount = sizeof(g_monitorMappings) / sizeof(g
 
 /** True if KSCrash has been installed. */
 static volatile bool g_installed = 0;
-/** True if the reports store has been installed. */
-static volatile bool g_reportsInstalled = 0;
 
 static bool g_shouldAddConsoleLogToReport = false;
 static bool g_shouldPrintPreviousLog = false;
@@ -211,7 +209,7 @@ void handleConfiguration(KSCrashCConfiguration *configuration)
 #pragma mark - API -
 // ============================================================================
 
-static KSCrashInstallErrorCode installReportsStore(const char *appName, const char *const installPath)
+static KSCrashInstallErrorCode setupReportsStore(const char *appName, const char *const installPath)
 {
     char path[KSFU_MAX_PATH_LENGTH];
     if (snprintf(path, sizeof(path), "%s/Reports", installPath) >= (int)sizeof(path)) {
@@ -243,11 +241,9 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
 
     handleConfiguration(&configuration);
 
-    if (g_reportsInstalled == false) {
-        KSCrashInstallErrorCode result = installReportsStore(appName, installPath);
-        if (result != KSCrashInstallErrorNone) {
-            return result;
-        }
+    KSCrashInstallErrorCode result = setupReportsStore(appName, installPath);
+    if (result != KSCrashInstallErrorNone) {
+        return result;
     }
 
     char path[KSFU_MAX_PATH_LENGTH];
@@ -293,26 +289,20 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     return KSCrashInstallErrorNone;
 }
 
-KSCrashInstallErrorCode kscrash_installReports(const char *appName, const char *const installPath)
+KSCrashInstallErrorCode kscrash_setupReportsStore(const char *appName, const char *const installPath)
 {
     KSLOG_DEBUG("Installing reports store.");
-
-    if (g_reportsInstalled) {
-        KSLOG_DEBUG("Crash reporter already installed.");
-        return KSCrashInstallErrorAlreadyInstalled;
-    }
 
     if (appName == NULL || installPath == NULL) {
         KSLOG_ERROR("Invalid parameters: appName or installPath is NULL.");
         return KSCrashInstallErrorInvalidParameter;
     }
 
-    KSCrashInstallErrorCode result = installReportsStore(appName, installPath);
+    KSCrashInstallErrorCode result = setupReportsStore(appName, installPath);
     if (result != KSCrashInstallErrorNone) {
         return result;
     }
 
-    g_reportsInstalled = true;
     return KSCrashInstallErrorNone;
 }
 

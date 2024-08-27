@@ -35,6 +35,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <assert.h>
 
 #include "KSFileUtils.h"
 #include "KSLogger.h"
@@ -62,6 +63,7 @@ static inline int64_t getNextUniqueID(void) { return g_nextUniqueIDHigh + g_next
 
 static void getCrashReportPathByID(int64_t id, char *pathBuffer)
 {
+    assert(g_reportsPath != NULL);
     snprintf(pathBuffer, KSCRS_MAX_PATH_LENGTH, "%s/%s-report-%016llx.json", g_reportsPath, g_appName, id);
 }
 
@@ -77,6 +79,11 @@ static int64_t getReportIDFromFilename(const char *filename)
 
 static int getReportCount(void)
 {
+    if (g_reportsPath == NULL) {
+        KSLOG_ERROR("Reports store is not set up");
+        return 0;
+    }
+
     int count = 0;
     DIR *dir = opendir(g_reportsPath);
     if (dir == NULL) {
@@ -99,6 +106,11 @@ done:
 
 static int getReportIDs(int64_t *reportIDs, int count)
 {
+    if (g_reportsPath == NULL) {
+        KSLOG_ERROR("Reports store is not set up");
+        return 0;
+    }
+
     int index = 0;
     DIR *dir = opendir(g_reportsPath);
     if (dir == NULL) {
@@ -158,13 +170,27 @@ static void initializeIDs(void)
 
 void kscrs_initialize(const char *appName, const char *reportsPath)
 {
+    char *oldAppName = NULL;
+    char *oldReportsPath = NULL;
+
     pthread_mutex_lock(&g_mutex);
+    oldAppName = g_appName;
+    oldReportsPath = g_reportsPath;
     g_appName = strdup(appName);
     g_reportsPath = strdup(reportsPath);
     ksfu_makePath(reportsPath);
     pruneReports();
     initializeIDs();
     pthread_mutex_unlock(&g_mutex);
+
+    if (oldAppName) {
+        KSLOG_WARN("Reports app name is changed from '%s' to '%s'", oldAppName, appName);
+        free(oldAppName);
+    }
+    if (oldReportsPath) {
+        KSLOG_WARN("Reports path is changed from '%s' to '%s'", oldReportsPath, reportsPath);
+        free(oldReportsPath);
+    }
 }
 
 int64_t kscrs_getNextCrashReport(char *crashReportPathBuffer)
@@ -246,7 +272,11 @@ done:
 void kscrs_deleteAllReports(void)
 {
     pthread_mutex_lock(&g_mutex);
-    ksfu_deleteContentsOfPath(g_reportsPath);
+    if (g_reportsPath != NULL) {
+        ksfu_deleteContentsOfPath(g_reportsPath);
+    } else {
+        KSLOG_WARN("Reports store is not set up");
+    }
     pthread_mutex_unlock(&g_mutex);
 }
 

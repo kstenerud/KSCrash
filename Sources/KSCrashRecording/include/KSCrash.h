@@ -129,7 +129,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 /** TODO: Add docs
  */
-- (BOOL)installReportsOnlyWithInstallPath:(nullable NSString *)installPath error:(NSError **)error;
+- (BOOL)setupReportStoreWithPath:(nullable NSString *)installPath error:(NSError **)error;
 
 /** Send all outstanding crash reports to the current sink.
  * It will only attempt to send the most recent 5 reports. All others will be

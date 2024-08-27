@@ -36,9 +36,9 @@ public struct SampleView: View {
 
     public var body: some View {
         NavigationView {
-            if installBridge.installed || installBridge.installSkipped {
+            if installBridge.installed || installBridge.reportsOnlySetup {
                 MainView(
-                    installSkipped: $installBridge.installSkipped
+                    reportsOnlySetup: $installBridge.reportsOnlySetup
                 )
                 .navigationTitle("KSCrash Sample")
             } else {

@@ -67,7 +67,7 @@ public class InstallBridge: ObservableObject {
 
     @Published public var basePath: BasePath = .default
     @Published public var installed: Bool = false
-    @Published public var installSkipped: Bool = false
+    @Published public var reportsOnlySetup: Bool = false
     @Published public var error: InstallationError?
 
     public init() {
@@ -99,10 +99,10 @@ public class InstallBridge: ObservableObject {
         }
     }
 
-    public func installReportsOnly() {
+    public func setupReportsOnly() {
         do {
-            try KSCrash.shared.installReportsOnly(withInstallPath: config.installPath)
-            installSkipped = true
+            try KSCrash.shared.setupReportStore(withPath: config.installPath)
+            reportsOnlySetup = true
         } catch let error as KSCrashInstallError {
             let message = error.localizedDescription
             Self.logger.error("Failed to install KSCrash: \(message)")
