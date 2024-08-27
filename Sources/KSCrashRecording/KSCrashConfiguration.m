@@ -35,6 +35,7 @@
     self = [super init];
     if (self) {
         KSCrashCConfiguration cConfig = KSCrashCConfiguration_Default();
+        _installPath = nil;
         _monitors = cConfig.monitors;
 
         if (cConfig.userInfoJSON != NULL) {

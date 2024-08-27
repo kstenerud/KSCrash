@@ -38,8 +38,8 @@ public struct InstallConfig: Codable {
 
 extension InstallConfig {
     func install() throws {
-        KSCrash.setBasePath(installPath)
         let config = KSCrashConfiguration()
+        config.installPath = installPath
         if let isCxaThrowEnabled {
             config.enableSwapCxaThrow = isCxaThrowEnabled
         }

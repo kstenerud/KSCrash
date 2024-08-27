@@ -55,12 +55,10 @@
 @interface KSCrash ()
 
 @property(nonatomic, readwrite, copy) NSString *bundleName;
-@property(nonatomic, readwrite, copy) NSString *basePath;
 @property(nonatomic, strong) KSCrashConfiguration *configuration;
 
 @end
 
-static NSString *gCustomBasePath = nil;
 static BOOL gIsSharedInstanceCreated = NO;
 
 static NSString *getBundleName(void)
@@ -72,12 +70,8 @@ static NSString *getBundleName(void)
     return bundleName;
 }
 
-static NSString *getBasePath(void)
+static NSString *getDefaultInstallPath(void)
 {
-    if (gCustomBasePath != nil) {
-        return gCustomBasePath;
-    }
-
     NSArray *directories = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
     if ([directories count] == 0) {
         KSLOG_ERROR(@"Could not locate cache directory path.");
@@ -110,38 +104,22 @@ static NSString *getBasePath(void)
     }
 }
 
-+ (void)setBasePath:(NSString *)basePath;
-{
-    if (basePath == gCustomBasePath || [basePath isEqualToString:gCustomBasePath]) {
-        return;
-    }
-    if (gIsSharedInstanceCreated) {
-        KSLOG_WARN(@"A shared instance of KSCrash is already created. Can't change the base path to: %@", basePath);
-    }
-    gCustomBasePath = [basePath copy];
-}
-
 + (instancetype)sharedInstance
 {
     static KSCrash *sharedInstance = nil;
     static dispatch_once_t onceToken;
 
     dispatch_once(&onceToken, ^{
-        sharedInstance = [[KSCrash alloc] initWithBasePath:getBasePath()];
+        sharedInstance = [[KSCrash alloc] init];
         gIsSharedInstanceCreated = YES;
     });
     return sharedInstance;
 }
 
-- (instancetype)initWithBasePath:(NSString *)basePath
+- (instancetype)init
 {
-    if (basePath == nil) {
-        KSLOG_ERROR(@"Failed to initialize crash handler. Crash reporting disabled.");
-        return nil;
-    }
     if ((self = [super init])) {
         _bundleName = getBundleName();
-        _basePath = [basePath copy];
     }
     return self;
 }
@@ -243,8 +221,9 @@ static NSString *getBasePath(void)
 - (BOOL)installWithConfiguration:(KSCrashConfiguration *)configuration error:(NSError **)error
 {
     self.configuration = [configuration copy] ?: [KSCrashConfiguration new];
+    NSString *installPath = configuration.installPath ?: getDefaultInstallPath();
     KSCrashInstallErrorCode result =
-        kscrash_install(self.bundleName.UTF8String, self.basePath.UTF8String, [self.configuration toCConfiguration]);
+        kscrash_install(self.bundleName.UTF8String, installPath.UTF8String, [self.configuration toCConfiguration]);
 
     if (result != KSCrashInstallErrorNone) {
         if (error != NULL) {

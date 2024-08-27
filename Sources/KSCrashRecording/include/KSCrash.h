@@ -110,22 +110,8 @@ NS_ASSUME_NONNULL_BEGIN
 + (instancetype)new NS_UNAVAILABLE;
 
 /** Get the singleton instance of the crash reporter.
- *
- * @note To specify a custom base direcory for KSCrash use `setBasePath:` method.
  */
 @property(class, readonly) KSCrash *sharedInstance NS_SWIFT_NAME(shared);
-
-/**
- * Specifies a custom base path for KSCrash installation.
- * By default a "KSCrash" directory inside the default cache directory is used.
- *
- * @param basePath An absolute path to directory in which KSCrash stores the data.
- *                 If `nil` the default directory is used.
- *
- * @note This method SHOULD be called before any use of `sharedInstance` method.
- *       Any call of this method after that is ignored.
- */
-+ (void)setBasePath:(nullable NSString *)basePath;
 
 /** Install the crash reporter.
  * The reporter will record crashes, but will not send any crash reports unless a sink is set.
