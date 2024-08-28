@@ -30,12 +30,6 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-typedef NS_ENUM(NSUInteger, KSCDeleteBehavior) {
-    KSCDeleteNever,
-    KSCDeleteOnSucess,
-    KSCDeleteAlways
-} NS_SWIFT_NAME(DeleteBehavior);
-
 @interface KSCrashConfiguration : NSObject <NSCopying>
 
 /** Specifies a custom base path for KSCrash installation.
@@ -159,17 +153,6 @@ typedef NS_ENUM(NSUInteger, KSCDeleteBehavior) {
  * **Default**: true
  */
 @property(nonatomic, assign) BOOL enableSwapCxaThrow;
-
-/** What to do after sending reports via sendAllReportsWithCompletion:
- *
- * - Use KSCDeleteNever if you will manually manage the reports.
- * - Use KSCDeleteAlways if you will be using an alert confirmation (otherwise it
- *   will nag the user incessantly until he selects "yes").
- * - Use KSCDeleteOnSuccess for all other situations.
- *
- * Default: KSCDeleteAlways
- */
-@property(nonatomic, assign) KSCDeleteBehavior deleteBehaviorAfterSendAll;
 
 @end
 

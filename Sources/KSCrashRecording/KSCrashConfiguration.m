@@ -59,8 +59,6 @@
         _printPreviousLogOnStartup = cConfig.printPreviousLogOnStartup ? YES : NO;
         _maxReportCount = cConfig.maxReportCount;
         _enableSwapCxaThrow = cConfig.enableSwapCxaThrow ? YES : NO;
-
-        _deleteBehaviorAfterSendAll = KSCDeleteAlways;  // Used only in Obj-C interface
     }
     return self;
 }
@@ -133,7 +131,6 @@
     copy.printPreviousLogOnStartup = self.printPreviousLogOnStartup;
     copy.maxReportCount = self.maxReportCount;
     copy.enableSwapCxaThrow = self.enableSwapCxaThrow;
-    copy.deleteBehaviorAfterSendAll = self.deleteBehaviorAfterSendAll;
     return copy;
 }
 

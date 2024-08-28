@@ -26,19 +26,20 @@
 
 import Foundation
 import SwiftUI
+import LibraryBridge
 
 struct MainView: View {
 
-    @Binding var reportsOnlySetup: Bool
+    @ObservedObject var bridge: InstallBridge
 
     var body: some View {
         List {
             Section {
-                if reportsOnlySetup {
+                if bridge.reportsOnlySetup {
                     Text("It's only reporting that was set up. Crashes won't be caught. You can go back to the install screen.")
                         .foregroundStyle(Color.secondary)
                     Button("Back to Install") {
-                        reportsOnlySetup = false
+                        bridge.reportsOnlySetup = false
                     }
                 } else {
                     Text("KSCrash is installed successfully")
@@ -47,7 +48,11 @@ struct MainView: View {
             }
 
             NavigationLink("Crash", destination: CrashView())
-            NavigationLink("Report", destination: ReportingView())
+            if let store = bridge.reportStore {
+                NavigationLink("Report", destination: ReportingView(store: store))
+            } else {
+                Text("Reporting is not available")
+            }
         }
     }
 }

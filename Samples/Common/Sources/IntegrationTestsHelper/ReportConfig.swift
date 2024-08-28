@@ -41,11 +41,14 @@ public struct ReportConfig: Codable {
 extension ReportConfig {
     func report() {
         let url = URL(fileURLWithPath: directoryPath)
-        KSCrash.shared.sink = CrashReportFilterPipeline(filtersArray: [
+        guard let store = KSCrash.shared.reportStore else {
+            return
+        }
+        store.sink = CrashReportFilterPipeline(filtersArray: [
             CrashReportFilterAppleFmt(),
             DirectorySink(url),
         ])
-        KSCrash.shared.sendAllReports()
+        store.sendAllReports()
     }
 }
 

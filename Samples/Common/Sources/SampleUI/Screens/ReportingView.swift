@@ -26,15 +26,18 @@
 
 import SwiftUI
 import LibraryBridge
+import KSCrashRecording
 
 struct ReportingView: View {
+    let store: CrashReportStore
+
     var body: some View {
         List {
             Button("Log To Console") {
-                ReportingSample.logToConsole()
+                store.logToConsole()
             }
             Button("Sample Custom Log To Console") {
-                ReportingSample.sampleLogToConsole()
+                store.sampleLogToConsole()
             }
         }
         .navigationTitle("Report")

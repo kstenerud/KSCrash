@@ -322,9 +322,19 @@ static CrashHandlerData *g_crashHandlerData;
     }
     sink = [KSCrashReportFilterPipeline filterWithFiltersArray:sinkFilters];
 
-    KSCrash *handler = [KSCrash sharedInstance];
-    handler.sink = sink;
-    [handler sendAllReportsWithCompletion:onCompletion];
+    KSCrashReportStore *store = [KSCrash sharedInstance].reportStore;
+    if (store == nil) {
+        onCompletion(
+            nil, NO,
+            [KSNSErrorHelper
+                errorWithDomain:[[self class] description]
+                           code:0
+                    description:@"Reporting is not allowed before the call of `installWithConfiguration:error:`"]);
+        return;
+    }
+
+    store.sink = sink;
+    [store sendAllReportsWithCompletion:onCompletion];
 }
 
 - (void)addPreFilter:(id<KSCrashReportFilter>)filter
