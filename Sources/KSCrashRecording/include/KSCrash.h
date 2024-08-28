@@ -129,8 +129,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 /** Sets up the crash repors store.
  * A call of this method is required before working with crash reports.
- * The `installWithConfiguration:error:` method sets up the crash report store. 
- * You only need to call this method if you are not using the `installWithConfiguration:error:` method 
+ * The `installWithConfiguration:error:` method sets up the crash report store.
+ * You only need to call this method if you are not using the `installWithConfiguration:error:` method
  * or want to read crash reports from a custom location.
  *
  * @note This method can be called multiple times, but only before `installWithConfiguration:error:` is called.
@@ -175,7 +175,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)deleteAllReports;
 
 /** Delete report.
- * 
+ *
  * @note A call of `setupReportStoreWithPath:error:` or `installWithConfiguration:error:` is required
  *       before working with crash reports.
  *
