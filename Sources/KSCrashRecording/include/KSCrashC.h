@@ -85,6 +85,20 @@ extern "C" {
 KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const installPath,
                                         KSCrashCConfiguration configuration);
 
+/** Sets up the crash repors store.
+ * This function is used to initialize the storage for crash reports.
+ * The `kscrash_install` function sets up the reports store internally.
+ * You only need to call this function if you are not using the `kscrash_install` function
+ * or want to read crash reports from a custom location.
+ *
+ * @note this function can be called multiple times, but only before `kscrash_install` is called.
+ *
+ * @param appName The name of the application. Usually it's bundle name.
+ * @param installPath The directory where the crash reports and related data will be stored.
+ * @return KSCrashInstallErrorCode indicating the result of the setup.
+ */
+KSCrashInstallErrorCode kscrash_setupReportsStore(const char *appName, const char *const installPath);
+
 /** Set the user-supplied data in JSON format.
  *
  * @param userInfoJSON Pre-baked JSON containing user-supplied information.

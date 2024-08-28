@@ -34,19 +34,16 @@ public struct SampleView: View {
 
     @ObservedObject var installBridge = InstallBridge()
 
-    @State private var installSkipped = false
-
     public var body: some View {
         NavigationView {
-            if installBridge.installed || installSkipped {
+            if installBridge.installed || installBridge.reportsOnlySetup {
                 MainView(
-                    installSkipped: $installSkipped
+                    reportsOnlySetup: $installBridge.reportsOnlySetup
                 )
                 .navigationTitle("KSCrash Sample")
             } else {
                 InstallView(
-                    bridge: installBridge,
-                    installSkipped: $installSkipped
+                    bridge: installBridge
                 )
                 .navigationTitle("Install KSCrash")
             }

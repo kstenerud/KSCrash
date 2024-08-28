@@ -29,14 +29,16 @@ import SwiftUI
 
 struct MainView: View {
 
-    @Binding var installSkipped: Bool
+    @Binding var reportsOnlySetup: Bool
 
     var body: some View {
         List {
             Section {
-                if installSkipped {
+                if reportsOnlySetup {
+                    Text("It's only reporting that was set up. Crashes won't be caught. You can go back to the install screen.")
+                        .foregroundStyle(Color.secondary)
                     Button("Back to Install") {
-                        installSkipped = false
+                        reportsOnlySetup = false
                     }
                 } else {
                     Text("KSCrash is installed successfully")

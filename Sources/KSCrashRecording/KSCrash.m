@@ -235,6 +235,21 @@ static NSString *getDefaultInstallPath(void)
     return YES;
 }
 
+- (BOOL)setupReportStoreWithPath:(NSString *)installPath error:(NSError **)error
+{
+    KSCrashInstallErrorCode result =
+        kscrash_setupReportsStore(self.bundleName.UTF8String, (installPath ?: getDefaultInstallPath()).UTF8String);
+
+    if (result != KSCrashInstallErrorNone) {
+        if (error != NULL) {
+            *error = [self errorForInstallErrorCode:result];
+        }
+        return NO;
+    }
+
+    return YES;
+}
+
 - (void)sendAllReportsWithCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
     NSArray *reports = [self allReports];
