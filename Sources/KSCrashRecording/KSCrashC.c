@@ -293,6 +293,11 @@ KSCrashInstallErrorCode kscrash_setupReportsStore(const char *appName, const cha
 {
     KSLOG_DEBUG("Installing reports store.");
 
+    if (g_installed) {
+        KSLOG_DEBUG("Crash reporter is already installed and it's not allowed to set up reports store.");
+        return KSCrashInstallErrorAlreadyInstalled;
+    }
+
     if (appName == NULL || installPath == NULL) {
         KSLOG_ERROR("Invalid parameters: appName or installPath is NULL.");
         return KSCrashInstallErrorInvalidParameter;
