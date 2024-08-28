@@ -1,5 +1,5 @@
 //
-//  KSCrashReportStore.h
+//  KSCrashReportStoreС.h
 //
 //  Created by Karl Stenerud on 2012-02-05.
 //
@@ -24,8 +24,8 @@
 // THE SOFTWARE.
 //
 
-#ifndef HDR_KSCrashReportStore_h
-#define HDR_KSCrashReportStore_h
+#ifndef HDR_KSCrashReportStoreС_h
+#define HDR_KSCrashReportStoreС_h
 
 #include <stdint.h>
 
@@ -103,4 +103,4 @@ void kscrs_setMaxReportCount(int maxReportCount);
 }
 #endif
 
-#endif  // HDR_KSCrashReportStore_h
+#endif  // HDR_KSCrashReportStoreС_h

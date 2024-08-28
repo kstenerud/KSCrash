@@ -1,5 +1,5 @@
 //
-//  KSCrashReportStore.c
+//  KSCrashReportStoreС.c
 //
 //  Created by Karl Stenerud on 2012-02-05.
 //
@@ -24,7 +24,7 @@
 // THE SOFTWARE.
 //
 
-#include "KSCrashReportStore.h"
+#include "KSCrashReportStoreС.h"
 
 #include <assert.h>
 #include <dirent.h>

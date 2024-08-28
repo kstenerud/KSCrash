@@ -41,7 +41,7 @@
 #include "KSCrashMonitor_Zombie.h"
 #include "KSCrashReportC.h"
 #include "KSCrashReportFixer.h"
-#include "KSCrashReportStore.h"
+#include "KSCrashReportStoreС.h"
 #include "KSFileUtils.h"
 #include "KSObjC.h"
 #include "KSString.h"
