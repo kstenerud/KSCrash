@@ -258,17 +258,24 @@ _objc_getTaggedPointerSignedValue(const void *ptr);
 extern uintptr_t objc_debug_taggedpointer_obfuscator;
 
 #if OBJC_SPLIT_TAGGED_POINTERS
-extern uint8_t objc_debug_tag60_permutations[8];
+extern __attribute__((weak)) uint8_t objc_debug_tag60_permutations[8];
 
 static inline uintptr_t _objc_basicTagToObfuscatedTag(uintptr_t tag) {
-    return objc_debug_tag60_permutations[tag];
+    if (objc_debug_tag60_permutations && tag < 8) {
+        return objc_debug_tag60_permutations[tag];
+    }
+    return tag; // Fallback: return the original tag if permutations are unavailable or tag is out of range
 }
 
 static inline uintptr_t _objc_obfuscatedTagToBasicTag(uintptr_t tag) {
-    for (unsigned i = 0; i < 7; i++)
-        if (objc_debug_tag60_permutations[i] == tag)
-            return i;
-    return 7;
+    if (objc_debug_tag60_permutations) {
+        for (unsigned i = 0; i < 7; i++) {
+            if (objc_debug_tag60_permutations[i] == tag) {
+                return i;
+            }
+        }
+    }
+    return (tag < 8) ? tag : 7; // Fallback: return the original tag if within range, otherwise return 7
 }
 #endif
 
