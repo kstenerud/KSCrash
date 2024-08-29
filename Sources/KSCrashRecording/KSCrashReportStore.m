@@ -38,8 +38,7 @@
 // #define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
 
-@implementation KSCrashReportStore
-{
+@implementation KSCrashReportStore {
     NSString *_path;
     NSString *_bundleName;
 }
@@ -51,8 +50,7 @@
 
 + (instancetype)storeWithPath:(NSString *)path error:(NSError **)error
 {
-    return [[KSCrashReportStore alloc] initWithPath:(path ?: kscrash_getDefaultInstallPath())
-                                              error:error];
+    return [[KSCrashReportStore alloc] initWithPath:(path ?: kscrash_getDefaultInstallPath()) error:error];
 }
 
 - (nullable instancetype)initWithPath:(NSString *)path error:(NSError **)error
@@ -64,8 +62,7 @@
 
         _deleteBehaviorAfterSendAll = KSCDeleteAlways;
 
-        KSCrashInstallErrorCode result =
-        kscrash_setupReportsStore(_bundleName.UTF8String, _path.UTF8String);
+        KSCrashInstallErrorCode result = kscrash_setupReportsStore(_bundleName.UTF8String, _path.UTF8String);
         if (result != KSCrashInstallErrorNone) {
             if (error != NULL) {
                 *error = [KSCrash errorForInstallErrorCode:result];
