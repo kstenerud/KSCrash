@@ -225,7 +225,7 @@ NSString *kscrash_getDefaultInstallPath(void)
 
     KSCrashReportStore *reportStore = [KSCrashReportStore storeWithPath:installPath error:error];
     if (reportStore == nil) {
-        return;
+        return NO;
     }
 
     KSCrashInstallErrorCode result =

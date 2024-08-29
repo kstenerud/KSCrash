@@ -33,6 +33,7 @@
 #import "KSCrashReport.h"
 #import "KSCrashReportFields.h"
 #import "KSCrashReportFilter.h"
+#import "KSJSONCodecObjC.h"
 #import "KSNSErrorHelper.h"
 
 // #define KSLogger_LocalLevel TRACE
@@ -67,7 +68,7 @@
             if (error != NULL) {
                 *error = [KSCrash errorForInstallErrorCode:result];
             }
-            return NO;
+            return nil;
         }
     }
     return self;
