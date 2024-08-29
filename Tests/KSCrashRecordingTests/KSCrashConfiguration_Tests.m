@@ -49,7 +49,6 @@
     XCTAssertFalse(config.printPreviousLogOnStartup);
     XCTAssertEqual(config.maxReportCount, 5);
     XCTAssertTrue(config.enableSwapCxaThrow);
-    XCTAssertEqual(config.deleteBehaviorAfterSendAll, KSCDeleteAlways);
 }
 
 - (void)testToCConfiguration
@@ -116,7 +115,6 @@
     XCTAssertTrue(copy.printPreviousLogOnStartup);
     XCTAssertEqual(copy.maxReportCount, 10);
     XCTAssertFalse(copy.enableSwapCxaThrow);
-    XCTAssertEqual(copy.deleteBehaviorAfterSendAll, KSCDeleteAlways);
 }
 
 - (void)testEmptyDictionaryForJSONConversion

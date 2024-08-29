@@ -1,5 +1,5 @@
 //
-//  KSCrashReportStore_Tests.m
+//  KSCrashReportStoreС_Tests.m
 //
 //  Created by Karl Stenerud on 2012-02-05.
 //
@@ -26,13 +26,13 @@
 
 #import "FileBasedTestCase.h"
 
-#import "KSCrashReportStore.h"
+#import "KSCrashReportStoreС.h"
 
 #include <inttypes.h>
 
 #define REPORT_PREFIX @"CrashReport-KSCrashTest"
 
-@interface KSCrashReportStore_Tests : FileBasedTestCase
+@interface KSCrashReportStoreС_Tests : FileBasedTestCase
 
 @property(nonatomic, readwrite, copy) NSString *appName;
 @property(nonatomic, readwrite, copy) NSString *reportStorePath;
@@ -40,7 +40,7 @@
 
 @end
 
-@implementation KSCrashReportStore_Tests
+@implementation KSCrashReportStoreС_Tests
 
 - (int64_t)getReportIDFromPath:(NSString *)path
 {
