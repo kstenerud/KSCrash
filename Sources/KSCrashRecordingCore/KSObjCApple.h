@@ -213,71 +213,99 @@ ksc_objc_splitTaggedPointersEnabled(void);
 #define _OBJC_TAG_EXT_SLOT_COUNT 256
 #define _OBJC_TAG_EXT_SLOT_MASK 0xff
 
-static inline int _OBJC_TAG_SLOT_COUNT_func(void) {
+static inline int
+_OBJC_TAG_SLOT_COUNT_func(void)
+{
     return ksc_objc_splitTaggedPointersEnabled() ? 8 : 16;
 }
 
-static inline uintptr_t _OBJC_TAG_SLOT_MASK_func(void) {
+static inline uintptr_t
+_OBJC_TAG_SLOT_MASK_func(void)
+{
     return ksc_objc_splitTaggedPointersEnabled() ? 0x7UL : 0xfUL;
 }
 
-static inline uintptr_t _OBJC_TAG_MASK_func(void) {
+static inline uintptr_t
+_OBJC_TAG_MASK_func(void)
+{
     return ksc_objc_splitTaggedPointersEnabled() ? (1UL<<63) :
-    OBJC_MSB_TAGGED_POINTERS ? (1UL<<63) : 1UL;
+        OBJC_MSB_TAGGED_POINTERS ? (1UL<<63) : 1UL;
 }
 
-static inline int _OBJC_TAG_INDEX_SHIFT_func(void) {
+static inline int
+_OBJC_TAG_INDEX_SHIFT_func(void)
+{
     return ksc_objc_splitTaggedPointersEnabled() ? 0 :
-    OBJC_MSB_TAGGED_POINTERS ? 60 : 1;
+        OBJC_MSB_TAGGED_POINTERS ? 60 : 1;
 }
 
-static inline int _OBJC_TAG_SLOT_SHIFT_func(void) {
+static inline int
+_OBJC_TAG_SLOT_SHIFT_func(void)
+{
     return ksc_objc_splitTaggedPointersEnabled() ? 0 :
-    OBJC_MSB_TAGGED_POINTERS ? 60 : 0;
+        OBJC_MSB_TAGGED_POINTERS ? 60 : 0;
 }
 
-static inline int _OBJC_TAG_PAYLOAD_LSHIFT_func(void) {
+static inline int
+_OBJC_TAG_PAYLOAD_LSHIFT_func(void)
+{
     return ksc_objc_splitTaggedPointersEnabled() ? 1 :
-    OBJC_MSB_TAGGED_POINTERS ? 4 : 0;
+        OBJC_MSB_TAGGED_POINTERS ? 4 : 0;
 }
 
-static inline int _OBJC_TAG_PAYLOAD_RSHIFT_func(void) {
+static inline int
+_OBJC_TAG_PAYLOAD_RSHIFT_func(void)
+{
     return ksc_objc_splitTaggedPointersEnabled() ? 4 :
-    OBJC_MSB_TAGGED_POINTERS ? 4 : 4;
+        OBJC_MSB_TAGGED_POINTERS ? 4 : 4;
 }
 
-static inline uintptr_t _OBJC_TAG_EXT_MASK_func(void) {
+static inline uintptr_t
+_OBJC_TAG_EXT_MASK_func(void)
+{
     return ksc_objc_splitTaggedPointersEnabled() ? (_OBJC_TAG_MASK_func() | 0x7UL) :
-    OBJC_MSB_TAGGED_POINTERS ? (0xfUL<<60) : 0xfUL;
+        OBJC_MSB_TAGGED_POINTERS ? (0xfUL<<60) : 0xfUL;
 }
 
-static inline uintptr_t _OBJC_TAG_NO_OBFUSCATION_MASK_func(void) {
+static inline uintptr_t
+_OBJC_TAG_NO_OBFUSCATION_MASK_func(void)
+{
     return ksc_objc_splitTaggedPointersEnabled() ? ((1UL<<62) | _OBJC_TAG_EXT_MASK_func()) : 0;
 }
 
-static inline int _OBJC_TAG_EXT_SLOT_SHIFT_func(void) {
+static inline int
+_OBJC_TAG_EXT_SLOT_SHIFT_func(void)
+{
     return ksc_objc_splitTaggedPointersEnabled() ? 55 :
-    OBJC_MSB_TAGGED_POINTERS ? 52 : 4;
+        OBJC_MSB_TAGGED_POINTERS ? 52 : 4;
 }
 
-static inline uintptr_t _OBJC_TAG_CONSTANT_POINTER_MASK_func(void) {
+static inline uintptr_t
+_OBJC_TAG_CONSTANT_POINTER_MASK_func(void)
+{
     return ksc_objc_splitTaggedPointersEnabled() ?
-    ~(_OBJC_TAG_EXT_MASK_func() | ((uintptr_t)_OBJC_TAG_EXT_SLOT_MASK << _OBJC_TAG_EXT_SLOT_SHIFT_func())) : 0;
+        ~(_OBJC_TAG_EXT_MASK_func() | ((uintptr_t)_OBJC_TAG_EXT_SLOT_MASK << _OBJC_TAG_EXT_SLOT_SHIFT_func())) : 0;
 }
 
-static inline int _OBJC_TAG_EXT_INDEX_SHIFT_func(void) {
+static inline int
+_OBJC_TAG_EXT_INDEX_SHIFT_func(void)
+{
     return ksc_objc_splitTaggedPointersEnabled() ? 55 :
-    OBJC_MSB_TAGGED_POINTERS ? 52 : 4;
+        OBJC_MSB_TAGGED_POINTERS ? 52 : 4;
 }
 
-static inline int _OBJC_TAG_EXT_PAYLOAD_LSHIFT_func(void) {
+static inline int
+_OBJC_TAG_EXT_PAYLOAD_LSHIFT_func(void)
+{
     return ksc_objc_splitTaggedPointersEnabled() ? 9 :
-    OBJC_MSB_TAGGED_POINTERS ? 12 : 0;
+        OBJC_MSB_TAGGED_POINTERS ? 12 : 0;
 }
 
-static inline int _OBJC_TAG_EXT_PAYLOAD_RSHIFT_func(void) {
+static inline int
+_OBJC_TAG_EXT_PAYLOAD_RSHIFT_func(void)
+{
     return ksc_objc_splitTaggedPointersEnabled() ? 12 :
-    OBJC_MSB_TAGGED_POINTERS ? 12 : 12;
+        OBJC_MSB_TAGGED_POINTERS ? 12 : 12;
 }
 
 // (KSCrash) Macros were rewritten to include runtime checks for split tagged pointers,
