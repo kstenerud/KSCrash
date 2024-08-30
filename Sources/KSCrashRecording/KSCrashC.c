@@ -41,7 +41,7 @@
 #include "KSCrashMonitor_Zombie.h"
 #include "KSCrashReportC.h"
 #include "KSCrashReportFixer.h"
-#include "KSCrashReportStoreС.h"
+#include "KSCrashReportStoreC+Private.h"
 #include "KSFileUtils.h"
 #include "KSObjC.h"
 #include "KSString.h"
@@ -54,6 +54,8 @@
 #include <string.h>
 
 #include "KSLogger.h"
+
+#define KSC_MAX_APP_NAME_LENGTH 100
 
 typedef enum {
     KSApplicationStateNone,
@@ -92,6 +94,8 @@ static bool g_shouldPrintPreviousLog = false;
 static char g_consoleLogPath[KSFU_MAX_PATH_LENGTH];
 static KSCrashMonitorType g_monitoring = KSCrashMonitorTypeProductionSafeMinimal;
 static char g_lastCrashReportFilePath[KSFU_MAX_PATH_LENGTH];
+static char g_reportsPath[KSFU_MAX_PATH_LENGTH];
+static char g_appName[KSC_MAX_APP_NAME_LENGTH];
 static KSReportWrittenCallback g_reportWrittenCallback;
 static KSApplicationState g_lastApplicationState = KSApplicationStateNone;
 
@@ -153,7 +157,7 @@ static void onCrash(struct KSCrash_MonitorContext *monitorContext)
         kscrashreport_writeStandardReport(monitorContext, monitorContext->reportPath);
     } else {
         char crashReportFilePath[KSFU_MAX_PATH_LENGTH];
-        int64_t reportID = kscrs_getNextCrashReport(crashReportFilePath);
+        int64_t reportID = kscrs_getNextCrashReport(g_reportsPath, g_appName, crashReportFilePath);
         strncpy(g_lastCrashReportFilePath, crashReportFilePath, sizeof(g_lastCrashReportFilePath));
         kscrashreport_writeStandardReport(monitorContext, crashReportFilePath);
 
@@ -199,7 +203,6 @@ void handleConfiguration(KSCrashCConfiguration *configuration)
     g_reportWrittenCallback = configuration->reportWrittenCallback;
     g_shouldAddConsoleLogToReport = configuration->addConsoleLogToReport;
     g_shouldPrintPreviousLog = configuration->printPreviousLogOnStartup;
-    kscrs_setMaxReportCount(configuration->maxReportCount);
 
     if (configuration->enableSwapCxaThrow) {
         kscm_enableSwapCxaThrow();
@@ -208,21 +211,6 @@ void handleConfiguration(KSCrashCConfiguration *configuration)
 // ============================================================================
 #pragma mark - API -
 // ============================================================================
-
-static KSCrashInstallErrorCode setupReportsStore(const char *appName, const char *const installPath)
-{
-    char path[KSFU_MAX_PATH_LENGTH];
-    if (snprintf(path, sizeof(path), "%s/Reports", installPath) >= (int)sizeof(path)) {
-        KSLOG_ERROR("Reports path is too long.");
-        return KSCrashInstallErrorPathTooLong;
-    }
-    if (ksfu_makePath(path) == false) {
-        KSLOG_ERROR("Could not create path: %s", path);
-        return KSCrashInstallErrorCouldNotCreatePath;
-    }
-    kscrs_initialize(appName, path);
-    return KSCrashInstallErrorNone;
-}
 
 KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const installPath,
                                         KSCrashCConfiguration configuration)
@@ -241,12 +229,19 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
 
     handleConfiguration(&configuration);
 
-    KSCrashInstallErrorCode result = setupReportsStore(appName, installPath);
-    if (result != KSCrashInstallErrorNone) {
-        return result;
-    }
-
     char path[KSFU_MAX_PATH_LENGTH];
+    if (snprintf(path, sizeof(path), "%s/Reports", installPath) >= (int)sizeof(path)) {
+        KSLOG_ERROR("Reports path is too long.");
+        return KSCrashInstallErrorPathTooLong;
+    }
+    if (ksfu_makePath(path) == false) {
+        KSLOG_ERROR("Could not create path: %s", path);
+        return KSCrashInstallErrorCouldNotCreatePath;
+    }
+    kscrs_initialize(appName, path, configuration.maxReportCount);
+    strncpy(g_reportsPath, path, sizeof(g_reportsPath));
+    strncpy(g_appName, appName, sizeof(g_appName));
+
     if (snprintf(path, sizeof(path), "%s/Data", installPath) >= (int)sizeof(path)) {
         KSLOG_ERROR("Data path is too long.");
         return KSCrashInstallErrorPathTooLong;
@@ -286,28 +281,6 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     KSLOG_DEBUG("Installation complete.");
 
     notifyOfBeforeInstallationState();
-    return KSCrashInstallErrorNone;
-}
-
-KSCrashInstallErrorCode kscrash_setupReportsStore(const char *appName, const char *const installPath)
-{
-    KSLOG_DEBUG("Installing reports store.");
-
-    if (g_installed) {
-        KSLOG_DEBUG("Crash reporter is already installed and it's not allowed to set up reports store.");
-        return KSCrashInstallErrorAlreadyInstalled;
-    }
-
-    if (appName == NULL || installPath == NULL) {
-        KSLOG_ERROR("Invalid parameters: appName or installPath is NULL.");
-        return KSCrashInstallErrorInvalidParameter;
-    }
-
-    KSCrashInstallErrorCode result = setupReportsStore(appName, installPath);
-    if (result != KSCrashInstallErrorNone) {
-        return result;
-    }
-
     return KSCrashInstallErrorNone;
 }
 
@@ -353,54 +326,7 @@ void kscrash_notifyAppTerminate(void)
 
 void kscrash_notifyAppCrash(void) { kscrashstate_notifyAppCrash(); }
 
-int kscrash_getReportCount(void) { return kscrs_getReportCount(); }
-
-int kscrash_getReportIDs(int64_t *reportIDs, int count) { return kscrs_getReportIDs(reportIDs, count); }
-
-char *kscrash_readReportAtPath(const char *path)
-{
-    if (!path) {
-        return NULL;
-    }
-
-    char *rawReport = kscrs_readReportAtPath(path);
-    if (rawReport == NULL) {
-        return NULL;
-    }
-
-    char *fixedReport = kscrf_fixupCrashReport(rawReport);
-
-    free(rawReport);
-    return fixedReport;
-}
-
-char *kscrash_readReport(int64_t reportID)
-{
-    if (reportID <= 0) {
-        KSLOG_ERROR("Report ID was %" PRIx64, reportID);
-        return NULL;
-    }
-
-    char *rawReport = kscrs_readReport(reportID);
-    if (rawReport == NULL) {
-        KSLOG_ERROR("Failed to load report ID %" PRIx64, reportID);
-        return NULL;
-    }
-
-    char *fixedReport = kscrf_fixupCrashReport(rawReport);
-    if (fixedReport == NULL) {
-        KSLOG_ERROR("Failed to fixup report ID %" PRIx64, reportID);
-    }
-
-    free(rawReport);
-    return fixedReport;
-}
-
 int64_t kscrash_addUserReport(const char *report, int reportLength)
 {
-    return kscrs_addUserReport(report, reportLength);
+    return kscrs_addUserReport(report, reportLength, g_reportsPath, g_appName);
 }
-
-void kscrash_deleteAllReports(void) { kscrs_deleteAllReports(); }
-
-void kscrash_deleteReportWithID(int64_t reportID) { kscrs_deleteReportWithID(reportID); }
