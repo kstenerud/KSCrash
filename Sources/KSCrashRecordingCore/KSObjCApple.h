@@ -308,8 +308,7 @@ _OBJC_TAG_EXT_PAYLOAD_RSHIFT_func(void)
         OBJC_MSB_TAGGED_POINTERS ? 12 : 12;
 }
 
-// (KSCrash) Macros were rewritten to include runtime checks for split tagged pointers,
-// based on objc4-912.7.
+// (KSCrash) Macros were rewritten to include runtime checks for split tagged pointers, based on objc4-912.3.
 #define _OBJC_TAG_SLOT_COUNT             _OBJC_TAG_SLOT_COUNT_func()
 #define _OBJC_TAG_SLOT_MASK              _OBJC_TAG_SLOT_MASK_func()
 #define _OBJC_TAG_MASK                   _OBJC_TAG_MASK_func()
