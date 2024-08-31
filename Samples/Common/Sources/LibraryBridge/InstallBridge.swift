@@ -105,7 +105,7 @@ public class InstallBridge: ObservableObject {
     public func setupReportsOnly() {
         do {
             let config = CrashReportStoreConfiguration()
-            config.reportsPath = self.config.installPath.map { $0 + "/Report" }
+            config.reportsPath = self.config.installPath.map { $0 + "/" + CrashReportStore.defaultInstallSubfolder }
             reportStore = try CrashReportStore(configuration: config)
             reportsOnlySetup = true
         } catch let error as KSCrashInstallError {

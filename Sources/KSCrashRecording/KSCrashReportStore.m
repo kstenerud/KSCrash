@@ -43,6 +43,11 @@
     KSCrashReportStoreCConfiguration _cConfig;
 }
 
++ (NSString *)defaultInstallSubfolder
+{
+    return [NSString stringWithUTF8String:KSCrashReportStoreDefaultSubfolder];
+}
+
 + (instancetype)defaultStoreWithError:(NSError **)error
 {
     return [KSCrashReportStore storeWithConfiguration:nil error:error];

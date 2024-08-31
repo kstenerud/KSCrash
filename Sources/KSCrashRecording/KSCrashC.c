@@ -236,7 +236,8 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
 
     char path[KSFU_MAX_PATH_LENGTH];
     if (g_reportStoreConfig.reportsPath == NULL) {
-        if (snprintf(path, sizeof(path), "%s/Reports", installPath) >= (int)sizeof(path)) {
+        if (snprintf(path, sizeof(path), "%s/%s", installPath, KSCrashReportStoreDefaultSubfolder) >=
+            (int)sizeof(path)) {
             KSLOG_ERROR("Reports path is too long.");
             return KSCrashInstallErrorPathTooLong;
         }

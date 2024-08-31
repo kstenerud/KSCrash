@@ -38,6 +38,10 @@ extern "C" {
 
 #define KSCRS_MAX_PATH_LENGTH 500
 
+/** The default folder name inside the KSCrash install path that is used for report store.
+ */
+char *const KSCrashReportStoreDefaultSubfolder;
+
 /** Initialize the report store.
  *
  * @param configuration The store configuretion (e.g. reports path, app name etc).

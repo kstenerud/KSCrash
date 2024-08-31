@@ -42,6 +42,10 @@ typedef NS_ENUM(NSUInteger, KSCDeleteBehavior) {
 NS_SWIFT_NAME(CrashReportStore)
 @interface KSCrashReportStore : NSObject
 
+/** The default folder name inside the KSCrash install path that is used for report store.
+ */
+@property(nonatomic, class, copy, readonly) NSString *defaultInstallSubfolder;
+
 - (instancetype)init NS_UNAVAILABLE;
 + (instancetype)new NS_UNAVAILABLE;
 

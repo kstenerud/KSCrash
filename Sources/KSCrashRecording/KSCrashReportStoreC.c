@@ -40,6 +40,8 @@
 #include "KSFileUtils.h"
 #include "KSLogger.h"
 
+char *const KSCrashReportStoreDefaultSubfolder = "Reports";
+
 // Have to use max 32-bit atomics because of MIPS.
 static _Atomic(uint32_t) g_nextUniqueIDLow;
 static int64_t g_nextUniqueIDHigh;

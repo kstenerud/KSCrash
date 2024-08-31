@@ -28,6 +28,7 @@
 #import <objc/runtime.h>
 #import "KSCrash+Private.h"
 #import "KSCrashConfiguration+Private.h"
+#import "KSCrashReportStore.h"
 
 @implementation KSCrashConfiguration
 
@@ -166,7 +167,9 @@
 {
     NSString *resolvedAppName = self.appName ?: kscrash_getBundleName();
     NSString *resolvedReportsPath =
-        self.reportsPath ?: [kscrash_getDefaultInstallPath() stringByAppendingPathComponent:KSCrashReportsSubfolder];
+        self.reportsPath
+            ?: [kscrash_getDefaultInstallPath()
+                   stringByAppendingPathComponent:[KSCrashReportStore defaultInstallSubfolder]];
 
     KSCrashReportStoreCConfiguration config = KSCrashReportStoreCConfiguration_Default();
     config.appName = resolvedAppName != nil ? strdup(resolvedAppName.UTF8String) : NULL;

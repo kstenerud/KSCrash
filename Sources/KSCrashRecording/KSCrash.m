@@ -52,8 +52,6 @@
 #pragma mark - Globals -
 // ============================================================================
 
-NSString *const KSCrashReportsSubfolder = @"Reports";
-
 @interface KSCrash ()
 
 @property(nonatomic, readwrite, copy) NSString *bundleName;
@@ -229,8 +227,8 @@ NSString *kscrash_getDefaultInstallPath(void)
         self.configuration.reportStoreConfiguration.appName = self.bundleName;
     }
     if (self.configuration.reportStoreConfiguration.reportsPath == nil) {
-        self.configuration.reportStoreConfiguration.reportsPath =
-            [self.configuration.installPath stringByAppendingPathComponent:KSCrashReportsSubfolder];
+        self.configuration.reportStoreConfiguration.reportsPath = [self.configuration.installPath
+            stringByAppendingPathComponent:[KSCrashReportStore defaultInstallSubfolder]];
     }
     KSCrashReportStore *reportStore =
         [KSCrashReportStore storeWithConfiguration:self.configuration.reportStoreConfiguration error:error];
