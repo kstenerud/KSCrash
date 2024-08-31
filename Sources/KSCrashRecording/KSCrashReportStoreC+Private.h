@@ -37,8 +37,10 @@ extern "C" {
  * Max length for paths is KSCRS_MAX_PATH_LENGTH
  *
  * @param crashReportPathBuffer Buffer to store the crash report path.
+ * @param appName The application's name (usually app bundle name).
+ * @param reportsPath Full path to directory where the reports are to be stored.
  *
- * @return the report ID of the next report.
+ * @return The report ID of the next report.
  */
 int64_t kscrs_getNextCrashReport(char *crashReportPathBuffer, const char *appName, const char *reportsPath);
 

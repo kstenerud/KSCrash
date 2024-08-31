@@ -37,13 +37,18 @@ extern "C" {
 
 /** Initialize the report store.
  *
- * @param appName The application's name.
+ * @param appName The application's name (usually app bundle name).
  * @param reportsPath Full path to directory where the reports are to be stored (path will be created if needed).
  * @param maxReportCount The maximum number of reports allowed on disk before old ones get deleted. `0` for no limits.
  */
 void kscrs_initialize(const char *appName, const char *reportsPath, int maxReportCount);
 
 /** Get the number of reports on disk.
+ *
+ * @param appName The application's name (usually app bundle name).
+ * @param reportsPath Full path to directory where the reports are stored.
+ *
+ * @return The number of reports on disk.
  */
 int kscrs_getReportCount(const char *appName, const char *reportsPath);
 
@@ -51,6 +56,8 @@ int kscrs_getReportCount(const char *appName, const char *reportsPath);
  *
  * @param reportIDs An array big enough to hold all report IDs.
  * @param count How many reports the array can hold.
+ * @param appName The application's name (usually app bundle name).
+ * @param reportsPath Full path to directory where the reports are stored.
  *
  * @return The number of report IDs that were placed in the array.
  */
@@ -59,29 +66,46 @@ int kscrs_getReportIDs(int64_t *reportIDs, int count, const char *appName, const
 /** Read a report.
  *
  * @param reportID The report's ID.
+ * @param appName The application's name (usually app bundle name).
+ * @param reportsPath Full path to directory where the reports are stored.
  *
  * @return The NULL terminated report, or NULL if not found.
  *         MEMORY MANAGEMENT WARNING: User is responsible for calling free() on the returned value.
  */
 char *kscrs_readReport(int64_t reportID, const char *appName, const char *reportsPath);
+
+/** Read a report at a given path.
+ * This is a convenience method for reading reports that are not in the standard reports directory.
+ *
+ * @param path The full path to the report.
+ *
+ * @return The NULL terminated report, or NULL if not found.
+ *         MEMORY MANAGEMENT WARNING: User is responsible for calling free() on the returned value.
+ */
 char *kscrs_readReportAtPath(const char *path);
 
 /** Add a custom report to the store.
  *
  * @param report The report's contents (must be JSON encoded).
  * @param reportLength The length of the report in bytes.
+ * @param appName The application's name (usually app bundle name).
+ * @param reportsPath Full path to directory where the reports are to be stored.
  *
- * @return the new report's ID.
+ * @return The new report's ID.
  */
 int64_t kscrs_addUserReport(const char *report, int reportLength, const char *appName, const char *reportsPath);
 
 /** Delete all reports on disk.
+ *
+ * @param reportsPath Full path to directory where the reports are stored.
  */
 void kscrs_deleteAllReports(const char *reportsPath);
 
 /** Delete report.
  *
  * @param reportID An ID of report to delete.
+ * @param appName The application's name (usually app bundle name).
+ * @param reportsPath Full path to directory where the reports are stored.
  */
 void kscrs_deleteReportWithID(int64_t reportID, const char *appName, const char *reportsPath);
 
