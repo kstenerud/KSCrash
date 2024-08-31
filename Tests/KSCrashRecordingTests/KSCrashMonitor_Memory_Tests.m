@@ -27,7 +27,7 @@
 #import "KSCrashAppStateTracker.h"
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitor_Memory.h"
-#import "KSCrashReportStore.h"
+#import "KSCrashReportStoreC.h"
 #import "KSSystemCapabilities.h"
 
 @interface KSCrashMonitor_Memory_Tests : XCTestCase
@@ -97,9 +97,10 @@
     [mngr removeItemAtURL:breadcrumbURL error:nil];
 
     // init
+    const char *appName = "test";
     KSCrashCConfiguration config = KSCrashCConfiguration_Default();
     config.monitors = KSCrashMonitorTypeMemoryTermination;
-    kscrash_install("test", installURL.path.UTF8String, config);
+    kscrash_install(appName, installURL.path.UTF8String, config);
 
     // init memory API
     KSCrashMonitorAPI *api = kscm_memory_getAPI();
@@ -147,11 +148,11 @@
     // check the last report, it should be the OOM report
     NSMutableArray<NSDictionary *> *reports = [NSMutableArray array];
     int64_t reportIDs[10] = { 0 };
-    kscrash_getReportIDs(reportIDs, 10);
+    kscrs_getReportIDs(reportIDs, 10, appName, reportsPath.path.UTF8String);
     for (int index = 0; index < 10; index++) {
         int64_t reportID = reportIDs[index];
         if (reportID) {
-            char *report = kscrash_readReport(reportID);
+            char *report = kscrs_readReport(reportID, appName, reportsPath.path.UTF8String);
             if (report) {
                 NSData *data = [[NSData alloc] initWithBytes:report length:strlen(report)];
                 NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];

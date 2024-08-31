@@ -41,11 +41,11 @@ extern "C" {
  * @param reportsPath Full path to directory where the reports are to be stored (path will be created if needed).
  * @param maxReportCount The maximum number of reports allowed on disk before old ones get deleted. `0` for no limits.
  */
-void kscrs_initialize(const char *reportsPath, const char *appName, int maxReportCount);
+void kscrs_initialize(const char *appName, const char *reportsPath, int maxReportCount);
 
 /** Get the number of reports on disk.
  */
-int kscrs_getReportCount(const char *reportsPath, const char *appName);
+int kscrs_getReportCount(const char *appName, const char *reportsPath);
 
 /** Get a list of IDs for all reports on disk.
  *
@@ -54,7 +54,7 @@ int kscrs_getReportCount(const char *reportsPath, const char *appName);
  *
  * @return The number of report IDs that were placed in the array.
  */
-int kscrs_getReportIDs(const char *reportsPath, const char *appName, int64_t *reportIDs, int count);
+int kscrs_getReportIDs(int64_t *reportIDs, int count, const char *appName, const char *reportsPath);
 
 /** Read a report.
  *
@@ -63,7 +63,7 @@ int kscrs_getReportIDs(const char *reportsPath, const char *appName, int64_t *re
  * @return The NULL terminated report, or NULL if not found.
  *         MEMORY MANAGEMENT WARNING: User is responsible for calling free() on the returned value.
  */
-char *kscrs_readReport(int64_t reportID, const char *reportsPath, const char *appName);
+char *kscrs_readReport(int64_t reportID, const char *appName, const char *reportsPath);
 char *kscrs_readReportAtPath(const char *path);
 
 /** Add a custom report to the store.
@@ -73,7 +73,7 @@ char *kscrs_readReportAtPath(const char *path);
  *
  * @return the new report's ID.
  */
-int64_t kscrs_addUserReport(const char *report, int reportLength, const char *reportsPath, const char *appName);
+int64_t kscrs_addUserReport(const char *report, int reportLength, const char *appName, const char *reportsPath);
 
 /** Delete all reports on disk.
  */
@@ -83,7 +83,7 @@ void kscrs_deleteAllReports(const char *reportsPath);
  *
  * @param reportID An ID of report to delete.
  */
-void kscrs_deleteReportWithID(int64_t reportID, const char *reportsPath, const char *appName);
+void kscrs_deleteReportWithID(int64_t reportID, const char *appName, const char *reportsPath);
 
 #ifdef __cplusplus
 }

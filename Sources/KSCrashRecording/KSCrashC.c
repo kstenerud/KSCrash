@@ -157,7 +157,7 @@ static void onCrash(struct KSCrash_MonitorContext *monitorContext)
         kscrashreport_writeStandardReport(monitorContext, monitorContext->reportPath);
     } else {
         char crashReportFilePath[KSFU_MAX_PATH_LENGTH];
-        int64_t reportID = kscrs_getNextCrashReport(g_reportsPath, g_appName, crashReportFilePath);
+        int64_t reportID = kscrs_getNextCrashReport(crashReportFilePath, g_appName, g_reportsPath);
         strncpy(g_lastCrashReportFilePath, crashReportFilePath, sizeof(g_lastCrashReportFilePath));
         kscrashreport_writeStandardReport(monitorContext, crashReportFilePath);
 
@@ -328,5 +328,5 @@ void kscrash_notifyAppCrash(void) { kscrashstate_notifyAppCrash(); }
 
 int64_t kscrash_addUserReport(const char *report, int reportLength)
 {
-    return kscrs_addUserReport(report, reportLength, g_reportsPath, g_appName);
+    return kscrs_addUserReport(report, reportLength, g_appName, g_reportsPath);
 }

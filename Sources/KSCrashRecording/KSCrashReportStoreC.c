@@ -58,7 +58,7 @@ static int compareInt64(const void *a, const void *b)
 
 static inline int64_t getNextUniqueID(void) { return g_nextUniqueIDHigh + g_nextUniqueIDLow++; }
 
-static void getCrashReportPathByID(int64_t id, const char *reportsPath, const char *appName, char *pathBuffer)
+static void getCrashReportPathByID(int64_t id, char *pathBuffer, const char *appName, const char *reportsPath)
 {
     snprintf(pathBuffer, KSCRS_MAX_PATH_LENGTH, "%s/%s-report-%016llx.json", reportsPath, appName, id);
 }
@@ -73,7 +73,7 @@ static int64_t getReportIDFromFilename(const char *filename, const char *appName
     return reportID;
 }
 
-static int getReportCount(const char *reportsPath, const char *appName)
+static int getReportCount(const char *appName, const char *reportsPath)
 {
     int count = 0;
     DIR *dir = opendir(reportsPath);
@@ -95,7 +95,7 @@ done:
     return count;
 }
 
-static int getReportIDs(const char *reportsPath, const char *appName, int64_t *reportIDs, int count)
+static int getReportIDs(int64_t *reportIDs, int count, const char *appName, const char *reportsPath)
 {
     int index = 0;
     DIR *dir = opendir(reportsPath);
@@ -121,18 +121,18 @@ done:
     return index;
 }
 
-static void pruneReports(const char *reportsPath, const char *appName, int maxReportCount)
+static void pruneReports(int maxReportCount, const char *appName, const char *reportsPath)
 {
     if (maxReportCount <= 0) {
         return;
     }
-    int reportCount = getReportCount(reportsPath, appName);
+    int reportCount = getReportCount(appName, reportsPath);
     if (reportCount > maxReportCount) {
         int64_t reportIDs[reportCount];
-        reportCount = getReportIDs(reportsPath, appName, reportIDs, reportCount);
+        reportCount = getReportIDs(reportIDs, reportCount, appName, reportsPath);
 
         for (int i = 0; i < reportCount - maxReportCount; i++) {
-            kscrs_deleteReportWithID(reportIDs[i], reportsPath, appName);
+            kscrs_deleteReportWithID(reportIDs[i], appName, reportsPath);
         }
     }
 }
@@ -157,36 +157,36 @@ static void initializeIDs(void)
 
 // Public API
 
-void kscrs_initialize(const char *reportsPath, const char *appName, int maxReportCount)
+void kscrs_initialize(const char *appName, const char *reportsPath, int maxReportCount)
 {
     pthread_mutex_lock(&g_mutex);
     ksfu_makePath(reportsPath);
-    pruneReports(reportsPath, appName, maxReportCount);
+    pruneReports(maxReportCount, appName, reportsPath);
     initializeIDs();
     pthread_mutex_unlock(&g_mutex);
 }
 
-int64_t kscrs_getNextCrashReport(const char *reportsPath, const char *appName, char *crashReportPathBuffer)
+int64_t kscrs_getNextCrashReport(char *crashReportPathBuffer, const char *appName, const char *reportsPath)
 {
     int64_t nextID = getNextUniqueID();
     if (crashReportPathBuffer) {
-        getCrashReportPathByID(nextID, reportsPath, appName, crashReportPathBuffer);
+        getCrashReportPathByID(nextID, crashReportPathBuffer, appName, reportsPath);
     }
     return nextID;
 }
 
-int kscrs_getReportCount(const char *reportsPath, const char *appName)
+int kscrs_getReportCount(const char *appName, const char *reportsPath)
 {
     pthread_mutex_lock(&g_mutex);
-    int count = getReportCount(reportsPath, appName);
+    int count = getReportCount(appName, reportsPath);
     pthread_mutex_unlock(&g_mutex);
     return count;
 }
 
-int kscrs_getReportIDs(const char *reportsPath, const char *appName, int64_t *reportIDs, int count)
+int kscrs_getReportIDs(int64_t *reportIDs, int count, const char *appName, const char *reportsPath)
 {
     pthread_mutex_lock(&g_mutex);
-    count = getReportIDs(reportsPath, appName, reportIDs, count);
+    count = getReportIDs(reportIDs, count, appName, reportsPath);
     pthread_mutex_unlock(&g_mutex);
     return count;
 }
@@ -218,22 +218,22 @@ char *kscrs_readReportAtPath(const char *path)
     return result;
 }
 
-char *kscrs_readReport(int64_t reportID, const char *reportsPath, const char *appName)
+char *kscrs_readReport(int64_t reportID, const char *appName, const char *reportsPath)
 {
     pthread_mutex_lock(&g_mutex);
     char path[KSCRS_MAX_PATH_LENGTH];
-    getCrashReportPathByID(reportID, reportsPath, appName, path);
+    getCrashReportPathByID(reportID, path, appName, reportsPath);
     char *result = readReportAtPath(path);
     pthread_mutex_unlock(&g_mutex);
     return result;
 }
 
-int64_t kscrs_addUserReport(const char *report, int reportLength, const char *reportsPath, const char *appName)
+int64_t kscrs_addUserReport(const char *report, int reportLength, const char *appName, const char *reportsPath)
 {
     pthread_mutex_lock(&g_mutex);
     int64_t currentID = getNextUniqueID();
     char crashReportPath[KSCRS_MAX_PATH_LENGTH];
-    getCrashReportPathByID(currentID, reportsPath, appName, crashReportPath);
+    getCrashReportPathByID(currentID, crashReportPath, appName, reportsPath);
 
     int fd = open(crashReportPath, O_WRONLY | O_CREAT, 0644);
     if (fd < 0) {
@@ -266,9 +266,9 @@ void kscrs_deleteAllReports(const char *reportsPath)
     pthread_mutex_unlock(&g_mutex);
 }
 
-void kscrs_deleteReportWithID(int64_t reportID, const char *reportsPath, const char *appName)
+void kscrs_deleteReportWithID(int64_t reportID, const char *appName, const char *reportsPath)
 {
     char path[KSCRS_MAX_PATH_LENGTH];
-    getCrashReportPathByID(reportID, reportsPath, appName, path);
+    getCrashReportPathByID(reportID, path, appName, reportsPath);
     ksfu_removeFile(path, true);
 }

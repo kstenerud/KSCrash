@@ -40,7 +40,7 @@ extern "C" {
  *
  * @return the report ID of the next report.
  */
-int64_t kscrs_getNextCrashReport(const char *reportsPath, const char *appName, char *crashReportPathBuffer);
+int64_t kscrs_getNextCrashReport(char *crashReportPathBuffer, const char *appName, const char *reportsPath);
 
 #ifdef __cplusplus
 }
