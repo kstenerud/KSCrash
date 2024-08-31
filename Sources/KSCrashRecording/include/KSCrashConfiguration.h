@@ -154,6 +154,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @end
 
+NS_SWIFT_NAME(CrashReportStoreConfiguration)
 @interface KSCrashReportStoreConfiguration : NSObject <NSCopying>
 
 /** Specifies a custom directory path for reports store.

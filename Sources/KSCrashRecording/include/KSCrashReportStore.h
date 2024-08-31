@@ -51,8 +51,8 @@ NS_SWIFT_NAME(CrashReportStore)
 
 /** TODO: doc
  */
-+ (instancetype)storeWithConfiguration:(nullable KSCrashReportStoreConfiguration *)configuration
-                                 error:(NSError **)error;
++ (nullable instancetype)storeWithConfiguration:(nullable KSCrashReportStoreConfiguration *)configuration
+                                          error:(NSError **)error;
 
 #pragma mark - Configuration
 
