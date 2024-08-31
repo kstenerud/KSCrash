@@ -42,9 +42,41 @@ extern "C" {
  */
 typedef void (*KSReportWrittenCallback)(int64_t reportID);
 
+typedef struct {
+    /** TODO: Add docs
+     */
+    const char *appName;
+
+    /** TODO: Add docs
+     */
+    const char *reportsPath;
+
+    /** The maximum number of crash reports allowed on disk before old ones get deleted.
+     *
+     * Specifies the maximum number of crash reports to keep on disk. When this limit
+     * is reached, the oldest reports will be deleted to make room for new ones.
+     *
+     * **Default**: 5
+     */
+    int maxReportCount;
+} KSCrashReportStoreCConfiguration;
+
+static inline KSCrashReportStoreCConfiguration KSCrashReportStoreCConfiguration_Default(void)
+{
+    return (KSCrashReportStoreCConfiguration) {
+        .appName = NULL,
+        .reportsPath = NULL,
+        .maxReportCount = 5,
+    };
+}
+
 /** Configuration for KSCrash settings.
  */
 typedef struct {
+    /** The report store configuration to be used for the corresponding installation.
+     */
+    KSCrashReportStoreCConfiguration reportStoreConfiguration;
+
     /** The crash types that will be handled.
      * Some crash types may not be enabled depending on circumstances (e.g., running in a debugger).
      */
@@ -140,15 +172,6 @@ typedef struct {
      */
     bool printPreviousLogOnStartup;
 
-    /** The maximum number of crash reports allowed on disk before old ones get deleted.
-     *
-     * Specifies the maximum number of crash reports to keep on disk. When this limit
-     * is reached, the oldest reports will be deleted to make room for new ones.
-     *
-     * **Default**: 5
-     */
-    int maxReportCount;
-
     /** If true, enable C++ exceptions catching with `__cxa_throw` swap.
      *
      * This experimental feature works similarly to `LD_PRELOAD` and supports catching
@@ -163,7 +186,8 @@ typedef struct {
 
 static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
 {
-    return (KSCrashCConfiguration) { .monitors = KSCrashMonitorTypeProductionSafeMinimal,
+    return (KSCrashCConfiguration) { .reportStoreConfiguration = KSCrashReportStoreCConfiguration_Default(),
+                                     .monitors = KSCrashMonitorTypeProductionSafeMinimal,
                                      .userInfoJSON = NULL,
                                      .deadlockWatchdogInterval = 0.0,
                                      .enableQueueNameSearch = false,
@@ -173,7 +197,6 @@ static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
                                      .reportWrittenCallback = NULL,
                                      .addConsoleLogToReport = false,
                                      .printPreviousLogOnStartup = false,
-                                     .maxReportCount = 5,
                                      .enableSwapCxaThrow = true };
 }
 

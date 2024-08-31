@@ -26,6 +26,7 @@
 
 #import "KSCrashConfiguration.h"
 #import <objc/runtime.h>
+#import "KSCrash+Private.h"
 #import "KSCrashConfiguration+Private.h"
 
 @implementation KSCrashConfiguration
@@ -57,8 +58,11 @@
         _reportWrittenCallback = nil;
         _addConsoleLogToReport = cConfig.addConsoleLogToReport ? YES : NO;
         _printPreviousLogOnStartup = cConfig.printPreviousLogOnStartup ? YES : NO;
-        _maxReportCount = cConfig.maxReportCount;
         _enableSwapCxaThrow = cConfig.enableSwapCxaThrow ? YES : NO;
+
+        _reportStoreConfiguration = [KSCrashReportStoreConfiguration new];
+        _reportStoreConfiguration.appName = nil;
+        _reportStoreConfiguration.maxReportCount = cConfig.reportStoreConfiguration.maxReportCount;
     }
     return self;
 }
@@ -67,6 +71,7 @@
 {
     KSCrashCConfiguration config = KSCrashCConfiguration_Default();
 
+    config.reportStoreConfiguration = [self.reportStoreConfiguration toCConfiguration];
     config.monitors = self.monitors;
     config.userInfoJSON = self.userInfoJSON ? [self jsonStringFromDictionary:self.userInfoJSON] : NULL;
     config.deadlockWatchdogInterval = self.deadlockWatchdogInterval;
@@ -82,7 +87,6 @@
     }
     config.addConsoleLogToReport = self.addConsoleLogToReport;
     config.printPreviousLogOnStartup = self.printPreviousLogOnStartup;
-    config.maxReportCount = self.maxReportCount;
     config.enableSwapCxaThrow = self.enableSwapCxaThrow;
 
     return config;
@@ -116,6 +120,12 @@
 - (nonnull id)copyWithZone:(nullable NSZone *)zone
 {
     KSCrashConfiguration *copy = [[KSCrashConfiguration allocWithZone:zone] init];
+    if (copy == nil) {
+        return nil;
+    }
+    copy->_reportStoreConfiguration = [self.reportStoreConfiguration copyWithZone:zone];
+
+    copy.installPath = [self.installPath copyWithZone:zone];
     copy.monitors = self.monitors;
     copy.userInfoJSON = [self.userInfoJSON copyWithZone:zone];
     copy.deadlockWatchdogInterval = self.deadlockWatchdogInterval;
@@ -129,8 +139,49 @@
     copy.reportWrittenCallback = [self.reportWrittenCallback copy];
     copy.addConsoleLogToReport = self.addConsoleLogToReport;
     copy.printPreviousLogOnStartup = self.printPreviousLogOnStartup;
-    copy.maxReportCount = self.maxReportCount;
     copy.enableSwapCxaThrow = self.enableSwapCxaThrow;
+    return copy;
+}
+
+@end
+
+@implementation KSCrashReportStoreConfiguration
+
+- (instancetype)init
+{
+    self = [super init];
+    if (self != nil) {
+        _appName = nil;
+        _reportsPath = nil;
+
+        KSCrashReportStoreCConfiguration cConfig = KSCrashReportStoreCConfiguration_Default();
+        _maxReportCount = cConfig.maxReportCount;
+    }
+    return self;
+}
+
+- (KSCrashReportStoreCConfiguration)toCConfiguration
+{
+    NSString *resolvedAppName = self.appName ?: kscrash_getBundleName();
+    NSString *resolvedReportsPath =
+        self.reportsPath ?: [kscrash_getDefaultInstallPath() stringByAppendingPathComponent:@"Reports"];
+
+    KSCrashReportStoreCConfiguration config = KSCrashReportStoreCConfiguration_Default();
+    config.appName = resolvedAppName != nil ? strdup(resolvedAppName.UTF8String) : NULL;
+    config.reportsPath = resolvedReportsPath != nil ? strdup(resolvedReportsPath.UTF8String) : NULL;
+    config.maxReportCount = self.maxReportCount;
+
+    return config;
+}
+
+#pragma mark - NSCopying
+
+- (nonnull id)copyWithZone:(nullable NSZone *)zone
+{
+    KSCrashReportStoreConfiguration *copy = [[KSCrashReportStoreConfiguration allocWithZone:zone] init];
+    copy.reportsPath = [self.reportsPath copyWithZone:zone];
+    copy.appName = [self.appName copyWithZone:zone];
+    copy.maxReportCount = self.maxReportCount;
     return copy;
 }
 

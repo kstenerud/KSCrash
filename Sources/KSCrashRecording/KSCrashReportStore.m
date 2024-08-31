@@ -27,7 +27,7 @@
 #import "KSCrashReportStore.h"
 
 #import "KSCrash+Private.h"
-#import "KSCrashConfiguration.h"
+#import "KSCrashConfiguration+Private.h"
 #import "KSCrashDoctor.h"
 #import "KSCrashReport.h"
 #import "KSCrashReportFields.h"
@@ -40,31 +40,27 @@
 #import "KSLogger.h"
 
 @implementation KSCrashReportStore {
-    NSString *_path;
-    NSString *_bundleName;
+    KSCrashReportStoreCConfiguration _cConfig;
 }
 
 + (instancetype)defaultStoreWithError:(NSError **)error
 {
-    return [KSCrashReportStore storeWithPath:nil error:error];
+    return [KSCrashReportStore storeWithConfiguration:nil error:error];
 }
 
-+ (instancetype)storeWithPath:(NSString *)path error:(NSError **)error
++ (instancetype)storeWithConfiguration:(KSCrashReportStoreConfiguration *)configuration error:(NSError **)error
 {
-    return [[KSCrashReportStore alloc] initWithPath:(path ?: kscrash_getDefaultInstallPath()) error:error];
+    return [[KSCrashReportStore alloc] initWithConfiguration:configuration error:error];
 }
 
-- (nullable instancetype)initWithPath:(NSString *)path error:(NSError **)error
+- (nullable instancetype)initWithConfiguration:(KSCrashReportStoreConfiguration *)configuration error:(NSError **)error
 {
     self = [super init];
     if (self != nil) {
-        _path = [path copy];
-        _bundleName = kscrash_getBundleName();
-
+        _cConfig = [(configuration ?: [KSCrashReportStoreConfiguration new]) toCConfiguration];
         _deleteBehaviorAfterSendAll = KSCDeleteAlways;
 
-        // TODO: Add config for max report count
-        kscrs_initialize(_bundleName.UTF8String, _path.UTF8String, 5);
+        kscrs_initialize(&_cConfig);
     }
     return self;
 }
@@ -75,7 +71,7 @@
 
     KSLOG_INFO(@"Sending %d crash reports", [reports count]);
 
-    NSString *reportsPath = _path;
+    __weak __typeof(self) weakSelf = self;
     [self sendReports:reports
          onCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error) {
              KSLOG_DEBUG(@"Process finished with completion: %d", completed);
@@ -84,7 +80,7 @@
              }
              if ((self.deleteBehaviorAfterSendAll == KSCDeleteOnSucess && completed) ||
                  self.deleteBehaviorAfterSendAll == KSCDeleteAlways) {
-                 kscrs_deleteAllReports(reportsPath.UTF8String);
+                 [weakSelf deleteAllReports];
              }
              kscrash_callCompletion(onCompletion, filteredReports, completed, error);
          }];
@@ -92,19 +88,19 @@
 
 - (void)deleteAllReports
 {
-    kscrs_deleteAllReports(_path.UTF8String);
+    kscrs_deleteAllReports(&_cConfig);
 }
 
 - (void)deleteReportWithID:(int64_t)reportID
 {
-    kscrs_deleteReportWithID(reportID, _bundleName.UTF8String, _path.UTF8String);
+    kscrs_deleteReportWithID(reportID, &_cConfig);
 }
 
 #pragma mark - Private API
 
 - (NSInteger)reportCount
 {
-    return kscrs_getReportCount(_bundleName.UTF8String, _path.UTF8String);
+    return kscrs_getReportCount(&_cConfig);
 }
 
 - (void)sendReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
@@ -130,7 +126,7 @@
 
 - (NSData *)loadCrashReportJSONWithID:(int64_t)reportID
 {
-    char *report = kscrs_readReport(reportID, _bundleName.UTF8String, _path.UTF8String);
+    char *report = kscrs_readReport(reportID, &_cConfig);
     if (report != NULL) {
         return [NSData dataWithBytesNoCopy:report length:strlen(report) freeWhenDone:YES];
     }
@@ -151,9 +147,9 @@
 
 - (NSArray<NSNumber *> *)reportIDs
 {
-    int reportCount = kscrs_getReportCount(_bundleName.UTF8String, _path.UTF8String);
+    int reportCount = kscrs_getReportCount(&_cConfig);
     int64_t reportIDsC[reportCount];
-    reportCount = kscrs_getReportIDs(reportIDsC, reportCount, _bundleName.UTF8String, _path.UTF8String);
+    reportCount = kscrs_getReportIDs(reportIDsC, reportCount, &_cConfig);
     NSMutableArray *reportIDs = [NSMutableArray arrayWithCapacity:(NSUInteger)reportCount];
     for (int i = 0; i < reportCount; i++) {
         [reportIDs addObject:[NSNumber numberWithLongLong:reportIDsC[i]]];
@@ -188,9 +184,9 @@
 
 - (NSArray<KSCrashReportDictionary *> *)allReports
 {
-    int reportCount = kscrs_getReportCount(_bundleName.UTF8String, _path.UTF8String);
+    int reportCount = kscrs_getReportCount(&_cConfig);
     int64_t reportIDs[reportCount];
-    reportCount = kscrs_getReportIDs(reportIDs, reportCount, _bundleName.UTF8String, _path.UTF8String);
+    reportCount = kscrs_getReportIDs(reportIDs, reportCount, &_cConfig);
     NSMutableArray<KSCrashReportDictionary *> *reports = [NSMutableArray arrayWithCapacity:(NSUInteger)reportCount];
     for (int i = 0; i < reportCount; i++) {
         KSCrashReportDictionary *report = [self reportForID:reportIDs[i]];

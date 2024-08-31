@@ -100,6 +100,8 @@
     const char *appName = "test";
     KSCrashCConfiguration config = KSCrashCConfiguration_Default();
     config.monitors = KSCrashMonitorTypeMemoryTermination;
+    config.reportStoreConfiguration.appName = "test";
+    config.reportStoreConfiguration.reportsPath = reportsPath.path.UTF8String;
     kscrash_install(appName, installURL.path.UTF8String, config);
 
     // init memory API
@@ -147,12 +149,16 @@
 
     // check the last report, it should be the OOM report
     NSMutableArray<NSDictionary *> *reports = [NSMutableArray array];
+    KSCrashReportStoreCConfiguration storeConfig = {
+        .appName = appName,
+        .reportsPath = reportsPath.path.UTF8String,
+    };
     int64_t reportIDs[10] = { 0 };
-    kscrs_getReportIDs(reportIDs, 10, appName, reportsPath.path.UTF8String);
+    kscrs_getReportIDs(reportIDs, 10, &storeConfig);
     for (int index = 0; index < 10; index++) {
         int64_t reportID = reportIDs[index];
         if (reportID) {
-            char *report = kscrs_readReport(reportID, appName, reportsPath.path.UTF8String);
+            char *report = kscrs_readReport(reportID, &storeConfig);
             if (report) {
                 NSData *data = [[NSData alloc] initWithBytes:report length:strlen(report)];
                 NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];

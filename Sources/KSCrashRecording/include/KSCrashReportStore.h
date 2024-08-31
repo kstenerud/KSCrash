@@ -31,6 +31,7 @@
 NS_ASSUME_NONNULL_BEGIN
 
 @class KSCrashReportDictionary;
+@class KSCrashReportStoreConfiguration;
 
 typedef NS_ENUM(NSUInteger, KSCDeleteBehavior) {
     KSCDeleteNever,
@@ -50,7 +51,8 @@ NS_SWIFT_NAME(CrashReportStore)
 
 /** TODO: doc
  */
-+ (nullable instancetype)storeWithPath:(nullable NSString *)path error:(NSError **)error;
++ (instancetype)storeWithConfiguration:(nullable KSCrashReportStoreConfiguration *)configuration
+                                 error:(NSError **)error;
 
 #pragma mark - Configuration
 

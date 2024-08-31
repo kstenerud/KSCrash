@@ -41,7 +41,9 @@
 
 @end
 
-@implementation KSCrashReportStoreC_Tests
+@implementation KSCrashReportStoreC_Tests {
+    KSCrashReportStoreCConfiguration _storeConfig;
+}
 
 - (int64_t)getReportIDFromPath:(NSString *)path
 {
@@ -68,15 +70,17 @@
 - (void)prepareReportStoreWithPathEnd:(NSString *)pathEnd maxReportCount:(int)maxReportCount
 {
     self.reportStorePath = [self.tempPath stringByAppendingPathComponent:pathEnd];
-    kscrs_initialize(self.appName.UTF8String, self.reportStorePath.UTF8String, maxReportCount);
+    _storeConfig.appName = self.appName.UTF8String;
+    _storeConfig.reportsPath = self.reportStorePath.UTF8String;
+    _storeConfig.maxReportCount = maxReportCount;
+    kscrs_initialize(&_storeConfig);
 }
 
 - (NSArray *)getReportIDs
 {
-    int reportCount = kscrs_getReportCount(self.reportStorePath.UTF8String, self.appName.UTF8String);
+    int reportCount = kscrs_getReportCount(&_storeConfig);
     int64_t rawReportIDs[reportCount];
-    reportCount =
-        kscrs_getReportIDs(rawReportIDs, reportCount, self.appName.UTF8String, self.reportStorePath.UTF8String);
+    reportCount = kscrs_getReportIDs(rawReportIDs, reportCount, &_storeConfig);
     NSMutableArray *reportIDs = [NSMutableArray new];
     for (int i = 0; i < reportCount; i++) {
         [reportIDs addObject:@(rawReportIDs[i])];
@@ -88,7 +92,7 @@
 {
     NSData *crashData = [contents dataUsingEncoding:NSUTF8StringEncoding];
     char crashReportPath[KSCRS_MAX_PATH_LENGTH];
-    kscrs_getNextCrashReport(crashReportPath, self.appName.UTF8String, self.reportStorePath.UTF8String);
+    kscrs_getNextCrashReport(crashReportPath, &_storeConfig);
     [crashData writeToFile:[NSString stringWithUTF8String:crashReportPath] atomically:YES];
     return [self getReportIDFromPath:[NSString stringWithUTF8String:crashReportPath]];
 }
@@ -96,12 +100,12 @@
 - (int64_t)writeUserReportWithStringContents:(NSString *)contents
 {
     NSData *data = [contents dataUsingEncoding:NSUTF8StringEncoding];
-    return kscrs_addUserReport(data.bytes, (int)data.length, self.appName.UTF8String, self.reportStorePath.UTF8String);
+    return kscrs_addUserReport(data.bytes, (int)data.length, &_storeConfig);
 }
 
 - (void)loadReportID:(int64_t)reportID reportString:(NSString *__autoreleasing *)reportString
 {
-    char *reportBytes = kscrs_readReport(reportID, self.appName.UTF8String, self.reportStorePath.UTF8String);
+    char *reportBytes = kscrs_readReport(reportID, &_storeConfig);
 
     if (reportBytes == NULL) {
         reportString = nil;
@@ -114,7 +118,7 @@
 
 - (void)expectHasReportCount:(int)reportCount
 {
-    XCTAssertEqual(kscrs_getReportCount(self.appName.UTF8String, self.reportStorePath.UTF8String), reportCount);
+    XCTAssertEqual(kscrs_getReportCount(&_storeConfig), reportCount);
 }
 
 - (void)expectReports:(NSArray *)reportIDs areStrings:(NSArray *)reportStrings
@@ -176,7 +180,7 @@
     [self writeUserReportWithStringContents:REPORT_CONTENTS(3)];
     [self writeCrashReportWithStringContents:REPORT_CONTENTS(4)];
     [self expectHasReportCount:4];
-    kscrs_deleteAllReports(self.reportStorePath.UTF8String);
+    kscrs_deleteAllReports(&_storeConfig);
     [self expectHasReportCount:0];
 }
 

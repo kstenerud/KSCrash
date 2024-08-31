@@ -29,6 +29,9 @@
 
 #include <stdint.h>
 
+#include "KSCrashCConfiguration.h"
+#include "KSCrashError.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -37,42 +40,37 @@ extern "C" {
 
 /** Initialize the report store.
  *
- * @param appName The application's name (usually app bundle name).
- * @param reportsPath Full path to directory where the reports are to be stored (path will be created if needed).
- * @param maxReportCount The maximum number of reports allowed on disk before old ones get deleted. `0` for no limits.
+ * @param configuration The store configuretion (e.g. reports path, app name etc).
  */
-void kscrs_initialize(const char *appName, const char *reportsPath, int maxReportCount);
+KSCrashInstallErrorCode kscrs_initialize(const KSCrashReportStoreCConfiguration *const configuration);
 
 /** Get the number of reports on disk.
  *
- * @param appName The application's name (usually app bundle name).
- * @param reportsPath Full path to directory where the reports are stored.
+ * @param configuration The store configuretion (e.g. reports path, app name etc).
  *
  * @return The number of reports on disk.
  */
-int kscrs_getReportCount(const char *appName, const char *reportsPath);
+int kscrs_getReportCount(const KSCrashReportStoreCConfiguration *const configuration);
 
 /** Get a list of IDs for all reports on disk.
  *
  * @param reportIDs An array big enough to hold all report IDs.
  * @param count How many reports the array can hold.
- * @param appName The application's name (usually app bundle name).
- * @param reportsPath Full path to directory where the reports are stored.
+ * @param configuration The store configuretion (e.g. reports path, app name etc).
  *
  * @return The number of report IDs that were placed in the array.
  */
-int kscrs_getReportIDs(int64_t *reportIDs, int count, const char *appName, const char *reportsPath);
+int kscrs_getReportIDs(int64_t *reportIDs, int count, const KSCrashReportStoreCConfiguration *const configuration);
 
 /** Read a report.
  *
  * @param reportID The report's ID.
- * @param appName The application's name (usually app bundle name).
- * @param reportsPath Full path to directory where the reports are stored.
+ * @param configuration The store configuretion (e.g. reports path, app name etc).
  *
  * @return The NULL terminated report, or NULL if not found.
  *         MEMORY MANAGEMENT WARNING: User is responsible for calling free() on the returned value.
  */
-char *kscrs_readReport(int64_t reportID, const char *appName, const char *reportsPath);
+char *kscrs_readReport(int64_t reportID, const KSCrashReportStoreCConfiguration *const configuration);
 
 /** Read a report at a given path.
  * This is a convenience method for reading reports that are not in the standard reports directory.
@@ -88,26 +86,25 @@ char *kscrs_readReportAtPath(const char *path);
  *
  * @param report The report's contents (must be JSON encoded).
  * @param reportLength The length of the report in bytes.
- * @param appName The application's name (usually app bundle name).
- * @param reportsPath Full path to directory where the reports are to be stored.
+ * @param configuration The store configuretion (e.g. reports path, app name etc).
  *
  * @return The new report's ID.
  */
-int64_t kscrs_addUserReport(const char *report, int reportLength, const char *appName, const char *reportsPath);
+int64_t kscrs_addUserReport(const char *report, int reportLength,
+                            const KSCrashReportStoreCConfiguration *const configuration);
 
 /** Delete all reports on disk.
  *
- * @param reportsPath Full path to directory where the reports are stored.
+ * @param configuration The store configuretion (e.g. reports path, app name etc).
  */
-void kscrs_deleteAllReports(const char *reportsPath);
+void kscrs_deleteAllReports(const KSCrashReportStoreCConfiguration *const configuration);
 
 /** Delete report.
  *
  * @param reportID An ID of report to delete.
- * @param appName The application's name (usually app bundle name).
- * @param reportsPath Full path to directory where the reports are stored.
+ * @param configuration The store configuretion (e.g. reports path, app name etc).
  */
-void kscrs_deleteReportWithID(int64_t reportID, const char *appName, const char *reportsPath);
+void kscrs_deleteReportWithID(int64_t reportID, const KSCrashReportStoreCConfiguration *const configuration);
 
 #ifdef __cplusplus
 }

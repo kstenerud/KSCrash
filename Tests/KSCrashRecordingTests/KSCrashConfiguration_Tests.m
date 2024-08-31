@@ -47,7 +47,7 @@
     XCTAssertNil(config.reportWrittenCallback);
     XCTAssertFalse(config.addConsoleLogToReport);
     XCTAssertFalse(config.printPreviousLogOnStartup);
-    XCTAssertEqual(config.maxReportCount, 5);
+    XCTAssertEqual(config.reportStoreConfiguration.maxReportCount, 5);
     XCTAssertTrue(config.enableSwapCxaThrow);
 }
 
@@ -62,7 +62,7 @@
     config.doNotIntrospectClasses = @[ @"ClassA", @"ClassB" ];
     config.addConsoleLogToReport = YES;
     config.printPreviousLogOnStartup = YES;
-    config.maxReportCount = 10;
+    config.reportStoreConfiguration.maxReportCount = 10;
     config.enableSwapCxaThrow = NO;
 
     KSCrashCConfiguration cConfig = [config toCConfiguration];
@@ -78,7 +78,7 @@
     XCTAssertEqual(strcmp(cConfig.doNotIntrospectClasses.strings[1], "ClassB"), 0);
     XCTAssertTrue(cConfig.addConsoleLogToReport);
     XCTAssertTrue(cConfig.printPreviousLogOnStartup);
-    XCTAssertEqual(cConfig.maxReportCount, 10);
+    XCTAssertEqual(cConfig.reportStoreConfiguration.maxReportCount, 10);
     XCTAssertFalse(cConfig.enableSwapCxaThrow);
 
     // Free memory allocated for C string array
@@ -100,7 +100,7 @@
     config.doNotIntrospectClasses = @[ @"ClassA", @"ClassB" ];
     config.addConsoleLogToReport = YES;
     config.printPreviousLogOnStartup = YES;
-    config.maxReportCount = 10;
+    config.reportStoreConfiguration.maxReportCount = 10;
     config.enableSwapCxaThrow = NO;
 
     KSCrashConfiguration *copy = [config copy];
@@ -113,7 +113,7 @@
     XCTAssertEqualObjects(copy.doNotIntrospectClasses, (@[ @"ClassA", @"ClassB" ]));
     XCTAssertTrue(copy.addConsoleLogToReport);
     XCTAssertTrue(copy.printPreviousLogOnStartup);
-    XCTAssertEqual(copy.maxReportCount, 10);
+    XCTAssertEqual(copy.reportStoreConfiguration.maxReportCount, 10);
     XCTAssertFalse(copy.enableSwapCxaThrow);
 }
 
@@ -188,21 +188,6 @@
     KSCrashConfiguration *copy = [config copy];
     XCTAssertNil(copy.userInfoJSON);
     XCTAssertNil(copy.doNotIntrospectClasses);
-}
-
-- (void)testBoundaryValuesForMaxReportCount
-{
-    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
-
-    // Test with 0
-    config.maxReportCount = 0;
-    KSCrashCConfiguration cConfig = [config toCConfiguration];
-    XCTAssertEqual(cConfig.maxReportCount, 0);
-
-    // Test with a large number
-    config.maxReportCount = INT_MAX;
-    cConfig = [config toCConfiguration];
-    XCTAssertEqual(cConfig.maxReportCount, INT_MAX);
 }
 
 @end

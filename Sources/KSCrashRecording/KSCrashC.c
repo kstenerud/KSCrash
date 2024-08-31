@@ -94,8 +94,7 @@ static bool g_shouldPrintPreviousLog = false;
 static char g_consoleLogPath[KSFU_MAX_PATH_LENGTH];
 static KSCrashMonitorType g_monitoring = KSCrashMonitorTypeProductionSafeMinimal;
 static char g_lastCrashReportFilePath[KSFU_MAX_PATH_LENGTH];
-static char g_reportsPath[KSFU_MAX_PATH_LENGTH];
-static char g_appName[KSC_MAX_APP_NAME_LENGTH];
+static KSCrashReportStoreCConfiguration g_reportStoreConfig;
 static KSReportWrittenCallback g_reportWrittenCallback;
 static KSApplicationState g_lastApplicationState = KSApplicationStateNone;
 
@@ -157,7 +156,7 @@ static void onCrash(struct KSCrash_MonitorContext *monitorContext)
         kscrashreport_writeStandardReport(monitorContext, monitorContext->reportPath);
     } else {
         char crashReportFilePath[KSFU_MAX_PATH_LENGTH];
-        int64_t reportID = kscrs_getNextCrashReport(crashReportFilePath, g_appName, g_reportsPath);
+        int64_t reportID = kscrs_getNextCrashReport(crashReportFilePath, &g_reportStoreConfig);
         strncpy(g_lastCrashReportFilePath, crashReportFilePath, sizeof(g_lastCrashReportFilePath));
         kscrashreport_writeStandardReport(monitorContext, crashReportFilePath);
 
@@ -185,6 +184,8 @@ static void setMonitors(KSCrashMonitorType monitorTypes)
 
 void handleConfiguration(KSCrashCConfiguration *configuration)
 {
+    g_reportStoreConfig = configuration->reportStoreConfiguration;
+
     if (configuration->userInfoJSON != NULL) {
         kscrashreport_setUserInfoJSON(configuration->userInfoJSON);
     }
@@ -229,18 +230,20 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
 
     handleConfiguration(&configuration);
 
+    if (g_reportStoreConfig.appName == NULL) {
+        g_reportStoreConfig.appName = strdup(appName);
+    }
+
     char path[KSFU_MAX_PATH_LENGTH];
-    if (snprintf(path, sizeof(path), "%s/Reports", installPath) >= (int)sizeof(path)) {
-        KSLOG_ERROR("Reports path is too long.");
-        return KSCrashInstallErrorPathTooLong;
+    if (g_reportStoreConfig.reportsPath == NULL) {
+        if (snprintf(path, sizeof(path), "%s/Reports", installPath) >= (int)sizeof(path)) {
+            KSLOG_ERROR("Reports path is too long.");
+            return KSCrashInstallErrorPathTooLong;
+        }
+        g_reportStoreConfig.reportsPath = strdup(path);
     }
-    if (ksfu_makePath(path) == false) {
-        KSLOG_ERROR("Could not create path: %s", path);
-        return KSCrashInstallErrorCouldNotCreatePath;
-    }
-    kscrs_initialize(appName, path, configuration.maxReportCount);
-    strncpy(g_reportsPath, path, sizeof(g_reportsPath));
-    strncpy(g_appName, appName, sizeof(g_appName));
+
+    kscrs_initialize(&g_reportStoreConfig);
 
     if (snprintf(path, sizeof(path), "%s/Data", installPath) >= (int)sizeof(path)) {
         KSLOG_ERROR("Data path is too long.");
@@ -328,5 +331,5 @@ void kscrash_notifyAppCrash(void) { kscrashstate_notifyAppCrash(); }
 
 int64_t kscrash_addUserReport(const char *report, int reportLength)
 {
-    return kscrs_addUserReport(report, reportLength, g_appName, g_reportsPath);
+    return kscrs_addUserReport(report, reportLength, &g_reportStoreConfig);
 }

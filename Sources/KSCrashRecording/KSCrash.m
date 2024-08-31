@@ -223,7 +223,8 @@ NSString *kscrash_getDefaultInstallPath(void)
     self.configuration = [configuration copy] ?: [KSCrashConfiguration new];
     NSString *installPath = configuration.installPath ?: kscrash_getDefaultInstallPath();
 
-    KSCrashReportStore *reportStore = [KSCrashReportStore storeWithPath:installPath error:error];
+    KSCrashReportStore *reportStore = [KSCrashReportStore storeWithConfiguration:configuration.reportStoreConfiguration
+                                                                           error:error];
     if (reportStore == nil) {
         return NO;
     }

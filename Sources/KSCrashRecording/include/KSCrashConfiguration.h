@@ -30,6 +30,8 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+@class KSCrashReportStoreConfiguration;
+
 @interface KSCrashConfiguration : NSObject <NSCopying>
 
 /** Specifies a custom base path for KSCrash installation.
@@ -39,6 +41,11 @@ NS_ASSUME_NONNULL_BEGIN
  * **Default**: `nil`
  */
 @property(nonatomic, copy, nullable) NSString *installPath;
+
+/** The configuration for report store.
+ * @note See `KSCrashStoreConfiguration` for more details.
+ */
+@property(nonatomic, strong, readonly) KSCrashReportStoreConfiguration *reportStoreConfiguration;
 
 /** The crash types that will be handled.
  * Some crash types may not be enabled depending on circumstances (e.g., running in a debugger).
@@ -134,15 +141,6 @@ NS_ASSUME_NONNULL_BEGIN
  */
 @property(nonatomic, assign) BOOL printPreviousLogOnStartup;
 
-/** The maximum number of crash reports allowed on disk before old ones get deleted.
- *
- * Specifies the maximum number of crash reports to keep on disk. When this limit
- * is reached, the oldest reports will be deleted to make room for new ones.
- *
- * **Default**: 5
- */
-@property(nonatomic, assign) int maxReportCount;
-
 /** If true, enable C++ exceptions catching with `__cxa_throw` swap.
  *
  * This experimental feature works similarly to `LD_PRELOAD` and supports catching
@@ -153,6 +151,33 @@ NS_ASSUME_NONNULL_BEGIN
  * **Default**: true
  */
 @property(nonatomic, assign) BOOL enableSwapCxaThrow;
+
+@end
+
+@interface KSCrashReportStoreConfiguration : NSObject <NSCopying>
+
+/** Specifies a custom directory path for reports store.
+ * If `nil` the default directory is used: `Reports` within the installation directory.
+ *
+ * **Default**: `nil`
+ */
+@property(nonatomic, copy, nullable) NSString *reportsPath;
+
+/** Specifies a custom app name to be used in report file name.
+ * If `nil` the default value is used: `CFBundleName` from Info.plist.
+ *
+ * **Default**: `nil`
+ */
+@property(nonatomic, copy, nullable) NSString *appName;
+
+/** The maximum number of crash reports allowed on disk before old ones get deleted.
+ *
+ * Specifies the maximum number of crash reports to keep on disk. When this limit
+ * is reached, the oldest reports will be deleted to make room for new ones.
+ *
+ * **Default**: 5
+ */
+@property(nonatomic, assign) int maxReportCount;
 
 @end
 
