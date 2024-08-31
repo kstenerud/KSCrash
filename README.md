@@ -131,6 +131,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         let installation = CrashInstallationStandard.shared
         installation.url = URL(string: "http://put.your.url.here")!
 
+        // Install the crash reporting system
+        let config = KSCrashConfiguration()
+        config.monitors = [.machException, .signal]
+        installation.install(with: config) // set `nil` for default config
+
         // Optional: Add an alert confirmation (recommended for email installation)
         installation.addConditionalAlert(
             withTitle: "Crash Detected",
@@ -138,11 +143,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             yesAnswer: "Sure!",
             noAnswer: "No thanks"
         )
-
-        // Install the crash reporting system
-        let config = KSCrashConfiguration()
-        config.monitors = [.machException, .signal]
-        installation.install(with: config) // set `nil` for default config
 
         return true
     }
