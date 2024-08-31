@@ -181,6 +181,12 @@ _objc_getTaggedPointerValue(const void *ptr);
 static inline intptr_t
 _objc_getTaggedPointerSignedValue(const void *ptr);
 
+// (KSCrash) Added to handle runtime checks for Split Tagged Pointers,
+// which were introduced in objc4-818.2, corresponding to iOS/tvOS 14, macOS 11.0.1, and watchOS 7.
+// This function provides compatibility with earlier OS versions that we still support.
+static inline bool
+ksc_objc_splitTaggedPointersEnabled(void);
+
 // Don't use the values below. Use the declarations above.
 
 #if __arm64__
@@ -202,73 +208,151 @@ _objc_getTaggedPointerSignedValue(const void *ptr);
 
 #define _OBJC_TAG_INDEX_MASK 0x7UL
 
-#if OBJC_SPLIT_TAGGED_POINTERS
-#define _OBJC_TAG_SLOT_COUNT 8
-#define _OBJC_TAG_SLOT_MASK 0x7UL
-#else
-// array slot includes the tag bit itself
-#define _OBJC_TAG_SLOT_COUNT 16
-#define _OBJC_TAG_SLOT_MASK 0xfUL
-#endif
-
 #define _OBJC_TAG_EXT_INDEX_MASK 0xff
 // array slot has no extra bits
 #define _OBJC_TAG_EXT_SLOT_COUNT 256
 #define _OBJC_TAG_EXT_SLOT_MASK 0xff
 
-#if OBJC_SPLIT_TAGGED_POINTERS
-#   define _OBJC_TAG_MASK (1UL<<63)
-#   define _OBJC_TAG_INDEX_SHIFT 0
-#   define _OBJC_TAG_SLOT_SHIFT 0
-#   define _OBJC_TAG_PAYLOAD_LSHIFT 1
-#   define _OBJC_TAG_PAYLOAD_RSHIFT 4
-#   define _OBJC_TAG_EXT_MASK (_OBJC_TAG_MASK | 0x7UL)
-#   define _OBJC_TAG_NO_OBFUSCATION_MASK ((1UL<<62) | _OBJC_TAG_EXT_MASK)
-#   define _OBJC_TAG_CONSTANT_POINTER_MASK \
-~(_OBJC_TAG_EXT_MASK | ((uintptr_t)_OBJC_TAG_EXT_SLOT_MASK << _OBJC_TAG_EXT_SLOT_SHIFT))
-#   define _OBJC_TAG_EXT_INDEX_SHIFT 55
-#   define _OBJC_TAG_EXT_SLOT_SHIFT 55
-#   define _OBJC_TAG_EXT_PAYLOAD_LSHIFT 9
-#   define _OBJC_TAG_EXT_PAYLOAD_RSHIFT 12
-#elif OBJC_MSB_TAGGED_POINTERS
-#   define _OBJC_TAG_MASK (1UL<<63)
-#   define _OBJC_TAG_INDEX_SHIFT 60
-#   define _OBJC_TAG_SLOT_SHIFT 60
-#   define _OBJC_TAG_PAYLOAD_LSHIFT 4
-#   define _OBJC_TAG_PAYLOAD_RSHIFT 4
-#   define _OBJC_TAG_EXT_MASK (0xfUL<<60)
-#   define _OBJC_TAG_EXT_INDEX_SHIFT 52
-#   define _OBJC_TAG_EXT_SLOT_SHIFT 52
-#   define _OBJC_TAG_EXT_PAYLOAD_LSHIFT 12
-#   define _OBJC_TAG_EXT_PAYLOAD_RSHIFT 12
-#else
-#   define _OBJC_TAG_MASK 1UL
-#   define _OBJC_TAG_INDEX_SHIFT 1
-#   define _OBJC_TAG_SLOT_SHIFT 0
-#   define _OBJC_TAG_PAYLOAD_LSHIFT 0
-#   define _OBJC_TAG_PAYLOAD_RSHIFT 4
-#   define _OBJC_TAG_EXT_MASK 0xfUL
-#   define _OBJC_TAG_EXT_INDEX_SHIFT 4
-#   define _OBJC_TAG_EXT_SLOT_SHIFT 4
-#   define _OBJC_TAG_EXT_PAYLOAD_LSHIFT 0
-#   define _OBJC_TAG_EXT_PAYLOAD_RSHIFT 12
-#endif
+static inline int
+_OBJC_TAG_SLOT_COUNT_func(void)
+{
+    return ksc_objc_splitTaggedPointersEnabled() ? 8 : 16;
+}
+
+static inline uintptr_t
+_OBJC_TAG_SLOT_MASK_func(void)
+{
+    return ksc_objc_splitTaggedPointersEnabled() ? 0x7UL : 0xfUL;
+}
+
+static inline uintptr_t
+_OBJC_TAG_MASK_func(void)
+{
+    return ksc_objc_splitTaggedPointersEnabled() ? (1UL<<63) :
+        OBJC_MSB_TAGGED_POINTERS ? (1UL<<63) : 1UL;
+}
+
+static inline int
+_OBJC_TAG_INDEX_SHIFT_func(void)
+{
+    return ksc_objc_splitTaggedPointersEnabled() ? 0 :
+        OBJC_MSB_TAGGED_POINTERS ? 60 : 1;
+}
+
+static inline int
+_OBJC_TAG_SLOT_SHIFT_func(void)
+{
+    return ksc_objc_splitTaggedPointersEnabled() ? 0 :
+        OBJC_MSB_TAGGED_POINTERS ? 60 : 0;
+}
+
+static inline int
+_OBJC_TAG_PAYLOAD_LSHIFT_func(void)
+{
+    return ksc_objc_splitTaggedPointersEnabled() ? 1 :
+        OBJC_MSB_TAGGED_POINTERS ? 4 : 0;
+}
+
+static inline int
+_OBJC_TAG_PAYLOAD_RSHIFT_func(void)
+{
+    return ksc_objc_splitTaggedPointersEnabled() ? 4 :
+        OBJC_MSB_TAGGED_POINTERS ? 4 : 4;
+}
+
+static inline uintptr_t
+_OBJC_TAG_EXT_MASK_func(void)
+{
+    return ksc_objc_splitTaggedPointersEnabled() ? (_OBJC_TAG_MASK_func() | 0x7UL) :
+        OBJC_MSB_TAGGED_POINTERS ? (0xfUL<<60) : 0xfUL;
+}
+
+static inline uintptr_t
+_OBJC_TAG_NO_OBFUSCATION_MASK_func(void)
+{
+    return ksc_objc_splitTaggedPointersEnabled() ? ((1UL<<62) | _OBJC_TAG_EXT_MASK_func()) : 0;
+}
+
+static inline int
+_OBJC_TAG_EXT_SLOT_SHIFT_func(void)
+{
+    return ksc_objc_splitTaggedPointersEnabled() ? 55 :
+        OBJC_MSB_TAGGED_POINTERS ? 52 : 4;
+}
+
+static inline uintptr_t
+_OBJC_TAG_CONSTANT_POINTER_MASK_func(void)
+{
+    return ksc_objc_splitTaggedPointersEnabled() ?
+        ~(_OBJC_TAG_EXT_MASK_func() | ((uintptr_t)_OBJC_TAG_EXT_SLOT_MASK << _OBJC_TAG_EXT_SLOT_SHIFT_func())) : 0;
+}
+
+static inline int
+_OBJC_TAG_EXT_INDEX_SHIFT_func(void)
+{
+    return ksc_objc_splitTaggedPointersEnabled() ? 55 :
+        OBJC_MSB_TAGGED_POINTERS ? 52 : 4;
+}
+
+static inline int
+_OBJC_TAG_EXT_PAYLOAD_LSHIFT_func(void)
+{
+    return ksc_objc_splitTaggedPointersEnabled() ? 9 :
+        OBJC_MSB_TAGGED_POINTERS ? 12 : 0;
+}
+
+static inline int
+_OBJC_TAG_EXT_PAYLOAD_RSHIFT_func(void)
+{
+    return ksc_objc_splitTaggedPointersEnabled() ? 12 :
+        OBJC_MSB_TAGGED_POINTERS ? 12 : 12;
+}
+
+// (KSCrash) Macros were rewritten to include runtime checks for split tagged pointers, based on objc4-912.3.
+#define _OBJC_TAG_SLOT_COUNT             _OBJC_TAG_SLOT_COUNT_func()
+#define _OBJC_TAG_SLOT_MASK              _OBJC_TAG_SLOT_MASK_func()
+#define _OBJC_TAG_MASK                   _OBJC_TAG_MASK_func()
+#define _OBJC_TAG_INDEX_SHIFT            _OBJC_TAG_INDEX_SHIFT_func()
+#define _OBJC_TAG_SLOT_SHIFT             _OBJC_TAG_SLOT_SHIFT_func()
+#define _OBJC_TAG_PAYLOAD_LSHIFT         _OBJC_TAG_PAYLOAD_LSHIFT_func()
+#define _OBJC_TAG_PAYLOAD_RSHIFT         _OBJC_TAG_PAYLOAD_RSHIFT_func()
+#define _OBJC_TAG_EXT_MASK               _OBJC_TAG_EXT_MASK_func()
+#define _OBJC_TAG_NO_OBFUSCATION_MASK    _OBJC_TAG_NO_OBFUSCATION_MASK_func()
+#define _OBJC_TAG_CONSTANT_POINTER_MASK  _OBJC_TAG_CONSTANT_POINTER_MASK_func()
+#define _OBJC_TAG_EXT_INDEX_SHIFT        _OBJC_TAG_EXT_INDEX_SHIFT_func()
+#define _OBJC_TAG_EXT_SLOT_SHIFT         _OBJC_TAG_EXT_SLOT_SHIFT_func()
+#define _OBJC_TAG_EXT_PAYLOAD_LSHIFT     _OBJC_TAG_EXT_PAYLOAD_LSHIFT_func()
+#define _OBJC_TAG_EXT_PAYLOAD_RSHIFT     _OBJC_TAG_EXT_PAYLOAD_RSHIFT_func()
 
 // Map of tags to obfuscated tags.
 extern uintptr_t objc_debug_taggedpointer_obfuscator;
 
 #if OBJC_SPLIT_TAGGED_POINTERS
-extern uint8_t objc_debug_tag60_permutations[8];
+// (KSCrash) Weakly linked to support *OS versions prior to objc4-818.2, where this symbol may not be available.
+extern __attribute__((weak)) uint8_t objc_debug_tag60_permutations[8];
 
 static inline uintptr_t _objc_basicTagToObfuscatedTag(uintptr_t tag) {
-    return objc_debug_tag60_permutations[tag];
+    if (objc_debug_tag60_permutations != NULL && tag < 8) {
+        return objc_debug_tag60_permutations[tag];
+    }
+    // (KSCrash) Fallback: return the original tag if permutations are unavailable or tag is out of range.
+    // Runtime handles the availability of split tagged pointers, so fallback is typically unnecessary,
+    // but it's included as a safeguard.
+    return tag;
 }
 
 static inline uintptr_t _objc_obfuscatedTagToBasicTag(uintptr_t tag) {
-    for (unsigned i = 0; i < 7; i++)
-        if (objc_debug_tag60_permutations[i] == tag)
-            return i;
-    return 7;
+    if (objc_debug_tag60_permutations != NULL) {
+        for (unsigned i = 0; i < 7; i++) {
+            if (objc_debug_tag60_permutations[i] == tag) {
+                return i;
+            }
+        }
+    }
+    // (KSCrash) Fallback: return the original tag if within range, otherwise return 7.
+    // Runtime handles the availability of split tagged pointers, so fallback is typically unnecessary,
+    // but it's included as a safeguard.
+    return (tag < 8) ? tag : 7;
 }
 #endif
 
@@ -277,12 +361,14 @@ _objc_encodeTaggedPointer_withObfuscator(uintptr_t ptr, uintptr_t obfuscator)
 {
     uintptr_t value = (obfuscator ^ ptr);
 #if OBJC_SPLIT_TAGGED_POINTERS
-    if ((value & _OBJC_TAG_NO_OBFUSCATION_MASK) == _OBJC_TAG_NO_OBFUSCATION_MASK)
-        return (void *)ptr;
-    uintptr_t basicTag = (value >> _OBJC_TAG_INDEX_SHIFT) & _OBJC_TAG_INDEX_MASK;
-    uintptr_t permutedTag = _objc_basicTagToObfuscatedTag(basicTag);
-    value &= ~(_OBJC_TAG_INDEX_MASK << _OBJC_TAG_INDEX_SHIFT);
-    value |= permutedTag << _OBJC_TAG_INDEX_SHIFT;
+    if (ksc_objc_splitTaggedPointersEnabled()) {
+        if ((value & _OBJC_TAG_NO_OBFUSCATION_MASK) == _OBJC_TAG_NO_OBFUSCATION_MASK)
+            return (void *)ptr;
+        uintptr_t basicTag = (value >> _OBJC_TAG_INDEX_SHIFT) & _OBJC_TAG_INDEX_MASK;
+        uintptr_t permutedTag = _objc_basicTagToObfuscatedTag(basicTag);
+        value &= ~(_OBJC_TAG_INDEX_MASK << _OBJC_TAG_INDEX_SHIFT);
+        value |= permutedTag << _OBJC_TAG_INDEX_SHIFT;
+    }
 #endif
     return (void *)value;
 }
@@ -293,8 +379,10 @@ _objc_decodeTaggedPointer_noPermute_withObfuscator(const void *ptr,
 {
     uintptr_t value = (uintptr_t)ptr;
 #if OBJC_SPLIT_TAGGED_POINTERS
-    if ((value & _OBJC_TAG_NO_OBFUSCATION_MASK) == _OBJC_TAG_NO_OBFUSCATION_MASK)
-        return value;
+    if (ksc_objc_splitTaggedPointersEnabled()) {
+        if ((value & _OBJC_TAG_NO_OBFUSCATION_MASK) == _OBJC_TAG_NO_OBFUSCATION_MASK)
+            return value;
+    }
 #endif
     return value ^ obfuscator;
 }
@@ -306,10 +394,12 @@ _objc_decodeTaggedPointer_withObfuscator(const void *ptr,
     uintptr_t value
     = _objc_decodeTaggedPointer_noPermute_withObfuscator(ptr, obfuscator);
 #if OBJC_SPLIT_TAGGED_POINTERS
-    uintptr_t basicTag = (value >> _OBJC_TAG_INDEX_SHIFT) & _OBJC_TAG_INDEX_MASK;
+    if (ksc_objc_splitTaggedPointersEnabled()) {
+        uintptr_t basicTag = (value >> _OBJC_TAG_INDEX_SHIFT) & _OBJC_TAG_INDEX_MASK;
 
-    value &= ~(_OBJC_TAG_INDEX_MASK << _OBJC_TAG_INDEX_SHIFT);
-    value |= _objc_obfuscatedTagToBasicTag(basicTag) << _OBJC_TAG_INDEX_SHIFT;
+        value &= ~(_OBJC_TAG_INDEX_MASK << _OBJC_TAG_INDEX_SHIFT);
+        value |= _objc_obfuscatedTagToBasicTag(basicTag) << _OBJC_TAG_INDEX_SHIFT;
+    }
 #endif
     return value;
 }
@@ -449,6 +539,16 @@ static inline intptr_t
 _objc_getTaggedPointerSignedValue(const void *ptr)
 {
     return _objc_getTaggedPointerSignedValue_withObfuscator(ptr, objc_debug_taggedpointer_obfuscator);
+}
+
+static inline bool 
+ksc_objc_splitTaggedPointersEnabled(void)
+{
+#if OBJC_SPLIT_TAGGED_POINTERS
+    return objc_debug_tag60_permutations != NULL;
+#else
+    return false;
+#endif
 }
 
 #   if OBJC_SPLIT_TAGGED_POINTERS
