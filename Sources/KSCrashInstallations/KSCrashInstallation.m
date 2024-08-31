@@ -356,14 +356,13 @@ static CrashHandlerData *g_crashHandlerData;
                                                          message:message
                                                        yesAnswer:yesAnswer
                                                         noAnswer:noAnswer]];
-    // FIXME: Accessing config
-    //    KSCrash* handler = [KSCrash sharedInstance];
-    //    if(handler.deleteBehaviorAfterSendAll == KSCDeleteOnSucess)
-    //    {
-    //        // Better to delete always, or else the user will keep getting nagged
-    //        // until he presses "yes"!
-    //        handler.deleteBehaviorAfterSendAll = KSCDeleteAlways;
-    //    }
+
+    KSCrashReportStore *store = [KSCrash sharedInstance].reportStore;
+    if (store.deleteBehaviorAfterSendAll == KSCDeleteOnSucess) {
+        // Better to delete always, or else the user will keep getting nagged
+        // until he presses "yes"!
+        store.deleteBehaviorAfterSendAll = KSCDeleteAlways;
+    }
 }
 
 - (void)addUnconditionalAlertWithTitle:(NSString *)title
