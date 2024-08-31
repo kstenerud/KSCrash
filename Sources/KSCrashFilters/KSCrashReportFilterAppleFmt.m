@@ -440,8 +440,8 @@ static NSDictionary *g_registerOrders;
                       [system objectForKey:KSCrashField_ProcessID]];
     [str appendFormat:@"Path:                %@\n", executablePath];
     [str appendFormat:@"Identifier:          %@\n", [system objectForKey:KSCrashField_BundleID]];
-    [str appendFormat:@"Version:             %@ (%@)\n", [system objectForKey:KSCrashField_BundleVersion],
-                      [system objectForKey:KSCrashField_BundleShortVersion]];
+    [str appendFormat:@"Version:             %@ (%@)\n", [system objectForKey:KSCrashField_BundleShortVersion],
+                      [system objectForKey:KSCrashField_BundleVersion]];
     [str appendFormat:@"Code Type:           %@\n", cpuArchType];
     [str appendFormat:@"Role:                %@\n", processRole];
     [str appendFormat:@"Parent Process:      %@ [%@]\n", parentProcess,
