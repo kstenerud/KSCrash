@@ -49,11 +49,22 @@ NS_SWIFT_NAME(CrashReportStore)
 - (instancetype)init NS_UNAVAILABLE;
 + (instancetype)new NS_UNAVAILABLE;
 
-/** TODO: Add doc
+/** The report store with the default configuration.
+ *
+ * @param error If an error occurs, upon return contains an NSError object that
+ *               describes the problem.
+ *
+ * @return The default report store oe nil if an error occurred.
  */
 + (nullable instancetype)defaultStoreWithError:(NSError **)error;
 
-/** TODO: doc
+/** The report store with the given configuration.
+ * If the configuration is nil, the default configuration will be used.
+ *
+ * @param configuration The configuration to use.
+ * @param error If an error occurs, upon return contains an NSError object that
+ *
+ * @return The report store or nil if an error occurred.
  */
 + (nullable instancetype)storeWithConfiguration:(nullable KSCrashReportStoreConfiguration *)configuration
                                           error:(NSError **)error;

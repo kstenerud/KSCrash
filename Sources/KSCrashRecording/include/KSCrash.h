@@ -119,7 +119,10 @@ NS_ASSUME_NONNULL_BEGIN
  */
 - (BOOL)installWithConfiguration:(KSCrashConfiguration *)configuration error:(NSError **)error;
 
-/** TODO: Add doc
+/** The installed report store.
+ * This is the store that is used to save and load crash reports.
+ *
+ * @note If the crash reporter is not installed, this will be `nil`.
  */
 @property(nonatomic, strong, readonly, nullable) KSCrashReportStore *reportStore;
 

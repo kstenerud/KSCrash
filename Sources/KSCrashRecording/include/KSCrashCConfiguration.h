@@ -43,19 +43,29 @@ extern "C" {
  */
 typedef void (*KSReportWrittenCallback)(int64_t reportID);
 
+/** Configuration for managing crash reports through the report store API.
+ */
 typedef struct {
-    /** TODO: Add docs
+    /** The name of the application.
+     * This identifier is used to distinguish the application in crash reports.
+     * It is crucial for correlating crash data with the specific application version.
+     *
+     * @note This field must be set prior to using this configuration with any `kscrs_` functions.
      */
     const char *appName;
 
-    /** TODO: Add docs
+    /** The directory path for storing crash reports.
+     * The specified directory must have write permissions. If it doesn't exist,
+     * the system will attempt to create it automatically.
+     *
+     * @note This field must be set prior to using this configuration with any `kscrs_` functions.
      */
     const char *reportsPath;
 
-    /** The maximum number of crash reports allowed on disk before old ones get deleted.
+    /** The maximum number of crash reports to retain on disk.
      *
-     * Specifies the maximum number of crash reports to keep on disk. When this limit
-     * is reached, the oldest reports will be deleted to make room for new ones.
+     * Defines the upper limit of crash reports to keep in storage. When this threshold
+     * is reached, the system will remove the oldest reports to accommodate new ones.
      *
      * **Default**: 5
      */
