@@ -1,5 +1,5 @@
 //
-//  KSCrashReportStoreС.h
+//  KSCrashReportStoreC.h
 //
 //  Created by Karl Stenerud on 2012-02-05.
 //
@@ -24,8 +24,8 @@
 // THE SOFTWARE.
 //
 
-#ifndef HDR_KSCrashReportStoreС_h
-#define HDR_KSCrashReportStoreС_h
+#ifndef HDR_KSCrashReportStoreC_h
+#define HDR_KSCrashReportStoreC_h
 
 #include <stdint.h>
 
@@ -89,4 +89,4 @@ void kscrs_deleteReportWithID(int64_t reportID, const char *appName, const char 
 }
 #endif
 
-#endif  // HDR_KSCrashReportStoreС_h
+#endif  // HDR_KSCrashReportStoreC_h
