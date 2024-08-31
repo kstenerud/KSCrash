@@ -82,11 +82,7 @@
     XCTAssertFalse(cConfig.enableSwapCxaThrow);
 
     // Free memory allocated for C string array
-    for (int i = 0; i < cConfig.doNotIntrospectClasses.length; i++) {
-        free((void *)cConfig.doNotIntrospectClasses.strings[i]);
-    }
-    free(cConfig.doNotIntrospectClasses.strings);
-    free((void *)cConfig.userInfoJSON);
+    KSCrashCConfiguration_Release(&cConfig);
 }
 
 - (void)testCopyWithZone
@@ -126,7 +122,7 @@
     XCTAssertTrue(cConfig.userInfoJSON != NULL);
     XCTAssertEqual(strcmp(cConfig.userInfoJSON, "{}"), 0);
 
-    free((void *)cConfig.userInfoJSON);
+    KSCrashCConfiguration_Release(&cConfig);
 }
 
 - (void)testLargeDataForJSONConversion
@@ -146,7 +142,7 @@
     XCTAssertTrue([jsonString containsString:@"key999"]);
     XCTAssertTrue([jsonString containsString:@"value999"]);
 
-    free((void *)cConfig.userInfoJSON);
+    KSCrashCConfiguration_Release(&cConfig);
 }
 
 - (void)testSpecialCharactersInStrings
@@ -158,7 +154,7 @@
     XCTAssertTrue(cConfig.userInfoJSON != NULL);
     XCTAssertTrue(strstr(cConfig.userInfoJSON, "special characters: @#$%^&*()") != NULL);
 
-    free((void *)cConfig.userInfoJSON);
+    KSCrashCConfiguration_Release(&cConfig);
 }
 
 - (void)testNilAndEmptyArraysForCStringConversion
@@ -176,7 +172,8 @@
     XCTAssertTrue(cConfig2.doNotIntrospectClasses.strings != NULL);
     XCTAssertEqual(cConfig2.doNotIntrospectClasses.length, 0);
 
-    free(cConfig2.doNotIntrospectClasses.strings);
+    KSCrashCConfiguration_Release(&cConfig1);
+    KSCrashCConfiguration_Release(&cConfig2);
 }
 
 - (void)testCopyingWithNilProperties

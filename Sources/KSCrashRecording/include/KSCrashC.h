@@ -67,7 +67,7 @@ extern "C" {
  *
  * Example usage:
  * ```
- * KSCrashCConfiguration config = KSCrashCConfiguration_Default;
+ * KSCrashCConfiguration config = KSCrashCConfiguration_Default();
  * config.monitors = KSCrashMonitorTypeAll;
  * config.userInfoJSON = "{ \"user\": \"example\" }";
  * KSCrashInstallErrorCode result = kscrash_install("MyApp", "/path/to/install", config);
@@ -83,7 +83,7 @@ extern "C" {
  * without restarting the application.
  */
 KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const installPath,
-                                        KSCrashCConfiguration configuration);
+                                        KSCrashCConfiguration *configuration);
 
 /** Set the user-supplied data in JSON format.
  *

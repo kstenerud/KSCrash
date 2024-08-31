@@ -65,6 +65,11 @@
     return self;
 }
 
+- (void)dealloc
+{
+    KSCrashReportStoreCConfiguration_Release(&_cConfig);
+}
+
 - (void)sendAllReportsWithCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
     NSArray *reports = [self allReports];

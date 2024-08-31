@@ -100,9 +100,8 @@
     const char *appName = "test";
     KSCrashCConfiguration config = KSCrashCConfiguration_Default();
     config.monitors = KSCrashMonitorTypeMemoryTermination;
-    config.reportStoreConfiguration.appName = "test";
-    config.reportStoreConfiguration.reportsPath = reportsPath.path.UTF8String;
-    kscrash_install(appName, installURL.path.UTF8String, config);
+    kscrash_install(appName, installURL.path.UTF8String, &config);
+    KSCrashCConfiguration_Release(&config);
 
     // init memory API
     KSCrashMonitorAPI *api = kscm_memory_getAPI();

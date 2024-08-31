@@ -229,8 +229,10 @@ NSString *kscrash_getDefaultInstallPath(void)
         return NO;
     }
 
+    KSCrashCConfiguration config = [self.configuration toCConfiguration];
     KSCrashInstallErrorCode result =
-        kscrash_install(self.bundleName.UTF8String, installPath.UTF8String, [self.configuration toCConfiguration]);
+        kscrash_install(self.bundleName.UTF8String, installPath.UTF8String, &config);
+    KSCrashCConfiguration_Release(&config);
     if (result != KSCrashInstallErrorNone) {
         if (error != NULL) {
             *error = [KSCrash errorForInstallErrorCode:result];

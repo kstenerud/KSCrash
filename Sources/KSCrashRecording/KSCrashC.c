@@ -214,7 +214,7 @@ void handleConfiguration(KSCrashCConfiguration *configuration)
 // ============================================================================
 
 KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const installPath,
-                                        KSCrashCConfiguration configuration)
+                                        KSCrashCConfiguration *configuration)
 {
     KSLOG_DEBUG("Installing crash reporter.");
 
@@ -228,7 +228,7 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
         return KSCrashInstallErrorInvalidParameter;
     }
 
-    handleConfiguration(&configuration);
+    handleConfiguration(configuration);
 
     if (g_reportStoreConfig.appName == NULL) {
         g_reportStoreConfig.appName = strdup(appName);
@@ -274,7 +274,7 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     ksccd_init(60);
 
     kscm_setEventCallback(onCrash);
-    setMonitors(configuration.monitors);
+    setMonitors(configuration->monitors);
     if (kscm_activateMonitors() == false) {
         KSLOG_ERROR("No crash monitors are active");
         return KSCrashInstallErrorNoActiveMonitors;

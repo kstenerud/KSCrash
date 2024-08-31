@@ -70,6 +70,12 @@ static inline KSCrashReportStoreCConfiguration KSCrashReportStoreCConfiguration_
     };
 }
 
+static inline void KSCrashReportStoreCConfiguration_Release(KSCrashReportStoreCConfiguration *configuration)
+{
+    free((void *)configuration->appName);
+    free((void *)configuration->reportsPath);
+}
+
 /** Configuration for KSCrash settings.
  */
 typedef struct {
@@ -186,18 +192,30 @@ typedef struct {
 
 static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
 {
-    return (KSCrashCConfiguration) { .reportStoreConfiguration = KSCrashReportStoreCConfiguration_Default(),
-                                     .monitors = KSCrashMonitorTypeProductionSafeMinimal,
-                                     .userInfoJSON = NULL,
-                                     .deadlockWatchdogInterval = 0.0,
-                                     .enableQueueNameSearch = false,
-                                     .enableMemoryIntrospection = false,
-                                     .doNotIntrospectClasses = { .strings = NULL, .length = 0 },
-                                     .crashNotifyCallback = NULL,
-                                     .reportWrittenCallback = NULL,
-                                     .addConsoleLogToReport = false,
-                                     .printPreviousLogOnStartup = false,
-                                     .enableSwapCxaThrow = true };
+    return (KSCrashCConfiguration) {
+        .reportStoreConfiguration = KSCrashReportStoreCConfiguration_Default(),
+        .monitors = KSCrashMonitorTypeProductionSafeMinimal,
+        .userInfoJSON = NULL,
+        .deadlockWatchdogInterval = 0.0,
+        .enableQueueNameSearch = false,
+        .enableMemoryIntrospection = false,
+        .doNotIntrospectClasses = { .strings = NULL, .length = 0 },
+        .crashNotifyCallback = NULL,
+        .reportWrittenCallback = NULL,
+        .addConsoleLogToReport = false,
+        .printPreviousLogOnStartup = false,
+        .enableSwapCxaThrow = true,
+    };
+}
+
+static inline void KSCrashCConfiguration_Release(KSCrashCConfiguration *configuration)
+{
+    KSCrashReportStoreCConfiguration_Release(&configuration->reportStoreConfiguration);
+    free((void *)configuration->userInfoJSON);
+    for (int idx = 0; idx < configuration->doNotIntrospectClasses.length; ++idx) {
+        free((void *)(configuration->doNotIntrospectClasses.strings[idx]));
+    }
+    free(configuration->doNotIntrospectClasses.strings);
 }
 
 #ifdef __cplusplus

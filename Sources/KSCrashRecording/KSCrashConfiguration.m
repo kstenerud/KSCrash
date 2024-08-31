@@ -63,6 +63,8 @@
         _reportStoreConfiguration = [KSCrashReportStoreConfiguration new];
         _reportStoreConfiguration.appName = nil;
         _reportStoreConfiguration.maxReportCount = cConfig.reportStoreConfiguration.maxReportCount;
+
+        KSCrashCConfiguration_Release(&cConfig);
     }
     return self;
 }
