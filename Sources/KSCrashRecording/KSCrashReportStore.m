@@ -45,7 +45,7 @@
 
 + (NSString *)defaultInstallSubfolder
 {
-    return [NSString stringWithUTF8String:KSCrashReportStoreDefaultSubfolder];
+    return @KSCRS_DEFAULT_REPORTS_FOLDER;
 }
 
 + (instancetype)defaultStoreWithError:(NSError **)error
