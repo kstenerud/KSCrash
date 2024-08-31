@@ -38,6 +38,7 @@ extern "C" {
 
 NSString *kscrash_getBundleName(void);
 NSString *kscrash_getDefaultInstallPath(void);
+NSString *const KSCrashReportsSubfolder;
 
 #ifdef __cplusplus
 }

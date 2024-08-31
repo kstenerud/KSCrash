@@ -166,7 +166,7 @@
 {
     NSString *resolvedAppName = self.appName ?: kscrash_getBundleName();
     NSString *resolvedReportsPath =
-        self.reportsPath ?: [kscrash_getDefaultInstallPath() stringByAppendingPathComponent:@"Reports"];
+        self.reportsPath ?: [kscrash_getDefaultInstallPath() stringByAppendingPathComponent:KSCrashReportsSubfolder];
 
     KSCrashReportStoreCConfiguration config = KSCrashReportStoreCConfiguration_Default();
     config.appName = resolvedAppName != nil ? strdup(resolvedAppName.UTF8String) : NULL;

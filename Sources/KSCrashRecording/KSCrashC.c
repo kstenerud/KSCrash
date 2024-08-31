@@ -184,7 +184,7 @@ static void setMonitors(KSCrashMonitorType monitorTypes)
 
 void handleConfiguration(KSCrashCConfiguration *configuration)
 {
-    g_reportStoreConfig = configuration->reportStoreConfiguration;
+    g_reportStoreConfig = KSCrashReportStoreCConfiguration_Copy(&configuration->reportStoreConfiguration);
 
     if (configuration->userInfoJSON != NULL) {
         kscrashreport_setUserInfoJSON(configuration->userInfoJSON);

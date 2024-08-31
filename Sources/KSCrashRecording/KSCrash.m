@@ -52,6 +52,8 @@
 #pragma mark - Globals -
 // ============================================================================
 
+NSString *const KSCrashReportsSubfolder = @"Reports";
+
 @interface KSCrash ()
 
 @property(nonatomic, readwrite, copy) NSString *bundleName;
@@ -221,17 +223,24 @@ NSString *kscrash_getDefaultInstallPath(void)
 - (BOOL)installWithConfiguration:(KSCrashConfiguration *)configuration error:(NSError **)error
 {
     self.configuration = [configuration copy] ?: [KSCrashConfiguration new];
-    NSString *installPath = configuration.installPath ?: kscrash_getDefaultInstallPath();
+    self.configuration.installPath = configuration.installPath ?: kscrash_getDefaultInstallPath();
 
-    KSCrashReportStore *reportStore = [KSCrashReportStore storeWithConfiguration:configuration.reportStoreConfiguration
-                                                                           error:error];
+    if (self.configuration.reportStoreConfiguration.appName == nil) {
+        self.configuration.reportStoreConfiguration.appName = self.bundleName;
+    }
+    if (self.configuration.reportStoreConfiguration.reportsPath == nil) {
+        self.configuration.reportStoreConfiguration.reportsPath =
+            [self.configuration.installPath stringByAppendingPathComponent:KSCrashReportsSubfolder];
+    }
+    KSCrashReportStore *reportStore =
+        [KSCrashReportStore storeWithConfiguration:self.configuration.reportStoreConfiguration error:error];
     if (reportStore == nil) {
         return NO;
     }
 
     KSCrashCConfiguration config = [self.configuration toCConfiguration];
     KSCrashInstallErrorCode result =
-        kscrash_install(self.bundleName.UTF8String, installPath.UTF8String, &config);
+        kscrash_install(self.bundleName.UTF8String, self.configuration.installPath.UTF8String, &config);
     KSCrashCConfiguration_Release(&config);
     if (result != KSCrashInstallErrorNone) {
         if (error != NULL) {

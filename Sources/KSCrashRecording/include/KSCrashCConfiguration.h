@@ -31,6 +31,7 @@
 
 #include "KSCrashMonitorType.h"
 #include "KSCrashReportWriter.h"
+#include "string.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -67,6 +68,16 @@ static inline KSCrashReportStoreCConfiguration KSCrashReportStoreCConfiguration_
         .appName = NULL,
         .reportsPath = NULL,
         .maxReportCount = 5,
+    };
+}
+
+static inline KSCrashReportStoreCConfiguration KSCrashReportStoreCConfiguration_Copy(
+    KSCrashReportStoreCConfiguration *configuration)
+{
+    return (KSCrashReportStoreCConfiguration) {
+        .appName = configuration->appName ? strdup(configuration->appName) : NULL,
+        .reportsPath = configuration->reportsPath ? strdup(configuration->reportsPath) : NULL,
+        .maxReportCount = configuration->maxReportCount,
     };
 }
 
