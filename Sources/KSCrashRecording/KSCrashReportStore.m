@@ -75,6 +75,7 @@
 
     KSLOG_INFO(@"Sending %d crash reports", [reports count]);
 
+    NSString *reportsPath = _path;
     [self sendReports:reports
          onCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error) {
              KSLOG_DEBUG(@"Process finished with completion: %d", completed);
@@ -83,7 +84,7 @@
              }
              if ((self.deleteBehaviorAfterSendAll == KSCDeleteOnSucess && completed) ||
                  self.deleteBehaviorAfterSendAll == KSCDeleteAlways) {
-                 kscrs_deleteAllReports(_path.UTF8String);
+                 kscrs_deleteAllReports(reportsPath.UTF8String);
              }
              kscrash_callCompletion(onCompletion, filteredReports, completed, error);
          }];
