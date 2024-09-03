@@ -108,9 +108,10 @@
     [alert setInformativeText:message];
     [alert setAlertStyle:NSAlertStyleInformational];
 
+    NSModalResponse response = [alert runModal];
     NSError *error = nil;
-    if ([alert runModal] == NSAlertFirstButtonReturn) {
-        error = noAnswer != nil ? [[self class] cancellationError] : nil;
+    if (noAnswer != nil && response == NSAlertSecondButtonReturn) {
+        error = [[self class] cancellationError];
     }
     kscrash_callCompletion(self.onCompletion, self.reports, error);
 #endif
