@@ -158,7 +158,7 @@
         _reportsPath = nil;
 
         KSCrashReportStoreCConfiguration cConfig = KSCrashReportStoreCConfiguration_Default();
-        _maxReportCount = cConfig.maxReportCount;
+        _maxReportCount = (NSInteger)cConfig.maxReportCount;
     }
     return self;
 }
@@ -166,15 +166,18 @@
 - (KSCrashReportStoreCConfiguration)toCConfiguration
 {
     NSString *resolvedAppName = self.appName ?: kscrash_getBundleName();
-    NSString *resolvedReportsPath =
-        self.reportsPath
-            ?: [kscrash_getDefaultInstallPath()
-                   stringByAppendingPathComponent:[KSCrashReportStore defaultInstallSubfolder]];
+    NSString *resolvedReportsPath = self.reportsPath;
+    if (resolvedReportsPath == nil) {
+        // If reports path is not provided we use a default subfolder of a default install path.
+        resolvedReportsPath = kscrash_getDefaultInstallPath();
+        resolvedReportsPath =
+            [resolvedReportsPath stringByAppendingPathComponent:[KSCrashReportStore defaultInstallSubfolder]];
+    }
 
     KSCrashReportStoreCConfiguration config = KSCrashReportStoreCConfiguration_Default();
     config.appName = resolvedAppName != nil ? strdup(resolvedAppName.UTF8String) : NULL;
     config.reportsPath = resolvedReportsPath != nil ? strdup(resolvedReportsPath.UTF8String) : NULL;
-    config.maxReportCount = self.maxReportCount;
+    config.maxReportCount = (int)self.maxReportCount;
 
     return config;
 }

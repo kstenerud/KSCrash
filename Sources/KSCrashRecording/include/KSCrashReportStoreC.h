@@ -68,21 +68,23 @@ int kscrs_getReportIDs(int64_t *reportIDs, int count, const KSCrashReportStoreCC
 
 /** Read a report.
  *
+ * @warning MEMORY MANAGEMENT WARNING: User is responsible for calling free() on the returned value.
+ *
  * @param reportID The report's ID.
  * @param configuration The store configuretion (e.g. reports path, app name etc).
  *
  * @return The NULL terminated report, or NULL if not found.
- *         MEMORY MANAGEMENT WARNING: User is responsible for calling free() on the returned value.
  */
 char *kscrs_readReport(int64_t reportID, const KSCrashReportStoreCConfiguration *const configuration);
 
 /** Read a report at a given path.
  * This is a convenience method for reading reports that are not in the standard reports directory.
  *
+ * @warning MEMORY MANAGEMENT WARNING: User is responsible for calling free() on the returned value.
+ *
  * @param path The full path to the report.
  *
  * @return The NULL terminated report, or NULL if not found.
- *         MEMORY MANAGEMENT WARNING: User is responsible for calling free() on the returned value.
  */
 char *kscrs_readReportAtPath(const char *path);
 

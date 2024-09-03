@@ -358,10 +358,10 @@ static CrashHandlerData *g_crashHandlerData;
                                                         noAnswer:noAnswer]];
 
     KSCrashReportStore *store = [KSCrash sharedInstance].reportStore;
-    if (store.deleteBehaviorAfterSendAll == KSCDeleteOnSucess) {
+    if (store.reportCleanupPolicy == KSCrashReportCleanupPolicyOnSuccess) {
         // Better to delete always, or else the user will keep getting nagged
         // until he presses "yes"!
-        store.deleteBehaviorAfterSendAll = KSCDeleteAlways;
+        store.reportCleanupPolicy = KSCrashReportCleanupPolicyAlways;
     }
 }
 

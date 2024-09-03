@@ -34,6 +34,19 @@ import Logging
 public extension CrashReportStore {
     private static let logger = Logger(label: "ReportingSample")
 
+    func logAll() async throws {
+        let (reports, isSuccess) = try await sendAllReports()
+        guard isSuccess else {
+            return
+        }
+        for report in reports {
+            guard let report = report as? CrashReportDictionary else {
+                continue
+            }
+            Self.logger.info("\(report.value)")
+        }
+    }
+
     func logToConsole() {
         sink = CrashReportSinkConsole.filter().defaultCrashReportFilterSet()
         sendAllReports { reports, isSuccess, error in

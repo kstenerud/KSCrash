@@ -76,7 +76,6 @@ struct InstallView: View {
                 Toggle(isOn: bridge.configBinding(for: \.enableSwapCxaThrow)) {
                     Text("Swap __cxa_throw")
                 }
-                // TODO: Add deleteBehaviorAfterSendAll
             }
 
             Button("Only set up reports") {

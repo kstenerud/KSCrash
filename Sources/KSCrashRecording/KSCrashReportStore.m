@@ -63,7 +63,7 @@
     self = [super init];
     if (self != nil) {
         _cConfig = [(configuration ?: [KSCrashReportStoreConfiguration new]) toCConfiguration];
-        _deleteBehaviorAfterSendAll = KSCDeleteAlways;
+        _reportCleanupPolicy = KSCrashReportCleanupPolicyAlways;
 
         kscrs_initialize(&_cConfig);
     }
@@ -88,8 +88,8 @@
              if (error != nil) {
                  KSLOG_ERROR(@"Failed to send reports: %@", error);
              }
-             if ((self.deleteBehaviorAfterSendAll == KSCDeleteOnSucess && completed) ||
-                 self.deleteBehaviorAfterSendAll == KSCDeleteAlways) {
+             if ((self.reportCleanupPolicy == KSCrashReportCleanupPolicyOnSuccess && completed) ||
+                 self.reportCleanupPolicy == KSCrashReportCleanupPolicyAlways) {
                  [weakSelf deleteAllReports];
              }
              kscrash_callCompletion(onCompletion, filteredReports, completed, error);

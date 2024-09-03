@@ -178,7 +178,7 @@ NS_SWIFT_NAME(CrashReportStoreConfiguration)
  *
  * **Default**: 5
  */
-@property(nonatomic, assign) int maxReportCount;
+@property(nonatomic, assign) NSInteger maxReportCount;
 
 @end
 

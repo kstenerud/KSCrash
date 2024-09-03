@@ -33,11 +33,11 @@ NS_ASSUME_NONNULL_BEGIN
 @class KSCrashReportDictionary;
 @class KSCrashReportStoreConfiguration;
 
-typedef NS_ENUM(NSUInteger, KSCDeleteBehavior) {
-    KSCDeleteNever,
-    KSCDeleteOnSucess,
-    KSCDeleteAlways
-} NS_SWIFT_NAME(DeleteBehavior);
+typedef NS_ENUM(NSUInteger, KSCrashReportCleanupPolicy) {
+    KSCrashReportCleanupPolicyNever,
+    KSCrashReportCleanupPolicyOnSuccess,
+    KSCrashReportCleanupPolicyAlways,
+} NS_SWIFT_NAME(CrashReportCleanupPolicy);
 
 NS_SWIFT_NAME(CrashReportStore)
 @interface KSCrashReportStore : NSObject
@@ -54,7 +54,7 @@ NS_SWIFT_NAME(CrashReportStore)
  * @param error If an error occurs, upon return contains an NSError object that
  *               describes the problem.
  *
- * @return The default report store oe nil if an error occurred.
+ * @return The default report store or `nil` if an error occurred.
  */
 + (nullable instancetype)defaultStoreWithError:(NSError **)error;
 
@@ -64,7 +64,7 @@ NS_SWIFT_NAME(CrashReportStore)
  * @param configuration The configuration to use.
  * @param error If an error occurs, upon return contains an NSError object that
  *
- * @return The report store or nil if an error occurred.
+ * @return The report store or `nil` if an error occurred.
  */
 + (nullable instancetype)storeWithConfiguration:(nullable KSCrashReportStoreConfiguration *)configuration
                                           error:(NSError **)error;
@@ -82,14 +82,14 @@ NS_SWIFT_NAME(CrashReportStore)
 
 /** What to do after sending reports via sendAllReportsWithCompletion:
  *
- * - Use KSCDeleteNever if you will manually manage the reports.
- * - Use KSCDeleteAlways if you will be using an alert confirmation (otherwise it
- *   will nag the user incessantly until he selects "yes").
- * - Use KSCDeleteOnSuccess for all other situations.
+ * - Use KSCrashReportCleanupPolicyNever if you manually manage the reports.
+ * - Use KSCrashReportCleanupPolicyAlways if you are using an alert confirmation
+ *   (otherwise it will nag the user incessantly until he selects "yes").
+ * - Use KSCrashReportCleanupPolicyOnSucess for all other situations.
  *
- * Default: KSCDeleteAlways
+ * Default: KSCrashReportCleanupPolicyAlways
  */
-@property(nonatomic, assign) KSCDeleteBehavior deleteBehaviorAfterSendAll;
+@property(nonatomic, assign) KSCrashReportCleanupPolicy reportCleanupPolicy;
 
 #pragma mark - Reports API
 
