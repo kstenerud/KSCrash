@@ -67,6 +67,15 @@ public extension CrashReportStore {
         }
     }
 
+    func logWithAlert() {
+        sink = CrashReportFilterPipeline(filtersArray: [
+            CrashReportFilterAlert(title: "Sample Alert", message: "Do you want to log?", yesAnswer: "Yes", noAnswer: "No"),
+            CrashReportFilterAppleFmt(),
+            CrashReportSinkConsole(),
+        ])
+        sendAllReports()
+    }
+
     func sampleLogToConsole() {
         sink = CrashReportFilterPipeline(filtersArray: [
             CrashReportFilterDemangle(),

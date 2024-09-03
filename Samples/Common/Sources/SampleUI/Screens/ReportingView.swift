@@ -39,6 +39,9 @@ struct ReportingView: View {
             Button("Sample Custom Log To Console") {
                 store.sampleLogToConsole()
             }
+            Button("Log with Alert") {
+                store.logWithAlert()
+            }
         }
         .navigationTitle("Report")
     }
