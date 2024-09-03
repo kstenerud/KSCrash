@@ -162,8 +162,8 @@ static bool VMStats(vm_statistics_data_t *const vmStats, vm_size_t *const pageSi
 
 static uint64_t freeMemory(void)
 {
-#if ASTROLABECRASH_HOST_IOS
-    if(@available(iOS 13.0, *)) {
+#if KSCRASH_HOST_IOS || KSCRASH_HOST_TV || KSCRASH_HOST_WATCH
+    if(@available(iOS 13.0, tvOS 13.0, watchOS 6.0, *)) {
         return os_proc_available_memory();
     }
 #endif
