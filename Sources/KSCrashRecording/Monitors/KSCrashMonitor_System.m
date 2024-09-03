@@ -43,6 +43,7 @@
 #endif
 #include <mach-o/dyld.h>
 #include <mach/mach.h>
+#include <os/proc.h>
 
 typedef struct {
     const char *systemName;
@@ -161,6 +162,11 @@ static bool VMStats(vm_statistics_data_t *const vmStats, vm_size_t *const pageSi
 
 static uint64_t freeMemory(void)
 {
+#if ASTROLABECRASH_HOST_IOS
+    if(@available(iOS 13.0, *)) {
+        return os_proc_available_memory();
+    }
+#endif
     vm_statistics_data_t vmStats;
     vm_size_t pageSize;
     if (VMStats(&vmStats, &pageSize)) {
