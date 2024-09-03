@@ -64,7 +64,7 @@
         [filteredReports addObject:[KSCrashReportString reportWithValue:reportString]];
     }
 
-    kscrash_callCompletion(onCompletion, filteredReports, YES, nil);
+    kscrash_callCompletion(onCompletion, filteredReports, nil);
 }
 
 @end

@@ -99,10 +99,8 @@ NS_SWIFT_NAME(CrashReportStore)
 /** Send all outstanding crash reports to the current sink.
  * It will only attempt to send the most recent 5 reports. All others will be
  * deleted. Once the reports are successfully sent to the server, they may be
- * deleted locally, depending on the property "deleteAfterSendAll".
+ * deleted locally, depending on the property "reportCleanupPolicy".
  *
- * @note A call of `setupReportStoreWithPath:error:` or `installWithConfiguration:error:` is required
- *       before working with crash reports.
  * @note Property "sink" MUST be set or else this method will call `onCompletion` with an error.
  *
  * @param onCompletion Called when sending is complete (nil = ignore).
@@ -111,9 +109,6 @@ NS_SWIFT_NAME(CrashReportStore)
 
 /** Get report.
  *
- * @note A call of `setupReportStoreWithPath:error:` or `installWithConfiguration:error:` is required
- *       before working with crash reports.
- *
  * @param reportID An ID of report.
  *
  * @return A crash report with a dictionary value. The dectionary fields are described in KSCrashReportFields.h.
@@ -121,15 +116,10 @@ NS_SWIFT_NAME(CrashReportStore)
 - (nullable KSCrashReportDictionary *)reportForID:(int64_t)reportID NS_SWIFT_NAME(report(for:));
 
 /** Delete all unsent reports.
- * @note A call of `setupReportStoreWithPath:error:` or `installWithConfiguration:error:` is required
- *       before working with crash reports.
  */
 - (void)deleteAllReports;
 
 /** Delete report.
- *
- * @note A call of `setupReportStoreWithPath:error:` or `installWithConfiguration:error:` is required
- *       before working with crash reports.
  *
  * @param reportID An ID of report to delete.
  */

@@ -27,6 +27,7 @@
 #import "KSCrashReportFilterAlert.h"
 
 #import "KSCrashReport.h"
+#import "KSNSErrorHelper.h"
 #import "KSSystemCapabilities.h"
 
 // #define KSLogger_LocalLevel TRACE
@@ -82,18 +83,17 @@
     UIAlertController *alertController = [UIAlertController alertControllerWithTitle:title
                                                                              message:message
                                                                       preferredStyle:UIAlertControllerStyleAlert];
-    UIAlertAction *yesAction =
-        [UIAlertAction actionWithTitle:yesAnswer
-                                 style:UIAlertActionStyleDefault
-                               handler:^(__unused UIAlertAction *_Nonnull action) {
-                                   kscrash_callCompletion(self.onCompletion, self.reports, YES, nil);
-                               }];
-    UIAlertAction *noAction =
-        [UIAlertAction actionWithTitle:noAnswer
-                                 style:UIAlertActionStyleCancel
-                               handler:^(__unused UIAlertAction *_Nonnull action) {
-                                   kscrash_callCompletion(self.onCompletion, self.reports, NO, nil);
-                               }];
+    UIAlertAction *yesAction = [UIAlertAction actionWithTitle:yesAnswer
+                                                        style:UIAlertActionStyleDefault
+                                                      handler:^(__unused UIAlertAction *_Nonnull action) {
+                                                          kscrash_callCompletion(self.onCompletion, self.reports, nil);
+                                                      }];
+    UIAlertAction *noAction = [UIAlertAction
+        actionWithTitle:noAnswer
+                  style:UIAlertActionStyleCancel
+                handler:^(__unused UIAlertAction *_Nonnull action) {
+                    kscrash_callCompletion(self.onCompletion, self.reports, [[self class] cancellationError]);
+                }];
     [alertController addAction:yesAction];
     [alertController addAction:noAction];
     UIWindow *keyWindow = [[UIApplication sharedApplication] keyWindow];
@@ -108,18 +108,24 @@
     [alert setInformativeText:message];
     [alert setAlertStyle:NSAlertStyleInformational];
 
-    BOOL success = NO;
-    if ([alert runModal] == NSAlertFirstButtonReturn) {
-        success = noAnswer != nil;
+    NSModalResponse response = [alert runModal];
+    NSError *error = nil;
+    if (noAnswer != nil && response == NSAlertSecondButtonReturn) {
+        error = [[self class] cancellationError];
     }
-    kscrash_callCompletion(self.onCompletion, self.reports, success, nil);
+    kscrash_callCompletion(self.onCompletion, self.reports, error);
 #endif
+}
+
++ (NSError *)cancellationError
+{
+    return [KSNSErrorHelper errorWithDomain:[[self class] description] code:0 description:@"Cancelled by user"];
 }
 
 - (void)alertView:(__unused id)alertView clickedButtonAtIndex:(NSInteger)buttonIndex
 {
     BOOL success = buttonIndex == self.expectedButtonIndex;
-    kscrash_callCompletion(self.onCompletion, self.reports, success, nil);
+    kscrash_callCompletion(self.onCompletion, self.reports, success ? nil : [[self class] cancellationError]);
 }
 
 @end
@@ -167,9 +173,9 @@
                       yesAnswer:self.yesAnswer
                        noAnswer:self.noAnswer
                         reports:reports
-                   onCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error) {
+                   onCompletion:^(NSArray *filteredReports, NSError *error) {
                        KSLOG_TRACE(@"alert process complete");
-                       kscrash_callCompletion(onCompletion, filteredReports, completed, error);
+                       kscrash_callCompletion(onCompletion, filteredReports, error);
                        dispatch_async(dispatch_get_main_queue(), ^{
                            process = nil;
                        });
@@ -205,7 +211,7 @@
 - (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
     KSLOG_WARN(@"Alert filter not available on this platform.");
-    kscrash_callCompletion(onCompletion, reports, YES, nil);
+    kscrash_callCompletion(onCompletion, reports, nil);
 }
 
 @end

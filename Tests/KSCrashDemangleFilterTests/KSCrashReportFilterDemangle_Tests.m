@@ -149,7 +149,7 @@
 
     XCTestExpectation *expectation = [self expectationWithDescription:@"Filter callback called"];
     [filter filterReports:@[ mangledReport ]
-             onCompletion:^(NSArray<id<KSCrashReport>> *filteredReports, BOOL completed, NSError *error) {
+             onCompletion:^(NSArray<id<KSCrashReport>> *filteredReports, NSError *error) {
                  KSCrashReportDictionary *demangledReport = filteredReports.firstObject;
                  XCTAssertEqualObjects(demangledReport, expectedReport);
                  [expectation fulfill];

@@ -56,8 +56,7 @@
 {
     id<KSCrashReportFilter> filter = [KSCrashReportFilterJSONEncode filterWithOptions:0];
     [filter filterReports:self.decodedReports
-             onCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error2) {
-                 XCTAssertTrue(completed, @"");
+             onCompletion:^(NSArray *filteredReports, NSError *error2) {
                  XCTAssertNil(error2, @"");
                  XCTAssertEqualObjects(filteredReports, self.encodedReports, @"");
              }];
@@ -71,8 +70,7 @@
 
     id<KSCrashReportFilter> filter = [KSCrashReportFilterJSONEncode filterWithOptions:0];
     [filter filterReports:decoded
-             onCompletion:^(__unused NSArray *filteredReports, BOOL completed, NSError *error2) {
-                 XCTAssertFalse(completed, @"");
+             onCompletion:^(__unused NSArray *filteredReports, NSError *error2) {
                  XCTAssertNotNil(error2, @"");
              }];
 }
@@ -81,8 +79,7 @@
 {
     id<KSCrashReportFilter> filter = [KSCrashReportFilterJSONDecode filterWithOptions:0];
     [filter filterReports:self.encodedReports
-             onCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error2) {
-                 XCTAssertTrue(completed, @"");
+             onCompletion:^(NSArray *filteredReports, NSError *error2) {
                  XCTAssertNil(error2, @"");
                  XCTAssertEqualObjects(filteredReports, self.decodedReports, @"");
              }];
@@ -96,8 +93,7 @@
 
     id<KSCrashReportFilter> filter = [KSCrashReportFilterJSONDecode filterWithOptions:0];
     [filter filterReports:encoded
-             onCompletion:^(__unused NSArray *filteredReports, BOOL completed, NSError *error2) {
-                 XCTAssertFalse(completed, @"");
+             onCompletion:^(__unused NSArray *filteredReports, NSError *error2) {
                  XCTAssertNotNil(error2, @"");
              }];
 }

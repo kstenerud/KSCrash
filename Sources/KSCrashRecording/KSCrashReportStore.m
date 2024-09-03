@@ -83,16 +83,16 @@
 
     __weak __typeof(self) weakSelf = self;
     [self sendReports:reports
-         onCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error) {
+         onCompletion:^(NSArray *filteredReports, NSError *error) {
              KSLOG_DEBUG(@"Process finished with completion: %d", completed);
              if (error != nil) {
                  KSLOG_ERROR(@"Failed to send reports: %@", error);
              }
-             if ((self.reportCleanupPolicy == KSCrashReportCleanupPolicyOnSuccess && completed) ||
+             if ((self.reportCleanupPolicy == KSCrashReportCleanupPolicyOnSuccess && error == nil) ||
                  self.reportCleanupPolicy == KSCrashReportCleanupPolicyAlways) {
                  [weakSelf deleteAllReports];
              }
-             kscrash_callCompletion(onCompletion, filteredReports, completed, error);
+             kscrash_callCompletion(onCompletion, filteredReports, error);
          }];
 }
 
@@ -116,12 +116,12 @@
 - (void)sendReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
     if ([reports count] == 0) {
-        kscrash_callCompletion(onCompletion, reports, YES, nil);
+        kscrash_callCompletion(onCompletion, reports, nil);
         return;
     }
 
     if (self.sink == nil) {
-        kscrash_callCompletion(onCompletion, reports, NO,
+        kscrash_callCompletion(onCompletion, reports,
                                [KSNSErrorHelper errorWithDomain:[[self class] description]
                                                            code:0
                                                     description:@"No sink set. Crash reports not sent."]);
@@ -129,8 +129,8 @@
     }
 
     [self.sink filterReports:reports
-                onCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error) {
-                    kscrash_callCompletion(onCompletion, filteredReports, completed, error);
+                onCompletion:^(NSArray *filteredReports, NSError *error) {
+                    kscrash_callCompletion(onCompletion, filteredReports, error);
                 }];
 }
 

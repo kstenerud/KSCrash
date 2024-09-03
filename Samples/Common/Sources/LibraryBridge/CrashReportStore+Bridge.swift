@@ -35,10 +35,7 @@ public extension CrashReportStore {
     private static let logger = Logger(label: "ReportingSample")
 
     func logAll() async throws {
-        let (reports, isSuccess) = try await sendAllReports()
-        guard isSuccess else {
-            return
-        }
+        let reports = try await sendAllReports()
         for report in reports {
             guard let report = report as? CrashReportDictionary else {
                 continue
@@ -49,8 +46,8 @@ public extension CrashReportStore {
 
     func logToConsole() {
         sink = CrashReportSinkConsole.filter().defaultCrashReportFilterSet()
-        sendAllReports { reports, isSuccess, error in
-            if isSuccess, let reports {
+        sendAllReports { reports, error in
+            if let reports {
                 Self.logger.info("Logged \(reports.count) reports")
                 for (idx, report) in reports.enumerated() {
                     switch report {
@@ -68,6 +65,15 @@ public extension CrashReportStore {
                 Self.logger.error("Failed to log reports: \(error?.localizedDescription ?? "")")
             }
         }
+    }
+
+    func logWithAlert() {
+        sink = CrashReportFilterPipeline(filtersArray: [
+            CrashReportFilterAlert(title: "Sample Alert", message: "Do you want to log?", yesAnswer: "Yes", noAnswer: "No"),
+            CrashReportFilterAppleFmt(),
+            CrashReportSinkConsole(),
+        ])
+        sendAllReports()
     }
 
     func sampleLogToConsole() {
@@ -123,21 +129,21 @@ public class SampleCrashReport: NSObject, CrashReport {
 }
 
 public class SampleFilter: NSObject, CrashReportFilter {
-    public func filterReports(_ reports: [any CrashReport], onCompletion: (([any CrashReport]?, Bool, (any Error)?) -> Void)? = nil) {
+    public func filterReports(_ reports: [any CrashReport], onCompletion: (([any CrashReport]?, (any Error)?) -> Void)? = nil) {
         let filtered = reports.compactMap { report -> SampleCrashReport? in
             guard let dictReport = report as? CrashReportDictionary else {
                 return nil
             }
             return SampleCrashReport(dictReport)
         }
-        onCompletion?(filtered, true, nil)
+        onCompletion?(filtered, nil)
     }
 }
 
 public class SampleSink: NSObject, CrashReportFilter {
     private static let logger = Logger(label: "SampleSink")
 
-    public func filterReports(_ reports: [any CrashReport], onCompletion: (([any CrashReport]?, Bool, (any Error)?) -> Void)? = nil) {
+    public func filterReports(_ reports: [any CrashReport], onCompletion: (([any CrashReport]?, (any Error)?) -> Void)? = nil) {
         for (idx, report) in reports.enumerated() {
             guard let sampleReport = report as? SampleCrashReport else {
                 continue
@@ -149,6 +155,6 @@ public class SampleSink: NSObject, CrashReportFilter {
             let text = lines.joined(separator: "\n")
             Self.logger.info("\(text)")
         }
-        onCompletion?(reports, true, nil)
+        onCompletion?(reports, nil)
     }
 }

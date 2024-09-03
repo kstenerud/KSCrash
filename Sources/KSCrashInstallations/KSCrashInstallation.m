@@ -299,14 +299,14 @@ static CrashHandlerData *g_crashHandlerData;
     NSError *error = [self validateProperties];
     if (error != nil) {
         if (onCompletion != nil) {
-            onCompletion(nil, NO, error);
+            onCompletion(nil, error);
         }
         return;
     }
 
     id<KSCrashReportFilter> sink = [self sink];
     if (sink == nil) {
-        onCompletion(nil, NO,
+        onCompletion(nil,
                      [KSNSErrorHelper errorWithDomain:[[self class] description]
                                                  code:0
                                           description:@"Sink was nil (subclasses must implement method \"sink\")"]);
@@ -325,11 +325,10 @@ static CrashHandlerData *g_crashHandlerData;
     KSCrashReportStore *store = [KSCrash sharedInstance].reportStore;
     if (store == nil) {
         onCompletion(
-            nil, NO,
-            [KSNSErrorHelper
-                errorWithDomain:[[self class] description]
-                           code:0
-                    description:@"Reporting is not allowed before the call of `installWithConfiguration:error:`"]);
+            nil, [KSNSErrorHelper
+                     errorWithDomain:[[self class] description]
+                                code:0
+                         description:@"Reporting is not allowed before the call of `installWithConfiguration:error:`"]);
         return;
     }
 

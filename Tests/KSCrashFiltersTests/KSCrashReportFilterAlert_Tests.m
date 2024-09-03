@@ -42,8 +42,7 @@
 
     XCTestExpectation *expectation = [self expectationWithDescription:@"Filter completion"];
     [filter filterReports:[NSArray array]
-             onCompletion:^(__unused NSArray *filteredReports, BOOL completed, NSError *error) {
-                 XCTAssertTrue(completed, @"");
+             onCompletion:^(__unused NSArray *filteredReports, NSError *error) {
                  XCTAssertNil(error, @"");
                  [expectation fulfill];
              }];

@@ -32,14 +32,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 /** Callback for filter operations.
  *
- * @param filteredReports The filtered reports (may be incomplete if "completed"
- *                        is false).
- * @param completed True if filtering completed.
- *                  Can be false due to a non-erroneous condition (such as a
- *                  user cancelling the operation).
+ * @param filteredReports The filtered reports (may be incomplete if error is non-nil).
  * @param error Non-nil if an error occurred.
  */
-typedef void (^KSCrashReportFilterCompletion)(NSArray<id<KSCrashReport>> *_Nullable filteredReports, BOOL completed,
+typedef void (^KSCrashReportFilterCompletion)(NSArray<id<KSCrashReport>> *_Nullable filteredReports,
                                               NSError *_Nullable error)
     NS_SWIFT_UNAVAILABLE("Use Swift closures instead!");
 
@@ -64,15 +60,14 @@ NS_SWIFT_NAME(CrashReportFilter)
  *
  * @param onCompletion The completion block. If nil, this function does nothing.
  * @param filteredReports The parameter to send as "filteredReports".
- * @param completed The parameter to send as "completed".
  * @param error The parameter to send as "error".
  */
 static inline void kscrash_callCompletion(KSCrashReportFilterCompletion _Nullable onCompletion,
-                                          NSArray<id<KSCrashReport>> *_Nullable filteredReports, BOOL completed,
+                                          NSArray<id<KSCrashReport>> *_Nullable filteredReports,
                                           NSError *_Nullable error)
 {
     if (onCompletion) {
-        onCompletion(filteredReports, completed, error);
+        onCompletion(filteredReports, error);
     }
 }
 

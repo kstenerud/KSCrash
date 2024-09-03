@@ -38,9 +38,8 @@
     KSCrashInstallationStandard *installation = [KSCrashInstallationStandard sharedInstance];
     installation.url = [NSURL URLWithString:@"www.google.com"];
     [installation installWithConfiguration:[KSCrashConfiguration new] error:NULL];
-    [installation sendAllReportsWithCompletion:^(__unused NSArray *filteredReports, BOOL completed, NSError *error) {
+    [installation sendAllReportsWithCompletion:^(__unused NSArray *filteredReports, NSError *error) {
         // There are no reports, so this will succeed.
-        XCTAssertTrue(completed, @"");
         XCTAssertNil(error, @"");
     }];
 }

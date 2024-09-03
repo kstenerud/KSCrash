@@ -210,7 +210,7 @@ static NSDictionary *g_registerOrders;
         }
     }
 
-    kscrash_callCompletion(onCompletion, filteredReports, YES, nil);
+    kscrash_callCompletion(onCompletion, filteredReports, nil);
 }
 
 - (NSString *)CPUType:(NSString *)CPUArch isSystemInfoHeader:(BOOL)isSystemInfoHeader
