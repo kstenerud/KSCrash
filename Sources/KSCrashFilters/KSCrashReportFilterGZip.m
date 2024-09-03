@@ -66,14 +66,14 @@
                                           compressionLevel:(int)self.compressionLevel
                                                      error:&error];
         if (compressedData == nil) {
-            kscrash_callCompletion(onCompletion, filteredReports, NO, error);
+            kscrash_callCompletion(onCompletion, filteredReports, error);
             return;
         } else {
             [filteredReports addObject:[KSCrashReportData reportWithValue:compressedData]];
         }
     }
 
-    kscrash_callCompletion(onCompletion, filteredReports, YES, nil);
+    kscrash_callCompletion(onCompletion, filteredReports, nil);
 }
 
 @end
@@ -97,14 +97,14 @@
         NSError *error = nil;
         NSData *decompressedData = [KSGZipHelper gunzippedData:report.value error:&error];
         if (decompressedData == nil) {
-            kscrash_callCompletion(onCompletion, filteredReports, NO, error);
+            kscrash_callCompletion(onCompletion, filteredReports, error);
             return;
         } else {
             [filteredReports addObject:[KSCrashReportData reportWithValue:decompressedData]];
         }
     }
 
-    kscrash_callCompletion(onCompletion, filteredReports, YES, nil);
+    kscrash_callCompletion(onCompletion, filteredReports, nil);
 }
 
 @end

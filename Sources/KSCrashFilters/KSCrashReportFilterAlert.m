@@ -28,6 +28,7 @@
 
 #import "KSCrashReport.h"
 #import "KSSystemCapabilities.h"
+#import "KSNSErrorHelper.h"
 
 // #define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -86,13 +87,13 @@
         [UIAlertAction actionWithTitle:yesAnswer
                                  style:UIAlertActionStyleDefault
                                handler:^(__unused UIAlertAction *_Nonnull action) {
-                                   kscrash_callCompletion(self.onCompletion, self.reports, YES, nil);
+                                   kscrash_callCompletion(self.onCompletion, self.reports, nil);
                                }];
     UIAlertAction *noAction =
         [UIAlertAction actionWithTitle:noAnswer
                                  style:UIAlertActionStyleCancel
                                handler:^(__unused UIAlertAction *_Nonnull action) {
-                                   kscrash_callCompletion(self.onCompletion, self.reports, NO, nil);
+                                   kscrash_callCompletion(self.onCompletion, self.reports, [[self class] cancellationError]);
                                }];
     [alertController addAction:yesAction];
     [alertController addAction:noAction];
@@ -108,18 +109,25 @@
     [alert setInformativeText:message];
     [alert setAlertStyle:NSAlertStyleInformational];
 
-    BOOL success = NO;
+    NSError *error = nil;
     if ([alert runModal] == NSAlertFirstButtonReturn) {
-        success = noAnswer != nil;
+        error = noAnswer != nil ? [[self class] cancellationError] : nil;
     }
-    kscrash_callCompletion(self.onCompletion, self.reports, success, nil);
+    kscrash_callCompletion(self.onCompletion, self.reports, error);
 #endif
+}
+
++ (NSError *)cancellationError
+{
+    return [KSNSErrorHelper errorWithDomain:[[self class] description]
+                                       code:0
+                                description:@"Cancelled by user"];
 }
 
 - (void)alertView:(__unused id)alertView clickedButtonAtIndex:(NSInteger)buttonIndex
 {
     BOOL success = buttonIndex == self.expectedButtonIndex;
-    kscrash_callCompletion(self.onCompletion, self.reports, success, nil);
+    kscrash_callCompletion(self.onCompletion, self.reports, success ? nil : [[self class] cancellationError]);
 }
 
 @end
@@ -167,9 +175,9 @@
                       yesAnswer:self.yesAnswer
                        noAnswer:self.noAnswer
                         reports:reports
-                   onCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error) {
+                   onCompletion:^(NSArray *filteredReports, NSError *error) {
                        KSLOG_TRACE(@"alert process complete");
-                       kscrash_callCompletion(onCompletion, filteredReports, completed, error);
+                       kscrash_callCompletion(onCompletion, filteredReports, error);
                        dispatch_async(dispatch_get_main_queue(), ^{
                            process = nil;
                        });

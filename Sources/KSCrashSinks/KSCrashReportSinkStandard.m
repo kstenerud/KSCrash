@@ -89,7 +89,7 @@
     }
     NSData *jsonData = [KSJSONCodec encode:jsonArray options:KSJSONEncodeOptionSorted error:&error];
     if (jsonData == nil) {
-        kscrash_callCompletion(onCompletion, reports, NO, error);
+        kscrash_callCompletion(onCompletion, reports, error);
         return;
     }
 
@@ -115,12 +115,12 @@
                     block:^{
                         [[KSHTTPRequestSender sender] sendRequest:request
                             onSuccess:^(__unused NSHTTPURLResponse *response, __unused NSData *data) {
-                                kscrash_callCompletion(onCompletion, reports, YES, nil);
+                                kscrash_callCompletion(onCompletion, reports, nil);
                             }
                             onFailure:^(NSHTTPURLResponse *response, NSData *data) {
                                 NSString *text = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
                                 kscrash_callCompletion(
-                                    onCompletion, reports, NO,
+                                    onCompletion, reports,
                                     [NSError
                                         errorWithDomain:[[self class] description]
                                                    code:response.statusCode
@@ -128,7 +128,7 @@
                                                                                     forKey:NSLocalizedDescriptionKey]]);
                             }
                             onError:^(NSError *error2) {
-                                kscrash_callCompletion(onCompletion, reports, NO, error2);
+                                kscrash_callCompletion(onCompletion, reports, error2);
                             }];
                     }];
 }

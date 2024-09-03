@@ -57,7 +57,7 @@
         printf("Report %d:\n%s\n", ++i, report.value.UTF8String);
     }
 
-    kscrash_callCompletion(onCompletion, reports, YES, nil);
+    kscrash_callCompletion(onCompletion, reports, nil);
 }
 
 @end

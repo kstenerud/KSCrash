@@ -63,14 +63,14 @@
         NSError *error = nil;
         NSData *jsonData = [KSJSONCodec encode:report.value options:self.encodeOptions error:&error];
         if (jsonData == nil) {
-            kscrash_callCompletion(onCompletion, filteredReports, NO, error);
+            kscrash_callCompletion(onCompletion, filteredReports, error);
             return;
         } else {
             [filteredReports addObject:[KSCrashReportData reportWithValue:jsonData]];
         }
     }
 
-    kscrash_callCompletion(onCompletion, filteredReports, YES, nil);
+    kscrash_callCompletion(onCompletion, filteredReports, nil);
 }
 
 @end
@@ -108,14 +108,14 @@
         NSError *error = nil;
         NSDictionary *decodedReport = [KSJSONCodec decode:report.value options:self.decodeOptions error:&error];
         if (decodedReport == nil || [decodedReport isKindOfClass:[NSDictionary class]] == NO) {
-            kscrash_callCompletion(onCompletion, filteredReports, NO, error);
+            kscrash_callCompletion(onCompletion, filteredReports, error);
             return;
         } else {
             [filteredReports addObject:[KSCrashReportDictionary reportWithValue:decodedReport]];
         }
     }
 
-    kscrash_callCompletion(onCompletion, filteredReports, YES, nil);
+    kscrash_callCompletion(onCompletion, filteredReports, nil);
 }
 
 @end
