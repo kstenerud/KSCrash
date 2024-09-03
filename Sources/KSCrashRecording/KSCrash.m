@@ -61,7 +61,7 @@
 
 static BOOL gIsSharedInstanceCreated = NO;
 
-static NSString *getBundleName(void)
+NSString *kscrash_getBundleName(void)
 {
     NSString *bundleName = [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleName"];
     if (bundleName == nil) {
@@ -70,7 +70,7 @@ static NSString *getBundleName(void)
     return bundleName;
 }
 
-static NSString *getDefaultInstallPath(void)
+NSString *kscrash_getDefaultInstallPath(void)
 {
     NSArray *directories = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
     if ([directories count] == 0) {
@@ -82,7 +82,7 @@ static NSString *getDefaultInstallPath(void)
         KSLOG_ERROR(@"Could not locate cache directory path.");
         return nil;
     }
-    NSString *pathEnd = [@"KSCrash" stringByAppendingPathComponent:getBundleName()];
+    NSString *pathEnd = [@"KSCrash" stringByAppendingPathComponent:kscrash_getBundleName()];
     return [cachePath stringByAppendingPathComponent:pathEnd];
 }
 
@@ -119,7 +119,7 @@ static NSString *getDefaultInstallPath(void)
 - (instancetype)init
 {
     if ((self = [super init])) {
-        _bundleName = getBundleName();
+        _bundleName = kscrash_getBundleName();
     }
     return self;
 }
@@ -221,63 +221,34 @@ static NSString *getDefaultInstallPath(void)
 - (BOOL)installWithConfiguration:(KSCrashConfiguration *)configuration error:(NSError **)error
 {
     self.configuration = [configuration copy] ?: [KSCrashConfiguration new];
-    NSString *installPath = configuration.installPath ?: getDefaultInstallPath();
-    KSCrashInstallErrorCode result =
-        kscrash_install(self.bundleName.UTF8String, installPath.UTF8String, [self.configuration toCConfiguration]);
+    self.configuration.installPath = configuration.installPath ?: kscrash_getDefaultInstallPath();
 
+    if (self.configuration.reportStoreConfiguration.appName == nil) {
+        self.configuration.reportStoreConfiguration.appName = self.bundleName;
+    }
+    if (self.configuration.reportStoreConfiguration.reportsPath == nil) {
+        self.configuration.reportStoreConfiguration.reportsPath = [self.configuration.installPath
+            stringByAppendingPathComponent:[KSCrashReportStore defaultInstallSubfolder]];
+    }
+    KSCrashReportStore *reportStore =
+        [KSCrashReportStore storeWithConfiguration:self.configuration.reportStoreConfiguration error:error];
+    if (reportStore == nil) {
+        return NO;
+    }
+
+    KSCrashCConfiguration config = [self.configuration toCConfiguration];
+    KSCrashInstallErrorCode result =
+        kscrash_install(self.bundleName.UTF8String, self.configuration.installPath.UTF8String, &config);
+    KSCrashCConfiguration_Release(&config);
     if (result != KSCrashInstallErrorNone) {
         if (error != NULL) {
-            *error = [self errorForInstallErrorCode:result];
+            *error = [KSCrash errorForInstallErrorCode:result];
         }
         return NO;
     }
 
+    _reportStore = reportStore;
     return YES;
-}
-
-- (BOOL)setupReportStoreWithPath:(NSString *)installPath error:(NSError **)error
-{
-    KSCrashInstallErrorCode result =
-        kscrash_setupReportsStore(self.bundleName.UTF8String, (installPath ?: getDefaultInstallPath()).UTF8String);
-
-    if (result != KSCrashInstallErrorNone) {
-        if (error != NULL) {
-            *error = [self errorForInstallErrorCode:result];
-        }
-        return NO;
-    }
-
-    return YES;
-}
-
-- (void)sendAllReportsWithCompletion:(KSCrashReportFilterCompletion)onCompletion
-{
-    NSArray *reports = [self allReports];
-
-    KSLOG_INFO(@"Sending %d crash reports", [reports count]);
-
-    [self sendReports:reports
-         onCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error) {
-             KSLOG_DEBUG(@"Process finished with completion: %d", completed);
-             if (error != nil) {
-                 KSLOG_ERROR(@"Failed to send reports: %@", error);
-             }
-             if ((self.configuration.deleteBehaviorAfterSendAll == KSCDeleteOnSucess && completed) ||
-                 self.configuration.deleteBehaviorAfterSendAll == KSCDeleteAlways) {
-                 kscrash_deleteAllReports();
-             }
-             kscrash_callCompletion(onCompletion, filteredReports, completed, error);
-         }];
-}
-
-- (void)deleteAllReports
-{
-    kscrash_deleteAllReports();
-}
-
-- (void)deleteReportWithID:(int64_t)reportID
-{
-    kscrash_deleteReportWithID(reportID);
 }
 
 - (void)reportUserException:(NSString *)name
@@ -324,106 +295,6 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(NSTimeInterval, backgroundDurationSinceLaunch)
 SYNTHESIZE_CRASH_STATE_PROPERTY(NSInteger, sessionsSinceLaunch)
 SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
 
-- (NSInteger)reportCount
-{
-    return kscrash_getReportCount();
-}
-
-- (void)sendReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
-{
-    if ([reports count] == 0) {
-        kscrash_callCompletion(onCompletion, reports, YES, nil);
-        return;
-    }
-
-    if (self.sink == nil) {
-        kscrash_callCompletion(onCompletion, reports, NO,
-                               [KSNSErrorHelper errorWithDomain:[[self class] description]
-                                                           code:0
-                                                    description:@"No sink set. Crash reports not sent."]);
-        return;
-    }
-
-    [self.sink filterReports:reports
-                onCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error) {
-                    kscrash_callCompletion(onCompletion, filteredReports, completed, error);
-                }];
-}
-
-- (NSData *)loadCrashReportJSONWithID:(int64_t)reportID
-{
-    char *report = kscrash_readReport(reportID);
-    if (report != NULL) {
-        return [NSData dataWithBytesNoCopy:report length:strlen(report) freeWhenDone:YES];
-    }
-    return nil;
-}
-
-- (void)doctorReport:(NSMutableDictionary *)report
-{
-    NSMutableDictionary *crashReport = report[KSCrashField_Crash];
-    if (crashReport != nil) {
-        crashReport[KSCrashField_Diagnosis] = [[KSCrashDoctor doctor] diagnoseCrash:report];
-    }
-    crashReport = report[KSCrashField_RecrashReport][KSCrashField_Crash];
-    if (crashReport != nil) {
-        crashReport[KSCrashField_Diagnosis] = [[KSCrashDoctor doctor] diagnoseCrash:report];
-    }
-}
-
-- (NSArray<NSNumber *> *)reportIDs
-{
-    int reportCount = kscrash_getReportCount();
-    int64_t reportIDsC[reportCount];
-    reportCount = kscrash_getReportIDs(reportIDsC, reportCount);
-    NSMutableArray *reportIDs = [NSMutableArray arrayWithCapacity:(NSUInteger)reportCount];
-    for (int i = 0; i < reportCount; i++) {
-        [reportIDs addObject:[NSNumber numberWithLongLong:reportIDsC[i]]];
-    }
-    return [reportIDs copy];
-}
-
-- (KSCrashReportDictionary *)reportForID:(int64_t)reportID
-{
-    NSData *jsonData = [self loadCrashReportJSONWithID:reportID];
-    if (jsonData == nil) {
-        return nil;
-    }
-
-    NSError *error = nil;
-    NSMutableDictionary *crashReport =
-        [KSJSONCodec decode:jsonData
-                    options:KSJSONDecodeOptionIgnoreNullInArray | KSJSONDecodeOptionIgnoreNullInObject |
-                            KSJSONDecodeOptionKeepPartialObject
-                      error:&error];
-    if (error != nil) {
-        KSLOG_ERROR(@"Encountered error loading crash report %" PRIx64 ": %@", reportID, error);
-    }
-    if (crashReport == nil) {
-        KSLOG_ERROR(@"Could not load crash report");
-        return nil;
-    }
-    [self doctorReport:crashReport];
-
-    return [KSCrashReportDictionary reportWithValue:crashReport];
-}
-
-- (NSArray<KSCrashReportDictionary *> *)allReports
-{
-    int reportCount = kscrash_getReportCount();
-    int64_t reportIDs[reportCount];
-    reportCount = kscrash_getReportIDs(reportIDs, reportCount);
-    NSMutableArray<KSCrashReportDictionary *> *reports = [NSMutableArray arrayWithCapacity:(NSUInteger)reportCount];
-    for (int i = 0; i < reportCount; i++) {
-        KSCrashReportDictionary *report = [self reportForID:reportIDs[i]];
-        if (report != nil) {
-            [reports addObject:report];
-        }
-    }
-
-    return reports;
-}
-
 // ============================================================================
 #pragma mark - Utility -
 // ============================================================================
@@ -438,7 +309,7 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
     return mutable;
 }
 
-- (NSError *)errorForInstallErrorCode:(KSCrashInstallErrorCode)errorCode
++ (NSError *)errorForInstallErrorCode:(KSCrashInstallErrorCode)errorCode
 {
     NSString *errorDescription;
     switch (errorCode) {

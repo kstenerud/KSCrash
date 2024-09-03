@@ -33,10 +33,11 @@ extern "C" {
 
 /** Demangle a Swift symbol.
  *
+ * @warning MEMORY MANAGEMENT WARNING: User is responsible for calling free() on the returned value.
+ *
  * @param mangledSymbol The mangled symbol.
  *
  * @return A demangled symbol, or NULL if demangling failed.
- *         MEMORY MANAGEMENT WARNING: User is responsible for calling free() on the returned value.
  */
 char *ksdm_demangleSwift(const char *mangledSymbol);
 

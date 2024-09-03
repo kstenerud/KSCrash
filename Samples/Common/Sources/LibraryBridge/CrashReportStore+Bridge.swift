@@ -1,5 +1,5 @@
 //
-//  ReportingSample.swift
+//  CrashReportStore+Bridge.swift
 //
 //  Created by Nikolay Volosatov on 2024-06-23.
 //
@@ -31,12 +31,25 @@ import KSCrashSinks
 import KSCrashDemangleFilter
 import Logging
 
-public class ReportingSample {
+public extension CrashReportStore {
     private static let logger = Logger(label: "ReportingSample")
 
-    public static func logToConsole() {
-        KSCrash.shared.sink = CrashReportSinkConsole.filter().defaultCrashReportFilterSet()
-        KSCrash.shared.sendAllReports { reports, isSuccess, error in
+    func logAll() async throws {
+        let (reports, isSuccess) = try await sendAllReports()
+        guard isSuccess else {
+            return
+        }
+        for report in reports {
+            guard let report = report as? CrashReportDictionary else {
+                continue
+            }
+            Self.logger.info("\(report.value)")
+        }
+    }
+
+    func logToConsole() {
+        sink = CrashReportSinkConsole.filter().defaultCrashReportFilterSet()
+        sendAllReports { reports, isSuccess, error in
             if isSuccess, let reports {
                 Self.logger.info("Logged \(reports.count) reports")
                 for (idx, report) in reports.enumerated() {
@@ -57,13 +70,13 @@ public class ReportingSample {
         }
     }
 
-    public static func sampleLogToConsole() {
-        KSCrash.shared.sink = CrashReportFilterPipeline(filtersArray: [
+    func sampleLogToConsole() {
+        sink = CrashReportFilterPipeline(filtersArray: [
             CrashReportFilterDemangle(),
             SampleFilter(),
             SampleSink(),
         ])
-        KSCrash.shared.sendAllReports()
+        sendAllReports()
     }
 }
 

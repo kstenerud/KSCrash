@@ -322,9 +322,19 @@ static CrashHandlerData *g_crashHandlerData;
     }
     sink = [KSCrashReportFilterPipeline filterWithFiltersArray:sinkFilters];
 
-    KSCrash *handler = [KSCrash sharedInstance];
-    handler.sink = sink;
-    [handler sendAllReportsWithCompletion:onCompletion];
+    KSCrashReportStore *store = [KSCrash sharedInstance].reportStore;
+    if (store == nil) {
+        onCompletion(
+            nil, NO,
+            [KSNSErrorHelper
+                errorWithDomain:[[self class] description]
+                           code:0
+                    description:@"Reporting is not allowed before the call of `installWithConfiguration:error:`"]);
+        return;
+    }
+
+    store.sink = sink;
+    [store sendAllReportsWithCompletion:onCompletion];
 }
 
 - (void)addPreFilter:(id<KSCrashReportFilter>)filter
@@ -346,14 +356,13 @@ static CrashHandlerData *g_crashHandlerData;
                                                          message:message
                                                        yesAnswer:yesAnswer
                                                         noAnswer:noAnswer]];
-    // FIXME: Accessing config
-    //    KSCrash* handler = [KSCrash sharedInstance];
-    //    if(handler.deleteBehaviorAfterSendAll == KSCDeleteOnSucess)
-    //    {
-    //        // Better to delete always, or else the user will keep getting nagged
-    //        // until he presses "yes"!
-    //        handler.deleteBehaviorAfterSendAll = KSCDeleteAlways;
-    //    }
+
+    KSCrashReportStore *store = [KSCrash sharedInstance].reportStore;
+    if (store.reportCleanupPolicy == KSCrashReportCleanupPolicyOnSuccess) {
+        // Better to delete always, or else the user will keep getting nagged
+        // until he presses "yes"!
+        store.reportCleanupPolicy = KSCrashReportCleanupPolicyAlways;
+    }
 }
 
 - (void)addUnconditionalAlertWithTitle:(NSString *)title

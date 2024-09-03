@@ -67,7 +67,7 @@ extern "C" {
  *
  * Example usage:
  * ```
- * KSCrashCConfiguration config = KSCrashCConfiguration_Default;
+ * KSCrashCConfiguration config = KSCrashCConfiguration_Default();
  * config.monitors = KSCrashMonitorTypeAll;
  * config.userInfoJSON = "{ \"user\": \"example\" }";
  * KSCrashInstallErrorCode result = kscrash_install("MyApp", "/path/to/install", config);
@@ -83,21 +83,7 @@ extern "C" {
  * without restarting the application.
  */
 KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const installPath,
-                                        KSCrashCConfiguration configuration);
-
-/** Sets up the crash repors store.
- * This function is used to initialize the storage for crash reports.
- * The `kscrash_install` function sets up the reports store internally.
- * You only need to call this function if you are not using the `kscrash_install` function
- * or want to read crash reports from a custom location.
- *
- * @note this function can be called multiple times, but only before `kscrash_install` is called.
- *
- * @param appName The name of the application. Usually it's bundle name.
- * @param installPath The directory where the crash reports and related data will be stored.
- * @return KSCrashInstallErrorCode indicating the result of the setup.
- */
-KSCrashInstallErrorCode kscrash_setupReportsStore(const char *appName, const char *const installPath);
+                                        KSCrashCConfiguration *configuration);
 
 /** Set the user-supplied data in JSON format.
  *
@@ -168,37 +154,6 @@ void kscrash_notifyAppCrash(void);
 
 #pragma mark-- Reporting --
 
-/** Get the number of reports on disk.
- */
-int kscrash_getReportCount(void);
-
-/** Get a list of IDs for all reports on disk.
- *
- * @param reportIDs An array big enough to hold all report IDs.
- * @param count How many reports the array can hold.
- *
- * @return The number of report IDs that were placed in the array.
- */
-int kscrash_getReportIDs(int64_t *reportIDs, int count);
-
-/** Read a report.
- *
- * @param reportID The report's ID.
- *
- * @return The NULL terminated report, or NULL if not found.
- *         MEMORY MANAGEMENT WARNING: User is responsible for calling free() on the returned value.
- */
-char *kscrash_readReport(int64_t reportID);
-
-/** Read a report at a specified path.
- *
- * @param path The full path to the report.
- *
- * @return The NULL terminated report, or NULL if not found.
- *         MEMORY MANAGEMENT WARNING: User is responsible for calling free() on the returned value.
- */
-char *kscrash_readReportAtPath(const char *path);
-
 /** Add a custom report to the store.
  *
  * @param report The report's contents (must be JSON encoded).
@@ -207,16 +162,6 @@ char *kscrash_readReportAtPath(const char *path);
  * @return the new report's ID.
  */
 int64_t kscrash_addUserReport(const char *report, int reportLength);
-
-/** Delete all reports on disk.
- */
-void kscrash_deleteAllReports(void);
-
-/** Delete report.
- *
- * @param reportID An ID of report to delete.
- */
-void kscrash_deleteReportWithID(int64_t reportID);
 
 #ifdef __cplusplus
 }

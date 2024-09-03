@@ -28,6 +28,7 @@
 
 #import "KSCrashMonitorType.h"
 #import "KSCrashReportFilter.h"
+#import "KSCrashReportStore.h"
 #import "KSCrashReportWriter.h"
 
 NS_ASSUME_NONNULL_BEGIN
@@ -51,15 +52,6 @@ NS_ASSUME_NONNULL_BEGIN
  * Default: nil
  */
 @property(atomic, readwrite, strong, nullable) NSDictionary<NSString *, id> *userInfo;
-
-/** The report sink where reports get sent.
- * This MUST be set or else the reporter will not send reports (although it will
- * still record them).
- *
- * Note: If you use an installation, it will automatically set this property.
- *       Do not modify it in such a case.
- */
-@property(nonatomic, readwrite, strong, nullable) id<KSCrashReportFilter> sink;
 
 #pragma mark - Information -
 
@@ -127,61 +119,12 @@ NS_ASSUME_NONNULL_BEGIN
  */
 - (BOOL)installWithConfiguration:(KSCrashConfiguration *)configuration error:(NSError **)error;
 
-/** Sets up the crash repors store.
- * A call of this method is required before working with crash reports.
- * The `installWithConfiguration:error:` method sets up the crash report store.
- * You only need to call this method if you are not using the `installWithConfiguration:error:` method
- * or want to read crash reports from a custom location.
+/** The installed report store.
+ * This is the store that is used to save and load crash reports.
  *
- * @note This method can be called multiple times, but only before `installWithConfiguration:error:` is called.
- *
- * @param installPath The path to the directory where the crash reports are stored. If `nil`, the default path is used.
- * @param error A pointer to an NSError object. If an error occurs, this pointer is set to an actual error object.
- * @return YES if the crash report store was successfully set up, NO otherwise.
+ * @note If the crash reporter is not installed, this will be `nil`.
  */
-- (BOOL)setupReportStoreWithPath:(nullable NSString *)installPath error:(NSError **)error;
-
-/** Send all outstanding crash reports to the current sink.
- * It will only attempt to send the most recent 5 reports. All others will be
- * deleted. Once the reports are successfully sent to the server, they may be
- * deleted locally, depending on the property "deleteAfterSendAll".
- *
- * @note A call of `setupReportStoreWithPath:error:` or `installWithConfiguration:error:` is required
- *       before working with crash reports.
- * @note Property "sink" MUST be set or else this method will call `onCompletion` with an error.
- *
- * @param onCompletion Called when sending is complete (nil = ignore).
- */
-- (void)sendAllReportsWithCompletion:(nullable KSCrashReportFilterCompletion)onCompletion;
-
-/** Get all unsent report IDs. */
-@property(nonatomic, readonly, strong) NSArray<NSNumber *> *reportIDs;
-
-/** Get report.
- *
- * @note A call of `setupReportStoreWithPath:error:` or `installWithConfiguration:error:` is required
- *       before working with crash reports.
- *
- * @param reportID An ID of report.
- *
- * @return A crash report with a dictionary value. The dectionary fields are described in KSCrashReportFields.h.
- */
-- (nullable KSCrashReportDictionary *)reportForID:(int64_t)reportID NS_SWIFT_NAME(report(for:));
-
-/** Delete all unsent reports.
- * @note A call of `setupReportStoreWithPath:error:` or `installWithConfiguration:error:` is required
- *       before working with crash reports.
- */
-- (void)deleteAllReports;
-
-/** Delete report.
- *
- * @note A call of `setupReportStoreWithPath:error:` or `installWithConfiguration:error:` is required
- *       before working with crash reports.
- *
- * @param reportID An ID of report to delete.
- */
-- (void)deleteReportWithID:(int64_t)reportID NS_SWIFT_NAME(deleteReport(with:));
+@property(nonatomic, strong, readonly, nullable) KSCrashReportStore *reportStore;
 
 /** Report a custom, user defined exception.
  * This can be useful when dealing with scripting languages.

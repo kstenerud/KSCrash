@@ -47,9 +47,8 @@
     XCTAssertNil(config.reportWrittenCallback);
     XCTAssertFalse(config.addConsoleLogToReport);
     XCTAssertFalse(config.printPreviousLogOnStartup);
-    XCTAssertEqual(config.maxReportCount, 5);
+    XCTAssertEqual(config.reportStoreConfiguration.maxReportCount, 5);
     XCTAssertTrue(config.enableSwapCxaThrow);
-    XCTAssertEqual(config.deleteBehaviorAfterSendAll, KSCDeleteAlways);
 }
 
 - (void)testToCConfiguration
@@ -63,7 +62,7 @@
     config.doNotIntrospectClasses = @[ @"ClassA", @"ClassB" ];
     config.addConsoleLogToReport = YES;
     config.printPreviousLogOnStartup = YES;
-    config.maxReportCount = 10;
+    config.reportStoreConfiguration.maxReportCount = 10;
     config.enableSwapCxaThrow = NO;
 
     KSCrashCConfiguration cConfig = [config toCConfiguration];
@@ -79,15 +78,11 @@
     XCTAssertEqual(strcmp(cConfig.doNotIntrospectClasses.strings[1], "ClassB"), 0);
     XCTAssertTrue(cConfig.addConsoleLogToReport);
     XCTAssertTrue(cConfig.printPreviousLogOnStartup);
-    XCTAssertEqual(cConfig.maxReportCount, 10);
+    XCTAssertEqual(cConfig.reportStoreConfiguration.maxReportCount, 10);
     XCTAssertFalse(cConfig.enableSwapCxaThrow);
 
     // Free memory allocated for C string array
-    for (int i = 0; i < cConfig.doNotIntrospectClasses.length; i++) {
-        free((void *)cConfig.doNotIntrospectClasses.strings[i]);
-    }
-    free(cConfig.doNotIntrospectClasses.strings);
-    free((void *)cConfig.userInfoJSON);
+    KSCrashCConfiguration_Release(&cConfig);
 }
 
 - (void)testCopyWithZone
@@ -101,7 +96,7 @@
     config.doNotIntrospectClasses = @[ @"ClassA", @"ClassB" ];
     config.addConsoleLogToReport = YES;
     config.printPreviousLogOnStartup = YES;
-    config.maxReportCount = 10;
+    config.reportStoreConfiguration.maxReportCount = 10;
     config.enableSwapCxaThrow = NO;
 
     KSCrashConfiguration *copy = [config copy];
@@ -114,9 +109,8 @@
     XCTAssertEqualObjects(copy.doNotIntrospectClasses, (@[ @"ClassA", @"ClassB" ]));
     XCTAssertTrue(copy.addConsoleLogToReport);
     XCTAssertTrue(copy.printPreviousLogOnStartup);
-    XCTAssertEqual(copy.maxReportCount, 10);
+    XCTAssertEqual(copy.reportStoreConfiguration.maxReportCount, 10);
     XCTAssertFalse(copy.enableSwapCxaThrow);
-    XCTAssertEqual(copy.deleteBehaviorAfterSendAll, KSCDeleteAlways);
 }
 
 - (void)testEmptyDictionaryForJSONConversion
@@ -128,7 +122,7 @@
     XCTAssertTrue(cConfig.userInfoJSON != NULL);
     XCTAssertEqual(strcmp(cConfig.userInfoJSON, "{}"), 0);
 
-    free((void *)cConfig.userInfoJSON);
+    KSCrashCConfiguration_Release(&cConfig);
 }
 
 - (void)testLargeDataForJSONConversion
@@ -148,7 +142,7 @@
     XCTAssertTrue([jsonString containsString:@"key999"]);
     XCTAssertTrue([jsonString containsString:@"value999"]);
 
-    free((void *)cConfig.userInfoJSON);
+    KSCrashCConfiguration_Release(&cConfig);
 }
 
 - (void)testSpecialCharactersInStrings
@@ -160,7 +154,7 @@
     XCTAssertTrue(cConfig.userInfoJSON != NULL);
     XCTAssertTrue(strstr(cConfig.userInfoJSON, "special characters: @#$%^&*()") != NULL);
 
-    free((void *)cConfig.userInfoJSON);
+    KSCrashCConfiguration_Release(&cConfig);
 }
 
 - (void)testNilAndEmptyArraysForCStringConversion
@@ -178,7 +172,8 @@
     XCTAssertTrue(cConfig2.doNotIntrospectClasses.strings != NULL);
     XCTAssertEqual(cConfig2.doNotIntrospectClasses.length, 0);
 
-    free(cConfig2.doNotIntrospectClasses.strings);
+    KSCrashCConfiguration_Release(&cConfig1);
+    KSCrashCConfiguration_Release(&cConfig2);
 }
 
 - (void)testCopyingWithNilProperties
@@ -190,21 +185,6 @@
     KSCrashConfiguration *copy = [config copy];
     XCTAssertNil(copy.userInfoJSON);
     XCTAssertNil(copy.doNotIntrospectClasses);
-}
-
-- (void)testBoundaryValuesForMaxReportCount
-{
-    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
-
-    // Test with 0
-    config.maxReportCount = 0;
-    KSCrashCConfiguration cConfig = [config toCConfiguration];
-    XCTAssertEqual(cConfig.maxReportCount, 0);
-
-    // Test with a large number
-    config.maxReportCount = INT_MAX;
-    cConfig = [config toCConfiguration];
-    XCTAssertEqual(cConfig.maxReportCount, INT_MAX);
 }
 
 @end

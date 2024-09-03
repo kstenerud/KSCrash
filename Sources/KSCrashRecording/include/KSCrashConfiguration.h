@@ -30,11 +30,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-typedef NS_ENUM(NSUInteger, KSCDeleteBehavior) {
-    KSCDeleteNever,
-    KSCDeleteOnSucess,
-    KSCDeleteAlways
-} NS_SWIFT_NAME(DeleteBehavior);
+@class KSCrashReportStoreConfiguration;
 
 @interface KSCrashConfiguration : NSObject <NSCopying>
 
@@ -45,6 +41,11 @@ typedef NS_ENUM(NSUInteger, KSCDeleteBehavior) {
  * **Default**: `nil`
  */
 @property(nonatomic, copy, nullable) NSString *installPath;
+
+/** The configuration for report store.
+ * @note See `KSCrashStoreConfiguration` for more details.
+ */
+@property(nonatomic, strong, readonly) KSCrashReportStoreConfiguration *reportStoreConfiguration;
 
 /** The crash types that will be handled.
  * Some crash types may not be enabled depending on circumstances (e.g., running in a debugger).
@@ -140,15 +141,6 @@ typedef NS_ENUM(NSUInteger, KSCDeleteBehavior) {
  */
 @property(nonatomic, assign) BOOL printPreviousLogOnStartup;
 
-/** The maximum number of crash reports allowed on disk before old ones get deleted.
- *
- * Specifies the maximum number of crash reports to keep on disk. When this limit
- * is reached, the oldest reports will be deleted to make room for new ones.
- *
- * **Default**: 5
- */
-@property(nonatomic, assign) int maxReportCount;
-
 /** If true, enable C++ exceptions catching with `__cxa_throw` swap.
  *
  * This experimental feature works similarly to `LD_PRELOAD` and supports catching
@@ -160,16 +152,33 @@ typedef NS_ENUM(NSUInteger, KSCDeleteBehavior) {
  */
 @property(nonatomic, assign) BOOL enableSwapCxaThrow;
 
-/** What to do after sending reports via sendAllReportsWithCompletion:
+@end
+
+NS_SWIFT_NAME(CrashReportStoreConfiguration)
+@interface KSCrashReportStoreConfiguration : NSObject <NSCopying>
+
+/** Specifies a custom directory path for reports store.
+ * If `nil` the default directory is used: `Reports` within the installation directory.
  *
- * - Use KSCDeleteNever if you will manually manage the reports.
- * - Use KSCDeleteAlways if you will be using an alert confirmation (otherwise it
- *   will nag the user incessantly until he selects "yes").
- * - Use KSCDeleteOnSuccess for all other situations.
- *
- * Default: KSCDeleteAlways
+ * **Default**: `nil`
  */
-@property(nonatomic, assign) KSCDeleteBehavior deleteBehaviorAfterSendAll;
+@property(nonatomic, copy, nullable) NSString *reportsPath;
+
+/** Specifies a custom app name to be used in report file name.
+ * If `nil` the default value is used: `CFBundleName` from Info.plist.
+ *
+ * **Default**: `nil`
+ */
+@property(nonatomic, copy, nullable) NSString *appName;
+
+/** The maximum number of crash reports allowed on disk before old ones get deleted.
+ *
+ * Specifies the maximum number of crash reports to keep on disk. When this limit
+ * is reached, the oldest reports will be deleted to make room for new ones.
+ *
+ * **Default**: 5
+ */
+@property(nonatomic, assign) NSInteger maxReportCount;
 
 @end
 

@@ -1,7 +1,7 @@
 //
-//  ReportingView.swift
+//  KSCrashReportStoreC+Private.h
 //
-//  Created by Nikolay Volosatov on 2024-07-07.
+//  Created by Nikolay Volosatov on 2024-08-30.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,22 +24,28 @@
 // THE SOFTWARE.
 //
 
-import SwiftUI
-import LibraryBridge
-import KSCrashRecording
+#ifndef KSCrashReportStoreC_Private_h
+#define KSCrashReportStoreC_Private_h
 
-struct ReportingView: View {
-    let store: CrashReportStore
+#include "KSCrashReportStoreC.h"
 
-    var body: some View {
-        List {
-            Button("Log To Console") {
-                store.logToConsole()
-            }
-            Button("Sample Custom Log To Console") {
-                store.sampleLogToConsole()
-            }
-        }
-        .navigationTitle("Report")
-    }
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/** Get the next crash report to be generated.
+ * Max length for paths is KSCRS_MAX_PATH_LENGTH
+ *
+ * @param crashReportPathBuffer Buffer to store the crash report path.
+ * @param configuration The store configuretion (e.g. reports path, app name etc).
+ *
+ * @return The report ID of the next report.
+ */
+int64_t kscrs_getNextCrashReport(char *crashReportPathBuffer,
+                                 const KSCrashReportStoreCConfiguration *const configuration);
+
+#ifdef __cplusplus
 }
+#endif
+
+#endif  // KSCrashReportStoreC_Private_h

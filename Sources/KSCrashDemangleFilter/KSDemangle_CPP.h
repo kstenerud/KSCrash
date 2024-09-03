@@ -33,6 +33,8 @@ extern "C" {
 
 /** Demangle a C++ symbol.
  *
+ * @warning MEMORY MANAGEMENT WARNING: User is responsible for calling free() on the returned value.
+ *
  * @param mangledSymbol The mangled symbol.
  *
  * @return A demangled symbol, or NULL if demangling failed.

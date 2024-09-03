@@ -36,4 +36,10 @@
 
 @end
 
+@interface KSCrashReportStoreConfiguration ()
+
+- (KSCrashReportStoreCConfiguration)toCConfiguration;
+
+@end
+
 #endif /* KSCrashConfiguration_Private_h */

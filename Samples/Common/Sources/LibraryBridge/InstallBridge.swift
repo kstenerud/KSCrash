@@ -70,6 +70,8 @@ public class InstallBridge: ObservableObject {
     @Published public var reportsOnlySetup: Bool = false
     @Published public var error: InstallationError?
 
+    @Published public var reportStore: CrashReportStore?
+
     public init() {
         config = .init()
 
@@ -87,6 +89,7 @@ public class InstallBridge: ObservableObject {
 
         do {
             try KSCrash.shared.install(with: config)
+            reportStore = KSCrash.shared.reportStore
             installed = true
         } catch let error as KSCrashInstallError {
             let message = error.localizedDescription
@@ -101,7 +104,9 @@ public class InstallBridge: ObservableObject {
 
     public func setupReportsOnly() {
         do {
-            try KSCrash.shared.setupReportStore(withPath: config.installPath)
+            let config = CrashReportStoreConfiguration()
+            config.reportsPath = self.config.installPath.map { $0 + "/" + CrashReportStore.defaultInstallSubfolder }
+            reportStore = try CrashReportStore(configuration: config)
             reportsOnlySetup = true
         } catch let error as KSCrashInstallError {
             let message = error.localizedDescription

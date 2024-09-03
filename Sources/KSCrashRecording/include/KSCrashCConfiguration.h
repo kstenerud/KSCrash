@@ -31,6 +31,7 @@
 
 #include "KSCrashMonitorType.h"
 #include "KSCrashReportWriter.h"
+#include "string.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -42,9 +43,67 @@ extern "C" {
  */
 typedef void (*KSReportWrittenCallback)(int64_t reportID);
 
+/** Configuration for managing crash reports through the report store API.
+ */
+typedef struct {
+    /** The name of the application.
+     * This identifier is used to distinguish the application in crash reports.
+     * It is crucial for correlating crash data with the specific application version.
+     *
+     * @note This field must be set prior to using this configuration with any `kscrs_` functions.
+     */
+    const char *appName;
+
+    /** The directory path for storing crash reports.
+     * The specified directory must have write permissions. If it doesn't exist,
+     * the system will attempt to create it automatically.
+     *
+     * @note This field must be set prior to using this configuration with any `kscrs_` functions.
+     */
+    const char *reportsPath;
+
+    /** The maximum number of crash reports to retain on disk.
+     *
+     * Defines the upper limit of crash reports to keep in storage. When this threshold
+     * is reached, the system will remove the oldest reports to accommodate new ones.
+     *
+     * **Default**: 5
+     */
+    int maxReportCount;
+} KSCrashReportStoreCConfiguration;
+
+static inline KSCrashReportStoreCConfiguration KSCrashReportStoreCConfiguration_Default(void)
+{
+    return (KSCrashReportStoreCConfiguration) {
+        .appName = NULL,
+        .reportsPath = NULL,
+        .maxReportCount = 5,
+    };
+}
+
+static inline KSCrashReportStoreCConfiguration KSCrashReportStoreCConfiguration_Copy(
+    KSCrashReportStoreCConfiguration *configuration)
+{
+    return (KSCrashReportStoreCConfiguration) {
+        .appName = configuration->appName ? strdup(configuration->appName) : NULL,
+        .reportsPath = configuration->reportsPath ? strdup(configuration->reportsPath) : NULL,
+        .maxReportCount = configuration->maxReportCount,
+    };
+}
+
+static inline void KSCrashReportStoreCConfiguration_Release(KSCrashReportStoreCConfiguration *configuration)
+{
+    free((void *)configuration->appName);
+    free((void *)configuration->reportsPath);
+}
+
 /** Configuration for KSCrash settings.
  */
 typedef struct {
+    /** The report store configuration to be used for the corresponding installation.
+     */
+    KSCrashReportStoreCConfiguration reportStoreConfiguration;
+
     /** The crash types that will be handled.
      * Some crash types may not be enabled depending on circumstances (e.g., running in a debugger).
      */
@@ -140,15 +199,6 @@ typedef struct {
      */
     bool printPreviousLogOnStartup;
 
-    /** The maximum number of crash reports allowed on disk before old ones get deleted.
-     *
-     * Specifies the maximum number of crash reports to keep on disk. When this limit
-     * is reached, the oldest reports will be deleted to make room for new ones.
-     *
-     * **Default**: 5
-     */
-    int maxReportCount;
-
     /** If true, enable C++ exceptions catching with `__cxa_throw` swap.
      *
      * This experimental feature works similarly to `LD_PRELOAD` and supports catching
@@ -163,18 +213,30 @@ typedef struct {
 
 static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
 {
-    return (KSCrashCConfiguration) { .monitors = KSCrashMonitorTypeProductionSafeMinimal,
-                                     .userInfoJSON = NULL,
-                                     .deadlockWatchdogInterval = 0.0,
-                                     .enableQueueNameSearch = false,
-                                     .enableMemoryIntrospection = false,
-                                     .doNotIntrospectClasses = { .strings = NULL, .length = 0 },
-                                     .crashNotifyCallback = NULL,
-                                     .reportWrittenCallback = NULL,
-                                     .addConsoleLogToReport = false,
-                                     .printPreviousLogOnStartup = false,
-                                     .maxReportCount = 5,
-                                     .enableSwapCxaThrow = true };
+    return (KSCrashCConfiguration) {
+        .reportStoreConfiguration = KSCrashReportStoreCConfiguration_Default(),
+        .monitors = KSCrashMonitorTypeProductionSafeMinimal,
+        .userInfoJSON = NULL,
+        .deadlockWatchdogInterval = 0.0,
+        .enableQueueNameSearch = false,
+        .enableMemoryIntrospection = false,
+        .doNotIntrospectClasses = { .strings = NULL, .length = 0 },
+        .crashNotifyCallback = NULL,
+        .reportWrittenCallback = NULL,
+        .addConsoleLogToReport = false,
+        .printPreviousLogOnStartup = false,
+        .enableSwapCxaThrow = true,
+    };
+}
+
+static inline void KSCrashCConfiguration_Release(KSCrashCConfiguration *configuration)
+{
+    KSCrashReportStoreCConfiguration_Release(&configuration->reportStoreConfiguration);
+    free((void *)configuration->userInfoJSON);
+    for (int idx = 0; idx < configuration->doNotIntrospectClasses.length; ++idx) {
+        free((void *)(configuration->doNotIntrospectClasses.strings[idx]));
+    }
+    free(configuration->doNotIntrospectClasses.strings);
 }
 
 #ifdef __cplusplus

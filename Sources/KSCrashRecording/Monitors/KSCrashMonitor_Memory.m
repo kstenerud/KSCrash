@@ -33,6 +33,7 @@
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitorContextHelper.h"
 #import "KSCrashReportFields.h"
+#import "KSCrashReportStoreC.h"
 #import "KSDate.h"
 #import "KSFileUtils.h"
 #import "KSID.h"
@@ -320,7 +321,7 @@ static void kscm_memory_check_for_oom_in_previous_session(void)
         // Ignore this check if we want to report all OOM, foreground and background.
         if (userPerceivedOOM) {
             NSURL *url = kscm_memory_oom_breadcrumb_URL();
-            const char *reportContents = kscrash_readReportAtPath(url.path.UTF8String);
+            const char *reportContents = kscrs_readReportAtPath(url.path.UTF8String);
             if (reportContents) {
                 NSData *data = [NSData dataWithBytes:reportContents length:strlen(reportContents)];
                 NSMutableDictionary *json =

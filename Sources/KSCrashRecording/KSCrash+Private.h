@@ -28,12 +28,30 @@
 #define KSCrash_Private_h
 
 #import "KSCrash.h"
+#import "KSCrashError.h"
+
+NS_ASSUME_NONNULL_BEGIN
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+NSString *kscrash_getBundleName(void);
+NSString *kscrash_getDefaultInstallPath(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 @interface KSCrash ()
 
 @property(nonatomic, readwrite, assign) NSUncaughtExceptionHandler *uncaughtExceptionHandler;
 @property(nonatomic, readwrite, assign) NSUncaughtExceptionHandler *currentSnapshotUserReportedExceptionHandler;
 
++ (NSError *)errorForInstallErrorCode:(KSCrashInstallErrorCode)errorCode;
+
 @end
+
+NS_ASSUME_NONNULL_END
 
 #endif /* KSCrash_Private_h */
