@@ -325,11 +325,10 @@ static CrashHandlerData *g_crashHandlerData;
     KSCrashReportStore *store = [KSCrash sharedInstance].reportStore;
     if (store == nil) {
         onCompletion(
-            nil,
-            [KSNSErrorHelper
-                errorWithDomain:[[self class] description]
-                           code:0
-                    description:@"Reporting is not allowed before the call of `installWithConfiguration:error:`"]);
+            nil, [KSNSErrorHelper
+                     errorWithDomain:[[self class] description]
+                                code:0
+                         description:@"Reporting is not allowed before the call of `installWithConfiguration:error:`"]);
         return;
     }
 

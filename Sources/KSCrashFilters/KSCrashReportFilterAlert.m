@@ -27,8 +27,8 @@
 #import "KSCrashReportFilterAlert.h"
 
 #import "KSCrashReport.h"
-#import "KSSystemCapabilities.h"
 #import "KSNSErrorHelper.h"
+#import "KSSystemCapabilities.h"
 
 // #define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -83,18 +83,17 @@
     UIAlertController *alertController = [UIAlertController alertControllerWithTitle:title
                                                                              message:message
                                                                       preferredStyle:UIAlertControllerStyleAlert];
-    UIAlertAction *yesAction =
-        [UIAlertAction actionWithTitle:yesAnswer
-                                 style:UIAlertActionStyleDefault
-                               handler:^(__unused UIAlertAction *_Nonnull action) {
-                                   kscrash_callCompletion(self.onCompletion, self.reports, nil);
-                               }];
-    UIAlertAction *noAction =
-        [UIAlertAction actionWithTitle:noAnswer
-                                 style:UIAlertActionStyleCancel
-                               handler:^(__unused UIAlertAction *_Nonnull action) {
-                                   kscrash_callCompletion(self.onCompletion, self.reports, [[self class] cancellationError]);
-                               }];
+    UIAlertAction *yesAction = [UIAlertAction actionWithTitle:yesAnswer
+                                                        style:UIAlertActionStyleDefault
+                                                      handler:^(__unused UIAlertAction *_Nonnull action) {
+                                                          kscrash_callCompletion(self.onCompletion, self.reports, nil);
+                                                      }];
+    UIAlertAction *noAction = [UIAlertAction
+        actionWithTitle:noAnswer
+                  style:UIAlertActionStyleCancel
+                handler:^(__unused UIAlertAction *_Nonnull action) {
+                    kscrash_callCompletion(self.onCompletion, self.reports, [[self class] cancellationError]);
+                }];
     [alertController addAction:yesAction];
     [alertController addAction:noAction];
     UIWindow *keyWindow = [[UIApplication sharedApplication] keyWindow];
@@ -119,9 +118,7 @@
 
 + (NSError *)cancellationError
 {
-    return [KSNSErrorHelper errorWithDomain:[[self class] description]
-                                       code:0
-                                description:@"Cancelled by user"];
+    return [KSNSErrorHelper errorWithDomain:[[self class] description] code:0 description:@"Cancelled by user"];
 }
 
 - (void)alertView:(__unused id)alertView clickedButtonAtIndex:(NSInteger)buttonIndex
