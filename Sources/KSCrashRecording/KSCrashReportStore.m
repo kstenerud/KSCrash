@@ -75,6 +75,11 @@
     KSCrashReportStoreCConfiguration_Release(&_cConfig);
 }
 
+- (NSInteger)reportCount
+{
+    return kscrs_getReportCount(&_cConfig);
+}
+
 - (void)sendAllReportsWithCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
     NSArray *reports = [self allReports];
@@ -107,11 +112,6 @@
 }
 
 #pragma mark - Private API
-
-- (NSInteger)reportCount
-{
-    return kscrs_getReportCount(&_cConfig);
-}
 
 - (void)sendReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {

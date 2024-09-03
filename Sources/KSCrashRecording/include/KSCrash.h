@@ -85,9 +85,6 @@ NS_ASSUME_NONNULL_BEGIN
 /** If true, the application crashed on the previous launch. */
 @property(nonatomic, readonly, assign) BOOL crashedLastLaunch;
 
-/** The total number of unsent reports. Note: This is an expensive operation. */
-@property(nonatomic, readonly, assign) NSInteger reportCount;
-
 /** Information about the operating system and environment.
  *
  * @note `bootTime` and `storageSize` are not populated in this property.
