@@ -91,7 +91,7 @@ NS_SWIFT_NAME(CrashReportStore)
  */
 @property(nonatomic, assign) KSCrashReportCleanupPolicy reportCleanupPolicy;
 
-/** The total number of unsent reports. Note: This is an expensive operation. 
+/** The total number of unsent reports. Note: This is an expensive operation.
  */
 @property(nonatomic, readonly, assign) NSInteger reportCount;
 
