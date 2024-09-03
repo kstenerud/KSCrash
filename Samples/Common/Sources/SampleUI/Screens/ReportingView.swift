@@ -33,6 +33,7 @@ struct ReportingView: View {
 
     var body: some View {
         List {
+            Text("Pending reports: \(store.reportCount)")
             Button("Log To Console") {
                 store.logToConsole()
             }
