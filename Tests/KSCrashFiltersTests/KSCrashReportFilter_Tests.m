@@ -45,7 +45,7 @@
 
 - (void)filterReports:(__unused NSArray *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
-    onCompletion(nil, YES, nil);
+    onCompletion(nil, nil);
 }
 
 @end
@@ -53,7 +53,6 @@
 @interface KSCrash_TestFilter : NSObject <KSCrashReportFilter>
 
 @property(nonatomic, readwrite, assign) NSTimeInterval delay;
-@property(nonatomic, readwrite, assign) BOOL completed;
 @property(nonatomic, readwrite, strong) NSError *error;
 @property(nonatomic, readwrite, strong) NSTimer *timer;
 @property(nonatomic, readwrite, copy) NSArray<id<KSCrashReport>> *reports;
@@ -63,16 +62,15 @@
 
 @implementation KSCrash_TestFilter
 
-+ (KSCrash_TestFilter *)filterWithDelay:(NSTimeInterval)delay completed:(BOOL)completed error:(NSError *)error
++ (KSCrash_TestFilter *)filterWithDelay:(NSTimeInterval)delay error:(NSError *)error
 {
-    return [[self alloc] initWithDelay:delay completed:completed error:error];
+    return [[self alloc] initWithDelay:delay error:error];
 }
 
-- (id)initWithDelay:(NSTimeInterval)delay completed:(BOOL)completed error:(NSError *)error
+- (id)initWithDelay:(NSTimeInterval)delay error:(NSError *)error
 {
     if ((self = [super init])) {
         _delay = delay;
-        _completed = completed;
         _error = error;
     }
     return self;
@@ -95,7 +93,7 @@
 
 - (void)onTimeUp
 {
-    kscrash_callCompletion(self.onCompletion, self.reports, self.completed, self.error);
+    kscrash_callCompletion(self.onCompletion, self.reports, self.error);
 }
 
 @end
@@ -105,6 +103,7 @@
 @property(nonatomic, copy) NSArray<KSCrashReportString *> *reports;
 @property(nonatomic, copy) NSArray<KSCrashReportData *> *reportsWithData;
 @property(nonatomic, copy) NSArray<KSCrashReportDictionary *> *reportsWithDict;
+@property(nonatomic, strong) NSError *testError;
 
 @end
 
@@ -131,6 +130,7 @@
             @"third" : @"b",
         }],
     ];
+    self.testError = [NSError errorWithDomain:@"test" code:-23 userInfo:nil];
 }
 
 - (void)testPassthroughLeak
@@ -140,7 +140,7 @@
 
     __block KSCrashReportFilterPassthrough *filter = [KSCrashReportFilterPassthrough filter];
     [filter filterReports:reports
-             onCompletion:^(__unused NSArray *filteredReports, __unused BOOL completed, __unused NSError *error) {
+             onCompletion:^(__unused NSArray *filteredReports, __unused NSError *error) {
                  filter = nil;
                  reports = nil;
                  dispatch_async(dispatch_get_main_queue(), ^{
@@ -155,8 +155,7 @@
         filterWithFilters:[KSCrashReportFilterPassthrough filter], [KSCrashReportFilterPassthrough filter], nil];
 
     [filter filterReports:self.reports
-             onCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error) {
-                 XCTAssertTrue(completed, @"");
+             onCompletion:^(NSArray *filteredReports, NSError *error) {
                  XCTAssertNil(error, @"");
                  XCTAssertEqualObjects(filteredReports, self.reports, @"");
              }];
@@ -169,8 +168,7 @@
     filter = filter;
 
     [filter filterReports:self.reports
-             onCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error) {
-                 XCTAssertTrue(completed, @"");
+             onCompletion:^(NSArray *filteredReports, NSError *error) {
                  XCTAssertNil(error, @"");
                  XCTAssertEqualObjects(filteredReports, self.reports, @"");
              }];
@@ -181,23 +179,21 @@
     id<KSCrashReportFilter> filter = [KSCrashReportFilterPipeline filterWithFilters:nil];
 
     [filter filterReports:self.reports
-             onCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error) {
-                 XCTAssertTrue(completed, @"");
+             onCompletion:^(NSArray *filteredReports, NSError *error) {
                  XCTAssertNil(error, @"");
                  XCTAssertEqualObjects(filteredReports, self.reports, @"");
              }];
 }
 
-- (void)testFilterPipelineIncomplete
+- (void)testFilterPipelineError
 {
     id<KSCrashReportFilter> filter = [KSCrashReportFilterPipeline
-        filterWithFilters:[KSCrash_TestFilter filterWithDelay:0 completed:NO error:nil], nil];
+        filterWithFilters:[KSCrash_TestFilter filterWithDelay:0 error:self.testError], nil];
 
     [filter filterReports:self.reports
-             onCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error) {
-                 XCTAssertNotNil(filteredReports, @"");
-                 XCTAssertFalse(completed, @"");
-                 XCTAssertNil(error, @"");
+             onCompletion:^(NSArray *filteredReports, NSError *error) {
+                 XCTAssertNotNil(filteredReports);
+                 XCTAssertEqualObjects(error, self.testError);
              }];
 }
 
@@ -207,9 +203,8 @@
         [KSCrashReportFilterPipeline filterWithFilters:[KSCrash_TestNilFilter filter], nil];
 
     [filter filterReports:self.reports
-             onCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error) {
+             onCompletion:^(NSArray *filteredReports, NSError *error) {
                  XCTAssertNil(filteredReports, @"");
-                 XCTAssertFalse(completed, @"");
                  XCTAssertNotNil(error, @"");
              }];
 }
@@ -217,18 +212,17 @@
 - (void)testPiplelineLeak1
 {
     __block NSArray *reports = [NSArray arrayWithArray:self.reports];
-    __block id<KSCrashReportFilter> filter = [KSCrash_TestFilter filterWithDelay:0.1 completed:YES error:nil];
+    __block id<KSCrashReportFilter> filter = [KSCrash_TestFilter filterWithDelay:0.1 error:nil];
 
     __weak id weakReports = reports;
     __weak id weakFilter = filter;
 
     __block KSCrashReportFilterPipeline *pipeline = [KSCrashReportFilterPipeline filterWithFilters:filter, nil];
     [pipeline filterReports:reports
-               onCompletion:^(__unused NSArray *filteredReports, __unused BOOL completed, __unused NSError *error) {
+               onCompletion:^(__unused NSArray *filteredReports, __unused NSError *error) {
                    reports = nil;
                    filter = nil;
                    pipeline = nil;
-                   XCTAssertTrue(completed, @"");
                    dispatch_async(dispatch_get_main_queue(), ^{
                        XCTAssertNil(weakReports, @"Object leaked");
                        XCTAssertNil(weakFilter, @"Object leaked");
@@ -239,18 +233,17 @@
 - (void)testPiplelineLeak2
 {
     __block NSArray *reports = [NSArray arrayWithArray:self.reports];
-    __block id<KSCrashReportFilter> filter = [KSCrash_TestFilter filterWithDelay:0.1 completed:NO error:nil];
+    __block id<KSCrashReportFilter> filter = [KSCrash_TestFilter filterWithDelay:0.1 error:nil];
 
     __weak id weakReports = reports;
     __weak id weakFilter = filter;
 
     __block KSCrashReportFilterPipeline *pipeline = [KSCrashReportFilterPipeline filterWithFilters:filter, nil];
     [pipeline filterReports:reports
-               onCompletion:^(__unused NSArray *filteredReports, __unused BOOL completed, __unused NSError *error) {
+               onCompletion:^(__unused NSArray *filteredReports, __unused NSError *error) {
                    reports = nil;
                    filter = nil;
                    pipeline = nil;
-                   XCTAssertFalse(completed, @"");
                    dispatch_async(dispatch_get_main_queue(), ^{
                        XCTAssertNil(weakReports, @"Object leaked");
                        XCTAssertNil(weakFilter, @"Object leaked");
@@ -265,8 +258,7 @@
     id<KSCrashReportFilter> filter = [KSCrashReportFilterPassthrough filter];
 
     [filter filterReports:self.reports
-             onCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error) {
-                 XCTAssertTrue(completed, @"");
+             onCompletion:^(NSArray *filteredReports, NSError *error) {
                  XCTAssertNil(error, @"");
                  XCTAssertEqualObjects(filteredReports, self.reports, @"");
              }];
@@ -277,8 +269,7 @@
     id<KSCrashReportFilter> filter = [KSCrashReportFilterStringToData filter];
 
     [filter filterReports:self.reports
-             onCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error) {
-                 XCTAssertTrue(completed, @"");
+             onCompletion:^(NSArray *filteredReports, NSError *error) {
                  XCTAssertNil(error, @"");
                  XCTAssertEqualObjects(filteredReports, self.reportsWithData, @"");
              }];
@@ -289,8 +280,7 @@
     id<KSCrashReportFilter> filter = [KSCrashReportFilterDataToString filter];
 
     [filter filterReports:self.reportsWithData
-             onCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error) {
-                 XCTAssertTrue(completed, @"");
+             onCompletion:^(NSArray *filteredReports, NSError *error) {
                  XCTAssertNil(error, @"");
                  XCTAssertEqualObjects(filteredReports, self.reports, @"");
              }];
@@ -302,8 +292,7 @@
         filterWithFilters:[KSCrashReportFilterStringToData filter], [KSCrashReportFilterDataToString filter], nil];
 
     [filter filterReports:self.reports
-             onCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error) {
-                 XCTAssertTrue(completed, @"");
+             onCompletion:^(NSArray *filteredReports, NSError *error) {
                  XCTAssertNil(error, @"");
                  XCTAssertEqualObjects(filteredReports, self.reports, @"");
              }];
@@ -316,8 +305,7 @@
                                                              [KSCrashReportFilterStringToData filter], @"data", nil];
 
     [filter filterReports:self.reports
-             onCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error) {
-                 XCTAssertTrue(completed, @"");
+             onCompletion:^(NSArray *filteredReports, NSError *error) {
                  XCTAssertNil(error, @"");
                  for (NSUInteger i = 0; i < self.reports.count; i++) {
                      id exp1 = [[self.reports objectAtIndex:i] value];
@@ -341,8 +329,7 @@
     filter = filter;
 
     [filter filterReports:self.reports
-             onCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error) {
-                 XCTAssertTrue(completed, @"");
+             onCompletion:^(NSArray *filteredReports, NSError *error) {
                  XCTAssertNil(error, @"");
                  for (NSUInteger i = 0; i < [self.reports count]; i++) {
                      id exp1 = [[self.reports objectAtIndex:i] value];
@@ -363,8 +350,7 @@
     id<KSCrashReportFilter> filter = [KSCrashReportFilterCombine filterWithFiltersAndKeys:nil];
 
     [filter filterReports:self.reports
-             onCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error) {
-                 XCTAssertTrue(completed, @"");
+             onCompletion:^(NSArray *filteredReports, NSError *error) {
                  XCTAssertNil(error, @"");
                  for (NSUInteger i = 0; i < [self.reports count]; i++) {
                      id exp = [self.reports objectAtIndex:i];
@@ -377,13 +363,12 @@
 - (void)testFilterCombineIncomplete
 {
     id<KSCrashReportFilter> filter = [KSCrashReportFilterCombine
-        filterWithFiltersAndKeys:[KSCrash_TestFilter filterWithDelay:0 completed:NO error:nil], @"Blah", nil];
+        filterWithFiltersAndKeys:[KSCrash_TestFilter filterWithDelay:0 error:self.testError], @"Blah", nil];
 
     [filter filterReports:self.reports
-             onCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error) {
+             onCompletion:^(NSArray *filteredReports, NSError *error) {
                  XCTAssertNotNil(filteredReports, @"");
-                 XCTAssertFalse(completed, @"");
-                 XCTAssertNil(error, @"");
+                 XCTAssertEqualObjects(error, self.testError, @"");
              }];
 }
 
@@ -393,9 +378,8 @@
         [KSCrashReportFilterCombine filterWithFiltersAndKeys:[KSCrash_TestNilFilter filter], @"Blah", nil];
 
     [filter filterReports:self.reports
-             onCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error) {
+             onCompletion:^(NSArray *filteredReports, NSError *error) {
                  XCTAssertNil(filteredReports, @"");
-                 XCTAssertFalse(completed, @"");
                  XCTAssertNotNil(error, @"");
              }];
 }
@@ -407,8 +391,7 @@
                                  [NSArray arrayWithObject:[KSCrashReportFilterStringToData filter]], @"data", nil];
 
     [filter filterReports:self.reports
-             onCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error) {
-                 XCTAssertTrue(completed, @"");
+             onCompletion:^(NSArray *filteredReports, NSError *error) {
                  XCTAssertNil(error, @"");
                  for (NSUInteger i = 0; i < [self.reports count]; i++) {
                      id exp1 = [[self.reports objectAtIndex:i] value];
@@ -433,8 +416,7 @@
                                                              nil];
 
     [filter filterReports:self.reports
-             onCompletion:^(__unused NSArray *filteredReports, BOOL completed, NSError *error) {
-                 XCTAssertFalse(completed, @"");
+             onCompletion:^(__unused NSArray *filteredReports, NSError *error) {
                  XCTAssertNotNil(error, @"");
              }];
 }
@@ -446,8 +428,7 @@
                                                                                        keys:@"first", @"second", nil];
 
     [filter filterReports:self.reportsWithDict
-             onCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error) {
-                 XCTAssertTrue(completed, @"");
+             onCompletion:^(NSArray *filteredReports, NSError *error) {
                  XCTAssertNil(error, @"");
                  XCTAssertEqualObjects([filteredReports objectAtIndex:0], expected, @"");
              }];
@@ -461,8 +442,7 @@
     filter = filter;
 
     [filter filterReports:self.reportsWithDict
-             onCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error) {
-                 XCTAssertTrue(completed, @"");
+             onCompletion:^(NSArray *filteredReports, NSError *error) {
                  XCTAssertNil(error, @"");
                  XCTAssertEqualObjects([filteredReports objectAtIndex:0], expected, @"");
              }];
@@ -477,8 +457,7 @@
     id<KSCrashReportFilter> filter = [KSCrashReportFilterSubset filterWithKeys:@"first", @"third", nil];
 
     [filter filterReports:self.reportsWithDict
-             onCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error) {
-                 XCTAssertTrue(completed, @"");
+             onCompletion:^(NSArray *filteredReports, NSError *error) {
                  XCTAssertNil(error, @"");
                  XCTAssertEqualObjects([filteredReports objectAtIndex:0], expected, @"");
              }];
@@ -489,8 +468,7 @@
     id<KSCrashReportFilter> filter = [KSCrashReportFilterSubset filterWithKeys:@"first", @"aaa", nil];
 
     [filter filterReports:self.reportsWithDict
-             onCompletion:^(__unused NSArray *filteredReports, BOOL completed, NSError *error) {
-                 XCTAssertFalse(completed, @"");
+             onCompletion:^(__unused NSArray *filteredReports, NSError *error) {
                  XCTAssertNotNil(error, @"");
              }];
 }
@@ -505,8 +483,7 @@
     filter = filter;
 
     [filter filterReports:self.reportsWithDict
-             onCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error) {
-                 XCTAssertTrue(completed, @"");
+             onCompletion:^(NSArray *filteredReports, NSError *error) {
                  XCTAssertNil(error, @"");
                  XCTAssertEqualObjects([filteredReports objectAtIndex:0], expected, @"");
              }];

@@ -60,8 +60,7 @@
 {
     id<KSCrashReportFilter> filter = [KSCrashReportFilterGZipCompress filterWithCompressionLevel:-1];
     [filter filterReports:self.decompressedReports
-             onCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error2) {
-                 XCTAssertTrue(completed, @"");
+             onCompletion:^(NSArray *filteredReports, NSError *error2) {
                  XCTAssertNil(error2, @"");
                  XCTAssertEqualObjects(filteredReports, self.compressedReports, @"");
              }];
@@ -71,8 +70,7 @@
 {
     id<KSCrashReportFilter> filter = [KSCrashReportFilterGZipDecompress filter];
     [filter filterReports:self.compressedReports
-             onCompletion:^(NSArray *filteredReports, BOOL completed, NSError *error2) {
-                 XCTAssertTrue(completed, @"");
+             onCompletion:^(NSArray *filteredReports, NSError *error2) {
                  XCTAssertNil(error2, @"");
                  XCTAssertEqualObjects(filteredReports, self.decompressedReports, @"");
              }];

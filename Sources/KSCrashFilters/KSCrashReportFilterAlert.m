@@ -213,7 +213,7 @@
 - (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
     KSLOG_WARN(@"Alert filter not available on this platform.");
-    kscrash_callCompletion(onCompletion, reports, YES, nil);
+    kscrash_callCompletion(onCompletion, reports, nil);
 }
 
 @end

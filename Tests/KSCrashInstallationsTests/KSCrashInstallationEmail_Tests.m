@@ -42,9 +42,8 @@
     installation.filenameFmt = @"someFile.txt.gz";
     [installation addConditionalAlertWithTitle:@"title" message:@"message" yesAnswer:@"Yes" noAnswer:@"No"];
     [installation installWithConfiguration:[KSCrashConfiguration new] error:NULL];
-    [installation sendAllReportsWithCompletion:^(__unused NSArray *filteredReports, BOOL completed, NSError *error) {
+    [installation sendAllReportsWithCompletion:^(__unused NSArray *filteredReports, NSError *error) {
         // There are no reports, so this will succeed.
-        XCTAssertTrue(completed, @"");
         XCTAssertNil(error, @"");
     }];
 }
@@ -61,8 +60,7 @@
 #pragma clang diagnostic pop
     [installation addUnconditionalAlertWithTitle:@"title" message:@"message" dismissButtonText:@"dismiss"];
     [installation installWithConfiguration:[KSCrashConfiguration new] error:NULL];
-    [installation sendAllReportsWithCompletion:^(__unused NSArray *filteredReports, BOOL completed, NSError *error) {
-        XCTAssertFalse(completed, @"");
+    [installation sendAllReportsWithCompletion:^(__unused NSArray *filteredReports, NSError *error) {
         XCTAssertNotNil(error, @"");
     }];
 }
