@@ -131,7 +131,7 @@ NSString *kscrash_getDefaultInstallPath(void)
 - (NSDictionary *)userInfo
 {
     const char *userInfoJSON = kscrash_getUserInfoJSON();
-    if (userInfoJSON != NULL) {
+    if (userInfoJSON != NULL && strlen(userInfoJSON) > 0) {
         NSError *error = nil;
         NSData *jsonData = [NSData dataWithBytes:userInfoJSON length:strlen(userInfoJSON)];
         NSDictionary *userInfoDict = [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:&error];
