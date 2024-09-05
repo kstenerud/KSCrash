@@ -45,7 +45,7 @@ extension ReportConfig {
             return
         }
         store.sink = CrashReportFilterPipeline(filters: [
-            CrashReportFilterAppleFmt(),
+            CrashReportFilterAppleFmt(reportStyle: .symbolicated),
             DirectorySink(url),
         ])
         store.sendAllReports()
