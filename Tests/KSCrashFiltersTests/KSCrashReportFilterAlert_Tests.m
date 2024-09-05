@@ -35,10 +35,10 @@
 
 - (void)testAlert
 {
-    id<KSCrashReportFilter> filter = [KSCrashReportFilterAlert filterWithTitle:@"title"
-                                                                       message:@"message"
-                                                                     yesAnswer:@"YES"
-                                                                      noAnswer:@"NO"];
+    id<KSCrashReportFilter> filter = [[KSCrashReportFilterAlert alloc] initWithTitle:@"title"
+                                                                             message:@"message"
+                                                                           yesAnswer:@"YES"
+                                                                            noAnswer:@"NO"];
 
     XCTestExpectation *expectation = [self expectationWithDescription:@"Filter completion"];
     [filter filterReports:[NSArray array]

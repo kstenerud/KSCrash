@@ -54,7 +54,7 @@
 
 - (void)testFilterJSONEncode
 {
-    id<KSCrashReportFilter> filter = [KSCrashReportFilterJSONEncode filterWithOptions:0];
+    id<KSCrashReportFilter> filter = [[KSCrashReportFilterJSONEncode alloc] initWithOptions:0];
     [filter filterReports:self.decodedReports
              onCompletion:^(NSArray *filteredReports, NSError *error2) {
                  XCTAssertNil(error2, @"");
@@ -68,7 +68,7 @@
         [KSCrashReportDictionary reportWithValue:@{ @1 : @2 }],  // Not a JSON
     ];
 
-    id<KSCrashReportFilter> filter = [KSCrashReportFilterJSONEncode filterWithOptions:0];
+    id<KSCrashReportFilter> filter = [[KSCrashReportFilterJSONEncode alloc] initWithOptions:0];
     [filter filterReports:decoded
              onCompletion:^(__unused NSArray *filteredReports, NSError *error2) {
                  XCTAssertNotNil(error2, @"");
@@ -77,7 +77,7 @@
 
 - (void)testFilterJSONDencode
 {
-    id<KSCrashReportFilter> filter = [KSCrashReportFilterJSONDecode filterWithOptions:0];
+    id<KSCrashReportFilter> filter = [[KSCrashReportFilterJSONDecode alloc] initWithOptions:0];
     [filter filterReports:self.encodedReports
              onCompletion:^(NSArray *filteredReports, NSError *error2) {
                  XCTAssertNil(error2, @"");
@@ -91,7 +91,7 @@
         [KSCrashReportData reportWithValue:[@"[\"1\"\",\"2\",\"3\"]" dataUsingEncoding:NSUTF8StringEncoding]],
     ];
 
-    id<KSCrashReportFilter> filter = [KSCrashReportFilterJSONDecode filterWithOptions:0];
+    id<KSCrashReportFilter> filter = [[KSCrashReportFilterJSONDecode alloc] initWithOptions:0];
     [filter filterReports:encoded
              onCompletion:^(__unused NSArray *filteredReports, NSError *error2) {
                  XCTAssertNotNil(error2, @"");
