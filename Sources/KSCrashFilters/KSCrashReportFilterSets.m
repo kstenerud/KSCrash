@@ -60,7 +60,7 @@
 + (id<KSCrashReportFilter>)createUserSystemFilterPipeline
 {
     return [[KSCrashReportFilterPipeline alloc] initWithFilters:@[
-        [[KSCrashReportFilterSubset alloc] initWithKeysArray:@[ KSCrashField_System, KSCrashField_User ]],
+        [[KSCrashReportFilterSubset alloc] initWithKeys:@[ KSCrashField_System, KSCrashField_User ]],
         [[KSCrashReportFilterJSONEncode alloc] initWithOptions:KSJSONEncodeOptionPretty | KSJSONEncodeOptionSorted],
         [KSCrashReportFilterDataToString new]
     ]];

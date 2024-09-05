@@ -44,8 +44,8 @@
 
 @interface KSCrashReportFilterCombine ()
 
-@property(nonatomic, readwrite, copy) NSArray<id<KSCrashReportFilter>>*filters;
-@property(nonatomic, readwrite, copy) NSArray<NSString *>*keys;
+@property(nonatomic, readwrite, copy) NSArray<id<KSCrashReportFilter>> *filters;
+@property(nonatomic, readwrite, copy) NSArray<NSString *> *keys;
 
 @end
 
@@ -58,33 +58,6 @@
         _keys = [filterDictionary.allKeys copy];
     }
     return self;
-}
-
-+ (KSVA_Block)argBlockWithFilters:(NSMutableArray *)filters andKeys:(NSMutableArray *)keys
-{
-    __block BOOL isKey = FALSE;
-    KSVA_Block block = ^(id entry) {
-        if (isKey) {
-            if (entry == nil) {
-                KSLOG_ERROR(@"key entry was nil");
-            } else {
-                [keys addObject:entry];
-            }
-        } else {
-            if ([entry isKindOfClass:[NSArray class]]) {
-                entry = [[KSCrashReportFilterPipeline alloc] initWithFilters:@[ entry ]];
-            }
-            if (![entry conformsToProtocol:@protocol(KSCrashReportFilter)]) {
-                KSLOG_ERROR(@"Not a filter: %@", entry);
-                // Cause next key entry to fail as well.
-                return;
-            } else {
-                [filters addObject:entry];
-            }
-        }
-        isKey = !isKey;
-    };
-    return [block copy];
 }
 
 - (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
@@ -306,7 +279,7 @@
 
 @implementation KSCrashReportFilterSubset
 
-- (instancetype)initWithKeysArray:(NSArray<NSString *> *)keyPaths
+- (instancetype)initWithKeys:(NSArray<NSString *> *)keyPaths
 {
     if ((self = [super init])) {
         NSMutableArray *realKeyPaths = [NSMutableArray array];

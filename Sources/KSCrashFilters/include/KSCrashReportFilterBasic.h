@@ -85,7 +85,7 @@ NS_SWIFT_NAME(CrashReportFilterPipeline)
  * @param filters An array of filters, where each filter conforms to
  *                the KSCrashReportFilter protocol.
  */
-- (instancetype)initWithFilters:(NSArray<KSCrashReportFilter> *)filters;
+- (instancetype)initWithFilters:(NSArray<id<KSCrashReportFilter>> *)filters;
 
 /** Adds a filter to the beginning of the pipeline.
  *
@@ -131,7 +131,7 @@ NS_SWIFT_NAME(CrashReportFilterSubset)
  * @param keyPaths An array of key paths to search for in the source reports.
  *                 Each key path will extract a subset of data from the reports.
  */
-- (instancetype)initWithKeysArray:(NSArray<NSString *> *)keyPaths;
+- (instancetype)initWithKeys:(NSArray<NSString *> *)keyPaths;
 
 @end
 
