@@ -323,7 +323,7 @@
 
 - (void)testFilterCombineNoFilters
 {
-    id<KSCrashReportFilter> filter = [KSCrashReportFilterCombine new];
+    id<KSCrashReportFilter> filter = [[KSCrashReportFilterCombine alloc] initWithFilters:@{}];
 
     [filter filterReports:self.reports
              onCompletion:^(NSArray *filteredReports, NSError *error) {

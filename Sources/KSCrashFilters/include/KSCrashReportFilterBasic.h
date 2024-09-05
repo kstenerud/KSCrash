@@ -51,6 +51,9 @@ NS_SWIFT_NAME(CrashReportFilterPassthrough)
 NS_SWIFT_NAME(CrashReportFilterCombine)
 @interface KSCrashReportFilterCombine : NSObject <KSCrashReportFilter>
 
+- (instancetype)init NS_UNAVAILABLE;
++ (instancetype)new NS_UNAVAILABLE;
+
 /**
  * Initializer.
  *
@@ -59,8 +62,7 @@ NS_SWIFT_NAME(CrashReportFilterCombine)
  *                         be used to store the output of their respective filters in
  *                         the final report dictionary. The values are the filters to
  *                         apply. Each filter should conform to the KSCrashReportFilter
- *                         protocol. If a filter value is an NSArray, it will be wrapped
- *                         in a pipeline filter.
+ *                         protocol.
  *
  * @return An initialized instance of the class.
  */
@@ -106,6 +108,9 @@ NS_SWIFT_NAME(CrashReportFilterPipeline)
 NS_SWIFT_NAME(CrashReportFilterConcatenate)
 @interface KSCrashReportFilterConcatenate : NSObject <KSCrashReportFilter>
 
+- (instancetype)init NS_UNAVAILABLE;
++ (instancetype)new NS_UNAVAILABLE;
+
 /** Initializer using an array of keys.
  *
  * @param separatorFmt Formatting text to use when separating the values. You may include
@@ -125,6 +130,9 @@ NS_SWIFT_NAME(CrashReportFilterConcatenate)
  */
 NS_SWIFT_NAME(CrashReportFilterSubset)
 @interface KSCrashReportFilterSubset : NSObject <KSCrashReportFilter>
+
+- (instancetype)init NS_UNAVAILABLE;
++ (instancetype)new NS_UNAVAILABLE;
 
 /** Initializer using an array of key paths.
  *

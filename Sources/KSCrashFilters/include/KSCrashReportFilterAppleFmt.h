@@ -107,6 +107,9 @@ typedef NS_ENUM(NSInteger, KSAppleReportStyle) {
 NS_SWIFT_NAME(CrashReportFilterAppleFmt)
 @interface KSCrashReportFilterAppleFmt : NSObject <KSCrashReportFilter>
 
+- (instancetype)init NS_UNAVAILABLE;
++ (instancetype)new NS_UNAVAILABLE;
+
 - (instancetype)initWithReportStyle:(KSAppleReportStyle)reportStyle;
 
 - (NSString *)headerStringForSystemInfo:(NSDictionary<NSString *, id> *)system

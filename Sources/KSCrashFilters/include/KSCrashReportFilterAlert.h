@@ -42,6 +42,9 @@ NS_ASSUME_NONNULL_BEGIN
 NS_SWIFT_NAME(CrashReportFilterAlert)
 @interface KSCrashReportFilterAlert : NSObject <KSCrashReportFilter>
 
+- (instancetype)init NS_UNAVAILABLE;
++ (instancetype)new NS_UNAVAILABLE;
+
 /**
  * @param title The title of the alert.
  * @param message The contents of the alert.

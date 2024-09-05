@@ -37,6 +37,9 @@ NS_ASSUME_NONNULL_BEGIN
 NS_SWIFT_NAME(CrashFilterSets)
 @interface KSCrashFilterSets : NSObject
 
+- (instancetype)init NS_UNAVAILABLE;
++ (instancetype)new NS_UNAVAILABLE;
+
 /** Create an Apple format filter that includes system and user data in JSON format.
  */
 + (id<KSCrashReportFilter>)appleFmtWithUserAndSystemData:(KSAppleReportStyle)reportStyle compressed:(BOOL)compressed;
