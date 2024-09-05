@@ -92,6 +92,17 @@ typedef NS_ENUM(NSUInteger, KSCrashAppMemoryState) {
 } NS_SWIFT_NAME(AppMemoryState);
 
 /**
+ * Helpers to convert to and from pressure/level and strings.
+ * `KSCrashAppMemoryStateToString` returns a `const char*`
+ * because it needs to be async safe.
+ */
+FOUNDATION_EXPORT const char *KSCrashAppMemoryStateToString(KSCrashAppMemoryState state)
+    NS_SWIFT_NAME(AppMemoryState.cString(self:));
+
+FOUNDATION_EXPORT KSCrashAppMemoryState KSCrashAppMemoryStateFromString(NSString *const string)
+    NS_SWIFT_NAME(AppMemoryState.fromString(_:));
+
+/**
  * AppMemory is a simple container object for everything important on Apple platforms
  * surrounding memory.
  */
@@ -127,15 +138,5 @@ NS_SWIFT_NAME(AppMemory)
 @property(readonly, nonatomic, assign) BOOL isOutOfMemory;
 
 @end
-
-/**
- * Helpers to convert to and from pressure/level and strings.
- * `KSCrashAppMemoryStateToString` returns a `const char*`
- * because it needs to be async safe.
- */
-FOUNDATION_EXPORT const char *KSCrashAppMemoryStateToString(KSCrashAppMemoryState state) NS_SWIFT_NAME(string(from:));
-
-FOUNDATION_EXPORT KSCrashAppMemoryState KSCrashAppMemoryStateFromString(NSString *const string)
-    NS_SWIFT_NAME(memoryState(from:));
 
 NS_ASSUME_NONNULL_END
