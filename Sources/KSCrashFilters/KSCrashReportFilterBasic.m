@@ -51,11 +51,11 @@
 
 @implementation KSCrashReportFilterCombine
 
-- (instancetype)initWithFilters:(NSArray *)filters keys:(NSArray<NSString *> *)keys
+- (instancetype)initWithFilterDictionary:(NSDictionary<NSString *, id> *)filterDictionary
 {
     if ((self = [super init])) {
-        _filters = [filters copy];
-        _keys = [keys copy];
+        _filters = [filterDictionary.allValues copy];
+        _keys = [filterDictionary.allKeys copy];
     }
     return self;
 }
@@ -72,7 +72,7 @@
             }
         } else {
             if ([entry isKindOfClass:[NSArray class]]) {
-                entry = [KSCrashReportFilterPipeline filterWithFilters:entry, nil];
+                entry = [[KSCrashReportFilterPipeline alloc] initWithFilters:@[ entry ]];
             }
             if (![entry conformsToProtocol:@protocol(KSCrashReportFilter)]) {
                 KSLOG_ERROR(@"Not a filter: %@", entry);

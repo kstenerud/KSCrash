@@ -51,16 +51,20 @@ NS_SWIFT_NAME(CrashReportFilterPassthrough)
 NS_SWIFT_NAME(CrashReportFilterCombine)
 @interface KSCrashReportFilterCombine : NSObject <KSCrashReportFilter>
 
-/** Initializer.
+/**
+ * Initializer.
  *
- * @param filters An array of filters to apply. Each filter should conform to the
- *                KSCrashReportFilter protocol. If a filter is an NSArray, it will
- *                be wrapped in a pipeline filter.
- * @param keys    An array of keys corresponding to each filter. Each key will be
- *                used to store the output of its respective filter in the final
- *                report dictionary.
+ * @param filterDictionary A dictionary where each key-value pair represents a filter
+ *                         and its corresponding key. The keys are strings that will
+ *                         be used to store the output of their respective filters in
+ *                         the final report dictionary. The values are the filters to
+ *                         apply. Each filter should conform to the KSCrashReportFilter
+ *                         protocol. If a filter value is an NSArray, it will be wrapped
+ *                         in a pipeline filter.
+ *
+ * @return An initialized instance of the class.
  */
-- (instancetype)initWithFilters:(NSArray *)filters keys:(NSArray<NSString *> *)keys;
+- (instancetype)initWithFilterDictionary:(NSDictionary<NSString *, id> *)filterDictionary;
 
 @end
 
