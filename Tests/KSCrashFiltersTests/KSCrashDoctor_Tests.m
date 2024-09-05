@@ -1,6 +1,6 @@
 #import <XCTest/XCTest.h>
 
-#import "KSCrashDoctor.h"
+#import "KSCrashReportFilterDoctor.h"
 #import "KSTestModuleConfig.h"
 
 @interface KSCrashDoctor_Tests : XCTestCase
@@ -18,14 +18,14 @@
 - (void)testGracefulTermination
 {
     id report = [self _crashReportAsJSON:@"sigterm"];
-    NSString *diagnostic = [[[KSCrashDoctor alloc] init] diagnoseCrash:report];
+    NSString *diagnostic = [KSCrashReportFilterDoctor diagnoseCrash:report];
     XCTAssertEqual(diagnostic, @"The OS request the app be gracefully terminated.");
 }
 
 - (void)testOOM
 {
     id report = [self _crashReportAsJSON:@"oom"];
-    NSString *diagnostic = [[[KSCrashDoctor alloc] init] diagnoseCrash:report];
+    NSString *diagnostic = [KSCrashReportFilterDoctor diagnoseCrash:report];
     XCTAssertEqual(diagnostic, @"The app was terminated due to running out of memory (OOM).");
 }
 
