@@ -204,7 +204,7 @@
 {
     return [KSCrashReportFilterPipeline
         filterWithFilters:[KSCrashReportFilterAppleFmt filterWithReportStyle:KSAppleReportStyleSymbolicatedSideBySide],
-                          [KSCrashReportFilterStringToData filter],
+                          [KSCrashReportFilterStringToData new],
                           [KSCrashReportFilterGZipCompress filterWithCompressionLevel:-1], self, nil];
 }
 

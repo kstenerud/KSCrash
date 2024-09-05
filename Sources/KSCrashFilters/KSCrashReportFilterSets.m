@@ -39,7 +39,7 @@
         filterWithFilters:[KSCrashReportFilterSubset filterWithKeys:KSCrashField_System, KSCrashField_User, nil],
                           [KSCrashReportFilterJSONEncode
                               filterWithOptions:KSJSONEncodeOptionPretty | KSJSONEncodeOptionSorted],
-                          [KSCrashReportFilterDataToString filter], nil];
+                          [KSCrashReportFilterDataToString new], nil];
 
     NSString *appleName = @"Apple Report";
     NSString *userSystemName = @"User & System Data";
@@ -52,7 +52,7 @@
                          nil];
 
     if (compressed) {
-        [filters addObject:[KSCrashReportFilterStringToData filter]];
+        [filters addObject:[KSCrashReportFilterStringToData new]];
         [filters addObject:[KSCrashReportFilterGZipCompress filterWithCompressionLevel:-1]];
     }
 
