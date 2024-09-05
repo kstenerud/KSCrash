@@ -49,18 +49,6 @@ NS_SWIFT_NAME(CrashReportFilterAlert)
  * @param noAnswer The text to put in the "no" button. If nil, the filter will
  *                 proceed unconditionally.
  */
-+ (instancetype)filterWithTitle:(NSString *)title
-                        message:(nullable NSString *)message
-                      yesAnswer:(NSString *)yesAnswer
-                       noAnswer:(nullable NSString *)noAnswer;
-
-/**
- * @param title The title of the alert.
- * @param message The contents of the alert.
- * @param yesAnswer The text to put in the "yes" button.
- * @param noAnswer The text to put in the "no" button. If nil, the filter will
- *                 proceed unconditionally.
- */
 - (instancetype)initWithTitle:(NSString *)title
                       message:(nullable NSString *)message
                     yesAnswer:(NSString *)yesAnswer

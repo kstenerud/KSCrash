@@ -87,27 +87,6 @@
     return [block copy];
 }
 
-+ (instancetype)filterWithFiltersAndKeys:(id)firstFilter, ...
-{
-    NSMutableArray *filters = [NSMutableArray array];
-    NSMutableArray *keys = [NSMutableArray array];
-    ksva_iterate_list(firstFilter, [self argBlockWithFilters:filters andKeys:keys]);
-    return [[self class] filterWithFilters:filters keys:keys];
-}
-
-+ (instancetype)filterWithFilters:(NSArray *)filters keys:(NSArray<NSString *> *)keys
-{
-    return [[self alloc] initWithFilters:filters keys:keys];
-}
-
-- (instancetype)initWithFiltersAndKeys:(id)firstFilter, ...
-{
-    NSMutableArray *filters = [NSMutableArray array];
-    NSMutableArray *keys = [NSMutableArray array];
-    ksva_iterate_list(firstFilter, [[self class] argBlockWithFilters:filters andKeys:keys]);
-    return [self initWithFilters:filters keys:keys];
-}
-
 - (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
     NSArray *filters = self.filters;
@@ -199,24 +178,7 @@
 
 @implementation KSCrashReportFilterPipeline
 
-+ (instancetype)filterWithFilters:(id)firstFilter, ...
-{
-    ksva_list_to_nsarray(firstFilter, filters);
-    return [[self class] filterWithFiltersArray:filters];
-}
-
-+ (instancetype)filterWithFiltersArray:(NSArray *)filters
-{
-    return [[self alloc] initWithFiltersArray:filters];
-}
-
-- (instancetype)initWithFilters:(id)firstFilter, ...
-{
-    ksva_list_to_nsarray(firstFilter, filters);
-    return [self initWithFiltersArray:filters];
-}
-
-- (instancetype)initWithFiltersArray:(NSArray *)filters
+- (instancetype)initWithFilters:(NSArray *)filters
 {
     if ((self = [super init])) {
         NSMutableArray *expandedFilters = [NSMutableArray array];
@@ -300,24 +262,7 @@
 
 @implementation KSCrashReportFilterConcatenate
 
-+ (instancetype)filterWithSeparatorFmt:(NSString *)separatorFmt keys:(id)firstKey, ...
-{
-    ksva_list_to_nsarray(firstKey, keys);
-    return [[self class] filterWithSeparatorFmt:separatorFmt keysArray:keys];
-}
-
-+ (instancetype)filterWithSeparatorFmt:(NSString *)separatorFmt keysArray:(NSArray<NSString *> *)keys
-{
-    return [[self alloc] initWithSeparatorFmt:separatorFmt keysArray:keys];
-}
-
-- (instancetype)initWithSeparatorFmt:(NSString *)separatorFmt keys:(id)firstKey, ...
-{
-    ksva_list_to_nsarray(firstKey, keys);
-    return [self initWithSeparatorFmt:separatorFmt keysArray:keys];
-}
-
-- (instancetype)initWithSeparatorFmt:(NSString *)separatorFmt keysArray:(NSArray<NSString *> *)keys
+- (instancetype)initWithSeparatorFmt:(NSString *)separatorFmt keys:(NSArray<NSString *> *)keys
 {
     if ((self = [super init])) {
         NSMutableArray *realKeys = [NSMutableArray array];
@@ -368,23 +313,6 @@
 @end
 
 @implementation KSCrashReportFilterSubset
-
-+ (instancetype)filterWithKeys:(id)firstKeyPath, ...
-{
-    ksva_list_to_nsarray(firstKeyPath, keyPaths);
-    return [[self class] filterWithKeysArray:keyPaths];
-}
-
-+ (instancetype)filterWithKeysArray:(NSArray<NSString *> *)keyPaths
-{
-    return [[self alloc] initWithKeysArray:keyPaths];
-}
-
-- (instancetype)initWithKeys:(id)firstKeyPath, ...
-{
-    ksva_list_to_nsarray(firstKeyPath, keyPaths);
-    return [self initWithKeysArray:keyPaths];
-}
 
 - (instancetype)initWithKeysArray:(NSArray<NSString *> *)keyPaths
 {

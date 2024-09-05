@@ -38,11 +38,6 @@
 
 @implementation KSCrashReportFilterJSONEncode
 
-+ (instancetype)filterWithOptions:(KSJSONEncodeOption)options
-{
-    return [[self alloc] initWithOptions:options];
-}
-
 - (instancetype)initWithOptions:(KSJSONEncodeOption)options
 {
     if ((self = [super init])) {
@@ -82,11 +77,6 @@
 @end
 
 @implementation KSCrashReportFilterJSONDecode
-
-+ (instancetype)filterWithOptions:(KSJSONDecodeOption)options
-{
-    return [[self alloc] initWithOptions:options];
-}
 
 - (instancetype)initWithOptions:(KSJSONDecodeOption)options
 {

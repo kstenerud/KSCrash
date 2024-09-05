@@ -57,17 +57,6 @@ static KSCrashReportCompressionLevel const KSCrashReportCompressionLevelDefault 
 NS_SWIFT_NAME(CrashReportFilterGZipCompress)
 @interface KSCrashReportFilterGZipCompress : NSObject <KSCrashReportFilter>
 
-/** Constructor.
- *
- * @param compressionLevel Compression level for Gzip compression. It can be
- *                         one of the following `KSCrashReportCompressionLevel` values:
- *                         - `KSCrashReportCompressionLevelNone` (0): No compression.
- *                         - `KSCrashReportCompressionLevelBest` (9): Best compression.
- *                         - `KSCrashReportCompressionLevelDefault` (-1): Default compression level.
- *                         The compression level can be any integer value between 0 and 9.
- */
-+ (instancetype)filterWithCompressionLevel:(KSCrashReportCompressionLevel)compressionLevel;
-
 /** Initializer.
  *
  * @param compressionLevel Compression level for Gzip compression. It can be

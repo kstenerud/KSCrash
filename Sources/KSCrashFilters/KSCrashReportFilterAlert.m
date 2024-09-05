@@ -141,14 +141,6 @@
 
 @implementation KSCrashReportFilterAlert
 
-+ (instancetype)filterWithTitle:(NSString *)title
-                        message:(nullable NSString *)message
-                      yesAnswer:(NSString *)yesAnswer
-                       noAnswer:(nullable NSString *)noAnswer;
-{
-    return [[self alloc] initWithTitle:title message:message yesAnswer:yesAnswer noAnswer:noAnswer];
-}
-
 - (instancetype)initWithTitle:(NSString *)title
                       message:(nullable NSString *)message
                     yesAnswer:(NSString *)yesAnswer
