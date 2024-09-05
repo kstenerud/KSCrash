@@ -43,7 +43,7 @@ NS_SWIFT_NAME(CrashReportSinkConsole)
 @property(class, readonly) KSCrashReportSinkConsole *filter;
 
 /** Returns the default crash report filter set. */
-- (id<KSCrashReportFilter>)defaultCrashReportFilterSet;
+@property(nonatomic, readonly) id<KSCrashReportFilter> defaultCrashReportFilterSet;
 
 @end
 
