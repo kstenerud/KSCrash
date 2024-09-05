@@ -33,6 +33,7 @@
 #import "KSCrashReportFilterAlert.h"
 #import "KSCrashReportFilterBasic.h"
 #import "KSCrashReportFilterDemangle.h"
+#import "KSCrashReportFilterDoctor.h"
 #import "KSJSONCodecObjC.h"
 #import "KSLogger.h"
 #import "KSNSErrorHelper.h"
@@ -146,6 +147,7 @@ static CrashHandlerData *g_crashHandlerData;
 {
     if ((self = [super init])) {
         _isDemangleEnabled = YES;
+        _isDoctorEnabled = YES;
         _crashHandlerDataBacking =
             [NSMutableData dataWithLength:sizeof(*self.crashHandlerData) +
                                           sizeof(*self.crashHandlerData->reportFields) * kMaxProperties];
@@ -317,6 +319,9 @@ static CrashHandlerData *g_crashHandlerData;
         self.prependedFilters,
         sink,
     ] mutableCopy];
+    if (self.isDoctorEnabled) {
+        [sinkFilters insertObject:[KSCrashReportFilterDoctor new] atIndex:0];
+    }
     if (self.isDemangleEnabled) {
         [sinkFilters insertObject:[KSCrashReportFilterDemangle new] atIndex:0];
     }
