@@ -25,8 +25,8 @@
 //
 
 #import "KSCrashReportFilterDoctor.h"
-#import "KSCrashReport.h"
 #import "KSCrashDoctor.h"
+#import "KSCrashReport.h"
 
 // #define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -50,7 +50,7 @@
             KSLOG_ERROR(@"Unexpected non-dictionary report: %@", report);
             continue;
         }
-        
+
         BOOL updated = NO;
         NSString *diagnose = [[self class] diagnoseCrash:report.value];
         NSMutableDictionary *crashReport = [report.value mutableCopy];
