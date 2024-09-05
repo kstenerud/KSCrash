@@ -64,7 +64,7 @@ NS_SWIFT_NAME(CrashReportFilterCombine)
  *
  * @return An initialized instance of the class.
  */
-- (instancetype)initWithFilterDictionary:(NSDictionary<NSString *, id> *)filterDictionary;
+- (instancetype)initWithFilters:(NSDictionary<NSString *, id<KSCrashReportFilter>> *)filterDictionary;
 
 @end
 

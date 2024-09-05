@@ -41,7 +41,7 @@
     id<KSCrashReportFilter> userSystemFilter = [self createUserSystemFilterPipeline];
 
     id<KSCrashReportFilter> combineFilter = [[KSCrashReportFilterCombine alloc]
-        initWithFilterDictionary:@{ kAppleReportName : appleFilter, kUserSystemDataName : userSystemFilter }];
+        initWithFilters:@{ kAppleReportName : appleFilter, kUserSystemDataName : userSystemFilter }];
 
     id<KSCrashReportFilter> concatenateFilter =
         [[KSCrashReportFilterConcatenate alloc] initWithSeparatorFmt:@"\n\n-------- %@ --------\n\n"

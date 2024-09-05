@@ -44,14 +44,14 @@
 
 @interface KSCrashReportFilterCombine ()
 
-@property(nonatomic, readwrite, copy) NSArray *filters;
-@property(nonatomic, readwrite, copy) NSArray *keys;
+@property(nonatomic, readwrite, copy) NSArray<id<KSCrashReportFilter>>*filters;
+@property(nonatomic, readwrite, copy) NSArray<NSString *>*keys;
 
 @end
 
 @implementation KSCrashReportFilterCombine
 
-- (instancetype)initWithFilterDictionary:(NSDictionary<NSString *, id> *)filterDictionary
+- (instancetype)initWithFilters:(NSDictionary<NSString *, id<KSCrashReportFilter>> *)filterDictionary
 {
     if ((self = [super init])) {
         _filters = [filterDictionary.allValues copy];
