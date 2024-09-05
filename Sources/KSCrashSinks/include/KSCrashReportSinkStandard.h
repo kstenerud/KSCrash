@@ -43,12 +43,6 @@ NS_SWIFT_NAME(CrashReportSinkStandard)
  *
  * @param url The URL to connect to.
  */
-+ (instancetype)sinkWithURL:(NSURL *)url;
-
-/** Constructor.
- *
- * @param url The URL to connect to.
- */
 - (instancetype)initWithURL:(NSURL *)url;
 
 @property(nonatomic, readonly) id<KSCrashReportFilter> defaultCrashReportFilterSet;

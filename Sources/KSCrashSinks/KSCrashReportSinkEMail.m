@@ -170,14 +170,6 @@
 
 @implementation KSCrashReportSinkEMail
 
-+ (instancetype)sinkWithRecipients:(NSArray<NSString *> *)recipients
-                           subject:(NSString *)subject
-                           message:(nullable NSString *)message
-                       filenameFmt:(NSString *)filenameFmt
-{
-    return [[self alloc] initWithRecipients:recipients subject:subject message:message filenameFmt:filenameFmt];
-}
-
 - (instancetype)initWithRecipients:(NSArray<NSString *> *)recipients
                            subject:(NSString *)subject
                            message:(nullable NSString *)message

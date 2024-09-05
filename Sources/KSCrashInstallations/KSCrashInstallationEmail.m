@@ -75,10 +75,10 @@
 
 - (id<KSCrashReportFilter>)sink
 {
-    KSCrashReportSinkEMail *sink = [KSCrashReportSinkEMail sinkWithRecipients:self.recipients
-                                                                      subject:self.subject
-                                                                      message:self.message
-                                                                  filenameFmt:self.filenameFmt];
+    KSCrashReportSinkEMail *sink = [[KSCrashReportSinkEMail alloc] initWithRecipients:self.recipients
+                                                                              subject:self.subject
+                                                                              message:self.message
+                                                                          filenameFmt:self.filenameFmt];
 
     switch (self.reportStyle) {
         case KSCrashEmailReportStyleApple:

@@ -44,20 +44,6 @@ NS_SWIFT_NAME(CrashReportSinkEmail)
  * @param filenameFmt How to name the attachments. You may use "%d" to differentiate
  *                    when multiple reports are sent at once.
  *                    Note: With the default filter set, files are gzipped text.
- * @return A new instance of KSCrashReportSinkEMail configured with the specified parameters.
- */
-+ (instancetype)sinkWithRecipients:(NSArray<NSString *> *)recipients
-                           subject:(NSString *)subject
-                           message:(nullable NSString *)message
-                       filenameFmt:(NSString *)filenameFmt;
-
-/**
- * @param recipients List of email addresses to send to.
- * @param subject What to put in the subject field.
- * @param message A message to accompany the reports (optional - nil = ignore).
- * @param filenameFmt How to name the attachments. You may use "%d" to differentiate
- *                    when multiple reports are sent at once.
- *                    Note: With the default filter set, files are gzipped text.
  */
 - (instancetype)initWithRecipients:(NSArray<NSString *> *)recipients
                            subject:(NSString *)subject

@@ -49,7 +49,7 @@
 
 - (id<KSCrashReportFilter>)sink
 {
-    KSCrashReportSinkStandard *sink = [KSCrashReportSinkStandard sinkWithURL:self.url];
+    KSCrashReportSinkStandard *sink = [[KSCrashReportSinkStandard alloc] initWithURL:self.url];
     return [[KSCrashReportFilterPipeline alloc] initWithFilters:@[ sink.defaultCrashReportFilterSet ]];
 }
 

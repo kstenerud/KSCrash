@@ -46,11 +46,6 @@
 
 @implementation KSCrashReportSinkStandard
 
-+ (instancetype)sinkWithURL:(NSURL *)url
-{
-    return [[self alloc] initWithURL:url];
-}
-
 - (instancetype)initWithURL:(NSURL *)url
 {
     if ((self = [super init])) {
