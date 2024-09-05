@@ -194,18 +194,21 @@
 
 - (id<KSCrashReportFilter>)defaultCrashReportFilterSet
 {
-    return [KSCrashReportFilterPipeline
-        filterWithFilters:[KSCrashReportFilterJSONEncode
-                              filterWithOptions:KSJSONEncodeOptionSorted | KSJSONEncodeOptionPretty],
-                          [KSCrashReportFilterGZipCompress filterWithCompressionLevel:-1], self, nil];
+    return [[KSCrashReportFilterPipeline alloc] initWithFilters:@[
+        [[KSCrashReportFilterJSONEncode alloc] initWithOptions:KSJSONEncodeOptionSorted | KSJSONEncodeOptionPretty],
+        [[KSCrashReportFilterGZipCompress alloc] initWithCompressionLevel:-1],
+        self,
+    ]];
 }
 
 - (id<KSCrashReportFilter>)defaultCrashReportFilterSetAppleFmt
 {
-    return [KSCrashReportFilterPipeline
-        filterWithFilters:[KSCrashReportFilterAppleFmt filterWithReportStyle:KSAppleReportStyleSymbolicatedSideBySide],
-                          [KSCrashReportFilterStringToData new],
-                          [KSCrashReportFilterGZipCompress filterWithCompressionLevel:-1], self, nil];
+    return [[KSCrashReportFilterPipeline alloc] initWithFilters:@[
+        [[KSCrashReportFilterAppleFmt alloc] initWithReportStyle:KSAppleReportStyleSymbolicatedSideBySide],
+        [KSCrashReportFilterStringToData new],
+        [[KSCrashReportFilterGZipCompress alloc] initWithCompressionLevel:-1],
+        self,
+    ]];
 }
 
 - (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion

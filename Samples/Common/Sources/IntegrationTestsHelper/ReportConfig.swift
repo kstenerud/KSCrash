@@ -44,7 +44,7 @@ extension ReportConfig {
         guard let store = KSCrash.shared.reportStore else {
             return
         }
-        store.sink = CrashReportFilterPipeline(filtersArray: [
+        store.sink = CrashReportFilterPipeline(filters: [
             CrashReportFilterAppleFmt(),
             DirectorySink(url),
         ])

@@ -151,7 +151,7 @@ static CrashHandlerData *g_crashHandlerData;
                                           sizeof(*self.crashHandlerData->reportFields) * kMaxProperties];
         _fields = [NSMutableDictionary dictionary];
         _requiredProperties = [requiredProperties copy];
-        _prependedFilters = [KSCrashReportFilterPipeline filterWithFilters:nil];
+        _prependedFilters = [KSCrashReportFilterPipeline new];
     }
     return self;
 }
@@ -320,7 +320,7 @@ static CrashHandlerData *g_crashHandlerData;
     if (self.isDemangleEnabled) {
         [sinkFilters insertObject:[KSCrashReportFilterDemangle new] atIndex:0];
     }
-    sink = [KSCrashReportFilterPipeline filterWithFiltersArray:sinkFilters];
+    sink = [[KSCrashReportFilterPipeline alloc] initWithFilters:sinkFilters];
 
     KSCrashReportStore *store = [KSCrash sharedInstance].reportStore;
     if (store == nil) {
@@ -351,10 +351,10 @@ static CrashHandlerData *g_crashHandlerData;
                            yesAnswer:(NSString *)yesAnswer
                             noAnswer:(NSString *)noAnswer
 {
-    [self addPreFilter:[KSCrashReportFilterAlert filterWithTitle:title
-                                                         message:message
-                                                       yesAnswer:yesAnswer
-                                                        noAnswer:noAnswer]];
+    [self addPreFilter:[[KSCrashReportFilterAlert alloc] initWithTitle:title
+                                                               message:message
+                                                             yesAnswer:yesAnswer
+                                                              noAnswer:noAnswer]];
 
     KSCrashReportStore *store = [KSCrash sharedInstance].reportStore;
     if (store.reportCleanupPolicy == KSCrashReportCleanupPolicyOnSuccess) {
@@ -368,10 +368,10 @@ static CrashHandlerData *g_crashHandlerData;
                                message:(NSString *)message
                      dismissButtonText:(NSString *)dismissButtonText
 {
-    [self addPreFilter:[KSCrashReportFilterAlert filterWithTitle:title
-                                                         message:message
-                                                       yesAnswer:dismissButtonText
-                                                        noAnswer:nil]];
+    [self addPreFilter:[[KSCrashReportFilterAlert alloc] initWithTitle:title
+                                                               message:message
+                                                             yesAnswer:dismissButtonText
+                                                              noAnswer:nil]];
 }
 
 @end
