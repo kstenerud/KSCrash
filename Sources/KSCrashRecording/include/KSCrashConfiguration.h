@@ -45,7 +45,7 @@ NS_ASSUME_NONNULL_BEGIN
 /** The configuration for report store.
  * @note See `KSCrashStoreConfiguration` for more details.
  */
-@property(nonatomic, strong, readonly) KSCrashReportStoreConfiguration *reportStoreConfiguration;
+@property(nonatomic, strong) KSCrashReportStoreConfiguration *reportStoreConfiguration;
 
 /** The crash types that will be handled.
  * Some crash types may not be enabled depending on circumstances (e.g., running in a debugger).
