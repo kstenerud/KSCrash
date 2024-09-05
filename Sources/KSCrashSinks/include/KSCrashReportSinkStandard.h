@@ -51,7 +51,7 @@ NS_SWIFT_NAME(CrashReportSinkStandard)
  */
 - (instancetype)initWithURL:(NSURL *)url;
 
-- (id<KSCrashReportFilter>)defaultCrashReportFilterSet;
+@property(nonatomic, readonly) id<KSCrashReportFilter> defaultCrashReportFilterSet;
 
 @end
 

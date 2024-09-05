@@ -64,8 +64,8 @@ NS_SWIFT_NAME(CrashReportSinkEmail)
                            message:(nullable NSString *)message
                        filenameFmt:(NSString *)filenameFmt;
 
-- (id<KSCrashReportFilter>)defaultCrashReportFilterSet;
-- (id<KSCrashReportFilter>)defaultCrashReportFilterSetAppleFmt;
+@property(nonatomic, readonly) id<KSCrashReportFilter> defaultCrashReportFilterSet;
+@property(nonatomic, readonly) id<KSCrashReportFilter> defaultCrashReportFilterSetAppleFmt;
 
 @end
 
