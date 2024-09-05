@@ -82,11 +82,10 @@ NS_SWIFT_NAME(CrashReportFilterPipeline)
 
 /** Initializer using an array of filters.
  *
- * @param filters An array where each element can be a filter conforming to
- *                the KSCrashReportFilter protocol or a location of filters.
- *                Arrays of filters will be wrapped in a pipeline filter.
+ * @param filters An array of filters, where each filter conforms to
+ *                the KSCrashReportFilter protocol.
  */
-- (instancetype)initWithFilters:(NSArray *)filters;
+- (instancetype)initWithFilters:(NSArray<KSCrashReportFilter> *)filters;
 
 /** Adds a filter to the beginning of the pipeline.
  *

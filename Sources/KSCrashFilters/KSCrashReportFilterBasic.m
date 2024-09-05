@@ -178,18 +178,10 @@
 
 @implementation KSCrashReportFilterPipeline
 
-- (instancetype)initWithFilters:(NSArray *)filters
+- (instancetype)initWithFilters:(NSArray<id<KSCrashReportFilter>> *)filters
 {
     if ((self = [super init])) {
-        NSMutableArray *expandedFilters = [NSMutableArray array];
-        for (id<KSCrashReportFilter> filter in filters) {
-            if ([filter isKindOfClass:[NSArray class]]) {
-                [expandedFilters addObjectsFromArray:(NSArray *)filter];
-            } else {
-                [expandedFilters addObject:filter];
-            }
-        }
-        _filters = [expandedFilters copy];
+        _filters = [filters copy];
     }
     return self;
 }
