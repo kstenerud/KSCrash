@@ -35,11 +35,6 @@
 
 @implementation KSCrashReportFilterPassthrough
 
-+ (instancetype)filter
-{
-    return [[self alloc] init];
-}
-
 - (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
     kscrash_callCompletion(onCompletion, reports, nil);
@@ -439,11 +434,6 @@
 
 @implementation KSCrashReportFilterDataToString
 
-+ (instancetype)filter
-{
-    return [[self alloc] init];
-}
-
 - (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
     NSMutableArray<id<KSCrashReport>> *filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
@@ -467,11 +457,6 @@
 @end
 
 @implementation KSCrashReportFilterStringToData
-
-+ (instancetype)filter
-{
-    return [[self alloc] init];
-}
 
 - (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {

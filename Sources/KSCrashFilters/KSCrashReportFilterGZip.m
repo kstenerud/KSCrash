@@ -80,11 +80,6 @@
 
 @implementation KSCrashReportFilterGZipDecompress
 
-+ (instancetype)filter
-{
-    return [[self alloc] init];
-}
-
 - (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
     NSMutableArray<id<KSCrashReport>> *filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];

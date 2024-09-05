@@ -34,11 +34,6 @@
 
 @implementation KSCrashReportSinkConsole
 
-+ (instancetype)filter
-{
-    return [[self alloc] init];
-}
-
 - (id<KSCrashReportFilter>)defaultCrashReportFilterSet
 {
     return [KSCrashReportFilterPipeline

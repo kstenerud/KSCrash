@@ -89,12 +89,6 @@ NS_SWIFT_NAME(CrashReportFilterGZipCompress)
 NS_SWIFT_NAME(CrashReportFilterGZipDecompress)
 @interface KSCrashReportFilterGZipDecompress : NSObject <KSCrashReportFilter>
 
-/** Constructor.
- *
- * Creates an instance of the filter for Gzip decompression.
- */
-@property(class, readonly) KSCrashReportFilterGZipDecompress *filter;
-
 @end
 
 NS_ASSUME_NONNULL_END
