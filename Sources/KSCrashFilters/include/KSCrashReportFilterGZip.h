@@ -93,7 +93,7 @@ NS_SWIFT_NAME(CrashReportFilterGZipDecompress)
  *
  * Creates an instance of the filter for Gzip decompression.
  */
-+ (instancetype)filter;
+@property(class, readonly) KSCrashReportFilterGZipDecompress *filter NS_SWIFT_NAME(filter);
 
 @end
 

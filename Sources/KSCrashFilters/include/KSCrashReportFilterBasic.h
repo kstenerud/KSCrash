@@ -39,7 +39,7 @@ NS_ASSUME_NONNULL_BEGIN
 NS_SWIFT_NAME(CrashReportFilterPassthrough)
 @interface KSCrashReportFilterPassthrough : NSObject <KSCrashReportFilter>
 
-+ (instancetype)filter;
+@property(class, readonly) KSCrashReportFilterPassthrough *filter NS_SWIFT_NAME(filter);
 
 @end
 
@@ -238,7 +238,7 @@ NS_SWIFT_NAME(CrashReportFilterSubset)
 NS_SWIFT_NAME(CrashReportFilterDataToString)
 @interface KSCrashReportFilterDataToString : NSObject <KSCrashReportFilter>
 
-+ (instancetype)filter;
+@property(class, readonly) KSCrashReportFilterDataToString *filter NS_SWIFT_NAME(filter);
 
 @end
 
@@ -251,7 +251,7 @@ NS_SWIFT_NAME(CrashReportFilterDataToString)
 NS_SWIFT_NAME(CrashReportFilterStringToData)
 @interface KSCrashReportFilterStringToData : NSObject <KSCrashReportFilter>
 
-+ (instancetype)filter;
+@property(class, readonly) KSCrashReportFilterStringToData *filter NS_SWIFT_NAME(filter);
 
 @end
 
