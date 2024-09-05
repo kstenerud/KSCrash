@@ -45,7 +45,7 @@ public extension CrashReportStore {
     }
 
     func logToConsole() {
-        sink = CrashReportSinkConsole.filter().defaultCrashReportFilterSet()
+        sink = CrashReportSinkConsole.filter.defaultCrashReportFilterSet
         sendAllReports { reports, error in
             if let reports {
                 Self.logger.info("Logged \(reports.count) reports")
