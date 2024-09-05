@@ -34,7 +34,7 @@ NS_ASSUME_NONNULL_BEGIN
 NS_SWIFT_NAME(CrashReportFilterStringify)
 @interface KSCrashReportFilterStringify : NSObject <KSCrashReportFilter>
 
-@property(class, readonly) KSCrashReportFilterStringify *filter NS_SWIFT_NAME(filter);
+@property(class, readonly) KSCrashReportFilterStringify *filter;
 
 @end
 

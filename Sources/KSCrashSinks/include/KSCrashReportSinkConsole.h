@@ -40,7 +40,7 @@ NS_SWIFT_NAME(CrashReportSinkConsole)
 @interface KSCrashReportSinkConsole : NSObject <KSCrashReportFilter>
 
 /** Creates a new filter for printing reports to the console. */
-@property(class, readonly) KSCrashReportSinkConsole *filter NS_SWIFT_NAME(filter);
+@property(class, readonly) KSCrashReportSinkConsole *filter;
 
 /** Returns the default crash report filter set. */
 - (id<KSCrashReportFilter>)defaultCrashReportFilterSet;
