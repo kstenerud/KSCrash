@@ -37,6 +37,9 @@ NS_ASSUME_NONNULL_BEGIN
 NS_SWIFT_NAME(CrashReportSinkEmail)
 @interface KSCrashReportSinkEMail : NSObject <KSCrashReportFilter>
 
+- (instancetype)init NS_UNAVAILABLE;
++ (instancetype)new NS_UNAVAILABLE;
+
 /**
  * @param recipients List of email addresses to send to.
  * @param subject What to put in the subject field.

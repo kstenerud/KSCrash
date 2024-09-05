@@ -39,6 +39,9 @@ NS_ASSUME_NONNULL_BEGIN
 NS_SWIFT_NAME(CrashReportSinkStandard)
 @interface KSCrashReportSinkStandard : NSObject <KSCrashReportFilter>
 
+- (instancetype)init NS_UNAVAILABLE;
++ (instancetype)new NS_UNAVAILABLE;
+
 /** Constructor.
  *
  * @param url The URL to connect to.
