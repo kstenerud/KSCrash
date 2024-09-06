@@ -107,10 +107,25 @@ typedef NS_ENUM(NSInteger, KSAppleReportStyle) {
 NS_SWIFT_NAME(CrashReportFilterAppleFmt)
 @interface KSCrashReportFilterAppleFmt : NSObject <KSCrashReportFilter>
 
-+ (instancetype)filterWithReportStyle:(KSAppleReportStyle)reportStyle;
-
+/** Initialize with a specific Apple report style.
+ * @param reportStyle The Apple report style to use for symbolication.
+ * @return The initialized instance.
+ * @see KSAppleReportStyle for detailed information on symbolication options.
+ */
 - (instancetype)initWithReportStyle:(KSAppleReportStyle)reportStyle;
 
+/** Default initializer.
+ * @return The initialized instance with KSAppleReportStyleSymbolicated.
+ * @note This style symbolicates all stack trace entries.
+ */
+- (instancetype)init;
+
+/** Generate a header string for the Apple-style crash report.
+ * @param system Dictionary containing system information (e.g., device, OS, app details).
+ * @param reportID Unique identifier for the crash report.
+ * @param crashTime Timestamp of when the crash occurred.
+ * @return Formatted header string including incident identifier, hardware model, process info, OS version, etc.
+ */
 - (NSString *)headerStringForSystemInfo:(NSDictionary<NSString *, id> *)system
                                reportID:(nullable NSString *)reportID
                               crashTime:(nullable NSDate *)crashTime;

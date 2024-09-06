@@ -39,9 +39,16 @@ NS_ASSUME_NONNULL_BEGIN
 NS_SWIFT_NAME(CrashReportFilterJSONEncode)
 @interface KSCrashReportFilterJSONEncode : NSObject <KSCrashReportFilter>
 
-+ (instancetype)filterWithOptions:(KSJSONEncodeOption)options;
-
+/** Initialize with encoding options.
+ * @param options The JSON encoding options to use.
+ * @return The initialized instance.
+ */
 - (instancetype)initWithOptions:(KSJSONEncodeOption)options;
+
+/** Default initializer.
+ * @return The initialized instance with KSJSONEncodeOptionNone.
+ */
+- (instancetype)init;
 
 @end
 
@@ -53,9 +60,16 @@ NS_SWIFT_NAME(CrashReportFilterJSONEncode)
 NS_SWIFT_NAME(CrashReportFilterJSONDecode)
 @interface KSCrashReportFilterJSONDecode : NSObject <KSCrashReportFilter>
 
-+ (instancetype)filterWithOptions:(KSJSONDecodeOption)options;
-
+/** Initialize with decoding options.
+ * @param options The JSON decoding options to use.
+ * @return The initialized instance.
+ */
 - (instancetype)initWithOptions:(KSJSONDecodeOption)options;
+
+/** Default initializer.
+ * @return The initialized instance with KSJSONDecodeOptionNone.
+ */
+- (instancetype)init;
 
 @end
 

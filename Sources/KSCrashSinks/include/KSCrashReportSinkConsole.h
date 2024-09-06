@@ -39,11 +39,8 @@ NS_ASSUME_NONNULL_BEGIN
 NS_SWIFT_NAME(CrashReportSinkConsole)
 @interface KSCrashReportSinkConsole : NSObject <KSCrashReportFilter>
 
-/** Creates a new filter for printing reports to the console. */
-+ (instancetype)filter;
-
 /** Returns the default crash report filter set. */
-- (id<KSCrashReportFilter>)defaultCrashReportFilterSet;
+@property(nonatomic, readonly) id<KSCrashReportFilter> defaultCrashReportFilterSet;
 
 @end
 

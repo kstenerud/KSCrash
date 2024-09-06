@@ -56,15 +56,15 @@
 {
     id<KSCrashReportFilter> formatFilter;
     if (self.printAppleFormat) {
-        formatFilter = [KSCrashReportFilterAppleFmt filterWithReportStyle:KSAppleReportStyleSymbolicated];
+        formatFilter = [[KSCrashReportFilterAppleFmt alloc] initWithReportStyle:KSAppleReportStyleSymbolicated];
     } else {
-        formatFilter = [KSCrashReportFilterPipeline
-            filterWithFilters:[KSCrashReportFilterJSONEncode
-                                  filterWithOptions:KSJSONEncodeOptionPretty | KSJSONEncodeOptionSorted],
-                              [KSCrashReportFilterStringify new], nil];
+        formatFilter = [[KSCrashReportFilterPipeline alloc] initWithFilters:@[
+            [[KSCrashReportFilterJSONEncode alloc] initWithOptions:KSJSONEncodeOptionPretty | KSJSONEncodeOptionSorted],
+            [KSCrashReportFilterStringify new],
+        ]];
     }
 
-    return [KSCrashReportFilterPipeline filterWithFilters:formatFilter, [KSCrashReportSinkConsole new], nil];
+    return [[KSCrashReportFilterPipeline alloc] initWithFilters:@[ formatFilter, [KSCrashReportSinkConsole new] ]];
 }
 
 @end

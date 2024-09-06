@@ -31,11 +31,6 @@
 
 @implementation KSCrashReportFilterStringify
 
-+ (instancetype)filter
-{
-    return [[self alloc] init];
-}
-
 - (NSString *)stringifyReport:(id<KSCrashReport>)report
 {
     if ([report isKindOfClass:[KSCrashReportString class]]) {

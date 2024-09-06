@@ -34,16 +34,12 @@
 
 @implementation KSCrashReportSinkConsole
 
-+ (instancetype)filter
-{
-    return [[self alloc] init];
-}
-
 - (id<KSCrashReportFilter>)defaultCrashReportFilterSet
 {
-    return [KSCrashReportFilterPipeline
-        filterWithFilters:[KSCrashReportFilterAppleFmt filterWithReportStyle:KSAppleReportStyleSymbolicated], self,
-                          nil];
+    return [[KSCrashReportFilterPipeline alloc] initWithFilters:@[
+        [[KSCrashReportFilterAppleFmt alloc] initWithReportStyle:KSAppleReportStyleSymbolicated],
+        self,
+    ]];
 }
 
 - (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion

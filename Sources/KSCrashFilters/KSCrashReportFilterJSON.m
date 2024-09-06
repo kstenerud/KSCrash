@@ -38,17 +38,17 @@
 
 @implementation KSCrashReportFilterJSONEncode
 
-+ (instancetype)filterWithOptions:(KSJSONEncodeOption)options
-{
-    return [[self alloc] initWithOptions:options];
-}
-
 - (instancetype)initWithOptions:(KSJSONEncodeOption)options
 {
     if ((self = [super init])) {
         _encodeOptions = options;
     }
     return self;
+}
+
+- (instancetype)init
+{
+    return [self initWithOptions:KSJSONEncodeOptionNone];
 }
 
 - (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
@@ -83,17 +83,17 @@
 
 @implementation KSCrashReportFilterJSONDecode
 
-+ (instancetype)filterWithOptions:(KSJSONDecodeOption)options
-{
-    return [[self alloc] initWithOptions:options];
-}
-
 - (instancetype)initWithOptions:(KSJSONDecodeOption)options
 {
     if ((self = [super init])) {
         _decodeOptions = options;
     }
     return self;
+}
+
+- (instancetype)init
+{
+    return [self initWithOptions:KSJSONDecodeOptionNone];
 }
 
 - (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion

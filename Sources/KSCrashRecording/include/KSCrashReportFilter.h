@@ -65,6 +65,7 @@ NS_SWIFT_NAME(CrashReportFilter)
 static inline void kscrash_callCompletion(KSCrashReportFilterCompletion _Nullable onCompletion,
                                           NSArray<id<KSCrashReport>> *_Nullable filteredReports,
                                           NSError *_Nullable error)
+    NS_SWIFT_NAME(KSCrash.callCompletion(_:filteredReports:error:))
 {
     if (onCompletion) {
         onCompletion(filteredReports, error);

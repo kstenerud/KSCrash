@@ -58,7 +58,7 @@
 
 - (void)testFilterGZipCompress
 {
-    id<KSCrashReportFilter> filter = [KSCrashReportFilterGZipCompress filterWithCompressionLevel:-1];
+    id<KSCrashReportFilter> filter = [[KSCrashReportFilterGZipCompress alloc] initWithCompressionLevel:-1];
     [filter filterReports:self.decompressedReports
              onCompletion:^(NSArray *filteredReports, NSError *error2) {
                  XCTAssertNil(error2, @"");
@@ -68,7 +68,7 @@
 
 - (void)testFilterGZipDecompress
 {
-    id<KSCrashReportFilter> filter = [KSCrashReportFilterGZipDecompress filter];
+    id<KSCrashReportFilter> filter = [KSCrashReportFilterGZipDecompress new];
     [filter filterReports:self.compressedReports
              onCompletion:^(NSArray *filteredReports, NSError *error2) {
                  XCTAssertNil(error2, @"");

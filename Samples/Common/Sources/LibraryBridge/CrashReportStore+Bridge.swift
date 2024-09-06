@@ -45,7 +45,7 @@ public extension CrashReportStore {
     }
 
     func logToConsole() {
-        sink = CrashReportSinkConsole.filter().defaultCrashReportFilterSet()
+        sink = CrashReportSinkConsole().defaultCrashReportFilterSet
         sendAllReports { reports, error in
             if let reports {
                 Self.logger.info("Logged \(reports.count) reports")
@@ -68,7 +68,7 @@ public extension CrashReportStore {
     }
 
     func logWithAlert() {
-        sink = CrashReportFilterPipeline(filtersArray: [
+        sink = CrashReportFilterPipeline(filters: [
             CrashReportFilterAlert(title: "Sample Alert", message: "Do you want to log?", yesAnswer: "Yes", noAnswer: "No"),
             CrashReportFilterAppleFmt(),
             CrashReportSinkConsole(),
@@ -77,7 +77,7 @@ public extension CrashReportStore {
     }
 
     func sampleLogToConsole() {
-        sink = CrashReportFilterPipeline(filtersArray: [
+        sink = CrashReportFilterPipeline(filters: [
             CrashReportFilterDemangle(),
             SampleFilter(),
             SampleSink(),

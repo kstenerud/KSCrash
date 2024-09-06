@@ -34,29 +34,36 @@
 
 + (id<KSCrashReportFilter>)appleFmtWithUserAndSystemData:(KSAppleReportStyle)reportStyle compressed:(BOOL)compressed
 {
-    id<KSCrashReportFilter> appleFilter = [KSCrashReportFilterAppleFmt filterWithReportStyle:reportStyle];
-    id<KSCrashReportFilter> userSystemFilter = [KSCrashReportFilterPipeline
-        filterWithFilters:[KSCrashReportFilterSubset filterWithKeys:KSCrashField_System, KSCrashField_User, nil],
-                          [KSCrashReportFilterJSONEncode
-                              filterWithOptions:KSJSONEncodeOptionPretty | KSJSONEncodeOptionSorted],
-                          [KSCrashReportFilterDataToString filter], nil];
+    NSString *const kAppleReportName = @"Apple Report";
+    NSString *const kUserSystemDataName = @"User & System Data";
 
-    NSString *appleName = @"Apple Report";
-    NSString *userSystemName = @"User & System Data";
+    id<KSCrashReportFilter> appleFilter = [[KSCrashReportFilterAppleFmt alloc] initWithReportStyle:reportStyle];
+    id<KSCrashReportFilter> userSystemFilter = [self createUserSystemFilterPipeline];
 
-    NSMutableArray *filters = [NSMutableArray
-        arrayWithObjects:[KSCrashReportFilterCombine
-                             filterWithFiltersAndKeys:appleFilter, appleName, userSystemFilter, userSystemName, nil],
-                         [KSCrashReportFilterConcatenate filterWithSeparatorFmt:@"\n\n-------- %@ --------\n\n"
-                                                                           keys:appleName, userSystemName, nil],
-                         nil];
+    id<KSCrashReportFilter> combineFilter = [[KSCrashReportFilterCombine alloc]
+        initWithFilters:@{ kAppleReportName : appleFilter, kUserSystemDataName : userSystemFilter }];
+
+    id<KSCrashReportFilter> concatenateFilter =
+        [[KSCrashReportFilterConcatenate alloc] initWithSeparatorFmt:@"\n\n-------- %@ --------\n\n"
+                                                                keys:@[ kAppleReportName, kUserSystemDataName ]];
+
+    NSMutableArray *mainFilters = [NSMutableArray arrayWithObjects:combineFilter, concatenateFilter, nil];
 
     if (compressed) {
-        [filters addObject:[KSCrashReportFilterStringToData filter]];
-        [filters addObject:[KSCrashReportFilterGZipCompress filterWithCompressionLevel:-1]];
+        [mainFilters addObject:[KSCrashReportFilterStringToData new]];
+        [mainFilters addObject:[[KSCrashReportFilterGZipCompress alloc] initWithCompressionLevel:-1]];
     }
 
-    return [KSCrashReportFilterPipeline filterWithFilters:filters, nil];
+    return [[KSCrashReportFilterPipeline alloc] initWithFilters:mainFilters];
+}
+
++ (id<KSCrashReportFilter>)createUserSystemFilterPipeline
+{
+    return [[KSCrashReportFilterPipeline alloc] initWithFilters:@[
+        [[KSCrashReportFilterSubset alloc] initWithKeys:@[ KSCrashField_System, KSCrashField_User ]],
+        [[KSCrashReportFilterJSONEncode alloc] initWithOptions:KSJSONEncodeOptionPretty | KSJSONEncodeOptionSorted],
+        [KSCrashReportFilterDataToString new]
+    ]];
 }
 
 @end

@@ -70,6 +70,17 @@
     return self;
 }
 
+- (void)setReportStoreConfiguration:(KSCrashReportStoreConfiguration *)reportStoreConfiguration
+{
+    if (reportStoreConfiguration == nil) {
+        @throw [NSException exceptionWithName:NSInvalidArgumentException
+                                       reason:@"reportStoreConfiguration cannot be set to nil"
+                                     userInfo:nil];
+    }
+
+    _reportStoreConfiguration = reportStoreConfiguration;
+}
+
 - (KSCrashCConfiguration)toCConfiguration
 {
     KSCrashCConfiguration config = KSCrashCConfiguration_Default();

@@ -170,14 +170,6 @@
 
 @implementation KSCrashReportSinkEMail
 
-+ (instancetype)sinkWithRecipients:(NSArray<NSString *> *)recipients
-                           subject:(NSString *)subject
-                           message:(nullable NSString *)message
-                       filenameFmt:(NSString *)filenameFmt
-{
-    return [[self alloc] initWithRecipients:recipients subject:subject message:message filenameFmt:filenameFmt];
-}
-
 - (instancetype)initWithRecipients:(NSArray<NSString *> *)recipients
                            subject:(NSString *)subject
                            message:(nullable NSString *)message
@@ -194,18 +186,21 @@
 
 - (id<KSCrashReportFilter>)defaultCrashReportFilterSet
 {
-    return [KSCrashReportFilterPipeline
-        filterWithFilters:[KSCrashReportFilterJSONEncode
-                              filterWithOptions:KSJSONEncodeOptionSorted | KSJSONEncodeOptionPretty],
-                          [KSCrashReportFilterGZipCompress filterWithCompressionLevel:-1], self, nil];
+    return [[KSCrashReportFilterPipeline alloc] initWithFilters:@[
+        [[KSCrashReportFilterJSONEncode alloc] initWithOptions:KSJSONEncodeOptionSorted | KSJSONEncodeOptionPretty],
+        [[KSCrashReportFilterGZipCompress alloc] initWithCompressionLevel:-1],
+        self,
+    ]];
 }
 
 - (id<KSCrashReportFilter>)defaultCrashReportFilterSetAppleFmt
 {
-    return [KSCrashReportFilterPipeline
-        filterWithFilters:[KSCrashReportFilterAppleFmt filterWithReportStyle:KSAppleReportStyleSymbolicatedSideBySide],
-                          [KSCrashReportFilterStringToData filter],
-                          [KSCrashReportFilterGZipCompress filterWithCompressionLevel:-1], self, nil];
+    return [[KSCrashReportFilterPipeline alloc] initWithFilters:@[
+        [[KSCrashReportFilterAppleFmt alloc] initWithReportStyle:KSAppleReportStyleSymbolicatedSideBySide],
+        [KSCrashReportFilterStringToData new],
+        [[KSCrashReportFilterGZipCompress alloc] initWithCompressionLevel:-1],
+        self,
+    ]];
 }
 
 - (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
@@ -286,18 +281,21 @@
 
 - (id<KSCrashReportFilter>)defaultCrashReportFilterSet
 {
-    return [KSCrashReportFilterPipeline
-        filterWithFilters:[KSCrashReportFilterJSONEncode
-                              filterWithOptions:KSJSONEncodeOptionSorted | KSJSONEncodeOptionPretty],
-                          [KSCrashReportFilterGZipCompress filterWithCompressionLevel:-1], self, nil];
+    return [[KSCrashReportFilterPipeline alloc] initWithFilters:@[
+        [[KSCrashReportFilterJSONEncode alloc] initWithOptions:KSJSONEncodeOptionSorted | KSJSONEncodeOptionPretty],
+        [[KSCrashReportFilterGZipCompress alloc] initWithCompressionLevel:-1],
+        self,
+    ]];
 }
 
 - (id<KSCrashReportFilter>)defaultCrashReportFilterSetAppleFmt
 {
-    return [KSCrashReportFilterPipeline
-        filterWithFilters:[KSCrashReportFilterAppleFmt filterWithReportStyle:KSAppleReportStyleSymbolicatedSideBySide],
-                          [KSCrashReportFilterStringToData filter],
-                          [KSCrashReportFilterGZipCompress filterWithCompressionLevel:-1], self, nil];
+    return [[KSCrashReportFilterPipeline alloc] initWithFilters:@[
+        [[KSCrashReportFilterAppleFmt alloc] initWithReportStyle:KSAppleReportStyleSymbolicatedSideBySide],
+        [KSCrashReportFilterStringToData new],
+        [[KSCrashReportFilterGZipCompress alloc] initWithCompressionLevel:-1],
+        self,
+    ]];
 }
 
 @end

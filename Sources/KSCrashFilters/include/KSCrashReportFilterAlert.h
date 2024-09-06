@@ -42,17 +42,8 @@ NS_ASSUME_NONNULL_BEGIN
 NS_SWIFT_NAME(CrashReportFilterAlert)
 @interface KSCrashReportFilterAlert : NSObject <KSCrashReportFilter>
 
-/**
- * @param title The title of the alert.
- * @param message The contents of the alert.
- * @param yesAnswer The text to put in the "yes" button.
- * @param noAnswer The text to put in the "no" button. If nil, the filter will
- *                 proceed unconditionally.
- */
-+ (instancetype)filterWithTitle:(NSString *)title
-                        message:(nullable NSString *)message
-                      yesAnswer:(NSString *)yesAnswer
-                       noAnswer:(nullable NSString *)noAnswer;
+- (instancetype)init NS_UNAVAILABLE;
++ (instancetype)new NS_UNAVAILABLE;
 
 /**
  * @param title The title of the alert.

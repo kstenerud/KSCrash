@@ -166,17 +166,17 @@ static NSDictionary *g_registerOrders;
                                x86Order, @"i686", x86_64Order, @"x86_64", nil];
 }
 
-+ (instancetype)filterWithReportStyle:(KSAppleReportStyle)reportStyle
-{
-    return [[self alloc] initWithReportStyle:reportStyle];
-}
-
 - (instancetype)initWithReportStyle:(KSAppleReportStyle)reportStyle
 {
     if ((self = [super init])) {
         _reportStyle = reportStyle;
     }
     return self;
+}
+
+- (instancetype)init
+{
+    return [self initWithReportStyle:KSAppleReportStyleSymbolicated];
 }
 
 - (int)majorVersion:(NSDictionary *)report
