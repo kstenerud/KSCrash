@@ -46,6 +46,11 @@
     return self;
 }
 
+- (instancetype)init
+{
+    return [self initWithOptions:KSJSONEncodeOptionNone];
+}
+
 - (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
     NSMutableArray<id<KSCrashReport>> *filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
@@ -84,6 +89,11 @@
         _decodeOptions = options;
     }
     return self;
+}
+
+- (instancetype)init
+{
+    return [self initWithOptions:KSJSONDecodeOptionNone];
 }
 
 - (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion

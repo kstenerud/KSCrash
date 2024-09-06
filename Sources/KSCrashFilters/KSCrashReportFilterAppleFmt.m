@@ -174,6 +174,11 @@ static NSDictionary *g_registerOrders;
     return self;
 }
 
+- (instancetype)init
+{
+    return [self initWithReportStyle:KSAppleReportStyleSymbolicated];
+}
+
 - (int)majorVersion:(NSDictionary *)report
 {
     NSDictionary *info = [self infoReport:report];

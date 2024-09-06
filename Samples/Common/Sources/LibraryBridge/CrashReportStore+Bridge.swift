@@ -70,7 +70,7 @@ public extension CrashReportStore {
     func logWithAlert() {
         sink = CrashReportFilterPipeline(filters: [
             CrashReportFilterAlert(title: "Sample Alert", message: "Do you want to log?", yesAnswer: "Yes", noAnswer: "No"),
-            CrashReportFilterAppleFmt(reportStyle: .symbolicated),
+            CrashReportFilterAppleFmt(),
             CrashReportSinkConsole(),
         ])
         sendAllReports()
