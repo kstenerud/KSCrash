@@ -1,8 +1,8 @@
 #import <XCTest/XCTest.h>
 
-#import "KSCrashReportFilterDoctor.h"
 #import "KSCrashReport.h"
 #import "KSCrashReportFields.h"
+#import "KSCrashReportFilterDoctor.h"
 #import "KSTestModuleConfig.h"
 
 @interface KSCrashDoctor_Tests : XCTestCase
@@ -22,10 +22,11 @@
 {
     KSCrashReportDictionary *__block result = nil;
     KSCrashReportFilterDoctor *filter = [KSCrashReportFilterDoctor new];
-    [filter filterReports:@[report] onCompletion:^(NSArray<id<KSCrashReport>> *filteredReports, NSError *error) {
-        result = filteredReports.firstObject;
-        XCTAssertNil(error);
-    }];
+    [filter filterReports:@[ report ]
+             onCompletion:^(NSArray<id<KSCrashReport>> *filteredReports, NSError *error) {
+                 result = filteredReports.firstObject;
+                 XCTAssertNil(error);
+             }];
     return result;
 }
 
