@@ -315,18 +315,6 @@ static CrashHandlerData *g_crashHandlerData;
         return;
     }
 
-    NSMutableArray *sinkFilters = [@[
-        self.prependedFilters,
-        sink,
-    ] mutableCopy];
-    if (self.isDoctorEnabled) {
-        [sinkFilters insertObject:[KSCrashReportFilterDoctor new] atIndex:0];
-    }
-    if (self.isDemangleEnabled) {
-        [sinkFilters insertObject:[KSCrashReportFilterDemangle new] atIndex:0];
-    }
-    sink = [[KSCrashReportFilterPipeline alloc] initWithFilters:sinkFilters];
-
     KSCrashReportStore *store = [KSCrash sharedInstance].reportStore;
     if (store == nil) {
         onCompletion(
@@ -337,7 +325,19 @@ static CrashHandlerData *g_crashHandlerData;
         return;
     }
 
-    store.sink = sink;
+    NSMutableArray *installationFilters = [NSMutableArray array];
+    if (self.isDemangleEnabled) {
+        [installationFilters addObject:[KSCrashReportFilterDemangle new]];
+    }
+    if (self.isDoctorEnabled) {
+        [installationFilters addObject:[KSCrashReportFilterDoctor new]];
+    }
+    [installationFilters addObjectsFromArray:@[
+        self.prependedFilters,
+        sink,
+    ]];
+    store.sink = [[KSCrashReportFilterPipeline alloc] initWithFilters:installationFilters];
+
     [store sendAllReportsWithCompletion:onCompletion];
 }
 
