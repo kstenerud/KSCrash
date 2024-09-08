@@ -28,7 +28,6 @@
 
 #import "KSCrash+Private.h"
 #import "KSCrashConfiguration+Private.h"
-#import "KSCrashDoctor.h"
 #import "KSCrashReport.h"
 #import "KSCrashReportFields.h"
 #import "KSCrashReportFilter.h"
@@ -143,18 +142,6 @@
     return nil;
 }
 
-- (void)doctorReport:(NSMutableDictionary *)report
-{
-    NSMutableDictionary *crashReport = report[KSCrashField_Crash];
-    if (crashReport != nil) {
-        crashReport[KSCrashField_Diagnosis] = [[KSCrashDoctor doctor] diagnoseCrash:report];
-    }
-    crashReport = report[KSCrashField_RecrashReport][KSCrashField_Crash];
-    if (crashReport != nil) {
-        crashReport[KSCrashField_Diagnosis] = [[KSCrashDoctor doctor] diagnoseCrash:report];
-    }
-}
-
 - (NSArray<NSNumber *> *)reportIDs
 {
     int reportCount = kscrs_getReportCount(&_cConfig);
@@ -187,7 +174,6 @@
         KSLOG_ERROR(@"Could not load crash report");
         return nil;
     }
-    [self doctorReport:crashReport];
 
     return [KSCrashReportDictionary reportWithValue:crashReport];
 }

@@ -96,6 +96,9 @@ let package = Package(
         .target(name: Targets.recording),
         .target(name: Targets.recordingCore),
         .target(name: Targets.reportingCore),
+      ],
+      resources: [
+        .process("Resources")
       ]
     ),
 

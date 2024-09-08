@@ -33,6 +33,7 @@
 #import "KSCrashReportFilterAlert.h"
 #import "KSCrashReportFilterBasic.h"
 #import "KSCrashReportFilterDemangle.h"
+#import "KSCrashReportFilterDoctor.h"
 #import "KSJSONCodecObjC.h"
 #import "KSLogger.h"
 #import "KSNSErrorHelper.h"
@@ -146,6 +147,7 @@ static CrashHandlerData *g_crashHandlerData;
 {
     if ((self = [super init])) {
         _isDemangleEnabled = YES;
+        _isDoctorEnabled = YES;
         _crashHandlerDataBacking =
             [NSMutableData dataWithLength:sizeof(*self.crashHandlerData) +
                                           sizeof(*self.crashHandlerData->reportFields) * kMaxProperties];
@@ -313,15 +315,6 @@ static CrashHandlerData *g_crashHandlerData;
         return;
     }
 
-    NSMutableArray *sinkFilters = [@[
-        self.prependedFilters,
-        sink,
-    ] mutableCopy];
-    if (self.isDemangleEnabled) {
-        [sinkFilters insertObject:[KSCrashReportFilterDemangle new] atIndex:0];
-    }
-    sink = [[KSCrashReportFilterPipeline alloc] initWithFilters:sinkFilters];
-
     KSCrashReportStore *store = [KSCrash sharedInstance].reportStore;
     if (store == nil) {
         onCompletion(
@@ -332,7 +325,19 @@ static CrashHandlerData *g_crashHandlerData;
         return;
     }
 
-    store.sink = sink;
+    NSMutableArray *installationFilters = [NSMutableArray array];
+    if (self.isDemangleEnabled) {
+        [installationFilters addObject:[KSCrashReportFilterDemangle new]];
+    }
+    if (self.isDoctorEnabled) {
+        [installationFilters addObject:[KSCrashReportFilterDoctor new]];
+    }
+    [installationFilters addObjectsFromArray:@[
+        self.prependedFilters,
+        sink,
+    ]];
+    store.sink = [[KSCrashReportFilterPipeline alloc] initWithFilters:installationFilters];
+
     [store sendAllReportsWithCompletion:onCompletion];
 }
 

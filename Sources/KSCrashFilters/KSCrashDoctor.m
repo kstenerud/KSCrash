@@ -7,7 +7,6 @@
 //
 
 #import "KSCrashDoctor.h"
-#import "KSCrashMonitor_System.h"
 #import "KSCrashReportFields.h"
 
 typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } CPUFamily;
@@ -121,11 +120,6 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
 @end
 
 @implementation KSCrashDoctor
-
-+ (KSCrashDoctor *)doctor
-{
-    return [[self alloc] init];
-}
 
 - (NSDictionary *)recrashReport:(NSDictionary *)report
 {

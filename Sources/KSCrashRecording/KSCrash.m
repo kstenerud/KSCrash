@@ -29,7 +29,6 @@
 
 #import "KSCrashC.h"
 #import "KSCrashConfiguration+Private.h"
-#import "KSCrashDoctor.h"
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitor_AppState.h"
 #import "KSCrashMonitor_Memory.h"
