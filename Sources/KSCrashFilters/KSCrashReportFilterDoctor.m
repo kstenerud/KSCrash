@@ -52,7 +52,6 @@
             continue;
         }
 
-        BOOL updated = NO;
         NSString *diagnose = [[self class] diagnoseCrash:report.value];
         NSMutableDictionary *crashReport = [report.value mutableCopy];
         if (diagnose != nil) {
