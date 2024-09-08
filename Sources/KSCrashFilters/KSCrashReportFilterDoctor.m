@@ -27,6 +27,7 @@
 #import "KSCrashReportFilterDoctor.h"
 #import "KSCrashDoctor.h"
 #import "KSCrashReport.h"
+#import "KSCrashReportFields.h"
 
 // #define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
