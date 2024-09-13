@@ -31,19 +31,19 @@ jobs:
           - platform: iOS
             xcode-version: "latest"
           - platform: iOS
-            os-version: ~16.4.0
+            platform-version: ~16.4.0
             macos-version: "13"
             xcode-version: "14.3.1"
 
           - platform: watchOS
           - platform: watchOS
-            os-version: ~9.4.0
+            platform-version: ~9.4.0
             macos-version: "13"
             xcode-version: "14.3.1"
 
           - platform: tvOS
           - platform: tvOS
-            os-version: ~16.4.0
+            platform-version: ~16.4.0
             macos-version: "13"
             xcode-version: "14.3.1"
 
@@ -66,10 +66,10 @@ jobs:
           xcode-version: ${{ matrix.xcode-version || 'latest-stable' }}
 
       - name: Run Unit Tests
-        uses: bamx23/xcodebuild@os-version
+        uses: mxcl/xcodebuild@v3
         timeout-minutes: 15
         with:
           workspace: ".swiftpm/xcode/package.xcworkspace"
           scheme: "KSCrash-Package"
           platform: ${{ matrix.platform }}
-          os-version: ${{ matrix.os-version }}
+          platform-version: ${{ matrix.platform-version }}

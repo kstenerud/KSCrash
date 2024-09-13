@@ -49,7 +49,7 @@ jobs:
         run: tuist generate --verbose --no-open
 
       - name: Run Build
-        uses: mxcl/xcodebuild@v3.0.0
+        uses: mxcl/xcodebuild@v3
         with:
           action: test
           workspace: "Samples/KSCrashSamples.xcworkspace"
