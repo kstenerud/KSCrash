@@ -28,7 +28,7 @@
 
 #include <mach/mach.h>
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 180000  // Xcode 16.0
+#if __has_include(<sys/_types/_ucontext64.h>)
 #include <sys/_types/_ucontext64.h>
 #endif
 
