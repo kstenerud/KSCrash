@@ -33,6 +33,10 @@
 
 #include <mach/mach.h>
 
+#if __has_include(<sys/_types/_ucontext64.h>)
+#include <sys/_types/_ucontext64.h>
+#endif
+
 //#define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
