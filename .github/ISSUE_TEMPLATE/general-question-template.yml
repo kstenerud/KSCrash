@@ -1,0 +1,44 @@
+name: ❓ General Question
+description: Ask a question about KSCrash
+labels: ["question"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### Thanks for your question about KSCrash! ❓
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+      description: What would you like to know about KSCrash?
+    validations:
+      required: true
+
+  - type: input
+    id: kscrash-version
+    attributes:
+      label: KSCrash version
+      description: If applicable, what version of KSCrash are you using?
+      placeholder: e.g., 2.0.0
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      options:
+        - iOS
+        - macOS
+        - tvOS
+        - watchOS
+        - Not OS-specific
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Add any other context or examples about your question here.
