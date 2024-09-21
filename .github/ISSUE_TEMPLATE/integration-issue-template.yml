@@ -24,7 +24,7 @@ body:
       options:
         - Swift Package Manager
         - CocoaPods
-        - Manual integration
+        - Other
     validations:
       required: true
 
