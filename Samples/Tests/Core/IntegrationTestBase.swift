@@ -60,12 +60,12 @@ class IntegrationTestBase: XCTestCase {
 
         log = Logger(label: name)
         installUrl = FileManager.default.temporaryDirectory
-            .appending(component: "KSCrash")
-            .appending(component: UUID().uuidString)
-        appleReportsUrl = installUrl.appending(component: "__TEST_REPORTS__")
+            .appendingPathComponent("KSCrash")
+            .appendingPathComponent(UUID().uuidString)
+        appleReportsUrl = installUrl.appendingPathComponent("__TEST_REPORTS__")
 
         try FileManager.default.createDirectory(at: appleReportsUrl, withIntermediateDirectories: true)
-        log.info("KSCrash install path: \(installUrl.path())")
+        log.info("KSCrash install path: \(installUrl.path)")
 
         app = XCUIApplication()
     }
@@ -76,7 +76,7 @@ class IntegrationTestBase: XCTestCase {
         app.terminate()
         _ = app.wait(for: .notRunning, timeout: appTerminateTimeout)
 
-        if let files = FileManager.default.enumerator(atPath: installUrl.path()) {
+        if let files = FileManager.default.enumerator(atPath: installUrl.path) {
             log.info("Remaining KSCrash files:")
             for file in files {
                 log.info("\t\(file)")
@@ -101,11 +101,11 @@ class IntegrationTestBase: XCTestCase {
         }
 
         let getFileUrl = {
-            let files = try FileManager.default.contentsOfDirectory(atPath: dir.path())
+            let files = try FileManager.default.contentsOfDirectory(atPath: dir.path)
             guard let fileName = files.first else {
                 throw Error.fileNotFound
             }
-            return dir.appending(component: fileName)
+            return dir.appendingPathComponent(fileName)
         }
 
         if let timeout {
@@ -123,17 +123,17 @@ class IntegrationTestBase: XCTestCase {
             case reportNotFound
         }
 
-        let reportsUrl = installUrl.appending(component: "Reports")
+        let reportsUrl = installUrl.appendingPathComponent("Reports")
         let reportUrl = try FileManager.default
-            .contentsOfDirectory(atPath: reportsUrl.path())
+            .contentsOfDirectory(atPath: reportsUrl.path)
             .first
-            .flatMap { reportsUrl.appending(component:$0) }
+            .flatMap { reportsUrl.appendingPathComponent($0) }
         guard let reportUrl else { throw LocalError.reportNotFound }
         return reportUrl
     }
 
     func readRawCrashReportData() throws -> Data {
-        let reportsDirUrl = installUrl.appending(component: "Reports")
+        let reportsDirUrl = installUrl.appendingPathComponent("Reports")
         let reportUrl = try waitForFile(in: reportsDirUrl, timeout: reportTimeout)
         let reportData = try Data(contentsOf: reportUrl)
         return reportData
@@ -165,7 +165,7 @@ class IntegrationTestBase: XCTestCase {
     }
 
     func launchAndCrash(_ crashId: CrashTriggerId, installOverride: ((inout InstallConfig) throws -> Void)? = nil) throws {
-        var installConfig = InstallConfig(installPath: installUrl.path())
+        var installConfig = InstallConfig(installPath: installUrl.path)
         try installOverride?(&installConfig)
         app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
             crash: .init(triggerId: crashId),
@@ -179,8 +179,8 @@ class IntegrationTestBase: XCTestCase {
 
     func launchAndReportCrash() throws -> String {
         app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
-            report: .init(directoryPath: appleReportsUrl.path()),
-            install: .init(installPath: installUrl.path()),
+            report: .init(directoryPath: appleReportsUrl.path),
+            install: .init(installPath: installUrl.path),
             delay: actionDelay
         )
 
