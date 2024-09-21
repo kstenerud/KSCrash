@@ -11,13 +11,7 @@ let project = Project(
             destinations: .allForSample,
             product: .app,
             bundleId: "com.github.kstenerud.KSCrash.Sample",
-            deploymentTargets: .multiplatform(
-                iOS: "15.0",
-                macOS: "13.0",
-                watchOS: "8.0",
-                tvOS: "15.0",
-                visionOS: "1.0"
-            ),
+            deploymentTargets: .allForSample,
             infoPlist: InfoPlist.extendingDefault(with: [
                 "UILaunchScreen": [
                     "UIImageName": "LaunchImage",
@@ -38,12 +32,7 @@ let project = Project(
             destinations: .allForSample.subtracting(.visionOS),
             product: .uiTests,
             bundleId: "com.github.kstenerud.KSCrash.Sample.Tests",
-            deploymentTargets: .multiplatform(
-                iOS: "15.0",
-                macOS: "13.0",
-                watchOS: "8.0",
-                tvOS: "15.0"
-            ),
+            deploymentTargets: .allForSample.excludingVisionOS,
             sources: ["Tests/**"],
             dependencies: [
                 .target(name: "Sample"),
@@ -75,5 +64,23 @@ extension Set where Element == ProjectDescription.Destination {
             .visionOS,
         ]
         return sets.reduce(.init()) { $0.union($1) }
+    }
+}
+
+extension DeploymentTargets {
+    static var allForSample: Self {
+        .multiplatform(
+            iOS: "15.0",
+            macOS: "13.0",
+            watchOS: "8.0",
+            tvOS: "15.0",
+            visionOS: "1.0"
+        )
+    }
+
+    var excludingVisionOS: Self {
+        var excluded = self
+        excluded.visionOS = nil
+        return excluded
     }
 }
