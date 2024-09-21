@@ -1,0 +1,100 @@
+name: 🛠️ Installation/Integration Issue
+description: Report problems with adding KSCrash to your project, including build errors, package manager issues, or difficulties in initial setup before runtime use
+labels: ["installation"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### Thanks for reporting an installation or integration issue! 🛠️
+        Please provide as much detail as possible to help us resolve it quickly.
+
+  - type: textarea
+    id: issue-description
+    attributes:
+      label: Describe the issue
+      description: A clear and concise description of the problem you're encountering.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: integration-method
+    attributes:
+      label: Integration method
+      options:
+        - Swift Package Manager
+        - CocoaPods
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: error-messages
+    attributes:
+      label: Error messages
+      description: Paste any error messages you're seeing here (compilation errors, CocoaPods/SPM errors, etc.).
+      render: shell
+    validations:
+      required: true
+
+  - type: input
+    id: kscrash-version
+    attributes:
+      label: KSCrash version
+      placeholder: e.g., 2.0.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      options:
+        - iOS
+        - macOS
+        - tvOS
+        - watchOS
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: os-version
+    attributes:
+      label: OS version
+      placeholder: e.g., iOS 18.1, macOS 15.1
+    validations:
+      required: true
+
+  - type: input
+    id: xcode-version
+    attributes:
+      label: Xcode version
+      placeholder: e.g., 16.1
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ### Lock File
+        Please provide the contents of your lock file. This is crucial for reproducing your environment and debugging the issue.
+        
+        - For Swift Package Manager: Include the contents of your `Package.resolved`
+        - For CocoaPods: Include the contents of your `Podfile.lock`
+        - For manual integration: You can skip this field
+
+  - type: textarea
+    id: lock-file
+    attributes:
+      label: Lock file contents
+      description: Paste the contents of your Podfile.lock or Package.resolved here.
+      render: yaml
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Add any other context about the problem here, such as any modifications you've made to the standard installation process.

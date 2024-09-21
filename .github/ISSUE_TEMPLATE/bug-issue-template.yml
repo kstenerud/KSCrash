@@ -1,0 +1,85 @@
+name: 🐛 Bug Report
+description: Report a problem that occurs while your app is running, such as unexpected behavior, incorrect crash reporting, or app crashes related to KSCrash functionality
+labels: ["bug"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### Thanks for taking the time to report a bug! 🐛
+        Your feedback helps make KSCrash better for everyone.
+
+  - type: textarea
+    id: issue-description
+    attributes:
+      label: Describe the bug
+      description: A clear and concise description of what the bug is and what you expected to happen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction-steps
+    attributes:
+      label: Steps to reproduce
+      description: How do you trigger this bug? Please walk us through it step by step.
+      value: |
+        1. 
+        2. 
+        3. 
+    validations:
+      required: true
+
+  - type: textarea
+    id: crash-report
+    attributes:
+      label: Crash report or stack trace
+      description: If applicable, add the crash report or stack trace here.
+      render: shell
+
+  - type: input
+    id: kscrash-version
+    attributes:
+      label: KSCrash version
+      placeholder: e.g., 2.0.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      options:
+        - iOS
+        - macOS
+        - tvOS
+        - watchOS
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: os-version
+    attributes:
+      label: OS version
+      placeholder: e.g., iOS 18.1, macOS 15.1
+    validations:
+      required: true
+
+  - type: input
+    id: device-model
+    attributes:
+      label: Device model
+      description: If applicable
+      placeholder: e.g., iPhone 15 Pro, Apple TV 4K, or Apple Watch Series 9
+
+  - type: input
+    id: xcode-version
+    attributes:
+      label: Xcode version
+      placeholder: e.g., 16.1
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Add any other context about the problem here, such as relevant code snippets or configuration details.
