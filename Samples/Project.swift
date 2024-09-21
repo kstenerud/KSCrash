@@ -11,6 +11,13 @@ let project = Project(
             destinations: .allForSample,
             product: .app,
             bundleId: "com.github.kstenerud.KSCrash.Sample",
+            deploymentTargets: .multiplatform(
+                iOS: "15.0",
+                macOS: "13.0",
+                watchOS: "8.0",
+                tvOS: "15.0",
+                visionOS: "1.0"
+            ),
             infoPlist: InfoPlist.extendingDefault(with: [
                 "UILaunchScreen": [
                     "UIImageName": "LaunchImage",
@@ -31,6 +38,12 @@ let project = Project(
             destinations: .allForSample.subtracting(.visionOS),
             product: .uiTests,
             bundleId: "com.github.kstenerud.KSCrash.Sample.Tests",
+            deploymentTargets: .multiplatform(
+                iOS: "15.0",
+                macOS: "13.0",
+                watchOS: "8.0",
+                tvOS: "15.0"
+            ),
             sources: ["Tests/**"],
             dependencies: [
                 .target(name: "Sample"),
