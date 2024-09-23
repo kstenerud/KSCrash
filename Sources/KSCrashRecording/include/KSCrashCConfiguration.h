@@ -28,10 +28,10 @@
 #define KSCrashCConfiguration_h
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "KSCrashMonitorType.h"
 #include "KSCrashReportWriter.h"
-#include "string.h"
 
 #ifdef __cplusplus
 extern "C" {
