@@ -17,5 +17,8 @@
 #import "KSCrashAppTransitionState.h"
 #import "KSCrashReportFields.h"
 #import "KSCrashRecording.h"
+#import "KSCrashAppStateTracker.h"
+#import "KSCrashC.h"
+#import "KSCrashSignalInfo.h"
 
 #endif /* KSCrashRecording_h */
