@@ -1,7 +1,7 @@
 # KSCrash
 
-[![Run Unit Tests](https://github.com/kstenerud/KSCrash/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/kstenerud/KSCrash/actions/workflows/unit-tests.yml) 
-[![CocoaPods Lint](https://github.com/kstenerud/KSCrash/actions/workflows/cocoapods-lint.yml/badge.svg)](https://github.com/kstenerud/KSCrash/actions/workflows/cocoapods-lint.yml) 
+[![Run Unit Tests](https://github.com/kstenerud/KSCrash/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/kstenerud/KSCrash/actions/workflows/unit-tests.yml)
+[![CocoaPods Lint](https://github.com/kstenerud/KSCrash/actions/workflows/cocoapods-lint.yml/badge.svg)](https://github.com/kstenerud/KSCrash/actions/workflows/cocoapods-lint.yml)
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fkstenerud%2FKSCrash%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/kstenerud/KSCrash)
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fkstenerud%2FKSCrash%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/kstenerud/KSCrash)
 
@@ -157,7 +157,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 let installation = CrashInstallationEmail.shared
 installation.recipients = ["some@email.address"] // Specify recipients for email reports
 // Optional: Send Apple-style reports instead of JSON
-installation.setReportStyle(.apple, useDefaultFilenameFormat: true) 
+installation.setReportStyle(.apple, useDefaultFilenameFormat: true)
 ```
 
 ##### Console Installation
@@ -294,7 +294,7 @@ what features KSCrash has, and how to use them:
 * KSCrash.h
 * KSCrashInstallation.h
 * KSCrashInstallation(SPECIFIC TYPE).h
-* Architecture.md
+* [Architecture.md](https://github.com/kstenerud/KSCrash/wiki/KSCrash-Architecture)
 
 ## Understanding the KSCrash Codebase
 
@@ -322,7 +322,7 @@ KSCrash is structured into several modules, divided into public and private APIs
 
 Users should interact with the public API modules, while the private modules handle internal operations. The optional modules can be included for additional functionality as needed.
 
-**Also see a quick code tour [here](CODE_TOUR.md).**
+**Also see a quick code tour [here](https://github.com/kstenerud/KSCrash/wiki/A-Brief-Tour-of-the-KSCrash-Code-and-Architecture).**
 
 ## Advanced Usage
 
