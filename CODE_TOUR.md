@@ -6,11 +6,11 @@ KSCrash used to be simple enough that a quick perusal of the source code would b
 
 ### The Heart of KSCrash
 
-The heart of KSCrash lives in [`KSCrashC.c`](https://github.com/kstenerud/KSCrash/blob/master/Source/KSCrash/Recording/KSCrashC.c)
+The heart of KSCrash lives in [`KSCrashC.c`](https://github.com/kstenerud/KSCrash/blob/master/Sources/KSCrashRecording/KSCrashC.c)
 
 This file contains all of the most important access points to the KSCrash system.
 
-`KSCrashC.c` functions are also Objective-C/Swift wrapped in [`KSCrash.m`](https://github.com/kstenerud/KSCrash/blob/master/Source/KSCrash/Recording/KSCrash.m)
+`KSCrashC.c` functions are also Objective-C/Swift wrapped in [`KSCrash.m`](https://github.com/kstenerud/KSCrash/blob/master/Sources/KSCrashRecording/KSCrash.m)
 
 These are the main parts of `KSCrashC.c`:
 
@@ -46,12 +46,12 @@ Crashes are detected via one of the [monitors](https://github.com/kstenerud/KSCr
 
 ### Recording Crashes
 
-Crashes are recorded to a JSON file via `kscrashreport_writeStandardReport()` in [`KSCrashReport.c`](https://github.com/kstenerud/KSCrash/blob/master/Source/KSCrash/Recording/KSCrashReport.c). It makes use of a number of [tools](https://github.com/kstenerud/KSCrash/tree/master/Source/KSCrash/Recording/Tools) to accomplish this.
+Crashes are recorded to a JSON file via `kscrashreport_writeStandardReport()` in [`KSCrashReport.c`](https://github.com/kstenerud/KSCrash/blob/master/Sources/KSCrashRecording/KSCrashReportC.c). It makes use of [KSCrashRecordingCore](https://github.com/kstenerud/KSCrash/blob/master/Sources/KSCrashRecordingCore) to accomplish this.
 
 
 ### Report Management
 
-Report management is primarily done in [`KSCrashReportStore.c`](https://github.com/kstenerud/KSCrash/blob/master/Source/KSCrash/Recording/KSCrashReportStore.c)
+Report management is primarily done in [`KSCrashReportStoreC.c`](https://github.com/kstenerud/KSCrash/blob/master/Sources/KSCrashRecording/KSCrashReportStoreC.c)
 
 
 ### Reporting
