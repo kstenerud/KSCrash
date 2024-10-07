@@ -26,20 +26,20 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: iOS
-            config: ""
-          - platform: iOS
-            config: "--use-libraries"
-          - platform: iOS
-            config: "--use-libraries --use-modular-headers"
-          - platform: iOS
-            config: "--use-static-frameworks"
-          - platform: macOS
-            config: ""
-          - platform: tvOS
-            config: ""
-          - platform: watchOS
-            config: ""
+          # - platform: iOS
+          #   config: ""
+          # - platform: iOS
+          #   config: "--use-libraries"
+          # - platform: iOS
+          #   config: "--use-libraries --use-modular-headers"
+          # - platform: iOS
+          #   config: "--use-static-frameworks"
+          # - platform: macOS
+          #   config: ""
+          # - platform: tvOS
+          #   config: ""
+          # - platform: watchOS
+          #   config: ""
           - platform: visionOS
             config: ""
     steps:

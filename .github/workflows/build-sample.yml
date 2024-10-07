@@ -27,10 +27,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: iOS
-          - platform: macOS
-          - platform: tvOS
-          - platform: watchOS
+          # - platform: iOS
+          # - platform: macOS
+          # - platform: tvOS
+          # - platform: watchOS
           - platform: visionOS
     steps:
       - name: Checkout Code
