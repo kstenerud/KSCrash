@@ -27,6 +27,14 @@ jobs:
         with:
           xcode-version: latest-stable
 
+      - name: Install visionOS Platform
+        shell: bash
+        run: |
+          # See https://github.com/actions/runner-images/issues/8144#issuecomment-1902072070
+          defaults write com.apple.dt.Xcode AllowUnsupportedVisionOSHost -bool YES
+          defaults write com.apple.CoreSimulator AllowUnsupportedVisionOSHost -bool YES
+          xcodebuild -downloadPlatform visionOS
+
       - name: Update version in podspec
         run: sed -i '' 's/s.version      = "[^"]*"/s.version      = "${{ github.event.inputs.version }}"/' KSCrash.podspec
 
