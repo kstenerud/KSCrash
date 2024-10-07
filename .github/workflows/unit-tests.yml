@@ -48,6 +48,7 @@ jobs:
             xcode-version: "14.3.1"
 
           - platform: visionOS
+            macos-version: "15"
 
           - platform: macOS
           - platform: macOS

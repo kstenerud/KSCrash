@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   lint:
-    runs-on: macos-latest
+    runs-on: "macos-${{ matrix.macos-version || 'latest' }}"
     timeout-minutes: 15
     strategy:
       fail-fast: false
@@ -42,6 +42,7 @@ jobs:
             config: ""
           - platform: visionOS
             config: ""
+            macos-version: "15"
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4

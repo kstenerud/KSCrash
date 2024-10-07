@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   sample:
-    runs-on: macos-latest
+    runs-on: "macos-${{ matrix.macos-version || 'latest' }}"
     timeout-minutes: 15
     strategy:
       fail-fast: false
@@ -32,6 +32,7 @@ jobs:
           - platform: tvOS
           - platform: watchOS
           - platform: visionOS
+            macos-version: "15"
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
