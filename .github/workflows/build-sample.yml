@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   sample:
-    runs-on: macos-latest
+    runs-on: "macos-${{ matrix.macos-version || 'latest' }}"
     timeout-minutes: 15
     strategy:
       fail-fast: false
@@ -32,6 +32,7 @@ jobs:
           # - platform: tvOS
           # - platform: watchOS
           - platform: visionOS
+            macos-version: "15"
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -40,16 +41,6 @@ jobs:
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
-
-      - name: Install visionOS Platform
-        if: matrix.platform == 'visionOS'
-        shell: bash
-        run: |
-          # See https://github.com/actions/runner-images/issues/10692#issuecomment-2377521050
-          xcodebuild -runFirstLaunch
-          xcrun simctl list
-          xcodebuild -downloadPlatform visionOS
-          xcodebuild -runFirstLaunch
 
       - name: Install Tuist
         run: |
