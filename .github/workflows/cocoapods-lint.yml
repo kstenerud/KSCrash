@@ -63,10 +63,11 @@ jobs:
         if: matrix.platform == 'visionOS'
         shell: bash
         run: |
-          # See https://github.com/actions/runner-images/issues/8144#issuecomment-1902072070
-          defaults write com.apple.dt.Xcode AllowUnsupportedVisionOSHost -bool YES
-          defaults write com.apple.CoreSimulator AllowUnsupportedVisionOSHost -bool YES
+          # See https://github.com/actions/runner-images/issues/10692#issuecomment-2377521050
+          xcodebuild -runFirstLaunch
+          xcrun simctl list
           xcodebuild -downloadPlatform visionOS
+          xcodebuild -runFirstLaunch
 
       - name: Lint Podspec
         id: lint
