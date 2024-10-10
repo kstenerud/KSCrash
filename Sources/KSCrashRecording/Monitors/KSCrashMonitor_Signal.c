@@ -71,10 +71,7 @@ static char g_eventID[37];
 #pragma mark - Private -
 // ============================================================================
 
-static bool shouldHandleSignal(int sigNum)
-{
-    return !(sigNum == SIGTERM && !g_sigterm_monitoringEnabled);
-}
+static bool shouldHandleSignal(int sigNum) { return !(sigNum == SIGTERM && !g_sigterm_monitoringEnabled); }
 
 // ============================================================================
 #pragma mark - Callbacks -
