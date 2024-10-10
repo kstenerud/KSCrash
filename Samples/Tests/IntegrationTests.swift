@@ -70,6 +70,8 @@ final class CppTests: IntegrationTestBase {
     }
 }
 
+#if !os(watchOS)
+
 final class SignalTests: IntegrationTestBase {
     func testAbort() throws {
         try launchAndCrash(.signal_abort)
@@ -105,6 +107,8 @@ final class SignalTests: IntegrationTestBase {
         XCTAssertTrue(appleReport.contains("SIGTERM"))
     }
 }
+
+#endif
 
 extension PartialCrashReport {
     func validate() throws {
