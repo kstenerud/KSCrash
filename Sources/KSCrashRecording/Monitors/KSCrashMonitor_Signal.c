@@ -52,6 +52,7 @@
 // ============================================================================
 
 static volatile bool g_isEnabled = false;
+static bool g_sigterm_monitoringEnabled = false;
 
 static KSCrash_MonitorContext g_monitorContext;
 static KSStackCursor g_stackCursor;
@@ -65,6 +66,15 @@ static stack_t g_signalStack = { 0 };
 static struct sigaction *g_previousSignalHandlers = NULL;
 
 static char g_eventID[37];
+
+// ============================================================================
+#pragma mark - Private -
+// ============================================================================
+
+static bool shouldHandleSignal(int sigNum)
+{
+    return !(sigNum == SIGTERM && !g_sigterm_monitoringEnabled);
+}
 
 // ============================================================================
 #pragma mark - Callbacks -
@@ -85,7 +95,7 @@ static char g_eventID[37];
 static void handleSignal(int sigNum, siginfo_t *signalInfo, void *userContext)
 {
     KSLOG_DEBUG("Trapped signal %d", sigNum);
-    if (g_isEnabled) {
+    if (g_isEnabled && shouldHandleSignal(sigNum)) {
         thread_act_array_t threads = NULL;
         mach_msg_type_number_t numThreads = 0;
         ksmc_suspendEnvironment(&threads, &numThreads);
@@ -230,6 +240,13 @@ static void addContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext
 }
 
 #endif /* KSCRASH_HAS_SIGNAL */
+
+void kscm_signal_sigterm_setMonitoringEnabled(bool enabled)
+{
+#if KSCRASH_HAS_SIGNAL
+    g_sigterm_monitoringEnabled = enabled;
+#endif
+}
 
 KSCrashMonitorAPI *kscm_signal_getAPI(void)
 {
