@@ -158,10 +158,27 @@ class IntegrationTestBase: XCTestCase {
         return report
     }
 
+    func hasCrashReport() throws -> Bool {
+        let reportsDirUrl = installUrl.appendingPathComponent("Reports")
+        let files = try? FileManager.default.contentsOfDirectory(atPath: reportsDirUrl.path)
+        return (files ?? []).isEmpty == false
+    }
+
     func readAppleReport() throws -> String {
         let url = try waitForFile(in: appleReportsUrl, timeout: reportTimeout)
         let appleReport = try String(contentsOf: url)
         return appleReport
+    }
+
+    func launchAndInstall(installOverride: ((inout InstallConfig) throws -> Void)? = nil) throws {
+        var installConfig = InstallConfig(installPath: installUrl.path)
+        try installOverride?(&installConfig)
+        app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
+            install: installConfig,
+            delay: actionDelay
+        )
+
+        launchAppAndRunScript()
     }
 
     func launchAndCrash(_ crashId: CrashTriggerId, installOverride: ((inout InstallConfig) throws -> Void)? = nil) throws {
@@ -187,5 +204,10 @@ class IntegrationTestBase: XCTestCase {
         launchAppAndRunScript()
         let report = try readAppleReport()
         return report
+    }
+
+    func terminate() throws {
+        app.terminate()
+        _ = app.wait(for: .notRunning, timeout: self.appTerminateTimeout)
     }
 }

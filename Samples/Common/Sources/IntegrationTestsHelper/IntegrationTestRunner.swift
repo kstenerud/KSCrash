@@ -79,4 +79,9 @@ public extension IntegrationTestRunner {
         let data = try JSONEncoder().encode(Script(install: install, report: report, delay: delay))
         return data.base64EncodedString()
     }
+
+    static func script(install: InstallConfig? = nil, delay: TimeInterval? = nil) throws -> String {
+        let data = try JSONEncoder().encode(Script(install: install, delay: delay))
+        return data.base64EncodedString()
+    }
 }

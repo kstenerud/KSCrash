@@ -29,8 +29,17 @@ import Foundation
 struct PartialCrashReport: Decodable {
     struct Crash: Decodable {
         struct Error: Decodable {
+            struct Signal: Decodable {
+                var signal: Int?
+                var name: String?
+                var code: Int?
+                var code_name: String?
+            }
+
             var reason: String?
             var type: String?
+
+            var signal: Signal?
         }
 
         struct Thread: Decodable {

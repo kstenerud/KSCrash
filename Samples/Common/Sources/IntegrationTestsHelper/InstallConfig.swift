@@ -30,6 +30,7 @@ import KSCrashRecording
 public struct InstallConfig: Codable {
     public var installPath: String
     public var isCxaThrowEnabled: Bool?
+    public var isSigTermMonitoringEnabled: Bool?
 
     public init(installPath: String) {
         self.installPath = installPath
@@ -42,6 +43,9 @@ extension InstallConfig {
         config.installPath = installPath
         if let isCxaThrowEnabled {
             config.enableSwapCxaThrow = isCxaThrowEnabled
+        }
+        if let isSigTermMonitoringEnabled {
+            config.enableSigTermMonitoring = isSigTermMonitoringEnabled
         }
         try KSCrash.shared.install(with: config)
     }
