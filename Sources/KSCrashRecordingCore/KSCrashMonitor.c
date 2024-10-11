@@ -47,6 +47,15 @@ typedef struct {
 
 #define INITIAL_MONITOR_CAPACITY 15
 
+#pragma mark - Helpers
+
+__attribute__((unused))  // Suppress unused function warnings, especially in release builds.
+static inline const char *
+getMonitorNameForLogging(const KSCrashMonitorAPI *api)
+{
+    return kscm_getMonitorId(api) ?: "Unknown";
+}
+
 // ============================================================================
 #pragma mark - Globals -
 // ============================================================================
@@ -96,13 +105,13 @@ static void removeMonitor(MonitorList *list, const KSCrashMonitorAPI *api)
             list->count--;
             list->apis[list->count] = NULL;
 
-            KSLOG_DEBUG("Monitor %s removed from the list.", getMonitorNameForLogging(func));
+            KSLOG_DEBUG("Monitor %s removed from the list.", getMonitorNameForLogging(api));
             break;
         }
     }
 
     if (!found) {
-        KSLOG_DEBUG("Monitor %s not found in the list. No removal performed.", getMonitorNameForLogging(func));
+        KSLOG_DEBUG("Monitor %s not found in the list. No removal performed.", getMonitorNameForLogging(api));
     }
 }
 
@@ -124,15 +133,6 @@ void kscm_resetState(void)
     g_crashedDuringExceptionHandling = false;
     g_requiresAsyncSafety = false;
     g_onExceptionEvent = NULL;
-}
-
-#pragma mark - Helpers
-
-__attribute__((unused))  // Suppress unused function warnings, especially in release builds.
-static inline const char *
-getMonitorNameForLogging(const KSCrashMonitorAPI *api)
-{
-    return kscm_getMonitorId(api) ?: "Unknown";
 }
 
 // ============================================================================
