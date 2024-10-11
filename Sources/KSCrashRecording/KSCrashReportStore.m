@@ -88,7 +88,7 @@
     __weak __typeof(self) weakSelf = self;
     [self sendReports:reports
          onCompletion:^(NSArray *filteredReports, NSError *error) {
-             KSLOG_DEBUG(@"Process finished with completion: %d", completed);
+             KSLOG_DEBUG(@"Process finished");
              if (error != nil) {
                  KSLOG_ERROR(@"Failed to send reports: %@", error);
              }
