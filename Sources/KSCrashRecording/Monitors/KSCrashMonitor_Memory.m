@@ -569,3 +569,5 @@ uint8_t ksmemory_get_nonfatal_report_level(void) { return g_MinimumNonFatalRepor
 void ksmemory_set_fatal_reports_enabled(bool enabled) { g_FatalReportsEnabled = enabled; }
 
 bool ksmemory_get_fatal_reports_enabled(void) { return g_FatalReportsEnabled; }
+
+void ksmemory_notifyUnhandledFatalSignal(void) { g_memory->fatal = true; }

@@ -30,6 +30,7 @@
 #include "KSCrashMonitorContextHelper.h"
 #include "KSCrashMonitorHelper.h"
 #include "KSCrashMonitor_MachException.h"
+#include "KSCrashMonitor_Memory.h"
 #include "KSID.h"
 #include "KSMachineContext.h"
 #include "KSSignalInfo.h"
@@ -71,6 +72,7 @@ static char g_eventID[37];
 #pragma mark - Private -
 // ============================================================================
 
+static void uninstallSignalHandler(void);
 static bool shouldHandleSignal(int sigNum) { return !(sigNum == SIGTERM && !g_sigterm_monitoringEnabled); }
 
 // ============================================================================
@@ -117,6 +119,9 @@ static void handleSignal(int sigNum, siginfo_t *signalInfo, void *userContext)
 
         kscm_handleException(crashContext);
         ksmc_resumeEnvironment(threads, numThreads);
+    } else {
+        uninstallSignalHandler();
+        ksmemory_notifyUnhandledFatalSignal();
     }
 
     KSLOG_DEBUG("Re-raising signal for regular handlers to catch.");
