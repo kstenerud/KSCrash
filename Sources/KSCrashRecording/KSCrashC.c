@@ -194,6 +194,7 @@ void handleConfiguration(KSCrashCConfiguration *configuration)
 #endif
     ksccd_setSearchQueueNames(configuration->enableQueueNameSearch);
     kscrashreport_setIntrospectMemory(configuration->enableMemoryIntrospection);
+    kscm_signal_sigterm_setMonitoringEnabled(configuration->enableSigTermMonitoring);
 
     if (configuration->doNotIntrospectClasses.strings != NULL) {
         kscrashreport_setDoNotIntrospectClasses(configuration->doNotIntrospectClasses.strings,

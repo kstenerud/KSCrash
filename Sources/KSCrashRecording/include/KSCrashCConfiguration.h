@@ -209,6 +209,17 @@ typedef struct {
      * **Default**: true
      */
     bool enableSwapCxaThrow;
+
+    /** If true, enables monitoring for SIGTERM signals.
+     *
+     * A SIGTERM is usually sent to the application by the OS during a graceful shutdown,
+     * but it can also happen on some Watchdog events.
+     * Enabling this can provide more insights into the cause of the SIGTERM, but
+     * it can also generate many false-positive crash reports.
+     *
+     * **Default**: false
+     */
+    bool enableSigTermMonitoring;
 } KSCrashCConfiguration;
 
 static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
@@ -226,6 +237,7 @@ static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
         .addConsoleLogToReport = false,
         .printPreviousLogOnStartup = false,
         .enableSwapCxaThrow = true,
+        .enableSigTermMonitoring = false,
     };
 }
 

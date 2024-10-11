@@ -152,6 +152,17 @@ NS_ASSUME_NONNULL_BEGIN
  */
 @property(nonatomic, assign) BOOL enableSwapCxaThrow;
 
+/** If true, enables monitoring for SIGTERM signals.
+ *
+ * A SIGTERM is usually sent to the application by the OS during a graceful shutdown,
+ * but it can also happen on some Watchdog events.
+ * Enabling this can provide more insights into the cause of the SIGTERM, but
+ * it can also generate many false-positive crash reports.
+ *
+ * **Default**: false
+ */
+@property(nonatomic, assign) BOOL enableSigTermMonitoring;
+
 @end
 
 NS_SWIFT_NAME(CrashReportStoreConfiguration)

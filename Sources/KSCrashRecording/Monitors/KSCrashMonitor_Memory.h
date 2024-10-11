@@ -121,6 +121,12 @@ void ksmemory_set_fatal_reports_enabled(bool enabled);
  */
 bool ksmemory_get_fatal_reports_enabled(void);
 
+/** Notifies memory monitoring logic that there was an unhandled fatal signal.
+ *  E.g. SIGTERM is not considered as a crash by-default but ignoring this signal
+ *  causes false-positive OOM reports.
+ */
+void ksmemory_notifyUnhandledFatalSignal(void);
+
 #ifdef __cplusplus
 }
 #endif
