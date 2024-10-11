@@ -149,7 +149,7 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
 #elif KSCRASH_HOST_MAC
     // macOS doesn't limit memory usage the same way as it's implemented for other OSs.
     // So we just mock limit by having a large value instead (128 GB).
-    uint64_t limit = 137438953472; // 128 GB
+    uint64_t limit = 137438953472;  // 128 GB
     uint64_t remaining = limit < info.phys_footprint ? 0 : limit - info.phys_footprint;
 #else
     uint64_t remaining = info.limit_bytes_remaining;
