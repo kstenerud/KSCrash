@@ -13,7 +13,6 @@ let package = Package(
   products: [
     .library(
       name: "Reporting",
-      type: .static,
       targets: [
         Targets.filters,
         Targets.sinks,
@@ -31,7 +30,6 @@ let package = Package(
     ),
     .library(
       name: "Filters",
-      type: .static,
       targets: [Targets.filters]
     ),
     .library(
@@ -41,7 +39,6 @@ let package = Package(
     ),
     .library(
       name: "Sinks",
-      type: .static,
       targets: [Targets.sinks]
     ),
     .library(
@@ -51,7 +48,6 @@ let package = Package(
     ),
     .library(
       name: "Installations",
-      type: .static,
       targets: [Targets.installations]
     ),
     .library(
@@ -61,7 +57,6 @@ let package = Package(
     ),
     .library(
       name: "Recording",
-      type: .static,
       targets: [Targets.recording]
     ),
     .library(
