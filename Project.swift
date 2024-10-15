@@ -10,7 +10,7 @@ let project = Project(
         .target(
             name: "KSCrashRecording",
             destinations: .iOS,
-            product: .staticLibrary,
+            product: .framework,
             bundleId: "com.embrace.KSCrashRecording",
             sources: ["Sources/KSCrashRecording/**"],
             resources: ["Sources/KSCrashRecording/Resources/PrivacyInfo.xcprivacy"], 
@@ -49,7 +49,7 @@ let project = Project(
         .target(
             name: "KSCrashFilters",
             destinations: .iOS,
-            product: .staticLibrary,
+            product: .framework,
             bundleId: "com.embrace.KSCrashFilters",
             sources: ["Sources/KSCrashFilters/**"],
             resources: ["Sources/KSCrashFilters/Resources/PrivacyInfo.xcprivacy"],
@@ -85,7 +85,7 @@ let project = Project(
         .target(
             name: "KSCrashSinks",
             destinations: .iOS,
-            product: .staticLibrary,
+            product: .framework,
             bundleId: "com.embrace.KSCrashSinks",
             sources: ["Sources/KSCrashSinks/**"],
             resources: ["Sources/KSCrashSinks/Resources/PrivacyInfo.xcprivacy"],
@@ -104,7 +104,7 @@ let project = Project(
         .target(
             name: "KSCrashInstallations",
             destinations: .iOS,
-            product: .staticLibrary,
+            product: .framework,
             bundleId: "com.embrace.KSCrashInstallations",
             sources: ["Sources/KSCrashInstallations/**"],
             resources: ["Sources/KSCrashInstallations/Resources/PrivacyInfo.xcprivacy"],
@@ -140,7 +140,7 @@ let project = Project(
         .target(
             name: "KSCrashRecordingCore",
             destinations: .iOS,
-            product: .staticLibrary,
+            product: .framework,
             bundleId: "com.embrace.KSCrashRecordingCore",
             sources: ["Sources/KSCrashRecordingCore/**"],
             resources: ["Sources/KSCrashRecordingCore/Resources/PrivacyInfo.xcprivacy"],
@@ -181,7 +181,7 @@ let project = Project(
         .target(
             name: "KSCrashReportingCore",
             destinations: .iOS,
-            product: .staticLibrary,
+            product: .framework,
             bundleId: "com.embrace.KSCrashReportingCore",
             sources: ["Sources/KSCrashReportingCore/**"],
             resources: ["Sources/KSCrashReportingCore/Resources/PrivacyInfo.xcprivacy"],
@@ -213,7 +213,7 @@ let project = Project(
         .target(
             name: "KSCrashCore",
             destinations: .iOS,
-            product: .staticLibrary,
+            product: .framework,
             bundleId: "com.embrace.KSCrashCore",
             sources: ["Sources/KSCrashCore/**"],
             resources: ["Sources/KSCrashCore/Resources/PrivacyInfo.xcprivacy"],
@@ -237,7 +237,7 @@ let project = Project(
         .target(
             name: "KSCrashTestTools",
             destinations: .iOS,
-            product: .staticLibrary,
+            product: .framework,
             bundleId: "com.embrace.KSCrashTestTools",
             sources: ["Sources/KSCrashTestTools/**"],
             dependencies: [
