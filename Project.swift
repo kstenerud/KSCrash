@@ -12,6 +12,7 @@ let project = Project(
             destinations: .iOS,
             product: .framework,
             bundleId: "com.embrace.KSCrashRecording",
+            deploymentTargets: .iOS("13.0"),
             sources: ["Sources/KSCrashRecording/**"],
             resources: ["Sources/KSCrashRecording/Resources/PrivacyInfo.xcprivacy"], 
             headers: .headers(public: "Sources/KSCrashRecording/include/**/*.h"),
@@ -31,6 +32,7 @@ let project = Project(
             destinations: .iOS,
             product: .unitTests,
             bundleId: "com.embrace.KSCrashRecordingTests",
+            deploymentTargets: .iOS("13.0"),
             sources: ["Tests/KSCrashRecordingTests/**"],
             resources: ["Tests/KSCrashRecordingTests/Resources/**"],
             dependencies: [
@@ -51,6 +53,7 @@ let project = Project(
             destinations: .iOS,
             product: .framework,
             bundleId: "com.embrace.KSCrashFilters",
+            deploymentTargets: .iOS("13.0"),
             sources: ["Sources/KSCrashFilters/**"],
             resources: ["Sources/KSCrashFilters/Resources/PrivacyInfo.xcprivacy"],
             headers: .headers(public: "Sources/KSCrashFilters/include/**/*.h"),
@@ -71,6 +74,7 @@ let project = Project(
             destinations: .iOS,
             product: .unitTests,
             bundleId: "com.embrace.KSCrashFiltersTests",
+            deploymentTargets: .iOS("13.0"),
             sources: ["Tests/KSCrashFiltersTests/**"],
             dependencies: [
                 .target(name: "KSCrashFilters"),
@@ -87,6 +91,7 @@ let project = Project(
             destinations: .iOS,
             product: .framework,
             bundleId: "com.embrace.KSCrashSinks",
+            deploymentTargets: .iOS("13.0"),
             sources: ["Sources/KSCrashSinks/**"],
             resources: ["Sources/KSCrashSinks/Resources/PrivacyInfo.xcprivacy"],
             headers: .headers(public: "Sources/KSCrashSinks/include/**/*.h"),
@@ -106,6 +111,7 @@ let project = Project(
             destinations: .iOS,
             product: .framework,
             bundleId: "com.embrace.KSCrashInstallations",
+            deploymentTargets: .iOS("13.0"),
             sources: ["Sources/KSCrashInstallations/**"],
             resources: ["Sources/KSCrashInstallations/Resources/PrivacyInfo.xcprivacy"],
             headers: .headers(public: "Sources/KSCrashInstallations/include/**/*.h"),
@@ -126,6 +132,7 @@ let project = Project(
             destinations: .iOS,
             product: .unitTests,
             bundleId: "com.embrace.KSCrashInstallationsTests",
+            deploymentTargets: .iOS("13.0"),
             sources: ["Tests/KSCrashInstallationsTests/**"],
             dependencies: [
                 .target(name: "KSCrashInstallations"),
@@ -142,6 +149,7 @@ let project = Project(
             destinations: .iOS,
             product: .framework,
             bundleId: "com.embrace.KSCrashRecordingCore",
+            deploymentTargets: .iOS("13.0"),
             sources: ["Sources/KSCrashRecordingCore/**"],
             resources: ["Sources/KSCrashRecordingCore/Resources/PrivacyInfo.xcprivacy"],
             headers: .headers(public: "Sources/KSCrashRecordingCore/include/**/*.h"),
@@ -168,6 +176,7 @@ let project = Project(
             destinations: .iOS,
             product: .unitTests,
             bundleId: "com.embrace.KSCrashRecordingCoreTests",
+            deploymentTargets: .iOS("13.0"),
             sources: ["Tests/KSCrashRecordingCoreTests/**"],
             dependencies: [
                 .target(name: "KSCrashTestTools"),
@@ -183,6 +192,7 @@ let project = Project(
             destinations: .iOS,
             product: .framework,
             bundleId: "com.embrace.KSCrashReportingCore",
+            deploymentTargets: .iOS("13.0"),
             sources: ["Sources/KSCrashReportingCore/**"],
             resources: ["Sources/KSCrashReportingCore/Resources/PrivacyInfo.xcprivacy"],
             headers: .headers(public: "Sources/KSCrashReportingCore/include/**/*.h"),
@@ -201,6 +211,7 @@ let project = Project(
             destinations: .iOS,
             product: .unitTests,
             bundleId: "com.embrace.KSCrashReportingCoreTests",
+            deploymentTargets: .iOS("13.0"),
             sources: ["Tests/KSCrashReportingCoreTests/**"],
             dependencies: [
                 .target(name: "KSCrashReportingCore"),
@@ -215,6 +226,7 @@ let project = Project(
             destinations: .iOS,
             product: .framework,
             bundleId: "com.embrace.KSCrashCore",
+            deploymentTargets: .iOS("13.0"),
             sources: ["Sources/KSCrashCore/**"],
             resources: ["Sources/KSCrashCore/Resources/PrivacyInfo.xcprivacy"],
             headers: .headers(public: "Sources/KSCrashCore/include/**/*.h"),
@@ -229,6 +241,7 @@ let project = Project(
             destinations: .iOS,
             product: .unitTests,
             bundleId: "com.embrace.KSCrashCoreTests",
+            deploymentTargets: .iOS("13.0"),
             sources: ["Tests/KSCrashCoreTests/**"],
             dependencies: [
                 .target(name: "KSCrashCore")
@@ -239,6 +252,7 @@ let project = Project(
             destinations: .iOS,
             product: .framework,
             bundleId: "com.embrace.KSCrashTestTools",
+            deploymentTargets: .iOS("13.0"),
             sources: ["Sources/KSCrashTestTools/**"],
             dependencies: [
                 .target(name: "KSCrashRecordingCore")
