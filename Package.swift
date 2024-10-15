@@ -13,6 +13,14 @@ let package = Package(
   products: [
     .library(
       name: "Reporting",
+      targets: [
+        Targets.filters,
+        Targets.sinks,
+        Targets.installations,
+      ]
+    ),
+    .library(
+      name: "Reporting-Dynamic",
       type: .dynamic,
       targets: [
         Targets.filters,
@@ -22,21 +30,37 @@ let package = Package(
     ),
     .library(
       name: "Filters",
+      targets: [Targets.filters]
+    ),
+    .library(
+      name: "Filters-Dynamic",
       type: .dynamic,
       targets: [Targets.filters]
     ),
     .library(
       name: "Sinks",
+      targets: [Targets.sinks]
+    ),
+    .library(
+      name: "Sinks-Dynamic",
       type: .dynamic,
       targets: [Targets.sinks]
     ),
     .library(
       name: "Installations",
+      targets: [Targets.installations]
+    ),
+    .library(
+      name: "Installations-Dynamic",
       type: .dynamic,
       targets: [Targets.installations]
     ),
     .library(
       name: "Recording",
+      targets: [Targets.recording]
+    ),
+    .library(
+      name: "Recording-Dynamic",
       type: .dynamic,
       targets: [Targets.recording]
     ),
