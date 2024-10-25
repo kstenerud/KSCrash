@@ -43,6 +43,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#endif
+
 
 // ============================================================================
 #pragma mark - Globals -
@@ -84,6 +86,7 @@ static bool g_handleSignalHasBeenCalled = false;
  */
 static void handleSignal(int sigNum, siginfo_t* signalInfo, void* userContext)
 {
+#if KSCRASH_HAS_SIGNAL
     if (g_handleSignalHasBeenCalled)
     {
         KSLOG_DEBUG("Already Processed Trapped signal %d, forcing exit", sigNum);
@@ -136,11 +139,16 @@ static void handleSignal(int sigNum, siginfo_t* signalInfo, void* userContext)
 
     KSLOG_DEBUG("Re-raising signal for regular handlers to catch.");
     raise(sigNum);
+#endif
 }
 
 bool addressIsSignalHandler(uintptr_t address)
 {
+#if KSCRASH_HAS_SIGNAL
     return address == ((uintptr_t)&handleSignal);
+#else
+    return false;
+#endif
 }
 
 // ============================================================================
@@ -149,6 +157,7 @@ bool addressIsSignalHandler(uintptr_t address)
 
 static bool installSignalHandler(void)
 {
+#if KSCRASH_HAS_SIGNAL
     KSLOG_DEBUG("Installing signal handler.");
 
 #if KSCRASH_HAS_SIGNAL_STACK
@@ -230,10 +239,14 @@ static bool installSignalHandler(void)
 failed:
     KSLOG_DEBUG("Failed to install signal handlers.");
     return false;
+#else
+    return false;
+#endif
 }
 
 static void uninstallSignalHandler(void)
 {
+#if KSCRASH_HAS_SIGNAL
     KSLOG_DEBUG("Uninstalling signal handlers.");
 
     const int* fatalSignals = kssignal_fatalSignals();
@@ -251,10 +264,12 @@ static void uninstallSignalHandler(void)
     KSLOG_DEBUG("Signal handlers uninstalled.");
 
     memset(g_previousSignalHandlers, 0, sizeof(*g_previousSignalHandlers)* (unsigned)fatalSignalsCount);
+#endif
 }
 
 static void setEnabled(bool isEnabled)
 {
+#if KSCRASH_HAS_SIGNAL
     if(isEnabled != g_isEnabled)
     {
         g_isEnabled = isEnabled;
@@ -271,6 +286,7 @@ static void setEnabled(bool isEnabled)
             uninstallSignalHandler();
         }
     }
+#endif
 }
 
 static bool isEnabled(void)
@@ -280,34 +296,21 @@ static bool isEnabled(void)
 
 static void addContextualInfoToEvent(struct KSCrash_MonitorContext* eventContext)
 {
+#if KSCRASH_HAS_SIGNAL
     if(!(eventContext->crashType & (KSCrashMonitorTypeSignal | KSCrashMonitorTypeMachException)))
     {
         eventContext->signal.signum = SIGABRT;
     }
-}
-
-#else
-
-static void setEnabled(bool isEnabled)
-{
-    // Not supported
-}
-
-static bool isEnabled(void)
-{
-    return false;
-}
-
-static void addContextualInfoToEvent(struct KSCrash_MonitorContext* eventContext)
-{
-    // Not supported
-}
-
 #endif
+}
 
 bool emb_reInstallSignalHandlers(void)
 {
+#if KSCRASH_HAS_SIGNAL
     return installSignalHandler();
+#else
+    return false;
+#endif
 }
 
 
@@ -324,6 +327,7 @@ KSCrashMonitorAPI* kscm_signal_getAPI(void)
 
 struct sigaction* emb_previousSignalHandlers()
 {
+#if KSCRASH_HAS_SIGNAL
     const int* fatalSignals = kssignal_fatalSignals();
     int fatalSignalsCount = kssignal_numFatalSignals();
     struct sigaction* retHandlers = malloc(sizeof(struct sigaction) * fatalSignalsCount);
@@ -339,20 +343,28 @@ struct sigaction* emb_previousSignalHandlers()
     }
 
     return retHandlers;
+#else
+    return NULL;
+#endif
 }
 
 uintptr_t emb_previousSignalHandler()
 {
+#if KSCRASH_HAS_SIGNAL
     uintptr_t p = 0;
     if (g_previousSignalHandlers)
     {
         p = (uintptr_t)g_previousSignalHandlers->sa_sigaction;
     }
     return p;
+#else
+    return NULL;
+#endif
 }
 
 uintptr_t emb_currentSignalHandler()
 {
+#if KSCRASH_HAS_SIGNAL
     const int* fatalSignals = kssignal_fatalSignals();
     int fatalSignalsCount = kssignal_numFatalSignals();
     struct sigaction* signalHandlers = malloc(sizeof(*signalHandlers)
@@ -370,4 +382,7 @@ uintptr_t emb_currentSignalHandler()
     free(signalHandlers);
 
     return p;
+#else
+    return NULL;
+#endif
 }
