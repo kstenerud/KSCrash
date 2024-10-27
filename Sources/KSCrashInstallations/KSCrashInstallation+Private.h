@@ -67,10 +67,6 @@
  */
 - (void)reportFieldForProperty:(NSString *)propertyName setValue:(id)value;
 
-/** Create a new sink. Subclasses must implement this.
- */
-- (id<KSCrashReportFilter>)sink;
-
 /** Make an absolute key path if the specified path is not already absolute. */
 - (NSString *)makeKeyPath:(NSString *)keyPath;
 

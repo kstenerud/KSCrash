@@ -98,6 +98,13 @@ NS_SWIFT_NAME(CrashInstallation)
  */
 - (void)addPreFilter:(id<KSCrashReportFilter>)filter;
 
+/** Creates a sink to be used for reports sending.
+ * @note Subclasses MUST implement this, otherwise `sendAllReportsWithCompletion:` will complete with error.
+ *
+ * @return An instance that implements `KSCrashReportFilter` protocol to be used as a reports sending sink.
+ */
+- (id<KSCrashReportFilter>)sink;
+
 /** Show an alert before sending any reports. Reports will only be sent if the user
  * presses the "yes" button.
  *
