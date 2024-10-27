@@ -53,12 +53,6 @@
 
 @interface KSCrashInstallation ()
 
-/** Initializer.
- *
- * @param requiredProperties Properties that MUST be set when sending reports.
- */
-- (id)initWithRequiredProperties:(NSArray *)requiredProperties;
-
 /** Set the key to be used for the specified report property.
  *
  * @param propertyName The name of the property.

@@ -129,21 +129,13 @@ static CrashHandlerData *g_crashHandlerData;
 @property(nonatomic, readonly, assign) CrashHandlerData *crashHandlerData;
 @property(nonatomic, readwrite, strong) NSMutableData *crashHandlerDataBacking;
 @property(nonatomic, readwrite, strong) NSMutableDictionary *fields;
-@property(nonatomic, readwrite, copy) NSArray *requiredProperties;
 @property(nonatomic, readwrite, strong) KSCrashReportFilterPipeline *prependedFilters;
 
 @end
 
 @implementation KSCrashInstallation
 
-- (id)init
-{
-    [NSException raise:NSInternalInconsistencyException
-                format:@"%@ does not support init. Subclasses must call initWithRequiredProperties:", [self class]];
-    return nil;
-}
-
-- (id)initWithRequiredProperties:(NSArray *)requiredProperties
+- (instancetype)init
 {
     if ((self = [super init])) {
         _isDemangleEnabled = YES;
@@ -152,7 +144,6 @@ static CrashHandlerData *g_crashHandlerData;
             [NSMutableData dataWithLength:sizeof(*self.crashHandlerData) +
                                           sizeof(*self.crashHandlerData->reportFields) * kMaxProperties];
         _fields = [NSMutableDictionary dictionary];
-        _requiredProperties = [requiredProperties copy];
         _prependedFilters = [KSCrashReportFilterPipeline new];
     }
     return self;
@@ -200,32 +191,10 @@ static CrashHandlerData *g_crashHandlerData;
     field.value = value;
 }
 
-- (NSError *)validateProperties
+- (BOOL)validateSetupWithError:(NSError **)error
 {
-    NSMutableString *errors = [NSMutableString string];
-    for (NSString *propertyName in self.requiredProperties) {
-        NSString *nextError = nil;
-        @try {
-            id value = [self valueForKey:propertyName];
-            if (value == nil) {
-                nextError = @"is nil";
-            }
-        } @catch (NSException *exception) {
-            nextError = @"property not found";
-        }
-        if (nextError != nil) {
-            if ([errors length] > 0) {
-                [errors appendString:@", "];
-            }
-            [errors appendFormat:@"%@ (%@)", propertyName, nextError];
-        }
-    }
-    if ([errors length] > 0) {
-        return [KSNSErrorHelper errorWithDomain:[[self class] description]
-                                           code:0
-                                    description:@"Installation properties failed validation: %@", errors];
-    }
-    return nil;
+    // In the base class there is no properties to validate.
+    return YES;
 }
 
 - (NSString *)makeKeyPath:(NSString *)keyPath
@@ -298,8 +267,8 @@ static CrashHandlerData *g_crashHandlerData;
 
 - (void)sendAllReportsWithCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
-    NSError *error = [self validateProperties];
-    if (error != nil) {
+    NSError *error = nil;
+    if ([self validateSetupWithError:&error] == NO) {
         if (onCompletion != nil) {
             onCompletion(nil, error);
         }

@@ -28,6 +28,7 @@
 #import "KSCrashInstallation+Private.h"
 #import "KSCrashReportFilterBasic.h"
 #import "KSCrashReportSinkStandard.h"
+#import "KSNSErrorHelper.h"
 
 @implementation KSCrashInstallationStandard
 
@@ -42,9 +43,20 @@
     return sharedInstance;
 }
 
-- (id)init
+- (BOOL)validateSetupWithError:(NSError *__autoreleasing _Nullable *)error
 {
-    return [super initWithRequiredProperties:[NSArray arrayWithObjects:@"url", nil]];
+    if ([super validateSetupWithError:error] == NO) {
+        return NO;
+    }
+
+    if (self.url == nil) {
+        if (error != NULL) {
+            *error = [KSNSErrorHelper errorWithDomain:[[self class] description] code:0 description:@"No URL provided"];
+        }
+        return NO;
+    }
+
+    return YES;
 }
 
 - (id<KSCrashReportFilter>)sink

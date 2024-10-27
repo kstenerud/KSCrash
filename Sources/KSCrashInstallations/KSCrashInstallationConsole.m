@@ -44,9 +44,9 @@
     return sharedInstance;
 }
 
-- (id)init
+- (instancetype)init
 {
-    if ((self = [super initWithRequiredProperties:nil])) {
+    if ((self = [super init])) {
         _printAppleFormat = NO;
     }
     return self;
