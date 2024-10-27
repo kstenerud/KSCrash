@@ -170,6 +170,7 @@
     if (self != nil) {
         _appName = nil;
         _reportsPath = nil;
+        _reportCleanupPolicy = KSCrashReportCleanupPolicyAlways;
 
         KSCrashReportStoreCConfiguration cConfig = KSCrashReportStoreCConfiguration_Default();
         _maxReportCount = (NSInteger)cConfig.maxReportCount;
@@ -204,6 +205,7 @@
     copy.reportsPath = [self.reportsPath copyWithZone:zone];
     copy.appName = [self.appName copyWithZone:zone];
     copy.maxReportCount = self.maxReportCount;
+    copy.reportCleanupPolicy = self.reportCleanupPolicy;
     return copy;
 }
 

@@ -26,6 +26,7 @@
 
 #import <Foundation/Foundation.h>
 #import "KSCrashMonitorType.h"
+#import "KSCrashReportStore.h"
 #import "KSCrashReportWriter.h"
 
 NS_ASSUME_NONNULL_BEGIN
@@ -190,6 +191,19 @@ NS_SWIFT_NAME(CrashReportStoreConfiguration)
  * **Default**: 5
  */
 @property(nonatomic, assign) NSInteger maxReportCount;
+
+/** What to do after sending reports via `-[KSCrashReportStore sendAllReportsWithCompletion:]`.
+ *
+ * - Use `KSCrashReportCleanupPolicyNever` if you manually manage the reports.
+ * - Use `KSCrashReportCleanupPolicyAlways` if you are using an alert confirmation
+ *   (otherwise it will nag the user incessantly until he selects "yes").
+ * - Use `KSCrashReportCleanupPolicyOnSucess` for all other situations.
+ *
+ * Can be updated after creation of report store / installation of KSCrash.
+ *
+ * **Default**: `KSCrashReportCleanupPolicyAlways`
+ */
+@property(nonatomic, assign) KSCrashReportCleanupPolicy reportCleanupPolicy;
 
 @end
 
