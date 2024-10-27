@@ -32,6 +32,9 @@ struct MainView: View {
 
     @ObservedObject var bridge: InstallBridge
 
+    @State var alertMessage: String?
+    @State var alertIsPresented: Bool = false
+
     var body: some View {
         List {
             Section {
@@ -53,6 +56,21 @@ struct MainView: View {
             } else {
                 Text("Reporting is not available")
             }
+            if let installation = bridge.installation {
+                Button("Send reports via installation") {
+                    installation.sendAllReports { _, error in
+                        alertMessage = error?.localizedDescription
+                        alertIsPresented = error != nil
+                    }
+                }
+            }
+        }
+        .alert(isPresented: $alertIsPresented) {
+            Alert(
+                title: Text("Error"),
+                message: Text(alertMessage ?? ""),
+                dismissButton: .default(Text("OK"))
+            )
         }
     }
 }

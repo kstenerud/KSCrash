@@ -81,6 +81,12 @@ struct InstallView: View {
                 }
             }
 
+            Section(header: Text("Installations")) {
+                Button("SampleInstallation") {
+                    bridge.useInstallation(SampleInstallation())
+                }
+            }
+
             Button("Only set up reports") {
                 bridge.setupReportsOnly()
             }
