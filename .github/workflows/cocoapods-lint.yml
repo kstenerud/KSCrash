@@ -21,7 +21,7 @@ concurrency:
 jobs:
   lint:
     runs-on: "macos-${{ matrix.macos-version || 'latest' }}"
-    timeout-minutes: 15
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
