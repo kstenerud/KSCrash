@@ -19,8 +19,8 @@ jobs:
         with:
           ruby-version: '3.0'
 
-      - name: Install CocoaPods
-        run: gem install cocoapods
+      - name: Install Ruby Gems
+        run: sudo bundle install
 
       - name: Use Latest Stable Xcode
         uses: maxim-lobanov/setup-xcode@v1
