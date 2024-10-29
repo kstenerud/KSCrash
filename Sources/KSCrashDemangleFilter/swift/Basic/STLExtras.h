@@ -537,8 +537,9 @@ namespace swift {
         typename std::iterator_traits<Iterator>::reference;
         
         using ResultReference =
-        typename std::result_of<OptionalTransform(UnderlyingReference)>::type;
-        
+        // The line below is manually patched
+        decltype((std::declval<UnderlyingReference>()->*std::declval<OptionalTransform>())());
+
     public:
         /// Used to indicate when the current iterator has already been
         /// "primed", meaning that it's at the end or points to a value that
