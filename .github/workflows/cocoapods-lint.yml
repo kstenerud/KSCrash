@@ -5,6 +5,7 @@ on:
     paths:
       - 'Sources/**'
       - 'KSCrash.podspec'
+      - 'Gemfile'
       - '.github/workflows/cocoapods-lint.yml'
 
   push:
