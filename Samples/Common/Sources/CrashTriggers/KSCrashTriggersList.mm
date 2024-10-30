@@ -41,10 +41,9 @@ class Report
 
 extern "C" void KSStacktraceCheckCrash() __attribute__((disable_tail_calls));
 NSString *const KSCrashStacktraceCheckFuncName = @"KSStacktraceCheckCrash";
-void KSStacktraceCheckCrash() __attribute__((disable_tail_calls)) {
-    NSException *exc = [NSException exceptionWithName:NSGenericException
-                                               reason:@"Stacktrace Check"
-                                             userInfo:nil];
+void KSStacktraceCheckCrash() __attribute__((disable_tail_calls))
+{
+    NSException *exc = [NSException exceptionWithName:NSGenericException reason:@"Stacktrace Check" userInfo:nil];
     [exc raise];
 }
 
