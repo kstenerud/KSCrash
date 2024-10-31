@@ -26,6 +26,7 @@
 
 import XCTest
 import SampleUI
+import CrashTriggers
 
 final class NSExceptionTests: IntegrationTestBase {
     func testGenericException() throws {
@@ -109,6 +110,23 @@ final class SignalTests: IntegrationTestBase {
 }
 
 #endif
+
+final class OtherTests: IntegrationTestBase {
+    func testManyThreads() throws {
+        try launchAndCrash(.other_manyThreads)
+
+        let rawReport = try readPartialCrashReport()
+        let crashedThread = rawReport.crash?.threads?.first(where: { $0.crashed })
+        XCTAssertNotNil(crashedThread)
+        let expectedFrame = crashedThread?.backtrace.contents.first(where: {
+            $0.symbol_name?.contains(KSCrashStacktraceCheckFuncName) ?? false
+        })
+        XCTAssertNotNil(expectedFrame)
+
+        let appleReport = try launchAndReportCrash()
+        XCTAssertTrue(appleReport.contains(KSCrashStacktraceCheckFuncName))
+    }
+}
 
 extension PartialCrashReport {
     func validate() throws {

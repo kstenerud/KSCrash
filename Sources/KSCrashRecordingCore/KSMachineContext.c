@@ -86,6 +86,13 @@ static inline bool getThreadList(KSMachineContext *context)
     int maxThreadCount = sizeof(context->allThreads) / sizeof(context->allThreads[0]);
     if (threadCount > maxThreadCount) {
         KSLOG_ERROR("Thread count %d is higher than maximum of %d", threadCount, maxThreadCount);
+        for (mach_msg_type_number_t idx = maxThreadCount; idx < threadCount; ++idx) {
+            if (threads[idx] == context->thisThread) {
+                // If crashed thread is outside of threads limit we place it at the end of the list
+                threads[maxThreadCount - 1] = threads[idx];
+                break;
+            }
+        }
         threadCount = maxThreadCount;
     }
     for (int i = 0; i < threadCount; i++) {

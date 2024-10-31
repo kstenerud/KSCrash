@@ -39,6 +39,14 @@ class Report
 };
 }  // namespace sample_namespace
 
+extern "C" void KSStacktraceCheckCrash() __attribute__((disable_tail_calls));
+NSString *const KSCrashStacktraceCheckFuncName = @"KSStacktraceCheckCrash";
+void KSStacktraceCheckCrash() __attribute__((disable_tail_calls))
+{
+    NSException *exc = [NSException exceptionWithName:NSGenericException reason:@"Stacktrace Check" userInfo:nil];
+    [exc raise];
+}
+
 @implementation KSCrashTriggersList
 
 + (void)trigger_nsException_genericNSException
@@ -81,6 +89,33 @@ class Report
 + (void)trigger_signal_abort
 {
     abort();  // This will raise a SIGABRT signal
+}
+
++ (void)trigger_other_manyThreads
+{
+    NSUInteger const threadsCount = 200;
+    static NSMutableArray *allThreads = [NSMutableArray arrayWithCapacity:threadsCount + 1];
+
+    for (NSUInteger idx = 0; idx < threadsCount; ++idx) {
+        NSThread *thread = [[NSThread alloc] initWithBlock:^{
+            // Sleep forever by making short "sleep" calls
+            while (YES) {
+                [NSThread sleepForTimeInterval:0.01];
+            }
+        }];
+        [thread start];
+        [allThreads addObject:thread];
+    }
+
+    NSThread *thread = [[NSThread alloc] initWithBlock:^{
+        // Sleep 100ms to ensure other threads are running
+        [NSThread sleepForTimeInterval:0.1];
+
+        // And then actually crash (specifically in the last thread)
+        KSStacktraceCheckCrash();
+    }];
+    [thread start];
+    [allThreads addObject:thread];
 }
 
 + (void)trigger_other_stackOverflow

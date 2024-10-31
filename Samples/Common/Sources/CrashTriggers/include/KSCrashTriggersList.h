@@ -28,6 +28,8 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+extern NSString *const KSCrashStacktraceCheckFuncName;
+
 #define __ALL_GROUPS                             \
     __PROCESS_GROUP(nsException, @"NSException") \
     __PROCESS_GROUP(cpp, @"C++")                 \
@@ -43,6 +45,7 @@ NS_ASSUME_NONNULL_BEGIN
     __PROCESS_TRIGGER(mach, busError, @"EXC_BAD_ACCESS (SIGBUS)")                \
     __PROCESS_TRIGGER(mach, illegalInstruction, @"EXC_BAD_INSTRUCTION")          \
     __PROCESS_TRIGGER(signal, abort, @"Abort")                                   \
+    __PROCESS_TRIGGER(other, manyThreads, @"Many Threads")                       \
     __PROCESS_TRIGGER(other, stackOverflow, @"Stack overflow")
 
 NS_SWIFT_NAME(CrashTriggersList)
