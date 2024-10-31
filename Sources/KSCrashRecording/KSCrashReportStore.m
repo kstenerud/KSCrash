@@ -61,8 +61,9 @@
 {
     self = [super init];
     if (self != nil) {
-        _cConfig = [(configuration ?: [KSCrashReportStoreConfiguration new]) toCConfiguration];
-        _reportCleanupPolicy = KSCrashReportCleanupPolicyAlways;
+        KSCrashReportStoreConfiguration *resolvedConfiguration = configuration ?: [KSCrashReportStoreConfiguration new];
+        _cConfig = [resolvedConfiguration toCConfiguration];
+        _reportCleanupPolicy = resolvedConfiguration.reportCleanupPolicy;
 
         kscrs_initialize(&_cConfig);
     }

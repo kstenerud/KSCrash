@@ -80,14 +80,15 @@ NS_SWIFT_NAME(CrashReportStore)
  */
 @property(nonatomic, readwrite, strong, nullable) id<KSCrashReportFilter> sink;
 
-/** What to do after sending reports via sendAllReportsWithCompletion:
+/** What to do after sending reports via `-[KSCrashReportStore sendAllReportsWithCompletion:]`.
  *
- * - Use KSCrashReportCleanupPolicyNever if you manually manage the reports.
- * - Use KSCrashReportCleanupPolicyAlways if you are using an alert confirmation
+ * - Use `KSCrashReportCleanupPolicyNever` if you manually manage the reports.
+ * - Use `KSCrashReportCleanupPolicyAlways` if you are using an alert confirmation
  *   (otherwise it will nag the user incessantly until he selects "yes").
- * - Use KSCrashReportCleanupPolicyOnSucess for all other situations.
+ * - Use `KSCrashReportCleanupPolicyOnSucess` for all other situations.
  *
- * Default: KSCrashReportCleanupPolicyAlways
+ * Initial value is provided from store configuration.
+ * If no configuration is provided, the default value from `KSCrashReportStoreConfiguration` is used.
  */
 @property(nonatomic, assign) KSCrashReportCleanupPolicy reportCleanupPolicy;
 
