@@ -28,6 +28,7 @@
 #import "KSCrashInstallation+Private.h"
 #import "KSCrashReportFilterAlert.h"
 #import "KSCrashReportSinkEMail.h"
+#import "KSNSErrorHelper.h"
 
 @interface KSCrashInstallationEmail ()
 
@@ -48,10 +49,9 @@
     return sharedInstance;
 }
 
-- (id)init
+- (instancetype)init
 {
-    if ((self = [super
-             initWithRequiredProperties:[NSArray arrayWithObjects:@"recipients", @"subject", @"filenameFmt", nil]])) {
+    if ((self = [super init])) {
         NSString *bundleName = [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleName"];
         _subject = [NSString stringWithFormat:@"Crash Report (%@)", bundleName];
         _defaultFilenameFormats = [NSDictionary
@@ -62,6 +62,42 @@
         [self setReportStyle:KSCrashEmailReportStyleJSON useDefaultFilenameFormat:YES];
     }
     return self;
+}
+
+- (BOOL)validateSetupWithError:(NSError **)error
+{
+    if ([super validateSetupWithError:error] == NO) {
+        return NO;
+    }
+
+    if (self.recipients.count == 0) {
+        if (error != NULL) {
+            *error = [KSNSErrorHelper errorWithDomain:[[self class] description]
+                                                 code:0
+                                          description:@"Empty recepients array"];
+        }
+        return NO;
+    }
+
+    if (self.subject.length == 0) {
+        if (error != NULL) {
+            *error = [KSNSErrorHelper errorWithDomain:[[self class] description]
+                                                 code:0
+                                          description:@"No email subject provided"];
+        }
+        return NO;
+    }
+
+    if (self.filenameFmt.length == 0) {
+        if (error != NULL) {
+            *error = [KSNSErrorHelper errorWithDomain:[[self class] description]
+                                                 code:0
+                                          description:@"No filename format provided"];
+        }
+        return NO;
+    }
+
+    return YES;
 }
 
 - (void)setReportStyle:(KSCrashEmailReportStyle)reportStyle useDefaultFilenameFormat:(BOOL)useDefaultFilenameFormat

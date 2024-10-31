@@ -98,6 +98,13 @@ NS_SWIFT_NAME(CrashInstallation)
  */
 - (void)addPreFilter:(id<KSCrashReportFilter>)filter;
 
+/** Creates a sink to be used for reports sending.
+ * @note Subclasses MUST implement this, otherwise `sendAllReportsWithCompletion:` will complete with error.
+ *
+ * @return An instance that implements `KSCrashReportFilter` protocol to be used as a reports sending sink.
+ */
+- (id<KSCrashReportFilter>)sink;
+
 /** Show an alert before sending any reports. Reports will only be sent if the user
  * presses the "yes" button.
  *
@@ -121,6 +128,16 @@ NS_SWIFT_NAME(CrashInstallation)
 - (void)addUnconditionalAlertWithTitle:(NSString *)title
                                message:(nullable NSString *)message
                      dismissButtonText:(NSString *)dismissButtonText;
+
+/** Validates properties of installation.
+ *
+ * Intended to be overriden in subclasses to handle properties validation
+ * in the installation logic (e.g. before sending crash reports).
+ *
+ * @param error Pointer to an error object to store validation error.
+ * @return `NO` if there is a validation error.
+ */
+- (BOOL)validateSetupWithError:(NSError **)error;
 
 @end
 

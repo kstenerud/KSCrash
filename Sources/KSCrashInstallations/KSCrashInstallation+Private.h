@@ -53,12 +53,6 @@
 
 @interface KSCrashInstallation ()
 
-/** Initializer.
- *
- * @param requiredProperties Properties that MUST be set when sending reports.
- */
-- (id)initWithRequiredProperties:(NSArray *)requiredProperties;
-
 /** Set the key to be used for the specified report property.
  *
  * @param propertyName The name of the property.
@@ -72,10 +66,6 @@
  * @param value The value to set.
  */
 - (void)reportFieldForProperty:(NSString *)propertyName setValue:(id)value;
-
-/** Create a new sink. Subclasses must implement this.
- */
-- (id<KSCrashReportFilter>)sink;
 
 /** Make an absolute key path if the specified path is not already absolute. */
 - (NSString *)makeKeyPath:(NSString *)keyPath;

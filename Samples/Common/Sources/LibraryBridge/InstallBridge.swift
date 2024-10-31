@@ -28,6 +28,7 @@ import Foundation
 import Combine
 import SwiftUI
 import KSCrashRecording
+import KSCrashInstallations
 import Logging
 
 public enum BasePath: String, CaseIterable {
@@ -71,6 +72,7 @@ public class InstallBridge: ObservableObject {
     @Published public var error: InstallationError?
 
     @Published public var reportStore: CrashReportStore?
+    @Published public var installation: CrashInstallation?
 
     public init() {
         config = .init()
@@ -81,16 +83,9 @@ public class InstallBridge: ObservableObject {
             .store(in: &disposables)
     }
 
-    public func install() {
-        guard !installed else {
-            error = .alreadyInstalled
-            return
-        }
-
+    private func handleInstallation(_ block: () throws -> Void) {
         do {
-            try KSCrash.shared.install(with: config)
-            reportStore = KSCrash.shared.reportStore
-            installed = true
+            try block()
         } catch let error as KSCrashInstallError {
             let message = error.localizedDescription
             Self.logger.error("Failed to install KSCrash: \(message)")
@@ -99,6 +94,33 @@ public class InstallBridge: ObservableObject {
             let message = error.localizedDescription
             Self.logger.error("Unexpected error during KSCrash installation: \(message)")
             self.error = .unexpectedError(message)
+        }
+    }
+
+    public func install() {
+        guard !installed else {
+            error = .alreadyInstalled
+            return
+        }
+
+        handleInstallation {
+            try KSCrash.shared.install(with: config)
+            reportStore = KSCrash.shared.reportStore
+            installed = true
+        }
+    }
+
+    public func useInstallation(_ installation: CrashInstallation) {
+        guard !installed else {
+            error = .alreadyInstalled
+            return
+        }
+
+        handleInstallation {
+            try installation.install(with: config)
+            reportStore = KSCrash.shared.reportStore
+            self.installation = installation
+            installed = true
         }
     }
 
