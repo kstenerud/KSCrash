@@ -33,6 +33,7 @@
 #import "KSCrashMonitorContextHelper.h"
 #include "KSID.h"
 #import "KSStackCursor_Backtrace.h"
+#import "KSStackCursor_SelfThread.h"
 #include "KSThread.h"
 
 // #define KSLogger_LocalLevel TRACE
