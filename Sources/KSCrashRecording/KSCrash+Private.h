@@ -43,10 +43,13 @@ NSString *kscrash_getDefaultInstallPath(void);
 }
 #endif
 
+typedef void KSCrashCustomNSExceptionReporter(NSException *exception, BOOL logAllThreads);
+
 @interface KSCrash ()
 
 @property(nonatomic, readwrite, assign) NSUncaughtExceptionHandler *uncaughtExceptionHandler;
-@property(nonatomic, readwrite, assign) NSUncaughtExceptionHandler *currentSnapshotUserReportedExceptionHandler;
+
+@property(nonatomic, assign) KSCrashCustomNSExceptionReporter *customNSExceptionReporter;
 
 + (NSError *)errorForInstallErrorCode:(KSCrashInstallErrorCode)errorCode;
 

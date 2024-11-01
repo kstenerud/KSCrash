@@ -58,8 +58,12 @@ NS_ASSUME_NONNULL_BEGIN
 /** Exposes the uncaughtExceptionHandler if set from KSCrash. Is nil if debugger is running. */
 @property(nonatomic, readonly, assign) NSUncaughtExceptionHandler *uncaughtExceptionHandler;
 
-/** Exposes the currentSnapshotUserReportedExceptionHandler if set from KSCrash.  Is nil if debugger is running. */
-@property(nonatomic, readonly, assign) NSUncaughtExceptionHandler *currentSnapshotUserReportedExceptionHandler;
+/** Exposes the currentSnapshotUserReportedExceptionHandler if set from KSCrash.  Is nil if debugger is running.
+ *
+ * @note This property is deprecated in favor of `-reportNSException:logAllThreads:` method.
+ */
+@property(nonatomic, readonly, assign) NSUncaughtExceptionHandler *currentSnapshotUserReportedExceptionHandler
+    __attribute__((deprecated("Deprecated in favor of -reportNSException:logAllThreads:terminateProgram:")));
 
 /** Total active time elapsed since the last crash. */
 @property(nonatomic, readonly, assign) NSTimeInterval activeDurationSinceLastCrash;
@@ -126,7 +130,7 @@ NS_ASSUME_NONNULL_BEGIN
 /** Report a custom, user defined exception.
  * This can be useful when dealing with scripting languages.
  *
- * If terminateProgram is true, all sentries will be uninstalled and the application will
+ * If terminateProgram is true, all monitors will be uninstalled and the application will
  * terminate with an abort().
  *
  * @param name The exception name (for namespacing exception types).
@@ -152,6 +156,13 @@ NS_ASSUME_NONNULL_BEGIN
                  stackTrace:(nullable NSArray *)stackTrace
               logAllThreads:(BOOL)logAllThreads
            terminateProgram:(BOOL)terminateProgram;
+
+/** Report an NSException as if it's caught by a corresponding monitor.
+ *
+ * @param exception The exception to be reported.
+ * @param logAllThreads If true, suspend all threads and log their state. Note that this incurs a performance penalty.
+ */
+- (void)reportNSException:(NSException *)exception logAllThreads:(BOOL)logAllThreads;
 
 @end
 

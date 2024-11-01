@@ -144,7 +144,7 @@ static void notifyOfBeforeInstallationState(void)
  */
 static void onCrash(struct KSCrash_MonitorContext *monitorContext)
 {
-    if (monitorContext->currentSnapshotUserReported == false) {
+    if (monitorContext->isUserReported == false) {
         KSLOG_DEBUG("Updating application state to note crash.");
         kscrashstate_notifyAppCrash();
     }

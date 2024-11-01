@@ -521,7 +521,7 @@ static void ksmemory_write_possible_oom(void)
     context.eventID = eventID;
     context.registersAreValid = false;
     context.offendingMachineContext = machineContext;
-    context.currentSnapshotUserReported = true;
+    context.isUserReported = true;
 
     // we don't need all the images, we have no stack
     context.omitBinaryImages = true;
