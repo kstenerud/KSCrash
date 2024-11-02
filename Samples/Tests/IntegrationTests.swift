@@ -143,12 +143,36 @@ final class OtherTests: IntegrationTestBase {
         })
         XCTAssertNotNil(backtraceFrame)
 
+        // Should not terminate app
+        XCTAssertEqual(app.state, .runningForeground)
+
         app.terminate()
         let appleReport = try launchAndReportCrash()
         print(appleReport)
         XCTAssertTrue(appleReport.contains(UserReportConfig.crashName))
         XCTAssertTrue(appleReport.contains(UserReportConfig.crashReason))
         XCTAssertTrue(appleReport.contains(KSCrashNSExceptionStacktraceFuncName))
+    }
+
+    func testUserReport() throws {
+        try launchAndMakeUserReports([.userException])
+
+        let rawReport = try readPartialCrashReport()
+        try rawReport.validate()
+        XCTAssertEqual(rawReport.crash?.error?.type, "user")
+        XCTAssertEqual(rawReport.crash?.error?.reason, UserReportConfig.crashReason)
+        XCTAssertEqual(rawReport.crash?.error?.user_reported?.name, UserReportConfig.crashName)
+        XCTAssertEqual(rawReport.crash?.error?.user_reported?.backtrace, UserReportConfig.crashCustomStacktrace)
+        XCTAssertGreaterThanOrEqual(rawReport.crash?.threads?.count ?? 0, 2, "Expected to have at least 2 threads")
+
+        // Should not terminate app
+        XCTAssertEqual(app.state, .runningForeground)
+
+        app.terminate()
+        let appleReport = try launchAndReportCrash()
+        print(appleReport)
+        XCTAssertTrue(appleReport.contains(UserReportConfig.crashName))
+        XCTAssertTrue(appleReport.contains(UserReportConfig.crashReason))
     }
 }
 
