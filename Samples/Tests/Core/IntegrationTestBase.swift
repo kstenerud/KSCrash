@@ -37,6 +37,7 @@ class IntegrationTestBase: XCTestCase {
 
     private(set) var installUrl: URL!
     private(set) var appleReportsUrl: URL!
+    private(set) var stateUrl: URL!
 
     var appLaunchTimeout: TimeInterval = 10.0
     var appTerminateTimeout: TimeInterval = 5.0
@@ -55,6 +56,13 @@ class IntegrationTestBase: XCTestCase {
 #endif
     }
 
+    private var runConfig: IntegrationTestRunner.RunConfig {
+        .init(
+            delay: actionDelay,
+            stateSavePath: stateUrl.path
+        )
+    }
+
     override func setUpWithError() throws {
         try super.setUpWithError()
 
@@ -65,6 +73,7 @@ class IntegrationTestBase: XCTestCase {
             .appendingPathComponent("KSCrash")
             .appendingPathComponent(UUID().uuidString)
         appleReportsUrl = installUrl.appendingPathComponent("__TEST_REPORTS__")
+        stateUrl = installUrl.appendingPathComponent("__test_state__.json")
 
         try FileManager.default.createDirectory(at: appleReportsUrl, withIntermediateDirectories: true)
         log.info("KSCrash install path: \(installUrl.path)")
@@ -183,7 +192,7 @@ class IntegrationTestBase: XCTestCase {
         try installOverride?(&installConfig)
         app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
             install: installConfig,
-            delay: actionDelay
+            config: runConfig
         )
 
         launchAppAndRunScript()
@@ -195,7 +204,7 @@ class IntegrationTestBase: XCTestCase {
         app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
             crash: .init(triggerId: crashId),
             install: installConfig,
-            delay: actionDelay
+            config: runConfig
         )
 
         launchAppAndRunScript()
@@ -208,7 +217,7 @@ class IntegrationTestBase: XCTestCase {
         app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
             userReports: reportTypes.map(UserReportConfig.init(reportType:)),
             install: installConfig,
-            delay: actionDelay
+            config: runConfig
         )
 
         launchAppAndRunScript()
@@ -218,12 +227,18 @@ class IntegrationTestBase: XCTestCase {
         app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
             report: .init(directoryPath: appleReportsUrl.path),
             install: .init(installPath: installUrl.path),
-            delay: actionDelay
+            config: runConfig
         )
 
         launchAppAndRunScript()
         let report = try readAppleReport()
         return report
+    }
+
+    func readState() throws -> KSCrashState {
+        let data = try Data(contentsOf: stateUrl)
+        let state = try JSONDecoder().decode(KSCrashState.self, from: data)
+        return state
     }
 
     func terminate() throws {

@@ -148,10 +148,12 @@ final class OtherTests: IntegrationTestBase {
 
         app.terminate()
         let appleReport = try launchAndReportCrash()
-        print(appleReport)
         XCTAssertTrue(appleReport.contains(UserReportConfig.crashName))
         XCTAssertTrue(appleReport.contains(UserReportConfig.crashReason))
         XCTAssertTrue(appleReport.contains(KSCrashNSExceptionStacktraceFuncName))
+
+        let state = try readState()
+        XCTAssertFalse(state.crashedLastLaunch)
     }
 
     func testUserReport() throws {
@@ -170,9 +172,11 @@ final class OtherTests: IntegrationTestBase {
 
         app.terminate()
         let appleReport = try launchAndReportCrash()
-        print(appleReport)
         XCTAssertTrue(appleReport.contains(UserReportConfig.crashName))
         XCTAssertTrue(appleReport.contains(UserReportConfig.crashReason))
+
+        let state = try readState()
+        XCTAssertFalse(state.crashedLastLaunch)
     }
 }
 
