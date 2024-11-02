@@ -30,6 +30,7 @@ public final class IntegrationTestRunner {
 
     private struct Script: Codable {
         var install: InstallConfig?
+        var userReports: [UserReportConfig]?
         var crashTrigger: CrashTriggerConfig?
         var report: ReportConfig?
 
@@ -58,6 +59,11 @@ public final class IntegrationTestRunner {
             if let crashTrigger = script.crashTrigger {
                 crashTrigger.crash()
             }
+            if let userReports = script.userReports {
+                for report in userReports {
+                    report.report()
+                }
+            }
             if let report = script.report {
                 report.report()
             }
@@ -72,6 +78,11 @@ public extension IntegrationTestRunner {
 
     static func script(crash: CrashTriggerConfig, install: InstallConfig? = nil, delay: TimeInterval? = nil) throws -> String {
         let data = try JSONEncoder().encode(Script(install: install, crashTrigger: crash, delay: delay))
+        return data.base64EncodedString()
+    }
+
+    static func script(userReports: [UserReportConfig], install: InstallConfig? = nil, delay: TimeInterval? = nil) throws -> String {
+        let data = try JSONEncoder().encode(Script(install: install, userReports: userReports, delay: delay))
         return data.base64EncodedString()
     }
 

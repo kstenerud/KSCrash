@@ -44,6 +44,8 @@ class IntegrationTestBase: XCTestCase {
 
     var reportTimeout: TimeInterval = 5.0
 
+    var expectSingleCrash: Bool = true
+
     lazy var actionDelay: TimeInterval = Self.defaultActionDelay
     private static var defaultActionDelay: TimeInterval {
 #if os(iOS)
@@ -98,12 +100,18 @@ class IntegrationTestBase: XCTestCase {
     private func waitForFile(in dir: URL, timeout: TimeInterval? = nil) throws -> URL {
         enum Error: Swift.Error {
             case fileNotFound
+            case tooManyFiles
         }
 
-        let getFileUrl = {
+        let getFileUrl = { [unowned self] in
             let files = try FileManager.default.contentsOfDirectory(atPath: dir.path)
             guard let fileName = files.first else {
                 throw Error.fileNotFound
+            }
+            if self.expectSingleCrash {
+                guard files.count == 1 else {
+                    throw Error.tooManyFiles
+                }
             }
             return dir.appendingPathComponent(fileName)
         }
@@ -192,6 +200,18 @@ class IntegrationTestBase: XCTestCase {
 
         launchAppAndRunScript()
         waitForCrash()
+    }
+
+    func launchAndMakeUserReports(_ reportTypes: [UserReportConfig.ReportType], installOverride: ((inout InstallConfig) throws -> Void)? = nil) throws {
+        var installConfig = InstallConfig(installPath: installUrl.path)
+        try installOverride?(&installConfig)
+        app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
+            userReports: reportTypes.map(UserReportConfig.init(reportType:)),
+            install: installConfig,
+            delay: actionDelay
+        )
+
+        launchAppAndRunScript()
     }
 
     func launchAndReportCrash() throws -> String {

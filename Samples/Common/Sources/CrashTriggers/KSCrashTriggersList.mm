@@ -47,6 +47,8 @@ void KSStacktraceCheckCrash() __attribute__((disable_tail_calls))
     [exc raise];
 }
 
+NSString *const KSCrashNSExceptionStacktraceFuncName = @"exceptionWithStacktraceForException";
+
 @implementation KSCrashTriggersList
 
 + (void)trigger_nsException_genericNSException

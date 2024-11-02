@@ -35,11 +35,16 @@ struct PartialCrashReport: Decodable {
                 var code: Int?
                 var code_name: String?
             }
+            struct NSException: Decodable {
+                var name: String?
+                var userInfo: String?
+            }
 
             var reason: String?
             var type: String?
 
             var signal: Signal?
+            var nsexception: NSException?
         }
 
         struct Thread: Decodable {
