@@ -141,12 +141,11 @@ final class OtherTests: IntegrationTestBase {
         let backtraceFrame = rawReport.crashedThread?.backtrace.contents.first(where: {
             $0.symbol_name?.contains(KSCrashNSExceptionStacktraceFuncName) ?? false
         })
-        XCTAssertNotNil(backtraceFrame)
+        XCTAssertNotNil(backtraceFrame, "Crashed thread stack trace should have the specific symbol")
 
-        // Should not terminate app
-        XCTAssertEqual(app.state, .runningForeground)
-
+        XCTAssertEqual(app.state, .runningForeground, "Should not terminate app")
         app.terminate()
+
         let appleReport = try launchAndReportCrash()
         XCTAssertTrue(appleReport.contains(UserReportConfig.crashName))
         XCTAssertTrue(appleReport.contains(UserReportConfig.crashReason))
@@ -167,10 +166,9 @@ final class OtherTests: IntegrationTestBase {
         XCTAssertEqual(rawReport.crash?.error?.user_reported?.backtrace, UserReportConfig.crashCustomStacktrace)
         XCTAssertGreaterThanOrEqual(rawReport.crash?.threads?.count ?? 0, 2, "Expected to have at least 2 threads")
 
-        // Should not terminate app
-        XCTAssertEqual(app.state, .runningForeground)
-
+        XCTAssertEqual(app.state, .runningForeground, "Should not terminate app")
         app.terminate()
+
         let appleReport = try launchAndReportCrash()
         XCTAssertTrue(appleReport.contains(UserReportConfig.crashName))
         XCTAssertTrue(appleReport.contains(UserReportConfig.crashReason))
