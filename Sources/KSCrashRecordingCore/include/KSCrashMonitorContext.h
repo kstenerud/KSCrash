@@ -41,6 +41,11 @@ typedef struct KSCrash_MonitorContext {
     /** Unique identifier for this event. */
     const char *eventID;
 
+    /**
+     If true, so reported user exception will have the current snapshot.
+     */
+    bool currentSnapshotUserReported;
+
     /** If true, the environment has crashed hard, and only async-safe
      *  functions should be used.
      */
@@ -59,10 +64,6 @@ typedef struct KSCrash_MonitorContext {
 
     /** True if the crash system has detected a stack overflow. */
     bool isStackOverflow;
-
-    /** True if crash is reported by a user.
-     */
-    bool isUserReported;
 
     /** The machine context that generated the event. */
     struct KSMachineContext *offendingMachineContext;

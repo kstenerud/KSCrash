@@ -60,10 +60,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 /** Exposes the currentSnapshotUserReportedExceptionHandler if set from KSCrash.  Is nil if debugger is running.
  *
- * @note This property is deprecated in favor of `-reportNSException:logAllThreads:` method.
+ * @deprecated This property is deprecated in favor of `-reportNSException:logAllThreads:` method (since v2.0.0).
  */
 @property(nonatomic, readonly, assign) NSUncaughtExceptionHandler *currentSnapshotUserReportedExceptionHandler
-    __attribute__((deprecated("Deprecated in favor of -reportNSException:logAllThreads:terminateProgram:")));
+    __attribute__((deprecated("Use `-reportNSException:logAllThreads:` instead (since v2.0.0).")));
 
 /** Total active time elapsed since the last crash. */
 @property(nonatomic, readonly, assign) NSTimeInterval activeDurationSinceLastCrash;
@@ -157,7 +157,9 @@ NS_ASSUME_NONNULL_BEGIN
               logAllThreads:(BOOL)logAllThreads
            terminateProgram:(BOOL)terminateProgram;
 
-/** Report an NSException as if it's caught by a corresponding monitor.
+/** Report an NSException as if it's caught by the NSException monitor.
+ *
+ * @note NSException monitor must be installed before calling this method. See `-installWithConfiguration:error:`.
  *
  * @param exception The exception to be reported.
  * @param logAllThreads If true, suspend all threads and log their state. Note that this incurs a performance penalty.

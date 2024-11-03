@@ -54,12 +54,28 @@ static NSUncaughtExceptionHandler *g_previousUncaughtExceptionHandler;
 #pragma mark - Callbacks -
 // ============================================================================
 
+static void initStackCursor(KSStackCursor *cursor, NSException *exception, uintptr_t *callstack, BOOL isUserReported)
+{
+    // Use stacktrace from NSException if present,
+    // otherwise use current thread (can happen for user-reported exceptions).
+    NSArray *addresses = [exception callStackReturnAddresses];
+    NSUInteger numFrames = addresses.count;
+    if (numFrames != 0) {
+        callstack = malloc(numFrames * sizeof(*callstack));
+        for (NSUInteger i = 0; i < numFrames; i++) {
+            callstack[i] = (uintptr_t)[addresses[i] unsignedLongLongValue];
+        }
+        kssc_initWithBacktrace(cursor, callstack, (int)numFrames, 0);
+    } else {
+        kssc_initSelfThread(cursor, 0);
+    }
+}
+
 /** Our custom excepetion handler.
  * Fetch the stack trace from the exception and write a report.
  *
  * @param exception The exception that was raised.
  */
-
 static void handleException(NSException *exception, BOOL isUserReported, BOOL logAllThreads)
 {
     KSLOG_DEBUG(@"Trapped exception %@", exception);
@@ -69,7 +85,7 @@ static void handleException(NSException *exception, BOOL isUserReported, BOOL lo
         if (logAllThreads) {
             ksmc_suspendEnvironment(&threads, &numThreads);
         }
-        if (!isUserReported) {
+        if (isUserReported == NO) {
             // User-reported exceptions are not considered fatal.
             kscm_notifyFatalExceptionCaptured(false);
         }
@@ -80,21 +96,8 @@ static void handleException(NSException *exception, BOOL isUserReported, BOOL lo
         KSMC_NEW_CONTEXT(machineContext);
         ksmc_getContextForThread(ksthread_self(), machineContext, true);
         KSStackCursor cursor;
-
-        // Use stacktrace from NSException if present,
-        // otherwise use current thread (can happen for user-reported exceptions).
-        NSArray *addresses = [exception callStackReturnAddresses];
-        NSUInteger numFrames = addresses.count;
         uintptr_t *callstack = NULL;
-        if (numFrames != 0) {
-            callstack = malloc(numFrames * sizeof(*callstack));
-            for (NSUInteger i = 0; i < numFrames; i++) {
-                callstack[i] = (uintptr_t)[addresses[i] unsignedLongLongValue];
-            }
-            kssc_initWithBacktrace(&cursor, callstack, (int)numFrames, 0);
-        } else {
-            kssc_initSelfThread(&cursor, 0);
-        }
+        initStackCursor(&cursor, exception, callstack, isUserReported);
 
         NS_VALID_UNTIL_END_OF_SCOPE NSString *userInfoString =
             exception.userInfo != nil ? [NSString stringWithFormat:@"%@", exception.userInfo] : nil;
@@ -110,7 +113,7 @@ static void handleException(NSException *exception, BOOL isUserReported, BOOL lo
         crashContext->exceptionName = crashContext->NSException.name;
         crashContext->crashReason = [[exception reason] UTF8String];
         crashContext->stackCursor = &cursor;
-        crashContext->isUserReported = isUserReported;
+        crashContext->currentSnapshotUserReported = isUserReported;
 
         KSLOG_DEBUG(@"Calling main crash handler.");
         kscm_handleException(crashContext);
@@ -119,7 +122,7 @@ static void handleException(NSException *exception, BOOL isUserReported, BOOL lo
         if (logAllThreads && isUserReported) {
             ksmc_resumeEnvironment(threads, numThreads);
         }
-        if (!isUserReported && g_previousUncaughtExceptionHandler != NULL) {
+        if (isUserReported == NO && g_previousUncaughtExceptionHandler != NULL) {
             KSLOG_DEBUG(@"Calling original exception handler.");
             g_previousUncaughtExceptionHandler(exception);
         }

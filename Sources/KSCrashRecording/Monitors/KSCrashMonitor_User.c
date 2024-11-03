@@ -75,7 +75,7 @@ void kscm_reportUserException(const char *name, const char *reason, const char *
         context.userException.lineOfCode = lineOfCode;
         context.userException.customStackTrace = stackTrace;
         context.stackCursor = &stackCursor;
-        context.isUserReported = true;
+        context.currentSnapshotUserReported = true;
 
         kscm_handleException(&context);
 

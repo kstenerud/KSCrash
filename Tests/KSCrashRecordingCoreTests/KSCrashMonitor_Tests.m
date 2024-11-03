@@ -290,7 +290,7 @@ extern void kscm_resetState(void);
     kscm_activateMonitors();
     XCTAssertTrue(g_dummyMonitor.isEnabled(), @"The monitor should be enabled after activation.");
     struct KSCrash_MonitorContext context = { 0 };
-    context.isUserReported = true;                   // Simulate that the snapshot is user-reported
+    context.currentSnapshotUserReported = true;      // Simulate that the snapshot is user-reported
     context.monitorFlags = KSCrashMonitorFlagFatal;  // Indicate that the exception is fatal
     kscm_handleException(&context);                  // Handle the exception
 
