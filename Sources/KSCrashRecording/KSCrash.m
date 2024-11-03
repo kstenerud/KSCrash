@@ -27,6 +27,7 @@
 #import "KSCrash.h"
 #import "KSCrash+Private.h"
 
+#import "KSCompilerDefines.h"
 #import "KSCrashC.h"
 #import "KSCrashConfiguration+Private.h"
 #import "KSCrashMonitorContext.h"
@@ -266,7 +267,7 @@ static void currentSnapshotUserReportedExceptionHandler(NSException *exception)
                  lineOfCode:(NSString *)lineOfCode
                  stackTrace:(NSArray *)stackTrace
               logAllThreads:(BOOL)logAllThreads
-           terminateProgram:(BOOL)terminateProgram
+           terminateProgram:(BOOL)terminateProgram KS_KEEP_FUNCTION_IN_STACKTRACE
 {
     const char *cName = [name cStringUsingEncoding:NSUTF8StringEncoding];
     const char *cReason = [reason cStringUsingEncoding:NSUTF8StringEncoding];
@@ -286,15 +287,17 @@ static void currentSnapshotUserReportedExceptionHandler(NSException *exception)
     }
 
     kscrash_reportUserException(cName, cReason, cLanguage, cLineOfCode, cStackTrace, logAllThreads, terminateProgram);
+    KS_THWART_TAIL_CALL_OPTIMISATION
 }
 
-- (void)reportNSException:(NSException *)exception logAllThreads:(BOOL)logAllThreads
+- (void)reportNSException:(NSException *)exception logAllThreads:(BOOL)logAllThreads KS_KEEP_FUNCTION_IN_STACKTRACE
 {
     if (_customNSExceptionReporter == NULL) {
         KSLOG_ERROR(@"NSExcepttion monitor needs to be installed before reporting custom exceptions");
         return;
     }
     _customNSExceptionReporter(exception, logAllThreads);
+    KS_THWART_TAIL_CALL_OPTIMISATION
 }
 
 // ============================================================================

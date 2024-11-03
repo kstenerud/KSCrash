@@ -1,7 +1,9 @@
 //
-//  KSStackCursor_SelfThread.c
+//  KSCompilerDefines.h
 //
-//  Copyright (c) 2016 Karl Stenerud. All rights reserved.
+//  Created by Karl Stenerud on 2024-11-03.
+//
+//  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,27 +24,16 @@
 // THE SOFTWARE.
 //
 
-#include "KSStackCursor_SelfThread.h"
+#ifndef HDR_KSCompilerDefines_h
+#define HDR_KSCompilerDefines_h
 
-#include <execinfo.h>
+/// Disables optimisations to ensure a function remains in stacktrace.
+/// Usually used in pair with `KS_THWART_TAIL_CALL_OPTIMISATION`.
+#define KS_KEEP_FUNCTION_IN_STACKTRACE __attribute__((disable_tail_calls)) __attribute__((noinline))
 
-#include "KSCompilerDefines.h"
-#include "KSStackCursor_Backtrace.h"
+/// Extra safety measure to ensure a method is not tail-call optimised.
+/// This define should be placed at the end of a function.
+/// Usually used in pair with `KS_KEEP_FUNCTION_IN_STACKTRACE`.
+#define KS_THWART_TAIL_CALL_OPTIMISATION __asm__ __volatile__("");
 
-// #define KSLogger_LocalLevel TRACE
-#include "KSLogger.h"
-
-#define MAX_BACKTRACE_LENGTH (KSSC_CONTEXT_SIZE - sizeof(KSStackCursor_Backtrace_Context) / sizeof(void *) - 1)
-
-typedef struct {
-    KSStackCursor_Backtrace_Context SelfThreadContextSpacer;
-    uintptr_t backtrace[0];
-} SelfThreadContext;
-
-void kssc_initSelfThread(KSStackCursor *cursor, int skipEntries) KS_KEEP_FUNCTION_IN_STACKTRACE
-{
-    SelfThreadContext *context = (SelfThreadContext *)cursor->context;
-    int backtraceLength = backtrace((void **)context->backtrace, MAX_BACKTRACE_LENGTH);
-    kssc_initWithBacktrace(cursor, context->backtrace, backtraceLength, skipEntries + 1);
-    KS_THWART_TAIL_CALL_OPTIMISATION
-}
+#endif  // HDR_KSCompilerDefines_h

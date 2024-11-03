@@ -28,6 +28,7 @@ import XCTest
 import SampleUI
 import CrashTriggers
 import IntegrationTestsHelper
+import KSCrashDemangleFilter
 
 final class NSExceptionTests: IntegrationTestBase {
     func testGenericException() throws {
@@ -127,15 +128,30 @@ final class OtherTests: IntegrationTestBase {
         let appleReport = try launchAndReportCrash()
         XCTAssertTrue(appleReport.contains(KSCrashStacktraceCheckFuncName))
     }
+}
+
+final class UserReportedTests: IntegrationTestBase {
+
+    static let crashName = "Crash Name"
+    static let crashReason = "Crash Reason"
+    static let crashLanguage = "Crash Language"
+    static let crashLineOfCode = "108"
+    static let crashCustomStacktrace = ["func01", "func02", "func03"]
 
     func testUserReportedNSException() throws {
-        try launchAndMakeUserReports([.nsException])
+        try launchAndMakeUserReport(nsException: .init(
+            name: Self.crashName,
+            reason: Self.crashReason,
+            userInfo: ["a": "b"],
+            logAllThreads: true,
+            addStacktrace: true
+        ))
 
         let rawReport = try readPartialCrashReport()
         try rawReport.validate()
         XCTAssertEqual(rawReport.crash?.error?.type, "nsexception")
-        XCTAssertEqual(rawReport.crash?.error?.reason, UserReportConfig.crashReason)
-        XCTAssertEqual(rawReport.crash?.error?.nsexception?.name, UserReportConfig.crashName)
+        XCTAssertEqual(rawReport.crash?.error?.reason, Self.crashReason)
+        XCTAssertEqual(rawReport.crash?.error?.nsexception?.name, Self.crashName)
         XCTAssertTrue(rawReport.crash?.error?.nsexception?.userInfo?.contains("a = b") ?? false)
         XCTAssertGreaterThanOrEqual(rawReport.crash?.threads?.count ?? 0, 2, "Expected to have at least 2 threads")
         let backtraceFrame = rawReport.crashedThread?.backtrace.contents.first(where: {
@@ -147,31 +163,68 @@ final class OtherTests: IntegrationTestBase {
         app.terminate()
 
         let appleReport = try launchAndReportCrash()
-        XCTAssertTrue(appleReport.contains(UserReportConfig.crashName))
-        XCTAssertTrue(appleReport.contains(UserReportConfig.crashReason))
+        XCTAssertTrue(appleReport.contains(Self.crashName))
+        XCTAssertTrue(appleReport.contains(Self.crashReason))
         XCTAssertTrue(appleReport.contains(KSCrashNSExceptionStacktraceFuncName))
 
         let state = try readState()
         XCTAssertFalse(state.crashedLastLaunch)
     }
 
+    func testUserReportedNSException_WithoutStacktrace() throws {
+        try launchAndMakeUserReport(nsException: .init(
+            name: Self.crashName,
+            reason: Self.crashReason,
+            userInfo: nil,
+            logAllThreads: true,
+            addStacktrace: false // <- Key difference
+        ))
+
+        let rawReport = try readPartialCrashReport()
+        try rawReport.validate()
+        XCTAssertEqual(rawReport.crash?.error?.type, "nsexception")
+        XCTAssertEqual(rawReport.crash?.error?.reason, Self.crashReason)
+        XCTAssertEqual(rawReport.crash?.error?.nsexception?.name, Self.crashName)
+        XCTAssertGreaterThanOrEqual(rawReport.crash?.threads?.count ?? 0, 2, "Expected to have at least 2 threads")
+        let topSymbol = rawReport.crashedThread?.backtrace.contents
+            .compactMap(\.symbol_name).first
+            .flatMap(CrashReportFilterDemangle.demangledSwiftSymbol)
+        XCTAssertEqual(topSymbol, "UserReportConfig.NSExceptionReport.report()",
+                       "Stacktrace should exclude all KSCrash symbols and have reporting function on top")
+
+        XCTAssertEqual(app.state, .runningForeground, "Should not terminate app")
+    }
+
     func testUserReport() throws {
-        try launchAndMakeUserReports([.userException])
+        try launchAndMakeUserReport(userException: .init(
+            name: Self.crashName,
+            reason: Self.crashReason,
+            language: Self.crashLanguage,
+            lineOfCode: Self.crashLineOfCode,
+            stacktrace: Self.crashCustomStacktrace,
+            logAllThreads: true,
+            terminateProgram: false
+        ))
 
         let rawReport = try readPartialCrashReport()
         try rawReport.validate()
         XCTAssertEqual(rawReport.crash?.error?.type, "user")
-        XCTAssertEqual(rawReport.crash?.error?.reason, UserReportConfig.crashReason)
-        XCTAssertEqual(rawReport.crash?.error?.user_reported?.name, UserReportConfig.crashName)
-        XCTAssertEqual(rawReport.crash?.error?.user_reported?.backtrace, UserReportConfig.crashCustomStacktrace)
+        XCTAssertEqual(rawReport.crash?.error?.reason, Self.crashReason)
+        XCTAssertEqual(rawReport.crash?.error?.user_reported?.name, Self.crashName)
+        XCTAssertEqual(rawReport.crash?.error?.user_reported?.backtrace, Self.crashCustomStacktrace)
         XCTAssertGreaterThanOrEqual(rawReport.crash?.threads?.count ?? 0, 2, "Expected to have at least 2 threads")
+        let topSymbol = rawReport.crashedThread?.backtrace.contents
+            .compactMap(\.symbol_name).first
+            .flatMap(CrashReportFilterDemangle.demangledSwiftSymbol)
+        XCTAssertEqual(topSymbol, "UserReportConfig.UserException.report()",
+                       "Stacktrace should exclude all KSCrash symbols and have reporting function on top")
 
         XCTAssertEqual(app.state, .runningForeground, "Should not terminate app")
         app.terminate()
 
         let appleReport = try launchAndReportCrash()
-        XCTAssertTrue(appleReport.contains(UserReportConfig.crashName))
-        XCTAssertTrue(appleReport.contains(UserReportConfig.crashReason))
+        XCTAssertTrue(appleReport.contains(Self.crashName))
+        XCTAssertTrue(appleReport.contains(Self.crashReason))
 
         let state = try readState()
         XCTAssertFalse(state.crashedLastLaunch)

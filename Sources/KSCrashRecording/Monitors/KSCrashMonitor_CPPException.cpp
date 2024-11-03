@@ -24,6 +24,7 @@
 
 #include "KSCrashMonitor_CPPException.h"
 
+#include "KSCompilerDefines.h"
 #include "KSCrashMonitorContext.h"
 #include "KSCrashMonitorContextHelper.h"
 #include "KSID.h"
@@ -77,7 +78,7 @@ static KSStackCursor g_stackCursor;
 #pragma mark - Callbacks -
 // ============================================================================
 
-static void captureStackTrace(void *, std::type_info *tinfo, void (*)(void *)) __attribute__((disable_tail_calls))
+static void captureStackTrace(void *, std::type_info *tinfo, void (*)(void *)) KS_KEEP_FUNCTION_IN_STACKTRACE
 {
     if (tinfo != nullptr && strcmp(tinfo->name(), "NSException") == 0) {
         return;
@@ -85,7 +86,7 @@ static void captureStackTrace(void *, std::type_info *tinfo, void (*)(void *)) _
     if (g_captureNextStackTrace) {
         kssc_initSelfThread(&g_stackCursor, 2);
     }
-    __asm__ __volatile__("");  // thwart tail-call optimization
+    KS_THWART_TAIL_CALL_OPTIMISATION
 }
 
 typedef void (*cxa_throw_type)(void *, std::type_info *, void (*)(void *));
@@ -93,8 +94,7 @@ typedef void (*cxa_throw_type)(void *, std::type_info *, void (*)(void *));
 extern "C" {
 void __cxa_throw(void *thrown_exception, std::type_info *tinfo, void (*dest)(void *)) __attribute__((weak));
 
-void __cxa_throw(void *thrown_exception, std::type_info *tinfo, void (*dest)(void *))
-    __attribute__((disable_tail_calls))
+void __cxa_throw(void *thrown_exception, std::type_info *tinfo, void (*dest)(void *)) KS_KEEP_FUNCTION_IN_STACKTRACE
 {
     static cxa_throw_type orig_cxa_throw = NULL;
     if (g_cxaSwapEnabled == false) {
@@ -102,7 +102,7 @@ void __cxa_throw(void *thrown_exception, std::type_info *tinfo, void (*dest)(voi
     }
     unlikely_if(orig_cxa_throw == NULL) { orig_cxa_throw = (cxa_throw_type)dlsym(RTLD_NEXT, "__cxa_throw"); }
     orig_cxa_throw(thrown_exception, tinfo, dest);
-    __asm__ __volatile__("");  // thwart tail-call optimization
+    KS_THWART_TAIL_CALL_OPTIMISATION
     __builtin_unreachable();
 }
 }

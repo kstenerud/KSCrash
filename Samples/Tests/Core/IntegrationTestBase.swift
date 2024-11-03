@@ -211,11 +211,14 @@ class IntegrationTestBase: XCTestCase {
         waitForCrash()
     }
 
-    func launchAndMakeUserReports(_ reportTypes: [UserReportConfig.ReportType], installOverride: ((inout InstallConfig) throws -> Void)? = nil) throws {
+    func launchAndMakeUserReport(
+        userException: UserReportConfig.UserException? = nil,
+        nsException: UserReportConfig.NSExceptionReport? = nil,
+        installOverride: ((inout InstallConfig) throws -> Void)? = nil) throws {
         var installConfig = InstallConfig(installPath: installUrl.path)
         try installOverride?(&installConfig)
         app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
-            userReports: reportTypes.map(UserReportConfig.init(reportType:)),
+            userReport: .init(userException: userException, nsException: nsException),
             install: installConfig,
             config: runConfig
         )

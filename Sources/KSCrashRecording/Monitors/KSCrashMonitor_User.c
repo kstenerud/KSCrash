@@ -24,6 +24,7 @@
 
 #include "KSCrashMonitor_User.h"
 
+#include "KSCompilerDefines.h"
 #include "KSCrashMonitorContext.h"
 #include "KSCrashMonitorContextHelper.h"
 #include "KSID.h"
@@ -41,7 +42,8 @@
 static volatile bool g_isEnabled = false;
 
 void kscm_reportUserException(const char *name, const char *reason, const char *language, const char *lineOfCode,
-                              const char *stackTrace, bool logAllThreads, bool terminateProgram)
+                              const char *stackTrace, bool logAllThreads,
+                              bool terminateProgram) KS_KEEP_FUNCTION_IN_STACKTRACE
 {
     if (!g_isEnabled) {
         KSLOG_WARN("User-reported exception monitor is not installed. Exception has not been recorded.");
@@ -60,7 +62,7 @@ void kscm_reportUserException(const char *name, const char *reason, const char *
         KSMC_NEW_CONTEXT(machineContext);
         ksmc_getContextForThread(ksthread_self(), machineContext, true);
         KSStackCursor stackCursor;
-        kssc_initSelfThread(&stackCursor, 0);
+        kssc_initSelfThread(&stackCursor, 3);
 
         KSLOG_DEBUG("Filling out context.");
         KSCrash_MonitorContext context;
@@ -86,6 +88,7 @@ void kscm_reportUserException(const char *name, const char *reason, const char *
             abort();
         }
     }
+    KS_THWART_TAIL_CALL_OPTIMISATION
 }
 
 static const char *monitorId(void) { return "UserReported"; }

@@ -29,46 +29,92 @@ import CrashTriggers
 import KSCrashRecording
 
 public struct UserReportConfig: Codable {
-    public enum ReportType: String, Codable {
-        case userException
-        case nsException
+    public struct UserException: Codable {
+        public var name: String
+        public var reason: String?
+        public var language: String?
+        public var lineOfCode: String?
+        public var stacktrace: [String]?
+        public var logAllThreads: Bool
+        public var terminateProgram: Bool
+
+        public init(name: String,
+                    reason: String? = nil,
+                    language: String? = nil,
+                    lineOfCode: String? = nil,
+                    stacktrace: [String]? = nil,
+                    logAllThreads: Bool = false,
+                    terminateProgram: Bool = false) {
+            self.name = name
+            self.reason = reason
+            self.language = language
+            self.lineOfCode = lineOfCode
+            self.stacktrace = stacktrace
+            self.logAllThreads = logAllThreads
+            self.terminateProgram = terminateProgram
+        }
     }
 
-    public var reportType: ReportType
+    public struct NSExceptionReport: Codable {
+        public var name: String
+        public var reason: String?
+        public var userInfo: [String : String]?
+        public var logAllThreads: Bool
+        public var addStacktrace: Bool
 
-    public init(reportType: ReportType) {
-        self.reportType = reportType
+        public init(name: String,
+                    reason: String? = nil,
+                    userInfo: [String : String]? = nil,
+                    logAllThreads: Bool = false,
+                    addStacktrace: Bool = false) {
+            self.name = name
+            self.reason = reason
+            self.userInfo = userInfo
+            self.logAllThreads = logAllThreads
+            self.addStacktrace = addStacktrace
+        }
+    }
+
+    public var userException: UserException?
+    public var nsException: NSExceptionReport?
+
+    public init(userException: UserException? = nil, nsException: NSExceptionReport? = nil) {
+        self.userException = userException
+        self.nsException = nsException
     }
 }
 
 extension UserReportConfig {
-    public static let crashName = "Crash Name"
-    public static let crashReason = "Crash Reason"
-    public static let crashLanguage = "Crash Language"
-    public static let crashLineOfCode = "108"
-    public static let crashCustomStacktrace = ["func01", "func02", "func03"]
-
     func report() {
-        switch reportType {
-        case .userException:
-            KSCrash.shared.reportUserException(
-                Self.crashName,
-                reason: Self.crashReason,
-                language: Self.crashLanguage,
-                lineOfCode: Self.crashLineOfCode,
-                stackTrace: Self.crashCustomStacktrace,
-                logAllThreads: true,
-                terminateProgram: false
-            )
-        case .nsException:
-            KSCrash.shared.report(
-                CrashTriggersHelper.exceptionWithStacktrace(for: NSException(
-                    name: .init(rawValue:Self.crashName),
-                    reason: Self.crashReason,
-                    userInfo: ["a":"b"]
-                )),
-                logAllThreads: true
-            )
+        userException?.report()
+        nsException?.report()
+    }
+}
+
+extension UserReportConfig.UserException {
+    func report() {
+        KSCrash.shared.reportUserException(
+            name,
+            reason: reason,
+            language: language,
+            lineOfCode: lineOfCode,
+            stackTrace: stacktrace,
+            logAllThreads: logAllThreads,
+            terminateProgram: terminateProgram
+        )
+    }
+}
+
+extension UserReportConfig.NSExceptionReport {
+    func report() {
+        var exception = NSException(
+            name: .init(rawValue:name),
+            reason: reason,
+            userInfo: userInfo
+        )
+        if addStacktrace {
+            exception = CrashTriggersHelper.exceptionWithStacktrace(for: exception)
         }
+        KSCrash.shared.report(exception, logAllThreads: logAllThreads)
     }
 }

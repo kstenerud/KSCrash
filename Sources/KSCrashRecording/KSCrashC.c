@@ -26,6 +26,7 @@
 
 #include "KSCrashC.h"
 
+#include "KSCompilerDefines.h"
 #include "KSCrashCachedData.h"
 #include "KSCrashMonitorContext.h"
 #include "KSCrashMonitorType.h"
@@ -293,12 +294,14 @@ void kscrash_setUserInfoJSON(const char *const userInfoJSON) { kscrashreport_set
 const char *kscrash_getUserInfoJSON(void) { return kscrashreport_getUserInfoJSON(); }
 
 void kscrash_reportUserException(const char *name, const char *reason, const char *language, const char *lineOfCode,
-                                 const char *stackTrace, bool logAllThreads, bool terminateProgram)
+                                 const char *stackTrace, bool logAllThreads,
+                                 bool terminateProgram) KS_KEEP_FUNCTION_IN_STACKTRACE
 {
     kscm_reportUserException(name, reason, language, lineOfCode, stackTrace, logAllThreads, terminateProgram);
     if (g_shouldAddConsoleLogToReport) {
         kslog_clearLogFile();
     }
+    KS_THWART_TAIL_CALL_OPTIMISATION
 }
 
 void kscrash_notifyObjCLoad(void) { kscrashstate_notifyObjCLoad(); }
