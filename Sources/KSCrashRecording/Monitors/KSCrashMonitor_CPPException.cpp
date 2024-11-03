@@ -78,7 +78,7 @@ static KSStackCursor g_stackCursor;
 #pragma mark - Callbacks -
 // ============================================================================
 
-static void captureStackTrace(void *, std::type_info *tinfo, void (*)(void *)) KS_KEEP_FUNCTION_IN_STACKTRACE
+static KS_NOINLINE void captureStackTrace(void *, std::type_info *tinfo, void (*)(void *)) KS_KEEP_FUNCTION_IN_STACKTRACE
 {
     if (tinfo != nullptr && strcmp(tinfo->name(), "NSException") == 0) {
         return;
