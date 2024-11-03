@@ -56,7 +56,7 @@ static NSUncaughtExceptionHandler *g_previousUncaughtExceptionHandler;
 // ============================================================================
 
 static KS_NOINLINE void initStackCursor(KSStackCursor *cursor, NSException *exception, uintptr_t *callstack,
-                            BOOL isUserReported) KS_KEEP_FUNCTION_IN_STACKTRACE
+                                        BOOL isUserReported) KS_KEEP_FUNCTION_IN_STACKTRACE
 {
     // Use stacktrace from NSException if present,
     // otherwise use current thread (can happen for user-reported exceptions).
@@ -92,7 +92,7 @@ static KS_NOINLINE void initStackCursor(KSStackCursor *cursor, NSException *exce
  * @param exception The exception that was raised.
  */
 static KS_NOINLINE void handleException(NSException *exception, BOOL isUserReported,
-                            BOOL logAllThreads) KS_KEEP_FUNCTION_IN_STACKTRACE
+                                        BOOL logAllThreads) KS_KEEP_FUNCTION_IN_STACKTRACE
 {
     KSLOG_DEBUG(@"Trapped exception %@", exception);
     if (g_isEnabled) {
