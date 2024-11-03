@@ -1,7 +1,7 @@
 //
 //  KSCompilerDefines.h
 //
-//  Created by Karl Stenerud on 2024-11-03.
+//  Created by Nikolay Volosatov on 2024-11-03.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
