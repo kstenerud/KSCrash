@@ -28,12 +28,23 @@ import Foundation
 
 public final class IntegrationTestRunner {
 
+    public struct RunConfig: Codable {
+        var delay: TimeInterval?
+        var stateSavePath: String?
+
+        public init(delay: TimeInterval? = nil, stateSavePath: String? = nil) {
+            self.delay = delay
+            self.stateSavePath = stateSavePath
+        }
+    }
+
     private struct Script: Codable {
         var install: InstallConfig?
+        var userReports: [UserReportConfig]?
         var crashTrigger: CrashTriggerConfig?
         var report: ReportConfig?
 
-        var delay: TimeInterval?
+        var config: RunConfig?
     }
 
     public static let runScriptAccessabilityId = "run-integration-test"
@@ -53,10 +64,18 @@ public final class IntegrationTestRunner {
         if let installConfig = script.install {
             try! installConfig.install()
         }
+        if let statePath = script.config?.stateSavePath {
+            try! KSCrashState.collect().save(to: statePath)
+        }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + (script.delay ?? 0)) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + (script.config?.delay ?? 0)) {
             if let crashTrigger = script.crashTrigger {
                 crashTrigger.crash()
+            }
+            if let userReports = script.userReports {
+                for report in userReports {
+                    report.report()
+                }
             }
             if let report = script.report {
                 report.report()
@@ -70,18 +89,23 @@ public final class IntegrationTestRunner {
 public extension IntegrationTestRunner {
     static let envKey = "KSCrashIntegrationScript"
 
-    static func script(crash: CrashTriggerConfig, install: InstallConfig? = nil, delay: TimeInterval? = nil) throws -> String {
-        let data = try JSONEncoder().encode(Script(install: install, crashTrigger: crash, delay: delay))
+    static func script(crash: CrashTriggerConfig, install: InstallConfig? = nil, config: RunConfig? = nil) throws -> String {
+        let data = try JSONEncoder().encode(Script(install: install, crashTrigger: crash, config: config))
         return data.base64EncodedString()
     }
 
-    static func script(report: ReportConfig, install: InstallConfig? = nil, delay: TimeInterval? = nil) throws -> String {
-        let data = try JSONEncoder().encode(Script(install: install, report: report, delay: delay))
+    static func script(userReports: [UserReportConfig], install: InstallConfig? = nil, config: RunConfig? = nil) throws -> String {
+        let data = try JSONEncoder().encode(Script(install: install, userReports: userReports, config: config))
         return data.base64EncodedString()
     }
 
-    static func script(install: InstallConfig? = nil, delay: TimeInterval? = nil) throws -> String {
-        let data = try JSONEncoder().encode(Script(install: install, delay: delay))
+    static func script(report: ReportConfig, install: InstallConfig? = nil, config: RunConfig? = nil) throws -> String {
+        let data = try JSONEncoder().encode(Script(install: install, report: report, config: config))
+        return data.base64EncodedString()
+    }
+
+    static func script(install: InstallConfig? = nil, config: RunConfig? = nil) throws -> String {
+        let data = try JSONEncoder().encode(Script(install: install, config: config))
         return data.base64EncodedString()
     }
 }

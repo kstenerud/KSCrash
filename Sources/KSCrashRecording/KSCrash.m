@@ -85,6 +85,15 @@ NSString *kscrash_getDefaultInstallPath(void)
     return [cachePath stringByAppendingPathComponent:pathEnd];
 }
 
+static void currentSnapshotUserReportedExceptionHandler(NSException *exception)
+{
+    if (!gIsSharedInstanceCreated) {
+        KSLOG_ERROR(@"Shared instance must exist before this function is called.");
+        return;
+    }
+    [[KSCrash sharedInstance] reportNSException:exception logAllThreads:YES];
+}
+
 @implementation KSCrash
 
 // ============================================================================
@@ -119,6 +128,7 @@ NSString *kscrash_getDefaultInstallPath(void)
 {
     if ((self = [super init])) {
         _bundleName = kscrash_getBundleName();
+        _currentSnapshotUserReportedExceptionHandler = &currentSnapshotUserReportedExceptionHandler;
     }
     return self;
 }
@@ -276,6 +286,15 @@ NSString *kscrash_getDefaultInstallPath(void)
     }
 
     kscrash_reportUserException(cName, cReason, cLanguage, cLineOfCode, cStackTrace, logAllThreads, terminateProgram);
+}
+
+- (void)reportNSException:(NSException *)exception logAllThreads:(BOOL)logAllThreads
+{
+    if (_customNSExceptionReporter == NULL) {
+        KSLOG_ERROR(@"NSExcepttion monitor needs to be installed before reporting custom exceptions");
+        return;
+    }
+    _customNSExceptionReporter(exception, logAllThreads);
 }
 
 // ============================================================================

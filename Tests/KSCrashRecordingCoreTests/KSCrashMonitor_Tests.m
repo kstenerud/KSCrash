@@ -260,7 +260,6 @@ extern void kscm_resetState(void);
     kscm_activateMonitors();
     XCTAssertTrue(g_dummyMonitor.isEnabled(), @"The monitor should be enabled after activation.");
     struct KSCrash_MonitorContext context = { 0 };
-    context.currentSnapshotUserReported = false;     // Simulate that the exception is not user-reported
     context.monitorFlags = KSCrashMonitorFlagFatal;  // Indicate that the exception is fatal
     kscm_handleException(&context);
     XCTAssertTrue(g_dummyMonitor.isEnabled(),
@@ -285,7 +284,7 @@ extern void kscm_resetState(void);
         @"The context's crashedDuringCrashHandling should be true when g_crashedDuringExceptionHandling is true.");
 }
 
-- (void)testHandleExceptionCurrentSnapshotUserReported
+- (void)testHandleUserReportedException
 {
     kscm_addMonitor(&g_dummyMonitor);
     kscm_activateMonitors();
@@ -293,7 +292,6 @@ extern void kscm_resetState(void);
     struct KSCrash_MonitorContext context = { 0 };
     context.currentSnapshotUserReported = true;      // Simulate that the snapshot is user-reported
     context.monitorFlags = KSCrashMonitorFlagFatal;  // Indicate that the exception is fatal
-    kscm_notifyFatalExceptionCaptured(false);        // Simulate capturing a fatal exception
     kscm_handleException(&context);                  // Handle the exception
 
     // Since we can't access g_handlingFatalException directly, we indirectly check its effect

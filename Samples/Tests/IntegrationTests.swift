@@ -27,6 +27,7 @@
 import XCTest
 import SampleUI
 import CrashTriggers
+import IntegrationTestsHelper
 
 final class NSExceptionTests: IntegrationTestBase {
     func testGenericException() throws {
@@ -126,11 +127,64 @@ final class OtherTests: IntegrationTestBase {
         let appleReport = try launchAndReportCrash()
         XCTAssertTrue(appleReport.contains(KSCrashStacktraceCheckFuncName))
     }
+
+    func testUserReportedNSException() throws {
+        try launchAndMakeUserReports([.nsException])
+
+        let rawReport = try readPartialCrashReport()
+        try rawReport.validate()
+        XCTAssertEqual(rawReport.crash?.error?.type, "nsexception")
+        XCTAssertEqual(rawReport.crash?.error?.reason, UserReportConfig.crashReason)
+        XCTAssertEqual(rawReport.crash?.error?.nsexception?.name, UserReportConfig.crashName)
+        XCTAssertTrue(rawReport.crash?.error?.nsexception?.userInfo?.contains("a = b") ?? false)
+        XCTAssertGreaterThanOrEqual(rawReport.crash?.threads?.count ?? 0, 2, "Expected to have at least 2 threads")
+        let backtraceFrame = rawReport.crashedThread?.backtrace.contents.first(where: {
+            $0.symbol_name?.contains(KSCrashNSExceptionStacktraceFuncName) ?? false
+        })
+        XCTAssertNotNil(backtraceFrame, "Crashed thread stack trace should have the specific symbol")
+
+        XCTAssertEqual(app.state, .runningForeground, "Should not terminate app")
+        app.terminate()
+
+        let appleReport = try launchAndReportCrash()
+        XCTAssertTrue(appleReport.contains(UserReportConfig.crashName))
+        XCTAssertTrue(appleReport.contains(UserReportConfig.crashReason))
+        XCTAssertTrue(appleReport.contains(KSCrashNSExceptionStacktraceFuncName))
+
+        let state = try readState()
+        XCTAssertFalse(state.crashedLastLaunch)
+    }
+
+    func testUserReport() throws {
+        try launchAndMakeUserReports([.userException])
+
+        let rawReport = try readPartialCrashReport()
+        try rawReport.validate()
+        XCTAssertEqual(rawReport.crash?.error?.type, "user")
+        XCTAssertEqual(rawReport.crash?.error?.reason, UserReportConfig.crashReason)
+        XCTAssertEqual(rawReport.crash?.error?.user_reported?.name, UserReportConfig.crashName)
+        XCTAssertEqual(rawReport.crash?.error?.user_reported?.backtrace, UserReportConfig.crashCustomStacktrace)
+        XCTAssertGreaterThanOrEqual(rawReport.crash?.threads?.count ?? 0, 2, "Expected to have at least 2 threads")
+
+        XCTAssertEqual(app.state, .runningForeground, "Should not terminate app")
+        app.terminate()
+
+        let appleReport = try launchAndReportCrash()
+        XCTAssertTrue(appleReport.contains(UserReportConfig.crashName))
+        XCTAssertTrue(appleReport.contains(UserReportConfig.crashReason))
+
+        let state = try readState()
+        XCTAssertFalse(state.crashedLastLaunch)
+    }
 }
 
 extension PartialCrashReport {
+    var crashedThread: Crash.Thread? {
+        return self.crash?.threads?.first(where: { $0.crashed })
+    }
+
     func validate() throws {
-        let crashedThread = self.crash?.threads?.first(where: { $0.crashed })
+        let crashedThread = self.crashedThread
         XCTAssertNotNil(crashedThread)
         XCTAssertGreaterThan(crashedThread?.backtrace.contents.count ?? 0, 0)
     }

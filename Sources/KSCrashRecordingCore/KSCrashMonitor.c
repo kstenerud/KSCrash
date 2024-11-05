@@ -306,13 +306,9 @@ void kscm_handleException(struct KSCrash_MonitorContext *context)
     }
 
     // Restore original handlers if the exception is fatal and not already handled
-    if (context->currentSnapshotUserReported) {
-        g_handlingFatalException = false;
-    } else {
-        if (g_handlingFatalException && !g_crashedDuringExceptionHandling) {
-            KSLOG_DEBUG("Exception is fatal. Restoring original handlers.");
-            kscm_disableAllMonitors();
-        }
+    if (g_handlingFatalException && !g_crashedDuringExceptionHandling) {
+        KSLOG_DEBUG("Exception is fatal. Restoring original handlers.");
+        kscm_disableAllMonitors();
     }
 
     // Done handling the crash

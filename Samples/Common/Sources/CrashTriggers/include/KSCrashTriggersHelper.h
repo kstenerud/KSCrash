@@ -46,6 +46,10 @@ NS_SWIFT_NAME(CrashTriggersHelper)
 
 + (void)runTrigger:(KSCrashTriggerId)triggerId;
 
+#pragma mark - Utilities
+
++ (NSException *)exceptionWithStacktraceForException:(NSException *)exception;
+
 @end
 
 NS_ASSUME_NONNULL_END

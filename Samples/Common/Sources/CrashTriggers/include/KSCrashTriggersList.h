@@ -29,6 +29,7 @@
 NS_ASSUME_NONNULL_BEGIN
 
 extern NSString *const KSCrashStacktraceCheckFuncName;
+extern NSString *const KSCrashNSExceptionStacktraceFuncName;
 
 #define __ALL_GROUPS                             \
     __PROCESS_GROUP(nsException, @"NSException") \

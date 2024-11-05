@@ -35,11 +35,23 @@ struct PartialCrashReport: Decodable {
                 var code: Int?
                 var code_name: String?
             }
+            struct NSException: Decodable {
+                var name: String?
+                var userInfo: String?
+            }
+            struct UserReported: Decodable {
+                var name: String?
+                var language: String?
+                var line_of_code: String?
+                var backtrace: [String]? // Can be actually any JSON encodable structure
+            }
 
             var reason: String?
             var type: String?
 
             var signal: Signal?
+            var nsexception: NSException?
+            var user_reported: UserReported?
         }
 
         struct Thread: Decodable {

@@ -83,4 +83,16 @@
 #undef __PROCESS_TRIGGER
 }
 
+#pragma mark - Utilities
+
++ (NSException *)exceptionWithStacktraceForException:(NSException *)exception
+{
+    @try {
+        [exception raise];
+    } @catch (NSException *exceptionWithStacktrace) {
+        return exceptionWithStacktrace;
+    }
+    return exception;
+}
+
 @end
