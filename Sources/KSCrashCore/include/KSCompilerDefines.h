@@ -27,17 +27,20 @@
 #ifndef HDR_KSCompilerDefines_h
 #define HDR_KSCompilerDefines_h
 
-/// Disables optimisations to ensure a function remains in stacktrace.
-/// Usually used in pair with `KS_THWART_TAIL_CALL_OPTIMISATION`.
+/** Disables optimisations to ensure a function remains in stacktrace.
+ * Usually used in pair with `KS_THWART_TAIL_CALL_OPTIMISATION`.
+ */
 #define KS_KEEP_FUNCTION_IN_STACKTRACE __attribute__((disable_tail_calls))
 
-/// Disables inline optimisation.
-/// Usually used in pair with `KS_KEEP_FUNCTION_IN_STACKTRACE`.
+/** Disables inline optimisation.
+ * Usually used in pair with `KS_KEEP_FUNCTION_IN_STACKTRACE`.
+ */
 #define KS_NOINLINE __attribute__((noinline))
 
-/// Extra safety measure to ensure a method is not tail-call optimised.
-/// This define should be placed at the end of a function.
-/// Usually used in pair with `KS_KEEP_FUNCTION_IN_STACKTRACE`.
+/** Extra safety measure to ensure a method is not tail-call optimised.
+ * This define should be placed at the end of a function.
+ * Usually used in pair with `KS_KEEP_FUNCTION_IN_STACKTRACE`.
+ */
 #define KS_THWART_TAIL_CALL_OPTIMISATION __asm__ __volatile__("");
 
 #endif  // HDR_KSCompilerDefines_h
