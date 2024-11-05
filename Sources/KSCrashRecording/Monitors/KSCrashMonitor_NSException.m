@@ -27,6 +27,7 @@
 #import "KSCrashMonitor_NSException.h"
 
 #import <Foundation/Foundation.h>
+#import "KSCompilerDefines.h"
 #import "KSCrash+Private.h"
 #import "KSCrash.h"
 #include "KSCrashMonitorContext.h"
@@ -54,7 +55,8 @@ static NSUncaughtExceptionHandler *g_previousUncaughtExceptionHandler;
 #pragma mark - Callbacks -
 // ============================================================================
 
-static void initStackCursor(KSStackCursor *cursor, NSException *exception, uintptr_t *callstack, BOOL isUserReported)
+static KS_NOINLINE void initStackCursor(KSStackCursor *cursor, NSException *exception, uintptr_t *callstack,
+                                        BOOL isUserReported) KS_KEEP_FUNCTION_IN_STACKTRACE
 {
     // Use stacktrace from NSException if present,
     // otherwise use current thread (can happen for user-reported exceptions).
@@ -67,8 +69,21 @@ static void initStackCursor(KSStackCursor *cursor, NSException *exception, uintp
         }
         kssc_initWithBacktrace(cursor, callstack, (int)numFrames, 0);
     } else {
-        kssc_initSelfThread(cursor, 0);
+        /* Skip frames for user-reported:
+         * 1. `initStackCursor`
+         * 2. `handleException`
+         * 3. `customNSExceptionReporter`
+         * 4. `+[KSCrash reportNSException:logAllThreads:]`
+         *
+         * Skip frames for caught exceptions (unlikely scenario):
+         * 1. `initStackCursor`
+         * 2. `handleException`
+         * 3. `handleUncaughtException`
+         */
+        int const skipFrames = isUserReported ? 4 : 3;
+        kssc_initSelfThread(cursor, skipFrames);
     }
+    KS_THWART_TAIL_CALL_OPTIMISATION
 }
 
 /** Our custom excepetion handler.
@@ -76,7 +91,8 @@ static void initStackCursor(KSStackCursor *cursor, NSException *exception, uintp
  *
  * @param exception The exception that was raised.
  */
-static void handleException(NSException *exception, BOOL isUserReported, BOOL logAllThreads)
+static KS_NOINLINE void handleException(NSException *exception, BOOL isUserReported,
+                                        BOOL logAllThreads) KS_KEEP_FUNCTION_IN_STACKTRACE
 {
     KSLOG_DEBUG(@"Trapped exception %@", exception);
     if (g_isEnabled) {
@@ -127,14 +143,20 @@ static void handleException(NSException *exception, BOOL isUserReported, BOOL lo
             g_previousUncaughtExceptionHandler(exception);
         }
     }
+    KS_THWART_TAIL_CALL_OPTIMISATION
 }
 
-static void customNSExceptionReporter(NSException *exception, BOOL logAllThreads)
+static void customNSExceptionReporter(NSException *exception, BOOL logAllThreads) KS_KEEP_FUNCTION_IN_STACKTRACE
 {
     handleException(exception, YES, logAllThreads);
+    KS_THWART_TAIL_CALL_OPTIMISATION
 }
 
-static void handleUncaughtException(NSException *exception) { handleException(exception, NO, YES); }
+static void handleUncaughtException(NSException *exception) KS_KEEP_FUNCTION_IN_STACKTRACE
+{
+    handleException(exception, NO, YES);
+    KS_THWART_TAIL_CALL_OPTIMISATION
+}
 
 // ============================================================================
 #pragma mark - API -
