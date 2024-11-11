@@ -33,17 +33,16 @@
 
 @implementation KSCrash_Tests
 
-- (void)testUserInfo {
-    NSDictionary *userInfo = @{
-        @"key1": @"value1",
-        @"key2": @123,
-    };
+- (void)testUserInfo
+{
+    NSDictionary *userInfo = @{@"key1": @"value1", @"key2": @123};
     [[KSCrash sharedInstance] setUserInfo:userInfo];
 
     XCTAssertEqualObjects([[KSCrash sharedInstance] userInfo], userInfo);
 }
 
-- (void)testUserInfoIfNul {
+- (void)testUserInfoIfNul
+{
     [[KSCrash sharedInstance] setUserInfo:nil];
 
     XCTAssertNil([[KSCrash sharedInstance] userInfo]);
