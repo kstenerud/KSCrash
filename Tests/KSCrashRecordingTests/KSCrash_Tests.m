@@ -35,7 +35,7 @@
 
 - (void)testUserInfo
 {
-    NSDictionary *userInfo = @{@"key1": @"value1", @"key2": @123};
+    NSDictionary *userInfo = @{ @"key1" : @"value1", @"key2" : @123 };
     [[KSCrash sharedInstance] setUserInfo:userInfo];
 
     XCTAssertEqualObjects([[KSCrash sharedInstance] userInfo], userInfo);

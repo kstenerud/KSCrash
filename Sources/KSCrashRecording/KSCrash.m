@@ -170,9 +170,8 @@ static void currentSnapshotUserReportedExceptionHandler(NSException *exception)
         }
     }
 
-    NSString *userInfoString = userInfoJSON 
-        ? [[NSString alloc] initWithData:userInfoJSON encoding:NSUTF8StringEncoding]
-        : nil;
+    NSString *userInfoString =
+        userInfoJSON ? [[NSString alloc] initWithData:userInfoJSON encoding:NSUTF8StringEncoding] : nil;
     kscrash_setUserInfoJSON(userInfoString.UTF8String);
 }
 
