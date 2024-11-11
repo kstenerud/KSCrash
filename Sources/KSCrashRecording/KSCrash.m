@@ -170,8 +170,8 @@ static void currentSnapshotUserReportedExceptionHandler(NSException *exception)
         }
     }
 
-    const char *userInfoCString = userInfoJSON ? [userInfoJSON bytes] : NULL;
-    kscrash_setUserInfoJSON(userInfoCString);
+    NSString *userInfoString = userInfoJSON ? [[NSString alloc] initWithData:userInfoJSON encoding:NSUTF8StringEncoding] : nil;
+    kscrash_setUserInfoJSON(userInfoString.UTF8String);
 }
 
 - (BOOL)reportsMemoryTerminations
@@ -319,16 +319,6 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
 // ============================================================================
 #pragma mark - Utility -
 // ============================================================================
-
-- (NSMutableData *)nullTerminated:(NSData *)data
-{
-    if (data == nil) {
-        return NULL;
-    }
-    NSMutableData *mutable = [NSMutableData dataWithData:data];
-    [mutable appendBytes:"\0" length:1];
-    return mutable;
-}
 
 + (NSError *)errorForInstallErrorCode:(KSCrashInstallErrorCode)errorCode
 {
