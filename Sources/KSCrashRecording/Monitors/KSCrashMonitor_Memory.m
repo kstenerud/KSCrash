@@ -570,4 +570,9 @@ void ksmemory_set_fatal_reports_enabled(bool enabled) { g_FatalReportsEnabled = 
 
 bool ksmemory_get_fatal_reports_enabled(void) { return g_FatalReportsEnabled; }
 
-void ksmemory_notifyUnhandledFatalSignal(void) { g_memory->fatal = true; }
+void ksmemory_notifyUnhandledFatalSignal(void)
+{
+    if (g_memory) {
+        g_memory->fatal = true;
+    }
+}
