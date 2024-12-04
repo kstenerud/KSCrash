@@ -187,9 +187,14 @@ static int onIntegerElement(const char* const name,
     {
         char buffer[28];
 
-        if(matchesMinVersion(context, 3, 3, 0))
+        int64_t now = ksdate_microseconds();
+        int64_t addedYears = 3155695200000; // 100 years in milliseconds
+        int64_t distantFutureInMilliseconds = (now / 1000) + addedYears;
+
+        if(value > distantFutureInMilliseconds || matchesMinVersion(context, 3, 3, 0))
         {
-            ksdate_utcStringFromMicroseconds(value, buffer);
+            int64_t v = value > now ? now : value;
+            ksdate_utcStringFromMicroseconds(v, buffer);
         }
         else
         {
