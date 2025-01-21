@@ -22,7 +22,7 @@ concurrency:
 
 jobs:
   unit-tests:
-    runs-on: "macos-${{ matrix.macos-version || 'latest' }}"
+    runs-on: macos-15
     strategy:
       fail-fast: false
       matrix:
