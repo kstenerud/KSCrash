@@ -22,14 +22,16 @@ concurrency:
 
 jobs:
   unit-tests:
-    runs-on: macos-15
+    runs-on: "macos-${{ matrix.macos-version || 'latest' }}"
     strategy:
       fail-fast: false
       matrix:
         include:
           - platform: iOS
+            macos-version: "15"
           - platform: iOS
             xcode-version: "latest"
+            macos-version: "15"
           - platform: iOS
             platform-version: ~16.4.0
             macos-version: "13"
