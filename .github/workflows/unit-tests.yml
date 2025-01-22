@@ -28,20 +28,24 @@ jobs:
       matrix:
         include:
           - platform: iOS
+            macos-version: "15"
           - platform: iOS
             xcode-version: "latest"
+            macos-version: "15"
           - platform: iOS
             platform-version: ~16.4.0
             macos-version: "13"
             xcode-version: "14.3.1"
 
           - platform: watchOS
+            macos-version: "15"
           - platform: watchOS
             platform-version: ~9.4.0
             macos-version: "13"
             xcode-version: "14.3.1"
 
           - platform: tvOS
+            macos-version: "15"
           - platform: tvOS
             platform-version: ~16.4.0
             macos-version: "13"

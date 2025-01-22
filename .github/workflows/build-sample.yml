@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   sample:
-    runs-on: "macos-${{ matrix.macos-version || 'latest' }}"
+    runs-on: macos-15
     timeout-minutes: 15
     strategy:
       fail-fast: false
