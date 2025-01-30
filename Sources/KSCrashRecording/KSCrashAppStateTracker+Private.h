@@ -6,7 +6,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)_setTransitionState:(KSCrashAppTransitionState)transitionState;
 
-@property (nonatomic, assign) BOOL proxied;
+@property(nonatomic, assign) BOOL proxied;
 
 @end
 

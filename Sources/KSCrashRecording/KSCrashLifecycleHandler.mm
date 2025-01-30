@@ -82,11 +82,11 @@ static BOOL SwizzleInstanceMethod(Class klass, SEL originalSelector, SEL swizzle
 {
     Method original = class_getInstanceMethod(klass, originalSelector);
     Method swizzled = class_getInstanceMethod(klass, swizzledSelector);
-    
+
     if (!original || !swizzled) {
         return NO;
     }
-    
+
     method_exchangeImplementations(original, swizzled);
     return YES;
 }
@@ -123,34 +123,37 @@ static BOOL __KS_CALLING_DELEGATE__(id self, SEL cmd, id arg1, id arg2)
 
 + (void)load
 {
-    static BOOL sDontSwizzle = [NSProcessInfo.processInfo.environment[@"KSCRASH_APP_SCENE_DELEGATE_SWIZZLE_DISABLED"] boolValue];
+    static BOOL sDontSwizzle =
+        [NSProcessInfo.processInfo.environment[@"KSCRASH_APP_SCENE_DELEGATE_SWIZZLE_DISABLED"] boolValue];
     if (sDontSwizzle) {
         return;
     }
 #if KSCRASH_HAS_UIAPPLICATION
     SwizzleInstanceMethod(UIApplication.class, @selector(setDelegate:), @selector(__ks_setDelegate:));
-    
+
     if (@available(iOS 13.0, tvOS 13.0, *)) {
         [[NSNotificationCenter defaultCenter] addObserverForName:UISceneWillConnectNotification
                                                           object:nil
                                                            queue:nil
-                                                      usingBlock:^(NSNotification * _Nonnull notification) {
-            UIScene *scene = notification.object;
-            [scene __ks_proxyDelegate];
-        }];
+                                                      usingBlock:^(NSNotification *_Nonnull notification) {
+                                                          UIScene *scene = notification.object;
+                                                          [scene __ks_proxyDelegate];
+                                                      }];
     }
 #endif
 }
 
 #pragma - app delegate
 
-- (BOOL)application:(UIApplication *)application willFinishLaunchingWithOptions:(nullable NSDictionary<UIApplicationLaunchOptionsKey, id> *)launchOptions
+- (BOOL)application:(UIApplication *)application
+    willFinishLaunchingWithOptions:(nullable NSDictionary<UIApplicationLaunchOptionsKey, id> *)launchOptions
 {
     [KSCrashAppStateTracker.shared _setTransitionState:KSCrashAppTransitionStateLaunching];
     return __KS_CALLING_DELEGATE__(self, _cmd, application, launchOptions);
 }
 
-- (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(nullable NSDictionary<UIApplicationLaunchOptionsKey, id> *)launchOptions
+- (BOOL)application:(UIApplication *)application
+    didFinishLaunchingWithOptions:(nullable NSDictionary<UIApplicationLaunchOptionsKey, id> *)launchOptions
 {
     [KSCrashAppStateTracker.shared _setTransitionState:KSCrashAppTransitionStateLaunched];
     return __KS_CALLING_DELEGATE__(self, _cmd, application, launchOptions);
@@ -224,13 +227,12 @@ static BOOL __KS_CALLING_DELEGATE__(id self, SEL cmd, id arg1, id arg2)
     unsigned int count = 0;
     Method *methods = class_copyMethodList(fromClass, &count);
     for (unsigned int i = 0; i < count; i++) {
-        
         SEL name = method_getName(methods[i]);
         IMP imp = method_getImplementation(methods[i]);
         const char *type = method_getTypeEncoding(methods[i]);
-        
+
         NSLog(@"Adding %s", sel_getName(name));
-        
+
         Method originalMethod = class_getInstanceMethod(baseClass, name);
         if (originalMethod) {
             gMappings[sel_getName(name)] = originalMethod;
@@ -238,7 +240,7 @@ static BOOL __KS_CALLING_DELEGATE__(id self, SEL cmd, id arg1, id arg2)
         } else {
             NSLog(@"-> no original");
         }
-        
+
         if (!class_addMethod(toClass, name, imp, type)) {
             NSLog(@"-> Failed to add %s", sel_getName(name));
         }
@@ -248,21 +250,17 @@ static BOOL __KS_CALLING_DELEGATE__(id self, SEL cmd, id arg1, id arg2)
 
 + (Class)subclassClass:(Class)klass copyMethodsFromClass:(Class)methodSourceClass
 {
-    NSString *subclassName = [[[@"__KSCrash__"
-                                stringByAppendingString:NSStringFromClass(klass)]
-                               stringByAppendingString:@"_"]
-                              stringByAppendingString:[NSUUID UUID].UUIDString];
+    NSString *subclassName = [[[@"__KSCrash__" stringByAppendingString:NSStringFromClass(klass)]
+        stringByAppendingString:@"_"] stringByAppendingString:[NSUUID UUID].UUIDString];
     Class subclass = objc_allocateClassPair(klass, subclassName.UTF8String, 0);
     if (!subclass) {
         return nil;
     }
-    
-    [Proxier copyMethodsFromClass:methodSourceClass
-                          toClass:subclass
-                        baseClass:klass];
-    
+
+    [Proxier copyMethodsFromClass:methodSourceClass toClass:subclass baseClass:klass];
+
     objc_registerClassPair(subclass);
-    
+
     return subclass;
 }
 

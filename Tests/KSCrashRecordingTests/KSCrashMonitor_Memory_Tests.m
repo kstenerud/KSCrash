@@ -217,7 +217,7 @@
     XCTAssertFalse(ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionStateBackground));
     XCTAssertFalse(ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionStateTerminating));
     XCTAssertFalse(ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionStateExiting));
-    
+
     XCTAssertTrue(ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionStateStartup));
     XCTAssertTrue(ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionStateLaunching));
     XCTAssertTrue(ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionStateLaunched));
