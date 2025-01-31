@@ -148,44 +148,44 @@ static BOOL __KS_CALLING_DELEGATE__(id self, SEL cmd, id arg1, id arg2)
 - (BOOL)application:(UIApplication *)application
     willFinishLaunchingWithOptions:(nullable NSDictionary<UIApplicationLaunchOptionsKey, id> *)launchOptions
 {
-    [KSCrashAppStateTracker.shared _setTransitionState:KSCrashAppTransitionStateLaunching];
+    [KSCrashAppStateTracker.sharedInstance _setTransitionState:KSCrashAppTransitionStateLaunching];
     return __KS_CALLING_DELEGATE__(self, _cmd, application, launchOptions);
 }
 
 - (BOOL)application:(UIApplication *)application
     didFinishLaunchingWithOptions:(nullable NSDictionary<UIApplicationLaunchOptionsKey, id> *)launchOptions
 {
-    [KSCrashAppStateTracker.shared _setTransitionState:KSCrashAppTransitionStateLaunched];
+    [KSCrashAppStateTracker.sharedInstance _setTransitionState:KSCrashAppTransitionStateLaunched];
     return __KS_CALLING_DELEGATE__(self, _cmd, application, launchOptions);
 }
 
 - (void)applicationDidBecomeActive:(UIApplication *)application
 {
-    [KSCrashAppStateTracker.shared _setTransitionState:KSCrashAppTransitionStateActive];
+    [KSCrashAppStateTracker.sharedInstance _setTransitionState:KSCrashAppTransitionStateActive];
     __KS_CALLING_DELEGATE__(self, _cmd, application);
 }
 
 - (void)applicationWillResignActive:(UIApplication *)application
 {
-    [KSCrashAppStateTracker.shared _setTransitionState:KSCrashAppTransitionStateDeactivating];
+    [KSCrashAppStateTracker.sharedInstance _setTransitionState:KSCrashAppTransitionStateDeactivating];
     __KS_CALLING_DELEGATE__(self, _cmd, application);
 }
 
 - (void)applicationDidEnterBackground:(UIApplication *)application
 {
-    [KSCrashAppStateTracker.shared _setTransitionState:KSCrashAppTransitionStateBackground];
+    [KSCrashAppStateTracker.sharedInstance _setTransitionState:KSCrashAppTransitionStateBackground];
     __KS_CALLING_DELEGATE__(self, _cmd, application);
 }
 
 - (void)applicationWillEnterForeground:(UIApplication *)application
 {
-    [KSCrashAppStateTracker.shared _setTransitionState:KSCrashAppTransitionStateForegrounding];
+    [KSCrashAppStateTracker.sharedInstance _setTransitionState:KSCrashAppTransitionStateForegrounding];
     __KS_CALLING_DELEGATE__(self, _cmd, application);
 }
 
 - (void)applicationWillTerminate:(UIApplication *)application
 {
-    [KSCrashAppStateTracker.shared _setTransitionState:KSCrashAppTransitionStateTerminating];
+    [KSCrashAppStateTracker.sharedInstance _setTransitionState:KSCrashAppTransitionStateTerminating];
     __KS_CALLING_DELEGATE__(self, _cmd, application);
 }
 
@@ -193,25 +193,25 @@ static BOOL __KS_CALLING_DELEGATE__(id self, SEL cmd, id arg1, id arg2)
 
 - (void)sceneWillEnterForeground:(UIScene *)scene UISCENE_AVAILABLE
 {
-    [KSCrashAppStateTracker.shared _setTransitionState:KSCrashAppTransitionStateForegrounding];
+    [KSCrashAppStateTracker.sharedInstance _setTransitionState:KSCrashAppTransitionStateForegrounding];
     __KS_CALLING_DELEGATE__(self, _cmd, scene);
 }
 
 - (void)sceneDidBecomeActive:(UIScene *)scene UISCENE_AVAILABLE
 {
-    [KSCrashAppStateTracker.shared _setTransitionState:KSCrashAppTransitionStateActive];
+    [KSCrashAppStateTracker.sharedInstance _setTransitionState:KSCrashAppTransitionStateActive];
     __KS_CALLING_DELEGATE__(self, _cmd, scene);
 }
 
 - (void)sceneWillResignActive:(UIScene *)scene UISCENE_AVAILABLE
 {
-    [KSCrashAppStateTracker.shared _setTransitionState:KSCrashAppTransitionStateDeactivating];
+    [KSCrashAppStateTracker.sharedInstance _setTransitionState:KSCrashAppTransitionStateDeactivating];
     __KS_CALLING_DELEGATE__(self, _cmd, scene);
 }
 
 - (void)sceneDidEnterBackground:(UIScene *)scene UISCENE_AVAILABLE
 {
-    [KSCrashAppStateTracker.shared _setTransitionState:KSCrashAppTransitionStateBackground];
+    [KSCrashAppStateTracker.sharedInstance _setTransitionState:KSCrashAppTransitionStateBackground];
     __KS_CALLING_DELEGATE__(self, _cmd, scene);
 }
 
@@ -283,7 +283,7 @@ static BOOL __KS_CALLING_DELEGATE__(id self, SEL cmd, id arg1, id arg2)
 {
     if (delegate) {
         [Proxier proxyObject:delegate withMethodsFromClass:__KS_CALLING_DELEGATE_TEMPLATE__.class];
-        KSCrashAppStateTracker.shared.proxied = YES;
+        KSCrashAppStateTracker.sharedInstance.proxied = YES;
     }
     [self __ks_setDelegate:delegate];
 }
@@ -297,7 +297,7 @@ UISCENE_AVAILABLE
 {
     if (self.delegate) {
         [Proxier proxyObject:self.delegate withMethodsFromClass:__KS_CALLING_DELEGATE_TEMPLATE__.class];
-        KSCrashAppStateTracker.shared.proxied = YES;
+        KSCrashAppStateTracker.sharedInstance.proxied = YES;
     }
 }
 

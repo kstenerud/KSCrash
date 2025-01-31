@@ -67,13 +67,13 @@ typedef uint8_t KSCrashAppTransitionState;
 /**
  * Returns true if the transition state is user perceptible.
  */
-bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
+bool ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionState state)
     NS_SWIFT_NAME(AppTransitionState.isUserPerceptible(self:));
 
 /**
  * Returns a string for the app state passed in.
  */
-const char *ksapp_transitionStateToString(KSCrashAppTransitionState state)
+const char *ksapp_transition_state_to_string(KSCrashAppTransitionState state)
     NS_SWIFT_NAME(AppTransitionState.cString(self:));
 
 #ifdef __cplusplus
