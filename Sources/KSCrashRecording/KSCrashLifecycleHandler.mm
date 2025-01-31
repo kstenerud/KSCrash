@@ -51,6 +51,7 @@
 #if KSCRASH_HAS_UIAPPLICATION
 
 #import "KSCrashAppStateTracker+Private.h"
+#import "KSLogger.h"
 
 #import <objc/runtime.h>
 #import <map>
@@ -99,10 +100,10 @@ static std::map<std::string, Method> gMappings = {};
 static void __KS_CALLING_DELEGATE__(id self, SEL cmd, id arg)
 {
     std::string name(sel_getName(cmd));
-    NSLog(@"[MAP] %s", name.c_str());
+    KSLOG_DEBUG(@"[MAP] %s", name.c_str());
     const auto it = gMappings.find(name);
     if (it != gMappings.end()) {
-        NSLog(@"[MAP:implemented] %s", name.c_str());
+        KSLOG_DEBUG(@"[MAP:implemented] %s", name.c_str());
         ApplicationDelegate_OneArg imp = (ApplicationDelegate_OneArg)method_getImplementation(it->second);
         imp(self, cmd, arg);
     }
@@ -111,10 +112,10 @@ static void __KS_CALLING_DELEGATE__(id self, SEL cmd, id arg)
 static BOOL __KS_CALLING_DELEGATE__(id self, SEL cmd, id arg1, id arg2)
 {
     std::string name(sel_getName(cmd));
-    NSLog(@"[MAP] %s", name.c_str());
+    KSLOG_DEBUG(@"[MAP] %s", name.c_str());
     const auto it = gMappings.find(name);
     if (it != gMappings.end()) {
-        NSLog(@"[MAP:implemented] %s", name.c_str());
+        KSLOG_DEBUG(@"[MAP:implemented] %s", name.c_str());
         ApplicationDelegate_TwoArgs imp = (ApplicationDelegate_TwoArgs)method_getImplementation(it->second);
         return imp(self, cmd, arg1, arg2);
     }
@@ -128,7 +129,7 @@ static BOOL __KS_CALLING_DELEGATE__(id self, SEL cmd, id arg1, id arg2)
     if (sDontSwizzle) {
         return;
     }
-#if KSCRASH_HAS_UIAPPLICATION
+    
     SwizzleInstanceMethod(UIApplication.class, @selector(setDelegate:), @selector(__ks_setDelegate:));
 
     if (@available(iOS 13.0, tvOS 13.0, *)) {
@@ -140,7 +141,6 @@ static BOOL __KS_CALLING_DELEGATE__(id self, SEL cmd, id arg1, id arg2)
                                                           [scene __ks_proxyDelegate];
                                                       }];
     }
-#endif
 }
 
 #pragma - app delegate
@@ -231,18 +231,18 @@ static BOOL __KS_CALLING_DELEGATE__(id self, SEL cmd, id arg1, id arg2)
         IMP imp = method_getImplementation(methods[i]);
         const char *type = method_getTypeEncoding(methods[i]);
 
-        NSLog(@"Adding %s", sel_getName(name));
+        KSLOG_DEBUG(@"Adding %s", sel_getName(name));
 
         Method originalMethod = class_getInstanceMethod(baseClass, name);
         if (originalMethod) {
             gMappings[sel_getName(name)] = originalMethod;
-            NSLog(@"-> original exists");
+            KSLOG_DEBUG(@"-> original exists");
         } else {
-            NSLog(@"-> no original");
+            KSLOG_DEBUG(@"-> no original");
         }
 
         if (!class_addMethod(toClass, name, imp, type)) {
-            NSLog(@"-> Failed to add %s", sel_getName(name));
+            KSLOG_DEBUG(@"-> Failed to add %s", sel_getName(name));
         }
     }
     free(methods);
@@ -269,9 +269,9 @@ static BOOL __KS_CALLING_DELEGATE__(id self, SEL cmd, id arg1, id arg2)
     Class subclass = [self subclassClass:object.class copyMethodsFromClass:methodSourceClass];
     Class originalClass = object_setClass(object, subclass);
     if (originalClass) {
-        NSLog(@"[AC] Swizzled '%@' with '%@'", NSStringFromClass(originalClass), NSStringFromClass(subclass));
+        KSLOG_DEBUG(@"[AC] Swizzled '%@' with '%@'", NSStringFromClass(originalClass), NSStringFromClass(subclass));
     } else {
-        NSLog(@"[AC] Swizzled failed");
+        KSLOG_DEBUG(@"[AC] Swizzled failed");
     }
 }
 
