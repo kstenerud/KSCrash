@@ -41,7 +41,10 @@ typedef struct {
     const int numCodes;
 } KSSignalInfo;
 
-#define ENUM_NAME_MAPPING(A) { A, #A }
+#define ENUM_NAME_MAPPING(A) \
+    {                        \
+        A, #A                \
+    }
 
 static const KSSignalCodeInfo g_sigIllCodes[] = {
 #ifdef ILL_NOOP
@@ -84,8 +87,14 @@ static const KSSignalCodeInfo g_sigSegVCodes[] = {
     ENUM_NAME_MAPPING(SEGV_ACCERR),
 };
 
-#define SIGNAL_INFO(SIGNAL, CODES) { SIGNAL, #SIGNAL, CODES, sizeof(CODES) / sizeof(*CODES) }
-#define SIGNAL_INFO_NOCODES(SIGNAL) { SIGNAL, #SIGNAL, 0, 0 }
+#define SIGNAL_INFO(SIGNAL, CODES)                             \
+    {                                                          \
+        SIGNAL, #SIGNAL, CODES, sizeof(CODES) / sizeof(*CODES) \
+    }
+#define SIGNAL_INFO_NOCODES(SIGNAL) \
+    {                               \
+        SIGNAL, #SIGNAL, 0, 0       \
+    }
 
 static const KSSignalInfo g_fatalSignalData[] = {
     SIGNAL_INFO_NOCODES(SIGABRT),       SIGNAL_INFO(SIGBUS, g_sigBusCodes),   SIGNAL_INFO(SIGFPE, g_sigFPECodes),

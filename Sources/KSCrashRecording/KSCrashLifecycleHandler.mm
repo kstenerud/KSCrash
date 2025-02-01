@@ -129,7 +129,7 @@ static BOOL __KS_CALLING_DELEGATE__(id self, SEL cmd, id arg1, id arg2)
     if (sDontSwizzle) {
         return;
     }
-    
+
     SwizzleInstanceMethod(UIApplication.class, @selector(setDelegate:), @selector(__ks_setDelegate:));
 
     if (@available(iOS 13.0, tvOS 13.0, *)) {
