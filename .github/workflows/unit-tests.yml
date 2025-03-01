@@ -70,6 +70,13 @@ jobs:
         with:
           xcode-version: ${{ matrix.xcode-version || 'latest-stable' }}
 
+      - name: Ensure the platform is downloaded
+        run: |
+          xcodebuild -runFirstLaunch
+          xcrun simctl list
+          xcodebuild -downloadPlatform ${{ matrix.platform }}
+          xcodebuild -runFirstLaunch
+
       - name: Run Unit Tests
         uses: mxcl/xcodebuild@v3
         timeout-minutes: 15
