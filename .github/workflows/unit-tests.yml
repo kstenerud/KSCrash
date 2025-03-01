@@ -70,7 +70,7 @@ jobs:
         with:
           xcode-version: ${{ matrix.xcode-version || 'latest-stable' }}
 
-      - name: Ensure the platform is downloaded
+      - name: Ensure the Platform is Downloaded
         if: ${{ matrix.platform != 'macOS' && matrix.platform != 'mac-catalyst' }}
         run: |
           xcodebuild -runFirstLaunch

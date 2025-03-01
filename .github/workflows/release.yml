@@ -27,14 +27,15 @@ jobs:
         with:
           xcode-version: latest-stable
 
-      - name: Install visionOS Platform
-        shell: bash
+      - name: Ensure Platforms are Downloaded
         run: |
-          # See https://github.com/actions/runner-images/issues/10692#issuecomment-2377521050
           xcodebuild -runFirstLaunch
           xcrun simctl list
-          xcodebuild -downloadPlatform visionOS
-          xcodebuild -runFirstLaunch
+          for platform in iOS watchOS tvOS visionOS; do
+            echo "Downloading $platform platform..."
+            xcodebuild -downloadPlatform $platform
+            xcodebuild -runFirstLaunch
+          done
 
       - name: Update version in podspec
         run: sed -i '' 's/s.version      = "[^"]*"/s.version      = "${{ github.event.inputs.version }}"/' KSCrash.podspec
