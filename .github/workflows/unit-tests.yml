@@ -71,6 +71,7 @@ jobs:
           xcode-version: ${{ matrix.xcode-version || 'latest-stable' }}
 
       - name: Ensure the platform is downloaded
+        if: ${{ matrix.platform != 'macOS' || matrix.platform != 'mac-catalyst' }}
         run: |
           xcodebuild -runFirstLaunch
           xcrun simctl list
