@@ -7,6 +7,12 @@
 
 #### The Ultimate Crash Reporter
 
+## 🚀 KSCrash 2.0 Released!
+
+KSCrash 2.0 is now available with significant improvements and enhancements. If you are upgrading from version 1.x, please refer to the migration guide for details on transitioning to the latest version:
+
+➡️ [Migration Guide for KSCrash 1.x to 2.0](https://github.com/kstenerud/KSCrash/wiki/Migration-Guide-for-KSCrash-1.x-to-2.0)
+
 ## Another crash reporter? Why?
 
 Because while the existing crash reporters do report crashes, there's a heck
