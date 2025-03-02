@@ -28,7 +28,8 @@ jobs:
           # iOS integration tests are too flaky and are temporary excluded
           # - platform: iOS
           - platform: macOS
-          - platform: tvOS
+          # tvOS integration tests became flaky after Xcode 16.2
+          # - platform: tvOS
           - platform: watchOS
     steps:
       - name: Checkout Code
@@ -38,6 +39,14 @@ jobs:
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
+
+      - name: Ensure the Platform is Downloaded
+        if: ${{ matrix.platform != 'macOS' }}
+        run: |
+          xcodebuild -runFirstLaunch
+          xcrun simctl list
+          xcodebuild -downloadPlatform ${{ matrix.platform }}
+          xcodebuild -runFirstLaunch
 
       - name: Install Tuist
         run: |
