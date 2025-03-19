@@ -62,4 +62,19 @@
     XCTAssertTrue(success, @"");
 }
 
+- (void) testStateName
+{
+    int state = 0;
+    const char* stateName = ksthread_state_name(state);
+    XCTAssertEqual(stateName, NULL);
+
+    state = 8;
+    stateName = ksthread_state_name(state);
+    XCTAssertEqual(stateName, NULL);
+
+    state = 2;
+    stateName = ksthread_state_name(state);
+    NSString *stateString = @"TH_STATE_STOPPED";
+    XCTAssertEqual(strcmp(stateName,  stateString.UTF8String), 0);
+}
 @end

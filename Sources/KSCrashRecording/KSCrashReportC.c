@@ -1038,11 +1038,15 @@ static void writeNotableAddresses(const KSCrashReportWriter *const writer, const
  *
  * @param machineContext The context whose thread to write about.
  *
+ * @param threadIndex The index of the thread.
+ *
  * @param shouldWriteNotableAddresses If true, write any notable addresses found.
+ *
+ * @param threadState The state code of the thread.
  */
 static void writeThread(const KSCrashReportWriter *const writer, const char *const key,
                         const KSCrash_MonitorContext *const crash, const struct KSMachineContext *const machineContext,
-                        const int threadIndex, const bool shouldWriteNotableAddresses)
+                        const int threadIndex, const bool shouldWriteNotableAddresses, const int threadState)
 {
     bool isCrashedThread = ksmc_isCrashedContext(machineContext);
     KSThread thread = ksmc_getThreadFromContext(machineContext);
@@ -1050,6 +1054,7 @@ static void writeThread(const KSCrashReportWriter *const writer, const char *con
 
     KSStackCursor stackCursor;
     bool hasBacktrace = getStackCursor(crash, machineContext, &stackCursor);
+    const char* state = ksthread_state_name(threadState);
 
     writer->beginObject(writer, key);
     {
@@ -1067,6 +1072,9 @@ static void writeThread(const KSCrashReportWriter *const writer, const char *con
         name = kstc_getQueueName(thread);
         if (name != NULL) {
             writer->addStringElement(writer, KSCrashField_DispatchQueue, name);
+        }
+        if (state != NULL) {
+            writer->addStringElement(writer, KSCrashField_State, state);
         }
         writer->addBooleanElement(writer, KSCrashField_Crashed, isCrashedThread);
         writer->addBooleanElement(writer, KSCrashField_CurrentThread, thread == ksthread_self());
@@ -1102,11 +1110,12 @@ static void writeAllThreads(const KSCrashReportWriter *const writer, const char 
         KSLOG_DEBUG("Writing %d threads.", threadCount);
         for (int i = 0; i < threadCount; i++) {
             KSThread thread = ksmc_getThreadAtIndex(context, i);
+            int threadRunState = ksthread_getThreadState(thread);
             if (thread == offendingThread) {
-                writeThread(writer, NULL, crash, context, i, writeNotableAddresses);
+                writeThread(writer, NULL, crash, context, i, writeNotableAddresses, threadRunState);
             } else {
                 ksmc_getContextForThread(thread, machineContext, false);
-                writeThread(writer, NULL, crash, machineContext, i, writeNotableAddresses);
+                writeThread(writer, NULL, crash, machineContext, i, writeNotableAddresses, threadRunState);
             }
         }
     }
@@ -1472,10 +1481,11 @@ void kscrashreport_writeRecrashReport(const KSCrash_MonitorContext *const monito
         {
             writeError(writer, KSCrashField_Error, monitorContext);
             ksfu_flushBufferedWriter(&bufferedWriter);
-            int threadIndex = ksmc_indexOfThread(monitorContext->offendingMachineContext,
-                                                 ksmc_getThreadFromContext(monitorContext->offendingMachineContext));
+            KSThread thread = ksmc_getThreadFromContext(monitorContext->offendingMachineContext);
+            int threadIndex = ksmc_indexOfThread(monitorContext->offendingMachineContext, thread);
+            int threadRunState = ksthread_getThreadState(thread);
             writeThread(writer, KSCrashField_CrashedThread, monitorContext, monitorContext->offendingMachineContext,
-                        threadIndex, false);
+                        threadIndex, false, threadRunState);
             ksfu_flushBufferedWriter(&bufferedWriter);
         }
         writer->endContainer(writer);

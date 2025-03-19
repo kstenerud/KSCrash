@@ -138,6 +138,7 @@ KSCRF_DEFINE_CONSTANT(KSCrashField, NotableAddresses, notableAddresses, "notable
 KSCRF_DEFINE_CONSTANT(KSCrashField, Registers, registers, "registers")
 KSCRF_DEFINE_CONSTANT(KSCrashField, Skipped, skipped, "skipped")
 KSCRF_DEFINE_CONSTANT(KSCrashField, Stack, stack, "stack")
+KSCRF_DEFINE_CONSTANT(KSCrashField, State, state, "state")
 
 #pragma mark - Binary Image -
 
