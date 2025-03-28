@@ -110,9 +110,16 @@ static bool advanceCursor(KSStackCursor *cursor)
     }
 
     if (context->linkRegister == 0 && !context->isPastFramePointer) {
-        // Link register, if available, is the second address in the trace.
+        // When the top of the crash stack uses sp to store fp and lr, the
+        // lr obtained through thread_get_state and the return value obtained
+        // through fp unwind are the same, which will cause duplication
+        // of the second and third stack frames.
         context->linkRegister = kscpu_linkRegister(context->machineContext);
-        if (context->linkRegister != 0) {
+        if (context->currentFrame.previous == NULL) {
+            context->currentFrame.previous = (struct FrameEntry *)kscpu_framePointer(context->machineContext);
+        }
+        
+        if (context->linkRegister != 0 && context->currentFrame.previous->return_address != context->linkRegister) {
             nextAddress = context->linkRegister;
             goto successfulExit;
         }
