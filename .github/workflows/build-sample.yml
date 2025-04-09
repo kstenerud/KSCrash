@@ -60,7 +60,7 @@ jobs:
         run: tuist generate --verbose --no-open
 
       - name: Run Build
-        uses: bamx23/xcodebuild@os-version
+        uses: mxcl/xcodebuild@v3
         timeout-minutes: 10
         with:
           action: build
