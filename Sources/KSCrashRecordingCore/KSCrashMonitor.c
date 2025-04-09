@@ -198,6 +198,9 @@ bool kscm_activateMonitors(void)
 
     if (monitorsCount > 0) {
         enabledMonitors = (KSCrashMonitorAPI **)malloc(monitorsCount * sizeof(KSCrashMonitorAPI *));
+        if (enabledMonitors == NULL) {
+            KSLOG_ERROR("Failed to allocate memory for enabled monitors.");
+        }
     }
 
     KSLOG_DEBUG("Active monitors are now:");
