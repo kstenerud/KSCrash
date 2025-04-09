@@ -27,8 +27,8 @@
 #include "KSCrashMonitor.h"
 
 #include <memory.h>
-#include <stdlib.h>
 #include <os/lock.h>
+#include <stdlib.h>
 
 #include "KSCrashMonitorContext.h"
 #include "KSCrashMonitorHelper.h"
@@ -133,7 +133,7 @@ void kscm_resetState(void)
     os_unfair_lock_lock(&g_monitorsLock);
     freeMonitorFuncList(&g_monitors);
     os_unfair_lock_unlock(&g_monitorsLock);
-    
+
     g_handlingFatalException = false;
     g_crashedDuringExceptionHandling = false;
     g_requiresAsyncSafety = false;
@@ -171,7 +171,7 @@ bool kscm_activateMonitors(void)
     }
 
     os_unfair_lock_lock(&g_monitorsLock);
-    
+
     // Enable or disable monitors
     for (size_t i = 0; i < g_monitors.count; i++) {
         KSCrashMonitorAPI *api = g_monitors.apis[i];
@@ -210,7 +210,7 @@ bool kscm_activateMonitors(void)
     }
 
     os_unfair_lock_unlock(&g_monitorsLock);
-    
+
     return anyMonitorActive;
 }
 
@@ -259,7 +259,7 @@ bool kscm_addMonitor(KSCrashMonitorAPI *api)
 
     addMonitor(&g_monitors, api);
     KSLOG_DEBUG("Monitor %s injected.", getMonitorNameForLogging(api));
-    
+
     os_unfair_lock_unlock(&g_monitorsLock);
     return true;
 }
@@ -272,9 +272,9 @@ void kscm_removeMonitor(const KSCrashMonitorAPI *api)
     }
 
     os_unfair_lock_lock(&g_monitorsLock);
-    
+
     removeMonitor(&g_monitors, api);
-    
+
     os_unfair_lock_unlock(&g_monitorsLock);
 }
 
