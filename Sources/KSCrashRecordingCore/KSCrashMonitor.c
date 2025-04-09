@@ -208,7 +208,7 @@ bool kscm_activateMonitors(void)
         KSCrashMonitorAPI *api = g_monitors.apis[i];
         if (kscm_isMonitorEnabled(api)) {
             KSLOG_DEBUG("Monitor %s is enabled.", getMonitorNameForLogging(api));
-            if (enabledMonitors) {
+            if (enabledMonitors != NULL) {
                 enabledMonitors[enabledCount++] = api;
             }
             anyMonitorActive = true;
@@ -225,7 +225,7 @@ bool kscm_activateMonitors(void)
         kscm_notifyPostSystemEnable(enabledMonitors[i]);
     }
 
-    if (enabledMonitors) {
+    if (enabledMonitors != NULL) {
         free(enabledMonitors);
     }
 
