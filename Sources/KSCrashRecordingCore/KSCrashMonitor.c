@@ -28,6 +28,7 @@
 
 #include <memory.h>
 #include <stdlib.h>
+#include <os/lock.h>
 
 #include "KSCrashMonitorContext.h"
 #include "KSCrashMonitorHelper.h"
@@ -61,6 +62,7 @@ getMonitorNameForLogging(const KSCrashMonitorAPI *api)
 // ============================================================================
 
 static MonitorList g_monitors = {};
+static os_unfair_lock g_monitorsLock = OS_UNFAIR_LOCK_INIT;
 
 static bool g_areMonitorsInitialized = false;
 static bool g_handlingFatalException = false;
@@ -128,7 +130,10 @@ static void freeMonitorFuncList(MonitorList *list)
 __attribute__((unused)) // For tests. Declared as extern in TestCase
 void kscm_resetState(void)
 {
+    os_unfair_lock_lock(&g_monitorsLock);
     freeMonitorFuncList(&g_monitors);
+    os_unfair_lock_unlock(&g_monitorsLock);
+    
     g_handlingFatalException = false;
     g_crashedDuringExceptionHandling = false;
     g_requiresAsyncSafety = false;
@@ -165,6 +170,8 @@ bool kscm_activateMonitors(void)
         KSLOG_DEBUG("Async-safe environment detected. Masking out unsafe monitors.");
     }
 
+    os_unfair_lock_lock(&g_monitorsLock);
+    
     // Enable or disable monitors
     for (size_t i = 0; i < g_monitors.count; i++) {
         KSCrashMonitorAPI *api = g_monitors.apis[i];
@@ -202,15 +209,19 @@ bool kscm_activateMonitors(void)
         kscm_notifyPostSystemEnable(api);
     }
 
+    os_unfair_lock_unlock(&g_monitorsLock);
+    
     return anyMonitorActive;
 }
 
 void kscm_disableAllMonitors(void)
 {
+    os_unfair_lock_lock(&g_monitorsLock);
     for (size_t i = 0; i < g_monitors.count; i++) {
         KSCrashMonitorAPI *api = g_monitors.apis[i];
         kscm_setMonitorEnabled(api, false);
     }
+    os_unfair_lock_unlock(&g_monitorsLock);
     KSLOG_DEBUG("All monitors have been disabled.");
 }
 
@@ -232,6 +243,8 @@ bool kscm_addMonitor(KSCrashMonitorAPI *api)
         g_areMonitorsInitialized = true;
     }
 
+    os_unfair_lock_lock(&g_monitorsLock);
+
     // Check for duplicate monitors
     for (size_t i = 0; i < g_monitors.count; i++) {
         KSCrashMonitorAPI *existingApi = g_monitors.apis[i];
@@ -239,12 +252,15 @@ bool kscm_addMonitor(KSCrashMonitorAPI *api)
 
         if (ksstring_safeStrcmp(existingMonitorId, newMonitorId) == 0) {
             KSLOG_DEBUG("Monitor %s already exists. Skipping addition.", getMonitorNameForLogging(api));
+            os_unfair_lock_unlock(&g_monitorsLock);
             return false;
         }
     }
 
     addMonitor(&g_monitors, api);
     KSLOG_DEBUG("Monitor %s injected.", getMonitorNameForLogging(api));
+    
+    os_unfair_lock_unlock(&g_monitorsLock);
     return true;
 }
 
@@ -255,7 +271,11 @@ void kscm_removeMonitor(const KSCrashMonitorAPI *api)
         return;
     }
 
+    os_unfair_lock_lock(&g_monitorsLock);
+    
     removeMonitor(&g_monitors, api);
+    
+    os_unfair_lock_unlock(&g_monitorsLock);
 }
 
 // KSCrashMonitorType kscm_getActiveMonitors(void)
@@ -292,6 +312,12 @@ void kscm_handleException(struct KSCrash_MonitorContext *context)
         context->crashedDuringCrashHandling = true;
     }
 
+    // If the crash happened during monitor registration, skip handling
+    if (os_unfair_lock_trylock(&g_monitorsLock) == false) {
+        KSLOG_ERROR("Unable to acquire lock for monitor list. Skipping exception handling.");
+        return;
+    }
+
     // Add contextual info to the event for all enabled monitors
     for (size_t i = 0; i < g_monitors.count; i++) {
         KSCrashMonitorAPI *api = g_monitors.apis[i];
@@ -299,6 +325,8 @@ void kscm_handleException(struct KSCrash_MonitorContext *context)
             kscm_addContextualInfoToEvent(api, context);
         }
     }
+
+    os_unfair_lock_unlock(&g_monitorsLock);
 
     // Call the exception event handler if it exists
     if (g_onExceptionEvent) {
