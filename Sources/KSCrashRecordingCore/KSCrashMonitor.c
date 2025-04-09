@@ -190,26 +190,41 @@ bool kscm_activateMonitors(void)
     }
 
     bool anyMonitorActive = false;
+    
+    // Create a copy of enabled monitors to avoid holding the lock during notification
+    size_t enabledCount = 0;
+    KSCrashMonitorAPI **enabledMonitors = NULL;
+    size_t monitorsCount = g_monitors.count;
+    
+    if (monitorsCount > 0) {
+        enabledMonitors = (KSCrashMonitorAPI **)malloc(monitorsCount * sizeof(KSCrashMonitorAPI *));
+    }
 
-    // Log active monitors
     KSLOG_DEBUG("Active monitors are now:");
     for (size_t i = 0; i < g_monitors.count; i++) {
         KSCrashMonitorAPI *api = g_monitors.apis[i];
         if (kscm_isMonitorEnabled(api)) {
             KSLOG_DEBUG("Monitor %s is enabled.", getMonitorNameForLogging(api));
+            if (enabledMonitors) {
+                enabledMonitors[enabledCount++] = api;
+            }
             anyMonitorActive = true;
         } else {
             KSLOG_DEBUG("Monitor %s is disabled.", getMonitorNameForLogging(api));
         }
     }
-
-    // Notify monitors about system enable
-    for (size_t i = 0; i < g_monitors.count; i++) {
-        KSCrashMonitorAPI *api = g_monitors.apis[i];
-        kscm_notifyPostSystemEnable(api);
-    }
-
+    
+    // Release the lock before calling notifyPostSystemEnable
     os_unfair_lock_unlock(&g_monitorsLock);
+
+    // Notify monitors about system enable without holding the lock
+    for (size_t i = 0; i < enabledCount; i++) {
+        kscm_notifyPostSystemEnable(enabledMonitors[i]);
+    }
+    
+    if (enabledMonitors) {
+        free(enabledMonitors);
+    }
 
     return anyMonitorActive;
 }
