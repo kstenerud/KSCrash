@@ -31,6 +31,8 @@
 #include <mach-o/getsect.h>
 #include <mach-o/nlist.h>
 #include <mach-o/stab.h>
+#include <os/lock.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "KSLogger.h"
@@ -40,6 +42,141 @@
 #ifndef KSDL_MaxCrashInfoStringLength
 #define KSDL_MaxCrashInfoStringLength 4096
 #endif
+
+#ifndef KSDL_MAX_CACHED_IMAGES
+#define KSDL_MAX_CACHED_IMAGES 1000
+#endif
+
+typedef struct {
+    const struct mach_header *header;
+    const char *name;
+    uintptr_t imageVMAddrSlide;
+    bool valid;
+} KSBinaryImageCache;
+
+static KSBinaryImageCache g_binaryImageCache[KSDL_MAX_CACHED_IMAGES];
+static int g_cachedImageCount = 0;
+static os_unfair_lock g_imageCacheLock = OS_UNFAIR_LOCK_INIT;
+
+/** Add an image to the cache.
+ *
+ * @param header The header of the image to add.
+ * @param slide The VM address slide of the image.
+ */
+static void ksdl_addImageCallback(const struct mach_header *header, intptr_t slide)
+{
+    os_unfair_lock_lock(&g_imageCacheLock);
+
+    if (g_cachedImageCount < KSDL_MAX_CACHED_IMAGES) {
+        uint32_t imageIndex = g_cachedImageCount;
+        const char *imageName = _dyld_get_image_name(imageIndex);
+        if (imageName != NULL) {
+            g_binaryImageCache[imageIndex].header = header;
+            g_binaryImageCache[imageIndex].name = strdup(imageName);
+            g_binaryImageCache[imageIndex].imageVMAddrSlide = (uintptr_t)slide;
+            g_binaryImageCache[imageIndex].valid = true;
+            g_cachedImageCount++;
+            KSLOG_DEBUG("Added image to cache: %s at index %d", imageName, imageIndex);
+        }
+    } else {
+        KSLOG_ERROR("Binary image cache full. Not caching image.");
+    }
+
+    os_unfair_lock_unlock(&g_imageCacheLock);
+}
+
+/** Remove an image from the cache.
+ *
+ * @param header The header of the image to remove.
+ * @param slide The VM address slide of the image.
+ */
+static void ksdl_removeImageCallback(const struct mach_header *header, intptr_t slide)
+{
+    os_unfair_lock_lock(&g_imageCacheLock);
+
+    for (int i = 0; i < g_cachedImageCount; i++) {
+        if (g_binaryImageCache[i].header == header) {
+            if (g_binaryImageCache[i].name != NULL) {
+                KSLOG_DEBUG("Removing image from cache: %s at index %d", g_binaryImageCache[i].name, i);
+                free((void *)g_binaryImageCache[i].name);
+            }
+
+            for (int j = i; j < g_cachedImageCount - 1; j++) {
+                g_binaryImageCache[j] = g_binaryImageCache[j + 1];
+            }
+            g_cachedImageCount--;
+            break;
+        }
+    }
+
+    os_unfair_lock_unlock(&g_imageCacheLock);
+}
+
+/** Initialize the binary image cache.
+ *
+ * This function is called when the library is loaded.
+ */
+__attribute__((constructor)) static void ksdl_initializeBinaryImageCache(void)
+{
+    KSLOG_DEBUG("Initializing binary image cache");
+
+    _dyld_register_func_for_add_image(ksdl_addImageCallback);
+    _dyld_register_func_for_remove_image(ksdl_removeImageCallback);
+
+    uint32_t imageCount = _dyld_image_count();
+    imageCount = imageCount > KSDL_MAX_CACHED_IMAGES ? KSDL_MAX_CACHED_IMAGES : imageCount;
+
+    for (uint32_t i = 0; i < imageCount; i++) {
+        const struct mach_header *header = _dyld_get_image_header(i);
+        if (header != NULL) {
+            ksdl_addImageCallback(header, _dyld_get_image_vmaddr_slide(i));
+        }
+    }
+}
+
+/** Get the header of the specified image.
+ *
+ * @param index The image index.
+ *
+ * @return The header of the image, or NULL if none was found.
+ */
+static const struct mach_header *ksdl_getCachedImageHeader(uint32_t index)
+{
+    if (index >= (uint32_t)g_cachedImageCount) {
+        return NULL;
+    }
+    return g_binaryImageCache[index].header;
+}
+
+/** Get the name of the specified image.
+ *
+ * @param index The image index.
+ *
+ * @return The name of the image, or NULL if none was found.
+ */
+static const char *ksdl_getCachedImageName(uint32_t index)
+{
+    if (index >= (uint32_t)g_cachedImageCount) {
+        return NULL;
+    }
+    return g_binaryImageCache[index].name;
+}
+
+/** Get the VM address slide of the specified image.
+ *
+ * @param index The image index.
+ *
+ * @return The VM address slide of the image, or 0 if none was found.
+ */
+static uintptr_t ksdl_getCachedImageVMAddrSlide(uint32_t index)
+{
+    if (index >= (uint32_t)g_cachedImageCount) {
+        return 0;
+    }
+    return g_binaryImageCache[index].imageVMAddrSlide;
+}
+
+static uint32_t ksdl_getCachedImageCount(void) { return (uint32_t)g_cachedImageCount; }
 
 #pragma pack(8)
 typedef struct {
@@ -85,14 +222,14 @@ static uintptr_t firstCmdAfterHeader(const struct mach_header *const header)
  */
 static uint32_t imageIndexContainingAddress(const uintptr_t address)
 {
-    const uint32_t imageCount = _dyld_image_count();
+    const uint32_t imageCount = ksdl_getCachedImageCount();
     const struct mach_header *header = 0;
 
     for (uint32_t iImg = 0; iImg < imageCount; iImg++) {
-        header = _dyld_get_image_header(iImg);
+        header = ksdl_getCachedImageHeader(iImg);
         if (header != NULL) {
             // Look for a segment command with this address within its range.
-            uintptr_t addressWSlide = address - (uintptr_t)_dyld_get_image_vmaddr_slide(iImg);
+            uintptr_t addressWSlide = address - ksdl_getCachedImageVMAddrSlide(iImg);
             uintptr_t cmdPtr = firstCmdAfterHeader(header);
             if (cmdPtr == 0) {
                 continue;
@@ -126,7 +263,10 @@ static uint32_t imageIndexContainingAddress(const uintptr_t address)
  */
 static uintptr_t segmentBaseOfImageIndex(const uint32_t idx)
 {
-    const struct mach_header *header = _dyld_get_image_header(idx);
+    const struct mach_header *header = ksdl_getCachedImageHeader(idx);
+    if (header == NULL) {
+        return 0;
+    }
 
     // Look for a segment command and return the file image address.
     uintptr_t cmdPtr = firstCmdAfterHeader(header);
@@ -155,10 +295,14 @@ static uintptr_t segmentBaseOfImageIndex(const uint32_t idx)
 uint32_t ksdl_imageNamed(const char *const imageName, bool exactMatch)
 {
     if (imageName != NULL) {
-        const uint32_t imageCount = _dyld_image_count();
+        const uint32_t imageCount = ksdl_getCachedImageCount();
 
         for (uint32_t iImg = 0; iImg < imageCount; iImg++) {
-            const char *name = _dyld_get_image_name(iImg);
+            const char *name = ksdl_getCachedImageName(iImg);
+            if (name == NULL) {
+                continue;
+            }
+
             if (exactMatch) {
                 if (strcmp(name, imageName) == 0) {
                     return iImg;
@@ -178,7 +322,7 @@ const uint8_t *ksdl_imageUUID(const char *const imageName, bool exactMatch)
     if (imageName != NULL) {
         const uint32_t iImg = ksdl_imageNamed(imageName, exactMatch);
         if (iImg != UINT32_MAX) {
-            const struct mach_header *header = _dyld_get_image_header(iImg);
+            const struct mach_header *header = ksdl_getCachedImageHeader(iImg);
             if (header != NULL) {
                 uintptr_t cmdPtr = firstCmdAfterHeader(header);
                 if (cmdPtr != 0) {
@@ -208,15 +352,15 @@ bool ksdl_dladdr(const uintptr_t address, Dl_info *const info)
     if (idx == UINT_MAX) {
         return false;
     }
-    const struct mach_header *header = _dyld_get_image_header(idx);
-    const uintptr_t imageVMAddrSlide = (uintptr_t)_dyld_get_image_vmaddr_slide(idx);
+    const struct mach_header *header = ksdl_getCachedImageHeader(idx);
+    const uintptr_t imageVMAddrSlide = ksdl_getCachedImageVMAddrSlide(idx);
     const uintptr_t addressWithSlide = address - imageVMAddrSlide;
     const uintptr_t segmentBase = segmentBaseOfImageIndex(idx) + imageVMAddrSlide;
     if (segmentBase == 0) {
         return false;
     }
 
-    info->dli_fname = _dyld_get_image_name(idx);
+    info->dli_fname = ksdl_getCachedImageName(idx);
     info->dli_fbase = (void *)header;
 
     // Find symbol tables and get whichever symbol is closest to the address.
@@ -333,16 +477,16 @@ static void getCrashInfo(const struct mach_header *header, KSBinaryImage *buffer
     }
 }
 
-int ksdl_imageCount(void) { return (int)_dyld_image_count(); }
+int ksdl_imageCount(void) { return (int)ksdl_getCachedImageCount(); }
 
 bool ksdl_getBinaryImage(int index, KSBinaryImage *buffer)
 {
-    const struct mach_header *header = _dyld_get_image_header((unsigned)index);
+    const struct mach_header *header = ksdl_getCachedImageHeader((unsigned)index);
     if (header == NULL) {
         return false;
     }
 
-    return ksdl_getBinaryImageForHeader((const void *)header, _dyld_get_image_name((unsigned)index), buffer);
+    return ksdl_getBinaryImageForHeader((const void *)header, ksdl_getCachedImageName((unsigned)index), buffer);
 }
 
 bool ksdl_getBinaryImageForHeader(const void *const header_ptr, const char *const image_name, KSBinaryImage *buffer)
