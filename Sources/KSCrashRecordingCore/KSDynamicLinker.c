@@ -73,10 +73,14 @@ static void ksdl_addImageCallback(const struct mach_header *header, intptr_t sli
         if (imageName != NULL) {
             g_binaryImageCache[imageIndex].header = header;
             g_binaryImageCache[imageIndex].name = strdup(imageName);
-            g_binaryImageCache[imageIndex].imageVMAddrSlide = (uintptr_t)slide;
-            g_binaryImageCache[imageIndex].valid = true;
-            g_cachedImageCount++;
-            KSLOG_DEBUG("Added image to cache: %s at index %d", imageName, imageIndex);
+            if (g_binaryImageCache[imageIndex].name == NULL) {
+                KSLOG_ERROR("Failed to duplicate image name: %s. Not caching image.", imageName);
+            } else {
+                g_binaryImageCache[imageIndex].imageVMAddrSlide = (uintptr_t)slide;
+                g_binaryImageCache[imageIndex].valid = true;
+                g_cachedImageCount++;
+                KSLOG_DEBUG("Added image to cache: %s at index %d", imageName, imageIndex);
+            }
         }
     } else {
         KSLOG_ERROR("Binary image cache full. Not caching image.");
