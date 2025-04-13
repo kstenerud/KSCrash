@@ -3,16 +3,14 @@ import ProjectDescription
 let project = Project(
     name: "KSCrashSamples",
     packages: [
-        .local(path: "Common"),
+        .local(path: "Common")
     ],
-    settings: .settings(base: [
-        "SWIFT_VERSION": "5.0"
-    ]),
+    settings: .settings(defaultSettings: .recommended),
     targets: [
         .target(
             name: "KSCrashTestDylib",
             destinations: .allForSample,
-            product: .dynamicLibrary,
+            product: .framework,
             bundleId: "com.github.kstenerud.KSCrash.TestDylib",
             deploymentTargets: .allForSample,
             sources: ["TestDylib/Sources/**"]
@@ -35,7 +33,7 @@ let project = Project(
             ]),
             sources: ["Sources/**"],
             dependencies: [
-                .package(product: "SampleUI", type: .runtime),
+                .package(product: "SampleUI", type: .runtime)
             ]
         ),
         .target(
@@ -60,9 +58,10 @@ let project = Project(
             name: "Sample",
             shared: true,
             buildAction: .buildAction(targets: ["Sample"]),
-            testAction: .testPlans(["Tests/Integration.xctestplan"], configuration: .release, attachDebugger: false),
+            testAction: .testPlans(
+                ["Tests/Integration.xctestplan"], configuration: .release, attachDebugger: false),
             runAction: .runAction(executable: "Sample")
-        ),
+        )
     ]
 )
 
