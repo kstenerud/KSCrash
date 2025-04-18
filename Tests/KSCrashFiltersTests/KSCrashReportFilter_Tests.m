@@ -369,7 +369,7 @@
     [filter filterReports:self.reportsWithDict
              onCompletion:^(NSArray *filteredReports, NSError *error) {
                  XCTAssertNil(error, @"");
-                 XCTAssertEqualObjects([filteredReports objectAtIndex:0], expected, @"");
+                 XCTAssertEqualObjects([[filteredReports objectAtIndex:0] untypedValue], expected, @"");
              }];
 }
 
@@ -383,7 +383,7 @@
     [filter filterReports:self.reportsWithDict
              onCompletion:^(NSArray *filteredReports, NSError *error) {
                  XCTAssertNil(error, @"");
-                 XCTAssertEqualObjects([filteredReports objectAtIndex:0], expected, @"");
+                 XCTAssertEqualObjects([[filteredReports objectAtIndex:0] untypedValue], expected, @"");
              }];
 }
 
