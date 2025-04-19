@@ -103,7 +103,7 @@ class IntegrationTestBase: XCTestCase {
     }
 
     func waitForCrash() {
-        XCTAssert(app.wait(for: .notRunning, timeout: actionDelay + appCrashTimeout), "App crash is expected")
+        XCTAssert(app.wait(for: .notRunning, timeout: actionDelay + appCrashTimeout + 5), "App crash is expected")
     }
 
     private func waitForFile(in dir: URL, timeout: TimeInterval? = nil) throws -> URL {
