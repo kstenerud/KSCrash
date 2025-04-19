@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   integration-tests:
-    runs-on: macos-15
+    runs-on: macos-15@20250408.1132 
     timeout-minutes: 30
     strategy:
       fail-fast: false
