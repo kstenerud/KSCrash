@@ -8,14 +8,6 @@ let project = Project(
     settings: .settings(defaultSettings: .recommended),
     targets: [
         .target(
-            name: "KSCrashTestDylib",
-            destinations: .allForSample,
-            product: .framework,
-            bundleId: "com.github.kstenerud.KSCrash.TestDylib",
-            deploymentTargets: .allForSample,
-            sources: ["TestDylib/Sources/**"]
-        ),
-        .target(
             name: "Sample",
             destinations: .allForSample,
             product: .app,
@@ -45,7 +37,6 @@ let project = Project(
             sources: ["Tests/**"],
             dependencies: [
                 .target(name: "Sample"),
-                .target(name: "KSCrashTestDylib"),
                 .package(product: "SampleUI", type: .runtime),
                 .package(product: "CrashTriggers", type: .runtime),
                 .package(product: "IntegrationTestsHelper", type: .runtime),

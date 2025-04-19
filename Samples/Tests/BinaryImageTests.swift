@@ -27,7 +27,6 @@
 import XCTest
 import Darwin
 import IntegrationTestsHelper
-import KSCrashTestDylib
 
 final class BinaryImageTests: IntegrationTestBase {
     func testBinaryImagesPresent() throws {
