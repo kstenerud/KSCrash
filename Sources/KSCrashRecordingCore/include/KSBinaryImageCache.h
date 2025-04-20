@@ -69,4 +69,4 @@ uintptr_t ksbic_imageVMAddrSlide(uint32_t index);
 }
 #endif
 
-#endif // HDR_KSBinaryImageCache_h
+#endif  // HDR_KSBinaryImageCache_h

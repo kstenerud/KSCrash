@@ -128,10 +128,7 @@ __attribute__((constructor)) static void ksbic_initializeBinaryImageCache(void)
     }
 }
 
-uint32_t ksbic_imageCount(void)
-{
-    return (uint32_t)g_cachedImageCount;
-}
+uint32_t ksbic_imageCount(void) { return (uint32_t)g_cachedImageCount; }
 
 const struct mach_header *ksbic_imageHeader(uint32_t index)
 {
