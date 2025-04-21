@@ -124,7 +124,7 @@
                 NSArray *reportSet = reportSets[iSet];
                 if (iReport < reportSet.count) {
                     id<KSCrashReport> report = reportSet[iReport];
-                    dict[key] = report.untypedValue;
+                    dict[key] = report;
                 }
             }
             id<KSCrashReport> report = [KSCrashReportDictionary reportWithValue:dict];

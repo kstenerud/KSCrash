@@ -308,8 +308,8 @@
              onCompletion:^(NSArray *filteredReports, NSError *error) {
                  XCTAssertNil(error, @"");
                  for (NSUInteger i = 0; i < self.reports.count; i++) {
-                     id exp1 = [[self.reports objectAtIndex:i] value];
-                     id exp2 = [[self.reportsWithData objectAtIndex:i] value];
+                     id exp1 = [self.reports objectAtIndex:i];
+                     id exp2 = [self.reportsWithData objectAtIndex:i];
                      KSCrashReportDictionary *entry = [filteredReports objectAtIndex:i];
                      id result1 = entry.value[@"normal"];
                      id result2 = entry.value[@"data"];
