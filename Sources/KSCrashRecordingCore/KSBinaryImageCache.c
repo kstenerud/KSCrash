@@ -45,7 +45,7 @@ typedef struct {
 } KSBinaryImageCacheEntry;
 
 static KSBinaryImageCacheEntry g_binaryImageCache[KSBIC_MAX_CACHED_IMAGES];
-static int g_cachedImageCount = 0;
+static uint32_t g_cachedImageCount = 0;
 static os_unfair_lock g_imageCacheLock = OS_UNFAIR_LOCK_INIT;
 
 /** Add an image to the cache.
@@ -57,9 +57,28 @@ static void ksbic_addImageCallback(const struct mach_header *header, intptr_t sl
 {
     os_unfair_lock_lock(&g_imageCacheLock);
 
+    // Check if image already exists in cache to prevent duplication
+    for (uint32_t i = 0; i < g_cachedImageCount; i++) {
+        if (g_binaryImageCache[i].header == header) {
+            KSLOG_DEBUG("Image already in cache at index %d, skipping.", i);
+            os_unfair_lock_unlock(&g_imageCacheLock);
+            return;
+        }
+    }
+
     if (g_cachedImageCount < KSBIC_MAX_CACHED_IMAGES) {
         uint32_t imageIndex = g_cachedImageCount;
-        const char *imageName = _dyld_get_image_name(imageIndex);
+        // Find the correct name by searching through dyld's image list
+        const char *imageName = NULL;
+        uint32_t dyldImageCount = _dyld_image_count();
+        
+        for (uint32_t i = 0; i < dyldImageCount; i++) {
+            if (_dyld_get_image_header(i) == header) {
+                imageName = _dyld_get_image_name(i);
+                break;
+            }
+        }
+        
         if (imageName != NULL) {
             g_binaryImageCache[imageIndex].header = header;
             g_binaryImageCache[imageIndex].name = strdup(imageName);
@@ -88,14 +107,14 @@ static void ksbic_removeImageCallback(const struct mach_header *header, intptr_t
 {
     os_unfair_lock_lock(&g_imageCacheLock);
 
-    for (int i = 0; i < g_cachedImageCount; i++) {
+    for (uint32_t i = 0; i < g_cachedImageCount; i++) {
         if (g_binaryImageCache[i].header == header) {
             if (g_binaryImageCache[i].name != NULL) {
                 KSLOG_DEBUG("Removing image from cache: %s at index %d", g_binaryImageCache[i].name, i);
                 free((void *)g_binaryImageCache[i].name);
             }
 
-            for (int j = i; j < g_cachedImageCount - 1; j++) {
+            for (uint32_t j = i; j < g_cachedImageCount - 1; j++) {
                 g_binaryImageCache[j] = g_binaryImageCache[j + 1];
             }
             g_cachedImageCount--;
@@ -114,9 +133,11 @@ __attribute__((constructor)) static void ksbic_initializeBinaryImageCache(void)
 {
     KSLOG_DEBUG("Initializing binary image cache");
 
+    // First register for future image add/remove notifications
     _dyld_register_func_for_add_image(ksbic_addImageCallback);
     _dyld_register_func_for_remove_image(ksbic_removeImageCallback);
 
+    // Then process existing images
     uint32_t imageCount = _dyld_image_count();
     imageCount = imageCount > KSBIC_MAX_CACHED_IMAGES ? KSBIC_MAX_CACHED_IMAGES : imageCount;
 
@@ -128,11 +149,11 @@ __attribute__((constructor)) static void ksbic_initializeBinaryImageCache(void)
     }
 }
 
-uint32_t ksbic_imageCount(void) { return (uint32_t)g_cachedImageCount; }
+uint32_t ksbic_imageCount(void) { return g_cachedImageCount; }
 
 const struct mach_header *ksbic_imageHeader(uint32_t index)
 {
-    if (index >= (uint32_t)g_cachedImageCount) {
+    if (index >= g_cachedImageCount) {
         return NULL;
     }
     return g_binaryImageCache[index].header;
@@ -140,7 +161,7 @@ const struct mach_header *ksbic_imageHeader(uint32_t index)
 
 const char *ksbic_imageName(uint32_t index)
 {
-    if (index >= (uint32_t)g_cachedImageCount) {
+    if (index >= g_cachedImageCount) {
         return NULL;
     }
     return g_binaryImageCache[index].name;
@@ -148,7 +169,7 @@ const char *ksbic_imageName(uint32_t index)
 
 uintptr_t ksbic_imageVMAddrSlide(uint32_t index)
 {
-    if (index >= (uint32_t)g_cachedImageCount) {
+    if (index >= g_cachedImageCount) {
         return 0;
     }
     return g_binaryImageCache[index].imageVMAddrSlide;
