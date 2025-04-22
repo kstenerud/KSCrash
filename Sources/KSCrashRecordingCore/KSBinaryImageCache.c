@@ -27,7 +27,7 @@
 #include "KSBinaryImageCache.h"
 
 #include <mach-o/dyld.h>
-#include <os/lock.h>
+#include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -46,7 +46,7 @@ typedef struct {
 
 static KSBinaryImageCacheEntry g_binaryImageCache[KSBIC_MAX_CACHED_IMAGES];
 static uint32_t g_cachedImageCount = 0;
-static os_unfair_lock g_imageCacheLock = OS_UNFAIR_LOCK_INIT;
+static pthread_rwlock_t g_imageCacheRWLock = PTHREAD_RWLOCK_INITIALIZER;
 
 /** Add an image to the cache.
  *
@@ -55,13 +55,13 @@ static os_unfair_lock g_imageCacheLock = OS_UNFAIR_LOCK_INIT;
  */
 static void ksbic_addImageCallback(const struct mach_header *header, intptr_t slide)
 {
-    os_unfair_lock_lock(&g_imageCacheLock);
+    pthread_rwlock_wrlock(&g_imageCacheRWLock);
 
     // Check if image already exists in cache to prevent duplication
     for (uint32_t i = 0; i < g_cachedImageCount; i++) {
         if (g_binaryImageCache[i].header == header) {
             KSLOG_DEBUG("Image already in cache at index %d, skipping.", i);
-            os_unfair_lock_unlock(&g_imageCacheLock);
+            pthread_rwlock_unlock(&g_imageCacheRWLock);
             return;
         }
     }
@@ -71,14 +71,14 @@ static void ksbic_addImageCallback(const struct mach_header *header, intptr_t sl
         // Find the correct name by searching through dyld's image list
         const char *imageName = NULL;
         uint32_t dyldImageCount = _dyld_image_count();
-        
+
         for (uint32_t i = 0; i < dyldImageCount; i++) {
             if (_dyld_get_image_header(i) == header) {
                 imageName = _dyld_get_image_name(i);
                 break;
             }
         }
-        
+
         if (imageName != NULL) {
             g_binaryImageCache[imageIndex].header = header;
             g_binaryImageCache[imageIndex].name = strdup(imageName);
@@ -95,7 +95,7 @@ static void ksbic_addImageCallback(const struct mach_header *header, intptr_t sl
         KSLOG_ERROR("Binary image cache full. Not caching image.");
     }
 
-    os_unfair_lock_unlock(&g_imageCacheLock);
+    pthread_rwlock_unlock(&g_imageCacheRWLock);
 }
 
 /** Remove an image from the cache.
@@ -105,7 +105,7 @@ static void ksbic_addImageCallback(const struct mach_header *header, intptr_t sl
  */
 static void ksbic_removeImageCallback(const struct mach_header *header, intptr_t slide)
 {
-    os_unfair_lock_lock(&g_imageCacheLock);
+    pthread_rwlock_wrlock(&g_imageCacheRWLock);
 
     for (uint32_t i = 0; i < g_cachedImageCount; i++) {
         if (g_binaryImageCache[i].header == header) {
@@ -122,7 +122,7 @@ static void ksbic_removeImageCallback(const struct mach_header *header, intptr_t
         }
     }
 
-    os_unfair_lock_unlock(&g_imageCacheLock);
+    pthread_rwlock_unlock(&g_imageCacheRWLock);
 }
 
 /** Initialize the binary image cache.
@@ -149,28 +149,44 @@ __attribute__((constructor)) static void ksbic_initializeBinaryImageCache(void)
     }
 }
 
-uint32_t ksbic_imageCount(void) { return g_cachedImageCount; }
+uint32_t ksbic_imageCount(void)
+{
+    uint32_t count;
+    pthread_rwlock_rdlock(&g_imageCacheRWLock);
+    count = g_cachedImageCount;
+    pthread_rwlock_unlock(&g_imageCacheRWLock);
+    return count;
+}
 
 const struct mach_header *ksbic_imageHeader(uint32_t index)
 {
-    if (index >= g_cachedImageCount) {
-        return NULL;
+    const struct mach_header *header = NULL;
+    pthread_rwlock_rdlock(&g_imageCacheRWLock);
+    if (index < g_cachedImageCount) {
+        header = g_binaryImageCache[index].header;
     }
-    return g_binaryImageCache[index].header;
+    pthread_rwlock_unlock(&g_imageCacheRWLock);
+    return header;
 }
 
 const char *ksbic_imageName(uint32_t index)
 {
-    if (index >= g_cachedImageCount) {
-        return NULL;
+    const char *name = NULL;
+    pthread_rwlock_rdlock(&g_imageCacheRWLock);
+    if (index < g_cachedImageCount) {
+        name = g_binaryImageCache[index].name;
     }
-    return g_binaryImageCache[index].name;
+    pthread_rwlock_unlock(&g_imageCacheRWLock);
+    return name;
 }
 
 uintptr_t ksbic_imageVMAddrSlide(uint32_t index)
 {
-    if (index >= g_cachedImageCount) {
-        return 0;
+    uintptr_t slide = 0;
+    pthread_rwlock_rdlock(&g_imageCacheRWLock);
+    if (index < g_cachedImageCount) {
+        slide = g_binaryImageCache[index].imageVMAddrSlide;
     }
-    return g_binaryImageCache[index].imageVMAddrSlide;
+    pthread_rwlock_unlock(&g_imageCacheRWLock);
+    return slide;
 }
