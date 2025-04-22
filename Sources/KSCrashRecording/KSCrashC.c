@@ -26,6 +26,7 @@
 
 #include "KSCrashC.h"
 
+#include "KSBinaryImageCache.h"
 #include "KSCompilerDefines.h"
 #include "KSCrashCachedData.h"
 #include "KSCrashMonitorContext.h"
@@ -274,6 +275,8 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     kslog_setLogFilename(g_consoleLogPath, true);
 
     ksccd_init(60);
+
+    ksbic_init();
 
     kscm_setEventCallback(onCrash);
     setMonitors(configuration->monitors);

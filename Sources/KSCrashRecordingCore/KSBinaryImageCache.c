@@ -126,27 +126,25 @@ static void ksbic_removeImageCallback(const struct mach_header *header, intptr_t
 }
 
 /** Initialize the binary image cache.
- *
- * This function is called when the library is loaded.
+ * Should be called during KSCrash activation.
  */
-__attribute__((constructor)) static void ksbic_initializeBinaryImageCache(void)
+void ksbic_init(void)
 {
+    static bool initialized = false;
+
+    // Only initialize once
+    if (initialized) {
+        return;
+    }
+
     KSLOG_DEBUG("Initializing binary image cache");
 
-    // First register for future image add/remove notifications
+    // Register for image add/remove notifications
+    // This will automatically call ksbic_addImageCallback for all currently loaded images
     _dyld_register_func_for_add_image(ksbic_addImageCallback);
     _dyld_register_func_for_remove_image(ksbic_removeImageCallback);
 
-    // Then process existing images
-    uint32_t imageCount = _dyld_image_count();
-    imageCount = imageCount > KSBIC_MAX_CACHED_IMAGES ? KSBIC_MAX_CACHED_IMAGES : imageCount;
-
-    for (uint32_t i = 0; i < imageCount; i++) {
-        const struct mach_header *header = _dyld_get_image_header(i);
-        if (header != NULL) {
-            ksbic_addImageCallback(header, _dyld_get_image_vmaddr_slide(i));
-        }
-    }
+    initialized = true;
 }
 
 uint32_t ksbic_imageCount(void)

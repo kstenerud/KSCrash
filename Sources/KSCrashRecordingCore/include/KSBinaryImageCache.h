@@ -35,6 +35,11 @@
 extern "C" {
 #endif
 
+/** Initialize the binary image cache.
+ * Should be called during KSCrash activation.
+ */
+void ksbic_init(void);
+
 /** Get the number of cached binary images.
  *
  * @return The number of cached binary images.
