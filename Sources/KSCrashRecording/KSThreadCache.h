@@ -1,5 +1,5 @@
 //
-//  KSCrashCachedData_Tests.m
+//  KSThreadCache.h
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -22,32 +22,21 @@
 // THE SOFTWARE.
 //
 
-#import <XCTest/XCTest.h>
+/* Maintains a cache of thread information that would be difficult to retrieve
+ * during a crash. This includes thread names and dispatch queue names.
+ */
 
-#import "KSCrashCachedData.h"
-#import "TestThread.h"
+#include "KSThread.h"
 
-@interface KSCrashCachedData_Tests : XCTestCase
-@end
+void kstc_init(int pollingIntervalInSeconds);
 
-@implementation KSCrashCachedData_Tests
+void kstc_freeze(void);
+void kstc_unfreeze(void);
 
-- (void)testGetThreadName
-{
-    NSString *expectedName = @"This is a test thread";
-    TestThread *thread = [TestThread new];
-    thread.name = expectedName;
-    [thread start];
-    [NSThread sleepForTimeInterval:0.1];
-    ksccd_init(10);
-    [NSThread sleepForTimeInterval:0.1];
-    [thread cancel];
-    ksccd_freeze();
-    const char *cName = ksccd_getThreadName(thread.thread);
-    XCTAssertTrue(cName != NULL);
-    NSString *name = [NSString stringWithUTF8String:cName];
-    XCTAssertEqualObjects(name, expectedName);
-    ksccd_unfreeze();
-}
+void kstc_setSearchQueueNames(bool searchQueueNames);
 
-@end
+KSThread *kstc_getAllThreads(int *threadCount);
+
+const char *kstc_getThreadName(KSThread thread);
+
+const char *kstc_getQueueName(KSThread thread);

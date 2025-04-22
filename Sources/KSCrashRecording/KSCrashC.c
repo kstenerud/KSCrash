@@ -28,7 +28,6 @@
 
 #include "KSBinaryImageCache.h"
 #include "KSCompilerDefines.h"
-#include "KSCrashCachedData.h"
 #include "KSCrashMonitorContext.h"
 #include "KSCrashMonitorType.h"
 #include "KSCrashMonitor_AppState.h"
@@ -48,6 +47,7 @@
 #include "KSObjC.h"
 #include "KSString.h"
 #include "KSSystemCapabilities.h"
+#include "KSThreadCache.h"
 
 // #define KSLogger_LocalLevel TRACE
 #include <inttypes.h>
@@ -194,7 +194,7 @@ void handleConfiguration(KSCrashCConfiguration *configuration)
 #if KSCRASH_HAS_OBJC
     kscm_setDeadlockHandlerWatchdogInterval(configuration->deadlockWatchdogInterval);
 #endif
-    ksccd_setSearchQueueNames(configuration->enableQueueNameSearch);
+    kstc_setSearchQueueNames(configuration->enableQueueNameSearch);
     kscrashreport_setIntrospectMemory(configuration->enableMemoryIntrospection);
     kscm_signal_sigterm_setMonitoringEnabled(configuration->enableSigTermMonitoring);
 
@@ -274,7 +274,7 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     }
     kslog_setLogFilename(g_consoleLogPath, true);
 
-    ksccd_init(60);
+    kstc_init(60);
 
     ksbic_init();
 
