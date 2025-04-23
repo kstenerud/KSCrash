@@ -7,3 +7,5 @@ PointerAlignment: Right
 DerivePointerAlignment: false
 SpaceBeforeCpp11BracedList: true
 Cpp11BracedListStyle: false
+InsertNewlineAtEOF: true
+KeepEmptyLinesAtEOF: true
