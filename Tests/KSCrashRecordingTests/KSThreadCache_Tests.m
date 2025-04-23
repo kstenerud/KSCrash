@@ -27,26 +27,42 @@
 #import "KSThreadCache.h"
 #import "TestThread.h"
 
+// Declare external function only for testing
+extern void kstc_reset(void);
+
 @interface KSThreadCache_Tests : XCTestCase
 @end
 
 @implementation KSThreadCache_Tests
+
+- (void)setUp
+{
+    [super setUp];
+    kstc_reset();
+}
 
 - (void)testGetThreadName
 {
     NSString *expectedName = @"This is a test thread";
     TestThread *thread = [TestThread new];
     thread.name = expectedName;
+
+    kstc_init(1);
+    [NSThread sleepForTimeInterval:0.5];
     [thread start];
-    [NSThread sleepForTimeInterval:0.1];
-    kstc_init(10);
-    [NSThread sleepForTimeInterval:0.1];
-    [thread cancel];
+    [NSThread sleepForTimeInterval:1.0];
     kstc_freeze();
+
     const char *cName = kstc_getThreadName(thread.thread);
-    XCTAssertTrue(cName != NULL);
-    NSString *name = [NSString stringWithUTF8String:cName];
-    XCTAssertEqualObjects(name, expectedName);
+
+    if (cName != NULL) {
+        NSString *name = [NSString stringWithUTF8String:cName];
+        XCTAssertEqualObjects(name, expectedName, @"Thread name didn't match expected name");
+    } else {
+        XCTFail(@"Failed to get thread name (got NULL)");
+    }
+
+    [thread cancel];
     kstc_unfreeze();
 }
 

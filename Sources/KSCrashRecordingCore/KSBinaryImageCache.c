@@ -125,26 +125,40 @@ static void ksbic_removeImageCallback(const struct mach_header *header, intptr_t
     pthread_rwlock_unlock(&g_imageCacheRWLock);
 }
 
-/** Initialize the binary image cache.
- * Should be called during KSCrash activation.
- */
+static bool g_initialized = false;
+
 void ksbic_init(void)
 {
-    static bool initialized = false;
-
-    // Only initialize once
-    if (initialized) {
+    if (g_initialized) {
         return;
     }
 
     KSLOG_DEBUG("Initializing binary image cache");
 
-    // Register for image add/remove notifications
-    // This will automatically call ksbic_addImageCallback for all currently loaded images
     _dyld_register_func_for_add_image(ksbic_addImageCallback);
     _dyld_register_func_for_remove_image(ksbic_removeImageCallback);
 
-    initialized = true;
+    g_initialized = true;
+}
+
+// For testing purposes only. Used with extern in test files.
+void ksbic_resetCache(void)
+{
+    pthread_rwlock_wrlock(&g_imageCacheRWLock);
+
+    for (uint32_t i = 0; i < g_cachedImageCount; i++) {
+        if (g_binaryImageCache[i].name != NULL) {
+            free((void *)g_binaryImageCache[i].name);
+            g_binaryImageCache[i].name = NULL;
+        }
+    }
+
+    memset(g_binaryImageCache, 0, sizeof(g_binaryImageCache));
+    g_cachedImageCount = 0;
+
+    pthread_rwlock_unlock(&g_imageCacheRWLock);
+
+    g_initialized = false;
 }
 
 uint32_t ksbic_imageCount(void)

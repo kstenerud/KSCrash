@@ -181,6 +181,46 @@ void kstc_unfreeze(void)
 
 void kstc_setSearchQueueNames(bool searchQueueNames) { g_searchQueueNames = searchQueueNames; }
 
+// For testing purposes only. Used with extern in test files.
+void kstc_reset(void)
+{
+    if (g_allThreadNames != NULL) {
+        for (int i = 0; i < g_allThreadsCount; i++) {
+            const char *name = g_allThreadNames[i];
+            if (name != NULL) {
+                free((void *)name);
+            }
+        }
+        free(g_allThreadNames);
+        g_allThreadNames = NULL;
+    }
+
+    if (g_allQueueNames != NULL) {
+        for (int i = 0; i < g_allThreadsCount; i++) {
+            const char *name = g_allQueueNames[i];
+            if (name != NULL) {
+                free((void *)name);
+            }
+        }
+        free(g_allQueueNames);
+        g_allQueueNames = NULL;
+    }
+
+    if (g_allMachThreads != NULL) {
+        free(g_allMachThreads);
+        g_allMachThreads = NULL;
+    }
+
+    if (g_allPThreads != NULL) {
+        free(g_allPThreads);
+        g_allPThreads = NULL;
+    }
+
+    g_allThreadsCount = 0;
+    g_semaphoreCount = 0;
+    g_hasThreadStarted = false;
+}
+
 KSThread *kstc_getAllThreads(int *threadCount)
 {
     if (threadCount != NULL) {
