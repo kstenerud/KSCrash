@@ -33,6 +33,7 @@
 #include <mach-o/stab.h>
 #include <string.h>
 
+#include "KSBinaryImageCache.h"
 #include "KSLogger.h"
 #include "KSMemory.h"
 #include "KSPlatformSpecificDefines.h"
@@ -85,14 +86,14 @@ static uintptr_t firstCmdAfterHeader(const struct mach_header *const header)
  */
 static uint32_t imageIndexContainingAddress(const uintptr_t address)
 {
-    const uint32_t imageCount = _dyld_image_count();
+    const uint32_t imageCount = ksbic_imageCount();
     const struct mach_header *header = 0;
 
     for (uint32_t iImg = 0; iImg < imageCount; iImg++) {
-        header = _dyld_get_image_header(iImg);
+        header = ksbic_imageHeader(iImg);
         if (header != NULL) {
             // Look for a segment command with this address within its range.
-            uintptr_t addressWSlide = address - (uintptr_t)_dyld_get_image_vmaddr_slide(iImg);
+            uintptr_t addressWSlide = address - ksbic_imageVMAddrSlide(iImg);
             uintptr_t cmdPtr = firstCmdAfterHeader(header);
             if (cmdPtr == 0) {
                 continue;
@@ -126,7 +127,10 @@ static uint32_t imageIndexContainingAddress(const uintptr_t address)
  */
 static uintptr_t segmentBaseOfImageIndex(const uint32_t idx)
 {
-    const struct mach_header *header = _dyld_get_image_header(idx);
+    const struct mach_header *header = ksbic_imageHeader(idx);
+    if (header == NULL) {
+        return 0;
+    }
 
     // Look for a segment command and return the file image address.
     uintptr_t cmdPtr = firstCmdAfterHeader(header);
@@ -155,10 +159,14 @@ static uintptr_t segmentBaseOfImageIndex(const uint32_t idx)
 uint32_t ksdl_imageNamed(const char *const imageName, bool exactMatch)
 {
     if (imageName != NULL) {
-        const uint32_t imageCount = _dyld_image_count();
+        const uint32_t imageCount = ksbic_imageCount();
 
         for (uint32_t iImg = 0; iImg < imageCount; iImg++) {
-            const char *name = _dyld_get_image_name(iImg);
+            const char *name = ksbic_imageName(iImg);
+            if (name == NULL) {
+                continue;
+            }
+
             if (exactMatch) {
                 if (strcmp(name, imageName) == 0) {
                     return iImg;
@@ -178,7 +186,7 @@ const uint8_t *ksdl_imageUUID(const char *const imageName, bool exactMatch)
     if (imageName != NULL) {
         const uint32_t iImg = ksdl_imageNamed(imageName, exactMatch);
         if (iImg != UINT32_MAX) {
-            const struct mach_header *header = _dyld_get_image_header(iImg);
+            const struct mach_header *header = ksbic_imageHeader(iImg);
             if (header != NULL) {
                 uintptr_t cmdPtr = firstCmdAfterHeader(header);
                 if (cmdPtr != 0) {
@@ -208,15 +216,15 @@ bool ksdl_dladdr(const uintptr_t address, Dl_info *const info)
     if (idx == UINT_MAX) {
         return false;
     }
-    const struct mach_header *header = _dyld_get_image_header(idx);
-    const uintptr_t imageVMAddrSlide = (uintptr_t)_dyld_get_image_vmaddr_slide(idx);
+    const struct mach_header *header = ksbic_imageHeader(idx);
+    const uintptr_t imageVMAddrSlide = ksbic_imageVMAddrSlide(idx);
     const uintptr_t addressWithSlide = address - imageVMAddrSlide;
     const uintptr_t segmentBase = segmentBaseOfImageIndex(idx) + imageVMAddrSlide;
     if (segmentBase == 0) {
         return false;
     }
 
-    info->dli_fname = _dyld_get_image_name(idx);
+    info->dli_fname = ksbic_imageName(idx);
     info->dli_fbase = (void *)header;
 
     // Find symbol tables and get whichever symbol is closest to the address.
@@ -333,16 +341,16 @@ static void getCrashInfo(const struct mach_header *header, KSBinaryImage *buffer
     }
 }
 
-int ksdl_imageCount(void) { return (int)_dyld_image_count(); }
+int ksdl_imageCount(void) { return (int)ksbic_imageCount(); }
 
 bool ksdl_getBinaryImage(int index, KSBinaryImage *buffer)
 {
-    const struct mach_header *header = _dyld_get_image_header((unsigned)index);
+    const struct mach_header *header = ksbic_imageHeader((unsigned)index);
     if (header == NULL) {
         return false;
     }
 
-    return ksdl_getBinaryImageForHeader((const void *)header, _dyld_get_image_name((unsigned)index), buffer);
+    return ksdl_getBinaryImageForHeader((const void *)header, ksbic_imageName((unsigned)index), buffer);
 }
 
 bool ksdl_getBinaryImageForHeader(const void *const header_ptr, const char *const image_name, KSBinaryImage *buffer)

@@ -32,7 +32,19 @@
 @interface KSDynamicLinker_Tests : XCTestCase
 @end
 
+// Declare external function only for testing
+extern void ksbic_resetCache(void);
+extern void ksbic_init(void);
+
 @implementation KSDynamicLinker_Tests
+
+- (void)setUp
+{
+    [super setUp];
+    ksbic_resetCache();
+    ksbic_init();
+    [NSThread sleepForTimeInterval:0.1];
+}
 
 - (void)testImageUUID
 {

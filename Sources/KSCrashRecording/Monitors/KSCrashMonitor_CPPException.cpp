@@ -136,9 +136,8 @@ static void CPPExceptionTerminate(void)
         } catch (std::exception &exc) {
             strncpy(descriptionBuff, exc.what(), sizeof(descriptionBuff));
         }
-#define CATCH_VALUE(TYPE, PRINTFTYPE)                                                                \
-    catch (TYPE value) { snprintf(descriptionBuff, sizeof(descriptionBuff), "%" #PRINTFTYPE, value); \
-    }
+#define CATCH_VALUE(TYPE, PRINTFTYPE) \
+    catch (TYPE value) { snprintf(descriptionBuff, sizeof(descriptionBuff), "%" #PRINTFTYPE, value); }
         CATCH_VALUE(char, d)
         CATCH_VALUE(short, d)
         CATCH_VALUE(int, d)

@@ -1,5 +1,5 @@
 //
-//  KSCrashCachedData.h
+//  KSThreadCache.h
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -22,20 +22,21 @@
 // THE SOFTWARE.
 //
 
-/* Maintains a cache of difficult-to-retrieve data.
+/* Maintains a cache of thread information that would be difficult to retrieve
+ * during a crash. This includes thread names and dispatch queue names.
  */
 
 #include "KSThread.h"
 
-void ksccd_init(int pollingIntervalInSeconds);
+void kstc_init(int pollingIntervalInSeconds);
 
-void ksccd_freeze(void);
-void ksccd_unfreeze(void);
+void kstc_freeze(void);
+void kstc_unfreeze(void);
 
-void ksccd_setSearchQueueNames(bool searchQueueNames);
+void kstc_setSearchQueueNames(bool searchQueueNames);
 
-KSThread *ksccd_getAllThreads(int *threadCount);
+KSThread *kstc_getAllThreads(int *threadCount);
 
-const char *ksccd_getThreadName(KSThread thread);
+const char *kstc_getThreadName(KSThread thread);
 
-const char *ksccd_getQueueName(KSThread thread);
+const char *kstc_getQueueName(KSThread thread);
