@@ -25,6 +25,7 @@
 //
 
 #import <XCTest/XCTest.h>
+#import <objc/runtime.h>
 #import "KSCrashConfiguration+Private.h"
 #import "KSCrashConfiguration.h"
 
@@ -185,6 +186,41 @@
     KSCrashConfiguration *copy = [config copy];
     XCTAssertNil(copy.userInfoJSON);
     XCTAssertNil(copy.doNotIntrospectClasses);
+}
+
+- (void)testCallbacksInCConfiguration
+{
+    __block BOOL crashNotifyCallbackCalled = NO;
+    __block BOOL reportWrittenCallbackCalled = NO;
+    __block int64_t capturedReportID = 0;
+
+    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+
+    config.crashNotifyCallback = ^(const struct KSCrashReportWriter *writer) {
+        crashNotifyCallbackCalled = YES;
+    };
+
+    config.reportWrittenCallback = ^(int64_t reportID) {
+        reportWrittenCallbackCalled = YES;
+        capturedReportID = reportID;
+    };
+
+    KSCrashCConfiguration cConfig = [config toCConfiguration];
+
+    XCTAssertNotNil(config.crashNotifyCallback);
+    XCTAssertNotNil(config.reportWrittenCallback);
+    XCTAssertTrue(cConfig.crashNotifyCallback != NULL);
+    XCTAssertTrue(cConfig.reportWrittenCallback != NULL);
+
+    if (cConfig.reportWrittenCallback) {
+        int64_t testReportID = 12345;
+        cConfig.reportWrittenCallback(testReportID);
+
+        XCTAssertTrue(reportWrittenCallbackCalled);
+        XCTAssertEqual(capturedReportID, testReportID);
+    }
+
+    KSCrashCConfiguration_Release(&cConfig);
 }
 
 @end
