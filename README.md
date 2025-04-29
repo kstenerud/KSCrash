@@ -79,7 +79,7 @@ Add the following to your `Package.swift` file:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/kstenerud/KSCrash.git", .upToNextMajor(from: "2.0.0"))
+    .package(url: "https://github.com/kstenerud/KSCrash.git", .upToNextMajor(from: "2.1.0"))
 ]
 ```
 
@@ -99,7 +99,7 @@ targets: [
 
 1. Add to your `Podfile`:
    ```ruby
-   pod 'KSCrash', '~> 2.0'
+   pod 'KSCrash', '~> 2.1'
    ```
 
 2. Run:
