@@ -6,10 +6,25 @@ on:
       version:
         description: 'Version to release'
         required: true
+      dry_run:
+        description: 'Run in dry-run mode (do not push to CocoaPods)'
+        type: boolean
+        default: false
+        required: false
+      test_fail:
+        description: 'Intentionally fail at a specific stage (for testing)'
+        type: string
+        default: 'none'
+        required: false
 
 jobs:
   release:
     runs-on: macos-latest
+    outputs:
+      commit_sha: ${{ steps.save_commit_info.outputs.commit_sha }}
+      version: ${{ github.event.inputs.version }}
+      dry_run: ${{ github.event.inputs.dry_run }}
+      tag_name: ${{ steps.create_tag.outputs.tag_name }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -37,6 +52,12 @@ jobs:
             xcodebuild -runFirstLaunch
           done
 
+      - name: Test failure - Early stage
+        if: ${{ github.event.inputs.test_fail == 'early' }}
+        run: |
+          echo "Intentionally failing at early stage for testing"
+          exit 1
+          
       - name: Update version in podspec
         run: sed -i '' 's/s.version      = "[^"]*"/s.version      = "${{ github.event.inputs.version }}"/' KSCrash.podspec
 
@@ -71,17 +92,54 @@ jobs:
           git add .
           git commit -m "Update version to ${{ github.event.inputs.version }}"
           git push
+          
+      - name: Save commit information
+        id: save_commit_info
+        run: |
+          COMMIT_SHA=$(git rev-parse HEAD)
+          echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
+          
+      - name: Test failure - After commit
+        if: ${{ github.event.inputs.test_fail == 'mid' }}
+        run: |
+          echo "Intentionally failing after commit but before tag for testing"
+          exit 1
 
       - name: Create git tag
         id: create_tag
         run: |
-          git tag ${{ github.event.inputs.version }}
-          git push origin ${{ github.event.inputs.version }}
+          if [[ "${{ github.event.inputs.dry_run }}" == "true" ]]; then
+            TAG_NAME="${{ github.event.inputs.version }}-dryrun"
+          else
+            TAG_NAME="${{ github.event.inputs.version }}"
+          fi
+          
+          git tag $TAG_NAME
+          git push origin $TAG_NAME
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+          
+      - name: Test failure - After tag
+        if: ${{ github.event.inputs.test_fail == 'late' }}
+        run: |
+          echo "Intentionally failing after tag but before publishing for testing"
+          exit 1
 
       - name: Publish to CocoaPods
+        if: ${{ !github.event.inputs.dry_run && github.event.inputs.test_fail != 'any' }}
         env:
           COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_PASSWORD }}
         run: pod trunk push KSCrash.podspec --verbose
+        
+      - name: Skip publishing
+        if: ${{ github.event.inputs.dry_run || github.event.inputs.test_fail != 'none' }}
+        run: |
+          echo "Publishing skipped - running in test or dry-run mode"
+          
+      - name: Test failure - During publishing
+        if: ${{ github.event.inputs.test_fail == 'publish' }}
+        run: |
+          echo "Intentionally failing during publishing stage for testing"
+          exit 1
 
   rollback:
     runs-on: macos-15
@@ -95,44 +153,66 @@ jobs:
 
       - name: Fetch all tags
         run: |
-          echo "Fetching all tags..."
           git fetch --tags
-          echo "Tags fetched successfully."
 
       - name: Delete git tag locally
         run: |
-          echo "Attempting to delete local tag ${{ github.event.inputs.version }}..."
-          git tag -d ${{ github.event.inputs.version }} || echo "Tag not found locally"
-          echo "Local tag deletion process completed."
+          # Use tag from outputs or construct it
+          if [[ -n "${{ needs.release.outputs.tag_name }}" ]]; then
+            TAG_TO_DELETE="${{ needs.release.outputs.tag_name }}"
+          elif [[ "${{ needs.release.outputs.dry_run }}" == "true" ]]; then
+            TAG_TO_DELETE="${{ needs.release.outputs.version }}-dryrun"
+          else
+            TAG_TO_DELETE="${{ needs.release.outputs.version }}"
+          fi
+          
+          git tag -d $TAG_TO_DELETE || echo "Tag not found locally"
+          echo "TAG_TO_DELETE=$TAG_TO_DELETE" >> $GITHUB_ENV
 
       - name: Delete git tag remotely
         run: |
-          echo "Attempting to delete remote tag ${{ github.event.inputs.version }}..."
-          git push --delete origin ${{ github.event.inputs.version }} || echo "Tag not found on remote"
-          echo "Remote tag deletion process completed."
+          git push --delete origin ${{ env.TAG_TO_DELETE }} || echo "Tag not found on remote"
 
       - name: Pull latest changes
         run: |
-          echo "Pulling latest changes for the current branch..."
           git pull origin "$(git branch --show-current)"
-          echo "Latest changes pulled successfully."
+
+      - name: Check for version commit
+        id: check_commit
+        run: |
+          if [[ -n "${{ needs.release.outputs.commit_sha }}" ]]; then
+            echo "Version commit found from outputs: ${{ needs.release.outputs.commit_sha }}"
+            echo "SHOULD_REVERT=true" >> $GITHUB_ENV
+            echo "COMMIT_SHA=${{ needs.release.outputs.commit_sha }}" >> $GITHUB_ENV
+          else
+            # Fallback: search by commit message
+            SEARCH_MSG="Update version to ${{ needs.release.outputs.version || github.event.inputs.version }}"
+            FOUND_COMMIT=$(git log --format="%H" --grep="$SEARCH_MSG" -n 1)
+            
+            if [[ -n "$FOUND_COMMIT" ]]; then
+              echo "Found commit by message: $FOUND_COMMIT"
+              echo "SHOULD_REVERT=true" >> $GITHUB_ENV
+              echo "COMMIT_SHA=$FOUND_COMMIT" >> $GITHUB_ENV
+            else
+              echo "No version commit found, nothing to revert."
+              echo "SHOULD_REVERT=false" >> $GITHUB_ENV
+            fi
+          fi
 
       - name: Revert version commit
+        if: env.SHOULD_REVERT == 'true'
         run: |
-          echo "Identifying the last commit..."
-          previous_commit=$(git rev-list -n 1 HEAD)
-          echo "Last commit identified: $previous_commit"
-          echo "Attempting to revert commit $previous_commit..."
-          git revert --no-commit $previous_commit
-          echo "Revert command executed."
-          echo "Committing the revert with a message..."
+          echo "Reverting commit ${{ env.COMMIT_SHA }}..."
+          git log --oneline -n 3
+          
+          git revert --no-commit ${{ env.COMMIT_SHA }}
+          git status -s
+          
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git commit -m "Revert version update due to failed release"
-          echo "Revert commit completed."
 
       - name: Push revert
+        if: env.SHOULD_REVERT == 'true'
         run: |
-          echo "Pushing reverted changes to remote..."
-          git push || { echo "Push failed. Checking remote status..."; git status; exit 1; }
-          echo "Push completed."
+          git push || { git status; exit 1; }
