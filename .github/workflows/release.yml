@@ -6,6 +6,11 @@ on:
       version:
         description: 'Version to release'
         required: true
+      dry_run:
+        description: 'Run in dry-run mode (do not push to CocoaPods)'
+        type: boolean
+        default: false
+        required: false
 
 jobs:
   release:
@@ -69,7 +74,14 @@ jobs:
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git add .
-          git commit -m "Update version to ${{ github.event.inputs.version }}"
+          
+          # Include [dry-run] in commit message if in dry run mode
+          if [[ "${{ github.event.inputs.dry_run }}" == "true" ]]; then
+            git commit -m "[dry-run] Update version to ${{ github.event.inputs.version }}"
+          else
+            git commit -m "Update version to ${{ github.event.inputs.version }}"
+          fi
+          
           git push
           # Store commit SHA for potential rollback
           echo "COMMIT_SHA=$(git rev-parse HEAD)" >> $GITHUB_ENV
@@ -77,13 +89,29 @@ jobs:
       - name: Create git tag
         id: create_tag
         run: |
-          git tag ${{ github.event.inputs.version }}
-          git push origin ${{ github.event.inputs.version }}
+          # Include dry-run prefix in tag if in dry run mode
+          if [[ "${{ github.event.inputs.dry_run }}" == "true" ]]; then
+            TAG_NAME="dry-run-${{ github.event.inputs.version }}"
+            echo "Using dry-run tag: $TAG_NAME"
+          else
+            TAG_NAME="${{ github.event.inputs.version }}"
+          fi
+          
+          git tag $TAG_NAME
+          git push origin $TAG_NAME
+          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
 
       - name: Publish to CocoaPods
+        if: ${{ !github.event.inputs.dry_run }}
         env:
           COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_PASSWORD }}
         run: pod trunk push KSCrash.podspec --verbose
+        
+      - name: Skip publishing (dry run)
+        if: ${{ github.event.inputs.dry_run }}
+        run: |
+          echo "Dry run mode enabled - skipping CocoaPods publishing"
+          echo "Version would have been published: ${{ github.event.inputs.version }}"
 
   rollback:
     runs-on: macos-15
@@ -103,14 +131,24 @@ jobs:
 
       - name: Delete git tag locally
         run: |
-          echo "Attempting to delete local tag ${{ github.event.inputs.version }}..."
-          git tag -d ${{ github.event.inputs.version }} || echo "Tag not found locally"
+          # Determine which tag name to use
+          if [[ -n "${{ env.TAG_NAME }}" ]]; then
+            TAG_TO_DELETE="${{ env.TAG_NAME }}"
+          elif [[ "${{ github.event.inputs.dry_run }}" == "true" ]]; then
+            TAG_TO_DELETE="dry-run-${{ github.event.inputs.version }}"
+          else
+            TAG_TO_DELETE="${{ github.event.inputs.version }}"
+          fi
+          
+          echo "Attempting to delete local tag $TAG_TO_DELETE..."
+          git tag -d $TAG_TO_DELETE || echo "Tag not found locally"
           echo "Local tag deletion process completed."
+          echo "TAG_TO_DELETE=$TAG_TO_DELETE" >> $GITHUB_ENV
 
       - name: Delete git tag remotely
         run: |
-          echo "Attempting to delete remote tag ${{ github.event.inputs.version }}..."
-          git push --delete origin ${{ github.event.inputs.version }} || echo "Tag not found on remote"
+          echo "Attempting to delete remote tag ${{ env.TAG_TO_DELETE }}..."
+          git push --delete origin ${{ env.TAG_TO_DELETE }} || echo "Tag not found on remote"
           echo "Remote tag deletion process completed."
 
       - name: Pull latest changes
