@@ -33,3 +33,6 @@ Gemfile.lock
 /Samples/**/Derived
 /Samples/**/*.xcodeproj
 /Samples/**/*.xcworkspace
+### CLAUDE ###
+**/.claude/settings.local.json
+**/CLAUDE.local.md
