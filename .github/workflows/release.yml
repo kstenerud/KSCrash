@@ -109,7 +109,7 @@ jobs:
         id: create_tag
         run: |
           if [[ "${{ github.event.inputs.dry_run }}" == "true" ]]; then
-            TAG_NAME="dry-run-${{ github.event.inputs.version }}"
+            TAG_NAME="${{ github.event.inputs.version }}-dryrun"
           else
             TAG_NAME="${{ github.event.inputs.version }}"
           fi
@@ -161,7 +161,7 @@ jobs:
           if [[ -n "${{ needs.release.outputs.tag_name }}" ]]; then
             TAG_TO_DELETE="${{ needs.release.outputs.tag_name }}"
           elif [[ "${{ needs.release.outputs.dry_run }}" == "true" ]]; then
-            TAG_TO_DELETE="dry-run-${{ needs.release.outputs.version }}"
+            TAG_TO_DELETE="${{ needs.release.outputs.version }}-dryrun"
           else
             TAG_TO_DELETE="${{ needs.release.outputs.version }}"
           fi
