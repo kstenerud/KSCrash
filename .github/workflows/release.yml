@@ -11,6 +11,11 @@ on:
         type: boolean
         default: false
         required: false
+      test_fail:
+        description: 'Intentionally fail at a specific stage (for testing)'
+        type: string
+        default: 'none'
+        required: false
 
 jobs:
   release:
@@ -42,6 +47,12 @@ jobs:
             xcodebuild -runFirstLaunch
           done
 
+      - name: Test failure - Early stage
+        if: ${{ github.event.inputs.test_fail == 'early' }}
+        run: |
+          echo "Intentionally failing at early stage for testing"
+          exit 1
+          
       - name: Update version in podspec
         run: sed -i '' 's/s.version      = "[^"]*"/s.version      = "${{ github.event.inputs.version }}"/' KSCrash.podspec
 
@@ -85,6 +96,12 @@ jobs:
           git push
           # Store commit SHA for potential rollback
           echo "COMMIT_SHA=$(git rev-parse HEAD)" >> $GITHUB_ENV
+          
+      - name: Test failure - After commit
+        if: ${{ github.event.inputs.test_fail == 'mid' }}
+        run: |
+          echo "Intentionally failing after commit but before tag for testing"
+          exit 1
 
       - name: Create git tag
         id: create_tag
@@ -100,18 +117,30 @@ jobs:
           git tag $TAG_NAME
           git push origin $TAG_NAME
           echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
+          
+      - name: Test failure - After tag
+        if: ${{ github.event.inputs.test_fail == 'late' }}
+        run: |
+          echo "Intentionally failing after tag but before publishing for testing"
+          exit 1
 
       - name: Publish to CocoaPods
-        if: ${{ !github.event.inputs.dry_run }}
+        if: ${{ !github.event.inputs.dry_run && github.event.inputs.test_fail != 'any' }}
         env:
           COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_PASSWORD }}
         run: pod trunk push KSCrash.podspec --verbose
         
-      - name: Skip publishing (dry run)
-        if: ${{ github.event.inputs.dry_run }}
+      - name: Skip publishing (dry run or test mode)
+        if: ${{ github.event.inputs.dry_run || github.event.inputs.test_fail != 'none' }}
         run: |
-          echo "Dry run mode enabled - skipping CocoaPods publishing"
+          echo "Publishing skipped - running in test or dry-run mode"
           echo "Version would have been published: ${{ github.event.inputs.version }}"
+          
+      - name: Test failure - During publishing
+        if: ${{ github.event.inputs.test_fail == 'publish' }}
+        run: |
+          echo "Intentionally failing during publishing stage for testing"
+          exit 1
 
   rollback:
     runs-on: macos-15
