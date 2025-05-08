@@ -160,6 +160,9 @@ let package = Package(
       ],
       resources: [
         .copy("Resources/PrivacyInfo.xcprivacy")
+      ],
+      linkerSettings: [
+        .linkedLibrary("z")
       ]
     ),
     .testTarget(
