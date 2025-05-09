@@ -55,6 +55,7 @@
 /// UNCHECKED_REF_STORAGE
 ///   Name##RetainValueInst
 ///   Name##ReleaseValueInst
+///   StrongCopy##Name##ValueInst
 /// LOADABLE_REF_STORAGE
 ///   Ref*ToNameInst
 ///   Name*ToRefInst
@@ -62,7 +63,7 @@
 ///   Load##Name##Inst
 ///   Store##Name##Inst
 /// ALWAYS_OR_SOMETIMES_LOADABLE_CHECKED_REF_STORAGE
-///   Copy##Name##ValueInst
+///   StrongCopy##Name##ValueInst
 ///   StrongRetain##Name##Inst
 ///   Name##RetainInst
 ///   Name##ReleaseInst
@@ -77,7 +78,7 @@
 /// ALWAYS_LOADABLE_CHECKED_REF_STORAGE
 ///   Ref*ToNameInst
 ///   Name*ToRefInst
-///   Copy##Name##ValueInst
+///   StrongCopy##Name##ValueInst
 ///   StrongRetain##Name##Inst
 ///   Name##RetainInst
 ///   Name##ReleaseInst
@@ -86,7 +87,7 @@
 ///   Name*ToRefInst
 ///   Load##Name##Inst
 ///   Store##Name##Inst
-///   Copy##Name##ValueInst
+///   StrongCopy##Name##ValueInst
 ///   StrongRetain##Name##Inst
 ///   Name##RetainInst
 ///   Name##ReleaseInst
@@ -98,6 +99,10 @@
 /// storage type, and SOMETIMES_LOADABLE_CHECKED_REF_STORAGE needs *two*
 /// TypeInfos to be created. One for the loadable scenario, and one for the
 /// address-only scenario.
+///
+/// TODO: We should change Copy##Name##ValueInst to be defined on
+/// LOADABLE_REF_STORAGE. It just will require us to go through, refactor, and
+/// fix up this code.
 
 
 #ifndef REF_STORAGE
@@ -105,73 +110,73 @@
 #endif
 
 #ifdef ALWAYS_OR_SOMETIMES_LOADABLE_CHECKED_REF_STORAGE
-#if defined(ALWAYS_LOADABLE_CHECKED_REF_STORAGE) || \
-defined(SOMETIMES_LOADABLE_CHECKED_REF_STORAGE)
-#error Overlapping meta-programming macros
-#endif
-#define ALWAYS_LOADABLE_CHECKED_REF_STORAGE(Name, name, NAME) \
-ALWAYS_OR_SOMETIMES_LOADABLE_CHECKED_REF_STORAGE(Name, name, NAME)
-#define SOMETIMES_LOADABLE_CHECKED_REF_STORAGE(Name, name, NAME) \
-ALWAYS_OR_SOMETIMES_LOADABLE_CHECKED_REF_STORAGE(Name, name, NAME)
+  #if defined(ALWAYS_LOADABLE_CHECKED_REF_STORAGE) || \
+      defined(SOMETIMES_LOADABLE_CHECKED_REF_STORAGE)
+    #error Overlapping meta-programming macros
+  #endif
+  #define ALWAYS_LOADABLE_CHECKED_REF_STORAGE(Name, name, NAME) \
+    ALWAYS_OR_SOMETIMES_LOADABLE_CHECKED_REF_STORAGE(Name, name, NAME)
+  #define SOMETIMES_LOADABLE_CHECKED_REF_STORAGE(Name, name, NAME) \
+    ALWAYS_OR_SOMETIMES_LOADABLE_CHECKED_REF_STORAGE(Name, name, NAME)
 #endif
 
 #ifdef NEVER_OR_SOMETIMES_LOADABLE_CHECKED_REF_STORAGE
-#if defined(NEVER_LOADABLE_CHECKED_REF_STORAGE) || \
-defined(SOMETIMES_LOADABLE_CHECKED_REF_STORAGE)
-#error Overlapping meta-programming macros
-#endif
-#define NEVER_LOADABLE_CHECKED_REF_STORAGE(Name, name, NAME) \
-NEVER_OR_SOMETIMES_LOADABLE_CHECKED_REF_STORAGE(Name, name, NAME)
-#define SOMETIMES_LOADABLE_CHECKED_REF_STORAGE(Name, name, NAME) \
-NEVER_OR_SOMETIMES_LOADABLE_CHECKED_REF_STORAGE(Name, name, NAME)
+  #if defined(NEVER_LOADABLE_CHECKED_REF_STORAGE) || \
+      defined(SOMETIMES_LOADABLE_CHECKED_REF_STORAGE)
+    #error Overlapping meta-programming macros
+  #endif
+  #define NEVER_LOADABLE_CHECKED_REF_STORAGE(Name, name, NAME) \
+     NEVER_OR_SOMETIMES_LOADABLE_CHECKED_REF_STORAGE(Name, name, NAME)
+  #define SOMETIMES_LOADABLE_CHECKED_REF_STORAGE(Name, name, NAME) \
+     NEVER_OR_SOMETIMES_LOADABLE_CHECKED_REF_STORAGE(Name, name, NAME)
 #endif
 
 #ifdef LOADABLE_REF_STORAGE
-#if defined(ALWAYS_LOADABLE_CHECKED_REF_STORAGE) || \
-defined(SOMETIMES_LOADABLE_CHECKED_REF_STORAGE) || \
-defined(UNCHECKED_REF_STORAGE)
-#error Overlapping meta-programming macros
-#endif
-#define ALWAYS_LOADABLE_CHECKED_REF_STORAGE(Name, name, NAME) \
-LOADABLE_REF_STORAGE(Name, name, NAME)
-#define SOMETIMES_LOADABLE_CHECKED_REF_STORAGE(Name, name, NAME) \
-LOADABLE_REF_STORAGE(Name, name, NAME)
-#define UNCHECKED_REF_STORAGE(Name, name, NAME) \
-LOADABLE_REF_STORAGE(Name, name, NAME)
+  #if defined(ALWAYS_LOADABLE_CHECKED_REF_STORAGE) || \
+      defined(SOMETIMES_LOADABLE_CHECKED_REF_STORAGE) || \
+      defined(UNCHECKED_REF_STORAGE)
+    #error Overlapping meta-programming macros
+  #endif
+  #define ALWAYS_LOADABLE_CHECKED_REF_STORAGE(Name, name, NAME) \
+    LOADABLE_REF_STORAGE(Name, name, NAME)
+  #define SOMETIMES_LOADABLE_CHECKED_REF_STORAGE(Name, name, NAME) \
+    LOADABLE_REF_STORAGE(Name, name, NAME)
+  #define UNCHECKED_REF_STORAGE(Name, name, NAME) \
+    LOADABLE_REF_STORAGE(Name, name, NAME)
 #endif
 
 #ifdef CHECKED_REF_STORAGE
-#if defined(SOMETIMES_LOADABLE_CHECKED_REF_STORAGE) || \
-defined(ALWAYS_LOADABLE_CHECKED_REF_STORAGE) || \
-defined(NEVER_LOADABLE_CHECKED_REF_STORAGE)
-#error Overlapping meta-programming macros
-#endif
-#define ALWAYS_LOADABLE_CHECKED_REF_STORAGE(Name, name, NAME) \
-CHECKED_REF_STORAGE(Name, name, NAME)
-#define SOMETIMES_LOADABLE_CHECKED_REF_STORAGE(Name, name, NAME) \
-CHECKED_REF_STORAGE(Name, name, NAME)
-#define NEVER_LOADABLE_CHECKED_REF_STORAGE(Name, name, NAME) \
-CHECKED_REF_STORAGE(Name, name, NAME)
+  #if defined(SOMETIMES_LOADABLE_CHECKED_REF_STORAGE) || \
+      defined(ALWAYS_LOADABLE_CHECKED_REF_STORAGE) || \
+      defined(NEVER_LOADABLE_CHECKED_REF_STORAGE)
+    #error Overlapping meta-programming macros
+  #endif
+  #define ALWAYS_LOADABLE_CHECKED_REF_STORAGE(Name, name, NAME) \
+    CHECKED_REF_STORAGE(Name, name, NAME)
+  #define SOMETIMES_LOADABLE_CHECKED_REF_STORAGE(Name, name, NAME) \
+    CHECKED_REF_STORAGE(Name, name, NAME)
+  #define NEVER_LOADABLE_CHECKED_REF_STORAGE(Name, name, NAME) \
+    CHECKED_REF_STORAGE(Name, name, NAME)
 #endif
 
 #ifndef NEVER_LOADABLE_CHECKED_REF_STORAGE
 #define NEVER_LOADABLE_CHECKED_REF_STORAGE(Name, name, NAME) \
-REF_STORAGE(Name, name, NAME)
+  REF_STORAGE(Name, name, NAME)
 #endif
 
 #ifndef SOMETIMES_LOADABLE_CHECKED_REF_STORAGE
 #define SOMETIMES_LOADABLE_CHECKED_REF_STORAGE(Name, name, NAME) \
-REF_STORAGE(Name, name, NAME)
+  REF_STORAGE(Name, name, NAME)
 #endif
 
 #ifndef ALWAYS_LOADABLE_CHECKED_REF_STORAGE
 #define ALWAYS_LOADABLE_CHECKED_REF_STORAGE(Name, name, NAME) \
-REF_STORAGE(Name, name, NAME)
+  REF_STORAGE(Name, name, NAME)
 #endif
 
 #ifndef UNCHECKED_REF_STORAGE
 #define UNCHECKED_REF_STORAGE(Name, name, NAME) \
-REF_STORAGE(Name, name, NAME)
+  REF_STORAGE(Name, name, NAME)
 #endif
 
 #ifndef REF_STORAGE_RANGE
@@ -179,9 +184,9 @@ REF_STORAGE(Name, name, NAME)
 #endif
 
 // NOTE: You will need to update ReferenceOwnership in ModuleFormat.h.
-//NEVER_LOADABLE_CHECKED_REF_STORAGE(Weak, weak, WEAK)
-//SOMETIMES_LOADABLE_CHECKED_REF_STORAGE(Unowned, unowned, UNOWNED)
-//UNCHECKED_REF_STORAGE(Unmanaged, unmanaged, UNMANAGED)
+NEVER_LOADABLE_CHECKED_REF_STORAGE(Weak, weak, WEAK)
+SOMETIMES_LOADABLE_CHECKED_REF_STORAGE(Unowned, unowned, UNOWNED)
+UNCHECKED_REF_STORAGE(Unmanaged, unmanaged, UNMANAGED)
 REF_STORAGE_RANGE(Weak, Unmanaged)
 
 #undef REF_STORAGE

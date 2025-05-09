@@ -1,4 +1,4 @@
-// swift-tools-version:5.3
+// swift-tools-version:5.8
 
 @preconcurrency import PackageDescription
 
@@ -252,7 +252,7 @@ let package = Package(
       ]
     ),
   ],
-  cxxLanguageStandard: .gnucxx11
+  cxxLanguageStandard: .cxx17
 )
 
 enum Targets {
