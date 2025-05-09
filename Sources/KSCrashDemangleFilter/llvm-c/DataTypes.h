@@ -30,12 +30,12 @@
 #ifndef _MSC_VER
 
 #if !defined(UINT32_MAX)
-# error "The standard header <cstdint> is not C++11 compliant. Must #define "\
+#error "The standard header <cstdint> is not C++11 compliant. Must #define "\
         "__STDC_LIMIT_MACROS before #including llvm-c/DataTypes.h"
 #endif
 
 #if !defined(UINT32_C)
-# error "The standard header <cstdint> is not C++11 compliant. Must #define "\
+#error "The standard header <cstdint> is not C++11 compliant. Must #define "\
         "__STDC_CONSTANT_MACROS before #including llvm-c/DataTypes.h"
 #endif
 
@@ -68,13 +68,13 @@ typedef signed int ssize_t;
 
 /* Set defaults for constants which we cannot find. */
 #if !defined(INT64_MAX)
-# define INT64_MAX 9223372036854775807LL
+#define INT64_MAX 9223372036854775807LL
 #endif
 #if !defined(INT64_MIN)
-# define INT64_MIN ((-INT64_MAX)-1)
+#define INT64_MIN ((-INT64_MAX) - 1)
 #endif
 #if !defined(UINT64_MAX)
-# define UINT64_MAX 0xffffffffffffffffULL
+#define UINT64_MAX 0xffffffffffffffffULL
 #endif
 
 #endif /* LLVM_C_DATATYPES_H */
