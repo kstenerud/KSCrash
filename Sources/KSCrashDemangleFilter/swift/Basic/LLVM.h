@@ -22,69 +22,93 @@
 // dependencies.
 // Casting.h has complex templates that cannot be easily forward declared.
 #include "Casting.h"
-// None.h includes an enumerator that is desired & cannot be forward declared
-// without a definition of NoneType.
-#include "None.h"
+
+#if defined(__clang_major__) && __clang_major__ < 6
+// Add this header as a workaround to prevent `too few template arguments for
+// class template 'SmallVector'` on the buggy Clang 5 compiler (it doesn't
+// merge template arguments correctly). Remove once the CentOS 7 job is
+// replaced.
+// rdar://98218902
+#include "SmallVector.h"
+#endif
+
+// Don't pre-declare certain LLVM types in the runtime, which must
+// not put things in namespace llvm for ODR reasons.
+#if !defined(swiftCore_EXPORTS)
+#define SWIFT_LLVM_ODR_SAFE 1
+#else
+#define SWIFT_LLVM_ODR_SAFE 0
+#endif
 
 // Forward declarations.
 namespace llvm {
-    // Containers.
-    class StringRef;
-    class StringLiteral;
-    class Twine;
-    template <typename T> class SmallPtrSetImpl;
-    template <typename T, unsigned N> class SmallPtrSet;
-    template <typename T> class SmallVectorImpl;
-    template <typename T, unsigned N> class SmallVector;
-    template <unsigned N> class SmallString;
-    template <typename T, unsigned N> class SmallSetVector;
-    template<typename T> class ArrayRef;
-    template<typename T> class MutableArrayRef;
-    template<typename T> class TinyPtrVector;
-    template<typename T> class Optional;
-    template <typename PT1, typename PT2> class PointerUnion;
-    class SmallBitVector;
-    
-    // Other common classes.
-    class raw_ostream;
-    class APInt;
-    class APFloat;
-    template <typename Fn> class function_ref;
+  // Containers.
+  class StringRef;
+  class StringLiteral;
+  class Twine;
+  template <typename T> class SmallPtrSetImpl;
+  template <typename T, unsigned N> class SmallPtrSet;
+#if SWIFT_LLVM_ODR_SAFE
+  template <typename T> class SmallVectorImpl;
+  template <typename T, unsigned N> class SmallVector;
+#endif
+  template <unsigned N> class SmallString;
+#if SWIFT_LLVM_ODR_SAFE
+  template<typename T> class ArrayRef;
+  template<typename T> class MutableArrayRef;
+#endif
+  template <typename T>
+  class TinyPtrVector;
+  template <typename ...PTs> class PointerUnion;
+  template <typename IteratorT> class iterator_range;
+  class SmallBitVector;
+
+  // Other common classes.
+  class raw_ostream;
+  class APInt;
+  class APFloat;
+#if SWIFT_LLVM_ODR_SAFE
+  template <typename Fn> class function_ref;
+#endif
 } // end namespace llvm
 
 
 namespace swift {
-    // Casting operators.
-    using llvm::isa;
-    using llvm::cast;
-    using llvm::dyn_cast;
-    using llvm::dyn_cast_or_null;
-    using llvm::cast_or_null;
-    
-    // Containers.
-    using llvm::None;
-    using llvm::Optional;
-    using llvm::SmallPtrSetImpl;
-    using llvm::SmallPtrSet;
-    using llvm::SmallString;
-    using llvm::StringRef;
-    using llvm::StringLiteral;
-    using llvm::Twine;
-    using llvm::SmallVectorImpl;
-    using llvm::SmallVector;
-    using llvm::ArrayRef;
-    using llvm::MutableArrayRef;
-    using llvm::TinyPtrVector;
-    using llvm::PointerUnion;
-    using llvm::SmallSetVector;
-    using llvm::SmallBitVector;
-    
-    // Other common classes.
-    using llvm::APFloat;
-    using llvm::APInt;
-    using llvm::function_ref;
-    using llvm::NoneType;
-    using llvm::raw_ostream;
+  // Casting operators.
+  using llvm::isa;
+  using llvm::isa_and_nonnull;
+  using llvm::cast;
+  using llvm::dyn_cast;
+  using llvm::dyn_cast_or_null;
+  using llvm::cast_or_null;
+
+  // Containers.
+#if SWIFT_LLVM_ODR_SAFE
+  using llvm::ArrayRef;
+  using llvm::MutableArrayRef;
+#endif
+  using llvm::iterator_range;
+  using llvm::PointerUnion;
+  using llvm::SmallBitVector;
+  using llvm::SmallPtrSet;
+  using llvm::SmallPtrSetImpl;
+  using llvm::SmallString;
+#if SWIFT_LLVM_ODR_SAFE
+  using llvm::SmallVector;
+  using llvm::SmallVectorImpl;
+#endif
+  using llvm::StringLiteral;
+  using llvm::StringRef;
+  using llvm::TinyPtrVector;
+  using llvm::Twine;
+
+  // Other common classes.
+  using llvm::APFloat;
+  using llvm::APInt;
+#if SWIFT_LLVM_ODR_SAFE
+  using llvm::function_ref;
+#endif
+  using llvm::raw_ostream;
 } // end namespace swift
 
 #endif // SWIFT_BASIC_LLVM_H

@@ -252,7 +252,7 @@ let package = Package(
       ]
     ),
   ],
-  cxxLanguageStandard: .gnucxx11
+  cxxLanguageStandard: .cxx20
 )
 
 enum Targets {
