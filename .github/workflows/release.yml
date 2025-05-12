@@ -4,22 +4,22 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to release'
+        description: "Version number for this release"
         required: true
       dry_run:
-        description: 'Run in dry-run mode (do not push to CocoaPods)'
+        description: "Test workflow without publishing to CocoaPods"
         type: boolean
         default: false
         required: false
-      test_fail:
-        description: 'Intentionally fail at a specific stage (for testing)'
-        type: string
-        default: 'none'
+      publish_only:
+        description: "Publish to CocoaPods without version updates or tagging"
+        type: boolean
+        default: false
         required: false
 
 jobs:
   release:
-    runs-on: macos-latest
+    runs-on: macos-15
     outputs:
       commit_sha: ${{ steps.save_commit_info.outputs.commit_sha }}
       version: ${{ github.event.inputs.version }}
@@ -27,12 +27,12 @@ jobs:
       tag_name: ${{ steps.create_tag.outputs.tag_name }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.2.2'
+          ruby-version: "3.2.2"
 
       - name: Install Ruby Gems
         run: sudo bundle install
@@ -52,12 +52,6 @@ jobs:
             xcodebuild -runFirstLaunch
           done
 
-      - name: Test failure - Early stage
-        if: ${{ github.event.inputs.test_fail == 'early' }}
-        run: |
-          echo "Intentionally failing at early stage for testing"
-          exit 1
-          
       - name: Update version in podspec
         run: sed -i '' 's/s.version      = "[^"]*"/s.version      = "${{ github.event.inputs.version }}"/' KSCrash.podspec
 
@@ -71,7 +65,7 @@ jobs:
         run: |
           # Update SPM version
           sed -i '' "s/\.package(url: \"https:\/\/github.com\/kstenerud\/KSCrash.git\", .upToNextMajor(from: \"[^\"]*\"))/\.package(url: \"https:\/\/github.com\/kstenerud\/KSCrash.git\", .upToNextMajor(from: \"${{ github.event.inputs.version }}\"))/" README.md
-          
+
           # Update CocoaPods version
           VERSION="${{ github.event.inputs.version }}"
           if [[ "$VERSION" == *"-"* ]]; then
@@ -81,70 +75,50 @@ jobs:
             # It's a release version, use major.minor
             sed -i '' "s/pod 'KSCrash'.*$/pod 'KSCrash', '~> ${VERSION%.*}'/" README.md
           fi
-          
+
           echo "README.md updated with version ${{ github.event.inputs.version }}"
 
       - name: Commit version update
         id: commit_version
+        if: ${{ github.event.inputs.publish_only != 'true' }}
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git add .
           git commit -m "Update version to ${{ github.event.inputs.version }}"
           git push
-          
+
       - name: Save commit information
         id: save_commit_info
+        if: ${{ github.event.inputs.publish_only != 'true' }}
         run: |
           COMMIT_SHA=$(git rev-parse HEAD)
           echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
-          
-      - name: Test failure - After commit
-        if: ${{ github.event.inputs.test_fail == 'mid' }}
-        run: |
-          echo "Intentionally failing after commit but before tag for testing"
-          exit 1
 
       - name: Create git tag
         id: create_tag
+        if: ${{ github.event.inputs.publish_only != 'true' }}
         run: |
           if [[ "${{ github.event.inputs.dry_run }}" == "true" ]]; then
             TAG_NAME="${{ github.event.inputs.version }}-dryrun"
           else
             TAG_NAME="${{ github.event.inputs.version }}"
           fi
-          
+
           git tag $TAG_NAME
           git push origin $TAG_NAME
           echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
-          
-      - name: Test failure - After tag
-        if: ${{ github.event.inputs.test_fail == 'late' }}
-        run: |
-          echo "Intentionally failing after tag but before publishing for testing"
-          exit 1
 
       - name: Publish to CocoaPods
-        if: ${{ !github.event.inputs.dry_run && github.event.inputs.test_fail != 'any' }}
+        if: ${{ github.event.inputs.dry_run != 'true' }}
         env:
           COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_PASSWORD }}
         run: pod trunk push KSCrash.podspec --verbose
-        
-      - name: Skip publishing
-        if: ${{ github.event.inputs.dry_run || github.event.inputs.test_fail != 'none' }}
-        run: |
-          echo "Publishing skipped - running in test or dry-run mode"
-          
-      - name: Test failure - During publishing
-        if: ${{ github.event.inputs.test_fail == 'publish' }}
-        run: |
-          echo "Intentionally failing during publishing stage for testing"
-          exit 1
 
   rollback:
     runs-on: macos-15
     needs: release
-    if: failure()
+    if: failure() && github.event.inputs.publish_only != 'true'
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -165,7 +139,7 @@ jobs:
           else
             TAG_TO_DELETE="${{ needs.release.outputs.version }}"
           fi
-          
+
           git tag -d $TAG_TO_DELETE || echo "Tag not found locally"
           echo "TAG_TO_DELETE=$TAG_TO_DELETE" >> $GITHUB_ENV
 
@@ -188,7 +162,7 @@ jobs:
             # Fallback: search by commit message
             SEARCH_MSG="Update version to ${{ needs.release.outputs.version || github.event.inputs.version }}"
             FOUND_COMMIT=$(git log --format="%H" --grep="$SEARCH_MSG" -n 1)
-            
+
             if [[ -n "$FOUND_COMMIT" ]]; then
               echo "Found commit by message: $FOUND_COMMIT"
               echo "SHOULD_REVERT=true" >> $GITHUB_ENV
@@ -204,10 +178,10 @@ jobs:
         run: |
           echo "Reverting commit ${{ env.COMMIT_SHA }}..."
           git log --oneline -n 3
-          
+
           git revert --no-commit ${{ env.COMMIT_SHA }}
           git status -s
-          
+
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git commit -m "Revert version update due to failed release"
