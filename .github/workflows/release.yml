@@ -19,7 +19,7 @@ on:
 
 jobs:
   release:
-    runs-on: macos-latest
+    runs-on: macos-15
     outputs:
       commit_sha: ${{ steps.save_commit_info.outputs.commit_sha }}
       version: ${{ github.event.inputs.version }}
@@ -27,7 +27,7 @@ jobs:
       tag_name: ${{ steps.create_tag.outputs.tag_name }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
