@@ -4,15 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version number for this release'
+        description: "Version number for this release"
         required: true
       dry_run:
-        description: 'Test workflow without publishing to CocoaPods'
+        description: "Test workflow without publishing to CocoaPods"
         type: boolean
         default: false
         required: false
       publish_only:
-        description: 'Publish to CocoaPods without version updates or tagging'
+        description: "Publish to CocoaPods without version updates or tagging"
         type: boolean
         default: false
         required: false
@@ -32,7 +32,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.2.2'
+          ruby-version: "3.2.2"
 
       - name: Install Ruby Gems
         run: sudo bundle install
@@ -51,24 +51,21 @@ jobs:
             xcodebuild -downloadPlatform $platform
             xcodebuild -runFirstLaunch
           done
-          
+
       - name: Update version in podspec
-        if: ${{ !github.event.inputs.publish_only }}
         run: sed -i '' 's/s.version      = "[^"]*"/s.version      = "${{ github.event.inputs.version }}"/' KSCrash.podspec
 
       - name: Update version in source code
-        if: ${{ !github.event.inputs.publish_only }}
         run: |
           formatted_version_number=$(echo "${{ github.event.inputs.version }}" | awk -F. '{printf("%d.%02d%02d\n", $1, $2, $3)}')
           sed -i '' 's/const double KSCrashFrameworkVersionNumber = [^;]*/const double KSCrashFrameworkVersionNumber = '"$formatted_version_number"'/' Sources/KSCrashRecording/KSCrash.m
           sed -i '' 's/const unsigned char KSCrashFrameworkVersionString\[\] = "[^"]*"/const unsigned char KSCrashFrameworkVersionString[] = "${{ github.event.inputs.version }}"/' Sources/KSCrashRecording/KSCrash.m
 
       - name: Update README
-        if: ${{ !github.event.inputs.publish_only }}
         run: |
           # Update SPM version
           sed -i '' "s/\.package(url: \"https:\/\/github.com\/kstenerud\/KSCrash.git\", .upToNextMajor(from: \"[^\"]*\"))/\.package(url: \"https:\/\/github.com\/kstenerud\/KSCrash.git\", .upToNextMajor(from: \"${{ github.event.inputs.version }}\"))/" README.md
-          
+
           # Update CocoaPods version
           VERSION="${{ github.event.inputs.version }}"
           if [[ "$VERSION" == *"-"* ]]; then
@@ -78,60 +75,50 @@ jobs:
             # It's a release version, use major.minor
             sed -i '' "s/pod 'KSCrash'.*$/pod 'KSCrash', '~> ${VERSION%.*}'/" README.md
           fi
-          
+
           echo "README.md updated with version ${{ github.event.inputs.version }}"
 
       - name: Commit version update
         id: commit_version
-        if: ${{ !github.event.inputs.publish_only }}
+        if: ${{ github.event.inputs.publish_only != 'true' }}
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git add .
           git commit -m "Update version to ${{ github.event.inputs.version }}"
           git push
-          
+
       - name: Save commit information
         id: save_commit_info
+        if: ${{ github.event.inputs.publish_only != 'true' }}
         run: |
           COMMIT_SHA=$(git rev-parse HEAD)
           echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
 
       - name: Create git tag
         id: create_tag
-        if: ${{ !github.event.inputs.publish_only }}
+        if: ${{ github.event.inputs.publish_only != 'true' }}
         run: |
           if [[ "${{ github.event.inputs.dry_run }}" == "true" ]]; then
             TAG_NAME="${{ github.event.inputs.version }}-dryrun"
           else
             TAG_NAME="${{ github.event.inputs.version }}"
           fi
-          
+
           git tag $TAG_NAME
           git push origin $TAG_NAME
           echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
-      
-      - name: Skip version update and tagging
-        if: ${{ github.event.inputs.publish_only }}
-        run: |
-          echo "Publishing to CocoaPods only - skipping version update, commit and tag creation"
-          echo "tag_name=" >> $GITHUB_OUTPUT
 
       - name: Publish to CocoaPods
-        if: ${{ !github.event.inputs.dry_run }}
+        if: ${{ github.event.inputs.dry_run != 'true' }}
         env:
           COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_PASSWORD }}
         run: pod trunk push KSCrash.podspec --verbose
-        
-      - name: Skip publishing
-        if: ${{ github.event.inputs.dry_run }}
-        run: |
-          echo "Publishing to CocoaPods skipped - running in dry-run mode"
 
   rollback:
     runs-on: macos-15
     needs: release
-    if: failure() && !github.event.inputs.publish_only
+    if: failure() && github.event.inputs.publish_only != 'true'
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -152,7 +139,7 @@ jobs:
           else
             TAG_TO_DELETE="${{ needs.release.outputs.version }}"
           fi
-          
+
           git tag -d $TAG_TO_DELETE || echo "Tag not found locally"
           echo "TAG_TO_DELETE=$TAG_TO_DELETE" >> $GITHUB_ENV
 
@@ -175,7 +162,7 @@ jobs:
             # Fallback: search by commit message
             SEARCH_MSG="Update version to ${{ needs.release.outputs.version || github.event.inputs.version }}"
             FOUND_COMMIT=$(git log --format="%H" --grep="$SEARCH_MSG" -n 1)
-            
+
             if [[ -n "$FOUND_COMMIT" ]]; then
               echo "Found commit by message: $FOUND_COMMIT"
               echo "SHOULD_REVERT=true" >> $GITHUB_ENV
@@ -191,10 +178,10 @@ jobs:
         run: |
           echo "Reverting commit ${{ env.COMMIT_SHA }}..."
           git log --oneline -n 3
-          
+
           git revert --no-commit ${{ env.COMMIT_SHA }}
           git status -s
-          
+
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git commit -m "Revert version update due to failed release"
