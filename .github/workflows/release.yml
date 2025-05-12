@@ -11,10 +11,10 @@ on:
         type: boolean
         default: false
         required: false
-      test_fail:
-        description: 'Intentionally fail at a specific stage (for testing)'
-        type: string
-        default: 'none'
+      skip_tag:
+        description: 'Skip creating a new tag (publish from current commit)'
+        type: boolean
+        default: false
         required: false
 
 jobs:
@@ -51,12 +51,6 @@ jobs:
             xcodebuild -downloadPlatform $platform
             xcodebuild -runFirstLaunch
           done
-
-      - name: Test failure - Early stage
-        if: ${{ github.event.inputs.test_fail == 'early' }}
-        run: |
-          echo "Intentionally failing at early stage for testing"
-          exit 1
           
       - name: Update version in podspec
         run: sed -i '' 's/s.version      = "[^"]*"/s.version      = "${{ github.event.inputs.version }}"/' KSCrash.podspec
@@ -98,15 +92,10 @@ jobs:
         run: |
           COMMIT_SHA=$(git rev-parse HEAD)
           echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
-          
-      - name: Test failure - After commit
-        if: ${{ github.event.inputs.test_fail == 'mid' }}
-        run: |
-          echo "Intentionally failing after commit but before tag for testing"
-          exit 1
 
       - name: Create git tag
         id: create_tag
+        if: ${{ !github.event.inputs.skip_tag }}
         run: |
           if [[ "${{ github.event.inputs.dry_run }}" == "true" ]]; then
             TAG_NAME="${{ github.event.inputs.version }}-dryrun"
@@ -117,29 +106,23 @@ jobs:
           git tag $TAG_NAME
           git push origin $TAG_NAME
           echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
-          
-      - name: Test failure - After tag
-        if: ${{ github.event.inputs.test_fail == 'late' }}
+      
+      - name: Skip creating tag
+        if: ${{ github.event.inputs.skip_tag }}
         run: |
-          echo "Intentionally failing after tag but before publishing for testing"
-          exit 1
+          echo "Skipping tag creation - using current commit for release"
+          echo "tag_name=" >> $GITHUB_OUTPUT
 
       - name: Publish to CocoaPods
-        if: ${{ !github.event.inputs.dry_run && github.event.inputs.test_fail != 'any' }}
+        if: ${{ !github.event.inputs.dry_run }}
         env:
           COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_PASSWORD }}
         run: pod trunk push KSCrash.podspec --verbose
         
       - name: Skip publishing
-        if: ${{ github.event.inputs.dry_run || github.event.inputs.test_fail != 'none' }}
+        if: ${{ github.event.inputs.dry_run }}
         run: |
-          echo "Publishing skipped - running in test or dry-run mode"
-          
-      - name: Test failure - During publishing
-        if: ${{ github.event.inputs.test_fail == 'publish' }}
-        run: |
-          echo "Intentionally failing during publishing stage for testing"
-          exit 1
+          echo "Publishing skipped - running in dry-run mode"
 
   rollback:
     runs-on: macos-15
@@ -156,6 +139,7 @@ jobs:
           git fetch --tags
 
       - name: Delete git tag locally
+        if: ${{ !github.event.inputs.skip_tag }}
         run: |
           # Use tag from outputs or construct it
           if [[ -n "${{ needs.release.outputs.tag_name }}" ]]; then
@@ -170,6 +154,7 @@ jobs:
           echo "TAG_TO_DELETE=$TAG_TO_DELETE" >> $GITHUB_ENV
 
       - name: Delete git tag remotely
+        if: ${{ !github.event.inputs.skip_tag }}
         run: |
           git push --delete origin ${{ env.TAG_TO_DELETE }} || echo "Tag not found on remote"
 
