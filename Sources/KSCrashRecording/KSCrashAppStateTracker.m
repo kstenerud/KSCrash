@@ -34,7 +34,7 @@
 #import <UIKit/UIKit.h>
 #endif
 
-const char *ksapp_transitionStateToString(KSCrashAppTransitionState state)
+const char *ksapp_transition_state_to_string(KSCrashAppTransitionState state)
 {
     switch (state) {
         case KSCrashAppTransitionStateStartup:
@@ -45,6 +45,8 @@ const char *ksapp_transitionStateToString(KSCrashAppTransitionState state)
             return "active";
         case KSCrashAppTransitionStateLaunching:
             return "launching";
+        case KSCrashAppTransitionStateLaunched:
+            return "launched";
         case KSCrashAppTransitionStateBackground:
             return "background";
         case KSCrashAppTransitionStateTerminating:
@@ -59,7 +61,7 @@ const char *ksapp_transitionStateToString(KSCrashAppTransitionState state)
     return "unknown";
 }
 
-bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
+bool ksapp_transition_state_is_user_perceptible(KSCrashAppTransitionState state)
 {
     switch (state) {
         case KSCrashAppTransitionStateStartupPrewarm:
@@ -70,6 +72,7 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
 
         case KSCrashAppTransitionStateStartup:
         case KSCrashAppTransitionStateLaunching:
+        case KSCrashAppTransitionStateLaunched:
         case KSCrashAppTransitionStateForegrounding:
         case KSCrashAppTransitionStateActive:
         case KSCrashAppTransitionStateDeactivating:
@@ -119,8 +122,13 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
     // transition state and observers protected by the lock
     os_unfair_lock _lock;
     KSCrashAppTransitionState _transitionState;
+    BOOL _transitionComplete;
     NSMutableArray<id<KSCrashAppStateTrackerObserving>> *_observers;
+    BOOL _proxied;
 }
+
+@property(nonatomic, assign) BOOL proxied;
+
 @end
 
 @implementation KSCrashAppStateTracker
@@ -164,6 +172,15 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
 - (void)dealloc
 {
     [self stop];
+}
+
+- (void)setProxied:(BOOL)proxied
+{
+    _proxied = proxied;
+    if (proxied) {
+        [self stop];
+        _registrations = @[];
+    }
 }
 
 // Observers are either an object passed in that
@@ -243,20 +260,60 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
     return ret;
 }
 
+- (void)_locked_completeState:(KSCrashAppTransitionState)transitionState
+{
+    if (_transitionState != transitionState || _transitionComplete) {
+        return;
+    }
+
+    _transitionComplete = YES;
+    NSLog(@"[AC] %s, completed: %d", ksapp_transition_state_to_string(transitionState), _transitionComplete);
+
+    // send delegate
+    // ie: didCompleteTransition or something...
+}
+
+- (void)_completeState:(KSCrashAppTransitionState)transitionState
+{
+    os_unfair_lock_lock(&_lock);
+    [self _locked_completeState:transitionState];
+    os_unfair_lock_unlock(&_lock);
+}
+
 - (void)_setTransitionState:(KSCrashAppTransitionState)transitionState
 {
+    BOOL completeOnNextLoop = NO;
     NSArray<id<KSCrashAppStateTrackerObserving>> *observers = nil;
     {
         os_unfair_lock_lock(&_lock);
+
         if (_transitionState != transitionState) {
+            // finalize the current state
+            [self _locked_completeState:_transitionState];
+
+            // move to the next state
             _transitionState = transitionState;
+            _transitionComplete = NO;
+            completeOnNextLoop = YES;
             observers = [_observers copy];
         }
+
         os_unfair_lock_unlock(&_lock);
     }
 
-    for (id<KSCrashAppStateTrackerObserving> obs in observers) {
-        [obs appStateTracker:self didTransitionToState:transitionState];
+    if (observers) {
+        NSLog(@"[AC] %s, completed: %d", ksapp_transition_state_to_string(transitionState), _transitionComplete);
+
+        for (id<KSCrashAppStateTrackerObserving> obs in observers) {
+            [obs appStateTracker:self didTransitionToState:transitionState];
+        }
+    }
+
+    if (completeOnNextLoop) {
+        __weak typeof(self) weakMe = self;
+        CFRunLoopPerformBlock(CFRunLoopGetCurrent(), kCFRunLoopCommonModes, ^{
+            [weakMe _locked_completeState:transitionState];
+        });
     }
 }
 
@@ -294,7 +351,7 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
     _registrations = @[
 
         OBSERVE(_center, UIApplicationDidFinishLaunchingNotification,
-                { [weakMe _setTransitionState:KSCrashAppTransitionStateLaunching]; }),
+                { [weakMe _setTransitionState:KSCrashAppTransitionStateLaunched]; }),
         OBSERVE(_center, UIApplicationWillEnterForegroundNotification,
                 { [weakMe _setTransitionState:KSCrashAppTransitionStateForegrounding]; }),
         OBSERVE(_center, UIApplicationDidBecomeActiveNotification,
