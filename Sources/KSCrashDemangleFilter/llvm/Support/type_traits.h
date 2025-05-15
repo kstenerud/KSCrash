@@ -1,9 +1,8 @@
 //===- llvm/Support/type_traits.h - Simplfied type traits -------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -14,96 +13,85 @@
 #ifndef LLVM_SUPPORT_TYPE_TRAITS_H
 #define LLVM_SUPPORT_TYPE_TRAITS_H
 
+#include "Compiler.h"
 #include <type_traits>
 #include <utility>
 
-#ifndef __has_feature
-#define LLVM_DEFINED_HAS_FEATURE
-#define __has_feature(x) 0
-#endif
-
 namespace llvm {
 
-/// isPodLike - This is a type trait that is used to determine whether a given
-/// type can be copied around with memcpy instead of running ctors etc.
-template <typename T>
-struct isPodLike {
-  // std::is_trivially_copyable is available in libc++ with clang, libstdc++
-  // that comes with GCC 5.
-#if (__has_feature(is_trivially_copyable) && defined(_LIBCPP_VERSION)) ||      \
-    (defined(__GNUC__) && __GNUC__ >= 5)
-  // If the compiler supports the is_trivially_copyable trait use it, as it
-  // matches the definition of isPodLike closely.
-  static const bool value = std::is_trivially_copyable<T>::value;
-#elif __has_feature(is_trivially_copyable)
-  // Use the internal name if the compiler supports is_trivially_copyable but we
-  // don't know if the standard library does. This is the case for clang in
-  // conjunction with libstdc++ from GCC 4.x.
-  static const bool value = __is_trivially_copyable(T);
-#else
-  // If we don't know anything else, we can (at least) assume that all non-class
-  // types are PODs.
-  static const bool value = !std::is_class<T>::value;
-#endif
-};
 
-// std::pair's are pod-like if their elements are.
-template<typename T, typename U>
-struct isPodLike<std::pair<T, U> > {
-  static const bool value = isPodLike<T>::value && isPodLike<U>::value;
-};
-
-/// \brief Metafunction that determines whether the given type is either an
-/// integral type or an enumeration type.
+/// Metafunction that determines whether the given type is either an
+/// integral type or an enumeration type, including enum classes.
 ///
 /// Note that this accepts potentially more integral types than is_integral
-/// because it is based on merely being convertible implicitly to an integral
-/// type.
+/// because it is based on being implicitly convertible to an integral type.
+/// Also note that enum classes aren't implicitly convertible to integral types,
+/// the value may therefore need to be explicitly converted before being used.
 template <typename T> class is_integral_or_enum {
-  typedef typename std::remove_reference<T>::type UnderlyingT;
+  using UnderlyingT = std::remove_reference_t<T>;
 
 public:
   static const bool value =
-      !std::is_class<UnderlyingT>::value && // Filter conversion operators.
-      !std::is_pointer<UnderlyingT>::value &&
-      !std::is_floating_point<UnderlyingT>::value &&
-      std::is_convertible<UnderlyingT, unsigned long long>::value;
+      !std::is_class_v<UnderlyingT> && // Filter conversion operators.
+      !std::is_pointer_v<UnderlyingT> &&
+      !std::is_floating_point_v<UnderlyingT> &&
+      (std::is_enum_v<UnderlyingT> ||
+       std::is_convertible_v<UnderlyingT, unsigned long long>);
 };
 
-/// \brief If T is a pointer, just return it. If it is not, return T&.
+/// If T is a pointer, just return it. If it is not, return T&.
 template<typename T, typename Enable = void>
-struct add_lvalue_reference_if_not_pointer { typedef T &type; };
+struct add_lvalue_reference_if_not_pointer { using type = T &; };
 
 template <typename T>
 struct add_lvalue_reference_if_not_pointer<
-    T, typename std::enable_if<std::is_pointer<T>::value>::type> {
-  typedef T type;
+    T, std::enable_if_t<std::is_pointer_v<T>>> {
+  using type = T;
 };
 
-/// \brief If T is a pointer to X, return a pointer to const X. If it is not,
+/// If T is a pointer to X, return a pointer to const X. If it is not,
 /// return const T.
 template<typename T, typename Enable = void>
-struct add_const_past_pointer { typedef const T type; };
+struct add_const_past_pointer { using type = const T; };
 
 template <typename T>
-struct add_const_past_pointer<
-    T, typename std::enable_if<std::is_pointer<T>::value>::type> {
-  typedef const typename std::remove_pointer<T>::type *type;
+struct add_const_past_pointer<T, std::enable_if_t<std::is_pointer_v<T>>> {
+  using type = const std::remove_pointer_t<T> *;
 };
 
-}
+template <typename T, typename Enable = void>
+struct const_pointer_or_const_ref {
+  using type = const T &;
+};
+template <typename T>
+struct const_pointer_or_const_ref<T, std::enable_if_t<std::is_pointer_v<T>>> {
+  using type = typename add_const_past_pointer<T>::type;
+};
 
-// If the compiler supports detecting whether a class is final, define
-// an LLVM_IS_FINAL macro. If it cannot be defined properly, this
-// macro will be left undefined.
-#if __cplusplus >= 201402L
-#define LLVM_IS_FINAL(Ty) std::is_final<Ty>()
-#elif __has_feature(is_final) || LLVM_GNUC_PREREQ(4, 7, 0)
-#define LLVM_IS_FINAL(Ty) __is_final(Ty)
-#endif
+namespace detail {
+template<class T>
+union trivial_helper {
+    T t;
+};
 
-#ifdef LLVM_DEFINED_HAS_FEATURE
-#undef __has_feature
-#endif
+} // end namespace detail
 
-#endif
+template <typename T>
+struct is_copy_assignable {
+  template<class F>
+    static auto get(F*) -> decltype(std::declval<F &>() = std::declval<const F &>(), std::true_type{});
+    static std::false_type get(...);
+    static constexpr bool value = decltype(get((T*)nullptr))::value;
+};
+
+template <typename T>
+struct is_move_assignable {
+  template<class F>
+    static auto get(F*) -> decltype(std::declval<F &>() = std::declval<F &&>(), std::true_type{});
+    static std::false_type get(...);
+    static constexpr bool value = decltype(get((T*)nullptr))::value;
+};
+
+} // end namespace llvm
+
+#endif // LLVM_SUPPORT_TYPE_TRAITS_H

@@ -28,37 +28,41 @@
 #define SWIFT_DEMANGLING_PUNYCODE_H
 
 #include "StringRef.h"
+#include "NamespaceMacros.h"
 #include <vector>
 #include <cstdint>
 
 namespace swift {
-    namespace Punycode {
-        
-        using llvm::StringRef;
-        
-        /// Encodes a sequence of code points into Punycode.
-        ///
-        /// Returns false if input contains surrogate code points.
-        bool encodePunycode(const std::vector<uint32_t> &InputCodePoints,
-                            std::string &OutPunycode);
-        
-        /// Decodes a Punycode string into a sequence of Unicode scalars.
-        ///
-        /// Returns false if decoding failed.
-        bool decodePunycode(StringRef InputPunycode,
-                            std::vector<uint32_t> &OutCodePoints);
-        
-        /// Encodes an UTF8 string into Punycode.
-        ///
-        /// If \p mapNonSymbolChars is true, non-symbol ASCII characters (characters
-        /// except [$_a-zA-Z0-9]) are also encoded like non-ASCII unicode characters.
-        /// Returns false if \p InputUTF8 contains surrogate code points.
-        bool encodePunycodeUTF8(StringRef InputUTF8, std::string &OutPunycode,
-                                bool mapNonSymbolChars = false);
-        
-        bool decodePunycodeUTF8(StringRef InputPunycode, std::string &OutUTF8);
-        
-    } // end namespace Punycode
+namespace Punycode {
+SWIFT_BEGIN_INLINE_NAMESPACE
+
+using llvm::StringRef;
+
+/// Encodes a sequence of code points into Punycode.
+///
+/// Returns false if input contains surrogate code points.
+bool encodePunycode(const std::vector<uint32_t> &InputCodePoints,
+                    std::string &OutPunycode);
+
+/// Decodes a Punycode string into a sequence of Unicode scalars.
+///
+/// Returns false if decoding failed.
+bool decodePunycode(StringRef InputPunycode,
+                    std::vector<uint32_t> &OutCodePoints);
+
+/// Encodes an UTF8 string into Punycode.
+///
+/// If \p mapNonSymbolChars is true, non-symbol ASCII characters (characters
+/// except [$_a-zA-Z0-9]) are also encoded like non-ASCII unicode characters.
+/// Returns false if \p InputUTF8 contains surrogate code points.
+bool encodePunycodeUTF8(StringRef InputUTF8, std::string &OutPunycode,
+                        bool mapNonSymbolChars = false);
+
+bool decodePunycodeUTF8(StringRef InputPunycode, std::string &OutUTF8);
+
+SWIFT_END_INLINE_NAMESPACE
+} // end namespace Punycode
 } // end namespace swift
 
 #endif // SWIFT_DEMANGLING_PUNYCODE_H
+
