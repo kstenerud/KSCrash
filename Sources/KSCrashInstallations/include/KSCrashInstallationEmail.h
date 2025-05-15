@@ -39,6 +39,7 @@ typedef NS_ENUM(NSUInteger, KSCrashEmailReportStyle) {
  * Email installation.
  * Sends reports via email.
  */
+NS_EXTENSION_UNAVAILABLE_IOS("Confirmation alert cannot be displayed in app extension")
 NS_SWIFT_NAME(CrashInstallationEmail)
 @interface KSCrashInstallationEmail : KSCrashInstallation
 

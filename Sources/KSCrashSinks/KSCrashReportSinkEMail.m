@@ -40,6 +40,7 @@
 #if KSCRASH_HAS_MESSAGEUI
 #import <MessageUI/MessageUI.h>
 
+NS_EXTENSION_UNAVAILABLE_IOS("Confirmation alert cannot be displayed in app extension")
 @interface KSCrashMailProcess : NSObject <MFMailComposeViewControllerDelegate>
 
 @property(nonatomic, readwrite, copy) NSArray<id<KSCrashReport>> *reports;
