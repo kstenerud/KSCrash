@@ -34,6 +34,7 @@ NS_ASSUME_NONNULL_BEGIN
  * Input: NSData
  * Output: Same as input (passthrough)
  */
+NS_EXTENSION_UNAVAILABLE_IOS("Confirmation alert cannot be displayed in app extension")
 NS_SWIFT_NAME(CrashReportSinkEmail)
 @interface KSCrashReportSinkEMail : NSObject <KSCrashReportFilter>
 
