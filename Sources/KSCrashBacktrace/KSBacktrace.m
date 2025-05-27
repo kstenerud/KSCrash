@@ -48,7 +48,6 @@ int ks_backtrace(pthread_t thread, uintptr_t *addresses, int count)
 
     KSMC_NEW_CONTEXT(machineContext);
     if (!ksmc_getContextForThread(machThread, machineContext, false)) {
-        mach_port_deallocate(mach_task_self(), machThread);
         return 0;
     }
 
@@ -60,8 +59,6 @@ int ks_backtrace(pthread_t thread, uintptr_t *addresses, int count)
     while (frameCount < maxFrames && stackCursor.advanceCursor(&stackCursor)) {
         addresses[frameCount++] = stackCursor.stackEntry.address;
     }
-
-    mach_port_deallocate(mach_task_self(), machThread);
 
     return frameCount;
 }
