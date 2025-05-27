@@ -47,8 +47,29 @@ let package = Package(
       name: "DemangleFilter",
       targets: [Targets.demangleFilter]
     ),
+    .library(
+        name: "Backtrace",
+        targets: [Targets.backtrace]
+    ),
   ],
   targets: [
+    
+    .target(
+        name: Targets.backtrace,
+        dependencies: [
+            .target(name: Targets.recordingCore),
+        ],
+        resources: [
+            .copy("Resources/PrivacyInfo.xcprivacy")
+        ]
+    ),
+    .testTarget(
+        name: Targets.backtrace.tests,
+        dependencies: [
+            .target(name: Targets.backtrace),
+        ]
+    ),
+    
     .target(
       name: Targets.recording,
       dependencies: [
@@ -267,6 +288,7 @@ enum Targets {
   static let bootTimeMonitor = "KSCrashBootTimeMonitor"
   static let demangleFilter = "KSCrashDemangleFilter"
   static let testTools = "KSCrashTestTools"
+  static let backtrace = "KSCrashBacktrace"
 }
 
 extension String {
