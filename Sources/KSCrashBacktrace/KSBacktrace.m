@@ -1,9 +1,9 @@
 //
-//  KSBacktrace.m
+// KSBacktrace.m
 //
-//  Created by Alexander Cohen on 2025-05-27.
+// Created by Alexander Cohen on 2025-05-27.
 //
-//  Copyright (c) 2025 Alexander Cohen. All rights reserved.
+// Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -34,6 +34,7 @@
 #import <mach/mach_init.h>
 #import <mach/mach_port.h>
 #import <mach/thread_act.h>
+#import <pthread.h>
 
 int ks_backtrace(pthread_t thread, uintptr_t *addresses, int count)
 {

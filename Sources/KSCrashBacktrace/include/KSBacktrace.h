@@ -1,9 +1,9 @@
 //
-//  KSBacktrace.h
+// KSBacktrace.h
 //
-//  Created by Alexander Cohen on 2025-05-27.
+// Created by Alexander Cohen on 2025-05-27.
 //
-//  Copyright (c) 2025 Alexander Cohen. All rights reserved.
+// Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -24,16 +24,8 @@
 // THE SOFTWARE.
 //
 
-#ifndef KSBacktrace_h
-#define KSBacktrace_h
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#include <pthread.h>
-#include <stddef.h>
-#include <stdint.h>
+#import <Foundation/Foundation.h>
+#import <pthread.h>
 
 /**
  * Captures a backtrace (call stack) for the specified thread.
@@ -47,10 +39,7 @@ extern "C" {
  *
  * @note This function is not async-signal-safe and must not be called from a signal handler.
  */
-int ks_backtrace(pthread_t _Nonnull thread, uintptr_t *_Nonnull addresses, int count);
 
-#ifdef __cplusplus
-}
-#endif
-
-#endif  // KSBacktrace_h
+FOUNDATION_EXPORT
+int ks_backtrace(pthread_t _Nonnull thread, uintptr_t *_Nonnull addresses, int count)
+    NS_SWIFT_NAME(captureBacktrace(thread:addresses:maxFrames:));
