@@ -35,7 +35,7 @@
 #import <mach/mach_port.h>
 #import <mach/thread_act.h>
 
-size_t ks_backtrace(pthread_t thread, uintptr_t *addresses, size_t count)
+int ks_backtrace(pthread_t thread, uintptr_t *addresses, int count)
 {
     if (!addresses || count == 0) {
         return 0;
@@ -52,11 +52,11 @@ size_t ks_backtrace(pthread_t thread, uintptr_t *addresses, size_t count)
         return 0;
     }
 
-    size_t maxFrames = MIN(count, (size_t)KSSC_MAX_STACK_DEPTH);
+    int maxFrames = MIN(count, KSSC_MAX_STACK_DEPTH);
     KSStackCursor stackCursor = {};
     kssc_initWithMachineContext(&stackCursor, maxFrames, machineContext);
 
-    size_t frameCount = 0;
+    int frameCount = 0;
     while (frameCount < maxFrames && stackCursor.advanceCursor(&stackCursor)) {
         addresses[frameCount++] = stackCursor.stackEntry.address;
     }

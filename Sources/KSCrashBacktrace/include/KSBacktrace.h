@@ -47,7 +47,7 @@ extern "C" {
  *
  * @note This function is not async-signal-safe and must not be called from a signal handler.
  */
-size_t ks_backtrace(pthread_t _Nonnull thread, uintptr_t *_Nonnull addresses, size_t count);
+int ks_backtrace(pthread_t _Nonnull thread, uintptr_t *_Nonnull addresses, int count);
 
 #ifdef __cplusplus
 }
