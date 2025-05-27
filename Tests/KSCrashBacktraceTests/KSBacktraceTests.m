@@ -39,19 +39,18 @@
 - (void)testBacktrace
 {
     XCTestExpectation *expectation = [[XCTestExpectation alloc] initWithDescription:@"Backtrace"];
-    
+
     pthread_t thread = pthread_self();
-    
+
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0), ^{
-        
         const size_t frameCount = 512;
-        uintptr_t addresses[frameCount] = {0};
+        uintptr_t addresses[frameCount] = { 0 };
         size_t count = ks_backtrace(thread, addresses, frameCount);
-        
+
         [expectation fulfill];
     });
-    
-    [self waitForExpectations:@[expectation] timeout:5];
+
+    [self waitForExpectations:@[ expectation ] timeout:5];
 }
 
 @end

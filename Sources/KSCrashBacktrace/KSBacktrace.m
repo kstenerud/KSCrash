@@ -25,46 +25,43 @@
 //
 
 #import "KSBacktrace.h"
+#import "KSStackCursor.h"
 #import "KSStackCursor_MachineContext.h"
 #import "KSThread.h"
-#import "KSStackCursor.h"
 
 #import <Foundation/Foundation.h>
 
 #import <mach/mach_init.h>
-#import <mach/thread_act.h>
 #import <mach/mach_port.h>
+#import <mach/thread_act.h>
 
-size_t
-ks_backtrace(pthread_t thread, uintptr_t* addresses, size_t count)
+size_t ks_backtrace(pthread_t thread, uintptr_t *addresses, size_t count)
 {
     if (!addresses || count == 0) {
         return 0;
     }
-    
+
     const thread_t machThread = pthread_mach_thread_np(thread);
     if (machThread == MACH_PORT_NULL) {
         return 0;
     }
-    
+
     KSMC_NEW_CONTEXT(machineContext);
     if (!ksmc_getContextForThread(machThread, machineContext, false)) {
         mach_port_deallocate(mach_task_self(), machThread);
         return 0;
     }
-    
+
     size_t maxFrames = MIN(count, (size_t)KSSC_MAX_STACK_DEPTH);
     KSStackCursor stackCursor = {};
-    kssc_initWithMachineContext(&stackCursor,
-                                maxFrames,
-                                machineContext);
-    
+    kssc_initWithMachineContext(&stackCursor, maxFrames, machineContext);
+
     size_t frameCount = 0;
     while (frameCount < maxFrames && stackCursor.advanceCursor(&stackCursor)) {
         addresses[frameCount++] = stackCursor.stackEntry.address;
     }
-    
+
     mach_port_deallocate(mach_task_self(), machThread);
-    
+
     return frameCount;
 }
