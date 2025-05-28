@@ -182,7 +182,7 @@ uint32_t ksdl_imageNamed(const char *const imageName, bool exactMatch)
     return UINT32_MAX;
 }
 
-const uint8_t *ksdl_appImageUUID()
+const uint8_t *ksdl_appImageUUID(void)
 {
     const struct mach_header *header = _dyld_get_image_header(0);
     if (header != NULL) {
@@ -198,6 +198,7 @@ const uint8_t *ksdl_appImageUUID()
             }
         }
     }
+    return NULL;
 }
 
 const uint8_t *ksdl_imageUUID(const char *const imageName, bool exactMatch)
