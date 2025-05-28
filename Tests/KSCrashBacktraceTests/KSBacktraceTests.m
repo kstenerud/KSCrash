@@ -46,14 +46,14 @@
         const int frameCount = 512;
         uintptr_t addresses[frameCount] = { 0 };
         int count = ks_captureBacktrace(thread, addresses, frameCount);
-        
+
         XCTAssert(count > 0);
         XCTAssert(count <= frameCount);
-        
+
         for (int i = 0; i < count; i++) {
             XCTAssert(addresses[i] != 0);
         }
-        
+
         [expectation fulfill];
     });
 
