@@ -28,6 +28,8 @@
 
 #include <mach-o/dyld.h>
 #include <pthread.h>
+#include <stdatomic.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -125,11 +127,12 @@ static void ksbic_removeImageCallback(const struct mach_header *header, intptr_t
     pthread_rwlock_unlock(&g_imageCacheRWLock);
 }
 
-static bool g_initialized = false;
+static _Atomic(bool) sInitialized = false;
 
-void ksbic_init(void)
+static inline void ksbic_init_if_needed(void)
 {
-    if (g_initialized) {
+    bool expected = false;
+    if (!atomic_compare_exchange_strong(&sInitialized, &expected, true)) {
         return;
     }
 
@@ -137,13 +140,16 @@ void ksbic_init(void)
 
     _dyld_register_func_for_add_image(ksbic_addImageCallback);
     _dyld_register_func_for_remove_image(ksbic_removeImageCallback);
-
-    g_initialized = true;
 }
 
 // For testing purposes only. Used with extern in test files.
 void ksbic_resetCache(void)
 {
+    bool expected = true;
+    if (!atomic_compare_exchange_strong(&sInitialized, &expected, false)) {
+        return;
+    }
+
     pthread_rwlock_wrlock(&g_imageCacheRWLock);
 
     for (uint32_t i = 0; i < g_cachedImageCount; i++) {
@@ -157,12 +163,12 @@ void ksbic_resetCache(void)
     g_cachedImageCount = 0;
 
     pthread_rwlock_unlock(&g_imageCacheRWLock);
-
-    g_initialized = false;
 }
 
 uint32_t ksbic_imageCount(void)
 {
+    ksbic_init_if_needed();
+
     uint32_t count;
     pthread_rwlock_rdlock(&g_imageCacheRWLock);
     count = g_cachedImageCount;
@@ -172,6 +178,8 @@ uint32_t ksbic_imageCount(void)
 
 const struct mach_header *ksbic_imageHeader(uint32_t index)
 {
+    ksbic_init_if_needed();
+
     const struct mach_header *header = NULL;
     pthread_rwlock_rdlock(&g_imageCacheRWLock);
     if (index < g_cachedImageCount) {
@@ -183,6 +191,8 @@ const struct mach_header *ksbic_imageHeader(uint32_t index)
 
 const char *ksbic_imageName(uint32_t index)
 {
+    ksbic_init_if_needed();
+
     const char *name = NULL;
     pthread_rwlock_rdlock(&g_imageCacheRWLock);
     if (index < g_cachedImageCount) {
@@ -194,6 +204,8 @@ const char *ksbic_imageName(uint32_t index)
 
 uintptr_t ksbic_imageVMAddrSlide(uint32_t index)
 {
+    ksbic_init_if_needed();
+
     uintptr_t slide = 0;
     pthread_rwlock_rdlock(&g_imageCacheRWLock);
     if (index < g_cachedImageCount) {
