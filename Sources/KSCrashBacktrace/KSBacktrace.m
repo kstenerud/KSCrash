@@ -36,7 +36,7 @@
 #import <mach/thread_act.h>
 #import <pthread.h>
 
-int ks_backtrace(pthread_t thread, uintptr_t *addresses, int count)
+int ks_captureBacktrace(pthread_t thread, uintptr_t *addresses, int count)
 {
     if (!addresses || count == 0) {
         return 0;

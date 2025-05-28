@@ -27,6 +27,8 @@
 #import <Foundation/Foundation.h>
 #import <pthread.h>
 
+NS_ASSUME_NONNULL_BEGIN
+
 /**
  * Captures a backtrace (call stack) for the specified thread.
  *
@@ -41,5 +43,7 @@
  */
 
 FOUNDATION_EXPORT
-int ks_backtrace(pthread_t _Nonnull thread, uintptr_t *_Nonnull addresses, int count)
-    NS_SWIFT_NAME(captureBacktrace(thread:addresses:maxFrames:));
+int ks_captureBacktrace(pthread_t thread, uintptr_t *addresses, int count)
+    NS_SWIFT_NAME(captureBacktrace(thread:addresses:count:));
+
+NS_ASSUME_NONNULL_END
