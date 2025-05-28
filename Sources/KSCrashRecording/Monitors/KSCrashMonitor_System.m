@@ -41,8 +41,10 @@
 #if KSCRASH_HAS_UIKIT
 #import <UIKit/UIKit.h>
 #endif
+#include <fcntl.h>
 #include <mach-o/dyld.h>
 #include <mach/mach.h>
+#include <sys/stat.h>
 
 typedef struct {
     const char *systemName;
@@ -216,17 +218,9 @@ static const char *getAppUUID(void)
 {
     const char *result = nil;
 
-    NSString *exePath = getExecutablePath();
-
-    if (exePath != nil) {
-        const uint8_t *uuidBytes = ksdl_imageUUID(exePath.UTF8String, true);
-        if (uuidBytes == NULL) {
-            // OSX app image path is a lie.
-            uuidBytes = ksdl_imageUUID(exePath.lastPathComponent.UTF8String, false);
-        }
-        if (uuidBytes != NULL) {
-            result = uuidBytesToString(uuidBytes);
-        }
+    const uint8_t *uuidBytes = ksdl_appImageUUID();
+    if (uuidBytes != NULL) {
+        result = uuidBytesToString(uuidBytes);
     }
 
     return result;
@@ -287,7 +281,25 @@ static const char *getCurrentCPUArch(void)
  *
  * @return YES if the device is jailbroken.
  */
-static bool isJailbroken(void) { return ksdl_imageNamed("MobileSubstrate", false) != UINT32_MAX; }
+static bool isJailbroken(void)
+{
+#if TARGET_OS_SIMULATOR
+    return false;
+#else
+    // Simply try and open a file outside of the sandbox.
+    // If this works, we're jailbroken.
+    static bool sJailbroken;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        FILE *f = fopen("/private/xyz_kscrash", "w");
+        sJailbroken = (f == NULL) ? false : true;
+        if (f) {
+            fclose(f);
+        }
+    });
+    return sJailbroken;
+#endif
+}
 
 /** Check if the current build is a debug build.
  *
