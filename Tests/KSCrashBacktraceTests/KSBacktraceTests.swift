@@ -24,40 +24,34 @@
 // THE SOFTWARE.
 //
 
-#import <XCTest/XCTest.h>
+import XCTest
+import KSCrashBacktrace
+import Darwin
 
-#import <dispatch/dispatch.h>
-
-#import "KSBacktrace.h"
-
-@interface KSBacktrace_tests : XCTestCase
-
-@end
-
-@implementation KSBacktrace_tests
-
-- (void)testBacktrace
-{
-    XCTestExpectation *expectation = [[XCTestExpectation alloc] initWithDescription:@"Backtrace"];
-
-    pthread_t thread = pthread_self();
-
-    dispatch_async(dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0), ^{
-        const int frameCount = 512;
-        uintptr_t addresses[frameCount] = { 0 };
-        int count = ks_captureBacktrace(thread, addresses, frameCount);
-
-        XCTAssert(count > 0);
-        XCTAssert(count <= frameCount);
-
-        for (int i = 0; i < count; i++) {
-            XCTAssert(addresses[i] != 0);
+#if !os(watchOS)  // there are no backtraces on watchOS
+class KSBacktrace_Tests: XCTestCase{
+    
+    func testBacktrace(){
+        
+        let expectation = XCTestExpectation()
+        let thread = pthread_self()
+        
+        DispatchQueue.global(qos:.default).async{
+            
+            let entries = 512
+            var addresses: [UInt] = Array(repeating: 0, count:entries)
+            let count = captureBacktrace(thread: thread, addresses: &addresses, count: Int32(entries))
+            
+            XCTAssert(count > 0)
+            XCTAssert(count <= entries);
+            for index in 0..<count {
+                XCTAssert(addresses[Int(index)] != 0)
+            }
+            
+            expectation.fulfill()
         }
-
-        [expectation fulfill];
-    });
-
-    [self waitForExpectations:@[ expectation ] timeout:5];
+        
+        self.wait(for: [expectation], timeout: 5)
+    }
 }
-
-@end
+#endif
