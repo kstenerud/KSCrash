@@ -108,6 +108,26 @@ void __cxa_throw(void *thrown_exception, std::type_info *tinfo, void (*dest)(voi
 }
 }
 
+static const char* kscm_nsexception_names[] = {
+    "NSException",
+    "_NSCoreDataException",
+    "__NSCFConstantString"
+};
+
+static bool kscm_nsexception_detected(const char* exception_name)
+{
+    if (exception_name == NULL) return false;
+    
+    size_t num = sizeof(kscm_nsexception_names) / sizeof(kscm_nsexception_names[0]);
+    for (size_t i = 0; i < num; i++) {
+        if (strcmp(exception_name, kscm_nsexception_names[i]) == 0) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
 static void CPPExceptionTerminate(void)
 {
     thread_act_array_t threads = NULL;
@@ -120,7 +140,7 @@ static void CPPExceptionTerminate(void)
         name = tinfo->name();
     }
 
-    if (name == NULL || strcmp(name, "NSException") != 0) {
+    if (kscm_nsexception_detected(name) == false) {
         kscm_notifyFatalExceptionCaptured(false);
         KSCrash_MonitorContext *crashContext = &g_monitorContext;
         memset(crashContext, 0, sizeof(*crashContext));
