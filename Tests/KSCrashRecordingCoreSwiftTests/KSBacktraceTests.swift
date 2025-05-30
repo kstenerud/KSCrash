@@ -1,5 +1,5 @@
 //
-//  KSBacktraceTests.m
+//  KSBacktraceTests.swift
 //
 //  Created by Alexander Cohen on 2025-05-27.
 //
