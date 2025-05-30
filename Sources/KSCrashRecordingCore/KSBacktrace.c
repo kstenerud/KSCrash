@@ -1,7 +1,7 @@
 //
-//  KSBacktraceTests.m
+// KSBacktrace.m
 //
-//  Created by Alexander Cohen on 2025-05-27.
+// Created by Alexander Cohen on 2025-05-27.
 //
 // Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,34 +24,42 @@
 // THE SOFTWARE.
 //
 
-import XCTest
-import KSCrashBacktrace
-import Darwin
+#include "KSBacktrace.h"
 
-#if !os(watchOS)  // there are no backtraces on watchOS
-class KSBacktrace_Tests: XCTestCase{
-    
-    func testBacktrace(){
-        
-        let expectation = XCTestExpectation()
-        let thread = pthread_self()
-        
-        DispatchQueue.global(qos:.default).async{
-            
-            let entries = 512
-            var addresses: [UInt] = Array(repeating: 0, count:entries)
-            let count = captureBacktrace(thread: thread, addresses: &addresses, count: Int32(entries))
-            
-            XCTAssert(count > 0)
-            XCTAssert(count <= entries);
-            for index in 0..<count {
-                XCTAssert(addresses[Int(index)] != 0)
-            }
-            
-            expectation.fulfill()
-        }
-        
-        self.wait(for: [expectation], timeout: 5)
+#include <mach/mach_init.h>
+#include <mach/mach_port.h>
+#include <mach/thread_act.h>
+#include <pthread.h>
+#include <sys/param.h>
+
+#include "KSStackCursor.h"
+#include "KSStackCursor_MachineContext.h"
+#include "KSThread.h"
+
+int ks_captureBacktrace(pthread_t thread, uintptr_t *addresses, int count)
+{
+    if (!addresses || count == 0) {
+        return 0;
     }
+
+    const thread_t machThread = pthread_mach_thread_np(thread);
+    if (machThread == MACH_PORT_NULL) {
+        return 0;
+    }
+
+    KSMC_NEW_CONTEXT(machineContext);
+    if (!ksmc_getContextForThread(machThread, machineContext, false)) {
+        return 0;
+    }
+
+    int maxFrames = MIN(count, KSSC_MAX_STACK_DEPTH);
+    KSStackCursor stackCursor = {};
+    kssc_initWithMachineContext(&stackCursor, maxFrames, machineContext);
+
+    int frameCount = 0;
+    while (frameCount < maxFrames && stackCursor.advanceCursor(&stackCursor)) {
+        addresses[frameCount++] = stackCursor.stackEntry.address;
+    }
+
+    return frameCount;
 }
-#endif

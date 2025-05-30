@@ -1,5 +1,5 @@
 //
-// KSBacktrace.m
+// KSBacktrace.h
 //
 // Created by Alexander Cohen on 2025-05-27.
 //
@@ -24,42 +24,34 @@
 // THE SOFTWARE.
 //
 
-#import "KSBacktrace.h"
-#import "KSStackCursor.h"
-#import "KSStackCursor_MachineContext.h"
-#import "KSThread.h"
+#ifndef HDR_KSBacktrace_h
+#define HDR_KSBacktrace_h
 
-#import <Foundation/Foundation.h>
+#include <pthread.h>
+#include <stdint.h>
 
-#import <mach/mach_init.h>
-#import <mach/mach_port.h>
-#import <mach/thread_act.h>
-#import <pthread.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-int ks_captureBacktrace(pthread_t thread, uintptr_t *addresses, int count)
-{
-    if (!addresses || count == 0) {
-        return 0;
-    }
+/**
+ * Captures a backtrace (call stack) for the specified thread.
+ *
+ * @param thread    The non-null pthread_t identifier of the thread whose backtrace should be captured.
+ * @param addresses A non-null pointer to a buffer where captured backtrace addresses will be stored.
+ * @param count     The maximum number of address entries to write into @c addresses.
+ *
+ * @return The number of stack frames actually captured and stored in @c addresses.
+ *         Returns 0 if @p addresses is NULL, @p count is zero, or an error occurs.
+ *
+ * @note This function is not async-signal-safe and must not be called from a signal handler.
+ */
 
-    const thread_t machThread = pthread_mach_thread_np(thread);
-    if (machThread == MACH_PORT_NULL) {
-        return 0;
-    }
+int ks_captureBacktrace(pthread_t _Nonnull thread, uintptr_t *_Nonnull addresses, int count);
 
-    KSMC_NEW_CONTEXT(machineContext);
-    if (!ksmc_getContextForThread(machThread, machineContext, false)) {
-        return 0;
-    }
-
-    int maxFrames = MIN(count, KSSC_MAX_STACK_DEPTH);
-    KSStackCursor stackCursor = {};
-    kssc_initWithMachineContext(&stackCursor, maxFrames, machineContext);
-
-    int frameCount = 0;
-    while (frameCount < maxFrames && stackCursor.advanceCursor(&stackCursor)) {
-        addresses[frameCount++] = stackCursor.stackEntry.address;
-    }
-
-    return frameCount;
+#ifdef __cplusplus
 }
+#endif
+
+#endif  // HDR_KSBacktrace_h
+

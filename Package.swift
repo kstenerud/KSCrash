@@ -36,10 +36,6 @@ let package = Package(
       targets: [Targets.recording]
     ),
     .library(
-        name: "Backtrace",
-        targets: [Targets.backtrace]
-    ),
-    .library(
       name: "DiscSpaceMonitor",
       targets: [Targets.discSpaceMonitor]
     ),
@@ -157,7 +153,15 @@ let package = Package(
         .target(name: Targets.core),
       ]
     ),
-
+    .testTarget(
+        name: Targets.recordingCoreSwift.tests,
+        dependencies: [
+            .target(name: Targets.testTools),
+            .target(name: Targets.recordingCore),
+            .target(name: Targets.core),
+        ]
+    ),
+    
     .target(
       name: Targets.reportingCore,
       dependencies: [
@@ -189,22 +193,6 @@ let package = Package(
       dependencies: [
         .target(name: Targets.core)
       ]
-    ),
-    
-    .target(
-        name: Targets.backtrace,
-        dependencies: [
-            .target(name: Targets.recordingCore),
-        ],
-        resources: [
-                .copy("Resources/PrivacyInfo.xcprivacy")
-            ]
-        ),
-    .testTarget(
-        name: Targets.backtrace.tests,
-        dependencies: [
-            .target(name: Targets.backtrace),
-        ]
     ),
     
     .target(
@@ -282,9 +270,9 @@ enum Targets {
   static let sinks = "KSCrashSinks"
   static let installations = "KSCrashInstallations"
   static let recordingCore = "KSCrashRecordingCore"
+  static let recordingCoreSwift = "KSCrashRecordingCoreSwift"
   static let reportingCore = "KSCrashReportingCore"
   static let core = "KSCrashCore"
-  static let backtrace = "KSCrashBacktrace"
   static let discSpaceMonitor = "KSCrashDiscSpaceMonitor"
   static let bootTimeMonitor = "KSCrashBootTimeMonitor"
   static let demangleFilter = "KSCrashDemangleFilter"

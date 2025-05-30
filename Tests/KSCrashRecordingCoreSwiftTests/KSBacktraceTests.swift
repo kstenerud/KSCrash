@@ -1,7 +1,7 @@
 //
-// KSBacktrace.h
+//  KSBacktraceTests.m
 //
-// Created by Alexander Cohen on 2025-05-27.
+//  Created by Alexander Cohen on 2025-05-27.
 //
 // Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,26 +24,34 @@
 // THE SOFTWARE.
 //
 
-#import <Foundation/Foundation.h>
-#import <pthread.h>
+import XCTest
+import Darwin
+import KSCrashRecordingCore
 
-NS_ASSUME_NONNULL_BEGIN
-
-/**
- * Captures a backtrace (call stack) for the specified thread.
- *
- * @param thread    The non-null pthread_t identifier of the thread whose backtrace should be captured.
- * @param addresses A non-null pointer to a buffer where captured backtrace addresses will be stored.
- * @param count     The maximum number of address entries to write into @c addresses.
- *
- * @return The number of stack frames actually captured and stored in @c addresses.
- *         Returns 0 if @p addresses is NULL, @p count is zero, or an error occurs.
- *
- * @note This function is not async-signal-safe and must not be called from a signal handler.
- */
-
-FOUNDATION_EXPORT
-int ks_captureBacktrace(pthread_t thread, uintptr_t *addresses, int count)
-    NS_SWIFT_NAME(captureBacktrace(thread:addresses:count:));
-
-NS_ASSUME_NONNULL_END
+#if !os(watchOS)  // there are no backtraces on watchOS
+class KSBacktrace_Tests:XCTestCase{
+    
+    func testBacktrace(){
+        
+        let expectation = XCTestExpectation()
+        let thread = pthread_self()
+        
+        DispatchQueue.global(qos:.default).async{
+            
+            let entries = 512
+            var addresses: [UInt] = Array(repeating: 0, count:entries)
+            let count = ks_captureBacktrace(thread, &addresses, Int32(entries))
+            
+            XCTAssert(count > 0)
+            XCTAssert(count <= entries);
+            for index in 0..<count {
+                XCTAssert(addresses[Int(index)] != 0)
+            }
+            
+            expectation.fulfill()
+        }
+        
+        self.wait(for: [expectation], timeout: 5)
+    }
+}
+#endif
