@@ -26,14 +26,12 @@
 
 #include "KSBacktrace.h"
 
-#include <mach/mach_init.h>
-#include <mach/mach_port.h>
-#include <mach/thread_act.h>
-#include <pthread.h>
 #include <sys/param.h>
 
+#include "KSDynamicLinker.h"
 #include "KSStackCursor.h"
 #include "KSStackCursor_MachineContext.h"
+#include "KSSymbolicator.h"
 #include "KSThread.h"
 
 int ks_captureBacktrace(pthread_t thread, uintptr_t *addresses, int count)
@@ -62,4 +60,33 @@ int ks_captureBacktrace(pthread_t thread, uintptr_t *addresses, int count)
     }
 
     return frameCount;
+}
+
+bool ks_symbolicateAddress(uintptr_t address, struct KSSymbolInformation *result)
+{
+    if (!result) {
+        return false;
+    }
+
+    uintptr_t untaggedAddress = kssymbolicator_callInstructionAddress(address);
+
+    Dl_info info = {};
+    if (ksdl_dladdr(untaggedAddress, &info) == false) {
+        return false;
+    }
+
+    KSBinaryImage image = {};
+    if (ksdl_getBinaryImageForHeader(info.dli_fbase, info.dli_fname, &image) == false) {
+        return false;
+    }
+
+    result->returnAddress = address;
+    result->callInstruction = untaggedAddress;
+    result->symbolAddress = info.dli_saddr;
+    result->symbolName = info.dli_sname;
+    result->imageName = info.dli_fname;
+    result->imageAddress = info.dli_fbase;
+    result->imageSize = image.size;
+    result->imageUUID = image.uuid;
+    return true;
 }

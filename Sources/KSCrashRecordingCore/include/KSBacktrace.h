@@ -27,7 +27,9 @@
 #ifndef HDR_KSBacktrace_h
 #define HDR_KSBacktrace_h
 
+#include <CoreFoundation/CoreFoundation.h>
 #include <pthread.h>
+#include <stdbool.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -35,23 +37,62 @@ extern "C" {
 #endif
 
 /**
- * Captures a backtrace (call stack) for the specified thread.
+ * Captures the backtrace (call stack) for the specified pthread.
  *
- * @param thread    The non-null pthread_t identifier of the thread whose backtrace should be captured.
- * @param addresses A non-null pointer to a buffer where captured backtrace addresses will be stored.
- * @param count     The maximum number of address entries to write into @c addresses.
+ * @param thread      The identifier of the pthread whose backtrace should be captured. Must be a valid, non-null
+ * thread.
+ * @param addresses   A pointer to a buffer to receive the backtrace addresses. Must not be NULL.
+ * @param count       The maximum number of addresses to capture. Must be greater than zero.
  *
- * @return The number of stack frames actually captured and stored in @c addresses.
- *         Returns 0 if @p addresses is NULL, @p count is zero, or an error occurs.
+ * @return The number of frames captured and written to @c addresses, or 0 if @c addresses is NULL, @c count is zero, or
+ * an error occurs.
  *
- * @note This function is not async-signal-safe and must not be called from a signal handler.
+ * @discussion This function is not async-signal-safe and therefore must not be called from within a signal handler.
+ *             It may also briefly suspend the target thread while unwinding its stack.
  */
 
-int ks_captureBacktrace(pthread_t _Nonnull thread, uintptr_t *_Nonnull addresses, int count);
+int ks_captureBacktrace(pthread_t _Nonnull thread, uintptr_t *_Nonnull addresses, int count)
+    CF_SWIFT_NAME(captureBacktrace(thread:addresses:count:));
+
+/**
+ * Information about a symbol and the image in which it resides.
+ *
+ * @field returnAddress    The return address of the instruction being symbolicated.
+ * @field callInstruction    The call address of the instruction being symbolicated.
+ * @field symbolAddress    The start address of the resolved symbol.
+ * @field symbolName       The name of the symbol, or NULL if unavailable.
+ * @field imageName        The filename of the binary image containing this symbol.
+ * @field imageUUID        A pointer to the 16-byte UUID of the image, or NULL.
+ * @field imageAddress     The load address of the image in memory.
+ * @field imageSize        The size of the image in bytes.
+ */
+struct KSSymbolInformation {
+    uintptr_t returnAddress;
+    uintptr_t callInstruction;
+    uintptr_t symbolAddress;
+    const char *_Nullable symbolName;
+    const char *_Nullable imageName;
+    const uint8_t *_Nullable imageUUID;
+    uint64_t imageAddress;
+    uint64_t imageSize;
+} CF_SWIFT_NAME(SymbolInformation);
+
+/**
+ * Resolves symbol information for a given instruction address.
+ *
+ * @param address  The instruction address to symbolize.
+ * @param result   A pointer to a KSSymbolInformation structure to be populated. Must not be NULL.
+ *
+ * @return @c true if symbolication succeeded and @c result is populated, @c false otherwise.
+ *
+ * @discussion On success, @c result will contain the symbol name, symbol address, image name,
+ *             image load address, image size, and image UUID associated with @c address.
+ */
+bool ks_symbolicateAddress(uintptr_t address, struct KSSymbolInformation *_Nonnull result)
+    CF_SWIFT_NAME(symbolicate(address:result:));
 
 #ifdef __cplusplus
 }
 #endif
 
 #endif  // HDR_KSBacktrace_h
-
