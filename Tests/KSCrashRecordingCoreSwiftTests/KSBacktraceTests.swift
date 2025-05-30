@@ -40,7 +40,7 @@ class KSBacktrace_Tests: XCTestCase {
             
             let entries = 512
             var addresses: [UInt] = Array(repeating: 0, count:entries)
-            let count = ks_captureBacktrace(thread, &addresses, Int32(entries))
+            let count = captureBacktrace(thread: thread, addresses: &addresses, count: Int32(entries))
             
             XCTAssert(count > 0)
             XCTAssert(count <= entries);
@@ -67,7 +67,7 @@ class KSBacktrace_Tests: XCTestCase {
         
         DispatchQueue.global(qos:.default).async{
 
-            count = ks_captureBacktrace(thread, &addresses, Int32(entries))
+            count = captureBacktrace(thread: thread, addresses: &addresses, count: Int32(entries))
             
             XCTAssert(count > 0)
             XCTAssert(count <= entries);
@@ -80,11 +80,11 @@ class KSBacktrace_Tests: XCTestCase {
         
         self.wait(for: [expectation], timeout: 5)
         
-        var result = KSSymbolInformation()
-        let success = ks_symbolicateAddress(addresses[0], &result)
+        var result = SymbolInformation()
+        let success = symbolicate(address: addresses[0], result: &result)
         
         XCTAssertTrue(success == true)
-        XCTAssert(result.address == addresses[0])
+        XCTAssert(result.returnAddress == addresses[0])
         XCTAssertNotNil(result.imageName)
         XCTAssertNotNil(result.imageUUID)
         XCTAssertNotNil(result.symbolName)
