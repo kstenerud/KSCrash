@@ -30,7 +30,7 @@ import CrashTriggers
 import IntegrationTestsHelper
 
 public struct SampleView: View {
-    public init() { }
+    public init() {}
 
     @ObservedObject var installBridge = InstallBridge()
 
