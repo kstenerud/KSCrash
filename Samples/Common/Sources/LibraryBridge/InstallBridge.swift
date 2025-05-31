@@ -24,12 +24,12 @@
 // THE SOFTWARE.
 //
 
-import Foundation
 import Combine
-import SwiftUI
-import KSCrashRecording
+import Foundation
 import KSCrashInstallations
+import KSCrashRecording
 import Logging
+import SwiftUI
 
 public enum BasePath: String, CaseIterable {
     case `default`

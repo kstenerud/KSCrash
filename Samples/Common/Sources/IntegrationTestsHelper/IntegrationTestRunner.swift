@@ -55,8 +55,8 @@ public final class IntegrationTestRunner {
 
     public static func runIfNeeded() {
         guard let scriptString = ProcessInfo.processInfo.environment[Self.envKey],
-              let data = Data(base64Encoded: scriptString),
-              let script = try? JSONDecoder().decode(Script.self, from: data)
+            let data = Data(base64Encoded: scriptString),
+            let script = try? JSONDecoder().decode(Script.self, from: data)
         else {
             return
         }
@@ -84,25 +84,31 @@ public final class IntegrationTestRunner {
 }
 
 /// API for tests
-public extension IntegrationTestRunner {
-    static let envKey = "KSCrashIntegrationScript"
+extension IntegrationTestRunner {
+    public static let envKey = "KSCrashIntegrationScript"
 
-    static func script(crash: CrashTriggerConfig, install: InstallConfig? = nil, config: RunConfig? = nil) throws -> String {
+    public static func script(crash: CrashTriggerConfig, install: InstallConfig? = nil, config: RunConfig? = nil) throws
+        -> String
+    {
         let data = try JSONEncoder().encode(Script(install: install, crashTrigger: crash, config: config))
         return data.base64EncodedString()
     }
 
-    static func script(userReport: UserReportConfig, install: InstallConfig? = nil, config: RunConfig? = nil) throws -> String {
+    public static func script(userReport: UserReportConfig, install: InstallConfig? = nil, config: RunConfig? = nil)
+        throws -> String
+    {
         let data = try JSONEncoder().encode(Script(install: install, userReport: userReport, config: config))
         return data.base64EncodedString()
     }
 
-    static func script(report: ReportConfig, install: InstallConfig? = nil, config: RunConfig? = nil) throws -> String {
+    public static func script(report: ReportConfig, install: InstallConfig? = nil, config: RunConfig? = nil) throws
+        -> String
+    {
         let data = try JSONEncoder().encode(Script(install: install, report: report, config: config))
         return data.base64EncodedString()
     }
 
-    static func script(install: InstallConfig? = nil, config: RunConfig? = nil) throws -> String {
+    public static func script(install: InstallConfig? = nil, config: RunConfig? = nil) throws -> String {
         let data = try JSONEncoder().encode(Script(install: install, config: config))
         return data.base64EncodedString()
     }

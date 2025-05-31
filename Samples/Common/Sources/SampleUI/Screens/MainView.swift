@@ -25,8 +25,8 @@
 //
 
 import Foundation
-import SwiftUI
 import LibraryBridge
+import SwiftUI
 
 struct MainView: View {
 
@@ -39,8 +39,10 @@ struct MainView: View {
         List {
             Section {
                 if bridge.reportsOnlySetup {
-                    Text("It's only reporting that was set up. Crashes won't be caught. You can go back to the install screen.")
-                        .foregroundStyle(Color.secondary)
+                    Text(
+                        "It's only reporting that was set up. Crashes won't be caught. You can go back to the install screen."
+                    )
+                    .foregroundStyle(Color.secondary)
                     Button("Back to Install") {
                         bridge.reportsOnlySetup = false
                     }

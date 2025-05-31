@@ -24,8 +24,8 @@
 // THE SOFTWARE.
 //
 
-import Foundation
 import CrashTriggers
+import Foundation
 import KSCrashRecording
 
 public struct UserReportConfig: Codable {
@@ -38,13 +38,15 @@ public struct UserReportConfig: Codable {
         public var logAllThreads: Bool
         public var terminateProgram: Bool
 
-        public init(name: String,
-                    reason: String? = nil,
-                    language: String? = nil,
-                    lineOfCode: String? = nil,
-                    stacktrace: [String]? = nil,
-                    logAllThreads: Bool = false,
-                    terminateProgram: Bool = false) {
+        public init(
+            name: String,
+            reason: String? = nil,
+            language: String? = nil,
+            lineOfCode: String? = nil,
+            stacktrace: [String]? = nil,
+            logAllThreads: Bool = false,
+            terminateProgram: Bool = false
+        ) {
             self.name = name
             self.reason = reason
             self.language = language
@@ -58,15 +60,17 @@ public struct UserReportConfig: Codable {
     public struct NSExceptionReport: Codable {
         public var name: String
         public var reason: String?
-        public var userInfo: [String : String]?
+        public var userInfo: [String: String]?
         public var logAllThreads: Bool
         public var addStacktrace: Bool
 
-        public init(name: String,
-                    reason: String? = nil,
-                    userInfo: [String : String]? = nil,
-                    logAllThreads: Bool = false,
-                    addStacktrace: Bool = false) {
+        public init(
+            name: String,
+            reason: String? = nil,
+            userInfo: [String: String]? = nil,
+            logAllThreads: Bool = false,
+            addStacktrace: Bool = false
+        ) {
             self.name = name
             self.reason = reason
             self.userInfo = userInfo
@@ -108,7 +112,7 @@ extension UserReportConfig.UserException {
 extension UserReportConfig.NSExceptionReport {
     func report() {
         var exception = NSException(
-            name: .init(rawValue:name),
+            name: .init(rawValue: name),
             reason: reason,
             userInfo: userInfo
         )

@@ -24,11 +24,11 @@
 // THE SOFTWARE.
 //
 
-import XCTest
-import SampleUI
 import CrashTriggers
 import IntegrationTestsHelper
 import KSCrashDemangleFilter
+import SampleUI
+import XCTest
 
 final class NSExceptionTests: IntegrationTestBase {
     func testGenericException() throws {
@@ -45,18 +45,18 @@ final class NSExceptionTests: IntegrationTestBase {
 
 #if os(iOS)
 
-final class MachTests: IntegrationTestBase {
-    func testBadAccess() throws {
-        try launchAndCrash(.mach_badAccess)
+    final class MachTests: IntegrationTestBase {
+        func testBadAccess() throws {
+            try launchAndCrash(.mach_badAccess)
 
-        let rawReport = try readPartialCrashReport()
-        try rawReport.validate()
-        XCTAssertEqual(rawReport.crash?.error?.type, "mach")
+            let rawReport = try readPartialCrashReport()
+            try rawReport.validate()
+            XCTAssertEqual(rawReport.crash?.error?.type, "mach")
 
-        let appleReport = try launchAndReportCrash()
-        XCTAssertTrue(appleReport.contains("SIGSEGV"))
+            let appleReport = try launchAndReportCrash()
+            XCTAssertTrue(appleReport.contains("SIGSEGV"))
+        }
     }
-}
 
 #endif
 
@@ -79,41 +79,41 @@ final class CppTests: IntegrationTestBase {
 
 #if !os(watchOS)
 
-final class SignalTests: IntegrationTestBase {
-    func testAbort() throws {
-        try launchAndCrash(.signal_abort)
+    final class SignalTests: IntegrationTestBase {
+        func testAbort() throws {
+            try launchAndCrash(.signal_abort)
 
-        let rawReport = try readPartialCrashReport()
-        try rawReport.validate()
-        XCTAssertEqual(rawReport.crash?.error?.type, "signal")
-        XCTAssertEqual(rawReport.crash?.error?.signal?.name, "SIGABRT")
+            let rawReport = try readPartialCrashReport()
+            try rawReport.validate()
+            XCTAssertEqual(rawReport.crash?.error?.type, "signal")
+            XCTAssertEqual(rawReport.crash?.error?.signal?.name, "SIGABRT")
 
-        let appleReport = try launchAndReportCrash()
-        XCTAssertTrue(appleReport.contains("SIGABRT"))
-    }
-
-    func testTermination() throws {
-        // Default (termination monitoring disabled)
-        try launchAndInstall()
-        try terminate()
-
-        XCTAssertFalse(try hasCrashReport())
-
-        // With termination monitoring enabled
-        try launchAndInstall { config in
-            config.isSigTermMonitoringEnabled = true
+            let appleReport = try launchAndReportCrash()
+            XCTAssertTrue(appleReport.contains("SIGABRT"))
         }
-        try terminate()
 
-        let rawReport = try readPartialCrashReport()
-        try rawReport.validate()
-        XCTAssertEqual(rawReport.crash?.error?.signal?.name, "SIGTERM")
+        func testTermination() throws {
+            // Default (termination monitoring disabled)
+            try launchAndInstall()
+            try terminate()
 
-        let appleReport = try launchAndReportCrash()
-        print(appleReport)
-        XCTAssertTrue(appleReport.contains("SIGTERM"))
+            XCTAssertFalse(try hasCrashReport())
+
+            // With termination monitoring enabled
+            try launchAndInstall { config in
+                config.isSigTermMonitoringEnabled = true
+            }
+            try terminate()
+
+            let rawReport = try readPartialCrashReport()
+            try rawReport.validate()
+            XCTAssertEqual(rawReport.crash?.error?.signal?.name, "SIGTERM")
+
+            let appleReport = try launchAndReportCrash()
+            print(appleReport)
+            XCTAssertTrue(appleReport.contains("SIGTERM"))
+        }
     }
-}
 
 #endif
 
@@ -143,13 +143,14 @@ final class UserReportedTests: IntegrationTestBase {
     static let crashCustomStacktrace = ["func01", "func02", "func03"]
 
     func testUserReportedNSException() throws {
-        try launchAndMakeUserReport(nsException: .init(
-            name: Self.crashName,
-            reason: Self.crashReason,
-            userInfo: ["a": "b"],
-            logAllThreads: true,
-            addStacktrace: true
-        ))
+        try launchAndMakeUserReport(
+            nsException: .init(
+                name: Self.crashName,
+                reason: Self.crashReason,
+                userInfo: ["a": "b"],
+                logAllThreads: true,
+                addStacktrace: true
+            ))
 
         let rawReport = try readPartialCrashReport()
         try rawReport.validate()
@@ -176,13 +177,14 @@ final class UserReportedTests: IntegrationTestBase {
     }
 
     func testUserReportedNSException_WithoutStacktrace() throws {
-        try launchAndMakeUserReport(nsException: .init(
-            name: Self.crashName,
-            reason: Self.crashReason,
-            userInfo: nil,
-            logAllThreads: true,
-            addStacktrace: false // <- Key difference
-        ))
+        try launchAndMakeUserReport(
+            nsException: .init(
+                name: Self.crashName,
+                reason: Self.crashReason,
+                userInfo: nil,
+                logAllThreads: true,
+                addStacktrace: false  // <- Key difference
+            ))
 
         let rawReport = try readPartialCrashReport()
         try rawReport.validate()
@@ -193,22 +195,24 @@ final class UserReportedTests: IntegrationTestBase {
         let topSymbol = rawReport.crashedThread?.backtrace.contents
             .compactMap(\.symbol_name).first
             .flatMap(CrashReportFilterDemangle.demangledSwiftSymbol)
-        XCTAssertEqual(topSymbol, "UserReportConfig.NSExceptionReport.report()",
-                       "Stacktrace should exclude all KSCrash symbols and have reporting function on top")
+        XCTAssertEqual(
+            topSymbol, "UserReportConfig.NSExceptionReport.report()",
+            "Stacktrace should exclude all KSCrash symbols and have reporting function on top")
 
         XCTAssertEqual(app.state, .runningForeground, "Should not terminate app")
     }
 
     func testUserReport() throws {
-        try launchAndMakeUserReport(userException: .init(
-            name: Self.crashName,
-            reason: Self.crashReason,
-            language: Self.crashLanguage,
-            lineOfCode: Self.crashLineOfCode,
-            stacktrace: Self.crashCustomStacktrace,
-            logAllThreads: true,
-            terminateProgram: false
-        ))
+        try launchAndMakeUserReport(
+            userException: .init(
+                name: Self.crashName,
+                reason: Self.crashReason,
+                language: Self.crashLanguage,
+                lineOfCode: Self.crashLineOfCode,
+                stacktrace: Self.crashCustomStacktrace,
+                logAllThreads: true,
+                terminateProgram: false
+            ))
 
         let rawReport = try readPartialCrashReport()
         try rawReport.validate()
@@ -220,8 +224,9 @@ final class UserReportedTests: IntegrationTestBase {
         let topSymbol = rawReport.crashedThread?.backtrace.contents
             .compactMap(\.symbol_name).first
             .flatMap(CrashReportFilterDemangle.demangledSwiftSymbol)
-        XCTAssertEqual(topSymbol, "UserReportConfig.UserException.report()",
-                       "Stacktrace should exclude all KSCrash symbols and have reporting function on top")
+        XCTAssertEqual(
+            topSymbol, "UserReportConfig.UserException.report()",
+            "Stacktrace should exclude all KSCrash symbols and have reporting function on top")
 
         XCTAssertEqual(app.state, .runningForeground, "Should not terminate app")
         app.terminate()

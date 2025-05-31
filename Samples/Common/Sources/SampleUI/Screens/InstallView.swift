@@ -25,8 +25,8 @@
 //
 
 import Foundation
-import SwiftUI
 import LibraryBridge
+import SwiftUI
 
 struct InstallView: View {
     @ObservedObject var bridge: InstallBridge

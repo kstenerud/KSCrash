@@ -25,10 +25,10 @@
 //
 
 import Foundation
-import Logging
-import KSCrashRecording
 import KSCrashFilters
+import KSCrashRecording
 import KSCrashSinks
+import Logging
 
 public struct ReportConfig: Codable {
     public var directoryPath: String
@@ -61,7 +61,9 @@ public class DirectorySink: NSObject, CrashReportFilter {
         self.directoryUrl = directoryUrl
     }
 
-    public func filterReports(_ reports: [any CrashReport], onCompletion: (([any CrashReport]?, (any Error)?) -> Void)? = nil) {
+    public func filterReports(
+        _ reports: [any CrashReport], onCompletion: (([any CrashReport]?, (any Error)?) -> Void)? = nil
+    ) {
         let prefix = UUID().uuidString
         for (idx, report) in reports.enumerated() {
             let fileName = "\(prefix)-\(idx).ips"

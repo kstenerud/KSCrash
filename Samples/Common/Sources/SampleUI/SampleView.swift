@@ -24,13 +24,13 @@
 // THE SOFTWARE.
 //
 
-import SwiftUI
-import LibraryBridge
 import CrashTriggers
 import IntegrationTestsHelper
+import LibraryBridge
+import SwiftUI
 
 public struct SampleView: View {
-    public init() { }
+    public init() {}
 
     @ObservedObject var installBridge = InstallBridge()
 

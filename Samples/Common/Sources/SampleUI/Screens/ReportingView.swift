@@ -24,9 +24,9 @@
 // THE SOFTWARE.
 //
 
-import SwiftUI
-import LibraryBridge
 import KSCrashRecording
+import LibraryBridge
+import SwiftUI
 
 struct ReportingView: View {
     let store: CrashReportStore
