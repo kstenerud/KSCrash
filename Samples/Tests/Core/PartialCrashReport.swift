@@ -26,6 +26,7 @@
 
 import Foundation
 
+// swift-format-ignore: AlwaysUseLowerCamelCase
 struct PartialCrashReport: Decodable {
     struct BinaryImage: Decodable {
         var image_addr: UInt64?

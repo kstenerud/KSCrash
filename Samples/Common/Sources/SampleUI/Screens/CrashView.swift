@@ -24,8 +24,8 @@
 // THE SOFTWARE.
 //
 
-import SwiftUI
 import CrashTriggers
+import SwiftUI
 
 private typealias Helper = CrashTriggersHelper
 

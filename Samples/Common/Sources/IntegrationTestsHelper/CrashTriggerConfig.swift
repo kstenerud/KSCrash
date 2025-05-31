@@ -24,8 +24,8 @@
 // THE SOFTWARE.
 //
 
-import Foundation
 import CrashTriggers
+import Foundation
 
 public struct CrashTriggerConfig: Codable {
     public var triggerId: CrashTriggerId

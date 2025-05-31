@@ -24,8 +24,8 @@
 // THE SOFTWARE.
 //
 
-import KSCrashInstallations
 import KSCrashFilters
+import KSCrashInstallations
 import Logging
 
 public class SampleInstallation: CrashInstallation {

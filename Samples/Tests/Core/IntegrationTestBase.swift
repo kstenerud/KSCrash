@@ -24,11 +24,11 @@
 // THE SOFTWARE.
 //
 
-import XCTest
-import SampleUI
 import CrashTriggers
-import Logging
 import IntegrationTestsHelper
+import Logging
+import SampleUI
+import XCTest
 
 class IntegrationTestBase: XCTestCase {
 
@@ -49,11 +49,11 @@ class IntegrationTestBase: XCTestCase {
 
     lazy var actionDelay: TimeInterval = Self.defaultActionDelay
     private static var defaultActionDelay: TimeInterval {
-#if os(iOS)
-        return 5.0
-#else
-        return 2.0
-#endif
+        #if os(iOS)
+            return 5.0
+        #else
+            return 2.0
+        #endif
     }
 
     private var runConfig: IntegrationTestRunner.RunConfig {
@@ -103,12 +103,12 @@ class IntegrationTestBase: XCTestCase {
     }
 
     func waitForCrash() {
-#if os(macOS)
-        // This is a workaround. App actually crashes, but tests don't see it.
-        Thread.sleep(forTimeInterval: actionDelay + appCrashTimeout)
-#else
-        XCTAssert(app.wait(for: .notRunning, timeout: actionDelay + appCrashTimeout), "App crash is expected")
-#endif
+        #if os(macOS)
+            // This is a workaround. App actually crashes, but tests don't see it.
+            Thread.sleep(forTimeInterval: actionDelay + appCrashTimeout)
+        #else
+            XCTAssert(app.wait(for: .notRunning, timeout: actionDelay + appCrashTimeout), "App crash is expected")
+        #endif
     }
 
     private func waitForFile(in dir: URL, timeout: TimeInterval? = nil) throws -> URL {
@@ -168,7 +168,7 @@ class IntegrationTestBase: XCTestCase {
 
         let reportData = try readRawCrashReportData()
         let reportObj = try JSONSerialization.jsonObject(with: reportData)
-        let report = reportObj as? [String:Any]
+        let report = reportObj as? [String: Any]
         guard let report else { throw LocalError.unexpectedReportFormat }
 
         return report
@@ -203,7 +203,9 @@ class IntegrationTestBase: XCTestCase {
         launchAppAndRunScript()
     }
 
-    func launchAndCrash(_ crashId: CrashTriggerId, installOverride: ((inout InstallConfig) throws -> Void)? = nil) throws {
+    func launchAndCrash(_ crashId: CrashTriggerId, installOverride: ((inout InstallConfig) throws -> Void)? = nil)
+        throws
+    {
         var installConfig = InstallConfig(installPath: installUrl.path)
         try installOverride?(&installConfig)
         app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
@@ -219,7 +221,8 @@ class IntegrationTestBase: XCTestCase {
     func launchAndMakeUserReport(
         userException: UserReportConfig.UserException? = nil,
         nsException: UserReportConfig.NSExceptionReport? = nil,
-        installOverride: ((inout InstallConfig) throws -> Void)? = nil) throws {
+        installOverride: ((inout InstallConfig) throws -> Void)? = nil
+    ) throws {
         var installConfig = InstallConfig(installPath: installUrl.path)
         try installOverride?(&installConfig)
         app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(

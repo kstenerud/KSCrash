@@ -24,9 +24,9 @@
 // THE SOFTWARE.
 //
 
-import XCTest
 import Darwin
 import IntegrationTestsHelper
+import XCTest
 
 final class BinaryImageTests: IntegrationTestBase {
     func testBinaryImagesPresent() throws {
