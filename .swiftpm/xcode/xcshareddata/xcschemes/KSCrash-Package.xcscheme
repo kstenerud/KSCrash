@@ -105,20 +105,6 @@
                ReferencedContainer = "container:">
             </BuildableReference>
          </BuildActionEntry>
-         <BuildActionEntry
-            buildForTesting = "YES"
-            buildForRunning = "YES"
-            buildForProfiling = "YES"
-            buildForArchiving = "YES"
-            buildForAnalyzing = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "BootTimeMonitor"
-               BuildableName = "BootTimeMonitor"
-               BlueprintName = "BootTimeMonitor"
-               ReferencedContainer = "container:">
-            </BuildableReference>
-         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
@@ -239,26 +225,6 @@
                BlueprintIdentifier = "KSCrashDemangleFilterTests"
                BuildableName = "KSCrashDemangleFilterTests"
                BlueprintName = "KSCrashDemangleFilterTests"
-               ReferencedContainer = "container:">
-            </BuildableReference>
-         </TestableReference>
-         <TestableReference
-            skipped = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "KSCrashBacktraceTests"
-               BuildableName = "KSCrashBacktraceTests"
-               BlueprintName = "KSCrashBacktraceTests"
-               ReferencedContainer = "container:">
-            </BuildableReference>
-         </TestableReference>
-         <TestableReference
-            skipped = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "KSCrashRecordingCoreSwiftTests"
-               BuildableName = "KSCrashRecordingCoreSwiftTests"
-               BlueprintName = "KSCrashRecordingCoreSwiftTests"
                ReferencedContainer = "container:">
             </BuildableReference>
          </TestableReference>
