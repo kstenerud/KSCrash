@@ -29,9 +29,9 @@ import SampleUI
 
 @main
 struct SampleApp: App {
-#if os(macOS)
-    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-#endif
+    #if os(macOS)
+        @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    #endif
 
     var body: some Scene {
         WindowGroup {

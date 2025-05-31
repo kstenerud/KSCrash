@@ -3,7 +3,7 @@ import ProjectDescription
 let project = Project(
     name: "KSCrashSamples",
     packages: [
-        .local(path: "Common"),
+        .local(path: "Common")
     ],
     settings: .settings(base: [
         "SWIFT_VERSION": "5.0"
@@ -27,7 +27,7 @@ let project = Project(
             ]),
             sources: ["Sources/**"],
             dependencies: [
-                .package(product: "SampleUI", type: .runtime),
+                .package(product: "SampleUI", type: .runtime)
             ]
         ),
         .target(
@@ -53,7 +53,7 @@ let project = Project(
             buildAction: .buildAction(targets: ["Sample"]),
             testAction: .testPlans(["Tests/Integration.xctestplan"], configuration: .release, attachDebugger: false),
             runAction: .runAction(executable: "Sample")
-        ),
+        )
     ]
 )
 

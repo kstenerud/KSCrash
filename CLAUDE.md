@@ -84,6 +84,8 @@ swift package resolve
 ```
 
 ### Linting and Formatting
+
+#### C/C++/Objective-C Formatting
 ```bash
 # Check formatting issues
 make check-format
@@ -93,6 +95,22 @@ make check-format
 # Apply automatic formatting
 make format
 # Automatically reformats all C/C++/Objective-C files according to project style
+```
+
+#### Swift Formatting
+```bash
+# Check Swift formatting issues
+make check-swift-format
+# Checks all Swift files in Sources/, Tests/, and Samples/ directories against .swift-format configuration
+# Requires Swift 6.0+ (included with Xcode 16+)
+
+# Apply Swift formatting
+make swift-format
+# Automatically reformats all Swift files in Sources/, Tests/, and Samples/ according to .swift-format configuration
+# Requires Swift 6.0+ (included with Xcode 16+)
+
+# Format specific Swift file
+swift format format --in-place --configuration .swift-format <file>
 ```
 
 ### Viewing Crash Reports

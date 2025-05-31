@@ -33,15 +33,17 @@ struct MonitorTypeView: View {
     @Binding var monitors: InstallBridge.MonitorType
 
     private func monitorBinding(_ monitor: InstallBridge.MonitorType) -> Binding<Bool> {
-        return .init(get: {
-            monitors.contains(monitor)
-        }, set: { flag in
-            if flag {
-                monitors.insert(monitor)
-            } else {
-                monitors.remove(monitor)
-            }
-        })
+        return .init(
+            get: {
+                monitors.contains(monitor)
+            },
+            set: { flag in
+                if flag {
+                    monitors.insert(monitor)
+                } else {
+                    monitors.remove(monitor)
+                }
+            })
     }
 
     var body: some View {

@@ -1,0 +1,57 @@
+name: Swift Format Check
+on:
+  pull_request:
+    paths:
+      - 'Sources/**/*.swift'
+      - 'Tests/**/*.swift'
+      - 'Samples/**/*.swift'
+      - '.github/workflows/swift-format.yml'
+      - '.swift-format'
+      - 'Makefile'
+      - 'Package.swift'
+
+jobs:
+  formatting-check:
+    name: Swift Formatting Check
+    runs-on: ubuntu-latest
+    container:
+      image: swift:6.0
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install make
+      run: |
+        apt-get update && apt-get install -y make
+
+    - name: Check Swift formatting
+      id: check_format
+      run: |
+        make check-swift-format 2>&1 | tee swift_format_output.log || true
+        # Check if there were any warnings/errors
+        if grep -q "warning:" swift_format_output.log; then
+          exit 1
+        fi
+
+    - name: Create annotations for formatting issues
+      if: failure()
+      run: |
+        echo "### Swift formatting issues found" >> $GITHUB_STEP_SUMMARY
+        echo "Please run 'make swift-format' to fix formatting issues." >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Parse swift-format output and create GitHub annotations
+        echo "::group::Swift formatting issues"
+        grep "warning:" swift_format_output.log | while IFS= read -r line; do
+          # Extract file, line, column from swift-format output
+          # Format: file.swift:line:col: warning: [Rule] message
+          file=$(echo "$line" | cut -d: -f1)
+          line_num=$(echo "$line" | cut -d: -f2)
+          col=$(echo "$line" | cut -d: -f3)
+          # Extract rule and message
+          rest=$(echo "$line" | cut -d: -f4-)
+          rule=$(echo "$rest" | grep -o '\[[^]]*\]' | tr -d '[]')
+          message=$(echo "$rest" | sed 's/.*\[[^]]*\] *//')
+          
+          echo "::error file=$file,line=$line_num,col=$col,title=$rule::$message"
+        done
+        echo "::endgroup::"

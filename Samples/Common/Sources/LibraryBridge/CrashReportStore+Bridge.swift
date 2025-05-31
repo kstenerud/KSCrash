@@ -54,7 +54,8 @@ public extension CrashReportStore {
                     case let stringReport as CrashReportString:
                         Self.logger.info("Report #\(idx) is a string (length is \(stringReport.value.count))")
                     case let dictionaryReport as CrashReportDictionary:
-                        Self.logger.info("Report #\(idx) is a dictionary (number of keys is \(dictionaryReport.value.count))")
+                        Self.logger.info(
+                            "Report #\(idx) is a dictionary (number of keys is \(dictionaryReport.value.count))")
                     case let dataReport as CrashReportData:
                         Self.logger.info("Report #\(idx) is a binary data (size is \(dataReport.value.count) bytes)")
                     default:
@@ -69,7 +70,8 @@ public extension CrashReportStore {
 
     func logWithAlert() {
         sink = CrashReportFilterPipeline(filters: [
-            CrashReportFilterAlert(title: "Sample Alert", message: "Do you want to log?", yesAnswer: "Yes", noAnswer: "No"),
+            CrashReportFilterAlert(
+                title: "Sample Alert", message: "Do you want to log?", yesAnswer: "Yes", noAnswer: "No"),
             CrashReportFilterAppleFmt(),
             CrashReportSinkConsole(),
         ])
@@ -98,27 +100,28 @@ public class SampleCrashReport: NSObject, CrashReport {
 
     public init?(_ report: CrashReportDictionary) {
         guard let crashDict = report.value[CrashField.crash.rawValue] as? Dictionary<String, Any>,
-              let threadsArr = crashDict[CrashField.threads.rawValue] as? Array<Any>,
-              let crashedThreadDict = threadsArr
+            let threadsArr = crashDict[CrashField.threads.rawValue] as? Array<Any>,
+            let crashedThreadDict =
+                threadsArr
                 .compactMap({ $0 as? Dictionary<String, Any> })
                 .first(where: { ($0[CrashField.crashed.rawValue] as? Bool) ?? false }),
-              let crashedThreadIndex = crashedThreadDict[CrashField.index.rawValue] as? Int,
-              let backtrace = crashedThreadDict[CrashField.backtrace.rawValue] as? Dictionary<String, Any>,
-              let backtraceArr = backtrace[CrashField.contents.rawValue] as? Array<Any>
+            let crashedThreadIndex = crashedThreadDict[CrashField.index.rawValue] as? Int,
+            let backtrace = crashedThreadDict[CrashField.backtrace.rawValue] as? Dictionary<String, Any>,
+            let backtraceArr = backtrace[CrashField.contents.rawValue] as? Array<Any>
         else { return nil }
 
         crashedThread = .init(
             index: crashedThreadIndex,
             callStack: backtraceArr.enumerated().map { (idx: Int, bt: Any) -> String in
                 guard let bt = bt as? Dictionary<String, Any>,
-                      let objectName = bt[CrashField.objectName.rawValue] as? String,
-                      let instructionAddr = bt[CrashField.instructionAddr.rawValue] as? UInt64
+                    let objectName = bt[CrashField.objectName.rawValue] as? String,
+                    let instructionAddr = bt[CrashField.instructionAddr.rawValue] as? UInt64
                 else { return "\(idx)\t<malformed>" }
 
                 let symbolName = bt[CrashField.symbolName.rawValue] as? String
                 let symbolAddr = bt[CrashField.symbolAddr.rawValue] as? UInt64
                 let offset = symbolAddr.flatMap { instructionAddr - $0 } ?? 0
-                
+
                 let instructionAddrStr = "0x\(String(instructionAddr, radix: 16))"
                 let symbolAddrStr = "0x\(String(symbolAddr ?? instructionAddr, radix: 16))"
 
@@ -129,7 +132,9 @@ public class SampleCrashReport: NSObject, CrashReport {
 }
 
 public class SampleFilter: NSObject, CrashReportFilter {
-    public func filterReports(_ reports: [any CrashReport], onCompletion: (([any CrashReport]?, (any Error)?) -> Void)? = nil) {
+    public func filterReports(
+        _ reports: [any CrashReport], onCompletion: (([any CrashReport]?, (any Error)?) -> Void)? = nil
+    ) {
         let filtered = reports.compactMap { report -> SampleCrashReport? in
             guard let dictReport = report as? CrashReportDictionary else {
                 return nil
@@ -143,15 +148,18 @@ public class SampleFilter: NSObject, CrashReportFilter {
 public class SampleSink: NSObject, CrashReportFilter {
     private static let logger = Logger(label: "SampleSink")
 
-    public func filterReports(_ reports: [any CrashReport], onCompletion: (([any CrashReport]?, (any Error)?) -> Void)? = nil) {
+    public func filterReports(
+        _ reports: [any CrashReport], onCompletion: (([any CrashReport]?, (any Error)?) -> Void)? = nil
+    ) {
         for (idx, report) in reports.enumerated() {
             guard let sampleReport = report as? SampleCrashReport else {
                 continue
             }
-            let lines = [
-                "Crash report #\(idx):",
-                "\tCrashed thread #\(sampleReport.crashedThread.index):",
-            ] + sampleReport.crashedThread.callStack.map { "\t\t\($0)" }
+            let lines =
+                [
+                    "Crash report #\(idx):",
+                    "\tCrashed thread #\(sampleReport.crashedThread.index):",
+                ] + sampleReport.crashedThread.callStack.map { "\t\t\($0)" }
             let text = lines.joined(separator: "\n")
             Self.logger.info("\(text)")
         }
