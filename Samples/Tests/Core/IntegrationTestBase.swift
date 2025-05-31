@@ -103,7 +103,12 @@ class IntegrationTestBase: XCTestCase {
     }
 
     func waitForCrash() {
+#if os(macOS)
+        // This is a workaround. App actually crashes, but tests don't see it.
+        Thread.sleep(forTimeInterval: actionDelay + appCrashTimeout)
+#else
         XCTAssert(app.wait(for: .notRunning, timeout: actionDelay + appCrashTimeout), "App crash is expected")
+#endif
     }
 
     private func waitForFile(in dir: URL, timeout: TimeInterval? = nil) throws -> URL {

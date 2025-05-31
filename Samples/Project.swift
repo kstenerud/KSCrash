@@ -5,6 +5,9 @@ let project = Project(
     packages: [
         .local(path: "Common"),
     ],
+    settings: .settings(base: [
+        "SWIFT_VERSION": "5.0"
+    ]),
     targets: [
         .target(
             name: "Sample",

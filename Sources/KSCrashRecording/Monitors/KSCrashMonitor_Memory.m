@@ -65,6 +65,7 @@ const uint8_t KSCrash_Memory_NonFatalReportLevelNone = KSCrashAppMemoryStateTerm
 static KSCrash_Memory _ks_memory_copy(void);
 static void _ks_memory_update(void (^block)(KSCrash_Memory *mem));
 static void _ks_memory_update_from_app_memory(KSCrashAppMemory *const memory);
+static void _ks_memory_set(KSCrash_Memory *mem);
 static void ksmemory_write_possible_oom(void);
 static void setEnabled(bool isEnabled);
 static bool isEnabled(void);
@@ -130,6 +131,13 @@ static void _ks_memory_update(void (^block)(KSCrash_Memory *mem))
     if (g_memory) {
         block(g_memory);
     }
+    os_unfair_lock_unlock(&g_memoryLock);
+}
+
+static void _ks_memory_set(KSCrash_Memory *mem)
+{
+    os_unfair_lock_lock(&g_memoryLock);
+    g_memory = mem;
     os_unfair_lock_unlock(&g_memoryLock);
 }
 
@@ -270,6 +278,9 @@ static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext)
     // we'll use this when reading this back on the next run
     // to know if an OOM is even possible.
     if (asyncSafeOnly) {
+        // since we're in a singal or something that can only
+        // use async safe functions, we can't lock.
+        // It's "ok" though, since no other threads should be running.
         g_memory->fatal = eventContext->handlingCrash;
     } else {
         _ks_memory_update(^(KSCrash_Memory *mem) {
@@ -278,6 +289,7 @@ static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext)
     }
 
     if (g_isEnabled) {
+        // same as above re: not locking when _asyncSafeOnly_ is set.
         KSCrash_Memory memCopy = asyncSafeOnly ? *g_memory : _ks_memory_copy();
         eventContext->AppMemory.footprint = memCopy.footprint;
         eventContext->AppMemory.pressure = KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memCopy.pressure);
@@ -488,7 +500,7 @@ static void ksmemory_map(const char *path)
         return;
     }
 
-    g_memory = (KSCrash_Memory *)ptr;
+    _ks_memory_set(ptr);
     _ks_memory_update_from_app_memory(g_memoryTracker.memory);
 }
 
@@ -572,6 +584,7 @@ bool ksmemory_get_fatal_reports_enabled(void) { return g_FatalReportsEnabled; }
 
 void ksmemory_notifyUnhandledFatalSignal(void)
 {
+    // this is only called from a signal so we cannot lock.
     if (g_memory) {
         g_memory->fatal = true;
     }

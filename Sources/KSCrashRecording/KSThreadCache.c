@@ -1,5 +1,5 @@
 //
-//  KSCrashCachedData.c
+//  KSThreadCache.c
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -22,7 +22,7 @@
 // THE SOFTWARE.
 //
 
-#include "KSCrashCachedData.h"
+#include "KSThreadCache.h"
 
 // #define KSLogger_LocalLevel TRACE
 #include <errno.h>
@@ -127,7 +127,7 @@ static void updateThreadList(void)
     vm_deallocate(thisTask, (vm_address_t)threads, sizeof(thread_t) * allThreadsCount);
 }
 
-static void *monitorCachedData(__unused void *const userData)
+static void *monitorThreadCache(__unused void *const userData)
 {
     static int quickPollCount = 4;
     usleep(1);
@@ -146,7 +146,7 @@ static void *monitorCachedData(__unused void *const userData)
     return NULL;
 }
 
-void ksccd_init(int pollingIntervalInSeconds)
+void kstc_init(int pollingIntervalInSeconds)
 {
     if (g_hasThreadStarted == true) {
         return;
@@ -156,22 +156,22 @@ void ksccd_init(int pollingIntervalInSeconds)
     pthread_attr_t attr;
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-    int error = pthread_create(&g_cacheThread, &attr, &monitorCachedData, "KSCrash Cached Data Monitor");
+    int error = pthread_create(&g_cacheThread, &attr, &monitorThreadCache, "KSCrash Thread Cache Monitor");
     if (error != 0) {
         KSLOG_ERROR("pthread_create_suspended_np: %s", strerror(error));
     }
     pthread_attr_destroy(&attr);
 }
 
-void ksccd_freeze(void)
+void kstc_freeze(void)
 {
     if (g_semaphoreCount++ <= 0) {
-        // Sleep just in case the cached data thread is in the middle of an update.
+        // Sleep just in case the thread cache thread is in the middle of an update.
         usleep(1);
     }
 }
 
-void ksccd_unfreeze(void)
+void kstc_unfreeze(void)
 {
     if (--g_semaphoreCount < 0) {
         // Handle extra calls to unfreeze somewhat gracefully.
@@ -179,9 +179,49 @@ void ksccd_unfreeze(void)
     }
 }
 
-void ksccd_setSearchQueueNames(bool searchQueueNames) { g_searchQueueNames = searchQueueNames; }
+void kstc_setSearchQueueNames(bool searchQueueNames) { g_searchQueueNames = searchQueueNames; }
 
-KSThread *ksccd_getAllThreads(int *threadCount)
+// For testing purposes only. Used with extern in test files.
+void kstc_reset(void)
+{
+    if (g_allThreadNames != NULL) {
+        for (int i = 0; i < g_allThreadsCount; i++) {
+            const char *name = g_allThreadNames[i];
+            if (name != NULL) {
+                free((void *)name);
+            }
+        }
+        free(g_allThreadNames);
+        g_allThreadNames = NULL;
+    }
+
+    if (g_allQueueNames != NULL) {
+        for (int i = 0; i < g_allThreadsCount; i++) {
+            const char *name = g_allQueueNames[i];
+            if (name != NULL) {
+                free((void *)name);
+            }
+        }
+        free(g_allQueueNames);
+        g_allQueueNames = NULL;
+    }
+
+    if (g_allMachThreads != NULL) {
+        free(g_allMachThreads);
+        g_allMachThreads = NULL;
+    }
+
+    if (g_allPThreads != NULL) {
+        free(g_allPThreads);
+        g_allPThreads = NULL;
+    }
+
+    g_allThreadsCount = 0;
+    g_semaphoreCount = 0;
+    g_hasThreadStarted = false;
+}
+
+KSThread *kstc_getAllThreads(int *threadCount)
 {
     if (threadCount != NULL) {
         *threadCount = g_allThreadsCount;
@@ -189,7 +229,7 @@ KSThread *ksccd_getAllThreads(int *threadCount)
     return g_allMachThreads;
 }
 
-const char *ksccd_getThreadName(KSThread thread)
+const char *kstc_getThreadName(KSThread thread)
 {
     if (g_allThreadNames != NULL) {
         for (int i = 0; i < g_allThreadsCount; i++) {
@@ -201,7 +241,7 @@ const char *ksccd_getThreadName(KSThread thread)
     return NULL;
 }
 
-const char *ksccd_getQueueName(KSThread thread)
+const char *kstc_getQueueName(KSThread thread)
 {
     if (g_allQueueNames != NULL) {
         for (int i = 0; i < g_allThreadsCount; i++) {

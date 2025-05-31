@@ -264,7 +264,7 @@
             id object = [KSNSDictionaryHelper objectInDictionary:report.value forKeyPath:key];
             [concatenated appendFormat:@"%@", object];
         }
-        [filteredReports addObject:concatenated];
+        [filteredReports addObject:[KSCrashReportString reportWithValue:concatenated]];
     }
     kscrash_callCompletion(onCompletion, filteredReports, nil);
 }

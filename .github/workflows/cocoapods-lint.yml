@@ -51,7 +51,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: 3.0
+          ruby-version: 3.2.2
 
       - name: Install Ruby Gems
         run: sudo bundle install
@@ -60,6 +60,14 @@ jobs:
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
+
+      - name: Ensure the Platform is Downloaded
+        if: ${{ matrix.platform != 'macOS' }}
+        run: |
+          xcodebuild -runFirstLaunch
+          xcrun simctl list
+          xcodebuild -downloadPlatform ${{ matrix.platform }}
+          xcodebuild -runFirstLaunch
 
       - name: Lint Podspec
         id: lint

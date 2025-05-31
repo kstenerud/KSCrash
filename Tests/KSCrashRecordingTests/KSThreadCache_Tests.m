@@ -1,5 +1,5 @@
 //
-//  KSCrashCachedData_Tests.m
+//  KSThreadCache_Tests.m
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,30 +24,46 @@
 
 #import <XCTest/XCTest.h>
 
-#import "KSCrashCachedData.h"
+#import "KSThreadCache.h"
 #import "TestThread.h"
 
-@interface KSCrashCachedData_Tests : XCTestCase
+// Declare external function only for testing
+extern void kstc_reset(void);
+
+@interface KSThreadCache_Tests : XCTestCase
 @end
 
-@implementation KSCrashCachedData_Tests
+@implementation KSThreadCache_Tests
+
+- (void)setUp
+{
+    [super setUp];
+    kstc_reset();
+}
 
 - (void)testGetThreadName
 {
     NSString *expectedName = @"This is a test thread";
     TestThread *thread = [TestThread new];
     thread.name = expectedName;
+
+    kstc_init(1);
+    [NSThread sleepForTimeInterval:0.5];
     [thread start];
-    [NSThread sleepForTimeInterval:0.1];
-    ksccd_init(10);
-    [NSThread sleepForTimeInterval:0.1];
+    [NSThread sleepForTimeInterval:1.0];
+    kstc_freeze();
+
+    const char *cName = kstc_getThreadName(thread.thread);
+
+    if (cName != NULL) {
+        NSString *name = [NSString stringWithUTF8String:cName];
+        XCTAssertEqualObjects(name, expectedName, @"Thread name didn't match expected name");
+    } else {
+        XCTFail(@"Failed to get thread name (got NULL)");
+    }
+
     [thread cancel];
-    ksccd_freeze();
-    const char *cName = ksccd_getThreadName(thread.thread);
-    XCTAssertTrue(cName != NULL);
-    NSString *name = [NSString stringWithUTF8String:cName];
-    XCTAssertEqualObjects(name, expectedName);
-    ksccd_unfreeze();
+    kstc_unfreeze();
 }
 
 @end

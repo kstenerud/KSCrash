@@ -42,6 +42,14 @@ jobs:
         with:
           xcode-version: latest-stable
 
+      - name: Ensure the Platform is Downloaded
+        if: ${{ matrix.platform != 'macOS' }}
+        run: |
+          xcodebuild -runFirstLaunch
+          xcrun simctl list
+          xcodebuild -downloadPlatform ${{ matrix.platform }}
+          xcodebuild -runFirstLaunch
+
       - name: Install Tuist
         run: |
           brew tap tuist/tuist
@@ -52,7 +60,7 @@ jobs:
         run: tuist generate --verbose --no-open
 
       - name: Run Build
-        uses: bamx23/xcodebuild@os-version
+        uses: mxcl/xcodebuild@v3
         timeout-minutes: 10
         with:
           action: build

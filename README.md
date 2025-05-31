@@ -1,11 +1,16 @@
-# KSCrash
+
+![Untitled](https://github.com/user-attachments/assets/9478bde6-78ae-4d59-b8ab-dc6db4137b9f)
 
 [![Run Unit Tests](https://github.com/kstenerud/KSCrash/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/kstenerud/KSCrash/actions/workflows/unit-tests.yml)
 [![CocoaPods Lint](https://github.com/kstenerud/KSCrash/actions/workflows/cocoapods-lint.yml/badge.svg)](https://github.com/kstenerud/KSCrash/actions/workflows/cocoapods-lint.yml)
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fkstenerud%2FKSCrash%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/kstenerud/KSCrash)
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fkstenerud%2FKSCrash%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/kstenerud/KSCrash)
 
-#### The Ultimate Crash Reporter
+## 🚀 KSCrash 2.0 Released!
+
+KSCrash 2.0 is now available with significant improvements and enhancements. If you are upgrading from version 1.x, please refer to the migration guide for details on transitioning to the latest version:
+
+➡️ [Migration Guide for KSCrash 1.x to 2.0](https://github.com/kstenerud/KSCrash/wiki/Migration-Guide-for-KSCrash-1.x-to-2.0)
 
 ## Another crash reporter? Why?
 
@@ -74,7 +79,7 @@ Add the following to your `Package.swift` file:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/kstenerud/KSCrash.git", .upToNextMajor(from: "2.0.0-rc.8"))
+    .package(url: "https://github.com/kstenerud/KSCrash.git", .upToNextMajor(from: "2.1.2"))
 ]
 ```
 
@@ -94,7 +99,7 @@ targets: [
 
 1. Add to your `Podfile`:
    ```ruby
-   pod 'KSCrash', '~> 2.0.0-rc.8'
+   pod 'KSCrash', '~> 2.1'
    ```
 
 2. Run:

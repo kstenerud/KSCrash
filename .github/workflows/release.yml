@@ -4,20 +4,35 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to release'
+        description: "Version number for this release"
         required: true
+      dry_run:
+        description: "Test workflow without publishing to CocoaPods"
+        type: boolean
+        default: false
+        required: false
+      publish_only:
+        description: "Publish to CocoaPods without version updates or tagging"
+        type: boolean
+        default: false
+        required: false
 
 jobs:
   release:
-    runs-on: macos-latest
+    runs-on: macos-15
+    outputs:
+      commit_sha: ${{ steps.save_commit_info.outputs.commit_sha }}
+      version: ${{ github.event.inputs.version }}
+      dry_run: ${{ github.event.inputs.dry_run }}
+      tag_name: ${{ steps.create_tag.outputs.tag_name }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.0'
+          ruby-version: "3.2.2"
 
       - name: Install Ruby Gems
         run: sudo bundle install
@@ -27,14 +42,15 @@ jobs:
         with:
           xcode-version: latest-stable
 
-      - name: Install visionOS Platform
-        shell: bash
+      - name: Ensure Platforms are Downloaded
         run: |
-          # See https://github.com/actions/runner-images/issues/10692#issuecomment-2377521050
           xcodebuild -runFirstLaunch
           xcrun simctl list
-          xcodebuild -downloadPlatform visionOS
-          xcodebuild -runFirstLaunch
+          for platform in iOS watchOS tvOS visionOS; do
+            echo "Downloading $platform platform..."
+            xcodebuild -downloadPlatform $platform
+            xcodebuild -runFirstLaunch
+          done
 
       - name: Update version in podspec
         run: sed -i '' 's/s.version      = "[^"]*"/s.version      = "${{ github.event.inputs.version }}"/' KSCrash.podspec
@@ -49,7 +65,7 @@ jobs:
         run: |
           # Update SPM version
           sed -i '' "s/\.package(url: \"https:\/\/github.com\/kstenerud\/KSCrash.git\", .upToNextMajor(from: \"[^\"]*\"))/\.package(url: \"https:\/\/github.com\/kstenerud\/KSCrash.git\", .upToNextMajor(from: \"${{ github.event.inputs.version }}\"))/" README.md
-          
+
           # Update CocoaPods version
           VERSION="${{ github.event.inputs.version }}"
           if [[ "$VERSION" == *"-"* ]]; then
@@ -59,11 +75,12 @@ jobs:
             # It's a release version, use major.minor
             sed -i '' "s/pod 'KSCrash'.*$/pod 'KSCrash', '~> ${VERSION%.*}'/" README.md
           fi
-          
+
           echo "README.md updated with version ${{ github.event.inputs.version }}"
 
       - name: Commit version update
         id: commit_version
+        if: ${{ github.event.inputs.publish_only != 'true' }}
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
@@ -71,13 +88,29 @@ jobs:
           git commit -m "Update version to ${{ github.event.inputs.version }}"
           git push
 
+      - name: Save commit information
+        id: save_commit_info
+        if: ${{ github.event.inputs.publish_only != 'true' }}
+        run: |
+          COMMIT_SHA=$(git rev-parse HEAD)
+          echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
+
       - name: Create git tag
         id: create_tag
+        if: ${{ github.event.inputs.publish_only != 'true' }}
         run: |
-          git tag ${{ github.event.inputs.version }}
-          git push origin ${{ github.event.inputs.version }}
+          if [[ "${{ github.event.inputs.dry_run }}" == "true" ]]; then
+            TAG_NAME="${{ github.event.inputs.version }}-dryrun"
+          else
+            TAG_NAME="${{ github.event.inputs.version }}"
+          fi
+
+          git tag $TAG_NAME
+          git push origin $TAG_NAME
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
 
       - name: Publish to CocoaPods
+        if: ${{ github.event.inputs.dry_run != 'true' }}
         env:
           COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_PASSWORD }}
         run: pod trunk push KSCrash.podspec --verbose
@@ -85,7 +118,7 @@ jobs:
   rollback:
     runs-on: macos-15
     needs: release
-    if: failure()
+    if: failure() && github.event.inputs.publish_only != 'true'
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -94,44 +127,66 @@ jobs:
 
       - name: Fetch all tags
         run: |
-          echo "Fetching all tags..."
           git fetch --tags
-          echo "Tags fetched successfully."
 
       - name: Delete git tag locally
         run: |
-          echo "Attempting to delete local tag ${{ github.event.inputs.version }}..."
-          git tag -d ${{ github.event.inputs.version }} || echo "Tag not found locally"
-          echo "Local tag deletion process completed."
+          # Use tag from outputs or construct it
+          if [[ -n "${{ needs.release.outputs.tag_name }}" ]]; then
+            TAG_TO_DELETE="${{ needs.release.outputs.tag_name }}"
+          elif [[ "${{ needs.release.outputs.dry_run }}" == "true" ]]; then
+            TAG_TO_DELETE="${{ needs.release.outputs.version }}-dryrun"
+          else
+            TAG_TO_DELETE="${{ needs.release.outputs.version }}"
+          fi
+
+          git tag -d $TAG_TO_DELETE || echo "Tag not found locally"
+          echo "TAG_TO_DELETE=$TAG_TO_DELETE" >> $GITHUB_ENV
 
       - name: Delete git tag remotely
         run: |
-          echo "Attempting to delete remote tag ${{ github.event.inputs.version }}..."
-          git push --delete origin ${{ github.event.inputs.version }} || echo "Tag not found on remote"
-          echo "Remote tag deletion process completed."
+          git push --delete origin ${{ env.TAG_TO_DELETE }} || echo "Tag not found on remote"
 
       - name: Pull latest changes
         run: |
-          echo "Pulling latest changes for the current branch..."
           git pull origin "$(git branch --show-current)"
-          echo "Latest changes pulled successfully."
+
+      - name: Check for version commit
+        id: check_commit
+        run: |
+          if [[ -n "${{ needs.release.outputs.commit_sha }}" ]]; then
+            echo "Version commit found from outputs: ${{ needs.release.outputs.commit_sha }}"
+            echo "SHOULD_REVERT=true" >> $GITHUB_ENV
+            echo "COMMIT_SHA=${{ needs.release.outputs.commit_sha }}" >> $GITHUB_ENV
+          else
+            # Fallback: search by commit message
+            SEARCH_MSG="Update version to ${{ needs.release.outputs.version || github.event.inputs.version }}"
+            FOUND_COMMIT=$(git log --format="%H" --grep="$SEARCH_MSG" -n 1)
+
+            if [[ -n "$FOUND_COMMIT" ]]; then
+              echo "Found commit by message: $FOUND_COMMIT"
+              echo "SHOULD_REVERT=true" >> $GITHUB_ENV
+              echo "COMMIT_SHA=$FOUND_COMMIT" >> $GITHUB_ENV
+            else
+              echo "No version commit found, nothing to revert."
+              echo "SHOULD_REVERT=false" >> $GITHUB_ENV
+            fi
+          fi
 
       - name: Revert version commit
+        if: env.SHOULD_REVERT == 'true'
         run: |
-          echo "Identifying the last commit..."
-          previous_commit=$(git rev-list -n 1 HEAD)
-          echo "Last commit identified: $previous_commit"
-          echo "Attempting to revert commit $previous_commit..."
-          git revert --no-commit $previous_commit
-          echo "Revert command executed."
-          echo "Committing the revert with a message..."
+          echo "Reverting commit ${{ env.COMMIT_SHA }}..."
+          git log --oneline -n 3
+
+          git revert --no-commit ${{ env.COMMIT_SHA }}
+          git status -s
+
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git commit -m "Revert version update due to failed release"
-          echo "Revert commit completed."
 
       - name: Push revert
+        if: env.SHOULD_REVERT == 'true'
         run: |
-          echo "Pushing reverted changes to remote..."
-          git push || { echo "Push failed. Checking remote status..."; git status; exit 1; }
-          echo "Push completed."
+          git push || { git status; exit 1; }
