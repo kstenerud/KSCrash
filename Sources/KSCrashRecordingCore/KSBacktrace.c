@@ -28,13 +28,14 @@
 
 #include <sys/param.h>
 
+#include "KSBinaryImageCache.h"
 #include "KSDynamicLinker.h"
 #include "KSStackCursor.h"
 #include "KSStackCursor_MachineContext.h"
 #include "KSSymbolicator.h"
 #include "KSThread.h"
 
-int ks_captureBacktrace(pthread_t thread, uintptr_t *addresses, int count)
+int ksbt_captureBacktrace(pthread_t thread, uintptr_t *addresses, int count)
 {
     if (!addresses || count == 0) {
         return 0;
@@ -62,11 +63,16 @@ int ks_captureBacktrace(pthread_t thread, uintptr_t *addresses, int count)
     return frameCount;
 }
 
-bool ks_symbolicateAddress(uintptr_t address, struct KSSymbolInformation *result)
+bool ksbt_symbolicateAddress(uintptr_t address, struct KSSymbolInformation *result)
 {
     if (!result) {
         return false;
     }
+
+    // initalize the binary image cache.
+    // this has an atomic check so isn't expensive
+    // except for the first call.
+    ksbic_init();
 
     uintptr_t untaggedAddress = kssymbolicator_callInstructionAddress(address);
 

@@ -51,7 +51,7 @@ extern "C" {
  *             It may also briefly suspend the target thread while unwinding its stack.
  */
 
-int ks_captureBacktrace(pthread_t _Nonnull thread, uintptr_t *_Nonnull addresses, int count)
+int ksbt_captureBacktrace(pthread_t _Nonnull thread, uintptr_t *_Nonnull addresses, int count)
     CF_SWIFT_NAME(captureBacktrace(thread:addresses:count:));
 
 /**
@@ -88,7 +88,7 @@ struct KSSymbolInformation {
  * @discussion On success, @c result will contain the symbol name, symbol address, image name,
  *             image load address, image size, and image UUID associated with @c address.
  */
-bool ks_symbolicateAddress(uintptr_t address, struct KSSymbolInformation *_Nonnull result)
+bool ksbt_symbolicateAddress(uintptr_t address, struct KSSymbolInformation *_Nonnull result)
     CF_SWIFT_NAME(symbolicate(address:result:));
 
 #ifdef __cplusplus
