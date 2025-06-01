@@ -276,8 +276,6 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
 
     kstc_init(60);
 
-    ksbic_init();
-
     kscm_setEventCallback(onCrash);
     setMonitors(configuration->monitors);
     if (kscm_activateMonitors() == false) {

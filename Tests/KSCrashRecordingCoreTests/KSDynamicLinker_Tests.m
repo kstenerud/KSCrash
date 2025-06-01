@@ -34,7 +34,6 @@
 
 // Declare external function only for testing
 extern void ksbic_resetCache(void);
-extern void ksbic_init(void);
 
 @implementation KSDynamicLinker_Tests
 
@@ -42,8 +41,13 @@ extern void ksbic_init(void);
 {
     [super setUp];
     ksbic_resetCache();
-    ksbic_init();
     [NSThread sleepForTimeInterval:0.1];
+}
+
+- (void)testAppImageUUID
+{
+    const uint8_t *uuidBytes = ksdl_appImageUUID();
+    XCTAssertTrue(uuidBytes != NULL, @"");
 }
 
 - (void)testImageUUID
