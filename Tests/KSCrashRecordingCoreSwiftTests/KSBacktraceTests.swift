@@ -28,7 +28,7 @@ import Darwin
 import KSCrashRecordingCore
 import XCTest
 
-#if !os(watchOS) // there are no backtraces on watchOS
+#if !os(watchOS)  // there are no backtraces on watchOS
     class KSBacktraceTests: XCTestCase {
         func testBacktrace() {
             let expectation = XCTestExpectation()
@@ -41,7 +41,7 @@ import XCTest
 
                 XCTAssert(count > 0)
                 XCTAssert(count <= entries)
-                for index in 0 ..< count {
+                for index in 0..<count {
                     XCTAssert(addresses[Int(index)] != 0)
                 }
 
@@ -64,7 +64,7 @@ import XCTest
 
                 XCTAssert(count > 0)
                 XCTAssert(count <= entries)
-                for index in 0 ..< count {
+                for index in 0..<count {
                     XCTAssert(addresses[Int(index)] != 0)
                 }
 

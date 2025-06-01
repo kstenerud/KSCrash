@@ -52,10 +52,10 @@ let package = Package(
         .target(
             name: Targets.recording,
             dependencies: [
-                .target(name: Targets.recordingCore),
+                .target(name: Targets.recordingCore)
             ],
             resources: [
-                .copy("Resources/PrivacyInfo.xcprivacy"),
+                .copy("Resources/PrivacyInfo.xcprivacy")
             ],
             cSettings: [
                 .headerSearchPath("."),
@@ -70,7 +70,7 @@ let package = Package(
                 .target(name: Targets.recordingCore),
             ],
             resources: [
-                .process("Resources"),
+                .process("Resources")
             ],
             cSettings: [
                 .headerSearchPath("../../Sources/\(Targets.recording)"),
@@ -86,7 +86,7 @@ let package = Package(
                 .target(name: Targets.reportingCore),
             ],
             resources: [
-                .copy("Resources/PrivacyInfo.xcprivacy"),
+                .copy("Resources/PrivacyInfo.xcprivacy")
             ]
         ),
         .testTarget(
@@ -98,7 +98,7 @@ let package = Package(
                 .target(name: Targets.reportingCore),
             ],
             resources: [
-                .process("Resources"),
+                .process("Resources")
             ]
         ),
 
@@ -109,7 +109,7 @@ let package = Package(
                 .target(name: Targets.filters),
             ],
             resources: [
-                .copy("Resources/PrivacyInfo.xcprivacy"),
+                .copy("Resources/PrivacyInfo.xcprivacy")
             ]
         ),
 
@@ -122,7 +122,7 @@ let package = Package(
                 .target(name: Targets.demangleFilter),
             ],
             resources: [
-                .copy("Resources/PrivacyInfo.xcprivacy"),
+                .copy("Resources/PrivacyInfo.xcprivacy")
             ]
         ),
         .testTarget(
@@ -138,10 +138,10 @@ let package = Package(
         .target(
             name: Targets.recordingCore,
             dependencies: [
-                .target(name: Targets.core),
+                .target(name: Targets.core)
             ],
             resources: [
-                .copy("Resources/PrivacyInfo.xcprivacy"),
+                .copy("Resources/PrivacyInfo.xcprivacy")
             ]
         ),
         .testTarget(
@@ -155,20 +155,20 @@ let package = Package(
         .testTarget(
             name: Targets.recordingCoreSwift.tests,
             dependencies: [
-                .target(name: Targets.recordingCore),
+                .target(name: Targets.recordingCore)
             ]
         ),
 
         .target(
             name: Targets.reportingCore,
             dependencies: [
-                .target(name: Targets.core),
+                .target(name: Targets.core)
             ],
             resources: [
-                .copy("Resources/PrivacyInfo.xcprivacy"),
+                .copy("Resources/PrivacyInfo.xcprivacy")
             ],
             linkerSettings: [
-                .linkedLibrary("z"),
+                .linkedLibrary("z")
             ]
         ),
         .testTarget(
@@ -182,23 +182,23 @@ let package = Package(
         .target(
             name: Targets.core,
             resources: [
-                .copy("Resources/PrivacyInfo.xcprivacy"),
+                .copy("Resources/PrivacyInfo.xcprivacy")
             ]
         ),
         .testTarget(
             name: Targets.core.tests,
             dependencies: [
-                .target(name: Targets.core),
+                .target(name: Targets.core)
             ]
         ),
 
         .target(
             name: Targets.discSpaceMonitor,
             dependencies: [
-                .target(name: Targets.recordingCore),
+                .target(name: Targets.recordingCore)
             ],
             resources: [
-                .copy("Resources/PrivacyInfo.xcprivacy"),
+                .copy("Resources/PrivacyInfo.xcprivacy")
             ]
         ),
         .testTarget(
@@ -212,10 +212,10 @@ let package = Package(
         .target(
             name: Targets.bootTimeMonitor,
             dependencies: [
-                .target(name: Targets.recordingCore),
+                .target(name: Targets.recordingCore)
             ],
             resources: [
-                .copy("Resources/PrivacyInfo.xcprivacy"),
+                .copy("Resources/PrivacyInfo.xcprivacy")
             ]
         ),
         .testTarget(
@@ -229,10 +229,10 @@ let package = Package(
         .target(
             name: Targets.demangleFilter,
             dependencies: [
-                .target(name: Targets.recording),
+                .target(name: Targets.recording)
             ],
             resources: [
-                .copy("Resources/PrivacyInfo.xcprivacy"),
+                .copy("Resources/PrivacyInfo.xcprivacy")
             ],
             cSettings: [
                 .headerSearchPath("swift"),
@@ -254,7 +254,7 @@ let package = Package(
         .target(
             name: Targets.testTools,
             dependencies: [
-                .target(name: Targets.recordingCore),
+                .target(name: Targets.recordingCore)
             ]
         ),
     ],
