@@ -28,6 +28,7 @@
 
 #include <mach-o/dyld.h>
 #include <pthread.h>
+#include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -125,11 +126,12 @@ static void ksbic_removeImageCallback(const struct mach_header *header, intptr_t
     pthread_rwlock_unlock(&g_imageCacheRWLock);
 }
 
-static bool g_initialized = false;
+static _Atomic(bool) g_initialized = false;
 
 void ksbic_init(void)
 {
-    if (g_initialized) {
+    bool expected = false;
+    if (!atomic_compare_exchange_strong(&g_initialized, &expected, true)) {
         return;
     }
 
@@ -137,13 +139,16 @@ void ksbic_init(void)
 
     _dyld_register_func_for_add_image(ksbic_addImageCallback);
     _dyld_register_func_for_remove_image(ksbic_removeImageCallback);
-
-    g_initialized = true;
 }
 
 // For testing purposes only. Used with extern in test files.
 void ksbic_resetCache(void)
 {
+    bool expected = true;
+    if (!atomic_compare_exchange_strong(&g_initialized, &expected, false)) {
+        return;
+    }
+
     pthread_rwlock_wrlock(&g_imageCacheRWLock);
 
     for (uint32_t i = 0; i < g_cachedImageCount; i++) {
@@ -157,8 +162,6 @@ void ksbic_resetCache(void)
     g_cachedImageCount = 0;
 
     pthread_rwlock_unlock(&g_imageCacheRWLock);
-
-    g_initialized = false;
 }
 
 uint32_t ksbic_imageCount(void)
