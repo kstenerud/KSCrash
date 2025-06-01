@@ -1,3 +1,5 @@
 # .git-blame-ignore-revs
 # Initial reformatting with clang-format #488
 3375174dcecd2287bb3a20a2c6827cb62cd31f63
+# Initial reformatting with swift-format #637
+51bec3a8b045d931773d285399516d16a46c50ea
