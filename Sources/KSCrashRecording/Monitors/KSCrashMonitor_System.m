@@ -34,6 +34,7 @@
 #import "KSDynamicLinker.h"
 #import "KSSysCtl.h"
 #import "KSSystemCapabilities.h"
+#import "KSJailbreak.h"
 
 // #define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -289,21 +290,15 @@ static const char *getCurrentCPUArch(void)
  *
  * @return YES if the device is jailbroken.
  */
-static bool isJailbroken(void)
-{
-    static bool sJailbroken;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        const char *path = "/private/kscrash_jailbreak_test";
-        int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-        if (fd < 0) {
-            sJailbroken = false;
-        } else {
-            sJailbroken = true;
-            unlink(path);
-        }
-    });
-    return sJailbroken;
+static inline bool isJailbroken(void) {
+    static bool initialized_jb;
+    static bool is_jb;
+    if(!initialized_jb) {
+        get_jailbreak_status(&is_jb);
+        initialized_jb = true;
+    }
+
+    return is_jb;
 }
 
 /** Check if the current build is a debug build.
