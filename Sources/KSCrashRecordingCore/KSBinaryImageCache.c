@@ -35,7 +35,7 @@
 #include "KSLogger.h"
 
 #ifndef KSBIC_MAX_CACHED_IMAGES
-#define KSBIC_MAX_CACHED_IMAGES 1000
+#define KSBIC_MAX_CACHED_IMAGES 2000
 #endif
 
 typedef struct {
