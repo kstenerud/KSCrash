@@ -108,18 +108,18 @@ static uintptr_t findAddress(void *address)
 
 static void __cxa_throw_decorator(void *thrown_exception, void *tinfo, void (*dest)(void *))
 {
-    const int k_requiredFrames = 2;
+#define REQUIRED_FRAMES 2
 
     KSLOG_TRACE("Decorating __cxa_throw");
 
     g_cxa_throw_handler(thrown_exception, tinfo, dest);
 
-    void *backtraceArr[k_requiredFrames];
-    int count = backtrace(backtraceArr, k_requiredFrames);
+    void *backtraceArr[REQUIRED_FRAMES];
+    int count = backtrace(backtraceArr, REQUIRED_FRAMES);
 
     Dl_info info;
-    if (count >= k_requiredFrames) {
-        if (dladdr(backtraceArr[k_requiredFrames - 1], &info) != 0) {
+    if (count >= REQUIRED_FRAMES) {
+        if (dladdr(backtraceArr[REQUIRED_FRAMES - 1], &info) != 0) {
             uintptr_t function = findAddress(info.dli_fbase);
             if (function != (uintptr_t)NULL) {
                 KSLOG_TRACE("Calling original __cxa_throw function at %p", (void *)function);
@@ -128,6 +128,7 @@ static void __cxa_throw_decorator(void *thrown_exception, void *tinfo, void (*de
             }
         }
     }
+#undef REQUIRED_FRAMES
 }
 
 static void perform_rebinding_with_section(const section_t *dataSection, intptr_t slide, nlist_t *symtab, char *strtab,
