@@ -43,6 +43,7 @@
 #import <AppKit/AppKit.h>
 #endif
 
+NS_EXTENSION_UNAVAILABLE_IOS("Confirmation alert cannot be displayed in app extension")
 @interface KSCrashAlertViewProcess : NSObject
 
 @property(nonatomic, readwrite, copy) NSArray<id<KSCrashReport>> *reports;
