@@ -33,6 +33,7 @@
 
 @implementation KSCrashReportFilterAlert_Tests
 
+#if KSCRASH_HAS_UIAPPLICATION
 - (void)testAlert
 {
     id<KSCrashReportFilter> filter = [[KSCrashReportFilterAlert alloc] initWithTitle:@"title"
@@ -49,5 +50,7 @@
 
     [self waitForExpectations:@[ expectation ] timeout:0.2];
 }
+#endif
 
 @end
+

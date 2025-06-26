@@ -61,6 +61,7 @@
         _printPreviousLogOnStartup = cConfig.printPreviousLogOnStartup ? YES : NO;
         _enableSwapCxaThrow = cConfig.enableSwapCxaThrow ? YES : NO;
         _enableSigTermMonitoring = cConfig.enableSigTermMonitoring ? YES : NO;
+        _enableAsyncLoadingOfBinaryImageCache = cConfig.enableAsyncLoadingOfBinaryImageCache ? YES : NO;
 
         _reportStoreConfiguration = [KSCrashReportStoreConfiguration new];
         _reportStoreConfiguration.appName = nil;
@@ -104,6 +105,7 @@
     config.printPreviousLogOnStartup = self.printPreviousLogOnStartup;
     config.enableSwapCxaThrow = self.enableSwapCxaThrow;
     config.enableSigTermMonitoring = self.enableSigTermMonitoring;
+    config.enableAsyncLoadingOfBinaryImageCache = self.enableAsyncLoadingOfBinaryImageCache;
 
     return config;
 }
@@ -157,6 +159,8 @@
     copy.printPreviousLogOnStartup = self.printPreviousLogOnStartup;
     copy.enableSwapCxaThrow = self.enableSwapCxaThrow;
     copy.enableSigTermMonitoring = self.enableSigTermMonitoring;
+    copy.enableAsyncLoadingOfBinaryImageCache = self.enableAsyncLoadingOfBinaryImageCache;
+
     return copy;
 }
 

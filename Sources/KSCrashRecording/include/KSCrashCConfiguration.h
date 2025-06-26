@@ -221,6 +221,12 @@ typedef struct {
      * **Default**: false
      */
     bool enableSigTermMonitoring;
+
+    /** If true, loads the binary image cache asynchronously.
+     *
+     * **Default**: false
+     */
+    bool enableAsyncLoadingOfBinaryImageCache;
 } KSCrashCConfiguration;
 
 static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
@@ -239,6 +245,7 @@ static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
         .printPreviousLogOnStartup = false,
         .enableSwapCxaThrow = true,
         .enableSigTermMonitoring = false,
+        .enableAsyncLoadingOfBinaryImageCache = false,
     };
 }
 

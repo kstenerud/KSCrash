@@ -26,13 +26,13 @@
 
 #include "KSBinaryImageCache.h"
 
-#include <mach-o/dyld.h>
-#include <pthread.h>
-#include <stdatomic.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include "KSLogger.h"
+#import <Foundation/Foundation.h>
+#import <mach-o/dyld.h>
+#import <pthread.h>
+#import <stdatomic.h>
+#import <stdlib.h>
+#import <string.h>
+#import "KSLogger.h"
 
 #ifndef KSBIC_MAX_CACHED_IMAGES
 #define KSBIC_MAX_CACHED_IMAGES 2000
@@ -48,21 +48,19 @@ typedef struct {
 static KSBinaryImageCacheEntry g_binaryImageCache[KSBIC_MAX_CACHED_IMAGES];
 static uint32_t g_cachedImageCount = 0;
 static pthread_rwlock_t g_imageCacheRWLock = PTHREAD_RWLOCK_INITIALIZER;
+static dispatch_queue_t g_queue = NULL;
 
 /** Add an image to the cache.
  *
  * @param header The header of the image to add.
  * @param slide The VM address slide of the image.
  */
-static void ksbic_addImageCallback(const struct mach_header *header, intptr_t slide)
+static void ksbic_addImageCallback_nolock(const struct mach_header *header, intptr_t slide)
 {
-    pthread_rwlock_wrlock(&g_imageCacheRWLock);
-
     // Check if image already exists in cache to prevent duplication
     for (uint32_t i = 0; i < g_cachedImageCount; i++) {
         if (g_binaryImageCache[i].header == header) {
             KSLOG_DEBUG("Image already in cache at index %d, skipping.", i);
-            pthread_rwlock_unlock(&g_imageCacheRWLock);
             return;
         }
     }
@@ -84,7 +82,7 @@ static void ksbic_addImageCallback(const struct mach_header *header, intptr_t sl
             g_binaryImageCache[imageIndex].header = header;
             g_binaryImageCache[imageIndex].name = strdup(imageName);
             if (g_binaryImageCache[imageIndex].name == NULL) {
-                KSLOG_ERROR("Failed to duplicate image name: %s. Not caching image.", imageName);
+                KSLOG_ERROR(@"Failed to duplicate image name: %s. Not caching image.", imageName);
             } else {
                 g_binaryImageCache[imageIndex].imageVMAddrSlide = (uintptr_t)slide;
                 g_binaryImageCache[imageIndex].valid = true;
@@ -93,9 +91,14 @@ static void ksbic_addImageCallback(const struct mach_header *header, intptr_t sl
             }
         }
     } else {
-        KSLOG_ERROR("Binary image cache full. Not caching image.");
+        KSLOG_ERROR(@"Binary image cache full. Not caching image.");
     }
+}
 
+static void ksbic_addImageCallback(const struct mach_header *header, intptr_t slide)
+{
+    pthread_rwlock_wrlock(&g_imageCacheRWLock);
+    ksbic_addImageCallback_nolock(header, slide);
     pthread_rwlock_unlock(&g_imageCacheRWLock);
 }
 
@@ -104,10 +107,8 @@ static void ksbic_addImageCallback(const struct mach_header *header, intptr_t sl
  * @param header The header of the image to remove.
  * @param slide The VM address slide of the image.
  */
-static void ksbic_removeImageCallback(const struct mach_header *header, intptr_t slide)
+static void ksbic_removeImageCallback_nolock(const struct mach_header *header, intptr_t slide)
 {
-    pthread_rwlock_wrlock(&g_imageCacheRWLock);
-
     for (uint32_t i = 0; i < g_cachedImageCount; i++) {
         if (g_binaryImageCache[i].header == header) {
             if (g_binaryImageCache[i].name != NULL) {
@@ -122,13 +123,17 @@ static void ksbic_removeImageCallback(const struct mach_header *header, intptr_t
             break;
         }
     }
+}
 
+static void ksbic_removeImageCallback(const struct mach_header *header, intptr_t slide)
+{
+    pthread_rwlock_wrlock(&g_imageCacheRWLock);
+    ksbic_removeImageCallback_nolock(header, slide);
     pthread_rwlock_unlock(&g_imageCacheRWLock);
 }
 
 static _Atomic(bool) g_initialized = false;
-
-void ksbic_init(void)
+void ksbic_init(bool async)
 {
     bool expected = false;
     if (!atomic_compare_exchange_strong(&g_initialized, &expected, true)) {
@@ -137,8 +142,35 @@ void ksbic_init(void)
 
     KSLOG_DEBUG("Initializing binary image cache");
 
-    _dyld_register_func_for_add_image(ksbic_addImageCallback);
-    _dyld_register_func_for_remove_image(ksbic_removeImageCallback);
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        dispatch_queue_attr_t attr;
+        attr = dispatch_queue_attr_make_with_qos_class(DISPATCH_QUEUE_SERIAL, QOS_CLASS_UTILITY, 0);
+        g_queue = dispatch_queue_create("com.kscrash.binary.images.queue", attr);
+    });
+
+    dispatch_block_t loadBlock = ^{
+        // Load all image directly behind the lock
+        pthread_rwlock_wrlock(&g_imageCacheRWLock);
+        for (int i = 0; i < _dyld_image_count(); i++) {
+            const struct mach_header *header = _dyld_get_image_header(i);
+            if (header) {
+                intptr_t slide = _dyld_get_image_vmaddr_slide(i);
+                ksbic_addImageCallback_nolock(header, slide);
+            }
+        }
+        pthread_rwlock_unlock(&g_imageCacheRWLock);
+
+        // then add the callbacks
+        _dyld_register_func_for_add_image(ksbic_addImageCallback);
+        _dyld_register_func_for_remove_image(ksbic_removeImageCallback);
+    };
+
+    if (async) {
+        dispatch_async(g_queue, loadBlock);
+    } else {
+        dispatch_sync(g_queue, loadBlock);
+    }
 }
 
 // For testing purposes only. Used with extern in test files.

@@ -205,6 +205,26 @@ const uint8_t *ksdl_imageUUID(const char *const imageName, bool exactMatch)
     return NULL;
 }
 
+const uint8_t *ksdl_appImageUUID(void)
+{
+    const struct mach_header *header = _dyld_get_image_header(0);
+
+    if (header != NULL) {
+        uintptr_t cmdPtr = firstCmdAfterHeader(header);
+        if (cmdPtr != 0) {
+            for (uint32_t iCmd = 0; iCmd < header->ncmds; iCmd++) {
+                const struct load_command *loadCmd = (struct load_command *)cmdPtr;
+                if (loadCmd->cmd == LC_UUID) {
+                    struct uuid_command *uuidCmd = (struct uuid_command *)cmdPtr;
+                    return uuidCmd->uuid;
+                }
+                cmdPtr += loadCmd->cmdsize;
+            }
+        }
+    }
+    return NULL;
+}
+
 bool ksdl_dladdr(const uintptr_t address, Dl_info *const info)
 {
     info->dli_fname = NULL;

@@ -276,7 +276,7 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
 
     kstc_init(60);
 
-    ksbic_init();
+    ksbic_init(configuration->enableAsyncLoadingOfBinaryImageCache);
 
     kscm_setEventCallback(onCrash);
     setMonitors(configuration->monitors);
