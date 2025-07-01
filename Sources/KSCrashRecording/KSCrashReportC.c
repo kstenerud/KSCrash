@@ -1571,6 +1571,28 @@ static void writeDebugInfo(const KSCrashReportWriter *const writer, const char *
 
 void kscrashreport_writeStandardReport(const KSCrash_MonitorContext *const monitorContext, const char *const path)
 {
+    // write corpse
+    char corpsePath[1024] = {0};
+    snprintf(corpsePath, 1024, "%s-corpse", path);
+
+    mach_port_t task = mach_task_self();
+    mach_port_t corpse = MACH_PORT_NULL;
+    
+    if (KERN_SUCCESS == task_generate_corpse(task, &corpse)) {
+        mach_vm_address_t kcdAddress = 0;
+        mach_vm_size_t kcdSize = 0;
+        if (KERN_SUCCESS == task_map_corpse_info_64(task, corpse, &kcdAddress, &kcdSize)) {
+            int fd = open(corpsePath, O_WRONLY | O_CREAT, 0666);
+            if (fd >= 0) {
+                write(fd, (const void*)kcdAddress, kcdSize);
+                close(fd);
+            }
+        }
+        // we should deallocate the corpse port,
+        // but we're dying here so no reason to.
+        mach_port_deallocate(task, corpse);
+    }
+
     KSLOG_INFO("Writing crash report to %s", path);
     char writeBuffer[1024];
     KSBufferedWriter bufferedWriter;
