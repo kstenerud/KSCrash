@@ -38,19 +38,15 @@
 
 #include "KSLogger.h"
 
-static const char* thread_state_names[] = {
+static const char *thread_state_names[] = {
     // Defined in mach/thread_info.h
-    NULL,
-    "TH_STATE_RUNNING",
-    "TH_STATE_STOPPED",
-    "TH_STATE_WAITING",
-    "TH_STATE_UNINTERRUPTIBLE",
-    "TH_STATE_HALTED",
+    NULL, "TH_STATE_RUNNING", "TH_STATE_STOPPED", "TH_STATE_WAITING", "TH_STATE_UNINTERRUPTIBLE", "TH_STATE_HALTED",
 };
 
 static const int thread_state_names_count = sizeof(thread_state_names) / sizeof(*thread_state_names);
 
-const char *ksthread_state_name(int state) {
+const char *ksthread_state_name(int state)
+{
     if (state < 1 || state >= thread_state_names_count) {
         return NULL;
     }
@@ -76,19 +72,19 @@ int ksthread_getThreadState(const KSThread thread)
 {
     int threadState = TH_STATE_UNSET;
 
-    integer_t infoBuffer[THREAD_BASIC_INFO_COUNT] = {0};
+    integer_t infoBuffer[THREAD_BASIC_INFO_COUNT] = { 0 };
     thread_info_t info = infoBuffer;
     mach_msg_type_number_t inOutSize = THREAD_BASIC_INFO_COUNT;
     kern_return_t kr = 0;
 
     kr = thread_info((thread_t)thread, THREAD_BASIC_INFO, info, &inOutSize);
     if (kr != KERN_SUCCESS) {
-        KSLOG_TRACE("Error getting thread_info with flavor "
-                        "THREAD_BASIC_INFO from mach thread : %s",
-                        mach_error_string(kr));
+        KSLOG_TRACE(
+            "Error getting thread_info with flavor "
+            "THREAD_BASIC_INFO from mach thread : %s",
+            mach_error_string(kr));
         return threadState;
     }
-
 
     thread_basic_info_t basicInfo = (thread_basic_info_t)info;
     if (!ksmem_isMemoryReadable(basicInfo, sizeof(*basicInfo))) {
