@@ -1058,7 +1058,7 @@ static void writeThread(const KSCrashReportWriter *const writer, const char *con
 
     KSStackCursor stackCursor;
     bool hasBacktrace = getStackCursor(crash, machineContext, &stackCursor);
-    const char* state = ksthread_state_name(threadState);
+    const char *state = ksthread_state_name(threadState);
 
     writer->beginObject(writer, key);
     {
