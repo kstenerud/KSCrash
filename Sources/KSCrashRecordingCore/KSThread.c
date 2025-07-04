@@ -70,30 +70,26 @@ bool ksthread_getThreadName(const KSThread thread, char *const buffer, int bufLe
 
 int ksthread_getThreadState(const KSThread thread)
 {
-    int threadState = TH_STATE_UNSET;
-
     integer_t infoBuffer[THREAD_BASIC_INFO_COUNT] = { 0 };
-    thread_info_t info = infoBuffer;
-    mach_msg_type_number_t inOutSize = THREAD_BASIC_INFO_COUNT;
+    thread_basic_info_t info = infoBuffer;
+    mach_msg_type_number_t count = THREAD_BASIC_INFO_COUNT;
     kern_return_t kr = 0;
 
-    kr = thread_info((thread_t)thread, THREAD_BASIC_INFO, info, &inOutSize);
+    kr = thread_info((thread_t)thread, THREAD_BASIC_INFO, (thread_info_t)info, &count);
     if (kr != KERN_SUCCESS) {
         KSLOG_TRACE(
             "Error getting thread_info with flavor "
             "THREAD_BASIC_INFO from mach thread : %s",
             mach_error_string(kr));
-        return threadState;
+        return TH_STATE_UNSET;
     }
 
-    thread_basic_info_t basicInfo = (thread_basic_info_t)info;
-    if (!ksmem_isMemoryReadable(basicInfo, sizeof(*basicInfo))) {
-        KSLOG_DEBUG("Thread %p has an invalid thread basic info %p", thread, basicInfo);
-        return threadState;
+    if (!ksmem_isMemoryReadable(info, sizeof(*info))) {
+        KSLOG_DEBUG("Thread %p has an invalid thread basic info %p", thread, info);
+        return TH_STATE_UNSET;
     }
-    threadState = basicInfo->run_state;
 
-    return threadState;
+    return info->run_state;
 }
 
 bool ksthread_getQueueName(const KSThread thread, char *const buffer, int bufLength)
