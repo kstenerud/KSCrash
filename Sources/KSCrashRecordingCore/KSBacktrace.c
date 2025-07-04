@@ -82,7 +82,7 @@ bool ksbt_symbolicateAddress(uintptr_t address, struct KSSymbolInformation *resu
     }
 
     KSBinaryImage image = {};
-    if (ksdl_getBinaryImageForHeader(info.dli_fbase, info.dli_fname, &image) == false) {
+    if (ksdl_binaryImageForHeader(info.dli_fbase, info.dli_fname, &image) == false) {
         return false;
     }
 

@@ -55,6 +55,7 @@
 #include "KSSystemCapabilities.h"
 #include "KSThread.h"
 #include "KSThreadCache.h"
+#include <mach-o/dyld_images.h>
 
 // #define KSLogger_LocalLevel TRACE
 #include <errno.h>
@@ -1136,36 +1137,31 @@ static void writeAllThreads(const KSCrashReportWriter *const writer, const char 
  *
  * @param index Which image to write about.
  */
-static void writeBinaryImage(const KSCrashReportWriter *const writer, const char *const key, const int index)
+static void writeBinaryImage(const KSCrashReportWriter *const writer, const KSBinaryImage *const image)
 {
-    KSBinaryImage image = { 0 };
-    if (!ksdl_getBinaryImage(index, &image)) {
-        return;
-    }
-
-    writer->beginObject(writer, key);
+    writer->beginObject(writer, NULL);
     {
-        writer->addUIntegerElement(writer, KSCrashField_ImageAddress, image.address);
-        writer->addUIntegerElement(writer, KSCrashField_ImageVmAddress, image.vmAddress);
-        writer->addUIntegerElement(writer, KSCrashField_ImageSize, image.size);
-        writer->addStringElement(writer, KSCrashField_Name, image.name);
-        writer->addUUIDElement(writer, KSCrashField_UUID, image.uuid);
-        writer->addIntegerElement(writer, KSCrashField_CPUType, image.cpuType);
-        writer->addIntegerElement(writer, KSCrashField_CPUSubType, image.cpuSubType);
-        writer->addUIntegerElement(writer, KSCrashField_ImageMajorVersion, image.majorVersion);
-        writer->addUIntegerElement(writer, KSCrashField_ImageMinorVersion, image.minorVersion);
-        writer->addUIntegerElement(writer, KSCrashField_ImageRevisionVersion, image.revisionVersion);
-        if (image.crashInfoMessage != NULL) {
-            writer->addStringElement(writer, KSCrashField_ImageCrashInfoMessage, image.crashInfoMessage);
+        writer->addUIntegerElement(writer, KSCrashField_ImageAddress, image->address);
+        writer->addUIntegerElement(writer, KSCrashField_ImageVmAddress, image->vmAddress);
+        writer->addUIntegerElement(writer, KSCrashField_ImageSize, image->size);
+        writer->addStringElement(writer, KSCrashField_Name, image->name);
+        writer->addUUIDElement(writer, KSCrashField_UUID, image->uuid);
+        writer->addIntegerElement(writer, KSCrashField_CPUType, image->cpuType);
+        writer->addIntegerElement(writer, KSCrashField_CPUSubType, image->cpuSubType);
+        writer->addUIntegerElement(writer, KSCrashField_ImageMajorVersion, image->majorVersion);
+        writer->addUIntegerElement(writer, KSCrashField_ImageMinorVersion, image->minorVersion);
+        writer->addUIntegerElement(writer, KSCrashField_ImageRevisionVersion, image->revisionVersion);
+        if (image->crashInfoMessage != NULL) {
+            writer->addStringElement(writer, KSCrashField_ImageCrashInfoMessage, image->crashInfoMessage);
         }
-        if (image.crashInfoMessage2 != NULL) {
-            writer->addStringElement(writer, KSCrashField_ImageCrashInfoMessage2, image.crashInfoMessage2);
+        if (image->crashInfoMessage2 != NULL) {
+            writer->addStringElement(writer, KSCrashField_ImageCrashInfoMessage2, image->crashInfoMessage2);
         }
-        if (image.crashInfoBacktrace != NULL) {
-            writer->addStringElement(writer, KSCrashField_ImageCrashInfoBacktrace, image.crashInfoBacktrace);
+        if (image->crashInfoBacktrace != NULL) {
+            writer->addStringElement(writer, KSCrashField_ImageCrashInfoBacktrace, image->crashInfoBacktrace);
         }
-        if (image.crashInfoSignature != NULL) {
-            writer->addStringElement(writer, KSCrashField_ImageCrashInfoSignature, image.crashInfoSignature);
+        if (image->crashInfoSignature != NULL) {
+            writer->addStringElement(writer, KSCrashField_ImageCrashInfoSignature, image->crashInfoSignature);
         }
     }
     writer->endContainer(writer);
@@ -1179,15 +1175,22 @@ static void writeBinaryImage(const KSCrashReportWriter *const writer, const char
  */
 static void writeBinaryImages(const KSCrashReportWriter *const writer, const char *const key)
 {
-    const int imageCount = ksdl_imageCount();
-
+    int count = 0;
+    const struct dyld_image_info* images = ksbic_beginImageAccess(&count);
+    
     writer->beginArray(writer, key);
     {
-        for (int iImg = 0; iImg < imageCount; iImg++) {
-            writeBinaryImage(writer, NULL, iImg);
+        for (int iImg = 0; iImg < count; iImg++) {
+            struct dyld_image_info info = images[iImg];
+            KSBinaryImage image = {0};
+            if (ksdl_binaryImageForHeader(info.imageLoadAddress, info.imageFilePath, &image)) {
+                writeBinaryImage(writer, &image);
+            }
         }
     }
     writer->endContainer(writer);
+    
+    ksbic_endImageAccess(images);
 }
 
 /** Write information about system memory to the report.
@@ -1571,28 +1574,6 @@ static void writeDebugInfo(const KSCrashReportWriter *const writer, const char *
 
 void kscrashreport_writeStandardReport(const KSCrash_MonitorContext *const monitorContext, const char *const path)
 {
-    // write corpse
-    char corpsePath[1024] = {0};
-    snprintf(corpsePath, 1024, "%s-corpse", path);
-
-    mach_port_t task = mach_task_self();
-    mach_port_t corpse = MACH_PORT_NULL;
-    
-    if (KERN_SUCCESS == task_generate_corpse(task, &corpse)) {
-        mach_vm_address_t kcdAddress = 0;
-        mach_vm_size_t kcdSize = 0;
-        if (KERN_SUCCESS == task_map_corpse_info_64(task, corpse, &kcdAddress, &kcdSize)) {
-            int fd = open(corpsePath, O_WRONLY | O_CREAT, 0666);
-            if (fd >= 0) {
-                write(fd, (const void*)kcdAddress, kcdSize);
-                close(fd);
-            }
-        }
-        // we should deallocate the corpse port,
-        // but we're dying here so no reason to.
-        mach_port_deallocate(task, corpse);
-    }
-
     KSLOG_INFO("Writing crash report to %s", path);
     char writeBuffer[1024];
     KSBufferedWriter bufferedWriter;

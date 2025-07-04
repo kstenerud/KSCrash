@@ -28,6 +28,7 @@
 #define HDR_KSBinaryImageCache_h
 
 #include <mach-o/dyld.h>
+#include <mach-o/dyld_images.h>
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -42,35 +43,8 @@ extern "C" {
  */
 void ksbic_init(void);
 
-/** Get the number of cached binary images.
- *
- * @return The number of cached binary images.
- */
-uint32_t ksbic_imageCount(void);
-
-/** Get the header of the specified image.
- *
- * @param index The image index.
- *
- * @return The header of the image, or NULL if none was found.
- */
-const struct mach_header *ksbic_imageHeader(uint32_t index);
-
-/** Get the name of the specified image.
- *
- * @param index The image index.
- *
- * @return The name of the image, or NULL if none was found.
- */
-const char *ksbic_imageName(uint32_t index);
-
-/** Get the VM address slide of the specified image.
- *
- * @param index The image index.
- *
- * @return The VM address slide of the image, or 0 if none was found.
- */
-uintptr_t ksbic_imageVMAddrSlide(uint32_t index);
+const struct dyld_image_info* ksbic_beginImageAccess(int *count);
+void ksbic_endImageAccess(const struct dyld_image_info* images);
 
 #ifdef __cplusplus
 }
