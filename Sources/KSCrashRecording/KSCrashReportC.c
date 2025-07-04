@@ -26,6 +26,8 @@
 
 #include "KSCrashReportC.h"
 
+#include <mach-o/dyld_images.h>
+
 #include "KSCPU.h"
 #include "KSCrashMonitorHelper.h"
 #include "KSCrashMonitor_AppState.h"
@@ -55,7 +57,6 @@
 #include "KSSystemCapabilities.h"
 #include "KSThread.h"
 #include "KSThreadCache.h"
-#include <mach-o/dyld_images.h>
 
 // #define KSLogger_LocalLevel TRACE
 #include <errno.h>
@@ -1176,20 +1177,20 @@ static void writeBinaryImage(const KSCrashReportWriter *const writer, const KSBi
 static void writeBinaryImages(const KSCrashReportWriter *const writer, const char *const key)
 {
     int count = 0;
-    const struct dyld_image_info* images = ksbic_beginImageAccess(&count);
-    
+    const struct dyld_image_info *images = ksbic_beginImageAccess(&count);
+
     writer->beginArray(writer, key);
     {
         for (int iImg = 0; iImg < count; iImg++) {
             struct dyld_image_info info = images[iImg];
-            KSBinaryImage image = {0};
+            KSBinaryImage image = { 0 };
             if (ksdl_binaryImageForHeader(info.imageLoadAddress, info.imageFilePath, &image)) {
                 writeBinaryImage(writer, &image);
             }
         }
     }
     writer->endContainer(writer);
-    
+
     ksbic_endImageAccess(images);
 }
 

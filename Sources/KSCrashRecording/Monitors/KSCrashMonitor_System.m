@@ -214,11 +214,11 @@ static NSString *getExecutablePath(void)
  */
 static const char *getAppUUID(void)
 {
-    const struct dyld_image_info* images = ksbic_beginImageAccess(NULL);
-    const struct mach_header* header = images[0].imageLoadAddress;
+    const struct dyld_image_info *images = ksbic_beginImageAccess(NULL);
+    const struct mach_header *header = images[0].imageLoadAddress;
     ksbic_endImageAccess(images);
-    
-    KSBinaryImage binary = {0};
+
+    KSBinaryImage binary = { 0 };
     if (ksdl_binaryImageForHeader(header, NULL, &binary)) {
         if (binary.uuid) {
             return uuidBytesToString(binary.uuid);

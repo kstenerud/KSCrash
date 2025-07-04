@@ -56,13 +56,14 @@ typedef struct {
 #pragma pack()
 #define KSDL_SECT_CRASH_INFO "__crash_info"
 
-static uintptr_t vmSlideFromHeader(const struct mach_header *mh) {
+static uintptr_t vmSlideFromHeader(const struct mach_header *mh)
+{
     uintptr_t load_addr = (uintptr_t)mh;
-    
+
     if (mh->magic == MH_MAGIC_64) {
         const struct mach_header_64 *mh64 = (const struct mach_header_64 *)mh;
         const struct load_command *lc = (const struct load_command *)(mh64 + 1);
-        
+
         for (uint32_t i = 0; i < mh64->ncmds; i++) {
             if (lc->cmd == LC_SEGMENT_64) {
                 const struct segment_command_64 *seg = (const struct segment_command_64 *)lc;
@@ -73,11 +74,11 @@ static uintptr_t vmSlideFromHeader(const struct mach_header *mh) {
             }
             lc = (const struct load_command *)((const char *)lc + lc->cmdsize);
         }
-        
+
     } else if (mh->magic == MH_MAGIC) {
         const struct mach_header *mh32 = mh;
         const struct load_command *lc = (const struct load_command *)(mh32 + 1);
-        
+
         for (uint32_t i = 0; i < mh32->ncmds; i++) {
             if (lc->cmd == LC_SEGMENT) {
                 const struct segment_command *seg = (const struct segment_command *)lc;
@@ -89,7 +90,7 @@ static uintptr_t vmSlideFromHeader(const struct mach_header *mh) {
             lc = (const struct load_command *)((const char *)lc + lc->cmdsize);
         }
     }
-    
+
     return 0;
 }
 
@@ -124,7 +125,7 @@ static uintptr_t firstCmdAfterHeader(const struct mach_header *const header)
 static const struct mach_header *imageContainingAddress(const uintptr_t address, char **outName)
 {
     int count = 0;
-    const struct dyld_image_info* images = ksbic_beginImageAccess(&count);
+    const struct dyld_image_info *images = ksbic_beginImageAccess(&count);
     const struct mach_header *header = NULL;
 
     for (uint32_t iImg = 0; iImg < count; iImg++) {

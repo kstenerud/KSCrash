@@ -26,18 +26,17 @@
 
 #include "KSBinaryImageCache.h"
 
+#import <dlfcn.h>
 #include <mach-o/dyld.h>
-#include <pthread.h>
-#include <stdatomic.h>
-#include <stdlib.h>
-#include <string.h>
-#include <mach/task.h>
-#include <mach/mach.h>
 #include <mach-o/dyld_images.h>
 #include <mach-o/loader.h>
+#include <mach/mach.h>
+#include <mach/task.h>
+#include <pthread.h>
+#include <stdatomic.h>
 #include <stdio.h>
-
-#import <dlfcn.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "KSLogger.h"
 
@@ -63,9 +62,9 @@ void ksbic_init(void)
     g_all_image_infos = (struct dyld_all_image_infos *)dyld_info.all_image_info_addr;
 }
 
-const struct dyld_image_info* ksbic_beginImageAccess(int *count)
+const struct dyld_image_info *ksbic_beginImageAccess(int *count)
 {
-    const struct dyld_image_info* images = g_all_image_infos->infoArray;
+    const struct dyld_image_info *images = g_all_image_infos->infoArray;
     if (images == NULL) {
         KSLOG_ERROR("Already accesing images");
         return NULL;
@@ -77,7 +76,7 @@ const struct dyld_image_info* ksbic_beginImageAccess(int *count)
     return images;
 }
 
-void ksbic_endImageAccess(const struct dyld_image_info* images)
+void ksbic_endImageAccess(const struct dyld_image_info *images)
 {
     if (g_all_image_infos->infoArray) {
         KSLOG_ERROR("Cannot end image access");

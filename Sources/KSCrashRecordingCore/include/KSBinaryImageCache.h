@@ -43,8 +43,8 @@ extern "C" {
  */
 void ksbic_init(void);
 
-const struct dyld_image_info* ksbic_beginImageAccess(int *count);
-void ksbic_endImageAccess(const struct dyld_image_info* images);
+const struct dyld_image_info *ksbic_beginImageAccess(int *count);
+void ksbic_endImageAccess(const struct dyld_image_info *images);
 
 #ifdef __cplusplus
 }

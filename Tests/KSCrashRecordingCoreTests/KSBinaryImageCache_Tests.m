@@ -79,7 +79,7 @@ extern void ksbic_resetCache(void);
         XCTAssertTrue(magic == MH_MAGIC || magic == MH_MAGIC_64 || magic == MH_CIGAM || magic == MH_CIGAM_64,
                       @"Header should have a valid Mach-O magic number for image %@", @(i));
     }
-    
+
     ksbic_endImageAccess(images);
 }
 
@@ -106,18 +106,18 @@ extern void ksbic_resetCache(void);
     XCTAssertGreaterThan(count, 0, @"There should be at least some images loaded");
 
     for (uint32_t i = 0; i < MIN(count, 5); i++) {
-        
-        KSBinaryImage buffer = {0};
+        KSBinaryImage buffer = { 0 };
         ksdl_binaryImageForHeader(images[i].imageLoadAddress, images[i].imageFilePath, &buffer);
         uintptr_t cachedSlide = buffer.vmAddressSlide;
-        
+
         // find the actual one from dyld
         intptr_t actualSlide = 0;
         for (int d = 0; d < _dyld_image_count(); d++) {
             const struct mach_header *dyldHeader = _dyld_get_image_header(d);
             if (dyldHeader == images[i].imageLoadAddress) {
                 actualSlide = _dyld_get_image_vmaddr_slide(d);
-                break;;
+                break;
+                ;
             }
         }
 
@@ -138,10 +138,10 @@ extern void ksbic_resetCache(void);
     for (uint32_t i = 0; i < MIN(count, 10); i++) {
         const struct mach_header *header = images[i].imageLoadAddress;
         const char *name = images[i].imageFilePath;
-        
-        KSBinaryImage buffer = {0};
+
+        KSBinaryImage buffer = { 0 };
         ksdl_binaryImageForHeader(images[i].imageLoadAddress, images[i].imageFilePath, &buffer);
-        
+
         uintptr_t slide = buffer.vmAddressSlide;
 
         XCTAssertNotEqual(header, NULL, @"Should have valid header for image %@", @(i));
@@ -152,7 +152,7 @@ extern void ksbic_resetCache(void);
                       @"Header should have a valid Mach-O magic number for image %@", @(i));
         XCTAssertGreaterThan(strlen(name), 0, @"Image name should not be empty for image %@", @(i));
     }
-    
+
     ksbic_endImageAccess(images);
 }
 
