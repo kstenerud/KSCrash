@@ -87,7 +87,9 @@ struct PartialCrashReport: Decodable {
             }
 
             var index: Int
-            var state: String
+            #if !os(watchOS)
+                var state: String
+            #endif
             var crashed: Bool
             var backtrace: Backtrace
         }
