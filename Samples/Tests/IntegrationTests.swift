@@ -117,30 +117,32 @@ final class CppTests: IntegrationTestBase {
 
 #endif
 
-final class OtherTests: IntegrationTestBase {
-    func testManyThreads() throws {
-        try launchAndCrash(.other_manyThreads)
+#if !os(watchOS)
+    final class OtherTests: IntegrationTestBase {
+        func testManyThreads() throws {
+            try launchAndCrash(.other_manyThreads)
 
-        let rawReport = try readPartialCrashReport()
-        let crashedThread = rawReport.crash?.threads?.first(where: { $0.crashed })
-        XCTAssertNotNil(crashedThread)
-        let expectedFrame = crashedThread?.backtrace.contents.first(where: {
-            $0.symbol_name?.contains(KSCrashStacktraceCheckFuncName) ?? false
-        })
-        XCTAssertNotNil(expectedFrame)
+            let rawReport = try readPartialCrashReport()
+            let crashedThread = rawReport.crash?.threads?.first(where: { $0.crashed })
+            XCTAssertNotNil(crashedThread)
+            let expectedFrame = crashedThread?.backtrace.contents.first(where: {
+                $0.symbol_name?.contains(KSCrashStacktraceCheckFuncName) ?? false
+            })
+            XCTAssertNotNil(expectedFrame)
 
-        var threadStates = [
-            "TH_STATE_RUNNING", "TH_STATE_STOPPED", "TH_STATE_WAITING",
-            "TH_STATE_UNINTERRUPTIBLE", "TH_STATE_HALTED",
-        ]
-        for thread in rawReport.crash?.threads ?? [] {
-            XCTAssertTrue(threadStates.contains(thread.state))
+            var threadStates = [
+                "TH_STATE_RUNNING", "TH_STATE_STOPPED", "TH_STATE_WAITING",
+                "TH_STATE_UNINTERRUPTIBLE", "TH_STATE_HALTED",
+            ]
+            for thread in rawReport.crash?.threads ?? [] {
+                XCTAssertTrue(threadStates.contains(thread.state))
+            }
+
+            let appleReport = try launchAndReportCrash()
+            XCTAssertTrue(appleReport.contains(KSCrashStacktraceCheckFuncName))
         }
-
-        let appleReport = try launchAndReportCrash()
-        XCTAssertTrue(appleReport.contains(KSCrashStacktraceCheckFuncName))
     }
-}
+#endif
 
 final class UserReportedTests: IntegrationTestBase {
 
