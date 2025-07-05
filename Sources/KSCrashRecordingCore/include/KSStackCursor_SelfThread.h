@@ -25,6 +25,7 @@
 #ifndef KSStackCursor_SelfThread_h
 #define KSStackCursor_SelfThread_h
 
+#include "KSCrashNamespace.h"
 #include "KSStackCursor.h"
 
 #ifdef __cplusplus

@@ -24,6 +24,7 @@
 // THE SOFTWARE.
 //
 
+#include "KSCrashNamespace.h"
 #import "KSCrashReportFilter.h"
 
 #import <Foundation/Foundation.h>

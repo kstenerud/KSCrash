@@ -25,6 +25,7 @@
 //
 #import <Foundation/Foundation.h>
 #import "KSCrashAppTransitionState.h"
+#include "KSCrashNamespace.h"
 
 NS_ASSUME_NONNULL_BEGIN
 

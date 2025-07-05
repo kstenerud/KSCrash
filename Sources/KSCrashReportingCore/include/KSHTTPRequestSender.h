@@ -26,6 +26,8 @@
 
 #import <Foundation/Foundation.h>
 
+#include "KSCrashNamespace.h"
+
 /**
  * Sends HTTP requests via the global dispatch queue, informing the caller of
  * success, failure, or errors via blocks.

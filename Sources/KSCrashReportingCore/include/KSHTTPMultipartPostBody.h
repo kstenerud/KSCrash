@@ -26,6 +26,8 @@
 
 #import <Foundation/Foundation.h>
 
+#include "KSCrashNamespace.h"
+
 /**
  * Builds a multipart MIME HTTP body.
  */

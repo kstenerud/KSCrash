@@ -25,6 +25,8 @@
 #ifndef HDR_KSCrashMonitorType_h
 #define HDR_KSCrashMonitorType_h
 
+#include "KSCrashNamespace.h"
+
 #ifdef __OBJC__
 #include <Foundation/Foundation.h>
 #endif

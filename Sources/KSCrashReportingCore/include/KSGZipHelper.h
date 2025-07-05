@@ -26,6 +26,8 @@
 
 #import <Foundation/Foundation.h>
 
+#include "KSCrashNamespace.h"
+
 /**
  * GNU zip/unzip support for NSData.
  */

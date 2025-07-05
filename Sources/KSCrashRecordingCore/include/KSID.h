@@ -25,6 +25,8 @@
 #ifndef HDR_KSID_h
 #define HDR_KSID_h
 
+#include "KSCrashNamespace.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif

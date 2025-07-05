@@ -33,6 +33,7 @@
 #include <stdbool.h>
 
 #import "KSCrashMonitorContext.h"
+#include "KSCrashNamespace.h"
 #import "KSCrashReportWriter.h"
 
 #ifdef __cplusplus

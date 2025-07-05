@@ -29,6 +29,8 @@
 
 #include <mach/mach_types.h>
 
+#include "KSCrashNamespace.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif

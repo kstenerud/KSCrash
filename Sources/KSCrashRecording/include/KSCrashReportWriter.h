@@ -34,6 +34,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "KSCrashNamespace.h"
+
 #ifdef __OBJC__
 #include <Foundation/Foundation.h>
 #endif

@@ -31,6 +31,8 @@
 #include <stdbool.h>
 #include <sys/ucontext.h>
 
+#include "KSCrashNamespace.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif

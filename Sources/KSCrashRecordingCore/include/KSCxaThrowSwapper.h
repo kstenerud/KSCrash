@@ -25,6 +25,8 @@
 #ifndef KSCxaThrowSwapper_h
 #define KSCxaThrowSwapper_h
 
+#include "KSCrashNamespace.h"
+
 #ifdef __cplusplus
 
 #include <typeinfo>

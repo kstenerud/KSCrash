@@ -33,6 +33,7 @@
 #include <stdbool.h>
 
 #include "KSCrashMonitorFlag.h"
+#include "KSCrashNamespace.h"
 #include "KSThread.h"
 
 #ifdef __cplusplus

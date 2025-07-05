@@ -24,6 +24,8 @@
 // THE SOFTWARE.
 //
 
+#include "KSCrashNamespace.h"
+
 #import <Foundation/Foundation.h>
 #import "KSSystemCapabilities.h"
 #if KSCRASH_HAS_REACHABILITY

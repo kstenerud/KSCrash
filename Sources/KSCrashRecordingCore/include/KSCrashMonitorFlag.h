@@ -27,6 +27,8 @@
 #ifndef KSCrashMonitorProperty_h
 #define KSCrashMonitorProperty_h
 
+#include "KSCrashNamespace.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif

@@ -14,6 +14,8 @@
 #ifndef LLVM_CONFIG_H
 #define LLVM_CONFIG_H
 
+#include "KSCrashNamespace.h"
+
 /* Installation directory for binary executables */
 /* #undef LLVM_BINDIR */
 

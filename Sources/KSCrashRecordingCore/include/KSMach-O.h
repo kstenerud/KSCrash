@@ -27,6 +27,7 @@
 
 #include <mach/vm_prot.h>
 
+#include "KSCrashNamespace.h"
 #include "KSPlatformSpecificDefines.h"
 
 #ifdef __cplusplus

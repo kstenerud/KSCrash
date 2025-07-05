@@ -27,6 +27,7 @@
 
 #include <stdbool.h>
 
+#include "KSCrashNamespace.h"
 #include "KSStackCursor.h"
 
 #ifdef __cplusplus

@@ -25,6 +25,7 @@
 //
 
 #import <Foundation/Foundation.h>
+#include "KSCrashNamespace.h"
 #import "KSCrashReportFilter.h"
 
 NS_ASSUME_NONNULL_BEGIN
