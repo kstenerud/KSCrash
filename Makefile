@@ -54,3 +54,6 @@ check-swift-format:
 
 namespace:
 	namespacer/generate.sh
+
+namespace-check:
+	namespacer/namespace-check.sh

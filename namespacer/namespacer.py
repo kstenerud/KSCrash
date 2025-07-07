@@ -51,6 +51,7 @@ ALWAYS_ADDED_SYMBOLS = [
                         "KSCrashAppMemory",
                         "KSCrashAppMemoryTrackerDelegate",
                         "KSCrashMailProcess",
+                        "KSCrashReportWriter",
                         "llvm",
                        ]
 
@@ -67,6 +68,104 @@ FUNCTION_NAME_IGNORED = [
                             re.compile("^CF_.*"),
                             re.compile("^NS_.*"),
                         ]
+
+# Make sure libc functions don't get swept up
+LIBC_IGNORED = [
+                re.compile("^_Exit$"),
+                re.compile("^__acos$"),
+                re.compile("^__acosf$"),
+                re.compile("^__acosh$"),
+                re.compile("^__acoshf$"),
+                re.compile("^__acoshl$"),
+                re.compile("^__acosl$"),
+                re.compile("^__asin$"),
+                re.compile("^__asinf$"),
+                re.compile("^__asinh$"),
+                re.compile("^__asinhf$"),
+                re.compile("^__asinhl$"),
+                re.compile("^__asinl$"),
+                re.compile("^__asprintf$"),
+                re.compile("^__assert$"),
+                re.compile("^__assert_fail$"),
+                re.compile("^__assert_perror_fail$"),
+                re.compile("^__atan$"),
+                re.compile("^__atan2$"),
+                re.compile("^__atan2f$"),
+                re.compile("^__atan2l$"),
+                re.compile("^__atanf$"),
+                re.compile("^__atanh$"),
+                re.compile("^__atanhf$"),
+                re.compile("^__atanhl$"),
+                re.compile("^__atanl$"),
+                re.compile("^__cbrt$"),
+                re.compile("^__cbrtf$"),
+                re.compile("^pthread_exit$"),
+                re.compile("^pthread_getcpuclockid$"),
+                re.compile("^pthread_getschedparam$"),
+                re.compile("^pthread_getspecific$"),
+                re.compile("^pthread_join$"),
+                re.compile("^pthread_key_create$"),
+                re.compile("^pthread_key_delete$"),
+                re.compile("^pthread_kill$"),
+                re.compile("^pthread_mutex_consistent$"),
+                re.compile("^pthread_mutex_destroy$"),
+                re.compile("^pthread_mutex_getprioceiling$"),
+                re.compile("^pthread_mutex_init$"),
+                re.compile("^pthread_mutex_lock$"),
+                re.compile("^pthread_mutex_setprioceiling$"),
+                re.compile("^pthread_mutex_timedlock$"),
+                re.compile("^pthread_mutex_trylock$"),
+                re.compile("^pthread_mutex_unlock$"),
+                re.compile("^pthread_mutexattr_destroy$"),
+                re.compile("^pthread_mutexattr_getprioceiling$"),
+                re.compile("^pthread_mutexattr_getprotocol$"),
+                re.compile("^pthread_mutexattr_getpshared$"),
+                re.compile("^pthread_mutexattr_getrobust$"),
+                re.compile("^pthread_mutexattr_gettype$"),
+                re.compile("^pthread_mutexattr_init$"),
+                re.compile("^pthread_mutexattr_setprioceiling$"),
+                re.compile("^pthread_mutexattr_setprotocol$"),
+                re.compile("^pthread_mutexattr_setpshared$"),
+                re.compile("^pthread_mutexattr_setrobust$"),
+                re.compile("^pthread_mutexattr_settype$"),
+                re.compile("^pthread_once$"),
+                re.compile("^pthread_rwlock_destroy$"),
+                re.compile("^pthread_rwlock_init$"),
+                re.compile("^pthread_rwlock_rdlock$"),
+                re.compile("^pthread_rwlock_timedrdlock$"),
+                re.compile("^pthread_rwlock_timedwrlock$"),
+                re.compile("^pthread_rwlock_tryrdlock$"),
+                re.compile("^pthread_rwlock_trywrlock$"),
+                re.compile("^pthread_rwlock_unlock$"),
+                re.compile("^pthread_rwlock_wrlock$"),
+                re.compile("^pthread_rwlockattr_destroy$"),
+                re.compile("^pthread_rwlockattr_getkind_np$"),
+                re.compile("^pthread_rwlockattr_getpshared$"),
+                re.compile("^pthread_rwlockattr_init$"),
+                re.compile("^pthread_rwlockattr_setkind_np$"),
+                re.compile("^pthread_rwlockattr_setpshared$"),
+                re.compile("^pthread_self$"),
+                re.compile("^pthread_setcancelstate$"),
+                re.compile("^pthread_setcanceltype$"),
+                re.compile("^pthread_setschedparam$"),
+                re.compile("^pthread_setschedprio$"),
+                re.compile("^pthread_setspecific$"),
+                re.compile("^pthread_sigmask$"),
+                re.compile("^pthread_spin_destroy$"),
+                re.compile("^pthread_spin_init$"),
+                re.compile("^pthread_spin_lock$"),
+                re.compile("^pthread_spin_trylock$"),
+                re.compile("^pthread_spin_unlock$"),
+                re.compile("^pthread_testcancel$"),
+                re.compile("^putc$"),
+                re.compile("^putc_unlocked$"),
+                re.compile("^putchar$"),
+                re.compile("^putchar_unlocked$"),
+                re.compile("^putenv$"),
+                re.compile("^puts$"),
+                re.compile("^putw$"),
+                re.compile("^pwrite$"),
+               ]
 
 # Ignore global variables that match any of these:
 VARIABLE_NAME_IGNORED = [
@@ -212,7 +311,7 @@ def collect_symbols(path):
     contents = Path(path).read_text()
     symbols = []
     symbols += extract_swift_names(contents, SWIFT_NAME_IGNORED)
-    symbols += get_symbols_of_kind(tu, [clang.cindex.CursorKind.FUNCTION_DECL], FUNCTION_NAME_IGNORED)
+    symbols += get_symbols_of_kind(tu, [clang.cindex.CursorKind.FUNCTION_DECL], FUNCTION_NAME_IGNORED + LIBC_IGNORED)
     symbols += get_symbols_of_kind(tu, [clang.cindex.CursorKind.VAR_DECL], VARIABLE_NAME_IGNORED)
     symbols += get_symbols_of_kind(tu, [
                                         clang.cindex.CursorKind.OBJC_INTERFACE_DECL,
@@ -267,5 +366,3 @@ if __name__ == "__main__":
 
     # print_all(src_dir)
     generate_header_file(src_dir, dst_file)
-
-    print(f"Header {dst_file} generated.")

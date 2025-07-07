@@ -4,7 +4,7 @@ set -eu -o pipefail
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 SRC_DIR="$SCRIPT_DIR/../Sources"
-DST_HEADER_FILE="$SCRIPT_DIR/../Sources/KSCrashCore/include/KSCrashNamespace.h"
+COMPARE_HEADER_FILE="$SCRIPT_DIR/../Sources/KSCrashCore/include/KSCrashNamespace.h"
 
 cd "$SCRIPT_DIR"
 if [ ! -d "venv" ]; then
@@ -15,4 +15,12 @@ else
     source venv/bin/activate
 fi
 
+TMP_DIR=${RUNNER_TEMP:-$(mktemp -d)}
+DST_HEADER_FILE="$TMP_DIR/KSCrashNamespace.h"
+
 python3 namespacer.py "$SRC_DIR" "$DST_HEADER_FILE"
+
+diff "$COMPARE_HEADER_FILE" "$DST_HEADER_FILE" || {
+    echo "Changes in public symbols discovered"
+    exit 1
+}
