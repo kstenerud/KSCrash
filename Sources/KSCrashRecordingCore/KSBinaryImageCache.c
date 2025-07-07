@@ -26,12 +26,13 @@
 
 #include "KSBinaryImageCache.h"
 
-#import <Foundation/Foundation.h>
+#import <dispatch/dispatch.h>
 #import <mach-o/dyld.h>
 #import <pthread.h>
 #import <stdatomic.h>
 #import <stdlib.h>
 #import <string.h>
+
 #import "KSLogger.h"
 
 #ifndef KSBIC_MAX_CACHED_IMAGES
@@ -48,7 +49,6 @@ typedef struct {
 static KSBinaryImageCacheEntry g_binaryImageCache[KSBIC_MAX_CACHED_IMAGES];
 static uint32_t g_cachedImageCount = 0;
 static pthread_rwlock_t g_imageCacheRWLock = PTHREAD_RWLOCK_INITIALIZER;
-static dispatch_queue_t g_queue = NULL;
 
 /** Add an image to the cache.
  *
@@ -82,7 +82,7 @@ static void ksbic_addImageCallback_nolock(const struct mach_header *header, intp
             g_binaryImageCache[imageIndex].header = header;
             g_binaryImageCache[imageIndex].name = strdup(imageName);
             if (g_binaryImageCache[imageIndex].name == NULL) {
-                KSLOG_ERROR(@"Failed to duplicate image name: %s. Not caching image.", imageName);
+                KSLOG_ERROR("Failed to duplicate image name: %s. Not caching image.", imageName);
             } else {
                 g_binaryImageCache[imageIndex].imageVMAddrSlide = (uintptr_t)slide;
                 g_binaryImageCache[imageIndex].valid = true;
@@ -91,7 +91,7 @@ static void ksbic_addImageCallback_nolock(const struct mach_header *header, intp
             }
         }
     } else {
-        KSLOG_ERROR(@"Binary image cache full. Not caching image.");
+        KSLOG_ERROR("Binary image cache full. Not caching image.");
     }
 }
 
@@ -142,13 +142,6 @@ void ksbic_init(bool async)
 
     KSLOG_DEBUG("Initializing binary image cache");
 
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        dispatch_queue_attr_t attr;
-        attr = dispatch_queue_attr_make_with_qos_class(DISPATCH_QUEUE_SERIAL, QOS_CLASS_UTILITY, 0);
-        g_queue = dispatch_queue_create("com.kscrash.binary.images.queue", attr);
-    });
-
     dispatch_block_t loadBlock = ^{
         // Load all image directly behind the lock
         pthread_rwlock_wrlock(&g_imageCacheRWLock);
@@ -167,9 +160,9 @@ void ksbic_init(bool async)
     };
 
     if (async) {
-        dispatch_async(g_queue, loadBlock);
+        dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), loadBlock);
     } else {
-        dispatch_sync(g_queue, loadBlock);
+        loadBlock();
     }
 }
 
