@@ -30,7 +30,7 @@ jobs:
           - platform: iOS
             macos-version: "15"
           - platform: iOS
-            xcode-version: "latest"
+            xcode-version: "latest-stable"
             macos-version: "15"
           - platform: iOS
             platform-version: ~16.4.0
