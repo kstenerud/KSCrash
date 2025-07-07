@@ -30,6 +30,7 @@
 #include "KSCrashMonitor.h"
 #include "KSCrashMonitorContext.h"
 #include "KSCrashMonitorHelper.h"
+#include "KSCrashNamespace.h"
 
 #ifdef __cplusplus
 extern "C" {

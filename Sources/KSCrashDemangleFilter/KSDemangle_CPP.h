@@ -27,6 +27,8 @@
 #ifndef HDR_KSDemangle_CPP_h
 #define HDR_KSDemangle_CPP_h
 
+#include "KSCrashNamespace.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif

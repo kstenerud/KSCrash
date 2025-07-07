@@ -30,6 +30,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "KSCrashNamespace.h"
 #include "KSMachineContext.h"
 
 #ifdef __cplusplus

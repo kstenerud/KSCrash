@@ -27,6 +27,7 @@
 #import <Foundation/Foundation.h>
 
 #import "KSCrashMonitorType.h"
+#import "KSCrashNamespace.h"
 #import "KSCrashReportFilter.h"
 #import "KSCrashReportStore.h"
 #import "KSCrashReportWriter.h"

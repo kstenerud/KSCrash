@@ -26,6 +26,8 @@
 
 #import <Foundation/Foundation.h>
 
+#include "KSCrashNamespace.h"
+
 /**
  * A string, stored C style with null termination.
  */

@@ -25,6 +25,7 @@
 //
 
 #import "KSCrashInstallation.h"
+#include "KSCrashNamespace.h"
 
 #import <Foundation/Foundation.h>
 

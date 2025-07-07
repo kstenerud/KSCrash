@@ -22,6 +22,8 @@
 // THE SOFTWARE.
 //
 
+#include "KSID.h"
+
 #include <stdio.h>
 #include <uuid/uuid.h>
 

@@ -32,6 +32,7 @@
 
 #include "KSCrashAppTransitionState.h"
 #include "KSCrashMonitor.h"
+#include "KSCrashNamespace.h"
 
 #ifdef __cplusplus
 extern "C" {

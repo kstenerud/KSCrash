@@ -25,6 +25,7 @@
 #ifndef KSStackCursor_Backtrace_h
 #define KSStackCursor_Backtrace_h
 
+#include "KSCrashNamespace.h"
 #include "KSStackCursor.h"
 
 #ifdef __cplusplus

@@ -30,6 +30,7 @@
 #include <mach/mach.h>
 #include <stdbool.h>
 
+#include "KSCrashNamespace.h"
 #include "KSThread.h"
 
 #ifdef __cplusplus

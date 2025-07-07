@@ -24,6 +24,8 @@
 // THE SOFTWARE.
 //
 
+#include "KSCrashNamespace.h"
+
 /* KSVarArgs is a set of macros designed to make dealing with variable arguments
  * easier in Objective-C. All macros assume that the varargs list contains only
  * objective-c objects or object-like structures (assignable to type id).

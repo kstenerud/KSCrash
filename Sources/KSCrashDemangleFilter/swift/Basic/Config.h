@@ -17,6 +17,7 @@
 #ifndef SWIFT_RUNTIME_CONFIG_H
 #define SWIFT_RUNTIME_CONFIG_H
 
+#include "KSCrashNamespace.h"
 //#include "CMakeConfig.h"
 
 /// \macro SWIFT_RUNTIME_GNUC_PREREQ

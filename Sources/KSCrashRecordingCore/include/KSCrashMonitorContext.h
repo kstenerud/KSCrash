@@ -31,6 +31,7 @@
 #include <stdint.h>
 
 #include "KSCrashMonitorFlag.h"
+#include "KSCrashNamespace.h"
 #include "KSMachineContext.h"
 
 #ifdef __cplusplus

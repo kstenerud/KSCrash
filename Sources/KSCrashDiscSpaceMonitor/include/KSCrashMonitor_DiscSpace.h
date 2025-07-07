@@ -28,6 +28,7 @@
 #define KSCrashMonitor_DiscSpace_h
 
 #include "KSCrashMonitor.h"
+#include "KSCrashNamespace.h"
 
 #ifdef __cplusplus
 extern "C" {

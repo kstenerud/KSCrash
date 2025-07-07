@@ -27,6 +27,7 @@
 #ifdef __OBJC__
 
 #import <Foundation/Foundation.h>
+#include "KSCrashNamespace.h"
 
 /**
  * Simpler interface for constructing NSError objects.

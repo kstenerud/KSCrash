@@ -26,6 +26,7 @@
  * during a crash. This includes thread names and dispatch queue names.
  */
 
+#include "KSCrashNamespace.h"
 #include "KSThread.h"
 
 void kstc_init(int pollingIntervalInSeconds);

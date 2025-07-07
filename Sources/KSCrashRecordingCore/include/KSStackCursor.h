@@ -28,6 +28,7 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
+#include "KSCrashNamespace.h"
 #include "KSMachineContext.h"
 
 #ifdef __cplusplus

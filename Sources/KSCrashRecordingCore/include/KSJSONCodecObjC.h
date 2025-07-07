@@ -28,6 +28,8 @@
 
 #import <Foundation/Foundation.h>
 
+#include "KSCrashNamespace.h"
+
 /** Optional behavior when encoding JSON data */
 typedef NS_ENUM(NSInteger, KSJSONEncodeOption) {
     /** No special encoding options */

@@ -34,6 +34,8 @@
 #include <stdint.h>
 #include <sys/sysctl.h>
 
+#include "KSCrashNamespace.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif

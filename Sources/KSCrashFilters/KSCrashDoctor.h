@@ -7,6 +7,7 @@
 //
 
 #import <Foundation/Foundation.h>
+#include "KSCrashNamespace.h"
 
 @interface KSCrashDoctor : NSObject
 

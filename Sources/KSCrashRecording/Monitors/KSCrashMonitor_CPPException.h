@@ -26,6 +26,7 @@
 #define HDR_KSCrashMonitor_CPPException_h
 
 #include "KSCrashMonitor.h"
+#include "KSCrashNamespace.h"
 
 #ifdef __cplusplus
 extern "C" {

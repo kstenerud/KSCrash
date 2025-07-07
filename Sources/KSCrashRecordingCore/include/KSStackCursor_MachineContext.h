@@ -25,6 +25,7 @@
 #ifndef KSStackCursor_MachineContext_h
 #define KSStackCursor_MachineContext_h
 
+#include "KSCrashNamespace.h"
 #include "KSStackCursor.h"
 
 #ifdef __cplusplus

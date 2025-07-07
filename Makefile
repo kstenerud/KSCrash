@@ -51,3 +51,9 @@ check-swift-format:
 	while read file; do \
 		$(SWIFT_FORMAT_CMD) lint --configuration .swift-format "$$file" --strict || exit 1; \
 	done
+
+namespace:
+	namespacer/generate.sh
+
+namespace-check:
+	namespacer/namespace-check.sh

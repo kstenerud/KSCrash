@@ -31,6 +31,7 @@
 
 #include "KSCrashCConfiguration.h"
 #include "KSCrashError.h"
+#include "KSCrashNamespace.h"
 
 #ifdef __cplusplus
 extern "C" {

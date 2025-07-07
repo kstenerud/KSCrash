@@ -80,7 +80,7 @@ jobs:
 
       - name: Run Unit Tests
         uses: mxcl/xcodebuild@v3
-        timeout-minutes: 15
+        timeout-minutes: 30
         with:
           workspace: ".swiftpm/xcode/package.xcworkspace"
           scheme: "KSCrash-Package"

@@ -24,6 +24,8 @@
 // THE SOFTWARE.
 //
 
+#include "KSCrashNamespace.h"
+
 /**
  * KSLogger
  * ========

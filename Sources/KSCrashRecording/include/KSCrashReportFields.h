@@ -27,6 +27,8 @@
 #ifndef HDR_KSCrashReportFields_h
 #define HDR_KSCrashReportFields_h
 
+#include "KSCrashNamespace.h"
+
 #ifdef __OBJC__
 #include <Foundation/Foundation.h>
 typedef NSString *KSCrashReportField;

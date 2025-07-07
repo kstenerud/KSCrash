@@ -27,6 +27,8 @@
 #ifndef HDR_KSCrashReportFixer_h
 #define HDR_KSCrashReportFixer_h
 
+#include "KSCrashNamespace.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif

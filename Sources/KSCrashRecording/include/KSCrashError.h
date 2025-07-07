@@ -27,6 +27,8 @@
 #ifndef KSCrashError_h
 #define KSCrashError_h
 
+#include "KSCrashNamespace.h"
+
 #ifdef __OBJC__
 #include <Foundation/Foundation.h>
 #endif
