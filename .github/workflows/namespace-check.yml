@@ -1,43 +1,46 @@
 name: Clang Namespace Check
-on:
-  pull_request:
-    paths:
-      - 'Sources/**'
-      - '.github/workflows/namespace-check.yml'
-      - 'namespacer/**'
-      - 'Makefile'
 
-jobs:
-  formatting-check:
-    name: Namespace Check
-    runs-on: ubuntu-latest
-    env:
-      DIRS: 'Sources'
-    steps:
-    - uses: actions/checkout@v4
+# Disabled temporarily because clang behaves very differently on Ubuntu, and this needs time to debug
 
-    - name: Install clang
-      run: |
-        wget https://apt.llvm.org/llvm.sh
-        chmod +x llvm.sh
-        sudo ./llvm.sh 18
-        sudo apt-get install -y python3 python3-pip
+# on:
+#   pull_request:
+#     paths:
+#       - 'Sources/**'
+#       - '.github/workflows/namespace-check.yml'
+#       - 'namespacer/**'
+#       - 'Makefile'
 
-    - name: Check namespace
-      id: check_namespace
-      run: |
-        make namespace-check >clang_namespace_errors.log 2>&1
+# jobs:
+#   formatting-check:
+#     name: Namespace Check
+#     runs-on: ubuntu-latest
+#     env:
+#       DIRS: 'Sources'
+#     steps:
+#     - uses: actions/checkout@v4
 
-    - name: Alert namespace issues
-      if: failure()
-      run: |
-        echo "##[error]Public symbol changes detected. Please run 'make namespace' and check manually that the changes make sense."
+#     - name: Install clang
+#       run: |
+#         wget https://apt.llvm.org/llvm.sh
+#         chmod +x llvm.sh
+#         sudo ./llvm.sh 18
+#         sudo apt-get install -y python3 python3-pip
 
-    - name: Create summary and annotations
-      if: failure()
-      run: |
-        echo "### Namespace issues found" >> $GITHUB_STEP_SUMMARY
-        echo "Please run 'make namespace' and check manually that the changes make sense." >> $GITHUB_STEP_SUMMARY
-        echo "::group::Namespace issues"
-        cat clang_namespace_errors.log
-        echo "::endgroup::"
+#     - name: Check namespace
+#       id: check_namespace
+#       run: |
+#         make namespace-check >clang_namespace_errors.log 2>&1
+
+#     - name: Alert namespace issues
+#       if: failure()
+#       run: |
+#         echo "##[error]Public symbol changes detected. Please run 'make namespace' and check manually that the changes make sense."
+
+#     - name: Create summary and annotations
+#       if: failure()
+#       run: |
+#         echo "### Namespace issues found" >> $GITHUB_STEP_SUMMARY
+#         echo "Please run 'make namespace' and check manually that the changes make sense." >> $GITHUB_STEP_SUMMARY
+#         echo "::group::Namespace issues"
+#         cat clang_namespace_errors.log
+#         echo "::endgroup::"
