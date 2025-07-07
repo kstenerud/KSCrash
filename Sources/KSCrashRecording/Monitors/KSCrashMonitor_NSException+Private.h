@@ -1,7 +1,7 @@
 //
-//  KSCrash+Private.h
+//  KSCrashMonitor_NSException+Private.h
 //
-//  Created by Gleb Linnik on 11.06.2024.
+//  Created by Karl Stenerud on 2025-07-05.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,36 +24,11 @@
 // THE SOFTWARE.
 //
 
-#ifndef KSCrash_Private_h
-#define KSCrash_Private_h
+#import "KSCrashMonitor_NSException.h"
 
-#import "KSCrash.h"
-#import "KSCrashError.h"
-#import "KSCrashMonitor_NSException+Private.h"
+typedef void KSCrashCustomNSExceptionReporter(NSException *exception, BOOL logAllThreads);
 
-NS_ASSUME_NONNULL_BEGIN
+typedef void OnNSExceptionHandlerEnabled(NSUncaughtExceptionHandler *uncaughtExceptionHandler,
+                                         KSCrashCustomNSExceptionReporter *customNSExceptionReporter);
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-NSString *kscrash_getBundleName(void);
-NSString *kscrash_getDefaultInstallPath(void);
-
-#ifdef __cplusplus
-}
-#endif
-
-@interface KSCrash ()
-
-@property(nonatomic, readwrite, assign) NSUncaughtExceptionHandler *uncaughtExceptionHandler;
-
-@property(nonatomic, assign) KSCrashCustomNSExceptionReporter *customNSExceptionReporter;
-
-+ (NSError *)errorForInstallErrorCode:(KSCrashInstallErrorCode)errorCode;
-
-@end
-
-NS_ASSUME_NONNULL_END
-
-#endif /* KSCrash_Private_h */
+void kscm_nsexception_setOnEnabledHandler(OnNSExceptionHandlerEnabled *onEnabled);

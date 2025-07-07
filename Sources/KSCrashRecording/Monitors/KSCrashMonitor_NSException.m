@@ -24,12 +24,10 @@
 // THE SOFTWARE.
 //
 
-#import "KSCrashMonitor_NSException.h"
+#import "KSCrashMonitor_NSException+Private.h"
 
 #import <Foundation/Foundation.h>
 #import "KSCompilerDefines.h"
-#import "KSCrash+Private.h"
-#import "KSCrash.h"
 #include "KSCrashMonitorContext.h"
 #import "KSCrashMonitorContextHelper.h"
 #include "KSID.h"
@@ -50,6 +48,12 @@ static KSCrash_MonitorContext g_monitorContext;
 
 /** The exception handler that was in place before we installed ours. */
 static NSUncaughtExceptionHandler *g_previousUncaughtExceptionHandler;
+
+static void defaultOnEnabled(NSUncaughtExceptionHandler *uncaughtExceptionHandler,
+                             KSCrashCustomNSExceptionReporter *customNSExceptionReporter)
+{
+}
+static OnNSExceptionHandlerEnabled *g_onEnabled = defaultOnEnabled;
 
 // ============================================================================
 #pragma mark - Callbacks -
@@ -172,8 +176,7 @@ static void setEnabled(bool isEnabled)
 
             KSLOG_DEBUG(@"Setting new handler.");
             NSSetUncaughtExceptionHandler(&handleUncaughtException);
-            KSCrash.sharedInstance.uncaughtExceptionHandler = &handleUncaughtException;
-            KSCrash.sharedInstance.customNSExceptionReporter = &customNSExceptionReporter;
+            g_onEnabled(handleUncaughtException, customNSExceptionReporter);
         } else {
             KSLOG_DEBUG(@"Restoring original handler.");
             NSSetUncaughtExceptionHandler(g_previousUncaughtExceptionHandler);
@@ -194,3 +197,5 @@ KSCrashMonitorAPI *kscm_nsexception_getAPI(void)
     };
     return &api;
 }
+
+void kscm_nsexception_setOnEnabledHandler(OnNSExceptionHandlerEnabled *onEnabled) { g_onEnabled = onEnabled; }

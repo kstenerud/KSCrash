@@ -125,11 +125,19 @@ static void currentSnapshotUserReportedExceptionHandler(NSException *exception)
     return sharedInstance;
 }
 
+static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExceptionHandler,
+                                         KSCrashCustomNSExceptionReporter *customNSExceptionReporter)
+{
+    KSCrash.sharedInstance.uncaughtExceptionHandler = uncaughtExceptionHandler;
+    KSCrash.sharedInstance.customNSExceptionReporter = customNSExceptionReporter;
+}
+
 - (instancetype)init
 {
     if ((self = [super init])) {
         _bundleName = kscrash_getBundleName();
         _currentSnapshotUserReportedExceptionHandler = &currentSnapshotUserReportedExceptionHandler;
+        kscm_nsexception_setOnEnabledHandler(onNSExceptionHandlingEnabled);
     }
     return self;
 }
