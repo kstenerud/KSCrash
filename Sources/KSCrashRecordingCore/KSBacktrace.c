@@ -72,7 +72,7 @@ bool ksbt_symbolicateAddress(uintptr_t address, struct KSSymbolInformation *resu
     // initalize the binary image cache.
     // this has an atomic check so isn't expensive
     // except for the first call.
-    ksbic_init();
+    ksbic_init(false);
 
     uintptr_t untaggedAddress = kssymbolicator_callInstructionAddress(address);
 

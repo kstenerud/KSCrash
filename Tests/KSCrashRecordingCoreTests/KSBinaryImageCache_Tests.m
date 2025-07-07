@@ -42,7 +42,7 @@ extern void ksbic_resetCache(void);
 {
     [super setUp];
     ksbic_resetCache();
-    ksbic_init();
+    ksbic_init(false);
     [NSThread sleepForTimeInterval:0.1];
 }
 

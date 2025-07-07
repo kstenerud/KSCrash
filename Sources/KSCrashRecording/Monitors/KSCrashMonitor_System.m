@@ -215,20 +215,10 @@ static NSString *getExecutablePath(void)
 static const char *getAppUUID(void)
 {
     const char *result = nil;
-
-    NSString *exePath = getExecutablePath();
-
-    if (exePath != nil) {
-        const uint8_t *uuidBytes = ksdl_imageUUID(exePath.UTF8String, true);
-        if (uuidBytes == NULL) {
-            // OSX app image path is a lie.
-            uuidBytes = ksdl_imageUUID(exePath.lastPathComponent.UTF8String, false);
-        }
-        if (uuidBytes != NULL) {
-            result = uuidBytesToString(uuidBytes);
-        }
+    const uint8_t *uuidBytes = ksdl_appImageUUID();
+    if (uuidBytes != NULL) {
+        result = uuidBytesToString(uuidBytes);
     }
-
     return result;
 }
 
@@ -283,11 +273,26 @@ static const char *getCurrentCPUArch(void)
     return result;
 }
 
-/** Check if the current device is jailbroken.
+/** Check if the current device is jailbroken by trying to write outside the sandbox.
  *
  * @return YES if the device is jailbroken.
  */
-static bool isJailbroken(void) { return ksdl_imageNamed("MobileSubstrate", false) != UINT32_MAX; }
+static bool isJailbroken(void)
+{
+    static bool sJailbroken;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        const char *path = "/private/kscrash_jailbreak_test";
+        int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        if (fd < 0) {
+            sJailbroken = NO;
+        } else {
+            sJailbroken = YES;
+            unlink(path);
+        }
+    });
+    return sJailbroken;
+}
 
 /** Check if the current build is a debug build.
  *

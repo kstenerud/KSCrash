@@ -39,8 +39,10 @@ extern "C" {
 
 /** Initialize the binary image cache.
  * Should be called during KSCrash activation.
+ *
+ * @param async Indicate if images should be loaded async.
  */
-void ksbic_init(void);
+void ksbic_init(bool async);
 
 /** Get the number of cached binary images.
  *

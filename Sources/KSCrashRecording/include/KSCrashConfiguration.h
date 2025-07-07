@@ -165,6 +165,12 @@ NS_ASSUME_NONNULL_BEGIN
  */
 @property(nonatomic, assign) BOOL enableSigTermMonitoring;
 
+/** If true, loads the binary image cache asynchronously.
+ *
+ * **Default**: false
+ */
+@property(nonatomic, assign) BOOL enableAsyncLoadingOfBinaryImageCache;
+
 @end
 
 NS_SWIFT_NAME(CrashReportStoreConfiguration)

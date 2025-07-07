@@ -101,6 +101,12 @@ uint32_t ksdl_imageNamed(const char *const imageName, bool exactMatch);
  */
 const uint8_t *ksdl_imageUUID(const char *const imageName, bool exactMatch);
 
+/** Get the UUID of the image for the main application binary.
+ *
+ * @return A pointer to the binary (16 byte) UUID of the image, or NULL if it wasn't found.
+ */
+const uint8_t *ksdl_appImageUUID(void);
+
 /** async-safe version of dladdr.
  *
  * This method searches the dynamic loader for information about any image
