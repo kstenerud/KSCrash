@@ -24,6 +24,8 @@
 // THE SOFTWARE.
 //
 
+#import <Foundation/Foundation.h>
+
 #import "KSCrashMonitor_NSException.h"
 
 typedef void KSCrashCustomNSExceptionReporter(NSException *exception, BOOL logAllThreads);
