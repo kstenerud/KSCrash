@@ -1,1 +1,1 @@
-libclang
+libclang==15.0.0

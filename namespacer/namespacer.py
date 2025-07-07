@@ -32,6 +32,76 @@ import re
 import sys
 
 
+## ----------------------------------------------------------------------------
+## Configuration
+## ----------------------------------------------------------------------------
+
+# As more edge cases crop up, you may need to add to these.
+# Clang is pretty good at finding things, but not perfect.
+#
+# Please keep the lists alphabetically sorted to play nice with source control.
+
+# Manually added symbols because clang.cindex misses them
+ALWAYS_ADDED_SYMBOLS = [
+                        "Demangle",
+                        "i_kslog_logObjC",
+                        "i_kslog_logObjCBasic",
+                        "KSCrashAlertViewProcess",
+                        "KSCrashAlertViewProcess",
+                        "KSCrashAppMemory",
+                        "KSCrashAppMemoryTrackerDelegate",
+                        "KSCrashMailProcess",
+                        "llvm",
+                       ]
+
+# Ignore anything in an `NS_SWIFT_NAME()` macro that matches any of these:
+SWIFT_NAME_IGNORED = [
+                        re.compile(".*\\).*"),
+                        re.compile(".*\\..*"),
+                        re.compile("[^A-Z]"),
+                     ]
+
+# Ignore function names that match any of these:
+FUNCTION_NAME_IGNORED = [
+                            re.compile("^__CF.*"),
+                            re.compile("^CF_.*"),
+                            re.compile("^NS_.*"),
+                        ]
+
+# Ignore global variables that match any of these:
+VARIABLE_NAME_IGNORED = [
+                            re.compile("^BOOL$"),
+                            re.compile("^Boolean$"),
+                            re.compile("^CFBasicHashValue$"),
+                            re.compile("^CFIndex$"),
+                            re.compile("^FOUNDATION_EXPORT$"),
+                            re.compile("^id$"),
+                            re.compile("^instancetype$"),
+                            re.compile("^KSCString$"),
+                            re.compile("^KSHTTPMultipartPostBody$"),
+                            re.compile("^KSReachabilityKSCrash$"),
+                            re.compile("^llvm$"),
+                            re.compile("^namespace$"),
+                            re.compile("^NS.*"),
+                            re.compile("^nullable$"),
+                            re.compile("^objc_debug_.*"),
+                            re.compile("^swift$"),
+                            re.compile("^uintptr_t$"),
+                        ]
+
+# Ignore any objective-c classes, protocols, categries etc that match any of these:
+OBJC_NAME_IGNORED = [
+                    ]
+
+# Ignore any C++ names or templates that match any of these:
+CPP_NAME_IGNORED = [
+                   ]
+
+
+## ----------------------------------------------------------------------------
+## Script
+## ----------------------------------------------------------------------------
+
 def generate_header_contents(symbols):
     namespace_define = "KSCRASH_NAMESPACE"
     header_define    = "KSCRASH_NAMESPACE_H"
@@ -136,74 +206,29 @@ def extract_swift_names(contents, ignore_matching):
     names = re.findall(r'NS_SWIFT_NAME\((.*)\)', contents)
     return [name for name in names if not matches_any(name, ignore_matching)]
 
+
 def collect_symbols(path):
     tu = get_translation_unit(path)
     contents = Path(path).read_text()
     symbols = []
-    symbols += extract_swift_names(contents, [
-                                                re.compile(".*\\..*"),
-                                                re.compile(".*\\).*"),
-                                                re.compile("[^A-Z]"),
-                                             ])
-    symbols += get_symbols_of_kind(tu, [
-                                        clang.cindex.CursorKind.FUNCTION_DECL
-                                    ], [ # Symbols matching these regexes are ignored
-                                        re.compile("^NS_.*"),
-                                        re.compile("^CF_.*"),
-                                        re.compile("^__CF.*"),
-                                       ])
-    symbols += get_symbols_of_kind(tu, [
-                                        clang.cindex.CursorKind.VAR_DECL
-                                    ], [ # Symbols matching these regexes are ignored
-                                        re.compile("^BOOL$"),
-                                        re.compile("^Boolean$"),
-                                        re.compile("^CFBasicHashValue$"),
-                                        re.compile("^CFIndex$"),
-                                        re.compile("^FOUNDATION_EXPORT$"),
-                                        re.compile("^KSCString$"),
-                                        re.compile("^KSHTTPMultipartPostBody$"),
-                                        re.compile("^KSReachabilityKSCrash$"),
-                                        re.compile("^id$"),
-                                        re.compile("^instancetype$"),
-                                        re.compile("^llvm$"),
-                                        re.compile("^namespace$"),
-                                        re.compile("^nullable$"),
-                                        re.compile("^swift$"),
-                                        re.compile("^uintptr_t$"),
-                                        re.compile("^objc_debug_.*"),
-                                        re.compile("^NS.*"),
-                                       ])
+    symbols += extract_swift_names(contents, SWIFT_NAME_IGNORED)
+    symbols += get_symbols_of_kind(tu, [clang.cindex.CursorKind.FUNCTION_DECL], FUNCTION_NAME_IGNORED)
+    symbols += get_symbols_of_kind(tu, [clang.cindex.CursorKind.VAR_DECL], VARIABLE_NAME_IGNORED)
     symbols += get_symbols_of_kind(tu, [
                                         clang.cindex.CursorKind.OBJC_INTERFACE_DECL,
                                         clang.cindex.CursorKind.OBJC_CATEGORY_DECL,
                                         clang.cindex.CursorKind.OBJC_PROTOCOL_DECL,
                                         clang.cindex.CursorKind.OBJC_IMPLEMENTATION_DECL,
                                         clang.cindex.CursorKind.OBJC_CATEGORY_IMPL_DECL,
-                                    ], [ # Symbols matching these regexes are ignored
-                                       ])
+                                       ], OBJC_NAME_IGNORED)
     symbols += get_symbols_of_kind(tu, [
                                         clang.cindex.CursorKind.CLASS_DECL,
                                         clang.cindex.CursorKind.CLASS_TEMPLATE,
-                                    ], [ # Symbols matching these regexes are ignored
-                                       ])
+                                       ], CPP_NAME_IGNORED)
     # Can't use this because the demangler has a namespace "swift", and blanket
     # replacing "swift" in this codebase will wreak havoc!
-    # symbols += get_symbols_of_kind(tu, [
-    #                                     clang.cindex.CursorKind.NAMESPACE,
-    #                                 ], [ # Symbols matching these regexes are ignored
-    #                                    ])
-    symbols += [ # Manually add these because clang.cindex misses some things
-                "llvm",
-                "Demangle",
-                "KSCrashMailProcess",
-                "KSCrashAlertViewProcess",
-                "KSCrashAppMemory",
-                "KSCrashAppMemory",
-                "KSCrashAlertViewProcess",
-                "i_kslog_logObjCBasic",
-                "i_kslog_logObjC",
-                "KSCrashAppMemoryTrackerDelegate",
-               ]
+    # symbols += get_symbols_of_kind(tu, [clang.cindex.CursorKind.NAMESPACE], NAMESPACE_IGNORED)
+    symbols += ALWAYS_ADDED_SYMBOLS
     symbols = list(dict.fromkeys(symbols))
     return symbols
 
