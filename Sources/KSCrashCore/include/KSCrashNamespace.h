@@ -202,6 +202,7 @@
 #define kscm_memory_getAPI KSCRASH_NS(kscm_memory_getAPI)
 #define kscm_notifyFatalExceptionCaptured KSCRASH_NS(kscm_notifyFatalExceptionCaptured)
 #define kscm_nsexception_getAPI KSCRASH_NS(kscm_nsexception_getAPI)
+#define kscm_nsexception_setOnEnabledHandler KSCRASH_NS(kscm_nsexception_setOnEnabledHandler)
 #define kscm_removeMonitor KSCRASH_NS(kscm_removeMonitor)
 #define kscm_reportUserException KSCRASH_NS(kscm_reportUserException)
 #define kscm_resetState KSCRASH_NS(kscm_resetState)
