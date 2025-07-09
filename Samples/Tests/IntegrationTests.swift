@@ -135,7 +135,8 @@ final class CppTests: IntegrationTestBase {
                 "TH_STATE_UNINTERRUPTIBLE", "TH_STATE_HALTED",
             ]
             for thread in rawReport.crash?.threads ?? [] {
-                XCTAssertTrue(threadStates.contains(thread.state))
+                var threadState = thread.state ?? ""
+                XCTAssertTrue(threadStates.contains(threadState))
             }
 
             let appleReport = try launchAndReportCrash()
