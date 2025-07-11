@@ -106,6 +106,7 @@
 #define KSCrashInstallationEmail KSCRASH_NS(KSCrashInstallationEmail)
 #define KSCrashInstallationStandard KSCRASH_NS(KSCrashInstallationStandard)
 #define KSCrashMailProcess KSCRASH_NS(KSCrashMailProcess)
+#define KSCrashMonitor_MemoryTracker KSCRASH_NS(KSCrashMonitor_MemoryTracker)
 #define KSCrashReportData KSCRASH_NS(KSCrashReportData)
 #define KSCrashReportDictionary KSCRASH_NS(KSCrashReportDictionary)
 #define KSCrashReportFilterAlert KSCRASH_NS(KSCrashReportFilterAlert)
