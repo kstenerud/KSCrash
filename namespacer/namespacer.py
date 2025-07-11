@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 #  Copyright (c) 2025 Karl Stenerud. All rights reserved.
 #
@@ -47,10 +47,10 @@ ALWAYS_ADDED_SYMBOLS = [
                         "i_kslog_logObjC",
                         "i_kslog_logObjCBasic",
                         "KSCrashAlertViewProcess",
-                        "KSCrashAlertViewProcess",
                         "KSCrashAppMemory",
                         "KSCrashAppMemoryTrackerDelegate",
                         "KSCrashMailProcess",
+                        "KSCrashMonitor_MemoryTracker",
                         "KSCrashReportWriter",
                         "llvm",
                        ]

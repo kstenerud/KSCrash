@@ -8,7 +8,7 @@ COMPARE_HEADER_FILE="$SCRIPT_DIR/../Sources/KSCrashCore/include/KSCrashNamespace
 
 cd "$SCRIPT_DIR"
 if [ ! -d "venv" ]; then
-    python -m venv venv
+    python3 -m venv venv
     source venv/bin/activate
     pip3 install -r requirements.txt
 else
