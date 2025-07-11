@@ -71,7 +71,7 @@ bool ksthread_getThreadName(const KSThread thread, char *const buffer, int bufLe
 int ksthread_getThreadState(const KSThread thread)
 {
     integer_t infoBuffer[THREAD_BASIC_INFO_COUNT] = { 0 };
-    thread_basic_info_t info = infoBuffer;
+    thread_basic_info_t info = (thread_basic_info_t)infoBuffer;
     mach_msg_type_number_t count = THREAD_BASIC_INFO_COUNT;
     kern_return_t kr = 0;
 
