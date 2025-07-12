@@ -68,7 +68,9 @@ bool ksthread_getQueueName(const KSThread thread, char *const buffer, int bufLen
         return false;
     }
 
+#pragma clang diagnostic ignored "-Wcast-align"
     thread_identifier_info_t idInfo = (thread_identifier_info_t)info;
+#pragma clang diagnostic pop
     if (!ksmem_isMemoryReadable(idInfo, sizeof(*idInfo))) {
         KSLOG_DEBUG("Thread %p has an invalid thread identifier info %p", thread, idInfo);
         return false;

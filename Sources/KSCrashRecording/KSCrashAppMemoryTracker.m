@@ -60,7 +60,7 @@ FOUNDATION_EXPORT void __KSCrashAppMemorySetProvider(KSCrashAppMemoryProvider pr
 
 - (instancetype)init
 {
-    if (self = [super init]) {
+    if ((self = [super init])) {
         _lock = OS_UNFAIR_LOCK_INIT;
         _heartbeatQueue = dispatch_queue_create_with_target("com.kscrash.memory.heartbeat", DISPATCH_QUEUE_SERIAL,
                                                             dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0));
@@ -255,14 +255,14 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
         case DISPATCH_MEMORYPRESSURE_NORMAL:
             newPressure = KSCrashAppMemoryStateNormal;
             break;
-
         case DISPATCH_MEMORYPRESSURE_WARN:
             newPressure = KSCrashAppMemoryStateWarn;
             break;
-
         case DISPATCH_MEMORYPRESSURE_CRITICAL:
             newPressure = KSCrashAppMemoryStateCritical;
             break;
+        default:
+            newPressure = KSCrashAppMemoryStateNormal;
     }
 
     KSCrashAppMemoryState oldPressure;

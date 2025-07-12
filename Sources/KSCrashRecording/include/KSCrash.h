@@ -105,7 +105,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 /** Get the singleton instance of the crash reporter.
  */
-@property(class, readonly) KSCrash *sharedInstance NS_SWIFT_NAME(shared);
+@property(class, atomic, readonly) KSCrash *sharedInstance NS_SWIFT_NAME(shared);
 
 /** Install the crash reporter.
  * The reporter will record crashes, but will not send any crash reports unless a sink is set.

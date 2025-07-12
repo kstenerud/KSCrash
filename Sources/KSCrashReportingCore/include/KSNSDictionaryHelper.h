@@ -32,7 +32,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface KSNSDictionaryHelper : NSObject
 
-+ (id)objectInDictionary:(nullable NSDictionary *)dict forKeyPath:(nullable NSString *)keyPath;
++ (nullable id)objectInDictionary:(nullable NSDictionary *)dict forKeyPath:(nullable NSString *)keyPath;
 
 @end
 

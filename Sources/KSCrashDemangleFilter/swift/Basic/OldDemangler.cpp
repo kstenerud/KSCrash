@@ -265,7 +265,7 @@ unsigned(*_kind)));     \
             char c = Mangled.next();
             if (c < '0' || c > '9')
                 return false;
-            num = (c - '0');
+            num = (Node::IndexType)(c - '0');
             while (true) {
                 if (!Mangled) {
                     return true;
@@ -274,7 +274,7 @@ unsigned(*_kind)));     \
                 if (c < '0' || c > '9') {
                     return true;
                 } else {
-                    num = (10 * num) + (c - '0');
+                    num = (Node::IndexType)(10 * num) + (Node::IndexType)(c - '0');
                 }
                 Mangled.next();
             }
@@ -2194,6 +2194,7 @@ switch (ctxt) {                                                \
 case ImplConventionContext::Callee: return (FOR_CALLEE);       \
 case ImplConventionContext::Parameter: return (FOR_PARAMETER); \
 case ImplConventionContext::Result: return (FOR_RESULT);       \
+default: return Nothing;                                       \
 }                                                              \
 return StringRef();                                            \
 }

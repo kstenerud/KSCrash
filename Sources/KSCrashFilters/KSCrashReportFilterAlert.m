@@ -67,6 +67,24 @@
     return [[self alloc] init];
 }
 
+static UIWindow *getKeyWindow(void)
+{
+    if (@available(iOS 15, *)) {
+        for (UIWindowScene *scene in UIApplication.sharedApplication.connectedScenes) {
+            if (scene.keyWindow != nil) {
+                return scene.keyWindow;
+            }
+        }
+    } else {
+        for (UIWindow *window in UIApplication.sharedApplication.windows) {
+            if (window.keyWindow) {
+                return window;
+            }
+        }
+    }
+    return nil;
+}
+
 - (void)startWithTitle:(NSString *)title
                message:(NSString *)message
              yesAnswer:(NSString *)yesAnswer
@@ -96,7 +114,7 @@
                 }];
     [alertController addAction:yesAction];
     [alertController addAction:noAction];
-    UIWindow *keyWindow = [[UIApplication sharedApplication] keyWindow];
+    UIWindow *keyWindow = getKeyWindow();
     [keyWindow.rootViewController presentViewController:alertController animated:YES completion:NULL];
 #elif KSCRASH_HAS_NSALERT
     NSAlert *alert = [[NSAlert alloc] init];
@@ -144,7 +162,7 @@
 - (instancetype)initWithTitle:(NSString *)title
                       message:(nullable NSString *)message
                     yesAnswer:(NSString *)yesAnswer
-                     noAnswer:(nullable NSString *)noAnswer;
+                     noAnswer:(nullable NSString *)noAnswer
 {
     if ((self = [super init])) {
         _title = [title copy];

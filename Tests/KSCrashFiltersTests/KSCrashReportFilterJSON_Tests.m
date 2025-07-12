@@ -64,9 +64,11 @@
 
 - (void)testFilterJSONEncodeInvalid
 {
+#pragma clang diagnostic ignored "-Wobjc-literal-conversion"
     NSArray *decoded = @[
         [KSCrashReportDictionary reportWithValue:@{ @1 : @2 }],  // Not a JSON
     ];
+#pragma clang diagnostic pop
 
     id<KSCrashReportFilter> filter = [[KSCrashReportFilterJSONEncode alloc] initWithOptions:0];
     [filter filterReports:decoded

@@ -298,8 +298,10 @@ static bool isValidCrashInfoMessage(const char *str)
 static void getCrashInfo(const struct mach_header *header, KSBinaryImage *buffer)
 {
     unsigned long size = 0;
+#pragma clang diagnostic ignored "-Wcast-align"
     crash_info_t *crashInfo =
         (crash_info_t *)getsectiondata((mach_header_t *)header, SEG_DATA, KSDL_SECT_CRASH_INFO, &size);
+#pragma clang diagnostic pop
     if (crashInfo == NULL) {
         return;
     }
@@ -397,6 +399,8 @@ bool ksdl_getBinaryImageForHeader(const void *const header_ptr, const char *cons
                 version = dc->dylib.current_version;
                 break;
             }
+            default:
+                break;
         }
         cmdPtr += loadCmd->cmdsize;
     }

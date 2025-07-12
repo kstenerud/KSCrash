@@ -211,11 +211,14 @@ static int signalForMachException(exception_type_t exception, mach_exception_cod
                     return SIGABRT;
                 case EXC_SOFT_SIGNAL:
                     return SIGKILL;
+                default:
+                    return 0;
             }
             break;
         }
+        default:
+            return 0;
     }
-    return 0;
 }
 
 static exception_type_t machExceptionForSignal(int sigNum)
@@ -242,8 +245,9 @@ static exception_type_t machExceptionForSignal(int sigNum)
             return EXC_CRASH;
         case SIGKILL:
             return EXC_SOFT_SIGNAL;
+        default:
+            return 0;
     }
-    return 0;
 }
 
 // ============================================================================
@@ -309,18 +313,18 @@ static void *handleExceptions(void *const userData)
 
         // Fill out crash information
         KSLOG_DEBUG("Fetching machine state.");
-        KSMC_NEW_CONTEXT(machineContext);
+        KSMachineContext machineContext = { 0 };
         KSCrash_MonitorContext *crashContext = &g_monitorContext;
-        crashContext->offendingMachineContext = machineContext;
+        crashContext->offendingMachineContext = &machineContext;
         kssc_initCursor(&g_stackCursor, NULL, NULL);
-        if (ksmc_getContextForThread(exceptionMessage.thread.name, machineContext, true)) {
-            kssc_initWithMachineContext(&g_stackCursor, KSSC_MAX_STACK_DEPTH, machineContext);
+        if (ksmc_getContextForThread(exceptionMessage.thread.name, &machineContext, true)) {
+            kssc_initWithMachineContext(&g_stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
             KSLOG_TRACE("Fault address %p, instruction address %p", kscpu_faultAddress(machineContext),
                         kscpu_instructionAddress(machineContext));
             if (exceptionMessage.exception == EXC_BAD_ACCESS) {
-                crashContext->faultAddress = kscpu_faultAddress(machineContext);
+                crashContext->faultAddress = kscpu_faultAddress(&machineContext);
             } else {
-                crashContext->faultAddress = kscpu_instructionAddress(machineContext);
+                crashContext->faultAddress = kscpu_instructionAddress(&machineContext);
             }
         }
 

@@ -133,7 +133,6 @@ failed:
     if (reachabilityRef) {
         CFRelease(reachabilityRef);
     }
-    _reachabilityRef = NULL;
     return nil;
 }
 

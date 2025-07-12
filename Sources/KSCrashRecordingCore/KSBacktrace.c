@@ -46,14 +46,14 @@ int ksbt_captureBacktrace(pthread_t thread, uintptr_t *addresses, int count)
         return 0;
     }
 
-    KSMC_NEW_CONTEXT(machineContext);
-    if (!ksmc_getContextForThread(machThread, machineContext, false)) {
+    KSMachineContext machineContext = { 0 };
+    if (!ksmc_getContextForThread(machThread, &machineContext, false)) {
         return 0;
     }
 
     int maxFrames = MIN(count, KSSC_MAX_STACK_DEPTH);
     KSStackCursor stackCursor = {};
-    kssc_initWithMachineContext(&stackCursor, maxFrames, machineContext);
+    kssc_initWithMachineContext(&stackCursor, maxFrames, &machineContext);
 
     int frameCount = 0;
     while (frameCount < maxFrames && stackCursor.advanceCursor(&stackCursor)) {

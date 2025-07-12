@@ -25,6 +25,7 @@
 #ifndef KSDate_h
 #define KSDate_h
 
+#include <stdint.h>
 #include <sys/types.h>
 
 #include "KSCrashNamespace.h"
@@ -52,7 +53,7 @@ void ksdate_utcStringFromMicroseconds(int64_t microseconds, char *buffer28Chars)
 /** Returns microseconds from `gettimeofday`
  *
  */
-int64_t ksdate_microseconds(void);
+uint64_t ksdate_microseconds(void);
 
 #ifdef __cplusplus
 }

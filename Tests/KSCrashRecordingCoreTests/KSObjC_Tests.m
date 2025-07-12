@@ -29,6 +29,10 @@
 
 #import "KSObjC.h"
 
+#define AssertAround(FLOAT_VALUE, COMPARED_TO)                          \
+    XCTAssertGreaterThanOrEqual(FLOAT_VALUE, (COMPARED_TO) - 0.000001); \
+    XCTAssertLessThanOrEqual(FLOAT_VALUE, (COMPARED_TO) + 0.000001)
+
 @interface SomeObjCClass : NSObject {
     int someIvar;
     id anotherIvar;
@@ -115,14 +119,14 @@ static NSArray *g_test_strings;
     pointer <<= 8;
     void *ptr = (void *)pointer;
     KSObjCType type = ksobjc_objectType(ptr);
-    XCTAssertEqual(type, KSObjCTypeUnknown, @"Type was %d", type);
+    XCTAssertEqual(type, KSObjCTypeUnknown, @"Type was %u", type);
 }
 
 - (void)testObjectTypeNullPtr
 {
     void *ptr = NULL;
     KSObjCType type = ksobjc_objectType(ptr);
-    XCTAssertEqual(type, KSObjCTypeUnknown, @"Type was %d", type);
+    XCTAssertEqual(type, KSObjCTypeUnknown, @"Type was %u", type);
 }
 
 - (void)testObjectTypeCorrupt
@@ -133,7 +137,7 @@ static NSArray *g_test_strings;
     objcClass.isa = (__bridge Class)((void *)-1);
 #pragma clang diagnostic pop
     KSObjCType type = ksobjc_objectType(&objcClass);
-    XCTAssertEqual(type, KSObjCTypeUnknown, @"Type was %d", type);
+    XCTAssertEqual(type, KSObjCTypeUnknown, @"Type was %u", type);
 }
 
 - (void)testObjectTypeClass
@@ -141,21 +145,21 @@ static NSArray *g_test_strings;
     Class cls = [KSObjC_Tests class];
     void *clsPtr = (__bridge void *)cls;
     KSObjCType type = ksobjc_objectType(clsPtr);
-    XCTAssertTrue(type == KSObjCTypeClass, @"Type was %d", type);
+    XCTAssertTrue(type == KSObjCTypeClass, @"Type was %u", type);
 }
 
 - (void)testObjectTypeObject
 {
     id object = [KSObjC_Tests new];
     KSObjCType type = ksobjc_objectType((__bridge void *)(object));
-    XCTAssertTrue(type == KSObjCTypeObject, @"Type was %d", type);
+    XCTAssertTrue(type == KSObjCTypeObject, @"Type was %u", type);
 }
 
 - (void)testObjectTypeObject2
 {
     id object = @"Test";
     KSObjCType type = ksobjc_objectType((__bridge void *)(object));
-    XCTAssertTrue(type == KSObjCTypeObject, @"Type was %d", type);
+    XCTAssertTrue(type == KSObjCTypeObject, @"Type was %u", type);
 }
 
 - (void)testObjectTypeBlock
@@ -180,7 +184,7 @@ static NSArray *g_test_strings;
     XCTAssertTrue(type == KSObjCTypeBlock, @"");
 
     block = ^{
-        NSLog(@"%d", type);
+        NSLog(@"%u", type);
     };
     blockPtr = (__bridge void *)block;
     isaPtr = ksobjc_isaPointer(blockPtr);
@@ -188,7 +192,7 @@ static NSArray *g_test_strings;
     XCTAssertTrue(type == KSObjCTypeBlock, @"");
 
     block = [^{
-        NSLog(@"%d", type);
+        NSLog(@"%u", type);
     } copy];
     blockPtr = (__bridge void *)block;
     isaPtr = ksobjc_isaPointer(blockPtr);
@@ -204,6 +208,7 @@ static NSArray *g_test_strings;
     isaPtr = ksobjc_isaPointer(blockPtr);
     type = ksobjc_objectType(isaPtr);
     XCTAssertTrue(type == KSObjCTypeBlock, @"");
+    XCTAssertEqual(value, 0);
 
     block = [^{
         value = 1;
@@ -212,6 +217,7 @@ static NSArray *g_test_strings;
     isaPtr = ksobjc_isaPointer(blockPtr);
     type = ksobjc_objectType(isaPtr);
     XCTAssertTrue(type == KSObjCTypeBlock, @"");
+    XCTAssertEqual(value, 0);
 }
 
 - (void)testGetClassName
@@ -549,7 +555,7 @@ static NSArray *g_test_strings;
     void *datePtr = (__bridge void *)date;
     NSTimeInterval expected = [date timeIntervalSinceReferenceDate];
     NSTimeInterval actual = ksobjc_dateContents(datePtr);
-    XCTAssertEqual(actual, expected, @"");
+    AssertAround(actual, expected);
 }
 
 - (void)testDateDescription
@@ -607,7 +613,7 @@ static NSArray *g_test_strings;
     NSNumber *number = [NSNumber numberWithDouble:expected];
     void *numberPtr = (__bridge void *)number;
     Float64 actual = ksobjc_numberAsFloat(numberPtr);
-    XCTAssertEqual(expected, actual, "");
+    AssertAround(actual, expected);
 }
 
 - (void)testFloatNumberWhole
@@ -616,7 +622,7 @@ static NSArray *g_test_strings;
     NSNumber *number = [NSNumber numberWithDouble:expected];
     void *numberPtr = (__bridge void *)number;
     Float64 actual = ksobjc_numberAsFloat(numberPtr);
-    XCTAssertEqual(expected, actual, "");
+    AssertAround(actual, expected);
 }
 
 - (void)testFloatNumberFromInt
@@ -625,7 +631,7 @@ static NSArray *g_test_strings;
     NSNumber *number = [NSNumber numberWithInt:(int)expected];
     void *numberPtr = (__bridge void *)number;
     Float64 actual = ksobjc_numberAsFloat(numberPtr);
-    XCTAssertEqual(expected, actual, "");
+    AssertAround(actual, expected);
 }
 
 - (void)testIntNumber
@@ -649,7 +655,7 @@ static NSArray *g_test_strings;
 - (void)testIntNumberFromFloat
 {
     int64_t expected = 55;
-    NSNumber *number = [NSNumber numberWithDouble:expected];
+    NSNumber *number = [NSNumber numberWithDouble:(double)expected];
     void *numberPtr = (__bridge void *)number;
     int64_t actual = ksobjc_numberAsInteger(numberPtr);
     XCTAssertEqual(expected, actual, "");
@@ -821,7 +827,7 @@ static NSArray *g_test_strings;
 - (void)testCopyArrayContentsCopyOfMutable
 {
     NSMutableArray *array = [NSMutableArray array];
-    int size = 100;
+    NSUInteger size = 100;
     for (NSUInteger i = 0; i < size; i++) {
         [array addObject:@(i)];
     }
@@ -832,8 +838,8 @@ static NSArray *g_test_strings;
     int count = ksobjc_arrayCount(arrayPtr);
     XCTAssertEqual(count, expectedCount, @"");
     uintptr_t contents[size + 10];
-    int copied = ksobjc_arrayContents(arrayPtr, contents, (int)sizeof(contents));
-    int expectedCopied = size;
+    NSUInteger copied = (NSUInteger)ksobjc_arrayContents(arrayPtr, contents, (int)sizeof(contents));
+    NSUInteger expectedCopied = size;
     XCTAssertEqual(copied, expectedCopied, @"");
 }
 

@@ -60,7 +60,8 @@ static inline int64_t getNextUniqueID(void) { return g_nextUniqueIDHigh + g_next
 
 static void getCrashReportPathByID(int64_t id, char *pathBuffer, const KSCrashReportStoreCConfiguration *const config)
 {
-    snprintf(pathBuffer, KSCRS_MAX_PATH_LENGTH, "%s/%s-report-%016llx.json", config->reportsPath, config->appName, id);
+    snprintf(pathBuffer, KSCRS_MAX_PATH_LENGTH, "%s/%s-report-%016llx.json", config->reportsPath, config->appName,
+             (uint64_t)id);
 }
 
 static int64_t getReportIDFromFilename(const char *filename, const KSCrashReportStoreCConfiguration *const config)
@@ -176,7 +177,7 @@ KSCrashInstallErrorCode kscrs_initialize(const KSCrashReportStoreCConfiguration 
         initializeIDs();
     }
     pthread_mutex_unlock(&g_mutex);
-    return KSCrashInstallErrorNone;
+    return result;
 }
 
 int64_t kscrs_getNextCrashReport(char *crashReportPathBuffer,
