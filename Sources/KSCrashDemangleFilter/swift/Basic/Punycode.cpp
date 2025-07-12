@@ -34,8 +34,8 @@ static const char delimiter = '_';
 static char digit_value(int digit) {
     assert(digit < base && "invalid punycode digit");
     if (digit < 26)
-        return 'a' + digit;
-    return 'A' - 26 + digit;
+        return 'a' + (char)digit;
+    return 'A' - 26 + (char)digit;
 }
 
 static int digit_index(char value) {
@@ -89,7 +89,7 @@ bool Punycode::decodePunycode(StringRef InputPunycode,
             // fail on any non-basic code point
             if (static_cast<unsigned char>(c) > 0x7f)
                 return true;
-            OutCodePoints.push_back(c);
+            OutCodePoints.push_back((unsigned)c);
         }
         // if more than zero code points were consumed then consume one more
         //  (which will be the last delimiter)
@@ -123,8 +123,8 @@ bool Punycode::decodePunycode(StringRef InputPunycode,
 #pragma clang diagnostic ignored "-Wconversion"
         bias = adapt(i - oldi, OutCodePoints.size() + 1, oldi == 0);
 #pragma clang diagnostic pop
-        n = n + i / (OutCodePoints.size() + 1);
-        i = i % (OutCodePoints.size() + 1);
+        n = n + (uint32_t)i / (OutCodePoints.size() + 1);
+        i = i % ((int)OutCodePoints.size() + 1);
         // if n is a basic code point then fail
         if (n < 0x80)
             return true;
@@ -152,7 +152,7 @@ bool Punycode::encodePunycode(const std::vector<uint32_t> &InputCodePoints,
     for (auto C : InputCodePoints) {
         if (C < 0x80) {
             ++h;
-            OutPunycode.push_back(C);
+            OutPunycode.push_back((char)C);
         }
         if (!isValidUnicodeScalar(C)) {
             OutPunycode.clear();
@@ -225,14 +225,14 @@ static bool encodeToUTF8(const std::vector<uint32_t> &Scalars,
         
         switch (Bytes) {
             case 1:
-                OutUTF8.push_back(S);
+                OutUTF8.push_back((char)S);
                 break;
             case 2: {
                 uint8_t Byte2 = (S | 0x80) & 0xBF;
                 S >>= 6;
-                uint8_t Byte1 = S | 0xC0;
-                OutUTF8.push_back(Byte1);
-                OutUTF8.push_back(Byte2);
+                uint8_t Byte1 = (uint8_t)S | 0xC0;
+                OutUTF8.push_back((char)Byte1);
+                OutUTF8.push_back((char)Byte2);
                 break;
             }
             case 3: {
@@ -240,10 +240,10 @@ static bool encodeToUTF8(const std::vector<uint32_t> &Scalars,
                 S >>= 6;
                 uint8_t Byte2 = (S | 0x80) & 0xBF;
                 S >>= 6;
-                uint8_t Byte1 = S | 0xE0;
-                OutUTF8.push_back(Byte1);
-                OutUTF8.push_back(Byte2);
-                OutUTF8.push_back(Byte3);
+                uint8_t Byte1 = (uint8_t)S | 0xE0;
+                OutUTF8.push_back((char)Byte1);
+                OutUTF8.push_back((char)Byte2);
+                OutUTF8.push_back((char)Byte3);
                 break;
             }
             case 4: {
@@ -253,13 +253,15 @@ static bool encodeToUTF8(const std::vector<uint32_t> &Scalars,
                 S >>= 6;
                 uint8_t Byte2 = (S | 0x80) & 0xBF;
                 S >>= 6;
-                uint8_t Byte1 = S | 0xF0;
-                OutUTF8.push_back(Byte1);
-                OutUTF8.push_back(Byte2);
-                OutUTF8.push_back(Byte3);
-                OutUTF8.push_back(Byte4);
+                uint8_t Byte1 = (uint8_t)S | 0xF0;
+                OutUTF8.push_back((char)Byte1);
+                OutUTF8.push_back((char)Byte2);
+                OutUTF8.push_back((char)Byte3);
+                OutUTF8.push_back((char)Byte4);
                 break;
             }
+            default:
+                break;
         }
     }
     return true;
@@ -292,9 +294,9 @@ static bool convertUTF8toUTF32(llvm::StringRef InputUTF8,
     auto ptr = InputUTF8.begin();
     auto end = InputUTF8.end();
     while (ptr < end) {
-        uint8_t first = *ptr++;
+        uint8_t first = (uint8_t)*ptr++;
         if (first < 0x80) {
-            if (Mangle::isValidSymbolChar(first) || !mapNonSymbolChars) {
+            if (Mangle::isValidSymbolChar((char)first) || !mapNonSymbolChars) {
                 OutUTF32.push_back(first);
             } else {
                 OutUTF32.push_back((uint32_t)first + 0xD800);
@@ -306,33 +308,33 @@ static bool convertUTF8toUTF32(llvm::StringRef InputUTF8,
             // Two-byte sequence.
             if (ptr == end)
                 return false;
-            uint8_t second = *ptr++;
+            uint8_t second = (uint8_t)*ptr++;
             if (!isContinuationByte(second))
                 return false;
-            OutUTF32.push_back(((first & 0x1F) << 6) | (second & 0x3F));
+            OutUTF32.push_back((unsigned)((first & 0x1F) << 6) | (second & 0x3F));
         } else if (first < 0xF0) {
             // Three-byte sequence.
             if (end - ptr < 2)
                 return false;
-            uint8_t second = *ptr++;
-            uint8_t third = *ptr++;
+            uint8_t second = (uint8_t)*ptr++;
+            uint8_t third = (uint8_t)*ptr++;
             if (!isContinuationByte(second) || !isContinuationByte(third))
                 return false;
-            OutUTF32.push_back(((first & 0xF) << 12) | ((second & 0x3F) << 6)
-                               | ( third  & 0x3F      ));
+            OutUTF32.push_back((unsigned)(((first & 0xF) << 12) | ((second & 0x3F) << 6)
+                               | ( third  & 0x3F      )));
         } else if (first < 0xF8) {
             // Four-byte sequence.
             if (end - ptr < 3)
                 return false;
-            uint8_t second = *ptr++;
-            uint8_t third = *ptr++;
-            uint8_t fourth = *ptr++;
+            uint8_t second = (uint8_t)*ptr++;
+            uint8_t third = (uint8_t)*ptr++;
+            uint8_t fourth = (uint8_t)*ptr++;
             if (!isContinuationByte(second) || !isContinuationByte(third)
                 || !isContinuationByte(fourth))
                 return false;
-            OutUTF32.push_back(((first & 0x7) << 18) | ((second & 0x3F) << 12)
+            OutUTF32.push_back((unsigned)(((first & 0x7) << 18) | ((second & 0x3F) << 12)
                                | ((third  & 0x3F) <<  6)
-                               | ( fourth & 0x3F       ));
+                               | ( fourth & 0x3F       )));
         } else {
             // Unused sequence length.
             return false;

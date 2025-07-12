@@ -258,6 +258,8 @@ static NSDictionary *g_registerOrders;
                 case CPU_SUBTYPE_ARM_V7S:
                     return @"armv7s";
 #endif
+                default:
+                    break;
             }
             return @"arm";
         }
@@ -265,6 +267,8 @@ static NSDictionary *g_registerOrders;
             switch (minorCode) {
                 case CPU_SUBTYPE_ARM64E:
                     return @"arm64e";
+                default:
+                    break;
             }
             return @"arm64";
         }
@@ -272,8 +276,9 @@ static NSDictionary *g_registerOrders;
             return @"i386";
         case CPU_TYPE_X86_64:
             return @"x86_64";
+        default:
+            return [NSString stringWithFormat:@"unknown(%d,%d)", majorCode, minorCode];
     }
-    return [NSString stringWithFormat:@"unknown(%d,%d)", majorCode, minorCode];
 }
 
 /** Convert a backtrace to a string.
@@ -331,6 +336,8 @@ static NSDictionary *g_registerOrders;
             case KSAppleReportStylePartiallySymbolicated:  // Should not happen
             case KSAppleReportStyleUnsymbolicated:
                 [str appendFormat:@"%@ %@\n", preamble, unsymbolicated];
+                break;
+            default:
                 break;
         }
         traceNum++;

@@ -139,7 +139,7 @@
     if (copy == nil) {
         return nil;
     }
-    copy->_reportStoreConfiguration = [self.reportStoreConfiguration copyWithZone:zone];
+    copy.reportStoreConfiguration = [self.reportStoreConfiguration copyWithZone:zone];
 
     copy.installPath = [self.installPath copyWithZone:zone];
     copy.monitors = self.monitors;

@@ -139,7 +139,7 @@ extern void ksbic_resetCache(void);
     for (uint32_t i = 0; i < MIN(count, 10); i++) {
         const struct mach_header *header = ksbic_imageHeader(i);
         const char *name = ksbic_imageName(i);
-        uintptr_t slide = ksbic_imageVMAddrSlide(i);
+        //        uintptr_t slide = ksbic_imageVMAddrSlide(i);
 
         XCTAssertNotEqual(header, NULL, @"Should have valid header for image %@", @(i));
         XCTAssertNotEqual(name, NULL, @"Should have valid name for image %@", @(i));

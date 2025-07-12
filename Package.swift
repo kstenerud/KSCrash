@@ -2,6 +2,186 @@
 
 @preconcurrency import PackageDescription
 
+let warningFlags = [
+    // The main ones
+    "-Werror",
+    "-Wmost",
+    "-Wall",
+    "-Wextra",
+
+    // Specifics that aren't covered by above
+    "-Wanon-enum-enum-conversion",
+    "-Warc-repeated-use-of-weak",
+    "-Wbitfield-enum-conversion",
+    "-Wbitwise-instead-of-logical",
+    "-Wbitwise-op-parentheses",
+    "-Wblock-capture-autoreleasing",
+    "-Wbool-conversion",
+    "-Wbool-operation",
+    "-Wcalled-once-parameter",
+    "-Wcast-align",
+    "-Wclass-varargs",
+    "-Wcomma",
+    "-Wcomment",
+    "-Wcompletion-handler",
+    "-Wconditional-uninitialized",
+    "-Wconstant-conversion",
+    "-Wconsumed",
+    "-Wconversion",
+    "-Wcustom-atomic-properties",
+    "-Wdelete-non-virtual-dtor",
+    "-Wdeprecated",
+    "-Wdeprecated-declarations",
+    "-Wdocumentation",
+    "-Wdocumentation-pedantic",
+    "-Wdtor-name",
+    "-Wduplicate-decl-specifier",
+    "-Wduplicate-enum",
+    "-Wduplicate-method-arg",
+    "-Wduplicate-method-match",
+    "-Wembedded-directive",
+    "-Wempty-body",
+    "-Wempty-init-stmt",
+    "-Wenum-compare-conditional",
+    "-Wenum-conversion",
+    "-Wexit-time-destructors",
+    "-Wexpansion-to-defined",
+    "-Wflexible-array-extensions",
+    "-Wfloat-conversion",
+    "-Wfloat-equal",
+    "-Wfor-loop-analysis",
+    "-Wformat-non-iso",
+    "-Wformat-pedantic",
+    "-Wformat-type-confusion",
+    "-Wfour-char-constants",
+    "-Wframe-address",
+    "-Widiomatic-parentheses",
+    "-Wignored-qualifiers",
+    "-Wimplicit",
+    "-Wimplicit-atomic-properties",
+    "-Wimplicit-fallthrough",
+    "-Wimplicit-float-conversion",
+    "-Wimplicit-function-declaration",
+    "-Wimplicit-int",
+    "-Wimplicit-int-conversion",
+    "-Wimplicit-int-float-conversion",
+    "-Wimplicit-retain-self",
+    "-Winconsistent-missing-destructor-override",
+    "-Winfinite-recursion",
+    "-Wint-conversion",
+    "-Wint-in-bool-context",
+    "-Wkeyword-macro",
+    "-Wlogical-op-parentheses",
+    "-Wloop-analysis",
+    "-Wmain",
+    "-Wmethod-signatures",
+    "-Wmisleading-indentation",
+    "-Wmismatched-tags",
+    "-Wmissing-braces",
+    "-Wmissing-field-initializers",
+    "-Wmissing-method-return-type",
+    "-Wmissing-noreturn",
+    "-Wmissing-variable-declarations",
+    "-Wmove",
+    "-Wnested-anon-types",
+    "-Wno-four-char-constants",
+    "-Wno-missing-field-initializers",
+    "-Wno-missing-prototypes",
+    "-Wno-semicolon-before-method-body",
+    "-Wno-trigraphs",
+    "-Wno-unknown-pragmas",
+    "-Wnon-literal-null-conversion",
+    "-Wnon-modular-include-in-module",
+    "-Wnon-pod-varargs",
+    "-Wnon-virtual-dtor",
+    "-Wnull-pointer-arithmetic",
+    "-Wnull-pointer-subtraction",
+    "-Wobjc-literal-conversion",
+    "-Wobjc-property-assign-on-object-type",
+    "-Wobjc-redundant-api-use",
+    "-Wobjc-signed-char-bool-implicit-int-conversion",
+    "-Wover-aligned",
+    "-Woverloaded-virtual",
+    "-Woverriding-method-mismatch",
+    "-Wparentheses",
+    "-Wpessimizing-move",
+    "-Wpointer-sign",
+    "-Wquoted-include-in-framework-header",
+    "-Wrange-loop-analysis",
+    "-Wredundant-move",
+    "-Wredundant-parens",
+    "-Wreorder-ctor",
+    "-Wreserved-macro-identifier",
+    "-Wselector-type-mismatch",
+    "-Wself-assign-overloaded",
+    "-Wself-move",
+    "-Wsemicolon-before-method-body",
+    "-Wsequence-point",
+    "-Wshadow",
+    "-Wshadow-uncaptured-local",
+    "-Wshift-sign-overflow",
+    "-Wshorten-64-to-32",
+    "-Wsign-compare",
+    "-Wsign-conversion",
+    "-Wsometimes-uninitialized",
+    "-Wspir-compat",
+    "-Wstatic-in-inline",
+    "-Wstrict-potentially-direct-selector",
+    "-Wstrict-prototypes",
+    "-Wstring-conversion",
+    "-Wsuggest-destructor-override",
+    "-Wsuggest-override",
+    "-Wsuper-class-method-mismatch",
+    "-Wswitch",
+    "-Wswitch-default",
+    "-Wtautological-compare",
+    "-Wtautological-unsigned-char-zero-compare",
+    "-Wtautological-unsigned-enum-zero-compare",
+    "-Wtautological-value-range-compare",
+    "-Wtentative-definition-incomplete-type",
+    "-Wthread-safety",
+    "-Wunaligned-access",
+    "-Wundeclared-selector",
+    "-Wundef-prefix",
+    "-Wundefined-func-template",
+    "-Wundefined-internal-type",
+    "-Wundefined-reinterpret-cast",
+    "-Wunguarded-availability",
+    "-Wuninitialized",
+    "-Wuninitialized-const-reference",
+    "-Wunneeded-internal-declaration",
+    "-Wunneeded-member-function",
+    "-Wunreachable-code",
+    "-Wunreachable-code-loop-increment",
+    "-Wunreachable-code-return",
+    "-Wunused",
+    "-Wunused-but-set-parameter",
+    "-Wunused-const-variable",
+    "-Wunused-exception-parameter",
+    "-Wunused-function",
+    "-Wunused-label",
+    "-Wunused-parameter",
+    "-Wunused-value",
+    "-Wunused-variable",
+    "-Wused-but-marked-unused",
+    "-Wvector-conversion",
+    "-Wweak-vtables",
+
+    // To be added later (big job to fix this)
+    // "-Wdirect-ivar-access",
+    // "-Wobjc-interface-ivars",
+
+    // Flags that we can't use for various reasons:
+    // "-Wassign-enum",
+    // "-Watomic-implicit-seq-cst",
+    // "-Wcast-qual",
+    // "-Wcast-function-type",
+
+    // Must disable these because the auto-generated resource_bundle_accessor.m is naughty
+    "-Wno-strict-prototypes",
+    //"-Wnullable-to-nonnull-conversion",
+]
+
 let package = Package(
     name: "KSCrash",
     platforms: [
@@ -60,6 +240,12 @@ let package = Package(
             cSettings: [
                 .headerSearchPath("."),
                 .headerSearchPath("Monitors"),
+                .unsafeFlags(warningFlags),
+            ],
+            cxxSettings: [
+                .headerSearchPath("."),
+                .headerSearchPath("Monitors"),
+                .unsafeFlags(warningFlags),
             ]
         ),
         .testTarget(
@@ -75,6 +261,7 @@ let package = Package(
             cSettings: [
                 .headerSearchPath("../../Sources/\(Targets.recording)"),
                 .headerSearchPath("../../Sources/\(Targets.recording)/Monitors"),
+                .unsafeFlags(warningFlags),
             ]
         ),
 
@@ -87,6 +274,9 @@ let package = Package(
             ],
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy")
+            ],
+            cSettings: [
+                .unsafeFlags(warningFlags)
             ]
         ),
         .testTarget(
@@ -99,6 +289,9 @@ let package = Package(
             ],
             resources: [
                 .process("Resources")
+            ],
+            cSettings: [
+                .unsafeFlags(warningFlags)
             ]
         ),
 
@@ -110,6 +303,9 @@ let package = Package(
             ],
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy")
+            ],
+            cSettings: [
+                .unsafeFlags(warningFlags)
             ]
         ),
 
@@ -123,6 +319,9 @@ let package = Package(
             ],
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy")
+            ],
+            cSettings: [
+                .unsafeFlags(warningFlags)
             ]
         ),
         .testTarget(
@@ -132,6 +331,9 @@ let package = Package(
                 .target(name: Targets.filters),
                 .target(name: Targets.sinks),
                 .target(name: Targets.recording),
+            ],
+            cSettings: [
+                .unsafeFlags(warningFlags)
             ]
         ),
 
@@ -142,6 +344,9 @@ let package = Package(
             ],
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy")
+            ],
+            cSettings: [
+                .unsafeFlags(warningFlags)
             ]
         ),
         .testTarget(
@@ -150,12 +355,18 @@ let package = Package(
                 .target(name: Targets.testTools),
                 .target(name: Targets.recordingCore),
                 .target(name: Targets.core),
+            ],
+            cSettings: [
+                .unsafeFlags(warningFlags)
             ]
         ),
         .testTarget(
             name: Targets.recordingCoreSwift.tests,
             dependencies: [
                 .target(name: Targets.recordingCore)
+            ],
+            cSettings: [
+                .unsafeFlags(warningFlags)
             ]
         ),
 
@@ -167,6 +378,9 @@ let package = Package(
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy")
             ],
+            cSettings: [
+                .unsafeFlags(warningFlags)
+            ],
             linkerSettings: [
                 .linkedLibrary("z")
             ]
@@ -176,6 +390,9 @@ let package = Package(
             dependencies: [
                 .target(name: Targets.reportingCore),
                 .target(name: Targets.core),
+            ],
+            cSettings: [
+                .unsafeFlags(warningFlags)
             ]
         ),
 
@@ -183,12 +400,18 @@ let package = Package(
             name: Targets.core,
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy")
+            ],
+            cSettings: [
+                .unsafeFlags(warningFlags)
             ]
         ),
         .testTarget(
             name: Targets.core.tests,
             dependencies: [
                 .target(name: Targets.core)
+            ],
+            cSettings: [
+                .unsafeFlags(warningFlags)
             ]
         ),
 
@@ -199,6 +422,9 @@ let package = Package(
             ],
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy")
+            ],
+            cSettings: [
+                .unsafeFlags(warningFlags)
             ]
         ),
         .testTarget(
@@ -206,6 +432,9 @@ let package = Package(
             dependencies: [
                 .target(name: Targets.discSpaceMonitor),
                 .target(name: Targets.recordingCore),
+            ],
+            cSettings: [
+                .unsafeFlags(warningFlags)
             ]
         ),
 
@@ -216,6 +445,9 @@ let package = Package(
             ],
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy")
+            ],
+            cSettings: [
+                .unsafeFlags(warningFlags)
             ]
         ),
         .testTarget(
@@ -223,6 +455,9 @@ let package = Package(
             dependencies: [
                 .target(name: Targets.bootTimeMonitor),
                 .target(name: Targets.recordingCore),
+            ],
+            cSettings: [
+                .unsafeFlags(warningFlags)
             ]
         ),
 
@@ -241,6 +476,16 @@ let package = Package(
                 .headerSearchPath("llvm/ADT"),
                 .headerSearchPath("llvm/Config"),
                 .headerSearchPath("llvm/Support"),
+                .unsafeFlags(warningFlags),
+            ],
+            cxxSettings: [
+                .headerSearchPath("swift"),
+                .headerSearchPath("swift/Basic"),
+                .headerSearchPath("llvm"),
+                .headerSearchPath("llvm/ADT"),
+                .headerSearchPath("llvm/Config"),
+                .headerSearchPath("llvm/Support"),
+                .unsafeFlags(warningFlags),
             ]
         ),
         .testTarget(
@@ -248,6 +493,9 @@ let package = Package(
             dependencies: [
                 .target(name: Targets.demangleFilter),
                 .target(name: Targets.recording),
+            ],
+            cSettings: [
+                .unsafeFlags(warningFlags)
             ]
         ),
 
@@ -255,6 +503,9 @@ let package = Package(
             name: Targets.testTools,
             dependencies: [
                 .target(name: Targets.recordingCore)
+            ],
+            cSettings: [
+                .unsafeFlags(warningFlags)
             ]
         ),
     ],

@@ -82,8 +82,8 @@ static inline bool getThreadList(KSMachineContext *context)
         return false;
     }
     KSLOG_TRACE("Got %d threads", context->threadCount);
-    int threadCount = (int)actualThreadCount;
-    int maxThreadCount = sizeof(context->allThreads) / sizeof(context->allThreads[0]);
+    mach_msg_type_number_t threadCount = actualThreadCount;
+    mach_msg_type_number_t maxThreadCount = sizeof(context->allThreads) / sizeof(context->allThreads[0]);
     if (threadCount > maxThreadCount) {
         KSLOG_ERROR("Thread count %d is higher than maximum of %d", threadCount, maxThreadCount);
         for (mach_msg_type_number_t idx = maxThreadCount; idx < threadCount; ++idx) {
@@ -95,10 +95,10 @@ static inline bool getThreadList(KSMachineContext *context)
         }
         threadCount = maxThreadCount;
     }
-    for (int i = 0; i < threadCount; i++) {
+    for (mach_msg_type_number_t i = 0; i < threadCount; i++) {
         context->allThreads[i] = threads[i];
     }
-    context->threadCount = threadCount;
+    context->threadCount = (int)threadCount;
 
     for (mach_msg_type_number_t i = 0; i < actualThreadCount; i++) {
         mach_port_deallocate(thisTask, threads[i]);
@@ -167,10 +167,9 @@ static inline bool isThreadInList(thread_t thread, KSThread *list, int listCount
 }
 #endif
 
-void ksmc_suspendEnvironment(__unused thread_act_array_t *suspendedThreads,
-                             __unused mach_msg_type_number_t *numSuspendedThreads)
-{
 #if KSCRASH_HAS_THREADS_API
+void ksmc_suspendEnvironment(thread_act_array_t *suspendedThreads, mach_msg_type_number_t *numSuspendedThreads)
+{
     KSLOG_DEBUG("Suspending environment.");
     kern_return_t kr;
     const task_t thisTask = mach_task_self();
@@ -192,12 +191,17 @@ void ksmc_suspendEnvironment(__unused thread_act_array_t *suspendedThreads,
     }
 
     KSLOG_DEBUG("Suspend complete.");
-#endif
 }
-
-void ksmc_resumeEnvironment(__unused thread_act_array_t threads, __unused mach_msg_type_number_t numThreads)
+#else
+void ksmc_suspendEnvironment(__unused thread_act_array_t *suspendedThreads,
+                             __unused mach_msg_type_number_t *numSuspendedThreads)
 {
+}
+#endif
+
 #if KSCRASH_HAS_THREADS_API
+void ksmc_resumeEnvironment(thread_act_array_t threads, mach_msg_type_number_t numThreads)
+{
     KSLOG_DEBUG("Resuming environment.");
     kern_return_t kr;
     const task_t thisTask = mach_task_self();
@@ -224,8 +228,10 @@ void ksmc_resumeEnvironment(__unused thread_act_array_t threads, __unused mach_m
     vm_deallocate(thisTask, (vm_address_t)threads, sizeof(thread_t) * numThreads);
 
     KSLOG_DEBUG("Resume complete.");
-#endif
 }
+#else
+void ksmc_resumeEnvironment(__unused thread_act_array_t threads, __unused mach_msg_type_number_t numThreads) {}
+#endif
 
 int ksmc_getThreadCount(const KSMachineContext *const context) { return context->threadCount; }
 

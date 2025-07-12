@@ -51,9 +51,9 @@
 #import <UIKit/UIKit.h>
 #endif
 
-const int32_t KSCrash_Memory_Magic = 'kscm';
+static const int32_t KSCrash_Memory_Magic = 'kscm';
 
-const uint8_t KSCrash_Memory_Version_1 = 1;
+static const uint8_t KSCrash_Memory_Version_1 = 1;
 const uint8_t KSCrash_Memory_CurrentVersion = KSCrash_Memory_Version_1;
 
 const uint8_t KSCrash_Memory_NonFatalReportLevelNone = KSCrashAppMemoryStateTerminal + 1;
@@ -174,7 +174,7 @@ static KSCrash_Memory g_previousSessionMemory;
 
 - (instancetype)init
 {
-    if (self = [super init]) {
+    if ((self = [super init])) {
         _tracker = [[KSCrashAppMemoryTracker alloc] init];
         _tracker.delegate = self;
         [_tracker start];
@@ -519,10 +519,10 @@ static void ksmemory_write_possible_oom(void)
     NSURL *reportURL = kscm_memory_oom_breadcrumb_URL();
     const char *reportPath = reportURL.path.UTF8String;
 
-    KSMC_NEW_CONTEXT(machineContext);
-    ksmc_getContextForThread(ksthread_self(), machineContext, false);
+    KSMachineContext machineContext = { 0 };
+    ksmc_getContextForThread(ksthread_self(), &machineContext, false);
     KSStackCursor stackCursor;
-    kssc_initWithMachineContext(&stackCursor, KSSC_MAX_STACK_DEPTH, machineContext);
+    kssc_initWithMachineContext(&stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
 
     char eventID[37] = { 0 };
     ksid_generate(eventID);
@@ -532,7 +532,7 @@ static void ksmemory_write_possible_oom(void)
     ksmc_fillMonitorContext(&context, kscm_memory_getAPI());
     context.eventID = eventID;
     context.registersAreValid = false;
-    context.offendingMachineContext = machineContext;
+    context.offendingMachineContext = &machineContext;
     context.currentSnapshotUserReported = true;
 
     // we don't need all the images, we have no stack

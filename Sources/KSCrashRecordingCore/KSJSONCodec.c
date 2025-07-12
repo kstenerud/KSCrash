@@ -782,8 +782,9 @@ static int decodeString(KSJSONDecodeContext *context, char *dstBuffer, int dstBu
                         KSLOG_DEBUG("Premature end of data");
                         return KSJSON_ERROR_INCOMPLETE;
                     }
-                    unsigned int accum = g_hexConversion[src[1]] << 12 | g_hexConversion[src[2]] << 8 |
-                                         g_hexConversion[src[3]] << 4 | g_hexConversion[src[4]];
+                    unsigned int accum = g_hexConversion[(unsigned)src[1]] << 12 |
+                                         g_hexConversion[(unsigned)src[2]] << 8 |
+                                         g_hexConversion[(unsigned)src[3]] << 4 | g_hexConversion[(unsigned)src[4]];
                     unlikely_if(accum > 0xffff)
                     {
                         KSLOG_DEBUG("Invalid unicode sequence: %c%c%c%c", src[1], src[2], src[3], src[4]);
@@ -812,8 +813,9 @@ static int decodeString(KSJSONDecodeContext *context, char *dstBuffer, int dstBu
                             return KSJSON_ERROR_INVALID_CHARACTER;
                         }
                         src += 6;
-                        unsigned int accum2 = g_hexConversion[src[1]] << 12 | g_hexConversion[src[2]] << 8 |
-                                              g_hexConversion[src[3]] << 4 | g_hexConversion[src[4]];
+                        unsigned int accum2 =
+                            g_hexConversion[(unsigned)src[1]] << 12 | g_hexConversion[(unsigned)src[2]] << 8 |
+                            g_hexConversion[(unsigned)src[3]] << 4 | g_hexConversion[(unsigned)src[4]];
                         unlikely_if(accum2 < 0xdc00 || accum2 > 0xdfff)
                         {
                             KSLOG_DEBUG("Invalid trail surrogate: 0x%04x", accum2);
@@ -965,8 +967,10 @@ static int decodeElement(const char *const name, KSJSONDecodeContext *context)
                 KSLOG_DEBUG("Not a digit: '%c'", *context->bufferPtr);
                 return KSJSON_ERROR_INVALID_CHARACTER;
             }
-            // Fall through
+            // Fallthrough
+#pragma clang diagnostic ignored "-Wimplicit-fallthrough"
         case '0':
+#pragma clang diagnostic pop
         case '1':
         case '2':
         case '3':
@@ -1041,9 +1045,10 @@ static int decodeElement(const char *const name, KSJSONDecodeContext *context)
             value *= sign;
             return context->callbacks->onFloatingPointElement(name, value, context->userData);
         }
+        default:
+            KSLOG_DEBUG("Invalid character '%c'", *context->bufferPtr);
+            return KSJSON_ERROR_INVALID_CHARACTER;
     }
-    KSLOG_DEBUG("Invalid character '%c'", *context->bufferPtr);
-    return KSJSON_ERROR_INVALID_CHARACTER;
 }
 
 int ksjson_decode(const char *const data, int length, char *stringBuffer, int stringBufferLength,

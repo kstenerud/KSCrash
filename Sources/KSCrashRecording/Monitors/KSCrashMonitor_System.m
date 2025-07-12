@@ -253,23 +253,25 @@ static const char *getCPUArchForCPUType(cpu_type_t cpuType, cpu_subtype_t subTyp
                 case CPU_SUBTYPE_ARM_V7S:
                     return "armv7s";
 #endif
+                default:
+                    return "arm";
             }
-            break;
         }
         case CPU_TYPE_ARM64: {
             switch (subType) {
                 case CPU_SUBTYPE_ARM64E:
                     return "arm64e";
+                default:
+                    return "arm64";
             }
-            return "arm64";
         }
         case CPU_TYPE_X86:
             return "x86";
         case CPU_TYPE_X86_64:
             return "x86_64";
+        default:
+            return NULL;
     }
-
-    return NULL;
 }
 
 static const char *getCurrentCPUArch(void)

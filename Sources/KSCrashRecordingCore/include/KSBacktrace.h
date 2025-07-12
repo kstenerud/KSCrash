@@ -59,14 +59,14 @@ int ksbt_captureBacktrace(pthread_t _Nonnull thread, uintptr_t *_Nonnull address
 /**
  * Information about a symbol and the image in which it resides.
  *
- * @field returnAddress    The return address of the instruction being symbolicated.
- * @field callInstruction    The call address of the instruction being symbolicated.
- * @field symbolAddress    The start address of the resolved symbol.
- * @field symbolName       The name of the symbol, or NULL if unavailable.
- * @field imageName        The filename of the binary image containing this symbol.
- * @field imageUUID        A pointer to the 16-byte UUID of the image, or NULL.
- * @field imageAddress     The load address of the image in memory.
- * @field imageSize        The size of the image in bytes.
+ * field returnAddress    The return address of the instruction being symbolicated.
+ * field callInstruction    The call address of the instruction being symbolicated.
+ * field symbolAddress    The start address of the resolved symbol.
+ * field symbolName       The name of the symbol, or NULL if unavailable.
+ * field imageName        The filename of the binary image containing this symbol.
+ * field imageUUID        A pointer to the 16-byte UUID of the image, or NULL.
+ * field imageAddress     The load address of the image in memory.
+ * field imageSize        The size of the image in bytes.
  */
 struct KSSymbolInformation {
     uintptr_t returnAddress;

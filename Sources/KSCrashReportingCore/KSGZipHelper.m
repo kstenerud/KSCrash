@@ -52,8 +52,9 @@ static NSString *zlibError(int errorCode)
             return @"Output buffer too small";
         case Z_VERSION_ERROR:
             return @"Incorrect zlib version";
+        default:
+            return [NSString stringWithFormat:@"Unknown error: %d", errorCode];
     }
-    return [NSString stringWithFormat:@"Unknown error: %d", errorCode];
 }
 
 @implementation KSGZipHelper

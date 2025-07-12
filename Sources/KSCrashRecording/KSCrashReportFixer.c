@@ -222,7 +222,7 @@ static int onEndContainer(void *const userData)
     return result;
 }
 
-static int onEndData(__unused void *const userData)
+static int onEndData(void *const userData)
 {
     FixupContext *context = (FixupContext *)userData;
     return ksjson_endEncode(context->encodeContext);

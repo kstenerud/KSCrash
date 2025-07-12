@@ -38,7 +38,7 @@ NS_SWIFT_NAME(CrashInstallationConsole)
 
 @property(nonatomic, readwrite) BOOL printAppleFormat;
 
-@property(class, readonly) KSCrashInstallationConsole *sharedInstance NS_SWIFT_NAME(shared);
+@property(class, atomic, readonly) KSCrashInstallationConsole *sharedInstance NS_SWIFT_NAME(shared);
 
 @end
 

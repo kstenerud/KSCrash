@@ -175,6 +175,8 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
                     return @"r2";
                 case 3:
                     return @"r3";
+                default:
+                    return nil;
             }
         }
         case CPUFamilyX86: {
@@ -187,6 +189,8 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
                     return @"edx";
                 case 3:
                     return @"ecx";
+                default:
+                    return nil;
             }
         }
         case CPUFamilyX86_64: {
@@ -199,12 +203,13 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
                     return @"rdx";
                 case 3:
                     return @"rcx";
+                default:
+                    return nil;
             }
         }
-        case CPUFamilyUnknown:
+        default:
             return nil;
     }
-    return nil;
 }
 
 - (NSString *)mainExecutableNameForReport:(NSDictionary *)report

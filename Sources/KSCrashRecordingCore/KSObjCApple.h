@@ -971,6 +971,7 @@ CF_INLINE CFIndex __CFArrayGetSizeOfType(CFIndex t) {
 /* Only applies to immutable and mutable-deque-using arrays;
  * Returns the bucket holding the left-most real value in the latter case. */
 CF_INLINE struct __CFArrayBucket *__CFArrayGetBucketsPtr(CFArrayRef array) {
+#pragma clang diagnostic ignored "-Wcast-align"
     switch (__CFArrayGetType(array)) {
         case __kCFArrayImmutable:
             return (struct __CFArrayBucket *)((uint8_t *)array + __CFArrayGetSizeOfType(((CFRuntimeBase *)array)->_cfinfo[CF_INFO_BITS]));
@@ -978,8 +979,10 @@ CF_INLINE struct __CFArrayBucket *__CFArrayGetBucketsPtr(CFArrayRef array) {
             struct __CFArrayDeque *deque = (struct __CFArrayDeque *)array->_store;
             return (struct __CFArrayBucket *)((uint8_t *)deque + sizeof(struct __CFArrayDeque) + deque->_leftIdx * sizeof(struct __CFArrayBucket));
         }
+        default:
+            return NULL;
     }
-    return NULL;
+#pragma clang diagnostic pop
 }
 
 
@@ -1093,8 +1096,8 @@ CF_INLINE uintptr_t __CFBasicHashGetSlotCount(CFConstBasicHashRef ht, CFIndex id
         case 1: return ((uint16_t *)counts)[idx];
         case 2: return ((uint32_t *)counts)[idx];
         case 3: return (uintptr_t)((uint64_t *)counts)[idx];
+        default: return 0;
     }
-    return 0;
 }
 
 

@@ -128,7 +128,7 @@ namespace swift {
                 return;
             }
             // Search for word substitutions and for new words.
-            const size_t NotInsideWord = ~0;
+            const size_t NotInsideWord = ~(size_t)0;
             size_t wordStartPos = NotInsideWord;
             for (size_t Pos = 0, Len = ident.size(); Pos <= Len; ++Pos) {
                 char ch = (Pos < Len ? ident[Pos] : 0);

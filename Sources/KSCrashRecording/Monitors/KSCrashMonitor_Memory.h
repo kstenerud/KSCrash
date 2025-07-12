@@ -55,7 +55,7 @@ typedef struct KSCrash_Memory {
     int8_t version;
 
     /** timestamp in microseconds */
-    int64_t timestamp;
+    uint64_t timestamp;
 
     /** amount of app memory used */
     uint64_t footprint;
@@ -102,7 +102,7 @@ bool ksmemory_previous_session_was_terminated_due_to_memory(bool *userPerceptibl
  *
  * @param level Minimum level at which we report non-fatals.
  *
- * @notes Default to no reporting. Use _KSCrash_Memory_NonFatalReportLevelNone_
+ * notes: Default to no reporting. Use _KSCrash_Memory_NonFatalReportLevelNone_
  * to turn this feature off. Use any value in `KSCrashAppMemoryState` as a level.
  */
 void ksmemory_set_nonfatal_report_level(uint8_t level);

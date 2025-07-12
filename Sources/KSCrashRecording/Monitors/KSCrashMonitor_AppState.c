@@ -113,7 +113,7 @@ static int onIntegerElement(const char *const name, const int64_t value, void *c
     }
 
     // FP value might have been written as a whole number.
-    return onFloatingPointElement(name, value, userData);
+    return onFloatingPointElement(name, (double)value, userData);
 }
 
 static int onUnsignedIntegerElement(const char *const name, const uint64_t value, void *const userData)
@@ -178,7 +178,7 @@ static double getCurrentTime(void)
 {
     struct timeval tv;
     gettimeofday(&tv, NULL);
-    return tv.tv_sec + (double)tv.tv_usec / 1000000.0;
+    return (double)tv.tv_sec + (double)tv.tv_usec / 1000000.0;
 }
 
 static double timeSince(double timeInSeconds) { return getCurrentTime() - timeInSeconds; }
@@ -408,7 +408,7 @@ void kscrashstate_notifyAppCrash(void)
     }
 }
 
-const KSCrash_AppState *const kscrashstate_currentState(void) { return &g_state; }
+const KSCrash_AppState *kscrashstate_currentState(void) { return &g_state; }
 
 static const char *monitorId(void) { return "ApplicationState"; }
 

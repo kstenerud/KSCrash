@@ -41,7 +41,7 @@
 @property(nonatomic, readwrite, strong) NSMutableArray *containerStack;
 
 /** Current array or object being decoded (weak ref) */
-@property(nonatomic, readwrite, assign) id currentContainer;
+@property(nonatomic, readwrite, weak) id currentContainer;
 
 /** Top level array or object in the decoded tree */
 @property(nonatomic, readwrite, strong) id topLevelContainer;
@@ -144,33 +144,34 @@ static inline NSString *stringFromCString(const char *const string)
 
 static int onElement(KSJSONCodec *codec, NSString *name, id element)
 {
-    if (codec->_currentContainer == nil) {
+    id currentContainer = codec.currentContainer;
+    if (currentContainer == nil) {
         codec.error = [KSNSErrorHelper errorWithDomain:@"KSJSONCodecObjC"
                                                   code:0
                                            description:@"Type %@ not allowed as top level container", [element class]];
         return KSJSON_ERROR_INVALID_DATA;
     }
 
-    if ([codec->_currentContainer isKindOfClass:[NSMutableDictionary class]]) {
-        [(NSMutableDictionary *)codec->_currentContainer setValue:element forKey:name];
+    if ([currentContainer isKindOfClass:[NSMutableDictionary class]]) {
+        [(NSMutableDictionary *)currentContainer setValue:element forKey:name];
     } else {
-        [(NSMutableArray *)codec->_currentContainer addObject:element];
+        [(NSMutableArray *)currentContainer addObject:element];
     }
     return KSJSON_OK;
 }
 
 static int onBeginContainer(KSJSONCodec *codec, NSString *name, id container)
 {
-    if (codec->_topLevelContainer == nil) {
-        codec->_topLevelContainer = container;
+    if (codec.topLevelContainer == nil) {
+        codec.topLevelContainer = container;
     } else {
         int result = onElement(codec, name, container);
         if (result != KSJSON_OK) {
             return result;
         }
     }
-    codec->_currentContainer = container;
-    [codec->_containerStack addObject:container];
+    codec.currentContainer = container;
+    [codec.containerStack addObject:container];
     return KSJSON_OK;
 }
 
@@ -211,8 +212,9 @@ static int onNullElement(const char *const cName, void *const userData)
     NSString *name = stringFromCString(cName);
     KSJSONCodec *codec = (__bridge KSJSONCodec *)userData;
 
-    if ((codec->_ignoreNullsInArrays && [codec->_currentContainer isKindOfClass:[NSArray class]]) ||
-        (codec->_ignoreNullsInObjects && [codec->_currentContainer isKindOfClass:[NSDictionary class]])) {
+    id currentContainer = codec.currentContainer;
+    if ((codec.ignoreNullsInArrays && [currentContainer isKindOfClass:[NSArray class]]) ||
+        (codec.ignoreNullsInObjects && [currentContainer isKindOfClass:[NSDictionary class]])) {
         return KSJSON_OK;
     }
 
@@ -247,18 +249,18 @@ static int onEndContainer(void *const userData)
 {
     KSJSONCodec *codec = (__bridge KSJSONCodec *)userData;
 
-    if ([codec->_containerStack count] == 0) {
+    if ([codec.containerStack count] == 0) {
         codec.error = [KSNSErrorHelper errorWithDomain:@"KSJSONCodecObjC"
                                                   code:0
                                            description:@"Already at the top level; no container left to end"];
         return KSJSON_ERROR_INVALID_DATA;
     }
-    [codec->_containerStack removeLastObject];
-    NSUInteger count = [codec->_containerStack count];
+    [codec.containerStack removeLastObject];
+    NSUInteger count = [codec.containerStack count];
     if (count > 0) {
-        codec->_currentContainer = [codec->_containerStack objectAtIndex:count - 1];
+        codec.currentContainer = [codec.containerStack objectAtIndex:count - 1];
     } else {
-        codec->_currentContainer = nil;
+        codec.currentContainer = nil;
     }
     return KSJSON_OK;
 }
@@ -302,7 +304,9 @@ static int encodeObject(KSJSONCodec *codec, id object, NSString *name, KSJSONEnc
                     return ksjson_addBooleanElement(context, cName, [object boolValue]);
                 }
                 // Fall through to integer handling if it's not a boolean
+#pragma clang diagnostic ignored "-Wimplicit-fallthrough"
             case kCFNumberSInt8Type:
+#pragma clang diagnostic pop
             case kCFNumberSInt16Type:
             case kCFNumberSInt32Type:
             case kCFNumberSInt64Type:
@@ -348,7 +352,7 @@ static int encodeObject(KSJSONCodec *codec, id object, NSString *name, KSJSONEnc
             return result;
         }
         NSArray *keys = [(NSDictionary *)object allKeys];
-        if (codec->_sorted) {
+        if (codec.sorted) {
             keys = [keys sortedArrayUsingSelector:@selector(compare:)];
         }
         for (id key in keys) {

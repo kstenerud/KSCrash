@@ -121,6 +121,8 @@
             return [sink defaultCrashReportFilterSetAppleFmt];
         case KSCrashEmailReportStyleJSON:
             return [sink defaultCrashReportFilterSet];
+        default:
+            return nil;
     }
 }
 

@@ -104,7 +104,7 @@
         }
         NSArray *reportArray = reportObj;
         NSMutableArray *__block result = nil;
-        [reportArray enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *_Nonnull stop) {
+        [reportArray enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, __unused BOOL *_Nonnull stop) {
             id demangled = [self demangleReportObj:obj path:path depth:depth + 1];
             if (demangled != nil && result == nil) {
                 // Initializing the updated array only on first demangled result

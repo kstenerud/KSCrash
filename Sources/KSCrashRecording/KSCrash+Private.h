@@ -50,7 +50,7 @@ NSString *kscrash_getDefaultInstallPath(void);
 
 @property(nonatomic, assign) KSCrashCustomNSExceptionReporter *customNSExceptionReporter;
 
-+ (NSError *)errorForInstallErrorCode:(KSCrashInstallErrorCode)errorCode;
++ (nullable NSError *)errorForInstallErrorCode:(KSCrashInstallErrorCode)errorCode;
 
 @end
 

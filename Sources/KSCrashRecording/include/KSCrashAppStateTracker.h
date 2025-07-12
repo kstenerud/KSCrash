@@ -58,7 +58,7 @@ NS_SWIFT_NAME(AppStateTracker)
  * The shared tracker. Use this unless you absolutely need your own tracker,
  * at which point you can simply allocate your own.
  */
-@property(class, readonly) KSCrashAppStateTracker *sharedInstance NS_SWIFT_NAME(shared);
+@property(class, atomic, readonly) KSCrashAppStateTracker *sharedInstance NS_SWIFT_NAME(shared);
 
 - (instancetype)initWithNotificationCenter:(NSNotificationCenter *)notificationCenter NS_DESIGNATED_INITIALIZER;
 
