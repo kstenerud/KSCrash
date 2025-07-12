@@ -118,7 +118,9 @@ namespace swift {
                     << ", End = " << (void *)End << "\n";
 #endif
                 }
+#pragma clang diagnostic ignored "-Wcast-align"
                 T *AllocatedObj = (T *)CurPtr;
+#pragma clang diagnostic pop
                 CurPtr += ObjectSize;
                 return AllocatedObj;
             }
@@ -225,7 +227,7 @@ namespace swift {
             
             void free() {
                 Capacity = 0;
-                Elems = 0;
+                Elems = NULL;
             }
             
             iterator begin() { return Elems; }

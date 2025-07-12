@@ -76,8 +76,7 @@ static int dirContentsCount(const char *path)
         return 0;
     }
 
-    struct dirent *ent;
-    while ((ent = readdir(dir))) {
+    while (readdir(dir) != NULL) {
         count++;
     }
 
@@ -554,7 +553,7 @@ void ksfu_closeBufferedReader(KSBufferedReader *reader)
     }
 }
 
-void *ksfu_mmap(const char *path, int size)
+void *ksfu_mmap(const char *path, size_t size)
 {
     int fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0644);
     if (fd == -1) {
@@ -562,7 +561,7 @@ void *ksfu_mmap(const char *path, int size)
         return NULL;
     }
 
-    if (lseek(fd, size, SEEK_SET) == -1) {
+    if (lseek(fd, (off_t)size, SEEK_SET) == -1) {
         KSLOG_ERROR("Could not seek file %s: %s", path, strerror(errno));
         close(fd);
         unlink(path);

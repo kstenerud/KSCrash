@@ -229,7 +229,7 @@ typedef struct KSCrash_MonitorContext {
 
     struct {
         /** measurement taken time in microseconds. */
-        int64_t timestamp;
+        uint64_t timestamp;
 
         /** memory pressure  `KSCrashAppMemoryPressure` */
         const char *pressure;

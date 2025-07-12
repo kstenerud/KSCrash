@@ -55,8 +55,9 @@ const char *ksapp_transitionStateToString(KSCrashAppTransitionState state)
             return "deactivating";
         case KSCrashAppTransitionStateForegrounding:
             return "foregrounding";
+        default:
+            return "unknown";
     }
-    return "unknown";
 }
 
 bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
@@ -74,8 +75,9 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
         case KSCrashAppTransitionStateActive:
         case KSCrashAppTransitionStateDeactivating:
             return YES;
+        default:
+            return NO;
     }
-    return NO;
 }
 
 @interface KSCrashAppStateTrackerBlockObserver : NSObject <KSCrashAppStateTrackerObserving>
@@ -149,7 +151,7 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
 
 - (instancetype)initWithNotificationCenter:(NSNotificationCenter *)notificationCenter
 {
-    if (self = [super init]) {
+    if ((self = [super init])) {
         _lock = OS_UNFAIR_LOCK_INIT;
         _observers = [NSMutableArray array];
         _center = notificationCenter;
@@ -178,7 +180,8 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
 {
     NSMutableArray *toRemove = [NSMutableArray array];
     for (KSCrashAppStateTrackerBlockObserver *obj in _observers) {
-        if ((obj.object != nil && obj.object == object) || [obj shouldReap]) {
+        id<KSCrashAppStateTrackerObserving> strongObject = obj.object;
+        if ((strongObject != nil && strongObject == object) || [obj shouldReap]) {
             [toRemove addObject:obj];
             obj.object = nil;
             obj.block = nil;
@@ -261,7 +264,7 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
 }
 
 #define OBSERVE(center, name, block) \
-    [center addObserverForName:name object:nil queue:nil usingBlock:^(NSNotification * notification) block]
+    [center addObserverForName:name object:nil queue:nil usingBlock:^(__unused NSNotification * notification) block]
 
 - (void)_exitCalled
 {

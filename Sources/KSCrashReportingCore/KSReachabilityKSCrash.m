@@ -133,7 +133,6 @@ failed:
     if (reachabilityRef) {
         CFRelease(reachabilityRef);
     }
-    _reachabilityRef = NULL;
     return nil;
 }
 
@@ -299,12 +298,12 @@ static void onReachabilityChanged(__unused SCNetworkReachabilityRef target, SCNe
 
 + (KSReachableOperationKSCrash *)operationWithHost:(NSString *)host
                                          allowWWAN:(BOOL)allowWWAN
-                                             block:(void (^)(void))block;
+                                             block:(void (^)(void))block
 {
     return [[self alloc] initWithHost:host allowWWAN:allowWWAN block:block];
 }
 
-- (id)initWithHost:(__unused NSString *)hostname allowWWAN:(__unused BOOL)allowWWAN block:(void (^)(void))block;
+- (id)initWithHost:(__unused NSString *)hostname allowWWAN:(__unused BOOL)allowWWAN block:(void (^)(void))block
 {
     if ((self = [super init])) {
         // Just lie and pretend that we always have reachability.

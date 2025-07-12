@@ -47,10 +47,10 @@ void ksdate_utcStringFromMicroseconds(int64_t microseconds, char *buffer28Chars)
              result.tm_mday, result.tm_hour, result.tm_min, result.tm_sec, micros);
 }
 
-int64_t ksdate_microseconds(void)
+uint64_t ksdate_microseconds(void)
 {
     struct timeval tp;
     gettimeofday(&tp, NULL);
-    int64_t microseconds = ((int64_t)tp.tv_sec) * 1000000 + tp.tv_usec;
+    uint64_t microseconds = ((uint64_t)tp.tv_sec) * 1000000 + (uint64_t)tp.tv_usec;
     return microseconds;
 }

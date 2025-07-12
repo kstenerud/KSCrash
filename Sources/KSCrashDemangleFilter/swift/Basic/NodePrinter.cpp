@@ -107,6 +107,8 @@ namespace {
                 return "direct";
             case Directness::Indirect:
                 return "indirect";
+            default:
+                break;
         }
         printer_unreachable("bad directness");
     }
@@ -514,6 +516,8 @@ case Node::Kind::Name:
                 case Node::Kind::DynamicallyReplaceableFunctionImpl:
                 case Node::Kind::DynamicallyReplaceableFunctionVar:
                     return false;
+                default:
+                    break;
             }
             printer_unreachable("bad node kind");
         }
@@ -635,6 +639,8 @@ case Node::Kind::Name:
                     Printer << "]";
                     break;
                 }
+                default:
+                    break;
             }
         }
         
@@ -668,7 +674,7 @@ case Node::Kind::Name:
                 return;
             }
             
-            auto getLabelFor = [&](NodePointer Param, unsigned Index) -> std::string {
+            auto getLabelFor = [&](__unused NodePointer Param, unsigned Index) -> std::string {
                 auto Label = LabelList->getChild(Index);
                 assert(Label && (Label->getKind() == Node::Kind::Identifier ||
                                  Label->getKind() == Node::Kind::FirstElementMarker));
@@ -736,6 +742,8 @@ case Node::Kind::Name:
                         case Attrs: Printer << '('; continue;
                         case Inputs: Printer << ") -> ("; continue;
                         case Results: printer_unreachable("no state after Results");
+                        default:
+                            break;
                     }
                     printer_unreachable("bad state");
                 }
@@ -1366,6 +1374,8 @@ return nullptr;
                 case FunctionSigSpecializationParamKind::GuaranteedToOwned:
                 case FunctionSigSpecializationParamKind::SROA:
                     printer_unreachable("option sets should have been handled earlier");
+                default:
+                    break;
             }
             return nullptr;
         }
@@ -1493,9 +1503,7 @@ return nullptr;
             
             unsigned long lastChildIndex = Node->getNumChildren();
             auto lastChild = Node->getChild(lastChildIndex - 1);
-            bool isSerialized = false;
             if (lastChild->getKind() == Node::Kind::IsSerialized) {
-                isSerialized = true;
                 lastChildIndex--;
                 lastChild = Node->getChild(lastChildIndex - 1);
             }
@@ -1925,7 +1933,9 @@ return nullptr;
         case Node::Kind::ImplErrorResult:
             Printer << "@error ";
 //            LLVM_FALLTHROUGH;
+#pragma clang diagnostic ignored "-Wimplicit-fallthrough"
         case Node::Kind::ImplParameter:
+#pragma clang diagnostic pop
         case Node::Kind::ImplResult:
             printChildren(Node, " ");
             return nullptr;
@@ -2219,6 +2229,8 @@ return nullptr;
             print(Node->getChild(0));
             Printer << ")";
             return nullptr;
+        default:
+            break;
     }
     printer_unreachable("bad node kind!");
 }

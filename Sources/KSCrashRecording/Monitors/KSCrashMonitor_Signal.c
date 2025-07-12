@@ -101,15 +101,15 @@ static void handleSignal(int sigNum, siginfo_t *signalInfo, void *userContext)
         kscm_notifyFatalExceptionCaptured(false);
 
         KSLOG_DEBUG("Filling out context.");
-        KSMC_NEW_CONTEXT(machineContext);
-        ksmc_getContextForSignal(userContext, machineContext);
-        kssc_initWithMachineContext(&g_stackCursor, KSSC_MAX_STACK_DEPTH, machineContext);
+        KSMachineContext machineContext = { 0 };
+        ksmc_getContextForSignal(userContext, &machineContext);
+        kssc_initWithMachineContext(&g_stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
 
         KSCrash_MonitorContext *crashContext = &g_monitorContext;
         memset(crashContext, 0, sizeof(*crashContext));
         ksmc_fillMonitorContext(crashContext, kscm_signal_getAPI());
         crashContext->eventID = g_eventID;
-        crashContext->offendingMachineContext = machineContext;
+        crashContext->offendingMachineContext = &machineContext;
         crashContext->registersAreValid = true;
         crashContext->faultAddress = (uintptr_t)signalInfo->si_addr;
         crashContext->signal.userContext = userContext;
@@ -243,12 +243,11 @@ static void addContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext
 
 #endif /* KSCRASH_HAS_SIGNAL */
 
-void kscm_signal_sigterm_setMonitoringEnabled(bool enabled)
-{
 #if KSCRASH_HAS_SIGNAL
-    g_sigterm_monitoringEnabled = enabled;
+void kscm_signal_sigterm_setMonitoringEnabled(bool enabled) { g_sigterm_monitoringEnabled = enabled; }
+#else
+void kscm_signal_sigterm_setMonitoringEnabled(__unused bool enabled) {}
 #endif
-}
 
 KSCrashMonitorAPI *kscm_signal_getAPI(void)
 {

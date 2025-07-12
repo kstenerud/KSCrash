@@ -164,7 +164,6 @@
         [KSCrashReportFilterPassthrough new],
         [KSCrashReportFilterPassthrough new],
     ]];
-    filter = filter;
 
     [filter filterReports:self.reports
              onCompletion:^(NSArray *filteredReports, NSError *error) {
@@ -378,7 +377,6 @@
     NSString *expected = @"1,a";
     id<KSCrashReportFilter> filter =
         [[KSCrashReportFilterConcatenate alloc] initWithSeparatorFmt:@"," keys:@[ @"first", @"second" ]];
-    filter = filter;
 
     [filter filterReports:self.reportsWithDict
              onCompletion:^(NSArray *filteredReports, NSError *error) {
@@ -419,7 +417,6 @@
         @"third" : @"b",
     }];
     id<KSCrashReportFilter> filter = [[KSCrashReportFilterSubset alloc] initWithKeys:@[ @"first", @"third" ]];
-    filter = filter;
 
     [filter filterReports:self.reportsWithDict
              onCompletion:^(NSArray *filteredReports, NSError *error) {

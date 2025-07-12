@@ -104,7 +104,7 @@ static void ksbic_addImageCallback(const struct mach_header *header, intptr_t sl
  * @param header The header of the image to remove.
  * @param slide The VM address slide of the image.
  */
-static void ksbic_removeImageCallback(const struct mach_header *header, intptr_t slide)
+static void ksbic_removeImageCallback(const struct mach_header *header, __unused intptr_t slide)
 {
     pthread_rwlock_wrlock(&g_imageCacheRWLock);
 

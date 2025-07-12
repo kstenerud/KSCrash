@@ -140,7 +140,7 @@ swift::Demangle::makeSymbolicMangledNameStringRef(const char *base) {
             end += sizeof(void*);
         ++end;
     }
-    return StringRef(base, end - base);
+    return StringRef(base, (unsigned)(end - base));
 }
 
 int swift::Demangle::getManglingPrefixLength(llvm::StringRef mangledName) {
@@ -186,7 +186,7 @@ bool swift::Demangle::isOldFunctionTypeMangling(llvm::StringRef mangledName) {
 }
 
 llvm::StringRef swift::Demangle::dropSwiftManglingPrefix(StringRef mangledName){
-    return mangledName.drop_front(getManglingPrefixLength(mangledName));
+    return mangledName.drop_front((size_t)getManglingPrefixLength(mangledName));
 }
 
 static bool isAliasNode(Demangle::NodePointer Node) {
@@ -381,7 +381,7 @@ void CharVector::append(int Number, NodeFactory &Factory) {
         Factory.Reallocate(Elems, Capacity, /*Growth*/ MaxIntPrintSize);
     int Length = snprintf(Elems + NumElems, MaxIntPrintSize, "%d", Number);
     assert(Length > 0 && Length < MaxIntPrintSize);
-    NumElems += Length;
+    NumElems += (size_t)Length;
 }
 
 //////////////////////////////////
@@ -410,7 +410,7 @@ NodePointer Demangler::demangleSymbol(StringRef MangledName) {
     if (nextIf("_Tt"))
         return demangleObjCTypeName();
     
-    unsigned PrefixLength = getManglingPrefixLength(MangledName);
+    unsigned PrefixLength = (unsigned)getManglingPrefixLength(MangledName);
     if (PrefixLength == 0)
         return nullptr;
     
@@ -459,13 +459,11 @@ NodePointer Demangler::demangleType(StringRef MangledName) {
 }
 
 bool Demangler::parseAndPushNodes() {
-    int Idx = 0;
     while (Pos < Text.size()) {
         NodePointer Node = demangleOperator();
         if (!Node)
             return false;
         pushNode(Node);
-        Idx++;
     }
     return true;
 }
@@ -608,7 +606,7 @@ NodePointer Demangler::demangleOperator() {
         case 'F': return demanglePlainFunction();
         case 'G': return demangleBoundGenericType();
         case 'H':
-            switch (char c2 = nextChar()) {
+            switch (nextChar()) {
                 case 'A': return demangleDependentProtocolConformanceAssociated();
                 case 'C': return demangleConcreteProtocolConformance();
                 case 'D': return demangleDependentProtocolConformanceRoot();
@@ -708,7 +706,7 @@ int Demangler::demangleIndex() {
 NodePointer Demangler::demangleIndexAsNode() {
     int Idx = demangleIndex();
     if (Idx >= 0)
-        return createNode(Node::Kind::Number, Idx);
+        return createNode(Node::Kind::Number, (Node::IndexType)Idx);
     return nullptr;
 }
 
@@ -722,7 +720,7 @@ NodePointer Demangler::demangleMultiSubstitutions() {
         }
         if (isLowerLetter(c)) {
             // It's a substitution with an index < 26.
-            NodePointer Nd = pushMultiSubstitutions(RepeatCount, c - 'a');
+            NodePointer Nd = pushMultiSubstitutions(RepeatCount, (size_t)(c - 'a'));
             if (!Nd)
                 return nullptr;
             pushNode(Nd);
@@ -733,13 +731,13 @@ NodePointer Demangler::demangleMultiSubstitutions() {
         }
         if (isUpperLetter(c)) {
             // The last substitution.
-            return pushMultiSubstitutions(RepeatCount, c - 'A');
+            return pushMultiSubstitutions(RepeatCount, (size_t)(c - 'A'));
         }
         if (c == '_') {
             // The previously demangled number is actually not a repeat count but
             // the large (> 26) index of a substitution. Because it's an index we
             // have to add 27 and not 26.
-            unsigned Idx = RepeatCount + 27;
+            unsigned Idx = (unsigned)RepeatCount + 27;
             if (Idx >= Substitutions.size())
                 return nullptr;
             return Substitutions[Idx];
@@ -773,7 +771,7 @@ NodePointer Demangler::createSwiftType(Node::Kind typeKind, const char *name) {
 }
 
 NodePointer Demangler::demangleStandardSubstitution() {
-    switch (char c = nextChar()) {
+    switch (nextChar()) {
         case 'o':
             return createNode(Node::Kind::Module, MANGLING_MODULE_OBJC);
         case 'C':
@@ -830,13 +828,13 @@ NodePointer Demangler::demangleIdentifier() {
     CharVector Identifier;
     do {
         while (hasWordSubsts && isLetter(peekChar())) {
-            char c = nextChar();
+            char c2 = nextChar();
             int WordIdx = 0;
-            if (isLowerLetter(c)) {
-                WordIdx = c - 'a';
+            if (isLowerLetter(c2)) {
+                WordIdx = c2 - 'a';
             } else {
-                assert(isUpperLetter(c));
-                WordIdx = c - 'A';
+                assert(isUpperLetter(c2));
+                WordIdx = c2 - 'A';
                 hasWordSubsts = false;
             }
             if (WordIdx >= NumWords)
@@ -852,9 +850,9 @@ NodePointer Demangler::demangleIdentifier() {
             return nullptr;
         if (isPunycoded)
             nextIf('_');
-        if (Pos + numChars > Text.size())
+        if (Pos + (size_t)numChars > Text.size())
             return nullptr;
-        StringRef Slice = StringRef(Text.data() + Pos, numChars);
+        StringRef Slice = StringRef(Text.data() + Pos, (size_t)numChars);
         if (isPunycoded) {
             std::string PunycodedString;
             if (!Punycode::decodePunycodeUTF8(Slice, PunycodedString))
@@ -864,20 +862,20 @@ NodePointer Demangler::demangleIdentifier() {
             Identifier.append(Slice, *this);
             int wordStartPos = -1;
             for (int Idx = 0, End = (int)Slice.size(); Idx <= End; ++Idx) {
-                char c = (Idx < End ? Slice[Idx] : 0);
-                if (wordStartPos >= 0 && isWordEnd(c, Slice[Idx - 1])) {
+                char c2 = (Idx < End ? Slice[(size_t)Idx] : 0);
+                if (wordStartPos >= 0 && isWordEnd(c2, Slice[(size_t)Idx - 1])) {
                     if (Idx - wordStartPos >= 2 && NumWords < MaxNumWords) {
-                        StringRef word(Slice.begin() + wordStartPos, Idx - wordStartPos);
+                        StringRef word(Slice.begin() + wordStartPos, (size_t)(Idx - wordStartPos));
                         Words[NumWords++] = word;
                     }
                     wordStartPos = -1;
                 }
-                if (wordStartPos < 0 && isWordStart(c)) {
+                if (wordStartPos < 0 && isWordStart(c2)) {
                     wordStartPos = Idx;
                 }
             }
         }
-        Pos += numChars;
+        Pos += (size_t)numChars;
     } while (hasWordSubsts);
     
     if (Identifier.empty())
@@ -1350,7 +1348,7 @@ NodePointer Demangler::demangleDependentProtocolConformanceRoot() {
     int index = demangleIndex();
     NodePointer conformance =
     index > 0 ? createNode(Node::Kind::DependentProtocolConformanceRoot,
-                           index - 1)
+                           (Node::IndexType)index - 1)
     : createNode(Node::Kind::DependentProtocolConformanceRoot);
     
     if (NodePointer protocol = popProtocol())
@@ -1370,7 +1368,7 @@ NodePointer Demangler::demangleDependentProtocolConformanceInherited() {
     int index = demangleIndex();
     NodePointer conformance =
     index > 0 ? createNode(Node::Kind::DependentProtocolConformanceInherited,
-                           index - 1)
+                           (Node::IndexType)index - 1)
     : createNode(Node::Kind::DependentProtocolConformanceInherited);
     
     if (NodePointer protocol = popProtocol())
@@ -1398,7 +1396,7 @@ NodePointer Demangler::demangleDependentProtocolConformanceAssociated() {
     int index = demangleIndex();
     NodePointer conformance =
     index > 0 ? createNode(Node::Kind::DependentProtocolConformanceRoot,
-                           index - 1)
+                           (Node::IndexType)index - 1)
     : createNode(Node::Kind::DependentProtocolConformanceRoot);
     
     if (NodePointer associatedConformance = popDependentAssociatedConformance())
@@ -1426,7 +1424,7 @@ NodePointer Demangler::demangleRetroactiveConformance() {
         return nullptr;
     
     auto retroactiveConformance =
-    createNode(Node::Kind::RetroactiveConformance, index);
+    createNode(Node::Kind::RetroactiveConformance, (Node::IndexType)index);
     retroactiveConformance->addChild(conformance, *this);
     return retroactiveConformance;
 }
@@ -1685,7 +1683,7 @@ NodePointer Demangler::demangleImplFunctionType() {
         NodePointer ConvTy = popNode(Node::Kind::Type);
         if (!ConvTy)
             return nullptr;
-        type->getChild(type->getNumChildren() - Idx - 1)->addChild(ConvTy, *this);
+        type->getChild(type->getNumChildren() - (size_t)Idx - 1)->addChild(ConvTy, *this);
     }
     return createType(type);
 }
@@ -1909,8 +1907,8 @@ NodePointer Demangler::getDependentGenericParamType(int depth, int index) {
         name.append(depth, *this);
     
     auto paramTy = createNode(Node::Kind::DependentGenericParamType, name);
-    paramTy->addChild(createNode(Node::Kind::Index, depth), *this);
-    paramTy->addChild(createNode(Node::Kind::Index, index), *this);
+    paramTy->addChild(createNode(Node::Kind::Index, (Node::IndexType)depth), *this);
+    paramTy->addChild(createNode(Node::Kind::Index, (Node::IndexType)index), *this);
     return paramTy;
 }
 
@@ -2113,11 +2111,11 @@ NodePointer Demangler::demangleThunkOrSpecialization() {
                 return nullptr;
             }
             
-            while (auto node = popNode()) {
-                if (node->getKind() != Node::Kind::Type) {
+            while (auto node2 = popNode()) {
+                if (node2->getKind() != Node::Kind::Type) {
                     return nullptr;
                 }
-                types.push_back(node);
+                types.push_back(node2);
             }
             
             NodePointer result = createNode(nodeKind);
@@ -2136,7 +2134,7 @@ NodePointer Demangler::demangleThunkOrSpecialization() {
             int Idx = demangleIndex();
             if (Idx < 0)
                 return nullptr;
-            return createNode(Node::Kind::OutlinedVariable, Idx);
+            return createNode(Node::Kind::OutlinedVariable, (Node::IndexType)Idx);
         }
         case 'e': {
             std::string Params = demangleBridgedMethodParams();
@@ -2226,12 +2224,12 @@ NodePointer Demangler::demangleFunctionSpecialization() {
                 NodePointer Name = popNode(Node::Kind::Identifier);
                 if (!Name)
                     return nullptr;
-                StringRef Text = Name->getText();
+                StringRef Text2 = Name->getText();
                 if (ParamKind ==
                     FunctionSigSpecializationParamKind::ConstantPropString &&
-                    !Text.empty() && Text[0] == '_') {
+                    !Text2.empty() && Text2[0] == '_') {
                     // A '_' escapes a leading digit or '_' of a string constant.
-                    Text = Text.drop_front(1);
+                    Text2 = Text2.drop_front(1);
                 }
                 addChild(Param, createNodeWithAllocatedText(
                                                             Node::Kind::FunctionSignatureSpecializationParamPayload, Text));
@@ -2396,7 +2394,7 @@ NodePointer Demangler::demangleSpecAttributes(Node::Kind SpecKind) {
         SpecNd->addChild(createNode(Node::Kind::IsSerialized),
                          *this);
     
-    SpecNd->addChild(createNode(Node::Kind::SpecializationPassID, PassID),
+    SpecNd->addChild(createNode(Node::Kind::SpecializationPassID, (Node::IndexType)PassID),
                      *this);
     return SpecNd;
 }
@@ -2740,7 +2738,7 @@ NodePointer Demangler::demangleAccessor(NodePointer ChildNode) {
 
 NodePointer Demangler::demangleFunctionEntity() {
     enum {
-        None,
+        None2,
         TypeAndMaybePrivateName,
         TypeAndIndex,
         Index
@@ -2748,11 +2746,11 @@ NodePointer Demangler::demangleFunctionEntity() {
     
     Node::Kind Kind = Node::Kind::EmptyList;
     switch (nextChar()) {
-        case 'D': Args = None; Kind = Node::Kind::Deallocator; break;
-        case 'd': Args = None; Kind = Node::Kind::Destructor; break;
-        case 'E': Args = None; Kind = Node::Kind::IVarDestroyer; break;
-        case 'e': Args = None; Kind = Node::Kind::IVarInitializer; break;
-        case 'i': Args = None; Kind = Node::Kind::Initializer; break;
+        case 'D': Args = None2; Kind = Node::Kind::Deallocator; break;
+        case 'd': Args = None2; Kind = Node::Kind::Destructor; break;
+        case 'E': Args = None2; Kind = Node::Kind::IVarDestroyer; break;
+        case 'e': Args = None2; Kind = Node::Kind::IVarInitializer; break;
+        case 'i': Args = None2; Kind = Node::Kind::Initializer; break;
         case 'C':
             Args = TypeAndMaybePrivateName; Kind = Node::Kind::Allocator; break;
         case 'c':
@@ -2766,7 +2764,7 @@ NodePointer Demangler::demangleFunctionEntity() {
     
     NodePointer NameOrIndex = nullptr, ParamType = nullptr, LabelList = nullptr;
     switch (Args) {
-        case None:
+        case None2:
             break;
         case TypeAndMaybePrivateName:
             NameOrIndex = popNode(Node::Kind::PrivateDeclName);
@@ -2780,10 +2778,12 @@ NodePointer Demangler::demangleFunctionEntity() {
         case Index:
             NameOrIndex = demangleIndexAsNode();
             break;
+        default:
+            break;
     }
     NodePointer Entity = createWithChild(Kind, popContext());
     switch (Args) {
-        case None:
+        case None2:
             break;
         case Index:
             Entity = addChild(Entity, NameOrIndex);
@@ -2796,6 +2796,8 @@ NodePointer Demangler::demangleFunctionEntity() {
         case TypeAndIndex:
             Entity = addChild(Entity, NameOrIndex);
             Entity = addChild(Entity, ParamType);
+            break;
+        default:
             break;
     }
     return Entity;
@@ -2863,7 +2865,7 @@ NodePointer Demangler::demangleGenericSignature(bool hasParamCounts) {
             if (count < 0)
                 return nullptr;
             Sig->addChild(createNode(Node::Kind::DependentGenericParamCount,
-                                     count), *this);
+                                     (Node::IndexType)count), *this);
         }
     } else {
         Sig->addChild(createNode(Node::Kind::DependentGenericParamCount, 1),
@@ -2917,6 +2919,8 @@ NodePointer Demangler::demangleGenericRequirement() {
             break;
         case Substitution:
             ConstrTy = popNode(Node::Kind::Type);
+            break;
+        default:
             break;
     }
     
@@ -2985,6 +2989,8 @@ NodePointer Demangler::demangleGenericRequirement() {
                 addChild(LayoutRequirement, alignment);
             return LayoutRequirement;
         }
+        default:
+            break;
     }
     return nullptr;
 }
@@ -2996,7 +3002,7 @@ NodePointer Demangler::demangleGenericType() {
                                          GenSig, Ty));
 }
 
-static int decodeValueWitnessKind(StringRef CodeStr) {
+static int decodeValueWitnessKind(__unused StringRef CodeStr) {
     return -1;
 }
 

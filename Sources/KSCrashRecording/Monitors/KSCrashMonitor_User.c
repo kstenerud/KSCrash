@@ -59,8 +59,8 @@ void kscm_reportUserException(const char *name, const char *reason, const char *
 
         char eventID[37];
         ksid_generate(eventID);
-        KSMC_NEW_CONTEXT(machineContext);
-        ksmc_getContextForThread(ksthread_self(), machineContext, true);
+        KSMachineContext machineContext = { 0 };
+        ksmc_getContextForThread(ksthread_self(), &machineContext, true);
         KSStackCursor stackCursor;
         kssc_initSelfThread(&stackCursor, 3);
 
@@ -69,7 +69,7 @@ void kscm_reportUserException(const char *name, const char *reason, const char *
         memset(&context, 0, sizeof(context));
         ksmc_fillMonitorContext(&context, kscm_user_getAPI());
         context.eventID = eventID;
-        context.offendingMachineContext = machineContext;
+        context.offendingMachineContext = &machineContext;
         context.registersAreValid = false;
         context.crashReason = reason;
         context.userException.name = name;
