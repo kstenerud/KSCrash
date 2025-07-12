@@ -49,8 +49,8 @@ static KSCrash_MonitorContext g_monitorContext;
 /** The exception handler that was in place before we installed ours. */
 static NSUncaughtExceptionHandler *g_previousUncaughtExceptionHandler;
 
-static void defaultOnEnabled(NSUncaughtExceptionHandler *uncaughtExceptionHandler,
-                             KSCrashCustomNSExceptionReporter *customNSExceptionReporter)
+static void defaultOnEnabled(__unused NSUncaughtExceptionHandler *uncaughtExceptionHandler,
+                             __unused KSCrashCustomNSExceptionReporter *customNSExceptionReporter)
 {
 }
 static OnNSExceptionHandlerEnabled *g_onEnabled = defaultOnEnabled;
@@ -113,8 +113,8 @@ static KS_NOINLINE void handleException(NSException *exception, BOOL isUserRepor
         KSLOG_DEBUG(@"Filling out context.");
         char eventID[37];
         ksid_generate(eventID);
-        KSMC_NEW_CONTEXT(machineContext);
-        ksmc_getContextForThread(ksthread_self(), machineContext, true);
+        KSMachineContext machineContext = { 0 };
+        ksmc_getContextForThread(ksthread_self(), &machineContext, true);
         KSStackCursor cursor;
         uintptr_t *callstack = NULL;
         initStackCursor(&cursor, exception, callstack, isUserReported);
@@ -126,7 +126,7 @@ static KS_NOINLINE void handleException(NSException *exception, BOOL isUserRepor
         memset(crashContext, 0, sizeof(*crashContext));
         ksmc_fillMonitorContext(crashContext, kscm_nsexception_getAPI());
         crashContext->eventID = eventID;
-        crashContext->offendingMachineContext = machineContext;
+        crashContext->offendingMachineContext = &machineContext;
         crashContext->registersAreValid = false;
         crashContext->NSException.name = [[exception name] UTF8String];
         crashContext->NSException.userInfo = [userInfoString UTF8String];

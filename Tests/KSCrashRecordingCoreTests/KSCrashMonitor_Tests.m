@@ -61,7 +61,7 @@ static void dummyNotifyPostSystemEnable(void) { g_dummyPostSystemEnabled = true;
 static const char *secondDummyMonitorId(void) { return "Second Dummy Monitor"; }
 
 static bool g_secondDummyEnabledState = false;
-static const char *const g_secondEventID = "SecondEventID";
+// static const char *const g_secondEventID = "SecondEventID";
 
 static void secondDummySetEnabled(bool isEnabled) { g_secondDummyEnabledState = isEnabled; }
 static bool secondDummyIsEnabled(void) { return g_secondDummyEnabledState; }
@@ -73,7 +73,7 @@ static KSCrashMonitorAPI g_secondDummyMonitor = {};
 
 static BOOL g_exceptionHandled = NO;
 
-static void myEventCallback(struct KSCrash_MonitorContext *context) { g_exceptionHandled = YES; }
+static void myEventCallback(__unused struct KSCrash_MonitorContext *context) { g_exceptionHandled = YES; }
 
 extern void kscm_resetState(void);
 
@@ -134,7 +134,7 @@ extern void kscm_resetState(void);
 - (void)testActivateMonitorsReturnsFalseWhenAllMonitorsDisabled
 {
     KSCrashMonitorAPI alwaysDisabledMonitor = g_dummyMonitor;
-    alwaysDisabledMonitor.setEnabled = (void (*)(bool))imp_implementationWithBlock(^(bool isEnabled) {
+    alwaysDisabledMonitor.setEnabled = (void (*)(bool))imp_implementationWithBlock(^(__unused bool isEnabled) {
         // pass
     });
     alwaysDisabledMonitor.isEnabled = (bool (*)(void))imp_implementationWithBlock(^{

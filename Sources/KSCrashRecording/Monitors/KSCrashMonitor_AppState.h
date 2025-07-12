@@ -121,7 +121,7 @@ void kscrashstate_notifyAppCrash(void);
 
 /** Read-only access into the current state.
  */
-const KSCrash_AppState *const kscrashstate_currentState(void);
+const KSCrash_AppState *kscrashstate_currentState(void);
 
 /** Access the Monitor API.
  */

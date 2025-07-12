@@ -32,6 +32,7 @@
 
 #include <stdarg.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 #include "KSCrashNamespace.h"
 
@@ -276,7 +277,7 @@ bool ksfu_readBufferedReaderUntilChar(KSBufferedReader *reader, int ch, char *ds
  * with the returned pointer. It is ok to let the pointer live up to termination,
  * the system will unmap on termination if required.
  */
-void *ksfu_mmap(const char *path, int size);
+void *ksfu_mmap(const char *path, size_t size);
 
 #ifdef __cplusplus
 }

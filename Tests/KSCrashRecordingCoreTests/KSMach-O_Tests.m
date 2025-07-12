@@ -9,6 +9,8 @@
 #import <mach-o/loader.h>
 #import "KSMach-O.h"
 
+#pragma clang diagnostic ignored "-Wcast-align"
+
 @interface KSMach_O_Tests : XCTestCase
 @end
 
@@ -286,7 +288,7 @@
 {
     // Create a memory region with read-only protection
     vm_address_t address;
-    vm_size_t size = getpagesize();
+    vm_size_t size = (vm_size_t)getpagesize();
     vm_prot_t expectedProtection = VM_PROT_READ;
     kern_return_t result = vm_allocate(mach_task_self(), &address, size, VM_FLAGS_ANYWHERE);
     XCTAssertEqual(result, KERN_SUCCESS);
@@ -309,7 +311,7 @@
 {
     // Create a memory region with executable protection
     vm_address_t address;
-    vm_size_t size = getpagesize();
+    vm_size_t size = (vm_size_t)getpagesize();
     vm_prot_t expectedProtection = VM_PROT_READ | VM_PROT_EXECUTE;
     kern_return_t result = vm_allocate(mach_task_self(), &address, size, VM_FLAGS_ANYWHERE);
     XCTAssertEqual(result, KERN_SUCCESS);
@@ -332,7 +334,7 @@
 {
     // Create a memory region with no access protection
     vm_address_t address;
-    vm_size_t size = getpagesize();
+    vm_size_t size = (vm_size_t)getpagesize();
     vm_prot_t expectedProtection = VM_PROT_NONE;
     kern_return_t result = vm_allocate(mach_task_self(), &address, size, VM_FLAGS_ANYWHERE);
     XCTAssertEqual(result, KERN_SUCCESS);
@@ -362,3 +364,5 @@
 }
 
 @end
+
+#pragma clang diagnostic pop

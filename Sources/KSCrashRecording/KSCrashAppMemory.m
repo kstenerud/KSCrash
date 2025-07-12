@@ -10,7 +10,7 @@ NS_ASSUME_NONNULL_BEGIN
                         remaining:(uint64_t)remaining
                          pressure:(KSCrashAppMemoryState)pressure
 {
-    if (self = [super init]) {
+    if ((self = [super init])) {
         _footprint = footprint;
         _remaining = remaining;
         _pressure = pressure;
@@ -63,8 +63,9 @@ const char *KSCrashAppMemoryStateToString(KSCrashAppMemoryState state)
             return "critical";
         case KSCrashAppMemoryStateTerminal:
             return "terminal";
+        default:
+            assert(state <= KSCrashAppMemoryStateTerminal);
     }
-    assert(state <= KSCrashAppMemoryStateTerminal);
 }
 
 KSCrashAppMemoryState KSCrashAppMemoryStateFromString(NSString *const string)

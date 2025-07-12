@@ -44,8 +44,9 @@ const char *ksmach_exceptionName(const int64_t exceptionType)
         RETURN_NAME_FOR_ENUM(EXC_MACH_SYSCALL);
         RETURN_NAME_FOR_ENUM(EXC_RPC_ALERT);
         RETURN_NAME_FOR_ENUM(EXC_CRASH);
+        default:
+            return NULL;
     }
-    return NULL;
 }
 
 const char *ksmach_kernelReturnCodeName(const int64_t returnCode)
@@ -102,8 +103,9 @@ const char *ksmach_kernelReturnCodeName(const int64_t returnCode)
         RETURN_NAME_FOR_ENUM(KERN_NOT_WAITING);
         RETURN_NAME_FOR_ENUM(KERN_OPERATION_TIMED_OUT);
         RETURN_NAME_FOR_ENUM(KERN_CODESIGN_ERROR);
+        default:
+            return NULL;
     }
-    return NULL;
 }
 
 #define EXC_UNIX_BAD_SYSCALL 0x10000 /* SIGSYS */
@@ -134,8 +136,9 @@ int ksmach_machExceptionForSignal(const int sigNum)
             return EXC_CRASH;
         case SIGKILL:
             return EXC_SOFT_SIGNAL;
+        default:
+            return 0;
     }
-    return 0;
 }
 
 int ksmach_signalForMachException(const int exception, const mach_exception_code_t code)
@@ -161,9 +164,12 @@ int ksmach_signalForMachException(const int exception, const mach_exception_code
                     return SIGABRT;
                 case EXC_SOFT_SIGNAL:
                     return SIGKILL;
+                default:
+                    return 0;
             }
             break;
         }
+        default:
+            return 0;
     }
-    return 0;
 }

@@ -156,8 +156,8 @@ static void CPPExceptionTerminate(void)
         g_captureNextStackTrace = g_isEnabled;
 
         // TODO: Should this be done here? Maybe better in the exception handler?
-        KSMC_NEW_CONTEXT(machineContext);
-        ksmc_getContextForThread(ksthread_self(), machineContext, true);
+        KSMachineContext machineContext = { 0 };
+        ksmc_getContextForThread(ksthread_self(), &machineContext, true);
 
         KSLOG_DEBUG("Filling out context.");
         ksmc_fillMonitorContext(crashContext, kscm_cppexception_getAPI());
@@ -167,7 +167,7 @@ static void CPPExceptionTerminate(void)
         crashContext->CPPException.name = name;
         crashContext->exceptionName = name;
         crashContext->crashReason = description;
-        crashContext->offendingMachineContext = machineContext;
+        crashContext->offendingMachineContext = &machineContext;
 
         kscm_handleException(crashContext);
     } else {

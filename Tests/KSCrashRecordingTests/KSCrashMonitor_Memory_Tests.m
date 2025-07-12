@@ -255,7 +255,9 @@ static KSCrashAppMemory *Memory(uint64_t footprint)
 
 - (void)testAppStateTrackerNoPrewarm
 {
+#if KSCRASH_HAS_UIAPPLICATION
     NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
+#endif
     setenv("ActivePrewarm", "0", 1);
     __block KSCrashAppTransitionState state;
 

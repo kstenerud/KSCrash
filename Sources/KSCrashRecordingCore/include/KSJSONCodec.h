@@ -499,7 +499,7 @@ typedef struct KSJSONDecodeCallbacks {
  *
  * @param userData Any data you would like passed to the callbacks.
  *
- * @oaram errorOffset If not null, will contain the offset into the data
+ * @param errorOffset If not null, will contain the offset into the data
  *                    where the error (if any) occurred.
  *
  * @return KSJSON_OK if succesful. An error code otherwise.

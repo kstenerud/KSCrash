@@ -29,6 +29,10 @@
 #import "KSCrashConfiguration+Private.h"
 #import "KSCrashConfiguration.h"
 
+#define AssertAround(FLOAT_VALUE, COMPARED_TO)                          \
+    XCTAssertGreaterThanOrEqual(FLOAT_VALUE, (COMPARED_TO) - 0.000001); \
+    XCTAssertLessThanOrEqual(FLOAT_VALUE, (COMPARED_TO) + 0.000001)
+
 @interface KSCrashConfigurationTests : XCTestCase
 @end
 
@@ -40,7 +44,7 @@
 
     XCTAssertEqual(config.monitors, KSCrashMonitorTypeProductionSafeMinimal);
     XCTAssertNil(config.userInfoJSON);
-    XCTAssertEqual(config.deadlockWatchdogInterval, 0.0);
+    AssertAround(config.deadlockWatchdogInterval, 0.0);
     XCTAssertFalse(config.enableQueueNameSearch);
     XCTAssertFalse(config.enableMemoryIntrospection);
     XCTAssertNil(config.doNotIntrospectClasses);
@@ -71,7 +75,7 @@
     XCTAssertEqual(cConfig.monitors, KSCrashMonitorTypeDebuggerSafe);
     XCTAssertTrue(cConfig.userInfoJSON != NULL);
     XCTAssertEqual(strcmp(cConfig.userInfoJSON, "{\"key\":\"value\"}"), 0);
-    XCTAssertEqual(cConfig.deadlockWatchdogInterval, 5.0);
+    AssertAround(cConfig.deadlockWatchdogInterval, 5.0);
     XCTAssertTrue(cConfig.enableQueueNameSearch);
     XCTAssertTrue(cConfig.enableMemoryIntrospection);
     XCTAssertEqual(cConfig.doNotIntrospectClasses.length, 2);
@@ -104,7 +108,7 @@
 
     XCTAssertEqual(copy.monitors, KSCrashMonitorTypeDebuggerSafe);
     XCTAssertEqualObjects(copy.userInfoJSON, @{ @"key" : @"value" });
-    XCTAssertEqual(copy.deadlockWatchdogInterval, 5.0);
+    AssertAround(copy.deadlockWatchdogInterval, 5.0);
     XCTAssertTrue(copy.enableQueueNameSearch);
     XCTAssertTrue(copy.enableMemoryIntrospection);
     XCTAssertEqualObjects(copy.doNotIntrospectClasses, (@[ @"ClassA", @"ClassB" ]));
@@ -190,13 +194,15 @@
 
 - (void)testCallbacksInCConfiguration
 {
+#pragma clang diagnostic ignored "-Wunused-but-set-variable"
     __block BOOL crashNotifyCallbackCalled = NO;
+#pragma clang diagnostic pop
     __block BOOL reportWrittenCallbackCalled = NO;
     __block int64_t capturedReportID = 0;
 
     KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
 
-    config.crashNotifyCallback = ^(const struct KSCrashReportWriter *writer) {
+    config.crashNotifyCallback = ^(__unused const struct KSCrashReportWriter *writer) {
         crashNotifyCallbackCalled = YES;
     };
 

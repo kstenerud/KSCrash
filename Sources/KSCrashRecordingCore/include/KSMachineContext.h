@@ -31,6 +31,7 @@
 #include <stdbool.h>
 
 #include "KSCrashNamespace.h"
+#include "KSMachineContext_Apple.h"
 #include "KSThread.h"
 
 #ifdef __cplusplus
@@ -44,22 +45,6 @@ void ksmc_suspendEnvironment(thread_act_array_t *suspendedThreads, mach_msg_type
 /** Resume the runtime environment.
  */
 void ksmc_resumeEnvironment(thread_act_array_t threads, mach_msg_type_number_t numThreads);
-
-/** Create a new machine context on the stack.
- * This macro creates a storage object on the stack, as well as a pointer of type
- * struct KSMachineContext* in the current scope, which points to the storage object.
- *
- * Example usage: KSMC_NEW_CONTEXT(a_context);
- * This creates a new pointer at the current scope that behaves as if:
- *     struct KSMachineContext* a_context = some_storage_location;
- *
- * @param NAME The C identifier to give the pointer.
- */
-#define KSMC_NEW_CONTEXT(NAME)                      \
-    char ksmc_##NAME##_storage[ksmc_contextSize()]; \
-    struct KSMachineContext *NAME = (struct KSMachineContext *)ksmc_##NAME##_storage
-
-struct KSMachineContext;
 
 /** Get the internal size of a machine context.
  */

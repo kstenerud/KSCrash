@@ -203,6 +203,24 @@
     ]];
 }
 
+static UIWindow *getKeyWindow(void)
+{
+    if (@available(iOS 15, tvOS 15, *)) {
+        for (UIWindowScene *scene in UIApplication.sharedApplication.connectedScenes) {
+            if (scene.keyWindow != nil) {
+                return scene.keyWindow;
+            }
+        }
+    } else {
+        for (UIWindow *window in UIApplication.sharedApplication.windows) {
+            if (window.keyWindow) {
+                return window;
+            }
+        }
+    }
+    return nil;
+}
+
 - (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
     if (![MFMailComposeViewController canSendMail]) {
@@ -212,7 +230,7 @@
                                          preferredStyle:UIAlertControllerStyleAlert];
         UIAlertAction *okAction = [UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil];
         [alertController addAction:okAction];
-        UIWindow *keyWindow = [[UIApplication sharedApplication] keyWindow];
+        UIWindow *keyWindow = getKeyWindow();
         [keyWindow.rootViewController presentViewController:alertController animated:YES completion:NULL];
 
         kscrash_callCompletion(onCompletion, reports,

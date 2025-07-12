@@ -43,7 +43,7 @@ typedef uintptr_t KSThread;
  *
  * @param thread The thread whose name to get.
  *
- * @oaram buffer Buffer to hold the name.
+ * @param buffer Buffer to hold the name.
  *
  * @param bufLength The length of the buffer.
  *
@@ -56,7 +56,7 @@ bool ksthread_getThreadName(const KSThread thread, char *const buffer, int bufLe
  *
  * @param thread The thread whose queue name to get.
  *
- * @oaram buffer Buffer to hold the name.
+ * @param buffer Buffer to hold the name.
  *
  * @param bufLength The length of the buffer.
  *

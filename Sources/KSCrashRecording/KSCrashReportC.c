@@ -647,6 +647,8 @@ static bool writeObjCObject(const KSCrashReportWriter *const writer, const uintp
                             writeUnknownObjectContents(writer, KSCrashField_Ivars, address, limit);
                         }
                         return true;
+                    default:
+                        break;
                 }
             }
             break;
@@ -658,6 +660,8 @@ static bool writeObjCObject(const KSCrashReportWriter *const writer, const uintp
             return true;
         case KSObjCTypeUnknown:
             break;
+        default:
+            return false;
     }
 #endif
 
@@ -1094,7 +1098,7 @@ static void writeAllThreads(const KSCrashReportWriter *const writer, const char 
     const struct KSMachineContext *const context = crash->offendingMachineContext;
     KSThread offendingThread = ksmc_getThreadFromContext(context);
     int threadCount = ksmc_getThreadCount(context);
-    KSMC_NEW_CONTEXT(machineContext);
+    KSMachineContext machineContext = { 0 };
 
     // Fetch info for all threads.
     writer->beginArray(writer, key);
@@ -1105,8 +1109,8 @@ static void writeAllThreads(const KSCrashReportWriter *const writer, const char 
             if (thread == offendingThread) {
                 writeThread(writer, NULL, crash, context, i, writeNotableAddresses);
             } else {
-                ksmc_getContextForThread(thread, machineContext, false);
-                writeThread(writer, NULL, crash, machineContext, i, writeNotableAddresses);
+                ksmc_getContextForThread(thread, &machineContext, false);
+                writeThread(writer, NULL, crash, &machineContext, i, writeNotableAddresses);
             }
         }
     }
@@ -1386,7 +1390,7 @@ static void writeReportInfo(const KSCrashReportWriter *const writer, const char 
         writer->addStringElement(writer, KSCrashField_Version, KSCRASH_REPORT_VERSION);
         writer->addStringElement(writer, KSCrashField_ID, reportID);
         writer->addStringElement(writer, KSCrashField_ProcessName, processName);
-        writer->addIntegerElement(writer, KSCrashField_Timestamp, ksdate_microseconds());
+        writer->addUIntegerElement(writer, KSCrashField_Timestamp, ksdate_microseconds());
         writer->addStringElement(writer, KSCrashField_Type, type);
     }
     writer->endContainer(writer);
@@ -1401,7 +1405,7 @@ static void writeRecrash(const KSCrashReportWriter *const writer, const char *co
 
 /** Prepare a report writer for use.
  *
- * @oaram writer The writer to prepare.
+ * @param writer The writer to prepare.
  *
  * @param context JSON writer contextual information.
  */

@@ -28,6 +28,8 @@
 
 #import "KSCrashMonitor_AppState.h"
 
+#pragma clang diagnostic ignored "-Wfloat-equal"
+
 @interface KSCrashMonitor_AppState_Tests : FileBasedTestCase
 @end
 
@@ -551,3 +553,5 @@
 }
 
 @end
+
+#pragma clang diagnostic pop

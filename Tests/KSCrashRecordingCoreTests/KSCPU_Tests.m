@@ -49,43 +49,43 @@
     kr = thread_suspend(thread.thread);
     XCTAssertTrue(kr == KERN_SUCCESS, @"");
 
-    KSMC_NEW_CONTEXT(machineContext);
-    ksmc_getContextForThread(thread.thread, machineContext, NO);
-    kscpu_getState(machineContext);
+    KSMachineContext machineContext = { 0 };
+    ksmc_getContextForThread(thread.thread, &machineContext, NO);
+    kscpu_getState(&machineContext);
 
     int numRegisters = kscpu_numRegisters();
     for (int i = 0; i < numRegisters; i++) {
         const char *name = kscpu_registerName(i);
         XCTAssertTrue(name != NULL, @"Register %d was NULL", i);
-        kscpu_registerValue(machineContext, i);
+        kscpu_registerValue(&machineContext, i);
     }
 
     const char *name = kscpu_registerName(1000000);
     XCTAssertTrue(name == NULL, @"");
-    uint64_t value = kscpu_registerValue(machineContext, 1000000);
+    uint64_t value = kscpu_registerValue(&machineContext, 1000000);
     XCTAssertTrue(value == 0, @"");
 
     uintptr_t address;
-    address = kscpu_framePointer(machineContext);
+    address = kscpu_framePointer(&machineContext);
     XCTAssertTrue(address != 0, @"");
-    address = kscpu_stackPointer(machineContext);
+    address = kscpu_stackPointer(&machineContext);
     XCTAssertTrue(address != 0, @"");
-    address = kscpu_instructionAddress(machineContext);
+    address = kscpu_instructionAddress(&machineContext);
     XCTAssertTrue(address != 0, @"");
 
     numRegisters = kscpu_numExceptionRegisters();
     for (int i = 0; i < numRegisters; i++) {
         name = kscpu_exceptionRegisterName(i);
         XCTAssertTrue(name != NULL, @"Register %d was NULL", i);
-        kscpu_exceptionRegisterValue(machineContext, i);
+        kscpu_exceptionRegisterValue(&machineContext, i);
     }
 
     name = kscpu_exceptionRegisterName(1000000);
     XCTAssertTrue(name == NULL, @"");
-    value = kscpu_exceptionRegisterValue(machineContext, 1000000);
+    value = kscpu_exceptionRegisterValue(&machineContext, 1000000);
     XCTAssertTrue(value == 0, @"");
 
-    kscpu_faultAddress(machineContext);
+    kscpu_faultAddress(&machineContext);
 
     thread_resume(thread.thread);
     [thread cancel];

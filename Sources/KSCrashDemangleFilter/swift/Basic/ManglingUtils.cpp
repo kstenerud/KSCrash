@@ -17,7 +17,7 @@ using namespace Mangle;
 
 
 bool Mangle::isNonAscii(StringRef str) {
-    for (unsigned char c : str) {
+    for (int c : str) {
         if (c >= 0x80)
             return true;
     }
@@ -25,8 +25,8 @@ bool Mangle::isNonAscii(StringRef str) {
 }
 
 bool Mangle::needsPunycodeEncoding(StringRef str) {
-    for (unsigned char c : str) {
-        if (!isValidSymbolChar(c))
+    for (int c : str) {
+        if (!isValidSymbolChar((char)c))
             return true;
     }
     return false;

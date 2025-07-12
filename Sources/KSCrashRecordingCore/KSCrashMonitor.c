@@ -81,7 +81,7 @@ static void initializeMonitorList(MonitorList *list)
 static void addMonitor(MonitorList *list, KSCrashMonitorAPI *api)
 {
     if (list->count >= list->capacity) {
-        list->capacity *= 2;
+        list->capacity = list->capacity > 0 ? list->capacity * 2 : 2;
         list->apis = (KSCrashMonitorAPI **)realloc(list->apis, list->capacity * sizeof(KSCrashMonitorAPI *));
     }
     list->apis[list->count++] = api;

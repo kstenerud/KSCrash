@@ -30,6 +30,10 @@
 #import "KSJSONCodec.h"
 #import "KSJSONCodecObjC.h"
 
+#define AssertAround(FLOAT_VALUE, COMPARED_TO)                          \
+    XCTAssertGreaterThanOrEqual(FLOAT_VALUE, (COMPARED_TO) - 0.000001); \
+    XCTAssertLessThanOrEqual(FLOAT_VALUE, (COMPARED_TO) + 0.000001)
+
 @interface KSJSONCodec_Tests : FileBasedTestCase
 @end
 
@@ -138,7 +142,7 @@ static NSString *toString(NSData *data)
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
     XCTAssertNotNil(result, @"");
     XCTAssertNil(error, @"");
-    XCTAssertEqual([[result objectAtIndex:0] floatValue], -0.2f, @"");
+    AssertAround([[result objectAtIndex:0] floatValue], -0.2f);
     // This always fails on NSNumber filled with float.
     // XCTAssertEqualObjects(result, original, @"");
 }
@@ -155,7 +159,7 @@ static NSString *toString(NSData *data)
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
     XCTAssertNotNil(result, @"");
     XCTAssertNil(error, @"");
-    XCTAssertEqual([[result objectAtIndex:0] floatValue], -2e-15f, @"");
+    AssertAround([[result objectAtIndex:0] floatValue], -2e-15f);
     // This always fails on NSNumber filled with float.
     // XCTAssertEqualObjects(result, original, @"");
 }
@@ -353,7 +357,7 @@ static NSString *toString(NSData *data)
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
     XCTAssertNotNil(result, @"");
     XCTAssertNil(error, @"");
-    XCTAssertEqual([[(NSDictionary *)result objectForKey:@"One"] floatValue], 54.918f, @"");
+    AssertAround([[(NSDictionary *)result objectForKey:@"One"] floatValue], 54.918f);
     // This always fails on NSNumber filled with float.
     // XCTAssertEqualObjects(result, original, @"");
 }
@@ -370,7 +374,7 @@ static NSString *toString(NSData *data)
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
     XCTAssertNotNil(result, @"");
     XCTAssertNil(error, @"");
-    XCTAssertEqual([[(NSDictionary *)result objectForKey:@"One"] floatValue], 5e20f, @"");
+    AssertAround([[(NSDictionary *)result objectForKey:@"One"] floatValue], 5e20f);
     // This always fails on NSNumber filled with float.
     // XCTAssertEqualObjects(result, original, @"");
 }
@@ -666,7 +670,7 @@ static NSString *toString(NSData *data)
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
     XCTAssertNotNil(result, @"");
     XCTAssertNil(error, @"");
-    XCTAssertTrue([[result objectAtIndex:0] floatValue] == [[original objectAtIndex:0] floatValue], @"");
+    AssertAround([[result objectAtIndex:0] floatValue], [[original objectAtIndex:0] floatValue]);
 }
 
 - (void)testSerializeDeserializeDouble
@@ -681,7 +685,7 @@ static NSString *toString(NSData *data)
     id result = [KSJSONCodec decode:toData(jsonString) options:0 error:&error];
     XCTAssertNotNil(result, @"");
     XCTAssertNil(error, @"");
-    XCTAssertTrue([[result objectAtIndex:0] floatValue] == [[original objectAtIndex:0] floatValue], @"");
+    AssertAround([[result objectAtIndex:0] floatValue], [[original objectAtIndex:0] floatValue]);
 }
 
 - (void)testSerializeDeserializeChar
@@ -838,7 +842,7 @@ static NSString *toString(NSData *data)
     NSMutableString *jsonString = [NSMutableString string];
     [jsonString appendString:@"["];
     for (unsigned int i = 0; i < numEntries; i++) {
-        [jsonString appendFormat:@"%d,", i % 10];
+        [jsonString appendFormat:@"%u,", i % 10];
     }
     [jsonString deleteCharactersInRange:NSMakeRange([jsonString length] - 1, 1)];
     [jsonString appendString:@"]"];
@@ -866,7 +870,7 @@ static NSString *toString(NSData *data)
     NSMutableString *jsonString = [NSMutableString string];
     [jsonString appendString:@"{"];
     for (unsigned int i = 0; i < numEntries; i++) {
-        [jsonString appendFormat:@"\"%d\":%d,", i, i];
+        [jsonString appendFormat:@"\"%u\":%u,", i, i];
     }
     [jsonString deleteCharactersInRange:NSMakeRange([jsonString length] - 1, 1)];
     [jsonString appendString:@"}"];
@@ -1498,7 +1502,7 @@ static int addJSONData(const char *data, int length, void *userData)
             XCTAssertEqualObjects(jsonString, @"[-1e999]",
                                   @"Negative infinity should be encoded as a very large negative number");
         }
-        XCTAssertEqual([decodedArray[0] floatValue], value);
+        AssertAround([decodedArray[0] floatValue], value);
     } else {
         XCTAssertEqualWithAccuracy([decodedArray[0] floatValue], value, FLT_EPSILON * fabsf(value) * 100);
     }
@@ -1527,7 +1531,7 @@ static int addJSONData(const char *data, int length, void *userData)
             XCTAssertEqualObjects(jsonString, @"[-1e999]",
                                   @"Negative infinity should be encoded as a very large negative number");
         }
-        XCTAssertEqual([decodedArray[0] doubleValue], value);
+        AssertAround([decodedArray[0] doubleValue], value);
     } else {
         XCTAssertEqualWithAccuracy([decodedArray[0] doubleValue], value, DBL_EPSILON * fabs(value) * 100);
     }

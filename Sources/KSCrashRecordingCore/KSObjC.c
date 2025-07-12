@@ -1119,7 +1119,7 @@ static bool taggedStringIsValid(const void *const object)
     return isValidTaggedPointer(object) && isTaggedPointerNSString(object);
 }
 
-static int taggedStringDescription(const void *object, char *buffer, __unused int bufferLength)
+static int taggedStringDescription(const void *object, char *buffer, int bufferLength)
 {
     return extractTaggedNSString(object, buffer, bufferLength);
 }
@@ -1223,7 +1223,7 @@ static int taggedDateDescription(const void *object, char *buffer, int bufferLen
 
 #define EXTRACT_AND_RETURN_NSNUMBER(OBJECT, RETURN_TYPE)                    \
     if (isValidTaggedPointer(object)) {                                     \
-        return extractTaggedNSNumber(object);                               \
+        return (RETURN_TYPE)extractTaggedNSNumber(object);                  \
     }                                                                       \
     const struct __CFNumber *number = OBJECT;                               \
     CFNumberType cftype = CFNumberGetType((CFNumberRef)OBJECT);             \
@@ -1245,6 +1245,8 @@ static int taggedDateDescription(const void *object, char *buffer, int bufferLen
         NSNUMBER_CASE(kCFNumberCFIndexType, CFIndex, RETURN_TYPE, data)     \
         NSNUMBER_CASE(kCFNumberNSIntegerType, NSInteger, RETURN_TYPE, data) \
         NSNUMBER_CASE(kCFNumberCGFloatType, CGFloat, RETURN_TYPE, data)     \
+        default:                                                            \
+            break;                                                          \
     }
 
 Float64 ksobjc_numberAsFloat(const void *object)
@@ -1370,7 +1372,7 @@ static inline int nsarrayCount(const void *const arrayPtr)
         NSArrayDescriptor descriptor = { 0 };
         if (ksmem_copySafely((const void *)((uintptr_t)arrayPtr + sizeof(uintptr_t)), &descriptor,
                              sizeof(NSArrayDescriptor))) {
-            return descriptor._used;
+            return (int)descriptor._used;
         }
     } else if (strcmp(className, "__NSSingleObjectArrayI") == 0) {
         return 1;
@@ -1411,7 +1413,7 @@ static int nsarrayContents(const void *const arrayPtr, uintptr_t *contents, int 
         entry = (const uintptr_t *)&array->basic.firstEntry;
     }
 
-    if (!ksmem_copySafely(entry, contents, sizeof(*contents) * count)) {
+    if (!ksmem_copySafely(entry, contents, (int)sizeof(*contents) * count)) {
         return 0;
     }
 
