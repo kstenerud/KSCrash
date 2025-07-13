@@ -126,9 +126,12 @@ typedef struct ExceptionContext {
     const char *threadName;
     char eventID[40];
     ExceptionCallback *handleException;
-    ExceptionRequest *request;                         // Will point to requestBuffer
-    mach_msg_size_t requestSize;                       // will be sizeof(requestBuffer)
-    uint64_t requestBuffer[sizeof(ExceptionRequest)];  // 8x bigger than "needed"
+    ExceptionRequest *request;    // Will point to requestBuffer
+    mach_msg_size_t requestSize;  // will be sizeof(requestBuffer)
+    // Make the buffer from an array of uint64 in order to enforce memory alignment.
+    // Notice that the buffer will be 8x larger than "required". The mach subsystem
+    // will secretly tack on extra data for its own purposes, so we need this.
+    uint64_t requestBuffer[sizeof(ExceptionRequest)];
 
     // These are set by startNewExceptionHandler()
     pthread_t posixThread;
@@ -172,7 +175,7 @@ static int signalForMachException(exception_type_t exception, mach_exception_cod
             return SIGTRAP;
         case EXC_EMULATION:
             return SIGEMT;
-        case EXC_SOFTWARE: {
+        case EXC_SOFTWARE:
             switch (code) {
                 case EXC_UNIX_BAD_SYSCALL:
                     return SIGSYS;
@@ -185,7 +188,6 @@ static int signalForMachException(exception_type_t exception, mach_exception_cod
                 default:
                     return 0;
             }
-        }
         default:
             return 0;
     }
