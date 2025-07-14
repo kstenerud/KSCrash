@@ -968,6 +968,7 @@ static int decodeElement(const char *const name, KSJSONDecodeContext *context)
                 return KSJSON_ERROR_INVALID_CHARACTER;
             }
             // Fallthrough
+#pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wimplicit-fallthrough"
         case '0':
 #pragma clang diagnostic pop

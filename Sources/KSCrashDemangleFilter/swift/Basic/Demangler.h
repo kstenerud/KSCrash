@@ -118,6 +118,7 @@ namespace swift {
                     << ", End = " << (void *)End << "\n";
 #endif
                 }
+#pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wcast-align"
                 T *AllocatedObj = (T *)CurPtr;
 #pragma clang diagnostic pop
