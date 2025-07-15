@@ -43,8 +43,16 @@ extern "C" {
  */
 void ksbic_init(void);
 
-const struct dyld_image_info *ksbic_beginImageAccess(int *count);
-void ksbic_endImageAccess(const struct dyld_image_info *images);
+/**
+ * Begins image access and returns a C array of _count_ `dyld_image_info`.
+ * Access can be ended by passing the return value to `ksbic_endImageAccess`.
+ */
+const struct dyld_image_info *_Nullable ksbic_beginImageAccess(int *_Nullable count);
+
+/**
+ * Ends images access with _images_ returns from `ksbic_beginImageAccess`.
+ */
+void ksbic_endImageAccess(const struct dyld_image_info *_Nonnull images);
 
 #ifdef __cplusplus
 }

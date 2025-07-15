@@ -214,7 +214,11 @@ static NSString *getExecutablePath(void)
  */
 static const char *getAppUUID(void)
 {
-    const struct dyld_image_info *images = ksbic_beginImageAccess(NULL);
+    int count = 0;
+    const struct dyld_image_info *images = ksbic_beginImageAccess(&count);
+    if (!images || count <= 0) {
+        return NULL;
+    }
     const struct mach_header *header = images[0].imageLoadAddress;
     ksbic_endImageAccess(images);
 

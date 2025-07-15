@@ -41,7 +41,17 @@
 #include "KSLogger.h"
 
 static _Atomic(bool) g_initialized = false;
-static struct dyld_all_image_infos *g_all_image_infos = NULL;
+static _Atomic(struct dyld_all_image_infos *) g_all_image_infos = NULL;
+
+static void ksbic_set_all_image_infos(struct dyld_all_image_infos *ptr)
+{
+    atomic_store_explicit(&g_all_image_infos, ptr, memory_order_release);
+}
+
+static struct dyld_all_image_infos *ksbic_get_all_image_infos(void)
+{
+    return atomic_load_explicit(&g_all_image_infos, memory_order_acquire);
+}
 
 void ksbic_init(void)
 {
@@ -59,30 +69,40 @@ void ksbic_init(void)
         KSLOG_DEBUG("Initializing binary error");
         return;
     }
-    g_all_image_infos = (struct dyld_all_image_infos *)dyld_info.all_image_info_addr;
+    ksbic_set_all_image_infos((struct dyld_all_image_infos *)dyld_info.all_image_info_addr);
 }
 
 const struct dyld_image_info *ksbic_beginImageAccess(int *count)
 {
-    const struct dyld_image_info *images = g_all_image_infos->infoArray;
+    struct dyld_all_image_infos *allInfo = ksbic_get_all_image_infos();
+    if (!allInfo) {
+        KSLOG_ERROR("Already accesing images");
+        return NULL;
+    }
+    const struct dyld_image_info *images = allInfo->infoArray;
     if (images == NULL) {
         KSLOG_ERROR("Already accesing images");
         return NULL;
     }
-    g_all_image_infos->infoArray = NULL;
+    allInfo->infoArray = NULL;
     if (count) {
-        *count = g_all_image_infos->infoArrayCount;
+        *count = allInfo->infoArrayCount;
     }
     return images;
 }
 
 void ksbic_endImageAccess(const struct dyld_image_info *images)
 {
-    if (g_all_image_infos->infoArray) {
+    struct dyld_all_image_infos *allInfo = ksbic_get_all_image_infos();
+    if (!allInfo) {
+        KSLOG_ERROR("Already accesing images");
+        return NULL;
+    }
+    if (allInfo->infoArray) {
         KSLOG_ERROR("Cannot end image access");
         return;
     }
-    g_all_image_infos->infoArray = images;
+    allInfo->infoArray = images;
 }
 
 // For testing purposes only. Used with extern in test files.
@@ -92,5 +112,5 @@ void ksbic_resetCache(void)
     if (!atomic_compare_exchange_strong(&g_initialized, &expected, false)) {
         return;
     }
-    g_all_image_infos = NULL;
+    ksbic_set_all_image_infos(NULL);
 }
