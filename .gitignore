@@ -36,3 +36,5 @@ Gemfile.lock
 ### CLAUDE ###
 **/.claude/settings.local.json
 **/CLAUDE.local.md
+### Development ###
+.kscrash_development
