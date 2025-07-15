@@ -32,10 +32,26 @@
 // #define KSLogger_LocalLevel TRACE
 #include <dispatch/dispatch.h>
 #include <mach/mach.h>
+#include <mach/thread_info.h>
 #include <pthread.h>
 #include <sys/sysctl.h>
 
 #include "KSLogger.h"
+
+static const char *thread_state_names[] = {
+    // Defined in mach/thread_info.h
+    NULL, "TH_STATE_RUNNING", "TH_STATE_STOPPED", "TH_STATE_WAITING", "TH_STATE_UNINTERRUPTIBLE", "TH_STATE_HALTED",
+};
+
+static const int thread_state_names_count = sizeof(thread_state_names) / sizeof(*thread_state_names);
+
+const char *ksthread_state_name(int state)
+{
+    if (state < 1 || state >= thread_state_names_count) {
+        return NULL;
+    }
+    return thread_state_names[state];
+}
 
 KSThread ksthread_self(void)
 {
@@ -50,6 +66,30 @@ bool ksthread_getThreadName(const KSThread thread, char *const buffer, int bufLe
 
     const pthread_t pthread = pthread_from_mach_thread_np((thread_t)thread);
     return pthread_getname_np(pthread, buffer, (unsigned)bufLength) == 0;
+}
+
+int ksthread_getThreadState(const KSThread thread)
+{
+    integer_t infoBuffer[THREAD_BASIC_INFO_COUNT] = { 0 };
+    thread_basic_info_t info = (thread_basic_info_t)infoBuffer;
+    mach_msg_type_number_t count = THREAD_BASIC_INFO_COUNT;
+    kern_return_t kr = 0;
+
+    kr = thread_info((thread_t)thread, THREAD_BASIC_INFO, (thread_info_t)info, &count);
+    if (kr != KERN_SUCCESS) {
+        KSLOG_TRACE(
+            "Error getting thread_info with flavor "
+            "THREAD_BASIC_INFO from mach thread : %s",
+            mach_error_string(kr));
+        return TH_STATE_UNSET;
+    }
+
+    if (!ksmem_isMemoryReadable(info, sizeof(*info))) {
+        KSLOG_DEBUG("Thread %p has an invalid thread basic info %p", thread, info);
+        return TH_STATE_UNSET;
+    }
+
+    return info->run_state;
 }
 
 bool ksthread_getQueueName(const KSThread thread, char *const buffer, int bufLength)

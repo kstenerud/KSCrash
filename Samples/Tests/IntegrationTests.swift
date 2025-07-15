@@ -117,22 +117,33 @@ final class CppTests: IntegrationTestBase {
 
 #endif
 
-final class OtherTests: IntegrationTestBase {
-    func testManyThreads() throws {
-        try launchAndCrash(.other_manyThreads)
+#if !os(watchOS)
+    final class OtherTests: IntegrationTestBase {
+        func testManyThreads() throws {
+            try launchAndCrash(.other_manyThreads)
 
-        let rawReport = try readPartialCrashReport()
-        let crashedThread = rawReport.crash?.threads?.first(where: { $0.crashed })
-        XCTAssertNotNil(crashedThread)
-        let expectedFrame = crashedThread?.backtrace.contents.first(where: {
-            $0.symbol_name?.contains(KSCrashStacktraceCheckFuncName) ?? false
-        })
-        XCTAssertNotNil(expectedFrame)
+            let rawReport = try readPartialCrashReport()
+            let crashedThread = rawReport.crash?.threads?.first(where: { $0.crashed })
+            XCTAssertNotNil(crashedThread)
+            let expectedFrame = crashedThread?.backtrace.contents.first(where: {
+                $0.symbol_name?.contains(KSCrashStacktraceCheckFuncName) ?? false
+            })
+            XCTAssertNotNil(expectedFrame)
 
-        let appleReport = try launchAndReportCrash()
-        XCTAssertTrue(appleReport.contains(KSCrashStacktraceCheckFuncName))
+            var threadStates = [
+                "TH_STATE_RUNNING", "TH_STATE_STOPPED", "TH_STATE_WAITING",
+                "TH_STATE_UNINTERRUPTIBLE", "TH_STATE_HALTED",
+            ]
+            for thread in rawReport.crash?.threads ?? [] {
+                var threadState = thread.state ?? ""
+                XCTAssertTrue(threadStates.contains(threadState))
+            }
+
+            let appleReport = try launchAndReportCrash()
+            XCTAssertTrue(appleReport.contains(KSCrashStacktraceCheckFuncName))
+        }
     }
-}
+#endif
 
 final class UserReportedTests: IntegrationTestBase {
 
