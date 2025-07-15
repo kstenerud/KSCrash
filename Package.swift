@@ -267,13 +267,13 @@ private var isDevelopmentBuild: Bool {
         .deletingLastPathComponent()
         .appendingPathComponent(".kscrash_development")
         .path
-    
+
     return FileManager.default.fileExists(atPath: developmentFlagPath)
 }
 
 private var developmentUnsafeFlags: [String] {
     guard isDevelopmentBuild else { return [] }
-    
+
     return [
         // The main ones
         "-Werror",
@@ -457,9 +457,9 @@ private var developmentUnsafeFlags: [String] {
 
 // MARK: - String Extensions
 
-private extension String {
+extension String {
     /// Generates consistent test target names
-    var tests: String {
+    fileprivate var tests: String {
         return self + "Tests"
     }
 }
