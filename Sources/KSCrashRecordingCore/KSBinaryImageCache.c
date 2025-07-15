@@ -40,6 +40,12 @@
 
 #include "KSLogger.h"
 
+/// As a general rule, access to _g_all_image_infos->infoArray_ is thread safe
+/// in a way that you can iterate all you want since items will never be removed
+/// and the _infoCount_ is only update after an item is added to _infoArray_.
+/// Because of this, we can iterate during a signal handler, Mach exception handler
+/// or even at any point within the run of the process.
+
 static _Atomic(bool) g_initialized = false;
 static _Atomic(struct dyld_all_image_infos *) g_all_image_infos = NULL;
 
