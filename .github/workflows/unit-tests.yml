@@ -65,6 +65,9 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Setup Development Environment
+        run: ./setup-dev.sh
+
       - name: Use Latest Stable Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
