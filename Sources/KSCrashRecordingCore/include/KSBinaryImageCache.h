@@ -47,7 +47,7 @@ void ksbic_init(void);
  * Begins image access and returns a C array of _count_ `dyld_image_info`.
  * Access can be ended by passing the return value to `ksbic_endImageAccess`.
  */
-const struct dyld_image_info *_Nullable ksbic_beginImageAccess(int *_Nullable count);
+const struct dyld_image_info *_Nullable ksbic_beginImageAccess(uint32_t *_Nullable count);
 
 /**
  * Ends images access with _images_ returns from `ksbic_beginImageAccess`.

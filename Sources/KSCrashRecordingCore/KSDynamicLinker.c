@@ -56,38 +56,51 @@ typedef struct {
 #pragma pack()
 #define KSDL_SECT_CRASH_INFO "__crash_info"
 
+#include <mach-o/loader.h>
+#include <stdint.h>
+#include <string.h>
+
 static uintptr_t vmSlideFromHeader(const struct mach_header *mh)
 {
     uintptr_t load_addr = (uintptr_t)mh;
 
     if (mh->magic == MH_MAGIC_64) {
         const struct mach_header_64 *mh64 = (const struct mach_header_64 *)mh;
-        const struct load_command *lc = (const struct load_command *)(mh64 + 1);
+        uintptr_t ptr = (uintptr_t)(mh64 + 1);
 
         for (uint32_t i = 0; i < mh64->ncmds; i++) {
+            const struct load_command *lc = (const struct load_command *)ptr;
+
             if (lc->cmd == LC_SEGMENT_64) {
-                const struct segment_command_64 *seg = (const struct segment_command_64 *)lc;
+                // Ensure safe cast via alignment assumption
+                const struct segment_command_64 *seg = (const struct segment_command_64 *)__builtin_assume_aligned(
+                    lc, __alignof(struct segment_command_64));
+
                 if (strcmp(seg->segname, "__TEXT") == 0) {
-                    uintptr_t vmaddr = (uintptr_t)seg->vmaddr;
-                    return load_addr - vmaddr;
+                    return load_addr - (uintptr_t)(seg->vmaddr);
                 }
             }
-            lc = (const struct load_command *)((const char *)lc + lc->cmdsize);
+
+            ptr += lc->cmdsize;
         }
 
     } else if (mh->magic == MH_MAGIC) {
         const struct mach_header *mh32 = mh;
-        const struct load_command *lc = (const struct load_command *)(mh32 + 1);
+        uintptr_t ptr = (uintptr_t)(mh32 + 1);
 
         for (uint32_t i = 0; i < mh32->ncmds; i++) {
+            const struct load_command *lc = (const struct load_command *)ptr;
+
             if (lc->cmd == LC_SEGMENT) {
-                const struct segment_command *seg = (const struct segment_command *)lc;
+                const struct segment_command *seg =
+                    (const struct segment_command *)__builtin_assume_aligned(lc, __alignof(struct segment_command));
+
                 if (strcmp(seg->segname, "__TEXT") == 0) {
-                    uintptr_t vmaddr = (uintptr_t)seg->vmaddr;
-                    return load_addr - vmaddr;
+                    return load_addr - (uintptr_t)(seg->vmaddr);
                 }
             }
-            lc = (const struct load_command *)((const char *)lc + lc->cmdsize);
+
+            ptr += lc->cmdsize;
         }
     }
 
@@ -124,7 +137,7 @@ static uintptr_t firstCmdAfterHeader(const struct mach_header *const header)
  */
 static const struct mach_header *imageContainingAddress(const uintptr_t address, char **outName)
 {
-    int count = 0;
+    uint32_t count = 0;
     const struct dyld_image_info *images = ksbic_beginImageAccess(&count);
     const struct mach_header *header = NULL;
 
@@ -170,7 +183,7 @@ static const struct mach_header *imageContainingAddress(const uintptr_t address,
  *
  * This is required for any symtab command offsets.
  *
- * @param idx The image index.
+ * @param header The image header.
  * @return The image's base address, or 0 if none was found.
  */
 static uintptr_t segmentBaseOfImage(const struct mach_header *header)

@@ -48,7 +48,7 @@ extern void ksbic_init(void);
 
 - (void)testImageUUID
 {
-    int count = 0;
+    uint32_t count = 0;
     const struct dyld_image_info *images = ksbic_beginImageAccess(&count);
 
     KSBinaryImage buffer = { 0 };

@@ -1134,9 +1134,7 @@ static void writeAllThreads(const KSCrashReportWriter *const writer, const char 
  *
  * @param writer The writer.
  *
- * @param key The object key, if needed.
- *
- * @param index Which image to write about.
+ * @param image The image to write.
  */
 static void writeBinaryImage(const KSCrashReportWriter *const writer, const KSBinaryImage *const image)
 {
@@ -1176,12 +1174,12 @@ static void writeBinaryImage(const KSCrashReportWriter *const writer, const KSBi
  */
 static void writeBinaryImages(const KSCrashReportWriter *const writer, const char *const key)
 {
-    int count = 0;
+    uint32_t count = 0;
     const struct dyld_image_info *images = ksbic_beginImageAccess(&count);
 
     writer->beginArray(writer, key);
     {
-        for (int iImg = 0; iImg < count; iImg++) {
+        for (uint32_t iImg = 0; iImg < count; iImg++) {
             struct dyld_image_info info = images[iImg];
             KSBinaryImage image = { 0 };
             if (ksdl_binaryImageForHeader(info.imageLoadAddress, info.imageFilePath, &image)) {

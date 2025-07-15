@@ -53,7 +53,7 @@ extern void ksbic_resetCache(void);
 
 - (void)testImageCount
 {
-    int cachedCount = 0;
+    uint32_t cachedCount = 0;
     const struct dyld_image_info *images = ksbic_beginImageAccess(&cachedCount);
     ksbic_endImageAccess(images);
     uint32_t actualCount = _dyld_image_count();
@@ -66,7 +66,7 @@ extern void ksbic_resetCache(void);
 
 - (void)testImageHeader
 {
-    int count = 0;
+    uint32_t count = 0;
     const struct dyld_image_info *images = ksbic_beginImageAccess(&count);
 
     XCTAssertGreaterThan(count, 0, @"There should be at least some images loaded");
@@ -85,7 +85,7 @@ extern void ksbic_resetCache(void);
 
 - (void)testImageName
 {
-    int count = 0;
+    uint32_t count = 0;
     const struct dyld_image_info *images = ksbic_beginImageAccess(&count);
     XCTAssertGreaterThan(count, 0, @"There should be at least some images loaded");
 
@@ -101,7 +101,7 @@ extern void ksbic_resetCache(void);
 
 - (void)testImageVMAddrSlide
 {
-    int count = 0;
+    uint32_t count = 0;
     const struct dyld_image_info *images = ksbic_beginImageAccess(&count);
     XCTAssertGreaterThan(count, 0, @"There should be at least some images loaded");
 
@@ -112,7 +112,7 @@ extern void ksbic_resetCache(void);
 
         // find the actual one from dyld
         intptr_t actualSlide = 0;
-        for (int d = 0; d < _dyld_image_count(); d++) {
+        for (uint32_t d = 0; d < _dyld_image_count(); d++) {
             const struct mach_header *dyldHeader = _dyld_get_image_header(d);
             if (dyldHeader == images[i].imageLoadAddress) {
                 actualSlide = _dyld_get_image_vmaddr_slide(d);
@@ -131,7 +131,7 @@ extern void ksbic_resetCache(void);
 
 - (void)testCachedImagesHaveConsistentData
 {
-    int count = 0;
+    uint32_t count = 0;
     const struct dyld_image_info *images = ksbic_beginImageAccess(&count);
     XCTAssertGreaterThan(count, 0, @"There should be at least some images loaded");
 
@@ -143,6 +143,7 @@ extern void ksbic_resetCache(void);
         ksdl_binaryImageForHeader(images[i].imageLoadAddress, images[i].imageFilePath, &buffer);
 
         uintptr_t slide = buffer.vmAddressSlide;
+        (void)slide;
 
         XCTAssertNotEqual(header, NULL, @"Should have valid header for image %@", @(i));
         XCTAssertNotEqual(name, NULL, @"Should have valid name for image %@", @(i));
@@ -158,7 +159,7 @@ extern void ksbic_resetCache(void);
 
 - (void)testInternalConsistency
 {
-    int count = 0;
+    uint32_t count = 0;
     const struct dyld_image_info *images = ksbic_beginImageAccess(&count);
     XCTAssertGreaterThan(count, 0, @"There should be at least some images loaded");
 

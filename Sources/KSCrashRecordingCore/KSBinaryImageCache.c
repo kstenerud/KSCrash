@@ -72,7 +72,7 @@ void ksbic_init(void)
     ksbic_set_all_image_infos((struct dyld_all_image_infos *)dyld_info.all_image_info_addr);
 }
 
-const struct dyld_image_info *ksbic_beginImageAccess(int *count)
+const struct dyld_image_info *ksbic_beginImageAccess(uint32_t *count)
 {
     struct dyld_all_image_infos *allInfo = ksbic_get_all_image_infos();
     if (!allInfo) {
@@ -96,7 +96,7 @@ void ksbic_endImageAccess(const struct dyld_image_info *images)
     struct dyld_all_image_infos *allInfo = ksbic_get_all_image_infos();
     if (!allInfo) {
         KSLOG_ERROR("Already accesing images");
-        return NULL;
+        return;
     }
     if (allInfo->infoArray) {
         KSLOG_ERROR("Cannot end image access");
