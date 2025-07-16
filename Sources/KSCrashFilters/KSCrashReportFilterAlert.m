@@ -99,6 +99,12 @@ static UIWindow *getKeyWindow(void)
     _onCompletion = [onCompletion copy];
     _expectedButtonIndex = noAnswer == nil ? 0 : 1;
 
+    // when running headless in tests UIApplication doesn't exist
+    if (!NSClassFromString(@"UIApplication")) {
+        kscrash_callCompletion(self.onCompletion, self.reports, nil);
+        return;
+    }
+
 #if KSCRASH_HAS_UIALERTCONTROLLER
     UIAlertController *alertController = [UIAlertController alertControllerWithTitle:title
                                                                              message:message
