@@ -107,8 +107,10 @@ extern void ksbic_resetCache(void);
         ksdl_binaryImageForHeader(images[i].imageLoadAddress, images[i].imageFilePath, &buffer);
         uintptr_t cachedSlide = buffer.vmAddressSlide;
 
+        XCTAssertTrue(cachedSlide < UINTPTR_MAX / 2, @"Slide should be a reasonable value for image %@", @(i));
+
         // find the actual one from dyld
-        intptr_t actualSlide = -1;  // -1 will means not found which is possible
+        intptr_t actualSlide = INTPTR_MAX;
         for (uint32_t d = 0; d < _dyld_image_count(); d++) {
             const struct mach_header *dyldHeader = _dyld_get_image_header(d);
             if (dyldHeader == images[i].imageLoadAddress) {
@@ -118,9 +120,15 @@ extern void ksbic_resetCache(void);
             }
         }
 
+        if (actualSlide == INTPTR_MAX) {
+            // not found, not an error.
+            // It's possible that _dyld
+            // doesn't have this image cached.
+            continue;
+        }
+
         XCTAssertEqual(cachedSlide, (uintptr_t)actualSlide, @"Cached slide should match actual slide for image %@",
                        @(i));
-        XCTAssertTrue(cachedSlide < UINTPTR_MAX / 2, @"Slide should be a reasonable value for image %@", @(i));
     }
 }
 
