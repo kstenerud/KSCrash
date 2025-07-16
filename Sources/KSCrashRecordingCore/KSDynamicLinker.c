@@ -138,7 +138,7 @@ static uintptr_t firstCmdAfterHeader(const struct mach_header *const header)
 static const struct mach_header *imageContainingAddress(const uintptr_t address, char **outName)
 {
     uint32_t count = 0;
-    const struct ks_dyld_image_info *images = ksbic_getImages(&count);
+    const ks_dyld_image_info *images = ksbic_getImages(&count);
     const struct mach_header *header = NULL;
 
     if (!images) {

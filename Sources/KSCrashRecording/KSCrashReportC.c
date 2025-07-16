@@ -1174,12 +1174,12 @@ static void writeBinaryImage(const KSCrashReportWriter *const writer, const KSBi
 static void writeBinaryImages(const KSCrashReportWriter *const writer, const char *const key)
 {
     uint32_t count = 0;
-    const struct ks_dyld_image_info *images = ksbic_getImages(&count);
+    const ks_dyld_image_info *images = ksbic_getImages(&count);
 
     writer->beginArray(writer, key);
     {
         for (uint32_t iImg = 0; iImg < count; iImg++) {
-            struct ks_dyld_image_info info = images[iImg];
+            ks_dyld_image_info info = images[iImg];
             KSBinaryImage image = { 0 };
             if (ksdl_binaryImageForHeader(info.imageLoadAddress, info.imageFilePath, &image)) {
                 writeBinaryImage(writer, &image);

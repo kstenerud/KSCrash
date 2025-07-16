@@ -57,7 +57,7 @@ extern void ksbic_resetCache(void);
     // doesn't contain removed images.
 
     uint32_t cachedCount = 0;
-    const struct ks_dyld_image_info *images = ksbic_getImages(&cachedCount);
+    const ks_dyld_image_info *images = ksbic_getImages(&cachedCount);
     (void)images;
     uint32_t actualCount = _dyld_image_count();
 
@@ -68,7 +68,7 @@ extern void ksbic_resetCache(void);
 - (void)testImageHeader
 {
     uint32_t count = 0;
-    const struct ks_dyld_image_info *images = ksbic_getImages(&count);
+    const ks_dyld_image_info *images = ksbic_getImages(&count);
 
     XCTAssertGreaterThan(count, 0, @"There should be at least some images loaded");
 
@@ -85,7 +85,7 @@ extern void ksbic_resetCache(void);
 - (void)testImageName
 {
     uint32_t count = 0;
-    const struct ks_dyld_image_info *images = ksbic_getImages(&count);
+    const ks_dyld_image_info *images = ksbic_getImages(&count);
     XCTAssertGreaterThan(count, 0, @"There should be at least some images loaded");
 
     for (uint32_t i = 0; i < MIN(count, 5); i++) {
@@ -99,7 +99,7 @@ extern void ksbic_resetCache(void);
 - (void)testImageVMAddrSlide
 {
     uint32_t count = 0;
-    const struct ks_dyld_image_info *images = ksbic_getImages(&count);
+    const ks_dyld_image_info *images = ksbic_getImages(&count);
     XCTAssertGreaterThan(count, 0, @"There should be at least some images loaded");
 
     for (uint32_t i = 0; i < MIN(count, 5); i++) {
@@ -127,7 +127,7 @@ extern void ksbic_resetCache(void);
 - (void)testCachedImagesHaveConsistentData
 {
     uint32_t count = 0;
-    const struct ks_dyld_image_info *images = ksbic_getImages(&count);
+    const ks_dyld_image_info *images = ksbic_getImages(&count);
     XCTAssertGreaterThan(count, 0, @"There should be at least some images loaded");
 
     for (uint32_t i = 0; i < MIN(count, 10); i++) {

@@ -27,7 +27,6 @@
 #include "KSBinaryImageCache.h"
 
 #include <dlfcn.h>
-#include <mach-o/dyld_images.h>
 #include <mach/mach.h>
 #include <mach/task.h>
 #include <pthread.h>
@@ -79,7 +78,7 @@ void ksbic_init(void)
     ksbic_set_all_image_infos((struct dyld_all_image_infos *)dyld_info.all_image_info_addr);
 }
 
-const struct ks_dyld_image_info *ksbic_getImages(uint32_t *count)
+const ks_dyld_image_info *ksbic_getImages(uint32_t *count)
 {
     if (count) {
         *count = 0;
@@ -97,7 +96,7 @@ const struct ks_dyld_image_info *ksbic_getImages(uint32_t *count)
     if (count) {
         *count = allInfo->infoArrayCount;
     }
-    return (struct ks_dyld_image_info *)images;
+    return (ks_dyld_image_info *)images;
 }
 
 // For testing purposes only. Used with extern in test files.

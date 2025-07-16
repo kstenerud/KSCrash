@@ -31,32 +31,21 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnon-modular-include-in-module"
+#include <mach-o/dyld_images.h>
+#pragma clang diagnostic pop
+
 #include "KSCrashNamespace.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#if __has_feature(modules)
-
 /**
- * From dyld_images.h
- * dyld_images.h is not always modular so we can't directly include it.
+ * Type that describes a dyld image
  */
-struct ks_dyld_image_info {
-    const struct mach_header *_Nullable imageLoadAddress; /* base address image is mapped into */
-    const char *_Nullable imageFilePath;                  /* path dyld used to load the image */
-    uintptr_t imageFileModDate;                           /* time_t of image file */
-    /* if stat().st_mtime of imageFilePath does not match imageFileModDate, */
-    /* then file has been modified since dyld loaded it */
-};
-
-#else
-
-#include <mach-o/dyld_images.h>
-typedef ks_dyld_image_info dyld_image_info;
-
-#endif
+typedef struct dyld_image_info ks_dyld_image_info;
 
 /** Initialize the binary image cache.
  * Should be called during KSCrash activation.
@@ -66,7 +55,7 @@ void ksbic_init(void);
 /**
  * Get a C array of _count_ `ks_dyld_image_info`.
  */
-const struct ks_dyld_image_info *_Nullable ksbic_getImages(uint32_t *_Nullable count);
+const ks_dyld_image_info *_Nullable ksbic_getImages(uint32_t *_Nullable count);
 
 #ifdef __cplusplus
 }

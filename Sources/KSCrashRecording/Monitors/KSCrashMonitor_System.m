@@ -216,7 +216,7 @@ static NSString *getExecutablePath(void)
 static const char *getAppUUID(void)
 {
     uint32_t count = 0;
-    const struct ks_dyld_image_info *images = ksbic_getImages(&count);
+    const ks_dyld_image_info *images = ksbic_getImages(&count);
     if (!images || count == 0) {
         return NULL;
     }

@@ -49,7 +49,7 @@ extern void ksbic_init(void);
 - (void)testImageUUID
 {
     uint32_t count = 0;
-    const struct ks_dyld_image_info *images = ksbic_getImages(&count);
+    const ks_dyld_image_info *images = ksbic_getImages(&count);
 
     KSBinaryImage buffer = { 0 };
     ksdl_binaryImageForHeader(images[4].imageLoadAddress, images[4].imageFilePath, &buffer);
