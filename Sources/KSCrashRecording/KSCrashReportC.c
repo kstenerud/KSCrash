@@ -26,8 +26,6 @@
 
 #include "KSCrashReportC.h"
 
-#include <mach-o/dyld_images.h>
-
 #include "KSCPU.h"
 #include "KSCrashMonitorHelper.h"
 #include "KSCrashMonitor_AppState.h"
@@ -67,6 +65,11 @@
 #include <string.h>
 #include <sys/time.h>
 #include <unistd.h>
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnon-modular-include-in-framework-module"
+#include <mach-o/dyld_images.h>
+#pragma clang diagnostic pop
 
 #include "KSLogger.h"
 

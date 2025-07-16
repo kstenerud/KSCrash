@@ -27,8 +27,11 @@
 #ifndef HDR_KSBinaryImageCache_h
 #define HDR_KSBinaryImageCache_h
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnon-modular-include-in-framework-module"
 #include <mach-o/dyld.h>
 #include <mach-o/dyld_images.h>
+#pragma clang diagnostic pop
 #include <stdbool.h>
 #include <stdint.h>
 
