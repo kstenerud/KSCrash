@@ -108,7 +108,7 @@ extern void ksbic_resetCache(void);
         uintptr_t cachedSlide = buffer.vmAddressSlide;
 
         // find the actual one from dyld
-        intptr_t actualSlide = 0;
+        intptr_t actualSlide = -1;  // -1 will means not found which is possible
         for (uint32_t d = 0; d < _dyld_image_count(); d++) {
             const struct mach_header *dyldHeader = _dyld_get_image_header(d);
             if (dyldHeader == images[i].imageLoadAddress) {
