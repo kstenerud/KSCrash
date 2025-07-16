@@ -53,15 +53,16 @@ extern void ksbic_resetCache(void);
 
 - (void)testImageCount
 {
+    // The counts can often be off by a few since `dyld_image_count`
+    // doesn't contain removed images.
+
     uint32_t cachedCount = 0;
     const struct dyld_image_info *images = ksbic_beginImageAccess(&cachedCount);
     ksbic_endImageAccess(images);
     uint32_t actualCount = _dyld_image_count();
 
     XCTAssertGreaterThan(cachedCount, 0, @"There should be at least some images loaded");
-    XCTAssertLessThanOrEqual(cachedCount, actualCount, @"Cached count should not exceed actual count");
-    XCTAssertGreaterThanOrEqual(cachedCount, actualCount * 0.8,
-                                @"Cached count should be at least 80%% of actual count");
+    XCTAssertGreaterThanOrEqual(cachedCount, actualCount, @"Cached count should be at least 100%% of actual count");
 }
 
 - (void)testImageHeader
