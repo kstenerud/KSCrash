@@ -80,6 +80,9 @@ void ksbic_init(void)
 
 const struct dyld_image_info *ksbic_beginImageAccess(uint32_t *count)
 {
+    if (count) {
+        *count = 0;
+    }
     struct dyld_all_image_infos *allInfo = ksbic_get_all_image_infos();
     if (!allInfo) {
         KSLOG_ERROR("Already accesing images");

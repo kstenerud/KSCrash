@@ -141,6 +141,10 @@ static const struct mach_header *imageContainingAddress(const uintptr_t address,
     const struct dyld_image_info *images = ksbic_beginImageAccess(&count);
     const struct mach_header *header = NULL;
 
+    if (!images) {
+        return NULL;
+    }
+
     for (uint32_t iImg = 0; iImg < count; iImg++) {
         header = images[iImg].imageLoadAddress;
         if (header != NULL) {
