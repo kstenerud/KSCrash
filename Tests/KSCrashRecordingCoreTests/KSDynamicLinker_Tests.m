@@ -27,6 +27,7 @@
 #import <XCTest/XCTest.h>
 #include <mach-o/dyld.h>
 
+#import "KSBinaryImageCache.h"
 #import "KSDynamicLinker.h"
 
 @interface KSDynamicLinker_Tests : XCTestCase

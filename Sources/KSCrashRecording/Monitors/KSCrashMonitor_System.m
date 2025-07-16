@@ -26,6 +26,7 @@
 
 #import "KSCrashMonitor_System.h"
 
+#import "KSBinaryImageCache.h"
 #import "KSCPU.h"
 #import "KSCrashMonitorContext.h"
 #import "KSDate.h"
