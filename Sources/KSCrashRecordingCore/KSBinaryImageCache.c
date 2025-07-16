@@ -26,13 +26,7 @@
 
 #include "KSBinaryImageCache.h"
 
-#import <dlfcn.h>
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wnon-modular-include-in-framework-module"
-#include <mach-o/dyld.h>
-#include <mach-o/dyld_images.h>
-#include <mach-o/loader.h>
-#pragma clang diagnostic pop
+#include <dlfcn.h>
 #include <mach/mach.h>
 #include <mach/task.h>
 #include <pthread.h>
