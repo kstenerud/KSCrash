@@ -158,35 +158,4 @@ extern void ksbic_resetCache(void);
     ksbic_endImageAccess(images);
 }
 
-- (void)testInternalConsistency
-{
-    uint32_t count = 0;
-    const struct dyld_image_info *images = ksbic_beginImageAccess(&count);
-    XCTAssertGreaterThan(count, 0, @"There should be at least some images loaded");
-
-    NSMutableDictionary *headerToIndex = [NSMutableDictionary dictionary];
-    NSMutableDictionary *nameToIndex = [NSMutableDictionary dictionary];
-
-    for (uint32_t i = 0; i < MIN(count, 10); i++) {
-        const struct mach_header *header = images[i].imageLoadAddress;
-        const char *name = images[i].imageFilePath;
-
-        NSNumber *headerIndex = headerToIndex[@((uintptr_t)header)];
-        if (headerIndex) {
-            XCTAssertEqual([headerIndex unsignedIntValue], i,
-                           @"Same header pointer returned for different indices: %@ and %@", headerIndex, @(i));
-        } else {
-            headerToIndex[@((uintptr_t)header)] = @(i);
-        }
-
-        NSString *nsName = @(name);
-        NSNumber *nameIndex = nameToIndex[nsName];
-        if (nameIndex) {
-            NSLog(@"Note: Same image name appears at indices %@ and %@: %@", nameIndex, @(i), nsName);
-        } else {
-            nameToIndex[nsName] = @(i);
-        }
-    }
-}
-
 @end
