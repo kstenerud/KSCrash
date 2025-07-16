@@ -138,7 +138,7 @@ static uintptr_t firstCmdAfterHeader(const struct mach_header *const header)
 static const struct mach_header *imageContainingAddress(const uintptr_t address, char **outName)
 {
     uint32_t count = 0;
-    const struct dyld_image_info *images = ksbic_beginImageAccess(&count);
+    const struct ks_dyld_image_info *images = ksbic_getImages(&count);
     const struct mach_header *header = NULL;
 
     if (!images) {
@@ -159,7 +159,6 @@ static const struct mach_header *imageContainingAddress(const uintptr_t address,
                 if (loadCmd->cmd == LC_SEGMENT) {
                     const struct segment_command *segCmd = (struct segment_command *)cmdPtr;
                     if (addressWSlide >= segCmd->vmaddr && addressWSlide < segCmd->vmaddr + segCmd->vmsize) {
-                        ksbic_endImageAccess(images);
                         if (outName) {
                             *outName = (char *)images[iImg].imageFilePath;
                         }
@@ -171,7 +170,6 @@ static const struct mach_header *imageContainingAddress(const uintptr_t address,
                         if (outName) {
                             *outName = (char *)images[iImg].imageFilePath;
                         }
-                        ksbic_endImageAccess(images);
                         return header;
                     }
                 }
@@ -179,7 +177,6 @@ static const struct mach_header *imageContainingAddress(const uintptr_t address,
             }
         }
     }
-    ksbic_endImageAccess(images);
     return NULL;
 }
 

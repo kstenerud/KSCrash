@@ -25,7 +25,6 @@
 //
 
 #import <XCTest/XCTest.h>
-#include <mach-o/dyld.h>
 
 #import "KSBinaryImageCache.h"
 #import "KSDynamicLinker.h"
@@ -50,12 +49,10 @@ extern void ksbic_init(void);
 - (void)testImageUUID
 {
     uint32_t count = 0;
-    const struct dyld_image_info *images = ksbic_beginImageAccess(&count);
+    const struct ks_dyld_image_info *images = ksbic_getImages(&count);
 
     KSBinaryImage buffer = { 0 };
     ksdl_binaryImageForHeader(images[4].imageLoadAddress, images[4].imageFilePath, &buffer);
-
-    ksbic_endImageAccess(images);
 
     XCTAssertTrue(buffer.uuid != NULL, @"");
 }

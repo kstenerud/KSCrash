@@ -57,8 +57,8 @@ extern void ksbic_resetCache(void);
     // doesn't contain removed images.
 
     uint32_t cachedCount = 0;
-    const struct dyld_image_info *images = ksbic_beginImageAccess(&cachedCount);
-    ksbic_endImageAccess(images);
+    const struct ks_dyld_image_info *images = ksbic_getImages(&cachedCount);
+    (void)images;
     uint32_t actualCount = _dyld_image_count();
 
     XCTAssertGreaterThan(cachedCount, 0, @"There should be at least some images loaded");
@@ -68,7 +68,7 @@ extern void ksbic_resetCache(void);
 - (void)testImageHeader
 {
     uint32_t count = 0;
-    const struct dyld_image_info *images = ksbic_beginImageAccess(&count);
+    const struct ks_dyld_image_info *images = ksbic_getImages(&count);
 
     XCTAssertGreaterThan(count, 0, @"There should be at least some images loaded");
 
@@ -80,14 +80,12 @@ extern void ksbic_resetCache(void);
         XCTAssertTrue(magic == MH_MAGIC || magic == MH_MAGIC_64 || magic == MH_CIGAM || magic == MH_CIGAM_64,
                       @"Header should have a valid Mach-O magic number for image %@", @(i));
     }
-
-    ksbic_endImageAccess(images);
 }
 
 - (void)testImageName
 {
     uint32_t count = 0;
-    const struct dyld_image_info *images = ksbic_beginImageAccess(&count);
+    const struct ks_dyld_image_info *images = ksbic_getImages(&count);
     XCTAssertGreaterThan(count, 0, @"There should be at least some images loaded");
 
     for (uint32_t i = 0; i < MIN(count, 5); i++) {
@@ -96,14 +94,12 @@ extern void ksbic_resetCache(void);
         XCTAssertNotEqual(cachedName, NULL, @"Should get valid cached name for image %@", @(i));
         XCTAssertGreaterThan(strlen(cachedName), 0, @"Image name should not be empty for image %@", @(i));
     }
-
-    ksbic_endImageAccess(images);
 }
 
 - (void)testImageVMAddrSlide
 {
     uint32_t count = 0;
-    const struct dyld_image_info *images = ksbic_beginImageAccess(&count);
+    const struct ks_dyld_image_info *images = ksbic_getImages(&count);
     XCTAssertGreaterThan(count, 0, @"There should be at least some images loaded");
 
     for (uint32_t i = 0; i < MIN(count, 5); i++) {
@@ -126,14 +122,12 @@ extern void ksbic_resetCache(void);
                        @(i));
         XCTAssertTrue(cachedSlide < UINTPTR_MAX / 2, @"Slide should be a reasonable value for image %@", @(i));
     }
-
-    ksbic_endImageAccess(images);
 }
 
 - (void)testCachedImagesHaveConsistentData
 {
     uint32_t count = 0;
-    const struct dyld_image_info *images = ksbic_beginImageAccess(&count);
+    const struct ks_dyld_image_info *images = ksbic_getImages(&count);
     XCTAssertGreaterThan(count, 0, @"There should be at least some images loaded");
 
     for (uint32_t i = 0; i < MIN(count, 10); i++) {
@@ -154,8 +148,6 @@ extern void ksbic_resetCache(void);
                       @"Header should have a valid Mach-O magic number for image %@", @(i));
         XCTAssertGreaterThan(strlen(name), 0, @"Image name should not be empty for image %@", @(i));
     }
-
-    ksbic_endImageAccess(images);
 }
 
 @end

@@ -1174,12 +1174,12 @@ static void writeBinaryImage(const KSCrashReportWriter *const writer, const KSBi
 static void writeBinaryImages(const KSCrashReportWriter *const writer, const char *const key)
 {
     uint32_t count = 0;
-    const struct dyld_image_info *images = ksbic_beginImageAccess(&count);
+    const struct ks_dyld_image_info *images = ksbic_getImages(&count);
 
     writer->beginArray(writer, key);
     {
         for (uint32_t iImg = 0; iImg < count; iImg++) {
-            struct dyld_image_info info = images[iImg];
+            struct ks_dyld_image_info info = images[iImg];
             KSBinaryImage image = { 0 };
             if (ksdl_binaryImageForHeader(info.imageLoadAddress, info.imageFilePath, &image)) {
                 writeBinaryImage(writer, &image);
@@ -1187,8 +1187,6 @@ static void writeBinaryImages(const KSCrashReportWriter *const writer, const cha
         }
     }
     writer->endContainer(writer);
-
-    ksbic_endImageAccess(images);
 }
 
 /** Write information about system memory to the report.

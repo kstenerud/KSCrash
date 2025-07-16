@@ -27,6 +27,7 @@
 #include "KSBinaryImageCache.h"
 
 #include <dlfcn.h>
+#include <mach-o/dyld_images.h>
 #include <mach/mach.h>
 #include <mach/task.h>
 #include <pthread.h>
@@ -42,6 +43,9 @@
 /// and the _infoCount_ is only update after an item is added to _infoArray_.
 /// Because of this, we can iterate during a signal handler, Mach exception handler
 /// or even at any point within the run of the process.
+///
+/// More info in this comment:
+/// https://github.com/kstenerud/KSCrash/pull/655#discussion_r2211271075
 
 static _Atomic(bool) g_initialized = false;
 static _Atomic(struct dyld_all_image_infos *) g_all_image_infos = NULL;
@@ -75,7 +79,7 @@ void ksbic_init(void)
     ksbic_set_all_image_infos((struct dyld_all_image_infos *)dyld_info.all_image_info_addr);
 }
 
-const struct dyld_image_info *ksbic_beginImageAccess(uint32_t *count)
+const struct ks_dyld_image_info *ksbic_getImages(uint32_t *count)
 {
     if (count) {
         *count = 0;
@@ -90,25 +94,10 @@ const struct dyld_image_info *ksbic_beginImageAccess(uint32_t *count)
         KSLOG_ERROR("Already accesing images");
         return NULL;
     }
-    allInfo->infoArray = NULL;
     if (count) {
         *count = allInfo->infoArrayCount;
     }
-    return images;
-}
-
-void ksbic_endImageAccess(const struct dyld_image_info *images)
-{
-    struct dyld_all_image_infos *allInfo = ksbic_get_all_image_infos();
-    if (!allInfo) {
-        KSLOG_ERROR("Already accesing images");
-        return;
-    }
-    if (allInfo->infoArray) {
-        KSLOG_ERROR("Cannot end image access");
-        return;
-    }
-    allInfo->infoArray = images;
+    return (struct ks_dyld_image_info *)images;
 }
 
 // For testing purposes only. Used with extern in test files.

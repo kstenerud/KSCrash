@@ -27,11 +27,7 @@
 #ifndef HDR_KSBinaryImageCache_h
 #define HDR_KSBinaryImageCache_h
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wnon-modular-include-in-framework-module"
 #include <mach-o/dyld.h>
-#include <mach-o/dyld_images.h>
-#pragma clang diagnostic pop
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -41,21 +37,36 @@
 extern "C" {
 #endif
 
+#if __has_feature(modules)
+
+/**
+ * From dyld_images.h
+ * dyld_images.h is not always modular so we can't directly include it.
+ */
+struct ks_dyld_image_info {
+    const struct mach_header *_Nullable imageLoadAddress; /* base address image is mapped into */
+    const char *_Nullable imageFilePath;                  /* path dyld used to load the image */
+    uintptr_t imageFileModDate;                           /* time_t of image file */
+    /* if stat().st_mtime of imageFilePath does not match imageFileModDate, */
+    /* then file has been modified since dyld loaded it */
+};
+
+#else
+
+#include <mach-o/dyld_images.h>
+typedef ks_dyld_image_info dyld_image_info;
+
+#endif
+
 /** Initialize the binary image cache.
  * Should be called during KSCrash activation.
  */
 void ksbic_init(void);
 
 /**
- * Begins image access and returns a C array of _count_ `dyld_image_info`.
- * Access can be ended by passing the return value to `ksbic_endImageAccess`.
+ * Get a C array of _count_ `ks_dyld_image_info`.
  */
-const struct dyld_image_info *_Nullable ksbic_beginImageAccess(uint32_t *_Nullable count);
-
-/**
- * Ends images access with _images_ returns from `ksbic_beginImageAccess`.
- */
-void ksbic_endImageAccess(const struct dyld_image_info *_Nonnull images);
+const struct ks_dyld_image_info *_Nullable ksbic_getImages(uint32_t *_Nullable count);
 
 #ifdef __cplusplus
 }
