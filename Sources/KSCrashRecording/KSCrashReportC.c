@@ -26,6 +26,7 @@
 
 #include "KSCrashReportC.h"
 
+#include "KSBinaryImageCache.h"
 #include "KSCPU.h"
 #include "KSCrashMonitorHelper.h"
 #include "KSCrashMonitor_AppState.h"
@@ -55,7 +56,6 @@
 #include "KSSystemCapabilities.h"
 #include "KSThread.h"
 #include "KSThreadCache.h"
-#include "KSBinaryImageCache.h"
 
 // #define KSLogger_LocalLevel TRACE
 #include <errno.h>
