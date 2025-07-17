@@ -304,6 +304,7 @@ static int encodeObject(KSJSONCodec *codec, id object, NSString *name, KSJSONEnc
                     return ksjson_addBooleanElement(context, cName, [object boolValue]);
                 }
                 // Fall through to integer handling if it's not a boolean
+#pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wimplicit-fallthrough"
             case kCFNumberSInt8Type:
 #pragma clang diagnostic pop
