@@ -524,13 +524,9 @@ static void ksmemory_write_possible_oom(void)
     KSStackCursor stackCursor;
     kssc_initWithMachineContext(&stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
 
-    char eventID[37] = { 0 };
-    ksid_generate(eventID);
-
     KSCrash_MonitorContext context;
     memset(&context, 0, sizeof(context));
     ksmc_fillMonitorContext(&context, kscm_memory_getAPI());
-    context.eventID = eventID;
     context.registersAreValid = false;
     context.offendingMachineContext = &machineContext;
     context.currentSnapshotUserReported = true;

@@ -66,8 +66,6 @@ static bool g_cxaSwapEnabled = false;
 
 static std::terminate_handler g_originalTerminateHandler;
 
-static char g_eventID[37];
-
 static KSCrash_MonitorContext g_monitorContext;
 
 // TODO: Thread local storage is not supported < ios 9.
@@ -121,7 +119,8 @@ static void CPPExceptionTerminate(void)
     }
 
     if (name == NULL || strcmp(name, "NSException") != 0) {
-        kscm_notifyFatalExceptionCaptured(false);
+        // This requires async-safety because the environment is suspended.
+        kscm_notifyFatalExceptionCaptured(true);
         KSCrash_MonitorContext *crashContext = &g_monitorContext;
         memset(crashContext, 0, sizeof(*crashContext));
 
@@ -161,7 +160,6 @@ static void CPPExceptionTerminate(void)
 
         KSLOG_DEBUG("Filling out context.");
         ksmc_fillMonitorContext(crashContext, kscm_cppexception_getAPI());
-        crashContext->eventID = g_eventID;
         crashContext->registersAreValid = false;
         crashContext->stackCursor = &g_stackCursor;
         crashContext->CPPException.name = name;
@@ -202,8 +200,6 @@ static void setEnabled(bool isEnabled)
         g_isEnabled = isEnabled;
         if (isEnabled) {
             initialize();
-
-            ksid_generate(g_eventID);
             g_originalTerminateHandler = std::set_terminate(CPPExceptionTerminate);
         } else {
             std::set_terminate(g_originalTerminateHandler);

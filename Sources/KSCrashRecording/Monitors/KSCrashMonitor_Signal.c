@@ -66,8 +66,6 @@ static stack_t g_signalStack = { 0 };
 /** Signal handlers that were installed before we installed ours. */
 static struct sigaction *g_previousSignalHandlers = NULL;
 
-static char g_eventID[37];
-
 // ============================================================================
 #pragma mark - Private -
 // ============================================================================
@@ -98,7 +96,7 @@ static void handleSignal(int sigNum, siginfo_t *signalInfo, void *userContext)
         thread_act_array_t threads = NULL;
         mach_msg_type_number_t numThreads = 0;
         ksmc_suspendEnvironment(&threads, &numThreads);
-        kscm_notifyFatalExceptionCaptured(false);
+        kscm_notifyFatalExceptionCaptured(true);
 
         KSLOG_DEBUG("Filling out context.");
         KSMachineContext machineContext = { 0 };
@@ -108,7 +106,6 @@ static void handleSignal(int sigNum, siginfo_t *signalInfo, void *userContext)
         KSCrash_MonitorContext *crashContext = &g_monitorContext;
         memset(crashContext, 0, sizeof(*crashContext));
         ksmc_fillMonitorContext(crashContext, kscm_signal_getAPI());
-        crashContext->eventID = g_eventID;
         crashContext->offendingMachineContext = &machineContext;
         crashContext->registersAreValid = true;
         crashContext->faultAddress = (uintptr_t)signalInfo->si_addr;
@@ -219,7 +216,6 @@ static void setEnabled(bool isEnabled)
     if (isEnabled != g_isEnabled) {
         g_isEnabled = isEnabled;
         if (isEnabled) {
-            ksid_generate(g_eventID);
             if (!installSignalHandler()) {
                 return;
             }
