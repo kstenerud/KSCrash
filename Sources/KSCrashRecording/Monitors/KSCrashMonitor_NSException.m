@@ -102,17 +102,19 @@ static KS_NOINLINE void handleException(NSException *exception, BOOL isUserRepor
     if (g_isEnabled) {
         thread_act_array_t threads = NULL;
         mach_msg_type_number_t numThreads = 0;
+        bool requiresAsyncSafety = false;
         if (logAllThreads) {
             ksmc_suspendEnvironment(&threads, &numThreads);
+            requiresAsyncSafety = true;
         }
         if (isUserReported == NO) {
             // User-reported exceptions are not considered fatal.
-            kscm_notifyFatalExceptionCaptured(false);
+            kscm_notifyFatalExceptionCaptured(requiresAsyncSafety);
+        } else {
+            kscm_notifyNonFatalExceptionCaptured(requiresAsyncSafety);
         }
 
         KSLOG_DEBUG(@"Filling out context.");
-        char eventID[37];
-        ksid_generate(eventID);
         KSMachineContext machineContext = { 0 };
         ksmc_getContextForThread(ksthread_self(), &machineContext, true);
         KSStackCursor cursor;
@@ -125,7 +127,6 @@ static KS_NOINLINE void handleException(NSException *exception, BOOL isUserRepor
         KSCrash_MonitorContext *crashContext = &g_monitorContext;
         memset(crashContext, 0, sizeof(*crashContext));
         ksmc_fillMonitorContext(crashContext, kscm_nsexception_getAPI());
-        crashContext->eventID = eventID;
         crashContext->offendingMachineContext = &machineContext;
         crashContext->registersAreValid = false;
         crashContext->NSException.name = [[exception name] UTF8String];
@@ -141,11 +142,13 @@ static KS_NOINLINE void handleException(NSException *exception, BOOL isUserRepor
         free(callstack);
         if (logAllThreads && isUserReported) {
             ksmc_resumeEnvironment(threads, numThreads);
+            kscm_regenerateEventIDs();
         }
         if (isUserReported == NO && g_previousUncaughtExceptionHandler != NULL) {
             KSLOG_DEBUG(@"Calling original exception handler.");
             g_previousUncaughtExceptionHandler(exception);
         }
+        kscm_clearAsyncSafetyState();
     }
     KS_THWART_TAIL_CALL_OPTIMISATION
 }

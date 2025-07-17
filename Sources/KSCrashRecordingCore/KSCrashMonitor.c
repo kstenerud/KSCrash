@@ -33,6 +33,7 @@
 #include "KSCrashMonitorContext.h"
 #include "KSCrashMonitorHelper.h"
 #include "KSDebug.h"
+#include "KSID.h"
 #include "KSString.h"
 #include "KSSystemCapabilities.h"
 #include "KSThread.h"
@@ -68,6 +69,10 @@ static bool g_areMonitorsInitialized = false;
 static bool g_handlingFatalException = false;
 static bool g_crashedDuringExceptionHandling = false;
 static bool g_requiresAsyncSafety = false;
+
+static char g_eventIds[2][40];
+static const size_t g_eventIdCount = sizeof(g_eventIds) / sizeof(*g_eventIds);
+static size_t g_eventIdIdx = 0;
 
 static void (*g_onExceptionEvent)(struct KSCrash_MonitorContext *monitorContext);
 
@@ -127,6 +132,14 @@ static void freeMonitorFuncList(MonitorList *list)
     g_areMonitorsInitialized = false;
 }
 
+static void regenerateEventIds(void)
+{
+    for (size_t i = 0; i < g_eventIdCount; i++) {
+        ksid_generate(g_eventIds[i]);
+    }
+    g_eventIdIdx = 0;
+}
+
 __attribute__((unused)) // For tests. Declared as extern in TestCase
 void kscm_resetState(void)
 {
@@ -138,6 +151,7 @@ void kscm_resetState(void)
     g_crashedDuringExceptionHandling = false;
     g_requiresAsyncSafety = false;
     g_onExceptionEvent = NULL;
+    regenerateEventIds();
 }
 
 // ============================================================================
@@ -171,6 +185,8 @@ bool kscm_activateMonitors(void)
     }
 
     os_unfair_lock_lock(&g_monitorsLock);
+
+    regenerateEventIds();
 
     // Enable or disable monitors
     for (size_t i = 0; i < g_monitors.count; i++) {
@@ -305,6 +321,13 @@ void kscm_removeMonitor(const KSCrashMonitorAPI *api)
 #pragma mark - Private API -
 // ============================================================================
 
+void kscm_notifyNonFatalExceptionCaptured(bool isAsyncSafeEnvironment)
+{
+    g_requiresAsyncSafety |= isAsyncSafeEnvironment;  // Don't let it be unset.
+}
+
+void kscm_clearAsyncSafetyState(void) { g_requiresAsyncSafety = false; }
+
 bool kscm_notifyFatalExceptionCaptured(bool isAsyncSafeEnvironment)
 {
     g_requiresAsyncSafety |= isAsyncSafeEnvironment;  // Don't let it be unset.
@@ -336,6 +359,21 @@ void kscm_handleException(struct KSCrash_MonitorContext *context)
         return;
     }
 
+    if (!g_requiresAsyncSafety) {
+        // If we don't need async-safety (NSException, user exception), then this is safe to call.
+        ksid_generate(context->eventID);
+    } else {
+        // Otherwise use the pre-built primary or secondary event ID. We won't ever use more than two
+        // events during a fatal crash (crash, recrash) because the app will terminate afterwards.
+        if (g_eventIdIdx >= g_eventIdCount) {
+            // Very unlikely, but if this happens, we're stuck in a handler loop.
+            KSLOG_ERROR(
+                "Requesting a pre-built event ID, but we've already used both up! Aborting exception handling.");
+            return;
+        }
+        memcpy(context->eventID, g_eventIds[g_eventIdIdx++], sizeof(context->eventID));
+    }
+
     // Add contextual info to the event for all enabled monitors
     for (size_t i = 0; i < g_monitors.count; i++) {
         KSCrashMonitorAPI *api = g_monitors.apis[i];
@@ -359,4 +397,11 @@ void kscm_handleException(struct KSCrash_MonitorContext *context)
 
     // Done handling the crash
     context->handlingCrash = false;
+}
+
+void kscm_regenerateEventIDs(void)
+{
+    os_unfair_lock_lock(&g_monitorsLock);
+    regenerateEventIds();
+    os_unfair_lock_unlock(&g_monitorsLock);
 }

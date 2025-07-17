@@ -50,15 +50,17 @@ void kscm_reportUserException(const char *name, const char *reason, const char *
     } else {
         thread_act_array_t threads = NULL;
         mach_msg_type_number_t numThreads = 0;
+        bool requiresAsyncSafety = false;
         if (logAllThreads) {
             ksmc_suspendEnvironment(&threads, &numThreads);
+            requiresAsyncSafety = true;
         }
         if (terminateProgram) {
-            kscm_notifyFatalExceptionCaptured(false);
+            kscm_notifyFatalExceptionCaptured(requiresAsyncSafety);
+        } else {
+            kscm_notifyNonFatalExceptionCaptured(requiresAsyncSafety);
         }
 
-        char eventID[37];
-        ksid_generate(eventID);
         KSMachineContext machineContext = { 0 };
         ksmc_getContextForThread(ksthread_self(), &machineContext, true);
         KSStackCursor stackCursor;
@@ -68,7 +70,6 @@ void kscm_reportUserException(const char *name, const char *reason, const char *
         KSCrash_MonitorContext context;
         memset(&context, 0, sizeof(context));
         ksmc_fillMonitorContext(&context, kscm_user_getAPI());
-        context.eventID = eventID;
         context.offendingMachineContext = &machineContext;
         context.registersAreValid = false;
         context.crashReason = reason;
@@ -87,6 +88,8 @@ void kscm_reportUserException(const char *name, const char *reason, const char *
         if (terminateProgram) {
             abort();
         }
+        kscm_clearAsyncSafetyState();
+        kscm_regenerateEventIDs();
     }
     KS_THWART_TAIL_CALL_OPTIMISATION
 }

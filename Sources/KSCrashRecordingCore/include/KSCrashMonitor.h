@@ -128,11 +128,18 @@ void kscm_setEventCallback(void (*onEvent)(struct KSCrash_MonitorContext *monito
  */
 bool kscm_notifyFatalExceptionCaptured(bool isAsyncSafeEnvironment);
 
+/* Transitional APIs while converting a larger API. DO NOT CALL! These WILL go away! */
+void kscm_notifyNonFatalExceptionCaptured(bool isAsyncSafeEnvironment);
+void kscm_clearAsyncSafetyState(void);
+
 /** Start general exception processing.
  *
  * @param context Contextual information about the exception.
  */
 void kscm_handleException(struct KSCrash_MonitorContext *context);
+
+// Transitional API. This will go away in a few commits. DO NOT USE EXTERNALLY.
+void kscm_regenerateEventIDs(void);
 
 #ifdef __cplusplus
 }
