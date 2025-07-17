@@ -184,6 +184,8 @@ bool kscm_activateMonitors(void)
         KSLOG_DEBUG("Async-safe environment detected. Masking out unsafe monitors.");
     }
 
+    regenerateEventIds();
+
     os_unfair_lock_lock(&g_monitorsLock);
 
     regenerateEventIds();
