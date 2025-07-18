@@ -39,43 +39,27 @@
 
 /// As a general rule, access to _g_all_image_infos->infoArray_ is thread safe
 /// in a way that you can iterate all you want since items will never be removed
-/// and the _infoCount_ is only update after an item is added to _infoArray_.
+/// and the _infoCount_ is only updated after an item is added to _infoArray_.
 /// Because of this, we can iterate during a signal handler, Mach exception handler
 /// or even at any point within the run of the process.
 ///
 /// More info in this comment:
 /// https://github.com/kstenerud/KSCrash/pull/655#discussion_r2211271075
 
-static _Atomic(bool) g_initialized = false;
-static _Atomic(struct dyld_all_image_infos *) g_all_image_infos = NULL;
-
-static void ksbic_set_all_image_infos(struct dyld_all_image_infos *ptr)
-{
-    atomic_store_explicit(&g_all_image_infos, ptr, memory_order_release);
-}
-
-static struct dyld_all_image_infos *ksbic_get_all_image_infos(void)
-{
-    return atomic_load_explicit(&g_all_image_infos, memory_order_acquire);
-}
+static struct dyld_all_image_infos *g_all_image_infos = NULL;
 
 void ksbic_init(void)
 {
-    bool expected = false;
-    if (!atomic_compare_exchange_strong(&g_initialized, &expected, true)) {
-        return;
-    }
-
     KSLOG_DEBUG("Initializing binary image cache");
 
     struct task_dyld_info dyld_info;
     mach_msg_type_number_t count = TASK_DYLD_INFO_COUNT;
     kern_return_t err = task_info(mach_task_self(), TASK_DYLD_INFO, (task_info_t)&dyld_info, &count);
     if (err != KERN_SUCCESS) {
-        KSLOG_DEBUG("Initializing binary error");
+        KSLOG_ERROR("Failed to acquire TASK_DYLD_INFO. We won't have access to binary images.");
         return;
     }
-    ksbic_set_all_image_infos((struct dyld_all_image_infos *)dyld_info.all_image_info_addr);
+    g_all_image_infos = (struct dyld_all_image_infos *)dyld_info.all_image_info_addr;
 }
 
 const ks_dyld_image_info *ksbic_getImages(uint32_t *count)
@@ -83,14 +67,14 @@ const ks_dyld_image_info *ksbic_getImages(uint32_t *count)
     if (count) {
         *count = 0;
     }
-    struct dyld_all_image_infos *allInfo = ksbic_get_all_image_infos();
-    if (!allInfo) {
-        KSLOG_ERROR("Already accesing images");
+    struct dyld_all_image_infos *allInfo = g_all_image_infos;
+    if (allInfo == NULL) {
+        KSLOG_ERROR("Cannot access binary images");
         return NULL;
     }
     const struct dyld_image_info *images = allInfo->infoArray;
     if (images == NULL) {
-        KSLOG_ERROR("Already accesing images");
+        KSLOG_ERROR("Unexpected state: dyld_all_image_infos->infoArray is NULL!");
         return NULL;
     }
     if (count) {
@@ -100,11 +84,4 @@ const ks_dyld_image_info *ksbic_getImages(uint32_t *count)
 }
 
 // For testing purposes only. Used with extern in test files.
-void ksbic_resetCache(void)
-{
-    bool expected = true;
-    if (!atomic_compare_exchange_strong(&g_initialized, &expected, false)) {
-        return;
-    }
-    ksbic_set_all_image_infos(NULL);
-}
+void ksbic_resetCache(void) { g_all_image_infos = NULL; }

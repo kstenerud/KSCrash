@@ -130,10 +130,11 @@ static uintptr_t firstCmdAfterHeader(const struct mach_header *const header)
     }
 }
 
-/** Get the image index that the specified address is part of.
+/** Get the image header that the specified address is part of.
  *
  * @param address The address to examine.
- * @return The index of the image it is part of, or UINT_MAX if none was found.
+ * @param outName On output, the name if the header in question.
+ * @return The header of the image, or NULL if none was found.
  */
 static const struct mach_header *imageContainingAddress(const uintptr_t address, char **outName)
 {
