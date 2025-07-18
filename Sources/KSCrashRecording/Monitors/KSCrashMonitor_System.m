@@ -296,9 +296,9 @@ static bool isJailbroken(void)
         const char *path = "/private/kscrash_jailbreak_test";
         int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
         if (fd < 0) {
-            sJailbroken = NO;
+            sJailbroken = false;
         } else {
-            sJailbroken = YES;
+            sJailbroken = true;
             unlink(path);
         }
     });
