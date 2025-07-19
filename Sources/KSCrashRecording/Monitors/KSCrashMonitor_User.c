@@ -26,7 +26,7 @@
 
 #include "KSCompilerDefines.h"
 #include "KSCrashMonitorContext.h"
-#include "KSCrashMonitorContextHelper.h"
+#include "KSCrashMonitorHelper.h"
 #include "KSID.h"
 #include "KSStackCursor_SelfThread.h"
 #include "KSThread.h"
@@ -40,6 +40,8 @@
 /** Context to fill with crash information. */
 
 static volatile bool g_isEnabled = false;
+
+static KSCrash_ExceptionHandlerCallbacks g_callbacks;
 
 void kscm_reportUserException(const char *name, const char *reason, const char *language, const char *lineOfCode,
                               const char *stackTrace, bool logAllThreads,
@@ -55,11 +57,10 @@ void kscm_reportUserException(const char *name, const char *reason, const char *
             ksmc_suspendEnvironment(&threads, &numThreads);
             requiresAsyncSafety = true;
         }
-        if (terminateProgram) {
-            kscm_notifyFatalExceptionCaptured(requiresAsyncSafety);
-        } else {
-            kscm_notifyNonFatalExceptionCaptured(requiresAsyncSafety);
-        }
+        g_callbacks.notify((KSCrash_ExceptionHandlingPolicy) {
+            .asyncSafety = requiresAsyncSafety,
+            .isFatal = terminateProgram,
+        });
 
         KSMachineContext machineContext = { 0 };
         ksmc_getContextForThread(ksthread_self(), &machineContext, true);
@@ -69,7 +70,7 @@ void kscm_reportUserException(const char *name, const char *reason, const char *
         KSLOG_DEBUG("Filling out context.");
         KSCrash_MonitorContext context;
         memset(&context, 0, sizeof(context));
-        ksmc_fillMonitorContext(&context, kscm_user_getAPI());
+        kscm_fillMonitorContext(&context, kscm_user_getAPI());
         context.offendingMachineContext = &machineContext;
         context.registersAreValid = false;
         context.crashReason = reason;
@@ -80,7 +81,7 @@ void kscm_reportUserException(const char *name, const char *reason, const char *
         context.stackCursor = &stackCursor;
         context.currentSnapshotUserReported = true;
 
-        kscm_handleException(&context);
+        g_callbacks.handle(&context);
 
         if (logAllThreads) {
             ksmc_resumeEnvironment(threads, numThreads);
@@ -100,8 +101,16 @@ static void setEnabled(bool isEnabled) { g_isEnabled = isEnabled; }
 
 static bool isEnabled(void) { return g_isEnabled; }
 
+static void init(KSCrash_ExceptionHandlerCallbacks *callbacks) { g_callbacks = *callbacks; }
+
 KSCrashMonitorAPI *kscm_user_getAPI(void)
 {
-    static KSCrashMonitorAPI api = { .monitorId = monitorId, .setEnabled = setEnabled, .isEnabled = isEnabled };
+    static KSCrashMonitorAPI api = { 0 };
+    if (kscm_initAPI(&api)) {
+        api.init = init;
+        api.monitorId = monitorId;
+        api.setEnabled = setEnabled;
+        api.isEnabled = isEnabled;
+    }
     return &api;
 }

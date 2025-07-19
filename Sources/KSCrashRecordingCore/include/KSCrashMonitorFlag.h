@@ -37,15 +37,12 @@ typedef enum {
     /** Indicates that no flags are set. */
     KSCrashMonitorFlagNone = 0,
 
-    /** Indicates that the program cannot continue execution if a monitor with this flag is triggered. */
-    KSCrashMonitorFlagFatal = 1 << 0,
-
     /** Indicates that the monitor with this flag will not be enabled if a debugger is attached. */
-    KSCrashMonitorFlagDebuggerUnsafe = 1 << 1,
+    KSCrashMonitorFlagDebuggerUnsafe = 1 << 0,
 
     /** Indicates that the monitor is safe to be used in an asynchronous environment.
      * Monitors without this flag are considered unsafe for asynchronous operations by default. */
-    KSCrashMonitorFlagAsyncSafe = 1 << 2,
+    KSCrashMonitorFlagAsyncSafe = 1 << 1,
 
 } KSCrashMonitorFlag;
 

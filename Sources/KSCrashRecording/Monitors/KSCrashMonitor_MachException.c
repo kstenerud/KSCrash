@@ -64,7 +64,6 @@
 
 #include "KSCPU.h"
 #include "KSCrashMonitorContext.h"
-#include "KSCrashMonitorContextHelper.h"
 #include "KSCrashMonitorHelper.h"
 #include "KSCrashMonitor_Signal.h"
 #include "KSID.h"
@@ -152,6 +151,8 @@ static KSCrash_MonitorContext g_monitorContext;
 static KSStackCursor g_stackCursor;
 
 static ExceptionContext g_primaryContext = { 0 };
+
+static KSCrash_ExceptionHandlerCallbacks g_callbacks;
 
 // ============================================================================
 #pragma mark - Utility -
@@ -454,7 +455,10 @@ static void handleExceptionPrimary(ExceptionContext *ctx)
     thread_act_array_t threads = NULL;
     mach_msg_type_number_t numThreads = 0;
     ksmc_suspendEnvironment(&threads, &numThreads);
-    kscm_notifyFatalExceptionCaptured(true);
+    g_callbacks.notify((KSCrash_ExceptionHandlingPolicy) {
+        .asyncSafety = true,
+        .isFatal = true,
+    });
 
     KSLOG_DEBUG("Exception handler is installed. Continuing exception handling.");
 
@@ -476,7 +480,7 @@ static void handleExceptionPrimary(ExceptionContext *ctx)
     }
 
     KSLOG_DEBUG("Filling out context.");
-    ksmc_fillMonitorContext(crashContext, kscm_machexception_getAPI());
+    kscm_fillMonitorContext(crashContext, kscm_machexception_getAPI());
     crashContext->registersAreValid = true;
     crashContext->mach.type = ctx->request->exception;
     crashContext->mach.code = ctx->request->code[0] & (int64_t)MACH_ERROR_CODE_MASK;
@@ -490,7 +494,7 @@ static void handleExceptionPrimary(ExceptionContext *ctx)
     crashContext->signal.signum = signalForMachException(crashContext->mach.type, crashContext->mach.code);
     crashContext->stackCursor = &g_stackCursor;
 
-    kscm_handleException(crashContext);
+    g_callbacks.handle(crashContext);
 
     KSLOG_DEBUG("Crash handling complete. Restoring original handlers.");
     ksmc_resumeEnvironment(threads, numThreads);
@@ -509,10 +513,7 @@ static void startPrimaryExceptionHandler(void)
 
 static const char *monitorId(void) { return "MachException"; }
 
-static KSCrashMonitorFlag monitorFlags(void)
-{
-    return KSCrashMonitorFlagFatal | KSCrashMonitorFlagAsyncSafe | KSCrashMonitorFlagDebuggerUnsafe;
-}
+static KSCrashMonitorFlag monitorFlags(void) { return KSCrashMonitorFlagAsyncSafe | KSCrashMonitorFlagDebuggerUnsafe; }
 
 static void setEnabled(bool isEnabled)
 {
@@ -531,7 +532,7 @@ static bool isEnabled(void) { return g_isEnabled; }
 
 static void addContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext)
 {
-    const char *signalName = kscm_getMonitorId(kscm_signal_getAPI());
+    const char *signalName = kscm_signal_getAPI()->monitorId();
 
     if (signalName && strcmp(eventContext->monitorId, signalName) == 0) {
         eventContext->mach.type = machExceptionForSignal(eventContext->signal.signum);
@@ -540,21 +541,22 @@ static void addContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext
     }
 }
 
+static void init(KSCrash_ExceptionHandlerCallbacks *callbacks) { g_callbacks = *callbacks; }
+
 #endif
 
 KSCrashMonitorAPI *kscm_machexception_getAPI(void)
 {
+    static KSCrashMonitorAPI api = { 0 };
+    if (kscm_initAPI(&api)) {
 #if KSCRASH_HAS_MACH
-    static KSCrashMonitorAPI api = {
-
-        .monitorId = monitorId,
-        .monitorFlags = monitorFlags,
-        .setEnabled = setEnabled,
-        .isEnabled = isEnabled,
-        .addContextualInfoToEvent = addContextualInfoToEvent
-    };
-    return &api;
-#else
-    return NULL;
+        api.init = init;
+        api.monitorId = monitorId;
+        api.monitorFlags = monitorFlags;
+        api.setEnabled = setEnabled;
+        api.isEnabled = isEnabled;
+        api.addContextualInfoToEvent = addContextualInfoToEvent;
 #endif
+    }
+    return &api;
 }

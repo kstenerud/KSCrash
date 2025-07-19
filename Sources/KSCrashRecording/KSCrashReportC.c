@@ -1209,7 +1209,7 @@ static void writeMemoryInfo(const KSCrashReportWriter *const writer, const char 
 
 static inline bool isCrashOfMonitorType(const KSCrash_MonitorContext *const crash, const KSCrashMonitorAPI *monitorAPI)
 {
-    return ksstring_safeStrcmp(crash->monitorId, kscm_getMonitorId(monitorAPI)) == 0;
+    return ksstring_safeStrcmp(crash->monitorId, monitorAPI->monitorId()) == 0;
 }
 
 /** Write information about the error leading to the crash to the report.

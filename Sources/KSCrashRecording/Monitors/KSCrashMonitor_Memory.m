@@ -31,7 +31,7 @@
 #import "KSCrashAppStateTracker.h"
 #import "KSCrashC.h"
 #import "KSCrashMonitorContext.h"
-#import "KSCrashMonitorContextHelper.h"
+#import "KSCrashMonitorHelper.h"
 #import "KSCrashReportFields.h"
 #import "KSCrashReportStoreC.h"
 #import "KSDate.h"
@@ -98,6 +98,8 @@ static _KSCrashMonitor_MemoryTracker *g_memoryTracker = nil;
 
 // Observer token for app state transitions.
 static id<KSCrashAppStateTrackerObserving> g_appStateObserver = nil;
+
+static KSCrash_ExceptionHandlerCallbacks g_callbacks;
 
 // file mapped memory.
 // Never touch `g_memory` directly,
@@ -385,15 +387,19 @@ static void notifyPostSystemEnable(void)
     }
 }
 
+static void init(KSCrash_ExceptionHandlerCallbacks *callbacks) { g_callbacks = *callbacks; }
+
 KSCrashMonitorAPI *kscm_memory_getAPI(void)
 {
-    static KSCrashMonitorAPI api = {
-        .monitorId = monitorId,
-        .setEnabled = setEnabled,
-        .isEnabled = isEnabled,
-        .addContextualInfoToEvent = addContextualInfoToEvent,
-        .notifyPostSystemEnable = notifyPostSystemEnable,
-    };
+    static KSCrashMonitorAPI api = { 0 };
+    if (kscm_initAPI(&api)) {
+        api.init = init;
+        api.monitorId = monitorId;
+        api.setEnabled = setEnabled;
+        api.isEnabled = isEnabled;
+        api.addContextualInfoToEvent = addContextualInfoToEvent;
+        api.notifyPostSystemEnable = notifyPostSystemEnable;
+    }
     return &api;
 }
 
@@ -519,6 +525,11 @@ static void ksmemory_write_possible_oom(void)
     NSURL *reportURL = kscm_memory_oom_breadcrumb_URL();
     const char *reportPath = reportURL.path.UTF8String;
 
+    g_callbacks.notify((KSCrash_ExceptionHandlingPolicy) {
+        .asyncSafety = false,
+        .isFatal = false,
+    });
+
     KSMachineContext machineContext = { 0 };
     ksmc_getContextForThread(ksthread_self(), &machineContext, false);
     KSStackCursor stackCursor;
@@ -526,7 +537,7 @@ static void ksmemory_write_possible_oom(void)
 
     KSCrash_MonitorContext context;
     memset(&context, 0, sizeof(context));
-    ksmc_fillMonitorContext(&context, kscm_memory_getAPI());
+    kscm_fillMonitorContext(&context, kscm_memory_getAPI());
     context.registersAreValid = false;
     context.offendingMachineContext = &machineContext;
     context.currentSnapshotUserReported = true;
@@ -537,7 +548,7 @@ static void ksmemory_write_possible_oom(void)
     // _reportPath_ only valid within this scope
     context.reportPath = reportPath;
 
-    kscm_handleException(&context);
+    g_callbacks.handle(&context);
 }
 
 void ksmemory_initialize(const char *dataPath)

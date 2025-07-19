@@ -32,9 +32,9 @@
 
 #include <stdbool.h>
 
+#include "KSCrashMonitorContext.h"
 #include "KSCrashMonitorFlag.h"
 #include "KSCrashNamespace.h"
-#include "KSThread.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -43,6 +43,12 @@ extern "C" {
 struct KSCrash_MonitorContext;
 
 typedef struct {
+    /**
+     * Initialize the monitor.
+     * The monitor MUST NOT install or activate anything! This is merely to configure things for when it activates.
+     * @param callbacks The callbacks that the monitor may call when reporting an exception.
+     */
+    void (*init)(KSCrash_ExceptionHandlerCallbacks *callbacks);
     const char *(*monitorId)(void);
     KSCrashMonitorFlag (*monitorFlags)(void);
     void (*setEnabled)(bool isEnabled);
@@ -121,22 +127,8 @@ void kscm_setEventCallback(void (*onEvent)(struct KSCrash_MonitorContext *monito
 #pragma mark - Internal API -
 // ============================================================================
 
-/** Notify that a fatal exception has been captured.
- *  This allows the system to take appropriate steps in preparation.
- *
- * @param isAsyncSafeEnvironment If true, only async-safe functions are allowed from now on.
- */
-bool kscm_notifyFatalExceptionCaptured(bool isAsyncSafeEnvironment);
-
 /* Transitional APIs while converting a larger API. DO NOT CALL! These WILL go away! */
-void kscm_notifyNonFatalExceptionCaptured(bool isAsyncSafeEnvironment);
 void kscm_clearAsyncSafetyState(void);
-
-/** Start general exception processing.
- *
- * @param context Contextual information about the exception.
- */
-void kscm_handleException(struct KSCrash_MonitorContext *context);
 
 // Transitional API. This will go away in a few commits. DO NOT USE EXTERNALLY.
 void kscm_regenerateEventIDs(void);
