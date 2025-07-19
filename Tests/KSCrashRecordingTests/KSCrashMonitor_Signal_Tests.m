@@ -67,7 +67,7 @@
 - (void)testNoImplementation
 {
     KSCrashMonitorAPI *api = kscm_signal_getAPI();
-    XCTAssertTrue(api == NULL);
+    XCTAssertTrue(api->monitorId() != NULL);
 }
 
 #endif

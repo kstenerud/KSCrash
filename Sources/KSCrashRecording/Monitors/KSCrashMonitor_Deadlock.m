@@ -28,7 +28,7 @@
 
 #import <Foundation/Foundation.h>
 #import "KSCrashMonitorContext.h"
-#import "KSCrashMonitorContextHelper.h"
+#import "KSCrashMonitorHelper.h"
 #import "KSID.h"
 #import "KSStackCursor_MachineContext.h"
 #import "KSThread.h"
@@ -55,6 +55,8 @@ static KSThread g_mainQueueThread;
 
 /** Interval between watchdog pulses. */
 static NSTimeInterval g_watchdogInterval = 0;
+
+static KSCrash_ExceptionHandlerCallbacks g_callbacks;
 
 // ============================================================================
 #pragma mark - X -
@@ -105,7 +107,10 @@ static NSTimeInterval g_watchdogInterval = 0;
     mach_msg_type_number_t numThreads = 0;
     ksmc_suspendEnvironment(&threads, &numThreads);
     // This requires async-safety because the environment is suspended.
-    kscm_notifyFatalExceptionCaptured(true);
+    g_callbacks.notify((KSCrash_ExceptionHandlingPolicy) {
+        .asyncSafety = true,
+        .isFatal = true,
+    });
 
     KSMachineContext machineContext = { 0 };
     ksmc_getContextForThread(g_mainQueueThread, &machineContext, false);
@@ -115,12 +120,12 @@ static NSTimeInterval g_watchdogInterval = 0;
     KSLOG_DEBUG(@"Filling out context.");
     KSCrash_MonitorContext *crashContext = &g_monitorContext;
     memset(crashContext, 0, sizeof(*crashContext));
-    ksmc_fillMonitorContext(crashContext, kscm_deadlock_getAPI());
+    kscm_fillMonitorContext(crashContext, kscm_deadlock_getAPI());
     crashContext->registersAreValid = false;
     crashContext->offendingMachineContext = &machineContext;
     crashContext->stackCursor = &stackCursor;
 
-    kscm_handleException(crashContext);
+    g_callbacks.handle(crashContext);
     ksmc_resumeEnvironment(threads, numThreads);
 
     KSLOG_DEBUG(@"Calling abort()");
@@ -171,7 +176,7 @@ static void initialize(void)
 
 static const char *monitorId(void) { return "MainThreadDeadlock"; }
 
-static KSCrashMonitorFlag monitorFlags(void) { return KSCrashMonitorFlagFatal; }
+static KSCrashMonitorFlag monitorFlags(void) { return KSCrashMonitorFlagNone; }
 
 static void setEnabled(bool isEnabled)
 {
@@ -191,11 +196,18 @@ static void setEnabled(bool isEnabled)
 
 static bool isEnabled(void) { return g_isEnabled; }
 
+static void init(KSCrash_ExceptionHandlerCallbacks *callbacks) { g_callbacks = *callbacks; }
+
 KSCrashMonitorAPI *kscm_deadlock_getAPI(void)
 {
-    static KSCrashMonitorAPI api = {
-        .monitorId = monitorId, .monitorFlags = monitorFlags, .setEnabled = setEnabled, .isEnabled = isEnabled
-    };
+    static KSCrashMonitorAPI api = { 0 };
+    if (kscm_initAPI(&api)) {
+        api.init = init;
+        api.monitorId = monitorId;
+        api.monitorFlags = monitorFlags;
+        api.setEnabled = setEnabled;
+        api.isEnabled = isEnabled;
+    }
     return &api;
 }
 
