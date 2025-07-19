@@ -26,7 +26,7 @@
 
 #include "KSCompilerDefines.h"
 #include "KSCrashMonitorContext.h"
-#include "KSCrashMonitorContextHelper.h"
+#include "KSCrashMonitorHelper.h"
 #include "KSID.h"
 #include "KSMachineContext.h"
 #include "KSStackCursor_SelfThread.h"
@@ -67,6 +67,8 @@ static bool g_cxaSwapEnabled = false;
 static std::terminate_handler g_originalTerminateHandler;
 
 static KSCrash_MonitorContext g_monitorContext;
+
+static KSCrash_ExceptionHandlerCallbacks g_callbacks;
 
 // TODO: Thread local storage is not supported < ios 9.
 // Find some other way to do thread local. Maybe storage with lookup by tid?
@@ -120,7 +122,10 @@ static void CPPExceptionTerminate(void)
 
     if (name == NULL || strcmp(name, "NSException") != 0) {
         // This requires async-safety because the environment is suspended.
-        kscm_notifyFatalExceptionCaptured(true);
+        g_callbacks.notify((KSCrash_ExceptionHandlingPolicy) {
+            .asyncSafety = true,
+            .isFatal = true,
+        });
         KSCrash_MonitorContext *crashContext = &g_monitorContext;
         memset(crashContext, 0, sizeof(*crashContext));
 
@@ -159,7 +164,7 @@ static void CPPExceptionTerminate(void)
         ksmc_getContextForThread(ksthread_self(), &machineContext, true);
 
         KSLOG_DEBUG("Filling out context.");
-        ksmc_fillMonitorContext(crashContext, kscm_cppexception_getAPI());
+        kscm_fillMonitorContext(crashContext, kscm_cppexception_getAPI());
         crashContext->registersAreValid = false;
         crashContext->stackCursor = &g_stackCursor;
         crashContext->CPPException.name = name;
@@ -167,7 +172,7 @@ static void CPPExceptionTerminate(void)
         crashContext->crashReason = description;
         crashContext->offendingMachineContext = &machineContext;
 
-        kscm_handleException(crashContext);
+        g_callbacks.handle(crashContext);
     } else {
         KSLOG_DEBUG("Detected NSException. Letting the current NSException handler deal with it.");
     }
@@ -192,7 +197,7 @@ static void initialize()
 
 static const char *monitorId() { return "CPPException"; }
 
-static KSCrashMonitorFlag monitorFlags() { return KSCrashMonitorFlagFatal; }
+static KSCrashMonitorFlag monitorFlags() { return KSCrashMonitorFlagNone; }
 
 static void setEnabled(bool isEnabled)
 {
@@ -218,10 +223,17 @@ extern "C" void kscm_enableSwapCxaThrow(void)
     }
 }
 
+static void init(KSCrash_ExceptionHandlerCallbacks *callbacks) { g_callbacks = *callbacks; }
+
 extern "C" KSCrashMonitorAPI *kscm_cppexception_getAPI()
 {
-    static KSCrashMonitorAPI api = {
-        .monitorId = monitorId, .monitorFlags = monitorFlags, .setEnabled = setEnabled, .isEnabled = isEnabled
-    };
+    static KSCrashMonitorAPI api = { 0 };
+    if (kscm_initAPI(&api)) {
+        api.init = init;
+        api.monitorId = monitorId;
+        api.monitorFlags = monitorFlags;
+        api.setEnabled = setEnabled;
+        api.isEnabled = isEnabled;
+    }
     return &api;
 }

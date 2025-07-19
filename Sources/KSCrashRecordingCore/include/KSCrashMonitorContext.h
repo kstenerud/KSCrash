@@ -38,6 +38,14 @@
 extern "C" {
 #endif
 
+typedef struct {
+    /** Proceed with the expectation that the app will terminate when handling is done. */
+    unsigned isFatal : 1;
+
+    /** Only async-safe functions may be called */
+    unsigned asyncSafety : 1;
+} KSCrash_ExceptionHandlingPolicy;
+
 typedef struct KSCrash_MonitorContext {
     /** Unique identifier for this event. */
     char eventID[40];
@@ -257,6 +265,31 @@ typedef struct KSCrash_MonitorContext {
     const char *reportPath;
 
 } KSCrash_MonitorContext;
+
+/**
+ * Callbacks to be used by monitors.
+ * In general, exception handling will follow a similar procedure:
+ * - Do any critical preliminary work
+ * - Call notify() to inform of the exception, circumstances, and recommendations
+ * - Handle less critical things required before handling the exception
+ * - Call handle() to handle the exception
+ * - Cleanup
+ */
+typedef struct {
+    /**
+     * Notify that an exception has occurred. This MUST always be called first!
+     * This will only make preliminary policy decisions, and won't actually handle the exception.
+     * @param recommendations Recommendations about the current environment, and how this exception should be handled.
+     * @return true if we were already in a crashed environment before calling this.
+     */
+    bool (*notify)(KSCrash_ExceptionHandlingPolicy recommendations);
+
+    /**
+     * Handle the exception.
+     * @param context The monitor context to use when processing the exception.
+     */
+    void (*handle)(KSCrash_MonitorContext *context);
+} KSCrash_ExceptionHandlerCallbacks;
 
 #ifdef __cplusplus
 }
