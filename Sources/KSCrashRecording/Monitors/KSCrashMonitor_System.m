@@ -26,6 +26,7 @@
 
 #import "KSCrashMonitor_System.h"
 
+#import "KSBinaryImageCache.h"
 #import "KSCPU.h"
 #import "KSCrashMonitorContext.h"
 #import "KSDate.h"
@@ -214,22 +215,20 @@ static NSString *getExecutablePath(void)
  */
 static const char *getAppUUID(void)
 {
-    const char *result = nil;
+    uint32_t count = 0;
+    const ks_dyld_image_info *images = ksbic_getImages(&count);
+    if (!images || count == 0) {
+        return NULL;
+    }
+    const struct mach_header *header = images[0].imageLoadAddress;
 
-    NSString *exePath = getExecutablePath();
-
-    if (exePath != nil) {
-        const uint8_t *uuidBytes = ksdl_imageUUID(exePath.UTF8String, true);
-        if (uuidBytes == NULL) {
-            // OSX app image path is a lie.
-            uuidBytes = ksdl_imageUUID(exePath.lastPathComponent.UTF8String, false);
-        }
-        if (uuidBytes != NULL) {
-            result = uuidBytesToString(uuidBytes);
+    KSBinaryImage binary = { 0 };
+    if (ksdl_binaryImageForHeader(header, NULL, &binary)) {
+        if (binary.uuid) {
+            return uuidBytesToString(binary.uuid);
         }
     }
-
-    return result;
+    return NULL;
 }
 
 /** Get the current CPU's architecture.
@@ -289,7 +288,22 @@ static const char *getCurrentCPUArch(void)
  *
  * @return YES if the device is jailbroken.
  */
-static bool isJailbroken(void) { return ksdl_imageNamed("MobileSubstrate", false) != UINT32_MAX; }
+static bool isJailbroken(void)
+{
+    static bool sJailbroken;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        const char *path = "/private/kscrash_jailbreak_test";
+        int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        if (fd < 0) {
+            sJailbroken = false;
+        } else {
+            sJailbroken = true;
+            unlink(path);
+        }
+    });
+    return sJailbroken;
+}
 
 /** Check if the current build is a debug build.
  *

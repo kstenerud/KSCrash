@@ -41,6 +41,7 @@ typedef struct {
     uint64_t address;
     uint64_t vmAddress;
     uint64_t size;
+    uint64_t vmAddressSlide;
     const char *name;
     const uint8_t *uuid;
     int cpuType;
@@ -54,20 +55,6 @@ typedef struct {
     const char *crashInfoSignature;
 } KSBinaryImage;
 
-/** Get the number of loaded binary images.
- */
-int ksdl_imageCount(void);
-
-/** Get information about a binary image.
- *
- * @param index The binary index.
- *
- * @param buffer A structure to hold the information.
- *
- * @return True if the image was successfully queried.
- */
-bool ksdl_getBinaryImage(int index, KSBinaryImage *buffer);
-
 /** Get information about a binary image based on mach_header.
  *
  * @param header_ptr The pointer to mach_header of the image.
@@ -78,28 +65,7 @@ bool ksdl_getBinaryImage(int index, KSBinaryImage *buffer);
  *
  * @return True if the image was successfully queried.
  */
-bool ksdl_getBinaryImageForHeader(const void *const header_ptr, const char *const image_name, KSBinaryImage *buffer);
-
-/** Find a loaded binary image with the specified name.
- *
- * @param imageName The image name to look for.
- *
- * @param exactMatch If true, look for an exact match instead of a partial one.
- *
- * @return the index of the matched image, or UINT32_MAX if not found.
- */
-uint32_t ksdl_imageNamed(const char *const imageName, bool exactMatch);
-
-/** Get the UUID of a loaded binary image with the specified name.
- *
- * @param imageName The image name to look for.
- *
- * @param exactMatch If true, look for an exact match instead of a partial one.
- *
- * @return A pointer to the binary (16 byte) UUID of the image, or NULL if it
- *         wasn't found.
- */
-const uint8_t *ksdl_imageUUID(const char *const imageName, bool exactMatch);
+bool ksdl_binaryImageForHeader(const void *const header_ptr, const char *const image_name, KSBinaryImage *buffer);
 
 /** async-safe version of dladdr.
  *

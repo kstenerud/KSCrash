@@ -31,46 +31,31 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnon-modular-include-in-module"
+#include <mach-o/dyld_images.h>
+#pragma clang diagnostic pop
+
 #include "KSCrashNamespace.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+/**
+ * Type that describes a dyld image
+ */
+typedef struct dyld_image_info ks_dyld_image_info;
+
 /** Initialize the binary image cache.
  * Should be called during KSCrash activation.
  */
 void ksbic_init(void);
 
-/** Get the number of cached binary images.
- *
- * @return The number of cached binary images.
+/**
+ * Get a C array of _count_ `ks_dyld_image_info`.
  */
-uint32_t ksbic_imageCount(void);
-
-/** Get the header of the specified image.
- *
- * @param index The image index.
- *
- * @return The header of the image, or NULL if none was found.
- */
-const struct mach_header *ksbic_imageHeader(uint32_t index);
-
-/** Get the name of the specified image.
- *
- * @param index The image index.
- *
- * @return The name of the image, or NULL if none was found.
- */
-const char *ksbic_imageName(uint32_t index);
-
-/** Get the VM address slide of the specified image.
- *
- * @param index The image index.
- *
- * @return The VM address slide of the image, or 0 if none was found.
- */
-uintptr_t ksbic_imageVMAddrSlide(uint32_t index);
+const ks_dyld_image_info *_Nullable ksbic_getImages(uint32_t *_Nullable count);
 
 #ifdef __cplusplus
 }

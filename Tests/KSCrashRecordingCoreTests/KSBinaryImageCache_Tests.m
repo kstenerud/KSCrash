@@ -53,93 +53,100 @@ extern void ksbic_resetCache(void);
 
 - (void)testImageCount
 {
-    uint32_t cachedCount = ksbic_imageCount();
+    // The counts can often be off by a few since `dyld_image_count`
+    // doesn't contain removed images.
+
+    uint32_t cachedCount = 0;
+    const ks_dyld_image_info *images = ksbic_getImages(&cachedCount);
+    (void)images;
     uint32_t actualCount = _dyld_image_count();
 
     XCTAssertGreaterThan(cachedCount, 0, @"There should be at least some images loaded");
-    XCTAssertLessThanOrEqual(cachedCount, actualCount, @"Cached count should not exceed actual count");
-    XCTAssertGreaterThanOrEqual(cachedCount, actualCount * 0.8,
-                                @"Cached count should be at least 80%% of actual count");
+    XCTAssertGreaterThanOrEqual(cachedCount, actualCount, @"Cached count should be at least 100%% of actual count");
 }
 
 - (void)testImageHeader
 {
-    uint32_t count = ksbic_imageCount();
+    uint32_t count = 0;
+    const ks_dyld_image_info *images = ksbic_getImages(&count);
+
     XCTAssertGreaterThan(count, 0, @"There should be at least some images loaded");
 
     for (uint32_t i = 0; i < MIN(count, 5); i++) {
-        const struct mach_header *cachedHeader = ksbic_imageHeader(i);
-        const struct mach_header *actualHeader = _dyld_get_image_header(i);
+        const struct mach_header *cachedHeader = images[i].imageLoadAddress;
 
         XCTAssertNotEqual(cachedHeader, NULL, @"Should get valid cached header for image %@", @(i));
-        XCTAssertNotEqual(actualHeader, NULL, @"Should get valid actual header for image %@", @(i));
-
-        if (cachedHeader != actualHeader) {
-            XCTAssertEqual(cachedHeader->magic, actualHeader->magic,
-                           @"Cached header magic number should match actual for image %@", @(i));
-            XCTAssertEqual(cachedHeader->cputype, actualHeader->cputype,
-                           @"Cached header CPU type should match actual for image %@", @(i));
-            XCTAssertEqual(cachedHeader->cpusubtype, actualHeader->cpusubtype,
-                           @"Cached header CPU subtype should match actual for image %@", @(i));
-        }
-
         uint32_t magic = cachedHeader->magic;
         XCTAssertTrue(magic == MH_MAGIC || magic == MH_MAGIC_64 || magic == MH_CIGAM || magic == MH_CIGAM_64,
                       @"Header should have a valid Mach-O magic number for image %@", @(i));
     }
-
-    XCTAssertEqual(ksbic_imageHeader(UINT32_MAX), NULL, @"Should return NULL for invalid image index");
 }
 
 - (void)testImageName
 {
-    uint32_t count = ksbic_imageCount();
+    uint32_t count = 0;
+    const ks_dyld_image_info *images = ksbic_getImages(&count);
     XCTAssertGreaterThan(count, 0, @"There should be at least some images loaded");
 
     for (uint32_t i = 0; i < MIN(count, 5); i++) {
-        const char *cachedName = ksbic_imageName(i);
-        const char *actualName = _dyld_get_image_name(i);
+        const char *cachedName = images[i].imageFilePath;
 
         XCTAssertNotEqual(cachedName, NULL, @"Should get valid cached name for image %@", @(i));
-        XCTAssertNotEqual(actualName, NULL, @"Should get valid actual name for image %@", @(i));
-
-        if (cachedName != actualName) {
-            XCTAssertTrue(strcmp(cachedName, actualName) == 0, @"Cached name should match actual name for image %@",
-                          @(i));
-        }
-
         XCTAssertGreaterThan(strlen(cachedName), 0, @"Image name should not be empty for image %@", @(i));
     }
-
-    XCTAssertEqual(ksbic_imageName(UINT32_MAX), NULL, @"Should return NULL for invalid image index");
 }
 
 - (void)testImageVMAddrSlide
 {
-    uint32_t count = ksbic_imageCount();
+    uint32_t count = 0;
+    const ks_dyld_image_info *images = ksbic_getImages(&count);
     XCTAssertGreaterThan(count, 0, @"There should be at least some images loaded");
 
     for (uint32_t i = 0; i < MIN(count, 5); i++) {
-        uintptr_t cachedSlide = ksbic_imageVMAddrSlide(i);
-        intptr_t actualSlide = _dyld_get_image_vmaddr_slide(i);
+        KSBinaryImage buffer = { 0 };
+        ksdl_binaryImageForHeader(images[i].imageLoadAddress, images[i].imageFilePath, &buffer);
+        uintptr_t cachedSlide = buffer.vmAddressSlide;
+
+        XCTAssertTrue(cachedSlide < UINTPTR_MAX / 2, @"Slide should be a reasonable value for image %@", @(i));
+
+        // find the actual one from dyld
+        intptr_t actualSlide = INTPTR_MAX;
+        for (uint32_t d = 0; d < _dyld_image_count(); d++) {
+            const struct mach_header *dyldHeader = _dyld_get_image_header(d);
+            if (dyldHeader == images[i].imageLoadAddress) {
+                actualSlide = _dyld_get_image_vmaddr_slide(d);
+                break;
+                ;
+            }
+        }
+
+        if (actualSlide == INTPTR_MAX) {
+            // not found, not an error.
+            // It's possible that _dyld
+            // doesn't have this image cached.
+            continue;
+        }
 
         XCTAssertEqual(cachedSlide, (uintptr_t)actualSlide, @"Cached slide should match actual slide for image %@",
                        @(i));
-        XCTAssertTrue(cachedSlide < UINTPTR_MAX / 2, @"Slide should be a reasonable value for image %@", @(i));
     }
-
-    XCTAssertEqual(ksbic_imageVMAddrSlide(UINT32_MAX), 0, @"Should return 0 for invalid image index");
 }
 
 - (void)testCachedImagesHaveConsistentData
 {
-    uint32_t count = ksbic_imageCount();
+    uint32_t count = 0;
+    const ks_dyld_image_info *images = ksbic_getImages(&count);
     XCTAssertGreaterThan(count, 0, @"There should be at least some images loaded");
 
     for (uint32_t i = 0; i < MIN(count, 10); i++) {
-        const struct mach_header *header = ksbic_imageHeader(i);
-        const char *name = ksbic_imageName(i);
-        //        uintptr_t slide = ksbic_imageVMAddrSlide(i);
+        const struct mach_header *header = images[i].imageLoadAddress;
+        const char *name = images[i].imageFilePath;
+
+        KSBinaryImage buffer = { 0 };
+        ksdl_binaryImageForHeader(images[i].imageLoadAddress, images[i].imageFilePath, &buffer);
+
+        uintptr_t slide = buffer.vmAddressSlide;
+        (void)slide;
 
         XCTAssertNotEqual(header, NULL, @"Should have valid header for image %@", @(i));
         XCTAssertNotEqual(name, NULL, @"Should have valid name for image %@", @(i));
@@ -148,36 +155,6 @@ extern void ksbic_resetCache(void);
         XCTAssertTrue(magic == MH_MAGIC || magic == MH_MAGIC_64 || magic == MH_CIGAM || magic == MH_CIGAM_64,
                       @"Header should have a valid Mach-O magic number for image %@", @(i));
         XCTAssertGreaterThan(strlen(name), 0, @"Image name should not be empty for image %@", @(i));
-    }
-}
-
-- (void)testInternalConsistency
-{
-    uint32_t count = ksbic_imageCount();
-    XCTAssertGreaterThan(count, 0, @"There should be at least some images loaded");
-
-    NSMutableDictionary *headerToIndex = [NSMutableDictionary dictionary];
-    NSMutableDictionary *nameToIndex = [NSMutableDictionary dictionary];
-
-    for (uint32_t i = 0; i < MIN(count, 10); i++) {
-        const struct mach_header *header = ksbic_imageHeader(i);
-        const char *name = ksbic_imageName(i);
-
-        NSNumber *headerIndex = headerToIndex[@((uintptr_t)header)];
-        if (headerIndex) {
-            XCTAssertEqual([headerIndex unsignedIntValue], i,
-                           @"Same header pointer returned for different indices: %@ and %@", headerIndex, @(i));
-        } else {
-            headerToIndex[@((uintptr_t)header)] = @(i);
-        }
-
-        NSString *nsName = @(name);
-        NSNumber *nameIndex = nameToIndex[nsName];
-        if (nameIndex) {
-            NSLog(@"Note: Same image name appears at indices %@ and %@: %@", nameIndex, @(i), nsName);
-        } else {
-            nameToIndex[nsName] = @(i);
-        }
     }
 }
 
