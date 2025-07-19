@@ -40,7 +40,7 @@ extern "C" {
 
 typedef struct KSCrash_MonitorContext {
     /** Unique identifier for this event. */
-    const char *eventID;
+    char eventID[40];
 
     /**
      If true, so reported user exception will have the current snapshot.
