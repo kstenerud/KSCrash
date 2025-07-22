@@ -26,7 +26,6 @@
 
 #import "KSCrashMonitor_NSException+Private.h"
 
-#import <Foundation/Foundation.h>
 #import "KSCompilerDefines.h"
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitorHelper.h"
@@ -35,6 +34,9 @@
 #import "KSStackCursor_SelfThread.h"
 #import "KSThread.h"
 
+#import <Foundation/Foundation.h>
+#import <stdatomic.h>
+
 // #define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
 
@@ -42,7 +44,7 @@
 #pragma mark - Globals -
 // ============================================================================
 
-static volatile bool g_isEnabled = 0;
+static atomic_bool g_isEnabled = 0;
 
 static KSCrash_MonitorContext g_monitorContext;
 
@@ -172,19 +174,22 @@ static void handleUncaughtException(NSException *exception) KS_KEEP_FUNCTION_IN_
 
 static void setEnabled(bool isEnabled)
 {
-    if (isEnabled != g_isEnabled) {
-        g_isEnabled = isEnabled;
-        if (isEnabled) {
-            KSLOG_DEBUG(@"Backing up original handler.");
-            g_previousUncaughtExceptionHandler = NSGetUncaughtExceptionHandler();
+    bool expectEnabled = !isEnabled;
+    if (!atomic_compare_exchange_strong(&g_isEnabled, &expectEnabled, isEnabled)) {
+        // We were already in the expected state
+        return;
+    }
 
-            KSLOG_DEBUG(@"Setting new handler.");
-            NSSetUncaughtExceptionHandler(&handleUncaughtException);
-            g_onEnabled(handleUncaughtException, customNSExceptionReporter);
-        } else {
-            KSLOG_DEBUG(@"Restoring original handler.");
-            NSSetUncaughtExceptionHandler(g_previousUncaughtExceptionHandler);
-        }
+    if (isEnabled) {
+        KSLOG_DEBUG(@"Backing up original handler.");
+        g_previousUncaughtExceptionHandler = NSGetUncaughtExceptionHandler();
+
+        KSLOG_DEBUG(@"Setting new handler.");
+        NSSetUncaughtExceptionHandler(&handleUncaughtException);
+        g_onEnabled(handleUncaughtException, customNSExceptionReporter);
+    } else {
+        KSLOG_DEBUG(@"Restoring original handler.");
+        NSSetUncaughtExceptionHandler(g_previousUncaughtExceptionHandler);
     }
 }
 

@@ -81,6 +81,7 @@
 #include <mach/machine/thread_state.h>
 #include <pthread.h>
 #include <signal.h>
+#include <stdatomic.h>
 #include <stdio.h>
 
 // ============================================================================
@@ -145,7 +146,7 @@ typedef struct ExceptionContext {
 #pragma mark - Globals -
 // ============================================================================
 
-static volatile bool g_isEnabled = false;
+static atomic_bool g_isEnabled = false;
 
 static KSCrash_MonitorContext g_monitorContext;
 static KSStackCursor g_stackCursor;
@@ -517,14 +518,17 @@ static KSCrashMonitorFlag monitorFlags(void) { return KSCrashMonitorFlagAsyncSaf
 
 static void setEnabled(bool isEnabled)
 {
-    if (isEnabled != g_isEnabled) {
-        g_isEnabled = isEnabled;
-        if (isEnabled) {
-            // TODO: Re-add recrash detection
-            startPrimaryExceptionHandler();
-        } else {
-            stopExceptionHandler(&g_primaryContext);
-        }
+    bool expectEnabled = !isEnabled;
+    if (!atomic_compare_exchange_strong(&g_isEnabled, &expectEnabled, isEnabled)) {
+        // We were already in the expected state
+        return;
+    }
+
+    if (isEnabled) {
+        // TODO: Re-add recrash detection
+        startPrimaryExceptionHandler();
+    } else {
+        stopExceptionHandler(&g_primaryContext);
     }
 }
 

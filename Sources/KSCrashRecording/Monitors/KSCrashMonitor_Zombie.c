@@ -27,6 +27,7 @@
 #include "KSCrashMonitor_Zombie.h"
 
 #include <objc/runtime.h>
+#include <stdatomic.h>
 #include <stdlib.h>
 
 #include "KSCrashMonitorContext.h"
@@ -48,7 +49,7 @@ typedef struct {
 static volatile Zombie *g_zombieCache;
 static unsigned g_zombieHashMask;
 
-static volatile bool g_isEnabled = false;
+static atomic_bool g_isEnabled = false;
 
 static struct {
     Class class;
@@ -198,15 +199,18 @@ static const char *monitorId(void) { return "Zombie"; }
 
 static void setEnabled(bool isEnabled)
 {
-    if (isEnabled != g_isEnabled) {
-        g_isEnabled = isEnabled;
-        if (isEnabled) {
-            install();
-        } else {
-            // TODO: Uninstall doesn't work.
-            g_isEnabled = true;
-            //            uninstall();
-        }
+    bool expectEnabled = !isEnabled;
+    if (!atomic_compare_exchange_strong(&g_isEnabled, &expectEnabled, isEnabled)) {
+        // We were already in the expected state
+        return;
+    }
+
+    if (isEnabled) {
+        install();
+    } else {
+        // TODO: Uninstall doesn't work.
+        g_isEnabled = true;
+        //            uninstall();
     }
 }
 
