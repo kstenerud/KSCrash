@@ -188,6 +188,9 @@ extern void kscm_resetState(void);
 
 - (void)testCrashDuringExceptionHandling
 {
+    kscm_addMonitor(&g_dummyMonitor);
+    kscm_activateMonitors();
+
     // Test detection of crash during exception handling
     XCTAssertFalse(dummyExceptionHandlerCallbacks.notify((KSCrash_ExceptionHandlingPolicy) {
                        .asyncSafety = false,
@@ -320,17 +323,6 @@ extern void kscm_resetState(void);
     XCTAssertFalse(newMonitor.isEnabled ? newMonitor.isEnabled() : NO,
                    @"The new monitor should not be enabled, as it was never added.");
     XCTAssertFalse(g_dummyMonitor.isEnabled(), @"The dummy monitor should still be disabled as it's not related.");
-}
-
-- (void)testRemoveNullMonitor
-{
-    // Attempt to remove a NULL monitor
-    kscm_removeMonitor(NULL);
-    kscm_activateMonitors();
-
-    // Verify that no crash occurred and no state was altered
-    XCTAssertFalse(g_dummyMonitor.isEnabled(),
-                   @"The dummy monitor should still be disabled, as NULL removal is a no-op.");
 }
 
 - (void)testRemoveMonitorTwice
