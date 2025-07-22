@@ -99,7 +99,7 @@ void kscm_disableAllMonitors(void);
  * depends on various factors, including the environment, debugger presence,
  * and async safety requirements.
  */
-bool kscm_addMonitor(KSCrashMonitorAPI *api);
+bool kscm_addMonitor(const KSCrashMonitorAPI *api);
 
 /**
  * Removes a crash monitor from the system.
