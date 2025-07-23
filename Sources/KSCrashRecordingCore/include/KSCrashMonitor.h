@@ -42,6 +42,10 @@ extern "C" {
 
 struct KSCrash_MonitorContext;
 
+/**
+ * Monitor API.
+ * WARNING: All functions MUST be idempotent!
+ */
 typedef struct {
     /**
      * Initialize the monitor.

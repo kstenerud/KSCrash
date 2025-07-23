@@ -35,6 +35,7 @@
 // #define KSLogger_LocalLevel TRACE
 #include <cxxabi.h>
 #include <dlfcn.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -57,7 +58,7 @@
 // ============================================================================
 
 /** True if this handler has been installed. */
-static volatile bool g_isEnabled = false;
+static atomic_bool g_isEnabled = false;
 
 /** True if the handler should capture the next stack trace. */
 static bool g_captureNextStackTrace = false;
@@ -201,16 +202,19 @@ static KSCrashMonitorFlag monitorFlags() { return KSCrashMonitorFlagNone; }
 
 static void setEnabled(bool isEnabled)
 {
-    if (isEnabled != g_isEnabled) {
-        g_isEnabled = isEnabled;
-        if (isEnabled) {
-            initialize();
-            g_originalTerminateHandler = std::set_terminate(CPPExceptionTerminate);
-        } else {
-            std::set_terminate(g_originalTerminateHandler);
-        }
-        g_captureNextStackTrace = isEnabled;
+    bool expectEnabled = !isEnabled;
+    if (!atomic_compare_exchange_strong(&g_isEnabled, &expectEnabled, isEnabled)) {
+        // We were already in the expected state
+        return;
     }
+
+    if (isEnabled) {
+        initialize();
+        g_originalTerminateHandler = std::set_terminate(CPPExceptionTerminate);
+    } else {
+        std::set_terminate(g_originalTerminateHandler);
+    }
+    g_captureNextStackTrace = isEnabled;
 }
 
 static bool isEnabled() { return g_isEnabled; }

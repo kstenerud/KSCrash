@@ -36,6 +36,7 @@
 #include <fcntl.h>
 #include <inttypes.h>
 #include <limits.h>
+#include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
@@ -67,7 +68,7 @@ static const char *g_stateFilePath;
 /** Current state. */
 static KSCrash_AppState g_state;
 
-static volatile bool g_isEnabled = false;
+static atomic_bool g_isEnabled = false;
 
 // ============================================================================
 #pragma mark - JSON Encoding -
@@ -415,11 +416,14 @@ static const char *monitorId(void) { return "ApplicationState"; }
 
 static void setEnabled(bool isEnabled)
 {
-    if (isEnabled != g_isEnabled) {
-        g_isEnabled = isEnabled;
-        if (isEnabled) {
-            kscrashstate_reset();
-        }
+    bool expectEnabled = !isEnabled;
+    if (!atomic_compare_exchange_strong(&g_isEnabled, &expectEnabled, isEnabled)) {
+        // We were already in the expected state
+        return;
+    }
+
+    if (isEnabled) {
+        kscrashstate_reset();
     }
 }
 

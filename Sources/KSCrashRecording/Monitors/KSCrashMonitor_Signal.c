@@ -43,6 +43,7 @@
 
 #include <errno.h>
 #include <signal.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -51,7 +52,7 @@
 #pragma mark - Globals -
 // ============================================================================
 
-static volatile bool g_isEnabled = false;
+static atomic_bool g_isEnabled = false;
 static bool g_sigterm_monitoringEnabled = false;
 
 static KSCrash_MonitorContext g_monitorContext;
@@ -217,15 +218,18 @@ static KSCrashMonitorFlag monitorFlags(void) { return KSCrashMonitorFlagAsyncSaf
 
 static void setEnabled(bool isEnabled)
 {
-    if (isEnabled != g_isEnabled) {
-        g_isEnabled = isEnabled;
-        if (isEnabled) {
-            if (!installSignalHandler()) {
-                return;
-            }
-        } else {
-            uninstallSignalHandler();
+    bool expectEnabled = !isEnabled;
+    if (!atomic_compare_exchange_strong(&g_isEnabled, &expectEnabled, isEnabled)) {
+        // We were already in the expected state
+        return;
+    }
+
+    if (isEnabled) {
+        if (!installSignalHandler()) {
+            return;
         }
+    } else {
+        uninstallSignalHandler();
     }
 }
 

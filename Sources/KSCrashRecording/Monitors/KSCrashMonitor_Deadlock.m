@@ -26,12 +26,14 @@
 
 #import "KSCrashMonitor_Deadlock.h"
 
-#import <Foundation/Foundation.h>
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitorHelper.h"
 #import "KSID.h"
 #import "KSStackCursor_MachineContext.h"
 #import "KSThread.h"
+
+#import <Foundation/Foundation.h>
+#import <stdatomic.h>
 
 // #define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -44,7 +46,7 @@
 #pragma mark - Globals -
 // ============================================================================
 
-static volatile bool g_isEnabled = false;
+static atomic_bool g_isEnabled = false;
 
 static KSCrash_MonitorContext g_monitorContext;
 
@@ -180,17 +182,20 @@ static KSCrashMonitorFlag monitorFlags(void) { return KSCrashMonitorFlagNone; }
 
 static void setEnabled(bool isEnabled)
 {
-    if (isEnabled != g_isEnabled) {
-        g_isEnabled = isEnabled;
-        if (isEnabled) {
-            KSLOG_DEBUG(@"Creating new deadlock monitor.");
-            initialize();
-            g_monitor = [[KSCrashDeadlockMonitor alloc] init];
-        } else {
-            KSLOG_DEBUG(@"Stopping deadlock monitor.");
-            [g_monitor cancel];
-            g_monitor = nil;
-        }
+    bool expectEnabled = !isEnabled;
+    if (!atomic_compare_exchange_strong(&g_isEnabled, &expectEnabled, isEnabled)) {
+        // We were already in the expected state
+        return;
+    }
+
+    if (isEnabled) {
+        KSLOG_DEBUG(@"Creating new deadlock monitor.");
+        initialize();
+        g_monitor = [[KSCrashDeadlockMonitor alloc] init];
+    } else {
+        KSLOG_DEBUG(@"Stopping deadlock monitor.");
+        [g_monitor cancel];
+        g_monitor = nil;
     }
 }
 
