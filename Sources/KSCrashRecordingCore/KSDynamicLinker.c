@@ -312,6 +312,7 @@ static bool isValidCrashInfoMessage(const char *str)
 static void getCrashInfo(const struct mach_header *header, KSBinaryImage *buffer)
 {
     unsigned long size = 0;
+#pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wcast-align"
     crash_info_t *crashInfo =
         (crash_info_t *)getsectiondata((mach_header_t *)header, SEG_DATA, KSDL_SECT_CRASH_INFO, &size);

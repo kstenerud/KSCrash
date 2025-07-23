@@ -971,6 +971,7 @@ CF_INLINE CFIndex __CFArrayGetSizeOfType(CFIndex t) {
 /* Only applies to immutable and mutable-deque-using arrays;
  * Returns the bucket holding the left-most real value in the latter case. */
 CF_INLINE struct __CFArrayBucket *__CFArrayGetBucketsPtr(CFArrayRef array) {
+#pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wcast-align"
     switch (__CFArrayGetType(array)) {
         case __kCFArrayImmutable:

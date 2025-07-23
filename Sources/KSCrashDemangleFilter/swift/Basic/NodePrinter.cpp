@@ -1933,6 +1933,7 @@ return nullptr;
         case Node::Kind::ImplErrorResult:
             Printer << "@error ";
 //            LLVM_FALLTHROUGH;
+#pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wimplicit-fallthrough"
         case Node::Kind::ImplParameter:
 #pragma clang diagnostic pop
