@@ -104,20 +104,18 @@ static NSTimeInterval g_watchdogInterval = 0;
     thread_act_array_t threads = NULL;
     mach_msg_type_number_t numThreads = 0;
     ksmc_suspendEnvironment(&threads, &numThreads);
-    kscm_notifyFatalExceptionCaptured(false);
+    // This requires async-safety because the environment is suspended.
+    kscm_notifyFatalExceptionCaptured(true);
 
     KSMachineContext machineContext = { 0 };
     ksmc_getContextForThread(g_mainQueueThread, &machineContext, false);
     KSStackCursor stackCursor;
     kssc_initWithMachineContext(&stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
-    char eventID[37];
-    ksid_generate(eventID);
 
     KSLOG_DEBUG(@"Filling out context.");
     KSCrash_MonitorContext *crashContext = &g_monitorContext;
     memset(crashContext, 0, sizeof(*crashContext));
     ksmc_fillMonitorContext(crashContext, kscm_deadlock_getAPI());
-    crashContext->eventID = eventID;
     crashContext->registersAreValid = false;
     crashContext->offendingMachineContext = &machineContext;
     crashContext->stackCursor = &stackCursor;

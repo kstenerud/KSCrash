@@ -124,7 +124,6 @@ typedef void(ExceptionCallback)(struct ExceptionContext *);
 typedef struct ExceptionContext {
     // These are set by initExceptionHandler()
     const char *threadName;
-    char eventID[40];
     ExceptionCallback *handleException;
     ExceptionRequest *request;    // Will point to requestBuffer
     mach_msg_size_t requestSize;  // will be sizeof(requestBuffer)
@@ -284,7 +283,6 @@ static void initExceptionHandler(ExceptionContext *ctx, const char *threadName, 
     memset(ctx, 0, sizeof(*ctx));
     ctx->threadName = threadName;
     ctx->handleException = handleException;
-    ksid_generate(ctx->eventID);
     ctx->request = (ExceptionRequest *)ctx->requestBuffer;
     ctx->requestSize = sizeof(ctx->requestBuffer);
 }
@@ -384,10 +382,6 @@ static bool startNewExceptionHandler(ExceptionContext *ctx)
         KSLOG_ERROR("ctx->threadName must not be null. Please call initExceptionContext(ctx) first.");
         return false;
     }
-    if (ctx->eventID[0] == 0) {
-        KSLOG_ERROR("ctx->eventID must contain a valid ID. Please call initExceptionContext(ctx) first.");
-        return false;
-    }
     if (ctx->handleException == NULL) {
         KSLOG_ERROR("ctx->handleException must not be null. Please call initExceptionContext(ctx) first.");
         return false;
@@ -483,7 +477,6 @@ static void handleExceptionPrimary(ExceptionContext *ctx)
 
     KSLOG_DEBUG("Filling out context.");
     ksmc_fillMonitorContext(crashContext, kscm_machexception_getAPI());
-    crashContext->eventID = ctx->eventID;
     crashContext->registersAreValid = true;
     crashContext->mach.type = ctx->request->exception;
     crashContext->mach.code = ctx->request->code[0] & (int64_t)MACH_ERROR_CODE_MASK;
