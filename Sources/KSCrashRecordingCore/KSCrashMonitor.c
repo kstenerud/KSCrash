@@ -28,6 +28,7 @@
 
 #include <memory.h>
 #include <os/lock.h>
+#include <stdatomic.h>
 #include <stdlib.h>
 
 #include "KSCrashMonitorContext.h"
@@ -55,7 +56,7 @@ __attribute__((unused))  // Suppress unused function warnings, especially in rel
 static inline const char *
 getMonitorNameForLogging(const KSCrashMonitorAPI *api)
 {
-    return kscm_getMonitorId(api) ?: "Unknown";
+    return api->monitorId() ?: "Unknown";
 }
 
 // ============================================================================
@@ -65,10 +66,9 @@ getMonitorNameForLogging(const KSCrashMonitorAPI *api)
 static MonitorList g_monitors = {};
 static os_unfair_lock g_monitorsLock = OS_UNFAIR_LOCK_INIT;
 
-static bool g_areMonitorsInitialized = false;
-static bool g_handlingFatalException = false;
+static _Atomic(bool) g_areMonitorsInitialized = false;
 static bool g_crashedDuringExceptionHandling = false;
-static bool g_requiresAsyncSafety = false;
+static KSCrash_ExceptionHandlingPolicy g_currentPolicy;
 
 static char g_eventIds[2][40];
 static const size_t g_eventIdCount = sizeof(g_eventIds) / sizeof(*g_eventIds);
@@ -76,12 +76,9 @@ static size_t g_eventIdIdx = 0;
 
 static void (*g_onExceptionEvent)(struct KSCrash_MonitorContext *monitorContext);
 
-static void initializeMonitorList(MonitorList *list)
-{
-    list->count = 0;
-    list->capacity = INITIAL_MONITOR_CAPACITY;
-    list->apis = (KSCrashMonitorAPI **)malloc(list->capacity * sizeof(KSCrashMonitorAPI *));
-}
+// ============================================================================
+#pragma mark - Internal -
+// ============================================================================
 
 static void addMonitor(MonitorList *list, KSCrashMonitorAPI *api)
 {
@@ -105,7 +102,7 @@ static void removeMonitor(MonitorList *list, const KSCrashMonitorAPI *api)
         if (list->apis[i] == api) {
             found = true;
 
-            kscm_setMonitorEnabled(list->apis[i], false);
+            list->apis[i]->setEnabled(false);
 
             // Replace the current monitor with the last monitor in the list
             list->apis[i] = list->apis[list->count - 1];
@@ -140,6 +137,19 @@ static void regenerateEventIds(void)
     g_eventIdIdx = 0;
 }
 
+static void init(void)
+{
+    bool expected = false;
+    if (!atomic_compare_exchange_strong(&g_areMonitorsInitialized, &expected, true)) {
+        return;
+    }
+
+    MonitorList *list = &g_monitors;
+    list->count = 0;
+    list->capacity = INITIAL_MONITOR_CAPACITY;
+    list->apis = (KSCrashMonitorAPI **)malloc(list->capacity * sizeof(KSCrashMonitorAPI *));
+}
+
 __attribute__((unused)) // For tests. Declared as extern in TestCase
 void kscm_resetState(void)
 {
@@ -147,9 +157,8 @@ void kscm_resetState(void)
     freeMonitorFuncList(&g_monitors);
     os_unfair_lock_unlock(&g_monitorsLock);
 
-    g_handlingFatalException = false;
+    memset(&g_currentPolicy, 0, sizeof(g_currentPolicy));
     g_crashedDuringExceptionHandling = false;
-    g_requiresAsyncSafety = false;
     g_onExceptionEvent = NULL;
     regenerateEventIds();
 }
@@ -160,14 +169,16 @@ void kscm_resetState(void)
 
 void kscm_setEventCallback(void (*onEvent)(struct KSCrash_MonitorContext *monitorContext))
 {
+    init();
     g_onExceptionEvent = onEvent;
 }
 
 bool kscm_activateMonitors(void)
 {
+    init();
     // Check for debugger and async safety
     bool isDebuggerUnsafe = ksdebug_isBeingTraced();
-    bool isAsyncSafeRequired = g_requiresAsyncSafety;
+    bool isAsyncSafeRequired = g_currentPolicy.asyncSafety;
 
     if (isDebuggerUnsafe) {
         static bool hasWarned = false;
@@ -184,6 +195,8 @@ bool kscm_activateMonitors(void)
         KSLOG_DEBUG("Async-safe environment detected. Masking out unsafe monitors.");
     }
 
+    regenerateEventIds();
+
     os_unfair_lock_lock(&g_monitorsLock);
 
     regenerateEventIds();
@@ -191,7 +204,7 @@ bool kscm_activateMonitors(void)
     // Enable or disable monitors
     for (size_t i = 0; i < g_monitors.count; i++) {
         KSCrashMonitorAPI *api = g_monitors.apis[i];
-        KSCrashMonitorFlag flags = kscm_getMonitorFlags(api);
+        KSCrashMonitorFlag flags = api->monitorFlags();
         bool shouldEnable = true;
 
         if (isDebuggerUnsafe && (flags & KSCrashMonitorFlagDebuggerUnsafe)) {
@@ -202,7 +215,7 @@ bool kscm_activateMonitors(void)
             shouldEnable = false;
         }
 
-        kscm_setMonitorEnabled(api, shouldEnable);
+        api->setEnabled(shouldEnable);
     }
 
     bool anyMonitorActive = false;
@@ -222,7 +235,7 @@ bool kscm_activateMonitors(void)
     KSLOG_DEBUG("Active monitors are now:");
     for (size_t i = 0; i < g_monitors.count; i++) {
         KSCrashMonitorAPI *api = g_monitors.apis[i];
-        if (kscm_isMonitorEnabled(api)) {
+        if (api->isEnabled()) {
             KSLOG_DEBUG("Monitor %s is enabled.", getMonitorNameForLogging(api));
             if (enabledMonitors != NULL) {
                 enabledMonitors[enabledCount++] = api;
@@ -238,7 +251,7 @@ bool kscm_activateMonitors(void)
 
     // Notify monitors about system enable without holding the lock
     for (size_t i = 0; i < enabledCount; i++) {
-        kscm_notifyPostSystemEnable(enabledMonitors[i]);
+        enabledMonitors[i]->notifyPostSystemEnable();
     }
 
     if (enabledMonitors != NULL) {
@@ -253,28 +266,102 @@ void kscm_disableAllMonitors(void)
     os_unfair_lock_lock(&g_monitorsLock);
     for (size_t i = 0; i < g_monitors.count; i++) {
         KSCrashMonitorAPI *api = g_monitors.apis[i];
-        kscm_setMonitorEnabled(api, false);
+        api->setEnabled(false);
     }
     os_unfair_lock_unlock(&g_monitorsLock);
     KSLOG_DEBUG("All monitors have been disabled.");
 }
 
+static bool notifyException(KSCrash_ExceptionHandlingPolicy recommendations)
+{
+    g_currentPolicy.asyncSafety |= recommendations.asyncSafety;  // Don't let it be unset.
+    if (!recommendations.isFatal) {
+        return false;
+    }
+
+    if (g_currentPolicy.isFatal) {
+        g_crashedDuringExceptionHandling = true;
+    }
+    g_currentPolicy.isFatal = true;
+    if (g_crashedDuringExceptionHandling) {
+        KSLOG_INFO("Detected crash in the crash reporter. Uninstalling KSCrash.");
+        kscm_disableAllMonitors();
+    }
+    return g_crashedDuringExceptionHandling;
+}
+
+static void handleException(struct KSCrash_MonitorContext *context)
+{
+    context->handlingCrash |= g_currentPolicy.isFatal;
+
+    context->requiresAsyncSafety = g_currentPolicy.asyncSafety;
+    if (g_crashedDuringExceptionHandling) {
+        context->crashedDuringCrashHandling = true;
+    }
+
+    // If the crash happened during monitor registration, skip handling
+    if (os_unfair_lock_trylock(&g_monitorsLock) == false) {
+        KSLOG_ERROR("Unable to acquire lock for monitor list. Skipping exception handling.");
+        return;
+    }
+
+    if (!g_currentPolicy.asyncSafety) {
+        // If we don't need async-safety (NSException, user exception), then this is safe to call.
+        ksid_generate(context->eventID);
+    } else {
+        // Otherwise use the pre-built primary or secondary event ID. We won't ever use
+        // more than two (crash, recrash) because the app will terminate afterwards.
+        if (g_eventIdIdx >= g_eventIdCount) {
+            // Very unlikely, but if this happens, we're stuck in a handler loop.
+            KSLOG_ERROR(
+                "Requesting a pre-built event ID, but we've already used both up! Aborting exception handling.");
+            return;
+        }
+        memcpy(context->eventID, g_eventIds[g_eventIdIdx++], sizeof(context->eventID));
+    }
+
+    // Add contextual info to the event for all enabled monitors
+    for (size_t i = 0; i < g_monitors.count; i++) {
+        KSCrashMonitorAPI *api = g_monitors.apis[i];
+        if (api->isEnabled()) {
+            api->addContextualInfoToEvent(context);
+        }
+    }
+
+    os_unfair_lock_unlock(&g_monitorsLock);
+
+    // Call the exception event handler if it exists
+    if (g_onExceptionEvent) {
+        g_onExceptionEvent(context);
+    }
+
+    // Restore original handlers if the exception is fatal and not already handled
+    if (g_currentPolicy.isFatal && !g_crashedDuringExceptionHandling) {
+        KSLOG_DEBUG("Exception is fatal. Restoring original handlers.");
+        kscm_disableAllMonitors();
+    }
+
+    // Done handling the crash
+    context->handlingCrash = false;
+}
+
+static KSCrash_ExceptionHandlerCallbacks g_exceptionCallbacks = {
+    .notify = notifyException,
+    .handle = handleException,
+};
+
 bool kscm_addMonitor(KSCrashMonitorAPI *api)
 {
+    init();
     if (api == NULL) {
-        KSLOG_DEBUG("Attempted to add a NULL monitor. Operation aborted.");
+        KSLOG_ERROR("Attempted to add a NULL monitor. Operation aborted.");
         return false;
     }
 
-    const char *newMonitorId = kscm_getMonitorId(api);
+    const char *newMonitorId = api->monitorId();
     if (newMonitorId == NULL) {
-        KSLOG_DEBUG("Monitor has a NULL ID. Operation aborted.");
+        KSLOG_ERROR("Monitor has a NULL ID. Operation aborted.");
         return false;
-    }
-
-    if (!g_areMonitorsInitialized) {
-        initializeMonitorList(&g_monitors);
-        g_areMonitorsInitialized = true;
     }
 
     os_unfair_lock_lock(&g_monitorsLock);
@@ -282,7 +369,7 @@ bool kscm_addMonitor(KSCrashMonitorAPI *api)
     // Check for duplicate monitors
     for (size_t i = 0; i < g_monitors.count; i++) {
         KSCrashMonitorAPI *existingApi = g_monitors.apis[i];
-        const char *existingMonitorId = kscm_getMonitorId(existingApi);
+        const char *existingMonitorId = existingApi->monitorId();
 
         if (ksstring_safeStrcmp(existingMonitorId, newMonitorId) == 0) {
             KSLOG_DEBUG("Monitor %s already exists. Skipping addition.", getMonitorNameForLogging(api));
@@ -291,6 +378,7 @@ bool kscm_addMonitor(KSCrashMonitorAPI *api)
         }
     }
 
+    api->init(&g_exceptionCallbacks);
     addMonitor(&g_monitors, api);
     KSLOG_DEBUG("Monitor %s injected.", getMonitorNameForLogging(api));
 
@@ -312,92 +400,9 @@ void kscm_removeMonitor(const KSCrashMonitorAPI *api)
     os_unfair_lock_unlock(&g_monitorsLock);
 }
 
-// KSCrashMonitorType kscm_getActiveMonitors(void)
-//{
-//     return g_monitors;
-// }
-
 // ============================================================================
 #pragma mark - Private API -
 // ============================================================================
-
-void kscm_notifyNonFatalExceptionCaptured(bool isAsyncSafeEnvironment)
-{
-    g_requiresAsyncSafety |= isAsyncSafeEnvironment;  // Don't let it be unset.
-}
-
-void kscm_clearAsyncSafetyState(void) { g_requiresAsyncSafety = false; }
-
-bool kscm_notifyFatalExceptionCaptured(bool isAsyncSafeEnvironment)
-{
-    g_requiresAsyncSafety |= isAsyncSafeEnvironment;  // Don't let it be unset.
-    if (g_handlingFatalException) {
-        g_crashedDuringExceptionHandling = true;
-    }
-    g_handlingFatalException = true;
-    if (g_crashedDuringExceptionHandling) {
-        KSLOG_INFO("Detected crash in the crash reporter. Uninstalling KSCrash.");
-        kscm_disableAllMonitors();
-    }
-    return g_crashedDuringExceptionHandling;
-}
-
-void kscm_handleException(struct KSCrash_MonitorContext *context)
-{
-    // We're handling a crash if the crash type is fatal
-    bool hasFatalFlag = (context->monitorFlags & KSCrashMonitorFlagFatal) != KSCrashMonitorFlagNone;
-    context->handlingCrash = context->handlingCrash || hasFatalFlag;
-
-    context->requiresAsyncSafety = g_requiresAsyncSafety;
-    if (g_crashedDuringExceptionHandling) {
-        context->crashedDuringCrashHandling = true;
-    }
-
-    // If the crash happened during monitor registration, skip handling
-    if (os_unfair_lock_trylock(&g_monitorsLock) == false) {
-        KSLOG_ERROR("Unable to acquire lock for monitor list. Skipping exception handling.");
-        return;
-    }
-
-    if (!g_requiresAsyncSafety) {
-        // If we don't need async-safety (NSException, user exception), then this is safe to call.
-        ksid_generate(context->eventID);
-    } else {
-        // Otherwise use the pre-built primary or secondary event ID. We won't ever use more than two
-        // events during a fatal crash (crash, recrash) because the app will terminate afterwards.
-        if (g_eventIdIdx >= g_eventIdCount) {
-            // Very unlikely, but if this happens, we're stuck in a handler loop.
-            KSLOG_ERROR(
-                "Requesting a pre-built event ID, but we've already used both up! Aborting exception handling.");
-            return;
-        }
-        memcpy(context->eventID, g_eventIds[g_eventIdIdx++], sizeof(context->eventID));
-    }
-
-    // Add contextual info to the event for all enabled monitors
-    for (size_t i = 0; i < g_monitors.count; i++) {
-        KSCrashMonitorAPI *api = g_monitors.apis[i];
-        if (kscm_isMonitorEnabled(api)) {
-            kscm_addContextualInfoToEvent(api, context);
-        }
-    }
-
-    os_unfair_lock_unlock(&g_monitorsLock);
-
-    // Call the exception event handler if it exists
-    if (g_onExceptionEvent) {
-        g_onExceptionEvent(context);
-    }
-
-    // Restore original handlers if the exception is fatal and not already handled
-    if (g_handlingFatalException && !g_crashedDuringExceptionHandling) {
-        KSLOG_DEBUG("Exception is fatal. Restoring original handlers.");
-        kscm_disableAllMonitors();
-    }
-
-    // Done handling the crash
-    context->handlingCrash = false;
-}
 
 void kscm_regenerateEventIDs(void)
 {
@@ -405,3 +410,5 @@ void kscm_regenerateEventIDs(void)
     regenerateEventIds();
     os_unfair_lock_unlock(&g_monitorsLock);
 }
+
+void kscm_clearAsyncSafetyState(void) { g_currentPolicy.asyncSafety = false; }

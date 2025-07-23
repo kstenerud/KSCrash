@@ -27,6 +27,7 @@
 #import "KSCrashMonitor_DiscSpace.h"
 
 #import "KSCrashMonitorContext.h"
+#import "KSCrashMonitorHelper.h"
 
 #import <Foundation/Foundation.h>
 
@@ -67,10 +68,13 @@ static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext)
 
 KSCrashMonitorAPI *kscm_discspace_getAPI(void)
 {
-    static KSCrashMonitorAPI api = { .monitorId = monitorId,
-                                     .setEnabled = setEnabled,
-                                     .isEnabled = isEnabled,
-                                     .addContextualInfoToEvent = addContextualInfoToEvent };
+    static KSCrashMonitorAPI api = { 0 };
+    if (kscm_initAPI(&api)) {
+        api.monitorId = monitorId;
+        api.setEnabled = setEnabled;
+        api.isEnabled = isEnabled;
+        api.addContextualInfoToEvent = addContextualInfoToEvent;
+    }
     return &api;
 }
 

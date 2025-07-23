@@ -28,12 +28,12 @@
 
 #import <Foundation/Foundation.h>
 #import "KSCompilerDefines.h"
-#include "KSCrashMonitorContext.h"
-#import "KSCrashMonitorContextHelper.h"
-#include "KSID.h"
+#import "KSCrashMonitorContext.h"
+#import "KSCrashMonitorHelper.h"
+#import "KSID.h"
 #import "KSStackCursor_Backtrace.h"
 #import "KSStackCursor_SelfThread.h"
-#include "KSThread.h"
+#import "KSThread.h"
 
 // #define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -48,6 +48,8 @@ static KSCrash_MonitorContext g_monitorContext;
 
 /** The exception handler that was in place before we installed ours. */
 static NSUncaughtExceptionHandler *g_previousUncaughtExceptionHandler;
+
+static KSCrash_ExceptionHandlerCallbacks g_callbacks;
 
 static void defaultOnEnabled(__unused NSUncaughtExceptionHandler *uncaughtExceptionHandler,
                              __unused KSCrashCustomNSExceptionReporter *customNSExceptionReporter)
@@ -107,12 +109,11 @@ static KS_NOINLINE void handleException(NSException *exception, BOOL isUserRepor
             ksmc_suspendEnvironment(&threads, &numThreads);
             requiresAsyncSafety = true;
         }
-        if (isUserReported == NO) {
+        g_callbacks.notify((KSCrash_ExceptionHandlingPolicy) {
+            .asyncSafety = requiresAsyncSafety,
             // User-reported exceptions are not considered fatal.
-            kscm_notifyFatalExceptionCaptured(requiresAsyncSafety);
-        } else {
-            kscm_notifyNonFatalExceptionCaptured(requiresAsyncSafety);
-        }
+            .isFatal = !isUserReported,
+        });
 
         KSLOG_DEBUG(@"Filling out context.");
         KSMachineContext machineContext = { 0 };
@@ -126,7 +127,7 @@ static KS_NOINLINE void handleException(NSException *exception, BOOL isUserRepor
 
         KSCrash_MonitorContext *crashContext = &g_monitorContext;
         memset(crashContext, 0, sizeof(*crashContext));
-        ksmc_fillMonitorContext(crashContext, kscm_nsexception_getAPI());
+        kscm_fillMonitorContext(crashContext, kscm_nsexception_getAPI());
         crashContext->offendingMachineContext = &machineContext;
         crashContext->registersAreValid = false;
         crashContext->NSException.name = [[exception name] UTF8String];
@@ -137,7 +138,7 @@ static KS_NOINLINE void handleException(NSException *exception, BOOL isUserRepor
         crashContext->currentSnapshotUserReported = isUserReported;
 
         KSLOG_DEBUG(@"Calling main crash handler.");
-        kscm_handleException(crashContext);
+        g_callbacks.handle(crashContext);
 
         free(callstack);
         if (logAllThreads && isUserReported) {
@@ -189,15 +190,22 @@ static void setEnabled(bool isEnabled)
 
 static const char *monitorId(void) { return "NSException"; }
 
-static KSCrashMonitorFlag monitorFlags(void) { return KSCrashMonitorFlagFatal; }
+static KSCrashMonitorFlag monitorFlags(void) { return KSCrashMonitorFlagNone; }
 
 static bool isEnabled(void) { return g_isEnabled; }
 
+static void init(KSCrash_ExceptionHandlerCallbacks *callbacks) { g_callbacks = *callbacks; }
+
 KSCrashMonitorAPI *kscm_nsexception_getAPI(void)
 {
-    static KSCrashMonitorAPI api = {
-        .monitorId = monitorId, .monitorFlags = monitorFlags, .setEnabled = setEnabled, .isEnabled = isEnabled
-    };
+    static KSCrashMonitorAPI api = { 0 };
+    if (kscm_initAPI(&api)) {
+        api.init = init;
+        api.monitorId = monitorId;
+        api.monitorFlags = monitorFlags;
+        api.setEnabled = setEnabled;
+        api.isEnabled = isEnabled;
+    }
     return &api;
 }
 
