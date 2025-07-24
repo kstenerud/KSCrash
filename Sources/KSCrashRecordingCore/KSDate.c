@@ -34,7 +34,7 @@ void ksdate_utcStringFromTimestamp(time_t timestamp, char *buffer, size_t buffer
     memset(buffer, 0, bufferSize);
 
     // Cannot be in the future.
-    if (timestamp > ksdate_seconds()) {
+    if ((uint64_t)timestamp > ksdate_seconds()) {
         return;
     }
 
@@ -51,7 +51,7 @@ void ksdate_utcStringFromMicroseconds(int64_t microseconds, char *buffer, size_t
     memset(buffer, 0, bufferSize);
 
     // Cannot be in the future.
-    if (microseconds >= ksdate_microseconds()) {
+    if ((uint64_t)microseconds >= ksdate_microseconds()) {
         return;
     }
 

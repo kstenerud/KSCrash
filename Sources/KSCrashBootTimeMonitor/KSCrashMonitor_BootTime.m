@@ -51,8 +51,8 @@ void kscm_bootTime_resetState(void)
 static const char *dateSysctl(const char *name)
 {
     struct timeval value = kssysctl_timevalForName(name);
-    char *buffer = malloc(21);
-    ksdate_utcStringFromTimestamp(value.tv_sec, buffer);
+    char *buffer = malloc(KSDATE_BUFFERSIZE);
+    ksdate_utcStringFromTimestamp(value.tv_sec, buffer, KSDATE_BUFFERSIZE);
     return buffer;
 }
 
