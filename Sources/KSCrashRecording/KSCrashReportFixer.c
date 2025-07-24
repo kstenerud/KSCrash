@@ -305,8 +305,7 @@ char *kscrf_fixupCrashReport(const char *crashReport)
 {
     // get the version out of it since a lot depends on it.
     int version[REPORT_VERSION_COMPONENTS_COUNT] = { 0 };
-    const char *result =
-        kscrf_fixupCrashReportWithVersionComponents(crashReport, version, REPORT_VERSION_COMPONENTS_COUNT);
+    char *result = kscrf_fixupCrashReportWithVersionComponents(crashReport, version, REPORT_VERSION_COMPONENTS_COUNT);
     if (!result) {
         return NULL;
     }

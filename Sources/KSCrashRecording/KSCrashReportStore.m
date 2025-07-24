@@ -149,7 +149,7 @@
     if (reportCount <= 0) {
         return @[];
     }
-    int64_t *reportIDsC = malloc(sizeof(int64_t) * reportCount);
+    int64_t *reportIDsC = malloc(sizeof(int64_t) * (size_t)reportCount);
     reportCount = kscrs_getReportIDs(reportIDsC, reportCount, &_cConfig);
     NSMutableArray *reportIDs = [NSMutableArray arrayWithCapacity:(NSUInteger)reportCount];
     for (int i = 0; i < reportCount; i++) {
