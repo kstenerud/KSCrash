@@ -32,9 +32,9 @@
 #include "KSCrashMonitorHelper.h"
 #import "KSDate.h"
 #import "KSDynamicLinker.h"
+#import "KSJailbreak.h"
 #import "KSSysCtl.h"
 #import "KSSystemCapabilities.h"
-#import "KSJailbreak.h"
 
 // #define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -290,10 +290,11 @@ static const char *getCurrentCPUArch(void)
  *
  * @return YES if the device is jailbroken.
  */
-static inline bool isJailbroken(void) {
+static inline bool isJailbroken(void)
+{
     static bool initialized_jb;
     static bool is_jb;
-    if(!initialized_jb) {
+    if (!initialized_jb) {
         get_jailbreak_status(&is_jb);
         initialized_jb = true;
     }
