@@ -34,26 +34,40 @@
 extern "C" {
 #endif
 
+/**
+ * Use this as a buffer size for date routines.
+ */
+#ifndef KSDATE_BUFFERSIZE
+#define KSDATE_BUFFERSIZE 64
+#endif
+
 /** Convert a UNIX timestamp to an RFC3339 string representation.
  *
  * @param timestamp The date to convert.
  *
- * @param buffer21Chars A buffer of at least 21 chars to hold the RFC3339 date string.
+ * @param buffer A buffer of at least 21 chars to hold the RFC3339 date string.
+ * @param bufferSize The size of the buffer in _buffer_.
  */
-void ksdate_utcStringFromTimestamp(time_t timestamp, char *buffer21Chars);
+void ksdate_utcStringFromTimestamp(time_t timestamp, char *buffer, size_t bufferSize);
 
 /** Convert microseconds returned from `gettimeofday` to an RFC3339 string representation.
  *
  * @param microseconds The microseconds to convert.
  *
- * @param buffer28Chars A buffer of at least 28 chars to hold the RFC3339 date string with milliseconds precision.
+ * @param buffer A buffer of at least 28 chars to hold the RFC3339 date string with milliseconds precision.
+ * @param bufferSize The size of the buffer in _buffer_.
  */
-void ksdate_utcStringFromMicroseconds(int64_t microseconds, char *buffer28Chars);
+void ksdate_utcStringFromMicroseconds(int64_t microseconds, char *buffer, size_t bufferSize);
 
-/** Returns microseconds from `gettimeofday`
+/** Returns microseconds for the unix epoch.
  *
  */
 uint64_t ksdate_microseconds(void);
+
+/** Returns seconds for the unix epoch.
+ *
+ */
+uint64_t ksdate_seconds(void);
 
 #ifdef __cplusplus
 }

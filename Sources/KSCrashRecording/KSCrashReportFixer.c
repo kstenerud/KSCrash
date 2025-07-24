@@ -146,12 +146,12 @@ static int onIntegerElement(const char *const name, const int64_t value, void *c
     FixupContext *context = (FixupContext *)userData;
     int result = KSJSON_OK;
     if (shouldFixDate(context, name)) {
-        char buffer[28];
+        char buffer[KSDATE_BUFFERSIZE] = { 0 };
 
         if (matchesMinVersion(context, 3, 3, 0)) {
-            ksdate_utcStringFromMicroseconds(value, buffer);
+            ksdate_utcStringFromMicroseconds(value, buffer, KSDATE_BUFFERSIZE);
         } else {
-            ksdate_utcStringFromTimestamp((time_t)value, buffer);
+            ksdate_utcStringFromTimestamp((time_t)value, buffer, KSDATE_BUFFERSIZE);
         }
 
         result = ksjson_addStringElement(context->encodeContext, name, buffer, (int)strlen(buffer));
@@ -241,7 +241,8 @@ static int addJSONData(const char *data, int length, void *userData)
     return KSJSON_OK;
 }
 
-char *kscrf_fixupCrashReport(const char *crashReport)
+static char *kscrf_fixupCrashReportWithVersionComponents(const char *crashReport, int *inOutVersionComponents,
+                                                         size_t versionComponentsCount)
 {
     if (crashReport == NULL) {
         return NULL;
@@ -273,6 +274,12 @@ char *kscrf_fixupCrashReport(const char *crashReport)
         .outputBytesLeft = fixedReportLength,
     };
 
+    // copy in any version info if required
+    if (inOutVersionComponents && versionComponentsCount > 0) {
+        memcpy(fixupContext.reportVersionComponents, inOutVersionComponents,
+               MIN(sizeof(int) * versionComponentsCount, sizeof(int) * REPORT_VERSION_COMPONENTS_COUNT));
+    }
+
     ksjson_beginEncode(&encodeContext, true, addJSONData, &fixupContext);
 
     int errorOffset = 0;
@@ -285,5 +292,24 @@ char *kscrf_fixupCrashReport(const char *crashReport)
         free(fixedReport);
         return NULL;
     }
+
+    if (inOutVersionComponents && versionComponentsCount) {
+        memcpy(inOutVersionComponents, fixupContext.reportVersionComponents,
+               MIN(sizeof(int) * versionComponentsCount, sizeof(int) * REPORT_VERSION_COMPONENTS_COUNT));
+    }
+
     return fixedReport;
+}
+
+char *kscrf_fixupCrashReport(const char *crashReport)
+{
+    // get the version out of it since a lot depends on it.
+    int version[REPORT_VERSION_COMPONENTS_COUNT] = { 0 };
+    const char *result =
+        kscrf_fixupCrashReportWithVersionComponents(crashReport, version, REPORT_VERSION_COMPONENTS_COUNT);
+    if (!result) {
+        return NULL;
+    }
+    free(result);
+    return kscrf_fixupCrashReportWithVersionComponents(crashReport, version, REPORT_VERSION_COMPONENTS_COUNT);
 }
