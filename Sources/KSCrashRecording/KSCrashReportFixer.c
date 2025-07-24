@@ -26,6 +26,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <sys/param.h>
 
 #include "KSCrashReportFields.h"
 #include "KSDate.h"
