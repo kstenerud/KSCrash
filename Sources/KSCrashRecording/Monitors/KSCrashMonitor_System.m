@@ -128,8 +128,8 @@ static const char *stringSysctl(const char *name)
 
 static const char *dateString(time_t date)
 {
-    char *buffer = malloc(21);
-    ksdate_utcStringFromTimestamp(date, buffer);
+    char *buffer = malloc(KSDATE_BUFFERSIZE);
+    ksdate_utcStringFromTimestamp(date, buffer, KSDATE_BUFFERSIZE);
     return buffer;
 }
 
