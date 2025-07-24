@@ -47,4 +47,20 @@
     ksmc_resumeEnvironment(threads1, numThreads1);
 }
 
+- (void)startTheBackgroundJob
+{
+    sleep(5);
+}
+
+- (void)testMaxThreadsInContext
+{
+    KSMachineContext machineContext = { 0 };
+    for (int i = 0; i < 1005; ++i) {
+        [NSThread detachNewThreadSelector:@selector(startTheBackgroundJob) toTarget:self withObject:nil];
+    }
+
+    ksmc_getContextForThread(ksthread_self(), &machineContext, true);
+    XCTAssertEqual(machineContext.threadCount, MAX_CAPTURED_THREADS);
+}
+
 @end
