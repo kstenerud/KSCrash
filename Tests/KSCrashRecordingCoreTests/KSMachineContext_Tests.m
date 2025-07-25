@@ -55,7 +55,8 @@
 - (void)testMaxThreadsInContext
 {
     KSMachineContext machineContext = { 0 };
-    for (int i = 0; i < 1005; ++i) {
+    int threadsToCreate = MAX_CAPTURED_THREADS + 5;
+    for (int i = 0; i < threadsToCreate; ++i) {
         [NSThread detachNewThreadSelector:@selector(startTheBackgroundJob) toTarget:self withObject:nil];
     }
 
