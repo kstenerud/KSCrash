@@ -95,7 +95,7 @@ NSString *const KSCrashNSExceptionStacktraceFuncName = @"exceptionWithStacktrace
 
 + (void)trigger_other_manyThreads
 {
-    NSUInteger const threadsCount = 200;
+    NSUInteger const threadsCount = 1005;
     static NSMutableArray *allThreads = [NSMutableArray arrayWithCapacity:threadsCount + 1];
 
     for (NSUInteger idx = 0; idx < threadsCount; ++idx) {

@@ -37,6 +37,8 @@
 extern "C" {
 #endif
 
+#define MAX_CAPTURED_THREADS 1000
+
 #ifdef __arm64__
 #define STRUCT_MCONTEXT_L _STRUCT_MCONTEXT64
 #else
@@ -45,7 +47,7 @@ extern "C" {
 
 typedef struct KSMachineContext {
     thread_t thisThread;
-    thread_t allThreads[100];
+    thread_t allThreads[MAX_CAPTURED_THREADS];
     int threadCount;
     bool isCrashedContext;
     bool isCurrentThread;

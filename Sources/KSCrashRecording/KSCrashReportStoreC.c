@@ -209,7 +209,7 @@ int kscrs_getReportIDs(int64_t *reportIDs, int count, const KSCrashReportStoreCC
 static char *readReportAtPath(const char *path)
 {
     char *rawReport;
-    ksfu_readEntireFile(path, &rawReport, NULL, 2000000);
+    ksfu_readEntireFile(path, &rawReport, NULL, 20000000);
     if (rawReport == NULL) {
         KSLOG_ERROR("Failed to load report at path: %s", path);
         return NULL;
