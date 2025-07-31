@@ -92,7 +92,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 /** Information about the operating system and environment.
  *
- * @note `bootTime` and `storageSize` are not populated in this property.
+ * @note `bootTime`, `storageSize`  and `freeStorageSize` are not populated in this property.
  * To access these values, refer to the optional
  * `KSCrashBootTimeMonitor` and `KSCrashDiscSpaceMonitor` modules.
  */

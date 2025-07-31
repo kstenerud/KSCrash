@@ -221,6 +221,7 @@ typedef struct KSCrash_MonitorContext {
         const char *deviceAppHash;
         const char *buildType;
         uint64_t storageSize;
+        uint64_t freeStorageSize;
         uint64_t memorySize;
         uint64_t freeMemory;
         uint64_t usableMemory;
