@@ -1527,6 +1527,7 @@ static void writeSystemInfo(const KSCrashReportWriter *const writer, const char 
         writer->addStringElement(writer, KSCrashField_KernelVersion, monitorContext->System.kernelVersion);
         writer->addStringElement(writer, KSCrashField_OSVersion, monitorContext->System.osVersion);
         writer->addBooleanElement(writer, KSCrashField_Jailbroken, monitorContext->System.isJailbroken);
+        writer->addBooleanElement(writer, KSCrashField_ProcTranslated, monitorContext->System.procTranslated);
         writer->addStringElement(writer, KSCrashField_BootTime, monitorContext->System.bootTime);
         writer->addStringElement(writer, KSCrashField_AppStartTime, monitorContext->System.appStartTime);
         writer->addStringElement(writer, KSCrashField_ExecutablePath, monitorContext->System.executablePath);

@@ -198,6 +198,7 @@ typedef struct KSCrash_MonitorContext {
         const char *kernelVersion;
         const char *osVersion;
         bool isJailbroken;
+        bool procTranslated;
         const char *bootTime;
         const char *appStartTime;
         const char *executablePath;

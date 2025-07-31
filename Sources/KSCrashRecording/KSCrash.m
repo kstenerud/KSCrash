@@ -209,6 +209,7 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
     COPY_STRING(kernelVersion);
     COPY_STRING(osVersion);
     COPY_PRIMITIVE(isJailbroken);
+    COPY_PRIMITIVE(procTranslated);
     COPY_STRING(bootTime);  // this field is populated in an optional monitor
     COPY_STRING(appStartTime);
     COPY_STRING(executablePath);
