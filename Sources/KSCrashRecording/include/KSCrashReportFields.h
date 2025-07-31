@@ -236,6 +236,7 @@ KSCRF_DEFINE_CONSTANT(KSCrashField, ParentProcessID, parentProcessID, "parent_pr
 KSCRF_DEFINE_CONSTANT(KSCrashField, ProcessID, processID, "process_id")
 KSCRF_DEFINE_CONSTANT(KSCrashField, Size, size, "size")
 KSCRF_DEFINE_CONSTANT(KSCrashField, Storage, storage, "storage")
+KSCRF_DEFINE_CONSTANT(KSCrashField, FreeStorage, freeStorage, "freeStorage")
 KSCRF_DEFINE_CONSTANT(KSCrashField, SystemName, systemName, "system_name")
 KSCRF_DEFINE_CONSTANT(KSCrashField, SystemVersion, systemVersion, "system_version")
 KSCRF_DEFINE_CONSTANT(KSCrashField, TimeZone, timeZone, "time_zone")

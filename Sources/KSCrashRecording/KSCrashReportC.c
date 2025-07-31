@@ -1548,6 +1548,7 @@ static void writeSystemInfo(const KSCrashReportWriter *const writer, const char 
         writer->addStringElement(writer, KSCrashField_DeviceAppHash, monitorContext->System.deviceAppHash);
         writer->addStringElement(writer, KSCrashField_BuildType, monitorContext->System.buildType);
         writer->addIntegerElement(writer, KSCrashField_Storage, (int64_t)monitorContext->System.storageSize);
+        writer->addIntegerElement(writer, KSCrashField_FreeStorage, (int64_t)monitorContext->System.freeStorageSize);
 
         writeMemoryInfo(writer, KSCrashField_Memory, monitorContext);
         writeAppStats(writer, KSCrashField_AppStats, monitorContext);
