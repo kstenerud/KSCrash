@@ -1228,17 +1228,20 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
 #if KSCRASH_HOST_APPLE
         writer->beginObject(writer, KSCrashField_Mach);
         {
+            char buffer[20] = { 0 };
             const char *machExceptionName = ksmach_exceptionName(crash->mach.type);
             const char *machCodeName = crash->mach.code == 0 ? NULL : ksmach_kernelReturnCodeName(crash->mach.code);
             writer->addUIntegerElement(writer, KSCrashField_Exception, (unsigned)crash->mach.type);
             if (machExceptionName != NULL) {
                 writer->addStringElement(writer, KSCrashField_ExceptionName, machExceptionName);
             }
-            writer->addUIntegerElement(writer, KSCrashField_Code, (unsigned)crash->mach.code);
+            snprintf(buffer, sizeof(buffer), "0x%llx", crash->mach.code);
+            writer->addStringElement(writer, KSCrashField_Code, buffer);
             if (machCodeName != NULL) {
                 writer->addStringElement(writer, KSCrashField_CodeName, machCodeName);
             }
-            writer->addUIntegerElement(writer, KSCrashField_Subcode, (size_t)crash->mach.subcode);
+            snprintf(buffer, sizeof(buffer), "0x%llx", crash->mach.subcode);
+            writer->addStringElement(writer, KSCrashField_Subcode, buffer);
         }
         writer->endContainer(writer);
 #endif
