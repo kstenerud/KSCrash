@@ -164,53 +164,62 @@ static inline bool ksj_local_is_insert_libraries_env_var(const char *str)
  * Note: Implemented as a macro to force it inline always.
  */
 #if !TARGET_OS_SIMULATOR && !TARGET_OS_OSX && KSCRASH_HAS_SYSCALL
-#define get_jailbreak_status(pIsJailbroken)                                                              \
-    do {                                                                                                 \
-        int fd = 0;                                                                                      \
-                                                                                                         \
-        bool tmp_file_is_accessible = false;                                                             \
-        bool mobile_substrate_exists = false;                                                            \
-        bool etc_apt_exists = false;                                                                     \
-        bool has_insert_libraries = false;                                                               \
-                                                                                                         \
-        const char *test_write_file = "/tmp/bugsnag-check.txt";                                          \
-        remove(test_write_file);                                                                         \
-        ksj_syscall_open(test_write_file, O_CREAT, 0644, &fd);                                           \
-        if (fd > 0) {                                                                                    \
-            close(fd);                                                                                   \
-            tmp_file_is_accessible = true;                                                               \
-        } else {                                                                                         \
-            ksj_syscall_open(test_write_file, O_RDONLY, 0, &fd);                                         \
-            if (fd > 0) {                                                                                \
-                close(fd);                                                                               \
-                tmp_file_is_accessible = true;                                                           \
-            }                                                                                            \
-        }                                                                                                \
-        remove(test_write_file);                                                                         \
-                                                                                                         \
-        const char *mobile_substrate_path = "/Library/MobileSubstrate/MobileSubstrate.dylib";            \
-        ksj_syscall_open(mobile_substrate_path, O_RDONLY, 0, &fd);                                       \
-        if (fd > 0) {                                                                                    \
-            close(fd);                                                                                   \
-            mobile_substrate_exists = true;                                                              \
-        }                                                                                                \
-                                                                                                         \
-        const char *etc_apt_path = "/etc/apt";                                                           \
-        DIR *dirp = opendir(etc_apt_path);                                                               \
-        if (dirp) {                                                                                      \
-            etc_apt_exists = true;                                                                       \
-            closedir(dirp);                                                                              \
-        }                                                                                                \
-                                                                                                         \
-        for (int i = 0; environ[i] != NULL; i++) {                                                       \
-            if (ksj_local_is_insert_libraries_env_var(environ[i])) {                                     \
-                has_insert_libraries = true;                                                             \
-                break;                                                                                   \
-            }                                                                                            \
-        }                                                                                                \
-                                                                                                         \
-        *(pIsJailbroken) =                                                                               \
-            tmp_file_is_accessible || mobile_substrate_exists || etc_apt_exists || has_insert_libraries; \
+#define get_jailbreak_status(pIsJailbroken)                                                       \
+    do {                                                                                          \
+        int fd = 0;                                                                               \
+                                                                                                  \
+        bool tmp_file_is_accessible = false;                                                      \
+        bool mobile_substrate_exists = false;                                                     \
+        bool etc_apt_exists = false;                                                              \
+        bool has_insert_libraries = false;                                                        \
+        bool broken_sandbox = false;                                                              \
+                                                                                                  \
+        const char *test_write_file = "/tmp/file-check.txt";                                      \
+        remove(test_write_file);                                                                  \
+        ksj_syscall_open(test_write_file, O_CREAT, 0644, &fd);                                    \
+        if (fd > 0) {                                                                             \
+            close(fd);                                                                            \
+            tmp_file_is_accessible = true;                                                        \
+        } else {                                                                                  \
+            ksj_syscall_open(test_write_file, O_RDONLY, 0, &fd);                                  \
+            if (fd > 0) {                                                                         \
+                close(fd);                                                                        \
+                tmp_file_is_accessible = true;                                                    \
+            }                                                                                     \
+        }                                                                                         \
+        remove(test_write_file);                                                                  \
+                                                                                                  \
+        const char *mobile_substrate_path = "/Library/MobileSubstrate/MobileSubstrate.dylib";     \
+        ksj_syscall_open(mobile_substrate_path, O_RDONLY, 0, &fd);                                \
+        if (fd > 0) {                                                                             \
+            close(fd);                                                                            \
+            mobile_substrate_exists = true;                                                       \
+        }                                                                                         \
+                                                                                                  \
+        const char *etc_apt_path = "/etc/apt";                                                    \
+        DIR *dirp = opendir(etc_apt_path);                                                        \
+        if (dirp) {                                                                               \
+            etc_apt_exists = true;                                                                \
+            closedir(dirp);                                                                       \
+        }                                                                                         \
+                                                                                                  \
+        for (int i = 0; environ[i] != NULL; i++) {                                                \
+            if (ksj_local_is_insert_libraries_env_var(environ[i])) {                              \
+                has_insert_libraries = true;                                                      \
+                break;                                                                            \
+            }                                                                                     \
+        }                                                                                         \
+                                                                                                  \
+        const char *sandboxpath = "/private/kscrash_jailbreak_test";                              \
+        ksj_syscall_open(sandboxpath, O_WRONLY | O_CREAT | O_TRUNC, 0644, &fd);                   \
+        if (fd > 0) {                                                                             \
+            close(fd);                                                                            \
+            broken_sandbox = true;                                                                \
+            remove(sandboxpath);                                                                  \
+        }                                                                                         \
+                                                                                                  \
+        *(pIsJailbroken) = tmp_file_is_accessible || mobile_substrate_exists || etc_apt_exists || \
+                           has_insert_libraries || broken_sandbox;                                \
     } while (0)
 
 #else
