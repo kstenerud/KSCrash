@@ -228,6 +228,7 @@ KSCRF_DEFINE_CONSTANT(KSCrashField, DeviceAppHash, deviceAppHash, "device_app_ha
 KSCRF_DEFINE_CONSTANT(KSCrashField, Executable, executable, "CFBundleExecutable")
 KSCRF_DEFINE_CONSTANT(KSCrashField, ExecutablePath, executablePath, "CFBundleExecutablePath")
 KSCRF_DEFINE_CONSTANT(KSCrashField, Jailbroken, jailbroken, "jailbroken")
+KSCRF_DEFINE_CONSTANT(KSCrashField, ProcTranslated, procTranslated, "proc_translated")
 KSCRF_DEFINE_CONSTANT(KSCrashField, KernelVersion, kernelVersion, "kernel_version")
 KSCRF_DEFINE_CONSTANT(KSCrashField, Machine, machine, "machine")
 KSCRF_DEFINE_CONSTANT(KSCrashField, Model, model, "model")

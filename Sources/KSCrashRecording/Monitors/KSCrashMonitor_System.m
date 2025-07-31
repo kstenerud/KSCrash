@@ -54,6 +54,7 @@ typedef struct {
     const char *kernelVersion;
     const char *osVersion;
     bool isJailbroken;
+    bool procTranslated;
     const char *appStartTime;
     const char *executablePath;
     const char *executableName;
@@ -306,6 +307,24 @@ static bool isJailbroken(void)
     return sJailbroken;
 }
 
+/** Check if the app is started using Rosetta translation environment
+ *
+ * @return true if app is translated using Rosetta
+ */
+static bool procTranslated(void)
+{
+#if KSCRASH_HOST_MAC
+    // https://developer.apple.com/documentation/apple-silicon/about-the-rosetta-translation-environment
+    int proc_translated = 0;
+    size_t size = sizeof(proc_translated);
+    if (!sysctlbyname("sysctl.proc_translated", &proc_translated, &size, NULL, 0) && proc_translated) {
+        return true;
+    }
+#endif
+
+    return false;
+}
+
 /** Check if the current build is a debug build.
  *
  * @return YES if the app was built in debug mode.
@@ -469,6 +488,7 @@ static void initialize(void)
         if (isSimulatorBuild()) {
             g_systemData.machine = cString([NSProcessInfo processInfo].environment[@"SIMULATOR_MODEL_IDENTIFIER"]);
             g_systemData.model = "simulator";
+            g_systemData.systemVersion = cString([NSProcessInfo processInfo].environment[@"SIMULATOR_RUNTIME_VERSION"]);
         } else {
 #if KSCRASH_HOST_MAC
             // MacOS has the machine in the model field, and no model
@@ -482,6 +502,7 @@ static void initialize(void)
         g_systemData.kernelVersion = stringSysctl("kern.version");
         g_systemData.osVersion = stringSysctl("kern.osversion");
         g_systemData.isJailbroken = isJailbroken();
+        g_systemData.procTranslated = procTranslated();
         g_systemData.appStartTime = dateString(time(NULL));
         g_systemData.executablePath = cString(getExecutablePath());
         g_systemData.executableName = cString(infoDict[@"CFBundleExecutable"]);
@@ -530,6 +551,7 @@ static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext)
         COPY_REFERENCE(kernelVersion);
         COPY_REFERENCE(osVersion);
         COPY_REFERENCE(isJailbroken);
+        COPY_REFERENCE(procTranslated);
         COPY_REFERENCE(appStartTime);
         COPY_REFERENCE(executablePath);
         COPY_REFERENCE(executableName);
