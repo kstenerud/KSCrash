@@ -21,6 +21,9 @@ case "$1" in
         # Create a temporary file
         TEMP_FILE=$(mktemp)
         
+        # Ensure the temporary file is deleted on script exit or interruption
+        trap 'rm -f "$TEMP_FILE"' EXIT
+        
         # Use awk to find and replace the warningFlags array with an empty array
         awk '
             /^let warningFlags = \[/ {
@@ -45,7 +48,7 @@ case "$1" in
         
     "restore")
         echo "Restoring Package.swift from git..."
-        git checkout -- "$PACKAGE_SWIFT"
+        git restore "$PACKAGE_SWIFT"
         echo "Successfully restored Package.swift"
         ;;
         

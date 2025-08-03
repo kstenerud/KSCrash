@@ -233,7 +233,7 @@ jobs:
           # Revert commits in order (they're listed newest to oldest)
           for commit in ${{ env.COMMITS_TO_REVERT }}; do
             echo "Reverting commit $commit..."
-            git revert --no-edit $commit || echo "Failed to revert $commit, continuing..."
+            git revert --no-edit $commit
           done
 
       - name: Push reverts
