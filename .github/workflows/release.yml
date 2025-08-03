@@ -22,6 +22,7 @@ jobs:
     runs-on: macos-15
     outputs:
       commit_sha: ${{ steps.save_commit_info.outputs.commit_sha }}
+      clean_commit_sha: ${{ steps.remove_unsafe_flags.outputs.clean_commit_sha }}
       version: ${{ github.event.inputs.version }}
       dry_run: ${{ github.event.inputs.dry_run }}
       tag_name: ${{ steps.create_tag.outputs.tag_name }}
@@ -95,6 +96,17 @@ jobs:
           COMMIT_SHA=$(git rev-parse HEAD)
           echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
 
+      - name: Remove unsafe flags for release
+        id: remove_unsafe_flags
+        if: ${{ github.event.inputs.publish_only != 'true' }}
+        run: |
+          scripts/toggle-unsafe-flags.sh remove
+          git add Package.swift
+          git commit -m "Remove unsafe flags for release ${{ github.event.inputs.version }}"
+          CLEAN_COMMIT_SHA=$(git rev-parse HEAD)
+          echo "clean_commit_sha=$CLEAN_COMMIT_SHA" >> $GITHUB_OUTPUT
+          git push
+
       - name: Create git tag
         id: create_tag
         if: ${{ github.event.inputs.publish_only != 'true' }}
@@ -108,6 +120,12 @@ jobs:
           git tag $TAG_NAME
           git push origin $TAG_NAME
           echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+
+      - name: Revert unsafe flags removal
+        if: ${{ github.event.inputs.publish_only != 'true' }}
+        run: |
+          git revert --no-edit ${{ steps.remove_unsafe_flags.outputs.clean_commit_sha }}
+          git push
 
       - name: Publish to CocoaPods
         if: ${{ github.event.inputs.dry_run != 'true' }}
@@ -151,42 +169,74 @@ jobs:
         run: |
           git pull origin "$(git branch --show-current)"
 
-      - name: Check for version commit
-        id: check_commit
+      - name: Check for commits to revert
+        id: check_commits
         run: |
+          echo "COMMITS_TO_REVERT=" >> $GITHUB_ENV
+          
+          # Check for the revert commit (that restored unsafe flags)
+          REVERT_MSG="Revert \"Remove unsafe flags for release ${{ needs.release.outputs.version || github.event.inputs.version }}\""
+          REVERT_COMMIT=$(git log --format="%H" --grep="$REVERT_MSG" -n 1)
+          if [[ -n "$REVERT_COMMIT" ]]; then
+            echo "Found revert commit: $REVERT_COMMIT"
+            echo "COMMITS_TO_REVERT=$REVERT_COMMIT" >> $GITHUB_ENV
+          fi
+          
+          # Check for clean commit (unsafe flags removal)
+          if [[ -n "${{ needs.release.outputs.clean_commit_sha }}" ]]; then
+            echo "Clean commit found from outputs: ${{ needs.release.outputs.clean_commit_sha }}"
+            if [[ -n "$COMMITS_TO_REVERT" ]]; then
+              echo "COMMITS_TO_REVERT=$COMMITS_TO_REVERT ${{ needs.release.outputs.clean_commit_sha }}" >> $GITHUB_ENV
+            else
+              echo "COMMITS_TO_REVERT=${{ needs.release.outputs.clean_commit_sha }}" >> $GITHUB_ENV
+            fi
+          fi
+          
+          # Check for version commit
           if [[ -n "${{ needs.release.outputs.commit_sha }}" ]]; then
             echo "Version commit found from outputs: ${{ needs.release.outputs.commit_sha }}"
-            echo "SHOULD_REVERT=true" >> $GITHUB_ENV
-            echo "COMMIT_SHA=${{ needs.release.outputs.commit_sha }}" >> $GITHUB_ENV
+            if [[ -n "$COMMITS_TO_REVERT" ]]; then
+              echo "COMMITS_TO_REVERT=$COMMITS_TO_REVERT ${{ needs.release.outputs.commit_sha }}" >> $GITHUB_ENV
+            else
+              echo "COMMITS_TO_REVERT=${{ needs.release.outputs.commit_sha }}" >> $GITHUB_ENV
+            fi
           else
             # Fallback: search by commit message
             SEARCH_MSG="Update version to ${{ needs.release.outputs.version || github.event.inputs.version }}"
             FOUND_COMMIT=$(git log --format="%H" --grep="$SEARCH_MSG" -n 1)
-
             if [[ -n "$FOUND_COMMIT" ]]; then
-              echo "Found commit by message: $FOUND_COMMIT"
-              echo "SHOULD_REVERT=true" >> $GITHUB_ENV
-              echo "COMMIT_SHA=$FOUND_COMMIT" >> $GITHUB_ENV
-            else
-              echo "No version commit found, nothing to revert."
-              echo "SHOULD_REVERT=false" >> $GITHUB_ENV
+              echo "Found version commit by message: $FOUND_COMMIT"
+              if [[ -n "$COMMITS_TO_REVERT" ]]; then
+                echo "COMMITS_TO_REVERT=$COMMITS_TO_REVERT $FOUND_COMMIT" >> $GITHUB_ENV
+              else
+                echo "COMMITS_TO_REVERT=$FOUND_COMMIT" >> $GITHUB_ENV
+              fi
             fi
           fi
+          
+          if [[ -z "$COMMITS_TO_REVERT" ]]; then
+            echo "No commits found to revert."
+            echo "SHOULD_REVERT=false" >> $GITHUB_ENV
+          else
+            echo "SHOULD_REVERT=true" >> $GITHUB_ENV
+          fi
 
-      - name: Revert version commit
+      - name: Revert commits
         if: env.SHOULD_REVERT == 'true'
         run: |
-          echo "Reverting commit ${{ env.COMMIT_SHA }}..."
-          git log --oneline -n 3
-
-          git revert --no-commit ${{ env.COMMIT_SHA }}
-          git status -s
-
+          echo "Commits to revert: ${{ env.COMMITS_TO_REVERT }}"
+          git log --oneline -n 5
+          
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          git commit -m "Revert version update due to failed release"
+          
+          # Revert commits in order (they're listed newest to oldest)
+          for commit in ${{ env.COMMITS_TO_REVERT }}; do
+            echo "Reverting commit $commit..."
+            git revert --no-edit $commit || echo "Failed to revert $commit, continuing..."
+          done
 
-      - name: Push revert
+      - name: Push reverts
         if: env.SHOULD_REVERT == 'true'
         run: |
           git push || { git status; exit 1; }
