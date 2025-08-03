@@ -67,6 +67,18 @@ void ksdate_utcStringFromMicroseconds(int64_t microseconds, char *buffer, size_t
              result.tm_mday, result.tm_hour, result.tm_min, result.tm_sec, micros);
 }
 
-uint64_t ksdate_microseconds(void) { return clock_gettime_nsec_np(CLOCK_REALTIME) / 1000; }
+uint64_t ksdate_microseconds(void)
+{
+    struct timeval tp;
+    gettimeofday(&tp, NULL);
+    uint64_t microseconds = ((uint64_t)tp.tv_sec) * 1000000 + (uint64_t)tp.tv_usec;
+    return microseconds;
+}
 
-uint64_t ksdate_seconds(void) { return clock_gettime_nsec_np(CLOCK_REALTIME) / 1000000000; }
+uint64_t ksdate_seconds(void)
+{
+    struct timeval tp;
+    gettimeofday(&tp, NULL);
+    uint64_t seconds = (uint64_t)tp.tv_sec;
+    return seconds;
+}
