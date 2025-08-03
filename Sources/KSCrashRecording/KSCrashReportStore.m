@@ -146,12 +146,19 @@
 - (NSArray<NSNumber *> *)reportIDs
 {
     int reportCount = kscrs_getReportCount(&_cConfig);
-    int64_t reportIDsC[reportCount];
+    if (reportCount <= 0) {
+        return @[];
+    }
+    int64_t *reportIDsC = malloc(sizeof(int64_t) * (size_t)reportCount);
+    if (!reportIDsC) {
+        return @[];
+    }
     reportCount = kscrs_getReportIDs(reportIDsC, reportCount, &_cConfig);
     NSMutableArray *reportIDs = [NSMutableArray arrayWithCapacity:(NSUInteger)reportCount];
     for (int i = 0; i < reportCount; i++) {
         [reportIDs addObject:[NSNumber numberWithLongLong:reportIDsC[i]]];
     }
+    free(reportIDsC);
     return [reportIDs copy];
 }
 

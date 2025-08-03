@@ -374,10 +374,10 @@ static int encodeObject(KSJSONCodec *codec, id object, NSString *name, KSJSONEnc
     }
 
     if ([object isKindOfClass:[NSDate class]]) {
-        char string[21];
+        char string[KSDATE_BUFFERSIZE] = { 0 };
         time_t timestamp = (time_t)((NSDate *)object).timeIntervalSince1970;
-        ksdate_utcStringFromTimestamp(timestamp, string);
-        NSData *data = [NSData dataWithBytes:string length:strnlen(string, 20)];
+        ksdate_utcStringFromTimestamp(timestamp, string, KSDATE_BUFFERSIZE);
+        NSData *data = [NSData dataWithBytes:string length:strnlen(string, KSDATE_BUFFERSIZE - 1)];
         return ksjson_addStringElement(context, cName, data.bytes, (int)data.length);
     }
 

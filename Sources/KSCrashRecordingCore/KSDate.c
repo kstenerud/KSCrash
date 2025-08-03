@@ -25,25 +25,45 @@
 #include "KSDate.h"
 
 #include <stdio.h>
+#include <string.h>
 #include <sys/time.h>
 #include <time.h>
 
-void ksdate_utcStringFromTimestamp(time_t timestamp, char *buffer21Chars)
+void ksdate_utcStringFromTimestamp(time_t timestamp, char *buffer, size_t bufferSize)
 {
+    memset(buffer, 0, bufferSize);
+
+    // Cannot be in the future.
+    if ((uint64_t)timestamp > ksdate_seconds()) {
+        return;
+    }
+
     struct tm result = { 0 };
-    gmtime_r(&timestamp, &result);
-    snprintf(buffer21Chars, 21, "%04d-%02d-%02dT%02d:%02d:%02dZ", result.tm_year + 1900, result.tm_mon + 1,
+    if (!gmtime_r(&timestamp, &result)) {
+        return;
+    }
+    snprintf(buffer, bufferSize, "%04d-%02d-%02dT%02d:%02d:%02dZ", result.tm_year + 1900, result.tm_mon + 1,
              result.tm_mday, result.tm_hour, result.tm_min, result.tm_sec);
 }
 
-void ksdate_utcStringFromMicroseconds(int64_t microseconds, char *buffer28Chars)
+void ksdate_utcStringFromMicroseconds(int64_t microseconds, char *buffer, size_t bufferSize)
 {
+    memset(buffer, 0, bufferSize);
+
+    // Cannot be in the future.
+    if ((uint64_t)microseconds > ksdate_microseconds()) {
+        return;
+    }
+
     struct tm result = { 0 };
     time_t curtime = (time_t)(microseconds / 1000000);
     long micros = (long)(microseconds % 1000000);
 
-    gmtime_r(&curtime, &result);
-    snprintf(buffer28Chars, 28, "%04d-%02d-%02dT%02d:%02d:%02d.%06ldZ", result.tm_year + 1900, result.tm_mon + 1,
+    if (!gmtime_r(&curtime, &result)) {
+        return;
+    }
+
+    snprintf(buffer, bufferSize, "%04d-%02d-%02dT%02d:%02d:%02d.%06ldZ", result.tm_year + 1900, result.tm_mon + 1,
              result.tm_mday, result.tm_hour, result.tm_min, result.tm_sec, micros);
 }
 
@@ -53,4 +73,12 @@ uint64_t ksdate_microseconds(void)
     gettimeofday(&tp, NULL);
     uint64_t microseconds = ((uint64_t)tp.tv_sec) * 1000000 + (uint64_t)tp.tv_usec;
     return microseconds;
+}
+
+uint64_t ksdate_seconds(void)
+{
+    struct timeval tp;
+    gettimeofday(&tp, NULL);
+    uint64_t seconds = (uint64_t)tp.tv_sec;
+    return seconds;
 }
