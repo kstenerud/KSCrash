@@ -63,6 +63,7 @@ NS_SWIFT_NAME(AppStateTracker)
 - (instancetype)initWithNotificationCenter:(NSNotificationCenter *)notificationCenter NS_DESIGNATED_INITIALIZER;
 
 @property(atomic, readonly) KSCrashAppTransitionState transitionState;
+@property(atomic, readonly, getter=isTransitionStateComplete) BOOL transitionStateComplete;
 
 /**
  * Adds an observer that implements the _KSCrashAppStateTrackerObserving_ protocol.
