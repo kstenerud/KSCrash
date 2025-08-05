@@ -208,6 +208,7 @@ typedef struct KSCrash_MonitorContext {
         const char *bundleShortVersion;
         const char *appID;
         const char *cpuArchitecture;
+        const char *binaryArchitecture;
         int cpuType;
         int cpuSubType;
         int binaryCPUType;
