@@ -209,6 +209,7 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
     COPY_STRING(kernelVersion);
     COPY_STRING(osVersion);
     COPY_PRIMITIVE(isJailbroken);
+    COPY_PRIMITIVE(procTranslated);
     COPY_STRING(bootTime);  // this field is populated in an optional monitor
     COPY_STRING(appStartTime);
     COPY_STRING(executablePath);
@@ -220,6 +221,7 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
     COPY_STRING(appID);
     COPY_STRING(cpuArchitecture);
     COPY_STRING(binaryArchitecture);
+    COPY_STRING(clangVersion);
     COPY_PRIMITIVE(cpuType);
     COPY_PRIMITIVE(cpuSubType);
     COPY_PRIMITIVE(binaryCPUType);
@@ -230,7 +232,8 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
     COPY_PRIMITIVE(parentProcessID);
     COPY_STRING(deviceAppHash);
     COPY_STRING(buildType);
-    COPY_PRIMITIVE(storageSize);  // this field is populated in an optional monitor
+    COPY_PRIMITIVE(storageSize);      // this field is populated in an optional monitor
+    COPY_PRIMITIVE(freeStorageSize);  // this field is populated in an optional monitor
     COPY_PRIMITIVE(memorySize);
     COPY_PRIMITIVE(freeMemory);
     COPY_PRIMITIVE(usableMemory);

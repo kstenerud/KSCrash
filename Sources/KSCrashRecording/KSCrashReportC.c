@@ -1527,6 +1527,7 @@ static void writeSystemInfo(const KSCrashReportWriter *const writer, const char 
         writer->addStringElement(writer, KSCrashField_KernelVersion, monitorContext->System.kernelVersion);
         writer->addStringElement(writer, KSCrashField_OSVersion, monitorContext->System.osVersion);
         writer->addBooleanElement(writer, KSCrashField_Jailbroken, monitorContext->System.isJailbroken);
+        writer->addBooleanElement(writer, KSCrashField_ProcTranslated, monitorContext->System.procTranslated);
         writer->addStringElement(writer, KSCrashField_BootTime, monitorContext->System.bootTime);
         writer->addStringElement(writer, KSCrashField_AppStartTime, monitorContext->System.appStartTime);
         writer->addStringElement(writer, KSCrashField_ExecutablePath, monitorContext->System.executablePath);
@@ -1539,6 +1540,7 @@ static void writeSystemInfo(const KSCrashReportWriter *const writer, const char 
         writer->addStringElement(writer, KSCrashField_CPUArch, monitorContext->System.cpuArchitecture);
         writer->addStringElement(writer, KSCrashField_BinaryArch, monitorContext->System.binaryArchitecture);
         writer->addIntegerElement(writer, KSCrashField_CPUType, monitorContext->System.cpuType);
+        writer->addStringElement(writer, KSCrashField_ClangVersion, monitorContext->System.clangVersion);
         writer->addIntegerElement(writer, KSCrashField_CPUSubType, monitorContext->System.cpuSubType);
         writer->addIntegerElement(writer, KSCrashField_BinaryCPUType, monitorContext->System.binaryCPUType);
         writer->addIntegerElement(writer, KSCrashField_BinaryCPUSubType, monitorContext->System.binaryCPUSubType);
@@ -1549,6 +1551,7 @@ static void writeSystemInfo(const KSCrashReportWriter *const writer, const char 
         writer->addStringElement(writer, KSCrashField_DeviceAppHash, monitorContext->System.deviceAppHash);
         writer->addStringElement(writer, KSCrashField_BuildType, monitorContext->System.buildType);
         writer->addIntegerElement(writer, KSCrashField_Storage, (int64_t)monitorContext->System.storageSize);
+        writer->addIntegerElement(writer, KSCrashField_FreeStorage, (int64_t)monitorContext->System.freeStorageSize);
 
         writeMemoryInfo(writer, KSCrashField_Memory, monitorContext);
         writeAppStats(writer, KSCrashField_AppStats, monitorContext);
