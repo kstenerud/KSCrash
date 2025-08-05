@@ -375,8 +375,8 @@ static void kscm_memory_check_for_oom_in_previous_session(void)
  */
 static void notifyPostSystemEnable(void)
 {
-    bool expectEnabled = false;
-    if (!atomic_compare_exchange_strong(&g_hasPostEnable, &expectEnabled, isEnabled)) {
+    bool expectPostEnable = false;
+    if (!atomic_compare_exchange_strong(&g_hasPostEnable, &expectPostEnable, true)) {
         // We were already in the expected state
         return;
     }
