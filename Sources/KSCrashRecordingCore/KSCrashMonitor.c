@@ -91,17 +91,16 @@ static bool addMonitor(MonitorList *list, const KSCrashMonitorAPI *api)
 {
     bool added = false;
     for (size_t i = 0; i < monitorAPICount; i++) {
-        if (list->apis[i] == api) {
+        if (atomic_load(list->apis + i) == api) {
+            // This API has already been added by someone else.
             return false;
         }
 
-        if (list->apis[i] == NULL) {
-            // Make sure we're swapping from null to our API, and not something else that got swapped in meanwhile.
-            const KSCrashMonitorAPI *expectedAPI = NULL;
-            if (atomic_compare_exchange_strong(list->apis + i, &expectedAPI, api)) {
-                added = true;
-                break;
-            }
+        // Make sure we're swapping from null to our API, and not something else that got swapped in meanwhile.
+        const KSCrashMonitorAPI *expectedAPI = NULL;
+        if (atomic_compare_exchange_strong(list->apis + i, &expectedAPI, api)) {
+            added = true;
+            break;
         }
     }
 
@@ -111,12 +110,12 @@ static bool addMonitor(MonitorList *list, const KSCrashMonitorAPI *api)
         return false;
     }
 
-    // Check for and remove duplicates in case another thread just added the same API.
+    // Check for and remove duplicates in case another thread also just added the same API.
     bool found = false;
     for (size_t i = 0; i < monitorAPICount; i++) {
-        if (list->apis[i] == api) {
+        if (atomic_load(list->apis + i) == api) {
             if (!found) {
-                // Leave the first copy there.
+                // Leave the first copy alone.
                 found = true;
             } else {
                 // Make sure we're swapping from our API to null, and not something else that got swapped in meanwhile.
@@ -131,12 +130,10 @@ static bool addMonitor(MonitorList *list, const KSCrashMonitorAPI *api)
 static void removeMonitor(MonitorList *list, const KSCrashMonitorAPI *api)
 {
     for (size_t i = 0; i < monitorAPICount; i++) {
-        if (list->apis[i] == api) {
-            // Make sure we're swapping from our API to null, and not something else that got swapped in meanwhile.
-            const KSCrashMonitorAPI *expectedAPI = api;
-            if (atomic_compare_exchange_strong(list->apis + i, &expectedAPI, NULL)) {
-                api->setEnabled(false);
-            }
+        // Make sure we're swapping from our API to null, and not something else that got swapped in meanwhile.
+        const KSCrashMonitorAPI *expectedAPI = api;
+        if (atomic_compare_exchange_strong(list->apis + i, &expectedAPI, NULL)) {
+            api->setEnabled(false);
         }
     }
 }
@@ -322,10 +319,10 @@ bool kscm_addMonitor(const KSCrashMonitorAPI *api)
 
     if (addMonitor(&g_state.monitors, api)) {
         api->init(&exceptionCallbacks);
-        KSLOG_DEBUG("Monitor %s injected.", getMonitorNameForLogging(api));
+        KSLOG_DEBUG("Monitor %s injected.", api->monitorId());
         return true;
     } else {
-        KSLOG_DEBUG("Monitor %s already exists. Skipping addition.", getMonitorNameForLogging(api));
+        KSLOG_DEBUG("Monitor %s already exists. Skipping addition.", api->monitorId());
         return false;
     }
 }

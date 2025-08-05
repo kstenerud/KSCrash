@@ -471,8 +471,8 @@ static void handleExceptionPrimary(ExceptionContext *ctx)
     kssc_initCursor(&g_stackCursor, NULL, NULL);
     if (ksmc_getContextForThread(ctx->request->thread.name, &machineContext, true)) {
         kssc_initWithMachineContext(&g_stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
-        KSLOG_TRACE("Fault address %p, instruction address %p", kscpu_faultAddress(machineContext),
-                    kscpu_instructionAddress(machineContext));
+        KSLOG_TRACE("Fault address %p, instruction address %p", kscpu_faultAddress(&machineContext),
+                    kscpu_instructionAddress(&machineContext));
         if (ctx->request->exception == EXC_BAD_ACCESS) {
             crashContext->faultAddress = kscpu_faultAddress(&machineContext);
         } else {
