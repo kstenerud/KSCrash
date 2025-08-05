@@ -292,14 +292,12 @@ static const char *getCurrentCPUArch(void)
  */
 static inline bool isJailbroken(void)
 {
-    static bool initialized_jb;
-    static bool is_jb;
-    if (!initialized_jb) {
-        get_jailbreak_status(&is_jb);
-        initialized_jb = true;
-    }
-
-    return is_jb;
+    static bool is_jailbroken;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        get_jailbreak_status(&is_jailbroken);
+    });
+    return is_jailbroken;
 }
 
 /** Check if the current build is a debug build.
