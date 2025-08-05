@@ -32,6 +32,7 @@
 #include "KSCrashMonitorHelper.h"
 #import "KSDate.h"
 #import "KSDynamicLinker.h"
+#import "KSJailbreak.h"
 #import "KSSysCtl.h"
 #import "KSSystemCapabilities.h"
 
@@ -291,21 +292,14 @@ static const char *getCurrentCPUArch(void)
  *
  * @return YES if the device is jailbroken.
  */
-static bool isJailbroken(void)
+static inline bool isJailbroken(void)
 {
-    static bool sJailbroken;
+    static bool is_jailbroken;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        const char *path = "/private/kscrash_jailbreak_test";
-        int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-        if (fd < 0) {
-            sJailbroken = false;
-        } else {
-            sJailbroken = true;
-            unlink(path);
-        }
+        get_jailbreak_status(&is_jailbroken);
     });
-    return sJailbroken;
+    return is_jailbroken;
 }
 
 /** Check if the current build is a debug build.
