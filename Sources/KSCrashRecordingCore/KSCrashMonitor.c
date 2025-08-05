@@ -51,7 +51,7 @@
 
  We choose an array of 100 entries because there will never be that many monitors in existence. No further allocations
  are made.
- - To iterate: Traverse the entire array, ignoring any null ponters.
+ - To iterate: Traverse the entire array, ignoring any null pointers.
  - To add an entry:
    - Search the array for a hole (null pointer)
    - Try to atomically swap in the monitor API pointer.
@@ -310,6 +310,10 @@ static void handleException(struct KSCrash_MonitorContext *context)
 
 bool kscm_addMonitor(const KSCrashMonitorAPI *api)
 {
+    if(api == NULL) {
+        return false;
+    }
+
     static KSCrash_ExceptionHandlerCallbacks exceptionCallbacks = {
         .notify = notifyException,
         .handle = handleException,
@@ -329,6 +333,10 @@ bool kscm_addMonitor(const KSCrashMonitorAPI *api)
 
 void kscm_removeMonitor(const KSCrashMonitorAPI *api)
 {
+    if(api == NULL) {
+        return;
+    }
+
     init();
     removeMonitor(&g_state.monitors, api);
 }
