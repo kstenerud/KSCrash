@@ -48,8 +48,9 @@ static uint64_t getStorageSize(void)
 
 static uint64_t getFreeStorageSize(void)
 {
-    NSNumber *freeStorageSize = [[[NSFileManager defaultManager] attributesOfFileSystemForPath:NSHomeDirectory() error:nil]
-        objectForKey:NSFileSystemFreeSize];
+    NSNumber *freeStorageSize =
+        [[[NSFileManager defaultManager] attributesOfFileSystemForPath:NSHomeDirectory()
+                                                                 error:nil] objectForKey:NSFileSystemFreeSize];
     return freeStorageSize.unsignedLongLongValue;
 }
 

@@ -232,7 +232,7 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
     COPY_PRIMITIVE(parentProcessID);
     COPY_STRING(deviceAppHash);
     COPY_STRING(buildType);
-    COPY_PRIMITIVE(storageSize);  // this field is populated in an optional monitor
+    COPY_PRIMITIVE(storageSize);      // this field is populated in an optional monitor
     COPY_PRIMITIVE(freeStorageSize);  // this field is populated in an optional monitor
     COPY_PRIMITIVE(memorySize);
     COPY_PRIMITIVE(freeMemory);
