@@ -45,6 +45,7 @@
 #endif
 #include <mach-o/dyld.h>
 #include <mach/mach.h>
+#include <stdatomic.h>
 
 typedef struct {
     const char *systemName;
@@ -78,7 +79,7 @@ typedef struct {
 
 static SystemData g_systemData;
 
-static volatile bool g_isEnabled = false;
+static atomic_bool g_isEnabled = false;
 
 // ============================================================================
 #pragma mark - Utility -
@@ -509,11 +510,14 @@ static const char *monitorId(void) { return "System"; }
 
 static void setEnabled(bool isEnabled)
 {
-    if (isEnabled != g_isEnabled) {
-        g_isEnabled = isEnabled;
-        if (isEnabled) {
-            initialize();
-        }
+    bool expectEnabled = !isEnabled;
+    if (!atomic_compare_exchange_strong(&g_isEnabled, &expectEnabled, isEnabled)) {
+        // We were already in the expected state
+        return;
+    }
+
+    if (isEnabled) {
+        initialize();
     }
 }
 

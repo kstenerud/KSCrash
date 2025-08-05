@@ -44,6 +44,7 @@
 
 #import <Foundation/Foundation.h>
 #import <os/lock.h>
+#import <stdatomic.h>
 
 #import "KSLogger.h"
 
@@ -81,8 +82,8 @@ static void ksmemory_map(const char *path);
 #pragma mark - Globals -
 // ============================================================================
 
-static volatile bool g_isEnabled = 0;
-static volatile bool g_hasPostEnable = 0;
+static atomic_bool g_isEnabled = false;
+static atomic_bool g_hasPostEnable = false;
 
 // What we're reporting
 static uint8_t g_MinimumNonFatalReportingLevel = KSCrash_Memory_NonFatalReportLevelNone;
@@ -244,25 +245,28 @@ static const char *monitorId(void) { return "MemoryTermination"; }
 
 static void setEnabled(bool isEnabled)
 {
-    if (isEnabled != g_isEnabled) {
-        g_isEnabled = isEnabled;
-        if (isEnabled) {
-            g_memoryTracker = [[_KSCrashMonitor_MemoryTracker alloc] init];
+    bool expectEnabled = !isEnabled;
+    if (!atomic_compare_exchange_strong(&g_isEnabled, &expectEnabled, isEnabled)) {
+        // We were already in the expected state
+        return;
+    }
 
-            ksmemory_map(g_memoryURL.path.UTF8String);
+    if (isEnabled) {
+        g_memoryTracker = [[_KSCrashMonitor_MemoryTracker alloc] init];
 
-            g_appStateObserver = [KSCrashAppStateTracker.sharedInstance
-                addObserverWithBlock:^(KSCrashAppTransitionState transitionState) {
-                    _ks_memory_update(^(KSCrash_Memory *mem) {
-                        mem->state = transitionState;
-                    });
-                }];
+        ksmemory_map(g_memoryURL.path.UTF8String);
 
-        } else {
-            g_memoryTracker = nil;
-            [KSCrashAppStateTracker.sharedInstance removeObserver:g_appStateObserver];
-            g_appStateObserver = nil;
-        }
+        g_appStateObserver =
+            [KSCrashAppStateTracker.sharedInstance addObserverWithBlock:^(KSCrashAppTransitionState transitionState) {
+                _ks_memory_update(^(KSCrash_Memory *mem) {
+                    mem->state = transitionState;
+                });
+            }];
+
+    } else {
+        g_memoryTracker = nil;
+        [KSCrashAppStateTracker.sharedInstance removeObserver:g_appStateObserver];
+        g_appStateObserver = nil;
     }
 }
 
@@ -371,10 +375,11 @@ static void kscm_memory_check_for_oom_in_previous_session(void)
  */
 static void notifyPostSystemEnable(void)
 {
-    if (g_hasPostEnable) {
+    bool expectPostEnable = false;
+    if (!atomic_compare_exchange_strong(&g_hasPostEnable, &expectPostEnable, true)) {
+        // We were already in the expected state
         return;
     }
-    g_hasPostEnable = 1;
 
     // Usually we'd do something like this `setEnabled`,
     // but in this case not all monitors are ready in `seEnabled`
