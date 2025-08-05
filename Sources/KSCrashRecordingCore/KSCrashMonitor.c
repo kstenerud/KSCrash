@@ -310,7 +310,7 @@ static void handleException(struct KSCrash_MonitorContext *context)
 
 bool kscm_addMonitor(const KSCrashMonitorAPI *api)
 {
-    if(api == NULL) {
+    if (api == NULL) {
         return false;
     }
 
@@ -333,7 +333,7 @@ bool kscm_addMonitor(const KSCrashMonitorAPI *api)
 
 void kscm_removeMonitor(const KSCrashMonitorAPI *api)
 {
-    if(api == NULL) {
+    if (api == NULL) {
         return;
     }
 
