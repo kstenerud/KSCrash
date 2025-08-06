@@ -1,9 +1,9 @@
 //
-//  InstallConfig.swift
+//  KSStringConversion.h
 //
-//  Created by Nikolay Volosatov on 2024-08-11.
+//  Created by Robert B on 2025-04-23.
 //
-//  Copyright (c) 2012 Karl Stenerud. All rights reserved.
+//  Copyright (c) 2025 Karl Stenerud. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -24,33 +24,37 @@
 // THE SOFTWARE.
 //
 
-import Foundation
-import KSCrashRecording
+#ifndef HDR_KSStringConversion_h
+#define HDR_KSStringConversion_h
 
-public struct InstallConfig: Codable {
-    public var installPath: String
-    public var isCxaThrowEnabled: Bool?
-    public var isSigTermMonitoringEnabled: Bool?
-    public var isMemoryIntrospectionEnabled: Bool?
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <uuid/uuid.h>
 
-    public init(installPath: String) {
-        self.installPath = installPath
-    }
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/**
+ * Convert an unsigned integer to a hex string.
+ * This will write a maximum of 17 characters (including the NUL) to dst.
+ *
+ * If min_digits is greater than 1, it will prepad with zeroes to reach this number of digits
+ * (up to a maximum of 16 digits).
+ *
+ * Returns the length of the string written to dst (not including the NUL).
+ */
+size_t kssc_uint64_to_hex(uint64_t value, char *dst, int min_digits, bool uppercase);
+
+/**
+ * Convert an uuid_t to an uuid string.
+ * This will write 37 characters (including the NUL) to dst.
+ */
+void kssc_uuid_to_string(uuid_t value, char *dst);
+
+#ifdef __cplusplus
 }
+#endif
 
-extension InstallConfig {
-    func install() throws {
-        let config = KSCrashConfiguration()
-        config.installPath = installPath
-        if let isCxaThrowEnabled {
-            config.enableSwapCxaThrow = isCxaThrowEnabled
-        }
-        if let isSigTermMonitoringEnabled {
-            config.enableSigTermMonitoring = isSigTermMonitoringEnabled
-        }
-        if let isMemoryIntrospectionEnabled {
-            config.enableMemoryIntrospection = isMemoryIntrospectionEnabled
-        }
-        try KSCrash.shared.install(with: config)
-    }
-}
+#endif  // HDR_KSStringConversion_h
