@@ -445,6 +445,10 @@ func appMemoryTracker(_ tracker: AppMemoryTracker, memory: AppMemory, changed ch
 
 This feature helps you implement proactive memory management strategies in your app.
 
+## Discussions
+
+Join us on [Slack](https://join.slack.com/t/kscrash/shared_invite/zt-3a1oenkrm-03CMfyw3pf1QQReyRpnc4g).  
+
 ## License
 
 Copyright (c) 2012 Karl Stenerud
