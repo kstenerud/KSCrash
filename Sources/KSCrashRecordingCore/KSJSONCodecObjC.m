@@ -414,8 +414,8 @@ static int encodeObject(KSJSONCodec *codec, id object, NSString *name, KSJSONEnc
     const size_t decodeMaxStringSize = 20000000;
     NSMutableData *stringBuffer = [NSMutableData dataWithLength:decodeMaxStringSize];
     int errorOffset;
-    int result = ksjson_decode(JSONData.bytes, (int)JSONData.length, stringBuffer.mutableBytes, (int)stringBuffer.length,
-                               codec.callbacks, (__bridge void *)codec, &errorOffset);
+    int result = ksjson_decode(JSONData.bytes, (int)JSONData.length, stringBuffer.mutableBytes,
+                               (int)stringBuffer.length, codec.callbacks, (__bridge void *)codec, &errorOffset);
     if (result != KSJSON_OK && codec.error == nil) {
         codec.error = [KSNSErrorHelper errorWithDomain:@"KSJSONCodecObjC"
                                                   code:0
