@@ -262,7 +262,7 @@ extern void kscm_testcode_resetState(void);
 
     dummyExceptionHandlerCallbacks.handle(ctx);  // Handle the exception
     XCTAssertTrue(g_exceptionHandled, @"The exception should have been handled by the event callback.");
-    XCTAssertTrue(g_dummyEnabledState, @"A fatal exception should disable the monitor");
+    XCTAssertTrue(g_dummyEnabledState, @"A non-fatal exception should not disable the monitor");
 }
 
 - (void)testHeapAllocAsyncSafety
