@@ -551,7 +551,7 @@ static void init(KSCrash_ExceptionHandlerCallbacks *callbacks) { g_callbacks = *
 KSCrashMonitorAPI *kscm_machexception_getAPI(void)
 {
     static KSCrashMonitorAPI api = { 0 };
-    if (kscm_initAPI(&api)) {
+    if (kscma_initAPI(&api)) {
 #if KSCRASH_HAS_MACH
         api.init = init;
         api.monitorId = monitorId;

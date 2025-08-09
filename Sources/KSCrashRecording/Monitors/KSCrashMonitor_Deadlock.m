@@ -204,7 +204,7 @@ static void init(KSCrash_ExceptionHandlerCallbacks *callbacks) { g_callbacks = *
 KSCrashMonitorAPI *kscm_deadlock_getAPI(void)
 {
     static KSCrashMonitorAPI api = { 0 };
-    if (kscm_initAPI(&api)) {
+    if (kscma_initAPI(&api)) {
         api.init = init;
         api.monitorId = monitorId;
         api.monitorFlags = monitorFlags;

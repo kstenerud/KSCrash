@@ -230,7 +230,7 @@ static void init(KSCrash_ExceptionHandlerCallbacks *callbacks) { g_callbacks = *
 extern "C" KSCrashMonitorAPI *kscm_cppexception_getAPI()
 {
     static KSCrashMonitorAPI api = { 0 };
-    if (kscm_initAPI(&api)) {
+    if (kscma_initAPI(&api)) {
         api.init = init;
         api.monitorId = monitorId;
         api.monitorFlags = monitorFlags;

@@ -1,7 +1,7 @@
 //
-//  KSCrashMonitor.h
+//  KSCrashMonitorRegistry.h
 //
-//  Created by Karl Stenerud on 2012-02-12.
+//  Created by Karl Stenerud on 2025-08-09.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,25 +24,35 @@
 // THE SOFTWARE.
 //
 
-/** Keeps watch for crashes and informs via callback when one occurs.
- */
-
-#ifndef HDR_KSCrashMonitor_h
-#define HDR_KSCrashMonitor_h
+#ifndef HDR_KSCrashMonitorRegistry_h
+#define HDR_KSCrashMonitorRegistry_h
 
 #include <stdbool.h>
 
 #include "KSCrashMonitorAPI.h"
-#include "KSCrashMonitorContext.h"
 #include "KSCrashNamespace.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-// ============================================================================
-#pragma mark - External API -
-// ============================================================================
+/*
+ * Monitor list lockless algorithm:
+ *
+ * We choose an array of 100 entries because there will never be that many monitors in existence. No further allocations
+ * are made.
+ * - To iterate: Traverse the entire array, ignoring any null pointers.
+ * - To add an entry:
+ *   - Search the array for a hole (null pointer)
+ *   - Try to atomically swap in the monitor API pointer.
+ *   - If the swap fails, continue searching for the next hole and repeat.
+ *   - Once a swap is successful, iterate again, removing duplicates in case someone else also added the same API.
+ * - To remove an entry: Search for the pointer in the array and swap it for null.
+ */
+static const size_t monitorAPICount = 100;
+typedef struct {
+    _Atomic(const KSCrashMonitorAPI *) apis[monitorAPICount];
+} KSCrashMonitorAPIList;
 
 /**
  * Activates all added crash monitors.
@@ -56,14 +66,14 @@ extern "C" {
  *
  * @return bool True if at least one monitor was successfully activated, false if no monitors were activated.
  */
-bool kscm_activateMonitors(void);
+bool kscmr_activateMonitors(KSCrashMonitorAPIList *monitorList);
 
 /**
  * Disables all active crash monitors.
  *
  * Turns off all currently active monitors.
  */
-void kscm_disableAllMonitors(void);
+void kscmr_disableAllMonitors(KSCrashMonitorAPIList *monitorList);
 
 /**
  * Adds a crash monitor to the system.
@@ -78,7 +88,7 @@ void kscm_disableAllMonitors(void);
  * depends on various factors, including the environment, debugger presence,
  * and async safety requirements.
  */
-bool kscm_addMonitor(const KSCrashMonitorAPI *api);
+bool kscmr_addMonitor(KSCrashMonitorAPIList *monitorList, const KSCrashMonitorAPI *api);
 
 /**
  * Removes a crash monitor from the system.
@@ -87,19 +97,12 @@ bool kscm_addMonitor(const KSCrashMonitorAPI *api);
  *
  * If the monitor is found, it is removed from the system.
  */
-void kscm_removeMonitor(const KSCrashMonitorAPI *api);
+void kscmr_removeMonitor(KSCrashMonitorAPIList *monitorList, const KSCrashMonitorAPI *api);
 
-/**
- * Sets the callback for event capture.
- *
- * @param onEvent Callback function for events.
- *
- * Registers a callback to be invoked when an event occurs.
- */
-void kscm_setEventCallback(void (*onEvent)(struct KSCrash_MonitorContext *monitorContext));
+void kscmr_addContextualInfoToEvent(KSCrashMonitorAPIList *monitorList, struct KSCrash_MonitorContext *ctx);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif  // HDR_KSCrashMonitor_h
+#endif  // HDR_KSCrashMonitorRegistry_h

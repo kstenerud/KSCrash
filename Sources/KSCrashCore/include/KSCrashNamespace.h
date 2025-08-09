@@ -193,7 +193,7 @@
 #define kscm_discSpace_resetState KSCRASH_NS(kscm_discSpace_resetState)
 #define kscm_discspace_getAPI KSCRASH_NS(kscm_discspace_getAPI)
 #define kscm_enableSwapCxaThrow KSCRASH_NS(kscm_enableSwapCxaThrow)
-#define kscm_initAPI KSCRASH_NS(kscm_initAPI)
+#define kscma_initAPI KSCRASH_NS(kscma_initAPI)
 #define kscm_machexception_getAPI KSCRASH_NS(kscm_machexception_getAPI)
 #define kscm_memory_getAPI KSCRASH_NS(kscm_memory_getAPI)
 #define kscm_nsexception_getAPI KSCRASH_NS(kscm_nsexception_getAPI)
