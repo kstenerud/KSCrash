@@ -38,35 +38,54 @@
 extern "C" {
 #endif
 
+/**
+ * Policy and state information that affects how a crash will be handled.
+ */
 typedef struct {
-    /** Proceed with the expectation that the app will terminate when handling is done. */
+    /** Do nothing. Touch nothing. Exit the exception handler immediately. */
+    unsigned shouldExitImmediately : 1;
+
+    /** The process will terminate once exception handling is finished. */
     unsigned isFatal : 1;
 
-    /** Only async-safe functions may be called */
-    unsigned asyncSafety : 1;
+    /** Only async-safe functions may be called. */
+    unsigned requiresAsyncSafety : 1;
+
+    /**
+     * This crash happened while handling a crash, so we'll be producing only a minimal report.
+     * Note: This will override shouldRecordThreads.
+     */
+    unsigned crashedDuringExceptionHandling : 1;
+
+    /** The handle() method will try to record all threads if possible. */
+    unsigned shouldRecordThreads : 1;
 } KSCrash_ExceptionHandlingPolicy;
 
+/**
+ * The monitor context is a clearing house for all information that might be recorded into a crash report.
+ * Monitors will each be given a chance to add information to this struct before the crash report is generated.
+ */
 typedef struct KSCrash_MonitorContext {
+    /** If true, this context is on the heap and must be freed. */
+    bool isHeapAllocated;
+
+    /** Which thread in the thread handler list is handling this exception. */
+    int threadHandlerIndex;
+
+    /** The current policy for handling this exception. */
+    KSCrash_ExceptionHandlingPolicy currentPolicy;
+
     /** Unique identifier for this event. */
     char eventID[40];
+
+    /** The list of threads that are currently suspended. */
+    thread_act_array_t suspendedThreads;
+    mach_msg_type_number_t suspendedThreadsCount;
 
     /**
      If true, so reported user exception will have the current snapshot.
      */
     bool currentSnapshotUserReported;
-
-    /** If true, the environment has crashed hard, and only async-safe
-     *  functions should be used.
-     */
-    bool requiresAsyncSafety;
-
-    /** If true, the crash handling system is currently handling a crash.
-     * When false, all values below this field are considered invalid.
-     */
-    bool handlingCrash;
-
-    /** If true, a second crash occurred while handling a crash. */
-    bool crashedDuringCrashHandling;
 
     /** If true, the registers contain valid information about the crash. */
     bool registersAreValid;
@@ -272,25 +291,42 @@ typedef struct KSCrash_MonitorContext {
 
 /**
  * Callbacks to be used by monitors.
- * In general, exception handling will follow a similar procedure:
- * - Do any critical preliminary work
- * - Call notify() to inform of the exception, circumstances, and recommendations
- * - Handle less critical things required before handling the exception
- * - Call handle() to handle the exception
- * - Cleanup
+ * In general, exception handling will follow a similar process:
+ * - Do the minimum amount of work necessary to call the notify callback.
+ * - Call `notify()` to inform of the exception, circumstances, and recommendations.
+ * - Fill in the returned monitor context.
+ * - Call `handle()` to handle the exception.
+ * - Do any necessary cleanup and exception forwarding.
  */
 typedef struct {
     /**
-     * Notify that an exception has occurred. This MUST always be called first!
-     * This will only make preliminary policy decisions, and won't actually handle the exception.
+     * Notify that an exception has occurred. This function will prepare the system for handling the exception, and make some
+     * policy decisions based on your recommendations and the current system state.
+     *
+     * This should be called as early as possible in the exception handling process because it will stop all other threads if
+     * you've requested to record threads - and stopping threads early minimizes the chances of a context switch causing
+     * other threads to run some more before you've had a chance to record them.
+     *
+     * Also note that requesting thread recording will change the environment into one requiring async-safety. So make
+     * sure anything async-unsafe you need is done BEFORE calling this function with `shouldRecordThreads` set!
+     *
+     * After calling this function, you should fill out any pertinent information in the returned context, and then call handle().
+     *
+     * @param offendingThread The thread that caused the exception.
      * @param recommendations Recommendations about the current environment, and how this exception should be handled.
-     * @return true if we were already in a crashed environment before calling this.
+     * @return a monitor context to be filled out and passed to `handle()`.
      */
-    bool (*notify)(KSCrash_ExceptionHandlingPolicy recommendations);
+    KSCrash_MonitorContext *(*notify)(thread_t offendingThread, KSCrash_ExceptionHandlingPolicy recommendations);
 
     /**
-     * Handle the exception.
-     * @param context The monitor context to use when processing the exception.
+     * Handle the exception. This function will collect any pertinent information into the context and then pass the context
+     * on to the event recorder.
+     *
+     * WARNING: When this function returns, the context will point to invalid memory! DO NOT USE IT ANYMORE!
+     *
+     * You should call this function last in your handler, right before passing the exception on to the next system handler.
+     *
+     * @param context The monitor context that was returned by `notify()`
      */
     void (*handle)(KSCrash_MonitorContext *context);
 } KSCrash_ExceptionHandlerCallbacks;

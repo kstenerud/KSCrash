@@ -148,7 +148,6 @@ typedef struct ExceptionContext {
 
 static atomic_bool g_isEnabled = false;
 
-static KSCrash_MonitorContext g_monitorContext;
 static KSStackCursor g_stackCursor;
 
 static ExceptionContext g_primaryContext = { 0 };
@@ -453,20 +452,21 @@ static void handleExceptionPrimary(ExceptionContext *ctx)
         return;
     }
 
-    thread_act_array_t threads = NULL;
-    mach_msg_type_number_t numThreads = 0;
-    ksmc_suspendEnvironment(&threads, &numThreads);
-    g_callbacks.notify((KSCrash_ExceptionHandlingPolicy) {
-        .asyncSafety = true,
-        .isFatal = true,
-    });
+    KSCrash_MonitorContext *crashContext = g_callbacks.notify(ctx->request->thread.name,
+                                                              (KSCrash_ExceptionHandlingPolicy) {
+                                                                  .requiresAsyncSafety = true,
+                                                                  .isFatal = true,
+                                                                  .shouldRecordThreads = true,
+                                                              });
+    if (crashContext->currentPolicy.shouldExitImmediately) {
+        return;
+    }
 
     KSLOG_DEBUG("Exception handler is installed. Continuing exception handling.");
 
     // Fill out crash information
     KSLOG_DEBUG("Fetching machine state.");
     KSMachineContext machineContext = { 0 };
-    KSCrash_MonitorContext *crashContext = &g_monitorContext;
     crashContext->offendingMachineContext = &machineContext;
     kssc_initCursor(&g_stackCursor, NULL, NULL);
     if (ksmc_getContextForThread(ctx->request->thread.name, &machineContext, true)) {
@@ -498,7 +498,6 @@ static void handleExceptionPrimary(ExceptionContext *ctx)
     g_callbacks.handle(crashContext);
 
     KSLOG_DEBUG("Crash handling complete. Restoring original handlers.");
-    ksmc_resumeEnvironment(threads, numThreads);
 }
 
 static void startPrimaryExceptionHandler(void)

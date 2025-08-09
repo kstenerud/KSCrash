@@ -68,15 +68,27 @@ typedef struct {
 #pragma mark - Globals -
 // ============================================================================
 
-static const size_t eventIdCount = 2;
+static const size_t asyncSafeIndexMask = 1;
+static const size_t asyncSafeItemCount = asyncSafeIndexMask + 1;
+static const int maxSimultaneousExceptions = 200; // 99.99999% sure we'll never exceed this.
+
 static struct {
     MonitorList monitors;
 
     bool crashedDuringExceptionHandling;
-    KSCrash_ExceptionHandlingPolicy currentPolicy;
+    bool isHandlingFatalException;
 
-    char eventIds[eventIdCount][40];
-    size_t eventIdIdx;
+    KSCrash_MonitorContext asyncSafeContext[asyncSafeItemCount];
+    atomic_int asyncSafeContextIndex;
+
+    /**
+     * Special context to use when we need to bail out and ignore the exception.
+     * bailoutContext.currentPolicy.exitImmediately MUST always be true.
+     */
+    KSCrash_MonitorContext exitImmediatelyContext;
+
+    thread_t threadsHandlingExceptions[maxSimultaneousExceptions];
+    atomic_int handlingExceptionIndex;
 
     void (*onExceptionEvent)(struct KSCrash_MonitorContext *monitorContext);
 } g_state;
@@ -86,6 +98,11 @@ static atomic_bool g_initialized;
 // ============================================================================
 #pragma mark - Internal -
 // ============================================================================
+
+static KSCrash_MonitorContext *asyncSafeContextAtIndex(int index)
+{
+    return &g_state.asyncSafeContext[((size_t)index) & asyncSafeIndexMask];
+}
 
 static bool addMonitor(MonitorList *list, const KSCrashMonitorAPI *api)
 {
@@ -138,14 +155,6 @@ static void removeMonitor(MonitorList *list, const KSCrashMonitorAPI *api)
     }
 }
 
-static void regenerateEventIds(void)
-{
-    for (size_t i = 0; i < eventIdCount; i++) {
-        ksid_generate(g_state.eventIds[i]);
-    }
-    g_state.eventIdIdx = 0;
-}
-
 static void init(void)
 {
     bool expectInitialized = false;
@@ -154,14 +163,80 @@ static void init(void)
     }
 
     memset(&g_state, 0, sizeof(g_state));
-    regenerateEventIds();
+    for (size_t i = 0; i < asyncSafeItemCount; i++) {
+        ksid_generate(g_state.asyncSafeContext[i].eventID);
+    }
+    g_state.exitImmediatelyContext.currentPolicy.shouldExitImmediately = true;
 }
 
-__attribute__((unused)) // For tests. Declared as extern in TestCase
-void kscm_resetState(void)
+static bool isThreadAlreadyHandlingAnException(int maxCount, thread_t offendingThread, thread_t handlingThread)
 {
-    g_initialized = false;
-    memset(&g_state, 0, sizeof(g_state));
+    if (maxCount > maxSimultaneousExceptions) {
+        maxCount = maxSimultaneousExceptions;
+    }
+    for (int i = 0; i < maxCount; i++) {
+        thread_t handlerThread = g_state.threadsHandlingExceptions[i];
+        if (handlerThread == handlingThread || handlerThread == offendingThread) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static int beginHandlingException(thread_t handlerThread)
+{
+    int thisThreadHandlerIndex = g_state.handlingExceptionIndex++;
+    if(thisThreadHandlerIndex < maxSimultaneousExceptions) {
+        g_state.threadsHandlingExceptions[thisThreadHandlerIndex] = handlerThread;
+    }
+    return thisThreadHandlerIndex;
+}
+
+static void endHandlingException(int threadIndex)
+{
+    g_state.threadsHandlingExceptions[threadIndex] = 0;
+
+    int expectedIndex = g_state.handlingExceptionIndex;
+    if (expectedIndex == 0) {
+        return;
+    }
+
+    // If the list has become empty (all simultaneously running
+    // handlers have finished), reset the index back to 0.
+    for (int i = 0; i < maxSimultaneousExceptions; i++) {
+        if (g_state.threadsHandlingExceptions[i] != 0) {
+            return;
+        }
+    }
+    // If another thread got added while we were checking, this exchange will fail by
+    // design. This is fine because all added threads will eventually perform this
+    // same operation, and one of them will succeed.
+    atomic_compare_exchange_strong(&g_state.handlingExceptionIndex, &expectedIndex, 0);
+}
+
+static KSCrash_MonitorContext *getNextMonitorContext(KSCrash_ExceptionHandlingPolicy policy)
+{
+    KSCrash_MonitorContext *ctx = NULL;
+
+    if (policy.requiresAsyncSafety) {
+        // Only fatal exception handlers can be initiated in an environment requiring async
+        // safety, so only they will call `notify()` with `requiresAsyncSafety = true`.
+        //
+        // Therefore, only at most two such contexts can ever be simultaneously active
+        // (crash and recrash), and they'll never be re-used because the app terminates
+        // afterwards.
+        //
+        // If a third same-thread exception occurs, `notifyException()` calls `exit(1)`.
+        ctx = asyncSafeContextAtIndex(g_state.asyncSafeContextIndex++);
+    } else {
+        // If we're not in an environment requiring async safety, allocate a context on
+        // the heap, and then free it in handleException().
+        ctx = (KSCrash_MonitorContext *)calloc(1, sizeof(*ctx));
+        ksid_generate(ctx->eventID);
+        ctx->isHeapAllocated = true;
+    }
+
+    return ctx;
 }
 
 // ============================================================================
@@ -179,7 +254,6 @@ bool kscm_activateMonitors(void)
     init();
     // Check for debugger and async safety
     bool isDebuggerUnsafe = ksdebug_isBeingTraced();
-    bool isAsyncSafeRequired = g_state.currentPolicy.asyncSafety;
 
     if (isDebuggerUnsafe) {
         static bool hasWarned = false;
@@ -190,10 +264,6 @@ bool kscm_activateMonitors(void)
             KSLOGBASIC_WARN("    * This means that most crashes WILL NOT BE RECORDED while debugging! *");
             KSLOGBASIC_WARN("    **********************************************************************");
         }
-    }
-
-    if (isAsyncSafeRequired) {
-        KSLOG_DEBUG("Async-safe environment detected. Masking out unsafe monitors.");
     }
 
     // Enable or disable monitors
@@ -208,10 +278,6 @@ bool kscm_activateMonitors(void)
         bool shouldEnable = true;
 
         if (isDebuggerUnsafe && (flags & KSCrashMonitorFlagDebuggerUnsafe)) {
-            shouldEnable = false;
-        }
-
-        if (isAsyncSafeRequired && !(flags & KSCrashMonitorFlagAsyncSafe)) {
             shouldEnable = false;
         }
 
@@ -243,69 +309,136 @@ void kscm_disableAllMonitors(void)
     KSLOG_DEBUG("All monitors have been disabled.");
 }
 
-static bool notifyException(KSCrash_ExceptionHandlingPolicy recommendations)
+static KSCrash_MonitorContext *notifyException(const mach_port_t offendingThread,
+                                               const KSCrash_ExceptionHandlingPolicy recommendations)
 {
-    g_state.currentPolicy.asyncSafety |= recommendations.asyncSafety;  // Don't let it be unset.
-    if (!recommendations.isFatal) {
-        return false;
+    // This is the main policy decision point for all exception handling.
+    //
+    // If another exception occurs while we are already handling an exception, we need to decide what
+    // to do based on whether the exception is fatal, what kinds of other exceptions are already in
+    // progress, and whether there's already a handler running on this thread (i.e. our handler has crashed).
+    //
+    // | 1st exc   | 2nd exc | 3rd exc | same handler thread? | Procedure        |
+    // | --------- | ------- | ------- | -------------------- | ---------------- |
+    // | any       |         |         |                      | normal handling  |
+    // | non-fatal | any     |         | N                    | normal handling  |
+    // | fatal     | any     |         | N                    | block            |
+    // | any       | any     |         | Y                    | recrash handling |
+    // | any       | any     | any     | Y                    | exit             |
+    //
+    // Where:
+    // - Normal handling means build a standard crash report.
+    // - Recrash handling means build a minimal recrash report and be very cautious.
+    // - Block means block this thread for a few seconds so it doesn't return before the other handler does.
+    // - Exit means `exit(1)` immediately because we can't recover anymore.
+    //
+    // If no other exceptions are in progress (simple case), handle things normally.
+    // If a non-fatal exception is already in progress, they won't conflict so handle things normally.
+    // If a fatal exception is already in progress, block to let the fatal exception handler finish.
+    // If we get another exception on the SAME thread, we're dealing with a recrash.
+    // If we get YET ANOTHER exception on the same thread (the recrash handler has crashed),
+    // we're stuck in a crash loop, so exit the app.
+
+    // Note: This function needs to be quick to minimize the chances
+    //       of a context switch before we (possibly) suspend threads.
+
+    const thread_t thisThread = (thread_t)ksthread_self();
+    const int thisThreadHandlerIndex = beginHandlingException(thisThread);
+
+    // Our state from before this exception
+    const bool wasHandlingFatalException = g_state.isHandlingFatalException;
+    const bool wasCrashedDuringExceptionHandling = g_state.crashedDuringExceptionHandling;
+
+    // Our state now
+    KSCrash_ExceptionHandlingPolicy policy = recommendations;
+#if !KSCRASH_HAS_THREADS_API
+    policy.shouldRecordThreads = false;
+#endif
+    const bool isCrashedDuringExceptionHandling =
+        isThreadAlreadyHandlingAnException(thisThreadHandlerIndex, offendingThread, thisThread);
+
+    if (thisThreadHandlerIndex > maxSimultaneousExceptions) {
+        // This should never happen, but it is theoretically possible for tons of
+        // threads to cause exceptions at the exact same time, flooding our handler.
+        // Drop the exception and disable future crash handling to give at least some
+        // of the in-progress exceptions a chance to be reported.
+        kscm_disableAllMonitors();
+        return &g_state.exitImmediatelyContext;
     }
 
-    if (g_state.currentPolicy.isFatal) {
-        g_state.crashedDuringExceptionHandling = true;
+    if (isCrashedDuringExceptionHandling && wasCrashedDuringExceptionHandling) {
+        // Something went VERY wrong. We're stuck in a crash loop. Shut down immediately.
+        // Note: We don't abort() here because that would trigger yet another exception!
+        exit(1);
     }
-    g_state.currentPolicy.isFatal = true;
-    if (g_state.crashedDuringExceptionHandling) {
-        KSLOG_INFO("Detected crash in the crash reporter. Uninstalling KSCrash.");
-        kscm_disableAllMonitors();
+
+    if (isCrashedDuringExceptionHandling) {
+        // This is a recrash, so be more conservative in our handling.
+        policy.crashedDuringExceptionHandling = true;
+        policy.requiresAsyncSafety = true;
+        policy.shouldRecordThreads = false;
+        policy.isFatal = true;
+    } else if (wasHandlingFatalException) {
+        // This is an incidental exception that happened while we were handling a fatal
+        // exception. Pause this handler to allow the other handler to finish.
+        // 2 seconds should be ample time for it to finish and terminate the app.
+        sleep(2);
     }
-    return g_state.crashedDuringExceptionHandling;
+
+    g_state.crashedDuringExceptionHandling |= isCrashedDuringExceptionHandling;
+    g_state.isHandlingFatalException |= policy.isFatal;
+
+    KSCrash_MonitorContext *ctx = getNextMonitorContext(policy);
+    ctx->currentPolicy = policy;
+    ctx->threadHandlerIndex = thisThreadHandlerIndex;
+
+    if (ctx->currentPolicy.shouldRecordThreads) {
+        // Once all threads are suspended, the environment requires async safety.
+        ctx->currentPolicy.requiresAsyncSafety = true;
+        ksmc_suspendEnvironment(&ctx->suspendedThreads, &ctx->suspendedThreadsCount);
+    }
+
+    return ctx;
 }
 
-static void handleException(struct KSCrash_MonitorContext *context)
+static void handleException(struct KSCrash_MonitorContext *ctx)
 {
-    context->handlingCrash |= g_state.currentPolicy.isFatal;
-
-    context->requiresAsyncSafety = g_state.currentPolicy.asyncSafety;
-    if (g_state.crashedDuringExceptionHandling) {
-        context->crashedDuringCrashHandling = true;
+    if (ctx == NULL) {
+        // This should never happen.
+        KSLOG_ERROR("ctx is NULL");
+        return;
     }
 
-    if (!g_state.currentPolicy.asyncSafety) {
-        // If we don't need async-safety (NSException, user exception), then this is safe to call.
-        ksid_generate(context->eventID);
-    } else {
-        // Otherwise use the pre-built primary or secondary event ID. We won't ever use
-        // more than two (crash, recrash) because the app will terminate afterwards.
-        if (g_state.eventIdIdx >= eventIdCount) {
-            // Very unlikely, but if this happens, we're stuck in a handler loop.
-            KSLOG_ERROR(
-                "Requesting a pre-built event ID, but we've already used both up! Aborting exception handling.");
-            return;
-        }
-        memcpy(context->eventID, g_state.eventIds[g_state.eventIdIdx++], sizeof(context->eventID));
-    }
-
-    // Add contextual info to the event for all enabled monitors
+    // Allow all monitors a chance to add contextual info to the event.
+    // The monitors will decide what they can do based on ctx->currentPolicy.
     for (size_t i = 0; i < monitorAPICount; i++) {
         const KSCrashMonitorAPI *api = g_state.monitors.apis[i];
         if (api != NULL && api->isEnabled()) {
-            api->addContextualInfoToEvent(context);
+            api->addContextualInfoToEvent(ctx);
         }
     }
 
     // Call the exception event handler if it exists
     if (g_state.onExceptionEvent) {
-        g_state.onExceptionEvent(context);
+        g_state.onExceptionEvent(ctx);
     }
 
-    // Restore original handlers if the exception is fatal and not already handled
-    if (g_state.currentPolicy.isFatal && !g_state.crashedDuringExceptionHandling) {
+    // If the exception is fatal, we need to uninstall ourselves so that
+    // other installed crash handler libraries can run when we finish.
+    if (ctx->currentPolicy.isFatal) {
         KSLOG_DEBUG("Exception is fatal. Restoring original handlers.");
         kscm_disableAllMonitors();
     }
 
-    // Done handling the crash
-    context->handlingCrash = false;
+    if (ctx->currentPolicy.shouldRecordThreads) {
+        ksmc_resumeEnvironment(ctx->suspendedThreads, ctx->suspendedThreadsCount);
+    }
+
+    endHandlingException(ctx->threadHandlerIndex);
+
+    if (ctx->isHeapAllocated) {
+        free(ctx);
+    }
 }
 
 bool kscm_addMonitor(const KSCrashMonitorAPI *api)
@@ -342,9 +475,12 @@ void kscm_removeMonitor(const KSCrashMonitorAPI *api)
 }
 
 // ============================================================================
-#pragma mark - Private API -
+#pragma mark - Testing API -
 // ============================================================================
 
-void kscm_regenerateEventIDs(void) { regenerateEventIds(); }
-
-void kscm_clearAsyncSafetyState(void) { g_state.currentPolicy.asyncSafety = false; }
+__attribute__((unused)) // For tests. Declared as extern in TestCase
+void kscm_testcode_resetState(void)
+{
+    g_initialized = false;
+    memset(&g_state, 0, sizeof(g_state));
+}

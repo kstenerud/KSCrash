@@ -46,8 +46,6 @@
 
 static atomic_bool g_isEnabled = 0;
 
-static KSCrash_MonitorContext g_monitorContext;
-
 /** The exception handler that was in place before we installed ours. */
 static NSUncaughtExceptionHandler *g_previousUncaughtExceptionHandler;
 
@@ -104,54 +102,51 @@ static KS_NOINLINE void handleException(NSException *exception, BOOL isUserRepor
 {
     KSLOG_DEBUG(@"Trapped exception %@", exception);
     if (g_isEnabled) {
-        thread_act_array_t threads = NULL;
-        mach_msg_type_number_t numThreads = 0;
-        bool requiresAsyncSafety = false;
-        if (logAllThreads) {
-            ksmc_suspendEnvironment(&threads, &numThreads);
-            requiresAsyncSafety = true;
-        }
-        g_callbacks.notify((KSCrash_ExceptionHandlingPolicy) {
-            .asyncSafety = requiresAsyncSafety,
-            // User-reported exceptions are not considered fatal.
-            .isFatal = !isUserReported,
-        });
-
+        // Gather this info before we require async-safety:
+        const char *exceptionName = exception.name.UTF8String;
+        const char *exceptionReason = exception.reason.UTF8String;
+        NS_VALID_UNTIL_END_OF_SCOPE NSString *userInfoString =
+            exception.userInfo != nil ? [NSString stringWithFormat:@"%@", exception.userInfo] : nil;
+        const char *userInfo = userInfoString.UTF8String;
         KSLOG_DEBUG(@"Filling out context.");
+        thread_t thisThread = (thread_t)ksthread_self();
         KSMachineContext machineContext = { 0 };
-        ksmc_getContextForThread(ksthread_self(), &machineContext, true);
+        ksmc_getContextForThread(thisThread, &machineContext, true);
         KSStackCursor cursor;
         uintptr_t *callstack = NULL;
         initStackCursor(&cursor, exception, callstack, isUserReported);
 
-        NS_VALID_UNTIL_END_OF_SCOPE NSString *userInfoString =
-            exception.userInfo != nil ? [NSString stringWithFormat:@"%@", exception.userInfo] : nil;
+        // Now start exception handling
+        KSCrash_MonitorContext *crashContext = g_callbacks.notify(thisThread,
+                                                                  (KSCrash_ExceptionHandlingPolicy) {
+                                                                      .requiresAsyncSafety = false,
+                                                                      // User-reported exceptions are not considered fatal.
+                                                                      .isFatal = !isUserReported,
+                                                                      .shouldRecordThreads = logAllThreads,
+                                                                  });
+        if (crashContext->currentPolicy.shouldExitImmediately) {
+            goto exit_immediately;
+        }
 
-        KSCrash_MonitorContext *crashContext = &g_monitorContext;
-        memset(crashContext, 0, sizeof(*crashContext));
         kscm_fillMonitorContext(crashContext, kscm_nsexception_getAPI());
         crashContext->offendingMachineContext = &machineContext;
         crashContext->registersAreValid = false;
-        crashContext->NSException.name = [[exception name] UTF8String];
-        crashContext->NSException.userInfo = [userInfoString UTF8String];
-        crashContext->exceptionName = crashContext->NSException.name;
-        crashContext->crashReason = [[exception reason] UTF8String];
+        crashContext->NSException.name = exceptionName;
+        crashContext->NSException.userInfo = userInfo;
+        crashContext->exceptionName = exceptionName;
+        crashContext->crashReason = exceptionReason;
         crashContext->stackCursor = &cursor;
         crashContext->currentSnapshotUserReported = isUserReported;
 
         KSLOG_DEBUG(@"Calling main crash handler.");
         g_callbacks.handle(crashContext);
 
+    exit_immediately:
         free(callstack);
-        if (logAllThreads && isUserReported) {
-            ksmc_resumeEnvironment(threads, numThreads);
-            kscm_regenerateEventIDs();
-        }
         if (isUserReported == NO && g_previousUncaughtExceptionHandler != NULL) {
             KSLOG_DEBUG(@"Calling original exception handler.");
             g_previousUncaughtExceptionHandler(exception);
         }
-        kscm_clearAsyncSafetyState();
     }
     KS_THWART_TAIL_CALL_OPTIMISATION
 }

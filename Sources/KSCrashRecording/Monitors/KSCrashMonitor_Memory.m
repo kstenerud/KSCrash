@@ -279,7 +279,7 @@ static NSURL *kscm_memory_oom_breadcrumb_URL(void)
 
 static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext)
 {
-    bool asyncSafeOnly = eventContext->requiresAsyncSafety;
+    bool asyncSafeOnly = eventContext->currentPolicy.requiresAsyncSafety;
 
     // we'll use this when reading this back on the next run
     // to know if an OOM is even possible.
@@ -287,10 +287,10 @@ static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext)
         // since we're in a singal or something that can only
         // use async safe functions, we can't lock.
         // It's "ok" though, since no other threads should be running.
-        g_memory->fatal = eventContext->handlingCrash;
+        g_memory->fatal = eventContext->currentPolicy.isFatal;
     } else {
         _ks_memory_update(^(KSCrash_Memory *mem) {
-            mem->fatal = eventContext->handlingCrash;
+            mem->fatal = eventContext->currentPolicy.isFatal;
         });
     }
 
@@ -530,30 +530,34 @@ static void ksmemory_write_possible_oom(void)
     NSURL *reportURL = kscm_memory_oom_breadcrumb_URL();
     const char *reportPath = reportURL.path.UTF8String;
 
-    g_callbacks.notify((KSCrash_ExceptionHandlingPolicy) {
-        .asyncSafety = false,
-        .isFatal = false,
-    });
+    thread_t thisThread = (thread_t)ksthread_self();
+    KSCrash_MonitorContext *ctx = g_callbacks.notify(thisThread,
+                                                     (KSCrash_ExceptionHandlingPolicy) {
+                                                         .requiresAsyncSafety = false,
+                                                         .isFatal = false,
+                                                         .shouldRecordThreads = false,
+                                                     });
+    if (ctx->currentPolicy.shouldExitImmediately) {
+        return;
+    }
 
     KSMachineContext machineContext = { 0 };
-    ksmc_getContextForThread(ksthread_self(), &machineContext, false);
+    ksmc_getContextForThread(thisThread, &machineContext, false);
     KSStackCursor stackCursor;
     kssc_initWithMachineContext(&stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
 
-    KSCrash_MonitorContext context;
-    memset(&context, 0, sizeof(context));
-    kscm_fillMonitorContext(&context, kscm_memory_getAPI());
-    context.registersAreValid = false;
-    context.offendingMachineContext = &machineContext;
-    context.currentSnapshotUserReported = true;
+    kscm_fillMonitorContext(ctx, kscm_memory_getAPI());
+    ctx->registersAreValid = false;
+    ctx->offendingMachineContext = &machineContext;
+    ctx->currentSnapshotUserReported = true;
 
     // we don't need all the images, we have no stack
-    context.omitBinaryImages = true;
+    ctx->omitBinaryImages = true;
 
     // _reportPath_ only valid within this scope
-    context.reportPath = reportPath;
+    ctx->reportPath = reportPath;
 
-    g_callbacks.handle(&context);
+    g_callbacks.handle(ctx);
 }
 
 void ksmemory_initialize(const char *dataPath)

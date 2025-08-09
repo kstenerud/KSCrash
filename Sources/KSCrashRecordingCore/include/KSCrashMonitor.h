@@ -131,12 +131,6 @@ void kscm_setEventCallback(void (*onEvent)(struct KSCrash_MonitorContext *monito
 #pragma mark - Internal API -
 // ============================================================================
 
-/* Transitional APIs while converting a larger API. DO NOT CALL! These WILL go away! */
-void kscm_clearAsyncSafetyState(void);
-
-// Transitional API. This will go away in a few commits. DO NOT USE EXTERNALLY.
-void kscm_regenerateEventIDs(void);
-
 #ifdef __cplusplus
 }
 #endif

@@ -48,8 +48,6 @@
 
 static atomic_bool g_isEnabled = false;
 
-static KSCrash_MonitorContext g_monitorContext;
-
 /** Thread which monitors other threads. */
 static KSCrashDeadlockMonitor *g_monitor;
 
@@ -105,14 +103,17 @@ static KSCrash_ExceptionHandlerCallbacks g_callbacks;
 
 - (void)__attribute__((noreturn)) handleDeadlock
 {
-    thread_act_array_t threads = NULL;
-    mach_msg_type_number_t numThreads = 0;
-    ksmc_suspendEnvironment(&threads, &numThreads);
+    thread_t thisThread = (thread_t)ksthread_self();
     // This requires async-safety because the environment is suspended.
-    g_callbacks.notify((KSCrash_ExceptionHandlingPolicy) {
-        .asyncSafety = true,
-        .isFatal = true,
-    });
+    KSCrash_MonitorContext *crashContext = g_callbacks.notify(thisThread,
+                                                              (KSCrash_ExceptionHandlingPolicy) {
+                                                                  .requiresAsyncSafety = true,
+                                                                  .isFatal = true,
+                                                                  .shouldRecordThreads = true,
+                                                              });
+    if (crashContext->currentPolicy.shouldExitImmediately) {
+        goto exit_immediately;
+    }
 
     KSMachineContext machineContext = { 0 };
     ksmc_getContextForThread(g_mainQueueThread, &machineContext, false);
@@ -120,17 +121,15 @@ static KSCrash_ExceptionHandlerCallbacks g_callbacks;
     kssc_initWithMachineContext(&stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
 
     KSLOG_DEBUG(@"Filling out context.");
-    KSCrash_MonitorContext *crashContext = &g_monitorContext;
-    memset(crashContext, 0, sizeof(*crashContext));
     kscm_fillMonitorContext(crashContext, kscm_deadlock_getAPI());
     crashContext->registersAreValid = false;
     crashContext->offendingMachineContext = &machineContext;
     crashContext->stackCursor = &stackCursor;
 
     g_callbacks.handle(crashContext);
-    ksmc_resumeEnvironment(threads, numThreads);
 
     KSLOG_DEBUG(@"Calling abort()");
+exit_immediately:
     abort();
 }
 
