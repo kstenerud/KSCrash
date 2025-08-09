@@ -226,7 +226,7 @@ static KSCrash_MonitorContext *getNextMonitorContext(KSCrash_ExceptionHandlingPo
         // (crash and recrash), and they'll never be re-used because the app terminates
         // afterwards.
         //
-        // If a third same-thread exception occurs, `notifyException()` calls `exit(1)`.
+        // If a third same-thread exception occurs, `notifyException()` calls `_exit(1)`.
         ctx = asyncSafeContextAtIndex(g_state.asyncSafeContextIndex++);
     } else {
         // If we're not in an environment requiring async safety, allocate a context on
@@ -330,7 +330,7 @@ static KSCrash_MonitorContext *notifyException(const mach_port_t offendingThread
     // - Normal handling means build a standard crash report.
     // - Recrash handling means build a minimal recrash report and be very cautious.
     // - Block means block this thread for a few seconds so it doesn't return before the other handler does.
-    // - Exit means `exit(1)` immediately because we can't recover anymore.
+    // - Exit means `_exit(1)` immediately because we can't recover anymore.
     //
     // If no other exceptions are in progress (simple case), handle things normally.
     // If a non-fatal exception is already in progress, they won't conflict so handle things normally.
@@ -369,7 +369,7 @@ static KSCrash_MonitorContext *notifyException(const mach_port_t offendingThread
     if (isCrashedDuringExceptionHandling && wasCrashedDuringExceptionHandling) {
         // Something went VERY wrong. We're stuck in a crash loop. Shut down immediately.
         // Note: We don't abort() here because that would trigger yet another exception!
-        exit(1);
+        _exit(1);
     }
 
     if (isCrashedDuringExceptionHandling) {
