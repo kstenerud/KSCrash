@@ -67,8 +67,6 @@ static bool g_cxaSwapEnabled = false;
 
 static std::terminate_handler g_originalTerminateHandler;
 
-static KSCrash_MonitorContext g_monitorContext;
-
 static KSCrash_ExceptionHandlerCallbacks g_callbacks;
 
 // TODO: Thread local storage is not supported < ios 9.
@@ -111,9 +109,6 @@ void __cxa_throw(void *thrown_exception, std::type_info *tinfo, void (*dest)(voi
 
 static void CPPExceptionTerminate(void)
 {
-    thread_act_array_t threads = NULL;
-    mach_msg_type_number_t numThreads = 0;
-    ksmc_suspendEnvironment(&threads, &numThreads);
     KSLOG_DEBUG("Trapped c++ exception");
     const char *name = NULL;
     std::type_info *tinfo = __cxxabiv1::__cxa_current_exception_type();
@@ -122,13 +117,16 @@ static void CPPExceptionTerminate(void)
     }
 
     if (name == NULL || strcmp(name, "NSException") != 0) {
+        thread_t thisThread = (thread_t)ksthread_self();
         // This requires async-safety because the environment is suspended.
-        g_callbacks.notify((KSCrash_ExceptionHandlingPolicy) {
-            .asyncSafety = true,
-            .isFatal = true,
-        });
-        KSCrash_MonitorContext *crashContext = &g_monitorContext;
-        memset(crashContext, 0, sizeof(*crashContext));
+        KSCrash_MonitorContext *crashContext = g_callbacks.notify(thisThread, (KSCrash_ExceptionHandlingPolicy) {
+                                                                                  .requiresAsyncSafety = true,
+                                                                                  .isFatal = true,
+                                                                                  .shouldRecordThreads = true,
+                                                                              });
+        if (crashContext->currentPolicy.shouldExitImmediately) {
+            goto exit_immediately;
+        }
 
         char descriptionBuff[DESCRIPTION_BUFFER_LENGTH];
         const char *description = descriptionBuff;
@@ -162,7 +160,7 @@ static void CPPExceptionTerminate(void)
 
         // TODO: Should this be done here? Maybe better in the exception handler?
         KSMachineContext machineContext = { 0 };
-        ksmc_getContextForThread(ksthread_self(), &machineContext, true);
+        ksmc_getContextForThread(thisThread, &machineContext, true);
 
         KSLOG_DEBUG("Filling out context.");
         kscm_fillMonitorContext(crashContext, kscm_cppexception_getAPI());
@@ -177,9 +175,9 @@ static void CPPExceptionTerminate(void)
     } else {
         KSLOG_DEBUG("Detected NSException. Letting the current NSException handler deal with it.");
     }
-    ksmc_resumeEnvironment(threads, numThreads);
 
     KSLOG_DEBUG("Calling original terminate handler.");
+exit_immediately:
     g_originalTerminateHandler();
 }
 
@@ -232,7 +230,7 @@ static void init(KSCrash_ExceptionHandlerCallbacks *callbacks) { g_callbacks = *
 extern "C" KSCrashMonitorAPI *kscm_cppexception_getAPI()
 {
     static KSCrashMonitorAPI api = { 0 };
-    if (kscm_initAPI(&api)) {
+    if (kscma_initAPI(&api)) {
         api.init = init;
         api.monitorId = monitorId;
         api.monitorFlags = monitorFlags;

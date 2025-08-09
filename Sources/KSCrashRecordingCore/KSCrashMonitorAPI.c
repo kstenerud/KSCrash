@@ -1,11 +1,11 @@
 //
-//  KSCrashMonitorHelper.c
+//  KSCrashMonitorAPI.c
 //  KSCrash
 //
 //  Created by Karl Stenerud on 19.07.25.
 //
 
-#include "KSCrashMonitorHelper.h"
+#include "KSCrashMonitorAPI.h"
 
 static void default_init(__unused KSCrash_ExceptionHandlerCallbacks *callbacks) {}
 static KSCrashMonitorFlag default_monitorFlags(void) { return 0; }
@@ -24,7 +24,7 @@ static KSCrashMonitorAPI g_defaultAPI = {
     .notifyPostSystemEnable = default_notifyPostSystemEnable,
 };
 
-bool kscm_initAPI(KSCrashMonitorAPI *api)
+bool kscma_initAPI(KSCrashMonitorAPI *api)
 {
     if (api != NULL && api->init == NULL) {
         *api = g_defaultAPI;

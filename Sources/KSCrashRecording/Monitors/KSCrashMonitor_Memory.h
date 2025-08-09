@@ -31,7 +31,7 @@
 #define KSCrashMonitor_Memory_h
 
 #include "KSCrashAppTransitionState.h"
-#include "KSCrashMonitor.h"
+#include "KSCrashMonitorAPI.h"
 #include "KSCrashNamespace.h"
 
 #ifdef __cplusplus

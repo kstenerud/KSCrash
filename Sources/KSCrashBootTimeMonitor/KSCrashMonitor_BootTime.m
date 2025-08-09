@@ -79,7 +79,7 @@ static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext)
 KSCrashMonitorAPI *kscm_boottime_getAPI(void)
 {
     static KSCrashMonitorAPI api = { 0 };
-    if (kscm_initAPI(&api)) {
+    if (kscma_initAPI(&api)) {
         api.monitorId = monitorId;
         api.setEnabled = setEnabled;
         api.isEnabled = isEnabled;

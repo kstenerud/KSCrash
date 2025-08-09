@@ -36,7 +36,7 @@ extern "C" {
 
 #include <stdbool.h>
 
-#include "KSCrashMonitor.h"
+#include "KSCrashMonitorAPI.h"
 #include "KSCrashNamespace.h"
 
 /** Set the interval between watchdog checks on the main thread.

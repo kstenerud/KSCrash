@@ -30,7 +30,7 @@
 #ifndef HDR_KSCrashMonitor_NSException_h
 #define HDR_KSCrashMonitor_NSException_h
 
-#include "KSCrashMonitor.h"
+#include "KSCrashMonitorAPI.h"
 #include "KSCrashNamespace.h"
 
 #ifdef __cplusplus

@@ -28,6 +28,7 @@
 
 #include "KSBinaryImageCache.h"
 #include "KSCompilerDefines.h"
+#include "KSCrashMonitor.h"
 #include "KSCrashMonitorContext.h"
 #include "KSCrashMonitorType.h"
 #include "KSCrashMonitor_AppState.h"
@@ -152,7 +153,7 @@ static void onCrash(struct KSCrash_MonitorContext *monitorContext)
     }
     monitorContext->consoleLogPath = g_shouldAddConsoleLogToReport ? g_consoleLogPath : NULL;
 
-    if (monitorContext->crashedDuringCrashHandling) {
+    if (monitorContext->currentPolicy.crashedDuringExceptionHandling) {
         kscrashreport_writeRecrashReport(monitorContext, g_lastCrashReportFilePath);
     } else if (monitorContext->reportPath) {
         kscrashreport_writeStandardReport(monitorContext, monitorContext->reportPath);

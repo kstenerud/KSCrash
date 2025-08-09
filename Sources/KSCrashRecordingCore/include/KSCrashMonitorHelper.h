@@ -42,15 +42,6 @@ static void inline kscm_fillMonitorContext(KSCrash_MonitorContext *monitorContex
     }
 }
 
-/**
- * Initialize an API by replacing all callbacks with default no-op implementations.
- * Note: This will only initialize APIs that haven't been initialized yet (where the "init" method is still NULL), which
- * prevents it from overwriting an already setup API.
- * @param api The API to initialize.
- * @return true if api has been initialized (i.e. api->init was NULL before the call), false otherwise.
- */
-bool kscm_initAPI(KSCrashMonitorAPI *api);
-
 #ifdef __cplusplus
 }
 #endif

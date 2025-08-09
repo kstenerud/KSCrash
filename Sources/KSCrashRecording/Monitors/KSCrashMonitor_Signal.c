@@ -55,9 +55,6 @@
 static atomic_bool g_isEnabled = false;
 static bool g_sigterm_monitoringEnabled = false;
 
-static KSCrash_MonitorContext g_monitorContext;
-static KSStackCursor g_stackCursor;
-
 #if KSCRASH_HAS_SIGNAL_STACK
 /** Our custom signal stack. The signal handler will use this as its stack. */
 static stack_t g_signalStack = { 0 };
@@ -95,21 +92,22 @@ static void handleSignal(int sigNum, siginfo_t *signalInfo, void *userContext)
 {
     KSLOG_DEBUG("Trapped signal %d", sigNum);
     if (g_isEnabled && shouldHandleSignal(sigNum)) {
-        thread_act_array_t threads = NULL;
-        mach_msg_type_number_t numThreads = 0;
-        ksmc_suspendEnvironment(&threads, &numThreads);
-        g_callbacks.notify((KSCrash_ExceptionHandlingPolicy) {
-            .asyncSafety = true,
-            .isFatal = true,
-        });
+        thread_t thisThread = (thread_t)ksthread_self();
+        KSCrash_MonitorContext *crashContext = g_callbacks.notify(thisThread, (KSCrash_ExceptionHandlingPolicy) {
+                                                                                  .requiresAsyncSafety = true,
+                                                                                  .isFatal = true,
+                                                                                  .shouldRecordThreads = true,
+                                                                              });
+        if (crashContext->currentPolicy.shouldExitImmediately) {
+            goto exit_immediately;
+        }
 
         KSLOG_DEBUG("Filling out context.");
+        KSStackCursor stackCursor = { 0 };
         KSMachineContext machineContext = { 0 };
         ksmc_getContextForSignal(userContext, &machineContext);
-        kssc_initWithMachineContext(&g_stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
+        kssc_initWithMachineContext(&stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
 
-        KSCrash_MonitorContext *crashContext = &g_monitorContext;
-        memset(crashContext, 0, sizeof(*crashContext));
         kscm_fillMonitorContext(crashContext, kscm_signal_getAPI());
         crashContext->offendingMachineContext = &machineContext;
         crashContext->registersAreValid = true;
@@ -117,16 +115,16 @@ static void handleSignal(int sigNum, siginfo_t *signalInfo, void *userContext)
         crashContext->signal.userContext = userContext;
         crashContext->signal.signum = signalInfo->si_signo;
         crashContext->signal.sigcode = signalInfo->si_code;
-        crashContext->stackCursor = &g_stackCursor;
+        crashContext->stackCursor = &stackCursor;
 
         g_callbacks.handle(crashContext);
-        ksmc_resumeEnvironment(threads, numThreads);
     } else {
         uninstallSignalHandler();
         ksmemory_notifyUnhandledFatalSignal();
     }
 
     KSLOG_DEBUG("Re-raising signal for regular handlers to catch.");
+exit_immediately:
     raise(sigNum);
 }
 
@@ -258,7 +256,7 @@ void kscm_signal_sigterm_setMonitoringEnabled(__unused bool enabled) {}
 KSCrashMonitorAPI *kscm_signal_getAPI(void)
 {
     static KSCrashMonitorAPI api = { 0 };
-    if (kscm_initAPI(&api)) {
+    if (kscma_initAPI(&api)) {
 #if KSCRASH_HAS_SIGNAL
         api.init = init;
         api.monitorId = monitorId;
