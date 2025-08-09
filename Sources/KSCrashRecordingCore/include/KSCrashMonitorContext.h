@@ -300,17 +300,18 @@ typedef struct KSCrash_MonitorContext {
  */
 typedef struct {
     /**
-     * Notify that an exception has occurred. This function will prepare the system for handling the exception, and make some
-     * policy decisions based on your recommendations and the current system state.
+     * Notify that an exception has occurred. This function will prepare the system for handling the exception, and make
+     * some policy decisions based on your recommendations and the current system state.
      *
-     * This should be called as early as possible in the exception handling process because it will stop all other threads if
-     * you've requested to record threads - and stopping threads early minimizes the chances of a context switch causing
-     * other threads to run some more before you've had a chance to record them.
+     * This should be called as early as possible in the exception handling process because it will stop all other
+     * threads if you've requested to record threads - and stopping threads early minimizes the chances of a context
+     * switch causing other threads to run some more before you've had a chance to record them.
      *
      * Also note that requesting thread recording will change the environment into one requiring async-safety. So make
      * sure anything async-unsafe you need is done BEFORE calling this function with `shouldRecordThreads` set!
      *
-     * After calling this function, you should fill out any pertinent information in the returned context, and then call handle().
+     * After calling this function, you should fill out any pertinent information in the returned context, and then call
+     * handle().
      *
      * @param offendingThread The thread that caused the exception.
      * @param recommendations Recommendations about the current environment, and how this exception should be handled.
@@ -319,12 +320,13 @@ typedef struct {
     KSCrash_MonitorContext *(*notify)(thread_t offendingThread, KSCrash_ExceptionHandlingPolicy recommendations);
 
     /**
-     * Handle the exception. This function will collect any pertinent information into the context and then pass the context
-     * on to the event recorder.
+     * Handle the exception. This function will collect any pertinent information into the context and then pass the
+     * context on to the event recorder.
      *
      * WARNING: When this function returns, the context will point to invalid memory! DO NOT USE IT ANYMORE!
      *
-     * You should call this function last in your handler, right before passing the exception on to the next system handler.
+     * You should call this function last in your handler, right before passing the exception on to the next system
+     * handler.
      *
      * @param context The monitor context that was returned by `notify()`
      */

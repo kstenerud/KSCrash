@@ -452,12 +452,12 @@ static void handleExceptionPrimary(ExceptionContext *ctx)
         return;
     }
 
-    KSCrash_MonitorContext *crashContext = g_callbacks.notify(ctx->request->thread.name,
-                                                              (KSCrash_ExceptionHandlingPolicy) {
-                                                                  .requiresAsyncSafety = true,
-                                                                  .isFatal = true,
-                                                                  .shouldRecordThreads = true,
-                                                              });
+    KSCrash_MonitorContext *crashContext =
+        g_callbacks.notify(ctx->request->thread.name, (KSCrash_ExceptionHandlingPolicy) {
+                                                          .requiresAsyncSafety = true,
+                                                          .isFatal = true,
+                                                          .shouldRecordThreads = true,
+                                                      });
     if (crashContext->currentPolicy.shouldExitImmediately) {
         return;
     }

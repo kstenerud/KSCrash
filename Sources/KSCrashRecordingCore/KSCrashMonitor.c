@@ -70,7 +70,7 @@ typedef struct {
 
 static const size_t asyncSafeIndexMask = 1;
 static const size_t asyncSafeItemCount = asyncSafeIndexMask + 1;
-static const int maxSimultaneousExceptions = 200; // 99.99999% sure we'll never exceed this.
+static const int maxSimultaneousExceptions = 200;  // 99.99999% sure we'll never exceed this.
 
 static struct {
     MonitorList monitors;
@@ -186,7 +186,7 @@ static bool isThreadAlreadyHandlingAnException(int maxCount, thread_t offendingT
 static int beginHandlingException(thread_t handlerThread)
 {
     int thisThreadHandlerIndex = g_state.handlingExceptionIndex++;
-    if(thisThreadHandlerIndex < maxSimultaneousExceptions) {
+    if (thisThreadHandlerIndex < maxSimultaneousExceptions) {
         g_state.threadsHandlingExceptions[thisThreadHandlerIndex] = handlerThread;
     }
     return thisThreadHandlerIndex;

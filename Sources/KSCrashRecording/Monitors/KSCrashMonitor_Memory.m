@@ -531,12 +531,11 @@ static void ksmemory_write_possible_oom(void)
     const char *reportPath = reportURL.path.UTF8String;
 
     thread_t thisThread = (thread_t)ksthread_self();
-    KSCrash_MonitorContext *ctx = g_callbacks.notify(thisThread,
-                                                     (KSCrash_ExceptionHandlingPolicy) {
-                                                         .requiresAsyncSafety = false,
-                                                         .isFatal = false,
-                                                         .shouldRecordThreads = false,
-                                                     });
+    KSCrash_MonitorContext *ctx = g_callbacks.notify(thisThread, (KSCrash_ExceptionHandlingPolicy) {
+                                                                     .requiresAsyncSafety = false,
+                                                                     .isFatal = false,
+                                                                     .shouldRecordThreads = false,
+                                                                 });
     if (ctx->currentPolicy.shouldExitImmediately) {
         return;
     }

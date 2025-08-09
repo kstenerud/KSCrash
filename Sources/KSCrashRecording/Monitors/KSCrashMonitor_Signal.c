@@ -93,12 +93,11 @@ static void handleSignal(int sigNum, siginfo_t *signalInfo, void *userContext)
     KSLOG_DEBUG("Trapped signal %d", sigNum);
     if (g_isEnabled && shouldHandleSignal(sigNum)) {
         thread_t thisThread = (thread_t)ksthread_self();
-        KSCrash_MonitorContext *crashContext = g_callbacks.notify(thisThread,
-                                                                  (KSCrash_ExceptionHandlingPolicy) {
-                                                                      .requiresAsyncSafety = true,
-                                                                      .isFatal = true,
-                                                                      .shouldRecordThreads = true,
-                                                                  });
+        KSCrash_MonitorContext *crashContext = g_callbacks.notify(thisThread, (KSCrash_ExceptionHandlingPolicy) {
+                                                                                  .requiresAsyncSafety = true,
+                                                                                  .isFatal = true,
+                                                                                  .shouldRecordThreads = true,
+                                                                              });
         if (crashContext->currentPolicy.shouldExitImmediately) {
             goto exit_immediately;
         }

@@ -51,12 +51,11 @@ void kscm_reportUserException(const char *name, const char *reason, const char *
         KSLOG_WARN("User-reported exception monitor is not installed. Exception has not been recorded.");
     } else {
         thread_t thisThread = (thread_t)ksthread_self();
-        KSCrash_MonitorContext *ctx = g_callbacks.notify(thisThread,
-                                                         (KSCrash_ExceptionHandlingPolicy) {
-                                                             .requiresAsyncSafety = false,
-                                                             .isFatal = terminateProgram,
-                                                             .shouldRecordThreads = logAllThreads,
-                                                         });
+        KSCrash_MonitorContext *ctx = g_callbacks.notify(thisThread, (KSCrash_ExceptionHandlingPolicy) {
+                                                                         .requiresAsyncSafety = false,
+                                                                         .isFatal = terminateProgram,
+                                                                         .shouldRecordThreads = logAllThreads,
+                                                                     });
         if (ctx->currentPolicy.shouldExitImmediately) {
             goto exit_immediately;
         }
