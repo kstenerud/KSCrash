@@ -28,6 +28,7 @@
 
 #include "KSBinaryImageCache.h"
 #include "KSCompilerDefines.h"
+#include "KSCrashMonitor.h"
 #include "KSCrashMonitorContext.h"
 #include "KSCrashMonitorType.h"
 #include "KSCrashMonitor_AppState.h"
