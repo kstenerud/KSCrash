@@ -43,7 +43,7 @@ class Report
 
 static void trigger_ns(void)
 {
-    NSException *exc = [NSException exceptionWithName:NSGenericException reason:@"Stacktrace Check" userInfo:nil];
+    NSException *exc = [NSException exceptionWithName:NSGenericException reason:@"Something broke" userInfo:nil];
     [exc raise];
 }
 
@@ -84,7 +84,11 @@ static void trigger_userfatal(void)
 
 extern "C" void KSStacktraceCheckCrash() __attribute__((disable_tail_calls));
 NSString *const KSCrashStacktraceCheckFuncName = @"KSStacktraceCheckCrash";
-void KSStacktraceCheckCrash() __attribute__((disable_tail_calls)) { trigger_ns(); }
+void KSStacktraceCheckCrash() __attribute__((disable_tail_calls))
+{
+    NSException *exc = [NSException exceptionWithName:NSGenericException reason:@"Stacktrace Check" userInfo:nil];
+    [exc raise];
+}
 
 NSString *const KSCrashNSExceptionStacktraceFuncName = @"exceptionWithStacktraceForException";
 

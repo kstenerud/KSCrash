@@ -87,12 +87,14 @@ static inline bool getThreadList(KSMachineContext *context)
         KSLOG_ERROR("Thread count %d is higher than maximum of %d", threadCount, MAX_CAPTURED_THREADS);
         threadCount = MAX_CAPTURED_THREADS;
     }
-    bool isCrashedThreadInList = false;
     const thread_t crashedThread = context->thisThread;
+    bool isCrashedThreadInList = false;
     for (mach_msg_type_number_t i = 0; i < threadCount; i++) {
         thread_t thread = threads[i];
         context->allThreads[i] = thread;
-        isCrashedThreadInList |= (thread == crashedThread);
+        if (thread == crashedThread) {
+            isCrashedThreadInList = true;
+        }
     }
     if (threadCount > 0 && !isCrashedThreadInList) {
         // If the crashed thread isn't in our list (because we blew past MAX_CAPTURED_THREADS),
