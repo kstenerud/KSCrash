@@ -514,10 +514,12 @@ static int g_counter = 0;
 
     for (int i = 0; i < 1000; i++) {
         [threads addObject:[self startThreadWithBlock:^{
-                     ctx = dummyExceptionHandlerCallbacks.notify((thread_t)ksthread_self(),
-                                                                 (KSCrash_ExceptionHandlingPolicy) {
-                                                                     .isFatal = false,
-                                                                 });
+                     if (g_dummyEnabledState) {
+                         ctx = dummyExceptionHandlerCallbacks.notify((thread_t)ksthread_self(),
+                                                                     (KSCrash_ExceptionHandlingPolicy) {
+                                                                         .isFatal = false,
+                                                                     });
+                     }
                  }]];
     }
     [self waitForThreads:threads maxTime:0.5];
