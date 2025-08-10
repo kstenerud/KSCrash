@@ -27,6 +27,7 @@
 import CrashCallback
 import Foundation
 import KSCrashRecording
+import CrashCallback
 
 public struct InstallConfig: Codable {
     public var installPath: String
