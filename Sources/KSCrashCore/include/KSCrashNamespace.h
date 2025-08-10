@@ -20,6 +20,8 @@
 
 #ifdef KSCRASH_NAMESPACE
 
+#define KSCRASH_NAMESPACE_STRING #KSCRASH_NAMESPACE
+
 #define KSCRASH_NS2(NAMESPACE, SYMBOL) SYMBOL##NAMESPACE
 #define KSCRASH_NS1(NAMESPACE, SYMBOL) KSCRASH_NS2(NAMESPACE, SYMBOL)
 #define KSCRASH_NS(SYMBOL) KSCRASH_NS1(KSCRASH_NAMESPACE, SYMBOL)
@@ -441,6 +443,10 @@
 #define swift_demangle_hasSwiftCallingConvention KSCRASH_NS(swift_demangle_hasSwiftCallingConvention)
 #define translateOperator KSCRASH_NS(translateOperator)
 #define translateOperatorChar KSCRASH_NS(translateOperatorChar)
+
+#else
+
+#define KSCRASH_NAMESPACE_STRING ""
 
 #endif
 

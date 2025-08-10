@@ -27,6 +27,10 @@ let package = Package(
             name: "SampleUI",
             targets: ["SampleUI"]
         ),
+        .library(
+            name: "CrashCallback",
+            targets: ["CrashCallback"]
+        ),
     ],
     dependencies: [
         .package(path: "../.."),
@@ -40,15 +44,26 @@ let package = Package(
                 .product(name: "Reporting", package: "KSCrash"),
                 .product(name: "DemangleFilter", package: "KSCrash"),
                 .product(name: "Logging", package: "swift-log"),
+                .target(name: "CrashCallback"),
             ]
         ),
         .target(
-            name: "CrashTriggers"
+            name: "CrashTriggers",
+            dependencies: [
+                .target(name: "CrashCallback"),
+            ]
+        ),
+        .target(
+            name: "CrashCallback",
+            dependencies: [
+                .product(name: "Recording", package: "KSCrash"),
+            ]
         ),
         .target(
             name: "IntegrationTestsHelper",
             dependencies: [
                 .target(name: "CrashTriggers"),
+                .target(name: "CrashCallback"),
                 .product(name: "Recording", package: "KSCrash"),
                 .product(name: "Reporting", package: "KSCrash"),
                 .product(name: "Logging", package: "swift-log"),

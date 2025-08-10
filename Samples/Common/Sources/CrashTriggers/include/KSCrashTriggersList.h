@@ -36,6 +36,7 @@ extern NSString *const KSCrashNSExceptionStacktraceFuncName;
     __PROCESS_GROUP(cpp, @"C++")                 \
     __PROCESS_GROUP(mach, @"Mach")               \
     __PROCESS_GROUP(signal, @"Signal")           \
+    __PROCESS_GROUP(multiple, @"Multiple")       \
     __PROCESS_GROUP(other, @"Other")
 
 #define __ALL_TRIGGERS                                                           \
@@ -46,6 +47,31 @@ extern NSString *const KSCrashNSExceptionStacktraceFuncName;
     __PROCESS_TRIGGER(mach, busError, @"EXC_BAD_ACCESS (SIGBUS)")                \
     __PROCESS_TRIGGER(mach, illegalInstruction, @"EXC_BAD_INSTRUCTION")          \
     __PROCESS_TRIGGER(signal, abort, @"Abort")                                   \
+    __PROCESS_TRIGGER(multiple, mach_mach, @"Mach + Mach")                       \
+    __PROCESS_TRIGGER(multiple, mach_signal, @"Mach + Signal")                   \
+    __PROCESS_TRIGGER(multiple, mach_cpp, @"Mach + CPP")                         \
+    __PROCESS_TRIGGER(multiple, mach_ns, @"Mach + NSException")                  \
+    __PROCESS_TRIGGER(multiple, mach_user, @"Mach + User")                       \
+    __PROCESS_TRIGGER(multiple, signal_mach, @"Signal + Mach")                   \
+    __PROCESS_TRIGGER(multiple, signal_signal, @"Signal + Signal")               \
+    __PROCESS_TRIGGER(multiple, signal_cpp, @"Signal + CPP")                     \
+    __PROCESS_TRIGGER(multiple, signal_ns, @"Signal + NSException")              \
+    __PROCESS_TRIGGER(multiple, signal_user, @"Signal + User")                   \
+    __PROCESS_TRIGGER(multiple, cpp_mach, @"CPP + Mach")                         \
+    __PROCESS_TRIGGER(multiple, cpp_signal, @"CPP + Signal")                     \
+    __PROCESS_TRIGGER(multiple, cpp_cpp, @"CPP + CPP")                           \
+    __PROCESS_TRIGGER(multiple, cpp_ns, @"CPP + NSException")                    \
+    __PROCESS_TRIGGER(multiple, cpp_user, @"CPP + User")                         \
+    __PROCESS_TRIGGER(multiple, ns_mach, @"NSException + Mach")                  \
+    __PROCESS_TRIGGER(multiple, ns_signal, @"NSException + Signal")              \
+    __PROCESS_TRIGGER(multiple, ns_cpp, @"NSException + CPP")                    \
+    __PROCESS_TRIGGER(multiple, ns_ns, @"NSException + NSException")             \
+    __PROCESS_TRIGGER(multiple, ns_user, @"NSException + User")                  \
+    __PROCESS_TRIGGER(multiple, user_mach, @"User + Mach")                       \
+    __PROCESS_TRIGGER(multiple, user_signal, @"User + Signal")                   \
+    __PROCESS_TRIGGER(multiple, user_cpp, @"User + CPP")                         \
+    __PROCESS_TRIGGER(multiple, user_ns, @"User + NSException")                  \
+    __PROCESS_TRIGGER(multiple, user_user, @"User + User")                       \
     __PROCESS_TRIGGER(other, manyThreads, @"Many Threads")                       \
     __PROCESS_TRIGGER(other, stackOverflow, @"Stack overflow")
 

@@ -29,6 +29,8 @@
 #import <mach/mach.h>
 #import <signal.h>
 #import <stdexcept>
+#import "CrashCallback.h"
+#import "KSCrash.h"
 
 namespace sample_namespace
 {
@@ -39,13 +41,50 @@ class Report
 };
 }  // namespace sample_namespace
 
-extern "C" void KSStacktraceCheckCrash() __attribute__((disable_tail_calls));
-NSString *const KSCrashStacktraceCheckFuncName = @"KSStacktraceCheckCrash";
-void KSStacktraceCheckCrash() __attribute__((disable_tail_calls))
+static void trigger_ns(void)
 {
     NSException *exc = [NSException exceptionWithName:NSGenericException reason:@"Stacktrace Check" userInfo:nil];
     [exc raise];
 }
+
+static void trigger_cpp(void) { sample_namespace::Report::crash(); }
+
+static void trigger_mach(void)
+{
+    volatile int *ptr = (int *)0x42;
+    *ptr = 42;  // This will cause an EXC_BAD_ACCESS (SIGSEGV)
+}
+
+static void trigger_signal(void)
+{
+    abort();  // This will raise a SIGABRT signal
+}
+
+static void trigger_user(void)
+{
+    [KSCrash.sharedInstance reportUserException:@"User Exception"
+                                         reason:@"My Reason"
+                                       language:@"My Language"
+                                     lineOfCode:@"loc"
+                                     stackTrace:@[ @"trace line 1", @"trace line 2" ]
+                                  logAllThreads:YES
+                               terminateProgram:NO];
+}
+
+static void trigger_userfatal(void)
+{
+    [KSCrash.sharedInstance reportUserException:@"User Exception"
+                                         reason:@"My Reason"
+                                       language:@"My Language"
+                                     lineOfCode:@"loc"
+                                     stackTrace:@[ @"trace line 1", @"trace line 2" ]
+                                  logAllThreads:YES
+                               terminateProgram:YES];
+}
+
+extern "C" void KSStacktraceCheckCrash() __attribute__((disable_tail_calls));
+NSString *const KSCrashStacktraceCheckFuncName = @"KSStacktraceCheckCrash";
+void KSStacktraceCheckCrash() __attribute__((disable_tail_calls)) { trigger_ns(); }
 
 NSString *const KSCrashNSExceptionStacktraceFuncName = @"exceptionWithStacktraceForException";
 
@@ -65,7 +104,7 @@ NSString *const KSCrashNSExceptionStacktraceFuncName = @"exceptionWithStacktrace
 
 + (void)trigger_cpp_runtimeException
 {
-    sample_namespace::Report::crash();
+    trigger_cpp();
 }
 
 + (void)trigger_mach_badAccess
@@ -123,6 +162,117 @@ NSString *const KSCrashNSExceptionStacktraceFuncName = @"exceptionWithStacktrace
 + (void)trigger_other_stackOverflow
 {
     [self trigger_other_stackOverflow];
+}
+
+#define TRIGGER_MULTIPLE(TYPE_A, TYPE_B)                                       \
+    setCrashNotifyImplementation(^(const struct KSCrashReportWriter *writer) { \
+        trigger_##TYPE_B();                                                    \
+    });                                                                        \
+    trigger_##TYPE_A()
+
++ (void)trigger_multiple_mach_mach
+{
+    TRIGGER_MULTIPLE(mach, mach);
+}
++ (void)trigger_multiple_mach_signal
+{
+    TRIGGER_MULTIPLE(mach, signal);
+}
++ (void)trigger_multiple_mach_cpp
+{
+    TRIGGER_MULTIPLE(mach, cpp);
+}
++ (void)trigger_multiple_mach_ns
+{
+    TRIGGER_MULTIPLE(mach, ns);
+}
++ (void)trigger_multiple_mach_user
+{
+    TRIGGER_MULTIPLE(mach, user);
+}
+
++ (void)trigger_multiple_signal_mach
+{
+    TRIGGER_MULTIPLE(signal, mach);
+}
++ (void)trigger_multiple_signal_signal
+{
+    TRIGGER_MULTIPLE(signal, signal);
+}
++ (void)trigger_multiple_signal_cpp
+{
+    TRIGGER_MULTIPLE(signal, cpp);
+}
++ (void)trigger_multiple_signal_ns
+{
+    TRIGGER_MULTIPLE(signal, ns);
+}
++ (void)trigger_multiple_signal_user
+{
+    TRIGGER_MULTIPLE(signal, user);
+}
+
++ (void)trigger_multiple_cpp_mach
+{
+    TRIGGER_MULTIPLE(cpp, mach);
+}
++ (void)trigger_multiple_cpp_signal
+{
+    TRIGGER_MULTIPLE(cpp, signal);
+}
++ (void)trigger_multiple_cpp_cpp
+{
+    TRIGGER_MULTIPLE(cpp, cpp);
+}
++ (void)trigger_multiple_cpp_ns
+{
+    TRIGGER_MULTIPLE(cpp, ns);
+}
++ (void)trigger_multiple_cpp_user
+{
+    TRIGGER_MULTIPLE(cpp, user);
+}
+
++ (void)trigger_multiple_ns_mach
+{
+    TRIGGER_MULTIPLE(ns, mach);
+}
++ (void)trigger_multiple_ns_signal
+{
+    TRIGGER_MULTIPLE(ns, signal);
+}
++ (void)trigger_multiple_ns_cpp
+{
+    TRIGGER_MULTIPLE(ns, cpp);
+}
++ (void)trigger_multiple_ns_ns
+{
+    TRIGGER_MULTIPLE(ns, ns);
+}
++ (void)trigger_multiple_ns_user
+{
+    TRIGGER_MULTIPLE(ns, user);
+}
+
++ (void)trigger_multiple_user_mach
+{
+    TRIGGER_MULTIPLE(userfatal, mach);
+}
++ (void)trigger_multiple_user_signal
+{
+    TRIGGER_MULTIPLE(userfatal, signal);
+}
++ (void)trigger_multiple_user_cpp
+{
+    TRIGGER_MULTIPLE(userfatal, cpp);
+}
++ (void)trigger_multiple_user_ns
+{
+    TRIGGER_MULTIPLE(userfatal, ns);
+}
++ (void)trigger_multiple_user_user
+{
+    TRIGGER_MULTIPLE(userfatal, user);
 }
 
 @end
