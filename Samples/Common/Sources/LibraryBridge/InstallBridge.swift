@@ -31,7 +31,6 @@ import KSCrashInstallations
 import KSCrashRecording
 import Logging
 import SwiftUI
-import CrashCallback
 
 public enum BasePath: String, CaseIterable {
     case `default`
