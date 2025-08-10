@@ -25,12 +25,12 @@
 //
 
 import Combine
+import CrashCallback
 import Foundation
 import KSCrashInstallations
 import KSCrashRecording
 import Logging
 import SwiftUI
-import CrashCallback
 
 public enum BasePath: String, CaseIterable {
     case `default`

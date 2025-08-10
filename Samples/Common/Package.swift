@@ -50,13 +50,13 @@ let package = Package(
         .target(
             name: "CrashTriggers",
             dependencies: [
-                .target(name: "CrashCallback"),
+                .target(name: "CrashCallback")
             ]
         ),
         .target(
             name: "CrashCallback",
             dependencies: [
-                .product(name: "Recording", package: "KSCrash"),
+                .product(name: "Recording", package: "KSCrash")
             ]
         ),
         .target(
