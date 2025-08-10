@@ -27,7 +27,7 @@
 
 #include <stdbool.h>
 
-#include "KSCrashMonitor.h"
+#include "KSCrashMonitorAPI.h"
 #include "KSCrashNamespace.h"
 
 #ifdef __cplusplus

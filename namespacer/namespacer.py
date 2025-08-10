@@ -169,6 +169,7 @@ LIBC_IGNORED = [
 
 # Ignore global variables that match any of these:
 VARIABLE_NAME_IGNORED = [
+                            re.compile("^environ$"),
                             re.compile("^BOOL$"),
                             re.compile("^Boolean$"),
                             re.compile("^CFBasicHashValue$"),

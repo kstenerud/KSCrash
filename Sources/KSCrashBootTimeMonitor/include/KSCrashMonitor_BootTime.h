@@ -27,7 +27,7 @@
 #ifndef KSCrashMonitor_BootTime_h
 #define KSCrashMonitor_BootTime_h
 
-#include "KSCrashMonitor.h"
+#include "KSCrashMonitorAPI.h"
 #include "KSCrashNamespace.h"
 
 #ifdef __cplusplus
