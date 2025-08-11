@@ -337,9 +337,20 @@ static void deallocExceptionHandler(ExceptionContext *ctx)
     memset(ctx, 0, sizeof(*ctx));
 
     if (MACH_PORT_VALID(exceptionPort)) {
-        // Deallocate twice - once for receive right, once for send right.
-        mach_port_deallocate(mach_task_self(), exceptionPort);
-        mach_port_deallocate(mach_task_self(), exceptionPort);
+        // This port has both send and receive rights, which must be deallocated in separate steps.
+        // https://github.com/apple-oss-distributions/xnu/blob/a1e26a70f38d1d7daa7b49b258e2f8538ad81650/doc/mach_ipc/guard_exceptions.md#port-right-mismanagement
+        kern_return_t kr;
+        mach_port_t thisTask = mach_task_self();
+        mach_port_context_t context = 0;
+        if ((kr = mach_port_get_context(thisTask, exceptionPort, &context)) != KERN_SUCCESS) {
+            MACH_ERROR(kr, "mach_port_get_context");
+        }
+        if ((kr = mach_port_destruct(thisTask, exceptionPort, 0, context)) != KERN_SUCCESS) {
+            MACH_ERROR(kr, "mach_port_destruct");
+        }
+        if ((kr = mach_port_deallocate(thisTask, exceptionPort)) != KERN_SUCCESS) {
+            MACH_ERROR(kr, "mach_port_deallocate");
+        }
     }
     if (posixThread != 0 && machThread != mach_thread_self()) {
         pthread_cancel(posixThread);
