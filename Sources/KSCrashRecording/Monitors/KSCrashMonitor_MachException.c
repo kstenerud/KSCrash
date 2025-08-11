@@ -337,6 +337,8 @@ static void deallocExceptionHandler(ExceptionContext *ctx)
     memset(ctx, 0, sizeof(*ctx));
 
     if (MACH_PORT_VALID(exceptionPort)) {
+        // Deallocate twice - once for receive right, once for send right.
+        mach_port_deallocate(mach_task_self(), exceptionPort);
         mach_port_deallocate(mach_task_self(), exceptionPort);
     }
     if (posixThread != 0 && machThread != mach_thread_self()) {
