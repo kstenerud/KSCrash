@@ -157,6 +157,7 @@ static void onCrash(struct KSCrash_MonitorContext *monitorContext)
     if (monitorContext->currentPolicy.shouldWriteReport == 0) {
         return;
     }
+    
     if (monitorContext->currentSnapshotUserReported == false) {
         KSLOG_DEBUG("Updating application state to note crash.");
         kscrashstate_notifyAppCrash();
