@@ -31,6 +31,7 @@
 #include "KSCrashNamespace.h"
 #import "KSCrashReportStore.h"
 #import "KSCrashReportWriter.h"
+#import "KSCrashCConfiguration.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
