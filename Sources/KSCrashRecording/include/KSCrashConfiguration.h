@@ -31,7 +31,6 @@
 #include "KSCrashNamespace.h"
 #import "KSCrashReportStore.h"
 #import "KSCrashReportWriter.h"
-#import "KSCrashCConfiguration.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -140,7 +139,7 @@ NS_ASSUME_NONNULL_BEGIN
  *
  * **Default**: NULL
  */
-@property(nonatomic, assign, nullable) KSReportShouldWriteReportCallback shouldWriteReportCallback;
+@property(nonatomic, nullable) KSReportShouldWriteReportCallback shouldWriteReportCallback;
 
 /** If true, append KSLOG console messages to the crash report.
  *
