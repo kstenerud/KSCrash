@@ -33,6 +33,7 @@
 #include "KSCrashMonitorType.h"
 #include "KSCrashNamespace.h"
 #include "KSCrashReportWriter.h"
+#include "KSCrashMonitorContext.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -43,6 +44,7 @@ extern "C" {
  * @param reportID The ID of the report that was written.
  */
 typedef void (*KSReportWrittenCallback)(int64_t reportID);
+typedef bool (*KSReportWillWriteCallback)(const struct KSCrash_MonitorContext *context);
 
 /** Configuration for managing crash reports through the report store API.
  */
@@ -172,7 +174,8 @@ typedef struct {
      * **Default**: NULL
      */
     KSReportWriteCallback crashNotifyCallback;
-
+    KSReportWillWriteCallback willWriteCallback;
+    
     /** Callback to invoke upon finishing writing a crash report.
      *
      * This function is called after a crash report has been written. It allows the caller
@@ -234,6 +237,7 @@ static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
         .enableMemoryIntrospection = false,
         .doNotIntrospectClasses = { .strings = NULL, .length = 0 },
         .crashNotifyCallback = NULL,
+        .willWriteCallback = NULL,
         .reportWrittenCallback = NULL,
         .addConsoleLogToReport = false,
         .printPreviousLogOnStartup = false,

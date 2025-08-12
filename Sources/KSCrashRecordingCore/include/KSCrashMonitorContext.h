@@ -47,18 +47,21 @@ typedef struct {
 
     /** The process will terminate once exception handling is finished. */
     unsigned isFatal : 1;
-
+    
     /** Only async-safe functions may be called. */
     unsigned requiresAsyncSafety : 1;
-
+    
     /**
      * This crash happened while handling a crash, so we'll be producing only a minimal report.
      * Note: This will override shouldRecordThreads.
      */
     unsigned crashedDuringExceptionHandling : 1;
-
+    
     /** The handle() method will try to record all threads if possible. */
     unsigned shouldRecordThreads : 1;
+    
+    /** Some report writes might be prepared for future use, such as preparing an OOM reprot for the next session. */
+    unsigned forFutureReference: 1;
 } KSCrash_ExceptionHandlingPolicy;
 
 /**

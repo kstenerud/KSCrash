@@ -99,6 +99,7 @@ static KSCrashMonitorType g_monitoring = KSCrashMonitorTypeProductionSafeMinimal
 static char g_lastCrashReportFilePath[KSFU_MAX_PATH_LENGTH];
 static KSCrashReportStoreCConfiguration g_reportStoreConfig;
 static KSReportWrittenCallback g_reportWrittenCallback;
+static KSReportWillWriteCallback g_reportWillWriteCallback;
 static KSApplicationState g_lastApplicationState = KSApplicationStateNone;
 
 // ============================================================================
@@ -147,6 +148,14 @@ static void notifyOfBeforeInstallationState(void)
  */
 static void onCrash(struct KSCrash_MonitorContext *monitorContext)
 {
+    if (monitorContext->currentPolicy.forFutureReference == 0) {
+        if (g_reportWillWriteCallback) {
+            if (g_reportWillWriteCallback(monitorContext) == false) {
+                return;
+            }
+        }
+    }
+    
     if (monitorContext->currentSnapshotUserReported == false) {
         KSLOG_DEBUG("Updating application state to note crash.");
         kscrashstate_notifyAppCrash();
@@ -163,8 +172,10 @@ static void onCrash(struct KSCrash_MonitorContext *monitorContext)
         strncpy(g_lastCrashReportFilePath, crashReportFilePath, sizeof(g_lastCrashReportFilePath));
         kscrashreport_writeStandardReport(monitorContext, crashReportFilePath);
 
-        if (g_reportWrittenCallback) {
-            g_reportWrittenCallback(reportID);
+        if (monitorContext->currentPolicy.forFutureReference == 0) {
+            if (g_reportWrittenCallback) {
+                g_reportWrittenCallback(reportID);
+            }
         }
     }
 }
@@ -208,7 +219,8 @@ void handleConfiguration(KSCrashCConfiguration *configuration)
     g_reportWrittenCallback = configuration->reportWrittenCallback;
     g_shouldAddConsoleLogToReport = configuration->addConsoleLogToReport;
     g_shouldPrintPreviousLog = configuration->printPreviousLogOnStartup;
-
+    g_reportWillWriteCallback = configuration->willWriteCallback;
+    
     if (configuration->enableSwapCxaThrow) {
         kscm_enableSwapCxaThrow();
     }

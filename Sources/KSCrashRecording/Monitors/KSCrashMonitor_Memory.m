@@ -535,6 +535,7 @@ static void ksmemory_write_possible_oom(void)
                                                                      .requiresAsyncSafety = false,
                                                                      .isFatal = false,
                                                                      .shouldRecordThreads = false,
+                                                                     .forFutureReference = true
                                                                  });
     if (ctx->currentPolicy.shouldExitImmediately) {
         return;
