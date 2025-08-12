@@ -1492,6 +1492,13 @@ void kscrashreport_writeRecrashReport(const KSCrash_MonitorContext *const monito
             ksfu_flushBufferedWriter(&bufferedWriter);
         }
         writer->endContainer(writer);
+
+        if (g_userSectionWriteCallback != NULL) {
+            writer->beginObject(writer, KSCrashField_User);
+            ksfu_flushBufferedWriter(&bufferedWriter);
+            g_userSectionWriteCallback(monitorContext->currentPolicy, writer);
+            writer->endContainer(writer);
+        }
     }
     writer->endContainer(writer);
 
@@ -1572,7 +1579,7 @@ static void writeDebugInfo(const KSCrashReportWriter *const writer, const char *
     writer->endContainer(writer);
 }
 
-void kscrashreport_writeStandardReport(const KSCrash_MonitorContext *const monitorContext, const char *const path)
+void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorContext, const char *const path)
 {
     KSLOG_INFO("Writing crash report to %s", path);
     char writeBuffer[1024];
@@ -1613,8 +1620,18 @@ void kscrashreport_writeStandardReport(const KSCrash_MonitorContext *const monit
         {
             writeError(writer, KSCrashField_Error, monitorContext);
             ksfu_flushBufferedWriter(&bufferedWriter);
-            writeAllThreads(writer, KSCrashField_Threads, monitorContext, g_introspectionRules.enabled);
-            ksfu_flushBufferedWriter(&bufferedWriter);
+            if (monitorContext->currentPolicy.shouldRecordThreads) {
+                writeAllThreads(writer, KSCrashField_Threads, monitorContext, g_introspectionRules.enabled);
+                ksfu_flushBufferedWriter(&bufferedWriter);
+                monitorContext->currentPolicy.requiresAsyncSafety--;
+                if (monitorContext->currentPolicy.requiresAsyncSafety == 0) {
+                    // Special case: If decrementing `requiresAsyncSafety` clears it,
+                    // then we only needed async safety to record all threads.
+                    // In such a case, resuming them here removes the need for async
+                    // safety earlier, and gives the handler callbacks more freedom.
+                    ksmc_resumeEnvironment(&monitorContext->suspendedThreads, &monitorContext->suspendedThreadsCount);
+                }
+            }
         }
         writer->endContainer(writer);
 
@@ -1626,7 +1643,7 @@ void kscrashreport_writeStandardReport(const KSCrash_MonitorContext *const monit
         }
         if (g_userSectionWriteCallback != NULL) {
             ksfu_flushBufferedWriter(&bufferedWriter);
-            g_userSectionWriteCallback(writer);
+            g_userSectionWriteCallback(monitorContext->currentPolicy, writer);
         }
         writer->endContainer(writer);
         ksfu_flushBufferedWriter(&bufferedWriter);

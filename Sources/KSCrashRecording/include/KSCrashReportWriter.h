@@ -34,6 +34,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "KSCrashExceptionHandlingPolicy.h"
 #include "KSCrashNamespace.h"
 
 #ifdef __OBJC__
@@ -227,8 +228,20 @@ typedef struct KSCrashReportWriter {
 
 } NS_SWIFT_NAME(ReportWriter) KSCrashReportWriter;
 
-typedef void (*KSReportWriteCallback)(const KSCrashReportWriter *writer)
-    NS_SWIFT_UNAVAILABLE("Use Swift closures instead!");
+/** Callback type for when a crash report is being written.
+ *
+ * @param policy The policy under which the report was written.
+ * @param writer The report writer.
+ */
+typedef void (*KSReportWriteCallback)(KSCrash_ExceptionHandlingPolicy policy,
+                                      const KSCrashReportWriter *_Nonnull writer);
+
+/** Callback type for when a crash report is finished writing.
+ *
+ * @param policy The policy under which the report was written.
+ * @param reportID The ID of the report that was written.
+ */
+typedef void (*KSReportWrittenCallback)(KSCrash_ExceptionHandlingPolicy policy, int64_t reportID);
 
 #ifdef __cplusplus
 }

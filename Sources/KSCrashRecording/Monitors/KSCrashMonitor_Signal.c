@@ -94,7 +94,7 @@ static void handleSignal(int sigNum, siginfo_t *signalInfo, void *userContext)
     if (g_isEnabled && shouldHandleSignal(sigNum)) {
         thread_t thisThread = (thread_t)ksthread_self();
         KSCrash_MonitorContext *crashContext = g_callbacks.notify(thisThread, (KSCrash_ExceptionHandlingPolicy) {
-                                                                                  .requiresAsyncSafety = true,
+                                                                                  .requiresAsyncSafety = 1,
                                                                                   .isFatal = true,
                                                                                   .shouldRecordThreads = true,
                                                                               });

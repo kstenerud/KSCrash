@@ -37,6 +37,9 @@ struct ReportingView: View {
             Button("Log To Console") {
                 store.logToConsole()
             }
+            Button("Log Raw to Console") {
+                store.logRawToConsole()
+            }
             Button("Sample Custom Log To Console") {
                 store.sampleLogToConsole()
             }

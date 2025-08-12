@@ -164,7 +164,7 @@ static void onCrash(struct KSCrash_MonitorContext *monitorContext)
         kscrashreport_writeStandardReport(monitorContext, crashReportFilePath);
 
         if (g_reportWrittenCallback) {
-            g_reportWrittenCallback(reportID);
+            g_reportWrittenCallback(monitorContext->currentPolicy, reportID);
         }
     }
 }

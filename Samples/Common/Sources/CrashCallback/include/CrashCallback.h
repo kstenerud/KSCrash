@@ -7,14 +7,16 @@
 
 #pragma once
 
+#include "KSCrashExceptionHandlingPolicy.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 struct KSCrashReportWriter;
-void crashNotifyCallback(const struct KSCrashReportWriter *writer);
+void integrationTestCrashNotifyCallback(KSCrash_ExceptionHandlingPolicy policy, const struct KSCrashReportWriter * _Nonnull writer);
 
-void setCrashNotifyImplementation(void (^implementation)(const struct KSCrashReportWriter *writer));
+void setIntegrationTestCrashNotifyImplementation(void (^ _Nonnull implementation)(KSCrash_ExceptionHandlingPolicy policy, const struct KSCrashReportWriter * _Nonnull writer));
 
 #ifdef __cplusplus
 }

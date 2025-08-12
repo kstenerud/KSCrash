@@ -43,8 +43,18 @@
     mach_msg_type_number_t numThreads2 = 0;
     ksmc_suspendEnvironment(&threads2, &numThreads2);
 
-    ksmc_resumeEnvironment(threads2, numThreads2);
-    ksmc_resumeEnvironment(threads1, numThreads1);
+    ksmc_resumeEnvironment(&threads2, &numThreads2);
+    ksmc_resumeEnvironment(&threads1, &numThreads1);
+    XCTAssertEqual(threads1, NULL);
+    XCTAssertEqual(threads2, NULL);
+
+    // These should be idempotent
+    ksmc_resumeEnvironment(&threads2, &numThreads2);
+    ksmc_resumeEnvironment(&threads1, &numThreads1);
+    ksmc_resumeEnvironment(&threads2, &numThreads2);
+    ksmc_resumeEnvironment(&threads1, &numThreads1);
+    ksmc_resumeEnvironment(&threads2, &numThreads2);
+    ksmc_resumeEnvironment(&threads1, &numThreads1);
 }
 
 - (void)startTheBackgroundJob

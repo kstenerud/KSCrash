@@ -232,27 +232,30 @@ static CrashHandlerData *g_crashHandlerData;
     }
 }
 
+static void onCrash(const KSCrash_ExceptionHandlingPolicy policy, const struct KSCrashReportWriter *_Nonnull writer)
+{
+    CrashHandlerData *crashHandlerData = g_crashHandlerData;
+    if (crashHandlerData == NULL) {
+        return;
+    }
+    for (int i = 0; i < crashHandlerData->reportFieldsCount; i++) {
+        ReportField *field = crashHandlerData->reportFields[i];
+        if (field->key != NULL && field->value != NULL) {
+            writer->addJSONElement(writer, field->key, field->value, true);
+        }
+    }
+    if (crashHandlerData->userCrashCallback != NULL) {
+        crashHandlerData->userCrashCallback(policy, writer);
+    }
+}
+
 - (BOOL)installWithConfiguration:(KSCrashConfiguration *)configuration error:(NSError **)error
 {
     KSCrash *handler = [KSCrash sharedInstance];
     @synchronized(handler) {
         g_crashHandlerData = self.crashHandlerData;
 
-        configuration.crashNotifyCallback = ^(const struct KSCrashReportWriter *_Nonnull writer) {
-            CrashHandlerData *crashHandlerData = g_crashHandlerData;
-            if (crashHandlerData == NULL) {
-                return;
-            }
-            for (int i = 0; i < crashHandlerData->reportFieldsCount; i++) {
-                ReportField *field = crashHandlerData->reportFields[i];
-                if (field->key != NULL && field->value != NULL) {
-                    writer->addJSONElement(writer, field->key, field->value, true);
-                }
-            }
-            if (crashHandlerData->userCrashCallback != NULL) {
-                crashHandlerData->userCrashCallback(writer);
-            }
-        };
+        configuration.crashNotifyCallback = onCrash;
 
         NSError *installError = nil;
         BOOL success = [handler installWithConfiguration:configuration error:&installError];

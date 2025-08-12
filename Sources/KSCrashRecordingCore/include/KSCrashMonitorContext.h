@@ -30,6 +30,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "KSCrashExceptionHandlingPolicy.h"
 #include "KSCrashMonitorFlag.h"
 #include "KSCrashNamespace.h"
 #include "KSMachineContext.h"
@@ -37,29 +38,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-/**
- * Policy and state information that affects how a crash will be handled.
- */
-typedef struct {
-    /** Do nothing. Touch nothing. Exit the exception handler immediately. */
-    unsigned shouldExitImmediately : 1;
-
-    /** The process will terminate once exception handling is finished. */
-    unsigned isFatal : 1;
-
-    /** Only async-safe functions may be called. */
-    unsigned requiresAsyncSafety : 1;
-
-    /**
-     * This crash happened while handling a crash, so we'll be producing only a minimal report.
-     * Note: This will override shouldRecordThreads.
-     */
-    unsigned crashedDuringExceptionHandling : 1;
-
-    /** The handle() method will try to record all threads if possible. */
-    unsigned shouldRecordThreads : 1;
-} KSCrash_ExceptionHandlingPolicy;
 
 /**
  * The monitor context is a clearing house for all information that might be recorded into a crash report.
