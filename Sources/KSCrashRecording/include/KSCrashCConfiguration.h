@@ -31,14 +31,26 @@
 #include <string.h>
 
 #include "KSCrashExceptionHandlingPolicy.h"
+#include "KSCrashMonitorContext.h"
 #include "KSCrashMonitorType.h"
 #include "KSCrashNamespace.h"
 #include "KSCrashReportWriter.h"
-#include "KSCrashMonitorContext.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/** Callback type for when a crash report is written.
+ *
+ * @param reportID The ID of the report that was written.
+ */
+typedef void (*KSReportWrittenCallback)(int64_t reportID);
+
+/** Callback type for when a crash report should be written.
+ *
+ * @param context The monitor context of the report that could be written.
+ */
+typedef bool (*KSReportShouldWriteReportCallback)(const struct KSCrash_MonitorContext *context);
 
 /** Configuration for managing crash reports through the report store API.
  */
@@ -168,8 +180,17 @@ typedef struct {
      * **Default**: NULL
      */
     KSReportWriteCallback crashNotifyCallback;
-    KSReportWillWriteCallback willWriteCallback;
-    
+
+    /** Callback to invoke upon a crash before begining to process/write it.
+     *
+     * This function is called during the crash reporting process, providing an opportunity
+     * to add additional information to the crash report, and stop the process from writting
+     * the report.
+     *
+     * **Default**: NULL
+     */
+    KSReportShouldWriteReportCallback shouldWriteReportCallback;
+
     /** Callback to invoke upon finishing writing a crash report.
      *
      * This function is called after a crash report has been written. It allows the caller
@@ -231,7 +252,7 @@ static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
         .enableMemoryIntrospection = false,
         .doNotIntrospectClasses = { .strings = NULL, .length = 0 },
         .crashNotifyCallback = NULL,
-        .willWriteCallback = NULL,
+        .shouldWriteReportCallback = NULL,
         .reportWrittenCallback = NULL,
         .addConsoleLogToReport = false,
         .printPreviousLogOnStartup = false,
