@@ -87,7 +87,7 @@ typedef struct {
      *
      * Most commonly, callbacks should do NOTHING when this flag is set.
      *
-     * The rerport writer will produce only a minimal report (without threads,
+     * The report writer will produce only a minimal report (without threads,
      * so this will also set `shouldRecordThreads` to false). The original
      * report and "recrash" reports will then be merged.
      */
