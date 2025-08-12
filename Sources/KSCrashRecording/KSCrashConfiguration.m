@@ -61,8 +61,8 @@
         _printPreviousLogOnStartup = cConfig.printPreviousLogOnStartup ? YES : NO;
         _enableSwapCxaThrow = cConfig.enableSwapCxaThrow ? YES : NO;
         _enableSigTermMonitoring = cConfig.enableSigTermMonitoring ? YES : NO;
-        _willWriteCallback = cConfig.willWriteCallback;
-        
+        _shouldWriteReportCallback = cConfig.shouldWriteReportCallback;
+
         _reportStoreConfiguration = [KSCrashReportStoreConfiguration new];
         _reportStoreConfiguration.appName = nil;
         _reportStoreConfiguration.maxReportCount = cConfig.reportStoreConfiguration.maxReportCount;
@@ -105,8 +105,8 @@
     config.printPreviousLogOnStartup = self.printPreviousLogOnStartup;
     config.enableSwapCxaThrow = self.enableSwapCxaThrow;
     config.enableSigTermMonitoring = self.enableSigTermMonitoring;
-    config.willWriteCallback = self.willWriteCallback;
-    
+    config.shouldWriteReportCallback = self.shouldWriteReportCallback;
+
     return config;
 }
 
@@ -154,7 +154,7 @@
                                                                           copyItems:YES]
                                       : nil;
     copy.crashNotifyCallback = [self.crashNotifyCallback copy];
-    copy.willWriteCallback = self.willWriteCallback;
+    copy.shouldWriteReportCallback = self.shouldWriteReportCallback;
     copy.reportWrittenCallback = [self.reportWrittenCallback copy];
     copy.addConsoleLogToReport = self.addConsoleLogToReport;
     copy.printPreviousLogOnStartup = self.printPreviousLogOnStartup;
