@@ -229,6 +229,8 @@ def generate_header_contents(symbols):
 
 #ifdef {namespace_define}
 
+#define {namespace_define}_STRING #{namespace_define}
+
 #define {namespace_macro}2(NAMESPACE, SYMBOL) SYMBOL##NAMESPACE
 #define {namespace_macro}1(NAMESPACE, SYMBOL) {namespace_macro}2(NAMESPACE, SYMBOL)
 #define {namespace_macro}(SYMBOL) {namespace_macro}1({namespace_define}, SYMBOL)
@@ -240,6 +242,10 @@ def generate_header_contents(symbols):
             line = f"#define {symbol} \\\n    {namespace_macro}({symbol})"
         contents += f"{line}\n"
     contents += f"""
+#else
+
+#define {namespace_define}_STRING ""
+
 #endif
 
 #endif /* {header_define} */
