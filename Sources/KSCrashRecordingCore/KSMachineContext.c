@@ -207,8 +207,8 @@ void ksmc_suspendEnvironment(thread_act_array_t *threadsToSuspend, mach_msg_type
     KSLOG_DEBUG("Suspend complete.");
 }
 #else
-void ksmc_suspendEnvironment(__unused thread_act_array_t *suspendedThreads,
-                             __unused mach_msg_type_number_t *numSuspendedThreads)
+void ksmc_suspendEnvironment(__unused thread_act_array_t *threadsToSuspend,
+                             __unused mach_msg_type_number_t *threadsToSuspendCount)
 {
 }
 #endif
@@ -257,7 +257,10 @@ done:
     KSLOG_DEBUG("Resume complete.");
 }
 #else
-void ksmc_resumeEnvironment(__unused thread_act_array_t threads, __unused mach_msg_type_number_t numThreads) {}
+void ksmc_resumeEnvironment(__unused thread_act_array_t *threads_inOut,
+                            __unused mach_msg_type_number_t *numThreads_inOut)
+{
+}
 #endif
 
 int ksmc_getThreadCount(const KSMachineContext *const context) { return context->threadCount; }
