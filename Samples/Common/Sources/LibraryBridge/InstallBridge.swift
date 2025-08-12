@@ -25,6 +25,7 @@
 //
 
 import Combine
+import CrashCallback
 import Foundation
 import KSCrashInstallations
 import KSCrashRecording
@@ -76,6 +77,7 @@ public class InstallBridge: ObservableObject {
 
     public init() {
         config = .init()
+        config.crashNotifyCallback = crashNotifyCallback
 
         $basePath
             .removeDuplicates()

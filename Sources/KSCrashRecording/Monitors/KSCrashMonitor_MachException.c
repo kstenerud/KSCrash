@@ -41,24 +41,24 @@
 // This means that the runtime technically doesn't support multiple handlers, but we can get around
 // this with a trick.
 //
-// Once an exception request message has been received, the process won't resume until the
+// Once an exception request message has been received, the offending thread won't resume until the
 // exception request message is replied to. The "RetCode" field of the reply message tells the
-// process what to do next:
+// kernel what the process should do next:
 // - KERN_SUCCESS means "I've handled the exception and it's okay to retry the faulting instruction."
 //   The process will re-run the instruction that caused the exception and continue processing from there.
 // - KERN_FAILURE means "I couldn't handle this exception." The process will look for a higher-up
 //   handler (in this case, a host handler) and run that. If no higher-up handlers exist, the process terminates.
 //
 // In order to chain to other Mach exception handlers, we do the following:
-// - On start, use 'task_get_exception_ports()' to save any existing exception handler.
-// - On Mach exception, look through the saved exception handler list for any port whose mask
-//   matches the exception we're handling.
-// - If we find a suitable port, use 'task_set_exception_ports()' to set it as the Mach exception
-//   handler, then respond to the exception request message with 'KERN_SUCCESS'. The process will
-//   re-run the faulting instruction (which will fault again) and then the kernel will send another
-//   exception message to the port we just designated.
-// - If we don't find a suitable handler, then there are no more exception handlers to chain to.
-//   Respond to the exception request message with 'KERN_FAILURE', and the app will finish crashing.
+// - On start, use 'task_get_exception_ports()' to save any already established exception handlers.
+// - Next, use 'task_set_exception_ports()' to set our own handler ports.
+// - After handling an exception, restore the original ports, then check their masks to see
+//   if they can handle the exception type we're dealing with.
+//   - If they can handle this exception, respond to the exception request message with 'KERN_SUCCESS'.
+//     The process will re-run the faulting instruction (which will fault again) and then the kernel
+//     will send another exception message to the original port we just restored.
+//   - If they can't handle this exception, respond to the exception request message with 'KERN_FAILURE'.
+//     The kernel will pass control to the host port (if any), and finish crashing the app.
 
 #include "KSCrashMonitor_MachException.h"
 
@@ -88,8 +88,15 @@
 #pragma mark - Constants -
 // ============================================================================
 
-static const char *kThreadPrimary = "KSCrash Exception Handler (Primary)";
-// static const char *kThreadSecondary = "KSCrash Exception Handler (Secondary)";
+static const char *kThreadPrimary = "KSCrash Exception Handler (Primary" KSCRASH_NAMESPACE_STRING ")";
+static const char *kThreadSecondary = "KSCrash Exception Handler (Secondary" KSCRASH_NAMESPACE_STRING ")";
+
+enum {
+    kContextIdxSystem = 0,
+    kContextIdxSecondary = 1,
+    kContextIdxPrimary = 2,
+    kContextCount = 3,
+};
 
 #if __LP64__
 #define MACH_ERROR_CODE_MASK 0xFFFFFFFFFFFFFFFF
@@ -116,47 +123,59 @@ typedef struct {
     exception_behavior_t behaviors[EXC_TYPES_COUNT];
     thread_state_flavor_t flavors[EXC_TYPES_COUNT];
     mach_msg_type_number_t count;
-} MachExceptionHandlerData;
+} MachExceptionHandlerRestorePoint;
 
 struct ExceptionContext;
 typedef void(ExceptionCallback)(struct ExceptionContext *);
 
-typedef struct ExceptionContext {
-    // These are set by initExceptionHandler()
+typedef struct {
+    // ================================
+    // These are only set once.
+    // ================================
+
     const char *threadName;
-    ExceptionCallback *handleException;
     ExceptionRequest *request;    // Will point to requestBuffer
     mach_msg_size_t requestSize;  // will be sizeof(requestBuffer)
     // Make the buffer from an array of uint64 in order to enforce memory alignment.
     // Notice that the buffer will be 8x larger than "required". The mach subsystem
     // will secretly tack on extra data for its own purposes, so we need this.
     uint64_t requestBuffer[sizeof(ExceptionRequest)];
-
-    // These are set by startNewExceptionHandler()
     pthread_t posixThread;
     thread_t machThread;
     mach_port_t exceptionPort;
-    MachExceptionHandlerData previousHandlers;
+    MachExceptionHandlerRestorePoint machExceptionHandlerRestorePoint;
+    int contextIndex;
 
-    // These are used while the handler thread is running
-    bool isHandlingException;
+    // ================================
+    // These are changeable state.
+    // ================================
+
+    KSStackCursor stackCursor;
+    atomic_bool isHandlingException;
+
 } ExceptionContext;
 
 // ============================================================================
 #pragma mark - Globals -
 // ============================================================================
 
+static struct {
+    ExceptionContext contexts[kContextCount];
+    KSCrash_ExceptionHandlerCallbacks callbacks;
+    int currentRestorePoint;
+} g_state;
+
 static atomic_bool g_isEnabled = false;
-
-static KSStackCursor g_stackCursor;
-
-static ExceptionContext g_primaryContext = { 0 };
-
-static KSCrash_ExceptionHandlerCallbacks g_callbacks;
 
 // ============================================================================
 #pragma mark - Utility -
 // ============================================================================
+
+#define MACH_ERROR(KR, MSG)               \
+    do {                                  \
+        mach_error(MSG, KR);              \
+        KSLOG_ERROR(MSG ": kr = %d", KR); \
+    } while (0)
 
 #define EXC_UNIX_BAD_SYSCALL 0x10000 /* SIGSYS */
 #define EXC_UNIX_BAD_PIPE 0x10001    /* SIGPIPE */
@@ -228,38 +247,61 @@ static exception_mask_t maskForException(exception_type_t exc)
     return 1 << exc;
 }
 
-/** Try to restore any previously saved exception ports.
- * Returns true (did restore) or false (did not restore) so that the caller knows how to structure the reply message.
- * Note: This can only be called ONCE per MachExceptionHandlerData. Multiple calls will no-op and return false.
- */
-static bool restorePreviousExceptionPorts(const exception_mask_t matchingMask,
-                                          MachExceptionHandlerData *previousExceptionData)
+static bool canCurrentPortsHandleException(exception_type_t exc)
 {
-    mach_msg_type_number_t foundIndex = 0;
-    for (foundIndex = 0; foundIndex < previousExceptionData->count; foundIndex++) {
-        if (MACH_PORT_VALID(previousExceptionData->ports[foundIndex]) &&
-            (previousExceptionData->masks[foundIndex] & matchingMask) != 0) {
-            break;
+    const exception_mask_t matchingMask = maskForException(exc);
+    const MachExceptionHandlerRestorePoint *ports =
+        &g_state.contexts[g_state.currentRestorePoint].machExceptionHandlerRestorePoint;
+    for (mach_msg_type_number_t i = 0; i < ports->count; i++) {
+        if (MACH_PORT_VALID(ports->ports[i]) && (ports->masks[i] & matchingMask) != 0) {
+            return true;
         }
     }
-    if (foundIndex >= previousExceptionData->count) {
-        KSLOG_DEBUG("No previous mach exception handlers present that can handle this exception.");
-        return false;
-    }
+    return false;
+}
 
-    // Prevent this exception data from being used again
-    previousExceptionData->count = 0;
-
-    KSLOG_DEBUG("Restoring previous mach exception handler.");
-    kern_return_t kr = task_set_exception_ports(
-        mach_task_self(), previousExceptionData->masks[foundIndex], previousExceptionData->ports[foundIndex],
-        previousExceptionData->behaviors[foundIndex], previousExceptionData->flavors[foundIndex]);
+static bool saveExceptionPortsRestorePoint(int contextIndex)
+{
+    MachExceptionHandlerRestorePoint *restorePoint = &g_state.contexts[contextIndex].machExceptionHandlerRestorePoint;
+    kern_return_t kr =
+        task_get_exception_ports(mach_task_self(), kInterestingExceptions, restorePoint->masks, &restorePoint->count,
+                                 restorePoint->ports, restorePoint->behaviors, restorePoint->flavors);
     if (kr != KERN_SUCCESS) {
-        mach_error("task_set_exception_ports", kr);
+        MACH_ERROR(kr, "task_get_exception_ports");
         return false;
     }
     return true;
 }
+
+static bool restoreExceptionPorts(int restoreToIndex)
+{
+    KSLOG_DEBUG("Restoring exception ports to index %d: %s", restoreToIndex,
+                g_state.contexts[restoreToIndex].threadName);
+
+    g_state.currentRestorePoint = restoreToIndex;
+
+    MachExceptionHandlerRestorePoint *restorePoint = &g_state.contexts[restoreToIndex].machExceptionHandlerRestorePoint;
+    kern_return_t kr;
+    for (mach_msg_type_number_t i = 0; i < restorePoint->count; i++) {
+        if (restorePoint->masks[i] != 0) {
+            kr = task_set_exception_ports(mach_task_self(), restorePoint->masks[i], restorePoint->ports[i],
+                                          restorePoint->behaviors[i], restorePoint->flavors[i]);
+            if (kr != KERN_SUCCESS) {
+                MACH_ERROR(kr, "task_set_exception_ports");
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+static bool restoreNextLevelExceptionPorts(ExceptionContext *ctx)
+{
+    return restoreExceptionPorts(ctx->contextIndex - 1);
+}
+
+static bool restoreOriginalExceptionPorts(void) { return restoreExceptionPorts(kContextIdxSystem); }
 
 /** Simulate exc_server()
  * We don't actually want to run exc_server(), so instead just fill out the reply as if it had been run.
@@ -279,30 +321,39 @@ static void simulatedExcServer(ExceptionRequest *request, ExceptionReply *reply)
     reply->Head.msgh_id = request->Head.msgh_id + xnu_reply_msg_increment;
 }
 
-static void initExceptionHandler(ExceptionContext *ctx, const char *threadName, ExceptionCallback *handleException)
-{
-    memset(ctx, 0, sizeof(*ctx));
-    ctx->threadName = threadName;
-    ctx->handleException = handleException;
-    ctx->request = (ExceptionRequest *)ctx->requestBuffer;
-    ctx->requestSize = sizeof(ctx->requestBuffer);
-}
-
 static void deallocExceptionHandler(ExceptionContext *ctx)
 {
     // If this context is handling an exception, let it finish and dealloc naturally.
-    if (!ctx->isHandlingException) {
-        mach_port_t exceptionPort = ctx->exceptionPort;
-        thread_t machThread = ctx->machThread;
-        pthread_t posixThread = ctx->posixThread;
-        memset(ctx, 0, sizeof(*ctx));
+    if (ctx->isHandlingException) {
+        KSLOG_DEBUG("Thread %s: Still handling an exception, so not deallocating yet", ctx->threadName);
+        return;
+    }
 
-        if (MACH_PORT_VALID(exceptionPort)) {
-            mach_port_deallocate(mach_task_self(), exceptionPort);
+    KSLOG_DEBUG("Thread %s: Deallocating exception handler", ctx->threadName);
+
+    mach_port_t exceptionPort = ctx->exceptionPort;
+    thread_t machThread = ctx->machThread;
+    pthread_t posixThread = ctx->posixThread;
+    memset(ctx, 0, sizeof(*ctx));
+
+    if (MACH_PORT_VALID(exceptionPort)) {
+        // This port has both send and receive rights, which must be deallocated in separate steps.
+        // https://github.com/apple-oss-distributions/xnu/blob/a1e26a70f38d1d7daa7b49b258e2f8538ad81650/doc/mach_ipc/guard_exceptions.md#port-right-mismanagement
+        kern_return_t kr;
+        mach_port_t thisTask = mach_task_self();
+        mach_port_context_t context = 0;
+        if ((kr = mach_port_get_context(thisTask, exceptionPort, &context)) != KERN_SUCCESS) {
+            MACH_ERROR(kr, "mach_port_get_context");
         }
-        if (posixThread != 0 && machThread != mach_thread_self()) {
-            pthread_cancel(posixThread);
+        if ((kr = mach_port_destruct(thisTask, exceptionPort, 0, context)) != KERN_SUCCESS) {
+            MACH_ERROR(kr, "mach_port_destruct");
         }
+        if ((kr = mach_port_deallocate(thisTask, exceptionPort)) != KERN_SUCCESS) {
+            MACH_ERROR(kr, "mach_port_deallocate");
+        }
+    }
+    if (posixThread != 0 && machThread != mach_thread_self()) {
+        pthread_cancel(posixThread);
     }
 }
 
@@ -310,9 +361,9 @@ static void deallocExceptionHandler(ExceptionContext *ctx)
 #pragma mark - Handler Primitives -
 // ============================================================================
 
-static void waitForException(ExceptionContext *ctx)
+static exception_type_t waitForException(ExceptionContext *ctx)
 {
-    KSLOG_DEBUG("Waiting for mach exception");
+    KSLOG_DEBUG("Thread %s: Waiting for mach exception", ctx->threadName);
 
     ctx->request->Head.msgh_local_port = ctx->exceptionPort;
     ctx->request->Head.msgh_size = ctx->requestSize;
@@ -320,36 +371,86 @@ static void waitForException(ExceptionContext *ctx)
     kern_return_t kr = mach_msg(&ctx->request->Head, MACH_RCV_MSG | MACH_RCV_LARGE, 0, ctx->request->Head.msgh_size,
                                 ctx->exceptionPort, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);
     if (kr == KERN_SUCCESS) {
-        KSLOG_DEBUG("Trapped mach exception code 0x%llx, subcode 0x%llx", ctx->request->code[0], ctx->request->code[1]);
+        KSLOG_DEBUG("Thread %s: Trapped mach exception code 0x%llx, subcode 0x%llx", ctx->threadName,
+                    ctx->request->code[0], ctx->request->code[1]);
     } else {
-        mach_error("mach_msg", kr);
+        MACH_ERROR(kr, "mach_msg");
     }
+    return ctx->request->exception;
 }
 
-static void sendExceptionReply(ExceptionContext *ctx, bool didRestoreExceptionPorts)
+static void sendExceptionReply(ExceptionContext *ctx, bool exceptionPortsCanHandleThisException)
 {
     ExceptionReply reply = { 0 };
     simulatedExcServer(ctx->request, &reply);
 
-    if (didRestoreExceptionPorts) {
+    if (exceptionPortsCanHandleThisException) {
         KSLOG_DEBUG(
-            "Replying KERN_SUCCESS so that the process will re-run the instruction "
-            "that caused the fault, fail again, and call the previous handler");
+            "Thread %s: Replying KERN_SUCCESS so that the process will re-run the instruction "
+            "that caused the fault, fail again, and call the original handlers",
+            ctx->threadName);
         reply.RetCode = KERN_SUCCESS;
     } else {
         KSLOG_DEBUG(
-            "Replying KERN_FAILURE so that the process won't try any further "
-            "action from this exception raise");
+            "Thread %s: Replying KERN_FAILURE so that the process won't try any further "
+            "action from this exception raise, and just crash",
+            ctx->threadName);
         reply.RetCode = KERN_FAILURE;
     }
 
     kern_return_t kr = mach_msg(&reply.Head, MACH_SEND_MSG, reply.Head.msgh_size, 0, MACH_PORT_NULL,
                                 MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);
     if (kr != KERN_SUCCESS) {
-        mach_error("mach_msg", kr);
+        MACH_ERROR(kr, "mach_msg");
     } else {
-        KSLOG_DEBUG("Mach exception reply sent.");
+        KSLOG_DEBUG("Thread %s: Mach exception reply sent.", ctx->threadName);
     }
+}
+
+static void handleException(ExceptionContext *exceptionCtx)
+{
+    KSCrash_MonitorContext *monitorCtx =
+        g_state.callbacks.notify(exceptionCtx->request->thread.name, (KSCrash_ExceptionHandlingPolicy) {
+                                                                         .requiresAsyncSafety = true,
+                                                                         .isFatal = true,
+                                                                         .shouldRecordThreads = true,
+                                                                     });
+    if (monitorCtx->currentPolicy.shouldExitImmediately) {
+        KSLOG_DEBUG("Thread %s: Should exit immediately, so returning", exceptionCtx->threadName);
+        return;
+    }
+
+    KSLOG_DEBUG("Thread %s: Fetching machine state.", exceptionCtx->threadName);
+    KSMachineContext machineContext = { 0 };
+    monitorCtx->offendingMachineContext = &machineContext;
+    kssc_initCursor(&exceptionCtx->stackCursor, NULL, NULL);
+    if (ksmc_getContextForThread(exceptionCtx->request->thread.name, &machineContext, true)) {
+        kssc_initWithMachineContext(&exceptionCtx->stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
+        KSLOG_TRACE("Thread %s: Fault address %p, instruction address %p", exceptionCtx->threadName,
+                    kscpu_faultAddress(&machineContext), kscpu_instructionAddress(&machineContext));
+        if (exceptionCtx->request->exception == EXC_BAD_ACCESS) {
+            monitorCtx->faultAddress = kscpu_faultAddress(&machineContext);
+        } else {
+            monitorCtx->faultAddress = kscpu_instructionAddress(&machineContext);
+        }
+    }
+
+    KSLOG_DEBUG("Thread %s: Filling out context.", exceptionCtx->threadName);
+    kscm_fillMonitorContext(monitorCtx, kscm_machexception_getAPI());
+    monitorCtx->registersAreValid = true;
+    monitorCtx->mach.type = exceptionCtx->request->exception;
+    monitorCtx->mach.code = exceptionCtx->request->code[0] & (int64_t)MACH_ERROR_CODE_MASK;
+    monitorCtx->mach.subcode = exceptionCtx->request->code[1] & (int64_t)MACH_ERROR_CODE_MASK;
+    if (monitorCtx->mach.code == KERN_PROTECTION_FAILURE && monitorCtx->isStackOverflow) {
+        // A stack overflow should return KERN_INVALID_ADDRESS, but
+        // when a stack blasts through the guard pages at the top of the stack,
+        // it generates KERN_PROTECTION_FAILURE. Correct for this.
+        monitorCtx->mach.code = KERN_INVALID_ADDRESS;
+    }
+    monitorCtx->signal.signum = signalForMachException(monitorCtx->mach.type, monitorCtx->mach.code);
+    monitorCtx->stackCursor = &exceptionCtx->stackCursor;
+
+    g_state.callbacks.handle(monitorCtx);
 }
 
 static void *exceptionHandlerThreadMain(void *data)
@@ -357,63 +458,69 @@ static void *exceptionHandlerThreadMain(void *data)
     ExceptionContext *ctx = (ExceptionContext *)data;
     pthread_setname_np(ctx->threadName);
 
-    waitForException(ctx);
+    exception_type_t exc = waitForException(ctx);
 
-    ctx->isHandlingException = true;
-    ctx->handleException(ctx);
-    exception_mask_t mask = maskForException(ctx->request->exception);
-    bool didRestorePorts = restorePreviousExceptionPorts(mask, &ctx->previousHandlers);
-    ctx->isHandlingException = false;
+    // At this point, an exception has occurred and we need to deal with it.
+    // We start by restoring the ports for the next level exception handler
+    // in case we crash while handling this exception.
 
-    sendExceptionReply(ctx, didRestorePorts);
+    if (g_isEnabled) {
+        if (restoreNextLevelExceptionPorts(ctx)) {
+            KSLOG_DEBUG("Thread %s: Handling mach exception %x", ctx->threadName, exc);
+            ctx->isHandlingException = true;
+            handleException(ctx);
+            ctx->isHandlingException = false;
+            KSLOG_DEBUG("Thread %s: Crash handling complete. Restoring original handlers.", ctx->threadName);
+        } else {
+            KSLOG_DEBUG("Thread %s: Could not set next level exception ports", ctx->threadName);
+        }
+    }
+
+    // Regardless of whether we managed to deal with the exception or not,
+    // we restore the original handlers and then send a suitable mach reply.
+    KSLOG_DEBUG("Thread %s: Restoring original exception ports", ctx->threadName);
+    restoreOriginalExceptionPorts();
+    KSLOG_DEBUG("Thread %s: Replying to exception message", ctx->threadName);
+    sendExceptionReply(ctx, canCurrentPortsHandleException(exc));
     deallocExceptionHandler(ctx);
 
     return NULL;
 }
 
-/** Start a new exception handler.
- * Note: ctx must be initialized using initExceptionContext() before calling this function.
- */
-static bool startNewExceptionHandler(ExceptionContext *ctx)
+static bool startNewExceptionHandler(int contextIndex, const char *threadName)
 {
+    ExceptionContext *ctx = &g_state.contexts[contextIndex];
+    memset(ctx, 0, sizeof(*ctx));
+    ctx->threadName = threadName;
+    ctx->contextIndex = contextIndex;
+    ctx->request = (ExceptionRequest *)ctx->requestBuffer;
+    ctx->requestSize = sizeof(ctx->requestBuffer);
+
     const mach_port_t taskSelf = mach_task_self();
     kern_return_t kr = KERN_SUCCESS;
 
-    if (ctx->threadName == NULL) {
-        KSLOG_ERROR("ctx->threadName must not be null. Please call initExceptionContext(ctx) first.");
-        return false;
-    }
-    if (ctx->handleException == NULL) {
-        KSLOG_ERROR("ctx->handleException must not be null. Please call initExceptionContext(ctx) first.");
-        return false;
-    }
-
-    KSLOG_DEBUG("Installing mach exception handler %s", ctx->threadName);
-
-    kr = task_get_exception_ports(taskSelf, kInterestingExceptions, ctx->previousHandlers.masks,
-                                  &ctx->previousHandlers.count, ctx->previousHandlers.ports,
-                                  ctx->previousHandlers.behaviors, ctx->previousHandlers.flavors);
-    if (kr != KERN_SUCCESS) {
-        mach_error("task_get_exception_ports", kr);
-        goto onFailure;
-    }
+    KSLOG_DEBUG("Thread %s: Installing mach exception handler", ctx->threadName);
 
     kr = mach_port_allocate(taskSelf, MACH_PORT_RIGHT_RECEIVE, &ctx->exceptionPort);
     if (kr != KERN_SUCCESS) {
-        mach_error("mach_port_allocate", kr);
+        MACH_ERROR(kr, "mach_port_allocate");
         goto onFailure;
     }
 
     kr = mach_port_insert_right(taskSelf, ctx->exceptionPort, ctx->exceptionPort, MACH_MSG_TYPE_MAKE_SEND);
     if (kr != KERN_SUCCESS) {
-        mach_error("mach_port_insert_right", kr);
+        MACH_ERROR(kr, "mach_port_insert_right");
         goto onFailure;
     }
 
     kr = task_set_exception_ports(taskSelf, kInterestingExceptions, ctx->exceptionPort,
                                   (exception_behavior_t)(EXCEPTION_DEFAULT | MACH_EXCEPTION_CODES), THREAD_STATE_NONE);
     if (kr != KERN_SUCCESS) {
-        mach_error("task_set_exception_ports", kr);
+        MACH_ERROR(kr, "task_set_exception_ports");
+        goto onFailure;
+    }
+
+    if (!saveExceptionPortsRestorePoint(contextIndex)) {
         goto onFailure;
     }
 
@@ -426,7 +533,7 @@ static bool startNewExceptionHandler(ExceptionContext *ctx)
 
     ksmc_addReservedThread(ctx->machThread);
 
-    KSLOG_DEBUG("Mach exception handler installed on thread %d", ctx->machThread);
+    KSLOG_DEBUG("Thread %s: Mach exception handler installed on thread %d", ctx->threadName, ctx->machThread);
     return true;
 
 onFailure:
@@ -434,77 +541,30 @@ onFailure:
     return false;
 }
 
-static void stopExceptionHandler(ExceptionContext *ctx)
+static void stopExceptionHandlers(void)
 {
-    if (!ctx->isHandlingException) {
-        restorePreviousExceptionPorts(kInterestingExceptions, &ctx->previousHandlers);
-        deallocExceptionHandler(ctx);
-    }
+    restoreOriginalExceptionPorts();
+    // Deallocation order doesn't matter since we've already restored the original ports.
+    deallocExceptionHandler(&g_state.contexts[kContextIdxPrimary]);
+    deallocExceptionHandler(&g_state.contexts[kContextIdxSecondary]);
 }
 
-// ============================================================================
-#pragma mark - Primary Handler -
-// ============================================================================
-
-static void handleExceptionPrimary(ExceptionContext *ctx)
+static bool startExceptionHandlers(void)
 {
-    if (!g_isEnabled) {
-        return;
+    if (!saveExceptionPortsRestorePoint(kContextIdxSystem)) {
+        KSLOG_ERROR("Could not save the original mach exception ports. Disabling the mach exception handler.");
+        return false;
     }
 
-    KSCrash_MonitorContext *crashContext =
-        g_callbacks.notify(ctx->request->thread.name, (KSCrash_ExceptionHandlingPolicy) {
-                                                          .requiresAsyncSafety = true,
-                                                          .isFatal = true,
-                                                          .shouldRecordThreads = true,
-                                                      });
-    if (crashContext->currentPolicy.shouldExitImmediately) {
-        return;
-    }
+    g_state.contexts[0].threadName = "Original handlers";
 
-    KSLOG_DEBUG("Exception handler is installed. Continuing exception handling.");
+    // Start the secondary handler first because all handlers will try to enable
+    // the ports at the next lower index. If we start the primary first, the
+    // secondary's ports would still be blank for a short while.
+    startNewExceptionHandler(kContextIdxSecondary, kThreadSecondary);
+    startNewExceptionHandler(kContextIdxPrimary, kThreadPrimary);
 
-    // Fill out crash information
-    KSLOG_DEBUG("Fetching machine state.");
-    KSMachineContext machineContext = { 0 };
-    crashContext->offendingMachineContext = &machineContext;
-    kssc_initCursor(&g_stackCursor, NULL, NULL);
-    if (ksmc_getContextForThread(ctx->request->thread.name, &machineContext, true)) {
-        kssc_initWithMachineContext(&g_stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
-        KSLOG_TRACE("Fault address %p, instruction address %p", kscpu_faultAddress(&machineContext),
-                    kscpu_instructionAddress(&machineContext));
-        if (ctx->request->exception == EXC_BAD_ACCESS) {
-            crashContext->faultAddress = kscpu_faultAddress(&machineContext);
-        } else {
-            crashContext->faultAddress = kscpu_instructionAddress(&machineContext);
-        }
-    }
-
-    KSLOG_DEBUG("Filling out context.");
-    kscm_fillMonitorContext(crashContext, kscm_machexception_getAPI());
-    crashContext->registersAreValid = true;
-    crashContext->mach.type = ctx->request->exception;
-    crashContext->mach.code = ctx->request->code[0] & (int64_t)MACH_ERROR_CODE_MASK;
-    crashContext->mach.subcode = ctx->request->code[1] & (int64_t)MACH_ERROR_CODE_MASK;
-    if (crashContext->mach.code == KERN_PROTECTION_FAILURE && crashContext->isStackOverflow) {
-        // A stack overflow should return KERN_INVALID_ADDRESS, but
-        // when a stack blasts through the guard pages at the top of the stack,
-        // it generates KERN_PROTECTION_FAILURE. Correct for this.
-        crashContext->mach.code = KERN_INVALID_ADDRESS;
-    }
-    crashContext->signal.signum = signalForMachException(crashContext->mach.type, crashContext->mach.code);
-    crashContext->stackCursor = &g_stackCursor;
-
-    g_callbacks.handle(crashContext);
-
-    KSLOG_DEBUG("Crash handling complete. Restoring original handlers.");
-}
-
-static void startPrimaryExceptionHandler(void)
-{
-    ExceptionContext *ctx = &g_primaryContext;
-    initExceptionHandler(ctx, kThreadPrimary, handleExceptionPrimary);
-    startNewExceptionHandler(ctx);
+    return true;
 }
 
 // ============================================================================
@@ -524,10 +584,11 @@ static void setEnabled(bool isEnabled)
     }
 
     if (isEnabled) {
-        // TODO: Re-add recrash detection
-        startPrimaryExceptionHandler();
+        if (!startExceptionHandlers()) {
+            g_isEnabled = false;
+        }
     } else {
-        stopExceptionHandler(&g_primaryContext);
+        stopExceptionHandlers();
     }
 }
 
@@ -544,7 +605,7 @@ static void addContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext
     }
 }
 
-static void init(KSCrash_ExceptionHandlerCallbacks *callbacks) { g_callbacks = *callbacks; }
+static void init(KSCrash_ExceptionHandlerCallbacks *callbacks) { g_state.callbacks = *callbacks; }
 
 #endif
 

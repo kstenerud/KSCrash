@@ -24,6 +24,7 @@
 // THE SOFTWARE.
 //
 
+import CrashCallback
 import Foundation
 import KSCrashRecording
 
