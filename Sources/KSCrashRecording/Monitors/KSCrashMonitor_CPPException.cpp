@@ -38,9 +38,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <string>
 
 #include <exception>
+#include <string>
 #include <typeinfo>
 
 #include "KSCxaThrowSwapper.h"
@@ -58,7 +58,7 @@
 // ============================================================================
 
 /** True if this handler has been installed. */
-static std::atomic<bool> g_isEnabled{false};
+static std::atomic<bool> g_isEnabled { false };
 
 /** True if the handler should capture the next stack trace. */
 static bool g_captureNextStackTrace = false;
@@ -110,7 +110,7 @@ void __cxa_throw(void *thrown_exception, std::type_info *tinfo, void (*dest)(voi
 static char *cpp_demangleSymbol(const char *mangledSymbol)
 {
     int status = 0;
-    static char stackBuffer[DESCRIPTION_BUFFER_LENGTH] = {0};
+    static char stackBuffer[DESCRIPTION_BUFFER_LENGTH] = { 0 };
     size_t length = DESCRIPTION_BUFFER_LENGTH;
     char *demangled = __cxxabiv1::__cxa_demangle(mangledSymbol, stackBuffer, &length, &status);
     return status == 0 ? demangled : NULL;
@@ -141,13 +141,13 @@ static void CPPExceptionTerminate(void)
         if (crashContext->currentPolicy.shouldExitImmediately) {
             goto exit_immediately;
         }
-        
-        char descriptionBuff[DESCRIPTION_BUFFER_LENGTH] = {0};
+
+        char descriptionBuff[DESCRIPTION_BUFFER_LENGTH] = { 0 };
         const char *description = descriptionBuff;
-        
+
         KSLOG_DEBUG("Discovering what kind of exception was thrown.");
         g_captureNextStackTrace = false;
-        
+
         // We need to be very explicit about what type is throws or it'll drop through.
         try {
             throw;
@@ -177,9 +177,7 @@ static void CPPExceptionTerminate(void)
         CATCH_VALUE(long double, Lf)
         CATCH_VALUE(char *, s)
         CATCH_VALUE(const char *, s)
-        catch (...) {
-            description = NULL;
-        }
+        catch (...) { description = NULL; }
         g_captureNextStackTrace = g_isEnabled;
 
         // TODO: Should this be done here? Maybe better in the exception handler?
