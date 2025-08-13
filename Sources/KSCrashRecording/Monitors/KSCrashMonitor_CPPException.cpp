@@ -35,10 +35,10 @@
 // #define KSLogger_LocalLevel TRACE
 #include <cxxabi.h>
 #include <dlfcn.h>
-#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <string>
 
 #include <exception>
 #include <typeinfo>
@@ -58,7 +58,7 @@
 // ============================================================================
 
 /** True if this handler has been installed. */
-static atomic_bool g_isEnabled = false;
+static std::atomic<bool> g_isEnabled{false};
 
 /** True if the handler should capture the next stack trace. */
 static bool g_captureNextStackTrace = false;
@@ -107,13 +107,28 @@ void __cxa_throw(void *thrown_exception, std::type_info *tinfo, void (*dest)(voi
 }
 }
 
+static char *cpp_demangleSymbol(const char *mangledSymbol)
+{
+    int status = 0;
+    static char stackBuffer[DESCRIPTION_BUFFER_LENGTH] = {0};
+    size_t length = DESCRIPTION_BUFFER_LENGTH;
+    char *demangled = __cxxabiv1::__cxa_demangle(mangledSymbol, stackBuffer, &length, &status);
+    return status == 0 ? demangled : NULL;
+}
+
 static void CPPExceptionTerminate(void)
 {
     KSLOG_DEBUG("Trapped c++ exception");
     const char *name = NULL;
     std::type_info *tinfo = __cxxabiv1::__cxa_current_exception_type();
     if (tinfo != NULL) {
-        name = tinfo->name();
+        const char *infoName = tinfo->name();
+        if (infoName) {
+            name = cpp_demangleSymbol(infoName);
+            if (!name) {
+                name = infoName;
+            }
+        }
     }
 
     if (name == NULL || strcmp(name, "NSException") != 0) {
@@ -126,20 +141,27 @@ static void CPPExceptionTerminate(void)
         if (crashContext->currentPolicy.shouldExitImmediately) {
             goto exit_immediately;
         }
-
-        char descriptionBuff[DESCRIPTION_BUFFER_LENGTH];
+        
+        char descriptionBuff[DESCRIPTION_BUFFER_LENGTH] = {0};
         const char *description = descriptionBuff;
-        descriptionBuff[0] = 0;
-
+        
         KSLOG_DEBUG("Discovering what kind of exception was thrown.");
         g_captureNextStackTrace = false;
+        
+        // We need to be very explicit about what type is throws or it'll drop through.
         try {
             throw;
+        } catch (std::exception *exc) {
+            strncpy(descriptionBuff, exc->what(), DESCRIPTION_BUFFER_LENGTH);
         } catch (std::exception &exc) {
-            strncpy(descriptionBuff, exc.what(), sizeof(descriptionBuff));
+            strncpy(descriptionBuff, exc.what(), DESCRIPTION_BUFFER_LENGTH);
+        } catch (std::string *exc) {
+            strncpy(descriptionBuff, exc->c_str(), DESCRIPTION_BUFFER_LENGTH);
+        } catch (std::string &exc) {
+            strncpy(descriptionBuff, exc.c_str(), DESCRIPTION_BUFFER_LENGTH);
         }
 #define CATCH_VALUE(TYPE, PRINTFTYPE) \
-    catch (TYPE value) { snprintf(descriptionBuff, sizeof(descriptionBuff), "%" #PRINTFTYPE, value); }
+    catch (TYPE value) { snprintf(descriptionBuff, DESCRIPTION_BUFFER_LENGTH, "%" #PRINTFTYPE, value); }
         CATCH_VALUE(char, d)
         CATCH_VALUE(short, d)
         CATCH_VALUE(int, d)
@@ -154,7 +176,10 @@ static void CPPExceptionTerminate(void)
         CATCH_VALUE(double, f)
         CATCH_VALUE(long double, Lf)
         CATCH_VALUE(char *, s)
-        catch (...) { description = NULL; }
+        CATCH_VALUE(const char *, s)
+        catch (...) {
+            description = NULL;
+        }
         g_captureNextStackTrace = g_isEnabled;
 
         // TODO: Should this be done here? Maybe better in the exception handler?
