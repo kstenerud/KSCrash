@@ -175,8 +175,8 @@ static void CPPExceptionTerminate(void)
         CATCH_VALUE(float, f)
         CATCH_VALUE(double, f)
         CATCH_VALUE(long double, Lf)
-        CATCH_VALUE(char *, s)
         CATCH_VALUE(const char *, s)
+        CATCH_VALUE(char *, s)
         catch (...) { description = NULL; }
         g_captureNextStackTrace = g_isEnabled;
 
