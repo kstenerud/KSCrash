@@ -36,6 +36,41 @@
  See: https://github.com/naftaly/Footprint
  */
 
+@interface KSCrashAppMemoryTrackerBlockObserver : NSObject <KSCrashAppMemoryTrackerObserving>
+
+@property(nonatomic, copy) KSCrashAppMemoryTrackerObserverBlock block;
+@property(nonatomic, weak) id<KSCrashAppMemoryTrackerObserving> object;
+
+@property(nonatomic, weak) KSCrashAppMemoryTracker *tracker;
+
+- (BOOL)shouldReap;
+
+@end
+
+@implementation KSCrashAppMemoryTrackerBlockObserver
+
+- (void)appMemoryTracker:(KSCrashAppMemoryTracker *)tracker
+                  memory:(KSCrashAppMemory *)memory
+                 changed:(KSCrashAppMemoryTrackerChangeType)changes
+{
+    KSCrashAppMemoryTrackerObserverBlock block = self.block;
+    if (block) {
+        block(memory, changes);
+    }
+
+    id<KSCrashAppMemoryTrackerObserving> object = self.object;
+    if (object) {
+        [object appMemoryTracker:self.tracker memory:memory changed:changes];
+    }
+}
+
+- (BOOL)shouldReap
+{
+    return self.block == nil && self.object == nil;
+}
+
+@end
+
 // I'm not protecting this.
 // It should be set once at start if you want to change it for tests.
 static KSCrashAppMemoryProvider gMemoryProvider = nil;
@@ -53,10 +88,22 @@ FOUNDATION_EXPORT void __KSCrashAppMemorySetProvider(KSCrashAppMemoryProvider pr
     uint64_t _footprint;
     KSCrashAppMemoryState _pressure;
     KSCrashAppMemoryState _level;
+    NSMutableArray<id<KSCrashAppMemoryTrackerObserving>> *_observers;
 }
 @end
 
 @implementation KSCrashAppMemoryTracker
+
++ (instancetype)sharedInstance
+{
+    static KSCrashAppMemoryTracker *sTracker;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        sTracker = [[KSCrashAppMemoryTracker alloc] init];
+        [sTracker start];
+    });
+    return sTracker;
+}
 
 - (instancetype)init
 {
@@ -66,6 +113,7 @@ FOUNDATION_EXPORT void __KSCrashAppMemorySetProvider(KSCrashAppMemoryProvider pr
                                                             dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0));
         _level = KSCrashAppMemoryStateNormal;
         _pressure = KSCrashAppMemoryStateNormal;
+        _observers = [NSMutableArray array];
     }
     return self;
 }
@@ -73,6 +121,73 @@ FOUNDATION_EXPORT void __KSCrashAppMemorySetProvider(KSCrashAppMemoryProvider pr
 - (void)dealloc
 {
     [self stop];
+}
+
+// Observers are either an object passed in that
+// implements `KSCrashAppMemoryTrackerObserving` or a block.
+// Both will be wrapped in a `KSCrashAppMemoryTrackerBlockObserver`.
+// if a block, then it'll simply call the block.
+// If the object, we'll keep a weak reference to it.
+// Objects will be reaped when their block and their object
+// is nil.
+// We'll reap on add and removal or any type of observer.
+- (void)_locked_reapObserversOrObject:(id)object
+{
+    NSMutableArray *toRemove = [NSMutableArray array];
+    for (KSCrashAppMemoryTrackerBlockObserver *obj in _observers) {
+        id<KSCrashAppMemoryTrackerObserving> strongObject = obj.object;
+        if ((strongObject != nil && strongObject == object) || [obj shouldReap]) {
+            [toRemove addObject:obj];
+            obj.object = nil;
+            obj.block = nil;
+        }
+    }
+    [_observers removeObjectsInArray:toRemove];
+}
+
+- (void)_addObserver:(KSCrashAppMemoryTrackerBlockObserver *)observer
+{
+    os_unfair_lock_lock(&_lock);
+    [_observers addObject:observer];
+    [self _locked_reapObserversOrObject:nil];
+    os_unfair_lock_unlock(&_lock);
+}
+
+- (void)addObserver:(id<KSCrashAppMemoryTrackerObserving>)observer
+{
+    KSCrashAppMemoryTrackerBlockObserver *obs = [[KSCrashAppMemoryTrackerBlockObserver alloc] init];
+    obs.object = observer;
+    obs.tracker = self;
+    [self _addObserver:obs];
+}
+
+- (id<KSCrashAppMemoryTrackerObserving>)addObserverWithBlock:(KSCrashAppMemoryTrackerObserverBlock)block
+{
+    KSCrashAppMemoryTrackerBlockObserver *obs = [[KSCrashAppMemoryTrackerBlockObserver alloc] init];
+    obs.block = [block copy];
+    obs.tracker = self;
+    [self _addObserver:obs];
+    return obs;
+}
+
+- (void)removeObserver:(id<KSCrashAppMemoryTrackerObserving>)observer
+{
+    os_unfair_lock_lock(&_lock);
+
+    // Observers added with a block
+    if ([observer isKindOfClass:KSCrashAppMemoryTrackerBlockObserver.class]) {
+        KSCrashAppMemoryTrackerBlockObserver *obs = (KSCrashAppMemoryTrackerBlockObserver *)observer;
+        obs.block = nil;
+        obs.object = nil;
+        [self _locked_reapObserversOrObject:nil];
+    }
+
+    // observers added with an object
+    else {
+        [self _locked_reapObserversOrObject:observer];
+    }
+
+    os_unfair_lock_unlock(&_lock);
 }
 
 - (void)start
@@ -109,13 +224,17 @@ FOUNDATION_EXPORT void __KSCrashAppMemorySetProvider(KSCrashAppMemoryProvider pr
                                                  name:UIApplicationDidFinishLaunchingNotification
                                                object:nil];
 #endif
-    [self _handleMemoryChange:[self currentAppMemory] type:KSCrashAppMemoryTrackerChangeTypeNone];
+    [self _handleMemoryChange:[self currentAppMemory]
+                         type:KSCrashAppMemoryTrackerChangeTypeNone
+                    observers:[_observers copy]];
 }
 
 #if KSCRASH_HAS_UIAPPLICATION
 - (void)_appDidFinishLaunching
 {
-    [self _handleMemoryChange:[self currentAppMemory] type:KSCrashAppMemoryTrackerChangeTypeNone];
+    [self _handleMemoryChange:[self currentAppMemory]
+                         type:KSCrashAppMemoryTrackerChangeTypeNone
+                    observers:[_observers copy]];
 }
 #endif
 
@@ -143,8 +262,8 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
 
 #if TARGET_OS_SIMULATOR
     // in simulator, remaining is always 0. So let's fake it.
-    // How about a limit of 3GB.
-    uint64_t limit = 3000000000;
+    // How about a limit of 6GB.
+    uint64_t limit = 6000000000;
     uint64_t remaining = limit < info.phys_footprint ? 0 : limit - info.phys_footprint;
 #elif KSCRASH_HOST_MAC
     // macOS doesn't limit memory usage the same way as it's implemented for other OSs.
@@ -163,8 +282,14 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
     return gMemoryProvider ? gMemoryProvider() : _ProvideCrashAppMemory(_pressure);
 }
 
-- (void)_handleMemoryChange:(KSCrashAppMemory *)memory type:(KSCrashAppMemoryTrackerChangeType)changes
+- (void)_handleMemoryChange:(KSCrashAppMemory *)memory
+                       type:(KSCrashAppMemoryTrackerChangeType)changes
+                  observers:(NSArray<id<KSCrashAppMemoryTrackerObserving>> *)observers
 {
+    for (id<KSCrashAppMemoryTrackerObserving> obs in observers) {
+        [obs appMemoryTracker:self memory:memory changed:changes];
+    }
+
     [self.delegate appMemoryTracker:self memory:memory changed:changes];
 }
 
@@ -180,6 +305,7 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
     KSCrashAppMemoryState newLevel = memory.level;
     uint64_t newFootprint = memory.footprint;
 
+    NSArray<id<KSCrashAppMemoryTrackerObserving>> *observers = nil;
     KSCrashAppMemoryState oldLevel;
     BOOL footprintChanged = NO;
     {
@@ -199,6 +325,7 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
             footprintChanged = YES;
         }
 
+        observers = [_observers copy];
         os_unfair_lock_unlock(&_lock);
     }
 
@@ -210,7 +337,7 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
     }
 
     if (changes != KSCrashAppMemoryTrackerChangeTypeNone) {
-        [self _handleMemoryChange:memory type:changes];
+        [self _handleMemoryChange:memory type:changes observers:observers];
     }
 
     if (newLevel != oldLevel && sendObservers) {
@@ -265,16 +392,20 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
             newPressure = KSCrashAppMemoryStateNormal;
     }
 
+    NSArray<id<KSCrashAppMemoryTrackerObserving>> *observers = nil;
     KSCrashAppMemoryState oldPressure;
     {
         os_unfair_lock_lock(&_lock);
         oldPressure = _pressure;
         _pressure = newPressure;
+        observers = [_observers copy];
         os_unfair_lock_unlock(&_lock);
     }
 
     if (oldPressure != newPressure && sendObservers) {
-        [self _handleMemoryChange:[self currentAppMemory] type:KSCrashAppMemoryTrackerChangeTypePressure];
+        [self _handleMemoryChange:[self currentAppMemory]
+                             type:KSCrashAppMemoryTrackerChangeTypePressure
+                        observers:observers];
         [[NSNotificationCenter defaultCenter] postNotificationName:KSCrashAppMemoryPressureChangedNotification
                                                             object:self
                                                           userInfo:@{

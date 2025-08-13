@@ -37,23 +37,67 @@ typedef NS_OPTIONS(NSUInteger, KSCrashAppMemoryTrackerChangeType) {
     KSCrashAppMemoryTrackerChangeTypeFootprint = 1 << 2,
 } NS_SWIFT_NAME(AppMemoryTrackerChangeType);
 
+typedef void (^KSCrashAppMemoryTrackerObserverBlock)(KSCrashAppMemory *memory,
+                                                     KSCrashAppMemoryTrackerChangeType changes)
+    NS_SWIFT_UNAVAILABLE("Use Swift closures instead!");
+
 @protocol KSCrashAppMemoryTrackerDelegate;
+@protocol KSCrashAppMemoryTrackerObserving;
 
 NS_SWIFT_NAME(AppMemoryTracker)
 @interface KSCrashAppMemoryTracker : NSObject
 
+/**
+ * The shared tracker. Use this unless you absolutely need your own tracker,
+ * at which point you can simply allocate your own.
+ */
+@property(class, atomic, readonly) KSCrashAppMemoryTracker *sharedInstance NS_SWIFT_NAME(shared);
+
 @property(atomic, readonly) KSCrashAppMemoryState pressure;
 @property(atomic, readonly) KSCrashAppMemoryState level;
 
-@property(nonatomic, weak) id<KSCrashAppMemoryTrackerDelegate> delegate;
-
 @property(nonatomic, readonly, nullable) KSCrashAppMemory *currentAppMemory;
 
+/**
+ * Adds an observer that implements the _KSCrashAppMemoryTrackerObserving_ protocol.
+ * You do not need to remove the observer as it is held weakly.
+ */
+- (void)addObserver:(id<KSCrashAppMemoryTrackerObserving>)observer;
+
+/**
+ * Adds a block based observer.
+ *
+ *@return An object you must hold on to in order to remove the observation at a later point.
+ */
+- (id<KSCrashAppMemoryTrackerObserving>)addObserverWithBlock:(KSCrashAppMemoryTrackerObserverBlock)block;
+
+/** Removes an observer */
+- (void)removeObserver:(id<KSCrashAppMemoryTrackerObserving>)observer;
+
+/**
+ * Start/Stop
+ *
+ * WARNING: Don't call these on the shared tracker.
+ */
 - (void)start;
 - (void)stop;
 
+/**
+ Deprecated
+ */
+@property(nonatomic, weak) id<KSCrashAppMemoryTrackerDelegate> delegate DEPRECATED_ATTRIBUTE;
+
 @end
 
+/** Implement this and add yourself to a tracker to observer transitions */
+NS_SWIFT_NAME(AppMemoryTrackerObserving)
+@protocol KSCrashAppMemoryTrackerObserving <NSObject>
+- (void)appMemoryTracker:(KSCrashAppMemoryTracker *)tracker
+                  memory:(KSCrashAppMemory *)memory
+                 changed:(KSCrashAppMemoryTrackerChangeType)changes;
+@end
+
+/** Deprecated delegate */
 NS_SWIFT_NAME(AppMemoryTrackerDelegate)
 @protocol KSCrashAppMemoryTrackerDelegate <NSObject>
 
