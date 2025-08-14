@@ -176,8 +176,11 @@ static void CPPExceptionTerminate(void)
         CATCH_VALUE(float, f)
         CATCH_VALUE(double, f)
         CATCH_VALUE(long double, Lf)
+#pragma clang diagnostic push
+#pragma GCC diagnostic ignored "-Wexceptions"
         CATCH_VALUE(char *, s)
         CATCH_VALUE(const char *, s)
+#pragma clang diagnostic pop
         catch (...) { description = NULL; }
         g_captureNextStackTrace = g_isEnabled;
 
