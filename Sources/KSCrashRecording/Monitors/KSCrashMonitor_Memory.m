@@ -168,9 +168,7 @@ static KSCrash_Memory g_previousSessionMemory;
 #pragma mark - Tracking -
 // ============================================================================
 
-@interface _KSCrashMonitor_MemoryTracker : NSObject <KSCrashAppMemoryTrackerDelegate> {
-    KSCrashAppMemoryTracker *_tracker;
-}
+@interface _KSCrashMonitor_MemoryTracker : NSObject <KSCrashAppMemoryTrackerObserving>
 @end
 
 @implementation _KSCrashMonitor_MemoryTracker
@@ -178,21 +176,19 @@ static KSCrash_Memory g_previousSessionMemory;
 - (instancetype)init
 {
     if ((self = [super init])) {
-        _tracker = [[KSCrashAppMemoryTracker alloc] init];
-        _tracker.delegate = self;
-        [_tracker start];
+        [KSCrashAppMemoryTracker.sharedInstance addObserver:self];
     }
     return self;
 }
 
 - (void)dealloc
 {
-    [_tracker stop];
+    [KSCrashAppMemoryTracker.sharedInstance removeObserver:self];
 }
 
 - (KSCrashAppMemory *)memory
 {
-    return _tracker.currentAppMemory;
+    return KSCrashAppMemoryTracker.sharedInstance.currentAppMemory;
 }
 
 - (void)_updateMappedMemoryFrom:(KSCrashAppMemory *)memory
