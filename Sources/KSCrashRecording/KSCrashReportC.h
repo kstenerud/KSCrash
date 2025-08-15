@@ -91,7 +91,7 @@ void kscrashreport_setUserSectionWriteCallback(const KSReportWriteCallback userS
  *
  * @param path The file to write to.
  */
-void kscrashreport_writeStandardReport(const struct KSCrash_MonitorContext *const monitorContext, const char *path);
+void kscrashreport_writeStandardReport(struct KSCrash_MonitorContext *const monitorContext, const char *path);
 
 /** Write a minimal crash report to a file.
  *

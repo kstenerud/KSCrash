@@ -255,7 +255,7 @@ static KSCrash_MonitorContext *notifyException(const mach_port_t offendingThread
     if (isCrashedDuringExceptionHandling) {
         // This is a recrash, so be more conservative in our handling.
         policy.crashedDuringExceptionHandling = true;
-        policy.requiresAsyncSafety = true;
+        policy.requiresAsyncSafety++;
         policy.shouldRecordThreads = false;
         policy.isFatal = true;
     } else if (wasHandlingFatalException) {
@@ -269,12 +269,12 @@ static KSCrash_MonitorContext *notifyException(const mach_port_t offendingThread
     g_state.isHandlingFatalException |= policy.isFatal;
 
     KSCrash_MonitorContext *ctx = getNextMonitorContext(policy);
-    ctx->currentPolicy = policy;
     ctx->threadHandlerIndex = thisThreadHandlerIndex;
+    ctx->currentPolicy = policy;
 
     if (ctx->currentPolicy.shouldRecordThreads) {
-        // Once all threads are suspended, the environment requires async safety.
-        ctx->currentPolicy.requiresAsyncSafety = true;
+        // While all threads are suspended, the environment requires async safety.
+        ctx->currentPolicy.requiresAsyncSafety++;
         ksmc_suspendEnvironment(&ctx->suspendedThreads, &ctx->suspendedThreadsCount);
     }
 
@@ -306,7 +306,9 @@ static void handleException(struct KSCrash_MonitorContext *ctx)
     }
 
     if (ctx->currentPolicy.shouldRecordThreads) {
-        ksmc_resumeEnvironment(ctx->suspendedThreads, ctx->suspendedThreadsCount);
+        // Note: `kscrashreport_writeStandardReport()` may have resumed already,
+        //       which is fine since `ksmc_resumeEnvironment()` is idempotent.
+        ksmc_resumeEnvironment(&ctx->suspendedThreads, &ctx->suspendedThreadsCount);
     }
 
     endHandlingException(ctx->threadHandlerIndex);

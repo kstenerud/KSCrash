@@ -30,6 +30,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "KSCrashExceptionHandlingPolicy.h"
 #include "KSCrashMonitorType.h"
 #include "KSCrashNamespace.h"
 #include "KSCrashReportWriter.h"
@@ -37,12 +38,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-/** Callback type for when a crash report is written.
- *
- * @param reportID The ID of the report that was written.
- */
-typedef void (*KSReportWrittenCallback)(int64_t reportID);
 
 /** Configuration for managing crash reports through the report store API.
  */

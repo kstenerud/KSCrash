@@ -77,7 +77,24 @@ public class InstallBridge: ObservableObject {
 
     public init() {
         config = .init()
-        config.crashNotifyCallback = crashNotifyCallback
+
+        // Example of setting a crash notify callback from Swift.
+        // To see this in action, comment out the line: "config.crashNotifyCallback = integrationTestCrashNotifyCallback"
+        // Then tap "Install", "Report", "Log Raw to Console" in the sample app to see a crash report via the logs.
+        let cb: @convention(c) (KSCrash_ExceptionHandlingPolicy, UnsafePointer<ReportWriter>) -> Void = {
+            policy, writer in
+            writer.pointee.beginObject(writer, "policy")
+            writer.pointee.addBooleanElement(writer, "shouldExitImmediately", policy.shouldExitImmediately != 0)
+            writer.pointee.addBooleanElement(writer, "isFatal", policy.isFatal != 0)
+            writer.pointee.addBooleanElement(writer, "requiresAsyncSafety", policy.requiresAsyncSafety != 0)
+            writer.pointee.addBooleanElement(
+                writer, "crashedDuringExceptionHandling", policy.crashedDuringExceptionHandling != 0)
+            writer.pointee.addBooleanElement(writer, "shouldRecordThreads", policy.shouldRecordThreads != 0)
+            writer.pointee.endContainer(writer)
+        }
+        config.crashNotifyCallback = cb
+
+        config.crashNotifyCallback = integrationTestCrashNotifyCallback
 
         $basePath
             .removeDuplicates()

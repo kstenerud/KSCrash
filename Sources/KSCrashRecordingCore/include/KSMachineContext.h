@@ -38,13 +38,28 @@
 extern "C" {
 #endif
 
-/** Suspend the runtime environment.
+/**
+ * Suspend the runtime environment.
+ *
+ * This function is idempotent.
+ *
+ * @param threadsToSuspend Pointer to where the threads list pointer will be stored. The pointed-to value MUST be NULL
+ * or else this function will no-op!
+ * @param threadsToSuspendCount Pointer to where the count of suspended threads will be stored.
  */
-void ksmc_suspendEnvironment(thread_act_array_t *suspendedThreads, mach_msg_type_number_t *numSuspendedThreads);
+void ksmc_suspendEnvironment(thread_act_array_t *threadsToSuspend, mach_msg_type_number_t *threadsToSuspendCount);
 
-/** Resume the runtime environment.
+/**
+ * Resume the runtime environment.
+ *
+ * This function is idempotent.
+ *
+ * @param suspendedThreads Pointer to where the threads list pointer is stored. The threads list pointer will be set to
+ * NULL on completion.
+ * @param suspendedThreadsCount Pointer to where the count of suspended threads is stored. The count will be set to
+ * 0 on completion.
  */
-void ksmc_resumeEnvironment(thread_act_array_t threads, mach_msg_type_number_t numThreads);
+void ksmc_resumeEnvironment(thread_act_array_t *suspendedThreads, mach_msg_type_number_t *suspendedThreadsCount);
 
 /** Get the internal size of a machine context.
  */

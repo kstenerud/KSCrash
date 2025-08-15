@@ -257,7 +257,7 @@ extern void kscm_testcode_resetState(void);
     KSCrash_MonitorContext *ctx = NULL;
     ctx = dummyExceptionHandlerCallbacks.notify((thread_t)ksthread_self(), (KSCrash_ExceptionHandlingPolicy) {
                                                                                .isFatal = false,
-                                                                               .requiresAsyncSafety = true,
+                                                                               .requiresAsyncSafety = 1,
                                                                            });
     XCTAssertFalse(ctx->currentPolicy.isFatal);
     XCTAssertTrue(ctx->currentPolicy.requiresAsyncSafety);
@@ -275,7 +275,7 @@ extern void kscm_testcode_resetState(void);
     KSCrash_MonitorContext *ctx = NULL;
     ctx = dummyExceptionHandlerCallbacks.notify((thread_t)ksthread_self(), (KSCrash_ExceptionHandlingPolicy) {
                                                                                .isFatal = false,
-                                                                               .requiresAsyncSafety = false,
+                                                                               .requiresAsyncSafety = 0,
                                                                            });
     XCTAssertFalse(ctx->currentPolicy.isFatal);
     XCTAssertFalse(ctx->currentPolicy.requiresAsyncSafety);
@@ -602,7 +602,7 @@ static int g_counter = 0;
     XCTAssertTrue(g_dummyMonitor.isEnabled(), @"The monitor should be enabled after activation.");
     KSCrash_MonitorContext *ctx = NULL;
     ctx = dummyExceptionHandlerCallbacks.notify((thread_t)ksthread_self(), (KSCrash_ExceptionHandlingPolicy) {
-                                                                               .requiresAsyncSafety = false,
+                                                                               .requiresAsyncSafety = 0,
                                                                                .isFatal = true,
                                                                            });
     XCTAssertTrue(g_dummyMonitor.isEnabled(),

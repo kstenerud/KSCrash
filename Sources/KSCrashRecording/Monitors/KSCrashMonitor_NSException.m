@@ -119,7 +119,7 @@ static KS_NOINLINE void handleException(NSException *exception, BOOL isUserRepor
         // Now start exception handling
         KSCrash_MonitorContext *crashContext =
             g_callbacks.notify(thisThread, (KSCrash_ExceptionHandlingPolicy) {
-                                               .requiresAsyncSafety = false,
+                                               .requiresAsyncSafety = 0,
                                                // User-reported exceptions are not considered fatal.
                                                .isFatal = !isUserReported,
                                                .shouldRecordThreads = logAllThreads != NO,

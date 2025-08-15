@@ -94,12 +94,8 @@
     config.enableMemoryIntrospection = self.enableMemoryIntrospection;
     config.doNotIntrospectClasses.strings = [self createCStringArrayFromNSArray:self.doNotIntrospectClasses];
     config.doNotIntrospectClasses.length = (int)[self.doNotIntrospectClasses count];
-    if (self.crashNotifyCallback) {
-        config.crashNotifyCallback = (KSReportWriteCallback)imp_implementationWithBlock(self.crashNotifyCallback);
-    }
-    if (self.reportWrittenCallback) {
-        config.reportWrittenCallback = (KSReportWrittenCallback)imp_implementationWithBlock(self.reportWrittenCallback);
-    }
+    config.crashNotifyCallback = self.crashNotifyCallback;
+    config.reportWrittenCallback = self.reportWrittenCallback;
     config.addConsoleLogToReport = self.addConsoleLogToReport;
     config.printPreviousLogOnStartup = self.printPreviousLogOnStartup;
     config.enableSwapCxaThrow = self.enableSwapCxaThrow;
@@ -151,8 +147,8 @@
                                       ? [[NSArray allocWithZone:zone] initWithArray:self.doNotIntrospectClasses
                                                                           copyItems:YES]
                                       : nil;
-    copy.crashNotifyCallback = [self.crashNotifyCallback copy];
-    copy.reportWrittenCallback = [self.reportWrittenCallback copy];
+    copy.crashNotifyCallback = self.crashNotifyCallback;
+    copy.reportWrittenCallback = self.reportWrittenCallback;
     copy.addConsoleLogToReport = self.addConsoleLogToReport;
     copy.printPreviousLogOnStartup = self.printPreviousLogOnStartup;
     copy.enableSwapCxaThrow = self.enableSwapCxaThrow;

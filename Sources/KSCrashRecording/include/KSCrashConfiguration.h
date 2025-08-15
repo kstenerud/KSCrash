@@ -25,6 +25,7 @@
 //
 
 #import <Foundation/Foundation.h>
+#import "KSCrashExceptionHandlingPolicy.h"
 #import "KSCrashMonitorType.h"
 #include "KSCrashNamespace.h"
 #import "KSCrashReportStore.h"
@@ -109,22 +110,26 @@ NS_ASSUME_NONNULL_BEGIN
 /** Callback to invoke upon a crash.
  *
  * This function is called during the crash reporting process, providing an opportunity
- * to add additional information to the crash report. Only async-safe functions should
- * be called from this function. Avoid calling Objective-C/Swift methods.
+ * to add additional information to the crash report. The `policy` parameter determines
+ * what can be safely done within the callback.
+ *
+ * @see KSCrash_ExceptionHandlingPolicy
  *
  * **Default**: NULL
  */
-@property(nonatomic, copy, nullable) void (^crashNotifyCallback)(const struct KSCrashReportWriter *writer);
+@property(nonatomic, nullable) KSReportWriteCallback crashNotifyCallback;
 
 /** Callback to invoke upon finishing writing a crash report.
  *
  * This function is called after a crash report has been written. It allows the caller
- * to react to the completion of the report. Only async-safe functions should be called
- * from this function. Avoid calling Objective-C methods.
+ * to react to the completion of the report. The `policy` parameter determines
+ * what can be safely done within the callback.
+ *
+ * @see KSCrash_ExceptionHandlingPolicy
  *
  * **Default**: NULL
  */
-@property(nonatomic, copy, nullable) void (^reportWrittenCallback)(int64_t reportID);
+@property(nonatomic, nullable) KSReportWrittenCallback reportWrittenCallback;
 
 /** If true, append KSLOG console messages to the crash report.
  *

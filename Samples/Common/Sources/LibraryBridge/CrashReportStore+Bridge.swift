@@ -68,6 +68,31 @@ extension CrashReportStore {
         }
     }
 
+    public func logRawToConsole() {
+        sink = CrashReportFilterPassthrough()
+        sendAllReports { reports, error in
+            if let reports {
+                Self.logger.info("Logged \(reports.count) reports")
+                for (idx, report) in reports.enumerated() {
+                    switch report {
+                    case let stringReport as CrashReportString:
+                        Self.logger.info("Report #\(idx) is a string (length is \(stringReport.value.count))")
+                    case let dictionaryReport as CrashReportDictionary:
+                        Self.logger.info(
+                            "Report #\(idx) is a dictionary (number of keys is \(dictionaryReport.value.count))")
+                        Self.logger.info("\(dictionaryReport)")
+                    case let dataReport as CrashReportData:
+                        Self.logger.info("Report #\(idx) is a binary data (size is \(dataReport.value.count) bytes)")
+                    default:
+                        Self.logger.warning("Unknown report #\(idx): \(report.debugDescription ?? "?")")
+                    }
+                }
+            } else {
+                Self.logger.error("Failed to log reports: \(error?.localizedDescription ?? "")")
+            }
+        }
+    }
+
     public func logWithAlert() {
         sink = CrashReportFilterPipeline(filters: [
             CrashReportFilterAlert(

@@ -168,10 +168,13 @@ NSString *const KSCrashNSExceptionStacktraceFuncName = @"exceptionWithStacktrace
     [self trigger_other_stackOverflow];
 }
 
-#define TRIGGER_MULTIPLE(TYPE_A, TYPE_B)                                       \
-    setCrashNotifyImplementation(^(const struct KSCrashReportWriter *writer) { \
-        trigger_##TYPE_B();                                                    \
-    });                                                                        \
+#define TRIGGER_MULTIPLE(TYPE_A, TYPE_B)                                                      \
+    setIntegrationTestCrashNotifyImplementation(                                              \
+        ^(KSCrash_ExceptionHandlingPolicy policy, const struct KSCrashReportWriter *writer) { \
+            if (!policy.crashedDuringExceptionHandling) {                                     \
+                trigger_##TYPE_B();                                                           \
+            }                                                                                 \
+        });                                                                                   \
     trigger_##TYPE_A()
 
 + (void)trigger_multiple_mach_mach
