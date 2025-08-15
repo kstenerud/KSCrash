@@ -25,8 +25,8 @@
 //
 
 #import <Foundation/Foundation.h>
-#import "KSCrashExceptionHandlingPolicy.h"
 #import "KSCrashCConfiguration.h"
+#import "KSCrashExceptionHandlingPolicy.h"
 #import "KSCrashMonitorType.h"
 #include "KSCrashNamespace.h"
 #import "KSCrashReportStore.h"

@@ -40,18 +40,6 @@
 extern "C" {
 #endif
 
-/** Callback type for when a crash report is written.
- *
- * @param reportID The ID of the report that was written.
- */
-typedef void (*KSReportWrittenCallback)(int64_t reportID);
-
-/** Callback type for when a crash report should be written.
- *
- * @param context The monitor context of the report that could be written.
- */
-typedef bool (*KSReportShouldWriteReportCallback)(const struct KSCrash_MonitorContext *context);
-
 /** Configuration for managing crash reports through the report store API.
  */
 typedef struct {
