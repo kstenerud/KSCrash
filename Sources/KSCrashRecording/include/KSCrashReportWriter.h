@@ -245,6 +245,12 @@ typedef struct KSCrashReportWriter {
 typedef void (*KSReportWriteCallback)(KSCrash_ExceptionHandlingPolicy policy,
                                       const KSCrashReportWriter *_Nonnull writer);
 
+/** Callback type for when a crash report should be written.
+ *
+ * @param context The monitor context of the report that could be written.
+ */
+typedef bool (*KSReportShouldWriteReportCallback)(const struct KSCrash_MonitorContext *_Nonnull context);
+
 /** Callback type for when a crash report is finished writing.
  *
  * @param policy The policy under which the report was written.
