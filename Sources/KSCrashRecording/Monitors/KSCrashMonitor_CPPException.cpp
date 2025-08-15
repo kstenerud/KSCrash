@@ -107,29 +107,20 @@ void __cxa_throw(void *thrown_exception, std::type_info *tinfo, void (*dest)(voi
 }
 }
 
-static char *cpp_demangleSymbol(const char *mangledSymbol)
+static const char *cpp_demangleSymbol(const char *mangledSymbol)
 {
     int status = 0;
     static char stackBuffer[DESCRIPTION_BUFFER_LENGTH] = { 0 };
     size_t length = DESCRIPTION_BUFFER_LENGTH;
     char *demangled = __cxxabiv1::__cxa_demangle(mangledSymbol, stackBuffer, &length, &status);
-    return status == 0 ? demangled : NULL;
+    return demangled != nullptr && status == 0 ? demangled : mangledSymbol;
 }
 
 static void CPPExceptionTerminate(void)
 {
     KSLOG_DEBUG("Trapped c++ exception");
-    const char *name = NULL;
     std::type_info *tinfo = __cxxabiv1::__cxa_current_exception_type();
-    if (tinfo != NULL) {
-        const char *infoName = tinfo->name();
-        if (infoName) {
-            name = cpp_demangleSymbol(infoName);
-            if (!name) {
-                name = infoName;
-            }
-        }
-    }
+    const char *name = cpp_demangleSymbol(tinfo->name());
 
     if (name == NULL || strcmp(name, "NSException") != 0) {
         thread_t thisThread = (thread_t)ksthread_self();
@@ -148,20 +139,20 @@ static void CPPExceptionTerminate(void)
         KSLOG_DEBUG("Discovering what kind of exception was thrown.");
         g_captureNextStackTrace = false;
 
-        // We need to be very explicit about what type is throws or it'll drop through.
+        // We need to be very explicit about what type is thrown or it'll drop through.
         try {
             throw;
         } catch (std::exception *exc) {
-            snprintf(descriptionBuff, DESCRIPTION_BUFFER_LENGTH, "%s", exc->what());
+            snprintf(descriptionBuff, sizeof(descriptionBuff), "%s", exc->what());
         } catch (std::exception &exc) {
-            snprintf(descriptionBuff, DESCRIPTION_BUFFER_LENGTH, "%s", exc.what());
+            snprintf(descriptionBuff, sizeof(descriptionBuff), "%s", exc.what());
         } catch (std::string *exc) {
-            snprintf(descriptionBuff, DESCRIPTION_BUFFER_LENGTH, "%s", exc->c_str());
+            snprintf(descriptionBuff, sizeof(descriptionBuff), "%s", exc->c_str());
         } catch (std::string &exc) {
-            snprintf(descriptionBuff, DESCRIPTION_BUFFER_LENGTH, "%s", exc.c_str());
+            snprintf(descriptionBuff, sizeof(descriptionBuff), "%s", exc.c_str());
         }
 #define CATCH_VALUE(TYPE, PRINTFTYPE) \
-    catch (TYPE value) { snprintf(descriptionBuff, DESCRIPTION_BUFFER_LENGTH, "%" #PRINTFTYPE, value); }
+    catch (TYPE value) { snprintf(descriptionBuff, sizeof(descriptionBuff), "%" #PRINTFTYPE, value); }
         CATCH_VALUE(char, d)
         CATCH_VALUE(short, d)
         CATCH_VALUE(int, d)
