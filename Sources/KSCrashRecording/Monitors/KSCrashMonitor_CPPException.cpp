@@ -152,13 +152,13 @@ static void CPPExceptionTerminate(void)
         try {
             throw;
         } catch (std::exception *exc) {
-            strncpy(descriptionBuff, exc->what(), DESCRIPTION_BUFFER_LENGTH);
+            snprintf(descriptionBuff, DESCRIPTION_BUFFER_LENGTH, "%s", exc->what());
         } catch (std::exception &exc) {
-            strncpy(descriptionBuff, exc.what(), DESCRIPTION_BUFFER_LENGTH);
+            snprintf(descriptionBuff, DESCRIPTION_BUFFER_LENGTH, "%s", exc.what());
         } catch (std::string *exc) {
-            strncpy(descriptionBuff, exc->c_str(), DESCRIPTION_BUFFER_LENGTH);
+            snprintf(descriptionBuff, DESCRIPTION_BUFFER_LENGTH, "%s", exc->c_str());
         } catch (std::string &exc) {
-            strncpy(descriptionBuff, exc.c_str(), DESCRIPTION_BUFFER_LENGTH);
+            snprintf(descriptionBuff, DESCRIPTION_BUFFER_LENGTH, "%s", exc.c_str());
         }
 #define CATCH_VALUE(TYPE, PRINTFTYPE) \
     catch (TYPE value) { snprintf(descriptionBuff, DESCRIPTION_BUFFER_LENGTH, "%" #PRINTFTYPE, value); }
@@ -176,7 +176,7 @@ static void CPPExceptionTerminate(void)
         CATCH_VALUE(double, f)
         CATCH_VALUE(long double, Lf)
 #pragma clang diagnostic push
-#pragma GCC diagnostic ignored "-Wexceptions"
+#pragma clang diagnostic ignored "-Wexceptions"
         CATCH_VALUE(char *, s)
         CATCH_VALUE(const char *, s)
 #pragma clang diagnostic pop
