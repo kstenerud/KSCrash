@@ -113,6 +113,20 @@ final class CppTests: IntegrationTestBase {
             print(appleReport)
             XCTAssertTrue(appleReport.contains("SIGTERM"))
         }
+
+        func testTerminationWithMemoryIntrospection() throws {
+            try launchAndInstall { config in
+                config.isSigTermMonitoringEnabled = true
+                config.isMemoryIntrospectionEnabled = true
+            }
+            try terminate()
+
+            let rawReport = try readPartialCrashReport()
+            try rawReport.validate()
+            XCTAssertNotNil(rawReport.crash?.threads?.first?.notable_addresses)
+            XCTAssertTrue(
+                rawReport.crash?.threads?.first?.notable_addresses?.keys.contains { $0.hasPrefix("stack@0x") } ?? false)
+        }
     }
 
 #endif
