@@ -100,6 +100,9 @@ typedef struct {
      * will also be automatically incremented.
      */
     unsigned shouldRecordThreads : 1;
+
+    /** Some report writes might be prepared for future use, such as preparing an OOM report for the next session. */
+    unsigned forFutureReference : 1;
 } KSCrash_ExceptionHandlingPolicy;
 
 #ifdef __cplusplus
