@@ -100,7 +100,7 @@ static KS_NOINLINE void initStackCursor(KSStackCursor *cursor, NSException *exce
 static KS_NOINLINE void handleException(NSException *exception, BOOL isUserReported,
                                         BOOL logAllThreads) KS_KEEP_FUNCTION_IN_STACKTRACE
 {
-    KSLOG_DEBUG(@"Trapped exception %@", exception);
+    KSLOG_DEBUG(@"Trapped ObjC exception %@", exception);
     if (g_isEnabled) {
         // Gather this info before we require async-safety:
         const char *exceptionName = exception.name.UTF8String;

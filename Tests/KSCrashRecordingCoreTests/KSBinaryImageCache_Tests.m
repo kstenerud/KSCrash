@@ -29,6 +29,7 @@
 #import <mach-o/loader.h>
 
 #import "KSBinaryImageCache.h"
+#import "KSDynamicLinker.h"
 
 // Declare external function only for testing
 extern void ksbic_resetCache(void);
@@ -43,6 +44,7 @@ extern void ksbic_resetCache(void);
     [super setUp];
     ksbic_resetCache();
     ksbic_init();
+    ksdl_init();
     [NSThread sleepForTimeInterval:0.1];
 }
 

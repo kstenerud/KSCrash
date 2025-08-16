@@ -459,6 +459,7 @@ static void *exceptionHandlerThreadMain(void *data)
     pthread_setname_np(ctx->threadName);
 
     exception_type_t exc = waitForException(ctx);
+    KSLOG_DEBUG("Trapped Mach exception on %s", ctx->threadName);
 
     // At this point, an exception has occurred and we need to deal with it.
     // We start by restoring the ports for the next level exception handler

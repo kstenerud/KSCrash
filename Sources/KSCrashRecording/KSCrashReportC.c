@@ -1139,10 +1139,10 @@ static void writeBinaryImage(const KSCrashReportWriter *const writer, const KSBi
 {
     writer->beginObject(writer, NULL);
     {
-        writer->addUIntegerElement(writer, KSCrashField_ImageAddress, image->address);
+        writer->addUIntegerElement(writer, KSCrashField_ImageAddress, (uintptr_t)image->address);
         writer->addUIntegerElement(writer, KSCrashField_ImageVmAddress, image->vmAddress);
         writer->addUIntegerElement(writer, KSCrashField_ImageSize, image->size);
-        writer->addStringElement(writer, KSCrashField_Name, image->name);
+        writer->addStringElement(writer, KSCrashField_Name, image->filePath);
         writer->addUUIDElement(writer, KSCrashField_UUID, image->uuid);
         writer->addIntegerElement(writer, KSCrashField_CPUType, image->cpuType);
         writer->addIntegerElement(writer, KSCrashField_CPUSubType, image->cpuSubType);

@@ -30,6 +30,10 @@ import XCTest
 
 #if !os(watchOS)  // there are no backtraces on watchOS
     class KSBacktraceTests: XCTestCase {
+        override func setUp() {
+            ksdl_init()
+        }
+
         func testBacktrace() {
             let expectation = XCTestExpectation()
             let thread = pthread_self()

@@ -35,6 +35,7 @@
 #include "KSCrashMonitorHelper.h"
 #include "KSCrashMonitorRegistry.h"
 #include "KSDebug.h"
+#include "KSDynamicLinker.h"
 #include "KSID.h"
 #include "KSString.h"
 #include "KSSystemCapabilities.h"
@@ -192,6 +193,7 @@ void kscm_disableAllMonitors(void)
 static KSCrash_MonitorContext *notifyException(const mach_port_t offendingThread,
                                                const KSCrash_ExceptionHandlingPolicy recommendations)
 {
+    KSLOG_DEBUG("Received exception notification");
     // This is the main policy decision point for all exception handling.
     //
     // If another exception occurs while we are already handling an exception, we need to decide what
@@ -278,11 +280,15 @@ static KSCrash_MonitorContext *notifyException(const mach_port_t offendingThread
         ksmc_suspendEnvironment(&ctx->suspendedThreads, &ctx->suspendedThreadsCount);
     }
 
+    ksdl_refreshCache();
+
+    KSLOG_TRACE("Returning control to the calling exception handler");
     return ctx;
 }
 
 static void handleException(struct KSCrash_MonitorContext *ctx)
 {
+    KSLOG_DEBUG("Handling exception");
     if (ctx == NULL) {
         // This should never happen.
         KSLOG_ERROR("ctx is NULL");
@@ -295,6 +301,7 @@ static void handleException(struct KSCrash_MonitorContext *ctx)
 
     // Call the exception event handler if it exists
     if (g_state.onExceptionEvent) {
+        KSLOG_TRACE("Calling g_state.onExceptionEvent()");
         g_state.onExceptionEvent(ctx);
     }
 
@@ -306,16 +313,20 @@ static void handleException(struct KSCrash_MonitorContext *ctx)
     }
 
     if (ctx->currentPolicy.shouldRecordThreads) {
+        KSLOG_TRACE("Will be recording threads, so suspending the environment");
         // Note: `kscrashreport_writeStandardReport()` may have resumed already,
         //       which is fine since `ksmc_resumeEnvironment()` is idempotent.
         ksmc_resumeEnvironment(&ctx->suspendedThreads, &ctx->suspendedThreadsCount);
     }
 
+    KSLOG_TRACE("Notifying that we are finished handling the exception");
     endHandlingException(ctx->threadHandlerIndex);
 
     if (ctx->isHeapAllocated) {
+        KSLOG_TRACE("The context is heap allocated, so freeing");
         free(ctx);
     }
+    KSLOG_TRACE("Finished handling the exception. Handing control back to the exception handler.");
 }
 
 bool kscm_addMonitor(const KSCrashMonitorAPI *api)
