@@ -152,12 +152,12 @@ static void onCrash(struct KSCrash_MonitorContext *monitorContext)
     if (g_eventNotifyCallback) {
         g_eventNotifyCallback(monitorContext);
     }
-    
+
     // Check if we should cancel out the writting of the report.
-    if  (monitorContext->currentPolicy.shouldWriteReport == 0) {
+    if (monitorContext->currentPolicy.shouldWriteReport == 0) {
         return;
     }
-    
+
     if (monitorContext->currentSnapshotUserReported == false) {
         KSLOG_DEBUG("Updating application state to note crash.");
         kscrashstate_notifyAppCrash();
