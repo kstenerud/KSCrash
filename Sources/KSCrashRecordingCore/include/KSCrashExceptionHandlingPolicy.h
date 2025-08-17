@@ -27,6 +27,8 @@
 #ifndef HDR_KSCrashExceptionHandlingPolicy_h
 #define HDR_KSCrashExceptionHandlingPolicy_h
 
+#include <CoreFoundation/CoreFoundation.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -40,7 +42,7 @@ extern "C" {
  *
  * Heed my warnings, o traveler, or thou shalt have thyself a badde tyme!
  */
-typedef struct {
+typedef struct KSCrash_ExceptionHandlingPolicy {
     /**
      * Something has gone very, VERY wrong, and as a result the library
      * cannot handle the exception.
@@ -103,7 +105,7 @@ typedef struct {
 
     /** If true, the handler will write a report about this event. */
     unsigned shouldWriteReport : 1;
-} KSCrash_ExceptionHandlingPolicy;
+} CF_SWIFT_NAME(ExceptionHandlingPolicy) KSCrash_ExceptionHandlingPolicy;
 
 #ifdef __cplusplus
 }

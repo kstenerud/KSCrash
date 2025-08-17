@@ -42,6 +42,7 @@
 #include "KSCrashReportFields.h"
 #include "KSCrashReportVersion.h"
 #include "KSCrashReportWriter.h"
+#include "KSCrashReportWriterCallbacks.h"
 #include "KSDate.h"
 #include "KSDynamicLinker.h"
 #include "KSFileUtils.h"

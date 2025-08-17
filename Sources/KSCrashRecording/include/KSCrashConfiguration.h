@@ -31,6 +31,7 @@
 #include "KSCrashNamespace.h"
 #import "KSCrashReportStore.h"
 #import "KSCrashReportWriter.h"
+#import "KSCrashReportWriterCallbacks.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -121,7 +122,7 @@ NS_ASSUME_NONNULL_BEGIN
  *
  * **Default**: NULL
  */
-@property(nonatomic, nullable) KSReportWriteCallback crashNotifyCallback
+@property(nonatomic, copy, nullable) void (^crashNotifyCallback)(const struct KSCrashReportWriter *writer)
     __attribute__((deprecated("Use `crashNotifyCallbackWithPolicy` for async-safety awareness (since v2.4.0).")));
 #pragma clang diagnostic pop
 
@@ -138,7 +139,7 @@ NS_ASSUME_NONNULL_BEGIN
  *
  * **Default**: NULL
  */
-@property(nonatomic, nullable) KSReportWrittenCallback reportWrittenCallback
+@property(nonatomic, copy, nullable) void (^reportWrittenCallback)(int64_t reportID)
     __attribute__((deprecated("Use `reportWrittenCallbackWithPolicy` for async-safety awareness (since v2.4.0).")));
 #pragma clang diagnostic pop
 

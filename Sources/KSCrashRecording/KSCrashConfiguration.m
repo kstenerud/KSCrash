@@ -98,8 +98,12 @@
     // TODO: Remove in 3.0 - Deprecated callback assignments for backward compatibility
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    config.crashNotifyCallback = self.crashNotifyCallback;
-    config.reportWrittenCallback = self.reportWrittenCallback;
+    if (self.crashNotifyCallback) {
+        config.crashNotifyCallback = (KSReportWriteCallback)imp_implementationWithBlock(self.crashNotifyCallback);
+    }
+    if (self.reportWrittenCallback) {
+        config.reportWrittenCallback = (KSReportWrittenCallback)imp_implementationWithBlock(self.reportWrittenCallback);
+    }
 #pragma clang diagnostic pop
     config.crashNotifyCallbackWithPolicy = self.crashNotifyCallbackWithPolicy;
     config.reportWrittenCallbackWithPolicy = self.reportWrittenCallbackWithPolicy;
