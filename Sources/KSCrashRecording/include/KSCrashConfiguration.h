@@ -139,7 +139,7 @@ NS_ASSUME_NONNULL_BEGIN
  *
  * **Default**: NULL
  */
-@property(nonatomic, assign, nullable) KSReportShouldWriteReportCallback shouldWriteReportCallback;
+@property(nonatomic, assign, nullable) KSCrashEventNotifyCallback eventNotifyCallback;
 
 /** If true, append KSLOG console messages to the crash report.
  *

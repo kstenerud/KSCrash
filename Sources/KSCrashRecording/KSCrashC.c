@@ -99,7 +99,7 @@ static KSCrashMonitorType g_monitoring = KSCrashMonitorTypeProductionSafeMinimal
 static char g_lastCrashReportFilePath[KSFU_MAX_PATH_LENGTH];
 static KSCrashReportStoreCConfiguration g_reportStoreConfig;
 static KSReportWrittenCallback g_reportWrittenCallback;
-static KSReportShouldWriteReportCallback g_shouldWriteReportCallback;
+static KSCrashEventNotifyCallback g_eventNotifyCallback;
 static KSApplicationState g_lastApplicationState = KSApplicationStateNone;
 
 // ============================================================================
@@ -148,18 +148,16 @@ static void notifyOfBeforeInstallationState(void)
  */
 static void onCrash(struct KSCrash_MonitorContext *monitorContext)
 {
-    // If this report is to be written for future reference (OOM for example),
-    // we don't want to call into clients. They'll get their chance
-    // if the crash actually gets reported.
-    if (monitorContext->currentPolicy.forFutureReference == 0) {
-        // Check if the user wants to modify or deny this crash.
-        if (g_shouldWriteReportCallback) {
-            if (g_shouldWriteReportCallback(monitorContext) == false) {
-                return;
-            }
-        }
+    // Check if the user wants to modify or deny this crash.
+    if (g_eventNotifyCallback) {
+        g_eventNotifyCallback(monitorContext);
     }
-
+    
+    // Check if we should cancel out the writting of the report.
+    if  (monitorContext->currentPolicy.shouldWriteReport == 0) {
+        return;
+    }
+    
     if (monitorContext->currentSnapshotUserReported == false) {
         KSLOG_DEBUG("Updating application state to note crash.");
         kscrashstate_notifyAppCrash();
@@ -176,11 +174,8 @@ static void onCrash(struct KSCrash_MonitorContext *monitorContext)
         strncpy(g_lastCrashReportFilePath, crashReportFilePath, sizeof(g_lastCrashReportFilePath));
         kscrashreport_writeStandardReport(monitorContext, crashReportFilePath);
 
-        // Same as above. If this is not a "now" crash, don't notify the user.
-        if (monitorContext->currentPolicy.forFutureReference == 0) {
-            if (g_reportWrittenCallback) {
-                g_reportWrittenCallback(monitorContext->currentPolicy, reportID);
-            }
+        if (g_reportWrittenCallback) {
+            g_reportWrittenCallback(monitorContext->currentPolicy, reportID);
         }
     }
 }
@@ -224,7 +219,7 @@ void handleConfiguration(KSCrashCConfiguration *configuration)
     g_reportWrittenCallback = configuration->reportWrittenCallback;
     g_shouldAddConsoleLogToReport = configuration->addConsoleLogToReport;
     g_shouldPrintPreviousLog = configuration->printPreviousLogOnStartup;
-    g_shouldWriteReportCallback = configuration->shouldWriteReportCallback;
+    g_eventNotifyCallback = configuration->eventNotifyCallback;
 
     if (configuration->enableSwapCxaThrow) {
         kscm_enableSwapCxaThrow();

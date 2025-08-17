@@ -247,9 +247,9 @@ typedef void (*KSReportWriteCallback)(KSCrash_ExceptionHandlingPolicy policy,
 
 /** Callback type for when a crash report should be written.
  *
- * @param context The monitor context of the report that could be written.
+ * @param context The monitor context of the report.
  */
-typedef bool (*KSReportShouldWriteReportCallback)(const struct KSCrash_MonitorContext *_Nonnull context);
+typedef void (*KSCrashEventNotifyCallback)(const struct KSCrash_MonitorContext *_Nonnull context);
 
 /** Callback type for when a crash report is finished writing.
  *

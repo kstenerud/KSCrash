@@ -177,7 +177,7 @@ typedef struct {
      *
      * **Default**: NULL
      */
-    KSReportShouldWriteReportCallback shouldWriteReportCallback;
+    KSCrashEventNotifyCallback eventNotifyCallback;
 
     /** Callback to invoke upon finishing writing a crash report.
      *
@@ -240,7 +240,7 @@ static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
         .enableMemoryIntrospection = false,
         .doNotIntrospectClasses = { .strings = NULL, .length = 0 },
         .crashNotifyCallback = NULL,
-        .shouldWriteReportCallback = NULL,
+        .eventNotifyCallback = NULL,
         .reportWrittenCallback = NULL,
         .addConsoleLogToReport = false,
         .printPreviousLogOnStartup = false,

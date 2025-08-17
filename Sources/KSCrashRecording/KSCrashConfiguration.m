@@ -61,7 +61,7 @@
         _printPreviousLogOnStartup = cConfig.printPreviousLogOnStartup ? YES : NO;
         _enableSwapCxaThrow = cConfig.enableSwapCxaThrow ? YES : NO;
         _enableSigTermMonitoring = cConfig.enableSigTermMonitoring ? YES : NO;
-        _shouldWriteReportCallback = cConfig.shouldWriteReportCallback;
+        _eventNotifyCallback = cConfig.eventNotifyCallback;
 
         _reportStoreConfiguration = [KSCrashReportStoreConfiguration new];
         _reportStoreConfiguration.appName = nil;
@@ -101,7 +101,7 @@
     config.printPreviousLogOnStartup = self.printPreviousLogOnStartup;
     config.enableSwapCxaThrow = self.enableSwapCxaThrow;
     config.enableSigTermMonitoring = self.enableSigTermMonitoring;
-    config.shouldWriteReportCallback = self.shouldWriteReportCallback;
+    config.eventNotifyCallback = self.eventNotifyCallback;
 
     return config;
 }
@@ -151,7 +151,7 @@
                                       : nil;
     copy.crashNotifyCallback = self.crashNotifyCallback;
     copy.reportWrittenCallback = self.reportWrittenCallback;
-    copy.shouldWriteReportCallback = self.shouldWriteReportCallback;
+    copy.eventNotifyCallback = self.eventNotifyCallback;
     copy.addConsoleLogToReport = self.addConsoleLogToReport;
     copy.printPreviousLogOnStartup = self.printPreviousLogOnStartup;
     copy.enableSwapCxaThrow = self.enableSwapCxaThrow;
