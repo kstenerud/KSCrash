@@ -26,7 +26,6 @@
 
 #include "KSCrashReportC.h"
 
-#include "KSBinaryImageCache.h"
 #include "KSCPU.h"
 #include "KSCrashMonitorHelper.h"
 #include "KSCrashMonitor_AppState.h"
@@ -1149,17 +1148,18 @@ static void writeBinaryImage(const KSCrashReportWriter *const writer, const KSBi
         writer->addUIntegerElement(writer, KSCrashField_ImageMajorVersion, image->majorVersion);
         writer->addUIntegerElement(writer, KSCrashField_ImageMinorVersion, image->minorVersion);
         writer->addUIntegerElement(writer, KSCrashField_ImageRevisionVersion, image->revisionVersion);
-        if (image->crashInfoMessage != NULL) {
-            writer->addStringElement(writer, KSCrashField_ImageCrashInfoMessage, image->crashInfoMessage);
+        KSCrashInfo crashInfo = ksdl_getCrashInfo(image);
+        if (crashInfo.crashInfoMessage != NULL) {
+            writer->addStringElement(writer, KSCrashField_ImageCrashInfoMessage, crashInfo.crashInfoMessage);
         }
-        if (image->crashInfoMessage2 != NULL) {
-            writer->addStringElement(writer, KSCrashField_ImageCrashInfoMessage2, image->crashInfoMessage2);
+        if (crashInfo.crashInfoMessage2 != NULL) {
+            writer->addStringElement(writer, KSCrashField_ImageCrashInfoMessage2, crashInfo.crashInfoMessage2);
         }
-        if (image->crashInfoBacktrace != NULL) {
-            writer->addStringElement(writer, KSCrashField_ImageCrashInfoBacktrace, image->crashInfoBacktrace);
+        if (crashInfo.crashInfoBacktrace != NULL) {
+            writer->addStringElement(writer, KSCrashField_ImageCrashInfoBacktrace, crashInfo.crashInfoBacktrace);
         }
-        if (image->crashInfoSignature != NULL) {
-            writer->addStringElement(writer, KSCrashField_ImageCrashInfoSignature, image->crashInfoSignature);
+        if (crashInfo.crashInfoSignature != NULL) {
+            writer->addStringElement(writer, KSCrashField_ImageCrashInfoSignature, crashInfo.crashInfoSignature);
         }
     }
     writer->endContainer(writer);
@@ -1173,16 +1173,13 @@ static void writeBinaryImage(const KSCrashReportWriter *const writer, const KSBi
  */
 static void writeBinaryImages(const KSCrashReportWriter *const writer, const char *const key)
 {
-    uint32_t count = 0;
-    const ks_dyld_image_info *images = ksbic_getImages(&count);
-
     writer->beginArray(writer, key);
     {
-        for (uint32_t iImg = 0; iImg < count; iImg++) {
-            ks_dyld_image_info info = images[iImg];
-            KSBinaryImage image = { 0 };
-            if (ksdl_binaryImageForHeader(info.imageLoadAddress, info.imageFilePath, &image)) {
-                writeBinaryImage(writer, &image);
+        size_t imageCount = ksdl_imageCount();
+        for (size_t i = 0; i < imageCount; i++) {
+            KSBinaryImage *image = ksdl_imageAtIndex(i);
+            if (image != NULL) {
+                writeBinaryImage(writer, image);
             }
         }
     }

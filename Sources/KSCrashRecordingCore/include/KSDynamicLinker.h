@@ -95,12 +95,6 @@ typedef struct {
 
     /** Address of the crash info section (where `crash_info_t` lives) */
     const section_t *crashInfoSection;
-
-    // Legacy:
-    const char *crashInfoMessage;
-    const char *crashInfoMessage2;
-    const char *crashInfoBacktrace;
-    const char *crashInfoSignature;
 } KSBinaryImage;
 
 /**
@@ -214,40 +208,6 @@ KSCrashInfo ksdl_getCrashInfo(const KSBinaryImage *image);
  * @return The symbolication (if any was found).
  */
 KSSymbolication ksdl_symbolicate(uintptr_t address);
-
-// ====================================
-#pragma mark - Legacy API -
-// ====================================
-
-#include <dlfcn.h>
-
-/** Get information about a binary image based on mach_header.
- *
- * @param header_ptr The pointer to mach_header of the image.
- *
- * @param image_name The name of the image.
- *
- * @param buffer A structure to hold the information.
- *
- * @return True if the image was successfully queried.
- */
-bool ksdl_binaryImageForHeader(const void *const header_ptr, const char *const image_name, KSBinaryImage *buffer);
-
-/** async-safe version of dladdr.
- *
- * This method searches the dynamic loader for information about any image
- * containing the specified address. It may not be entirely successful in
- * finding information, in which case any fields it could not find will be set
- * to NULL.
- *
- * Unlike dladdr(), this method does not make use of locks, and does not call
- * async-unsafe functions.
- *
- * @param address The address to search for.
- * @param info Gets filled out by this function.
- * @return true if at least some information was found.
- */
-bool ksdl_dladdr(const uintptr_t address, Dl_info *const info);
 
 #ifdef __cplusplus
 }

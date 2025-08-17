@@ -26,8 +26,9 @@
 
 #import <XCTest/XCTest.h>
 
-#import "KSBinaryImageCache.h"
 #import "KSDynamicLinker.h"
+
+#include <mach-o/dyld.h>
 
 @interface KSDynamicLinker_Tests : XCTestCase
 @end
@@ -41,20 +42,113 @@ extern void ksbic_init(void);
 - (void)setUp
 {
     [super setUp];
-    ksbic_resetCache();
-    ksbic_init();
+    ksdl_init();
+    ksdl_refreshCache();
     [NSThread sleepForTimeInterval:0.1];
 }
 
 - (void)testImageUUID
 {
-    uint32_t count = 0;
-    const ks_dyld_image_info *images = ksbic_getImages(&count);
+    KSBinaryImage *image = ksdl_imageAtIndex(4);
+    XCTAssertNotEqual(image, NULL);
+    XCTAssertNotEqual(image->uuid, NULL);
+}
 
-    KSBinaryImage buffer = { 0 };
-    ksdl_binaryImageForHeader(images[4].imageLoadAddress, images[4].imageFilePath, &buffer);
+- (void)testImageCount
+{
+    // The counts can often be off by a few since `dyld_image_count`
+    // doesn't contain removed images.
 
-    XCTAssertTrue(buffer.uuid != NULL, @"");
+    size_t cachedCount = ksdl_imageCount();
+    size_t actualCount = _dyld_image_count();
+
+    XCTAssertGreaterThan(cachedCount, 0, @"There should be at least some images loaded");
+    XCTAssertGreaterThanOrEqual(cachedCount, actualCount, @"Cached count should be at least 100%% of actual count");
+}
+
+- (void)testImageHeader
+{
+    size_t count = ksdl_imageCount();
+    XCTAssertGreaterThan(count, 0, @"There should be at least some images loaded");
+
+    for (size_t i = 0; i < MIN(count, 5); i++) {
+        KSBinaryImage *image = ksdl_imageAtIndex(i);
+
+        XCTAssertNotEqual(image, NULL, @"Should get valid cached image at index %@", @(i));
+        uint32_t magic = image->address->magic;
+        XCTAssertTrue(magic == MH_MAGIC || magic == MH_MAGIC_64 || magic == MH_CIGAM || magic == MH_CIGAM_64,
+                      @"Header should have a valid Mach-O magic number for image at index %@", @(i));
+    }
+}
+
+- (void)testImageName
+{
+    size_t count = ksdl_imageCount();
+    XCTAssertGreaterThan(count, 0, @"There should be at least some images loaded");
+
+    for (size_t i = 0; i < MIN(count, 5); i++) {
+        KSBinaryImage *image = ksdl_imageAtIndex(i);
+        const char *cachedName = image->filePath;
+
+        XCTAssertNotEqual(cachedName, NULL, @"Should get valid cached name for image %@", @(i));
+        XCTAssertGreaterThan(strlen(cachedName), 0, @"Image name should not be empty for image %@", @(i));
+    }
+}
+
+- (void)testImageVMAddrSlide
+{
+    size_t count = ksdl_imageCount();
+    XCTAssertGreaterThan(count, 0, @"There should be at least some images loaded");
+
+    for (size_t i = 0; i < MIN(count, 5); i++) {
+        KSBinaryImage *image = ksdl_imageAtIndex(i);
+        uintptr_t cachedSlide = image->vmAddressSlide;
+
+        XCTAssertTrue(cachedSlide < UINTPTR_MAX / 2, @"Slide should be a reasonable value for image %@", @(i));
+
+        // find the actual one from dyld
+        intptr_t actualSlide = INTPTR_MAX;
+        for (uint32_t d = 0; d < _dyld_image_count(); d++) {
+            const struct mach_header *dyldHeader = _dyld_get_image_header(d);
+            if ((uintptr_t)dyldHeader == (uintptr_t)image->address) {
+                actualSlide = _dyld_get_image_vmaddr_slide(d);
+                break;
+            }
+        }
+
+        if (actualSlide == INTPTR_MAX) {
+            // not found, not an error.
+            // It's possible that _dyld
+            // doesn't have this image cached.
+            continue;
+        }
+
+        XCTAssertEqual(cachedSlide, (uintptr_t)actualSlide, @"Cached slide should match actual slide for image %@",
+                       @(i));
+    }
+}
+
+- (void)testCachedImagesHaveConsistentData
+{
+    size_t count = ksdl_imageCount();
+    XCTAssertGreaterThan(count, 0, @"There should be at least some images loaded");
+
+    for (size_t i = 0; i < MIN(count, 10); i++) {
+        KSBinaryImage *image = ksdl_imageAtIndex(i);
+        const struct mach_header *header = (struct mach_header *)image->address;
+        const char *name = image->filePath;
+
+        uintptr_t slide = image->vmAddressSlide;
+        (void)slide;
+
+        XCTAssertNotEqual(header, NULL, @"Should have valid header for image %@", @(i));
+        XCTAssertNotEqual(name, NULL, @"Should have valid name for image %@", @(i));
+
+        uint32_t magic = header->magic;
+        XCTAssertTrue(magic == MH_MAGIC || magic == MH_MAGIC_64 || magic == MH_CIGAM || magic == MH_CIGAM_64,
+                      @"Header should have a valid Mach-O magic number for image %@", @(i));
+        XCTAssertGreaterThan(strlen(name), 0, @"Image name should not be empty for image %@", @(i));
+    }
 }
 
 @end
