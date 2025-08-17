@@ -238,13 +238,35 @@ typedef struct KSCrashReportWriter {
 
 } NS_SWIFT_NAME(ReportWriter) KSCrashReportWriter;
 
+/** Callback type for when a crash report is being written (DEPRECATED).
+ *
+ * @deprecated Use `KSReportWriteCallbackWithPolicy` for async-safety awareness (since v2.4.0).
+ * This callback does not receive policy information and may not handle crash
+ * scenarios safely.
+ *
+ * @param writer The report writer.
+ */
+typedef void (*KSReportWriteCallback)(const KSCrashReportWriter *_Nonnull writer)
+    __attribute__((deprecated("Use `KSReportWriteCallbackWithPolicy` for async-safety awareness (since v2.4.0).")));
+
+/** Callback type for when a crash report is finished writing (DEPRECATED).
+ *
+ * @deprecated Use `KSReportWrittenCallbackWithPolicy` for async-safety awareness (since v2.4.0).
+ * This callback does not receive policy information and may not handle crash
+ * scenarios safely.
+ *
+ * @param reportID The ID of the report that was written.
+ */
+typedef void (*KSReportWrittenCallback)(int64_t reportID)
+    __attribute__((deprecated("Use `KSReportWrittenCallbackWithPolicy` for async-safety awareness (since v2.4.0).")));
+
 /** Callback type for when a crash report is being written.
  *
  * @param policy The policy under which the report was written.
  * @param writer The report writer.
  */
-typedef void (*KSReportWriteCallback)(KSCrash_ExceptionHandlingPolicy policy,
-                                      const KSCrashReportWriter *_Nonnull writer);
+typedef void (*KSReportWriteCallbackWithPolicy)(KSCrash_ExceptionHandlingPolicy policy,
+                                                const KSCrashReportWriter *_Nonnull writer);
 
 /** Callback type for when a crash report should be written.
  *
@@ -257,7 +279,7 @@ typedef void (*KSCrashEventNotifyCallback)(struct KSCrash_MonitorContext *_Nonnu
  * @param policy The policy under which the report was written.
  * @param reportID The ID of the report that was written.
  */
-typedef void (*KSReportWrittenCallback)(KSCrash_ExceptionHandlingPolicy policy, int64_t reportID);
+typedef void (*KSReportWrittenCallbackWithPolicy)(KSCrash_ExceptionHandlingPolicy policy, int64_t reportID);
 
 #ifdef __cplusplus
 }

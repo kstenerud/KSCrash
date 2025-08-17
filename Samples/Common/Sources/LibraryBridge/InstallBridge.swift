@@ -92,9 +92,9 @@ public class InstallBridge: ObservableObject {
             writer.pointee.addBooleanElement(writer, "shouldRecordThreads", policy.shouldRecordThreads != 0)
             writer.pointee.endContainer(writer)
         }
-        config.crashNotifyCallback = cb
+        config.crashNotifyCallbackWithPolicy = cb
 
-        config.crashNotifyCallback = integrationTestCrashNotifyCallback
+        config.crashNotifyCallbackWithPolicy = integrationTestCrashNotifyCallback
 
         $basePath
             .removeDuplicates()

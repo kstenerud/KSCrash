@@ -159,7 +159,13 @@ typedef struct {
         int length;           /**< Length of the array. */
     } doNotIntrospectClasses;
 
-    /** Callback to invoke upon a crash.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    /** Callback to invoke upon a crash (DEPRECATED).
+     *
+     * @deprecated Use `crashNotifyCallbackWithPolicy` for async-safety awareness (since v2.4.0).
+     * This callback does not receive policy information and may not handle crash
+     * scenarios safely.
      *
      * This function is called during the crash reporting process, providing an opportunity
      * to add additional information to the crash report. Only async-safe functions should
@@ -167,7 +173,51 @@ typedef struct {
      *
      * **Default**: NULL
      */
-    KSReportWriteCallback crashNotifyCallback;
+    KSReportWriteCallback crashNotifyCallback
+        __attribute__((deprecated("Use `crashNotifyCallbackWithPolicy` for async-safety awareness (since v2.4.0).")));
+#pragma clang diagnostic pop
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    /** Callback to invoke upon finishing writing a crash report (DEPRECATED).
+     *
+     * @deprecated Use `reportWrittenCallbackWithPolicy` for async-safety awareness (since v2.4.0).
+     * This callback does not receive policy information and may not handle crash
+     * scenarios safely.
+     *
+     * This function is called after a crash report has been written. It allows the caller
+     * to react to the completion of the report. Only async-safe functions should be called
+     * from this function. Avoid calling Objective-C methods.
+     *
+     * **Default**: NULL
+     */
+    KSReportWrittenCallback reportWrittenCallback
+        __attribute__((deprecated("Use `reportWrittenCallbackWithPolicy` for async-safety awareness (since v2.4.0).")));
+#pragma clang diagnostic pop
+
+    /** Callback to invoke upon a crash.
+     *
+     * This function is called during the crash reporting process, providing an opportunity
+     * to add additional information to the crash report. The `policy` parameter determines
+     * what can be safely done within the callback.
+     *
+     * @see KSCrash_ExceptionHandlingPolicy
+     *
+     * **Default**: NULL
+     */
+    KSReportWriteCallbackWithPolicy crashNotifyCallbackWithPolicy;
+
+    /** Callback to invoke upon finishing writing a crash report.
+     *
+     * This function is called after a crash report has been written. It allows the caller
+     * to react to the completion of the report. The `policy` parameter determines
+     * what can be safely done within the callback.
+     *
+     * @see KSCrash_ExceptionHandlingPolicy
+     *
+     * **Default**: NULL
+     */
+    KSReportWrittenCallbackWithPolicy reportWrittenCallbackWithPolicy;
 
     /** Callback to invoke upon a crash before begining to process/write it.
      *
@@ -178,16 +228,6 @@ typedef struct {
      * **Default**: NULL
      */
     KSCrashEventNotifyCallback eventNotifyCallback;
-
-    /** Callback to invoke upon finishing writing a crash report.
-     *
-     * This function is called after a crash report has been written. It allows the caller
-     * to react to the completion of the report. Only async-safe functions should be called
-     * from this function. Avoid calling Objective-C methods.
-     *
-     * **Default**: NULL
-     */
-    KSReportWrittenCallback reportWrittenCallback;
 
     /** If true, append KSLOG console messages to the crash report.
      *
@@ -239,9 +279,15 @@ static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
         .enableQueueNameSearch = false,
         .enableMemoryIntrospection = false,
         .doNotIntrospectClasses = { .strings = NULL, .length = 0 },
+    // TODO: Remove in 3.0 - Deprecated field initialization for backward compatibility
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         .crashNotifyCallback = NULL,
         .eventNotifyCallback = NULL,
         .reportWrittenCallback = NULL,
+#pragma clang diagnostic pop
+        .crashNotifyCallbackWithPolicy = NULL,
+        .reportWrittenCallbackWithPolicy = NULL,
         .addConsoleLogToReport = false,
         .printPreviousLogOnStartup = false,
         .enableSwapCxaThrow = true,

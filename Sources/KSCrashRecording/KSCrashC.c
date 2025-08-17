@@ -98,7 +98,14 @@ static char g_consoleLogPath[KSFU_MAX_PATH_LENGTH];
 static KSCrashMonitorType g_monitoring = KSCrashMonitorTypeProductionSafeMinimal;
 static char g_lastCrashReportFilePath[KSFU_MAX_PATH_LENGTH];
 static KSCrashReportStoreCConfiguration g_reportStoreConfig;
-static KSReportWrittenCallback g_reportWrittenCallback;
+// TODO: Remove in 3.0
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+static KSReportWriteCallback g_legacyCrashNotifyCallback;
+static KSReportWrittenCallback g_legacyReportWrittenCallback;
+#pragma clang diagnostic pop
+static KSReportWriteCallbackWithPolicy g_crashNotifyCallbackWithPolicy;
+static KSReportWrittenCallbackWithPolicy g_reportWrittenCallbackWithPolicy;
 static KSCrashEventNotifyCallback g_eventNotifyCallback;
 static KSApplicationState g_lastApplicationState = KSApplicationStateNone;
 
@@ -117,6 +124,63 @@ static void printPreviousLog(const char *filePath)
         printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n");
         fflush(stdout);
     }
+}
+
+// ============================================================================
+#pragma mark - Callback Adapters -
+// ============================================================================
+
+/** Adapter function that bridges legacy crash notify callback to new signature.
+ * This allows old callbacks without policy awareness to be used with the new system.
+ */
+static void legacyCrashNotifyCallbackAdapter(__unused KSCrash_ExceptionHandlingPolicy policy,
+                                             const KSCrashReportWriter *writer)
+{
+    if (g_legacyCrashNotifyCallback) {
+        KSLOG_WARN(
+            "Using deprecated crash notify callback without policy awareness. "
+            "Consider upgrading to crashNotifyCallbackWithPolicy.");
+        g_legacyCrashNotifyCallback(writer);
+    }
+}
+
+/** Adapter function that bridges legacy report written callback to new signature.
+ * This allows old callbacks without policy awareness to be used with the new system.
+ */
+static void legacyReportWrittenCallbackAdapter(__unused KSCrash_ExceptionHandlingPolicy policy, int64_t reportID)
+{
+    if (g_legacyReportWrittenCallback) {
+        KSLOG_WARN(
+            "Using deprecated report written callback without policy awareness. "
+            "Consider upgrading to reportWrittenCallbackWithPolicy.");
+        g_legacyReportWrittenCallback(reportID);
+    }
+}
+
+/** Determines which crash notify callback to use and returns the appropriate function pointer.
+ * Prefers new callback with policy over legacy callback.
+ */
+static KSReportWriteCallbackWithPolicy getActiveCrashNotifyCallback(void)
+{
+    if (g_crashNotifyCallbackWithPolicy) {
+        return g_crashNotifyCallbackWithPolicy;
+    } else if (g_legacyCrashNotifyCallback) {
+        return legacyCrashNotifyCallbackAdapter;
+    }
+    return NULL;
+}
+
+/** Determines which report written callback to use and returns the appropriate function pointer.
+ * Prefers new callback with policy over legacy callback.
+ */
+static KSReportWrittenCallbackWithPolicy getActiveReportWrittenCallback(void)
+{
+    if (g_reportWrittenCallbackWithPolicy) {
+        return g_reportWrittenCallbackWithPolicy;
+    } else if (g_legacyReportWrittenCallback) {
+        return legacyReportWrittenCallbackAdapter;
+    }
+    return NULL;
 }
 
 static void notifyOfBeforeInstallationState(void)
@@ -174,8 +238,9 @@ static void onCrash(struct KSCrash_MonitorContext *monitorContext)
         strncpy(g_lastCrashReportFilePath, crashReportFilePath, sizeof(g_lastCrashReportFilePath));
         kscrashreport_writeStandardReport(monitorContext, crashReportFilePath);
 
-        if (g_reportWrittenCallback) {
-            g_reportWrittenCallback(monitorContext->currentPolicy, reportID);
+        KSReportWrittenCallbackWithPolicy activeCallback = getActiveReportWrittenCallback();
+        if (activeCallback != NULL) {
+            activeCallback(monitorContext->currentPolicy, reportID);
         }
     }
 }
@@ -215,8 +280,17 @@ void handleConfiguration(KSCrashCConfiguration *configuration)
                                                 configuration->doNotIntrospectClasses.length);
     }
 
-    kscrashreport_setUserSectionWriteCallback(configuration->crashNotifyCallback);
-    g_reportWrittenCallback = configuration->reportWrittenCallback;
+    // TODO: Remove in 3.0 - Set up deprecated callbacks for backward compatibility
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    g_legacyCrashNotifyCallback = configuration->crashNotifyCallback;
+    g_legacyReportWrittenCallback = configuration->reportWrittenCallback;
+#pragma clang diagnostic pop
+    g_crashNotifyCallbackWithPolicy = configuration->crashNotifyCallbackWithPolicy;
+    g_reportWrittenCallbackWithPolicy = configuration->reportWrittenCallbackWithPolicy;
+
+    KSReportWriteCallbackWithPolicy activeCrashCallback = getActiveCrashNotifyCallback();
+    kscrashreport_setUserSectionWriteCallback(activeCrashCallback);
     g_shouldAddConsoleLogToReport = configuration->addConsoleLogToReport;
     g_shouldPrintPreviousLog = configuration->printPreviousLogOnStartup;
     g_eventNotifyCallback = configuration->eventNotifyCallback;

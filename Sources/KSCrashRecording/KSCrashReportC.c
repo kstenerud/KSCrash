@@ -120,7 +120,7 @@ static const char *g_userInfoJSON;
 static pthread_mutex_t g_userInfoMutex = PTHREAD_MUTEX_INITIALIZER;
 
 static KSCrash_IntrospectionRules g_introspectionRules;
-static KSReportWriteCallback g_userSectionWriteCallback;
+static KSReportWriteCallbackWithPolicy g_userSectionWriteCallback;
 
 #pragma mark Callbacks
 
@@ -1722,7 +1722,7 @@ void kscrashreport_setDoNotIntrospectClasses(const char **doNotIntrospectClasses
     }
 }
 
-void kscrashreport_setUserSectionWriteCallback(const KSReportWriteCallback userSectionWriteCallback)
+void kscrashreport_setUserSectionWriteCallback(const KSReportWriteCallbackWithPolicy userSectionWriteCallback)
 {
     KSLOG_TRACE("Set userSectionWriteCallback to %p", userSectionWriteCallback);
     g_userSectionWriteCallback = userSectionWriteCallback;
