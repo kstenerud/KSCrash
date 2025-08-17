@@ -35,6 +35,7 @@
 #include <stdint.h>
 
 #include "KSCrashExceptionHandlingPolicy.h"
+#include "KSCrashMonitorContext.h"
 #include "KSCrashNamespace.h"
 
 #ifdef __OBJC__
