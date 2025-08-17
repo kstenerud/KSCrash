@@ -48,8 +48,8 @@
     XCTAssertFalse(config.enableQueueNameSearch);
     XCTAssertFalse(config.enableMemoryIntrospection);
     XCTAssertNil(config.doNotIntrospectClasses);
-    XCTAssertEqual(config.crashNotifyCallback, NULL);
-    XCTAssertEqual(config.reportWrittenCallback, NULL);
+    XCTAssertEqual(config.crashNotifyCallbackWithPolicy, NULL);
+    XCTAssertEqual(config.reportWrittenCallbackWithPolicy, NULL);
     XCTAssertFalse(config.addConsoleLogToReport);
     XCTAssertFalse(config.printPreviousLogOnStartup);
     XCTAssertEqual(config.reportStoreConfiguration.maxReportCount, 5);
@@ -221,21 +221,21 @@ static void onReportWritten(KSCrash_ExceptionHandlingPolicy policy, int64_t repo
     clearCallbackData();
     KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
 
-    config.crashNotifyCallback = onCrash;
-    config.reportWrittenCallback = onReportWritten;
+    config.crashNotifyCallbackWithPolicy = onCrash;
+    config.reportWrittenCallbackWithPolicy = onReportWritten;
 
     KSCrashCConfiguration cConfig = [config toCConfiguration];
 
-    XCTAssertNotEqual(config.crashNotifyCallback, NULL);
-    XCTAssertNotEqual(config.reportWrittenCallback, NULL);
-    XCTAssertNotEqual(cConfig.crashNotifyCallback, NULL);
-    XCTAssertNotEqual(cConfig.reportWrittenCallback, NULL);
+    XCTAssertNotEqual(config.crashNotifyCallbackWithPolicy, NULL);
+    XCTAssertNotEqual(config.reportWrittenCallbackWithPolicy, NULL);
+    XCTAssertNotEqual(cConfig.crashNotifyCallbackWithPolicy, NULL);
+    XCTAssertNotEqual(cConfig.reportWrittenCallbackWithPolicy, NULL);
 
     KSCrash_ExceptionHandlingPolicy testPolicy = (KSCrash_ExceptionHandlingPolicy) {
         .isFatal = true, .crashedDuringExceptionHandling = true, .shouldWriteReport = true
     };
     const struct KSCrashReportWriter *testWriter = (const struct KSCrashReportWriter *)(uintptr_t)0xdeadbeef;
-    cConfig.crashNotifyCallback(testPolicy, testWriter);
+    cConfig.crashNotifyCallbackWithPolicy(testPolicy, testWriter);
     XCTAssertTrue(g_callbackData.crashNotifyCallbackCalled);
     XCTAssertEqual(memcmp(&g_callbackData.capturedPolicy, &testPolicy, sizeof(testPolicy)), 0);
     XCTAssertEqual(g_callbackData.capturedWriter, testWriter);
@@ -243,7 +243,7 @@ static void onReportWritten(KSCrash_ExceptionHandlingPolicy policy, int64_t repo
     testPolicy.isFatal = false;
     testPolicy.shouldRecordThreads = true;
     int64_t testReportID = 12345;
-    cConfig.reportWrittenCallback(testPolicy, testReportID);
+    cConfig.reportWrittenCallbackWithPolicy(testPolicy, testReportID);
     XCTAssertTrue(g_callbackData.reportWrittenCallbackCalled);
     XCTAssertEqual(memcmp(&g_callbackData.capturedPolicy, &testPolicy, sizeof(testPolicy)), 0);
     XCTAssertEqual(g_callbackData.capturedReportID, testReportID);
