@@ -117,13 +117,12 @@ static KS_NOINLINE void handleException(NSException *exception, BOOL isUserRepor
         initStackCursor(&cursor, exception, callstack, isUserReported);
 
         // Now start exception handling
-        KSCrash_MonitorContext *crashContext =
-            g_callbacks.notify(thisThread, (KSCrash_ExceptionHandlingPolicy) {
-                                               .requiresAsyncSafety = 0,
-                                               // User-reported exceptions are not considered fatal.
-                                               .isFatal = !isUserReported,
-                                               .shouldRecordThreads = logAllThreads != NO,
-                                           });
+        KSCrash_MonitorContext *crashContext = g_callbacks.notify(
+            thisThread, (KSCrash_ExceptionHandlingPolicy) { .requiresAsyncSafety = 0,
+                                                            // User-reported exceptions are not considered fatal.
+                                                            .isFatal = !isUserReported,
+                                                            .shouldRecordThreads = logAllThreads != NO,
+                                                            .shouldWriteReport = true });
         if (crashContext->currentPolicy.shouldExitImmediately) {
             goto exit_immediately;
         }

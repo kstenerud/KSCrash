@@ -232,8 +232,7 @@ static void onReportWritten(KSCrash_ExceptionHandlingPolicy policy, int64_t repo
     XCTAssertNotEqual(cConfig.reportWrittenCallback, NULL);
 
     KSCrash_ExceptionHandlingPolicy testPolicy = (KSCrash_ExceptionHandlingPolicy) {
-        .isFatal = true,
-        .crashedDuringExceptionHandling = true,
+        .isFatal = true, .crashedDuringExceptionHandling = true, .shouldWriteReport = true
     };
     const struct KSCrashReportWriter *testWriter = (const struct KSCrashReportWriter *)(uintptr_t)0xdeadbeef;
     cConfig.crashNotifyCallback(testPolicy, testWriter);
