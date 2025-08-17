@@ -95,7 +95,7 @@ FOUNDATION_EXPORT void __KSCrashAppMemorySetProvider(KSCrashAppMemoryProvider pr
     if (!block) {
         return nil;
     }
-    // Block are often on the stack so copy it
+    // Blocks are often on the stack so copy it
     // to make sure we have a copy on the heap
     // that will last for as long as the caller holds onto it.
     id heapBlock = [block copy];
