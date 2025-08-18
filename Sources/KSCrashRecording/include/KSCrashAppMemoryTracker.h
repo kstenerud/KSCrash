@@ -66,6 +66,20 @@ NS_SWIFT_NAME(AppMemoryTracker)
 - (id)addObserverWithBlock:(KSCrashAppMemoryTrackerObserverBlock)block;
 
 /**
+ * Start the tracker.
+ *
+ * @warning Don't call this on the shared tracker.
+ */
+- (void)start;
+
+/**
+ * Stop the tracker.
+ *
+ * @warning Don't call this on the shared tracker.
+ */
+- (void)stop;
+
+/**
  *
  * @deprecated This property is deprecated in favor of `addObserverWithBlock:`.
  */

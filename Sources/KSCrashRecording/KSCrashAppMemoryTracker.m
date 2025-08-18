@@ -57,10 +57,6 @@ FOUNDATION_EXPORT void __KSCrashAppMemorySetProvider(KSCrashAppMemoryProvider pr
     // weak objects are `KSCrashAppMemoryTrackerObserverBlock`'s
     NSPointerArray *_observers;
 }
-
-- (void)start;
-- (void)stop;
-
 @end
 
 @implementation KSCrashAppMemoryTracker
