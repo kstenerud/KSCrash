@@ -250,7 +250,7 @@ typedef void (*KSReportWriteCallback)(KSCrash_ExceptionHandlingPolicy policy,
  *
  * @param context The monitor context of the report.
  */
-typedef void (*KSCrashEventNotifyCallback)(const struct KSCrash_MonitorContext *_Nonnull context);
+typedef void (*KSCrashEventNotifyCallback)(struct KSCrash_MonitorContext *_Nonnull context);
 
 /** Callback type for when a crash report is finished writing.
  *
