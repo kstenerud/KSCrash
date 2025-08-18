@@ -37,25 +37,50 @@ typedef NS_OPTIONS(NSUInteger, KSCrashAppMemoryTrackerChangeType) {
     KSCrashAppMemoryTrackerChangeTypeFootprint = 1 << 2,
 } NS_SWIFT_NAME(AppMemoryTrackerChangeType);
 
+typedef void (^KSCrashAppMemoryTrackerObserverBlock)(KSCrashAppMemory *memory,
+                                                     KSCrashAppMemoryTrackerChangeType changes)
+    NS_SWIFT_UNAVAILABLE("Use Swift closures instead!");
+
 @protocol KSCrashAppMemoryTrackerDelegate;
+@protocol KSCrashAppMemoryTrackerObserving;
 
 NS_SWIFT_NAME(AppMemoryTracker)
 @interface KSCrashAppMemoryTracker : NSObject
 
+/**
+ * The shared tracker. Use this unless you absolutely need your own tracker,
+ * at which point you can simply allocate your own.
+ */
+@property(class, atomic, readonly) KSCrashAppMemoryTracker *sharedInstance NS_SWIFT_NAME(shared);
+
 @property(atomic, readonly) KSCrashAppMemoryState pressure;
 @property(atomic, readonly) KSCrashAppMemoryState level;
 
-@property(nonatomic, weak) id<KSCrashAppMemoryTrackerDelegate> delegate;
-
 @property(nonatomic, readonly, nullable) KSCrashAppMemory *currentAppMemory;
 
-- (void)start;
-- (void)stop;
+/**
+ * Adds a block based observer.
+ *
+ *@return An object that when set to nil will remove the observer.
+ */
+- (id)addObserverWithBlock:(KSCrashAppMemoryTrackerObserverBlock)block;
+
+/**
+ *
+ * @deprecated This property is deprecated in favor of `addObserverWithBlock:`.
+ */
+@property(nonatomic, weak) id<KSCrashAppMemoryTrackerDelegate> delegate
+    __attribute__((deprecated("Use -addObserverWithBlock: instead.")));
 
 @end
 
+/**
+ *
+ * @deprecated Use `addObserverWithBlock:` instead.
+ */
 NS_SWIFT_NAME(AppMemoryTrackerDelegate)
-@protocol KSCrashAppMemoryTrackerDelegate <NSObject>
+__attribute__((deprecated("Use -addObserverWithBlock: instead.")))
+@protocol KSCrashAppMemoryTrackerDelegate<NSObject>
 
 - (void)appMemoryTracker:(KSCrashAppMemoryTracker *)tracker
                   memory:(KSCrashAppMemory *)memory

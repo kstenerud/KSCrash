@@ -168,8 +168,8 @@ static KSCrash_Memory g_previousSessionMemory;
 #pragma mark - Tracking -
 // ============================================================================
 
-@interface _KSCrashMonitor_MemoryTracker : NSObject <KSCrashAppMemoryTrackerDelegate> {
-    KSCrashAppMemoryTracker *_tracker;
+@interface _KSCrashMonitor_MemoryTracker : NSObject {
+    id _observer;
 }
 @end
 
@@ -178,21 +178,27 @@ static KSCrash_Memory g_previousSessionMemory;
 - (instancetype)init
 {
     if ((self = [super init])) {
-        _tracker = [[KSCrashAppMemoryTracker alloc] init];
-        _tracker.delegate = self;
-        [_tracker start];
+        __weak typeof(self) weakMe = self;
+        _observer = [KSCrashAppMemoryTracker.sharedInstance
+            addObserverWithBlock:^(KSCrashAppMemory *_Nonnull memory, KSCrashAppMemoryTrackerChangeType changes) {
+                typeof(self) me = weakMe;
+                if (!me) {
+                    return;
+                }
+                [me _memory:memory changed:changes];
+            }];
     }
     return self;
 }
 
 - (void)dealloc
 {
-    [_tracker stop];
+    _observer = nil;
 }
 
 - (KSCrashAppMemory *)memory
 {
-    return _tracker.currentAppMemory;
+    return KSCrashAppMemoryTracker.sharedInstance.currentAppMemory;
 }
 
 - (void)_updateMappedMemoryFrom:(KSCrashAppMemory *)memory
@@ -200,9 +206,7 @@ static KSCrash_Memory g_previousSessionMemory;
     _ks_memory_update_from_app_memory(memory);
 }
 
-- (void)appMemoryTracker:(KSCrashAppMemoryTracker *)tracker
-                  memory:(KSCrashAppMemory *)memory
-                 changed:(KSCrashAppMemoryTrackerChangeType)changes
+- (void)_memory:(KSCrashAppMemory *)memory changed:(KSCrashAppMemoryTrackerChangeType)changes
 {
     if (changes & KSCrashAppMemoryTrackerChangeTypeFootprint) {
         [self _updateMappedMemoryFrom:memory];

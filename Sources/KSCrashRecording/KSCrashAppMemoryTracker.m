@@ -53,10 +53,28 @@ FOUNDATION_EXPORT void __KSCrashAppMemorySetProvider(KSCrashAppMemoryProvider pr
     uint64_t _footprint;
     KSCrashAppMemoryState _pressure;
     KSCrashAppMemoryState _level;
+
+    // weak objects are `KSCrashAppMemoryTrackerObserverBlock`'s
+    NSPointerArray *_observers;
 }
+
+- (void)start;
+- (void)stop;
+
 @end
 
 @implementation KSCrashAppMemoryTracker
+
++ (instancetype)sharedInstance
+{
+    static KSCrashAppMemoryTracker *sTracker;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        sTracker = [[KSCrashAppMemoryTracker alloc] init];
+        [sTracker start];
+    });
+    return sTracker;
+}
 
 - (instancetype)init
 {
@@ -66,6 +84,7 @@ FOUNDATION_EXPORT void __KSCrashAppMemorySetProvider(KSCrashAppMemoryProvider pr
                                                             dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0));
         _level = KSCrashAppMemoryStateNormal;
         _pressure = KSCrashAppMemoryStateNormal;
+        _observers = [NSPointerArray weakObjectsPointerArray];
     }
     return self;
 }
@@ -73,6 +92,19 @@ FOUNDATION_EXPORT void __KSCrashAppMemorySetProvider(KSCrashAppMemoryProvider pr
 - (void)dealloc
 {
     [self stop];
+}
+
+- (id)addObserverWithBlock:(KSCrashAppMemoryTrackerObserverBlock)block
+{
+    if (!block) {
+        return nil;
+    }
+    // Blocks are often on the stack so copy it
+    // to make sure we have a copy on the heap
+    // that will last for as long as the caller holds onto it.
+    id heapBlock = [block copy];
+    [_observers addPointer:(__bridge void *_Nullable)(heapBlock)];
+    return heapBlock;
 }
 
 - (void)start
@@ -109,13 +141,22 @@ FOUNDATION_EXPORT void __KSCrashAppMemorySetProvider(KSCrashAppMemoryProvider pr
                                                  name:UIApplicationDidFinishLaunchingNotification
                                                object:nil];
 #endif
-    [self _handleMemoryChange:[self currentAppMemory] type:KSCrashAppMemoryTrackerChangeTypeNone];
+    [self _handleMemoryChange:[self currentAppMemory]
+                         type:KSCrashAppMemoryTrackerChangeTypeNone
+                    observers:[_observers copy]];
 }
 
 #if KSCRASH_HAS_UIAPPLICATION
 - (void)_appDidFinishLaunching
 {
-    [self _handleMemoryChange:[self currentAppMemory] type:KSCrashAppMemoryTrackerChangeTypeNone];
+    NSArray<KSCrashAppMemoryTrackerObserverBlock> *observers = nil;
+    {
+        os_unfair_lock_lock(&_lock);
+        [_observers compact];
+        observers = [_observers allObjects];
+        os_unfair_lock_unlock(&_lock);
+    }
+    [self _handleMemoryChange:[self currentAppMemory] type:KSCrashAppMemoryTrackerChangeTypeNone observers:observers];
 }
 #endif
 
@@ -143,8 +184,8 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
 
 #if TARGET_OS_SIMULATOR
     // in simulator, remaining is always 0. So let's fake it.
-    // How about a limit of 3GB.
-    uint64_t limit = 3000000000;
+    // How about a limit of 6GB.
+    uint64_t limit = 6000000000;
     uint64_t remaining = limit < info.phys_footprint ? 0 : limit - info.phys_footprint;
 #elif KSCRASH_HOST_MAC
     // macOS doesn't limit memory usage the same way as it's implemented for other OSs.
@@ -163,9 +204,18 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
     return gMemoryProvider ? gMemoryProvider() : _ProvideCrashAppMemory(_pressure);
 }
 
-- (void)_handleMemoryChange:(KSCrashAppMemory *)memory type:(KSCrashAppMemoryTrackerChangeType)changes
+- (void)_handleMemoryChange:(KSCrashAppMemory *)memory
+                       type:(KSCrashAppMemoryTrackerChangeType)changes
+                  observers:(NSArray<KSCrashAppMemoryTrackerObserverBlock> *)observers
 {
+    for (KSCrashAppMemoryTrackerObserverBlock obs in observers) {
+        obs(memory, changes);
+    }
+
+#pragma clang diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     [self.delegate appMemoryTracker:self memory:memory changed:changes];
+#pragma clang diagnostic pop
 }
 
 // in case of unsigned values
@@ -180,6 +230,7 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
     KSCrashAppMemoryState newLevel = memory.level;
     uint64_t newFootprint = memory.footprint;
 
+    NSArray<KSCrashAppMemoryTrackerObserverBlock> *observers = nil;
     KSCrashAppMemoryState oldLevel;
     BOOL footprintChanged = NO;
     {
@@ -199,6 +250,9 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
             footprintChanged = YES;
         }
 
+        // clear out NULLs from observers
+        [_observers compact];
+        observers = [_observers allObjects];
         os_unfair_lock_unlock(&_lock);
     }
 
@@ -210,7 +264,7 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
     }
 
     if (changes != KSCrashAppMemoryTrackerChangeTypeNone) {
-        [self _handleMemoryChange:memory type:changes];
+        [self _handleMemoryChange:memory type:changes observers:observers];
     }
 
     if (newLevel != oldLevel && sendObservers) {
@@ -265,16 +319,21 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
             newPressure = KSCrashAppMemoryStateNormal;
     }
 
+    NSArray<KSCrashAppMemoryTrackerObserverBlock> *observers = nil;
     KSCrashAppMemoryState oldPressure;
     {
         os_unfair_lock_lock(&_lock);
         oldPressure = _pressure;
         _pressure = newPressure;
+        [_observers compact];
+        observers = [_observers allObjects];
         os_unfair_lock_unlock(&_lock);
     }
 
     if (oldPressure != newPressure && sendObservers) {
-        [self _handleMemoryChange:[self currentAppMemory] type:KSCrashAppMemoryTrackerChangeTypePressure];
+        [self _handleMemoryChange:[self currentAppMemory]
+                             type:KSCrashAppMemoryTrackerChangeTypePressure
+                        observers:observers];
         [[NSNotificationCenter defaultCenter] postNotificationName:KSCrashAppMemoryPressureChangedNotification
                                                             object:self
                                                           userInfo:@{
