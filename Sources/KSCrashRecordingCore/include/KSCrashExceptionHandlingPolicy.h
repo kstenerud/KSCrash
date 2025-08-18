@@ -101,7 +101,7 @@ typedef struct {
      */
     unsigned shouldRecordThreads : 1;
 
-    /** Allows a user or monitor to not write out the report. */
+    /** If true, the handler will write a report about this event. */
     unsigned shouldWriteReport : 1;
 } KSCrash_ExceptionHandlingPolicy;
 
