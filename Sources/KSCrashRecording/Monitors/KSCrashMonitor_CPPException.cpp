@@ -35,12 +35,12 @@
 // #define KSLogger_LocalLevel TRACE
 #include <cxxabi.h>
 #include <dlfcn.h>
-#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include <exception>
+#include <string>
 #include <typeinfo>
 
 #include "KSCxaThrowSwapper.h"
@@ -58,7 +58,7 @@
 // ============================================================================
 
 /** True if this handler has been installed. */
-static atomic_bool g_isEnabled = false;
+static std::atomic<bool> g_isEnabled { false };
 
 /** True if the handler should capture the next stack trace. */
 static bool g_captureNextStackTrace = false;
@@ -107,14 +107,20 @@ void __cxa_throw(void *thrown_exception, std::type_info *tinfo, void (*dest)(voi
 }
 }
 
+static const char *cpp_demangleSymbol(const char *mangledSymbol)
+{
+    int status = 0;
+    static char stackBuffer[DESCRIPTION_BUFFER_LENGTH] = { 0 };
+    size_t length = DESCRIPTION_BUFFER_LENGTH;
+    char *demangled = __cxxabiv1::__cxa_demangle(mangledSymbol, stackBuffer, &length, &status);
+    return demangled != nullptr && status == 0 ? demangled : mangledSymbol;
+}
+
 static void CPPExceptionTerminate(void)
 {
     KSLOG_DEBUG("Trapped c++ exception");
-    const char *name = NULL;
     std::type_info *tinfo = __cxxabiv1::__cxa_current_exception_type();
-    if (tinfo != NULL) {
-        name = tinfo->name();
-    }
+    const char *name = cpp_demangleSymbol(tinfo->name());
 
     if (name == NULL || strcmp(name, "NSException") != 0) {
         thread_t thisThread = (thread_t)ksthread_self();
@@ -127,16 +133,23 @@ static void CPPExceptionTerminate(void)
             goto exit_immediately;
         }
 
-        char descriptionBuff[DESCRIPTION_BUFFER_LENGTH];
+        char descriptionBuff[DESCRIPTION_BUFFER_LENGTH] = { 0 };
         const char *description = descriptionBuff;
-        descriptionBuff[0] = 0;
 
         KSLOG_DEBUG("Discovering what kind of exception was thrown.");
         g_captureNextStackTrace = false;
+
+        // We need to be very explicit about what type is thrown or it'll drop through.
         try {
             throw;
+        } catch (std::exception *exc) {
+            snprintf(descriptionBuff, sizeof(descriptionBuff), "%s", exc->what());
         } catch (std::exception &exc) {
-            strncpy(descriptionBuff, exc.what(), sizeof(descriptionBuff));
+            snprintf(descriptionBuff, sizeof(descriptionBuff), "%s", exc.what());
+        } catch (std::string *exc) {
+            snprintf(descriptionBuff, sizeof(descriptionBuff), "%s", exc->c_str());
+        } catch (std::string &exc) {
+            snprintf(descriptionBuff, sizeof(descriptionBuff), "%s", exc.c_str());
         }
 #define CATCH_VALUE(TYPE, PRINTFTYPE) \
     catch (TYPE value) { snprintf(descriptionBuff, sizeof(descriptionBuff), "%" #PRINTFTYPE, value); }
@@ -153,7 +166,11 @@ static void CPPExceptionTerminate(void)
         CATCH_VALUE(float, f)
         CATCH_VALUE(double, f)
         CATCH_VALUE(long double, Lf)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wexceptions"
         CATCH_VALUE(char *, s)
+        CATCH_VALUE(const char *, s)
+#pragma clang diagnostic pop
         catch (...) { description = NULL; }
         g_captureNextStackTrace = g_isEnabled;
 
