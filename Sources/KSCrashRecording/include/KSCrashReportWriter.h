@@ -35,6 +35,7 @@
 #include <stdint.h>
 
 #include "KSCrashExceptionHandlingPolicy.h"
+#include "KSCrashMonitorContext.h"
 #include "KSCrashNamespace.h"
 
 #ifdef __OBJC__
@@ -244,6 +245,12 @@ typedef struct KSCrashReportWriter {
  */
 typedef void (*KSReportWriteCallback)(KSCrash_ExceptionHandlingPolicy policy,
                                       const KSCrashReportWriter *_Nonnull writer);
+
+/** Callback type for when a crash report should be written.
+ *
+ * @param context The monitor context of the report.
+ */
+typedef void (*KSCrashEventNotifyCallback)(struct KSCrash_MonitorContext *_Nonnull context);
 
 /** Callback type for when a crash report is finished writing.
  *

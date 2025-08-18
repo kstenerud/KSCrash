@@ -25,6 +25,7 @@
 //
 
 #import <Foundation/Foundation.h>
+#import "KSCrashCConfiguration.h"
 #import "KSCrashExceptionHandlingPolicy.h"
 #import "KSCrashMonitorType.h"
 #include "KSCrashNamespace.h"
@@ -130,6 +131,15 @@ NS_ASSUME_NONNULL_BEGIN
  * **Default**: NULL
  */
 @property(nonatomic, nullable) KSReportWrittenCallback reportWrittenCallback;
+
+/** Callback to invoke before writing a crash report.
+ *
+ * This function is called before a crash report has been written. It allows the caller
+ * to cancel writting the report, or modify the report being written.
+ *
+ * **Default**: NULL
+ */
+@property(nonatomic, assign, nullable) KSCrashEventNotifyCallback eventNotifyCallback;
 
 /** If true, append KSLOG console messages to the crash report.
  *

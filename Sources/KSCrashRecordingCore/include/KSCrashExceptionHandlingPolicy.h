@@ -100,6 +100,9 @@ typedef struct {
      * will also be automatically incremented.
      */
     unsigned shouldRecordThreads : 1;
+
+    /** If true, the handler will write a report about this event. */
+    unsigned shouldWriteReport : 1;
 } KSCrash_ExceptionHandlingPolicy;
 
 #ifdef __cplusplus

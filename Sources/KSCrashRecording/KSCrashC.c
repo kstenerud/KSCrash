@@ -99,6 +99,7 @@ static KSCrashMonitorType g_monitoring = KSCrashMonitorTypeProductionSafeMinimal
 static char g_lastCrashReportFilePath[KSFU_MAX_PATH_LENGTH];
 static KSCrashReportStoreCConfiguration g_reportStoreConfig;
 static KSReportWrittenCallback g_reportWrittenCallback;
+static KSCrashEventNotifyCallback g_eventNotifyCallback;
 static KSApplicationState g_lastApplicationState = KSApplicationStateNone;
 
 // ============================================================================
@@ -147,6 +148,16 @@ static void notifyOfBeforeInstallationState(void)
  */
 static void onCrash(struct KSCrash_MonitorContext *monitorContext)
 {
+    // Check if the user wants to modify or deny this crash.
+    if (g_eventNotifyCallback) {
+        g_eventNotifyCallback(monitorContext);
+    }
+
+    // Check if we should cancel out the writting of the report.
+    if (monitorContext->currentPolicy.shouldWriteReport == 0) {
+        return;
+    }
+
     if (monitorContext->currentSnapshotUserReported == false) {
         KSLOG_DEBUG("Updating application state to note crash.");
         kscrashstate_notifyAppCrash();
@@ -208,6 +219,7 @@ void handleConfiguration(KSCrashCConfiguration *configuration)
     g_reportWrittenCallback = configuration->reportWrittenCallback;
     g_shouldAddConsoleLogToReport = configuration->addConsoleLogToReport;
     g_shouldPrintPreviousLog = configuration->printPreviousLogOnStartup;
+    g_eventNotifyCallback = configuration->eventNotifyCallback;
 
     if (configuration->enableSwapCxaThrow) {
         kscm_enableSwapCxaThrow();

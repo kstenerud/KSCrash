@@ -105,11 +105,10 @@ static KSCrash_ExceptionHandlerCallbacks g_callbacks;
 {
     thread_t thisThread = (thread_t)ksthread_self();
     // This requires async-safety because the environment is suspended.
-    KSCrash_MonitorContext *crashContext = g_callbacks.notify(thisThread, (KSCrash_ExceptionHandlingPolicy) {
-                                                                              .requiresAsyncSafety = 1,
-                                                                              .isFatal = true,
-                                                                              .shouldRecordThreads = true,
-                                                                          });
+    KSCrash_MonitorContext *crashContext = g_callbacks.notify(
+        thisThread,
+        (KSCrash_ExceptionHandlingPolicy) {
+            .requiresAsyncSafety = 1, .isFatal = true, .shouldRecordThreads = true, .shouldWriteReport = true });
     if (crashContext->currentPolicy.shouldExitImmediately) {
         goto exit_immediately;
     }

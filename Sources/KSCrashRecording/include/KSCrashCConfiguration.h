@@ -31,6 +31,7 @@
 #include <string.h>
 
 #include "KSCrashExceptionHandlingPolicy.h"
+#include "KSCrashMonitorContext.h"
 #include "KSCrashMonitorType.h"
 #include "KSCrashNamespace.h"
 #include "KSCrashReportWriter.h"
@@ -168,6 +169,16 @@ typedef struct {
      */
     KSReportWriteCallback crashNotifyCallback;
 
+    /** Callback to invoke upon a crash before begining to process/write it.
+     *
+     * This function is called during the crash reporting process, providing an opportunity
+     * to add additional information to the crash report, and stop the process from writting
+     * the report.
+     *
+     * **Default**: NULL
+     */
+    KSCrashEventNotifyCallback eventNotifyCallback;
+
     /** Callback to invoke upon finishing writing a crash report.
      *
      * This function is called after a crash report has been written. It allows the caller
@@ -229,6 +240,7 @@ static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
         .enableMemoryIntrospection = false,
         .doNotIntrospectClasses = { .strings = NULL, .length = 0 },
         .crashNotifyCallback = NULL,
+        .eventNotifyCallback = NULL,
         .reportWrittenCallback = NULL,
         .addConsoleLogToReport = false,
         .printPreviousLogOnStartup = false,
