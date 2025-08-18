@@ -70,7 +70,7 @@ NS_SWIFT_NAME(AppMemoryTracker)
  * @deprecated This property is deprecated in favor of `addObserverWithBlock:`.
  */
 @property(nonatomic, weak) id<KSCrashAppMemoryTrackerDelegate> delegate
-    __attribute__((deprecated("Use `-addObserverWithBlock:` instead.")));
+    __attribute__((deprecated("Use -addObserverWithBlock: instead.")));
 
 @end
 
@@ -79,7 +79,8 @@ NS_SWIFT_NAME(AppMemoryTracker)
  * @deprecated Use `addObserverWithBlock:` instead.
  */
 NS_SWIFT_NAME(AppMemoryTrackerDelegate)
-@protocol KSCrashAppMemoryTrackerDelegate <NSObject>
+__attribute__((deprecated("Use -addObserverWithBlock: instead.")))
+@protocol KSCrashAppMemoryTrackerDelegate<NSObject>
 
 - (void)appMemoryTracker:(KSCrashAppMemoryTracker *)tracker
                   memory:(KSCrashAppMemory *)memory
