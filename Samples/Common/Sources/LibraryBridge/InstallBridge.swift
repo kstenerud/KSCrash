@@ -81,7 +81,7 @@ public class InstallBridge: ObservableObject {
         // Example of setting a crash notify callback from Swift.
         // To see this in action, comment out the line: "config.crashNotifyCallbackWithPolicy = integrationTestCrashNotifyCallback"
         // Then tap "Install", "Report", "Log Raw to Console" in the sample app to see a crash report via the logs.
-        let cb: @convention(c) (KSCrash_ExceptionHandlingPolicy, UnsafePointer<ReportWriter>) -> Void = {
+        let cb: @convention(c) (ExceptionHandlingPolicy, UnsafePointer<ReportWriter>) -> Void = {
             policy, writer in
             writer.pointee.beginObject(writer, "policy")
             writer.pointee.addBooleanElement(writer, "shouldExitImmediately", policy.shouldExitImmediately != 0)
