@@ -38,6 +38,12 @@
 
 @implementation KSCrashConfigurationTests
 
+- (void)setUp
+{
+    clearCallbackData();
+    clearLegacyCallbackData();
+}
+
 - (void)testInitializationDefaults
 {
     KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
@@ -218,7 +224,6 @@ static void onReportWritten(KSCrash_ExceptionHandlingPolicy policy, int64_t repo
 
 - (void)testCallbacksInCConfiguration
 {
-    clearCallbackData();
     KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
 
     config.crashNotifyCallbackWithPolicy = onCrash;
@@ -250,5 +255,178 @@ static void onReportWritten(KSCrash_ExceptionHandlingPolicy policy, int64_t repo
 
     KSCrashCConfiguration_Release(&cConfig);
 }
+
+#pragma mark - Backward Compatibility Tests
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
+static struct {
+    BOOL legacyCrashNotifyCallbackCalled;
+    BOOL legacyReportWrittenCallbackCalled;
+    int64_t legacyCapturedReportID;
+    const struct KSCrashReportWriter *legacyCapturedWriter;
+} g_legacyCallbackData;
+
+static void clearLegacyCallbackData(void) { memset(&g_legacyCallbackData, 0, sizeof(g_legacyCallbackData)); }
+
+- (void)testDeprecatedCrashNotifyCallbackConversion
+{
+    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+
+    config.crashNotifyCallback = ^(const struct KSCrashReportWriter *writer) {
+        g_legacyCallbackData.legacyCrashNotifyCallbackCalled = YES;
+        g_legacyCallbackData.legacyCapturedWriter = writer;
+    };
+
+    KSCrashCConfiguration cConfig = [config toCConfiguration];
+
+    XCTAssertNotEqual(cConfig.crashNotifyCallback, NULL);
+
+    const struct KSCrashReportWriter *testWriter = (const struct KSCrashReportWriter *)(uintptr_t)0xcafebabe;
+    cConfig.crashNotifyCallback(testWriter);
+    XCTAssertTrue(g_legacyCallbackData.legacyCrashNotifyCallbackCalled);
+    XCTAssertEqual(g_legacyCallbackData.legacyCapturedWriter, testWriter);
+
+    KSCrashCConfiguration_Release(&cConfig);
+}
+
+- (void)testDeprecatedReportWrittenCallbackConversion
+{
+    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+
+    config.reportWrittenCallback = ^(int64_t reportID) {
+        g_legacyCallbackData.legacyReportWrittenCallbackCalled = YES;
+        g_legacyCallbackData.legacyCapturedReportID = reportID;
+    };
+
+    KSCrashCConfiguration cConfig = [config toCConfiguration];
+
+    XCTAssertNotEqual(cConfig.reportWrittenCallback, NULL);
+
+    int64_t testReportID = 54321;
+    cConfig.reportWrittenCallback(testReportID);
+    XCTAssertTrue(g_legacyCallbackData.legacyReportWrittenCallbackCalled);
+    XCTAssertEqual(g_legacyCallbackData.legacyCapturedReportID, testReportID);
+
+    KSCrashCConfiguration_Release(&cConfig);
+}
+
+- (void)testMixedCallbackUsage
+{
+    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+    config.crashNotifyCallback = ^(const struct KSCrashReportWriter *writer) {
+        g_legacyCallbackData.legacyCrashNotifyCallbackCalled = YES;
+        g_legacyCallbackData.legacyCapturedWriter = writer;
+    };
+    config.reportWrittenCallback = ^(int64_t reportID) {
+        g_legacyCallbackData.legacyReportWrittenCallbackCalled = YES;
+        g_legacyCallbackData.legacyCapturedReportID = reportID;
+    };
+
+    config.crashNotifyCallbackWithPolicy = onCrash;
+    config.reportWrittenCallbackWithPolicy = onReportWritten;
+
+    KSCrashCConfiguration cConfig = [config toCConfiguration];
+
+    // Verify both types of callbacks are set
+    XCTAssertNotEqual(cConfig.crashNotifyCallback, NULL);
+    XCTAssertNotEqual(cConfig.reportWrittenCallback, NULL);
+    XCTAssertNotEqual(cConfig.crashNotifyCallbackWithPolicy, NULL);
+    XCTAssertNotEqual(cConfig.reportWrittenCallbackWithPolicy, NULL);
+
+    // Test deprecated crash callback
+    const struct KSCrashReportWriter *testWriter = (const struct KSCrashReportWriter *)(uintptr_t)0xdeadcafe;
+    cConfig.crashNotifyCallback(testWriter);
+    XCTAssertTrue(g_legacyCallbackData.legacyCrashNotifyCallbackCalled);
+    XCTAssertEqual(g_legacyCallbackData.legacyCapturedWriter, testWriter);
+
+    // Test new crash callback
+    KSCrash_ExceptionHandlingPolicy testPolicy = (KSCrash_ExceptionHandlingPolicy) {
+        .isFatal = true,
+        .crashedDuringExceptionHandling = false,
+    };
+    const struct KSCrashReportWriter *testWriter2 = (const struct KSCrashReportWriter *)(uintptr_t)0xbeefcafe;
+    cConfig.crashNotifyCallbackWithPolicy(testPolicy, testWriter2);
+    XCTAssertTrue(g_callbackData.crashNotifyCallbackCalled);
+    XCTAssertEqual(g_callbackData.capturedWriter, testWriter2);
+
+    // Test deprecated report written callback
+    int64_t testReportID1 = 11111;
+    cConfig.reportWrittenCallback(testReportID1);
+    XCTAssertTrue(g_legacyCallbackData.legacyReportWrittenCallbackCalled);
+    XCTAssertEqual(g_legacyCallbackData.legacyCapturedReportID, testReportID1);
+
+    // Test new report written callback
+    int64_t testReportID2 = 22222;
+    cConfig.reportWrittenCallbackWithPolicy(testPolicy, testReportID2);
+    XCTAssertTrue(g_callbackData.reportWrittenCallbackCalled);
+    XCTAssertEqual(g_callbackData.capturedReportID, testReportID2);
+
+    KSCrashCConfiguration_Release(&cConfig);
+}
+
+- (void)testCopyingWithDeprecatedCallbacks
+{
+    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+    config.crashNotifyCallback = ^(const struct KSCrashReportWriter *writer) {
+        g_legacyCallbackData.legacyCrashNotifyCallbackCalled = YES;
+        g_legacyCallbackData.legacyCapturedWriter = writer;
+    };
+    config.reportWrittenCallback = ^(int64_t reportID) {
+        g_legacyCallbackData.legacyReportWrittenCallbackCalled = YES;
+        g_legacyCallbackData.legacyCapturedReportID = reportID;
+    };
+
+    config.crashNotifyCallbackWithPolicy = onCrash;
+    config.reportWrittenCallbackWithPolicy = onReportWritten;
+    KSCrashConfiguration *copiedConfig = [config copy];
+
+    XCTAssertNotNil(copiedConfig.crashNotifyCallback);
+    XCTAssertNotNil(copiedConfig.reportWrittenCallback);
+    XCTAssertNotEqual(copiedConfig.crashNotifyCallbackWithPolicy, NULL);
+    XCTAssertNotEqual(copiedConfig.reportWrittenCallbackWithPolicy, NULL);
+
+    KSCrashCConfiguration copiedCConfig = [copiedConfig toCConfiguration];
+
+    const struct KSCrashReportWriter *testWriter = (const struct KSCrashReportWriter *)(uintptr_t)0xc0ffee;
+    copiedCConfig.crashNotifyCallback(testWriter);
+    XCTAssertTrue(g_legacyCallbackData.legacyCrashNotifyCallbackCalled);
+    XCTAssertEqual(g_legacyCallbackData.legacyCapturedWriter, testWriter);
+
+    int64_t testReportID = 99999;
+    copiedCConfig.reportWrittenCallback(testReportID);
+    XCTAssertTrue(g_legacyCallbackData.legacyReportWrittenCallbackCalled);
+    XCTAssertEqual(g_legacyCallbackData.legacyCapturedReportID, testReportID);
+
+    KSCrashCConfiguration_Release(&copiedCConfig);
+}
+
+- (void)testNilDeprecatedCallbacks
+{
+    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+
+    config.crashNotifyCallback = nil;
+    config.reportWrittenCallback = nil;
+
+    KSCrashCConfiguration cConfig = [config toCConfiguration];
+
+    XCTAssertEqual(cConfig.crashNotifyCallback, NULL);
+    XCTAssertEqual(cConfig.reportWrittenCallback, NULL);
+
+    KSCrashCConfiguration_Release(&cConfig);
+}
+
+- (void)testDefaultDeprecatedCallbacks
+{
+    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+    KSCrashCConfiguration cConfig = [config toCConfiguration];
+    XCTAssertEqual(cConfig.crashNotifyCallback, NULL);
+    XCTAssertEqual(cConfig.reportWrittenCallback, NULL);
+
+    KSCrashCConfiguration_Release(&cConfig);
+}
+
+#pragma clang diagnostic pop
 
 @end
