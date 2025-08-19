@@ -229,7 +229,9 @@ def generate_header_contents(symbols):
 
 #ifdef {namespace_define}
 
-#define {namespace_define}_STRING #{namespace_define}
+#define {namespace_define}_STRINGIFY(X) {namespace_define}_STRINGIFY2(X)
+#define {namespace_define}_STRINGIFY2(X) #X
+#define {namespace_define}_STRING {namespace_define}_STRINGIFY({namespace_define})
 
 #define {namespace_macro}2(NAMESPACE, SYMBOL) SYMBOL##NAMESPACE
 #define {namespace_macro}1(NAMESPACE, SYMBOL) {namespace_macro}2(NAMESPACE, SYMBOL)
