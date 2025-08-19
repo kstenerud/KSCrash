@@ -253,27 +253,6 @@ typedef void (*KSReportWrittenCallback)(int64_t reportID)
     __attribute__((deprecated("Use `KSReportWrittenCallbackWithPolicy` for async-safety awareness (since v2.4.0).")))
     NS_SWIFT_UNAVAILABLE("Use Swift closures instead!");
 
-/** Callback type for when a crash report is being written.
- *
- * @param policy The policy under which the report was written.
- * @param writer The report writer.
- */
-typedef void (*KSReportWriteCallbackWithPolicy)(KSCrash_ExceptionHandlingPolicy policy,
-                                                const KSCrashReportWriter *_Nonnull writer);
-
-/** Callback type for when a crash report should be written.
- *
- * @param context The monitor context of the report.
- */
-typedef void (*KSCrashEventNotifyCallback)(struct KSCrash_MonitorContext *_Nonnull context);
-
-/** Callback type for when a crash report is finished writing.
- *
- * @param policy The policy under which the report was written.
- * @param reportID The ID of the report that was written.
- */
-typedef void (*KSReportWrittenCallbackWithPolicy)(KSCrash_ExceptionHandlingPolicy policy, int64_t reportID);
-
 #ifdef __cplusplus
 }
 #endif

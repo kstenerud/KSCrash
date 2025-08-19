@@ -46,6 +46,13 @@ typedef void (*KSReportWriteCallbackWithPolicy)(struct KSCrash_ExceptionHandling
                                                 const KSCrashReportWriter *_Nonnull writer)
     NS_SWIFT_UNAVAILABLE("Use Swift closures instead!");
 
+/** Callback type for when a crash report should be written.
+ *
+ * @param context The monitor context of the report.
+ */
+typedef void (*KSCrashEventNotifyCallback)(struct KSCrash_MonitorContext *_Nonnull context)
+    NS_SWIFT_UNAVAILABLE("Use Swift closures instead!");
+
 /** Callback type for when a crash report is finished writing.
  *
  * @param policy The policy under which the report was written.
