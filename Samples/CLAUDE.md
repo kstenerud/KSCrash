@@ -3,26 +3,50 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with the Sample app in this directory.
 
 ## Prerequisites
-- Tuist installed: `brew install tuist`
+- Mise installed: `curl https://mise.run | sh` or follow [mise installation guide](https://mise.jdx.dev/getting-started.html)
 - Xcode 15+ recommended
 
+## Version Management
+This project uses Mise to pin the Tuist version for consistency across development and CI environments.
+
+- **Tuist version**: Defined in `../.mise.toml` 
+- **Install tools**: `mise install` (installs Tuist version from config)
+- **Trust config**: `mise trust` (required once for security)
+- **Run Tuist**: `mise exec -- tuist <command>` or activate mise in your shell
+
 ## Sample App Workflow
-1. Generate project: `tuist generate`
-2. Open workspace: `open KSCrashSamples.xcworkspace`
-3. Build and run the Sample scheme in Xcode
+1. Install tools: `mise install`
+2. Trust config: `mise trust` (first time only)
+3. Generate project: `mise exec -- tuist generate`
+4. Open workspace: `open KSCrashSamples.xcworkspace`
+5. Build and run the Sample scheme in Xcode
 
 ## Building Sample App
 
-### Using Tuist
+### Using Tuist (via Mise)
 ```bash
+# Install and trust tools first
+mise install
+mise trust
+
 # Generate the project first (if not already done)
-tuist generate
+mise exec -- tuist generate
 
 # Build the Sample scheme for iOS
-tuist build Sample --platform ios
+mise exec -- tuist build Sample --platform ios
 
 # Build with specific configuration
-tuist build Sample --platform ios --configuration Debug
+mise exec -- tuist build Sample --platform ios --configuration Debug
+```
+
+### Using Tuist (if activated in shell)
+```bash
+# Add to your shell profile (~/.zshrc, ~/.bashrc)
+eval "$(mise activate zsh)"  # or bash/fish
+
+# Then use tuist directly
+tuist generate
+tuist build Sample --platform ios
 ```
 
 ### Using xcodebuild
@@ -40,7 +64,7 @@ xcodebuild -scheme Sample -destination 'platform=iOS Simulator,name=iPhone 15'
 
 #### Using Tuist
 ```bash
-tuist test --platform ios
+mise exec -- tuist test --platform ios
 ```
 
 #### Using xcodebuild
