@@ -54,7 +54,9 @@ jobs:
           install: true
           cache: true
         env:
-          MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
+          # Restrict trusted config to the specific .mise.toml file for improved security.
+          # If you need to trust additional config files, add them separated by a colon.
+          MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}/.mise.toml
 
       - name: Generate Project
         working-directory: ./Samples
