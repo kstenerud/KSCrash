@@ -34,8 +34,40 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Main Package.swift: Defines the KSCrash framework with multiple library products
 - Samples/: Contains sample app and integration tests
   - Uses Tuist for project generation (Project.swift)
+  - Tuist version managed by Mise (see .mise.toml)
   - Common/Package.swift: Local package referenced by the sample app
   - Tests/: Integration tests for the framework
+- .mise.toml: Version management for development tools (currently Tuist)
+
+## Tool Version Management
+
+This project uses [Mise](https://mise.jdx.dev/) to manage development tool versions for consistency across environments.
+
+### Setup
+```bash
+# Install Mise (if not already installed)
+curl https://mise.run | sh
+
+# Install tools defined in .mise.toml
+mise install
+
+# Trust the configuration (required once for security)
+mise trust
+```
+
+### Usage
+```bash
+# Run tools via mise (ensures correct version)
+mise exec -- tuist generate
+
+# Or activate mise in your shell for direct tool access
+eval "$(mise activate zsh)"  # or bash/fish
+tuist generate  # Now uses the pinned version
+```
+
+### Tool Versions
+- **Tuist**: Version defined in `.mise.toml`
+- **CI**: Automatically uses same versions via `jdx/mise-action`
 
 ## Common Development Tasks
 

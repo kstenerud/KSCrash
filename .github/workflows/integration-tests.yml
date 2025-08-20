@@ -48,14 +48,19 @@ jobs:
           xcodebuild -downloadPlatform ${{ matrix.platform }}
           xcodebuild -runFirstLaunch
 
-      - name: Install Tuist
-        run: |
-          brew tap tuist/tuist
-          brew install tuist@4.18.0
+      - name: Setup Mise
+        uses: jdx/mise-action@v2
+        with:
+          install: true
+          cache: true
+        env:
+          # Restrict trusted config to the specific .mise.toml file for improved security.
+          # If you need to trust additional config files, add them separated by a colon.
+          MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}/.mise.toml
 
       - name: Generate Project
         working-directory: ./Samples
-        run: tuist generate --verbose --no-open
+        run: mise exec -- tuist generate --verbose --no-open
 
       - name: Run Build
         uses: mxcl/xcodebuild@v3
