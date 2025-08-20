@@ -154,9 +154,11 @@ void kscmr_disableAllMonitors(KSCrashMonitorAPIList *monitorList)
 
 void kscmr_addContextualInfoToEvent(KSCrashMonitorAPIList *monitorList, struct KSCrash_MonitorContext *ctx)
 {
+    KSLOG_DEBUG("Allowing all monitors to add contextual info to the event");
     for (size_t i = 0; i < monitorAPICount; i++) {
         const KSCrashMonitorAPI *api = monitorList->apis[i];
         if (api != NULL && api->isEnabled()) {
+            KSLOG_TRACE("Asking %s to add contextual info", api->monitorId());
             api->addContextualInfoToEvent(ctx);
         }
     }

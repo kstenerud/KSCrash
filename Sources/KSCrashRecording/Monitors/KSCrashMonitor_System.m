@@ -26,7 +26,6 @@
 
 #import "KSCrashMonitor_System.h"
 
-#import "KSBinaryImageCache.h"
 #import "KSCPU.h"
 #import "KSCrashMonitorContext.h"
 #include "KSCrashMonitorHelper.h"
@@ -221,18 +220,9 @@ static NSString *getExecutablePath(void)
  */
 static const char *getAppUUID(void)
 {
-    uint32_t count = 0;
-    const ks_dyld_image_info *images = ksbic_getImages(&count);
-    if (!images || count == 0) {
-        return NULL;
-    }
-    const struct mach_header *header = images[0].imageLoadAddress;
-
-    KSBinaryImage binary = { 0 };
-    if (ksdl_binaryImageForHeader(header, NULL, &binary)) {
-        if (binary.uuid) {
-            return uuidBytesToString(binary.uuid);
-        }
+    KSBinaryImage *image = ksdl_imageAtIndex(0);
+    if (image != NULL && image->uuid != NULL) {
+        return uuidBytesToString(image->uuid);
     }
     return NULL;
 }

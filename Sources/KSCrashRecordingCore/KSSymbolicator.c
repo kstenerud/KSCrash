@@ -57,18 +57,19 @@ uintptr_t kssymbolicator_callInstructionAddress(const uintptr_t returnAddress)
 
 bool kssymbolicator_symbolicate(KSStackCursor *cursor)
 {
-    Dl_info symbolsBuffer;
-    if (ksdl_dladdr(CALL_INSTRUCTION_FROM_RETURN_ADDRESS(cursor->stackEntry.address), &symbolsBuffer)) {
-        cursor->stackEntry.imageAddress = (uintptr_t)symbolsBuffer.dli_fbase;
-        cursor->stackEntry.imageName = symbolsBuffer.dli_fname;
-        cursor->stackEntry.symbolAddress = (uintptr_t)symbolsBuffer.dli_saddr;
-        cursor->stackEntry.symbolName = symbolsBuffer.dli_sname;
-        return true;
+    uintptr_t detaggedAddress = CALL_INSTRUCTION_FROM_RETURN_ADDRESS(cursor->stackEntry.address);
+    KSSymbolication symbolication = ksdl_symbolicate(detaggedAddress);
+    if (symbolication.image == NULL) {
+        cursor->stackEntry.imageAddress = 0;
+        cursor->stackEntry.imageName = 0;
+        cursor->stackEntry.symbolAddress = 0;
+        cursor->stackEntry.symbolName = 0;
+        return false;
     }
 
-    cursor->stackEntry.imageAddress = 0;
-    cursor->stackEntry.imageName = 0;
-    cursor->stackEntry.symbolAddress = 0;
-    cursor->stackEntry.symbolName = 0;
-    return false;
+    cursor->stackEntry.imageAddress = (uintptr_t)symbolication.image->address;
+    cursor->stackEntry.imageName = symbolication.image->filePath;
+    cursor->stackEntry.symbolAddress = symbolication.symbolAddress;
+    cursor->stackEntry.symbolName = symbolication.symbolName;
+    return true;
 }

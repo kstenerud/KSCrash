@@ -28,7 +28,6 @@
 
 #include <sys/param.h>
 
-#include "KSBinaryImageCache.h"
 #include "KSDynamicLinker.h"
 #include "KSStackCursor.h"
 #include "KSStackCursor_MachineContext.h"
@@ -69,30 +68,20 @@ bool ksbt_symbolicateAddress(uintptr_t address, struct KSSymbolInformation *resu
         return false;
     }
 
-    // initalize the binary image cache.
-    // this has an atomic check so isn't expensive
-    // except for the first call.
-    ksbic_init();
+    uintptr_t detaggedAddress = kssymbolicator_callInstructionAddress(address);
 
-    uintptr_t untaggedAddress = kssymbolicator_callInstructionAddress(address);
-
-    Dl_info info = {};
-    if (ksdl_dladdr(untaggedAddress, &info) == false) {
-        return false;
-    }
-
-    KSBinaryImage image = {};
-    if (ksdl_binaryImageForHeader(info.dli_fbase, info.dli_fname, &image) == false) {
+    KSSymbolication symbolication = ksdl_symbolicate(detaggedAddress);
+    if (symbolication.image == NULL) {
         return false;
     }
 
     result->returnAddress = address;
-    result->callInstruction = untaggedAddress;
-    result->symbolAddress = (uintptr_t)info.dli_saddr;
-    result->symbolName = info.dli_sname;
-    result->imageName = info.dli_fname;
-    result->imageAddress = (uintptr_t)info.dli_fbase;
-    result->imageSize = image.size;
-    result->imageUUID = image.uuid;
+    result->callInstruction = detaggedAddress;
+    result->symbolAddress = symbolication.symbolAddress;
+    result->symbolName = symbolication.symbolName;
+    result->imageName = symbolication.image->filePath;
+    result->imageAddress = (uintptr_t)symbolication.image->address;
+    result->imageSize = symbolication.image->size;
+    result->imageUUID = symbolication.image->uuid;
     return true;
 }

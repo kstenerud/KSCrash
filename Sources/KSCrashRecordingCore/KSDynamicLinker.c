@@ -26,21 +26,17 @@
 
 #include "KSDynamicLinker.h"
 
-#include <limits.h>
-#include <mach-o/dyld.h>
-#include <mach-o/getsect.h>
-#include <mach-o/nlist.h>
-#include <mach-o/stab.h>
-#include <string.h>
+#include <mach-o/dyld_images.h>
+#include <stdatomic.h>
+#include <stdint.h>
+#include <stdlib.h>
 
-#include "KSBinaryImageCache.h"
 #include "KSLogger.h"
 #include "KSMemory.h"
-#include "KSPlatformSpecificDefines.h"
 
-#ifndef KSDL_MaxCrashInfoStringLength
-#define KSDL_MaxCrashInfoStringLength 4096
-#endif
+// ====================================
+#pragma mark - Types -
+// ====================================
 
 #pragma pack(8)
 typedef struct {
@@ -52,256 +48,130 @@ typedef struct {
     void *reserved;
     void *reserved2;
     void *reserved3;  // First introduced in version 5
-} crash_info_t;
+} crash_info_v5_t;
 #pragma pack()
+
+typedef struct {
+    KSBinaryImage image;
+    atomic_bool isCached;
+} CachedBinaryImage;
+
+static struct {
+    CachedBinaryImage *images;
+    atomic_llong imagesCapacity;
+    atomic_llong imagesCount;
+} g_state;
+
+// ====================================
+#pragma mark - Constants -
+// ====================================
+
+#ifndef KSDL_MaxCrashInfoStringLength
+#define KSDL_MaxCrashInfoStringLength 4096
+#endif
+
+#if __LP64__
+#define MH_MAGIC_ARCH_DEPENDENT MH_MAGIC_64
+#else
+#define MH_MAGIC_ARCH_DEPENDENT MH_MAGIC
+#endif
+
 #define KSDL_SECT_CRASH_INFO "__crash_info"
 
-#include <mach-o/loader.h>
-#include <stdint.h>
-#include <string.h>
+/**
+ * The minimum number of CachedBinaryImage slots that will be allocated when this module is initialized.
+ * The actual number chosen will be the larger of this value or double the number of loaded libraries at startup.
+ * Currently (2025), most apps tend to have between 700-1500 libraries loaded.
+ */
+static const size_t MIN_IMAGES_COUNT = 5000;
 
-static uintptr_t vmSlideFromHeader(const struct mach_header *mh)
-{
-    uintptr_t load_addr = (uintptr_t)mh;
+// ====================================
+#pragma mark - Utility -
+// ====================================
 
-    if (mh->magic == MH_MAGIC_64) {
-        const struct mach_header_64 *mh64 = (const struct mach_header_64 *)mh;
-        uintptr_t ptr = (uintptr_t)(mh64 + 1);
-
-        for (uint32_t i = 0; i < mh64->ncmds; i++) {
-            const struct load_command *lc = (const struct load_command *)ptr;
-
-            if (lc->cmd == LC_SEGMENT_64) {
-                // Ensure safe cast via alignment assumption
-                const struct segment_command_64 *seg = (const struct segment_command_64 *)__builtin_assume_aligned(
-                    lc, __alignof(struct segment_command_64));
-
-                if (strcmp(seg->segname, "__TEXT") == 0) {
-                    return load_addr - (uintptr_t)(seg->vmaddr);
-                }
-            }
-
-            ptr += lc->cmdsize;
-        }
-
-    } else if (mh->magic == MH_MAGIC) {
-        const struct mach_header *mh32 = mh;
-        uintptr_t ptr = (uintptr_t)(mh32 + 1);
-
-        for (uint32_t i = 0; i < mh32->ncmds; i++) {
-            const struct load_command *lc = (const struct load_command *)ptr;
-
-            if (lc->cmd == LC_SEGMENT) {
-                const struct segment_command *seg =
-                    (const struct segment_command *)__builtin_assume_aligned(lc, __alignof(struct segment_command));
-
-                if (strcmp(seg->segname, "__TEXT") == 0) {
-                    return load_addr - (uintptr_t)(seg->vmaddr);
-                }
-            }
-
-            ptr += lc->cmdsize;
-        }
-    }
-
-    return 0;
-}
-
-/** Get the address of the first command following a header (which will be of
- * type struct load_command).
+/**
+ * Get the address of the first command following a header
+ * Its actual type will be `struct load_command*`
  *
  * @param header The header to get commands for.
  *
  * @return The address of the first command, or NULL if none was found (which
  *         should not happen unless the header or image is corrupt).
  */
-static uintptr_t firstCmdAfterHeader(const struct mach_header *const header)
+static uintptr_t getFirstCommand(const mach_header_t *const header)
 {
-    switch (header->magic) {
-        case MH_MAGIC:
-        case MH_CIGAM:
-            return (uintptr_t)(header + 1);
-        case MH_MAGIC_64:
-        case MH_CIGAM_64:
-            return (uintptr_t)(((struct mach_header_64 *)header) + 1);
-        default:
-            // Header is corrupt
-            return 0;
+    if (header == NULL) {
+        return 0;
     }
+    if (header->magic != MH_MAGIC_ARCH_DEPENDENT) {
+        // Header is corrupt
+        return 0;
+    }
+    return (uintptr_t)(header + 1);
 }
 
-/** Get the image header that the specified address is part of.
+/**
+ * Get the base address of all of the structs created by the link editor.
+ * All symbol and string offsets will be based off this address.
  *
- * @param address The address to examine.
- * @param outName On output, the name if the header in question.
- * @return The header of the image, or NULL if none was found.
+ * @param image The binary image to search in.
+ * @result A pointer to the link editor base address, or 0.
  */
-static const struct mach_header *imageContainingAddress(const uintptr_t address, char **outName)
+static uintptr_t getLinkEditorBaseAddress(const KSBinaryImage *const image)
 {
-    uint32_t count = 0;
-    const ks_dyld_image_info *images = ksbic_getImages(&count);
-    const struct mach_header *header = NULL;
-
-    if (!images) {
-        return NULL;
+    const segment_command_t *segCmd = (segment_command_t *)image->linkEditorSegmentCmd;
+    if (segCmd == NULL) {
+        return 0;
     }
+    return segCmd->vmaddr - segCmd->fileoff + image->vmAddressSlide;
+}
 
-    for (uint32_t iImg = 0; iImg < count; iImg++) {
-        header = images[iImg].imageLoadAddress;
-        if (header != NULL) {
-            // Look for a segment command with this address within its range.
-            uintptr_t addressWSlide = address - vmSlideFromHeader(header);
-            uintptr_t cmdPtr = firstCmdAfterHeader(header);
-            if (cmdPtr == 0) {
-                continue;
-            }
-            for (uint32_t iCmd = 0; iCmd < header->ncmds; iCmd++) {
-                const struct load_command *loadCmd = (struct load_command *)cmdPtr;
-                if (loadCmd->cmd == LC_SEGMENT) {
-                    const struct segment_command *segCmd = (struct segment_command *)cmdPtr;
-                    if (addressWSlide >= segCmd->vmaddr && addressWSlide < segCmd->vmaddr + segCmd->vmsize) {
-                        if (outName) {
-                            *outName = (char *)images[iImg].imageFilePath;
-                        }
-                        return header;
-                    }
-                } else if (loadCmd->cmd == LC_SEGMENT_64) {
-                    const struct segment_command_64 *segCmd = (struct segment_command_64 *)cmdPtr;
-                    if (addressWSlide >= segCmd->vmaddr && addressWSlide < segCmd->vmaddr + segCmd->vmsize) {
-                        if (outName) {
-                            *outName = (char *)images[iImg].imageFilePath;
-                        }
-                        return header;
-                    }
-                }
-                cmdPtr += loadCmd->cmdsize;
+static const segment_command_t *asSegmentCommand(const struct load_command *const loadCmd)
+{
+    // Promise the compiler that this really is aligned properly.
+    return (segment_command_t *)__builtin_assume_aligned(loadCmd, __alignof(segment_command_t));
+}
+
+/**
+ * Get a section by its segment and section names.
+ *
+ * Note: The section itself contains BOTH names (which may be unrelated to the segment this section is part of), so both
+ * need to be compared.
+ *
+ * @param segCmd The command for the segment containing the section we're interested in.
+ * @param segmentName The segment name to look for in the section data.
+ * @param sectionName The section name to look for in the section data.
+ * @param minSize The minimum size in bytes that this section must be.
+ * @param vmSlide The VM slide amount for this image.
+ */
+static const section_t *getSectionByName(const segment_command_t *const segCmd, const char *const segmentName,
+                                         const char *const sectionName, const size_t minSize, const uintptr_t vmSlide)
+{
+    const section_t *section = (section_t *)((uintptr_t)segCmd + sizeof(*segCmd));
+    for (uint32_t i = 0; i < segCmd->nsects; i++, section++) {
+        if (strncmp(section->sectname, sectionName, sizeof(section->sectname)) == 0 &&
+            strncmp(section->segname, segmentName, sizeof(section->segname)) == 0) {
+            if (section->size >= minSize) {
+                return (section_t *)((uintptr_t)section->addr + vmSlide);
             }
         }
     }
+    KSLOG_TRACE("No section found with segment %s, section %s, minSize %d", segmentName, sectionName, minSize);
     return NULL;
 }
 
-/** Get the segment base address of the specified image.
- *
- * This is required for any symtab command offsets.
- *
- * @param header The image header.
- * @return The image's base address, or 0 if none was found.
- */
-static uintptr_t segmentBaseOfImage(const struct mach_header *header)
-{
-    if (header == NULL) {
-        return 0;
-    }
-
-    // Look for a segment command and return the file image address.
-    uintptr_t cmdPtr = firstCmdAfterHeader(header);
-    if (cmdPtr == 0) {
-        return 0;
-    }
-    for (uint32_t i = 0; i < header->ncmds; i++) {
-        const struct load_command *loadCmd = (struct load_command *)cmdPtr;
-        if (loadCmd->cmd == LC_SEGMENT) {
-            const struct segment_command *segmentCmd = (struct segment_command *)cmdPtr;
-            if (strcmp(segmentCmd->segname, SEG_LINKEDIT) == 0) {
-                return segmentCmd->vmaddr - segmentCmd->fileoff;
-            }
-        } else if (loadCmd->cmd == LC_SEGMENT_64) {
-            const struct segment_command_64 *segmentCmd = (struct segment_command_64 *)cmdPtr;
-            if (strcmp(segmentCmd->segname, SEG_LINKEDIT) == 0) {
-                return (uintptr_t)(segmentCmd->vmaddr - segmentCmd->fileoff);
-            }
-        }
-        cmdPtr += loadCmd->cmdsize;
-    }
-
-    return 0;
-}
-
-bool ksdl_dladdr(const uintptr_t address, Dl_info *const info)
-{
-    info->dli_fname = NULL;
-    info->dli_fbase = NULL;
-    info->dli_sname = NULL;
-    info->dli_saddr = NULL;
-
-    char *name = NULL;
-    const struct mach_header *header = imageContainingAddress(address, &name);
-    if (header == NULL) {
-        return false;
-    }
-
-    const uintptr_t imageVMAddrSlide = vmSlideFromHeader(header);
-    const uintptr_t addressWithSlide = address - imageVMAddrSlide;
-    const uintptr_t segmentBase = segmentBaseOfImage(header) + imageVMAddrSlide;
-    if (segmentBase == 0) {
-        return false;
-    }
-
-    info->dli_fname = name;
-    info->dli_fbase = (void *)header;
-
-    // Find symbol tables and get whichever symbol is closest to the address.
-    const nlist_t *bestMatch = NULL;
-    uintptr_t bestDistance = ULONG_MAX;
-    uintptr_t cmdPtr = firstCmdAfterHeader(header);
-    if (cmdPtr == 0) {
-        return false;
-    }
-    for (uint32_t iCmd = 0; iCmd < header->ncmds; iCmd++) {
-        const struct load_command *loadCmd = (struct load_command *)cmdPtr;
-        if (loadCmd->cmd == LC_SYMTAB) {
-            const struct symtab_command *symtabCmd = (struct symtab_command *)cmdPtr;
-            const nlist_t *symbolTable = (nlist_t *)(segmentBase + symtabCmd->symoff);
-            const uintptr_t stringTable = segmentBase + symtabCmd->stroff;
-
-            for (uint32_t iSym = 0; iSym < symtabCmd->nsyms; iSym++) {
-                // Skip all debug N_STAB symbols
-                if ((symbolTable[iSym].n_type & N_STAB) != 0) {
-                    continue;
-                }
-
-                // If n_value is 0, the symbol refers to an external object.
-                if (symbolTable[iSym].n_value != 0) {
-                    uintptr_t symbolBase = symbolTable[iSym].n_value;
-                    uintptr_t currentDistance = addressWithSlide - symbolBase;
-                    if ((addressWithSlide >= symbolBase) && (currentDistance <= bestDistance)) {
-                        bestMatch = symbolTable + iSym;
-                        bestDistance = currentDistance;
-                    }
-                }
-            }
-            if (bestMatch != NULL) {
-                info->dli_saddr = (void *)(bestMatch->n_value + imageVMAddrSlide);
-                if (bestMatch->n_desc == 16) {
-                    // This image has been stripped. The name is meaningless, and
-                    // almost certainly resolves to "_mh_execute_header"
-                    info->dli_sname = NULL;
-                } else {
-                    info->dli_sname = (char *)((intptr_t)stringTable + (intptr_t)bestMatch->n_un.n_strx);
-                    if (*info->dli_sname == '_') {
-                        info->dli_sname++;
-                    }
-                }
-                break;
-            }
-        }
-        cmdPtr += loadCmd->cmdsize;
-    }
-
-    return true;
-}
-
-static bool isValidCrashInfoMessage(const char *str)
+static bool isAccessibleNullTerminatedString(const char *const str)
 {
     if (str == NULL) {
         return false;
     }
-    int maxReadableBytes = ksmem_maxReadableBytes(str, KSDL_MaxCrashInfoStringLength + 1);
+    // Check how much of it is readable
+    const int maxReadableBytes = ksmem_maxReadableBytes(str, KSDL_MaxCrashInfoStringLength + 1);
     if (maxReadableBytes == 0) {
         return false;
     }
-    for (int i = 0; i < maxReadableBytes; ++i) {
+    // Check if the readable portion is null terminated
+    for (int i = 0; i < maxReadableBytes; i++) {
         if (str[i] == 0) {
             return true;
         }
@@ -309,96 +179,87 @@ static bool isValidCrashInfoMessage(const char *str)
     return false;
 }
 
-static void getCrashInfo(const struct mach_header *header, KSBinaryImage *buffer)
+static const struct dyld_all_image_infos *getDyldAllImageInfo(struct task_dyld_info *infoBuffer)
 {
-    unsigned long size = 0;
-#pragma clang diagnostic ignored "-Wcast-align"
-    crash_info_t *crashInfo =
-        (crash_info_t *)getsectiondata((mach_header_t *)header, SEG_DATA, KSDL_SECT_CRASH_INFO, &size);
-#pragma clang diagnostic pop
-    if (crashInfo == NULL) {
-        return;
+    mach_msg_type_number_t count = TASK_DYLD_INFO_COUNT;
+    kern_return_t err = task_info(mach_task_self(), TASK_DYLD_INFO, (task_info_t)infoBuffer, &count);
+    if (err != KERN_SUCCESS) {
+        KSLOG_ERROR("Failed to acquire TASK_DYLD_INFO");
+        return NULL;
     }
-
-    KSLOG_TRACE("Found crash info section in binary: %s", buffer->name);
-    const unsigned int minimalSize = offsetof(crash_info_t, reserved);  // Include message and message2
-    if (size < minimalSize) {
-        KSLOG_TRACE("Skipped reading crash info: section is too small");
-        return;
-    }
-    if (!ksmem_isMemoryReadable(crashInfo, minimalSize)) {
-        KSLOG_TRACE("Skipped reading crash info: section memory is not readable");
-        return;
-    }
-    if (crashInfo->version != 4 && crashInfo->version != 5) {
-        KSLOG_TRACE("Skipped reading crash info: invalid version '%d'", crashInfo->version);
-        return;
-    }
-    if (crashInfo->message == NULL && crashInfo->message2 == NULL) {
-        KSLOG_TRACE("Skipped reading crash info: both messages are null");
-        return;
-    }
-
-    if (isValidCrashInfoMessage(crashInfo->message)) {
-        KSLOG_DEBUG("Found first message: %s", crashInfo->message);
-        buffer->crashInfoMessage = crashInfo->message;
-    }
-    if (isValidCrashInfoMessage(crashInfo->message2)) {
-        KSLOG_DEBUG("Found second message: %s", crashInfo->message2);
-        buffer->crashInfoMessage2 = crashInfo->message2;
-    }
-    if (isValidCrashInfoMessage(crashInfo->backtrace)) {
-        KSLOG_DEBUG("Found backtrace: %s", crashInfo->backtrace);
-        buffer->crashInfoBacktrace = crashInfo->backtrace;
-    }
-    if (isValidCrashInfoMessage(crashInfo->signature)) {
-        KSLOG_DEBUG("Found signature: %s", crashInfo->signature);
-        buffer->crashInfoSignature = crashInfo->signature;
-    }
+    return (struct dyld_all_image_infos *)infoBuffer->all_image_info_addr;
 }
 
-bool ksdl_binaryImageForHeader(const void *const header_ptr, const char *const image_name, KSBinaryImage *buffer)
+static void lazyInitCachedImage(CachedBinaryImage *const image)
 {
-    const struct mach_header *header = (const struct mach_header *)header_ptr;
-    uintptr_t cmdPtr = firstCmdAfterHeader(header);
+    // We don't use an atomic test and set here because it takes time to fill
+    // in a cache entry, so there's no concurrency guarantee without a lock.
+    // Instead, just let both callers fill in the same information concurrently
+    // when there's a race condition.
+    // The data is the same, so the end result is the same.
+    if (image->isCached) {
+        KSLOG_TRACE("Image %p for header %p is already cached with filePath %s", image, image->image.address,
+                    image->image.filePath);
+        return;
+    }
+    KSLOG_TRACE("Caching image %p for header %p", image, image->image.address);
+
+    const mach_header_t *const header = (mach_header_t *)image->image.address;
+    uintptr_t cmdPtr = getFirstCommand(header);
     if (cmdPtr == 0) {
-        return false;
+        KSLOG_TRACE("No first command for header %p", image->image.address);
+        return;
     }
 
-    // Look for the TEXT segment to get the image size.
-    // Also look for a UUID command.
-    uint64_t imageSize = 0;
-    uint64_t imageVmAddr = 0;
-    uint64_t version = 0;
-    uint8_t *uuid = NULL;
+    image->image.cpuType = header->cputype;
+    image->image.cpuSubType = header->cpusubtype;
 
-    for (uint32_t iCmd = 0; iCmd < header->ncmds; iCmd++) {
-        struct load_command *loadCmd = (struct load_command *)cmdPtr;
+    for (uint32_t i = 0; i < header->ncmds; i++) {
+        const struct load_command *const loadCmd = (struct load_command *)cmdPtr;
         switch (loadCmd->cmd) {
-            case LC_SEGMENT: {
-                struct segment_command *segCmd = (struct segment_command *)cmdPtr;
+            case LC_SEGMENT_ARCH_DEPENDENT: {
+                KSLOG_TRACE("LC_SEGMENT_ARCH_DEPENDENT for header %p", image->image.address);
+                // By convention, there is only one instance of each "double-underscore" segment name in an image.
+                const segment_command_t *const segCmd = asSegmentCommand(loadCmd);
                 if (strcmp(segCmd->segname, SEG_TEXT) == 0) {
-                    imageSize = segCmd->vmsize;
-                    imageVmAddr = segCmd->vmaddr;
-                }
-                break;
-            }
-            case LC_SEGMENT_64: {
-                struct segment_command_64 *segCmd = (struct segment_command_64 *)cmdPtr;
-                if (strcmp(segCmd->segname, SEG_TEXT) == 0) {
-                    imageSize = segCmd->vmsize;
-                    imageVmAddr = segCmd->vmaddr;
+                    KSLOG_TRACE("SEG_TEXT for header %p", image->image.address);
+                    image->image.textSegmentCmd = segCmd;
+                    image->image.size = segCmd->vmsize;
+                    image->image.vmAddress = segCmd->vmaddr;
+                    image->image.vmAddressSlide = (uintptr_t)header - (uintptr_t)segCmd->vmaddr;
+                } else if (strcmp(segCmd->segname, SEG_DATA) == 0) {
+                    KSLOG_TRACE("SEG_DATA for header %p", image->image.address);
+                    image->image.dataSegmentCmd = segCmd;
+                    // __TEXT always comes before __DATA, so we can use vmAddressSlide here.
+                    image->image.crashInfoSection =
+                        getSectionByName(segCmd, SEG_DATA, KSDL_SECT_CRASH_INFO, offsetof(crash_info_v5_t, reserved),
+                                         image->image.vmAddressSlide);
+                } else if (strcmp(segCmd->segname, SEG_LINKEDIT) == 0) {
+                    KSLOG_TRACE("SEG_LINKEDIT for header %p", image->image.address);
+                    image->image.linkEditorSegmentCmd = segCmd;
                 }
                 break;
             }
             case LC_UUID: {
-                struct uuid_command *uuidCmd = (struct uuid_command *)cmdPtr;
-                uuid = uuidCmd->uuid;
+                KSLOG_TRACE("LC_UUID for header %p", image->image.address);
+                const struct uuid_command *const uuidCmd = (struct uuid_command *)cmdPtr;
+                image->image.uuid = uuidCmd->uuid;
                 break;
             }
             case LC_ID_DYLIB: {
-                struct dylib_command *dc = (struct dylib_command *)cmdPtr;
-                version = dc->dylib.current_version;
+                KSLOG_TRACE("LC_ID_DYLIB for header %p", image->image.address);
+                const struct dylib_command *const dc = (struct dylib_command *)cmdPtr;
+                const uint64_t version = dc->dylib.current_version;
+                image->image.name = (const char *)(cmdPtr + dc->dylib.name.offset);
+                image->image.majorVersion = version >> 16;
+                image->image.minorVersion = (version >> 8) & 0xff;
+                image->image.revisionVersion = version & 0xff;
+                break;
+            }
+            case LC_SYMTAB: {
+                KSLOG_TRACE("LC_SYMTAB for header %p", image->image.address);
+                // There is only one symbol table per image
+                image->image.symbolTableCmd = (struct symtab_command *)cmdPtr;
                 break;
             }
             default:
@@ -407,18 +268,214 @@ bool ksdl_binaryImageForHeader(const void *const header_ptr, const char *const i
         cmdPtr += loadCmd->cmdsize;
     }
 
-    buffer->address = (uintptr_t)header;
-    buffer->vmAddress = imageVmAddr;
-    buffer->size = imageSize;
-    buffer->vmAddressSlide = vmSlideFromHeader(header);
-    buffer->name = image_name;
-    buffer->uuid = uuid;
-    buffer->cpuType = header->cputype;
-    buffer->cpuSubType = header->cpusubtype;
-    buffer->majorVersion = version >> 16;
-    buffer->minorVersion = (version >> 8) & 0xff;
-    buffer->revisionVersion = version & 0xff;
-    getCrashInfo(header, buffer);
+    KSLOG_TRACE("Header %p is now cached", image->image.address);
+    image->isCached = true;
+    return;
+}
 
-    return true;
+// ====================================
+#pragma mark - API -
+// ====================================
+
+void ksdl_init(void)
+{
+    if (g_state.images != NULL) {
+        return;
+    }
+
+    struct task_dyld_info dyld_info;
+    const struct dyld_all_image_infos *const infos = getDyldAllImageInfo(&dyld_info);
+    if (infos == NULL) {
+        return;
+    }
+    const size_t imageCount = infos->infoArrayCount;
+    const size_t capacityCount = ((imageCount * 2) > MIN_IMAGES_COUNT) ? imageCount * 2 : MIN_IMAGES_COUNT;
+    g_state.images = (CachedBinaryImage *)calloc(sizeof(*g_state.images), capacityCount);
+    g_state.imagesCapacity = capacityCount;
+    ksdl_refreshCache();
+}
+
+void ksdl_refreshCache(void)
+{
+    // Note: We don't care about concurrency in this function since the end result is the same.
+    KSLOG_TRACE("Refreshing image cache");
+
+    struct task_dyld_info dyld_info;
+    const struct dyld_all_image_infos *const infos = getDyldAllImageInfo(&dyld_info);
+    if (infos == NULL) {
+        return;
+    }
+    const struct dyld_image_info *const infoArray = infos->infoArray;
+    size_t imageCount = infos->infoArrayCount;
+
+    // This should never happen, but if it does we need to contain the damage.
+    // Fallout: Some images won't be available for symbolication.
+    if (imageCount > g_state.imagesCapacity) {
+        KSLOG_ERROR("Images count %d > than capacity %d", imageCount, g_state.imagesCapacity);
+        imageCount = g_state.imagesCapacity;
+    }
+
+    // Just blast through the list, overwriting anything that doesn't match the order in the
+    // dynamic linker. The worst case scenario is unnecessarily invalidated cache values, but
+    // this is MUCH quicker than searching for already cached entries, and the cost of caching
+    // again is low. Also, the dynamic linker doesn't reorder entries, so 99% of them won't change.
+    for (size_t i = 0; i < imageCount; i++) {
+        const struct dyld_image_info *const info = &infoArray[i];
+        CachedBinaryImage *const cachedImage = &g_state.images[i];
+        if ((const mach_header_t *)info->imageLoadAddress != cachedImage->image.address) {
+            memset(&cachedImage->image, 0, sizeof(cachedImage->image));
+            cachedImage->image.address = (mach_header_t *)info->imageLoadAddress;
+            cachedImage->image.filePath = info->imageFilePath;
+            cachedImage->isCached = false;
+        }
+    }
+    g_state.imagesCount = imageCount;
+}
+
+size_t ksdl_imageCount(void) { return g_state.imagesCount; }
+
+KSBinaryImage *ksdl_imageAtIndex(size_t index)
+{
+    if (index < g_state.imagesCount) {
+        CachedBinaryImage *image = &g_state.images[index];
+        lazyInitCachedImage(image);
+        return &image->image;
+    }
+    return NULL;
+}
+
+KSBinaryImage *ksdl_getImageForMachHeader(const struct mach_header *const header)
+{
+    KSLOG_TRACE("Getting image for header %p", header);
+
+    if (header == NULL) {
+        KSLOG_ERROR("header was NULL");
+        return NULL;
+    }
+
+    for (size_t i = 0; i < g_state.imagesCount; i++) {
+        CachedBinaryImage *const cachedImage = &g_state.images[i];
+        if (cachedImage->image.address == (mach_header_t *)header) {
+            KSLOG_TRACE("Found header cached at index %d", i);
+            lazyInitCachedImage(cachedImage);
+            return &cachedImage->image;
+        }
+    }
+
+    KSLOG_ERROR("Failed to get cached image for mach header %p. Did you forget to call ksdl_refreshCache()?", header);
+    return NULL;
+}
+
+KSBinaryImage *ksdl_getImageContainingAddress(const uintptr_t address)
+{
+    for (size_t i = 0; i < g_state.imagesCount; i++) {
+        CachedBinaryImage *const cachedImage = &g_state.images[i];
+        lazyInitCachedImage(cachedImage);
+        const uintptr_t addressWithSlide = address - cachedImage->image.vmAddressSlide;
+        if (addressWithSlide >= cachedImage->image.vmAddress &&
+            addressWithSlide < cachedImage->image.vmAddress + cachedImage->image.size) {
+            return &cachedImage->image;
+        }
+    }
+    return NULL;
+}
+
+KSCrashInfo ksdl_getCrashInfo(const KSBinaryImage *const image)
+{
+    KSCrashInfo info = { 0 };
+    if (image == NULL) {
+        KSLOG_ERROR("image was NULL");
+        return info;
+    }
+    if (image->crashInfoSection == 0) {
+        KSLOG_TRACE("image crashInfoSection is NULL");
+        return info;
+    }
+
+    KSLOG_TRACE("Found crash info section in binary: %s", image->filePath);
+    const crash_info_v5_t *const crashInfo = (crash_info_v5_t *)image->crashInfoSection;
+    const unsigned int minimalSize = offsetof(crash_info_v5_t, reserved);
+    if (!ksmem_isMemoryReadable(crashInfo, minimalSize)) {
+        KSLOG_TRACE("Skipped reading crash info for header %p: section memory at %p is not readable. slide = %p",
+                    image->address, crashInfo, image->vmAddressSlide);
+        return info;
+    }
+    if (crashInfo->version != 4 && crashInfo->version != 5) {
+        KSLOG_TRACE("Skipped reading crash info: invalid version '%d'", crashInfo->version);
+        return info;
+    }
+
+    if (isAccessibleNullTerminatedString(crashInfo->message)) {
+        KSLOG_DEBUG("Found first message: %s", crashInfo->message);
+        info.crashInfoMessage = crashInfo->message;
+    }
+    if (isAccessibleNullTerminatedString(crashInfo->message2)) {
+        KSLOG_DEBUG("Found second message: %s", crashInfo->message2);
+        info.crashInfoMessage2 = crashInfo->message2;
+    }
+    if (isAccessibleNullTerminatedString(crashInfo->backtrace)) {
+        KSLOG_DEBUG("Found backtrace: %s", crashInfo->backtrace);
+        info.crashInfoBacktrace = crashInfo->backtrace;
+    }
+    if (isAccessibleNullTerminatedString(crashInfo->signature)) {
+        KSLOG_DEBUG("Found signature: %s", crashInfo->signature);
+        info.crashInfoSignature = crashInfo->signature;
+    }
+    return info;
+}
+
+KSSymbolication ksdl_symbolicate(const uintptr_t address)
+{
+    KSSymbolication symbolication = { 0 };
+    const KSBinaryImage *const image = ksdl_getImageContainingAddress(address);
+    if (image == NULL) {
+        return symbolication;
+    }
+
+    symbolication.image = image;
+
+    uintptr_t linkEditorBaseAddress = getLinkEditorBaseAddress(image);
+    if (linkEditorBaseAddress == 0) {
+        return symbolication;
+    }
+
+    const struct symtab_command *const symtabCmd = image->symbolTableCmd;
+    const nlist_t *const symbolTable = (nlist_t *)(linkEditorBaseAddress + symtabCmd->symoff);
+    const uintptr_t stringTable = linkEditorBaseAddress + symtabCmd->stroff;
+    const uintptr_t imageVMAddrSlide = image->vmAddressSlide;
+    const uintptr_t addressWithSlide = address - imageVMAddrSlide;
+
+    const nlist_t *bestMatch = NULL;
+    uintptr_t bestDistance = (uintptr_t)-1;
+
+    for (uint32_t iSym = 0; iSym < symtabCmd->nsyms; iSym++) {
+        // Skip all debug N_STAB symbols
+        if ((symbolTable[iSym].n_type & N_STAB) != 0) {
+            continue;
+        }
+        // If n_value is 0, the symbol refers to an external object.
+        if (symbolTable[iSym].n_value == 0) {
+            continue;
+        }
+
+        const uintptr_t symbolBase = symbolTable[iSym].n_value;
+        const uintptr_t currentDistance = addressWithSlide - symbolBase;
+        if ((addressWithSlide >= symbolBase) && (currentDistance <= bestDistance)) {
+            bestMatch = symbolTable + iSym;
+            bestDistance = currentDistance;
+        }
+    }
+    if (bestMatch != NULL) {
+        symbolication.symbolAddress = (uintptr_t)bestMatch->n_value + imageVMAddrSlide;
+        // If desc is 16, this image has been stripped, and the name is
+        // meaningless and almost certainly resolves to "_mh_execute_header"
+        if (bestMatch->n_desc != 16) {
+            symbolication.symbolName = (char *)((intptr_t)stringTable + (intptr_t)bestMatch->n_un.n_strx);
+            if (*symbolication.symbolName == '_') {
+                symbolication.symbolName++;
+            }
+        }
+    }
+
+    return symbolication;
 }
