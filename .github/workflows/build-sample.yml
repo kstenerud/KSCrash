@@ -56,7 +56,9 @@ jobs:
           install: true
           cache: true
         env:
-          MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
+          # Only trust the specific .mise.toml config file to reduce security risk.
+          # See: https://mise.jdx.dev/docs/configuration/security
+          MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}/.mise.toml
 
       - name: Generate Project
         working-directory: ./Samples
