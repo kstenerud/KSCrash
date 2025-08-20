@@ -28,6 +28,7 @@
 #include "KSCrashNamespace.h"
 #import "KSCrashReportFilter.h"
 #import "KSCrashReportWriter.h"
+#import "KSCrashReportWriterCallbacks.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
