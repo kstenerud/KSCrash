@@ -9,6 +9,7 @@
 #import <mach-o/loader.h>
 #import "KSMach-O.h"
 
+#pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wcast-align"
 
 @interface KSMach_O_Tests : XCTestCase

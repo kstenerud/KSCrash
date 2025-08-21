@@ -209,7 +209,7 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
     }
 
 #pragma clang diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     [self.delegate appMemoryTracker:self memory:memory changed:changes];
 #pragma clang diagnostic pop
 }

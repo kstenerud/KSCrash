@@ -64,6 +64,7 @@
 
 - (void)testFilterJSONEncodeInvalid
 {
+#pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wobjc-literal-conversion"
     NSArray *decoded = @[
         [KSCrashReportDictionary reportWithValue:@{ @1 : @2 }],  // Not a JSON
