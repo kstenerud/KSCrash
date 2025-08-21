@@ -30,7 +30,7 @@ import XCTest
 
 #if !os(watchOS)  // there are no backtraces on watchOS
     class KSBacktraceTests: XCTestCase {
-        func testBacktrace() {
+        func testOtherThreadBacktrace() {
             let expectation = XCTestExpectation()
             let thread = pthread_self()
 
@@ -51,7 +51,21 @@ import XCTest
             wait(for: [expectation], timeout: 5)
         }
 
-        func testSymbolicate() {
+        func testSameThreadBacktrace() {
+
+            let thread = pthread_self()
+            let entries = 512
+            var addresses: [UInt] = Array(repeating: 0, count: entries)
+            let count = captureBacktrace(thread: thread, addresses: &addresses, count: Int32(entries))
+
+            XCTAssert(count > 0)
+            XCTAssert(count <= entries)
+            for index in 0..<count {
+                XCTAssert(addresses[Int(index)] != 0)
+            }
+        }
+
+        func testOtherThreadSymbolicate() {
             let expectation = XCTestExpectation()
             let thread = pthread_self()
 
@@ -72,6 +86,34 @@ import XCTest
             }
 
             wait(for: [expectation], timeout: 5)
+
+            var result = SymbolInformation()
+            let success = symbolicate(address: addresses[0], result: &result)
+
+            XCTAssertTrue(success == true)
+            XCTAssert(result.returnAddress == addresses[0])
+            XCTAssertNotNil(result.imageName)
+            XCTAssertNotNil(result.imageUUID)
+            XCTAssertNotNil(result.symbolName)
+            XCTAssert(result.imageAddress > 0)
+            XCTAssert(result.imageSize > 0)
+            XCTAssert(result.symbolAddress > 0)
+        }
+
+        func testSameThreadSymbolicate() {
+            let thread = pthread_self()
+
+            let entries = 10
+            var addresses: [UInt] = Array(repeating: 0, count: entries)
+            var count: Int32 = 0
+
+            count = captureBacktrace(thread: thread, addresses: &addresses, count: Int32(entries))
+
+            XCTAssert(count > 0)
+            XCTAssert(count <= entries)
+            for index in 0..<count {
+                XCTAssert(addresses[Int(index)] != 0)
+            }
 
             var result = SymbolInformation()
             let success = symbolicate(address: addresses[0], result: &result)

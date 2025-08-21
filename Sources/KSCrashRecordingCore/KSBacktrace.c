@@ -32,6 +32,7 @@
 #include "KSDynamicLinker.h"
 #include "KSStackCursor.h"
 #include "KSStackCursor_MachineContext.h"
+#include "KSStackCursor_SelfThread.h"
 #include "KSSymbolicator.h"
 #include "KSThread.h"
 
@@ -41,19 +42,22 @@ int ksbt_captureBacktrace(pthread_t thread, uintptr_t *addresses, int count)
         return 0;
     }
 
-    const thread_t machThread = pthread_mach_thread_np(thread);
-    if (machThread == MACH_PORT_NULL) {
-        return 0;
-    }
-
     KSMachineContext machineContext = { 0 };
-    if (!ksmc_getContextForThread(machThread, &machineContext, false)) {
-        return 0;
-    }
-
-    int maxFrames = MIN(count, KSSC_MAX_STACK_DEPTH);
     KSStackCursor stackCursor = {};
-    kssc_initWithMachineContext(&stackCursor, maxFrames, &machineContext);
+    int maxFrames = MIN(count, KSSC_MAX_STACK_DEPTH);
+
+    if (thread == pthread_self()) {
+        kssc_initSelfThread(&stackCursor, 0);
+    } else {
+        const thread_t machThread = pthread_mach_thread_np(thread);
+        if (machThread == MACH_PORT_NULL) {
+            return 0;
+        }
+        if (!ksmc_getContextForThread(machThread, &machineContext, false)) {
+            return 0;
+        }
+        kssc_initWithMachineContext(&stackCursor, maxFrames, &machineContext);
+    }
 
     int frameCount = 0;
     while (frameCount < maxFrames && stackCursor.advanceCursor(&stackCursor)) {
