@@ -130,12 +130,12 @@ final class CppTests: IntegrationTestBase {
             })
             XCTAssertNotNil(expectedFrame)
 
-            var threadStates = [
+            let threadStates = [
                 "TH_STATE_RUNNING", "TH_STATE_STOPPED", "TH_STATE_WAITING",
                 "TH_STATE_UNINTERRUPTIBLE", "TH_STATE_HALTED",
             ]
             for thread in rawReport.crash?.threads ?? [] {
-                var threadState = thread.state ?? ""
+                let threadState = thread.state ?? ""
                 XCTAssertTrue(threadStates.contains(threadState))
             }
 
