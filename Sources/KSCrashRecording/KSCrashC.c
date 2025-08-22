@@ -157,32 +157,6 @@ static void legacyReportWrittenCallbackAdapter(__unused KSCrash_ExceptionHandlin
     }
 }
 
-/** Determines which crash notify callback to use and returns the appropriate function pointer.
- * Prefers new callback with policy over legacy callback.
- */
-static KSReportWriteCallbackWithPolicy getActiveCrashNotifyCallback(void)
-{
-    if (g_crashNotifyCallbackWithPolicy) {
-        return g_crashNotifyCallbackWithPolicy;
-    } else if (g_legacyCrashNotifyCallback) {
-        return legacyCrashNotifyCallbackAdapter;
-    }
-    return NULL;
-}
-
-/** Determines which report written callback to use and returns the appropriate function pointer.
- * Prefers new callback with policy over legacy callback.
- */
-static KSReportWrittenCallbackWithPolicy getActiveReportWrittenCallback(void)
-{
-    if (g_reportWrittenCallbackWithPolicy) {
-        return g_reportWrittenCallbackWithPolicy;
-    } else if (g_legacyReportWrittenCallback) {
-        return legacyReportWrittenCallbackAdapter;
-    }
-    return NULL;
-}
-
 static void notifyOfBeforeInstallationState(void)
 {
     KSLOG_DEBUG("Notifying of pre-installation state");
@@ -238,9 +212,8 @@ static void onCrash(struct KSCrash_MonitorContext *monitorContext)
         strncpy(g_lastCrashReportFilePath, crashReportFilePath, sizeof(g_lastCrashReportFilePath));
         kscrashreport_writeStandardReport(monitorContext, crashReportFilePath);
 
-        KSReportWrittenCallbackWithPolicy activeCallback = getActiveReportWrittenCallback();
-        if (activeCallback != NULL) {
-            activeCallback(monitorContext->currentPolicy, reportID);
+        if (g_reportWrittenCallbackWithPolicy != NULL) {
+            g_reportWrittenCallbackWithPolicy(monitorContext->currentPolicy, reportID);
         }
     }
 }
@@ -286,11 +259,24 @@ void handleConfiguration(KSCrashCConfiguration *configuration)
     g_legacyCrashNotifyCallback = configuration->crashNotifyCallback;
     g_legacyReportWrittenCallback = configuration->reportWrittenCallback;
 #pragma clang diagnostic pop
-    g_crashNotifyCallbackWithPolicy = configuration->crashNotifyCallbackWithPolicy;
-    g_reportWrittenCallbackWithPolicy = configuration->reportWrittenCallbackWithPolicy;
 
-    KSReportWriteCallbackWithPolicy activeCrashCallback = getActiveCrashNotifyCallback();
-    kscrashreport_setUserSectionWriteCallback(activeCrashCallback);
+    if (configuration->crashNotifyCallbackWithPolicy) {
+        g_crashNotifyCallbackWithPolicy = configuration->crashNotifyCallbackWithPolicy;
+    } else if (g_legacyCrashNotifyCallback) {
+        g_crashNotifyCallbackWithPolicy = legacyCrashNotifyCallbackAdapter;
+    } else {
+        g_crashNotifyCallbackWithPolicy = NULL;
+    }
+
+    if (configuration->reportWrittenCallbackWithPolicy) {
+        g_reportWrittenCallbackWithPolicy = configuration->reportWrittenCallbackWithPolicy;
+    } else if (g_legacyReportWrittenCallback) {
+        g_reportWrittenCallbackWithPolicy = legacyReportWrittenCallbackAdapter;
+    } else {
+        g_reportWrittenCallbackWithPolicy = NULL;
+    }
+
+    kscrashreport_setUserSectionWriteCallback(g_crashNotifyCallbackWithPolicy);
     g_shouldAddConsoleLogToReport = configuration->addConsoleLogToReport;
     g_shouldPrintPreviousLog = configuration->printPreviousLogOnStartup;
     g_eventNotifyCallback = configuration->eventNotifyCallback;
