@@ -59,7 +59,8 @@ typedef KSCrash_ExceptionHandlingPolicy (*KSCrashEventNotifyCallback)(
     KSCrash_ExceptionHandlingPolicy policy, const struct KSCrash_MonitorContext *_Nonnull context)
     NS_SWIFT_UNAVAILABLE("Use Swift closures instead!");
 
-/** Callback type for when a crash report is being written, giving the user an opportunity to add custom data to the user section of the report..
+/** Callback type for when a crash report is being written, giving the user an opportunity to add custom data to the
+ * user section of the report..
  *
  * @param policy The policy under which the report was written.
  * @param writer The report writer.
