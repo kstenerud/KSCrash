@@ -190,8 +190,9 @@ static void onCrash(struct KSCrash_MonitorContext *monitorContext)
     if (g_eventNotifyCallback) {
         KSCrash_ExceptionHandlingPolicy changedPolicy =
             g_eventNotifyCallback(monitorContext->currentPolicy, monitorContext);
-        monitorContext->currentPolicy.shouldRecordThreads = changedPolicy.shouldRecordThreads;
-        monitorContext->currentPolicy.shouldWriteReport = changedPolicy.shouldWriteReport;
+#define OVERRIDE_POLICY(POLICY) monitorContext->currentPolicy.POLICY = changedPolicy.POLICY
+        OVERRIDE_POLICY(shouldRecordThreads);
+        OVERRIDE_POLICY(shouldWriteReport);
     }
 
     // If we shouldn't write a report, then there's nothing left to do here.
