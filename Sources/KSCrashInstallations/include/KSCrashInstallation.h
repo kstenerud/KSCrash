@@ -28,6 +28,7 @@
 #include "KSCrashNamespace.h"
 #import "KSCrashReportFilter.h"
 #import "KSCrashReportWriter.h"
+#import "KSCrashReportWriterCallbacks.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -44,12 +45,30 @@ NS_SWIFT_NAME(CrashInstallation)
 @interface KSCrashInstallation : NSObject
 
 /** C Function to call during a crash report to give the callee an opportunity to
- * add to the report. NULL = ignore.
+ * add to the report. NULL = ignore (DEPRECATED).
+ *
+ * @deprecated Use `onCrashWithPolicy` for async-safety awareness (since v2.4.0).
+ * This callback does not receive policy information and may not handle crash
+ * scenarios safely.
  *
  * WARNING: Only call async-safe functions from this function! DO NOT call
  * Swift/Objective-C methods!!!
  */
-@property(atomic, readwrite, assign, nullable) KSReportWriteCallback onCrash;
+@property(atomic, readwrite, assign, nullable) KSReportWriteCallback onCrash
+    __attribute__((deprecated("Use `onCrashWithPolicy` for async-safety awareness (since v2.4.0).")));
+
+/** C Function to call during a crash report to give the callee an opportunity to
+ * add to the report. NULL = ignore.
+ *
+ * The policy parameter provides crucial information about the crash context and
+ * safety constraints that must be observed within the callback.
+ *
+ * @see KSCrash_ExceptionHandlingPolicy
+ *
+ * WARNING: Only call async-safe functions from this function when policy.requiresAsyncSafety is true!
+ * DO NOT call Swift/Objective-C methods unless policy allows it!!!
+ */
+@property(atomic, readwrite, assign, nullable) KSReportWriteCallbackWithPolicy onCrashWithPolicy;
 
 /** Flag for disabling built-in demangling pre-filter.
  * If enabled an additional `KSCrashReportFilterDemangle` filter will be applied first.

@@ -95,8 +95,18 @@
     config.enableMemoryIntrospection = self.enableMemoryIntrospection;
     config.doNotIntrospectClasses.strings = [self createCStringArrayFromNSArray:self.doNotIntrospectClasses];
     config.doNotIntrospectClasses.length = (int)[self.doNotIntrospectClasses count];
-    config.crashNotifyCallback = self.crashNotifyCallback;
-    config.reportWrittenCallback = self.reportWrittenCallback;
+    // TODO: Remove in 3.0 - Deprecated callback assignments for backward compatibility
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    if (self.crashNotifyCallback) {
+        config.crashNotifyCallback = (KSReportWriteCallback)imp_implementationWithBlock(self.crashNotifyCallback);
+    }
+    if (self.reportWrittenCallback) {
+        config.reportWrittenCallback = (KSReportWrittenCallback)imp_implementationWithBlock(self.reportWrittenCallback);
+    }
+#pragma clang diagnostic pop
+    config.crashNotifyCallbackWithPolicy = self.crashNotifyCallbackWithPolicy;
+    config.reportWrittenCallbackWithPolicy = self.reportWrittenCallbackWithPolicy;
     config.addConsoleLogToReport = self.addConsoleLogToReport;
     config.printPreviousLogOnStartup = self.printPreviousLogOnStartup;
     config.enableSwapCxaThrow = self.enableSwapCxaThrow;
@@ -149,8 +159,13 @@
                                       ? [[NSArray allocWithZone:zone] initWithArray:self.doNotIntrospectClasses
                                                                           copyItems:YES]
                                       : nil;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     copy.crashNotifyCallback = self.crashNotifyCallback;
     copy.reportWrittenCallback = self.reportWrittenCallback;
+#pragma clang diagnostic pop
+    copy.crashNotifyCallbackWithPolicy = self.crashNotifyCallbackWithPolicy;
+    copy.reportWrittenCallbackWithPolicy = self.reportWrittenCallbackWithPolicy;
     copy.eventNotifyCallback = self.eventNotifyCallback;
     copy.addConsoleLogToReport = self.addConsoleLogToReport;
     copy.printPreviousLogOnStartup = self.printPreviousLogOnStartup;

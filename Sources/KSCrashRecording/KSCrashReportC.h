@@ -35,6 +35,7 @@
 #import "KSCrashMonitorContext.h"
 #include "KSCrashNamespace.h"
 #import "KSCrashReportWriter.h"
+#include "KSCrashReportWriterCallbacks.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -78,7 +79,7 @@ void kscrashreport_setDoNotIntrospectClasses(const char **doNotIntrospectClasses
  *
  * @param userSectionWriteCallback The user section write callback.
  */
-void kscrashreport_setUserSectionWriteCallback(const KSReportWriteCallback userSectionWriteCallback);
+void kscrashreport_setUserSectionWriteCallback(const KSReportWriteCallbackWithPolicy userSectionWriteCallback);
 
 // ============================================================================
 #pragma mark - Main API -
