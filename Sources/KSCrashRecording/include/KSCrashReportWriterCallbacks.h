@@ -37,20 +37,35 @@
 extern "C" {
 #endif
 
-/** Callback type for when a crash report is being written.
+// Various callbacks that will be called while handling a crash.
+// The calling order is:
+// * KSCrashEventNotifyCallback
+// * KSReportWriteCallbackWithPolicy
+// * KSReportWrittenCallbackWithPolicy
+
+/** Callback type for when a crash has been detected, and we are deciding what to do about it.
+ *
+ * Normally a callback will just return `policy` as-is, but the user could return a modified policy to change how
+ * this exception is handled.
+ *
+ * @see KSCrash_ExceptionHandlingPolicy for a list of which policies can be modified.
+ *
+ * @param policy The current policy for handling this exception
+ * @param context The monitor context of the report. Note: This is an INTERNAL structure, subject to change without
+ * notice!
+ * @return The recommended policy for handling this exception
+ */
+typedef KSCrash_ExceptionHandlingPolicy (*KSCrashEventNotifyCallback)(
+    KSCrash_ExceptionHandlingPolicy policy, const struct KSCrash_MonitorContext *_Nonnull context)
+    NS_SWIFT_UNAVAILABLE("Use Swift closures instead!");
+
+/** Callback type for when a crash report is being written, giving the user an opportunity to add custom data to the user section of the report..
  *
  * @param policy The policy under which the report was written.
  * @param writer The report writer.
  */
 typedef void (*KSReportWriteCallbackWithPolicy)(struct KSCrash_ExceptionHandlingPolicy policy,
                                                 const KSCrashReportWriter *_Nonnull writer)
-    NS_SWIFT_UNAVAILABLE("Use Swift closures instead!");
-
-/** Callback type for when a crash report should be written.
- *
- * @param context The monitor context of the report.
- */
-typedef void (*KSCrashEventNotifyCallback)(struct KSCrash_MonitorContext *_Nonnull context)
     NS_SWIFT_UNAVAILABLE("Use Swift closures instead!");
 
 /** Callback type for when a crash report is finished writing.

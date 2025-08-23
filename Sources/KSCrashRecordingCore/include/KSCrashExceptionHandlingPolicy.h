@@ -43,16 +43,26 @@ extern "C" {
  * Heed my warnings, o traveler, or thou shalt have thyself a badde tyme!
  */
 typedef struct KSCrash_ExceptionHandlingPolicy {
+    // ---------------------------------------------------------------
+    // User-Modifiable Policies
+    // In a return from a user callback, these fields will be honored.
+    // ---------------------------------------------------------------
+
     /**
-     * Something has gone very, VERY wrong, and as a result the library
-     * cannot handle the exception.
+     * The handler will try to record all threads if possible.
      *
-     * This is a very rare occurrence, but can happen if too many things cause
-     * fatal exceptions simultaneously.
-     *
-     * Do nothing. Touch nothing. Exit the exception handler immediately.
+     * This will require stopping all threads, and so `requiresAsyncSafety`
+     * will also be automatically incremented.
      */
-    unsigned shouldExitImmediately : 1;
+    unsigned shouldRecordThreads : 1;
+
+    /** If true, the handler will write a report about this event. */
+    unsigned shouldWriteReport : 1;
+
+    // ---------------------------------------------------------------
+    // User-Immutable Policies
+    // In a return from a user callback, these fields will be ignored.
+    // ---------------------------------------------------------------
 
     /**
      * The process will terminate once exception handling completes.
@@ -96,15 +106,16 @@ typedef struct KSCrash_ExceptionHandlingPolicy {
     unsigned crashedDuringExceptionHandling : 1;
 
     /**
-     * The handler will try to record all threads if possible.
+     * Something has gone very, VERY wrong, and as a result the library
+     * cannot handle the exception.
      *
-     * This will require stopping all threads, and so `requiresAsyncSafety`
-     * will also be automatically incremented.
+     * This is a very rare occurrence, but can happen if too many things cause
+     * fatal exceptions simultaneously.
+     *
+     * Do nothing. Touch nothing. Exit the exception handler immediately.
      */
-    unsigned shouldRecordThreads : 1;
+    unsigned shouldExitImmediately : 1;
 
-    /** If true, the handler will write a report about this event. */
-    unsigned shouldWriteReport : 1;
 } CF_SWIFT_NAME(ExceptionHandlingPolicy) KSCrash_ExceptionHandlingPolicy;
 
 #ifdef __cplusplus

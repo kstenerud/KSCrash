@@ -186,12 +186,15 @@ static void notifyOfBeforeInstallationState(void)
  */
 static void onCrash(struct KSCrash_MonitorContext *monitorContext)
 {
-    // Check if the user wants to modify or deny this crash.
+    // Check if the user wants to modify the policy for this crash.
     if (g_eventNotifyCallback) {
-        g_eventNotifyCallback(monitorContext);
+        KSCrash_ExceptionHandlingPolicy changedPolicy =
+            g_eventNotifyCallback(monitorContext->currentPolicy, monitorContext);
+        monitorContext->currentPolicy.shouldRecordThreads = changedPolicy.shouldRecordThreads;
+        monitorContext->currentPolicy.shouldWriteReport = changedPolicy.shouldWriteReport;
     }
 
-    // Check if we should cancel out the writting of the report.
+    // If we shouldn't write a report, then there's nothing left to do here.
     if (monitorContext->currentPolicy.shouldWriteReport == 0) {
         return;
     }
