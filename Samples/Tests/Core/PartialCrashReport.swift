@@ -85,11 +85,16 @@ struct PartialCrashReport: Decodable {
 
                 var contents: [Frame]
             }
+            struct Address: Decodable {
+                var address: UInt64?
+                var type: String?
+            }
 
             var index: Int
             var state: String?
             var crashed: Bool
             var backtrace: Backtrace
+            var notable_addresses: [String: Address]?
         }
 
         var error: Error?

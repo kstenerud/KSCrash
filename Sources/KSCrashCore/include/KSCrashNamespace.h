@@ -397,6 +397,8 @@
 #define kssc_initWithBacktrace KSCRASH_NS(kssc_initWithBacktrace)
 #define kssc_initWithMachineContext KSCRASH_NS(kssc_initWithMachineContext)
 #define kssc_resetCursor KSCRASH_NS(kssc_resetCursor)
+#define kssc_uint64_to_hex KSCRASH_NS(kssc_uint64_to_hex)
+#define kssc_uuid_to_string KSCRASH_NS(kssc_uuid_to_string)
 #define kssignal_fatalSignals KSCRASH_NS(kssignal_fatalSignals)
 #define kssignal_numFatalSignals KSCRASH_NS(kssignal_numFatalSignals)
 #define kssignal_signalCodeName KSCRASH_NS(kssignal_signalCodeName)
