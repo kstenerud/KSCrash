@@ -28,6 +28,7 @@
 
 #include "KSBinaryImageCache.h"
 #include "KSCPU.h"
+#include "KSCrashExceptionHandlingPlan+Private.h"
 #include "KSCrashMonitorHelper.h"
 #include "KSCrashMonitor_AppState.h"
 #include "KSCrashMonitor_CPPException.h"
