@@ -81,21 +81,19 @@ public class InstallBridge: ObservableObject {
         // Example of setting a crash notify callback from Swift.
         // To see this in action, comment out the line: "config.crashNotifyCallbackWithPolicy = integrationTestCrashNotifyCallback"
         // Then tap "Install", "Report", "Log Raw to Console" in the sample app to see a crash report via the logs.
-        let cb: @convention(c) (ExceptionHandlingPolicy, UnsafePointer<ReportWriter>) -> Void = {
-            policy, writer in
-            writer.pointee.beginObject(writer, "policy")
-            writer.pointee.addBooleanElement(writer, "shouldExitImmediately", policy.shouldExitImmediately != 0)
-            writer.pointee.addBooleanElement(writer, "isFatal", policy.isFatal != 0)
-            writer.pointee.addBooleanElement(writer, "requiresAsyncSafetyAlways", policy.requiresAsyncSafetyAlways != 0)
-            writer.pointee.addBooleanElement(writer, "requiresAsyncSafetyToRecordThreads", policy.requiresAsyncSafetyToRecordThreads != 0)
+        let cb: @convention(c) (UnsafePointer<ExceptionHandlingPlan>, UnsafePointer<ReportWriter>) -> Void = {
+            plan, writer in
+            writer.pointee.beginObject(writer, "plan")
+            writer.pointee.addBooleanElement(writer, "isFatal", plan.pointee.isFatal)
+            writer.pointee.addBooleanElement(writer, "requiresAsyncSafety", plan.pointee.requiresAsyncSafety)
             writer.pointee.addBooleanElement(
-                writer, "crashedDuringExceptionHandling", policy.crashedDuringExceptionHandling != 0)
-            writer.pointee.addBooleanElement(writer, "shouldRecordThreads", policy.shouldRecordThreads != 0)
+                writer, "crashedDuringExceptionHandling", plan.pointee.crashedDuringExceptionHandling)
+            writer.pointee.addBooleanElement(writer, "shouldRecordThreads", plan.pointee.shouldRecordThreads)
             writer.pointee.endContainer(writer)
         }
-        config.crashNotifyCallbackWithPolicy = cb
+        config.crashNotifyCallbackWithPlan = cb
 
-        config.crashNotifyCallbackWithPolicy = integrationTestCrashNotifyCallback
+        config.crashNotifyCallbackWithPlan = integrationTestReportWritingCallback
 
         $basePath
             .removeDuplicates()

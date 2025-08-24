@@ -1,0 +1,52 @@
+//
+//  KSCrashExceptionHandlingPlan+Private.h
+//
+//  Created by Karl Stenerud on 2025-08-24.
+//
+//  Copyright (c) 2012 Karl Stenerud. All rights reserved.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall remain in place
+// in this source code.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+// THE SOFTWARE.
+//
+
+#ifndef HDR_KSCrashExceptionHandlingPlanPrivate_h
+#define HDR_KSCrashExceptionHandlingPlanPrivate_h
+
+#include "KSCrashExceptionHandlingPlan.h"
+#include "KSCrashMonitorContext.h"
+
+static inline KSCrash_ExceptionHandlingPlan ksexc_monitorContextToPlan(const KSCrash_MonitorContext *const context)
+{
+    return (KSCrash_ExceptionHandlingPlan) {
+        .shouldRecordThreads = context->requirements.shouldRecordThreads,
+        .shouldWriteReport = context->requirements.shouldWriteReport,
+        .isFatal = context->requirements.isFatal,
+        .requiresAsyncSafety = kscexc_requiresAsyncSafety(context->requirements),
+        .crashedDuringExceptionHandling = context->requirements.crashedDuringExceptionHandling,
+        .shouldExitImmediately = context->requirements.shouldExitImmediately,
+    };
+}
+
+static inline void ksexc_modifyMonitorContextUsingPlan(KSCrash_MonitorContext *const context,
+                                                       KSCrash_ExceptionHandlingPlan *plan)
+{
+    context->requirements.shouldRecordThreads = plan->shouldRecordThreads;
+    context->requirements.shouldWriteReport = plan->shouldWriteReport;
+}
+
+#endif  // HDR_KSCrashExceptionHandlingPlanPrivate_h

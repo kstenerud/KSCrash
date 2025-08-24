@@ -1,5 +1,5 @@
 //
-//  KSCrashExceptionHandlingPolicy.h
+//  KSCrashExceptionHandlingRequirements.h
 //
 //  Created by Karl Stenerud on 2025-08-11.
 //
@@ -24,8 +24,8 @@
 // THE SOFTWARE.
 //
 
-#ifndef HDR_KSCrashExceptionHandlingPolicy_h
-#define HDR_KSCrashExceptionHandlingPolicy_h
+#ifndef HDR_KSCrashExceptionHandlingRequirements_h
+#define HDR_KSCrashExceptionHandlingRequirements_h
 
 #include <CoreFoundation/CoreFoundation.h>
 
@@ -34,35 +34,21 @@ extern "C" {
 #endif
 
 /**
- * Policy and state information that affects how a crash will be handled.
- *
- * This policy is used in both exception handlers and crash callbacks to give
- * insight into what's going on, while also ensuring the proper functioning of
- * this library.
- *
- * Heed my warnings, o traveler, or thou shalt have thyself a badde tyme!
+ * Information about the current requirements for handling a particular event.
  */
-typedef struct KSCrash_ExceptionHandlingPolicy {
-    // ---------------------------------------------------------------
-    // User-Modifiable Policies
-    // In a return from a user callback, these fields will be honored.
-    // ---------------------------------------------------------------
-
+typedef struct {
     /**
      * The handler will try to record all threads if possible.
      *
-     * This will require stopping all threads, and so `requiresAsyncSafetyToRecordThreads` will be set once the threads
+     * This will require stopping all threads, and so `asyncSafetyBecauseThreadsSuspended` will be set once the threads
      * are stopped.
      */
     unsigned shouldRecordThreads : 1;
 
-    /** If true, the handler will write a report about this event. */
+    /**
+     * The handler should try to write a report about this event.
+     */
     unsigned shouldWriteReport : 1;
-
-    // ---------------------------------------------------------------
-    // User-Immutable Policies
-    // In a return from a user callback, these fields will be ignored.
-    // ---------------------------------------------------------------
 
     /**
      * The process will terminate once exception handling completes.
@@ -83,19 +69,19 @@ typedef struct KSCrash_ExceptionHandlingPolicy {
      * Doing so risks causing a deadlock (which the user will experience as a
      * frozen app).
      *
-     * Note: Do not test this value directly. Use `kscexc_requiresAsyncSafety()`.
+     * Note: Do not test this value directly! Use `kscexc_requiresAsyncSafety`.
      *
      * @see https://www.man7.org/linux/man-pages/man7/signal-safety.7.html
      */
-    unsigned requiresAsyncSafetyAlways : 1;
+    unsigned asyncSafety : 1;
 
     /**
-     * Requires async safety only to record all threads.
-     * Once all threads have been recorded, this field will be cleared.
+     * Requires async safety, but only because all threads are currently suspended.
+     * Once all threads are resumed, this field will be cleared.
      *
-     * Note: Do not test this value directly. Use `kscexc_requiresAsyncSafety()`.
+     * Note: Do not test this value directly! Use `kscexc_requiresAsyncSafety`.
      */
-    unsigned requiresAsyncSafetyToRecordThreads : 1;
+    unsigned asyncSafetyBecauseThreadsSuspended : 1;
 
     /**
      * This crash happened as a result of handling another exception, so be
@@ -121,15 +107,15 @@ typedef struct KSCrash_ExceptionHandlingPolicy {
      */
     unsigned shouldExitImmediately : 1;
 
-} CF_SWIFT_NAME(ExceptionHandlingPolicy) KSCrash_ExceptionHandlingPolicy;
+} KSCrash_ExceptionHandlingRequirements;
 
-static inline bool kscexc_requiresAsyncSafety(KSCrash_ExceptionHandlingPolicy policy)
+static inline bool kscexc_requiresAsyncSafety(KSCrash_ExceptionHandlingRequirements requirements)
 {
-    return policy.requiresAsyncSafetyAlways || policy.requiresAsyncSafetyToRecordThreads;
+    return requirements.asyncSafety || requirements.asyncSafetyBecauseThreadsSuspended;
 }
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif  // HDR_KSCrashExceptionHandlingPolicy_h
+#endif  // HDR_KSCrashExceptionHandlingRequirements_h

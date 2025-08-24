@@ -121,7 +121,7 @@ static const char *g_userInfoJSON;
 static pthread_mutex_t g_userInfoMutex = PTHREAD_MUTEX_INITIALIZER;
 
 static KSCrash_IntrospectionRules g_introspectionRules;
-static KSReportWriteCallbackWithPolicy g_userSectionWriteCallback;
+static KSReportWriteCallbackWithPlan g_userSectionWriteCallback;
 
 #pragma mark Callbacks
 
@@ -1497,7 +1497,8 @@ void kscrashreport_writeRecrashReport(const KSCrash_MonitorContext *const monito
         if (g_userSectionWriteCallback != NULL) {
             writer->beginObject(writer, KSCrashField_User);
             ksfu_flushBufferedWriter(&bufferedWriter);
-            g_userSectionWriteCallback(monitorContext->currentPolicy, writer);
+            KSCrash_ExceptionHandlingPlan plan = ksexc_monitorContextToPlan(monitorContext);
+            g_userSectionWriteCallback(&plan, writer);
             writer->endContainer(writer);
         }
     }
@@ -1621,14 +1622,14 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
         {
             writeError(writer, KSCrashField_Error, monitorContext);
             ksfu_flushBufferedWriter(&bufferedWriter);
-            if (monitorContext->currentPolicy.shouldRecordThreads) {
+            if (monitorContext->requirements.shouldRecordThreads) {
                 writeAllThreads(writer, KSCrashField_Threads, monitorContext, g_introspectionRules.enabled);
                 ksfu_flushBufferedWriter(&bufferedWriter);
                 if (monitorContext->suspendedThreadsCount > 0) {
                     // Special case: If we only needed to suspend the environment to record the threads, then we can
                     // safely resume now. This gives any remaining callbacks more freedom.
-                    monitorContext->currentPolicy.requiresAsyncSafetyToRecordThreads = false;
-                    if (!kscexc_requiresAsyncSafety(monitorContext->currentPolicy)) {
+                    monitorContext->requirements.asyncSafetyBecauseThreadsSuspended = false;
+                    if (!kscexc_requiresAsyncSafety(monitorContext->requirements)) {
                         ksmc_resumeEnvironment(&monitorContext->suspendedThreads,
                                                &monitorContext->suspendedThreadsCount);
                     }
@@ -1645,7 +1646,8 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
         }
         if (g_userSectionWriteCallback != NULL) {
             ksfu_flushBufferedWriter(&bufferedWriter);
-            g_userSectionWriteCallback(monitorContext->currentPolicy, writer);
+            KSCrash_ExceptionHandlingPlan plan = ksexc_monitorContextToPlan(monitorContext);
+            g_userSectionWriteCallback(&plan, writer);
         }
         writer->endContainer(writer);
         ksfu_flushBufferedWriter(&bufferedWriter);
@@ -1724,7 +1726,7 @@ void kscrashreport_setDoNotIntrospectClasses(const char **doNotIntrospectClasses
     }
 }
 
-void kscrashreport_setUserSectionWriteCallback(const KSReportWriteCallbackWithPolicy userSectionWriteCallback)
+void kscrashreport_setUserSectionWriteCallback(const KSReportWriteCallbackWithPlan userSectionWriteCallback)
 {
     KSLOG_TRACE("Set userSectionWriteCallback to %p", userSectionWriteCallback);
     g_userSectionWriteCallback = userSectionWriteCallback;

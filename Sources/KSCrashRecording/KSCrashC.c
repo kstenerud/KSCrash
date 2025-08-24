@@ -28,6 +28,7 @@
 
 #include "KSBinaryImageCache.h"
 #include "KSCompilerDefines.h"
+#include "KSCrashExceptionHandlingPlan+Private.h"
 #include "KSCrashMonitor.h"
 #include "KSCrashMonitorContext.h"
 #include "KSCrashMonitorType.h"
@@ -104,9 +105,9 @@ static KSCrashReportStoreCConfiguration g_reportStoreConfig;
 static KSReportWriteCallback g_legacyCrashNotifyCallback;
 static KSReportWrittenCallback g_legacyReportWrittenCallback;
 #pragma clang diagnostic pop
-static KSReportWriteCallbackWithPolicy g_crashNotifyCallbackWithPolicy;
-static KSReportWrittenCallbackWithPolicy g_reportWrittenCallbackWithPolicy;
 static KSCrashEventNotifyCallback g_eventNotifyCallback;
+static KSReportWriteCallbackWithPlan g_crashNotifyCallbackWithPlan;
+static KSReportWrittenCallbackWithPlan g_reportWrittenCallbackWithPlan;
 static KSApplicationState g_lastApplicationState = KSApplicationStateNone;
 
 // ============================================================================
@@ -131,28 +132,29 @@ static void printPreviousLog(const char *filePath)
 // ============================================================================
 
 /** Adapter function that bridges legacy crash notify callback to new signature.
- * This allows old callbacks without policy awareness to be used with the new system.
+ * This allows old callbacks without plan awareness to be used with the new system.
  */
-static void legacyCrashNotifyCallbackAdapter(__unused KSCrash_ExceptionHandlingPolicy policy,
+static void legacyCrashNotifyCallbackAdapter(__unused const KSCrash_ExceptionHandlingPlan *const plan,
                                              const KSCrashReportWriter *writer)
 {
     if (g_legacyCrashNotifyCallback) {
         KSLOG_WARN(
-            "Using deprecated crash notify callback without policy awareness. "
-            "Consider upgrading to crashNotifyCallbackWithPolicy.");
+            "Using deprecated crash notify callback without plan awareness. "
+            "Consider upgrading to crashNotifyCallbackWithPlan.");
         g_legacyCrashNotifyCallback(writer);
     }
 }
 
 /** Adapter function that bridges legacy report written callback to new signature.
- * This allows old callbacks without policy awareness to be used with the new system.
+ * This allows old callbacks without plan awareness to be used with the new system.
  */
-static void legacyReportWrittenCallbackAdapter(__unused KSCrash_ExceptionHandlingPolicy policy, int64_t reportID)
+static void legacyReportWrittenCallbackAdapter(__unused const KSCrash_ExceptionHandlingPlan *const plan,
+                                               int64_t reportID)
 {
     if (g_legacyReportWrittenCallback) {
         KSLOG_WARN(
-            "Using deprecated report written callback without policy awareness. "
-            "Consider upgrading to reportWrittenCallbackWithPolicy.");
+            "Using deprecated report written callback without plan awareness. "
+            "Consider upgrading to reportWrittenCallbackWithPlan.");
         g_legacyReportWrittenCallback(reportID);
     }
 }
@@ -186,17 +188,15 @@ static void notifyOfBeforeInstallationState(void)
  */
 static void onCrash(struct KSCrash_MonitorContext *monitorContext)
 {
-    // Check if the user wants to modify the policy for this crash.
+    // Check if the user wants to modify the plan for this crash.
     if (g_eventNotifyCallback) {
-        KSCrash_ExceptionHandlingPolicy changedPolicy =
-            g_eventNotifyCallback(monitorContext->currentPolicy, monitorContext);
-#define OVERRIDE_POLICY(POLICY) monitorContext->currentPolicy.POLICY = changedPolicy.POLICY
-        OVERRIDE_POLICY(shouldRecordThreads);
-        OVERRIDE_POLICY(shouldWriteReport);
+        KSCrash_ExceptionHandlingPlan plan = ksexc_monitorContextToPlan(monitorContext);
+        g_eventNotifyCallback(&plan, monitorContext);
+        ksexc_modifyMonitorContextUsingPlan(monitorContext, &plan);
     }
 
     // If we shouldn't write a report, then there's nothing left to do here.
-    if (monitorContext->currentPolicy.shouldWriteReport == 0) {
+    if (!monitorContext->requirements.shouldWriteReport) {
         return;
     }
 
@@ -206,7 +206,7 @@ static void onCrash(struct KSCrash_MonitorContext *monitorContext)
     }
     monitorContext->consoleLogPath = g_shouldAddConsoleLogToReport ? g_consoleLogPath : NULL;
 
-    if (monitorContext->currentPolicy.crashedDuringExceptionHandling) {
+    if (monitorContext->requirements.crashedDuringExceptionHandling) {
         kscrashreport_writeRecrashReport(monitorContext, g_lastCrashReportFilePath);
     } else if (monitorContext->reportPath) {
         kscrashreport_writeStandardReport(monitorContext, monitorContext->reportPath);
@@ -216,8 +216,9 @@ static void onCrash(struct KSCrash_MonitorContext *monitorContext)
         strncpy(g_lastCrashReportFilePath, crashReportFilePath, sizeof(g_lastCrashReportFilePath));
         kscrashreport_writeStandardReport(monitorContext, crashReportFilePath);
 
-        if (g_reportWrittenCallbackWithPolicy != NULL) {
-            g_reportWrittenCallbackWithPolicy(monitorContext->currentPolicy, reportID);
+        if (g_reportWrittenCallbackWithPlan != NULL) {
+            KSCrash_ExceptionHandlingPlan plan = ksexc_monitorContextToPlan(monitorContext);
+            g_reportWrittenCallbackWithPlan(&plan, reportID);
         }
     }
 }
@@ -264,23 +265,23 @@ void handleConfiguration(KSCrashCConfiguration *configuration)
     g_legacyReportWrittenCallback = configuration->reportWrittenCallback;
 #pragma clang diagnostic pop
 
-    if (configuration->crashNotifyCallbackWithPolicy) {
-        g_crashNotifyCallbackWithPolicy = configuration->crashNotifyCallbackWithPolicy;
+    if (configuration->crashNotifyCallbackWithPlan) {
+        g_crashNotifyCallbackWithPlan = configuration->crashNotifyCallbackWithPlan;
     } else if (g_legacyCrashNotifyCallback) {
-        g_crashNotifyCallbackWithPolicy = legacyCrashNotifyCallbackAdapter;
+        g_crashNotifyCallbackWithPlan = legacyCrashNotifyCallbackAdapter;
     } else {
-        g_crashNotifyCallbackWithPolicy = NULL;
+        g_crashNotifyCallbackWithPlan = NULL;
     }
 
-    if (configuration->reportWrittenCallbackWithPolicy) {
-        g_reportWrittenCallbackWithPolicy = configuration->reportWrittenCallbackWithPolicy;
+    if (configuration->reportWrittenCallbackWithPlan) {
+        g_reportWrittenCallbackWithPlan = configuration->reportWrittenCallbackWithPlan;
     } else if (g_legacyReportWrittenCallback) {
-        g_reportWrittenCallbackWithPolicy = legacyReportWrittenCallbackAdapter;
+        g_reportWrittenCallbackWithPlan = legacyReportWrittenCallbackAdapter;
     } else {
-        g_reportWrittenCallbackWithPolicy = NULL;
+        g_reportWrittenCallbackWithPlan = NULL;
     }
 
-    kscrashreport_setUserSectionWriteCallback(g_crashNotifyCallbackWithPolicy);
+    kscrashreport_setUserSectionWriteCallback(g_crashNotifyCallbackWithPlan);
     g_shouldAddConsoleLogToReport = configuration->addConsoleLogToReport;
     g_shouldPrintPreviousLog = configuration->printPreviousLogOnStartup;
     g_eventNotifyCallback = configuration->eventNotifyCallback;

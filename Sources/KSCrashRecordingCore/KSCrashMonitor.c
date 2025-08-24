@@ -62,7 +62,7 @@ static struct {
 
     /**
      * Special context to use when we need to bail out and ignore the exception.
-     * bailoutContext.currentPolicy.exitImmediately MUST always be true.
+     * bailoutContext.requirements.exitImmediately MUST always be true.
      */
     KSCrash_MonitorContext exitImmediatelyContext;
 
@@ -94,7 +94,7 @@ static void init(void)
     for (size_t i = 0; i < asyncSafeItemCount; i++) {
         ksid_generate(g_state.asyncSafeContext[i].eventID);
     }
-    g_state.exitImmediatelyContext.currentPolicy.shouldExitImmediately = true;
+    g_state.exitImmediatelyContext.requirements.shouldExitImmediately = true;
 }
 
 static bool isThreadAlreadyHandlingAnException(int maxCount, thread_t offendingThread, thread_t handlingThread)
@@ -142,13 +142,13 @@ static void endHandlingException(int threadIndex)
     atomic_compare_exchange_strong(&g_state.handlingExceptionIndex, &expectedIndex, 0);
 }
 
-static KSCrash_MonitorContext *getNextMonitorContext(KSCrash_ExceptionHandlingPolicy policy)
+static KSCrash_MonitorContext *getNextMonitorContext(KSCrash_ExceptionHandlingRequirements requirements)
 {
     KSCrash_MonitorContext *ctx = NULL;
 
-    if (kscexc_requiresAsyncSafety(policy)) {
+    if (kscexc_requiresAsyncSafety(requirements)) {
         // Only fatal exception handlers can be initiated in an environment requiring async
-        // safety, so only they will call `notify()` with `requiresAsyncSafetyAlways = true`.
+        // safety, so only they will call `notify()` with `asyncSafety = true`.
         //
         // Therefore, only at most two such contexts can ever be simultaneously active
         // (crash and recrash), and they'll never be re-used because the app terminates
@@ -190,9 +190,9 @@ void kscm_disableAllMonitors(void)
 }
 
 static KSCrash_MonitorContext *notifyException(const mach_port_t offendingThread,
-                                               const KSCrash_ExceptionHandlingPolicy recommendations)
+                                               const KSCrash_ExceptionHandlingRequirements initialRequirements)
 {
-    // This is the main policy decision point for all exception handling.
+    // This is the main decision point for all exception handling.
     //
     // If another exception occurs while we are already handling an exception, we need to decide what
     // to do based on whether the exception is fatal, what kinds of other exceptions are already in
@@ -230,7 +230,7 @@ static KSCrash_MonitorContext *notifyException(const mach_port_t offendingThread
     const bool wasCrashedDuringExceptionHandling = g_state.crashedDuringExceptionHandling;
 
     // Our state now
-    KSCrash_ExceptionHandlingPolicy policy = recommendations;
+    KSCrash_ExceptionHandlingRequirements requirements = initialRequirements;
     const bool isCrashedDuringExceptionHandling =
         isThreadAlreadyHandlingAnException(thisThreadHandlerIndex, offendingThread, thisThread);
 
@@ -251,10 +251,10 @@ static KSCrash_MonitorContext *notifyException(const mach_port_t offendingThread
 
     if (isCrashedDuringExceptionHandling) {
         // This is a recrash, so be more conservative in our handling.
-        policy.crashedDuringExceptionHandling = true;
-        policy.requiresAsyncSafetyAlways = true;
-        policy.shouldRecordThreads = false;
-        policy.isFatal = true;
+        requirements.crashedDuringExceptionHandling = true;
+        requirements.asyncSafety = true;
+        requirements.shouldRecordThreads = false;
+        requirements.isFatal = true;
     } else if (wasHandlingFatalException) {
         // This is an incidental exception that happened while we were handling a fatal
         // exception. Pause this handler to allow the other handler to finish.
@@ -263,18 +263,18 @@ static KSCrash_MonitorContext *notifyException(const mach_port_t offendingThread
     }
 
     g_state.crashedDuringExceptionHandling |= isCrashedDuringExceptionHandling;
-    g_state.isHandlingFatalException |= policy.isFatal;
+    g_state.isHandlingFatalException |= requirements.isFatal;
 
-    KSCrash_MonitorContext *ctx = getNextMonitorContext(policy);
+    KSCrash_MonitorContext *ctx = getNextMonitorContext(requirements);
     ctx->threadHandlerIndex = thisThreadHandlerIndex;
-    ctx->currentPolicy = policy;
+    ctx->requirements = requirements;
 
-    if (ctx->currentPolicy.shouldRecordThreads) {
+    if (ctx->requirements.shouldRecordThreads) {
         ctx->suspendedThreads = NULL;
         ctx->suspendedThreadsCount = 0;
         ksmc_suspendEnvironment(&ctx->suspendedThreads, &ctx->suspendedThreadsCount);
         if (ctx->suspendedThreadsCount > 0) {
-            ctx->currentPolicy.requiresAsyncSafetyToRecordThreads = true;
+            ctx->requirements.asyncSafetyBecauseThreadsSuspended = true;
         }
     }
 
@@ -290,7 +290,7 @@ static void handleException(struct KSCrash_MonitorContext *ctx)
     }
 
     // Allow all monitors a chance to add contextual info to the event.
-    // The monitors will decide what they can do based on ctx->currentPolicy.
+    // The monitors will decide what they can do based on ctx->requirements.
     kscmr_addContextualInfoToEvent(&g_state.monitors, ctx);
 
     // Call the exception event handler if it exists
@@ -300,12 +300,12 @@ static void handleException(struct KSCrash_MonitorContext *ctx)
 
     // If the exception is fatal, we need to uninstall ourselves so that
     // other installed crash handler libraries can run when we finish.
-    if (ctx->currentPolicy.isFatal) {
+    if (ctx->requirements.isFatal) {
         KSLOG_DEBUG("Exception is fatal. Restoring original handlers.");
         kscm_disableAllMonitors();
     }
 
-    if (ctx->currentPolicy.shouldRecordThreads) {
+    if (ctx->requirements.shouldRecordThreads) {
         // Note: `kscrashreport_writeStandardReport()` may have resumed already,
         //       which is fine since `ksmc_resumeEnvironment()` is idempotent.
         ksmc_resumeEnvironment(&ctx->suspendedThreads, &ctx->suspendedThreadsCount);

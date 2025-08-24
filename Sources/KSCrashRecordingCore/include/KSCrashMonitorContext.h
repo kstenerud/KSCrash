@@ -30,7 +30,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "KSCrashExceptionHandlingPolicy.h"
+#include "KSCrashExceptionHandlingRequirements.h"
 #include "KSCrashMonitorFlag.h"
 #include "KSCrashNamespace.h"
 #include "KSMachineContext.h"
@@ -50,8 +50,8 @@ typedef struct KSCrash_MonitorContext {
     /** Which thread in the thread handler list is handling this exception. */
     int threadHandlerIndex;
 
-    /** The current policy for handling this exception. */
-    KSCrash_ExceptionHandlingPolicy currentPolicy;
+    /** The current requirements for handling this exception. */
+    KSCrash_ExceptionHandlingRequirements requirements;
 
     /** Unique identifier for this event. */
     char eventID[40];
@@ -279,7 +279,7 @@ typedef struct KSCrash_MonitorContext {
 typedef struct {
     /**
      * Notify that an exception has occurred. This function will prepare the system for handling the exception, and make
-     * some policy decisions based on your recommendations and the current system state.
+     * some decisions based on your recommendations and the current system state.
      *
      * This should be called as early as possible in the exception handling process because it will stop all other
      * threads if you've requested to record threads - and stopping threads early minimizes the chances of a context
@@ -292,10 +292,10 @@ typedef struct {
      * handle().
      *
      * @param offendingThread The thread that caused the exception.
-     * @param recommendations Recommendations about the current environment, and how this exception should be handled.
+     * @param requirements Requirements and information about how this exception should be handled.
      * @return a monitor context to be filled out and passed to `handle()`.
      */
-    KSCrash_MonitorContext *(*notify)(thread_t offendingThread, KSCrash_ExceptionHandlingPolicy recommendations);
+    KSCrash_MonitorContext *(*notify)(thread_t offendingThread, KSCrash_ExceptionHandlingRequirements requirements);
 
     /**
      * Handle the exception. This function will collect any pertinent information into the context and then pass the

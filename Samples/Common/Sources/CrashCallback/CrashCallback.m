@@ -9,15 +9,15 @@
 #import <stdio.h>
 #import "KSCrashC.h"
 
-static void (^g_integrationTestCrashCallback)(KSCrash_ExceptionHandlingPolicy policy, const struct KSCrashReportWriter * _Nonnull writer) =
-^void (KSCrash_ExceptionHandlingPolicy policy, const struct KSCrashReportWriter * _Nonnull writer) {
+static void (^g_integrationTestReportWritingCallback)(const KSCrash_ExceptionHandlingPlan *const plan, const struct KSCrashReportWriter * _Nonnull writer) =
+^void (const KSCrash_ExceptionHandlingPlan *const plan, const struct KSCrashReportWriter * _Nonnull writer) {
     // Do nothing by default
 };
 
-void integrationTestCrashNotifyCallback(KSCrash_ExceptionHandlingPolicy policy, const struct KSCrashReportWriter * _Nonnull writer) {
-    g_integrationTestCrashCallback(policy, writer);
+void integrationTestReportWritingCallback(const KSCrash_ExceptionHandlingPlan *const plan, const struct KSCrashReportWriter * _Nonnull writer) {
+    g_integrationTestReportWritingCallback(plan, writer);
 }
 
-void setIntegrationTestCrashNotifyImplementation(void (^implementation)(KSCrash_ExceptionHandlingPolicy policy, const struct KSCrashReportWriter * _Nonnull writer)) {
-    g_integrationTestCrashCallback = implementation;
+void setIntegrationTestReportWritingImplementation(void (^implementation)(const KSCrash_ExceptionHandlingPlan *const plan, const struct KSCrashReportWriter * _Nonnull writer)) {
+    g_integrationTestReportWritingCallback = implementation;
 }

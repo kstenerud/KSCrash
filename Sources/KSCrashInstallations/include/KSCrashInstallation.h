@@ -47,28 +47,28 @@ NS_SWIFT_NAME(CrashInstallation)
 /** C Function to call during a crash report to give the callee an opportunity to
  * add to the report. NULL = ignore (DEPRECATED).
  *
- * @deprecated Use `onCrashWithPolicy` for async-safety awareness (since v2.4.0).
- * This callback does not receive policy information and may not handle crash
+ * @deprecated Use `onCrashWithPlan` for async-safety awareness (since v2.4.0).
+ * This callback does not receive plan information and may not handle crash
  * scenarios safely.
  *
  * WARNING: Only call async-safe functions from this function! DO NOT call
  * Swift/Objective-C methods!!!
  */
 @property(atomic, readwrite, assign, nullable) KSReportWriteCallback onCrash
-    __attribute__((deprecated("Use `onCrashWithPolicy` for async-safety awareness (since v2.4.0).")));
+    __attribute__((deprecated("Use `onCrashWithPlan` for async-safety awareness (since v2.4.0).")));
 
 /** C Function to call during a crash report to give the callee an opportunity to
  * add to the report. NULL = ignore.
  *
- * The policy parameter provides crucial information about the crash context and
+ * The plan parameter provides crucial information about the crash context and
  * safety constraints that must be observed within the callback.
  *
- * @see KSCrash_ExceptionHandlingPolicy
+ * @see KSCrash_ExceptionHandlingPlan
  *
- * WARNING: Only call async-safe functions from this function when `kscexc_requiresAsyncSafety(policy)` is true!
- * DO NOT call Swift/Objective-C methods unless policy allows it!!!
+ * WARNING: Only call async-safe functions from this function when `requiresAsyncSafety` is true!
+ * DO NOT call Swift/Objective-C methods unless the plan allows it!!!
  */
-@property(atomic, readwrite, assign, nullable) KSReportWriteCallbackWithPolicy onCrashWithPolicy;
+@property(atomic, readwrite, assign, nullable) KSReportWriteCallbackWithPlan onCrashWithPlan;
 
 /** Flag for disabling built-in demangling pre-filter.
  * If enabled an additional `KSCrashReportFilterDemangle` filter will be applied first.
