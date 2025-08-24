@@ -231,9 +231,6 @@ static KSCrash_MonitorContext *notifyException(const mach_port_t offendingThread
 
     // Our state now
     KSCrash_ExceptionHandlingPolicy policy = recommendations;
-#if !KSCRASH_HAS_THREADS_API
-    policy.shouldRecordThreads = false;
-#endif
     const bool isCrashedDuringExceptionHandling =
         isThreadAlreadyHandlingAnException(thisThreadHandlerIndex, offendingThread, thisThread);
 
@@ -273,9 +270,13 @@ static KSCrash_MonitorContext *notifyException(const mach_port_t offendingThread
     ctx->currentPolicy = policy;
 
     if (ctx->currentPolicy.shouldRecordThreads) {
-        // While all threads are suspended, the environment requires async safety.
-        ctx->currentPolicy.requiresAsyncSafety++;
+        ctx->suspendedThreads = NULL;
+        ctx->suspendedThreadsCount = 0;
         ksmc_suspendEnvironment(&ctx->suspendedThreads, &ctx->suspendedThreadsCount);
+        if (ctx->suspendedThreadsCount > 0) {
+            // While all threads are suspended, the environment requires async safety.
+            ctx->currentPolicy.requiresAsyncSafety++;
+        }
     }
 
     return ctx;
