@@ -52,7 +52,7 @@ void kscm_reportUserException(const char *name, const char *reason, const char *
     } else {
         thread_t thisThread = (thread_t)ksthread_self();
         KSCrash_MonitorContext *ctx =
-            g_callbacks.notify(thisThread, (KSCrash_ExceptionHandlingPolicy) { .requiresAsyncSafety = 0,
+            g_callbacks.notify(thisThread, (KSCrash_ExceptionHandlingPolicy) { .requiresAsyncSafetyAlways = false,
                                                                                .isFatal = terminateProgram,
                                                                                .shouldRecordThreads = logAllThreads,
                                                                                .shouldWriteReport = true });

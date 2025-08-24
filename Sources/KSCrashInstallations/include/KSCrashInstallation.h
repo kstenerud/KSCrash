@@ -65,7 +65,7 @@ NS_SWIFT_NAME(CrashInstallation)
  *
  * @see KSCrash_ExceptionHandlingPolicy
  *
- * WARNING: Only call async-safe functions from this function when policy.requiresAsyncSafety is true!
+ * WARNING: Only call async-safe functions from this function when `kscexc_requiresAsyncSafety(policy)` is true!
  * DO NOT call Swift/Objective-C methods unless policy allows it!!!
  */
 @property(atomic, readwrite, assign, nullable) KSReportWriteCallbackWithPolicy onCrashWithPolicy;

@@ -283,7 +283,7 @@ static NSURL *kscm_memory_oom_breadcrumb_URL(void)
 
 static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext)
 {
-    bool asyncSafeOnly = eventContext->currentPolicy.requiresAsyncSafety;
+    bool asyncSafeOnly = kscexc_requiresAsyncSafety(eventContext->currentPolicy);
 
     // we'll use this when reading this back on the next run
     // to know if an OOM is even possible.
@@ -535,10 +535,11 @@ static void ksmemory_write_possible_oom(void)
     const char *reportPath = reportURL.path.UTF8String;
 
     thread_t thisThread = (thread_t)ksthread_self();
-    KSCrash_MonitorContext *ctx = g_callbacks.notify(
-        thisThread,
-        (KSCrash_ExceptionHandlingPolicy) {
-            .requiresAsyncSafety = false, .isFatal = false, .shouldRecordThreads = false, .shouldWriteReport = true });
+    KSCrash_MonitorContext *ctx =
+        g_callbacks.notify(thisThread, (KSCrash_ExceptionHandlingPolicy) { .requiresAsyncSafetyAlways = false,
+                                                                           .isFatal = false,
+                                                                           .shouldRecordThreads = false,
+                                                                           .shouldWriteReport = true });
     if (ctx->currentPolicy.shouldExitImmediately) {
         return;
     }

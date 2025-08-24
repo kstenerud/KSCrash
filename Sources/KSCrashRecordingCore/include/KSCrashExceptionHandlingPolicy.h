@@ -51,8 +51,8 @@ typedef struct KSCrash_ExceptionHandlingPolicy {
     /**
      * The handler will try to record all threads if possible.
      *
-     * This will require stopping all threads, and so `requiresAsyncSafety`
-     * will also be automatically incremented.
+     * This will require stopping all threads, and so `requiresAsyncSafetyToRecordThreads` will be set once the threads
+     * are stopped.
      */
     unsigned shouldRecordThreads : 1;
 
@@ -83,14 +83,19 @@ typedef struct KSCrash_ExceptionHandlingPolicy {
      * Doing so risks causing a deadlock (which the user will experience as a
      * frozen app).
      *
-     * @see https://www.man7.org/linux/man-pages/man7/signal-safety.7.html
+     * Note: Do not test this value directly. Use `kscexc_requiresAsyncSafety()`.
      *
-     * Implementation detail: This is implemented as a semaphore to allow
-     * multiple internal places to require async safety for their own reasons
-     * (currently there are two). Externally, this field should be read like a
-     * boolean flag (0 = false, nonzero = true).
+     * @see https://www.man7.org/linux/man-pages/man7/signal-safety.7.html
      */
-    unsigned requiresAsyncSafety : 2;
+    unsigned requiresAsyncSafetyAlways : 1;
+
+    /**
+     * Requires async safety only to record all threads.
+     * Once all threads have been recorded, this field will be cleared.
+     *
+     * Note: Do not test this value directly. Use `kscexc_requiresAsyncSafety()`.
+     */
+    unsigned requiresAsyncSafetyToRecordThreads : 1;
 
     /**
      * This crash happened as a result of handling another exception, so be
@@ -117,6 +122,11 @@ typedef struct KSCrash_ExceptionHandlingPolicy {
     unsigned shouldExitImmediately : 1;
 
 } CF_SWIFT_NAME(ExceptionHandlingPolicy) KSCrash_ExceptionHandlingPolicy;
+
+static inline bool kscexc_requiresAsyncSafety(KSCrash_ExceptionHandlingPolicy policy)
+{
+    return policy.requiresAsyncSafetyAlways || policy.requiresAsyncSafetyToRecordThreads;
+}
 
 #ifdef __cplusplus
 }

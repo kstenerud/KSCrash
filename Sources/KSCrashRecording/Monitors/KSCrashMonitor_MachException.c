@@ -410,9 +410,10 @@ static void sendExceptionReply(ExceptionContext *ctx, bool exceptionPortsCanHand
 static void handleException(ExceptionContext *exceptionCtx)
 {
     KSCrash_MonitorContext *monitorCtx = g_state.callbacks.notify(
-        exceptionCtx->request->thread.name,
-        (KSCrash_ExceptionHandlingPolicy) {
-            .requiresAsyncSafety = 1, .isFatal = true, .shouldRecordThreads = true, .shouldWriteReport = true });
+        exceptionCtx->request->thread.name, (KSCrash_ExceptionHandlingPolicy) { .requiresAsyncSafetyAlways = true,
+                                                                                .isFatal = true,
+                                                                                .shouldRecordThreads = true,
+                                                                                .shouldWriteReport = true });
     if (monitorCtx->currentPolicy.shouldExitImmediately) {
         KSLOG_DEBUG("Thread %s: Should exit immediately, so returning", exceptionCtx->threadName);
         return;

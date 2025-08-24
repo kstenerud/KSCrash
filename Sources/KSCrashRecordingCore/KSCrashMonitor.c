@@ -146,9 +146,9 @@ static KSCrash_MonitorContext *getNextMonitorContext(KSCrash_ExceptionHandlingPo
 {
     KSCrash_MonitorContext *ctx = NULL;
 
-    if (policy.requiresAsyncSafety) {
+    if (kscexc_requiresAsyncSafety(policy)) {
         // Only fatal exception handlers can be initiated in an environment requiring async
-        // safety, so only they will call `notify()` with `requiresAsyncSafety = true`.
+        // safety, so only they will call `notify()` with `requiresAsyncSafetyAlways = true`.
         //
         // Therefore, only at most two such contexts can ever be simultaneously active
         // (crash and recrash), and they'll never be re-used because the app terminates
@@ -252,7 +252,7 @@ static KSCrash_MonitorContext *notifyException(const mach_port_t offendingThread
     if (isCrashedDuringExceptionHandling) {
         // This is a recrash, so be more conservative in our handling.
         policy.crashedDuringExceptionHandling = true;
-        policy.requiresAsyncSafety++;
+        policy.requiresAsyncSafetyAlways = true;
         policy.shouldRecordThreads = false;
         policy.isFatal = true;
     } else if (wasHandlingFatalException) {
@@ -274,8 +274,7 @@ static KSCrash_MonitorContext *notifyException(const mach_port_t offendingThread
         ctx->suspendedThreadsCount = 0;
         ksmc_suspendEnvironment(&ctx->suspendedThreads, &ctx->suspendedThreadsCount);
         if (ctx->suspendedThreadsCount > 0) {
-            // While all threads are suspended, the environment requires async safety.
-            ctx->currentPolicy.requiresAsyncSafety++;
+            ctx->currentPolicy.requiresAsyncSafetyToRecordThreads = true;
         }
     }
 

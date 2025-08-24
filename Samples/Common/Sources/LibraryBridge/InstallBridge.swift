@@ -86,7 +86,8 @@ public class InstallBridge: ObservableObject {
             writer.pointee.beginObject(writer, "policy")
             writer.pointee.addBooleanElement(writer, "shouldExitImmediately", policy.shouldExitImmediately != 0)
             writer.pointee.addBooleanElement(writer, "isFatal", policy.isFatal != 0)
-            writer.pointee.addBooleanElement(writer, "requiresAsyncSafety", policy.requiresAsyncSafety != 0)
+            writer.pointee.addBooleanElement(writer, "requiresAsyncSafetyAlways", policy.requiresAsyncSafetyAlways != 0)
+            writer.pointee.addBooleanElement(writer, "requiresAsyncSafetyToRecordThreads", policy.requiresAsyncSafetyToRecordThreads != 0)
             writer.pointee.addBooleanElement(
                 writer, "crashedDuringExceptionHandling", policy.crashedDuringExceptionHandling != 0)
             writer.pointee.addBooleanElement(writer, "shouldRecordThreads", policy.shouldRecordThreads != 0)
