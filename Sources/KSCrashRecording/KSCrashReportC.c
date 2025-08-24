@@ -1624,13 +1624,15 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
             if (monitorContext->currentPolicy.shouldRecordThreads) {
                 writeAllThreads(writer, KSCrashField_Threads, monitorContext, g_introspectionRules.enabled);
                 ksfu_flushBufferedWriter(&bufferedWriter);
-                monitorContext->currentPolicy.requiresAsyncSafety--;
-                if (monitorContext->currentPolicy.requiresAsyncSafety == 0) {
-                    // Special case: If decrementing `requiresAsyncSafety` clears it,
-                    // then we only needed async safety to record all threads.
-                    // In such a case, resuming them here removes the need for async
-                    // safety earlier, and gives the handler callbacks more freedom.
-                    ksmc_resumeEnvironment(&monitorContext->suspendedThreads, &monitorContext->suspendedThreadsCount);
+                if (monitorContext->suspendedThreadsCount > 0) {
+                    // Special case: If we only needed to suspend the environment to record the threads
+                    // (requiresAsyncSafety == 1), then we can safely resume now. This gives any remaining callbacks
+                    // more freedom.
+                    monitorContext->currentPolicy.requiresAsyncSafety--;
+                    if (monitorContext->currentPolicy.requiresAsyncSafety == 0) {
+                        ksmc_resumeEnvironment(&monitorContext->suspendedThreads,
+                                               &monitorContext->suspendedThreadsCount);
+                    }
                 }
             }
         }

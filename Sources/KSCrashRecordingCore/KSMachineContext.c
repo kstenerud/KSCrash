@@ -170,17 +170,18 @@ static inline bool isThreadInList(thread_t thread, KSThread *list, int listCount
 }
 #endif
 
-#if KSCRASH_HAS_THREADS_API
 void ksmc_suspendEnvironment(thread_act_array_t *threadsToSuspend, mach_msg_type_number_t *threadsToSuspendCount)
 {
+#if KSCRASH_HAS_THREADS_API
     if (threadsToSuspend == NULL || threadsToSuspendCount == NULL) {
         KSLOG_ERROR("Passed in null pointer");
-        return;
+        goto failed;
     }
 
     if (*threadsToSuspend != NULL) {
-        // Idempotent return, but give a debug log in case this is due to an uninitialized value.
-        KSLOG_DEBUG("passed in dirty pointer");
+        // This might be a double-call, or it might just be a dirty pointer. We can't be sure, so assume a double-call
+        // and return with the data untouched. But issue a log message just in case.
+        KSLOG_WARN("POTENTIAL BUG: Passed in dirty pointer");
         return;
     }
 
@@ -191,34 +192,39 @@ void ksmc_suspendEnvironment(thread_act_array_t *threadsToSuspend, mach_msg_type
 
     if ((kr = task_threads(thisTask, threadsToSuspend, threadsToSuspendCount)) != KERN_SUCCESS) {
         KSLOG_ERROR("task_threads: %s", mach_error_string(kr));
-        return;
+        goto failed;
     }
+    const thread_act_array_t threads = *threadsToSuspend;
+    const mach_msg_type_number_t threadsCount = *threadsToSuspendCount;
 
-    for (mach_msg_type_number_t i = 0; i < *threadsToSuspendCount; i++) {
-        thread_t thread = (*threadsToSuspend)[i];
+    for (mach_msg_type_number_t i = 0; i < threadsCount; i++) {
+        thread_t thread = threads[i];
         if (thread != thisThread && !isThreadInList(thread, g_reservedThreads, g_reservedThreadsCount)) {
             if ((kr = thread_suspend(thread)) != KERN_SUCCESS) {
-                // Record the error and keep going.
+                // Note the error and keep going.
                 KSLOG_ERROR("thread_suspend (%08x): %s", thread, mach_error_string(kr));
             }
         }
     }
 
     KSLOG_DEBUG("Suspend complete.");
-}
-#else
-void ksmc_suspendEnvironment(__unused thread_act_array_t *threadsToSuspend,
-                             __unused mach_msg_type_number_t *threadsToSuspendCount)
-{
-}
+    return;
+failed:
 #endif
+    if (threadsToSuspend != NULL) {
+        *threadsToSuspend = NULL;
+    }
+    if (threadsToSuspendCount != NULL) {
+        *threadsToSuspendCount = 0;
+    }
+}
 
-#if KSCRASH_HAS_THREADS_API
 void ksmc_resumeEnvironment(thread_act_array_t *threads_inOut, mach_msg_type_number_t *numThreads_inOut)
 {
+#if KSCRASH_HAS_THREADS_API
     if (threads_inOut == NULL || numThreads_inOut == NULL) {
         KSLOG_ERROR("Passed in null pointer");
-        return;
+        goto done;
     }
 
     KSLOG_DEBUG("Resuming environment.");
@@ -250,18 +256,16 @@ void ksmc_resumeEnvironment(thread_act_array_t *threads_inOut, mach_msg_type_num
     }
     vm_deallocate(thisTask, (vm_address_t)threads, sizeof(thread_t) * numThreads);
 
-done:
-    *threads_inOut = NULL;
-    *numThreads_inOut = 0;
-
     KSLOG_DEBUG("Resume complete.");
-}
-#else
-void ksmc_resumeEnvironment(__unused thread_act_array_t *threads_inOut,
-                            __unused mach_msg_type_number_t *numThreads_inOut)
-{
-}
+done:
 #endif
+    if (threads_inOut != NULL) {
+        *threads_inOut = NULL;
+    }
+    if (numThreads_inOut != NULL) {
+        *numThreads_inOut = 0;
+    }
+}
 
 int ksmc_getThreadCount(const KSMachineContext *const context) { return context->threadCount; }
 

@@ -60,7 +60,7 @@ static void trigger_signal(void)
     abort();  // This will raise a SIGABRT signal
 }
 
-static void trigger_user(void)
+static void trigger_user_nonfatal(void)
 {
     [KSCrash.sharedInstance reportUserException:@"User Exception"
                                          reason:@"My Reason"
@@ -71,7 +71,7 @@ static void trigger_user(void)
                                terminateProgram:NO];
 }
 
-static void trigger_userfatal(void)
+static void trigger_user_fatal(void)
 {
     [KSCrash.sharedInstance reportUserException:@"User Exception"
                                          reason:@"My Reason"
@@ -106,6 +106,14 @@ NSString *const KSCrashNSExceptionStacktraceFuncName = @"exceptionWithStacktrace
     [array objectAtIndex:10];  // This will throw an NSRangeException
 }
 
++ (void)trigger_nsException_user
+{
+    [KSCrash.sharedInstance reportNSException:[NSException exceptionWithName:@"Custom Exception"
+                                                                      reason:@"Custom reason"
+                                                                    userInfo:NULL]
+                                logAllThreads:YES];
+}
+
 + (void)trigger_cpp_runtimeException
 {
     trigger_cpp();
@@ -134,6 +142,16 @@ NSString *const KSCrashNSExceptionStacktraceFuncName = @"exceptionWithStacktrace
 + (void)trigger_signal_abort
 {
     abort();  // This will raise a SIGABRT signal
+}
+
++ (void)trigger_user_nonfatal
+{
+    trigger_user_nonfatal();
+}
+
++ (void)trigger_user_fatal
+{
+    trigger_user_fatal();
 }
 
 + (void)trigger_other_manyThreads
@@ -195,7 +213,7 @@ NSString *const KSCrashNSExceptionStacktraceFuncName = @"exceptionWithStacktrace
 }
 + (void)trigger_multiple_mach_user
 {
-    TRIGGER_MULTIPLE(mach, user);
+    TRIGGER_MULTIPLE(mach, user_nonfatal);
 }
 
 + (void)trigger_multiple_signal_mach
@@ -216,7 +234,7 @@ NSString *const KSCrashNSExceptionStacktraceFuncName = @"exceptionWithStacktrace
 }
 + (void)trigger_multiple_signal_user
 {
-    TRIGGER_MULTIPLE(signal, user);
+    TRIGGER_MULTIPLE(signal, user_nonfatal);
 }
 
 + (void)trigger_multiple_cpp_mach
@@ -237,7 +255,7 @@ NSString *const KSCrashNSExceptionStacktraceFuncName = @"exceptionWithStacktrace
 }
 + (void)trigger_multiple_cpp_user
 {
-    TRIGGER_MULTIPLE(cpp, user);
+    TRIGGER_MULTIPLE(cpp, user_nonfatal);
 }
 
 + (void)trigger_multiple_ns_mach
@@ -258,28 +276,28 @@ NSString *const KSCrashNSExceptionStacktraceFuncName = @"exceptionWithStacktrace
 }
 + (void)trigger_multiple_ns_user
 {
-    TRIGGER_MULTIPLE(ns, user);
+    TRIGGER_MULTIPLE(ns, user_nonfatal);
 }
 
 + (void)trigger_multiple_user_mach
 {
-    TRIGGER_MULTIPLE(userfatal, mach);
+    TRIGGER_MULTIPLE(user_fatal, mach);
 }
 + (void)trigger_multiple_user_signal
 {
-    TRIGGER_MULTIPLE(userfatal, signal);
+    TRIGGER_MULTIPLE(user_fatal, signal);
 }
 + (void)trigger_multiple_user_cpp
 {
-    TRIGGER_MULTIPLE(userfatal, cpp);
+    TRIGGER_MULTIPLE(user_fatal, cpp);
 }
 + (void)trigger_multiple_user_ns
 {
-    TRIGGER_MULTIPLE(userfatal, ns);
+    TRIGGER_MULTIPLE(user_fatal, ns);
 }
 + (void)trigger_multiple_user_user
 {
-    TRIGGER_MULTIPLE(userfatal, user);
+    TRIGGER_MULTIPLE(user_fatal, user_nonfatal);
 }
 
 @end

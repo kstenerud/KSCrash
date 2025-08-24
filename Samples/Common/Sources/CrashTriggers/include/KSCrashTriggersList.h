@@ -36,17 +36,21 @@ extern NSString *const KSCrashNSExceptionStacktraceFuncName;
     __PROCESS_GROUP(cpp, @"C++")                 \
     __PROCESS_GROUP(mach, @"Mach")               \
     __PROCESS_GROUP(signal, @"Signal")           \
+    __PROCESS_GROUP(user, @"User")               \
     __PROCESS_GROUP(multiple, @"Multiple")       \
     __PROCESS_GROUP(other, @"Other")
 
 #define __ALL_TRIGGERS                                                           \
     __PROCESS_TRIGGER(nsException, genericNSException, @"Generic NSException")   \
     __PROCESS_TRIGGER(nsException, nsArrayOutOfBounds, @"NSArray out-of-bounds") \
+    __PROCESS_TRIGGER(nsException, user, @"User reported NSException")           \
     __PROCESS_TRIGGER(cpp, runtimeException, @"Runtime Exception")               \
     __PROCESS_TRIGGER(mach, badAccess, @"EXC_BAD_ACCESS (SIGSEGV)")              \
     __PROCESS_TRIGGER(mach, busError, @"EXC_BAD_ACCESS (SIGBUS)")                \
     __PROCESS_TRIGGER(mach, illegalInstruction, @"EXC_BAD_INSTRUCTION")          \
     __PROCESS_TRIGGER(signal, abort, @"Abort")                                   \
+    __PROCESS_TRIGGER(user, nonfatal, @"Nonfatal")                               \
+    __PROCESS_TRIGGER(user, fatal, @"Fatal")                                     \
     __PROCESS_TRIGGER(multiple, mach_mach, @"Mach + Mach")                       \
     __PROCESS_TRIGGER(multiple, mach_signal, @"Mach + Signal")                   \
     __PROCESS_TRIGGER(multiple, mach_cpp, @"Mach + CPP")                         \
