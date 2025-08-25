@@ -216,12 +216,13 @@ extern void kscm_testcode_resetState(void);
     kscm_setEventCallback(myEventCallback);
     KSCrash_MonitorContext *ctx = NULL;
     ctx = dummyExceptionHandlerCallbacks.notify(
-        (thread_t)ksthread_self(), (KSCrash_ExceptionHandlingPolicy) { .isFatal = true, .shouldWriteReport = true });
-    XCTAssertTrue(ctx->currentPolicy.isFatal);
-    XCTAssertFalse(ctx->currentPolicy.requiresAsyncSafety);
-    XCTAssertFalse(ctx->currentPolicy.shouldExitImmediately);
-    XCTAssertFalse(ctx->currentPolicy.shouldRecordThreads);
-    XCTAssertFalse(ctx->currentPolicy.crashedDuringExceptionHandling);
+        (thread_t)ksthread_self(),
+        (KSCrash_ExceptionHandlingRequirements) { .isFatal = true, .shouldWriteReport = true });
+    XCTAssertTrue(ctx->requirements.isFatal);
+    XCTAssertFalse(ctx->requirements.asyncSafety);
+    XCTAssertFalse(ctx->requirements.shouldExitImmediately);
+    XCTAssertFalse(ctx->requirements.shouldRecordThreads);
+    XCTAssertFalse(ctx->requirements.crashedDuringExceptionHandling);
 
     dummyExceptionHandlerCallbacks.handle(ctx);  // Handle the exception
     XCTAssertTrue(g_exceptionHandled, @"The exception should have been handled by the event callback.");
@@ -235,12 +236,13 @@ extern void kscm_testcode_resetState(void);
     kscm_setEventCallback(myEventCallback);
     KSCrash_MonitorContext *ctx = NULL;
     ctx = dummyExceptionHandlerCallbacks.notify(
-        (thread_t)ksthread_self(), (KSCrash_ExceptionHandlingPolicy) { .isFatal = false, .shouldWriteReport = true });
-    XCTAssertFalse(ctx->currentPolicy.isFatal);
-    XCTAssertFalse(ctx->currentPolicy.requiresAsyncSafety);
-    XCTAssertFalse(ctx->currentPolicy.shouldExitImmediately);
-    XCTAssertFalse(ctx->currentPolicy.shouldRecordThreads);
-    XCTAssertFalse(ctx->currentPolicy.crashedDuringExceptionHandling);
+        (thread_t)ksthread_self(),
+        (KSCrash_ExceptionHandlingRequirements) { .isFatal = false, .shouldWriteReport = true });
+    XCTAssertFalse(ctx->requirements.isFatal);
+    XCTAssertFalse(ctx->requirements.asyncSafety);
+    XCTAssertFalse(ctx->requirements.shouldExitImmediately);
+    XCTAssertFalse(ctx->requirements.shouldRecordThreads);
+    XCTAssertFalse(ctx->requirements.crashedDuringExceptionHandling);
 
     dummyExceptionHandlerCallbacks.handle(ctx);  // Handle the exception
     XCTAssertTrue(g_exceptionHandled, @"The exception should have been handled by the event callback.");
@@ -255,12 +257,12 @@ extern void kscm_testcode_resetState(void);
     KSCrash_MonitorContext *ctx = NULL;
     ctx = dummyExceptionHandlerCallbacks.notify(
         (thread_t)ksthread_self(),
-        (KSCrash_ExceptionHandlingPolicy) { .isFatal = false, .requiresAsyncSafety = 1, .shouldWriteReport = true });
-    XCTAssertFalse(ctx->currentPolicy.isFatal);
-    XCTAssertTrue(ctx->currentPolicy.requiresAsyncSafety);
-    XCTAssertFalse(ctx->currentPolicy.shouldExitImmediately);
-    XCTAssertFalse(ctx->currentPolicy.shouldRecordThreads);
-    XCTAssertFalse(ctx->currentPolicy.crashedDuringExceptionHandling);
+        (KSCrash_ExceptionHandlingRequirements) { .isFatal = false, .asyncSafety = true, .shouldWriteReport = true });
+    XCTAssertFalse(ctx->requirements.isFatal);
+    XCTAssertTrue(ctx->requirements.asyncSafety);
+    XCTAssertFalse(ctx->requirements.shouldExitImmediately);
+    XCTAssertFalse(ctx->requirements.shouldRecordThreads);
+    XCTAssertFalse(ctx->requirements.crashedDuringExceptionHandling);
     XCTAssertFalse(ctx->isHeapAllocated,
                    @"When async safety is required, the context should not be allocated on the heap");
 }
@@ -272,12 +274,12 @@ extern void kscm_testcode_resetState(void);
     KSCrash_MonitorContext *ctx = NULL;
     ctx = dummyExceptionHandlerCallbacks.notify(
         (thread_t)ksthread_self(),
-        (KSCrash_ExceptionHandlingPolicy) { .isFatal = false, .requiresAsyncSafety = 0, .shouldWriteReport = true });
-    XCTAssertFalse(ctx->currentPolicy.isFatal);
-    XCTAssertFalse(ctx->currentPolicy.requiresAsyncSafety);
-    XCTAssertFalse(ctx->currentPolicy.shouldExitImmediately);
-    XCTAssertFalse(ctx->currentPolicy.shouldRecordThreads);
-    XCTAssertFalse(ctx->currentPolicy.crashedDuringExceptionHandling);
+        (KSCrash_ExceptionHandlingRequirements) { .isFatal = false, .asyncSafety = false, .shouldWriteReport = true });
+    XCTAssertFalse(ctx->requirements.isFatal);
+    XCTAssertFalse(ctx->requirements.asyncSafety);
+    XCTAssertFalse(ctx->requirements.shouldExitImmediately);
+    XCTAssertFalse(ctx->requirements.shouldRecordThreads);
+    XCTAssertFalse(ctx->requirements.crashedDuringExceptionHandling);
     XCTAssertTrue(ctx->isHeapAllocated,
                   @"When async safety is not required, the context should be allocated on the heap");
 }
@@ -308,13 +310,13 @@ static int g_counter = 0;
     usleep(1);
     ctx = dummyExceptionHandlerCallbacks.notify(
         (thread_t)ksthread_self(),
-        (KSCrash_ExceptionHandlingPolicy) { .shouldRecordThreads = true, .shouldWriteReport = true });
-    XCTAssertFalse(ctx->currentPolicy.isFatal);
-    XCTAssertTrue(ctx->currentPolicy.requiresAsyncSafety,
-                  @"requiresAsyncSafety should be set when shouldRecordThreads is true");
-    XCTAssertFalse(ctx->currentPolicy.shouldExitImmediately);
-    XCTAssertTrue(ctx->currentPolicy.shouldRecordThreads);
-    XCTAssertFalse(ctx->currentPolicy.crashedDuringExceptionHandling);
+        (KSCrash_ExceptionHandlingRequirements) { .shouldRecordThreads = true, .shouldWriteReport = true });
+    XCTAssertFalse(ctx->requirements.isFatal);
+    XCTAssertTrue(ctx->requirements.asyncSafetyBecauseThreadsSuspended,
+                  @"asyncSafetyBecauseThreadsSuspended should be set when shouldRecordThreads is true");
+    XCTAssertFalse(ctx->requirements.shouldExitImmediately);
+    XCTAssertTrue(ctx->requirements.shouldRecordThreads);
+    XCTAssertFalse(ctx->requirements.crashedDuringExceptionHandling);
 
     XCTAssertFalse([self isCounterThreadRunning]);
     dummyExceptionHandlerCallbacks.handle(ctx);
@@ -337,23 +339,24 @@ static int g_counter = 0;
     KSCrash_MonitorContext *ctx = NULL;
 
     ctx = dummyExceptionHandlerCallbacks.notify(
-        (thread_t)ksthread_self(), (KSCrash_ExceptionHandlingPolicy) { .isFatal = true, .shouldWriteReport = true });
-    XCTAssertFalse(ctx->currentPolicy.crashedDuringExceptionHandling,
+        (thread_t)ksthread_self(),
+        (KSCrash_ExceptionHandlingRequirements) { .isFatal = true, .shouldWriteReport = true });
+    XCTAssertFalse(ctx->requirements.crashedDuringExceptionHandling,
                    @"The first exception shouldn't be detected as a recrash.");
-    XCTAssertTrue(ctx->currentPolicy.isFatal);
-    XCTAssertFalse(ctx->currentPolicy.requiresAsyncSafety);
-    XCTAssertFalse(ctx->currentPolicy.shouldExitImmediately);
-    XCTAssertFalse(ctx->currentPolicy.shouldRecordThreads);
+    XCTAssertTrue(ctx->requirements.isFatal);
+    XCTAssertFalse(ctx->requirements.asyncSafety);
+    XCTAssertFalse(ctx->requirements.shouldExitImmediately);
+    XCTAssertFalse(ctx->requirements.shouldRecordThreads);
 
     ctx = dummyExceptionHandlerCallbacks.notify(
-        (thread_t)ksthread_self(),
-        (KSCrash_ExceptionHandlingPolicy) { .isFatal = true, .shouldRecordThreads = true, .shouldWriteReport = true });
-    XCTAssertTrue(ctx->currentPolicy.crashedDuringExceptionHandling,
+        (thread_t)ksthread_self(), (KSCrash_ExceptionHandlingRequirements) {
+                                       .isFatal = true, .shouldRecordThreads = true, .shouldWriteReport = true });
+    XCTAssertTrue(ctx->requirements.crashedDuringExceptionHandling,
                   @"The second exception should be detected as a recrash.");
-    XCTAssertTrue(ctx->currentPolicy.isFatal, @"A recrash should set isFatal");
-    XCTAssertTrue(ctx->currentPolicy.requiresAsyncSafety, @"A recrash should set requiresAsyncSafety");
-    XCTAssertFalse(ctx->currentPolicy.shouldExitImmediately);
-    XCTAssertFalse(ctx->currentPolicy.shouldRecordThreads, @"A recrash should clear shouldRecordThreads");
+    XCTAssertTrue(ctx->requirements.isFatal, @"A recrash should set isFatal");
+    XCTAssertTrue(ctx->requirements.asyncSafety, @"A recrash should set requiresAsyncSafety");
+    XCTAssertFalse(ctx->requirements.shouldExitImmediately);
+    XCTAssertFalse(ctx->requirements.shouldRecordThreads, @"A recrash should clear shouldRecordThreads");
 }
 
 - (void)testCrashDuringExceptionHandlingNonFatal
@@ -369,23 +372,24 @@ static int g_counter = 0;
     KSCrash_MonitorContext *ctx = NULL;
 
     ctx = dummyExceptionHandlerCallbacks.notify(
-        (thread_t)ksthread_self(), (KSCrash_ExceptionHandlingPolicy) { .isFatal = true, .shouldWriteReport = true });
-    XCTAssertFalse(ctx->currentPolicy.crashedDuringExceptionHandling,
+        (thread_t)ksthread_self(),
+        (KSCrash_ExceptionHandlingRequirements) { .isFatal = true, .shouldWriteReport = true });
+    XCTAssertFalse(ctx->requirements.crashedDuringExceptionHandling,
                    @"The first exception shouldn't be detected as a recrash.");
-    XCTAssertTrue(ctx->currentPolicy.isFatal);
-    XCTAssertFalse(ctx->currentPolicy.requiresAsyncSafety);
-    XCTAssertFalse(ctx->currentPolicy.shouldExitImmediately);
-    XCTAssertFalse(ctx->currentPolicy.shouldRecordThreads);
+    XCTAssertTrue(ctx->requirements.isFatal);
+    XCTAssertFalse(ctx->requirements.asyncSafety);
+    XCTAssertFalse(ctx->requirements.shouldExitImmediately);
+    XCTAssertFalse(ctx->requirements.shouldRecordThreads);
 
     ctx = dummyExceptionHandlerCallbacks.notify(
-        (thread_t)ksthread_self(),
-        (KSCrash_ExceptionHandlingPolicy) { .isFatal = false, .shouldRecordThreads = true, .shouldWriteReport = true });
-    XCTAssertTrue(ctx->currentPolicy.crashedDuringExceptionHandling,
+        (thread_t)ksthread_self(), (KSCrash_ExceptionHandlingRequirements) {
+                                       .isFatal = false, .shouldRecordThreads = true, .shouldWriteReport = true });
+    XCTAssertTrue(ctx->requirements.crashedDuringExceptionHandling,
                   @"The second exception should be detected as a recrash.");
-    XCTAssertTrue(ctx->currentPolicy.isFatal, @"A recrash should set isFatal");
-    XCTAssertTrue(ctx->currentPolicy.requiresAsyncSafety, @"A recrash should set requiresAsyncSafety");
-    XCTAssertFalse(ctx->currentPolicy.shouldExitImmediately);
-    XCTAssertFalse(ctx->currentPolicy.shouldRecordThreads, @"A recrash should clear shouldRecordThreads");
+    XCTAssertTrue(ctx->requirements.isFatal, @"A recrash should set isFatal");
+    XCTAssertTrue(ctx->requirements.asyncSafety, @"A recrash should set requiresAsyncSafety");
+    XCTAssertFalse(ctx->requirements.shouldExitImmediately);
+    XCTAssertFalse(ctx->requirements.shouldRecordThreads, @"A recrash should clear shouldRecordThreads");
 }
 
 - (void)testSimultaneousUnrelatedExceptionsNonFatalFirst
@@ -397,12 +401,13 @@ static int g_counter = 0;
     __block KSCrash_MonitorContext *ctx = NULL;
 
     ctx = dummyExceptionHandlerCallbacks.notify(
-        (thread_t)ksthread_self(), (KSCrash_ExceptionHandlingPolicy) { .isFatal = false, .shouldWriteReport = true });
-    XCTAssertFalse(ctx->currentPolicy.isFatal);
-    XCTAssertFalse(ctx->currentPolicy.crashedDuringExceptionHandling);
-    XCTAssertFalse(ctx->currentPolicy.requiresAsyncSafety);
-    XCTAssertFalse(ctx->currentPolicy.shouldExitImmediately);
-    XCTAssertFalse(ctx->currentPolicy.shouldRecordThreads);
+        (thread_t)ksthread_self(),
+        (KSCrash_ExceptionHandlingRequirements) { .isFatal = false, .shouldWriteReport = true });
+    XCTAssertFalse(ctx->requirements.isFatal);
+    XCTAssertFalse(ctx->requirements.crashedDuringExceptionHandling);
+    XCTAssertFalse(ctx->requirements.asyncSafety);
+    XCTAssertFalse(ctx->requirements.shouldExitImmediately);
+    XCTAssertFalse(ctx->requirements.shouldRecordThreads);
 
     NSMutableArray *threads = [NSMutableArray new];
 
@@ -410,31 +415,31 @@ static int g_counter = 0;
     [threads addObject:[self startThreadWithBlock:^{
                  ctx = dummyExceptionHandlerCallbacks.notify(
                      (thread_t)ksthread_self(),
-                     (KSCrash_ExceptionHandlingPolicy) { .isFatal = false, .shouldWriteReport = true });
+                     (KSCrash_ExceptionHandlingRequirements) { .isFatal = false, .shouldWriteReport = true });
              }]];
     XCTAssertLessThan([self waitForThreads:threads maxTime:0.5], 0.1,
                       "Unrelated exceptions following a non-fatal exception should not be delayed");
     [self cancelThreads:threads];
-    XCTAssertFalse(ctx->currentPolicy.isFatal);
-    XCTAssertFalse(ctx->currentPolicy.crashedDuringExceptionHandling);
-    XCTAssertFalse(ctx->currentPolicy.requiresAsyncSafety);
-    XCTAssertFalse(ctx->currentPolicy.shouldExitImmediately);
-    XCTAssertFalse(ctx->currentPolicy.shouldRecordThreads);
+    XCTAssertFalse(ctx->requirements.isFatal);
+    XCTAssertFalse(ctx->requirements.crashedDuringExceptionHandling);
+    XCTAssertFalse(ctx->requirements.asyncSafety);
+    XCTAssertFalse(ctx->requirements.shouldExitImmediately);
+    XCTAssertFalse(ctx->requirements.shouldRecordThreads);
 
     [threads removeAllObjects];
     [threads addObject:[self startThreadWithBlock:^{
                  ctx = dummyExceptionHandlerCallbacks.notify(
                      (thread_t)ksthread_self(),
-                     (KSCrash_ExceptionHandlingPolicy) { .isFatal = true, .shouldWriteReport = true });
+                     (KSCrash_ExceptionHandlingRequirements) { .isFatal = true, .shouldWriteReport = true });
              }]];
     XCTAssertLessThan([self waitForThreads:threads maxTime:0.5], 0.1,
                       "Unrelated exceptions following a non-fatal exception should not be delayed");
     [self cancelThreads:threads];
-    XCTAssertTrue(ctx->currentPolicy.isFatal);
-    XCTAssertFalse(ctx->currentPolicy.crashedDuringExceptionHandling);
-    XCTAssertFalse(ctx->currentPolicy.requiresAsyncSafety);
-    XCTAssertFalse(ctx->currentPolicy.shouldExitImmediately);
-    XCTAssertFalse(ctx->currentPolicy.shouldRecordThreads);
+    XCTAssertTrue(ctx->requirements.isFatal);
+    XCTAssertFalse(ctx->requirements.crashedDuringExceptionHandling);
+    XCTAssertFalse(ctx->requirements.asyncSafety);
+    XCTAssertFalse(ctx->requirements.shouldExitImmediately);
+    XCTAssertFalse(ctx->requirements.shouldRecordThreads);
 }
 
 - (void)testSimultaneousUnrelatedExceptionsFatalFirst
@@ -446,12 +451,13 @@ static int g_counter = 0;
     __block KSCrash_MonitorContext *ctx = NULL;
 
     ctx = dummyExceptionHandlerCallbacks.notify(
-        (thread_t)ksthread_self(), (KSCrash_ExceptionHandlingPolicy) { .isFatal = true, .shouldWriteReport = true });
-    XCTAssertTrue(ctx->currentPolicy.isFatal);
-    XCTAssertFalse(ctx->currentPolicy.crashedDuringExceptionHandling);
-    XCTAssertFalse(ctx->currentPolicy.requiresAsyncSafety);
-    XCTAssertFalse(ctx->currentPolicy.shouldExitImmediately);
-    XCTAssertFalse(ctx->currentPolicy.shouldRecordThreads);
+        (thread_t)ksthread_self(),
+        (KSCrash_ExceptionHandlingRequirements) { .isFatal = true, .shouldWriteReport = true });
+    XCTAssertTrue(ctx->requirements.isFatal);
+    XCTAssertFalse(ctx->requirements.crashedDuringExceptionHandling);
+    XCTAssertFalse(ctx->requirements.asyncSafety);
+    XCTAssertFalse(ctx->requirements.shouldExitImmediately);
+    XCTAssertFalse(ctx->requirements.shouldRecordThreads);
 
     NSMutableArray *threads = [NSMutableArray new];
 
@@ -459,7 +465,7 @@ static int g_counter = 0;
     [threads addObject:[self startThreadWithBlock:^{
                  ctx = dummyExceptionHandlerCallbacks.notify(
                      (thread_t)ksthread_self(),
-                     (KSCrash_ExceptionHandlingPolicy) { .isFatal = false, .shouldWriteReport = true });
+                     (KSCrash_ExceptionHandlingRequirements) { .isFatal = false, .shouldWriteReport = true });
              }]];
     XCTAssertGreaterThan([self waitForThreads:threads maxTime:0.5], 0.49,
                          "Unrelated exceptions following a fatal exception should be delayed");
@@ -470,7 +476,7 @@ static int g_counter = 0;
     [threads addObject:[self startThreadWithBlock:^{
                  ctx = dummyExceptionHandlerCallbacks.notify(
                      (thread_t)ksthread_self(),
-                     (KSCrash_ExceptionHandlingPolicy) { .isFatal = true, .shouldWriteReport = true });
+                     (KSCrash_ExceptionHandlingRequirements) { .isFatal = true, .shouldWriteReport = true });
              }]];
     XCTAssertGreaterThan([self waitForThreads:threads maxTime:0.5], 0.49,
                          "Unrelated exceptions following a fatal exception should be delayed");
@@ -491,11 +497,11 @@ static int g_counter = 0;
 //    ctx = dummyExceptionHandlerCallbacks.notify((thread_t)ksthread_self(), (KSCrash_ExceptionHandlingPolicy) {
 //                                                                               .isFatal = false,
 //                                                                           });
-//    XCTAssertFalse(ctx->currentPolicy.isFatal);
-//    XCTAssertFalse(ctx->currentPolicy.crashedDuringExceptionHandling);
-//    XCTAssertFalse(ctx->currentPolicy.requiresAsyncSafety);
-//    XCTAssertFalse(ctx->currentPolicy.shouldExitImmediately);
-//    XCTAssertFalse(ctx->currentPolicy.shouldRecordThreads);
+//    XCTAssertFalse(ctx->requirements.isFatal);
+//    XCTAssertFalse(ctx->requirements.crashedDuringExceptionHandling);
+//    XCTAssertFalse(ctx->requirements.requiresAsyncSafety);
+//    XCTAssertFalse(ctx->requirements.shouldExitImmediately);
+//    XCTAssertFalse(ctx->requirements.shouldRecordThreads);
 //
 //    NSMutableArray *threads = [NSMutableArray new];
 //
@@ -512,7 +518,7 @@ static int g_counter = 0;
 //    [self waitForThreads:threads maxTime:0.5];
 //    [self cancelThreads:threads];
 //    XCTAssertFalse(g_dummyEnabledState);
-//    XCTAssertTrue(ctx->currentPolicy.shouldExitImmediately);
+//    XCTAssertTrue(ctx->requirements.shouldExitImmediately);
 //}
 
 - (void)testOverloadThreadHandlerFatal
@@ -525,12 +531,13 @@ static int g_counter = 0;
     __block KSCrash_MonitorContext *ctx = NULL;
 
     ctx = dummyExceptionHandlerCallbacks.notify(
-        (thread_t)ksthread_self(), (KSCrash_ExceptionHandlingPolicy) { .isFatal = true, .shouldWriteReport = true });
-    XCTAssertTrue(ctx->currentPolicy.isFatal);
-    XCTAssertFalse(ctx->currentPolicy.crashedDuringExceptionHandling);
-    XCTAssertFalse(ctx->currentPolicy.requiresAsyncSafety);
-    XCTAssertFalse(ctx->currentPolicy.shouldExitImmediately);
-    XCTAssertFalse(ctx->currentPolicy.shouldRecordThreads);
+        (thread_t)ksthread_self(),
+        (KSCrash_ExceptionHandlingRequirements) { .isFatal = true, .shouldWriteReport = true });
+    XCTAssertTrue(ctx->requirements.isFatal);
+    XCTAssertFalse(ctx->requirements.crashedDuringExceptionHandling);
+    XCTAssertFalse(ctx->requirements.asyncSafety);
+    XCTAssertFalse(ctx->requirements.shouldExitImmediately);
+    XCTAssertFalse(ctx->requirements.shouldRecordThreads);
 
     NSMutableArray *threads = [NSMutableArray new];
 
@@ -538,13 +545,13 @@ static int g_counter = 0;
         [threads addObject:[self startThreadWithBlock:^{
                      ctx = dummyExceptionHandlerCallbacks.notify(
                          (thread_t)ksthread_self(),
-                         (KSCrash_ExceptionHandlingPolicy) { .isFatal = false, .shouldWriteReport = true });
+                         (KSCrash_ExceptionHandlingRequirements) { .isFatal = false, .shouldWriteReport = true });
                  }]];
     }
     [self waitForThreads:threads maxTime:0.5];
     [self cancelThreads:threads];
     XCTAssertFalse(g_dummyEnabledState);
-    XCTAssertTrue(ctx->currentPolicy.shouldExitImmediately);
+    XCTAssertTrue(ctx->requirements.shouldExitImmediately);
 }
 
 - (void)testHandleExceptionAddsContextualInfoFatal
@@ -555,7 +562,8 @@ static int g_counter = 0;
     KSCrash_MonitorContext *ctx = NULL;
 
     ctx = dummyExceptionHandlerCallbacks.notify(
-        (thread_t)ksthread_self(), (KSCrash_ExceptionHandlingPolicy) { .isFatal = true, .shouldWriteReport = true });
+        (thread_t)ksthread_self(),
+        (KSCrash_ExceptionHandlingRequirements) { .isFatal = true, .shouldWriteReport = true });
     XCTAssertFalse([self cstringIsEqual:ctx->eventID to:g_eventID]);
     dummyExceptionHandlerCallbacks.handle(ctx);  // Handle the exception
     XCTAssertTrue([self cstringIsEqual:g_copiedEventID to:g_eventID],
@@ -570,7 +578,8 @@ static int g_counter = 0;
     KSCrash_MonitorContext *ctx = NULL;
 
     ctx = dummyExceptionHandlerCallbacks.notify(
-        (thread_t)ksthread_self(), (KSCrash_ExceptionHandlingPolicy) { .isFatal = false, .shouldWriteReport = true });
+        (thread_t)ksthread_self(),
+        (KSCrash_ExceptionHandlingRequirements) { .isFatal = false, .shouldWriteReport = true });
     XCTAssertFalse([self cstringIsEqual:ctx->eventID to:g_eventID]);
     dummyExceptionHandlerCallbacks.handle(ctx);  // Handle the exception
     XCTAssertTrue([self cstringIsEqual:g_copiedEventID to:g_eventID],
@@ -585,7 +594,7 @@ static int g_counter = 0;
     KSCrash_MonitorContext *ctx = NULL;
     ctx = dummyExceptionHandlerCallbacks.notify(
         (thread_t)ksthread_self(),
-        (KSCrash_ExceptionHandlingPolicy) { .requiresAsyncSafety = 0, .isFatal = true, .shouldWriteReport = true });
+        (KSCrash_ExceptionHandlingRequirements) { .asyncSafety = false, .isFatal = true, .shouldWriteReport = true });
     XCTAssertTrue(g_dummyMonitor.isEnabled(),
                   @"The monitor should still be enabled before fatal exception handling logic.");
     dummyExceptionHandlerCallbacks.handle(ctx);

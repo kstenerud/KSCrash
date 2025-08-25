@@ -127,9 +127,9 @@ static void CPPExceptionTerminate(void)
         // This requires async-safety because the environment is suspended.
         KSCrash_MonitorContext *crashContext = g_callbacks.notify(
             thisThread,
-            (KSCrash_ExceptionHandlingPolicy) {
-                .requiresAsyncSafety = 1, .isFatal = true, .shouldRecordThreads = true, .shouldWriteReport = true });
-        if (crashContext->currentPolicy.shouldExitImmediately) {
+            (KSCrash_ExceptionHandlingRequirements) {
+                .asyncSafety = true, .isFatal = true, .shouldRecordThreads = true, .shouldWriteReport = true });
+        if (crashContext->requirements.shouldExitImmediately) {
             goto exit_immediately;
         }
 

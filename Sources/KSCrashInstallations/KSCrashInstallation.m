@@ -52,7 +52,7 @@ typedef struct {
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
     KSReportWriteCallback userCrashCallback;
 #pragma clang diagnostic pop
-    KSReportWriteCallbackWithPolicy userCrashCallbackWithPolicy;
+    KSReportWriteCallbackWithPlan userCrashCallbackWithPlan;
     int reportFieldsCount;
     ReportField *reportFields[0];
 } CrashHandlerData;
@@ -241,21 +241,21 @@ static CrashHandlerData *g_crashHandlerData;
 }
 #pragma clang diagnostic pop
 
-- (KSReportWriteCallbackWithPolicy)onCrashWithPolicy
+- (KSReportWriteCallbackWithPlan)onCrashWithPlan
 {
     @synchronized(self) {
-        return self.crashHandlerData->userCrashCallbackWithPolicy;
+        return self.crashHandlerData->userCrashCallbackWithPlan;
     }
 }
 
-- (void)setOnCrashWithPolicy:(KSReportWriteCallbackWithPolicy)onCrash
+- (void)setOnCrashWithPlan:(KSReportWriteCallbackWithPlan)onCrash
 {
     @synchronized(self) {
-        self.crashHandlerData->userCrashCallbackWithPolicy = onCrash;
+        self.crashHandlerData->userCrashCallbackWithPlan = onCrash;
     }
 }
 
-static void onCrash(const KSCrash_ExceptionHandlingPolicy policy, const struct KSCrashReportWriter *_Nonnull writer)
+static void onCrash(const KSCrash_ExceptionHandlingPlan *plan, const struct KSCrashReportWriter *_Nonnull writer)
 {
     CrashHandlerData *crashHandlerData = g_crashHandlerData;
     if (crashHandlerData == NULL) {
@@ -268,8 +268,8 @@ static void onCrash(const KSCrash_ExceptionHandlingPolicy policy, const struct K
         }
     }
 
-    if (crashHandlerData->userCrashCallbackWithPolicy != NULL) {
-        crashHandlerData->userCrashCallbackWithPolicy(policy, writer);
+    if (crashHandlerData->userCrashCallbackWithPlan != NULL) {
+        crashHandlerData->userCrashCallbackWithPlan(plan, writer);
     } else if (crashHandlerData->userCrashCallback != NULL) {
         // TODO: Remove in 3.0 - Deprecated callback invocation for backward compatibility
         crashHandlerData->userCrashCallback(writer);
@@ -282,7 +282,7 @@ static void onCrash(const KSCrash_ExceptionHandlingPolicy policy, const struct K
     @synchronized(handler) {
         g_crashHandlerData = self.crashHandlerData;
 
-        configuration.crashNotifyCallbackWithPolicy = onCrash;
+        configuration.crashNotifyCallbackWithPlan = onCrash;
 
         NSError *installError = nil;
         BOOL success = [handler installWithConfiguration:configuration error:&installError];

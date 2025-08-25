@@ -283,7 +283,7 @@ static NSURL *kscm_memory_oom_breadcrumb_URL(void)
 
 static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext)
 {
-    bool asyncSafeOnly = eventContext->currentPolicy.requiresAsyncSafety;
+    bool asyncSafeOnly = kscexc_requiresAsyncSafety(eventContext->requirements);
 
     // we'll use this when reading this back on the next run
     // to know if an OOM is even possible.
@@ -291,10 +291,10 @@ static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext)
         // since we're in a singal or something that can only
         // use async safe functions, we can't lock.
         // It's "ok" though, since no other threads should be running.
-        g_memory->fatal = eventContext->currentPolicy.isFatal;
+        g_memory->fatal = eventContext->requirements.isFatal;
     } else {
         _ks_memory_update(^(KSCrash_Memory *mem) {
-            mem->fatal = eventContext->currentPolicy.isFatal;
+            mem->fatal = eventContext->requirements.isFatal;
         });
     }
 
@@ -537,9 +537,9 @@ static void ksmemory_write_possible_oom(void)
     thread_t thisThread = (thread_t)ksthread_self();
     KSCrash_MonitorContext *ctx = g_callbacks.notify(
         thisThread,
-        (KSCrash_ExceptionHandlingPolicy) {
-            .requiresAsyncSafety = false, .isFatal = false, .shouldRecordThreads = false, .shouldWriteReport = true });
-    if (ctx->currentPolicy.shouldExitImmediately) {
+        (KSCrash_ExceptionHandlingRequirements) {
+            .asyncSafety = false, .isFatal = false, .shouldRecordThreads = false, .shouldWriteReport = true });
+    if (ctx->requirements.shouldExitImmediately) {
         return;
     }
 

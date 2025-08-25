@@ -54,8 +54,8 @@
     XCTAssertFalse(config.enableQueueNameSearch);
     XCTAssertFalse(config.enableMemoryIntrospection);
     XCTAssertNil(config.doNotIntrospectClasses);
-    XCTAssertEqual(config.crashNotifyCallbackWithPolicy, NULL);
-    XCTAssertEqual(config.reportWrittenCallbackWithPolicy, NULL);
+    XCTAssertEqual(config.crashNotifyCallbackWithPlan, NULL);
+    XCTAssertEqual(config.reportWrittenCallbackWithPlan, NULL);
     XCTAssertFalse(config.addConsoleLogToReport);
     XCTAssertFalse(config.printPreviousLogOnStartup);
     XCTAssertEqual(config.reportStoreConfiguration.maxReportCount, 5);
@@ -202,55 +202,56 @@ static struct {
     BOOL crashNotifyCallbackCalled;
     BOOL reportWrittenCallbackCalled;
     int64_t capturedReportID;
-    KSCrash_ExceptionHandlingPolicy capturedPolicy;
+    const KSCrash_ExceptionHandlingPlan *capturedPlan;
     const struct KSCrashReportWriter *capturedWriter;
 } g_callbackData;
 
 static void clearCallbackData(void) { memset(&g_callbackData, 0, sizeof(g_callbackData)); }
 
-static void onCrash(const KSCrash_ExceptionHandlingPolicy policy, const struct KSCrashReportWriter *writer)
+static void onCrash(const KSCrash_ExceptionHandlingPlan *const plan, const struct KSCrashReportWriter *writer)
 {
     g_callbackData.crashNotifyCallbackCalled = YES;
-    g_callbackData.capturedPolicy = policy;
+    g_callbackData.capturedPlan = plan;
     g_callbackData.capturedWriter = writer;
 }
 
-static void onReportWritten(KSCrash_ExceptionHandlingPolicy policy, int64_t reportID)
+static void onReportWritten(const KSCrash_ExceptionHandlingPlan *const plan, int64_t reportID)
 {
     g_callbackData.reportWrittenCallbackCalled = YES;
     g_callbackData.capturedReportID = reportID;
-    g_callbackData.capturedPolicy = policy;
+    g_callbackData.capturedPlan = plan;
 }
 
 - (void)testCallbacksInCConfiguration
 {
     KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
 
-    config.crashNotifyCallbackWithPolicy = onCrash;
-    config.reportWrittenCallbackWithPolicy = onReportWritten;
+    config.crashNotifyCallbackWithPlan = onCrash;
+    config.reportWrittenCallbackWithPlan = onReportWritten;
 
     KSCrashCConfiguration cConfig = [config toCConfiguration];
 
-    XCTAssertNotEqual(config.crashNotifyCallbackWithPolicy, NULL);
-    XCTAssertNotEqual(config.reportWrittenCallbackWithPolicy, NULL);
-    XCTAssertNotEqual(cConfig.crashNotifyCallbackWithPolicy, NULL);
-    XCTAssertNotEqual(cConfig.reportWrittenCallbackWithPolicy, NULL);
+    XCTAssertNotEqual(config.crashNotifyCallbackWithPlan, NULL);
+    XCTAssertNotEqual(config.reportWrittenCallbackWithPlan, NULL);
+    XCTAssertNotEqual(cConfig.crashNotifyCallbackWithPlan, NULL);
+    XCTAssertNotEqual(cConfig.reportWrittenCallbackWithPlan, NULL);
 
-    KSCrash_ExceptionHandlingPolicy testPolicy = (KSCrash_ExceptionHandlingPolicy) {
-        .isFatal = true, .crashedDuringExceptionHandling = true, .shouldWriteReport = true
-    };
+    KSCrash_ExceptionHandlingPlan testPlan = (KSCrash_ExceptionHandlingPlan) { .isFatal = true,
+                                                                               .crashedDuringExceptionHandling = true,
+                                                                               .shouldWriteReport = true };
     const struct KSCrashReportWriter *testWriter = (const struct KSCrashReportWriter *)(uintptr_t)0xdeadbeef;
-    cConfig.crashNotifyCallbackWithPolicy(testPolicy, testWriter);
+    cConfig.crashNotifyCallbackWithPlan(&testPlan, testWriter);
     XCTAssertTrue(g_callbackData.crashNotifyCallbackCalled);
-    XCTAssertEqual(memcmp(&g_callbackData.capturedPolicy, &testPolicy, sizeof(testPolicy)), 0);
+    XCTAssertEqual(g_callbackData.capturedPlan, &testPlan);
     XCTAssertEqual(g_callbackData.capturedWriter, testWriter);
 
-    testPolicy.isFatal = false;
-    testPolicy.shouldRecordThreads = true;
+    KSCrash_ExceptionHandlingPlan testPlan2 = (KSCrash_ExceptionHandlingPlan) {
+        .isFatal = false, .crashedDuringExceptionHandling = true, .shouldWriteReport = true, .shouldRecordThreads = true
+    };
     int64_t testReportID = 12345;
-    cConfig.reportWrittenCallbackWithPolicy(testPolicy, testReportID);
+    cConfig.reportWrittenCallbackWithPlan(&testPlan2, testReportID);
     XCTAssertTrue(g_callbackData.reportWrittenCallbackCalled);
-    XCTAssertEqual(memcmp(&g_callbackData.capturedPolicy, &testPolicy, sizeof(testPolicy)), 0);
+    XCTAssertEqual(g_callbackData.capturedPlan, &testPlan2);
     XCTAssertEqual(g_callbackData.capturedReportID, testReportID);
 
     KSCrashCConfiguration_Release(&cConfig);
@@ -324,16 +325,16 @@ static void clearLegacyCallbackData(void) { memset(&g_legacyCallbackData, 0, siz
         g_legacyCallbackData.legacyCapturedReportID = reportID;
     };
 
-    config.crashNotifyCallbackWithPolicy = onCrash;
-    config.reportWrittenCallbackWithPolicy = onReportWritten;
+    config.crashNotifyCallbackWithPlan = onCrash;
+    config.reportWrittenCallbackWithPlan = onReportWritten;
 
     KSCrashCConfiguration cConfig = [config toCConfiguration];
 
     // Verify both types of callbacks are set
     XCTAssertNotEqual(cConfig.crashNotifyCallback, NULL);
     XCTAssertNotEqual(cConfig.reportWrittenCallback, NULL);
-    XCTAssertNotEqual(cConfig.crashNotifyCallbackWithPolicy, NULL);
-    XCTAssertNotEqual(cConfig.reportWrittenCallbackWithPolicy, NULL);
+    XCTAssertNotEqual(cConfig.crashNotifyCallbackWithPlan, NULL);
+    XCTAssertNotEqual(cConfig.reportWrittenCallbackWithPlan, NULL);
 
     // Test deprecated crash callback
     const struct KSCrashReportWriter *testWriter = (const struct KSCrashReportWriter *)(uintptr_t)0xdeadcafe;
@@ -342,12 +343,12 @@ static void clearLegacyCallbackData(void) { memset(&g_legacyCallbackData, 0, siz
     XCTAssertEqual(g_legacyCallbackData.legacyCapturedWriter, testWriter);
 
     // Test new crash callback
-    KSCrash_ExceptionHandlingPolicy testPolicy = (KSCrash_ExceptionHandlingPolicy) {
+    KSCrash_ExceptionHandlingPlan testPlan = (KSCrash_ExceptionHandlingPlan) {
         .isFatal = true,
         .crashedDuringExceptionHandling = false,
     };
     const struct KSCrashReportWriter *testWriter2 = (const struct KSCrashReportWriter *)(uintptr_t)0xbeefcafe;
-    cConfig.crashNotifyCallbackWithPolicy(testPolicy, testWriter2);
+    cConfig.crashNotifyCallbackWithPlan(&testPlan, testWriter2);
     XCTAssertTrue(g_callbackData.crashNotifyCallbackCalled);
     XCTAssertEqual(g_callbackData.capturedWriter, testWriter2);
 
@@ -359,7 +360,7 @@ static void clearLegacyCallbackData(void) { memset(&g_legacyCallbackData, 0, siz
 
     // Test new report written callback
     int64_t testReportID2 = 22222;
-    cConfig.reportWrittenCallbackWithPolicy(testPolicy, testReportID2);
+    cConfig.reportWrittenCallbackWithPlan(&testPlan, testReportID2);
     XCTAssertTrue(g_callbackData.reportWrittenCallbackCalled);
     XCTAssertEqual(g_callbackData.capturedReportID, testReportID2);
 
@@ -378,14 +379,14 @@ static void clearLegacyCallbackData(void) { memset(&g_legacyCallbackData, 0, siz
         g_legacyCallbackData.legacyCapturedReportID = reportID;
     };
 
-    config.crashNotifyCallbackWithPolicy = onCrash;
-    config.reportWrittenCallbackWithPolicy = onReportWritten;
+    config.crashNotifyCallbackWithPlan = onCrash;
+    config.reportWrittenCallbackWithPlan = onReportWritten;
     KSCrashConfiguration *copiedConfig = [config copy];
 
     XCTAssertNotNil(copiedConfig.crashNotifyCallback);
     XCTAssertNotNil(copiedConfig.reportWrittenCallback);
-    XCTAssertNotEqual(copiedConfig.crashNotifyCallbackWithPolicy, NULL);
-    XCTAssertNotEqual(copiedConfig.reportWrittenCallbackWithPolicy, NULL);
+    XCTAssertNotEqual(copiedConfig.crashNotifyCallbackWithPlan, NULL);
+    XCTAssertNotEqual(copiedConfig.reportWrittenCallbackWithPlan, NULL);
 
     KSCrashCConfiguration copiedCConfig = [copiedConfig toCConfiguration];
 
