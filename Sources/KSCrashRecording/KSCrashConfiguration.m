@@ -105,7 +105,7 @@
         config.reportWrittenCallback = (KSReportWrittenCallback)imp_implementationWithBlock(self.reportWrittenCallback);
     }
 #pragma clang diagnostic pop
-    config.crashNotifyCallbackWithPlan = self.crashNotifyCallbackWithPlan;
+    config.reportWritingCallback = self.reportWritingCallback;
     config.reportWrittenCallbackWithPlan = self.reportWrittenCallbackWithPlan;
     config.addConsoleLogToReport = self.addConsoleLogToReport;
     config.printPreviousLogOnStartup = self.printPreviousLogOnStartup;
@@ -164,7 +164,7 @@
     copy.crashNotifyCallback = self.crashNotifyCallback;
     copy.reportWrittenCallback = self.reportWrittenCallback;
 #pragma clang diagnostic pop
-    copy.crashNotifyCallbackWithPlan = self.crashNotifyCallbackWithPlan;
+    copy.reportWritingCallback = self.reportWritingCallback;
     copy.reportWrittenCallbackWithPlan = self.reportWrittenCallbackWithPlan;
     copy.eventNotifyCallback = self.eventNotifyCallback;
     copy.addConsoleLogToReport = self.addConsoleLogToReport;

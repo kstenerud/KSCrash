@@ -400,17 +400,21 @@ in the crash report.
 You can also specify a list of classes that should not be introspected by
 setting the **doNotIntrospectClasses** property in KSCrash.
 
-#### Custom crash handling code (onCrash in KSCrash.h)
+#### Custom crash handling code
+
+The following callbacks are available in `KSCrashConfiguration.h`:
+
+ * `eventNotifyCallback`
+ * `reportWritingCallback`
+ * `reportWrittenCallbackWithPlan`
 
 If you want to do some extra processing after a crash occurs (perhaps to add
-more contextual data to the report), you can do so.
+more contextual data to the report), you can do so with these.
 
-However, you must ensure that you only use async-safe code, and above all else
-never call Objective-C code from that method! There are many cases where you
-can get away with doing so anyway, but there are certain classes of crashes
-where handler code that disregards this warning will cause the crash handler
-to crash! Note that if this happens, KSCrash will detect it and write a full
-report anyway, though your custom handler code may not fully run.
+However, you must ensure that you heed the restrictions in the `plan` field!
+Calling non-async-safe code (such as Objective-C or Swift code, or allocating)
+when the plan requires async safety is a recipe for deadlocks or crashing the
+crash handler!
 
 Trade off: Custom crash handling code, but you must be careful what you put
            in it!

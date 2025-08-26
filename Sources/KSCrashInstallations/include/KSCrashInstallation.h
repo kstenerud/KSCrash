@@ -47,7 +47,7 @@ NS_SWIFT_NAME(CrashInstallation)
 /** C Function to call during a crash report to give the callee an opportunity to
  * add to the report. NULL = ignore (DEPRECATED).
  *
- * @deprecated Use `onCrashWithPlan` for async-safety awareness (since v2.4.0).
+ * @deprecated Use `onReportWriting` for async-safety awareness (since v2.4.0).
  * This callback does not receive plan information and may not handle crash
  * scenarios safely.
  *
@@ -58,17 +58,17 @@ NS_SWIFT_NAME(CrashInstallation)
     __attribute__((deprecated("Use `onCrashWithPlan` for async-safety awareness (since v2.4.0).")));
 
 /** C Function to call during a crash report to give the callee an opportunity to
- * add to the report. NULL = ignore.
+ * add to the `user` section of the report. NULL = ignore.
  *
  * The plan parameter provides crucial information about the crash context and
  * safety constraints that must be observed within the callback.
  *
  * @see KSCrash_ExceptionHandlingPlan
  *
- * WARNING: Only call async-safe functions from this function when `requiresAsyncSafety` is true!
+ * WARNING: Only call async-safe functions from this function when `plan.requiresAsyncSafety` is true!
  * DO NOT call Swift/Objective-C methods unless the plan allows it!!!
  */
-@property(atomic, readwrite, assign, nullable) KSReportWriteCallbackWithPlan onCrashWithPlan;
+@property(atomic, readwrite, assign, nullable) KSReportWritingCallback onReportWriting;
 
 /** Flag for disabling built-in demangling pre-filter.
  * If enabled an additional `KSCrashReportFilterDemangle` filter will be applied first.

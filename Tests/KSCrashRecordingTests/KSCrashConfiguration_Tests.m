@@ -54,7 +54,7 @@
     XCTAssertFalse(config.enableQueueNameSearch);
     XCTAssertFalse(config.enableMemoryIntrospection);
     XCTAssertNil(config.doNotIntrospectClasses);
-    XCTAssertEqual(config.crashNotifyCallbackWithPlan, NULL);
+    XCTAssertEqual(config.reportWritingCallback, NULL);
     XCTAssertEqual(config.reportWrittenCallbackWithPlan, NULL);
     XCTAssertFalse(config.addConsoleLogToReport);
     XCTAssertFalse(config.printPreviousLogOnStartup);
@@ -208,7 +208,7 @@ static struct {
 
 static void clearCallbackData(void) { memset(&g_callbackData, 0, sizeof(g_callbackData)); }
 
-static void onCrash(const KSCrash_ExceptionHandlingPlan *const plan, const struct KSCrashReportWriter *writer)
+static void onReportWriting(const KSCrash_ExceptionHandlingPlan *const plan, const struct KSCrashReportWriter *writer)
 {
     g_callbackData.crashNotifyCallbackCalled = YES;
     g_callbackData.capturedPlan = plan;
@@ -226,21 +226,21 @@ static void onReportWritten(const KSCrash_ExceptionHandlingPlan *const plan, int
 {
     KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
 
-    config.crashNotifyCallbackWithPlan = onCrash;
+    config.reportWritingCallback = onReportWriting;
     config.reportWrittenCallbackWithPlan = onReportWritten;
 
     KSCrashCConfiguration cConfig = [config toCConfiguration];
 
-    XCTAssertNotEqual(config.crashNotifyCallbackWithPlan, NULL);
+    XCTAssertNotEqual(config.reportWritingCallback, NULL);
     XCTAssertNotEqual(config.reportWrittenCallbackWithPlan, NULL);
-    XCTAssertNotEqual(cConfig.crashNotifyCallbackWithPlan, NULL);
+    XCTAssertNotEqual(cConfig.reportWritingCallback, NULL);
     XCTAssertNotEqual(cConfig.reportWrittenCallbackWithPlan, NULL);
 
     KSCrash_ExceptionHandlingPlan testPlan = (KSCrash_ExceptionHandlingPlan) { .isFatal = true,
                                                                                .crashedDuringExceptionHandling = true,
                                                                                .shouldWriteReport = true };
     const struct KSCrashReportWriter *testWriter = (const struct KSCrashReportWriter *)(uintptr_t)0xdeadbeef;
-    cConfig.crashNotifyCallbackWithPlan(&testPlan, testWriter);
+    cConfig.reportWritingCallback(&testPlan, testWriter);
     XCTAssertTrue(g_callbackData.crashNotifyCallbackCalled);
     XCTAssertEqual(g_callbackData.capturedPlan, &testPlan);
     XCTAssertEqual(g_callbackData.capturedWriter, testWriter);
@@ -326,7 +326,7 @@ static void clearLegacyCallbackData(void) { memset(&g_legacyCallbackData, 0, siz
         g_legacyCallbackData.legacyCapturedReportID = reportID;
     };
 
-    config.crashNotifyCallbackWithPlan = onCrash;
+    config.reportWritingCallback = onReportWriting;
     config.reportWrittenCallbackWithPlan = onReportWritten;
 
     KSCrashCConfiguration cConfig = [config toCConfiguration];
@@ -334,7 +334,7 @@ static void clearLegacyCallbackData(void) { memset(&g_legacyCallbackData, 0, siz
     // Verify both types of callbacks are set
     XCTAssertNotEqual(cConfig.crashNotifyCallback, NULL);
     XCTAssertNotEqual(cConfig.reportWrittenCallback, NULL);
-    XCTAssertNotEqual(cConfig.crashNotifyCallbackWithPlan, NULL);
+    XCTAssertNotEqual(cConfig.reportWritingCallback, NULL);
     XCTAssertNotEqual(cConfig.reportWrittenCallbackWithPlan, NULL);
 
     // Test deprecated crash callback
@@ -349,7 +349,7 @@ static void clearLegacyCallbackData(void) { memset(&g_legacyCallbackData, 0, siz
         .crashedDuringExceptionHandling = false,
     };
     const struct KSCrashReportWriter *testWriter2 = (const struct KSCrashReportWriter *)(uintptr_t)0xbeefcafe;
-    cConfig.crashNotifyCallbackWithPlan(&testPlan, testWriter2);
+    cConfig.reportWritingCallback(&testPlan, testWriter2);
     XCTAssertTrue(g_callbackData.crashNotifyCallbackCalled);
     XCTAssertEqual(g_callbackData.capturedWriter, testWriter2);
 
@@ -380,13 +380,13 @@ static void clearLegacyCallbackData(void) { memset(&g_legacyCallbackData, 0, siz
         g_legacyCallbackData.legacyCapturedReportID = reportID;
     };
 
-    config.crashNotifyCallbackWithPlan = onCrash;
+    config.reportWritingCallback = onReportWriting;
     config.reportWrittenCallbackWithPlan = onReportWritten;
     KSCrashConfiguration *copiedConfig = [config copy];
 
     XCTAssertNotNil(copiedConfig.crashNotifyCallback);
     XCTAssertNotNil(copiedConfig.reportWrittenCallback);
-    XCTAssertNotEqual(copiedConfig.crashNotifyCallbackWithPlan, NULL);
+    XCTAssertNotEqual(copiedConfig.reportWritingCallback, NULL);
     XCTAssertNotEqual(copiedConfig.reportWrittenCallbackWithPlan, NULL);
 
     KSCrashCConfiguration copiedCConfig = [copiedConfig toCConfiguration];

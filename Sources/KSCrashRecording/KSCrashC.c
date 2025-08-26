@@ -106,7 +106,7 @@ static KSReportWriteCallback g_legacyCrashNotifyCallback;
 static KSReportWrittenCallback g_legacyReportWrittenCallback;
 #pragma clang diagnostic pop
 static KSCrashEventNotifyCallback g_eventNotifyCallback;
-static KSReportWriteCallbackWithPlan g_crashNotifyCallbackWithPlan;
+static KSReportWritingCallback g_reportWritingCallback;
 static KSReportWrittenCallbackWithPlan g_reportWrittenCallbackWithPlan;
 static KSApplicationState g_lastApplicationState = KSApplicationStateNone;
 
@@ -140,7 +140,7 @@ static void legacyCrashNotifyCallbackAdapter(__unused const KSCrash_ExceptionHan
     if (g_legacyCrashNotifyCallback) {
         KSLOG_WARN(
             "Using deprecated crash notify callback without plan awareness. "
-            "Consider upgrading to crashNotifyCallbackWithPlan.");
+            "Consider upgrading to reportWritingCallback.");
         g_legacyCrashNotifyCallback(writer);
     }
 }
@@ -186,7 +186,7 @@ static void notifyOfBeforeInstallationState(void)
  *
  * This function gets passed as a callback to a crash handler.
  */
-static void onCrash(struct KSCrash_MonitorContext *monitorContext)
+static void onExceptionEvent(struct KSCrash_MonitorContext *monitorContext)
 {
     // Check if the user wants to modify the plan for this crash.
     if (g_eventNotifyCallback) {
@@ -265,12 +265,12 @@ void handleConfiguration(KSCrashCConfiguration *configuration)
     g_legacyReportWrittenCallback = configuration->reportWrittenCallback;
 #pragma clang diagnostic pop
 
-    if (configuration->crashNotifyCallbackWithPlan) {
-        g_crashNotifyCallbackWithPlan = configuration->crashNotifyCallbackWithPlan;
+    if (configuration->reportWritingCallback) {
+        g_reportWritingCallback = configuration->reportWritingCallback;
     } else if (g_legacyCrashNotifyCallback) {
-        g_crashNotifyCallbackWithPlan = legacyCrashNotifyCallbackAdapter;
+        g_reportWritingCallback = legacyCrashNotifyCallbackAdapter;
     } else {
-        g_crashNotifyCallbackWithPlan = NULL;
+        g_reportWritingCallback = NULL;
     }
 
     if (configuration->reportWrittenCallbackWithPlan) {
@@ -281,7 +281,7 @@ void handleConfiguration(KSCrashCConfiguration *configuration)
         g_reportWrittenCallbackWithPlan = NULL;
     }
 
-    kscrashreport_setUserSectionWriteCallback(g_crashNotifyCallbackWithPlan);
+    kscrashreport_setUserSectionWriteCallback(g_reportWritingCallback);
     g_shouldAddConsoleLogToReport = configuration->addConsoleLogToReport;
     g_shouldPrintPreviousLog = configuration->printPreviousLogOnStartup;
     g_eventNotifyCallback = configuration->eventNotifyCallback;
@@ -356,7 +356,7 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
 
     ksbic_init();
 
-    kscm_setEventCallback(onCrash);
+    kscm_setEventCallback(onExceptionEvent);
     setMonitors(configuration->monitors);
     if (kscm_activateMonitors() == false) {
         KSLOG_ERROR("No crash monitors are active");

@@ -46,9 +46,6 @@ extern "C" {
 
 /** Callback type for when a crash has been detected, and we are deciding what to do about it.
  *
- * Normally a callback will just return `plan` as-is, but the user could return a modified plan to change how
- * this exception is handled.
- *
  * @see KSCrash_ExceptionHandlingPlan for a list of which policies can be modified.
  *
  * @param plan The current plan for handling this exception, which can be modified by the receiver.
@@ -60,13 +57,13 @@ typedef void (*KSCrashEventNotifyCallback)(KSCrash_ExceptionHandlingPlan *_Nonnu
     NS_SWIFT_UNAVAILABLE("Use Swift closures instead!");
 
 /** Callback type for when a crash report is being written, giving the user an opportunity to add custom data to the
- * user section of the report..
+ * `user` section of the report.
  *
  * @param plan The plan under which the report was written.
  * @param writer The report writer.
  */
-typedef void (*KSReportWriteCallbackWithPlan)(const KSCrash_ExceptionHandlingPlan *_Nonnull const plan,
-                                              const KSCrashReportWriter *_Nonnull writer)
+typedef void (*KSReportWritingCallback)(const KSCrash_ExceptionHandlingPlan *_Nonnull const plan,
+                                        const KSCrashReportWriter *_Nonnull writer)
     NS_SWIFT_UNAVAILABLE("Use Swift closures instead!");
 
 /** Callback type for when a crash report is finished writing.
