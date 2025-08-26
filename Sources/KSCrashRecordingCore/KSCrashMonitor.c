@@ -253,7 +253,7 @@ static KSCrash_MonitorContext *notifyException(const mach_port_t offendingThread
         // This is a recrash, so be more conservative in our handling.
         requirements.crashedDuringExceptionHandling = true;
         requirements.asyncSafety = true;
-        requirements.shouldRecordThreads = false;
+        requirements.shouldRecordAllThreads = false;
         requirements.isFatal = true;
     } else if (wasHandlingFatalException) {
         // This is an incidental exception that happened while we were handling a fatal
@@ -269,7 +269,8 @@ static KSCrash_MonitorContext *notifyException(const mach_port_t offendingThread
     ctx->threadHandlerIndex = thisThreadHandlerIndex;
     ctx->requirements = requirements;
 
-    if (ctx->requirements.shouldRecordThreads) {
+    if (ctx->requirements.shouldRecordAllThreads) {
+        KSLOG_DEBUG("shouldRecordAllThreads, so suspending threads");
         ctx->suspendedThreads = NULL;
         ctx->suspendedThreadsCount = 0;
         ksmc_suspendEnvironment(&ctx->suspendedThreads, &ctx->suspendedThreadsCount);
@@ -305,11 +306,8 @@ static void handleException(struct KSCrash_MonitorContext *ctx)
         kscm_disableAllMonitors();
     }
 
-    if (ctx->requirements.shouldRecordThreads) {
-        // Note: `kscrashreport_writeStandardReport()` may have resumed already,
-        //       which is fine since `ksmc_resumeEnvironment()` is idempotent.
-        ksmc_resumeEnvironment(&ctx->suspendedThreads, &ctx->suspendedThreadsCount);
-    }
+    // Make sure we've resumed by this point.
+    ksmc_resumeEnvironment(&ctx->suspendedThreads, &ctx->suspendedThreadsCount);
 
     endHandlingException(ctx->threadHandlerIndex);
 

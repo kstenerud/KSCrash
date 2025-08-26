@@ -346,7 +346,8 @@ static bool isValidString(const void *const address)
 static bool getStackCursor(const KSCrash_MonitorContext *const crash,
                            const struct KSMachineContext *const machineContext, KSStackCursor *cursor)
 {
-    if (ksmc_getThreadFromContext(machineContext) == ksmc_getThreadFromContext(crash->offendingMachineContext)) {
+    if (ksmc_getThreadFromContext(machineContext) == ksmc_getThreadFromContext(crash->offendingMachineContext) &&
+        crash->stackCursor != NULL) {
         *cursor = *((KSStackCursor *)crash->stackCursor);
         return true;
     }
@@ -1103,24 +1104,25 @@ static void writeThread(const KSCrashReportWriter *const writer, const char *con
  *
  * @param crash The crash handler context.
  */
-static void writeAllThreads(const KSCrashReportWriter *const writer, const char *const key,
-                            const KSCrash_MonitorContext *const crash, bool writeNotableAddresses)
+static void writeThreads(const KSCrashReportWriter *const writer, const char *const key,
+                         const KSCrash_MonitorContext *const crash, bool writeNotableAddresses)
 {
     const struct KSMachineContext *const context = crash->offendingMachineContext;
     KSThread offendingThread = ksmc_getThreadFromContext(context);
     int threadCount = ksmc_getThreadCount(context);
     KSMachineContext machineContext = { 0 };
+    bool shouldRecordAllThreads = crash->requirements.shouldRecordAllThreads;
 
     // Fetch info for all threads.
     writer->beginArray(writer, key);
     {
-        KSLOG_DEBUG("Writing %d threads.", threadCount);
+        KSLOG_DEBUG("Writing %d of %d threads.", shouldRecordAllThreads ? threadCount : 1, threadCount);
         for (int i = 0; i < threadCount; i++) {
             KSThread thread = ksmc_getThreadAtIndex(context, i);
             int threadRunState = ksthread_getThreadState(thread);
             if (thread == offendingThread) {
                 writeThread(writer, NULL, crash, context, i, writeNotableAddresses, threadRunState);
-            } else {
+            } else if (shouldRecordAllThreads) {
                 ksmc_getContextForThread(thread, &machineContext, false);
                 writeThread(writer, NULL, crash, &machineContext, i, writeNotableAddresses, threadRunState);
             }
@@ -1623,17 +1625,14 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
         {
             writeError(writer, KSCrashField_Error, monitorContext);
             ksfu_flushBufferedWriter(&bufferedWriter);
-            if (monitorContext->requirements.shouldRecordThreads) {
-                writeAllThreads(writer, KSCrashField_Threads, monitorContext, g_introspectionRules.enabled);
-                ksfu_flushBufferedWriter(&bufferedWriter);
-                if (monitorContext->suspendedThreadsCount > 0) {
-                    // Special case: If we only needed to suspend the environment to record the threads, then we can
-                    // safely resume now. This gives any remaining callbacks more freedom.
-                    monitorContext->requirements.asyncSafetyBecauseThreadsSuspended = false;
-                    if (!kscexc_requiresAsyncSafety(monitorContext->requirements)) {
-                        ksmc_resumeEnvironment(&monitorContext->suspendedThreads,
-                                               &monitorContext->suspendedThreadsCount);
-                    }
+            writeThreads(writer, KSCrashField_Threads, monitorContext, g_introspectionRules.enabled);
+            ksfu_flushBufferedWriter(&bufferedWriter);
+            if (monitorContext->suspendedThreadsCount > 0) {
+                // Special case: If we only needed to suspend the environment to record the threads, then we can
+                // safely resume now. This gives any remaining callbacks more freedom.
+                monitorContext->requirements.asyncSafetyBecauseThreadsSuspended = false;
+                if (!kscexc_requiresAsyncSafety(monitorContext->requirements)) {
+                    ksmc_resumeEnvironment(&monitorContext->suspendedThreads, &monitorContext->suspendedThreadsCount);
                 }
             }
         }

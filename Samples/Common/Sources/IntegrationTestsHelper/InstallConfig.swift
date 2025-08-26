@@ -32,6 +32,7 @@ public struct InstallConfig: Codable {
     public var installPath: String
     public var isCxaThrowEnabled: Bool?
     public var isSigTermMonitoringEnabled: Bool?
+    public var shouldRecordAllThreads: Bool?
 
     public init(installPath: String) {
         self.installPath = installPath
@@ -48,6 +49,14 @@ extension InstallConfig {
         if let isSigTermMonitoringEnabled {
             config.enableSigTermMonitoring = isSigTermMonitoringEnabled
         }
+        setIntegrationTestEventNotifyImplementation({
+            (plan: UnsafeMutablePointer<ExceptionHandlingPlan>, ctx: UnsafePointer<KSCrash_MonitorContext>) in
+            if let shouldRecordAllThreads {
+                plan.pointee.shouldRecordAllThreads = shouldRecordAllThreads
+            }
+        })
+        config.eventNotifyCallback = integrationTestEventNotifyCallback
+
         try KSCrash.shared.install(with: config)
     }
 }

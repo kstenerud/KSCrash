@@ -88,7 +88,7 @@ public class InstallBridge: ObservableObject {
             writer.pointee.addBooleanElement(writer, "requiresAsyncSafety", plan.pointee.requiresAsyncSafety)
             writer.pointee.addBooleanElement(
                 writer, "crashedDuringExceptionHandling", plan.pointee.crashedDuringExceptionHandling)
-            writer.pointee.addBooleanElement(writer, "shouldRecordThreads", plan.pointee.shouldRecordThreads)
+            writer.pointee.addBooleanElement(writer, "shouldRecordAllThreads", plan.pointee.shouldRecordAllThreads)
             writer.pointee.endContainer(writer)
         }
         config.crashNotifyCallbackWithPlan = cb

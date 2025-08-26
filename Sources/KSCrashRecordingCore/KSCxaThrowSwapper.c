@@ -216,9 +216,9 @@ static void rebind_symbols_for_image(const struct mach_header *header, intptr_t 
         KSLOG_WARN("dladdr failed");
         return;
     }
-    KSLOG_DEBUG("Image name: %s", info.dli_fname);
+    KSLOG_TRACE("Image name: %s", info.dli_fname);
     if (slide == 0) {
-        KSLOG_DEBUG("Zero slide, can't do anything with it");
+        KSLOG_TRACE("Zero slide, can't do anything with it");
         return;
     }
 

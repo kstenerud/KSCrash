@@ -93,7 +93,7 @@ const segment_command_t *ksmacho_getSegmentByNameFromHeader(const mach_header_t 
     for (commandIndex = 0; commandIndex < header->ncmds; commandIndex++) {
         if (segmentCommand->cmd == LC_SEGMENT_ARCH_DEPENDENT &&
             strncmp(segmentCommand->segname, segmentName, sizeof(segmentCommand->segname)) == 0) {
-            KSLOG_DEBUG("Segment %s found at %p", segmentName, segmentCommand);
+            KSLOG_TRACE("Segment %s found at %p", segmentName, segmentCommand);
             return segmentCommand;
         }
         segmentCommand = (segment_command_t *)((uintptr_t)segmentCommand + segmentCommand->cmdsize);
@@ -122,7 +122,7 @@ const section_t *ksmacho_getSectionByTypeFlagFromSegment(const segment_command_t
         }
     }
 
-    KSLOG_DEBUG("Section with flag %u not found in segment %s", flag, segmentCommand->segname);
+    KSLOG_TRACE("Section with flag %u not found in segment %s", flag, segmentCommand->segname);
     return NULL;
 }
 
@@ -146,7 +146,7 @@ vm_prot_t ksmacho_getSectionProtection(void *sectionStart)
         vm_region(task, &address, &size, VM_REGION_BASIC_INFO, (vm_region_info_t)&info, &count, &object);
 #endif
     if (info_ret == KERN_SUCCESS) {
-        KSLOG_DEBUG("Protection obtained: %d", info.protection);
+        KSLOG_TRACE("Protection obtained: %d", info.protection);
         return info.protection;
     } else {
         KSLOG_ERROR("Failed to get protection for section: %s", mach_error_string(info_ret));

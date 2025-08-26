@@ -538,7 +538,7 @@ static void ksmemory_write_possible_oom(void)
     KSCrash_MonitorContext *ctx = g_callbacks.notify(
         thisThread,
         (KSCrash_ExceptionHandlingRequirements) {
-            .asyncSafety = false, .isFatal = false, .shouldRecordThreads = false, .shouldWriteReport = true });
+            .asyncSafety = false, .isFatal = false, .shouldRecordAllThreads = false, .shouldWriteReport = true });
     if (ctx->requirements.shouldExitImmediately) {
         return;
     }
