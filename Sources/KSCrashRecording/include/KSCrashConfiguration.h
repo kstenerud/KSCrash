@@ -109,7 +109,7 @@ NS_ASSUME_NONNULL_BEGIN
  */
 @property(nonatomic, strong, nullable) NSArray<NSString *> *doNotIntrospectClasses;
 
-/** Callback to invoke when a crash event has occured and we are about to write a report.
+/** Callback to invoke before beginning to write a crash report.
  *
  * In this callback, the user can control certain aspects of event handling (such as preventing a report from being
  * written) by modifying the `plan` argument.

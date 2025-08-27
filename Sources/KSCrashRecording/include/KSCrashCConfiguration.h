@@ -160,7 +160,7 @@ typedef struct {
         int length;           /**< Length of the array. */
     } doNotIntrospectClasses;
 
-    /** Callback to invoke upon a crash before begining to process/write it.
+    /** Callback to invoke before beginning to write a crash report.
      *
      * This is the first in the series of callbacks, called after the event information has been gathered but before a
      * report is written.
