@@ -118,7 +118,7 @@ NS_ASSUME_NONNULL_BEGIN
  *
  * **Default**: NULL
  */
-@property(nonatomic, assign, nullable) KSCrashEventNotifyCallback eventNotifyCallback;
+@property(nonatomic, nullable) KSCrashWillWriteReportCallback willWriteReportCallback;
 
 /** Callback to invoke while writing a crash report.
  *
@@ -130,7 +130,7 @@ NS_ASSUME_NONNULL_BEGIN
  *
  * **Default**: NULL
  */
-@property(nonatomic, nullable) KSReportWritingCallback reportWritingCallback;
+@property(nonatomic, nullable) KSCrashIsWritingReportCallback isWritingReportCallback;
 
 /** Callback to invoke upon finishing writing a crash report.
  *
@@ -143,7 +143,7 @@ NS_ASSUME_NONNULL_BEGIN
  *
  * **Default**: NULL
  */
-@property(nonatomic, nullable) KSReportWrittenCallbackWithPlan reportWrittenCallbackWithPlan;
+@property(nonatomic, nullable) KSCrashDidWriteReportCallback didWriteReportCallback;
 
 /** If true, append KSLOG console messages to the crash report.
  *
@@ -188,7 +188,7 @@ NS_ASSUME_NONNULL_BEGIN
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 /** Callback to invoke upon a crash (DEPRECATED).
  *
- * @deprecated Use `reportWritingCallback` for async-safety awareness (since v2.4.0).
+ * @deprecated Use `isWritingReportCallback` for async-safety awareness (since v2.4.0).
  * This callback does not receive plan information and may not handle crash
  * scenarios safely (e.g., calling non-async-safe functions during signal handling).
  *
@@ -198,14 +198,14 @@ NS_ASSUME_NONNULL_BEGIN
  * **Default**: NULL
  */
 @property(nonatomic, copy, nullable) void (^crashNotifyCallback)(const struct KSCrashReportWriter *writer)
-    __attribute__((deprecated("Use `reportWritingCallback` for async-safety awareness (since v2.4.0).")));
+    __attribute__((deprecated("Use `isWritingReportCallback` for async-safety awareness (since v2.4.0).")));
 #pragma clang diagnostic pop
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 /** Callback to invoke upon finishing writing a crash report (DEPRECATED).
  *
- * @deprecated Use `reportWrittenCallbackWithPlan` for async-safety awareness (since v2.4.0).
+ * @deprecated Use `didWriteReportCallback` for async-safety awareness (since v2.4.0).
  * This callback does not receive plan information and may not handle crash
  * scenarios safely.
  *
@@ -215,7 +215,7 @@ NS_ASSUME_NONNULL_BEGIN
  * **Default**: NULL
  */
 @property(nonatomic, copy, nullable) void (^reportWrittenCallback)(int64_t reportID)
-    __attribute__((deprecated("Use `reportWrittenCallbackWithPlan` for async-safety awareness (since v2.4.0).")));
+    __attribute__((deprecated("Use `didWriteReportCallback` for async-safety awareness (since v2.4.0).")));
 #pragma clang diagnostic pop
 
 @end

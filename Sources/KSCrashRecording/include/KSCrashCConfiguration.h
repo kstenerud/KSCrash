@@ -170,7 +170,7 @@ typedef struct {
      *
      * **Default**: NULL
      */
-    KSCrashEventNotifyCallback eventNotifyCallback;
+    KSCrashWillWriteReportCallback willWriteReportCallback;
 
     /** Callback to invoke while writing a crash report.
      *
@@ -183,7 +183,7 @@ typedef struct {
      *
      * **Default**: NULL
      */
-    KSReportWritingCallback reportWritingCallback;
+    KSCrashIsWritingReportCallback isWritingReportCallback;
 
     /** Callback to invoke upon finishing writing a crash report.
      *
@@ -195,7 +195,7 @@ typedef struct {
      *
      * **Default**: NULL
      */
-    KSReportWrittenCallbackWithPlan reportWrittenCallbackWithPlan;
+    KSCrashDidWriteReportCallback didWriteReportCallback;
 
     /** If true, append KSLOG console messages to the crash report.
      *
@@ -240,7 +240,7 @@ typedef struct {
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
     /** Callback to invoke upon a crash (DEPRECATED).
      *
-     * @deprecated Use `reportWritingCallback` for async-safety awareness (since v2.4.0).
+     * @deprecated Use `isWritingReportCallback` for async-safety awareness (since v2.4.0).
      * This callback does not receive plan information and may not handle crash
      * scenarios safely.
      *
@@ -251,14 +251,14 @@ typedef struct {
      * **Default**: NULL
      */
     KSReportWriteCallback crashNotifyCallback
-        __attribute__((deprecated("Use `reportWritingCallback` for async-safety awareness (since v2.4.0).")));
+        __attribute__((deprecated("Use `isWritingReportCallback` for async-safety awareness (since v2.4.0).")));
 #pragma clang diagnostic pop
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
     /** Callback to invoke upon finishing writing a crash report (DEPRECATED).
      *
-     * @deprecated Use `reportWrittenCallbackWithPlan` for async-safety awareness (since v2.4.0).
+     * @deprecated Use `didWriteReportCallback` for async-safety awareness (since v2.4.0).
      * This callback does not receive plan information and may not handle crash
      * scenarios safely.
      *
@@ -269,7 +269,7 @@ typedef struct {
      * **Default**: NULL
      */
     KSReportWrittenCallback reportWrittenCallback
-        __attribute__((deprecated("Use `reportWrittenCallbackWithPlan` for async-safety awareness (since v2.4.0).")));
+        __attribute__((deprecated("Use `didWriteReportCallback` for async-safety awareness (since v2.4.0).")));
 #pragma clang diagnostic pop
 } KSCrashCConfiguration;
 
@@ -287,11 +287,11 @@ static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
         .crashNotifyCallback = NULL,
-        .eventNotifyCallback = NULL,
+        .willWriteReportCallback = NULL,
         .reportWrittenCallback = NULL,
 #pragma clang diagnostic pop
-        .reportWritingCallback = NULL,
-        .reportWrittenCallbackWithPlan = NULL,
+        .isWritingReportCallback = NULL,
+        .didWriteReportCallback = NULL,
         .addConsoleLogToReport = false,
         .printPreviousLogOnStartup = false,
         .enableSwapCxaThrow = true,

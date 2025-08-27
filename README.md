@@ -404,9 +404,9 @@ setting the **doNotIntrospectClasses** property in KSCrash.
 
 The following callbacks are available in `KSCrashConfiguration.h`:
 
- * `eventNotifyCallback`
- * `reportWritingCallback`
- * `reportWrittenCallbackWithPlan`
+ * `willWriteReportCallback`
+ * `isWritingReportCallback`
+ * `didWriteReportCallback`
 
 If you want to do some extra processing after a crash occurs (perhaps to add
 more contextual data to the report), you can do so with these.

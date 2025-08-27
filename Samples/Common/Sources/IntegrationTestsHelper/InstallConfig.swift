@@ -49,13 +49,13 @@ extension InstallConfig {
         if let isSigTermMonitoringEnabled {
             config.enableSigTermMonitoring = isSigTermMonitoringEnabled
         }
-        setIntegrationTestEventNotifyImplementation({
+        setIntegrationTestWillWriteReportCallback({
             (plan: UnsafeMutablePointer<ExceptionHandlingPlan>, ctx: UnsafePointer<KSCrash_MonitorContext>) in
             if let shouldRecordAllThreads {
                 plan.pointee.shouldRecordAllThreads = shouldRecordAllThreads
             }
         })
-        config.eventNotifyCallback = integrationTestEventNotifyCallback
+        config.willWriteReportCallback = integrationTestWillWriteReportCallback
 
         try KSCrash.shared.install(with: config)
     }

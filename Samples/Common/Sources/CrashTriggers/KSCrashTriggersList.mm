@@ -187,7 +187,7 @@ NSString *const KSCrashNSExceptionStacktraceFuncName = @"exceptionWithStacktrace
 }
 
 #define TRIGGER_MULTIPLE(TYPE_A, TYPE_B)                                                               \
-    setIntegrationTestReportWritingImplementation(                                                     \
+    setIntegrationTestIsWritingReportCallback(                                                         \
         ^(const KSCrash_ExceptionHandlingPlan *const plan, const struct KSCrashReportWriter *writer) { \
             if (!plan->crashedDuringExceptionHandling) {                                               \
                 trigger_##TYPE_B();                                                                    \

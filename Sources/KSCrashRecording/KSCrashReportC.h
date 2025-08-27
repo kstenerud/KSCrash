@@ -79,7 +79,7 @@ void kscrashreport_setDoNotIntrospectClasses(const char **doNotIntrospectClasses
  *
  * @param userSectionWriteCallback The user section write callback.
  */
-void kscrashreport_setUserSectionWriteCallback(const KSReportWritingCallback userSectionWriteCallback);
+void kscrashreport_setIsWritingReportCallback(const KSCrashIsWritingReportCallback userSectionWriteCallback);
 
 // ============================================================================
 #pragma mark - Main API -
