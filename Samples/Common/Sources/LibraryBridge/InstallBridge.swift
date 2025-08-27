@@ -79,7 +79,7 @@ public class InstallBridge: ObservableObject {
         config = .init()
 
         // Example of setting a crash notify callback from Swift.
-        // To see this in action, comment out the line below this block:
+        // To see this in action, comment out the following line below this block:
         //     "config.isWritingReportCallback = integrationTestIsWritingReportCallback"
         // Then tap "Install", "Report", "Log Raw to Console" in the sample app to see these custom fields in the raw report.
         let cb: @convention(c) (UnsafePointer<ExceptionHandlingPlan>, UnsafePointer<ReportWriter>) -> Void = {
@@ -93,7 +93,7 @@ public class InstallBridge: ObservableObject {
             writer.pointee.endContainer(writer)
         }
         config.isWritingReportCallback = cb
-
+        // The above block is an example only. We use integrationTestIsWritingReportCallback in the tests.
         config.isWritingReportCallback = integrationTestIsWritingReportCallback
 
         $basePath
