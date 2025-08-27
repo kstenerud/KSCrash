@@ -253,7 +253,7 @@ static void didWriteReportCallback(const KSCrash_ExceptionHandlingPlan *const pl
     KSCrash_ExceptionHandlingPlan testPlan = (KSCrash_ExceptionHandlingPlan) { .isFatal = true,
                                                                                .crashedDuringExceptionHandling = true,
                                                                                .shouldWriteReport = true };
-    KSCrash_MonitorContext monitorContext;
+    KSCrash_MonitorContext monitorContext = { 0 };
     cConfig.willWriteReportCallback(&testPlan, &monitorContext);
     XCTAssertTrue(g_callbackData.willWriteReportCallbackCalled);
     XCTAssertEqual(g_callbackData.capturedPlan, &testPlan);
