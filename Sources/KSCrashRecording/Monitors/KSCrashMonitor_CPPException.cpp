@@ -59,8 +59,6 @@
 
 static struct {
     std::atomic<KSCM_InstalledState> installedState { KSCM_NotInstalled };
-
-    /** True if this handler has been installed. */
     std::atomic<bool> isEnabled { false };
 
     /** True if the handler should capture the next stack trace. */
