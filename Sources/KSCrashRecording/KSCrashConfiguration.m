@@ -61,7 +61,7 @@
         _printPreviousLogOnStartup = cConfig.printPreviousLogOnStartup ? YES : NO;
         _enableSwapCxaThrow = cConfig.enableSwapCxaThrow ? YES : NO;
         _enableSigTermMonitoring = cConfig.enableSigTermMonitoring ? YES : NO;
-        _eventNotifyCallback = cConfig.eventNotifyCallback;
+        _willWriteReportCallback = cConfig.willWriteReportCallback;
 
         _reportStoreConfiguration = [KSCrashReportStoreConfiguration new];
         _reportStoreConfiguration.appName = nil;
@@ -105,13 +105,13 @@
         config.reportWrittenCallback = (KSReportWrittenCallback)imp_implementationWithBlock(self.reportWrittenCallback);
     }
 #pragma clang diagnostic pop
-    config.crashNotifyCallbackWithPlan = self.crashNotifyCallbackWithPlan;
-    config.reportWrittenCallbackWithPlan = self.reportWrittenCallbackWithPlan;
+    config.isWritingReportCallback = self.isWritingReportCallback;
+    config.didWriteReportCallback = self.didWriteReportCallback;
     config.addConsoleLogToReport = self.addConsoleLogToReport;
     config.printPreviousLogOnStartup = self.printPreviousLogOnStartup;
     config.enableSwapCxaThrow = self.enableSwapCxaThrow;
     config.enableSigTermMonitoring = self.enableSigTermMonitoring;
-    config.eventNotifyCallback = self.eventNotifyCallback;
+    config.willWriteReportCallback = self.willWriteReportCallback;
 
     return config;
 }
@@ -164,9 +164,9 @@
     copy.crashNotifyCallback = self.crashNotifyCallback;
     copy.reportWrittenCallback = self.reportWrittenCallback;
 #pragma clang diagnostic pop
-    copy.crashNotifyCallbackWithPlan = self.crashNotifyCallbackWithPlan;
-    copy.reportWrittenCallbackWithPlan = self.reportWrittenCallbackWithPlan;
-    copy.eventNotifyCallback = self.eventNotifyCallback;
+    copy.isWritingReportCallback = self.isWritingReportCallback;
+    copy.didWriteReportCallback = self.didWriteReportCallback;
+    copy.willWriteReportCallback = self.willWriteReportCallback;
     copy.addConsoleLogToReport = self.addConsoleLogToReport;
     copy.printPreviousLogOnStartup = self.printPreviousLogOnStartup;
     copy.enableSwapCxaThrow = self.enableSwapCxaThrow;

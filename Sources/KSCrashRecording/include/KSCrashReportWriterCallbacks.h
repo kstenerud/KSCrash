@@ -40,33 +40,34 @@ extern "C" {
 
 // Various callbacks that will be called while handling a crash.
 // The calling order is:
-// * KSCrashEventNotifyCallback
-// * KSReportWriteCallbackWithPlan
-// * KSReportWrittenCallbackWithPlan
+// * KSCrashWillWriteReportCallback
+// * KSCrashIsWritingReportCallback
+// * KSCrashDidWriteReportCallback
 
-/** Callback type for when a crash has been detected, and we are deciding what to do about it.
+/** Callback type for when a crash has been detected, and we are about to write a report.
+ * At this point, the user may alter the plan for how or whether to write the report.
  *
- * Normally a callback will just return `plan` as-is, but the user could return a modified plan to change how
- * this exception is handled.
+ * @see KSCrash_ExceptionHandlingPlan for a list of which parts of the plan can be modified.
  *
- * @see KSCrash_ExceptionHandlingPlan for a list of which policies can be modified.
+ * WARNING: The `context` parameter is an INTERNAL structure, which WILL change between minor versions!
+ * It gives a lot of insight into what's going on during a crash - which makes it very powerful - but if you use it, it
+ * will be YOUR responsibility to check for breakage between minor versions!
  *
- * @param plan The current plan for handling this exception, which can be modified by the receiver.
- * @param context The monitor context of the report. Note: This is an INTERNAL structure, subject to change without
- * notice!
+ * @param plan The plan under which the report will be written.
+ * @param context The monitor context of the report. WARNING: Subject to change without notice!
  */
-typedef void (*KSCrashEventNotifyCallback)(KSCrash_ExceptionHandlingPlan *_Nonnull const plan,
-                                           const struct KSCrash_MonitorContext *_Nonnull context)
+typedef void (*KSCrashWillWriteReportCallback)(KSCrash_ExceptionHandlingPlan *_Nonnull const plan,
+                                               const struct KSCrash_MonitorContext *_Nonnull context)
     NS_SWIFT_UNAVAILABLE("Use Swift closures instead!");
 
 /** Callback type for when a crash report is being written, giving the user an opportunity to add custom data to the
- * user section of the report..
+ * `user` section of the report.
  *
- * @param plan The plan under which the report was written.
+ * @param plan The plan under which the report is being written.
  * @param writer The report writer.
  */
-typedef void (*KSReportWriteCallbackWithPlan)(const KSCrash_ExceptionHandlingPlan *_Nonnull const plan,
-                                              const KSCrashReportWriter *_Nonnull writer)
+typedef void (*KSCrashIsWritingReportCallback)(const KSCrash_ExceptionHandlingPlan *_Nonnull const plan,
+                                               const KSCrashReportWriter *_Nonnull writer)
     NS_SWIFT_UNAVAILABLE("Use Swift closures instead!");
 
 /** Callback type for when a crash report is finished writing.
@@ -74,8 +75,8 @@ typedef void (*KSReportWriteCallbackWithPlan)(const KSCrash_ExceptionHandlingPla
  * @param plan The plan under which the report was written.
  * @param reportID The ID of the report that was written.
  */
-typedef void (*KSReportWrittenCallbackWithPlan)(const KSCrash_ExceptionHandlingPlan *_Nonnull const plan,
-                                                int64_t reportID) NS_SWIFT_UNAVAILABLE("Use Swift closures instead!");
+typedef void (*KSCrashDidWriteReportCallback)(const KSCrash_ExceptionHandlingPlan *_Nonnull const plan,
+                                              int64_t reportID) NS_SWIFT_UNAVAILABLE("Use Swift closures instead!");
 
 #ifdef __cplusplus
 }

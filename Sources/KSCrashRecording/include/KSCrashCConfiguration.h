@@ -160,46 +160,22 @@ typedef struct {
         int length;           /**< Length of the array. */
     } doNotIntrospectClasses;
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    /** Callback to invoke upon a crash (DEPRECATED).
+    /** Callback to invoke before beginning to write a crash report.
      *
-     * @deprecated Use `crashNotifyCallbackWithPlan` for async-safety awareness (since v2.4.0).
-     * This callback does not receive plan information and may not handle crash
-     * scenarios safely.
+     * This is the first in the series of callbacks, called after the event information has been gathered but before a
+     * report is written.
      *
-     * This function is called during the crash reporting process, providing an opportunity
-     * to add additional information to the crash report. Only async-safe functions should
-     * be called from this function. Avoid calling Objective-C methods.
+     * The `plan` parameter determines what can be safely done within the callback, and can be modified to alter how
+     * this event is handled.
      *
      * **Default**: NULL
      */
-    KSReportWriteCallback crashNotifyCallback
-        __attribute__((deprecated("Use `crashNotifyCallbackWithPlan` for async-safety awareness (since v2.4.0).")));
-#pragma clang diagnostic pop
+    KSCrashWillWriteReportCallback willWriteReportCallback;
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    /** Callback to invoke upon finishing writing a crash report (DEPRECATED).
+    /** Callback to invoke while writing a crash report.
      *
-     * @deprecated Use `reportWrittenCallbackWithPlan` for async-safety awareness (since v2.4.0).
-     * This callback does not receive plan information and may not handle crash
-     * scenarios safely.
-     *
-     * This function is called after a crash report has been written. It allows the caller
-     * to react to the completion of the report. Only async-safe functions should be called
-     * from this function. Avoid calling Objective-C methods.
-     *
-     * **Default**: NULL
-     */
-    KSReportWrittenCallback reportWrittenCallback
-        __attribute__((deprecated("Use `reportWrittenCallbackWithPlan` for async-safety awareness (since v2.4.0).")));
-#pragma clang diagnostic pop
-
-    /** Callback to invoke upon a crash.
-     *
-     * This function is called during the crash reporting process, providing an opportunity
-     * to add additional information to the crash report.
+     * This is the second in the series of callbacks, called while writing the `user` section of the crash report.
+     * From this callback, you may add additional fields to this section using the provided writer.
      *
      * The `plan` parameter determines what can be safely done within the callback.
      *
@@ -207,12 +183,11 @@ typedef struct {
      *
      * **Default**: NULL
      */
-    KSReportWriteCallbackWithPlan crashNotifyCallbackWithPlan;
+    KSCrashIsWritingReportCallback isWritingReportCallback;
 
     /** Callback to invoke upon finishing writing a crash report.
      *
-     * This function is called after a crash report has been written. It allows the caller
-     * to react to the completion of the report.
+     * This is the third in the series of callbacks, called after the report has been written.
      *
      * The `plan` parameter determines what can be safely done within the callback.
      *
@@ -220,18 +195,7 @@ typedef struct {
      *
      * **Default**: NULL
      */
-    KSReportWrittenCallbackWithPlan reportWrittenCallbackWithPlan;
-
-    /** Callback to invoke upon a crash before begining to process/write it.
-     *
-     * The `plan` parameter can be modified.
-     *
-     * This function is called during the crash reporting process, providing an opportunity
-     * to modify the plan for handling the crash.
-     *
-     * **Default**: NULL
-     */
-    KSCrashEventNotifyCallback eventNotifyCallback;
+    KSCrashDidWriteReportCallback didWriteReportCallback;
 
     /** If true, append KSLOG console messages to the crash report.
      *
@@ -271,6 +235,42 @@ typedef struct {
      * **Default**: false
      */
     bool enableSigTermMonitoring;
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    /** Callback to invoke upon a crash (DEPRECATED).
+     *
+     * @deprecated Use `isWritingReportCallback` for async-safety awareness (since v2.4.0).
+     * This callback does not receive plan information and may not handle crash
+     * scenarios safely.
+     *
+     * This function is called during the crash reporting process, providing an opportunity
+     * to add additional information to the crash report. Only async-safe functions should
+     * be called from this function. Avoid calling Objective-C methods.
+     *
+     * **Default**: NULL
+     */
+    KSReportWriteCallback crashNotifyCallback
+        __attribute__((deprecated("Use `isWritingReportCallback` for async-safety awareness (since v2.4.0).")));
+#pragma clang diagnostic pop
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    /** Callback to invoke upon finishing writing a crash report (DEPRECATED).
+     *
+     * @deprecated Use `didWriteReportCallback` for async-safety awareness (since v2.4.0).
+     * This callback does not receive plan information and may not handle crash
+     * scenarios safely.
+     *
+     * This function is called after a crash report has been written. It allows the caller
+     * to react to the completion of the report. Only async-safe functions should be called
+     * from this function. Avoid calling Objective-C methods.
+     *
+     * **Default**: NULL
+     */
+    KSReportWrittenCallback reportWrittenCallback
+        __attribute__((deprecated("Use `didWriteReportCallback` for async-safety awareness (since v2.4.0).")));
+#pragma clang diagnostic pop
 } KSCrashCConfiguration;
 
 static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
@@ -287,11 +287,11 @@ static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
         .crashNotifyCallback = NULL,
-        .eventNotifyCallback = NULL,
+        .willWriteReportCallback = NULL,
         .reportWrittenCallback = NULL,
 #pragma clang diagnostic pop
-        .crashNotifyCallbackWithPlan = NULL,
-        .reportWrittenCallbackWithPlan = NULL,
+        .isWritingReportCallback = NULL,
+        .didWriteReportCallback = NULL,
         .addConsoleLogToReport = false,
         .printPreviousLogOnStartup = false,
         .enableSwapCxaThrow = true,

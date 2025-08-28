@@ -52,7 +52,7 @@ typedef struct {
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
     KSReportWriteCallback userCrashCallback;
 #pragma clang diagnostic pop
-    KSReportWriteCallbackWithPlan userCrashCallbackWithPlan;
+    KSCrashIsWritingReportCallback isWritingReportCallback;
     int reportFieldsCount;
     ReportField *reportFields[0];
 } CrashHandlerData;
@@ -241,21 +241,22 @@ static CrashHandlerData *g_crashHandlerData;
 }
 #pragma clang diagnostic pop
 
-- (KSReportWriteCallbackWithPlan)onCrashWithPlan
+- (KSCrashIsWritingReportCallback)isWritingReportCallback
 {
     @synchronized(self) {
-        return self.crashHandlerData->userCrashCallbackWithPlan;
+        return self.crashHandlerData->isWritingReportCallback;
     }
 }
 
-- (void)setOnCrashWithPlan:(KSReportWriteCallbackWithPlan)onCrash
+- (void)setIsWritingReportCallback:(KSCrashIsWritingReportCallback)isWritingReportCallback
 {
     @synchronized(self) {
-        self.crashHandlerData->userCrashCallbackWithPlan = onCrash;
+        self.crashHandlerData->isWritingReportCallback = isWritingReportCallback;
     }
 }
 
-static void onCrash(const KSCrash_ExceptionHandlingPlan *plan, const struct KSCrashReportWriter *_Nonnull writer)
+static void isWritingReportCallback(const KSCrash_ExceptionHandlingPlan *plan,
+                                    const struct KSCrashReportWriter *_Nonnull writer)
 {
     CrashHandlerData *crashHandlerData = g_crashHandlerData;
     if (crashHandlerData == NULL) {
@@ -268,8 +269,8 @@ static void onCrash(const KSCrash_ExceptionHandlingPlan *plan, const struct KSCr
         }
     }
 
-    if (crashHandlerData->userCrashCallbackWithPlan != NULL) {
-        crashHandlerData->userCrashCallbackWithPlan(plan, writer);
+    if (crashHandlerData->isWritingReportCallback != NULL) {
+        crashHandlerData->isWritingReportCallback(plan, writer);
     } else if (crashHandlerData->userCrashCallback != NULL) {
         // TODO: Remove in 3.0 - Deprecated callback invocation for backward compatibility
         crashHandlerData->userCrashCallback(writer);
@@ -282,7 +283,7 @@ static void onCrash(const KSCrash_ExceptionHandlingPlan *plan, const struct KSCr
     @synchronized(handler) {
         g_crashHandlerData = self.crashHandlerData;
 
-        configuration.crashNotifyCallbackWithPlan = onCrash;
+        configuration.isWritingReportCallback = isWritingReportCallback;
 
         NSError *installError = nil;
         BOOL success = [handler installWithConfiguration:configuration error:&installError];

@@ -109,72 +109,41 @@ NS_ASSUME_NONNULL_BEGIN
  */
 @property(nonatomic, strong, nullable) NSArray<NSString *> *doNotIntrospectClasses;
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-/** Callback to invoke upon a crash (DEPRECATED).
+/** Callback to invoke before beginning to write a crash report.
  *
- * @deprecated Use `crashNotifyCallbackWithPlan` for async-safety awareness (since v2.4.0).
- * This callback does not receive plan information and may not handle crash
- * scenarios safely (e.g., calling non-async-safe functions during signal handling).
+ * In this callback, the user can control certain aspects of event handling (such as preventing a report from being
+ * written) by modifying the `plan` argument.
  *
- * This function is called during the crash reporting process, providing an opportunity
- * to add additional information to the crash report.
+ * The `plan` parameter determines what can be safely done within the callback.
  *
  * **Default**: NULL
  */
-@property(nonatomic, copy, nullable) void (^crashNotifyCallback)(const struct KSCrashReportWriter *writer)
-    __attribute__((deprecated("Use `crashNotifyCallbackWithPlan` for async-safety awareness (since v2.4.0).")));
-#pragma clang diagnostic pop
+@property(nonatomic, nullable) KSCrashWillWriteReportCallback willWriteReportCallback;
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-/** Callback to invoke upon finishing writing a crash report (DEPRECATED).
+/** Callback to invoke while writing a crash report.
  *
- * @deprecated Use `reportWrittenCallbackWithPlan` for async-safety awareness (since v2.4.0).
- * This callback does not receive plan information and may not handle crash
- * scenarios safely.
+ * In this callback, the user has an opportunity to add data to the `user` section of the crash report.
  *
- * This function is called after a crash report has been written. It allows the caller
- * to react to the completion of the report.
- *
- * **Default**: NULL
- */
-@property(nonatomic, copy, nullable) void (^reportWrittenCallback)(int64_t reportID)
-    __attribute__((deprecated("Use `reportWrittenCallbackWithPlan` for async-safety awareness (since v2.4.0).")));
-#pragma clang diagnostic pop
-
-/** Callback to invoke upon a crash.
- *
- * This function is called during the crash reporting process, providing an opportunity
- * to add additional information to the crash report. The `plan` parameter determines
- * what can be safely done within the callback.
+ * The `plan` parameter determines what can be safely done within the callback.
  *
  * @see KSCrash_ExceptionHandlingPlan
  *
  * **Default**: NULL
  */
-@property(nonatomic, nullable) KSReportWriteCallbackWithPlan crashNotifyCallbackWithPlan;
+@property(nonatomic, nullable) KSCrashIsWritingReportCallback isWritingReportCallback;
 
 /** Callback to invoke upon finishing writing a crash report.
  *
  * This function is called after a crash report has been written. It allows the caller
- * to react to the completion of the report. The `plan` parameter determines
- * what can be safely done within the callback.
+ * to react to the completion of the report.
+ *
+ * The `plan` parameter determines what can be safely done within the callback.
  *
  * @see KSCrash_ExceptionHandlingPlan
  *
  * **Default**: NULL
  */
-@property(nonatomic, nullable) KSReportWrittenCallbackWithPlan reportWrittenCallbackWithPlan;
-
-/** Callback to invoke before writing a crash report.
- *
- * This function is called before a crash report has been written. It allows the caller
- * to cancel writting the report, or modify the report being written.
- *
- * **Default**: NULL
- */
-@property(nonatomic, assign, nullable) KSCrashEventNotifyCallback eventNotifyCallback;
+@property(nonatomic, nullable) KSCrashDidWriteReportCallback didWriteReportCallback;
 
 /** If true, append KSLOG console messages to the crash report.
  *
@@ -214,6 +183,40 @@ NS_ASSUME_NONNULL_BEGIN
  * **Default**: false
  */
 @property(nonatomic, assign) BOOL enableSigTermMonitoring;
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+/** Callback to invoke upon a crash (DEPRECATED).
+ *
+ * @deprecated Use `isWritingReportCallback` for async-safety awareness (since v2.4.0).
+ * This callback does not receive plan information and may not handle crash
+ * scenarios safely (e.g., calling non-async-safe functions during signal handling).
+ *
+ * This function is called during the crash reporting process, providing an opportunity
+ * to add additional information to the crash report.
+ *
+ * **Default**: NULL
+ */
+@property(nonatomic, copy, nullable) void (^crashNotifyCallback)(const struct KSCrashReportWriter *writer)
+    __attribute__((deprecated("Use `isWritingReportCallback` for async-safety awareness (since v2.4.0).")));
+#pragma clang diagnostic pop
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+/** Callback to invoke upon finishing writing a crash report (DEPRECATED).
+ *
+ * @deprecated Use `didWriteReportCallback` for async-safety awareness (since v2.4.0).
+ * This callback does not receive plan information and may not handle crash
+ * scenarios safely.
+ *
+ * This function is called after a crash report has been written. It allows the caller
+ * to react to the completion of the report.
+ *
+ * **Default**: NULL
+ */
+@property(nonatomic, copy, nullable) void (^reportWrittenCallback)(int64_t reportID)
+    __attribute__((deprecated("Use `didWriteReportCallback` for async-safety awareness (since v2.4.0).")));
+#pragma clang diagnostic pop
 
 @end
 

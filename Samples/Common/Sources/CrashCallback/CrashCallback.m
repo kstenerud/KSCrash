@@ -9,28 +9,41 @@
 #import <stdio.h>
 #import "KSCrashC.h"
 
-static void (^g_integrationTestEventNotifyCallback)(KSCrash_ExceptionHandlingPlan *_Nonnull const plan, const struct KSCrash_MonitorContext *_Nonnull context) =
+static void (^g_integrationTestWillWriteReportCallback)(KSCrash_ExceptionHandlingPlan *_Nonnull const plan, const struct KSCrash_MonitorContext *_Nonnull context) =
 ^void (KSCrash_ExceptionHandlingPlan *_Nonnull const plan, const struct KSCrash_MonitorContext *_Nonnull context) {
     // Do nothing by default
 };
 
-void integrationTestEventNotifyCallback(KSCrash_ExceptionHandlingPlan *_Nonnull const plan, const struct KSCrash_MonitorContext *_Nonnull context) {
-    g_integrationTestEventNotifyCallback(plan, context);
+void integrationTestWillWriteReportCallback(KSCrash_ExceptionHandlingPlan *_Nonnull const plan, const struct KSCrash_MonitorContext *_Nonnull context) {
+    g_integrationTestWillWriteReportCallback(plan, context);
 }
 
-void setIntegrationTestEventNotifyImplementation(void (^ _Nonnull implementation)(KSCrash_ExceptionHandlingPlan *_Nonnull const plan, const struct KSCrash_MonitorContext *_Nonnull context)) {
-    g_integrationTestEventNotifyCallback = implementation;
+void setIntegrationTestWillWriteReportCallback(void (^ _Nonnull implementation)(KSCrash_ExceptionHandlingPlan *_Nonnull const plan, const struct KSCrash_MonitorContext *_Nonnull context)) {
+    g_integrationTestWillWriteReportCallback = implementation;
 }
 
-static void (^g_integrationTestReportWritingCallback)(const KSCrash_ExceptionHandlingPlan *const plan, const struct KSCrashReportWriter * _Nonnull writer) =
+static void (^g_integrationTestIsWritingReportCallback)(const KSCrash_ExceptionHandlingPlan *const plan, const struct KSCrashReportWriter * _Nonnull writer) =
 ^void (const KSCrash_ExceptionHandlingPlan *const plan, const struct KSCrashReportWriter * _Nonnull writer) {
     // Do nothing by default
 };
 
-void integrationTestReportWritingCallback(const KSCrash_ExceptionHandlingPlan *const plan, const struct KSCrashReportWriter * _Nonnull writer) {
-    g_integrationTestReportWritingCallback(plan, writer);
+void integrationTestIsWritingReportCallback(const KSCrash_ExceptionHandlingPlan *const plan, const struct KSCrashReportWriter * _Nonnull writer) {
+    g_integrationTestIsWritingReportCallback(plan, writer);
 }
 
-void setIntegrationTestReportWritingImplementation(void (^implementation)(const KSCrash_ExceptionHandlingPlan *const plan, const struct KSCrashReportWriter * _Nonnull writer)) {
-    g_integrationTestReportWritingCallback = implementation;
+void setIntegrationTestIsWritingReportCallback(void (^implementation)(const KSCrash_ExceptionHandlingPlan *const plan, const struct KSCrashReportWriter * _Nonnull writer)) {
+    g_integrationTestIsWritingReportCallback = implementation;
+}
+
+static void (^g_integrationTestDidWriteReportCallback)(const KSCrash_ExceptionHandlingPlan *const _Nonnull plan, int64_t reportID) =
+^void (const KSCrash_ExceptionHandlingPlan *const _Nonnull plan, int64_t reportID) {
+    // Do nothing by default
+};
+
+void integrationTestDidWriteReportCallback(const KSCrash_ExceptionHandlingPlan *const _Nonnull plan, int64_t reportID) {
+    g_integrationTestDidWriteReportCallback(plan, reportID);
+}
+
+void setIntegrationTestDidWriteReportCallback(void (^ _Nonnull implementation)(const KSCrash_ExceptionHandlingPlan *const _Nonnull plan, int64_t reportID)) {
+    g_integrationTestDidWriteReportCallback = implementation;
 }

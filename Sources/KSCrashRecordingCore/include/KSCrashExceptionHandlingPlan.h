@@ -85,17 +85,6 @@ typedef struct {
      */
     const bool crashedDuringExceptionHandling;
 
-    /**
-     * Something has gone very, VERY wrong, and as a result the library
-     * cannot handle the exception.
-     *
-     * This is a very rare occurrence, but can happen if too many things cause
-     * fatal exceptions simultaneously.
-     *
-     * Do nothing. Touch nothing. Exit the exception handler immediately.
-     */
-    const bool shouldExitImmediately;
-
 } CF_SWIFT_NAME(ExceptionHandlingPlan) KSCrash_ExceptionHandlingPlan;
 
 #ifdef __cplusplus
