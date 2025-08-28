@@ -44,7 +44,7 @@ typedef struct {
      *
      * Note: Recording all threads will require stopping them, which will trigger `requiresAsyncSafety`
      */
-    bool shouldRecordThreads;
+    bool shouldRecordAllThreads;
 
     /** If true, the handler will write a report about this event. */
     bool shouldWriteReport;

@@ -43,7 +43,7 @@ typedef struct {
      * This will require stopping all threads, and so `asyncSafetyBecauseThreadsSuspended` will be set once the threads
      * are stopped.
      */
-    unsigned shouldRecordThreads : 1;
+    unsigned shouldRecordAllThreads : 1;
 
     /**
      * The handler should try to write a report about this event.

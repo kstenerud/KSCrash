@@ -245,9 +245,10 @@ static void onReportWritten(const KSCrash_ExceptionHandlingPlan *const plan, int
     XCTAssertEqual(g_callbackData.capturedPlan, &testPlan);
     XCTAssertEqual(g_callbackData.capturedWriter, testWriter);
 
-    KSCrash_ExceptionHandlingPlan testPlan2 = (KSCrash_ExceptionHandlingPlan) {
-        .isFatal = false, .crashedDuringExceptionHandling = true, .shouldWriteReport = true, .shouldRecordThreads = true
-    };
+    KSCrash_ExceptionHandlingPlan testPlan2 = (KSCrash_ExceptionHandlingPlan) { .isFatal = false,
+                                                                                .crashedDuringExceptionHandling = true,
+                                                                                .shouldWriteReport = true,
+                                                                                .shouldRecordAllThreads = true };
     int64_t testReportID = 12345;
     cConfig.reportWrittenCallbackWithPlan(&testPlan2, testReportID);
     XCTAssertTrue(g_callbackData.reportWrittenCallbackCalled);

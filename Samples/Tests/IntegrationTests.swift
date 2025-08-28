@@ -41,6 +41,25 @@ final class NSExceptionTests: IntegrationTestBase {
         let appleReport = try launchAndReportCrash()
         XCTAssertTrue(appleReport.contains("reason: 'Test'"))
     }
+
+    func testDontRecordAllThreads() throws {
+        try launchAndCrash(
+            .nsException_genericNSException,
+            installOverride: { (configuration: inout InstallConfig) in
+                configuration.shouldRecordAllThreads = false
+            })
+
+        let rawData = try readRawCrashReportData()
+        print(String(data: rawData, encoding: .utf8) ?? "<failed to read raw data>")
+        let rawReport = try decodePartialCrashReport(reportData: rawData)
+        try rawReport.validate()
+        XCTAssertEqual(rawReport.crash?.error?.type, "nsexception")
+        XCTAssertEqual(rawReport.crash?.error?.reason, "Test")
+        XCTAssertEqual(rawReport.crash?.threads?.count, 1)
+
+        let appleReport = try launchAndReportCrash()
+        XCTAssertTrue(appleReport.contains("reason: 'Test'"))
+    }
 }
 
 #if os(iOS)

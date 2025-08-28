@@ -221,7 +221,7 @@ extern void kscm_testcode_resetState(void);
     XCTAssertTrue(ctx->requirements.isFatal);
     XCTAssertFalse(ctx->requirements.asyncSafety);
     XCTAssertFalse(ctx->requirements.shouldExitImmediately);
-    XCTAssertFalse(ctx->requirements.shouldRecordThreads);
+    XCTAssertFalse(ctx->requirements.shouldRecordAllThreads);
     XCTAssertFalse(ctx->requirements.crashedDuringExceptionHandling);
 
     dummyExceptionHandlerCallbacks.handle(ctx);  // Handle the exception
@@ -241,7 +241,7 @@ extern void kscm_testcode_resetState(void);
     XCTAssertFalse(ctx->requirements.isFatal);
     XCTAssertFalse(ctx->requirements.asyncSafety);
     XCTAssertFalse(ctx->requirements.shouldExitImmediately);
-    XCTAssertFalse(ctx->requirements.shouldRecordThreads);
+    XCTAssertFalse(ctx->requirements.shouldRecordAllThreads);
     XCTAssertFalse(ctx->requirements.crashedDuringExceptionHandling);
 
     dummyExceptionHandlerCallbacks.handle(ctx);  // Handle the exception
@@ -261,7 +261,7 @@ extern void kscm_testcode_resetState(void);
     XCTAssertFalse(ctx->requirements.isFatal);
     XCTAssertTrue(ctx->requirements.asyncSafety);
     XCTAssertFalse(ctx->requirements.shouldExitImmediately);
-    XCTAssertFalse(ctx->requirements.shouldRecordThreads);
+    XCTAssertFalse(ctx->requirements.shouldRecordAllThreads);
     XCTAssertFalse(ctx->requirements.crashedDuringExceptionHandling);
     XCTAssertFalse(ctx->isHeapAllocated,
                    @"When async safety is required, the context should not be allocated on the heap");
@@ -278,7 +278,7 @@ extern void kscm_testcode_resetState(void);
     XCTAssertFalse(ctx->requirements.isFatal);
     XCTAssertFalse(ctx->requirements.asyncSafety);
     XCTAssertFalse(ctx->requirements.shouldExitImmediately);
-    XCTAssertFalse(ctx->requirements.shouldRecordThreads);
+    XCTAssertFalse(ctx->requirements.shouldRecordAllThreads);
     XCTAssertFalse(ctx->requirements.crashedDuringExceptionHandling);
     XCTAssertTrue(ctx->isHeapAllocated,
                   @"When async safety is not required, the context should be allocated on the heap");
@@ -310,12 +310,12 @@ static int g_counter = 0;
     usleep(1);
     ctx = dummyExceptionHandlerCallbacks.notify(
         (thread_t)ksthread_self(),
-        (KSCrash_ExceptionHandlingRequirements) { .shouldRecordThreads = true, .shouldWriteReport = true });
+        (KSCrash_ExceptionHandlingRequirements) { .shouldRecordAllThreads = true, .shouldWriteReport = true });
     XCTAssertFalse(ctx->requirements.isFatal);
     XCTAssertTrue(ctx->requirements.asyncSafetyBecauseThreadsSuspended,
                   @"asyncSafetyBecauseThreadsSuspended should be set when shouldRecordThreads is true");
     XCTAssertFalse(ctx->requirements.shouldExitImmediately);
-    XCTAssertTrue(ctx->requirements.shouldRecordThreads);
+    XCTAssertTrue(ctx->requirements.shouldRecordAllThreads);
     XCTAssertFalse(ctx->requirements.crashedDuringExceptionHandling);
 
     XCTAssertFalse([self isCounterThreadRunning]);
@@ -346,17 +346,17 @@ static int g_counter = 0;
     XCTAssertTrue(ctx->requirements.isFatal);
     XCTAssertFalse(ctx->requirements.asyncSafety);
     XCTAssertFalse(ctx->requirements.shouldExitImmediately);
-    XCTAssertFalse(ctx->requirements.shouldRecordThreads);
+    XCTAssertFalse(ctx->requirements.shouldRecordAllThreads);
 
     ctx = dummyExceptionHandlerCallbacks.notify(
         (thread_t)ksthread_self(), (KSCrash_ExceptionHandlingRequirements) {
-                                       .isFatal = true, .shouldRecordThreads = true, .shouldWriteReport = true });
+                                       .isFatal = true, .shouldRecordAllThreads = true, .shouldWriteReport = true });
     XCTAssertTrue(ctx->requirements.crashedDuringExceptionHandling,
                   @"The second exception should be detected as a recrash.");
     XCTAssertTrue(ctx->requirements.isFatal, @"A recrash should set isFatal");
     XCTAssertTrue(ctx->requirements.asyncSafety, @"A recrash should set requiresAsyncSafety");
     XCTAssertFalse(ctx->requirements.shouldExitImmediately);
-    XCTAssertFalse(ctx->requirements.shouldRecordThreads, @"A recrash should clear shouldRecordThreads");
+    XCTAssertFalse(ctx->requirements.shouldRecordAllThreads, @"A recrash should clear shouldRecordThreads");
 }
 
 - (void)testCrashDuringExceptionHandlingNonFatal
@@ -379,17 +379,17 @@ static int g_counter = 0;
     XCTAssertTrue(ctx->requirements.isFatal);
     XCTAssertFalse(ctx->requirements.asyncSafety);
     XCTAssertFalse(ctx->requirements.shouldExitImmediately);
-    XCTAssertFalse(ctx->requirements.shouldRecordThreads);
+    XCTAssertFalse(ctx->requirements.shouldRecordAllThreads);
 
     ctx = dummyExceptionHandlerCallbacks.notify(
         (thread_t)ksthread_self(), (KSCrash_ExceptionHandlingRequirements) {
-                                       .isFatal = false, .shouldRecordThreads = true, .shouldWriteReport = true });
+                                       .isFatal = false, .shouldRecordAllThreads = true, .shouldWriteReport = true });
     XCTAssertTrue(ctx->requirements.crashedDuringExceptionHandling,
                   @"The second exception should be detected as a recrash.");
     XCTAssertTrue(ctx->requirements.isFatal, @"A recrash should set isFatal");
     XCTAssertTrue(ctx->requirements.asyncSafety, @"A recrash should set requiresAsyncSafety");
     XCTAssertFalse(ctx->requirements.shouldExitImmediately);
-    XCTAssertFalse(ctx->requirements.shouldRecordThreads, @"A recrash should clear shouldRecordThreads");
+    XCTAssertFalse(ctx->requirements.shouldRecordAllThreads, @"A recrash should clear shouldRecordThreads");
 }
 
 - (void)testSimultaneousUnrelatedExceptionsNonFatalFirst
@@ -407,7 +407,7 @@ static int g_counter = 0;
     XCTAssertFalse(ctx->requirements.crashedDuringExceptionHandling);
     XCTAssertFalse(ctx->requirements.asyncSafety);
     XCTAssertFalse(ctx->requirements.shouldExitImmediately);
-    XCTAssertFalse(ctx->requirements.shouldRecordThreads);
+    XCTAssertFalse(ctx->requirements.shouldRecordAllThreads);
 
     NSMutableArray *threads = [NSMutableArray new];
 
@@ -424,7 +424,7 @@ static int g_counter = 0;
     XCTAssertFalse(ctx->requirements.crashedDuringExceptionHandling);
     XCTAssertFalse(ctx->requirements.asyncSafety);
     XCTAssertFalse(ctx->requirements.shouldExitImmediately);
-    XCTAssertFalse(ctx->requirements.shouldRecordThreads);
+    XCTAssertFalse(ctx->requirements.shouldRecordAllThreads);
 
     [threads removeAllObjects];
     [threads addObject:[self startThreadWithBlock:^{
@@ -439,7 +439,7 @@ static int g_counter = 0;
     XCTAssertFalse(ctx->requirements.crashedDuringExceptionHandling);
     XCTAssertFalse(ctx->requirements.asyncSafety);
     XCTAssertFalse(ctx->requirements.shouldExitImmediately);
-    XCTAssertFalse(ctx->requirements.shouldRecordThreads);
+    XCTAssertFalse(ctx->requirements.shouldRecordAllThreads);
 }
 
 - (void)testSimultaneousUnrelatedExceptionsFatalFirst
@@ -457,7 +457,7 @@ static int g_counter = 0;
     XCTAssertFalse(ctx->requirements.crashedDuringExceptionHandling);
     XCTAssertFalse(ctx->requirements.asyncSafety);
     XCTAssertFalse(ctx->requirements.shouldExitImmediately);
-    XCTAssertFalse(ctx->requirements.shouldRecordThreads);
+    XCTAssertFalse(ctx->requirements.shouldRecordAllThreads);
 
     NSMutableArray *threads = [NSMutableArray new];
 
@@ -501,7 +501,7 @@ static int g_counter = 0;
 //    XCTAssertFalse(ctx->requirements.crashedDuringExceptionHandling);
 //    XCTAssertFalse(ctx->requirements.requiresAsyncSafety);
 //    XCTAssertFalse(ctx->requirements.shouldExitImmediately);
-//    XCTAssertFalse(ctx->requirements.shouldRecordThreads);
+//    XCTAssertFalse(ctx->requirements.shouldRecordAllThreads);
 //
 //    NSMutableArray *threads = [NSMutableArray new];
 //
@@ -537,7 +537,7 @@ static int g_counter = 0;
     XCTAssertFalse(ctx->requirements.crashedDuringExceptionHandling);
     XCTAssertFalse(ctx->requirements.asyncSafety);
     XCTAssertFalse(ctx->requirements.shouldExitImmediately);
-    XCTAssertFalse(ctx->requirements.shouldRecordThreads);
+    XCTAssertFalse(ctx->requirements.shouldRecordAllThreads);
 
     NSMutableArray *threads = [NSMutableArray new];
 

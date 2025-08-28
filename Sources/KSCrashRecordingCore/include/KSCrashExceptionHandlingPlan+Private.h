@@ -33,7 +33,7 @@
 static inline KSCrash_ExceptionHandlingPlan ksexc_monitorContextToPlan(const KSCrash_MonitorContext *const context)
 {
     return (KSCrash_ExceptionHandlingPlan) {
-        .shouldRecordThreads = context->requirements.shouldRecordThreads,
+        .shouldRecordAllThreads = context->requirements.shouldRecordAllThreads,
         .shouldWriteReport = context->requirements.shouldWriteReport,
         .isFatal = context->requirements.isFatal,
         .requiresAsyncSafety = kscexc_requiresAsyncSafety(context->requirements),
@@ -45,7 +45,7 @@ static inline KSCrash_ExceptionHandlingPlan ksexc_monitorContextToPlan(const KSC
 static inline void ksexc_modifyMonitorContextUsingPlan(KSCrash_MonitorContext *const context,
                                                        KSCrash_ExceptionHandlingPlan *plan)
 {
-    context->requirements.shouldRecordThreads = plan->shouldRecordThreads;
+    context->requirements.shouldRecordAllThreads = plan->shouldRecordAllThreads;
     context->requirements.shouldWriteReport = plan->shouldWriteReport;
 }
 

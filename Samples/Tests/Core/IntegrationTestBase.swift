@@ -97,6 +97,26 @@ class IntegrationTestBase: XCTestCase {
         try? FileManager.default.removeItem(at: installUrl)
     }
 
+    func logData(name: String, data: Data) {
+        let str = String(data: data, encoding: .utf8) ?? "<no \(name)>"
+        log.info(
+            "\n\nvvvvvvvvvvvvvvvvvvvv \(name) vvvvvvvvvvvvvvvvvvvv\n\(str)\n^^^^^^^^^^^^^^^^^^^^ \(name) ^^^^^^^^^^^^^^^^^^^^"
+        )
+    }
+
+    func logFile(name: String, path: String) {
+        if FileManager.default.fileExists(atPath: path) {
+            do {
+                let str = try String(contentsOfFile: path, encoding: .utf8)
+                log.info(
+                    "\n\nvvvvvvvvvvvvvvvvvvvv \(name) vvvvvvvvvvvvvvvvvvvv\n\(str)\n^^^^^^^^^^^^^^^^^^^^ \(name) ^^^^^^^^^^^^^^^^^^^^"
+                )
+            } catch {
+                log.info("Could not load \(name) from \(path): \(error)")
+            }
+        }
+    }
+
     func launchAppAndRunScript() {
         app.launch()
         _ = app.wait(for: .runningForeground, timeout: appLaunchTimeout)
@@ -109,6 +129,7 @@ class IntegrationTestBase: XCTestCase {
         #else
             XCTAssert(app.wait(for: .notRunning, timeout: actionDelay + appCrashTimeout), "App crash is expected")
         #endif
+        logFile(name: "Data/ConsoleLog.txt", path: installUrl.path.appending("/Data/ConsoleLog.txt"))
     }
 
     private func waitForFile(in dir: URL, timeout: TimeInterval? = nil) throws -> URL {
@@ -178,6 +199,10 @@ class IntegrationTestBase: XCTestCase {
         let reportData = try readRawCrashReportData()
         let report = try JSONDecoder().decode(PartialCrashReport.self, from: reportData)
         return report
+    }
+
+    func decodePartialCrashReport(reportData: Data) throws -> PartialCrashReport {
+        return try JSONDecoder().decode(PartialCrashReport.self, from: reportData)
     }
 
     func hasCrashReport() throws -> Bool {
