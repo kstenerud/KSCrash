@@ -52,25 +52,28 @@
 #pragma mark - Globals -
 // ============================================================================
 
-static atomic_bool g_isEnabled = false;
-static bool g_sigterm_monitoringEnabled = false;
+static struct {
+    _Atomic(KSCM_InstalledState) installedState;
+    atomic_bool isEnabled;
+    bool sigtermMonitoringEnabled;
 
 #if KSCRASH_HAS_SIGNAL_STACK
-/** Our custom signal stack. The signal handler will use this as its stack. */
-static stack_t g_signalStack = { 0 };
+    /** Our custom signal stack. The signal handler will use this as its stack. */
+    stack_t signalStack;
 #endif
 
-/** Signal handlers that were installed before we installed ours. */
-static struct sigaction *g_previousSignalHandlers = NULL;
+    /** Signal handlers that were installed before we installed ours. */
+    struct sigaction *previousSignalHandlers;
 
-static KSCrash_ExceptionHandlerCallbacks g_callbacks;
+    KSCrash_ExceptionHandlerCallbacks callbacks;
+} g_state;
 
 // ============================================================================
 #pragma mark - Private -
 // ============================================================================
 
-static void uninstallSignalHandler(void);
-static bool shouldHandleSignal(int sigNum) { return !(sigNum == SIGTERM && !g_sigterm_monitoringEnabled); }
+static void uninstall(void);
+static bool shouldHandleSignal(int sigNum) { return !(sigNum == SIGTERM && !g_state.sigtermMonitoringEnabled); }
 
 // ============================================================================
 #pragma mark - Callbacks -
@@ -91,9 +94,9 @@ static bool shouldHandleSignal(int sigNum) { return !(sigNum == SIGTERM && !g_si
 static void handleSignal(int sigNum, siginfo_t *signalInfo, void *userContext)
 {
     KSLOG_DEBUG("Trapped signal %d", sigNum);
-    if (g_isEnabled && shouldHandleSignal(sigNum)) {
+    if (g_state.installedState == KSCM_Installed && g_state.isEnabled && shouldHandleSignal(sigNum)) {
         thread_t thisThread = (thread_t)ksthread_self();
-        KSCrash_MonitorContext *crashContext = g_callbacks.notify(
+        KSCrash_MonitorContext *crashContext = g_state.callbacks.notify(
             thisThread,
             (KSCrash_ExceptionHandlingRequirements) {
                 .asyncSafety = true, .isFatal = true, .shouldRecordAllThreads = true, .shouldWriteReport = true });
@@ -116,14 +119,14 @@ static void handleSignal(int sigNum, siginfo_t *signalInfo, void *userContext)
         crashContext->signal.sigcode = signalInfo->si_code;
         crashContext->stackCursor = &stackCursor;
 
-        g_callbacks.handle(crashContext);
+        g_state.callbacks.handle(crashContext);
     } else {
-        uninstallSignalHandler();
         ksmemory_notifyUnhandledFatalSignal();
     }
 
     KSLOG_DEBUG("Re-raising signal for regular handlers to catch.");
 exit_immediately:
+    uninstall();
     raise(sigNum);
 }
 
@@ -131,20 +134,25 @@ exit_immediately:
 #pragma mark - API -
 // ============================================================================
 
-static bool installSignalHandler(void)
+static void install(void)
 {
+    KSCM_InstalledState expectInstalled = KSCM_NotInstalled;
+    if (!atomic_compare_exchange_strong(&g_state.installedState, &expectInstalled, KSCM_Installed)) {
+        return;
+    }
+
     KSLOG_DEBUG("Installing signal handler.");
 
 #if KSCRASH_HAS_SIGNAL_STACK
 
-    if (g_signalStack.ss_size == 0) {
+    if (g_state.signalStack.ss_size == 0) {
         KSLOG_DEBUG("Allocating signal stack area.");
-        g_signalStack.ss_size = SIGSTKSZ;
-        g_signalStack.ss_sp = malloc(g_signalStack.ss_size);
+        g_state.signalStack.ss_size = SIGSTKSZ;
+        g_state.signalStack.ss_sp = malloc(g_state.signalStack.ss_size);
     }
 
     KSLOG_DEBUG("Setting signal stack area.");
-    if (sigaltstack(&g_signalStack, NULL) != 0) {
+    if (sigaltstack(&g_state.signalStack, NULL) != 0) {
         KSLOG_ERROR("signalstack: %s", strerror(errno));
         goto failed;
     }
@@ -153,9 +161,9 @@ static bool installSignalHandler(void)
     const int *fatalSignals = kssignal_fatalSignals();
     int fatalSignalsCount = kssignal_numFatalSignals();
 
-    if (g_previousSignalHandlers == NULL) {
+    if (g_state.previousSignalHandlers == NULL) {
         KSLOG_DEBUG("Allocating memory to store previous signal handlers.");
-        g_previousSignalHandlers = malloc(sizeof(*g_previousSignalHandlers) * (unsigned)fatalSignalsCount);
+        g_state.previousSignalHandlers = malloc(sizeof(*g_state.previousSignalHandlers) * (unsigned)fatalSignalsCount);
     }
 
     struct sigaction action = { { 0 } };
@@ -168,7 +176,7 @@ static bool installSignalHandler(void)
 
     for (int i = 0; i < fatalSignalsCount; i++) {
         KSLOG_DEBUG("Assigning handler for signal %d", fatalSignals[i]);
-        if (sigaction(fatalSignals[i], &action, &g_previousSignalHandlers[i]) != 0) {
+        if (sigaction(fatalSignals[i], &action, &g_state.previousSignalHandlers[i]) != 0) {
             char sigNameBuff[30];
             const char *sigName = kssignal_signalName(fatalSignals[i]);
             if (sigName == NULL) {
@@ -178,21 +186,25 @@ static bool installSignalHandler(void)
             KSLOG_ERROR("sigaction (%s): %s", sigName, strerror(errno));
             // Try to reverse the damage
             for (i--; i >= 0; i--) {
-                sigaction(fatalSignals[i], &g_previousSignalHandlers[i], NULL);
+                sigaction(fatalSignals[i], &g_state.previousSignalHandlers[i], NULL);
             }
             goto failed;
         }
     }
     KSLOG_DEBUG("Signal handlers installed.");
-    return true;
+    return;
 
 failed:
     KSLOG_DEBUG("Failed to install signal handlers.");
-    return false;
+    g_state.installedState = KSCM_FailedInstall;
 }
 
-static void uninstallSignalHandler(void)
+static void uninstall(void)
 {
+    KSCM_InstalledState expectInstalled = KSCM_Installed;
+    if (!atomic_compare_exchange_strong(&g_state.installedState, &expectInstalled, KSCM_Uninstalled)) {
+        return;
+    }
     KSLOG_DEBUG("Uninstalling signal handlers.");
 
     const int *fatalSignals = kssignal_fatalSignals();
@@ -200,11 +212,11 @@ static void uninstallSignalHandler(void)
 
     for (int i = 0; i < fatalSignalsCount; i++) {
         KSLOG_DEBUG("Restoring original handler for signal %d", fatalSignals[i]);
-        sigaction(fatalSignals[i], &g_previousSignalHandlers[i], NULL);
+        sigaction(fatalSignals[i], &g_state.previousSignalHandlers[i], NULL);
     }
 
 #if KSCRASH_HAS_SIGNAL_STACK
-    g_signalStack = (stack_t) { 0 };
+    g_state.signalStack = (stack_t) { 0 };
 #endif
     KSLOG_DEBUG("Signal handlers uninstalled.");
 }
@@ -216,21 +228,18 @@ static KSCrashMonitorFlag monitorFlags(void) { return KSCrashMonitorFlagAsyncSaf
 static void setEnabled(bool isEnabled)
 {
     bool expectEnabled = !isEnabled;
-    if (!atomic_compare_exchange_strong(&g_isEnabled, &expectEnabled, isEnabled)) {
+    if (!atomic_compare_exchange_strong(&g_state.isEnabled, &expectEnabled, isEnabled)) {
         // We were already in the expected state
         return;
     }
 
     if (isEnabled) {
-        if (!installSignalHandler()) {
-            return;
-        }
-    } else {
-        uninstallSignalHandler();
+        install();
+        g_state.isEnabled = g_state.installedState == KSCM_Installed;
     }
 }
 
-static bool isEnabled(void) { return g_isEnabled; }
+static bool isEnabled(void) { return g_state.isEnabled; }
 
 static void addContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext)
 {
@@ -242,12 +251,12 @@ static void addContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext
     }
 }
 
-static void init(KSCrash_ExceptionHandlerCallbacks *callbacks) { g_callbacks = *callbacks; }
+static void init(KSCrash_ExceptionHandlerCallbacks *callbacks) { g_state.callbacks = *callbacks; }
 
 #endif /* KSCRASH_HAS_SIGNAL */
 
 #if KSCRASH_HAS_SIGNAL
-void kscm_signal_sigterm_setMonitoringEnabled(bool enabled) { g_sigterm_monitoringEnabled = enabled; }
+void kscm_signal_sigterm_setMonitoringEnabled(bool enabled) { g_state.sigtermMonitoringEnabled = enabled; }
 #else
 void kscm_signal_sigterm_setMonitoringEnabled(__unused bool enabled) {}
 #endif

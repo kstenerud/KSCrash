@@ -126,9 +126,9 @@ static KSCrash_ExceptionHandlerCallbacks g_callbacks;
 
     g_callbacks.handle(crashContext);
 
-    KSLOG_DEBUG(@"Calling abort()");
+    KSLOG_DEBUG(@"Terminating application");
 exit_immediately:
-    abort();
+    kscm_exit(1, kscexc_requiresAsyncSafety(crashContext->requirements));
 }
 
 - (void)runMonitor
