@@ -44,11 +44,6 @@
 #pragma mark - Globals -
 // ============================================================================
 
-static void defaultOnEnabled(__unused NSUncaughtExceptionHandler *uncaughtExceptionHandler,
-                             __unused KSCrashCustomNSExceptionReporter *customNSExceptionReporter)
-{
-}
-
 static struct {
     _Atomic(KSCM_InstalledState) installedState;
     atomic_bool isEnabled;
@@ -59,7 +54,7 @@ static struct {
     KSCrash_ExceptionHandlerCallbacks callbacks;
 
     OnNSExceptionHandlerEnabled *onEnabled;
-} g_state = { .onEnabled = defaultOnEnabled };
+} g_state;
 
 // ============================================================================
 #pragma mark - Callbacks -
@@ -175,10 +170,8 @@ static void install(void)
 
     KSLOG_DEBUG(@"Backing up original handler.");
     g_state.previousUncaughtExceptionHandler = NSGetUncaughtExceptionHandler();
-
     KSLOG_DEBUG(@"Setting new handler.");
     NSSetUncaughtExceptionHandler(&handleUncaughtException);
-    g_state.onEnabled(handleUncaughtException, customNSExceptionReporter);
 }
 
 // ============================================================================
@@ -196,6 +189,9 @@ static void setEnabled(bool isEnabled)
     if (isEnabled) {
         install();
         g_state.isEnabled = g_state.installedState == KSCM_Installed;
+        if (g_state.isEnabled && g_state.onEnabled != NULL) {
+            g_state.onEnabled(handleUncaughtException, customNSExceptionReporter);
+        }
     }
 }
 
