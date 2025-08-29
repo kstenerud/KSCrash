@@ -123,7 +123,7 @@ static void CPPExceptionTerminate(void)
     KSLOG_DEBUG("Trapped c++ exception");
     std::type_info *tinfo = __cxxabiv1::__cxa_current_exception_type();
     const char *name = cpp_demangleSymbol(tinfo->name());
-    if (name != NULL || strcmp(name, "NSException") == 0) {
+    if (name != NULL && strcmp(name, "NSException") == 0) {
         KSLOG_DEBUG("Detected NSException. Letting the current NSException handler deal with it.");
         goto skip_handling;
     }
