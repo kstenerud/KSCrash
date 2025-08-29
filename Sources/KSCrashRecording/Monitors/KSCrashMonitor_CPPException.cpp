@@ -69,11 +69,9 @@ static struct {
     std::terminate_handler originalTerminateHandler;
 
     KSCrash_ExceptionHandlerCallbacks callbacks;
-
-    // TODO: Thread local storage is not supported < ios 9.
-    // Find some other way to do thread local. Maybe storage with lookup by tid?
-    KSStackCursor stackCursor;
 } g_state;
+
+static thread_local KSStackCursor g_stackCursor;
 
 static bool isEnabled(void) { return g_state.isEnabled && g_state.installedState == KSCM_Installed; }
 
@@ -88,7 +86,7 @@ static KS_NOINLINE void captureStackTrace(void *, std::type_info *tinfo,
         return;
     }
     if (g_state.captureNextStackTrace) {
-        kssc_initSelfThread(&g_state.stackCursor, 2);
+        kssc_initSelfThread(&g_stackCursor, 2);
     }
     KS_THWART_TAIL_CALL_OPTIMISATION
 }
@@ -189,7 +187,7 @@ static void CPPExceptionTerminate(void)
         KSLOG_DEBUG("Filling out context.");
         kscm_fillMonitorContext(crashContext, kscm_cppexception_getAPI());
         crashContext->registersAreValid = false;
-        crashContext->stackCursor = &g_state.stackCursor;
+        crashContext->stackCursor = &g_stackCursor;
         crashContext->CPPException.name = name;
         crashContext->exceptionName = name;
         crashContext->crashReason = description;
@@ -210,7 +208,7 @@ static void install()
         return;
     }
 
-    kssc_initCursor(&g_state.stackCursor, NULL, NULL);
+    kssc_initCursor(&g_stackCursor, NULL, NULL);
     g_state.originalTerminateHandler = std::set_terminate(CPPExceptionTerminate);
 }
 
