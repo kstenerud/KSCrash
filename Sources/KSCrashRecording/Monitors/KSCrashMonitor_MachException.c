@@ -160,12 +160,14 @@ typedef struct {
 // ============================================================================
 
 static struct {
+    _Atomic(KSCM_InstalledState) installedState;
+    atomic_bool isEnabled;
     ExceptionContext contexts[kContextCount];
     KSCrash_ExceptionHandlerCallbacks callbacks;
     int currentRestorePoint;
 } g_state;
 
-static atomic_bool g_isEnabled = false;
+static bool isEnabled(void) { return g_state.isEnabled && g_state.installedState == KSCM_Installed; }
 
 // ============================================================================
 #pragma mark - Utility -
@@ -462,7 +464,7 @@ static void *exceptionHandlerThreadMain(void *data)
     // We start by restoring the ports for the next level exception handler
     // in case we crash while handling this exception.
 
-    if (g_isEnabled) {
+    if (isEnabled()) {
         if (restoreNextLevelExceptionPorts(ctx)) {
             KSLOG_DEBUG("Thread %s: Handling mach exception %x", ctx->threadName, exc);
             ctx->isHandlingException = true;
@@ -477,6 +479,7 @@ static void *exceptionHandlerThreadMain(void *data)
     // Regardless of whether we managed to deal with the exception or not,
     // we restore the original handlers and then send a suitable mach reply.
     KSLOG_DEBUG("Thread %s: Restoring original exception ports", ctx->threadName);
+    g_state.installedState = KSCM_Uninstalled;
     restoreOriginalExceptionPorts();
     KSLOG_DEBUG("Thread %s: Replying to exception message", ctx->threadName);
     sendExceptionReply(ctx, canCurrentPortsHandleException(exc));
@@ -535,23 +538,22 @@ static bool startNewExceptionHandler(int contextIndex, const char *threadName)
     return true;
 
 onFailure:
+    g_state.installedState = KSCM_FailedInstall;
     deallocExceptionHandler(ctx);
     return false;
 }
 
-static void stopExceptionHandlers(void)
+static void install(void)
 {
-    restoreOriginalExceptionPorts();
-    // Deallocation order doesn't matter since we've already restored the original ports.
-    deallocExceptionHandler(&g_state.contexts[kContextIdxPrimary]);
-    deallocExceptionHandler(&g_state.contexts[kContextIdxSecondary]);
-}
+    KSCM_InstalledState expectedState = KSCM_NotInstalled;
+    if (!atomic_compare_exchange_strong(&g_state.installedState, &expectedState, KSCM_Installed)) {
+        return;
+    }
 
-static bool startExceptionHandlers(void)
-{
     if (!saveExceptionPortsRestorePoint(kContextIdxSystem)) {
         KSLOG_ERROR("Could not save the original mach exception ports. Disabling the mach exception handler.");
-        return false;
+        g_state.installedState = KSCM_FailedInstall;
+        return;
     }
 
     g_state.contexts[0].threadName = "Original handlers";
@@ -559,10 +561,9 @@ static bool startExceptionHandlers(void)
     // Start the secondary handler first because all handlers will try to enable
     // the ports at the next lower index. If we start the primary first, the
     // secondary's ports would still be blank for a short while.
-    startNewExceptionHandler(kContextIdxSecondary, kThreadSecondary);
-    startNewExceptionHandler(kContextIdxPrimary, kThreadPrimary);
-
-    return true;
+    if (startNewExceptionHandler(kContextIdxSecondary, kThreadSecondary)) {
+        startNewExceptionHandler(kContextIdxPrimary, kThreadPrimary);
+    }
 }
 
 // ============================================================================
@@ -573,24 +574,18 @@ static const char *monitorId(void) { return "MachException"; }
 
 static KSCrashMonitorFlag monitorFlags(void) { return KSCrashMonitorFlagAsyncSafe | KSCrashMonitorFlagDebuggerUnsafe; }
 
-static void setEnabled(bool isEnabled)
+static void setEnabled(bool enabled)
 {
-    bool expectEnabled = !isEnabled;
-    if (!atomic_compare_exchange_strong(&g_isEnabled, &expectEnabled, isEnabled)) {
+    bool expectedState = !enabled;
+    if (!atomic_compare_exchange_strong(&g_state.isEnabled, &expectedState, enabled)) {
         // We were already in the expected state
         return;
     }
 
-    if (isEnabled) {
-        if (!startExceptionHandlers()) {
-            g_isEnabled = false;
-        }
-    } else {
-        stopExceptionHandlers();
+    if (enabled) {
+        install();
     }
 }
-
-static bool isEnabled(void) { return g_isEnabled; }
 
 static void addContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext)
 {

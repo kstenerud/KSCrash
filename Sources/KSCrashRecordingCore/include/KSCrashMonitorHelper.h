@@ -27,12 +27,30 @@
 #ifndef KSCrashMonitorHelper_h
 #define KSCrashMonitorHelper_h
 
+#include <unistd.h>
+
 #include "KSCrashMonitor.h"
 #include "KSCrashNamespace.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+typedef enum {
+    KSCM_NotInstalled = 0,  // Monitor has never been installed
+    KSCM_Installed,         // Monitor is installed
+    KSCM_Uninstalled,       // Monitor was installed and then uninstalled
+    KSCM_FailedInstall,     // Monitor failed to install (and we won't ever try again)
+} KSCM_InstalledState;
+
+static inline void __attribute__((noreturn)) kscm_exit(int code, bool requiresAsyncSafety)
+{
+    if (requiresAsyncSafety) {
+        _exit(code);
+    } else {
+        exit(code);
+    }
+}
 
 static void inline kscm_fillMonitorContext(KSCrash_MonitorContext *monitorContext, KSCrashMonitorAPI *monitorApi)
 {

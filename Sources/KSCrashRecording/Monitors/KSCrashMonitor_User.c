@@ -49,41 +49,43 @@ void kscm_reportUserException(const char *name, const char *reason, const char *
 {
     if (!g_isEnabled) {
         KSLOG_WARN("User-reported exception monitor is not installed. Exception has not been recorded.");
-    } else {
-        thread_t thisThread = (thread_t)ksthread_self();
-        KSCrash_MonitorContext *ctx = g_callbacks.notify(
-            thisThread, (KSCrash_ExceptionHandlingRequirements) { .asyncSafety = false,
-                                                                  .isFatal = terminateProgram,
-                                                                  .shouldRecordAllThreads = logAllThreads,
-                                                                  .shouldWriteReport = true });
-        if (ctx->requirements.shouldExitImmediately) {
-            goto exit_immediately;
-        }
-
-        KSMachineContext machineContext = { 0 };
-        ksmc_getContextForThread(thisThread, &machineContext, true);
-        KSStackCursor stackCursor;
-        kssc_initSelfThread(&stackCursor, 3);
-
-        KSLOG_DEBUG("Filling out context.");
-        kscm_fillMonitorContext(ctx, kscm_user_getAPI());
-        ctx->offendingMachineContext = &machineContext;
-        ctx->registersAreValid = false;
-        ctx->crashReason = reason;
-        ctx->userException.name = name;
-        ctx->userException.language = language;
-        ctx->userException.lineOfCode = lineOfCode;
-        ctx->userException.customStackTrace = stackTrace;
-        ctx->stackCursor = &stackCursor;
-        ctx->currentSnapshotUserReported = true;
-
-        g_callbacks.handle(ctx);
-
-    exit_immediately:
-        if (terminateProgram) {
-            abort();
-        }
+        return;
     }
+
+    thread_t thisThread = (thread_t)ksthread_self();
+    KSCrash_MonitorContext *ctx = g_callbacks.notify(
+        thisThread, (KSCrash_ExceptionHandlingRequirements) { .asyncSafety = false,
+                                                              .isFatal = terminateProgram,
+                                                              .shouldRecordAllThreads = logAllThreads,
+                                                              .shouldWriteReport = true });
+    if (ctx->requirements.shouldExitImmediately) {
+        goto exit_immediately;
+    }
+
+    KSMachineContext machineContext = { 0 };
+    ksmc_getContextForThread(thisThread, &machineContext, true);
+    KSStackCursor stackCursor;
+    kssc_initSelfThread(&stackCursor, 3);
+
+    KSLOG_DEBUG("Filling out context.");
+    kscm_fillMonitorContext(ctx, kscm_user_getAPI());
+    ctx->offendingMachineContext = &machineContext;
+    ctx->registersAreValid = false;
+    ctx->crashReason = reason;
+    ctx->userException.name = name;
+    ctx->userException.language = language;
+    ctx->userException.lineOfCode = lineOfCode;
+    ctx->userException.customStackTrace = stackTrace;
+    ctx->stackCursor = &stackCursor;
+    ctx->currentSnapshotUserReported = true;
+
+    g_callbacks.handle(ctx);
+
+exit_immediately:
+    if (terminateProgram) {
+        kscm_exit(1, kscexc_requiresAsyncSafety(ctx->requirements));
+    }
+
     KS_THWART_TAIL_CALL_OPTIMISATION
 }
 
