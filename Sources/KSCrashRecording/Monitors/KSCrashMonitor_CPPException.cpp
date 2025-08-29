@@ -75,6 +75,11 @@ static struct {
     KSStackCursor stackCursor;
 } g_state;
 
+static bool isEnabled(void)
+{
+    return g_state.isEnabled && g_state.installedState == KSCM_Installed;
+}
+
 // ============================================================================
 #pragma mark - Callbacks -
 // ============================================================================
@@ -128,7 +133,7 @@ static void CPPExceptionTerminate(void)
         goto skip_handling;
     }
 
-    if (g_state.installedState == KSCM_Installed && g_state.isEnabled) {
+    if (isEnabled()) {
         thread_t thisThread = (thread_t)ksthread_self();
         // This requires async-safety because the environment is suspended.
         KSCrash_MonitorContext *crashContext = g_state.callbacks.notify(
@@ -178,7 +183,7 @@ static void CPPExceptionTerminate(void)
         CATCH_VALUE(const char *, s)
 #pragma clang diagnostic pop
         catch (...) { description = NULL; }
-        g_state.captureNextStackTrace = g_state.isEnabled;
+        g_state.captureNextStackTrace = isEnabled();
 
         // TODO: Should this be done here? Maybe better in the exception handler?
         KSMachineContext machineContext = { 0 };
@@ -203,8 +208,8 @@ skip_handling:
 
 static void install()
 {
-    KSCM_InstalledState expectInstalled = KSCM_NotInstalled;
-    if (!atomic_compare_exchange_strong(&g_state.installedState, &expectInstalled, KSCM_Installed)) {
+    KSCM_InstalledState expectedState = KSCM_NotInstalled;
+    if (!atomic_compare_exchange_strong(&g_state.installedState, &expectedState, KSCM_Installed)) {
         return;
     }
 
@@ -220,22 +225,21 @@ static const char *monitorId() { return "CPPException"; }
 
 static KSCrashMonitorFlag monitorFlags() { return KSCrashMonitorFlagNone; }
 
-static void setEnabled(bool isEnabled)
+static void setEnabled(bool enabled)
 {
-    bool expectEnabled = !isEnabled;
-    if (!atomic_compare_exchange_strong(&g_state.isEnabled, &expectEnabled, isEnabled)) {
+    bool expectedState = !enabled;
+    if (!atomic_compare_exchange_strong(&g_state.isEnabled, &expectedState, enabled))
+    {
         // We were already in the expected state
         return;
     }
 
-    if (isEnabled) {
+    if (enabled)
+    {
         install();
-        g_state.isEnabled = g_state.installedState == KSCM_Installed;
     }
-    g_state.captureNextStackTrace = isEnabled;
+    g_state.captureNextStackTrace = isEnabled();
 }
-
-static bool isEnabled() { return g_state.isEnabled; }
 
 extern "C" void kscm_enableSwapCxaThrow(void)
 {

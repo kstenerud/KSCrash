@@ -68,6 +68,11 @@ static struct {
     KSCrash_ExceptionHandlerCallbacks callbacks;
 } g_state;
 
+static bool isEnabled(void)
+{
+    return g_state.isEnabled && g_state.installedState == KSCM_Installed;
+}
+
 // ============================================================================
 #pragma mark - Private -
 // ============================================================================
@@ -94,7 +99,7 @@ static bool shouldHandleSignal(int sigNum) { return !(sigNum == SIGTERM && !g_st
 static void handleSignal(int sigNum, siginfo_t *signalInfo, void *userContext)
 {
     KSLOG_DEBUG("Trapped signal %d", sigNum);
-    if (g_state.installedState == KSCM_Installed && g_state.isEnabled && shouldHandleSignal(sigNum)) {
+    if (isEnabled() && shouldHandleSignal(sigNum)) {
         thread_t thisThread = (thread_t)ksthread_self();
         KSCrash_MonitorContext *crashContext = g_state.callbacks.notify(
             thisThread,
@@ -136,8 +141,8 @@ exit_immediately:
 
 static void install(void)
 {
-    KSCM_InstalledState expectInstalled = KSCM_NotInstalled;
-    if (!atomic_compare_exchange_strong(&g_state.installedState, &expectInstalled, KSCM_Installed)) {
+    KSCM_InstalledState expectedState = KSCM_NotInstalled;
+    if (!atomic_compare_exchange_strong(&g_state.installedState, &expectedState, KSCM_Installed)) {
         return;
     }
 
@@ -201,8 +206,8 @@ failed:
 
 static void uninstall(void)
 {
-    KSCM_InstalledState expectInstalled = KSCM_Installed;
-    if (!atomic_compare_exchange_strong(&g_state.installedState, &expectInstalled, KSCM_Uninstalled)) {
+    KSCM_InstalledState expectedState = KSCM_Installed;
+    if (!atomic_compare_exchange_strong(&g_state.installedState, &expectedState, KSCM_Uninstalled)) {
         return;
     }
     KSLOG_DEBUG("Uninstalling signal handlers.");
@@ -225,21 +230,20 @@ static const char *monitorId(void) { return "Signal"; }
 
 static KSCrashMonitorFlag monitorFlags(void) { return KSCrashMonitorFlagAsyncSafe; }
 
-static void setEnabled(bool isEnabled)
+static void setEnabled(bool enabled)
 {
-    bool expectEnabled = !isEnabled;
-    if (!atomic_compare_exchange_strong(&g_state.isEnabled, &expectEnabled, isEnabled)) {
+    bool expectedState = !enabled;
+    if (!atomic_compare_exchange_strong(&g_state.isEnabled, &expectedState, enabled))
+    {
         // We were already in the expected state
         return;
     }
 
-    if (isEnabled) {
+    if (enabled)
+    {
         install();
-        g_state.isEnabled = g_state.installedState == KSCM_Installed;
     }
 }
-
-static bool isEnabled(void) { return g_state.isEnabled; }
 
 static void addContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext)
 {

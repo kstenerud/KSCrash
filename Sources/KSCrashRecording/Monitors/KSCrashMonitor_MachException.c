@@ -167,6 +167,11 @@ static struct {
     int currentRestorePoint;
 } g_state;
 
+static bool isEnabled(void)
+{
+    return g_state.isEnabled && g_state.installedState == KSCM_Installed;
+}
+
 // ============================================================================
 #pragma mark - Utility -
 // ============================================================================
@@ -462,7 +467,7 @@ static void *exceptionHandlerThreadMain(void *data)
     // We start by restoring the ports for the next level exception handler
     // in case we crash while handling this exception.
 
-    if (g_state.installedState == KSCM_Installed && g_state.isEnabled) {
+    if (isEnabled()) {
         if (restoreNextLevelExceptionPorts(ctx)) {
             KSLOG_DEBUG("Thread %s: Handling mach exception %x", ctx->threadName, exc);
             ctx->isHandlingException = true;
@@ -543,8 +548,8 @@ onFailure:
 
 static void install(void)
 {
-    KSCM_InstalledState expectInstalled = KSCM_NotInstalled;
-    if (!atomic_compare_exchange_strong(&g_state.installedState, &expectInstalled, KSCM_Installed)) {
+    KSCM_InstalledState expectedState = KSCM_NotInstalled;
+    if (!atomic_compare_exchange_strong(&g_state.installedState, &expectedState, KSCM_Installed)) {
         return;
     }
 
@@ -572,21 +577,20 @@ static const char *monitorId(void) { return "MachException"; }
 
 static KSCrashMonitorFlag monitorFlags(void) { return KSCrashMonitorFlagAsyncSafe | KSCrashMonitorFlagDebuggerUnsafe; }
 
-static void setEnabled(bool isEnabled)
+static void setEnabled(bool enabled)
 {
-    bool expectEnabled = !isEnabled;
-    if (!atomic_compare_exchange_strong(&g_state.isEnabled, &expectEnabled, isEnabled)) {
+    bool expectedState = !enabled;
+    if (!atomic_compare_exchange_strong(&g_state.isEnabled, &expectedState, enabled))
+    {
         // We were already in the expected state
         return;
     }
 
-    if (isEnabled) {
+    if (enabled)
+    {
         install();
-        g_state.isEnabled = g_state.installedState == KSCM_Installed;
     }
 }
-
-static bool isEnabled(void) { return g_state.isEnabled; }
 
 static void addContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext)
 {

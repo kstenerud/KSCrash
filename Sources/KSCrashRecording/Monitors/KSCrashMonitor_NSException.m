@@ -56,6 +56,11 @@ static struct {
     OnNSExceptionHandlerEnabled *onEnabled;
 } g_state;
 
+static bool isEnabled(void)
+{
+    return g_state.isEnabled && g_state.installedState == KSCM_Installed;
+}
+
 // ============================================================================
 #pragma mark - Callbacks -
 // ============================================================================
@@ -100,7 +105,7 @@ static KS_NOINLINE void handleException(NSException *exception, BOOL isUserRepor
                                         BOOL logAllThreads) KS_KEEP_FUNCTION_IN_STACKTRACE
 {
     KSLOG_DEBUG(@"Trapped exception %@", exception);
-    if (g_state.installedState == KSCM_Installed && g_state.isEnabled) {
+    if (isEnabled()) {
         // Gather this info before we require async-safety:
         const char *exceptionName = exception.name.UTF8String;
         const char *exceptionReason = exception.reason.UTF8String;
@@ -163,8 +168,8 @@ static void handleUncaughtException(NSException *exception) KS_KEEP_FUNCTION_IN_
 
 static void install(void)
 {
-    KSCM_InstalledState expectInstalled = KSCM_NotInstalled;
-    if (!atomic_compare_exchange_strong(&g_state.installedState, &expectInstalled, KSCM_Installed)) {
+    KSCM_InstalledState expectedState = KSCM_NotInstalled;
+    if (!atomic_compare_exchange_strong(&g_state.installedState, &expectedState, KSCM_Installed)) {
         return;
     }
 
@@ -178,18 +183,20 @@ static void install(void)
 #pragma mark - API -
 // ============================================================================
 
-static void setEnabled(bool isEnabled)
+static void setEnabled(bool enabled)
 {
-    bool expectEnabled = !isEnabled;
-    if (!atomic_compare_exchange_strong(&g_state.isEnabled, &expectEnabled, isEnabled)) {
+    bool expectedState = !enabled;
+    if (!atomic_compare_exchange_strong(&g_state.isEnabled, &expectedState, enabled))
+    {
         // We were already in the expected state
         return;
     }
 
-    if (isEnabled) {
+    if (enabled)
+    {
         install();
-        g_state.isEnabled = g_state.installedState == KSCM_Installed;
-        if (g_state.isEnabled && g_state.onEnabled != NULL) {
+        if (isEnabled() && g_state.onEnabled != NULL)
+        {
             g_state.onEnabled(handleUncaughtException, customNSExceptionReporter);
         }
     }
@@ -198,8 +205,6 @@ static void setEnabled(bool isEnabled)
 static const char *monitorId(void) { return "NSException"; }
 
 static KSCrashMonitorFlag monitorFlags(void) { return KSCrashMonitorFlagNone; }
-
-static bool isEnabled(void) { return g_state.isEnabled; }
 
 static void init(KSCrash_ExceptionHandlerCallbacks *callbacks) { g_state.callbacks = *callbacks; }
 
