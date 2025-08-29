@@ -68,10 +68,7 @@ static struct {
     KSCrash_ExceptionHandlerCallbacks callbacks;
 } g_state;
 
-static bool isEnabled(void)
-{
-    return g_state.isEnabled && g_state.installedState == KSCM_Installed;
-}
+static bool isEnabled(void) { return g_state.isEnabled && g_state.installedState == KSCM_Installed; }
 
 // ============================================================================
 #pragma mark - Private -
@@ -233,14 +230,12 @@ static KSCrashMonitorFlag monitorFlags(void) { return KSCrashMonitorFlagAsyncSaf
 static void setEnabled(bool enabled)
 {
     bool expectedState = !enabled;
-    if (!atomic_compare_exchange_strong(&g_state.isEnabled, &expectedState, enabled))
-    {
+    if (!atomic_compare_exchange_strong(&g_state.isEnabled, &expectedState, enabled)) {
         // We were already in the expected state
         return;
     }
 
-    if (enabled)
-    {
+    if (enabled) {
         install();
     }
 }
