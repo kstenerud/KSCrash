@@ -156,7 +156,8 @@ void kstc_init(int pollingIntervalInSeconds)
     pthread_attr_t attr;
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-    int error = pthread_create(&g_cacheThread, &attr, &monitorThreadCache, "KSCrash Thread Cache Monitor");
+    int error = pthread_create(&g_cacheThread, &attr, &monitorThreadCache,
+                               KSCRASH_NS_STRING("KSCrash") " Thread Cache Monitor");
     if (error != 0) {
         KSLOG_ERROR("pthread_create_suspended_np: %s", strerror(error));
     }

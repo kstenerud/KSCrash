@@ -82,7 +82,7 @@ NSString *kscrash_getDefaultInstallPath(void)
         KSLOG_ERROR(@"Could not locate cache directory path.");
         return nil;
     }
-    NSString *pathEnd = [@"KSCrash" stringByAppendingPathComponent:kscrash_getBundleName()];
+    NSString *pathEnd = [KSCRASH_NS_STRING(@"KSCrash") stringByAppendingPathComponent:kscrash_getBundleName()];
     return [cachePath stringByAppendingPathComponent:pathEnd];
 }
 

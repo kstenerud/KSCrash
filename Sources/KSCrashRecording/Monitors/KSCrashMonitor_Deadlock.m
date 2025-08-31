@@ -76,7 +76,7 @@ static KSCrash_ExceptionHandlerCallbacks g_callbacks;
     if ((self = [super init])) {
         // target (self) is retained until selector (runMonitor) exits.
         _monitorThread = [[NSThread alloc] initWithTarget:self selector:@selector(runMonitor) object:nil];
-        _monitorThread.name = @"KSCrash Deadlock Detection Thread";
+        _monitorThread.name = KSCRASH_NS_STRING(@"KSCrash") " Deadlock Detection Thread";
         [_monitorThread start];
     }
     return self;
