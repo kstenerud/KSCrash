@@ -44,18 +44,19 @@
 #pragma mark - Globals -
 // ============================================================================
 
-static atomic_bool g_isEnabled = 0;
+static struct {
+    _Atomic(KSCM_InstalledState) installedState;
+    atomic_bool isEnabled;
 
-/** The exception handler that was in place before we installed ours. */
-static NSUncaughtExceptionHandler *g_previousUncaughtExceptionHandler;
+    /** The exception handler that was in place before we installed ours. */
+    NSUncaughtExceptionHandler *previousUncaughtExceptionHandler;
 
-static KSCrash_ExceptionHandlerCallbacks g_callbacks;
+    KSCrash_ExceptionHandlerCallbacks callbacks;
 
-static void defaultOnEnabled(__unused NSUncaughtExceptionHandler *uncaughtExceptionHandler,
-                             __unused KSCrashCustomNSExceptionReporter *customNSExceptionReporter)
-{
-}
-static OnNSExceptionHandlerEnabled *g_onEnabled = defaultOnEnabled;
+    OnNSExceptionHandlerEnabled *onEnabled;
+} g_state;
+
+static bool isEnabled(void) { return g_state.isEnabled && g_state.installedState == KSCM_Installed; }
 
 // ============================================================================
 #pragma mark - Callbacks -
@@ -101,7 +102,7 @@ static KS_NOINLINE void handleException(NSException *exception, BOOL isUserRepor
                                         BOOL logAllThreads) KS_KEEP_FUNCTION_IN_STACKTRACE
 {
     KSLOG_DEBUG(@"Trapped exception %@", exception);
-    if (g_isEnabled) {
+    if (isEnabled()) {
         // Gather this info before we require async-safety:
         const char *exceptionName = exception.name.UTF8String;
         const char *exceptionReason = exception.reason.UTF8String;
@@ -117,7 +118,7 @@ static KS_NOINLINE void handleException(NSException *exception, BOOL isUserRepor
         initStackCursor(&cursor, exception, callstack, isUserReported);
 
         // Now start exception handling
-        KSCrash_MonitorContext *crashContext = g_callbacks.notify(
+        KSCrash_MonitorContext *crashContext = g_state.callbacks.notify(
             thisThread, (KSCrash_ExceptionHandlingRequirements) { .asyncSafety = false,
                                                                   // User-reported exceptions are not considered fatal.
                                                                   .isFatal = !isUserReported,
@@ -138,14 +139,14 @@ static KS_NOINLINE void handleException(NSException *exception, BOOL isUserRepor
         crashContext->currentSnapshotUserReported = isUserReported;
 
         KSLOG_DEBUG(@"Calling main crash handler.");
-        g_callbacks.handle(crashContext);
+        g_state.callbacks.handle(crashContext);
 
     exit_immediately:
         free(callstack);
-        if (isUserReported == NO && g_previousUncaughtExceptionHandler != NULL) {
-            KSLOG_DEBUG(@"Calling original exception handler.");
-            g_previousUncaughtExceptionHandler(exception);
-        }
+    }
+    if (!isUserReported && g_state.previousUncaughtExceptionHandler != NULL) {
+        KSLOG_DEBUG(@"Calling original exception handler.");
+        g_state.previousUncaughtExceptionHandler(exception);
     }
     KS_THWART_TAIL_CALL_OPTIMISATION
 }
@@ -162,28 +163,36 @@ static void handleUncaughtException(NSException *exception) KS_KEEP_FUNCTION_IN_
     KS_THWART_TAIL_CALL_OPTIMISATION
 }
 
+static void install(void)
+{
+    KSCM_InstalledState expectedState = KSCM_NotInstalled;
+    if (!atomic_compare_exchange_strong(&g_state.installedState, &expectedState, KSCM_Installed)) {
+        return;
+    }
+
+    KSLOG_DEBUG(@"Backing up original handler.");
+    g_state.previousUncaughtExceptionHandler = NSGetUncaughtExceptionHandler();
+    KSLOG_DEBUG(@"Setting new handler.");
+    NSSetUncaughtExceptionHandler(&handleUncaughtException);
+}
+
 // ============================================================================
 #pragma mark - API -
 // ============================================================================
 
-static void setEnabled(bool isEnabled)
+static void setEnabled(bool enabled)
 {
-    bool expectEnabled = !isEnabled;
-    if (!atomic_compare_exchange_strong(&g_isEnabled, &expectEnabled, isEnabled)) {
+    bool expectedState = !enabled;
+    if (!atomic_compare_exchange_strong(&g_state.isEnabled, &expectedState, enabled)) {
         // We were already in the expected state
         return;
     }
 
-    if (isEnabled) {
-        KSLOG_DEBUG(@"Backing up original handler.");
-        g_previousUncaughtExceptionHandler = NSGetUncaughtExceptionHandler();
-
-        KSLOG_DEBUG(@"Setting new handler.");
-        NSSetUncaughtExceptionHandler(&handleUncaughtException);
-        g_onEnabled(handleUncaughtException, customNSExceptionReporter);
-    } else {
-        KSLOG_DEBUG(@"Restoring original handler.");
-        NSSetUncaughtExceptionHandler(g_previousUncaughtExceptionHandler);
+    if (enabled) {
+        install();
+        if (isEnabled() && g_state.onEnabled != NULL) {
+            g_state.onEnabled(handleUncaughtException, customNSExceptionReporter);
+        }
     }
 }
 
@@ -191,9 +200,7 @@ static const char *monitorId(void) { return "NSException"; }
 
 static KSCrashMonitorFlag monitorFlags(void) { return KSCrashMonitorFlagNone; }
 
-static bool isEnabled(void) { return g_isEnabled; }
-
-static void init(KSCrash_ExceptionHandlerCallbacks *callbacks) { g_callbacks = *callbacks; }
+static void init(KSCrash_ExceptionHandlerCallbacks *callbacks) { g_state.callbacks = *callbacks; }
 
 KSCrashMonitorAPI *kscm_nsexception_getAPI(void)
 {
@@ -208,4 +215,4 @@ KSCrashMonitorAPI *kscm_nsexception_getAPI(void)
     return &api;
 }
 
-void kscm_nsexception_setOnEnabledHandler(OnNSExceptionHandlerEnabled *onEnabled) { g_onEnabled = onEnabled; }
+void kscm_nsexception_setOnEnabledHandler(OnNSExceptionHandlerEnabled *onEnabled) { g_state.onEnabled = onEnabled; }

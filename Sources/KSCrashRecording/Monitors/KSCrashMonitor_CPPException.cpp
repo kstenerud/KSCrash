@@ -57,21 +57,23 @@
 #pragma mark - Globals -
 // ============================================================================
 
-/** True if this handler has been installed. */
-static std::atomic<bool> g_isEnabled { false };
+static struct {
+    std::atomic<KSCM_InstalledState> installedState { KSCM_NotInstalled };
+    std::atomic<bool> isEnabled { false };
 
-/** True if the handler should capture the next stack trace. */
-static bool g_captureNextStackTrace = false;
+    /** True if the handler should capture the next stack trace. */
+    bool captureNextStackTrace = false;
 
-static bool g_cxaSwapEnabled = false;
+    bool cxaSwapEnabled = false;
 
-static std::terminate_handler g_originalTerminateHandler;
+    std::terminate_handler originalTerminateHandler;
 
-static KSCrash_ExceptionHandlerCallbacks g_callbacks;
+    KSCrash_ExceptionHandlerCallbacks callbacks;
+} g_state;
 
-// TODO: Thread local storage is not supported < ios 9.
-// Find some other way to do thread local. Maybe storage with lookup by tid?
-static KSStackCursor g_stackCursor;
+static thread_local KSStackCursor g_stackCursor;
+
+static bool isEnabled(void) { return g_state.isEnabled && g_state.installedState == KSCM_Installed; }
 
 // ============================================================================
 #pragma mark - Callbacks -
@@ -83,7 +85,7 @@ static KS_NOINLINE void captureStackTrace(void *, std::type_info *tinfo,
     if (tinfo != nullptr && strcmp(tinfo->name(), "NSException") == 0) {
         return;
     }
-    if (g_captureNextStackTrace) {
+    if (g_state.captureNextStackTrace) {
         kssc_initSelfThread(&g_stackCursor, 2);
     }
     KS_THWART_TAIL_CALL_OPTIMISATION
@@ -97,7 +99,7 @@ void __cxa_throw(void *thrown_exception, std::type_info *tinfo, void (*dest)(voi
 void __cxa_throw(void *thrown_exception, std::type_info *tinfo, void (*dest)(void *)) KS_KEEP_FUNCTION_IN_STACKTRACE
 {
     static cxa_throw_type orig_cxa_throw = NULL;
-    if (g_cxaSwapEnabled == false) {
+    if (g_state.cxaSwapEnabled == false) {
         captureStackTrace(thrown_exception, tinfo, dest);
     }
     unlikely_if(orig_cxa_throw == NULL) { orig_cxa_throw = (cxa_throw_type)dlsym(RTLD_NEXT, "__cxa_throw"); }
@@ -121,23 +123,27 @@ static void CPPExceptionTerminate(void)
     KSLOG_DEBUG("Trapped c++ exception");
     std::type_info *tinfo = __cxxabiv1::__cxa_current_exception_type();
     const char *name = cpp_demangleSymbol(tinfo->name());
+    if (name != NULL && strcmp(name, "NSException") == 0) {
+        KSLOG_DEBUG("Detected NSException. Letting the current NSException handler deal with it.");
+        goto skip_handling;
+    }
 
-    if (name == NULL || strcmp(name, "NSException") != 0) {
+    if (isEnabled()) {
         thread_t thisThread = (thread_t)ksthread_self();
         // This requires async-safety because the environment is suspended.
-        KSCrash_MonitorContext *crashContext = g_callbacks.notify(
+        KSCrash_MonitorContext *crashContext = g_state.callbacks.notify(
             thisThread,
             (KSCrash_ExceptionHandlingRequirements) {
                 .asyncSafety = true, .isFatal = true, .shouldRecordAllThreads = true, .shouldWriteReport = true });
         if (crashContext->requirements.shouldExitImmediately) {
-            goto exit_immediately;
+            goto skip_handling;
         }
 
         char descriptionBuff[DESCRIPTION_BUFFER_LENGTH] = { 0 };
         const char *description = descriptionBuff;
 
         KSLOG_DEBUG("Discovering what kind of exception was thrown.");
-        g_captureNextStackTrace = false;
+        g_state.captureNextStackTrace = false;
 
         // We need to be very explicit about what type is thrown or it'll drop through.
         try {
@@ -172,7 +178,7 @@ static void CPPExceptionTerminate(void)
         CATCH_VALUE(const char *, s)
 #pragma clang diagnostic pop
         catch (...) { description = NULL; }
-        g_captureNextStackTrace = g_isEnabled;
+        g_state.captureNextStackTrace = isEnabled();
 
         // TODO: Should this be done here? Maybe better in the exception handler?
         KSMachineContext machineContext = { 0 };
@@ -187,61 +193,56 @@ static void CPPExceptionTerminate(void)
         crashContext->crashReason = description;
         crashContext->offendingMachineContext = &machineContext;
 
-        g_callbacks.handle(crashContext);
-    } else {
-        KSLOG_DEBUG("Detected NSException. Letting the current NSException handler deal with it.");
+        g_state.callbacks.handle(crashContext);
     }
 
     KSLOG_DEBUG("Calling original terminate handler.");
-exit_immediately:
-    g_originalTerminateHandler();
+skip_handling:
+    g_state.originalTerminateHandler();
+}
+
+static void install()
+{
+    KSCM_InstalledState expectedState = KSCM_NotInstalled;
+    if (!atomic_compare_exchange_strong(&g_state.installedState, &expectedState, KSCM_Installed)) {
+        return;
+    }
+
+    kssc_initCursor(&g_stackCursor, NULL, NULL);
+    g_state.originalTerminateHandler = std::set_terminate(CPPExceptionTerminate);
 }
 
 // ============================================================================
 #pragma mark - Public API -
 // ============================================================================
 
-static void initialize()
-{
-    static bool isInitialized = false;
-    if (!isInitialized) {
-        isInitialized = true;
-        kssc_initCursor(&g_stackCursor, NULL, NULL);
-    }
-}
-
 static const char *monitorId() { return "CPPException"; }
 
 static KSCrashMonitorFlag monitorFlags() { return KSCrashMonitorFlagNone; }
 
-static void setEnabled(bool isEnabled)
+static void setEnabled(bool enabled)
 {
-    bool expectEnabled = !isEnabled;
-    if (!atomic_compare_exchange_strong(&g_isEnabled, &expectEnabled, isEnabled)) {
+    bool expectedState = !enabled;
+    if (!atomic_compare_exchange_strong(&g_state.isEnabled, &expectedState, enabled)) {
         // We were already in the expected state
         return;
     }
 
-    if (isEnabled) {
-        initialize();
-        g_originalTerminateHandler = std::set_terminate(CPPExceptionTerminate);
-    } else {
-        std::set_terminate(g_originalTerminateHandler);
+    if (enabled) {
+        install();
     }
-    g_captureNextStackTrace = isEnabled;
+    g_state.captureNextStackTrace = isEnabled();
 }
-
-static bool isEnabled() { return g_isEnabled; }
 
 extern "C" void kscm_enableSwapCxaThrow(void)
 {
-    if (g_cxaSwapEnabled != true) {
+    if (g_state.cxaSwapEnabled != true) {
         ksct_swap(captureStackTrace);
-        g_cxaSwapEnabled = true;
+        g_state.cxaSwapEnabled = true;
     }
 }
 
-static void init(KSCrash_ExceptionHandlerCallbacks *callbacks) { g_callbacks = *callbacks; }
+static void init(KSCrash_ExceptionHandlerCallbacks *callbacks) { g_state.callbacks = *callbacks; }
 
 extern "C" KSCrashMonitorAPI *kscm_cppexception_getAPI()
 {
