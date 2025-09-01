@@ -88,8 +88,8 @@
 #pragma mark - Constants -
 // ============================================================================
 
-static const char *kThreadPrimary = "KSCrash Exception Handler (Primary" KSCRASH_NAMESPACE_STRING ")";
-static const char *kThreadSecondary = "KSCrash Exception Handler (Secondary" KSCRASH_NAMESPACE_STRING ")";
+static const char *kThreadPrimary = KSCRASH_NS_STRING("KSCrash") " Exception Handler (Primary)";
+static const char *kThreadSecondary = KSCRASH_NS_STRING("KSCrash") " Exception Handler (Secondary)";
 
 enum {
     kContextIdxSystem = 0,

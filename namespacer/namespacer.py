@@ -203,9 +203,10 @@ CPP_NAME_IGNORED = [
 ## ----------------------------------------------------------------------------
 
 def generate_header_contents(symbols):
-    namespace_define = "KSCRASH_NAMESPACE"
-    header_define    = "KSCRASH_NAMESPACE_H"
-    namespace_macro  = "KSCRASH_NS"
+    namespace = "KSCRASH"
+    namespace_define = f"{namespace}_NAMESPACE"
+    header_define    = f"{namespace}_NAMESPACE_H"
+    namespace_macro  = f"{namespace}_NS"
 
     contents = f"""//
 // Auto-generated file. DO NOT EDIT!
@@ -249,6 +250,8 @@ def generate_header_contents(symbols):
 #define {namespace_define}_STRING ""
 
 #endif
+
+#define {namespace_macro}_STRING(STR) STR {namespace_define}_STRING
 
 #endif /* {header_define} */
 """
