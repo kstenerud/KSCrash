@@ -116,10 +116,10 @@ uint64_t kscpu_registerValue(const KSMachineContext *const context, const int re
             return context->machineContext.__ss.__fs;
         case 20:
             return context->machineContext.__ss.__gs;
+        default:
+            KSLOG_ERROR("Invalid register number: %d", regNumber);
+            return 0;
     }
-
-    KSLOG_ERROR("Invalid register number: %d", regNumber);
-    return 0;
 }
 
 int kscpu_numExceptionRegisters(void) { return g_exceptionRegisterNamesCount; }
@@ -142,10 +142,10 @@ uint64_t kscpu_exceptionRegisterValue(const KSMachineContext *const context, con
             return context->machineContext.__es.__err;
         case 2:
             return context->machineContext.__es.__faultvaddr;
+        default:
+            KSLOG_ERROR("Invalid register number: %d", regNumber);
+            return 0;
     }
-
-    KSLOG_ERROR("Invalid register number: %d", regNumber);
-    return 0;
 }
 
 uintptr_t kscpu_faultAddress(const KSMachineContext *const context)

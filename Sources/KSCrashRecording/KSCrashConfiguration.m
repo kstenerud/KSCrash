@@ -97,11 +97,21 @@
     config.doNotIntrospectClasses.length = (int)[self.doNotIntrospectClasses count];
     // TODO: Remove in 3.0 - Deprecated callback assignments for backward compatibility
 #pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunknown-warning-option"
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#pragma clang diagnostic ignored "-Wcast-function-type-mismatch"
     if (self.crashNotifyCallback) {
+        // Note: This only works by blind luck (so far).
+        // error: cast from 'IMP _Nonnull' (aka 'id  _Nullable (*)(id  _Nonnull __strong, SEL _Nonnull, ...)') to
+        // 'KSReportWriteCallback' (aka 'void (*)(const struct KSCrashReportWriter *)') converts to incompatible
+        // function type
         config.crashNotifyCallback = (KSReportWriteCallback)imp_implementationWithBlock(self.crashNotifyCallback);
     }
     if (self.reportWrittenCallback) {
+        // Note: This only works by blind luck (so far).
+        // error: cast from 'IMP _Nonnull' (aka 'id  _Nullable (*)(id  _Nonnull __strong, SEL _Nonnull, ...)') to
+        // 'KSReportWrittenCallback' (aka 'void (*)(long long)') converts to incompatible function type
+        // [-Werror,-Wcast-function-type-mismatch]
         config.reportWrittenCallback = (KSReportWrittenCallback)imp_implementationWithBlock(self.reportWrittenCallback);
     }
 #pragma clang diagnostic pop
