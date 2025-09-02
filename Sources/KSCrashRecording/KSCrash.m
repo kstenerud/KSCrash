@@ -155,7 +155,7 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
         NSDictionary *userInfoDict = [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:&error];
         free((void *)userInfoJSON);  // Free the allocated memory
 
-        if (error != nil) {
+        if (userInfoDict == nil) {
             KSLOG_ERROR(@"Error parsing JSON: %@", error.localizedDescription);
             return nil;
         }
@@ -172,7 +172,7 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
     if (userInfo != nil) {
         userInfoJSON = [NSJSONSerialization dataWithJSONObject:userInfo options:NSJSONWritingSortedKeys error:&error];
 
-        if (error != nil) {
+        if (userInfoJSON == nil) {
             KSLOG_ERROR(@"Could not serialize user info: %@", error.localizedDescription);
             return;
         }
@@ -291,7 +291,7 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
     if (stackTrace != nil) {
         NSError *error = nil;
         NSData *jsonData = [KSJSONCodec encode:stackTrace options:0 error:&error];
-        if (jsonData == nil || error != nil) {
+        if (jsonData == nil) {
             KSLOG_ERROR(@"Error encoding stack trace to JSON: %@", error);
             // Don't return, since we can still record other useful information.
         }
