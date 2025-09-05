@@ -228,6 +228,11 @@ def generate_header_contents(symbols):
 #ifndef {header_define}
 #define {header_define}
 
+// sed target for easy sed modification:
+// sed -i '' 's/\\/\\/#define {namespace_define} _MyVariant/#define {namespace_define} _ReallyMyVariant/g' Sources/KSCrashCore/include/KSCrashNamespace.h
+//#define {namespace_define} _MyVariant
+// This is useful for when you can't use a compiler flag to change the namespace.
+
 #ifdef {namespace_define}
 
 #define {namespace_define}_STRINGIFY(X) {namespace_define}_STRINGIFY2(X)

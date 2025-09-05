@@ -18,6 +18,11 @@
 #ifndef KSCRASH_NAMESPACE_H
 #define KSCRASH_NAMESPACE_H
 
+// sed target for easy sed modification:
+// sed -i '' 's/\/\/#define KSCRASH_NAMESPACE _MyVariant/#define KSCRASH_NAMESPACE _ReallyMyVariant/g' Sources/KSCrashCore/include/KSCrashNamespace.h
+//#define KSCRASH_NAMESPACE _MyVariant
+// This is useful for when you can't use a compiler flag to change the namespace.
+
 #ifdef KSCRASH_NAMESPACE
 
 #define KSCRASH_NAMESPACE_STRINGIFY(X) KSCRASH_NAMESPACE_STRINGIFY2(X)
