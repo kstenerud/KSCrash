@@ -224,6 +224,14 @@ If you don't use the `Installations` API, you can include this module manually:
 
 The `CrashReportFilterDemangle` class also has a static API that you can use yourself in case you need to demangle a C++ or Swift symbol.
 
+## Integrating KSCrash Into Your Library
+
+If you want to leverage KSCrash as the crash detection layer in your own crash reporter library, you'll need to namespace it so that the symbols don't clash with other libraries that do the same.
+
+KSCrash fully supports [namespacing](Sources/KSCrashCore/include/KSCrashNamespace.h) all of its public symbols, allowing it to coexist with other versions of itself.
+
+There are [various approaches](Tests/NamespaceTests) you can take to integrate KSCrash into your product.
+
 ## What's New?
 
 ### Out-of-Memory Crash Detection
