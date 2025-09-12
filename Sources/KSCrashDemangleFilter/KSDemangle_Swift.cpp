@@ -26,9 +26,9 @@
 
 #include "KSDemangle_Swift.h"
 
+#include <dlfcn.h>
 #include <stdlib.h>
 #include <string.h>
-#include <dlfcn.h>
 
 /// https://github.com/swiftlang/swift/blob/main/stdlib/public/runtime/Demangle.cpp#L987
 /// Demangles a Swift symbol name.
@@ -46,30 +46,26 @@
 //// define what these will be.
 /// \returns the demangled name. Returns nullptr if the input String is not a
 /// Swift mangled name.
-typedef char *(swift_demangle_func)(const char *mangledName,
-                                    size_t mangledNameLength,
-                                    char *outputBuffer,
-                                    size_t *outputBufferSize,
-                                    uint32_t flags);
+typedef char *(swift_demangle_func)(const char *mangledName, size_t mangledNameLength, char *outputBuffer,
+                                    size_t *outputBufferSize, uint32_t flags);
 
-static char* default_swift_demangle(__unused const char *mangledName,
-                                    __unused size_t mangledNameLength,
-                                    __unused char *outputBuffer,
-                                    __unused size_t *outputBufferSize,
-                                    __unused uint32_t flags) {
+static char *default_swift_demangle(__unused const char *mangledName, __unused size_t mangledNameLength,
+                                    __unused char *outputBuffer, __unused size_t *outputBufferSize,
+                                    __unused uint32_t flags)
+{
     return nullptr;
 }
 
-static swift_demangle_func* swift_demangle = nullptr;
+static swift_demangle_func *swift_demangle = nullptr;
 
 extern "C" char *ksdm_demangleSwift(const char *mangledSymbol)
 {
     if (swift_demangle == nullptr) {
-        void* handle = dlopen(NULL, RTLD_NOW);
+        void *handle = dlopen(NULL, RTLD_NOW);
         if (handle != nullptr) {
-            void* symbol = dlsym(handle, "swift_demangle");
-            if(symbol != nullptr) {
-                swift_demangle = (swift_demangle_func*)symbol;
+            void *symbol = dlsym(handle, "swift_demangle");
+            if (symbol != nullptr) {
+                swift_demangle = (swift_demangle_func *)symbol;
             } else {
                 swift_demangle = default_swift_demangle;
             }

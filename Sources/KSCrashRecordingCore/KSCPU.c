@@ -27,11 +27,10 @@
 #include "KSCPU.h"
 
 #include <mach-o/arch.h>
+#include <mach-o/utils.h>
 #include <mach/mach.h>
 
 #include "KSSystemCapabilities.h"
-
-#include <mach-o/utils.h>
 
 // #define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"

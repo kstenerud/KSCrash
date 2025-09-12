@@ -341,7 +341,7 @@ void kscm_removeMonitor(const KSCrashMonitorAPI *api)
 #pragma mark - Testing API -
 // ============================================================================
 
-__attribute__((unused)) // For tests. Declared as extern in TestCase
+__attribute__((unused))  // For tests. Declared as extern in TestCase
 void kscm_testcode_resetState(void)
 {
     g_initialized = false;
