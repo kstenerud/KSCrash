@@ -288,7 +288,7 @@ static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext)
     // we'll use this when reading this back on the next run
     // to know if an OOM is even possible.
     if (asyncSafeOnly) {
-        // since we're in a singal or something that can only
+        // since we're in a signal or something that can only
         // use async safe functions, we can't lock.
         // It's "ok" though, since no other threads should be running.
         g_memory->fatal = eventContext->requirements.isFatal;
@@ -599,11 +599,3 @@ uint8_t ksmemory_get_nonfatal_report_level(void) { return g_MinimumNonFatalRepor
 void ksmemory_set_fatal_reports_enabled(bool enabled) { g_FatalReportsEnabled = enabled; }
 
 bool ksmemory_get_fatal_reports_enabled(void) { return g_FatalReportsEnabled; }
-
-void ksmemory_notifyUnhandledFatalSignal(void)
-{
-    // this is only called from a signal so we cannot lock.
-    if (g_memory) {
-        g_memory->fatal = true;
-    }
-}

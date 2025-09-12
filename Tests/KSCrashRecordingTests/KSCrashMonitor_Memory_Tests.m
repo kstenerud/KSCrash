@@ -315,9 +315,4 @@ static KSCrashAppMemory *Memory(uint64_t footprint)
     XCTAssertEqual(ksmemory_get_nonfatal_report_level(), KSCrashAppMemoryStateUrgent);
 }
 
-- (void)testNotifyUnhandledFatalSignal
-{
-    XCTAssertNoThrow(ksmemory_notifyUnhandledFatalSignal(), @"NULL safety for g_memory");
-}
-
 @end

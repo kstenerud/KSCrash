@@ -33,7 +33,7 @@
 
 static volatile bool g_isEnabled = false;
 
-__attribute__((unused)) // For tests. Declared as extern in TestCase
+__attribute__((unused))  // For tests. Declared as extern in TestCase
 void kscm_discSpace_resetState(void)
 {
     g_isEnabled = false;
