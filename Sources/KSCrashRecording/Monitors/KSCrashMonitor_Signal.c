@@ -75,7 +75,7 @@ static bool isEnabled(void) { return g_state.isEnabled && g_state.installedState
 // ============================================================================
 
 static void uninstall(void);
-static bool shouldHandleSignal(int sigNum) { return !(sigNum == SIGTERM && !g_state.sigtermMonitoringEnabled); }
+static bool shouldWriteReport(int sigNum) { return !(sigNum == SIGTERM && !g_state.sigtermMonitoringEnabled); }
 
 // ============================================================================
 #pragma mark - Callbacks -
@@ -96,12 +96,13 @@ static bool shouldHandleSignal(int sigNum) { return !(sigNum == SIGTERM && !g_st
 static void handleSignal(int sigNum, siginfo_t *signalInfo, void *userContext)
 {
     KSLOG_DEBUG("Trapped signal %d", sigNum);
-    if (isEnabled() && shouldHandleSignal(sigNum)) {
+    if (isEnabled()) {
         thread_t thisThread = (thread_t)ksthread_self();
         KSCrash_MonitorContext *crashContext = g_state.callbacks.notify(
-            thisThread,
-            (KSCrash_ExceptionHandlingRequirements) {
-                .asyncSafety = true, .isFatal = true, .shouldRecordAllThreads = true, .shouldWriteReport = true });
+            thisThread, (KSCrash_ExceptionHandlingRequirements) { .asyncSafety = true,
+                                                                  .isFatal = true,
+                                                                  .shouldRecordAllThreads = true,
+                                                                  .shouldWriteReport = shouldWriteReport(sigNum) });
         if (crashContext->requirements.shouldExitImmediately) {
             goto exit_immediately;
         }
@@ -122,8 +123,6 @@ static void handleSignal(int sigNum, siginfo_t *signalInfo, void *userContext)
         crashContext->stackCursor = &stackCursor;
 
         g_state.callbacks.handle(crashContext);
-    } else {
-        ksmemory_notifyUnhandledFatalSignal();
     }
 
     KSLOG_DEBUG("Re-raising signal for regular handlers to catch.");

@@ -332,7 +332,6 @@
 #define ksmemory_get_fatal_reports_enabled KSCRASH_NS(ksmemory_get_fatal_reports_enabled)
 #define ksmemory_get_nonfatal_report_level KSCRASH_NS(ksmemory_get_nonfatal_report_level)
 #define ksmemory_initialize KSCRASH_NS(ksmemory_initialize)
-#define ksmemory_notifyUnhandledFatalSignal KSCRASH_NS(ksmemory_notifyUnhandledFatalSignal)
 #define ksmemory_previous_session_was_terminated_due_to_memory \
     KSCRASH_NS(ksmemory_previous_session_was_terminated_due_to_memory)
 #define ksmemory_set_fatal_reports_enabled KSCRASH_NS(ksmemory_set_fatal_reports_enabled)
