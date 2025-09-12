@@ -167,6 +167,9 @@ let warningFlags = [
     "-Wvector-conversion",
     "-Wweak-vtables",
 
+    // GNU extensions
+    "-Wno-gnu-folding-constant",
+
     // To be added later (big job to fix this)
     // "-Wdirect-ivar-access",
     // "-Wobjc-interface-ivars",
