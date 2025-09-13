@@ -47,9 +47,10 @@
 #pragma mark - Globals -
 // ============================================================================
 
-static const size_t asyncSafeIndexMask = 1;
-static const size_t asyncSafeItemCount = asyncSafeIndexMask + 1;
-static const int maxSimultaneousExceptions = 200;  // 99.99999% sure we'll never exceed this.
+#define ASYNC_SAFE_INDEX_MASK 1
+#define ASYNC_SAFE_ITEM_COUNT (ASYNC_SAFE_INDEX_MASK + 1)
+// 99.99999% sure we'll never exceed this.
+#define MAX_SIMULTANEOUS_EXCEPTIONS 200
 
 static struct {
     KSCrashMonitorAPIList monitors;
@@ -57,7 +58,7 @@ static struct {
     bool crashedDuringExceptionHandling;
     bool isHandlingFatalException;
 
-    KSCrash_MonitorContext asyncSafeContext[asyncSafeItemCount];
+    KSCrash_MonitorContext asyncSafeContext[ASYNC_SAFE_ITEM_COUNT];
     atomic_int asyncSafeContextIndex;
 
     /**
@@ -66,7 +67,7 @@ static struct {
      */
     KSCrash_MonitorContext exitImmediatelyContext;
 
-    thread_t threadsHandlingExceptions[maxSimultaneousExceptions];
+    thread_t threadsHandlingExceptions[MAX_SIMULTANEOUS_EXCEPTIONS];
     atomic_int handlingExceptionIndex;
 
     void (*onExceptionEvent)(struct KSCrash_MonitorContext *monitorContext);
@@ -80,7 +81,7 @@ static atomic_bool g_initialized;
 
 static KSCrash_MonitorContext *asyncSafeContextAtIndex(int index)
 {
-    return &g_state.asyncSafeContext[((size_t)index) & asyncSafeIndexMask];
+    return &g_state.asyncSafeContext[((size_t)index) & ASYNC_SAFE_INDEX_MASK];
 }
 
 static void init(void)
@@ -91,7 +92,7 @@ static void init(void)
     }
 
     memset(&g_state, 0, sizeof(g_state));
-    for (size_t i = 0; i < asyncSafeItemCount; i++) {
+    for (size_t i = 0; i < ASYNC_SAFE_ITEM_COUNT; i++) {
         ksid_generate(g_state.asyncSafeContext[i].eventID);
     }
     g_state.exitImmediatelyContext.requirements.shouldExitImmediately = true;
@@ -99,8 +100,8 @@ static void init(void)
 
 static bool isThreadAlreadyHandlingAnException(int maxCount, thread_t offendingThread, thread_t handlingThread)
 {
-    if (maxCount > maxSimultaneousExceptions) {
-        maxCount = maxSimultaneousExceptions;
+    if (maxCount > MAX_SIMULTANEOUS_EXCEPTIONS) {
+        maxCount = MAX_SIMULTANEOUS_EXCEPTIONS;
     }
     for (int i = 0; i < maxCount; i++) {
         thread_t handlerThread = g_state.threadsHandlingExceptions[i];
@@ -114,7 +115,7 @@ static bool isThreadAlreadyHandlingAnException(int maxCount, thread_t offendingT
 static int beginHandlingException(thread_t handlerThread)
 {
     int thisThreadHandlerIndex = g_state.handlingExceptionIndex++;
-    if (thisThreadHandlerIndex < maxSimultaneousExceptions) {
+    if (thisThreadHandlerIndex < MAX_SIMULTANEOUS_EXCEPTIONS) {
         g_state.threadsHandlingExceptions[thisThreadHandlerIndex] = handlerThread;
     }
     return thisThreadHandlerIndex;
@@ -131,7 +132,7 @@ static void endHandlingException(int threadIndex)
 
     // If the list has become empty (all simultaneously running
     // handlers have finished), reset the index back to 0.
-    for (int i = 0; i < maxSimultaneousExceptions; i++) {
+    for (int i = 0; i < MAX_SIMULTANEOUS_EXCEPTIONS; i++) {
         if (g_state.threadsHandlingExceptions[i] != 0) {
             return;
         }
@@ -234,7 +235,7 @@ static KSCrash_MonitorContext *notifyException(const mach_port_t offendingThread
     const bool isCrashedDuringExceptionHandling =
         isThreadAlreadyHandlingAnException(thisThreadHandlerIndex, offendingThread, thisThread);
 
-    if (thisThreadHandlerIndex > maxSimultaneousExceptions) {
+    if (thisThreadHandlerIndex > MAX_SIMULTANEOUS_EXCEPTIONS) {
         // This should never happen, but it is theoretically possible for tons of
         // threads to cause exceptions at the exact same time, flooding our handler.
         // Drop the exception and disable future crash handling to give at least some
@@ -341,7 +342,7 @@ void kscm_removeMonitor(const KSCrashMonitorAPI *api)
 #pragma mark - Testing API -
 // ============================================================================
 
-__attribute__((unused)) // For tests. Declared as extern in TestCase
+__attribute__((unused))  // For tests. Declared as extern in TestCase
 void kscm_testcode_resetState(void)
 {
     g_initialized = false;

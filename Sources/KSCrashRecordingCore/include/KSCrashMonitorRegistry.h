@@ -49,9 +49,9 @@ extern "C" {
  *   - Once a swap is successful, iterate again, removing duplicates in case someone else also added the same API.
  * - To remove an entry: Search for the pointer in the array and swap it for null.
  */
-static const size_t monitorAPICount = 100;
+#define KSCRASH_MONITOR_API_COUNT 100
 typedef struct {
-    _Atomic(const KSCrashMonitorAPI *) apis[monitorAPICount];
+    _Atomic(const KSCrashMonitorAPI *) apis[KSCRASH_MONITOR_API_COUNT];
 } KSCrashMonitorAPIList;
 
 /**

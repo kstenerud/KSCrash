@@ -216,7 +216,7 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
 
 // in case of unsigned values
 // ie: MAX(x,y) - MIN(x,y)
-#define _KSABS_DIFF(x, y) x > y ? x - y : y - x
+#define KSABS_DIFF(x, y) x > y ? x - y : y - x
 
 - (void)_heartbeat:(BOOL)sendObservers
 {
@@ -241,7 +241,7 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
         // For the footprint, we don't need very granular changes,
         // changing a few bytes here or there won't mke a difference,
         // we're looking for anything larger.
-        if (_KSABS_DIFF(newFootprint, _footprint) > kKSCrashFootprintMinChange) {
+        if (KSABS_DIFF(newFootprint, _footprint) > kKSCrashFootprintMinChange) {
             _footprint = newFootprint;
             footprintChanged = YES;
         }

@@ -206,123 +206,123 @@ ksc_objc_splitTaggedPointersEnabled(void);
 #   define OBJC_MSB_TAGGED_POINTERS 1
 #endif
 
-#define _OBJC_TAG_INDEX_MASK 0x7UL
+#define X_OBJC_TAG_INDEX_MASK 0x7UL
 
-#define _OBJC_TAG_EXT_INDEX_MASK 0xff
+#define X_OBJC_TAG_EXT_INDEX_MASK 0xff
 // array slot has no extra bits
-#define _OBJC_TAG_EXT_SLOT_COUNT 256
-#define _OBJC_TAG_EXT_SLOT_MASK 0xff
+#define X_OBJC_TAG_EXT_SLOT_COUNT 256
+#define X_OBJC_TAG_EXT_SLOT_MASK 0xff
 
 static inline int
-_OBJC_TAG_SLOT_COUNT_func(void)
+X_OBJC_TAG_SLOT_COUNT_func(void)
 {
     return ksc_objc_splitTaggedPointersEnabled() ? 8 : 16;
 }
 
 static inline uintptr_t
-_OBJC_TAG_SLOT_MASK_func(void)
+X_OBJC_TAG_SLOT_MASK_func(void)
 {
     return ksc_objc_splitTaggedPointersEnabled() ? 0x7UL : 0xfUL;
 }
 
 static inline uintptr_t
-_OBJC_TAG_MASK_func(void)
+X_OBJC_TAG_MASK_func(void)
 {
     return ksc_objc_splitTaggedPointersEnabled() ? (1UL<<63) :
         OBJC_MSB_TAGGED_POINTERS ? (1UL<<63) : 1UL;
 }
 
 static inline int
-_OBJC_TAG_INDEX_SHIFT_func(void)
+X_OBJC_TAG_INDEX_SHIFT_func(void)
 {
     return ksc_objc_splitTaggedPointersEnabled() ? 0 :
         OBJC_MSB_TAGGED_POINTERS ? 60 : 1;
 }
 
 static inline int
-_OBJC_TAG_SLOT_SHIFT_func(void)
+X_OBJC_TAG_SLOT_SHIFT_func(void)
 {
     return ksc_objc_splitTaggedPointersEnabled() ? 0 :
         OBJC_MSB_TAGGED_POINTERS ? 60 : 0;
 }
 
 static inline int
-_OBJC_TAG_PAYLOAD_LSHIFT_func(void)
+X_OBJC_TAG_PAYLOAD_LSHIFT_func(void)
 {
     return ksc_objc_splitTaggedPointersEnabled() ? 1 :
         OBJC_MSB_TAGGED_POINTERS ? 4 : 0;
 }
 
 static inline int
-_OBJC_TAG_PAYLOAD_RSHIFT_func(void)
+X_OBJC_TAG_PAYLOAD_RSHIFT_func(void)
 {
     return ksc_objc_splitTaggedPointersEnabled() ? 4 :
         OBJC_MSB_TAGGED_POINTERS ? 4 : 4;
 }
 
 static inline uintptr_t
-_OBJC_TAG_EXT_MASK_func(void)
+X_OBJC_TAG_EXT_MASK_func(void)
 {
-    return ksc_objc_splitTaggedPointersEnabled() ? (_OBJC_TAG_MASK_func() | 0x7UL) :
+    return ksc_objc_splitTaggedPointersEnabled() ? (X_OBJC_TAG_MASK_func() | 0x7UL) :
         OBJC_MSB_TAGGED_POINTERS ? (0xfUL<<60) : 0xfUL;
 }
 
 static inline uintptr_t
-_OBJC_TAG_NO_OBFUSCATION_MASK_func(void)
+X_OBJC_TAG_NO_OBFUSCATION_MASK_func(void)
 {
-    return ksc_objc_splitTaggedPointersEnabled() ? ((1UL<<62) | _OBJC_TAG_EXT_MASK_func()) : 0;
+    return ksc_objc_splitTaggedPointersEnabled() ? ((1UL<<62) | X_OBJC_TAG_EXT_MASK_func()) : 0;
 }
 
 static inline int
-_OBJC_TAG_EXT_SLOT_SHIFT_func(void)
+X_OBJC_TAG_EXT_SLOT_SHIFT_func(void)
 {
     return ksc_objc_splitTaggedPointersEnabled() ? 55 :
         OBJC_MSB_TAGGED_POINTERS ? 52 : 4;
 }
 
 static inline uintptr_t
-_OBJC_TAG_CONSTANT_POINTER_MASK_func(void)
+X_OBJC_TAG_CONSTANT_POINTER_MASK_func(void)
 {
     return ksc_objc_splitTaggedPointersEnabled() ?
-        ~(_OBJC_TAG_EXT_MASK_func() | ((uintptr_t)_OBJC_TAG_EXT_SLOT_MASK << _OBJC_TAG_EXT_SLOT_SHIFT_func())) : 0;
+        ~(X_OBJC_TAG_EXT_MASK_func() | ((uintptr_t)X_OBJC_TAG_EXT_SLOT_MASK << X_OBJC_TAG_EXT_SLOT_SHIFT_func())) : 0;
 }
 
 static inline int
-_OBJC_TAG_EXT_INDEX_SHIFT_func(void)
+X_OBJC_TAG_EXT_INDEX_SHIFT_func(void)
 {
     return ksc_objc_splitTaggedPointersEnabled() ? 55 :
         OBJC_MSB_TAGGED_POINTERS ? 52 : 4;
 }
 
 static inline int
-_OBJC_TAG_EXT_PAYLOAD_LSHIFT_func(void)
+X_OBJC_TAG_EXT_PAYLOAD_LSHIFT_func(void)
 {
     return ksc_objc_splitTaggedPointersEnabled() ? 9 :
         OBJC_MSB_TAGGED_POINTERS ? 12 : 0;
 }
 
 static inline int
-_OBJC_TAG_EXT_PAYLOAD_RSHIFT_func(void)
+X_OBJC_TAG_EXT_PAYLOAD_RSHIFT_func(void)
 {
     return ksc_objc_splitTaggedPointersEnabled() ? 12 :
         OBJC_MSB_TAGGED_POINTERS ? 12 : 12;
 }
 
 // (KSCrash) Macros were rewritten to include runtime checks for split tagged pointers, based on objc4-912.3.
-#define _OBJC_TAG_SLOT_COUNT             _OBJC_TAG_SLOT_COUNT_func()
-#define _OBJC_TAG_SLOT_MASK              _OBJC_TAG_SLOT_MASK_func()
-#define _OBJC_TAG_MASK                   _OBJC_TAG_MASK_func()
-#define _OBJC_TAG_INDEX_SHIFT            _OBJC_TAG_INDEX_SHIFT_func()
-#define _OBJC_TAG_SLOT_SHIFT             _OBJC_TAG_SLOT_SHIFT_func()
-#define _OBJC_TAG_PAYLOAD_LSHIFT         _OBJC_TAG_PAYLOAD_LSHIFT_func()
-#define _OBJC_TAG_PAYLOAD_RSHIFT         _OBJC_TAG_PAYLOAD_RSHIFT_func()
-#define _OBJC_TAG_EXT_MASK               _OBJC_TAG_EXT_MASK_func()
-#define _OBJC_TAG_NO_OBFUSCATION_MASK    _OBJC_TAG_NO_OBFUSCATION_MASK_func()
-#define _OBJC_TAG_CONSTANT_POINTER_MASK  _OBJC_TAG_CONSTANT_POINTER_MASK_func()
-#define _OBJC_TAG_EXT_INDEX_SHIFT        _OBJC_TAG_EXT_INDEX_SHIFT_func()
-#define _OBJC_TAG_EXT_SLOT_SHIFT         _OBJC_TAG_EXT_SLOT_SHIFT_func()
-#define _OBJC_TAG_EXT_PAYLOAD_LSHIFT     _OBJC_TAG_EXT_PAYLOAD_LSHIFT_func()
-#define _OBJC_TAG_EXT_PAYLOAD_RSHIFT     _OBJC_TAG_EXT_PAYLOAD_RSHIFT_func()
+#define X_OBJC_TAG_SLOT_COUNT             X_OBJC_TAG_SLOT_COUNT_func()
+#define X_OBJC_TAG_SLOT_MASK              X_OBJC_TAG_SLOT_MASK_func()
+#define X_OBJC_TAG_MASK                   X_OBJC_TAG_MASK_func()
+#define X_OBJC_TAG_INDEX_SHIFT            X_OBJC_TAG_INDEX_SHIFT_func()
+#define X_OBJC_TAG_SLOT_SHIFT             X_OBJC_TAG_SLOT_SHIFT_func()
+#define X_OBJC_TAG_PAYLOAD_LSHIFT         X_OBJC_TAG_PAYLOAD_LSHIFT_func()
+#define X_OBJC_TAG_PAYLOAD_RSHIFT         X_OBJC_TAG_PAYLOAD_RSHIFT_func()
+#define X_OBJC_TAG_EXT_MASK               X_OBJC_TAG_EXT_MASK_func()
+#define X_OBJC_TAG_NO_OBFUSCATION_MASK    X_OBJC_TAG_NO_OBFUSCATION_MASK_func()
+#define X_OBJC_TAG_CONSTANT_POINTER_MASK  X_OBJC_TAG_CONSTANT_POINTER_MASK_func()
+#define X_OBJC_TAG_EXT_INDEX_SHIFT        X_OBJC_TAG_EXT_INDEX_SHIFT_func()
+#define X_OBJC_TAG_EXT_SLOT_SHIFT         X_OBJC_TAG_EXT_SLOT_SHIFT_func()
+#define X_OBJC_TAG_EXT_PAYLOAD_LSHIFT     X_OBJC_TAG_EXT_PAYLOAD_LSHIFT_func()
+#define X_OBJC_TAG_EXT_PAYLOAD_RSHIFT     X_OBJC_TAG_EXT_PAYLOAD_RSHIFT_func()
 
 // Map of tags to obfuscated tags.
 extern uintptr_t objc_debug_taggedpointer_obfuscator;
@@ -362,12 +362,12 @@ _objc_encodeTaggedPointer_withObfuscator(uintptr_t ptr, uintptr_t obfuscator)
     uintptr_t value = (obfuscator ^ ptr);
 #if OBJC_SPLIT_TAGGED_POINTERS
     if (ksc_objc_splitTaggedPointersEnabled()) {
-        if ((value & _OBJC_TAG_NO_OBFUSCATION_MASK) == _OBJC_TAG_NO_OBFUSCATION_MASK)
+        if ((value & X_OBJC_TAG_NO_OBFUSCATION_MASK) == X_OBJC_TAG_NO_OBFUSCATION_MASK)
             return (void *)ptr;
-        uintptr_t basicTag = (value >> _OBJC_TAG_INDEX_SHIFT) & _OBJC_TAG_INDEX_MASK;
+        uintptr_t basicTag = (value >> X_OBJC_TAG_INDEX_SHIFT) & X_OBJC_TAG_INDEX_MASK;
         uintptr_t permutedTag = _objc_basicTagToObfuscatedTag(basicTag);
-        value &= ~(_OBJC_TAG_INDEX_MASK << _OBJC_TAG_INDEX_SHIFT);
-        value |= permutedTag << _OBJC_TAG_INDEX_SHIFT;
+        value &= ~(X_OBJC_TAG_INDEX_MASK << X_OBJC_TAG_INDEX_SHIFT);
+        value |= permutedTag << X_OBJC_TAG_INDEX_SHIFT;
     }
 #endif
     return (void *)value;
@@ -380,7 +380,7 @@ _objc_decodeTaggedPointer_noPermute_withObfuscator(const void *ptr,
     uintptr_t value = (uintptr_t)ptr;
 #if OBJC_SPLIT_TAGGED_POINTERS
     if (ksc_objc_splitTaggedPointersEnabled()) {
-        if ((value & _OBJC_TAG_NO_OBFUSCATION_MASK) == _OBJC_TAG_NO_OBFUSCATION_MASK)
+        if ((value & X_OBJC_TAG_NO_OBFUSCATION_MASK) == X_OBJC_TAG_NO_OBFUSCATION_MASK)
             return value;
     }
 #endif
@@ -395,10 +395,10 @@ _objc_decodeTaggedPointer_withObfuscator(const void *ptr,
     = _objc_decodeTaggedPointer_noPermute_withObfuscator(ptr, obfuscator);
 #if OBJC_SPLIT_TAGGED_POINTERS
     if (ksc_objc_splitTaggedPointersEnabled()) {
-        uintptr_t basicTag = (value >> _OBJC_TAG_INDEX_SHIFT) & _OBJC_TAG_INDEX_MASK;
+        uintptr_t basicTag = (value >> X_OBJC_TAG_INDEX_SHIFT) & X_OBJC_TAG_INDEX_MASK;
 
-        value &= ~(_OBJC_TAG_INDEX_MASK << _OBJC_TAG_INDEX_SHIFT);
-        value |= _objc_obfuscatedTagToBasicTag(basicTag) << _OBJC_TAG_INDEX_SHIFT;
+        value &= ~(X_OBJC_TAG_INDEX_MASK << X_OBJC_TAG_INDEX_SHIFT);
+        value |= _objc_obfuscatedTagToBasicTag(basicTag) << X_OBJC_TAG_INDEX_SHIFT;
     }
 #endif
     return value;
@@ -439,20 +439,20 @@ _objc_makeTaggedPointer_withObfuscator(objc_tag_index_t tag, uintptr_t value,
 
     // ASSERT(_objc_taggedPointersEnabled());
     if (tag <= OBJC_TAG_Last60BitPayload) {
-        // ASSERT(((value << _OBJC_TAG_PAYLOAD_RSHIFT) >> _OBJC_TAG_PAYLOAD_LSHIFT) == value);
+        // ASSERT(((value << X_OBJC_TAG_PAYLOAD_RSHIFT) >> X_OBJC_TAG_PAYLOAD_LSHIFT) == value);
         uintptr_t result =
-        (_OBJC_TAG_MASK |
-         ((uintptr_t)tag << _OBJC_TAG_INDEX_SHIFT) |
-         ((value << _OBJC_TAG_PAYLOAD_RSHIFT) >> _OBJC_TAG_PAYLOAD_LSHIFT));
+        (X_OBJC_TAG_MASK |
+         ((uintptr_t)tag << X_OBJC_TAG_INDEX_SHIFT) |
+         ((value << X_OBJC_TAG_PAYLOAD_RSHIFT) >> X_OBJC_TAG_PAYLOAD_LSHIFT));
         return _objc_encodeTaggedPointer_withObfuscator(result, obfuscator);
     } else {
         // ASSERT(tag >= OBJC_TAG_First52BitPayload);
         // ASSERT(tag <= OBJC_TAG_Last52BitPayload);
-        // ASSERT(((value << _OBJC_TAG_EXT_PAYLOAD_RSHIFT) >> _OBJC_TAG_EXT_PAYLOAD_LSHIFT) == value);
+        // ASSERT(((value << X_OBJC_TAG_EXT_PAYLOAD_RSHIFT) >> X_OBJC_TAG_EXT_PAYLOAD_LSHIFT) == value);
         uintptr_t result =
-        (_OBJC_TAG_EXT_MASK |
-         ((uintptr_t)(tag - OBJC_TAG_First52BitPayload) << _OBJC_TAG_EXT_INDEX_SHIFT) |
-         ((value << _OBJC_TAG_EXT_PAYLOAD_RSHIFT) >> _OBJC_TAG_EXT_PAYLOAD_LSHIFT));
+        (X_OBJC_TAG_EXT_MASK |
+         ((uintptr_t)(tag - OBJC_TAG_First52BitPayload) << X_OBJC_TAG_EXT_INDEX_SHIFT) |
+         ((value << X_OBJC_TAG_EXT_PAYLOAD_RSHIFT) >> X_OBJC_TAG_EXT_PAYLOAD_LSHIFT));
         return _objc_encodeTaggedPointer_withObfuscator(result, obfuscator);
     }
 }
@@ -466,7 +466,7 @@ _objc_makeTaggedPointer(objc_tag_index_t tag, uintptr_t value)
 static inline bool
 _objc_isTaggedPointer(const void *ptr)
 {
-    return ((uintptr_t)ptr & _OBJC_TAG_MASK) == _OBJC_TAG_MASK;
+    return ((uintptr_t)ptr & X_OBJC_TAG_MASK) == X_OBJC_TAG_MASK;
 }
 
 static inline bool
@@ -475,7 +475,7 @@ _objc_isTaggedPointerOrNil(const void *ptr)
     // this function is here so that clang can turn this into
     // a comparison with NULL when this is appropriate
     // it turns out it's not able to in many cases without this
-    return !ptr || ((uintptr_t)ptr & _OBJC_TAG_MASK) == _OBJC_TAG_MASK;
+    return !ptr || ((uintptr_t)ptr & X_OBJC_TAG_MASK) == X_OBJC_TAG_MASK;
 }
 
 static inline objc_tag_index_t
@@ -484,9 +484,9 @@ _objc_getTaggedPointerTag_withObfuscator(const void *ptr,
 {
     // ASSERT(_objc_isTaggedPointer(ptr));
     uintptr_t value = _objc_decodeTaggedPointer_withObfuscator(ptr, obfuscator);
-    uintptr_t basicTag = (value >> _OBJC_TAG_INDEX_SHIFT) & _OBJC_TAG_INDEX_MASK;
-    uintptr_t extTag =   (value >> _OBJC_TAG_EXT_INDEX_SHIFT) & _OBJC_TAG_EXT_INDEX_MASK;
-    if (basicTag == _OBJC_TAG_INDEX_MASK) {
+    uintptr_t basicTag = (value >> X_OBJC_TAG_INDEX_SHIFT) & X_OBJC_TAG_INDEX_MASK;
+    uintptr_t extTag =   (value >> X_OBJC_TAG_EXT_INDEX_SHIFT) & X_OBJC_TAG_EXT_INDEX_MASK;
+    if (basicTag == X_OBJC_TAG_INDEX_MASK) {
         return (objc_tag_index_t)(extTag + OBJC_TAG_First52BitPayload);
     } else {
         return (objc_tag_index_t)basicTag;
@@ -500,11 +500,11 @@ _objc_getTaggedPointerValue_withObfuscator(const void *ptr,
 {
     // ASSERT(_objc_isTaggedPointer(ptr));
     uintptr_t value = _objc_decodeTaggedPointer_noPermute_withObfuscator(ptr, obfuscator);
-    uintptr_t basicTag = (value >> _OBJC_TAG_INDEX_SHIFT) & _OBJC_TAG_INDEX_MASK;
-    if (basicTag == _OBJC_TAG_INDEX_MASK) {
-        return (value << _OBJC_TAG_EXT_PAYLOAD_LSHIFT) >> _OBJC_TAG_EXT_PAYLOAD_RSHIFT;
+    uintptr_t basicTag = (value >> X_OBJC_TAG_INDEX_SHIFT) & X_OBJC_TAG_INDEX_MASK;
+    if (basicTag == X_OBJC_TAG_INDEX_MASK) {
+        return (value << X_OBJC_TAG_EXT_PAYLOAD_LSHIFT) >> X_OBJC_TAG_EXT_PAYLOAD_RSHIFT;
     } else {
-        return (value << _OBJC_TAG_PAYLOAD_LSHIFT) >> _OBJC_TAG_PAYLOAD_RSHIFT;
+        return (value << X_OBJC_TAG_PAYLOAD_LSHIFT) >> X_OBJC_TAG_PAYLOAD_RSHIFT;
     }
 }
 
@@ -515,11 +515,11 @@ _objc_getTaggedPointerSignedValue_withObfuscator(const void *ptr,
 {
     // ASSERT(_objc_isTaggedPointer(ptr));
     uintptr_t value = _objc_decodeTaggedPointer_noPermute_withObfuscator(ptr, obfuscator);
-    uintptr_t basicTag = (value >> _OBJC_TAG_INDEX_SHIFT) & _OBJC_TAG_INDEX_MASK;
-    if (basicTag == _OBJC_TAG_INDEX_MASK) {
-        return ((intptr_t)value << _OBJC_TAG_EXT_PAYLOAD_LSHIFT) >> _OBJC_TAG_EXT_PAYLOAD_RSHIFT;
+    uintptr_t basicTag = (value >> X_OBJC_TAG_INDEX_SHIFT) & X_OBJC_TAG_INDEX_MASK;
+    if (basicTag == X_OBJC_TAG_INDEX_MASK) {
+        return ((intptr_t)value << X_OBJC_TAG_EXT_PAYLOAD_LSHIFT) >> X_OBJC_TAG_EXT_PAYLOAD_RSHIFT;
     } else {
-        return ((intptr_t)value << _OBJC_TAG_PAYLOAD_LSHIFT) >> _OBJC_TAG_PAYLOAD_RSHIFT;
+        return ((intptr_t)value << X_OBJC_TAG_PAYLOAD_LSHIFT) >> X_OBJC_TAG_PAYLOAD_RSHIFT;
     }
 }
 
@@ -554,7 +554,7 @@ ksc_objc_splitTaggedPointersEnabled(void)
 #   if OBJC_SPLIT_TAGGED_POINTERS
 static inline void *
 _objc_getTaggedPointerRawPointerValue(const void *ptr) {
-    return (void *)((uintptr_t)ptr & _OBJC_TAG_CONSTANT_POINTER_MASK);
+    return (void *)((uintptr_t)ptr & X_OBJC_TAG_CONSTANT_POINTER_MASK);
 }
 #   endif
 
@@ -728,24 +728,24 @@ typedef struct __CFRuntimeBase {
 // ======================================================================
 
 #if defined(__BIG_ENDIAN__)
-#define __CF_BIG_ENDIAN__ 1
-#define __CF_LITTLE_ENDIAN__ 0
+#define X__CF_BIG_ENDIAN__ 1
+#define X__CF_LITTLE_ENDIAN__ 0
 #endif
 
 #if defined(__LITTLE_ENDIAN__)
-#define __CF_LITTLE_ENDIAN__ 1
-#define __CF_BIG_ENDIAN__ 0
+#define X__CF_LITTLE_ENDIAN__ 1
+#define X__CF_BIG_ENDIAN__ 0
 #endif
 
-#define CF_INFO_BITS (!!(__CF_BIG_ENDIAN__) * 3)
-#define CF_RC_BITS (!!(__CF_LITTLE_ENDIAN__) * 3)
+#define CF_INFO_BITS (!!(X__CF_BIG_ENDIAN__) * 3)
+#define CF_RC_BITS (!!(X__CF_LITTLE_ENDIAN__) * 3)
 
 /* Bit manipulation macros */
 /* Bits are numbered from 31 on left to 0 on right */
 /* May or may not work if you use them on bitfields in types other than UInt32, bitfields the full width of a UInt32, or anything else for which they were not designed. */
 /* In the following, N1 and N2 specify an inclusive range N2..N1 with N1 >= N2 */
-#define __CFBitfieldMask(N1, N2)	((((UInt32)~0UL) << (31UL - (N1) + (N2))) >> (31UL - N1))
-#define __CFBitfieldGetValue(V, N1, N2)	(((V) & __CFBitfieldMask(N1, N2)) >> (N2))
+#define X__CFBitfieldMask(N1, N2)	((((UInt32)~0UL) << (31UL - (N1) + (N2))) >> (31UL - N1))
+#define X__CFBitfieldGetValue(V, N1, N2)	(((V) & X__CFBitfieldMask(N1, N2)) >> (N2))
 
 
 // ======================================================================
@@ -956,13 +956,13 @@ enum {		/* Bits 2-3 */
 };
 
 CF_INLINE CFIndex __CFArrayGetType(CFArrayRef array) {
-    return __CFBitfieldGetValue(((const CFRuntimeBase *)array)->_cfinfo[CF_INFO_BITS], 1, 0);
+    return X__CFBitfieldGetValue(((const CFRuntimeBase *)array)->_cfinfo[CF_INFO_BITS], 1, 0);
 }
 
 CF_INLINE CFIndex __CFArrayGetSizeOfType(CFIndex t) {
     CFIndex size = 0;
     size += sizeof(struct __CFArray);
-    if (__CFBitfieldGetValue((unsigned long)t, 3, 2) == __kCFArrayHasCustomCallBacks) {
+    if (X__CFBitfieldGetValue((unsigned long)t, 3, 2) == __kCFArrayHasCustomCallBacks) {
         size += sizeof(CFArrayCallBacks);
     }
     return size;

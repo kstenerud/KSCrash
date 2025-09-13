@@ -43,14 +43,14 @@
 
 #ifdef __arm64__
 #if !(KSCRASH_HOST_MAC)
-#define _KSCRASH_CONTEXT_64
+#define KSCRASH_CONTEXT_64
 #endif
 #endif
 
-#ifdef _KSCRASH_CONTEXT_64
+#ifdef KSCRASH_CONTEXT_64
 #define UC_MCONTEXT uc_mcontext64
 typedef ucontext64_t SignalUserContext;
-#undef _KSCRASH_CONTEXT_64
+#undef KSCRASH_CONTEXT_64
 #else
 #define UC_MCONTEXT uc_mcontext
 typedef ucontext_t SignalUserContext;

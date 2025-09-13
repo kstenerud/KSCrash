@@ -75,13 +75,13 @@
 - (void)testCorrectSwiftSymbols
 {
     XCTAssertEqualObjects([KSCrashReportFilterDemangle demangledSwiftSymbol:@"$s5HelloAAC8sayHelloyyF"],
-                          @"Hello.sayHello()");
+                          @"Hello.Hello.sayHello() -> ()");
     XCTAssertEqualObjects([KSCrashReportFilterDemangle demangledSwiftSymbol:@"$s3Foo3BarC11doSomethingyyFZ"],
-                          @"static Bar.doSomething()");
+                          @"static Foo.Bar.doSomething() -> ()");
     XCTAssertEqualObjects([KSCrashReportFilterDemangle demangledSwiftSymbol:@"$s3app5ModelC5valueSSvg"],
-                          @"Model.value.getter");
+                          @"app.Model.value.getter : Swift.String");
     XCTAssertEqualObjects([KSCrashReportFilterDemangle demangledSwiftSymbol:@"$s3Foo3BarC11doSomethingySiSS_SbtF"],
-                          @"Bar.doSomething(_:_:)");
+                          @"Foo.Bar.doSomething(Swift.String, Swift.Bool) -> Swift.Int");
 }
 
 #pragma mark - Report
@@ -132,7 +132,7 @@
                                 KSCrashField_SymbolName : @"foo()",
                             },
                             @{
-                                KSCrashField_SymbolName : @"Hello.sayHello()",
+                                KSCrashField_SymbolName : @"Hello.Hello.sayHello() -> ()",
                             },
                             @{
                                 KSCrashField_SymbolName : @"Not_Mangled()",
