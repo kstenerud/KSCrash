@@ -35,7 +35,7 @@
 // #define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
-#if !_HAS_MACH_O_UTILS || !KSCRASH_HOST_VISION
+#if !KSCRASH_HOST_VISION
 static inline const char *currentArch_nx(void)
 {
     const NXArchInfo *archInfo = NXGetLocalArchInfo();

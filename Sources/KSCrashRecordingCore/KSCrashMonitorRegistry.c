@@ -40,7 +40,7 @@ bool kscmr_addMonitor(KSCrashMonitorAPIList *monitorList, const KSCrashMonitorAP
     }
 
     bool added = false;
-    for (size_t i = 0; i < monitorAPICount; i++) {
+    for (size_t i = 0; i < KSCRASH_MONITOR_API_COUNT; i++) {
         if (atomic_load(monitorList->apis + i) == api) {
             KSLOG_DEBUG("Monitor %s already exists. Skipping addition.", api->monitorId());
             return false;
@@ -62,7 +62,7 @@ bool kscmr_addMonitor(KSCrashMonitorAPIList *monitorList, const KSCrashMonitorAP
 
     // Check for and remove duplicates in case another thread also just added the same API.
     bool found = false;
-    for (size_t i = 0; i < monitorAPICount; i++) {
+    for (size_t i = 0; i < KSCRASH_MONITOR_API_COUNT; i++) {
         if (atomic_load(monitorList->apis + i) == api) {
             if (!found) {
                 // Leave the first copy alone.
@@ -85,7 +85,7 @@ void kscmr_removeMonitor(KSCrashMonitorAPIList *monitorList, const KSCrashMonito
         return;
     }
 
-    for (size_t i = 0; i < monitorAPICount; i++) {
+    for (size_t i = 0; i < KSCRASH_MONITOR_API_COUNT; i++) {
         // Make sure we're swapping from our API to null, and not something else that got swapped in meanwhile.
         const KSCrashMonitorAPI *expectedAPI = api;
         if (atomic_compare_exchange_strong(monitorList->apis + i, &expectedAPI, NULL)) {
@@ -112,7 +112,7 @@ bool kscmr_activateMonitors(KSCrashMonitorAPIList *monitorList)
 
     // Enable or disable monitors
     bool anyMonitorActive = false;
-    for (size_t i = 0; i < monitorAPICount; i++) {
+    for (size_t i = 0; i < KSCRASH_MONITOR_API_COUNT; i++) {
         const KSCrashMonitorAPI *api = monitorList->apis[i];
         if (api == NULL) {
             // Found a hole. Skip it.
@@ -131,7 +131,7 @@ bool kscmr_activateMonitors(KSCrashMonitorAPIList *monitorList)
         KSLOG_DEBUG("Monitor %s is now %sabled.", api->monitorId(), isEnabled ? "en" : "dis");
     }
 
-    for (size_t i = 0; i < monitorAPICount; i++) {
+    for (size_t i = 0; i < KSCRASH_MONITOR_API_COUNT; i++) {
         const KSCrashMonitorAPI *api = monitorList->apis[i];
         if (api != NULL && api->isEnabled()) {
             api->notifyPostSystemEnable();
@@ -143,7 +143,7 @@ bool kscmr_activateMonitors(KSCrashMonitorAPIList *monitorList)
 
 void kscmr_disableAllMonitors(KSCrashMonitorAPIList *monitorList)
 {
-    for (size_t i = 0; i < monitorAPICount; i++) {
+    for (size_t i = 0; i < KSCRASH_MONITOR_API_COUNT; i++) {
         const KSCrashMonitorAPI *api = monitorList->apis[i];
         if (api != NULL) {
             api->setEnabled(false);
@@ -154,7 +154,7 @@ void kscmr_disableAllMonitors(KSCrashMonitorAPIList *monitorList)
 
 void kscmr_addContextualInfoToEvent(KSCrashMonitorAPIList *monitorList, struct KSCrash_MonitorContext *ctx)
 {
-    for (size_t i = 0; i < monitorAPICount; i++) {
+    for (size_t i = 0; i < KSCRASH_MONITOR_API_COUNT; i++) {
         const KSCrashMonitorAPI *api = monitorList->apis[i];
         if (api != NULL && api->isEnabled()) {
             api->addContextualInfoToEvent(ctx);
