@@ -49,7 +49,6 @@ ALWAYS_ADDED_SYMBOLS = [
                         "KSCrashAppMemory",
                         "KSCrashAppMemoryTrackerDelegate",
                         "KSCrashMailProcess",
-                        "KSCrashReportWriter",
                        ]
 
 # Ignore anything in an `NS_SWIFT_NAME()` macro that matches any of these:
