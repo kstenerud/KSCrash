@@ -50,7 +50,7 @@ int64_t kscm_reportUserException(const char *name, const char *reason, const cha
 {
     if (!g_isEnabled) {
         KSLOG_WARN("User-reported exception monitor is not installed. Exception has not been recorded.");
-        return 0;
+        return -1;
     }
 
     // get the next report id without incrementing it
@@ -63,7 +63,6 @@ int64_t kscm_reportUserException(const char *name, const char *reason, const cha
                                                               .shouldRecordAllThreads = logAllThreads,
                                                               .shouldWriteReport = true });
     if (ctx->requirements.shouldExitImmediately) {
-        nextReportId = 0;
         goto exit_immediately;
     }
 
