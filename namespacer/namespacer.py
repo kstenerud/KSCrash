@@ -49,7 +49,6 @@ ALWAYS_ADDED_SYMBOLS = [
                         "KSCrashAppMemory",
                         "KSCrashAppMemoryTrackerDelegate",
                         "KSCrashMailProcess",
-                        "KSCrashMonitor_MemoryTracker",
                         "KSCrashReportWriter",
                        ]
 

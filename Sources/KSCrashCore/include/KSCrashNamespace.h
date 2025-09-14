@@ -151,7 +151,6 @@
 #define MonitorType KSCRASH_NS(MonitorType)
 #define ReportType KSCRASH_NS(ReportType)
 #define ReportWriter KSCRASH_NS(ReportWriter)
-#define _KSCrashMonitor_MemoryTracker KSCRASH_NS(_KSCrashMonitor_MemoryTracker)
 #define __KSCrashAppMemorySetProvider KSCRASH_NS(__KSCrashAppMemorySetProvider)
 #define i_kslog_logC KSCRASH_NS(i_kslog_logC)
 #define i_kslog_logCBasic KSCRASH_NS(i_kslog_logCBasic)

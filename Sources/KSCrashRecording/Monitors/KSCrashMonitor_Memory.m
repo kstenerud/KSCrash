@@ -94,8 +94,8 @@ static NSURL *g_dataURL = nil;
 static NSURL *g_memoryURL = nil;
 
 // The memory tracker
-@class _KSCrashMonitor_MemoryTracker;
-static _KSCrashMonitor_MemoryTracker *g_memoryTracker = nil;
+@class KSCrashMonitor_MemoryTracker;
+static KSCrashMonitor_MemoryTracker *g_memoryTracker = nil;
 
 // Observer token for app state transitions.
 static id<KSCrashAppStateTrackerObserving> g_appStateObserver = nil;
@@ -168,12 +168,12 @@ static KSCrash_Memory g_previousSessionMemory;
 #pragma mark - Tracking -
 // ============================================================================
 
-@interface _KSCrashMonitor_MemoryTracker : NSObject {
+@interface KSCrashMonitor_MemoryTracker : NSObject {
     id _observer;
 }
 @end
 
-@implementation _KSCrashMonitor_MemoryTracker
+@implementation KSCrashMonitor_MemoryTracker
 
 - (instancetype)init
 {
@@ -256,7 +256,7 @@ static void setEnabled(bool isEnabled)
     }
 
     if (isEnabled) {
-        g_memoryTracker = [[_KSCrashMonitor_MemoryTracker alloc] init];
+        g_memoryTracker = [[KSCrashMonitor_MemoryTracker alloc] init];
 
         ksmemory_map(g_memoryURL.path.UTF8String);
 
