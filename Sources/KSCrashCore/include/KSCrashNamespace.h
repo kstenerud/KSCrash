@@ -151,7 +151,6 @@
 #define MonitorType KSCRASH_NS(MonitorType)
 #define ReportType KSCRASH_NS(ReportType)
 #define ReportWriter KSCRASH_NS(ReportWriter)
-#define __KSCrashAppMemorySetProvider KSCRASH_NS(__KSCrashAppMemorySetProvider)
 #define i_kslog_logC KSCRASH_NS(i_kslog_logC)
 #define i_kslog_logCBasic KSCRASH_NS(i_kslog_logCBasic)
 #define i_kslog_logObjC KSCRASH_NS(i_kslog_logObjC)
@@ -411,6 +410,7 @@
 #define ksthread_self KSCRASH_NS(ksthread_self)
 #define ksthread_state_name KSCRASH_NS(ksthread_state_name)
 #define kszombie_className KSCRASH_NS(kszombie_className)
+#define testsupport_KSCrashAppMemorySetProvider KSCRASH_NS(testsupport_KSCrashAppMemorySetProvider)
 
 #else
 

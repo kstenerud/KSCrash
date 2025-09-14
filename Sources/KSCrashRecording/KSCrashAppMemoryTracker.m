@@ -39,7 +39,7 @@
 // I'm not protecting this.
 // It should be set once at start if you want to change it for tests.
 static KSCrashAppMemoryProvider gMemoryProvider = nil;
-FOUNDATION_EXPORT void __KSCrashAppMemorySetProvider(KSCrashAppMemoryProvider provider)
+FOUNDATION_EXPORT void testsupport_KSCrashAppMemorySetProvider(KSCrashAppMemoryProvider provider)
 {
     gMemoryProvider = [provider copy];
 }
