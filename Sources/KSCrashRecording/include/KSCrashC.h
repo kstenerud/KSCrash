@@ -122,9 +122,11 @@ const char *kscrash_getUserInfoJSON(void);
  *                      performance penalty, so it's best to use only on fatal errors.
  *
  * @param terminateProgram If true, do not return from this function call. Terminate the program instead.
+ *
+ * @return the new report's ID.
  */
-void kscrash_reportUserException(const char *name, const char *reason, const char *language, const char *lineOfCode,
-                                 const char *stackTrace, bool logAllThreads, bool terminateProgram);
+int64_t kscrash_reportUserException(const char *name, const char *reason, const char *language, const char *lineOfCode,
+                                    const char *stackTrace, bool logAllThreads, bool terminateProgram);
 
 #pragma mark-- Notifications --
 

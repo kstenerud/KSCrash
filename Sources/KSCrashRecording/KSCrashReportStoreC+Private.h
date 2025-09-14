@@ -44,6 +44,12 @@ extern "C" {
 int64_t kscrs_getNextCrashReport(char *crashReportPathBuffer,
                                  const KSCrashReportStoreCConfiguration *const configuration);
 
+/** Get the next crash report id.
+ *
+ * @return The report ID of the next report.
+ */
+int64_t kscrs_getNextCrashReportId(void);
+
 #ifdef __cplusplus
 }
 #endif

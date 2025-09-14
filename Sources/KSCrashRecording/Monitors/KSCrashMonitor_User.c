@@ -27,6 +27,7 @@
 #include "KSCompilerDefines.h"
 #include "KSCrashMonitorContext.h"
 #include "KSCrashMonitorHelper.h"
+#include "KSCrashReportStoreC+Private.h"
 #include "KSID.h"
 #include "KSStackCursor_SelfThread.h"
 #include "KSThread.h"
@@ -43,14 +44,17 @@ static volatile bool g_isEnabled = false;
 
 static KSCrash_ExceptionHandlerCallbacks g_callbacks;
 
-void kscm_reportUserException(const char *name, const char *reason, const char *language, const char *lineOfCode,
-                              const char *stackTrace, bool logAllThreads,
-                              bool terminateProgram) KS_KEEP_FUNCTION_IN_STACKTRACE
+int64_t kscm_reportUserException(const char *name, const char *reason, const char *language, const char *lineOfCode,
+                                 const char *stackTrace, bool logAllThreads,
+                                 bool terminateProgram) KS_KEEP_FUNCTION_IN_STACKTRACE
 {
     if (!g_isEnabled) {
         KSLOG_WARN("User-reported exception monitor is not installed. Exception has not been recorded.");
-        return;
+        return 0;
     }
+
+    // get the next report id without incrementing it
+    int64_t nextReportId = kscrs_getNextCrashReportId();
 
     thread_t thisThread = (thread_t)ksthread_self();
     KSCrash_MonitorContext *ctx = g_callbacks.notify(
@@ -59,6 +63,7 @@ void kscm_reportUserException(const char *name, const char *reason, const char *
                                                               .shouldRecordAllThreads = logAllThreads,
                                                               .shouldWriteReport = true });
     if (ctx->requirements.shouldExitImmediately) {
+        nextReportId = 0;
         goto exit_immediately;
     }
 
@@ -87,6 +92,8 @@ exit_immediately:
     }
 
     KS_THWART_TAIL_CALL_OPTIMISATION
+
+    return nextReportId;
 }
 
 static const char *monitorId(void) { return "UserReported"; }

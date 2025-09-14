@@ -149,14 +149,16 @@ NS_ASSUME_NONNULL_BEGIN
  *                      performance penalty, so it's best to use only on fatal errors.
  *
  * @param terminateProgram If true, do not return from this function call. Terminate the program instead.
+ *
+ * @return The new report ID.
  */
-- (void)reportUserException:(NSString *)name
-                     reason:(nullable NSString *)reason
-                   language:(nullable NSString *)language
-                 lineOfCode:(nullable NSString *)lineOfCode
-                 stackTrace:(nullable NSArray *)stackTrace
-              logAllThreads:(BOOL)logAllThreads
-           terminateProgram:(BOOL)terminateProgram;
+- (int64_t)reportUserException:(NSString *)name
+                        reason:(nullable NSString *)reason
+                      language:(nullable NSString *)language
+                    lineOfCode:(nullable NSString *)lineOfCode
+                    stackTrace:(nullable NSArray *)stackTrace
+                 logAllThreads:(BOOL)logAllThreads
+              terminateProgram:(BOOL)terminateProgram;
 
 /** Report an NSException as if it's caught by the NSException monitor.
  *

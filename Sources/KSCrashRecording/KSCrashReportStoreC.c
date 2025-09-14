@@ -58,6 +58,8 @@ static int compareInt64(const void *a, const void *b)
 
 static inline int64_t getNextUniqueID(void) { return g_nextUniqueIDHigh + g_nextUniqueIDLow++; }
 
+static inline int64_t getNextUniqueIDWithoutIncrementing(void) { return g_nextUniqueIDHigh + g_nextUniqueIDLow; }
+
 static void getCrashReportPathByID(int64_t id, char *pathBuffer, const KSCrashReportStoreCConfiguration *const config)
 {
     snprintf(pathBuffer, KSCRS_MAX_PATH_LENGTH, "%s/%s-report-%016llx.json", config->reportsPath, config->appName,
@@ -179,6 +181,8 @@ KSCrashInstallErrorCode kscrs_initialize(const KSCrashReportStoreCConfiguration 
     pthread_mutex_unlock(&g_mutex);
     return result;
 }
+
+int64_t kscrs_getNextCrashReportId(void) { return getNextUniqueIDWithoutIncrementing(); }
 
 int64_t kscrs_getNextCrashReport(char *crashReportPathBuffer,
                                  const KSCrashReportStoreCConfiguration *const configuration)

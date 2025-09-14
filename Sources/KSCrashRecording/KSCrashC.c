@@ -374,15 +374,17 @@ void kscrash_setUserInfoJSON(const char *const userInfoJSON) { kscrashreport_set
 
 const char *kscrash_getUserInfoJSON(void) { return kscrashreport_getUserInfoJSON(); }
 
-void kscrash_reportUserException(const char *name, const char *reason, const char *language, const char *lineOfCode,
-                                 const char *stackTrace, bool logAllThreads,
-                                 bool terminateProgram) KS_KEEP_FUNCTION_IN_STACKTRACE
+int64_t kscrash_reportUserException(const char *name, const char *reason, const char *language, const char *lineOfCode,
+                                    const char *stackTrace, bool logAllThreads,
+                                    bool terminateProgram) KS_KEEP_FUNCTION_IN_STACKTRACE
 {
-    kscm_reportUserException(name, reason, language, lineOfCode, stackTrace, logAllThreads, terminateProgram);
+    int64_t reportId =
+        kscm_reportUserException(name, reason, language, lineOfCode, stackTrace, logAllThreads, terminateProgram);
     if (g_shouldAddConsoleLogToReport) {
         kslog_clearLogFile();
     }
     KS_THWART_TAIL_CALL_OPTIMISATION
+    return reportId;
 }
 
 void kscrash_notifyObjCLoad(void) { kscrashstate_notifyObjCLoad(); }

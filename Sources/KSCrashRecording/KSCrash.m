@@ -274,13 +274,13 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
     return YES;
 }
 
-- (void)reportUserException:(NSString *)name
-                     reason:(NSString *)reason
-                   language:(NSString *)language
-                 lineOfCode:(NSString *)lineOfCode
-                 stackTrace:(NSArray *)stackTrace
-              logAllThreads:(BOOL)logAllThreads
-           terminateProgram:(BOOL)terminateProgram KS_KEEP_FUNCTION_IN_STACKTRACE
+- (int64_t)reportUserException:(NSString *)name
+                        reason:(NSString *)reason
+                      language:(NSString *)language
+                    lineOfCode:(NSString *)lineOfCode
+                    stackTrace:(NSArray *)stackTrace
+                 logAllThreads:(BOOL)logAllThreads
+              terminateProgram:(BOOL)terminateProgram KS_KEEP_FUNCTION_IN_STACKTRACE
 {
     const char *cName = [name cStringUsingEncoding:NSUTF8StringEncoding];
     const char *cReason = [reason cStringUsingEncoding:NSUTF8StringEncoding];
@@ -299,8 +299,10 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
         cStackTrace = [jsonString cStringUsingEncoding:NSUTF8StringEncoding];
     }
 
-    kscrash_reportUserException(cName, cReason, cLanguage, cLineOfCode, cStackTrace, logAllThreads, terminateProgram);
+    int64_t reportId = kscrash_reportUserException(cName, cReason, cLanguage, cLineOfCode, cStackTrace, logAllThreads,
+                                                   terminateProgram);
     KS_THWART_TAIL_CALL_OPTIMISATION
+    return reportId;
 }
 
 - (void)reportNSException:(NSException *)exception logAllThreads:(BOOL)logAllThreads KS_KEEP_FUNCTION_IN_STACKTRACE
