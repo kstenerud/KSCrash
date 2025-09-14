@@ -103,13 +103,13 @@
 
 @end
 
-@interface NSString (CompareRegisterNames)
+@interface NSString (KSCrashCompareRegisterNames)
 
 - (NSComparisonResult)kscrash_compareRegisterName:(NSString *)other;
 
 @end
 
-@implementation NSString (CompareRegisterNames)
+@implementation NSString (KSCrashCompareRegisterNames)
 
 - (NSComparisonResult)kscrash_compareRegisterName:(NSString *)other
 {
