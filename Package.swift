@@ -470,21 +470,9 @@ let package = Package(
                 .copy("Resources/PrivacyInfo.xcprivacy")
             ],
             cSettings: [
-                .headerSearchPath("swift"),
-                .headerSearchPath("swift/Basic"),
-                .headerSearchPath("llvm"),
-                .headerSearchPath("llvm/ADT"),
-                .headerSearchPath("llvm/Config"),
-                .headerSearchPath("llvm/Support"),
                 .unsafeFlags(warningFlags),
             ],
             cxxSettings: [
-                .headerSearchPath("swift"),
-                .headerSearchPath("swift/Basic"),
-                .headerSearchPath("llvm"),
-                .headerSearchPath("llvm/ADT"),
-                .headerSearchPath("llvm/Config"),
-                .headerSearchPath("llvm/Support"),
                 .unsafeFlags(warningFlags),
             ]
         ),
