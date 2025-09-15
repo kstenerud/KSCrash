@@ -43,16 +43,12 @@ import sys
 
 # Manually added symbols because clang.cindex misses them
 ALWAYS_ADDED_SYMBOLS = [
-                        "Demangle",
                         "i_kslog_logObjC",
                         "i_kslog_logObjCBasic",
                         "KSCrashAlertViewProcess",
                         "KSCrashAppMemory",
                         "KSCrashAppMemoryTrackerDelegate",
                         "KSCrashMailProcess",
-                        "KSCrashMonitor_MemoryTracker",
-                        "KSCrashReportWriter",
-                        "llvm",
                        ]
 
 # Ignore anything in an `NS_SWIFT_NAME()` macro that matches any of these:
@@ -177,15 +173,10 @@ VARIABLE_NAME_IGNORED = [
                             re.compile("^FOUNDATION_EXPORT$"),
                             re.compile("^id$"),
                             re.compile("^instancetype$"),
-                            re.compile("^KSCString$"),
-                            re.compile("^KSHTTPMultipartPostBody$"),
-                            re.compile("^KSReachabilityKSCrash$"),
-                            re.compile("^llvm$"),
                             re.compile("^namespace$"),
                             re.compile("^NS.*"),
                             re.compile("^nullable$"),
                             re.compile("^objc_debug_.*"),
-                            re.compile("^swift$"),
                             re.compile("^uintptr_t$"),
                         ]
 

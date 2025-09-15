@@ -1485,7 +1485,7 @@ int ksobjc_arrayContents(const void *const arrayPtr, uintptr_t *contents, int co
     return nsarrayContents(arrayPtr, contents, count);
 }
 
-bool arrayIsValid(const void *object)
+static bool arrayIsValid(const void *object)
 {
     if (isCFArray(object)) {
         return cfarrayIsValid(object);

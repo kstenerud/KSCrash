@@ -74,7 +74,7 @@
 {
     (void)KSCrash.sharedInstance;
 
-    __KSCrashAppMemorySetProvider(^KSCrashAppMemory *_Nonnull {
+    testsupport_KSCrashAppMemorySetProvider(^KSCrashAppMemory *_Nonnull {
         return [[KSCrashAppMemory alloc] initWithFootprint:100 remaining:0 pressure:KSCrashAppMemoryStateNormal];
     });
 

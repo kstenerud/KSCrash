@@ -239,7 +239,7 @@ static void setMonitors(KSCrashMonitorType monitorTypes)
     }
 }
 
-void handleConfiguration(KSCrashCConfiguration *configuration)
+static void handleConfiguration(KSCrashCConfiguration *configuration)
 {
     g_reportStoreConfig = KSCrashReportStoreCConfiguration_Copy(&configuration->reportStoreConfiguration);
 
