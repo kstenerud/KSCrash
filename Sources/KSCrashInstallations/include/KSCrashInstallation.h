@@ -105,7 +105,7 @@ NS_SWIFT_NAME(CrashInstallation)
 /** Convenience method to call -[KSCrash sendAllReportsWithCompletion:].
  * This method will set the KSCrash sink and then send all outstanding reports.
  *
- * Note: Pay special attention to KSCrash's "deleteBehaviorAfterSendAll" property.
+ * Note: Pay special attention to KSCrashConfiguration's `reportCleanupPolicy` property.
  *
  * @param onCompletion Called when sending is complete (nil = ignore).
  */
