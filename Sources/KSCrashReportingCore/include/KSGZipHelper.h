@@ -28,10 +28,14 @@
 
 #include "KSCrashNamespace.h"
 
+NS_ASSUME_NONNULL_BEGIN
+
 /**
  * GNU zip/unzip support for NSData.
  */
 @interface KSGZipHelper : NSObject
+
+- (instancetype)init NS_UNAVAILABLE;
 
 /**
  * Gzip the data in this object (no header).
@@ -45,9 +49,9 @@
  * @param error (optional) Set to any error that occurs, or nil if no error.
  *              Pass nil to ignore.
  *
- * @return A new NSData with the gzipped contents of this object.
+ * @return A new NSData with the gzipped contents of this object or nil if an error occurred.
  */
-+ (NSData *)gzippedData:(NSData *)data compressionLevel:(int)compressionLevel error:(NSError **)error;
++ (nullable NSData *)gzippedData:(NSData *)data compressionLevel:(int)compressionLevel error:(NSError **)error;
 
 /**
  * Gunzip the data in this object (no header).
@@ -55,8 +59,10 @@
  * @param error (optional) Set to any error that occurs, or nil if no error.
  *              Pass nil to ignore.
  *
- * @return A new NSData with the gunzipped contents of this object.
+ * @return A new NSData with the gunzipped contents of this object or nil if an error occurred.
  */
-+ (NSData *)gunzippedData:(NSData *)data error:(NSError **)error;
++ (nullable NSData *)gunzippedData:(NSData *)data error:(NSError **)error;
 
 @end
+
+NS_ASSUME_NONNULL_END
