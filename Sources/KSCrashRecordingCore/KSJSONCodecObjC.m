@@ -132,7 +132,7 @@
 
 #pragma mark Utility
 
-static inline NSString *stringFromCString(const char *const string)
+static inline NSString * _Nullable stringFromCString(const char *const string)
 {
     if (string == NULL) {
         return nil;

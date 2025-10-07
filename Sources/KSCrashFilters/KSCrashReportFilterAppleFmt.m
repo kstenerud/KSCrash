@@ -351,7 +351,7 @@ static NSDictionary *g_registerOrders;
     return [[uuid lowercaseString] stringByReplacingOccurrencesOfString:@"-" withString:@""];
 }
 
-- (NSString *)stringFromDate:(NSDate *)date
+- (nullable NSString *)stringFromDate:(NSDate *)date
 {
     if (![date isKindOfClass:[NSDate class]]) {
         return nil;

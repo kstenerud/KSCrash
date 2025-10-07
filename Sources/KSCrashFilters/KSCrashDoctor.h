@@ -9,8 +9,12 @@
 #import <Foundation/Foundation.h>
 #include "KSCrashNamespace.h"
 
+NS_ASSUME_NONNULL_BEGIN
+
 @interface KSCrashDoctor : NSObject
 
-- (NSString *)diagnoseCrash:(NSDictionary *)crashReport;
+- (nullable NSString *)diagnoseCrash:(NSDictionary *)crashReport;
 
 @end
+
+NS_ASSUME_NONNULL_END
