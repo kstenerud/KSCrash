@@ -56,7 +56,7 @@ NS_SWIFT_NAME(CrashReportFilterAlert)
 - (instancetype)initWithTitle:(NSString *)title
                       message:(nullable NSString *)message
                     yesAnswer:(NSString *)yesAnswer
-                     noAnswer:(nullable NSString *)noAnswer;
+                     noAnswer:(nullable NSString *)noAnswer NS_DESIGNATED_INITIALIZER;
 
 @end
 

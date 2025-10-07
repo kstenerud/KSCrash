@@ -113,7 +113,7 @@ NS_SWIFT_NAME(CrashReportFilterAppleFmt)
  * @return The initialized instance.
  * @see KSAppleReportStyle for detailed information on symbolication options.
  */
-- (instancetype)initWithReportStyle:(KSAppleReportStyle)reportStyle;
+- (instancetype)initWithReportStyle:(KSAppleReportStyle)reportStyle NS_DESIGNATED_INITIALIZER;
 
 /** Default initializer.
  * @return The initialized instance with KSAppleReportStyleSymbolicated.

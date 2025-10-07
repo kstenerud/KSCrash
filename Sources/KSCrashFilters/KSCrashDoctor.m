@@ -35,7 +35,7 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
 
 @implementation KSCrashDoctorFunctionCall
 
-- (NSString *)descriptionForObjCCall
+- (nullable NSString *)descriptionForObjCCall
 {
     if (![self.name isEqualToString:@"objc_msgSend"]) {
         return nil;
@@ -162,7 +162,7 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
     return CPUFamilyUnknown;
 }
 
-- (NSString *)registerNameForFamily:(CPUFamily)family paramIndex:(int)index
+- (nullable NSString *)registerNameForFamily:(CPUFamily)family paramIndex:(int)index
 {
     switch (family) {
         case CPUFamilyArm: {
@@ -218,7 +218,7 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
     return [info objectForKey:KSCrashField_ProcessName];
 }
 
-- (NSDictionary *)crashedThreadReport:(NSDictionary *)report
+- (nullable NSDictionary *)crashedThreadReport:(NSDictionary *)report
 {
     NSDictionary *crashReport = [self crashReport:report];
     NSDictionary *crashedThread = [crashReport objectForKey:KSCrashField_CrashedThread];
@@ -247,7 +247,7 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
     return basic;
 }
 
-- (NSDictionary *)lastInAppStackEntry:(NSDictionary *)report
+- (nullable NSDictionary *)lastInAppStackEntry:(NSDictionary *)report
 {
     NSString *executableName = [self mainExecutableNameForReport:report];
     NSDictionary *crashedThread = [self crashedThreadReport:report];
@@ -261,7 +261,7 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
     return nil;
 }
 
-- (NSDictionary *)lastStackEntry:(NSDictionary *)report
+- (nullable NSDictionary *)lastStackEntry:(NSDictionary *)report
 {
     NSDictionary *crashedThread = [self crashedThreadReport:report];
     NSArray *backtrace = [self backtraceFromThreadReport:crashedThread];
@@ -380,7 +380,7 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
     return function;
 }
 
-- (NSString *)zombieCall:(KSCrashDoctorFunctionCall *)functionCall
+- (nullable NSString *)zombieCall:(KSCrashDoctorFunctionCall *)functionCall
 {
     if ([functionCall.name isEqualToString:@"objc_msgSend"] && functionCall.params.count > 0 &&
         [[functionCall.params objectAtIndex:0] previousClassName] != nil) {

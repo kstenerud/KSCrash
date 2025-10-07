@@ -70,7 +70,7 @@
 #if KSCRASH_HAS_UIALERTCONTROLLER
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-static UIWindow *getKeyWindow(void)
+static UIWindow * _Nullable getKeyWindow(void)
 {
     if (@available(iOS 15, tvOS 15, *)) {
         for (UIWindowScene *scene in UIApplication.sharedApplication.connectedScenes) {

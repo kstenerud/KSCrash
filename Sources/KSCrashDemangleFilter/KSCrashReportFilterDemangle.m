@@ -84,7 +84,7 @@
  * @param depth Current depth of the path
  * @return An updated object or `nil` if no changes were applied.
  */
-+ (id)demangleReportObj:(id)reportObj path:(NSArray<NSString *> *)path depth:(NSUInteger)depth
++ (nullable id)demangleReportObj:(nonnull id)reportObj path:(nonnull NSArray<NSString *> *)path depth:(NSUInteger)depth
 {
     // Check for NSString and try demangle
     if (depth == path.count) {
