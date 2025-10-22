@@ -51,6 +51,8 @@
     IMPLEMENT_REPORT_VALUE_PROPERTY(NAME, NAMEUPPER, TYPE) \
     IMPLEMENT_REPORT_KEY_PROPERTY(NAME, NAMEUPPER)
 
+NS_ASSUME_NONNULL_BEGIN
+
 @interface KSCrashInstallation ()
 
 /** Set the key to be used for the specified report property.
@@ -74,3 +76,5 @@
 - (NSArray *)makeKeyPaths:(NSArray *)keyPaths;
 
 @end
+
+NS_ASSUME_NONNULL_END

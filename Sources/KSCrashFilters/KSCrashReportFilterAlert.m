@@ -68,7 +68,7 @@
 }
 
 #if KSCRASH_HAS_UIALERTCONTROLLER
-static UIWindow *getKeyWindow(void)
+static UIWindow * _Nullable getKeyWindow(void)
 {
     if (@available(iOS 15, tvOS 15, *)) {
         for (UIWindowScene *scene in UIApplication.sharedApplication.connectedScenes) {
