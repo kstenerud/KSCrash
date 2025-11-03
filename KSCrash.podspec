@@ -15,6 +15,7 @@ Pod::Spec.new do |s|
   s.frameworks   = 'Foundation'
   s.libraries    = 'c++', 'z'
   s.xcconfig     = { 'GCC_ENABLE_CPP_EXCEPTIONS' => 'YES' }
+  s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
   s.default_subspecs = 'Installations'
 
   configure_subspec = lambda do |subs|
