@@ -47,13 +47,25 @@ static const int g_registerNamesCount = sizeof(g_registerNames) / sizeof(*g_regi
 static const char *g_exceptionRegisterNames[] = { "exception", "esr", "far" };
 static const int g_exceptionRegisterNamesCount = sizeof(g_exceptionRegisterNames) / sizeof(*g_exceptionRegisterNames);
 
-uintptr_t kscpu_framePointer(const KSMachineContext *const context) { return (uintptr_t)context->machineContext.__ss.__fp; }
+uintptr_t kscpu_framePointer(const KSMachineContext *const context)
+{
+    return (uintptr_t)context->machineContext.__ss.__fp;
+}
 
-uintptr_t kscpu_stackPointer(const KSMachineContext *const context) { return (uintptr_t)context->machineContext.__ss.__sp; }
+uintptr_t kscpu_stackPointer(const KSMachineContext *const context)
+{
+    return (uintptr_t)context->machineContext.__ss.__sp;
+}
 
-uintptr_t kscpu_instructionAddress(const KSMachineContext *const context) { return (uintptr_t)context->machineContext.__ss.__pc; }
+uintptr_t kscpu_instructionAddress(const KSMachineContext *const context)
+{
+    return (uintptr_t)context->machineContext.__ss.__pc;
+}
 
-uintptr_t kscpu_linkRegister(const KSMachineContext *const context) { return (uintptr_t)context->machineContext.__ss.__lr; }
+uintptr_t kscpu_linkRegister(const KSMachineContext *const context)
+{
+    return (uintptr_t)context->machineContext.__ss.__lr;
+}
 
 void kscpu_getState(KSMachineContext *context)
 {
@@ -124,7 +136,10 @@ uint64_t kscpu_exceptionRegisterValue(const KSMachineContext *const context, con
     }
 }
 
-uintptr_t kscpu_faultAddress(const KSMachineContext *const context) { return (uintptr_t)context->machineContext.__es.__far; }
+uintptr_t kscpu_faultAddress(const KSMachineContext *const context)
+{
+    return (uintptr_t)context->machineContext.__es.__far;
+}
 
 int kscpu_stackGrowDirection(void) { return -1; }
 
