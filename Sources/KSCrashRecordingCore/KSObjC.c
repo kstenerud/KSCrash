@@ -1194,9 +1194,9 @@ static bool taggedDateIsValid(const void *const datePtr)
     return isValidTaggedPointer(datePtr) && isTaggedPointerNSDate(datePtr);
 }
 
+#if OBJC_HAVE_TAGGED_POINTERS
 static int taggedDateDescription(const void *object, char *buffer, int bufferLength)
 {
-#if OBJC_HAVE_TAGGED_POINTERS
     char *pBuffer = buffer;
     char *pEnd = buffer + bufferLength;
 
@@ -1205,10 +1205,13 @@ static int taggedDateDescription(const void *object, char *buffer, int bufferLen
     pBuffer += stringPrintf(pBuffer, (int)(pEnd - pBuffer), ": %f", time);
 
     return (int)(pBuffer - buffer);
-#else
-    return 0;
-#endif
 }
+#else
+static int taggedDateDescription(const void *__unused object, char *__unused buffer, int __unused bufferLength)
+{
+    return 0;
+}
+#endif
 
 //======================================================================
 #pragma mark - NSNumber -
