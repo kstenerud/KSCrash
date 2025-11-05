@@ -1,0 +1,50 @@
+name: Build for Devices
+
+on:
+  pull_request:
+    paths:
+      - "Sources/**"
+      - "Package.swift"
+      - ".github/workflows/build-devices.yml"
+
+  push:
+    branches:
+      - master
+
+  schedule:
+    - cron: "0 0 1 * *"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  device-build:
+    runs-on: macos-15
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - iOS
+          - watchOS
+          - tvOS
+          - macOS
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Use Latest Stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Build for Device Platform
+        uses: mxcl/xcodebuild@v3
+        timeout-minutes: 10
+        with:
+          action: build
+          workspace: ".swiftpm/xcode/package.xcworkspace"
+          scheme: "KSCrash-Package"
+          destination: generic/platform=${{ matrix.platform }}
+          configuration: Release
