@@ -47,25 +47,25 @@ static const int g_registerNamesCount = sizeof(g_registerNames) / sizeof(*g_regi
 static const char *g_exceptionRegisterNames[] = { "exception", "esr", "far" };
 static const int g_exceptionRegisterNamesCount = sizeof(g_exceptionRegisterNames) / sizeof(*g_exceptionRegisterNames);
 
-#if __DARWIN_OPAQUE_ARM_THREAD_STATE64
-#define THREAD_STATE_FP(context) ((uintptr_t)(context)->machineContext.__ss.__opaque_fp)
-#define THREAD_STATE_LR(context) ((uintptr_t)(context)->machineContext.__ss.__opaque_lr)
-#define THREAD_STATE_SP(context) ((uintptr_t)(context)->machineContext.__ss.__opaque_sp)
-#define THREAD_STATE_PC(context) ((uintptr_t)(context)->machineContext.__ss.__opaque_pc)
-#else
-#define THREAD_STATE_FP(context) ((uintptr_t)(context)->machineContext.__ss.__fp)
-#define THREAD_STATE_LR(context) ((uintptr_t)(context)->machineContext.__ss.__lr)
-#define THREAD_STATE_SP(context) ((uintptr_t)(context)->machineContext.__ss.__sp)
-#define THREAD_STATE_PC(context) ((uintptr_t)(context)->machineContext.__ss.__pc)
-#endif
+uintptr_t kscpu_framePointer(const KSMachineContext *const context)
+{
+    return (uintptr_t)arm_thread_state64_get_fp(context->machineContext.__ss);
+}
 
-uintptr_t kscpu_framePointer(const KSMachineContext *const context) { return THREAD_STATE_FP(context); }
+uintptr_t kscpu_stackPointer(const KSMachineContext *const context)
+{
+    return (uintptr_t)arm_thread_state64_get_sp(context->machineContext.__ss);
+}
 
-uintptr_t kscpu_stackPointer(const KSMachineContext *const context) { return THREAD_STATE_SP(context); }
+uintptr_t kscpu_instructionAddress(const KSMachineContext *const context)
+{
+    return (uintptr_t)arm_thread_state64_get_pc(context->machineContext.__ss);
+}
 
-uintptr_t kscpu_instructionAddress(const KSMachineContext *const context) { return THREAD_STATE_PC(context); }
-
-uintptr_t kscpu_linkRegister(const KSMachineContext *const context) { return THREAD_STATE_LR(context); }
+uintptr_t kscpu_linkRegister(const KSMachineContext *const context)
+{
+    return (uintptr_t)arm_thread_state64_get_lr(context->machineContext.__ss);
+}
 
 void kscpu_getState(KSMachineContext *context)
 {
@@ -95,13 +95,13 @@ uint64_t kscpu_registerValue(const KSMachineContext *const context, const int re
 
     switch (regNumber) {
         case 29:
-            return THREAD_STATE_FP(context);
+            return (uint64_t)arm_thread_state64_get_fp(context->machineContext.__ss);
         case 30:
-            return THREAD_STATE_LR(context);
+            return (uint64_t)arm_thread_state64_get_lr(context->machineContext.__ss);
         case 31:
-            return THREAD_STATE_SP(context);
+            return (uint64_t)arm_thread_state64_get_sp(context->machineContext.__ss);
         case 32:
-            return THREAD_STATE_PC(context);
+            return (uint64_t)arm_thread_state64_get_pc(context->machineContext.__ss);
         case 33:
             return context->machineContext.__ss.__cpsr;
         default:
