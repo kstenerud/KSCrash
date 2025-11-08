@@ -52,9 +52,7 @@ static void trigger_cpp(void) { sample_namespace::Report::crash(); }
 
 static void trigger_cpp_backgroundThread(void)
 {
-    std::thread t([]() {
-        sample_namespace::Report::crash();
-    });
+    std::thread t([]() { sample_namespace::Report::crash(); });
     t.join();
 }
 
