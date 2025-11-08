@@ -180,8 +180,9 @@ static void CPPExceptionTerminate(void)
         catch (...) { description = NULL; }
         g_captureNextStackTrace = isEnabled();
 
-        // Initialize g_stackCursor if not already initialized by cxaSwap
-        // Skip 4 frames to get past terminate handler and __cxa_throw to the actual throw location
+        // Initialize g_stackCursor if not already initialized by captureStackTrace.
+        // Skip 4 frames: CPPExceptionTerminate -> std::__terminate -> failed_throw -> __cxa_throw
+        // to reach the actual throw location (e.g., sample_namespace::Report::crash).
         if (g_stackCursor.advanceCursor == NULL) {
             kssc_initSelfThread(&g_stackCursor, 4);
         }
