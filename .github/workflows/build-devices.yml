@@ -25,15 +25,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - platform: iOS
-            archs: "arm64 arm64e"
-          - platform: watchOS
-            archs: "arm64_32"
-          - platform: tvOS
-            archs: "arm64"
-          - platform: macOS
-            archs: "arm64 x86_64"
+        platform:
+          - iOS
+          - watchOS
+          - tvOS
+          - macOS
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -43,17 +39,12 @@ jobs:
         with:
           xcode-version: latest-stable
 
-      - name: Download Platform SDK
-        if: matrix.platform != 'macOS'
-        continue-on-error: true
-        run: |
-          xcodebuild -downloadPlatform ${{ matrix.platform }} -architectureVariant universal
-
       - name: Build for Device Platform
-        run: |
-          xcodebuild build \
-            -workspace ".swiftpm/xcode/package.xcworkspace" \
-            -scheme "KSCrash-Package" \
-            -destination "generic/platform=${{ matrix.platform }}" \
-            -configuration Release \
-            ARCHS="${{ matrix.archs }}"
+        uses: mxcl/xcodebuild@v3
+        timeout-minutes: 10
+        with:
+          action: build
+          workspace: ".swiftpm/xcode/package.xcworkspace"
+          scheme: "KSCrash-Package"
+          destination: generic/platform=${{ matrix.platform }}
+          configuration: Release
