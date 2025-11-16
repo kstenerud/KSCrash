@@ -49,22 +49,22 @@ static const int g_exceptionRegisterNamesCount = sizeof(g_exceptionRegisterNames
 
 uintptr_t kscpu_framePointer(const KSMachineContext *const context)
 {
-    return (uintptr_t)context->machineContext.__ss.__fp;
+    return (uintptr_t)arm_thread_state64_get_fp(context->machineContext.__ss);
 }
 
 uintptr_t kscpu_stackPointer(const KSMachineContext *const context)
 {
-    return (uintptr_t)context->machineContext.__ss.__sp;
+    return (uintptr_t)arm_thread_state64_get_sp(context->machineContext.__ss);
 }
 
 uintptr_t kscpu_instructionAddress(const KSMachineContext *const context)
 {
-    return (uintptr_t)context->machineContext.__ss.__pc;
+    return (uintptr_t)arm_thread_state64_get_pc(context->machineContext.__ss);
 }
 
 uintptr_t kscpu_linkRegister(const KSMachineContext *const context)
 {
-    return (uintptr_t)context->machineContext.__ss.__lr;
+    return (uintptr_t)arm_thread_state64_get_lr(context->machineContext.__ss);
 }
 
 void kscpu_getState(KSMachineContext *context)
@@ -95,13 +95,13 @@ uint64_t kscpu_registerValue(const KSMachineContext *const context, const int re
 
     switch (regNumber) {
         case 29:
-            return context->machineContext.__ss.__fp;
+            return (uint64_t)arm_thread_state64_get_fp(context->machineContext.__ss);
         case 30:
-            return context->machineContext.__ss.__lr;
+            return (uint64_t)arm_thread_state64_get_lr(context->machineContext.__ss);
         case 31:
-            return context->machineContext.__ss.__sp;
+            return (uint64_t)arm_thread_state64_get_sp(context->machineContext.__ss);
         case 32:
-            return context->machineContext.__ss.__pc;
+            return (uint64_t)arm_thread_state64_get_pc(context->machineContext.__ss);
         case 33:
             return context->machineContext.__ss.__cpsr;
         default:
