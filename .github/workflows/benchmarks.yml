@@ -337,12 +337,3 @@ jobs:
         with:
           filePath: benchmark_results.md
           comment_tag: benchmark-results
-
-      - name: Upload Benchmark Output
-        uses: actions/upload-artifact@v4
-        with:
-          name: benchmark-results
-          path: |
-            benchmark_output.txt
-            benchmark_results.md
-          retention-days: 30
