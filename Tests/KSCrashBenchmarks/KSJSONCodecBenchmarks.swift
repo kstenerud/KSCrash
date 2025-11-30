@@ -27,18 +27,28 @@ import XCTest
 
 final class KSJSONCodecBenchmarks: XCTestCase {
 
-    // Buffer to collect JSON output
-    private var outputBuffer: [UInt8] = []
+    // MARK: - Helper
 
-    private func createAddDataCallback() -> KSJSONAddDataFunc {
-        return { data, length, userData in
-            guard let data = data, let context = userData else {
-                return Int32(KSJSON_ERROR_CANNOT_ADD_DATA)
-            }
-            let buffer = context.assumingMemoryBound(to: [UInt8].self)
-            let bytes = UnsafeBufferPointer(start: UnsafePointer<UInt8>(OpaquePointer(data)), count: Int(length))
-            buffer.pointee.append(contentsOf: bytes)
-            return Int32(KSJSON_OK)
+    private func withJSONEncoder(bufferCapacity: Int = 4096, _ block: (inout KSJSONEncodeContext) -> Void) {
+        var buffer: [UInt8] = []
+        buffer.reserveCapacity(bufferCapacity)
+
+        withUnsafeMutablePointer(to: &buffer) { bufferPtr in
+            var context = KSJSONEncodeContext()
+            ksjson_beginEncode(
+                &context, false,
+                { data, length, userData in
+                    guard let data = data, let ctx = userData else { return Int32(KSJSON_ERROR_CANNOT_ADD_DATA) }
+                    let buf = ctx.assumingMemoryBound(to: [UInt8].self)
+                    let bytes = UnsafeBufferPointer(
+                        start: UnsafePointer<UInt8>(OpaquePointer(data)), count: Int(length))
+                    buf.pointee.append(contentsOf: bytes)
+                    return Int32(KSJSON_OK)
+                }, bufferPtr)
+
+            block(&context)
+
+            ksjson_endEncode(&context)
         }
     }
 
@@ -47,30 +57,13 @@ final class KSJSONCodecBenchmarks: XCTestCase {
     /// Benchmark encoding integer values
     func testBenchmarkEncodeIntegers() {
         measure {
-            var buffer: [UInt8] = []
-            buffer.reserveCapacity(4096)
-
-            withUnsafeMutablePointer(to: &buffer) { bufferPtr in
-                var context = KSJSONEncodeContext()
-                ksjson_beginEncode(
-                    &context, false,
-                    { data, length, userData in
-                        guard let data = data, let ctx = userData else { return Int32(KSJSON_ERROR_CANNOT_ADD_DATA) }
-                        let buf = ctx.assumingMemoryBound(to: [UInt8].self)
-                        let bytes = UnsafeBufferPointer(
-                            start: UnsafePointer<UInt8>(OpaquePointer(data)), count: Int(length))
-                        buf.pointee.append(contentsOf: bytes)
-                        return Int32(KSJSON_OK)
-                    }, bufferPtr)
-
+            withJSONEncoder { context in
                 ksjson_beginObject(&context, nil)
                 for i in 0..<100 {
-                    "field\(i)".withCString { name in
-                        ksjson_addIntegerElement(&context, name, Int64(i * 1000))
-                    }
+                    let name = "field\(i)"
+                    _ = name.withCString { ksjson_addIntegerElement(&context, $0, Int64(i * 1000)) }
                 }
                 ksjson_endContainer(&context)
-                ksjson_endEncode(&context)
             }
         }
     }
@@ -78,30 +71,13 @@ final class KSJSONCodecBenchmarks: XCTestCase {
     /// Benchmark encoding floating point values
     func testBenchmarkEncodeFloats() {
         measure {
-            var buffer: [UInt8] = []
-            buffer.reserveCapacity(4096)
-
-            withUnsafeMutablePointer(to: &buffer) { bufferPtr in
-                var context = KSJSONEncodeContext()
-                ksjson_beginEncode(
-                    &context, false,
-                    { data, length, userData in
-                        guard let data = data, let ctx = userData else { return Int32(KSJSON_ERROR_CANNOT_ADD_DATA) }
-                        let buf = ctx.assumingMemoryBound(to: [UInt8].self)
-                        let bytes = UnsafeBufferPointer(
-                            start: UnsafePointer<UInt8>(OpaquePointer(data)), count: Int(length))
-                        buf.pointee.append(contentsOf: bytes)
-                        return Int32(KSJSON_OK)
-                    }, bufferPtr)
-
+            withJSONEncoder { context in
                 ksjson_beginObject(&context, nil)
                 for i in 0..<100 {
-                    "field\(i)".withCString { name in
-                        ksjson_addFloatingPointElement(&context, name, Double(i) * 3.14159)
-                    }
+                    let name = "field\(i)"
+                    _ = name.withCString { ksjson_addFloatingPointElement(&context, $0, Double(i) * 3.14159) }
                 }
                 ksjson_endContainer(&context)
-                ksjson_endEncode(&context)
             }
         }
     }
@@ -109,30 +85,13 @@ final class KSJSONCodecBenchmarks: XCTestCase {
     /// Benchmark encoding boolean values
     func testBenchmarkEncodeBooleans() {
         measure {
-            var buffer: [UInt8] = []
-            buffer.reserveCapacity(4096)
-
-            withUnsafeMutablePointer(to: &buffer) { bufferPtr in
-                var context = KSJSONEncodeContext()
-                ksjson_beginEncode(
-                    &context, false,
-                    { data, length, userData in
-                        guard let data = data, let ctx = userData else { return Int32(KSJSON_ERROR_CANNOT_ADD_DATA) }
-                        let buf = ctx.assumingMemoryBound(to: [UInt8].self)
-                        let bytes = UnsafeBufferPointer(
-                            start: UnsafePointer<UInt8>(OpaquePointer(data)), count: Int(length))
-                        buf.pointee.append(contentsOf: bytes)
-                        return Int32(KSJSON_OK)
-                    }, bufferPtr)
-
+            withJSONEncoder { context in
                 ksjson_beginObject(&context, nil)
                 for i in 0..<100 {
-                    "field\(i)".withCString { name in
-                        ksjson_addBooleanElement(&context, name, i % 2 == 0)
-                    }
+                    let name = "field\(i)"
+                    _ = name.withCString { ksjson_addBooleanElement(&context, $0, i % 2 == 0) }
                 }
                 ksjson_endContainer(&context)
-                ksjson_endEncode(&context)
             }
         }
     }
@@ -144,32 +103,17 @@ final class KSJSONCodecBenchmarks: XCTestCase {
         let shortString = "Hello, World!"
 
         measure {
-            var buffer: [UInt8] = []
-            buffer.reserveCapacity(8192)
-
-            withUnsafeMutablePointer(to: &buffer) { bufferPtr in
-                var context = KSJSONEncodeContext()
-                ksjson_beginEncode(
-                    &context, false,
-                    { data, length, userData in
-                        guard let data = data, let ctx = userData else { return Int32(KSJSON_ERROR_CANNOT_ADD_DATA) }
-                        let buf = ctx.assumingMemoryBound(to: [UInt8].self)
-                        let bytes = UnsafeBufferPointer(
-                            start: UnsafePointer<UInt8>(OpaquePointer(data)), count: Int(length))
-                        buf.pointee.append(contentsOf: bytes)
-                        return Int32(KSJSON_OK)
-                    }, bufferPtr)
-
+            withJSONEncoder(bufferCapacity: 8192) { context in
                 ksjson_beginObject(&context, nil)
                 for i in 0..<100 {
-                    "field\(i)".withCString { name in
-                        shortString.withCString { value in
-                            ksjson_addStringElement(&context, name, value, KSJSON_SIZE_AUTOMATIC)
+                    let name = "field\(i)"
+                    _ = name.withCString { namePtr in
+                        shortString.withCString {
+                            ksjson_addStringElement(&context, namePtr, $0, KSJSON_SIZE_AUTOMATIC)
                         }
                     }
                 }
                 ksjson_endContainer(&context)
-                ksjson_endEncode(&context)
             }
         }
     }
@@ -179,32 +123,15 @@ final class KSJSONCodecBenchmarks: XCTestCase {
         let longString = String(repeating: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz", count: 10)
 
         measure {
-            var buffer: [UInt8] = []
-            buffer.reserveCapacity(65536)
-
-            withUnsafeMutablePointer(to: &buffer) { bufferPtr in
-                var context = KSJSONEncodeContext()
-                ksjson_beginEncode(
-                    &context, false,
-                    { data, length, userData in
-                        guard let data = data, let ctx = userData else { return Int32(KSJSON_ERROR_CANNOT_ADD_DATA) }
-                        let buf = ctx.assumingMemoryBound(to: [UInt8].self)
-                        let bytes = UnsafeBufferPointer(
-                            start: UnsafePointer<UInt8>(OpaquePointer(data)), count: Int(length))
-                        buf.pointee.append(contentsOf: bytes)
-                        return Int32(KSJSON_OK)
-                    }, bufferPtr)
-
+            withJSONEncoder(bufferCapacity: 65536) { context in
                 ksjson_beginObject(&context, nil)
                 for i in 0..<50 {
-                    "field\(i)".withCString { name in
-                        longString.withCString { value in
-                            ksjson_addStringElement(&context, name, value, KSJSON_SIZE_AUTOMATIC)
-                        }
+                    let name = "field\(i)"
+                    _ = name.withCString { namePtr in
+                        longString.withCString { ksjson_addStringElement(&context, namePtr, $0, KSJSON_SIZE_AUTOMATIC) }
                     }
                 }
                 ksjson_endContainer(&context)
-                ksjson_endEncode(&context)
             }
         }
     }
@@ -214,32 +141,17 @@ final class KSJSONCodecBenchmarks: XCTestCase {
         let escapingString = "Hello\n\t\"World\"\\Path/To/File\r\n"
 
         measure {
-            var buffer: [UInt8] = []
-            buffer.reserveCapacity(8192)
-
-            withUnsafeMutablePointer(to: &buffer) { bufferPtr in
-                var context = KSJSONEncodeContext()
-                ksjson_beginEncode(
-                    &context, false,
-                    { data, length, userData in
-                        guard let data = data, let ctx = userData else { return Int32(KSJSON_ERROR_CANNOT_ADD_DATA) }
-                        let buf = ctx.assumingMemoryBound(to: [UInt8].self)
-                        let bytes = UnsafeBufferPointer(
-                            start: UnsafePointer<UInt8>(OpaquePointer(data)), count: Int(length))
-                        buf.pointee.append(contentsOf: bytes)
-                        return Int32(KSJSON_OK)
-                    }, bufferPtr)
-
+            withJSONEncoder(bufferCapacity: 8192) { context in
                 ksjson_beginObject(&context, nil)
                 for i in 0..<100 {
-                    "field\(i)".withCString { name in
-                        escapingString.withCString { value in
-                            ksjson_addStringElement(&context, name, value, KSJSON_SIZE_AUTOMATIC)
+                    let name = "field\(i)"
+                    _ = name.withCString { namePtr in
+                        escapingString.withCString {
+                            ksjson_addStringElement(&context, namePtr, $0, KSJSON_SIZE_AUTOMATIC)
                         }
                     }
                 }
                 ksjson_endContainer(&context)
-                ksjson_endEncode(&context)
             }
         }
     }
@@ -249,42 +161,22 @@ final class KSJSONCodecBenchmarks: XCTestCase {
     /// Benchmark encoding nested objects (typical crash report structure)
     func testBenchmarkEncodeNestedObjects() {
         measure {
-            var buffer: [UInt8] = []
-            buffer.reserveCapacity(16384)
-
-            withUnsafeMutablePointer(to: &buffer) { bufferPtr in
-                var context = KSJSONEncodeContext()
-                ksjson_beginEncode(
-                    &context, false,
-                    { data, length, userData in
-                        guard let data = data, let ctx = userData else { return Int32(KSJSON_ERROR_CANNOT_ADD_DATA) }
-                        let buf = ctx.assumingMemoryBound(to: [UInt8].self)
-                        let bytes = UnsafeBufferPointer(
-                            start: UnsafePointer<UInt8>(OpaquePointer(data)), count: Int(length))
-                        buf.pointee.append(contentsOf: bytes)
-                        return Int32(KSJSON_OK)
-                    }, bufferPtr)
-
+            withJSONEncoder(bufferCapacity: 16384) { context in
                 ksjson_beginObject(&context, nil)
                 for i in 0..<20 {
-                    "thread\(i)".withCString { threadName in
-                        ksjson_beginObject(&context, threadName)
-                        "index".withCString { name in
-                            ksjson_addIntegerElement(&context, name, Int64(i))
+                    let threadName = "thread\(i)"
+                    threadName.withCString { threadNamePtr in
+                        ksjson_beginObject(&context, threadNamePtr)
+                        _ = "index".withCString { ksjson_addIntegerElement(&context, $0, Int64(i)) }
+                        let value = "Thread \(i)"
+                        _ = "name".withCString { namePtr in
+                            value.withCString { ksjson_addStringElement(&context, namePtr, $0, KSJSON_SIZE_AUTOMATIC) }
                         }
-                        "name".withCString { name in
-                            "Thread \(i)".withCString { value in
-                                ksjson_addStringElement(&context, name, value, KSJSON_SIZE_AUTOMATIC)
-                            }
-                        }
-                        "crashed".withCString { name in
-                            ksjson_addBooleanElement(&context, name, i == 0)
-                        }
+                        _ = "crashed".withCString { ksjson_addBooleanElement(&context, $0, i == 0) }
                         ksjson_endContainer(&context)
                     }
                 }
                 ksjson_endContainer(&context)
-                ksjson_endEncode(&context)
             }
         }
     }
@@ -292,32 +184,16 @@ final class KSJSONCodecBenchmarks: XCTestCase {
     /// Benchmark encoding arrays (typical backtrace structure)
     func testBenchmarkEncodeArrays() {
         measure {
-            var buffer: [UInt8] = []
-            buffer.reserveCapacity(16384)
-
-            withUnsafeMutablePointer(to: &buffer) { bufferPtr in
-                var context = KSJSONEncodeContext()
-                ksjson_beginEncode(
-                    &context, false,
-                    { data, length, userData in
-                        guard let data = data, let ctx = userData else { return Int32(KSJSON_ERROR_CANNOT_ADD_DATA) }
-                        let buf = ctx.assumingMemoryBound(to: [UInt8].self)
-                        let bytes = UnsafeBufferPointer(
-                            start: UnsafePointer<UInt8>(OpaquePointer(data)), count: Int(length))
-                        buf.pointee.append(contentsOf: bytes)
-                        return Int32(KSJSON_OK)
-                    }, bufferPtr)
-
+            withJSONEncoder(bufferCapacity: 16384) { context in
                 ksjson_beginObject(&context, nil)
-                "backtrace".withCString { name in
-                    ksjson_beginArray(&context, name)
+                "backtrace".withCString { namePtr in
+                    ksjson_beginArray(&context, namePtr)
                     for i in 0..<50 {
                         ksjson_addUIntegerElement(&context, nil, UInt64(0x1_0000_0000 + i * 4))
                     }
                     ksjson_endContainer(&context)
                 }
                 ksjson_endContainer(&context)
-                ksjson_endEncode(&context)
             }
         }
     }
@@ -333,30 +209,13 @@ final class KSJSONCodecBenchmarks: XCTestCase {
         }
 
         measure {
-            var buffer: [UInt8] = []
-            buffer.reserveCapacity(8192)
-
-            withUnsafeMutablePointer(to: &buffer) { bufferPtr in
-                var context = KSJSONEncodeContext()
-                ksjson_beginEncode(
-                    &context, false,
-                    { data, length, userData in
-                        guard let data = data, let ctx = userData else { return Int32(KSJSON_ERROR_CANNOT_ADD_DATA) }
-                        let buf = ctx.assumingMemoryBound(to: [UInt8].self)
-                        let bytes = UnsafeBufferPointer(
-                            start: UnsafePointer<UInt8>(OpaquePointer(data)), count: Int(length))
-                        buf.pointee.append(contentsOf: bytes)
-                        return Int32(KSJSON_OK)
-                    }, bufferPtr)
-
+            withJSONEncoder(bufferCapacity: 8192) { context in
                 ksjson_beginObject(&context, nil)
                 for i in 0..<10 {
-                    "data\(i)".withCString { name in
-                        ksjson_addDataElement(&context, name, data, Int32(dataSize))
-                    }
+                    let name = "data\(i)"
+                    _ = name.withCString { ksjson_addDataElement(&context, $0, data, Int32(dataSize)) }
                 }
                 ksjson_endContainer(&context)
-                ksjson_endEncode(&context)
             }
         }
     }
@@ -366,78 +225,49 @@ final class KSJSONCodecBenchmarks: XCTestCase {
     /// Benchmark encoding a structure similar to a crash report
     func testBenchmarkEncodeTypicalCrashReport() {
         measure {
-            var buffer: [UInt8] = []
-            buffer.reserveCapacity(65536)
-
-            withUnsafeMutablePointer(to: &buffer) { bufferPtr in
-                var context = KSJSONEncodeContext()
-                ksjson_beginEncode(
-                    &context, false,
-                    { data, length, userData in
-                        guard let data = data, let ctx = userData else { return Int32(KSJSON_ERROR_CANNOT_ADD_DATA) }
-                        let buf = ctx.assumingMemoryBound(to: [UInt8].self)
-                        let bytes = UnsafeBufferPointer(
-                            start: UnsafePointer<UInt8>(OpaquePointer(data)), count: Int(length))
-                        buf.pointee.append(contentsOf: bytes)
-                        return Int32(KSJSON_OK)
-                    }, bufferPtr)
-
+            withJSONEncoder(bufferCapacity: 65536) { context in
                 ksjson_beginObject(&context, nil)
 
                 // System info
-                "system".withCString { name in
-                    ksjson_beginObject(&context, name)
-                    "os_version".withCString { key in
-                        "17.0".withCString { value in
-                            ksjson_addStringElement(&context, key, value, KSJSON_SIZE_AUTOMATIC)
-                        }
+                "system".withCString { namePtr in
+                    ksjson_beginObject(&context, namePtr)
+                    _ = "os_version".withCString { key in
+                        "17.0".withCString { ksjson_addStringElement(&context, key, $0, KSJSON_SIZE_AUTOMATIC) }
                     }
-                    "device_type".withCString { key in
-                        "iPhone14,2".withCString { value in
-                            ksjson_addStringElement(&context, key, value, KSJSON_SIZE_AUTOMATIC)
-                        }
+                    _ = "device_type".withCString { key in
+                        "iPhone14,2".withCString { ksjson_addStringElement(&context, key, $0, KSJSON_SIZE_AUTOMATIC) }
                     }
-                    "memory_size".withCString { key in
-                        ksjson_addUIntegerElement(&context, key, 6_000_000_000)
-                    }
+                    _ = "memory_size".withCString { ksjson_addUIntegerElement(&context, $0, 6_000_000_000) }
                     ksjson_endContainer(&context)
                 }
 
                 // Crash info
-                "crash".withCString { name in
-                    ksjson_beginObject(&context, name)
-                    "type".withCString { key in
-                        "mach".withCString { value in
-                            ksjson_addStringElement(&context, key, value, KSJSON_SIZE_AUTOMATIC)
-                        }
+                "crash".withCString { namePtr in
+                    ksjson_beginObject(&context, namePtr)
+                    _ = "type".withCString { key in
+                        "mach".withCString { ksjson_addStringElement(&context, key, $0, KSJSON_SIZE_AUTOMATIC) }
                     }
-                    "signal".withCString { key in
-                        ksjson_addIntegerElement(&context, key, 11)
-                    }
+                    _ = "signal".withCString { ksjson_addIntegerElement(&context, $0, 11) }
                     ksjson_endContainer(&context)
                 }
 
                 // Threads (10 threads, each with 30-frame backtrace)
-                "threads".withCString { name in
-                    ksjson_beginArray(&context, name)
+                "threads".withCString { namePtr in
+                    ksjson_beginArray(&context, namePtr)
                     for t in 0..<10 {
                         ksjson_beginObject(&context, nil)
-                        "index".withCString { key in
-                            ksjson_addIntegerElement(&context, key, Int64(t))
-                        }
-                        "crashed".withCString { key in
-                            ksjson_addBooleanElement(&context, key, t == 0)
-                        }
+                        _ = "index".withCString { ksjson_addIntegerElement(&context, $0, Int64(t)) }
+                        _ = "crashed".withCString { ksjson_addBooleanElement(&context, $0, t == 0) }
                         "backtrace".withCString { key in
                             ksjson_beginArray(&context, key)
                             for f in 0..<30 {
                                 ksjson_beginObject(&context, nil)
-                                "address".withCString { k in
-                                    ksjson_addUIntegerElement(&context, k, UInt64(0x1_0000_0000 + t * 1000 + f * 4))
+                                _ = "address".withCString {
+                                    ksjson_addUIntegerElement(&context, $0, UInt64(0x1_0000_0000 + t * 1000 + f * 4))
                                 }
-                                "symbol".withCString { k in
-                                    "_ZN5MyApp10SomeClass15someFunctionEv".withCString { v in
-                                        ksjson_addStringElement(&context, k, v, KSJSON_SIZE_AUTOMATIC)
+                                _ = "symbol".withCString { k in
+                                    "_ZN5MyApp10SomeClass15someFunctionEv".withCString {
+                                        ksjson_addStringElement(&context, k, $0, KSJSON_SIZE_AUTOMATIC)
                                     }
                                 }
                                 ksjson_endContainer(&context)
@@ -450,7 +280,6 @@ final class KSJSONCodecBenchmarks: XCTestCase {
                 }
 
                 ksjson_endContainer(&context)
-                ksjson_endEncode(&context)
             }
         }
     }
