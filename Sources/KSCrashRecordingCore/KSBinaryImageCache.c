@@ -48,8 +48,19 @@
 
 static struct dyld_all_image_infos *g_all_image_infos = NULL;
 
+/// Atomic flag to ensure ksbic_init() only runs once, even if called
+/// concurrently from multiple threads during startup.
+static _Atomic bool g_all_image_infos_initialized = false;
+
 void ksbic_init(void)
 {
+    // Atomically check if uninitialized (false) and set to initialized (true).
+    // If another thread already initialized, this returns false and we exit early.
+    bool expected = false;
+    if (!atomic_compare_exchange_strong(&g_all_image_infos_initialized, &expected, true)) {
+        return;
+    }
+
     KSLOG_DEBUG("Initializing binary image cache");
 
     struct task_dyld_info dyld_info;
@@ -62,6 +73,9 @@ void ksbic_init(void)
     g_all_image_infos = (struct dyld_all_image_infos *)dyld_info.all_image_info_addr;
 }
 
+// Note: We intentionally do not call ksbic_init() here if uninitialized.
+// This function may be called from a signal handler during crash reporting,
+// and ksbic_init() is not async-signal-safe.
 const ks_dyld_image_info *ksbic_getImages(uint32_t *count)
 {
     if (count) {
@@ -84,4 +98,17 @@ const ks_dyld_image_info *ksbic_getImages(uint32_t *count)
 }
 
 // For testing purposes only. Used with extern in test files.
-void ksbic_resetCache(void) { g_all_image_infos = NULL; }
+// Note: This is not a perfectly synchronized reset (there's a small window
+// between resetting the flag and clearing the pointer), but it's sufficient
+// for sequential test scenarios.
+void ksbic_resetCache(void)
+{
+    // Atomically check if initialized (true) and set to uninitialized (false).
+    // This allows ksbic_init() to run again in subsequent tests.
+    bool expected = true;
+    if (!atomic_compare_exchange_strong(&g_all_image_infos_initialized, &expected, false)) {
+        return;
+    }
+
+    g_all_image_infos = NULL;
+}
