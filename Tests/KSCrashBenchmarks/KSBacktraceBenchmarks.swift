@@ -44,27 +44,34 @@ import XCTest
 
         /// Benchmark capturing backtrace from a different thread (slow path with thread suspension)
         func testBenchmarkOtherThreadBacktrace() {
-            let thread = pthread_self()
             let entries = 512
             var addresses: [UInt] = Array(repeating: 0, count: entries)
 
-            let expectation = XCTestExpectation(description: "Benchmark other thread backtrace")
-            var measureBlock: (() -> Void)?
+            var targetThread: pthread_t?
 
+            let semaphore = DispatchSemaphore(value: 0)
+            let endTestSemaphore = DispatchSemaphore(value: 0)
+
+            // Start a background thread that stays alive during measurement
             DispatchQueue.global(qos: .userInitiated).async {
-                measureBlock = {
-                    _ = captureBacktrace(thread: thread, addresses: &addresses, count: Int32(entries))
-                }
-                expectation.fulfill()
+                targetThread = pthread_self()
+                semaphore.signal()
+                endTestSemaphore.wait()
             }
 
-            wait(for: [expectation], timeout: 5)
+            semaphore.wait()
 
-            if let block = measureBlock {
-                measure {
-                    block()
-                }
+            guard let thread = targetThread else {
+                XCTFail("Failed to get target thread")
+                return
             }
+
+            // Measure from main thread, capturing backtrace of the background thread
+            measure {
+                _ = captureBacktrace(thread: thread, addresses: &addresses, count: Int32(entries))
+            }
+
+            endTestSemaphore.signal()
         }
 
         /// Benchmark capturing backtrace with limited depth (typical crash scenario)
