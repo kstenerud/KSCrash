@@ -103,7 +103,7 @@ const ks_dyld_image_info *ksbic_getImages(uint32_t *count)
 // for sequential test scenarios.
 void ksbic_resetCache(void)
 {
-    // Reset initialization flag and clear cached pointer. 
+    // Reset initialization flag and clear cached pointer.
     // Only for testing so correctness doesn't matter.
     g_all_image_infos = NULL;
     g_all_image_infos_initialized = false;
