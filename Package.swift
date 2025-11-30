@@ -470,10 +470,10 @@ let package = Package(
                 .copy("Resources/PrivacyInfo.xcprivacy")
             ],
             cSettings: [
-                .unsafeFlags(warningFlags),
+                .unsafeFlags(warningFlags)
             ],
             cxxSettings: [
-                .unsafeFlags(warningFlags),
+                .unsafeFlags(warningFlags)
             ]
         ),
         .testTarget(
@@ -496,6 +496,14 @@ let package = Package(
                 .unsafeFlags(warningFlags)
             ]
         ),
+
+        .testTarget(
+            name: Targets.benchmarks,
+            dependencies: [
+                .target(name: Targets.recordingCore),
+                .target(name: Targets.recording),
+            ]
+        ),
     ],
     cxxLanguageStandard: .gnucxx11
 )
@@ -513,6 +521,7 @@ enum Targets {
     static let bootTimeMonitor = "KSCrashBootTimeMonitor"
     static let demangleFilter = "KSCrashDemangleFilter"
     static let testTools = "KSCrashTestTools"
+    static let benchmarks = "KSCrashBenchmarks"
 }
 
 extension String {
