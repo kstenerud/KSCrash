@@ -60,53 +60,6 @@ typedef struct {
 #include <stdint.h>
 #include <string.h>
 
-static uintptr_t vmSlideFromHeader(const struct mach_header *mh)
-{
-    uintptr_t load_addr = (uintptr_t)mh;
-
-    if (mh->magic == MH_MAGIC_64) {
-        const struct mach_header_64 *mh64 = (const struct mach_header_64 *)mh;
-        uintptr_t ptr = (uintptr_t)(mh64 + 1);
-
-        for (uint32_t i = 0; i < mh64->ncmds; i++) {
-            const struct load_command *lc = (const struct load_command *)ptr;
-
-            if (lc->cmd == LC_SEGMENT_64) {
-                // Ensure safe cast via alignment assumption
-                const struct segment_command_64 *seg = (const struct segment_command_64 *)__builtin_assume_aligned(
-                    lc, __alignof(struct segment_command_64));
-
-                if (strcmp(seg->segname, "__TEXT") == 0) {
-                    return load_addr - (uintptr_t)(seg->vmaddr);
-                }
-            }
-
-            ptr += lc->cmdsize;
-        }
-
-    } else if (mh->magic == MH_MAGIC) {
-        const struct mach_header *mh32 = mh;
-        uintptr_t ptr = (uintptr_t)(mh32 + 1);
-
-        for (uint32_t i = 0; i < mh32->ncmds; i++) {
-            const struct load_command *lc = (const struct load_command *)ptr;
-
-            if (lc->cmd == LC_SEGMENT) {
-                const struct segment_command *seg =
-                    (const struct segment_command *)__builtin_assume_aligned(lc, __alignof(struct segment_command));
-
-                if (strcmp(seg->segname, "__TEXT") == 0) {
-                    return load_addr - (uintptr_t)(seg->vmaddr);
-                }
-            }
-
-            ptr += lc->cmdsize;
-        }
-    }
-
-    return 0;
-}
-
 /** Get the address of the first command following a header (which will be of
  * type struct load_command).
  *
@@ -315,10 +268,11 @@ bool ksdl_binaryImageForHeader(const void *const header_ptr, const char *const i
         return false;
     }
 
-    // Look for the TEXT segment to get the image size.
+    // Look for the TEXT segment to get the image size and compute ASLR slide.
     // Also look for a UUID command.
     uint64_t imageSize = 0;
     uint64_t imageVmAddr = 0;
+    uintptr_t imageSlide = 0;
     uint64_t version = 0;
     uint8_t *uuid = NULL;
 
@@ -330,6 +284,7 @@ bool ksdl_binaryImageForHeader(const void *const header_ptr, const char *const i
                 if (strcmp(segCmd->segname, SEG_TEXT) == 0) {
                     imageSize = segCmd->vmsize;
                     imageVmAddr = segCmd->vmaddr;
+                    imageSlide = (uintptr_t)header - segCmd->vmaddr;
                 }
                 break;
             }
@@ -338,6 +293,7 @@ bool ksdl_binaryImageForHeader(const void *const header_ptr, const char *const i
                 if (strcmp(segCmd->segname, SEG_TEXT) == 0) {
                     imageSize = segCmd->vmsize;
                     imageVmAddr = segCmd->vmaddr;
+                    imageSlide = (uintptr_t)header - (uintptr_t)segCmd->vmaddr;
                 }
                 break;
             }
@@ -360,7 +316,7 @@ bool ksdl_binaryImageForHeader(const void *const header_ptr, const char *const i
     buffer->address = (uintptr_t)header;
     buffer->vmAddress = imageVmAddr;
     buffer->size = imageSize;
-    buffer->vmAddressSlide = vmSlideFromHeader(header);
+    buffer->vmAddressSlide = imageSlide;
     buffer->name = image_name;
     buffer->uuid = uuid;
     buffer->cpuType = header->cputype;
