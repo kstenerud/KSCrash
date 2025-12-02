@@ -53,64 +53,24 @@ static KSBinaryImageRangeCache g_cache_storage = { .count = 0 };
 // Atomic pointer to the cache. NULL means cache is in use by another caller.
 static _Atomic(KSBinaryImageRangeCache *) g_cache_ptr = NULL;
 
-// Compute ASLR slide from mach_header by finding __TEXT segment
-static uintptr_t computeVMSlide(const struct mach_header *header)
+// Compute ASLR slide and address range in a single pass through load commands
+static void computeImageInfo(const struct mach_header *header, uintptr_t *outSlide, uintptr_t *outStart,
+                             uintptr_t *outEnd)
 {
-    if (header == NULL) {
-        return 0;
-    }
-
-    uintptr_t loadAddr = (uintptr_t)header;
-
-    if (header->magic == MH_MAGIC_64) {
-        const struct mach_header_64 *header64 = (const struct mach_header_64 *)header;
-        uintptr_t cmdPtr = (uintptr_t)(header64 + 1);
-
-        for (uint32_t i = 0; i < header64->ncmds; i++) {
-            const struct load_command *lc = (const struct load_command *)cmdPtr;
-            if (lc->cmd == LC_SEGMENT_64) {
-                const struct segment_command_64 *seg = (const struct segment_command_64 *)cmdPtr;
-                if (seg->segname[0] == '_' && seg->segname[1] == '_' && seg->segname[2] == 'T' &&
-                    seg->segname[3] == 'E' && seg->segname[4] == 'X' && seg->segname[5] == 'T' &&
-                    seg->segname[6] == '\0') {
-                    return loadAddr - (uintptr_t)seg->vmaddr;
-                }
-            }
-            cmdPtr += lc->cmdsize;
-        }
-    } else if (header->magic == MH_MAGIC) {
-        uintptr_t cmdPtr = (uintptr_t)(header + 1);
-
-        for (uint32_t i = 0; i < header->ncmds; i++) {
-            const struct load_command *lc = (const struct load_command *)cmdPtr;
-            if (lc->cmd == LC_SEGMENT) {
-                const struct segment_command *seg = (const struct segment_command *)cmdPtr;
-                if (seg->segname[0] == '_' && seg->segname[1] == '_' && seg->segname[2] == 'T' &&
-                    seg->segname[3] == 'E' && seg->segname[4] == 'X' && seg->segname[5] == 'T' &&
-                    seg->segname[6] == '\0') {
-                    return loadAddr - (uintptr_t)seg->vmaddr;
-                }
-            }
-            cmdPtr += lc->cmdsize;
-        }
-    }
-
-    return 0;
-}
-
-// Compute the address range (start, end) for an image by examining all segments
-static void computeImageAddressRange(const struct mach_header *header, uintptr_t slide, uintptr_t *outStart,
-                                     uintptr_t *outEnd)
-{
+    uintptr_t slide = 0;
     uintptr_t minAddr = UINTPTR_MAX;
     uintptr_t maxAddr = 0;
 
     if (header == NULL) {
+        *outSlide = 0;
         *outStart = 0;
         *outEnd = 0;
         return;
     }
 
+    uintptr_t loadAddr = (uintptr_t)header;
+    bool foundText = false;
+
     if (header->magic == MH_MAGIC_64) {
         const struct mach_header_64 *header64 = (const struct mach_header_64 *)header;
         uintptr_t cmdPtr = (uintptr_t)(header64 + 1);
@@ -119,8 +79,18 @@ static void computeImageAddressRange(const struct mach_header *header, uintptr_t
             const struct load_command *lc = (const struct load_command *)cmdPtr;
             if (lc->cmd == LC_SEGMENT_64) {
                 const struct segment_command_64 *seg = (const struct segment_command_64 *)cmdPtr;
+
+                // Check for __TEXT to compute slide (only once)
+                if (!foundText && seg->segname[0] == '_' && seg->segname[1] == '_' &&
+                    seg->segname[2] == 'T' && seg->segname[3] == 'E' && seg->segname[4] == 'X' &&
+                    seg->segname[5] == 'T' && seg->segname[6] == '\0') {
+                    slide = loadAddr - (uintptr_t)seg->vmaddr;
+                    foundText = true;
+                }
+
+                // Track address bounds for all segments
                 if (seg->vmsize > 0) {
-                    uintptr_t segStart = (uintptr_t)seg->vmaddr + slide;
+                    uintptr_t segStart = (uintptr_t)seg->vmaddr;
                     uintptr_t segEnd = segStart + (uintptr_t)seg->vmsize;
                     if (segStart < minAddr) minAddr = segStart;
                     if (segEnd > maxAddr) maxAddr = segEnd;
@@ -135,8 +105,18 @@ static void computeImageAddressRange(const struct mach_header *header, uintptr_t
             const struct load_command *lc = (const struct load_command *)cmdPtr;
             if (lc->cmd == LC_SEGMENT) {
                 const struct segment_command *seg = (const struct segment_command *)cmdPtr;
+
+                // Check for __TEXT to compute slide (only once)
+                if (!foundText && seg->segname[0] == '_' && seg->segname[1] == '_' &&
+                    seg->segname[2] == 'T' && seg->segname[3] == 'E' && seg->segname[4] == 'X' &&
+                    seg->segname[5] == 'T' && seg->segname[6] == '\0') {
+                    slide = loadAddr - (uintptr_t)seg->vmaddr;
+                    foundText = true;
+                }
+
+                // Track address bounds for all segments
                 if (seg->vmsize > 0) {
-                    uintptr_t segStart = (uintptr_t)seg->vmaddr + slide;
+                    uintptr_t segStart = (uintptr_t)seg->vmaddr;
                     uintptr_t segEnd = segStart + (uintptr_t)seg->vmsize;
                     if (segStart < minAddr) minAddr = segStart;
                     if (segEnd > maxAddr) maxAddr = segEnd;
@@ -146,8 +126,10 @@ static void computeImageAddressRange(const struct mach_header *header, uintptr_t
         }
     }
 
-    *outStart = (minAddr == UINTPTR_MAX) ? 0 : minAddr;
-    *outEnd = maxAddr;
+    *outSlide = slide;
+    // Apply slide to get actual addresses
+    *outStart = (minAddr == UINTPTR_MAX) ? 0 : (minAddr + slide);
+    *outEnd = (maxAddr == 0) ? 0 : (maxAddr + slide);
 }
 
 // Linear scan through dyld images to find one containing the address
@@ -166,9 +148,8 @@ static const struct mach_header *linearScanForAddress(uintptr_t address, uintptr
             continue;
         }
 
-        uintptr_t slide = computeVMSlide(header);
-        uintptr_t start, end;
-        computeImageAddressRange(header, slide, &start, &end);
+        uintptr_t slide, start, end;
+        computeImageInfo(header, &slide, &start, &end);
 
         if (address >= start && address < end) {
             if (outSlide) *outSlide = slide;

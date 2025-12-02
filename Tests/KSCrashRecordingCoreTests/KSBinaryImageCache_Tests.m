@@ -261,4 +261,54 @@ extern void ksbic_resetCache(void);
     XCTAssertEqual(foundHeader, expectedHeader, @"Should find correct image for address within image");
 }
 
+- (void)testFindImageForAddress_NearEndOfImage
+{
+    uint32_t count = 0;
+    const ks_dyld_image_info *images = ksbic_getImages(&count);
+    XCTAssertGreaterThan(count, 0, @"There should be at least some images loaded");
+
+    // Get image info to find the size
+    const struct mach_header *expectedHeader = images[0].imageLoadAddress;
+    KSBinaryImage imageInfo = { 0 };
+    bool success = ksdl_binaryImageForHeader(expectedHeader, images[0].imageFilePath, &imageInfo);
+    XCTAssertTrue(success, @"Should get binary image info");
+    XCTAssertGreaterThan(imageInfo.size, 0, @"Image should have non-zero size");
+
+    // Try an address near the end of the image (but still within bounds)
+    // Use address + size - small offset to stay within the image
+    uintptr_t addressNearEnd = (uintptr_t)expectedHeader + imageInfo.size - 0x100;
+
+    uintptr_t slide = 0;
+    const char *name = NULL;
+    const struct mach_header *foundHeader = ksbic_findImageForAddress(addressNearEnd, &slide, &name);
+
+    XCTAssertEqual(foundHeader, expectedHeader, @"Should find correct image for address near end of image");
+}
+
+- (void)testFindImageForAddress_JustPastEndOfImage
+{
+    uint32_t count = 0;
+    const ks_dyld_image_info *images = ksbic_getImages(&count);
+    XCTAssertGreaterThan(count, 0, @"There should be at least some images loaded");
+
+    // Get image info to find the size
+    const struct mach_header *expectedHeader = images[0].imageLoadAddress;
+    KSBinaryImage imageInfo = { 0 };
+    bool success = ksdl_binaryImageForHeader(expectedHeader, images[0].imageFilePath, &imageInfo);
+    XCTAssertTrue(success, @"Should get binary image info");
+
+    // Try an address just past the end of the TEXT segment
+    // This may or may not find the same image depending on other segments
+    uintptr_t addressPastText = (uintptr_t)expectedHeader + imageInfo.size + 0x1000;
+
+    uintptr_t slide = 0;
+    const char *name = NULL;
+    const struct mach_header *foundHeader = ksbic_findImageForAddress(addressPastText, &slide, &name);
+
+    // This address might be in another segment of the same image, or in a different image, or NULL
+    // The key is that we don't crash and return a valid result
+    // (foundHeader may or may not equal expectedHeader depending on image layout)
+    (void)foundHeader;  // Just verify no crash
+}
+
 @end
