@@ -83,43 +83,6 @@ static uintptr_t firstCmdAfterHeader(const struct mach_header *const header)
     }
 }
 
-/** Get the segment base address of the specified image.
- *
- * This is required for any symtab command offsets.
- *
- * @param header The image header.
- * @return The image's base address, or 0 if none was found.
- */
-static uintptr_t segmentBaseOfImage(const struct mach_header *header)
-{
-    if (header == NULL) {
-        return 0;
-    }
-
-    // Look for a segment command and return the file image address.
-    uintptr_t cmdPtr = firstCmdAfterHeader(header);
-    if (cmdPtr == 0) {
-        return 0;
-    }
-    for (uint32_t i = 0; i < header->ncmds; i++) {
-        const struct load_command *loadCmd = (struct load_command *)cmdPtr;
-        if (loadCmd->cmd == LC_SEGMENT) {
-            const struct segment_command *segmentCmd = (struct segment_command *)cmdPtr;
-            if (strcmp(segmentCmd->segname, SEG_LINKEDIT) == 0) {
-                return segmentCmd->vmaddr - segmentCmd->fileoff;
-            }
-        } else if (loadCmd->cmd == LC_SEGMENT_64) {
-            const struct segment_command_64 *segmentCmd = (struct segment_command_64 *)cmdPtr;
-            if (strcmp(segmentCmd->segname, SEG_LINKEDIT) == 0) {
-                return (uintptr_t)(segmentCmd->vmaddr - segmentCmd->fileoff);
-            }
-        }
-        cmdPtr += loadCmd->cmdsize;
-    }
-
-    return 0;
-}
-
 bool ksdl_dladdr(const uintptr_t address, Dl_info *const info)
 {
     info->dli_fname = NULL;
@@ -128,14 +91,16 @@ bool ksdl_dladdr(const uintptr_t address, Dl_info *const info)
     info->dli_saddr = NULL;
 
     uintptr_t imageVMAddrSlide = 0;
+    uintptr_t imageSegmentBase = 0;
     const char *name = NULL;
-    const struct mach_header *header = ksbic_findImageForAddress(address, &imageVMAddrSlide, &name);
+    const struct mach_header *header =
+        ksbic_getImageDetailsForAddress(address, &imageVMAddrSlide, &imageSegmentBase, &name);
     if (header == NULL) {
         return false;
     }
 
     const uintptr_t addressWithSlide = address - imageVMAddrSlide;
-    const uintptr_t segmentBase = segmentBaseOfImage(header) + imageVMAddrSlide;
+    const uintptr_t segmentBase = imageSegmentBase + imageVMAddrSlide;
     if (segmentBase == 0) {
         return false;
     }

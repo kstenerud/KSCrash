@@ -57,4 +57,57 @@ extern void ksbic_init(void);
     XCTAssertTrue(buffer.uuid != NULL, @"");
 }
 
+- (void)testDladdr_FindsSymbol
+{
+    // Use the address of a known function (ksbic_init itself)
+    uintptr_t address = (uintptr_t)ksbic_init;
+
+    Dl_info info = { 0 };
+    bool result = ksdl_dladdr(address, &info);
+
+    XCTAssertTrue(result, @"Should find symbol for valid address");
+    XCTAssertNotEqual(info.dli_fname, NULL, @"Should have file name");
+    XCTAssertNotEqual(info.dli_fbase, NULL, @"Should have file base");
+    // Symbol name may or may not be available depending on stripping
+}
+
+- (void)testDladdr_ReturnsCorrectImageBase
+{
+    uint32_t count = 0;
+    const ks_dyld_image_info *images = ksbic_getImages(&count);
+    XCTAssertGreaterThan(count, 0, @"Should have images");
+
+    // Use the header address itself
+    uintptr_t address = (uintptr_t)images[0].imageLoadAddress;
+
+    Dl_info info = { 0 };
+    bool result = ksdl_dladdr(address, &info);
+
+    XCTAssertTrue(result, @"Should find image for header address");
+    XCTAssertEqual(info.dli_fbase, images[0].imageLoadAddress, @"File base should match image header");
+}
+
+- (void)testDladdr_InvalidAddress
+{
+    Dl_info info = { 0 };
+    bool result = ksdl_dladdr(0, &info);
+
+    XCTAssertFalse(result, @"Should return false for invalid address");
+}
+
+- (void)testDladdr_RepeatedCalls
+{
+    uintptr_t address = (uintptr_t)ksbic_init;
+
+    Dl_info info1 = { 0 };
+    Dl_info info2 = { 0 };
+
+    bool result1 = ksdl_dladdr(address, &info1);
+    bool result2 = ksdl_dladdr(address, &info2);
+
+    XCTAssertTrue(result1 && result2, @"Both calls should succeed");
+    XCTAssertEqual(info1.dli_fbase, info2.dli_fbase, @"Should return consistent results");
+    XCTAssertEqual(info1.dli_fname, info2.dli_fname, @"Should return consistent file name");
+}
+
 @end

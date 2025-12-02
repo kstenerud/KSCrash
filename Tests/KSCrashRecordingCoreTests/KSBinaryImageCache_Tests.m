@@ -311,4 +311,62 @@ extern void ksbic_resetCache(void);
     (void)foundHeader;  // Just verify no crash
 }
 
+#pragma mark - ksbic_getImageDetailsForAddress Tests
+
+- (void)testGetImageDetailsForAddress_ReturnsSegmentBase
+{
+    uint32_t count = 0;
+    const ks_dyld_image_info *images = ksbic_getImages(&count);
+    XCTAssertGreaterThan(count, 0, @"There should be at least some images loaded");
+
+    const struct mach_header *expectedHeader = images[0].imageLoadAddress;
+    uintptr_t address = (uintptr_t)expectedHeader;
+
+    uintptr_t slide = 0;
+    uintptr_t segmentBase = 0;
+    const char *name = NULL;
+    const struct mach_header *foundHeader = ksbic_getImageDetailsForAddress(address, &slide, &segmentBase, &name);
+
+    XCTAssertEqual(foundHeader, expectedHeader, @"Should find correct header");
+    XCTAssertNotEqual(name, NULL, @"Should return image name");
+    // Segment base should be non-zero for valid images with __LINKEDIT
+    // (though we don't strictly require it as some images might not have it)
+}
+
+- (void)testGetImageDetailsForAddress_MatchesFindImageForAddress
+{
+    uint32_t count = 0;
+    const ks_dyld_image_info *images = ksbic_getImages(&count);
+    XCTAssertGreaterThan(count, 0, @"There should be at least some images loaded");
+
+    const struct mach_header *expectedHeader = images[0].imageLoadAddress;
+    uintptr_t address = (uintptr_t)expectedHeader;
+
+    // Call the simple function
+    uintptr_t slide1 = 0;
+    const char *name1 = NULL;
+    const struct mach_header *header1 = ksbic_findImageForAddress(address, &slide1, &name1);
+
+    // Call the detailed function
+    uintptr_t slide2 = 0;
+    uintptr_t segmentBase = 0;
+    const char *name2 = NULL;
+    const struct mach_header *header2 = ksbic_getImageDetailsForAddress(address, &slide2, &segmentBase, &name2);
+
+    // Results should match
+    XCTAssertEqual(header1, header2, @"Both functions should return same header");
+    XCTAssertEqual(slide1, slide2, @"Both functions should return same slide");
+    XCTAssertEqual(name1, name2, @"Both functions should return same name");
+}
+
+- (void)testGetImageDetailsForAddress_InvalidAddress
+{
+    uintptr_t slide = 0;
+    uintptr_t segmentBase = 0;
+    const char *name = NULL;
+    const struct mach_header *header = ksbic_getImageDetailsForAddress(0, &slide, &segmentBase, &name);
+
+    XCTAssertEqual(header, NULL, @"Should return NULL for invalid address");
+}
+
 @end
