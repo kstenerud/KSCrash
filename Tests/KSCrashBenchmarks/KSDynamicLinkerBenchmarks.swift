@@ -243,7 +243,9 @@ final class KSDynamicLinkerBenchmarks: XCTestCase {
         // Get addresses of known functions - these should be exact matches (distance = 0)
         let functions: [UInt] = [
             unsafeBitCast(ksbic_init as @convention(c) () -> Void, to: UInt.self),
-            unsafeBitCast(ksbic_getImages as @convention(c) (UnsafeMutablePointer<UInt32>?) -> UnsafePointer<ks_dyld_image_info>?, to: UInt.self),
+            unsafeBitCast(
+                ksbic_getImages as @convention(c) (UnsafeMutablePointer<UInt32>?) -> UnsafePointer<ks_dyld_image_info>?,
+                to: UInt.self),
         ]
 
         var info = Dl_info()
