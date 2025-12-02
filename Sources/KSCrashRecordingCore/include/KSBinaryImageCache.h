@@ -47,19 +47,6 @@ extern "C" {
  */
 typedef struct dyld_image_info ks_dyld_image_info;
 
-/**
- * Cached image address range for fast lookups.
- * Stores pre-computed address bounds, ASLR slide, and segment base.
- */
-typedef struct {
-    uintptr_t startAddress;  // Image load address (header pointer)
-    uintptr_t endAddress;    // End of image address space (exclusive)
-    uintptr_t slide;         // Pre-computed ASLR slide
-    uintptr_t segmentBase;   // Pre-computed segment base for symbol lookups (vmaddr - fileoff for __LINKEDIT)
-    const struct mach_header *_Nullable header;
-    const char *_Nullable name;
-} KSBinaryImageRange;
-
 /** Initialize the binary image cache.
  * Should be called during KSCrash activation.
  */

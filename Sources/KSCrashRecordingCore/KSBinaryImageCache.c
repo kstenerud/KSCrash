@@ -40,7 +40,20 @@
 
 // MARK: - Image Address Range Cache
 
-#define KSBIC_MAX_CACHE_ENTRIES 512
+#define KSBIC_MAX_CACHE_ENTRIES 2048
+
+/**
+ * Cached image address range for fast lookups.
+ * Stores pre-computed address bounds, ASLR slide, and segment base.
+ */
+typedef struct {
+    uintptr_t startAddress;  // Image load address (header pointer)
+    uintptr_t endAddress;    // End of image address space (exclusive)
+    uintptr_t slide;         // Pre-computed ASLR slide
+    uintptr_t segmentBase;   // Pre-computed segment base for symbol lookups (vmaddr - fileoff for __LINKEDIT)
+    const struct mach_header *_Nullable header;
+    const char *_Nullable name;
+} KSBinaryImageRange;
 
 typedef struct {
     KSBinaryImageRange entries[KSBIC_MAX_CACHE_ENTRIES];
@@ -241,7 +254,7 @@ void ksbic_resetCache(void)
 {
     g_all_image_infos = NULL;
     g_cache_storage.count = 0;
-    atomic_store(&g_cache_ptr, NULL);
+    atomic_store(&g_cache_ptr, &g_cache_storage);
 }
 
 const struct mach_header *ksbic_findImageForAddress(uintptr_t address, uintptr_t *outSlide, const char **outName)
