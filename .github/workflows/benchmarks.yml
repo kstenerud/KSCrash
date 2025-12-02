@@ -165,6 +165,18 @@ jobs:
               "SymbolicateSingleAddress": "Symbolicate (1 address)",
               "SymbolicateFullStack": "Symbolicate (20 frames)",
               "CaptureAndSymbolicate": "Capture + symbolicate",
+              "ImageLookupSingleAddress": "Image lookup (single)",
+              "ImageLookupMultipleAddresses": "Image lookup (multiple)",
+              "ImageLookupDifferentImages": "Image lookup (different images)",
+              "BinaryImageForHeaderSingle": "Binary image info (single)",
+              "BinaryImageForHeaderMultiple": "Binary image info (multiple)",
+              "BinaryImageForHeaderAll": "Binary image info (all)",
+              "TypicalCrashSymbolication": "Typical crash symbolication",
+              "FullCrashReport": "Full crash report generation",
+              "RepeatedSameAddressLookup": "Repeated same address lookup",
+              "SequentialNearbyAddresses": "Sequential nearby addresses",
+              "ExactFunctionAddressLookup": "Exact function address lookup",
+              "NonExactAddressLookup": "Non-exact address lookup",
               "IsMemoryReadableSmall": "Check readable (64B)",
               "IsMemoryReadablePage": "Check readable (4KB)",
               "IsMemoryReadableLarge": "Check readable (64KB)",
@@ -238,6 +250,32 @@ jobs:
               if test_name in pr_results:
                   t = pr_results[test_name]
                   status = get_status(t, excellent=0.0001, good=0.001, ok=0.005)
+                  output.append(f"| {desc} | {format_time(t)} | {status} | {notes} |")
+
+          # Dynamic Linker section
+          output.append("\n## Dynamic Linker (KSDynamicLinker)\n")
+          output.append("| Operation | Time | Status | Notes |")
+          output.append("|-----------|------|--------|-------|")
+
+          dynlinker_tests = {
+              "ImageLookupSingleAddress": ("Image lookup (single)", "Single address resolution"),
+              "ImageLookupMultipleAddresses": ("Image lookup (multiple)", "Stack trace addresses"),
+              "ImageLookupDifferentImages": ("Image lookup (different)", "Cross-image lookups"),
+              "BinaryImageForHeaderSingle": ("Binary image info (single)", "Extract image metadata"),
+              "BinaryImageForHeaderMultiple": ("Binary image info (50)", "Multiple images"),
+              "BinaryImageForHeaderAll": ("Binary image info (all)", "All loaded images"),
+              "TypicalCrashSymbolication": ("Typical crash symbolication", "Capture + symbolicate"),
+              "FullCrashReport": ("Full crash report", "Complete crash flow"),
+              "RepeatedSameAddressLookup": ("Repeated lookup (1000x)", "Cache effectiveness"),
+              "SequentialNearbyAddresses": ("Sequential nearby addresses", "Locality test"),
+              "ExactFunctionAddressLookup": ("Exact function lookup", "Function entry points"),
+              "NonExactAddressLookup": ("Non-exact lookup", "Mid-function addresses"),
+          }
+
+          for test_name, (desc, notes) in dynlinker_tests.items():
+              if test_name in pr_results:
+                  t = pr_results[test_name]
+                  status = get_status(t, excellent=0.001, good=0.005, ok=0.020)
                   output.append(f"| {desc} | {format_time(t)} | {status} | {notes} |")
 
           # Memory section
