@@ -27,6 +27,7 @@
 #include "KSBinaryImageCache.h"
 
 #include <dlfcn.h>
+#include <mach-o/loader.h>
 #include <mach/mach.h>
 #include <mach/task.h>
 #include <pthread.h>
@@ -36,6 +37,150 @@
 #include <string.h>
 
 #include "KSLogger.h"
+
+// MARK: - Image Address Range Cache
+
+#define KSBIC_MAX_CACHE_ENTRIES 512
+
+typedef struct {
+    KSBinaryImageRange entries[KSBIC_MAX_CACHE_ENTRIES];
+    uint32_t count;
+} KSBinaryImageRangeCache;
+
+// Static cache storage (pre-allocated for async-signal-safety)
+static KSBinaryImageRangeCache g_cache_storage = { .count = 0 };
+
+// Atomic pointer to the cache. NULL means cache is in use by another caller.
+static _Atomic(KSBinaryImageRangeCache *) g_cache_ptr = NULL;
+
+// Compute ASLR slide from mach_header by finding __TEXT segment
+static uintptr_t computeVMSlide(const struct mach_header *header)
+{
+    if (header == NULL) {
+        return 0;
+    }
+
+    uintptr_t loadAddr = (uintptr_t)header;
+
+    if (header->magic == MH_MAGIC_64) {
+        const struct mach_header_64 *header64 = (const struct mach_header_64 *)header;
+        uintptr_t cmdPtr = (uintptr_t)(header64 + 1);
+
+        for (uint32_t i = 0; i < header64->ncmds; i++) {
+            const struct load_command *lc = (const struct load_command *)cmdPtr;
+            if (lc->cmd == LC_SEGMENT_64) {
+                const struct segment_command_64 *seg = (const struct segment_command_64 *)cmdPtr;
+                if (seg->segname[0] == '_' && seg->segname[1] == '_' && seg->segname[2] == 'T' &&
+                    seg->segname[3] == 'E' && seg->segname[4] == 'X' && seg->segname[5] == 'T' &&
+                    seg->segname[6] == '\0') {
+                    return loadAddr - (uintptr_t)seg->vmaddr;
+                }
+            }
+            cmdPtr += lc->cmdsize;
+        }
+    } else if (header->magic == MH_MAGIC) {
+        uintptr_t cmdPtr = (uintptr_t)(header + 1);
+
+        for (uint32_t i = 0; i < header->ncmds; i++) {
+            const struct load_command *lc = (const struct load_command *)cmdPtr;
+            if (lc->cmd == LC_SEGMENT) {
+                const struct segment_command *seg = (const struct segment_command *)cmdPtr;
+                if (seg->segname[0] == '_' && seg->segname[1] == '_' && seg->segname[2] == 'T' &&
+                    seg->segname[3] == 'E' && seg->segname[4] == 'X' && seg->segname[5] == 'T' &&
+                    seg->segname[6] == '\0') {
+                    return loadAddr - (uintptr_t)seg->vmaddr;
+                }
+            }
+            cmdPtr += lc->cmdsize;
+        }
+    }
+
+    return 0;
+}
+
+// Compute the address range (start, end) for an image by examining all segments
+static void computeImageAddressRange(const struct mach_header *header, uintptr_t slide, uintptr_t *outStart,
+                                     uintptr_t *outEnd)
+{
+    uintptr_t minAddr = UINTPTR_MAX;
+    uintptr_t maxAddr = 0;
+
+    if (header == NULL) {
+        *outStart = 0;
+        *outEnd = 0;
+        return;
+    }
+
+    if (header->magic == MH_MAGIC_64) {
+        const struct mach_header_64 *header64 = (const struct mach_header_64 *)header;
+        uintptr_t cmdPtr = (uintptr_t)(header64 + 1);
+
+        for (uint32_t i = 0; i < header64->ncmds; i++) {
+            const struct load_command *lc = (const struct load_command *)cmdPtr;
+            if (lc->cmd == LC_SEGMENT_64) {
+                const struct segment_command_64 *seg = (const struct segment_command_64 *)cmdPtr;
+                if (seg->vmsize > 0) {
+                    uintptr_t segStart = (uintptr_t)seg->vmaddr + slide;
+                    uintptr_t segEnd = segStart + (uintptr_t)seg->vmsize;
+                    if (segStart < minAddr) minAddr = segStart;
+                    if (segEnd > maxAddr) maxAddr = segEnd;
+                }
+            }
+            cmdPtr += lc->cmdsize;
+        }
+    } else if (header->magic == MH_MAGIC) {
+        uintptr_t cmdPtr = (uintptr_t)(header + 1);
+
+        for (uint32_t i = 0; i < header->ncmds; i++) {
+            const struct load_command *lc = (const struct load_command *)cmdPtr;
+            if (lc->cmd == LC_SEGMENT) {
+                const struct segment_command *seg = (const struct segment_command *)cmdPtr;
+                if (seg->vmsize > 0) {
+                    uintptr_t segStart = (uintptr_t)seg->vmaddr + slide;
+                    uintptr_t segEnd = segStart + (uintptr_t)seg->vmsize;
+                    if (segStart < minAddr) minAddr = segStart;
+                    if (segEnd > maxAddr) maxAddr = segEnd;
+                }
+            }
+            cmdPtr += lc->cmdsize;
+        }
+    }
+
+    *outStart = (minAddr == UINTPTR_MAX) ? 0 : minAddr;
+    *outEnd = maxAddr;
+}
+
+// Linear scan through dyld images to find one containing the address
+static const struct mach_header *linearScanForAddress(uintptr_t address, uintptr_t *outSlide, const char **outName,
+                                                      uintptr_t *outStart, uintptr_t *outEnd)
+{
+    uint32_t count = 0;
+    const ks_dyld_image_info *images = ksbic_getImages(&count);
+    if (images == NULL) {
+        return NULL;
+    }
+
+    for (uint32_t i = 0; i < count; i++) {
+        const struct mach_header *header = images[i].imageLoadAddress;
+        if (header == NULL) {
+            continue;
+        }
+
+        uintptr_t slide = computeVMSlide(header);
+        uintptr_t start, end;
+        computeImageAddressRange(header, slide, &start, &end);
+
+        if (address >= start && address < end) {
+            if (outSlide) *outSlide = slide;
+            if (outName) *outName = images[i].imageFilePath;
+            if (outStart) *outStart = start;
+            if (outEnd) *outEnd = end;
+            return header;
+        }
+    }
+
+    return NULL;
+}
 
 /// As a general rule, access to _g_all_image_infos->infoArray_ is thread safe
 /// in a way that you can iterate all you want since items will never be removed
@@ -60,6 +205,10 @@ void ksbic_init(void)
         return;
     }
     g_all_image_infos = (struct dyld_all_image_infos *)dyld_info.all_image_info_addr;
+
+    // Initialize the address range cache
+    g_cache_storage.count = 0;
+    atomic_store(&g_cache_ptr, &g_cache_storage);
 }
 
 const ks_dyld_image_info *ksbic_getImages(uint32_t *count)
@@ -84,4 +233,68 @@ const ks_dyld_image_info *ksbic_getImages(uint32_t *count)
 }
 
 // For testing purposes only. Used with extern in test files.
-void ksbic_resetCache(void) { g_all_image_infos = NULL; }
+void ksbic_resetCache(void)
+{
+    g_all_image_infos = NULL;
+    g_cache_storage.count = 0;
+    atomic_store(&g_cache_ptr, NULL);
+}
+
+const struct mach_header *ksbic_findImageForAddress(uintptr_t address, uintptr_t *outSlide, const char **outName)
+{
+    // Try to acquire exclusive access to the cache
+    KSBinaryImageRangeCache *cache = atomic_exchange(&g_cache_ptr, NULL);
+
+    if (cache != NULL) {
+        // SUCCESS: We have exclusive access to the cache
+
+        // First, search the cache for a matching entry
+        for (uint32_t i = 0; i < cache->count; i++) {
+            KSBinaryImageRange *entry = &cache->entries[i];
+            if (address >= entry->startAddress && address < entry->endAddress) {
+                // Cache hit!
+                if (outSlide) *outSlide = entry->slide;
+                if (outName) *outName = entry->name;
+                const struct mach_header *result = entry->header;
+
+                // Release the cache
+                atomic_store(&g_cache_ptr, cache);
+                return result;
+            }
+        }
+
+        // Cache miss - do linear scan
+        uintptr_t slide = 0;
+        const char *name = NULL;
+        uintptr_t start = 0, end = 0;
+        const struct mach_header *header = linearScanForAddress(address, &slide, &name, &start, &end);
+
+        if (header != NULL && cache->count < KSBIC_MAX_CACHE_ENTRIES) {
+            // Add to cache
+            KSBinaryImageRange *newEntry = &cache->entries[cache->count];
+            newEntry->startAddress = start;
+            newEntry->endAddress = end;
+            newEntry->slide = slide;
+            newEntry->header = header;
+            newEntry->name = name;
+            cache->count++;
+        }
+
+        if (outSlide) *outSlide = slide;
+        if (outName) *outName = name;
+
+        // Release the cache
+        atomic_store(&g_cache_ptr, cache);
+        return header;
+    } else {
+        // FAILED: Cache is in use by another caller
+        // Fall back to linear scan without caching
+        uintptr_t slide = 0;
+        const char *name = NULL;
+        const struct mach_header *header = linearScanForAddress(address, &slide, &name, NULL, NULL);
+
+        if (outSlide) *outSlide = slide;
+        if (outName) *outName = name;
+        return header;
+    }
+}

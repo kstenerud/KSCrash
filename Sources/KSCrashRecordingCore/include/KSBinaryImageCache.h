@@ -47,6 +47,18 @@ extern "C" {
  */
 typedef struct dyld_image_info ks_dyld_image_info;
 
+/**
+ * Cached image address range for fast lookups.
+ * Stores pre-computed address bounds and ASLR slide.
+ */
+typedef struct {
+    uintptr_t startAddress;  // Image load address (header pointer)
+    uintptr_t endAddress;    // End of image address space (exclusive)
+    uintptr_t slide;         // Pre-computed ASLR slide
+    const struct mach_header *_Nullable header;
+    const char *_Nullable name;
+} KSBinaryImageRange;
+
 /** Initialize the binary image cache.
  * Should be called during KSCrash activation.
  */
@@ -56,6 +68,24 @@ void ksbic_init(void);
  * Get a C array of _count_ `ks_dyld_image_info`.
  */
 const ks_dyld_image_info *_Nullable ksbic_getImages(uint32_t *_Nullable count);
+
+/**
+ * Find the binary image containing the given address.
+ *
+ * Uses a lazily-populated cache with lock-free exclusive access.
+ * The cache pointer is atomically swapped to NULL during use, so concurrent
+ * callers fall back to linear scan without blocking.
+ *
+ * This function is async-signal-safe.
+ *
+ * @param address The memory address to search for.
+ * @param outSlide If not NULL and found, receives the pre-computed ASLR slide.
+ * @param outName If not NULL and found, receives the image file path.
+ * @return The mach_header of the containing image, or NULL if not found.
+ */
+const struct mach_header *_Nullable ksbic_findImageForAddress(uintptr_t address,
+                                                               uintptr_t *_Nullable outSlide,
+                                                               const char *_Nullable *_Nullable outName);
 
 #ifdef __cplusplus
 }

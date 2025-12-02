@@ -130,57 +130,6 @@ static uintptr_t firstCmdAfterHeader(const struct mach_header *const header)
     }
 }
 
-/** Get the image header that the specified address is part of.
- *
- * @param address The address to examine.
- * @param outName On output, the name if the header in question.
- * @return The header of the image, or NULL if none was found.
- */
-static const struct mach_header *imageContainingAddress(const uintptr_t address, char **outName)
-{
-    uint32_t count = 0;
-    const ks_dyld_image_info *images = ksbic_getImages(&count);
-    const struct mach_header *header = NULL;
-
-    if (!images) {
-        return NULL;
-    }
-
-    for (uint32_t iImg = 0; iImg < count; iImg++) {
-        header = images[iImg].imageLoadAddress;
-        if (header != NULL) {
-            // Look for a segment command with this address within its range.
-            uintptr_t addressWSlide = address - vmSlideFromHeader(header);
-            uintptr_t cmdPtr = firstCmdAfterHeader(header);
-            if (cmdPtr == 0) {
-                continue;
-            }
-            for (uint32_t iCmd = 0; iCmd < header->ncmds; iCmd++) {
-                const struct load_command *loadCmd = (struct load_command *)cmdPtr;
-                if (loadCmd->cmd == LC_SEGMENT) {
-                    const struct segment_command *segCmd = (struct segment_command *)cmdPtr;
-                    if (addressWSlide >= segCmd->vmaddr && addressWSlide < segCmd->vmaddr + segCmd->vmsize) {
-                        if (outName) {
-                            *outName = (char *)images[iImg].imageFilePath;
-                        }
-                        return header;
-                    }
-                } else if (loadCmd->cmd == LC_SEGMENT_64) {
-                    const struct segment_command_64 *segCmd = (struct segment_command_64 *)cmdPtr;
-                    if (addressWSlide >= segCmd->vmaddr && addressWSlide < segCmd->vmaddr + segCmd->vmsize) {
-                        if (outName) {
-                            *outName = (char *)images[iImg].imageFilePath;
-                        }
-                        return header;
-                    }
-                }
-                cmdPtr += loadCmd->cmdsize;
-            }
-        }
-    }
-    return NULL;
-}
-
 /** Get the segment base address of the specified image.
  *
  * This is required for any symtab command offsets.
@@ -225,20 +174,20 @@ bool ksdl_dladdr(const uintptr_t address, Dl_info *const info)
     info->dli_sname = NULL;
     info->dli_saddr = NULL;
 
-    char *name = NULL;
-    const struct mach_header *header = imageContainingAddress(address, &name);
+    uintptr_t imageVMAddrSlide = 0;
+    const char *name = NULL;
+    const struct mach_header *header = ksbic_findImageForAddress(address, &imageVMAddrSlide, &name);
     if (header == NULL) {
         return false;
     }
 
-    const uintptr_t imageVMAddrSlide = vmSlideFromHeader(header);
     const uintptr_t addressWithSlide = address - imageVMAddrSlide;
     const uintptr_t segmentBase = segmentBaseOfImage(header) + imageVMAddrSlide;
     if (segmentBase == 0) {
         return false;
     }
 
-    info->dli_fname = name;
+    info->dli_fname = (char *)name;
     info->dli_fbase = (void *)header;
 
     // Find symbol tables and get whichever symbol is closest to the address.
