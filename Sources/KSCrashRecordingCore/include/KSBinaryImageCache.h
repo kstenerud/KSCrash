@@ -48,9 +48,9 @@ extern "C" {
 typedef struct dyld_image_info ks_dyld_image_info;
 
 /** Initialize the binary image cache.
- * Should be called during KSCrash activation.
+ * @deprecated Use ksdl_init() instead, which initializes both symbol and image caches.
  */
-void ksbic_init(void);
+__attribute__((deprecated("Use ksdl_init() instead"))) void ksbic_init(void);
 
 /**
  * Get a C array of _count_ `ks_dyld_image_info`.

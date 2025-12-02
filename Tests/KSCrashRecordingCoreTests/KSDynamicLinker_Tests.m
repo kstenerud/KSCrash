@@ -32,17 +32,13 @@
 @interface KSDynamicLinker_Tests : XCTestCase
 @end
 
-// Declare external function only for testing
-extern void ksbic_resetCache(void);
-extern void ksbic_init(void);
-
 @implementation KSDynamicLinker_Tests
 
 - (void)setUp
 {
     [super setUp];
-    ksbic_resetCache();
-    ksbic_init();
+    ksdl_resetCache();
+    ksdl_init();
     [NSThread sleepForTimeInterval:0.1];
 }
 
@@ -59,8 +55,8 @@ extern void ksbic_init(void);
 
 - (void)testDladdr_FindsSymbol
 {
-    // Use the address of a known function (ksbic_init itself)
-    uintptr_t address = (uintptr_t)ksbic_init;
+    // Use the address of a known function
+    uintptr_t address = (uintptr_t)ksdl_init;
 
     Dl_info info = { 0 };
     bool result = ksdl_dladdr(address, &info);
@@ -97,7 +93,7 @@ extern void ksbic_init(void);
 
 - (void)testDladdr_RepeatedCalls
 {
-    uintptr_t address = (uintptr_t)ksbic_init;
+    uintptr_t address = (uintptr_t)ksdl_init;
 
     Dl_info info1 = { 0 };
     Dl_info info2 = { 0 };
@@ -113,7 +109,7 @@ extern void ksbic_init(void);
 - (void)testDladdr_ExactMatchReturnsCorrectSymbol
 {
     // Use the address of a known function - should be an exact match
-    uintptr_t address = (uintptr_t)ksbic_init;
+    uintptr_t address = (uintptr_t)ksdl_init;
 
     Dl_info info = { 0 };
     bool result = ksdl_dladdr(address, &info);
@@ -127,7 +123,7 @@ extern void ksbic_init(void);
 - (void)testDladdr_NonExactMatchReturnsNearestSymbol
 {
     // Use an address slightly after function entry
-    uintptr_t baseAddress = (uintptr_t)ksbic_init;
+    uintptr_t baseAddress = (uintptr_t)ksdl_init;
     uintptr_t offsetAddress = baseAddress + 0x10;  // 16 bytes into function
 
     Dl_info info = { 0 };

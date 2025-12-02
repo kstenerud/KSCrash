@@ -266,10 +266,13 @@ jobs:
               "BinaryImageForHeaderAll": ("Binary image info (all)", "All loaded images"),
               "TypicalCrashSymbolication": ("Typical crash symbolication", "Capture + symbolicate"),
               "FullCrashReport": ("Full crash report", "Complete crash flow"),
-              "RepeatedSameAddressLookup": ("Repeated lookup (1000x)", "Cache effectiveness"),
-              "SequentialNearbyAddresses": ("Sequential nearby addresses", "Locality test"),
-              "ExactFunctionAddressLookup": ("Exact function lookup", "Function entry points"),
-              "NonExactAddressLookup": ("Non-exact lookup", "Mid-function addresses"),
+              "RepeatedLookupCacheHit": ("Repeated lookup (cache hit)", "1000x same address, warm cache"),
+              "RepeatedLookupCacheMiss": ("Repeated lookup (cache miss)", "1000x same address, cold start"),
+              "SequentialNearbyAddressesCacheHit": ("Sequential nearby (cache hit)", "100 addresses, warm cache"),
+              "ExactFunctionLookupCacheHit": ("Exact function (cache hit)", "Function entry, warm cache"),
+              "ExactFunctionLookupCacheMiss": ("Exact function (cache miss)", "Function entry, cold start"),
+              "NonExactLookupCacheHit": ("Non-exact lookup (cache hit)", "Mid-function, warm cache"),
+              "NonExactLookupCacheMiss": ("Non-exact lookup (cache miss)", "Mid-function, cold start"),
           }
 
           for test_name, (desc, notes) in dynlinker_tests.items():

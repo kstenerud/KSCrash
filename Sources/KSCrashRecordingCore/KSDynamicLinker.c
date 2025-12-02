@@ -31,12 +31,71 @@
 #include <mach-o/getsect.h>
 #include <mach-o/nlist.h>
 #include <mach-o/stab.h>
+#include <stdatomic.h>
 #include <string.h>
 
 #include "KSBinaryImageCache.h"
 #include "KSLogger.h"
 #include "KSMemory.h"
 #include "KSPlatformSpecificDefines.h"
+
+// MARK: - Symbol Cache
+//
+// Caches Dl_info results to avoid repeated symbol table scans.
+// Uses the same async-signal-safe pattern as KSBinaryImageCache:
+// - Pre-allocated static storage (no malloc)
+// - Atomic pointer swap for lock-free exclusive access
+// - Non-blocking fallback when cache is in use
+
+#define KSDL_SYMBOL_CACHE_SIZE 2048
+
+typedef struct {
+    uintptr_t address;       // The looked-up address (key)
+    uintptr_t symbolAddr;    // dli_saddr
+    const char *symbolName;  // dli_sname (points into Mach-O string table)
+    const char *imageName;   // dli_fname (points into dyld info)
+    const void *imageBase;   // dli_fbase
+    uint8_t hits;            // Hit count for eviction (0-255, saturating)
+} KSSymbolCacheEntry;
+
+typedef struct {
+    KSSymbolCacheEntry entries[KSDL_SYMBOL_CACHE_SIZE];
+    uint32_t count;  // Number of valid entries
+} KSSymbolCache;
+
+static KSSymbolCache g_symbol_cache_storage = { .count = 0 };
+static _Atomic(KSSymbolCache *) g_symbol_cache_ptr = NULL;
+static _Atomic(bool) g_initialized = false;
+
+// Declared in KSBinaryImageCache.c (not in public header)
+extern void ksbic_resetCache(void);
+
+void ksdl_init(void)
+{
+    // Only initialize once
+    if (atomic_exchange(&g_initialized, true)) {
+        return;
+    }
+
+// Initialize the binary image cache first (we depend on it)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    ksbic_init();
+#pragma clang diagnostic pop
+
+    // Initialize the symbol cache
+    g_symbol_cache_storage.count = 0;
+    atomic_store(&g_symbol_cache_ptr, &g_symbol_cache_storage);
+}
+
+void ksdl_resetCache(void)
+{
+    // Reset both caches and allow re-initialization
+    ksbic_resetCache();
+    g_symbol_cache_storage.count = 0;
+    atomic_store(&g_symbol_cache_ptr, &g_symbol_cache_storage);
+    atomic_store(&g_initialized, false);
+}
 
 #ifndef KSDL_MaxCrashInfoStringLength
 #define KSDL_MaxCrashInfoStringLength 4096
@@ -83,7 +142,10 @@ static uintptr_t firstCmdAfterHeader(const struct mach_header *const header)
     }
 }
 
-bool ksdl_dladdr(const uintptr_t address, Dl_info *const info)
+/** Perform the actual symbol lookup without caching.
+ *  This scans the symbol table to find the closest symbol to the given address.
+ */
+static bool ksdl_dladdr_uncached(const uintptr_t address, Dl_info *const info)
 {
     info->dli_fname = NULL;
     info->dli_fbase = NULL;
@@ -160,6 +222,77 @@ bool ksdl_dladdr(const uintptr_t address, Dl_info *const info)
     }
 
     return true;
+}
+
+bool ksdl_dladdr(const uintptr_t address, Dl_info *const info)
+{
+    // Try to acquire exclusive access to the cache
+    KSSymbolCache *cache = atomic_exchange(&g_symbol_cache_ptr, NULL);
+
+    if (cache != NULL) {
+        // SUCCESS: We have exclusive access to the cache
+
+        // Single pass: search for hit AND track min-hits for potential eviction
+        uint32_t minHitsIdx = 0;
+        uint8_t minHits = 255;
+
+        for (uint32_t i = 0; i < cache->count; i++) {
+            if (cache->entries[i].address == address) {
+                // Cache hit - populate info from cache
+                KSSymbolCacheEntry *entry = &cache->entries[i];
+                info->dli_fname = (char *)entry->imageName;
+                info->dli_fbase = (void *)entry->imageBase;
+                info->dli_sname = (char *)entry->symbolName;
+                info->dli_saddr = (void *)entry->symbolAddr;
+
+                // Increment hit count (saturating at 255)
+                if (entry->hits < 255) {
+                    entry->hits++;
+                }
+
+                // Release the cache
+                atomic_store(&g_symbol_cache_ptr, cache);
+                return true;
+            }
+
+            // Track lowest hits for potential eviction
+            if (cache->entries[i].hits < minHits) {
+                minHits = cache->entries[i].hits;
+                minHitsIdx = i;
+            }
+        }
+
+        // Cache miss - do the full lookup
+        bool result = ksdl_dladdr_uncached(address, info);
+
+        if (result) {
+            // Add to cache
+            uint32_t idx;
+            if (cache->count < KSDL_SYMBOL_CACHE_SIZE) {
+                // Cache not full - use next slot
+                idx = cache->count;
+                cache->count++;
+            } else {
+                // Cache full - evict entry with lowest hits (already found above)
+                idx = minHitsIdx;
+            }
+
+            cache->entries[idx].address = address;
+            cache->entries[idx].symbolAddr = (uintptr_t)info->dli_saddr;
+            cache->entries[idx].symbolName = info->dli_sname;
+            cache->entries[idx].imageName = info->dli_fname;
+            cache->entries[idx].imageBase = info->dli_fbase;
+            cache->entries[idx].hits = 1;
+        }
+
+        // Release the cache
+        atomic_store(&g_symbol_cache_ptr, cache);
+        return result;
+    } else {
+        // FAILED: Cache is in use by another caller
+        // Fall back to uncached lookup
+        return ksdl_dladdr_uncached(address, info);
+    }
 }
 
 static bool isValidCrashInfoMessage(const char *str)

@@ -29,9 +29,7 @@
 #import <mach-o/loader.h>
 
 #import "KSBinaryImageCache.h"
-
-// Declare external function only for testing
-extern void ksbic_resetCache(void);
+#import "KSDynamicLinker.h"
 
 @interface KSBinaryImageCache_Tests : XCTestCase
 @end

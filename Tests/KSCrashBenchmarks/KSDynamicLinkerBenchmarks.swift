@@ -32,7 +32,7 @@ final class KSDynamicLinkerBenchmarks: XCTestCase {
 
     override func setUp() {
         super.setUp()
-        ksbic_init()
+        ksdl_init()
     }
 
     // MARK: - Image Lookup Benchmarks
@@ -41,7 +41,7 @@ final class KSDynamicLinkerBenchmarks: XCTestCase {
     /// This is the primary performance bottleneck - O(n*m) where n=images, m=load commands
     func testBenchmarkImageLookupSingleAddress() {
         // Get a valid address to look up (use a function pointer from this module)
-        let address = unsafeBitCast(ksbic_init as @convention(c) () -> Void, to: UInt.self)
+        let address = unsafeBitCast(ksdl_init as @convention(c) () -> Void, to: UInt.self)
 
         var info = Dl_info()
         measure {
@@ -204,13 +204,16 @@ final class KSDynamicLinkerBenchmarks: XCTestCase {
         }
     }
 
-    // MARK: - Stress Tests
+    // MARK: - Cache Hit Benchmarks (warm cache before measuring)
 
-    /// Benchmark repeated lookups of the same address (tests potential cache benefit)
-    func testBenchmarkRepeatedSameAddressLookup() {
-        let address = unsafeBitCast(ksbic_init as @convention(c) () -> Void, to: UInt.self)
+    /// Benchmark repeated lookups with warm cache (cache hits only)
+    func testBenchmarkRepeatedLookupCacheHit() {
+        let address = unsafeBitCast(ksdl_init as @convention(c) () -> Void, to: UInt.self)
 
+        // Warm the cache before measuring
         var info = Dl_info()
+        _ = ksdl_dladdr(address, &info)
+
         measure {
             for _ in 0..<1000 {
                 _ = ksdl_dladdr(address, &info)
@@ -218,9 +221,8 @@ final class KSDynamicLinkerBenchmarks: XCTestCase {
         }
     }
 
-    /// Benchmark sequential lookups of nearby addresses (tests locality benefit)
-    func testBenchmarkSequentialNearbyAddresses() {
-        // Get a base address
+    /// Benchmark sequential nearby addresses with warm cache
+    func testBenchmarkSequentialNearbyAddressesCacheHit() {
         var imageCount: UInt32 = 0
         guard let images = ksbic_getImages(&imageCount), imageCount > 0 else {
             XCTFail("Failed to get images")
@@ -229,7 +231,12 @@ final class KSDynamicLinkerBenchmarks: XCTestCase {
 
         let baseAddress = UInt(bitPattern: images[0].imageLoadAddress)
 
+        // Warm the cache
         var info = Dl_info()
+        for offset in stride(from: 0, to: 10000, by: 100) {
+            _ = ksdl_dladdr(baseAddress + UInt(offset), &info)
+        }
+
         measure {
             for offset in stride(from: 0, to: 10000, by: 100) {
                 _ = ksdl_dladdr(baseAddress + UInt(offset), &info)
@@ -237,18 +244,21 @@ final class KSDynamicLinkerBenchmarks: XCTestCase {
         }
     }
 
-    /// Benchmark exact function address lookup (tests early termination benefit)
-    /// Uses actual function pointers which should be exact symbol matches
-    func testBenchmarkExactFunctionAddressLookup() {
-        // Get addresses of known functions - these should be exact matches (distance = 0)
+    /// Benchmark exact function lookup with warm cache
+    func testBenchmarkExactFunctionLookupCacheHit() {
         let functions: [UInt] = [
-            unsafeBitCast(ksbic_init as @convention(c) () -> Void, to: UInt.self),
+            unsafeBitCast(ksdl_init as @convention(c) () -> Void, to: UInt.self),
             unsafeBitCast(
                 ksbic_getImages as @convention(c) (UnsafeMutablePointer<UInt32>?) -> UnsafePointer<ks_dyld_image_info>?,
                 to: UInt.self),
         ]
 
+        // Warm the cache
         var info = Dl_info()
+        for addr in functions {
+            _ = ksdl_dladdr(addr, &info)
+        }
+
         measure {
             for _ in 0..<500 {
                 for addr in functions {
@@ -258,15 +268,68 @@ final class KSDynamicLinkerBenchmarks: XCTestCase {
         }
     }
 
-    /// Benchmark non-exact address lookup (address inside function, not at entry)
-    /// This tests the worst case where we must scan more symbols
-    func testBenchmarkNonExactAddressLookup() {
-        // Use address slightly after function entry - this won't be an exact match
-        let baseAddress = unsafeBitCast(ksbic_init as @convention(c) () -> Void, to: UInt.self)
-        let offsetAddress = baseAddress + 0x10  // 16 bytes into the function
+    /// Benchmark non-exact lookup with warm cache
+    func testBenchmarkNonExactLookupCacheHit() {
+        let baseAddress = unsafeBitCast(ksdl_init as @convention(c) () -> Void, to: UInt.self)
+        let offsetAddress = baseAddress + 0x10
+
+        // Warm the cache
+        var info = Dl_info()
+        _ = ksdl_dladdr(offsetAddress, &info)
+
+        measure {
+            for _ in 0..<1000 {
+                _ = ksdl_dladdr(offsetAddress, &info)
+            }
+        }
+    }
+
+    // MARK: - Cache Miss Benchmarks (cold cache each iteration)
+
+    /// Benchmark repeated lookups with cold cache (cache misses)
+    func testBenchmarkRepeatedLookupCacheMiss() {
+        let address = unsafeBitCast(ksdl_init as @convention(c) () -> Void, to: UInt.self)
 
         var info = Dl_info()
         measure {
+            ksdl_resetCache()
+            ksdl_init()
+            for _ in 0..<1000 {
+                _ = ksdl_dladdr(address, &info)
+            }
+        }
+    }
+
+    /// Benchmark exact function lookup with cold cache
+    func testBenchmarkExactFunctionLookupCacheMiss() {
+        let functions: [UInt] = [
+            unsafeBitCast(ksdl_init as @convention(c) () -> Void, to: UInt.self),
+            unsafeBitCast(
+                ksbic_getImages as @convention(c) (UnsafeMutablePointer<UInt32>?) -> UnsafePointer<ks_dyld_image_info>?,
+                to: UInt.self),
+        ]
+
+        var info = Dl_info()
+        measure {
+            ksdl_resetCache()
+            ksdl_init()
+            for _ in 0..<500 {
+                for addr in functions {
+                    _ = ksdl_dladdr(addr, &info)
+                }
+            }
+        }
+    }
+
+    /// Benchmark non-exact lookup with cold cache
+    func testBenchmarkNonExactLookupCacheMiss() {
+        let baseAddress = unsafeBitCast(ksdl_init as @convention(c) () -> Void, to: UInt.self)
+        let offsetAddress = baseAddress + 0x10
+
+        var info = Dl_info()
+        measure {
+            ksdl_resetCache()
+            ksdl_init()
             for _ in 0..<1000 {
                 _ = ksdl_dladdr(offsetAddress, &info)
             }
