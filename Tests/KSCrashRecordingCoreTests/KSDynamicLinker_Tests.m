@@ -110,4 +110,35 @@ extern void ksbic_init(void);
     XCTAssertEqual(info1.dli_fname, info2.dli_fname, @"Should return consistent file name");
 }
 
+- (void)testDladdr_ExactMatchReturnsCorrectSymbol
+{
+    // Use the address of a known function - should be an exact match
+    uintptr_t address = (uintptr_t)ksbic_init;
+
+    Dl_info info = { 0 };
+    bool result = ksdl_dladdr(address, &info);
+
+    XCTAssertTrue(result, @"Should find symbol for function address");
+    XCTAssertNotEqual(info.dli_fbase, NULL, @"Should have file base");
+    // For exact match, symbol address should equal the lookup address
+    XCTAssertEqual((uintptr_t)info.dli_saddr, address, @"Symbol address should match for exact function entry");
+}
+
+- (void)testDladdr_NonExactMatchReturnsNearestSymbol
+{
+    // Use an address slightly after function entry
+    uintptr_t baseAddress = (uintptr_t)ksbic_init;
+    uintptr_t offsetAddress = baseAddress + 0x10;  // 16 bytes into function
+
+    Dl_info info = { 0 };
+    bool result = ksdl_dladdr(offsetAddress, &info);
+
+    XCTAssertTrue(result, @"Should find symbol for address inside function");
+    XCTAssertNotEqual(info.dli_fbase, NULL, @"Should have file base");
+    // Symbol address should be <= the lookup address (nearest preceding symbol)
+    XCTAssertLessThanOrEqual((uintptr_t)info.dli_saddr, offsetAddress, @"Symbol should precede or equal address");
+    // Symbol address should be the function entry point
+    XCTAssertEqual((uintptr_t)info.dli_saddr, baseAddress, @"Should find the containing function");
+}
+
 @end

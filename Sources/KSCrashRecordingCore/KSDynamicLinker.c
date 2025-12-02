@@ -135,6 +135,9 @@ bool ksdl_dladdr(const uintptr_t address, Dl_info *const info)
                     if ((addressWithSlide >= symbolBase) && (currentDistance <= bestDistance)) {
                         bestMatch = symbolTable + iSym;
                         bestDistance = currentDistance;
+                        if (currentDistance == 0) {
+                            break;  // Exact match - can't do better
+                        }
                     }
                 }
             }

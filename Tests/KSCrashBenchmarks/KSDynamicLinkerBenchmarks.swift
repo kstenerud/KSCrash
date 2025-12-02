@@ -236,4 +236,38 @@ final class KSDynamicLinkerBenchmarks: XCTestCase {
             }
         }
     }
+
+    /// Benchmark exact function address lookup (tests early termination benefit)
+    /// Uses actual function pointers which should be exact symbol matches
+    func testBenchmarkExactFunctionAddressLookup() {
+        // Get addresses of known functions - these should be exact matches (distance = 0)
+        let functions: [UInt] = [
+            unsafeBitCast(ksbic_init as @convention(c) () -> Void, to: UInt.self),
+            unsafeBitCast(ksbic_getImages as @convention(c) (UnsafeMutablePointer<UInt32>?) -> UnsafePointer<ks_dyld_image_info>?, to: UInt.self),
+        ]
+
+        var info = Dl_info()
+        measure {
+            for _ in 0..<500 {
+                for addr in functions {
+                    _ = ksdl_dladdr(addr, &info)
+                }
+            }
+        }
+    }
+
+    /// Benchmark non-exact address lookup (address inside function, not at entry)
+    /// This tests the worst case where we must scan more symbols
+    func testBenchmarkNonExactAddressLookup() {
+        // Use address slightly after function entry - this won't be an exact match
+        let baseAddress = unsafeBitCast(ksbic_init as @convention(c) () -> Void, to: UInt.self)
+        let offsetAddress = baseAddress + 0x10  // 16 bytes into the function
+
+        var info = Dl_info()
+        measure {
+            for _ in 0..<1000 {
+                _ = ksdl_dladdr(offsetAddress, &info)
+            }
+        }
+    }
 }
