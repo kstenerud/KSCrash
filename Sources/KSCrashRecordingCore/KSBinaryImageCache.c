@@ -84,18 +84,18 @@ static void computeImageInfo(const struct mach_header *header, uintptr_t *outSli
                 const struct segment_command_64 *seg = (const struct segment_command_64 *)cmdPtr;
 
                 // Check for __TEXT to compute slide (only once)
-                if (!foundText && seg->segname[0] == '_' && seg->segname[1] == '_' &&
-                    seg->segname[2] == 'T' && seg->segname[3] == 'E' && seg->segname[4] == 'X' &&
-                    seg->segname[5] == 'T' && seg->segname[6] == '\0') {
+                if (!foundText && seg->segname[0] == '_' && seg->segname[1] == '_' && seg->segname[2] == 'T' &&
+                    seg->segname[3] == 'E' && seg->segname[4] == 'X' && seg->segname[5] == 'T' &&
+                    seg->segname[6] == '\0') {
                     slide = loadAddr - (uintptr_t)seg->vmaddr;
                     foundText = true;
                 }
 
                 // Check for __LINKEDIT to compute segment base (only once)
-                if (!foundLinkedit && seg->segname[0] == '_' && seg->segname[1] == '_' &&
-                    seg->segname[2] == 'L' && seg->segname[3] == 'I' && seg->segname[4] == 'N' &&
-                    seg->segname[5] == 'K' && seg->segname[6] == 'E' && seg->segname[7] == 'D' &&
-                    seg->segname[8] == 'I' && seg->segname[9] == 'T' && seg->segname[10] == '\0') {
+                if (!foundLinkedit && seg->segname[0] == '_' && seg->segname[1] == '_' && seg->segname[2] == 'L' &&
+                    seg->segname[3] == 'I' && seg->segname[4] == 'N' && seg->segname[5] == 'K' &&
+                    seg->segname[6] == 'E' && seg->segname[7] == 'D' && seg->segname[8] == 'I' &&
+                    seg->segname[9] == 'T' && seg->segname[10] == '\0') {
                     segmentBase = (uintptr_t)(seg->vmaddr - seg->fileoff);
                     foundLinkedit = true;
                 }
@@ -119,18 +119,18 @@ static void computeImageInfo(const struct mach_header *header, uintptr_t *outSli
                 const struct segment_command *seg = (const struct segment_command *)cmdPtr;
 
                 // Check for __TEXT to compute slide (only once)
-                if (!foundText && seg->segname[0] == '_' && seg->segname[1] == '_' &&
-                    seg->segname[2] == 'T' && seg->segname[3] == 'E' && seg->segname[4] == 'X' &&
-                    seg->segname[5] == 'T' && seg->segname[6] == '\0') {
+                if (!foundText && seg->segname[0] == '_' && seg->segname[1] == '_' && seg->segname[2] == 'T' &&
+                    seg->segname[3] == 'E' && seg->segname[4] == 'X' && seg->segname[5] == 'T' &&
+                    seg->segname[6] == '\0') {
                     slide = loadAddr - (uintptr_t)seg->vmaddr;
                     foundText = true;
                 }
 
                 // Check for __LINKEDIT to compute segment base (only once)
-                if (!foundLinkedit && seg->segname[0] == '_' && seg->segname[1] == '_' &&
-                    seg->segname[2] == 'L' && seg->segname[3] == 'I' && seg->segname[4] == 'N' &&
-                    seg->segname[5] == 'K' && seg->segname[6] == 'E' && seg->segname[7] == 'D' &&
-                    seg->segname[8] == 'I' && seg->segname[9] == 'T' && seg->segname[10] == '\0') {
+                if (!foundLinkedit && seg->segname[0] == '_' && seg->segname[1] == '_' && seg->segname[2] == 'L' &&
+                    seg->segname[3] == 'I' && seg->segname[4] == 'N' && seg->segname[5] == 'K' &&
+                    seg->segname[6] == 'E' && seg->segname[7] == 'D' && seg->segname[8] == 'I' &&
+                    seg->segname[9] == 'T' && seg->segname[10] == '\0') {
                     segmentBase = (uintptr_t)(seg->vmaddr - seg->fileoff);
                     foundLinkedit = true;
                 }
@@ -156,8 +156,7 @@ static void computeImageInfo(const struct mach_header *header, uintptr_t *outSli
 
 // Linear scan through dyld images to find one containing the address
 static const struct mach_header *linearScanForAddress(uintptr_t address, uintptr_t *outSlide, const char **outName,
-                                                      uintptr_t *outStart, uintptr_t *outEnd,
-                                                      uintptr_t *outSegmentBase)
+                                                      uintptr_t *outStart, uintptr_t *outEnd, uintptr_t *outSegmentBase)
 {
     uint32_t count = 0;
     const ks_dyld_image_info *images = ksbic_getImages(&count);
