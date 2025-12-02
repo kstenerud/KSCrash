@@ -5,6 +5,7 @@ on:
     paths:
       - "Sources/**"
       - "Tests/KSCrashBenchmarks/**"
+      - "Tests/KSCrashRecordingTests/KSCrashReportBenchmarks.m"
       - "Package.swift"
       - ".github/workflows/benchmarks.yml"
 
@@ -50,7 +51,7 @@ jobs:
       - name: Run PR Benchmarks
         working-directory: pr-branch
         run: |
-          swift test --filter KSCrashBenchmarks 2>&1 | tee ../pr_benchmark_output.txt
+          swift test --filter "KSCrashBenchmarks|KSCrashReportBenchmarks" 2>&1 | tee ../pr_benchmark_output.txt
 
       - name: Run Base Benchmarks
         if: github.event_name == 'pull_request'
@@ -58,7 +59,7 @@ jobs:
         run: |
           # Check if benchmarks exist in base branch
           if [ -d "Tests/KSCrashBenchmarks" ] && grep -q "KSCrashBenchmarks" Package.swift; then
-            swift test --filter KSCrashBenchmarks 2>&1 | tee ../base_benchmark_output.txt
+            swift test --filter "KSCrashBenchmarks|KSCrashReportBenchmarks" 2>&1 | tee ../base_benchmark_output.txt
           else
             echo "No benchmarks in base branch" > ../base_benchmark_output.txt
           fi
@@ -203,6 +204,9 @@ jobs:
               "GetQueueName": "Get queue name",
               "GatherThreadInfo": "Gather all thread info",
               "ThreadOpsWithConcurrency": "Ops under contention",
+              "WriteStandardReport": "Write standard crash report",
+              "WriteStandardReportNoBinaryImages": "Write report (no binary images)",
+              "WriteMultipleReports": "Write multiple reports",
           }
 
           # Comparison section (only for PRs with base results)
@@ -350,6 +354,23 @@ jobs:
                   per_call = t / iterations
                   status = get_status(per_call, excellent=0.0000005, good=0.000005, ok=0.00001)
                   output.append(f"| {desc} | {format_time(t)} | {format_time(per_call)} | {status} |")
+
+          # Crash Report section
+          output.append("\n## Crash Report Writing (KSCrashReport)\n")
+          output.append("| Operation | Time | Status | Notes |")
+          output.append("|-----------|------|--------|-------|")
+
+          report_tests = {
+              "WriteStandardReport": ("Write standard report", "Full report with binary images"),
+              "WriteStandardReportNoBinaryImages": ("Write report (no images)", "Report without binary images"),
+              "WriteMultipleReports": ("Write 5 reports", "Sequential report writing"),
+          }
+
+          for test_name, (desc, notes) in report_tests.items():
+              if test_name in pr_results:
+                  t = pr_results[test_name]
+                  status = get_status(t, excellent=0.005, good=0.010, ok=0.050)
+                  output.append(f"| {desc} | {format_time(t)} | {status} | {notes} |")
 
           # Performance guide
           output.append("\n## Performance Guidelines")
