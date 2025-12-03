@@ -282,7 +282,8 @@ jobs:
 
           # Comparison section (only for PRs with base results)
           if is_pr and base_results:
-              output.append("## 📊 Changes from Base Branch\n")
+              output.append("<details open>")
+              output.append("<summary><h2>📊 Changes from Base Branch</h2></summary>\n")
               output.append("*Only showing statistically significant changes (p < 0.05)*\n")
               output.append("| Operation | Base | PR | Change |")
               output.append("|-----------|------|-----|--------|")
@@ -316,13 +317,16 @@ jobs:
               elif len([c for c in changes if c[2] < 0.05]) > 15:
                   sig_count = len([c for c in changes if c[2] < 0.05])
                   output.append(f"\n*Showing top 15 of {sig_count} significant changes*")
-              output.append("")
+              output.append("\n</details>\n")
           elif is_pr and not base_results:
-              output.append("## 📊 Changes from Base Branch\n")
+              output.append("<details open>")
+              output.append("<summary><h2>📊 Changes from Base Branch</h2></summary>\n")
               output.append("*No benchmarks in base branch - showing PR results only*\n")
+              output.append("</details>\n")
 
           # Backtrace section
-          output.append("## Stack Capture (KSBacktrace)\n")
+          output.append("<details>")
+          output.append("<summary><h2>Stack Capture (KSBacktrace)</h2></summary>\n")
           output.append("| Operation | Time | Status | Notes |")
           output.append("|-----------|------|--------|-------|")
 
@@ -341,8 +345,11 @@ jobs:
                   status = get_status(t, excellent=0.0001, good=0.001, ok=0.005)
                   output.append(f"| {desc} | {format_time(t)} | {status} | {notes} |")
 
+          output.append("\n</details>")
+
           # Dynamic Linker section
-          output.append("\n## Dynamic Linker (KSDynamicLinker)\n")
+          output.append("<details>")
+          output.append("<summary><h2>Dynamic Linker (KSDynamicLinker)</h2></summary>\n")
           output.append("| Operation | Time | Status | Notes |")
           output.append("|-----------|------|--------|-------|")
 
@@ -370,8 +377,11 @@ jobs:
                   status = get_status(t, excellent=0.001, good=0.005, ok=0.020)
                   output.append(f"| {desc} | {format_time(t)} | {status} | {notes} |")
 
+          output.append("\n</details>")
+
           # Memory section
-          output.append("\n## Safe Memory Operations (KSMemory)\n")
+          output.append("<details>")
+          output.append("<summary><h2>Safe Memory Operations (KSMemory)</h2></summary>\n")
           output.append("| Operation | Time | Per-Call | Status |")
           output.append("|-----------|------|----------|--------|")
 
@@ -394,8 +404,11 @@ jobs:
                   status = get_status(per_call, excellent=0.000001, good=0.00001, ok=0.0001)
                   output.append(f"| {desc} | {format_time(t)} | {format_time(per_call)} | {status} |")
 
+          output.append("\n</details>")
+
           # JSON section
-          output.append("\n## JSON Encoding (KSJSONCodec)\n")
+          output.append("<details>")
+          output.append("<summary><h2>JSON Encoding (KSJSONCodec)</h2></summary>\n")
           output.append("| Operation | Time | Status | Notes |")
           output.append("|-----------|------|--------|-------|")
 
@@ -418,8 +431,11 @@ jobs:
                   status = get_status(t, excellent=0.0005, good=0.002, ok=0.010)
                   output.append(f"| {desc} | {format_time(t)} | {status} | {notes} |")
 
+          output.append("\n</details>")
+
           # Thread section
-          output.append("\n## Thread Operations (KSThread)\n")
+          output.append("<details>")
+          output.append("<summary><h2>Thread Operations (KSThread)</h2></summary>\n")
           output.append("| Operation | Time | Per-Call | Status |")
           output.append("|-----------|------|----------|--------|")
 
@@ -440,8 +456,11 @@ jobs:
                   status = get_status(per_call, excellent=0.0000005, good=0.000005, ok=0.00001)
                   output.append(f"| {desc} | {format_time(t)} | {format_time(per_call)} | {status} |")
 
+          output.append("\n</details>")
+
           # Crash Report section
-          output.append("\n## Crash Report Writing (KSCrashReport)\n")
+          output.append("<details>")
+          output.append("<summary><h2>Crash Report Writing (KSCrashReport)</h2></summary>\n")
           output.append("| Operation | Time | Status | Notes |")
           output.append("|-----------|------|--------|-------|")
 
@@ -457,14 +476,7 @@ jobs:
                   status = get_status(t, excellent=0.005, good=0.010, ok=0.050)
                   output.append(f"| {desc} | {format_time(t)} | {status} | {notes} |")
 
-          # Performance guide
-          output.append("\n## Performance Guidelines")
-          output.append("### Crash Capture Budget")
-          output.append("- ✅ **Excellent**: Operations complete in microseconds")
-          output.append("- ✅ **Good**: Acceptable for crash-time execution")
-          output.append("- ⚠️ **OK**: May impact crash capture latency")
-          output.append("- ❌ **Review**: Too slow for crash-time, consider optimization")
-          output.append("\n*Goal: Complete crash capture <100ms to minimize data loss risk*")
+          output.append("\n</details>")
 
           # Summary
           total_tests = len(pr_results) if pr_results else 0
