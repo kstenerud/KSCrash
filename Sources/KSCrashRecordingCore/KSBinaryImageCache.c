@@ -253,8 +253,19 @@ const ks_dyld_image_info *ksbic_getImages(uint32_t *count)
 void ksbic_resetCache(void)
 {
     g_all_image_infos = NULL;
-    g_cache_storage.count = 0;
-    atomic_store(&g_cache_ptr, &g_cache_storage);
+
+    // Acquire exclusive access to the cache before resetting
+    KSBinaryImageRangeCache *cache = atomic_exchange(&g_cache_ptr, NULL);
+    if (cache != NULL) {
+        cache->count = 0;
+        atomic_store(&g_cache_ptr, cache);
+    } else {
+        // Cache is in use by another thread - reset storage directly
+        // and restore pointer (the other thread will see stale data but
+        // that's acceptable for a reset operation)
+        g_cache_storage.count = 0;
+        atomic_store(&g_cache_ptr, &g_cache_storage);
+    }
 }
 
 const struct mach_header *ksbic_findImageForAddress(uintptr_t address, uintptr_t *outSlide, const char **outName)

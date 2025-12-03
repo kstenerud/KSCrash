@@ -90,10 +90,22 @@ void ksdl_init(void)
 
 void ksdl_resetCache(void)
 {
-    // Reset both caches and allow re-initialization
+    // Reset binary image cache first (it has its own locking)
     ksbic_resetCache();
-    g_symbol_cache_storage.count = 0;
-    atomic_store(&g_symbol_cache_ptr, &g_symbol_cache_storage);
+
+    // Acquire exclusive access to the symbol cache before resetting
+    KSSymbolCache *cache = atomic_exchange(&g_symbol_cache_ptr, NULL);
+    if (cache != NULL) {
+        cache->count = 0;
+        atomic_store(&g_symbol_cache_ptr, cache);
+    } else {
+        // Cache is in use by another thread - reset storage directly
+        // and restore pointer (the other thread will see stale data but
+        // that's acceptable for a reset operation)
+        g_symbol_cache_storage.count = 0;
+        atomic_store(&g_symbol_cache_ptr, &g_symbol_cache_storage);
+    }
+
     atomic_store(&g_initialized, false);
 }
 
