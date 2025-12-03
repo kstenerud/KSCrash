@@ -470,10 +470,10 @@ let package = Package(
                 .copy("Resources/PrivacyInfo.xcprivacy")
             ],
             cSettings: [
-                .unsafeFlags(warningFlags),
+                .unsafeFlags(warningFlags)
             ],
             cxxSettings: [
-                .unsafeFlags(warningFlags),
+                .unsafeFlags(warningFlags)
             ]
         ),
         .testTarget(

@@ -67,7 +67,7 @@ static void getCrashReportPathByID(int64_t id, char *pathBuffer, const KSCrashRe
 static int64_t getReportIDFromFilename(const char *filename, const KSCrashReportStoreCConfiguration *const config)
 {
     char scanFormat[100];
-    sprintf(scanFormat, "%s-report-%%" PRIx64 ".json", config->appName);
+    snprintf(scanFormat, sizeof(scanFormat), "%s-report-%%" PRIx64 ".json", config->appName);
 
     int64_t reportID = 0;
     sscanf(filename, scanFormat, &reportID);

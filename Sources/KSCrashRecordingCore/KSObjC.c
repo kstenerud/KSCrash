@@ -452,7 +452,7 @@ static int stringPrintf(char *buffer, int bufferLength, const char *fmt, ...)
 
     va_list args;
     va_start(args, fmt);
-    int printLength = vsnprintf(buffer, bufferLength, fmt, args);
+    int printLength = vsnprintf(buffer, (size_t)bufferLength, fmt, args);
     va_end(args);
 
     unlikely_if(printLength < 0)
