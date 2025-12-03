@@ -134,7 +134,7 @@ static void CPPExceptionTerminate(void)
         KSCrash_MonitorContext *crashContext = g_state.callbacks.notify(
             thisThread,
             (KSCrash_ExceptionHandlingRequirements) {
-                .asyncSafety = true, .isFatal = true, .shouldRecordAllThreads = true, .shouldWriteReport = true });
+                .shouldRecordAllThreads = true, .shouldWriteReport = true, .isFatal = true, .asyncSafety = true });
         if (crashContext->requirements.shouldExitImmediately) {
             goto skip_handling;
         }
