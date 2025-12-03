@@ -1,5 +1,5 @@
 //
-//  KSCrashMonitor_Memory.h
+//  KSCrashMonitor_Memory.m
 //
 //  Created by Alexander Cohen on 2024-05-20.
 //
@@ -77,6 +77,7 @@ static void kscm_memory_check_for_oom_in_previous_session(void);
 static void notifyPostSystemEnable(void);
 static void ksmemory_read(const char *path);
 static void ksmemory_map(const char *path);
+static void ksmemory_unmap(void);
 
 // ============================================================================
 #pragma mark - Globals -
@@ -140,8 +141,13 @@ static void _ks_memory_update(void (^block)(KSCrash_Memory *mem))
 static void _ks_memory_set(KSCrash_Memory *mem)
 {
     os_unfair_lock_lock(&g_memoryLock);
+    void *old = g_memory;
     g_memory = mem;
     os_unfair_lock_unlock(&g_memoryLock);
+
+    if (old) {
+        ksfu_munmap(old, sizeof(KSCrash_Memory));
+    }
 }
 
 static void _ks_memory_update_from_app_memory(KSCrashAppMemory *const memory)
@@ -268,9 +274,10 @@ static void setEnabled(bool isEnabled)
             }];
 
     } else {
-        g_memoryTracker = nil;
         [KSCrashAppStateTracker.sharedInstance removeObserver:g_appStateObserver];
         g_appStateObserver = nil;
+        g_memoryTracker = nil;
+        ksmemory_unmap();
     }
 }
 
@@ -291,14 +298,16 @@ static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext)
         // since we're in a signal or something that can only
         // use async safe functions, we can't lock.
         // It's "ok" though, since no other threads should be running.
-        g_memory->fatal = eventContext->requirements.isFatal;
+        if (g_memory) {
+            g_memory->fatal = eventContext->requirements.isFatal;
+        }
     } else {
         _ks_memory_update(^(KSCrash_Memory *mem) {
             mem->fatal = eventContext->requirements.isFatal;
         });
     }
 
-    if (g_isEnabled) {
+    if (g_isEnabled && g_memory) {
         // same as above re: not locking when _asyncSafeOnly_ is set.
         KSCrash_Memory memCopy = asyncSafeOnly ? *g_memory : _ks_memory_copy();
         eventContext->AppMemory.footprint = memCopy.footprint;
@@ -337,7 +346,7 @@ static void kscm_memory_check_for_oom_in_previous_session(void)
     // a programming error and receiving a Mach event or signal that
     // indicates a crash, we should process that on startup and ignore
     // and indication of an OOM.
-    bool userPerceivedOOM = NO;
+    bool userPerceivedOOM = false;
     if (g_FatalReportsEnabled && ksmemory_previous_session_was_terminated_due_to_memory(&userPerceivedOOM)) {
         // We only report an OOM that the user might have seen.
         // Ignore this check if we want to report all OOM, foreground and background.
@@ -459,10 +468,10 @@ static void ksmemory_read(const char *path)
 
     // check the timestamp, let's say it's valid for the last week
     // do we really want crash reports older than a week anyway??
-    const uint64_t kUS_in_day = 8.64e+10;
+    const uint64_t kUS_in_day = 86400000000ULL;  // 24 * 60 * 60 * 1000000
     const uint64_t kUS_in_week = kUS_in_day * 7;
     uint64_t now = ksdate_microseconds();
-    if (memory.timestamp <= 0 || memory.timestamp == INT64_MAX || memory.timestamp < now - kUS_in_week) {
+    if (memory.timestamp == 0 || memory.timestamp > now || memory.timestamp < now - kUS_in_week) {
         return;
     }
 
@@ -520,6 +529,11 @@ static void ksmemory_map(const char *path)
 }
 
 /**
+ Unmaps the memory-mapped file and clears the global pointer.
+ */
+static void ksmemory_unmap(void) { _ks_memory_set(NULL); }
+
+/**
  What we're doing here is writing a file out that can be reused
  on restart if the data shows us there was a memory issue.
 
@@ -564,7 +578,7 @@ static void ksmemory_write_possible_oom(void)
 
 void ksmemory_initialize(const char *dataPath)
 {
-    g_hasPostEnable = 0;
+    g_hasPostEnable = false;
     g_dataURL = [NSURL fileURLWithPath:@(dataPath)];
     g_memoryURL = [g_dataURL URLByAppendingPathComponent:@"memory.bin"];
 
@@ -579,7 +593,7 @@ bool ksmemory_previous_session_was_terminated_due_to_memory(bool *userPerceptibl
     // exception/event occured that terminated/crashed the app. We don't want to report
     // that as an OOM.
     if (g_previousSessionMemory.fatal) {
-        return NO;
+        return false;
     }
 
     // We might care if the user might have seen the OOM
