@@ -101,17 +101,69 @@ jobs:
           system_info = f"{chip}, {mem_gb:.0f}GB RAM, macOS {macos_ver}, {xcode_ver}"
 
           def parse_results(filename):
-              """Parse benchmark output file and return dict of results"""
+              """Parse benchmark output file and return dict of results with stats"""
               try:
                   with open(filename, 'r') as f:
                       content = f.read()
                   if "No benchmarks in base branch" in content:
                       return None
-                  pattern = r"testBenchmark(\w+).*?average: ([\d.]+)"
+                  # Capture average and relative standard deviation
+                  pattern = r"testBenchmark(\w+).*?average: ([\d.]+), relative standard deviation: ([\d.]+)%"
                   matches = re.findall(pattern, content)
-                  return {name: float(time) for name, time in matches}
+                  results = {}
+                  for name, avg, rel_stddev in matches:
+                      avg_f = float(avg)
+                      # Convert relative stddev (%) to absolute stddev
+                      abs_stddev = avg_f * (float(rel_stddev) / 100.0)
+                      results[name] = {'avg': avg_f, 'stddev': abs_stddev, 'n': 10}  # XCTest runs 10 iterations
+                  return results
               except FileNotFoundError:
                   return None
+
+          def welch_t_test(mean1, std1, n1, mean2, std2, n2):
+              """Perform Welch's t-test and return p-value approximation"""
+              import math
+
+              # Handle edge cases
+              if std1 == 0 and std2 == 0:
+                  return 1.0 if mean1 == mean2 else 0.0
+
+              # Welch's t-statistic
+              se1 = (std1 ** 2) / n1
+              se2 = (std2 ** 2) / n2
+              se_diff = math.sqrt(se1 + se2)
+
+              if se_diff == 0:
+                  return 1.0 if mean1 == mean2 else 0.0
+
+              t_stat = abs(mean1 - mean2) / se_diff
+
+              # Welch-Satterthwaite degrees of freedom
+              if se1 + se2 == 0:
+                  df = n1 + n2 - 2
+              else:
+                  df = ((se1 + se2) ** 2) / ((se1 ** 2) / (n1 - 1) + (se2 ** 2) / (n2 - 1))
+
+              # Approximate p-value using t-distribution
+              # Using a simple approximation for two-tailed test
+              x = df / (df + t_stat ** 2)
+
+              # Beta function approximation for p-value
+              if t_stat == 0:
+                  return 1.0
+
+              # Simple approximation: for large df, t approaches normal
+              # p ≈ 2 * (1 - Φ(|t|)) for large df
+              # Using a conservative approximation
+              if df > 30:
+                  # Normal approximation
+                  z = t_stat
+                  p = 2 * (1 - 0.5 * (1 + math.erf(z / math.sqrt(2))))
+              else:
+                  # Rough approximation for smaller df
+                  p = 2 * (1 - 0.5 * (1 + math.erf(t_stat / math.sqrt(2)))) * (1 + 0.5 / df)
+
+              return max(0, min(1, p))
 
           # Read PR benchmark output
           pr_results = parse_results('pr_benchmark_output.txt')
@@ -141,17 +193,33 @@ jobs:
               else:
                   return "❌ Review"
 
-          def get_change(base, pr):
-              """Calculate percentage change and return formatted string"""
-              if base == 0:
-                  return "N/A"
-              pct = ((pr - base) / base) * 100
-              if pct > 10:
-                  return f"⚠️ +{pct:.1f}%"
-              elif pct < -10:
-                  return f"✅ {pct:.1f}%"
+          def get_change(base_stats, pr_stats):
+              """Calculate percentage change with statistical significance"""
+              base_avg = base_stats['avg']
+              pr_avg = pr_stats['avg']
+
+              if base_avg == 0:
+                  return "N/A", 1.0
+
+              pct = ((pr_avg - base_avg) / base_avg) * 100
+
+              # Calculate p-value
+              p_value = welch_t_test(
+                  base_avg, base_stats['stddev'], base_stats['n'],
+                  pr_avg, pr_stats['stddev'], pr_stats['n']
+              )
+
+              # Only flag if statistically significant (p < 0.05) AND change > 15%
+              if p_value < 0.05:
+                  if pct > 15:
+                      return f"⚠️ +{pct:.1f}% (p={p_value:.3f})", p_value
+                  elif pct < -15:
+                      return f"✅ {pct:.1f}% (p={p_value:.3f})", p_value
+                  else:
+                      return f"{pct:+.1f}% (p={p_value:.3f})", p_value
               else:
-                  return f"{pct:+.1f}%"
+                  # Not statistically significant
+                  return f"{pct:+.1f}% (n.s.)", p_value
 
           # Start markdown output
           output = ["# 🔍 KSCrash Performance Benchmarks\n"]
@@ -215,25 +283,39 @@ jobs:
           # Comparison section (only for PRs with base results)
           if is_pr and base_results:
               output.append("## 📊 Changes from Base Branch\n")
+              output.append("*Only showing statistically significant changes (p < 0.05)*\n")
               output.append("| Operation | Base | PR | Change |")
               output.append("|-----------|------|-----|--------|")
 
               changes = []
               for test_name, desc in all_tests.items():
                   if test_name in pr_results and test_name in base_results:
-                      base_t = base_results[test_name]
-                      pr_t = pr_results[test_name]
-                      change = get_change(base_t, pr_t)
-                      pct = ((pr_t - base_t) / base_t) * 100 if base_t > 0 else 0
-                      changes.append((abs(pct), f"| {desc} | {format_time(base_t)} | {format_time(pr_t)} | {change} |"))
+                      base_stats = base_results[test_name]
+                      pr_stats = pr_results[test_name]
+                      change, p_value = get_change(base_stats, pr_stats)
+                      base_avg = base_stats['avg']
+                      pr_avg = pr_stats['avg']
+                      pct = ((pr_avg - base_avg) / base_avg) * 100 if base_avg > 0 else 0
+                      # Sort by significance (lower p-value first), then by magnitude
+                      sort_key = (p_value, -abs(pct))
+                      changes.append((sort_key, f"| {desc} | {format_time(base_avg)} | {format_time(pr_avg)} | {change} |", p_value))
 
-              # Sort by absolute change, show top changes
-              changes.sort(reverse=True)
-              for _, row in changes[:15]:  # Show top 15 changes
-                  output.append(row)
+              # Sort by significance, show most significant changes first
+              changes.sort(key=lambda x: x[0])
+              shown = 0
+              for _, row, p_value in changes:
+                  if shown >= 15:
+                      break
+                  # Only show statistically significant results in comparison table
+                  if p_value < 0.05:
+                      output.append(row)
+                      shown += 1
 
-              if len(changes) > 15:
-                  output.append(f"\n*Showing top 15 of {len(changes)} benchmarks by change magnitude*")
+              if shown == 0:
+                  output.append("| *No statistically significant changes detected* | | | |")
+              elif len([c for c in changes if c[2] < 0.05]) > 15:
+                  sig_count = len([c for c in changes if c[2] < 0.05])
+                  output.append(f"\n*Showing top 15 of {sig_count} significant changes*")
               output.append("")
           elif is_pr and not base_results:
               output.append("## 📊 Changes from Base Branch\n")
@@ -255,7 +337,7 @@ jobs:
 
           for test_name, (desc, notes) in backtrace_tests.items():
               if test_name in pr_results:
-                  t = pr_results[test_name]
+                  t = pr_results[test_name]['avg']
                   status = get_status(t, excellent=0.0001, good=0.001, ok=0.005)
                   output.append(f"| {desc} | {format_time(t)} | {status} | {notes} |")
 
@@ -284,7 +366,7 @@ jobs:
 
           for test_name, (desc, notes) in dynlinker_tests.items():
               if test_name in pr_results:
-                  t = pr_results[test_name]
+                  t = pr_results[test_name]['avg']
                   status = get_status(t, excellent=0.001, good=0.005, ok=0.020)
                   output.append(f"| {desc} | {format_time(t)} | {status} | {notes} |")
 
@@ -307,7 +389,7 @@ jobs:
 
           for test_name, (desc, iterations) in memory_tests.items():
               if test_name in pr_results:
-                  t = pr_results[test_name]
+                  t = pr_results[test_name]['avg']
                   per_call = t / iterations
                   status = get_status(per_call, excellent=0.000001, good=0.00001, ok=0.0001)
                   output.append(f"| {desc} | {format_time(t)} | {format_time(per_call)} | {status} |")
@@ -332,7 +414,7 @@ jobs:
 
           for test_name, (desc, notes) in json_tests.items():
               if test_name in pr_results:
-                  t = pr_results[test_name]
+                  t = pr_results[test_name]['avg']
                   status = get_status(t, excellent=0.0005, good=0.002, ok=0.010)
                   output.append(f"| {desc} | {format_time(t)} | {status} | {notes} |")
 
@@ -353,7 +435,7 @@ jobs:
 
           for test_name, (desc, iterations) in thread_tests.items():
               if test_name in pr_results:
-                  t = pr_results[test_name]
+                  t = pr_results[test_name]['avg']
                   per_call = t / iterations
                   status = get_status(per_call, excellent=0.0000005, good=0.000005, ok=0.00001)
                   output.append(f"| {desc} | {format_time(t)} | {format_time(per_call)} | {status} |")
@@ -371,7 +453,7 @@ jobs:
 
           for test_name, (desc, notes) in report_tests.items():
               if test_name in pr_results:
-                  t = pr_results[test_name]
+                  t = pr_results[test_name]['avg']
                   status = get_status(t, excellent=0.005, good=0.010, ok=0.050)
                   output.append(f"| {desc} | {format_time(t)} | {status} | {notes} |")
 
