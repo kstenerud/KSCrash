@@ -212,14 +212,14 @@ jobs:
               # Only flag if statistically significant (p < 0.05) AND change > 15%
               if p_value < 0.05:
                   if pct > 15:
-                      return f"⚠️ +{pct:.1f}% (p={p_value:.3f})", p_value
+                      return f"⚠️ +{pct:.1f}%", p_value
                   elif pct < -15:
-                      return f"✅ {pct:.1f}% (p={p_value:.3f})", p_value
+                      return f"✅ {pct:.1f}%", p_value
                   else:
-                      return f"{pct:+.1f}% (p={p_value:.3f})", p_value
+                      return f"{pct:+.1f}%", p_value
               else:
                   # Not statistically significant
-                  return f"{pct:+.1f}% (n.s.)", p_value
+                  return f"{pct:+.1f}%", p_value
 
           # Start markdown output
           output = ["# 🔍 KSCrash Performance Benchmarks\n"]
@@ -284,9 +284,9 @@ jobs:
           if is_pr and base_results:
               output.append("<details open>")
               output.append("<summary><h2>📊 Changes from Base Branch</h2></summary>\n")
-              output.append("*Only showing statistically significant changes (p < 0.05)*\n")
-              output.append("| Operation | Base | PR | Change |")
-              output.append("|-----------|------|-----|--------|")
+              output.append("*Only showing statistically significant changes (p < 0.05, threshold > 15%)*\n")
+              output.append("| Operation | Base | PR | Change | p-value |")
+              output.append("|-----------|------|-----|--------|---------|")
 
               changes = []
               for test_name, desc in all_tests.items():
@@ -299,7 +299,8 @@ jobs:
                       pct = ((pr_avg - base_avg) / base_avg) * 100 if base_avg > 0 else 0
                       # Sort by significance (lower p-value first), then by magnitude
                       sort_key = (p_value, -abs(pct))
-                      changes.append((sort_key, f"| {desc} | {format_time(base_avg)} | {format_time(pr_avg)} | {change} |", p_value))
+                      p_str = f"{p_value:.4f}" if p_value >= 0.0001 else "<0.0001"
+                      changes.append((sort_key, f"| {desc} | {format_time(base_avg)} | {format_time(pr_avg)} | {change} | {p_str} |", p_value))
 
               # Sort by significance, show most significant changes first
               changes.sort(key=lambda x: x[0])
@@ -313,7 +314,7 @@ jobs:
                       shown += 1
 
               if shown == 0:
-                  output.append("| *No statistically significant changes detected* | | | |")
+                  output.append("| *No statistically significant changes detected* | | | | |")
               elif len([c for c in changes if c[2] < 0.05]) > 15:
                   sig_count = len([c for c in changes if c[2] < 0.05])
                   output.append(f"\n*Showing top 15 of {sig_count} significant changes*")
