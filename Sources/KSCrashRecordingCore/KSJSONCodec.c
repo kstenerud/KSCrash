@@ -739,7 +739,7 @@ static int decodeString(KSJSONDecodeContext *context, char *dstBuffer, int dstBu
     // If no escape characters were encountered, we can fast copy.
     likely_if(fastCopy)
     {
-        memcpy(dstBuffer, src, length);
+        memcpy(dstBuffer, src, (size_t)length);
         dstBuffer[length] = 0;
         return KSJSON_OK;
     }
@@ -1038,7 +1038,7 @@ static int decodeElement(const char *const name, KSJSONDecodeContext *context)
                 KSLOG_DEBUG("Number is too long.");
                 return KSJSON_ERROR_DATA_TOO_LONG;
             }
-            strncpy(context->stringBuffer, start, len);
+            strncpy(context->stringBuffer, start, (size_t)len);
             context->stringBuffer[len] = '\0';
 
             sscanf(context->stringBuffer, "%lg", &value);
@@ -1105,7 +1105,7 @@ static void updateDecoder_readFile(struct JSONFromFileContext *context)
         unlikely_if(remainingLength < bufferLength / 2)
         {
             int fillLength = bufferLength - remainingLength;
-            memcpy(start, ptr, remainingLength);
+            memcpy(start, ptr, (size_t)remainingLength);
             context->decodeContext->bufferPtr = start;
             int bytesRead = (int)read(context->fd, start + remainingLength, (unsigned)fillLength);
             unlikely_if(bytesRead < fillLength)
