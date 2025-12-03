@@ -325,7 +325,7 @@ jobs:
               output.append("</details>\n")
 
           # Backtrace section
-          output.append("<details>")
+          output.append("<details open>")
           output.append("<summary><h2>Stack Capture (KSBacktrace)</h2></summary>\n")
           output.append("| Operation | Time | Status | Notes |")
           output.append("|-----------|------|--------|-------|")
@@ -348,7 +348,7 @@ jobs:
           output.append("\n</details>")
 
           # Dynamic Linker section
-          output.append("<details>")
+          output.append("<details open>")
           output.append("<summary><h2>Dynamic Linker (KSDynamicLinker)</h2></summary>\n")
           output.append("| Operation | Time | Status | Notes |")
           output.append("|-----------|------|--------|-------|")
@@ -380,7 +380,7 @@ jobs:
           output.append("\n</details>")
 
           # Memory section
-          output.append("<details>")
+          output.append("<details open>")
           output.append("<summary><h2>Safe Memory Operations (KSMemory)</h2></summary>\n")
           output.append("| Operation | Time | Per-Call | Status |")
           output.append("|-----------|------|----------|--------|")
@@ -407,7 +407,7 @@ jobs:
           output.append("\n</details>")
 
           # JSON section
-          output.append("<details>")
+          output.append("<details open>")
           output.append("<summary><h2>JSON Encoding (KSJSONCodec)</h2></summary>\n")
           output.append("| Operation | Time | Status | Notes |")
           output.append("|-----------|------|--------|-------|")
@@ -434,7 +434,7 @@ jobs:
           output.append("\n</details>")
 
           # Thread section
-          output.append("<details>")
+          output.append("<details open>")
           output.append("<summary><h2>Thread Operations (KSThread)</h2></summary>\n")
           output.append("| Operation | Time | Per-Call | Status |")
           output.append("|-----------|------|----------|--------|")
@@ -459,7 +459,7 @@ jobs:
           output.append("\n</details>")
 
           # Crash Report section
-          output.append("<details>")
+          output.append("<details open>")
           output.append("<summary><h2>Crash Report Writing (KSCrashReport)</h2></summary>\n")
           output.append("| Operation | Time | Status | Notes |")
           output.append("|-----------|------|--------|-------|")
