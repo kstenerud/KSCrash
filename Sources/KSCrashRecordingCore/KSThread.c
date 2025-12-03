@@ -151,7 +151,7 @@ bool ksthread_getQueueName(const KSThread thread, char *const buffer, int bufLen
         return false;
     }
     bufLength = MIN(length, bufLength - 1);  // just strlen, without null-terminator
-    strncpy(buffer, queue_name, bufLength);
+    strncpy(buffer, queue_name, (size_t)bufLength);
     buffer[bufLength] = 0;  // terminate string
     KSLOG_TRACE("Queue label = %s", buffer);
     return true;
