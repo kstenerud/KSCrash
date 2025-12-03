@@ -326,7 +326,7 @@ jobs:
 
           # Backtrace section
           output.append("<details open>")
-          output.append("<summary><h2>Stack Capture (KSBacktrace)</h2></summary>\n")
+          output.append("<summary><h3>Stack Capture (KSBacktrace)</h3></summary>\n")
           output.append("| Operation | Time | Status | Notes |")
           output.append("|-----------|------|--------|-------|")
 
@@ -349,7 +349,7 @@ jobs:
 
           # Dynamic Linker section
           output.append("<details open>")
-          output.append("<summary><h2>Dynamic Linker (KSDynamicLinker)</h2></summary>\n")
+          output.append("<summary><h3>Dynamic Linker (KSDynamicLinker)</h3></summary>\n")
           output.append("| Operation | Time | Status | Notes |")
           output.append("|-----------|------|--------|-------|")
 
@@ -381,7 +381,7 @@ jobs:
 
           # Memory section
           output.append("<details open>")
-          output.append("<summary><h2>Safe Memory Operations (KSMemory)</h2></summary>\n")
+          output.append("<summary><h3>Safe Memory Operations (KSMemory)</h3></summary>\n")
           output.append("| Operation | Time | Per-Call | Status |")
           output.append("|-----------|------|----------|--------|")
 
@@ -408,7 +408,7 @@ jobs:
 
           # JSON section
           output.append("<details open>")
-          output.append("<summary><h2>JSON Encoding (KSJSONCodec)</h2></summary>\n")
+          output.append("<summary><h3>JSON Encoding (KSJSONCodec)</h3></summary>\n")
           output.append("| Operation | Time | Status | Notes |")
           output.append("|-----------|------|--------|-------|")
 
@@ -435,7 +435,7 @@ jobs:
 
           # Thread section
           output.append("<details open>")
-          output.append("<summary><h2>Thread Operations (KSThread)</h2></summary>\n")
+          output.append("<summary><h3>Thread Operations (KSThread)</h3></summary>\n")
           output.append("| Operation | Time | Per-Call | Status |")
           output.append("|-----------|------|----------|--------|")
 
@@ -460,7 +460,7 @@ jobs:
 
           # Crash Report section
           output.append("<details open>")
-          output.append("<summary><h2>Crash Report Writing (KSCrashReport)</h2></summary>\n")
+          output.append("<summary><h3>Crash Report Writing (KSCrashReport)</h3></summary>\n")
           output.append("| Operation | Time | Status | Notes |")
           output.append("|-----------|------|--------|-------|")
 
