@@ -670,10 +670,14 @@ const char *kscm_stringFromRole(int /*task_role_t*/ role)
             return "NONUI_APPLICATION";
         case TASK_DEFAULT_APPLICATION:
             return "DEFAULT_APPLICATION";
+#if defined(TASK_DARWINBG_APPLICATION)
         case TASK_DARWINBG_APPLICATION:
             return "DARWINBG_APPLICATION";
+#endif
+#if defined(TASK_USER_INIT_APPLICATION)
         case TASK_USER_INIT_APPLICATION:
             return "USER_INIT_APPLICATION";
+#endif
         default:
             return "UNKNOWN";
     }
