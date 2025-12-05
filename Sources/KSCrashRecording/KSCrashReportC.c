@@ -39,6 +39,7 @@
 #include "KSCrashMonitor_Signal.h"
 #include "KSCrashMonitor_System.h"
 #include "KSCrashMonitor_User.h"
+#include "KSCrashMonitor_Watchdog.h"
 #include "KSCrashMonitor_Zombie.h"
 #include "KSCrashReportFields.h"
 #include "KSCrashReportVersion.h"
@@ -1266,7 +1267,42 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
             writer->addStringElement(writer, KSCrashField_Reason, crash->crashReason);
         }
 
-        if (isCrashOfMonitorType(crash, kscm_nsexception_getAPI())) {
+        // Write the exit reason if it's available
+        if (crash->exitReason.code != 0) {
+            writer->beginObject(writer, KSCrashField_ExitReason);
+            {
+                writer->addUIntegerElement(writer, KSCrashField_Code, crash->exitReason.code);
+            }
+            writer->endContainer(writer);
+        }
+
+        // Write any current hang info if available
+        if (crash->Hang.inProgress) {
+            writer->beginObject(writer, KSCrashField_Hang);
+            {
+                writer->addUIntegerElement(writer, KSCrashField_HangStartNanoseconds, crash->Hang.timestamp);
+                writer->addStringElement(writer, KSCrashField_HangStartRole, kscm_stringFromRole(crash->Hang.role));
+
+                writer->addUIntegerElement(writer, KSCrashField_HangEndNanoseconds, crash->Hang.endTimestamp);
+                writer->addStringElement(writer, KSCrashField_HangEndRole, kscm_stringFromRole(crash->Hang.endRole));
+            }
+            writer->endContainer(writer);
+        }
+
+        if (isCrashOfMonitorType(crash, kscm_watchdog_getAPI())) {
+            // We're leaning towards a SIGKILL watchdog timeout
+            if (crash->Hang.inProgress) {
+                writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_Mach);
+            }
+
+            // This is going to be a non-fatal hang.
+            else {
+                writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_Hang);
+            }
+
+        }
+
+        else if (isCrashOfMonitorType(crash, kscm_nsexception_getAPI())) {
             writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_NSException);
             writer->beginObject(writer, KSCrashField_NSException);
             {
@@ -1288,6 +1324,7 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
             writer->endContainer(writer);
         } else if (isCrashOfMonitorType(crash, kscm_deadlock_getAPI())) {
             writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_Deadlock);
+
         } else if (isCrashOfMonitorType(crash, kscm_memory_getAPI())) {
             writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_MemoryTermination);
             writer->beginObject(writer, KSCrashField_MemoryTermination);

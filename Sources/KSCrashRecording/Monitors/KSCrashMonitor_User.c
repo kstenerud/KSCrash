@@ -79,7 +79,7 @@ void kscm_reportUserException(const char *name, const char *reason, const char *
     ctx->stackCursor = &stackCursor;
     ctx->currentSnapshotUserReported = true;
 
-    g_callbacks.handle(ctx);
+    g_callbacks.handle(ctx, NULL);
 
 exit_immediately:
     if (terminateProgram) {

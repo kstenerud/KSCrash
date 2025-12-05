@@ -200,7 +200,7 @@ static void CPPExceptionTerminate(void)
         crashContext->crashReason = description;
         crashContext->offendingMachineContext = &machineContext;
 
-        g_state.callbacks.handle(crashContext);
+        g_state.callbacks.handle(crashContext, NULL);
     }
 
     KSLOG_DEBUG("Calling original terminate handler.");

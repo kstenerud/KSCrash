@@ -124,7 +124,7 @@ static KSCrash_ExceptionHandlerCallbacks g_callbacks;
     crashContext->offendingMachineContext = &machineContext;
     crashContext->stackCursor = &stackCursor;
 
-    g_callbacks.handle(crashContext);
+    g_callbacks.handle(crashContext, NULL);
 
     KSLOG_DEBUG(@"Terminating application");
 exit_immediately:

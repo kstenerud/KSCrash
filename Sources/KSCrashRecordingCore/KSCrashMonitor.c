@@ -70,7 +70,12 @@ static struct {
     thread_t threadsHandlingExceptions[MAX_SIMULTANEOUS_EXCEPTIONS];
     atomic_int handlingExceptionIndex;
 
+    /**
+     * deprecated. We recommend users set `onExceptionEventWithResult` instead.
+     */
     void (*onExceptionEvent)(struct KSCrash_MonitorContext *monitorContext);
+
+    void (*onExceptionEventWithResult)(struct KSCrash_MonitorContext *monitorContext, KSCrash_ReportResult *result);
 } g_state;
 
 static atomic_bool g_initialized;
@@ -178,6 +183,13 @@ void kscm_setEventCallback(void (*onEvent)(struct KSCrash_MonitorContext *monito
     g_state.onExceptionEvent = onEvent;
 }
 
+void kscm_setEventCallbackWithResult(void (*onEvent)(struct KSCrash_MonitorContext *monitorContext,
+                                                     KSCrash_ReportResult *result))
+{
+    init();
+    g_state.onExceptionEventWithResult = onEvent;
+}
+
 bool kscm_activateMonitors(void)
 {
     init();
@@ -283,7 +295,7 @@ static KSCrash_MonitorContext *notifyException(const mach_port_t offendingThread
     return ctx;
 }
 
-static void handleException(struct KSCrash_MonitorContext *ctx)
+static void handleException(struct KSCrash_MonitorContext *ctx, KSCrash_ReportResult *result)
 {
     if (ctx == NULL) {
         // This should never happen.
@@ -296,7 +308,9 @@ static void handleException(struct KSCrash_MonitorContext *ctx)
     kscmr_addContextualInfoToEvent(&g_state.monitors, ctx);
 
     // Call the exception event handler if it exists
-    if (g_state.onExceptionEvent) {
+    if (g_state.onExceptionEventWithResult) {
+        g_state.onExceptionEventWithResult(ctx, result);
+    } else if (g_state.onExceptionEvent) {
         g_state.onExceptionEvent(ctx);
     }
 

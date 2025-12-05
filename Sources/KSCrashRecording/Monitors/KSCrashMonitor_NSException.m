@@ -139,7 +139,7 @@ static KS_NOINLINE void handleException(NSException *exception, BOOL isUserRepor
         crashContext->currentSnapshotUserReported = isUserReported;
 
         KSLOG_DEBUG(@"Calling main crash handler.");
-        g_state.callbacks.handle(crashContext);
+        g_state.callbacks.handle(crashContext, NULL);
 
     exit_immediately:
         free(callstack);

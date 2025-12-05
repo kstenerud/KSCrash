@@ -101,6 +101,15 @@ typedef struct KSCrash_MonitorContext {
     bool omitBinaryImages;
 
     struct {
+        /**
+         * If available, this will be the termination reason code.
+         * For now, only 0x8badf00d is available for watchdog timeouts.
+         */
+        uint32_t code;
+
+    } exitReason;
+
+    struct {
         /** The mach exception type. */
         int type;
 
@@ -259,6 +268,23 @@ typedef struct KSCrash_MonitorContext {
         const char *state;
     } AppMemory;
 
+    struct {
+        /** If the hang is currently in progress */
+        bool inProgress;
+
+        /** start time of the hang **/
+        uint64_t timestamp;
+
+        /** task_role_t for _timestamp_ */
+        int role;
+
+        /** if the hang ended, this is that time */
+        uint64_t endTimestamp;
+
+        /** task_role_t for _endTimestamp_ */
+        int endRole;
+    } Hang;
+
     /** Full path to the console log, if any. */
     const char *consoleLogPath;
 
@@ -266,6 +292,14 @@ typedef struct KSCrash_MonitorContext {
     const char *reportPath;
 
 } KSCrash_MonitorContext;
+
+typedef struct KSCrash_ReportResult {
+    /** id as used by the report API */
+    int64_t reportId;
+
+    /** the path on disk of this report */
+    char path[PATH_MAX];
+} KSCrash_ReportResult;
 
 /**
  * Callbacks to be used by monitors.
@@ -307,8 +341,9 @@ typedef struct {
      * handler.
      *
      * @param context The monitor context that was returned by `notify()`
+     * @param result Contains the result of handling the exception;
      */
-    void (*handle)(KSCrash_MonitorContext *context);
+    void (*handle)(KSCrash_MonitorContext *context, KSCrash_ReportResult *result);
 } KSCrash_ExceptionHandlerCallbacks;
 
 #ifdef __cplusplus

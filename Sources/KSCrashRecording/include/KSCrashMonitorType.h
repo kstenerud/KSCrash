@@ -88,7 +88,10 @@ enum
 
     /** Monitor memory to detect OOMs at startup. */
     KSCrashMonitorTypeMemoryTermination  = 1 << 9,
-
+    
+    /** Tracks hangs as well as hangs that cause a termination (watchdog terminations) */
+    KSCrashMonitorTypeWatchdog           = 1 << 10,
+    
     /** Enable all monitoring options. */
     KSCrashMonitorTypeAll = (
                              KSCrashMonitorTypeMachException |
@@ -100,7 +103,8 @@ enum
                              KSCrashMonitorTypeSystem |
                              KSCrashMonitorTypeApplicationState |
                              KSCrashMonitorTypeZombie |
-                             KSCrashMonitorTypeMemoryTermination
+                             KSCrashMonitorTypeMemoryTermination |
+                             KSCrashMonitorTypeWatchdog
                              ),
 
     /** Fatal monitors track exceptions that lead to error termination of the process.. */
@@ -109,7 +113,8 @@ enum
                                KSCrashMonitorTypeSignal |
                                KSCrashMonitorTypeCPPException |
                                KSCrashMonitorTypeNSException |
-                               KSCrashMonitorTypeMainThreadDeadlock
+                               KSCrashMonitorTypeMainThreadDeadlock |
+                               KSCrashMonitorTypeWatchdog
                                ),
 
     /** Enable experimental monitoring options. */
