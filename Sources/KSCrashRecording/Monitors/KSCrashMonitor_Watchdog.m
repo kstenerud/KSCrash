@@ -237,10 +237,11 @@ static int TaskRole(void)
 {
     // KSLOG_DEBUG( @"[HANG] _schedulePings" );
 
+    __weak typeof(self) weakSelf = self;
     uint64_t startTime = MonotonicUptime();
     _watchdogTimer = CFRunLoopTimerCreateWithHandler(NULL, CFAbsoluteTimeGetCurrent(), _threshold, 0, 0,
                                                      ^(__unused CFRunLoopTimerRef timer) {
-                                                         [self _handlePingWithStartTime:startTime];
+                                                         [weakSelf _handlePingWithStartTime:startTime];
                                                      });
     CFRunLoopAddTimer(_watchdogRunLoop, _watchdogTimer, kCFRunLoopCommonModes);
 }
@@ -309,10 +310,11 @@ static int TaskRole(void)
 
     assert(_runLoop == CFRunLoopGetCurrent());
 
+    __weak typeof(self) weakSelf = self;
     _observer =
         CFRunLoopObserverCreateWithHandler(NULL, kCFRunLoopBeforeWaiting | kCFRunLoopAfterWaiting, true, 0,
                                            ^(__unused CFRunLoopObserverRef observer, CFRunLoopActivity activity) {
-                                               [self _handleActivity:activity];
+                                               [weakSelf _handleActivity:activity];
                                            });
     CFRunLoopAddObserver(_runLoop, _observer, kCFRunLoopCommonModes);
 }
