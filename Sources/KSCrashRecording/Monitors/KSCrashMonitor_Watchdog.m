@@ -54,12 +54,12 @@
 static atomic_bool g_isEnabled = false;
 
 /** The active hang monitor instance, or nil if disabled. */
-static KSHangMonitor *g_watchdog;
+static KSHangMonitor *g_watchdog = nil;
 
 /** The main thread, captured at load time. */
-static KSThread g_mainQueueThread;
+static KSThread g_mainQueueThread = 0;
 
-static KSCrash_ExceptionHandlerCallbacks g_callbacks;
+static KSCrash_ExceptionHandlerCallbacks g_callbacks = { 0 };
 
 // ============================================================================
 #pragma mark - Watchdog and utilities -
@@ -482,60 +482,55 @@ static int TaskRole(void)
         } else {
             KSLOG_ERROR(@"[HANG] Failed to encode updated report: %@", error);
         }
-
-        [self _sendObserversForType:KSHangChangeTypeUpdated timeStamp:timestampStart now:timestampEnd];
     }
+
+    [self _sendObserversForType:KSHangChangeTypeUpdated timeStamp:timestampStart now:timestampEnd];
 }
 
 - (void)_endOwnedHang:(KSHang *)hang
 {
     KSLOG_DEBUG(@"[HANG] end %f, %s", hang.interval, kscm_stringFromRole(hang.endRole));
 
-    // Handle case where hang was claimed but report was never populated
-    // (e.g., runloop went to sleep while _populateReportForCurrentHang was running)
-    if (hang.path == nil || hang.decodedReport == nil) {
-        KSLOG_DEBUG(@"[HANG] ending hang that was never fully initialized - no report to write");
-        return;
-    }
+    if (hang.path == nil && hang.decodedReport == nil) {
+        // We have options.
+        // started in the foreground and ended in the foreground, report it.
+        // started in the foreground and ended in the background, report it.
+        // started in the background and ended in the background, drop it.
+        // started in the background and ended in the foreground, report it.
 
-    // We have options.
-    // started in the foreground and ended in the foreground, report it.
-    // started in the foreground and ended in the background, report it.
-    // started in the background and ended in the background, drop it.
-    // started in the background and ended in the foreground, report it.
+        if (_reportsHangs) {
+            // Hang has recovered but we report non-fatal hangs
 
-    if (_reportsHangs) {
-        // Hang has recovered but we report non-fatal hangs
+            // Update the end data
+            hang.decodedReport[KSCrashField_Crash][KSCrashField_Error][KSCrashField_Hang]
+                              [KSCrashField_HangEndNanoseconds] = @(hang.endTimestamp);
+            hang.decodedReport[KSCrashField_Crash][KSCrashField_Error][KSCrashField_Hang][KSCrashField_HangEndRole] =
+                @(kscm_stringFromRole(hang.endRole));
 
-        // Update the end data
-        hang.decodedReport[KSCrashField_Crash][KSCrashField_Error][KSCrashField_Hang][KSCrashField_HangEndNanoseconds] =
-            @(hang.endTimestamp);
-        hang.decodedReport[KSCrashField_Crash][KSCrashField_Error][KSCrashField_Hang][KSCrashField_HangEndRole] =
-            @(kscm_stringFromRole(hang.endRole));
+            // Update the type to hang
+            hang.decodedReport[KSCrashField_Crash][KSCrashField_Error][KSCrashField_Type] = KSCrashField_Hang;
 
-        // Update the type to hang
-        hang.decodedReport[KSCrashField_Crash][KSCrashField_Error][KSCrashField_Type] = KSCrashField_Hang;
+            // Remove signal, mach and exit reason
+            [hang.decodedReport[KSCrashField_Crash][KSCrashField_Error] removeObjectForKey:KSCrashField_Signal];
+            [hang.decodedReport[KSCrashField_Crash][KSCrashField_Error] removeObjectForKey:KSCrashField_Mach];
+            [hang.decodedReport[KSCrashField_Crash][KSCrashField_Error] removeObjectForKey:KSCrashField_ExitReason];
 
-        // Remove signal, mach and exit reason
-        [hang.decodedReport[KSCrashField_Crash][KSCrashField_Error] removeObjectForKey:KSCrashField_Signal];
-        [hang.decodedReport[KSCrashField_Crash][KSCrashField_Error] removeObjectForKey:KSCrashField_Mach];
-        [hang.decodedReport[KSCrashField_Crash][KSCrashField_Error] removeObjectForKey:KSCrashField_ExitReason];
-
-        // write report back to disk
-        NSError *error = nil;
-        NSData *newData = [KSJSONCodec encode:hang.decodedReport options:KSJSONEncodeOptionNone error:&error];
-        if (newData) {
-            if (![newData writeToFile:hang.path options:0 error:&error]) {
-                KSLOG_ERROR(@"[HANG] Failed to write final report to %@: %@", hang.path, error);
+            // write report back to disk
+            NSError *error = nil;
+            NSData *newData = [KSJSONCodec encode:hang.decodedReport options:KSJSONEncodeOptionNone error:&error];
+            if (newData) {
+                if (![newData writeToFile:hang.path options:0 error:&error]) {
+                    KSLOG_ERROR(@"[HANG] Failed to write final report to %@: %@", hang.path, error);
+                }
+            } else {
+                KSLOG_ERROR(@"[HANG] Failed to encode final report: %@", error);
             }
-        } else {
-            KSLOG_ERROR(@"[HANG] Failed to encode final report: %@", error);
-        }
 
-    } else {
-        // simply delete the hang since we don't report non-fatal hangs.
-        if (unlink(hang.path.UTF8String) != 0) {
-            KSLOG_ERROR(@"[HANG] Failed to delete hang report at %@: %s", hang.path, strerror(errno));
+        } else {
+            // simply delete the hang since we don't report non-fatal hangs.
+            if (unlink(hang.path.UTF8String) != 0) {
+                KSLOG_ERROR(@"[HANG] Failed to delete hang report at %@: %s", hang.path, strerror(errno));
+            }
         }
     }
 
@@ -568,52 +563,54 @@ static int TaskRole(void)
     // is on disk and will be reported as a fatal watchdog timeout.
     KSLOG_DEBUG(@"[HANG] start %f, %s", hang.interval, kscm_stringFromRole(hang.endRole));
 
-    KSCrash_MonitorContext *crashContext = g_callbacks.notify(
-        (thread_t)g_mainQueueThread,
-        (KSCrash_ExceptionHandlingRequirements) {
-            .asyncSafety = false, .isFatal = false, .shouldRecordAllThreads = true, .shouldWriteReport = true });
+    if (g_callbacks.handle && g_callbacks.notify) {
+        KSCrash_MonitorContext *crashContext = g_callbacks.notify(
+            (thread_t)g_mainQueueThread,
+            (KSCrash_ExceptionHandlingRequirements) {
+                .asyncSafety = false, .isFatal = false, .shouldRecordAllThreads = true, .shouldWriteReport = true });
 
-    KSMachineContext machineContext = { 0 };
-    ksmc_getContextForThread(g_mainQueueThread, &machineContext, false);
-    KSStackCursor stackCursor;
-    kssc_initWithMachineContext(&stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
+        KSMachineContext machineContext = { 0 };
+        ksmc_getContextForThread(g_mainQueueThread, &machineContext, false);
+        KSStackCursor stackCursor;
+        kssc_initWithMachineContext(&stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
 
-    kscm_fillMonitorContext(crashContext, kscm_watchdog_getAPI());
-    crashContext->registersAreValid = false;
-    crashContext->offendingMachineContext = &machineContext;
-    crashContext->stackCursor = &stackCursor;
+        kscm_fillMonitorContext(crashContext, kscm_watchdog_getAPI());
+        crashContext->registersAreValid = false;
+        crashContext->offendingMachineContext = &machineContext;
+        crashContext->stackCursor = &stackCursor;
 
-    crashContext->signal.signum = SIGKILL;
-    crashContext->signal.sigcode = 0;
+        crashContext->signal.signum = SIGKILL;
+        crashContext->signal.sigcode = 0;
 
-    crashContext->mach.type = EXC_CRASH;
-    crashContext->mach.code = SIGKILL;
-    crashContext->mach.subcode = KERN_TERMINATED;
+        crashContext->mach.type = EXC_CRASH;
+        crashContext->mach.code = SIGKILL;
+        crashContext->mach.subcode = KERN_TERMINATED;
 
-    crashContext->exitReason.code = 0x8badf00d;
-    // crashContext->crashReason = "Watchdog";
+        crashContext->exitReason.code = 0x8badf00d;
+        // crashContext->crashReason = "Watchdog";
 
-    crashContext->Hang.inProgress = true;
-    crashContext->Hang.timestamp = hang.timestamp;
-    crashContext->Hang.role = hang.role;
-    crashContext->Hang.endTimestamp = hang.endTimestamp;
-    crashContext->Hang.endRole = hang.endRole;
+        crashContext->Hang.inProgress = true;
+        crashContext->Hang.timestamp = hang.timestamp;
+        crashContext->Hang.role = hang.role;
+        crashContext->Hang.endTimestamp = hang.endTimestamp;
+        crashContext->Hang.endRole = hang.endRole;
 
-    KSCrash_ReportResult result = { 0 };
-    g_callbacks.handle(crashContext, &result);
+        KSCrash_ReportResult result = { 0 };
+        g_callbacks.handle(crashContext, &result);
 
-    // Update hang with report details, but only if it's still the same hang
-    [_lock withLock:^{
-        if (self->_hang == hang) {
-            // Still the same hang, safe to update
-            hang.reportId = result.reportId;
-            hang.path = @(result.path);
-            hang.decodedReport = DecodeReport(hang.path);
-        } else {
-            // Hang was ended and possibly a new one started - discard our work
-            KSLOG_DEBUG(@"[HANG] hang changed during report population - discarding");
-        }
-    }];
+        // Update hang with report details, but only if it's still the same hang
+        [_lock withLock:^{
+            if (self->_hang == hang) {
+                // Still the same hang, safe to update
+                hang.reportId = result.reportId;
+                hang.path = @(result.path);
+                hang.decodedReport = DecodeReport(hang.path);
+            } else {
+                // Hang was ended and possibly a new one started - discard our work
+                KSLOG_DEBUG(@"[HANG] hang changed during report population - discarding");
+            }
+        }];
+    }
 
     [self _sendObserversForType:KSHangChangeTypeStarted timeStamp:hang.timestamp now:hang.endTimestamp];
 }
@@ -703,6 +700,12 @@ __attribute__((constructor)) static void kscm_watchdog_constructor(void)
 {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        g_mainQueueThread = ksthread_self();
+        if (pthread_main_np() != 0) {
+            g_mainQueueThread = ksthread_self();
+        } else {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                g_mainQueueThread = ksthread_self();
+            });
+        }
     });
 }

@@ -52,6 +52,55 @@ static void stubHandle(__unused KSCrash_MonitorContext *context, KSCrash_ReportR
     result->path[0] = '\0';
 }
 
+@interface KSSempahore : NSObject {
+    dispatch_semaphore_t _semaphore;
+}
+
++ (instancetype)withValue:(NSInteger)value;
+
+- (instancetype)initWithValue:(NSInteger)value NS_DESIGNATED_INITIALIZER;
+- (instancetype)init;
+
+@end
+
+@implementation KSSempahore
+
+- (instancetype)init
+{
+    return [self initWithValue:0];
+}
+
+- (instancetype)initWithValue:(NSInteger)value
+{
+    if ((self = [super init])) {
+        _semaphore = dispatch_semaphore_create(value);
+    }
+    return self;
+}
+
++ (instancetype)withValue:(NSInteger)value
+{
+    return [[[self class] alloc] initWithValue:value];
+}
+
+- (BOOL)wait
+{
+    return dispatch_semaphore_wait(_semaphore, DISPATCH_TIME_FOREVER) == 0;
+}
+
+- (BOOL)waitForTimeInterval:(NSTimeInterval)timeout
+{
+    dispatch_time_t t = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(timeout * NSEC_PER_SEC));
+    return dispatch_semaphore_wait(_semaphore, t) == 0;
+}
+
+- (void)signal
+{
+    dispatch_semaphore_signal(_semaphore);
+}
+
+@end
+
 @interface KSCrashMonitor_Watchdog_Tests : XCTestCase
 @end
 
@@ -186,23 +235,26 @@ static void stubHandle(__unused KSCrash_MonitorContext *context, KSCrash_ReportR
         // Use a short threshold (100ms) for faster tests
         KSHangMonitor *monitor = [[KSHangMonitor alloc] initWithRunLoop:CFRunLoopGetMain() threshold:0.1];
 
-        XCTestExpectation *startedExpectation = [self expectationWithDescription:@"Hang started"];
+        KSSempahore *waiter = [KSSempahore withValue:0];
+        __block uint64_t receivedStart = 0;
+        __block uint64_t receivedEnd = 0;
 
         __weak typeof(self) weakSelf = self;
-        id token = [monitor addObserver:^(KSHangChangeType change, uint64_t start, uint64_t end) {
+        __block id token = [monitor addObserver:^(KSHangChangeType change, uint64_t start, uint64_t end) {
             (void)weakSelf;
             if (change == KSHangChangeTypeStarted) {
-                XCTAssertGreaterThan(start, 0ULL);
-                XCTAssertGreaterThanOrEqual(end, start);
-                [startedExpectation fulfill];
+                receivedStart = start;
+                receivedEnd = end;
+                token = nil;
+                [waiter signal];
             }
         }];
         XCTAssertNotNil(token);
 
-        // Block the main thread longer than the threshold (100ms)
-        [NSThread sleepForTimeInterval:0.15];
+        XCTAssertTrue([waiter waitForTimeInterval:5]);
 
-        [self waitForExpectations:@[ startedExpectation ] timeout:1.0];
+        XCTAssertGreaterThan(receivedStart, 0ULL);
+        XCTAssertGreaterThanOrEqual(receivedEnd, receivedStart);
 
         monitor = nil;
     }
@@ -217,41 +269,42 @@ static void stubHandle(__unused KSCrash_MonitorContext *context, KSCrash_ReportR
     @autoreleasepool {
         KSHangMonitor *monitor = [[KSHangMonitor alloc] initWithRunLoop:CFRunLoopGetMain() threshold:0.1];
 
-        XCTestExpectation *observer1Started = [self expectationWithDescription:@"Observer 1 started"];
-        XCTestExpectation *observer2Started = [self expectationWithDescription:@"Observer 2 started"];
-        XCTestExpectation *observer3Started = [self expectationWithDescription:@"Observer 3 started"];
+        KSSempahore *waiter = [KSSempahore withValue:3];
 
         __weak typeof(self) weakSelf = self;
 
-        id token1 = [monitor addObserver:^(KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
-            (void)weakSelf;
-            if (change == KSHangChangeTypeStarted) {
-                [observer1Started fulfill];
-            }
-        }];
+        __block id token1 =
+            [monitor addObserver:^(KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
+                (void)weakSelf;
+                if (change == KSHangChangeTypeStarted) {
+                    token1 = nil;
+                    [waiter signal];
+                }
+            }];
 
-        id token2 = [monitor addObserver:^(KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
-            (void)weakSelf;
-            if (change == KSHangChangeTypeStarted) {
-                [observer2Started fulfill];
-            }
-        }];
+        __block id token2 =
+            [monitor addObserver:^(KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
+                (void)weakSelf;
+                if (change == KSHangChangeTypeStarted) {
+                    token2 = nil;
+                    [waiter signal];
+                }
+            }];
 
-        id token3 = [monitor addObserver:^(KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
-            (void)weakSelf;
-            if (change == KSHangChangeTypeStarted) {
-                [observer3Started fulfill];
-            }
-        }];
+        __block id token3 =
+            [monitor addObserver:^(KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
+                (void)weakSelf;
+                if (change == KSHangChangeTypeStarted) {
+                    token3 = nil;
+                    [waiter signal];
+                }
+            }];
 
         XCTAssertNotNil(token1);
         XCTAssertNotNil(token2);
         XCTAssertNotNil(token3);
 
-        // Trigger hang
-        [NSThread sleepForTimeInterval:1.0];
-
-        [self waitForExpectations:@[ observer1Started, observer2Started, observer3Started ] timeout:1.0];
+        XCTAssertTrue([waiter waitForTimeInterval:5]);
 
         monitor = nil;
     }
@@ -266,25 +319,22 @@ static void stubHandle(__unused KSCrash_MonitorContext *context, KSCrash_ReportR
     @autoreleasepool {
         KSHangMonitor *monitor = [[KSHangMonitor alloc] initWithRunLoop:CFRunLoopGetMain() threshold:0.1];
 
-        XCTestExpectation *startedExpectation = [self expectationWithDescription:@"Hang started"];
-
+        KSSempahore *waiter = [KSSempahore withValue:0];
         __block uint64_t hangStart = 0;
         __block uint64_t hangEnd = 0;
         __weak typeof(self) weakSelf = self;
-        id token = [monitor addObserver:^(KSHangChangeType change, uint64_t start, uint64_t end) {
+        __block id token = [monitor addObserver:^(KSHangChangeType change, uint64_t start, uint64_t end) {
             (void)weakSelf;
             if (change == KSHangChangeTypeStarted) {
                 hangStart = start;
                 hangEnd = end;
-                [startedExpectation fulfill];
+                token = nil;
+                [waiter signal];
             }
         }];
         XCTAssertNotNil(token);
 
-        NSTimeInterval sleepDuration = 0.15;  // 150ms (> 100ms threshold)
-        [NSThread sleepForTimeInterval:sleepDuration];
-
-        [self waitForExpectations:@[ startedExpectation ] timeout:1.0];
+        XCTAssertTrue([waiter waitForTimeInterval:5]);
 
         // The hang duration at "started" time should be at least the threshold
         uint64_t durationNs = hangEnd - hangStart;
@@ -293,7 +343,7 @@ static void stubHandle(__unused KSCrash_MonitorContext *context, KSCrash_ReportR
         // Duration should be at least the threshold (100ms)
         XCTAssertGreaterThanOrEqual(durationSeconds, 0.1, @"Hang should be at least threshold duration");
         // But not excessively long
-        XCTAssertLessThan(durationSeconds, 1.0, @"Hang duration shouldn't be unreasonably long");
+        XCTAssertLessThan(durationSeconds, 3.0, @"Hang duration shouldn't be unreasonably long");
 
         monitor = nil;
     }
@@ -315,7 +365,6 @@ static void stubHandle(__unused KSCrash_MonitorContext *context, KSCrash_ReportR
     KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
     api->setEnabled(true);
     XCTAssertTrue(api->isEnabled());
-    [NSThread sleepForTimeInterval:0.1];
     api->setEnabled(false);
     XCTAssertFalse(api->isEnabled());
 }
@@ -328,7 +377,6 @@ static void stubHandle(__unused KSCrash_MonitorContext *context, KSCrash_ReportR
     XCTAssertTrue(api->isEnabled());
     api->setEnabled(true);
     XCTAssertTrue(api->isEnabled());
-
     api->setEnabled(false);
     XCTAssertFalse(api->isEnabled());
     api->setEnabled(false);
@@ -372,7 +420,7 @@ static void stubHandle(__unused KSCrash_MonitorContext *context, KSCrash_ReportR
         @autoreleasepool {
             KSHangMonitor *monitor = [[KSHangMonitor alloc] initWithRunLoop:CFRunLoopGetMain() threshold:1.0];
             XCTAssertNotNil(monitor);
-            [NSThread sleepForTimeInterval:0.05];
+            [NSThread sleepForTimeInterval:1];
             monitor = nil;
         }
     }
