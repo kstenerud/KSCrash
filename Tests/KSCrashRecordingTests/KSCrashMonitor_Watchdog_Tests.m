@@ -28,12 +28,29 @@
 #import <mach/task_policy.h>
 
 #import "KSCrashMonitor_Watchdog.h"
+#import "KSCrashMonitorContext.h"
 
 // Forward declare the private KSHangMonitor class for testing
 @interface KSHangMonitor : NSObject
 - (instancetype)initWithRunLoop:(CFRunLoopRef)runLoop threshold:(NSTimeInterval)threshold;
 - (id)addObserver:(KSHangObserverBlock)observer;
 @end
+
+// Stub callbacks for testing hang detection
+static KSCrash_MonitorContext g_stubContext;
+
+static KSCrash_MonitorContext *stubNotify(__unused thread_t thread,
+                                          __unused KSCrash_ExceptionHandlingRequirements requirements)
+{
+    memset(&g_stubContext, 0, sizeof(g_stubContext));
+    return &g_stubContext;
+}
+
+static void stubHandle(__unused KSCrash_MonitorContext *context, KSCrash_ReportResult *result)
+{
+    result->reportId = 12345;
+    result->path[0] = '\0';
+}
 
 @interface KSCrashMonitor_Watchdog_Tests : XCTestCase
 @end
@@ -154,6 +171,141 @@
 
         monitor = nil;
     }
+}
+
+#pragma mark - Hang Detection Tests (Direct KSHangMonitor)
+
+- (void)testObserverReceivesHangStartedOnKSHangMonitor
+{
+    // Initialize callbacks so hang detection doesn't crash
+    KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
+    KSCrash_ExceptionHandlerCallbacks callbacks = { .notify = stubNotify, .handle = stubHandle };
+    api->init(&callbacks);
+
+    @autoreleasepool {
+        // Use a short threshold (100ms) for faster tests
+        KSHangMonitor *monitor = [[KSHangMonitor alloc] initWithRunLoop:CFRunLoopGetMain() threshold:0.1];
+
+        XCTestExpectation *startedExpectation = [self expectationWithDescription:@"Hang started"];
+
+        __weak typeof(self) weakSelf = self;
+        id token = [monitor addObserver:^(KSHangChangeType change, uint64_t start, uint64_t end) {
+            (void)weakSelf;
+            if (change == KSHangChangeTypeStarted) {
+                XCTAssertGreaterThan(start, 0ULL);
+                XCTAssertGreaterThanOrEqual(end, start);
+                [startedExpectation fulfill];
+            }
+        }];
+        XCTAssertNotNil(token);
+
+        // Block the main thread longer than the threshold (100ms)
+        [NSThread sleepForTimeInterval:0.15];
+
+        [self waitForExpectations:@[ startedExpectation ] timeout:1.0];
+
+        monitor = nil;
+    }
+}
+
+- (void)testMultipleObserversAllReceiveHangStartedOnKSHangMonitor
+{
+    KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
+    KSCrash_ExceptionHandlerCallbacks callbacks = { .notify = stubNotify, .handle = stubHandle };
+    api->init(&callbacks);
+
+    @autoreleasepool {
+        KSHangMonitor *monitor = [[KSHangMonitor alloc] initWithRunLoop:CFRunLoopGetMain() threshold:0.1];
+
+        XCTestExpectation *observer1Started = [self expectationWithDescription:@"Observer 1 started"];
+        XCTestExpectation *observer2Started = [self expectationWithDescription:@"Observer 2 started"];
+        XCTestExpectation *observer3Started = [self expectationWithDescription:@"Observer 3 started"];
+
+        __weak typeof(self) weakSelf = self;
+
+        id token1 = [monitor addObserver:^(KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
+            (void)weakSelf;
+            if (change == KSHangChangeTypeStarted) {
+                [observer1Started fulfill];
+            }
+        }];
+
+        id token2 = [monitor addObserver:^(KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
+            (void)weakSelf;
+            if (change == KSHangChangeTypeStarted) {
+                [observer2Started fulfill];
+            }
+        }];
+
+        id token3 = [monitor addObserver:^(KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
+            (void)weakSelf;
+            if (change == KSHangChangeTypeStarted) {
+                [observer3Started fulfill];
+            }
+        }];
+
+        XCTAssertNotNil(token1);
+        XCTAssertNotNil(token2);
+        XCTAssertNotNil(token3);
+
+        // Trigger hang
+        [NSThread sleepForTimeInterval:0.15];
+
+        [self waitForExpectations:@[ observer1Started, observer2Started, observer3Started ] timeout:1.0];
+
+        monitor = nil;
+    }
+}
+
+- (void)testHangStartTimestampIsReasonable
+{
+    KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
+    KSCrash_ExceptionHandlerCallbacks callbacks = { .notify = stubNotify, .handle = stubHandle };
+    api->init(&callbacks);
+
+    @autoreleasepool {
+        KSHangMonitor *monitor = [[KSHangMonitor alloc] initWithRunLoop:CFRunLoopGetMain() threshold:0.1];
+
+        XCTestExpectation *startedExpectation = [self expectationWithDescription:@"Hang started"];
+
+        __block uint64_t hangStart = 0;
+        __block uint64_t hangEnd = 0;
+        __weak typeof(self) weakSelf = self;
+        id token = [monitor addObserver:^(KSHangChangeType change, uint64_t start, uint64_t end) {
+            (void)weakSelf;
+            if (change == KSHangChangeTypeStarted) {
+                hangStart = start;
+                hangEnd = end;
+                [startedExpectation fulfill];
+            }
+        }];
+        XCTAssertNotNil(token);
+
+        NSTimeInterval sleepDuration = 0.15;  // 150ms (> 100ms threshold)
+        [NSThread sleepForTimeInterval:sleepDuration];
+
+        [self waitForExpectations:@[ startedExpectation ] timeout:1.0];
+
+        // The hang duration at "started" time should be at least the threshold
+        uint64_t durationNs = hangEnd - hangStart;
+        double durationSeconds = (double)durationNs / 1000000000.0;
+
+        // Duration should be at least the threshold (100ms)
+        XCTAssertGreaterThanOrEqual(durationSeconds, 0.1, @"Hang should be at least threshold duration");
+        // But not excessively long
+        XCTAssertLessThan(durationSeconds, 1.0, @"Hang duration shouldn't be unreasonably long");
+
+        monitor = nil;
+    }
+}
+
+- (void)testHangChangeTypeValues
+{
+    // Verify the enum values are as expected
+    XCTAssertEqual(KSHangChangeTypeNone, 0);
+    XCTAssertEqual(KSHangChangeTypeStarted, 1);
+    XCTAssertEqual(KSHangChangeTypeUpdated, 2);
+    XCTAssertEqual(KSHangChangeTypeEnded, 3);
 }
 
 #pragma mark - Enable/Disable Tests
