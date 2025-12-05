@@ -320,7 +320,7 @@ static int TaskRole(void)
                 CFRunLoopSourceRef source = CFRunLoopSourceCreate(NULL, 0, &cntxt);
                 CFRunLoopAddSource(strongSelf->_watchdogRunLoop, source, kCFRunLoopCommonModes);
                 CFRelease(source);
-                
+
                 // Signal that setup is complete, but only once the run loop has started running.
                 CFRunLoopPerformBlock(strongSelf->_watchdogRunLoop, kCFRunLoopCommonModes, ^{
                     dispatch_semaphore_signal(semaphore);
