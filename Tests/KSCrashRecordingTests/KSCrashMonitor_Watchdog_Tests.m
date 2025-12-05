@@ -32,12 +32,131 @@
 // Forward declare the private KSHangMonitor class for testing
 @interface KSHangMonitor : NSObject
 - (instancetype)initWithRunLoop:(CFRunLoopRef)runLoop threshold:(NSTimeInterval)threshold;
+- (id)addObserver:(KSHangObserverBlock)observer;
 @end
 
 @interface KSCrashMonitor_Watchdog_Tests : XCTestCase
 @end
 
 @implementation KSCrashMonitor_Watchdog_Tests
+
+#pragma mark - Observer Tests
+
+- (void)testAddObserverReturnsToken
+{
+    KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
+    api->setEnabled(true);
+
+    id token = kscm_watchdogAddHangObserver(^(__unused KSHangChangeType change, __unused uint64_t start,
+                                              __unused uint64_t end){
+    });
+
+    XCTAssertNotNil(token, @"Adding an observer should return a non-nil token");
+
+    api->setEnabled(false);
+}
+
+- (void)testAddObserverWhenDisabledReturnsNil
+{
+    KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
+    api->setEnabled(false);
+
+    id token = kscm_watchdogAddHangObserver(^(__unused KSHangChangeType change, __unused uint64_t start,
+                                              __unused uint64_t end){
+    });
+
+    XCTAssertNil(token, @"Adding an observer when disabled should return nil");
+}
+
+- (void)testMultipleObserversCanBeAdded
+{
+    KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
+    api->setEnabled(true);
+
+    id token1 = kscm_watchdogAddHangObserver(^(__unused KSHangChangeType change, __unused uint64_t start,
+                                               __unused uint64_t end){
+    });
+    id token2 = kscm_watchdogAddHangObserver(^(__unused KSHangChangeType change, __unused uint64_t start,
+                                               __unused uint64_t end){
+    });
+    id token3 = kscm_watchdogAddHangObserver(^(__unused KSHangChangeType change, __unused uint64_t start,
+                                               __unused uint64_t end){
+    });
+
+    XCTAssertNotNil(token1);
+    XCTAssertNotNil(token2);
+    XCTAssertNotNil(token3);
+
+    // Tokens should be different objects
+    XCTAssertNotEqual(token1, token2);
+    XCTAssertNotEqual(token2, token3);
+
+    api->setEnabled(false);
+}
+
+- (void)testObserverTokenIsWeaklyHeld
+{
+    KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
+    api->setEnabled(true);
+
+    __weak id weakToken = nil;
+    @autoreleasepool {
+        // Capture self to ensure the block is a heap block (not global)
+        __weak typeof(self) weakSelf = self;
+        id token = kscm_watchdogAddHangObserver(^(__unused KSHangChangeType change, __unused uint64_t start,
+                                                  __unused uint64_t end) {
+            (void)weakSelf;
+        });
+        weakToken = token;
+        XCTAssertNotNil(weakToken, @"Token should exist while strongly held");
+    }
+
+    // After autoreleasepool drains, token should be deallocated
+    // The weak reference should become nil
+    XCTAssertNil(weakToken, @"Token should be deallocated when no longer retained");
+
+    api->setEnabled(false);
+}
+
+- (void)testObserverOnKSHangMonitorDirectly
+{
+    @autoreleasepool {
+        KSHangMonitor *monitor = [[KSHangMonitor alloc] initWithRunLoop:CFRunLoopGetMain() threshold:1.0];
+
+        __block NSInteger callCount = 0;
+        id token = [monitor addObserver:^(__unused KSHangChangeType change, __unused uint64_t start,
+                                          __unused uint64_t end) {
+            callCount++;
+        }];
+
+        XCTAssertNotNil(token, @"Observer token should not be nil");
+        XCTAssertEqual(callCount, 0, @"Observer should not be called until a hang occurs");
+
+        monitor = nil;
+    }
+}
+
+- (void)testMultipleObserversOnKSHangMonitor
+{
+    @autoreleasepool {
+        KSHangMonitor *monitor = [[KSHangMonitor alloc] initWithRunLoop:CFRunLoopGetMain() threshold:1.0];
+
+        NSMutableArray *tokens = [NSMutableArray array];
+        for (int i = 0; i < 5; i++) {
+            id token = [monitor addObserver:^(__unused KSHangChangeType change, __unused uint64_t start,
+                                              __unused uint64_t end){
+            }];
+            XCTAssertNotNil(token);
+            [tokens addObject:token];
+        }
+
+        XCTAssertEqual(tokens.count, 5);
+
+        monitor = nil;
+    }
+}
+
+#pragma mark - Enable/Disable Tests
 
 - (void)testInstallAndRemove
 {
