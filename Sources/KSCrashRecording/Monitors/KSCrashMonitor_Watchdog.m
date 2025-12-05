@@ -53,10 +53,10 @@
 
 static atomic_bool g_isEnabled = false;
 
-/** Thread which monitors other threads. */
+/** The active hang monitor instance, or nil if disabled. */
 static KSHangMonitor *g_watchdog;
 
-/** Store from within `kscm_hang_constructor` */
+/** The main thread, captured at load time. */
 static KSThread g_mainQueueThread;
 
 static KSCrash_ExceptionHandlerCallbacks g_callbacks;
@@ -153,33 +153,52 @@ static void *watchdog_thread_main(void *arg)
     return NULL;
 }
 
+/**
+ * Monitors a run loop for hangs (periods where the loop is unresponsive).
+ *
+ * KSHangMonitor uses a high-priority watchdog thread to periodically check
+ * if the monitored run loop is responsive. When the run loop is blocked
+ * longer than the configured threshold, a hang is detected and reported.
+ */
 @interface KSHangMonitor : NSObject {
+    /** The run loop being monitored (typically the main run loop). */
     CFRunLoopRef _runLoop;
+    /** Time in seconds before a blocked run loop is considered a hang. */
     NSTimeInterval _threshold;
+    /** Observes run loop activity to detect when it goes idle or wakes. */
     CFRunLoopObserverRef _observer;
+    /** Background thread that checks for hangs. */
     pthread_t _watchdogThread;
+    /** Run loop for the watchdog thread. */
     CFRunLoopRef _watchdogRunLoop;
+    /** Timer that fires periodically to check hang duration. */
     CFRunLoopTimerRef _watchdogTimer;
 
+    /** Whether to report recovered hangs (non-fatal). */
     BOOL _reportsHangs;
+    /** Protects access to _hang and _observers. */
     KSUnfairLock *_lock;
+    /** Current hang being tracked, or nil if no hang in progress. */
     KSHang *_hang;
+    /** Weak references to registered observer blocks. */
+    NSPointerArray *_observers;
 }
 
 @end
 
 @implementation KSHangMonitor
 
-// Suspending uptime.
+// Returns monotonic time in nanoseconds (pauses when device sleeps).
 static uint64_t MonotonicUptime(void) { return clock_gettime_nsec_np(CLOCK_UPTIME_RAW); }
 
+// Loads and decodes a JSON crash report from disk.
 static NSMutableDictionary<NSString *, id> *DecodeReport(NSString *path)
 {
     NSData *data = [NSData dataWithContentsOfFile:path options:NSDataReadingMappedIfSafe error:nil];
     return data ? [[KSJSONCodec decode:data options:KSJSONDecodeOptionNone error:nil] mutableCopy] : nil;
 }
 
-// Role is an OS level way of getting the application status off the main thread.
+// Returns the current task role (foreground, background, etc).
 static int TaskRole(void)
 {
     task_category_policy_data_t policy;
@@ -200,6 +219,7 @@ static int TaskRole(void)
         _reportsHangs = YES;
         _runLoop = runLoop;
         _threshold = threshold;
+        _observers = [NSPointerArray weakObjectsPointerArray];
         [self scheduleThread];
         [self scheduleObserver];
     }
@@ -230,6 +250,31 @@ static int TaskRole(void)
     // Wait for the thread to exit
     if (_watchdogThread) {
         pthread_join(_watchdogThread, NULL);
+    }
+}
+
+// Adds a hang observer. Returns a token that must be retained to keep the observer active.
+- (id)addObserver:(KSHangObserverBlock)observer
+{
+    id copy = [observer copy];
+    [_lock withLock:^{
+        [self->_observers addPointer:(__bridge void *_Nullable)(copy)];
+    }];
+    return copy;
+}
+
+// Notifies all registered observers of a hang state change.
+- (void)_sendObserversForType:(KSHangChangeType)type timeStamp:(uint64_t)start now:(uint64_t)now
+{
+    __block NSArray *observers = nil;
+    [_lock withLock:^{
+        [self->_observers compact];
+        observers = self->_observers.allObjects;
+    }];
+    for (KSHangObserverBlock block in observers) {
+        if (block) {
+            block(type, start, now);
+        }
     }
 }
 
@@ -272,7 +317,7 @@ static int TaskRole(void)
                 CFRelease(source);
             }
 
-            // signal we're done the setup
+            // Signal that setup is complete
             dispatch_semaphore_signal(semaphore);
         }
 
@@ -296,7 +341,7 @@ static int TaskRole(void)
     pthread_create(&_watchdogThread, &attr, watchdog_thread_main, (__bridge_retained void *)block);
     pthread_attr_destroy(&attr);
 
-    // wait for the thread creation to complete
+    // Wait for thread setup to complete
     dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
 
     // Start out by scheduling pings to make sure we catch
@@ -373,8 +418,7 @@ static int TaskRole(void)
     if (activity == kCFRunLoopBeforeWaiting) {
         __block KSHang *hang = nil;
         [_lock withLock:^{
-            // a simple move here since we take ownership,
-            // no need to copy.
+            // Move ownership - no need to copy
             hang = self->_hang;
             self->_hang = nil;
         }];
@@ -383,14 +427,14 @@ static int TaskRole(void)
             return;
         }
 
-        // a hang has ended
+        // Hang has ended - finalize it
         hang.endTimestamp = MonotonicUptime();
         hang.endRole = TaskRole();
         [self _endOwnedHang:hang];
 
     }
 
-    // after waiting
+    // Run loop woke up - start monitoring again
     else if (activity == kCFRunLoopAfterWaiting) {
         [self _schedulePings];
     }
@@ -400,12 +444,17 @@ static int TaskRole(void)
 {
     __block NSDictionary<NSString *, id> *decodedReport = nil;
     __block NSString *path = nil;
+    __block uint64_t timestampStart = 0;
+    __block uint64_t timestampEnd = 0;
 
     [_lock withLock:^{
         if (self->_hang == nil || self->_hang.decodedReport == nil) {
             // Hang was ended or not yet populated
             return;
         }
+
+        timestampStart = self->_hang.timestamp;
+        timestampEnd = self->_hang.endTimestamp;
 
         self->_hang
             .decodedReport[KSCrashField_Crash][KSCrashField_Error][KSCrashField_Hang][KSCrashField_HangEndNanoseconds] =
@@ -428,6 +477,8 @@ static int TaskRole(void)
         } else {
             KSLOG_ERROR(@"[HANG] Failed to encode updated report: %@", error);
         }
+
+        [self _sendObserversForType:KSHangChangeTypeUpdated timeStamp:timestampStart now:timestampEnd];
     }
 }
 
@@ -482,6 +533,8 @@ static int TaskRole(void)
             KSLOG_ERROR(@"[HANG] Failed to delete hang report at %@: %s", hang.path, strerror(errno));
         }
     }
+
+    [self _sendObserversForType:KSHangChangeTypeEnded timeStamp:hang.timestamp now:hang.endTimestamp];
 }
 
 - (void)_populateReportForCurrentHang
@@ -556,6 +609,8 @@ static int TaskRole(void)
             KSLOG_DEBUG(@"[HANG] hang changed during report population - discarding");
         }
     }];
+
+    [self _sendObserversForType:KSHangChangeTypeStarted timeStamp:hang.timestamp now:hang.endTimestamp];
 }
 
 @end
@@ -618,6 +673,9 @@ const char *kscm_stringFromRole(int /*task_role_t*/ role)
             return "UNKNOWN";
     }
 }
+
+// See header for documentation.
+id kscm_watchdogAddHangObserver(KSHangObserverBlock observer) { return [g_watchdog addObserver:observer]; }
 
 KSCrashMonitorAPI *kscm_watchdog_getAPI(void)
 {

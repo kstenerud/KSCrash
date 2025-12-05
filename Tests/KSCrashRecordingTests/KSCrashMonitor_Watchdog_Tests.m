@@ -25,6 +25,7 @@
 //
 
 #import <XCTest/XCTest.h>
+#import <mach/task_policy.h>
 
 #import "KSCrashMonitor_Watchdog.h"
 
