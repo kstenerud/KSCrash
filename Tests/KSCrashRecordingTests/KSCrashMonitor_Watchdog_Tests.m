@@ -249,7 +249,7 @@ static void stubHandle(__unused KSCrash_MonitorContext *context, KSCrash_ReportR
         XCTAssertNotNil(token3);
 
         // Trigger hang
-        [NSThread sleepForTimeInterval:0.15];
+        [NSThread sleepForTimeInterval:1.0];
 
         [self waitForExpectations:@[ observer1Started, observer2Started, observer3Started ] timeout:1.0];
 
@@ -341,15 +341,12 @@ static void stubHandle(__unused KSCrash_MonitorContext *context, KSCrash_ReportR
 
     api->setEnabled(true);
     XCTAssertTrue(api->isEnabled());
-    [NSThread sleepForTimeInterval:0.05];
 
     api->setEnabled(false);
     XCTAssertFalse(api->isEnabled());
-    [NSThread sleepForTimeInterval:0.05];
 
     api->setEnabled(true);
     XCTAssertTrue(api->isEnabled());
-    [NSThread sleepForTimeInterval:0.05];
 
     api->setEnabled(false);
     XCTAssertFalse(api->isEnabled());
