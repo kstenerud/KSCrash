@@ -468,7 +468,7 @@ static int TaskRole(void)
             @(kscm_stringFromRole(self->_hang.endRole));
         decodedReport = [self->_hang.decodedReport copy];
         path = [self->_hang.path copy];
-        KSLOG_DEBUG(@"[HANG] update %f, %s", self->_hang.interval, kscm_stringFromRole(role));
+        KSLOG_DEBUG(@"[HANG] update %f, %s", self->_hang.interval, kscm_stringFromRole(self->_hang.endRole));
     }];
 
     // Write report back to disk (outside lock)

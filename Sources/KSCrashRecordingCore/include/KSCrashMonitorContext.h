@@ -269,19 +269,19 @@ typedef struct KSCrash_MonitorContext {
     } AppMemory;
 
     struct {
-        /** If the hang is currently in progress */
+        /** Whether the hang is currently in progress */
         bool inProgress;
 
-        /** start time of the hang **/
+        /** Start time of the hang in nanoseconds (monotonic uptime) **/
         uint64_t timestamp;
 
-        /** task_role_t for _timestamp_ */
+        /** Task role (task_role_t) at hang start time. */
         int role;
 
-        /** if the hang ended, this is that time */
+        /** End time (or last update time) of the hang in nanoseconds (monotonic uptime) **/
         uint64_t endTimestamp;
 
-        /** task_role_t for _endTimestamp_ */
+        /** Task role (task_role_t) at hang end time. */
         int endRole;
     } Hang;
 
