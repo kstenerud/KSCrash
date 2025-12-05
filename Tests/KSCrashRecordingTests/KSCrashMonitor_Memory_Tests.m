@@ -72,6 +72,10 @@
 
 - (void)testInstallation
 {
+#if !KSCRASH_HAS_UIAPPLICATION
+    XCTSkip(@"Memory termination installation test requires UIApplication (iOS/tvOS/visionOS only)");
+#endif
+
     (void)KSCrash.sharedInstance;
 
     testsupport_KSCrashAppMemorySetProvider(^KSCrashAppMemory *_Nonnull {
