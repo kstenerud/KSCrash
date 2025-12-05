@@ -219,9 +219,10 @@ static int TaskRole(void)
 - (instancetype)initWithRunLoop:(CFRunLoopRef)runLoop threshold:(NSTimeInterval)threshold
 {
     if ((self = [super init])) {
-        KSLOG_DEBUG(@"[HANG] init");
+        // For now, this isn't configurable, but we may allow it in the future.
+        _reportsHangs = NO;
+
         _lock = [[KSUnfairLock alloc] init];
-        _reportsHangs = YES;
         _runLoop = runLoop;
         _threshold = threshold;
         _observers = [NSPointerArray weakObjectsPointerArray];
@@ -233,8 +234,6 @@ static int TaskRole(void)
 
 - (void)dealloc
 {
-    KSLOG_DEBUG(@"[HANG] dealloc");
-
     if (_observer) {
         CFRunLoopObserverInvalidate(_observer);
         CFRelease(_observer);
@@ -249,7 +248,6 @@ static int TaskRole(void)
         // This will stop the runloop and effectively
         // exit the _watchdogThread_.
         CFRunLoopStop(_watchdogRunLoop);
-        CFRunLoopWakeUp(_watchdogRunLoop);
     }
 
     // Wait for the thread to exit
@@ -285,8 +283,6 @@ static int TaskRole(void)
 
 - (void)_schedulePings
 {
-    // KSLOG_DEBUG( @"[HANG] _schedulePings" );
-
     __weak typeof(self) weakSelf = self;
     uint64_t startTime = MonotonicUptime();
     _watchdogTimer = CFRunLoopTimerCreateWithHandler(NULL, CFAbsoluteTimeGetCurrent(), _threshold, 0, 0,
@@ -298,8 +294,6 @@ static int TaskRole(void)
 
 - (void)scheduleThread
 {
-    KSLOG_DEBUG(@"[HANG] scheduleThread");
-
     assert(CFRunLoopGetCurrent() == _runLoop);
 
     dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
@@ -358,8 +352,6 @@ static int TaskRole(void)
 
 - (void)scheduleObserver
 {
-    KSLOG_DEBUG(@"[HANG] scheduleObserver");
-
     assert(_runLoop == CFRunLoopGetCurrent());
 
     __weak typeof(self) weakSelf = self;
@@ -470,7 +462,6 @@ static int TaskRole(void)
             @(kscm_stringFromRole(self->_hang.endRole));
         decodedReport = [self->_hang.decodedReport copy];
         path = [self->_hang.path copy];
-        KSLOG_DEBUG(@"[HANG] update %f, %s", self->_hang.interval, kscm_stringFromRole(self->_hang.endRole));
     }];
 
     // Write report back to disk (outside lock)
@@ -491,17 +482,15 @@ static int TaskRole(void)
 
 - (void)_endOwnedHang:(KSHang *)hang
 {
-    KSLOG_DEBUG(@"[HANG] end %f, %s", hang.interval, kscm_stringFromRole(hang.endRole));
-
     if (hang.path == nil && hang.decodedReport == nil) {
-        // We have options.
-        // started in the foreground and ended in the foreground, report it.
-        // started in the foreground and ended in the background, report it.
-        // started in the background and ended in the background, drop it.
-        // started in the background and ended in the foreground, report it.
-
         if (_reportsHangs) {
             // Hang has recovered but we report non-fatal hangs
+
+            // We have options.
+            // started in the foreground and ended in the foreground, report it.
+            // started in the foreground and ended in the background, report it.
+            // started in the background and ended in the background, drop it.
+            // started in the background and ended in the foreground, report it.
 
             // Update the end data
             hang.decodedReport[KSCrashField_Crash][KSCrashField_Error][KSCrashField_Hang]
@@ -563,7 +552,6 @@ static int TaskRole(void)
     // 2- delete the report and don't report anything.
     // if the app is terminated due to the hang, the report
     // is on disk and will be reported as a fatal watchdog timeout.
-    KSLOG_DEBUG(@"[HANG] start %f, %s", hang.interval, kscm_stringFromRole(hang.endRole));
 
     if (g_callbacks.handle && g_callbacks.notify) {
         KSCrash_MonitorContext *crashContext = g_callbacks.notify(
