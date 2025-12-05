@@ -207,7 +207,7 @@ extern void kscm_testcode_resetState(void);
     XCTAssertFalse(ctx->requirements.shouldRecordAllThreads);
     XCTAssertFalse(ctx->requirements.crashedDuringExceptionHandling);
 
-    dummyExceptionHandlerCallbacks.handle(ctx, NULL);  // Handle the exception
+    dummyExceptionHandlerCallbacks.handle(ctx);  // Handle the exception
     XCTAssertTrue(g_exceptionHandled, @"The exception should have been handled by the event callback.");
     XCTAssertFalse(g_dummyEnabledState, @"A fatal exception should disable the monitor");
 }
@@ -227,7 +227,7 @@ extern void kscm_testcode_resetState(void);
     XCTAssertFalse(ctx->requirements.shouldRecordAllThreads);
     XCTAssertFalse(ctx->requirements.crashedDuringExceptionHandling);
 
-    dummyExceptionHandlerCallbacks.handle(ctx, NULL);  // Handle the exception
+    dummyExceptionHandlerCallbacks.handle(ctx);  // Handle the exception
     XCTAssertTrue(g_exceptionHandled, @"The exception should have been handled by the event callback.");
     XCTAssertTrue(g_dummyEnabledState, @"A non-fatal exception should not disable the monitor");
 }
@@ -539,7 +539,7 @@ static volatile int g_counter = 0;
         (thread_t)ksthread_self(),
         (KSCrash_ExceptionHandlingRequirements) { .isFatal = true, .shouldWriteReport = true });
     XCTAssertFalse([self cstringIsEqual:ctx->eventID to:g_eventID]);
-    dummyExceptionHandlerCallbacks.handle(ctx, NULL);  // Handle the exception
+    dummyExceptionHandlerCallbacks.handle(ctx);  // Handle the exception
     XCTAssertTrue([self cstringIsEqual:g_copiedEventID to:g_eventID],
                   @"The eventID should be set to 'TestEventID' by the dummy monitor when handling exception.");
 }
@@ -555,7 +555,7 @@ static volatile int g_counter = 0;
         (thread_t)ksthread_self(),
         (KSCrash_ExceptionHandlingRequirements) { .isFatal = false, .shouldWriteReport = true });
     XCTAssertFalse([self cstringIsEqual:ctx->eventID to:g_eventID]);
-    dummyExceptionHandlerCallbacks.handle(ctx, NULL);  // Handle the exception
+    dummyExceptionHandlerCallbacks.handle(ctx);  // Handle the exception
     XCTAssertTrue([self cstringIsEqual:g_copiedEventID to:g_eventID],
                   @"The eventID should be set to 'TestEventID' by the dummy monitor when handling exception.");
 }
@@ -571,7 +571,7 @@ static volatile int g_counter = 0;
         (KSCrash_ExceptionHandlingRequirements) { .asyncSafety = false, .isFatal = true, .shouldWriteReport = true });
     XCTAssertTrue(g_dummyMonitor.isEnabled(),
                   @"The monitor should still be enabled before fatal exception handling logic.");
-    dummyExceptionHandlerCallbacks.handle(ctx, NULL);
+    dummyExceptionHandlerCallbacks.handle(ctx);
     XCTAssertFalse(g_dummyMonitor.isEnabled(), @"The monitor should be disabled after handling a fatal exception.");
 }
 
@@ -586,7 +586,7 @@ static volatile int g_counter = 0;
         (KSCrash_ExceptionHandlingRequirements) { .isFatal = false, .asyncSafety = true, .shouldWriteReport = true });
 
     KSCrash_ReportResult result = {};
-    dummyExceptionHandlerCallbacks.handle(ctx, &result);
+    dummyExceptionHandlerCallbacks.handleWithResult(ctx, &result);
     XCTAssert(result.reportId == g_dummyResultReportId);
 }
 

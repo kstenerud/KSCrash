@@ -52,6 +52,8 @@ static void stubHandle(__unused KSCrash_MonitorContext *context, KSCrash_ReportR
     result->path[0] = '\0';
 }
 
+static void stubHandle_deprecated(KSCrash_MonitorContext *context) { stubHandle(context, NULL); }
+
 @interface KSSempahore : NSObject {
     dispatch_semaphore_t _semaphore;
 }
@@ -228,7 +230,9 @@ static void stubHandle(__unused KSCrash_MonitorContext *context, KSCrash_ReportR
 {
     // Initialize callbacks so hang detection doesn't crash
     KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
-    KSCrash_ExceptionHandlerCallbacks callbacks = { .notify = stubNotify, .handle = stubHandle };
+    KSCrash_ExceptionHandlerCallbacks callbacks = { .notify = stubNotify,
+                                                    .handle = stubHandle_deprecated,
+                                                    .handleWithResult = stubHandle };
     api->init(&callbacks);
 
     @autoreleasepool {
@@ -263,7 +267,9 @@ static void stubHandle(__unused KSCrash_MonitorContext *context, KSCrash_ReportR
 - (void)testMultipleObserversAllReceiveHangStartedOnKSHangMonitor
 {
     KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
-    KSCrash_ExceptionHandlerCallbacks callbacks = { .notify = stubNotify, .handle = stubHandle };
+    KSCrash_ExceptionHandlerCallbacks callbacks = { .notify = stubNotify,
+                                                    .handle = stubHandle_deprecated,
+                                                    .handleWithResult = stubHandle };
     api->init(&callbacks);
 
     @autoreleasepool {
@@ -313,7 +319,9 @@ static void stubHandle(__unused KSCrash_MonitorContext *context, KSCrash_ReportR
 - (void)testHangStartTimestampIsReasonable
 {
     KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
-    KSCrash_ExceptionHandlerCallbacks callbacks = { .notify = stubNotify, .handle = stubHandle };
+    KSCrash_ExceptionHandlerCallbacks callbacks = { .notify = stubNotify,
+                                                    .handle = stubHandle_deprecated,
+                                                    .handleWithResult = stubHandle };
     api->init(&callbacks);
 
     @autoreleasepool {

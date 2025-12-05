@@ -323,11 +323,11 @@ typedef struct {
      * sure anything async-unsafe you need is done BEFORE calling this function with `shouldRecordThreads` set!
      *
      * After calling this function, you should fill out any pertinent information in the returned context, and then call
-     * handle().
+     * handleWithResult().
      *
      * @param offendingThread The thread that caused the exception.
      * @param requirements Requirements and information about how this exception should be handled.
-     * @return a monitor context to be filled out and passed to `handle()`.
+     * @return a monitor context to be filled out and passed to `handleWithResult()`.
      */
     KSCrash_MonitorContext *(*notify)(thread_t offendingThread, KSCrash_ExceptionHandlingRequirements requirements);
 
@@ -341,9 +341,12 @@ typedef struct {
      * handler.
      *
      * @param context The monitor context that was returned by `notify()`
-     * @param result Contains the result of handling the exception;
+     * @param result Contains the result of handling the exception.
      */
-    void (*handle)(KSCrash_MonitorContext *context, KSCrash_ReportResult *result);
+    void (*handleWithResult)(KSCrash_MonitorContext *context, KSCrash_ReportResult *result);
+
+    /** Deprecated: Use `handleWithResult` instead. */
+    void (*handle)(KSCrash_MonitorContext *context);
 } KSCrash_ExceptionHandlerCallbacks;
 
 #ifdef __cplusplus

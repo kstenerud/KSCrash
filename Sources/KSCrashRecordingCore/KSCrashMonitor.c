@@ -331,12 +331,13 @@ static void handleException(struct KSCrash_MonitorContext *ctx, KSCrash_ReportRe
     }
 }
 
+static void handleException_Deprecated(struct KSCrash_MonitorContext *ctx) { handleException(ctx, NULL); }
+
 bool kscm_addMonitor(const KSCrashMonitorAPI *api)
 {
-    static KSCrash_ExceptionHandlerCallbacks exceptionCallbacks = {
-        .notify = notifyException,
-        .handle = handleException,
-    };
+    static KSCrash_ExceptionHandlerCallbacks exceptionCallbacks = { .notify = notifyException,
+                                                                    .handleWithResult = handleException,
+                                                                    .handle = handleException_Deprecated };
 
     init();
     if (kscmr_addMonitor(&g_state.monitors, api)) {

@@ -596,7 +596,7 @@ static int TaskRole(void)
         crashContext->Hang.endRole = hang.endRole;
 
         KSCrash_ReportResult result = { 0 };
-        g_callbacks.handle(crashContext, &result);
+        g_callbacks.handleWithResult(crashContext, &result);
 
         // Update hang with report details, but only if it's still the same hang
         [_lock withLock:^{

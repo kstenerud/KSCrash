@@ -123,7 +123,7 @@ static void handleSignal(int sigNum, siginfo_t *signalInfo, void *userContext)
         crashContext->signal.sigcode = signalInfo->si_code;
         crashContext->stackCursor = &stackCursor;
 
-        g_state.callbacks.handle(crashContext, NULL);
+        g_state.callbacks.handle(crashContext);
     }
 
     KSLOG_DEBUG("Re-raising signal for regular handlers to catch.");

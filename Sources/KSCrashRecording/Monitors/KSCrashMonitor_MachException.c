@@ -451,7 +451,7 @@ static void handleException(ExceptionContext *exceptionCtx)
     monitorCtx->signal.signum = signalForMachException(monitorCtx->mach.type, monitorCtx->mach.code);
     monitorCtx->stackCursor = &exceptionCtx->stackCursor;
 
-    g_state.callbacks.handle(monitorCtx, NULL);
+    g_state.callbacks.handle(monitorCtx);
 }
 
 static void *exceptionHandlerThreadMain(void *data)

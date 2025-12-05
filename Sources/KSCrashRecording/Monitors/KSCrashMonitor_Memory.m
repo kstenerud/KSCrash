@@ -582,7 +582,7 @@ static void ksmemory_write_possible_oom(void)
     // _reportPath_ only valid within this scope
     ctx->reportPath = reportPath;
 
-    g_callbacks.handle(ctx, NULL);
+    g_callbacks.handle(ctx);
 }
 
 static void ksmemory_applyNoFileProtection(NSString *path)
