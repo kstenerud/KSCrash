@@ -320,16 +320,18 @@ static int TaskRole(void)
                 CFRunLoopSourceRef source = CFRunLoopSourceCreate(NULL, 0, &cntxt);
                 CFRunLoopAddSource(strongSelf->_watchdogRunLoop, source, kCFRunLoopCommonModes);
                 CFRelease(source);
+                
+                // Signal that setup is complete, but only once the run loop has started running.
+                CFRunLoopPerformBlock(strongSelf->_watchdogRunLoop, kCFRunLoopCommonModes, ^{
+                    dispatch_semaphore_signal(semaphore);
+                });
             }
-
-            // Signal that setup is complete
-            dispatch_semaphore_signal(semaphore);
         }
 
         // Now that self is weak again, we can be deallocated
         // which will stop the runloop, exit the thread and cleanup.
 
-        // Run the loop. On deinit, we'll stop this to exit the thread.
+        // Run the loop. On dealloc, we'll stop this to exit the thread.
         CFRunLoopRun();
     };
 
