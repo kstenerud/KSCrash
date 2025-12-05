@@ -27,8 +27,8 @@
 #import <XCTest/XCTest.h>
 #import <mach/task_policy.h>
 
-#import "KSCrashMonitor_Watchdog.h"
 #import "KSCrashMonitorContext.h"
+#import "KSCrashMonitor_Watchdog.h"
 
 // Forward declare the private KSHangMonitor class for testing
 @interface KSHangMonitor : NSObject
@@ -64,9 +64,9 @@ static void stubHandle(__unused KSCrash_MonitorContext *context, KSCrash_ReportR
     KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
     api->setEnabled(true);
 
-    id token = kscm_watchdogAddHangObserver(^(__unused KSHangChangeType change, __unused uint64_t start,
-                                              __unused uint64_t end){
-    });
+    id token = kscm_watchdogAddHangObserver(
+        ^(__unused KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
+        });
 
     XCTAssertNotNil(token, @"Adding an observer should return a non-nil token");
 
@@ -78,9 +78,9 @@ static void stubHandle(__unused KSCrash_MonitorContext *context, KSCrash_ReportR
     KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
     api->setEnabled(false);
 
-    id token = kscm_watchdogAddHangObserver(^(__unused KSHangChangeType change, __unused uint64_t start,
-                                              __unused uint64_t end){
-    });
+    id token = kscm_watchdogAddHangObserver(
+        ^(__unused KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
+        });
 
     XCTAssertNil(token, @"Adding an observer when disabled should return nil");
 }
@@ -90,15 +90,15 @@ static void stubHandle(__unused KSCrash_MonitorContext *context, KSCrash_ReportR
     KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
     api->setEnabled(true);
 
-    id token1 = kscm_watchdogAddHangObserver(^(__unused KSHangChangeType change, __unused uint64_t start,
-                                               __unused uint64_t end){
-    });
-    id token2 = kscm_watchdogAddHangObserver(^(__unused KSHangChangeType change, __unused uint64_t start,
-                                               __unused uint64_t end){
-    });
-    id token3 = kscm_watchdogAddHangObserver(^(__unused KSHangChangeType change, __unused uint64_t start,
-                                               __unused uint64_t end){
-    });
+    id token1 = kscm_watchdogAddHangObserver(
+        ^(__unused KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
+        });
+    id token2 = kscm_watchdogAddHangObserver(
+        ^(__unused KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
+        });
+    id token3 = kscm_watchdogAddHangObserver(
+        ^(__unused KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
+        });
 
     XCTAssertNotNil(token1);
     XCTAssertNotNil(token2);
@@ -120,10 +120,10 @@ static void stubHandle(__unused KSCrash_MonitorContext *context, KSCrash_ReportR
     @autoreleasepool {
         // Capture self to ensure the block is a heap block (not global)
         __weak typeof(self) weakSelf = self;
-        id token = kscm_watchdogAddHangObserver(^(__unused KSHangChangeType change, __unused uint64_t start,
-                                                  __unused uint64_t end) {
-            (void)weakSelf;
-        });
+        id token = kscm_watchdogAddHangObserver(
+            ^(__unused KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
+                (void)weakSelf;
+            });
         weakToken = token;
         XCTAssertNotNil(weakToken, @"Token should exist while strongly held");
     }
@@ -141,10 +141,10 @@ static void stubHandle(__unused KSCrash_MonitorContext *context, KSCrash_ReportR
         KSHangMonitor *monitor = [[KSHangMonitor alloc] initWithRunLoop:CFRunLoopGetMain() threshold:1.0];
 
         __block NSInteger callCount = 0;
-        id token = [monitor addObserver:^(__unused KSHangChangeType change, __unused uint64_t start,
-                                          __unused uint64_t end) {
-            callCount++;
-        }];
+        id token =
+            [monitor addObserver:^(__unused KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
+                callCount++;
+            }];
 
         XCTAssertNotNil(token, @"Observer token should not be nil");
         XCTAssertEqual(callCount, 0, @"Observer should not be called until a hang occurs");
@@ -160,9 +160,9 @@ static void stubHandle(__unused KSCrash_MonitorContext *context, KSCrash_ReportR
 
         NSMutableArray *tokens = [NSMutableArray array];
         for (int i = 0; i < 5; i++) {
-            id token = [monitor addObserver:^(__unused KSHangChangeType change, __unused uint64_t start,
-                                              __unused uint64_t end){
-            }];
+            id token = [monitor
+                addObserver:^(__unused KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
+                }];
             XCTAssertNotNil(token);
             [tokens addObject:token];
         }

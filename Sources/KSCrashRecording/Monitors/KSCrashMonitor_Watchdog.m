@@ -201,6 +201,10 @@ static NSMutableDictionary<NSString *, id> *DecodeReport(NSString *path)
 // Returns the current task role (foreground, background, etc).
 static int TaskRole(void)
 {
+#if TARGET_OS_TV || TARGET_OS_WATCH
+    // task_policy_get is not available on tvOS or watchOS
+    return TASK_UNSPECIFIED;
+#else
     task_category_policy_data_t policy;
     mach_msg_type_number_t count = TASK_CATEGORY_POLICY_COUNT;
     boolean_t getDefault = NO;
@@ -209,6 +213,7 @@ static int TaskRole(void)
         task_policy_get(mach_task_self(), TASK_CATEGORY_POLICY, (task_policy_t)&policy, &count, &getDefault);
 
     return kr == KERN_SUCCESS ? policy.role : TASK_UNSPECIFIED;
+#endif
 }
 
 - (instancetype)initWithRunLoop:(CFRunLoopRef)runLoop threshold:(NSTimeInterval)threshold

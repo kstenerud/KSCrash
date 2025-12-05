@@ -124,6 +124,9 @@ typedef struct {
      * this value, including application startup. You may need to initialize your
      * application on a different thread or set this to a higher value until initialization
      * is complete.
+     *
+     * @note Deprecated. Use `KSCrashMonitorTypeWatchdog` in the `monitors` field instead.
+     * The watchdog monitor provides better hang detection with a fixed 250ms threshold.
      */
     double deadlockWatchdogInterval;
 

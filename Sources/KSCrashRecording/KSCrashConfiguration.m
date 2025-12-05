@@ -51,7 +51,10 @@
             _userInfoJSON = nil;
         }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         _deadlockWatchdogInterval = cConfig.deadlockWatchdogInterval;
+#pragma clang diagnostic pop
         _enableQueueNameSearch = cConfig.enableQueueNameSearch ? YES : NO;
         _enableMemoryIntrospection = cConfig.enableMemoryIntrospection ? YES : NO;
         _doNotIntrospectClasses = nil;
@@ -90,7 +93,10 @@
     config.reportStoreConfiguration = [self.reportStoreConfiguration toCConfiguration];
     config.monitors = self.monitors;
     config.userInfoJSON = self.userInfoJSON ? [self jsonStringFromDictionary:self.userInfoJSON] : NULL;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     config.deadlockWatchdogInterval = self.deadlockWatchdogInterval;
+#pragma clang diagnostic pop
     config.enableQueueNameSearch = self.enableQueueNameSearch;
     config.enableMemoryIntrospection = self.enableMemoryIntrospection;
     config.doNotIntrospectClasses.strings = [self createCStringArrayFromNSArray:self.doNotIntrospectClasses];
@@ -162,7 +168,10 @@
     copy.installPath = [self.installPath copyWithZone:zone];
     copy.monitors = self.monitors;
     copy.userInfoJSON = [self.userInfoJSON copyWithZone:zone];
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     copy.deadlockWatchdogInterval = self.deadlockWatchdogInterval;
+#pragma clang diagnostic pop
     copy.enableQueueNameSearch = self.enableQueueNameSearch;
     copy.enableMemoryIntrospection = self.enableMemoryIntrospection;
     copy.doNotIntrospectClasses = self.doNotIntrospectClasses

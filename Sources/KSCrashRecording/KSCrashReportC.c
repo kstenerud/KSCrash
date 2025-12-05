@@ -1322,7 +1322,10 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
                 writer->addStringElement(writer, KSCrashField_Name, crash->CPPException.name);
             }
             writer->endContainer(writer);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         } else if (isCrashOfMonitorType(crash, kscm_deadlock_getAPI())) {
+#pragma clang diagnostic pop
             writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_Deadlock);
 
         } else if (isCrashOfMonitorType(crash, kscm_memory_getAPI())) {

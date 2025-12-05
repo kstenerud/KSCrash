@@ -71,7 +71,9 @@ enum
     /** Monitor uncaught Objective-C NSExceptions. */
     KSCrashMonitorTypeNSException        = 1 << 3,
 
-    /** Detect deadlocks on the main thread. */
+    /** Detect deadlocks on the main thread.
+     * @note Deprecated. Use KSCrashMonitorTypeWatchdog instead.
+     */
     KSCrashMonitorTypeMainThreadDeadlock = 1 << 4,
 
     /** Monitor user-reported custom exceptions. */
@@ -98,7 +100,6 @@ enum
                              KSCrashMonitorTypeSignal |
                              KSCrashMonitorTypeCPPException |
                              KSCrashMonitorTypeNSException |
-                             KSCrashMonitorTypeMainThreadDeadlock |
                              KSCrashMonitorTypeUserReported |
                              KSCrashMonitorTypeSystem |
                              KSCrashMonitorTypeApplicationState |
@@ -107,18 +108,19 @@ enum
                              KSCrashMonitorTypeWatchdog
                              ),
 
-    /** Fatal monitors track exceptions that lead to error termination of the process.. */
+    /** Fatal monitors track exceptions that lead to error termination of the process. */
     KSCrashMonitorTypeFatal = (
                                KSCrashMonitorTypeMachException |
                                KSCrashMonitorTypeSignal |
                                KSCrashMonitorTypeCPPException |
                                KSCrashMonitorTypeNSException |
-                               KSCrashMonitorTypeMainThreadDeadlock |
                                KSCrashMonitorTypeWatchdog
                                ),
 
-    /** Enable experimental monitoring options. */
-    KSCrashMonitorTypeExperimental = KSCrashMonitorTypeMainThreadDeadlock,
+    /** Enable experimental monitoring options.
+     * @note Currently empty as KSCrashMonitorTypeMainThreadDeadlock is deprecated.
+     */
+    KSCrashMonitorTypeExperimental = KSCrashMonitorTypeNone,
 
     /** Monitor options unsafe for use with a debugger. */
     KSCrashMonitorTypeDebuggerUnsafe = KSCrashMonitorTypeMachException,

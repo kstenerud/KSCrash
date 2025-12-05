@@ -119,7 +119,10 @@ static KSCrash_ExceptionHandlerCallbacks g_callbacks;
     kssc_initWithMachineContext(&stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
 
     KSLOG_DEBUG(@"Filling out context.");
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     kscm_fillMonitorContext(crashContext, kscm_deadlock_getAPI());
+#pragma clang diagnostic pop
     crashContext->registersAreValid = false;
     crashContext->offendingMachineContext = &machineContext;
     crashContext->stackCursor = &stackCursor;

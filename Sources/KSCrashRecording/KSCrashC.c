@@ -75,17 +75,21 @@ typedef enum {
 static const struct KSCrashMonitorMapping {
     KSCrashMonitorType type;
     KSCrashMonitorAPI *(*getAPI)(void);
-} g_monitorMappings[] = { { KSCrashMonitorTypeMachException, kscm_machexception_getAPI },
-                          { KSCrashMonitorTypeSignal, kscm_signal_getAPI },
-                          { KSCrashMonitorTypeCPPException, kscm_cppexception_getAPI },
-                          { KSCrashMonitorTypeNSException, kscm_nsexception_getAPI },
-                          { KSCrashMonitorTypeMainThreadDeadlock, kscm_deadlock_getAPI },
-                          { KSCrashMonitorTypeUserReported, kscm_user_getAPI },
-                          { KSCrashMonitorTypeSystem, kscm_system_getAPI },
-                          { KSCrashMonitorTypeApplicationState, kscm_appstate_getAPI },
-                          { KSCrashMonitorTypeZombie, kscm_zombie_getAPI },
-                          { KSCrashMonitorTypeMemoryTermination, kscm_memory_getAPI },
-                          { KSCrashMonitorTypeWatchdog, kscm_watchdog_getAPI } };
+}
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+g_monitorMappings[] = { { KSCrashMonitorTypeMachException, kscm_machexception_getAPI },
+                        { KSCrashMonitorTypeSignal, kscm_signal_getAPI },
+                        { KSCrashMonitorTypeCPPException, kscm_cppexception_getAPI },
+                        { KSCrashMonitorTypeNSException, kscm_nsexception_getAPI },
+                        { KSCrashMonitorTypeMainThreadDeadlock, kscm_deadlock_getAPI },
+                        { KSCrashMonitorTypeUserReported, kscm_user_getAPI },
+                        { KSCrashMonitorTypeSystem, kscm_system_getAPI },
+                        { KSCrashMonitorTypeApplicationState, kscm_appstate_getAPI },
+                        { KSCrashMonitorTypeZombie, kscm_zombie_getAPI },
+                        { KSCrashMonitorTypeMemoryTermination, kscm_memory_getAPI },
+                        { KSCrashMonitorTypeWatchdog, kscm_watchdog_getAPI } };
+#pragma clang diagnostic pop
 
 static const size_t g_monitorMappingCount = sizeof(g_monitorMappings) / sizeof(g_monitorMappings[0]);
 
@@ -255,7 +259,10 @@ static void handleConfiguration(KSCrashCConfiguration *configuration)
         kscrashreport_setUserInfoJSON(configuration->userInfoJSON);
     }
 #if KSCRASH_HAS_OBJC
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     kscm_setDeadlockHandlerWatchdogInterval(configuration->deadlockWatchdogInterval);
+#pragma clang diagnostic pop
 #endif
     kstc_setSearchQueueNames(configuration->enableQueueNameSearch);
     kscrashreport_setIntrospectMemory(configuration->enableMemoryIntrospection);

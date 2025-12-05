@@ -34,6 +34,9 @@
 
 @implementation KSCrashMonitor_Deadlock_Tests
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 - (void)testInstallAndRemove
 {
     KSCrashMonitorAPI *api = kscm_deadlock_getAPI();
@@ -59,5 +62,7 @@
     api->setEnabled(false);
     XCTAssertFalse(api->isEnabled());
 }
+
+#pragma clang diagnostic pop
 
 @end
