@@ -46,4 +46,12 @@
     XCTAssertEqual(diagnostic, @"The app was terminated due to running out of memory (OOM).");
 }
 
+- (void)testWatchdogTimeout
+{
+    KSCrashReportDictionary *report = [self _crashReportAsJSON:@"watchdog"];
+    KSCrashReportDictionary *resultReport = [self _filteredReport:report];
+    NSString *diagnostic = resultReport.value[KSCrashField_Crash][KSCrashField_Diagnosis];
+    XCTAssertEqualObjects(diagnostic, @"App hung for 3.99 seconds. Terminated by watchdog.");
+}
+
 @end

@@ -423,6 +423,60 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
     return [report[KSCrashField_Type] isEqualToString:KSCrashExcType_MemoryTermination];
 }
 
+- (BOOL)isWatchdogTimeoutTermination:(NSDictionary *)errorReport
+{
+    // Watchdog timeout terminations are characterized by:
+    // - EXC_CRASH mach exception
+    // - SIGKILL signal (signal 9)
+    // - Exit reason code 0x8badf00d ("ate bad food")
+
+    NSDictionary *machError = [errorReport objectForKey:KSCrashField_Mach];
+    if (machError == nil) {
+        return NO;
+    }
+
+    NSString *exceptionName = [machError objectForKey:KSCrashField_ExceptionName];
+    if (![exceptionName isEqualToString:@"EXC_CRASH"]) {
+        return NO;
+    }
+
+    NSDictionary *signal = [errorReport objectForKey:KSCrashField_Signal];
+    NSInteger signalCode = [[signal objectForKey:KSCrashField_Signal] integerValue];
+    if (signalCode != SIGKILL) {
+        return NO;
+    }
+
+    NSDictionary *exitReason = [errorReport objectForKey:KSCrashField_ExitReason];
+    if (exitReason == nil) {
+        return NO;
+    }
+
+    uint64_t code = [[exitReason objectForKey:KSCrashField_Code] unsignedLongLongValue];
+    return code == 0x8badf00d;
+}
+
+- (BOOL)isHang:(NSDictionary *)errorReport
+{
+    return [errorReport objectForKey:KSCrashField_Hang] != nil;
+}
+
+- (NSString *)hangDuration:(NSDictionary *)errorReport
+{
+    NSDictionary *hang = [errorReport objectForKey:KSCrashField_Hang];
+    if (hang == nil) {
+        return nil;
+    }
+
+    uint64_t startNanos = [[hang objectForKey:KSCrashField_HangStartNanoseconds] unsignedLongLongValue];
+    uint64_t endNanos = [[hang objectForKey:KSCrashField_HangEndNanoseconds] unsignedLongLongValue];
+
+    if (startNanos > 0 && endNanos > startNanos) {
+        double durationSeconds = (double)(endNanos - startNanos) / 1000000000.0;
+        return [NSString stringWithFormat:@"%.2f seconds", durationSeconds];
+    }
+    return nil;
+}
+
 - (NSString *)diagnoseCrash:(NSDictionary *)report
 {
     @try {
@@ -432,6 +486,14 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
 
         if ([self isDeadlock:report]) {
             return [NSString stringWithFormat:@"Main thread deadlocked in %@", lastFunctionName];
+        }
+
+        if ([self isWatchdogTimeoutTermination:errorReport]) {
+            NSString *duration = [self hangDuration:errorReport];
+            if (duration != nil) {
+                return [NSString stringWithFormat:@"App hung for %@. Terminated by watchdog.", duration];
+            }
+            return @"App terminated by watchdog.";
         }
 
         if ([self isStackOverflow:crashedThreadReport]) {
