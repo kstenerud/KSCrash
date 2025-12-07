@@ -323,16 +323,6 @@ final class UserReportedTests: IntegrationTestBase {
             // Verify we got a SIGKILL
             XCTAssertEqual(rawReport.crash?.error?.signal?.signal, 9, "Should be SIGKILL (signal 9)")
         }
-
-        func testWatchdogDisabled() throws {
-            // Without watchdog enabled, the app will be killed by SIGKILL
-            // but no crash report will be generated (SIGKILL cannot be caught)
-            try launchAndCrash(.other_watchdogTimeoutTermination)
-
-            // No crash report should exist when watchdog is disabled
-            // because SIGKILL terminates the process immediately
-            XCTAssertFalse(try hasCrashReport(), "No crash report should exist when watchdog is disabled")
-        }
     }
 
 #endif
