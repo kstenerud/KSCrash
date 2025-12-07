@@ -78,7 +78,6 @@
 #define ExceptionType KSCRASH_NS(ExceptionType)
 #define JSONDecodeOption KSCRASH_NS(JSONDecodeOption)
 #define JSONEncodeOption KSCRASH_NS(JSONEncodeOption)
-#define KSCRASH_DEPRECATED KSCRASH_NS(KSCRASH_DEPRECATED)
 #define KSCString KSCRASH_NS(KSCString)
 #define KSCrash KSCRASH_NS(KSCrash)
 #define KSCrashAlertViewProcess KSCRASH_NS(KSCrashAlertViewProcess)
