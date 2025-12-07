@@ -1,7 +1,7 @@
 //
-//  KSCrashReportVersion.h
+//  KSUnfairLock.h
 //
-//  Created by Karl Stenerud on 2016-03-10.
+//  Created by Alexander Cohen on 2025-12-07.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,9 +24,17 @@
 // THE SOFTWARE.
 //
 
-#ifndef HDR_KSCrashReportVersion_h
-#define HDR_KSCrashReportVersion_h
+#ifdef __OBJC__
 
-#define KSCRASH_REPORT_VERSION "3.7.0"
+#import <Foundation/Foundation.h>
+#include "KSCrashNamespace.h"
 
-#endif /* HDR_KSCrashReportVersion_h */
+@interface KSUnfairLock : NSObject <NSLocking>
+
+- (void)lock;
+- (void)unlock;
+- (void)withLock:(dispatch_block_t)block;
+
+@end
+
+#endif

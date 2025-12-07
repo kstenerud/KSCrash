@@ -33,6 +33,7 @@
 #import "KSJSONCodecObjC.h"
 #import "KSStackCursor_MachineContext.h"
 #import "KSThread.h"
+#import "KSUnfairLock.h"
 
 #import <Foundation/Foundation.h>
 #import <os/lock.h>
@@ -64,39 +65,6 @@ static KSCrash_ExceptionHandlerCallbacks g_callbacks = { 0 };
 // ============================================================================
 #pragma mark - Watchdog and utilities -
 // ============================================================================
-
-@interface KSUnfairLock : NSObject <NSLocking> {
-    os_unfair_lock _lock;
-}
-@end
-
-@implementation KSUnfairLock
-
-- (instancetype)init
-{
-    if ((self = [super init])) {
-        _lock = OS_UNFAIR_LOCK_INIT;
-    }
-    return self;
-}
-
-- (void)lock
-{
-    os_unfair_lock_lock(&_lock);
-}
-- (void)unlock
-{
-    os_unfair_lock_unlock(&_lock);
-}
-
-- (void)withLock:(dispatch_block_t)block
-{
-    os_unfair_lock_lock(&_lock);
-    block();
-    os_unfair_lock_unlock(&_lock);
-}
-
-@end
 
 @interface KSHang : NSObject <NSCopying>
 
@@ -332,11 +300,7 @@ static int TaskRole(void)
     // Set up thread attributes with maximum priority
     pthread_attr_t attr;
     pthread_attr_init(&attr);
-    int policy;
-    struct sched_param param;
-    pthread_attr_getschedpolicy(&attr, &policy);
-    param.sched_priority = sched_get_priority_max(policy);
-    pthread_attr_setschedparam(&attr, &param);
+    pthread_attr_set_qos_class_np(&attr, QOS_CLASS_USER_INTERACTIVE, 0);
 
     // Copy the block to the heap and transfer ownership to pthread
     pthread_create(&_watchdogThread, &attr, watchdog_thread_main, (__bridge_retained void *)block);

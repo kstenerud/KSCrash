@@ -1,7 +1,7 @@
 //
-//  KSCrashReportVersion.h
+//  KSUnfairLock.h
 //
-//  Created by Karl Stenerud on 2016-03-10.
+//  Created by Alexander Cohen on 2025-12-07.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -23,10 +23,38 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 //
+#import "KSUnfairLock.h"
+#import <os/lock.h>
 
-#ifndef HDR_KSCrashReportVersion_h
-#define HDR_KSCrashReportVersion_h
+@interface KSUnfairLock () {
+    os_unfair_lock _lock;
+}
+@end
 
-#define KSCRASH_REPORT_VERSION "3.7.0"
+@implementation KSUnfairLock
 
-#endif /* HDR_KSCrashReportVersion_h */
+- (instancetype)init
+{
+    if ((self = [super init])) {
+        _lock = OS_UNFAIR_LOCK_INIT;
+    }
+    return self;
+}
+
+- (void)lock
+{
+    os_unfair_lock_lock(&_lock);
+}
+- (void)unlock
+{
+    os_unfair_lock_unlock(&_lock);
+}
+
+- (void)withLock:(dispatch_block_t)block
+{
+    os_unfair_lock_lock(&_lock);
+    block();
+    os_unfair_lock_unlock(&_lock);
+}
+
+@end

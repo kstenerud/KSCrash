@@ -80,8 +80,8 @@ NS_ASSUME_NONNULL_BEGIN
  * @note Deprecated. Use `KSCrashMonitorTypeWatchdog` in the `monitors` property instead.
  * The watchdog monitor provides better hang detection with a fixed 250ms threshold.
  */
-@property(nonatomic, assign) double deadlockWatchdogInterval
-    __attribute__((deprecated("Use KSCrashMonitorTypeWatchdog in monitors instead.")));
+@property(nonatomic, assign)
+    double deadlockWatchdogInterval KSCRASH_DEPRECATED("Use KSCrashMonitorTypeWatchdog in monitors instead.");
 
 /** If true, attempt to fetch dispatch queue names for each running thread.
  *

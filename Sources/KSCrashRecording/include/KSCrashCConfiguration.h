@@ -114,6 +114,8 @@ typedef struct {
      */
     const char *userInfoJSON;
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     /** The maximum time to allow the main thread to run without returning.
      *
      * If the main thread is occupied by a task for longer than this interval, the
@@ -128,7 +130,10 @@ typedef struct {
      * @note Deprecated. Use `KSCrashMonitorTypeWatchdog` in the `monitors` field instead.
      * The watchdog monitor provides better hang detection with a fixed 250ms threshold.
      */
-    double deadlockWatchdogInterval;
+    double deadlockWatchdogInterval KSCRASH_DEPRECATED(
+        "Deprecated. Use `KSCrashMonitorTypeWatchdog` in the `monitors` field instead. The watchdog monitor provides "
+        "better hang detection with a fixed 250ms threshold.");
+#pragma clang diagnostic pop
 
     /** If true, attempt to fetch dispatch queue names for each running thread.
      *
@@ -282,7 +287,10 @@ static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
         .reportStoreConfiguration = KSCrashReportStoreCConfiguration_Default(),
         .monitors = KSCrashMonitorTypeProductionSafeMinimal,
         .userInfoJSON = NULL,
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         .deadlockWatchdogInterval = 0.0,
+#pragma clang diagnostic pop
         .enableQueueNameSearch = false,
         .enableMemoryIntrospection = false,
         .doNotIntrospectClasses = { .strings = NULL, .length = 0 },
