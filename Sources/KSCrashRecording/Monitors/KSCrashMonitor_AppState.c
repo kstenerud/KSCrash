@@ -314,7 +314,15 @@ static void updateAppState(void)
 
 void kscrashstate_initialize(const char *const stateFilePath)
 {
+    if (g_stateFilePath != NULL) {
+        free((void *)g_stateFilePath);
+    }
     g_stateFilePath = strdup(stateFilePath);
+
+    // Clear state before loading - ensures clean state if file doesn't exist
+    memset(&g_state, 0, sizeof(g_state));
+    g_state.appStateTransitionTime = getCurrentTime();
+
     loadState(g_stateFilePath);
 }
 
