@@ -35,7 +35,7 @@ public struct CrashTriggerConfig: Codable {
     }
 }
 
-extension CrashTriggerId: Codable {
+extension CrashTriggerId: @retroactive Codable {
 }
 
 extension CrashTriggerConfig {
