@@ -46,6 +46,8 @@
 // #define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
 
+#import <limits.h>
+
 @class KSHangMonitor;
 
 // ============================================================================
@@ -61,6 +63,12 @@ static KSHangMonitor *g_watchdog = nil;
 static KSThread g_mainQueueThread = 0;
 
 static KSCrash_ExceptionHandlerCallbacks g_callbacks = { 0 };
+
+// Async-signal-safe cancellation state
+// When non-NULL, points to g_hangReportPathBuffer containing the active hang report path.
+// Set to NULL when hang is cancelled or ended normally.
+static _Atomic(const char *) g_hangReportPath = NULL;
+static char g_hangReportPathBuffer[PATH_MAX];
 
 // ============================================================================
 #pragma mark - Watchdog and utilities -
@@ -224,6 +232,29 @@ static int TaskRole(void)
     }
 }
 
+// Checks if the hang was cancelled by another crash handler.
+// If the global path was cleared (by async-signal-safe cancellation),
+// we clean up our Obj-C state. Called from watchdog thread, NOT signal-safe.
+- (BOOL)_wasHangCancelled
+{
+    const char *path = atomic_load(&g_hangReportPath);
+
+    __block BOOL wasCancelled = NO;
+    [_lock withLock:^{
+        // If we have a hang with a path, but the global path is NULL,
+        // then another crash handler cancelled us
+        if (self->_hang != nil && self->_hang.path != nil && path == NULL) {
+            self->_hang = nil;
+            wasCancelled = YES;
+        }
+    }];
+
+    if (wasCancelled) {
+        KSLOG_DEBUG(@"[HANG] Detected cancellation from another crash");
+    }
+    return wasCancelled;
+}
+
 // Adds a hang observer. Returns a token that must be retained to keep the observer active.
 - (id)addObserver:(KSHangObserverBlock)observer
 {
@@ -331,6 +362,11 @@ static int TaskRole(void)
 {
     assert(pthread_equal(pthread_self(), _watchdogThread));
 
+    // Check if hang was cancelled by another crash
+    if ([self _wasHangCancelled]) {
+        return;
+    }
+
     const uint64_t thresholdInNs = (uint64_t)(_threshold * 1000000000);
     uint64_t now = MonotonicUptime();
     uint64_t hangTime = now - enterTime;
@@ -405,6 +441,11 @@ static int TaskRole(void)
 
 - (void)_writeUpdatedReport
 {
+    // Check if hang was cancelled by another crash
+    if ([self _wasHangCancelled]) {
+        return;
+    }
+
     __block NSDictionary<NSString *, id> *decodedReport = nil;
     __block NSString *path = nil;
     __block uint64_t timestampStart = 0;
@@ -446,6 +487,9 @@ static int TaskRole(void)
 
 - (void)_endOwnedHang:(KSHang *)hang
 {
+    // Clear global path since hang is ending normally
+    atomic_store(&g_hangReportPath, NULL);
+
     if (hang.path == nil && hang.decodedReport == nil) {
         if (_reportsHangs) {
             // Hang has recovered but we report non-fatal hangs
@@ -559,6 +603,11 @@ static int TaskRole(void)
                 hang.reportId = result.reportId;
                 hang.path = @(result.path);
                 hang.decodedReport = DecodeReport(hang.path);
+
+                // Set global path for async-signal-safe cancellation
+                // Copy to buffer first, then atomically publish the pointer
+                strlcpy(g_hangReportPathBuffer, result.path, sizeof(g_hangReportPathBuffer));
+                atomic_store(&g_hangReportPath, g_hangReportPathBuffer);
             } else {
                 // Hang was ended and possibly a new one started - discard our work
                 KSLOG_DEBUG(@"[HANG] hang changed during report population - discarding");
@@ -637,6 +686,21 @@ const char *kscm_stringFromRole(int /*task_role_t*/ role)
 // See header for documentation.
 id kscm_watchdogAddHangObserver(KSHangObserverBlock observer) { return [g_watchdog addObserver:observer]; }
 
+static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext)
+{
+    // If we're currently in a hang and a fatal report comes in,
+    // we need to cancel the hang and delete its report.
+    // This function must be async-signal-safe as it can be called from signal handlers.
+    if (eventContext->requirements.isFatal && strcmp(eventContext->monitorId, monitorId()) != 0) {
+        // Atomically get and clear the path pointer.
+        // If it was non-NULL, unlink the file. Both atomic_exchange and unlink are async-signal-safe.
+        const char *path = atomic_exchange(&g_hangReportPath, NULL);
+        if (path != NULL) {
+            unlink(path);
+        }
+    }
+}
+
 KSCrashMonitorAPI *kscm_watchdog_getAPI(void)
 {
     static KSCrashMonitorAPI api = { 0 };
@@ -646,6 +710,7 @@ KSCrashMonitorAPI *kscm_watchdog_getAPI(void)
         api.monitorFlags = monitorFlags;
         api.setEnabled = setEnabled;
         api.isEnabled = isEnabled;
+        api.addContextualInfoToEvent = addContextualInfoToEvent;
     }
     return &api;
 }
