@@ -36,6 +36,7 @@
 #include "KSCrashNamespace.h"
 #include "KSCrashReportWriter.h"
 #include "KSCrashReportWriterCallbacks.h"
+#include "KSSystemCapabilities.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -131,7 +132,7 @@ typedef struct {
      * The watchdog monitor provides better hang detection with a fixed 250ms threshold.
      */
     double deadlockWatchdogInterval
-        __attribute__((deprecated("Use `KSCrashMonitorTypeWatchdog` in the `monitors` field instead")));
+        KSCRASH_DEPRECATED("Use `KSCrashMonitorTypeWatchdog` in the `monitors` field instead");
 #pragma clang diagnostic pop
 
     /** If true, attempt to fetch dispatch queue names for each running thread.
