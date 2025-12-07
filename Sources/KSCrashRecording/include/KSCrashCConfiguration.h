@@ -130,9 +130,8 @@ typedef struct {
      * @note Deprecated. Use `KSCrashMonitorTypeWatchdog` in the `monitors` field instead.
      * The watchdog monitor provides better hang detection with a fixed 250ms threshold.
      */
-    double deadlockWatchdogInterval KSCRASH_DEPRECATED(
-        "Deprecated. Use `KSCrashMonitorTypeWatchdog` in the `monitors` field instead. The watchdog monitor provides "
-        "better hang detection with a fixed 250ms threshold.");
+    double deadlockWatchdogInterval
+        __attribute__((deprecated("Use `KSCrashMonitorTypeWatchdog` in the `monitors` field instead")));
 #pragma clang diagnostic pop
 
     /** If true, attempt to fetch dispatch queue names for each running thread.
