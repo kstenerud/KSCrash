@@ -63,7 +63,7 @@ NS_SWIFT_NAME(AppMemoryTracker)
  *
  *@return An object that when set to nil will remove the observer.
  */
-- (id)addObserverWithBlock:(KSCrashAppMemoryTrackerObserverBlock)block;
+- (nonnull id)addObserverWithBlock:(KSCrashAppMemoryTrackerObserverBlock)block;
 
 /**
  * Start the tracker.
