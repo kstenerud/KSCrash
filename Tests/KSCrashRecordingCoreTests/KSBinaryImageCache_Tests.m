@@ -39,8 +39,12 @@
 - (void)setUp
 {
     [super setUp];
+    extern void ksbic_resetCache(void);
     ksbic_resetCache();
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     ksbic_init();
+#pragma clang diagnostic pop
 }
 
 - (void)tearDown
