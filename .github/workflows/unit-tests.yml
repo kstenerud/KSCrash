@@ -33,21 +33,21 @@ jobs:
             xcode-version: "latest-stable"
             macos-version: "15"
           - platform: iOS
-            platform-version: ~16.4.0
+            platform-version: ~17.5.0
             macos-version: "14"
             xcode-version: "16.2"
 
           - platform: watchOS
             macos-version: "15"
           - platform: watchOS
-            platform-version: ~9.4.0
+            platform-version: ~10.5.0
             macos-version: "14"
             xcode-version: "16.2"
 
           - platform: tvOS
             macos-version: "15"
           - platform: tvOS
-            platform-version: ~16.4.0
+            platform-version: ~17.5.0
             macos-version: "14"
             xcode-version: "16.2"
 
