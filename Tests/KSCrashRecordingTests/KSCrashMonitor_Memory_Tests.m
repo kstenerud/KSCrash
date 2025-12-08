@@ -315,4 +315,35 @@ static KSCrashAppMemory *Memory(uint64_t footprint)
     XCTAssertEqual(ksmemory_get_nonfatal_report_level(), KSCrashAppMemoryStateUrgent);
 }
 
+- (void)testRapidEnableDisableCycles
+{
+    // Test rapid enable/disable cycles to ensure proper cleanup
+    // This helps catch issues with memory mapping/unmapping
+    KSCrashMonitorAPI *api = kscm_memory_getAPI();
+
+    for (int i = 0; i < 10; i++) {
+        api->setEnabled(true);
+        XCTAssertTrue(api->isEnabled());
+        api->setEnabled(false);
+        XCTAssertFalse(api->isEnabled());
+    }
+}
+
+- (void)testEnableDisableWithoutInitialize
+{
+    // Test that enable/disable handles edge cases gracefully
+    KSCrashMonitorAPI *api = kscm_memory_getAPI();
+
+    // Should handle being disabled when already disabled
+    api->setEnabled(false);
+    XCTAssertFalse(api->isEnabled());
+
+    // Enable then disable
+    api->setEnabled(true);
+    XCTAssertTrue(api->isEnabled());
+    [NSThread sleepForTimeInterval:0.05];
+    api->setEnabled(false);
+    XCTAssertFalse(api->isEnabled());
+}
+
 @end
