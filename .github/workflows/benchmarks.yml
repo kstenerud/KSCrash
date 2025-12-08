@@ -1,0 +1,339 @@
+name: Benchmarks
+
+on:
+  pull_request:
+    paths:
+      - "Sources/**"
+      - "Tests/KSCrashBenchmarks/**"
+      - "Package.swift"
+      - ".github/workflows/benchmarks.yml"
+
+  push:
+    branches:
+      - master
+
+  workflow_dispatch:
+
+  schedule:
+    - cron: "0 0 * * 0"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout PR Branch
+        uses: actions/checkout@v4
+        with:
+          path: pr-branch
+
+      - name: Checkout Base Branch
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.base_ref }}
+          path: base-branch
+
+      - name: Use Latest Stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Run PR Benchmarks
+        working-directory: pr-branch
+        run: |
+          swift test --filter KSCrashBenchmarks 2>&1 | tee ../pr_benchmark_output.txt
+
+      - name: Run Base Benchmarks
+        if: github.event_name == 'pull_request'
+        working-directory: base-branch
+        run: |
+          # Check if benchmarks exist in base branch
+          if [ -d "Tests/KSCrashBenchmarks" ] && grep -q "KSCrashBenchmarks" Package.swift; then
+            swift test --filter KSCrashBenchmarks 2>&1 | tee ../base_benchmark_output.txt
+          else
+            echo "No benchmarks in base branch" > ../base_benchmark_output.txt
+          fi
+
+      - name: Parse and Format Results
+        env:
+          IS_PR: ${{ github.event_name == 'pull_request' }}
+        run: |
+          python3 << 'EOF'
+          import re
+          import os
+          from datetime import datetime
+          import subprocess
+
+          is_pr = os.environ.get('IS_PR', 'false') == 'true'
+
+          # Get system info
+          try:
+              chip = subprocess.check_output(['sysctl', '-n', 'machdep.cpu.brand_string']).decode().strip()
+          except:
+              chip = subprocess.check_output(['uname', '-m']).decode().strip()
+
+          try:
+              mem_bytes = int(subprocess.check_output(['sysctl', '-n', 'hw.memsize']).decode().strip())
+              mem_gb = mem_bytes / (1024**3)
+          except:
+              mem_gb = 0
+
+          try:
+              macos_ver = subprocess.check_output(['sw_vers', '-productVersion']).decode().strip()
+          except:
+              macos_ver = "Unknown"
+
+          try:
+              xcode_ver = subprocess.check_output(['xcodebuild', '-version']).decode().split('\n')[0]
+          except:
+              xcode_ver = "Unknown"
+
+          system_info = f"{chip}, {mem_gb:.0f}GB RAM, macOS {macos_ver}, {xcode_ver}"
+
+          def parse_results(filename):
+              """Parse benchmark output file and return dict of results"""
+              try:
+                  with open(filename, 'r') as f:
+                      content = f.read()
+                  if "No benchmarks in base branch" in content:
+                      return None
+                  pattern = r"testBenchmark(\w+).*?average: ([\d.]+)"
+                  matches = re.findall(pattern, content)
+                  return {name: float(time) for name, time in matches}
+              except FileNotFoundError:
+                  return None
+
+          # Read PR benchmark output
+          pr_results = parse_results('pr_benchmark_output.txt')
+          base_results = parse_results('base_benchmark_output.txt') if is_pr else None
+
+          with open('pr_benchmark_output.txt', 'r') as f:
+              pr_content = f.read()
+
+          def format_time(seconds):
+              """Format time in human-readable units"""
+              us = seconds * 1_000_000
+              if us < 1:
+                  return "<1 μs"
+              elif us < 1000:
+                  return f"{us:.1f} μs"
+              else:
+                  return f"{us/1000:.2f} ms"
+
+          def get_status(seconds, excellent=0.001, good=0.005, ok=0.010):
+              """Get status emoji based on time thresholds"""
+              if seconds < excellent:
+                  return "✅ Excellent"
+              elif seconds < good:
+                  return "✅ Good"
+              elif seconds < ok:
+                  return "⚠️ OK"
+              else:
+                  return "❌ Review"
+
+          def get_change(base, pr):
+              """Calculate percentage change and return formatted string"""
+              if base == 0:
+                  return "N/A"
+              pct = ((pr - base) / base) * 100
+              if pct > 10:
+                  return f"⚠️ +{pct:.1f}%"
+              elif pct < -10:
+                  return f"✅ {pct:.1f}%"
+              else:
+                  return f"{pct:+.1f}%"
+
+          # Start markdown output
+          output = ["# 🔍 KSCrash Performance Benchmarks\n"]
+          output.append("*Crash capture performance metrics - lower times are better*\n")
+          output.append(f"**Test Environment:** {system_info}\n")
+
+          # All test definitions
+          all_tests = {
+              "SameThreadBacktrace": "Same thread capture",
+              "OtherThreadBacktrace": "Cross-thread capture",
+              "BacktraceTypicalDepth": "Typical depth (50 frames)",
+              "SymbolicateSingleAddress": "Symbolicate (1 address)",
+              "SymbolicateFullStack": "Symbolicate (20 frames)",
+              "CaptureAndSymbolicate": "Capture + symbolicate",
+              "IsMemoryReadableSmall": "Check readable (64B)",
+              "IsMemoryReadablePage": "Check readable (4KB)",
+              "IsMemoryReadableLarge": "Check readable (64KB)",
+              "CopySafelySmall": "Safe copy (64B)",
+              "CopySafelyPage": "Safe copy (4KB)",
+              "CopySafelyLarge": "Safe copy (32KB)",
+              "CopyMaxPossible": "Copy max possible",
+              "MaxReadableBytesValid": "Find max readable",
+              "TypicalCrashMemoryDump": "Typical crash dump",
+              "EncodeIntegers": "Encode integers",
+              "EncodeFloats": "Encode floats",
+              "EncodeBooleans": "Encode booleans",
+              "EncodeShortStrings": "Encode short strings",
+              "EncodeLongStrings": "Encode long strings",
+              "EncodeStringsWithEscaping": "Encode escaped strings",
+              "EncodeNestedObjects": "Encode nested objects",
+              "EncodeArrays": "Encode arrays",
+              "EncodeHexData": "Encode hex data",
+              "EncodeTypicalCrashReport": "Full crash report",
+              "ThreadSelf": "Get current thread",
+              "GetThreadName": "Get thread name",
+              "GetThreadState": "Get thread state",
+              "ThreadStateName": "State to string",
+              "GetQueueName": "Get queue name",
+              "GatherThreadInfo": "Gather all thread info",
+              "ThreadOpsWithConcurrency": "Ops under contention",
+          }
+
+          # Comparison section (only for PRs with base results)
+          if is_pr and base_results:
+              output.append("## 📊 Changes from Base Branch\n")
+              output.append("| Operation | Base | PR | Change |")
+              output.append("|-----------|------|-----|--------|")
+
+              changes = []
+              for test_name, desc in all_tests.items():
+                  if test_name in pr_results and test_name in base_results:
+                      base_t = base_results[test_name]
+                      pr_t = pr_results[test_name]
+                      change = get_change(base_t, pr_t)
+                      pct = ((pr_t - base_t) / base_t) * 100 if base_t > 0 else 0
+                      changes.append((abs(pct), f"| {desc} | {format_time(base_t)} | {format_time(pr_t)} | {change} |"))
+
+              # Sort by absolute change, show top changes
+              changes.sort(reverse=True)
+              for _, row in changes[:15]:  # Show top 15 changes
+                  output.append(row)
+
+              if len(changes) > 15:
+                  output.append(f"\n*Showing top 15 of {len(changes)} benchmarks by change magnitude*")
+              output.append("")
+          elif is_pr and not base_results:
+              output.append("## 📊 Changes from Base Branch\n")
+              output.append("*No benchmarks in base branch - showing PR results only*\n")
+
+          # Backtrace section
+          output.append("## Stack Capture (KSBacktrace)\n")
+          output.append("| Operation | Time | Status | Notes |")
+          output.append("|-----------|------|--------|-------|")
+
+          backtrace_tests = {
+              "SameThreadBacktrace": ("Same thread capture", "Fast path, no suspension"),
+              "OtherThreadBacktrace": ("Cross-thread capture", "Requires thread suspension"),
+              "BacktraceTypicalDepth": ("Typical depth (50 frames)", "Common crash scenario"),
+              "SymbolicateSingleAddress": ("Symbolicate (1 address)", "Single frame lookup"),
+              "SymbolicateFullStack": ("Symbolicate (20 frames)", "Full stack resolution"),
+              "CaptureAndSymbolicate": ("Capture + symbolicate", "Complete crash flow"),
+          }
+
+          for test_name, (desc, notes) in backtrace_tests.items():
+              if test_name in pr_results:
+                  t = pr_results[test_name]
+                  status = get_status(t, excellent=0.0001, good=0.001, ok=0.005)
+                  output.append(f"| {desc} | {format_time(t)} | {status} | {notes} |")
+
+          # Memory section
+          output.append("\n## Safe Memory Operations (KSMemory)\n")
+          output.append("| Operation | Time | Per-Call | Status |")
+          output.append("|-----------|------|----------|--------|")
+
+          memory_tests = {
+              "IsMemoryReadableSmall": ("Check readable (64B)", 1000),
+              "IsMemoryReadablePage": ("Check readable (4KB)", 1000),
+              "IsMemoryReadableLarge": ("Check readable (64KB)", 100),
+              "CopySafelySmall": ("Safe copy (64B)", 1000),
+              "CopySafelyPage": ("Safe copy (4KB)", 1000),
+              "CopySafelyLarge": ("Safe copy (32KB)", 100),
+              "CopyMaxPossible": ("Copy max possible (4KB)", 100),
+              "MaxReadableBytesValid": ("Find max readable", 100),
+              "TypicalCrashMemoryDump": ("Typical crash dump (8KB)", 1),
+          }
+
+          for test_name, (desc, iterations) in memory_tests.items():
+              if test_name in pr_results:
+                  t = pr_results[test_name]
+                  per_call = t / iterations
+                  status = get_status(per_call, excellent=0.000001, good=0.00001, ok=0.0001)
+                  output.append(f"| {desc} | {format_time(t)} | {format_time(per_call)} | {status} |")
+
+          # JSON section
+          output.append("\n## JSON Encoding (KSJSONCodec)\n")
+          output.append("| Operation | Time | Status | Notes |")
+          output.append("|-----------|------|--------|-------|")
+
+          json_tests = {
+              "EncodeIntegers": ("Encode integers (100)", "Numeric fields"),
+              "EncodeFloats": ("Encode floats (100)", "Floating point"),
+              "EncodeBooleans": ("Encode booleans (100)", "Boolean fields"),
+              "EncodeShortStrings": ("Encode short strings (100)", "~13 chars each"),
+              "EncodeLongStrings": ("Encode long strings (50)", "~520 chars each"),
+              "EncodeStringsWithEscaping": ("Encode escaped strings (100)", "Special chars"),
+              "EncodeNestedObjects": ("Encode nested objects (20)", "Thread-like structure"),
+              "EncodeArrays": ("Encode arrays (50 items)", "Backtrace addresses"),
+              "EncodeHexData": ("Encode hex data (10×256B)", "Memory dumps"),
+              "EncodeTypicalCrashReport": ("Full crash report", "10 threads, 30 frames each"),
+          }
+
+          for test_name, (desc, notes) in json_tests.items():
+              if test_name in pr_results:
+                  t = pr_results[test_name]
+                  status = get_status(t, excellent=0.0005, good=0.002, ok=0.010)
+                  output.append(f"| {desc} | {format_time(t)} | {status} | {notes} |")
+
+          # Thread section
+          output.append("\n## Thread Operations (KSThread)\n")
+          output.append("| Operation | Time | Per-Call | Status |")
+          output.append("|-----------|------|----------|--------|")
+
+          thread_tests = {
+              "ThreadSelf": ("Get current thread", 10000),
+              "GetThreadName": ("Get thread name", 1000),
+              "GetThreadState": ("Get thread state", 1000),
+              "ThreadStateName": ("State to string", 10000),
+              "GetQueueName": ("Get queue name", 1000),
+              "GatherThreadInfo": ("Gather all thread info", 100),
+              "ThreadOpsWithConcurrency": ("Ops under contention", 1000),
+          }
+
+          for test_name, (desc, iterations) in thread_tests.items():
+              if test_name in pr_results:
+                  t = pr_results[test_name]
+                  per_call = t / iterations
+                  status = get_status(per_call, excellent=0.0000005, good=0.000005, ok=0.00001)
+                  output.append(f"| {desc} | {format_time(t)} | {format_time(per_call)} | {status} |")
+
+          # Performance guide
+          output.append("\n## Performance Guidelines")
+          output.append("### Crash Capture Budget")
+          output.append("- ✅ **Excellent**: Operations complete in microseconds")
+          output.append("- ✅ **Good**: Acceptable for crash-time execution")
+          output.append("- ⚠️ **OK**: May impact crash capture latency")
+          output.append("- ❌ **Review**: Too slow for crash-time, consider optimization")
+          output.append("\n*Goal: Complete crash capture <100ms to minimize data loss risk*")
+
+          # Summary
+          total_tests = len(pr_results) if pr_results else 0
+          passed = len(re.findall(r"Test Case.*passed", pr_content))
+          output.append(f"\n---\n**{total_tests} benchmarks** | {passed} tests passed | _Generated {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}_")
+
+          # Write to file
+          with open('benchmark_results.md', 'w') as f:
+              f.write('\n'.join(output))
+
+          print('\n'.join(output))
+          EOF
+
+      - name: Comment PR with Results
+        if: github.event_name == 'pull_request'
+        uses: thollander/actions-comment-pull-request@v2
+        with:
+          filePath: benchmark_results.md
+          comment_tag: benchmark-results
