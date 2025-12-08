@@ -73,10 +73,9 @@ bool ksbt_symbolicateAddress(uintptr_t address, struct KSSymbolInformation *resu
         return false;
     }
 
-    // initalize the binary image cache.
-    // this has an atomic check so isn't expensive
-    // except for the first call.
-    ksbic_init();
+    // Initialize the dynamic linker (and binary image cache).
+    // This has an atomic check so isn't expensive except for the first call.
+    ksdl_init();
 
     uintptr_t untaggedAddress = kssymbolicator_callInstructionAddress(address);
 

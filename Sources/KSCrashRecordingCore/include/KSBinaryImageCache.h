@@ -48,14 +48,49 @@ extern "C" {
 typedef struct dyld_image_info ks_dyld_image_info;
 
 /** Initialize the binary image cache.
- * Should be called during KSCrash activation.
+ * @deprecated Use ksdl_init() instead, which initializes both symbol and image caches.
  */
-void ksbic_init(void);
+__attribute__((deprecated("Use ksdl_init() instead"))) void ksbic_init(void);
 
 /**
  * Get a C array of _count_ `ks_dyld_image_info`.
  */
 const ks_dyld_image_info *_Nullable ksbic_getImages(uint32_t *_Nullable count);
+
+/**
+ * Find the binary image containing the given address.
+ *
+ * Uses a lazily-populated cache with lock-free exclusive access.
+ * The cache pointer is atomically swapped to NULL during use, so concurrent
+ * callers fall back to linear scan without blocking.
+ *
+ * This function is async-signal-safe.
+ *
+ * @param address The memory address to search for.
+ * @param outSlide If not NULL and found, receives the pre-computed ASLR slide.
+ * @param outName If not NULL and found, receives the image file path.
+ * @return The mach_header of the containing image, or NULL if not found.
+ */
+const struct mach_header *_Nullable ksbic_findImageForAddress(uintptr_t address, uintptr_t *_Nullable outSlide,
+                                                              const char *_Nullable *_Nullable outName);
+
+/**
+ * Find the binary image containing the given address with full details.
+ *
+ * Same as ksbic_findImageForAddress but also returns the segment base
+ * needed for symbol table lookups.
+ *
+ * This function is async-signal-safe.
+ *
+ * @param address The memory address to search for.
+ * @param outSlide If not NULL and found, receives the pre-computed ASLR slide.
+ * @param outSegmentBase If not NULL and found, receives the segment base for symbol lookups.
+ * @param outName If not NULL and found, receives the image file path.
+ * @return The mach_header of the containing image, or NULL if not found.
+ */
+const struct mach_header *_Nullable ksbic_getImageDetailsForAddress(uintptr_t address, uintptr_t *_Nullable outSlide,
+                                                                    uintptr_t *_Nullable outSegmentBase,
+                                                                    const char *_Nullable *_Nullable outName);
 
 #ifdef __cplusplus
 }

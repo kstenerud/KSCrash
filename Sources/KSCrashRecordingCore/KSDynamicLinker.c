@@ -31,12 +31,83 @@
 #include <mach-o/getsect.h>
 #include <mach-o/nlist.h>
 #include <mach-o/stab.h>
+#include <stdatomic.h>
 #include <string.h>
 
 #include "KSBinaryImageCache.h"
 #include "KSLogger.h"
 #include "KSMemory.h"
 #include "KSPlatformSpecificDefines.h"
+
+// MARK: - Symbol Cache
+//
+// Caches Dl_info results to avoid repeated symbol table scans.
+// Uses the same async-signal-safe pattern as KSBinaryImageCache:
+// - Pre-allocated static storage (no malloc)
+// - Atomic pointer swap for lock-free exclusive access
+// - Non-blocking fallback when cache is in use
+
+#define KSDL_SYMBOL_CACHE_SIZE 2048
+
+typedef struct {
+    uintptr_t address;       // The looked-up address (key)
+    uintptr_t symbolAddr;    // dli_saddr
+    const char *symbolName;  // dli_sname (points into Mach-O string table)
+    const char *imageName;   // dli_fname (points into dyld info)
+    const void *imageBase;   // dli_fbase
+    uint8_t hits;            // Hit count for eviction (0-255, saturating)
+} KSSymbolCacheEntry;
+
+typedef struct {
+    KSSymbolCacheEntry entries[KSDL_SYMBOL_CACHE_SIZE];
+    uint32_t count;  // Number of valid entries
+} KSSymbolCache;
+
+static KSSymbolCache g_symbol_cache_storage = { .count = 0 };
+static _Atomic(KSSymbolCache *) g_symbol_cache_ptr = NULL;
+static _Atomic(bool) g_initialized = false;
+
+// Declared in KSBinaryImageCache.c (not in public header)
+extern void ksbic_resetCache(void);
+
+void ksdl_init(void)
+{
+    // Only initialize once
+    if (atomic_exchange(&g_initialized, true)) {
+        return;
+    }
+
+// Initialize the binary image cache first (we depend on it)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    ksbic_init();
+#pragma clang diagnostic pop
+
+    // Initialize the symbol cache
+    g_symbol_cache_storage.count = 0;
+    atomic_store(&g_symbol_cache_ptr, &g_symbol_cache_storage);
+}
+
+void ksdl_resetCache(void)
+{
+    // Reset binary image cache first (it has its own locking)
+    ksbic_resetCache();
+
+    // Acquire exclusive access to the symbol cache before resetting
+    KSSymbolCache *cache = atomic_exchange(&g_symbol_cache_ptr, NULL);
+    if (cache != NULL) {
+        cache->count = 0;
+        atomic_store(&g_symbol_cache_ptr, cache);
+    } else {
+        // Cache is in use by another thread - reset storage directly
+        // and restore pointer (the other thread will see stale data but
+        // that's acceptable for a reset operation)
+        g_symbol_cache_storage.count = 0;
+        atomic_store(&g_symbol_cache_ptr, &g_symbol_cache_storage);
+    }
+
+    atomic_store(&g_initialized, false);
+}
 
 #ifndef KSDL_MaxCrashInfoStringLength
 #define KSDL_MaxCrashInfoStringLength 4096
@@ -59,53 +130,6 @@ typedef struct {
 #include <mach-o/loader.h>
 #include <stdint.h>
 #include <string.h>
-
-static uintptr_t vmSlideFromHeader(const struct mach_header *mh)
-{
-    uintptr_t load_addr = (uintptr_t)mh;
-
-    if (mh->magic == MH_MAGIC_64) {
-        const struct mach_header_64 *mh64 = (const struct mach_header_64 *)mh;
-        uintptr_t ptr = (uintptr_t)(mh64 + 1);
-
-        for (uint32_t i = 0; i < mh64->ncmds; i++) {
-            const struct load_command *lc = (const struct load_command *)ptr;
-
-            if (lc->cmd == LC_SEGMENT_64) {
-                // Ensure safe cast via alignment assumption
-                const struct segment_command_64 *seg = (const struct segment_command_64 *)__builtin_assume_aligned(
-                    lc, __alignof(struct segment_command_64));
-
-                if (strcmp(seg->segname, "__TEXT") == 0) {
-                    return load_addr - (uintptr_t)(seg->vmaddr);
-                }
-            }
-
-            ptr += lc->cmdsize;
-        }
-
-    } else if (mh->magic == MH_MAGIC) {
-        const struct mach_header *mh32 = mh;
-        uintptr_t ptr = (uintptr_t)(mh32 + 1);
-
-        for (uint32_t i = 0; i < mh32->ncmds; i++) {
-            const struct load_command *lc = (const struct load_command *)ptr;
-
-            if (lc->cmd == LC_SEGMENT) {
-                const struct segment_command *seg =
-                    (const struct segment_command *)__builtin_assume_aligned(lc, __alignof(struct segment_command));
-
-                if (strcmp(seg->segname, "__TEXT") == 0) {
-                    return load_addr - (uintptr_t)(seg->vmaddr);
-                }
-            }
-
-            ptr += lc->cmdsize;
-        }
-    }
-
-    return 0;
-}
 
 /** Get the address of the first command following a header (which will be of
  * type struct load_command).
@@ -130,115 +154,32 @@ static uintptr_t firstCmdAfterHeader(const struct mach_header *const header)
     }
 }
 
-/** Get the image header that the specified address is part of.
- *
- * @param address The address to examine.
- * @param outName On output, the name if the header in question.
- * @return The header of the image, or NULL if none was found.
+/** Perform the actual symbol lookup without caching.
+ *  This scans the symbol table to find the closest symbol to the given address.
  */
-static const struct mach_header *imageContainingAddress(const uintptr_t address, char **outName)
-{
-    uint32_t count = 0;
-    const ks_dyld_image_info *images = ksbic_getImages(&count);
-    const struct mach_header *header = NULL;
-
-    if (!images) {
-        return NULL;
-    }
-
-    for (uint32_t iImg = 0; iImg < count; iImg++) {
-        header = images[iImg].imageLoadAddress;
-        if (header != NULL) {
-            // Look for a segment command with this address within its range.
-            uintptr_t addressWSlide = address - vmSlideFromHeader(header);
-            uintptr_t cmdPtr = firstCmdAfterHeader(header);
-            if (cmdPtr == 0) {
-                continue;
-            }
-            for (uint32_t iCmd = 0; iCmd < header->ncmds; iCmd++) {
-                const struct load_command *loadCmd = (struct load_command *)cmdPtr;
-                if (loadCmd->cmd == LC_SEGMENT) {
-                    const struct segment_command *segCmd = (struct segment_command *)cmdPtr;
-                    if (addressWSlide >= segCmd->vmaddr && addressWSlide < segCmd->vmaddr + segCmd->vmsize) {
-                        if (outName) {
-                            *outName = (char *)images[iImg].imageFilePath;
-                        }
-                        return header;
-                    }
-                } else if (loadCmd->cmd == LC_SEGMENT_64) {
-                    const struct segment_command_64 *segCmd = (struct segment_command_64 *)cmdPtr;
-                    if (addressWSlide >= segCmd->vmaddr && addressWSlide < segCmd->vmaddr + segCmd->vmsize) {
-                        if (outName) {
-                            *outName = (char *)images[iImg].imageFilePath;
-                        }
-                        return header;
-                    }
-                }
-                cmdPtr += loadCmd->cmdsize;
-            }
-        }
-    }
-    return NULL;
-}
-
-/** Get the segment base address of the specified image.
- *
- * This is required for any symtab command offsets.
- *
- * @param header The image header.
- * @return The image's base address, or 0 if none was found.
- */
-static uintptr_t segmentBaseOfImage(const struct mach_header *header)
-{
-    if (header == NULL) {
-        return 0;
-    }
-
-    // Look for a segment command and return the file image address.
-    uintptr_t cmdPtr = firstCmdAfterHeader(header);
-    if (cmdPtr == 0) {
-        return 0;
-    }
-    for (uint32_t i = 0; i < header->ncmds; i++) {
-        const struct load_command *loadCmd = (struct load_command *)cmdPtr;
-        if (loadCmd->cmd == LC_SEGMENT) {
-            const struct segment_command *segmentCmd = (struct segment_command *)cmdPtr;
-            if (strcmp(segmentCmd->segname, SEG_LINKEDIT) == 0) {
-                return segmentCmd->vmaddr - segmentCmd->fileoff;
-            }
-        } else if (loadCmd->cmd == LC_SEGMENT_64) {
-            const struct segment_command_64 *segmentCmd = (struct segment_command_64 *)cmdPtr;
-            if (strcmp(segmentCmd->segname, SEG_LINKEDIT) == 0) {
-                return (uintptr_t)(segmentCmd->vmaddr - segmentCmd->fileoff);
-            }
-        }
-        cmdPtr += loadCmd->cmdsize;
-    }
-
-    return 0;
-}
-
-bool ksdl_dladdr(const uintptr_t address, Dl_info *const info)
+static bool ksdl_dladdr_uncached(const uintptr_t address, Dl_info *const info)
 {
     info->dli_fname = NULL;
     info->dli_fbase = NULL;
     info->dli_sname = NULL;
     info->dli_saddr = NULL;
 
-    char *name = NULL;
-    const struct mach_header *header = imageContainingAddress(address, &name);
+    uintptr_t imageVMAddrSlide = 0;
+    uintptr_t imageSegmentBase = 0;
+    const char *name = NULL;
+    const struct mach_header *header =
+        ksbic_getImageDetailsForAddress(address, &imageVMAddrSlide, &imageSegmentBase, &name);
     if (header == NULL) {
         return false;
     }
 
-    const uintptr_t imageVMAddrSlide = vmSlideFromHeader(header);
     const uintptr_t addressWithSlide = address - imageVMAddrSlide;
-    const uintptr_t segmentBase = segmentBaseOfImage(header) + imageVMAddrSlide;
+    const uintptr_t segmentBase = imageSegmentBase + imageVMAddrSlide;
     if (segmentBase == 0) {
         return false;
     }
 
-    info->dli_fname = name;
+    info->dli_fname = (char *)name;
     info->dli_fbase = (void *)header;
 
     // Find symbol tables and get whichever symbol is closest to the address.
@@ -268,6 +209,9 @@ bool ksdl_dladdr(const uintptr_t address, Dl_info *const info)
                     if ((addressWithSlide >= symbolBase) && (currentDistance <= bestDistance)) {
                         bestMatch = symbolTable + iSym;
                         bestDistance = currentDistance;
+                        if (currentDistance == 0) {
+                            break;  // Exact match - can't do better
+                        }
                     }
                 }
             }
@@ -290,6 +234,77 @@ bool ksdl_dladdr(const uintptr_t address, Dl_info *const info)
     }
 
     return true;
+}
+
+bool ksdl_dladdr(const uintptr_t address, Dl_info *const info)
+{
+    // Try to acquire exclusive access to the cache
+    KSSymbolCache *cache = atomic_exchange(&g_symbol_cache_ptr, NULL);
+
+    if (cache != NULL) {
+        // SUCCESS: We have exclusive access to the cache
+
+        // Single pass: search for hit AND track min-hits for potential eviction
+        uint32_t minHitsIdx = 0;
+        uint8_t minHits = 255;
+
+        for (uint32_t i = 0; i < cache->count; i++) {
+            if (cache->entries[i].address == address) {
+                // Cache hit - populate info from cache
+                KSSymbolCacheEntry *entry = &cache->entries[i];
+                info->dli_fname = (char *)entry->imageName;
+                info->dli_fbase = (void *)entry->imageBase;
+                info->dli_sname = (char *)entry->symbolName;
+                info->dli_saddr = (void *)entry->symbolAddr;
+
+                // Increment hit count (saturating at 255)
+                if (entry->hits < 255) {
+                    entry->hits++;
+                }
+
+                // Release the cache
+                atomic_store(&g_symbol_cache_ptr, cache);
+                return true;
+            }
+
+            // Track lowest hits for potential eviction
+            if (cache->entries[i].hits < minHits) {
+                minHits = cache->entries[i].hits;
+                minHitsIdx = i;
+            }
+        }
+
+        // Cache miss - do the full lookup
+        bool result = ksdl_dladdr_uncached(address, info);
+
+        if (result) {
+            // Add to cache
+            uint32_t idx;
+            if (cache->count < KSDL_SYMBOL_CACHE_SIZE) {
+                // Cache not full - use next slot
+                idx = cache->count;
+                cache->count++;
+            } else {
+                // Cache full - evict entry with lowest hits (already found above)
+                idx = minHitsIdx;
+            }
+
+            cache->entries[idx].address = address;
+            cache->entries[idx].symbolAddr = (uintptr_t)info->dli_saddr;
+            cache->entries[idx].symbolName = info->dli_sname;
+            cache->entries[idx].imageName = info->dli_fname;
+            cache->entries[idx].imageBase = info->dli_fbase;
+            cache->entries[idx].hits = 1;
+        }
+
+        // Release the cache
+        atomic_store(&g_symbol_cache_ptr, cache);
+        return result;
+    } else {
+        // FAILED: Cache is in use by another caller
+        // Fall back to uncached lookup
+        return ksdl_dladdr_uncached(address, info);
+    }
 }
 
 static bool isValidCrashInfoMessage(const char *str)
@@ -366,10 +381,11 @@ bool ksdl_binaryImageForHeader(const void *const header_ptr, const char *const i
         return false;
     }
 
-    // Look for the TEXT segment to get the image size.
+    // Look for the TEXT segment to get the image size and compute ASLR slide.
     // Also look for a UUID command.
     uint64_t imageSize = 0;
     uint64_t imageVmAddr = 0;
+    uintptr_t imageSlide = 0;
     uint64_t version = 0;
     uint8_t *uuid = NULL;
 
@@ -381,6 +397,7 @@ bool ksdl_binaryImageForHeader(const void *const header_ptr, const char *const i
                 if (strcmp(segCmd->segname, SEG_TEXT) == 0) {
                     imageSize = segCmd->vmsize;
                     imageVmAddr = segCmd->vmaddr;
+                    imageSlide = (uintptr_t)header - segCmd->vmaddr;
                 }
                 break;
             }
@@ -389,6 +406,7 @@ bool ksdl_binaryImageForHeader(const void *const header_ptr, const char *const i
                 if (strcmp(segCmd->segname, SEG_TEXT) == 0) {
                     imageSize = segCmd->vmsize;
                     imageVmAddr = segCmd->vmaddr;
+                    imageSlide = (uintptr_t)header - (uintptr_t)segCmd->vmaddr;
                 }
                 break;
             }
@@ -411,7 +429,7 @@ bool ksdl_binaryImageForHeader(const void *const header_ptr, const char *const i
     buffer->address = (uintptr_t)header;
     buffer->vmAddress = imageVmAddr;
     buffer->size = imageSize;
-    buffer->vmAddressSlide = vmSlideFromHeader(header);
+    buffer->vmAddressSlide = imageSlide;
     buffer->name = image_name;
     buffer->uuid = uuid;
     buffer->cpuType = header->cputype;

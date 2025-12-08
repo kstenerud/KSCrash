@@ -5,6 +5,7 @@ on:
     paths:
       - "Sources/**"
       - "Tests/KSCrashBenchmarks/**"
+      - "Tests/KSCrashRecordingTests/KSCrashReportBenchmarks.m"
       - "Package.swift"
       - ".github/workflows/benchmarks.yml"
 
@@ -50,7 +51,7 @@ jobs:
       - name: Run PR Benchmarks
         working-directory: pr-branch
         run: |
-          swift test --filter KSCrashBenchmarks 2>&1 | tee ../pr_benchmark_output.txt
+          swift test --filter "KSCrashBenchmarks|KSCrashReportBenchmarks" 2>&1 | tee ../pr_benchmark_output.txt
 
       - name: Run Base Benchmarks
         if: github.event_name == 'pull_request'
@@ -58,7 +59,7 @@ jobs:
         run: |
           # Check if benchmarks exist in base branch
           if [ -d "Tests/KSCrashBenchmarks" ] && grep -q "KSCrashBenchmarks" Package.swift; then
-            swift test --filter KSCrashBenchmarks 2>&1 | tee ../base_benchmark_output.txt
+            swift test --filter "KSCrashBenchmarks|KSCrashReportBenchmarks" 2>&1 | tee ../base_benchmark_output.txt
           else
             echo "No benchmarks in base branch" > ../base_benchmark_output.txt
           fi
@@ -100,17 +101,69 @@ jobs:
           system_info = f"{chip}, {mem_gb:.0f}GB RAM, macOS {macos_ver}, {xcode_ver}"
 
           def parse_results(filename):
-              """Parse benchmark output file and return dict of results"""
+              """Parse benchmark output file and return dict of results with stats"""
               try:
                   with open(filename, 'r') as f:
                       content = f.read()
                   if "No benchmarks in base branch" in content:
                       return None
-                  pattern = r"testBenchmark(\w+).*?average: ([\d.]+)"
+                  # Capture average and relative standard deviation
+                  pattern = r"testBenchmark(\w+).*?average: ([\d.]+), relative standard deviation: ([\d.]+)%"
                   matches = re.findall(pattern, content)
-                  return {name: float(time) for name, time in matches}
+                  results = {}
+                  for name, avg, rel_stddev in matches:
+                      avg_f = float(avg)
+                      # Convert relative stddev (%) to absolute stddev
+                      abs_stddev = avg_f * (float(rel_stddev) / 100.0)
+                      results[name] = {'avg': avg_f, 'stddev': abs_stddev, 'n': 10}  # XCTest runs 10 iterations
+                  return results
               except FileNotFoundError:
                   return None
+
+          def welch_t_test(mean1, std1, n1, mean2, std2, n2):
+              """Perform Welch's t-test and return p-value approximation"""
+              import math
+
+              # Handle edge cases
+              if std1 == 0 and std2 == 0:
+                  return 1.0 if mean1 == mean2 else 0.0
+
+              # Welch's t-statistic
+              se1 = (std1 ** 2) / n1
+              se2 = (std2 ** 2) / n2
+              se_diff = math.sqrt(se1 + se2)
+
+              if se_diff == 0:
+                  return 1.0 if mean1 == mean2 else 0.0
+
+              t_stat = abs(mean1 - mean2) / se_diff
+
+              # Welch-Satterthwaite degrees of freedom
+              if se1 + se2 == 0:
+                  df = n1 + n2 - 2
+              else:
+                  df = ((se1 + se2) ** 2) / ((se1 ** 2) / (n1 - 1) + (se2 ** 2) / (n2 - 1))
+
+              # Approximate p-value using t-distribution
+              # Using a simple approximation for two-tailed test
+              x = df / (df + t_stat ** 2)
+
+              # Beta function approximation for p-value
+              if t_stat == 0:
+                  return 1.0
+
+              # Simple approximation: for large df, t approaches normal
+              # p ≈ 2 * (1 - Φ(|t|)) for large df
+              # Using a conservative approximation
+              if df > 30:
+                  # Normal approximation
+                  z = t_stat
+                  p = 2 * (1 - 0.5 * (1 + math.erf(z / math.sqrt(2))))
+              else:
+                  # Rough approximation for smaller df
+                  p = 2 * (1 - 0.5 * (1 + math.erf(t_stat / math.sqrt(2)))) * (1 + 0.5 / df)
+
+              return max(0, min(1, p))
 
           # Read PR benchmark output
           pr_results = parse_results('pr_benchmark_output.txt')
@@ -140,17 +193,33 @@ jobs:
               else:
                   return "❌ Review"
 
-          def get_change(base, pr):
-              """Calculate percentage change and return formatted string"""
-              if base == 0:
-                  return "N/A"
-              pct = ((pr - base) / base) * 100
-              if pct > 10:
-                  return f"⚠️ +{pct:.1f}%"
-              elif pct < -10:
-                  return f"✅ {pct:.1f}%"
+          def get_change(base_stats, pr_stats):
+              """Calculate percentage change with statistical significance"""
+              base_avg = base_stats['avg']
+              pr_avg = pr_stats['avg']
+
+              if base_avg == 0:
+                  return "N/A", 1.0
+
+              pct = ((pr_avg - base_avg) / base_avg) * 100
+
+              # Calculate p-value
+              p_value = welch_t_test(
+                  base_avg, base_stats['stddev'], base_stats['n'],
+                  pr_avg, pr_stats['stddev'], pr_stats['n']
+              )
+
+              # Only flag if statistically significant (p < 0.05) AND change > 15%
+              if p_value < 0.05:
+                  if pct > 15:
+                      return f"⚠️ +{pct:.1f}%", p_value
+                  elif pct < -15:
+                      return f"✅ {pct:.1f}%", p_value
+                  else:
+                      return f"{pct:+.1f}%", p_value
               else:
-                  return f"{pct:+.1f}%"
+                  # Not statistically significant
+                  return f"{pct:+.1f}%", p_value
 
           # Start markdown output
           output = ["# 🔍 KSCrash Performance Benchmarks\n"]
@@ -165,6 +234,21 @@ jobs:
               "SymbolicateSingleAddress": "Symbolicate (1 address)",
               "SymbolicateFullStack": "Symbolicate (20 frames)",
               "CaptureAndSymbolicate": "Capture + symbolicate",
+              "ImageLookupSingleAddress": "Image lookup (single)",
+              "ImageLookupMultipleAddresses": "Image lookup (multiple)",
+              "ImageLookupDifferentImages": "Image lookup (different images)",
+              "BinaryImageForHeaderSingle": "Binary image info (single)",
+              "BinaryImageForHeaderMultiple": "Binary image info (multiple)",
+              "BinaryImageForHeaderAll": "Binary image info (all)",
+              "TypicalCrashSymbolication": "Typical crash symbolication",
+              "FullCrashReport": "Full crash report generation",
+              "RepeatedLookupCacheHit": "Repeated lookup (cache hit)",
+              "RepeatedLookupCacheMiss": "Repeated lookup (cache miss)",
+              "SequentialNearbyAddressesCacheHit": "Sequential nearby addresses (cache hit)",
+              "ExactFunctionLookupCacheHit": "Exact function lookup (cache hit)",
+              "ExactFunctionLookupCacheMiss": "Exact function lookup (cache miss)",
+              "NonExactLookupCacheHit": "Non-exact lookup (cache hit)",
+              "NonExactLookupCacheMiss": "Non-exact lookup (cache miss)",
               "IsMemoryReadableSmall": "Check readable (64B)",
               "IsMemoryReadablePage": "Check readable (4KB)",
               "IsMemoryReadableLarge": "Check readable (64KB)",
@@ -191,37 +275,59 @@ jobs:
               "GetQueueName": "Get queue name",
               "GatherThreadInfo": "Gather all thread info",
               "ThreadOpsWithConcurrency": "Ops under contention",
+              "WriteStandardReport": "Write standard crash report",
+              "WriteStandardReportNoBinaryImages": "Write report (no binary images)",
+              "WriteMultipleReports": "Write multiple reports",
           }
 
           # Comparison section (only for PRs with base results)
           if is_pr and base_results:
-              output.append("## 📊 Changes from Base Branch\n")
-              output.append("| Operation | Base | PR | Change |")
-              output.append("|-----------|------|-----|--------|")
+              output.append("<details open>")
+              output.append("<summary><h2>📊 Changes from Base Branch</h2></summary>\n")
+              output.append("*Only showing statistically significant changes (p < 0.05, threshold > 15%)*\n")
+              output.append("| Operation | Base | PR | Change | p-value |")
+              output.append("|-----------|------|-----|--------|---------|")
 
               changes = []
               for test_name, desc in all_tests.items():
                   if test_name in pr_results and test_name in base_results:
-                      base_t = base_results[test_name]
-                      pr_t = pr_results[test_name]
-                      change = get_change(base_t, pr_t)
-                      pct = ((pr_t - base_t) / base_t) * 100 if base_t > 0 else 0
-                      changes.append((abs(pct), f"| {desc} | {format_time(base_t)} | {format_time(pr_t)} | {change} |"))
+                      base_stats = base_results[test_name]
+                      pr_stats = pr_results[test_name]
+                      change, p_value = get_change(base_stats, pr_stats)
+                      base_avg = base_stats['avg']
+                      pr_avg = pr_stats['avg']
+                      pct = ((pr_avg - base_avg) / base_avg) * 100 if base_avg > 0 else 0
+                      # Sort by significance (lower p-value first), then by magnitude
+                      sort_key = (p_value, -abs(pct))
+                      p_str = f"{p_value:.4f}" if p_value >= 0.0001 else "<0.0001"
+                      changes.append((sort_key, f"| {desc} | {format_time(base_avg)} | {format_time(pr_avg)} | {change} | {p_str} |", p_value))
 
-              # Sort by absolute change, show top changes
-              changes.sort(reverse=True)
-              for _, row in changes[:15]:  # Show top 15 changes
-                  output.append(row)
+              # Sort by significance, show most significant changes first
+              changes.sort(key=lambda x: x[0])
+              shown = 0
+              for _, row, p_value in changes:
+                  if shown >= 15:
+                      break
+                  # Only show statistically significant results in comparison table
+                  if p_value < 0.05:
+                      output.append(row)
+                      shown += 1
 
-              if len(changes) > 15:
-                  output.append(f"\n*Showing top 15 of {len(changes)} benchmarks by change magnitude*")
-              output.append("")
+              if shown == 0:
+                  output.append("| *No statistically significant changes detected* | | | | |")
+              elif len([c for c in changes if c[2] < 0.05]) > 15:
+                  sig_count = len([c for c in changes if c[2] < 0.05])
+                  output.append(f"\n*Showing top 15 of {sig_count} significant changes*")
+              output.append("\n</details>\n")
           elif is_pr and not base_results:
-              output.append("## 📊 Changes from Base Branch\n")
+              output.append("<details open>")
+              output.append("<summary><h2>📊 Changes from Base Branch</h2></summary>\n")
               output.append("*No benchmarks in base branch - showing PR results only*\n")
+              output.append("</details>\n")
 
           # Backtrace section
-          output.append("## Stack Capture (KSBacktrace)\n")
+          output.append("<details open>")
+          output.append("<summary><h3>Stack Capture (KSBacktrace)</h3></summary>\n")
           output.append("| Operation | Time | Status | Notes |")
           output.append("|-----------|------|--------|-------|")
 
@@ -236,12 +342,47 @@ jobs:
 
           for test_name, (desc, notes) in backtrace_tests.items():
               if test_name in pr_results:
-                  t = pr_results[test_name]
+                  t = pr_results[test_name]['avg']
                   status = get_status(t, excellent=0.0001, good=0.001, ok=0.005)
                   output.append(f"| {desc} | {format_time(t)} | {status} | {notes} |")
 
+          output.append("\n</details>")
+
+          # Dynamic Linker section
+          output.append("<details open>")
+          output.append("<summary><h3>Dynamic Linker (KSDynamicLinker)</h3></summary>\n")
+          output.append("| Operation | Time | Status | Notes |")
+          output.append("|-----------|------|--------|-------|")
+
+          dynlinker_tests = {
+              "ImageLookupSingleAddress": ("Image lookup (single)", "Single address resolution"),
+              "ImageLookupMultipleAddresses": ("Image lookup (multiple)", "Stack trace addresses"),
+              "ImageLookupDifferentImages": ("Image lookup (different)", "Cross-image lookups"),
+              "BinaryImageForHeaderSingle": ("Binary image info (single)", "Extract image metadata"),
+              "BinaryImageForHeaderMultiple": ("Binary image info (50)", "Multiple images"),
+              "BinaryImageForHeaderAll": ("Binary image info (all)", "All loaded images"),
+              "TypicalCrashSymbolication": ("Typical crash symbolication", "Capture + symbolicate"),
+              "FullCrashReport": ("Full crash report", "Complete crash flow"),
+              "RepeatedLookupCacheHit": ("Repeated lookup (cache hit)", "1000x same address, warm cache"),
+              "RepeatedLookupCacheMiss": ("Repeated lookup (cache miss)", "1000x same address, cold start"),
+              "SequentialNearbyAddressesCacheHit": ("Sequential nearby (cache hit)", "100 addresses, warm cache"),
+              "ExactFunctionLookupCacheHit": ("Exact function (cache hit)", "Function entry, warm cache"),
+              "ExactFunctionLookupCacheMiss": ("Exact function (cache miss)", "Function entry, cold start"),
+              "NonExactLookupCacheHit": ("Non-exact lookup (cache hit)", "Mid-function, warm cache"),
+              "NonExactLookupCacheMiss": ("Non-exact lookup (cache miss)", "Mid-function, cold start"),
+          }
+
+          for test_name, (desc, notes) in dynlinker_tests.items():
+              if test_name in pr_results:
+                  t = pr_results[test_name]['avg']
+                  status = get_status(t, excellent=0.001, good=0.005, ok=0.020)
+                  output.append(f"| {desc} | {format_time(t)} | {status} | {notes} |")
+
+          output.append("\n</details>")
+
           # Memory section
-          output.append("\n## Safe Memory Operations (KSMemory)\n")
+          output.append("<details open>")
+          output.append("<summary><h3>Safe Memory Operations (KSMemory)</h3></summary>\n")
           output.append("| Operation | Time | Per-Call | Status |")
           output.append("|-----------|------|----------|--------|")
 
@@ -259,13 +400,16 @@ jobs:
 
           for test_name, (desc, iterations) in memory_tests.items():
               if test_name in pr_results:
-                  t = pr_results[test_name]
+                  t = pr_results[test_name]['avg']
                   per_call = t / iterations
                   status = get_status(per_call, excellent=0.000001, good=0.00001, ok=0.0001)
                   output.append(f"| {desc} | {format_time(t)} | {format_time(per_call)} | {status} |")
 
+          output.append("\n</details>")
+
           # JSON section
-          output.append("\n## JSON Encoding (KSJSONCodec)\n")
+          output.append("<details open>")
+          output.append("<summary><h3>JSON Encoding (KSJSONCodec)</h3></summary>\n")
           output.append("| Operation | Time | Status | Notes |")
           output.append("|-----------|------|--------|-------|")
 
@@ -284,12 +428,15 @@ jobs:
 
           for test_name, (desc, notes) in json_tests.items():
               if test_name in pr_results:
-                  t = pr_results[test_name]
+                  t = pr_results[test_name]['avg']
                   status = get_status(t, excellent=0.0005, good=0.002, ok=0.010)
                   output.append(f"| {desc} | {format_time(t)} | {status} | {notes} |")
 
+          output.append("\n</details>")
+
           # Thread section
-          output.append("\n## Thread Operations (KSThread)\n")
+          output.append("<details open>")
+          output.append("<summary><h3>Thread Operations (KSThread)</h3></summary>\n")
           output.append("| Operation | Time | Per-Call | Status |")
           output.append("|-----------|------|----------|--------|")
 
@@ -305,19 +452,32 @@ jobs:
 
           for test_name, (desc, iterations) in thread_tests.items():
               if test_name in pr_results:
-                  t = pr_results[test_name]
+                  t = pr_results[test_name]['avg']
                   per_call = t / iterations
                   status = get_status(per_call, excellent=0.0000005, good=0.000005, ok=0.00001)
                   output.append(f"| {desc} | {format_time(t)} | {format_time(per_call)} | {status} |")
 
-          # Performance guide
-          output.append("\n## Performance Guidelines")
-          output.append("### Crash Capture Budget")
-          output.append("- ✅ **Excellent**: Operations complete in microseconds")
-          output.append("- ✅ **Good**: Acceptable for crash-time execution")
-          output.append("- ⚠️ **OK**: May impact crash capture latency")
-          output.append("- ❌ **Review**: Too slow for crash-time, consider optimization")
-          output.append("\n*Goal: Complete crash capture <100ms to minimize data loss risk*")
+          output.append("\n</details>")
+
+          # Crash Report section
+          output.append("<details open>")
+          output.append("<summary><h3>Crash Report Writing (KSCrashReport)</h3></summary>\n")
+          output.append("| Operation | Time | Status | Notes |")
+          output.append("|-----------|------|--------|-------|")
+
+          report_tests = {
+              "WriteStandardReport": ("Write standard report", "Full report with binary images"),
+              "WriteStandardReportNoBinaryImages": ("Write report (no images)", "Report without binary images"),
+              "WriteMultipleReports": ("Write 5 reports", "Sequential report writing"),
+          }
+
+          for test_name, (desc, notes) in report_tests.items():
+              if test_name in pr_results:
+                  t = pr_results[test_name]['avg']
+                  status = get_status(t, excellent=0.005, good=0.010, ok=0.050)
+                  output.append(f"| {desc} | {format_time(t)} | {status} | {notes} |")
+
+          output.append("\n</details>")
 
           # Summary
           total_tests = len(pr_results) if pr_results else 0
