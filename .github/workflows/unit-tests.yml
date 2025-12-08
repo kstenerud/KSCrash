@@ -34,33 +34,33 @@ jobs:
             macos-version: "15"
           - platform: iOS
             platform-version: ~16.4.0
-            macos-version: "13"
-            xcode-version: "14.3.1"
+            macos-version: "14"
+            xcode-version: "16.2"
 
           - platform: watchOS
             macos-version: "15"
           - platform: watchOS
             platform-version: ~9.4.0
-            macos-version: "13"
-            xcode-version: "14.3.1"
+            macos-version: "14"
+            xcode-version: "16.2"
 
           - platform: tvOS
             macos-version: "15"
           - platform: tvOS
             platform-version: ~16.4.0
-            macos-version: "13"
-            xcode-version: "14.3.1"
+            macos-version: "14"
+            xcode-version: "16.2"
 
           - platform: visionOS
             macos-version: "15"
 
           - platform: macOS
           - platform: macOS
-            macos-version: "13"
+            macos-version: "14"
 
           - platform: mac-catalyst
           - platform: mac-catalyst
-            macos-version: "13"
+            macos-version: "14"
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
