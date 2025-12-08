@@ -53,7 +53,7 @@ import XCTest
             let endTestSemaphore = DispatchSemaphore(value: 0)
 
             // Start a background thread that stays alive during measurement
-            DispatchQueue.global(qos: .userInitiated).async {
+            DispatchQueue.global(qos: .default).async {
                 targetThread = pthread_self()
                 semaphore.signal()
                 endTestSemaphore.wait()
