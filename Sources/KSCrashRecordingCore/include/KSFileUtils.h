@@ -274,11 +274,21 @@ bool ksfu_readBufferedReaderUntilChar(KSBufferedReader *reader, int ch, char *ds
  * @param size The size of the map.
  *
  * @return the mapped pointer if successful, NULL otherwise.
- * The return value must be unmapped using `munmap` when done
+ * The return value must be unmapped using `ksfu_munmap` when done
  * with the returned pointer. It is ok to let the pointer live up to termination,
  * the system will unmap on termination if required.
  */
 void *ksfu_mmap(const char *path, size_t size);
+
+/** Unmaps a memory-mapped region previously created by ksfu_mmap.
+ *
+ * @param ptr The pointer returned by ksfu_mmap.
+ *
+ * @param size The size that was passed to ksfu_mmap.
+ *
+ * @return true if successful, false otherwise.
+ */
+bool ksfu_munmap(void *ptr, size_t size);
 
 #ifdef __cplusplus
 }
