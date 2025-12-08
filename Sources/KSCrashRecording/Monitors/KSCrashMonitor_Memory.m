@@ -78,7 +78,7 @@ static void notifyPostSystemEnable(void);
 static void ksmemory_read(const char *path);
 static void ksmemory_map(const char *path);
 static void ksmemory_unmap(void);
-static void ksmemory_applyLooseFileProtection(NSString *path);
+static void ksmemory_applyNoFileProtection(NSString *path);
 
 // ============================================================================
 #pragma mark - Globals -
@@ -585,13 +585,13 @@ static void ksmemory_write_possible_oom(void)
     g_callbacks.handle(ctx);
 }
 
-static void ksmemory_applyLooseFileProtection(NSString *path)
+static void ksmemory_applyNoFileProtection(NSString *path)
 {
     if (!path) {
         return;
     }
 
-    NSDictionary *attrs = @ { NSFileProtectionKey : NSFileProtectionCompleteUntilFirstUserAuthentication };
+    NSDictionary *attrs = @ { NSFileProtectionKey : NSFileProtectionNone };
     [[NSFileManager defaultManager] setAttributes:attrs ofItemAtPath:path error:nil];
 }
 
@@ -602,9 +602,9 @@ void ksmemory_initialize(const char *dataPath)
     g_memoryURL = [g_dataURL URLByAppendingPathComponent:@"memory.bin"];
 
     // Ensure files we touch stay readable while the app is locked.
-    ksmemory_applyLooseFileProtection(g_dataURL.path);
-    ksmemory_applyLooseFileProtection(g_memoryURL.path);
-    ksmemory_applyLooseFileProtection(kscm_memory_oom_breadcrumb_URL().path);
+    ksmemory_applyNoFileProtection(g_dataURL.path);
+    ksmemory_applyNoFileProtection(g_memoryURL.path);
+    ksmemory_applyNoFileProtection(kscm_memory_oom_breadcrumb_URL().path);
 
     // load up the old memory data
     ksmemory_read(g_memoryURL.path.UTF8String);
