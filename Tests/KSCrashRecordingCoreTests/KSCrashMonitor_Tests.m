@@ -140,6 +140,7 @@ extern void kscm_testcode_resetState(void);
             block();
             dispatch_group_leave(group);
         }];
+        thread.qualityOfService = NSQualityOfServiceUserInteractive;
         [thread start];
     }
     return group;
@@ -292,6 +293,7 @@ static volatile int g_counter = 0;
             usleep(100);
         }
     }];
+    thread.qualityOfService = NSQualityOfServiceUserInteractive;
     [thread start];
 
     // Wait for the thread to signal it has started

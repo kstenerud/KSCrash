@@ -117,10 +117,8 @@ enum
                                KSCrashMonitorTypeWatchdog
                                ),
 
-    /** Enable experimental monitoring options.
-     * @note Currently empty as KSCrashMonitorTypeMainThreadDeadlock is deprecated.
-     */
-    KSCrashMonitorTypeExperimental = KSCrashMonitorTypeNone,
+    /** Enable experimental monitoring options. */
+    KSCrashMonitorTypeExperimental = KSCrashMonitorTypeWatchdog,
 
     /** Monitor options unsafe for use with a debugger. */
     KSCrashMonitorTypeDebuggerUnsafe = KSCrashMonitorTypeMachException,

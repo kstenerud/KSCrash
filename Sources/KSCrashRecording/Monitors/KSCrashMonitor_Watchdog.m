@@ -29,6 +29,7 @@
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitorHelper.h"
 #import "KSCrashReportFields.h"
+#import "KSHang.h"
 #import "KSID.h"
 #import "KSJSONCodecObjC.h"
 #import "KSStackCursor_MachineContext.h"
@@ -68,54 +69,6 @@ static KSCrash_ExceptionHandlerCallbacks g_callbacks = { 0 };
 // ============================================================================
 #pragma mark - Watchdog and utilities -
 // ============================================================================
-
-@interface KSHang : NSObject <NSCopying>
-
-@property(nonatomic) uint64_t timestamp;
-@property(nonatomic) task_role_t role;
-@property(nonatomic) uint64_t endTimestamp;
-@property(nonatomic) task_role_t endRole;
-@property(nonatomic) int64_t reportId;
-@property(nonatomic, copy) NSString *path;
-@property(nonatomic, strong) NSMutableDictionary *decodedReport;
-
-- (instancetype)initWithTimestamp:(uint64_t)timestamp role:(task_role_t)role;
-- (NSTimeInterval)interval;
-
-@end
-
-@implementation KSHang
-
-- (instancetype)initWithTimestamp:(uint64_t)timestamp role:(task_role_t)role
-{
-    if ((self = [super init])) {
-        _timestamp = timestamp;
-        _role = role;
-        _endTimestamp = timestamp;
-        _endRole = role;
-    }
-    return self;
-}
-
-- (NSTimeInterval)interval
-{
-    return (double)(self.endTimestamp - self.timestamp) / 1000000000.0;
-}
-
-- (id)copyWithZone:(NSZone *)zone
-{
-    KSHang *copy = [[KSHang allocWithZone:zone] init];
-    copy.timestamp = self.timestamp;
-    copy.role = self.role;
-    copy.endTimestamp = self.endTimestamp;
-    copy.endRole = self.endRole;
-    copy.reportId = self.reportId;
-    copy.path = [self.path copy];
-    copy.decodedReport = [self.decodedReport mutableCopy];
-    return copy;
-}
-
-@end
 
 static void *watchdog_thread_main(void *arg)
 {

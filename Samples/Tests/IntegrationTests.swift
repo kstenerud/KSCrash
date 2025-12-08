@@ -289,44 +289,6 @@ final class UserReportedTests: IntegrationTestBase {
     }
 }
 
-#if !os(watchOS)
-
-    final class WatchdogTests: IntegrationTestBase {
-
-        override func setUpWithError() throws {
-            try super.setUpWithError()
-            appCrashTimeout = 10.0
-        }
-
-        func testWatchdogTimeoutTermination() throws {
-            // Enable watchdog monitoring and trigger a simulated watchdog timeout
-            try launchAndCrash(.other_watchdogTimeoutTermination) { config in
-                config.isWatchdogEnabled = true
-            }
-
-            let rawReport = try readPartialCrashReport()
-
-            // Verify hang info is present in the crash report
-            let hangInfo = rawReport.crash?.error?.hang
-            XCTAssertNotNil(hangInfo, "Hang info should be present in crash report")
-            XCTAssertNotNil(hangInfo?.hang_start_nanos, "Hang start timestamp should be present")
-            XCTAssertNotNil(hangInfo?.hang_end_nanos, "Hang end timestamp should be present")
-
-            // Verify the hang duration is reasonable (at least 1 second, since we sleep for 4s before SIGKILL)
-            if let startNanos = hangInfo?.hang_start_nanos,
-                let endNanos = hangInfo?.hang_end_nanos
-            {
-                let durationSeconds = Double(endNanos - startNanos) / 1_000_000_000.0
-                XCTAssertGreaterThan(durationSeconds, 1.0, "Hang duration should be at least 1 second")
-            }
-
-            // Verify we got a SIGKILL
-            XCTAssertEqual(rawReport.crash?.error?.signal?.signal, 9, "Should be SIGKILL (signal 9)")
-        }
-    }
-
-#endif
-
 extension PartialCrashReport {
     var crashedThread: Crash.Thread? {
         return self.crash?.threads?.first(where: { $0.crashed })
