@@ -583,8 +583,22 @@ void *ksfu_mmap(const char *path, size_t size)
         // This comes before close which is ok since it'll happen
         // when all fd's are closed.
         unlink(path);
+        close(fd);
+        return NULL;
     }
 
     close(fd);
     return ptr;
+}
+
+bool ksfu_munmap(void *ptr, size_t size)
+{
+    if (ptr == NULL) {
+        return true;
+    }
+    if (munmap(ptr, size) == -1) {
+        KSLOG_ERROR("Could not munmap: %s", strerror(errno));
+        return false;
+    }
+    return true;
 }

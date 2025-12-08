@@ -648,4 +648,58 @@
     XCTAssertEqualObjects(actualFileContents, expectedContents);
 }
 
+#pragma mark - Memory Mapping Tests
+
+- (void)testMunmap_NullPointer
+{
+    // munmap with NULL should return true (no-op)
+    XCTAssertTrue(ksfu_munmap(NULL, 100));
+}
+
+- (void)testMmap_InvalidPath
+{
+    // mmap with non-existent path should return NULL
+    NSString *invalidPath = @"/nonexistent/path/to/file.bin";
+    void *ptr = ksfu_mmap(invalidPath.UTF8String, 100);
+    XCTAssertTrue(ptr == NULL);
+}
+
+- (void)testMmap_Munmap_RoundTrip
+{
+    // Test mapping a file, writing to it, and unmapping
+    NSString *path = [self generateTempFilePath];
+    size_t size = 1024;
+
+    void *ptr = ksfu_mmap(path.UTF8String, size);
+    XCTAssertTrue(ptr != NULL);
+
+    // Write some data to the mapped memory
+    memset(ptr, 0xAB, size);
+
+    // Verify the data was written
+    uint8_t *bytes = (uint8_t *)ptr;
+    XCTAssertEqual(bytes[0], 0xAB);
+    XCTAssertEqual(bytes[size - 1], 0xAB);
+
+    // Unmap should succeed
+    XCTAssertTrue(ksfu_munmap(ptr, size));
+}
+
+- (void)testMmap_Munmap_MultipleRoundTrips
+{
+    // Test multiple map/unmap cycles to ensure no leaks or issues
+    NSString *path = [self generateTempFilePath];
+    size_t size = 256;
+
+    for (int i = 0; i < 5; i++) {
+        void *ptr = ksfu_mmap(path.UTF8String, size);
+        XCTAssertTrue(ptr != NULL);
+
+        // Write iteration number
+        memset(ptr, (uint8_t)i, size);
+
+        XCTAssertTrue(ksfu_munmap(ptr, size));
+    }
+}
+
 @end
