@@ -301,7 +301,12 @@ static volatile int g_counter = 0;
     XCTAssertEqual(result, 0, @"Counter thread should start");
 
     // Verify thread is actually running by checking counter increments
-    XCTAssertTrue([self isCounterIncrementing], @"Counter thread should be incrementing");
+    // Use a retry loop since thread scheduling on CI can be slow
+    bool incrementing = false;
+    for (int i = 0; i < 100 && !incrementing; i++) {
+        incrementing = [self isCounterIncrementing];
+    }
+    XCTAssertTrue(incrementing, @"Counter thread should be incrementing");
 
     ctx = dummyExceptionHandlerCallbacks.notify(
         (thread_t)ksthread_self(),

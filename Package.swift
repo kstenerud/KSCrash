@@ -227,6 +227,10 @@ let package = Package(
             name: "DemangleFilter",
             targets: [Targets.demangleFilter]
         ),
+        .library(
+            name: "Report",
+            targets: [Targets.report]
+        ),
     ],
     targets: [
         .target(
@@ -488,6 +492,22 @@ let package = Package(
         ),
 
         .target(
+            name: Targets.report,
+            resources: [
+                .copy("Resources/PrivacyInfo.xcprivacy")
+            ]
+        ),
+        .testTarget(
+            name: Targets.report.tests,
+            dependencies: [
+                .target(name: Targets.report)
+            ],
+            resources: [
+                .process("Resources")
+            ]
+        ),
+
+        .target(
             name: Targets.testTools,
             dependencies: [
                 .target(name: Targets.recordingCore)
@@ -520,6 +540,7 @@ enum Targets {
     static let discSpaceMonitor = "KSCrashDiscSpaceMonitor"
     static let bootTimeMonitor = "KSCrashBootTimeMonitor"
     static let demangleFilter = "KSCrashDemangleFilter"
+    static let report = "Report"
     static let testTools = "KSCrashTestTools"
     static let benchmarks = "KSCrashBenchmarks"
 }
