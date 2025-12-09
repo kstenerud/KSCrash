@@ -61,9 +61,6 @@ static struct {
     std::atomic<KSCM_InstalledState> installedState { KSCM_NotInstalled };
     std::atomic<bool> isEnabled { false };
 
-    /** True if the handler should capture the next stack trace. */
-    bool captureNextStackTrace = false;
-
     bool cxaSwapEnabled = false;
 
     std::terminate_handler originalTerminateHandler;
@@ -72,6 +69,9 @@ static struct {
 } g_state;
 
 static thread_local KSStackCursor g_stackCursor;
+
+/** True if the handler should capture the next stack trace (thread-local). */
+static thread_local bool g_captureNextStackTrace = false;
 
 static bool isEnabled(void) { return g_state.isEnabled && g_state.installedState == KSCM_Installed; }
 
@@ -85,7 +85,7 @@ static KS_NOINLINE void captureStackTrace(void *, std::type_info *tinfo,
     if (tinfo != nullptr && strcmp(tinfo->name(), "NSException") == 0) {
         return;
     }
-    if (g_state.captureNextStackTrace) {
+    if (g_captureNextStackTrace) {
         kssc_initSelfThread(&g_stackCursor, 2);
     }
     KS_THWART_TAIL_CALL_OPTIMISATION
@@ -143,7 +143,7 @@ static void CPPExceptionTerminate(void)
         const char *description = descriptionBuff;
 
         KSLOG_DEBUG("Discovering what kind of exception was thrown.");
-        g_state.captureNextStackTrace = false;
+        g_captureNextStackTrace = false;
 
         // We need to be very explicit about what type is thrown or it'll drop through.
         try {
@@ -178,7 +178,14 @@ static void CPPExceptionTerminate(void)
         CATCH_VALUE(const char *, s)
 #pragma clang diagnostic pop
         catch (...) { description = NULL; }
-        g_state.captureNextStackTrace = isEnabled();
+        g_captureNextStackTrace = isEnabled();
+
+        // Initialize g_stackCursor if not already initialized by captureStackTrace.
+        // Skip 4 frames: CPPExceptionTerminate -> std::__terminate -> failed_throw -> __cxa_throw
+        // to reach the actual throw location (e.g., sample_namespace::Report::crash).
+        if (g_stackCursor.advanceCursor == NULL) {
+            kssc_initSelfThread(&g_stackCursor, 4);
+        }
 
         // TODO: Should this be done here? Maybe better in the exception handler?
         KSMachineContext machineContext = { 0 };
@@ -231,7 +238,7 @@ static void setEnabled(bool enabled)
     if (enabled) {
         install();
     }
-    g_state.captureNextStackTrace = isEnabled();
+    g_captureNextStackTrace = isEnabled();
 }
 
 extern "C" void kscm_enableSwapCxaThrow(void)
