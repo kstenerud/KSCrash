@@ -103,10 +103,50 @@ public struct ReportInfo: Decodable, Sendable {
 }
 
 /// Report format version information.
+///
+/// Handles two formats:
+/// - Legacy (v2.x): Dictionary with `major` and `minor` keys
+/// - Current (v3.x+): Semantic version string like "3.6.0"
 public struct ReportVersion: Decodable, Sendable {
     /// Major version number.
     public let major: Int
 
     /// Minor version number.
     public let minor: Int
+
+    /// Patch version number.
+    public let patch: Int
+
+    /// The string representation of the version.
+    public var versionString: String {
+        "\(major).\(minor).\(patch)"
+    }
+
+    public init(from decoder: Decoder) throws {
+        // Try dictionary format first (v2.x format)
+        if let container = try? decoder.container(keyedBy: CodingKeys.self) {
+            self.major = try container.decode(Int.self, forKey: .major)
+            self.minor = try container.decode(Int.self, forKey: .minor)
+            self.patch = 0
+        }
+        // Try string format (v3.x+ format)
+        else if let versionStr = try? decoder.singleValueContainer().decode(String.self) {
+            let components = versionStr.split(separator: ".").compactMap { Int($0) }
+            self.major = components.count > 0 ? components[0] : 0
+            self.minor = components.count > 1 ? components[1] : 0
+            self.patch = components.count > 2 ? components[2] : 0
+        } else {
+            throw DecodingError.dataCorrupted(
+                DecodingError.Context(
+                    codingPath: decoder.codingPath,
+                    debugDescription: "Expected dictionary with major/minor keys or version string"
+                )
+            )
+        }
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case major
+        case minor
+    }
 }
