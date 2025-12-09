@@ -24,8 +24,8 @@
 // THE SOFTWARE.
 //
 
-import CrashReport
 import Foundation
+import Report
 
 extension CrashReport where UserData == NoUserData {
     static func decode(from json: String) throws -> CrashReport<NoUserData> {

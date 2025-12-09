@@ -24,7 +24,7 @@
 // THE SOFTWARE.
 //
 
-import CrashReport
+import Report
 import XCTest
 
 final class CrashReportTests: XCTestCase {
