@@ -29,6 +29,7 @@
 #import <mach/mach.h>
 #import <signal.h>
 #import <stdexcept>
+#import <thread>
 #import "CrashCallback.h"
 #import "KSCrash.h"
 
@@ -48,6 +49,12 @@ static void trigger_ns(void)
 }
 
 static void trigger_cpp(void) { sample_namespace::Report::crash(); }
+
+static void trigger_cpp_backgroundThread(void)
+{
+    std::thread t([]() { sample_namespace::Report::crash(); });
+    t.join();
+}
 
 static void trigger_mach(void)
 {
@@ -117,6 +124,11 @@ NSString *const KSCrashNSExceptionStacktraceFuncName = @"exceptionWithStacktrace
 + (void)trigger_cpp_runtimeException
 {
     trigger_cpp();
+}
+
++ (void)trigger_cpp_runtimeExceptionBackgroundThread
+{
+    trigger_cpp_backgroundThread();
 }
 
 + (void)trigger_mach_badAccess
