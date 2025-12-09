@@ -42,24 +42,22 @@ import XCTest
                 config.isWatchdogEnabled = true
             }
 
-            let rawReport = try readPartialCrashReport()
+            let rawReport = try readCrashReport()
 
             // Verify hang info is present in the crash report
-            let hangInfo = rawReport.crash?.error?.hang
+            let hangInfo = rawReport.crash.error.hang
             XCTAssertNotNil(hangInfo, "Hang info should be present in crash report")
-            XCTAssertNotNil(hangInfo?.hang_start_nanos, "Hang start timestamp should be present")
-            XCTAssertNotNil(hangInfo?.hang_end_nanos, "Hang end timestamp should be present")
+            XCTAssertNotNil(hangInfo?.hangStartNanos, "Hang start timestamp should be present")
+            XCTAssertNotNil(hangInfo?.hangEndNanos, "Hang end timestamp should be present")
 
             // Verify the hang duration is reasonable (at least 1 second, since we sleep for 4s before SIGKILL)
-            if let startNanos = hangInfo?.hang_start_nanos,
-                let endNanos = hangInfo?.hang_end_nanos
-            {
-                let durationSeconds = Double(endNanos - startNanos) / 1_000_000_000.0
+            if let hangInfo = hangInfo {
+                let durationSeconds = Double(hangInfo.hangEndNanos - hangInfo.hangStartNanos) / 1_000_000_000.0
                 XCTAssertGreaterThan(durationSeconds, 1.0, "Hang duration should be at least 1 second")
             }
 
             // Verify we got a SIGKILL
-            XCTAssertEqual(rawReport.crash?.error?.signal?.signal, 9, "Should be SIGKILL (signal 9)")
+            XCTAssertEqual(rawReport.crash.error.signal?.signal, 9, "Should be SIGKILL (signal 9)")
         }
 
         func testWatchdogTimeoutHasThreads() throws {
