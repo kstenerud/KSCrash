@@ -103,11 +103,11 @@ final class CppTests: IntegrationTestBase {
                 configuration.isCxaThrowEnabled = false
             })
 
-        let rawReport = try readPartialCrashReport()
+        let rawReport = try readCrashReport()
         try rawReport.validate()
-        XCTAssertEqual(rawReport.crash?.error?.type, "cpp_exception")
-        let topSymbol = rawReport.crashedThread?.backtrace.contents
-            .compactMap(\.symbol_name).first
+        XCTAssertEqual(rawReport.crash.error.type, .cppException)
+        let topSymbol = rawReport.crashedThread?.backtrace?.contents
+            .compactMap(\.symbolName).first
             .flatMap(CrashReportFilterDemangle.demangledCppSymbol)
         XCTAssertEqual(topSymbol, "sample_namespace::Report::crash()")
 
