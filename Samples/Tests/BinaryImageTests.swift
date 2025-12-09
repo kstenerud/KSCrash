@@ -26,25 +26,26 @@
 
 import Darwin
 import IntegrationTestsHelper
+import Report
 import XCTest
 
 final class BinaryImageTests: IntegrationTestBase {
     func testBinaryImagesPresent() throws {
         try launchAndCrash(.nsException_genericNSException)
 
-        let rawReport = try readPartialCrashReport()
+        let rawReport = try readCrashReport()
         try rawReport.validate()
 
-        let binaryImages = rawReport.binary_images ?? rawReport.report?.binary_images
+        let binaryImages = rawReport.binaryImages
         XCTAssertNotNil(binaryImages, "Binary images section should be present in the crash report")
         XCTAssertGreaterThan(binaryImages?.count ?? 0, 0, "Binary images list should not be empty")
 
-        let mainExecutable = binaryImages?.first(where: { $0.name?.contains("Sample") ?? false })
+        let mainExecutable = binaryImages?.first(where: { $0.name.contains("Sample") })
         XCTAssertNotNil(mainExecutable, "Main executable should be present in binary images")
 
         let anyImage = binaryImages?.first
-        XCTAssertNotNil(anyImage?.image_addr, "Binary image should have image_addr")
-        XCTAssertNotNil(anyImage?.image_size, "Binary image should have image_size")
+        XCTAssertNotNil(anyImage?.imageAddr, "Binary image should have image_addr")
+        XCTAssertNotNil(anyImage?.imageSize, "Binary image should have image_size")
         XCTAssertNotNil(anyImage?.name, "Binary image should have name")
         XCTAssertNotNil(anyImage?.uuid, "Binary image should have uuid")
     }
@@ -52,11 +53,10 @@ final class BinaryImageTests: IntegrationTestBase {
     func testBinaryImagesContent() throws {
         try launchAndCrash(.nsException_genericNSException)
 
-        let rawReport = try readPartialCrashReport()
+        let rawReport = try readCrashReport()
         try rawReport.validate()
 
-        let binaryImages = rawReport.binary_images ?? rawReport.report?.binary_images
-        guard let images = binaryImages else {
+        guard let images = rawReport.binaryImages else {
             XCTFail("Binary images should be present")
             return
         }
@@ -65,7 +65,7 @@ final class BinaryImageTests: IntegrationTestBase {
         let systemFrameworks = ["Foundation", "CoreFoundation", "libobjc.A.dylib", "libSystem"]
         let foundFrameworks = systemFrameworks.filter { framework in
             images.contains { image in
-                image.name?.contains(framework) ?? false
+                image.name.contains(framework)
             }
         }
 
@@ -74,19 +74,15 @@ final class BinaryImageTests: IntegrationTestBase {
             "All essential system frameworks should be in binary images: \(systemFrameworks)")
 
         for image in images {
-            if let addr = image.image_addr {
-                XCTAssertNotEqual(addr, 0, "Image address should not be zero")
-            }
+            XCTAssertNotEqual(image.imageAddr, 0, "Image address should not be zero")
 
-            if let size = image.image_size {
-                XCTAssertGreaterThan(
-                    size, 0, "Image size should be greater than 0 for \(image.name ?? "unknown")")
-            }
+            XCTAssertGreaterThan(
+                image.imageSize, 0, "Image size should be greater than 0 for \(image.name)")
 
             if let uuid = image.uuid, !uuid.isEmpty {
                 XCTAssertTrue(
                     uuid.count > 8,
-                    "UUID should be properly formatted for \(image.name ?? "unknown")")
+                    "UUID should be properly formatted for \(image.name)")
             }
         }
     }
