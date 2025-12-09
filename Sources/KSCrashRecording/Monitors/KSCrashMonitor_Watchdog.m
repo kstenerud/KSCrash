@@ -482,7 +482,7 @@ static int TaskRole(void)
                 .asyncSafety = false, .isFatal = false, .shouldRecordAllThreads = true, .shouldWriteReport = true });
 
         KSMachineContext machineContext = { 0 };
-        ksmc_getContextForThread(g_mainQueueThread, &machineContext, false);
+        ksmc_getContextForThread(g_mainQueueThread, &machineContext, true);
         KSStackCursor stackCursor;
         kssc_initWithMachineContext(&stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
 

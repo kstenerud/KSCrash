@@ -105,6 +105,20 @@
                ReferencedContainer = "container:">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "Report"
+               BuildableName = "Report"
+               BlueprintName = "Report"
+               ReferencedContainer = "container:">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
@@ -245,6 +259,16 @@
                BlueprintIdentifier = "KSCrashBenchmarks"
                BuildableName = "KSCrashBenchmarks"
                BlueprintName = "KSCrashBenchmarks"
+               ReferencedContainer = "container:">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "ReportTests"
+               BuildableName = "ReportTests"
+               BlueprintName = "ReportTests"
                ReferencedContainer = "container:">
             </BuildableReference>
          </TestableReference>
