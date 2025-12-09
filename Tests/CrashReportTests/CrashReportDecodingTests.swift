@@ -1,31 +1,33 @@
 //
 //  CrashReportDecodingTests.swift
 //
-//  Created by KSCrash on 2024.
+//  Created by Alexander Cohen on 2024-12-09.
 //
-//  Permission is hereby granted, free of charge, to any person obtaining a copy
-//  of this software and associated documentation files (the "Software"), to deal
-//  in the Software without restriction, including without limitation the rights
-//  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-//  copies of the Software, and to permit persons to whom the Software is
-//  furnished to do so, subject to the following conditions:
+//  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
-//  The above copyright notice and this permission notice shall be included in
-//  all copies or substantial portions of the Software.
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
 //
-//  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-//  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-//  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-//  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-//  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-//  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-//  THE SOFTWARE.
+// The above copyright notice and this permission notice shall remain in place
+// in this source code.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+// THE SOFTWARE.
 //
 
 import Foundation
 import XCTest
 
-@testable import KSCrashDecoding
+@testable import CrashReport
 
 final class CrashReportDecodingTests: XCTestCase {
 
@@ -53,7 +55,7 @@ final class CrashReportDecodingTests: XCTestCase {
         let report = try CrashReport.decode(from: json)
 
         XCTAssertEqual(report.report.id, "test-id")
-        XCTAssertEqual(report.crash.error.type, "mach")
+        XCTAssertEqual(report.crash.error.type, .mach)
         XCTAssertEqual(report.crash.error.mach?.code, 1)
         XCTAssertEqual(report.crash.error.mach?.exception, 1)
         XCTAssertTrue(report.binaryImages?.isEmpty ?? true)
@@ -126,7 +128,7 @@ final class CrashReportDecodingTests: XCTestCase {
 
         let report = try CrashReport.decode(from: json)
 
-        XCTAssertEqual(report.crash.error.type, "nsexception")
+        XCTAssertEqual(report.crash.error.type, .nsexception)
         XCTAssertEqual(report.crash.error.nsexception?.name, "NSInvalidArgumentException")
         XCTAssertEqual(report.crash.error.nsexception?.reason, "-[__NSArrayI objectForKey:]: unrecognized selector")
         XCTAssertEqual(report.crash.error.mach?.exceptionName, "EXC_CRASH")
@@ -209,18 +211,29 @@ final class CrashReportDecodingTests: XCTestCase {
 
         let report = try CrashReport.decode(from: json)
 
-        XCTAssertEqual(report.system.cfBundleExecutable, "MyApp")
-        XCTAssertEqual(report.system.cfBundleIdentifier, "com.example.myapp")
-        XCTAssertEqual(report.system.cfBundleVersion, "1.0")
-        XCTAssertEqual(report.system.cpuArch, "arm64")
-        XCTAssertEqual(report.system.machine, "iPhone14,2")
-        XCTAssertEqual(report.system.systemName, "iOS")
-        XCTAssertEqual(report.system.systemVersion, "17.0")
-        XCTAssertEqual(report.system.memory?.free, 133_308_416)
-        XCTAssertEqual(report.system.memory?.size, 527_433_728)
+        XCTAssertEqual(report.system?.cfBundleExecutable, "MyApp")
+        XCTAssertEqual(report.system?.cfBundleIdentifier, "com.example.myapp")
+        XCTAssertEqual(report.system?.cfBundleVersion, "1.0")
+        XCTAssertEqual(report.system?.cpuArch, "arm64")
+        XCTAssertEqual(report.system?.machine, "iPhone14,2")
+        XCTAssertEqual(report.system?.systemName, "iOS")
+        XCTAssertEqual(report.system?.systemVersion, "17.0")
+        XCTAssertEqual(report.system?.memory?.free, 133_308_416)
+        XCTAssertEqual(report.system?.memory?.size, 527_433_728)
     }
 
     func testDecodeUserData() throws {
+        struct TestUserData: Codable, Sendable {
+            let key1: String
+            let key2: Int
+            let key3: Bool
+            let key4: NestedData
+
+            struct NestedData: Codable, Sendable {
+                let nested: String
+            }
+        }
+
         let json = """
             {
                 "binary_images": [],
@@ -241,13 +254,14 @@ final class CrashReportDecodingTests: XCTestCase {
             }
             """
 
-        let report = try CrashReport.decode(from: json)
+        let data = json.data(using: .utf8)!
+        let report = try JSONDecoder().decode(CrashReport<TestUserData>.self, from: data)
 
         XCTAssertNotNil(report.user)
-        XCTAssertEqual(report.user?["key1"]?.stringValue, "string value")
-        XCTAssertEqual(report.user?["key2"]?.intValue, 42)
-        XCTAssertEqual(report.user?["key3"]?.boolValue, true)
-        XCTAssertNotNil(report.user?["key4"]?.dictionaryValue)
+        XCTAssertEqual(report.user?.key1, "string value")
+        XCTAssertEqual(report.user?.key2, 42)
+        XCTAssertEqual(report.user?.key3, true)
+        XCTAssertEqual(report.user?.key4.nested, "value")
     }
 
     func testDecodeRealNSExceptionReport() throws {
@@ -256,20 +270,20 @@ final class CrashReportDecodingTests: XCTestCase {
 
         // Verify top-level structure
         XCTAssertEqual(report.report.id, "1DFC2552-8F7C-4D14-B0A8-5FE04E5AE35E")
-        XCTAssertEqual(report.report.type, "standard")
+        XCTAssertEqual(report.report.type, .standard)
         XCTAssertEqual(report.report.version?.major, 2)
         XCTAssertEqual(report.report.version?.minor, 0)
 
         // Verify crash info
-        XCTAssertEqual(report.crash.error.type, "nsexception")
+        XCTAssertEqual(report.crash.error.type, .nsexception)
         XCTAssertEqual(report.crash.error.nsexception?.name, "NSInvalidArgumentException")
         XCTAssertNotNil(report.crash.error.nsexception?.reason)
 
         // Verify system info
-        XCTAssertEqual(report.system.cfBundleExecutable, "Crash-Tester")
-        XCTAssertEqual(report.system.cfBundleIdentifier, "org.stenerud.Crash-Tester")
-        XCTAssertEqual(report.system.cpuArch, "armv7")
-        XCTAssertEqual(report.system.machine, "iPhone3,1")
+        XCTAssertEqual(report.system?.cfBundleExecutable, "Crash-Tester")
+        XCTAssertEqual(report.system?.cfBundleIdentifier, "org.stenerud.Crash-Tester")
+        XCTAssertEqual(report.system?.cpuArch, "armv7")
+        XCTAssertEqual(report.system?.machine, "iPhone3,1")
 
         // Verify threads
         XCTAssertFalse(report.crash.threads?.isEmpty ?? true)
@@ -283,5 +297,90 @@ final class CrashReportDecodingTests: XCTestCase {
         let mainImage = report.binaryImages?.first { $0.name.contains("Crash-Tester.app/Crash-Tester") }
         XCTAssertNotNil(mainImage)
         XCTAssertEqual(mainImage?.uuid, "99E112D2-0CB4-3F73-BDA6-BCFC1F190724")
+    }
+
+    // MARK: - Example Reports
+
+    private func decodeExampleReport(_ name: String) throws -> CrashReport<NoUserData> {
+        let url = Bundle.module.url(forResource: name, withExtension: "json")!
+        return try CrashReport.decode(from: url)
+    }
+
+    func testDecodeExampleAbort() throws {
+        let report = try decodeExampleReport("Abort")
+        XCTAssertNotNil(report.report.id)
+        XCTAssertEqual(report.crash.error.type, .signal)
+        XCTAssertEqual(report.crash.error.signal?.name, "SIGABRT")
+    }
+
+    func testDecodeExampleBadPointer() throws {
+        let report = try decodeExampleReport("BadPointer")
+        XCTAssertNotNil(report.report.id)
+        XCTAssertEqual(report.crash.error.type, .mach)
+    }
+
+    func testDecodeExampleCorruptMemory() throws {
+        let report = try decodeExampleReport("CorruptMemory")
+        XCTAssertNotNil(report.report.id)
+        XCTAssertEqual(report.crash.error.type, .signal)
+    }
+
+    func testDecodeExampleCorruptObject() throws {
+        let report = try decodeExampleReport("CorruptObject")
+        XCTAssertNotNil(report.report.id)
+        XCTAssertEqual(report.crash.error.type, .mach)
+    }
+
+    func testDecodeExampleCrashInHandler() throws {
+        let report = try decodeExampleReport("CrashInHandler")
+        XCTAssertNotNil(report.report.id)
+        XCTAssertNotNil(report.recrashReport)
+    }
+
+    func testDecodeExampleMainThreadDeadlock() throws {
+        let report = try decodeExampleReport("MainThreadDeadlock")
+        XCTAssertNotNil(report.report.id)
+        XCTAssertEqual(report.crash.error.type, .deadlock)
+    }
+
+    func testDecodeExampleNSException() throws {
+        let report = try decodeExampleReport("NSException")
+        XCTAssertNotNil(report.report.id)
+        XCTAssertEqual(report.crash.error.type, .nsexception)
+        XCTAssertEqual(report.crash.error.nsexception?.name, "NSInvalidArgumentException")
+    }
+
+    func testDecodeExampleStackOverflow() throws {
+        let report = try decodeExampleReport("StackOverflow")
+        XCTAssertNotNil(report.report.id)
+        XCTAssertEqual(report.crash.error.type, .mach)
+    }
+
+    func testDecodeExampleZombie() throws {
+        let report = try decodeExampleReport("Zombie")
+        XCTAssertNotNil(report.report.id)
+        XCTAssertEqual(report.crash.error.type, .mach)
+    }
+
+    func testDecodeExampleZombieNSException() throws {
+        let report = try decodeExampleReport("ZombieNSException")
+        XCTAssertNotNil(report.report.id)
+        XCTAssertEqual(report.crash.error.type, .mach)
+    }
+
+    func testAllExampleReportsDecodeWithKnownErrorType() throws {
+        let resourceURL = Bundle.module.resourceURL!
+        let jsonFiles = try FileManager.default.contentsOfDirectory(at: resourceURL, includingPropertiesForKeys: nil)
+            .filter { $0.pathExtension == "json" }
+
+        XCTAssertFalse(jsonFiles.isEmpty, "No JSON files found in resources")
+
+        for fileURL in jsonFiles {
+            let report = try CrashReport.decode(from: fileURL)
+            XCTAssertFalse(
+                report.crash.error.type.isUnknown,
+                "File \(fileURL.lastPathComponent) has unknown error type: \(report.crash.error.type.rawValue)"
+            )
+        }
     }
 }

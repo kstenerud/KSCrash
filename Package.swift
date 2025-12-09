@@ -232,8 +232,8 @@ let package = Package(
             targets: [Targets.profiler]
         ),
         .library(
-            name: "CrashDecoding",
-            targets: [Targets.crashDecoding]
+            name: "CrashReport",
+            targets: [Targets.crashReport]
         ),
     ],
     targets: [
@@ -497,15 +497,15 @@ let package = Package(
         ),
 
         .target(
-            name: Targets.crashDecoding,
+            name: Targets.crashReport,
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy")
             ]
         ),
         .testTarget(
-            name: Targets.crashDecoding.tests,
+            name: Targets.crashReport.tests,
             dependencies: [
-                .target(name: Targets.crashDecoding)
+                .target(name: Targets.crashReport)
             ],
             resources: [
                 .process("Resources")
@@ -563,7 +563,7 @@ enum Targets {
     static let discSpaceMonitor = "KSCrashDiscSpaceMonitor"
     static let bootTimeMonitor = "KSCrashBootTimeMonitor"
     static let demangleFilter = "KSCrashDemangleFilter"
-    static let crashDecoding = "KSCrashDecoding"
+    static let crashReport = "CrashReport"
     static let testTools = "KSCrashTestTools"
     static let benchmarks = "KSCrashBenchmarks"
     static let profiler = "KSCrashProfiler"
