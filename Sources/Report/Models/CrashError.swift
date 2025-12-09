@@ -35,6 +35,7 @@ public enum CrashErrorType: RawRepresentable, Decodable, Sendable, Equatable {
     case deadlock
     case user
     case memoryTermination
+    case hang
     case unknown(String)
 
     public init(rawValue: String) {
@@ -46,6 +47,7 @@ public enum CrashErrorType: RawRepresentable, Decodable, Sendable, Equatable {
         case "deadlock": self = .deadlock
         case "user": self = .user
         case "memory_termination": self = .memoryTermination
+        case "hang": self = .hang
         default: self = .unknown(rawValue)
         }
     }
@@ -59,6 +61,7 @@ public enum CrashErrorType: RawRepresentable, Decodable, Sendable, Equatable {
         case .deadlock: return "deadlock"
         case .user: return "user"
         case .memoryTermination: return "memory_termination"
+        case .hang: return "hang"
         case .unknown(let value): return value
         }
     }
@@ -96,6 +99,12 @@ public struct CrashError: Decodable, Sendable {
     /// Memory termination information (OOM kills).
     public let memoryTermination: MemoryTerminationInfo?
 
+    /// Hang information (watchdog timeouts).
+    public let hang: HangInfo?
+
+    /// Exit reason information from the OS.
+    public let exitReason: ExitReasonInfo?
+
     /// Reason for the crash (often from abort message or exception reason).
     public let reason: String?
 
@@ -108,6 +117,8 @@ public struct CrashError: Decodable, Sendable {
         case cppException = "cpp_exception"
         case userReported = "user_reported"
         case memoryTermination = "memory_termination"
+        case hang
+        case exitReason = "exit_reason"
         case reason
     }
 }
