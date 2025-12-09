@@ -26,24 +26,26 @@
 
 import Foundation
 
-/// Information about the crash event.
-public struct Crash: Decodable, Sendable {
-    /// Human-readable diagnosis of the crash.
-    public let diagnosis: String?
+extension CrashReport {
+    /// Information about the crash event.
+    public struct Crash: Decodable, Sendable {
+        /// Human-readable diagnosis of the crash.
+        public let diagnosis: String?
 
-    /// Details about the error that caused the crash.
-    public let error: CrashError
+        /// Details about the error that caused the crash.
+        public let error: CrashError
 
-    /// All threads at the time of crash.
-    public let threads: [Thread]?
+        /// All threads at the time of crash.
+        public let threads: [Thread]?
 
-    /// The crashed thread (in minimal reports).
-    public let crashedThread: Thread?
+        /// The crashed thread (in minimal reports).
+        public let crashedThread: Thread?
 
-    enum CodingKeys: String, CodingKey {
-        case diagnosis
-        case error
-        case threads
-        case crashedThread = "crashed_thread"
+        enum CodingKeys: String, CodingKey {
+            case diagnosis
+            case error
+            case threads
+            case crashedThread = "crashed_thread"
+        }
     }
 }
