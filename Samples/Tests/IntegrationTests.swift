@@ -27,6 +27,7 @@
 import CrashTriggers
 import IntegrationTestsHelper
 import KSCrashDemangleFilter
+import Report
 import SampleUI
 import XCTest
 
@@ -34,9 +35,9 @@ final class NSExceptionTests: IntegrationTestBase {
     func testGenericException() throws {
         try launchAndCrash(.nsException_genericNSException)
 
-        let rawReport = try readPartialCrashReport()
+        let rawReport = try readCrashReport()
         try rawReport.validate()
-        XCTAssertEqual(rawReport.crash?.error?.reason, "Test")
+        XCTAssertEqual(rawReport.crash.error.reason, "Test")
 
         let appleReport = try launchAndReportCrash()
         XCTAssertTrue(appleReport.contains("reason: 'Test'"))
@@ -51,11 +52,11 @@ final class NSExceptionTests: IntegrationTestBase {
 
         let rawData = try readRawCrashReportData()
         print(String(data: rawData, encoding: .utf8) ?? "<failed to read raw data>")
-        let rawReport = try decodePartialCrashReport(reportData: rawData)
+        let rawReport = try decodeCrashReport(reportData: rawData)
         try rawReport.validate()
-        XCTAssertEqual(rawReport.crash?.error?.type, "nsexception")
-        XCTAssertEqual(rawReport.crash?.error?.reason, "Test")
-        XCTAssertEqual(rawReport.crash?.threads?.count, 1)
+        XCTAssertEqual(rawReport.crash.error.type, .nsexception)
+        XCTAssertEqual(rawReport.crash.error.reason, "Test")
+        XCTAssertEqual(rawReport.crash.threads?.count, 1)
 
         let appleReport = try launchAndReportCrash()
         XCTAssertTrue(appleReport.contains("reason: 'Test'"))
@@ -68,9 +69,9 @@ final class NSExceptionTests: IntegrationTestBase {
         func testBadAccess() throws {
             try launchAndCrash(.mach_badAccess)
 
-            let rawReport = try readPartialCrashReport()
+            let rawReport = try readCrashReport()
             try rawReport.validate()
-            XCTAssertEqual(rawReport.crash?.error?.type, "mach")
+            XCTAssertEqual(rawReport.crash.error.type, .mach)
 
             let appleReport = try launchAndReportCrash()
             XCTAssertTrue(appleReport.contains("SIGSEGV"))
@@ -83,11 +84,11 @@ final class CppTests: IntegrationTestBase {
     func testRuntimeException() throws {
         try launchAndCrash(.cpp_runtimeException)
 
-        let rawReport = try readPartialCrashReport()
+        let rawReport = try readCrashReport()
         try rawReport.validate()
-        XCTAssertEqual(rawReport.crash?.error?.type, "cpp_exception")
-        let topSymbol = rawReport.crashedThread?.backtrace.contents
-            .compactMap(\.symbol_name).first
+        XCTAssertEqual(rawReport.crash.error.type, .cppException)
+        let topSymbol = rawReport.crashedThread?.backtrace?.contents
+            .compactMap(\.symbolName).first
             .flatMap(CrashReportFilterDemangle.demangledCppSymbol)
         XCTAssertEqual(topSymbol, "sample_namespace::Report::crash()")
 
@@ -121,10 +122,10 @@ final class CppTests: IntegrationTestBase {
         func testAbort() throws {
             try launchAndCrash(.signal_abort)
 
-            let rawReport = try readPartialCrashReport()
+            let rawReport = try readCrashReport()
             try rawReport.validate()
-            XCTAssertEqual(rawReport.crash?.error?.type, "signal")
-            XCTAssertEqual(rawReport.crash?.error?.signal?.name, "SIGABRT")
+            XCTAssertEqual(rawReport.crash.error.type, .signal)
+            XCTAssertEqual(rawReport.crash.error.signal?.name, "SIGABRT")
 
             let appleReport = try launchAndReportCrash()
             XCTAssertTrue(appleReport.contains("SIGABRT"))
@@ -143,9 +144,9 @@ final class CppTests: IntegrationTestBase {
             }
             try terminate()
 
-            let rawReport = try readPartialCrashReport()
+            let rawReport = try readCrashReport()
             try rawReport.validate()
-            XCTAssertEqual(rawReport.crash?.error?.signal?.name, "SIGTERM")
+            XCTAssertEqual(rawReport.crash.error.signal?.name, "SIGTERM")
 
             let appleReport = try launchAndReportCrash()
             print(appleReport)
@@ -160,11 +161,11 @@ final class CppTests: IntegrationTestBase {
         func testManyThreads() throws {
             try launchAndCrash(.other_manyThreads)
 
-            let rawReport = try readPartialCrashReport()
-            let crashedThread = rawReport.crash?.threads?.first(where: { $0.crashed })
+            let rawReport = try readCrashReport()
+            let crashedThread = rawReport.crashedThread
             XCTAssertNotNil(crashedThread)
-            let expectedFrame = crashedThread?.backtrace.contents.first(where: {
-                $0.symbol_name?.contains(KSCrashStacktraceCheckFuncName) ?? false
+            let expectedFrame = crashedThread?.backtrace?.contents.first(where: {
+                $0.symbolName?.contains(KSCrashStacktraceCheckFuncName) ?? false
             })
             XCTAssertNotNil(expectedFrame)
 
@@ -172,7 +173,7 @@ final class CppTests: IntegrationTestBase {
                 "TH_STATE_RUNNING", "TH_STATE_STOPPED", "TH_STATE_WAITING",
                 "TH_STATE_UNINTERRUPTIBLE", "TH_STATE_HALTED",
             ]
-            for thread in rawReport.crash?.threads ?? [] {
+            for thread in rawReport.crash.threads ?? [] {
                 let threadState = thread.state ?? ""
                 XCTAssertTrue(threadStates.contains(threadState))
             }
@@ -201,15 +202,15 @@ final class UserReportedTests: IntegrationTestBase {
                 addStacktrace: true
             ))
 
-        let rawReport = try readPartialCrashReport()
+        let rawReport = try readCrashReport()
         try rawReport.validate()
-        XCTAssertEqual(rawReport.crash?.error?.type, "nsexception")
-        XCTAssertEqual(rawReport.crash?.error?.reason, Self.crashReason)
-        XCTAssertEqual(rawReport.crash?.error?.nsexception?.name, Self.crashName)
-        XCTAssertTrue(rawReport.crash?.error?.nsexception?.userInfo?.contains("a = b") ?? false)
-        XCTAssertGreaterThanOrEqual(rawReport.crash?.threads?.count ?? 0, 2, "Expected to have at least 2 threads")
-        let backtraceFrame = rawReport.crashedThread?.backtrace.contents.first(where: {
-            $0.symbol_name?.contains(KSCrashNSExceptionStacktraceFuncName) ?? false
+        XCTAssertEqual(rawReport.crash.error.type, .nsexception)
+        XCTAssertEqual(rawReport.crash.error.reason, Self.crashReason)
+        XCTAssertEqual(rawReport.crash.error.nsexception?.name, Self.crashName)
+        XCTAssertTrue(rawReport.crash.error.nsexception?.userInfo?.contains("a = b") ?? false)
+        XCTAssertGreaterThanOrEqual(rawReport.crash.threads?.count ?? 0, 2, "Expected to have at least 2 threads")
+        let backtraceFrame = rawReport.crashedThread?.backtrace?.contents.first(where: {
+            $0.symbolName?.contains(KSCrashNSExceptionStacktraceFuncName) ?? false
         })
         XCTAssertNotNil(backtraceFrame, "Crashed thread stack trace should have the specific symbol")
 
@@ -235,14 +236,14 @@ final class UserReportedTests: IntegrationTestBase {
                 addStacktrace: false  // <- Key difference
             ))
 
-        let rawReport = try readPartialCrashReport()
+        let rawReport = try readCrashReport()
         try rawReport.validate()
-        XCTAssertEqual(rawReport.crash?.error?.type, "nsexception")
-        XCTAssertEqual(rawReport.crash?.error?.reason, Self.crashReason)
-        XCTAssertEqual(rawReport.crash?.error?.nsexception?.name, Self.crashName)
-        XCTAssertGreaterThanOrEqual(rawReport.crash?.threads?.count ?? 0, 2, "Expected to have at least 2 threads")
-        let topSymbol = rawReport.crashedThread?.backtrace.contents
-            .compactMap(\.symbol_name).first
+        XCTAssertEqual(rawReport.crash.error.type, .nsexception)
+        XCTAssertEqual(rawReport.crash.error.reason, Self.crashReason)
+        XCTAssertEqual(rawReport.crash.error.nsexception?.name, Self.crashName)
+        XCTAssertGreaterThanOrEqual(rawReport.crash.threads?.count ?? 0, 2, "Expected to have at least 2 threads")
+        let topSymbol = rawReport.crashedThread?.backtrace?.contents
+            .compactMap(\.symbolName).first
             .flatMap(CrashReportFilterDemangle.demangledSwiftSymbol)
         XCTAssertEqual(
             topSymbol, "IntegrationTestsHelper.UserReportConfig.NSExceptionReport.report() -> ()",
@@ -263,15 +264,15 @@ final class UserReportedTests: IntegrationTestBase {
                 terminateProgram: false
             ))
 
-        let rawReport = try readPartialCrashReport()
+        let rawReport = try readCrashReport()
         try rawReport.validate()
-        XCTAssertEqual(rawReport.crash?.error?.type, "user")
-        XCTAssertEqual(rawReport.crash?.error?.reason, Self.crashReason)
-        XCTAssertEqual(rawReport.crash?.error?.user_reported?.name, Self.crashName)
-        XCTAssertEqual(rawReport.crash?.error?.user_reported?.backtrace, Self.crashCustomStacktrace)
-        XCTAssertGreaterThanOrEqual(rawReport.crash?.threads?.count ?? 0, 2, "Expected to have at least 2 threads")
-        let topSymbol = rawReport.crashedThread?.backtrace.contents
-            .compactMap(\.symbol_name).first
+        XCTAssertEqual(rawReport.crash.error.type, .user)
+        XCTAssertEqual(rawReport.crash.error.reason, Self.crashReason)
+        XCTAssertEqual(rawReport.crash.error.userReported?.name, Self.crashName)
+        XCTAssertEqual(rawReport.crash.error.userReported?.backtrace, Self.crashCustomStacktrace)
+        XCTAssertGreaterThanOrEqual(rawReport.crash.threads?.count ?? 0, 2, "Expected to have at least 2 threads")
+        let topSymbol = rawReport.crashedThread?.backtrace?.contents
+            .compactMap(\.symbolName).first
             .flatMap(CrashReportFilterDemangle.demangledSwiftSymbol)
         XCTAssertEqual(
             topSymbol, "IntegrationTestsHelper.UserReportConfig.UserException.report() -> ()",
@@ -289,14 +290,17 @@ final class UserReportedTests: IntegrationTestBase {
     }
 }
 
-extension PartialCrashReport {
-    var crashedThread: Crash.Thread? {
-        return self.crash?.threads?.first(where: { $0.crashed })
+extension Report.CrashReport where UserData == Report.NoUserData {
+    var crashedThread: Report.CrashReport<UserData>.Thread? {
+        if let thread = self.crash.crashedThread {
+            return thread
+        }
+        return self.crash.threads?.first(where: { $0.crashed })
     }
 
     func validate() throws {
-        let crashedThread = self.crashedThread
-        XCTAssertNotNil(crashedThread)
-        XCTAssertGreaterThan(crashedThread?.backtrace.contents.count ?? 0, 0)
+        let thread = self.crashedThread
+        XCTAssertNotNil(thread)
+        XCTAssertGreaterThan(thread?.backtrace?.contents.count ?? 0, 0)
     }
 }

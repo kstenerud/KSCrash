@@ -27,6 +27,7 @@
 import CrashTriggers
 import IntegrationTestsHelper
 import Logging
+import Report
 import SampleUI
 import XCTest
 
@@ -195,14 +196,14 @@ class IntegrationTestBase: XCTestCase {
         return report
     }
 
-    func readPartialCrashReport() throws -> PartialCrashReport {
+    func readCrashReport() throws -> CrashReport<NoUserData> {
         let reportData = try readRawCrashReportData()
-        let report = try JSONDecoder().decode(PartialCrashReport.self, from: reportData)
+        let report = try JSONDecoder().decode(CrashReport<NoUserData>.self, from: reportData)
         return report
     }
 
-    func decodePartialCrashReport(reportData: Data) throws -> PartialCrashReport {
-        return try JSONDecoder().decode(PartialCrashReport.self, from: reportData)
+    func decodeCrashReport(reportData: Data) throws -> CrashReport<NoUserData> {
+        return try JSONDecoder().decode(CrashReport<NoUserData>.self, from: reportData)
     }
 
     func hasCrashReport() throws -> Bool {
