@@ -30,6 +30,7 @@
 #include "KSCrashMonitorHelper.h"
 #include "KSCrashMonitor_MachException.h"
 #include "KSCrashMonitor_Memory.h"
+#include "KSCrashMonitor_Watchdog.h"
 #include "KSID.h"
 #include "KSMachineContext.h"
 #include "KSSignalInfo.h"
@@ -243,8 +244,11 @@ static void addContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext
 {
     const char *machName = kscm_machexception_getAPI()->monitorId();
 
-    if (!(strcmp(eventContext->monitorId, monitorId()) == 0 ||
-          (machName && strcmp(eventContext->monitorId, machName) == 0))) {
+    if (strcmp(eventContext->monitorId, kscm_watchdog_getAPI()->monitorId()) == 0) {
+        // do nothing if this is being handled by the Hang monitor.
+        return;
+    } else if (!(strcmp(eventContext->monitorId, monitorId()) == 0 ||
+                 (machName && strcmp(eventContext->monitorId, machName) == 0))) {
         eventContext->signal.signum = SIGABRT;
     }
 }

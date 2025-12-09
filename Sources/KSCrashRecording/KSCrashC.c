@@ -41,6 +41,7 @@
 #include "KSCrashMonitor_Signal.h"
 #include "KSCrashMonitor_System.h"
 #include "KSCrashMonitor_User.h"
+#include "KSCrashMonitor_Watchdog.h"
 #include "KSCrashMonitor_Zombie.h"
 #include "KSCrashReportC.h"
 #include "KSCrashReportFixer.h"
@@ -74,16 +75,21 @@ typedef enum {
 static const struct KSCrashMonitorMapping {
     KSCrashMonitorType type;
     KSCrashMonitorAPI *(*getAPI)(void);
-} g_monitorMappings[] = { { KSCrashMonitorTypeMachException, kscm_machexception_getAPI },
-                          { KSCrashMonitorTypeSignal, kscm_signal_getAPI },
-                          { KSCrashMonitorTypeCPPException, kscm_cppexception_getAPI },
-                          { KSCrashMonitorTypeNSException, kscm_nsexception_getAPI },
-                          { KSCrashMonitorTypeMainThreadDeadlock, kscm_deadlock_getAPI },
-                          { KSCrashMonitorTypeUserReported, kscm_user_getAPI },
-                          { KSCrashMonitorTypeSystem, kscm_system_getAPI },
-                          { KSCrashMonitorTypeApplicationState, kscm_appstate_getAPI },
-                          { KSCrashMonitorTypeZombie, kscm_zombie_getAPI },
-                          { KSCrashMonitorTypeMemoryTermination, kscm_memory_getAPI } };
+}
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+g_monitorMappings[] = { { KSCrashMonitorTypeMachException, kscm_machexception_getAPI },
+                        { KSCrashMonitorTypeSignal, kscm_signal_getAPI },
+                        { KSCrashMonitorTypeCPPException, kscm_cppexception_getAPI },
+                        { KSCrashMonitorTypeNSException, kscm_nsexception_getAPI },
+                        { KSCrashMonitorTypeMainThreadDeadlock, kscm_deadlock_getAPI },
+                        { KSCrashMonitorTypeUserReported, kscm_user_getAPI },
+                        { KSCrashMonitorTypeSystem, kscm_system_getAPI },
+                        { KSCrashMonitorTypeApplicationState, kscm_appstate_getAPI },
+                        { KSCrashMonitorTypeZombie, kscm_zombie_getAPI },
+                        { KSCrashMonitorTypeMemoryTermination, kscm_memory_getAPI },
+                        { KSCrashMonitorTypeWatchdog, kscm_watchdog_getAPI } };
+#pragma clang diagnostic pop
 
 static const size_t g_monitorMappingCount = sizeof(g_monitorMappings) / sizeof(g_monitorMappings[0]);
 
@@ -187,7 +193,7 @@ static void notifyOfBeforeInstallationState(void)
  *
  * This function gets passed as a callback to a crash handler.
  */
-static void onExceptionEvent(struct KSCrash_MonitorContext *monitorContext)
+static void onExceptionEvent(struct KSCrash_MonitorContext *monitorContext, KSCrash_ReportResult *result)
 {
     // Check if the user wants to modify the plan for this crash.
     if (g_willWriteReportCallback) {
@@ -216,6 +222,11 @@ static void onExceptionEvent(struct KSCrash_MonitorContext *monitorContext)
         int64_t reportID = kscrs_getNextCrashReport(crashReportFilePath, &g_reportStoreConfig);
         strncpy(g_lastCrashReportFilePath, crashReportFilePath, sizeof(g_lastCrashReportFilePath));
         kscrashreport_writeStandardReport(monitorContext, crashReportFilePath);
+
+        if (result) {
+            result->reportId = reportID;
+            strncpy(result->path, g_lastCrashReportFilePath, sizeof(result->path));
+        }
 
         if (g_didWriteReportCallback != NULL) {
             KSCrash_ExceptionHandlingPlan plan = ksexc_monitorContextToPlan(monitorContext);
@@ -248,7 +259,10 @@ static void handleConfiguration(KSCrashCConfiguration *configuration)
         kscrashreport_setUserInfoJSON(configuration->userInfoJSON);
     }
 #if KSCRASH_HAS_OBJC
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     kscm_setDeadlockHandlerWatchdogInterval(configuration->deadlockWatchdogInterval);
+#pragma clang diagnostic pop
 #endif
     kstc_setSearchQueueNames(configuration->enableQueueNameSearch);
     kscrashreport_setIntrospectMemory(configuration->enableMemoryIntrospection);
@@ -357,7 +371,7 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
 
     ksdl_init();
 
-    kscm_setEventCallback(onExceptionEvent);
+    kscm_setEventCallbackWithResult(onExceptionEvent);
     setMonitors(configuration->monitors);
     if (kscm_activateMonitors() == false) {
         KSLOG_ERROR("No crash monitors are active");

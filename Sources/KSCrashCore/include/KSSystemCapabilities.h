@@ -157,4 +157,16 @@
 #define KSCRASH_HAS_REACHABILITY 0
 #endif
 
+// ============================================================================
+#pragma mark - Compiler Attributes -
+// ============================================================================
+
+#ifndef KSCRASH_DEPRECATED
+#if defined(__has_attribute) && __has_attribute(deprecated)
+#define KSCRASH_DEPRECATED(msg) __attribute__((deprecated(msg)))
+#else
+#define KSCRASH_DEPRECATED(msg)
+#endif
+#endif
+
 #endif  // HDR_KSSystemCapabilities_h

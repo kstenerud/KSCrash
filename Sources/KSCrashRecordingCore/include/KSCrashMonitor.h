@@ -90,13 +90,24 @@ bool kscm_addMonitor(const KSCrashMonitorAPI *api);
 void kscm_removeMonitor(const KSCrashMonitorAPI *api);
 
 /**
+ * Sets the callback for event capture allowing to capture the result of capturing the event.
+ *
+ * @param onEvent Callback function for events.
+ *
+ * Registers a callback to be invoked when an event occurs.
+ */
+void kscm_setEventCallbackWithResult(void (*onEvent)(struct KSCrash_MonitorContext *monitorContext,
+                                                     KSCrash_ReportResult *result));
+
+/**
  * Sets the callback for event capture.
  *
  * @param onEvent Callback function for events.
  *
  * Registers a callback to be invoked when an event occurs.
  */
-void kscm_setEventCallback(void (*onEvent)(struct KSCrash_MonitorContext *monitorContext));
+void kscm_setEventCallback(void (*onEvent)(struct KSCrash_MonitorContext *monitorContext))
+    __attribute__((deprecated("Use `kscm_setEventCallbackWithResult`")));
 
 #ifdef __cplusplus
 }

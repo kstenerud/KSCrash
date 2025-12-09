@@ -38,6 +38,9 @@
 
 @implementation KSCrashConfigurationTests
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 - (void)setUp
 {
     clearCallbackData();
@@ -282,9 +285,6 @@ static void didWriteReportCallback(const KSCrash_ExceptionHandlingPlan *const pl
 }
 
 #pragma mark - Backward Compatibility Tests
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
 static struct {
     BOOL legacyCrashNotifyCallbackCalled;

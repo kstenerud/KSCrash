@@ -101,6 +101,15 @@ typedef struct KSCrash_MonitorContext {
     bool omitBinaryImages;
 
     struct {
+        /**
+         * If available, this will be the termination reason code.
+         * For now, only 0x8badf00d is available for watchdog timeouts.
+         */
+        uint32_t code;
+
+    } exitReason;
+
+    struct {
         /** The mach exception type. */
         int type;
 
@@ -259,6 +268,23 @@ typedef struct KSCrash_MonitorContext {
         const char *state;
     } AppMemory;
 
+    struct {
+        /** Whether the hang is currently in progress */
+        bool inProgress;
+
+        /** Start time of the hang in nanoseconds (monotonic uptime) **/
+        uint64_t timestamp;
+
+        /** Task role (task_role_t) at hang start time. */
+        int role;
+
+        /** End time (or last update time) of the hang in nanoseconds (monotonic uptime) **/
+        uint64_t endTimestamp;
+
+        /** Task role (task_role_t) at hang end time. */
+        int endRole;
+    } Hang;
+
     /** Full path to the console log, if any. */
     const char *consoleLogPath;
 
@@ -266,6 +292,14 @@ typedef struct KSCrash_MonitorContext {
     const char *reportPath;
 
 } KSCrash_MonitorContext;
+
+typedef struct KSCrash_ReportResult {
+    /** id as used by the report API */
+    int64_t reportId;
+
+    /** the path on disk of this report */
+    char path[PATH_MAX];
+} KSCrash_ReportResult;
 
 /**
  * Callbacks to be used by monitors.
@@ -289,11 +323,11 @@ typedef struct {
      * sure anything async-unsafe you need is done BEFORE calling this function with `shouldRecordThreads` set!
      *
      * After calling this function, you should fill out any pertinent information in the returned context, and then call
-     * handle().
+     * handleWithResult().
      *
      * @param offendingThread The thread that caused the exception.
      * @param requirements Requirements and information about how this exception should be handled.
-     * @return a monitor context to be filled out and passed to `handle()`.
+     * @return a monitor context to be filled out and passed to `handleWithResult()`.
      */
     KSCrash_MonitorContext *(*notify)(thread_t offendingThread, KSCrash_ExceptionHandlingRequirements requirements);
 
@@ -307,7 +341,11 @@ typedef struct {
      * handler.
      *
      * @param context The monitor context that was returned by `notify()`
+     * @param result Contains the result of handling the exception.
      */
+    void (*handleWithResult)(KSCrash_MonitorContext *context, KSCrash_ReportResult *result);
+
+    /** Deprecated: Use `handleWithResult` instead. */
     void (*handle)(KSCrash_MonitorContext *context);
 } KSCrash_ExceptionHandlerCallbacks;
 

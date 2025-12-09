@@ -1,7 +1,7 @@
 //
-//  CrashTriggerConfig.swift
+//  KSUnfairLock.h
 //
-//  Created by Nikolay Volosatov on 2024-08-11.
+//  Created by Alexander Cohen on 2025-12-07.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -23,23 +23,38 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 //
+#import "KSUnfairLock.h"
+#import <os/lock.h>
 
-import CrashTriggers
-import Foundation
+@interface KSUnfairLock () {
+    os_unfair_lock _lock;
+}
+@end
 
-public struct CrashTriggerConfig: Codable {
-    public var triggerId: CrashTriggerId
+@implementation KSUnfairLock
 
-    public init(triggerId: CrashTriggerId) {
-        self.triggerId = triggerId
+- (instancetype)init
+{
+    if ((self = [super init])) {
+        _lock = OS_UNFAIR_LOCK_INIT;
     }
+    return self;
 }
 
-extension CrashTriggerId: @retroactive Codable {
+- (void)lock
+{
+    os_unfair_lock_lock(&_lock);
+}
+- (void)unlock
+{
+    os_unfair_lock_unlock(&_lock);
 }
 
-extension CrashTriggerConfig {
-    func crash() {
-        CrashTriggersHelper.runTrigger(triggerId)
-    }
+- (void)withLock:(dispatch_block_t)block
+{
+    os_unfair_lock_lock(&_lock);
+    block();
+    os_unfair_lock_unlock(&_lock);
 }
+
+@end

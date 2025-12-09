@@ -32,6 +32,7 @@
 #import "KSCrashReportStore.h"
 #import "KSCrashReportWriter.h"
 #import "KSCrashReportWriterCallbacks.h"
+#import "KSSystemCapabilities.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -76,8 +77,12 @@ NS_ASSUME_NONNULL_BEGIN
  * this value, including application startup. You may need to initialize your
  * application on a different thread or set this to a higher value until initialization
  * is complete.
+ *
+ * @note Deprecated. Use `KSCrashMonitorTypeWatchdog` in the `monitors` property instead.
+ * The watchdog monitor provides better hang detection with a fixed 250ms threshold.
  */
-@property(nonatomic, assign) double deadlockWatchdogInterval;
+@property(nonatomic, assign)
+    double deadlockWatchdogInterval KSCRASH_DEPRECATED("Use KSCrashMonitorTypeWatchdog in monitors instead.");
 
 /** If true, attempt to fetch dispatch queue names for each running thread.
  *

@@ -83,6 +83,7 @@ KSCRF_DEFINE_CONSTANT(KSCrashExcType, NSException, nsException, "nsexception")
 KSCRF_DEFINE_CONSTANT(KSCrashExcType, Signal, signal, "signal")
 KSCRF_DEFINE_CONSTANT(KSCrashExcType, User, user, "user")
 KSCRF_DEFINE_CONSTANT(KSCrashExcType, MemoryTermination, memoryTermination, "memory_termination")
+KSCRF_DEFINE_CONSTANT(KSCrashExcType, Hang, hang, "hang")
 
 #pragma mark - Common -
 
@@ -172,6 +173,7 @@ KSCRF_DEFINE_CONSTANT(KSCrashField, Reason, reason, "reason")
 KSCRF_DEFINE_CONSTANT(KSCrashField, Signal, signal, "signal")
 KSCRF_DEFINE_CONSTANT(KSCrashField, Subcode, subcode, "subcode")
 KSCRF_DEFINE_CONSTANT(KSCrashField, UserReported, userReported, "user_reported")
+KSCRF_DEFINE_CONSTANT(KSCrashField, ExitReason, exitReason, "exit_reason")
 
 #pragma mark - Process State -
 
@@ -202,6 +204,7 @@ KSCRF_DEFINE_CONSTANT(KSCrashField, Timestamp, timestamp, "timestamp")
 KSCRF_DEFINE_CONSTANT(KSCrashField, Version, version, "version")
 KSCRF_DEFINE_CONSTANT(KSCrashField, AppMemory, appMemory, "app_memory")
 KSCRF_DEFINE_CONSTANT(KSCrashField, MemoryTermination, memoryTermination, "memory_termination")
+KSCRF_DEFINE_CONSTANT(KSCrashField, Hang, hang, "hang")
 
 KSCRF_DEFINE_CONSTANT(KSCrashField, CrashedThread, crashedThread, "crashed_thread")
 KSCRF_DEFINE_CONSTANT(KSCrashField, AppStats, appStats, "application_stats")
@@ -250,6 +253,12 @@ KSCRF_DEFINE_CONSTANT(KSCrashField, MemoryRemaining, memoryRemaining, "memory_re
 KSCRF_DEFINE_CONSTANT(KSCrashField, MemoryPressure, memoryPressure, "memory_pressure")
 KSCRF_DEFINE_CONSTANT(KSCrashField, MemoryLevel, memoryLevel, "memory_level")
 KSCRF_DEFINE_CONSTANT(KSCrashField, AppTransitionState, appTransitionState, "app_transition_state")
+
+KSCRF_DEFINE_CONSTANT(KSCrashField, HangStartNanoseconds, hangStartNanoseconds, "hang_start_nanos")
+KSCRF_DEFINE_CONSTANT(KSCrashField, HangStartRole, hangStartRole, "hang_start_role")
+KSCRF_DEFINE_CONSTANT(KSCrashField, HangEndNanoseconds, hangEndNanoseconds, "hang_end_nanos")
+KSCRF_DEFINE_CONSTANT(KSCrashField, HangEndRole, hangEndRole, "hang_end_role")
+KSCRF_DEFINE_CONSTANT(KSCrashField, HangRecovered, hangRecovered, "hang_recovered")
 
 #ifdef __cplusplus
 }

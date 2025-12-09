@@ -62,6 +62,21 @@ struct PartialCrashReport: Decodable {
                 var line_of_code: String?
                 var backtrace: [String]?  // Can be actually any JSON encodable structure
             }
+            struct Hang: Decodable {
+                var hang_start_nanos: UInt64?
+                var hang_end_nanos: UInt64?
+                var hang_start_role: String?
+                var hang_end_role: String?
+            }
+            struct Mach: Decodable {
+                var exception: Int?
+                var exception_name: String?
+                var code: Int?
+                var subcode: Int?
+            }
+            struct ExitReason: Decodable {
+                var code: UInt64?
+            }
 
             var reason: String?
             var type: String?
@@ -69,6 +84,9 @@ struct PartialCrashReport: Decodable {
             var signal: Signal?
             var nsexception: NSException?
             var user_reported: UserReported?
+            var hang: Hang?
+            var mach: Mach?
+            var exit_reason: ExitReason?
         }
 
         struct Thread: Decodable {

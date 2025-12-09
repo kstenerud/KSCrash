@@ -36,6 +36,7 @@
 #include "KSCrashNamespace.h"
 #include "KSCrashReportWriter.h"
 #include "KSCrashReportWriterCallbacks.h"
+#include "KSSystemCapabilities.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -114,6 +115,8 @@ typedef struct {
      */
     const char *userInfoJSON;
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     /** The maximum time to allow the main thread to run without returning.
      *
      * If the main thread is occupied by a task for longer than this interval, the
@@ -124,8 +127,13 @@ typedef struct {
      * this value, including application startup. You may need to initialize your
      * application on a different thread or set this to a higher value until initialization
      * is complete.
+     *
+     * @note Deprecated. Use `KSCrashMonitorTypeWatchdog` in the `monitors` field instead.
+     * The watchdog monitor provides better hang detection with a fixed 250ms threshold.
      */
-    double deadlockWatchdogInterval;
+    double deadlockWatchdogInterval
+        KSCRASH_DEPRECATED("Use `KSCrashMonitorTypeWatchdog` in the `monitors` field instead");
+#pragma clang diagnostic pop
 
     /** If true, attempt to fetch dispatch queue names for each running thread.
      *
@@ -279,7 +287,10 @@ static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
         .reportStoreConfiguration = KSCrashReportStoreCConfiguration_Default(),
         .monitors = KSCrashMonitorTypeProductionSafeMinimal,
         .userInfoJSON = NULL,
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         .deadlockWatchdogInterval = 0.0,
+#pragma clang diagnostic pop
         .enableQueueNameSearch = false,
         .enableMemoryIntrospection = false,
         .doNotIntrospectClasses = { .strings = NULL, .length = 0 },

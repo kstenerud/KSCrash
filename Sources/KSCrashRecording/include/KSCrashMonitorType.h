@@ -71,7 +71,9 @@ enum
     /** Monitor uncaught Objective-C NSExceptions. */
     KSCrashMonitorTypeNSException        = 1 << 3,
 
-    /** Detect deadlocks on the main thread. */
+    /** Detect deadlocks on the main thread.
+     * @note Deprecated. Use KSCrashMonitorTypeWatchdog instead.
+     */
     KSCrashMonitorTypeMainThreadDeadlock = 1 << 4,
 
     /** Monitor user-reported custom exceptions. */
@@ -88,32 +90,35 @@ enum
 
     /** Monitor memory to detect OOMs at startup. */
     KSCrashMonitorTypeMemoryTermination  = 1 << 9,
-
+    
+    /** Tracks hangs as well as hangs that cause a termination (watchdog terminations) */
+    KSCrashMonitorTypeWatchdog           = 1 << 10,
+    
     /** Enable all monitoring options. */
     KSCrashMonitorTypeAll = (
                              KSCrashMonitorTypeMachException |
                              KSCrashMonitorTypeSignal |
                              KSCrashMonitorTypeCPPException |
                              KSCrashMonitorTypeNSException |
-                             KSCrashMonitorTypeMainThreadDeadlock |
                              KSCrashMonitorTypeUserReported |
                              KSCrashMonitorTypeSystem |
                              KSCrashMonitorTypeApplicationState |
                              KSCrashMonitorTypeZombie |
-                             KSCrashMonitorTypeMemoryTermination
+                             KSCrashMonitorTypeMemoryTermination |
+                             KSCrashMonitorTypeWatchdog
                              ),
 
-    /** Fatal monitors track exceptions that lead to error termination of the process.. */
+    /** Fatal monitors track exceptions that lead to error termination of the process. */
     KSCrashMonitorTypeFatal = (
                                KSCrashMonitorTypeMachException |
                                KSCrashMonitorTypeSignal |
                                KSCrashMonitorTypeCPPException |
                                KSCrashMonitorTypeNSException |
-                               KSCrashMonitorTypeMainThreadDeadlock
+                               KSCrashMonitorTypeWatchdog
                                ),
 
     /** Enable experimental monitoring options. */
-    KSCrashMonitorTypeExperimental = KSCrashMonitorTypeMainThreadDeadlock,
+    KSCrashMonitorTypeExperimental = KSCrashMonitorTypeWatchdog,
 
     /** Monitor options unsafe for use with a debugger. */
     KSCrashMonitorTypeDebuggerUnsafe = KSCrashMonitorTypeMachException,

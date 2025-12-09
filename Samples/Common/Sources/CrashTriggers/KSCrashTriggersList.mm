@@ -198,6 +198,20 @@ NSString *const KSCrashNSExceptionStacktraceFuncName = @"exceptionWithStacktrace
     [self trigger_other_stackOverflow];
 }
 
++ (void)trigger_other_watchdogTimeoutTermination
+{
+    // Schedule a SIGKILL from a background queue to terminate the app
+    // while the main thread is hung, simulating a watchdog termination
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(4.0 * NSEC_PER_SEC)),
+                   dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+                       kill(getpid(), SIGKILL);
+                   });
+
+    // Block the main thread to trigger hang detection
+    // The watchdog monitor should detect this and record a hang report
+    [NSThread sleepForTimeInterval:100.0];
+}
+
 #define TRIGGER_MULTIPLE(TYPE_A, TYPE_B)                                                               \
     setIntegrationTestIsWritingReportCallback(                                                         \
         ^(const KSCrash_ExceptionHandlingPlan *const plan, const struct KSCrashReportWriter *writer) { \

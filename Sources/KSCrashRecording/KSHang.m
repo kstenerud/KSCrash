@@ -1,7 +1,7 @@
 //
-//  CrashTriggerConfig.swift
+//  KSHang.m
 //
-//  Created by Nikolay Volosatov on 2024-08-11.
+//  Created by Alexander Cohen on 2025-12-08.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,22 +24,37 @@
 // THE SOFTWARE.
 //
 
-import CrashTriggers
-import Foundation
+#import "KSHang.h"
 
-public struct CrashTriggerConfig: Codable {
-    public var triggerId: CrashTriggerId
+@implementation KSHang
 
-    public init(triggerId: CrashTriggerId) {
-        self.triggerId = triggerId
+- (instancetype)initWithTimestamp:(uint64_t)timestamp role:(task_role_t)role
+{
+    if ((self = [super init])) {
+        _timestamp = timestamp;
+        _role = role;
+        _endTimestamp = timestamp;
+        _endRole = role;
     }
+    return self;
 }
 
-extension CrashTriggerId: @retroactive Codable {
+- (NSTimeInterval)interval
+{
+    return (double)(self.endTimestamp - self.timestamp) / 1000000000.0;
 }
 
-extension CrashTriggerConfig {
-    func crash() {
-        CrashTriggersHelper.runTrigger(triggerId)
-    }
+- (id)copyWithZone:(NSZone *)zone
+{
+    KSHang *copy = [[KSHang allocWithZone:zone] init];
+    copy.timestamp = self.timestamp;
+    copy.role = self.role;
+    copy.endTimestamp = self.endTimestamp;
+    copy.endRole = self.endRole;
+    copy.reportId = self.reportId;
+    copy.path = [self.path copy];
+    copy.decodedReport = [self.decodedReport mutableCopy];
+    return copy;
 }
+
+@end
