@@ -61,6 +61,30 @@ import XCTest
             // Verify we got a SIGKILL
             XCTAssertEqual(rawReport.crash?.error?.signal?.signal, 9, "Should be SIGKILL (signal 9)")
         }
+
+        func testWatchdogTimeoutHasThreads() throws {
+            // Enable watchdog monitoring and trigger a simulated watchdog timeout
+            try launchAndCrash(.other_watchdogTimeoutTermination) { config in
+                config.isWatchdogEnabled = true
+            }
+
+            let rawReport = try readPartialCrashReport()
+
+            // Verify threads are present in the crash report
+            let threads = rawReport.crash?.threads
+            XCTAssertNotNil(threads, "Threads should be present in crash report")
+            XCTAssertGreaterThan(threads?.count ?? 0, 0, "Should have at least one thread")
+
+            // Find the crashed/main thread
+            let crashedThread = threads?.first(where: { $0.crashed })
+            XCTAssertNotNil(crashedThread, "Should have a crashed thread")
+
+            // Verify the crashed thread has a backtrace with frames
+            let backtrace = crashedThread?.backtrace
+            XCTAssertNotNil(backtrace, "Crashed thread should have a backtrace")
+            XCTAssertGreaterThan(
+                backtrace?.contents.count ?? 0, 0, "Backtrace should have at least one frame")
+        }
     }
 
 #endif
