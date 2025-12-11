@@ -41,7 +41,7 @@
 // MARK: - Image Address Range Cache
 
 #define KSBIC_MAX_CACHE_ENTRIES 2048
-#define KSBIC_MAX_SEGMENTS_PER_IMAGE 8
+#define KSBIC_MAX_SEGMENTS_PER_IMAGE 64
 
 /**
  * Cached segment range for fast address-in-segment checks.
