@@ -52,7 +52,7 @@ typedef struct {
 
 /**
  * Cached image address range for fast lookups.
- * Stores pre-computed segment ranges for O(1) address validation.
+ * Stores pre-computed segment ranges for fast address validation (O(segments), typically 4-6 segments).
  */
 typedef struct {
     uintptr_t startAddress;  // Min segment address (for quick rejection)
