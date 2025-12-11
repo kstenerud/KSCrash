@@ -41,7 +41,7 @@
 // MARK: - Image Address Range Cache
 
 #define KSBIC_MAX_CACHE_ENTRIES 2048
-#define KSBIC_MAX_SEGMENTS_PER_IMAGE 64
+#define KSBIC_MAX_SEGMENTS_PER_IMAGE 16
 
 /**
  * Cached segment range for fast address-in-segment checks.
@@ -152,6 +152,9 @@ static bool populateCacheEntry(const struct mach_header *header, const char *nam
                         entry->segments[segCount].start = segStart;
                         entry->segments[segCount].end = segEnd;
                         segCount++;
+                    } else {
+                        KSLOG_WARN("Image %s exceeds max segments (%d), truncating", name ? name : "<unknown>",
+                                   KSBIC_MAX_SEGMENTS_PER_IMAGE);
                     }
                 }
             }
@@ -194,6 +197,9 @@ static bool populateCacheEntry(const struct mach_header *header, const char *nam
                         entry->segments[segCount].start = segStart;
                         entry->segments[segCount].end = segEnd;
                         segCount++;
+                    } else {
+                        KSLOG_WARN("Image %s exceeds max segments (%d), truncating", name ? name : "<unknown>",
+                                   KSBIC_MAX_SEGMENTS_PER_IMAGE);
                     }
                 }
             }
