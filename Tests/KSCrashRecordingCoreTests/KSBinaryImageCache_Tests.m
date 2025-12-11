@@ -371,4 +371,84 @@
     XCTAssertEqual(header, NULL, @"Should return NULL for invalid address");
 }
 
+#pragma mark - Regression Tests
+
+/// Regression test: Verify that __PAGEZERO is not included in image address bounds.
+/// The main executable's __PAGEZERO segment has vmaddr=0 and vmsize=4GB, but filesize=0.
+/// If included in bounds calculation, addresses below the actual image start would
+/// incorrectly match the main executable.
+- (void)testFindImageForAddress_DoesNotIncludePageZero
+{
+    uint32_t count = 0;
+    const ks_dyld_image_info *images = ksbic_getImages(&count);
+    XCTAssertGreaterThan(count, 0, @"There should be at least some images loaded");
+
+    // Get the main executable (typically first image)
+    const struct mach_header *mainHeader = images[0].imageLoadAddress;
+    uintptr_t headerAddress = (uintptr_t)mainHeader;
+
+    // The ASLR slide is typically the difference between the loaded address and
+    // the __TEXT segment's vmaddr (which is typically 0x100000000 on 64-bit)
+    // If __PAGEZERO is incorrectly included, addresses starting from the slide
+    // value (around 0x100000000 or so) would match the main executable.
+
+    // Test an address that's significantly below the header but above zero.
+    // This address should NOT match any image.
+    // We use headerAddress - 0x10000 which is definitely before the image start.
+    uintptr_t addressBeforeImage = headerAddress - 0x10000;
+
+    // This address should not find the main executable
+    uintptr_t slide = 0;
+    const char *name = NULL;
+    const struct mach_header *foundHeader = ksbic_findImageForAddress(addressBeforeImage, &slide, &name);
+
+    // The address before the image should either:
+    // - Return NULL (not in any image), or
+    // - Return a DIFFERENT image (if another image happens to be there)
+    // It should NOT return the main executable
+    XCTAssertTrue(foundHeader != mainHeader,
+                  @"Address 0x%lx before main image should not match main executable at 0x%lx. "
+                  @"This may indicate __PAGEZERO is incorrectly included in bounds.",
+                  (unsigned long)addressBeforeImage, (unsigned long)headerAddress);
+}
+
+/// Regression test: Verify that image address ranges are reasonable sizes.
+/// With __PAGEZERO incorrectly included, the range would be ~4GB.
+/// Without it, the range should be much smaller (typically < 100MB for most binaries).
+- (void)testImageAddressRangesAreReasonable
+{
+    uint32_t count = 0;
+    const ks_dyld_image_info *images = ksbic_getImages(&count);
+    XCTAssertGreaterThan(count, 0, @"There should be at least some images loaded");
+
+    for (uint32_t i = 0; i < MIN(count, 10); i++) {
+        const struct mach_header *header = images[i].imageLoadAddress;
+        uintptr_t headerAddress = (uintptr_t)header;
+
+        // Look up an address within the image
+        uintptr_t slide = 0;
+        const char *name = NULL;
+        const struct mach_header *foundHeader = ksbic_findImageForAddress(headerAddress, &slide, &name);
+
+        if (foundHeader == NULL) {
+            continue;
+        }
+
+        // Get image size info
+        KSBinaryImage imageInfo = { 0 };
+        bool success = ksdl_binaryImageForHeader(foundHeader, name, &imageInfo);
+        if (!success) {
+            continue;
+        }
+
+        // The image size should be reasonable (less than 1GB for normal binaries)
+        // If __PAGEZERO is incorrectly included, size would be ~4GB
+        uint64_t reasonableMaxSize = 1ULL * 1024 * 1024 * 1024;  // 1GB
+        XCTAssertLessThan(imageInfo.size, reasonableMaxSize,
+                          @"Image %@ size should be < 1GB, got %llu bytes. "
+                          @"This may indicate __PAGEZERO is incorrectly included.",
+                          @(i), (unsigned long long)imageInfo.size);
+    }
+}
+
 @end

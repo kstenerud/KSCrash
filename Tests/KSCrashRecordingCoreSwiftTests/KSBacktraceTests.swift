@@ -128,5 +128,104 @@ import XCTest
             XCTAssert(result.imageSize > 0)
             XCTAssert(result.symbolAddress > 0)
         }
+
+        /// Regression test: Verify that backtrace symbolication returns correct symbols
+        /// and not "GCC_except_table" which indicates incorrect image matching.
+        func testBacktraceSymbolsAreNotGCCExceptTable() {
+            let thread = pthread_self()
+
+            let entries = 20
+            var addresses: [UInt] = Array(repeating: 0, count: entries)
+            let count = captureBacktrace(thread: thread, addresses: &addresses, count: Int32(entries))
+
+            XCTAssertGreaterThan(count, 0, "Should capture some backtrace frames")
+
+            var gccExceptTableCount = 0
+            var validSymbolCount = 0
+
+            for i in 0..<Int(count) {
+                let address = addresses[i]
+                guard address != 0 else { continue }
+
+                var result = SymbolInformation()
+                let success = symbolicate(address: address, result: &result)
+
+                if success, let symbolNamePtr = result.symbolName {
+                    let symbolName = String(cString: symbolNamePtr)
+                    validSymbolCount += 1
+
+                    // Check for the regression: symbols should NOT be GCC_except_table
+                    if symbolName.contains("GCC_except_tab") {
+                        gccExceptTableCount += 1
+                        let imageName =
+                            result.imageName.map { String(cString: $0) } ?? "nil"
+                        XCTFail(
+                            "Frame \(i): Got GCC_except_table instead of real symbol. "
+                                + "Address: 0x\(String(address, radix: 16)), "
+                                + "Symbol: \(symbolName), "
+                                + "Image: \(imageName)"
+                        )
+                    }
+                }
+            }
+
+            // We should have symbolicated at least some frames successfully
+            XCTAssertGreaterThan(validSymbolCount, 0, "Should symbolicate at least some frames")
+
+            // None of them should be GCC_except_table
+            XCTAssertEqual(
+                gccExceptTableCount, 0,
+                "No symbols should be GCC_except_table (found \(gccExceptTableCount) out of \(validSymbolCount))"
+            )
+        }
+
+        /// Test that symbolication across different images (main binary vs dylibs) works correctly.
+        /// This specifically tests the fix for __PAGEZERO causing incorrect image matching.
+        func testCrossImageSymbolication() {
+            // Capture a backtrace that will include frames from different images
+            // (test binary, XCTest framework, libdispatch, etc.)
+            let thread = pthread_self()
+
+            let entries = 50
+            var addresses: [UInt] = Array(repeating: 0, count: entries)
+            let count = captureBacktrace(thread: thread, addresses: &addresses, count: Int32(entries))
+
+            XCTAssertGreaterThan(count, 0)
+
+            var imagesSeen = Set<String>()
+            var allSymbolsValid = true
+
+            for i in 0..<Int(count) {
+                let address = addresses[i]
+                guard address != 0 else { continue }
+
+                var result = SymbolInformation()
+                let success = symbolicate(address: address, result: &result)
+
+                if success {
+                    if let imageNamePtr = result.imageName {
+                        imagesSeen.insert(String(cString: imageNamePtr))
+                    }
+
+                    if let symbolNamePtr = result.symbolName {
+                        let symbolName = String(cString: symbolNamePtr)
+                        // Verify no GCC_except_table symbols
+                        if symbolName.contains("GCC_except_tab") {
+                            allSymbolsValid = false
+                            XCTFail("Frame \(i) incorrectly symbolicated to \(symbolName)")
+                        }
+                    }
+                }
+            }
+
+            XCTAssertTrue(allSymbolsValid, "All symbols should be valid (not GCC_except_table)")
+
+            // We should see multiple different images in a typical backtrace
+            // (at minimum: test binary and some system framework)
+            XCTAssertGreaterThan(
+                imagesSeen.count, 1,
+                "Backtrace should span multiple images, saw: \(imagesSeen)"
+            )
+        }
     }
 #endif

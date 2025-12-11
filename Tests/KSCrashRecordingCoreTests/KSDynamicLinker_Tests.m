@@ -25,6 +25,7 @@
 //
 
 #import <XCTest/XCTest.h>
+#import <string.h>
 
 #import "KSBinaryImageCache.h"
 #import "KSDynamicLinker.h"
@@ -135,6 +136,52 @@
     XCTAssertLessThanOrEqual((uintptr_t)info.dli_saddr, offsetAddress, @"Symbol should precede or equal address");
     // Symbol address should be the function entry point
     XCTAssertEqual((uintptr_t)info.dli_saddr, baseAddress, @"Should find the containing function");
+}
+
+- (void)testDladdr_ReturnsCorrectSymbolName
+{
+    // Test that we get the actual function name, not GCC_except_table or other wrong symbols
+    uintptr_t address = (uintptr_t)ksdl_init;
+
+    Dl_info info = { 0 };
+    bool result = ksdl_dladdr(address, &info);
+
+    XCTAssertTrue(result, @"Should find symbol");
+    XCTAssertNotEqual(info.dli_sname, NULL, @"Should have symbol name");
+
+    NSString *symbolName = [NSString stringWithUTF8String:info.dli_sname];
+
+    // The symbol should contain "ksdl_init" (possibly with prefix like _ksdl_init)
+    XCTAssertTrue([symbolName containsString:@"ksdl_init"], @"Symbol name should be ksdl_init, got: %@", symbolName);
+
+    // Verify it's NOT a GCC_except_table (regression test)
+    XCTAssertFalse([symbolName containsString:@"GCC_except_tab"], @"Symbol should not be GCC_except_table, got: %@",
+                   symbolName);
+}
+
+- (void)testDladdr_DylibSymbolLookup
+{
+    // Test symbolication of a function in a system dylib
+    // This ensures cross-image lookups work correctly and don't return wrong symbols
+    // Use strlen from libsystem_c which is a simple C function
+    uintptr_t address = (uintptr_t)strlen;
+
+    Dl_info info = { 0 };
+    bool result = ksdl_dladdr(address, &info);
+
+    XCTAssertTrue(result, @"Should find symbol in dylib");
+    XCTAssertNotEqual(info.dli_fname, NULL, @"Should have file name");
+    XCTAssertNotEqual(info.dli_sname, NULL, @"Should have symbol name");
+
+    NSString *symbolName = [NSString stringWithUTF8String:info.dli_sname];
+    NSString *fileName = [NSString stringWithUTF8String:info.dli_fname];
+
+    // File should be a system library (not the test binary)
+    XCTAssertTrue([fileName containsString:@"/usr/lib/"], @"Should be from a system library, got: %@", fileName);
+
+    // Verify it's NOT a GCC_except_table (regression test for incorrect image matching)
+    XCTAssertFalse([symbolName containsString:@"GCC_except_tab"], @"Symbol should not be GCC_except_table, got: %@",
+                   symbolName);
 }
 
 @end
