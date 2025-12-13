@@ -128,11 +128,9 @@ import XCTest
                 retentionSeconds: 5
             )
 
-            // Pre-fill with samples
-            let id = profiler.beginProfile()
-            Thread.sleep(forTimeInterval: 0.2)
-
             measure {
+                let id = profiler.beginProfile()
+                Thread.sleep(forTimeInterval: 0.2)
                 _ = profiler.endProfile(id: id)
             }
         }
