@@ -205,17 +205,9 @@
 
 static UIWindow *getKeyWindow(void)
 {
-    if (@available(iOS 15, tvOS 15, *)) {
-        for (UIWindowScene *scene in UIApplication.sharedApplication.connectedScenes) {
-            if (scene.keyWindow != nil) {
-                return scene.keyWindow;
-            }
-        }
-    } else {
-        for (UIWindow *window in UIApplication.sharedApplication.windows) {
-            if (window.keyWindow) {
-                return window;
-            }
+    for (UIWindowScene *scene in UIApplication.sharedApplication.connectedScenes) {
+        if (scene.keyWindow != nil) {
+            return scene.keyWindow;
         }
     }
     return nil;
