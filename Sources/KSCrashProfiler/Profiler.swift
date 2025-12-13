@@ -25,8 +25,11 @@
 //
 
 import Foundation
-import KSCrashRecordingCore
 import os
+
+#if SWIFT_PACKAGE
+    import KSCrashRecordingCore
+#endif
 
 #if os(iOS) || os(tvOS)
     import UIKit

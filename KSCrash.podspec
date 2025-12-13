@@ -1,5 +1,5 @@
 Pod::Spec.new do |s|
-  IOS_DEPLOYMENT_TARGET = '12.0' unless defined? IOS_DEPLOYMENT_TARGET
+  IOS_DEPLOYMENT_TARGET = '16.0' unless defined? IOS_DEPLOYMENT_TARGET
   s.name         = "KSCrash"
   s.version      = "2.5.0"
   s.summary      = "The Ultimate iOS Crash Reporter"
@@ -7,15 +7,16 @@ Pod::Spec.new do |s|
   s.license      = { :type => 'KSCrash license agreement', :file => 'LICENSE' }
   s.author       = { "Karl Stenerud" => "kstenerud@gmail.com" }
   s.ios.deployment_target = IOS_DEPLOYMENT_TARGET
-  s.osx.deployment_target = '10.14'
-  s.tvos.deployment_target = '12.0'
-  s.watchos.deployment_target = '5.0'
+  s.osx.deployment_target = '13.0'
+  s.tvos.deployment_target = '16.0'
+  s.watchos.deployment_target = '9.0'
   s.visionos.deployment_target =  '1.0'
   s.source       = { :git => "https://github.com/kstenerud/KSCrash.git", :tag=>s.version.to_s }
   s.frameworks   = 'Foundation'
   s.libraries    = 'c++', 'z'
   s.xcconfig     = { 'GCC_ENABLE_CPP_EXCEPTIONS' => 'YES' }
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
+  s.swift_versions = ['5.9']
   s.default_subspecs = 'Installations'
 
   configure_subspec = lambda do |subs|
@@ -78,6 +79,14 @@ Pod::Spec.new do |s|
     demangle_filter.dependency 'KSCrash/Recording'
 
     configure_subspec.call(demangle_filter)
+  end
+
+  s.subspec 'Profiler' do |profiler|
+    profiler.dependency 'KSCrash/RecordingCore'
+
+    module_name = 'KSCrashProfiler'
+    profiler.source_files = "Sources/#{module_name}/**/*.swift"
+    profiler.resource_bundles = { module_name => "Sources/#{module_name}/Resources/PrivacyInfo.xcprivacy" }
   end
 
   s.subspec 'ReportingCore' do |reporting_core|
