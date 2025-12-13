@@ -318,6 +318,14 @@ jobs:
               "WriteStandardReport": "Write standard crash report",
               "WriteStandardReportNoBinaryImages": "Write report (no binary images)",
               "WriteMultipleReports": "Write multiple reports",
+              "ProfilerInit": "Profiler initialization",
+              "BeginEndProfile": "Begin/end profile cycle",
+              "HighFrequencySampling": "High frequency sampling (5ms)",
+              "DefaultFrequencySampling": "Default frequency sampling (10ms)",
+              "CrossThreadProfiling": "Cross-thread profiling",
+              "SampleRetrieval": "Sample retrieval",
+              "ConcurrentProfiles": "Concurrent profile sessions",
+              "StorageSizeCalculation": "Storage size calculation",
           }
 
           # Comparison section (only for PRs with base results)
@@ -529,6 +537,31 @@ jobs:
                   stddev = pr_results[test_name]['stddev']
                   status = get_status(t, excellent=0.005, good=0.010, ok=0.050)
                   output.append(f"| {desc} | {format_time(t)} | {format_stddev(t, stddev)} | {status} | {notes} |")
+
+          output.append("\n</details>")
+
+          # Profiler section
+          output.append("<details open>")
+          output.append("<summary><h3>Sampling Profiler (KSCrashProfiler)</h3></summary>\n")
+          output.append("| Operation | Time | Status | Notes |")
+          output.append("|-----------|------|--------|-------|")
+
+          profiler_tests = {
+              "ProfilerInit": ("Profiler initialization", "Create profiler instance"),
+              "BeginEndProfile": ("Begin/end cycle", "Start and stop profiling"),
+              "HighFrequencySampling": ("High frequency (5ms)", "50ms of 5ms interval sampling"),
+              "DefaultFrequencySampling": ("Default frequency (10ms)", "100ms of 10ms interval sampling"),
+              "CrossThreadProfiling": ("Cross-thread profiling", "Profile different thread"),
+              "SampleRetrieval": ("Sample retrieval", "Extract samples from profile"),
+              "ConcurrentProfiles": ("Concurrent profiles", "3 simultaneous sessions"),
+              "StorageSizeCalculation": ("Storage size calc (1000x)", "Calculate memory footprint"),
+          }
+
+          for test_name, (desc, notes) in profiler_tests.items():
+              if test_name in pr_results:
+                  t = pr_results[test_name]['avg']
+                  status = get_status(t, excellent=0.001, good=0.010, ok=0.100)
+                  output.append(f"| {desc} | {format_time(t)} | {status} | {notes} |")
 
           output.append("\n</details>")
 
