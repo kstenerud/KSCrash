@@ -1,13 +1,13 @@
-// swift-tools-version:5.7
+// swift-tools-version:5.9
 
 import PackageDescription
 
 let package = Package(
     name: "KSCrashSamplesCommon",
     platforms: [
-        .iOS(.v15),
-        .tvOS(.v15),
-        .watchOS(.v8),
+        .iOS(.v16),
+        .tvOS(.v16),
+        .watchOS(.v9),
         .macOS(.v13),
     ],
     products: [
