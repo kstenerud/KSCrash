@@ -326,6 +326,10 @@ jobs:
               "SampleRetrieval": "Sample retrieval",
               "ConcurrentProfiles": "Concurrent profile sessions",
               "StorageSizeCalculation": "Storage size calculation",
+              "SampleCaptureShallowStack": "Sample capture (16 frames)",
+              "SampleCaptureMediumStack": "Sample capture (64 frames)",
+              "SampleCaptureDeepStack": "Sample capture (128 frames)",
+              "SampleCaptureVeryDeepStack": "Sample capture (256 frames)",
           }
 
           # Comparison section (only for PRs with base results)
@@ -555,6 +559,10 @@ jobs:
               "SampleRetrieval": ("Sample retrieval", "Extract samples from profile"),
               "ConcurrentProfiles": ("Concurrent profiles", "3 simultaneous sessions"),
               "StorageSizeCalculation": ("Storage size calc (1000x)", "Calculate memory footprint"),
+              "SampleCaptureShallowStack": ("Shallow stack (16 frames)", "100ms sampling, 16-frame stack"),
+              "SampleCaptureMediumStack": ("Medium stack (64 frames)", "100ms sampling, 64-frame stack"),
+              "SampleCaptureDeepStack": ("Deep stack (128 frames)", "100ms sampling, 128-frame stack"),
+              "SampleCaptureVeryDeepStack": ("Very deep stack (256 frames)", "100ms sampling, 256-frame stack"),
           }
 
           for test_name, (desc, notes) in profiler_tests.items():

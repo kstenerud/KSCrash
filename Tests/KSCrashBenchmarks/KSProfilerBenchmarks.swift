@@ -170,5 +170,82 @@ import XCTest
                 }
             }
         }
+
+        // MARK: - Stack Depth Benchmarks
+
+        /// Helper to create a thread with a specific stack depth and measure sample capture
+        private func profileThreadWithStackDepth(
+            depth: Int,
+            maxFrames: Int,
+            file: StaticString = #file,
+            line: UInt = #line
+        ) {
+            var targetThread: pthread_t?
+            let readySemaphore = DispatchSemaphore(value: 0)
+            let doneSemaphore = DispatchSemaphore(value: 0)
+
+            // Create thread that recurses to desired depth then waits
+            DispatchQueue.global().async {
+                targetThread = pthread_self()
+                self.recurseAndWait(depth: depth, ready: readySemaphore, done: doneSemaphore)
+            }
+
+            // Wait for thread to reach desired depth
+            readySemaphore.wait()
+
+            guard let thread = targetThread else {
+                XCTFail("Failed to get target thread", file: file, line: line)
+                doneSemaphore.signal()
+                return
+            }
+
+            // Measure 100 begin/end cycles to capture sample overhead
+            // Each cycle captures at least one sample immediately on begin
+            measure {
+                for _ in 0..<100 {
+                    let profiler = Profiler(
+                        thread: thread,
+                        interval: 0.001,
+                        maxFrames: maxFrames,
+                        retentionSeconds: 1
+                    )
+                    let id = profiler.beginProfile()
+                    _ = profiler.endProfile(id: id)
+                }
+            }
+
+            doneSemaphore.signal()
+        }
+
+        /// Recursive function to build stack depth
+        @inline(never)
+        private func recurseAndWait(depth: Int, ready: DispatchSemaphore, done: DispatchSemaphore) {
+            if depth > 0 {
+                recurseAndWait(depth: depth - 1, ready: ready, done: done)
+            } else {
+                ready.signal()
+                done.wait()
+            }
+        }
+
+        /// Benchmark sample capture with shallow stack (16 frames)
+        func testBenchmarkSampleCaptureShallowStack() {
+            profileThreadWithStackDepth(depth: 16, maxFrames: 32)
+        }
+
+        /// Benchmark sample capture with medium stack (64 frames)
+        func testBenchmarkSampleCaptureMediumStack() {
+            profileThreadWithStackDepth(depth: 64, maxFrames: 128)
+        }
+
+        /// Benchmark sample capture with deep stack (128 frames)
+        func testBenchmarkSampleCaptureDeepStack() {
+            profileThreadWithStackDepth(depth: 128, maxFrames: 256)
+        }
+
+        /// Benchmark sample capture with very deep stack (256 frames)
+        func testBenchmarkSampleCaptureVeryDeepStack() {
+            profileThreadWithStackDepth(depth: 256, maxFrames: 512)
+        }
     }
 #endif
