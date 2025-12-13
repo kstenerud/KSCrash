@@ -506,6 +506,7 @@ let package = Package(
             dependencies: [
                 .target(name: Targets.recordingCore),
                 .target(name: Targets.recording),
+                .target(name: Targets.profiler),
             ]
         ),
 
