@@ -31,10 +31,6 @@ import os
     import KSCrashRecordingCore
 #endif
 
-#if os(iOS) || os(tvOS)
-    import UIKit
-#endif
-
 /// A sampling profiler that captures backtraces of a specific thread at regular intervals.
 ///
 /// Multiple profile sessions can be active simultaneously. Sampling runs as long as
@@ -84,9 +80,6 @@ public final class Profiler: @unchecked Sendable {
 
     /// The timer used for periodic sampling
     var timer: DispatchSourceTimer?
-
-    /// Memory warning observer token
-    var memoryWarningObserver: (any NSObjectProtocol)?
 
     /// Whether profiling is currently active
     public var isRunning: Bool {
@@ -142,34 +135,6 @@ public final class Profiler: @unchecked Sendable {
                 formatted
             )
         }
-
-        #if os(iOS) || os(tvOS)
-            memoryWarningObserver = NotificationCenter.default.addObserver(
-                forName: UIApplication.didReceiveMemoryWarningNotification,
-                object: nil,
-                queue: nil
-            ) { [weak self] _ in
-                self?.handleMemoryWarning()
-            }
-        #endif
-    }
-
-    /// Deallocates storage if not currently profiling to reduce memory pressure.
-    func handleMemoryWarning() {
-        lock.withLock {
-            guard activeSessions.isEmpty else { return }
-            deallocateStorageLocked()
-        }
-    }
-
-    /// Deallocates the backing storage. Must be called while holding the lock.
-    func deallocateStorageLocked() {
-        if let storage = addressStorage {
-            storage.baseAddress?.deinitialize(count: storage.count)
-            storage.baseAddress?.deallocate()
-            addressStorage = nil
-        }
-        metas = nil
     }
 
     /// Begins a new profile session.
@@ -226,33 +191,51 @@ public final class Profiler: @unchecked Sendable {
     }
 
     deinit {
-        if let observer = memoryWarningObserver {
-            NotificationCenter.default.removeObserver(observer)
-        }
         lock.withLock {
             stopLocked()
-            deallocateStorageLocked()
+            if let storage = addressStorage {
+                storage.baseAddress?.deinitialize(count: storage.count)
+                storage.baseAddress?.deallocate()
+            }
         }
     }
 }
 
 // MARK: - Private
 
-/// Internal state for an active profile session
+/// Internal state for an active profile session.
+///
+/// Tracks the session's unique identifier and start times for correlating
+/// samples with the profile's time window.
 struct ActiveProfile {
+    /// Unique identifier for the profile session.
     let id: ProfileID
+    /// Wall-clock time when the session started.
     let startTime: Date
+    /// Monotonic timestamp (in nanoseconds) when the session started.
     let startTimestampNs: UInt64
 }
 
-/// Internal ring-buffer metadata for a captured sample
+/// Internal ring-buffer metadata for a captured sample.
+///
+/// Stores timing and frame count information for each sample in the ring buffer.
+/// The actual frame addresses are stored separately in `addressStorage`.
 struct SampleMeta: Sendable {
+    /// Monotonic timestamp (in nanoseconds) when the sample capture began.
     var timestampBeginNs: UInt64
+    /// Monotonic timestamp (in nanoseconds) when the sample capture ended.
     var timestampEndNs: UInt64
+    /// Number of stack frames captured in this sample.
     var frameCount: Int
 }
 
 extension Profiler {
+    /// Starts the sampling timer and allocates storage if needed.
+    ///
+    /// Lazily allocates `addressStorage` and `metas` on first call, then resets
+    /// the ring buffer state and starts a repeating timer that calls `captureSample()`.
+    ///
+    /// - Important: Must be called while holding `lock`.
     func startLocked() {
         // Lazy allocation of storage
         if addressStorage == nil {
@@ -289,11 +272,27 @@ extension Profiler {
         self.timer = timer
     }
 
+    /// Stops the sampling timer.
+    ///
+    /// Cancels and releases the timer. Does not deallocate storage.
+    ///
+    /// - Important: Must be called while holding `lock`.
     func stopLocked() {
         timer?.cancel()
         timer = nil
     }
 
+    /// Retrieves samples from the ring buffer that overlap the given time range.
+    ///
+    /// Iterates through the ring buffer and returns samples whose capture time
+    /// overlaps with `[startNs, endNs]`.
+    ///
+    /// - Parameters:
+    ///   - startNs: Start of the time range (monotonic nanoseconds).
+    ///   - endNs: End of the time range (monotonic nanoseconds).
+    /// - Returns: Array of samples that overlap the time range.
+    ///
+    /// - Important: Must be called while holding `lock`.
     func samplesInRangeLocked(from startNs: UInt64, to endNs: UInt64) -> [Sample] {
         guard let metas = metas, let storage = addressStorage, let base = storage.baseAddress else { return [] }
         guard count > 0 else { return [] }
@@ -328,6 +327,15 @@ extension Profiler {
         return result
     }
 
+    /// Captures a single backtrace sample from the profiled thread.
+    ///
+    /// Called by the timer on the profiler's dispatch queue. Uses a three-phase
+    /// approach to minimize lock contention:
+    /// 1. Reserve a ring buffer slot and get the storage pointer (under lock)
+    /// 2. Capture the backtrace (without lock)
+    /// 3. Commit the sample metadata (under lock)
+    ///
+    /// If no active sessions exist or storage is unavailable, returns early.
     func captureSample() {
         // Phase 1: Reserve a slot and get the storage pointer under the lock
         let (slot, base): (Int, UnsafeMutablePointer<UInt>?) = lock.withLockUnchecked {

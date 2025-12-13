@@ -559,10 +559,10 @@ jobs:
               "SampleRetrieval": ("Sample retrieval", "Extract samples from profile"),
               "ConcurrentProfiles": ("Concurrent profiles", "3 simultaneous sessions"),
               "StorageSizeCalculation": ("Storage size calc (1000x)", "Calculate memory footprint"),
-              "SampleCaptureShallowStack": ("Shallow stack (16 frames)", "100ms sampling, 16-frame stack"),
-              "SampleCaptureMediumStack": ("Medium stack (64 frames)", "100ms sampling, 64-frame stack"),
-              "SampleCaptureDeepStack": ("Deep stack (128 frames)", "100ms sampling, 128-frame stack"),
-              "SampleCaptureVeryDeepStack": ("Very deep stack (256 frames)", "100ms sampling, 256-frame stack"),
+              "SampleCaptureShallowStack": ("Shallow stack (16 frames)", "100 capture cycles, 16-frame stack"),
+              "SampleCaptureMediumStack": ("Medium stack (64 frames)", "100 capture cycles, 64-frame stack"),
+              "SampleCaptureDeepStack": ("Deep stack (128 frames)", "100 capture cycles, 128-frame stack"),
+              "SampleCaptureVeryDeepStack": ("Very deep stack (256 frames)", "100 capture cycles, 256-frame stack"),
           }
 
           for test_name, (desc, notes) in profiler_tests.items():
