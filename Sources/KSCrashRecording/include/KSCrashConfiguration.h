@@ -174,6 +174,10 @@ NS_ASSUME_NONNULL_BEGIN
  * accurate stack traces even in dynamically linked libraries and allows overriding
  * the original `__cxa_throw` with a custom implementation.
  *
+ * @note This feature is automatically disabled when the binary is compiled with
+ * sanitizers (ASan, TSan, etc.) as they also intercept `__cxa_throw` and conflict
+ * with this swapping mechanism.
+ *
  * **Default**: true
  */
 @property(nonatomic, assign) BOOL enableSwapCxaThrow;
