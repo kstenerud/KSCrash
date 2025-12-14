@@ -22,6 +22,7 @@
 // THE SOFTWARE.
 //
 
+import KSCrashRecording
 import KSCrashRecordingCore
 import XCTest
 
@@ -138,5 +139,133 @@ final class KSThreadBenchmarks: XCTestCase {
         }
 
         // Don't wait for background threads - they'll be cleaned up
+    }
+
+    // MARK: - Thread Cache Benchmarks (KSThreadCache)
+
+    /// Benchmark freeze/unfreeze cycle (cache acquire/release)
+    func testBenchmarkThreadCacheFreezeUnfreeze() {
+        // Initialize the cache first
+        kstc_init(60)
+
+        measure {
+            for _ in 0..<1000 {
+                kstc_freeze()
+                kstc_unfreeze()
+            }
+        }
+    }
+
+    /// Benchmark cached thread name lookup
+    func testBenchmarkThreadCacheGetThreadName() {
+        kstc_init(60)
+        let thread = ksthread_self()
+
+        // Freeze to acquire cache
+        kstc_freeze()
+
+        measure {
+            for _ in 0..<1000 {
+                _ = kstc_getThreadName(thread)
+            }
+        }
+
+        kstc_unfreeze()
+    }
+
+    /// Benchmark cached queue name lookup
+    func testBenchmarkThreadCacheGetQueueName() {
+        kstc_init(60)
+        kstc_setSearchQueueNames(true)
+        let thread = ksthread_self()
+
+        // Give cache time to populate with queue names
+        Thread.sleep(forTimeInterval: 0.1)
+
+        kstc_freeze()
+
+        measure {
+            for _ in 0..<1000 {
+                _ = kstc_getQueueName(thread)
+            }
+        }
+
+        kstc_unfreeze()
+    }
+
+    /// Benchmark getting all threads from cache
+    func testBenchmarkThreadCacheGetAllThreads() {
+        kstc_init(60)
+
+        kstc_freeze()
+
+        measure {
+            for _ in 0..<1000 {
+                var count: Int32 = 0
+                _ = kstc_getAllThreads(&count)
+            }
+        }
+
+        kstc_unfreeze()
+    }
+
+    /// Benchmark typical crash scenario: freeze, lookup all thread names, unfreeze
+    func testBenchmarkThreadCacheCrashScenario() {
+        kstc_init(60)
+
+        // Spawn some threads to make it realistic
+        let group = DispatchGroup()
+        for i in 0..<10 {
+            group.enter()
+            let thread = Thread {
+                Thread.current.name = "BenchmarkThread-\(i)"
+                Thread.sleep(forTimeInterval: 2.0)
+                group.leave()
+            }
+            thread.start()
+        }
+
+        // Give threads time to start and cache to update
+        Thread.sleep(forTimeInterval: 0.2)
+
+        measure {
+            // Simulate crash handler: freeze, iterate threads, get names, unfreeze
+            kstc_freeze()
+
+            var count: Int32 = 0
+            if let threads = kstc_getAllThreads(&count) {
+                for i in 0..<Int(count) {
+                    _ = kstc_getThreadName(threads[i])
+                }
+            }
+
+            kstc_unfreeze()
+        }
+    }
+
+    /// Compare cached vs uncached thread name lookup
+    func testBenchmarkThreadCacheVsUncached() {
+        kstc_init(60)
+        let thread = ksthread_self()
+        var buffer = [CChar](repeating: 0, count: 64)
+
+        // Benchmark uncached (direct) lookup
+        let uncachedStart = CFAbsoluteTimeGetCurrent()
+        for _ in 0..<1000 {
+            _ = ksthread_getThreadName(thread, &buffer, 64)
+        }
+        let uncachedTime = CFAbsoluteTimeGetCurrent() - uncachedStart
+
+        // Benchmark cached lookup
+        kstc_freeze()
+        let cachedStart = CFAbsoluteTimeGetCurrent()
+        for _ in 0..<1000 {
+            _ = kstc_getThreadName(thread)
+        }
+        let cachedTime = CFAbsoluteTimeGetCurrent() - cachedStart
+        kstc_unfreeze()
+
+        print("Uncached: \(uncachedTime * 1000)ms, Cached: \(cachedTime * 1000)ms")
+        print("Speedup: \(uncachedTime / cachedTime)x")
     }
 }
