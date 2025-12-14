@@ -94,7 +94,7 @@ swift test --enable-code-coverage
 
 # List all tests (note: replaced deprecated --list-tests option)
 swift test list
-# Sample output: Lists all test methods in the project 
+# Sample output: Lists all test methods in the project
 # KSCrash_Tests/testUserInfo
 # KSCrash_Tests/testUserInfoIfNil
 # etc.
@@ -103,6 +103,23 @@ swift test list
 swift test --parallel
 # Sample output: Runs tests concurrently for faster execution
 ```
+
+#### Testing with Sanitizers
+
+**IMPORTANT**: Run tests with sanitizers frequently to catch memory errors, data races, and undefined behavior early. This is especially critical for crash handling code.
+
+```bash
+# Address Sanitizer - detects memory errors (buffer overflows, use-after-free, etc.)
+swift test --sanitize address
+
+# Thread Sanitizer - detects data races between threads
+swift test --sanitize thread
+
+# Undefined Behavior Sanitizer - detects undefined behavior
+swift test --sanitize undefined
+```
+
+Run all three sanitizers after making changes to core crash handling code, threading code, or memory management. All sanitizer runs should complete with zero warnings.
 
 #### Managing Dependencies
 ```bash
@@ -159,6 +176,27 @@ KSCrash is implemented as a layered architecture with these key components:
 - **Installations**: Pre-configured setups
 - **Monitors**: Various crash detection mechanisms
 
+## Critical Development Guidelines
+
+### Async Signal Safety
+
+**IMPORTANT**: Much of KSCrash's core code runs inside crash handlers (signal handlers, Mach exception handlers). This code must be async-signal-safe, meaning it can only call functions that are safe to call from a signal handler context.
+
+**What this means in practice:**
+- **No heap allocation**: Do not use `malloc`, `calloc`, `free`, `new`, or any function that allocates memory. Use pre-allocated buffers or stack allocation instead.
+- **No locks**: Do not use mutexes, semaphores, or other synchronization primitives that could deadlock if the crash occurred while holding a lock.
+- **No Objective-C**: Do not call Objective-C methods or use `@synchronized`. The Objective-C runtime is not async-signal-safe.
+- **Limited C library functions**: Many standard C functions are not safe. Safe functions include `memcpy`, `memset`, `strlen`, and similar simple operations.
+- **Use atomic operations**: For thread safety, use C11 atomics (`<stdatomic.h>`) which are lock-free and signal-safe.
+
+**However, the same code also runs outside of crash handlers** (during normal operation, initialization, background threads). This dual-use means:
+- Code must be correct in both contexts
+- You cannot assume "it's fine because it only runs in crash handlers" - that's often false
+- Thread safety must be considered alongside signal safety
+- Use patterns like atomic exchange (see `KSThreadCache.c`, `KSBinaryImageCache.c`) for lock-free synchronization that works in both contexts
+
+When in doubt, check the POSIX list of async-signal-safe functions and follow the patterns established in existing crash handling code.
+
 ## Code Style Guidelines
 
 - C/C++/Objective-C: Follow clang-format style defined in the project
@@ -170,3 +208,4 @@ KSCrash is implemented as a layered architecture with these key components:
 - Error handling: Use proper error handling conventions for Objective-C/Swift
 - Module organization: Maintain the existing module structure
 - API design: Keep public APIs clean and well-documented
+- **Testing**: Always run sanitizers (ASan, TSan, UBSan) after changes to catch issues early
