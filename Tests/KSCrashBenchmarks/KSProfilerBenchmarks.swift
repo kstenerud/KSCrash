@@ -198,7 +198,7 @@ import XCTest
             }
 
             // Measure 100 begin/end cycles to capture sample overhead
-            // Each cycle captures at least one sample immediately on begin
+            // Each cycle schedules immediate sample capture (first sample is taken asynchronously shortly after begin)
             measure {
                 for _ in 0..<100 {
                     let profiler = Profiler(

@@ -75,6 +75,9 @@ public final class Profiler: @unchecked Sendable {
     /// Number of valid entries (<= capacity)
     var count: Int = 0
 
+    /// Generation counter to detect ring buffer resets between capture phases
+    var generation: UInt64 = 0
+
     /// Active profile sessions
     var activeSessions: [ProfileID: ActiveProfile] = [:]
 
@@ -99,9 +102,19 @@ public final class Profiler: @unchecked Sendable {
     ) -> Int {
         let clampedInterval = max(0.001, interval)
         let capacity = max(1, Int((Double(retentionSeconds) / clampedInterval).rounded(.toNearestOrAwayFromZero)))
-        let addressStorageSize = capacity * max(1, maxFrames) * MemoryLayout<UInt>.size
-        let metasStorageSize = capacity * MemoryLayout<SampleMeta>.size
-        return addressStorageSize + metasStorageSize
+        let frames = max(1, maxFrames)
+
+        // Use overflow-safe multiplication to prevent integer overflow on extreme values
+        let (capTimesFrames, overflow1) = capacity.multipliedReportingOverflow(by: frames)
+        let (addressStorageSize, overflow2) = capTimesFrames.multipliedReportingOverflow(by: MemoryLayout<UInt>.size)
+        let (metasStorageSize, overflow3) = capacity.multipliedReportingOverflow(by: MemoryLayout<SampleMeta>.size)
+
+        if overflow1 || overflow2 || overflow3 {
+            return Int.max
+        }
+
+        let (total, overflow4) = addressStorageSize.addingReportingOverflow(metasStorageSize)
+        return overflow4 ? Int.max : total
     }
 
     /// Creates a new profiler
@@ -255,9 +268,10 @@ extension Profiler {
             )
         }
 
-        // Reset ring state
+        // Reset ring state and increment generation to invalidate in-flight captures
         writeIndex = 0
         count = 0
+        generation &+= 1
 
         let timer = DispatchSource.makeTimerSource(queue: queue)
         timer.schedule(
@@ -338,9 +352,9 @@ extension Profiler {
     /// If no active sessions exist or storage is unavailable, returns early.
     func captureSample() {
         // Phase 1: Reserve a slot and get the storage pointer under the lock
-        let (slot, base): (Int, UnsafeMutablePointer<UInt>?) = lock.withLockUnchecked {
-            guard !activeSessions.isEmpty else { return (-1, nil) }
-            guard metas != nil, let storage = addressStorage else { return (-1, nil) }
+        let (slot, base, gen): (Int, UnsafeMutablePointer<UInt>?, UInt64) = lock.withLockUnchecked {
+            guard !activeSessions.isEmpty else { return (-1, nil, 0) }
+            guard metas != nil, let storage = addressStorage else { return (-1, nil, 0) }
 
             let slot = writeIndex
             writeIndex = (writeIndex + 1) % capacity
@@ -348,7 +362,7 @@ extension Profiler {
             // Invalidate slot while we capture
             metas![slot].frameCount = 0
 
-            return (slot, storage.baseAddress)
+            return (slot, storage.baseAddress, generation)
         }
 
         guard slot >= 0, let base = base else { return }
@@ -369,6 +383,8 @@ extension Profiler {
 
         // Phase 3: Commit the sample under the lock
         lock.withLock {
+            // Check generation to detect if ring buffer was reset between phases
+            guard generation == gen else { return }
             guard !activeSessions.isEmpty else { return }
             guard metas != nil else { return }
 

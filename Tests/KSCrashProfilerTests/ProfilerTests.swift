@@ -517,6 +517,54 @@ final class ProfilerTests: XCTestCase {
         XCTAssertGreaterThan(p2.startTimestampNs, p1.endTimestampNs, "Second profile should start after first ends")
     }
 
+    // MARK: - Lazy Allocation Tests
+
+    func testStorageIsLazilyAllocatedOnFirstBeginProfile() {
+        let profiler = Profiler(
+            thread: pthread_self(),
+            interval: 0.01,
+            retentionSeconds: 5
+        )
+
+        // Storage should be nil before any profile begins
+        XCTAssertNil(profiler.addressStorage, "Storage should not be allocated before beginProfile")
+        XCTAssertNil(profiler.metas, "Metas should not be allocated before beginProfile")
+
+        // Begin a profile
+        let id = profiler.beginProfile()
+
+        // Storage should now be allocated
+        XCTAssertNotNil(profiler.addressStorage, "Storage should be allocated after beginProfile")
+        XCTAssertNotNil(profiler.metas, "Metas should be allocated after beginProfile")
+
+        // End the profile
+        _ = profiler.endProfile(id: id)
+
+        // Storage should still be allocated (not deallocated on end)
+        XCTAssertNotNil(profiler.addressStorage, "Storage should remain allocated after endProfile")
+        XCTAssertNotNil(profiler.metas, "Metas should remain allocated after endProfile")
+    }
+
+    func testStorageIsReusedAcrossProfileSessions() {
+        let profiler = Profiler(
+            thread: pthread_self(),
+            interval: 0.01,
+            retentionSeconds: 5
+        )
+
+        // First session
+        let id1 = profiler.beginProfile()
+        let storagePointer1 = profiler.addressStorage?.baseAddress
+        _ = profiler.endProfile(id: id1)
+
+        // Second session - should reuse the same storage
+        let id2 = profiler.beginProfile()
+        let storagePointer2 = profiler.addressStorage?.baseAddress
+        _ = profiler.endProfile(id: id2)
+
+        XCTAssertEqual(storagePointer1, storagePointer2, "Storage should be reused across sessions")
+    }
+
     // MARK: - Overlapping Profiles Tests
 
     func testOverlappingProfilesGetDifferentSamples() {
