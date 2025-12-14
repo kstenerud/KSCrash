@@ -60,7 +60,7 @@ import XCTest
 
             XCTAssert(count > 0)
             XCTAssert(count <= entries)
-            for index in 0..<count {
+            for _ in 0..<count {
                 // This is flaky right now, i'm not sure why. Will revisit.
                 // XCTAssert(addresses[Int(index)] != 0)
             }
