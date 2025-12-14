@@ -136,6 +136,14 @@ swift package resolve
 
 ### Linting and Formatting
 
+**IMPORTANT**: Always use `make all` to format and lint all code (both C/C++/Objective-C and Swift) in a single command. This ensures consistent formatting across the entire codebase.
+
+```bash
+# Format and lint everything (PREFERRED)
+make all
+# Runs both C/C++/Objective-C and Swift formatting
+```
+
 #### C/C++/Objective-C Formatting
 ```bash
 # Check formatting issues
