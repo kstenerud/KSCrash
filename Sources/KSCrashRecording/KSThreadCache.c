@@ -29,6 +29,7 @@
 #include <mach/mach.h>
 #include <memory.h>
 #include <pthread.h>
+#include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -44,12 +45,12 @@
 
 static int g_pollingIntervalInSeconds;
 static pthread_t g_cacheThread;
-static KSThread *g_allMachThreads;
-static KSThread *g_allPThreads;
-static const char **g_allThreadNames;
-static const char **g_allQueueNames;
-static int g_allThreadsCount;
-static _Atomic(int) g_semaphoreCount;
+static _Atomic(KSThread *) g_allMachThreads;
+static _Atomic(KSThread *) g_allPThreads;
+static _Atomic(const char **) g_allThreadNames;
+static _Atomic(const char **) g_allQueueNames;
+static atomic_int g_allThreadsCount;
+static atomic_int g_semaphoreCount;
 static bool g_searchQueueNames = false;
 static bool g_hasThreadStarted = false;
 
@@ -89,12 +90,13 @@ static void updateThreadList(void)
         }
     }
 
-    g_allThreadsCount = g_allThreadsCount < (int)allThreadsCount ? g_allThreadsCount : (int)allThreadsCount;
-    SWAP_POINTERS(g_allMachThreads, allMachThreads);
-    SWAP_POINTERS(g_allPThreads, allPThreads);
-    SWAP_POINTERS(g_allThreadNames, allThreadNames);
-    SWAP_POINTERS(g_allQueueNames, allQueueNames);
-    g_allThreadsCount = (int)allThreadsCount;
+    int currentCount = atomic_load(&g_allThreadsCount);
+    atomic_store(&g_allThreadsCount, currentCount < (int)allThreadsCount ? currentCount : (int)allThreadsCount);
+    allMachThreads = atomic_exchange(&g_allMachThreads, allMachThreads);
+    allPThreads = atomic_exchange(&g_allPThreads, allPThreads);
+    allThreadNames = atomic_exchange(&g_allThreadNames, allThreadNames);
+    allQueueNames = atomic_exchange(&g_allQueueNames, allQueueNames);
+    atomic_store(&g_allThreadsCount, (int)allThreadsCount);
 
     if (allMachThreads != NULL) {
         free(allMachThreads);
@@ -185,57 +187,61 @@ void kstc_setSearchQueueNames(bool searchQueueNames) { g_searchQueueNames = sear
 // For testing purposes only. Used with extern in test files.
 void kstc_reset(void)
 {
-    if (g_allThreadNames != NULL) {
-        for (int i = 0; i < g_allThreadsCount; i++) {
-            const char *name = g_allThreadNames[i];
+    int threadCount = atomic_exchange(&g_allThreadsCount, 0);
+
+    const char **threadNames = atomic_exchange(&g_allThreadNames, NULL);
+    if (threadNames != NULL) {
+        for (int i = 0; i < threadCount; i++) {
+            const char *name = threadNames[i];
             if (name != NULL) {
                 free((void *)name);
             }
         }
-        free(g_allThreadNames);
-        g_allThreadNames = NULL;
+        free((void *)threadNames);
     }
 
-    if (g_allQueueNames != NULL) {
-        for (int i = 0; i < g_allThreadsCount; i++) {
-            const char *name = g_allQueueNames[i];
+    const char **queueNames = atomic_exchange(&g_allQueueNames, NULL);
+    if (queueNames != NULL) {
+        for (int i = 0; i < threadCount; i++) {
+            const char *name = queueNames[i];
             if (name != NULL) {
                 free((void *)name);
             }
         }
-        free(g_allQueueNames);
-        g_allQueueNames = NULL;
+        free((void *)queueNames);
     }
 
-    if (g_allMachThreads != NULL) {
-        free(g_allMachThreads);
-        g_allMachThreads = NULL;
+    KSThread *machThreads = atomic_exchange(&g_allMachThreads, NULL);
+    if (machThreads != NULL) {
+        free(machThreads);
     }
 
-    if (g_allPThreads != NULL) {
-        free(g_allPThreads);
-        g_allPThreads = NULL;
+    KSThread *pthreads = atomic_exchange(&g_allPThreads, NULL);
+    if (pthreads != NULL) {
+        free(pthreads);
     }
 
-    g_allThreadsCount = 0;
-    g_semaphoreCount = 0;
+    atomic_store(&g_semaphoreCount, 0);
     g_hasThreadStarted = false;
 }
 
 KSThread *kstc_getAllThreads(int *threadCount)
 {
     if (threadCount != NULL) {
-        *threadCount = g_allThreadsCount;
+        *threadCount = atomic_load(&g_allThreadsCount);
     }
-    return g_allMachThreads;
+    return atomic_load(&g_allMachThreads);
 }
 
 const char *kstc_getThreadName(KSThread thread)
 {
-    if (g_allThreadNames != NULL) {
-        for (int i = 0; i < g_allThreadsCount; i++) {
-            if (g_allMachThreads[i] == thread) {
-                return g_allThreadNames[i];
+    const char **threadNames = atomic_load(&g_allThreadNames);
+    int count = atomic_load(&g_allThreadsCount);
+    KSThread *machThreads = atomic_load(&g_allMachThreads);
+    if (threadNames != NULL && machThreads != NULL) {
+        for (int i = 0; i < count; i++) {
+            if (machThreads[i] == thread) {
+                return threadNames[i];
             }
         }
     }
@@ -244,10 +250,13 @@ const char *kstc_getThreadName(KSThread thread)
 
 const char *kstc_getQueueName(KSThread thread)
 {
-    if (g_allQueueNames != NULL) {
-        for (int i = 0; i < g_allThreadsCount; i++) {
-            if (g_allMachThreads[i] == thread) {
-                return g_allQueueNames[i];
+    const char **queueNames = atomic_load(&g_allQueueNames);
+    int count = atomic_load(&g_allThreadsCount);
+    KSThread *machThreads = atomic_load(&g_allMachThreads);
+    if (queueNames != NULL && machThreads != NULL) {
+        for (int i = 0; i < count; i++) {
+            if (machThreads[i] == thread) {
+                return queueNames[i];
             }
         }
     }
