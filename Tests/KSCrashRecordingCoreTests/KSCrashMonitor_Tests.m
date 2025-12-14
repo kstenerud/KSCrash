@@ -284,6 +284,9 @@ static atomic_int g_counter = 0;
     kscm_activateMonitors();
     KSCrash_MonitorContext *ctx = NULL;
 
+    // Reset counter to ensure clean state
+    atomic_store(&g_counter, 0);
+
     dispatch_semaphore_t threadStarted = dispatch_semaphore_create(0);
 
     NSThread *thread = [[NSThread alloc] initWithBlock:^{
@@ -300,8 +303,13 @@ static atomic_int g_counter = 0;
     long result = dispatch_semaphore_wait(threadStarted, dispatch_time(DISPATCH_TIME_NOW, 1 * NSEC_PER_SEC));
     XCTAssertEqual(result, 0, @"Counter thread should start");
 
-    // Verify thread is actually running by checking counter increments
-    XCTAssertTrue([self isCounterIncrementing], @"Counter thread should be incrementing");
+    // Verify thread is actually running - use a retry loop since thread startup may take time
+    // (especially when running with sanitizers which slow down thread operations)
+    bool incrementing = false;
+    for (int i = 0; i < 100 && !incrementing; i++) {
+        incrementing = [self isCounterIncrementing];
+    }
+    XCTAssertTrue(incrementing, @"Counter thread should be incrementing");
 
     ctx = dummyExceptionHandlerCallbacks.notify(
         (thread_t)ksthread_self(),
