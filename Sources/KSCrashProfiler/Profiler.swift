@@ -33,28 +33,38 @@ import os
 
 /// A sampling profiler that captures backtraces of a specific thread at regular intervals.
 ///
-/// Multiple profile sessions can be active simultaneously. Sampling runs as long as
-/// at least one session is active.
+/// The profiler uses a pre-allocated ring buffer of `Sample` structs to store captured backtraces.
+/// Samples are captured directly into the ring buffer to minimize allocations during profiling.
+/// When the buffer is full, the oldest samples are overwritten.
+///
+/// Multiple profile sessions can be active simultaneously on the same profiler instance.
+/// Sampling runs continuously as long as at least one session is active, and samples are
+/// shared across overlapping sessions based on their time windows.
+///
+/// ## Usage
 ///
 /// ```swift
-/// let profiler = Profiler(thread: pthread_self())
+/// let profiler = Profiler<Sample128>(thread: pthread_self())
 /// let id = profiler.beginProfile()
 /// // ... do work ...
 /// let profile = profiler.endProfile(id: id)
+/// print("Captured \(profile.samples.count) samples")
 /// ```
 ///
+/// ## Thread Safety
+///
+/// All public methods are thread-safe. The profiler uses an unfair lock to protect
+/// internal state and the ring buffer.
+///
 /// - Note: On watchOS, backtrace capture is not supported and samples will contain empty addresses.
-public final class Profiler: @unchecked Sendable {
+public final class Profiler<T: Sample>: @unchecked Sendable {
     /// The mach thread being profiled
     let machThread: mach_port_t
 
     /// The interval between samples in nanoseconds
     let intervalNs: UInt64
 
-    /// The maximum number of frames to capture per backtrace
-    let maxFrames: Int
-
-    /// Ring buffer capacity (samples) derived from retentionSeconds / interval
+    /// Maximum number of samples to retain
     let capacity: Int
 
     /// The queue on which sampling occurs
@@ -63,20 +73,14 @@ public final class Profiler: @unchecked Sendable {
     /// Lock for thread-safe access
     let lock = OSAllocatedUnfairLock()
 
-    /// Backing storage for all captured addresses
-    var addressStorage: UnsafeMutableBufferPointer<UInt>?
+    /// Ring buffer of samples (pre-allocated)
+    var samples: ContiguousArray<T>
 
-    /// Per-sample metadata ring
-    var metas: ContiguousArray<SampleMeta>?
-
-    /// Next slot to write
+    /// Next write position in ring buffer
     var writeIndex: Int = 0
 
-    /// Number of valid entries (<= capacity)
+    /// Number of valid samples in buffer (0...capacity)
     var count: Int = 0
-
-    /// Generation counter to detect ring buffer resets between capture phases
-    var generation: UInt64 = 0
 
     /// Active profile sessions
     var activeSessions: [ProfileID: ActiveProfile] = [:]
@@ -97,40 +101,33 @@ public final class Profiler: @unchecked Sendable {
     /// - Returns: The total memory footprint in bytes
     public static func storageSize(
         interval: TimeInterval,
-        maxFrames: Int,
         retentionSeconds: Int
     ) -> Int {
         let clampedInterval = max(0.001, interval)
         let capacity = max(1, Int((Double(retentionSeconds) / clampedInterval).rounded(.toNearestOrAwayFromZero)))
-        let frames = max(1, maxFrames)
+        let frames = max(1, T.capacity)
 
-        // Use overflow-safe multiplication to prevent integer overflow on extreme values
-        let (capTimesFrames, overflow1) = capacity.multipliedReportingOverflow(by: frames)
-        let (addressStorageSize, overflow2) = capTimesFrames.multipliedReportingOverflow(by: MemoryLayout<UInt>.size)
-        let (metasStorageSize, overflow3) = capacity.multipliedReportingOverflow(by: MemoryLayout<SampleMeta>.size)
+        // Estimate: Sample struct overhead + array of UInt addresses per sample
+        let sampleOverhead = MemoryLayout<T>.size
+        let addressesSize = frames * MemoryLayout<UInt>.size
 
-        if overflow1 || overflow2 || overflow3 {
-            return Int.max
-        }
+        let (perSample, overflow1) = sampleOverhead.addingReportingOverflow(addressesSize)
+        let (total, overflow2) = capacity.multipliedReportingOverflow(by: perSample)
 
-        let (total, overflow4) = addressStorageSize.addingReportingOverflow(metasStorageSize)
-        return overflow4 ? Int.max : total
+        return (overflow1 || overflow2) ? Int.max : total
     }
 
     /// Creates a new profiler
     /// - Parameters:
     ///   - thread: The pthread to profile
     ///   - interval: The time interval between samples (default: 10ms)
-    ///   - maxFrames: The maximum number of frames to capture per backtrace (default: 128)
     ///   - retentionSeconds: How many seconds of samples to retain in the ring buffer (default: 30)
     public init(
         thread: pthread_t,
         interval: TimeInterval = 0.01,
-        maxFrames: Int = 128,
         retentionSeconds: Int = 30
     ) {
         self.machThread = pthread_mach_thread_np(thread)
-        self.maxFrames = max(1, maxFrames)
 
         let clampedInterval = max(0.001, interval)
         self.intervalNs = UInt64(clampedInterval * 1_000_000_000)
@@ -139,7 +136,10 @@ public final class Profiler: @unchecked Sendable {
         let computed = Int((Double(retentionSeconds) / clampedInterval).rounded(.toNearestOrAwayFromZero))
         self.capacity = max(1, computed)
 
-        let bytes = Self.storageSize(interval: interval, maxFrames: maxFrames, retentionSeconds: retentionSeconds)
+        // Pre-allocate ring buffer
+        self.samples = ContiguousArray(repeating: T.make(), count: self.capacity)
+
+        let bytes = Self.storageSize(interval: interval, retentionSeconds: retentionSeconds)
         if bytes > 20 * 1024 * 1024 {
             let formatted = ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .memory)
             os_log(
@@ -186,7 +186,10 @@ public final class Profiler: @unchecked Sendable {
                 return nil
             }
 
-            let samples = samplesInRangeLocked(from: activeProfile.startTimestampNs, to: endTimestamp)
+            let matchingSamples = samplesInRangeLocked(
+                from: activeProfile.startTimestampNs,
+                to: endTimestamp
+            )
 
             if activeSessions.isEmpty {
                 stopLocked()
@@ -198,7 +201,7 @@ public final class Profiler: @unchecked Sendable {
                 startTimestampNs: activeProfile.startTimestampNs,
                 endTimestampNs: endTimestamp,
                 expectedSampleIntervalNs: intervalNs,
-                samples: samples
+                samples: matchingSamples
             )
         }
     }
@@ -206,10 +209,6 @@ public final class Profiler: @unchecked Sendable {
     deinit {
         lock.withLock {
             stopLocked()
-            if let storage = addressStorage {
-                storage.baseAddress?.deinitialize(count: storage.count)
-                storage.baseAddress?.deallocate()
-            }
         }
     }
 }
@@ -229,49 +228,16 @@ struct ActiveProfile {
     let startTimestampNs: UInt64
 }
 
-/// Internal ring-buffer metadata for a captured sample.
-///
-/// Stores timing and frame count information for each sample in the ring buffer.
-/// The actual frame addresses are stored separately in `addressStorage`.
-struct SampleMeta: Sendable {
-    /// Monotonic timestamp (in nanoseconds) when the sample capture began.
-    var timestampBeginNs: UInt64
-    /// Monotonic timestamp (in nanoseconds) when the sample capture ended.
-    var timestampEndNs: UInt64
-    /// Number of stack frames captured in this sample.
-    var frameCount: Int
-}
-
 extension Profiler {
-    /// Starts the sampling timer and allocates storage if needed.
+    /// Starts the sampling timer.
     ///
-    /// Lazily allocates `addressStorage` and `metas` on first call, then resets
-    /// the ring buffer state and starts a repeating timer that calls `captureSample()`.
+    /// Resets ring buffer state and starts a repeating timer that calls `captureSample()`.
     ///
     /// - Important: Must be called while holding `lock`.
     func startLocked() {
-        // Lazy allocation of storage
-        if addressStorage == nil {
-            let storageSize = capacity * maxFrames
-            let pointer = UnsafeMutablePointer<UInt>.allocate(capacity: storageSize)
-            pointer.initialize(repeating: 0, count: storageSize)
-            addressStorage = UnsafeMutableBufferPointer(start: pointer, count: storageSize)
-        }
-        if metas == nil {
-            metas = ContiguousArray(
-                repeating: SampleMeta(
-                    timestampBeginNs: 0,
-                    timestampEndNs: 0,
-                    frameCount: 0
-                ),
-                count: capacity
-            )
-        }
-
-        // Reset ring state and increment generation to invalidate in-flight captures
+        // Reset ring buffer state
         writeIndex = 0
         count = 0
-        generation &+= 1
 
         let timer = DispatchSource.makeTimerSource(queue: queue)
         timer.schedule(
@@ -288,7 +254,7 @@ extension Profiler {
 
     /// Stops the sampling timer.
     ///
-    /// Cancels and releases the timer. Does not deallocate storage.
+    /// Cancels and releases the timer.
     ///
     /// - Important: Must be called while holding `lock`.
     func stopLocked() {
@@ -296,110 +262,87 @@ extension Profiler {
         timer = nil
     }
 
-    /// Retrieves samples from the ring buffer that overlap the given time range.
-    ///
-    /// Iterates through the ring buffer and returns samples whose capture time
-    /// overlaps with `[startNs, endNs]`.
-    ///
-    /// - Parameters:
-    ///   - startNs: Start of the time range (monotonic nanoseconds).
-    ///   - endNs: End of the time range (monotonic nanoseconds).
-    /// - Returns: Array of samples that overlap the time range.
-    ///
-    /// - Important: Must be called while holding `lock`.
-    func samplesInRangeLocked(from startNs: UInt64, to endNs: UInt64) -> [Sample] {
-        guard let metas = metas, let storage = addressStorage, let base = storage.baseAddress else { return [] }
-        guard count > 0 else { return [] }
-
-        var result: [Sample] = []
-
-        // Oldest sample is at writeIndex - count (mod capacity)
-        let oldest = (writeIndex - count + capacity) % capacity
-
-        for i in 0..<count {
-            let slot = (oldest + i) % capacity
-            let meta = metas[slot]
-
-            // Skip samples that do not overlap our time range
-            // Include samples that have any overlap with [startNs, endNs]
-            guard meta.timestampEndNs >= startNs && meta.timestampBeginNs <= endNs else { continue }
-
-            let fc = meta.frameCount
-            guard fc > 0 else { continue }
-
-            let baseOffset = slot * maxFrames
-            let addresses = Array(UnsafeBufferPointer(start: base + baseOffset, count: fc))
-
-            result.append(
-                Sample(
-                    timestampBeginNs: meta.timestampBeginNs,
-                    timestampEndNs: meta.timestampEndNs,
-                    addresses: addresses
-                ))
-        }
-
-        return result
-    }
-
     /// Captures a single backtrace sample from the profiled thread.
     ///
-    /// Called by the timer on the profiler's dispatch queue. Uses a three-phase
-    /// approach to minimize lock contention:
-    /// 1. Reserve a ring buffer slot and get the storage pointer (under lock)
-    /// 2. Capture the backtrace (without lock)
-    /// 3. Commit the sample metadata (under lock)
+    /// Called periodically by the timer on the profiler's dispatch queue.
     ///
-    /// If no active sessions exist or storage is unavailable, returns early.
+    /// ## Implementation Notes
+    ///
+    /// The backtrace capture happens while holding the lock. This design choice trades
+    /// some lock contention for simpler, more predictable code:
+    ///
+    /// - **Simplicity**: Capturing directly into the ring buffer slot eliminates the need
+    ///   to copy sample data, reducing overhead and complexity.
+    /// - **Correctness**: Holding the lock ensures the ring buffer slot remains valid
+    ///   throughout the capture operation, avoiding race conditions with concurrent
+    ///   `endProfile()` calls that read from the buffer.
+    /// - **Predictable timing**: The `endCaptureNs` timestamp accurately reflects the
+    ///   total time spent in the capture path, including any lock contention.
+    ///
+    /// The lock is held for approximately 100-300µs per sample (depending on stack depth),
+    /// which is acceptable for the typical 1-10ms sampling intervals.
     func captureSample() {
-        // Phase 1: Reserve a slot and get the storage pointer under the lock
-        let (slot, base, gen): (Int, UnsafeMutablePointer<UInt>?, UInt64) = lock.withLockUnchecked {
-            guard !activeSessions.isEmpty else { return (-1, nil, 0) }
-            guard metas != nil, let storage = addressStorage else { return (-1, nil, 0) }
+        lock.withLock {
+            guard !activeSessions.isEmpty else { return }
 
             let slot = writeIndex
+
+            // Capture directly into the ring buffer slot to avoid struct copy overhead
+            samples[slot].metadata.timestampBeginNs = clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
+            samples[slot].capture(thread: machThread, using: captureBacktrace)
+            samples[slot].metadata.timestampEndNs = clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
+
+            guard samples[slot].addressCount > 0 else { return }
+
+            // Advance ring buffer position
             writeIndex = (writeIndex + 1) % capacity
-
-            // Invalidate slot while we capture
-            metas![slot].frameCount = 0
-
-            return (slot, storage.baseAddress, generation)
-        }
-
-        guard slot >= 0, let base = base else { return }
-
-        // Phase 2: Capture backtrace WITHOUT holding the lock
-        let baseOffset = slot * maxFrames
-        let timestampBegin = clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
-
-        let rawCount = Int(
-            captureBacktrace(
-                thread: machThread,
-                addresses: base.advanced(by: baseOffset),
-                count: Int32(maxFrames)
-            )
-        )
-
-        let timestampEnd = clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
-
-        // Phase 3: Commit the sample under the lock
-        lock.withLock {
-            // Check generation to detect if ring buffer was reset between phases
-            guard generation == gen else { return }
-            guard !activeSessions.isEmpty else { return }
-            guard metas != nil else { return }
-
-            let fc = max(0, min(rawCount, maxFrames))
-            guard fc > 0 else {
-                return
-            }
-
-            metas![slot].timestampBeginNs = timestampBegin
-            metas![slot].timestampEndNs = timestampEnd
-            metas![slot].frameCount = fc
-
             if count < capacity {
                 count += 1
             }
+
+            // Record final timestamp after all operations complete
+            samples[slot].metadata.endCaptureNs = clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
         }
+    }
+
+    /// Retrieves samples from the ring buffer that overlap the given time range.
+    ///
+    /// Iterates through valid samples in the ring buffer (from oldest to newest) and
+    /// returns those whose capture time window overlaps with `[startNs, endNs]`.
+    ///
+    /// A sample overlaps the range if:
+    /// - The sample's end time is at or after the range start, AND
+    /// - The sample's begin time is at or before the range end
+    ///
+    /// - Parameters:
+    ///   - startNs: Start of the time range (monotonic nanoseconds from `CLOCK_UPTIME_RAW`).
+    ///   - endNs: End of the time range (monotonic nanoseconds from `CLOCK_UPTIME_RAW`).
+    /// - Returns: Array of samples that overlap the time range, in chronological order.
+    ///
+    /// - Important: Must be called while holding `lock`.
+    func samplesInRangeLocked(from startNs: UInt64, to endNs: UInt64) -> [T] {
+        guard count > 0 else { return [] }
+
+        var result: [T] = []
+
+        // Calculate the oldest sample's position in the ring buffer
+        let oldest = (writeIndex - count + capacity) % capacity
+
+        // Iterate from oldest to newest
+        for i in 0..<count {
+            let slot = (oldest + i) % capacity
+            let sample = samples[slot]
+
+            // Check for time range overlap and valid capture
+            guard
+                sample.metadata.timestampEndNs >= startNs
+                    && sample.metadata.timestampBeginNs <= endNs
+                    && sample.addressCount > 0
+            else { continue }
+
+            result.append(sample)
+        }
+
+        return result
     }
 }
