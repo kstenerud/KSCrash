@@ -34,13 +34,13 @@ import XCTest
         /// Benchmark profiler initialization
         func testBenchmarkProfilerInit() {
             measure {
-                _ = Profiler(thread: pthread_self(), interval: 0.01, maxFrames: 128, retentionSeconds: 30)
+                _ = Profiler<Sample128>(thread: pthread_self(), interval: 0.01, retentionSeconds: 30)
             }
         }
 
         /// Benchmark begin/end profile cycle with minimal duration
         func testBenchmarkBeginEndProfile() {
-            let profiler = Profiler(thread: pthread_self(), interval: 0.01, retentionSeconds: 5)
+            let profiler = Profiler<Sample128>(thread: pthread_self(), interval: 0.01, retentionSeconds: 5)
 
             measure {
                 let id = profiler.beginProfile()
@@ -52,10 +52,9 @@ import XCTest
 
         /// Benchmark profiling with 5ms interval (high frequency)
         func testBenchmarkHighFrequencySampling() {
-            let profiler = Profiler(
+            let profiler = Profiler<Sample64>(
                 thread: pthread_self(),
                 interval: 0.005,
-                maxFrames: 64,
                 retentionSeconds: 5
             )
 
@@ -68,10 +67,9 @@ import XCTest
 
         /// Benchmark profiling with 10ms interval (default frequency)
         func testBenchmarkDefaultFrequencySampling() {
-            let profiler = Profiler(
+            let profiler = Profiler<Sample128>(
                 thread: pthread_self(),
                 interval: 0.01,
-                maxFrames: 128,
                 retentionSeconds: 5
             )
 
@@ -101,10 +99,9 @@ import XCTest
                 return
             }
 
-            let profiler = Profiler(
+            let profiler = Profiler<Sample64>(
                 thread: thread,
                 interval: 0.01,
-                maxFrames: 64,
                 retentionSeconds: 5
             )
 
@@ -121,10 +118,9 @@ import XCTest
 
         /// Benchmark retrieving samples from a profile
         func testBenchmarkSampleRetrieval() {
-            let profiler = Profiler(
+            let profiler = Profiler<Sample64>(
                 thread: pthread_self(),
                 interval: 0.005,
-                maxFrames: 64,
                 retentionSeconds: 5
             )
 
@@ -139,7 +135,7 @@ import XCTest
 
         /// Benchmark multiple concurrent profile sessions
         func testBenchmarkConcurrentProfiles() {
-            let profiler = Profiler(
+            let profiler = Profiler<Sample128>(
                 thread: pthread_self(),
                 interval: 0.01,
                 retentionSeconds: 10
@@ -164,7 +160,7 @@ import XCTest
         func testBenchmarkStorageSizeCalculation() {
             measure {
                 for _ in 0..<1000 {
-                    _ = Profiler.storageSize(interval: 0.01, maxFrames: 128, retentionSeconds: 30)
+                    _ = Profiler<Sample128>.storageSize(interval: 0.01, retentionSeconds: 30)
                 }
             }
         }
@@ -172,9 +168,9 @@ import XCTest
         // MARK: - Stack Depth Benchmarks
 
         /// Helper to create a thread with a specific stack depth and measure sample capture
-        private func profileThreadWithStackDepth(
+        private func profileThreadWithStackDepth<S: Sample>(
             depth: Int,
-            maxFrames: Int,
+            sampleType: S.Type,
             file: StaticString = #file,
             line: UInt = #line
         ) {
@@ -201,10 +197,9 @@ import XCTest
             // Each cycle schedules immediate sample capture (first sample is taken asynchronously shortly after begin)
             measure {
                 for _ in 0..<100 {
-                    let profiler = Profiler(
+                    let profiler = Profiler<S>(
                         thread: thread,
                         interval: 0.001,
-                        maxFrames: maxFrames,
                         retentionSeconds: 1
                     )
                     let id = profiler.beginProfile()
@@ -226,24 +221,136 @@ import XCTest
             }
         }
 
-        /// Benchmark sample capture with shallow stack (16 frames)
+        /// Benchmark sample capture with shallow stack (16 frames, Sample32)
         func testBenchmarkSampleCaptureShallowStack() {
-            profileThreadWithStackDepth(depth: 16, maxFrames: 32)
+            profileThreadWithStackDepth(depth: 16, sampleType: Sample32.self)
         }
 
-        /// Benchmark sample capture with medium stack (64 frames)
+        /// Benchmark sample capture with medium stack (64 frames, Sample128)
         func testBenchmarkSampleCaptureMediumStack() {
-            profileThreadWithStackDepth(depth: 64, maxFrames: 128)
+            profileThreadWithStackDepth(depth: 64, sampleType: Sample128.self)
         }
 
-        /// Benchmark sample capture with deep stack (128 frames)
+        /// Benchmark sample capture with deep stack (128 frames, Sample256)
         func testBenchmarkSampleCaptureDeepStack() {
-            profileThreadWithStackDepth(depth: 128, maxFrames: 256)
+            profileThreadWithStackDepth(depth: 128, sampleType: Sample256.self)
         }
 
-        /// Benchmark sample capture with very deep stack (256 frames)
+        /// Benchmark sample capture with very deep stack (256 frames, Sample512)
         func testBenchmarkSampleCaptureVeryDeepStack() {
-            profileThreadWithStackDepth(depth: 256, maxFrames: 512)
+            profileThreadWithStackDepth(depth: 256, sampleType: Sample512.self)
+        }
+
+        // MARK: - Per-Sample Capture Latency Benchmarks
+
+        /// Benchmark individual sample capture operations using ProfileMetrics.
+        /// This measures the actual hot-path performance including allocation overhead.
+        func testBenchmarkPerSampleCaptureLatency() {
+            var targetThread: pthread_t?
+            let readySemaphore = DispatchSemaphore(value: 0)
+            let doneSemaphore = DispatchSemaphore(value: 0)
+
+            // Create thread with moderate stack depth (64 frames)
+            DispatchQueue.global().async {
+                targetThread = pthread_self()
+                self.recurseAndWait(depth: 64, ready: readySemaphore, done: doneSemaphore)
+            }
+
+            readySemaphore.wait()
+
+            guard let thread = targetThread else {
+                XCTFail("Failed to get target thread")
+                doneSemaphore.signal()
+                return
+            }
+
+            let profiler = Profiler<Sample128>(
+                thread: thread,
+                interval: 0.001,  // 1ms
+                retentionSeconds: 5
+            )
+
+            let id = profiler.beginProfile()
+            Thread.sleep(forTimeInterval: 1.0)  // Collect ~1000 samples
+            let profile = profiler.endProfile(id: id)!
+
+            doneSemaphore.signal()
+
+            let metrics = profile.metrics
+
+            print(
+                """
+
+                ============================================================
+                PER-SAMPLE CAPTURE LATENCY (64 frames, Sample128)
+                ============================================================
+                Samples:    \(metrics.count)
+                Min:        \(String(format: "%.2f", Double(metrics.minNs) / 1000.0)) µs
+                Max:        \(String(format: "%.2f", Double(metrics.maxNs) / 1000.0)) µs
+                Average:    \(String(format: "%.2f", metrics.avgNs / 1000.0)) µs
+                Std Dev:    \(String(format: "%.2f", metrics.stdDevNs / 1000.0)) µs
+                P50:        \(String(format: "%.2f", Double(metrics.p50Ns) / 1000.0)) µs
+                P95:        \(String(format: "%.2f", Double(metrics.p95Ns) / 1000.0)) µs
+                P99:        \(String(format: "%.2f", Double(metrics.p99Ns) / 1000.0)) µs
+                ============================================================
+
+                """)
+
+            XCTAssertGreaterThan(metrics.count, 50, "Should have captured many samples")
+        }
+
+        /// Benchmark per-sample capture with deep stacks (256 frames)
+        func testBenchmarkPerSampleCaptureLatencyDeepStack() {
+            var targetThread: pthread_t?
+            let readySemaphore = DispatchSemaphore(value: 0)
+            let doneSemaphore = DispatchSemaphore(value: 0)
+
+            DispatchQueue.global().async {
+                targetThread = pthread_self()
+                self.recurseAndWait(depth: 256, ready: readySemaphore, done: doneSemaphore)
+            }
+
+            readySemaphore.wait()
+
+            guard let thread = targetThread else {
+                XCTFail("Failed to get target thread")
+                doneSemaphore.signal()
+                return
+            }
+
+            let profiler = Profiler<Sample512>(
+                thread: thread,
+                interval: 0.001,  // 1ms
+                retentionSeconds: 5
+            )
+
+            let id = profiler.beginProfile()
+            Thread.sleep(forTimeInterval: 1.0)  // Collect ~1000 samples
+            let profile = profiler.endProfile(id: id)!
+
+            doneSemaphore.signal()
+
+            let metrics = profile.metrics
+
+            print(
+                """
+
+                ============================================================
+                PER-SAMPLE CAPTURE LATENCY (256 frames, Sample512)
+                ============================================================
+                Samples:    \(metrics.count)
+                Min:        \(String(format: "%.2f", Double(metrics.minNs) / 1000.0)) µs
+                Max:        \(String(format: "%.2f", Double(metrics.maxNs) / 1000.0)) µs
+                Average:    \(String(format: "%.2f", metrics.avgNs / 1000.0)) µs
+                Std Dev:    \(String(format: "%.2f", metrics.stdDevNs / 1000.0)) µs
+                P50:        \(String(format: "%.2f", Double(metrics.p50Ns) / 1000.0)) µs
+                P95:        \(String(format: "%.2f", Double(metrics.p95Ns) / 1000.0)) µs
+                P99:        \(String(format: "%.2f", Double(metrics.p99Ns) / 1000.0)) µs
+                ============================================================
+
+                """)
+
+            XCTAssertGreaterThan(metrics.count, 50, "Should have captured many samples")
         }
     }
 #endif

@@ -34,86 +34,63 @@ final class ProfilerTests: XCTestCase {
     // MARK: - Profiler Initialization Tests
 
     func testProfilerInitialization() {
-        let profiler = Profiler(thread: pthread_self())
+        let profiler = Profiler<Sample128>(thread: pthread_self())
 
         XCTAssertFalse(profiler.isRunning, "Profiler should not be running initially")
-        XCTAssertEqual(profiler.maxFrames, 128, "Default maxFrames should be 128")
         XCTAssertEqual(profiler.intervalNs, 10_000_000, "Default interval should be 10ms (10,000,000 ns)")
     }
 
     func testProfilerInitializationWithCustomParameters() {
-        let profiler = Profiler(
+        let profiler = Profiler<Sample64>(
             thread: pthread_self(),
             interval: 0.005,  // 5ms
-            maxFrames: 64,
             retentionSeconds: 10
         )
 
         XCTAssertFalse(profiler.isRunning)
-        XCTAssertEqual(profiler.maxFrames, 64)
         XCTAssertEqual(profiler.intervalNs, 5_000_000, "Interval should be 5ms (5,000,000 ns)")
     }
 
     func testProfilerClampsMinimumInterval() {
         // Interval below 1ms should be clamped to 1ms
-        let profiler = Profiler(
+        let profiler = Profiler<Sample32>(
             thread: pthread_self(),
-            interval: 0.0001,  // 0.1ms - too small
-            maxFrames: 32
+            interval: 0.0001  // 0.1ms - too small
         )
 
         XCTAssertEqual(profiler.intervalNs, 1_000_000, "Minimum interval should be clamped to 1ms")
     }
 
-    func testProfilerClampsMinimumMaxFrames() {
-        let profiler = Profiler(
-            thread: pthread_self(),
-            maxFrames: 0
-        )
-
-        XCTAssertEqual(profiler.maxFrames, 1, "maxFrames should be clamped to at least 1")
-    }
-
     // MARK: - Storage Size Calculation Tests
 
     func testStorageSizeCalculation() {
-        // With 10ms interval, 128 frames, 30 seconds retention:
+        // With 10ms interval, 128 frames (Sample128), 30 seconds retention:
         // capacity = 30 / 0.01 = 3000 samples
-        // addressStorageSize = 3000 * 128 * 8 (64-bit) = 3,072,000 bytes
-        // metasStorageSize = 3000 * sizeof(SampleMeta)
-        let size = Profiler.storageSize(interval: 0.01, maxFrames: 128, retentionSeconds: 30)
+        let size = Profiler<Sample128>.storageSize(interval: 0.01, retentionSeconds: 30)
         XCTAssertGreaterThan(size, 0, "Storage size should be positive")
 
         // Verify smaller configuration yields smaller storage
-        let smallerSize = Profiler.storageSize(interval: 0.01, maxFrames: 32, retentionSeconds: 10)
+        let smallerSize = Profiler<Sample32>.storageSize(interval: 0.01, retentionSeconds: 10)
         XCTAssertLessThan(smallerSize, size, "Smaller config should yield smaller storage")
     }
 
     func testStorageSizeWithMinimalConfig() {
-        let size = Profiler.storageSize(interval: 1.0, maxFrames: 1, retentionSeconds: 1)
+        let size = Profiler<Sample32>.storageSize(interval: 1.0, retentionSeconds: 1)
         XCTAssertGreaterThan(size, 0)
     }
 
     func testStorageSizeScalesWithRetention() {
-        let size1 = Profiler.storageSize(interval: 0.01, maxFrames: 64, retentionSeconds: 10)
-        let size2 = Profiler.storageSize(interval: 0.01, maxFrames: 64, retentionSeconds: 20)
+        let size1 = Profiler<Sample64>.storageSize(interval: 0.01, retentionSeconds: 10)
+        let size2 = Profiler<Sample64>.storageSize(interval: 0.01, retentionSeconds: 20)
 
         // Doubling retention should roughly double storage
         XCTAssertEqual(size2, size1 * 2, "Storage should scale linearly with retention")
     }
 
-    func testStorageSizeScalesWithMaxFrames() {
-        let size1 = Profiler.storageSize(interval: 0.01, maxFrames: 32, retentionSeconds: 10)
-        let size2 = Profiler.storageSize(interval: 0.01, maxFrames: 64, retentionSeconds: 10)
-
-        // Doubling maxFrames should roughly double the address storage portion
-        XCTAssertGreaterThan(size2, size1)
-    }
-
     // MARK: - Begin/End Profile Tests
 
     func testBeginProfileStartsSampling() {
-        let profiler = Profiler(thread: pthread_self())
+        let profiler = Profiler<Sample128>(thread: pthread_self())
 
         XCTAssertFalse(profiler.isRunning)
 
@@ -127,7 +104,7 @@ final class ProfilerTests: XCTestCase {
     }
 
     func testEndProfileWithInvalidIdReturnsNil() {
-        let profiler = Profiler(thread: pthread_self())
+        let profiler = Profiler<Sample128>(thread: pthread_self())
 
         let invalidId = UUID()
         let profile = profiler.endProfile(id: invalidId)
@@ -136,7 +113,7 @@ final class ProfilerTests: XCTestCase {
     }
 
     func testEndProfileCannotBeCalledTwice() {
-        let profiler = Profiler(thread: pthread_self())
+        let profiler = Profiler<Sample128>(thread: pthread_self())
 
         let id = profiler.beginProfile()
         let profile1 = profiler.endProfile(id: id)
@@ -149,7 +126,7 @@ final class ProfilerTests: XCTestCase {
     // MARK: - Multiple Concurrent Profiles Tests
 
     func testMultipleConcurrentProfiles() {
-        let profiler = Profiler(thread: pthread_self())
+        let profiler = Profiler<Sample128>(thread: pthread_self())
 
         let id1 = profiler.beginProfile()
         XCTAssertTrue(profiler.isRunning)
@@ -171,7 +148,7 @@ final class ProfilerTests: XCTestCase {
     // MARK: - Profile Content Tests
 
     func testProfileContainsValidTimestamps() {
-        let profiler = Profiler(
+        let profiler = Profiler<Sample64>(
             thread: pthread_self(),
             interval: 0.005,
             retentionSeconds: 5
@@ -193,7 +170,7 @@ final class ProfilerTests: XCTestCase {
     }
 
     func testProfileCapturesSamples() {
-        let profiler = Profiler(
+        let profiler = Profiler<Sample64>(
             thread: pthread_self(),
             interval: 0.005,  // 5ms
             retentionSeconds: 5
@@ -219,10 +196,9 @@ final class ProfilerTests: XCTestCase {
             throw XCTSkip("watchOS does not support backtrace capture")
         #endif
 
-        let profiler = Profiler(
+        let profiler = Profiler<Sample64>(
             thread: pthread_self(),
             interval: 0.01,
-            maxFrames: 64,
             retentionSeconds: 5
         )
 
@@ -238,8 +214,8 @@ final class ProfilerTests: XCTestCase {
         for sample in profile.samples {
             XCTAssertFalse(sample.addresses.isEmpty, "Sample should have addresses")
             XCTAssertLessThanOrEqual(
-                sample.addresses.count, 64,
-                "Should not exceed maxFrames"
+                sample.addresses.count, Sample64.capacity,
+                "Should not exceed Sample capacity"
             )
 
             // Verify addresses are non-zero (valid pointers)
@@ -251,7 +227,7 @@ final class ProfilerTests: XCTestCase {
     // MARK: - Sample Tests
 
     func testSampleCaptureDuration() {
-        let profiler = Profiler(
+        let profiler = Profiler<Sample128>(
             thread: pthread_self(),
             interval: 0.01,
             retentionSeconds: 5
@@ -268,19 +244,19 @@ final class ProfilerTests: XCTestCase {
 
         for sample in profile.samples {
             XCTAssertGreaterThanOrEqual(
-                sample.timestampEndNs, sample.timestampBeginNs,
+                sample.metadata.timestampEndNs, sample.metadata.timestampBeginNs,
                 "End timestamp should be >= begin"
             )
             XCTAssertEqual(
-                sample.captureDurationNs,
-                sample.timestampEndNs - sample.timestampBeginNs,
+                sample.metadata.captureDurationNs,
+                sample.metadata.timestampEndNs &- sample.metadata.timestampBeginNs,
                 "Capture duration calculation should be correct"
             )
         }
     }
 
     func testSamplesOverlapWithProfileTimeWindow() {
-        let profiler = Profiler(
+        let profiler = Profiler<Sample64>(
             thread: pthread_self(),
             interval: 0.005,
             retentionSeconds: 5
@@ -299,11 +275,11 @@ final class ProfilerTests: XCTestCase {
             // Samples are included if they overlap with the profile window
             // Overlap means: sample ends after profile starts AND sample starts before profile ends
             XCTAssertGreaterThanOrEqual(
-                sample.timestampEndNs, profile.startTimestampNs,
+                sample.metadata.timestampEndNs, profile.startTimestampNs,
                 "Sample should end after or at profile start (overlap condition)"
             )
             XCTAssertLessThanOrEqual(
-                sample.timestampBeginNs, profile.endTimestampNs,
+                sample.metadata.timestampBeginNs, profile.endTimestampNs,
                 "Sample should start before or at profile end (overlap condition)"
             )
         }
@@ -312,7 +288,7 @@ final class ProfilerTests: XCTestCase {
     // MARK: - Profile Duration Tests
 
     func testProfileDurationProperty() {
-        let profiler = Profiler(
+        let profiler = Profiler<Sample128>(
             thread: pthread_self(),
             interval: 0.01,
             retentionSeconds: 5
@@ -336,7 +312,7 @@ final class ProfilerTests: XCTestCase {
     // MARK: - Thread Safety Tests
 
     func testConcurrentBeginEndFromMultipleThreads() {
-        let profiler = Profiler(
+        let profiler = Profiler<Sample128>(
             thread: pthread_self(),
             interval: 0.01,
             retentionSeconds: 10
@@ -376,10 +352,9 @@ final class ProfilerTests: XCTestCase {
 
     func testRingBufferOverwrite() {
         // Create a profiler with small capacity (1 second retention with 100ms interval = 10 samples)
-        let profiler = Profiler(
+        let profiler = Profiler<Sample32>(
             thread: pthread_self(),
             interval: 0.1,  // 100ms
-            maxFrames: 32,
             retentionSeconds: 1  // Small retention to test ring buffer
         )
 
@@ -425,7 +400,7 @@ final class ProfilerTests: XCTestCase {
             return
         }
 
-        let profiler = Profiler(
+        let profiler = Profiler<Sample64>(
             thread: thread,
             interval: 0.005,
             retentionSeconds: 5
@@ -447,7 +422,7 @@ final class ProfilerTests: XCTestCase {
     // MARK: - Expected Sample Interval Tests
 
     func testExpectedSampleInterval() {
-        let profiler = Profiler(
+        let profiler = Profiler<Sample128>(
             thread: pthread_self(),
             interval: 0.02,  // 20ms
             retentionSeconds: 5
@@ -466,7 +441,7 @@ final class ProfilerTests: XCTestCase {
     // MARK: - Start/Stop Cycling Tests
 
     func testStartStopCycling() {
-        let profiler = Profiler(
+        let profiler = Profiler<Sample128>(
             thread: pthread_self(),
             interval: 0.01,
             retentionSeconds: 5
@@ -489,7 +464,7 @@ final class ProfilerTests: XCTestCase {
     // MARK: - Profile Isolation Tests
 
     func testSequentialProfilesAreIsolated() {
-        let profiler = Profiler(
+        let profiler = Profiler<Sample128>(
             thread: pthread_self(),
             interval: 0.01,
             retentionSeconds: 5
@@ -517,58 +492,10 @@ final class ProfilerTests: XCTestCase {
         XCTAssertGreaterThan(p2.startTimestampNs, p1.endTimestampNs, "Second profile should start after first ends")
     }
 
-    // MARK: - Lazy Allocation Tests
-
-    func testStorageIsLazilyAllocatedOnFirstBeginProfile() {
-        let profiler = Profiler(
-            thread: pthread_self(),
-            interval: 0.01,
-            retentionSeconds: 5
-        )
-
-        // Storage should be nil before any profile begins
-        XCTAssertNil(profiler.addressStorage, "Storage should not be allocated before beginProfile")
-        XCTAssertNil(profiler.metas, "Metas should not be allocated before beginProfile")
-
-        // Begin a profile
-        let id = profiler.beginProfile()
-
-        // Storage should now be allocated
-        XCTAssertNotNil(profiler.addressStorage, "Storage should be allocated after beginProfile")
-        XCTAssertNotNil(profiler.metas, "Metas should be allocated after beginProfile")
-
-        // End the profile
-        _ = profiler.endProfile(id: id)
-
-        // Storage should still be allocated (not deallocated on end)
-        XCTAssertNotNil(profiler.addressStorage, "Storage should remain allocated after endProfile")
-        XCTAssertNotNil(profiler.metas, "Metas should remain allocated after endProfile")
-    }
-
-    func testStorageIsReusedAcrossProfileSessions() {
-        let profiler = Profiler(
-            thread: pthread_self(),
-            interval: 0.01,
-            retentionSeconds: 5
-        )
-
-        // First session
-        let id1 = profiler.beginProfile()
-        let storagePointer1 = profiler.addressStorage?.baseAddress
-        _ = profiler.endProfile(id: id1)
-
-        // Second session - should reuse the same storage
-        let id2 = profiler.beginProfile()
-        let storagePointer2 = profiler.addressStorage?.baseAddress
-        _ = profiler.endProfile(id: id2)
-
-        XCTAssertEqual(storagePointer1, storagePointer2, "Storage should be reused across sessions")
-    }
-
     // MARK: - Overlapping Profiles Tests
 
     func testOverlappingProfilesGetDifferentSamples() {
-        let profiler = Profiler(
+        let profiler = Profiler<Sample64>(
             thread: pthread_self(),
             interval: 0.005,
             retentionSeconds: 10

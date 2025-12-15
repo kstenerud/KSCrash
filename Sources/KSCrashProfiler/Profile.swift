@@ -26,55 +26,62 @@
 
 import Foundation
 
-/// Unique identifier for a profiling session
+/// Unique identifier for a profiling session.
 public typealias ProfileID = UUID
 
-/// A single captured backtrace sample with timestamp
-public struct Sample: Sendable {
-    /// The monotonic timestamp in nanoseconds when capture started
-    public let timestampBeginNs: UInt64
-
-    /// The monotonic timestamp in nanoseconds when capture ended
-    public let timestampEndNs: UInt64
-
-    /// The captured backtrace addresses
-    public let addresses: [UInt]
-
-    /// The duration of the capture in nanoseconds
-    public var captureDurationNs: UInt64 {
-        timestampEndNs - timestampBeginNs
-    }
-
-    internal init(timestampBeginNs: UInt64, timestampEndNs: UInt64, addresses: [UInt]) {
-        self.timestampBeginNs = timestampBeginNs
-        self.timestampEndNs = timestampEndNs
-        self.addresses = addresses
-    }
-}
-
 /// A completed profile containing timing information and captured samples.
+///
+/// A `Profile` represents the results of a profiling session between `beginProfile()` and
+/// `endProfile()` calls. It contains all samples captured during that time window, along
+/// with timing metadata.
+///
+/// ## Example
+///
+/// ```swift
+/// let profile = profiler.endProfile(id: profileId)!
+/// print("Duration: \(Double(profile.durationNs) / 1_000_000)ms")
+/// print("Samples: \(profile.samples.count)")
+/// print("Avg capture time: \(profile.metrics.avgNs / 1000)µs")
+/// ```
 public struct Profile: Sendable {
-    /// Unique identifier for this profile
+    /// Unique identifier for this profile session.
     public let id: ProfileID
 
-    /// The wall clock time when profiling started
+    /// Wall-clock time when profiling started.
+    ///
+    /// Use this for correlating with external events or logs. For duration calculations,
+    /// use the monotonic timestamps instead.
     public let startTime: Date
 
-    /// The monotonic timestamp in nanoseconds when profiling started
+    /// Monotonic timestamp when profiling started (nanoseconds from `CLOCK_UPTIME_RAW`).
     public let startTimestampNs: UInt64
 
-    /// The monotonic timestamp in nanoseconds when profiling ended
+    /// Monotonic timestamp when profiling ended (nanoseconds from `CLOCK_UPTIME_RAW`).
     public let endTimestampNs: UInt64
 
-    /// The expected interval between samples in nanoseconds
+    /// Expected interval between samples in nanoseconds.
+    ///
+    /// This is the configured sampling interval. Actual intervals may vary slightly
+    /// due to timer precision and system load.
     public let expectedSampleIntervalNs: UInt64
 
-    /// The captured backtrace samples within this profile's time window
-    public let samples: [Sample]
+    /// Captured backtrace samples within this profile's time window.
+    ///
+    /// Samples are returned in chronological order. Only samples whose capture time
+    /// overlaps with `[startTimestampNs, endTimestampNs]` are included.
+    public let samples: [any Sample]
 
-    /// The total duration of this profile in nanoseconds
+    /// Total duration of this profile in nanoseconds.
     public var durationNs: UInt64 {
         endTimestampNs - startTimestampNs
+    }
+
+    /// Performance metrics computed from sample capture timings.
+    ///
+    /// This property is computed on demand. For repeated access, store the result
+    /// in a local variable.
+    public var metrics: ProfileMetrics {
+        ProfileMetrics(samples: samples)
     }
 
     internal init(
@@ -83,7 +90,7 @@ public struct Profile: Sendable {
         startTimestampNs: UInt64,
         endTimestampNs: UInt64,
         expectedSampleIntervalNs: UInt64,
-        samples: [Sample]
+        samples: [any Sample]
     ) {
         self.id = id
         self.startTime = startTime
