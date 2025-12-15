@@ -330,6 +330,8 @@ jobs:
               "SampleCaptureMediumStack": "Sample capture (64 frames)",
               "SampleCaptureDeepStack": "Sample capture (128 frames)",
               "SampleCaptureVeryDeepStack": "Sample capture (256 frames)",
+              "PerSampleCaptureLatency": "Per-sample capture latency (64 frames)",
+              "PerSampleCaptureLatencyDeepStack": "Per-sample capture latency (256 frames)",
           }
 
           # Comparison section (only for PRs with base results)
@@ -563,6 +565,8 @@ jobs:
               "SampleCaptureMediumStack": ("Medium stack (64 frames)", "100 capture cycles, 64-frame stack"),
               "SampleCaptureDeepStack": ("Deep stack (128 frames)", "100 capture cycles, 128-frame stack"),
               "SampleCaptureVeryDeepStack": ("Very deep stack (256 frames)", "100 capture cycles, 256-frame stack"),
+              "PerSampleCaptureLatency": ("Per-sample latency (64 frames)", "1000 samples, detailed timing"),
+              "PerSampleCaptureLatencyDeepStack": ("Per-sample latency (256 frames)", "1000 samples, deep stack"),
           }
 
           for test_name, (desc, notes) in profiler_tests.items():
