@@ -100,6 +100,10 @@ typedef struct KSCrash_MonitorContext {
      */
     bool omitBinaryImages;
 
+    /** Context available to you in monitor API context.
+     */
+    void *callbackContext;
+
     struct {
         /**
          * If available, this will be the termination reason code.

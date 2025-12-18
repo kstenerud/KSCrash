@@ -43,7 +43,7 @@ import XCTest
             let profiler = Profiler<Sample128>(thread: pthread_self(), interval: 0.01, retentionSeconds: 5)
 
             measure {
-                let id = profiler.beginProfile()
+                let id = profiler.beginProfile(named: "benchmark")
                 _ = profiler.endProfile(id: id)
             }
         }
@@ -59,7 +59,7 @@ import XCTest
             )
 
             measure {
-                let id = profiler.beginProfile()
+                let id = profiler.beginProfile(named: "benchmark")
                 Thread.sleep(forTimeInterval: 0.05)
                 _ = profiler.endProfile(id: id)
             }
@@ -74,7 +74,7 @@ import XCTest
             )
 
             measure {
-                let id = profiler.beginProfile()
+                let id = profiler.beginProfile(named: "benchmark")
                 Thread.sleep(forTimeInterval: 0.1)
                 _ = profiler.endProfile(id: id)
             }
@@ -106,7 +106,7 @@ import XCTest
             )
 
             measure {
-                let id = profiler.beginProfile()
+                let id = profiler.beginProfile(named: "benchmark")
                 Thread.sleep(forTimeInterval: 0.05)
                 _ = profiler.endProfile(id: id)
             }
@@ -125,7 +125,7 @@ import XCTest
             )
 
             measure {
-                let id = profiler.beginProfile()
+                let id = profiler.beginProfile(named: "benchmark")
                 Thread.sleep(forTimeInterval: 0.2)
                 _ = profiler.endProfile(id: id)
             }
@@ -142,9 +142,9 @@ import XCTest
             )
 
             measure {
-                let id1 = profiler.beginProfile()
-                let id2 = profiler.beginProfile()
-                let id3 = profiler.beginProfile()
+                let id1 = profiler.beginProfile(named: "benchmark")
+                let id2 = profiler.beginProfile(named: "benchmark")
+                let id3 = profiler.beginProfile(named: "benchmark")
 
                 Thread.sleep(forTimeInterval: 0.03)
 
@@ -202,7 +202,7 @@ import XCTest
                         interval: 0.001,
                         retentionSeconds: 1
                     )
-                    let id = profiler.beginProfile()
+                    let id = profiler.beginProfile(named: "benchmark")
                     _ = profiler.endProfile(id: id)
                 }
             }
@@ -270,7 +270,7 @@ import XCTest
                 retentionSeconds: 5
             )
 
-            let id = profiler.beginProfile()
+            let id = profiler.beginProfile(named: "benchmark")
             Thread.sleep(forTimeInterval: 1.0)  // Collect ~1000 samples
             let profile = profiler.endProfile(id: id)!
 
@@ -324,7 +324,7 @@ import XCTest
                 retentionSeconds: 5
             )
 
-            let id = profiler.beginProfile()
+            let id = profiler.beginProfile(named: "benchmark")
             Thread.sleep(forTimeInterval: 1.0)  // Collect ~1000 samples
             let profile = profiler.endProfile(id: id)!
 

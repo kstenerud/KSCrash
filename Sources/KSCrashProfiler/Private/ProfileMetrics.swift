@@ -99,3 +99,14 @@ public struct ProfileMetrics: Sendable {
         self.sampleTimingsNs = samples.map { $0.metadata.totalCaptureNs }
     }
 }
+
+extension Profile {
+
+    /// Performance metrics computed from sample capture timings.
+    ///
+    /// This property is computed on demand. For repeated access, store the result
+    /// in a local variable.
+    public var metrics: ProfileMetrics {
+        ProfileMetrics(samples: samples)
+    }
+}

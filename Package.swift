@@ -514,7 +514,8 @@ let package = Package(
         .target(
             name: Targets.profiler,
             dependencies: [
-                .target(name: Targets.recordingCore)
+                .target(name: Targets.recordingCore),
+                .target(name: Targets.recording),
             ],
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy")
