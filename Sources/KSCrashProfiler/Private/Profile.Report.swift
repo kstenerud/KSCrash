@@ -53,9 +53,6 @@ import Foundation
 /// - `samples`: Array of samples, each referencing frames by index
 extension Profile {
 
-    /// Whether the profile monitor is enabled.
-    static var enabled: Bool = true
-
     /// The monitor ID string. Allocated once and never freed (intentional for static lifetime).
     static let monitorId = strdup("profile")
 
@@ -71,10 +68,9 @@ extension Profile {
             Self.monitorId.map { UnsafePointer($0) }
         } monitorFlags: {
             .init(0)
-        } setEnabled: {
-            Self.enabled = $0
+        } setEnabled: { _ in
         } isEnabled: {
-            Self.enabled
+            true
         } addContextualInfoToEvent: { _ in
         } notifyPostSystemEnable: {
         } writeInReportSection: { context, writerRef in
