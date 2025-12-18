@@ -83,6 +83,7 @@ Pod::Spec.new do |s|
 
   s.subspec 'Profiler' do |profiler|
     profiler.dependency 'KSCrash/RecordingCore'
+    profiler.dependency 'KSCrash/Recording'
 
     module_name = 'KSCrashProfiler'
     profiler.source_files = "Sources/#{module_name}/**/*.swift"

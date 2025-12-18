@@ -122,16 +122,13 @@ public final class Profiler<T: Sample>: @unchecked Sendable {
     ) -> Int {
         let clampedInterval = max(0.001, interval)
         let capacity = max(1, Int((Double(retentionSeconds) / clampedInterval).rounded(.toNearestOrAwayFromZero)))
-        let frames = max(1, T.capacity)
 
-        // Estimate: Sample struct overhead + array of UInt addresses per sample
+        // Estimate: Sample struct size (includes inline address storage)
         let sampleOverhead = MemoryLayout<T>.size
-        let addressesSize = frames * MemoryLayout<UInt>.size
 
-        let (perSample, overflow1) = sampleOverhead.addingReportingOverflow(addressesSize)
-        let (total, overflow2) = capacity.multipliedReportingOverflow(by: perSample)
+        let (total, overflow) = capacity.multipliedReportingOverflow(by: sampleOverhead)
 
-        return (overflow1 || overflow2) ? Int.max : total
+        return overflow ? Int.max : total
     }
 
     /// Creates a new profiler
