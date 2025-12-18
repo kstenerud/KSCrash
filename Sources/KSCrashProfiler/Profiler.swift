@@ -55,8 +55,15 @@ import os
 ///
 /// When a profile session ends, a crash report is automatically written to disk in the
 /// background. The report contains the profile data in a deduplicated format optimized
-/// for size. Use `@discardableResult` on `endProfile(id:)` if you don't need the
-/// in-memory `Profile` object.
+/// for size. Use the completion handler variant to get the URL of the written report:
+///
+/// ```swift
+/// profiler.endProfile(id: id) { url in
+///     if let url = url {
+///         print("Report written to: \(url.path)")
+///     }
+/// }
+/// ```
 ///
 /// ## Thread Safety
 ///
@@ -76,6 +83,9 @@ public final class Profiler<T: Sample>: @unchecked Sendable {
 
     /// The queue on which sampling occurs
     let queue: DispatchQueue
+
+    /// Serial queue for writing profile reports
+    let reportQueue: DispatchQueue
 
     /// Lock for thread-safe access
     let lock = OSAllocatedUnfairLock()
@@ -139,6 +149,7 @@ public final class Profiler<T: Sample>: @unchecked Sendable {
         let clampedInterval = max(0.001, interval)
         self.intervalNs = UInt64(clampedInterval * 1_000_000_000)
         self.queue = DispatchQueue(label: "com.kscrash.profiler", qos: .userInteractive)
+        self.reportQueue = DispatchQueue(label: "com.kscrash.profiler.report", qos: .utility)
 
         let computed = Int((Double(retentionSeconds) / clampedInterval).rounded(.toNearestOrAwayFromZero))
         self.capacity = max(1, computed)
@@ -193,6 +204,25 @@ public final class Profiler<T: Sample>: @unchecked Sendable {
     ///   of whether you use the returned `Profile` object.
     @discardableResult
     public func endProfile(id: ProfileID) -> Profile? {
+        endProfile(id: id, completion: nil)
+    }
+
+    /// Ends a profile session, returns the captured profile, and provides the report URL via completion.
+    ///
+    /// If this is the last active session, stops sampling. A crash report containing the
+    /// profile data is written to disk in the background, and the completion handler is called
+    /// with the URL of the written report.
+    ///
+    /// - Parameters:
+    ///   - id: The profile session identifier returned by `beginProfile(named:)`.
+    ///   - completion: A closure called on a background queue with the URL of the written report,
+    ///     or `nil` if the report could not be written. Pass `nil` if you don't need the URL.
+    /// - Returns: The completed profile with timing info and samples, or `nil` if the id is invalid.
+    ///
+    /// - Note: The result is marked `@discardableResult` since the report is written regardless
+    ///   of whether you use the returned `Profile` object.
+    @discardableResult
+    public func endProfile(id: ProfileID, completion: (@Sendable (URL?) -> Void)?) -> Profile? {
         let endTimestamp = clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
 
         return lock.withLock {
@@ -220,9 +250,14 @@ public final class Profiler<T: Sample>: @unchecked Sendable {
                 samples: matchingSamples
             )
 
-            // write a report
-            DispatchQueue.global(qos: .utility).async {
-                profile.writeReport()
+            // write a report on the serial queue, then call completion on global utility queue
+            reportQueue.async {
+                let url = profile.writeReport()
+                if let completion {
+                    DispatchQueue.global(qos: .utility).async {
+                        completion(url)
+                    }
+                }
             }
 
             return profile

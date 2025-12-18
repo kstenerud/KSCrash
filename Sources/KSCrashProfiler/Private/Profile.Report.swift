@@ -102,12 +102,12 @@ extension Profile {
     /// The profile data is passed to the monitor's `writeInReportSection` callback via
     /// the `callbackContext` field in the monitor context.
     ///
-    /// In debug builds, the report path is printed to the console.
-    func writeReport() {
+    /// - Returns: The URL of the written report file, or `nil` if the report could not be written.
+    func writeReport() -> URL? {
 
         let api = Self.api
         guard let callbacks = Self.callbacks else {
-            return
+            return nil
         }
 
         let requirements = KSCrash_ExceptionHandlingRequirements(
@@ -140,9 +140,11 @@ extension Profile {
             }
         }
 
-        #if DEBUG
-            print("profile: \(path)")
-        #endif
+        guard !path.isEmpty else {
+            return nil
+        }
+
+        return URL(fileURLWithPath: path)
     }
 }
 

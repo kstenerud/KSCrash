@@ -532,4 +532,125 @@ final class ProfilerTests: XCTestCase {
         // Profile 2 should have ended after profile 1
         XCTAssertGreaterThan(p2.endTimestampNs, p1.endTimestampNs)
     }
+
+    // MARK: - Profile Name Tests
+
+    func testProfileNameIsCaptured() {
+        let profiler = Profiler<Sample64>(thread: pthread_self())
+
+        let id = profiler.beginProfile(named: "MyOperation")
+        let profile = profiler.endProfile(id: id)
+
+        XCTAssertNotNil(profile)
+        XCTAssertEqual(profile?.name, "MyOperation")
+    }
+
+    func testProfileNameWithEmptyString() {
+        let profiler = Profiler<Sample64>(thread: pthread_self())
+
+        let id = profiler.beginProfile(named: "")
+        let profile = profiler.endProfile(id: id)
+
+        XCTAssertNotNil(profile)
+        XCTAssertEqual(profile?.name, "")
+    }
+
+    func testProfileNameWithSpecialCharacters() {
+        let profiler = Profiler<Sample64>(thread: pthread_self())
+        let specialName = "Test/Profile:With-Special_Characters.123"
+
+        let id = profiler.beginProfile(named: specialName)
+        let profile = profiler.endProfile(id: id)
+
+        XCTAssertNotNil(profile)
+        XCTAssertEqual(profile?.name, specialName)
+    }
+
+    // MARK: - Profile Thread Tests
+
+    func testProfileThreadIsCaptured() {
+        let profiler = Profiler<Sample64>(thread: pthread_self())
+
+        let id = profiler.beginProfile(named: "test")
+        let profile = profiler.endProfile(id: id)
+
+        XCTAssertNotNil(profile)
+        XCTAssertNotEqual(profile?.thread, 0, "Thread should be a valid Mach thread port")
+    }
+
+    func testProfileThreadMatchesProfilerThread() {
+        let currentThread = pthread_self()
+        let expectedMachThread = pthread_mach_thread_np(currentThread)
+        let profiler = Profiler<Sample64>(thread: currentThread)
+
+        let id = profiler.beginProfile(named: "test")
+        let profile = profiler.endProfile(id: id)
+
+        XCTAssertNotNil(profile)
+        XCTAssertEqual(profile?.thread, expectedMachThread, "Profile thread should match the profiler's target thread")
+    }
+
+    // MARK: - EndProfile Completion Handler Tests
+
+    func testEndProfileCompletionIsCalled() {
+        let profiler = Profiler<Sample64>(thread: pthread_self())
+        let expectation = XCTestExpectation(description: "Completion handler called")
+
+        let id = profiler.beginProfile(named: "test")
+        Thread.sleep(forTimeInterval: 0.02)
+
+        profiler.endProfile(id: id) { _ in
+            expectation.fulfill()
+        }
+
+        wait(for: [expectation], timeout: 5.0)
+    }
+
+    func testEndProfileCompletionIsCalledOnBackgroundQueue() {
+        let profiler = Profiler<Sample64>(thread: pthread_self())
+        let expectation = XCTestExpectation(description: "Completion handler called on background queue")
+
+        let id = profiler.beginProfile(named: "test")
+        Thread.sleep(forTimeInterval: 0.02)
+
+        profiler.endProfile(id: id) { _ in
+            XCTAssertFalse(Thread.isMainThread, "Completion should not be called on main thread")
+            expectation.fulfill()
+        }
+
+        wait(for: [expectation], timeout: 5.0)
+    }
+
+    func testMultipleProfilesAllCallCompletions() {
+        let profiler = Profiler<Sample64>(
+            thread: pthread_self(),
+            interval: 0.005,
+            retentionSeconds: 5
+        )
+
+        let expectation1 = XCTestExpectation(description: "First completion")
+        let expectation2 = XCTestExpectation(description: "Second completion")
+        let expectation3 = XCTestExpectation(description: "Third completion")
+
+        // Start and end multiple profiles quickly
+        let id1 = profiler.beginProfile(named: "profile1")
+        Thread.sleep(forTimeInterval: 0.01)
+        profiler.endProfile(id: id1) { _ in
+            expectation1.fulfill()
+        }
+
+        let id2 = profiler.beginProfile(named: "profile2")
+        Thread.sleep(forTimeInterval: 0.01)
+        profiler.endProfile(id: id2) { _ in
+            expectation2.fulfill()
+        }
+
+        let id3 = profiler.beginProfile(named: "profile3")
+        Thread.sleep(forTimeInterval: 0.01)
+        profiler.endProfile(id: id3) { _ in
+            expectation3.fulfill()
+        }
+
+        wait(for: [expectation1, expectation2, expectation3], timeout: 10.0)
+    }
 }
