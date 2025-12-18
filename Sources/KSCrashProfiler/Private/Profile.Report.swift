@@ -25,8 +25,11 @@
 //
 
 import Foundation
-import KSCrashRecording
-import KSCrashRecordingCore
+
+#if SWIFT_PACKAGE
+    import KSCrashRecording
+    import KSCrashRecordingCore
+#endif
 
 // MARK: - Profile Report Writing
 
