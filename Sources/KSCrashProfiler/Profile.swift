@@ -31,21 +31,33 @@ public typealias ProfileID = UUID
 
 /// A completed profile containing timing information and captured samples.
 ///
-/// A `Profile` represents the results of a profiling session between `beginProfile()` and
-/// `endProfile()` calls. It contains all samples captured during that time window, along
+/// A `Profile` represents the results of a profiling session between `beginProfile(named:)` and
+/// `endProfile(id:)` calls. It contains all samples captured during that time window, along
 /// with timing metadata.
+///
+/// When a profile is completed via `endProfile(id:)`, a crash report is automatically written
+/// to disk in the background containing the profile data in a deduplicated format.
 ///
 /// ## Example
 ///
 /// ```swift
-/// let profile = profiler.endProfile(id: profileId)!
+/// let id = profiler.beginProfile(named: "MyOperation")
+/// // ... do work ...
+/// let profile = profiler.endProfile(id: id)!
+/// print("Profile: \(profile.name)")
 /// print("Duration: \(Double(profile.durationNs) / 1_000_000)ms")
 /// print("Samples: \(profile.samples.count)")
-/// print("Avg capture time: \(profile.metrics.avgNs / 1000)µs")
+/// print("Avg capture time: \(profile.metrics.avgNs / 1000)us")
 /// ```
 public struct Profile: Sendable {
     /// Unique identifier for this profile session.
     public let id: ProfileID
+
+    /// Human-readable name for this profile session.
+    ///
+    /// This is the name provided to `beginProfile(named:)`. Use it to identify
+    /// the operation or code path being profiled.
+    public let name: String
 
     /// Wall-clock time when profiling started.
     ///
@@ -76,16 +88,16 @@ public struct Profile: Sendable {
         endTimestampNs - startTimestampNs
     }
 
-    /// Performance metrics computed from sample capture timings.
+    /// The Mach thread port of the thread that was profiled.
     ///
-    /// This property is computed on demand. For repeated access, store the result
-    /// in a local variable.
-    public var metrics: ProfileMetrics {
-        ProfileMetrics(samples: samples)
-    }
+    /// This is the thread from which backtraces were captured during the profiling session.
+    /// Note that this is a Mach thread port (`thread_t`), not a pthread.
+    public let thread: thread_t
 
     internal init(
         id: ProfileID,
+        name: String,
+        thread: thread_t,
         startTime: Date,
         startTimestampNs: UInt64,
         endTimestampNs: UInt64,
@@ -93,6 +105,8 @@ public struct Profile: Sendable {
         samples: [any Sample]
     ) {
         self.id = id
+        self.name = name
+        self.thread = thread
         self.startTime = startTime
         self.startTimestampNs = startTimestampNs
         self.endTimestampNs = endTimestampNs

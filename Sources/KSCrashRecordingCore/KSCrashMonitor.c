@@ -335,13 +335,13 @@ static void handleException_Deprecated(struct KSCrash_MonitorContext *ctx) { han
 
 bool kscm_addMonitor(const KSCrashMonitorAPI *api)
 {
-    static KSCrash_ExceptionHandlerCallbacks exceptionCallbacks = { .notify = notifyException,
-                                                                    .handleWithResult = handleException,
-                                                                    .handle = handleException_Deprecated };
+    static KSCrash_ExceptionHandlerCallbacks g_exceptionCallbacks = { .notify = notifyException,
+                                                                      .handleWithResult = handleException,
+                                                                      .handle = handleException_Deprecated };
 
     init();
     if (kscmr_addMonitor(&g_state.monitors, api)) {
-        api->init(&exceptionCallbacks);
+        api->init(&g_exceptionCallbacks);
         return true;
     }
     return false;
@@ -351,6 +351,12 @@ void kscm_removeMonitor(const KSCrashMonitorAPI *api)
 {
     init();
     kscmr_removeMonitor(&g_state.monitors, api);
+}
+
+const KSCrashMonitorAPI *kscm_getMonitor(const char *monitorId)
+{
+    init();
+    return kscmr_getMonitor(&g_state.monitors, monitorId);
 }
 
 // ============================================================================

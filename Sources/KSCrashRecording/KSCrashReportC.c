@@ -122,8 +122,8 @@ typedef struct {
 static const char *g_userInfoJSON;
 static pthread_mutex_t g_userInfoMutex = PTHREAD_MUTEX_INITIALIZER;
 
-static KSCrash_IntrospectionRules g_introspectionRules;
-static KSCrashIsWritingReportCallback g_userSectionWriteCallback;
+static KSCrash_IntrospectionRules g_introspectionRules = { 0 };
+static KSCrashIsWritingReportCallback g_userSectionWriteCallback = NULL;
 
 #pragma mark Callbacks
 
@@ -1109,6 +1109,12 @@ static void writeThreads(const KSCrashReportWriter *const writer, const char *co
                          const KSCrash_MonitorContext *const crash, bool writeNotableAddresses)
 {
     const struct KSMachineContext *const context = crash->offendingMachineContext;
+
+    // Some custom monitors may not have an offending context.
+    if (!context) {
+        return;
+    }
+
     KSThread offendingThread = ksmc_getThreadFromContext(context);
     int threadCount = ksmc_getThreadCount(context);
     KSMachineContext machineContext = { 0 };
@@ -1357,7 +1363,16 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
                    isCrashOfMonitorType(crash, kscm_zombie_getAPI())) {
             KSLOG_ERROR("Crash monitor type %s shouldn't be able to cause events!", crash->monitorId);
         } else {
-            KSLOG_WARN("Unknown crash monitor type: %s", crash->monitorId);
+            // We now support custom monitors.
+            writer->addStringElement(writer, KSCrashField_Type, crash->monitorId);
+            const KSCrashMonitorAPI *api = kscm_getMonitor(crash->monitorId);
+            if (api && api->writeInReportSection) {
+                writer->beginObject(writer, crash->monitorId);
+                {
+                    api->writeInReportSection(crash, writer);
+                }
+                writer->endContainer(writer);
+            }
         }
     }
     writer->endContainer(writer);

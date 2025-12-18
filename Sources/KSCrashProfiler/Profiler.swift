@@ -45,11 +45,18 @@ import os
 ///
 /// ```swift
 /// let profiler = Profiler<Sample128>(thread: pthread_self())
-/// let id = profiler.beginProfile()
+/// let id = profiler.beginProfile(named: "MyOperation")
 /// // ... do work ...
-/// let profile = profiler.endProfile(id: id)
+/// let profile = profiler.endProfile(id: id)!
 /// print("Captured \(profile.samples.count) samples")
 /// ```
+///
+/// ## Report Writing
+///
+/// When a profile session ends, a crash report is automatically written to disk in the
+/// background. The report contains the profile data in a deduplicated format optimized
+/// for size. Use `@discardableResult` on `endProfile(id:)` if you don't need the
+/// in-memory `Profile` object.
 ///
 /// ## Thread Safety
 ///
@@ -59,7 +66,7 @@ import os
 /// - Note: On watchOS, backtrace capture is not supported and samples will contain empty addresses.
 public final class Profiler<T: Sample>: @unchecked Sendable {
     /// The mach thread being profiled
-    let machThread: mach_port_t
+    let machThread: thread_t
 
     /// The interval between samples in nanoseconds
     let intervalNs: UInt64
@@ -152,14 +159,16 @@ public final class Profiler<T: Sample>: @unchecked Sendable {
 
     /// Begins a new profile session.
     ///
-    /// If this is the first active session, starts sampling.
+    /// If this is the first active session, starts sampling. The profile name is used
+    /// to identify this profiling session in reports and logs.
     ///
-    /// - Returns: A unique identifier for this profile session
-    public func beginProfile() -> ProfileID {
+    /// - Parameter named: A human-readable name for this profile session (e.g., "AppLaunch", "NetworkRequest").
+    /// - Returns: A unique identifier for this profile session. Pass this to `endProfile(id:)` to complete the session.
+    public func beginProfile(named: String) -> ProfileID {
         let id = ProfileID()
         let startTime = Date()
         let timestamp = clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
-        let profile = ActiveProfile(id: id, startTime: startTime, startTimestampNs: timestamp)
+        let profile = ActiveProfile(id: id, name: named, startTime: startTime, startTimestampNs: timestamp)
 
         lock.withLock {
             let wasEmpty = activeSessions.isEmpty
@@ -174,10 +183,15 @@ public final class Profiler<T: Sample>: @unchecked Sendable {
 
     /// Ends a profile session and returns the captured profile.
     ///
-    /// If this is the last active session, stops sampling.
+    /// If this is the last active session, stops sampling. A crash report containing the
+    /// profile data is automatically written to disk in the background.
     ///
-    /// - Parameter id: The profile session identifier returned by `beginProfile()`
-    /// - Returns: The completed profile with timing info and samples, or `nil` if the id is invalid
+    /// - Parameter id: The profile session identifier returned by `beginProfile(named:)`.
+    /// - Returns: The completed profile with timing info and samples, or `nil` if the id is invalid.
+    ///
+    /// - Note: The result is marked `@discardableResult` since the report is written regardless
+    ///   of whether you use the returned `Profile` object.
+    @discardableResult
     public func endProfile(id: ProfileID) -> Profile? {
         let endTimestamp = clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
 
@@ -195,14 +209,23 @@ public final class Profiler<T: Sample>: @unchecked Sendable {
                 stopLocked()
             }
 
-            return Profile(
+            let profile = Profile(
                 id: id,
+                name: activeProfile.name,
+                thread: machThread,
                 startTime: activeProfile.startTime,
                 startTimestampNs: activeProfile.startTimestampNs,
                 endTimestampNs: endTimestamp,
                 expectedSampleIntervalNs: intervalNs,
                 samples: matchingSamples
             )
+
+            // write a report
+            DispatchQueue.global(qos: .utility).async {
+                profile.writeReport()
+            }
+
+            return profile
         }
     }
 
@@ -222,6 +245,8 @@ public final class Profiler<T: Sample>: @unchecked Sendable {
 struct ActiveProfile {
     /// Unique identifier for the profile session.
     let id: ProfileID
+    /// Name for this profile session.
+    let name: String
     /// Wall-clock time when the session started.
     let startTime: Date
     /// Monotonic timestamp (in nanoseconds) when the session started.

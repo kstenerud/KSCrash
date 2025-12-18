@@ -99,7 +99,22 @@ bool kscmr_addMonitor(KSCrashMonitorAPIList *monitorList, const KSCrashMonitorAP
  */
 void kscmr_removeMonitor(KSCrashMonitorAPIList *monitorList, const KSCrashMonitorAPI *api);
 
+/**
+ * Iterates through all monitors and calls their `addContextualInfoToEvent` callback.
+ *
+ * @param monitorList The list of monitors to iterate.
+ * @param ctx The monitor context to be populated with contextual information.
+ */
 void kscmr_addContextualInfoToEvent(KSCrashMonitorAPIList *monitorList, struct KSCrash_MonitorContext *ctx);
+
+/**
+ * Retrieves a monitor from the list by its unique identifier.
+ *
+ * @param monitorList The list of monitors to search.
+ * @param monitorId The unique identifier of the monitor to retrieve.
+ * @return A pointer to the monitor's API, or NULL if no monitor with the given ID exists.
+ */
+const KSCrashMonitorAPI *kscmr_getMonitor(KSCrashMonitorAPIList *monitorList, const char *monitorId);
 
 #ifdef __cplusplus
 }

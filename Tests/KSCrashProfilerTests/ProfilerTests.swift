@@ -94,7 +94,7 @@ final class ProfilerTests: XCTestCase {
 
         XCTAssertFalse(profiler.isRunning)
 
-        let id = profiler.beginProfile()
+        let id = profiler.beginProfile(named: "test")
         XCTAssertTrue(profiler.isRunning, "Profiler should be running after beginProfile")
         XCTAssertNotEqual(id, UUID(), "Profile ID should be a valid UUID")
 
@@ -115,7 +115,7 @@ final class ProfilerTests: XCTestCase {
     func testEndProfileCannotBeCalledTwice() {
         let profiler = Profiler<Sample128>(thread: pthread_self())
 
-        let id = profiler.beginProfile()
+        let id = profiler.beginProfile(named: "test")
         let profile1 = profiler.endProfile(id: id)
         let profile2 = profiler.endProfile(id: id)
 
@@ -128,10 +128,10 @@ final class ProfilerTests: XCTestCase {
     func testMultipleConcurrentProfiles() {
         let profiler = Profiler<Sample128>(thread: pthread_self())
 
-        let id1 = profiler.beginProfile()
+        let id1 = profiler.beginProfile(named: "test")
         XCTAssertTrue(profiler.isRunning)
 
-        let id2 = profiler.beginProfile()
+        let id2 = profiler.beginProfile(named: "test")
         XCTAssertTrue(profiler.isRunning)
 
         // End first profile - sampling should continue
@@ -154,7 +154,7 @@ final class ProfilerTests: XCTestCase {
             retentionSeconds: 5
         )
 
-        let id = profiler.beginProfile()
+        let id = profiler.beginProfile(named: "test")
 
         // Do some work to generate samples
         Thread.sleep(forTimeInterval: 0.05)
@@ -176,7 +176,7 @@ final class ProfilerTests: XCTestCase {
             retentionSeconds: 5
         )
 
-        let id = profiler.beginProfile()
+        let id = profiler.beginProfile(named: "test")
 
         // Sleep to allow some samples to be captured
         Thread.sleep(forTimeInterval: 0.1)
@@ -202,7 +202,7 @@ final class ProfilerTests: XCTestCase {
             retentionSeconds: 5
         )
 
-        let id = profiler.beginProfile()
+        let id = profiler.beginProfile(named: "test")
         Thread.sleep(forTimeInterval: 0.05)
         let profile = profiler.endProfile(id: id)
 
@@ -233,7 +233,7 @@ final class ProfilerTests: XCTestCase {
             retentionSeconds: 5
         )
 
-        let id = profiler.beginProfile()
+        let id = profiler.beginProfile(named: "test")
         Thread.sleep(forTimeInterval: 0.05)
         let profile = profiler.endProfile(id: id)
 
@@ -262,7 +262,7 @@ final class ProfilerTests: XCTestCase {
             retentionSeconds: 5
         )
 
-        let id = profiler.beginProfile()
+        let id = profiler.beginProfile(named: "test")
         Thread.sleep(forTimeInterval: 0.05)
         let profile = profiler.endProfile(id: id)
 
@@ -294,7 +294,7 @@ final class ProfilerTests: XCTestCase {
             retentionSeconds: 5
         )
 
-        let id = profiler.beginProfile()
+        let id = profiler.beginProfile(named: "test")
         Thread.sleep(forTimeInterval: 0.02)
         let profile = profiler.endProfile(id: id)
 
@@ -326,7 +326,7 @@ final class ProfilerTests: XCTestCase {
         for i in 0..<iterations {
             group.enter()
             DispatchQueue.global().async {
-                let id = profiler.beginProfile()
+                let id = profiler.beginProfile(named: "test")
                 Thread.sleep(forTimeInterval: 0.01)
                 let profile = profiler.endProfile(id: id)
 
@@ -358,7 +358,7 @@ final class ProfilerTests: XCTestCase {
             retentionSeconds: 1  // Small retention to test ring buffer
         )
 
-        let id = profiler.beginProfile()
+        let id = profiler.beginProfile(named: "test")
 
         // Sleep longer than retention to force ring buffer overwrite
         Thread.sleep(forTimeInterval: 1.5)
@@ -406,7 +406,7 @@ final class ProfilerTests: XCTestCase {
             retentionSeconds: 5
         )
 
-        let id = profiler.beginProfile()
+        let id = profiler.beginProfile(named: "test")
         Thread.sleep(forTimeInterval: 0.1)
         let profile = profiler.endProfile(id: id)
 
@@ -428,7 +428,7 @@ final class ProfilerTests: XCTestCase {
             retentionSeconds: 5
         )
 
-        let id = profiler.beginProfile()
+        let id = profiler.beginProfile(named: "test")
         Thread.sleep(forTimeInterval: 0.05)
         let profile = profiler.endProfile(id: id)
 
@@ -450,7 +450,7 @@ final class ProfilerTests: XCTestCase {
         for _ in 0..<3 {
             XCTAssertFalse(profiler.isRunning)
 
-            let id = profiler.beginProfile()
+            let id = profiler.beginProfile(named: "test")
             XCTAssertTrue(profiler.isRunning)
 
             Thread.sleep(forTimeInterval: 0.02)
@@ -471,7 +471,7 @@ final class ProfilerTests: XCTestCase {
         )
 
         // First profile
-        let id1 = profiler.beginProfile()
+        let id1 = profiler.beginProfile(named: "test")
         Thread.sleep(forTimeInterval: 0.05)
         let profile1 = profiler.endProfile(id: id1)
 
@@ -479,7 +479,7 @@ final class ProfilerTests: XCTestCase {
         Thread.sleep(forTimeInterval: 0.02)
 
         // Second profile
-        let id2 = profiler.beginProfile()
+        let id2 = profiler.beginProfile(named: "test")
         Thread.sleep(forTimeInterval: 0.05)
         let profile2 = profiler.endProfile(id: id2)
 
@@ -502,11 +502,11 @@ final class ProfilerTests: XCTestCase {
         )
 
         // Start first profile
-        let id1 = profiler.beginProfile()
+        let id1 = profiler.beginProfile(named: "test")
         Thread.sleep(forTimeInterval: 0.05)
 
         // Start second profile while first is still running
-        let id2 = profiler.beginProfile()
+        let id2 = profiler.beginProfile(named: "test")
         Thread.sleep(forTimeInterval: 0.05)
 
         // End first profile
