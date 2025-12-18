@@ -36,18 +36,21 @@ public typealias ProfileID = UUID
 /// with timing metadata.
 ///
 /// When a profile is completed via `endProfile(id:)`, a crash report is automatically written
-/// to disk in the background containing the profile data in a deduplicated format.
+/// to disk in the background containing the profile data in a deduplicated format. Use the
+/// completion handler variant to get the URL of the written report.
 ///
 /// ## Example
 ///
 /// ```swift
 /// let id = profiler.beginProfile(named: "MyOperation")
 /// // ... do work ...
-/// let profile = profiler.endProfile(id: id)!
-/// print("Profile: \(profile.name)")
-/// print("Duration: \(Double(profile.durationNs) / 1_000_000)ms")
-/// print("Samples: \(profile.samples.count)")
-/// print("Avg capture time: \(profile.metrics.avgNs / 1000)us")
+/// let profile = profiler.endProfile(id: id) { url in
+///     if let url = url {
+///         print("Report written to: \(url.path)")
+///     }
+/// }
+/// print("Profile: \(profile?.name ?? "nil")")
+/// print("Duration: \(Double(profile?.durationNs ?? 0) / 1_000_000)ms")
 /// ```
 public struct Profile: Sendable {
     /// Unique identifier for this profile session.
