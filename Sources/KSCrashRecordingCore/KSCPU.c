@@ -26,6 +26,7 @@
 
 #include "KSCPU.h"
 
+#include <mach-o/arch.h>
 #include <mach-o/utils.h>
 #include <mach/mach.h>
 
@@ -34,11 +35,51 @@
 // #define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
-const char *kscpu_currentArch(void) { return macho_arch_name_for_mach_header(NULL); }
+#if !KSCRASH_HOST_VISION
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+static inline const char *currentArch_nx(void)
+{
+    const NXArchInfo *archInfo = NXGetLocalArchInfo();
+    return archInfo == NULL ? NULL : archInfo->name;
+}
+
+static inline const char *archForCPU_nx(cpu_type_t majorCode, cpu_subtype_t minorCode)
+{
+    const NXArchInfo *info = NXGetArchInfoFromCpuType(majorCode, minorCode);
+    return info == NULL ? NULL : info->name;
+}
+#pragma clang diagnostic pop
+#endif
+
+const char *kscpu_currentArch(void)
+{
+#if !KSCRASH_HOST_VISION
+    if (__builtin_available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 8.0, *))
+#endif
+    {
+        return macho_arch_name_for_mach_header(NULL);
+    }
+#if !KSCRASH_HOST_VISION
+    else {
+        return currentArch_nx();
+    }
+#endif
+}
 
 const char *kscpu_archForCPU(cpu_type_t majorCode, cpu_subtype_t minorCode)
 {
-    return macho_arch_name_for_cpu_type(majorCode, minorCode);
+#if !KSCRASH_HOST_VISION
+    if (__builtin_available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 8.0, *))
+#endif
+    {
+        return macho_arch_name_for_cpu_type(majorCode, minorCode);
+    }
+#if !KSCRASH_HOST_VISION
+    else {
+        return archForCPU_nx(majorCode, minorCode);
+    }
+#endif
 }
 
 #if KSCRASH_HAS_THREADS_API

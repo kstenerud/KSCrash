@@ -53,45 +53,6 @@ import Foundation
 /// - `samples`: Array of samples, each referencing frames by index
 extension Profile {
 
-    /// The monitor ID string. Allocated once and never freed (intentional for static lifetime).
-    static let monitorId = strdup("profile")
-
-    /// Cached exception handler callbacks from KSCrash initialization.
-    static var callbacks: KSCrash_ExceptionHandlerCallbacks? = nil
-
-    /// The KSCrash monitor API for profile reports. Lazily initialized and registered.
-    static let api: UnsafeMutablePointer<KSCrashMonitorAPI> = {
-
-        var api = KSCrashMonitorAPI {
-            Self.callbacks = $0?.pointee
-        } monitorId: {
-            Self.monitorId.map { UnsafePointer($0) }
-        } monitorFlags: {
-            .init(0)
-        } setEnabled: { _ in
-        } isEnabled: {
-            true
-        } addContextualInfoToEvent: { _ in
-        } notifyPostSystemEnable: {
-        } writeInReportSection: { context, writerRef in
-
-            guard let writer = UnsafeReportWriter(writerRef) else {
-                return
-            }
-            guard let callbackContext = context?.pointee.callbackContext else {
-                return
-            }
-
-            let profileBox = Unmanaged<BoxedProfile>.fromOpaque(callbackContext).takeUnretainedValue()
-            profileBox.write(with: writer)
-        }
-
-        let p = UnsafeMutablePointer<KSCrashMonitorAPI>.allocate(capacity: 1)  // never deallocated
-        p.initialize(to: api)
-        kscm_addMonitor(p)
-        return p
-    }()
-
     /// Writes this profile to a crash report file.
     ///
     /// This method triggers the KSCrash report writing machinery to generate a JSON report
@@ -104,8 +65,8 @@ extension Profile {
     /// - Returns: The URL of the written report file, or `nil` if the report could not be written.
     func writeReport() -> URL? {
 
-        let api = Self.api
-        guard let callbacks = Self.callbacks else {
+        let api = ProfileMonitor.api
+        guard let callbacks = ProfileMonitor.callbacks else {
             return nil
         }
 
@@ -120,10 +81,7 @@ extension Profile {
         )
 
         let context = callbacks.notify(thread, requirements)
-
         kscm_fillMonitorContext(context, api)
-        context?.pointee.registersAreValid = false
-
         let callbackContext = Unmanaged.passRetained(BoxedProfile(self)).toOpaque()
         defer {
             Unmanaged<BoxedProfile>.fromOpaque(callbackContext).release()
@@ -238,4 +196,103 @@ private class BoxedProfile {
         }
         writer.endContainer()
     }
+}
+
+// MARK: - Profile Monitor API Functions
+
+final private class ProfileMonitor: Sendable {
+
+    static private let lock = UnfairLock()
+
+    /// Whether the profile monitor is enabled.
+    static private var _enabled: Bool = true
+    static var enabled: Bool {
+        set {
+            lock.withLock { _enabled = newValue }
+        }
+        get {
+            lock.withLock { _enabled }
+        }
+    }
+
+    /// The monitor ID string. Allocated once and never freed (intentional for static lifetime).
+    static private let _monitorId = strdup("profile")
+    static var monitorId: UnsafePointer<CChar>? {
+        lock.withLock { _monitorId.map { UnsafePointer($0) } }
+    }
+
+    /// Cached exception handler callbacks from KSCrash initialization.
+    static private var _callbacks: KSCrash_ExceptionHandlerCallbacks? = nil
+    static var callbacks: KSCrash_ExceptionHandlerCallbacks? {
+        set {
+            lock.withLock { _callbacks = newValue }
+        }
+        get {
+            lock.withLock { _callbacks }
+        }
+    }
+
+    /// The KSCrash monitor API for profile reports. Lazily initialized and registered.
+    static let api: UnsafeMutablePointer<KSCrashMonitorAPI> = {
+        var api = KSCrashMonitorAPI(
+            init: profileMonitorInit,
+            monitorId: profileMonitorGetId,
+            monitorFlags: profileMonitorGetFlags,
+            setEnabled: profileMonitorSetEnabled,
+            isEnabled: profileMonitorIsEnabled,
+            addContextualInfoToEvent: profileMonitorAddContextualInfoToEvent,
+            notifyPostSystemEnable: profileMonitorNotifyPostSystemEnable,
+            writeInReportSection: profileMonitorWriteInReportSection
+        )
+
+        let p = UnsafeMutablePointer<KSCrashMonitorAPI>.allocate(capacity: 1)  // never deallocated
+        p.initialize(to: api)
+        kscm_addMonitor(p)
+        return p
+    }()
+}
+
+private func profileMonitorInit(
+    _ callbacks: UnsafeMutablePointer<KSCrash_ExceptionHandlerCallbacks>?
+) {
+    ProfileMonitor.callbacks = callbacks?.pointee
+}
+
+private func profileMonitorGetId() -> UnsafePointer<CChar>? {
+    ProfileMonitor.monitorId
+}
+
+private func profileMonitorGetFlags() -> KSCrashMonitorFlag {
+    .init(0)
+}
+
+private func profileMonitorSetEnabled(_ enabled: Bool) {
+    ProfileMonitor.enabled = enabled
+}
+
+private func profileMonitorIsEnabled() -> Bool {
+    ProfileMonitor.enabled
+}
+
+private func profileMonitorAddContextualInfoToEvent(
+    _ eventContext: UnsafeMutablePointer<KSCrash_MonitorContext>?
+) {
+}
+
+private func profileMonitorNotifyPostSystemEnable() {
+}
+
+private func profileMonitorWriteInReportSection(
+    _ context: UnsafePointer<KSCrash_MonitorContext>?,
+    _ writerRef: UnsafePointer<ReportWriter>?
+) {
+    guard let writer = UnsafeReportWriter(writerRef) else {
+        return
+    }
+    guard let callbackContext = context?.pointee.callbackContext else {
+        return
+    }
+
+    let profileBox = Unmanaged<BoxedProfile>.fromOpaque(callbackContext).takeUnretainedValue()
+    profileBox.write(with: writer)
 }

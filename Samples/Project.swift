@@ -73,10 +73,10 @@ extension Set where Element == ProjectDescription.Destination {
 extension DeploymentTargets {
     static var allForSample: Self {
         .multiplatform(
-            iOS: "16.0",
+            iOS: "15.0",
             macOS: "13.0",
-            watchOS: "9.0",
-            tvOS: "16.0",
+            watchOS: "8.0",
+            tvOS: "15.0",
             visionOS: "1.0"
         )
     }

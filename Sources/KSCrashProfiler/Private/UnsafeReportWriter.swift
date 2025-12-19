@@ -132,19 +132,4 @@ struct UnsafeReportWriter {
     func endContainer() {
         ptr.pointee.endContainer(ptr)
     }
-
-    // MARK: - Context
-
-    /// The raw context pointer from the underlying writer.
-    var context: UnsafeMutableRawPointer? { ptr.pointee.context }
-
-    /// Retrieves the context as a specific class type.
-    ///
-    /// - Parameter type: The expected type of the context object.
-    /// - Returns: The context cast to the specified type, or `nil` if the context is `nil`.
-    /// - Warning: The caller must ensure the context actually contains an object of the specified type.
-    func context<T: AnyObject>(as _: T.Type) -> T? {
-        guard let ctx = context else { return nil }
-        return Unmanaged<T>.fromOpaque(ctx).takeUnretainedValue()
-    }
 }

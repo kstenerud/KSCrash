@@ -98,7 +98,7 @@ final class ProfilerTests: XCTestCase {
         XCTAssertTrue(profiler.isRunning, "Profiler should be running after beginProfile")
         XCTAssertNotEqual(id, UUID(), "Profile ID should be a valid UUID")
 
-        let profile = profiler.endProfile(id: id)
+        let profile = profiler.endProfile(id: id, writeReport: false)
         XCTAssertFalse(profiler.isRunning, "Profiler should stop after last profile ends")
         XCTAssertNotNil(profile, "Profile should be returned")
     }
@@ -107,7 +107,7 @@ final class ProfilerTests: XCTestCase {
         let profiler = Profiler<Sample128>(thread: pthread_self())
 
         let invalidId = UUID()
-        let profile = profiler.endProfile(id: invalidId)
+        let profile = profiler.endProfile(id: invalidId, writeReport: false)
 
         XCTAssertNil(profile, "endProfile with invalid ID should return nil")
     }
@@ -116,8 +116,8 @@ final class ProfilerTests: XCTestCase {
         let profiler = Profiler<Sample128>(thread: pthread_self())
 
         let id = profiler.beginProfile(named: "test")
-        let profile1 = profiler.endProfile(id: id)
-        let profile2 = profiler.endProfile(id: id)
+        let profile1 = profiler.endProfile(id: id, writeReport: false)
+        let profile2 = profiler.endProfile(id: id, writeReport: false)
 
         XCTAssertNotNil(profile1, "First endProfile should succeed")
         XCTAssertNil(profile2, "Second endProfile with same ID should return nil")
@@ -135,12 +135,12 @@ final class ProfilerTests: XCTestCase {
         XCTAssertTrue(profiler.isRunning)
 
         // End first profile - sampling should continue
-        let profile1 = profiler.endProfile(id: id1)
+        let profile1 = profiler.endProfile(id: id1, writeReport: false)
         XCTAssertNotNil(profile1)
         XCTAssertTrue(profiler.isRunning, "Should still run with active profile")
 
         // End second profile - sampling should stop
-        let profile2 = profiler.endProfile(id: id2)
+        let profile2 = profiler.endProfile(id: id2, writeReport: false)
         XCTAssertNotNil(profile2)
         XCTAssertFalse(profiler.isRunning, "Should stop when all profiles end")
     }
@@ -159,7 +159,7 @@ final class ProfilerTests: XCTestCase {
         // Do some work to generate samples
         Thread.sleep(forTimeInterval: 0.05)
 
-        let profile = profiler.endProfile(id: id)
+        let profile = profiler.endProfile(id: id, writeReport: false)
 
         XCTAssertNotNil(profile)
         guard let profile = profile else { return }
@@ -181,7 +181,7 @@ final class ProfilerTests: XCTestCase {
         // Sleep to allow some samples to be captured
         Thread.sleep(forTimeInterval: 0.1)
 
-        let profile = profiler.endProfile(id: id)
+        let profile = profiler.endProfile(id: id, writeReport: false)
 
         XCTAssertNotNil(profile)
         guard let profile = profile else { return }
@@ -204,7 +204,7 @@ final class ProfilerTests: XCTestCase {
 
         let id = profiler.beginProfile(named: "test")
         Thread.sleep(forTimeInterval: 0.05)
-        let profile = profiler.endProfile(id: id)
+        let profile = profiler.endProfile(id: id, writeReport: false)
 
         guard let profile = profile, !profile.samples.isEmpty else {
             XCTFail("Should have captured samples")
@@ -235,7 +235,7 @@ final class ProfilerTests: XCTestCase {
 
         let id = profiler.beginProfile(named: "test")
         Thread.sleep(forTimeInterval: 0.05)
-        let profile = profiler.endProfile(id: id)
+        let profile = profiler.endProfile(id: id, writeReport: false)
 
         guard let profile = profile, !profile.samples.isEmpty else {
             XCTFail("Should have samples")
@@ -264,7 +264,7 @@ final class ProfilerTests: XCTestCase {
 
         let id = profiler.beginProfile(named: "test")
         Thread.sleep(forTimeInterval: 0.05)
-        let profile = profiler.endProfile(id: id)
+        let profile = profiler.endProfile(id: id, writeReport: false)
 
         guard let profile = profile else {
             XCTFail("Should have profile")
@@ -296,7 +296,7 @@ final class ProfilerTests: XCTestCase {
 
         let id = profiler.beginProfile(named: "test")
         Thread.sleep(forTimeInterval: 0.02)
-        let profile = profiler.endProfile(id: id)
+        let profile = profiler.endProfile(id: id, writeReport: false)
 
         guard let profile = profile else {
             XCTFail("Should have profile")
@@ -328,7 +328,7 @@ final class ProfilerTests: XCTestCase {
             DispatchQueue.global().async {
                 let id = profiler.beginProfile(named: "test")
                 Thread.sleep(forTimeInterval: 0.01)
-                let profile = profiler.endProfile(id: id)
+                let profile = profiler.endProfile(id: id, writeReport: false)
 
                 lock.lock()
                 profiles[i] = profile
@@ -363,7 +363,7 @@ final class ProfilerTests: XCTestCase {
         // Sleep longer than retention to force ring buffer overwrite
         Thread.sleep(forTimeInterval: 1.5)
 
-        let profile = profiler.endProfile(id: id)
+        let profile = profiler.endProfile(id: id, writeReport: false)
 
         XCTAssertNotNil(profile)
         guard let profile = profile else { return }
@@ -408,7 +408,7 @@ final class ProfilerTests: XCTestCase {
 
         let id = profiler.beginProfile(named: "test")
         Thread.sleep(forTimeInterval: 0.1)
-        let profile = profiler.endProfile(id: id)
+        let profile = profiler.endProfile(id: id, writeReport: false)
 
         XCTAssertNotNil(profile)
         if let profile = profile {
@@ -430,7 +430,7 @@ final class ProfilerTests: XCTestCase {
 
         let id = profiler.beginProfile(named: "test")
         Thread.sleep(forTimeInterval: 0.05)
-        let profile = profiler.endProfile(id: id)
+        let profile = profiler.endProfile(id: id, writeReport: false)
 
         XCTAssertNotNil(profile)
         guard let profile = profile else { return }
@@ -455,7 +455,7 @@ final class ProfilerTests: XCTestCase {
 
             Thread.sleep(forTimeInterval: 0.02)
 
-            let profile = profiler.endProfile(id: id)
+            let profile = profiler.endProfile(id: id, writeReport: false)
             XCTAssertFalse(profiler.isRunning)
             XCTAssertNotNil(profile)
         }
@@ -473,7 +473,7 @@ final class ProfilerTests: XCTestCase {
         // First profile
         let id1 = profiler.beginProfile(named: "test")
         Thread.sleep(forTimeInterval: 0.05)
-        let profile1 = profiler.endProfile(id: id1)
+        let profile1 = profiler.endProfile(id: id1, writeReport: false)
 
         // Small gap between profiles
         Thread.sleep(forTimeInterval: 0.02)
@@ -481,7 +481,7 @@ final class ProfilerTests: XCTestCase {
         // Second profile
         let id2 = profiler.beginProfile(named: "test")
         Thread.sleep(forTimeInterval: 0.05)
-        let profile2 = profiler.endProfile(id: id2)
+        let profile2 = profiler.endProfile(id: id2, writeReport: false)
 
         guard let p1 = profile1, let p2 = profile2 else {
             XCTFail("Both profiles should exist")
@@ -510,11 +510,11 @@ final class ProfilerTests: XCTestCase {
         Thread.sleep(forTimeInterval: 0.05)
 
         // End first profile
-        let profile1 = profiler.endProfile(id: id1)
+        let profile1 = profiler.endProfile(id: id1, writeReport: false)
         Thread.sleep(forTimeInterval: 0.05)
 
         // End second profile
-        let profile2 = profiler.endProfile(id: id2)
+        let profile2 = profiler.endProfile(id: id2, writeReport: false)
 
         guard let p1 = profile1, let p2 = profile2 else {
             XCTFail("Both profiles should exist")
@@ -539,7 +539,7 @@ final class ProfilerTests: XCTestCase {
         let profiler = Profiler<Sample64>(thread: pthread_self())
 
         let id = profiler.beginProfile(named: "MyOperation")
-        let profile = profiler.endProfile(id: id)
+        let profile = profiler.endProfile(id: id, writeReport: false)
 
         XCTAssertNotNil(profile)
         XCTAssertEqual(profile?.name, "MyOperation")
@@ -549,7 +549,7 @@ final class ProfilerTests: XCTestCase {
         let profiler = Profiler<Sample64>(thread: pthread_self())
 
         let id = profiler.beginProfile(named: "")
-        let profile = profiler.endProfile(id: id)
+        let profile = profiler.endProfile(id: id, writeReport: false)
 
         XCTAssertNotNil(profile)
         XCTAssertEqual(profile?.name, "")
@@ -560,7 +560,7 @@ final class ProfilerTests: XCTestCase {
         let specialName = "Test/Profile:With-Special_Characters.123"
 
         let id = profiler.beginProfile(named: specialName)
-        let profile = profiler.endProfile(id: id)
+        let profile = profiler.endProfile(id: id, writeReport: false)
 
         XCTAssertNotNil(profile)
         XCTAssertEqual(profile?.name, specialName)
@@ -572,7 +572,7 @@ final class ProfilerTests: XCTestCase {
         let profiler = Profiler<Sample64>(thread: pthread_self())
 
         let id = profiler.beginProfile(named: "test")
-        let profile = profiler.endProfile(id: id)
+        let profile = profiler.endProfile(id: id, writeReport: false)
 
         XCTAssertNotNil(profile)
         XCTAssertNotEqual(profile?.thread, 0, "Thread should be a valid Mach thread port")
@@ -584,7 +584,7 @@ final class ProfilerTests: XCTestCase {
         let profiler = Profiler<Sample64>(thread: currentThread)
 
         let id = profiler.beginProfile(named: "test")
-        let profile = profiler.endProfile(id: id)
+        let profile = profiler.endProfile(id: id, writeReport: false)
 
         XCTAssertNotNil(profile)
         XCTAssertEqual(profile?.thread, expectedMachThread, "Profile thread should match the profiler's target thread")
@@ -599,7 +599,7 @@ final class ProfilerTests: XCTestCase {
         let id = profiler.beginProfile(named: "test")
         Thread.sleep(forTimeInterval: 0.02)
 
-        profiler.endProfile(id: id) { _ in
+        profiler.endProfile(id: id, writeReport: true) { _ in
             expectation.fulfill()
         }
 
@@ -613,7 +613,7 @@ final class ProfilerTests: XCTestCase {
         let id = profiler.beginProfile(named: "test")
         Thread.sleep(forTimeInterval: 0.02)
 
-        profiler.endProfile(id: id) { _ in
+        profiler.endProfile(id: id, writeReport: true) { _ in
             XCTAssertFalse(Thread.isMainThread, "Completion should not be called on main thread")
             expectation.fulfill()
         }
@@ -635,19 +635,19 @@ final class ProfilerTests: XCTestCase {
         // Start and end multiple profiles quickly
         let id1 = profiler.beginProfile(named: "profile1")
         Thread.sleep(forTimeInterval: 0.01)
-        profiler.endProfile(id: id1) { _ in
+        profiler.endProfile(id: id1, writeReport: true) { _ in
             expectation1.fulfill()
         }
 
         let id2 = profiler.beginProfile(named: "profile2")
         Thread.sleep(forTimeInterval: 0.01)
-        profiler.endProfile(id: id2) { _ in
+        profiler.endProfile(id: id2, writeReport: true) { _ in
             expectation2.fulfill()
         }
 
         let id3 = profiler.beginProfile(named: "profile3")
         Thread.sleep(forTimeInterval: 0.01)
-        profiler.endProfile(id: id3) { _ in
+        profiler.endProfile(id: id3, writeReport: true) { _ in
             expectation3.fulfill()
         }
 

@@ -76,6 +76,8 @@ typedef struct {
      *
      * @param eventContext The monitor context containing event information.
      * @param writer The report writer to use for adding JSON elements.
+     *
+     * @note This callback is optional. If NULL, no custom section will be written for this monitor.
      */
     void (*writeInReportSection)(const KSCrash_MonitorContext *eventContext, const KSCrashReportWriter *writer);
 } KSCrashMonitorAPI;
