@@ -41,18 +41,29 @@
 // MARK: - Image Address Range Cache
 
 #define KSBIC_MAX_CACHE_ENTRIES 2048
+#define KSBIC_MAX_SEGMENTS_PER_IMAGE 16
+
+/**
+ * Cached segment range for fast address-in-segment checks.
+ */
+typedef struct {
+    uintptr_t start;  // Segment start address (with slide applied)
+    uintptr_t end;    // Segment end address (exclusive, with slide applied)
+} KSSegmentRange;
 
 /**
  * Cached image address range for fast lookups.
- * Stores pre-computed address bounds, ASLR slide, and segment base.
+ * Stores pre-computed segment ranges for fast address validation (O(segments), typically 4-6 segments).
  */
 typedef struct {
-    uintptr_t startAddress;  // Image load address (header pointer)
-    uintptr_t endAddress;    // End of image address space (exclusive)
+    uintptr_t startAddress;  // Min segment address (for quick rejection)
+    uintptr_t endAddress;    // Max segment address (for quick rejection)
     uintptr_t slide;         // Pre-computed ASLR slide
     uintptr_t segmentBase;   // Pre-computed segment base for symbol lookups (vmaddr - fileoff for __LINKEDIT)
     const struct mach_header *_Nullable header;
     const char *_Nullable name;
+    KSSegmentRange segments[KSBIC_MAX_SEGMENTS_PER_IMAGE];  // Actual segment ranges
+    uint8_t segmentCount;                                   // Number of valid segments
 } KSBinaryImageRange;
 
 typedef struct {
@@ -66,26 +77,39 @@ static KSBinaryImageRangeCache g_cache_storage = { .count = 0 };
 // Atomic pointer to the cache. NULL means cache is in use by another caller.
 static _Atomic(KSBinaryImageRangeCache *) g_cache_ptr = NULL;
 
-// Compute ASLR slide, address range, and segment base in a single pass through load commands
-static void computeImageInfo(const struct mach_header *header, uintptr_t *outSlide, uintptr_t *outStart,
-                             uintptr_t *outEnd, uintptr_t *outSegmentBase)
+// Check if an address falls within any of the cached segment ranges.
+// This is O(segments) but segments is typically 4-6, so very fast.
+static inline bool addressInCachedSegments(const KSBinaryImageRange *entry, uintptr_t address)
 {
+    for (uint8_t i = 0; i < entry->segmentCount; i++) {
+        if (address >= entry->segments[i].start && address < entry->segments[i].end) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Populate a cache entry with image info including segment ranges.
+// Returns true if the image has valid segments, false otherwise.
+static bool populateCacheEntry(const struct mach_header *header, const char *name, KSBinaryImageRange *entry)
+{
+    *entry = (KSBinaryImageRange) {
+        .header = header,
+        .name = name,
+    };
+
+    if (header == NULL) {
+        return false;
+    }
+
+    uintptr_t loadAddr = (uintptr_t)header;
     uintptr_t slide = 0;
     uintptr_t segmentBase = 0;
     uintptr_t minAddr = UINTPTR_MAX;
     uintptr_t maxAddr = 0;
-
-    if (header == NULL) {
-        *outSlide = 0;
-        *outStart = 0;
-        *outEnd = 0;
-        *outSegmentBase = 0;
-        return;
-    }
-
-    uintptr_t loadAddr = (uintptr_t)header;
     bool foundText = false;
     bool foundLinkedit = false;
+    uint8_t segCount = 0;
 
     if (header->magic == MH_MAGIC_64) {
         const struct mach_header_64 *header64 = (const struct mach_header_64 *)header;
@@ -113,12 +137,22 @@ static void computeImageInfo(const struct mach_header *header, uintptr_t *outSli
                     foundLinkedit = true;
                 }
 
-                // Track address bounds for all segments
-                if (seg->vmsize > 0) {
+                // Store segments with actual file content (exclude __PAGEZERO)
+                if (seg->vmsize > 0 && seg->filesize > 0) {
                     uintptr_t segStart = (uintptr_t)seg->vmaddr;
                     uintptr_t segEnd = segStart + (uintptr_t)seg->vmsize;
                     if (segStart < minAddr) minAddr = segStart;
                     if (segEnd > maxAddr) maxAddr = segEnd;
+
+                    // Store segment range (will apply slide after loop)
+                    if (segCount < KSBIC_MAX_SEGMENTS_PER_IMAGE) {
+                        entry->segments[segCount].start = segStart;
+                        entry->segments[segCount].end = segEnd;
+                        segCount++;
+                    } else {
+                        KSLOG_DEBUG("Image %s exceeds max segments (%d), truncating", name ? name : "<unknown>",
+                                    KSBIC_MAX_SEGMENTS_PER_IMAGE);
+                    }
                 }
             }
             cmdPtr += lc->cmdsize;
@@ -148,28 +182,46 @@ static void computeImageInfo(const struct mach_header *header, uintptr_t *outSli
                     foundLinkedit = true;
                 }
 
-                // Track address bounds for all segments
-                if (seg->vmsize > 0) {
+                // Store segments with actual file content (exclude __PAGEZERO)
+                if (seg->vmsize > 0 && seg->filesize > 0) {
                     uintptr_t segStart = (uintptr_t)seg->vmaddr;
                     uintptr_t segEnd = segStart + (uintptr_t)seg->vmsize;
                     if (segStart < minAddr) minAddr = segStart;
                     if (segEnd > maxAddr) maxAddr = segEnd;
+
+                    // Store segment range (will apply slide after loop)
+                    if (segCount < KSBIC_MAX_SEGMENTS_PER_IMAGE) {
+                        entry->segments[segCount].start = segStart;
+                        entry->segments[segCount].end = segEnd;
+                        segCount++;
+                    } else {
+                        KSLOG_DEBUG("Image %s exceeds max segments (%d), truncating", name ? name : "<unknown>",
+                                    KSBIC_MAX_SEGMENTS_PER_IMAGE);
+                    }
                 }
             }
             cmdPtr += lc->cmdsize;
         }
     }
 
-    *outSlide = slide;
-    // Apply slide to get actual addresses
-    *outStart = (minAddr == UINTPTR_MAX) ? 0 : (minAddr + slide);
-    *outEnd = (maxAddr == 0) ? 0 : (maxAddr + slide);
-    *outSegmentBase = segmentBase;
+    // Apply slide to all segment ranges
+    for (uint8_t i = 0; i < segCount; i++) {
+        entry->segments[i].start += slide;
+        entry->segments[i].end += slide;
+    }
+
+    entry->slide = slide;
+    entry->segmentBase = segmentBase;
+    entry->startAddress = (minAddr == UINTPTR_MAX) ? 0 : (minAddr + slide);
+    entry->endAddress = (maxAddr == 0) ? 0 : (maxAddr + slide);
+    entry->segmentCount = segCount;
+
+    return (segCount > 0);
 }
 
-// Linear scan through dyld images to find one containing the address
-static const struct mach_header *linearScanForAddress(uintptr_t address, uintptr_t *outSlide, const char **outName,
-                                                      uintptr_t *outStart, uintptr_t *outEnd, uintptr_t *outSegmentBase)
+// Linear scan through dyld images to find one containing the address.
+// If outEntry is provided, populates it with full image info for caching.
+static const struct mach_header *linearScanForAddress(uintptr_t address, KSBinaryImageRange *outEntry)
 {
     uint32_t count = 0;
     const ks_dyld_image_info *images = ksbic_getImages(&count);
@@ -177,21 +229,24 @@ static const struct mach_header *linearScanForAddress(uintptr_t address, uintptr
         return NULL;
     }
 
+    KSBinaryImageRange tempEntry = { 0 };
     for (uint32_t i = 0; i < count; i++) {
         const struct mach_header *header = images[i].imageLoadAddress;
         if (header == NULL) {
             continue;
         }
 
-        uintptr_t slide, start, end, segmentBase;
-        computeImageInfo(header, &slide, &start, &end, &segmentBase);
+        // Populate entry with segment info
+        if (!populateCacheEntry(header, images[i].imageFilePath, &tempEntry)) {
+            continue;
+        }
 
-        if (address >= start && address < end) {
-            if (outSlide) *outSlide = slide;
-            if (outName) *outName = images[i].imageFilePath;
-            if (outStart) *outStart = start;
-            if (outEnd) *outEnd = end;
-            if (outSegmentBase) *outSegmentBase = segmentBase;
+        // Check if address is in any segment of this image
+        // This is critical for dyld shared cache where segments from different images can be interleaved
+        if (addressInCachedSegments(&tempEntry, address)) {
+            if (outEntry) {
+                *outEntry = tempEntry;
+            }
             return header;
         }
     }
@@ -283,42 +338,46 @@ const struct mach_header *ksbic_getImageDetailsForAddress(uintptr_t address, uin
         // SUCCESS: We have exclusive access to the cache
 
         // First, search the cache for a matching entry
+        // Note: In dyld shared cache, multiple images can have overlapping [start, end) bounds
+        // due to shared __LINKEDIT segment, so we must verify using cached segment ranges.
         for (uint32_t i = 0; i < cache->count; i++) {
             KSBinaryImageRange *entry = &cache->entries[i];
             if (address >= entry->startAddress && address < entry->endAddress) {
-                // Cache hit!
-                if (outSlide) *outSlide = entry->slide;
-                if (outSegmentBase) *outSegmentBase = entry->segmentBase;
-                if (outName) *outName = entry->name;
-                const struct mach_header *result = entry->header;
+                // Potential cache hit - verify address is in an actual segment (fast check)
+                if (addressInCachedSegments(entry, address)) {
+                    // Verified: address is in a segment of this image
+                    if (outSlide) *outSlide = entry->slide;
+                    if (outSegmentBase) *outSegmentBase = entry->segmentBase;
+                    if (outName) *outName = entry->name;
+                    const struct mach_header *result = entry->header;
 
-                // Release the cache
-                atomic_store(&g_cache_ptr, cache);
-                return result;
+                    // Release the cache
+                    atomic_store(&g_cache_ptr, cache);
+                    return result;
+                }
+                // Address is in [start, end) but not in any segment - continue searching
             }
         }
 
         // Cache miss - do linear scan
-        uintptr_t slide = 0;
-        const char *name = NULL;
-        uintptr_t start = 0, end = 0, segmentBase = 0;
-        const struct mach_header *header = linearScanForAddress(address, &slide, &name, &start, &end, &segmentBase);
+        KSBinaryImageRange newEntry;
+        const struct mach_header *header = linearScanForAddress(address, &newEntry);
 
         if (header != NULL && cache->count < KSBIC_MAX_CACHE_ENTRIES) {
-            // Add to cache
-            KSBinaryImageRange *newEntry = &cache->entries[cache->count];
-            newEntry->startAddress = start;
-            newEntry->endAddress = end;
-            newEntry->slide = slide;
-            newEntry->segmentBase = segmentBase;
-            newEntry->header = header;
-            newEntry->name = name;
+            // Add to cache (entry already populated by linearScanForAddress)
+            cache->entries[cache->count] = newEntry;
             cache->count++;
         }
 
-        if (outSlide) *outSlide = slide;
-        if (outSegmentBase) *outSegmentBase = segmentBase;
-        if (outName) *outName = name;
+        if (header != NULL) {
+            if (outSlide) *outSlide = newEntry.slide;
+            if (outSegmentBase) *outSegmentBase = newEntry.segmentBase;
+            if (outName) *outName = newEntry.name;
+        } else {
+            if (outSlide) *outSlide = 0;
+            if (outSegmentBase) *outSegmentBase = 0;
+            if (outName) *outName = NULL;
+        }
 
         // Release the cache
         atomic_store(&g_cache_ptr, cache);
@@ -326,14 +385,18 @@ const struct mach_header *ksbic_getImageDetailsForAddress(uintptr_t address, uin
     } else {
         // FAILED: Cache is in use by another caller
         // Fall back to linear scan without caching
-        uintptr_t slide = 0;
-        uintptr_t segmentBase = 0;
-        const char *name = NULL;
-        const struct mach_header *header = linearScanForAddress(address, &slide, &name, NULL, NULL, &segmentBase);
+        KSBinaryImageRange entry;
+        const struct mach_header *header = linearScanForAddress(address, &entry);
 
-        if (outSlide) *outSlide = slide;
-        if (outSegmentBase) *outSegmentBase = segmentBase;
-        if (outName) *outName = name;
+        if (header != NULL) {
+            if (outSlide) *outSlide = entry.slide;
+            if (outSegmentBase) *outSegmentBase = entry.segmentBase;
+            if (outName) *outName = entry.name;
+        } else {
+            if (outSlide) *outSlide = 0;
+            if (outSegmentBase) *outSegmentBase = 0;
+            if (outName) *outName = NULL;
+        }
         return header;
     }
 }
