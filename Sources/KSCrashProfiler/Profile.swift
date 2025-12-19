@@ -35,22 +35,23 @@ public typealias ProfileID = UUID
 /// `endProfile(id:)` calls. It contains all samples captured during that time window, along
 /// with timing metadata.
 ///
-/// When a profile is completed via `endProfile(id:)`, a crash report is automatically written
-/// to disk in the background containing the profile data in a deduplicated format. Use the
-/// completion handler variant to get the URL of the written report.
+/// To write the profile to a crash report, call `writeReport()`. Since this performs synchronous
+/// disk I/O, it should be called from a background queue.
 ///
 /// ## Example
 ///
 /// ```swift
 /// let id = profiler.beginProfile(named: "MyOperation")
 /// // ... do work ...
-/// let profile = profiler.endProfile(id: id) { url in
-///     if let url = url {
+/// let profile = profiler.endProfile(id: id)!
+/// print("Profile: \(profile.name)")
+/// print("Duration: \(Double(profile.durationNs) / 1_000_000)ms")
+///
+/// DispatchQueue.global().async {
+///     if let url = profile.writeReport() {
 ///         print("Report written to: \(url.path)")
 ///     }
 /// }
-/// print("Profile: \(profile?.name ?? "nil")")
-/// print("Duration: \(Double(profile?.durationNs ?? 0) / 1_000_000)ms")
 /// ```
 public struct Profile: Sendable {
     /// Unique identifier for this profile session.
@@ -89,6 +90,20 @@ public struct Profile: Sendable {
     /// Total duration of this profile in nanoseconds.
     public var durationNs: UInt64 {
         endTimestampNs - startTimestampNs
+    }
+
+    /// Writes this profile to a crash report file.
+    ///
+    /// This method triggers the KSCrash report writing machinery to generate a JSON report
+    /// containing the profile data. The report is written synchronously to the KSCrash
+    /// reports directory.
+    ///
+    /// - Returns: The URL of the written report file, or `nil` if the report could not be written.
+    ///
+    /// - Note: This method performs synchronous disk I/O and should be called from a background
+    ///   queue or task to avoid blocking the main thread.
+    public func writeReport() -> URL? {
+        _writeReport()
     }
 
     /// The Mach thread port of the thread that was profiled.

@@ -39,10 +39,9 @@ import Foundation
 /// print("Avg: \(metrics.avgNs / 1000)µs, P99: \(metrics.p99Ns / 1000)µs")
 /// ```
 ///
-/// All timing values represent `totalCaptureNs` from each sample, which includes
-/// lock acquisition, backtrace capture, and buffer commit overhead.
+/// All timing values represent `durationNs` from each sample's metadata.
 public struct ProfileMetrics: Sendable {
-    /// Per-sample total capture timing in nanoseconds.
+    /// Per-sample capture timing in nanoseconds.
     public let sampleTimingsNs: [UInt64]
 
     /// Number of samples with timing data.
@@ -94,9 +93,9 @@ public struct ProfileMetrics: Sendable {
 
     /// Creates metrics from an array of samples.
     ///
-    /// Extracts `totalCaptureNs` from each sample's metadata.
+    /// Extracts `durationNs` from each sample's metadata.
     internal init(samples: [any Sample]) {
-        self.sampleTimingsNs = samples.map { $0.metadata.totalCaptureNs }
+        self.sampleTimingsNs = samples.map { $0.metadata.durationNs }
     }
 }
 

@@ -63,7 +63,7 @@ extension Profile {
     /// the `callbackContext` field in the monitor context.
     ///
     /// - Returns: The URL of the written report file, or `nil` if the report could not be written.
-    func writeReport() -> URL? {
+    internal func _writeReport() -> URL? {
 
         let api = ProfileMonitor.api
         guard let callbacks = ProfileMonitor.callbacks else {
@@ -133,12 +133,10 @@ private class BoxedProfile {
 
         let addresses = Array(Set(profile.samples.flatMap(\.addresses)))
             .sorted()
-            .compactMap {
+            .map {
                 var info = SymbolInformation()
-                if quickSymbolicate(address: $0, result: &info) {
-                    return info
-                }
-                return nil
+                _ = quickSymbolicate(address: $0, result: &info)
+                return info
             }
 
         let addressToIndex = Dictionary(uniqueKeysWithValues: addresses.enumerated().map { ($1.returnAddress, $0) })
@@ -184,7 +182,7 @@ private class BoxedProfile {
             writer.beginObject(nil)
             writer.add("time_start_uptime", sample.metadata.timestampBeginNs)
             writer.add("time_end_uptime", sample.metadata.timestampEndNs)
-            writer.add("duration", sample.metadata.captureDurationNs)
+            writer.add("duration", sample.metadata.durationNs)
 
             writer.beginArray("frames")
             for index in indexes {
