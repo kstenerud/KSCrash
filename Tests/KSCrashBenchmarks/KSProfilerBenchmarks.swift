@@ -44,7 +44,7 @@ import XCTest
 
             measure {
                 let id = profiler.beginProfile(named: "benchmark")
-                _ = profiler.endProfile(id: id, writeReport: false)
+                _ = profiler.endProfile(id: id)
             }
         }
 
@@ -61,7 +61,7 @@ import XCTest
             measure {
                 let id = profiler.beginProfile(named: "benchmark")
                 Thread.sleep(forTimeInterval: 0.05)
-                _ = profiler.endProfile(id: id, writeReport: false)
+                _ = profiler.endProfile(id: id)
             }
         }
 
@@ -76,7 +76,7 @@ import XCTest
             measure {
                 let id = profiler.beginProfile(named: "benchmark")
                 Thread.sleep(forTimeInterval: 0.1)
-                _ = profiler.endProfile(id: id, writeReport: false)
+                _ = profiler.endProfile(id: id)
             }
         }
 
@@ -108,7 +108,7 @@ import XCTest
             measure {
                 let id = profiler.beginProfile(named: "benchmark")
                 Thread.sleep(forTimeInterval: 0.05)
-                _ = profiler.endProfile(id: id, writeReport: false)
+                _ = profiler.endProfile(id: id)
             }
 
             endSemaphore.signal()
@@ -127,7 +127,7 @@ import XCTest
             measure {
                 let id = profiler.beginProfile(named: "benchmark")
                 Thread.sleep(forTimeInterval: 0.2)
-                _ = profiler.endProfile(id: id, writeReport: false)
+                _ = profiler.endProfile(id: id)
             }
         }
 
@@ -148,9 +148,9 @@ import XCTest
 
                 Thread.sleep(forTimeInterval: 0.03)
 
-                _ = profiler.endProfile(id: id1, writeReport: false)
-                _ = profiler.endProfile(id: id2, writeReport: false)
-                _ = profiler.endProfile(id: id3, writeReport: false)
+                _ = profiler.endProfile(id: id1)
+                _ = profiler.endProfile(id: id2)
+                _ = profiler.endProfile(id: id3)
             }
         }
 
@@ -203,7 +203,7 @@ import XCTest
                         retentionSeconds: 1
                     )
                     let id = profiler.beginProfile(named: "benchmark")
-                    _ = profiler.endProfile(id: id, writeReport: false)
+                    _ = profiler.endProfile(id: id)
                 }
             }
 
@@ -272,7 +272,7 @@ import XCTest
 
             let id = profiler.beginProfile(named: "benchmark")
             Thread.sleep(forTimeInterval: 1.0)  // Collect ~1000 samples
-            let profile = profiler.endProfile(id: id, writeReport: false)!
+            let profile = profiler.endProfile(id: id)!
 
             doneSemaphore.signal()
 
@@ -326,7 +326,7 @@ import XCTest
 
             let id = profiler.beginProfile(named: "benchmark")
             Thread.sleep(forTimeInterval: 1.0)  // Collect ~1000 samples
-            let profile = profiler.endProfile(id: id, writeReport: false)!
+            let profile = profiler.endProfile(id: id)!
 
             doneSemaphore.signal()
 

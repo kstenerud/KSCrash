@@ -53,13 +53,14 @@ import os
 ///
 /// ## Report Writing
 ///
-/// When a profile session ends, a crash report is automatically written to disk in the
-/// background. The report contains the profile data in a deduplicated format optimized
-/// for size. Use the completion handler variant to get the URL of the written report:
+/// To write a crash report containing the profile data, call `writeReport()` on the
+/// returned profile. Since this performs synchronous disk I/O, it should be called
+/// from a background queue:
 ///
 /// ```swift
-/// profiler.endProfile(id: id) { url in
-///     if let url = url {
+/// let profile = profiler.endProfile(id: id)!
+/// DispatchQueue.global().async {
+///     if let url = profile.writeReport() {
 ///         print("Report written to: \(url.path)")
 ///     }
 /// }
@@ -82,10 +83,7 @@ public final class Profiler<T: Sample>: @unchecked Sendable {
     let capacity: Int
 
     /// The queue on which sampling occurs
-    let queue: DispatchQueue
-
-    /// Serial queue for writing profile reports
-    let reportQueue: DispatchQueue
+    let samplingQueue: DispatchQueue
 
     /// Lock for thread-safe access
     let lock = UnfairLock()
@@ -145,8 +143,7 @@ public final class Profiler<T: Sample>: @unchecked Sendable {
 
         let clampedInterval = max(0.001, interval)
         self.intervalNs = UInt64(clampedInterval * 1_000_000_000)
-        self.queue = DispatchQueue(label: "com.kscrash.profiler", qos: .userInteractive)
-        self.reportQueue = DispatchQueue(label: "com.kscrash.profiler.report", qos: .utility)
+        self.samplingQueue = DispatchQueue(label: "com.kscrash.profiler.sampling", qos: .userInteractive)
 
         let computed = Int((Double(retentionSeconds) / clampedInterval).rounded(.toNearestOrAwayFromZero))
         self.capacity = max(1, computed)
@@ -191,42 +188,11 @@ public final class Profiler<T: Sample>: @unchecked Sendable {
 
     /// Ends a profile session and returns the captured profile.
     ///
-    /// If this is the last active session, stops sampling. A crash report containing the
-    /// profile data is automatically written to disk in the background.
+    /// If this is the last active session, stops sampling.
     ///
-    /// - Parameters:
-    ///   - id: The profile session identifier returned by `beginProfile(named:)`.
-    ///   - writeReport: Whether to write a crash report to disk. Defaults to `true`.
+    /// - Parameter id: The profile session identifier returned by `beginProfile(named:)`.
     /// - Returns: The completed profile with timing info and samples, or `nil` if the id is invalid.
-    ///
-    /// - Note: The result is marked `@discardableResult` since the report is written regardless
-    ///   of whether you use the returned `Profile` object.
-    @discardableResult
-    public func endProfile(id: ProfileID, writeReport: Bool = true) -> Profile? {
-        endProfile(id: id, writeReport: writeReport, completion: nil)
-    }
-
-    /// Ends a profile session, returns the captured profile, and provides the report URL via completion.
-    ///
-    /// If this is the last active session, stops sampling. A crash report containing the
-    /// profile data is written to disk in the background, and the completion handler is called
-    /// with the URL of the written report.
-    ///
-    /// - Parameters:
-    ///   - id: The profile session identifier returned by `beginProfile(named:)`.
-    ///   - writeReport: Whether to write a crash report to disk. Defaults to `true`.
-    ///   - completion: A closure called on a background queue with the URL of the written report,
-    ///     or `nil` if the report could not be written. Pass `nil` if you don't need the URL.
-    /// - Returns: The completed profile with timing info and samples, or `nil` if the id is invalid.
-    ///
-    /// - Note: The result is marked `@discardableResult` since the report is written regardless
-    ///   of whether you use the returned `Profile` object.
-    @discardableResult
-    public func endProfile(
-        id: ProfileID,
-        writeReport: Bool = true,
-        completion: (@Sendable (URL?) -> Void)?
-    ) -> Profile? {
+    public func endProfile(id: ProfileID) -> Profile? {
         let endTimestamp = clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
 
         return lock.withLock {
@@ -243,7 +209,7 @@ public final class Profiler<T: Sample>: @unchecked Sendable {
                 stopLocked()
             }
 
-            let profile = Profile(
+            return Profile(
                 id: id,
                 name: activeProfile.name,
                 thread: machThread,
@@ -253,16 +219,6 @@ public final class Profiler<T: Sample>: @unchecked Sendable {
                 expectedSampleIntervalNs: intervalNs,
                 samples: matchingSamples
             )
-
-            if writeReport {
-                // write a report on the serial queue, then call completion
-                reportQueue.async {
-                    let url = profile.writeReport()
-                    completion?(url)
-                }
-            }
-
-            return profile
         }
     }
 
@@ -301,7 +257,7 @@ extension Profiler {
         writeIndex = 0
         count = 0
 
-        let timer = DispatchSource.makeTimerSource(queue: queue)
+        let timer = DispatchSource.makeTimerSource(queue: samplingQueue)
         timer.schedule(
             deadline: .now(),
             repeating: Double(intervalNs) / 1_000_000_000,
@@ -338,8 +294,6 @@ extension Profiler {
     /// - **Correctness**: Holding the lock ensures the ring buffer slot remains valid
     ///   throughout the capture operation, avoiding race conditions with concurrent
     ///   `endProfile()` calls that read from the buffer.
-    /// - **Predictable timing**: The `endCaptureNs` timestamp accurately reflects the
-    ///   total time spent in the capture path, including any lock contention.
     ///
     /// The lock is held for approximately 100-300µs per sample (depending on stack depth),
     /// which is acceptable for the typical 1-10ms sampling intervals.
@@ -354,16 +308,11 @@ extension Profiler {
             samples[slot].capture(thread: machThread, using: captureBacktrace)
             samples[slot].metadata.timestampEndNs = clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
 
-            guard samples[slot].addressCount > 0 else { return }
-
             // Advance ring buffer position
             writeIndex = (writeIndex + 1) % capacity
             if count < capacity {
                 count += 1
             }
-
-            // Record final timestamp after all operations complete
-            samples[slot].metadata.endCaptureNs = clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
         }
     }
 

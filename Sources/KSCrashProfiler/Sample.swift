@@ -108,19 +108,11 @@ extension Sample {
 
 /// Timing metadata for a captured sample.
 ///
-/// Contains timestamps that measure different phases of the capture operation:
+/// Contains timestamps that mark the beginning and end of the backtrace capture operation.
 ///
-/// ```
-/// |<-------- totalCaptureNs -------->|
-/// |<-- captureDurationNs -->|        |
-/// |                         |        |
-/// timestampBeginNs    timestampEndNs  endCaptureNs
-///       |                   |              |
-///   [begin capture]   [end capture]   [commit to buffer]
-/// ```
-///
-/// - `captureDurationNs`: Time spent in the backtrace capture call only.
-/// - `totalCaptureNs`: Total time including lock acquisition, capture, and buffer commit.
+/// - `timestampBeginNs`: When backtrace capture began.
+/// - `timestampEndNs`: When backtrace capture completed.
+/// - `durationNs`: Time spent capturing the backtrace (computed).
 public struct SampleMetadata: Sendable {
     /// Monotonic timestamp when backtrace capture began (nanoseconds from `CLOCK_UPTIME_RAW`).
     public var timestampBeginNs: UInt64 = 0
@@ -128,14 +120,8 @@ public struct SampleMetadata: Sendable {
     /// Monotonic timestamp when backtrace capture completed (nanoseconds from `CLOCK_UPTIME_RAW`).
     public var timestampEndNs: UInt64 = 0
 
-    /// Monotonic timestamp when the full capture operation completed, including buffer commit.
-    public var endCaptureNs: UInt64 = 0
-
-    /// Duration of just the backtrace capture call in nanoseconds.
-    public var captureDurationNs: UInt64 { timestampEndNs &- timestampBeginNs }
-
-    /// Total duration of the capture operation including lock and commit overhead.
-    public var totalCaptureNs: UInt64 { endCaptureNs &- timestampBeginNs }
+    /// Duration of the backtrace capture in nanoseconds.
+    public var durationNs: UInt64 { timestampEndNs &- timestampBeginNs }
 
     public init() {}
 }
