@@ -88,7 +88,7 @@ public final class Profiler<T: Sample>: @unchecked Sendable {
     let reportQueue: DispatchQueue
 
     /// Lock for thread-safe access
-    let lock = OSAllocatedUnfairLock()
+    let lock = UnfairLock()
 
     /// Ring buffer of samples (pre-allocated)
     var samples: ContiguousArray<T>
@@ -194,14 +194,16 @@ public final class Profiler<T: Sample>: @unchecked Sendable {
     /// If this is the last active session, stops sampling. A crash report containing the
     /// profile data is automatically written to disk in the background.
     ///
-    /// - Parameter id: The profile session identifier returned by `beginProfile(named:)`.
+    /// - Parameters:
+    ///   - id: The profile session identifier returned by `beginProfile(named:)`.
+    ///   - writeReport: Whether to write a crash report to disk. Defaults to `true`.
     /// - Returns: The completed profile with timing info and samples, or `nil` if the id is invalid.
     ///
     /// - Note: The result is marked `@discardableResult` since the report is written regardless
     ///   of whether you use the returned `Profile` object.
     @discardableResult
-    public func endProfile(id: ProfileID) -> Profile? {
-        endProfile(id: id, completion: nil)
+    public func endProfile(id: ProfileID, writeReport: Bool = true) -> Profile? {
+        endProfile(id: id, writeReport: writeReport, completion: nil)
     }
 
     /// Ends a profile session, returns the captured profile, and provides the report URL via completion.
@@ -212,6 +214,7 @@ public final class Profiler<T: Sample>: @unchecked Sendable {
     ///
     /// - Parameters:
     ///   - id: The profile session identifier returned by `beginProfile(named:)`.
+    ///   - writeReport: Whether to write a crash report to disk. Defaults to `true`.
     ///   - completion: A closure called on a background queue with the URL of the written report,
     ///     or `nil` if the report could not be written. Pass `nil` if you don't need the URL.
     /// - Returns: The completed profile with timing info and samples, or `nil` if the id is invalid.
@@ -219,7 +222,11 @@ public final class Profiler<T: Sample>: @unchecked Sendable {
     /// - Note: The result is marked `@discardableResult` since the report is written regardless
     ///   of whether you use the returned `Profile` object.
     @discardableResult
-    public func endProfile(id: ProfileID, completion: (@Sendable (URL?) -> Void)?) -> Profile? {
+    public func endProfile(
+        id: ProfileID,
+        writeReport: Bool = true,
+        completion: (@Sendable (URL?) -> Void)?
+    ) -> Profile? {
         let endTimestamp = clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
 
         return lock.withLock {
@@ -247,13 +254,15 @@ public final class Profiler<T: Sample>: @unchecked Sendable {
                 samples: matchingSamples
             )
 
-            // write a report on the serial queue, then call completion on global utility queue
-            reportQueue.async {
-                let url = profile.writeReport()
-                if let completion {
-                    DispatchQueue.global(qos: .utility).async {
-                        completion(url)
-                    }
+            guard writeReport else {
+                return profile
+            }
+
+            if writeReport {
+                // write a report on the serial queue, then call completion
+                reportQueue.async {
+                    let url = profile.writeReport()
+                    completion?(url)
                 }
             }
 
