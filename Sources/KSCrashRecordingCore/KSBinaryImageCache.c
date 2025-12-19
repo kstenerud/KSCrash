@@ -93,13 +93,10 @@ static inline bool addressInCachedSegments(const KSBinaryImageRange *entry, uint
 // Returns true if the image has valid segments, false otherwise.
 static bool populateCacheEntry(const struct mach_header *header, const char *name, KSBinaryImageRange *entry)
 {
-    entry->header = header;
-    entry->name = name;
-    entry->slide = 0;
-    entry->segmentBase = 0;
-    entry->startAddress = 0;
-    entry->endAddress = 0;
-    entry->segmentCount = 0;
+    *entry = (KSBinaryImageRange) {
+        .header = header,
+        .name = name,
+    };
 
     if (header == NULL) {
         return false;
@@ -153,8 +150,8 @@ static bool populateCacheEntry(const struct mach_header *header, const char *nam
                         entry->segments[segCount].end = segEnd;
                         segCount++;
                     } else {
-                        KSLOG_WARN("Image %s exceeds max segments (%d), truncating", name ? name : "<unknown>",
-                                   KSBIC_MAX_SEGMENTS_PER_IMAGE);
+                        KSLOG_DEBUG("Image %s exceeds max segments (%d), truncating", name ? name : "<unknown>",
+                                    KSBIC_MAX_SEGMENTS_PER_IMAGE);
                     }
                 }
             }
@@ -198,8 +195,8 @@ static bool populateCacheEntry(const struct mach_header *header, const char *nam
                         entry->segments[segCount].end = segEnd;
                         segCount++;
                     } else {
-                        KSLOG_WARN("Image %s exceeds max segments (%d), truncating", name ? name : "<unknown>",
-                                   KSBIC_MAX_SEGMENTS_PER_IMAGE);
+                        KSLOG_DEBUG("Image %s exceeds max segments (%d), truncating", name ? name : "<unknown>",
+                                    KSBIC_MAX_SEGMENTS_PER_IMAGE);
                     }
                 }
             }
@@ -232,7 +229,7 @@ static const struct mach_header *linearScanForAddress(uintptr_t address, KSBinar
         return NULL;
     }
 
-    KSBinaryImageRange tempEntry;
+    KSBinaryImageRange tempEntry = { 0 };
     for (uint32_t i = 0; i < count; i++) {
         const struct mach_header *header = images[i].imageLoadAddress;
         if (header == NULL) {
