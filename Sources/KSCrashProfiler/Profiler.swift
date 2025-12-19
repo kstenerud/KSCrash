@@ -254,10 +254,6 @@ public final class Profiler<T: Sample>: @unchecked Sendable {
                 samples: matchingSamples
             )
 
-            guard writeReport else {
-                return profile
-            }
-
             if writeReport {
                 // write a report on the serial queue, then call completion
                 reportQueue.async {

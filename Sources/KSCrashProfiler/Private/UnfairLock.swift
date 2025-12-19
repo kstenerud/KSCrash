@@ -27,7 +27,7 @@
 import Foundation
 import os
 
-final internal class UnfairLock: Sendable {
+final internal class UnfairLock: @unchecked Sendable {
     private var _lock: UnsafeMutablePointer<os_unfair_lock>
 
     internal init() {
