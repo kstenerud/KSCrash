@@ -131,12 +131,15 @@ static NSArray *g_test_strings;
 
 - (void)testObjectTypeCorrupt
 {
-    struct objc_object objcClass;
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    objcClass.isa = (__bridge Class)((void *)-1);
-#pragma clang diagnostic pop
-    KSObjCType type = ksobjc_objectType(&objcClass);
+    // Allocate a buffer large enough for ksobjc_objectType to probe safely.
+    // The function reads up to sizeof(class_t) bytes (~40 bytes on 64-bit) to validate
+    // the object structure. Using a small struct like objc_object (8 bytes) causes
+    // out-of-bounds reads that ASan catches, even though ksmem_isMemoryReadable()
+    // returns true (it uses vm_read_overwrite which checks page mappings, not C allocations).
+    // A realistic "corrupt object" scenario has proper-sized memory with invalid contents.
+    uintptr_t corruptObject[8] = { 0 };  // 64 bytes, enough for class_t
+    corruptObject[0] = (uintptr_t)-1;    // Invalid isa pointer
+    KSObjCType type = ksobjc_objectType(corruptObject);
     XCTAssertEqual(type, KSObjCTypeUnknown, @"Type was %u", type);
 }
 

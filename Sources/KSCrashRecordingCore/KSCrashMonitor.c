@@ -55,8 +55,8 @@
 static struct {
     KSCrashMonitorAPIList monitors;
 
-    bool crashedDuringExceptionHandling;
-    bool isHandlingFatalException;
+    atomic_bool crashedDuringExceptionHandling;
+    atomic_bool isHandlingFatalException;
 
     KSCrash_MonitorContext asyncSafeContext[ASYNC_SAFE_ITEM_COUNT];
     atomic_int asyncSafeContextIndex;
@@ -67,7 +67,7 @@ static struct {
      */
     KSCrash_MonitorContext exitImmediatelyContext;
 
-    thread_t threadsHandlingExceptions[MAX_SIMULTANEOUS_EXCEPTIONS];
+    _Atomic thread_t threadsHandlingExceptions[MAX_SIMULTANEOUS_EXCEPTIONS];
     atomic_int handlingExceptionIndex;
 
     /**
@@ -109,7 +109,7 @@ static bool isThreadAlreadyHandlingAnException(int maxCount, thread_t offendingT
         maxCount = MAX_SIMULTANEOUS_EXCEPTIONS;
     }
     for (int i = 0; i < maxCount; i++) {
-        thread_t handlerThread = g_state.threadsHandlingExceptions[i];
+        thread_t handlerThread = atomic_load(&g_state.threadsHandlingExceptions[i]);
         if (handlerThread == handlingThread || handlerThread == offendingThread) {
             return true;
         }
@@ -121,14 +121,14 @@ static int beginHandlingException(thread_t handlerThread)
 {
     int thisThreadHandlerIndex = g_state.handlingExceptionIndex++;
     if (thisThreadHandlerIndex < MAX_SIMULTANEOUS_EXCEPTIONS) {
-        g_state.threadsHandlingExceptions[thisThreadHandlerIndex] = handlerThread;
+        atomic_store(&g_state.threadsHandlingExceptions[thisThreadHandlerIndex], handlerThread);
     }
     return thisThreadHandlerIndex;
 }
 
 static void endHandlingException(int threadIndex)
 {
-    g_state.threadsHandlingExceptions[threadIndex] = 0;
+    atomic_store(&g_state.threadsHandlingExceptions[threadIndex], 0);
 
     int expectedIndex = g_state.handlingExceptionIndex;
     if (expectedIndex == 0) {
@@ -138,7 +138,7 @@ static void endHandlingException(int threadIndex)
     // If the list has become empty (all simultaneously running
     // handlers have finished), reset the index back to 0.
     for (int i = 0; i < MAX_SIMULTANEOUS_EXCEPTIONS; i++) {
-        if (g_state.threadsHandlingExceptions[i] != 0) {
+        if (atomic_load(&g_state.threadsHandlingExceptions[i]) != 0) {
             return;
         }
     }

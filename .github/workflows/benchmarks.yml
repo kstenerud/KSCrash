@@ -275,6 +275,11 @@ jobs:
               "GetQueueName": "Get queue name",
               "GatherThreadInfo": "Gather all thread info",
               "ThreadOpsWithConcurrency": "Ops under contention",
+              "ThreadCacheFreezeUnfreeze": "Cache freeze/unfreeze",
+              "ThreadCacheGetThreadName": "Cache thread name lookup",
+              "ThreadCacheGetQueueName": "Cache queue name lookup",
+              "ThreadCacheGetAllThreads": "Cache get all threads",
+              "ThreadCacheCrashScenario": "Cache crash scenario",
               "WriteStandardReport": "Write standard crash report",
               "WriteStandardReportNoBinaryImages": "Write report (no binary images)",
               "WriteMultipleReports": "Write multiple reports",
@@ -448,6 +453,11 @@ jobs:
               "GetQueueName": ("Get queue name", 1000),
               "GatherThreadInfo": ("Gather all thread info", 100),
               "ThreadOpsWithConcurrency": ("Ops under contention", 1000),
+              "ThreadCacheFreezeUnfreeze": ("Cache freeze/unfreeze", 1000),
+              "ThreadCacheGetThreadName": ("Cache thread name lookup", 1000),
+              "ThreadCacheGetQueueName": ("Cache queue name lookup", 1000),
+              "ThreadCacheGetAllThreads": ("Cache get all threads", 1000),
+              "ThreadCacheCrashScenario": ("Cache crash scenario", 1),
           }
 
           for test_name, (desc, iterations) in thread_tests.items():

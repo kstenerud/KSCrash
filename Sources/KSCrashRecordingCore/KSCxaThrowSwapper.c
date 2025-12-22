@@ -65,6 +65,9 @@
 #include "KSLogger.h"
 #include "KSMach-O.h"
 #include "KSPlatformSpecificDefines.h"
+#include "KSSystemCapabilities.h"
+
+#if !KSCRASH_HAS_SANITIZER
 
 typedef struct {
     uintptr_t image;
@@ -245,11 +248,19 @@ static void rebind_symbols_for_image(const struct mach_header *header, intptr_t 
     process_segment(header, slide, SEG_DATA, symtab, strtab, indirect_symtab);
     process_segment(header, slide, SEG_DATA_CONST, symtab, strtab, indirect_symtab);
 }
+#endif  // KSCRASH_HAS_SANITIZER
 
 int ksct_swap(const cxa_throw_type handler)
 {
     KSLOG_DEBUG("Swapping __cxa_throw handler");
 
+#if KSCRASH_HAS_SANITIZER
+    // Sanitizers (ASan, TSan, etc.) also intercept __cxa_throw and conflict
+    // with our decorator, causing hangs during exception handling.
+    KSLOG_DEBUG("Sanitizer detected, skipping __cxa_throw swap");
+    (void)handler;
+    return 0;
+#else
     if (g_cxa_originals == NULL) {
         g_cxa_originals_capacity = 25;
         g_cxa_originals = (KSAddressPair *)malloc(sizeof(KSAddressPair) * g_cxa_originals_capacity);
@@ -271,4 +282,5 @@ int ksct_swap(const cxa_throw_type handler)
         }
     }
     return 0;
+#endif
 }

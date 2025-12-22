@@ -39,8 +39,8 @@
 #pragma mark - Dummy monitors -
 
 // First monitor
-static bool g_dummyEnabledState = false;
-static bool g_dummyPostSystemEnabled = false;
+static _Atomic bool g_dummyEnabledState = false;
+static _Atomic bool g_dummyPostSystemEnabled = false;
 static const char *const g_eventID = "TestEventID";
 static const char *g_copiedEventID = NULL;
 static int64_t g_dummyResultReportId = 1;
@@ -268,13 +268,13 @@ extern void kscm_testcode_resetState(void);
                   @"When async safety is not required, the context should be allocated on the heap");
 }
 
-static volatile int g_counter = 0;
+static atomic_int g_counter = 0;
 
 - (bool)isCounterIncrementing
 {
-    int counter = g_counter;
+    int counter = atomic_load(&g_counter);
     usleep(1000);  // 1ms
-    return g_counter != counter;
+    return atomic_load(&g_counter) != counter;
 }
 
 #if KSCRASH_HAS_THREADS_API
@@ -284,12 +284,15 @@ static volatile int g_counter = 0;
     kscm_activateMonitors();
     KSCrash_MonitorContext *ctx = NULL;
 
+    // Reset counter to ensure clean state
+    atomic_store(&g_counter, 0);
+
     dispatch_semaphore_t threadStarted = dispatch_semaphore_create(0);
 
     NSThread *thread = [[NSThread alloc] initWithBlock:^{
         dispatch_semaphore_signal(threadStarted);
         while (!NSThread.currentThread.isCancelled) {
-            g_counter++;
+            atomic_fetch_add(&g_counter, 1);
             usleep(100);
         }
     }];
@@ -300,8 +303,13 @@ static volatile int g_counter = 0;
     long result = dispatch_semaphore_wait(threadStarted, dispatch_time(DISPATCH_TIME_NOW, 1 * NSEC_PER_SEC));
     XCTAssertEqual(result, 0, @"Counter thread should start");
 
-    // Verify thread is actually running by checking counter increments
-    XCTAssertTrue([self isCounterIncrementing], @"Counter thread should be incrementing");
+    // Verify thread is actually running - use a retry loop since thread startup may take time
+    // (especially when running with sanitizers which slow down thread operations)
+    bool incrementing = false;
+    for (int i = 0; i < 100 && !incrementing; i++) {
+        incrementing = [self isCounterIncrementing];
+    }
+    XCTAssertTrue(incrementing, @"Counter thread should be incrementing");
 
     ctx = dummyExceptionHandlerCallbacks.notify(
         (thread_t)ksthread_self(),

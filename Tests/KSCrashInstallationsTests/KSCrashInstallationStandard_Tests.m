@@ -27,11 +27,20 @@
 #import <XCTest/XCTest.h>
 
 #import "KSCrashInstallationStandard.h"
+#import "KSCrashMonitor.h"
 
 @interface KSCrashInstallationStandard_Tests : XCTestCase
 @end
 
 @implementation KSCrashInstallationStandard_Tests
+
+- (void)tearDown
+{
+    // Disable all monitors to clean up background threads (exception handlers, etc.)
+    // This prevents ASan from hanging when XCTSkip throws an exception in later tests.
+    kscm_disableAllMonitors();
+    [super tearDown];
+}
 
 - (void)testInstall
 {

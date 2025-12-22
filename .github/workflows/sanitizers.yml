@@ -1,0 +1,48 @@
+name: Sanitizer Tests
+
+on:
+  pull_request:
+    paths:
+      - "Sources/**"
+      - "Tests/**"
+      - "Package.swift"
+      - ".github/workflows/sanitizers.yml"
+
+  push:
+    branches:
+      - master
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sanitizers:
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        sanitizer:
+          - address
+          - thread
+          - undefined
+        include:
+          - sanitizer: address
+            name: Address Sanitizer (ASan)
+          - sanitizer: thread
+            name: Thread Sanitizer (TSan)
+          - sanitizer: undefined
+            name: Undefined Behavior Sanitizer (UBSan)
+    name: ${{ matrix.name }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Use Latest Stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Run Tests with ${{ matrix.name }}
+        run: swift test --sanitize=${{ matrix.sanitizer }}
+        timeout-minutes: 30
