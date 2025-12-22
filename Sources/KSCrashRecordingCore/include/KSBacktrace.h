@@ -53,7 +53,7 @@ extern "C" {
  *             It may also briefly suspend the target thread while unwinding its stack.
  */
 int ksbt_captureBacktraceFromMachThread(thread_t machThread, uintptr_t *_Nonnull addresses, int count)
-    CF_SWIFT_NAME(captureBacktrace(thread:addresses:count:));
+    CF_SWIFT_NAME(captureBacktrace(machThread:addresses:count:));
 
 /**
  * Captures the backtrace (call stack) for the specified pthread.
