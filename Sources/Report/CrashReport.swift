@@ -32,6 +32,14 @@ import Foundation
 /// to access the user-defined custom data.
 public struct NoUserData: Decodable, Sendable, Equatable {}
 
+/// A convenience alias for crash reports without user data.
+///
+/// Use this when you don't need to access user-defined custom data:
+/// ```swift
+/// let report = try JSONDecoder().decode(BasicCrashReport.self, from: data)
+/// ```
+public typealias BasicCrashReport = CrashReport<NoUserData>
+
 /// A wrapper that provides indirection for recursive crash reports.
 public final class RecrashReport<UserData: Decodable & Sendable>: Decodable, Sendable {
     public let report: CrashReport<UserData>

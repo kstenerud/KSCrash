@@ -66,10 +66,10 @@ import XCTest
                 config.isWatchdogEnabled = true
             }
 
-            let rawReport = try readPartialCrashReport()
+            let rawReport = try readCrashReport()
 
             // Verify threads are present in the crash report
-            let threads = rawReport.crash?.threads
+            let threads = rawReport.crash.threads
             XCTAssertNotNil(threads, "Threads should be present in crash report")
             XCTAssertGreaterThan(threads?.count ?? 0, 0, "Should have at least one thread")
 
