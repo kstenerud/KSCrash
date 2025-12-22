@@ -182,6 +182,13 @@ jobs:
               else:
                   return f"{us/1000:.2f} ms"
 
+          def format_stddev(avg, stddev):
+              """Format standard deviation as percentage (relative stddev)"""
+              if avg == 0:
+                  return "N/A"
+              rel_stddev = (stddev / avg) * 100
+              return f"±{rel_stddev:.1f}%"
+
           def get_status(seconds, excellent=0.001, good=0.005, ok=0.010):
               """Get status emoji based on time thresholds"""
               if seconds < excellent:
@@ -225,6 +232,15 @@ jobs:
           output = ["# 🔍 KSCrash Performance Benchmarks\n"]
           output.append("*Crash capture performance metrics - lower times are better*\n")
           output.append(f"**Test Environment:** {system_info}\n")
+          output.append("<details>")
+          output.append("<summary><b>📖 How to interpret results</b></summary>\n")
+          output.append("| Std Dev | Interpretation |")
+          output.append("|---------|----------------|")
+          output.append("| < 5% | Stable, reliable measurement |")
+          output.append("| 5-15% | Some variability, typical for most benchmarks |")
+          output.append("| > 15% | High variability, interpret with caution |\n")
+          output.append("**p-value** (in comparison table): Probability the difference is due to chance. Values < 0.05 indicate statistically significant changes.\n")
+          output.append("</details>\n")
 
           # All test definitions
           all_tests = {
@@ -290,8 +306,8 @@ jobs:
               output.append("<details open>")
               output.append("<summary><h2>📊 Changes from Base Branch</h2></summary>\n")
               output.append("*Only showing statistically significant changes (p < 0.05, threshold > 15%)*\n")
-              output.append("| Operation | Base | PR | Change | p-value |")
-              output.append("|-----------|------|-----|--------|---------|")
+              output.append("| Operation | Base | Base σ | PR | PR σ | Change | p-value |")
+              output.append("|-----------|------|--------|-----|------|--------|---------|")
 
               changes = []
               for test_name, desc in all_tests.items():
@@ -300,12 +316,14 @@ jobs:
                       pr_stats = pr_results[test_name]
                       change, p_value = get_change(base_stats, pr_stats)
                       base_avg = base_stats['avg']
+                      base_stddev = base_stats['stddev']
                       pr_avg = pr_stats['avg']
+                      pr_stddev = pr_stats['stddev']
                       pct = ((pr_avg - base_avg) / base_avg) * 100 if base_avg > 0 else 0
                       # Sort by significance (lower p-value first), then by magnitude
                       sort_key = (p_value, -abs(pct))
                       p_str = f"{p_value:.4f}" if p_value >= 0.0001 else "<0.0001"
-                      changes.append((sort_key, f"| {desc} | {format_time(base_avg)} | {format_time(pr_avg)} | {change} | {p_str} |", p_value))
+                      changes.append((sort_key, f"| {desc} | {format_time(base_avg)} | {format_stddev(base_avg, base_stddev)} | {format_time(pr_avg)} | {format_stddev(pr_avg, pr_stddev)} | {change} | {p_str} |", p_value))
 
               # Sort by significance, show most significant changes first
               changes.sort(key=lambda x: x[0])
@@ -333,8 +351,8 @@ jobs:
           # Backtrace section
           output.append("<details open>")
           output.append("<summary><h3>Stack Capture (KSBacktrace)</h3></summary>\n")
-          output.append("| Operation | Time | Status | Notes |")
-          output.append("|-----------|------|--------|-------|")
+          output.append("| Operation | Time | Std Dev | Status | Notes |")
+          output.append("|-----------|------|---------|--------|-------|")
 
           backtrace_tests = {
               "SameThreadBacktrace": ("Same thread capture", "Fast path, no suspension"),
@@ -348,16 +366,17 @@ jobs:
           for test_name, (desc, notes) in backtrace_tests.items():
               if test_name in pr_results:
                   t = pr_results[test_name]['avg']
+                  stddev = pr_results[test_name]['stddev']
                   status = get_status(t, excellent=0.0001, good=0.001, ok=0.005)
-                  output.append(f"| {desc} | {format_time(t)} | {status} | {notes} |")
+                  output.append(f"| {desc} | {format_time(t)} | {format_stddev(t, stddev)} | {status} | {notes} |")
 
           output.append("\n</details>")
 
           # Dynamic Linker section
           output.append("<details open>")
           output.append("<summary><h3>Dynamic Linker (KSDynamicLinker)</h3></summary>\n")
-          output.append("| Operation | Time | Status | Notes |")
-          output.append("|-----------|------|--------|-------|")
+          output.append("| Operation | Time | Std Dev | Status | Notes |")
+          output.append("|-----------|------|---------|--------|-------|")
 
           dynlinker_tests = {
               "ImageLookupSingleAddress": ("Image lookup (single)", "Single address resolution"),
@@ -380,16 +399,17 @@ jobs:
           for test_name, (desc, notes) in dynlinker_tests.items():
               if test_name in pr_results:
                   t = pr_results[test_name]['avg']
+                  stddev = pr_results[test_name]['stddev']
                   status = get_status(t, excellent=0.001, good=0.005, ok=0.020)
-                  output.append(f"| {desc} | {format_time(t)} | {status} | {notes} |")
+                  output.append(f"| {desc} | {format_time(t)} | {format_stddev(t, stddev)} | {status} | {notes} |")
 
           output.append("\n</details>")
 
           # Memory section
           output.append("<details open>")
           output.append("<summary><h3>Safe Memory Operations (KSMemory)</h3></summary>\n")
-          output.append("| Operation | Time | Per-Call | Status |")
-          output.append("|-----------|------|----------|--------|")
+          output.append("| Operation | Time | Std Dev | Per-Call | Status |")
+          output.append("|-----------|------|---------|----------|--------|")
 
           memory_tests = {
               "IsMemoryReadableSmall": ("Check readable (64B)", 1000),
@@ -406,17 +426,18 @@ jobs:
           for test_name, (desc, iterations) in memory_tests.items():
               if test_name in pr_results:
                   t = pr_results[test_name]['avg']
+                  stddev = pr_results[test_name]['stddev']
                   per_call = t / iterations
                   status = get_status(per_call, excellent=0.000001, good=0.00001, ok=0.0001)
-                  output.append(f"| {desc} | {format_time(t)} | {format_time(per_call)} | {status} |")
+                  output.append(f"| {desc} | {format_time(t)} | {format_stddev(t, stddev)} | {format_time(per_call)} | {status} |")
 
           output.append("\n</details>")
 
           # JSON section
           output.append("<details open>")
           output.append("<summary><h3>JSON Encoding (KSJSONCodec)</h3></summary>\n")
-          output.append("| Operation | Time | Status | Notes |")
-          output.append("|-----------|------|--------|-------|")
+          output.append("| Operation | Time | Std Dev | Status | Notes |")
+          output.append("|-----------|------|---------|--------|-------|")
 
           json_tests = {
               "EncodeIntegers": ("Encode integers (100)", "Numeric fields"),
@@ -434,16 +455,17 @@ jobs:
           for test_name, (desc, notes) in json_tests.items():
               if test_name in pr_results:
                   t = pr_results[test_name]['avg']
+                  stddev = pr_results[test_name]['stddev']
                   status = get_status(t, excellent=0.0005, good=0.002, ok=0.010)
-                  output.append(f"| {desc} | {format_time(t)} | {status} | {notes} |")
+                  output.append(f"| {desc} | {format_time(t)} | {format_stddev(t, stddev)} | {status} | {notes} |")
 
           output.append("\n</details>")
 
           # Thread section
           output.append("<details open>")
           output.append("<summary><h3>Thread Operations (KSThread)</h3></summary>\n")
-          output.append("| Operation | Time | Per-Call | Status |")
-          output.append("|-----------|------|----------|--------|")
+          output.append("| Operation | Time | Std Dev | Per-Call | Status |")
+          output.append("|-----------|------|---------|----------|--------|")
 
           thread_tests = {
               "ThreadSelf": ("Get current thread", 10000),
@@ -463,17 +485,18 @@ jobs:
           for test_name, (desc, iterations) in thread_tests.items():
               if test_name in pr_results:
                   t = pr_results[test_name]['avg']
+                  stddev = pr_results[test_name]['stddev']
                   per_call = t / iterations
                   status = get_status(per_call, excellent=0.0000005, good=0.000005, ok=0.00001)
-                  output.append(f"| {desc} | {format_time(t)} | {format_time(per_call)} | {status} |")
+                  output.append(f"| {desc} | {format_time(t)} | {format_stddev(t, stddev)} | {format_time(per_call)} | {status} |")
 
           output.append("\n</details>")
 
           # Crash Report section
           output.append("<details open>")
           output.append("<summary><h3>Crash Report Writing (KSCrashReport)</h3></summary>\n")
-          output.append("| Operation | Time | Status | Notes |")
-          output.append("|-----------|------|--------|-------|")
+          output.append("| Operation | Time | Std Dev | Status | Notes |")
+          output.append("|-----------|------|---------|--------|-------|")
 
           report_tests = {
               "WriteStandardReport": ("Write standard report", "Full report with binary images"),
@@ -484,8 +507,9 @@ jobs:
           for test_name, (desc, notes) in report_tests.items():
               if test_name in pr_results:
                   t = pr_results[test_name]['avg']
+                  stddev = pr_results[test_name]['stddev']
                   status = get_status(t, excellent=0.005, good=0.010, ok=0.050)
-                  output.append(f"| {desc} | {format_time(t)} | {status} | {notes} |")
+                  output.append(f"| {desc} | {format_time(t)} | {format_stddev(t, stddev)} | {status} | {notes} |")
 
           output.append("\n</details>")
 
