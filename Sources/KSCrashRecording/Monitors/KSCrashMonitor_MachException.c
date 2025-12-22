@@ -355,7 +355,7 @@ static void deallocExceptionHandler(ExceptionContext *ctx)
             MACH_ERROR(kr, "mach_port_deallocate");
         }
     }
-    if (posixThread != 0 && machThread != mach_thread_self()) {
+    if (posixThread != 0 && machThread != ksthread_self()) {
         pthread_cancel(posixThread);
     }
 }

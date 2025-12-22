@@ -189,6 +189,9 @@
 - (NSArray<KSCrashReportDictionary *> *)allReports
 {
     int reportCount = kscrs_getReportCount(&_cConfig);
+    if (reportCount <= 0) {
+        return @[];
+    }
     int64_t reportIDs[reportCount];
     reportCount = kscrs_getReportIDs(reportIDs, reportCount, &_cConfig);
     NSMutableArray<KSCrashReportDictionary *> *reports = [NSMutableArray arrayWithCapacity:(NSUInteger)reportCount];

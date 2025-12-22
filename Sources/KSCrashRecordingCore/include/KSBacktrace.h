@@ -28,6 +28,7 @@
 #define HDR_KSBacktrace_h
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <mach/mach.h>
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -37,6 +38,22 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/**
+ * Captures the backtrace (call stack) for the specified mach thread.
+ *
+ * @param machThread The identifier of the mach thread whose backtrace should be captured.
+ * @param addresses  A pointer to a buffer to receive the backtrace addresses. Must not be NULL.
+ * @param count      The maximum number of addresses to capture. Must be greater than zero.
+ *
+ * @return The number of frames captured and written to @c addresses, or 0 if @c addresses is NULL, @c count is zero, or
+ * an error occurs.
+ *
+ * @discussion This function is not async-signal-safe and therefore must not be called from within a signal handler.
+ *             It may also briefly suspend the target thread while unwinding its stack.
+ */
+int ksbt_captureBacktraceFromMachThread(thread_t machThread, uintptr_t *_Nonnull addresses, int count)
+    CF_SWIFT_NAME(captureBacktrace(thread:addresses:count:));
 
 /**
  * Captures the backtrace (call stack) for the specified pthread.
@@ -52,7 +69,6 @@ extern "C" {
  * @discussion This function is not async-signal-safe and therefore must not be called from within a signal handler.
  *             It may also briefly suspend the target thread while unwinding its stack.
  */
-
 int ksbt_captureBacktrace(pthread_t _Nonnull thread, uintptr_t *_Nonnull addresses, int count)
     CF_SWIFT_NAME(captureBacktrace(thread:addresses:count:));
 
@@ -87,11 +103,30 @@ struct KSSymbolInformation {
  *
  * @return @c true if symbolication succeeded and @c result is populated, @c false otherwise.
  *
- * @discussion On success, @c result will contain the symbol name, symbol address, image name,
- *             image load address, image size, and image UUID associated with @c address.
+ * @discussion The @c returnAddress and @c callInstruction fields are always populated regardless
+ *             of whether symbolication succeeds. On success, @c result will additionally contain
+ *             the symbol name, symbol address, image name, image load address, image size, and
+ *             image UUID associated with @c address.
  */
 bool ksbt_symbolicateAddress(uintptr_t address, struct KSSymbolInformation *_Nonnull result)
     CF_SWIFT_NAME(symbolicate(address:result:));
+
+/**
+ * Quickly resolves symbol information for a given instruction address.
+ *
+ * @param address  The instruction address to symbolize.
+ * @param result   A pointer to a KSSymbolInformation structure to be populated. Must not be NULL.
+ *
+ * @return @c true if symbolication succeeded and @c result is populated, @c false otherwise.
+ *
+ * @discussion This is a faster variant of @c ksbt_symbolicateAddress that omits the @c imageSize and
+ *             @c imageUUID fields to avoid additional binary image lookups. The @c returnAddress and
+ *             @c callInstruction fields are always populated regardless of whether symbolication succeeds.
+ *             On success, @c result will additionally contain the symbol name, symbol address, image name,
+ *             and image load address associated with @c address.
+ */
+bool ksbt_quickSymbolicateAddress(uintptr_t address, struct KSSymbolInformation *_Nonnull result)
+    CF_SWIFT_NAME(quickSymbolicate(address:result:));
 
 #ifdef __cplusplus
 }
