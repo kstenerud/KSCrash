@@ -91,12 +91,12 @@ static void *watchdog_thread_main(void *arg)
     NSTimeInterval _threshold;
     /** Observes run loop activity to detect when it goes idle or wakes. */
     CFRunLoopObserverRef _observer;
-    /** Background thread that checks for hangs. */
-    pthread_t _watchdogThread;
     /** Run loop for the watchdog thread. */
     CFRunLoopRef _watchdogRunLoop;
     /** Timer that fires periodically to check hang duration. */
     CFRunLoopTimerRef _watchdogTimer;
+    /** Semaphore signaled when the watchdog thread exits. */
+    dispatch_semaphore_t _threadExitSemaphore;
 
     /** Whether to report recovered hangs (non-fatal). */
     BOOL _reportsHangs;
@@ -150,6 +150,7 @@ static int TaskRole(void)
         _runLoop = runLoop;
         _threshold = threshold;
         _observers = [NSPointerArray weakObjectsPointerArray];
+        _threadExitSemaphore = dispatch_semaphore_create(0);
         [self scheduleThread];
         [self scheduleObserver];
     }
@@ -168,15 +169,22 @@ static int TaskRole(void)
         CFRelease(_watchdogTimer);
     }
 
-    if (_watchdogRunLoop) {
+    // Atomically read and clear _watchdogRunLoop to prevent race with scheduleThread
+    __block CFRunLoopRef runLoop = NULL;
+    [_lock withLock:^{
+        runLoop = self->_watchdogRunLoop;
+        self->_watchdogRunLoop = NULL;
+    }];
+
+    if (runLoop) {
         // This will stop the runloop and effectively
-        // exit the _watchdogThread_.
-        CFRunLoopStop(_watchdogRunLoop);
+        // exit the watchdog thread.
+        CFRunLoopStop(runLoop);
     }
 
     // Wait for the thread to exit
-    if (_watchdogThread) {
-        pthread_join(_watchdogThread, NULL);
+    if (_threadExitSemaphore) {
+        dispatch_semaphore_wait(_threadExitSemaphore, DISPATCH_TIME_FOREVER);
     }
 }
 
@@ -220,7 +228,8 @@ static int TaskRole(void)
 {
     assert(CFRunLoopGetCurrent() == _runLoop);
 
-    dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
+    dispatch_semaphore_t setupSemaphore = dispatch_semaphore_create(0);
+    dispatch_semaphore_t exitSemaphore = _threadExitSemaphore;
 
     __weak typeof(self) weakSelf = self;
     dispatch_block_t block = ^{
@@ -231,17 +240,22 @@ static int TaskRole(void)
         {
             typeof(self) strongSelf = weakSelf;
             if (strongSelf) {
-                strongSelf->_watchdogRunLoop = CFRunLoopGetCurrent();
+                CFRunLoopRef currentRunLoop = CFRunLoopGetCurrent();
+
+                // Synchronize access to _watchdogRunLoop to prevent race with dealloc
+                [strongSelf->_lock withLock:^{
+                    strongSelf->_watchdogRunLoop = currentRunLoop;
+                }];
 
                 // Any run loop requires a port of some sort in order to run.
                 CFRunLoopSourceContext cntxt = { .version = 0, .info = NULL };
                 CFRunLoopSourceRef source = CFRunLoopSourceCreate(NULL, 0, &cntxt);
-                CFRunLoopAddSource(strongSelf->_watchdogRunLoop, source, kCFRunLoopCommonModes);
+                CFRunLoopAddSource(currentRunLoop, source, kCFRunLoopCommonModes);
                 CFRelease(source);
 
                 // Signal that setup is complete, but only once the run loop has started running.
-                CFRunLoopPerformBlock(strongSelf->_watchdogRunLoop, kCFRunLoopCommonModes, ^{
-                    dispatch_semaphore_signal(semaphore);
+                CFRunLoopPerformBlock(currentRunLoop, kCFRunLoopCommonModes, ^{
+                    dispatch_semaphore_signal(setupSemaphore);
                 });
             }
         }
@@ -251,19 +265,27 @@ static int TaskRole(void)
 
         // Run the loop. On dealloc, we'll stop this to exit the thread.
         CFRunLoopRun();
+
+        // Signal that the thread is exiting so dealloc can complete
+        dispatch_semaphore_signal(exitSemaphore);
     };
 
-    // Set up thread attributes with maximum priority
+    // Set up thread attributes with maximum priority and detached state.
+    // We use PTHREAD_CREATE_DETACHED instead of pthread_join because TSan
+    // reports thread leaks with joinable threads in this pattern. The thread
+    // signals _threadExitSemaphore before exiting, and dealloc waits on it.
     pthread_attr_t attr;
     pthread_attr_init(&attr);
     pthread_attr_set_qos_class_np(&attr, QOS_CLASS_USER_INTERACTIVE, 0);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 
     // Copy the block to the heap and transfer ownership to pthread
-    pthread_create(&_watchdogThread, &attr, watchdog_thread_main, (__bridge_retained void *)block);
+    pthread_t thread;
+    pthread_create(&thread, &attr, watchdog_thread_main, (__bridge_retained void *)block);
     pthread_attr_destroy(&attr);
 
     // Wait for thread setup to complete
-    dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
+    dispatch_semaphore_wait(setupSemaphore, DISPATCH_TIME_FOREVER);
 
     // Start out by scheduling pings to make sure we catch
     // anything that happens before any run loops are running (startup).
@@ -285,7 +307,7 @@ static int TaskRole(void)
 
 - (void)_handlePingWithStartTime:(uint64_t)enterTime
 {
-    assert(pthread_equal(pthread_self(), _watchdogThread));
+    // This method should only be called from the watchdog thread
 
     const uint64_t thresholdInNs = (uint64_t)(_threshold * 1000000000);
     uint64_t now = MonotonicUptime();
