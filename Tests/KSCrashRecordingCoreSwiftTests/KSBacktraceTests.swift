@@ -99,6 +99,8 @@ import XCTest
             XCTAssert(result.imageAddress > 0)
             XCTAssert(result.imageSize > 0)
             XCTAssert(result.symbolAddress > 0)
+            XCTAssert(result.cpuType & 0x00ff_ffff >= -1)  // subtype & ~CPU_ARCH_MASK >= CPU_TYPE_ANY
+            XCTAssert(result.cpuSubType & 0x00ff_ffff >= -1)  // subtype & ~CPU_SUBTYPE_MASK >= CPU_SUBTYPE_ANY
         }
 
         func testSameThreadSymbolicate() {
@@ -127,6 +129,9 @@ import XCTest
             XCTAssert(result.imageAddress > 0)
             XCTAssert(result.imageSize > 0)
             XCTAssert(result.symbolAddress > 0)
+            XCTAssertNotEqual(result.cpuType, 0)
+            XCTAssert(result.cpuType & 0x00ff_ffff >= -1)  // subtype & ~CPU_ARCH_MASK >= CPU_TYPE_ANY
+            XCTAssert(result.cpuSubType & 0x00ff_ffff >= -1)  // subtype & ~CPU_SUBTYPE_MASK >= CPU_SUBTYPE_ANY
         }
 
         /// Regression test: Verify that backtrace symbolication returns correct symbols

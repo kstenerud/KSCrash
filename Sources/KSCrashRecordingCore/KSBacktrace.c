@@ -108,5 +108,7 @@ bool ksbt_symbolicateAddress(uintptr_t address, struct KSSymbolInformation *resu
 
     result->imageSize = image.size;
     result->imageUUID = image.uuid;
+    result->cpuType = image.cpuType;
+    result->cpuSubType = image.cpuSubType;
     return true;
 }
