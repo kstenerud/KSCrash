@@ -94,6 +94,21 @@ void kscmr_removeMonitor(KSCrashMonitorAPIList *monitorList, const KSCrashMonito
     }
 }
 
+const KSCrashMonitorAPI *kscmr_getMonitor(KSCrashMonitorAPIList *monitorList, const char *monitorId)
+{
+    if (monitorId == NULL) {
+        return NULL;
+    }
+
+    for (size_t i = 0; i < KSCRASH_MONITOR_API_COUNT; i++) {
+        const KSCrashMonitorAPI *api = atomic_load(monitorList->apis + i);
+        if (api && strcmp(api->monitorId(), monitorId) == 0) {
+            return api;
+        }
+    }
+    return NULL;
+}
+
 bool kscmr_activateMonitors(KSCrashMonitorAPIList *monitorList)
 {
     // Check for debugger and async safety

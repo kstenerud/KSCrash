@@ -292,4 +292,74 @@ static KSCrashMonitorAPI g_secondDummyMonitor = {};
     XCTAssertTrue(g_secondDummyMonitor.isEnabled(), @"The second dummy monitor should remain enabled.");
 }
 
+#pragma mark - Monitor Lookup Tests
+
+- (void)testGetMonitorById
+{
+    KSCrashMonitorAPIList list;
+    memset(&list, 0, sizeof(list));
+    XCTAssertTrue(kscmr_addMonitor(&list, &g_dummyMonitor), @"Monitor should be successfully added.");
+
+    const KSCrashMonitorAPI *result = kscmr_getMonitor(&list, "Dummy Monitor");
+    XCTAssertTrue(result == &g_dummyMonitor, @"Should return the correct monitor.");
+}
+
+- (void)testGetMonitorByIdNotFound
+{
+    KSCrashMonitorAPIList list;
+    memset(&list, 0, sizeof(list));
+    XCTAssertTrue(kscmr_addMonitor(&list, &g_dummyMonitor), @"Monitor should be successfully added.");
+
+    const KSCrashMonitorAPI *result = kscmr_getMonitor(&list, "Nonexistent Monitor");
+    XCTAssertTrue(result == NULL, @"Should return NULL for nonexistent monitor.");
+}
+
+- (void)testGetMonitorByIdFromEmptyList
+{
+    KSCrashMonitorAPIList list;
+    memset(&list, 0, sizeof(list));
+
+    const KSCrashMonitorAPI *result = kscmr_getMonitor(&list, "Dummy Monitor");
+    XCTAssertTrue(result == NULL, @"Should return NULL when list is empty.");
+}
+
+- (void)testGetMonitorByIdWithNullId
+{
+    KSCrashMonitorAPIList list;
+    memset(&list, 0, sizeof(list));
+    XCTAssertTrue(kscmr_addMonitor(&list, &g_dummyMonitor), @"Monitor should be successfully added.");
+
+    const KSCrashMonitorAPI *result = kscmr_getMonitor(&list, NULL);
+    XCTAssertTrue(result == NULL, @"Should return NULL when searching for NULL id.");
+}
+
+- (void)testGetMonitorByIdWithMultipleMonitors
+{
+    KSCrashMonitorAPIList list;
+    memset(&list, 0, sizeof(list));
+    XCTAssertTrue(kscmr_addMonitor(&list, &g_dummyMonitor), @"First monitor should be successfully added.");
+    XCTAssertTrue(kscmr_addMonitor(&list, &g_secondDummyMonitor), @"Second monitor should be successfully added.");
+
+    const KSCrashMonitorAPI *result1 = kscmr_getMonitor(&list, "Dummy Monitor");
+    const KSCrashMonitorAPI *result2 = kscmr_getMonitor(&list, "Second Dummy Monitor");
+
+    XCTAssertTrue(result1 == &g_dummyMonitor, @"Should return the first monitor.");
+    XCTAssertTrue(result2 == &g_secondDummyMonitor, @"Should return the second monitor.");
+}
+
+- (void)testGetMonitorByIdAfterRemoval
+{
+    KSCrashMonitorAPIList list;
+    memset(&list, 0, sizeof(list));
+    XCTAssertTrue(kscmr_addMonitor(&list, &g_dummyMonitor), @"Monitor should be successfully added.");
+
+    const KSCrashMonitorAPI *resultBefore = kscmr_getMonitor(&list, "Dummy Monitor");
+    XCTAssertTrue(resultBefore == &g_dummyMonitor, @"Should find monitor before removal.");
+
+    kscmr_removeMonitor(&list, &g_dummyMonitor);
+
+    const KSCrashMonitorAPI *resultAfter = kscmr_getMonitor(&list, "Dummy Monitor");
+    XCTAssertTrue(resultAfter == NULL, @"Should return NULL after monitor is removed.");
+}
+
 @end
