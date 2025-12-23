@@ -77,6 +77,8 @@ struct KSSymbolInformation {
     const uint8_t *_Nullable imageUUID;
     uintptr_t imageAddress;
     uint64_t imageSize;
+    int32_t cpuType;
+    int32_t cpuSubType;
 } CF_SWIFT_NAME(SymbolInformation);
 
 /**
