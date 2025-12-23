@@ -303,8 +303,8 @@ static atomic_int g_counter = 0;
     long result = dispatch_semaphore_wait(threadStarted, dispatch_time(DISPATCH_TIME_NOW, 1 * NSEC_PER_SEC));
     XCTAssertEqual(result, 0, @"Counter thread should start");
 
-    // Verify thread is actually running - use a retry loop since thread startup may take time
-    // (especially when running with sanitizers which slow down thread operations)
+    // Verify thread is actually running by checking counter increments
+    // Use a retry loop since thread scheduling on CI can be slow
     bool incrementing = false;
     for (int i = 0; i < 100 && !incrementing; i++) {
         incrementing = [self isCounterIncrementing];
