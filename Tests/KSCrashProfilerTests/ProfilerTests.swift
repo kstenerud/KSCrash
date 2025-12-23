@@ -376,13 +376,13 @@ final class ProfilerTests: XCTestCase {
     // MARK: - Profiling Different Threads
 
     func testProfilingOtherThread() {
-        let expectation = XCTestExpectation(description: "Profile other thread")
-
         var otherThread: pthread_t?
+        let group = DispatchGroup()
         let semaphore = DispatchSemaphore(value: 0)
 
         // Start a background thread that does work
-        DispatchQueue.global().async {
+        group.enter()
+        let thread = Thread {
             otherThread = pthread_self()
             semaphore.signal()
 
@@ -391,17 +391,20 @@ final class ProfilerTests: XCTestCase {
                 _ = (0..<100).reduce(0, +)
                 Thread.sleep(forTimeInterval: 0.001)
             }
+            group.leave()
         }
+        thread.start()
 
         semaphore.wait()
 
-        guard let thread = otherThread else {
+        guard let targetThread = otherThread else {
             XCTFail("Failed to get other thread")
+            group.wait()
             return
         }
 
         let profiler = Profiler<Sample64>(
-            thread: thread,
+            thread: targetThread,
             interval: 0.005,
             retentionSeconds: 5
         )
@@ -415,8 +418,8 @@ final class ProfilerTests: XCTestCase {
             XCTAssertGreaterThan(profile.samples.count, 0, "Should capture samples from other thread")
         }
 
-        expectation.fulfill()
-        wait(for: [expectation], timeout: 5.0)
+        // Wait for the thread to complete
+        group.wait()
     }
 
     // MARK: - Expected Sample Interval Tests

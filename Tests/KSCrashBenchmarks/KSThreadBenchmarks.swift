@@ -117,12 +117,14 @@ final class KSThreadBenchmarks: XCTestCase {
         let group = DispatchGroup()
         let threadCount = 10
 
-        for _ in 0..<threadCount {
+        for i in 0..<threadCount {
             group.enter()
-            DispatchQueue.global(qos: .background).async {
+            let thread = Thread {
+                Thread.current.name = "ConcurrencyThread-\(i)"
                 Thread.sleep(forTimeInterval: 2.0)  // Keep threads alive during benchmark
                 group.leave()
             }
+            thread.start()
         }
 
         // Give threads time to start
@@ -138,7 +140,8 @@ final class KSThreadBenchmarks: XCTestCase {
             }
         }
 
-        // Don't wait for background threads - they'll be cleaned up
+        // Wait for all threads to complete
+        group.wait()
     }
 
     // MARK: - Thread Cache Benchmarks (KSThreadCache)
@@ -241,6 +244,9 @@ final class KSThreadBenchmarks: XCTestCase {
 
             kstc_unfreeze()
         }
+
+        // Wait for all threads to complete
+        group.wait()
     }
 
     /// Compare cached vs uncached thread name lookup
