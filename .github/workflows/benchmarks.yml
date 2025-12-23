@@ -1,7 +1,17 @@
 name: Benchmarks
 
 on:
+  # For same-repo PRs (has write permissions already)
   pull_request:
+    paths:
+      - "Sources/**"
+      - "Tests/KSCrashBenchmarks/**"
+      - "Tests/KSCrashRecordingTests/KSCrashReportBenchmarks.m"
+      - "Package.swift"
+      - ".github/workflows/benchmarks.yml"
+
+  # For fork PRs (needs base repo context for write permissions)
+  pull_request_target:
     paths:
       - "Sources/**"
       - "Tests/KSCrashBenchmarks/**"
@@ -29,15 +39,24 @@ concurrency:
 jobs:
   benchmark:
     runs-on: macos-latest
+    # Run on pull_request only for same-repo, pull_request_target only for forks
+    # This prevents duplicate runs
+    if: |
+      github.event_name != 'pull_request_target' && github.event_name != 'pull_request' ||
+      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
+      (github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository)
 
     steps:
       - name: Checkout PR Branch
         uses: actions/checkout@v4
         with:
+          # For pull_request_target, we must explicitly get the PR head
+          # For pull_request, the default checkout works but explicit is clearer
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           path: pr-branch
 
       - name: Checkout Base Branch
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
         uses: actions/checkout@v4
         with:
           ref: ${{ github.base_ref }}
@@ -54,7 +73,7 @@ jobs:
           swift test --filter "KSCrashBenchmarks|KSCrashReportBenchmarks" 2>&1 | tee ../pr_benchmark_output.txt
 
       - name: Run Base Benchmarks
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
         working-directory: base-branch
         run: |
           # Check if benchmarks exist in base branch
@@ -66,7 +85,7 @@ jobs:
 
       - name: Parse and Format Results
         env:
-          IS_PR: ${{ github.event_name == 'pull_request' }}
+          IS_PR: ${{ github.event_name == 'pull_request' || github.event_name == 'pull_request_target' }}
         run: |
           python3 << 'EOF'
           import re
@@ -526,7 +545,7 @@ jobs:
           EOF
 
       - name: Comment PR with Results
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
         uses: thollander/actions-comment-pull-request@v2
         with:
           filePath: benchmark_results.md
