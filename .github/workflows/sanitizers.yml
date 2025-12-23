@@ -44,5 +44,30 @@ jobs:
           xcode-version: latest-stable
 
       - name: Run Tests with ${{ matrix.name }}
-        run: swift test --sanitize=${{ matrix.sanitizer }}
+        run: |
+          swift test --sanitize=${{ matrix.sanitizer }} 2>&1 | tee sanitizer-output.log
+          exit ${PIPESTATUS[0]}
         timeout-minutes: 30
+
+      - name: Collect Crash Logs
+        if: failure()
+        run: |
+          mkdir -p crash-logs
+          cp -r ~/Library/Logs/DiagnosticReports/* crash-logs/ 2>/dev/null || true
+
+      - name: Upload Sanitizer Output
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ${{ matrix.sanitizer }}-sanitizer-output
+          path: sanitizer-output.log
+          retention-days: 14
+
+      - name: Upload Crash Logs
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ${{ matrix.sanitizer }}-crash-logs
+          path: crash-logs/
+          retention-days: 14
+          if-no-files-found: ignore
