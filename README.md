@@ -1,464 +1,339 @@
+# KSCrash
 
-![Untitled](https://github.com/user-attachments/assets/9478bde6-78ae-4d59-b8ab-dc6db4137b9f)
+![KSCrash](https://github.com/user-attachments/assets/9478bde6-78ae-4d59-b8ab-dc6db4137b9f)
 
 [![Run Unit Tests](https://github.com/kstenerud/KSCrash/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/kstenerud/KSCrash/actions/workflows/unit-tests.yml)
 [![CocoaPods Lint](https://github.com/kstenerud/KSCrash/actions/workflows/cocoapods-lint.yml/badge.svg)](https://github.com/kstenerud/KSCrash/actions/workflows/cocoapods-lint.yml)
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fkstenerud%2FKSCrash%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/kstenerud/KSCrash)
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fkstenerud%2FKSCrash%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/kstenerud/KSCrash)
 
-## 🚀 KSCrash 2.0 Released!
+**A robust, full-featured crash reporting framework for Apple platforms.**
 
-KSCrash 2.0 is now available with significant improvements and enhancements. If you are upgrading from version 1.x, please refer to the migration guide for details on transitioning to the latest version:
+KSCrash provides comprehensive crash detection and reporting with deep system introspection capabilities. It captures detailed diagnostic information that goes far beyond standard crash reports, helping you understand exactly what happened when your app crashed.
 
-➡️ [Migration Guide for KSCrash 1.x to 2.0](https://github.com/kstenerud/KSCrash/wiki/Migration-Guide-for-KSCrash-1.x-to-2.0)
+## Platform Support
 
-## Another crash reporter? Why?
+- iOS 12.0+
+- macOS 10.14+
+- tvOS 12.0+
+- watchOS 5.0+
+- visionOS 1.0+
 
-Because while the existing crash reporters do report crashes, there's a heck
-of a lot more that they COULD do. Here are some key features of KSCrash:
+## Features
 
-* On-device symbolication in a way that supports re-symbolication offline
-  (necessary for iOS versions where many functions have been redacted).
-* Generates full Apple reports, with every field filled in.
-* 32-bit and 64-bit mode.
-* Supports all Apple devices, including Apple Watch.
-* Handles errors that can only be caught at the mach level, such as stack
-  overflow.
-* Tracks the REAL cause of an uncaught C++ exception.
-* Handles a crash in the crash handler itself (or in the user crash handler
-  callback).
-* Detects zombie (deallocated) object access attempts.
-* Recovers lost NSException messages in cases of zombies or memory corruption.
-* Introspects objects in registers and on the stack (C strings and Objective-C
-  objects, including ivars).
-* Extracts information about objects referenced by an exception (such as
-  "unrecognized selector sent to instance 0xa26d9a0")
-* Its pluggable server reporting architecture makes it easy to adapt to any API
-  service.
-* Dumps the stack contents.
-* Diagnoses crash causes (Crash Doctor).
-* Records lots of information beyond what the Apple crash report can, in a JSON
-  format.
-* Supports including extra data that the programmer supplies (before and during
-  a crash).
+### Crash and Termination Coverage
 
-### KSCrash handles the following kinds of crashes:
+KSCrash detects and reports all major crash and termination types:
 
-* Mach kernel exceptions
-* Fatal signals
-* C++ exceptions
-* Objective-C exceptions
-* Main thread deadlock (experimental)
-* Custom crashes (e.g. from scripting languages)
+- **Mach Kernel Exceptions** - Low-level system crashes including stack overflow
+- **Fatal Signals** - SIGABRT, SIGSEGV, SIGBUS, SIGFPE, SIGILL, and more
+- **C++ Exceptions** - Full exception type, message, and throw location
+- **Objective-C NSExceptions** - Complete exception details with recovery from memory corruption
+- **Watchdog Terminations** - App hangs and responsiveness issues
+- **Out-of-Memory Terminations** - Detect OOM kills on next launch
+- **Custom Crashes** - Report crashes from scripting languages or custom error handlers
 
-[Here are some examples of the reports it can generate.](https://github.com/kstenerud/KSCrash/tree/master/Example-Reports/_README.md)
+### Deep Diagnostics
 
-## Call for help!
+- **On-Device Symbolication** - Generate readable stack traces on the device itself. Supports offline resymbolication for iOS versions with redacted symbols. Server-side symbolication is recommended when available for the most accurate results.
+- **Memory Introspection** - Inspect objects and strings referenced in registers, stack, and exception messages during a crash
+- **Lost Exception Recovery** - Recover NSException messages even when memory corruption or stack overflow has occurred
+- **Crash Doctor** - Automated crash diagnosis to help identify root causes
 
-My life has changed enough over the past few years that I can't keep up with giving KSCrash the love it needs.
+### Proactive Monitoring
 
-![I want you](https://c1.staticflickr.com/9/8787/28351252396_eeec9bb146.jpg)
+- **Memory Tracking** - Monitor memory pressure levels (Normal, Warn, Urgent, Critical, Terminal) to prevent out-of-memory terminations before they happen
+- **Hang Detection** - Detect main thread hangs and capture thread states before watchdog termination
 
-I'm looking for someone to help me maintain this package, make sure issues get handled, merges are properly vetted, and code quality remains high. Please contact me personally (kstenerud at my gmail address) or comment in https://github.com/kstenerud/KSCrash/issues/313
+### Flexible Reporting
 
-## How to Install KSCrash
+- **Multiple Output Formats** - JSON with extensive metadata, or Apple-standard crash reports
+- **Pluggable Architecture** - Filters for processing, sinks for destinations, and pre-configured installations
+- **Built-in Integrations** - HTTP upload, email reporting, and console output
+- **Custom Data** - Attach your own metadata to crash reports
 
-### Swift Package Manager (SPM)
+### Production Ready
 
-#### Option 1: Using Xcode UI
+- **Async-Signal Safe** - Core crash handling code is carefully designed to avoid deadlocks and secondary crashes
+- **Crash-in-Handler Protection** - Handles crashes that occur within the crash handler itself
 
-1. In Xcode, go to File > Add Packages...
+## Installation
+
+### Swift Package Manager
+
+**Using Xcode:**
+
+1. Go to File > Add Packages...
 2. Enter: `https://github.com/kstenerud/KSCrash.git`
-3. Select the desired version/branch
-4. Choose your target(s)
-5. Click "Add Package"
+3. Select the version and add to your target
 
-#### Option 2: Using Package.swift
-
-Add the following to your `Package.swift` file:
+**Using Package.swift:**
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/kstenerud/KSCrash.git", .upToNextMajor(from: "2.5.0"))
+    .package(url: "https://github.com/kstenerud/KSCrash.git", from: "2.0.0")
 ]
 ```
 
-Then, include "Installations" as a dependency for your target:
+Add the dependency to your target:
 
 ```swift
-targets: [
-    .target(
-        name: "YourTarget",
-        dependencies: [
-            .product(name: "Installations", package: "KSCrash"),
-        ]),
-]
+.target(
+    name: "YourApp",
+    dependencies: [
+        .product(name: "Installations", package: "KSCrash"),
+    ]
+)
 ```
 
 ### CocoaPods
 
-1. Add to your `Podfile`:
-   ```ruby
-   pod 'KSCrash', '~> 2.5'
-   ```
-
-2. Run:
-   ```
-   $ pod install
-   ```
-
-3. Use the generated `.xcworkspace` file.
-
-### Post-Installation Setup
-
-Add the following to your `AppDelegate.swift` file:
-
-#### Import KSCrash
-
-For Swift Package Manager:
-
-```swift
-import KSCrashInstallations
+```ruby
+pod 'KSCrash', '~> 2.0'
 ```
 
-For CocoaPods:
+## Quick Start
+
+**Important:** Initialize KSCrash as early as possible in your app's lifecycle. Crashes that occur before initialization will not be captured. The AppDelegate or UIApplicationDelegate `init()` method is ideal. Avoid waiting until `didFinishLaunchingWithOptions` as crashes during early app startup would be missed.
+
+### UIKit App
 
 ```swift
-import KSCrash
-```
+import KSCrashInstallations  // SPM
+// import KSCrash            // CocoaPods
 
-#### Configure AppDelegate
-
-```swift
 class AppDelegate: UIResponder, UIApplicationDelegate {
-    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
 
+    override init() {
+        super.init()
+        setupCrashReporting()
+    }
+
+    private func setupCrashReporting() {
         let installation = CrashInstallationStandard.shared
-        installation.url = URL(string: "http://put.your.url.here")!
+        installation.url = URL(string: "https://your-crash-server.com/reports")!
+        installation.install(with: nil)
+    }
 
-        // Install the crash reporting system
-        let config = KSCrashConfiguration()
-        config.monitors = [.machException, .signal]
-        installation.install(with: config) // set `nil` for default config
-
-        // Optional: Add an alert confirmation (recommended for email installation)
-        installation.addConditionalAlert(
-            withTitle: "Crash Detected",
-            message: "The app crashed last time it was launched. Send a crash report?",
-            yesAnswer: "Sure!",
-            noAnswer: "No thanks"
-        )
-
+    func application(_ application: UIApplication,
+                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        // Send any pending crash reports
+        CrashInstallationStandard.shared.sendAllReports { reports, completed, error in
+            if completed {
+                print("Sent \(reports.count) crash reports")
+            }
+        }
         return true
     }
 }
 ```
 
-#### Other Installation Types
-
-##### Email Installation
+### SwiftUI App
 
 ```swift
-let installation = CrashInstallationEmail.shared
-installation.recipients = ["some@email.address"] // Specify recipients for email reports
-// Optional: Send Apple-style reports instead of JSON
-installation.setReportStyle(.apple, useDefaultFilenameFormat: true)
-```
-
-##### Console Installation
-
-```swift
-let installation = CrashInstallationConsole.shared
-installation.printAppleFormat = true // Print crash reports in Apple format for testing
-```
-
-#### Sending Reports
-
-To send any outstanding crash reports, call:
-
-```swift
-installation.sendAllReports { reports, completed, error in
-    // Stuff to do when report sending is complete
-}
-```
-
-### Optional Monitors
-
-KSCrash includes two optional monitor modules: `BootTimeMonitor` and `DiscSpaceMonitor`. These modules are not included by default and must be explicitly added if needed. They contain privacy-concerning APIs that require showing crash reports to the user before sending this information off the device.
-
-To include these modules:
-
-- With CocoaPods:
-  ```ruby
-  pod 'KSCrash/BootTimeMonitor'
-  pod 'KSCrash/DiscSpaceMonitor'
-  ```
-
-- With SPM, add to your target dependencies:
-  ```swift
-  .product(name: "BootTimeMonitor", package: "KSCrash"),
-  .product(name: "DiscSpaceMonitor", package: "KSCrash"),
-  ```
-
-If these modules are linked, they act automatically and require no additional setup. It is the responsibility of the library user to implement the necessary UI for user consent.
-
-For more information, see Apple's documentation on [Disk space APIs](https://developer.apple.com/documentation/bundleresources/privacy_manifest_files/describing_use_of_required_reason_api#4278397) and [System boot time APIs](https://developer.apple.com/documentation/bundleresources/privacy_manifest_files/describing_use_of_required_reason_api#4278394).
-
-### Optional Demangling
-
-KSCrash has an optional module that provides demangling for both C++ and Swift symbols: `DemangleFilter`. This module contains a KSCrash filter (`CrashReportFilterDemangle`) that can be used for demangling symbols in crash reports during the `sendAllReports` call *(if this filter is added to the filters pipeline)*.
-
-This module is used automatically if you use the `Installations` API. If you want to avoid demangling, you can set `isDemangleEnabled` in the `CrashInstallation` instance to `false`.
-
-If you don't use the `Installations` API, you can include this module manually:
-
-- With CocoaPods:
-  ```ruby
-  pod 'KSCrash/DemangleFilter'
-  ```
-
-- With SPM, add to your target dependencies:
-  ```swift
-  .product(name: "DemangleFilter", package: "KSCrash"),
-  ```
-
-The `CrashReportFilterDemangle` class also has a static API that you can use yourself in case you need to demangle a C++ or Swift symbol.
-
-## Integrating KSCrash Into Your Library
-
-If you want to leverage KSCrash as the crash detection layer in your own crash reporter library, you'll need to namespace it so that the symbols don't clash with other libraries that do the same.
-
-KSCrash fully supports [namespacing](Sources/KSCrashCore/include/KSCrashNamespace.h) all of its public symbols, allowing it to coexist with other versions of itself.
-
-There are [various approaches](Tests/NamespaceTests) you can take to integrate KSCrash into your product.
-
-## What's New?
-
-### Out-of-Memory Crash Detection
-
-KSCrash now includes advanced memory tracking capabilities to help detect and prevent out-of-memory crashes. The new `KSCrashAppMemoryTracker` allows you to monitor your app's memory usage, pressure, and state transitions in real-time. This feature enables proactive memory management, helping you avoid system-initiated terminations due to excessive memory use. Check out the "Advanced Usage" section for more details on how to implement this in your app.
-
-### C++ Exception Handling
-
-That's right! Normally if your app terminates due to an uncaught C++ exception,
-all you get is this:
-
-    Thread 0 name:  Dispatch queue: com.apple.main-thread
-    Thread 0 Crashed:
-    0   libsystem_kernel.dylib          0x9750ea6a 0x974fa000 + 84586 (__pthread_kill + 10)
-    1   libsystem_sim_c.dylib           0x04d56578 0x4d0f000 + 292216 (abort + 137)
-    2   libc++abi.dylib                 0x04ed6f78 0x4ed4000 + 12152 (abort_message + 102)
-    3   libc++abi.dylib                 0x04ed4a20 0x4ed4000 + 2592 (_ZL17default_terminatev + 29)
-    4   libobjc.A.dylib                 0x013110d0 0x130b000 + 24784 (_ZL15_objc_terminatev + 109)
-    5   libc++abi.dylib                 0x04ed4a60 0x4ed4000 + 2656 (_ZL19safe_handler_callerPFvvE + 8)
-    6   libc++abi.dylib                 0x04ed4ac8 0x4ed4000 + 2760 (_ZSt9terminatev + 18)
-    7   libc++abi.dylib                 0x04ed5c48 0x4ed4000 + 7240 (__cxa_rethrow + 77)
-    8   libobjc.A.dylib                 0x01310fb8 0x130b000 + 24504 (objc_exception_rethrow + 42)
-    9   CoreFoundation                  0x01f2af98 0x1ef9000 + 204696 (CFRunLoopRunSpecific + 360)
-    ...
-
-No way to track what the exception was or where it was thrown from!
-
-Now with KSCrash, you get the uncaught exception type, description, and where it was thrown from:
-
-    Application Specific Information:
-    *** Terminating app due to uncaught exception 'MyException', reason: 'Something bad happened...'
-
-    Thread 0 name:  Dispatch queue: com.apple.main-thread
-    Thread 0 Crashed:
-    0   Crash-Tester                    0x0000ad80 0x1000 + 40320 (-[Crasher throwUncaughtCPPException] + 0)
-    1   Crash-Tester                    0x0000842e 0x1000 + 29742 (__32-[AppDelegate(UI) crashCommands]_block_invoke343 + 78)
-    2   Crash-Tester                    0x00009523 0x1000 + 34083 (-[CommandEntry executeWithViewController:] + 67)
-    3   Crash-Tester                    0x00009c0a 0x1000 + 35850 (-[CommandTVC tableView:didSelectRowAtIndexPath:] + 154)
-    4   UIKit                           0x0016f285 0xb4000 + 766597 (-[UITableView _selectRowAtIndexPath:animated:scrollPosition:notifyDelegate:] + 1194)
-    5   UIKit                           0x0016f4ed 0xb4000 + 767213 (-[UITableView _userSelectRowAtPendingSelectionIndexPath:] + 201)
-    6   Foundation                      0x00b795b3 0xb6e000 + 46515 (__NSFireDelayedPerform + 380)
-    7   CoreFoundation                  0x01f45376 0x1efa000 + 308086 (__CFRUNLOOP_IS_CALLING_OUT_TO_A_TIMER_CALLBACK_FUNCTION__ + 22)
-    8   CoreFoundation                  0x01f44e06 0x1efa000 + 306694 (__CFRunLoopDoTimer + 534)
-    9   CoreFoundation                  0x01f2ca82 0x1efa000 + 207490 (__CFRunLoopRun + 1810)
-    10  CoreFoundation                  0x01f2bf44 0x1efa000 + 204612 (CFRunLoopRunSpecific + 276)
-    ...
-
-### Custom Crashes & Stack Traces
-
-You can now report your own custom crashes and stack traces (think scripting
-languages):
-```objective-c
-- (void) reportUserException:(NSString*) name
-                      reason:(NSString*) reason
-                  lineOfCode:(NSString*) lineOfCode
-                  stackTrace:(NSArray*) stackTrace
-            terminateProgram:(BOOL) terminateProgram;
-```
-
-See KSCrash.h for details.
-
-### Unstable Features
-
-The following features should be considered "unstable" and are disabled by default:
-
-- Deadlock detection
-
-## Recommended Reading
-
-If possible, you should read the following header files to fully understand
-what features KSCrash has, and how to use them:
-
-* KSCrash.h
-* KSCrashInstallation.h
-* KSCrashInstallation(SPECIFIC TYPE).h
-* [Architecture.md](https://github.com/kstenerud/KSCrash/wiki/KSCrash-Architecture)
-
-## Understanding the KSCrash Codebase
-
-KSCrash is structured into several modules, divided into public and private APIs:
-
-### Public API Modules
-
-1. **Recording**: `KSCrashRecording` - Handles crash event recording.
-2. **Reporting**:
-   - **Filters**: `KSCrashFilters` - Processes crash reports.
-   - **Sinks**: `KSCrashSinks` - Manages report destinations.
-   - **Installations**: `KSCrashInstallations` - Provides easy-to-use setups for different reporting scenarios.
-
-### Optional Modules
-
-- **DiscSpaceMonitor**: `KSCrashDiscSpaceMonitor` - Monitors available disk space.
-- **BootTimeMonitor**: `KSCrashBootTimeMonitor` - Tracks device boot time.
-- **DemangleFilter**: `KSCrashDemangleFilter` - Demangle symbols in crashes as part of reporing pipeline.
-
-### Private API Modules
-
-- `KSCrashRecordingCore`: Core functionality for crash recording.
-- `KSCrashReportingCore`: Core functionality for crash reporting.
-- `KSCrashCore`: Core system capabilities logic.
-
-Users should interact with the public API modules, while the private modules handle internal operations. The optional modules can be included for additional functionality as needed.
-
-**Also see a quick code tour [here](https://github.com/kstenerud/KSCrash/wiki/A-Brief-Tour-of-the-KSCrash-Code-and-Architecture).**
-
-## Advanced Usage
-
-### Enabling on-device symbolication
-
-On-device symbolication requires basic symbols to be present in the final
-build. To enable this, go to your app's build settings and set **Strip Style**
-to **Debugging Symbols**. Doing so increases your final binary size by about
-5%, but you get on-device symbolication.
-
-### Enabling advanced functionality:
-
-KSCrash has advanced functionality that can be very useful when examining crash
-reports in the wild. Some involve minor trade-offs, so most of them are
-disabled by default.
-
-#### Custom User Data (userInfo in KSCrash.h)
-
-You can store custom user data to the next crash report by setting the
-**userInfo** property in KSCrash.h.
-
-#### Zombie Tracking (KSCrashMonitorTypeZombie in KSCrashMonitorType.h)
-
-KSCrash has the ability to detect zombie instances (dangling pointers to
-deallocated objects). It does this by recording the address and class of any
-object that gets deallocated. It stores these values in a cache, keyed off the
-deallocated object's address. This means that the smaller you set the cache
-size, the greater the chance that a hash collision occurs and you lose
-information about a previously deallocated object.
-
-With zombie tracking enabled, KSCrash will also detect a lost NSException and
-print its contents. Certain kinds of memory corruption or stack corruption
-crashes can cause the exception to deallocate early, further twarting efforts
-to debug your app, so this feature can be quite handy at times.
-
-Trade off: Zombie tracking at the cost of adding very slight overhead to object
-           deallocation, and having some memory reserved.
-
-#### Deadlock Detection (KSCrashMonitorTypeMainThreadDeadlock in KSCrashMonitorType.h)
-
-**WARNING WARNING WARNING WARNING WARNING WARNING WARNING**
-
-**This feature is UNSTABLE! It can false-positive and crash your app!**
-
-If your main thread deadlocks, your user interface will become unresponsive,
-and the user will have to manually shut down the app (for which there will be
-no crash report). With deadlock detection enabled, a watchdog timer is set up.
-If anything holds the main thread for longer than the watchdog timer duration,
-KSCrash will shut down the app and give you a stack trace showing what the
-main thread was doing at the time.
-
-This is wonderful, but you must be careful: App initialization generally
-occurs on the main thread. If your initialization code takes longer than the
-watchdog timer, your app will be forcibly shut down during start up! If you
-enable this feature, you MUST ensure that NONE of your normally running code
-holds the main thread for longer than the watchdog value! At the same time,
-you'll want to set the timer to a low enough value that the user doesn't
-become impatient and shut down the app manually before the watchdog triggers!
-
-Trade off: Deadlock detection, but you must be a lot more careful about what
-           runs on the main thread!
-
-#### Memory Introspection (introspectMemory in KSCrash.h)
-
-When an app crashes, there are usually objects and strings in memory that are
-being referenced by the stack, registers, or even exception messages. When
-enabled, KSCrash will introspect these memory regions and store their contents
-in the crash report.
-
-You can also specify a list of classes that should not be introspected by
-setting the **doNotIntrospectClasses** property in KSCrash.
-
-#### Custom crash handling code
-
-The following callbacks are available in `KSCrashConfiguration.h`:
-
- * `willWriteReportCallback`
- * `isWritingReportCallback`
- * `didWriteReportCallback`
-
-If you want to do some extra processing after a crash occurs (perhaps to add
-more contextual data to the report), you can do so with these.
-
-However, you must ensure that you heed the restrictions in the `plan` field!
-Calling non-async-safe code (such as Objective-C or Swift code, or allocating)
-when the plan requires async safety is a recipe for deadlocks or crashing the
-crash handler!
-
-Trade off: Custom crash handling code, but you must be careful what you put
-           in it!
-
-#### KSCrash log redirection
-
-This takes whatever KSCrash would have printed to the console, and writes it
-to a file instead. I mostly use this for debugging KSCrash itself, but it could
-be useful for other purposes, so I've exposed an API for it.
-
-#### Out-of-Memory Crash Detection (KSCrashAppMemoryTracker)
-
-KSCrash now includes advanced memory tracking capabilities to help detect and prevent out-of-memory crashes. The `KSCrashAppMemoryTracker` class monitors your app's memory usage, pressure, and state transitions. It provides real-time updates on memory conditions, allowing you to respond dynamically to different memory states (Normal, Warn, Urgent, Critical, Terminal). By implementing the `KSCrashAppMemoryTrackerDelegate` protocol, you can receive notifications about memory changes and take appropriate actions to reduce memory usage, potentially avoiding system-initiated terminations due to memory pressure.
-
-To use this feature:
-
-```swift
-let memoryTracker = AppMemoryTracker()
-memoryTracker.delegate = self
-memoryTracker.start()
-```
-
-In your delegate method:
-
-```swift
-func appMemoryTracker(_ tracker: AppMemoryTracker, memory: AppMemory, changed changes: AppMemoryTrackerChangeType) {
-    if changes.contains(.level) {
-        // Respond to memory level changes
+import SwiftUI
+import KSCrashInstallations
+
+@main
+struct MyApp: App {
+
+    init() {
+        let installation = CrashInstallationStandard.shared
+        installation.url = URL(string: "https://your-crash-server.com/reports")!
+        installation.install(with: nil)
+    }
+
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+                .task {
+                    await sendCrashReports()
+                }
+        }
+    }
+
+    private func sendCrashReports() async {
+        CrashInstallationStandard.shared.sendAllReports { reports, completed, error in
+            if completed {
+                print("Sent \(reports.count) crash reports")
+            }
+        }
     }
 }
 ```
 
-This feature helps you implement proactive memory management strategies in your app.
+### SDK Integration
+
+If you're building an SDK that needs to process crash reports directly:
+
+```swift
+import KSCrashRecording
+import KSCrashFilters
+
+class MyCrashSDK {
+
+    func install() {
+        // Install KSCrash with your configuration
+        let config = KSCrashConfiguration()
+        KSCrash.shared.install(with: config)
+    }
+
+    func processReports() {
+        // Retrieve and process reports yourself
+        let reportStore = KSCrash.shared.reportStore
+        let reportIDs = reportStore.reportIDs
+
+        for reportID in reportIDs {
+            if let report = reportStore.report(for: reportID) {
+                // Process the report as needed
+                sendToYourBackend(report: report)
+
+                // Delete after successful processing
+                reportStore.deleteReport(with: reportID)
+            }
+        }
+    }
+
+    private func sendToYourBackend(report: CrashReport) {
+        // Your custom report handling
+    }
+}
+```
+
+### Custom Configuration
+
+```swift
+let config = KSCrashConfiguration()
+config.monitors = [.machException, .signal, .cppException, .nsException]
+
+installation.install(with: config)
+```
+
+### Email Reports
+
+```swift
+let installation = CrashInstallationEmail.shared
+installation.recipients = ["crashes@yourcompany.com"]
+installation.setReportStyle(.apple, useDefaultFilenameFormat: true)
+
+// Optional: Ask user before sending
+installation.addConditionalAlert(
+    withTitle: "Crash Detected",
+    message: "Would you like to send a crash report?",
+    yesAnswer: "Send",
+    noAnswer: "Don't Send"
+)
+
+installation.install(with: nil)
+```
+
+## Advanced Features
+
+### Memory Monitoring
+
+KSCrash uses memory tracking internally to detect out-of-memory terminations. You can observe memory state changes to proactively manage memory in your app using the shared instance:
+
+```swift
+import KSCrashRecording
+
+class MyClass {
+    // Hold a reference to keep the observer active
+    private var memoryObserver: AnyObject?
+
+    func startObservingMemory() {
+        memoryObserver = AppMemoryTracker.shared.addObserver { memory, changes in
+            if memory.level == .critical {
+                // Release non-essential resources
+                self.clearCaches()
+            }
+        }
+    }
+
+    func stopObservingMemory() {
+        // Setting to nil removes the observer
+        memoryObserver = nil
+    }
+}
+```
+
+### Custom User Data
+
+Attach contextual information to crash reports:
+
+```swift
+KSCrash.shared.userInfo = [
+    "user_id": "12345",
+    "session_id": sessionId,
+    "feature_flags": enabledFeatures
+]
+```
+
+### On-Device Symbolication
+
+To enable on-device symbolication, set **Strip Style** to **Debugging Symbols** in your build settings. This adds approximately 5% to binary size but enables readable stack traces directly on the device. For production apps, server-side symbolication with dSYM files is recommended when possible for the most accurate and complete results.
+
+## Optional Modules
+
+### Symbol Demangling
+
+The `DemangleFilter` module provides C++ and Swift symbol demangling. It's included automatically when using the Installations API. To disable:
+
+```swift
+installation.isDemangleEnabled = false
+```
+
+### Privacy-Sensitive Monitors
+
+These modules require user consent before transmitting data:
+
+- **BootTimeMonitor** - Device boot time information
+- **DiscSpaceMonitor** - Available disk space
+
+Add them explicitly if needed:
+
+```swift
+// SPM
+.product(name: "BootTimeMonitor", package: "KSCrash"),
+.product(name: "DiscSpaceMonitor", package: "KSCrash"),
+
+// CocoaPods
+pod 'KSCrash/BootTimeMonitor'
+pod 'KSCrash/DiscSpaceMonitor'
+```
+
+## Architecture
+
+KSCrash uses a modular architecture:
+
+| Module | Purpose |
+|--------|---------|
+| **Recording** | Crash detection and capture |
+| **Filters** | Report processing and transformation |
+| **Sinks** | Report delivery (HTTP, email, console) |
+| **Installations** | Pre-configured setups for common use cases |
+
+For detailed architecture information, see the [Architecture Guide](https://github.com/kstenerud/KSCrash/wiki/KSCrash-Architecture).
+
+## Example Reports
+
+See [Example-Reports](Example-Reports/_README.md) for sample crash reports in both JSON and Apple formats.
+
+## Community
+
+Join the conversation and get help:
+
+- **Slack** - [Join the KSCrash Slack](https://join.slack.com/t/kscrash/shared_invite/zt-3lq7n9ss7-m97NrPJW3l9pvpZl17ztbg)
+- **GitHub Discussions** - Ask questions and share ideas on GitHub
+
+## Support the Project
+
+If KSCrash has been valuable for your projects, consider [sponsoring the project on GitHub](https://github.com/sponsors/kstenerud). Your support helps maintain and improve the framework.
 
 ## License
 
+KSCrash is available under the MIT license.
+
+```text
 Copyright (c) 2012 Karl Stenerud
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -479,3 +354,4 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
+```
