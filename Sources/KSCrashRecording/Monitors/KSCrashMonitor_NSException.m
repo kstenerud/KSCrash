@@ -62,7 +62,7 @@ static bool isEnabled(void) { return g_state.isEnabled && g_state.installedState
 #pragma mark - Callbacks -
 // ============================================================================
 
-static KS_NOINLINE void initStackCursor(KSStackCursor *cursor, NSException *exception, uintptr_t *callstack,
+static KS_NOINLINE void initStackCursor(KSStackCursor *cursor, NSException *exception, uintptr_t **callstack,
                                         BOOL isUserReported) KS_KEEP_FUNCTION_IN_STACKTRACE
 {
     // Use stacktrace from NSException if present,
@@ -70,11 +70,11 @@ static KS_NOINLINE void initStackCursor(KSStackCursor *cursor, NSException *exce
     NSArray *addresses = [exception callStackReturnAddresses];
     NSUInteger numFrames = addresses.count;
     if (numFrames != 0) {
-        callstack = malloc(numFrames * sizeof(*callstack));
+        *callstack = malloc(numFrames * sizeof(**callstack));
         for (NSUInteger i = 0; i < numFrames; i++) {
-            callstack[i] = (uintptr_t)[addresses[i] unsignedLongLongValue];
+            (*callstack)[i] = (uintptr_t)[addresses[i] unsignedLongLongValue];
         }
-        kssc_initWithBacktrace(cursor, callstack, (int)numFrames, 0);
+        kssc_initWithBacktrace(cursor, *callstack, (int)numFrames, 0);
     } else {
         /* Skip frames for user-reported:
          * 1. `initStackCursor`
@@ -115,7 +115,7 @@ static KS_NOINLINE void handleException(NSException *exception, BOOL isUserRepor
         ksmc_getContextForThread(thisThread, &machineContext, true);
         KSStackCursor cursor;
         uintptr_t *callstack = NULL;
-        initStackCursor(&cursor, exception, callstack, isUserReported);
+        initStackCursor(&cursor, exception, &callstack, isUserReported);
 
         // Now start exception handling
         KSCrash_MonitorContext *crashContext = g_state.callbacks.notify(

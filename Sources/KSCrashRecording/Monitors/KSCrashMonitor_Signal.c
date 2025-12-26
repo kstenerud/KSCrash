@@ -218,6 +218,7 @@ static void uninstall(void)
     }
 
 #if KSCRASH_HAS_SIGNAL_STACK
+    free(g_state.signalStack.ss_sp);
     g_state.signalStack = (stack_t) { 0 };
 #endif
     KSLOG_DEBUG("Signal handlers uninstalled.");

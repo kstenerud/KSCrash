@@ -34,7 +34,6 @@
 #include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "KSLogger.h"
 
@@ -87,6 +86,65 @@ static inline bool addressInCachedSegments(const KSBinaryImageRange *entry, uint
         }
     }
     return false;
+}
+
+// Binary search to find the rightmost entry with startAddress <= address.
+// Returns -1 if no such entry exists.
+// The cache must be sorted by startAddress in ascending order.
+static inline int32_t binarySearchCache(const KSBinaryImageRangeCache *cache, uintptr_t address)
+{
+    if (cache->count == 0) {
+        return -1;
+    }
+
+    int32_t left = 0;
+    int32_t right = (int32_t)cache->count - 1;
+    int32_t result = -1;
+
+    while (left <= right) {
+        int32_t mid = left + (right - left) / 2;
+        if (cache->entries[mid].startAddress <= address) {
+            result = mid;
+            left = mid + 1;
+        } else {
+            right = mid - 1;
+        }
+    }
+
+    return result;
+}
+
+// Insert an entry into the cache maintaining sorted order by startAddress.
+// Uses binary search to find insertion point, then shifts entries in-place.
+// Avoid libc calls here to keep this async-signal-safe.
+static void insertSortedCacheEntry(KSBinaryImageRangeCache *cache, const KSBinaryImageRange *entry)
+{
+    if (cache->count >= KSBIC_MAX_CACHE_ENTRIES) {
+        return;
+    }
+
+    // Binary search for insertion point (first entry with startAddress >= entry->startAddress)
+    int32_t left = 0;
+    int32_t right = (int32_t)cache->count;
+
+    while (left < right) {
+        int32_t mid = left + (right - left) / 2;
+        if (cache->entries[mid].startAddress < entry->startAddress) {
+            left = mid + 1;
+        } else {
+            right = mid;
+        }
+    }
+
+    // Shift entries to make room for the new entry.
+    if (left < (int32_t)cache->count) {
+        for (uint32_t i = cache->count; i > (uint32_t)left; i--) {
+            cache->entries[i] = cache->entries[i - 1];
+        }
+    }
+
+    cache->entries[left] = *entry;
+    cache->count++;
 }
 
 // Populate a cache entry with image info including segment ranges.
@@ -337,15 +395,20 @@ const struct mach_header *ksbic_getImageDetailsForAddress(uintptr_t address, uin
     if (cache != NULL) {
         // SUCCESS: We have exclusive access to the cache
 
-        // First, search the cache for a matching entry
-        // Note: In dyld shared cache, multiple images can have overlapping [start, end) bounds
-        // due to shared __LINKEDIT segment, so we must verify using cached segment ranges.
-        for (uint32_t i = 0; i < cache->count; i++) {
-            KSBinaryImageRange *entry = &cache->entries[i];
+        // Use binary search to find candidate entries.
+        // The cache is sorted by startAddress, so we find the rightmost entry
+        // with startAddress <= address, then check it and scan backwards for
+        // overlapping ranges (due to dyld shared cache).
+        int32_t idx = binarySearchCache(cache, address);
+
+        // Check the found entry and scan backwards for overlapping ranges
+        while (idx >= 0) {
+            KSBinaryImageRange *entry = &cache->entries[idx];
+
+            // Check if address is in range and verify with segment check
             if (address >= entry->startAddress && address < entry->endAddress) {
-                // Potential cache hit - verify address is in an actual segment (fast check)
                 if (addressInCachedSegments(entry, address)) {
-                    // Verified: address is in a segment of this image
+                    // Cache hit - found the image
                     if (outSlide) *outSlide = entry->slide;
                     if (outSegmentBase) *outSegmentBase = entry->segmentBase;
                     if (outName) *outName = entry->name;
@@ -355,8 +418,8 @@ const struct mach_header *ksbic_getImageDetailsForAddress(uintptr_t address, uin
                     atomic_store(&g_cache_ptr, cache);
                     return result;
                 }
-                // Address is in [start, end) but not in any segment - continue searching
             }
+            idx--;
         }
 
         // Cache miss - do linear scan
@@ -364,9 +427,8 @@ const struct mach_header *ksbic_getImageDetailsForAddress(uintptr_t address, uin
         const struct mach_header *header = linearScanForAddress(address, &newEntry);
 
         if (header != NULL && cache->count < KSBIC_MAX_CACHE_ENTRIES) {
-            // Add to cache (entry already populated by linearScanForAddress)
-            cache->entries[cache->count] = newEntry;
-            cache->count++;
+            // Add to cache maintaining sorted order
+            insertSortedCacheEntry(cache, &newEntry);
         }
 
         if (header != NULL) {

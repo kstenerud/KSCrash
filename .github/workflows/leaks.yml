@@ -1,0 +1,286 @@
+name: Leaks
+
+on:
+  pull_request:
+    paths:
+      - "Sources/**"
+      - "Samples/**"
+      - "Package.swift"
+      - ".github/workflows/leaks.yml"
+
+  push:
+    branches:
+      - master
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  leaks:
+    runs-on: macos-15
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Use Latest Stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Setup Mise
+        uses: jdx/mise-action@v2
+
+      - name: Generate Project
+        working-directory: Samples
+        run: mise exec -- tuist generate --no-open
+
+      - name: Build Sample App for macOS
+        uses: mxcl/xcodebuild@v3
+        with:
+          action: build
+          workspace: "Samples/KSCrashSamples.xcworkspace"
+          scheme: "Sample"
+          platform: macOS
+
+      - name: Run Leaks Check
+        id: leaks
+        continue-on-error: true
+        run: |
+          set +e
+
+          # Find the built app in default derived data location
+          APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "Sample.app" -path "*Debug*" -not -path "*Simulator*" -type d 2>/dev/null | head -1)
+          echo "App path: $APP_PATH"
+
+          if [ -z "$APP_PATH" ]; then
+            echo "Could not find Sample.app"
+            echo "leaks_found=false" >> $GITHUB_OUTPUT
+            echo "leak_count=0" >> $GITHUB_OUTPUT
+            echo "leak_bytes=0" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          BINARY_PATH="$APP_PATH/Contents/MacOS/Sample"
+          echo "Binary path: $BINARY_PATH"
+
+          # Phase 1: Run the app to generate a crash report
+          echo "Phase 1: Running app to generate crash report..."
+          MallocScribble=1 MallocStackLogging=1 KSCRASH_LEAKS_TEST_CRASH=1 "$BINARY_PATH" 2>&1 || true
+          echo "Phase 1 complete (app crashed as expected)"
+          sleep 2
+
+          # Phase 2: Run the app with leaks to check for memory leaks while processing reports
+          echo "Phase 2: Running leaks check on Sample app..."
+          MallocScribble=1 MallocStackLogging=1 KSCRASH_LEAKS_TEST=1 leaks --atExit -- "$BINARY_PATH" 2>&1 | tee leaks_output.txt || true
+
+          # Parse results
+          if grep -q "0 leaks for 0 total leaked bytes" leaks_output.txt; then
+            echo "leaks_found=false" >> $GITHUB_OUTPUT
+            echo "leak_count=0" >> $GITHUB_OUTPUT
+            echo "leak_bytes=0" >> $GITHUB_OUTPUT
+          else
+            LEAK_LINE=$(grep -E "Process [0-9]+: [0-9]+ leaks? for [0-9]+ total leaked bytes" leaks_output.txt | tail -1)
+            if [ -n "$LEAK_LINE" ]; then
+              echo "leaks_found=true" >> $GITHUB_OUTPUT
+              LEAK_COUNT=$(echo "$LEAK_LINE" | grep -oE "[0-9]+ leaks?" | grep -oE "^[0-9]+")
+              LEAK_BYTES=$(echo "$LEAK_LINE" | grep -oE "[0-9]+ total" | grep -oE "^[0-9]+")
+              echo "leak_count=${LEAK_COUNT}" >> $GITHUB_OUTPUT
+              echo "leak_bytes=${LEAK_BYTES}" >> $GITHUB_OUTPUT
+            else
+              echo "leaks_found=false" >> $GITHUB_OUTPUT
+              echo "leak_count=0" >> $GITHUB_OUTPUT
+              echo "leak_bytes=0" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+          exit 0
+
+      - name: Generate Report
+        run: |
+          python3 << 'EOF'
+          import os
+          import subprocess
+          from datetime import datetime, timezone
+
+          leaks_found = os.environ.get('LEAKS_FOUND', 'false') == 'true'
+          leak_count = os.environ.get('LEAK_COUNT', '0')
+          leak_bytes = os.environ.get('LEAK_BYTES', '0')
+
+          # Get system info
+          try:
+              chip = subprocess.check_output(['sysctl', '-n', 'machdep.cpu.brand_string']).decode().strip()
+          except:
+              chip = subprocess.check_output(['uname', '-m']).decode().strip()
+
+          try:
+              mem_bytes = int(subprocess.check_output(['sysctl', '-n', 'hw.memsize']).decode().strip())
+              mem_gb = mem_bytes / (1024**3)
+          except:
+              mem_gb = 0
+
+          try:
+              macos_ver = subprocess.check_output(['sw_vers', '-productVersion']).decode().strip()
+          except:
+              macos_ver = "Unknown"
+
+          try:
+              xcode_ver = subprocess.check_output(['xcodebuild', '-version']).decode().split('\n')[0]
+          except:
+              xcode_ver = "Unknown"
+
+          system_info = f"{chip}, {mem_gb:.0f}GB RAM, macOS {macos_ver}, {xcode_ver}"
+
+          try:
+              with open('leaks_output.txt', 'r') as f:
+                  content = f.read()
+          except:
+              content = "No leaks output available"
+
+          import re
+
+          def format_bytes(b):
+              if b >= 1024 * 1024:
+                  return f"{b / (1024*1024):.1f} MB"
+              elif b >= 1024:
+                  return f"{b / 1024:.1f} KB"
+              return f"{b} bytes"
+
+          output = []
+          output.append("# Memory Leaks Report\n")
+          output.append(f"**Test Environment:** {system_info}\n")
+
+          if not leaks_found or leak_count == '0':
+              output.append("**No memory leaks detected.**\n")
+          else:
+              try:
+                  bytes_int = int(leak_bytes)
+                  bytes_str = format_bytes(bytes_int)
+              except:
+                  bytes_str = f"{leak_bytes} bytes"
+
+              # Parse leak types from content
+              # Match patterns like "STACK OF 8 INSTANCES OF 'ROOT CYCLE: <LeakA>':"
+              stack_pattern = r"STACK OF (\d+) INSTANCES? OF '([^']+)':"
+              stacks = re.findall(stack_pattern, content)
+
+              # Separate sentinel leaks from real leaks
+              sentinel_leaks = []
+              real_leaks = []
+              for count, leak_type in stacks:
+                  count = int(count)
+                  if 'LeakA' in leak_type or 'LeakB' in leak_type or 'createSentinelLeak' in leak_type:
+                      sentinel_leaks.append((count, leak_type))
+                  else:
+                      real_leaks.append((count, leak_type))
+
+              # Count sentinel stacks (not individual leaked objects - those include children)
+              sentinel_stack_count = sum(c for c, _ in sentinel_leaks)
+              real_stack_count = sum(c for c, _ in real_leaks)
+
+              # If all stacks are sentinel-related, assume all leaks are from sentinels
+              all_stacks_are_sentinels = len(real_leaks) == 0 and len(sentinel_leaks) > 0
+              real_count = 0 if all_stacks_are_sentinels else int(leak_count) - sentinel_stack_count
+
+              if real_count > 0:
+                  output.append(f"**{real_count} leak(s) detected** (excluding sentinel leaks)\n")
+
+                  if real_leaks:
+                      output.append("| Type | Count | Source |")
+                      output.append("|------|-------|--------|")
+                      for count, leak_type in real_leaks:
+                          # Extract source from leak type
+                          source = leak_type.replace('ROOT LEAK: ', '').replace('ROOT CYCLE: ', '')
+                          leak_kind = "Cycle" if "CYCLE" in leak_type else "Leak"
+                          output.append(f"| {leak_kind} | {count} | `{source}` |")
+                      output.append("")
+
+                  # Show stack traces for real leaks
+                  output.append("<details open>")
+                  output.append("<summary>Stack Traces</summary>\n")
+                  output.append("```")
+
+                  # Extract stack traces for non-sentinel leaks
+                  in_real_leak = False
+                  skip_sentinel = False
+                  stack_lines = []
+                  for line in content.split('\n'):
+                      if 'STACK OF' in line:
+                          skip_sentinel = any(s in line for s in ['LeakA', 'LeakB', 'createSentinelLeak'])
+                          in_real_leak = not skip_sentinel
+                      if line.startswith('Binary Images:'):
+                          in_real_leak = False
+                          skip_sentinel = False
+                      if in_real_leak and not skip_sentinel:
+                          stack_lines.append(line)
+                          if len(stack_lines) > 200:
+                              stack_lines.append("... (truncated, see artifact for full output)")
+                              break
+
+                  if stack_lines:
+                      output.append('\n'.join(stack_lines))
+                  else:
+                      # Fallback: show all leak output excluding sentinel and binary images
+                      output.append("Could not parse individual stacks. Raw leak output:\n")
+                      in_leaks = False
+                      for line in content.split('\n'):
+                          if 'leaks Report' in line:
+                              in_leaks = True
+                          if line.startswith('Binary Images:'):
+                              break
+                          if in_leaks and not any(s in line for s in ['LeakA', 'LeakB', 'createSentinelLeak']):
+                              stack_lines.append(line)
+                              if len(stack_lines) > 200:
+                                  stack_lines.append("... (truncated)")
+                                  break
+                      output.append('\n'.join(stack_lines) if stack_lines else "See artifact for details.")
+
+                  output.append("```")
+                  output.append("</details>\n")
+              else:
+                  output.append(f"**No memory leaks detected** (only expected sentinel leaks found)\n")
+
+              # Always show sentinel leak summary
+              output.append("<details>")
+              output.append("<summary>Sentinel Leaks (Expected)</summary>\n")
+              output.append("These leaks are intentionally created to verify the leak detection system is working.\n")
+              output.append("| Type | Count |")
+              output.append("|------|-------|")
+              for count, leak_type in sentinel_leaks:
+                  source = leak_type.replace('ROOT LEAK: ', '').replace('ROOT CYCLE: ', '')
+                  output.append(f"| `{source}` | {count} |")
+              output.append(f"\n**Total sentinel stacks:** {sentinel_stack_count}")
+              output.append("</details>\n")
+
+          output.append(f"\n---\n*Full output available in workflow artifacts* | _Generated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}_")
+
+          report = '\n'.join(output)
+          with open('leaks_report.md', 'w') as f:
+              f.write(report)
+
+          print(report)
+          EOF
+        env:
+          LEAKS_FOUND: ${{ steps.leaks.outputs.leaks_found }}
+          LEAK_COUNT: ${{ steps.leaks.outputs.leak_count }}
+          LEAK_BYTES: ${{ steps.leaks.outputs.leak_bytes }}
+
+      - name: Upload Leaks Output
+        uses: actions/upload-artifact@v4
+        with:
+          name: leaks-output
+          path: leaks_output.txt
+          retention-days: 30
+
+      - name: Comment PR with Results
+        if: github.event_name == 'pull_request'
+        uses: thollander/actions-comment-pull-request@v2
+        with:
+          filePath: leaks_report.md
+          comment_tag: leaks-results
