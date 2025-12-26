@@ -34,7 +34,6 @@
 #include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "KSLogger.h"
 
@@ -116,8 +115,8 @@ static inline int32_t binarySearchCache(const KSBinaryImageRangeCache *cache, ui
 }
 
 // Insert an entry into the cache maintaining sorted order by startAddress.
-// Uses binary search to find insertion point, then memmove to shift entries.
-// memmove is async-signal-safe (no allocations).
+// Uses binary search to find insertion point, then shifts entries in-place.
+// Avoid libc calls here to keep this async-signal-safe.
 static void insertSortedCacheEntry(KSBinaryImageRangeCache *cache, const KSBinaryImageRange *entry)
 {
     if (cache->count >= KSBIC_MAX_CACHE_ENTRIES) {
@@ -137,10 +136,11 @@ static void insertSortedCacheEntry(KSBinaryImageRangeCache *cache, const KSBinar
         }
     }
 
-    // Shift entries to make room for the new entry
+    // Shift entries to make room for the new entry.
     if (left < (int32_t)cache->count) {
-        memmove(&cache->entries[left + 1], &cache->entries[left],
-                (cache->count - (uint32_t)left) * sizeof(KSBinaryImageRange));
+        for (uint32_t i = cache->count; i > (uint32_t)left; i--) {
+            cache->entries[i] = cache->entries[i - 1];
+        }
     }
 
     cache->entries[left] = *entry;
@@ -404,12 +404,6 @@ const struct mach_header *ksbic_getImageDetailsForAddress(uintptr_t address, uin
         // Check the found entry and scan backwards for overlapping ranges
         while (idx >= 0) {
             KSBinaryImageRange *entry = &cache->entries[idx];
-
-            // If this entry's endAddress is <= address, all previous entries
-            // (with smaller startAddress) will also be too low - stop searching
-            if (entry->endAddress <= address) {
-                break;
-            }
 
             // Check if address is in range and verify with segment check
             if (address >= entry->startAddress && address < entry->endAddress) {
