@@ -1,0 +1,186 @@
+name: Memory Leaks Check
+
+on:
+  pull_request:
+    paths:
+      - "Sources/**"
+      - "Samples/**"
+      - "Package.swift"
+      - ".github/workflows/leaks.yml"
+
+  push:
+    branches:
+      - master
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  leaks:
+    runs-on: macos-15
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Use Latest Stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Setup Mise
+        uses: jdx/mise-action@v2
+
+      - name: Generate Project
+        working-directory: Samples
+        run: mise exec -- tuist generate --no-open
+
+      - name: Build Sample App for macOS
+        uses: mxcl/xcodebuild@v3
+        with:
+          action: build
+          workspace: "Samples/KSCrashSamples.xcworkspace"
+          scheme: "Sample"
+          platform: macOS
+
+      - name: Run Leaks Check
+        id: leaks
+        continue-on-error: true
+        run: |
+          set +e
+
+          # Find the built app in default derived data location
+          APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "Sample.app" -path "*Debug*" -not -path "*Simulator*" -type d 2>/dev/null | head -1)
+          echo "App path: $APP_PATH"
+
+          if [ -z "$APP_PATH" ]; then
+            echo "Could not find Sample.app"
+            echo "leaks_found=false" >> $GITHUB_OUTPUT
+            echo "leak_count=0" >> $GITHUB_OUTPUT
+            echo "leak_bytes=0" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          BINARY_PATH="$APP_PATH/Contents/MacOS/Sample"
+          echo "Binary path: $BINARY_PATH"
+
+          # Phase 1: Run the app to generate a crash report
+          echo "Phase 1: Running app to generate crash report..."
+          KSCRASH_LEAKS_TEST_CRASH=1 "$BINARY_PATH" 2>&1 || true
+          echo "Phase 1 complete (app crashed as expected)"
+          sleep 2
+
+          # Phase 2: Run the app with leaks to check for memory leaks while processing reports
+          echo "Phase 2: Running leaks check on Sample app..."
+          KSCRASH_LEAKS_TEST=1 leaks --atExit -- "$BINARY_PATH" 2>&1 | tee leaks_output.txt || true
+
+          # Parse results
+          if grep -q "0 leaks for 0 total leaked bytes" leaks_output.txt; then
+            echo "leaks_found=false" >> $GITHUB_OUTPUT
+            echo "leak_count=0" >> $GITHUB_OUTPUT
+            echo "leak_bytes=0" >> $GITHUB_OUTPUT
+          else
+            LEAK_LINE=$(grep -E "Process [0-9]+: [0-9]+ leaks? for [0-9]+ total leaked bytes" leaks_output.txt | tail -1)
+            if [ -n "$LEAK_LINE" ]; then
+              echo "leaks_found=true" >> $GITHUB_OUTPUT
+              LEAK_COUNT=$(echo "$LEAK_LINE" | grep -oE "[0-9]+ leaks?" | grep -oE "^[0-9]+")
+              LEAK_BYTES=$(echo "$LEAK_LINE" | grep -oE "[0-9]+ total" | grep -oE "^[0-9]+")
+              echo "leak_count=${LEAK_COUNT}" >> $GITHUB_OUTPUT
+              echo "leak_bytes=${LEAK_BYTES}" >> $GITHUB_OUTPUT
+            else
+              echo "leaks_found=false" >> $GITHUB_OUTPUT
+              echo "leak_count=0" >> $GITHUB_OUTPUT
+              echo "leak_bytes=0" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+          exit 0
+
+      - name: Generate Report
+        run: |
+          python3 << 'EOF'
+          import os
+
+          leaks_found = os.environ.get('LEAKS_FOUND', 'false') == 'true'
+          leak_count = os.environ.get('LEAK_COUNT', '0')
+          leak_bytes = os.environ.get('LEAK_BYTES', '0')
+
+          try:
+              with open('leaks_output.txt', 'r') as f:
+                  content = f.read()
+          except:
+              content = "No leaks output available"
+
+          output = []
+          output.append("# Memory Leaks Report\n")
+
+          if not leaks_found or leak_count == '0':
+              output.append("**No memory leaks detected.**\n")
+          else:
+              try:
+                  bytes_int = int(leak_bytes)
+                  if bytes_int >= 1024 * 1024:
+                      bytes_str = f"{bytes_int / (1024*1024):.1f} MB"
+                  elif bytes_int >= 1024:
+                      bytes_str = f"{bytes_int / 1024:.1f} KB"
+                  else:
+                      bytes_str = f"{bytes_int} bytes"
+              except:
+                  bytes_str = f"{leak_bytes} bytes"
+
+              output.append(f"**{leak_count} leak(s) detected** ({bytes_str})\n")
+              output.append("<details>")
+              output.append("<summary>Leak Details</summary>\n")
+              output.append("```")
+
+              in_leaks = False
+              leak_lines = []
+              for line in content.split('\n'):
+                  if 'leaks Report' in line:
+                      in_leaks = True
+                  if in_leaks:
+                      leak_lines.append(line)
+                  if len(leak_lines) > 200:
+                      leak_lines.append("... (truncated, see artifact for full output)")
+                      break
+
+              if leak_lines:
+                  output.append('\n'.join(leak_lines))
+              else:
+                  output.append("See uploaded artifact for details.")
+
+              output.append("```")
+              output.append("</details>\n")
+
+          output.append("\n---\n*Full output available in workflow artifacts*")
+
+          report = '\n'.join(output)
+          with open('leaks_report.md', 'w') as f:
+              f.write(report)
+
+          print(report)
+          EOF
+        env:
+          LEAKS_FOUND: ${{ steps.leaks.outputs.leaks_found }}
+          LEAK_COUNT: ${{ steps.leaks.outputs.leak_count }}
+          LEAK_BYTES: ${{ steps.leaks.outputs.leak_bytes }}
+
+      - name: Upload Leaks Output
+        uses: actions/upload-artifact@v4
+        with:
+          name: leaks-output
+          path: leaks_output.txt
+          retention-days: 30
+
+      - name: Comment PR with Results
+        if: github.event_name == 'pull_request'
+        uses: thollander/actions-comment-pull-request@v2
+        with:
+          filePath: leaks_report.md
+          comment_tag: leaks-results

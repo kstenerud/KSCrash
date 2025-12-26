@@ -33,6 +33,10 @@ struct SampleApp: App {
         @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     #endif
 
+    init() {
+        runLeaksTestIfRequired()
+    }
+
     var body: some Scene {
         WindowGroup {
             SampleView()
