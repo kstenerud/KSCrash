@@ -70,7 +70,7 @@ NSString *kscrash_getBundleName(void)
     return bundleName;
 }
 
-NSString *kscrash_getDefaultInstallPath(void)
+NSString * _Nullable kscrash_getDefaultInstallPath(void)
 {
     NSArray *directories = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
     if ([directories count] == 0) {
