@@ -31,20 +31,31 @@ import KSCrashRecording
 
 private class LeakA {
     var b: LeakB?
+    var padding = [UInt64](repeating: 0, count: 512)  // 4KB padding
 }
 
 private class LeakB {
     var a: LeakA?
+    var padding = [UInt64](repeating: 0, count: 512)  // 4KB padding
 }
 
-/// Creates a small intentional leak to ensure the leaks detection system is functioning.
+/// Creates intentional leaks to ensure the leaks detection system is functioning.
 /// If the CI reports 0 leaks, something is wrong with the detection.
 private func createSentinelLeak() {
-    let a = LeakA()
-    let b = LeakB()
-    a.b = b
-    b.a = a  // Retain cycle - will leak
-    print("[LeaksTest] Created sentinel leak (expected: 2 leaks, 64 bytes)")
+    // Create multiple Swift retain cycle leaks
+    for i in 0..<10 {
+        let a = LeakA()
+        let b = LeakB()
+        a.b = b
+        b.a = a  // Retain cycle - will leak
+        _ = i  // Suppress unused warning
+    }
+
+    // Raw malloc leak - cannot be optimized away
+    let mallocLeak = malloc(4096)
+    _ = mallocLeak  // Suppress unused warning, intentionally not freed
+
+    print("[LeaksTest] Created sentinel leaks (expected: 21 leaks - 20 Swift objects + 1 malloc, ~84KB)")
 }
 
 // MARK: - KSCrash Setup
