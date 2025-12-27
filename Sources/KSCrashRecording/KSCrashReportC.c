@@ -120,7 +120,7 @@ typedef struct {
 } KSCrash_IntrospectionRules;
 
 static const char *g_userInfoJSON;
-static pthread_mutex_t g_userInfoMutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_rwlock_t g_userInfoLock = PTHREAD_RWLOCK_INITIALIZER;
 
 static KSCrash_IntrospectionRules g_introspectionRules;
 static KSCrashIsWritingReportCallback g_userSectionWriteCallback;
@@ -1678,12 +1678,27 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
         }
         writer->endContainer(writer);
 
-        if (g_userInfoJSON != NULL) {
-            addJSONElement(writer, KSCrashField_User, g_userInfoJSON, false);
+        const char *userInfoJSON;
+        if (kscexc_requiresAsyncSafety(monitorContext->requirements)) {
+            // In async-signal context, read without lock (best effort, may race)
+            userInfoJSON = g_userInfoJSON;
+        } else {
+            // Normal context, safe to use lock
+            pthread_rwlock_rdlock(&g_userInfoLock);
+            userInfoJSON = g_userInfoJSON;
+        }
+
+        if (userInfoJSON != NULL) {
+            addJSONElement(writer, KSCrashField_User, userInfoJSON, false);
             ksfu_flushBufferedWriter(&bufferedWriter);
         } else {
             writer->beginObject(writer, KSCrashField_User);
         }
+
+        if (!kscexc_requiresAsyncSafety(monitorContext->requirements)) {
+            pthread_rwlock_unlock(&g_userInfoLock);
+        }
+
         if (g_userSectionWriteCallback != NULL) {
             ksfu_flushBufferedWriter(&bufferedWriter);
             KSCrash_ExceptionHandlingPlan plan = ksexc_monitorContextToPlan(monitorContext);
@@ -1705,29 +1720,25 @@ void kscrashreport_setUserInfoJSON(const char *const userInfoJSON)
 {
     KSLOG_TRACE("Setting userInfoJSON to %p", userInfoJSON);
 
-    pthread_mutex_lock(&g_userInfoMutex);
-    if (g_userInfoJSON != NULL) {
-        free((void *)g_userInfoJSON);
+    const char *newValue = (userInfoJSON != NULL) ? strdup(userInfoJSON) : NULL;
+
+    pthread_rwlock_wrlock(&g_userInfoLock);
+    const char *oldValue = g_userInfoJSON;
+    g_userInfoJSON = newValue;
+    pthread_rwlock_unlock(&g_userInfoLock);
+
+    if (oldValue != NULL) {
+        free((void *)oldValue);
     }
-    if (userInfoJSON == NULL) {
-        g_userInfoJSON = NULL;
-    } else {
-        g_userInfoJSON = strdup(userInfoJSON);
-    }
-    pthread_mutex_unlock(&g_userInfoMutex);
 }
 
 const char *kscrashreport_getUserInfoJSON(void)
 {
-    const char *userInfoJSONCopy = NULL;
-
-    pthread_mutex_lock(&g_userInfoMutex);
-    if (g_userInfoJSON != NULL) {
-        userInfoJSONCopy = strdup(g_userInfoJSON);
-    }
-    pthread_mutex_unlock(&g_userInfoMutex);
-
-    return userInfoJSONCopy;
+    pthread_rwlock_rdlock(&g_userInfoLock);
+    const char *currentValue = g_userInfoJSON;
+    const char *copy = (currentValue != NULL) ? strdup(currentValue) : NULL;
+    pthread_rwlock_unlock(&g_userInfoLock);
+    return copy;
 }
 
 void kscrashreport_setIntrospectMemory(bool shouldIntrospectMemory)
