@@ -122,10 +122,10 @@ typedef struct {
 
 typedef struct {
     char *json;
-} KSUserInfoContainer;
+} KSCrash_UserInfo;
 
-static KSUserInfoContainer g_userInfoContainerStorage;
-static _Atomic(KSUserInfoContainer *) g_userInfoContainer = &g_userInfoContainerStorage;
+static KSCrash_UserInfo g_userInfoContainerStorage;
+static _Atomic(KSCrash_UserInfo *) g_userInfoContainer = &g_userInfoContainerStorage;
 
 /** Max spin iterations for async-signal-safe busy-spin (crash reporter) */
 static const int kUserInfoBusySpinMax = 1000;
@@ -1690,7 +1690,7 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
         writer->endContainer(writer);
 
         // Acquire exclusive access to userInfo container (busy-spin, async-signal-safe)
-        KSUserInfoContainer *userInfoContainer = NULL;
+        KSCrash_UserInfo *userInfoContainer = NULL;
         for (int i = 0; i < kUserInfoBusySpinMax; i++) {
             userInfoContainer = atomic_exchange(&g_userInfoContainer, NULL);
             if (userInfoContainer != NULL) {
@@ -1732,7 +1732,7 @@ void kscrashreport_setUserInfoJSON(const char *const userInfoJSON)
     KSLOG_TRACE("Setting userInfoJSON to %p", userInfoJSON);
 
     // Acquire exclusive access to the container
-    KSUserInfoContainer *container = NULL;
+    KSCrash_UserInfo *container = NULL;
     for (int i = 0; i < kUserInfoSleepSpinMax; i++) {
         container = atomic_exchange(&g_userInfoContainer, NULL);
         if (container != NULL) {
@@ -1756,7 +1756,7 @@ void kscrashreport_setUserInfoJSON(const char *const userInfoJSON)
 const char *kscrashreport_getUserInfoJSON(void)
 {
     // Acquire exclusive access to the container
-    KSUserInfoContainer *container = NULL;
+    KSCrash_UserInfo *container = NULL;
     for (int i = 0; i < kUserInfoSleepSpinMax; i++) {
         container = atomic_exchange(&g_userInfoContainer, NULL);
         if (container != NULL) {
