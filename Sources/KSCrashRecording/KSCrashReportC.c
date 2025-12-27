@@ -64,6 +64,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -119,8 +120,18 @@ typedef struct {
     int restrictedClassesCount;
 } KSCrash_IntrospectionRules;
 
-static const char *g_userInfoJSON;
-static pthread_mutex_t g_userInfoMutex = PTHREAD_MUTEX_INITIALIZER;
+typedef struct {
+    char *json;
+} KSCrash_UserInfo;
+
+static KSCrash_UserInfo g_userInfoContainerStorage;
+static _Atomic(KSCrash_UserInfo *) g_userInfoContainer = &g_userInfoContainerStorage;
+
+/** Max spin iterations for async-signal-safe busy-spin (crash reporter) */
+static const int kUserInfoBusySpinMax = 1000;
+
+/** Max spin iterations with usleep(1) for normal context (setter/getter) */
+static const int kUserInfoSleepSpinMax = 100;
 
 static KSCrash_IntrospectionRules g_introspectionRules;
 static KSCrashIsWritingReportCallback g_userSectionWriteCallback;
@@ -1678,12 +1689,27 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
         }
         writer->endContainer(writer);
 
-        if (g_userInfoJSON != NULL) {
-            addJSONElement(writer, KSCrashField_User, g_userInfoJSON, false);
+        // Acquire exclusive access to userInfo container (busy-spin, async-signal-safe)
+        KSCrash_UserInfo *userInfoContainer = NULL;
+        for (int i = 0; i < kUserInfoBusySpinMax; i++) {
+            userInfoContainer = atomic_exchange(&g_userInfoContainer, NULL);
+            if (userInfoContainer != NULL) {
+                break;
+            }
+        }
+
+        if (userInfoContainer != NULL && userInfoContainer->json != NULL) {
+            addJSONElement(writer, KSCrashField_User, userInfoContainer->json, false);
             ksfu_flushBufferedWriter(&bufferedWriter);
         } else {
             writer->beginObject(writer, KSCrashField_User);
         }
+
+        // Release the container
+        if (userInfoContainer != NULL) {
+            atomic_store(&g_userInfoContainer, userInfoContainer);
+        }
+
         if (g_userSectionWriteCallback != NULL) {
             ksfu_flushBufferedWriter(&bufferedWriter);
             KSCrash_ExceptionHandlingPlan plan = ksexc_monitorContextToPlan(monitorContext);
@@ -1705,29 +1731,50 @@ void kscrashreport_setUserInfoJSON(const char *const userInfoJSON)
 {
     KSLOG_TRACE("Setting userInfoJSON to %p", userInfoJSON);
 
-    pthread_mutex_lock(&g_userInfoMutex);
-    if (g_userInfoJSON != NULL) {
-        free((void *)g_userInfoJSON);
+    // Acquire exclusive access to the container
+    KSCrash_UserInfo *container = NULL;
+    for (int i = 0; i < kUserInfoSleepSpinMax; i++) {
+        container = atomic_exchange(&g_userInfoContainer, NULL);
+        if (container != NULL) {
+            break;
+        }
+        usleep(1);
     }
-    if (userInfoJSON == NULL) {
-        g_userInfoJSON = NULL;
-    } else {
-        g_userInfoJSON = strdup(userInfoJSON);
+    if (container == NULL) {
+        KSLOG_DEBUG("userInfoJSON container unavailable, skipping update");
+        return;
     }
-    pthread_mutex_unlock(&g_userInfoMutex);
+
+    // Update the container contents
+    free(container->json);
+    container->json = (userInfoJSON != NULL) ? strdup(userInfoJSON) : NULL;
+
+    // Release the container
+    atomic_store(&g_userInfoContainer, container);
 }
 
 const char *kscrashreport_getUserInfoJSON(void)
 {
-    const char *userInfoJSONCopy = NULL;
-
-    pthread_mutex_lock(&g_userInfoMutex);
-    if (g_userInfoJSON != NULL) {
-        userInfoJSONCopy = strdup(g_userInfoJSON);
+    // Acquire exclusive access to the container
+    KSCrash_UserInfo *container = NULL;
+    for (int i = 0; i < kUserInfoSleepSpinMax; i++) {
+        container = atomic_exchange(&g_userInfoContainer, NULL);
+        if (container != NULL) {
+            break;
+        }
+        usleep(1);
     }
-    pthread_mutex_unlock(&g_userInfoMutex);
+    if (container == NULL) {
+        return NULL;
+    }
 
-    return userInfoJSONCopy;
+    // Copy the value
+    const char *copy = (container->json != NULL) ? strdup(container->json) : NULL;
+
+    // Release the container
+    atomic_store(&g_userInfoContainer, container);
+
+    return copy;
 }
 
 void kscrashreport_setIntrospectMemory(bool shouldIntrospectMemory)

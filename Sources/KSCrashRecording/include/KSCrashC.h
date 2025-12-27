@@ -88,12 +88,18 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
 
 /** Set the user-supplied data in JSON format.
  *
+ * This function is thread-safe. Under extreme contention, the update
+ * may be skipped (very unlikely in practice).
+ *
  * @param userInfoJSON Pre-baked JSON containing user-supplied information.
  *                     NULL = delete.
  */
 void kscrash_setUserInfoJSON(const char *const userInfoJSON);
 
 /** Get a copy of the user-supplied data in JSON format.
+ *
+ * This function is thread-safe. Under extreme contention, may return
+ * NULL even if information is set (very unlikely in practice).
  *
  * @return A string containing the JSON user-supplied information,
  *         or NULL if no information is set.
