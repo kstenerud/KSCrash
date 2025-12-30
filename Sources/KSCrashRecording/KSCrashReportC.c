@@ -53,6 +53,7 @@
 #include "KSMemory.h"
 #include "KSObjC.h"
 #include "KSSignalInfo.h"
+#include "KSSpinLock.h"
 #include "KSStackCursor_Backtrace.h"
 #include "KSStackCursor_MachineContext.h"
 #include "KSString.h"
@@ -120,18 +121,11 @@ typedef struct {
     int restrictedClassesCount;
 } KSCrash_IntrospectionRules;
 
-typedef struct {
-    char *json;
-} KSCrash_UserInfo;
+/** User-provided JSON data to include in crash reports */
+static char *g_userInfoJSON = NULL;
 
-static KSCrash_UserInfo g_userInfoContainerStorage;
-static _Atomic(KSCrash_UserInfo *) g_userInfoContainer = &g_userInfoContainerStorage;
-
-/** Max spin iterations for async-signal-safe busy-spin (crash reporter) */
-static const int kUserInfoBusySpinMax = 1000;
-
-/** Max spin iterations with usleep(1) for normal context (setter/getter) */
-static const int kUserInfoSleepSpinMax = 100;
+/** Spin lock protecting g_userInfoJSON */
+static KSSpinLock g_userInfoLock = KSSPINLOCK_INIT;
 
 static KSCrash_IntrospectionRules g_introspectionRules;
 static KSCrashIsWritingReportCallback g_userSectionWriteCallback;
@@ -1689,25 +1683,19 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
         }
         writer->endContainer(writer);
 
-        // Acquire exclusive access to userInfo container (busy-spin, async-signal-safe)
-        KSCrash_UserInfo *userInfoContainer = NULL;
-        for (int i = 0; i < kUserInfoBusySpinMax; i++) {
-            userInfoContainer = atomic_exchange(&g_userInfoContainer, NULL);
-            if (userInfoContainer != NULL) {
-                break;
-            }
-        }
+        // Acquire lock to read userInfo (async-signal-safe bounded spin)
+        bool userInfoLocked = ks_spinlock_lock_bounded(&g_userInfoLock);
 
-        if (userInfoContainer != NULL && userInfoContainer->json != NULL) {
-            addJSONElement(writer, KSCrashField_User, userInfoContainer->json, false);
+        if (userInfoLocked && g_userInfoJSON != NULL) {
+            addJSONElement(writer, KSCrashField_User, g_userInfoJSON, false);
             ksfu_flushBufferedWriter(&bufferedWriter);
         } else {
             writer->beginObject(writer, KSCrashField_User);
         }
 
-        // Release the container
-        if (userInfoContainer != NULL) {
-            atomic_store(&g_userInfoContainer, userInfoContainer);
+        // Release the lock
+        if (userInfoLocked) {
+            ks_spinlock_unlock(&g_userInfoLock);
         }
 
         if (g_userSectionWriteCallback != NULL) {
@@ -1731,48 +1719,27 @@ void kscrashreport_setUserInfoJSON(const char *const userInfoJSON)
 {
     KSLOG_TRACE("Setting userInfoJSON to %p", userInfoJSON);
 
-    // Acquire exclusive access to the container
-    KSCrash_UserInfo *container = NULL;
-    for (int i = 0; i < kUserInfoSleepSpinMax; i++) {
-        container = atomic_exchange(&g_userInfoContainer, NULL);
-        if (container != NULL) {
-            break;
-        }
-        usleep(1);
-    }
-    if (container == NULL) {
-        KSLOG_DEBUG("userInfoJSON container unavailable, skipping update");
-        return;
-    }
+    // Acquire lock
+    ks_spinlock_lock(&g_userInfoLock);
 
-    // Update the container contents
-    free(container->json);
-    container->json = (userInfoJSON != NULL) ? strdup(userInfoJSON) : NULL;
+    // Update the JSON
+    free(g_userInfoJSON);
+    g_userInfoJSON = (userInfoJSON != NULL) ? strdup(userInfoJSON) : NULL;
 
-    // Release the container
-    atomic_store(&g_userInfoContainer, container);
+    // Release lock
+    ks_spinlock_unlock(&g_userInfoLock);
 }
 
 const char *kscrashreport_getUserInfoJSON(void)
 {
-    // Acquire exclusive access to the container
-    KSCrash_UserInfo *container = NULL;
-    for (int i = 0; i < kUserInfoSleepSpinMax; i++) {
-        container = atomic_exchange(&g_userInfoContainer, NULL);
-        if (container != NULL) {
-            break;
-        }
-        usleep(1);
-    }
-    if (container == NULL) {
-        return NULL;
-    }
+    // Acquire lock
+    ks_spinlock_lock(&g_userInfoLock);
 
     // Copy the value
-    const char *copy = (container->json != NULL) ? strdup(container->json) : NULL;
+    const char *copy = (g_userInfoJSON != NULL) ? strdup(g_userInfoJSON) : NULL;
 
-    // Release the container
-    atomic_store(&g_userInfoContainer, container);
+    // Release lock
+    ks_spinlock_unlock(&g_userInfoLock);
 
     return copy;
 }

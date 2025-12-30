@@ -232,7 +232,8 @@ let package = Package(
         .target(
             name: Targets.recording,
             dependencies: [
-                .target(name: Targets.recordingCore)
+                .target(name: Targets.recordingCore),
+                .target(name: Targets.core),
             ],
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy")
