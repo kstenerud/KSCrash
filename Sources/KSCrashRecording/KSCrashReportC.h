@@ -47,8 +47,7 @@ extern "C" {
 
 /** Set custom user information to be stored in the report.
  *
- * This function is thread-safe. Under extreme contention, the update
- * may be skipped (very unlikely in practice).
+ * This function is thread-safe.
  *
  * @param userInfoJSON The user information, in JSON format.
  */
@@ -56,8 +55,7 @@ void kscrashreport_setUserInfoJSON(const char *const userInfoJSON);
 
 /** Get a copy of the custom user information stored in the report.
  *
- * This function is thread-safe. Under extreme contention, may return
- * NULL even if information is set (very unlikely in practice).
+ * This function is thread-safe.
  *
  * @return A JSON string representing the user information,
  *         or NULL if no information is set.
