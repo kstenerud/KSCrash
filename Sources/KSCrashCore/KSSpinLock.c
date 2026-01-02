@@ -64,34 +64,38 @@ static inline void ks_cpu_pause(void)
 static const uint32_t kSpinLockBoundedMaxIterations = 50000;
 
 // ============================================================================
-#pragma mark - Internal -
-// ============================================================================
-
-/** Get an atomic pointer to the lock's internal state. */
-static inline _Atomic(uint32_t) *ks_spinlock_atomic(KSSpinLock *lock) { return (_Atomic(uint32_t) *)&lock->_opaque; }
-
-// ============================================================================
 #pragma mark - API -
 // ============================================================================
 
-void ks_spinlock_init(KSSpinLock *lock) { atomic_store(ks_spinlock_atomic(lock), 0); }
+void ks_spinlock_init(KSSpinLock *lock) { atomic_store_explicit(&lock->_opaque, 0, memory_order_relaxed); }
 
 void ks_spinlock_lock(KSSpinLock *lock)
 {
-    _Atomic(uint32_t) *atomic = ks_spinlock_atomic(lock);
-    while (atomic_exchange(atomic, 1) != 0) {
-        ks_cpu_pause();
+    for (;;) {
+        // TTAS: Spin on relaxed read first (cache-friendly, no invalidation)
+        while (atomic_load_explicit(&lock->_opaque, memory_order_relaxed) != 0) {
+            ks_cpu_pause();
+        }
+        // Only attempt exchange when lock appears free
+        if (atomic_exchange_explicit(&lock->_opaque, 1, memory_order_acquire) == 0) {
+            return;
+        }
     }
 }
 
-bool ks_spinlock_try_lock(KSSpinLock *lock) { return atomic_exchange(ks_spinlock_atomic(lock), 1) == 0; }
+bool ks_spinlock_try_lock(KSSpinLock *lock)
+{
+    return atomic_exchange_explicit(&lock->_opaque, 1, memory_order_acquire) == 0;
+}
 
 bool ks_spinlock_try_lock_with_spin(KSSpinLock *lock, uint32_t maxIterations)
 {
-    _Atomic(uint32_t) *atomic = ks_spinlock_atomic(lock);
     for (uint32_t i = 0; i < maxIterations; i++) {
-        if (atomic_exchange(atomic, 1) == 0) {
-            return true;
+        // TTAS: Check with relaxed read first
+        if (atomic_load_explicit(&lock->_opaque, memory_order_relaxed) == 0) {
+            if (atomic_exchange_explicit(&lock->_opaque, 1, memory_order_acquire) == 0) {
+                return true;
+            }
         }
         ks_cpu_pause();
     }
@@ -103,4 +107,4 @@ bool ks_spinlock_lock_bounded(KSSpinLock *lock)
     return ks_spinlock_try_lock_with_spin(lock, kSpinLockBoundedMaxIterations);
 }
 
-void ks_spinlock_unlock(KSSpinLock *lock) { atomic_store(ks_spinlock_atomic(lock), 0); }
+void ks_spinlock_unlock(KSSpinLock *lock) { atomic_store_explicit(&lock->_opaque, 0, memory_order_release); }

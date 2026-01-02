@@ -27,6 +27,7 @@
 #ifndef HDR_KSSpinLock_h
 #define HDR_KSSpinLock_h
 
+#include <stdatomic.h>
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -50,11 +51,13 @@ extern "C" {
  *      ks_spinlock_unlock(&lock);
  */
 typedef struct {
-    uint32_t _opaque;
+    _Atomic(uint32_t) _opaque;
 } KSSpinLock;
 
 /** Static initializer for KSSpinLock */
+#ifndef KSSPINLOCK_INIT
 #define KSSPINLOCK_INIT ((KSSpinLock) { 0 })
+#endif
 
 /** Initialize a spin lock.
  *

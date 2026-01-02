@@ -119,6 +119,8 @@ swift test --sanitize thread
 swift test --sanitize undefined
 ```
 
+**Known Issue**: Do not use `--filter` with sanitizers due to a bug in Xcode's xctest helper utility. Run the full test suite instead. See: https://github.com/swiftlang/swift-package-manager/issues/9546
+
 Run all three sanitizers after making changes to core crash handling code, threading code, or memory management. All sanitizer runs should complete with zero warnings.
 
 #### Managing Dependencies
