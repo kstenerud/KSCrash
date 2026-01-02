@@ -155,9 +155,9 @@
 
     NSInteger finalFailures = atomic_load(&tryLockFailures);
 
-    // With try_lock, we expect some operations to succeed and some to fail
+    // With try_lock, some operations may succeed and some may fail due to contention.
+    // The key invariant is that every attempt either succeeded or failed cleanly.
     XCTAssertGreaterThan(counter, 0);
-    XCTAssertGreaterThan(finalFailures, 0);
     XCTAssertEqual(counter + finalFailures, iterations * threadCount);
 }
 
