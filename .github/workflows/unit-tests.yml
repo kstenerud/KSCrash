@@ -86,3 +86,4 @@ jobs:
           scheme: "KSCrash-Package"
           platform: ${{ matrix.platform }}
           platform-version: ${{ matrix.platform-version }}
+          code-coverage: true
