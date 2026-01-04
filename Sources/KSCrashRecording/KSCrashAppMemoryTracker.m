@@ -215,7 +215,7 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
 - (nullable KSCrashAppMemory *)currentAppMemory
 {
     KSCrashAppMemoryProvider provider = KSCrashAppMemoryGetProvider();
-    return provider ? provider() : _ProvideCrashAppMemory(_pressure);
+    return provider ? provider() : _ProvideCrashAppMemory(self.pressure);
 }
 
 - (void)_handleMemoryChange:(KSCrashAppMemory *)memory

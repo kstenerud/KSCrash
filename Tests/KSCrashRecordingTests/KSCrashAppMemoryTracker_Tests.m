@@ -42,6 +42,7 @@
 
 - (void)tearDown
 {
+    testsupport_KSCrashAppMemorySetProvider(nil);
     [super tearDown];
 }
 
