@@ -34,6 +34,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <sys/syslimits.h>
 
 #include "KSCrashNamespace.h"
 
@@ -41,7 +42,11 @@
 extern "C" {
 #endif
 
+#if defined(PATH_MAX)
+#define KSFU_MAX_PATH_LENGTH PATH_MAX
+#else
 #define KSFU_MAX_PATH_LENGTH 500
+#endif
 
 /** Get the last entry in a file path. Assumes UNIX style separators.
  *

@@ -36,12 +36,22 @@
  See: https://github.com/naftaly/Footprint
  */
 
-// I'm not protecting this.
-// It should be set once at start if you want to change it for tests.
+static os_unfair_lock gMemoryProviderLock = OS_UNFAIR_LOCK_INIT;
 static KSCrashAppMemoryProvider gMemoryProvider = nil;
+
+static KSCrashAppMemoryProvider KSCrashAppMemoryGetProvider(void)
+{
+    os_unfair_lock_lock(&gMemoryProviderLock);
+    KSCrashAppMemoryProvider provider = gMemoryProvider;
+    os_unfair_lock_unlock(&gMemoryProviderLock);
+    return provider;
+}
+
 FOUNDATION_EXPORT void testsupport_KSCrashAppMemorySetProvider(KSCrashAppMemoryProvider provider)
 {
+    os_unfair_lock_lock(&gMemoryProviderLock);
     gMemoryProvider = [provider copy];
+    os_unfair_lock_unlock(&gMemoryProviderLock);
 }
 
 @interface KSCrashAppMemoryTracker () {
@@ -99,7 +109,9 @@ FOUNDATION_EXPORT void testsupport_KSCrashAppMemorySetProvider(KSCrashAppMemoryP
     // to make sure we have a copy on the heap
     // that will last for as long as the caller holds onto it.
     id heapBlock = [block copy];
+    os_unfair_lock_lock(&_lock);
     [_observers addPointer:(__bridge void *_Nullable)(heapBlock)];
+    os_unfair_lock_unlock(&_lock);
     return heapBlock;
 }
 
@@ -137,9 +149,14 @@ FOUNDATION_EXPORT void testsupport_KSCrashAppMemorySetProvider(KSCrashAppMemoryP
                                                  name:UIApplicationDidFinishLaunchingNotification
                                                object:nil];
 #endif
-    [self _handleMemoryChange:[self currentAppMemory]
-                         type:KSCrashAppMemoryTrackerChangeTypeNone
-                    observers:[_observers copy]];
+    NSArray<KSCrashAppMemoryTrackerObserverBlock> *observers = nil;
+    {
+        os_unfair_lock_lock(&_lock);
+        [_observers compact];
+        observers = [_observers allObjects];
+        os_unfair_lock_unlock(&_lock);
+    }
+    [self _handleMemoryChange:[self currentAppMemory] type:KSCrashAppMemoryTrackerChangeTypeNone observers:observers];
 }
 
 #if KSCRASH_HAS_UIAPPLICATION
@@ -197,7 +214,8 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
 
 - (nullable KSCrashAppMemory *)currentAppMemory
 {
-    return gMemoryProvider ? gMemoryProvider() : _ProvideCrashAppMemory(_pressure);
+    KSCrashAppMemoryProvider provider = KSCrashAppMemoryGetProvider();
+    return provider ? provider() : _ProvideCrashAppMemory(self.pressure);
 }
 
 - (void)_handleMemoryChange:(KSCrashAppMemory *)memory
