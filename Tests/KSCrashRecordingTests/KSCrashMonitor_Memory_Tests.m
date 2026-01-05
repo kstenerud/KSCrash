@@ -45,6 +45,12 @@
     setenv("ActivePrewarm", "0", 1);
 }
 
+- (void)tearDown
+{
+    testsupport_KSCrashAppMemorySetProvider(nil);
+    [super tearDown];
+}
+
 - (void)testInstallAndRemove
 {
     KSCrashMonitorAPI *api = kscm_memory_getAPI();
