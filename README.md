@@ -43,6 +43,7 @@ KSCrash detects and reports all major crash and termination types:
 
 - **Memory Tracking** - Monitor memory pressure levels (Normal, Warn, Urgent, Critical, Terminal) to prevent out-of-memory terminations before they happen
 - **Hang Detection** - Detect main thread hangs and capture thread states before watchdog termination
+- **Sampling Profiler** - Capture thread backtraces at regular intervals to analyze performance or debug hangs
 
 ### Flexible Reporting
 
@@ -271,6 +272,34 @@ KSCrash.shared.userInfo = [
 
 To enable on-device symbolication, set **Strip Style** to **Debugging Symbols** in your build settings. This adds approximately 5% to binary size but enables readable stack traces directly on the device. For production apps, server-side symbolication with dSYM files is recommended when possible for the most accurate and complete results.
 
+### Sampling Profiler
+
+Capture thread backtraces at regular intervals to analyze performance or debug hangs:
+
+```swift
+import KSCrashProfiler
+
+let profiler = Profiler<Sample128>(thread: pthread_self())
+let id = profiler.beginProfile(named: "AppLaunch")
+// ... do work ...
+if let profile = profiler.endProfile(id: id) {
+    // Write report to disk from background queue
+    DispatchQueue.global().async {
+        _ = profile.writeReport()
+    }
+}
+```
+
+Add the Profiler module to your target:
+
+```swift
+// SPM
+.product(name: "Profiler", package: "KSCrash"),
+
+// CocoaPods
+pod 'KSCrash/Profiler'
+```
+
 ## Optional Modules
 
 ### Symbol Demangling
@@ -310,6 +339,7 @@ KSCrash uses a modular architecture:
 | **Filters** | Report processing and transformation |
 | **Sinks** | Report delivery (HTTP, email, console) |
 | **Installations** | Pre-configured setups for common use cases |
+| **Profiler** | Thread sampling and performance profiling |
 
 For detailed architecture information, see the [Architecture Guide](https://github.com/kstenerud/KSCrash/wiki/KSCrash-Architecture).
 
