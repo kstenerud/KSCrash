@@ -398,6 +398,38 @@ final class CrashReportDecodingTests: XCTestCase {
         XCTAssertEqual(report.crash.error.hang?.hangEndRole, "FOREGROUND_APPLICATION")
     }
 
+    func testDecodeExampleProfile() throws {
+        let report = try decodeExampleReport("Profile")
+        XCTAssertNotNil(report.report.id)
+        XCTAssertEqual(report.crash.error.type, .profile)
+
+        // Verify profile info
+        let profile = report.crash.error.profile
+        XCTAssertNotNil(profile)
+        XCTAssertEqual(profile?.name, "startup")
+        XCTAssertEqual(profile?.id, "D839BCD7-0A1B-49C9-A5C0-3550507EBE84")
+        XCTAssertEqual(profile?.timeUnits, "nanoseconds")
+        XCTAssertEqual(profile?.duration, 262_253_917)
+
+        // Verify frames exist
+        let frames = profile?.frames ?? []
+        XCTAssertFalse(frames.isEmpty)
+
+        // Verify samples exist
+        let samples = profile?.samples ?? []
+        XCTAssertFalse(samples.isEmpty)
+
+        // Verify each sample's frame indexes reference valid frames
+        for (sampleIndex, sample) in samples.enumerated() {
+            for frameIndex in sample.frames {
+                XCTAssertTrue(
+                    frameIndex >= 0 && frameIndex < frames.count,
+                    "Sample \(sampleIndex) has invalid frame index \(frameIndex), frames count is \(frames.count)"
+                )
+            }
+        }
+    }
+
     func testAllExampleReportsDecodeWithKnownErrorType() throws {
         let resourceURL = Bundle.module.resourceURL!
         let jsonFiles = try FileManager.default.contentsOfDirectory(at: resourceURL, includingPropertiesForKeys: nil)

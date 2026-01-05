@@ -36,6 +36,8 @@ final class CrashReportTests: XCTestCase {
         XCTAssertEqual(CrashErrorType.deadlock.rawValue, "deadlock")
         XCTAssertEqual(CrashErrorType.user.rawValue, "user")
         XCTAssertEqual(CrashErrorType.memoryTermination.rawValue, "memory_termination")
+        XCTAssertEqual(CrashErrorType.hang.rawValue, "hang")
+        XCTAssertEqual(CrashErrorType.profile.rawValue, "profile")
     }
 
     func testCrashErrorTypeUnknown() {

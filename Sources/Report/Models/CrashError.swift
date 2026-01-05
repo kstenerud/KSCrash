@@ -36,6 +36,7 @@ public enum CrashErrorType: RawRepresentable, Decodable, Sendable, Equatable {
     case user
     case memoryTermination
     case hang
+    case profile
     case unknown(String)
 
     public init(rawValue: String) {
@@ -48,6 +49,7 @@ public enum CrashErrorType: RawRepresentable, Decodable, Sendable, Equatable {
         case "user": self = .user
         case "memory_termination": self = .memoryTermination
         case "hang": self = .hang
+        case "profile": self = .profile
         default: self = .unknown(rawValue)
         }
     }
@@ -62,6 +64,7 @@ public enum CrashErrorType: RawRepresentable, Decodable, Sendable, Equatable {
         case .user: return "user"
         case .memoryTermination: return "memory_termination"
         case .hang: return "hang"
+        case .profile: return "profile"
         case .unknown(let value): return value
         }
     }
@@ -108,6 +111,9 @@ public struct CrashError: Decodable, Sendable {
     /// Reason for the crash (often from abort message or exception reason).
     public let reason: String?
 
+    /// Profile information (for profiling reports).
+    public let profile: ProfileInfo?
+
     enum CodingKeys: String, CodingKey {
         case address
         case mach
@@ -120,5 +126,6 @@ public struct CrashError: Decodable, Sendable {
         case hang
         case exitReason = "exit_reason"
         case reason
+        case profile
     }
 }
