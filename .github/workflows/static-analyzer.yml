@@ -1,0 +1,168 @@
+name: Static Analyzer
+
+on:
+  pull_request:
+    paths:
+      - "Sources/**"
+      - "Tests/**"
+      - "Package.swift"
+      - ".github/workflows/static-analyzer.yml"
+
+  push:
+    branches:
+      - master
+
+  schedule:
+    - cron: "0 0 1 * *"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Use Latest Stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Install xcbeautify
+        run: brew install xcbeautify
+
+      - name: Run Static Analyzer
+        run: |
+          set -o pipefail
+          xcodebuild analyze \
+            -workspace ".swiftpm/xcode/package.xcworkspace" \
+            -scheme "KSCrash-Package" \
+            -destination "platform=macOS" \
+            -resultBundlePath "analyzer-results.xcresult" \
+            RUN_CLANG_STATIC_ANALYZER=YES \
+            CLANG_ANALYZER_CHECKS=all \
+            CLANG_ANALYZER_ALPHA=YES \
+            CLANG_ANALYZER_ANALYZE_ALL_FILES=YES \
+            CLANG_ANALYZER_MEMORY_MANAGEMENT=YES \
+            CLANG_ANALYZER_SECURITY=YES \
+            CLANG_ANALYZER_UNIX=YES \
+            CLANG_ANALYZER_MAXIMUM_STEP_COUNT=200000 \
+            CLANG_ANALYZER_MAXIMUM_PATH_LENGTH=100000 \
+            CLANG_STATIC_ANALYZER_MODE=deep \
+            CLANG_ANALYZER_SECURITY_INSECUREAPI_RAND=YES \
+            CLANG_ANALYZER_SECURITY_INSECUREAPI_STRCPY=YES \
+            2>&1 | tee xcodebuild-raw.log | xcbeautify || true
+
+      - name: Process Analyzer Results
+        if: always()
+        run: |
+          # Build the report
+          echo "## Static Analyzer Results" > /tmp/analyzer-report.md
+          echo "" >> /tmp/analyzer-report.md
+
+          # Parse warnings from xcodebuild log (most reliable across Xcode versions)
+          python3 << 'PYTHON_SCRIPT' >> /tmp/analyzer-report.md
+          import re
+          import os
+
+          results = []
+
+          # Parse xcodebuild raw log for analyzer warnings
+          log_file = "xcodebuild-raw.log"
+          if os.path.exists(log_file):
+              with open(log_file, 'r') as f:
+                  content = f.read()
+
+              # Match analyzer warning pattern: /path/file.c:123:45: warning: message [checker.name]
+              pattern = r'(/[^:]+):(\d+):\d+: warning: ([^\[]+)\[([^\]]+)\]'
+              matches = re.findall(pattern, content)
+
+              for match in matches:
+                  file_path, line_num, message, checker = match
+                  message = message.strip()
+
+                  # Make path relative
+                  if "/Sources/" in file_path:
+                      file_path = "Sources/" + file_path.split("/Sources/")[-1]
+                  elif "/Tests/" in file_path:
+                      file_path = "Tests/" + file_path.split("/Tests/")[-1]
+                  else:
+                      file_path = os.path.basename(file_path)
+
+                  # Determine issue type from checker name
+                  if "core." in checker or "deadcode" in checker or "logic" in checker.lower():
+                      issue_type = "Logic error"
+                  elif "memory" in checker.lower() or "null" in checker.lower():
+                      issue_type = "Memory error"
+                  elif "security" in checker.lower():
+                      issue_type = "Security"
+                  elif "unix" in checker.lower():
+                      issue_type = "Unix API"
+                  else:
+                      issue_type = "Analyzer"
+
+                  results.append((issue_type, message, file_path, line_num, checker))
+
+          if len(results) == 0:
+              print(":white_check_mark: **No analyzer warnings found!**")
+          else:
+              print(f":warning: **Found {len(results)} analyzer warning(s)**")
+              print("")
+              print("| Type | Issue | Location | Checker |")
+              print("|------|-------|----------|---------|")
+
+              for issue_type, message, file_path, line_num, checker in results:
+                  location = "`" + file_path + ":" + line_num + "`"
+                  message = message.replace("|", "\\|")
+                  checker_fmt = "`" + checker + "`"
+                  print(f"| {issue_type} | {message} | {location} | {checker_fmt} |")
+          PYTHON_SCRIPT
+
+          echo "" >> /tmp/analyzer-report.md
+          echo "---" >> /tmp/analyzer-report.md
+          echo "*Analysis performed with deep static analyzer mode*" >> /tmp/analyzer-report.md
+
+          # Also write to job summary
+          cat /tmp/analyzer-report.md >> $GITHUB_STEP_SUMMARY
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Add hidden marker to identify our comment
+          echo "<!-- static-analyzer-report -->" > /tmp/pr-comment.md
+          cat /tmp/analyzer-report.md >> /tmp/pr-comment.md
+
+          # Find existing comment with our marker
+          COMMENT_ID=$(gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
+            --jq '.[] | select(.body | contains("<!-- static-analyzer-report -->")) | .id' | head -1)
+
+          if [ -n "$COMMENT_ID" ]; then
+            # Update existing comment
+            gh api repos/${{ github.repository }}/issues/comments/$COMMENT_ID \
+              -X PATCH \
+              -F body=@/tmp/pr-comment.md
+          else
+            # Create new comment
+            gh pr comment ${{ github.event.pull_request.number }} --body-file /tmp/pr-comment.md
+          fi
+
+      - name: Upload Result Bundle
+        if: always()
+        run: |
+          if [ -d "analyzer-results.xcresult" ]; then
+            zip -r analyzer-results.xcresult.zip analyzer-results.xcresult
+          fi
+
+      - name: Upload Result Bundle Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: analyzer-results
+          path: analyzer-results.xcresult.zip
+          if-no-files-found: warn
