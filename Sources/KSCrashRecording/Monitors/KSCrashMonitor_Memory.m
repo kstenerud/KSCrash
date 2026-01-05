@@ -88,8 +88,8 @@ static atomic_bool g_isEnabled = false;
 static atomic_bool g_hasPostEnable = false;
 
 // What we're reporting
-static uint8_t g_MinimumNonFatalReportingLevel = KSCrash_Memory_NonFatalReportLevelNone;
-static bool g_FatalReportsEnabled = true;
+static _Atomic(uint8_t) g_MinimumNonFatalReportingLevel = KSCrash_Memory_NonFatalReportLevelNone;
+static _Atomic(bool) g_FatalReportsEnabled = true;
 
 // Install path for the crash system
 static NSURL *g_dataURL = nil;
@@ -223,7 +223,7 @@ static KSCrash_Memory g_previousSessionMemory;
         [self _updateMappedMemoryFrom:memory];
     }
 
-    if ((changes & KSCrashAppMemoryTrackerChangeTypeLevel) && memory.level >= g_MinimumNonFatalReportingLevel) {
+    if ((changes & KSCrashAppMemoryTrackerChangeTypeLevel) && memory.level >= ksmemory_get_nonfatal_report_level()) {
         NSString *level = @(KSCrashAppMemoryStateToString(memory.level)).uppercaseString;
         NSString *reason = [NSString stringWithFormat:@"Memory Level Is %@", level];
 
@@ -236,7 +236,8 @@ static KSCrash_Memory g_previousSessionMemory;
                                      terminateProgram:NO];
     }
 
-    if ((changes & KSCrashAppMemoryTrackerChangeTypePressure) && memory.pressure >= g_MinimumNonFatalReportingLevel) {
+    if ((changes & KSCrashAppMemoryTrackerChangeTypePressure) &&
+        memory.pressure >= ksmemory_get_nonfatal_report_level()) {
         NSString *pressure = @(KSCrashAppMemoryStateToString(memory.pressure)).uppercaseString;
         NSString *reason = [NSString stringWithFormat:@"Memory Pressure Is %@", pressure];
 
@@ -352,7 +353,8 @@ static void kscm_memory_check_for_oom_in_previous_session(void)
     // indicates a crash, we should process that on startup and ignore
     // and indication of an OOM.
     bool userPerceivedOOM = false;
-    if (g_FatalReportsEnabled && ksmemory_previous_session_was_terminated_due_to_memory(&userPerceivedOOM)) {
+    if (ksmemory_get_fatal_reports_enabled() &&
+        ksmemory_previous_session_was_terminated_due_to_memory(&userPerceivedOOM)) {
         // We only report an OOM that the user might have seen.
         // Ignore this check if we want to report all OOM, foreground and background.
         if (userPerceivedOOM) {
@@ -630,10 +632,10 @@ bool ksmemory_previous_session_was_terminated_due_to_memory(bool *userPerceptibl
            g_previousSessionMemory.pressure >= KSCrashAppMemoryStateCritical;
 }
 
-void ksmemory_set_nonfatal_report_level(uint8_t level) { g_MinimumNonFatalReportingLevel = level; }
+void ksmemory_set_nonfatal_report_level(uint8_t level) { atomic_store(&g_MinimumNonFatalReportingLevel, level); }
 
-uint8_t ksmemory_get_nonfatal_report_level(void) { return g_MinimumNonFatalReportingLevel; }
+uint8_t ksmemory_get_nonfatal_report_level(void) { return atomic_load(&g_MinimumNonFatalReportingLevel); }
 
-void ksmemory_set_fatal_reports_enabled(bool enabled) { g_FatalReportsEnabled = enabled; }
+void ksmemory_set_fatal_reports_enabled(bool enabled) { atomic_store(&g_FatalReportsEnabled, enabled); }
 
-bool ksmemory_get_fatal_reports_enabled(void) { return g_FatalReportsEnabled; }
+bool ksmemory_get_fatal_reports_enabled(void) { return atomic_load(&g_FatalReportsEnabled); }
