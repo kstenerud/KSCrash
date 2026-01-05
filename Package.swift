@@ -1,4 +1,4 @@
-// swift-tools-version:5.3
+// swift-tools-version:5.9
 
 @preconcurrency import PackageDescription
 
@@ -185,10 +185,10 @@ let warningFlags = [
 let package = Package(
     name: "KSCrash",
     platforms: [
-        .iOS(.v12),
-        .tvOS(.v12),
-        .watchOS(.v5),
-        .macOS(.v10_14),
+        .iOS(.v15),
+        .tvOS(.v15),
+        .watchOS(.v8),
+        .macOS(.v13),
     ],
     products: [
         .library(
@@ -226,6 +226,10 @@ let package = Package(
         .library(
             name: "DemangleFilter",
             targets: [Targets.demangleFilter]
+        ),
+        .library(
+            name: "Profiler",
+            targets: [Targets.profiler]
         ),
     ],
     targets: [
@@ -503,6 +507,24 @@ let package = Package(
             dependencies: [
                 .target(name: Targets.recordingCore),
                 .target(name: Targets.recording),
+                .target(name: Targets.profiler),
+            ]
+        ),
+
+        .target(
+            name: Targets.profiler,
+            dependencies: [
+                .target(name: Targets.recordingCore),
+                .target(name: Targets.recording),
+            ],
+            resources: [
+                .copy("Resources/PrivacyInfo.xcprivacy")
+            ]
+        ),
+        .testTarget(
+            name: Targets.profiler.tests,
+            dependencies: [
+                .target(name: Targets.profiler)
             ]
         ),
     ],
@@ -523,6 +545,7 @@ enum Targets {
     static let demangleFilter = "KSCrashDemangleFilter"
     static let testTools = "KSCrashTestTools"
     static let benchmarks = "KSCrashBenchmarks"
+    static let profiler = "KSCrashProfiler"
 }
 
 extension String {

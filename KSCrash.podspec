@@ -16,6 +16,7 @@ Pod::Spec.new do |s|
   s.libraries    = 'c++', 'z'
   s.xcconfig     = { 'GCC_ENABLE_CPP_EXCEPTIONS' => 'YES' }
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
+  s.swift_versions = ['5.9']
   s.default_subspecs = 'Installations'
 
   configure_subspec = lambda do |subs|
@@ -78,6 +79,15 @@ Pod::Spec.new do |s|
     demangle_filter.dependency 'KSCrash/Recording'
 
     configure_subspec.call(demangle_filter)
+  end
+
+  s.subspec 'Profiler' do |profiler|
+    profiler.dependency 'KSCrash/RecordingCore'
+    profiler.dependency 'KSCrash/Recording'
+
+    module_name = 'KSCrashProfiler'
+    profiler.source_files = "Sources/#{module_name}/**/*.swift"
+    profiler.resource_bundles = { module_name => "Sources/#{module_name}/Resources/PrivacyInfo.xcprivacy" }
   end
 
   s.subspec 'ReportingCore' do |reporting_core|

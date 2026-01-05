@@ -31,6 +31,7 @@
 
 #include "KSCrashMonitorContext.h"
 #include "KSCrashNamespace.h"
+#include "KSCrashReportWriter.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -47,12 +48,38 @@ typedef struct {
      * @param callbacks The callbacks that the monitor may call when reporting an exception.
      */
     void (*init)(KSCrash_ExceptionHandlerCallbacks *callbacks);
+
+    /** Returns the unique identifier for this monitor (e.g., "mach", "signal", "profile"). */
     const char *(*monitorId)(void);
+
+    /** Returns the flags describing this monitor's capabilities and requirements. */
     KSCrashMonitorFlag (*monitorFlags)(void);
+
+    /** Enables or disables this monitor. */
     void (*setEnabled)(bool isEnabled);
+
+    /** Returns whether this monitor is currently enabled. */
     bool (*isEnabled)(void);
+
+    /** Called to allow the monitor to add contextual information to an event context. */
     void (*addContextualInfoToEvent)(KSCrash_MonitorContext *eventContext);
+
+    /** Called after the system monitors have been enabled. */
     void (*notifyPostSystemEnable)(void);
+
+    /**
+     * Called during report writing to allow the monitor to write custom data to its section.
+     *
+     * This callback is invoked when the report writer encounters a monitor type it doesn't
+     * have built-in handling for. The monitor can use the writer to add custom JSON data
+     * to the report's error section under a key matching the monitor's ID.
+     *
+     * @param eventContext The monitor context containing event information.
+     * @param writer The report writer to use for adding JSON elements.
+     *
+     * @note This callback is optional. If NULL, no custom section will be written for this monitor.
+     */
+    void (*writeInReportSection)(const KSCrash_MonitorContext *eventContext, const KSCrashReportWriter *writer);
 } KSCrashMonitorAPI;
 
 /**

@@ -203,6 +203,8 @@
     ]];
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 static UIWindow *getKeyWindow(void)
 {
     if (@available(iOS 15, tvOS 15, *)) {
@@ -220,6 +222,7 @@ static UIWindow *getKeyWindow(void)
     }
     return nil;
 }
+#pragma clang diagnostic pop
 
 - (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {

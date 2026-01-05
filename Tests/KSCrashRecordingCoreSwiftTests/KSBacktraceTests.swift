@@ -227,5 +227,81 @@ import XCTest
                 "Backtrace should span multiple images, saw: \(imagesSeen)"
             )
         }
+
+        // MARK: - Quick Symbolication Tests
+
+        func testQuickSymbolicateReturnsBasicInfo() {
+            let thread = pthread_self()
+
+            let entries = 10
+            var addresses: [UInt] = Array(repeating: 0, count: entries)
+            let count = captureBacktrace(thread: thread, addresses: &addresses, count: Int32(entries))
+
+            XCTAssertGreaterThan(count, 0)
+
+            var result = SymbolInformation()
+            let success = quickSymbolicate(address: addresses[0], result: &result)
+
+            XCTAssertTrue(success)
+            XCTAssertEqual(result.returnAddress, addresses[0])
+            XCTAssertNotNil(result.imageName)
+            XCTAssertNotNil(result.symbolName)
+            XCTAssertGreaterThan(result.imageAddress, 0)
+            XCTAssertGreaterThan(result.symbolAddress, 0)
+        }
+
+        func testQuickSymbolicateDoesNotReturnImageSizeOrUUID() {
+            let thread = pthread_self()
+
+            let entries = 10
+            var addresses: [UInt] = Array(repeating: 0, count: entries)
+            let count = captureBacktrace(thread: thread, addresses: &addresses, count: Int32(entries))
+
+            XCTAssertGreaterThan(count, 0)
+
+            var result = SymbolInformation()
+            let success = quickSymbolicate(address: addresses[0], result: &result)
+
+            XCTAssertTrue(success)
+            // quickSymbolicate should NOT fill in imageSize or imageUUID
+            // (those require additional binary image lookup)
+            XCTAssertEqual(result.imageSize, 0, "quickSymbolicate should not fill imageSize")
+            XCTAssertNil(result.imageUUID, "quickSymbolicate should not fill imageUUID")
+        }
+
+        func testQuickSymbolicateVsFullSymbolicate() {
+            let thread = pthread_self()
+
+            let entries = 10
+            var addresses: [UInt] = Array(repeating: 0, count: entries)
+            let count = captureBacktrace(thread: thread, addresses: &addresses, count: Int32(entries))
+
+            XCTAssertGreaterThan(count, 0)
+
+            var quickResult = SymbolInformation()
+            var fullResult = SymbolInformation()
+
+            let quickSuccess = quickSymbolicate(address: addresses[0], result: &quickResult)
+            let fullSuccess = symbolicate(address: addresses[0], result: &fullResult)
+
+            XCTAssertTrue(quickSuccess)
+            XCTAssertTrue(fullSuccess)
+
+            // Both should return the same basic info
+            XCTAssertEqual(quickResult.returnAddress, fullResult.returnAddress)
+            XCTAssertEqual(quickResult.symbolAddress, fullResult.symbolAddress)
+            XCTAssertEqual(quickResult.imageAddress, fullResult.imageAddress)
+
+            // Full symbolicate should have additional info
+            XCTAssertGreaterThan(fullResult.imageSize, 0)
+            XCTAssertNotNil(fullResult.imageUUID)
+        }
+
+        func testQuickSymbolicateWithInvalidAddress() {
+            var result = SymbolInformation()
+            let success = quickSymbolicate(address: 0, result: &result)
+
+            XCTAssertFalse(success, "quickSymbolicate should fail for address 0")
+        }
     }
 #endif

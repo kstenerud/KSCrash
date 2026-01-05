@@ -109,6 +109,14 @@ void kscm_setEventCallbackWithResult(void (*onEvent)(struct KSCrash_MonitorConte
 void kscm_setEventCallback(void (*onEvent)(struct KSCrash_MonitorContext *monitorContext))
     __attribute__((deprecated("Use `kscm_setEventCallbackWithResult`")));
 
+/**
+ * Retrieves a monitor by its unique identifier.
+ *
+ * @param monitorId The unique identifier of the monitor to retrieve (e.g., "mach", "signal", "profile").
+ * @return A pointer to the monitor's API, or NULL if no monitor with the given ID exists.
+ */
+const KSCrashMonitorAPI *kscm_getMonitor(const char *monitorId);
+
 #ifdef __cplusplus
 }
 #endif
