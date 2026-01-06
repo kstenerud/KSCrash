@@ -56,6 +56,14 @@ NS_SWIFT_NAME(CrashReportFilterDemangle)
  */
 + (nullable NSString *)demangledSwiftSymbol:(NSString *)symbol;
 
+/** Demangles a Swift or C++ symbol.
+ *
+ * @param symbol The mangled symbol.
+ *
+ * @return A demangled symbol, or `nil` if demangling failed.
+ */
++ (nullable NSString *)demangledSymbol:(NSString *)symbol;
+
 @end
 
 NS_ASSUME_NONNULL_END

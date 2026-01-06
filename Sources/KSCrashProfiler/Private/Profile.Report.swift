@@ -29,6 +29,7 @@ import Foundation
 #if SWIFT_PACKAGE
     import KSCrashRecording
     import KSCrashRecordingCore
+    import KSCrashDemangleFilter
 #endif
 
 // MARK: - Profile Report Writing
@@ -161,8 +162,13 @@ private class BoxedProfile {
         for address in addresses {
             writer.beginObject(nil)
 
-            if let symbolName = address.symbolName {
-                writer.add("symbol_name", String(cString: symbolName))
+            if let cName = address.symbolName {
+                let symbolName = String(cString: cName)
+                if let name = CrashReportFilterDemangle.demangledSymbol(symbolName) {
+                    writer.add("symbol_name", name)
+                } else {
+                    writer.add("symbol_name", symbolName)
+                }
             }
             writer.add("symbol_addr", UInt64(address.symbolAddress))
             writer.add("instruction_addr", UInt64(address.callInstruction))
