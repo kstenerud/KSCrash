@@ -71,7 +71,7 @@ KSCrash detects and reports all major crash and termination types:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/kstenerud/KSCrash.git", from: "2.0.0")
+    .package(url: "https://github.com/kstenerud/KSCrash.git", .upToNextMajor(from: "2.5.0"))
 ]
 ```
 
