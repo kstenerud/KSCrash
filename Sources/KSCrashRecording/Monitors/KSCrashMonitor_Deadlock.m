@@ -54,7 +54,7 @@ static KSCrashDeadlockMonitor *g_monitor;
 static KSThread g_mainQueueThread;
 
 /** Interval between watchdog pulses. */
-static NSTimeInterval g_watchdogInterval = 0;
+static _Atomic(NSTimeInterval) g_watchdogInterval = 0;
 
 static KSCrash_ExceptionHandlerCallbacks g_callbacks;
 
@@ -141,7 +141,7 @@ exit_immediately:
         // Only do a watchdog check if the watchdog interval is > 0.
         // If the interval is <= 0, just idle until the user changes it.
         @autoreleasepool {
-            NSTimeInterval sleepInterval = g_watchdogInterval;
+            NSTimeInterval sleepInterval = atomic_load_explicit(&g_watchdogInterval, memory_order_relaxed);
             BOOL runWatchdogCheck = sleepInterval > 0;
             if (!runWatchdogCheck) {
                 sleepInterval = kIdleInterval;
@@ -216,4 +216,7 @@ KSCrashMonitorAPI *kscm_deadlock_getAPI(void)
     return &api;
 }
 
-void kscm_setDeadlockHandlerWatchdogInterval(double value) { g_watchdogInterval = value; }
+void kscm_setDeadlockHandlerWatchdogInterval(double value)
+{
+    atomic_store_explicit(&g_watchdogInterval, value, memory_order_relaxed);
+}

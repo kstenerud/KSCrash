@@ -42,6 +42,7 @@ let project = Project(
                 .package(product: "SampleUI", type: .runtime),
                 .package(product: "CrashTriggers", type: .runtime),
                 .package(product: "IntegrationTestsHelper", type: .runtime),
+                .package(product: "Report", type: .runtime),
             ],
             additionalFiles: ["Tests/Integration.xctestplan"]
         ),
