@@ -84,10 +84,17 @@ Pod::Spec.new do |s|
   s.subspec 'Profiler' do |profiler|
     profiler.dependency 'KSCrash/RecordingCore'
     profiler.dependency 'KSCrash/Recording'
+    profiler.dependency 'KSCrash/DemangleFilter'
 
     module_name = 'KSCrashProfiler'
     profiler.source_files = "Sources/#{module_name}/**/*.swift"
     profiler.resource_bundles = { module_name => "Sources/#{module_name}/Resources/PrivacyInfo.xcprivacy" }
+  end
+
+  s.subspec 'Report' do |report|
+    module_name = 'Report'
+    report.source_files = "Sources/#{module_name}/**/*.swift"
+    report.resource_bundles = { module_name => "Sources/#{module_name}/Resources/PrivacyInfo.xcprivacy" }
   end
 
   s.subspec 'ReportingCore' do |reporting_core|
