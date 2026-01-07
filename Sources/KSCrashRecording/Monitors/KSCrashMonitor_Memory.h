@@ -33,10 +33,23 @@
 #include "KSCrashAppTransitionState.h"
 #include "KSCrashMonitorAPI.h"
 #include "KSCrashNamespace.h"
+#include "KSCrashReportFields.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#pragma mark - Report Field Keys -
+
+extern KSCrashReportFieldName KSCrashField_AppMemory;
+extern KSCrashReportFieldName KSCrashField_MemoryFootprint;
+extern KSCrashReportFieldName KSCrashField_MemoryRemaining;
+extern KSCrashReportFieldName KSCrashField_MemoryPressure;
+extern KSCrashReportFieldName KSCrashField_MemoryLevel;
+extern KSCrashReportFieldName KSCrashField_MemoryLimit;
+extern KSCrashReportFieldName KSCrashField_AppTransitionState;
+
+#pragma mark - Memory Monitor -
 
 extern const uint8_t KSCrash_Memory_Version_1_0;
 extern const uint8_t KSCrash_Memory_CurrentVersion;

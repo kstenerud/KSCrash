@@ -1205,24 +1205,6 @@ static void writeBinaryImages(const KSCrashReportWriter *const writer, const cha
     writer->endContainer(writer);
 }
 
-/** Write information about system memory to the report.
- *
- * @param writer The writer.
- *
- * @param key The object key, if needed.
- */
-static void writeMemoryInfo(const KSCrashReportWriter *const writer, const char *const key,
-                            const KSCrash_MonitorContext *const monitorContext)
-{
-    writer->beginObject(writer, key);
-    {
-        writer->addUIntegerElement(writer, KSCrashField_Size, monitorContext->System.memorySize);
-        writer->addUIntegerElement(writer, KSCrashField_Usable, monitorContext->System.usableMemory);
-        writer->addUIntegerElement(writer, KSCrashField_Free, monitorContext->System.freeMemory);
-    }
-    writer->endContainer(writer);
-}
-
 static inline bool isCrashOfMonitorType(const KSCrash_MonitorContext *const crash, const KSCrashMonitorAPI *monitorAPI)
 {
     return ksstring_safeStrcmp(crash->monitorId, monitorAPI->monitorId()) == 0;
@@ -1383,41 +1365,6 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
     writer->endContainer(writer);
 }
 
-/** Write information about app runtime, etc to the report.
- *
- * @param writer The writer.
- *
- * @param key The object key, if needed.
- *
- * @param monitorContext The event monitor context.
- */
-static void writeAppStats(const KSCrashReportWriter *const writer, const char *const key,
-                          const KSCrash_MonitorContext *const monitorContext)
-{
-    writer->beginObject(writer, key);
-    {
-        writer->addBooleanElement(writer, KSCrashField_AppActive, monitorContext->AppState.applicationIsActive);
-        writer->addBooleanElement(writer, KSCrashField_AppInFG, monitorContext->AppState.applicationIsInForeground);
-
-        writer->addIntegerElement(writer, KSCrashField_LaunchesSinceCrash,
-                                  monitorContext->AppState.launchesSinceLastCrash);
-        writer->addIntegerElement(writer, KSCrashField_SessionsSinceCrash,
-                                  monitorContext->AppState.sessionsSinceLastCrash);
-        writer->addFloatingPointElement(writer, KSCrashField_ActiveTimeSinceCrash,
-                                        monitorContext->AppState.activeDurationSinceLastCrash);
-        writer->addFloatingPointElement(writer, KSCrashField_BGTimeSinceCrash,
-                                        monitorContext->AppState.backgroundDurationSinceLastCrash);
-
-        writer->addIntegerElement(writer, KSCrashField_SessionsSinceLaunch,
-                                  monitorContext->AppState.sessionsSinceLaunch);
-        writer->addFloatingPointElement(writer, KSCrashField_ActiveTimeSinceLaunch,
-                                        monitorContext->AppState.activeDurationSinceLaunch);
-        writer->addFloatingPointElement(writer, KSCrashField_BGTimeSinceLaunch,
-                                        monitorContext->AppState.backgroundDurationSinceLaunch);
-    }
-    writer->endContainer(writer);
-}
-
 /** Write information about this process.
  *
  * @param writer The writer.
@@ -1572,62 +1519,32 @@ void kscrashreport_writeRecrashReport(const KSCrash_MonitorContext *const monito
     kstc_unfreeze();
 }
 
-static void writeAppMemoryInfo(const KSCrashReportWriter *const writer, const char *const key,
-                               const KSCrash_MonitorContext *const monitorContext)
-{
-    writer->beginObject(writer, key);
-    {
-        writer->addUIntegerElement(writer, KSCrashField_MemoryFootprint, monitorContext->AppMemory.footprint);
-        writer->addUIntegerElement(writer, KSCrashField_MemoryRemaining, monitorContext->AppMemory.remaining);
-        writer->addStringElement(writer, KSCrashField_MemoryPressure, monitorContext->AppMemory.pressure);
-        writer->addStringElement(writer, KSCrashField_MemoryLevel, monitorContext->AppMemory.level);
-        writer->addUIntegerElement(writer, KSCrashField_MemoryLimit, monitorContext->AppMemory.limit);
-        writer->addStringElement(writer, KSCrashField_AppTransitionState, monitorContext->AppMemory.state);
-    }
-    writer->endContainer(writer);
-}
-
 static void writeSystemInfo(const KSCrashReportWriter *const writer, const char *const key,
                             const KSCrash_MonitorContext *const monitorContext)
 {
     writer->beginObject(writer, key);
     {
-        writer->addStringElement(writer, KSCrashField_SystemName, monitorContext->System.systemName);
-        writer->addStringElement(writer, KSCrashField_SystemVersion, monitorContext->System.systemVersion);
-        writer->addStringElement(writer, KSCrashField_Machine, monitorContext->System.machine);
-        writer->addStringElement(writer, KSCrashField_Model, monitorContext->System.model);
-        writer->addStringElement(writer, KSCrashField_KernelVersion, monitorContext->System.kernelVersion);
-        writer->addStringElement(writer, KSCrashField_OSVersion, monitorContext->System.osVersion);
-        writer->addBooleanElement(writer, KSCrashField_Jailbroken, monitorContext->System.isJailbroken);
-        writer->addBooleanElement(writer, KSCrashField_ProcTranslated, monitorContext->System.procTranslated);
-        writer->addStringElement(writer, KSCrashField_BootTime, monitorContext->System.bootTime);
-        writer->addStringElement(writer, KSCrashField_AppStartTime, monitorContext->System.appStartTime);
-        writer->addStringElement(writer, KSCrashField_ExecutablePath, monitorContext->System.executablePath);
-        writer->addStringElement(writer, KSCrashField_Executable, monitorContext->System.executableName);
-        writer->addStringElement(writer, KSCrashField_BundleID, monitorContext->System.bundleID);
-        writer->addStringElement(writer, KSCrashField_BundleName, monitorContext->System.bundleName);
-        writer->addStringElement(writer, KSCrashField_BundleVersion, monitorContext->System.bundleVersion);
-        writer->addStringElement(writer, KSCrashField_BundleShortVersion, monitorContext->System.bundleShortVersion);
-        writer->addStringElement(writer, KSCrashField_AppUUID, monitorContext->System.appID);
-        writer->addStringElement(writer, KSCrashField_CPUArch, monitorContext->System.cpuArchitecture);
-        writer->addStringElement(writer, KSCrashField_BinaryArch, monitorContext->System.binaryArchitecture);
-        writer->addIntegerElement(writer, KSCrashField_CPUType, monitorContext->System.cpuType);
-        writer->addStringElement(writer, KSCrashField_ClangVersion, monitorContext->System.clangVersion);
-        writer->addIntegerElement(writer, KSCrashField_CPUSubType, monitorContext->System.cpuSubType);
-        writer->addIntegerElement(writer, KSCrashField_BinaryCPUType, monitorContext->System.binaryCPUType);
-        writer->addIntegerElement(writer, KSCrashField_BinaryCPUSubType, monitorContext->System.binaryCPUSubType);
-        writer->addStringElement(writer, KSCrashField_TimeZone, monitorContext->System.timezone);
-        writer->addStringElement(writer, KSCrashField_ProcessName, monitorContext->System.processName);
-        writer->addIntegerElement(writer, KSCrashField_ProcessID, monitorContext->System.processID);
-        writer->addIntegerElement(writer, KSCrashField_ParentProcessID, monitorContext->System.parentProcessID);
-        writer->addStringElement(writer, KSCrashField_DeviceAppHash, monitorContext->System.deviceAppHash);
-        writer->addStringElement(writer, KSCrashField_BuildType, monitorContext->System.buildType);
-        writer->addIntegerElement(writer, KSCrashField_Storage, (int64_t)monitorContext->System.storageSize);
-        writer->addIntegerElement(writer, KSCrashField_FreeStorage, (int64_t)monitorContext->System.freeStorageSize);
+        // Call System monitor's writeInReportSection callback
+        const KSCrashMonitorAPI *systemAPI = kscm_system_getAPI();
+        if (systemAPI != NULL && systemAPI->writeInReportSection != NULL) {
+            systemAPI->writeInReportSection(monitorContext, writer);
+        }
 
-        writeMemoryInfo(writer, KSCrashField_Memory, monitorContext);
-        writeAppStats(writer, KSCrashField_AppStats, monitorContext);
-        writeAppMemoryInfo(writer, KSCrashField_AppMemory, monitorContext);
+        // Call AppState monitor's writeInReportSection callback
+        const KSCrashMonitorAPI *appStateAPI = kscm_appstate_getAPI();
+        if (appStateAPI != NULL && appStateAPI->writeInReportSection != NULL) {
+            writer->beginObject(writer, KSCrashField_AppStats);
+            appStateAPI->writeInReportSection(monitorContext, writer);
+            writer->endContainer(writer);
+        }
+
+        // Call Memory monitor's writeInReportSection callback
+        const KSCrashMonitorAPI *memoryAPI = kscm_memory_getAPI();
+        if (memoryAPI != NULL && memoryAPI->writeInReportSection != NULL) {
+            writer->beginObject(writer, KSCrashField_AppMemory);
+            memoryAPI->writeInReportSection(monitorContext, writer);
+            writer->endContainer(writer);
+        }
     }
     writer->endContainer(writer);
 }

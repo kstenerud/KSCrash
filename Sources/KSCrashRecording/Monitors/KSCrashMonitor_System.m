@@ -36,6 +36,8 @@
 #import "KSSysCtl.h"
 #import "KSSystemCapabilities.h"
 
+#import "KSCrashReportWriter.h"
+
 // #define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
 
@@ -47,6 +49,45 @@
 #include <mach-o/dyld.h>
 #include <mach/mach.h>
 #include <stdatomic.h>
+
+// Field keys for report writing (definitions for extern declarations in header)
+KSCrashReportFieldName KSCrashField_System = "system";
+KSCrashReportFieldName KSCrashField_SystemName = "system_name";
+KSCrashReportFieldName KSCrashField_SystemVersion = "system_version";
+KSCrashReportFieldName KSCrashField_Machine = "machine";
+KSCrashReportFieldName KSCrashField_Model = "model";
+KSCrashReportFieldName KSCrashField_KernelVersion = "kernel_version";
+KSCrashReportFieldName KSCrashField_OSVersion = "os_version";
+KSCrashReportFieldName KSCrashField_Jailbroken = "jailbroken";
+KSCrashReportFieldName KSCrashField_ProcTranslated = "proc_translated";
+KSCrashReportFieldName KSCrashField_BootTime = "boot_time";
+KSCrashReportFieldName KSCrashField_AppStartTime = "app_start_time";
+KSCrashReportFieldName KSCrashField_ExecutablePath = "CFBundleExecutablePath";
+KSCrashReportFieldName KSCrashField_Executable = "CFBundleExecutable";
+KSCrashReportFieldName KSCrashField_BundleID = "CFBundleIdentifier";
+KSCrashReportFieldName KSCrashField_BundleName = "CFBundleName";
+KSCrashReportFieldName KSCrashField_BundleVersion = "CFBundleVersion";
+KSCrashReportFieldName KSCrashField_BundleShortVersion = "CFBundleShortVersionString";
+KSCrashReportFieldName KSCrashField_AppUUID = "app_uuid";
+KSCrashReportFieldName KSCrashField_CPUArch = "cpu_arch";
+KSCrashReportFieldName KSCrashField_BinaryArch = "binary_arch";
+KSCrashReportFieldName KSCrashField_CPUType = "cpu_type";
+KSCrashReportFieldName KSCrashField_ClangVersion = "clang_version";
+KSCrashReportFieldName KSCrashField_CPUSubType = "cpu_subtype";
+KSCrashReportFieldName KSCrashField_BinaryCPUType = "binary_cpu_type";
+KSCrashReportFieldName KSCrashField_BinaryCPUSubType = "binary_cpu_subtype";
+KSCrashReportFieldName KSCrashField_TimeZone = "time_zone";
+KSCrashReportFieldName KSCrashField_ProcessName = "process_name";
+KSCrashReportFieldName KSCrashField_ProcessID = "process_id";
+KSCrashReportFieldName KSCrashField_ParentProcessID = "parent_process_id";
+KSCrashReportFieldName KSCrashField_DeviceAppHash = "device_app_hash";
+KSCrashReportFieldName KSCrashField_BuildType = "build_type";
+KSCrashReportFieldName KSCrashField_Storage = "storage";
+KSCrashReportFieldName KSCrashField_FreeStorage = "freeStorage";
+KSCrashReportFieldName KSCrashField_Memory = "memory";
+KSCrashReportFieldName KSCrashField_Size = "size";
+KSCrashReportFieldName KSCrashField_Usable = "usable";
+KSCrashReportFieldName KSCrashField_Free = "free";
 
 typedef struct {
     const char *systemName;
@@ -586,6 +627,50 @@ static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext)
     }
 }
 
+static void writeInReportSection(const KSCrash_MonitorContext *monitorContext, const KSCrashReportWriter *writer)
+{
+    writer->addStringElement(writer, KSCrashField_SystemName, monitorContext->System.systemName);
+    writer->addStringElement(writer, KSCrashField_SystemVersion, monitorContext->System.systemVersion);
+    writer->addStringElement(writer, KSCrashField_Machine, monitorContext->System.machine);
+    writer->addStringElement(writer, KSCrashField_Model, monitorContext->System.model);
+    writer->addStringElement(writer, KSCrashField_KernelVersion, monitorContext->System.kernelVersion);
+    writer->addStringElement(writer, KSCrashField_OSVersion, monitorContext->System.osVersion);
+    writer->addBooleanElement(writer, KSCrashField_Jailbroken, monitorContext->System.isJailbroken);
+    writer->addBooleanElement(writer, KSCrashField_ProcTranslated, monitorContext->System.procTranslated);
+    writer->addStringElement(writer, KSCrashField_BootTime, monitorContext->System.bootTime);
+    writer->addStringElement(writer, KSCrashField_AppStartTime, monitorContext->System.appStartTime);
+    writer->addStringElement(writer, KSCrashField_ExecutablePath, monitorContext->System.executablePath);
+    writer->addStringElement(writer, KSCrashField_Executable, monitorContext->System.executableName);
+    writer->addStringElement(writer, KSCrashField_BundleID, monitorContext->System.bundleID);
+    writer->addStringElement(writer, KSCrashField_BundleName, monitorContext->System.bundleName);
+    writer->addStringElement(writer, KSCrashField_BundleVersion, monitorContext->System.bundleVersion);
+    writer->addStringElement(writer, KSCrashField_BundleShortVersion, monitorContext->System.bundleShortVersion);
+    writer->addStringElement(writer, KSCrashField_AppUUID, monitorContext->System.appID);
+    writer->addStringElement(writer, KSCrashField_CPUArch, monitorContext->System.cpuArchitecture);
+    writer->addStringElement(writer, KSCrashField_BinaryArch, monitorContext->System.binaryArchitecture);
+    writer->addIntegerElement(writer, KSCrashField_CPUType, monitorContext->System.cpuType);
+    writer->addStringElement(writer, KSCrashField_ClangVersion, monitorContext->System.clangVersion);
+    writer->addIntegerElement(writer, KSCrashField_CPUSubType, monitorContext->System.cpuSubType);
+    writer->addIntegerElement(writer, KSCrashField_BinaryCPUType, monitorContext->System.binaryCPUType);
+    writer->addIntegerElement(writer, KSCrashField_BinaryCPUSubType, monitorContext->System.binaryCPUSubType);
+    writer->addStringElement(writer, KSCrashField_TimeZone, monitorContext->System.timezone);
+    writer->addStringElement(writer, KSCrashField_ProcessName, monitorContext->System.processName);
+    writer->addIntegerElement(writer, KSCrashField_ProcessID, monitorContext->System.processID);
+    writer->addIntegerElement(writer, KSCrashField_ParentProcessID, monitorContext->System.parentProcessID);
+    writer->addStringElement(writer, KSCrashField_DeviceAppHash, monitorContext->System.deviceAppHash);
+    writer->addStringElement(writer, KSCrashField_BuildType, monitorContext->System.buildType);
+    writer->addIntegerElement(writer, KSCrashField_Storage, (int64_t)monitorContext->System.storageSize);
+    writer->addIntegerElement(writer, KSCrashField_FreeStorage, (int64_t)monitorContext->System.freeStorageSize);
+
+    writer->beginObject(writer, KSCrashField_Memory);
+    {
+        writer->addUIntegerElement(writer, KSCrashField_Size, monitorContext->System.memorySize);
+        writer->addUIntegerElement(writer, KSCrashField_Usable, monitorContext->System.usableMemory);
+        writer->addUIntegerElement(writer, KSCrashField_Free, monitorContext->System.freeMemory);
+    }
+    writer->endContainer(writer);
+}
+
 KSCrashMonitorAPI *kscm_system_getAPI(void)
 {
     static KSCrashMonitorAPI api = { 0 };
@@ -594,6 +679,7 @@ KSCrashMonitorAPI *kscm_system_getAPI(void)
         api.setEnabled = setEnabled;
         api.isEnabled = isEnabled;
         api.addContextualInfoToEvent = addContextualInfoToEvent;
+        api.writeInReportSection = writeInReportSection;
     }
     return &api;
 }

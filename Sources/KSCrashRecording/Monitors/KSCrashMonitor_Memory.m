@@ -32,8 +32,10 @@
 #import "KSCrashC.h"
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitorHelper.h"
+#import "KSCrashMonitor_System.h"
 #import "KSCrashReportFields.h"
 #import "KSCrashReportStoreC.h"
+#import "KSCrashReportWriter.h"
 #import "KSDate.h"
 #import "KSFileUtils.h"
 #import "KSID.h"
@@ -51,6 +53,15 @@
 #if KSCRASH_HAS_UIAPPLICATION
 #import <UIKit/UIKit.h>
 #endif
+
+// Field keys for report writing (definitions for extern declarations in header)
+KSCrashReportFieldName KSCrashField_AppMemory = "app_memory";
+KSCrashReportFieldName KSCrashField_MemoryFootprint = "memory_footprint";
+KSCrashReportFieldName KSCrashField_MemoryRemaining = "memory_remaining";
+KSCrashReportFieldName KSCrashField_MemoryPressure = "memory_pressure";
+KSCrashReportFieldName KSCrashField_MemoryLevel = "memory_level";
+KSCrashReportFieldName KSCrashField_MemoryLimit = "memory_limit";
+KSCrashReportFieldName KSCrashField_AppTransitionState = "app_transition_state";
 
 static const int32_t KSCrash_Memory_Magic = 'kscm';
 
@@ -326,16 +337,26 @@ static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext)
     }
 }
 
+static void writeInReportSection(const KSCrash_MonitorContext *monitorContext, const KSCrashReportWriter *writer)
+{
+    writer->addUIntegerElement(writer, KSCrashField_MemoryFootprint, monitorContext->AppMemory.footprint);
+    writer->addUIntegerElement(writer, KSCrashField_MemoryRemaining, monitorContext->AppMemory.remaining);
+    writer->addStringElement(writer, KSCrashField_MemoryPressure, monitorContext->AppMemory.pressure);
+    writer->addStringElement(writer, KSCrashField_MemoryLevel, monitorContext->AppMemory.level);
+    writer->addUIntegerElement(writer, KSCrashField_MemoryLimit, monitorContext->AppMemory.limit);
+    writer->addStringElement(writer, KSCrashField_AppTransitionState, monitorContext->AppMemory.state);
+}
+
 static NSDictionary<NSString *, id> *kscm_memory_serialize(KSCrash_Memory *const memory)
 {
     return @{
-        KSCrashField_MemoryFootprint : @(memory->footprint),
-        KSCrashField_MemoryRemaining : @(memory->remaining),
-        KSCrashField_MemoryLimit : @(memory->limit),
-        KSCrashField_MemoryPressure : @(KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memory->pressure)),
-        KSCrashField_MemoryLevel : @(KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memory->level)),
+        @(KSCrashField_MemoryFootprint) : @(memory->footprint),
+        @(KSCrashField_MemoryRemaining) : @(memory->remaining),
+        @(KSCrashField_MemoryLimit) : @(memory->limit),
+        @(KSCrashField_MemoryPressure) : @(KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memory->pressure)),
+        @(KSCrashField_MemoryLevel) : @(KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memory->level)),
         KSCrashField_Timestamp : @(memory->timestamp),
-        KSCrashField_AppTransitionState : @(ksapp_transitionStateToString(memory->state)),
+        @(KSCrashField_AppTransitionState) : @(ksapp_transitionStateToString(memory->state)),
     };
 }
 
@@ -368,7 +389,8 @@ static void kscm_memory_check_for_oom_in_previous_session(void)
                                                        error:nil] mutableCopy];
 
                 if (json) {
-                    json[KSCrashField_System][KSCrashField_AppMemory] = kscm_memory_serialize(&g_previousSessionMemory);
+                    json[@(KSCrashField_System)][@(KSCrashField_AppMemory)] =
+                        kscm_memory_serialize(&g_previousSessionMemory);
                     json[KSCrashField_Report][KSCrashField_Timestamp] = @(g_previousSessionMemory.timestamp);
                     json[KSCrashField_Crash][KSCrashField_Error][KSCrashExcType_MemoryTermination] =
                         kscm_memory_serialize(&g_previousSessionMemory);
@@ -424,6 +446,7 @@ KSCrashMonitorAPI *kscm_memory_getAPI(void)
         api.isEnabled = isEnabled;
         api.addContextualInfoToEvent = addContextualInfoToEvent;
         api.notifyPostSystemEnable = notifyPostSystemEnable;
+        api.writeInReportSection = writeInReportSection;
     }
     return &api;
 }

@@ -35,10 +35,24 @@
 
 #include "KSCrashMonitorAPI.h"
 #include "KSCrashNamespace.h"
+#include "KSCrashReportFields.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#pragma mark - Report Field Keys -
+
+extern KSCrashReportFieldName KSCrashField_AppStats;
+extern KSCrashReportFieldName KSCrashField_AppActive;
+extern KSCrashReportFieldName KSCrashField_AppInFG;
+extern KSCrashReportFieldName KSCrashField_LaunchesSinceCrash;
+extern KSCrashReportFieldName KSCrashField_SessionsSinceCrash;
+extern KSCrashReportFieldName KSCrashField_ActiveTimeSinceCrash;
+extern KSCrashReportFieldName KSCrashField_BGTimeSinceCrash;
+extern KSCrashReportFieldName KSCrashField_SessionsSinceLaunch;
+extern KSCrashReportFieldName KSCrashField_ActiveTimeSinceLaunch;
+extern KSCrashReportFieldName KSCrashField_BGTimeSinceLaunch;
 
 typedef struct {
     // Saved data

@@ -29,6 +29,7 @@
 
 #include "KSCrashMonitorAPI.h"
 #include "KSCrashNamespace.h"
+#include "KSCrashReportFields.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,6 +38,46 @@ extern "C" {
 /** Access the Monitor API.
  */
 KSCrashMonitorAPI *kscm_system_getAPI(void);
+
+#pragma mark - Report Field Keys -
+
+extern KSCrashReportFieldName KSCrashField_System;
+extern KSCrashReportFieldName KSCrashField_SystemName;
+extern KSCrashReportFieldName KSCrashField_SystemVersion;
+extern KSCrashReportFieldName KSCrashField_Machine;
+extern KSCrashReportFieldName KSCrashField_Model;
+extern KSCrashReportFieldName KSCrashField_KernelVersion;
+extern KSCrashReportFieldName KSCrashField_OSVersion;
+extern KSCrashReportFieldName KSCrashField_Jailbroken;
+extern KSCrashReportFieldName KSCrashField_ProcTranslated;
+extern KSCrashReportFieldName KSCrashField_BootTime;
+extern KSCrashReportFieldName KSCrashField_AppStartTime;
+extern KSCrashReportFieldName KSCrashField_ExecutablePath;
+extern KSCrashReportFieldName KSCrashField_Executable;
+extern KSCrashReportFieldName KSCrashField_BundleID;
+extern KSCrashReportFieldName KSCrashField_BundleName;
+extern KSCrashReportFieldName KSCrashField_BundleVersion;
+extern KSCrashReportFieldName KSCrashField_BundleShortVersion;
+extern KSCrashReportFieldName KSCrashField_AppUUID;
+extern KSCrashReportFieldName KSCrashField_CPUArch;
+extern KSCrashReportFieldName KSCrashField_BinaryArch;
+extern KSCrashReportFieldName KSCrashField_CPUType;
+extern KSCrashReportFieldName KSCrashField_ClangVersion;
+extern KSCrashReportFieldName KSCrashField_CPUSubType;
+extern KSCrashReportFieldName KSCrashField_BinaryCPUType;
+extern KSCrashReportFieldName KSCrashField_BinaryCPUSubType;
+extern KSCrashReportFieldName KSCrashField_TimeZone;
+extern KSCrashReportFieldName KSCrashField_ProcessName;
+extern KSCrashReportFieldName KSCrashField_ProcessID;
+extern KSCrashReportFieldName KSCrashField_ParentProcessID;
+extern KSCrashReportFieldName KSCrashField_DeviceAppHash;
+extern KSCrashReportFieldName KSCrashField_BuildType;
+extern KSCrashReportFieldName KSCrashField_Storage;
+extern KSCrashReportFieldName KSCrashField_FreeStorage;
+extern KSCrashReportFieldName KSCrashField_Memory;
+extern KSCrashReportFieldName KSCrashField_Size;
+extern KSCrashReportFieldName KSCrashField_Usable;
+extern KSCrashReportFieldName KSCrashField_Free;
 
 #ifdef __cplusplus
 }

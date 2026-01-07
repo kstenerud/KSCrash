@@ -7,6 +7,7 @@
 //
 
 #import "KSCrashDoctor.h"
+#import "KSCrashMonitor_System.h"
 #import "KSCrashReportFields.h"
 
 typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } CPUFamily;
@@ -128,7 +129,7 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
 
 - (NSDictionary *)systemReport:(NSDictionary *)report
 {
-    return [report objectForKey:KSCrashField_System];
+    return [report objectForKey:@(KSCrashField_System)];
 }
 
 - (NSDictionary *)crashReport:(NSDictionary *)report
@@ -149,7 +150,7 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
 - (CPUFamily)cpuFamily:(NSDictionary *)report
 {
     NSDictionary *system = [self systemReport:report];
-    NSString *cpuArch = [system objectForKey:KSCrashField_CPUArch];
+    NSString *cpuArch = [system objectForKey:@(KSCrashField_CPUArch)];
     if ([cpuArch rangeOfString:@"arm"].location == 0) {
         return CPUFamilyArm;
     }
@@ -215,7 +216,7 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
 - (NSString *)mainExecutableNameForReport:(NSDictionary *)report
 {
     NSDictionary *info = [self infoReport:report];
-    return [info objectForKey:KSCrashField_ProcessName];
+    return [info objectForKey:@(KSCrashField_ProcessName)];
 }
 
 - (NSDictionary *)crashedThreadReport:(NSDictionary *)report

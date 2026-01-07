@@ -28,6 +28,7 @@
 
 #include "KSCrashMonitorContext.h"
 #include "KSCrashMonitorHelper.h"
+#include "KSCrashReportWriter.h"
 #include "KSFileUtils.h"
 #include "KSJSONCodec.h"
 
@@ -57,6 +58,18 @@
 #define kKeyLaunchesSinceLastCrash "launchesSinceLastCrash"
 #define kKeySessionsSinceLastCrash "sessionsSinceLastCrash"
 #define kKeySessionsSinceLaunch "sessionsSinceLaunch"
+
+// Field keys for report writing (definitions for extern declarations in header)
+KSCrashReportFieldName KSCrashField_AppStats = "application_stats";
+KSCrashReportFieldName KSCrashField_AppActive = "application_active";
+KSCrashReportFieldName KSCrashField_AppInFG = "application_in_foreground";
+KSCrashReportFieldName KSCrashField_LaunchesSinceCrash = "launches_since_last_crash";
+KSCrashReportFieldName KSCrashField_SessionsSinceCrash = "sessions_since_last_crash";
+KSCrashReportFieldName KSCrashField_ActiveTimeSinceCrash = "active_time_since_last_crash";
+KSCrashReportFieldName KSCrashField_BGTimeSinceCrash = "background_time_since_last_crash";
+KSCrashReportFieldName KSCrashField_SessionsSinceLaunch = "sessions_since_launch";
+KSCrashReportFieldName KSCrashField_ActiveTimeSinceLaunch = "active_time_since_launch";
+KSCrashReportFieldName KSCrashField_BGTimeSinceLaunch = "background_time_since_launch";
 
 // ============================================================================
 #pragma mark - Globals -
@@ -456,6 +469,25 @@ static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext)
     }
 }
 
+static void writeInReportSection(const KSCrash_MonitorContext *monitorContext, const KSCrashReportWriter *writer)
+{
+    writer->addBooleanElement(writer, KSCrashField_AppActive, monitorContext->AppState.applicationIsActive);
+    writer->addBooleanElement(writer, KSCrashField_AppInFG, monitorContext->AppState.applicationIsInForeground);
+
+    writer->addIntegerElement(writer, KSCrashField_LaunchesSinceCrash, monitorContext->AppState.launchesSinceLastCrash);
+    writer->addIntegerElement(writer, KSCrashField_SessionsSinceCrash, monitorContext->AppState.sessionsSinceLastCrash);
+    writer->addFloatingPointElement(writer, KSCrashField_ActiveTimeSinceCrash,
+                                    monitorContext->AppState.activeDurationSinceLastCrash);
+    writer->addFloatingPointElement(writer, KSCrashField_BGTimeSinceCrash,
+                                    monitorContext->AppState.backgroundDurationSinceLastCrash);
+
+    writer->addIntegerElement(writer, KSCrashField_SessionsSinceLaunch, monitorContext->AppState.sessionsSinceLaunch);
+    writer->addFloatingPointElement(writer, KSCrashField_ActiveTimeSinceLaunch,
+                                    monitorContext->AppState.activeDurationSinceLaunch);
+    writer->addFloatingPointElement(writer, KSCrashField_BGTimeSinceLaunch,
+                                    monitorContext->AppState.backgroundDurationSinceLaunch);
+}
+
 KSCrashMonitorAPI *kscm_appstate_getAPI(void)
 {
     static KSCrashMonitorAPI api = { 0 };
@@ -464,6 +496,7 @@ KSCrashMonitorAPI *kscm_appstate_getAPI(void)
         api.setEnabled = setEnabled;
         api.isEnabled = isEnabled;
         api.addContextualInfoToEvent = addContextualInfoToEvent;
+        api.writeInReportSection = writeInReportSection;
     }
     return &api;
 }

@@ -33,6 +33,9 @@
 #import <mach/machine.h>
 
 #import "KSCPU.h"
+#import "KSCrashMonitor_AppState.h"
+#import "KSCrashMonitor_Memory.h"
+#import "KSCrashMonitor_System.h"
 #import "KSCrashReportFields.h"
 #import "KSJSONCodecObjC.h"
 
@@ -366,7 +369,7 @@ static NSDictionary *g_registerOrders;
 
 - (NSDictionary *)systemReport:(NSDictionary *)report
 {
-    return [report objectForKey:KSCrashField_System];
+    return [report objectForKey:@(KSCrashField_System)];
 }
 
 - (NSDictionary *)infoReport:(NSDictionary *)report
@@ -406,14 +409,14 @@ static NSDictionary *g_registerOrders;
 - (NSString *)mainExecutableNameForReport:(NSDictionary *)report
 {
     NSDictionary *info = [self infoReport:report];
-    return [info objectForKey:KSCrashField_ProcessName];
+    return [info objectForKey:@(KSCrashField_ProcessName)];
 }
 
 - (NSString *)cpuArchForReport:(NSDictionary *)report
 {
     NSDictionary *system = [self systemReport:report];
-    cpu_type_t cpuType = [[system objectForKey:KSCrashField_BinaryCPUType] intValue];
-    cpu_subtype_t cpuSubType = [[system objectForKey:KSCrashField_BinaryCPUSubType] intValue];
+    cpu_type_t cpuType = [[system objectForKey:@(KSCrashField_BinaryCPUType)] intValue];
+    cpu_subtype_t cpuSubType = [[system objectForKey:@(KSCrashField_BinaryCPUSubType)] intValue];
     return [self CPUArchForMajor:cpuType minor:cpuSubType];
 }
 
@@ -432,8 +435,8 @@ static NSDictionary *g_registerOrders;
                               crashTime:(nullable NSDate *)crashTime
 {
     NSMutableString *str = [NSMutableString string];
-    NSString *executablePath = [system objectForKey:KSCrashField_ExecutablePath];
-    NSString *cpuArch = [system objectForKey:KSCrashField_CPUArch];
+    NSString *executablePath = [system objectForKey:@(KSCrashField_ExecutablePath)];
+    NSString *cpuArch = [system objectForKey:@(KSCrashField_CPUArch)];
     NSString *cpuArchType = [self CPUType:cpuArch isSystemInfoHeader:YES];
     NSString *parentProcess = @"launchd";  // In iOS and most macOS regulard apps "launchd" is always the launcher. This
                                            // might need a fix for other kind of apps
@@ -441,22 +444,23 @@ static NSDictionary *g_registerOrders;
                                             // need a fix for other kind of apps
 
     [str appendFormat:@"Incident Identifier: %@\n", reportID];
-    [str appendFormat:@"CrashReporter Key:   %@\n", [system objectForKey:KSCrashField_DeviceAppHash]];
-    [str appendFormat:@"Hardware Model:      %@\n", [system objectForKey:KSCrashField_Machine]];
-    [str appendFormat:@"Process:             %@ [%@]\n", [system objectForKey:KSCrashField_ProcessName],
-                      [system objectForKey:KSCrashField_ProcessID]];
+    [str appendFormat:@"CrashReporter Key:   %@\n", [system objectForKey:@(KSCrashField_DeviceAppHash)]];
+    [str appendFormat:@"Hardware Model:      %@\n", [system objectForKey:@(KSCrashField_Machine)]];
+    [str appendFormat:@"Process:             %@ [%@]\n", [system objectForKey:@(KSCrashField_ProcessName)],
+                      [system objectForKey:@(KSCrashField_ProcessID)]];
     [str appendFormat:@"Path:                %@\n", executablePath];
-    [str appendFormat:@"Identifier:          %@\n", [system objectForKey:KSCrashField_BundleID]];
-    [str appendFormat:@"Version:             %@ (%@)\n", [system objectForKey:KSCrashField_BundleShortVersion],
-                      [system objectForKey:KSCrashField_BundleVersion]];
+    [str appendFormat:@"Identifier:          %@\n", [system objectForKey:@(KSCrashField_BundleID)]];
+    [str appendFormat:@"Version:             %@ (%@)\n", [system objectForKey:@(KSCrashField_BundleShortVersion)],
+                      [system objectForKey:@(KSCrashField_BundleVersion)]];
     [str appendFormat:@"Code Type:           %@\n", cpuArchType];
     [str appendFormat:@"Role:                %@\n", processRole];
     [str appendFormat:@"Parent Process:      %@ [%@]\n", parentProcess,
-                      [system objectForKey:KSCrashField_ParentProcessID]];
+                      [system objectForKey:@(KSCrashField_ParentProcessID)]];
     [str appendFormat:@"\n"];
     [str appendFormat:@"Date/Time:           %@\n", [self stringFromDate:crashTime]];
-    [str appendFormat:@"OS Version:          %@ %@ (%@)\n", [system objectForKey:KSCrashField_SystemName],
-                      [system objectForKey:KSCrashField_SystemVersion], [system objectForKey:KSCrashField_OSVersion]];
+    [str appendFormat:@"OS Version:          %@ %@ (%@)\n", [system objectForKey:@(KSCrashField_SystemName)],
+                      [system objectForKey:@(KSCrashField_SystemVersion)],
+                      [system objectForKey:@(KSCrashField_OSVersion)]];
     [str appendFormat:@"Report Version:      104\n"];
 
     return str;
@@ -480,8 +484,8 @@ static NSDictionary *g_registerOrders;
             return [num1 compare:num2];
         }];
         for (NSDictionary *image in images) {
-            cpu_type_t cpuType = [[image objectForKey:KSCrashField_CPUType] intValue];
-            cpu_subtype_t cpuSubtype = [[image objectForKey:KSCrashField_CPUSubType] intValue];
+            cpu_type_t cpuType = [[image objectForKey:@(KSCrashField_CPUType)] intValue];
+            cpu_subtype_t cpuSubtype = [[image objectForKey:@(KSCrashField_CPUSubType)] intValue];
             uintptr_t imageAddr = (uintptr_t)[[image objectForKey:KSCrashField_ImageAddress] longLongValue];
             uintptr_t imageSize = (uintptr_t)[[image objectForKey:KSCrashField_ImageSize] longLongValue];
             NSString *path = [image objectForKey:KSCrashField_Name];
@@ -582,12 +586,12 @@ static NSDictionary *g_registerOrders;
                               mainExecutableName:mainExecutableName]];
     }
 
-    NSDictionary *appStats = [system objectForKey:KSCrashField_AppStats];
+    NSDictionary *appStats = [system objectForKey:@(KSCrashField_AppStats)];
     if (appStats != nil) {
         [str appendFormat:@"\nApplication Stats:\n%@\n", [self JSONForObject:appStats]];
     }
 
-    NSDictionary *memoryStats = [system objectForKey:KSCrashField_AppMemory];
+    NSDictionary *memoryStats = [system objectForKey:@(KSCrashField_AppMemory)];
     if (memoryStats != nil) {
         [str appendFormat:@"\nMemory Statistics:\n%@\n", [self JSONForObject:memoryStats]];
     }
@@ -798,7 +802,7 @@ static NSDictionary *g_registerOrders;
 
     NSDictionary *recrashReport = [self recrashReport:report];
     NSDictionary *system = [self systemReport:recrashReport];
-    NSString *executablePath = [system objectForKey:KSCrashField_ExecutablePath];
+    NSString *executablePath = [system objectForKey:@(KSCrashField_ExecutablePath)];
     NSString *executableName = [executablePath lastPathComponent];
     NSDictionary *crash = [self crashReport:report];
     NSDictionary *thread = [crash objectForKey:KSCrashField_CrashedThread];

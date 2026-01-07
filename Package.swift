@@ -285,7 +285,8 @@ let package = Package(
                 .copy("Resources/PrivacyInfo.xcprivacy")
             ],
             cSettings: [
-                .unsafeFlags(warningFlags)
+                .headerSearchPath("../\(Targets.recording)/Monitors"),
+                .unsafeFlags(warningFlags),
             ]
         ),
         .testTarget(

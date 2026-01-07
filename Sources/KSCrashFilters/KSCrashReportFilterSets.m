@@ -25,6 +25,7 @@
 //
 
 #import "KSCrashReportFilterSets.h"
+#import "KSCrashMonitor_System.h"
 #import "KSCrashReportFields.h"
 #import "KSCrashReportFilterBasic.h"
 #import "KSCrashReportFilterGZip.h"
@@ -60,7 +61,7 @@
 + (id<KSCrashReportFilter>)createUserSystemFilterPipeline
 {
     return [[KSCrashReportFilterPipeline alloc] initWithFilters:@[
-        [[KSCrashReportFilterSubset alloc] initWithKeys:@[ KSCrashField_System, KSCrashField_User ]],
+        [[KSCrashReportFilterSubset alloc] initWithKeys:@[ @(KSCrashField_System), KSCrashField_User ]],
         [[KSCrashReportFilterJSONEncode alloc] initWithOptions:KSJSONEncodeOptionPretty | KSJSONEncodeOptionSorted],
         [KSCrashReportFilterDataToString new]
     ]];
