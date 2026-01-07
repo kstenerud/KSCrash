@@ -42,10 +42,11 @@ extension ProfileInfo {
     ///
     /// - Parameter format: The target export format.
     /// - Returns: Encoded data in the specified format.
-    public func export(to format: ProfileExportFormat) -> Data? {
+    /// - Throws: An error if encoding fails.
+    public func export(to format: ProfileExportFormat) throws -> Data {
         switch format {
         case .speedscope:
-            return exportToSpeedscope()
+            return try exportToSpeedscope()
         }
     }
 
@@ -89,9 +90,10 @@ extension ProfileInfo {
     /// https://speedscope.app for interactive flame graph visualization.
     ///
     /// - Returns: JSON data in Speedscope format.
-    public func exportToSpeedscope() -> Data? {
+    /// - Throws: An error if JSON encoding fails.
+    public func exportToSpeedscope() throws -> Data {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        return try? encoder.encode(toSpeedscope())
+        return try encoder.encode(toSpeedscope())
     }
 }

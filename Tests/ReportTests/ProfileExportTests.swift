@@ -160,9 +160,10 @@ final class ProfileExportTests: XCTestCase {
         let speedscopeProfile = speedscope.profiles[0]
 
         XCTAssertEqual(speedscopeProfile.samples.count, 3)
-        XCTAssertEqual(speedscopeProfile.samples[0], [0, 1])
-        XCTAssertEqual(speedscopeProfile.samples[1], [0, 1, 2])
-        XCTAssertEqual(speedscopeProfile.samples[2], [0, 1])
+        // Frames are reversed for proper Speedscope stack representation (root at index 0)
+        XCTAssertEqual(speedscopeProfile.samples[0], [1, 0])
+        XCTAssertEqual(speedscopeProfile.samples[1], [2, 1, 0])
+        XCTAssertEqual(speedscopeProfile.samples[2], [1, 0])
 
         XCTAssertEqual(speedscopeProfile.weights.count, 3)
         // All weights should be expectedSampleInterval (10000000 ns)
@@ -173,7 +174,7 @@ final class ProfileExportTests: XCTestCase {
 
     func testExportToSpeedscopeJSON() throws {
         let profile = try decodeTestProfile()
-        let data = profile.exportToSpeedscope()
+        let data = try profile.exportToSpeedscope()
 
         XCTAssertFalse(data.isEmpty)
 
@@ -190,7 +191,7 @@ final class ProfileExportTests: XCTestCase {
 
     func testExportToFormat() throws {
         let profile = try decodeTestProfile()
-        let data = profile.export(to: .speedscope)
+        let data = try profile.export(to: .speedscope)
 
         XCTAssertFalse(data.isEmpty)
 
