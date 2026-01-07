@@ -207,6 +207,31 @@ KSCrash is implemented as a layered architecture with these key components:
 
 When in doubt, check the POSIX list of async-signal-safe functions and follow the patterns established in existing crash handling code.
 
+### Package Manager Parity (SPM and CocoaPods)
+
+**IMPORTANT**: This project supports both Swift Package Manager (`Package.swift`) and CocoaPods (`KSCrash.podspec`). Any changes to one must be reflected in the other.
+
+When modifying `Package.swift`:
+
+- Add/remove targets → Add/remove corresponding subspecs in `KSCrash.podspec`
+- Add/remove dependencies → Update `dependency` declarations in the podspec
+- Change source file paths → Update `source_files` patterns in the podspec
+
+**Validating the podspec**:
+
+```bash
+# Quick syntax validation only (does NOT catch missing dependencies)
+pod lib lint --quick
+
+# Full validation with actual compilation (REQUIRED before committing)
+pod lib lint
+
+# Validate specific subspec
+pod lib lint --subspec=Profiler
+```
+
+**CRITICAL**: Always run `pod lib lint` (without `--quick`) to validate changes. The `--quick` flag only checks podspec syntax and will miss actual build failures like missing dependencies.
+
 ## Code Style Guidelines
 
 - C/C++/Objective-C: Follow clang-format style defined in the project
