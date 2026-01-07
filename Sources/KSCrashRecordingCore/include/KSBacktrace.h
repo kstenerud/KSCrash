@@ -83,6 +83,8 @@ int ksbt_captureBacktrace(pthread_t _Nonnull thread, uintptr_t *_Nonnull address
  * field imageUUID        A pointer to the 16-byte UUID of the image, or NULL.
  * field imageAddress     The load address of the image in memory.
  * field imageSize        The size of the image in bytes.
+ * field imageCpuType     The CPU type of the image containing this symbol (e.g., CPU_TYPE_ARM64).
+ * field imageCpuSubType  The CPU subtype of the image containing this symbol (e.g., CPU_SUBTYPE_ARM64E).
  */
 struct KSSymbolInformation {
     uintptr_t returnAddress;
@@ -93,6 +95,8 @@ struct KSSymbolInformation {
     const uint8_t *_Nullable imageUUID;
     uintptr_t imageAddress;
     uint64_t imageSize;
+    int32_t imageCpuType;
+    int32_t imageCpuSubType;
 } CF_SWIFT_NAME(SymbolInformation);
 
 /**

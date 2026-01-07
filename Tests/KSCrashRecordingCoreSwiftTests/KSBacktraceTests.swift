@@ -99,6 +99,7 @@ import XCTest
             XCTAssert(result.imageAddress > 0)
             XCTAssert(result.imageSize > 0)
             XCTAssert(result.symbolAddress > 0)
+            XCTAssertNotEqual(result.imageCpuType, 0)
         }
 
         func testSameThreadSymbolicate() {
@@ -127,6 +128,7 @@ import XCTest
             XCTAssert(result.imageAddress > 0)
             XCTAssert(result.imageSize > 0)
             XCTAssert(result.symbolAddress > 0)
+            XCTAssertNotEqual(result.imageCpuType, 0)
         }
 
         /// Regression test: Verify that backtrace symbolication returns correct symbols
