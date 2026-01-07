@@ -44,8 +44,8 @@ typedef struct {
     uint64_t vmAddressSlide;
     const char *name;
     const uint8_t *uuid;
-    int cpuType;
-    int cpuSubType;
+    int32_t cpuType;
+    int32_t cpuSubType;
     uint64_t majorVersion;
     uint64_t minorVersion;
     uint64_t revisionVersion;
