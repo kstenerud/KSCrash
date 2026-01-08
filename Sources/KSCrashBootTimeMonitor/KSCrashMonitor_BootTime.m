@@ -70,12 +70,9 @@ static void setEnabled(bool isEnabled)
 
 static bool isEnabled(void) { return g_isEnabled; }
 
-static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext)
+static void addContextualInfoToEvent(__unused KSCrash_MonitorContext *eventContext)
 {
-    (void)eventContext;
-    if (g_isEnabled) {
-        kscm_system_setBootTime(dateSysctl("kern.boottime"));
-    }
+    kscm_system_setBootTime(dateSysctl("kern.boottime"));
 }
 
 KSCrashMonitorAPI *kscm_boottime_getAPI(void)

@@ -450,13 +450,7 @@ static void setEnabled(bool isEnabled)
 
 static bool isEnabled(void) { return g_isEnabled; }
 
-static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext)
-{
-    (void)eventContext;
-    if (g_isEnabled) {
-        updateAppState();
-    }
-}
+static void addContextualInfoToEvent(__unused KSCrash_MonitorContext *eventContext) { updateAppState(); }
 
 static void writeMetadataInReportSection(const KSCrash_MonitorContext *monitorContext,
                                          const KSCrashReportWriter *writer)

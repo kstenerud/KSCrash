@@ -68,12 +68,9 @@ static void setEnabled(bool isEnabled)
 
 static bool isEnabled(void) { return g_isEnabled; }
 
-static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext)
+static void addContextualInfoToEvent(__unused KSCrash_MonitorContext *eventContext)
 {
-    (void)eventContext;
-    if (g_isEnabled) {
-        kscm_system_setStorageInfo(getStorageSize(), getFreeStorageSize());
-    }
+    kscm_system_setStorageInfo(getStorageSize(), getFreeStorageSize());
 }
 
 KSCrashMonitorAPI *kscm_discspace_getAPI(void)
