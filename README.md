@@ -89,7 +89,7 @@ Add the dependency to your target:
 ### CocoaPods
 
 ```ruby
-pod 'KSCrash', '~> 2.0'
+pod 'KSCrash', '~> 2.5'
 ```
 
 ## Quick Start
