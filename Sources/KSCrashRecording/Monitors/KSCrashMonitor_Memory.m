@@ -45,8 +45,8 @@
 #import "KSSystemCapabilities.h"
 
 #import <Foundation/Foundation.h>
-#import <os/lock.h>
 #import <stdatomic.h>
+#import "KSSpinLock.h"
 
 #import "KSLogger.h"
 
@@ -122,18 +122,18 @@ static KSCrash_ExceptionHandlerCallbacks g_callbacks;
 // _ks_memory_update(^(KSCrash_Memory *mem){
 //      mem->x = ...
 //  });
-static os_unfair_lock g_memoryLock = OS_UNFAIR_LOCK_INIT;
+static KSSpinLock g_memoryLock = KSSPINLOCK_INIT;
 static KSCrash_Memory *g_memory = NULL;
 
 static KSCrash_Memory _ks_memory_copy(void)
 {
     KSCrash_Memory copy = { 0 };
     {
-        os_unfair_lock_lock(&g_memoryLock);
+        ks_spinlock_lock_bounded(&g_memoryLock);
         if (g_memory) {
             copy = *g_memory;
         }
-        os_unfair_lock_unlock(&g_memoryLock);
+        ks_spinlock_unlock(&g_memoryLock);
     }
     return copy;
 }
@@ -143,19 +143,19 @@ static void _ks_memory_update(void (^block)(KSCrash_Memory *mem))
     if (!block) {
         return;
     }
-    os_unfair_lock_lock(&g_memoryLock);
+    ks_spinlock_lock_bounded(&g_memoryLock);
     if (g_memory) {
         block(g_memory);
     }
-    os_unfair_lock_unlock(&g_memoryLock);
+    ks_spinlock_unlock(&g_memoryLock);
 }
 
 static void _ks_memory_set(KSCrash_Memory *mem)
 {
-    os_unfair_lock_lock(&g_memoryLock);
+    ks_spinlock_lock_bounded(&g_memoryLock);
     void *old = g_memory;
     g_memory = mem;
-    os_unfair_lock_unlock(&g_memoryLock);
+    ks_spinlock_unlock(&g_memoryLock);
 
     if (old) {
         ksfu_munmap(old, sizeof(KSCrash_Memory));
@@ -307,33 +307,21 @@ static NSURL *kscm_memory_oom_breadcrumb_URL(void)
 
 static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext)
 {
-    bool asyncSafeOnly = kscexc_requiresAsyncSafety(eventContext->requirements);
-
     // we'll use this when reading this back on the next run
     // to know if an OOM is even possible.
-    if (asyncSafeOnly) {
-        // since we're in a signal or something that can only
-        // use async safe functions, we can't lock.
-        // It's "ok" though, since no other threads should be running.
-        if (g_memory) {
-            g_memory->fatal = eventContext->requirements.isFatal;
-        }
-    } else {
-        _ks_memory_update(^(KSCrash_Memory *mem) {
-            mem->fatal = eventContext->requirements.isFatal;
-        });
-    }
+    _ks_memory_update(^(KSCrash_Memory *mem) {
+        mem->fatal = eventContext->requirements.isFatal;
+    });
 }
 
-static void writeMetadataInReportSection(const KSCrash_MonitorContext *monitorContext,
+static void writeMetadataInReportSection(__unused const KSCrash_MonitorContext *monitorContext,
                                          const KSCrashReportWriter *writer)
 {
     if (!g_isEnabled || !g_memory) {
         return;
     }
 
-    bool asyncSafeOnly = kscexc_requiresAsyncSafety(monitorContext->requirements);
-    KSCrash_Memory memCopy = asyncSafeOnly ? *g_memory : _ks_memory_copy();
+    KSCrash_Memory memCopy = _ks_memory_copy();
 
     writer->addUIntegerElement(writer, KSCrashField_MemoryFootprint, memCopy.footprint);
     writer->addUIntegerElement(writer, KSCrashField_MemoryRemaining, memCopy.remaining);
@@ -345,9 +333,9 @@ static void writeMetadataInReportSection(const KSCrash_MonitorContext *monitorCo
     writer->addStringElement(writer, KSCrashField_AppTransitionState, ksapp_transitionStateToString(memCopy.state));
 }
 
-static void writeInReportSection(const KSCrash_MonitorContext *monitorContext, const KSCrashReportWriter *writer)
+static void writeInReportSection(__unused const KSCrash_MonitorContext *monitorContext,
+                                 const KSCrashReportWriter *writer)
 {
-    (void)monitorContext;
     if (!g_isEnabled || !g_memory) {
         return;
     }

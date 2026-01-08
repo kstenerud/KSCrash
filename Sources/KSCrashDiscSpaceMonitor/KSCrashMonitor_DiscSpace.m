@@ -70,6 +70,9 @@ static bool isEnabled(void) { return g_isEnabled; }
 
 static void addContextualInfoToEvent(__unused KSCrash_MonitorContext *eventContext)
 {
+    if (!g_isEnabled) {
+        return;
+    }
     kscm_system_setStorageInfo(getStorageSize(), getFreeStorageSize());
 }
 
