@@ -42,6 +42,7 @@
 #include "KSCrashMonitor_Watchdog.h"
 #include "KSCrashMonitor_Zombie.h"
 #include "KSCrashReportFields.h"
+#include "KSCrashReportMemoryIntrospection.h"
 #include "KSCrashReportVersion.h"
 #include "KSCrashReportWriter.h"
 #include "KSCrashReportWriterCallbacks.h"
@@ -78,9 +79,6 @@
 #pragma mark - Constants -
 // ============================================================================
 
-/** Default number of objects, subobjects, and ivars to record from a memory loc */
-#define kDefaultMemorySearchDepth 15
-
 /** How far to search the stack (in pointer sized jumps) for notable data. */
 #define kStackNotableSearchBackDistance 20
 #define kStackNotableSearchForwardDistance 10
@@ -89,9 +87,6 @@
 #define kStackContentsPushedDistance 20
 #define kStackContentsPoppedDistance 10
 #define kStackContentsTotalDistance (kStackContentsPushedDistance + kStackContentsPoppedDistance)
-
-/** The minimum length for a valid string. */
-#define kMinStringLength 4
 
 // ============================================================================
 #pragma mark - JSON Encoding -
@@ -106,28 +101,12 @@ static const char g_hexNybbles[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8'
 #pragma mark - Runtime Config -
 // ============================================================================
 
-typedef struct {
-    /** If YES, introspect memory contents during a crash.
-     * Any Objective-C objects or C strings near the stack pointer or referenced by
-     * cpu registers or exceptions will be recorded in the crash report, along with
-     * their contents.
-     */
-    bool enabled;
-
-    /** List of classes that should never be introspected.
-     * Whenever a class in this list is encountered, only the class name will be recorded.
-     */
-    const char **restrictedClasses;
-    int restrictedClassesCount;
-} KSCrash_IntrospectionRules;
-
 /** User-provided JSON data to include in crash reports */
 static char *g_userInfoJSON = NULL;
 
 /** Spin lock protecting g_userInfoJSON */
 static KSSpinLock g_userInfoLock = KSSPINLOCK_INIT;
 
-static KSCrash_IntrospectionRules g_introspectionRules = { 0 };
 static KSCrashIsWritingReportCallback g_userSectionWriteCallback = NULL;
 
 #pragma mark Callbacks
@@ -311,29 +290,6 @@ static int addJSONData(const char *restrict const data, const int length, void *
 #pragma mark - Utility -
 // ============================================================================
 
-/** Check if a memory address points to a valid null terminated UTF-8 string.
- *
- * @param address The address to check.
- *
- * @return true if the address points to a string.
- */
-static bool isValidString(const void *const address)
-{
-    if ((void *)address == NULL) {
-        return false;
-    }
-
-    char buffer[500];
-    if ((uintptr_t)address + sizeof(buffer) < (uintptr_t)address) {
-        // Wrapped around the address range.
-        return false;
-    }
-    if (!ksmem_copySafely(address, buffer, sizeof(buffer))) {
-        return false;
-    }
-    return ksstring_isNullTerminatedUTF8String(buffer, kMinStringLength, sizeof(buffer));
-}
-
 /** Get the backtrace for the specified machine context.
  *
  * This function will choose how to fetch the backtrace based on the crash and
@@ -365,432 +321,6 @@ static bool getStackCursor(const KSCrash_MonitorContext *const crash,
 // ============================================================================
 #pragma mark - Report Writing -
 // ============================================================================
-
-/** Write the contents of a memory location.
- * Also writes meta information about the data.
- *
- * @param writer The writer.
- *
- * @param key The object key, if needed.
- *
- * @param address The memory address.
- *
- * @param limit How many more subreferenced objects to write, if any.
- */
-static void writeMemoryContents(const KSCrashReportWriter *const writer, const char *const key, const uintptr_t address,
-                                int *limit);
-
-/** Write a string to the report.
- * This will only print the first child of the array.
- *
- * @param writer The writer.
- *
- * @param key The object key, if needed.
- *
- * @param objectAddress The object's address.
- *
- * @param limit How many more subreferenced objects to write, if any.
- */
-static void writeNSStringContents(const KSCrashReportWriter *const writer, const char *const key,
-                                  const uintptr_t objectAddress, __unused int *limit)
-{
-    const void *object = (const void *)objectAddress;
-    char buffer[200];
-    if (ksobjc_copyStringContents(object, buffer, sizeof(buffer))) {
-        writer->addStringElement(writer, key, buffer);
-    }
-}
-
-/** Write a URL to the report.
- * This will only print the first child of the array.
- *
- * @param writer The writer.
- *
- * @param key The object key, if needed.
- *
- * @param objectAddress The object's address.
- *
- * @param limit How many more subreferenced objects to write, if any.
- */
-static void writeURLContents(const KSCrashReportWriter *const writer, const char *const key,
-                             const uintptr_t objectAddress, __unused int *limit)
-{
-    const void *object = (const void *)objectAddress;
-    char buffer[200];
-    if (ksobjc_copyStringContents(object, buffer, sizeof(buffer))) {
-        writer->addStringElement(writer, key, buffer);
-    }
-}
-
-/** Write a date to the report.
- * This will only print the first child of the array.
- *
- * @param writer The writer.
- *
- * @param key The object key, if needed.
- *
- * @param objectAddress The object's address.
- *
- * @param limit How many more subreferenced objects to write, if any.
- */
-static void writeDateContents(const KSCrashReportWriter *const writer, const char *const key,
-                              const uintptr_t objectAddress, __unused int *limit)
-{
-    const void *object = (const void *)objectAddress;
-    writer->addFloatingPointElement(writer, key, ksobjc_dateContents(object));
-}
-
-/** Write a number to the report.
- * This will only print the first child of the array.
- *
- * @param writer The writer.
- *
- * @param key The object key, if needed.
- *
- * @param objectAddress The object's address.
- *
- * @param limit How many more subreferenced objects to write, if any.
- */
-static void writeNumberContents(const KSCrashReportWriter *const writer, const char *const key,
-                                const uintptr_t objectAddress, __unused int *limit)
-{
-    const void *object = (const void *)objectAddress;
-    writer->addFloatingPointElement(writer, key, ksobjc_numberAsFloat(object));
-}
-
-/** Write an array to the report.
- * This will only print the first child of the array.
- *
- * @param writer The writer.
- *
- * @param key The object key, if needed.
- *
- * @param objectAddress The object's address.
- *
- * @param limit How many more subreferenced objects to write, if any.
- */
-static void writeArrayContents(const KSCrashReportWriter *const writer, const char *const key,
-                               const uintptr_t objectAddress, int *limit)
-{
-    const void *object = (const void *)objectAddress;
-    uintptr_t firstObject;
-    if (ksobjc_arrayContents(object, &firstObject, 1) == 1) {
-        writeMemoryContents(writer, key, firstObject, limit);
-    }
-}
-
-/** Write out ivar information about an unknown object.
- *
- * @param writer The writer.
- *
- * @param key The object key, if needed.
- *
- * @param objectAddress The object's address.
- *
- * @param limit How many more subreferenced objects to write, if any.
- */
-static void writeUnknownObjectContents(const KSCrashReportWriter *const writer, const char *const key,
-                                       const uintptr_t objectAddress, int *limit)
-{
-    (*limit)--;
-    const void *object = (const void *)objectAddress;
-    KSObjCIvar ivars[10];
-    int8_t s8;
-    int16_t s16;
-    int sInt;
-    int32_t s32;
-    int64_t s64;
-    uint8_t u8;
-    uint16_t u16;
-    unsigned int uInt;
-    uint32_t u32;
-    uint64_t u64;
-    float f32;
-    double f64;
-    bool b;
-    void *pointer;
-
-    writer->beginObject(writer, key);
-    {
-        if (ksobjc_isTaggedPointer(object)) {
-            writer->addIntegerElement(writer, "tagged_payload", (int64_t)ksobjc_taggedPointerPayload(object));
-        } else {
-            const void *class = ksobjc_isaPointer(object);
-            int ivarCount = ksobjc_ivarList(class, ivars, sizeof(ivars) / sizeof(*ivars));
-            *limit -= ivarCount;
-            for (int i = 0; i < ivarCount; i++) {
-                KSObjCIvar *ivar = &ivars[i];
-                switch (ivar->type[0]) {
-                    case 'c':
-                        ksobjc_ivarValue(object, ivar->index, &s8);
-                        writer->addIntegerElement(writer, ivar->name, s8);
-                        break;
-                    case 'i':
-                        ksobjc_ivarValue(object, ivar->index, &sInt);
-                        writer->addIntegerElement(writer, ivar->name, sInt);
-                        break;
-                    case 's':
-                        ksobjc_ivarValue(object, ivar->index, &s16);
-                        writer->addIntegerElement(writer, ivar->name, s16);
-                        break;
-                    case 'l':
-                        ksobjc_ivarValue(object, ivar->index, &s32);
-                        writer->addIntegerElement(writer, ivar->name, s32);
-                        break;
-                    case 'q':
-                        ksobjc_ivarValue(object, ivar->index, &s64);
-                        writer->addIntegerElement(writer, ivar->name, s64);
-                        break;
-                    case 'C':
-                        ksobjc_ivarValue(object, ivar->index, &u8);
-                        writer->addUIntegerElement(writer, ivar->name, u8);
-                        break;
-                    case 'I':
-                        ksobjc_ivarValue(object, ivar->index, &uInt);
-                        writer->addUIntegerElement(writer, ivar->name, uInt);
-                        break;
-                    case 'S':
-                        ksobjc_ivarValue(object, ivar->index, &u16);
-                        writer->addUIntegerElement(writer, ivar->name, u16);
-                        break;
-                    case 'L':
-                        ksobjc_ivarValue(object, ivar->index, &u32);
-                        writer->addUIntegerElement(writer, ivar->name, u32);
-                        break;
-                    case 'Q':
-                        ksobjc_ivarValue(object, ivar->index, &u64);
-                        writer->addUIntegerElement(writer, ivar->name, u64);
-                        break;
-                    case 'f':
-                        ksobjc_ivarValue(object, ivar->index, &f32);
-                        writer->addFloatingPointElement(writer, ivar->name, f32);
-                        break;
-                    case 'd':
-                        ksobjc_ivarValue(object, ivar->index, &f64);
-                        writer->addFloatingPointElement(writer, ivar->name, f64);
-                        break;
-                    case 'B':
-                        ksobjc_ivarValue(object, ivar->index, &b);
-                        writer->addBooleanElement(writer, ivar->name, b);
-                        break;
-                    case '*':
-                    case '@':
-                    case '#':
-                    case ':':
-                        ksobjc_ivarValue(object, ivar->index, &pointer);
-                        writeMemoryContents(writer, ivar->name, (uintptr_t)pointer, limit);
-                        break;
-                    default:
-                        KSLOG_DEBUG("%s: Unknown ivar type [%s]", ivar->name, ivar->type);
-                }
-            }
-        }
-    }
-    writer->endContainer(writer);
-}
-
-static bool isRestrictedClass(const char *name)
-{
-    if (g_introspectionRules.restrictedClasses != NULL) {
-        for (int i = 0; i < g_introspectionRules.restrictedClassesCount; i++) {
-            if (ksstring_safeStrcmp(name, g_introspectionRules.restrictedClasses[i]) == 0) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
-static void writeZombieIfPresent(const KSCrashReportWriter *const writer, const char *const key,
-                                 const uintptr_t address)
-{
-#if KSCRASH_HAS_OBJC
-    const void *object = (const void *)address;
-    const char *zombieClassName = kszombie_className(object);
-    if (zombieClassName != NULL) {
-        writer->addStringElement(writer, key, zombieClassName);
-    }
-#endif
-}
-
-static bool writeObjCObject(const KSCrashReportWriter *const writer, const uintptr_t address, int *limit)
-{
-#if KSCRASH_HAS_OBJC
-    const void *object = (const void *)address;
-    switch (ksobjc_objectType(object)) {
-        case KSObjCTypeClass:
-            writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_Class);
-            writer->addStringElement(writer, KSCrashField_Class, ksobjc_className(object));
-            return true;
-        case KSObjCTypeObject: {
-            writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_Object);
-            const char *className = ksobjc_objectClassName(object);
-            writer->addStringElement(writer, KSCrashField_Class, className);
-            if (!isRestrictedClass(className)) {
-                switch (ksobjc_objectClassType(object)) {
-                    case KSObjCClassTypeString:
-                        writeNSStringContents(writer, KSCrashField_Value, address, limit);
-                        return true;
-                    case KSObjCClassTypeURL:
-                        writeURLContents(writer, KSCrashField_Value, address, limit);
-                        return true;
-                    case KSObjCClassTypeDate:
-                        writeDateContents(writer, KSCrashField_Value, address, limit);
-                        return true;
-                    case KSObjCClassTypeArray:
-                        if (*limit > 0) {
-                            writeArrayContents(writer, KSCrashField_FirstObject, address, limit);
-                        }
-                        return true;
-                    case KSObjCClassTypeNumber:
-                        writeNumberContents(writer, KSCrashField_Value, address, limit);
-                        return true;
-                    case KSObjCClassTypeDictionary:
-                    case KSObjCClassTypeException:
-                        // TODO: Implement these.
-                        if (*limit > 0) {
-                            writeUnknownObjectContents(writer, KSCrashField_Ivars, address, limit);
-                        }
-                        return true;
-                    case KSObjCClassTypeUnknown:
-                        if (*limit > 0) {
-                            writeUnknownObjectContents(writer, KSCrashField_Ivars, address, limit);
-                        }
-                        return true;
-                    default:
-                        break;
-                }
-            }
-            break;
-        }
-        case KSObjCTypeBlock:
-            writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_Block);
-            const char *className = ksobjc_objectClassName(object);
-            writer->addStringElement(writer, KSCrashField_Class, className);
-            return true;
-        case KSObjCTypeUnknown:
-            break;
-        default:
-            return false;
-    }
-#endif
-
-    return false;
-}
-
-/** Write the contents of a memory location.
- * Also writes meta information about the data.
- *
- * @param writer The writer.
- *
- * @param key The object key, if needed.
- *
- * @param address The memory address.
- *
- * @param limit How many more subreferenced objects to write, if any.
- */
-static void writeMemoryContents(const KSCrashReportWriter *const writer, const char *const key, const uintptr_t address,
-                                int *limit)
-{
-    (*limit)--;
-    const void *object = (const void *)address;
-    writer->beginObject(writer, key);
-    {
-        writer->addUIntegerElement(writer, KSCrashField_Address, address);
-        writeZombieIfPresent(writer, KSCrashField_LastDeallocObject, address);
-        if (!writeObjCObject(writer, address, limit)) {
-            if (object == NULL) {
-                writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_NullPointer);
-            } else if (isValidString(object)) {
-                writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_String);
-                writer->addStringElement(writer, KSCrashField_Value, (const char *)object);
-            } else {
-                writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_Unknown);
-            }
-        }
-    }
-    writer->endContainer(writer);
-}
-
-static bool isValidPointer(const uintptr_t address)
-{
-    if (address == (uintptr_t)NULL) {
-        return false;
-    }
-
-#if KSCRASH_HAS_OBJC
-    if (ksobjc_isTaggedPointer((const void *)address)) {
-        if (!ksobjc_isValidTaggedPointer((const void *)address)) {
-            return false;
-        }
-    }
-#endif
-
-    return true;
-}
-
-static bool isNotableAddress(const uintptr_t address)
-{
-    if (!isValidPointer(address)) {
-        return false;
-    }
-
-    const void *object = (const void *)address;
-
-#if KSCRASH_HAS_OBJC
-    if (kszombie_className(object) != NULL) {
-        return true;
-    }
-
-    if (ksobjc_objectType(object) != KSObjCTypeUnknown) {
-        return true;
-    }
-#endif
-
-    if (isValidString(object)) {
-        return true;
-    }
-
-    return false;
-}
-
-/** Write the contents of a memory location only if it contains notable data.
- * Also writes meta information about the data.
- *
- * @param writer The writer.
- *
- * @param key The object key, if needed.
- *
- * @param address The memory address.
- */
-static void writeMemoryContentsIfNotable(const KSCrashReportWriter *const writer, const char *const key,
-                                         const uintptr_t address)
-{
-    if (isNotableAddress(address)) {
-        int limit = kDefaultMemorySearchDepth;
-        writeMemoryContents(writer, key, address, &limit);
-    }
-}
-
-/** Look for a hex value in a string and try to write whatever it references.
- *
- * @param writer The writer.
- *
- * @param key The object key, if needed.
- *
- * @param string The string to search.
- */
-static void writeAddressReferencedByString(const KSCrashReportWriter *const writer, const char *const key,
-                                           const char *string)
-{
-    uint64_t address = 0;
-    if (string == NULL || !ksstring_extractHexValue(string, (int)strlen(string), &address)) {
-        return;
-    }
-
-    int limit = kDefaultMemorySearchDepth;
-    writeMemoryContents(writer, key, (uintptr_t)address, &limit);
-}
 
 #pragma mark Backtrace
 
@@ -914,7 +444,7 @@ static void writeNotableStackContents(const KSCrashReportWriter *const writer,
     for (uintptr_t address = lowAddress; address < highAddress; address += sizeof(address)) {
         if (ksmem_copySafely((void *)address, &contentsAsPointer, sizeof(contentsAsPointer))) {
             snprintf(nameBuffer, sizeof(nameBuffer), "stack@%p", (void *)address);
-            writeMemoryContentsIfNotable(writer, nameBuffer, contentsAsPointer);
+            kscrmi_writeMemoryContentsIfNotable(writer, nameBuffer, contentsAsPointer);
         }
     }
 }
@@ -1016,7 +546,7 @@ static void writeNotableRegisters(const KSCrashReportWriter *const writer,
             snprintf(registerNameBuff, sizeof(registerNameBuff), "r%d", reg);
             registerName = registerNameBuff;
         }
-        writeMemoryContentsIfNotable(writer, registerName, (uintptr_t)kscpu_registerValue(machineContext, reg));
+        kscrmi_writeMemoryContentsIfNotable(writer, registerName, (uintptr_t)kscpu_registerValue(machineContext, reg));
     }
 }
 
@@ -1301,7 +831,7 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
             {
                 writer->addStringElement(writer, KSCrashField_Name, crash->NSException.name);
                 writer->addStringElement(writer, KSCrashField_UserInfo, crash->NSException.userInfo);
-                writeAddressReferencedByString(writer, KSCrashField_ReferencedObject, crash->crashReason);
+                kscrmi_writeAddressReferencedByString(writer, KSCrashField_ReferencedObject, crash->crashReason);
             }
             writer->endContainer(writer);
         } else if (isCrashOfMonitorType(crash, kscm_machexception_getAPI())) {
@@ -1376,16 +906,10 @@ static void writeProcessState(const KSCrashReportWriter *const writer, const cha
 {
     writer->beginObject(writer, key);
     {
-        if (monitorContext->ZombieException.address != 0) {
-            writer->beginObject(writer, KSCrashField_LastDeallocedNSException);
-            {
-                writer->addUIntegerElement(writer, KSCrashField_Address, monitorContext->ZombieException.address);
-                writer->addStringElement(writer, KSCrashField_Name, monitorContext->ZombieException.name);
-                writer->addStringElement(writer, KSCrashField_Reason, monitorContext->ZombieException.reason);
-                writeAddressReferencedByString(writer, KSCrashField_ReferencedObject,
-                                               monitorContext->ZombieException.reason);
-            }
-            writer->endContainer(writer);
+        // Call Zombie monitor's writeMetadataInReportSection callback
+        const KSCrashMonitorAPI *zombieAPI = kscm_zombie_getAPI();
+        if (zombieAPI != NULL && zombieAPI->writeMetadataInReportSection != NULL) {
+            zombieAPI->writeMetadataInReportSection(monitorContext, writer);
         }
     }
     writer->endContainer(writer);
@@ -1602,7 +1126,7 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
         {
             writeError(writer, KSCrashField_Error, monitorContext);
             ksfu_flushBufferedWriter(&bufferedWriter);
-            writeThreads(writer, KSCrashField_Threads, monitorContext, g_introspectionRules.enabled);
+            writeThreads(writer, KSCrashField_Threads, monitorContext, kscrmi_isIntrospectionEnabled());
             ksfu_flushBufferedWriter(&bufferedWriter);
             if (monitorContext->suspendedThreadsCount > 0) {
                 // Special case: If we only needed to suspend the environment to record the threads, then we can
@@ -1678,38 +1202,12 @@ const char *kscrashreport_getUserInfoJSON(void)
 
 void kscrashreport_setIntrospectMemory(bool shouldIntrospectMemory)
 {
-    g_introspectionRules.enabled = shouldIntrospectMemory;
+    kscrmi_setIntrospectMemory(shouldIntrospectMemory);
 }
 
 void kscrashreport_setDoNotIntrospectClasses(const char **doNotIntrospectClasses, int length)
 {
-    const char **oldClasses = g_introspectionRules.restrictedClasses;
-    int oldClassesLength = g_introspectionRules.restrictedClassesCount;
-    const char **newClasses = NULL;
-    int newClassesLength = 0;
-
-    if (doNotIntrospectClasses != NULL && length > 0) {
-        newClassesLength = length;
-        newClasses = malloc(sizeof(*newClasses) * (unsigned)newClassesLength);
-        if (newClasses == NULL) {
-            KSLOG_ERROR("Could not allocate memory");
-            return;
-        }
-
-        for (int i = 0; i < newClassesLength; i++) {
-            newClasses[i] = strdup(doNotIntrospectClasses[i]);
-        }
-    }
-
-    g_introspectionRules.restrictedClasses = newClasses;
-    g_introspectionRules.restrictedClassesCount = newClassesLength;
-
-    if (oldClasses != NULL) {
-        for (int i = 0; i < oldClassesLength; i++) {
-            free((void *)oldClasses[i]);
-        }
-        free(oldClasses);
-    }
+    kscrmi_setDoNotIntrospectClasses(doNotIntrospectClasses, length);
 }
 
 void kscrashreport_setIsWritingReportCallback(const KSCrashIsWritingReportCallback isWritingReportCallback)

@@ -160,17 +160,6 @@ typedef struct KSCrash_MonitorContext {
     } userException;
 
     struct {
-        /** Address of the last deallocated exception. */
-        uintptr_t address;
-
-        /** Name of the last deallocated exception. */
-        const char *name;
-
-        /** Reason field from the last deallocated exception. */
-        const char *reason;
-    } ZombieException;
-
-    struct {
         /** Whether the hang is currently in progress */
         bool inProgress;
 
