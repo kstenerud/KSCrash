@@ -32,6 +32,14 @@ import Foundation
 public enum ProfileExportFormat: Sendable {
     /// Speedscope JSON format for visualization at https://speedscope.app
     case speedscope
+
+    /// Collapsed stack format for FlameGraph tools.
+    /// See: https://github.com/brendangregg/FlameGraph
+    case collapsedStack
+
+    /// Chrome Trace Event format for Chrome DevTools and Perfetto.
+    /// See: https://ui.perfetto.dev
+    case chromeTrace
 }
 
 // MARK: - ProfileInfo Export Extension
@@ -47,53 +55,10 @@ extension ProfileInfo {
         switch format {
         case .speedscope:
             return try exportToSpeedscope()
+        case .collapsedStack:
+            return exportToCollapsedStack()
+        case .chromeTrace:
+            return try exportToChromeTrace()
         }
-    }
-
-    /// Converts this profile to a Speedscope structure.
-    ///
-    /// - Returns: A `Speedscope` structure ready for encoding.
-    public func toSpeedscope() -> Speedscope {
-        let speedscopeFrames = frames.map { frame in
-            Speedscope.Frame(
-                name: frame.symbolName ?? String(format: "0x%llx", frame.instructionAddr),
-                file: frame.objectName
-            )
-        }
-
-        let speedscopeSamples = samples.map {
-            Array($0.frames.reversed())
-        }
-        let weights = samples.map { _ in expectedSampleInterval }
-
-        let profile = Speedscope.Profile(
-            type: .sampled,
-            name: name,
-            unit: .nanoseconds,
-            startValue: timeStartUptime,
-            endValue: timeEndUptime,
-            samples: speedscopeSamples,
-            weights: weights
-        )
-
-        return Speedscope(
-            name: name,
-            exporter: "KSCrash Profiler",
-            shared: Speedscope.Shared(frames: speedscopeFrames),
-            profiles: [profile]
-        )
-    }
-
-    /// Exports this profile to Speedscope JSON format.
-    ///
-    /// The Speedscope format is a JSON-based format that can be opened directly at
-    /// https://speedscope.app for interactive flame graph visualization.
-    ///
-    /// - Returns: JSON data in Speedscope format.
-    /// - Throws: An error if JSON encoding fails.
-    public func exportToSpeedscope() throws -> Data {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        return try encoder.encode(toSpeedscope())
     }
 }

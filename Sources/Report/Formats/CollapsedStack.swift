@@ -1,7 +1,7 @@
 //
-//  StackFrame.swift
+//  CollapsedStack.swift
 //
-//  Created by Alexander Cohen on 2024-12-09.
+//  Created by Alexander Cohen on 2026-01-08.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -26,37 +26,37 @@
 
 import Foundation
 
-/// A single frame in a stack trace.
-public struct StackFrame: Decodable, Sendable {
-    /// Instruction pointer address.
-    public let instructionAddr: UInt64
+/// Collapsed stack format for flame graph generation.
+///
+/// This is the format used by Brendan Gregg's FlameGraph tools and many other
+/// visualization tools (Inferno, speedscope collapsed import, etc.).
+///
+/// Each line represents a stack trace with a count:
+/// ```
+/// main;doWork;sleep 42
+/// main;doWork;compute 15
+/// main;idle 3
+/// ```
+///
+/// The stack is semicolon-separated from root to leaf, followed by a space
+/// and the sample count. Identical stacks are aggregated with their counts summed.
+///
+/// See: https://github.com/brendangregg/FlameGraph
+public struct CollapsedStack: Sendable {
+    /// Lines in the collapsed stack format, each representing a unique stack with its count.
+    public let lines: [String]
 
-    /// Base address of the containing binary image.
-    public let objectAddr: UInt64?
-
-    /// Name of the containing binary image.
-    public let objectName: String?
-
-    /// Address of the symbol.
-    public let symbolAddr: UInt64?
-
-    /// Name of the symbol (function/method name).
-    public let symbolName: String?
-
-    enum CodingKeys: String, CodingKey {
-        case instructionAddr = "instruction_addr"
-        case objectAddr = "object_addr"
-        case objectName = "object_name"
-        case symbolAddr = "symbol_addr"
-        case symbolName = "symbol_name"
+    public init(lines: [String]) {
+        self.lines = lines
     }
-}
 
-// MARK: - Display
+    /// Converts the collapsed stack to a single string.
+    public func toString() -> String {
+        lines.joined(separator: "\n")
+    }
 
-extension StackFrame {
-    /// Display name for this frame, using symbol name if available or hex address as fallback.
-    public var displayName: String {
-        symbolName ?? String(format: "0x%llx", instructionAddr)
+    /// Converts the collapsed stack to UTF-8 data.
+    public func toData() -> Data {
+        Data(toString().utf8)
     }
 }
