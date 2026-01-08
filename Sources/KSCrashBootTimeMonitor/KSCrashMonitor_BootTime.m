@@ -28,6 +28,7 @@
 
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitorHelper.h"
+#import "KSCrashSystemInfo.h"
 #import "KSDate.h"
 #import "KSSysCtl.h"
 
@@ -71,8 +72,9 @@ static bool isEnabled(void) { return g_isEnabled; }
 
 static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext)
 {
+    (void)eventContext;
     if (g_isEnabled) {
-        eventContext->System.bootTime = dateSysctl("kern.boottime");
+        kscm_system_setBootTime(dateSysctl("kern.boottime"));
     }
 }
 

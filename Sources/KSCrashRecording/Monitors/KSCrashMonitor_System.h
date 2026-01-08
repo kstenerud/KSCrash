@@ -27,6 +27,8 @@
 #ifndef KSCrashMonitor_System_h
 #define KSCrashMonitor_System_h
 
+#include <stdint.h>
+
 #include "KSCrashMonitorAPI.h"
 #include "KSCrashNamespace.h"
 #include "KSCrashReportFields.h"
@@ -38,6 +40,27 @@ extern "C" {
 /** Access the Monitor API.
  */
 KSCrashMonitorAPI *kscm_system_getAPI(void);
+
+/** Set storage info (called by DiscSpace monitor).
+ */
+void kscm_system_setStorageInfo(uint64_t storageSize, uint64_t freeStorageSize);
+
+/** Set boot time (called by BootTime monitor).
+ */
+void kscm_system_setBootTime(const char *bootTime);
+
+/** Get the process name.
+ */
+const char *kscm_system_getProcessName(void);
+
+#ifdef __OBJC__
+#import <Foundation/Foundation.h>
+
+/** Get system info as a dictionary.
+ * This returns a copy of the current system data for external use.
+ */
+NSDictionary *kscm_system_copySystemInfo(void);
+#endif
 
 #pragma mark - Report Field Keys -
 

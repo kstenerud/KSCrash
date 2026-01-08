@@ -240,6 +240,7 @@ final private class ProfileMonitor: Sendable {
             isEnabled: profileMonitorIsEnabled,
             addContextualInfoToEvent: profileMonitorAddContextualInfoToEvent,
             notifyPostSystemEnable: profileMonitorNotifyPostSystemEnable,
+            writeMetadataInReportSection: nil,
             writeInReportSection: profileMonitorWriteInReportSection
         )
 

@@ -323,28 +323,41 @@ static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext)
             mem->fatal = eventContext->requirements.isFatal;
         });
     }
+}
 
-    if (g_isEnabled && g_memory) {
-        // same as above re: not locking when _asyncSafeOnly_ is set.
-        KSCrash_Memory memCopy = asyncSafeOnly ? *g_memory : _ks_memory_copy();
-        eventContext->AppMemory.footprint = memCopy.footprint;
-        eventContext->AppMemory.pressure = KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memCopy.pressure);
-        eventContext->AppMemory.remaining = memCopy.remaining;
-        eventContext->AppMemory.limit = memCopy.limit;
-        eventContext->AppMemory.level = KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memCopy.level);
-        eventContext->AppMemory.timestamp = memCopy.timestamp;
-        eventContext->AppMemory.state = ksapp_transitionStateToString(memCopy.state);
+static void writeMetadataInReportSection(const KSCrash_MonitorContext *monitorContext,
+                                         const KSCrashReportWriter *writer)
+{
+    if (!g_isEnabled || !g_memory) {
+        return;
     }
+
+    bool asyncSafeOnly = kscexc_requiresAsyncSafety(monitorContext->requirements);
+    KSCrash_Memory memCopy = asyncSafeOnly ? *g_memory : _ks_memory_copy();
+
+    writer->addUIntegerElement(writer, KSCrashField_MemoryFootprint, memCopy.footprint);
+    writer->addUIntegerElement(writer, KSCrashField_MemoryRemaining, memCopy.remaining);
+    writer->addStringElement(writer, KSCrashField_MemoryPressure,
+                             KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memCopy.pressure));
+    writer->addStringElement(writer, KSCrashField_MemoryLevel,
+                             KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memCopy.level));
+    writer->addUIntegerElement(writer, KSCrashField_MemoryLimit, memCopy.limit);
+    writer->addStringElement(writer, KSCrashField_AppTransitionState, ksapp_transitionStateToString(memCopy.state));
 }
 
 static void writeInReportSection(const KSCrash_MonitorContext *monitorContext, const KSCrashReportWriter *writer)
 {
-    writer->addUIntegerElement(writer, KSCrashField_MemoryFootprint, monitorContext->AppMemory.footprint);
-    writer->addUIntegerElement(writer, KSCrashField_MemoryRemaining, monitorContext->AppMemory.remaining);
-    writer->addStringElement(writer, KSCrashField_MemoryPressure, monitorContext->AppMemory.pressure);
-    writer->addStringElement(writer, KSCrashField_MemoryLevel, monitorContext->AppMemory.level);
-    writer->addUIntegerElement(writer, KSCrashField_MemoryLimit, monitorContext->AppMemory.limit);
-    writer->addStringElement(writer, KSCrashField_AppTransitionState, monitorContext->AppMemory.state);
+    (void)monitorContext;
+    if (!g_isEnabled || !g_memory) {
+        return;
+    }
+
+    // Write OOM crash-specific data (pressure and level at crash time)
+    KSCrash_Memory memCopy = _ks_memory_copy();
+    writer->addStringElement(writer, KSCrashField_MemoryPressure,
+                             KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memCopy.pressure));
+    writer->addStringElement(writer, KSCrashField_MemoryLevel,
+                             KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memCopy.level));
 }
 
 static NSDictionary<NSString *, id> *kscm_memory_serialize(KSCrash_Memory *const memory)
@@ -446,6 +459,7 @@ KSCrashMonitorAPI *kscm_memory_getAPI(void)
         api.isEnabled = isEnabled;
         api.addContextualInfoToEvent = addContextualInfoToEvent;
         api.notifyPostSystemEnable = notifyPostSystemEnable;
+        api.writeMetadataInReportSection = writeMetadataInReportSection;
         api.writeInReportSection = writeInReportSection;
     }
     return &api;

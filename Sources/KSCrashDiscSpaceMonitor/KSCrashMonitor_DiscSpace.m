@@ -28,6 +28,7 @@
 
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitorHelper.h"
+#import "KSCrashSystemInfo.h"
 
 #import <Foundation/Foundation.h>
 
@@ -69,9 +70,9 @@ static bool isEnabled(void) { return g_isEnabled; }
 
 static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext)
 {
+    (void)eventContext;
     if (g_isEnabled) {
-        eventContext->System.storageSize = getStorageSize();
-        eventContext->System.freeStorageSize = getFreeStorageSize();
+        kscm_system_setStorageInfo(getStorageSize(), getFreeStorageSize());
     }
 }
 

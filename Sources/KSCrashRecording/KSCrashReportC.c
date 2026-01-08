@@ -1323,12 +1323,12 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
 
         } else if (isCrashOfMonitorType(crash, kscm_memory_getAPI())) {
             writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_MemoryTermination);
-            writer->beginObject(writer, KSCrashField_MemoryTermination);
-            {
-                writer->addStringElement(writer, KSCrashField_MemoryPressure, crash->AppMemory.pressure);
-                writer->addStringElement(writer, KSCrashField_MemoryLevel, crash->AppMemory.level);
+            const KSCrashMonitorAPI *memoryAPI = kscm_memory_getAPI();
+            if (memoryAPI != NULL && memoryAPI->writeInReportSection != NULL) {
+                writer->beginObject(writer, KSCrashField_MemoryTermination);
+                memoryAPI->writeInReportSection(crash, writer);
+                writer->endContainer(writer);
             }
-            writer->endContainer(writer);
         } else if (isCrashOfMonitorType(crash, kscm_user_getAPI())) {
             writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_User);
             writer->beginObject(writer, KSCrashField_UserReported);
@@ -1488,7 +1488,7 @@ void kscrashreport_writeRecrashReport(const KSCrash_MonitorContext *const monito
             KSLOG_ERROR("Could not remove %s: %s", tempPath, strerror(errno));
         }
         writeReportInfo(writer, KSCrashField_Report, KSCrashReportType_Minimal, monitorContext->eventID,
-                        monitorContext->System.processName);
+                        kscm_system_getProcessName());
         ksfu_flushBufferedWriter(&bufferedWriter);
 
         writer->beginObject(writer, KSCrashField_Crash);
@@ -1524,25 +1524,25 @@ static void writeSystemInfo(const KSCrashReportWriter *const writer, const char 
 {
     writer->beginObject(writer, key);
     {
-        // Call System monitor's writeInReportSection callback
+        // Call System monitor's writeMetadataInReportSection callback
         const KSCrashMonitorAPI *systemAPI = kscm_system_getAPI();
-        if (systemAPI != NULL && systemAPI->writeInReportSection != NULL) {
-            systemAPI->writeInReportSection(monitorContext, writer);
+        if (systemAPI != NULL && systemAPI->writeMetadataInReportSection != NULL) {
+            systemAPI->writeMetadataInReportSection(monitorContext, writer);
         }
 
-        // Call AppState monitor's writeInReportSection callback
+        // Call AppState monitor's writeMetadataInReportSection callback
         const KSCrashMonitorAPI *appStateAPI = kscm_appstate_getAPI();
-        if (appStateAPI != NULL && appStateAPI->writeInReportSection != NULL) {
+        if (appStateAPI != NULL && appStateAPI->writeMetadataInReportSection != NULL) {
             writer->beginObject(writer, KSCrashField_AppStats);
-            appStateAPI->writeInReportSection(monitorContext, writer);
+            appStateAPI->writeMetadataInReportSection(monitorContext, writer);
             writer->endContainer(writer);
         }
 
-        // Call Memory monitor's writeInReportSection callback
+        // Call Memory monitor's writeMetadataInReportSection callback
         const KSCrashMonitorAPI *memoryAPI = kscm_memory_getAPI();
-        if (memoryAPI != NULL && memoryAPI->writeInReportSection != NULL) {
+        if (memoryAPI != NULL && memoryAPI->writeMetadataInReportSection != NULL) {
             writer->beginObject(writer, KSCrashField_AppMemory);
-            memoryAPI->writeInReportSection(monitorContext, writer);
+            memoryAPI->writeMetadataInReportSection(monitorContext, writer);
             writer->endContainer(writer);
         }
     }
@@ -1584,7 +1584,7 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
     writer->beginObject(writer, KSCrashField_Report);
     {
         writeReportInfo(writer, KSCrashField_Report, KSCrashReportType_Standard, monitorContext->eventID,
-                        monitorContext->System.processName);
+                        kscm_system_getProcessName());
         ksfu_flushBufferedWriter(&bufferedWriter);
 
         if (!monitorContext->omitBinaryImages) {

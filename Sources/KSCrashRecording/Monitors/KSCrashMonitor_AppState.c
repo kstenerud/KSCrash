@@ -452,40 +452,29 @@ static bool isEnabled(void) { return g_isEnabled; }
 
 static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext)
 {
+    (void)eventContext;
     if (g_isEnabled) {
         updateAppState();
-        eventContext->AppState.activeDurationSinceLastCrash = g_state.activeDurationSinceLastCrash;
-        eventContext->AppState.activeDurationSinceLaunch = g_state.activeDurationSinceLaunch;
-        eventContext->AppState.applicationIsActive = g_state.applicationIsActive;
-        eventContext->AppState.applicationIsInForeground = g_state.applicationIsInForeground;
-        eventContext->AppState.appStateTransitionTime = g_state.appStateTransitionTime;
-        eventContext->AppState.backgroundDurationSinceLastCrash = g_state.backgroundDurationSinceLastCrash;
-        eventContext->AppState.backgroundDurationSinceLaunch = g_state.backgroundDurationSinceLaunch;
-        eventContext->AppState.crashedLastLaunch = g_state.crashedLastLaunch;
-        eventContext->AppState.crashedThisLaunch = g_state.crashedThisLaunch;
-        eventContext->AppState.launchesSinceLastCrash = g_state.launchesSinceLastCrash;
-        eventContext->AppState.sessionsSinceLastCrash = g_state.sessionsSinceLastCrash;
-        eventContext->AppState.sessionsSinceLaunch = g_state.sessionsSinceLaunch;
     }
 }
 
-static void writeInReportSection(const KSCrash_MonitorContext *monitorContext, const KSCrashReportWriter *writer)
+static void writeMetadataInReportSection(const KSCrash_MonitorContext *monitorContext,
+                                         const KSCrashReportWriter *writer)
 {
-    writer->addBooleanElement(writer, KSCrashField_AppActive, monitorContext->AppState.applicationIsActive);
-    writer->addBooleanElement(writer, KSCrashField_AppInFG, monitorContext->AppState.applicationIsInForeground);
+    (void)monitorContext;
+    const KSCrash_AppState *state = kscrashstate_currentState();
 
-    writer->addIntegerElement(writer, KSCrashField_LaunchesSinceCrash, monitorContext->AppState.launchesSinceLastCrash);
-    writer->addIntegerElement(writer, KSCrashField_SessionsSinceCrash, monitorContext->AppState.sessionsSinceLastCrash);
-    writer->addFloatingPointElement(writer, KSCrashField_ActiveTimeSinceCrash,
-                                    monitorContext->AppState.activeDurationSinceLastCrash);
-    writer->addFloatingPointElement(writer, KSCrashField_BGTimeSinceCrash,
-                                    monitorContext->AppState.backgroundDurationSinceLastCrash);
+    writer->addBooleanElement(writer, KSCrashField_AppActive, state->applicationIsActive);
+    writer->addBooleanElement(writer, KSCrashField_AppInFG, state->applicationIsInForeground);
 
-    writer->addIntegerElement(writer, KSCrashField_SessionsSinceLaunch, monitorContext->AppState.sessionsSinceLaunch);
-    writer->addFloatingPointElement(writer, KSCrashField_ActiveTimeSinceLaunch,
-                                    monitorContext->AppState.activeDurationSinceLaunch);
-    writer->addFloatingPointElement(writer, KSCrashField_BGTimeSinceLaunch,
-                                    monitorContext->AppState.backgroundDurationSinceLaunch);
+    writer->addIntegerElement(writer, KSCrashField_LaunchesSinceCrash, state->launchesSinceLastCrash);
+    writer->addIntegerElement(writer, KSCrashField_SessionsSinceCrash, state->sessionsSinceLastCrash);
+    writer->addFloatingPointElement(writer, KSCrashField_ActiveTimeSinceCrash, state->activeDurationSinceLastCrash);
+    writer->addFloatingPointElement(writer, KSCrashField_BGTimeSinceCrash, state->backgroundDurationSinceLastCrash);
+
+    writer->addIntegerElement(writer, KSCrashField_SessionsSinceLaunch, state->sessionsSinceLaunch);
+    writer->addFloatingPointElement(writer, KSCrashField_ActiveTimeSinceLaunch, state->activeDurationSinceLaunch);
+    writer->addFloatingPointElement(writer, KSCrashField_BGTimeSinceLaunch, state->backgroundDurationSinceLaunch);
 }
 
 KSCrashMonitorAPI *kscm_appstate_getAPI(void)
@@ -496,7 +485,7 @@ KSCrashMonitorAPI *kscm_appstate_getAPI(void)
         api.setEnabled = setEnabled;
         api.isEnabled = isEnabled;
         api.addContextualInfoToEvent = addContextualInfoToEvent;
-        api.writeInReportSection = writeInReportSection;
+        api.writeMetadataInReportSection = writeMetadataInReportSection;
     }
     return &api;
 }

@@ -160,85 +160,6 @@ typedef struct KSCrash_MonitorContext {
     } userException;
 
     struct {
-        /** Total active time elapsed since the last crash. */
-        double activeDurationSinceLastCrash;
-
-        /** Total time backgrounded elapsed since the last crash. */
-        double backgroundDurationSinceLastCrash;
-
-        /** Number of app launches since the last crash. */
-        int launchesSinceLastCrash;
-
-        /** Number of sessions (launch, resume from suspend) since last crash. */
-        int sessionsSinceLastCrash;
-
-        /** Total active time elapsed since launch. */
-        double activeDurationSinceLaunch;
-
-        /** Total time backgrounded elapsed since launch. */
-        double backgroundDurationSinceLaunch;
-
-        /** Number of sessions (launch, resume from suspend) since app launch. */
-        int sessionsSinceLaunch;
-
-        /** If true, the application crashed on the previous launch. */
-        bool crashedLastLaunch;
-
-        /** If true, the application crashed on this launch. */
-        bool crashedThisLaunch;
-
-        /** Timestamp for when the app state was last changed (active<->inactive,
-         * background<->foreground) */
-        double appStateTransitionTime;
-
-        /** If true, the application is currently active. */
-        bool applicationIsActive;
-
-        /** If true, the application is currently in the foreground. */
-        bool applicationIsInForeground;
-
-    } AppState;
-
-    /* Misc system information */
-    struct {
-        const char *systemName;
-        const char *systemVersion;
-        const char *machine;
-        const char *model;
-        const char *kernelVersion;
-        const char *osVersion;
-        bool isJailbroken;
-        bool procTranslated;
-        const char *bootTime;
-        const char *appStartTime;
-        const char *executablePath;
-        const char *executableName;
-        const char *bundleID;
-        const char *bundleName;
-        const char *bundleVersion;
-        const char *bundleShortVersion;
-        const char *appID;
-        const char *cpuArchitecture;
-        const char *binaryArchitecture;
-        const char *clangVersion;
-        int cpuType;
-        int cpuSubType;
-        int binaryCPUType;
-        int binaryCPUSubType;
-        const char *timezone;
-        const char *processName;
-        int processID;
-        int parentProcessID;
-        const char *deviceAppHash;
-        const char *buildType;
-        uint64_t storageSize;
-        uint64_t freeStorageSize;
-        uint64_t memorySize;
-        uint64_t freeMemory;
-        uint64_t usableMemory;
-    } System;
-
-    struct {
         /** Address of the last deallocated exception. */
         uintptr_t address;
 
@@ -248,29 +169,6 @@ typedef struct KSCrash_MonitorContext {
         /** Reason field from the last deallocated exception. */
         const char *reason;
     } ZombieException;
-
-    struct {
-        /** measurement taken time in microseconds. */
-        uint64_t timestamp;
-
-        /** memory pressure  `KSCrashAppMemoryPressure` */
-        const char *pressure;
-
-        /** amount of app memory used */
-        uint64_t footprint;
-
-        /** amount of app memory remaining */
-        uint64_t remaining;
-
-        /** high water mark for footprint (footprint +  remaining)*/
-        uint64_t limit;
-
-        /** memory level  `KSCrashAppMemoryLevel` (KSCrashAppMemory.level) */
-        const char *level;
-
-        /** transition state of the app */
-        const char *state;
-    } AppMemory;
 
     struct {
         /** Whether the hang is currently in progress */

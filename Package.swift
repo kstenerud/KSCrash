@@ -428,7 +428,8 @@ let package = Package(
         .target(
             name: Targets.discSpaceMonitor,
             dependencies: [
-                .target(name: Targets.recordingCore)
+                .target(name: Targets.recordingCore),
+                .target(name: Targets.recording),
             ],
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy")
@@ -451,7 +452,8 @@ let package = Package(
         .target(
             name: Targets.bootTimeMonitor,
             dependencies: [
-                .target(name: Targets.recordingCore)
+                .target(name: Targets.recordingCore),
+                .target(name: Targets.recording),
             ],
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy")
