@@ -98,6 +98,7 @@ static bool advanceCursor(KSStackCursor *cursor)
 {
     MachineContextCursor *context = (MachineContextCursor *)cursor->context;
     uintptr_t nextAddress = 0;
+    uintptr_t normalisedNextAddress = 0;
 
     if (cursor->state.currentDepth >= context->maxStackDepth) {
         cursor->state.hasGivenUp = true;
@@ -138,7 +139,7 @@ static bool advanceCursor(KSStackCursor *cursor)
 
 successfulExit:
 
-    uintptr_t normalisedNextAddress = kscpu_normaliseInstructionPointer(nextAddress);
+    normalisedNextAddress = kscpu_normaliseInstructionPointer(nextAddress);
 
     // Validate that the return address points to executable code.
     // This filters out garbage addresses that resolve to data symbols.
