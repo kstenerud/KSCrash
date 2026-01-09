@@ -47,6 +47,10 @@ int ksbt_captureBacktraceFromMachThread(thread_t machThread, uintptr_t *addresse
         return 0;
     }
 
+    // Initialize the dynamic linker (and binary image cache).
+    // This has an atomic check so isn't expensive except for the first call.
+    ksdl_init();
+
     KSMachineContext machineContext = { 0 };
     KSStackCursor stackCursor = {};
     int maxFrames = MIN(count, KSSC_MAX_STACK_DEPTH);
