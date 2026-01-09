@@ -35,7 +35,7 @@ extension ProfileInfo {
     /// - Returns: A `Speedscope` structure ready for encoding.
     public func toSpeedscope() -> Speedscope {
         let speedscopeFrames = frames.map { frame in
-            Speedscope.Frame(name: frame.displayName, file: frame.objectName)
+            Speedscope.Frame(name: frame.lossyDisplayName, file: frame.objectName)
         }
 
         let speedscopeSamples = samples.map { Array($0.frames.reversed()) }

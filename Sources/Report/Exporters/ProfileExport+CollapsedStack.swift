@@ -39,7 +39,8 @@ extension ProfileInfo {
 
         for sample in samples {
             // Build stack string from root to leaf (reversed from our storage)
-            let stackString = sample.frames.reversed().map { frames[$0].displayName }.joined(separator: ";")
+            let stackString =
+                sample.frames.reversed().map { frames[$0].lossyDisplayName }.joined(separator: ";")
 
             stackCounts[stackString, default: 0] += 1
         }

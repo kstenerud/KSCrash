@@ -26,6 +26,7 @@
 
 #include <stdlib.h>
 
+#include "KSBinaryImageCache.h"
 #include "KSCPU.h"
 #include "KSMemory.h"
 
@@ -130,6 +131,12 @@ static bool advanceCursor(KSStackCursor *cursor)
         return false;
     }
     if (context->currentFrame.previous == 0 || context->currentFrame.return_address == 0) {
+        return false;
+    }
+
+    // Validate that the return address points to executable code.
+    // This filters out garbage addresses that resolve to data symbols.
+    if (!ksbic_isAddressExecutable(context->currentFrame.return_address)) {
         return false;
     }
 

@@ -46,8 +46,9 @@
  * Cached segment range for fast address-in-segment checks.
  */
 typedef struct {
-    uintptr_t start;  // Segment start address (with slide applied)
-    uintptr_t end;    // Segment end address (exclusive, with slide applied)
+    uintptr_t start;    // Segment start address (with slide applied)
+    uintptr_t end;      // Segment end address (exclusive, with slide applied)
+    bool isExecutable;  // True if segment has execute permission
 } KSSegmentRange;
 
 /**
@@ -83,6 +84,18 @@ static inline bool addressInCachedSegments(const KSBinaryImageRange *entry, uint
     for (uint8_t i = 0; i < entry->segmentCount; i++) {
         if (address >= entry->segments[i].start && address < entry->segments[i].end) {
             return true;
+        }
+    }
+    return false;
+}
+
+// Check if an address falls within an executable segment.
+// Returns true if the address is in an executable segment, false otherwise.
+static inline bool addressInExecutableSegment(const KSBinaryImageRange *entry, uintptr_t address)
+{
+    for (uint8_t i = 0; i < entry->segmentCount; i++) {
+        if (address >= entry->segments[i].start && address < entry->segments[i].end) {
+            return entry->segments[i].isExecutable;
         }
     }
     return false;
@@ -206,6 +219,7 @@ static bool populateCacheEntry(const struct mach_header *header, const char *nam
                     if (segCount < KSBIC_MAX_SEGMENTS_PER_IMAGE) {
                         entry->segments[segCount].start = segStart;
                         entry->segments[segCount].end = segEnd;
+                        entry->segments[segCount].isExecutable = (seg->initprot & VM_PROT_EXECUTE) != 0;
                         segCount++;
                     } else {
                         KSLOG_DEBUG("Image %s exceeds max segments (%d), truncating", name ? name : "<unknown>",
@@ -251,6 +265,7 @@ static bool populateCacheEntry(const struct mach_header *header, const char *nam
                     if (segCount < KSBIC_MAX_SEGMENTS_PER_IMAGE) {
                         entry->segments[segCount].start = segStart;
                         entry->segments[segCount].end = segEnd;
+                        entry->segments[segCount].isExecutable = (seg->initprot & VM_PROT_EXECUTE) != 0;
                         segCount++;
                     } else {
                         KSLOG_DEBUG("Image %s exceeds max segments (%d), truncating", name ? name : "<unknown>",
@@ -460,5 +475,56 @@ const struct mach_header *ksbic_getImageDetailsForAddress(uintptr_t address, uin
             if (outName) *outName = NULL;
         }
         return header;
+    }
+}
+
+bool ksbic_isAddressExecutable(uintptr_t address)
+{
+    // Try to acquire exclusive access to the cache
+    KSBinaryImageRangeCache *cache = atomic_exchange(&g_cache_ptr, NULL);
+
+    if (cache != NULL) {
+        // SUCCESS: We have exclusive access to the cache
+
+        // Use binary search to find candidate entries
+        int32_t idx = binarySearchCache(cache, address);
+
+        // Check the found entry and scan backwards for overlapping ranges
+        while (idx >= 0) {
+            KSBinaryImageRange *entry = &cache->entries[idx];
+
+            // Check if address is in range
+            if (address >= entry->startAddress && address < entry->endAddress) {
+                if (addressInCachedSegments(entry, address)) {
+                    // Found the segment - check if executable
+                    bool isExecutable = addressInExecutableSegment(entry, address);
+                    atomic_store(&g_cache_ptr, cache);
+                    return isExecutable;
+                }
+            }
+            idx--;
+        }
+
+        // Cache miss - do linear scan
+        KSBinaryImageRange newEntry;
+        const struct mach_header *header = linearScanForAddress(address, &newEntry);
+
+        if (header != NULL && cache->count < KSBIC_MAX_CACHE_ENTRIES) {
+            // Add to cache maintaining sorted order
+            insertSortedCacheEntry(cache, &newEntry);
+        }
+
+        bool isExecutable = (header != NULL) && addressInExecutableSegment(&newEntry, address);
+
+        // Release the cache
+        atomic_store(&g_cache_ptr, cache);
+        return isExecutable;
+    } else {
+        // FAILED: Cache is in use by another caller
+        // Fall back to linear scan without caching
+        KSBinaryImageRange entry;
+        const struct mach_header *header = linearScanForAddress(address, &entry);
+
+        return (header != NULL) && addressInExecutableSegment(&entry, address);
     }
 }

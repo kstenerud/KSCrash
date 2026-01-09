@@ -92,6 +92,20 @@ const struct mach_header *_Nullable ksbic_getImageDetailsForAddress(uintptr_t ad
                                                                     uintptr_t *_Nullable outSegmentBase,
                                                                     const char *_Nullable *_Nullable outName);
 
+/**
+ * Check if an address is in an executable segment.
+ *
+ * This function checks if the given address falls within a segment
+ * that has execute permission (VM_PROT_EXECUTE). Useful for validating
+ * that return addresses in stack traces point to actual code.
+ *
+ * This function is async-signal-safe.
+ *
+ * @param address The memory address to check.
+ * @return true if the address is in an executable segment, false otherwise.
+ */
+bool ksbic_isAddressExecutable(uintptr_t address);
+
 #ifdef __cplusplus
 }
 #endif
