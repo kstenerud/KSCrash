@@ -134,16 +134,19 @@ static bool advanceCursor(KSStackCursor *cursor)
         return false;
     }
 
-    // Validate that the return address points to executable code.
-    // This filters out garbage addresses that resolve to data symbols.
-    if (!ksbic_isAddressExecutable(context->currentFrame.return_address)) {
-        return false;
-    }
-
     nextAddress = context->currentFrame.return_address;
 
 successfulExit:
-    cursor->stackEntry.address = kscpu_normaliseInstructionPointer(nextAddress);
+
+    uintptr_t normalisedNextAddress = kscpu_normaliseInstructionPointer(nextAddress);
+
+    // Validate that the return address points to executable code.
+    // This filters out garbage addresses that resolve to data symbols.
+    if (!ksbic_isAddressExecutable(normalisedNextAddress)) {
+        return false;
+    }
+
+    cursor->stackEntry.address = normalisedNextAddress;
     cursor->state.currentDepth++;
     return true;
 }
