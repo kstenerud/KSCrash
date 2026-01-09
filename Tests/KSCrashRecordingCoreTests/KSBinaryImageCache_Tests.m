@@ -451,4 +451,123 @@
     }
 }
 
+#pragma mark - ksbic_isAddressExecutable Tests
+
+// Global variable for testing data segment addresses
+static int g_testDataVariable = 42;
+
+- (void)testIsAddressExecutable_CodeAddressReturnsTrue
+{
+    // Use a function pointer - functions are in __TEXT which is executable
+    uintptr_t codeAddress = (uintptr_t)&ksbic_isAddressExecutable;
+
+    bool isExecutable = ksbic_isAddressExecutable(codeAddress);
+
+    XCTAssertTrue(isExecutable, @"Address of a function should be in an executable segment");
+}
+
+- (void)testIsAddressExecutable_DataAddressReturnsFalse
+{
+    // Use address of a global variable - globals are in __DATA which is not executable
+    uintptr_t dataAddress = (uintptr_t)&g_testDataVariable;
+
+    bool isExecutable = ksbic_isAddressExecutable(dataAddress);
+
+    XCTAssertFalse(isExecutable, @"Address of a global variable should not be in an executable segment");
+}
+
+- (void)testIsAddressExecutable_InvalidAddressReturnsFalse
+{
+    // Address 0 should not be in any image
+    bool isExecutable = ksbic_isAddressExecutable(0);
+
+    XCTAssertFalse(isExecutable, @"Invalid address (0) should return false");
+}
+
+- (void)testIsAddressExecutable_VeryHighAddressReturnsFalse
+{
+    // Very high address unlikely to be mapped
+    uintptr_t highAddress = UINTPTR_MAX - 0x1000;
+
+    bool isExecutable = ksbic_isAddressExecutable(highAddress);
+
+    XCTAssertFalse(isExecutable, @"Unmapped high address should return false");
+}
+
+- (void)testIsAddressExecutable_RepeatedLookupsWorkCorrectly
+{
+    // Test that repeated lookups return consistent results (tests caching)
+    uintptr_t codeAddress = (uintptr_t)&ksbic_isAddressExecutable;
+    uintptr_t dataAddress = (uintptr_t)&g_testDataVariable;
+
+    // First lookups (may populate cache)
+    bool codeResult1 = ksbic_isAddressExecutable(codeAddress);
+    bool dataResult1 = ksbic_isAddressExecutable(dataAddress);
+
+    // Second lookups (should hit cache)
+    bool codeResult2 = ksbic_isAddressExecutable(codeAddress);
+    bool dataResult2 = ksbic_isAddressExecutable(dataAddress);
+
+    XCTAssertEqual(codeResult1, codeResult2, @"Repeated lookups for code address should return same result");
+    XCTAssertEqual(dataResult1, dataResult2, @"Repeated lookups for data address should return same result");
+    XCTAssertTrue(codeResult1, @"Code address should be executable");
+    XCTAssertFalse(dataResult1, @"Data address should not be executable");
+}
+
+- (void)testIsAddressExecutable_ObjCMethodIsExecutable
+{
+    // Use the address of an Objective-C method - should be in __TEXT
+    IMP methodImp = [self methodForSelector:@selector(testIsAddressExecutable_ObjCMethodIsExecutable)];
+    uintptr_t methodAddress = (uintptr_t)methodImp;
+
+    bool isExecutable = ksbic_isAddressExecutable(methodAddress);
+
+    XCTAssertTrue(isExecutable, @"Address of an Objective-C method should be in an executable segment");
+}
+
+- (void)testIsAddressExecutable_MultipleImagesWork
+{
+    // Test addresses from multiple loaded images
+    uint32_t count = 0;
+    const ks_dyld_image_info *images = ksbic_getImages(&count);
+    XCTAssertGreaterThan(count, 0, @"There should be at least some images loaded");
+
+    int executableCount = 0;
+    for (uint32_t i = 0; i < MIN(count, 10); i++) {
+        const struct mach_header *header = images[i].imageLoadAddress;
+        // The header itself is at the start of __TEXT, which should be executable
+        uintptr_t address = (uintptr_t)header;
+
+        bool isExecutable = ksbic_isAddressExecutable(address);
+        if (isExecutable) {
+            executableCount++;
+        }
+    }
+
+    // Most image headers should be in executable segments (the __TEXT segment)
+    XCTAssertGreaterThan(executableCount, 0, @"At least some image headers should be in executable segments");
+}
+
+- (void)testIsAddressExecutable_AfterCacheReset
+{
+    uintptr_t codeAddress = (uintptr_t)&ksbic_isAddressExecutable;
+
+    // First lookup (populates cache)
+    bool result1 = ksbic_isAddressExecutable(codeAddress);
+
+    // Reset cache
+    extern void ksbic_resetCache(void);
+    ksbic_resetCache();
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    ksbic_init();
+#pragma clang diagnostic pop
+
+    // Lookup after reset (should still work via linear scan then re-cache)
+    bool result2 = ksbic_isAddressExecutable(codeAddress);
+
+    XCTAssertEqual(result1, result2, @"Results should be consistent before and after cache reset");
+    XCTAssertTrue(result1, @"Code address should be executable");
+}
+
 @end
