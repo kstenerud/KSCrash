@@ -103,6 +103,7 @@ jobs:
           exit 0
 
       - name: Generate Report
+        id: report
         run: |
           python3 << 'EOF'
           import os
@@ -156,6 +157,7 @@ jobs:
           output.append("# Memory Leaks Report\n")
           output.append(f"**Test Environment:** {system_info}\n")
 
+          real_count = 0
           if not leaks_found or leak_count == '0':
               output.append("**No memory leaks detected.**\n")
           else:
@@ -265,6 +267,10 @@ jobs:
               f.write(report)
 
           print(report)
+
+          # Set output for whether real leaks were found
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f"has_real_leaks={'true' if real_count > 0 else 'false'}\n")
           EOF
         env:
           LEAKS_FOUND: ${{ steps.leaks.outputs.leaks_found }}
@@ -279,8 +285,14 @@ jobs:
           retention-days: 30
 
       - name: Comment PR with Results
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && steps.report.outputs.has_real_leaks == 'true'
         uses: thollander/actions-comment-pull-request@v2
         with:
           filePath: leaks_report.md
           comment_tag: leaks-results
+
+      - name: Fail if real leaks found
+        if: steps.report.outputs.has_real_leaks == 'true'
+        run: |
+          echo "Real memory leaks detected"
+          exit 1
