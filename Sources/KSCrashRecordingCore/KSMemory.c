@@ -44,19 +44,21 @@ static inline int copySafely(const void *restrict const src, void *restrict cons
 
 static inline int copyMaxPossible(const void *restrict const src, void *restrict const dst, const int byteCount)
 {
+    if (copySafely(src, dst, 1) != 1) {
+        return 0;
+    }
+    if (byteCount <= 1) {
+        return byteCount;
+    }
+    if ((uintptr_t)byteCount > UINTPTR_MAX - (uintptr_t)src) {
+        return 0;
+    }
+
     const uint8_t *pSrc = src;
     const uint8_t *pSrcMax = (uint8_t *)src + byteCount;
     const uint8_t *pSrcEnd = (uint8_t *)src + byteCount;
     uint8_t *pDst = dst;
-
     int bytesCopied = 0;
-
-    // Short-circuit if no memory is readable
-    if (copySafely(src, dst, 1) != 1) {
-        return 0;
-    } else if (byteCount <= 1) {
-        return byteCount;
-    }
 
     for (;;) {
         int copyLength = (int)(pSrcEnd - pSrc);
