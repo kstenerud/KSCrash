@@ -46,9 +46,8 @@
  * Cached segment range for fast address-in-segment checks.
  */
 typedef struct {
-    uintptr_t start;    // Segment start address (with slide applied)
-    uintptr_t end;      // Segment end address (exclusive, with slide applied)
-    bool isExecutable;  // True if segment has execute permission
+    uintptr_t start;  // Segment start address (with slide applied)
+    uintptr_t end;    // Segment end address (exclusive, with slide applied)
 } KSSegmentRange;
 
 /**
@@ -79,27 +78,11 @@ static _Atomic(KSBinaryImageRangeCache *) g_cache_ptr = NULL;
 
 // Check if an address falls within any of the cached segment ranges.
 // This is O(segments) but segments is typically 4-6, so very fast.
-// If outIsExecutable is not NULL, sets it to true if the segment has execute permission.
-static inline bool addressInCachedSegments(const KSBinaryImageRange *entry, uintptr_t address, bool *outIsExecutable)
+static inline bool addressInCachedSegments(const KSBinaryImageRange *entry, uintptr_t address)
 {
     for (uint8_t i = 0; i < entry->segmentCount; i++) {
         if (address >= entry->segments[i].start && address < entry->segments[i].end) {
-            if (outIsExecutable) {
-                *outIsExecutable = entry->segments[i].isExecutable;
-            }
             return true;
-        }
-    }
-    return false;
-}
-
-// Check if an address falls within an executable segment.
-// Returns true if the address is in an executable segment, false otherwise.
-static inline bool addressInExecutableSegment(const KSBinaryImageRange *entry, uintptr_t address)
-{
-    for (uint8_t i = 0; i < entry->segmentCount; i++) {
-        if (address >= entry->segments[i].start && address < entry->segments[i].end) {
-            return entry->segments[i].isExecutable;
         }
     }
     return false;
@@ -223,7 +206,6 @@ static bool populateCacheEntry(const struct mach_header *header, const char *nam
                     if (segCount < KSBIC_MAX_SEGMENTS_PER_IMAGE) {
                         entry->segments[segCount].start = segStart;
                         entry->segments[segCount].end = segEnd;
-                        entry->segments[segCount].isExecutable = (seg->initprot & VM_PROT_EXECUTE) != 0;
                         segCount++;
                     } else {
                         KSLOG_DEBUG("Image %s exceeds max segments (%d), truncating", name ? name : "<unknown>",
@@ -269,7 +251,6 @@ static bool populateCacheEntry(const struct mach_header *header, const char *nam
                     if (segCount < KSBIC_MAX_SEGMENTS_PER_IMAGE) {
                         entry->segments[segCount].start = segStart;
                         entry->segments[segCount].end = segEnd;
-                        entry->segments[segCount].isExecutable = (seg->initprot & VM_PROT_EXECUTE) != 0;
                         segCount++;
                     } else {
                         KSLOG_DEBUG("Image %s exceeds max segments (%d), truncating", name ? name : "<unknown>",
@@ -298,9 +279,7 @@ static bool populateCacheEntry(const struct mach_header *header, const char *nam
 
 // Linear scan through dyld images to find one containing the address.
 // If outEntry is provided, populates it with full image info for caching.
-// If outIsExecutable is provided, sets it to true if the address is in an executable segment.
-static const struct mach_header *linearScanForAddress(uintptr_t address, KSBinaryImageRange *outEntry,
-                                                      bool *outIsExecutable)
+static const struct mach_header *linearScanForAddress(uintptr_t address, KSBinaryImageRange *outEntry)
 {
     uint32_t count = 0;
     const ks_dyld_image_info *images = ksbic_getImages(&count);
@@ -322,7 +301,7 @@ static const struct mach_header *linearScanForAddress(uintptr_t address, KSBinar
 
         // Check if address is in any segment of this image
         // This is critical for dyld shared cache where segments from different images can be interleaved
-        if (addressInCachedSegments(&tempEntry, address, outIsExecutable)) {
+        if (addressInCachedSegments(&tempEntry, address)) {
             if (outEntry) {
                 *outEntry = tempEntry;
             }
@@ -428,7 +407,7 @@ const struct mach_header *ksbic_getImageDetailsForAddress(uintptr_t address, uin
 
             // Check if address is in range and verify with segment check
             if (address >= entry->startAddress && address < entry->endAddress) {
-                if (addressInCachedSegments(entry, address, NULL)) {
+                if (addressInCachedSegments(entry, address)) {
                     // Cache hit - found the image
                     if (outSlide) *outSlide = entry->slide;
                     if (outSegmentBase) *outSegmentBase = entry->segmentBase;
@@ -445,7 +424,7 @@ const struct mach_header *ksbic_getImageDetailsForAddress(uintptr_t address, uin
 
         // Cache miss - do linear scan
         KSBinaryImageRange newEntry;
-        const struct mach_header *header = linearScanForAddress(address, &newEntry, NULL);
+        const struct mach_header *header = linearScanForAddress(address, &newEntry);
 
         if (header != NULL && cache->count < KSBIC_MAX_CACHE_ENTRIES) {
             // Add to cache maintaining sorted order
@@ -469,7 +448,7 @@ const struct mach_header *ksbic_getImageDetailsForAddress(uintptr_t address, uin
         // FAILED: Cache is in use by another caller
         // Fall back to linear scan without caching
         KSBinaryImageRange entry;
-        const struct mach_header *header = linearScanForAddress(address, &entry, NULL);
+        const struct mach_header *header = linearScanForAddress(address, &entry);
 
         if (header != NULL) {
             if (outSlide) *outSlide = entry.slide;
@@ -481,55 +460,5 @@ const struct mach_header *ksbic_getImageDetailsForAddress(uintptr_t address, uin
             if (outName) *outName = NULL;
         }
         return header;
-    }
-}
-
-bool ksbic_isAddressExecutable(uintptr_t address)
-{
-    // Try to acquire exclusive access to the cache
-    KSBinaryImageRangeCache *cache = atomic_exchange(&g_cache_ptr, NULL);
-
-    if (cache != NULL) {
-        // SUCCESS: We have exclusive access to the cache
-
-        // Use binary search to find candidate entries
-        int32_t idx = binarySearchCache(cache, address);
-
-        // Check the found entry and scan backwards for overlapping ranges
-        while (idx >= 0) {
-            KSBinaryImageRange *entry = &cache->entries[idx];
-
-            // Check if address is in range
-            if (address >= entry->startAddress && address < entry->endAddress) {
-                bool isExecutable = false;
-                if (addressInCachedSegments(entry, address, &isExecutable)) {
-                    // Found the segment - return executable status
-                    atomic_store(&g_cache_ptr, cache);
-                    return isExecutable;
-                }
-            }
-            idx--;
-        }
-
-        // Cache miss - do linear scan
-        KSBinaryImageRange newEntry;
-        bool isExecutable = false;
-        const struct mach_header *header = linearScanForAddress(address, &newEntry, &isExecutable);
-
-        if (header != NULL && cache->count < KSBIC_MAX_CACHE_ENTRIES) {
-            // Add to cache maintaining sorted order
-            insertSortedCacheEntry(cache, &newEntry);
-        }
-
-        // Release the cache
-        atomic_store(&g_cache_ptr, cache);
-        return isExecutable;
-    } else {
-        // FAILED: Cache is in use by another caller
-        // Fall back to linear scan without caching
-        KSBinaryImageRange entry;
-        bool isExecutable = false;
-        linearScanForAddress(address, &entry, &isExecutable);
-        return isExecutable;
     }
 }

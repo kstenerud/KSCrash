@@ -26,7 +26,6 @@
 
 #include <stdlib.h>
 
-#include "KSBinaryImageCache.h"
 #include "KSCPU.h"
 #include "KSMemory.h"
 
@@ -137,16 +136,7 @@ static bool advanceCursor(KSStackCursor *cursor)
     nextAddress = context->currentFrame.return_address;
 
 successfulExit:
-
-    uintptr_t normalisedNextAddress = kscpu_normaliseInstructionPointer(nextAddress);
-
-    // Validate that the return address points to executable code.
-    // This filters out garbage addresses that resolve to data symbols.
-    if (!ksbic_isAddressExecutable(normalisedNextAddress)) {
-        return false;
-    }
-
-    cursor->stackEntry.address = normalisedNextAddress;
+    cursor->stackEntry.address = kscpu_normaliseInstructionPointer(nextAddress);
     cursor->state.currentDepth++;
     return true;
 }
