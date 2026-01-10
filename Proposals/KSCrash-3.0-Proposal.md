@@ -3,7 +3,7 @@
 ## Summary
 KSCrash currently cannot produce reports for terminations that lack crash-time callbacks—OOM, SIGKILL, watchdog kills. When iOS terminates an app this way, there's no opportunity to capture context, so these events go unreported.
 
-This proposal introduces a run-scoped data model where each app launch writes all data for that run into a dedicated folder. Crash-time data stays minimal and async-safe, while metadata is continuously updated via mmap-backed structs (example: [`KSCrash_Memory`](Sources/KSCrashRecording/Monitors/KSCrashMonitor_Memory.h)). Reports are stitched from crash data + latest metadata at send time. For terminations without crash-time callbacks, reports are assembled on next launch using the prior run's metadata.
+This proposal introduces a run-scoped data model where each app launch writes all data for that run into a dedicated folder. Crash-time data stays minimal and async-safe, while metadata is continuously updated via mmap-backed structs (example: [`KSCrash_Memory`](../Sources/KSCrashRecording/Monitors/KSCrashMonitor_Memory.h)). Reports are stitched from crash data + latest metadata at send time. For terminations without crash-time callbacks, reports are assembled on next launch using the prior run's metadata.
 
 ## Goals
 
