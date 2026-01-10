@@ -348,7 +348,8 @@ static void isWritingReportCallback(const KSCrash_ExceptionHandlingPlan *plan,
 
 - (id<KSCrashReportFilter>)sink
 {
-    return nil;
+    [self doesNotRecognizeSelector:_cmd];
+    __builtin_unreachable();
 }
 
 - (void)addConditionalAlertWithTitle:(NSString *)title
