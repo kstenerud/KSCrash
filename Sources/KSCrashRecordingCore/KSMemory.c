@@ -50,6 +50,9 @@ static inline int copyMaxPossible(const void *restrict const src, void *restrict
     if (byteCount <= 1) {
         return byteCount;
     }
+    if ((uintptr_t)byteCount > UINTPTR_MAX - (uintptr_t)src) {
+        return 0;
+    }
 
     const uint8_t *pSrc = src;
     const uint8_t *pSrcMax = (uint8_t *)src + byteCount;

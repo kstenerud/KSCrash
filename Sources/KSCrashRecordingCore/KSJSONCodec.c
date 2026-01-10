@@ -1019,6 +1019,7 @@ static int decodeElement(const char *const name, KSJSONDecodeContext *context)
                         }
                         return context->callbacks->onIntegerElement(name, signedAccum, context->userData);
                     }
+                    // If negative and exceeding int64_t range, fall through to floating point
                 }
             }
 
