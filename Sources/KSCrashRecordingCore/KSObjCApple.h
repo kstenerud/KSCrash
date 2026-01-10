@@ -508,7 +508,6 @@ _objc_getTaggedPointerValue_withObfuscator(const void *ptr,
     }
 }
 
-__attribute__((no_sanitize("undefined")))
 static inline intptr_t
 _objc_getTaggedPointerSignedValue_withObfuscator(const void *ptr,
                                                  uintptr_t obfuscator)
@@ -517,9 +516,9 @@ _objc_getTaggedPointerSignedValue_withObfuscator(const void *ptr,
     uintptr_t value = _objc_decodeTaggedPointer_noPermute_withObfuscator(ptr, obfuscator);
     uintptr_t basicTag = (value >> X_OBJC_TAG_INDEX_SHIFT) & X_OBJC_TAG_INDEX_MASK;
     if (basicTag == X_OBJC_TAG_INDEX_MASK) {
-        return ((intptr_t)value << X_OBJC_TAG_EXT_PAYLOAD_LSHIFT) >> X_OBJC_TAG_EXT_PAYLOAD_RSHIFT;
+        return (intptr_t)(value << X_OBJC_TAG_EXT_PAYLOAD_LSHIFT) >> X_OBJC_TAG_EXT_PAYLOAD_RSHIFT;
     } else {
-        return ((intptr_t)value << X_OBJC_TAG_PAYLOAD_LSHIFT) >> X_OBJC_TAG_PAYLOAD_RSHIFT;
+        return (intptr_t)(value << X_OBJC_TAG_PAYLOAD_LSHIFT) >> X_OBJC_TAG_PAYLOAD_RSHIFT;
     }
 }
 
