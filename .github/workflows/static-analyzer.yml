@@ -134,6 +134,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          if ! grep -q ":warning:" /tmp/analyzer-report.md; then
+            echo "No warnings found - skipping comment"
+            exit 0
+          fi
+
           # Add hidden marker to identify our comment
           echo "<!-- static-analyzer-report -->" > /tmp/pr-comment.md
           cat /tmp/analyzer-report.md >> /tmp/pr-comment.md
@@ -150,6 +155,14 @@ jobs:
           else
             # Create new comment
             gh pr comment ${{ github.event.pull_request.number }} --body-file /tmp/pr-comment.md
+          fi
+
+      - name: Fail if warnings found
+        if: always()
+        run: |
+          if grep -q ":warning:" /tmp/analyzer-report.md; then
+            echo "Static analyzer found warnings"
+            exit 1
           fi
 
       - name: Upload Result Bundle
