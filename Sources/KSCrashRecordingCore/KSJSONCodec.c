@@ -1011,8 +1011,12 @@ static int decodeElement(const char *const name, KSJSONDecodeContext *context)
                     }
                 } else {
                     if (accum <= ((uint64_t)LLONG_MAX + 1)) {
-                        // Negative number within int64_t range
-                        int64_t signedAccum = -(int64_t)accum;
+                        int64_t signedAccum;
+                        if (accum == ((uint64_t)LLONG_MAX + 1)) {
+                            signedAccum = LLONG_MIN;
+                        } else {
+                            signedAccum = -(int64_t)accum;
+                        }
                         return context->callbacks->onIntegerElement(name, signedAccum, context->userData);
                     }
                     // If negative and exceeding int64_t range, fall through to floating point
