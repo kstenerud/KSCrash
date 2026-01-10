@@ -508,7 +508,7 @@ _objc_getTaggedPointerValue_withObfuscator(const void *ptr,
     }
 }
 
-__attribute__((no_sanitize("unsigned-shift-base")))
+__attribute__((no_sanitize("undefined")))
 static inline intptr_t
 _objc_getTaggedPointerSignedValue_withObfuscator(const void *ptr,
                                                  uintptr_t obfuscator)
