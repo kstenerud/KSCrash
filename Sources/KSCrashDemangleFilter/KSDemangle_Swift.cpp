@@ -66,10 +66,11 @@ extern "C" char *ksdm_demangleSwift(const char *mangledSymbol)
             void *symbol = dlsym(handle, "swift_demangle");
             if (symbol != nullptr) {
                 swift_demangle = (swift_demangle_func *)symbol;
-            } else {
-                swift_demangle = default_swift_demangle;
             }
             dlclose(handle);
+        }
+        if (swift_demangle == nullptr) {
+            swift_demangle = default_swift_demangle;
         }
     }
 
