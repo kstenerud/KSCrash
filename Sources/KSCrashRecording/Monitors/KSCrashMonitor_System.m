@@ -36,6 +36,8 @@
 #import "KSSysCtl.h"
 #import "KSSystemCapabilities.h"
 
+#import "KSCrashReportWriter.h"
+
 // #define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
 
@@ -48,6 +50,45 @@
 #include <mach/mach.h>
 #include <stdatomic.h>
 
+// Field keys for report writing (definitions for extern declarations in header)
+KSCrashReportFieldName KSCrashField_System = "system";
+KSCrashReportFieldName KSCrashField_SystemName = "system_name";
+KSCrashReportFieldName KSCrashField_SystemVersion = "system_version";
+KSCrashReportFieldName KSCrashField_Machine = "machine";
+KSCrashReportFieldName KSCrashField_Model = "model";
+KSCrashReportFieldName KSCrashField_KernelVersion = "kernel_version";
+KSCrashReportFieldName KSCrashField_OSVersion = "os_version";
+KSCrashReportFieldName KSCrashField_Jailbroken = "jailbroken";
+KSCrashReportFieldName KSCrashField_ProcTranslated = "proc_translated";
+KSCrashReportFieldName KSCrashField_BootTime = "boot_time";
+KSCrashReportFieldName KSCrashField_AppStartTime = "app_start_time";
+KSCrashReportFieldName KSCrashField_ExecutablePath = "CFBundleExecutablePath";
+KSCrashReportFieldName KSCrashField_Executable = "CFBundleExecutable";
+KSCrashReportFieldName KSCrashField_BundleID = "CFBundleIdentifier";
+KSCrashReportFieldName KSCrashField_BundleName = "CFBundleName";
+KSCrashReportFieldName KSCrashField_BundleVersion = "CFBundleVersion";
+KSCrashReportFieldName KSCrashField_BundleShortVersion = "CFBundleShortVersionString";
+KSCrashReportFieldName KSCrashField_AppUUID = "app_uuid";
+KSCrashReportFieldName KSCrashField_CPUArch = "cpu_arch";
+KSCrashReportFieldName KSCrashField_BinaryArch = "binary_arch";
+KSCrashReportFieldName KSCrashField_CPUType = "cpu_type";
+KSCrashReportFieldName KSCrashField_ClangVersion = "clang_version";
+KSCrashReportFieldName KSCrashField_CPUSubType = "cpu_subtype";
+KSCrashReportFieldName KSCrashField_BinaryCPUType = "binary_cpu_type";
+KSCrashReportFieldName KSCrashField_BinaryCPUSubType = "binary_cpu_subtype";
+KSCrashReportFieldName KSCrashField_TimeZone = "time_zone";
+KSCrashReportFieldName KSCrashField_ProcessName = "process_name";
+KSCrashReportFieldName KSCrashField_ProcessID = "process_id";
+KSCrashReportFieldName KSCrashField_ParentProcessID = "parent_process_id";
+KSCrashReportFieldName KSCrashField_DeviceAppHash = "device_app_hash";
+KSCrashReportFieldName KSCrashField_BuildType = "build_type";
+KSCrashReportFieldName KSCrashField_Storage = "storage";
+KSCrashReportFieldName KSCrashField_FreeStorage = "freeStorage";
+KSCrashReportFieldName KSCrashField_Memory = "memory";
+KSCrashReportFieldName KSCrashField_Size = "size";
+KSCrashReportFieldName KSCrashField_Usable = "usable";
+KSCrashReportFieldName KSCrashField_Free = "free";
+
 typedef struct {
     const char *systemName;
     const char *systemVersion;
@@ -57,6 +98,7 @@ typedef struct {
     const char *osVersion;
     bool isJailbroken;
     bool procTranslated;
+    const char *bootTime;
     const char *appStartTime;
     const char *executablePath;
     const char *executableName;
@@ -79,6 +121,8 @@ typedef struct {
     const char *deviceAppHash;
     const char *buildType;
     uint64_t memorySize;
+    uint64_t storageSize;
+    uint64_t freeStorageSize;
 } SystemData;
 
 static SystemData g_systemData;
@@ -547,43 +591,116 @@ static void setEnabled(bool isEnabled)
 
 static bool isEnabled(void) { return g_isEnabled; }
 
-static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext)
+static void writeMetadataInReportSection(const KSCrash_MonitorContext *monitorContext,
+                                         const KSCrashReportWriter *writer)
 {
-    if (g_isEnabled) {
-#define COPY_REFERENCE(NAME) eventContext->System.NAME = g_systemData.NAME
-        COPY_REFERENCE(systemName);
-        COPY_REFERENCE(systemVersion);
-        COPY_REFERENCE(machine);
-        COPY_REFERENCE(model);
-        COPY_REFERENCE(kernelVersion);
-        COPY_REFERENCE(osVersion);
-        COPY_REFERENCE(isJailbroken);
-        COPY_REFERENCE(procTranslated);
-        COPY_REFERENCE(appStartTime);
-        COPY_REFERENCE(executablePath);
-        COPY_REFERENCE(executableName);
-        COPY_REFERENCE(bundleID);
-        COPY_REFERENCE(bundleName);
-        COPY_REFERENCE(bundleVersion);
-        COPY_REFERENCE(bundleShortVersion);
-        COPY_REFERENCE(appID);
-        COPY_REFERENCE(cpuArchitecture);
-        COPY_REFERENCE(binaryArchitecture);
-        COPY_REFERENCE(clangVersion);
-        COPY_REFERENCE(cpuType);
-        COPY_REFERENCE(cpuSubType);
-        COPY_REFERENCE(binaryCPUType);
-        COPY_REFERENCE(binaryCPUSubType);
-        COPY_REFERENCE(timezone);
-        COPY_REFERENCE(processName);
-        COPY_REFERENCE(processID);
-        COPY_REFERENCE(parentProcessID);
-        COPY_REFERENCE(deviceAppHash);
-        COPY_REFERENCE(buildType);
-        COPY_REFERENCE(memorySize);
-        eventContext->System.freeMemory = freeMemory();
-        eventContext->System.usableMemory = usableMemory();
+    (void)monitorContext;
+
+    writer->addStringElement(writer, KSCrashField_SystemName, g_systemData.systemName);
+    writer->addStringElement(writer, KSCrashField_SystemVersion, g_systemData.systemVersion);
+    writer->addStringElement(writer, KSCrashField_Machine, g_systemData.machine);
+    writer->addStringElement(writer, KSCrashField_Model, g_systemData.model);
+    writer->addStringElement(writer, KSCrashField_KernelVersion, g_systemData.kernelVersion);
+    writer->addStringElement(writer, KSCrashField_OSVersion, g_systemData.osVersion);
+    writer->addBooleanElement(writer, KSCrashField_Jailbroken, g_systemData.isJailbroken);
+    writer->addBooleanElement(writer, KSCrashField_ProcTranslated, g_systemData.procTranslated);
+    writer->addStringElement(writer, KSCrashField_BootTime, g_systemData.bootTime);
+    writer->addStringElement(writer, KSCrashField_AppStartTime, g_systemData.appStartTime);
+    writer->addStringElement(writer, KSCrashField_ExecutablePath, g_systemData.executablePath);
+    writer->addStringElement(writer, KSCrashField_Executable, g_systemData.executableName);
+    writer->addStringElement(writer, KSCrashField_BundleID, g_systemData.bundleID);
+    writer->addStringElement(writer, KSCrashField_BundleName, g_systemData.bundleName);
+    writer->addStringElement(writer, KSCrashField_BundleVersion, g_systemData.bundleVersion);
+    writer->addStringElement(writer, KSCrashField_BundleShortVersion, g_systemData.bundleShortVersion);
+    writer->addStringElement(writer, KSCrashField_AppUUID, g_systemData.appID);
+    writer->addStringElement(writer, KSCrashField_CPUArch, g_systemData.cpuArchitecture);
+    writer->addStringElement(writer, KSCrashField_BinaryArch, g_systemData.binaryArchitecture);
+    writer->addIntegerElement(writer, KSCrashField_CPUType, g_systemData.cpuType);
+    writer->addStringElement(writer, KSCrashField_ClangVersion, g_systemData.clangVersion);
+    writer->addIntegerElement(writer, KSCrashField_CPUSubType, g_systemData.cpuSubType);
+    writer->addIntegerElement(writer, KSCrashField_BinaryCPUType, g_systemData.binaryCPUType);
+    writer->addIntegerElement(writer, KSCrashField_BinaryCPUSubType, g_systemData.binaryCPUSubType);
+    writer->addStringElement(writer, KSCrashField_TimeZone, g_systemData.timezone);
+    writer->addStringElement(writer, KSCrashField_ProcessName, g_systemData.processName);
+    writer->addIntegerElement(writer, KSCrashField_ProcessID, g_systemData.processID);
+    writer->addIntegerElement(writer, KSCrashField_ParentProcessID, g_systemData.parentProcessID);
+    writer->addStringElement(writer, KSCrashField_DeviceAppHash, g_systemData.deviceAppHash);
+    writer->addStringElement(writer, KSCrashField_BuildType, g_systemData.buildType);
+
+    writer->addIntegerElement(writer, KSCrashField_Storage, (int64_t)g_systemData.storageSize);
+    writer->addIntegerElement(writer, KSCrashField_FreeStorage, (int64_t)g_systemData.freeStorageSize);
+
+    writer->beginObject(writer, KSCrashField_Memory);
+    {
+        writer->addUIntegerElement(writer, KSCrashField_Size, g_systemData.memorySize);
+        writer->addUIntegerElement(writer, KSCrashField_Usable, usableMemory());
+        writer->addUIntegerElement(writer, KSCrashField_Free, freeMemory());
     }
+    writer->endContainer(writer);
+}
+
+void kscm_system_setStorageInfo(uint64_t storageSize, uint64_t freeStorageSize)
+{
+    g_systemData.storageSize = storageSize;
+    g_systemData.freeStorageSize = freeStorageSize;
+}
+
+void kscm_system_setBootTime(const char *bootTime) { g_systemData.bootTime = bootTime; }
+
+const char *kscm_system_getBootTime(void) { return g_systemData.bootTime; }
+
+uint64_t kscm_system_getStorageSize(void) { return g_systemData.storageSize; }
+
+const char *kscm_system_getProcessName(void) { return g_systemData.processName; }
+
+NSDictionary *kscm_system_copySystemInfo(void)
+{
+    NSMutableDictionary *dict = [NSMutableDictionary new];
+
+#define COPY_STRING(KEY, FIELD) \
+    if (g_systemData.FIELD) dict[@ #KEY] = [NSString stringWithUTF8String:g_systemData.FIELD]
+#define COPY_PRIMITIVE(KEY, FIELD) dict[@ #KEY] = @(g_systemData.FIELD)
+
+    COPY_STRING(systemName, systemName);
+    COPY_STRING(systemVersion, systemVersion);
+    COPY_STRING(machine, machine);
+    COPY_STRING(model, model);
+    COPY_STRING(kernelVersion, kernelVersion);
+    COPY_STRING(osVersion, osVersion);
+    COPY_PRIMITIVE(isJailbroken, isJailbroken);
+    COPY_PRIMITIVE(procTranslated, procTranslated);
+    COPY_STRING(bootTime, bootTime);
+    COPY_STRING(appStartTime, appStartTime);
+    COPY_STRING(executablePath, executablePath);
+    COPY_STRING(executableName, executableName);
+    COPY_STRING(bundleID, bundleID);
+    COPY_STRING(bundleName, bundleName);
+    COPY_STRING(bundleVersion, bundleVersion);
+    COPY_STRING(bundleShortVersion, bundleShortVersion);
+    COPY_STRING(appID, appID);
+    COPY_STRING(cpuArchitecture, cpuArchitecture);
+    COPY_STRING(binaryArchitecture, binaryArchitecture);
+    COPY_STRING(clangVersion, clangVersion);
+    COPY_PRIMITIVE(cpuType, cpuType);
+    COPY_PRIMITIVE(cpuSubType, cpuSubType);
+    COPY_PRIMITIVE(binaryCPUType, binaryCPUType);
+    COPY_PRIMITIVE(binaryCPUSubType, binaryCPUSubType);
+    COPY_STRING(timezone, timezone);
+    COPY_STRING(processName, processName);
+    COPY_PRIMITIVE(processID, processID);
+    COPY_PRIMITIVE(parentProcessID, parentProcessID);
+    COPY_STRING(deviceAppHash, deviceAppHash);
+    COPY_STRING(buildType, buildType);
+    COPY_PRIMITIVE(storageSize, storageSize);
+    COPY_PRIMITIVE(freeStorageSize, freeStorageSize);
+    COPY_PRIMITIVE(memorySize, memorySize);
+    dict[@"freeMemory"] = @(freeMemory());
+    dict[@"usableMemory"] = @(usableMemory());
+
+#undef COPY_STRING
+#undef COPY_PRIMITIVE
+
+    return [dict copy];
 }
 
 KSCrashMonitorAPI *kscm_system_getAPI(void)
@@ -593,7 +710,7 @@ KSCrashMonitorAPI *kscm_system_getAPI(void)
         api.monitorId = monitorId;
         api.setEnabled = setEnabled;
         api.isEnabled = isEnabled;
-        api.addContextualInfoToEvent = addContextualInfoToEvent;
+        api.writeMetadataInReportSection = writeMetadataInReportSection;
     }
     return &api;
 }

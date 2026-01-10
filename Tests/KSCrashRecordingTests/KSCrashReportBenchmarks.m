@@ -80,8 +80,6 @@
     context.registersAreValid = true;
     context.monitorId = "benchmark";
     context.crashReason = "Benchmark test crash";
-    context.System.processName = "BenchmarkTest";
-    context.System.processID = getpid();
 
     [self measureBlock:^{
         NSString *reportPath = [self tempFilePath];
@@ -113,8 +111,6 @@
     context.registersAreValid = true;
     context.monitorId = "benchmark";
     context.crashReason = "Benchmark test crash";
-    context.System.processName = "BenchmarkTest";
-    context.System.processID = getpid();
     context.omitBinaryImages = true;
 
     [self measureBlock:^{
@@ -147,8 +143,6 @@
     context.registersAreValid = true;
     context.monitorId = "benchmark";
     context.crashReason = "Benchmark test crash";
-    context.System.processName = "BenchmarkTest";
-    context.System.processID = getpid();
 
     [self measureBlock:^{
         for (int i = 0; i < 5; i++) {

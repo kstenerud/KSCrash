@@ -28,6 +28,7 @@
 
 #include "KSCrashMonitorContext.h"
 #include "KSCrashMonitorHelper.h"
+#include "KSCrashReportWriter.h"
 #include "KSFileUtils.h"
 #include "KSJSONCodec.h"
 
@@ -57,6 +58,18 @@
 #define kKeyLaunchesSinceLastCrash "launchesSinceLastCrash"
 #define kKeySessionsSinceLastCrash "sessionsSinceLastCrash"
 #define kKeySessionsSinceLaunch "sessionsSinceLaunch"
+
+// Field keys for report writing (definitions for extern declarations in header)
+KSCrashReportFieldName KSCrashField_AppStats = "application_stats";
+KSCrashReportFieldName KSCrashField_AppActive = "application_active";
+KSCrashReportFieldName KSCrashField_AppInFG = "application_in_foreground";
+KSCrashReportFieldName KSCrashField_LaunchesSinceCrash = "launches_since_last_crash";
+KSCrashReportFieldName KSCrashField_SessionsSinceCrash = "sessions_since_last_crash";
+KSCrashReportFieldName KSCrashField_ActiveTimeSinceCrash = "active_time_since_last_crash";
+KSCrashReportFieldName KSCrashField_BGTimeSinceCrash = "background_time_since_last_crash";
+KSCrashReportFieldName KSCrashField_SessionsSinceLaunch = "sessions_since_launch";
+KSCrashReportFieldName KSCrashField_ActiveTimeSinceLaunch = "active_time_since_launch";
+KSCrashReportFieldName KSCrashField_BGTimeSinceLaunch = "background_time_since_launch";
 
 // ============================================================================
 #pragma mark - Globals -
@@ -437,23 +450,25 @@ static void setEnabled(bool isEnabled)
 
 static bool isEnabled(void) { return g_isEnabled; }
 
-static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext)
+static void addContextualInfoToEvent(__unused KSCrash_MonitorContext *eventContext) { updateAppState(); }
+
+static void writeMetadataInReportSection(const KSCrash_MonitorContext *monitorContext,
+                                         const KSCrashReportWriter *writer)
 {
-    if (g_isEnabled) {
-        updateAppState();
-        eventContext->AppState.activeDurationSinceLastCrash = g_state.activeDurationSinceLastCrash;
-        eventContext->AppState.activeDurationSinceLaunch = g_state.activeDurationSinceLaunch;
-        eventContext->AppState.applicationIsActive = g_state.applicationIsActive;
-        eventContext->AppState.applicationIsInForeground = g_state.applicationIsInForeground;
-        eventContext->AppState.appStateTransitionTime = g_state.appStateTransitionTime;
-        eventContext->AppState.backgroundDurationSinceLastCrash = g_state.backgroundDurationSinceLastCrash;
-        eventContext->AppState.backgroundDurationSinceLaunch = g_state.backgroundDurationSinceLaunch;
-        eventContext->AppState.crashedLastLaunch = g_state.crashedLastLaunch;
-        eventContext->AppState.crashedThisLaunch = g_state.crashedThisLaunch;
-        eventContext->AppState.launchesSinceLastCrash = g_state.launchesSinceLastCrash;
-        eventContext->AppState.sessionsSinceLastCrash = g_state.sessionsSinceLastCrash;
-        eventContext->AppState.sessionsSinceLaunch = g_state.sessionsSinceLaunch;
-    }
+    (void)monitorContext;
+    const KSCrash_AppState *state = kscrashstate_currentState();
+
+    writer->addBooleanElement(writer, KSCrashField_AppActive, state->applicationIsActive);
+    writer->addBooleanElement(writer, KSCrashField_AppInFG, state->applicationIsInForeground);
+
+    writer->addIntegerElement(writer, KSCrashField_LaunchesSinceCrash, state->launchesSinceLastCrash);
+    writer->addIntegerElement(writer, KSCrashField_SessionsSinceCrash, state->sessionsSinceLastCrash);
+    writer->addFloatingPointElement(writer, KSCrashField_ActiveTimeSinceCrash, state->activeDurationSinceLastCrash);
+    writer->addFloatingPointElement(writer, KSCrashField_BGTimeSinceCrash, state->backgroundDurationSinceLastCrash);
+
+    writer->addIntegerElement(writer, KSCrashField_SessionsSinceLaunch, state->sessionsSinceLaunch);
+    writer->addFloatingPointElement(writer, KSCrashField_ActiveTimeSinceLaunch, state->activeDurationSinceLaunch);
+    writer->addFloatingPointElement(writer, KSCrashField_BGTimeSinceLaunch, state->backgroundDurationSinceLaunch);
 }
 
 KSCrashMonitorAPI *kscm_appstate_getAPI(void)
@@ -464,6 +479,7 @@ KSCrashMonitorAPI *kscm_appstate_getAPI(void)
         api.setEnabled = setEnabled;
         api.isEnabled = isEnabled;
         api.addContextualInfoToEvent = addContextualInfoToEvent;
+        api.writeMetadataInReportSection = writeMetadataInReportSection;
     }
     return &api;
 }
