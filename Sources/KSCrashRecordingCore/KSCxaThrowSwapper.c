@@ -50,6 +50,7 @@
 
 #include "KSCxaThrowSwapper.h"
 
+#include <assert.h>
 #include <dlfcn.h>
 #include <errno.h>
 #include <execinfo.h>
@@ -63,6 +64,7 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/types.h>
+#include <unistd.h>
 
 #include "KSLogger.h"
 #include "KSMach-O.h"
@@ -74,6 +76,7 @@
 typedef struct {
     uintptr_t image;
     uintptr_t function;
+    void **binding;  // Pointer to the GOT entry, for restoring original
 } KSAddressPair;
 
 // Maximum number of dylibs we expect to handle. Modern iOS apps typically have
@@ -120,6 +123,42 @@ static uintptr_t findAddress(void *address)
     }
     KSLOG_WARN("Address %p not found", address);
     return (uintptr_t)NULL;
+}
+
+static bool writeProtectedBinding(void **binding, void *value)
+{
+    vm_prot_t oldProtection = ksmacho_getSectionProtection(binding);
+    bool needsProtectionChange = !(oldProtection & VM_PROT_WRITE);
+
+    // Page-align the address for mprotect (must be page-aligned)
+    uintptr_t pageSize = (uintptr_t)sysconf(_SC_PAGESIZE);
+    uintptr_t pageStart = (uintptr_t)binding & ~(pageSize - 1);
+    size_t protectSize = (uintptr_t)binding - pageStart + sizeof(void *);
+
+    if (needsProtectionChange) {
+        if (mprotect((void *)pageStart, protectSize, PROT_READ | PROT_WRITE) != 0) {
+            KSLOG_ERROR("mprotect failed for binding at %p: %s", (void *)binding, strerror(errno));
+            return false;
+        }
+    }
+
+    *binding = value;
+
+    if (needsProtectionChange) {
+        int protection = 0;
+        if (oldProtection & VM_PROT_READ) {
+            protection |= PROT_READ;
+        }
+        if (oldProtection & VM_PROT_WRITE) {
+            protection |= PROT_WRITE;
+        }
+        if (oldProtection & VM_PROT_EXECUTE) {
+            protection |= PROT_EXEC;
+        }
+        mprotect((void *)pageStart, protectSize, protection);
+    }
+
+    return true;
 }
 
 static void __cxa_throw_decorator(void *thrown_exception, void *tinfo, void (*dest)(void *))
@@ -177,9 +216,13 @@ static void perform_rebinding_with_section(const section_t *dataSection, intptr_
         char *symbol_name = strtab + strtab_offset;
         bool symbol_name_longer_than_1 = symbol_name[0] && symbol_name[1];
         if (symbol_name_longer_than_1 && strcmp(&symbol_name[1], g_cxa_throw_name) == 0) {
+            // Should never be already rebound since we always reset first
+            assert(indirect_symbol_bindings[i] != (void *)__cxa_throw_decorator);
             Dl_info info;
             if (dladdr(dataSection, &info) != 0) {
-                KSAddressPair pair = { (uintptr_t)info.dli_fbase, (uintptr_t)indirect_symbol_bindings[i] };
+                KSAddressPair pair = { .image = (uintptr_t)info.dli_fbase,
+                                       .function = (uintptr_t)indirect_symbol_bindings[i],
+                                       .binding = &indirect_symbol_bindings[i] };
                 addPair(pair);
             }
             indirect_symbol_bindings[i] = (void *)__cxa_throw_decorator;
@@ -230,6 +273,12 @@ static void rebind_symbols_for_image(const struct mach_header *header, intptr_t 
 {
     KSLOG_TRACE("Rebinding symbols for image with slide %p", (void *)slide);
 
+    // Skip if handler is NULL (we're in reset state)
+    if (atomic_load_explicit(&g_cxa_throw_handler, memory_order_acquire) == NULL) {
+        KSLOG_TRACE("Handler is NULL, skipping rebinding");
+        return;
+    }
+
     Dl_info info;
     if (dladdr(header, &info) == 0) {
         KSLOG_WARN("dladdr failed");
@@ -277,8 +326,8 @@ int ksct_swap(const cxa_throw_type handler)
     (void)handler;
     return 0;
 #else
-    // Reset the count for re-scanning (handles handler updates)
-    atomic_store_explicit(&g_cxa_originals_count, 0, memory_order_release);
+    // Reset any existing swap first to restore original bindings
+    ksct_swapReset();
 
     // Store the handler before registering callback or scanning images
     // This ensures the handler is visible when rebind_symbols_for_image runs
@@ -297,5 +346,27 @@ int ksct_swap(const cxa_throw_type handler)
         }
     }
     return 0;
+#endif
+}
+
+void ksct_swapReset(void)
+{
+    KSLOG_DEBUG("Resetting __cxa_throw bindings");
+
+#if KSCRASH_HAS_SANITIZER
+    KSLOG_DEBUG("Sanitizer detected, nothing to reset");
+#else
+    size_t count = atomic_load_explicit(&g_cxa_originals_count, memory_order_acquire);
+
+    for (size_t i = 0; i < count; i++) {
+        KSAddressPair *pair = &g_cxa_originals[i];
+        if (pair->binding != NULL) {
+            KSLOG_TRACE("Restoring binding at %p to %p", (void *)pair->binding, (void *)pair->function);
+            writeProtectedBinding(pair->binding, (void *)pair->function);
+        }
+    }
+
+    atomic_store_explicit(&g_cxa_throw_handler, NULL, memory_order_release);
+    atomic_store_explicit(&g_cxa_originals_count, 0, memory_order_release);
 #endif
 }

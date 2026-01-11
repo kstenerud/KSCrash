@@ -531,6 +531,14 @@ let package = Package(
             ]
         ),
 
+        .testTarget(
+            name: Targets.objcBenchmarks,
+            dependencies: [
+                .target(name: Targets.recordingCore),
+                .target(name: Targets.recording),
+            ]
+        ),
+
         .target(
             name: Targets.profiler,
             dependencies: [
@@ -566,6 +574,7 @@ enum Targets {
     static let report = "Report"
     static let testTools = "KSCrashTestTools"
     static let benchmarks = "KSCrashBenchmarks"
+    static let objcBenchmarks = "KSCrashBenchmarksObjC"
     static let profiler = "KSCrashProfiler"
 }
 

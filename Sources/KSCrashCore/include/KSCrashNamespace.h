@@ -257,6 +257,7 @@
 #define kscrs_readReport KSCRASH_NS(kscrs_readReport)
 #define kscrs_readReportAtPath KSCRASH_NS(kscrs_readReportAtPath)
 #define ksct_swap KSCRASH_NS(ksct_swap)
+#define ksct_swapReset KSCRASH_NS(ksct_swapReset)
 #define ksdate_microseconds KSCRASH_NS(ksdate_microseconds)
 #define ksdate_seconds KSCRASH_NS(ksdate_seconds)
 #define ksdate_utcStringFromMicroseconds KSCRASH_NS(ksdate_utcStringFromMicroseconds)
