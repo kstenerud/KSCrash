@@ -56,6 +56,8 @@
 #include <mach-o/dyld.h>
 #include <mach-o/nlist.h>
 #include <mach/mach.h>
+#include <stdatomic.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -74,33 +76,44 @@ typedef struct {
     uintptr_t function;
 } KSAddressPair;
 
-static cxa_throw_type g_cxa_throw_handler = NULL;
+// Maximum number of dylibs we expect to handle. Modern iOS apps typically have
+// 300-500 dylibs. We pre-allocate to avoid realloc races during dyld callbacks.
+#define MAX_CXA_ORIGINALS 1024
+
+static _Atomic(cxa_throw_type) g_cxa_throw_handler = NULL;
 static const char *const g_cxa_throw_name = "__cxa_throw";
 
-static KSAddressPair *g_cxa_originals = NULL;
-static size_t g_cxa_originals_capacity = 0;
-static size_t g_cxa_originals_count = 0;
+// Pre-allocated array to avoid realloc during concurrent dyld callbacks
+static KSAddressPair g_cxa_originals[MAX_CXA_ORIGINALS];
+static _Atomic(size_t) g_cxa_originals_count = 0;
+
+// Track whether we've registered the dyld callback
+static _Atomic(bool) g_dyld_callback_registered = false;
 
 static void addPair(KSAddressPair pair)
 {
     KSLOG_DEBUG("Adding address pair: image=%p, function=%p", (void *)pair.image, (void *)pair.function);
 
-    if (g_cxa_originals_count == g_cxa_originals_capacity) {
-        g_cxa_originals_capacity *= 2;
-        g_cxa_originals = (KSAddressPair *)realloc(g_cxa_originals, sizeof(KSAddressPair) * g_cxa_originals_capacity);
-        if (g_cxa_originals == NULL) {
-            KSLOG_ERROR("Failed to realloc memory for g_cxa_originals: %s", strerror(errno));
-            return;
-        }
+    // Atomically reserve a slot in the array
+    size_t index = atomic_fetch_add_explicit(&g_cxa_originals_count, 1, memory_order_acq_rel);
+    if (index >= MAX_CXA_ORIGINALS) {
+        KSLOG_ERROR("Exceeded maximum number of dylibs (%d)", MAX_CXA_ORIGINALS);
+        // Restore the count since we didn't actually add anything
+        atomic_fetch_sub_explicit(&g_cxa_originals_count, 1, memory_order_release);
+        return;
     }
-    memcpy(&g_cxa_originals[g_cxa_originals_count++], &pair, sizeof(KSAddressPair));
+
+    // Write to the reserved slot - no race since each thread has a unique index
+    g_cxa_originals[index] = pair;
 }
 
 static uintptr_t findAddress(void *address)
 {
     KSLOG_TRACE("Finding address for %p", address);
 
-    for (size_t i = 0; i < g_cxa_originals_count; i++) {
+    // Read the count atomically - elements at indices < count are fully written
+    size_t count = atomic_load_explicit(&g_cxa_originals_count, memory_order_acquire);
+    for (size_t i = 0; i < count; i++) {
         if (g_cxa_originals[i].image == (uintptr_t)address) {
             return g_cxa_originals[i].function;
         }
@@ -115,7 +128,10 @@ static void __cxa_throw_decorator(void *thrown_exception, void *tinfo, void (*de
 
     KSLOG_TRACE("Decorating __cxa_throw");
 
-    g_cxa_throw_handler(thrown_exception, tinfo, dest);
+    cxa_throw_type handler = atomic_load_explicit(&g_cxa_throw_handler, memory_order_acquire);
+    if (handler != NULL) {
+        handler(thrown_exception, tinfo, dest);
+    }
 
     void *backtraceArr[REQUIRED_FRAMES];
     int count = backtrace(backtraceArr, REQUIRED_FRAMES);
@@ -261,23 +277,22 @@ int ksct_swap(const cxa_throw_type handler)
     (void)handler;
     return 0;
 #else
-    if (g_cxa_originals == NULL) {
-        g_cxa_originals_capacity = 25;
-        g_cxa_originals = (KSAddressPair *)malloc(sizeof(KSAddressPair) * g_cxa_originals_capacity);
-        if (g_cxa_originals == NULL) {
-            KSLOG_ERROR("Failed to allocate memory for g_cxa_originals: %s", strerror(errno));
-            return -1;
-        }
-    }
-    g_cxa_originals_count = 0;
+    // Reset the count for re-scanning (handles handler updates)
+    atomic_store_explicit(&g_cxa_originals_count, 0, memory_order_release);
 
-    if (g_cxa_throw_handler == NULL) {
-        g_cxa_throw_handler = handler;
+    // Store the handler before registering callback or scanning images
+    // This ensures the handler is visible when rebind_symbols_for_image runs
+    atomic_store_explicit(&g_cxa_throw_handler, handler, memory_order_release);
+
+    bool expected = false;
+    if (atomic_compare_exchange_strong_explicit(&g_dyld_callback_registered, &expected, true, memory_order_acq_rel,
+                                                memory_order_acquire)) {
+        // First time: register for future image loads
         _dyld_register_func_for_add_image(rebind_symbols_for_image);
     } else {
-        g_cxa_throw_handler = handler;
-        uint32_t c = _dyld_image_count();
-        for (uint32_t i = 0; i < c; i++) {
+        // Already registered: manually scan all currently loaded images
+        uint32_t count = _dyld_image_count();
+        for (uint32_t i = 0; i < count; i++) {
             rebind_symbols_for_image(_dyld_get_image_header(i), _dyld_get_image_vmaddr_slide(i));
         }
     }

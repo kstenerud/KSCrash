@@ -39,6 +39,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <atomic>
 #include <exception>
 #include <string>
 #include <typeinfo>
@@ -61,7 +62,7 @@ static struct {
     std::atomic<KSCM_InstalledState> installedState { KSCM_NotInstalled };
     std::atomic<bool> isEnabled { false };
 
-    bool cxaSwapEnabled = false;
+    std::atomic<bool> cxaSwapEnabled { false };
 
     std::terminate_handler originalTerminateHandler;
 
@@ -98,12 +99,17 @@ void __cxa_throw(void *thrown_exception, std::type_info *tinfo, void (*dest)(voi
 
 void __cxa_throw(void *thrown_exception, std::type_info *tinfo, void (*dest)(void *)) KS_KEEP_FUNCTION_IN_STACKTRACE
 {
-    static cxa_throw_type orig_cxa_throw = NULL;
-    if (g_state.cxaSwapEnabled == false) {
+    static std::atomic<cxa_throw_type> orig_cxa_throw { nullptr };
+    if (!g_state.cxaSwapEnabled.load(std::memory_order_acquire)) {
         captureStackTrace(thrown_exception, tinfo, dest);
     }
-    unlikely_if(orig_cxa_throw == NULL) { orig_cxa_throw = (cxa_throw_type)dlsym(RTLD_NEXT, "__cxa_throw"); }
-    orig_cxa_throw(thrown_exception, tinfo, dest);
+    cxa_throw_type orig = orig_cxa_throw.load(std::memory_order_acquire);
+    unlikely_if(orig == nullptr)
+    {
+        orig = (cxa_throw_type)dlsym(RTLD_NEXT, "__cxa_throw");
+        orig_cxa_throw.store(orig, std::memory_order_release);
+    }
+    orig(thrown_exception, tinfo, dest);
     KS_THWART_TAIL_CALL_OPTIMISATION
     __builtin_unreachable();
 }
@@ -112,9 +118,10 @@ void __cxa_throw(void *thrown_exception, std::type_info *tinfo, void (*dest)(voi
 static const char *cpp_demangleSymbol(const char *mangledSymbol)
 {
     int status = 0;
-    static char stackBuffer[DESCRIPTION_BUFFER_LENGTH] = { 0 };
+    // Use thread-local buffer to avoid data races between threads
+    static thread_local char demangleBuffer[DESCRIPTION_BUFFER_LENGTH] = { 0 };
     size_t length = DESCRIPTION_BUFFER_LENGTH;
-    char *demangled = __cxxabiv1::__cxa_demangle(mangledSymbol, stackBuffer, &length, &status);
+    char *demangled = __cxxabiv1::__cxa_demangle(mangledSymbol, demangleBuffer, &length, &status);
     return demangled != nullptr && status == 0 ? demangled : mangledSymbol;
 }
 
@@ -243,9 +250,9 @@ static void setEnabled(bool enabled)
 
 extern "C" void kscm_enableSwapCxaThrow(void)
 {
-    if (g_state.cxaSwapEnabled != true) {
+    bool expected = false;
+    if (g_state.cxaSwapEnabled.compare_exchange_strong(expected, true, std::memory_order_acq_rel)) {
         ksct_swap(captureStackTrace);
-        g_state.cxaSwapEnabled = true;
     }
 }
 
