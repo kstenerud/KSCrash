@@ -75,8 +75,8 @@
 
 typedef struct {
     uintptr_t image;
-    uintptr_t function;
-    void **binding;  // Pointer to the GOT entry, for restoring original
+    _Atomic(uintptr_t) function;  // Atomic: non-zero signals slot is ready (written last)
+    void **binding;               // Pointer to the GOT entry, for restoring original
 } KSAddressPair;
 
 // Maximum number of dylibs we expect to handle. Modern iOS apps typically have
@@ -93,9 +93,9 @@ static _Atomic(size_t) g_cxa_originals_count = 0;
 // Track whether we've registered the dyld callback
 static _Atomic(bool) g_dyld_callback_registered = false;
 
-static void addPair(KSAddressPair pair)
+static bool addPair(uintptr_t image, uintptr_t function, void **binding)
 {
-    KSLOG_DEBUG("Adding address pair: image=%p, function=%p", (void *)pair.image, (void *)pair.function);
+    KSLOG_DEBUG("Adding address pair: image=%p, function=%p", (void *)image, (void *)function);
 
     // Atomically reserve a slot in the array
     size_t index = atomic_fetch_add_explicit(&g_cxa_originals_count, 1, memory_order_acq_rel);
@@ -103,22 +103,36 @@ static void addPair(KSAddressPair pair)
         KSLOG_ERROR("Exceeded maximum number of dylibs (%d)", MAX_CXA_ORIGINALS);
         // Restore the count since we didn't actually add anything
         atomic_fetch_sub_explicit(&g_cxa_originals_count, 1, memory_order_release);
-        return;
+        return false;
     }
 
-    // Write to the reserved slot - no race since each thread has a unique index
-    g_cxa_originals[index] = pair;
+    // Write to the reserved slot. Write function LAST with release semantics
+    // to signal the slot is ready. findAddress uses acquire to read function
+    // and skips zero entries, so this ensures image/binding are visible when
+    // function is non-zero.
+    g_cxa_originals[index].image = image;
+    g_cxa_originals[index].binding = binding;
+    atomic_store_explicit(&g_cxa_originals[index].function, function, memory_order_release);
+    return true;
 }
 
 static uintptr_t findAddress(void *address)
 {
     KSLOG_TRACE("Finding address for %p", address);
 
-    // Read the count atomically - elements at indices < count are fully written
+    // Read the count atomically to know how many slots have been reserved
     size_t count = atomic_load_explicit(&g_cxa_originals_count, memory_order_acquire);
     for (size_t i = 0; i < count; i++) {
+        // Read function with acquire semantics. A non-zero value means the slot
+        // is fully written (addPair writes function last with release semantics).
+        // This acquire-release pairing ensures image/binding are visible.
+        uintptr_t function = atomic_load_explicit(&g_cxa_originals[i].function, memory_order_acquire);
+        if (function == 0) {
+            // Slot reserved but not yet written, skip it
+            continue;
+        }
         if (g_cxa_originals[i].image == (uintptr_t)address) {
-            return g_cxa_originals[i].function;
+            return function;
         }
     }
     KSLOG_WARN("Address %p not found", address);
@@ -220,12 +234,13 @@ static void perform_rebinding_with_section(const section_t *dataSection, intptr_
             assert(indirect_symbol_bindings[i] != (void *)__cxa_throw_decorator);
             Dl_info info;
             if (dladdr(dataSection, &info) != 0) {
-                KSAddressPair pair = { .image = (uintptr_t)info.dli_fbase,
-                                       .function = (uintptr_t)indirect_symbol_bindings[i],
-                                       .binding = &indirect_symbol_bindings[i] };
-                addPair(pair);
+                // Only rebind if we successfully store the original. This prevents
+                // rebinding when the array is full, which would break exception flow.
+                if (addPair((uintptr_t)info.dli_fbase, (uintptr_t)indirect_symbol_bindings[i],
+                            &indirect_symbol_bindings[i])) {
+                    indirect_symbol_bindings[i] = (void *)__cxa_throw_decorator;
+                }
             }
-            indirect_symbol_bindings[i] = (void *)__cxa_throw_decorator;
             continue;
         }
     }
@@ -360,10 +375,14 @@ void ksct_swapReset(void)
 
     for (size_t i = 0; i < count; i++) {
         KSAddressPair *pair = &g_cxa_originals[i];
-        if (pair->binding != NULL) {
-            KSLOG_TRACE("Restoring binding at %p to %p", (void *)pair->binding, (void *)pair->function);
-            writeProtectedBinding(pair->binding, (void *)pair->function);
+        // Read function atomically since it's the "ready" signal
+        uintptr_t function = atomic_load_explicit(&pair->function, memory_order_acquire);
+        if (function != 0 && pair->binding != NULL) {
+            KSLOG_TRACE("Restoring binding at %p to %p", (void *)pair->binding, (void *)function);
+            writeProtectedBinding(pair->binding, (void *)function);
         }
+        // Clear the slot so it's not considered "ready" anymore
+        atomic_store_explicit(&pair->function, 0, memory_order_release);
     }
 
     atomic_store_explicit(&g_cxa_throw_handler, NULL, memory_order_release);

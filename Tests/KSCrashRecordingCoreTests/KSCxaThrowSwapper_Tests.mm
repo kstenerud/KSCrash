@@ -35,7 +35,9 @@
 #include <exception>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <typeinfo>
+#include <vector>
 
 #include "KSCxaThrowSwapper.h"
 #include "KSSystemCapabilities.h"
@@ -318,6 +320,96 @@ static void resetHandlerState()
         (void)e;
     }
     XCTAssertEqual(g_handlerCallCount.load(), 4);
+}
+
+#pragma mark - Concurrency Stress Tests
+
+/// Stress test: multiple threads throwing exceptions concurrently.
+/// This exercises findAddress under concurrent load. Combined with TSan,
+/// this would catch data races in the address lookup.
+- (void)testConcurrentExceptionThrows
+{
+    XCTSkipIf(KSCRASH_HAS_SANITIZER, @"Sanitizers conflict with __cxa_throw swapper");
+
+    ksct_swap(testHandler);
+
+    const int numThreads = 8;
+    const int throwsPerThread = 100;
+    std::atomic<int> successCount { 0 };
+    std::atomic<int> failureCount { 0 };
+
+    std::vector<std::thread> threads;
+    threads.reserve(numThreads);
+
+    for (int t = 0; t < numThreads; t++) {
+        threads.emplace_back([&successCount, &failureCount]() {
+            for (int i = 0; i < throwsPerThread; i++) {
+                try {
+                    throw std::runtime_error("concurrent test");
+                } catch (const std::runtime_error &e) {
+                    if (strcmp(e.what(), "concurrent test") == 0) {
+                        successCount.fetch_add(1, std::memory_order_relaxed);
+                    } else {
+                        failureCount.fetch_add(1, std::memory_order_relaxed);
+                    }
+                } catch (...) {
+                    failureCount.fetch_add(1, std::memory_order_relaxed);
+                }
+            }
+        });
+    }
+
+    for (auto &thread : threads) {
+        thread.join();
+    }
+
+    int expectedThrows = numThreads * throwsPerThread;
+    XCTAssertEqual(successCount.load(), expectedThrows, @"All exceptions should be caught successfully");
+    XCTAssertEqual(failureCount.load(), 0, @"No exceptions should fail");
+    XCTAssertEqual(g_handlerCallCount.load(), expectedThrows, @"Handler should be called for each throw");
+}
+
+/// Stress test: concurrent swap/reset cycles while throwing exceptions.
+/// This tests the thread safety of the swap/reset mechanism itself.
+- (void)testConcurrentSwapResetWithThrows
+{
+    XCTSkipIf(KSCRASH_HAS_SANITIZER, @"Sanitizers conflict with __cxa_throw swapper");
+
+    const int numCycles = 20;
+    const int numThrowThreads = 4;
+    const int throwsPerCycle = 50;
+
+    for (int cycle = 0; cycle < numCycles; cycle++) {
+        resetHandlerState();
+        ksct_swap(testHandler);
+
+        std::atomic<int> successCount { 0 };
+        std::vector<std::thread> threads;
+        threads.reserve(numThrowThreads);
+
+        for (int t = 0; t < numThrowThreads; t++) {
+            threads.emplace_back([&successCount]() {
+                for (int i = 0; i < throwsPerCycle; i++) {
+                    try {
+                        throw TestException();
+                    } catch (const TestException &) {
+                        successCount.fetch_add(1, std::memory_order_relaxed);
+                    } catch (...) {
+                        // Unexpected exception type
+                    }
+                }
+            });
+        }
+
+        for (auto &thread : threads) {
+            thread.join();
+        }
+
+        int expectedThrows = numThrowThreads * throwsPerCycle;
+        XCTAssertEqual(successCount.load(), expectedThrows, @"All exceptions should be caught in cycle %d", cycle);
+
+        ksct_swapReset();
+    }
 }
 
 @end
