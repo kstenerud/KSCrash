@@ -39,6 +39,7 @@ typedef void (*cxa_throw_type)(void *, void *, void (*)(void *));
 #endif
 
 int ksct_swap(const cxa_throw_type handler);
+void ksct_swapReset(void);
 
 #ifdef __cplusplus
 }
