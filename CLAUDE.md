@@ -219,3 +219,61 @@ When in doubt, check the POSIX list of async-signal-safe functions and follow th
 - Module organization: Maintain the existing module structure
 - API design: Keep public APIs clean and well-documented
 - **Testing**: Always run sanitizers (ASan, TSan, UBSan) after changes to catch issues early
+
+### File Headers
+
+Every source file must include a header with the following components:
+
+1. **Filename**: The name of the file as a comment
+2. **Created by**: Author name and creation date
+3. **Copyright**: Original copyright year (2012) and copyright holder (Karl Stenerud)
+4. **License**: The MIT license text
+
+**Standard header format:**
+```c
+//
+//  KSExample.c
+//
+//  Created by Your Name on YYYY-MM-DD.
+//
+//  Copyright (c) 2012 Karl Stenerud. All rights reserved.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall remain in place
+// in this source code.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+// THE SOFTWARE.
+//
+```
+
+**For files derived from or inspired by other projects:**
+If a file is based on code from another project, include the original copyright and license after the KSCrash license:
+
+```c
+//
+//  KSExample.c
+//
+//  Created by Your Name on YYYY-MM-DD.
+//
+//  Copyright (c) 2012 Karl Stenerud. All rights reserved.
+//
+// [KSCrash MIT license text...]
+//
+// Inspired by original-project/original-file
+// https://github.com/original/project
+//
+// [Original project's copyright and license text...]
+//
+```

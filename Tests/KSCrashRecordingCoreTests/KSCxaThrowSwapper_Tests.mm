@@ -1,7 +1,7 @@
 //
-//  KSCxaThrowSwapperTests.mm
+//  KSCxaThrowSwapper_Tests.mm
 //
-//  Created for KSCrash.
+//  Created by Alexander Cohen on 2025-01-11.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,7 +24,12 @@
 // THE SOFTWARE.
 //
 
+// clang-format off
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wreserved-macro-identifier"
 #import <XCTest/XCTest.h>
+#pragma clang diagnostic pop
+// clang-format on
 
 #include <atomic>
 #include <exception>
@@ -40,8 +45,15 @@
 class TestException : public std::exception
 {
    public:
+    TestException() = default;
+    TestException(const TestException &) = default;
+    TestException &operator=(const TestException &) = default;
+    ~TestException() override;
     const char *what() const noexcept override { return "Test exception"; }
 };
+
+// Out-of-line destructor to anchor the vtable
+TestException::~TestException() = default;
 
 #pragma mark - Handler State
 
@@ -65,10 +77,10 @@ static void resetHandlerState()
 
 #pragma mark - Test Class
 
-@interface KSCxaThrowSwapperTests : XCTestCase
+@interface KSCxaThrowSwapper_Tests : XCTestCase
 @end
 
-@implementation KSCxaThrowSwapperTests
+@implementation KSCxaThrowSwapper_Tests
 
 - (void)setUp
 {
@@ -78,9 +90,7 @@ static void resetHandlerState()
 
 - (void)tearDown
 {
-#if !KSCRASH_HAS_SANITIZER
     ksct_swapReset();
-#endif
     [super tearDown];
 }
 
@@ -89,10 +99,7 @@ static void resetHandlerState()
 /// Test that swap returns success
 - (void)testSwapReturnsSuccess
 {
-#if KSCRASH_HAS_SANITIZER
-    NSLog(@"Skipping test - sanitizers are enabled");
-    return;
-#endif
+    XCTSkipIf(KSCRASH_HAS_SANITIZER, @"Sanitizers conflict with __cxa_throw swapper");
 
     int result = ksct_swap(testHandler);
     XCTAssertEqual(result, 0, @"ksct_swap should return 0 on success");
@@ -101,10 +108,7 @@ static void resetHandlerState()
 /// Test that handler is called when exception is thrown
 - (void)testHandlerIsCalledOnThrow
 {
-#if KSCRASH_HAS_SANITIZER
-    NSLog(@"Skipping test - sanitizers are enabled");
-    return;
-#endif
+    XCTSkipIf(KSCRASH_HAS_SANITIZER, @"Sanitizers conflict with __cxa_throw swapper");
 
     ksct_swap(testHandler);
 
@@ -122,10 +126,7 @@ static void resetHandlerState()
 /// Test that handler receives correct type info
 - (void)testHandlerReceivesTypeInfo
 {
-#if KSCRASH_HAS_SANITIZER
-    NSLog(@"Skipping test - sanitizers are enabled");
-    return;
-#endif
+    XCTSkipIf(KSCRASH_HAS_SANITIZER, @"Sanitizers conflict with __cxa_throw swapper");
 
     ksct_swap(testHandler);
 
@@ -143,10 +144,7 @@ static void resetHandlerState()
 /// Test that exceptions still work correctly after swap
 - (void)testExceptionStillWorksAfterSwap
 {
-#if KSCRASH_HAS_SANITIZER
-    NSLog(@"Skipping test - sanitizers are enabled");
-    return;
-#endif
+    XCTSkipIf(KSCRASH_HAS_SANITIZER, @"Sanitizers conflict with __cxa_throw swapper");
 
     ksct_swap(testHandler);
 
@@ -166,10 +164,7 @@ static void resetHandlerState()
 /// Test that reset can be called without prior swap
 - (void)testResetWithoutSwap
 {
-#if KSCRASH_HAS_SANITIZER
-    NSLog(@"Skipping test - sanitizers are enabled");
-    return;
-#endif
+    XCTSkipIf(KSCRASH_HAS_SANITIZER, @"Sanitizers conflict with __cxa_throw swapper");
 
     // Should not crash
     ksct_swapReset();
@@ -178,10 +173,7 @@ static void resetHandlerState()
 /// Test that handler is not called after reset
 - (void)testHandlerNotCalledAfterReset
 {
-#if KSCRASH_HAS_SANITIZER
-    NSLog(@"Skipping test - sanitizers are enabled");
-    return;
-#endif
+    XCTSkipIf(KSCRASH_HAS_SANITIZER, @"Sanitizers conflict with __cxa_throw swapper");
 
     ksct_swap(testHandler);
 
@@ -210,10 +202,7 @@ static void resetHandlerState()
 /// Test that exceptions still work after reset
 - (void)testExceptionsWorkAfterReset
 {
-#if KSCRASH_HAS_SANITIZER
-    NSLog(@"Skipping test - sanitizers are enabled");
-    return;
-#endif
+    XCTSkipIf(KSCRASH_HAS_SANITIZER, @"Sanitizers conflict with __cxa_throw swapper");
 
     ksct_swap(testHandler);
     ksct_swapReset();
@@ -234,10 +223,7 @@ static void resetHandlerState()
 /// Test that calling swap multiple times works correctly
 - (void)testMultipleSwapCalls
 {
-#if KSCRASH_HAS_SANITIZER
-    NSLog(@"Skipping test - sanitizers are enabled");
-    return;
-#endif
+    XCTSkipIf(KSCRASH_HAS_SANITIZER, @"Sanitizers conflict with __cxa_throw swapper");
 
     // First swap
     int result1 = ksct_swap(testHandler);
@@ -266,10 +252,7 @@ static void resetHandlerState()
 /// Test swap-reset-swap cycle
 - (void)testSwapResetSwapCycle
 {
-#if KSCRASH_HAS_SANITIZER
-    NSLog(@"Skipping test - sanitizers are enabled");
-    return;
-#endif
+    XCTSkipIf(KSCRASH_HAS_SANITIZER, @"Sanitizers conflict with __cxa_throw swapper");
 
     for (int cycle = 0; cycle < 3; cycle++) {
         resetHandlerState();
@@ -300,10 +283,7 @@ static void resetHandlerState()
 /// Test handler is called for different exception types
 - (void)testDifferentExceptionTypes
 {
-#if KSCRASH_HAS_SANITIZER
-    NSLog(@"Skipping test - sanitizers are enabled");
-    return;
-#endif
+    XCTSkipIf(KSCRASH_HAS_SANITIZER, @"Sanitizers conflict with __cxa_throw swapper");
 
     ksct_swap(testHandler);
 
