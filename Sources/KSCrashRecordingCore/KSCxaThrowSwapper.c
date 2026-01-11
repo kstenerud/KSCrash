@@ -81,7 +81,7 @@ typedef struct {
 
 // Maximum number of dylibs we expect to handle. Modern iOS apps typically have
 // 300-500 dylibs. We pre-allocate to avoid realloc races during dyld callbacks.
-#define MAX_CXA_ORIGINALS 1024
+#define MAX_CXA_ORIGINALS 2048
 
 static _Atomic(cxa_throw_type) g_cxa_throw_handler = NULL;
 static const char *const g_cxa_throw_name = "__cxa_throw";
@@ -93,16 +93,29 @@ static _Atomic(size_t) g_cxa_originals_count = 0;
 // Track whether we've registered the dyld callback
 static _Atomic(bool) g_dyld_callback_registered = false;
 
+static bool reserveIndex(size_t *out_index)
+{
+    size_t count = atomic_load_explicit(&g_cxa_originals_count, memory_order_relaxed);
+    for (;;) {
+        if (count >= MAX_CXA_ORIGINALS) {
+            return false;
+        }
+        if (atomic_compare_exchange_weak_explicit(&g_cxa_originals_count, &count, count + 1, memory_order_acq_rel,
+                                                  memory_order_relaxed)) {
+            *out_index = count;
+            return true;
+        }
+    }
+}
+
 static bool addPair(uintptr_t image, uintptr_t function, void **binding)
 {
     KSLOG_DEBUG("Adding address pair: image=%p, function=%p", (void *)image, (void *)function);
 
-    // Atomically reserve a slot in the array
-    size_t index = atomic_fetch_add_explicit(&g_cxa_originals_count, 1, memory_order_acq_rel);
-    if (index >= MAX_CXA_ORIGINALS) {
+    // Atomically reserve a slot in the array without exceeding MAX_CXA_ORIGINALS
+    size_t index = 0;
+    if (!reserveIndex(&index)) {
         KSLOG_ERROR("Exceeded maximum number of dylibs (%d)", MAX_CXA_ORIGINALS);
-        // Restore the count since we didn't actually add anything
-        atomic_fetch_sub_explicit(&g_cxa_originals_count, 1, memory_order_release);
         return false;
     }
 
@@ -371,6 +384,9 @@ void ksct_swapReset(void)
 #if KSCRASH_HAS_SANITIZER
     KSLOG_DEBUG("Sanitizer detected, nothing to reset");
 #else
+    // Prevent dyld add-image rebinding while reset is in progress.
+    atomic_store_explicit(&g_cxa_throw_handler, NULL, memory_order_release);
+
     size_t count = atomic_load_explicit(&g_cxa_originals_count, memory_order_acquire);
 
     for (size_t i = 0; i < count; i++) {
@@ -379,13 +395,16 @@ void ksct_swapReset(void)
         uintptr_t function = atomic_load_explicit(&pair->function, memory_order_acquire);
         if (function != 0 && pair->binding != NULL) {
             KSLOG_TRACE("Restoring binding at %p to %p", (void *)pair->binding, (void *)function);
-            writeProtectedBinding(pair->binding, (void *)function);
+            bool success = writeProtectedBinding(pair->binding, (void *)function);
+            if (!success) {
+                KSLOG_ERROR("Failed to restore binding at %p", (void *)pair->binding);
+            }
+            assert(success);
         }
         // Clear the slot so it's not considered "ready" anymore
         atomic_store_explicit(&pair->function, 0, memory_order_release);
     }
 
-    atomic_store_explicit(&g_cxa_throw_handler, NULL, memory_order_release);
     atomic_store_explicit(&g_cxa_originals_count, 0, memory_order_release);
 #endif
 }

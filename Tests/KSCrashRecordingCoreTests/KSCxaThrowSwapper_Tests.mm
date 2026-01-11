@@ -377,18 +377,25 @@ static void resetHandlerState()
 
     const int numCycles = 20;
     const int numThrowThreads = 4;
-    const int throwsPerCycle = 50;
+    const int throwsPerCycle = 100;
+    const int resetIterations = 5;
 
     for (int cycle = 0; cycle < numCycles; cycle++) {
         resetHandlerState();
         ksct_swap(testHandler);
 
+        std::atomic<bool> start { false };
+        std::atomic<int> readyCount { 0 };
         std::atomic<int> successCount { 0 };
         std::vector<std::thread> threads;
         threads.reserve(numThrowThreads);
 
         for (int t = 0; t < numThrowThreads; t++) {
-            threads.emplace_back([&successCount]() {
+            threads.emplace_back([&start, &readyCount, &successCount]() {
+                readyCount.fetch_add(1, std::memory_order_relaxed);
+                while (!start.load(std::memory_order_acquire)) {
+                    std::this_thread::yield();
+                }
                 for (int i = 0; i < throwsPerCycle; i++) {
                     try {
                         throw TestException();
@@ -397,8 +404,21 @@ static void resetHandlerState()
                     } catch (...) {
                         // Unexpected exception type
                     }
+                    if ((i & 0xF) == 0) {
+                        std::this_thread::yield();
+                    }
                 }
             });
+        }
+
+        while (readyCount.load(std::memory_order_acquire) < numThrowThreads) {
+            std::this_thread::yield();
+        }
+        start.store(true, std::memory_order_release);
+
+        for (int i = 0; i < resetIterations; i++) {
+            ksct_swapReset();
+            ksct_swap(testHandler);
         }
 
         for (auto &thread : threads) {
