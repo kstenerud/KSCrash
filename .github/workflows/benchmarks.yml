@@ -7,6 +7,7 @@ on:
       - "Sources/**"
       - "Tests/KSCrashBenchmarks/**"
       - "Tests/KSCrashBenchmarksObjC/**"
+      - "Tests/KSCrashBenchmarksCold/**"
       - "Tests/KSCrashRecordingTests/KSCrashReportBenchmarks.m"
       - "Package.swift"
       - ".github/workflows/benchmarks.yml"
@@ -17,6 +18,7 @@ on:
       - "Sources/**"
       - "Tests/KSCrashBenchmarks/**"
       - "Tests/KSCrashBenchmarksObjC/**"
+      - "Tests/KSCrashBenchmarksCold/**"
       - "Tests/KSCrashRecordingTests/KSCrashReportBenchmarks.m"
       - "Package.swift"
       - ".github/workflows/benchmarks.yml"
@@ -72,7 +74,7 @@ jobs:
       - name: Run PR Benchmarks
         working-directory: pr-branch
         run: |
-          swift test --filter "KSCrashBenchmarks|KSCxaThrowBenchmarks|KSCrashReportBenchmarks" 2>&1 | tee ../pr_benchmark_output.txt
+          swift test --filter "KSCrashBenchmarks|KSCxaThrowBenchmarks|KSCxaThrowColdBenchmarks|KSCrashReportBenchmarks" 2>&1 | tee ../pr_benchmark_output.txt
 
       - name: Run Base Benchmarks
         if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
@@ -80,7 +82,7 @@ jobs:
         run: |
           # Check if benchmarks exist in base branch
           if ([ -d "Tests/KSCrashBenchmarks" ] || [ -d "Tests/KSCrashBenchmarksObjC" ]) && grep -qE "KSCrashBenchmarks|KSCrashBenchmarksObjC" Package.swift; then
-            swift test --filter "KSCrashBenchmarks|KSCxaThrowBenchmarks|KSCrashReportBenchmarks" 2>&1 | tee ../base_benchmark_output.txt
+            swift test --filter "KSCrashBenchmarks|KSCxaThrowBenchmarks|KSCxaThrowColdBenchmarks|KSCrashReportBenchmarks" 2>&1 | tee ../base_benchmark_output.txt
           else
             echo "No benchmarks in base branch" > ../base_benchmark_output.txt
           fi
@@ -266,7 +268,8 @@ jobs:
           # All test definitions
           all_tests = {
               # C++ Exception Handling (KSCxaThrowSwapper)
-              "SwapInstallation": "__cxa_throw swap installation",
+              "SwapInstallationWarm": "__cxa_throw swap installation (warm)",
+              "SwapInstallationCold": "__cxa_throw swap installation (cold)",
               "SwapReset": "__cxa_throw swap reset",
               "ThrowWithoutSwap": "Exception throw (no swap)",
               "ThrowWithSwap": "Exception throw (with swap)",
@@ -403,7 +406,8 @@ jobs:
           output.append("|-----------|------|---------|--------|-------|")
 
           cxa_throw_tests = {
-              "SwapInstallation": ("Swap installation", "Hook __cxa_throw across all dylibs"),
+              "SwapInstallationWarm": ("Swap installation (warm)", "Hook __cxa_throw across all dylibs"),
+              "SwapInstallationCold": ("Swap installation (cold)", "First-time installation, cold caches"),
               "SwapReset": ("Swap reset", "Restore original bindings"),
               "ThrowWithoutSwap": ("Throw (no swap)", "Baseline native performance"),
               "ThrowWithSwap": ("Throw (with swap)", "With decorator overhead"),

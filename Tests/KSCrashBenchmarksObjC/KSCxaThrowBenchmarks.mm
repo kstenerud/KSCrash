@@ -67,15 +67,21 @@ static void dummyHandler(void *thrown_exception __unused, std::type_info *tinfo 
 
 #pragma mark - Installation Benchmarks
 
-/// Benchmark the time to install/re-scan the __cxa_throw swapper.
-/// Each iteration resets first, then rebinds all loaded images.
-/// This measures startup latency impact.
-- (void)testBenchmarkSwapInstallation
+/// Benchmark the time to install/re-scan the __cxa_throw swapper (warm path).
+/// Pre-registers the dyld callback and warms caches before measurement.
+/// All measured iterations use the same code path with warm caches.
+- (void)testBenchmarkSwapInstallationWarm
 {
 #if KSCRASH_HAS_SANITIZER
     NSLog(@"Skipping benchmark - sanitizers are enabled");
     return;
 #endif
+
+    // Pre-register callback and warm the binary image cache
+    ksct_swap(dummyHandler);
+    ksct_swapReset();
+    ksct_swap(dummyHandler);
+    ksct_swapReset();
 
     [self measureBlock:^{
         int result = ksct_swap(dummyHandler);
