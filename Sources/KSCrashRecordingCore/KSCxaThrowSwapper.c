@@ -67,6 +67,7 @@
 #include <unistd.h>
 
 #include "KSBinaryImageCache.h"
+#include "KSDynamicLinker.h"
 #include "KSLogger.h"
 #include "KSMach-O.h"
 #include "KSPlatformSpecificDefines.h"
@@ -93,6 +94,10 @@ static _Atomic(size_t) g_cxa_originals_count = 0;
 
 // Track whether we've registered the dyld callback
 static _Atomic(bool) g_dyld_callback_registered = false;
+
+// Fallback __cxa_throw for when findAddress fails during concurrent reset.
+// This ensures the decorator never returns (which would be undefined behavior).
+static _Atomic(uintptr_t) g_fallback_cxa_throw = 0;
 
 static bool reserveIndex(size_t *out_index)
 {
@@ -127,6 +132,12 @@ static bool addPair(uintptr_t image, uintptr_t function, void **binding)
     g_cxa_originals[index].image = image;
     g_cxa_originals[index].binding = binding;
     atomic_store_explicit(&g_cxa_originals[index].function, function, memory_order_release);
+
+    // Capture the first valid __cxa_throw as fallback (only once, never cleared)
+    uintptr_t expected = 0;
+    atomic_compare_exchange_strong_explicit(&g_fallback_cxa_throw, &expected, function, memory_order_release,
+                                            memory_order_relaxed);
+
     return true;
 }
 
@@ -189,7 +200,7 @@ static bool writeProtectedBinding(void **binding, void *value)
     return true;
 }
 
-static void __cxa_throw_decorator(void *thrown_exception, void *tinfo, void (*dest)(void *))
+__attribute__((noreturn)) static void __cxa_throw_decorator(void *thrown_exception, void *tinfo, void (*dest)(void *))
 {
 #define REQUIRED_FRAMES 2
 
@@ -200,20 +211,37 @@ static void __cxa_throw_decorator(void *thrown_exception, void *tinfo, void (*de
         handler(thrown_exception, tinfo, dest);
     }
 
+    uintptr_t function = 0;
+
     void *backtraceArr[REQUIRED_FRAMES];
     int count = backtrace(backtraceArr, REQUIRED_FRAMES);
 
     Dl_info info;
     if (count >= REQUIRED_FRAMES) {
         if (dladdr(backtraceArr[REQUIRED_FRAMES - 1], &info) != 0) {
-            uintptr_t function = findAddress(info.dli_fbase);
-            if (function != (uintptr_t)NULL) {
-                KSLOG_TRACE("Calling original __cxa_throw function at %p", (void *)function);
-                cxa_throw_type original = (cxa_throw_type)function;
-                original(thrown_exception, tinfo, dest);
-            }
+            function = findAddress(info.dli_fbase);
         }
     }
+
+    // If we couldn't find the image-specific original, use the fallback.
+    // This can happen during concurrent ksct_swapReset() when the originals
+    // array is being cleared while exceptions are in flight.
+    if (function == 0) {
+        function = atomic_load_explicit(&g_fallback_cxa_throw, memory_order_acquire);
+        KSLOG_TRACE("Using fallback __cxa_throw at %p", (void *)function);
+    }
+
+    if (function != 0) {
+        KSLOG_TRACE("Calling original __cxa_throw function at %p", (void *)function);
+        cxa_throw_type original = (cxa_throw_type)function;
+        original(thrown_exception, tinfo, dest);
+    }
+
+    // __cxa_throw is noreturn. If we reach here, something went very wrong.
+    // Trap to make the failure visible rather than causing undefined behavior.
+    KSLOG_ERROR("Failed to find any valid __cxa_throw function");
+    __builtin_trap();
+
 #undef REQUIRED_FRAMES
 }
 
@@ -369,7 +397,8 @@ int ksct_swap(const cxa_throw_type handler)
         _dyld_register_func_for_add_image(rebind_symbols_for_image);
     } else {
         // Already registered: manually scan all currently loaded images
-        // Use lock-free access to dyld image info via BinaryImageCache
+        // Prefer lock-free access via BinaryImageCache, fall back to dyld functions
+        ksdl_init();
         uint32_t count = 0;
         const ks_dyld_image_info *images = ksbic_getImages(&count);
         if (images != NULL) {
@@ -377,6 +406,12 @@ int ksct_swap(const cxa_throw_type handler)
                 const struct mach_header *header = images[i].imageLoadAddress;
                 intptr_t slide = ksbic_getImageSlide(header);
                 rebind_symbols_for_image(header, slide);
+            }
+        } else {
+            // Fallback: use lock-based dyld functions
+            count = _dyld_image_count();
+            for (uint32_t i = 0; i < count; i++) {
+                rebind_symbols_for_image(_dyld_get_image_header(i), _dyld_get_image_vmaddr_slide(i));
             }
         }
     }
