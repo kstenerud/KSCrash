@@ -93,9 +93,6 @@ static const char *const g_cxa_throw_name = "__cxa_throw";
 static KSAddressPair g_cxa_originals[MAX_CXA_ORIGINALS];
 static _Atomic(size_t) g_cxa_originals_count = 0;
 
-// Track whether we've registered the dyld callback
-static _Atomic(bool) g_dyld_callback_registered = false;
-
 // Fallback __cxa_throw for when findAddress fails during concurrent reset.
 // This ensures the decorator never returns (which would be undefined behavior).
 static _Atomic(uintptr_t) g_fallback_cxa_throw = 0;
@@ -287,8 +284,10 @@ static bool perform_rebinding_with_section(const section_t *dataSection, intptr_
         char *symbol_name = strtab + strtab_offset;
         // Symbol names in Mach-O start with '_', so "__cxa_throw" is stored as "___cxa_throw"
         if (symbol_name[0] && symbol_name[1] && strcmp(&symbol_name[1], g_cxa_throw_name) == 0) {
-            // Found __cxa_throw - should never be already rebound since we always reset first
-            assert(indirect_symbol_bindings[i] != (void *)__cxa_throw_decorator);
+            // Already rebound - skip (handles re-registration case)
+            if (indirect_symbol_bindings[i] == (void *)__cxa_throw_decorator) {
+                return true;
+            }
 
             // Only rebind if we successfully store the original. This prevents
             // rebinding when the array is full, which would break exception flow.
@@ -399,10 +398,14 @@ int ksct_swap(const cxa_throw_type handler)
     // This ensures the handler is visible when rebind_symbols_for_image runs
     atomic_store_explicit(&g_cxa_throw_handler, handler, memory_order_release);
 
+    // Register callback once; on subsequent calls, manually scan images.
+    // The callback skips already-swapped images, so re-scanning is safe.
+    static _Atomic(bool) registered = false;
     bool expected = false;
-    if (atomic_compare_exchange_strong_explicit(&g_dyld_callback_registered, &expected, true, memory_order_acq_rel,
-                                                memory_order_acquire)) {
+    if (atomic_compare_exchange_strong_explicit(&registered, &expected, true, memory_order_acq_rel,
+                                                memory_order_relaxed)) {
         // First time: register for future image loads
+        // dyld will call rebind_symbols_for_image for all currently loaded images
         _dyld_register_func_for_add_image(rebind_symbols_for_image);
     } else {
         // Already registered: manually scan all currently loaded images
@@ -424,6 +427,7 @@ int ksct_swap(const cxa_throw_type handler)
             }
         }
     }
+
     return 0;
 #endif
 }
