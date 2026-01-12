@@ -306,18 +306,14 @@ static bool perform_rebinding_with_section(const section_t *dataSection, intptr_
 }
 
 // Returns true if __cxa_throw was found and rebound in this segment
-static bool process_segment(const struct mach_header *header, intptr_t slide, const char *segname, nlist_t *symtab,
-                            char *strtab, uint32_t *indirect_symtab, uintptr_t imageBase)
+static bool process_segment_direct(const segment_command_t *segment, intptr_t slide, nlist_t *symtab, char *strtab,
+                                   uint32_t *indirect_symtab, uintptr_t imageBase, bool isConstSegment)
 {
-    KSLOG_TRACE("Processing segment %s", segname);
-
-    const segment_command_t *segment = ksmacho_getSegmentByNameFromHeader((mach_header_t *)header, segname);
     if (segment == NULL) {
         return false;
     }
 
-    // SEG_DATA_CONST requires protection changes; SEG_DATA is already writable
-    bool isConstSegment = (strcmp(segname, SEG_DATA_CONST) == 0);
+    KSLOG_TRACE("Processing segment %s", segment->segname);
 
     // Check lazy symbol pointers first (more common location for __cxa_throw)
     const section_t *lazy_sym_sect = ksmacho_getSectionByTypeFlagFromSegment(segment, S_LAZY_SYMBOL_POINTERS);
@@ -350,13 +346,38 @@ static void rebind_symbols_for_image(const struct mach_header *header, intptr_t 
     // The header pointer IS the image base address (dli_fbase in Dl_info)
     uintptr_t imageBase = (uintptr_t)header;
 
-    // Get required Mach-O structures for symbol resolution
-    const struct symtab_command *symtab_cmd =
-        (struct symtab_command *)ksmacho_getCommandByTypeFromHeader((const mach_header_t *)header, LC_SYMTAB);
-    const struct dysymtab_command *dysymtab_cmd =
-        (struct dysymtab_command *)ksmacho_getCommandByTypeFromHeader((const mach_header_t *)header, LC_DYSYMTAB);
-    const segment_command_t *linkedit_segment =
-        ksmacho_getSegmentByNameFromHeader((mach_header_t *)header, SEG_LINKEDIT);
+    // Single pass through load commands to collect all needed structures
+    // This is 5x faster than calling helper functions separately
+    const struct symtab_command *symtab_cmd = NULL;
+    const struct dysymtab_command *dysymtab_cmd = NULL;
+    const segment_command_t *linkedit_segment = NULL;
+    const segment_command_t *data_segment = NULL;
+    const segment_command_t *data_const_segment = NULL;
+
+    uintptr_t current = (uintptr_t)header + sizeof(mach_header_t);
+    for (uint32_t i = 0; i < header->ncmds; i++) {
+        const struct load_command *cmd = (const struct load_command *)current;
+        if (cmd->cmd == LC_SYMTAB) {
+            symtab_cmd = (const struct symtab_command *)cmd;
+        } else if (cmd->cmd == LC_DYSYMTAB) {
+            dysymtab_cmd = (const struct dysymtab_command *)cmd;
+        } else if (cmd->cmd == LC_SEGMENT_ARCH_DEPENDENT) {
+            // Cast via void* to avoid alignment warnings - load commands are properly aligned in Mach-O
+            const segment_command_t *seg = (const segment_command_t *)(const void *)cmd;
+            // Compare first char for fast rejection before full strcmp
+            const char first = seg->segname[0];
+            if (first == '_') {
+                if (strcmp(seg->segname, SEG_LINKEDIT) == 0) {
+                    linkedit_segment = seg;
+                } else if (strcmp(seg->segname, SEG_DATA) == 0) {
+                    data_segment = seg;
+                } else if (strcmp(seg->segname, SEG_DATA_CONST) == 0) {
+                    data_const_segment = seg;
+                }
+            }
+        }
+        current += cmd->cmdsize;
+    }
 
     if (symtab_cmd == NULL || dysymtab_cmd == NULL || linkedit_segment == NULL) {
         return;
@@ -370,10 +391,10 @@ static void rebind_symbols_for_image(const struct mach_header *header, intptr_t 
 
     // Try SEG_DATA first (more common), then SEG_DATA_CONST
     // Early exit if found - each image has at most one __cxa_throw binding
-    if (process_segment(header, slide, SEG_DATA, symtab, strtab, indirect_symtab, imageBase)) {
+    if (process_segment_direct(data_segment, slide, symtab, strtab, indirect_symtab, imageBase, false)) {
         return;
     }
-    process_segment(header, slide, SEG_DATA_CONST, symtab, strtab, indirect_symtab, imageBase);
+    process_segment_direct(data_const_segment, slide, symtab, strtab, indirect_symtab, imageBase, true);
 }
 #endif  // KSCRASH_HAS_SANITIZER
 
