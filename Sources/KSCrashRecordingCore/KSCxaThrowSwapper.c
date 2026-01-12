@@ -57,6 +57,7 @@
 #include <mach-o/dyld.h>
 #include <mach-o/nlist.h>
 #include <mach/mach.h>
+#include <pthread.h>
 #include <stdatomic.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -102,14 +103,15 @@ static _Atomic(uintptr_t) g_fallback_cxa_throw = 0;
 // Cached page size to avoid repeated sysconf() syscalls
 static uintptr_t g_page_size = 0;
 static uintptr_t g_page_mask = 0;
+static pthread_once_t g_page_size_once = PTHREAD_ONCE_INIT;
 
-static void ensurePageSizeCached(void)
+static void initPageSize(void)
 {
-    if (g_page_size == 0) {
-        g_page_size = (uintptr_t)sysconf(_SC_PAGESIZE);
-        g_page_mask = g_page_size - 1;
-    }
+    g_page_size = (uintptr_t)sysconf(_SC_PAGESIZE);
+    g_page_mask = g_page_size - 1;
 }
+
+static void ensurePageSizeCached(void) { pthread_once(&g_page_size_once, initPageSize); }
 
 static bool reserveIndex(size_t *out_index)
 {
@@ -176,10 +178,15 @@ static uintptr_t findAddress(void *address)
     return (uintptr_t)NULL;
 }
 
-static bool writeProtectedBinding(void **binding, void *value)
+static bool writeProtectedBinding(void **binding, void *value, bool checkProtection)
 {
-    vm_prot_t oldProtection = ksmacho_getSectionProtection(binding);
-    bool needsProtectionChange = !(oldProtection & VM_PROT_WRITE);
+    vm_prot_t oldProtection = 0;
+    bool needsProtectionChange = false;
+
+    if (checkProtection) {
+        oldProtection = ksmacho_getSectionProtection(binding);
+        needsProtectionChange = !(oldProtection & VM_PROT_WRITE);
+    }
 
     // Page-align the address for mprotect (must be page-aligned)
     // Uses cached page size to avoid syscall overhead
@@ -260,7 +267,7 @@ __attribute__((noreturn)) static void __cxa_throw_decorator(void *thrown_excepti
 
 // Returns true if __cxa_throw was found and rebound in this section
 static bool perform_rebinding_with_section(const section_t *dataSection, intptr_t slide, nlist_t *symtab, char *strtab,
-                                           uint32_t *indirect_symtab, uintptr_t imageBase)
+                                           uint32_t *indirect_symtab, uintptr_t imageBase, bool isConstSegment)
 {
     KSLOG_TRACE("Performing rebinding with section %s,%s", dataSection->segname, dataSection->sectname);
 
@@ -268,7 +275,8 @@ static bool perform_rebinding_with_section(const section_t *dataSection, intptr_
     void **indirect_symbol_bindings = (void **)((uintptr_t)slide + dataSection->addr);
     const uint32_t numSymbols = (uint32_t)(dataSection->size / sizeof(void *));
 
-    // Scan for __cxa_throw - there's at most one per section, so exit early when found
+    // Scan for __cxa_throw. In standard Mach-O, each imported symbol appears at most once
+    // per section type (lazy or non-lazy). We check both section types in process_segment.
     for (uint32_t i = 0; i < numSymbols; i++) {
         uint32_t symtab_index = indirect_symbol_indices[i];
         if (symtab_index == INDIRECT_SYMBOL_ABS || symtab_index == INDIRECT_SYMBOL_LOCAL ||
@@ -285,8 +293,11 @@ static bool perform_rebinding_with_section(const section_t *dataSection, intptr_
             // Only rebind if we successfully store the original. This prevents
             // rebinding when the array is full, which would break exception flow.
             if (addPair(imageBase, (uintptr_t)indirect_symbol_bindings[i], &indirect_symbol_bindings[i])) {
-                // Use writeProtectedBinding to handle mprotect for just this pointer
-                writeProtectedBinding(&indirect_symbol_bindings[i], (void *)__cxa_throw_decorator);
+                if (!writeProtectedBinding(&indirect_symbol_bindings[i], (void *)__cxa_throw_decorator,
+                                           isConstSegment)) {
+                    KSLOG_ERROR("Failed to rebind __cxa_throw at %p", (void *)&indirect_symbol_bindings[i]);
+                    return false;
+                }
             }
             return true;  // Early exit - only one __cxa_throw per section
         }
@@ -306,10 +317,14 @@ static bool process_segment(const struct mach_header *header, intptr_t slide, co
         return false;
     }
 
+    // SEG_DATA_CONST requires protection changes; SEG_DATA is already writable
+    bool isConstSegment = (strcmp(segname, SEG_DATA_CONST) == 0);
+
     // Check lazy symbol pointers first (more common location for __cxa_throw)
     const section_t *lazy_sym_sect = ksmacho_getSectionByTypeFlagFromSegment(segment, S_LAZY_SYMBOL_POINTERS);
     if (lazy_sym_sect != NULL) {
-        if (perform_rebinding_with_section(lazy_sym_sect, slide, symtab, strtab, indirect_symtab, imageBase)) {
+        if (perform_rebinding_with_section(lazy_sym_sect, slide, symtab, strtab, indirect_symtab, imageBase,
+                                           isConstSegment)) {
             return true;  // Found and rebound, no need to check non-lazy
         }
     }
@@ -317,7 +332,8 @@ static bool process_segment(const struct mach_header *header, intptr_t slide, co
     // Check non-lazy symbol pointers
     const section_t *non_lazy_sym_sect = ksmacho_getSectionByTypeFlagFromSegment(segment, S_NON_LAZY_SYMBOL_POINTERS);
     if (non_lazy_sym_sect != NULL) {
-        if (perform_rebinding_with_section(non_lazy_sym_sect, slide, symtab, strtab, indirect_symtab, imageBase)) {
+        if (perform_rebinding_with_section(non_lazy_sym_sect, slide, symtab, strtab, indirect_symtab, imageBase,
+                                           isConstSegment)) {
             return true;
         }
     }
@@ -334,11 +350,6 @@ static void rebind_symbols_for_image(const struct mach_header *header, intptr_t 
 
     // The header pointer IS the image base address (dli_fbase in Dl_info)
     uintptr_t imageBase = (uintptr_t)header;
-
-    // Skip images with zero slide - they can't have rebindable symbols
-    if (slide == 0) {
-        return;
-    }
 
     // Get required Mach-O structures for symbol resolution
     const struct symtab_command *symtab_cmd =
@@ -435,7 +446,8 @@ void ksct_swapReset(void)
         uintptr_t function = atomic_load_explicit(&pair->function, memory_order_acquire);
         if (function != 0 && pair->binding != NULL) {
             KSLOG_TRACE("Restoring binding at %p to %p", (void *)pair->binding, (void *)function);
-            bool success = writeProtectedBinding(pair->binding, (void *)function);
+            // Pass true for checkProtection since we don't track segment info
+            bool success = writeProtectedBinding(pair->binding, (void *)function, true);
             if (!success) {
                 KSLOG_ERROR("Failed to restore binding at %p", (void *)pair->binding);
             }
