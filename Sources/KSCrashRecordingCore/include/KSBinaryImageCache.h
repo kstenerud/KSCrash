@@ -92,6 +92,19 @@ const struct mach_header *_Nullable ksbic_getImageDetailsForAddress(uintptr_t ad
                                                                     uintptr_t *_Nullable outSegmentBase,
                                                                     const char *_Nullable *_Nullable outName);
 
+/**
+ * Compute the ASLR slide for a Mach-O image from its header.
+ *
+ * The slide is calculated by finding the __TEXT segment and computing
+ * the difference between the load address and the segment's vmaddr.
+ *
+ * This function is async-signal-safe and does not use locks.
+ *
+ * @param header The mach_header of the image.
+ * @return The ASLR slide, or 0 if the header is NULL or __TEXT segment not found.
+ */
+intptr_t ksbic_getImageSlide(const struct mach_header *_Nullable header);
+
 #ifdef __cplusplus
 }
 #endif
