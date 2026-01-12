@@ -99,6 +99,18 @@ static _Atomic(bool) g_dyld_callback_registered = false;
 // This ensures the decorator never returns (which would be undefined behavior).
 static _Atomic(uintptr_t) g_fallback_cxa_throw = 0;
 
+// Cached page size to avoid repeated sysconf() syscalls
+static uintptr_t g_page_size = 0;
+static uintptr_t g_page_mask = 0;
+
+static void ensurePageSizeCached(void)
+{
+    if (g_page_size == 0) {
+        g_page_size = (uintptr_t)sysconf(_SC_PAGESIZE);
+        g_page_mask = g_page_size - 1;
+    }
+}
+
 static bool reserveIndex(size_t *out_index)
 {
     size_t count = atomic_load_explicit(&g_cxa_originals_count, memory_order_relaxed);
@@ -170,8 +182,9 @@ static bool writeProtectedBinding(void **binding, void *value)
     bool needsProtectionChange = !(oldProtection & VM_PROT_WRITE);
 
     // Page-align the address for mprotect (must be page-aligned)
-    uintptr_t pageSize = (uintptr_t)sysconf(_SC_PAGESIZE);
-    uintptr_t pageStart = (uintptr_t)binding & ~(pageSize - 1);
+    // Uses cached page size to avoid syscall overhead
+    ensurePageSizeCached();
+    uintptr_t pageStart = (uintptr_t)binding & ~g_page_mask;
     size_t protectSize = (uintptr_t)binding - pageStart + sizeof(void *);
 
     if (needsProtectionChange) {
@@ -245,24 +258,18 @@ __attribute__((noreturn)) static void __cxa_throw_decorator(void *thrown_excepti
 #undef REQUIRED_FRAMES
 }
 
-static void perform_rebinding_with_section(const section_t *dataSection, intptr_t slide, nlist_t *symtab, char *strtab,
-                                           uint32_t *indirect_symtab)
+// Returns true if __cxa_throw was found and rebound in this section
+static bool perform_rebinding_with_section(const section_t *dataSection, intptr_t slide, nlist_t *symtab, char *strtab,
+                                           uint32_t *indirect_symtab, uintptr_t imageBase)
 {
     KSLOG_TRACE("Performing rebinding with section %s,%s", dataSection->segname, dataSection->sectname);
 
-    const bool isDataConst = strcmp(dataSection->segname, SEG_DATA_CONST) == 0;
     uint32_t *indirect_symbol_indices = indirect_symtab + dataSection->reserved1;
     void **indirect_symbol_bindings = (void **)((uintptr_t)slide + dataSection->addr);
-    vm_prot_t oldProtection = VM_PROT_READ;
-    if (isDataConst) {
-        oldProtection = ksmacho_getSectionProtection(indirect_symbol_bindings);
-        if (mprotect(indirect_symbol_bindings, dataSection->size, PROT_READ | PROT_WRITE) != 0) {
-            KSLOG_DEBUG("mprotect failed to set PROT_READ | PROT_WRITE for section %s,%s: %s", dataSection->segname,
-                        dataSection->sectname, strerror(errno));
-            return;
-        }
-    }
-    for (uint i = 0; i < dataSection->size / sizeof(void *); i++) {
+    const uint32_t numSymbols = (uint32_t)(dataSection->size / sizeof(void *));
+
+    // Scan for __cxa_throw - there's at most one per section, so exit early when found
+    for (uint32_t i = 0; i < numSymbols; i++) {
         uint32_t symtab_index = indirect_symbol_indices[i];
         if (symtab_index == INDIRECT_SYMBOL_ABS || symtab_index == INDIRECT_SYMBOL_LOCAL ||
             symtab_index == (INDIRECT_SYMBOL_LOCAL | INDIRECT_SYMBOL_ABS)) {
@@ -270,83 +277,70 @@ static void perform_rebinding_with_section(const section_t *dataSection, intptr_
         }
         uint32_t strtab_offset = symtab[symtab_index].n_un.n_strx;
         char *symbol_name = strtab + strtab_offset;
-        bool symbol_name_longer_than_1 = symbol_name[0] && symbol_name[1];
-        if (symbol_name_longer_than_1 && strcmp(&symbol_name[1], g_cxa_throw_name) == 0) {
-            // Should never be already rebound since we always reset first
+        // Symbol names in Mach-O start with '_', so "__cxa_throw" is stored as "___cxa_throw"
+        if (symbol_name[0] && symbol_name[1] && strcmp(&symbol_name[1], g_cxa_throw_name) == 0) {
+            // Found __cxa_throw - should never be already rebound since we always reset first
             assert(indirect_symbol_bindings[i] != (void *)__cxa_throw_decorator);
-            Dl_info info;
-            if (dladdr(dataSection, &info) != 0) {
-                // Only rebind if we successfully store the original. This prevents
-                // rebinding when the array is full, which would break exception flow.
-                if (addPair((uintptr_t)info.dli_fbase, (uintptr_t)indirect_symbol_bindings[i],
-                            &indirect_symbol_bindings[i])) {
-                    indirect_symbol_bindings[i] = (void *)__cxa_throw_decorator;
-                }
+
+            // Only rebind if we successfully store the original. This prevents
+            // rebinding when the array is full, which would break exception flow.
+            if (addPair(imageBase, (uintptr_t)indirect_symbol_bindings[i], &indirect_symbol_bindings[i])) {
+                // Use writeProtectedBinding to handle mprotect for just this pointer
+                writeProtectedBinding(&indirect_symbol_bindings[i], (void *)__cxa_throw_decorator);
             }
-            continue;
+            return true;  // Early exit - only one __cxa_throw per section
         }
     }
-    if (isDataConst) {
-        int protection = 0;
-        if (oldProtection & VM_PROT_READ) {
-            protection |= PROT_READ;
-        }
-        if (oldProtection & VM_PROT_WRITE) {
-            protection |= PROT_WRITE;
-        }
-        if (oldProtection & VM_PROT_EXECUTE) {
-            protection |= PROT_EXEC;
-        }
-        if (mprotect(indirect_symbol_bindings, dataSection->size, protection) != 0) {
-            KSLOG_ERROR("mprotect failed to restore protection for section %s,%s: %s", dataSection->segname,
-                        dataSection->sectname, strerror(errno));
-        }
-    }
+
+    return false;  // __cxa_throw not found in this section
 }
 
-static void process_segment(const struct mach_header *header, intptr_t slide, const char *segname, nlist_t *symtab,
-                            char *strtab, uint32_t *indirect_symtab)
+// Returns true if __cxa_throw was found and rebound in this segment
+static bool process_segment(const struct mach_header *header, intptr_t slide, const char *segname, nlist_t *symtab,
+                            char *strtab, uint32_t *indirect_symtab, uintptr_t imageBase)
 {
-    KSLOG_DEBUG("Processing segment %s", segname);
+    KSLOG_TRACE("Processing segment %s", segname);
 
     const segment_command_t *segment = ksmacho_getSegmentByNameFromHeader((mach_header_t *)header, segname);
-    if (segment != NULL) {
-        const section_t *lazy_sym_sect = ksmacho_getSectionByTypeFlagFromSegment(segment, S_LAZY_SYMBOL_POINTERS);
-        const section_t *non_lazy_sym_sect =
-            ksmacho_getSectionByTypeFlagFromSegment(segment, S_NON_LAZY_SYMBOL_POINTERS);
-
-        if (lazy_sym_sect != NULL) {
-            perform_rebinding_with_section(lazy_sym_sect, slide, symtab, strtab, indirect_symtab);
-        }
-        if (non_lazy_sym_sect != NULL) {
-            perform_rebinding_with_section(non_lazy_sym_sect, slide, symtab, strtab, indirect_symtab);
-        }
-    } else {
-        KSLOG_WARN("Segment %s not found", segname);
+    if (segment == NULL) {
+        return false;
     }
+
+    // Check lazy symbol pointers first (more common location for __cxa_throw)
+    const section_t *lazy_sym_sect = ksmacho_getSectionByTypeFlagFromSegment(segment, S_LAZY_SYMBOL_POINTERS);
+    if (lazy_sym_sect != NULL) {
+        if (perform_rebinding_with_section(lazy_sym_sect, slide, symtab, strtab, indirect_symtab, imageBase)) {
+            return true;  // Found and rebound, no need to check non-lazy
+        }
+    }
+
+    // Check non-lazy symbol pointers
+    const section_t *non_lazy_sym_sect = ksmacho_getSectionByTypeFlagFromSegment(segment, S_NON_LAZY_SYMBOL_POINTERS);
+    if (non_lazy_sym_sect != NULL) {
+        if (perform_rebinding_with_section(non_lazy_sym_sect, slide, symtab, strtab, indirect_symtab, imageBase)) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 static void rebind_symbols_for_image(const struct mach_header *header, intptr_t slide)
 {
-    KSLOG_TRACE("Rebinding symbols for image with slide %p", (void *)slide);
-
     // Skip if handler is NULL (we're in reset state)
     if (atomic_load_explicit(&g_cxa_throw_handler, memory_order_acquire) == NULL) {
-        KSLOG_TRACE("Handler is NULL, skipping rebinding");
         return;
     }
 
-    Dl_info info;
-    if (dladdr(header, &info) == 0) {
-        KSLOG_WARN("dladdr failed");
-        return;
-    }
-    KSLOG_TRACE("Image name: %s", info.dli_fname);
+    // The header pointer IS the image base address (dli_fbase in Dl_info)
+    uintptr_t imageBase = (uintptr_t)header;
+
+    // Skip images with zero slide - they can't have rebindable symbols
     if (slide == 0) {
-        KSLOG_TRACE("Zero slide, can't do anything with it");
         return;
     }
 
+    // Get required Mach-O structures for symbol resolution
     const struct symtab_command *symtab_cmd =
         (struct symtab_command *)ksmacho_getCommandByTypeFromHeader((const mach_header_t *)header, LC_SYMTAB);
     const struct dysymtab_command *dysymtab_cmd =
@@ -355,20 +349,21 @@ static void rebind_symbols_for_image(const struct mach_header *header, intptr_t 
         ksmacho_getSegmentByNameFromHeader((mach_header_t *)header, SEG_LINKEDIT);
 
     if (symtab_cmd == NULL || dysymtab_cmd == NULL || linkedit_segment == NULL) {
-        KSLOG_WARN("Required commands or segments not found");
         return;
     }
 
-    // Find base symbol/string table addresses
+    // Compute base addresses for symbol/string tables
     uintptr_t linkedit_base = (uintptr_t)slide + linkedit_segment->vmaddr - linkedit_segment->fileoff;
     nlist_t *symtab = (nlist_t *)(linkedit_base + symtab_cmd->symoff);
     char *strtab = (char *)(linkedit_base + symtab_cmd->stroff);
-
-    // Get indirect symbol table (array of uint32_t indices into symbol table)
     uint32_t *indirect_symtab = (uint32_t *)(linkedit_base + dysymtab_cmd->indirectsymoff);
 
-    process_segment(header, slide, SEG_DATA, symtab, strtab, indirect_symtab);
-    process_segment(header, slide, SEG_DATA_CONST, symtab, strtab, indirect_symtab);
+    // Try SEG_DATA first (more common), then SEG_DATA_CONST
+    // Early exit if found - each image has at most one __cxa_throw binding
+    if (process_segment(header, slide, SEG_DATA, symtab, strtab, indirect_symtab, imageBase)) {
+        return;
+    }
+    process_segment(header, slide, SEG_DATA_CONST, symtab, strtab, indirect_symtab, imageBase);
 }
 #endif  // KSCRASH_HAS_SANITIZER
 
@@ -383,6 +378,9 @@ int ksct_swap(const cxa_throw_type handler)
     (void)handler;
     return 0;
 #else
+    // Cache page size upfront to avoid syscall overhead during rebinding
+    ensurePageSizeCached();
+
     // Reset any existing swap first to restore original bindings
     ksct_swapReset();
 
