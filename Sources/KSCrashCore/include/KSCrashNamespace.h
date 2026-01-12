@@ -163,6 +163,7 @@
 #define ksbic_findImageForAddress KSCRASH_NS(ksbic_findImageForAddress)
 #define ksbic_getImageDetailsForAddress KSCRASH_NS(ksbic_getImageDetailsForAddress)
 #define ksbic_getImages KSCRASH_NS(ksbic_getImages)
+#define ksbic_getImageSlide KSCRASH_NS(ksbic_getImageSlide)
 #define ksbic_init KSCRASH_NS(ksbic_init)
 #define ksbic_resetCache KSCRASH_NS(ksbic_resetCache)
 #define ksbt_captureBacktrace KSCRASH_NS(ksbt_captureBacktrace)

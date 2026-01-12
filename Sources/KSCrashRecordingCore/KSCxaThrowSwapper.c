@@ -66,6 +66,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "KSBinaryImageCache.h"
 #include "KSLogger.h"
 #include "KSMach-O.h"
 #include "KSPlatformSpecificDefines.h"
@@ -368,9 +369,15 @@ int ksct_swap(const cxa_throw_type handler)
         _dyld_register_func_for_add_image(rebind_symbols_for_image);
     } else {
         // Already registered: manually scan all currently loaded images
-        uint32_t count = _dyld_image_count();
-        for (uint32_t i = 0; i < count; i++) {
-            rebind_symbols_for_image(_dyld_get_image_header(i), _dyld_get_image_vmaddr_slide(i));
+        // Use lock-free access to dyld image info via BinaryImageCache
+        uint32_t count = 0;
+        const ks_dyld_image_info *images = ksbic_getImages(&count);
+        if (images != NULL) {
+            for (uint32_t i = 0; i < count; i++) {
+                const struct mach_header *header = images[i].imageLoadAddress;
+                intptr_t slide = ksbic_getImageSlide(header);
+                rebind_symbols_for_image(header, slide);
+            }
         }
     }
     return 0;

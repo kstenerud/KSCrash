@@ -147,6 +147,52 @@ static void insertSortedCacheEntry(KSBinaryImageRangeCache *cache, const KSBinar
     cache->count++;
 }
 
+intptr_t ksbic_getImageSlide(const struct mach_header *header)
+{
+    if (header == NULL) {
+        return 0;
+    }
+
+    uintptr_t loadAddr = (uintptr_t)header;
+
+    if (header->magic == MH_MAGIC_64) {
+        const struct mach_header_64 *header64 = (const struct mach_header_64 *)header;
+        uintptr_t cmdPtr = (uintptr_t)(header64 + 1);
+
+        for (uint32_t i = 0; i < header64->ncmds; i++) {
+            const struct load_command *lc = (const struct load_command *)cmdPtr;
+            if (lc->cmd == LC_SEGMENT_64) {
+                const struct segment_command_64 *seg = (const struct segment_command_64 *)cmdPtr;
+                // Check for __TEXT segment
+                if (seg->segname[0] == '_' && seg->segname[1] == '_' && seg->segname[2] == 'T' &&
+                    seg->segname[3] == 'E' && seg->segname[4] == 'X' && seg->segname[5] == 'T' &&
+                    seg->segname[6] == '\0') {
+                    return (intptr_t)(loadAddr - seg->vmaddr);
+                }
+            }
+            cmdPtr += lc->cmdsize;
+        }
+    } else if (header->magic == MH_MAGIC) {
+        uintptr_t cmdPtr = (uintptr_t)(header + 1);
+
+        for (uint32_t i = 0; i < header->ncmds; i++) {
+            const struct load_command *lc = (const struct load_command *)cmdPtr;
+            if (lc->cmd == LC_SEGMENT) {
+                const struct segment_command *seg = (const struct segment_command *)cmdPtr;
+                // Check for __TEXT segment
+                if (seg->segname[0] == '_' && seg->segname[1] == '_' && seg->segname[2] == 'T' &&
+                    seg->segname[3] == 'E' && seg->segname[4] == 'X' && seg->segname[5] == 'T' &&
+                    seg->segname[6] == '\0') {
+                    return (intptr_t)(loadAddr - seg->vmaddr);
+                }
+            }
+            cmdPtr += lc->cmdsize;
+        }
+    }
+
+    return 0;
+}
+
 // Populate a cache entry with image info including segment ranges.
 // Returns true if the image has valid segments, false otherwise.
 static bool populateCacheEntry(const struct mach_header *header, const char *name, KSBinaryImageRange *entry)
