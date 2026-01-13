@@ -71,11 +71,10 @@ static void dummyHandler(void *thrown_exception __unused, std::type_info *tinfo 
 
     __block int iteration = 0;
 
-    XCTMeasureOptions *options = [[XCTMeasureOptions alloc] init];
+    XCTMeasureOptions *options = [[self class] defaultMeasureOptions];
     options.iterationCount = 1;
 
-    [self measureWithMetrics:@[ [XCTClockMetric new] ]
-                     options:options
+    [self measureWithOptions:options
                        block:^{
                            if (iteration == 1) {
                                // Second call (measured): run the actual cold installation

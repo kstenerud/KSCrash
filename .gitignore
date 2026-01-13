@@ -39,3 +39,5 @@ Gemfile.lock
 /Benchmarks/Derived
 /Benchmarks/KSCrashBenchmarks.xcodeproj
 /Benchmarks/KSCrashBenchmarks.xcworkspace
+/.github/scripts/__pycache__
+Benchmarks/benchmark_results.md
