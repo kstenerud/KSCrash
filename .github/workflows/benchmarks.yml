@@ -71,20 +71,30 @@ jobs:
         with:
           xcode-version: latest-stable
 
+      - name: Setup Mise
+        uses: jdx/mise-action@v2
+
       - name: Run PR Benchmarks
-        working-directory: pr-branch
+        working-directory: pr-branch/Benchmarks
         run: |
-          swift test --filter "KSCrashBenchmarks|KSCxaThrowBenchmarks|KSCxaThrowColdBenchmarks|KSCrashReportBenchmarks" 2>&1 | tee ../pr_benchmark_output.txt
+          mise exec -- tuist generate
+          xcodebuild -workspace KSCrashBenchmarks.xcworkspace \
+            -scheme Benchmarks \
+            -destination 'platform=iOS Simulator,name=iPhone 17' \
+            test 2>&1 | tee ../../pr_benchmark_output.txt
 
       - name: Run Base Benchmarks
         if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
-        working-directory: base-branch
         run: |
-          # Check if benchmarks exist in base branch
-          if ([ -d "Tests/KSCrashBenchmarks" ] || [ -d "Tests/KSCrashBenchmarksObjC" ]) && grep -qE "KSCrashBenchmarks|KSCrashBenchmarksObjC" Package.swift; then
-            swift test --filter "KSCrashBenchmarks|KSCxaThrowBenchmarks|KSCxaThrowColdBenchmarks|KSCrashReportBenchmarks" 2>&1 | tee ../base_benchmark_output.txt
+          if [ -d "base-branch/Benchmarks" ] && [ -f "base-branch/Benchmarks/Project.swift" ]; then
+            cd base-branch/Benchmarks
+            mise exec -- tuist generate
+            xcodebuild -workspace KSCrashBenchmarks.xcworkspace \
+              -scheme Benchmarks \
+              -destination 'platform=iOS Simulator,name=iPhone 17' \
+              test 2>&1 | tee ../../base_benchmark_output.txt
           else
-            echo "No benchmarks in base branch" > ../base_benchmark_output.txt
+            echo "No benchmarks in base branch" > base_benchmark_output.txt
           fi
 
       - name: Parse and Format Results
