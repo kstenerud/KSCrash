@@ -5,6 +5,7 @@ on:
       - 'Sources/**/*.swift'
       - 'Tests/**/*.swift'
       - 'Samples/**/*.swift'
+      - 'Benchmarks/**/*.swift'
       - '.github/workflows/swift-format.yml'
       - '.swift-format'
       - 'Makefile'

@@ -8,6 +8,7 @@ on:
       - "Tests/KSCrashBenchmarks/**"
       - "Tests/KSCrashBenchmarksObjC/**"
       - "Tests/KSCrashBenchmarksCold/**"
+      - "Benchmarks/**"
       - "Package.swift"
       - ".github/workflows/benchmarks.yml"
 
@@ -18,6 +19,7 @@ on:
       - "Tests/KSCrashBenchmarks/**"
       - "Tests/KSCrashBenchmarksObjC/**"
       - "Tests/KSCrashBenchmarksCold/**"
+      - "Benchmarks/**"
       - "Package.swift"
       - ".github/workflows/benchmarks.yml"
 
