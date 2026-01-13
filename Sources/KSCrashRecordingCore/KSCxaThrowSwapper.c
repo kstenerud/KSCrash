@@ -86,8 +86,9 @@ typedef struct {
 } KSAddressPair;
 
 // Maximum number of dylibs we expect to handle. Modern iOS apps typically have
-// 300-500 dylibs. We pre-allocate to avoid realloc races during dyld callbacks.
-#define MAX_CXA_ORIGINALS 2048
+// 300-500 dylibs, but "super apps" can exceed 2000. We pre-allocate to avoid
+// realloc races during dyld callbacks. Memory impact: 4096 * 32 bytes = 128KB.
+#define MAX_CXA_ORIGINALS 4096
 
 static _Atomic(cxa_throw_type) g_cxa_throw_handler = NULL;
 
@@ -183,6 +184,10 @@ static bool writeProtectedBinding(void **binding, void *value, bool isConstSegme
     // __DATA_CONST segments are read-only and need mprotect to write.
     // __DATA segments are writable, so we can write directly without syscalls.
     // This avoids the vm_region syscall that ksmacho_getSectionProtection would use.
+    //
+    // Note: mprotect operates on page granularity. While multiple dylibs could
+    // theoretically share a page, Mach-O segments are typically page-aligned in
+    // memory, making it safe to toggle protection during serial image loading.
     if (!isConstSegment) {
         *binding = value;
         return true;
