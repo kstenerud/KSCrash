@@ -38,6 +38,9 @@ typedef const char *KSCrashReportField;
 #define KSCRF_CONVERT_STRING(str) str
 #endif /* __OBJC__ */
 
+/** Type for C string report field names (used by monitors for async-signal-safe report writing). */
+typedef const char *const KSCrashReportFieldName;
+
 #ifndef NS_TYPED_ENUM
 #define NS_TYPED_ENUM
 #endif
@@ -102,7 +105,6 @@ KSCRF_DEFINE_CONSTANT(KSCrashField, ReferencedObject, referencedObject, "referen
 KSCRF_DEFINE_CONSTANT(KSCrashField, Type, type, "type")
 KSCRF_DEFINE_CONSTANT(KSCrashField, UUID, uuid, "uuid")
 KSCRF_DEFINE_CONSTANT(KSCrashField, Value, value, "value")
-KSCRF_DEFINE_CONSTANT(KSCrashField, MemoryLimit, memoryLimit, "memory_limit")
 KSCRF_DEFINE_CONSTANT(KSCrashField, Error, error, "error")
 KSCRF_DEFINE_CONSTANT(KSCrashField, JSONData, jsonData, "json_data")
 
@@ -143,8 +145,6 @@ KSCRF_DEFINE_CONSTANT(KSCrashField, State, state, "state")
 
 #pragma mark - Binary Image -
 
-KSCRF_DEFINE_CONSTANT(KSCrashField, CPUSubType, cpuSubType, "cpu_subtype")
-KSCRF_DEFINE_CONSTANT(KSCrashField, CPUType, cpuType, "cpu_type")
 KSCRF_DEFINE_CONSTANT(KSCrashField, ImageAddress, imageAddress, "image_addr")
 KSCRF_DEFINE_CONSTANT(KSCrashField, ImageVmAddress, imageVmAddress, "image_vmaddr")
 KSCRF_DEFINE_CONSTANT(KSCrashField, ImageSize, imageSize, "image_size")
@@ -155,11 +155,6 @@ KSCRF_DEFINE_CONSTANT(KSCrashField, ImageCrashInfoMessage, imageCrashInfoMessage
 KSCRF_DEFINE_CONSTANT(KSCrashField, ImageCrashInfoMessage2, imageCrashInfoMessage2, "crash_info_message2")
 KSCRF_DEFINE_CONSTANT(KSCrashField, ImageCrashInfoBacktrace, imageCrashInfoBacktrace, "crash_info_backtrace")
 KSCRF_DEFINE_CONSTANT(KSCrashField, ImageCrashInfoSignature, imageCrashInfoSignature, "crash_info_signature")
-
-#pragma mark - Memory -
-
-KSCRF_DEFINE_CONSTANT(KSCrashField, Free, free, "free")
-KSCRF_DEFINE_CONSTANT(KSCrashField, Usable, usable, "usable")
 
 #pragma mark - Error -
 
@@ -180,79 +175,26 @@ KSCRF_DEFINE_CONSTANT(KSCrashField, ExitReason, exitReason, "exit_reason")
 KSCRF_DEFINE_CONSTANT(KSCrashField, LastDeallocedNSException, lastDeallocedNSException, "last_dealloced_nsexception")
 KSCRF_DEFINE_CONSTANT(KSCrashField, ProcessState, processState, "process")
 
-#pragma mark - App Stats -
-
-KSCRF_DEFINE_CONSTANT(KSCrashField, ActiveTimeSinceCrash, activeTimeSinceCrash, "active_time_since_last_crash")
-KSCRF_DEFINE_CONSTANT(KSCrashField, ActiveTimeSinceLaunch, activeTimeSinceLaunch, "active_time_since_launch")
-KSCRF_DEFINE_CONSTANT(KSCrashField, AppActive, appActive, "application_active")
-KSCRF_DEFINE_CONSTANT(KSCrashField, AppInFG, appInFG, "application_in_foreground")
-KSCRF_DEFINE_CONSTANT(KSCrashField, BGTimeSinceCrash, bgTimeSinceCrash, "background_time_since_last_crash")
-KSCRF_DEFINE_CONSTANT(KSCrashField, BGTimeSinceLaunch, bgTimeSinceLaunch, "background_time_since_launch")
-KSCRF_DEFINE_CONSTANT(KSCrashField, LaunchesSinceCrash, launchesSinceCrash, "launches_since_last_crash")
-KSCRF_DEFINE_CONSTANT(KSCrashField, SessionsSinceCrash, sessionsSinceCrash, "sessions_since_last_crash")
-KSCRF_DEFINE_CONSTANT(KSCrashField, SessionsSinceLaunch, sessionsSinceLaunch, "sessions_since_launch")
-
 #pragma mark - Report -
 
 KSCRF_DEFINE_CONSTANT(KSCrashField, Crash, crash, "crash")
 KSCRF_DEFINE_CONSTANT(KSCrashField, Debug, debug, "debug")
 KSCRF_DEFINE_CONSTANT(KSCrashField, Diagnosis, diagnosis, "diagnosis")
 KSCRF_DEFINE_CONSTANT(KSCrashField, ID, id, "id")
-KSCRF_DEFINE_CONSTANT(KSCrashField, ProcessName, processName, "process_name")
 KSCRF_DEFINE_CONSTANT(KSCrashField, Report, report, "report")
 KSCRF_DEFINE_CONSTANT(KSCrashField, Timestamp, timestamp, "timestamp")
 KSCRF_DEFINE_CONSTANT(KSCrashField, Version, version, "version")
-KSCRF_DEFINE_CONSTANT(KSCrashField, AppMemory, appMemory, "app_memory")
 KSCRF_DEFINE_CONSTANT(KSCrashField, MemoryTermination, memoryTermination, "memory_termination")
 KSCRF_DEFINE_CONSTANT(KSCrashField, Hang, hang, "hang")
 
 KSCRF_DEFINE_CONSTANT(KSCrashField, CrashedThread, crashedThread, "crashed_thread")
-KSCRF_DEFINE_CONSTANT(KSCrashField, AppStats, appStats, "application_stats")
 KSCRF_DEFINE_CONSTANT(KSCrashField, BinaryImages, binaryImages, "binary_images")
-KSCRF_DEFINE_CONSTANT(KSCrashField, System, system, "system")
-KSCRF_DEFINE_CONSTANT(KSCrashField, Memory, memory, "memory")
+
 KSCRF_DEFINE_CONSTANT(KSCrashField, Threads, threads, "threads")
 KSCRF_DEFINE_CONSTANT(KSCrashField, User, user, "user")
 KSCRF_DEFINE_CONSTANT(KSCrashField, ConsoleLog, consoleLog, "console_log")
 KSCRF_DEFINE_CONSTANT(KSCrashField, Incomplete, incomplete, "incomplete")
 KSCRF_DEFINE_CONSTANT(KSCrashField, RecrashReport, recrashReport, "recrash_report")
-
-KSCRF_DEFINE_CONSTANT(KSCrashField, AppStartTime, appStartTime, "app_start_time")
-KSCRF_DEFINE_CONSTANT(KSCrashField, AppUUID, appUUID, "app_uuid")
-KSCRF_DEFINE_CONSTANT(KSCrashField, BootTime, bootTime, "boot_time")
-KSCRF_DEFINE_CONSTANT(KSCrashField, BundleID, bundleID, "CFBundleIdentifier")
-KSCRF_DEFINE_CONSTANT(KSCrashField, BundleName, bundleName, "CFBundleName")
-KSCRF_DEFINE_CONSTANT(KSCrashField, BundleShortVersion, bundleShortVersion, "CFBundleShortVersionString")
-KSCRF_DEFINE_CONSTANT(KSCrashField, BundleVersion, bundleVersion, "CFBundleVersion")
-KSCRF_DEFINE_CONSTANT(KSCrashField, CPUArch, cpuArch, "cpu_arch")
-KSCRF_DEFINE_CONSTANT(KSCrashField, BinaryArch, binaryArch, "binary_arch")
-KSCRF_DEFINE_CONSTANT(KSCrashField, ClangVersion, clangVersion, "clang_version")
-KSCRF_DEFINE_CONSTANT(KSCrashField, BinaryCPUType, binaryCPUType, "binary_cpu_type")
-KSCRF_DEFINE_CONSTANT(KSCrashField, BinaryCPUSubType, binaryCPUSubType, "binary_cpu_subtype")
-KSCRF_DEFINE_CONSTANT(KSCrashField, DeviceAppHash, deviceAppHash, "device_app_hash")
-KSCRF_DEFINE_CONSTANT(KSCrashField, Executable, executable, "CFBundleExecutable")
-KSCRF_DEFINE_CONSTANT(KSCrashField, ExecutablePath, executablePath, "CFBundleExecutablePath")
-KSCRF_DEFINE_CONSTANT(KSCrashField, Jailbroken, jailbroken, "jailbroken")
-KSCRF_DEFINE_CONSTANT(KSCrashField, ProcTranslated, procTranslated, "proc_translated")
-KSCRF_DEFINE_CONSTANT(KSCrashField, KernelVersion, kernelVersion, "kernel_version")
-KSCRF_DEFINE_CONSTANT(KSCrashField, Machine, machine, "machine")
-KSCRF_DEFINE_CONSTANT(KSCrashField, Model, model, "model")
-KSCRF_DEFINE_CONSTANT(KSCrashField, OSVersion, osVersion, "os_version")
-KSCRF_DEFINE_CONSTANT(KSCrashField, ParentProcessID, parentProcessID, "parent_process_id")
-KSCRF_DEFINE_CONSTANT(KSCrashField, ProcessID, processID, "process_id")
-KSCRF_DEFINE_CONSTANT(KSCrashField, Size, size, "size")
-KSCRF_DEFINE_CONSTANT(KSCrashField, Storage, storage, "storage")
-KSCRF_DEFINE_CONSTANT(KSCrashField, FreeStorage, freeStorage, "freeStorage")
-KSCRF_DEFINE_CONSTANT(KSCrashField, SystemName, systemName, "system_name")
-KSCRF_DEFINE_CONSTANT(KSCrashField, SystemVersion, systemVersion, "system_version")
-KSCRF_DEFINE_CONSTANT(KSCrashField, TimeZone, timeZone, "time_zone")
-KSCRF_DEFINE_CONSTANT(KSCrashField, BuildType, buildType, "build_type")
-
-KSCRF_DEFINE_CONSTANT(KSCrashField, MemoryFootprint, memoryFootprint, "memory_footprint")
-KSCRF_DEFINE_CONSTANT(KSCrashField, MemoryRemaining, memoryRemaining, "memory_remaining")
-KSCRF_DEFINE_CONSTANT(KSCrashField, MemoryPressure, memoryPressure, "memory_pressure")
-KSCRF_DEFINE_CONSTANT(KSCrashField, MemoryLevel, memoryLevel, "memory_level")
-KSCRF_DEFINE_CONSTANT(KSCrashField, AppTransitionState, appTransitionState, "app_transition_state")
 
 KSCRF_DEFINE_CONSTANT(KSCrashField, HangStartNanoseconds, hangStartNanoseconds, "hang_start_nanos")
 KSCRF_DEFINE_CONSTANT(KSCrashField, HangStartRole, hangStartRole, "hang_start_role")

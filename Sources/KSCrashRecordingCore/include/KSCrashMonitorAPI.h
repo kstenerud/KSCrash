@@ -68,16 +68,29 @@ typedef struct {
     void (*notifyPostSystemEnable)(void);
 
     /**
-     * Called during report writing to allow the monitor to write custom data to its section.
+     * Called during report writing to allow the monitor to write metadata to the report.
      *
-     * This callback is invoked when the report writer encounters a monitor type it doesn't
-     * have built-in handling for. The monitor can use the writer to add custom JSON data
-     * to the report's error section under a key matching the monitor's ID.
+     * Metadata is static or slowly-changing information like system info, app state,
+     * and memory metrics. This is called for all monitors during the metadata section
+     * of report generation.
      *
      * @param eventContext The monitor context containing event information.
      * @param writer The report writer to use for adding JSON elements.
      *
-     * @note This callback is optional. If NULL, no custom section will be written for this monitor.
+     * @note This callback is optional. If NULL, no metadata will be written for this monitor.
+     */
+    void (*writeMetadataInReportSection)(const KSCrash_MonitorContext *eventContext, const KSCrashReportWriter *writer);
+
+    /**
+     * Called during report writing to allow the monitor to write crash-specific data.
+     *
+     * This callback is for data specific to the crash event itself, such as OOM error
+     * details. It is called when writing the error/crash section of the report.
+     *
+     * @param eventContext The monitor context containing event information.
+     * @param writer The report writer to use for adding JSON elements.
+     *
+     * @note This callback is optional. If NULL, no crash-specific section will be written.
      */
     void (*writeInReportSection)(const KSCrash_MonitorContext *eventContext, const KSCrashReportWriter *writer);
 } KSCrashMonitorAPI;

@@ -32,8 +32,10 @@
 #import "KSCrashC.h"
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitorHelper.h"
+#import "KSCrashMonitor_System.h"
 #import "KSCrashReportFields.h"
 #import "KSCrashReportStoreC.h"
+#import "KSCrashReportWriter.h"
 #import "KSDate.h"
 #import "KSFileUtils.h"
 #import "KSID.h"
@@ -43,14 +45,23 @@
 #import "KSSystemCapabilities.h"
 
 #import <Foundation/Foundation.h>
-#import <os/lock.h>
 #import <stdatomic.h>
+#import "KSSpinLock.h"
 
 #import "KSLogger.h"
 
 #if KSCRASH_HAS_UIAPPLICATION
 #import <UIKit/UIKit.h>
 #endif
+
+// Field keys for report writing (definitions for extern declarations in header)
+KSCrashReportFieldName KSCrashField_AppMemory = "app_memory";
+KSCrashReportFieldName KSCrashField_MemoryFootprint = "memory_footprint";
+KSCrashReportFieldName KSCrashField_MemoryRemaining = "memory_remaining";
+KSCrashReportFieldName KSCrashField_MemoryPressure = "memory_pressure";
+KSCrashReportFieldName KSCrashField_MemoryLevel = "memory_level";
+KSCrashReportFieldName KSCrashField_MemoryLimit = "memory_limit";
+KSCrashReportFieldName KSCrashField_AppTransitionState = "app_transition_state";
 
 static const int32_t KSCrash_Memory_Magic = 'kscm';
 
@@ -111,18 +122,18 @@ static KSCrash_ExceptionHandlerCallbacks g_callbacks;
 // _ks_memory_update(^(KSCrash_Memory *mem){
 //      mem->x = ...
 //  });
-static os_unfair_lock g_memoryLock = OS_UNFAIR_LOCK_INIT;
+static KSSpinLock g_memoryLock = KSSPINLOCK_INIT;
 static KSCrash_Memory *g_memory = NULL;
 
 static KSCrash_Memory _ks_memory_copy(void)
 {
     KSCrash_Memory copy = { 0 };
     {
-        os_unfair_lock_lock(&g_memoryLock);
+        ks_spinlock_lock_bounded(&g_memoryLock);
         if (g_memory) {
             copy = *g_memory;
         }
-        os_unfair_lock_unlock(&g_memoryLock);
+        ks_spinlock_unlock(&g_memoryLock);
     }
     return copy;
 }
@@ -132,19 +143,19 @@ static void _ks_memory_update(void (^block)(KSCrash_Memory *mem))
     if (!block) {
         return;
     }
-    os_unfair_lock_lock(&g_memoryLock);
+    ks_spinlock_lock_bounded(&g_memoryLock);
     if (g_memory) {
         block(g_memory);
     }
-    os_unfair_lock_unlock(&g_memoryLock);
+    ks_spinlock_unlock(&g_memoryLock);
 }
 
 static void _ks_memory_set(KSCrash_Memory *mem)
 {
-    os_unfair_lock_lock(&g_memoryLock);
+    ks_spinlock_lock_bounded(&g_memoryLock);
     void *old = g_memory;
     g_memory = mem;
-    os_unfair_lock_unlock(&g_memoryLock);
+    ks_spinlock_unlock(&g_memoryLock);
 
     if (old) {
         ksfu_munmap(old, sizeof(KSCrash_Memory));
@@ -296,46 +307,57 @@ static NSURL *kscm_memory_oom_breadcrumb_URL(void)
 
 static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext)
 {
-    bool asyncSafeOnly = kscexc_requiresAsyncSafety(eventContext->requirements);
-
     // we'll use this when reading this back on the next run
     // to know if an OOM is even possible.
-    if (asyncSafeOnly) {
-        // since we're in a signal or something that can only
-        // use async safe functions, we can't lock.
-        // It's "ok" though, since no other threads should be running.
-        if (g_memory) {
-            g_memory->fatal = eventContext->requirements.isFatal;
-        }
-    } else {
-        _ks_memory_update(^(KSCrash_Memory *mem) {
-            mem->fatal = eventContext->requirements.isFatal;
-        });
+    _ks_memory_update(^(KSCrash_Memory *mem) {
+        mem->fatal = eventContext->requirements.isFatal;
+    });
+}
+
+static void writeMetadataInReportSection(__unused const KSCrash_MonitorContext *monitorContext,
+                                         const KSCrashReportWriter *writer)
+{
+    if (!g_isEnabled || !g_memory) {
+        return;
     }
 
-    if (g_isEnabled && g_memory) {
-        // same as above re: not locking when _asyncSafeOnly_ is set.
-        KSCrash_Memory memCopy = asyncSafeOnly ? *g_memory : _ks_memory_copy();
-        eventContext->AppMemory.footprint = memCopy.footprint;
-        eventContext->AppMemory.pressure = KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memCopy.pressure);
-        eventContext->AppMemory.remaining = memCopy.remaining;
-        eventContext->AppMemory.limit = memCopy.limit;
-        eventContext->AppMemory.level = KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memCopy.level);
-        eventContext->AppMemory.timestamp = memCopy.timestamp;
-        eventContext->AppMemory.state = ksapp_transitionStateToString(memCopy.state);
+    KSCrash_Memory memCopy = _ks_memory_copy();
+
+    writer->addUIntegerElement(writer, KSCrashField_MemoryFootprint, memCopy.footprint);
+    writer->addUIntegerElement(writer, KSCrashField_MemoryRemaining, memCopy.remaining);
+    writer->addStringElement(writer, KSCrashField_MemoryPressure,
+                             KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memCopy.pressure));
+    writer->addStringElement(writer, KSCrashField_MemoryLevel,
+                             KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memCopy.level));
+    writer->addUIntegerElement(writer, KSCrashField_MemoryLimit, memCopy.limit);
+    writer->addStringElement(writer, KSCrashField_AppTransitionState, ksapp_transitionStateToString(memCopy.state));
+}
+
+static void writeInReportSection(__unused const KSCrash_MonitorContext *monitorContext,
+                                 const KSCrashReportWriter *writer)
+{
+    if (!g_isEnabled || !g_memory) {
+        return;
     }
+
+    // Write OOM crash-specific data (pressure and level at crash time)
+    KSCrash_Memory memCopy = _ks_memory_copy();
+    writer->addStringElement(writer, KSCrashField_MemoryPressure,
+                             KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memCopy.pressure));
+    writer->addStringElement(writer, KSCrashField_MemoryLevel,
+                             KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memCopy.level));
 }
 
 static NSDictionary<NSString *, id> *kscm_memory_serialize(KSCrash_Memory *const memory)
 {
     return @{
-        KSCrashField_MemoryFootprint : @(memory->footprint),
-        KSCrashField_MemoryRemaining : @(memory->remaining),
-        KSCrashField_MemoryLimit : @(memory->limit),
-        KSCrashField_MemoryPressure : @(KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memory->pressure)),
-        KSCrashField_MemoryLevel : @(KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memory->level)),
+        @(KSCrashField_MemoryFootprint) : @(memory->footprint),
+        @(KSCrashField_MemoryRemaining) : @(memory->remaining),
+        @(KSCrashField_MemoryLimit) : @(memory->limit),
+        @(KSCrashField_MemoryPressure) : @(KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memory->pressure)),
+        @(KSCrashField_MemoryLevel) : @(KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memory->level)),
         KSCrashField_Timestamp : @(memory->timestamp),
-        KSCrashField_AppTransitionState : @(ksapp_transitionStateToString(memory->state)),
+        @(KSCrashField_AppTransitionState) : @(ksapp_transitionStateToString(memory->state)),
     };
 }
 
@@ -368,7 +390,8 @@ static void kscm_memory_check_for_oom_in_previous_session(void)
                                                        error:nil] mutableCopy];
 
                 if (json) {
-                    json[KSCrashField_System][KSCrashField_AppMemory] = kscm_memory_serialize(&g_previousSessionMemory);
+                    json[@(KSCrashField_System)][@(KSCrashField_AppMemory)] =
+                        kscm_memory_serialize(&g_previousSessionMemory);
                     json[KSCrashField_Report][KSCrashField_Timestamp] = @(g_previousSessionMemory.timestamp);
                     json[KSCrashField_Crash][KSCrashField_Error][KSCrashExcType_MemoryTermination] =
                         kscm_memory_serialize(&g_previousSessionMemory);
@@ -424,6 +447,8 @@ KSCrashMonitorAPI *kscm_memory_getAPI(void)
         api.isEnabled = isEnabled;
         api.addContextualInfoToEvent = addContextualInfoToEvent;
         api.notifyPostSystemEnable = notifyPostSystemEnable;
+        api.writeMetadataInReportSection = writeMetadataInReportSection;
+        api.writeInReportSection = writeInReportSection;
     }
     return &api;
 }

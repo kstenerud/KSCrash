@@ -26,6 +26,7 @@
 
 #import <XCTest/XCTest.h>
 #import "KSCrashMonitorContext.h"
+#import "KSCrashSystemInfo.h"
 
 #import "KSCrashMonitor_DiscSpace.h"
 
@@ -62,21 +63,23 @@ extern void kscm_discSpace_resetState(void);
     KSCrash_MonitorContext context = { 0 };
     discSpaceMonitor->addContextualInfoToEvent(&context);
 
-    // Check that storage size is added to the context
-    XCTAssertFalse(context.System.storageSize == 0,
-                   @"Storage size should be added to the context when the monitor is enabled.");
+    // Check that storage size is set in system info
+    XCTAssertFalse(kscm_system_getStorageSize() == 0, @"Storage size should be set when the monitor is enabled.");
 }
 
 - (void)testNoContextualInfoWhenDisabled
 {
     KSCrashMonitorAPI *discSpaceMonitor = kscm_discspace_getAPI();
+
+    // Clear any previous storage info
+    kscm_system_setStorageInfo(0, 0);
+
     discSpaceMonitor->setEnabled(false);
 
     KSCrash_MonitorContext context = { 0 };
     discSpaceMonitor->addContextualInfoToEvent(&context);
 
-    XCTAssertTrue(context.System.storageSize == 0,
-                  @"Storage size should not be added to the context when the monitor is disabled.");
+    XCTAssertTrue(kscm_system_getStorageSize() == 0, @"Storage size should not be set when the monitor is disabled.");
 }
 
 - (void)testMonitorName

@@ -28,6 +28,7 @@
 #import "KSCrashMonitor_BootTime.h"
 
 #import "KSCrashMonitorContext.h"
+#import "KSCrashSystemInfo.h"
 
 extern void kscm_bootTime_resetState(void);
 
@@ -61,23 +62,27 @@ extern void kscm_bootTime_resetState(void);
     KSCrash_MonitorContext context = { 0 };
     bootTimeMonitor->addContextualInfoToEvent(&context);
 
-    XCTAssertFalse(context.System.bootTime == NULL,
-                   @"Boot time should be added to the context when the monitor is enabled.");
+    const char *bootTime = kscm_system_getBootTime();
+    XCTAssertFalse(bootTime == NULL, @"Boot time should be set when the monitor is enabled.");
 
     // Clean up
-    free((void *)context.System.bootTime);
+    free((void *)bootTime);
+    kscm_system_setBootTime(NULL);
 }
 
 - (void)testNoContextualInfoWhenDisabled
 {
     KSCrashMonitorAPI *bootTimeMonitor = kscm_boottime_getAPI();
+
+    // Clear any previous boot time
+    kscm_system_setBootTime(NULL);
+
     bootTimeMonitor->setEnabled(false);
 
     KSCrash_MonitorContext context = { 0 };
     bootTimeMonitor->addContextualInfoToEvent(&context);
 
-    XCTAssertTrue(context.System.bootTime == NULL,
-                  @"Boot time should not be added to the context when the monitor is disabled.");
+    XCTAssertTrue(kscm_system_getBootTime() == NULL, @"Boot time should not be set when the monitor is disabled.");
 }
 
 - (void)testDateSysctlFunctionIndirectly
@@ -88,10 +93,10 @@ extern void kscm_bootTime_resetState(void);
     KSCrash_MonitorContext context = { 0 };
     bootTimeMonitor->addContextualInfoToEvent(&context);
 
-    XCTAssertFalse(context.System.bootTime == NULL,
-                   @"The boot time string should not be NULL when monitor is enabled.");
+    const char *bootTime = kscm_system_getBootTime();
+    XCTAssertFalse(bootTime == NULL, @"The boot time string should not be NULL when monitor is enabled.");
 
-    NSString *bootTimeString = [NSString stringWithUTF8String:context.System.bootTime];
+    NSString *bootTimeString = [NSString stringWithUTF8String:bootTime];
     NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init];
     dateFormatter.dateFormat = @"yyyy-MM-dd'T'HH:mm:ss'Z'";  // Format from ksdate_utcStringFromTimestamp
     dateFormatter.timeZone = [NSTimeZone timeZoneForSecondsFromGMT:0];
@@ -101,7 +106,8 @@ extern void kscm_bootTime_resetState(void);
     XCTAssertNotNil(bootTimeDate, @"The boot time string should be a valid date string.");
 
     // Clean up
-    free((void *)context.System.bootTime);
+    free((void *)bootTime);
+    kscm_system_setBootTime(NULL);
 }
 
 - (void)testMonitorName

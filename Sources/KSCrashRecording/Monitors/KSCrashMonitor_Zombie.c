@@ -32,6 +32,9 @@
 
 #include "KSCrashMonitorContext.h"
 #include "KSCrashMonitorHelper.h"
+#include "KSCrashReportFields.h"
+#include "KSCrashReportMemoryIntrospection.h"
+#include "KSCrashReportWriter.h"
 #include "KSLogger.h"
 #include "KSObjC.h"
 
@@ -216,13 +219,26 @@ static void setEnabled(bool isEnabled)
 
 static bool isEnabled(void) { return g_isEnabled; }
 
-static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext)
+// ============================================================================
+#pragma mark - Monitor API -
+// ============================================================================
+
+static void writeMetadataInReportSection(const KSCrash_MonitorContext *monitorContext,
+                                         const KSCrashReportWriter *writer)
 {
-    if (g_isEnabled) {
-        eventContext->ZombieException.address = (uintptr_t)g_lastDeallocedException.address;
-        eventContext->ZombieException.name = g_lastDeallocedException.name;
-        eventContext->ZombieException.reason = g_lastDeallocedException.reason;
+    (void)monitorContext;
+    if (!g_isEnabled || g_lastDeallocedException.address == NULL) {
+        return;
     }
+
+    writer->beginObject(writer, KSCrashField_LastDeallocedNSException);
+    {
+        writer->addUIntegerElement(writer, KSCrashField_Address, (uintptr_t)g_lastDeallocedException.address);
+        writer->addStringElement(writer, KSCrashField_Name, g_lastDeallocedException.name);
+        writer->addStringElement(writer, KSCrashField_Reason, g_lastDeallocedException.reason);
+        kscrmi_writeAddressReferencedByString(writer, KSCrashField_ReferencedObject, g_lastDeallocedException.reason);
+    }
+    writer->endContainer(writer);
 }
 
 KSCrashMonitorAPI *kscm_zombie_getAPI(void)
@@ -232,7 +248,7 @@ KSCrashMonitorAPI *kscm_zombie_getAPI(void)
         api.monitorId = monitorId;
         api.setEnabled = setEnabled;
         api.isEnabled = isEnabled;
-        api.addContextualInfoToEvent = addContextualInfoToEvent;
+        api.writeMetadataInReportSection = writeMetadataInReportSection;
     }
     return &api;
 }

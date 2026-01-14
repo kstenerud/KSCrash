@@ -195,50 +195,7 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
 
 - (NSDictionary *)systemInfo
 {
-    KSCrash_MonitorContext fakeEvent = { 0 };
-    kscm_system_getAPI()->addContextualInfoToEvent(&fakeEvent);
-    NSMutableDictionary *dict = [NSMutableDictionary new];
-
-#define COPY_STRING(A) \
-    if (fakeEvent.System.A) dict[@ #A] = [NSString stringWithUTF8String:fakeEvent.System.A]
-#define COPY_PRIMITIVE(A) dict[@ #A] = @(fakeEvent.System.A)
-    COPY_STRING(systemName);
-    COPY_STRING(systemVersion);
-    COPY_STRING(machine);
-    COPY_STRING(model);
-    COPY_STRING(kernelVersion);
-    COPY_STRING(osVersion);
-    COPY_PRIMITIVE(isJailbroken);
-    COPY_PRIMITIVE(procTranslated);
-    COPY_STRING(bootTime);  // this field is populated in an optional monitor
-    COPY_STRING(appStartTime);
-    COPY_STRING(executablePath);
-    COPY_STRING(executableName);
-    COPY_STRING(bundleID);
-    COPY_STRING(bundleName);
-    COPY_STRING(bundleVersion);
-    COPY_STRING(bundleShortVersion);
-    COPY_STRING(appID);
-    COPY_STRING(cpuArchitecture);
-    COPY_STRING(binaryArchitecture);
-    COPY_STRING(clangVersion);
-    COPY_PRIMITIVE(cpuType);
-    COPY_PRIMITIVE(cpuSubType);
-    COPY_PRIMITIVE(binaryCPUType);
-    COPY_PRIMITIVE(binaryCPUSubType);
-    COPY_STRING(timezone);
-    COPY_STRING(processName);
-    COPY_PRIMITIVE(processID);
-    COPY_PRIMITIVE(parentProcessID);
-    COPY_STRING(deviceAppHash);
-    COPY_STRING(buildType);
-    COPY_PRIMITIVE(storageSize);      // this field is populated in an optional monitor
-    COPY_PRIMITIVE(freeStorageSize);  // this field is populated in an optional monitor
-    COPY_PRIMITIVE(memorySize);
-    COPY_PRIMITIVE(freeMemory);
-    COPY_PRIMITIVE(usableMemory);
-
-    return [dict copy];
+    return kscm_system_copySystemInfo();
 }
 
 - (BOOL)installWithConfiguration:(KSCrashConfiguration *)configuration error:(NSError **)error

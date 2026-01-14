@@ -285,7 +285,8 @@ let package = Package(
                 .copy("Resources/PrivacyInfo.xcprivacy")
             ],
             cSettings: [
-                .unsafeFlags(warningFlags)
+                .headerSearchPath("../\(Targets.recording)/Monitors"),
+                .unsafeFlags(warningFlags),
             ]
         ),
         .testTarget(
@@ -427,7 +428,8 @@ let package = Package(
         .target(
             name: Targets.discSpaceMonitor,
             dependencies: [
-                .target(name: Targets.recordingCore)
+                .target(name: Targets.recordingCore),
+                .target(name: Targets.recording),
             ],
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy")
@@ -450,7 +452,8 @@ let package = Package(
         .target(
             name: Targets.bootTimeMonitor,
             dependencies: [
-                .target(name: Targets.recordingCore)
+                .target(name: Targets.recordingCore),
+                .target(name: Targets.recording),
             ],
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy")
