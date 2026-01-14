@@ -536,6 +536,7 @@ let package = Package(
             dependencies: [
                 .target(name: Targets.recordingCore),
                 .target(name: Targets.recording),
+                .target(name: Targets.demangleFilter),
             ],
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy")
