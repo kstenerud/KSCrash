@@ -68,7 +68,7 @@ jobs:
       - name: Run PR Benchmarks
         working-directory: pr-branch/Benchmarks
         run: |
-          mise exec -- tuist generate
+          mise exec -- tuist generate --no-open
           rm -rf ../../pr_benchmarks.xcresult
           set -o pipefail
           xcodebuild -workspace KSCrashBenchmarks.xcworkspace \
@@ -82,7 +82,7 @@ jobs:
         run: |
           if [ -d "base-branch/Benchmarks" ] && [ -f "base-branch/Benchmarks/Project.swift" ]; then
             cd base-branch/Benchmarks
-            mise exec -- tuist generate
+            mise exec -- tuist generate --no-open
             rm -rf ../../base_benchmarks.xcresult
             set -o pipefail
             xcodebuild -workspace KSCrashBenchmarks.xcworkspace \

@@ -57,13 +57,47 @@ def get_system_info():
     return f"{chip}, {mem_gb:.0f}GB RAM, macOS {macos_ver}, {xcode_ver}"
 
 
+def get_device_info(xcresult_path):
+    """Get detailed device info from xcresult using test-results tests command."""
+    try:
+        output = subprocess.check_output([
+            "xcrun", "xcresulttool", "get", "test-results", "tests",
+            "--path", xcresult_path
+        ]).decode()
+        data = json.loads(output)
+
+        devices = data.get("devices", [])
+        if devices:
+            device = devices[0]
+            device_name = device.get("deviceName", "Unknown")
+            model_name = device.get("modelName", "")
+            platform = device.get("platform", "")
+            os_version = device.get("osVersion", "")
+
+            # Determine if it's a simulator based on platform
+            is_simulator = "simulator" in platform.lower()
+
+            return {
+                "name": device_name,
+                "model": model_name,
+                "platform": platform,
+                "os_version": os_version,
+                "is_simulator": is_simulator
+            }
+    except (subprocess.CalledProcessError, json.JSONDecodeError):
+        pass
+
+    return None
+
+
 def parse_xcresult(xcresult_path):
     """Parse xcresult bundle and return dict of benchmark results with stats, plus device info."""
     if not os.path.exists(xcresult_path):
         return None, None
 
     results = {}
-    device_name = None
+    device_info = get_device_info(xcresult_path)
+
     try:
         output = subprocess.check_output([
             "xcrun", "xcresulttool", "get", "test-results", "metrics",
@@ -81,9 +115,18 @@ def parse_xcresult(xcresult_path):
             if not test_runs:
                 continue
 
-            if not device_name:
+            # Fallback to basic device name from metrics if we don't have full info
+            if not device_info:
                 device = test_runs[0].get("device", {})
                 device_name = device.get("deviceName")
+                if device_name:
+                    device_info = {
+                        "name": device_name,
+                        "model": "",
+                        "platform": "",
+                        "os_version": "",
+                        "is_simulator": None  # Unknown
+                    }
 
             for metric in test_runs[0].get("metrics", []):
                 metric_id = metric.get("identifier", "")
@@ -92,6 +135,7 @@ def parse_xcresult(xcresult_path):
                     "com.apple.XCTPerformanceMetric_WallClockTime",
                     "com.apple.XCTPerformanceMetric_ClockMonotonicTime",
                     "com.apple.dt.XCTMetric_Time",
+                    "com.apple.dt.XCTMetric_Clock.time.monotonic",
                 ):
                     measurements = metric.get("measurements", [])
                     if measurements:
@@ -108,7 +152,7 @@ def parse_xcresult(xcresult_path):
         print(f"Error parsing xcresult JSON: {e}", file=sys.stderr)
         return None, None
 
-    return (results if results else None), device_name
+    return (results if results else None), device_info
 
 
 def welch_t_test(mean1, std1, n1, mean2, std2, n2):
@@ -191,15 +235,47 @@ def get_change(base_stats, pr_stats):
     return f"{pct:+.1f}%", p_value
 
 
-def generate_report(pr_results, base_results, config, device_name):
+def format_device_info(device_info):
+    """Format device info for display in the report."""
+    if not device_info:
+        return ""
+
+    parts = []
+
+    # Device name/model
+    name = device_info.get("name", "")
+    model = device_info.get("model", "")
+    if model and model != name:
+        parts.append(f"{model} ({name})")
+    elif name:
+        parts.append(name)
+
+    # OS version
+    os_version = device_info.get("os_version", "")
+    if os_version:
+        parts.append(f"iOS {os_version}")
+
+    # Device type (Simulator vs Real Device)
+    is_simulator = device_info.get("is_simulator")
+    if is_simulator is True:
+        parts.append("Simulator")
+    elif is_simulator is False:
+        parts.append("Device")
+    # If None, we don't know, so we don't add anything
+
+    return " | ".join(parts) if parts else ""
+
+
+def generate_report(pr_results, base_results, config, device_info):
     """Generate the markdown benchmark report."""
     tests = config["tests"]
     system_info = get_system_info()
 
     output = ["# 🔍 KSCrash Performance Benchmarks\n"]
     output.append("*Crash capture performance metrics - lower times are better*\n")
-    device_info = f" | **Device:** {device_name}" if device_name else ""
-    output.append(f"**Host:** {system_info}{device_info}\n")
+    device_str = format_device_info(device_info)
+    device_line = f" | **Target:** {device_str}" if device_str else ""
+    output.append(f"**Host:** {system_info}{device_line}\n")
     output.append("<details>")
     output.append("<summary><b>📖 How to interpret results</b></summary>\n")
     output.append("| Std Dev | Interpretation |")
@@ -313,13 +389,13 @@ def main():
         config = json.load(f)
 
     # Parse results
-    pr_results, device_name = parse_xcresult(args.pr_results)
+    pr_results, device_info = parse_xcresult(args.pr_results)
     base_results = None
     if args.base_results:
         base_results, _ = parse_xcresult(args.base_results)
 
     # Generate report
-    report = generate_report(pr_results, base_results, config, device_name)
+    report = generate_report(pr_results, base_results, config, device_info)
 
     # Write output
     with open(args.output, "w") as f:
