@@ -47,6 +47,28 @@ extern "C" {
  */
 typedef struct dyld_image_info ks_dyld_image_info;
 
+/**
+ * Callback type for image addition notifications.
+ * Same signature as _dyld_register_func_for_add_image callbacks.
+ *
+ * @param mh The mach_header of the added image.
+ * @param vmaddr_slide The ASLR slide of the image.
+ */
+typedef void (*ksbic_imageCallback)(const struct mach_header *_Nonnull mh, intptr_t vmaddr_slide);
+
+/**
+ * Register a callback to be invoked when new images are loaded.
+ *
+ * The callback will be called for each image as it is added to the process.
+ * This uses the dyld notification mechanism internally.
+ *
+ * Note: Only one callback can be registered at a time. Registering a new
+ * callback replaces any previously registered callback.
+ *
+ * @param callback The callback function to invoke, or NULL to unregister.
+ */
+void ksbic_registerForImageAdded(ksbic_imageCallback _Nullable callback);
+
 /** Initialize the binary image cache.
  * @deprecated Use ksdl_init() instead, which initializes both symbol and image caches.
  */

@@ -471,35 +471,21 @@ int ksct_swap(const cxa_throw_type handler)
     // This ensures the handler is visible when rebind_symbols_for_image runs
     atomic_store_explicit(&g_cxa_throw_handler, handler, memory_order_release);
 
-    // Register callback once; on subsequent calls, manually scan images.
+    // Initialize and scan all currently loaded images.
     // The callback skips already-swapped images, so re-scanning is safe.
-    static _Atomic(bool) registered = false;
-    bool expected = false;
-    if (atomic_compare_exchange_strong_explicit(&registered, &expected, true, memory_order_acq_rel,
-                                                memory_order_relaxed)) {
-        // First time: register for future image loads
-        // dyld will call rebind_symbols_for_image for all currently loaded images
-        _dyld_register_func_for_add_image(rebind_symbols_for_image);
-    } else {
-        // Already registered: manually scan all currently loaded images
-        // Prefer lock-free access via BinaryImageCache, fall back to dyld functions
-        ksdl_init();
-        uint32_t count = 0;
-        const ks_dyld_image_info *images = ksbic_getImages(&count);
-        if (images != NULL) {
-            for (uint32_t i = 0; i < count; i++) {
-                const struct mach_header *header = images[i].imageLoadAddress;
-                intptr_t slide = ksbic_getImageSlide(header);
-                rebind_symbols_for_image(header, slide);
-            }
-        } else {
-            // Fallback: use lock-based dyld functions
-            count = _dyld_image_count();
-            for (uint32_t i = 0; i < count; i++) {
-                rebind_symbols_for_image(_dyld_get_image_header(i), _dyld_get_image_vmaddr_slide(i));
-            }
+    ksdl_init();
+    uint32_t count = 0;
+    const ks_dyld_image_info *images = ksbic_getImages(&count);
+    if (images != NULL) {
+        for (uint32_t i = 0; i < count; i++) {
+            const struct mach_header *header = images[i].imageLoadAddress;
+            intptr_t slide = ksbic_getImageSlide(header);
+            rebind_symbols_for_image(header, slide);
         }
     }
+
+    // Register for future image loads (replaces any previous callback)
+    ksbic_registerForImageAdded(rebind_symbols_for_image);
 
     return 0;
 #endif
@@ -512,7 +498,8 @@ void ksct_swapReset(void)
 #if KSCRASH_HAS_SANITIZER
     KSLOG_DEBUG("Sanitizer detected, nothing to reset");
 #else
-    // Prevent dyld add-image rebinding while reset is in progress.
+    // Unregister dyld callback and prevent rebinding while reset is in progress.
+    ksbic_registerForImageAdded(NULL);
     atomic_store_explicit(&g_cxa_throw_handler, NULL, memory_order_release);
 
     size_t count = atomic_load_explicit(&g_cxa_originals_count, memory_order_acquire);

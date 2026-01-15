@@ -27,6 +27,7 @@
 #include "KSBinaryImageCache.h"
 
 #include <dlfcn.h>
+#include <mach-o/dyld_images.h>
 #include <mach-o/loader.h>
 #include <mach/mach.h>
 #include <mach/task.h>
@@ -369,6 +370,53 @@ static const struct mach_header *linearScanForAddress(uintptr_t address, KSBinar
 
 static struct dyld_all_image_infos *g_all_image_infos = NULL;
 
+// Original dyld notifier that we chain to after our processing
+static dyld_image_notifier g_original_notifier = NULL;
+
+// User-registered callback for image additions (atomic for thread safety)
+static _Atomic(ksbic_imageCallback) g_image_added_callback = NULL;
+
+void ksbic_registerForImageAdded(ksbic_imageCallback callback) { atomic_store(&g_image_added_callback, callback); }
+
+/**
+ * Our custom dyld image notifier that gets called when images are added or removed.
+ * We use this to invalidate/update our cache, then call the original notifier.
+ */
+static void ksbic_dyld_image_notifier(enum dyld_image_mode mode, uint32_t infoCount,
+                                      const struct dyld_image_info info[])
+{
+    KSLOG_DEBUG("dyld notifier called: mode=%d, infoCount=%u", mode, infoCount);
+
+    if (mode == dyld_image_adding) {
+        // Call user-registered callback for each added image
+        ksbic_imageCallback callback = atomic_load(&g_image_added_callback);
+        if (callback != NULL) {
+            for (uint32_t i = 0; i < infoCount; i++) {
+                const struct mach_header *header = info[i].imageLoadAddress;
+                intptr_t slide = ksbic_getImageSlide(header);
+                callback(header, slide);
+            }
+        }
+        KSLOG_DEBUG("Images added: %u", infoCount);
+    } else if (mode == dyld_image_removing) {
+        // Images being removed - we need to invalidate the cache since
+        // cached entries may now point to unloaded images.
+        // Reset the cache to force re-population on next access.
+        KSBinaryImageRangeCache *cache = atomic_exchange(&g_cache_ptr, NULL);
+        if (cache != NULL) {
+            cache->count = 0;
+            atomic_store(&g_cache_ptr, cache);
+        }
+        KSLOG_DEBUG("Images removed: %u, cache invalidated", infoCount);
+    }
+
+    // Chain to the original notifier if one was installed
+    dyld_image_notifier original = g_original_notifier;
+    if (original != NULL) {
+        original(mode, infoCount, info);
+    }
+}
+
 void ksbic_init(void)
 {
     KSLOG_DEBUG("Initializing binary image cache");
@@ -385,6 +433,15 @@ void ksbic_init(void)
     // Initialize the address range cache
     g_cache_storage.count = 0;
     atomic_store(&g_cache_ptr, &g_cache_storage);
+
+    // Install our dyld image notifier to track image loading/unloading.
+    // Save the original notifier so we can chain to it.
+    // Only install if not already installed (avoid caching our own notifier on re-init).
+    if (g_all_image_infos->notification != ksbic_dyld_image_notifier) {
+        g_original_notifier = g_all_image_infos->notification;
+        g_all_image_infos->notification = ksbic_dyld_image_notifier;
+        KSLOG_DEBUG("Installed dyld image notifier (original=%p)", (void *)g_original_notifier);
+    }
 }
 
 const ks_dyld_image_info *ksbic_getImages(uint32_t *count)
@@ -411,6 +468,11 @@ const ks_dyld_image_info *ksbic_getImages(uint32_t *count)
 // For testing purposes only. Used with extern in test files.
 void ksbic_resetCache(void)
 {
+    // Restore the original dyld notifier before resetting
+    if (g_all_image_infos != NULL && g_all_image_infos->notification == ksbic_dyld_image_notifier) {
+        g_all_image_infos->notification = g_original_notifier;
+    }
+    g_original_notifier = NULL;
     g_all_image_infos = NULL;
 
     // Acquire exclusive access to the cache before resetting
