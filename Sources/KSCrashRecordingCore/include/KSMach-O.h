@@ -35,6 +35,15 @@ extern "C" {
 #endif /* __cplusplus */
 
 /**
+ * Get the address of the first load command following a Mach-O header.
+ * Works with both 32-bit and 64-bit headers by checking the magic number at runtime.
+ *
+ * @param header Pointer to the mach_header structure.
+ * @return Address of the first load command, or 0 if the header is invalid/corrupt.
+ */
+uintptr_t ksmacho_firstCmdAfterHeader(const struct mach_header *header);
+
+/**
  * This routine returns the `load_command` structure for the specified command type
  * if it exists in the passed mach header. Otherwise, it returns `NULL`.
  *
