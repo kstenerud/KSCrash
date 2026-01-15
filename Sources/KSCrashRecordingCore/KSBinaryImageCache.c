@@ -385,10 +385,10 @@ void ksbic_registerForImageAdded(ksbic_imageCallback callback) { atomic_store(&g
 static void ksbic_dyld_image_notifier(enum dyld_image_mode mode, uint32_t infoCount,
                                       const struct dyld_image_info info[])
 {
-    KSLOG_DEBUG("dyld notifier called: mode=%d, infoCount=%u", mode, infoCount);
-
+    // Only handle image additions. Image removal is effectively a no-op on Apple platforms
+    // (dlclose doesn't actually unload due to Objective-C runtime, Swift, etc.)
     if (mode == dyld_image_adding) {
-        // Call user-registered callback for each added image
+        KSLOG_DEBUG("dyld notifier: %u images added", infoCount);
         ksbic_imageCallback callback = atomic_load(&g_image_added_callback);
         if (callback != NULL) {
             for (uint32_t i = 0; i < infoCount; i++) {
@@ -397,17 +397,6 @@ static void ksbic_dyld_image_notifier(enum dyld_image_mode mode, uint32_t infoCo
                 callback(header, slide);
             }
         }
-        KSLOG_DEBUG("Images added: %u", infoCount);
-    } else if (mode == dyld_image_removing) {
-        // Images being removed - we need to invalidate the cache since
-        // cached entries may now point to unloaded images.
-        // Reset the cache to force re-population on next access.
-        KSBinaryImageRangeCache *cache = atomic_exchange(&g_cache_ptr, NULL);
-        if (cache != NULL) {
-            cache->count = 0;
-            atomic_store(&g_cache_ptr, cache);
-        }
-        KSLOG_DEBUG("Images removed: %u, cache invalidated", infoCount);
     }
 
     // Chain to the original notifier if one was installed
