@@ -32,7 +32,7 @@
 #include "Unwind/KSDwarfUnwind.h"
 #include "Unwind/KSUnwindCache.h"
 
-#define KSLogger_LocalLevel TRACE
+// #define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
 // MARK: - Types
