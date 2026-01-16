@@ -811,8 +811,21 @@ static bool applyRegisterRule(const KSDwarfRegisterRule *rule, uintptr_t cfa, ui
 
         case KSDwarfRuleExpression:
         case KSDwarfRuleValExpression:
-            // Expression evaluation is complex and rarely needed
-            // Fall back to other methods
+            // LIMITATION: DWARF expression evaluation is not implemented.
+            //
+            // DWARF expressions are a stack-based bytecode language that can compute
+            // register values or memory addresses. They are used when simple offset-based
+            // rules cannot describe the unwind behavior (e.g., hand-written assembly,
+            // non-standard stack manipulation).
+            //
+            // On Apple platforms, DWARF expressions are rare in practice:
+            // - Most code uses compact unwind (__unwind_info) which doesn't use expressions
+            // - Standard compiler-generated code uses simple CFA+offset rules
+            // - Expressions are primarily seen in hand-optimized assembly or unusual ABI code
+            //
+            // If this becomes a problem in practice, implement a stack-based expression
+            // evaluator supporting key opcodes: DW_OP_breg*, DW_OP_deref, DW_OP_lit*,
+            // DW_OP_plus_uconst, DW_OP_call_frame_cfa. Must be async-signal-safe (no malloc).
             KSLOG_TRACE("DWARF expression evaluation not implemented");
             return false;
 
@@ -894,7 +907,19 @@ bool ksdwarf_findFDE(const void *ehFrame, size_t ehFrameSize, uintptr_t targetPC
         uint32_t cieLength = 0;
         memcpy(&cieLength, cieLengthField, sizeof(cieLength));
         if (cieLength == 0xFFFFFFFF) {
-            // 64-bit CIE - skip for simplicity
+            // LIMITATION: 64-bit DWARF format is not supported.
+            //
+            // When length == 0xFFFFFFFF, the CIE/FDE uses 64-bit DWARF format where:
+            // - An 8-byte length follows the 0xFFFFFFFF marker
+            // - CIE ID and pointer fields are 8 bytes instead of 4
+            //
+            // On Apple platforms, 64-bit DWARF format is extremely rare:
+            // - Apple toolchains generate 32-bit DWARF format even for 64-bit targets
+            // - The 32-bit format supports lengths up to 4GB which is sufficient
+            // - 64-bit format is primarily for exotic ELF systems with huge binaries
+            //
+            // If needed in the future, extend parsing to handle 64-bit offsets.
+            KSLOG_TRACE("64-bit DWARF format not supported, skipping CIE");
             ptr = entryEnd;
             continue;
         }
