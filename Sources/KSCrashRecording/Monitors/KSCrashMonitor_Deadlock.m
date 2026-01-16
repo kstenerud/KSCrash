@@ -31,6 +31,7 @@
 #import "KSID.h"
 #import "KSStackCursor_MachineContext.h"
 #import "KSThread.h"
+#import "Unwind/KSStackCursor_Unwind.h"
 
 #import <Foundation/Foundation.h>
 #import <stdatomic.h>
@@ -116,7 +117,7 @@ static KSCrash_ExceptionHandlerCallbacks g_callbacks;
     KSMachineContext machineContext = { 0 };
     ksmc_getContextForThread(g_mainQueueThread, &machineContext, false);
     KSStackCursor stackCursor;
-    kssc_initWithMachineContext(&stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
+    kssc_initWithUnwind(&stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
 
     KSLOG_DEBUG(@"Filling out context.");
 #pragma clang diagnostic push

@@ -36,6 +36,7 @@
 #include "KSSignalInfo.h"
 #include "KSStackCursor_MachineContext.h"
 #include "KSSystemCapabilities.h"
+#include "Unwind/KSStackCursor_Unwind.h"
 
 // #define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
@@ -112,7 +113,7 @@ static void handleSignal(int sigNum, siginfo_t *signalInfo, void *userContext)
         KSStackCursor stackCursor = { 0 };
         KSMachineContext machineContext = { 0 };
         ksmc_getContextForSignal(userContext, &machineContext);
-        kssc_initWithMachineContext(&stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
+        kssc_initWithUnwind(&stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
 
         kscm_fillMonitorContext(crashContext, kscm_signal_getAPI());
         crashContext->offendingMachineContext = &machineContext;

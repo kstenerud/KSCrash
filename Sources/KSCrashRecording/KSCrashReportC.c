@@ -358,7 +358,7 @@ static bool getStackCursor(const KSCrash_MonitorContext *const crash,
         return true;
     }
 
-    kssc_initWithMachineContext(cursor, KSSC_STACK_OVERFLOW_THRESHOLD, machineContext);
+    kssc_initWithUnwind(cursor, KSSC_STACK_OVERFLOW_THRESHOLD, machineContext);
     return true;
 }
 
