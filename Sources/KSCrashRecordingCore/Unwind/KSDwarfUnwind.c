@@ -746,6 +746,7 @@ static bool getRegisterValue(uint8_t regNum, uintptr_t sp, uintptr_t fp, uintptr
             return false;
     }
 #elif defined(__x86_64__)
+    (void)lr;
     switch (regNum) {
         case KSDWARF_X86_64_RSP:
             *outValue = sp;
@@ -772,6 +773,7 @@ static bool getRegisterValue(uint8_t regNum, uintptr_t sp, uintptr_t fp, uintptr
             return false;
     }
 #elif defined(__i386__)
+    (void)lr;
     switch (regNum) {
         case KSDWARF_X86_ESP:
             *outValue = sp;

@@ -437,7 +437,7 @@ static void appendSLEB(uint8_t *buf, size_t *offset, int64_t value)
     // Create mock stack with 64 bytes of locals + return address
     uintptr_t mockStack[16];
     for (int i = 0; i < 8; i++) {
-        mockStack[i] = 0x1000 + i;  // Local variables
+        mockStack[i] = (uintptr_t)(0x1000 + i);  // Local variables
     }
     mockStack[8] = 0xCAFEBABE12345678;  // Return address at [SP+64]
     mockStack[9] = 0x9999999999999999;  // Caller's stack
