@@ -457,7 +457,7 @@ static bool parseFDE(const uint8_t *fdeData, size_t fdeSize, const KSDwarfCIE *c
 // MARK: - CFI Instruction Execution
 
 static bool executeCFIInstructions(const uint8_t *instructions, size_t len, const KSDwarfCIE *cie, uintptr_t pcStart,
-                                   uintptr_t targetPC, KSDwarfCFIRow *row)
+                                   uintptr_t targetPC, KSDwarfCFIRow *row, const KSDwarfCFIRow *initialState)
 {
     KSDwarfReader reader = {
         .data = instructions,
@@ -486,15 +486,22 @@ static bool executeCFIInstructions(const uint8_t *instructions, size_t len, cons
             currentPC += lowBits * cie->codeAlignmentFactor;
         } else if (highBits == DW_CFA_offset) {
             // Register at CFA + offset
+            // Note: offset is unsigned (ULEB128), dataAlignmentFactor is signed (typically negative on x86_64)
+            // We must cast offset to signed before multiplication to get correct negative results
             uint64_t offset = readULEB128(&reader);
             if (lowBits < KSDWARF_MAX_REGISTERS) {
                 row->registers[lowBits].type = KSDwarfRuleOffset;
-                row->registers[lowBits].offset = (int64_t)(offset * (uint64_t)cie->dataAlignmentFactor);
+                row->registers[lowBits].offset = (int64_t)offset * cie->dataAlignmentFactor;
             }
         } else if (highBits == DW_CFA_restore) {
-            // Restore register to initial state
+            // Restore register to its initial state from CIE
             if (lowBits < KSDWARF_MAX_REGISTERS) {
-                row->registers[lowBits].type = KSDwarfRuleSameValue;
+                if (initialState != NULL) {
+                    row->registers[lowBits] = initialState->registers[lowBits];
+                } else {
+                    // No initial state available, set to undefined
+                    row->registers[lowBits].type = KSDwarfRuleUndefined;
+                }
             }
         } else {
             // Extended opcodes
@@ -523,7 +530,7 @@ static bool executeCFIInstructions(const uint8_t *instructions, size_t len, cons
                     uint64_t offset = readULEB128(&reader);
                     if (reg < KSDWARF_MAX_REGISTERS) {
                         row->registers[reg].type = KSDwarfRuleOffset;
-                        row->registers[reg].offset = (int64_t)(offset * (uint64_t)cie->dataAlignmentFactor);
+                        row->registers[reg].offset = (int64_t)offset * cie->dataAlignmentFactor;
                     }
                     break;
                 }
@@ -531,7 +538,11 @@ static bool executeCFIInstructions(const uint8_t *instructions, size_t len, cons
                 case DW_CFA_restore_extended: {
                     uint64_t reg = readULEB128(&reader);
                     if (reg < KSDWARF_MAX_REGISTERS) {
-                        row->registers[reg].type = KSDwarfRuleSameValue;
+                        if (initialState != NULL) {
+                            row->registers[reg] = initialState->registers[reg];
+                        } else {
+                            row->registers[reg].type = KSDwarfRuleUndefined;
+                        }
                     }
                     break;
                 }
@@ -646,7 +657,7 @@ static bool executeCFIInstructions(const uint8_t *instructions, size_t len, cons
                     uint64_t offset = readULEB128(&reader);
                     if (reg < KSDWARF_MAX_REGISTERS) {
                         row->registers[reg].type = KSDwarfRuleValOffset;
-                        row->registers[reg].offset = (int64_t)(offset * (uint64_t)cie->dataAlignmentFactor);
+                        row->registers[reg].offset = (int64_t)offset * cie->dataAlignmentFactor;
                     }
                     break;
                 }
@@ -784,12 +795,14 @@ static bool applyRegisterRule(const KSDwarfRegisterRule *rule, uintptr_t cfa, ui
             return false;
 
         case KSDwarfRuleOffset: {
-            uintptr_t addr = cfa + (uintptr_t)rule->offset;
+            // rule->offset can be negative (register saved below CFA), so use signed arithmetic
+            uintptr_t addr = (uintptr_t)((intptr_t)cfa + rule->offset);
             return ksmem_copySafely((const void *)addr, outValue, sizeof(*outValue));
         }
 
         case KSDwarfRuleValOffset:
-            *outValue = cfa + (uintptr_t)rule->offset;
+            // rule->offset can be negative, so use signed arithmetic
+            *outValue = (uintptr_t)((intptr_t)cfa + rule->offset);
             return true;
 
         case KSDwarfRuleRegister:
@@ -869,25 +882,29 @@ bool ksdwarf_findFDE(const void *ehFrame, size_t ehFrameSize, uintptr_t targetPC
 
         // This is an FDE
         // ciePointer is an offset back to the CIE from the CIE pointer field
-        const uint8_t *cieStart = (entryStart - ciePointer);
-        if (cieStart < (const uint8_t *)ehFrame) {
+        // Per .eh_frame spec, this points to the CIE's length field (start of CIE record)
+        const uint8_t *cieLengthField = (entryStart - ciePointer);
+        if (cieLengthField < (const uint8_t *)ehFrame) {
             ptr = entryEnd;
             continue;
         }
 
         // Parse FDE to get PC range
-        // First, parse the CIE
+        // First, parse the CIE - read length from the length field
         uint32_t cieLength = 0;
-        memcpy(&cieLength, cieStart - 4, sizeof(cieLength));
+        memcpy(&cieLength, cieLengthField, sizeof(cieLength));
         if (cieLength == 0xFFFFFFFF) {
             // 64-bit CIE - skip for simplicity
             ptr = entryEnd;
             continue;
         }
 
+        // CIE structure: [4: length][4: CIE_id=0][rest: CIE data]
+        const uint8_t *cieIdField = cieLengthField + 4;    // Points to CIE_id field (which is 0)
+        const uint8_t *cieDataStart = cieLengthField + 8;  // Skip length + CIE_id
+
         KSDwarfCIE cie;
-        const uint8_t *cieData = cieStart + 4;  // Skip CIE ID
-        if (!parseCIE(cieData, cieLength - 4, &cie)) {
+        if (!parseCIE(cieDataStart, cieLength - 4, &cie)) {  // cieLength - 4 = size after CIE_id
             ptr = entryEnd;
             continue;
         }
@@ -903,8 +920,9 @@ bool ksdwarf_findFDE(const void *ehFrame, size_t ehFrameSize, uintptr_t targetPC
         if (targetPC >= fde.pcStart && targetPC < fde.pcStart + fde.pcRange) {
             *outFDE = entryStart;
             *outFDESize = (size_t)(entryEnd - entryStart);
-            *outCIE = cieStart;
-            *outCIESize = cieLength;
+            // Return pointer to CIE_id field (not length field) to match ksdwarf_buildCFIRow expectations
+            *outCIE = cieIdField;
+            *outCIESize = cieLength;  // Size including CIE_id but not length field
             return true;
         }
 
@@ -936,18 +954,22 @@ bool ksdwarf_buildCFIRow(const uint8_t *cie, size_t cieSize, const uint8_t *fde,
     }
 
     // Initialize row with CIE initial instructions
+    // Pass NULL for initialState since CIE is building the initial state
     if (cieData.initialInstructions && cieData.initialInstructionsLen > 0) {
         if (!executeCFIInstructions(cieData.initialInstructions, cieData.initialInstructionsLen, &cieData,
-                                    fdeData.pcStart, targetPC, outRow)) {
+                                    fdeData.pcStart, targetPC, outRow, NULL)) {
             KSLOG_TRACE("Failed to execute CIE initial instructions");
             return false;
         }
     }
 
-    // Execute FDE instructions
+    // Save the initial state after CIE instructions for DW_CFA_restore
+    KSDwarfCFIRow initialState = *outRow;
+
+    // Execute FDE instructions, passing the initial state for restore operations
     if (fdeData.instructions && fdeData.instructionsLen > 0) {
         if (!executeCFIInstructions(fdeData.instructions, fdeData.instructionsLen, &cieData, fdeData.pcStart, targetPC,
-                                    outRow)) {
+                                    outRow, &initialState)) {
             KSLOG_TRACE("Failed to execute FDE instructions");
             return false;
         }

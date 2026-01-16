@@ -128,15 +128,29 @@ bool kscu_x86_64_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attri
     } else if (mode == KSCU_UNWIND_X86_64_MODE_STACK_IMMD) {
         // Frameless with immediate stack size:
         // - Stack size is encoded in bits 16-23 (multiply by 8)
-        // - Return address is at the top of the frame
+        // - The encoded size is the sub rsp immediate, NOT including the return address
+        // - We add 8 to account for the return address pushed by CALL
+        // - Return address is then at sp + stackSize - 8
 
-        uint32_t stackSize = ((encoding & KSCU_UNWIND_X86_64_FRAMELESS_STACK_SIZE_MASK) >>
-                              KSCU_UNWIND_X86_64_FRAMELESS_STACK_SIZE_SHIFT) *
-                             8;
+        uint32_t encodedSize = ((encoding & KSCU_UNWIND_X86_64_FRAMELESS_STACK_SIZE_MASK) >>
+                                KSCU_UNWIND_X86_64_FRAMELESS_STACK_SIZE_SHIFT) *
+                               8;
+        // Total stack frame includes the return address pushed by CALL
+        uint32_t stackSize = encodedSize + 8;
 
-        if (stackSize == 0) {
-            KSLOG_TRACE("Frameless with zero stack size - cannot unwind");
-            return false;
+        if (encodedSize == 0) {
+            // No stack adjustment - leaf function, return address at [RSP]
+            uintptr_t returnAddr;
+            if (!readPtr(sp, &returnAddr)) {
+                KSLOG_TRACE("Failed to read return address from RSP (0x%lx)", (unsigned long)sp);
+                return false;
+            }
+            result->returnAddress = returnAddr;
+            result->stackPointer = sp + 8;  // Pop return address
+            result->framePointer = bp;
+            result->valid = true;
+            KSLOG_TRACE("Frameless leaf: returnAddr=0x%lx", (unsigned long)result->returnAddress);
+            return true;
         }
 
         // Return address is at the top of the frame
@@ -152,8 +166,8 @@ bool kscu_x86_64_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attri
         result->framePointer = 0;  // No frame pointer
         result->valid = true;
 
-        KSLOG_TRACE("Frameless immediate: returnAddr=0x%lx, stackSize=%u", (unsigned long)result->returnAddress,
-                    stackSize);
+        KSLOG_TRACE("Frameless immediate: returnAddr=0x%lx, stackSize=%u (encoded=%u)",
+                    (unsigned long)result->returnAddress, stackSize, encodedSize);
         return true;
     } else if (mode == KSCU_UNWIND_X86_64_MODE_STACK_IND) {
         // Frameless with indirect stack size:

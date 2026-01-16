@@ -240,9 +240,7 @@ static bool tryFramePointerUnwind(UnwindCursorContext *ctx, uintptr_t *outReturn
     *outReturnAddress = frame.return_address;
     ctx->currentFrame = frame;
 
-    // Update FP for next iteration
-    ctx->fp = (uintptr_t)frame.previous;
-
+    // Calculate SP from current FP BEFORE updating it
     // On x86/x86_64, SP = FP + 16 (after the saved FP and return address)
     // On ARM64, similar layout
 #if defined(__x86_64__) || defined(__arm64__)
@@ -250,6 +248,9 @@ static bool tryFramePointerUnwind(UnwindCursorContext *ctx, uintptr_t *outReturn
 #elif defined(__i386__) || defined(__arm__)
     ctx->sp = ctx->fp + 8;
 #endif
+
+    // Update FP for next iteration (AFTER calculating SP)
+    ctx->fp = (uintptr_t)frame.previous;
 
     return true;
 }
