@@ -169,7 +169,11 @@ final class ProfilerTests: XCTestCase {
         XCTAssertGreaterThan(profile.durationNs, 0, "Duration should be positive")
     }
 
-    func testProfileCapturesSamples() {
+    func testProfileCapturesSamples() throws {
+        #if os(watchOS)
+            throw XCTSkip("watchOS does not support backtrace capture")
+        #endif
+
         let profiler = Profiler<Sample64>(
             thread: pthread_self(),
             interval: 0.005,  // 5ms
@@ -226,7 +230,11 @@ final class ProfilerTests: XCTestCase {
 
     // MARK: - Sample Tests
 
-    func testSampleCaptureDuration() {
+    func testSampleCaptureDuration() throws {
+        #if os(watchOS)
+            throw XCTSkip("watchOS does not support backtrace capture")
+        #endif
+
         let profiler = Profiler<Sample128>(
             thread: pthread_self(),
             interval: 0.01,
@@ -350,7 +358,11 @@ final class ProfilerTests: XCTestCase {
 
     // MARK: - Ring Buffer Tests
 
-    func testRingBufferOverwrite() {
+    func testRingBufferOverwrite() throws {
+        #if os(watchOS)
+            throw XCTSkip("watchOS does not support backtrace capture")
+        #endif
+
         // Create a profiler with small capacity (1 second retention with 100ms interval = 10 samples)
         let profiler = Profiler<Sample32>(
             thread: pthread_self(),
@@ -375,7 +387,11 @@ final class ProfilerTests: XCTestCase {
 
     // MARK: - Profiling Different Threads
 
-    func testProfilingOtherThread() {
+    func testProfilingOtherThread() throws {
+        #if os(watchOS)
+            throw XCTSkip("watchOS does not support backtrace capture")
+        #endif
+
         var otherThread: pthread_t?
         let group = DispatchGroup()
         let semaphore = DispatchSemaphore(value: 0)
@@ -497,7 +513,11 @@ final class ProfilerTests: XCTestCase {
 
     // MARK: - Overlapping Profiles Tests
 
-    func testOverlappingProfilesGetDifferentSamples() {
+    func testOverlappingProfilesGetDifferentSamples() throws {
+        #if os(watchOS)
+            throw XCTSkip("watchOS does not support backtrace capture")
+        #endif
+
         let profiler = Profiler<Sample64>(
             thread: pthread_self(),
             interval: 0.005,

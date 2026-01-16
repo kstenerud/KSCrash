@@ -299,6 +299,15 @@ static bool advanceCursor(KSStackCursor *cursor)
             ctx->fp = result.framePointer;
             ctx->pc = result.returnAddress;
             ctx->lastMethod = KSUnwindMethod_CompactUnwind;
+        } else {
+            // Compact unwind failed. We've already returned the LR, so we need to
+            // advance the frame pointer to the next frame for frame pointer walking.
+            // On ARM64/ARM, [FP] = saved FP, [FP+8/4] = saved LR (which we just returned)
+            FrameEntry frame;
+            if (ctx->fp != 0 && ksmem_copySafely((const void *)ctx->fp, &frame, sizeof(frame))) {
+                ctx->fp = (uintptr_t)frame.previous;
+                ctx->pc = ctx->lr;  // Update PC for any subsequent unwind attempts
+            }
         }
 
         goto successfulExit;
