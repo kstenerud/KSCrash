@@ -162,10 +162,12 @@ bool ksdwarf_unwind(const void *ehFrame, size_t ehFrameSize, uintptr_t pc, uintp
  * @param outFDESize Output: size of the FDE.
  * @param outCIE Output: pointer to the CIE for this FDE.
  * @param outCIESize Output: size of the CIE.
+ * @param outIs64bit Output: true if the CIE/FDE use 64-bit DWARF format.
  * @return true if FDE was found, false otherwise.
  */
 bool ksdwarf_findFDE(const void *ehFrame, size_t ehFrameSize, uintptr_t targetPC, uintptr_t imageBase,
-                     const uint8_t **outFDE, size_t *outFDESize, const uint8_t **outCIE, size_t *outCIESize);
+                     const uint8_t **outFDE, size_t *outFDESize, const uint8_t **outCIE, size_t *outCIESize,
+                     bool *outIs64bit);
 
 /**
  * Execute CFI instructions to build a CFI row for a target PC.
@@ -175,11 +177,12 @@ bool ksdwarf_findFDE(const void *ehFrame, size_t ehFrameSize, uintptr_t targetPC
  * @param fde Pointer to FDE data (after length field).
  * @param fdeSize Size of FDE.
  * @param targetPC The PC to build row for.
+ * @param is64bit True if the CIE/FDE use 64-bit DWARF format.
  * @param outRow Output: the CFI row.
  * @return true if CFI row was built successfully.
  */
 bool ksdwarf_buildCFIRow(const uint8_t *cie, size_t cieSize, const uint8_t *fde, size_t fdeSize, uintptr_t targetPC,
-                         KSDwarfCFIRow *outRow);
+                         bool is64bit, KSDwarfCFIRow *outRow);
 
 #ifdef __cplusplus
 }

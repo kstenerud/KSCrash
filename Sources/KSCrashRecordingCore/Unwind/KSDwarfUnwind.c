@@ -84,8 +84,35 @@
 #define DW_CFA_val_expression 0x16      // extended opcode
 #define DW_CFA_GNU_args_size 0x2E       // GNU extension
 
+// DWARF expression opcodes (subset)
+#define DW_OP_deref 0x06
+#define DW_OP_const1u 0x08
+#define DW_OP_const1s 0x09
+#define DW_OP_const2u 0x0A
+#define DW_OP_const2s 0x0B
+#define DW_OP_const4u 0x0C
+#define DW_OP_const4s 0x0D
+#define DW_OP_const8u 0x0E
+#define DW_OP_const8s 0x0F
+#define DW_OP_constu 0x10
+#define DW_OP_consts 0x11
+#define DW_OP_minus 0x1C
+#define DW_OP_plus 0x22
+#define DW_OP_plus_uconst 0x23
+#define DW_OP_lit0 0x30
+#define DW_OP_lit31 0x4F
+#define DW_OP_breg0 0x70
+#define DW_OP_breg31 0x8F
+#define DW_OP_fbreg 0x91
+#define DW_OP_bregx 0x92
+#define DW_OP_call_frame_cfa 0x9C
+#define DW_OP_stack_value 0x9F
+
 // Maximum state stack depth for remember/restore
 #define MAX_STATE_STACK_DEPTH 8
+
+// Maximum stack depth for DWARF expression evaluation
+#define KSDWARF_EXPR_STACK_MAX 16
 
 // MARK: - Internal Types
 
@@ -702,54 +729,66 @@ static bool executeCFIInstructions(const uint8_t *instructions, size_t len, cons
 
 // MARK: - Register Value Recovery
 
-static uintptr_t getRegisterValue(uint8_t regNum, uintptr_t sp, uintptr_t fp, uintptr_t lr)
+static bool getRegisterValue(uint8_t regNum, uintptr_t sp, uintptr_t fp, uintptr_t lr, uintptr_t *outValue)
 {
 #if defined(__arm64__)
     switch (regNum) {
         case KSDWARF_ARM64_SP:
-            return sp;
+            *outValue = sp;
+            return true;
         case KSDWARF_ARM64_FP:
-            return fp;
+            *outValue = fp;
+            return true;
         case KSDWARF_ARM64_LR:
-            return lr;
+            *outValue = lr;
+            return true;
         default:
-            return 0;
+            return false;
     }
 #elif defined(__x86_64__)
     switch (regNum) {
         case KSDWARF_X86_64_RSP:
-            return sp;
+            *outValue = sp;
+            return true;
         case KSDWARF_X86_64_RBP:
-            return fp;
+            *outValue = fp;
+            return true;
         default:
-            return 0;
+            return false;
     }
 #elif defined(__arm__)
     switch (regNum) {
         case KSDWARF_ARM_R13:
-            return sp;
+            *outValue = sp;
+            return true;
         case KSDWARF_ARM_R7:
         case KSDWARF_ARM_R11:
-            return fp;
+            *outValue = fp;
+            return true;
         case KSDWARF_ARM_R14:
-            return lr;
+            *outValue = lr;
+            return true;
         default:
-            return 0;
+            return false;
     }
 #elif defined(__i386__)
     switch (regNum) {
         case KSDWARF_X86_ESP:
-            return sp;
+            *outValue = sp;
+            return true;
         case KSDWARF_X86_EBP:
-            return fp;
+            *outValue = fp;
+            return true;
         default:
-            return 0;
+            return false;
     }
 #else
     (void)regNum;
     (void)sp;
     (void)fp;
-    return 0;
+    (void)lr;
+    (void)outValue;
+    return false;
 #endif
 }
 
@@ -783,6 +822,174 @@ static uint8_t getFramePointerRegister(void)
 #endif
 }
 
+// MARK: - DWARF Expression Evaluation
+
+static bool exprPush(intptr_t *stack, int *depth, intptr_t value)
+{
+    if (*depth >= KSDWARF_EXPR_STACK_MAX) {
+        return false;
+    }
+    stack[(*depth)++] = value;
+    return true;
+}
+
+static bool exprPop(intptr_t *stack, int *depth, intptr_t *outValue)
+{
+    if (*depth <= 0) {
+        return false;
+    }
+    *outValue = stack[--(*depth)];
+    return true;
+}
+
+static bool evaluateDwarfExpression(const uint8_t *expr, size_t len, uintptr_t cfa, uintptr_t sp, uintptr_t fp,
+                                    uintptr_t lr, intptr_t *outValue, bool *outIsValue)
+{
+    if (expr == NULL || len == 0 || outValue == NULL) {
+        return false;
+    }
+
+    KSDwarfReader reader = {
+        .data = expr,
+        .end = expr + len,
+        .baseAddress = 0,
+    };
+
+    intptr_t stack[KSDWARF_EXPR_STACK_MAX];
+    int depth = 0;
+    bool resultIsValue = false;
+
+    while (readerHasData(&reader, 1)) {
+        uint8_t op = readU8(&reader);
+
+        if (op >= DW_OP_lit0 && op <= DW_OP_lit31) {
+            if (!exprPush(stack, &depth, (intptr_t)(op - DW_OP_lit0))) {
+                return false;
+            }
+            continue;
+        }
+
+        switch (op) {
+            case DW_OP_const1u:
+                if (!readerHasData(&reader, 1)) return false;
+                if (!exprPush(stack, &depth, (intptr_t)readU8(&reader))) return false;
+                break;
+            case DW_OP_const1s:
+                if (!readerHasData(&reader, 1)) return false;
+                if (!exprPush(stack, &depth, (intptr_t)(int8_t)readU8(&reader))) return false;
+                break;
+            case DW_OP_const2u:
+                if (!readerHasData(&reader, 2)) return false;
+                if (!exprPush(stack, &depth, (intptr_t)readU16(&reader))) return false;
+                break;
+            case DW_OP_const2s:
+                if (!readerHasData(&reader, 2)) return false;
+                if (!exprPush(stack, &depth, (intptr_t)readS16(&reader))) return false;
+                break;
+            case DW_OP_const4u:
+                if (!readerHasData(&reader, 4)) return false;
+                if (!exprPush(stack, &depth, (intptr_t)readU32(&reader))) return false;
+                break;
+            case DW_OP_const4s:
+                if (!readerHasData(&reader, 4)) return false;
+                if (!exprPush(stack, &depth, (intptr_t)readS32(&reader))) return false;
+                break;
+            case DW_OP_const8u:
+                if (!readerHasData(&reader, 8)) return false;
+                if (!exprPush(stack, &depth, (intptr_t)readU64(&reader))) return false;
+                break;
+            case DW_OP_const8s:
+                if (!readerHasData(&reader, 8)) return false;
+                if (!exprPush(stack, &depth, (intptr_t)readS64(&reader))) return false;
+                break;
+            case DW_OP_constu: {
+                uint64_t value = readULEB128(&reader);
+                if (!exprPush(stack, &depth, (intptr_t)value)) return false;
+                break;
+            }
+            case DW_OP_consts: {
+                int64_t value = readSLEB128(&reader);
+                if (!exprPush(stack, &depth, (intptr_t)value)) return false;
+                break;
+            }
+            case DW_OP_plus_uconst: {
+                intptr_t a;
+                if (!exprPop(stack, &depth, &a)) return false;
+                uint64_t imm = readULEB128(&reader);
+                if (!exprPush(stack, &depth, a + (intptr_t)imm)) return false;
+                break;
+            }
+            case DW_OP_plus: {
+                intptr_t b;
+                intptr_t a;
+                if (!exprPop(stack, &depth, &b) || !exprPop(stack, &depth, &a)) return false;
+                if (!exprPush(stack, &depth, a + b)) return false;
+                break;
+            }
+            case DW_OP_minus: {
+                intptr_t b;
+                intptr_t a;
+                if (!exprPop(stack, &depth, &b) || !exprPop(stack, &depth, &a)) return false;
+                if (!exprPush(stack, &depth, a - b)) return false;
+                break;
+            }
+            case DW_OP_deref: {
+                intptr_t addr;
+                uintptr_t value = 0;
+                if (!exprPop(stack, &depth, &addr)) return false;
+                if (!ksmem_copySafely((const void *)addr, &value, sizeof(value))) return false;
+                if (!exprPush(stack, &depth, (intptr_t)value)) return false;
+                break;
+            }
+            case DW_OP_call_frame_cfa:
+                if (cfa == 0) return false;
+                if (!exprPush(stack, &depth, (intptr_t)cfa)) return false;
+                break;
+            case DW_OP_fbreg: {
+                int64_t offset = readSLEB128(&reader);
+                if (cfa == 0) return false;
+                if (!exprPush(stack, &depth, (intptr_t)cfa + offset)) return false;
+                break;
+            }
+            case DW_OP_bregx: {
+                uint64_t reg = readULEB128(&reader);
+                int64_t offset = readSLEB128(&reader);
+                if (reg > UINT8_MAX) return false;
+                uint8_t regNum = (uint8_t)reg;
+                uintptr_t regValue = 0;
+                if (!getRegisterValue(regNum, sp, fp, lr, &regValue)) return false;
+                if (!exprPush(stack, &depth, (intptr_t)regValue + offset)) return false;
+                break;
+            }
+            case DW_OP_stack_value:
+                resultIsValue = true;
+                break;
+            default:
+                if (op >= DW_OP_breg0 && op <= DW_OP_breg31) {
+                    uint8_t reg = (uint8_t)(op - DW_OP_breg0);
+                    int64_t offset = readSLEB128(&reader);
+                    uintptr_t regValue = 0;
+                    if (!getRegisterValue(reg, sp, fp, lr, &regValue)) return false;
+                    if (!exprPush(stack, &depth, (intptr_t)regValue + offset)) return false;
+                    break;
+                }
+
+                KSLOG_TRACE("Unsupported DWARF expression opcode: 0x%x", op);
+                return false;
+        }
+    }
+
+    if (depth != 1) {
+        return false;
+    }
+
+    *outValue = stack[0];
+    if (outIsValue != NULL) {
+        *outIsValue = resultIsValue;
+    }
+    return true;
+}
+
 static bool applyRegisterRule(const KSDwarfRegisterRule *rule, uintptr_t cfa, uintptr_t sp, uintptr_t fp, uintptr_t lr,
                               uintptr_t *outValue)
 {
@@ -806,28 +1013,29 @@ static bool applyRegisterRule(const KSDwarfRegisterRule *rule, uintptr_t cfa, ui
             return true;
 
         case KSDwarfRuleRegister:
-            *outValue = getRegisterValue(rule->regNum, sp, fp, lr);
-            return *outValue != 0;
+            return getRegisterValue(rule->regNum, sp, fp, lr, outValue);
 
-        case KSDwarfRuleExpression:
-        case KSDwarfRuleValExpression:
-            // LIMITATION: DWARF expression evaluation is not implemented.
-            //
-            // DWARF expressions are a stack-based bytecode language that can compute
-            // register values or memory addresses. They are used when simple offset-based
-            // rules cannot describe the unwind behavior (e.g., hand-written assembly,
-            // non-standard stack manipulation).
-            //
-            // On Apple platforms, DWARF expressions are rare in practice:
-            // - Most code uses compact unwind (__unwind_info) which doesn't use expressions
-            // - Standard compiler-generated code uses simple CFA+offset rules
-            // - Expressions are primarily seen in hand-optimized assembly or unusual ABI code
-            //
-            // If this becomes a problem in practice, implement a stack-based expression
-            // evaluator supporting key opcodes: DW_OP_breg*, DW_OP_deref, DW_OP_lit*,
-            // DW_OP_plus_uconst, DW_OP_call_frame_cfa. Must be async-signal-safe (no malloc).
-            KSLOG_TRACE("DWARF expression evaluation not implemented");
-            return false;
+        case KSDwarfRuleExpression: {
+            intptr_t exprValue = 0;
+            bool resultIsValue = false;
+            if (!evaluateDwarfExpression(rule->expr, rule->exprLen, cfa, sp, fp, lr, &exprValue, &resultIsValue)) {
+                return false;
+            }
+            if (resultIsValue) {
+                *outValue = (uintptr_t)exprValue;
+                return true;
+            }
+            return ksmem_copySafely((const void *)exprValue, outValue, sizeof(*outValue));
+        }
+
+        case KSDwarfRuleValExpression: {
+            intptr_t exprValue = 0;
+            if (!evaluateDwarfExpression(rule->expr, rule->exprLen, cfa, sp, fp, lr, &exprValue, NULL)) {
+                return false;
+            }
+            *outValue = (uintptr_t)exprValue;
+            return true;
+        }
 
         case KSDwarfRuleArchitectural:
             return false;
@@ -841,10 +1049,14 @@ static bool applyRegisterRule(const KSDwarfRegisterRule *rule, uintptr_t cfa, ui
 
 bool ksdwarf_findFDE(const void *ehFrame, size_t ehFrameSize, uintptr_t targetPC,
                      uintptr_t imageBase __attribute__((unused)), const uint8_t **outFDE, size_t *outFDESize,
-                     const uint8_t **outCIE, size_t *outCIESize)
+                     const uint8_t **outCIE, size_t *outCIESize, bool *outIs64bit)
 {
     if (ehFrame == NULL || ehFrameSize == 0) {
         return false;
+    }
+
+    if (outIs64bit != NULL) {
+        *outIs64bit = false;
     }
 
     const uint8_t *ptr = (const uint8_t *)ehFrame;
@@ -861,14 +1073,18 @@ bool ksdwarf_findFDE(const void *ehFrame, size_t ehFrameSize, uintptr_t targetPC
             break;
         }
 
-        bool is64bit = false;
+        bool entryIs64bit = false;
         uint64_t actualLength = length;
         if (length == 0xFFFFFFFF) {
             // 64-bit length
             if (ptr + 8 > end) break;
             memcpy(&actualLength, ptr, sizeof(actualLength));
             ptr += 8;
-            is64bit = true;
+            entryIs64bit = true;
+        }
+
+        if (actualLength > (uint64_t)(end - ptr)) {
+            break;
         }
 
         const uint8_t *entryStart = ptr;
@@ -876,14 +1092,14 @@ bool ksdwarf_findFDE(const void *ehFrame, size_t ehFrameSize, uintptr_t targetPC
         if (entryEnd > end) break;
 
         // Read CIE pointer/ID
-        uint32_t ciePointer = 0;
-        if (is64bit) {
-            uint64_t ciePointer64;
-            memcpy(&ciePointer64, ptr, sizeof(ciePointer64));
-            ciePointer = (uint32_t)ciePointer64;
+        uint64_t ciePointer = 0;
+        if (entryIs64bit) {
+            memcpy(&ciePointer, ptr, sizeof(ciePointer));
             ptr += 8;
         } else {
-            memcpy(&ciePointer, ptr, sizeof(ciePointer));
+            uint32_t ciePointer32 = 0;
+            memcpy(&ciePointer32, ptr, sizeof(ciePointer32));
+            ciePointer = ciePointer32;
             ptr += 4;
         }
 
@@ -896,7 +1112,7 @@ bool ksdwarf_findFDE(const void *ehFrame, size_t ehFrameSize, uintptr_t targetPC
         // This is an FDE
         // ciePointer is an offset back to the CIE from the CIE pointer field
         // Per .eh_frame spec, this points to the CIE's length field (start of CIE record)
-        const uint8_t *cieLengthField = (entryStart - ciePointer);
+        const uint8_t *cieLengthField = (entryStart - (uintptr_t)ciePointer);
         if (cieLengthField < (const uint8_t *)ehFrame) {
             ptr = entryEnd;
             continue;
@@ -904,32 +1120,47 @@ bool ksdwarf_findFDE(const void *ehFrame, size_t ehFrameSize, uintptr_t targetPC
 
         // Parse FDE to get PC range
         // First, parse the CIE - read length from the length field
-        uint32_t cieLength = 0;
-        memcpy(&cieLength, cieLengthField, sizeof(cieLength));
-        if (cieLength == 0xFFFFFFFF) {
-            // LIMITATION: 64-bit DWARF format is not supported.
-            //
-            // When length == 0xFFFFFFFF, the CIE/FDE uses 64-bit DWARF format where:
-            // - An 8-byte length follows the 0xFFFFFFFF marker
-            // - CIE ID and pointer fields are 8 bytes instead of 4
-            //
-            // On Apple platforms, 64-bit DWARF format is extremely rare:
-            // - Apple toolchains generate 32-bit DWARF format even for 64-bit targets
-            // - The 32-bit format supports lengths up to 4GB which is sufficient
-            // - 64-bit format is primarily for exotic ELF systems with huge binaries
-            //
-            // If needed in the future, extend parsing to handle 64-bit offsets.
-            KSLOG_TRACE("64-bit DWARF format not supported, skipping CIE");
+        uint32_t cieLength32 = 0;
+        memcpy(&cieLength32, cieLengthField, sizeof(cieLength32));
+        bool cieIs64bit = false;
+        uint64_t cieLength = cieLength32;
+        const uint8_t *cieIdField = NULL;
+        const uint8_t *cieDataStart = NULL;
+
+        if (cieLength32 == 0xFFFFFFFF) {
+            if (cieLengthField + 12 > end) {
+                ptr = entryEnd;
+                continue;
+            }
+            memcpy(&cieLength, cieLengthField + 4, sizeof(cieLength));
+            cieIs64bit = true;
+            cieIdField = cieLengthField + 12;  // length marker (4) + length (8)
+            cieDataStart = cieIdField + 8;
+        } else {
+            // CIE structure: [4: length][4: CIE_id=0][rest: CIE data]
+            cieIdField = cieLengthField + 4;
+            cieDataStart = cieIdField + 4;
+        }
+
+        if (cieIs64bit != entryIs64bit) {
             ptr = entryEnd;
             continue;
         }
 
-        // CIE structure: [4: length][4: CIE_id=0][rest: CIE data]
-        const uint8_t *cieIdField = cieLengthField + 4;    // Points to CIE_id field (which is 0)
-        const uint8_t *cieDataStart = cieLengthField + 8;  // Skip length + CIE_id
+        size_t cieIdSize = cieIs64bit ? 8 : 4;
+        if (cieLength < cieIdSize) {
+            ptr = entryEnd;
+            continue;
+        }
+
+        size_t cieDataSize = (size_t)(cieLength - cieIdSize);
+        if (cieDataStart + cieDataSize > end) {
+            ptr = entryEnd;
+            continue;
+        }
 
         KSDwarfCIE cie;
-        if (!parseCIE(cieDataStart, cieLength - 4, &cie)) {  // cieLength - 4 = size after CIE_id
+        if (!parseCIE(cieDataStart, cieDataSize, &cie)) {
             ptr = entryEnd;
             continue;
         }
@@ -947,7 +1178,10 @@ bool ksdwarf_findFDE(const void *ehFrame, size_t ehFrameSize, uintptr_t targetPC
             *outFDESize = (size_t)(entryEnd - entryStart);
             // Return pointer to CIE_id field (not length field) to match ksdwarf_buildCFIRow expectations
             *outCIE = cieIdField;
-            *outCIESize = cieLength;  // Size including CIE_id but not length field
+            *outCIESize = (size_t)cieLength;  // Size including CIE_id but not length field
+            if (outIs64bit != NULL) {
+                *outIs64bit = entryIs64bit;
+            }
             return true;
         }
 
@@ -958,22 +1192,28 @@ bool ksdwarf_findFDE(const void *ehFrame, size_t ehFrameSize, uintptr_t targetPC
 }
 
 bool ksdwarf_buildCFIRow(const uint8_t *cie, size_t cieSize, const uint8_t *fde, size_t fdeSize, uintptr_t targetPC,
-                         KSDwarfCFIRow *outRow)
+                         bool is64bit, KSDwarfCFIRow *outRow)
 {
     memset(outRow, 0, sizeof(*outRow));
 
+    size_t cieIdSize = is64bit ? 8 : 4;
+    size_t fdeCiePointerSize = is64bit ? 8 : 4;
+    if (cieSize < cieIdSize || fdeSize < fdeCiePointerSize) {
+        return false;
+    }
+
     // Parse CIE
     KSDwarfCIE cieData;
-    const uint8_t *cieContent = cie + 4;  // Skip CIE ID (0x00000000)
-    if (!parseCIE(cieContent, cieSize - 4, &cieData)) {
+    const uint8_t *cieContent = cie + cieIdSize;  // Skip CIE ID
+    if (!parseCIE(cieContent, cieSize - cieIdSize, &cieData)) {
         KSLOG_TRACE("Failed to parse CIE");
         return false;
     }
 
     // Parse FDE
     KSDwarfFDE fdeData;
-    const uint8_t *fdeContent = fde + 4;  // Skip CIE pointer
-    if (!parseFDE(fdeContent, fdeSize - 4, &cieData, (uintptr_t)fde, &fdeData)) {
+    const uint8_t *fdeContent = fde + fdeCiePointerSize;  // Skip CIE pointer
+    if (!parseFDE(fdeContent, fdeSize - fdeCiePointerSize, &cieData, (uintptr_t)fde, &fdeData)) {
         KSLOG_TRACE("Failed to parse FDE");
         return false;
     }
@@ -1017,15 +1257,16 @@ bool ksdwarf_unwind(const void *ehFrame, size_t ehFrameSize, uintptr_t pc, uintp
     size_t fdeSize = 0;
     const uint8_t *cie = NULL;
     size_t cieSize = 0;
+    bool is64bit = false;
 
-    if (!ksdwarf_findFDE(ehFrame, ehFrameSize, pc, imageBase, &fde, &fdeSize, &cie, &cieSize)) {
+    if (!ksdwarf_findFDE(ehFrame, ehFrameSize, pc, imageBase, &fde, &fdeSize, &cie, &cieSize, &is64bit)) {
         KSLOG_TRACE("No FDE found for PC 0x%lx", (unsigned long)pc);
         return false;
     }
 
     // Build CFI row for this PC
     KSDwarfCFIRow row;
-    if (!ksdwarf_buildCFIRow(cie, cieSize, fde, fdeSize, pc, &row)) {
+    if (!ksdwarf_buildCFIRow(cie, cieSize, fde, fdeSize, pc, is64bit, &row)) {
         KSLOG_TRACE("Failed to build CFI row for PC 0x%lx", (unsigned long)pc);
         return false;
     }
@@ -1033,15 +1274,19 @@ bool ksdwarf_unwind(const void *ehFrame, size_t ehFrameSize, uintptr_t pc, uintp
     // Calculate CFA
     uintptr_t cfa = 0;
     if (row.cfaRule == KSDwarfRuleOffset) {
-        uintptr_t cfaBase = getRegisterValue(row.cfaRegister, sp, fp, lr);
-        if (cfaBase == 0) {
-            KSLOG_TRACE("CFA base register %u has no value", row.cfaRegister);
+        uintptr_t cfaBase = 0;
+        if (!getRegisterValue(row.cfaRegister, sp, fp, lr, &cfaBase)) {
+            KSLOG_TRACE("CFA base register %u is not available", row.cfaRegister);
             return false;
         }
         cfa = cfaBase + (uintptr_t)row.cfaOffset;
     } else if (row.cfaRule == KSDwarfRuleExpression) {
-        KSLOG_TRACE("CFA expression evaluation not implemented");
-        return false;
+        intptr_t exprValue = 0;
+        if (!evaluateDwarfExpression(row.cfaExpression, row.cfaExpressionLen, 0, sp, fp, lr, &exprValue, NULL)) {
+            KSLOG_TRACE("Failed to evaluate CFA expression");
+            return false;
+        }
+        cfa = (uintptr_t)exprValue;
     } else {
         KSLOG_TRACE("Unsupported CFA rule type: %d", row.cfaRule);
         return false;
