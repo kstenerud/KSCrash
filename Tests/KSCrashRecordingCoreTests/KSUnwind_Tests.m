@@ -18,6 +18,59 @@
 #import "Unwind/KSStackCursor_Unwind.h"
 #import "Unwind/KSUnwindCache.h"
 
+static void ks_dwarf_test_helper(void) __attribute__((noinline));
+static void ks_dwarf_test_helper(void) {}
+
+static void writeU32LE(uint8_t *dst, uint32_t value)
+{
+    dst[0] = (uint8_t)(value & 0xFF);
+    dst[1] = (uint8_t)((value >> 8) & 0xFF);
+    dst[2] = (uint8_t)((value >> 16) & 0xFF);
+    dst[3] = (uint8_t)((value >> 24) & 0xFF);
+}
+
+static void writeU64LE(uint8_t *dst, uint64_t value)
+{
+    dst[0] = (uint8_t)(value & 0xFF);
+    dst[1] = (uint8_t)((value >> 8) & 0xFF);
+    dst[2] = (uint8_t)((value >> 16) & 0xFF);
+    dst[3] = (uint8_t)((value >> 24) & 0xFF);
+    dst[4] = (uint8_t)((value >> 32) & 0xFF);
+    dst[5] = (uint8_t)((value >> 40) & 0xFF);
+    dst[6] = (uint8_t)((value >> 48) & 0xFF);
+    dst[7] = (uint8_t)((value >> 56) & 0xFF);
+}
+
+static void appendU8(uint8_t *buf, size_t *offset, uint8_t value) { buf[(*offset)++] = value; }
+
+static void appendULEB(uint8_t *buf, size_t *offset, uint64_t value)
+{
+    do {
+        uint8_t byte = (uint8_t)(value & 0x7F);
+        value >>= 7;
+        if (value != 0) {
+            byte |= 0x80;
+        }
+        buf[(*offset)++] = byte;
+    } while (value != 0);
+}
+
+static void appendSLEB(uint8_t *buf, size_t *offset, int64_t value)
+{
+    bool more = true;
+    while (more) {
+        uint8_t byte = (uint8_t)(value & 0x7F);
+        value >>= 7;
+        bool signBitSet = (byte & 0x40) != 0;
+        if ((value == 0 && !signBitSet) || (value == -1 && signBitSet)) {
+            more = false;
+        } else {
+            byte |= 0x80;
+        }
+        buf[(*offset)++] = byte;
+    }
+}
+
 @interface KSUnwind_Tests : XCTestCase
 @end
 
@@ -514,7 +567,7 @@
     size_t fdeSize = sizeof(fdeData);
 
     KSDwarfCFIRow row;
-    bool success = ksdwarf_buildCFIRow(cieData, cieSize, fdeData, fdeSize, 0x1000, &row);
+    bool success = ksdwarf_buildCFIRow(cieData, cieSize, fdeData, fdeSize, 0x1000, false, &row);
 
     XCTAssertTrue(success, @"Building CFI row should succeed");
     XCTAssertEqual(row.cfaRegister, 7, @"CFA register should be r7");
@@ -563,7 +616,7 @@
 
     // Build row at PC 0x1003 (after restore)
     KSDwarfCFIRow row;
-    bool success = ksdwarf_buildCFIRow(cieData, cieSize, fdeData, fdeSize, 0x1003, &row);
+    bool success = ksdwarf_buildCFIRow(cieData, cieSize, fdeData, fdeSize, 0x1003, false, &row);
 
     XCTAssertTrue(success, @"Building CFI row should succeed");
 
@@ -606,7 +659,7 @@
     size_t fdeSize = sizeof(fdeData);
 
     KSDwarfCFIRow row;
-    bool success = ksdwarf_buildCFIRow(cieData, cieSize, fdeData, fdeSize, 0x1003, &row);
+    bool success = ksdwarf_buildCFIRow(cieData, cieSize, fdeData, fdeSize, 0x1003, false, &row);
 
     XCTAssertTrue(success, @"Building CFI row should succeed");
     XCTAssertEqual(row.registers[32].type, KSDwarfRuleOffset, @"Register 32 should have offset rule");
@@ -650,13 +703,423 @@
 
     // Build row at PC 0x1004 (after restore_state)
     KSDwarfCFIRow row;
-    bool success = ksdwarf_buildCFIRow(cieData, cieSize, fdeData, fdeSize, 0x1004, &row);
+    bool success = ksdwarf_buildCFIRow(cieData, cieSize, fdeData, fdeSize, 0x1004, false, &row);
 
     XCTAssertTrue(success, @"Building CFI row should succeed");
 
     // After restore_state, should be back to state at remember_state
     XCTAssertEqual(row.cfaOffset, 8, @"CFA offset should be restored to 8");
     XCTAssertEqual(row.registers[6].offset, -8, @"Register 6 should be restored to offset -8");
+}
+
+// =============================================================================
+// MARK: - DWARF Expression Evaluation Tests
+// =============================================================================
+
+- (void)testDwarf_Unwind_ExpressionRule
+{
+#if defined(__arm64__)
+    const uint8_t raReg = KSDWARF_ARM64_LR;
+    const uint8_t cfaReg = KSDWARF_ARM64_SP;
+#elif defined(__x86_64__)
+    const uint8_t raReg = KSDWARF_X86_64_RIP;
+    const uint8_t cfaReg = KSDWARF_X86_64_RSP;
+#elif defined(__arm__)
+    const uint8_t raReg = KSDWARF_ARM_R14;
+    const uint8_t cfaReg = KSDWARF_ARM_R13;
+#elif defined(__i386__)
+    const uint8_t raReg = KSDWARF_X86_EIP;
+    const uint8_t cfaReg = KSDWARF_X86_ESP;
+#else
+    XCTSkip(@"Unsupported architecture for DWARF expression test");
+    return;
+#endif
+
+    const uint8_t ptrSize = (uint8_t)sizeof(uintptr_t);
+
+    uint8_t cieContent[64];
+    size_t cieLen = 0;
+    appendU8(cieContent, &cieLen, 0x00);
+    appendU8(cieContent, &cieLen, 0x00);
+    appendU8(cieContent, &cieLen, 0x00);
+    appendU8(cieContent, &cieLen, 0x00);  // CIE ID = 0
+    appendU8(cieContent, &cieLen, 0x03);  // Version = 3
+    appendU8(cieContent, &cieLen, 'z');
+    appendU8(cieContent, &cieLen, 'R');
+    appendU8(cieContent, &cieLen, 0x00);                 // Augmentation string
+    appendULEB(cieContent, &cieLen, 1);                  // Code alignment factor
+    appendSLEB(cieContent, &cieLen, -(int64_t)ptrSize);  // Data alignment factor
+    appendULEB(cieContent, &cieLen, raReg);              // Return address register
+    appendULEB(cieContent, &cieLen, 1);                  // Augmentation data length
+    appendU8(cieContent, &cieLen, 0x03);                 // DW_EH_PE_udata4
+    appendU8(cieContent, &cieLen, 0x0C);                 // DW_CFA_def_cfa
+    appendULEB(cieContent, &cieLen, cfaReg);
+    appendULEB(cieContent, &cieLen, ptrSize);
+
+    // Expression: CFA + ptrSize = address where RA is stored
+    // DW_CFA_expression produces an address; applyRegisterRule does the final deref
+    uint8_t expr[8];
+    size_t exprLen = 0;
+    appendU8(expr, &exprLen, 0x9C);  // DW_OP_call_frame_cfa
+    appendU8(expr, &exprLen, 0x23);  // DW_OP_plus_uconst
+    appendULEB(expr, &exprLen, ptrSize);
+
+    uint8_t fdeContent[64];
+    size_t fdeLen = 0;
+    appendU8(fdeContent, &fdeLen, 0x00);
+    appendU8(fdeContent, &fdeLen, 0x00);
+    appendU8(fdeContent, &fdeLen, 0x00);
+    appendU8(fdeContent, &fdeLen, 0x00);  // CIE pointer (patched later)
+    writeU32LE(&fdeContent[fdeLen], 0x1000);
+    fdeLen += 4;
+    writeU32LE(&fdeContent[fdeLen], 0x10);
+    fdeLen += 4;
+    appendU8(fdeContent, &fdeLen, 0x00);  // Augmentation data length
+    appendU8(fdeContent, &fdeLen, 0x10);  // DW_CFA_expression
+    appendULEB(fdeContent, &fdeLen, raReg);
+    appendULEB(fdeContent, &fdeLen, exprLen);
+    memcpy(&fdeContent[fdeLen], expr, exprLen);
+    fdeLen += exprLen;
+
+    uint8_t ehFrame[256];
+    size_t ehLen = 0;
+    writeU32LE(&ehFrame[ehLen], (uint32_t)cieLen);
+    ehLen += 4;
+    memcpy(&ehFrame[ehLen], cieContent, cieLen);
+    ehLen += cieLen;
+    writeU32LE(&ehFrame[ehLen], (uint32_t)fdeLen);
+    ehLen += 4;
+    size_t fdeStart = ehLen;
+    memcpy(&ehFrame[ehLen], fdeContent, fdeLen);
+    ehLen += fdeLen;
+    writeU32LE(&ehFrame[ehLen], 0x00);  // Terminator
+    ehLen += 4;
+
+    writeU32LE(&ehFrame[fdeStart], (uint32_t)(fdeStart));
+
+    // Stack layout:
+    // stack[0] = sp (unused)
+    // stack[1] = CFA = sp + ptrSize
+    // stack[2] = expression result address (CFA + ptrSize), stores expectedRA
+    uintptr_t stack[4] = { 0 };
+#if __LP64__
+    uintptr_t expectedRA = (uintptr_t)0xDEADBEEFCAFEBABEULL;
+#else
+    uintptr_t expectedRA = (uintptr_t)0xDEADBEEF;
+#endif
+    stack[2] = expectedRA;
+    uintptr_t sp = (uintptr_t)&stack[0];
+
+    KSDwarfUnwindResult result;
+    bool success = ksdwarf_unwind(ehFrame, ehLen, 0x1000, sp, 0, 0, 0, &result);
+    XCTAssertTrue(success, @"DWARF unwind with expression should succeed");
+    XCTAssertTrue(result.valid, @"Result should be valid");
+    XCTAssertEqual(result.returnAddress, expectedRA, @"Return address should be loaded via expression");
+    XCTAssertEqual(result.stackPointer, sp + ptrSize, @"CFA should be SP + ptrSize");
+}
+
+- (void)testDwarf_Unwind_CFAExpression
+{
+#if defined(__arm64__)
+    const uint8_t raReg = KSDWARF_ARM64_LR;
+    const uint8_t cfaReg = KSDWARF_ARM64_SP;
+#elif defined(__x86_64__)
+    const uint8_t raReg = KSDWARF_X86_64_RIP;
+    const uint8_t cfaReg = KSDWARF_X86_64_RSP;
+#elif defined(__arm__)
+    const uint8_t raReg = KSDWARF_ARM_R14;
+    const uint8_t cfaReg = KSDWARF_ARM_R13;
+#elif defined(__i386__)
+    const uint8_t raReg = KSDWARF_X86_EIP;
+    const uint8_t cfaReg = KSDWARF_X86_ESP;
+#else
+    XCTSkip(@"Unsupported architecture for CFA expression test");
+    return;
+#endif
+
+    const uint8_t ptrSize = (uint8_t)sizeof(uintptr_t);
+
+    uint8_t cfaExpr[8];
+    size_t cfaExprLen = 0;
+    appendU8(cfaExpr, &cfaExprLen, (uint8_t)(0x70 + cfaReg));  // DW_OP_breg0 + cfaReg
+    appendSLEB(cfaExpr, &cfaExprLen, (int64_t)ptrSize);
+
+    uint8_t cieContent[64];
+    size_t cieLen = 0;
+    appendU8(cieContent, &cieLen, 0x00);
+    appendU8(cieContent, &cieLen, 0x00);
+    appendU8(cieContent, &cieLen, 0x00);
+    appendU8(cieContent, &cieLen, 0x00);  // CIE ID = 0
+    appendU8(cieContent, &cieLen, 0x03);  // Version = 3
+    appendU8(cieContent, &cieLen, 'z');
+    appendU8(cieContent, &cieLen, 'R');
+    appendU8(cieContent, &cieLen, 0x00);  // Augmentation string
+    appendULEB(cieContent, &cieLen, 1);   // Code alignment factor
+    appendSLEB(cieContent, &cieLen, 1);   // Data alignment factor
+    appendULEB(cieContent, &cieLen, raReg);
+    appendULEB(cieContent, &cieLen, 1);   // Augmentation data length
+    appendU8(cieContent, &cieLen, 0x03);  // DW_EH_PE_udata4
+    appendU8(cieContent, &cieLen, 0x0F);  // DW_CFA_def_cfa_expression
+    appendULEB(cieContent, &cieLen, cfaExprLen);
+    memcpy(&cieContent[cieLen], cfaExpr, cfaExprLen);
+    cieLen += cfaExprLen;
+
+    uint8_t fdeContent[32];
+    size_t fdeLen = 0;
+    appendU8(fdeContent, &fdeLen, 0x00);
+    appendU8(fdeContent, &fdeLen, 0x00);
+    appendU8(fdeContent, &fdeLen, 0x00);
+    appendU8(fdeContent, &fdeLen, 0x00);  // CIE pointer (patched later)
+    writeU32LE(&fdeContent[fdeLen], 0x1000);
+    fdeLen += 4;
+    writeU32LE(&fdeContent[fdeLen], 0x10);
+    fdeLen += 4;
+    appendU8(fdeContent, &fdeLen, 0x00);                     // Augmentation data length
+    appendU8(fdeContent, &fdeLen, (uint8_t)(0x80 | raReg));  // DW_CFA_offset
+    appendULEB(fdeContent, &fdeLen, 0);
+
+    uint8_t ehFrame[256];
+    size_t ehLen = 0;
+    writeU32LE(&ehFrame[ehLen], (uint32_t)cieLen);
+    ehLen += 4;
+    memcpy(&ehFrame[ehLen], cieContent, cieLen);
+    ehLen += cieLen;
+    writeU32LE(&ehFrame[ehLen], (uint32_t)fdeLen);
+    ehLen += 4;
+    size_t fdeStart = ehLen;
+    memcpy(&ehFrame[ehLen], fdeContent, fdeLen);
+    ehLen += fdeLen;
+    writeU32LE(&ehFrame[ehLen], 0x00);  // Terminator
+    ehLen += 4;
+
+    writeU32LE(&ehFrame[fdeStart], (uint32_t)(fdeStart));
+
+    uintptr_t stack[2] = { 0 };
+    uintptr_t expectedRA = (uintptr_t)0xABCDEF01;
+    stack[1] = expectedRA;
+    uintptr_t sp = (uintptr_t)&stack[0];
+
+    KSDwarfUnwindResult result;
+    bool success = ksdwarf_unwind(ehFrame, ehLen, 0x1000, sp, 0, 0, 0, &result);
+    XCTAssertTrue(success, @"DWARF unwind with CFA expression should succeed");
+    XCTAssertTrue(result.valid, @"Result should be valid");
+    XCTAssertEqual(result.returnAddress, expectedRA, @"Return address should be loaded at CFA");
+    XCTAssertEqual(result.stackPointer, sp + ptrSize, @"CFA should be SP + ptrSize");
+}
+
+- (void)testDwarf_Unwind_ExpressionStackValue
+{
+#if defined(__arm64__)
+    const uint8_t raReg = KSDWARF_ARM64_LR;
+    const uint8_t cfaReg = KSDWARF_ARM64_SP;
+#elif defined(__x86_64__)
+    const uint8_t raReg = KSDWARF_X86_64_RIP;
+    const uint8_t cfaReg = KSDWARF_X86_64_RSP;
+#elif defined(__arm__)
+    const uint8_t raReg = KSDWARF_ARM_R14;
+    const uint8_t cfaReg = KSDWARF_ARM_R13;
+#elif defined(__i386__)
+    const uint8_t raReg = KSDWARF_X86_EIP;
+    const uint8_t cfaReg = KSDWARF_X86_ESP;
+#else
+    XCTSkip(@"Unsupported architecture for DWARF stack_value test");
+    return;
+#endif
+
+    const uint8_t ptrSize = (uint8_t)sizeof(uintptr_t);
+    const uintptr_t expectedRA = (uintptr_t)0x12345678;
+
+    uint8_t cieContent[64];
+    size_t cieLen = 0;
+    appendU8(cieContent, &cieLen, 0x00);
+    appendU8(cieContent, &cieLen, 0x00);
+    appendU8(cieContent, &cieLen, 0x00);
+    appendU8(cieContent, &cieLen, 0x00);  // CIE ID = 0
+    appendU8(cieContent, &cieLen, 0x03);  // Version = 3
+    appendU8(cieContent, &cieLen, 'z');
+    appendU8(cieContent, &cieLen, 'R');
+    appendU8(cieContent, &cieLen, 0x00);  // Augmentation string
+    appendULEB(cieContent, &cieLen, 1);   // Code alignment factor
+    appendSLEB(cieContent, &cieLen, 1);   // Data alignment factor
+    appendULEB(cieContent, &cieLen, raReg);
+    appendULEB(cieContent, &cieLen, 1);   // Augmentation data length
+    appendU8(cieContent, &cieLen, 0x03);  // DW_EH_PE_udata4
+    appendU8(cieContent, &cieLen, 0x0C);  // DW_CFA_def_cfa
+    appendULEB(cieContent, &cieLen, cfaReg);
+    appendULEB(cieContent, &cieLen, ptrSize);
+
+    uint8_t expr[16];
+    size_t exprLen = 0;
+    appendU8(expr, &exprLen, 0x10);  // DW_OP_constu
+    appendULEB(expr, &exprLen, (uint64_t)expectedRA);
+    appendU8(expr, &exprLen, 0x9F);  // DW_OP_stack_value
+
+    uint8_t fdeContent[64];
+    size_t fdeLen = 0;
+    appendU8(fdeContent, &fdeLen, 0x00);
+    appendU8(fdeContent, &fdeLen, 0x00);
+    appendU8(fdeContent, &fdeLen, 0x00);
+    appendU8(fdeContent, &fdeLen, 0x00);  // CIE pointer (patched later)
+    writeU32LE(&fdeContent[fdeLen], 0x1000);
+    fdeLen += 4;
+    writeU32LE(&fdeContent[fdeLen], 0x10);
+    fdeLen += 4;
+    appendU8(fdeContent, &fdeLen, 0x00);  // Augmentation data length
+    appendU8(fdeContent, &fdeLen, 0x10);  // DW_CFA_expression
+    appendULEB(fdeContent, &fdeLen, raReg);
+    appendULEB(fdeContent, &fdeLen, exprLen);
+    memcpy(&fdeContent[fdeLen], expr, exprLen);
+    fdeLen += exprLen;
+
+    uint8_t ehFrame[256];
+    size_t ehLen = 0;
+    writeU32LE(&ehFrame[ehLen], (uint32_t)cieLen);
+    ehLen += 4;
+    memcpy(&ehFrame[ehLen], cieContent, cieLen);
+    ehLen += cieLen;
+    writeU32LE(&ehFrame[ehLen], (uint32_t)fdeLen);
+    ehLen += 4;
+    size_t fdeStart = ehLen;
+    memcpy(&ehFrame[ehLen], fdeContent, fdeLen);
+    ehLen += fdeLen;
+    writeU32LE(&ehFrame[ehLen], 0x00);  // Terminator
+    ehLen += 4;
+
+    writeU32LE(&ehFrame[fdeStart], (uint32_t)(fdeStart));
+
+    uintptr_t stack[2] = { 0 };
+    uintptr_t sp = (uintptr_t)&stack[0];
+
+    KSDwarfUnwindResult result;
+    bool success = ksdwarf_unwind(ehFrame, ehLen, 0x1000, sp, 0, 0, 0, &result);
+    XCTAssertTrue(success, @"DWARF unwind with stack_value should succeed");
+    XCTAssertTrue(result.valid, @"Result should be valid");
+    XCTAssertEqual(result.returnAddress, expectedRA, @"Return address should match stack_value expression");
+    XCTAssertEqual(result.stackPointer, sp + ptrSize, @"CFA should be SP + ptrSize");
+}
+
+// =============================================================================
+// MARK: - 64-bit DWARF Format Tests
+// =============================================================================
+
+- (void)testDwarf_FindFDE_64BitFormat
+{
+#if defined(__arm64__)
+    const uint8_t raReg = KSDWARF_ARM64_LR;
+    const uint8_t cfaReg = KSDWARF_ARM64_SP;
+#elif defined(__x86_64__)
+    const uint8_t raReg = KSDWARF_X86_64_RIP;
+    const uint8_t cfaReg = KSDWARF_X86_64_RSP;
+#elif defined(__arm__)
+    const uint8_t raReg = KSDWARF_ARM_R14;
+    const uint8_t cfaReg = KSDWARF_ARM_R13;
+#elif defined(__i386__)
+    const uint8_t raReg = KSDWARF_X86_EIP;
+    const uint8_t cfaReg = KSDWARF_X86_ESP;
+#else
+    XCTSkip(@"Unsupported architecture for 64-bit DWARF test");
+    return;
+#endif
+
+    const uint8_t ptrSize = (uint8_t)sizeof(uintptr_t);
+
+    uint8_t cieContent[64];
+    size_t cieLen = 0;
+    for (int i = 0; i < 8; i++) {
+        appendU8(cieContent, &cieLen, 0x00);
+    }
+    appendU8(cieContent, &cieLen, 0x03);  // Version = 3
+    appendU8(cieContent, &cieLen, 'z');
+    appendU8(cieContent, &cieLen, 'R');
+    appendU8(cieContent, &cieLen, 0x00);                 // Augmentation string
+    appendULEB(cieContent, &cieLen, 1);                  // Code alignment factor
+    appendSLEB(cieContent, &cieLen, -(int64_t)ptrSize);  // Data alignment factor
+    appendULEB(cieContent, &cieLen, raReg);
+    appendULEB(cieContent, &cieLen, 1);   // Augmentation data length
+    appendU8(cieContent, &cieLen, 0x03);  // DW_EH_PE_udata4
+    appendU8(cieContent, &cieLen, 0x0C);  // DW_CFA_def_cfa
+    appendULEB(cieContent, &cieLen, cfaReg);
+    appendULEB(cieContent, &cieLen, ptrSize);
+
+    uint8_t fdeContent[32];
+    size_t fdeLen = 0;
+    for (int i = 0; i < 8; i++) {
+        appendU8(fdeContent, &fdeLen, 0x00);
+    }
+    writeU32LE(&fdeContent[fdeLen], 0x1000);
+    fdeLen += 4;
+    writeU32LE(&fdeContent[fdeLen], 0x10);
+    fdeLen += 4;
+    appendU8(fdeContent, &fdeLen, 0x00);  // Augmentation data length
+
+    uint8_t ehFrame[256];
+    size_t ehLen = 0;
+    writeU32LE(&ehFrame[ehLen], 0xFFFFFFFF);
+    ehLen += 4;
+    writeU64LE(&ehFrame[ehLen], (uint64_t)cieLen);
+    ehLen += 8;
+    memcpy(&ehFrame[ehLen], cieContent, cieLen);
+    ehLen += cieLen;
+
+    writeU32LE(&ehFrame[ehLen], 0xFFFFFFFF);
+    ehLen += 4;
+    writeU64LE(&ehFrame[ehLen], (uint64_t)fdeLen);
+    ehLen += 8;
+    size_t fdeStart = ehLen;
+    memcpy(&ehFrame[ehLen], fdeContent, fdeLen);
+    ehLen += fdeLen;
+    writeU32LE(&ehFrame[ehLen], 0x00);
+    ehLen += 4;
+
+    writeU64LE(&ehFrame[fdeStart], (uint64_t)(fdeStart));
+
+    const uint8_t *fde = NULL;
+    size_t fdeSize = 0;
+    const uint8_t *cie = NULL;
+    size_t cieSize = 0;
+    bool is64bit = false;
+
+    bool found = ksdwarf_findFDE(ehFrame, ehLen, 0x1000, 0, &fde, &fdeSize, &cie, &cieSize, &is64bit);
+    XCTAssertTrue(found, @"Should find FDE in 64-bit DWARF data");
+    XCTAssertTrue(is64bit, @"Should report 64-bit DWARF format");
+
+    KSDwarfCFIRow row;
+    bool success = ksdwarf_buildCFIRow(cie, cieSize, fde, fdeSize, 0x1000, is64bit, &row);
+    XCTAssertTrue(success, @"Building CFI row should succeed for 64-bit format");
+    XCTAssertEqual(row.cfaRegister, cfaReg, @"CFA register should match");
+    XCTAssertEqual(row.cfaOffset, ptrSize, @"CFA offset should match pointer size");
+}
+
+// =============================================================================
+// MARK: - Real __eh_frame Integration Test
+// =============================================================================
+
+- (void)testDwarf_FindFDE_RealEhFrame
+{
+    uintptr_t address = (uintptr_t)&ks_dwarf_test_helper;
+    const KSUnwindImageInfo *info = ksunwindcache_getInfoForAddress(address);
+    if (info == NULL || !info->hasEhFrame) {
+        XCTSkip(@"No __eh_frame available for test binary");
+        return;
+    }
+
+    const uint8_t *fde = NULL;
+    size_t fdeSize = 0;
+    const uint8_t *cie = NULL;
+    size_t cieSize = 0;
+    bool is64bit = false;
+
+    bool found = ksdwarf_findFDE(info->ehFrame, info->ehFrameSize, address, (uintptr_t)info->header, &fde, &fdeSize,
+                                 &cie, &cieSize, &is64bit);
+    if (!found) {
+        // The test function might not have FDE (e.g., leaf function with no unwind info)
+        XCTSkip(@"No FDE found for test helper function - this is expected for simple leaf functions");
+        return;
+    }
+
+    KSDwarfCFIRow row;
+    bool built = ksdwarf_buildCFIRow(cie, cieSize, fde, fdeSize, address, is64bit, &row);
+    XCTAssertTrue(built, @"Should build CFI row from real __eh_frame data");
 }
 
 @end
