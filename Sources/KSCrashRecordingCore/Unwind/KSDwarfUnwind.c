@@ -30,7 +30,7 @@
 
 #include "KSMemory.h"
 
-#define KSLogger_LocalLevel TRACE
+// #define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
 // MARK: - DWARF Constants

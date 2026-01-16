@@ -29,7 +29,7 @@
 #include "KSCPU.h"
 #include "KSMemory.h"
 
-#define KSLogger_LocalLevel TRACE
+// #define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
 /** Represents an entry in a frame list.
