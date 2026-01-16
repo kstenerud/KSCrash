@@ -35,6 +35,7 @@
 #include "KSStackCursor_SelfThread.h"
 #include "KSSymbolicator.h"
 #include "KSThread.h"
+#include "Unwind/KSStackCursor_Unwind.h"
 
 int ksbt_captureBacktrace(pthread_t thread, uintptr_t *addresses, int count)
 {
@@ -57,7 +58,7 @@ int ksbt_captureBacktraceFromMachThread(thread_t machThread, uintptr_t *addresse
         if (!ksmc_getContextForThread(machThread, &machineContext, false)) {
             return 0;
         }
-        kssc_initWithMachineContext(&stackCursor, maxFrames, &machineContext);
+        kssc_initWithUnwind(&stackCursor, maxFrames, &machineContext);
     }
 
     int frameCount = 0;
