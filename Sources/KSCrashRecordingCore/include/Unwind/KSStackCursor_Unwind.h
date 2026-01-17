@@ -27,7 +27,7 @@
 #ifndef KSStackCursor_Unwind_h
 #define KSStackCursor_Unwind_h
 
-#include "../KSStackCursor.h"
+#include "KSStackCursor.h"
 
 #ifdef __cplusplus
 extern "C" {
