@@ -180,6 +180,7 @@ bool kscu_arm64_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attrib
         // Note: D8-D15 floating point register recovery is not implemented
         // as they are rarely needed for backtrace purposes. The register
         // save area is still properly accounted for in stack layout.
+        (void)regSaveAddr;  // Suppress unused warning; kept for future D8-D15 support
 
         result->valid = true;
         KSLOG_TRACE("Frame-based unwind: returnAddr=0x%lx, newSP=0x%lx, newFP=0x%lx",

@@ -60,6 +60,7 @@
 #include "KSSystemCapabilities.h"
 #include "KSThread.h"
 #include "KSThreadCache.h"
+#include "Unwind/KSStackCursor_Unwind.h"
 
 // #define KSLogger_LocalLevel TRACE
 #include <errno.h>
