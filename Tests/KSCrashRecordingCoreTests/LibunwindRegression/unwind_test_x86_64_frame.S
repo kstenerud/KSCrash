@@ -23,8 +23,10 @@
 #ifdef __x86_64__
 
 // Note: USE_EH_FRAME and USE_COMPACT_UNWIND don't work together on iOS, tvOS simulators and Mac Catalyst.
+// For our DWARF unwind tests, we only need __eh_frame since we're testing FDE/CIE parsing.
+// Having both sections causes linker alignment warnings and may interfere with __eh_frame data.
 #define USE_EH_FRAME 1
-#define USE_COMPACT_UNWIND 1
+#define USE_COMPACT_UNWIND 0
 
 .data
 .align 3
