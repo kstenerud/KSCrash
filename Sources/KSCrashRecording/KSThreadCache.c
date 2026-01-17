@@ -48,7 +48,7 @@ typedef struct {
 
 // MARK: - Globals
 
-static int g_pollingIntervalInSeconds;
+static atomic_int g_pollingIntervalInSeconds;
 static pthread_t g_cacheThread;
 static atomic_bool g_searchQueueNames;
 static atomic_bool g_initialized;
@@ -186,7 +186,7 @@ static void *monitorThreadCache(__unused void *const userData)
     for (;;) {
         updateCache();
 
-        unsigned pollInterval = (unsigned)g_pollingIntervalInSeconds;
+        unsigned pollInterval = (unsigned)atomic_load(&g_pollingIntervalInSeconds);
         if (quickPollCount > 0) {
             // Lots can happen in the first few seconds of operation.
             quickPollCount--;
@@ -205,7 +205,7 @@ void kstc_init(int pollingIntervalInSeconds)
         return;
     }
 
-    g_pollingIntervalInSeconds = pollingIntervalInSeconds;
+    atomic_store(&g_pollingIntervalInSeconds, pollingIntervalInSeconds);
     atomic_store(&g_searchQueueNames, false);
     atomic_store(&g_frozenCache, NULL);
 
