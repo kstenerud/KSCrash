@@ -13,6 +13,6 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 typedef KSCrashAppMemory *_Nonnull (^KSCrashAppMemoryProvider)(void);
-FOUNDATION_EXPORT void testsupport_KSCrashAppMemorySetProvider(KSCrashAppMemoryProvider provider);
+FOUNDATION_EXPORT void testsupport_KSCrashAppMemorySetProvider(KSCrashAppMemoryProvider _Nullable provider);
 
 NS_ASSUME_NONNULL_END

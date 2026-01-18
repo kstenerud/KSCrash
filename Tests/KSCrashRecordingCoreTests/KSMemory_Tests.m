@@ -92,4 +92,13 @@
     XCTAssertTrue(copied == 0, @"");
 }
 
+- (void)testCopyMaxPossibleMemOverflow
+{
+    char buff[1000];
+    char *src = (char *)(UINTPTR_MAX - 100);
+
+    int copied = ksmem_copyMaxPossible(src, buff, 1000);
+    XCTAssertTrue(copied == 0, @"");
+}
+
 @end

@@ -235,7 +235,7 @@ static int addJSONData(const char *data, int length, void *userData)
     if (length > context->outputBytesLeft) {
         return KSJSON_ERROR_DATA_TOO_LONG;
     }
-    memcpy(context->outputPtr, data, length);
+    memcpy(context->outputPtr, data, (size_t)length);
     context->outputPtr += length;
     context->outputBytesLeft -= length;
 
@@ -265,7 +265,7 @@ static char *kscrf_fixupCrashReportWithVersionComponents(const char *crashReport
     char *stringBuffer = malloc((unsigned)stringBufferLength);
     int crashReportLength = (int)strlen(crashReport);
     int fixedReportLength = (int)(crashReportLength * 1.5);
-    char *fixedReport = malloc((unsigned)fixedReportLength);
+    char *fixedReport = malloc((unsigned)fixedReportLength + 1);  // +1 for null terminator
     KSJSONEncodeContext encodeContext;
     FixupContext fixupContext = {
         .encodeContext = &encodeContext,

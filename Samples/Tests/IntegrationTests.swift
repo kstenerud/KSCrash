@@ -94,6 +94,25 @@ final class CppTests: IntegrationTestBase {
         let appleReport = try launchAndReportCrash()
         XCTAssertTrue(appleReport.contains("C++ exception"))
     }
+
+    func testRuntimeExceptionBackgroundThread() throws {
+        try launchAndCrash(
+            .cpp_runtimeExceptionBackgroundThread,
+            installOverride: { (configuration: inout InstallConfig) in
+                configuration.isCxaThrowEnabled = false
+            })
+
+        let rawReport = try readPartialCrashReport()
+        try rawReport.validate()
+        XCTAssertEqual(rawReport.crash?.error?.type, "cpp_exception")
+        let topSymbol = rawReport.crashedThread?.backtrace.contents
+            .compactMap(\.symbol_name).first
+            .flatMap(CrashReportFilterDemangle.demangledCppSymbol)
+        XCTAssertEqual(topSymbol, "sample_namespace::Report::crash()")
+
+        let appleReport = try launchAndReportCrash()
+        XCTAssertTrue(appleReport.contains("C++ exception"))
+    }
 }
 
 #if !os(watchOS)

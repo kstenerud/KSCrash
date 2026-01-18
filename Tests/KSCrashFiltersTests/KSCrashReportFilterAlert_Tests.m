@@ -27,6 +27,7 @@
 #import <XCTest/XCTest.h>
 
 #import "KSCrashReportFilterAlert.h"
+#import "KSSystemCapabilities.h"
 
 @interface KSCrashReportFilterAlert_Tests : XCTestCase
 @end
@@ -35,6 +36,10 @@
 
 - (void)testAlert
 {
+#if !KSCRASH_HAS_UIKIT
+    XCTSkip(@"Alert tests require UIKit (not available on macOS)");
+#endif
+
     id<KSCrashReportFilter> filter = [[KSCrashReportFilterAlert alloc] initWithTitle:@"title"
                                                                              message:@"message"
                                                                            yesAnswer:@"YES"

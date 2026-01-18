@@ -148,14 +148,14 @@ static bool deletePathContents(const char *path, bool deleteTopLevelPathAlso)
 
         int bufferLength = KSFU_MAX_PATH_LENGTH;
         char *pathBuffer = malloc((unsigned)bufferLength);
-        snprintf(pathBuffer, bufferLength, "%s/", path);
+        snprintf(pathBuffer, (size_t)bufferLength, "%s/", path);
         char *pathPtr = pathBuffer + strlen(pathBuffer);
         int pathRemainingLength = bufferLength - (int)(pathPtr - pathBuffer);
 
         for (int i = 0; i < entryCount; i++) {
             char *entry = entries[i];
             if (entry != NULL && canDeletePath(entry)) {
-                strncpy(pathPtr, entry, pathRemainingLength);
+                strncpy(pathPtr, entry, (size_t)pathRemainingLength);
                 deletePathContents(pathBuffer, true);
             }
         }
@@ -421,7 +421,7 @@ bool ksfu_writeBufferedWriter(KSBufferedWriter *writer, const char *restrict con
     if (length > writer->bufferLength) {
         return ksfu_writeBytesToFD(writer->fd, data, length);
     }
-    memcpy(writer->buffer + writer->position, data, length);
+    memcpy(writer->buffer + writer->position, data, (size_t)length);
     writer->position += length;
     return true;
 }
@@ -442,8 +442,9 @@ static inline bool isReadBufferEmpty(KSBufferedReader *reader) { return reader->
 static bool fillReadBuffer(KSBufferedReader *reader)
 {
     if (reader->dataStartPos > 0) {
-        memmove(reader->buffer, reader->buffer + reader->dataStartPos, reader->dataStartPos);
-        reader->dataEndPos -= reader->dataStartPos;
+        int remainingData = reader->dataEndPos - reader->dataStartPos;
+        memmove(reader->buffer, reader->buffer + reader->dataStartPos, (size_t)remainingData);
+        reader->dataEndPos = remainingData;
         reader->dataStartPos = 0;
         reader->buffer[reader->dataEndPos] = '\0';
     }
@@ -480,7 +481,7 @@ int ksfu_readBufferedReader(KSBufferedReader *reader, char *dstBuffer, int byteC
         }
         int bytesToCopy = bytesInReader <= bytesRemaining ? bytesInReader : bytesRemaining;
         char *pSrc = reader->buffer + reader->dataStartPos;
-        memcpy(pDst, pSrc, bytesToCopy);
+        memcpy(pDst, pSrc, (size_t)bytesToCopy);
         pDst += bytesToCopy;
         reader->dataStartPos += bytesToCopy;
         bytesConsumed += bytesToCopy;
@@ -507,7 +508,7 @@ bool ksfu_readBufferedReaderUntilChar(KSBufferedReader *reader, int ch, char *ds
                 bytesToCopy = bytesToChar;
             }
         }
-        memcpy(pDst, pSrc, bytesToCopy);
+        memcpy(pDst, pSrc, (size_t)bytesToCopy);
         pDst += bytesToCopy;
         reader->dataStartPos += bytesToCopy;
         bytesConsumed += bytesToCopy;
@@ -582,8 +583,22 @@ void *ksfu_mmap(const char *path, size_t size)
         // This comes before close which is ok since it'll happen
         // when all fd's are closed.
         unlink(path);
+        close(fd);
+        return NULL;
     }
 
     close(fd);
     return ptr;
+}
+
+bool ksfu_munmap(void *ptr, size_t size)
+{
+    if (ptr == NULL) {
+        return true;
+    }
+    if (munmap(ptr, size) == -1) {
+        KSLOG_ERROR("Could not munmap: %s", strerror(errno));
+        return false;
+    }
+    return true;
 }

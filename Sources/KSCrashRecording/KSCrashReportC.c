@@ -907,7 +907,7 @@ static void writeNotableStackContents(const KSCrashReportWriter *const writer,
     char nameBuffer[40];
     for (uintptr_t address = lowAddress; address < highAddress; address += sizeof(address)) {
         if (ksmem_copySafely((void *)address, &contentsAsPointer, sizeof(contentsAsPointer))) {
-            sprintf(nameBuffer, "stack@%p", (void *)address);
+            snprintf(nameBuffer, sizeof(nameBuffer), "stack@%p", (void *)address);
             writeMemoryContentsIfNotable(writer, nameBuffer, contentsAsPointer);
         }
     }
