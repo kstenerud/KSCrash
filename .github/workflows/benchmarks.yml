@@ -1,25 +1,13 @@
 name: Benchmarks
 
 on:
-  # For same-repo PRs (has write permissions already)
   pull_request:
     paths:
       - "Sources/**"
       - "Tests/KSCrashBenchmarks/**"
       - "Tests/KSCrashBenchmarksObjC/**"
       - "Tests/KSCrashBenchmarksCold/**"
-      - "Tests/KSCrashRecordingTests/KSCrashReportBenchmarks.m"
-      - "Package.swift"
-      - ".github/workflows/benchmarks.yml"
-
-  # For fork PRs (needs base repo context for write permissions)
-  pull_request_target:
-    paths:
-      - "Sources/**"
-      - "Tests/KSCrashBenchmarks/**"
-      - "Tests/KSCrashBenchmarksObjC/**"
-      - "Tests/KSCrashBenchmarksCold/**"
-      - "Tests/KSCrashRecordingTests/KSCrashReportBenchmarks.m"
+      - "Benchmarks/**"
       - "Package.swift"
       - ".github/workflows/benchmarks.yml"
 
@@ -28,9 +16,6 @@ on:
       - master
 
   workflow_dispatch:
-
-  schedule:
-    - cron: "0 0 * * 0"
 
 permissions:
   contents: read
@@ -43,24 +28,20 @@ concurrency:
 jobs:
   benchmark:
     runs-on: macos-latest
-    # Run on pull_request only for same-repo, pull_request_target only for forks
-    # This prevents duplicate runs
+    # Skip for fork PRs (no write permissions to comment on PR)
     if: |
-      github.event_name != 'pull_request_target' && github.event_name != 'pull_request' ||
-      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
-      (github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository)
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
 
     steps:
       - name: Checkout PR Branch
         uses: actions/checkout@v4
         with:
-          # For pull_request_target, we must explicitly get the PR head
-          # For pull_request, the default checkout works but explicit is clearer
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           path: pr-branch
 
       - name: Checkout Base Branch
-        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request'
         uses: actions/checkout@v4
         with:
           ref: ${{ github.base_ref }}
@@ -71,574 +52,55 @@ jobs:
         with:
           xcode-version: latest-stable
 
-      - name: Run PR Benchmarks
-        working-directory: pr-branch
+      - name: Ensure the Platform is Downloaded
         run: |
-          swift test --filter "KSCrashBenchmarks|KSCxaThrowBenchmarks|KSCxaThrowColdBenchmarks|KSCrashReportBenchmarks" 2>&1 | tee ../pr_benchmark_output.txt
+          xcodebuild -runFirstLaunch
+          xcrun simctl list
+          xcodebuild -downloadPlatform iOS
+          xcodebuild -runFirstLaunch
+
+      - name: Setup Mise
+        uses: jdx/mise-action@v2
+
+      - name: Install xcbeautify
+        run: brew install xcbeautify
+
+      - name: Run PR Benchmarks
+        working-directory: pr-branch/Benchmarks
+        run: |
+          mise exec -- tuist generate --no-open
+          rm -rf ../../pr_benchmarks.xcresult
+          set -o pipefail
+          xcodebuild -workspace KSCrashBenchmarks.xcworkspace \
+            -scheme Benchmarks \
+            -destination 'platform=iOS Simulator,name=iPhone 17' \
+            -resultBundlePath ../../pr_benchmarks.xcresult \
+            test 2>&1 | xcbeautify
 
       - name: Run Base Benchmarks
-        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
-        working-directory: base-branch
+        if: github.event_name == 'pull_request'
         run: |
-          # Check if benchmarks exist in base branch
-          if ([ -d "Tests/KSCrashBenchmarks" ] || [ -d "Tests/KSCrashBenchmarksObjC" ]) && grep -qE "KSCrashBenchmarks|KSCrashBenchmarksObjC" Package.swift; then
-            swift test --filter "KSCrashBenchmarks|KSCxaThrowBenchmarks|KSCxaThrowColdBenchmarks|KSCrashReportBenchmarks" 2>&1 | tee ../base_benchmark_output.txt
-          else
-            echo "No benchmarks in base branch" > ../base_benchmark_output.txt
+          if [ -d "base-branch/Benchmarks" ] && [ -f "base-branch/Benchmarks/Project.swift" ]; then
+            cd base-branch/Benchmarks
+            mise exec -- tuist generate --no-open
+            rm -rf ../../base_benchmarks.xcresult
+            set -o pipefail
+            xcodebuild -workspace KSCrashBenchmarks.xcworkspace \
+              -scheme Benchmarks \
+              -destination 'platform=iOS Simulator,name=iPhone 17' \
+              -resultBundlePath ../../base_benchmarks.xcresult \
+              test 2>&1 | xcbeautify
           fi
 
       - name: Parse and Format Results
-        env:
-          IS_PR: ${{ github.event_name == 'pull_request' || github.event_name == 'pull_request_target' }}
         run: |
-          python3 << 'EOF'
-          import re
-          import os
-          from datetime import datetime
-          import subprocess
-
-          is_pr = os.environ.get('IS_PR', 'false') == 'true'
-
-          # Get system info
-          try:
-              chip = subprocess.check_output(['sysctl', '-n', 'machdep.cpu.brand_string']).decode().strip()
-          except:
-              chip = subprocess.check_output(['uname', '-m']).decode().strip()
-
-          try:
-              mem_bytes = int(subprocess.check_output(['sysctl', '-n', 'hw.memsize']).decode().strip())
-              mem_gb = mem_bytes / (1024**3)
-          except:
-              mem_gb = 0
-
-          try:
-              macos_ver = subprocess.check_output(['sw_vers', '-productVersion']).decode().strip()
-          except:
-              macos_ver = "Unknown"
-
-          try:
-              xcode_ver = subprocess.check_output(['xcodebuild', '-version']).decode().split('\n')[0]
-          except:
-              xcode_ver = "Unknown"
-
-          system_info = f"{chip}, {mem_gb:.0f}GB RAM, macOS {macos_ver}, {xcode_ver}"
-
-          def parse_results(filename):
-              """Parse benchmark output file and return dict of results with stats"""
-              try:
-                  with open(filename, 'r') as f:
-                      content = f.read()
-                  if "No benchmarks in base branch" in content:
-                      return None
-                  # Capture average and relative standard deviation
-                  pattern = r"testBenchmark(\w+).*?average: ([\d.]+), relative standard deviation: ([\d.]+)%"
-                  matches = re.findall(pattern, content)
-                  results = {}
-                  for name, avg, rel_stddev in matches:
-                      avg_f = float(avg)
-                      # Convert relative stddev (%) to absolute stddev
-                      abs_stddev = avg_f * (float(rel_stddev) / 100.0)
-                      results[name] = {'avg': avg_f, 'stddev': abs_stddev, 'n': 10}  # XCTest runs 10 iterations
-                  return results
-              except FileNotFoundError:
-                  return None
-
-          def welch_t_test(mean1, std1, n1, mean2, std2, n2):
-              """Perform Welch's t-test and return p-value approximation"""
-              import math
-
-              # Handle edge cases
-              if std1 == 0 and std2 == 0:
-                  return 1.0 if mean1 == mean2 else 0.0
-
-              # Welch's t-statistic
-              se1 = (std1 ** 2) / n1
-              se2 = (std2 ** 2) / n2
-              se_diff = math.sqrt(se1 + se2)
-
-              if se_diff == 0:
-                  return 1.0 if mean1 == mean2 else 0.0
-
-              t_stat = abs(mean1 - mean2) / se_diff
-
-              # Welch-Satterthwaite degrees of freedom
-              if se1 + se2 == 0:
-                  df = n1 + n2 - 2
-              else:
-                  df = ((se1 + se2) ** 2) / ((se1 ** 2) / (n1 - 1) + (se2 ** 2) / (n2 - 1))
-
-              # Approximate p-value using t-distribution
-              # Using a simple approximation for two-tailed test
-              x = df / (df + t_stat ** 2)
-
-              # Beta function approximation for p-value
-              if t_stat == 0:
-                  return 1.0
-
-              # Simple approximation: for large df, t approaches normal
-              # p ≈ 2 * (1 - Φ(|t|)) for large df
-              # Using a conservative approximation
-              if df > 30:
-                  # Normal approximation
-                  z = t_stat
-                  p = 2 * (1 - 0.5 * (1 + math.erf(z / math.sqrt(2))))
-              else:
-                  # Rough approximation for smaller df
-                  p = 2 * (1 - 0.5 * (1 + math.erf(t_stat / math.sqrt(2)))) * (1 + 0.5 / df)
-
-              return max(0, min(1, p))
-
-          # Read PR benchmark output
-          pr_results = parse_results('pr_benchmark_output.txt')
-          base_results = parse_results('base_benchmark_output.txt') if is_pr else None
-
-          with open('pr_benchmark_output.txt', 'r') as f:
-              pr_content = f.read()
-
-          def format_time(seconds):
-              """Format time in human-readable units"""
-              us = seconds * 1_000_000
-              if us < 1:
-                  return "<1 μs"
-              elif us < 1000:
-                  return f"{us:.1f} μs"
-              else:
-                  return f"{us/1000:.2f} ms"
-
-          def format_stddev(avg, stddev):
-              """Format standard deviation as percentage (relative stddev)"""
-              if avg == 0:
-                  return "N/A"
-              rel_stddev = (stddev / avg) * 100
-              return f"±{rel_stddev:.1f}%"
-
-          def get_status(seconds, excellent=0.001, good=0.005, ok=0.010):
-              """Get status emoji based on time thresholds"""
-              if seconds < excellent:
-                  return "✅ Excellent"
-              elif seconds < good:
-                  return "✅ Good"
-              elif seconds < ok:
-                  return "⚠️ OK"
-              else:
-                  return "❌ Review"
-
-          def get_change(base_stats, pr_stats):
-              """Calculate percentage change with statistical significance"""
-              base_avg = base_stats['avg']
-              pr_avg = pr_stats['avg']
-
-              if base_avg == 0:
-                  return "N/A", 1.0
-
-              pct = ((pr_avg - base_avg) / base_avg) * 100
-
-              # Calculate p-value
-              p_value = welch_t_test(
-                  base_avg, base_stats['stddev'], base_stats['n'],
-                  pr_avg, pr_stats['stddev'], pr_stats['n']
-              )
-
-              # Only flag if statistically significant (p < 0.05) AND change > 15%
-              if p_value < 0.05:
-                  if pct > 15:
-                      return f"⚠️ +{pct:.1f}%", p_value
-                  elif pct < -15:
-                      return f"✅ {pct:.1f}%", p_value
-                  else:
-                      return f"{pct:+.1f}%", p_value
-              else:
-                  # Not statistically significant
-                  return f"{pct:+.1f}%", p_value
-
-          # Start markdown output
-          output = ["# 🔍 KSCrash Performance Benchmarks\n"]
-          output.append("*Crash capture performance metrics - lower times are better*\n")
-          output.append(f"**Test Environment:** {system_info}\n")
-          output.append("<details>")
-          output.append("<summary><b>📖 How to interpret results</b></summary>\n")
-          output.append("| Std Dev | Interpretation |")
-          output.append("|---------|----------------|")
-          output.append("| < 5% | Stable, reliable measurement |")
-          output.append("| 5-15% | Some variability, typical for most benchmarks |")
-          output.append("| > 15% | High variability, interpret with caution |\n")
-          output.append("**p-value** (in comparison table): Probability the difference is due to chance. Values < 0.05 indicate statistically significant changes.\n")
-          output.append("</details>\n")
-
-          # All test definitions
-          all_tests = {
-              # C++ Exception Handling (KSCxaThrowSwapper)
-              "SwapInstallationWarm": "__cxa_throw swap installation (warm)",
-              "SwapInstallationCold": "__cxa_throw swap installation (cold)",
-              "SwapReset": "__cxa_throw swap reset",
-              "ThrowWithoutSwap": "Exception throw (no swap)",
-              "ThrowWithSwap": "Exception throw (with swap)",
-              "ThrowCatch": "Exception throw/catch",
-              "ThrowRuntimeError": "runtime_error throw",
-              "ThrowString": "string exception throw",
-              "ThrowInt": "int exception throw",
-              "ThrowShallowStack": "Exception (10 frames)",
-              "ThrowDeepStack": "Exception (50 frames)",
-              "ThrowVeryDeepStack": "Exception (100 frames)",
-              # Backtrace
-              "SameThreadBacktrace": "Same thread capture",
-              "OtherThreadBacktrace": "Cross-thread capture",
-              "BacktraceTypicalDepth": "Typical depth (50 frames)",
-              "SymbolicateSingleAddress": "Symbolicate (1 address)",
-              "SymbolicateFullStack": "Symbolicate (20 frames)",
-              "CaptureAndSymbolicate": "Capture + symbolicate",
-              "ImageLookupSingleAddress": "Image lookup (single)",
-              "ImageLookupMultipleAddresses": "Image lookup (multiple)",
-              "ImageLookupDifferentImages": "Image lookup (different images)",
-              "BinaryImageForHeaderSingle": "Binary image info (single)",
-              "BinaryImageForHeaderMultiple": "Binary image info (multiple)",
-              "BinaryImageForHeaderAll": "Binary image info (all)",
-              "TypicalCrashSymbolication": "Typical crash symbolication",
-              "FullCrashReport": "Full crash report generation",
-              "RepeatedLookupCacheHit": "Repeated lookup (cache hit)",
-              "RepeatedLookupCacheMiss": "Repeated lookup (cache miss)",
-              "SequentialNearbyAddressesCacheHit": "Sequential nearby addresses (cache hit)",
-              "ExactFunctionLookupCacheHit": "Exact function lookup (cache hit)",
-              "ExactFunctionLookupCacheMiss": "Exact function lookup (cache miss)",
-              "NonExactLookupCacheHit": "Non-exact lookup (cache hit)",
-              "NonExactLookupCacheMiss": "Non-exact lookup (cache miss)",
-              "IsMemoryReadableSmall": "Check readable (64B)",
-              "IsMemoryReadablePage": "Check readable (4KB)",
-              "IsMemoryReadableLarge": "Check readable (64KB)",
-              "CopySafelySmall": "Safe copy (64B)",
-              "CopySafelyPage": "Safe copy (4KB)",
-              "CopySafelyLarge": "Safe copy (32KB)",
-              "CopyMaxPossible": "Copy max possible",
-              "MaxReadableBytesValid": "Find max readable",
-              "TypicalCrashMemoryDump": "Typical crash dump",
-              "EncodeIntegers": "Encode integers",
-              "EncodeFloats": "Encode floats",
-              "EncodeBooleans": "Encode booleans",
-              "EncodeShortStrings": "Encode short strings",
-              "EncodeLongStrings": "Encode long strings",
-              "EncodeStringsWithEscaping": "Encode escaped strings",
-              "EncodeNestedObjects": "Encode nested objects",
-              "EncodeArrays": "Encode arrays",
-              "EncodeHexData": "Encode hex data",
-              "EncodeTypicalCrashReport": "Full crash report",
-              "ThreadSelf": "Get current thread",
-              "GetThreadName": "Get thread name",
-              "GetThreadState": "Get thread state",
-              "ThreadStateName": "State to string",
-              "GetQueueName": "Get queue name",
-              "GatherThreadInfo": "Gather all thread info",
-              "ThreadOpsWithConcurrency": "Ops under contention",
-              "ThreadCacheFreezeUnfreeze": "Cache freeze/unfreeze",
-              "ThreadCacheGetThreadName": "Cache thread name lookup",
-              "ThreadCacheGetQueueName": "Cache queue name lookup",
-              "ThreadCacheGetAllThreads": "Cache get all threads",
-              "ThreadCacheCrashScenario": "Cache crash scenario",
-              "WriteStandardReport": "Write standard crash report",
-              "WriteStandardReportNoBinaryImages": "Write report (no binary images)",
-              "WriteMultipleReports": "Write multiple reports",
-              "ProfilerInit": "Profiler initialization",
-              "BeginEndProfile": "Begin/end profile cycle",
-              "HighFrequencySampling": "High frequency sampling (5ms)",
-              "DefaultFrequencySampling": "Default frequency sampling (10ms)",
-              "CrossThreadProfiling": "Cross-thread profiling",
-              "SampleRetrieval": "Sample retrieval",
-              "ConcurrentProfiles": "Concurrent profile sessions",
-              "StorageSizeCalculation": "Storage size calculation",
-              "SampleCaptureShallowStack": "Sample capture (16 frames)",
-              "SampleCaptureMediumStack": "Sample capture (64 frames)",
-              "SampleCaptureDeepStack": "Sample capture (128 frames)",
-              "SampleCaptureVeryDeepStack": "Sample capture (256 frames)",
-              "PerSampleCaptureLatency": "Per-sample capture latency (64 frames)",
-              "PerSampleCaptureLatencyDeepStack": "Per-sample capture latency (256 frames)",
-          }
-
-          # Comparison section (only for PRs with base results)
-          if is_pr and base_results:
-              output.append("<details open>")
-              output.append("<summary><h2>📊 Changes from Base Branch</h2></summary>\n")
-              output.append("*Only showing statistically significant changes (p < 0.05, threshold > 15%)*\n")
-              output.append("| Operation | Base | Base σ | PR | PR σ | Change | p-value |")
-              output.append("|-----------|------|--------|-----|------|--------|---------|")
-
-              changes = []
-              for test_name, desc in all_tests.items():
-                  if test_name in pr_results and test_name in base_results:
-                      base_stats = base_results[test_name]
-                      pr_stats = pr_results[test_name]
-                      change, p_value = get_change(base_stats, pr_stats)
-                      base_avg = base_stats['avg']
-                      base_stddev = base_stats['stddev']
-                      pr_avg = pr_stats['avg']
-                      pr_stddev = pr_stats['stddev']
-                      pct = ((pr_avg - base_avg) / base_avg) * 100 if base_avg > 0 else 0
-                      # Sort by significance (lower p-value first), then by magnitude
-                      sort_key = (p_value, -abs(pct))
-                      p_str = f"{p_value:.4f}" if p_value >= 0.0001 else "<0.0001"
-                      changes.append((sort_key, f"| {desc} | {format_time(base_avg)} | {format_stddev(base_avg, base_stddev)} | {format_time(pr_avg)} | {format_stddev(pr_avg, pr_stddev)} | {change} | {p_str} |", p_value))
-
-              # Sort by significance, show most significant changes first
-              changes.sort(key=lambda x: x[0])
-              shown = 0
-              for _, row, p_value in changes:
-                  if shown >= 15:
-                      break
-                  # Only show statistically significant results in comparison table
-                  if p_value < 0.05:
-                      output.append(row)
-                      shown += 1
-
-              if shown == 0:
-                  output.append("| *No statistically significant changes detected* | | | | |")
-              elif len([c for c in changes if c[2] < 0.05]) > 15:
-                  sig_count = len([c for c in changes if c[2] < 0.05])
-                  output.append(f"\n*Showing top 15 of {sig_count} significant changes*")
-              output.append("\n</details>\n")
-          elif is_pr and not base_results:
-              output.append("<details open>")
-              output.append("<summary><h2>📊 Changes from Base Branch</h2></summary>\n")
-              output.append("*No benchmarks in base branch - showing PR results only*\n")
-              output.append("</details>\n")
-
-          # C++ Exception Handling section
-          output.append("<details open>")
-          output.append("<summary><h3>C++ Exception Handling (KSCxaThrowSwapper)</h3></summary>\n")
-          output.append("| Operation | Time | Std Dev | Status | Notes |")
-          output.append("|-----------|------|---------|--------|-------|")
-
-          cxa_throw_tests = {
-              "SwapInstallationWarm": ("Swap installation (warm)", "Hook __cxa_throw across all dylibs"),
-              "SwapInstallationCold": ("Swap installation (cold)", "First-time installation, cold caches"),
-              "SwapReset": ("Swap reset", "Restore original bindings"),
-              "ThrowWithoutSwap": ("Throw (no swap)", "Baseline native performance"),
-              "ThrowWithSwap": ("Throw (with swap)", "With decorator overhead"),
-              "ThrowCatch": ("Throw/catch", "Basic exception cycle"),
-              "ThrowRuntimeError": ("runtime_error", "Standard exception type"),
-              "ThrowString": ("string exception", "String exception type"),
-              "ThrowInt": ("int exception", "Primitive exception type"),
-              "ThrowShallowStack": ("Shallow stack (10)", "C++ unwinding cost"),
-              "ThrowDeepStack": ("Deep stack (50)", "C++ unwinding cost"),
-              "ThrowVeryDeepStack": ("Very deep stack (100)", "C++ unwinding cost"),
-          }
-
-          for test_name, (desc, notes) in cxa_throw_tests.items():
-              if test_name in pr_results:
-                  t = pr_results[test_name]['avg']
-                  stddev = pr_results[test_name]['stddev']
-                  status = get_status(t, excellent=0.0001, good=0.001, ok=0.005)
-                  output.append(f"| {desc} | {format_time(t)} | {format_stddev(t, stddev)} | {status} | {notes} |")
-
-          output.append("\n</details>")
-
-          # Backtrace section
-          output.append("<details open>")
-          output.append("<summary><h3>Stack Capture (KSBacktrace)</h3></summary>\n")
-          output.append("| Operation | Time | Std Dev | Status | Notes |")
-          output.append("|-----------|------|---------|--------|-------|")
-
-          backtrace_tests = {
-              "SameThreadBacktrace": ("Same thread capture", "Fast path, no suspension"),
-              "OtherThreadBacktrace": ("Cross-thread capture", "Requires thread suspension"),
-              "BacktraceTypicalDepth": ("Typical depth (50 frames)", "Common crash scenario"),
-              "SymbolicateSingleAddress": ("Symbolicate (1 address)", "Single frame lookup"),
-              "SymbolicateFullStack": ("Symbolicate (20 frames)", "Full stack resolution"),
-              "CaptureAndSymbolicate": ("Capture + symbolicate", "Complete crash flow"),
-          }
-
-          for test_name, (desc, notes) in backtrace_tests.items():
-              if test_name in pr_results:
-                  t = pr_results[test_name]['avg']
-                  stddev = pr_results[test_name]['stddev']
-                  status = get_status(t, excellent=0.0001, good=0.001, ok=0.005)
-                  output.append(f"| {desc} | {format_time(t)} | {format_stddev(t, stddev)} | {status} | {notes} |")
-
-          output.append("\n</details>")
-
-          # Dynamic Linker section
-          output.append("<details open>")
-          output.append("<summary><h3>Dynamic Linker (KSDynamicLinker)</h3></summary>\n")
-          output.append("| Operation | Time | Std Dev | Status | Notes |")
-          output.append("|-----------|------|---------|--------|-------|")
-
-          dynlinker_tests = {
-              "ImageLookupSingleAddress": ("Image lookup (single)", "Single address resolution"),
-              "ImageLookupMultipleAddresses": ("Image lookup (multiple)", "Stack trace addresses"),
-              "ImageLookupDifferentImages": ("Image lookup (different)", "Cross-image lookups"),
-              "BinaryImageForHeaderSingle": ("Binary image info (single)", "Extract image metadata"),
-              "BinaryImageForHeaderMultiple": ("Binary image info (50)", "Multiple images"),
-              "BinaryImageForHeaderAll": ("Binary image info (all)", "All loaded images"),
-              "TypicalCrashSymbolication": ("Typical crash symbolication", "Capture + symbolicate"),
-              "FullCrashReport": ("Full crash report", "Complete crash flow"),
-              "RepeatedLookupCacheHit": ("Repeated lookup (cache hit)", "1000x same address, warm cache"),
-              "RepeatedLookupCacheMiss": ("Repeated lookup (cache miss)", "1000x same address, cold start"),
-              "SequentialNearbyAddressesCacheHit": ("Sequential nearby (cache hit)", "100 addresses, warm cache"),
-              "ExactFunctionLookupCacheHit": ("Exact function (cache hit)", "Function entry, warm cache"),
-              "ExactFunctionLookupCacheMiss": ("Exact function (cache miss)", "Function entry, cold start"),
-              "NonExactLookupCacheHit": ("Non-exact lookup (cache hit)", "Mid-function, warm cache"),
-              "NonExactLookupCacheMiss": ("Non-exact lookup (cache miss)", "Mid-function, cold start"),
-          }
-
-          for test_name, (desc, notes) in dynlinker_tests.items():
-              if test_name in pr_results:
-                  t = pr_results[test_name]['avg']
-                  stddev = pr_results[test_name]['stddev']
-                  status = get_status(t, excellent=0.001, good=0.005, ok=0.020)
-                  output.append(f"| {desc} | {format_time(t)} | {format_stddev(t, stddev)} | {status} | {notes} |")
-
-          output.append("\n</details>")
-
-          # Memory section
-          output.append("<details open>")
-          output.append("<summary><h3>Safe Memory Operations (KSMemory)</h3></summary>\n")
-          output.append("| Operation | Time | Std Dev | Per-Call | Status |")
-          output.append("|-----------|------|---------|----------|--------|")
-
-          memory_tests = {
-              "IsMemoryReadableSmall": ("Check readable (64B)", 1000),
-              "IsMemoryReadablePage": ("Check readable (4KB)", 1000),
-              "IsMemoryReadableLarge": ("Check readable (64KB)", 100),
-              "CopySafelySmall": ("Safe copy (64B)", 1000),
-              "CopySafelyPage": ("Safe copy (4KB)", 1000),
-              "CopySafelyLarge": ("Safe copy (32KB)", 100),
-              "CopyMaxPossible": ("Copy max possible (4KB)", 100),
-              "MaxReadableBytesValid": ("Find max readable", 100),
-              "TypicalCrashMemoryDump": ("Typical crash dump (8KB)", 1),
-          }
-
-          for test_name, (desc, iterations) in memory_tests.items():
-              if test_name in pr_results:
-                  t = pr_results[test_name]['avg']
-                  stddev = pr_results[test_name]['stddev']
-                  per_call = t / iterations
-                  status = get_status(per_call, excellent=0.000001, good=0.00001, ok=0.0001)
-                  output.append(f"| {desc} | {format_time(t)} | {format_stddev(t, stddev)} | {format_time(per_call)} | {status} |")
-
-          output.append("\n</details>")
-
-          # JSON section
-          output.append("<details open>")
-          output.append("<summary><h3>JSON Encoding (KSJSONCodec)</h3></summary>\n")
-          output.append("| Operation | Time | Std Dev | Status | Notes |")
-          output.append("|-----------|------|---------|--------|-------|")
-
-          json_tests = {
-              "EncodeIntegers": ("Encode integers (100)", "Numeric fields"),
-              "EncodeFloats": ("Encode floats (100)", "Floating point"),
-              "EncodeBooleans": ("Encode booleans (100)", "Boolean fields"),
-              "EncodeShortStrings": ("Encode short strings (100)", "~13 chars each"),
-              "EncodeLongStrings": ("Encode long strings (50)", "~520 chars each"),
-              "EncodeStringsWithEscaping": ("Encode escaped strings (100)", "Special chars"),
-              "EncodeNestedObjects": ("Encode nested objects (20)", "Thread-like structure"),
-              "EncodeArrays": ("Encode arrays (50 items)", "Backtrace addresses"),
-              "EncodeHexData": ("Encode hex data (10×256B)", "Memory dumps"),
-              "EncodeTypicalCrashReport": ("Full crash report", "10 threads, 30 frames each"),
-          }
-
-          for test_name, (desc, notes) in json_tests.items():
-              if test_name in pr_results:
-                  t = pr_results[test_name]['avg']
-                  stddev = pr_results[test_name]['stddev']
-                  status = get_status(t, excellent=0.0005, good=0.002, ok=0.010)
-                  output.append(f"| {desc} | {format_time(t)} | {format_stddev(t, stddev)} | {status} | {notes} |")
-
-          output.append("\n</details>")
-
-          # Thread section
-          output.append("<details open>")
-          output.append("<summary><h3>Thread Operations (KSThread)</h3></summary>\n")
-          output.append("| Operation | Time | Std Dev | Per-Call | Status |")
-          output.append("|-----------|------|---------|----------|--------|")
-
-          thread_tests = {
-              "ThreadSelf": ("Get current thread", 10000),
-              "GetThreadName": ("Get thread name", 1000),
-              "GetThreadState": ("Get thread state", 1000),
-              "ThreadStateName": ("State to string", 10000),
-              "GetQueueName": ("Get queue name", 1000),
-              "GatherThreadInfo": ("Gather all thread info", 100),
-              "ThreadOpsWithConcurrency": ("Ops under contention", 1000),
-              "ThreadCacheFreezeUnfreeze": ("Cache freeze/unfreeze", 1000),
-              "ThreadCacheGetThreadName": ("Cache thread name lookup", 1000),
-              "ThreadCacheGetQueueName": ("Cache queue name lookup", 1000),
-              "ThreadCacheGetAllThreads": ("Cache get all threads", 1000),
-              "ThreadCacheCrashScenario": ("Cache crash scenario", 1),
-          }
-
-          for test_name, (desc, iterations) in thread_tests.items():
-              if test_name in pr_results:
-                  t = pr_results[test_name]['avg']
-                  stddev = pr_results[test_name]['stddev']
-                  per_call = t / iterations
-                  status = get_status(per_call, excellent=0.0000005, good=0.000005, ok=0.00001)
-                  output.append(f"| {desc} | {format_time(t)} | {format_stddev(t, stddev)} | {format_time(per_call)} | {status} |")
-
-          output.append("\n</details>")
-
-          # Crash Report section
-          output.append("<details open>")
-          output.append("<summary><h3>Crash Report Writing (KSCrashReport)</h3></summary>\n")
-          output.append("| Operation | Time | Std Dev | Status | Notes |")
-          output.append("|-----------|------|---------|--------|-------|")
-
-          report_tests = {
-              "WriteStandardReport": ("Write standard report", "Full report with binary images"),
-              "WriteStandardReportNoBinaryImages": ("Write report (no images)", "Report without binary images"),
-              "WriteMultipleReports": ("Write 5 reports", "Sequential report writing"),
-          }
-
-          for test_name, (desc, notes) in report_tests.items():
-              if test_name in pr_results:
-                  t = pr_results[test_name]['avg']
-                  stddev = pr_results[test_name]['stddev']
-                  status = get_status(t, excellent=0.005, good=0.010, ok=0.050)
-                  output.append(f"| {desc} | {format_time(t)} | {format_stddev(t, stddev)} | {status} | {notes} |")
-
-          output.append("\n</details>")
-
-          # Profiler section
-          output.append("<details open>")
-          output.append("<summary><h3>Sampling Profiler (KSCrashProfiler)</h3></summary>\n")
-          output.append("| Operation | Time | Status | Notes |")
-          output.append("|-----------|------|--------|-------|")
-
-          profiler_tests = {
-              "ProfilerInit": ("Profiler initialization", "Create profiler instance"),
-              "BeginEndProfile": ("Begin/end cycle", "Start and stop profiling"),
-              "HighFrequencySampling": ("High frequency (5ms)", "50ms of 5ms interval sampling"),
-              "DefaultFrequencySampling": ("Default frequency (10ms)", "100ms of 10ms interval sampling"),
-              "CrossThreadProfiling": ("Cross-thread profiling", "Profile different thread"),
-              "SampleRetrieval": ("Sample retrieval", "Extract samples from profile"),
-              "ConcurrentProfiles": ("Concurrent profiles", "3 simultaneous sessions"),
-              "StorageSizeCalculation": ("Storage size calc (1000x)", "Calculate memory footprint"),
-              "SampleCaptureShallowStack": ("Shallow stack (16 frames)", "100 capture cycles, 16-frame stack"),
-              "SampleCaptureMediumStack": ("Medium stack (64 frames)", "100 capture cycles, 64-frame stack"),
-              "SampleCaptureDeepStack": ("Deep stack (128 frames)", "100 capture cycles, 128-frame stack"),
-              "SampleCaptureVeryDeepStack": ("Very deep stack (256 frames)", "100 capture cycles, 256-frame stack"),
-              "PerSampleCaptureLatency": ("Per-sample latency (64 frames)", "1000 samples, detailed timing"),
-              "PerSampleCaptureLatencyDeepStack": ("Per-sample latency (256 frames)", "1000 samples, deep stack"),
-          }
-
-          for test_name, (desc, notes) in profiler_tests.items():
-              if test_name in pr_results:
-                  t = pr_results[test_name]['avg']
-                  status = get_status(t, excellent=0.001, good=0.010, ok=0.100)
-                  output.append(f"| {desc} | {format_time(t)} | {status} | {notes} |")
-
-          output.append("\n</details>")
-
-          # Summary
-          total_tests = len(pr_results) if pr_results else 0
-          passed = len(re.findall(r"Test Case.*passed", pr_content))
-          output.append(f"\n---\n**{total_tests} benchmarks** | {passed} tests passed | _Generated {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}_")
-
-          # Write to file
-          with open('benchmark_results.md', 'w') as f:
-              f.write('\n'.join(output))
-
-          print('\n'.join(output))
-          EOF
+          python3 pr-branch/.github/scripts/parse_benchmarks.py \
+            --pr-results pr_benchmarks.xcresult \
+            --base-results base_benchmarks.xcresult \
+            --config pr-branch/.github/data/benchmark-tests.json
 
       - name: Comment PR with Results
-        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request'
         uses: thollander/actions-comment-pull-request@v2
         with:
           filePath: benchmark_results.md

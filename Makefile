@@ -1,6 +1,6 @@
 # Directories to search
 SEARCH_DIRS = Sources Tests Samples/Common/Sources/CrashTriggers
-SWIFT_SEARCH_DIRS = Sources Tests Samples
+SWIFT_SEARCH_DIRS = Sources Tests Samples Benchmarks
 
 # File extensions to format
 FILE_EXTENSIONS = c cpp h m mm
