@@ -36,6 +36,7 @@
 
 #include "KSBinaryImageCache.h"
 #include "KSLogger.h"
+#include "KSMach-O.h"
 #include "KSMemory.h"
 #include "KSPlatformSpecificDefines.h"
 
@@ -127,33 +128,6 @@ typedef struct {
 #pragma pack()
 #define KSDL_SECT_CRASH_INFO "__crash_info"
 
-#include <mach-o/loader.h>
-#include <stdint.h>
-#include <string.h>
-
-/** Get the address of the first command following a header (which will be of
- * type struct load_command).
- *
- * @param header The header to get commands for.
- *
- * @return The address of the first command, or NULL if none was found (which
- *         should not happen unless the header or image is corrupt).
- */
-static uintptr_t firstCmdAfterHeader(const struct mach_header *const header)
-{
-    switch (header->magic) {
-        case MH_MAGIC:
-        case MH_CIGAM:
-            return (uintptr_t)(header + 1);
-        case MH_MAGIC_64:
-        case MH_CIGAM_64:
-            return (uintptr_t)(((struct mach_header_64 *)header) + 1);
-        default:
-            // Header is corrupt
-            return 0;
-    }
-}
-
 /** Perform the actual symbol lookup without caching.
  *  This scans the symbol table to find the closest symbol to the given address.
  */
@@ -185,7 +159,7 @@ static bool ksdl_dladdr_uncached(const uintptr_t address, Dl_info *const info)
     // Find symbol tables and get whichever symbol is closest to the address.
     const nlist_t *bestMatch = NULL;
     uintptr_t bestDistance = ULONG_MAX;
-    uintptr_t cmdPtr = firstCmdAfterHeader(header);
+    uintptr_t cmdPtr = ksmacho_firstCmdAfterHeader(header);
     if (cmdPtr == 0) {
         return false;
     }
@@ -376,7 +350,7 @@ static void getCrashInfo(const struct mach_header *header, KSBinaryImage *buffer
 bool ksdl_binaryImageForHeader(const void *const header_ptr, const char *const image_name, KSBinaryImage *buffer)
 {
     const struct mach_header *header = (const struct mach_header *)header_ptr;
-    uintptr_t cmdPtr = firstCmdAfterHeader(header);
+    uintptr_t cmdPtr = ksmacho_firstCmdAfterHeader(header);
     if (cmdPtr == 0) {
         return false;
     }

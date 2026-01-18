@@ -6,6 +6,8 @@ on:
     paths:
       - "Sources/**"
       - "Tests/KSCrashBenchmarks/**"
+      - "Tests/KSCrashBenchmarksObjC/**"
+      - "Tests/KSCrashBenchmarksCold/**"
       - "Tests/KSCrashRecordingTests/KSCrashReportBenchmarks.m"
       - "Package.swift"
       - ".github/workflows/benchmarks.yml"
@@ -15,6 +17,8 @@ on:
     paths:
       - "Sources/**"
       - "Tests/KSCrashBenchmarks/**"
+      - "Tests/KSCrashBenchmarksObjC/**"
+      - "Tests/KSCrashBenchmarksCold/**"
       - "Tests/KSCrashRecordingTests/KSCrashReportBenchmarks.m"
       - "Package.swift"
       - ".github/workflows/benchmarks.yml"
@@ -70,15 +74,15 @@ jobs:
       - name: Run PR Benchmarks
         working-directory: pr-branch
         run: |
-          swift test --filter "KSCrashBenchmarks|KSCrashReportBenchmarks" 2>&1 | tee ../pr_benchmark_output.txt
+          swift test --filter "KSCrashBenchmarks|KSCxaThrowBenchmarks|KSCxaThrowColdBenchmarks|KSCrashReportBenchmarks" 2>&1 | tee ../pr_benchmark_output.txt
 
       - name: Run Base Benchmarks
         if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
         working-directory: base-branch
         run: |
           # Check if benchmarks exist in base branch
-          if [ -d "Tests/KSCrashBenchmarks" ] && grep -q "KSCrashBenchmarks" Package.swift; then
-            swift test --filter "KSCrashBenchmarks|KSCrashReportBenchmarks" 2>&1 | tee ../base_benchmark_output.txt
+          if ([ -d "Tests/KSCrashBenchmarks" ] || [ -d "Tests/KSCrashBenchmarksObjC" ]) && grep -qE "KSCrashBenchmarks|KSCrashBenchmarksObjC" Package.swift; then
+            swift test --filter "KSCrashBenchmarks|KSCxaThrowBenchmarks|KSCxaThrowColdBenchmarks|KSCrashReportBenchmarks" 2>&1 | tee ../base_benchmark_output.txt
           else
             echo "No benchmarks in base branch" > ../base_benchmark_output.txt
           fi
@@ -263,6 +267,20 @@ jobs:
 
           # All test definitions
           all_tests = {
+              # C++ Exception Handling (KSCxaThrowSwapper)
+              "SwapInstallationWarm": "__cxa_throw swap installation (warm)",
+              "SwapInstallationCold": "__cxa_throw swap installation (cold)",
+              "SwapReset": "__cxa_throw swap reset",
+              "ThrowWithoutSwap": "Exception throw (no swap)",
+              "ThrowWithSwap": "Exception throw (with swap)",
+              "ThrowCatch": "Exception throw/catch",
+              "ThrowRuntimeError": "runtime_error throw",
+              "ThrowString": "string exception throw",
+              "ThrowInt": "int exception throw",
+              "ThrowShallowStack": "Exception (10 frames)",
+              "ThrowDeepStack": "Exception (50 frames)",
+              "ThrowVeryDeepStack": "Exception (100 frames)",
+              # Backtrace
               "SameThreadBacktrace": "Same thread capture",
               "OtherThreadBacktrace": "Cross-thread capture",
               "BacktraceTypicalDepth": "Typical depth (50 frames)",
@@ -380,6 +398,36 @@ jobs:
               output.append("<summary><h2>📊 Changes from Base Branch</h2></summary>\n")
               output.append("*No benchmarks in base branch - showing PR results only*\n")
               output.append("</details>\n")
+
+          # C++ Exception Handling section
+          output.append("<details open>")
+          output.append("<summary><h3>C++ Exception Handling (KSCxaThrowSwapper)</h3></summary>\n")
+          output.append("| Operation | Time | Std Dev | Status | Notes |")
+          output.append("|-----------|------|---------|--------|-------|")
+
+          cxa_throw_tests = {
+              "SwapInstallationWarm": ("Swap installation (warm)", "Hook __cxa_throw across all dylibs"),
+              "SwapInstallationCold": ("Swap installation (cold)", "First-time installation, cold caches"),
+              "SwapReset": ("Swap reset", "Restore original bindings"),
+              "ThrowWithoutSwap": ("Throw (no swap)", "Baseline native performance"),
+              "ThrowWithSwap": ("Throw (with swap)", "With decorator overhead"),
+              "ThrowCatch": ("Throw/catch", "Basic exception cycle"),
+              "ThrowRuntimeError": ("runtime_error", "Standard exception type"),
+              "ThrowString": ("string exception", "String exception type"),
+              "ThrowInt": ("int exception", "Primitive exception type"),
+              "ThrowShallowStack": ("Shallow stack (10)", "C++ unwinding cost"),
+              "ThrowDeepStack": ("Deep stack (50)", "C++ unwinding cost"),
+              "ThrowVeryDeepStack": ("Very deep stack (100)", "C++ unwinding cost"),
+          }
+
+          for test_name, (desc, notes) in cxa_throw_tests.items():
+              if test_name in pr_results:
+                  t = pr_results[test_name]['avg']
+                  stddev = pr_results[test_name]['stddev']
+                  status = get_status(t, excellent=0.0001, good=0.001, ok=0.005)
+                  output.append(f"| {desc} | {format_time(t)} | {format_stddev(t, stddev)} | {status} | {notes} |")
+
+          output.append("\n</details>")
 
           # Backtrace section
           output.append("<details open>")

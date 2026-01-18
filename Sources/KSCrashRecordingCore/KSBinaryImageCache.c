@@ -27,6 +27,7 @@
 #include "KSBinaryImageCache.h"
 
 #include <dlfcn.h>
+#include <mach-o/dyld_images.h>
 #include <mach-o/loader.h>
 #include <mach/mach.h>
 #include <mach/task.h>
@@ -145,6 +146,52 @@ static void insertSortedCacheEntry(KSBinaryImageRangeCache *cache, const KSBinar
 
     cache->entries[left] = *entry;
     cache->count++;
+}
+
+intptr_t ksbic_getImageSlide(const struct mach_header *header)
+{
+    if (header == NULL) {
+        return 0;
+    }
+
+    uintptr_t loadAddr = (uintptr_t)header;
+
+    if (header->magic == MH_MAGIC_64) {
+        const struct mach_header_64 *header64 = (const struct mach_header_64 *)header;
+        uintptr_t cmdPtr = (uintptr_t)(header64 + 1);
+
+        for (uint32_t i = 0; i < header64->ncmds; i++) {
+            const struct load_command *lc = (const struct load_command *)cmdPtr;
+            if (lc->cmd == LC_SEGMENT_64) {
+                const struct segment_command_64 *seg = (const struct segment_command_64 *)cmdPtr;
+                // Check for __TEXT segment
+                if (seg->segname[0] == '_' && seg->segname[1] == '_' && seg->segname[2] == 'T' &&
+                    seg->segname[3] == 'E' && seg->segname[4] == 'X' && seg->segname[5] == 'T' &&
+                    seg->segname[6] == '\0') {
+                    return (intptr_t)(loadAddr - seg->vmaddr);
+                }
+            }
+            cmdPtr += lc->cmdsize;
+        }
+    } else if (header->magic == MH_MAGIC) {
+        uintptr_t cmdPtr = (uintptr_t)(header + 1);
+
+        for (uint32_t i = 0; i < header->ncmds; i++) {
+            const struct load_command *lc = (const struct load_command *)cmdPtr;
+            if (lc->cmd == LC_SEGMENT) {
+                const struct segment_command *seg = (const struct segment_command *)cmdPtr;
+                // Check for __TEXT segment
+                if (seg->segname[0] == '_' && seg->segname[1] == '_' && seg->segname[2] == 'T' &&
+                    seg->segname[3] == 'E' && seg->segname[4] == 'X' && seg->segname[5] == 'T' &&
+                    seg->segname[6] == '\0') {
+                    return (intptr_t)(loadAddr - seg->vmaddr);
+                }
+            }
+            cmdPtr += lc->cmdsize;
+        }
+    }
+
+    return 0;
 }
 
 // Populate a cache entry with image info including segment ranges.
@@ -323,6 +370,42 @@ static const struct mach_header *linearScanForAddress(uintptr_t address, KSBinar
 
 static struct dyld_all_image_infos *g_all_image_infos = NULL;
 
+// Original dyld notifier that we chain to after our processing
+static dyld_image_notifier g_original_notifier = NULL;
+
+// User-registered callback for image additions (atomic for thread safety)
+static _Atomic(ksbic_imageCallback) g_image_added_callback = NULL;
+
+void ksbic_registerForImageAdded(ksbic_imageCallback callback) { atomic_store(&g_image_added_callback, callback); }
+
+/**
+ * Our custom dyld image notifier that gets called when images are added or removed.
+ * We use this to invalidate/update our cache, then call the original notifier.
+ */
+static void ksbic_dyld_image_notifier(enum dyld_image_mode mode, uint32_t infoCount,
+                                      const struct dyld_image_info info[])
+{
+    // Only handle image additions. Image removal is effectively a no-op on Apple platforms
+    // (dlclose doesn't actually unload due to Objective-C runtime, Swift, etc.)
+    if (mode == dyld_image_adding) {
+        KSLOG_DEBUG("dyld notifier: %u images added", infoCount);
+        ksbic_imageCallback callback = atomic_load(&g_image_added_callback);
+        if (callback != NULL) {
+            for (uint32_t i = 0; i < infoCount; i++) {
+                const struct mach_header *header = info[i].imageLoadAddress;
+                intptr_t slide = ksbic_getImageSlide(header);
+                callback(header, slide);
+            }
+        }
+    }
+
+    // Chain to the original notifier if one was installed
+    dyld_image_notifier original = g_original_notifier;
+    if (original != NULL) {
+        original(mode, infoCount, info);
+    }
+}
+
 void ksbic_init(void)
 {
     KSLOG_DEBUG("Initializing binary image cache");
@@ -339,6 +422,15 @@ void ksbic_init(void)
     // Initialize the address range cache
     g_cache_storage.count = 0;
     atomic_store(&g_cache_ptr, &g_cache_storage);
+
+    // Install our dyld image notifier to track image loading/unloading.
+    // Save the original notifier so we can chain to it.
+    // Only install if not already installed (avoid caching our own notifier on re-init).
+    if (g_all_image_infos->notification != ksbic_dyld_image_notifier) {
+        g_original_notifier = g_all_image_infos->notification;
+        g_all_image_infos->notification = ksbic_dyld_image_notifier;
+        KSLOG_DEBUG("Installed dyld image notifier (original=%p)", (void *)g_original_notifier);
+    }
 }
 
 const ks_dyld_image_info *ksbic_getImages(uint32_t *count)
@@ -365,6 +457,11 @@ const ks_dyld_image_info *ksbic_getImages(uint32_t *count)
 // For testing purposes only. Used with extern in test files.
 void ksbic_resetCache(void)
 {
+    // Restore the original dyld notifier before resetting
+    if (g_all_image_infos != NULL && g_all_image_infos->notification == ksbic_dyld_image_notifier) {
+        g_all_image_infos->notification = g_original_notifier;
+    }
+    g_original_notifier = NULL;
     g_all_image_infos = NULL;
 
     // Acquire exclusive access to the cache before resetting

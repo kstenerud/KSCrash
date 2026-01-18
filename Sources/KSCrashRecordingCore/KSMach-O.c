@@ -54,6 +54,24 @@
 
 #include "KSLogger.h"
 
+uintptr_t ksmacho_firstCmdAfterHeader(const struct mach_header *header)
+{
+    if (header == NULL) {
+        return 0;
+    }
+    switch (header->magic) {
+        case MH_MAGIC:
+        case MH_CIGAM:
+            return (uintptr_t)(header + 1);
+        case MH_MAGIC_64:
+        case MH_CIGAM_64:
+            return (uintptr_t)(((const struct mach_header_64 *)header) + 1);
+        default:
+            // Header is corrupt
+            return 0;
+    }
+}
+
 const struct load_command *ksmacho_getCommandByTypeFromHeader(const mach_header_t *header, uint32_t commandType)
 {
     KSLOG_TRACE("Getting command by type %u in Mach header at %p", commandType, header);

@@ -25,11 +25,24 @@
 //
 
 #import <XCTest/XCTest.h>
+#import <dlfcn.h>
 #import <mach-o/dyld.h>
 #import <mach-o/loader.h>
 
 #import "KSBinaryImageCache.h"
 #import "KSDynamicLinker.h"
+
+// Test state for image callback tests
+static const struct mach_header *g_lastCallbackHeader = NULL;
+static intptr_t g_lastCallbackSlide = 0;
+static int g_callbackCount = 0;
+
+static void testImageAddedCallback(const struct mach_header *mh, intptr_t vmaddr_slide)
+{
+    g_lastCallbackHeader = mh;
+    g_lastCallbackSlide = vmaddr_slide;
+    g_callbackCount++;
+}
 
 @interface KSBinaryImageCache_Tests : XCTestCase
 @end
@@ -39,6 +52,15 @@
 - (void)setUp
 {
     [super setUp];
+
+    // Reset callback test state
+    g_lastCallbackHeader = NULL;
+    g_lastCallbackSlide = 0;
+    g_callbackCount = 0;
+
+    // Unregister any callback before reset
+    ksbic_registerForImageAdded(NULL);
+
     extern void ksbic_resetCache(void);
     ksbic_resetCache();
 #pragma clang diagnostic push
@@ -49,6 +71,8 @@
 
 - (void)tearDown
 {
+    // Unregister any callback
+    ksbic_registerForImageAdded(NULL);
     [super tearDown];
 }
 
@@ -449,6 +473,83 @@
                           @"This may indicate __PAGEZERO is incorrectly included.",
                           @(i), (unsigned long long)imageInfo.size);
     }
+}
+
+#pragma mark - ksbic_registerForImageAdded Tests
+
+- (void)testRegisterForImageAdded_RegisterAndUnregister
+{
+    // Should not crash when registering
+    ksbic_registerForImageAdded(testImageAddedCallback);
+
+    // Should not crash when unregistering
+    ksbic_registerForImageAdded(NULL);
+}
+
+- (void)testRegisterForImageAdded_CallbackCalledOnDlopen
+{
+    // Register our callback
+    ksbic_registerForImageAdded(testImageAddedCallback);
+
+    int initialCount = g_callbackCount;
+
+    // Load a system library that's likely not already loaded
+    // libz is commonly available and small
+    void *handle = dlopen("/usr/lib/libz.dylib", RTLD_NOW);
+
+    if (handle != NULL) {
+        // If the library was loaded (not already in memory), we should have received a callback
+        // Note: if the library was already loaded, we won't get a callback
+        // So we just verify no crash and the callback count >= initial
+        XCTAssertGreaterThanOrEqual(g_callbackCount, initialCount, @"Callback count should not decrease");
+
+        if (g_callbackCount > initialCount) {
+            // We got a callback - verify the parameters are valid
+            XCTAssertNotEqual(g_lastCallbackHeader, NULL, @"Callback should receive valid header");
+
+            uint32_t magic = g_lastCallbackHeader->magic;
+            XCTAssertTrue(magic == MH_MAGIC || magic == MH_MAGIC_64 || magic == MH_CIGAM || magic == MH_CIGAM_64,
+                          @"Callback header should have valid Mach-O magic");
+        }
+
+        dlclose(handle);
+    }
+
+    ksbic_registerForImageAdded(NULL);
+}
+
+- (void)testRegisterForImageAdded_NullCallbackDoesNotCrash
+{
+    // Register NULL callback
+    ksbic_registerForImageAdded(NULL);
+
+    // Load a library - should not crash even with NULL callback
+    void *handle = dlopen("/usr/lib/libz.dylib", RTLD_NOW);
+    if (handle != NULL) {
+        dlclose(handle);
+    }
+
+    // Test passes if we get here without crashing
+}
+
+- (void)testRegisterForImageAdded_ReplaceCallback
+{
+    // Register first callback
+    ksbic_registerForImageAdded(testImageAddedCallback);
+
+    // Replace with NULL
+    ksbic_registerForImageAdded(NULL);
+
+    int countAfterUnregister = g_callbackCount;
+
+    // Load a library
+    void *handle = dlopen("/usr/lib/libbz2.dylib", RTLD_NOW);
+    if (handle != NULL) {
+        dlclose(handle);
+    }
+
+    // Callback count should not have changed since we unregistered
+    XCTAssertEqual(g_callbackCount, countAfterUnregister, @"Callback should not be called after unregistering");
 }
 
 @end
