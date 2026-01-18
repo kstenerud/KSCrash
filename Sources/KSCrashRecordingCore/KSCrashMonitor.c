@@ -314,15 +314,17 @@ static void handleException(struct KSCrash_MonitorContext *ctx, KSCrash_ReportRe
         g_state.onExceptionEvent(ctx);
     }
 
+    // Resume suspended threads before disabling monitors.
+    // This must happen first because monitor cleanup (e.g., Watchdog dealloc)
+    // may need to synchronize with threads that were suspended.
+    ksmc_resumeEnvironment(&ctx->suspendedThreads, &ctx->suspendedThreadsCount);
+
     // If the exception is fatal, we need to uninstall ourselves so that
     // other installed crash handler libraries can run when we finish.
     if (ctx->requirements.isFatal) {
         KSLOG_DEBUG("Exception is fatal. Restoring original handlers.");
         kscm_disableAllMonitors();
     }
-
-    // Make sure we've resumed by this point.
-    ksmc_resumeEnvironment(&ctx->suspendedThreads, &ctx->suspendedThreadsCount);
 
     endHandlingException(ctx->threadHandlerIndex);
 
