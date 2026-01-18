@@ -26,6 +26,7 @@
 
 #if defined(__arm64__)
 
+#include <ptrauth.h>
 #include <stdlib.h>
 
 #include "KSCPU.h"
@@ -35,8 +36,6 @@
 
 // #define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
-
-#define KSPACStrippingMask_ARM64e 0x0000000fffffffff
 
 static const char *g_registerNames[] = { "x0",  "x1",  "x2",  "x3",  "x4",  "x5",  "x6",  "x7",  "x8",
                                          "x9",  "x10", "x11", "x12", "x13", "x14", "x15", "x16", "x17",
@@ -143,6 +142,9 @@ uintptr_t kscpu_faultAddress(const KSMachineContext *const context)
 
 int kscpu_stackGrowDirection(void) { return -1; }
 
-uintptr_t kscpu_normaliseInstructionPointer(uintptr_t ip) { return ip & KSPACStrippingMask_ARM64e; }
+uintptr_t kscpu_normaliseInstructionPointer(uintptr_t ip)
+{
+    return (uintptr_t)ptrauth_strip((void *)ip, ptrauth_key_function_pointer);
+}
 
 #endif
