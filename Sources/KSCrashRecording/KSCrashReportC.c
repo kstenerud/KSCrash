@@ -60,6 +60,7 @@
 #include "KSSystemCapabilities.h"
 #include "KSThread.h"
 #include "KSThreadCache.h"
+#include "Unwind/KSStackCursor_Unwind.h"
 
 // #define KSLogger_LocalLevel TRACE
 #include <errno.h>
@@ -358,7 +359,7 @@ static bool getStackCursor(const KSCrash_MonitorContext *const crash,
         return true;
     }
 
-    kssc_initWithMachineContext(cursor, KSSC_STACK_OVERFLOW_THRESHOLD, machineContext);
+    kssc_initWithUnwind(cursor, KSSC_STACK_OVERFLOW_THRESHOLD, machineContext);
     return true;
 }
 

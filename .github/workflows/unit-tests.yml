@@ -57,6 +57,9 @@ jobs:
           - platform: macOS
           - platform: macOS
             macos-version: "14"
+          - platform: macOS
+            arch: x86_64
+            macos-version: "15"
 
           - platform: mac-catalyst
           - platform: mac-catalyst
@@ -79,6 +82,7 @@ jobs:
           xcodebuild -runFirstLaunch
 
       - name: Run Unit Tests
+        if: ${{ matrix.arch != 'x86_64' }}
         uses: mxcl/xcodebuild@v3
         timeout-minutes: 30
         with:
@@ -86,3 +90,14 @@ jobs:
           scheme: "KSCrash-Package"
           platform: ${{ matrix.platform }}
           platform-version: ${{ matrix.platform-version }}
+
+      - name: Run Unit Tests (x86_64 via Rosetta)
+        if: ${{ matrix.arch == 'x86_64' }}
+        timeout-minutes: 30
+        run: |
+          brew install xcbeautify
+          set -o pipefail && xcodebuild test \
+            -workspace .swiftpm/xcode/package.xcworkspace \
+            -scheme KSCrash-Package \
+            -destination 'platform=macOS,arch=x86_64' \
+            | xcbeautify

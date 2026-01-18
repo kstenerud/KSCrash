@@ -71,6 +71,7 @@
 #include "KSStackCursor_MachineContext.h"
 #include "KSSystemCapabilities.h"
 #include "KSThread.h"
+#include "Unwind/KSStackCursor_Unwind.h"
 
 // #define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
@@ -426,7 +427,7 @@ static void handleException(ExceptionContext *exceptionCtx)
     monitorCtx->offendingMachineContext = &machineContext;
     kssc_initCursor(&exceptionCtx->stackCursor, NULL, NULL);
     if (ksmc_getContextForThread(exceptionCtx->request->thread.name, &machineContext, true)) {
-        kssc_initWithMachineContext(&exceptionCtx->stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
+        kssc_initWithUnwind(&exceptionCtx->stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
         KSLOG_TRACE("Thread %s: Fault address %p, instruction address %p", exceptionCtx->threadName,
                     kscpu_faultAddress(&machineContext), kscpu_instructionAddress(&machineContext));
         if (exceptionCtx->request->exception == EXC_BAD_ACCESS) {

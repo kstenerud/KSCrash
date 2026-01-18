@@ -22,8 +22,11 @@ Pod::Spec.new do |s|
   configure_subspec = lambda do |subs|
     module_name = subs.name.gsub('/', '')
     subs.source_files = "Sources/#{module_name}/**/*.{h,m,mm,c,cpp,def}"
-    subs.public_header_files = "Sources/#{module_name}/include/*.h"
+    subs.public_header_files = "Sources/#{module_name}/include/**/*.h"
     subs.resource_bundles = { module_name => "Sources/#{module_name}/Resources/PrivacyInfo.xcprivacy" }
+    subs.pod_target_xcconfig = {
+      'HEADER_SEARCH_PATHS' => '"${PODS_TARGET_SRCROOT}/Sources/' + module_name + '/include"'
+    }
   end
 
   s.subspec 'Recording' do |recording|

@@ -41,6 +41,7 @@
 #import "KSStackCursor_MachineContext.h"
 #import "KSStackCursor_SelfThread.h"
 #import "KSSystemCapabilities.h"
+#import "Unwind/KSStackCursor_Unwind.h"
 
 #import <Foundation/Foundation.h>
 #import <os/lock.h>
@@ -571,7 +572,7 @@ static void ksmemory_write_possible_oom(void)
     KSMachineContext machineContext = { 0 };
     ksmc_getContextForThread(thisThread, &machineContext, false);
     KSStackCursor stackCursor;
-    kssc_initWithMachineContext(&stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
+    kssc_initWithUnwind(&stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
 
     kscm_fillMonitorContext(ctx, kscm_memory_getAPI());
     ctx->registersAreValid = false;
