@@ -1,7 +1,7 @@
 //
-//  KSCrashMonitor_Watchdog.h
+//  KSCrashHang.h
 //
-//  Created by Alexander Cohen on 2025-11-04.
+//  Created by Alexander Cohen on 2026-01-19.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -25,7 +25,6 @@
 //
 
 /**
- * @file KSCrashMonitor_Watchdog.h
  * @brief Monitors for hangs and watchdog timeout terminations.
  *
  * ## Hangs
@@ -62,32 +61,59 @@
  * @see https://developer.apple.com/documentation/xcode/addressing-watchdog-terminations
  */
 
-#ifndef HDR_KSCrashMonitor_Watchdog_h
-#define HDR_KSCrashMonitor_Watchdog_h
+#ifndef HDR_KSCrashHang_h
+#define HDR_KSCrashHang_h
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <stdbool.h>
-
-#include "KSCrashHang.h"
-#include "KSCrashMonitorAPI.h"
 #include "KSCrashNamespace.h"
 
-/** Access the Monitor API.
- */
-KSCrashMonitorAPI *kscm_watchdog_getAPI(void);
+#ifdef __OBJC__
 
-/** Returns a human-readable string for a task role.
- *
- * @param role The task_role_t value to convert.
- * @return A string representation of the role (e.g., "FOREGROUND_APPLICATION").
+#include <Foundation/Foundation.h>
+
+/**
+ * Describes the type of hang state change being reported to observers.
  */
-const char *kscm_stringFromRole(int /*task_role_t*/ role);
+typedef NS_ENUM(uint8_t, KSHangChangeType) {
+    /** No change (placeholder value). */
+    KSHangChangeTypeNone = 0,
+    /** A new hang has been detected and a report is being generated. */
+    KSHangChangeTypeStarted = 1,
+    /** An ongoing hang's duration has been updated. */
+    KSHangChangeTypeUpdated = 2,
+    /** The hang has ended (main thread became responsive). */
+    KSHangChangeTypeEnded = 3
+};
+
+/**
+ * Block type for observing hang state changes.
+ *
+ * @param change The type of hang state change.
+ * @param startTimestamp The monotonic timestamp (in nanoseconds) when the hang started.
+ * @param endTimestamp The monotonic timestamp (in nanoseconds) of the current/end state.
+ */
+typedef void (^KSHangObserverBlock)(KSHangChangeType change, uint64_t startTimestamp, uint64_t endTimestamp);
+
+/** Registers an observer to be notified of hang state changes.
+ *
+ * The observer block will be called when:
+ * - A hang is first detected (KSHangChangeTypeStarted)
+ * - An ongoing hang's duration is updated (KSHangChangeTypeUpdated)
+ * - A hang ends and the main thread becomes responsive (KSHangChangeTypeEnded)
+ *
+ * @param observer The block to call when hang state changes occur.
+ * @return An opaque token object. The observer remains registered as long as this
+ *         object is retained. Release it to unregister the observer.
+ */
+id _Nonnull kshang_addHangObserver(KSHangObserverBlock _Nonnull observer);
+
+#endif
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif  // HDR_KSCrashMonitor_Watchdog_h
+#endif  // HDR_KSCrashHang_h
