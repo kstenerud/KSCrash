@@ -274,6 +274,7 @@ let package = Package(
             cSettings: [
                 .headerSearchPath("../../Sources/\(Targets.recording)"),
                 .headerSearchPath("../../Sources/\(Targets.recording)/Monitors"),
+                .headerSearchPath("../../Sources/\(Targets.recording)/include"),
                 .unsafeFlags(warningFlags),
             ]
         ),
