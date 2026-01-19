@@ -29,6 +29,7 @@
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitorHelper.h"
 #import "KSCrashReportFields.h"
+#import "KSDebug.h"
 #import "KSHang.h"
 #import "KSID.h"
 #import "KSJSONCodecObjC.h"
