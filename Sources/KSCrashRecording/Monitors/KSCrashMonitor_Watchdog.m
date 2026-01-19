@@ -562,6 +562,12 @@ static KSCrashMonitorFlag monitorFlags(void) { return KSCrashMonitorFlagNone; }
 
 static void setEnabled(bool isEnabled)
 {
+    BOOL forceEnable = NSProcessInfo.processInfo.environment[@"KSCRASH_FORCE_ENABLE_WATCHDOG"].boolValue;
+    if (!forceEnable && ksdebug_isBeingTraced()) {
+        KSLOG_DEBUG(@"Cannot run watchdog monitor while attached to a debugger.");
+        return;
+    }
+
     bool expectEnabled = !isEnabled;
     if (!atomic_compare_exchange_strong(&g_isEnabled, &expectEnabled, isEnabled)) {
         // We were already in the expected state
@@ -616,7 +622,7 @@ const char *kscm_stringFromRole(int /*task_role_t*/ role)
 }
 
 // See header for documentation.
-id kscm_watchdogAddHangObserver(KSHangObserverBlock observer) { return [g_watchdog addObserver:observer]; }
+id kshang_addHangObserver(KSHangObserverBlock observer) { return [g_watchdog addObserver:observer]; }
 
 KSCrashMonitorAPI *kscm_watchdog_getAPI(void)
 {
