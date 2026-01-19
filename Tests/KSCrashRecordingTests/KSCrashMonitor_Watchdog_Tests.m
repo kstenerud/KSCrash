@@ -27,6 +27,7 @@
 #import <XCTest/XCTest.h>
 #import <mach/task_policy.h>
 
+#import "KSCrashHang.h"
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitor_Watchdog.h"
 
@@ -127,8 +128,8 @@ static void stubHandle_deprecated(KSCrash_MonitorContext *context) { stubHandle(
     KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
     api->setEnabled(true);
 
-    id token = kscm_watchdogAddHangObserver(
-        ^(__unused KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
+    id token =
+        kshang_addHangObserver(^(__unused KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
         });
 
     XCTAssertNotNil(token, @"Adding an observer should return a non-nil token");
@@ -141,8 +142,8 @@ static void stubHandle_deprecated(KSCrash_MonitorContext *context) { stubHandle(
     KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
     api->setEnabled(false);
 
-    id token = kscm_watchdogAddHangObserver(
-        ^(__unused KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
+    id token =
+        kshang_addHangObserver(^(__unused KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
         });
 
     XCTAssertNil(token, @"Adding an observer when disabled should return nil");
@@ -153,14 +154,14 @@ static void stubHandle_deprecated(KSCrash_MonitorContext *context) { stubHandle(
     KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
     api->setEnabled(true);
 
-    id token1 = kscm_watchdogAddHangObserver(
-        ^(__unused KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
+    id token1 =
+        kshang_addHangObserver(^(__unused KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
         });
-    id token2 = kscm_watchdogAddHangObserver(
-        ^(__unused KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
+    id token2 =
+        kshang_addHangObserver(^(__unused KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
         });
-    id token3 = kscm_watchdogAddHangObserver(
-        ^(__unused KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
+    id token3 =
+        kshang_addHangObserver(^(__unused KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
         });
 
     XCTAssertNotNil(token1);
@@ -183,8 +184,8 @@ static void stubHandle_deprecated(KSCrash_MonitorContext *context) { stubHandle(
     @autoreleasepool {
         // Capture self to ensure the block is a heap block (not global)
         __weak typeof(self) weakSelf = self;
-        id token = kscm_watchdogAddHangObserver(
-            ^(__unused KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
+        id token =
+            kshang_addHangObserver(^(__unused KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
                 (void)weakSelf;
             });
         weakToken = token;
