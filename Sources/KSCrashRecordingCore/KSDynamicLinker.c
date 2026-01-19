@@ -199,13 +199,11 @@ static bool ksdl_dladdr_uncached(const uintptr_t address, Dl_info *const info)
 
                     // Check for placeholder symbols that provide no useful information:
                     // - Mach header symbol indicates the binary has been stripped
-                    // - "<redacted>" is used by Apple in the dyld shared cache for private symbols
                     const char *nameWithoutUnderscores = info->dli_sname;
                     while (*nameWithoutUnderscores == '_') {
                         nameWithoutUnderscores++;
                     }
-                    if (strcmp(nameWithoutUnderscores, "mh_execute_header") == 0 ||
-                        strcmp(info->dli_sname, "<redacted>") == 0) {
+                    if (strcmp(nameWithoutUnderscores, "mh_execute_header") == 0) {
                         info->dli_sname = NULL;
                     } else if (*info->dli_sname == '_') {
                         info->dli_sname++;
