@@ -34,8 +34,6 @@
     NSString *rawPath = [bundle pathForResource:@"raw" ofType:@"json"];
     NSString *rawString = [NSString stringWithContentsOfFile:rawPath encoding:NSUTF8StringEncoding error:nil];
     char *fixedBytes = kscrf_fixupCrashReport(rawString.UTF8String);
-    //    NSLog(@"%@", [[NSString alloc] initWithData:[NSData dataWithBytes:fixedBytes length:strlen(fixedBytes)]
-    //    encoding:NSUTF8StringEncoding]);
     NSData *fixedData = [NSData dataWithBytesNoCopy:fixedBytes length:strlen(fixedBytes)];
     NSError *error = nil;
     id fixedObjects = [NSJSONSerialization JSONObjectWithData:fixedData options:0 error:&error];

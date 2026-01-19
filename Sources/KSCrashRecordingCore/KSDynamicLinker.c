@@ -191,13 +191,23 @@ static bool ksdl_dladdr_uncached(const uintptr_t address, Dl_info *const info)
             }
             if (bestMatch != NULL) {
                 info->dli_saddr = (void *)(bestMatch->n_value + imageVMAddrSlide);
-                if (bestMatch->n_desc == 16) {
-                    // This image has been stripped. The name is meaningless, and
-                    // almost certainly resolves to "_mh_execute_header"
+                if (bestMatch->n_un.n_strx == 0) {
+                    // No string table entry - symbol has no name
                     info->dli_sname = NULL;
                 } else {
                     info->dli_sname = (char *)((intptr_t)stringTable + (intptr_t)bestMatch->n_un.n_strx);
-                    if (*info->dli_sname == '_') {
+
+                    // Check for placeholder symbols that provide no useful information:
+                    // - Mach header symbol indicates the binary has been stripped
+                    // - "<redacted>" is used by Apple in the dyld shared cache for private symbols
+                    const char *nameWithoutUnderscores = info->dli_sname;
+                    while (*nameWithoutUnderscores == '_') {
+                        nameWithoutUnderscores++;
+                    }
+                    if (strcmp(nameWithoutUnderscores, "mh_execute_header") == 0 ||
+                        strcmp(info->dli_sname, "<redacted>") == 0) {
+                        info->dli_sname = NULL;
+                    } else if (*info->dli_sname == '_') {
                         info->dli_sname++;
                     }
                 }
