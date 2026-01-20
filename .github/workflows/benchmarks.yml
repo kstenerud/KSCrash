@@ -10,6 +10,8 @@ on:
       - "Benchmarks/**"
       - "Package.swift"
       - ".github/workflows/benchmarks.yml"
+      - ".github/workflows/browserstack.yml"
+      - ".github/scripts/perfcomp.py"
 
   push:
     branches:
@@ -26,82 +28,71 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  benchmark:
-    runs-on: macos-latest
-    # Skip for fork PRs (no write permissions to comment on PR)
+  # Run benchmarks on PR code
+  browserstack-pr:
+    # Skip for fork PRs (no access to secrets)
     if: |
       github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository
+    uses: ./.github/workflows/browserstack.yml
+    with:
+      ref: ${{ github.event.pull_request.head.sha || github.sha }}
+    secrets:
+      BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+      BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
 
+  # Run benchmarks on main branch for comparison (only on PRs)
+  browserstack-main:
+    needs: [browserstack-pr]
+    if: github.event_name == 'pull_request'
+    uses: ./.github/workflows/browserstack.yml
+    with:
+      ref: ${{ github.base_ref }}
+    secrets:
+      BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+      BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+
+  # Compare results and post to PR
+  compare-results:
+    needs: [browserstack-pr, browserstack-main]
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout PR Branch
+      - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          path: pr-branch
+          python-version: '3.11'
 
-      - name: Checkout Base Branch
-        if: github.event_name == 'pull_request'
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ github.base_ref }}
-          path: base-branch
+      - name: Install Dependencies
+        run: pip install scipy pygithub
 
-      - name: Use Latest Stable Xcode
-        uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: latest-stable
+      - name: Compare Performance
+        env:
+          PERF_PR: ${{ needs.browserstack-pr.outputs.results }}
+          PERF_MAIN: ${{ needs.browserstack-main.outputs.results }}
+          THRESHOLD_PCT: "5"
+          ALPHA: "0.05"
+          TITLE: "KSCrash Performance Benchmarks"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: python .github/scripts/perfcomp.py
 
-      - name: Ensure the Platform is Downloaded
+  # Post results summary for push events (no comparison)
+  post-results:
+    needs: [browserstack-pr]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print Results Summary
         run: |
-          xcodebuild -runFirstLaunch
-          xcrun simctl list
-          xcodebuild -downloadPlatform iOS
-          xcodebuild -runFirstLaunch
-
-      - name: Setup Mise
-        uses: jdx/mise-action@v3
-
-      - name: Install xcbeautify
-        run: brew install xcbeautify
-
-      - name: Run PR Benchmarks
-        working-directory: pr-branch/Benchmarks
-        run: |
-          mise exec -- tuist generate --no-open
-          rm -rf ../../pr_benchmarks.xcresult
-          set -o pipefail
-          xcodebuild -workspace KSCrashBenchmarks.xcworkspace \
-            -scheme Benchmarks \
-            -destination 'platform=iOS Simulator,name=iPhone 17' \
-            -resultBundlePath ../../pr_benchmarks.xcresult \
-            test 2>&1 | xcbeautify
-
-      - name: Run Base Benchmarks
-        if: github.event_name == 'pull_request'
-        run: |
-          if [ -d "base-branch/Benchmarks" ] && [ -f "base-branch/Benchmarks/Project.swift" ]; then
-            cd base-branch/Benchmarks
-            mise exec -- tuist generate --no-open
-            rm -rf ../../base_benchmarks.xcresult
-            set -o pipefail
-            xcodebuild -workspace KSCrashBenchmarks.xcworkspace \
-              -scheme Benchmarks \
-              -destination 'platform=iOS Simulator,name=iPhone 17' \
-              -resultBundlePath ../../base_benchmarks.xcresult \
-              test 2>&1 | xcbeautify
-          fi
-
-      - name: Parse and Format Results
-        run: |
-          python3 pr-branch/.github/scripts/parse_benchmarks.py \
-            --pr-results pr_benchmarks.xcresult \
-            --base-results base_benchmarks.xcresult \
-            --config pr-branch/.github/data/benchmark-tests.json
-
-      - name: Comment PR with Results
-        if: github.event_name == 'pull_request'
-        uses: thollander/actions-comment-pull-request@v3
-        with:
-          file-path: benchmark_results.md
-          comment-tag: benchmark-results
+          echo "## BrowserStack Benchmark Results"
+          echo ""
+          echo "Build ID: ${{ needs.browserstack-pr.outputs.build_id }}"
+          echo "Status: ${{ needs.browserstack-pr.outputs.build_status }}"
+          echo ""
+          echo "View detailed results at:"
+          echo "https://app-automate.browserstack.com/dashboard/v2/builds/${{ needs.browserstack-pr.outputs.build_id }}"
