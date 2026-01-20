@@ -216,6 +216,10 @@ let package = Package(
             targets: [Targets.recording]
         ),
         .library(
+            name: "RecordingCore",
+            targets: [Targets.recordingCore]
+        ),
+        .library(
             name: "DiscSpaceMonitor",
             targets: [Targets.discSpaceMonitor]
         ),
@@ -536,6 +540,9 @@ let package = Package(
             dependencies: [
                 .target(name: Targets.recordingCore),
                 .target(name: Targets.recording),
+            ],
+            cSettings: [
+                .headerSearchPath("../../Sources/\(Targets.recording)")
             ]
         ),
 

@@ -225,6 +225,7 @@ final class KSThreadBenchmarks: XCTestCase {
                 Thread.sleep(forTimeInterval: 2.0)
                 group.leave()
             }
+            thread.qualityOfService = .userInteractive
             thread.start()
         }
 

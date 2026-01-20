@@ -1,0 +1,137 @@
+{
+  "categories": [
+    {
+      "id": "cxa_throw",
+      "name": "C++ Exception Handling (KSCxaThrowSwapper)",
+      "thresholds": { "excellent": 0.0001, "good": 0.001, "ok": 0.005 }
+    },
+    {
+      "id": "backtrace",
+      "name": "Stack Capture (KSBacktrace)",
+      "thresholds": { "excellent": 0.0001, "good": 0.001, "ok": 0.005 }
+    },
+    {
+      "id": "dynlinker",
+      "name": "Dynamic Linker (KSDynamicLinker)",
+      "thresholds": { "excellent": 0.001, "good": 0.005, "ok": 0.020 }
+    },
+    {
+      "id": "memory",
+      "name": "Safe Memory Operations (KSMemory)",
+      "thresholds": { "excellent": 0.000001, "good": 0.00001, "ok": 0.0001 },
+      "perCall": true
+    },
+    {
+      "id": "json",
+      "name": "JSON Encoding (KSJSONCodec)",
+      "thresholds": { "excellent": 0.0005, "good": 0.002, "ok": 0.010 }
+    },
+    {
+      "id": "thread",
+      "name": "Thread Operations (KSThread)",
+      "thresholds": { "excellent": 0.0000005, "good": 0.000005, "ok": 0.00001 },
+      "perCall": true
+    },
+    {
+      "id": "report",
+      "name": "Crash Report Writing (KSCrashReport)",
+      "thresholds": { "excellent": 0.005, "good": 0.010, "ok": 0.050 }
+    },
+    {
+      "id": "profiler",
+      "name": "Sampling Profiler (KSCrashProfiler)",
+      "thresholds": { "excellent": 0.001, "good": 0.010, "ok": 0.100 },
+      "hideStdDev": true
+    }
+  ],
+  "tests": [
+    { "name": "SwapInstallationWarm", "category": "cxa_throw", "description": "Swap installation (warm)", "notes": "Hook __cxa_throw across all dylibs" },
+    { "name": "SwapInstallationCold", "category": "cxa_throw", "description": "Swap installation (cold)", "notes": "First-time installation, cold caches" },
+    { "name": "SwapReset", "category": "cxa_throw", "description": "Swap reset", "notes": "Restore original bindings" },
+    { "name": "ThrowWithoutSwap", "category": "cxa_throw", "description": "Throw (no swap)", "notes": "Baseline native performance" },
+    { "name": "ThrowWithSwap", "category": "cxa_throw", "description": "Throw (with swap)", "notes": "With decorator overhead" },
+    { "name": "ThrowCatch", "category": "cxa_throw", "description": "Throw/catch", "notes": "Basic exception cycle" },
+    { "name": "ThrowRuntimeError", "category": "cxa_throw", "description": "runtime_error", "notes": "Standard exception type" },
+    { "name": "ThrowString", "category": "cxa_throw", "description": "string exception", "notes": "String exception type" },
+    { "name": "ThrowInt", "category": "cxa_throw", "description": "int exception", "notes": "Primitive exception type" },
+    { "name": "ThrowShallowStack", "category": "cxa_throw", "description": "Shallow stack (10)", "notes": "C++ unwinding cost" },
+    { "name": "ThrowDeepStack", "category": "cxa_throw", "description": "Deep stack (50)", "notes": "C++ unwinding cost" },
+    { "name": "ThrowVeryDeepStack", "category": "cxa_throw", "description": "Very deep stack (100)", "notes": "C++ unwinding cost" },
+
+    { "name": "SameThreadBacktrace", "category": "backtrace", "description": "Same thread capture", "notes": "Fast path, no suspension" },
+    { "name": "OtherThreadBacktrace", "category": "backtrace", "description": "Cross-thread capture", "notes": "Requires thread suspension" },
+    { "name": "BacktraceTypicalDepth", "category": "backtrace", "description": "Typical depth (50 frames)", "notes": "Common crash scenario" },
+    { "name": "SymbolicateSingleAddress", "category": "backtrace", "description": "Symbolicate (1 address)", "notes": "Single frame lookup" },
+    { "name": "SymbolicateFullStack", "category": "backtrace", "description": "Symbolicate (20 frames)", "notes": "Full stack resolution" },
+    { "name": "CaptureAndSymbolicate", "category": "backtrace", "description": "Capture + symbolicate", "notes": "Complete crash flow" },
+
+    { "name": "ImageLookupSingleAddress", "category": "dynlinker", "description": "Image lookup (single)", "notes": "Single address resolution" },
+    { "name": "ImageLookupMultipleAddresses", "category": "dynlinker", "description": "Image lookup (multiple)", "notes": "Stack trace addresses" },
+    { "name": "ImageLookupDifferentImages", "category": "dynlinker", "description": "Image lookup (different)", "notes": "Cross-image lookups" },
+    { "name": "BinaryImageForHeaderSingle", "category": "dynlinker", "description": "Binary image info (single)", "notes": "Extract image metadata" },
+    { "name": "BinaryImageForHeaderMultiple", "category": "dynlinker", "description": "Binary image info (50)", "notes": "Multiple images" },
+    { "name": "BinaryImageForHeaderAll", "category": "dynlinker", "description": "Binary image info (all)", "notes": "All loaded images" },
+    { "name": "TypicalCrashSymbolication", "category": "dynlinker", "description": "Typical crash symbolication", "notes": "Capture + symbolicate" },
+    { "name": "FullCrashReport", "category": "dynlinker", "description": "Full crash report", "notes": "Complete crash flow" },
+    { "name": "RepeatedLookupCacheHit", "category": "dynlinker", "description": "Repeated lookup (cache hit)", "notes": "1000x same address, warm cache" },
+    { "name": "RepeatedLookupCacheMiss", "category": "dynlinker", "description": "Repeated lookup (cache miss)", "notes": "1000x same address, cold start" },
+    { "name": "SequentialNearbyAddressesCacheHit", "category": "dynlinker", "description": "Sequential nearby (cache hit)", "notes": "100 addresses, warm cache" },
+    { "name": "ExactFunctionLookupCacheHit", "category": "dynlinker", "description": "Exact function (cache hit)", "notes": "Function entry, warm cache" },
+    { "name": "ExactFunctionLookupCacheMiss", "category": "dynlinker", "description": "Exact function (cache miss)", "notes": "Function entry, cold start" },
+    { "name": "NonExactLookupCacheHit", "category": "dynlinker", "description": "Non-exact lookup (cache hit)", "notes": "Mid-function, warm cache" },
+    { "name": "NonExactLookupCacheMiss", "category": "dynlinker", "description": "Non-exact lookup (cache miss)", "notes": "Mid-function, cold start" },
+
+    { "name": "IsMemoryReadableSmall", "category": "memory", "description": "Check readable (64B)", "iterations": 1000 },
+    { "name": "IsMemoryReadablePage", "category": "memory", "description": "Check readable (4KB)", "iterations": 1000 },
+    { "name": "IsMemoryReadableLarge", "category": "memory", "description": "Check readable (64KB)", "iterations": 100 },
+    { "name": "CopySafelySmall", "category": "memory", "description": "Safe copy (64B)", "iterations": 1000 },
+    { "name": "CopySafelyPage", "category": "memory", "description": "Safe copy (4KB)", "iterations": 1000 },
+    { "name": "CopySafelyLarge", "category": "memory", "description": "Safe copy (32KB)", "iterations": 100 },
+    { "name": "CopyMaxPossible", "category": "memory", "description": "Copy max possible (4KB)", "iterations": 100 },
+    { "name": "MaxReadableBytesValid", "category": "memory", "description": "Find max readable", "iterations": 100 },
+    { "name": "TypicalCrashMemoryDump", "category": "memory", "description": "Typical crash dump (8KB)", "iterations": 1 },
+
+    { "name": "EncodeIntegers", "category": "json", "description": "Encode integers (100)", "notes": "Numeric fields" },
+    { "name": "EncodeFloats", "category": "json", "description": "Encode floats (100)", "notes": "Floating point" },
+    { "name": "EncodeBooleans", "category": "json", "description": "Encode booleans (100)", "notes": "Boolean fields" },
+    { "name": "EncodeShortStrings", "category": "json", "description": "Encode short strings (100)", "notes": "~13 chars each" },
+    { "name": "EncodeLongStrings", "category": "json", "description": "Encode long strings (50)", "notes": "~520 chars each" },
+    { "name": "EncodeStringsWithEscaping", "category": "json", "description": "Encode escaped strings (100)", "notes": "Special chars" },
+    { "name": "EncodeNestedObjects", "category": "json", "description": "Encode nested objects (20)", "notes": "Thread-like structure" },
+    { "name": "EncodeArrays", "category": "json", "description": "Encode arrays (50 items)", "notes": "Backtrace addresses" },
+    { "name": "EncodeHexData", "category": "json", "description": "Encode hex data (10x256B)", "notes": "Memory dumps" },
+    { "name": "EncodeTypicalCrashReport", "category": "json", "description": "Full crash report", "notes": "10 threads, 30 frames each" },
+
+    { "name": "ThreadSelf", "category": "thread", "description": "Get current thread", "iterations": 10000 },
+    { "name": "GetThreadName", "category": "thread", "description": "Get thread name", "iterations": 1000 },
+    { "name": "GetThreadState", "category": "thread", "description": "Get thread state", "iterations": 1000 },
+    { "name": "ThreadStateName", "category": "thread", "description": "State to string", "iterations": 10000 },
+    { "name": "GetQueueName", "category": "thread", "description": "Get queue name", "iterations": 1000 },
+    { "name": "GatherThreadInfo", "category": "thread", "description": "Gather all thread info", "iterations": 100 },
+    { "name": "ThreadOpsWithConcurrency", "category": "thread", "description": "Ops under contention", "iterations": 1000 },
+    { "name": "ThreadCacheFreezeUnfreeze", "category": "thread", "description": "Cache freeze/unfreeze", "iterations": 1000 },
+    { "name": "ThreadCacheGetThreadName", "category": "thread", "description": "Cache thread name lookup", "iterations": 1000 },
+    { "name": "ThreadCacheGetQueueName", "category": "thread", "description": "Cache queue name lookup", "iterations": 1000 },
+    { "name": "ThreadCacheGetAllThreads", "category": "thread", "description": "Cache get all threads", "iterations": 1000 },
+    { "name": "ThreadCacheCrashScenario", "category": "thread", "description": "Cache crash scenario", "iterations": 1 },
+
+    { "name": "WriteStandardReport", "category": "report", "description": "Write standard report", "notes": "Full report with binary images" },
+    { "name": "WriteStandardReportNoBinaryImages", "category": "report", "description": "Write report (no images)", "notes": "Report without binary images" },
+    { "name": "WriteMultipleReports", "category": "report", "description": "Write 5 reports", "notes": "Sequential report writing" },
+
+    { "name": "ProfilerInit", "category": "profiler", "description": "Profiler initialization", "notes": "Create profiler instance" },
+    { "name": "BeginEndProfile", "category": "profiler", "description": "Begin/end cycle", "notes": "Start and stop profiling" },
+    { "name": "HighFrequencySampling", "category": "profiler", "description": "High frequency (5ms)", "notes": "50ms of 5ms interval sampling" },
+    { "name": "DefaultFrequencySampling", "category": "profiler", "description": "Default frequency (10ms)", "notes": "100ms of 10ms interval sampling" },
+    { "name": "CrossThreadProfiling", "category": "profiler", "description": "Cross-thread profiling", "notes": "Profile different thread" },
+    { "name": "SampleRetrieval", "category": "profiler", "description": "Sample retrieval", "notes": "Extract samples from profile" },
+    { "name": "ConcurrentProfiles", "category": "profiler", "description": "Concurrent profiles", "notes": "3 simultaneous sessions" },
+    { "name": "StorageSizeCalculation", "category": "profiler", "description": "Storage size calc (1000x)", "notes": "Calculate memory footprint" },
+    { "name": "SampleCaptureShallowStack", "category": "profiler", "description": "Shallow stack (16 frames)", "notes": "100 capture cycles, 16-frame stack" },
+    { "name": "SampleCaptureMediumStack", "category": "profiler", "description": "Medium stack (64 frames)", "notes": "100 capture cycles, 64-frame stack" },
+    { "name": "SampleCaptureDeepStack", "category": "profiler", "description": "Deep stack (128 frames)", "notes": "100 capture cycles, 128-frame stack" },
+    { "name": "SampleCaptureVeryDeepStack", "category": "profiler", "description": "Very deep stack (256 frames)", "notes": "100 capture cycles, 256-frame stack" },
+    { "name": "PerSampleCaptureLatency", "category": "profiler", "description": "Per-sample latency (64 frames)", "notes": "1000 samples, detailed timing" },
+    { "name": "PerSampleCaptureLatencyDeepStack", "category": "profiler", "description": "Per-sample latency (256 frames)", "notes": "1000 samples, deep stack" }
+  ]
+}
