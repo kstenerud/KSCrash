@@ -8,9 +8,7 @@
 #import <XCTest/XCTest.h>
 #import <mach-o/dyld.h>
 #import <mach-o/loader.h>
-#if !TARGET_OS_WATCH
 #import <pthread.h>
-#endif
 
 #import "KSBacktrace.h"
 #import "KSDynamicLinker.h"
@@ -80,21 +78,50 @@ static void appendSLEB(uint8_t *buf, size_t *offset, int64_t value)
 @interface KSUnwind_Tests : XCTestCase
 @end
 
-#if !TARGET_OS_WATCH
 // Helper class that creates a thread with nested function calls and waits.
 // This allows tests to capture a valid machine context from another thread.
 //
 // Note: This helper uses thread_suspend/thread_resume which are necessary
 // to safely capture registers from another thread. The thread must be
 // suspended while reading its machine context.
+//
+// Test helper pattern: Methods assert on failure rather than returning status.
+// On watchOS (where pthread is unavailable), methods call XCTSkip() to skip the test.
 @interface KSUnwindTestThread : NSObject
 @property(nonatomic, readonly) thread_t machThread;
-- (BOOL)start;
-- (BOOL)suspend;
-- (BOOL)resume;
+- (void)start;
+- (void)suspend;
+- (void)resume;
 - (void)stop;
 @end
 
+#if TARGET_OS_WATCH
+
+@implementation KSUnwindTestThread
+
+- (void)start
+{
+    XCTSkip();
+}
+
+- (void)suspend
+{
+    XCTSkip();
+}
+
+- (void)resume
+{
+    XCTSkip();
+}
+
+- (void)stop
+{
+    XCTSkip();
+}
+
+@end
+
+#else
 // Thread context passed to pthread entry function
 typedef struct {
     dispatch_semaphore_t ready;
@@ -146,14 +173,11 @@ static void *ksunwind_test_thread_main(void *arg)
     return self;
 }
 
-- (BOOL)start
+- (void)start
 {
     int result = pthread_create(&_pthread, NULL, ksunwind_test_thread_main, &_ctx);
-    if (result != 0) {
-        return NO;
-    }
+    XCTAssertEqual(result, 0);
     dispatch_semaphore_wait(_ctx.ready, DISPATCH_TIME_FOREVER);
-    return YES;
 }
 
 - (thread_t)machThread
@@ -161,24 +185,18 @@ static void *ksunwind_test_thread_main(void *arg)
     return _ctx.machThread;
 }
 
-- (BOOL)suspend
+- (void)suspend
 {
     kern_return_t kr = thread_suspend(_ctx.machThread);
-    if (kr == KERN_SUCCESS) {
-        _suspended = YES;
-        return YES;
-    }
-    return NO;
+    XCTAssertEqual(kr, KERN_SUCCESS);
+    _suspended = YES;
 }
 
-- (BOOL)resume
+- (void)resume
 {
     kern_return_t kr = thread_resume(_ctx.machThread);
-    if (kr == KERN_SUCCESS) {
-        _suspended = NO;
-        return YES;
-    }
-    return NO;
+    XCTAssertEqual(kr, KERN_SUCCESS);
+    _suspended = NO;
 }
 
 - (void)stop
@@ -187,14 +205,7 @@ static void *ksunwind_test_thread_main(void *arg)
         return;
     }
     if (_suspended) {
-        kern_return_t kr = thread_resume(_ctx.machThread);
-        if (kr != KERN_SUCCESS) {
-            thread_terminate(_ctx.machThread);
-            pthread_detach(_pthread);
-            _pthread = NULL;
-            return;
-        }
-        _suspended = NO;
+        [self resume];
     }
     dispatch_semaphore_signal(_ctx.exit);
     pthread_join(_pthread, NULL);
@@ -202,7 +213,7 @@ static void *ksunwind_test_thread_main(void *arg)
 }
 
 @end
-#endif  // !TARGET_OS_WATCH
+#endif  // TARGET_OS_WATCH
 
 @implementation KSUnwind_Tests
 
@@ -1256,7 +1267,6 @@ static void *ksunwind_test_thread_main(void *arg)
 // MARK: - Method Selection Tests
 // =============================================================================
 
-#if !TARGET_OS_WATCH
 - (void)testUnwindMethods_FramePointerOnly
 {
     // Initialize dynamic linker for unwind cache
@@ -1264,17 +1274,8 @@ static void *ksunwind_test_thread_main(void *arg)
 
     // Start helper thread with nested calls
     KSUnwindTestThread *helper = [[KSUnwindTestThread alloc] init];
-    if (![helper start]) {
-        XCTSkip(@"pthread_create failed");
-    }
-    if (helper.machThread == 0) {
-        [helper stop];
-        XCTSkip(@"Helper thread should start");
-    }
-    if (![helper suspend]) {
-        [helper stop];
-        XCTSkip(@"thread_suspend failed");
-    }
+    [helper start];
+    [helper suspend];
 
     // Get machine context for the helper thread
     KSMachineContext machineContext;
@@ -1312,10 +1313,7 @@ static void *ksunwind_test_thread_main(void *arg)
     XCTAssertTrue(foundFramePointerMethod || frameCount >= 3,
                   @"Should use frame_pointer when only that method is specified, or at least unwind some frames");
 
-    if (![helper resume]) {
-        [helper stop];
-        XCTSkip(@"thread_resume failed");
-    }
+    [helper resume];
     [helper stop];
 }
 
@@ -1326,17 +1324,8 @@ static void *ksunwind_test_thread_main(void *arg)
 
     // Start helper thread with nested calls
     KSUnwindTestThread *helper = [[KSUnwindTestThread alloc] init];
-    if (![helper start]) {
-        XCTSkip(@"pthread_create failed");
-    }
-    if (helper.machThread == 0) {
-        [helper stop];
-        XCTSkip(@"Helper thread should start");
-    }
-    if (![helper suspend]) {
-        [helper stop];
-        XCTSkip(@"thread_suspend failed");
-    }
+    [helper start];
+    [helper suspend];
 
     // Get machine context for the helper thread
     KSMachineContext machineContext;
@@ -1363,13 +1352,9 @@ static void *ksunwind_test_thread_main(void *arg)
     // Either we found compact_unwind, or we unwound at least some frames (via LR on ARM64)
     XCTAssertTrue(foundCompactUnwind || frameCount >= 2, @"Should use compact_unwind or at least unwind some frames");
 
-    if (![helper resume]) {
-        [helper stop];
-        XCTSkip(@"thread_resume failed");
-    }
+    [helper resume];
     [helper stop];
 }
-#endif  // !TARGET_OS_WATCH
 
 - (void)testUnwindMethods_EmptyArray
 {
@@ -1391,7 +1376,6 @@ static void *ksunwind_test_thread_main(void *arg)
     }
 }
 
-#if !TARGET_OS_WATCH
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 - (void)testDeprecated_InitWithMachineContext_UsesFramePointer
@@ -1401,17 +1385,8 @@ static void *ksunwind_test_thread_main(void *arg)
 
     // Start helper thread with nested calls
     KSUnwindTestThread *helper = [[KSUnwindTestThread alloc] init];
-    if (![helper start]) {
-        XCTSkip(@"pthread_create failed");
-    }
-    if (helper.machThread == 0) {
-        [helper stop];
-        XCTSkip(@"Helper thread should start");
-    }
-    if (![helper suspend]) {
-        [helper stop];
-        XCTSkip(@"thread_suspend failed");
-    }
+    [helper start];
+    [helper suspend];
 
     // Get machine context for the helper thread
     KSMachineContext machineContext;
@@ -1447,13 +1422,9 @@ static void *ksunwind_test_thread_main(void *arg)
     XCTAssertTrue(foundFramePointerMethod || frameCount >= 3,
                   @"Deprecated initWithMachineContext should use frame_pointer method or at least unwind some frames");
 
-    if (![helper resume]) {
-        [helper stop];
-        XCTSkip(@"thread_resume failed");
-    }
+    [helper resume];
     [helper stop];
 }
 #pragma clang diagnostic pop
-#endif  // !TARGET_OS_WATCH
 
 @end
