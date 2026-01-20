@@ -91,6 +91,21 @@ KSUnwindMethod kssc_getUnwindMethod(const KSStackCursor *cursor);
  */
 void kssc_initWithUnwind(KSStackCursor *cursor, int maxStackDepth, const struct KSMachineContext *machineContext);
 
+/**
+ * Initialize a stack cursor with specific unwind methods.
+ *
+ * This allows you to specify exactly which unwind methods to try and in what order.
+ * Useful for testing or when you want to force a specific unwinding strategy.
+ *
+ * @param cursor The cursor to initialize.
+ * @param maxStackDepth The maximum depth to search before giving up.
+ * @param machineContext The machine context to read registers from.
+ * @param methods Array of unwind methods to try, in order.
+ * @param methodCount Number of methods in the array.
+ */
+void kssc_initWithUnwindMethods(KSStackCursor *cursor, int maxStackDepth, const struct KSMachineContext *machineContext,
+                                const KSUnwindMethod *methods, size_t methodCount);
+
 #ifdef __cplusplus
 }
 #endif

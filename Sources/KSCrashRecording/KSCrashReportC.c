@@ -131,6 +131,20 @@ static KSSpinLock g_userInfoLock = KSSPINLOCK_INIT;
 static KSCrash_IntrospectionRules g_introspectionRules = { 0 };
 static KSCrashIsWritingReportCallback g_userSectionWriteCallback = NULL;
 
+// ============================================================================
+#pragma mark - Unwind Method Selection -
+// ============================================================================
+
+/** Maximum number of unwind methods. */
+#define MAX_UNWIND_METHODS 3
+
+/** Current unwind methods for report generation. */
+static KSUnwindMethod g_unwindMethods[MAX_UNWIND_METHODS] = {
+    KSUnwindMethod_CompactUnwind,
+    KSUnwindMethod_Dwarf,
+    KSUnwindMethod_FramePointer,
+};
+
 #pragma mark Callbacks
 
 static void addBooleanElement(const KSCrashReportWriter *const writer, const char *const key, const bool value)
@@ -335,17 +349,25 @@ static bool isValidString(const void *const address)
     return ksstring_isNullTerminatedUTF8String(buffer, kMinStringLength, sizeof(buffer));
 }
 
+/** Initialize a stack cursor using the currently selected unwind method.
+ *
+ * @param cursor The stack cursor to initialize.
+ * @param maxDepth Maximum stack depth to walk.
+ * @param machineContext The machine context to walk.
+ */
+static void initStackCursor(KSStackCursor *cursor, int maxDepth, const struct KSMachineContext *machineContext)
+{
+    kssc_initWithUnwindMethods(cursor, maxDepth, machineContext, g_unwindMethods, MAX_UNWIND_METHODS);
+}
+
 /** Get the backtrace for the specified machine context.
  *
  * This function will choose how to fetch the backtrace based on the crash and
- * machine context. It may store the backtrace in backtraceBuffer unless it can
- * be fetched directly from memory. Do not count on backtraceBuffer containing
- * anything. Always use the return value.
+ * machine context. For the crashed thread with the new unwinder, it uses the
+ * pre-captured cursor. For other threads or legacy mode, it initializes a new cursor.
  *
  * @param crash The crash handler context.
- *
  * @param machineContext The machine context.
- *
  * @param cursor The stack cursor to fill.
  *
  * @return True if the cursor was filled.
@@ -353,13 +375,17 @@ static bool isValidString(const void *const address)
 static bool getStackCursor(const KSCrash_MonitorContext *const crash,
                            const struct KSMachineContext *const machineContext, KSStackCursor *cursor)
 {
+    // For the crashed thread, always use pre-captured cursor if available.
+    // This is critical for C++ exceptions, NSException, and other cases where
+    // the stack cursor was captured at the actual crash/exception point,
+    // but the machine context was captured later (registersAreValid = false).
     if (ksmc_getThreadFromContext(machineContext) == ksmc_getThreadFromContext(crash->offendingMachineContext) &&
         crash->stackCursor != NULL) {
         *cursor = *((KSStackCursor *)crash->stackCursor);
         return true;
     }
 
-    kssc_initWithUnwind(cursor, KSSC_STACK_OVERFLOW_THRESHOLD, machineContext);
+    initStackCursor(cursor, KSSC_STACK_OVERFLOW_THRESHOLD, machineContext);
     return true;
 }
 
@@ -827,6 +853,8 @@ static void writeBacktrace(const KSCrashReportWriter *const writer, const char *
                                                    stackCursor->stackEntry.symbolAddress);
                     }
                     writer->addUIntegerElement(writer, KSCrashField_InstructionAddr, stackCursor->stackEntry.address);
+                    writer->addStringElement(writer, KSCrashField_UnwindMethod,
+                                             kssc_unwindMethodName(kssc_getUnwindMethod(stackCursor)));
                 }
                 writer->endContainer(writer);
             }
@@ -1465,6 +1493,11 @@ static void writeReportInfo(const KSCrashReportWriter *const writer, const char 
         writer->addStringElement(writer, KSCrashField_ProcessName, processName);
         writer->addUIntegerElement(writer, KSCrashField_Timestamp, ksdate_microseconds());
         writer->addStringElement(writer, KSCrashField_Type, type);
+        writer->beginArray(writer, KSCrashField_UnwindMethod);
+        for (int i = 0; i < MAX_UNWIND_METHODS && g_unwindMethods[i] != KSUnwindMethod_None; i++) {
+            writer->addStringElement(writer, NULL, kssc_unwindMethodName(g_unwindMethods[i]));
+        }
+        writer->endContainer(writer);
     }
     writer->endContainer(writer);
 }
@@ -1801,3 +1834,4 @@ void kscrashreport_setIsWritingReportCallback(const KSCrashIsWritingReportCallba
     KSLOG_TRACE("Set isWritingReportCallback to %p", isWritingReportCallback);
     g_userSectionWriteCallback = isWritingReportCallback;
 }
+

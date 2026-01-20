@@ -45,6 +45,9 @@ typedef struct FrameEntry {
 
 // Note: KSUnwindMethod enum is defined in the header file
 
+/** Maximum number of unwind methods (CompactUnwind, Dwarf, FramePointer). */
+#define KSUNWIND_MAX_METHODS 3
+
 /** Internal context for the unwind cursor. */
 typedef struct {
     const struct KSMachineContext *machineContext;
@@ -59,8 +62,10 @@ typedef struct {
     // State tracking
     bool isFirstFrame;
     bool usedLinkRegister;
-    bool fallbackToFramePointer;
     KSUnwindMethod lastMethod;
+
+    // Method selection - try methods in order until one succeeds (0 = end)
+    KSUnwindMethod methods[KSUNWIND_MAX_METHODS];
 
     // Frame pointer fallback state
     FrameEntry currentFrame;
@@ -257,6 +262,95 @@ static bool tryFramePointerUnwind(UnwindCursorContext *ctx, uintptr_t *outReturn
 
 // MARK: - Cursor Implementation
 
+/** Try to unwind one frame using a specific method. Updates ctx state on success. */
+static bool tryUnwindWithMethod(UnwindCursorContext *ctx, KSUnwindMethod method, uintptr_t *outAddress)
+{
+    KSCompactUnwindResult result;
+
+    switch (method) {
+        case KSUnwindMethod_CompactUnwind:
+            if (tryCompactUnwindForPC(ctx->pc, ctx->sp, ctx->fp, ctx->lr, &result) && result.valid) {
+                *outAddress = result.returnAddress;
+                ctx->sp = result.stackPointer;
+                ctx->fp = result.framePointer;
+                ctx->pc = result.returnAddress;
+                ctx->lastMethod = KSUnwindMethod_CompactUnwind;
+                KSLOG_TRACE("Compact unwind succeeded: returnAddr=0x%lx", (unsigned long)*outAddress);
+                return true;
+            }
+            break;
+
+        case KSUnwindMethod_Dwarf:
+            if (tryDwarfUnwindForPC(ctx->pc, ctx->sp, ctx->fp, ctx->lr, &result) && result.valid) {
+                *outAddress = result.returnAddress;
+                ctx->sp = result.stackPointer;
+                ctx->fp = result.framePointer;
+                ctx->pc = result.returnAddress;
+                ctx->lastMethod = KSUnwindMethod_Dwarf;
+                KSLOG_TRACE("DWARF unwind succeeded: returnAddr=0x%lx", (unsigned long)*outAddress);
+                return true;
+            }
+            break;
+
+        case KSUnwindMethod_FramePointer:
+            if (tryFramePointerUnwind(ctx, outAddress)) {
+                ctx->pc = *outAddress;
+                ctx->lastMethod = KSUnwindMethod_FramePointer;
+                KSLOG_TRACE("Frame pointer unwind succeeded: returnAddr=0x%lx", (unsigned long)*outAddress);
+                return true;
+            }
+            break;
+
+        default:
+            break;
+    }
+    return false;
+}
+
+/** Try to update register state after using LR, using methods in order. */
+static bool tryUpdateStateAfterLR(UnwindCursorContext *ctx)
+{
+    KSCompactUnwindResult result;
+
+    for (int i = 0; i < KSUNWIND_MAX_METHODS && ctx->methods[i] != KSUnwindMethod_None; i++) {
+        switch (ctx->methods[i]) {
+            case KSUnwindMethod_CompactUnwind:
+                if (tryCompactUnwindForPC(ctx->pc, ctx->sp, ctx->fp, ctx->lr, &result) && result.valid) {
+                    ctx->sp = result.stackPointer;
+                    ctx->fp = result.framePointer;
+                    ctx->pc = result.returnAddress;
+                    ctx->lastMethod = KSUnwindMethod_CompactUnwind;
+                    return true;
+                }
+                break;
+
+            case KSUnwindMethod_Dwarf:
+                if (tryDwarfUnwindForPC(ctx->pc, ctx->sp, ctx->fp, ctx->lr, &result) && result.valid) {
+                    ctx->sp = result.stackPointer;
+                    ctx->fp = result.framePointer;
+                    ctx->pc = result.returnAddress;
+                    ctx->lastMethod = KSUnwindMethod_Dwarf;
+                    return true;
+                }
+                break;
+
+            case KSUnwindMethod_FramePointer: {
+                FrameEntry frame;
+                if (ctx->fp != 0 && ksmem_copySafely((const void *)ctx->fp, &frame, sizeof(frame))) {
+                    ctx->fp = (uintptr_t)frame.previous;
+                    ctx->pc = ctx->lr;
+                    return true;
+                }
+                break;
+            }
+
+            default:
+                break;
+        }
+    }
+    return false;
+}
+
 static bool advanceCursor(KSStackCursor *cursor)
 {
     UnwindCursorContext *ctx = (UnwindCursorContext *)cursor->context;
@@ -292,21 +386,13 @@ static bool advanceCursor(KSStackCursor *cursor)
         ctx->lastMethod = KSUnwindMethod_None;
 
         // After using LR, we need to unwind to get the next return address
-        // Try compact unwind to update our register state
-        KSCompactUnwindResult result;
-        if (tryCompactUnwindForPC(ctx->pc, ctx->sp, ctx->fp, ctx->lr, &result) && result.valid) {
-            ctx->sp = result.stackPointer;
-            ctx->fp = result.framePointer;
-            ctx->pc = result.returnAddress;
-            ctx->lastMethod = KSUnwindMethod_CompactUnwind;
-        } else {
-            // Compact unwind failed. We've already returned the LR, so we need to
-            // advance the frame pointer to the next frame for frame pointer walking.
-            // On ARM64/ARM, [FP] = saved FP, [FP+8/4] = saved LR (which we just returned)
+        // Try methods in order to update our register state
+        if (!tryUpdateStateAfterLR(ctx)) {
+            // Fallback: just advance FP if possible
             FrameEntry frame;
             if (ctx->fp != 0 && ksmem_copySafely((const void *)ctx->fp, &frame, sizeof(frame))) {
                 ctx->fp = (uintptr_t)frame.previous;
-                ctx->pc = ctx->lr;  // Update PC for any subsequent unwind attempts
+                ctx->pc = ctx->lr;
             }
         }
 
@@ -314,45 +400,11 @@ static bool advanceCursor(KSStackCursor *cursor)
     }
 #endif
 
-    // Already in frame pointer fallback mode?
-    if (ctx->fallbackToFramePointer) {
-        if (tryFramePointerUnwind(ctx, &nextAddress)) {
-            ctx->lastMethod = KSUnwindMethod_FramePointer;
+    // Try each method in order until one succeeds
+    for (int i = 0; i < KSUNWIND_MAX_METHODS && ctx->methods[i] != KSUnwindMethod_None; i++) {
+        if (tryUnwindWithMethod(ctx, ctx->methods[i], &nextAddress)) {
             goto successfulExit;
         }
-        return false;
-    }
-
-    // Try compact unwind first
-    KSCompactUnwindResult result;
-    if (tryCompactUnwindForPC(ctx->pc, ctx->sp, ctx->fp, ctx->lr, &result) && result.valid) {
-        nextAddress = result.returnAddress;
-        ctx->sp = result.stackPointer;
-        ctx->fp = result.framePointer;
-        ctx->pc = nextAddress;
-        ctx->lastMethod = KSUnwindMethod_CompactUnwind;
-        KSLOG_TRACE("Compact unwind succeeded: returnAddr=0x%lx", (unsigned long)nextAddress);
-        goto successfulExit;
-    }
-
-    // Try DWARF CFI (placeholder for Phase 4)
-    if (tryDwarfUnwindForPC(ctx->pc, ctx->sp, ctx->fp, ctx->lr, &result) && result.valid) {
-        nextAddress = result.returnAddress;
-        ctx->sp = result.stackPointer;
-        ctx->fp = result.framePointer;
-        ctx->pc = nextAddress;
-        ctx->lastMethod = KSUnwindMethod_Dwarf;
-        KSLOG_TRACE("DWARF unwind succeeded: returnAddr=0x%lx", (unsigned long)nextAddress);
-        goto successfulExit;
-    }
-
-    // Fall back to frame pointer walking
-    KSLOG_TRACE("Falling back to frame pointer walking from PC 0x%lx", (unsigned long)ctx->pc);
-    ctx->fallbackToFramePointer = true;
-
-    if (tryFramePointerUnwind(ctx, &nextAddress)) {
-        ctx->lastMethod = KSUnwindMethod_FramePointer;
-        goto successfulExit;
     }
 
     // All methods exhausted
@@ -375,15 +427,16 @@ static void resetCursor(KSStackCursor *cursor)
     ctx->lr = 0;
     ctx->isFirstFrame = true;
     ctx->usedLinkRegister = false;
-    ctx->fallbackToFramePointer = false;
     ctx->lastMethod = KSUnwindMethod_None;
+    // Note: methods[] is preserved across reset
     ctx->currentFrame.previous = NULL;
     ctx->currentFrame.return_address = 0;
 }
 
 // MARK: - Public API
 
-void kssc_initWithUnwind(KSStackCursor *cursor, int maxStackDepth, const struct KSMachineContext *machineContext)
+void kssc_initWithUnwindMethods(KSStackCursor *cursor, int maxStackDepth, const struct KSMachineContext *machineContext,
+                                const KSUnwindMethod *methods, size_t methodCount)
 {
     kssc_initCursor(cursor, resetCursor, advanceCursor);
 
@@ -396,10 +449,22 @@ void kssc_initWithUnwind(KSStackCursor *cursor, int maxStackDepth, const struct 
     ctx->lr = 0;
     ctx->isFirstFrame = true;
     ctx->usedLinkRegister = false;
-    ctx->fallbackToFramePointer = false;
     ctx->lastMethod = KSUnwindMethod_None;
     ctx->currentFrame.previous = NULL;
     ctx->currentFrame.return_address = 0;
+
+    memset(ctx->methods, 0, sizeof(ctx->methods));
+    if (methods != NULL && methodCount > 0) {
+        size_t count = methodCount > KSUNWIND_MAX_METHODS ? KSUNWIND_MAX_METHODS : methodCount;
+        memcpy(ctx->methods, methods, count * sizeof(KSUnwindMethod));
+    }
+}
+
+void kssc_initWithUnwind(KSStackCursor *cursor, int maxStackDepth, const struct KSMachineContext *machineContext)
+{
+    kssc_initWithUnwindMethods(
+        cursor, maxStackDepth, machineContext,
+        (KSUnwindMethod[]) { KSUnwindMethod_CompactUnwind, KSUnwindMethod_Dwarf, KSUnwindMethod_FramePointer }, 3);
 }
 
 const char *kssc_unwindMethodName(KSUnwindMethod method)
@@ -424,9 +489,14 @@ KSUnwindMethod kssc_getUnwindMethod(const KSStackCursor *cursor)
         return KSUnwindMethod_None;
     }
 
-    // The context must be an UnwindCursorContext
-    // We can verify this by checking if the advanceCursor function matches
-    // For safety, we just assume it's correct if non-NULL
+    // The context must be an UnwindCursorContext.
+    // Verify this by checking if the advanceCursor function matches ours.
+    // Cursors from kssc_initWithBacktrace or kssc_initSelfThread have different
+    // context layouts and would read garbage if we cast blindly.
+    if (cursor->advanceCursor != advanceCursor) {
+        return KSUnwindMethod_None;
+    }
+
     const UnwindCursorContext *ctx = (const UnwindCursorContext *)cursor->context;
     return ctx->lastMethod;
 }

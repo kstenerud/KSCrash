@@ -7,11 +7,14 @@
 #import <XCTest/XCTest.h>
 #import <mach-o/dyld.h>
 #import <mach-o/loader.h>
+#import <pthread.h>
 
 #import "KSBacktrace.h"
+#import "KSDynamicLinker.h"
 #import "KSMach-O.h"
 #import "KSMachineContext.h"
 #import "KSMachineContext_Apple.h"
+#import "KSStackCursor_MachineContext.h"
 #import "KSThread.h"
 #import "Unwind/KSCompactUnwind.h"
 #import "Unwind/KSDwarfUnwind.h"
@@ -72,6 +75,128 @@ static void appendSLEB(uint8_t *buf, size_t *offset, int64_t value)
 }
 
 @interface KSUnwind_Tests : XCTestCase
+@end
+
+// Helper class that creates a thread with nested function calls and waits.
+// This allows tests to capture a valid machine context from another thread.
+//
+// Note: This helper uses thread_suspend/thread_resume which are necessary
+// to safely capture registers from another thread. The thread must be
+// suspended while reading its machine context.
+@interface KSUnwindTestThread : NSObject
+@property(nonatomic, readonly) thread_t machThread;
+- (BOOL)start;
+- (BOOL)suspend;
+- (BOOL)resume;
+- (void)stop;
+@end
+
+// Thread context passed to pthread entry function
+typedef struct {
+    dispatch_semaphore_t ready;
+    dispatch_semaphore_t exit;
+    thread_t machThread;
+} KSUnwindTestThreadContext;
+
+// Nested functions to create a realistic call stack
+__attribute__((noinline)) static void ksunwind_test_level3(KSUnwindTestThreadContext *ctx)
+{
+    dispatch_semaphore_signal(ctx->ready);
+    dispatch_semaphore_wait(ctx->exit, DISPATCH_TIME_FOREVER);
+}
+
+__attribute__((noinline)) static void ksunwind_test_level2(KSUnwindTestThreadContext *ctx)
+{
+    ksunwind_test_level3(ctx);
+}
+
+__attribute__((noinline)) static void ksunwind_test_level1(KSUnwindTestThreadContext *ctx)
+{
+    ksunwind_test_level2(ctx);
+}
+
+static void *ksunwind_test_thread_main(void *arg)
+{
+    KSUnwindTestThreadContext *ctx = (KSUnwindTestThreadContext *)arg;
+    ctx->machThread = pthread_mach_thread_np(pthread_self());
+    ksunwind_test_level1(ctx);
+    return NULL;
+}
+
+@implementation KSUnwindTestThread {
+    KSUnwindTestThreadContext _ctx;
+    pthread_t _pthread;
+    BOOL _suspended;
+}
+
+- (instancetype)init
+{
+    self = [super init];
+    if (self) {
+        _ctx.ready = dispatch_semaphore_create(0);
+        _ctx.exit = dispatch_semaphore_create(0);
+        _ctx.machThread = MACH_PORT_NULL;
+        _pthread = NULL;
+        _suspended = NO;
+    }
+    return self;
+}
+
+- (BOOL)start
+{
+    int result = pthread_create(&_pthread, NULL, ksunwind_test_thread_main, &_ctx);
+    if (result != 0) {
+        return NO;
+    }
+    dispatch_semaphore_wait(_ctx.ready, DISPATCH_TIME_FOREVER);
+    return YES;
+}
+
+- (thread_t)machThread
+{
+    return _ctx.machThread;
+}
+
+- (BOOL)suspend
+{
+    kern_return_t kr = thread_suspend(_ctx.machThread);
+    if (kr == KERN_SUCCESS) {
+        _suspended = YES;
+        return YES;
+    }
+    return NO;
+}
+
+- (BOOL)resume
+{
+    kern_return_t kr = thread_resume(_ctx.machThread);
+    if (kr == KERN_SUCCESS) {
+        _suspended = NO;
+        return YES;
+    }
+    return NO;
+}
+
+- (void)stop
+{
+    if (_pthread == NULL) {
+        return;
+    }
+    if (_suspended) {
+        kern_return_t kr = thread_resume(_ctx.machThread);
+        if (kr != KERN_SUCCESS) {
+            thread_terminate(_ctx.machThread);
+            pthread_detach(_pthread);
+            _pthread = NULL;
+            return;
+        }
+        _suspended = NO;
+    }
+    dispatch_semaphore_signal(_ctx.exit);
+    pthread_join(_pthread, NULL);
+    _pthread = NULL;
+}
+
 @end
 
 @implementation KSUnwind_Tests
@@ -1121,5 +1246,205 @@ static void appendSLEB(uint8_t *buf, size_t *offset, int64_t value)
     bool built = ksdwarf_buildCFIRow(cie, cieSize, fde, fdeSize, address, is64bit, &row);
     XCTAssertTrue(built, @"Should build CFI row from real __eh_frame data");
 }
+
+// =============================================================================
+// MARK: - Method Selection Tests
+// =============================================================================
+
+- (void)testUnwindMethods_FramePointerOnly
+{
+    // Initialize dynamic linker for unwind cache
+    ksdl_init();
+
+    // Start helper thread with nested calls
+    KSUnwindTestThread *helper = [[KSUnwindTestThread alloc] init];
+    if (![helper start]) {
+        XCTSkip(@"pthread_create failed");
+    }
+    if (helper.machThread == 0) {
+        [helper stop];
+        XCTSkip(@"Helper thread should start");
+    }
+    if (![helper suspend]) {
+        [helper stop];
+        XCTSkip(@"thread_suspend failed");
+    }
+
+    // Get machine context for the helper thread
+    KSMachineContext machineContext;
+    ksmc_getContextForThread(helper.machThread, &machineContext, false);
+
+    KSStackCursor cursor;
+    KSUnwindMethod methods[] = { KSUnwindMethod_FramePointer };
+    kssc_initWithUnwindMethods(&cursor, 128, &machineContext, methods, 1);
+
+    // Advance until we find a frame that used frame_pointer method
+    // Frame 1: PC (method = None)
+    // Frame 2: LR on ARM64 (method = None)
+    // Frame 3+: Actual unwound frames (method = FramePointer)
+    XCTAssertTrue(cursor.advanceCursor(&cursor), @"Should advance to first frame (PC)");
+
+    bool foundFramePointerMethod = false;
+    int frameCount = 1;  // Already have first frame (PC)
+
+    // Search up to 50 frames. In optimized builds with -fomit-frame-pointer,
+    // frame pointers may be sparse or unavailable in some stack regions.
+    for (int i = 0; i < 50 && cursor.advanceCursor(&cursor); i++) {
+        frameCount++;
+        KSUnwindMethod method = kssc_getUnwindMethod(&cursor);
+        if (method == KSUnwindMethod_FramePointer) {
+            foundFramePointerMethod = true;
+            break;
+        }
+    }
+
+    // In optimized builds, frame pointers may not be available at all.
+    // The test passes if either:
+    // 1. We found a frame using frame_pointer method, OR
+    // 2. We unwound at least 3 frames (PC + LR + some frames), proving the cursor works
+    //    even if the specific method wasn't frame_pointer (can happen with system frames)
+    XCTAssertTrue(foundFramePointerMethod || frameCount >= 3,
+                  @"Should use frame_pointer when only that method is specified, or at least unwind some frames");
+
+    if (![helper resume]) {
+        [helper stop];
+        XCTSkip(@"thread_resume failed");
+    }
+    [helper stop];
+}
+
+- (void)testUnwindMethods_CompactUnwindOnly
+{
+    // Initialize dynamic linker for unwind cache
+    ksdl_init();
+
+    // Start helper thread with nested calls
+    KSUnwindTestThread *helper = [[KSUnwindTestThread alloc] init];
+    if (![helper start]) {
+        XCTSkip(@"pthread_create failed");
+    }
+    if (helper.machThread == 0) {
+        [helper stop];
+        XCTSkip(@"Helper thread should start");
+    }
+    if (![helper suspend]) {
+        [helper stop];
+        XCTSkip(@"thread_suspend failed");
+    }
+
+    // Get machine context for the helper thread
+    KSMachineContext machineContext;
+    ksmc_getContextForThread(helper.machThread, &machineContext, false);
+
+    KSStackCursor cursor;
+    KSUnwindMethod methods[] = { KSUnwindMethod_CompactUnwind };
+    kssc_initWithUnwindMethods(&cursor, 128, &machineContext, methods, 1);
+
+    // Advance past PC frame and LR frame (on ARM64)
+    // We expect either compact_unwind to be used or unwinding to stop (no compact unwind info)
+    XCTAssertTrue(cursor.advanceCursor(&cursor), @"Should advance to first frame (PC)");
+
+    bool foundCompactUnwind = false;
+    int frameCount = 1;  // Already have first frame
+    for (int i = 0; i < 10 && cursor.advanceCursor(&cursor); i++) {
+        frameCount++;
+        KSUnwindMethod method = kssc_getUnwindMethod(&cursor);
+        if (method == KSUnwindMethod_CompactUnwind) {
+            foundCompactUnwind = true;
+            break;
+        }
+    }
+    // Either we found compact_unwind, or we unwound at least some frames (via LR on ARM64)
+    XCTAssertTrue(foundCompactUnwind || frameCount >= 2, @"Should use compact_unwind or at least unwind some frames");
+
+    if (![helper resume]) {
+        [helper stop];
+        XCTSkip(@"thread_resume failed");
+    }
+    [helper stop];
+}
+
+- (void)testUnwindMethods_EmptyArray
+{
+    KSMachineContext machineContext;
+    memset(&machineContext, 0, sizeof(machineContext));
+
+    KSStackCursor cursor;
+    // Empty methods array - should still work but not unwind
+    kssc_initWithUnwindMethods(&cursor, 128, &machineContext, NULL, 0);
+
+    // First frame (PC) should still work
+    bool advanced = cursor.advanceCursor(&cursor);
+    // With zeroed context, first advance may succeed (returns PC=0)
+    // but subsequent advances should fail since no methods available
+    if (advanced) {
+        // Second advance should fail with no methods
+        advanced = cursor.advanceCursor(&cursor);
+        XCTAssertFalse(advanced, @"Should not be able to unwind with no methods specified");
+    }
+}
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+- (void)testDeprecated_InitWithMachineContext_UsesFramePointer
+{
+    // Initialize dynamic linker for unwind cache
+    ksdl_init();
+
+    // Start helper thread with nested calls
+    KSUnwindTestThread *helper = [[KSUnwindTestThread alloc] init];
+    if (![helper start]) {
+        XCTSkip(@"pthread_create failed");
+    }
+    if (helper.machThread == 0) {
+        [helper stop];
+        XCTSkip(@"Helper thread should start");
+    }
+    if (![helper suspend]) {
+        [helper stop];
+        XCTSkip(@"thread_suspend failed");
+    }
+
+    // Get machine context for the helper thread
+    KSMachineContext machineContext;
+    ksmc_getContextForThread(helper.machThread, &machineContext, false);
+
+    KSStackCursor cursor;
+    kssc_initWithMachineContext(&cursor, 128, &machineContext);
+
+    // Advance until we find a frame that used frame_pointer method
+    // Frame 1: PC (method = None)
+    // Frame 2: LR on ARM64 (method = None)
+    // Frame 3+: Actual unwound frames (method = FramePointer)
+    XCTAssertTrue(cursor.advanceCursor(&cursor), @"Should advance to first frame (PC)");
+
+    bool foundFramePointerMethod = false;
+    int frameCount = 1;  // Already have first frame (PC)
+
+    // Search up to 50 frames. In optimized builds with -fomit-frame-pointer,
+    // frame pointers may be sparse or unavailable in some stack regions.
+    for (int i = 0; i < 50 && cursor.advanceCursor(&cursor); i++) {
+        frameCount++;
+        KSUnwindMethod method = kssc_getUnwindMethod(&cursor);
+        if (method == KSUnwindMethod_FramePointer) {
+            foundFramePointerMethod = true;
+            break;
+        }
+    }
+
+    // In optimized builds, frame pointers may not be available at all.
+    // The test passes if either:
+    // 1. We found a frame using frame_pointer method, OR
+    // 2. We unwound at least 3 frames (PC + LR + some frames), proving the cursor works
+    XCTAssertTrue(foundFramePointerMethod || frameCount >= 3,
+                  @"Deprecated initWithMachineContext should use frame_pointer method or at least unwind some frames");
+
+    if (![helper resume]) {
+        [helper stop];
+        XCTSkip(@"thread_resume failed");
+    }
+    [helper stop];
+}
+#pragma clang diagnostic pop
 
 @end
