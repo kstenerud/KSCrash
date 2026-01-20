@@ -42,6 +42,27 @@ let project = Project(
                 "HEADER_SEARCH_PATHS": "$(SRCROOT)/../Sources/KSCrashRecording"
             ])
         ),
+        .target(
+            name: "BenchmarkUITests",
+            destinations: .iOS,
+            product: .uiTests,
+            bundleId: "com.github.kstenerud.KSCrash.BenchmarkUITests",
+            deploymentTargets: .iOS("18.0"),
+            sources: [
+                "../Tests/KSCrashBenchmarks/**",
+                "../Tests/KSCrashBenchmarksObjC/**",
+                "../Tests/KSCrashBenchmarksCold/**",
+            ],
+            dependencies: [
+                .target(name: "BenchmarkApp"),
+                .package(product: "Recording", type: .runtime),
+                .package(product: "RecordingCore", type: .runtime),
+                .package(product: "Profiler", type: .runtime),
+            ],
+            settings: .settings(base: [
+                "HEADER_SEARCH_PATHS": "$(SRCROOT)/../Sources/KSCrashRecording"
+            ])
+        ),
     ],
     schemes: [
         .scheme(
@@ -54,6 +75,17 @@ let project = Project(
                 attachDebugger: false
             ),
             runAction: .runAction(executable: "BenchmarkApp")
-        )
+        ),
+        .scheme(
+            name: "BenchmarksBrowserStack",
+            shared: true,
+            buildAction: .buildAction(targets: ["BenchmarkApp", "BenchmarkUITests"]),
+            testAction: .targets(
+                ["BenchmarkUITests"],
+                configuration: .release,
+                attachDebugger: false
+            ),
+            runAction: .runAction(executable: "BenchmarkApp")
+        ),
     ]
 )
