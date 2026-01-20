@@ -43,11 +43,15 @@ public struct StackFrame: Decodable, Sendable {
     /// Name of the symbol (function/method name).
     public let symbolName: String?
 
+    /// The unwind method used to obtain this frame (e.g., "compact_unwind", "dwarf", "frame_pointer").
+    public let unwindMethod: String?
+
     enum CodingKeys: String, CodingKey {
         case instructionAddr = "instruction_addr"
         case objectAddr = "object_addr"
         case objectName = "object_name"
         case symbolAddr = "symbol_addr"
         case symbolName = "symbol_name"
+        case unwindMethod = "unwind_method"
     }
 }

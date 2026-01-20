@@ -4,10 +4,13 @@
 //  Created by Alexander Cohen on 2025-01-16.
 //
 
+#import <TargetConditionals.h>
 #import <XCTest/XCTest.h>
 #import <mach-o/dyld.h>
 #import <mach-o/loader.h>
+#if !TARGET_OS_WATCH
 #import <pthread.h>
+#endif
 
 #import "KSBacktrace.h"
 #import "KSDynamicLinker.h"
@@ -77,6 +80,7 @@ static void appendSLEB(uint8_t *buf, size_t *offset, int64_t value)
 @interface KSUnwind_Tests : XCTestCase
 @end
 
+#if !TARGET_OS_WATCH
 // Helper class that creates a thread with nested function calls and waits.
 // This allows tests to capture a valid machine context from another thread.
 //
@@ -198,6 +202,7 @@ static void *ksunwind_test_thread_main(void *arg)
 }
 
 @end
+#endif  // !TARGET_OS_WATCH
 
 @implementation KSUnwind_Tests
 
@@ -1251,6 +1256,7 @@ static void *ksunwind_test_thread_main(void *arg)
 // MARK: - Method Selection Tests
 // =============================================================================
 
+#if !TARGET_OS_WATCH
 - (void)testUnwindMethods_FramePointerOnly
 {
     // Initialize dynamic linker for unwind cache
@@ -1363,6 +1369,7 @@ static void *ksunwind_test_thread_main(void *arg)
     }
     [helper stop];
 }
+#endif  // !TARGET_OS_WATCH
 
 - (void)testUnwindMethods_EmptyArray
 {
@@ -1384,6 +1391,7 @@ static void *ksunwind_test_thread_main(void *arg)
     }
 }
 
+#if !TARGET_OS_WATCH
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 - (void)testDeprecated_InitWithMachineContext_UsesFramePointer
@@ -1446,5 +1454,6 @@ static void *ksunwind_test_thread_main(void *arg)
     [helper stop];
 }
 #pragma clang diagnostic pop
+#endif  // !TARGET_OS_WATCH
 
 @end

@@ -24,6 +24,10 @@
 // THE SOFTWARE.
 //
 
+#import <TargetConditionals.h>
+
+#if !TARGET_OS_WATCH
+
 #import <XCTest/XCTest.h>
 
 #import "KSCrashMonitorContext.h"
@@ -211,3 +215,5 @@ static void *workerThreadMain(void *arg)
 }
 
 @end
+
+#endif  // !TARGET_OS_WATCH
