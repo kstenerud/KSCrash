@@ -11,7 +11,6 @@ on:
       - "Package.swift"
       - ".github/workflows/benchmarks.yml"
       - ".github/workflows/browserstack.yml"
-      - ".github/scripts/perfcomp.py"
 
   push:
     branches:
@@ -56,38 +55,90 @@ jobs:
   compare-results:
     needs: [browserstack-pr, browserstack-main]
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Download PR Results
+        uses: actions/download-artifact@v4
         with:
-          python-version: '3.11'
+          name: ${{ needs.browserstack-pr.outputs.results_artifact }}
+          path: pr-results
 
-      - name: Install Dependencies
-        run: pip install scipy pygithub
+      - name: Download Main Results
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.browserstack-main.outputs.results_artifact }}
+          path: main-results
 
-      - name: Compare Performance
-        env:
-          PERF_PR: ${{ needs.browserstack-pr.outputs.results }}
-          PERF_MAIN: ${{ needs.browserstack-main.outputs.results }}
-          THRESHOLD_PCT: "5"
-          ALPHA: "0.05"
-          TITLE: "KSCrash Performance Benchmarks"
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: python .github/scripts/perfcomp.py
+      - name: Extract Result Bundles
+        run: |
+          # Extract PR results
+          if [ -f pr-results/result_bundle.xcresult.zip ]; then
+            unzip -q pr-results/result_bundle.xcresult.zip -d pr-results
+            PR_XCRESULT=$(find pr-results -name "*.xcresult" -type d | head -1)
+            echo "PR xcresult: $PR_XCRESULT"
+            if [ -n "$PR_XCRESULT" ]; then
+              mv "$PR_XCRESULT" pr_benchmarks.xcresult
+            fi
+          fi
+
+          # Extract main results
+          if [ -f main-results/result_bundle.xcresult.zip ]; then
+            unzip -q main-results/result_bundle.xcresult.zip -d main-results
+            MAIN_XCRESULT=$(find main-results -name "*.xcresult" -type d | head -1)
+            echo "Main xcresult: $MAIN_XCRESULT"
+            if [ -n "$MAIN_XCRESULT" ]; then
+              mv "$MAIN_XCRESULT" base_benchmarks.xcresult
+            fi
+          fi
+
+          ls -la *.xcresult || echo "No xcresult bundles found"
+
+      - name: Parse and Format Results
+        run: |
+          python3 .github/scripts/parse_benchmarks.py \
+            --pr-results pr_benchmarks.xcresult \
+            --base-results base_benchmarks.xcresult \
+            --config .github/data/benchmark-tests.json
+
+      - name: Comment PR with Results
+        uses: thollander/actions-comment-pull-request@v2
+        with:
+          filePath: benchmark_results.md
+          comment_tag: benchmark-results
 
   # Post results summary for push events (no comparison)
   post-results:
     needs: [browserstack-pr]
     if: github.event_name == 'push'
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
-      - name: Print Results Summary
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Results
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.browserstack-pr.outputs.results_artifact }}
+          path: results
+
+      - name: Extract and Parse Results
+        run: |
+          if [ -f results/result_bundle.xcresult.zip ]; then
+            unzip -q results/result_bundle.xcresult.zip -d results
+            XCRESULT=$(find results -name "*.xcresult" -type d | head -1)
+            if [ -n "$XCRESULT" ]; then
+              mv "$XCRESULT" pr_benchmarks.xcresult
+              python3 .github/scripts/parse_benchmarks.py \
+                --pr-results pr_benchmarks.xcresult \
+                --config .github/data/benchmark-tests.json
+              cat benchmark_results.md
+            fi
+          fi
+
+      - name: Print BrowserStack Link
         run: |
           echo "## BrowserStack Benchmark Results"
           echo ""
