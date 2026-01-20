@@ -1349,8 +1349,14 @@ static void *ksunwind_test_thread_main(void *arg)
             break;
         }
     }
-    // Either we found compact_unwind, or we unwound at least some frames (via LR on ARM64)
+    // Either we found compact_unwind, or we unwound at least some frames.
+    // On ARM64, we get LR as a fallback giving us at least 2 frames.
+    // On x86_64, without compact unwind info, we only get the PC frame.
+#if defined(__arm64__) || defined(__arm__)
     XCTAssertTrue(foundCompactUnwind || frameCount >= 2, @"Should use compact_unwind or at least unwind some frames");
+#else
+    XCTAssertTrue(foundCompactUnwind || frameCount >= 1, @"Should use compact_unwind or at least get PC frame");
+#endif
 
     [helper resume];
     [helper stop];
