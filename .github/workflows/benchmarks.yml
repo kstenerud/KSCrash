@@ -12,10 +12,6 @@ on:
       - ".github/workflows/benchmarks.yml"
       - ".github/workflows/browserstack.yml"
 
-  push:
-    branches:
-      - master
-
   workflow_dispatch:
 
 permissions:
@@ -40,10 +36,9 @@ jobs:
       BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
       BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
 
-  # Run benchmarks on main branch for comparison (only on PRs)
+  # Run benchmarks on main branch for comparison
   browserstack-main:
     needs: [browserstack-pr]
-    if: github.event_name == 'pull_request'
     uses: ./.github/workflows/browserstack.yml
     with:
       ref: ${{ github.base_ref }}
@@ -54,7 +49,6 @@ jobs:
   # Compare results and post to PR
   compare-results:
     needs: [browserstack-pr, browserstack-main]
-    if: github.event_name == 'pull_request'
     runs-on: macos-latest
     steps:
       - name: Checkout
@@ -108,42 +102,3 @@ jobs:
         with:
           filePath: benchmark_results.md
           comment_tag: benchmark-results
-
-  # Post results summary for push events (no comparison)
-  post-results:
-    needs: [browserstack-pr]
-    if: github.event_name == 'push'
-    runs-on: macos-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Download Results
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ needs.browserstack-pr.outputs.results_artifact }}
-          path: results
-
-      - name: Extract and Parse Results
-        run: |
-          if [ -f results/result_bundle.xcresult.zip ]; then
-            unzip -q results/result_bundle.xcresult.zip -d results
-            XCRESULT=$(find results -name "*.xcresult" -type d | head -1)
-            if [ -n "$XCRESULT" ]; then
-              mv "$XCRESULT" pr_benchmarks.xcresult
-              python3 .github/scripts/parse_benchmarks.py \
-                --pr-results pr_benchmarks.xcresult \
-                --config .github/data/benchmark-tests.json
-              cat benchmark_results.md
-            fi
-          fi
-
-      - name: Print BrowserStack Link
-        run: |
-          echo "## BrowserStack Benchmark Results"
-          echo ""
-          echo "Build ID: ${{ needs.browserstack-pr.outputs.build_id }}"
-          echo "Status: ${{ needs.browserstack-pr.outputs.build_status }}"
-          echo ""
-          echo "View detailed results at:"
-          echo "https://app-automate.browserstack.com/dashboard/v2/builds/${{ needs.browserstack-pr.outputs.build_id }}"
