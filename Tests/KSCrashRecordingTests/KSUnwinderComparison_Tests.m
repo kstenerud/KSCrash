@@ -104,8 +104,8 @@ static void *workerThreadMain(void *arg)
     return nil;
 }
 
-/// Test that crash reports contain per-frame unwind methods and configured methods array.
-- (void)testUnwinder_PerFrameMethodsAndConfiguredMethodsArray
+/// Test that crash reports correctly capture backtraces from suspended threads.
+- (void)testUnwinder_BacktraceFromSuspendedThread
 {
     // Initialize dynamic linker (needed for report writing)
     ksdl_init();
@@ -164,50 +164,18 @@ static void *workerThreadMain(void *arg)
     NSDictionary *report = [self readJSONReport:reportPath];
     XCTAssertNotNil(report, @"Should be able to read report");
 
-    // Verify unwind_method field in report section is an array with configured methods
-    NSArray *configuredMethods = report[@"report"][@"unwind_method"];
-    XCTAssertNotNil(configuredMethods, @"Report should have unwind_method array");
-    XCTAssertTrue([configuredMethods isKindOfClass:[NSArray class]], @"unwind_method should be an array");
-    XCTAssertGreaterThan(configuredMethods.count, 0, @"unwind_method array should have methods");
-
-    NSLog(@"=== Configured unwind methods ===");
-    for (NSString *method in configuredMethods) {
-        NSLog(@"  - %@", method);
-    }
-
-    // Expected default methods
-    NSArray *expectedMethods = @[ @"compact_unwind", @"dwarf", @"frame_pointer" ];
-    XCTAssertEqualObjects(configuredMethods, expectedMethods, @"Should have default unwind methods configured");
-
     // Extract backtrace
     NSArray *backtrace = [self extractBacktraceFromReport:report];
     XCTAssertNotNil(backtrace, @"Report should have backtrace");
     XCTAssertGreaterThan(backtrace.count, 0, @"Backtrace should have frames");
 
-    NSLog(@"\n=== Per-frame unwind methods ===");
     NSLog(@"Total frames: %lu", (unsigned long)backtrace.count);
-
-    // Verify each frame has an unwind_method field
-    NSMutableDictionary *methodCounts = [NSMutableDictionary dictionary];
     for (NSUInteger i = 0; i < backtrace.count; i++) {
         NSDictionary *frame = backtrace[i];
-        NSString *unwindMethod = frame[@"unwind_method"];
         NSString *symbolName = frame[@"symbol_name"] ?: @"(unknown)";
         NSNumber *instructionAddr = frame[@"instruction_addr"];
-
-        XCTAssertNotNil(unwindMethod, @"Frame %lu should have unwind_method", (unsigned long)i);
-
-        // Count method usage
-        NSNumber *count = methodCounts[unwindMethod] ?: @0;
-        methodCounts[unwindMethod] = @(count.integerValue + 1);
-
-        NSLog(@"Frame %2lu: 0x%llx %@ [%@]", (unsigned long)i,
-              instructionAddr ? [instructionAddr unsignedLongLongValue] : 0, symbolName, unwindMethod);
-    }
-
-    NSLog(@"\n=== Unwind method statistics ===");
-    for (NSString *method in methodCounts) {
-        NSLog(@"  %@: %@ frames", method, methodCounts[method]);
+        NSLog(@"Frame %2lu: 0x%llx %@", (unsigned long)i, instructionAddr ? [instructionAddr unsignedLongLongValue] : 0,
+              symbolName);
     }
 
     // Clean up

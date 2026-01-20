@@ -119,7 +119,6 @@ KSCRF_DEFINE_CONSTANT(KSCrashField, ObjectAddr, objectAddr, "object_addr")
 KSCRF_DEFINE_CONSTANT(KSCrashField, ObjectName, objectName, "object_name")
 KSCRF_DEFINE_CONSTANT(KSCrashField, SymbolAddr, symbolAddr, "symbol_addr")
 KSCRF_DEFINE_CONSTANT(KSCrashField, SymbolName, symbolName, "symbol_name")
-KSCRF_DEFINE_CONSTANT(KSCrashField, UnwindMethod, unwindMethod, "unwind_method")
 
 #pragma mark - Stack Dump -
 

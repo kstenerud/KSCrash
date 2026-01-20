@@ -853,8 +853,6 @@ static void writeBacktrace(const KSCrashReportWriter *const writer, const char *
                                                    stackCursor->stackEntry.symbolAddress);
                     }
                     writer->addUIntegerElement(writer, KSCrashField_InstructionAddr, stackCursor->stackEntry.address);
-                    writer->addStringElement(writer, KSCrashField_UnwindMethod,
-                                             kssc_unwindMethodName(kssc_getUnwindMethod(stackCursor)));
                 }
                 writer->endContainer(writer);
             }
@@ -1493,11 +1491,6 @@ static void writeReportInfo(const KSCrashReportWriter *const writer, const char 
         writer->addStringElement(writer, KSCrashField_ProcessName, processName);
         writer->addUIntegerElement(writer, KSCrashField_Timestamp, ksdate_microseconds());
         writer->addStringElement(writer, KSCrashField_Type, type);
-        writer->beginArray(writer, KSCrashField_UnwindMethod);
-        for (int i = 0; i < MAX_UNWIND_METHODS && g_unwindMethods[i] != KSUnwindMethod_None; i++) {
-            writer->addStringElement(writer, NULL, kssc_unwindMethodName(g_unwindMethods[i]));
-        }
-        writer->endContainer(writer);
     }
     writer->endContainer(writer);
 }

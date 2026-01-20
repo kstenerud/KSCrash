@@ -69,16 +69,12 @@ public struct ReportInfo: Decodable, Sendable {
     /// Report format version.
     public let version: ReportVersion?
 
-    /// The unwind methods configured for stack unwinding (e.g., ["compact_unwind", "dwarf", "frame_pointer"]).
-    public let unwindMethods: [String]?
-
     enum CodingKeys: String, CodingKey {
         case id
         case processName = "process_name"
         case timestamp
         case type
         case version
-        case unwindMethods = "unwind_method"
     }
 
     public init(from decoder: Decoder) throws {
@@ -87,7 +83,6 @@ public struct ReportInfo: Decodable, Sendable {
         self.processName = try container.decodeIfPresent(String.self, forKey: .processName)
         self.type = try container.decodeIfPresent(ReportType.self, forKey: .type)
         self.version = try container.decodeIfPresent(ReportVersion.self, forKey: .version)
-        self.unwindMethods = try container.decodeIfPresent([String].self, forKey: .unwindMethods)
 
         // Timestamp can be ISO 8601 string or microseconds since epoch
         if let microseconds = try? container.decode(Int64.self, forKey: .timestamp) {

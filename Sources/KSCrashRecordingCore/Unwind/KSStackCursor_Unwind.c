@@ -307,6 +307,7 @@ static bool tryUnwindWithMethod(UnwindCursorContext *ctx, KSUnwindMethod method,
     return false;
 }
 
+#if defined(__arm64__) || defined(__arm__)
 /** Try to update register state after using LR, using methods in order. */
 static bool tryUpdateStateAfterLR(UnwindCursorContext *ctx)
 {
@@ -350,6 +351,7 @@ static bool tryUpdateStateAfterLR(UnwindCursorContext *ctx)
     }
     return false;
 }
+#endif  // __arm64__ || __arm__
 
 static bool advanceCursor(KSStackCursor *cursor)
 {
