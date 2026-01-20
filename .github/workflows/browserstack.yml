@@ -64,35 +64,37 @@ jobs:
         id: package
         working-directory: Benchmarks/build
         run: |
-          # Find and zip the app
-          APP_PATH=$(find Build/Products -name "*.app" -type d | head -1)
+          # Find the app and create IPA (BrowserStack requires IPA format)
+          APP_PATH=$(find Build/Products/Release-iphoneos -name "BenchmarkApp.app" -type d | head -1)
           if [ -z "$APP_PATH" ]; then
-            echo "Error: Could not find .app bundle"
+            echo "Error: Could not find BenchmarkApp.app bundle"
+            find Build/Products -name "*.app" -type d
             exit 1
           fi
-          cd "$(dirname "$APP_PATH")"
-          zip -r "$GITHUB_WORKSPACE/BenchmarkApp.zip" "$(basename "$APP_PATH")"
+          echo "Found app: $APP_PATH"
 
-          # Find and zip the test runner
-          cd "$GITHUB_WORKSPACE/Benchmarks/build"
-          RUNNER_PATH=$(find Build/Products -name "*.xctestrun" -type f | head -1)
-          if [ -z "$RUNNER_PATH" ]; then
-            echo "Error: Could not find .xctestrun file"
+          # Create IPA structure: Payload/App.app
+          mkdir -p Payload
+          cp -R "$APP_PATH" Payload/
+          zip -r "$GITHUB_WORKSPACE/BenchmarkApp.ipa" Payload
+          rm -rf Payload
+          echo "Created BenchmarkApp.ipa"
+
+          # Find and package the UI test runner as IPA
+          UITEST_RUNNER=$(find Build/Products/Release-iphoneos -name "BenchmarkUITests-Runner.app" -type d | head -1)
+          if [ -z "$UITEST_RUNNER" ]; then
+            echo "Error: Could not find BenchmarkUITests-Runner.app"
+            find Build/Products -name "*Runner.app" -type d
             exit 1
           fi
+          echo "Found test runner: $UITEST_RUNNER"
 
-          # Create test bundle directory structure
-          mkdir -p TestBundle
-          cp "$RUNNER_PATH" TestBundle/
-
-          # Copy UI test runner app if it exists
-          UITEST_APP=$(find Build/Products -name "*UITests-Runner.app" -type d | head -1)
-          if [ -n "$UITEST_APP" ]; then
-            cp -R "$UITEST_APP" TestBundle/
-          fi
-
-          cd TestBundle
-          zip -r "$GITHUB_WORKSPACE/BenchmarkUITests.zip" .
+          # Create test runner IPA
+          mkdir -p Payload
+          cp -R "$UITEST_RUNNER" Payload/
+          zip -r "$GITHUB_WORKSPACE/BenchmarkUITests.ipa" Payload
+          rm -rf Payload
+          echo "Created BenchmarkUITests.ipa"
 
       - name: Upload to BrowserStack
         id: upload
@@ -100,11 +102,12 @@ jobs:
           BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
           BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
         run: |
-          # Upload app
+          # Upload app IPA
           echo "Uploading app to BrowserStack..."
           APP_RESPONSE=$(curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
             -X POST "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/app" \
-            -F "file=@BenchmarkApp.zip")
+            -F "file=@BenchmarkApp.ipa")
+          echo "App upload response: $APP_RESPONSE"
           APP_URL=$(echo "$APP_RESPONSE" | jq -r '.app_url // empty')
 
           if [ -z "$APP_URL" ]; then
@@ -114,11 +117,12 @@ jobs:
           echo "App URL: $APP_URL"
           echo "app_url=$APP_URL" >> "$GITHUB_OUTPUT"
 
-          # Upload test suite
+          # Upload test suite IPA
           echo "Uploading test suite to BrowserStack..."
           TEST_RESPONSE=$(curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
             -X POST "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/test-suite" \
-            -F "file=@BenchmarkUITests.zip")
+            -F "file=@BenchmarkUITests.ipa")
+          echo "Test upload response: $TEST_RESPONSE"
           TEST_URL=$(echo "$TEST_RESPONSE" | jq -r '.test_suite_url // empty')
 
           if [ -z "$TEST_URL" ]; then
