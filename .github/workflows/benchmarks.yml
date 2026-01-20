@@ -23,6 +23,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Check if base branch has BenchmarksBrowserStack scheme
+  check-base-branch:
+    runs-on: ubuntu-latest
+    outputs:
+      has_browserstack_scheme: ${{ steps.check.outputs.has_scheme }}
+    steps:
+      - name: Checkout base branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.base_ref }}
+
+      - name: Check for BenchmarksBrowserStack scheme
+        id: check
+        run: |
+          if grep -q "BenchmarksBrowserStack" Benchmarks/Project.swift 2>/dev/null; then
+            echo "has_scheme=true" >> $GITHUB_OUTPUT
+            echo "Base branch has BenchmarksBrowserStack scheme"
+          else
+            echo "has_scheme=false" >> $GITHUB_OUTPUT
+            echo "Base branch does not have BenchmarksBrowserStack scheme"
+          fi
+
   # Run benchmarks on PR code
   browserstack-pr:
     # Skip for fork PRs (no access to secrets)
@@ -36,9 +58,10 @@ jobs:
       BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
       BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
 
-  # Run benchmarks on main branch for comparison
+  # Run benchmarks on main branch for comparison (only if scheme exists)
   browserstack-main:
-    needs: [browserstack-pr]
+    needs: [browserstack-pr, check-base-branch]
+    if: needs.check-base-branch.outputs.has_browserstack_scheme == 'true'
     uses: ./.github/workflows/browserstack.yml
     with:
       ref: ${{ github.base_ref }}
@@ -46,9 +69,10 @@ jobs:
       BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
       BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
 
-  # Compare results and post to PR
-  compare-results:
-    needs: [browserstack-pr, browserstack-main]
+  # Parse and post results
+  post-results:
+    needs: [browserstack-pr, browserstack-main, check-base-branch]
+    if: always() && needs.browserstack-pr.result == 'success'
     runs-on: macos-latest
     steps:
       - name: Checkout
@@ -61,6 +85,7 @@ jobs:
           path: pr-results
 
       - name: Download Main Results
+        if: needs.check-base-branch.outputs.has_browserstack_scheme == 'true' && needs.browserstack-main.result == 'success'
         uses: actions/download-artifact@v4
         with:
           name: ${{ needs.browserstack-main.outputs.results_artifact }}
@@ -78,7 +103,7 @@ jobs:
             fi
           fi
 
-          # Extract main results
+          # Extract main results (if available)
           if [ -f main-results/result_bundle.xcresult.zip ]; then
             unzip -q main-results/result_bundle.xcresult.zip -d main-results
             MAIN_XCRESULT=$(find main-results -name "*.xcresult" -type d | head -1)
@@ -86,18 +111,26 @@ jobs:
             if [ -n "$MAIN_XCRESULT" ]; then
               mv "$MAIN_XCRESULT" base_benchmarks.xcresult
             fi
+          else
+            echo "No main results available (BenchmarksBrowserStack may not exist on base branch yet)"
           fi
-
-          ls -la *.xcresult || echo "No xcresult bundles found"
 
       - name: Parse and Format Results
         run: |
-          python3 .github/scripts/parse_benchmarks.py \
-            --pr-results pr_benchmarks.xcresult \
-            --base-results base_benchmarks.xcresult \
-            --config .github/data/benchmark-tests.json
+          # Only pass base-results if the file exists
+          if [ -d "base_benchmarks.xcresult" ]; then
+            python3 .github/scripts/parse_benchmarks.py \
+              --pr-results pr_benchmarks.xcresult \
+              --base-results base_benchmarks.xcresult \
+              --config .github/data/benchmark-tests.json
+          else
+            python3 .github/scripts/parse_benchmarks.py \
+              --pr-results pr_benchmarks.xcresult \
+              --config .github/data/benchmark-tests.json
+          fi
 
       - name: Comment PR with Results
+        if: github.event_name == 'pull_request'
         uses: thollander/actions-comment-pull-request@v2
         with:
           filePath: benchmark_results.md
