@@ -191,7 +191,9 @@ jobs:
               \"networkLogs\": false,
               \"deviceLogs\": true,
               \"video\": false,
-              \"enableResultBundle\": true
+              \"enableResultBundle\": true,
+              \"idleTimeout\": 300,
+              \"testTimeout\": 3600
             }")
 
           echo "Build execution response: $BUILD_RESPONSE"
@@ -258,13 +260,31 @@ jobs:
 
           echo "Downloading result bundle for build $BUILD_ID, session $SESSION_ID..."
 
-          curl -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
+          # Download with verbose output to see response
+          HTTP_CODE=$(curl -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
             -X GET "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/builds/$BUILD_ID/sessions/$SESSION_ID/resultbundle" \
-            -o result_bundle.xcresult.zip
+            -o result_bundle.xcresult.zip \
+            -w "%{http_code}")
+
+          echo "HTTP response code: $HTTP_CODE"
 
           if [ -f result_bundle.xcresult.zip ]; then
-            echo "Result bundle downloaded successfully"
-            ls -lh result_bundle.xcresult.zip
+            FILE_SIZE=$(stat -f%z result_bundle.xcresult.zip 2>/dev/null || stat -c%s result_bundle.xcresult.zip 2>/dev/null)
+            echo "Downloaded file size: $FILE_SIZE bytes"
+
+            # Check if it's a valid zip (should be larger than 1KB and start with PK)
+            if [ "$FILE_SIZE" -lt 1000 ]; then
+              echo "Warning: File too small, likely an error response:"
+              cat result_bundle.xcresult.zip
+              rm result_bundle.xcresult.zip
+            elif ! unzip -t result_bundle.xcresult.zip > /dev/null 2>&1; then
+              echo "Warning: File is not a valid zip:"
+              head -c 500 result_bundle.xcresult.zip
+              rm result_bundle.xcresult.zip
+            else
+              echo "Result bundle downloaded and validated successfully"
+              ls -lh result_bundle.xcresult.zip
+            fi
           else
             echo "Warning: Result bundle file not created"
           fi
