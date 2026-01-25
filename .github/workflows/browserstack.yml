@@ -107,7 +107,7 @@ jobs:
 
           # Create test suite zip (just the Runner.app, not in Payload format)
           cd $(dirname "$TEST_RUNNER_PATH")
-          zip -r "$GITHUB_WORKSPACE/BenchmarkUITests.zip" "BenchmarkUITests-Runner.app"
+          zip --symlinks -r "$GITHUB_WORKSPACE/BenchmarkUITests.zip" "BenchmarkUITests-Runner.app"
           cd "$GITHUB_WORKSPACE"
 
           ls -lh BenchmarkUITests.zip
