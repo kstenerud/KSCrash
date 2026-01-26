@@ -625,8 +625,6 @@ const char *kscm_stringFromRole(int /*task_role_t*/ role)
 // See header for documentation.
 id kshang_addHangObserver(KSHangObserverBlock observer)
 {
-    NSCAssert(g_watchdog != nil, @"kshang_addHangObserver called but KSCrashMonitorTypeWatchdog is not enabled. "
-                                 @"Enable it in your KSCrash configuration to use hang observation.");
     return [g_watchdog addObserver:observer];
 }
 
