@@ -60,7 +60,10 @@ let project = Project(
                 .package(product: "Profiler", type: .runtime),
             ],
             settings: .settings(base: [
-                "HEADER_SEARCH_PATHS": "$(SRCROOT)/../Sources/KSCrashRecording"
+                "HEADER_SEARCH_PATHS": "$(SRCROOT)/../Sources/KSCrashRecording",
+                // Export Swift test class symbols for BrowserStack test discovery
+                "GCC_SYMBOLS_PRIVATE_EXTERN": "NO",
+                "STRIP_INSTALLED_PRODUCT": "NO",
             ])
         ),
     ],

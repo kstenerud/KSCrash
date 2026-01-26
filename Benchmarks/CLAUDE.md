@@ -99,14 +99,58 @@ The benchmark tests are located in the main repository:
 - `Tests/KSCrashBenchmarksObjC/` - Objective-C benchmarks
 - `Tests/KSCrashBenchmarksCold/` - Cold-start benchmarks
 
+## Writing Swift Benchmarks for BrowserStack
+
+BrowserStack test discovery requires Swift test classes to export global Objective-C class symbols. By default, Swift classes have local symbols that BrowserStack cannot discover.
+
+**Requirements for Swift benchmark classes:**
+
+1. Use `@objc(ClassName)` with an explicit Objective-C name
+2. Use `public class` instead of `final class`
+
+```swift
+// Correct - will be discovered by BrowserStack
+@objc(KSMyBenchmarks)
+public class KSMyBenchmarks: XCTestCase {
+    func testBenchmarkSomething() {
+        measure {
+            // benchmark code
+        }
+    }
+}
+
+// Wrong - will NOT be discovered by BrowserStack
+final class KSMyBenchmarks: XCTestCase { ... }
+```
+
+**Why this is needed:**
+
+- `@objc(Name)` generates an `_OBJC_CLASS_$_Name` symbol with a clean name
+- `public` makes the symbol globally visible (uppercase `S` in `nm` output)
+- Without these, Swift classes have local symbols (`s`) that BrowserStack cannot find
+
+**Verifying symbols:**
+
+```bash
+# Build the UI tests
+xcodebuild build-for-testing -workspace KSCrashBenchmarks.xcworkspace \
+  -scheme BenchmarksBrowserStack -sdk iphoneos -configuration Release \
+  -derivedDataPath build/DerivedData CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+
+# Check symbols - should show 'S' (global), not 's' (local)
+nm build/DerivedData/Build/Products/Release-iphoneos/BenchmarkUITests-Runner.app/PlugIns/BenchmarkUITests.xctest/BenchmarkUITests | grep OBJC_CLASS | grep MyBenchmarks
+```
+
 ## Interpreting Results
 
 Benchmark results show:
+
 - **Time**: Average execution time
 - **Std Dev**: Measurement variability (lower is more consistent)
 - **Status**: Performance rating based on thresholds
 
 For reliable results:
+
 - Run on device (not simulator) for accurate timing
 - Close other apps to reduce interference
 - Run multiple times to verify consistency
