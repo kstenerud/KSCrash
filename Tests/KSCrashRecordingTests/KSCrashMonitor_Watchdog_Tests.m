@@ -137,16 +137,15 @@ static void stubHandle_deprecated(KSCrash_MonitorContext *context) { stubHandle(
     api->setEnabled(false);
 }
 
-- (void)testAddObserverWhenDisabledReturnsNil
+- (void)testAddObserverWhenDisabledAssertsInDebug
 {
     KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
     api->setEnabled(false);
 
-    id token =
+    XCTAssertThrows(
         kshang_addHangObserver(^(__unused KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
-        });
-
-    XCTAssertNil(token, @"Adding an observer when disabled should return nil");
+        }),
+        @"Adding an observer when disabled should assert");
 }
 
 - (void)testMultipleObserversCanBeAdded
