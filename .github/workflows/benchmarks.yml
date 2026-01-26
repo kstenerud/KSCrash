@@ -30,7 +30,7 @@ jobs:
       has_browserstack_scheme: ${{ steps.check.outputs.has_scheme }}
     steps:
       - name: Checkout base branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.base_ref }}
 
@@ -131,7 +131,7 @@ jobs:
 
       - name: Comment PR with Results
         if: github.event_name == 'pull_request'
-        uses: thollander/actions-comment-pull-request@v2
+        uses: thollander/actions-comment-pull-request@v3
         with:
-          filePath: benchmark_results.md
-          comment_tag: benchmark-results
+          file-path: benchmark_results.md
+          comment-tag: benchmark-results

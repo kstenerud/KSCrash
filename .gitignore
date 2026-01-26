@@ -41,6 +41,7 @@ Gemfile.lock
 /Benchmarks/KSCrashBenchmarks.xcworkspace
 /.github/scripts/__pycache__
 Benchmarks/benchmark_results.md
+/Benchmarks/build
 ### Infer ###
 infer-out/
 compile_commands.json
