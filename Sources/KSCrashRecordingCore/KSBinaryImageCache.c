@@ -28,6 +28,7 @@
 
 #include <dlfcn.h>
 #include <mach-o/dyld_images.h>
+#include <mach-o/getsect.h>
 #include <mach-o/loader.h>
 #include <mach/mach.h>
 #include <mach/task.h>
@@ -37,6 +38,7 @@
 #include <stdlib.h>
 
 #include "KSLogger.h"
+#include "KSPlatformSpecificDefines.h"
 
 // MARK: - Image Address Range Cache
 
@@ -54,6 +56,7 @@ typedef struct {
 /**
  * Cached image address range for fast lookups.
  * Stores pre-computed segment ranges for fast address validation (O(segments), typically 4-6 segments).
+ * Also caches unwind section pointers for async-signal-safe access during crash handling.
  */
 typedef struct {
     uintptr_t startAddress;  // Min segment address (for quick rejection)
@@ -64,6 +67,9 @@ typedef struct {
     const char *_Nullable name;
     KSSegmentRange segments[KSBIC_MAX_SEGMENTS_PER_IMAGE];  // Actual segment ranges
     uint8_t segmentCount;                                   // Number of valid segments
+
+    // Cached unwind section data (populated at image load time for async-signal-safety)
+    KSBinaryImageUnwindInfo unwindInfo;
 } KSBinaryImageRange;
 
 typedef struct {
@@ -321,6 +327,28 @@ static bool populateCacheEntry(const struct mach_header *header, const char *nam
     entry->endAddress = (maxAddr == 0) ? 0 : (maxAddr + slide);
     entry->segmentCount = segCount;
 
+    // Cache unwind section pointers using getsectiondata().
+    // This is called at image load time (not during crash handling), so it's safe to use
+    // getsectiondata() which correctly handles images in the dyld shared cache.
+    // The cached pointers can then be accessed async-signal-safely during crash handling.
+    entry->unwindInfo.header = header;
+    entry->unwindInfo.slide = slide;
+
+    unsigned long unwindSectionSize = 0;
+    entry->unwindInfo.unwindInfo =
+        getsectiondata((const mach_header_t *)header, SEG_TEXT, "__unwind_info", &unwindSectionSize);
+    entry->unwindInfo.unwindInfoSize = (size_t)unwindSectionSize;
+    entry->unwindInfo.hasCompactUnwind = (entry->unwindInfo.unwindInfo != NULL && unwindSectionSize > 0);
+
+    unsigned long ehFrameSize = 0;
+    entry->unwindInfo.ehFrame = getsectiondata((const mach_header_t *)header, SEG_TEXT, "__eh_frame", &ehFrameSize);
+    entry->unwindInfo.ehFrameSize = (size_t)ehFrameSize;
+    entry->unwindInfo.hasEhFrame = (entry->unwindInfo.ehFrame != NULL && ehFrameSize > 0);
+
+    KSLOG_TRACE("Cached image %s: unwind=%p(%zu) eh_frame=%p(%zu)", name ? name : "<unknown>",
+                entry->unwindInfo.unwindInfo, entry->unwindInfo.unwindInfoSize, entry->unwindInfo.ehFrame,
+                entry->unwindInfo.ehFrameSize);
+
     return (segCount > 0);
 }
 
@@ -378,9 +406,17 @@ static _Atomic(ksbic_imageCallback) g_image_added_callback = NULL;
 
 void ksbic_registerForImageAdded(ksbic_imageCallback callback) { atomic_store(&g_image_added_callback, callback); }
 
+// Forward declaration for use in dyld notifier
+static int32_t findByHeader(const KSBinaryImageRangeCache *cache, const struct mach_header *header);
+
 /**
  * Our custom dyld image notifier that gets called when images are added or removed.
  * We use this to invalidate/update our cache, then call the original notifier.
+ *
+ * IMPORTANT: This function pre-populates the cache for newly added images. This ensures
+ * that unwind info is available async-signal-safely during crash handling, since
+ * getsectiondata() (called during population) is NOT async-signal-safe and cannot
+ * be called from signal handlers.
  */
 static void ksbic_dyld_image_notifier(enum dyld_image_mode mode, uint32_t infoCount,
                                       const struct dyld_image_info info[])
@@ -389,6 +425,29 @@ static void ksbic_dyld_image_notifier(enum dyld_image_mode mode, uint32_t infoCo
     // (dlclose doesn't actually unload due to Objective-C runtime, Swift, etc.)
     if (mode == dyld_image_adding) {
         KSLOG_DEBUG("dyld notifier: %u images added", infoCount);
+
+        // Pre-populate cache for async-signal-safety.
+        // This is called at image load time (safe context), so we can use getsectiondata().
+        // The cached data can then be accessed during crash handling without unsafe calls.
+        KSBinaryImageRangeCache *cache = atomic_exchange(&g_cache_ptr, NULL);
+        if (cache != NULL) {
+            for (uint32_t i = 0; i < infoCount && cache->count < KSBIC_MAX_CACHE_ENTRIES; i++) {
+                const struct mach_header *header = info[i].imageLoadAddress;
+                const char *name = info[i].imageFilePath;
+
+                // Check if already in cache
+                if (findByHeader(cache, header) >= 0) {
+                    continue;
+                }
+
+                KSBinaryImageRange newEntry;
+                if (populateCacheEntry(header, name, &newEntry)) {
+                    insertSortedCacheEntry(cache, &newEntry);
+                }
+            }
+            atomic_store(&g_cache_ptr, cache);
+        }
+
         ksbic_imageCallback callback = atomic_load(&g_image_added_callback);
         if (callback != NULL) {
             for (uint32_t i = 0; i < infoCount; i++) {
@@ -557,5 +616,111 @@ const struct mach_header *ksbic_getImageDetailsForAddress(uintptr_t address, uin
             if (outName) *outName = NULL;
         }
         return header;
+    }
+}
+
+// Find cache entry by header pointer. Returns index or -1 if not found.
+static int32_t findByHeader(const KSBinaryImageRangeCache *cache, const struct mach_header *header)
+{
+    for (uint32_t i = 0; i < cache->count; i++) {
+        if (cache->entries[i].header == header) {
+            return (int32_t)i;
+        }
+    }
+    return -1;
+}
+
+bool ksbic_getUnwindInfoForHeader(const struct mach_header *header, KSBinaryImageUnwindInfo *outInfo)
+{
+    if (header == NULL) {
+        return false;
+    }
+
+    KSBinaryImageRangeCache *cache = atomic_exchange(&g_cache_ptr, NULL);
+
+    if (cache != NULL) {
+        int32_t idx = findByHeader(cache, header);
+        if (idx >= 0) {
+            if (outInfo) {
+                *outInfo = cache->entries[idx].unwindInfo;
+            }
+            atomic_store(&g_cache_ptr, cache);
+            return true;
+        }
+
+        // Not in cache - populate and add maintaining sorted order
+        KSBinaryImageRange newEntry;
+        if (populateCacheEntry(header, NULL, &newEntry)) {
+            if (cache->count < KSBIC_MAX_CACHE_ENTRIES) {
+                insertSortedCacheEntry(cache, &newEntry);
+            }
+            if (outInfo) {
+                *outInfo = newEntry.unwindInfo;
+            }
+            atomic_store(&g_cache_ptr, cache);
+            return true;
+        }
+
+        atomic_store(&g_cache_ptr, cache);
+        return false;
+    } else {
+        // WARNING: Not async-signal-safe (cache busy, uses getsectiondata)
+        KSBinaryImageRange entry;
+        if (populateCacheEntry(header, NULL, &entry)) {
+            if (outInfo) {
+                *outInfo = entry.unwindInfo;
+            }
+            return true;
+        }
+        return false;
+    }
+}
+
+bool ksbic_getUnwindInfoForAddress(uintptr_t address, KSBinaryImageUnwindInfo *outInfo)
+{
+    KSBinaryImageRangeCache *cache = atomic_exchange(&g_cache_ptr, NULL);
+
+    if (cache != NULL) {
+        // Binary search for the image containing this address
+        int32_t idx = binarySearchCache(cache, address);
+
+        while (idx >= 0) {
+            KSBinaryImageRange *entry = &cache->entries[idx];
+            if (address >= entry->startAddress && address < entry->endAddress) {
+                if (addressInCachedSegments(entry, address)) {
+                    if (outInfo) {
+                        *outInfo = entry->unwindInfo;
+                    }
+                    atomic_store(&g_cache_ptr, cache);
+                    return true;
+                }
+            }
+            idx--;
+        }
+
+        // WARNING: Not async-signal-safe (cache miss, uses getsectiondata)
+        KSBinaryImageRange newEntry;
+        const struct mach_header *header = linearScanForAddress(address, &newEntry);
+        if (header != NULL && cache->count < KSBIC_MAX_CACHE_ENTRIES) {
+            insertSortedCacheEntry(cache, &newEntry);
+            if (outInfo) {
+                *outInfo = newEntry.unwindInfo;
+            }
+            atomic_store(&g_cache_ptr, cache);
+            return true;
+        }
+
+        atomic_store(&g_cache_ptr, cache);
+        return header != NULL;
+    } else {
+        // WARNING: Not async-signal-safe (cache busy, uses getsectiondata)
+        KSBinaryImageRange entry;
+        if (linearScanForAddress(address, &entry) != NULL) {
+            if (outInfo) {
+                *outInfo = entry.unwindInfo;
+            }
+            return true;
+        }
+        return false;
     }
 }

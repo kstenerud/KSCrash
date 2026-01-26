@@ -11,6 +11,7 @@
 #import <pthread.h>
 
 #import "KSBacktrace.h"
+#import "KSBinaryImageCache.h"
 #import "KSDynamicLinker.h"
 #import "KSMach-O.h"
 #import "KSMachineContext.h"
@@ -20,7 +21,6 @@
 #import "Unwind/KSCompactUnwind.h"
 #import "Unwind/KSDwarfUnwind.h"
 #import "Unwind/KSStackCursor_Unwind.h"
-#import "Unwind/KSUnwindCache.h"
 
 static void ks_dwarf_test_helper(void) __attribute__((noinline));
 static void ks_dwarf_test_helper(void) {}
@@ -218,15 +218,16 @@ static void *ksunwind_test_thread_main(void *arg)
 @implementation KSUnwind_Tests
 
 // =============================================================================
-// MARK: - KSUnwindCache Tests
+// MARK: - KSBinaryImageCache Unwind Info Tests
 // =============================================================================
 // These tests verify the unwind info cache that stores __unwind_info and
 // __eh_frame section pointers for each loaded binary image.
 
 - (void)testUnwindCache_GetInfoForNullHeader
 {
-    const KSUnwindImageInfo *info = ksunwindcache_getInfoForImage(NULL);
-    XCTAssertEqual(info, NULL, @"Should return NULL for NULL header");
+    KSBinaryImageUnwindInfo info;
+    bool found = ksbic_getUnwindInfoForHeader(NULL, &info);
+    XCTAssertFalse(found, @"Should return false for NULL header");
 }
 
 - (void)testUnwindCache_GetInfoForMainExecutable
@@ -235,12 +236,13 @@ static void *ksunwind_test_thread_main(void *arg)
     const mach_header_t *header = (const mach_header_t *)_dyld_get_image_header(0);
     XCTAssertNotEqual(header, NULL, @"Should have main executable header");
 
-    const KSUnwindImageInfo *info = ksunwindcache_getInfoForImage(header);
+    KSBinaryImageUnwindInfo info;
+    bool found = ksbic_getUnwindInfoForHeader((const struct mach_header *)header, &info);
     // Main executable should have unwind info
-    if (info != NULL) {
-        XCTAssertEqual(info->header, header, @"Header should match");
+    if (found) {
+        XCTAssertEqual(info.header, (const struct mach_header *)header, @"Header should match");
         // Most executables have compact unwind
-        XCTAssertTrue(info->hasCompactUnwind || info->hasEhFrame, @"Should have some unwind info");
+        XCTAssertTrue(info.hasCompactUnwind || info.hasEhFrame, @"Should have some unwind info");
     }
 }
 
@@ -249,24 +251,11 @@ static void *ksunwind_test_thread_main(void *arg)
     // Get the address of a known function
     uintptr_t address = (uintptr_t)&_dyld_get_image_header;
 
-    const KSUnwindImageInfo *info = ksunwindcache_getInfoForAddress(address);
-    if (info != NULL) {
-        XCTAssertNotEqual(info->header, NULL, @"Header should not be NULL");
+    KSBinaryImageUnwindInfo info;
+    bool found = ksbic_getUnwindInfoForAddress(address, &info);
+    if (found) {
+        XCTAssertNotEqual(info.header, NULL, @"Header should not be NULL");
         // The function should be within the image range
-    }
-}
-
-- (void)testUnwindCache_Reset
-{
-    // Reset should not crash
-    ksunwindcache_reset();
-
-    // After reset, cache should still work
-    const mach_header_t *header = (const mach_header_t *)_dyld_get_image_header(0);
-    if (header != NULL) {
-        const KSUnwindImageInfo *info = ksunwindcache_getInfoForImage(header);
-        // Should be able to get info after reset
-        (void)info;  // Just verify no crash
     }
 }
 
@@ -288,13 +277,14 @@ static void *ksunwind_test_thread_main(void *arg)
 {
     // Get unwind info for a known function
     uintptr_t functionAddress = (uintptr_t)&_dyld_get_image_header;
-    const KSUnwindImageInfo *imageInfo = ksunwindcache_getInfoForAddress(functionAddress);
+    KSBinaryImageUnwindInfo imageInfo;
+    bool hasInfo = ksbic_getUnwindInfoForAddress(functionAddress, &imageInfo);
 
-    if (imageInfo != NULL && imageInfo->hasCompactUnwind) {
+    if (hasInfo && imageInfo.hasCompactUnwind) {
         KSCompactUnwindEntry entry;
-        uintptr_t imageBase = (uintptr_t)imageInfo->header;
-        bool found = kscu_findEntry(imageInfo->unwindInfo, imageInfo->unwindInfoSize, functionAddress, imageBase,
-                                    imageInfo->slide, &entry);
+        uintptr_t imageBase = (uintptr_t)imageInfo.header;
+        bool found = kscu_findEntry(imageInfo.unwindInfo, imageInfo.unwindInfoSize, functionAddress, imageBase,
+                                    imageInfo.slide, &entry);
 
         if (found) {
             XCTAssertGreaterThan(entry.functionStart, 0, @"Function start should be non-zero");
@@ -497,6 +487,44 @@ static void *ksunwind_test_thread_main(void *arg)
     // Verify None is 0 for easy default initialization
     XCTAssertEqual(KSUnwindMethod_None, 0);
 }
+
+#if defined(__arm64__) || defined(__arm__)
+/// Verify that the first two frames (PC and LR) report None as their unwind method.
+/// These frames are read directly from registers, not unwound.
+- (void)testUnwindMethod_FirstTwoFramesAreNone
+{
+    // Skip on watchOS where we can't create threads
+#if TARGET_OS_WATCH
+    XCTSkip(@"Cannot test on watchOS without pthread support");
+    return;
+#endif
+
+    ksdl_init();
+
+    KSUnwindTestThread *helper = [[KSUnwindTestThread alloc] init];
+    [helper start];
+    [helper suspend];
+
+    KSMachineContext machineContext;
+    ksmc_getContextForThread(helper.machThread, &machineContext, false);
+
+    KSStackCursor cursor;
+    kssc_initWithUnwind(&cursor, 128, &machineContext);
+
+    // Frame 1: PC (read directly from register)
+    XCTAssertTrue(cursor.advanceCursor(&cursor), @"Should advance to first frame (PC)");
+    KSUnwindMethod method1 = kssc_getUnwindMethod(&cursor);
+    XCTAssertEqual(method1, KSUnwindMethod_None, @"First frame (PC) method should be None");
+
+    // Frame 2: LR (read directly from register)
+    XCTAssertTrue(cursor.advanceCursor(&cursor), @"Should advance to second frame (LR)");
+    KSUnwindMethod method2 = kssc_getUnwindMethod(&cursor);
+    XCTAssertEqual(method2, KSUnwindMethod_None, @"Second frame (LR) method should be None");
+
+    [helper resume];
+    [helper stop];
+}
+#endif
 
 // =============================================================================
 // MARK: - x86_64 Frameless Compact Unwind Tests
@@ -1238,8 +1266,8 @@ static void *ksunwind_test_thread_main(void *arg)
 - (void)testDwarf_FindFDE_RealEhFrame
 {
     uintptr_t address = (uintptr_t)&ks_dwarf_test_helper;
-    const KSUnwindImageInfo *info = ksunwindcache_getInfoForAddress(address);
-    if (info == NULL || !info->hasEhFrame) {
+    KSBinaryImageUnwindInfo info;
+    if (!ksbic_getUnwindInfoForAddress(address, &info) || !info.hasEhFrame) {
         XCTSkip(@"No __eh_frame available for test binary");
         return;
     }
@@ -1250,8 +1278,8 @@ static void *ksunwind_test_thread_main(void *arg)
     size_t cieSize = 0;
     bool is64bit = false;
 
-    bool found = ksdwarf_findFDE(info->ehFrame, info->ehFrameSize, address, (uintptr_t)info->header, &fde, &fdeSize,
-                                 &cie, &cieSize, &is64bit);
+    bool found = ksdwarf_findFDE(info.ehFrame, info.ehFrameSize, address, (uintptr_t)info.header, &fde, &fdeSize, &cie,
+                                 &cieSize, &is64bit);
     if (!found) {
         // The test function might not have FDE (e.g., leaf function with no unwind info)
         XCTSkip(@"No FDE found for test helper function - this is expected for simple leaf functions");
@@ -1432,5 +1460,44 @@ static void *ksunwind_test_thread_main(void *arg)
     [helper stop];
 }
 #pragma clang diagnostic pop
+
+// =============================================================================
+// MARK: - Regression Tests
+// =============================================================================
+
+/// Regression test: Verify unwinder doesn't get stuck returning same address.
+/// This was a bug where missing FP advancement caused infinite loops with
+/// 500+ identical frames in the backtrace.
+- (void)testUnwind_NoRepeatedAddresses
+{
+    uintptr_t addresses[128];
+    int frameCount = ksbt_captureBacktrace(pthread_self(), addresses, 128);
+
+    XCTAssertGreaterThan(frameCount, 0, @"Should capture at least one frame");
+
+    // Check that we don't have long sequences of repeated addresses
+    // A few repeats can be legitimate (e.g., recursive functions), but
+    // 10+ identical consecutive addresses indicates an unwinder bug.
+    int maxConsecutiveRepeats = 0;
+    int currentRepeats = 0;
+    uintptr_t lastAddress = 0;
+
+    for (int i = 0; i < frameCount; i++) {
+        if (addresses[i] == lastAddress && addresses[i] != 0) {
+            currentRepeats++;
+            if (currentRepeats > maxConsecutiveRepeats) {
+                maxConsecutiveRepeats = currentRepeats;
+            }
+        } else {
+            currentRepeats = 0;
+        }
+        lastAddress = addresses[i];
+    }
+
+    XCTAssertLessThan(maxConsecutiveRepeats, 10,
+                      @"Should not have more than 10 consecutive identical addresses. "
+                      @"Found %d repeats, which suggests the unwinder is stuck.",
+                      maxConsecutiveRepeats);
+}
 
 @end

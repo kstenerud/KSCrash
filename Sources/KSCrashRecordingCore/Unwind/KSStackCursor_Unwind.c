@@ -26,11 +26,11 @@
 
 #include "Unwind/KSStackCursor_Unwind.h"
 
+#include "KSBinaryImageCache.h"
 #include "KSCPU.h"
 #include "KSMemory.h"
 #include "Unwind/KSCompactUnwind.h"
 #include "Unwind/KSDwarfUnwind.h"
-#include "Unwind/KSUnwindCache.h"
 
 // #define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
@@ -78,16 +78,16 @@ typedef struct {
 static bool tryCompactUnwindForPC(uintptr_t pc, uintptr_t sp, uintptr_t fp, uintptr_t lr, KSCompactUnwindResult *result)
 {
     // Find unwind info for this PC
-    const KSUnwindImageInfo *imageInfo = ksunwindcache_getInfoForAddress(pc);
-    if (imageInfo == NULL || !imageInfo->hasCompactUnwind) {
+    KSBinaryImageUnwindInfo imageInfo;
+    if (!ksbic_getUnwindInfoForAddress(pc, &imageInfo) || !imageInfo.hasCompactUnwind) {
         KSLOG_TRACE("No compact unwind info for PC 0x%lx", (unsigned long)pc);
         return false;
     }
 
     // Find the compact unwind entry for this function
     KSCompactUnwindEntry entry;
-    uintptr_t imageBase = (uintptr_t)imageInfo->header;
-    if (!kscu_findEntry(imageInfo->unwindInfo, imageInfo->unwindInfoSize, pc, imageBase, imageInfo->slide, &entry)) {
+    uintptr_t imageBase = (uintptr_t)imageInfo.header;
+    if (!kscu_findEntry(imageInfo.unwindInfo, imageInfo.unwindInfoSize, pc, imageBase, imageInfo.slide, &entry)) {
         KSLOG_TRACE("No compact unwind entry for PC 0x%lx", (unsigned long)pc);
         return false;
     }
@@ -107,15 +107,15 @@ static bool tryCompactUnwindForPC(uintptr_t pc, uintptr_t sp, uintptr_t fp, uint
 static bool tryCompactUnwindForPC(uintptr_t pc, uintptr_t sp, uintptr_t fp, uintptr_t lr __attribute__((unused)),
                                   KSCompactUnwindResult *result)
 {
-    const KSUnwindImageInfo *imageInfo = ksunwindcache_getInfoForAddress(pc);
-    if (imageInfo == NULL || !imageInfo->hasCompactUnwind) {
+    KSBinaryImageUnwindInfo imageInfo;
+    if (!ksbic_getUnwindInfoForAddress(pc, &imageInfo) || !imageInfo.hasCompactUnwind) {
         KSLOG_TRACE("No compact unwind info for PC 0x%lx", (unsigned long)pc);
         return false;
     }
 
     KSCompactUnwindEntry entry;
-    uintptr_t imageBase = (uintptr_t)imageInfo->header;
-    if (!kscu_findEntry(imageInfo->unwindInfo, imageInfo->unwindInfoSize, pc, imageBase, imageInfo->slide, &entry)) {
+    uintptr_t imageBase = (uintptr_t)imageInfo.header;
+    if (!kscu_findEntry(imageInfo.unwindInfo, imageInfo.unwindInfoSize, pc, imageBase, imageInfo.slide, &entry)) {
         KSLOG_TRACE("No compact unwind entry for PC 0x%lx", (unsigned long)pc);
         return false;
     }
@@ -132,15 +132,15 @@ static bool tryCompactUnwindForPC(uintptr_t pc, uintptr_t sp, uintptr_t fp, uint
 
 static bool tryCompactUnwindForPC(uintptr_t pc, uintptr_t sp, uintptr_t fp, uintptr_t lr, KSCompactUnwindResult *result)
 {
-    const KSUnwindImageInfo *imageInfo = ksunwindcache_getInfoForAddress(pc);
-    if (imageInfo == NULL || !imageInfo->hasCompactUnwind) {
+    KSBinaryImageUnwindInfo imageInfo;
+    if (!ksbic_getUnwindInfoForAddress(pc, &imageInfo) || !imageInfo.hasCompactUnwind) {
         KSLOG_TRACE("No compact unwind info for PC 0x%lx", (unsigned long)pc);
         return false;
     }
 
     KSCompactUnwindEntry entry;
-    uintptr_t imageBase = (uintptr_t)imageInfo->header;
-    if (!kscu_findEntry(imageInfo->unwindInfo, imageInfo->unwindInfoSize, pc, imageBase, imageInfo->slide, &entry)) {
+    uintptr_t imageBase = (uintptr_t)imageInfo.header;
+    if (!kscu_findEntry(imageInfo.unwindInfo, imageInfo.unwindInfoSize, pc, imageBase, imageInfo.slide, &entry)) {
         KSLOG_TRACE("No compact unwind entry for PC 0x%lx", (unsigned long)pc);
         return false;
     }
@@ -158,15 +158,15 @@ static bool tryCompactUnwindForPC(uintptr_t pc, uintptr_t sp, uintptr_t fp, uint
 static bool tryCompactUnwindForPC(uintptr_t pc, uintptr_t sp, uintptr_t fp, uintptr_t lr __attribute__((unused)),
                                   KSCompactUnwindResult *result)
 {
-    const KSUnwindImageInfo *imageInfo = ksunwindcache_getInfoForAddress(pc);
-    if (imageInfo == NULL || !imageInfo->hasCompactUnwind) {
+    KSBinaryImageUnwindInfo imageInfo;
+    if (!ksbic_getUnwindInfoForAddress(pc, &imageInfo) || !imageInfo.hasCompactUnwind) {
         KSLOG_TRACE("No compact unwind info for PC 0x%lx", (unsigned long)pc);
         return false;
     }
 
     KSCompactUnwindEntry entry;
-    uintptr_t imageBase = (uintptr_t)imageInfo->header;
-    if (!kscu_findEntry(imageInfo->unwindInfo, imageInfo->unwindInfoSize, pc, imageBase, imageInfo->slide, &entry)) {
+    uintptr_t imageBase = (uintptr_t)imageInfo.header;
+    if (!kscu_findEntry(imageInfo.unwindInfo, imageInfo.unwindInfoSize, pc, imageBase, imageInfo.slide, &entry)) {
         KSLOG_TRACE("No compact unwind entry for PC 0x%lx", (unsigned long)pc);
         return false;
     }
@@ -194,16 +194,16 @@ static bool tryCompactUnwindForPC(uintptr_t pc __attribute__((unused)), uintptr_
 static bool tryDwarfUnwindForPC(uintptr_t pc, uintptr_t sp, uintptr_t fp, uintptr_t lr, KSCompactUnwindResult *result)
 {
     // Find unwind info for this PC
-    const KSUnwindImageInfo *imageInfo = ksunwindcache_getInfoForAddress(pc);
-    if (imageInfo == NULL || !imageInfo->hasEhFrame) {
+    KSBinaryImageUnwindInfo imageInfo;
+    if (!ksbic_getUnwindInfoForAddress(pc, &imageInfo) || !imageInfo.hasEhFrame) {
         KSLOG_TRACE("No DWARF eh_frame info for PC 0x%lx", (unsigned long)pc);
         return false;
     }
 
     // Try DWARF unwinding
     KSDwarfUnwindResult dwarfResult;
-    uintptr_t imageBase = (uintptr_t)imageInfo->header;
-    if (!ksdwarf_unwind(imageInfo->ehFrame, imageInfo->ehFrameSize, pc, sp, fp, lr, imageBase, &dwarfResult)) {
+    uintptr_t imageBase = (uintptr_t)imageInfo.header;
+    if (!ksdwarf_unwind(imageInfo.ehFrame, imageInfo.ehFrameSize, pc, sp, fp, lr, imageBase, &dwarfResult)) {
         KSLOG_TRACE("DWARF unwind failed for PC 0x%lx", (unsigned long)pc);
         return false;
     }
@@ -238,7 +238,21 @@ static bool tryFramePointerUnwind(UnwindCursorContext *ctx, uintptr_t *outReturn
         return false;
     }
 
-    if (frame.previous == 0 || frame.return_address == 0) {
+    // Only check return_address - a NULL previous just means end of chain.
+    // A NULL return_address means we can't continue (invalid frame).
+    if (frame.return_address == 0) {
+        KSLOG_TRACE("Frame at FP 0x%lx has NULL return address", (unsigned long)ctx->fp);
+        return false;
+    }
+
+    // Validate stack direction: On all Apple platforms, the stack grows downward,
+    // so older frames (callers) are at higher addresses. When unwinding, the new FP
+    // should be greater than the current FP. If it's less than or equal, we've hit
+    // corruption or an invalid frame chain.
+    uintptr_t newFP = (uintptr_t)frame.previous;
+    if (newFP != 0 && newFP <= ctx->fp) {
+        KSLOG_TRACE("Stack direction violation: new FP 0x%lx <= current FP 0x%lx", (unsigned long)newFP,
+                    (unsigned long)ctx->fp);
         return false;
     }
 
@@ -255,7 +269,7 @@ static bool tryFramePointerUnwind(UnwindCursorContext *ctx, uintptr_t *outReturn
 #endif
 
     // Update FP for next iteration (AFTER calculating SP)
-    ctx->fp = (uintptr_t)frame.previous;
+    ctx->fp = newFP;
 
     return true;
 }
@@ -338,7 +352,15 @@ static bool tryUpdateStateAfterLR(UnwindCursorContext *ctx)
             case KSUnwindMethod_FramePointer: {
                 FrameEntry frame;
                 if (ctx->fp != 0 && ksmem_copySafely((const void *)ctx->fp, &frame, sizeof(frame))) {
-                    ctx->fp = (uintptr_t)frame.previous;
+                    // Validate stack direction: new FP must be greater than current FP
+                    // (stack grows downward, so older frames are at higher addresses)
+                    uintptr_t newFP = (uintptr_t)frame.previous;
+                    if (newFP != 0 && newFP <= ctx->fp) {
+                        KSLOG_TRACE("LR path: stack direction violation, new FP 0x%lx <= current FP 0x%lx",
+                                    (unsigned long)newFP, (unsigned long)ctx->fp);
+                        break;  // Try next method
+                    }
+                    ctx->fp = newFP;
                     ctx->pc = ctx->lr;
                     return true;
                 }
@@ -385,18 +407,31 @@ static bool advanceCursor(KSStackCursor *cursor)
     if (!ctx->usedLinkRegister && ctx->lr != 0) {
         ctx->usedLinkRegister = true;
         nextAddress = ctx->lr;
-        ctx->lastMethod = KSUnwindMethod_None;
 
         // After using LR, we need to unwind to get the next return address
         // Try methods in order to update our register state
         if (!tryUpdateStateAfterLR(ctx)) {
-            // Fallback: just advance FP if possible
+            // Fallback: advance FP if possible and set PC to LR
             FrameEntry frame;
             if (ctx->fp != 0 && ksmem_copySafely((const void *)ctx->fp, &frame, sizeof(frame))) {
-                ctx->fp = (uintptr_t)frame.previous;
-                ctx->pc = ctx->lr;
+                // Validate stack direction before updating FP
+                uintptr_t newFP = (uintptr_t)frame.previous;
+                if (newFP == 0 || newFP > ctx->fp) {
+                    ctx->fp = newFP;
+                } else {
+                    KSLOG_TRACE("LR fallback: stack direction violation, new FP 0x%lx <= current FP 0x%lx",
+                                (unsigned long)newFP, (unsigned long)ctx->fp);
+                    // Don't update FP on invalid frame chain
+                }
             }
+            // Always update PC to LR, even if FP read failed. This ensures the next
+            // unwind step starts from the correct address rather than a stale PC.
+            ctx->pc = ctx->lr;
         }
+
+        // The LR frame itself wasn't unwound - we just read the register.
+        // Set method to None regardless of what tryUpdateStateAfterLR did.
+        ctx->lastMethod = KSUnwindMethod_None;
 
         goto successfulExit;
     }

@@ -163,7 +163,7 @@ bool kscu_x86_64_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attri
 
         result->returnAddress = returnAddr;
         result->stackPointer = sp + stackSize;
-        result->framePointer = 0;  // No frame pointer
+        result->framePointer = bp;  // Preserve BP - frameless functions don't modify it
         result->valid = true;
 
         KSLOG_TRACE("Frameless immediate: returnAddr=0x%lx, stackSize=%u (encoded=%u)",

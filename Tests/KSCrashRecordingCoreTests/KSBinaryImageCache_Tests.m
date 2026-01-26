@@ -552,4 +552,92 @@ static void testImageAddedCallback(const struct mach_header *mh, intptr_t vmaddr
     XCTAssertEqual(g_callbackCount, countAfterUnregister, @"Callback should not be called after unregistering");
 }
 
+#pragma mark - ksbic_getUnwindInfoForAddress Tests
+
+- (void)testGetUnwindInfoForAddress_ValidAddress
+{
+    // Use our own function address - we know it's in a valid image
+    uintptr_t address = (uintptr_t)&ksbic_getUnwindInfoForAddress;
+
+    KSBinaryImageUnwindInfo unwindInfo = { 0 };
+    bool found = ksbic_getUnwindInfoForAddress(address, &unwindInfo);
+
+    XCTAssertTrue(found, @"Should find unwind info for valid code address");
+    XCTAssertNotEqual(unwindInfo.header, NULL, @"Unwind info should have valid header");
+    // Note: We don't assert slide != 0 because ASLR can legitimately produce a zero slide
+    // in some configurations (e.g., simulator, ASLR disabled, or specific memory layouts)
+
+    // At least one of compact unwind or eh_frame should be present
+    bool hasUnwindData = unwindInfo.hasCompactUnwind || unwindInfo.hasEhFrame;
+    XCTAssertTrue(hasUnwindData, @"Image should have at least one type of unwind data");
+}
+
+- (void)testGetUnwindInfoForAddress_InvalidAddress
+{
+    KSBinaryImageUnwindInfo unwindInfo = { 0 };
+    bool found = ksbic_getUnwindInfoForAddress(0, &unwindInfo);
+
+    XCTAssertFalse(found, @"Should not find unwind info for invalid address");
+}
+
+- (void)testGetUnwindInfoForAddress_NullOutInfo
+{
+    uintptr_t address = (uintptr_t)&ksbic_getUnwindInfoForAddress;
+
+    // Should not crash with NULL outInfo
+    bool found = ksbic_getUnwindInfoForAddress(address, NULL);
+    XCTAssertTrue(found, @"Should still return true for valid address with NULL outInfo");
+}
+
+#pragma mark - ksbic_getUnwindInfoForHeader Tests
+
+- (void)testGetUnwindInfoForHeader_ValidHeader
+{
+    uint32_t count = 0;
+    const ks_dyld_image_info *images = ksbic_getImages(&count);
+    XCTAssertGreaterThan(count, 0, @"There should be at least some images loaded");
+
+    const struct mach_header *header = images[0].imageLoadAddress;
+
+    KSBinaryImageUnwindInfo unwindInfo = { 0 };
+    bool found = ksbic_getUnwindInfoForHeader(header, &unwindInfo);
+
+    XCTAssertTrue(found, @"Should find unwind info for valid header");
+    XCTAssertEqual(unwindInfo.header, header, @"Unwind info header should match input header");
+}
+
+- (void)testGetUnwindInfoForHeader_NullHeader
+{
+    KSBinaryImageUnwindInfo unwindInfo = { 0 };
+    bool found = ksbic_getUnwindInfoForHeader(NULL, &unwindInfo);
+
+    XCTAssertFalse(found, @"Should not find unwind info for NULL header");
+}
+
+- (void)testGetUnwindInfoForHeader_ConsistentWithAddressLookup
+{
+    // Get an image and look up its unwind info both by header and by address
+    uint32_t count = 0;
+    const ks_dyld_image_info *images = ksbic_getImages(&count);
+    XCTAssertGreaterThan(count, 0, @"There should be at least some images loaded");
+
+    const struct mach_header *header = images[0].imageLoadAddress;
+    uintptr_t address = (uintptr_t)header;
+
+    KSBinaryImageUnwindInfo infoByHeader = { 0 };
+    KSBinaryImageUnwindInfo infoByAddress = { 0 };
+
+    bool foundByHeader = ksbic_getUnwindInfoForHeader(header, &infoByHeader);
+    bool foundByAddress = ksbic_getUnwindInfoForAddress(address, &infoByAddress);
+
+    XCTAssertTrue(foundByHeader, @"Should find by header");
+    XCTAssertTrue(foundByAddress, @"Should find by address");
+
+    // Both should return the same unwind info
+    XCTAssertEqual(infoByHeader.header, infoByAddress.header, @"Headers should match");
+    XCTAssertEqual(infoByHeader.slide, infoByAddress.slide, @"Slides should match");
+    XCTAssertEqual(infoByHeader.hasCompactUnwind, infoByAddress.hasCompactUnwind, @"hasCompactUnwind should match");
+    XCTAssertEqual(infoByHeader.hasEhFrame, infoByAddress.hasEhFrame, @"hasEhFrame should match");
+}
+
 @end

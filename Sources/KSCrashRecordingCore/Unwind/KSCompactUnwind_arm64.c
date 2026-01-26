@@ -198,7 +198,7 @@ bool kscu_arm64_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attrib
             // Leaf function - return address is in LR
             result->returnAddress = stripPAC(lr);
             result->stackPointer = sp;
-            result->framePointer = 0;  // No frame pointer in frameless functions
+            result->framePointer = fp;  // Preserve FP - frameless functions don't modify it
             result->valid = true;
             KSLOG_TRACE("Frameless leaf: returnAddr=0x%lx (from LR)", (unsigned long)result->returnAddress);
             return true;
@@ -214,7 +214,7 @@ bool kscu_arm64_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attrib
 
         result->returnAddress = stripPAC(returnAddr);
         result->stackPointer = sp + stackSize;
-        result->framePointer = 0;
+        result->framePointer = fp;  // Preserve FP - frameless functions don't modify it
         result->valid = true;
 
         KSLOG_TRACE("Frameless non-leaf: returnAddr=0x%lx, stackSize=%u", (unsigned long)result->returnAddress,

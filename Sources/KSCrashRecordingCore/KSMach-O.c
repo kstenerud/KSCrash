@@ -47,6 +47,7 @@
 
 #include "KSMach-O.h"
 
+#include <mach-o/getsect.h>
 #include <mach-o/loader.h>
 #include <mach/mach.h>
 #include <string.h>
@@ -214,30 +215,21 @@ const void *ksmacho_getSectionDataByNameFromHeader(const mach_header_t *header, 
         return NULL;
     }
 
-    // Find the section
-    const section_t *section = ksmacho_getSectionByNameFromHeader(header, segmentName, sectionName);
-    if (section == NULL) {
+    // Use getsectiondata() which correctly handles images in the dyld shared cache.
+    // The manual section lookup approach doesn't work for shared cache images because
+    // the section addresses in the Mach-O header don't directly map to memory locations.
+    unsigned long size = 0;
+    const void *sectionData = getsectiondata(header, segmentName, sectionName, &size);
+
+    if (sectionData == NULL) {
+        KSLOG_TRACE("Section %s,%s not found", segmentName, sectionName);
         return NULL;
     }
-
-    // Calculate the ASLR slide
-    // The mach header is at the start of the __TEXT segment, so:
-    // slide = actual_header_address - __TEXT_vmaddr
-    const segment_command_t *textSegment = ksmacho_getSegmentByNameFromHeader(header, SEG_TEXT);
-    if (textSegment == NULL) {
-        KSLOG_ERROR("__TEXT segment not found, cannot calculate slide");
-        return NULL;
-    }
-
-    uintptr_t slide = (uintptr_t)header - textSegment->vmaddr;
-
-    // Calculate the in-memory address of the section
-    const void *sectionData = (const void *)(section->addr + slide);
 
     if (outSize != NULL) {
-        *outSize = section->size;
+        *outSize = (size_t)size;
     }
 
-    KSLOG_TRACE("Section data at %p, size %zu", sectionData, (size_t)section->size);
+    KSLOG_TRACE("Section data at %p, size %zu", sectionData, (size_t)size);
     return sectionData;
 }

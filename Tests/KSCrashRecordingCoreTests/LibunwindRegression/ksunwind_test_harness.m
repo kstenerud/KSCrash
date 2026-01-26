@@ -30,9 +30,9 @@
 #import <stdio.h>
 #import <string.h>
 
+#import "KSBinaryImageCache.h"
 #import "Unwind/KSCompactUnwind.h"
 #import "Unwind/KSDwarfUnwind.h"
-#import "Unwind/KSUnwindCache.h"
 
 // =============================================================================
 // MARK: - Design Notes
@@ -174,8 +174,8 @@ extern test_function_t unwind_tester_list_x86_64_frameless[];
 static bool verify_dwarf_unwind_info(uintptr_t func_addr, const char *name)
 {
     // Step 1: Find the image containing this function
-    const KSUnwindImageInfo *imageInfo = ksunwindcache_getInfoForAddress(func_addr);
-    if (imageInfo == NULL) {
+    KSBinaryImageUnwindInfo imageInfo;
+    if (!ksbic_getUnwindInfoForAddress(func_addr, &imageInfo)) {
         char error[256];
         snprintf(error, sizeof(error), "%s: Could not find image for address %p", name, (void *)func_addr);
         record_test_fail(error);
@@ -183,7 +183,7 @@ static bool verify_dwarf_unwind_info(uintptr_t func_addr, const char *name)
     }
 
     // Step 2: Verify the image has __eh_frame data
-    if (!imageInfo->hasEhFrame || imageInfo->ehFrame == NULL) {
+    if (!imageInfo.hasEhFrame || imageInfo.ehFrame == NULL) {
         char error[256];
         snprintf(error, sizeof(error), "%s: Image has no __eh_frame data", name);
         record_test_fail(error);
@@ -197,8 +197,8 @@ static bool verify_dwarf_unwind_info(uintptr_t func_addr, const char *name)
     size_t cieSize = 0;
     bool is64bit = false;
 
-    bool found = ksdwarf_findFDE(imageInfo->ehFrame, imageInfo->ehFrameSize, func_addr, (uintptr_t)imageInfo->header,
-                                 &fde, &fdeSize, &cie, &cieSize, &is64bit);
+    bool found = ksdwarf_findFDE(imageInfo.ehFrame, imageInfo.ehFrameSize, func_addr, (uintptr_t)imageInfo.header, &fde,
+                                 &fdeSize, &cie, &cieSize, &is64bit);
 
     if (!found) {
         char error[256];
