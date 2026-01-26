@@ -150,7 +150,12 @@ static const struct mach_header *imageContainingAddress(const uintptr_t address,
         header = images[iImg].imageLoadAddress;
         if (header != NULL) {
             // Look for a segment command with this address within its range.
-            uintptr_t addressWSlide = address - vmSlideFromHeader(header);
+            uintptr_t slide = vmSlideFromHeader(header);
+            // Guard against underflow: if slide > address, this image cannot contain the address
+            if (slide > address) {
+                continue;
+            }
+            uintptr_t addressWSlide = address - slide;
             uintptr_t cmdPtr = firstCmdAfterHeader(header);
             if (cmdPtr == 0) {
                 continue;
