@@ -35,7 +35,8 @@ private let dummyHandler: cxa_throw_type = { _, _, _ in }
 /// - dyld callback not yet registered
 /// - Binary image cache not populated
 /// - Memory pages not yet accessed
-final class KSCxaThrowColdBenchmarks: XCTestCase {
+@objc(KSCxaThrowColdBenchmarks)
+public class KSCxaThrowColdBenchmarks: XCTestCase {
 
     /// Benchmark the time to install the __cxa_throw swapper (cold path).
     /// This test runs in an isolated process to ensure truly cold state.
