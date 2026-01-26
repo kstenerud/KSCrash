@@ -116,6 +116,12 @@ static void stubHandle_deprecated(KSCrash_MonitorContext *context) { stubHandle(
     setenv("KSCRASH_FORCE_ENABLE_WATCHDOG", "1", 1);
 }
 
+- (void)tearDown
+{
+    unsetenv("KSCRASH_FORCE_ENABLE_WATCHDOG");
+    [super tearDown];
+}
+
 - (void)testAddObserverReturnsToken
 {
     KSCrashMonitorAPI *api = kscm_watchdog_getAPI();

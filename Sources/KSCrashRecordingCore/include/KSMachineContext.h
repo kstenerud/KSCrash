@@ -67,13 +67,38 @@ int ksmc_contextSize(void);
 
 /** Fill in a machine context from a thread.
  *
+ * This is a convenience wrapper that calls ksmc_getContextForThreadCheckingStackOverflow
+ * with checkForStackOverflow=true.
+ *
  * @param thread The thread to get information from.
  * @param destinationContext The context to fill.
- * @param isCrashedContext Used to indicate that this is the thread that crashed,
+ * @param isCrashedContext Used to indicate that this is the thread that crashed.
  *
  * @return true if successful.
  */
 bool ksmc_getContextForThread(KSThread thread, struct KSMachineContext *destinationContext, bool isCrashedContext);
+
+/** Fill in a machine context from a thread with optional stack overflow checking.
+ *
+ * This function populates a machine context with the thread's CPU state and metadata.
+ * When checkForStackOverflow is true and isCrashedContext is true, it also checks
+ * whether the thread's stack pointer is outside valid stack bounds (indicating a
+ * stack overflow) and populates the thread list for crash reporting.
+ *
+ * Use checkForStackOverflow=false when you only need the CPU state for unwinding
+ * and don't need stack overflow detection or thread enumeration (e.g., profiling,
+ * backtrace capture outside of crash context).
+ *
+ * @param thread The thread to get information from.
+ * @param destinationContext The context to fill.
+ * @param isCrashedContext Used to indicate that this is the thread that crashed.
+ * @param checkForStackOverflow If true (and isCrashedContext is true), checks for
+ *        stack overflow and populates the thread list. If false, skips these checks.
+ *
+ * @return true if successful.
+ */
+bool ksmc_getContextForThreadCheckingStackOverflow(KSThread thread, struct KSMachineContext *destinationContext,
+                                                   bool isCrashedContext, bool checkForStackOverflow);
 
 /** Fill in a machine context from a signal handler.
  * A signal handler context is always assumed to be a crashed context.

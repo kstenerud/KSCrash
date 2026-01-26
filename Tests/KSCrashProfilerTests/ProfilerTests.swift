@@ -25,6 +25,7 @@
 //
 
 import Darwin
+import KSCrashRecordingCore
 import XCTest
 
 @testable import KSCrashProfiler
@@ -32,6 +33,14 @@ import XCTest
 final class ProfilerTests: XCTestCase {
 
     // MARK: - Profiler Initialization Tests
+
+    override func setUp() {
+        ksdl_init()
+    }
+
+    override func tearDown() {
+        ksdl_resetCache()
+    }
 
     func testProfilerInitialization() {
         let profiler = Profiler<Sample128>(thread: pthread_self())

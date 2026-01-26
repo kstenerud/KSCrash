@@ -505,7 +505,7 @@ static int TaskRole(void)
                 .asyncSafety = false, .isFatal = false, .shouldRecordAllThreads = true, .shouldWriteReport = true });
 
         KSMachineContext machineContext = { 0 };
-        ksmc_getContextForThread(g_mainQueueThread, &machineContext, true);
+        ksmc_getContextForThreadCheckingStackOverflow(g_mainQueueThread, &machineContext, true, false);
         KSStackCursor stackCursor;
         kssc_initWithUnwind(&stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
 

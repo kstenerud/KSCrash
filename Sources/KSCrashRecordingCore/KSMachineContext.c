@@ -116,7 +116,8 @@ int ksmc_contextSize(void) { return sizeof(KSMachineContext); }
 
 KSThread ksmc_getThreadFromContext(const KSMachineContext *const context) { return context->thisThread; }
 
-bool ksmc_getContextForThread(KSThread thread, KSMachineContext *destinationContext, bool isCrashedContext)
+bool ksmc_getContextForThreadCheckingStackOverflow(KSThread thread, KSMachineContext *destinationContext,
+                                                   bool isCrashedContext, bool checkForStackOverflow)
 {
     KSLOG_DEBUG("Fill thread 0x%x context into %p. is crashed = %d", thread, destinationContext, isCrashedContext);
     memset(destinationContext, 0, sizeof(*destinationContext));
@@ -127,12 +128,17 @@ bool ksmc_getContextForThread(KSThread thread, KSMachineContext *destinationCont
     if (ksmc_canHaveCPUState(destinationContext)) {
         kscpu_getState(destinationContext);
     }
-    if (ksmc_isCrashedContext(destinationContext)) {
+    if (checkForStackOverflow && ksmc_isCrashedContext(destinationContext)) {
         destinationContext->isStackOverflow = isStackOverflow(destinationContext);
         getThreadList(destinationContext);
     }
     KSLOG_TRACE("Context retrieved.");
     return true;
+}
+
+bool ksmc_getContextForThread(KSThread thread, KSMachineContext *destinationContext, bool isCrashedContext)
+{
+    return ksmc_getContextForThreadCheckingStackOverflow(thread, destinationContext, isCrashedContext, true);
 }
 
 bool ksmc_getContextForSignal(void *signalUserContext, KSMachineContext *destinationContext)
