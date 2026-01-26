@@ -26,6 +26,7 @@
 
 #include "KSBacktrace.h"
 
+#include <TargetConditionals.h>
 #include <sys/param.h>
 
 #include "KSBinaryImageCache.h"
@@ -53,11 +54,13 @@ static int captureBacktraceFromSelf(uintptr_t *addresses, int maxFrames)
 
 static int captureBacktraceFromOtherThread(thread_t machThread, uintptr_t *addresses, int maxFrames)
 {
+#if !TARGET_OS_WATCH
     kern_return_t kr = thread_suspend(machThread);
     if (kr != KERN_SUCCESS) {
         KSLOG_ERROR("thread_suspend (0x%x) failed: %d", machThread, kr);
         return 0;
     }
+#endif
 
     // Lightweight context initialization - only set what's needed for unwinding.
     // Avoids the ~4KB memset that ksmc_getContextForThread does.
@@ -77,10 +80,12 @@ static int captureBacktraceFromOtherThread(thread_t machThread, uintptr_t *addre
         addresses[frameCount++] = stackCursor.stackEntry.address;
     }
 
+#if !TARGET_OS_WATCH
     kr = thread_resume(machThread);
     if (kr != KERN_SUCCESS) {
         KSLOG_ERROR("thread_resume (0x%x) failed: %d", machThread, kr);
     }
+#endif
 
     return frameCount;
 }

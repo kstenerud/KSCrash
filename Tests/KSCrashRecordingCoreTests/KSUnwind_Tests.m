@@ -496,7 +496,6 @@ static void *ksunwind_test_thread_main(void *arg)
     // Skip on watchOS where we can't create threads
 #if TARGET_OS_WATCH
     XCTSkip(@"Cannot test on watchOS without pthread support");
-    return;
 #endif
 
     ksdl_init();
@@ -901,7 +900,6 @@ static void *ksunwind_test_thread_main(void *arg)
     const uint8_t cfaReg = KSDWARF_X86_ESP;
 #else
     XCTSkip(@"Unsupported architecture for DWARF expression test");
-    return;
 #endif
 
     const uint8_t ptrSize = (uint8_t)sizeof(uintptr_t);
@@ -1003,7 +1001,6 @@ static void *ksunwind_test_thread_main(void *arg)
     const uint8_t cfaReg = KSDWARF_X86_ESP;
 #else
     XCTSkip(@"Unsupported architecture for CFA expression test");
-    return;
 #endif
 
     const uint8_t ptrSize = (uint8_t)sizeof(uintptr_t);
@@ -1092,7 +1089,6 @@ static void *ksunwind_test_thread_main(void *arg)
     const uint8_t cfaReg = KSDWARF_X86_ESP;
 #else
     XCTSkip(@"Unsupported architecture for DWARF stack_value test");
-    return;
 #endif
 
     const uint8_t ptrSize = (uint8_t)sizeof(uintptr_t);
@@ -1187,7 +1183,6 @@ static void *ksunwind_test_thread_main(void *arg)
     const uint8_t cfaReg = KSDWARF_X86_ESP;
 #else
     XCTSkip(@"Unsupported architecture for 64-bit DWARF test");
-    return;
 #endif
 
     const uint8_t ptrSize = (uint8_t)sizeof(uintptr_t);
@@ -1269,7 +1264,6 @@ static void *ksunwind_test_thread_main(void *arg)
     KSBinaryImageUnwindInfo info;
     if (!ksbic_getUnwindInfoForAddress(address, &info) || !info.hasEhFrame) {
         XCTSkip(@"No __eh_frame available for test binary");
-        return;
     }
 
     const uint8_t *fde = NULL;
@@ -1283,7 +1277,6 @@ static void *ksunwind_test_thread_main(void *arg)
     if (!found) {
         // The test function might not have FDE (e.g., leaf function with no unwind info)
         XCTSkip(@"No FDE found for test helper function - this is expected for simple leaf functions");
-        return;
     }
 
     KSDwarfCFIRow row;

@@ -271,7 +271,7 @@ static uintptr_t readEncodedPointer(KSDwarfReader *reader, uint8_t encoding, uin
 #endif
             break;
         case DW_EH_PE_uleb128:
-            result = readULEB128(reader);
+            result = (uintptr_t)readULEB128(reader);
             break;
         case DW_EH_PE_udata2:
             result = readU16(reader);
@@ -280,7 +280,7 @@ static uintptr_t readEncodedPointer(KSDwarfReader *reader, uint8_t encoding, uin
             result = readU32(reader);
             break;
         case DW_EH_PE_udata8:
-            result = readU64(reader);
+            result = (uintptr_t)readU64(reader);
             break;
         case DW_EH_PE_sleb128:
             result = (uintptr_t)readSLEB128(reader);
@@ -445,7 +445,7 @@ static bool parseFDE(const uint8_t *fdeData, size_t fdeSize, const KSDwarfCIE *c
             outFDE->pcRange = readU32(&reader);
             break;
         case DW_EH_PE_udata8:
-            outFDE->pcRange = readU64(&reader);
+            outFDE->pcRange = (uintptr_t)readU64(&reader);
             break;
         case DW_EH_PE_sdata2:
             outFDE->pcRange = (uintptr_t)(uint16_t)readS16(&reader);
@@ -454,10 +454,10 @@ static bool parseFDE(const uint8_t *fdeData, size_t fdeSize, const KSDwarfCIE *c
             outFDE->pcRange = (uintptr_t)(uint32_t)readS32(&reader);
             break;
         case DW_EH_PE_sdata8:
-            outFDE->pcRange = readU64(&reader);
+            outFDE->pcRange = (uintptr_t)readU64(&reader);
             break;
         default:
-            outFDE->pcRange = readULEB128(&reader);
+            outFDE->pcRange = (uintptr_t)readULEB128(&reader);
             break;
     }
 
@@ -950,7 +950,7 @@ static bool evaluateDwarfExpression(const uint8_t *expr, size_t len, uintptr_t c
             case DW_OP_fbreg: {
                 int64_t offset = readSLEB128(&reader);
                 if (cfa == 0) return false;
-                if (!exprPush(stack, &depth, (intptr_t)cfa + offset)) return false;
+                if (!exprPush(stack, &depth, (intptr_t)((int64_t)cfa + offset))) return false;
                 break;
             }
             case DW_OP_bregx: {
@@ -960,7 +960,7 @@ static bool evaluateDwarfExpression(const uint8_t *expr, size_t len, uintptr_t c
                 uint8_t regNum = (uint8_t)reg;
                 uintptr_t regValue = 0;
                 if (!getRegisterValue(regNum, sp, fp, lr, &regValue)) return false;
-                if (!exprPush(stack, &depth, (intptr_t)regValue + offset)) return false;
+                if (!exprPush(stack, &depth, (intptr_t)((int64_t)regValue + offset))) return false;
                 break;
             }
             case DW_OP_stack_value:
@@ -972,7 +972,7 @@ static bool evaluateDwarfExpression(const uint8_t *expr, size_t len, uintptr_t c
                     int64_t offset = readSLEB128(&reader);
                     uintptr_t regValue = 0;
                     if (!getRegisterValue(reg, sp, fp, lr, &regValue)) return false;
-                    if (!exprPush(stack, &depth, (intptr_t)regValue + offset)) return false;
+                    if (!exprPush(stack, &depth, (intptr_t)((int64_t)regValue + offset))) return false;
                     break;
                 }
 
