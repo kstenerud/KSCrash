@@ -72,7 +72,9 @@ extern "C" {
 
 #ifdef __OBJC__
 
-#include <Foundation/Foundation.h>
+#import <Foundation/Foundation.h>
+
+NS_ASSUME_NONNULL_BEGIN
 
 /**
  * Describes the type of hang state change being reported to observers.
@@ -86,7 +88,7 @@ typedef NS_ENUM(uint8_t, KSHangChangeType) {
     KSHangChangeTypeUpdated = 2,
     /** The hang has ended (main thread became responsive). */
     KSHangChangeTypeEnded = 3
-};
+} NS_SWIFT_NAME(HangChangeType);
 
 /**
  * Block type for observing hang state changes.
@@ -95,7 +97,8 @@ typedef NS_ENUM(uint8_t, KSHangChangeType) {
  * @param startTimestamp The monotonic timestamp (in nanoseconds) when the hang started.
  * @param endTimestamp The monotonic timestamp (in nanoseconds) of the current/end state.
  */
-typedef void (^KSHangObserverBlock)(KSHangChangeType change, uint64_t startTimestamp, uint64_t endTimestamp);
+typedef void (^KSHangObserverBlock)(KSHangChangeType change, uint64_t startTimestamp, uint64_t endTimestamp)
+    NS_SWIFT_UNAVAILABLE("Use Swift closures instead");
 
 /** Registers an observer to be notified of hang state changes.
  *
@@ -104,11 +107,18 @@ typedef void (^KSHangObserverBlock)(KSHangChangeType change, uint64_t startTimes
  * - An ongoing hang's duration is updated (KSHangChangeTypeUpdated)
  * - A hang ends and the main thread becomes responsive (KSHangChangeTypeEnded)
  *
+ * @note This function requires `KSCrashMonitorTypeWatchdog` to be enabled in your
+ *       KSCrash configuration. If the watchdog monitor is not enabled, this function
+ *       returns `nil` and no observations will occur.
+ *
  * @param observer The block to call when hang state changes occur.
- * @return An opaque token object. The observer remains registered as long as this
- *         object is retained. Release it to unregister the observer.
+ * @return An opaque token object that keeps the observer registered, or `nil` if the
+ *         watchdog monitor is not enabled. The observer remains registered as long as
+ *         this token is retained. Release it to unregister the observer.
  */
-id _Nonnull kshang_addHangObserver(KSHangObserverBlock _Nonnull observer);
+id _Nullable kshang_addHangObserver(KSHangObserverBlock observer) NS_SWIFT_NAME(addHangObserver(_:));
+
+NS_ASSUME_NONNULL_END
 
 #endif
 
