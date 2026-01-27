@@ -329,7 +329,10 @@ static bool tryUnwindWithMethod(UnwindCursorContext *ctx, KSUnwindMethod method,
                                 bool isReturnAddress)
 {
     KSCompactUnwindResult result;
-    uintptr_t lookupPC = lookupPCForUnwind(ctx->pc, isReturnAddress);
+    // Normalize the PC to strip PAC bits (arm64e) before looking up unwind info.
+    // Return addresses read from stack memory contain PAC signatures, but unwind
+    // tables store canonical (unsigned) addresses.
+    uintptr_t lookupPC = kscpu_normaliseInstructionPointer(lookupPCForUnwind(ctx->pc, isReturnAddress));
 
     switch (method) {
         case KSUnwindMethod_CompactUnwind:
@@ -387,8 +390,9 @@ static bool tryUpdateStateAfterLR(UnwindCursorContext *ctx)
 {
     KSCompactUnwindResult result;
 
-    // Use exact PC - this is the instruction pointer, not a return address
-    uintptr_t lookupPC = ctx->pc;
+    // Use exact PC - this is the instruction pointer, not a return address.
+    // Normalize to strip PAC bits (arm64e) for unwind table lookup.
+    uintptr_t lookupPC = kscpu_normaliseInstructionPointer(ctx->pc);
 
     for (int i = 0; i < KSUNWIND_MAX_METHODS && ctx->methods[i] != KSUnwindMethod_None; i++) {
         switch (ctx->methods[i]) {
@@ -498,6 +502,14 @@ static bool advanceCursor(KSStackCursor *cursor)
                 // Validate stack direction before updating FP
                 uintptr_t newFP = (uintptr_t)frame.previous;
                 if (newFP == 0 || newFP > ctx->fp) {
+                    // Calculate SP from current FP BEFORE updating FP.
+                    // This ensures the next unwind step (which may be a frameless
+                    // function) has the correct SP for stack address calculations.
+#if defined(__x86_64__) || defined(__arm64__)
+                    ctx->sp = ctx->fp + 16;
+#elif defined(__i386__) || defined(__arm__)
+                    ctx->sp = ctx->fp + 8;
+#endif
                     ctx->fp = newFP;
                     // We successfully restored FP from the frame chain
                     ctx->framePointerRestored = true;
