@@ -114,6 +114,9 @@
 // Maximum stack depth for DWARF expression evaluation
 #define KSDWARF_EXPR_STACK_MAX 16
 
+// Maximum iterations for CFI/expression evaluation (defense against malformed data)
+#define KSDWARF_MAX_ITERATIONS 10000
+
 // MARK: - Internal Types
 
 typedef struct {
@@ -497,8 +500,15 @@ static bool executeCFIInstructions(const uint8_t *instructions, size_t len, cons
     // State stack for remember/restore
     KSDwarfCFIRow stateStack[MAX_STATE_STACK_DEPTH];
     int stateStackDepth = 0;
+    int iterations = 0;
 
     while (readerHasData(&reader, 1)) {
+        // Defense against malformed CFI data
+        if (++iterations > KSDWARF_MAX_ITERATIONS) {
+            KSLOG_TRACE("CFI instruction limit exceeded");
+            return false;
+        }
+
         // Stop if we've passed the target PC
         if (currentPC > targetPC) {
             break;
@@ -860,8 +870,15 @@ static bool evaluateDwarfExpression(const uint8_t *expr, size_t len, uintptr_t c
     intptr_t stack[KSDWARF_EXPR_STACK_MAX];
     int depth = 0;
     bool resultIsValue = false;
+    int iterations = 0;
 
     while (readerHasData(&reader, 1)) {
+        // Defense against malformed expression data
+        if (++iterations > KSDWARF_MAX_ITERATIONS) {
+            KSLOG_TRACE("DWARF expression iteration limit exceeded");
+            return false;
+        }
+
         uint8_t op = readU8(&reader);
 
         if (op >= DW_OP_lit0 && op <= DW_OP_lit31) {
@@ -1312,8 +1329,10 @@ bool ksdwarf_unwind(const void *ehFrame, size_t ehFrameSize, uintptr_t pc, uintp
     uintptr_t newFP = 0;
     if (applyRegisterRule(&row.registers[fpReg], cfa, sp, fp, lr, &newFP)) {
         result->framePointer = newFP;
+        result->framePointerRestored = true;  // FP was restored from CFI rules
     } else {
         result->framePointer = 0;
+        result->framePointerRestored = false;  // No FP rule present (frameless function)
     }
 
     result->returnAddress = returnAddress;
