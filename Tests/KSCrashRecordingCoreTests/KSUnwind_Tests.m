@@ -681,6 +681,189 @@ static void *ksunwind_test_thread_main(void *arg)
 #endif  // __i386__
 
 // =============================================================================
+// MARK: - ARM64 Compact Unwind Tests
+// =============================================================================
+
+#if defined(__arm64__)
+
+- (void)testCompactUnwind_ARM64_FrameBased
+{
+    // Test: Frame-based unwinding (KSCU_UNWIND_ARM64_MODE_FRAME)
+    // Stack layout at FP:
+    //   [FP+0]  = previous FP
+    //   [FP+8]  = return address (LR saved by prologue)
+    // Caller's SP = FP + 16
+
+    compact_unwind_encoding_t encoding = KSCU_UNWIND_ARM64_MODE_FRAME;
+
+    // Create mock stack frame
+    uintptr_t mockStack[4];
+    mockStack[0] = 0x1000200030004000;  // Previous FP at [FP+0]
+    mockStack[1] = 0xDEADBEEFCAFEBABE;  // Return address at [FP+8]
+    mockStack[2] = 0x1111111111111111;  // Caller's stack
+    mockStack[3] = 0x2222222222222222;
+
+    uintptr_t fp = (uintptr_t)&mockStack[0];
+    uintptr_t sp = fp - 32;             // SP below FP (locals area)
+    uintptr_t lr = 0x9999999999999999;  // Should be ignored for frame-based
+
+    KSCompactUnwindResult result;
+    bool success = kscu_arm64_decode(encoding, 0x1000, sp, fp, lr, &result);
+
+    XCTAssertTrue(success, @"Frame-based decode should succeed");
+    XCTAssertTrue(result.valid, @"Result should be valid");
+    XCTAssertTrue(result.framePointerRestored, @"Frame pointer should be restored");
+    XCTAssertEqual(result.returnAddress, 0xDEADBEEFCAFEBABE, @"Return address should be from [FP+8]");
+    XCTAssertEqual(result.framePointer, 0x1000200030004000, @"Previous FP should be from [FP+0]");
+    XCTAssertEqual(result.stackPointer, (uintptr_t)&mockStack[2], @"New SP should be FP + 16");
+}
+
+- (void)testCompactUnwind_ARM64_FrameBasedWithSavedRegisters
+{
+    // Test: Frame-based with X19/X20 pair saved
+    // Registers are saved below FP in pairs
+
+    compact_unwind_encoding_t encoding = KSCU_UNWIND_ARM64_MODE_FRAME | KSCU_UNWIND_ARM64_FRAME_X19_X20_PAIR;
+
+    // Stack layout (growing down):
+    //   [FP-16] = X19
+    //   [FP-8]  = X20
+    //   [FP+0]  = previous FP
+    //   [FP+8]  = return address
+    uintptr_t mockStack[8];
+    // Index 0,1 are below FP (X19/X20)
+    mockStack[0] = 0xAAAAAAAAAAAAAAAA;  // X19 at [FP-16]
+    mockStack[1] = 0xBBBBBBBBBBBBBBBB;  // X20 at [FP-8]
+    // Index 2 is FP
+    mockStack[2] = 0x1000200030004000;  // Previous FP at [FP+0]
+    mockStack[3] = 0xDEADBEEFCAFEBABE;  // Return address at [FP+8]
+    mockStack[4] = 0x1111111111111111;  // Caller's stack
+
+    uintptr_t fp = (uintptr_t)&mockStack[2];  // FP points to saved FP
+    uintptr_t sp = (uintptr_t)&mockStack[0];  // SP at bottom
+
+    KSCompactUnwindResult result;
+    bool success = kscu_arm64_decode(encoding, 0x1000, sp, fp, 0, &result);
+
+    XCTAssertTrue(success, @"Frame-based with saved regs should succeed");
+    XCTAssertTrue(result.valid, @"Result should be valid");
+    XCTAssertEqual(result.returnAddress, 0xDEADBEEFCAFEBABE, @"Return address should be correct");
+    XCTAssertEqual(result.framePointer, 0x1000200030004000, @"Previous FP should be correct");
+    // Check saved register mask includes X19 and X20
+    XCTAssertTrue((result.savedRegisterMask & 0x3) == 0x3, @"X19 and X20 should be in saved mask");
+}
+
+- (void)testCompactUnwind_ARM64_FramelessLeaf
+{
+    // Test: Frameless leaf function (stackSize == 0)
+    // Return address is in LR, SP unchanged
+
+    // Encoding: FRAMELESS mode with stack size = 0
+    compact_unwind_encoding_t encoding = KSCU_UNWIND_ARM64_MODE_FRAMELESS;
+    // Stack size field (bits 12-23) = 0, so no additional bits needed
+
+    uintptr_t sp = 0x1000;
+    uintptr_t fp = 0x2000;  // Should be passed through unchanged
+    uintptr_t lr = 0xDEADBEEFCAFEBABE;
+
+    KSCompactUnwindResult result;
+    bool success = kscu_arm64_decode(encoding, 0x1000, sp, fp, lr, &result);
+
+    XCTAssertTrue(success, @"Frameless leaf decode should succeed");
+    XCTAssertTrue(result.valid, @"Result should be valid");
+    XCTAssertFalse(result.framePointerRestored, @"FP should NOT be restored for frameless");
+    XCTAssertEqual(result.returnAddress, lr, @"Return address should be from LR");
+    XCTAssertEqual(result.stackPointer, sp, @"SP should be unchanged for leaf");
+    XCTAssertEqual(result.framePointer, fp, @"FP should be passed through unchanged");
+}
+
+- (void)testCompactUnwind_ARM64_FramelessNonLeaf
+{
+    // Test: Frameless non-leaf (stackSize > 0)
+    // Stack layout:
+    //   [SP + stackSize - 8] = return address (saved LR)
+    //   [SP + stackSize] = caller's stack
+    // New SP = SP + stackSize
+
+    // Encoding: FRAMELESS mode with stack size = 2 (meaning 2*16 = 32 bytes)
+    uint32_t stackSizeEncoded = 2;  // 2 * 16 = 32 bytes
+    compact_unwind_encoding_t encoding = KSCU_UNWIND_ARM64_MODE_FRAMELESS | (stackSizeEncoded << 12);
+
+    // Create mock stack
+    uintptr_t mockStack[8];
+    mockStack[0] = 0x1111111111111111;  // Local at [SP+0]
+    mockStack[1] = 0x2222222222222222;  // Local at [SP+8]
+    mockStack[2] = 0x3333333333333333;  // Local at [SP+16]
+    mockStack[3] = 0xDEADBEEFCAFEBABE;  // Return address at [SP+24] (stackSize-8 = 32-8 = 24)
+    mockStack[4] = 0x4444444444444444;  // Caller's stack at [SP+32]
+
+    uintptr_t sp = (uintptr_t)&mockStack[0];
+    uintptr_t fp = 0x9000;  // Should be passed through
+
+    KSCompactUnwindResult result;
+    bool success = kscu_arm64_decode(encoding, 0x1000, sp, fp, 0, &result);
+
+    XCTAssertTrue(success, @"Frameless non-leaf decode should succeed");
+    XCTAssertTrue(result.valid, @"Result should be valid");
+    XCTAssertFalse(result.framePointerRestored, @"FP should NOT be restored for frameless");
+    XCTAssertEqual(result.returnAddress, 0xDEADBEEFCAFEBABE, @"Return address should be at SP+24");
+    XCTAssertEqual(result.stackPointer, (uintptr_t)&mockStack[4], @"New SP should be SP + 32");
+    XCTAssertEqual(result.framePointer, fp, @"FP should be passed through unchanged");
+}
+
+- (void)testCompactUnwind_ARM64_FramelessLargerStack
+{
+    // Test: Frameless with larger stack (stackSize = 8, meaning 128 bytes)
+
+    uint32_t stackSizeEncoded = 8;  // 8 * 16 = 128 bytes
+    compact_unwind_encoding_t encoding = KSCU_UNWIND_ARM64_MODE_FRAMELESS | (stackSizeEncoded << 12);
+
+    // Create mock stack with 128 bytes of locals + return address
+    uintptr_t mockStack[20];
+    for (int i = 0; i < 15; i++) {
+        mockStack[i] = (uintptr_t)(0x1000 + i);  // Local variables
+    }
+    mockStack[15] = 0xCAFEBABE12345678;  // Return address at [SP+120] (128-8)
+    mockStack[16] = 0x9999999999999999;  // Caller's stack at [SP+128]
+
+    uintptr_t sp = (uintptr_t)&mockStack[0];
+
+    KSCompactUnwindResult result;
+    bool success = kscu_arm64_decode(encoding, 0x1000, sp, 0x5000, 0, &result);
+
+    XCTAssertTrue(success, @"Frameless with larger stack should succeed");
+    XCTAssertEqual(result.returnAddress, 0xCAFEBABE12345678, @"Return address should be at SP+120");
+    XCTAssertEqual(result.stackPointer, (uintptr_t)&mockStack[16], @"New SP should be SP + 128");
+}
+
+- (void)testCompactUnwind_ARM64_DwarfMode
+{
+    // Test: DWARF mode encoding should fail (requires DWARF, not compact unwind)
+
+    compact_unwind_encoding_t encoding = KSCU_UNWIND_ARM64_MODE_DWARF;
+
+    KSCompactUnwindResult result;
+    bool success = kscu_arm64_decode(encoding, 0x1000, 0x2000, 0x3000, 0x4000, &result);
+
+    XCTAssertFalse(success, @"DWARF mode should fail compact unwind decode");
+    XCTAssertFalse(result.valid, @"Result should not be valid");
+}
+
+- (void)testCompactUnwind_ARM64_NullFP
+{
+    // Test: Frame-based with NULL FP should fail
+
+    compact_unwind_encoding_t encoding = KSCU_UNWIND_ARM64_MODE_FRAME;
+
+    KSCompactUnwindResult result;
+    bool success = kscu_arm64_decode(encoding, 0x1000, 0x2000, 0, 0x4000, &result);
+
+    XCTAssertFalse(success, @"Frame-based with NULL FP should fail");
+}
+
+#endif  // __arm64__
+
+// =============================================================================
 // MARK: - DWARF CFI Instruction Tests
 // =============================================================================
 // These tests verify DWARF CFI parsing using synthetic .eh_frame data.
