@@ -26,6 +26,8 @@
 
 #include "Unwind/KSStackCursor_Unwind.h"
 
+#include <mach/vm_param.h>
+
 #include "KSBinaryImageCache.h"
 #include "KSCPU.h"
 #include "KSMemory.h"
@@ -34,6 +36,21 @@
 
 // #define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
+
+// MARK: - Address Validation
+
+/**
+ * Check if an address is valid for use as a code address.
+ *
+ * Addresses in the NULL page (first PAGE_SIZE bytes) are invalid. This catches:
+ * - NULL pointers
+ * - Uninitialized LR values
+ * - Corrupted return addresses at thread boundaries (thread_start, _pthread_start)
+ *
+ * This approach is used by PLCrashReporter and prevents spurious frames
+ * at the bottom of the stack.
+ */
+static inline bool isValidCodeAddress(uintptr_t address) { return address > PAGE_SIZE; }
 
 // MARK: - Types
 
@@ -62,6 +79,7 @@ typedef struct {
     // State tracking
     bool isFirstFrame;
     bool usedLinkRegister;
+    bool reachedEndOfStack;  // Set when FP becomes 0 (thread entry point reached)
     KSUnwindMethod lastMethod;
 
     // Method selection - try methods in order until one succeeds (0 = end)
@@ -276,14 +294,40 @@ static bool tryFramePointerUnwind(UnwindCursorContext *ctx, uintptr_t *outReturn
 
 // MARK: - Cursor Implementation
 
-/** Try to unwind one frame using a specific method. Updates ctx state on success. */
-static bool tryUnwindWithMethod(UnwindCursorContext *ctx, KSUnwindMethod method, uintptr_t *outAddress)
+/**
+ * Compute the PC to use for unwind info lookup.
+ *
+ * Return addresses point to the instruction AFTER the call instruction.
+ * To look up unwind info for the function containing the call, we need
+ * to subtract 1 from the return address. This prevents spurious frames
+ * at function boundaries (e.g., _pthread_start -> thread_start).
+ *
+ * This technique is used by Firebase/Crashlytics (FIRCLSUnwind.c:156-180).
+ *
+ * @param pc The program counter value
+ * @param isReturnAddress Whether this PC is a return address (vs. current instruction pointer)
+ * @return The PC value to use for unwind info lookup
+ */
+static inline uintptr_t lookupPCForUnwind(uintptr_t pc, bool isReturnAddress)
+{
+    if (isReturnAddress && pc > 0) {
+        return pc - 1;
+    }
+    return pc;
+}
+
+/** Try to unwind one frame using a specific method. Updates ctx state on success.
+ *  @param isReturnAddress If true, ctx->pc is a return address and should be adjusted for lookup.
+ */
+static bool tryUnwindWithMethod(UnwindCursorContext *ctx, KSUnwindMethod method, uintptr_t *outAddress,
+                                bool isReturnAddress)
 {
     KSCompactUnwindResult result;
+    uintptr_t lookupPC = lookupPCForUnwind(ctx->pc, isReturnAddress);
 
     switch (method) {
         case KSUnwindMethod_CompactUnwind:
-            if (tryCompactUnwindForPC(ctx->pc, ctx->sp, ctx->fp, ctx->lr, &result) && result.valid) {
+            if (tryCompactUnwindForPC(lookupPC, ctx->sp, ctx->fp, ctx->lr, &result) && result.valid) {
                 *outAddress = result.returnAddress;
                 ctx->sp = result.stackPointer;
                 ctx->fp = result.framePointer;
@@ -295,7 +339,7 @@ static bool tryUnwindWithMethod(UnwindCursorContext *ctx, KSUnwindMethod method,
             break;
 
         case KSUnwindMethod_Dwarf:
-            if (tryDwarfUnwindForPC(ctx->pc, ctx->sp, ctx->fp, ctx->lr, &result) && result.valid) {
+            if (tryDwarfUnwindForPC(lookupPC, ctx->sp, ctx->fp, ctx->lr, &result) && result.valid) {
                 *outAddress = result.returnAddress;
                 ctx->sp = result.stackPointer;
                 ctx->fp = result.framePointer;
@@ -322,15 +366,25 @@ static bool tryUnwindWithMethod(UnwindCursorContext *ctx, KSUnwindMethod method,
 }
 
 #if defined(__arm64__) || defined(__arm__)
-/** Try to update register state after using LR, using methods in order. */
+/**
+ * Try to update register state after using LR, using methods in order.
+ *
+ * Note: We use the exact PC (not PC-1) here because ctx->pc is still the
+ * instruction pointer where the crash/sample occurred, not a return address.
+ * The LR value (which IS a return address) will be stored to ctx->pc after
+ * this function returns.
+ */
 static bool tryUpdateStateAfterLR(UnwindCursorContext *ctx)
 {
     KSCompactUnwindResult result;
 
+    // Use exact PC - this is the instruction pointer, not a return address
+    uintptr_t lookupPC = ctx->pc;
+
     for (int i = 0; i < KSUNWIND_MAX_METHODS && ctx->methods[i] != KSUnwindMethod_None; i++) {
         switch (ctx->methods[i]) {
             case KSUnwindMethod_CompactUnwind:
-                if (tryCompactUnwindForPC(ctx->pc, ctx->sp, ctx->fp, ctx->lr, &result) && result.valid) {
+                if (tryCompactUnwindForPC(lookupPC, ctx->sp, ctx->fp, ctx->lr, &result) && result.valid) {
                     ctx->sp = result.stackPointer;
                     ctx->fp = result.framePointer;
                     ctx->pc = result.returnAddress;
@@ -340,7 +394,7 @@ static bool tryUpdateStateAfterLR(UnwindCursorContext *ctx)
                 break;
 
             case KSUnwindMethod_Dwarf:
-                if (tryDwarfUnwindForPC(ctx->pc, ctx->sp, ctx->fp, ctx->lr, &result) && result.valid) {
+                if (tryDwarfUnwindForPC(lookupPC, ctx->sp, ctx->fp, ctx->lr, &result) && result.valid) {
                     ctx->sp = result.stackPointer;
                     ctx->fp = result.framePointer;
                     ctx->pc = result.returnAddress;
@@ -385,6 +439,13 @@ static bool advanceCursor(KSStackCursor *cursor)
         return false;
     }
 
+    // If we've already reached the end of the stack (FP became 0), stop.
+    // This prevents spurious frames after thread entry points (thread_start, _pthread_start).
+    if (ctx->reachedEndOfStack) {
+        KSLOG_TRACE("Stopping unwind - already reached end of stack (FP was 0)");
+        return false;
+    }
+
     // First frame: return the current instruction pointer
     if (ctx->isFirstFrame) {
         ctx->isFirstFrame = false;
@@ -407,6 +468,13 @@ static bool advanceCursor(KSStackCursor *cursor)
     if (!ctx->usedLinkRegister && ctx->lr != 0) {
         ctx->usedLinkRegister = true;
         nextAddress = ctx->lr;
+
+        // Validate the LR value before using it. Invalid LR values (in the NULL page)
+        // indicate we've reached the bottom of the stack (thread_start, _pthread_start).
+        if (!isValidCodeAddress(nextAddress)) {
+            KSLOG_TRACE("LR 0x%lx is in NULL page - terminating unwind", (unsigned long)nextAddress);
+            return false;
+        }
 
         // After using LR, we need to unwind to get the next return address
         // Try methods in order to update our register state
@@ -433,13 +501,28 @@ static bool advanceCursor(KSStackCursor *cursor)
         // Set method to None regardless of what tryUpdateStateAfterLR did.
         ctx->lastMethod = KSUnwindMethod_None;
 
+        // Check if FP became 0 after LR handling - mark end of stack
+        if (ctx->fp == 0) {
+            KSLOG_TRACE("FP is 0 after LR handling - marking end of stack");
+            ctx->reachedEndOfStack = true;
+        }
+
         goto successfulExit;
     }
 #endif
 
-    // Try each method in order until one succeeds
+    // Try each method in order until one succeeds.
+    // ctx->pc is a return address at this point, so use PC-1 for unwind info lookup.
     for (int i = 0; i < KSUNWIND_MAX_METHODS && ctx->methods[i] != KSUnwindMethod_None; i++) {
-        if (tryUnwindWithMethod(ctx, ctx->methods[i], &nextAddress)) {
+        if (tryUnwindWithMethod(ctx, ctx->methods[i], &nextAddress, true /* isReturnAddress */)) {
+            // Check if we've reached end of frame chain.
+            // At thread entry points (thread_start, _pthread_start), FP is typically 0.
+            // If FP is 0 after unwinding, we've reached the bottom of the stack.
+            // Accept this frame but mark that we should stop on the next iteration.
+            if (ctx->fp == 0) {
+                KSLOG_TRACE("FP is 0 after unwind - marking end of stack");
+                ctx->reachedEndOfStack = true;
+            }
             goto successfulExit;
         }
     }
@@ -448,6 +531,14 @@ static bool advanceCursor(KSStackCursor *cursor)
     return false;
 
 successfulExit:
+    // Final validation: reject addresses in the NULL page.
+    // This catches corrupted return addresses and prevents spurious frames
+    // at thread boundaries (thread_start, _pthread_start, etc.).
+    if (!isValidCodeAddress(nextAddress)) {
+        KSLOG_TRACE("Address 0x%lx is in NULL page - terminating unwind", (unsigned long)nextAddress);
+        return false;
+    }
+
     cursor->stackEntry.address = kscpu_normaliseInstructionPointer(nextAddress);
     cursor->state.currentDepth++;
     return true;
@@ -464,6 +555,7 @@ static void resetCursor(KSStackCursor *cursor)
     ctx->lr = 0;
     ctx->isFirstFrame = true;
     ctx->usedLinkRegister = false;
+    ctx->reachedEndOfStack = false;
     ctx->lastMethod = KSUnwindMethod_None;
     // Note: methods[] is preserved across reset
     ctx->currentFrame.previous = NULL;
@@ -486,6 +578,7 @@ void kssc_initWithUnwindMethods(KSStackCursor *cursor, int maxStackDepth, const 
     ctx->lr = 0;
     ctx->isFirstFrame = true;
     ctx->usedLinkRegister = false;
+    ctx->reachedEndOfStack = false;
     ctx->lastMethod = KSUnwindMethod_None;
     ctx->currentFrame.previous = NULL;
     ctx->currentFrame.return_address = 0;
