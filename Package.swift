@@ -253,11 +253,13 @@ let package = Package(
             cSettings: [
                 .headerSearchPath("."),
                 .headerSearchPath("Monitors"),
+                .headerSearchPath("../KSCrashRecordingCore/include"),  // For internal Unwind/ headers
                 .unsafeFlags(warningFlags),
             ],
             cxxSettings: [
                 .headerSearchPath("."),
                 .headerSearchPath("Monitors"),
+                .headerSearchPath("../KSCrashRecordingCore/include"),  // For internal Unwind/ headers
                 .unsafeFlags(warningFlags),
             ]
         ),
@@ -274,6 +276,7 @@ let package = Package(
             cSettings: [
                 .headerSearchPath("../../Sources/\(Targets.recording)"),
                 .headerSearchPath("../../Sources/\(Targets.recording)/Monitors"),
+                .headerSearchPath("../../Sources/\(Targets.recordingCore)/include"),  // For internal Unwind/ headers
                 .unsafeFlags(warningFlags),
             ]
         ),
