@@ -2009,9 +2009,7 @@
         "jailbroken": false,
         "kernel_version": "Darwin Kernel Version 16.1.0: Thu Oct 13 21:26:57 PDT 2016; root:xnu-3789.21.3~60/RELEASE_X86_64",
         "machine": "iPhone5,1",
-        "memory": {
-            "size": 17179869184
-        },
+        
         "model": "simulator",
         "os_version": "16B2555",
         "parent_process_id": 446,
@@ -2021,6 +2019,7 @@
         "system_version": "10.1",
         "time_zone": "PST",
         "memory": {
+            "size": 17179869184,
             "usable": 16010616832,
             "free": 3427287040
         },
