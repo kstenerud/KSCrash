@@ -245,7 +245,7 @@ final class UserReportedTests: IntegrationTestBase {
             .compactMap(\.symbol_name).first
             .flatMap(CrashReportFilterDemangle.demangledSwiftSymbol)
         XCTAssertEqual(
-            topSymbol, "UserReportConfig.NSExceptionReport.report()",
+            topSymbol, "IntegrationTestsHelper.UserReportConfig.NSExceptionReport.report() -> ()",
             "Stacktrace should exclude all KSCrash symbols and have reporting function on top")
 
         XCTAssertEqual(app.state, .runningForeground, "Should not terminate app")
@@ -274,7 +274,7 @@ final class UserReportedTests: IntegrationTestBase {
             .compactMap(\.symbol_name).first
             .flatMap(CrashReportFilterDemangle.demangledSwiftSymbol)
         XCTAssertEqual(
-            topSymbol, "UserReportConfig.UserException.report()",
+            topSymbol, "IntegrationTestsHelper.UserReportConfig.UserException.report() -> ()",
             "Stacktrace should exclude all KSCrash symbols and have reporting function on top")
 
         XCTAssertEqual(app.state, .runningForeground, "Should not terminate app")
