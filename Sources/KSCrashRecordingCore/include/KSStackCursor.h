@@ -41,7 +41,7 @@ extern "C" {
 #define KSSC_STACK_OVERFLOW_THRESHOLD 150
 
 /** The max depth to search before giving up. */
-#define KSSC_MAX_STACK_DEPTH 500
+#define KSSC_MAX_STACK_DEPTH 512
 
 typedef struct KSStackCursor {
     struct {

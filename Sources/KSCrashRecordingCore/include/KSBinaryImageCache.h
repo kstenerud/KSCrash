@@ -127,6 +127,43 @@ const struct mach_header *_Nullable ksbic_getImageDetailsForAddress(uintptr_t ad
  */
 intptr_t ksbic_getImageSlide(const struct mach_header *_Nullable header);
 
+/**
+ * Cached unwind information for a binary image.
+ */
+typedef struct {
+    const struct mach_header *_Nullable header;
+    const void *_Nullable unwindInfo;
+    size_t unwindInfoSize;
+    const void *_Nullable ehFrame;
+    size_t ehFrameSize;
+    uintptr_t slide;
+    bool hasCompactUnwind;
+    bool hasEhFrame;
+} KSBinaryImageUnwindInfo;
+
+/**
+ * Get cached unwind information for a binary image.
+ *
+ * This function is async-signal-safe.
+ *
+ * @param header The mach_header of the image.
+ * @param outInfo If not NULL and found, receives the cached unwind info.
+ * @return true if the image was found, false otherwise.
+ */
+bool ksbic_getUnwindInfoForHeader(const struct mach_header *_Nullable header,
+                                  KSBinaryImageUnwindInfo *_Nullable outInfo);
+
+/**
+ * Get cached unwind information for an address.
+ *
+ * This function is async-signal-safe.
+ *
+ * @param address The memory address to look up.
+ * @param outInfo If not NULL and found, receives the cached unwind info.
+ * @return true if the image was found, false otherwise.
+ */
+bool ksbic_getUnwindInfoForAddress(uintptr_t address, KSBinaryImageUnwindInfo *_Nullable outInfo);
+
 #ifdef __cplusplus
 }
 #endif

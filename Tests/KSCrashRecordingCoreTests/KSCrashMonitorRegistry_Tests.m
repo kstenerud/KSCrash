@@ -154,10 +154,10 @@ static KSCrashMonitorAPI g_secondDummyMonitor = {};
     KSCrashMonitorAPIList list;
     memset(&list, 0, sizeof(list));
     KSCrashMonitorAPI alwaysDisabledMonitor = g_dummyMonitor;
-    alwaysDisabledMonitor.setEnabled = (void (*)(bool))imp_implementationWithBlock(^(__unused bool isEnabled) {
+    alwaysDisabledMonitor.setEnabled = (void (*)(bool))(void *)imp_implementationWithBlock(^(__unused bool isEnabled) {
         // pass
     });
-    alwaysDisabledMonitor.isEnabled = (bool (*)(void))imp_implementationWithBlock(^{
+    alwaysDisabledMonitor.isEnabled = (bool (*)(void))(void *)imp_implementationWithBlock(^{
         return false;
     });
 

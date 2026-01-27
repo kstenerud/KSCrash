@@ -35,6 +35,7 @@
 #import "KSStackCursor_MachineContext.h"
 #import "KSThread.h"
 #import "KSUnfairLock.h"
+#import "Unwind/KSStackCursor_Unwind.h"
 
 #import <Foundation/Foundation.h>
 #import <os/lock.h>
@@ -504,9 +505,9 @@ static int TaskRole(void)
                 .asyncSafety = false, .isFatal = false, .shouldRecordAllThreads = true, .shouldWriteReport = true });
 
         KSMachineContext machineContext = { 0 };
-        ksmc_getContextForThread(g_mainQueueThread, &machineContext, true);
+        ksmc_getContextForThreadCheckingStackOverflow(g_mainQueueThread, &machineContext, true, false);
         KSStackCursor stackCursor;
-        kssc_initWithMachineContext(&stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
+        kssc_initWithUnwind(&stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
 
         kscm_fillMonitorContext(crashContext, kscm_watchdog_getAPI());
         crashContext->registersAreValid = true;

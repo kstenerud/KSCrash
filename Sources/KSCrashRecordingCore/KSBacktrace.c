@@ -26,19 +26,68 @@
 
 #include "KSBacktrace.h"
 
+#include <TargetConditionals.h>
 #include <sys/param.h>
 
 #include "KSBinaryImageCache.h"
+#include "KSCPU.h"
 #include "KSDynamicLinker.h"
+#include "KSLogger.h"
 #include "KSStackCursor.h"
 #include "KSStackCursor_MachineContext.h"
 #include "KSStackCursor_SelfThread.h"
 #include "KSSymbolicator.h"
 #include "KSThread.h"
+#include "Unwind/KSStackCursor_Unwind.h"
 
-int ksbt_captureBacktrace(pthread_t thread, uintptr_t *addresses, int count)
+static int captureBacktraceFromSelf(uintptr_t *addresses, int maxFrames)
 {
-    return ksbt_captureBacktraceFromMachThread(pthread_mach_thread_np(thread), addresses, count);
+    KSStackCursor stackCursor;
+    kssc_initSelfThread(&stackCursor, 0);
+
+    int frameCount = 0;
+    while (frameCount < maxFrames && stackCursor.advanceCursor(&stackCursor)) {
+        addresses[frameCount++] = stackCursor.stackEntry.address;
+    }
+    return frameCount;
+}
+
+static int captureBacktraceFromOtherThread(thread_t machThread, uintptr_t *addresses, int maxFrames)
+{
+#if !TARGET_OS_WATCH
+    kern_return_t kr = thread_suspend(machThread);
+    if (kr != KERN_SUCCESS) {
+        KSLOG_ERROR("thread_suspend (0x%x) failed: %d", machThread, kr);
+        return 0;
+    }
+#endif
+
+    // Lightweight context initialization - only set what's needed for unwinding.
+    // Avoids the ~4KB memset that ksmc_getContextForThread does.
+    KSMachineContext machineContext = {
+        .thisThread = machThread,
+        .isCurrentThread = false,
+        .isCrashedContext = false,
+        .isSignalContext = false,
+    };
+    kscpu_getState(&machineContext);
+
+    KSStackCursor stackCursor;
+    kssc_initWithUnwind(&stackCursor, maxFrames, &machineContext);
+
+    int frameCount = 0;
+    while (frameCount < maxFrames && stackCursor.advanceCursor(&stackCursor)) {
+        addresses[frameCount++] = stackCursor.stackEntry.address;
+    }
+
+#if !TARGET_OS_WATCH
+    kr = thread_resume(machThread);
+    if (kr != KERN_SUCCESS) {
+        KSLOG_ERROR("thread_resume (0x%x) failed: %d", machThread, kr);
+    }
+#endif
+
+    return frameCount;
 }
 
 int ksbt_captureBacktraceFromMachThread(thread_t machThread, uintptr_t *addresses, int count)
@@ -47,25 +96,17 @@ int ksbt_captureBacktraceFromMachThread(thread_t machThread, uintptr_t *addresse
         return 0;
     }
 
-    KSMachineContext machineContext = { 0 };
-    KSStackCursor stackCursor = {};
     int maxFrames = MIN(count, KSSC_MAX_STACK_DEPTH);
 
     if (machThread == ksthread_self()) {
-        kssc_initSelfThread(&stackCursor, 0);
-    } else {
-        if (!ksmc_getContextForThread(machThread, &machineContext, false)) {
-            return 0;
-        }
-        kssc_initWithMachineContext(&stackCursor, maxFrames, &machineContext);
+        return captureBacktraceFromSelf(addresses, maxFrames);
     }
+    return captureBacktraceFromOtherThread(machThread, addresses, maxFrames);
+}
 
-    int frameCount = 0;
-    while (frameCount < maxFrames && stackCursor.advanceCursor(&stackCursor)) {
-        addresses[frameCount++] = stackCursor.stackEntry.address;
-    }
-
-    return frameCount;
+int ksbt_captureBacktrace(pthread_t thread, uintptr_t *addresses, int count)
+{
+    return ksbt_captureBacktraceFromMachThread(pthread_mach_thread_np(thread), addresses, count);
 }
 
 bool ksbt_quickSymbolicateAddress(uintptr_t address, struct KSSymbolInformation *result)

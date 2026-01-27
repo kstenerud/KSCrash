@@ -47,6 +47,7 @@
 
 #include "KSMach-O.h"
 
+#include <mach-o/getsect.h>
 #include <mach-o/loader.h>
 #include <mach/mach.h>
 #include <string.h>
@@ -170,4 +171,65 @@ vm_prot_t ksmacho_getSectionProtection(void *sectionStart)
         KSLOG_ERROR("Failed to get protection for section: %s", mach_error_string(info_ret));
         return VM_PROT_READ;
     }
+}
+
+const section_t *ksmacho_getSectionByNameFromHeader(const mach_header_t *header, const char *segmentName,
+                                                    const char *sectionName)
+{
+    KSLOG_TRACE("Searching for section %s in segment %s of Mach header at %p", sectionName, segmentName, header);
+
+    if (header == NULL) {
+        KSLOG_ERROR("Header is NULL");
+        return NULL;
+    }
+
+    // Find the segment first
+    const segment_command_t *segment = ksmacho_getSegmentByNameFromHeader(header, segmentName);
+    if (segment == NULL) {
+        KSLOG_TRACE("Segment %s not found", segmentName);
+        return NULL;
+    }
+
+    // Iterate through sections in the segment
+    uintptr_t current = (uintptr_t)segment + sizeof(segment_command_t);
+    for (uint32_t sectionIndex = 0; sectionIndex < segment->nsects; sectionIndex++) {
+        const section_t *section = (const section_t *)current;
+        if (strncmp(section->sectname, sectionName, sizeof(section->sectname)) == 0) {
+            KSLOG_TRACE("Section %s found at %p", sectionName, section);
+            return section;
+        }
+        current += sizeof(section_t);
+    }
+
+    KSLOG_TRACE("Section %s not found in segment %s", sectionName, segmentName);
+    return NULL;
+}
+
+const void *ksmacho_getSectionDataByNameFromHeader(const mach_header_t *header, const char *segmentName,
+                                                   const char *sectionName, size_t *outSize)
+{
+    KSLOG_TRACE("Getting section data for %s,%s from Mach header at %p", segmentName, sectionName, header);
+
+    if (header == NULL) {
+        KSLOG_ERROR("Header is NULL");
+        return NULL;
+    }
+
+    // Use getsectiondata() which correctly handles images in the dyld shared cache.
+    // The manual section lookup approach doesn't work for shared cache images because
+    // the section addresses in the Mach-O header don't directly map to memory locations.
+    unsigned long size = 0;
+    const void *sectionData = getsectiondata(header, segmentName, sectionName, &size);
+
+    if (sectionData == NULL) {
+        KSLOG_TRACE("Section %s,%s not found", segmentName, sectionName);
+        return NULL;
+    }
+
+    if (outSize != NULL) {
+        *outSize = (size_t)size;
+    }
+
+    KSLOG_TRACE("Section data at %p, size %zu", sectionData, (size_t)size);
+    return sectionData;
 }
