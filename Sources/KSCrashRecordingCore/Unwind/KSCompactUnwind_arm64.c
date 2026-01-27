@@ -48,9 +48,6 @@
 // The savedRegisters array only has 16 slots which is enough for X19-X28 (10 regs)
 // If needed in the future, increase savedRegisters array size
 
-// PAC stripping mask for ARM64e
-#define KSPACStrippingMask_ARM64e 0x0000000fffffffff
-
 // MARK: - Internal Functions
 
 /**
@@ -60,11 +57,6 @@ static inline bool readPtr(uintptr_t addr, uintptr_t *outValue)
 {
     return ksmem_copySafely((const void *)addr, outValue, sizeof(uintptr_t));
 }
-
-/**
- * Strip PAC bits from an instruction pointer.
- */
-static inline uintptr_t stripPAC(uintptr_t ip) { return ip & KSPACStrippingMask_ARM64e; }
 
 // MARK: - ARM64 Compact Unwind Decoder
 
@@ -78,6 +70,7 @@ bool kscu_arm64_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attrib
     // Initialize result
     *result = (KSCompactUnwindResult) {
         .valid = false,
+        .framePointerRestored = false,
         .returnAddress = 0,
         .stackPointer = 0,
         .framePointer = 0,
@@ -114,9 +107,10 @@ bool kscu_arm64_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attrib
             return false;
         }
 
-        result->returnAddress = stripPAC(returnAddr);
+        result->returnAddress = returnAddr;
         result->framePointer = prevFP;
-        result->stackPointer = fp + 16;  // Caller's SP
+        result->framePointerRestored = true;  // Frame-based: FP restored from stack
+        result->stackPointer = fp + 16;       // Caller's SP
 
         // Decode saved callee-saved registers
         // They are stored below FP in pairs, growing downward
@@ -196,7 +190,7 @@ bool kscu_arm64_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attrib
 
         if (stackSize == 0) {
             // Leaf function - return address is in LR
-            result->returnAddress = stripPAC(lr);
+            result->returnAddress = lr;
             result->stackPointer = sp;
             result->framePointer = fp;  // Preserve FP - frameless functions don't modify it
             result->valid = true;
@@ -212,7 +206,7 @@ bool kscu_arm64_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attrib
             return false;
         }
 
-        result->returnAddress = stripPAC(returnAddr);
+        result->returnAddress = returnAddr;
         result->stackPointer = sp + stackSize;
         result->framePointer = fp;  // Preserve FP - frameless functions don't modify it
         result->valid = true;
@@ -226,7 +220,7 @@ bool kscu_arm64_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attrib
         return false;
     } else if (mode == 0) {
         // No unwind info - assume leaf function
-        result->returnAddress = stripPAC(lr);
+        result->returnAddress = lr;
         result->stackPointer = sp;
         result->framePointer = fp;
         result->valid = true;
