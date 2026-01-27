@@ -128,8 +128,10 @@ bool ksmc_getContextForThreadCheckingStackOverflow(KSThread thread, KSMachineCon
     if (ksmc_canHaveCPUState(destinationContext)) {
         kscpu_getState(destinationContext);
     }
-    if (checkForStackOverflow && ksmc_isCrashedContext(destinationContext)) {
-        destinationContext->isStackOverflow = isStackOverflow(destinationContext);
+    if (ksmc_isCrashedContext(destinationContext)) {
+        if (checkForStackOverflow) {
+            destinationContext->isStackOverflow = isStackOverflow(destinationContext);
+        }
         getThreadList(destinationContext);
     }
     KSLOG_TRACE("Context retrieved.");
