@@ -57,6 +57,7 @@ bool kscu_arm_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attribut
     // Initialize result
     *result = (KSCompactUnwindResult) {
         .valid = false,
+        .framePointerRestored = false,
         .returnAddress = 0,
         .stackPointer = 0,
         .framePointer = 0,
@@ -95,6 +96,7 @@ bool kscu_arm_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attribut
         // Clear Thumb bit from return address
         result->returnAddress = returnAddr & ~1UL;
         result->framePointer = prevR7;
+        result->framePointerRestored = true;  // Frame-based: FP restored from stack
         result->stackPointer = r7 + 8;
 
         result->valid = true;

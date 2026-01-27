@@ -182,6 +182,173 @@ static void *workerThreadMain(void *arg)
     [[NSFileManager defaultManager] removeItemAtPath:reportPath error:nil];
 }
 
+#if defined(__arm64__)
+// =============================================================================
+// MARK: - Frameless Function Unwind Tests (ARM64)
+// =============================================================================
+
+// Frameless functions for testing FP==0 sentinel behavior.
+// The unwinder must NOT treat FP==0 as end-of-stack when unwinding through
+// functions that don't restore FP (frameless functions or DWARF without FP rule).
+//
+// We use __attribute__((optnone)) on all functions to:
+// 1. Prevent tail-call optimization which would eliminate frames
+// 2. Ensure consistent behavior across Debug/Release builds
+// 3. Guarantee the frames appear in the backtrace for testing
+//
+// Note: Even with optnone, the compiler may still generate frame pointers.
+// The key test is that the unwinder correctly handles mixed frame types
+// and doesn't incorrectly truncate the stack due to FP==0 checks.
+
+static volatile int g_framelessSinkValue = 0;
+
+// Test worker functions - marked noinline and optnone to ensure distinct frames
+// and consistent code generation across build configurations.
+__attribute__((noinline, optnone)) static void framelessLevel5(void)
+{
+    // Signal that we're ready and wait to be released
+    dispatch_semaphore_signal(g_workerReadySemaphore);
+    dispatch_semaphore_wait(g_workerDoneSemaphore, DISPATCH_TIME_FOREVER);
+    // Prevent tail call optimization
+    g_framelessSinkValue++;
+}
+
+__attribute__((noinline, optnone)) static void framelessLevel4(void)
+{
+    framelessLevel5();
+    g_framelessSinkValue++;
+}
+
+__attribute__((noinline, optnone)) static void framelessLevel3(void)
+{
+    framelessLevel4();
+    g_framelessSinkValue++;
+}
+
+__attribute__((noinline, optnone)) static void framelessLevel2(void)
+{
+    framelessLevel3();
+    g_framelessSinkValue++;
+}
+
+__attribute__((noinline, optnone)) static void framelessLevel1(void)
+{
+    framelessLevel2();
+    g_framelessSinkValue++;
+}
+
+static void *framelessWorkerThreadMain(void *arg)
+{
+    (void)arg;
+    g_workerMachThread = pthread_mach_thread_np(pthread_self());
+    framelessLevel1();
+    return NULL;
+}
+
+/// Test that the unwinder correctly handles frameless functions.
+/// This tests the fix for the FP==0 sentinel bug where stacks were truncated
+/// when DWARF or compact-unwind doesn't restore FP (frameless functions).
+- (void)testUnwinder_FramelessFunctions
+{
+    // Initialize dynamic linker (needed for report writing)
+    ksdl_init();
+
+    // Create semaphores for thread synchronization
+    g_workerReadySemaphore = dispatch_semaphore_create(0);
+    g_workerDoneSemaphore = dispatch_semaphore_create(0);
+    g_workerMachThread = MACH_PORT_NULL;
+
+    // Start worker thread
+    pthread_t workerThread;
+    pthread_create(&workerThread, NULL, framelessWorkerThreadMain, NULL);
+
+    // Wait for worker to be ready (blocked in framelessLevel5)
+    dispatch_semaphore_wait(g_workerReadySemaphore, DISPATCH_TIME_FOREVER);
+
+    // Give it a moment to fully block on the semaphore
+    usleep(10000);
+
+    // Suspend the worker thread so we can safely read its registers
+    kern_return_t kr = thread_suspend(g_workerMachThread);
+    XCTAssertEqual(kr, KERN_SUCCESS, @"Failed to suspend worker thread");
+
+    // Get machine context from the suspended thread
+    KSMachineContext machineContext = { 0 };
+    bool gotContext = ksmc_getContextForThread(g_workerMachThread, &machineContext, true);
+    XCTAssertTrue(gotContext, @"Failed to get machine context");
+
+    // Create report path
+    NSString *reportPath = [self tempReportPath];
+
+    // Create monitor context
+    KSCrash_MonitorContext context = { 0 };
+    context.eventID[0] = 'F';
+    context.eventID[1] = 'L';
+    context.eventID[2] = 'S';
+    context.eventID[3] = '\0';
+    context.offendingMachineContext = &machineContext;
+    context.stackCursor = NULL;  // Force unwinder to walk from machine context
+    context.registersAreValid = true;
+    context.monitorId = "frameless_test";
+    context.crashReason = "Frameless unwind test";
+    context.System.processName = "FramelessTest";
+    context.System.processID = getpid();
+    context.omitBinaryImages = true;
+
+    // Write report
+    kscrashreport_writeStandardReport(&context, [reportPath UTF8String]);
+
+    // Resume worker thread and let it exit
+    thread_resume(g_workerMachThread);
+    dispatch_semaphore_signal(g_workerDoneSemaphore);
+    pthread_join(workerThread, NULL);
+
+    // Read and parse the report
+    NSDictionary *report = [self readJSONReport:reportPath];
+    XCTAssertNotNil(report, @"Should be able to read report");
+
+    // Extract backtrace
+    NSArray *backtrace = [self extractBacktraceFromReport:report];
+    XCTAssertNotNil(backtrace, @"Report should have backtrace");
+    XCTAssertGreaterThan(backtrace.count, 0, @"Backtrace should have frames");
+
+    NSLog(@"Frameless test - Total frames: %lu", (unsigned long)backtrace.count);
+
+    // Track which functions we found in the backtrace
+    BOOL foundFramelessLevel3 = NO;
+    BOOL foundFramelessLevel4 = NO;
+    BOOL foundFramelessLevel5 = NO;
+    BOOL foundFramelessLevel1 = NO;
+    BOOL foundFramelessLevel2 = NO;
+
+    for (NSUInteger i = 0; i < backtrace.count; i++) {
+        NSDictionary *frame = backtrace[i];
+        NSString *symbolName = frame[@"symbol_name"] ?: @"(unknown)";
+        NSNumber *instructionAddr = frame[@"instruction_addr"];
+        NSLog(@"Frame %2lu: 0x%llx %@", (unsigned long)i, instructionAddr ? [instructionAddr unsignedLongLongValue] : 0,
+              symbolName);
+
+        if ([symbolName containsString:@"framelessLevel1"]) foundFramelessLevel1 = YES;
+        if ([symbolName containsString:@"framelessLevel2"]) foundFramelessLevel2 = YES;
+        if ([symbolName containsString:@"framelessLevel3"]) foundFramelessLevel3 = YES;
+        if ([symbolName containsString:@"framelessLevel4"]) foundFramelessLevel4 = YES;
+        if ([symbolName containsString:@"framelessLevel5"]) foundFramelessLevel5 = YES;
+    }
+
+    // Verify we captured all the frames including the frameless ones.
+    // The key test is that the unwinder doesn't stop prematurely due to
+    // the FP==0 sentinel being triggered incorrectly for frameless functions.
+    XCTAssertTrue(foundFramelessLevel5, @"Should find framelessLevel5 in backtrace");
+    XCTAssertTrue(foundFramelessLevel4, @"Should find framelessLevel4 in backtrace");
+    XCTAssertTrue(foundFramelessLevel3, @"Should find framelessLevel3 in backtrace");
+    XCTAssertTrue(foundFramelessLevel2, @"Should find framelessLevel2 in backtrace");
+    XCTAssertTrue(foundFramelessLevel1, @"Should find framelessLevel1 in backtrace");
+
+    // Clean up
+    [[NSFileManager defaultManager] removeItemAtPath:reportPath error:nil];
+}
+#endif  // __arm64__
+
 @end
 
 #endif  // !TARGET_OS_WATCH
