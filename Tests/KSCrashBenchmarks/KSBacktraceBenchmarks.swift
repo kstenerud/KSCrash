@@ -27,7 +27,8 @@ import KSCrashRecordingCore
 import XCTest
 
 #if !os(watchOS)
-    final class KSBacktraceBenchmarks: XCTestCase {
+    @objc(KSBacktraceBenchmarks)
+    public class KSBacktraceBenchmarks: XCTestCase {
 
         // MARK: - Backtrace Capture Benchmarks
 

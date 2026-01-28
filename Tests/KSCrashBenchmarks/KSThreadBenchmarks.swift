@@ -26,7 +26,8 @@ import KSCrashRecording
 import KSCrashRecordingCore
 import XCTest
 
-final class KSThreadBenchmarks: XCTestCase {
+@objc(KSThreadBenchmarks)
+public class KSThreadBenchmarks: XCTestCase {
 
     // MARK: - Thread Self Benchmarks
 

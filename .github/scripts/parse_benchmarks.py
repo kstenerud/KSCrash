@@ -274,8 +274,9 @@ def generate_report(pr_results, base_results, config, device_info):
     output = ["# 🔍 KSCrash Performance Benchmarks\n"]
     output.append("*Crash capture performance metrics - lower times are better*\n")
     device_str = format_device_info(device_info)
-    device_line = f" | **Target:** {device_str}" if device_str else ""
-    output.append(f"**Host:** {system_info}{device_line}\n")
+    output.append(f"**Host:** {system_info}\n")
+    if device_str:
+        output.append(f"**Target:** {device_str}\n")
     output.append("<details>")
     output.append("<summary><b>📖 How to interpret results</b></summary>\n")
     output.append("| Std Dev | Interpretation |")
