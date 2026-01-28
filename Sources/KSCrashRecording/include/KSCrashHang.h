@@ -116,7 +116,7 @@ typedef void (^KSHangObserverBlock)(KSHangChangeType change, uint64_t startTimes
  *         watchdog monitor is not enabled. The observer remains registered as long as
  *         this token is retained. Release it to unregister the observer.
  */
-id _Nullable kshang_addHangObserver(KSHangObserverBlock observer) NS_SWIFT_NAME(KSCrash.addHangObserver(_:));
+id _Nullable kshang_addHangObserver(KSHangObserverBlock observer) NS_SWIFT_NAME(addHangObserver(_:));
 
 NS_ASSUME_NONNULL_END
 
