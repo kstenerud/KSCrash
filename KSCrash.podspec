@@ -4,7 +4,7 @@ Pod::Spec.new do |s|
   s.version      = "2.5.0"
   s.summary      = "The Ultimate iOS Crash Reporter"
   s.homepage     = "https://github.com/kstenerud/KSCrash"
-  s.license      = { :type => 'KSCrash license agreement', :file => 'LICENSE' }
+  s.license      = { :type => 'MIT', :file => 'LICENSE' }
   s.author       = { "Karl Stenerud" => "kstenerud@gmail.com" }
   s.ios.deployment_target = IOS_DEPLOYMENT_TARGET
   s.osx.deployment_target = '10.14'
