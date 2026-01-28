@@ -280,5 +280,49 @@ import XCTest
 
             XCTAssertFalse(success, "quickSymbolicate should fail for address 0")
         }
+
+        // MARK: - Truncation Detection Tests
+
+        func testBacktraceWithSmallBufferIsTruncated() {
+            let thread = pthread_self()
+            let entries = 2
+            var addresses: [UInt] = Array(repeating: 0, count: entries)
+            var isTruncated = false
+            let count = captureBacktrace(
+                thread: thread, addresses: &addresses, count: Int32(entries),
+                isTruncated: &isTruncated
+            )
+
+            XCTAssertEqual(Int(count), entries, "Should fill all available frames")
+            XCTAssertTrue(isTruncated, "A buffer of 2 should be truncated for any real stack")
+        }
+
+        func testBacktraceWithLargeBufferIsNotTruncated() {
+            let thread = pthread_self()
+            let entries = 512
+            var addresses: [UInt] = Array(repeating: 0, count: entries)
+            var isTruncated = false
+            let count = captureBacktrace(
+                thread: thread, addresses: &addresses, count: Int32(entries),
+                isTruncated: &isTruncated
+            )
+
+            XCTAssertGreaterThan(count, 0)
+            XCTAssertFalse(isTruncated, "A buffer of 512 should not be truncated for a typical stack")
+        }
+
+        func testBacktraceWithSmallBufferIsTruncatedFromMachThread() {
+            let machThread = pthread_mach_thread_np(pthread_self())
+            let entries = 2
+            var addresses: [UInt] = Array(repeating: 0, count: entries)
+            var isTruncated = false
+            let count = captureBacktrace(
+                machThread: machThread, addresses: &addresses, count: Int32(entries),
+                isTruncated: &isTruncated
+            )
+
+            XCTAssertEqual(Int(count), entries)
+            XCTAssertTrue(isTruncated)
+        }
     }
 #endif
