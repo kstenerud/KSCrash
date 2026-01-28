@@ -46,7 +46,7 @@ jobs:
             macos-version: "15"
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
@@ -78,7 +78,7 @@ jobs:
         shell: bash
 
       - name: Upload Workspace Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: failure()
         with:
           name: workspace-${{ matrix.platform }}${{ matrix.config }}

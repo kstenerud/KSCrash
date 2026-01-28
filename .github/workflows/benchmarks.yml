@@ -35,14 +35,14 @@ jobs:
 
     steps:
       - name: Checkout PR Branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           path: pr-branch
 
       - name: Checkout Base Branch
         if: github.event_name == 'pull_request'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.base_ref }}
           path: base-branch
@@ -60,7 +60,7 @@ jobs:
           xcodebuild -runFirstLaunch
 
       - name: Setup Mise
-        uses: jdx/mise-action@v2
+        uses: jdx/mise-action@v3
 
       - name: Install xcbeautify
         run: brew install xcbeautify
@@ -101,7 +101,7 @@ jobs:
 
       - name: Comment PR with Results
         if: github.event_name == 'pull_request'
-        uses: thollander/actions-comment-pull-request@v2
+        uses: thollander/actions-comment-pull-request@v3
         with:
           filePath: benchmark_results.md
           comment_tag: benchmark-results

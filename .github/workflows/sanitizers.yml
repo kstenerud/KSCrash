@@ -36,7 +36,7 @@ jobs:
     name: ${{ matrix.name }}
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Use Latest Stable Xcode
         uses: maxim-lobanov/setup-xcode@v1
@@ -56,7 +56,7 @@ jobs:
           cp -r ~/Library/Logs/DiagnosticReports/* crash-logs/ 2>/dev/null || true
 
       - name: Upload Sanitizer Output
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: failure()
         with:
           name: ${{ matrix.sanitizer }}-sanitizer-output
@@ -64,7 +64,7 @@ jobs:
           retention-days: 14
 
       - name: Upload Crash Logs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: failure()
         with:
           name: ${{ matrix.sanitizer }}-crash-logs

@@ -16,7 +16,7 @@ jobs:
     env:
       DIRS: 'Sources Tests Samples/Common/Sources/CrashTriggers'
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
 
     - name: Install clang-format-18
       run: |
