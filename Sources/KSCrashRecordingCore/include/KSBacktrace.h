@@ -73,6 +73,45 @@ int ksbt_captureBacktrace(pthread_t _Nonnull thread, uintptr_t *_Nonnull address
     CF_SWIFT_NAME(captureBacktrace(thread:addresses:count:));
 
 /**
+ * Captures the backtrace (call stack) for the specified mach thread with truncation detection.
+ *
+ * @param machThread   The identifier of the mach thread whose backtrace should be captured.
+ * @param addresses    A pointer to a buffer to receive the backtrace addresses. Must not be NULL.
+ * @param count        The maximum number of addresses to capture. Must be greater than zero.
+ * @param isTruncated  If non-NULL, set to @c true when the stack is deeper than @c count
+ *                     (i.e. the backtrace was truncated), or @c false otherwise.
+ *
+ * @return The number of frames captured and written to @c addresses, or 0 if @c addresses is NULL, @c count is zero, or
+ * an error occurs.
+ *
+ * @discussion This function is not async-signal-safe and therefore must not be called from within a signal handler.
+ *             It may also briefly suspend the target thread while unwinding its stack.
+ */
+int ksbt_captureBacktraceFromMachThreadWithTruncation(thread_t machThread, uintptr_t *_Nonnull addresses, int count,
+                                                      bool *_Nullable isTruncated)
+    CF_SWIFT_NAME(captureBacktrace(machThread:addresses:count:isTruncated:));
+
+/**
+ * Captures the backtrace (call stack) for the specified pthread with truncation detection.
+ *
+ * @param thread       The identifier of the pthread whose backtrace should be captured. Must be a valid, non-null
+ * thread.
+ * @param addresses    A pointer to a buffer to receive the backtrace addresses. Must not be NULL.
+ * @param count        The maximum number of addresses to capture. Must be greater than zero.
+ * @param isTruncated  If non-NULL, set to @c true when the stack is deeper than @c count
+ *                     (i.e. the backtrace was truncated), or @c false otherwise.
+ *
+ * @return The number of frames captured and written to @c addresses, or 0 if @c addresses is NULL, @c count is zero, or
+ * an error occurs.
+ *
+ * @discussion This function is not async-signal-safe and therefore must not be called from within a signal handler.
+ *             It may also briefly suspend the target thread while unwinding its stack.
+ */
+int ksbt_captureBacktraceWithTruncation(pthread_t _Nonnull thread, uintptr_t *_Nonnull addresses, int count,
+                                        bool *_Nullable isTruncated)
+    CF_SWIFT_NAME(captureBacktrace(thread:addresses:count:isTruncated:));
+
+/**
  * Information about a symbol and the image in which it resides.
  *
  * field returnAddress    The return address of the instruction being symbolicated.

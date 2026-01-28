@@ -40,7 +40,7 @@
 #include "KSThread.h"
 #include "Unwind/KSStackCursor_Unwind.h"
 
-static int captureBacktraceFromSelf(uintptr_t *addresses, int maxFrames)
+static int captureBacktraceFromSelf(uintptr_t *addresses, int maxFrames, bool *isTruncated)
 {
     KSStackCursor stackCursor;
     kssc_initSelfThread(&stackCursor, 0);
@@ -49,15 +49,23 @@ static int captureBacktraceFromSelf(uintptr_t *addresses, int maxFrames)
     while (frameCount < maxFrames && stackCursor.advanceCursor(&stackCursor)) {
         addresses[frameCount++] = stackCursor.stackEntry.address;
     }
+
+    if (isTruncated) {
+        *isTruncated = (frameCount == maxFrames && stackCursor.advanceCursor(&stackCursor));
+    }
+
     return frameCount;
 }
 
-static int captureBacktraceFromOtherThread(thread_t machThread, uintptr_t *addresses, int maxFrames)
+static int captureBacktraceFromOtherThread(thread_t machThread, uintptr_t *addresses, int maxFrames, bool *isTruncated)
 {
 #if !TARGET_OS_WATCH
     kern_return_t kr = thread_suspend(machThread);
     if (kr != KERN_SUCCESS) {
         KSLOG_ERROR("thread_suspend (0x%x) failed: %d", machThread, kr);
+        if (isTruncated) {
+            *isTruncated = false;
+        }
         return 0;
     }
 #endif
@@ -80,6 +88,10 @@ static int captureBacktraceFromOtherThread(thread_t machThread, uintptr_t *addre
         addresses[frameCount++] = stackCursor.stackEntry.address;
     }
 
+    if (isTruncated) {
+        *isTruncated = (frameCount == maxFrames && stackCursor.advanceCursor(&stackCursor));
+    }
+
 #if !TARGET_OS_WATCH
     kr = thread_resume(machThread);
     if (kr != KERN_SUCCESS) {
@@ -92,21 +104,36 @@ static int captureBacktraceFromOtherThread(thread_t machThread, uintptr_t *addre
 
 int ksbt_captureBacktraceFromMachThread(thread_t machThread, uintptr_t *addresses, int count)
 {
-    if (!addresses || count == 0 || machThread == MACH_PORT_NULL) {
+    return ksbt_captureBacktraceFromMachThreadWithTruncation(machThread, addresses, count, NULL);
+}
+
+int ksbt_captureBacktrace(pthread_t thread, uintptr_t *addresses, int count)
+{
+    return ksbt_captureBacktraceFromMachThread(pthread_mach_thread_np(thread), addresses, count);
+}
+
+int ksbt_captureBacktraceFromMachThreadWithTruncation(thread_t machThread, uintptr_t *addresses, int count,
+                                                      bool *isTruncated)
+{
+    if (!addresses || count <= 0 || machThread == MACH_PORT_NULL) {
+        if (isTruncated) {
+            *isTruncated = false;
+        }
         return 0;
     }
 
     int maxFrames = MIN(count, KSSC_MAX_STACK_DEPTH);
 
     if (machThread == ksthread_self()) {
-        return captureBacktraceFromSelf(addresses, maxFrames);
+        return captureBacktraceFromSelf(addresses, maxFrames, isTruncated);
     }
-    return captureBacktraceFromOtherThread(machThread, addresses, maxFrames);
+    return captureBacktraceFromOtherThread(machThread, addresses, maxFrames, isTruncated);
 }
 
-int ksbt_captureBacktrace(pthread_t thread, uintptr_t *addresses, int count)
+int ksbt_captureBacktraceWithTruncation(pthread_t thread, uintptr_t *addresses, int count, bool *isTruncated)
 {
-    return ksbt_captureBacktraceFromMachThread(pthread_mach_thread_np(thread), addresses, count);
+    return ksbt_captureBacktraceFromMachThreadWithTruncation(pthread_mach_thread_np(thread), addresses, count,
+                                                             isTruncated);
 }
 
 bool ksbt_quickSymbolicateAddress(uintptr_t address, struct KSSymbolInformation *result)

@@ -81,21 +81,31 @@ extension Sample {
     ///
     /// - Parameters:
     ///   - thread: The mach thread port to capture the backtrace from.
-    ///   - captureBacktrace: The backtrace capture function (typically from KSCrashRecordingCore).
+    ///   - captureBacktrace: The backtrace capture function. Takes a mach thread, address buffer,
+    ///     count, and an optional truncation flag pointer; returns the number of frames captured.
     ///
     /// After capture, `addressCount` contains the number of valid frames captured.
+    /// If the backtrace was truncated (stack deeper than capacity), `addressCount` is set to 0
+    /// to discard the incomplete sample.
     public mutating func capture(
         thread: mach_port_t,
-        using captureBacktrace: (mach_port_t, UnsafeMutablePointer<UInt>, Int32) -> Int32
+        using captureBacktrace: (
+            _ machThread: mach_port_t,
+            _ addresses: UnsafeMutablePointer<UInt>,
+            _ count: Int32,
+            _ isTruncated: UnsafeMutablePointer<ObjCBool>?
+        ) -> Int32
     ) {
-        addressCount = withUnsafeMutableBytes(of: &storage) { ptr in
-            Int(
-                captureBacktrace(
-                    thread,
-                    ptr.baseAddress!.assumingMemoryBound(to: UInt.self),
-                    Int32(Self.capacity)
-                ))
+        var isTruncated: ObjCBool = false
+        let count = withUnsafeMutableBytes(of: &storage) { ptr in
+            captureBacktrace(
+                thread,
+                ptr.baseAddress!.assumingMemoryBound(to: UInt.self),
+                Int32(Self.capacity),
+                &isTruncated
+            )
         }
+        addressCount = isTruncated.boolValue ? 0 : Int(count)
     }
 
     /// Creates a new zero-initialized sample instance.
