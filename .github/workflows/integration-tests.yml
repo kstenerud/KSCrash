@@ -33,7 +33,7 @@ jobs:
           - platform: watchOS
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Use Latest Stable Xcode
         uses: maxim-lobanov/setup-xcode@v1
@@ -49,7 +49,7 @@ jobs:
           xcodebuild -runFirstLaunch
 
       - name: Setup Mise
-        uses: jdx/mise-action@v2
+        uses: jdx/mise-action@v3
         with:
           install: true
           cache: true

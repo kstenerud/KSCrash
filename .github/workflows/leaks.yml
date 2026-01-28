@@ -27,7 +27,7 @@ jobs:
     runs-on: macos-15
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Use Latest Stable Xcode
         uses: maxim-lobanov/setup-xcode@v1
@@ -35,7 +35,7 @@ jobs:
           xcode-version: latest-stable
 
       - name: Setup Mise
-        uses: jdx/mise-action@v2
+        uses: jdx/mise-action@v3
 
       - name: Generate Project
         working-directory: Samples
@@ -278,7 +278,7 @@ jobs:
           LEAK_BYTES: ${{ steps.leaks.outputs.leak_bytes }}
 
       - name: Upload Leaks Output
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: leaks-output
           path: leaks_output.txt
@@ -286,10 +286,10 @@ jobs:
 
       - name: Comment PR with Results
         if: github.event_name == 'pull_request' && steps.report.outputs.has_real_leaks == 'true'
-        uses: thollander/actions-comment-pull-request@v2
+        uses: thollander/actions-comment-pull-request@v3
         with:
-          filePath: leaks_report.md
-          comment_tag: leaks-results
+          file-path: leaks_report.md
+          comment-tag: leaks-results
 
       - name: Fail if real leaks found
         if: steps.report.outputs.has_real_leaks == 'true'
