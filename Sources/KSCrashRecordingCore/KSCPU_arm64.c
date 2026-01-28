@@ -144,7 +144,27 @@ int kscpu_stackGrowDirection(void) { return -1; }
 
 uintptr_t kscpu_normaliseInstructionPointer(uintptr_t ip)
 {
-    return (uintptr_t)ptrauth_strip((void *)ip, ptrauth_key_function_pointer);
+#if __has_feature(ptrauth_calls)
+    // arm64e build - use the ptrauth intrinsic which handles PAC correctly.
+    // Use ptrauth_key_return_address since we're primarily stripping return addresses.
+    return (uintptr_t)ptrauth_strip((void *)ip, ptrauth_key_return_address);
+#else
+    // Non-arm64e build that may run on arm64e hardware:
+    // When an arm64 binary calls into arm64e system libraries (libdispatch, etc.),
+    // the return addresses pushed onto the stack by those libraries contain PAC
+    // signature bits. Since ptrauth_strip is a no-op on arm64, we must manually
+    // strip the PAC bits.
+    //
+    // On Apple platforms, user space virtual addresses fit in 47 bits (bits 0-46).
+    // The PAC signature occupies the upper bits (47-63). We mask to 47 bits to
+    // extract the canonical address while stripping any PAC signature.
+    //
+    // This mask is safe because:
+    // 1. Valid user addresses have high bits = 0, so masking is harmless
+    // 2. PAC-signed addresses need the high bits stripped
+    // 3. Kernel addresses (0xFFFF...) aren't processed during user crash handling
+    return ip & 0x00007FFFFFFFFFFFULL;
+#endif
 }
 
 #endif
