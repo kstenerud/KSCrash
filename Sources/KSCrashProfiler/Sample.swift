@@ -93,10 +93,10 @@ extension Sample {
             _ machThread: mach_port_t,
             _ addresses: UnsafeMutablePointer<UInt>,
             _ count: Int32,
-            _ isTruncated: UnsafeMutablePointer<ObjCBool>?
+            _ isTruncated: UnsafeMutablePointer<Bool>?
         ) -> Int32
     ) {
-        var isTruncated: ObjCBool = false
+        var isTruncated = false
         let count = withUnsafeMutableBytes(of: &storage) { ptr in
             captureBacktrace(
                 thread,
@@ -105,7 +105,7 @@ extension Sample {
                 &isTruncated
             )
         }
-        addressCount = isTruncated.boolValue ? 0 : Int(count)
+        addressCount = isTruncated ? 0 : Int(count)
     }
 
     /// Creates a new zero-initialized sample instance.

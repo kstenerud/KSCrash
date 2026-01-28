@@ -28,7 +28,6 @@ import Foundation
 import os
 
 #if SWIFT_PACKAGE
-    import KSCrashRecording
     import KSCrashRecordingCore
 #endif
 
@@ -308,7 +307,7 @@ extension Profiler {
             samples[slot].metadata.timestampBeginNs = clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
             samples[slot].capture(
                 thread: machThread,
-                using: KSCrash.shared.captureBacktrace(fromMachThread:addresses:count:isTruncated:)
+                using: captureBacktrace(machThread:addresses:count:isTruncated:)
             )
             samples[slot].metadata.timestampEndNs = clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
 
