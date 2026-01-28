@@ -288,8 +288,8 @@ jobs:
         if: github.event_name == 'pull_request' && steps.report.outputs.has_real_leaks == 'true'
         uses: thollander/actions-comment-pull-request@v3
         with:
-          filePath: leaks_report.md
-          comment_tag: leaks-results
+          file-path: leaks_report.md
+          comment-tag: leaks-results
 
       - name: Fail if real leaks found
         if: steps.report.outputs.has_real_leaks == 'true'

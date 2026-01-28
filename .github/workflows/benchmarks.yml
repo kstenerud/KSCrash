@@ -103,5 +103,5 @@ jobs:
         if: github.event_name == 'pull_request'
         uses: thollander/actions-comment-pull-request@v3
         with:
-          filePath: benchmark_results.md
-          comment_tag: benchmark-results
+          file-path: benchmark_results.md
+          comment-tag: benchmark-results
