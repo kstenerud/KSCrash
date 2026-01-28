@@ -177,6 +177,8 @@
 #define ksbt_captureBacktrace KSCRASH_NS(ksbt_captureBacktrace)
 #define ksbt_captureBacktraceFromMachThread KSCRASH_NS(ksbt_captureBacktraceFromMachThread)
 #define ksbt_quickSymbolicateAddress KSCRASH_NS(ksbt_quickSymbolicateAddress)
+#define ksbt_captureBacktraceFromMachThreadWithTruncation KSCRASH_NS(ksbt_captureBacktraceFromMachThreadWithTruncation)
+#define ksbt_captureBacktraceWithTruncation KSCRASH_NS(ksbt_captureBacktraceWithTruncation)
 #define ksbt_symbolicateAddress KSCRASH_NS(ksbt_symbolicateAddress)
 #define kscm_activateMonitors KSCRASH_NS(kscm_activateMonitors)
 #define kscm_addMonitor KSCRASH_NS(kscm_addMonitor)

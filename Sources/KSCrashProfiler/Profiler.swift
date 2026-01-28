@@ -305,7 +305,10 @@ extension Profiler {
 
             // Capture directly into the ring buffer slot to avoid struct copy overhead
             samples[slot].metadata.timestampBeginNs = clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
-            samples[slot].capture(thread: machThread, using: captureBacktrace)
+            samples[slot].capture(
+                thread: machThread,
+                using: captureBacktrace(machThread:addresses:count:isTruncated:)
+            )
             samples[slot].metadata.timestampEndNs = clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
 
             // Advance ring buffer position
