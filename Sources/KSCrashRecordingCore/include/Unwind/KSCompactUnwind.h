@@ -129,10 +129,12 @@ typedef struct {
  * Result of unwinding a single frame using compact unwind.
  */
 typedef struct {
-    bool valid;               // True if unwinding succeeded
-    uintptr_t returnAddress;  // Recovered return address
-    uintptr_t stackPointer;   // Recovered stack pointer
-    uintptr_t framePointer;   // Recovered frame pointer (0 if not applicable)
+    bool valid;                 // True if unwinding succeeded
+    bool framePointerRestored;  // True if FP was restored from stack (frame-based)
+                                // False if FP was just passed through (frameless)
+    uintptr_t returnAddress;    // Recovered return address
+    uintptr_t stackPointer;     // Recovered stack pointer
+    uintptr_t framePointer;     // Recovered frame pointer (0 if not applicable)
 
     // Recovered callee-saved registers (architecture-specific)
     // ARM64: X19-X28, D8-D15
