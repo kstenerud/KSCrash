@@ -248,7 +248,10 @@ static KSCrash_Memory g_previousSessionMemory;
     // Proactively write the OOM breadcrumb when memory is urgent so the
     // data is already on disk if the OS kills us. Rate-limited via atomic CAS
     // to avoid excessive writes during rapid state changes.
-    if (memory.level >= KSCrashAppMemoryStateUrgent || memory.pressure >= KSCrashAppMemoryStateUrgent) {
+    // Guard on g_hasPostEnable to ensure the monitor system is fully initialized
+    // (callbacks are set) before attempting to write a report.
+    if (atomic_load(&g_hasPostEnable) &&
+        (memory.level >= KSCrashAppMemoryStateUrgent || memory.pressure >= KSCrashAppMemoryStateUrgent)) {
         uint64_t now = clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW);
         uint64_t last = atomic_load(&g_lastReportWrittenTimestamp);
         if (now - last > KS_CRASH_MIN_DURATION_BETWEEN_REPORT_WRITES) {
@@ -579,6 +582,10 @@ static void ksmemory_unmap(void) { _ks_memory_set(NULL); }
  */
 static void ksmemory_write_possible_oom(void)
 {
+    if (!g_callbacks.notify || !g_callbacks.handle) {
+        return;
+    }
+
     NSURL *reportURL = kscm_memory_oom_breadcrumb_URL();
     const char *reportPath = reportURL.path.UTF8String;
     unlink(reportPath);
