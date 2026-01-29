@@ -25,7 +25,7 @@
 import KSCrashRecordingCore
 import XCTest
 
-class KSMemoryBenchmarks: XCTestCase {
+class KSMemoryBenchmarks: KSBenchmarkTestCase {
 
     // MARK: - Memory Readability Checks
 

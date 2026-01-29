@@ -93,24 +93,44 @@ jobs:
 
       - name: Extract Result Bundles
         run: |
-          # Extract PR results
-          if [ -f pr-results/result_bundle.xcresult.zip ]; then
-            unzip -q pr-results/result_bundle.xcresult.zip -d pr-results
-            PR_XCRESULT=$(find pr-results -name "*.xcresult" -type d | head -1)
-            echo "PR xcresult: $PR_XCRESULT"
-            if [ -n "$PR_XCRESULT" ]; then
-              mv "$PR_XCRESULT" pr_benchmarks.xcresult
+          # Extract and merge PR shard results into a single xcresult
+          extract_and_merge() {
+            local src_dir="$1"
+            local output="$2"
+
+            local xcresults=()
+            for zip in "$src_dir"/*.zip; do
+              [ -f "$zip" ] || continue
+              local name=$(basename "$zip" .zip)
+              unzip -q "$zip" -d "$src_dir/${name}_extracted"
+              local found=$(find "$src_dir/${name}_extracted" -name "*.xcresult" -type d | head -1)
+              if [ -n "$found" ]; then
+                xcresults+=("$found")
+              fi
+            done
+
+            if [ ${#xcresults[@]} -eq 0 ]; then
+              echo "No xcresult bundles found in $src_dir"
+              return 1
+            elif [ ${#xcresults[@]} -eq 1 ]; then
+              mv "${xcresults[0]}" "$output"
+            else
+              echo "Merging ${#xcresults[@]} xcresult bundles..."
+              xcrun xcresulttool merge "${xcresults[@]}" --output-path "$output"
             fi
+            echo "Output: $output"
+          }
+
+          # Extract PR results
+          if ls pr-results/*.zip 1>/dev/null 2>&1; then
+            extract_and_merge pr-results pr_benchmarks.xcresult
+          else
+            echo "No PR result bundles found"
           fi
 
           # Extract main results (if available)
-          if [ -f main-results/result_bundle.xcresult.zip ]; then
-            unzip -q main-results/result_bundle.xcresult.zip -d main-results
-            MAIN_XCRESULT=$(find main-results -name "*.xcresult" -type d | head -1)
-            echo "Main xcresult: $MAIN_XCRESULT"
-            if [ -n "$MAIN_XCRESULT" ]; then
-              mv "$MAIN_XCRESULT" base_benchmarks.xcresult
-            fi
+          if ls main-results/*.zip 1>/dev/null 2>&1; then
+            extract_and_merge main-results base_benchmarks.xcresult
           else
             echo "No main results available (BenchmarksBrowserStack may not exist on base branch yet)"
           fi

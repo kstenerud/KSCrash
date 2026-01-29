@@ -26,6 +26,8 @@
 
 #import <XCTest/XCTest.h>
 
+#import "KSBenchmarkTestCase.h"
+
 #include <exception>
 #include <stdexcept>
 #include <string>
@@ -51,7 +53,7 @@ static void dummyHandler(void *thrown_exception __unused, std::type_info *tinfo 
 
 #pragma mark - Benchmark Test Class
 
-@interface KSCxaThrowBenchmarks : XCTestCase
+@interface KSCxaThrowBenchmarks : KSBenchmarkTestCaseObjC
 @end
 
 @implementation KSCxaThrowBenchmarks

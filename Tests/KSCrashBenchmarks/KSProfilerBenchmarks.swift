@@ -27,7 +27,7 @@ import KSCrashProfiler
 import XCTest
 
 #if !os(watchOS)
-    class KSProfilerBenchmarks: XCTestCase {
+    class KSProfilerBenchmarks: KSBenchmarkTestCase {
 
         // MARK: - Profiler Lifecycle Benchmarks
 

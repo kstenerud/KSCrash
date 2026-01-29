@@ -26,7 +26,7 @@ import Darwin
 import KSCrashRecordingCore
 import XCTest
 
-class KSDynamicLinkerBenchmarks: XCTestCase {
+class KSDynamicLinkerBenchmarks: KSBenchmarkTestCase {
 
     // MARK: - Setup
 

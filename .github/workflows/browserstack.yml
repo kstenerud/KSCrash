@@ -160,14 +160,17 @@ jobs:
     outputs:
       build_id: ${{ steps.execute_tests.outputs.build_id }}
       build_status: ${{ steps.wait_tests.outputs.build_status }}
-      session_id: ${{ steps.wait_tests.outputs.session_id }}
+      session_ids: ${{ steps.wait_tests.outputs.session_ids }}
       results_artifact: ${{ steps.artifact_name.outputs.name }}
 
     steps:
       - name: Set Artifact Name
         id: artifact_name
         run: |
-          echo "name=browserstack-results-${{ github.run_id }}-${{ github.run_attempt }}" >> $GITHUB_OUTPUT
+          # Include ref to differentiate PR vs base branch artifacts within the same workflow run
+          REF="${{ inputs.ref || github.sha }}"
+          SHORT_REF="${REF:0:8}"
+          echo "name=browserstack-results-${{ github.run_id }}-${{ github.run_attempt }}-${SHORT_REF}" >> $GITHUB_OUTPUT
 
       - name: Execute Tests on BrowserStack
         id: execute_tests
@@ -181,7 +184,7 @@ jobs:
             -X POST "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/build" \
             -H "Content-Type: application/json" \
             -d "{
-              \"devices\": [\"iPhone 16 Pro-18\"],
+              \"devices\": [\"iPhone 17 Pro-26\"],
               \"app\": \"$APP_URL\",
               \"testSuite\": \"$TEST_SUITE_URL\",
               \"project\": \"KSCrash Benchmarks\",
@@ -191,7 +194,27 @@ jobs:
               \"video\": false,
               \"enableResultBundle\": true,
               \"idleTimeout\": 300,
-              \"testTimeout\": 3600
+              \"testTimeout\": 3600,
+              \"shards\": {
+                \"numberOfShards\": 3,
+                \"mapping\": [
+                  {
+                    \"name\": \"Shard 1 - Backtrace, DynamicLinker, Memory\",
+                    \"strategy\": \"only-testing\",
+                    \"values\": [\"KSBacktraceBenchmarks\", \"KSDynamicLinkerBenchmarks\", \"KSMemoryBenchmarks\"]
+                  },
+                  {
+                    \"name\": \"Shard 2 - JSON, Thread, Profiler\",
+                    \"strategy\": \"only-testing\",
+                    \"values\": [\"KSJSONCodecBenchmarks\", \"KSThreadBenchmarks\", \"KSProfilerBenchmarks\"]
+                  },
+                  {
+                    \"name\": \"Shard 3 - CrashReport, CxaThrow, CxaThrowCold\",
+                    \"strategy\": \"only-testing\",
+                    \"values\": [\"KSCrashReportBenchmarks\", \"KSCxaThrowBenchmarks\", \"KSCxaThrowColdBenchmarks\"]
+                  }
+                ]
+              }
             }")
 
           echo "Build execution response: $BUILD_RESPONSE"
@@ -229,8 +252,9 @@ jobs:
             if [ "$STATUS" = "passed" ] || [ "$STATUS" = "done" ] || [ "$STATUS" = "failed" ] || [ "$STATUS" = "error" ]; then
               echo "Build finished with status: $STATUS"
 
-              SESSION_ID=$(echo "$BUILD_STATUS_RESPONSE" | jq -r '.devices[0].sessions[0].id // empty')
-              echo "session_id=$SESSION_ID" >> $GITHUB_OUTPUT
+              # Collect all session IDs across devices and shards
+              SESSION_IDS=$(echo "$BUILD_STATUS_RESPONSE" | jq -r '[.devices[].sessions[].id] | join(",")')
+              echo "session_ids=$SESSION_IDS" >> $GITHUB_OUTPUT
               echo "build_status=$STATUS" >> $GITHUB_OUTPUT
               break
             fi
@@ -244,54 +268,74 @@ jobs:
             exit 1
           fi
 
-      - name: Download Result Bundle
+      - name: Download Result Bundles
         env:
           BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
           BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
           BUILD_ID: ${{ steps.execute_tests.outputs.build_id }}
-          SESSION_ID: ${{ steps.wait_tests.outputs.session_id }}
+          SESSION_IDS: ${{ steps.wait_tests.outputs.session_ids }}
         run: |
-          if [ -z "$SESSION_ID" ] || [ "$SESSION_ID" = "null" ]; then
-            echo "Warning: No session ID available"
+          if [ -z "$SESSION_IDS" ] || [ "$SESSION_IDS" = "null" ]; then
+            echo "Warning: No session IDs available"
             exit 0
           fi
 
-          echo "Downloading result bundle for build $BUILD_ID, session $SESSION_ID..."
+          mkdir -p result_bundles
+          SHARD_INDEX=0
 
-          # Download with verbose output to see response
-          HTTP_CODE=$(curl -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
-            -X GET "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/builds/$BUILD_ID/sessions/$SESSION_ID/resultbundle" \
-            -o result_bundle.xcresult.zip \
-            -w "%{http_code}")
+          IFS=',' read -ra IDS <<< "$SESSION_IDS"
+          for SESSION_ID in "${IDS[@]}"; do
+            SHARD_INDEX=$((SHARD_INDEX + 1))
+            OUTPUT_FILE="result_bundles/shard_${SHARD_INDEX}.xcresult.zip"
+            echo "Downloading result bundle for shard $SHARD_INDEX (session $SESSION_ID)..."
 
-          echo "HTTP response code: $HTTP_CODE"
+            HTTP_CODE=$(curl -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
+              -X GET "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/builds/$BUILD_ID/sessions/$SESSION_ID/resultbundle" \
+              -o "$OUTPUT_FILE" \
+              -w "%{http_code}")
 
-          if [ -f result_bundle.xcresult.zip ]; then
-            FILE_SIZE=$(stat -f%z result_bundle.xcresult.zip 2>/dev/null || stat -c%s result_bundle.xcresult.zip 2>/dev/null)
-            echo "Downloaded file size: $FILE_SIZE bytes"
+            echo "HTTP response code: $HTTP_CODE"
 
-            # Check if it's a valid zip (should be larger than 1KB and start with PK)
-            if [ "$FILE_SIZE" -lt 1000 ]; then
-              echo "Warning: File too small, likely an error response:"
-              cat result_bundle.xcresult.zip
-              rm result_bundle.xcresult.zip
-            elif ! unzip -t result_bundle.xcresult.zip > /dev/null 2>&1; then
-              echo "Warning: File is not a valid zip:"
-              head -c 500 result_bundle.xcresult.zip
-              rm result_bundle.xcresult.zip
+            if [ -f "$OUTPUT_FILE" ]; then
+              FILE_SIZE=$(stat -f%z "$OUTPUT_FILE" 2>/dev/null || stat -c%s "$OUTPUT_FILE" 2>/dev/null)
+              echo "Downloaded file size: $FILE_SIZE bytes"
+
+              if [ "$FILE_SIZE" -lt 1000 ]; then
+                echo "Warning: File too small, likely an error response:"
+                cat "$OUTPUT_FILE"
+                rm "$OUTPUT_FILE"
+              elif ! unzip -t "$OUTPUT_FILE" > /dev/null 2>&1; then
+                echo "Warning: File is not a valid zip:"
+                head -c 500 "$OUTPUT_FILE"
+                rm "$OUTPUT_FILE"
+              else
+                echo "Shard $SHARD_INDEX result bundle downloaded and validated successfully"
+                ls -lh "$OUTPUT_FILE"
+              fi
             else
-              echo "Result bundle downloaded and validated successfully"
-              ls -lh result_bundle.xcresult.zip
+              echo "Warning: Result bundle file not created for shard $SHARD_INDEX"
             fi
-          else
-            echo "Warning: Result bundle file not created"
-          fi
+          done
 
-      - name: Upload Result Bundle as Artifact
+          echo "Downloaded $(ls result_bundles/*.zip 2>/dev/null | wc -l | tr -d ' ') result bundle(s)"
+
+      - name: Upload Result Bundles as Artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.artifact_name.outputs.name }}
-          path: result_bundle.xcresult.zip
+          path: result_bundles/
           if-no-files-found: warn
           retention-days: 7
+
+      - name: Cancel BrowserStack Build
+        if: cancelled() && steps.execute_tests.outputs.build_id
+        env:
+          BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+          BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+          BUILD_ID: ${{ steps.execute_tests.outputs.build_id }}
+        run: |
+          echo "CI cancelled, stopping BrowserStack build $BUILD_ID..."
+          RESPONSE=$(curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
+            -X POST "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/builds/$BUILD_ID/stop")
+          echo "Stop response: $RESPONSE"

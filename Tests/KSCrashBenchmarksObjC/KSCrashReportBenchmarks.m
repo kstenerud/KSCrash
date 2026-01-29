@@ -24,6 +24,7 @@
 
 #import <XCTest/XCTest.h>
 
+#import "KSBenchmarkTestCase.h"
 #import "KSBinaryImageCache.h"
 #import "KSCrashMonitorContext.h"
 #import "KSCrashReportC.h"
@@ -31,7 +32,7 @@
 #import "KSMachineContext.h"
 #import "KSStackCursor_SelfThread.h"
 
-@interface KSCrashReportBenchmarks : XCTestCase
+@interface KSCrashReportBenchmarks : KSBenchmarkTestCaseObjC
 @end
 
 @implementation KSCrashReportBenchmarks
