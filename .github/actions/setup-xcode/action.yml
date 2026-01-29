@@ -1,0 +1,28 @@
+name: Setup Xcode
+description: Select the latest stable Xcode version on the runner
+
+inputs:
+  xcode-version:
+    description: >
+      Xcode version to use. Use 'latest-stable' for the newest installed
+      version, or a specific version number (e.g. '16.2').
+    required: false
+    default: latest-stable
+
+runs:
+  using: composite
+  steps:
+    - name: Select Xcode
+      shell: bash
+      run: |
+        if [ "${{ inputs.xcode-version }}" = "latest-stable" ]; then
+          XCODE_PATH=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+        else
+          XCODE_PATH="/Applications/Xcode_${{ inputs.xcode-version }}.app"
+        fi
+        if [ ! -d "$XCODE_PATH" ]; then
+          echo "::error::Xcode not found at $XCODE_PATH"
+          exit 1
+        fi
+        echo "Selecting $XCODE_PATH"
+        sudo xcode-select -s "$XCODE_PATH"

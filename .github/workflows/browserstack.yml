@@ -42,9 +42,7 @@ jobs:
           ref: ${{ inputs.ref || github.sha }}
 
       - name: Use Latest Stable Xcode
-        uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: latest-stable
+        uses: ./.github/actions/setup-xcode
 
       - name: Setup Mise
         uses: jdx/mise-action@v2
