@@ -61,9 +61,9 @@ let project = Project(
             ],
             settings: .settings(base: [
                 "HEADER_SEARCH_PATHS": "$(SRCROOT)/../Sources/KSCrashRecording",
-                // Export Swift test class symbols for BrowserStack test discovery
-                "GCC_SYMBOLS_PRIVATE_EXTERN": "NO",
-                "STRIP_INSTALLED_PRODUCT": "NO",
+                // BrowserStack discovers tests via `nm -U -g | grep '.test'`.
+                // -enable-testing exports Swift symbols globally (T not t).
+                "OTHER_SWIFT_FLAGS": ["-Xfrontend", "-enable-testing"],
             ])
         ),
     ],
