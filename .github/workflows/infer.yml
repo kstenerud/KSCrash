@@ -1,0 +1,411 @@
+name: Infer Static Analysis
+
+on:
+  pull_request:
+    paths:
+      - "Sources/**/*.c"
+      - "Sources/**/*.cpp"
+      - "Sources/**/*.h"
+      - "Sources/**/*.m"
+      - "Sources/**/*.mm"
+      - "Tests/**/*.c"
+      - "Tests/**/*.cpp"
+      - "Tests/**/*.h"
+      - "Tests/**/*.m"
+      - "Tests/**/*.mm"
+      - "Package.swift"
+      - ".github/workflows/infer.yml"
+      - ".github/scripts/infer_clean_compile_commands.py"
+
+  push:
+    branches:
+      - master
+
+  schedule:
+    - cron: "0 0 1 * *"
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  INFER_VERSION: "1.2.0"
+  COMMENT_ON_CLEAN: "false"
+  INFER_RUNS: "5"
+
+jobs:
+  infer:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      # ── Checkout ──────────────────────────────────────────────
+      - name: Checkout PR Branch
+        uses: actions/checkout@v6
+        with:
+          path: pr-branch
+
+      - name: Checkout Base Branch
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base-branch
+
+      - name: Get Changed Files
+        if: github.event_name == 'pull_request'
+        run: |
+          diff -rq pr-branch base-branch \
+            | grep -E '\.(c|cpp|m|mm|h)( differ|$)' \
+            | sed -E 's|^Files pr-branch/||; s| and .*||; s|^Only in pr-branch/||; s|: |/|' \
+            | sort -u > changed_files.txt
+          echo "Changed files:"
+          cat changed_files.txt
+
+      # ── Tool Setup ────────────────────────────────────────────
+      - name: Use Latest Stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Install xcpretty
+        run: gem install xcpretty
+
+      - name: Cache Infer Binary
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/infer-*
+          key: infer-${{ env.INFER_VERSION }}-${{ runner.arch }}
+
+      - name: Install Infer
+        run: |
+          ARCH=$(uname -m)
+          if [ "$ARCH" = "arm64" ]; then
+            INFER_ARCH="arm64"
+          else
+            INFER_ARCH="x86_64"
+          fi
+
+          CACHE_DIR="${HOME}/.cache/infer-${INFER_VERSION}-${INFER_ARCH}"
+
+          if [ -d "$CACHE_DIR/infer-osx-${INFER_ARCH}-v${INFER_VERSION}" ]; then
+            echo "Using cached Infer installation"
+          else
+            echo "Downloading Infer v${INFER_VERSION} for ${INFER_ARCH}..."
+            mkdir -p "$CACHE_DIR"
+            curl -sSL \
+              "https://github.com/facebook/infer/releases/download/v${INFER_VERSION}/infer-osx-${INFER_ARCH}-v${INFER_VERSION}.tar.xz" \
+              -o /tmp/infer.tar.xz
+            tar -xJf /tmp/infer.tar.xz -C "$CACHE_DIR"
+            rm /tmp/infer.tar.xz
+          fi
+
+          INFER_HOME="$CACHE_DIR/infer-osx-${INFER_ARCH}-v${INFER_VERSION}"
+          echo "${INFER_HOME}/bin" >> $GITHUB_PATH
+          echo "INFER_HOME=${INFER_HOME}" >> $GITHUB_ENV
+
+      - name: Verify Infer Installation
+        run: infer --version
+
+      # ── Build PR Branch ───────────────────────────────────────
+      - name: Build PR Branch
+        working-directory: pr-branch
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -workspace ".swiftpm/xcode/package.xcworkspace" \
+            -scheme "KSCrash-Package" \
+            -destination "platform=macOS" \
+            | tee xcodebuild.log \
+            | xcpretty --report json-compilation-database --output compile_commands.json
+
+      # ── Build Base Branch ─────────────────────────────────────
+      - name: Build Base Branch
+        if: github.event_name == 'pull_request'
+        working-directory: base-branch
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -workspace ".swiftpm/xcode/package.xcworkspace" \
+            -scheme "KSCrash-Package" \
+            -destination "platform=macOS" \
+            | tee xcodebuild.log \
+            | xcpretty --report json-compilation-database --output compile_commands.json
+
+      # ── Clean Compilation Databases ───────────────────────────
+      - name: Clean PR Compilation Database
+        run: |
+          python3 pr-branch/.github/scripts/infer_clean_compile_commands.py \
+            pr-branch/compile_commands.json \
+            pr-branch/compile_commands_c_only.json
+
+      - name: Clean Base Compilation Database
+        if: github.event_name == 'pull_request'
+        run: |
+          python3 pr-branch/.github/scripts/infer_clean_compile_commands.py \
+            base-branch/compile_commands.json \
+            base-branch/compile_commands_c_only.json
+
+      # ── Run Infer ─────────────────────────────────────────────
+      # Run capture once, then analyze multiple times to reduce non-determinism.
+      # Results are merged into a single report per branch.
+      - name: Run Infer on PR Branch
+        run: |
+          infer run \
+            --keep-going \
+            --project-root pr-branch \
+            --results-dir infer-out-pr \
+            --compilation-database pr-branch/compile_commands_c_only.json
+          cp infer-out-pr/report.json infer-out-pr/report-1.json
+
+          for i in $(seq 2 "$INFER_RUNS"); do
+            echo "=== PR analysis run $i/$INFER_RUNS ==="
+            infer analyze \
+              --keep-going \
+              --results-dir infer-out-pr
+            cp infer-out-pr/report.json "infer-out-pr/report-$i.json"
+          done
+
+          python3 -c "
+          import json, glob
+          merged = {}
+          for f in glob.glob('infer-out-pr/report-*.json'):
+              for issue in json.load(open(f)):
+                  key = (issue.get('bug_type',''), issue.get('file',''), issue.get('line',0))
+                  if key not in merged:
+                      merged[key] = issue
+          result = list(merged.values())
+          json.dump(result, open('infer-out-pr/report.json', 'w'), indent=2)
+          print(f'Merged {len(result)} unique issues from $INFER_RUNS runs')
+          "
+
+      - name: Run Infer on Base Branch
+        if: github.event_name == 'pull_request'
+        run: |
+          infer run \
+            --keep-going \
+            --project-root base-branch \
+            --results-dir infer-out-base \
+            --compilation-database base-branch/compile_commands_c_only.json
+          cp infer-out-base/report.json infer-out-base/report-1.json
+
+          for i in $(seq 2 "$INFER_RUNS"); do
+            echo "=== Base analysis run $i/$INFER_RUNS ==="
+            infer analyze \
+              --keep-going \
+              --results-dir infer-out-base
+            cp infer-out-base/report.json "infer-out-base/report-$i.json"
+          done
+
+          python3 -c "
+          import json, glob
+          merged = {}
+          for f in glob.glob('infer-out-base/report-*.json'):
+              for issue in json.load(open(f)):
+                  key = (issue.get('bug_type',''), issue.get('file',''), issue.get('line',0))
+                  if key not in merged:
+                      merged[key] = issue
+          result = list(merged.values())
+          json.dump(result, open('infer-out-base/report.json', 'w'), indent=2)
+          print(f'Merged {len(result)} unique issues from $INFER_RUNS runs')
+          "
+
+      # ── Diff & Report ─────────────────────────────────────────
+      - name: Generate Report
+        id: report
+        run: |
+          python3 << 'PYTHON_SCRIPT'
+          import json
+          import os
+          from datetime import datetime, timezone
+
+          is_pr = os.environ.get("IS_PR", "false") == "true"
+
+          def load_report(path):
+              if not os.path.exists(path):
+                  return []
+              with open(path) as f:
+                  return json.load(f)
+
+          def load_changed_files(path):
+              if not os.path.exists(path):
+                  return set()
+              with open(path) as f:
+                  return set(line.strip() for line in f if line.strip())
+
+          def issue_key(issue):
+              """Create a stable key for comparing issues across runs."""
+              return (
+                  issue.get("bug_type", ""),
+                  issue.get("file", ""),
+                  issue.get("line", 0),
+              )
+
+          repo = os.environ.get("GITHUB_REPO", "")
+          head_sha = os.environ.get("HEAD_SHA", "")
+
+          def file_link(filepath, line):
+              """Create a GitHub link to the file and line."""
+              if repo and head_sha:
+                  url = f"https://github.com/{repo}/blob/{head_sha}/{filepath}#L{line}"
+                  return f"[`{filepath}:{line}`]({url})"
+              return f"`{filepath}:{line}`"
+
+          def format_issues(issues, title):
+              """Format a list of issues as markdown."""
+              if not issues:
+                  return f"**{title}:** None\n"
+              lines = [f"**{title}:** {len(issues)} issue(s)\n"]
+              lines.append("| Severity | Type | File | Description |")
+              lines.append("|----------|------|------|-------------|")
+              for issue in issues:
+                  sev = issue.get("severity", "WARNING")
+                  bug_type = issue.get("bug_type", "unknown")
+                  bug_type_link = f"[`{bug_type}`](https://fbinfer.com/docs/all-issue-types/#{bug_type.lower()})"
+                  filepath = issue.get("file", "unknown")
+                  line = issue.get("line", 0)
+                  qualifier = issue.get("qualifier", "").replace("|", "\\|")
+                  if len(qualifier) > 200:
+                      qualifier = qualifier[:197] + "..."
+                  location = file_link(filepath, line)
+                  lines.append(f"| {sev} | {bug_type_link} | {location} | {qualifier} |")
+              lines.append("")
+              return "\n".join(lines)
+
+          timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+          output = []
+          output.append("## Infer Static Analysis Report\n")
+
+          if is_pr:
+              # Differential mode: compare PR and base, scoped to changed files only
+              changed_files = load_changed_files("changed_files.txt")
+
+              pr_all = load_report("infer-out-pr/report.json")
+              base_all = load_report("infer-out-base/report.json")
+
+              # Filter both reports to only changed files
+              pr_issues = [i for i in pr_all if i.get("file", "") in changed_files]
+              base_issues = [i for i in base_all if i.get("file", "") in changed_files]
+
+              pr_keys = set(issue_key(i) for i in pr_issues)
+              base_keys = set(issue_key(i) for i in base_issues)
+
+              new_keys = pr_keys - base_keys
+              fixed_keys = base_keys - pr_keys
+
+              new_issues = [i for i in pr_issues if issue_key(i) in new_keys]
+              fixed_issues = [i for i in base_issues if issue_key(i) in fixed_keys]
+              preexisting = [i for i in pr_issues if issue_key(i) not in new_keys]
+
+              if not new_issues:
+                  output.append(":white_check_mark: **No new issues introduced by this PR.**\n")
+              else:
+                  output.append(f":warning: **This PR introduces {len(new_issues)} new issue(s).**\n")
+
+              if fixed_issues:
+                  output.append(f":tada: **This PR fixes {len(fixed_issues)} existing issue(s).**\n")
+
+              if new_issues:
+                  output.append("<details open>")
+                  output.append("<summary>New Issues ({} total)</summary>\n".format(len(new_issues)))
+                  output.append(format_issues(new_issues, "New Issues"))
+                  output.append("</details>\n")
+
+              if fixed_issues:
+                  output.append("<details>")
+                  output.append("<summary>Fixed Issues</summary>\n")
+                  output.append(format_issues(fixed_issues, "Fixed Issues"))
+                  output.append("</details>\n")
+
+              if preexisting:
+                  output.append("<details>")
+                  output.append("<summary>Pre-existing Issues ({} total)</summary>\n".format(len(preexisting)))
+                  output.append(format_issues(preexisting, "Pre-existing Issues"))
+                  output.append("</details>\n")
+
+              has_new_issues = len(new_issues) > 0
+          else:
+              # Full report mode (push / schedule)
+              all_issues = load_report("infer-out-pr/report.json")
+              if not all_issues:
+                  output.append(":white_check_mark: **No issues found.**\n")
+              else:
+                  output.append(f":warning: **Found {len(all_issues)} issue(s).**\n")
+              output.append(format_issues(all_issues, "All Issues"))
+              has_new_issues = False
+
+          output.append("---")
+          output.append("> **Note:** Infer may report false positives. Please review each issue carefully before making changes.")
+          output.append("")
+          output.append(f"*Analysis performed with [Infer](https://fbinfer.com/) v{os.environ.get('INFER_VERSION', 'unknown')} at {timestamp}*")
+
+          report = "\n".join(output)
+
+          with open("infer-report.md", "w") as f:
+              f.write(report)
+
+          summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary_path:
+              with open(summary_path, "a") as f:
+                  f.write(report)
+
+          output_path = os.environ.get("GITHUB_OUTPUT")
+          if output_path:
+              with open(output_path, "a") as f:
+                  f.write(f"has_new_issues={'true' if has_new_issues else 'false'}\n")
+
+          print(report)
+          PYTHON_SCRIPT
+        env:
+          IS_PR: ${{ github.event_name == 'pull_request' }}
+          INFER_VERSION: ${{ env.INFER_VERSION }}
+          GITHUB_REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      # ── PR Comment ────────────────────────────────────────────
+      - name: Comment on PR
+        if: |
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          (steps.report.outputs.has_new_issues == 'true' || env.COMMENT_ON_CLEAN == 'true')
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          file-path: infer-report.md
+          comment-tag: infer-analysis-report
+
+      - name: Remove PR Comment if No Issues
+        if: |
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          steps.report.outputs.has_new_issues != 'true' &&
+          env.COMMENT_ON_CLEAN != 'true'
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          comment-tag: infer-analysis-report
+          mode: delete
+
+      # ── Fail on New Issues ────────────────────────────────────
+      - name: Fail if New Issues Found
+        if: github.event_name == 'pull_request' && steps.report.outputs.has_new_issues == 'true'
+        run: |
+          echo "Infer found new issues introduced by this PR"
+          exit 1
+
+      # ── Artifacts ─────────────────────────────────────────────
+      - name: Upload Infer Results
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: infer-results
+          path: |
+            infer-out-pr/
+            infer-out-base/
+            infer-report.md
+            pr-branch/compile_commands.json
+            pr-branch/compile_commands_c_only.json
+          retention-days: 30
