@@ -24,6 +24,7 @@
 // THE SOFTWARE.
 //
 #import "KSCrashMonitor_Memory.h"
+#include "KSCrashExceptionHandlingRequirements.h"
 
 #import "KSCrash.h"
 #import "KSCrashAppMemory.h"
@@ -37,6 +38,7 @@
 #import "KSDate.h"
 #import "KSFileUtils.h"
 #import "KSID.h"
+#import "KSSpinLock.h"
 #import "KSStackCursor.h"
 #import "KSStackCursor_MachineContext.h"
 #import "KSStackCursor_SelfThread.h"
@@ -44,8 +46,8 @@
 #import "Unwind/KSStackCursor_Unwind.h"
 
 #import <Foundation/Foundation.h>
-#import <os/lock.h>
 #import <stdatomic.h>
+#import <time.h>
 
 #import "KSLogger.h"
 
@@ -64,7 +66,6 @@ const uint8_t KSCrash_Memory_NonFatalReportLevelNone = KSCrashAppMemoryStateTerm
 #pragma mark - Forward declarations -
 // ============================================================================
 
-static KSCrash_Memory _ks_memory_copy(void);
 static void _ks_memory_update(void (^block)(KSCrash_Memory *mem));
 static void _ks_memory_update_from_app_memory(KSCrashAppMemory *const memory);
 static void _ks_memory_set(KSCrash_Memory *mem);
@@ -91,6 +92,10 @@ static atomic_bool g_hasPostEnable = false;
 // What we're reporting
 static _Atomic(uint8_t) g_MinimumNonFatalReportingLevel = KSCrash_Memory_NonFatalReportLevelNone;
 static _Atomic(bool) g_FatalReportsEnabled = true;
+// Rate-limiting for proactive OOM breadcrumb writes.
+// Avoids excessive disk I/O when memory state changes rapidly.
+static _Atomic(uint64_t) g_lastReportWrittenTimestamp = 0;
+#define KS_CRASH_MIN_DURATION_BETWEEN_REPORT_WRITES (5ULL * 1000000000ULL)  // 5 seconds in nanoseconds
 
 // Install path for the crash system
 static NSURL *g_dataURL = nil;
@@ -112,46 +117,62 @@ static KSCrash_ExceptionHandlerCallbacks g_callbacks;
 // _ks_memory_update(^(KSCrash_Memory *mem){
 //      mem->x = ...
 //  });
-static os_unfair_lock g_memoryLock = OS_UNFAIR_LOCK_INIT;
+static KSSpinLock g_memoryLock = KSSPINLOCK_INIT;
 static KSCrash_Memory *g_memory = NULL;
 
-static KSCrash_Memory _ks_memory_copy(void)
-{
-    KSCrash_Memory copy = { 0 };
-    {
-        os_unfair_lock_lock(&g_memoryLock);
-        if (g_memory) {
-            copy = *g_memory;
-        }
-        os_unfair_lock_unlock(&g_memoryLock);
-    }
-    return copy;
-}
-
-static void _ks_memory_update(void (^block)(KSCrash_Memory *mem))
+/** Updates the memory-mapped structure under the spinlock.
+ *
+ *  When @c needsAsyncSignalSafety is YES (crash handler context), uses a bounded
+ *  lock attempt so we don't spin forever if the lock holder was suspended mid-crash.
+ *  Returns false if the lock could not be acquired or g_memory is NULL.
+ */
+static bool _ks_memory_update_with_bounded(BOOL needsAsyncSignalSafety, void (^block)(KSCrash_Memory *mem))
 {
     if (!block) {
-        return;
+        return false;
     }
-    os_unfair_lock_lock(&g_memoryLock);
-    if (g_memory) {
-        block(g_memory);
+    bool updated = false;
+
+    if (needsAsyncSignalSafety) {
+        if (ks_spinlock_lock_bounded(&g_memoryLock)) {
+            if (g_memory) {
+                block(g_memory);
+                updated = true;
+            }
+            ks_spinlock_unlock(&g_memoryLock);
+        }
+    } else {
+        ks_spinlock_lock(&g_memoryLock);
+        if (g_memory) {
+            block(g_memory);
+            updated = true;
+        }
+        ks_spinlock_unlock(&g_memoryLock);
     }
-    os_unfair_lock_unlock(&g_memoryLock);
+    return updated;
 }
 
+static void _ks_memory_update(void (^block)(KSCrash_Memory *mem)) { _ks_memory_update_with_bounded(NO, block); }
+
+/** Replaces the global memory pointer and unmaps the old one.
+ *  Not async-signal-safe (calls ksfu_munmap).
+ */
 static void _ks_memory_set(KSCrash_Memory *mem)
 {
-    os_unfair_lock_lock(&g_memoryLock);
-    void *old = g_memory;
+    void *old = NULL;
+    ks_spinlock_lock(&g_memoryLock);
+    old = g_memory;
     g_memory = mem;
-    os_unfair_lock_unlock(&g_memoryLock);
+    ks_spinlock_unlock(&g_memoryLock);
 
     if (old) {
         ksfu_munmap(old, sizeof(KSCrash_Memory));
     }
 }
 
+/** Copies current app memory state into the memory-mapped structure.
+ *  Not async-signal-safe (uses Objective-C property access).
+ */
 static void _ks_memory_update_from_app_memory(KSCrashAppMemory *const memory)
 {
     if (!memory) {
@@ -220,8 +241,24 @@ static KSCrash_Memory g_previousSessionMemory;
 
 - (void)_memory:(KSCrashAppMemory *)memory changed:(KSCrashAppMemoryTrackerChangeType)changes
 {
-    if (changes & KSCrashAppMemoryTrackerChangeTypeFootprint) {
+    if (changes & KSCrashAppMemoryTrackerChangeTypeFootprint || changes & KSCrashAppMemoryTrackerChangeTypePressure) {
         [self _updateMappedMemoryFrom:memory];
+    }
+
+    // Proactively write the OOM breadcrumb when memory is urgent so the
+    // data is already on disk if the OS kills us. Rate-limited via atomic CAS
+    // to avoid excessive writes during rapid state changes.
+    // Guard on g_hasPostEnable to ensure the monitor system is fully initialized
+    // (callbacks are set) before attempting to write a report.
+    if (atomic_load(&g_hasPostEnable) &&
+        (memory.level >= KSCrashAppMemoryStateUrgent || memory.pressure >= KSCrashAppMemoryStateUrgent)) {
+        uint64_t now = clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW);
+        uint64_t last = atomic_load(&g_lastReportWrittenTimestamp);
+        if (now - last > KS_CRASH_MIN_DURATION_BETWEEN_REPORT_WRITES) {
+            if (atomic_compare_exchange_strong(&g_lastReportWrittenTimestamp, &last, now)) {
+                ksmemory_write_possible_oom();
+            }
+        }
     }
 
     if ((changes & KSCrashAppMemoryTrackerChangeTypeLevel) && memory.level >= ksmemory_get_nonfatal_report_level()) {
@@ -288,7 +325,7 @@ static void setEnabled(bool isEnabled)
     }
 }
 
-static bool isEnabled(void) { return g_isEnabled; }
+static bool isEnabled(void) { return atomic_load(&g_isEnabled); }
 
 static NSURL *kscm_memory_oom_breadcrumb_URL(void)
 {
@@ -297,33 +334,27 @@ static NSURL *kscm_memory_oom_breadcrumb_URL(void)
 
 static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext)
 {
-    bool asyncSafeOnly = kscexc_requiresAsyncSafety(eventContext->requirements);
+    // Mark whether this crash is fatal so the next launch can determine
+    // if an OOM is still possible, and attach memory info to the event.
+    bool asyncSafetyNeeded = kscexc_requiresAsyncSafety(eventContext->requirements);
+    bool updated = _ks_memory_update_with_bounded(asyncSafetyNeeded, ^(KSCrash_Memory *mem) {
+        mem->fatal = eventContext->requirements.isFatal;
 
-    // we'll use this when reading this back on the next run
-    // to know if an OOM is even possible.
-    if (asyncSafeOnly) {
-        // since we're in a signal or something that can only
-        // use async safe functions, we can't lock.
-        // It's "ok" though, since no other threads should be running.
-        if (g_memory) {
-            g_memory->fatal = eventContext->requirements.isFatal;
+        if (atomic_load(&g_isEnabled)) {
+            eventContext->AppMemory.footprint = mem->footprint;
+            eventContext->AppMemory.pressure = KSCrashAppMemoryStateToString((KSCrashAppMemoryState)mem->pressure);
+            eventContext->AppMemory.remaining = mem->remaining;
+            eventContext->AppMemory.limit = mem->limit;
+            eventContext->AppMemory.level = KSCrashAppMemoryStateToString((KSCrashAppMemoryState)mem->level);
+            eventContext->AppMemory.timestamp = mem->timestamp;
+            eventContext->AppMemory.state = ksapp_transitionStateToString(mem->state);
         }
-    } else {
-        _ks_memory_update(^(KSCrash_Memory *mem) {
-            mem->fatal = eventContext->requirements.isFatal;
-        });
-    }
+    });
 
-    if (g_isEnabled && g_memory) {
-        // same as above re: not locking when _asyncSafeOnly_ is set.
-        KSCrash_Memory memCopy = asyncSafeOnly ? *g_memory : _ks_memory_copy();
-        eventContext->AppMemory.footprint = memCopy.footprint;
-        eventContext->AppMemory.pressure = KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memCopy.pressure);
-        eventContext->AppMemory.remaining = memCopy.remaining;
-        eventContext->AppMemory.limit = memCopy.limit;
-        eventContext->AppMemory.level = KSCrashAppMemoryStateToString((KSCrashAppMemoryState)memCopy.level);
-        eventContext->AppMemory.timestamp = memCopy.timestamp;
-        eventContext->AppMemory.state = ksapp_transitionStateToString(memCopy.state);
+    // Bounded lock failed — threads are suspended so direct access is safe.
+    // We still need to record fatality for next-launch OOM detection.
+    if (!updated && g_memory && eventContext->requirements.asyncSafetyBecauseThreadsSuspended) {
+        g_memory->fatal = eventContext->requirements.isFatal;
     }
 }
 
@@ -407,10 +438,6 @@ static void notifyPostSystemEnable(void)
     // so we simply do it after everything is enabled.
 
     kscm_memory_check_for_oom_in_previous_session();
-
-    if (g_isEnabled) {
-        ksmemory_write_possible_oom();
-    }
 }
 
 static void init(KSCrash_ExceptionHandlerCallbacks *callbacks) { g_callbacks = *callbacks; }
@@ -520,10 +547,9 @@ static void ksmemory_read(const char *path)
     g_previousSessionMemory = memory;
 }
 
-/**
- Mapping memory to a file on disk. This allows us to simply treat the location
- in memory as a structure and the kernel will ensure it is on disk. This is also
- crash resistant.
+/** Maps the memory structure to a file on disk so the kernel keeps it
+ *  persistently written. This makes the data crash-resistant.
+ *  Not async-signal-safe.
  */
 static void ksmemory_map(const char *path)
 {
@@ -545,20 +571,24 @@ static void ksmemory_map(const char *path)
  */
 static void ksmemory_unmap(void) { _ks_memory_set(NULL); }
 
-/**
- What we're doing here is writing a file out that can be reused
- on restart if the data shows us there was a memory issue.
-
- If an OOM did happen, we'll modify this file
- (see `kscm_memory_check_for_oom_in_previous_session`),
- then write it back out using the normal writing procedure to write reports. This
- leads to the system seeing the report as if it had always been there and will
- then report an OOM.
+/** Writes an OOM breadcrumb report to disk so it survives an OS kill.
+ *
+ *  On the next launch, @c kscm_memory_check_for_oom_in_previous_session reads
+ *  this file back and, if the evidence points to an OOM, promotes it into a
+ *  normal crash report.
+ *
+ *  Not async-signal-safe (uses ObjC/NSURL). Only called from the memory
+ *  tracker callback on a normal thread.
  */
 static void ksmemory_write_possible_oom(void)
 {
+    if (!g_callbacks.notify || !g_callbacks.handle) {
+        return;
+    }
+
     NSURL *reportURL = kscm_memory_oom_breadcrumb_URL();
     const char *reportPath = reportURL.path.UTF8String;
+    unlink(reportPath);
 
     thread_t thisThread = (thread_t)ksthread_self();
     KSCrash_MonitorContext *ctx = g_callbacks.notify(
@@ -570,7 +600,7 @@ static void ksmemory_write_possible_oom(void)
     }
 
     KSMachineContext machineContext = { 0 };
-    ksmc_getContextForThread(thisThread, &machineContext, false);
+    ksmc_getContextForThreadCheckingStackOverflow(thisThread, &machineContext, false, false);
     KSStackCursor stackCursor;
     kssc_initWithUnwind(&stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
 
@@ -600,7 +630,7 @@ static void ksmemory_applyNoFileProtection(NSString *path)
 
 void ksmemory_initialize(const char *dataPath)
 {
-    g_hasPostEnable = false;
+    atomic_store(&g_hasPostEnable, false);
     g_dataURL = [NSURL fileURLWithPath:@(dataPath)];
     g_memoryURL = [g_dataURL URLByAppendingPathComponent:@"memory.bin"];
 
