@@ -167,6 +167,17 @@ void kscmr_disableAllMonitors(KSCrashMonitorAPIList *monitorList)
     KSLOG_DEBUG("All monitors have been disabled.");
 }
 
+void kscmr_disableAsyncSafeMonitors(KSCrashMonitorAPIList *monitorList)
+{
+    for (size_t i = 0; i < KSCRASH_MONITOR_API_COUNT; i++) {
+        const KSCrashMonitorAPI *api = monitorList->apis[i];
+        if (api != NULL && (api->monitorFlags() & KSCrashMonitorFlagAsyncSafe)) {
+            api->setEnabled(false);
+        }
+    }
+    KSLOG_DEBUG("Async-safe monitors have been disabled.");
+}
+
 void kscmr_addContextualInfoToEvent(KSCrashMonitorAPIList *monitorList, struct KSCrash_MonitorContext *ctx)
 {
     for (size_t i = 0; i < KSCRASH_MONITOR_API_COUNT; i++) {

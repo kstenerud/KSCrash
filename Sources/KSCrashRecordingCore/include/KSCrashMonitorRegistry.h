@@ -76,6 +76,17 @@ bool kscmr_activateMonitors(KSCrashMonitorAPIList *monitorList);
 void kscmr_disableAllMonitors(KSCrashMonitorAPIList *monitorList);
 
 /**
+ * Disables only crash monitors that have the KSCrashMonitorFlagAsyncSafe flag.
+ *
+ * This is safe to call from a crash handler (signal handler context) because
+ * it only disables monitors whose setEnabled() implementation is async-signal-safe.
+ * Non-async-safe monitors (e.g., Memory, Deadlock, Watchdog) are skipped since
+ * their cleanup may involve ObjC messaging or other non-signal-safe operations,
+ * and they don't need cleanup anyway since the process is terminating.
+ */
+void kscmr_disableAsyncSafeMonitors(KSCrashMonitorAPIList *monitorList);
+
+/**
  * Adds a crash monitor to the system.
  *
  * @param api Pointer to the monitor's API.

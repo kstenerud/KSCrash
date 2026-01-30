@@ -252,7 +252,7 @@ static KSCrash_MonitorContext *notifyException(const mach_port_t offendingThread
         // threads to cause exceptions at the exact same time, flooding our handler.
         // Drop the exception and disable future crash handling to give at least some
         // of the in-progress exceptions a chance to be reported.
-        kscm_disableAllMonitors();
+        kscmr_disableAsyncSafeMonitors(&g_state.monitors);
         return &g_state.exitImmediatelyContext;
     }
 
@@ -323,7 +323,7 @@ static void handleException(struct KSCrash_MonitorContext *ctx, KSCrash_ReportRe
     // other installed crash handler libraries can run when we finish.
     if (ctx->requirements.isFatal) {
         KSLOG_DEBUG("Exception is fatal. Restoring original handlers.");
-        kscm_disableAllMonitors();
+        kscmr_disableAsyncSafeMonitors(&g_state.monitors);
     }
 
     endHandlingException(ctx->threadHandlerIndex);
