@@ -27,7 +27,7 @@
 import Foundation
 
 /// C++ exception details.
-public struct CppExceptionInfo: Decodable, Sendable {
+public struct CppExceptionInfo: Codable, Sendable {
     /// The C++ exception name (type).
     public let name: String?
 }

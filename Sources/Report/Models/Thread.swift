@@ -28,7 +28,7 @@ import Foundation
 
 extension CrashReport {
     /// Information about a thread at the time of crash.
-    public struct Thread: Decodable, Sendable {
+    public struct Thread: Codable, Sendable {
         /// Stack backtrace for this thread.
         public let backtrace: Backtrace?
 
@@ -58,6 +58,30 @@ extension CrashReport {
 
         /// Thread state (e.g., "TH_STATE_RUNNING", "TH_STATE_WAITING").
         public let state: String?
+
+        public init(
+            backtrace: Backtrace? = nil,
+            crashed: Bool,
+            currentThread: Bool,
+            dispatchQueue: String? = nil,
+            index: Int,
+            name: String? = nil,
+            notableAddresses: [String: NotableAddress]? = nil,
+            registers: Registers? = nil,
+            stack: StackDump? = nil,
+            state: String? = nil
+        ) {
+            self.backtrace = backtrace
+            self.crashed = crashed
+            self.currentThread = currentThread
+            self.dispatchQueue = dispatchQueue
+            self.index = index
+            self.name = name
+            self.notableAddresses = notableAddresses
+            self.registers = registers
+            self.stack = stack
+            self.state = state
+        }
 
         enum CodingKeys: String, CodingKey {
             case backtrace

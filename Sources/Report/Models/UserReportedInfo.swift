@@ -27,7 +27,7 @@
 import Foundation
 
 /// User-reported crash details.
-public struct UserReportedInfo: Decodable, Sendable {
+public struct UserReportedInfo: Codable, Sendable {
     /// Name/title of the user-reported crash.
     public let name: String?
 

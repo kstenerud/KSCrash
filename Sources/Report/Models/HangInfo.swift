@@ -27,7 +27,7 @@
 import Foundation
 
 /// Information about a hang detected by the watchdog monitor.
-public struct HangInfo: Decodable, Sendable {
+public struct HangInfo: Codable, Sendable {
     /// Timestamp when the hang started (in nanoseconds).
     public let hangStartNanos: UInt64
 

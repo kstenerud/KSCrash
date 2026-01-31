@@ -30,7 +30,7 @@ import Foundation
 ///
 /// Use this as the generic parameter for `CrashReport` when you don't need
 /// to access the user-defined custom data.
-public struct NoUserData: Decodable, Sendable, Equatable {}
+public struct NoUserData: Codable, Sendable, Equatable {}
 
 /// A convenience alias for crash reports without user data.
 ///
@@ -41,23 +41,27 @@ public struct NoUserData: Decodable, Sendable, Equatable {}
 public typealias BasicCrashReport = CrashReport<NoUserData>
 
 /// A wrapper that provides indirection for recursive crash reports.
-public final class RecrashReport<UserData: Decodable & Sendable>: Decodable, Sendable {
+public final class RecrashReport<UserData: Codable & Sendable>: Codable, Sendable {
     public let report: CrashReport<UserData>
 
     public init(from decoder: Decoder) throws {
         self.report = try CrashReport<UserData>(from: decoder)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        try report.encode(to: encoder)
     }
 }
 
 /// The root structure representing a complete KSCrash report.
 ///
 /// The generic parameter `UserData` represents the type of user-defined custom data
-/// attached to the crash report. Use your own `Decodable` type for type-safe access,
-/// or use `NoUserData` to skip decoding user data entirely:
+/// attached to the crash report. Use your own `Codable` type for type-safe access,
+/// or use `NoUserData` to skip user data entirely:
 ///
 /// ```swift
 /// // With custom user data type
-/// struct MyUserData: Decodable, Sendable {
+/// struct MyUserData: Codable, Sendable {
 ///     let userId: String
 ///     let sessionId: String
 /// }
@@ -66,7 +70,7 @@ public final class RecrashReport<UserData: Decodable & Sendable>: Decodable, Sen
 /// // Ignoring user data
 /// let report = try JSONDecoder().decode(CrashReport<NoUserData>.self, from: data)
 /// ```
-public struct CrashReport<UserData: Decodable & Sendable>: Decodable, Sendable {
+public struct CrashReport<UserData: Codable & Sendable>: Codable, Sendable {
     /// List of binary images loaded in the process at crash time.
     public let binaryImages: [BinaryImage]?
 
@@ -93,6 +97,28 @@ public struct CrashReport<UserData: Decodable & Sendable>: Decodable, Sendable {
 
     /// Whether this report is incomplete (crash during crash handling).
     public let incomplete: Bool?
+
+    public init(
+        binaryImages: [BinaryImage]? = nil,
+        crash: Crash,
+        debug: DebugInfo? = nil,
+        process: ProcessState? = nil,
+        report: ReportInfo,
+        recrashReport: RecrashReport<UserData>? = nil,
+        system: SystemInfo? = nil,
+        user: UserData? = nil,
+        incomplete: Bool? = nil
+    ) {
+        self.binaryImages = binaryImages
+        self.crash = crash
+        self.debug = debug
+        self.process = process
+        self.report = report
+        self.recrashReport = recrashReport
+        self.system = system
+        self.user = user
+        self.incomplete = incomplete
+    }
 
     enum CodingKeys: String, CodingKey {
         case binaryImages = "binary_images"
