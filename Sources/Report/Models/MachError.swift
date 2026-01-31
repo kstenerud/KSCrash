@@ -27,7 +27,7 @@
 import Foundation
 
 /// Mach exception details.
-public struct MachError: Decodable, Sendable {
+public struct MachError: Codable, Sendable {
     /// Mach exception code.
     public let code: UInt64
 
@@ -42,6 +42,20 @@ public struct MachError: Decodable, Sendable {
 
     /// Mach exception subcode.
     public let subcode: UInt64?
+
+    public init(
+        code: UInt64,
+        codeName: String? = nil,
+        exception: UInt64,
+        exceptionName: String? = nil,
+        subcode: UInt64? = nil
+    ) {
+        self.code = code
+        self.codeName = codeName
+        self.exception = exception
+        self.exceptionName = exceptionName
+        self.subcode = subcode
+    }
 
     enum CodingKeys: String, CodingKey {
         case code

@@ -27,10 +27,15 @@
 import Foundation
 
 /// Stack backtrace information.
-public struct Backtrace: Decodable, Sendable {
+public struct Backtrace: Codable, Sendable {
     /// Stack frames in the backtrace.
     public let contents: [StackFrame]
 
     /// Number of frames that were skipped.
     public let skipped: Int
+
+    public init(contents: [StackFrame], skipped: Int = 0) {
+        self.contents = contents
+        self.skipped = skipped
+    }
 }

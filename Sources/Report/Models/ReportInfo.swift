@@ -27,7 +27,7 @@
 import Foundation
 
 /// The type of crash report.
-public enum ReportType: RawRepresentable, Decodable, Sendable, Equatable {
+public enum ReportType: RawRepresentable, Codable, Sendable, Equatable {
     case standard
     case minimal
     case custom
@@ -53,7 +53,7 @@ public enum ReportType: RawRepresentable, Decodable, Sendable, Equatable {
 }
 
 /// Metadata about the crash report itself.
-public struct ReportInfo: Decodable, Sendable {
+public struct ReportInfo: Codable, Sendable {
     /// Unique identifier for this report.
     public let id: String
 
@@ -72,6 +72,27 @@ public struct ReportInfo: Decodable, Sendable {
     /// The run ID of the process that generated this report.
     public let runId: String?
 
+    /// Identifier of the monitor that generated this report.
+    public let monitorId: String?
+
+    public init(
+        id: String,
+        processName: String? = nil,
+        timestamp: Date? = nil,
+        type: ReportType? = nil,
+        version: ReportVersion? = nil,
+        runId: String? = nil,
+        monitorId: String? = nil
+    ) {
+        self.id = id
+        self.processName = processName
+        self.timestamp = timestamp
+        self.type = type
+        self.version = version
+        self.runId = runId
+        self.monitorId = monitorId
+    }
+
     enum CodingKeys: String, CodingKey {
         case id
         case processName = "process_name"
@@ -79,6 +100,7 @@ public struct ReportInfo: Decodable, Sendable {
         case type
         case version
         case runId = "run_id"
+        case monitorId = "monitor_id"
     }
 
     public init(from decoder: Decoder) throws {
@@ -88,6 +110,7 @@ public struct ReportInfo: Decodable, Sendable {
         self.type = try container.decodeIfPresent(ReportType.self, forKey: .type)
         self.version = try container.decodeIfPresent(ReportVersion.self, forKey: .version)
         self.runId = try container.decodeIfPresent(String.self, forKey: .runId)
+        self.monitorId = try container.decodeIfPresent(String.self, forKey: .monitorId)
 
         // Timestamp can be ISO 8601 string or microseconds since epoch
         if let microseconds = try? container.decode(Int64.self, forKey: .timestamp) {
@@ -105,6 +128,19 @@ public struct ReportInfo: Decodable, Sendable {
             self.timestamp = nil
         }
     }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encodeIfPresent(processName, forKey: .processName)
+        try container.encodeIfPresent(type, forKey: .type)
+        try container.encodeIfPresent(version, forKey: .version)
+        try container.encodeIfPresent(runId, forKey: .runId)
+        try container.encodeIfPresent(monitorId, forKey: .monitorId)
+        if let timestamp {
+            try container.encode(Int64(timestamp.timeIntervalSince1970 * 1_000_000), forKey: .timestamp)
+        }
+    }
 }
 
 /// Report format version information.
@@ -112,7 +148,7 @@ public struct ReportInfo: Decodable, Sendable {
 /// Handles two formats:
 /// - Legacy (v2.x): Dictionary with `major` and `minor` keys
 /// - Current (v3.x+): Semantic version string like "3.6.0"
-public struct ReportVersion: Decodable, Sendable {
+public struct ReportVersion: Codable, Sendable {
     /// Major version number.
     public let major: Int
 
@@ -125,6 +161,12 @@ public struct ReportVersion: Decodable, Sendable {
     /// The string representation of the version.
     public var versionString: String {
         "\(major).\(minor).\(patch)"
+    }
+
+    public init(major: Int, minor: Int, patch: Int) {
+        self.major = major
+        self.minor = minor
+        self.patch = patch
     }
 
     public init(from decoder: Decoder) throws {
@@ -148,6 +190,11 @@ public struct ReportVersion: Decodable, Sendable {
                 )
             )
         }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(versionString)
     }
 
     enum CodingKeys: String, CodingKey {

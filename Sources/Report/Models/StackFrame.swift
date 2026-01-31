@@ -27,7 +27,7 @@
 import Foundation
 
 /// A single frame in a stack trace.
-public struct StackFrame: Decodable, Sendable {
+public struct StackFrame: Codable, Sendable {
     /// Instruction pointer address.
     public let instructionAddr: UInt64
 
@@ -42,6 +42,20 @@ public struct StackFrame: Decodable, Sendable {
 
     /// Name of the symbol (function/method name).
     public let symbolName: String?
+
+    public init(
+        instructionAddr: UInt64,
+        objectAddr: UInt64? = nil,
+        objectName: String? = nil,
+        symbolAddr: UInt64? = nil,
+        symbolName: String? = nil
+    ) {
+        self.instructionAddr = instructionAddr
+        self.objectAddr = objectAddr
+        self.objectName = objectName
+        self.symbolAddr = symbolAddr
+        self.symbolName = symbolName
+    }
 
     enum CodingKeys: String, CodingKey {
         case instructionAddr = "instruction_addr"

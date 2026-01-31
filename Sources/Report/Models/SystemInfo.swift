@@ -27,7 +27,7 @@
 import Foundation
 
 /// The build type of the application.
-public enum BuildType: RawRepresentable, Decodable, Sendable, Equatable {
+public enum BuildType: RawRepresentable, Codable, Sendable, Equatable {
     case debug
     case release
     case unknown(String)
@@ -50,7 +50,7 @@ public enum BuildType: RawRepresentable, Decodable, Sendable, Equatable {
 }
 
 /// System information at the time of crash.
-public struct SystemInfo: Decodable, Sendable {
+public struct SystemInfo: Codable, Sendable {
     /// Bundle executable name.
     public let cfBundleExecutable: String?
 
@@ -158,6 +158,82 @@ public struct SystemInfo: Decodable, Sendable {
 
     /// App memory information.
     public let appMemory: AppMemoryInfo?
+
+    public init(
+        cfBundleExecutable: String? = nil,
+        cfBundleExecutablePath: String? = nil,
+        cfBundleIdentifier: String? = nil,
+        cfBundleName: String? = nil,
+        cfBundleShortVersionString: String? = nil,
+        cfBundleVersion: String? = nil,
+        appStartTime: String? = nil,
+        appUUID: String? = nil,
+        applicationStats: ApplicationStats? = nil,
+        bootTime: String? = nil,
+        cpuArch: String? = nil,
+        cpuType: Int? = nil,
+        cpuSubtype: Int? = nil,
+        binaryArch: String? = nil,
+        binaryCPUType: Int? = nil,
+        binaryCPUSubtype: Int? = nil,
+        deviceAppHash: String? = nil,
+        jailbroken: Bool? = nil,
+        procTranslated: Bool? = nil,
+        kernelVersion: String? = nil,
+        machine: String? = nil,
+        memory: MemoryInfo? = nil,
+        model: String? = nil,
+        osVersion: String? = nil,
+        parentProcessID: Int? = nil,
+        parentProcessName: String? = nil,
+        processID: Int? = nil,
+        processName: String? = nil,
+        systemName: String? = nil,
+        systemVersion: String? = nil,
+        timeZone: String? = nil,
+        storage: Int64? = nil,
+        freeStorage: Int64? = nil,
+        buildType: BuildType? = nil,
+        clangVersion: String? = nil,
+        appMemory: AppMemoryInfo? = nil
+    ) {
+        self.cfBundleExecutable = cfBundleExecutable
+        self.cfBundleExecutablePath = cfBundleExecutablePath
+        self.cfBundleIdentifier = cfBundleIdentifier
+        self.cfBundleName = cfBundleName
+        self.cfBundleShortVersionString = cfBundleShortVersionString
+        self.cfBundleVersion = cfBundleVersion
+        self.appStartTime = appStartTime
+        self.appUUID = appUUID
+        self.applicationStats = applicationStats
+        self.bootTime = bootTime
+        self.cpuArch = cpuArch
+        self.cpuType = cpuType
+        self.cpuSubtype = cpuSubtype
+        self.binaryArch = binaryArch
+        self.binaryCPUType = binaryCPUType
+        self.binaryCPUSubtype = binaryCPUSubtype
+        self.deviceAppHash = deviceAppHash
+        self.jailbroken = jailbroken
+        self.procTranslated = procTranslated
+        self.kernelVersion = kernelVersion
+        self.machine = machine
+        self.memory = memory
+        self.model = model
+        self.osVersion = osVersion
+        self.parentProcessID = parentProcessID
+        self.parentProcessName = parentProcessName
+        self.processID = processID
+        self.processName = processName
+        self.systemName = systemName
+        self.systemVersion = systemVersion
+        self.timeZone = timeZone
+        self.storage = storage
+        self.freeStorage = freeStorage
+        self.buildType = buildType
+        self.clangVersion = clangVersion
+        self.appMemory = appMemory
+    }
 
     enum CodingKeys: String, CodingKey {
         case cfBundleExecutable = "CFBundleExecutable"

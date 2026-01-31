@@ -27,7 +27,7 @@
 import Foundation
 
 /// Application usage statistics.
-public struct ApplicationStats: Decodable, Sendable {
+public struct ApplicationStats: Codable, Sendable {
     /// Time the app was active since the last crash.
     public let activeTimeSinceLastCrash: Double?
 

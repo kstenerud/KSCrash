@@ -27,7 +27,7 @@
 import Foundation
 
 /// The type of error that caused the crash.
-public enum CrashErrorType: RawRepresentable, Decodable, Sendable, Equatable {
+public enum CrashErrorType: RawRepresentable, Codable, Sendable, Equatable {
     case mach
     case signal
     case nsexception
@@ -77,7 +77,7 @@ public enum CrashErrorType: RawRepresentable, Decodable, Sendable, Equatable {
 }
 
 /// The error that caused the crash.
-public struct CrashError: Decodable, Sendable {
+public struct CrashError: Codable, Sendable {
     /// Memory address involved in the crash (if applicable).
     public let address: UInt64?
 
@@ -113,6 +113,34 @@ public struct CrashError: Decodable, Sendable {
 
     /// Profile information (for profiling reports).
     public let profile: ProfileInfo?
+
+    public init(
+        address: UInt64? = nil,
+        mach: MachError? = nil,
+        nsexception: ExceptionInfo? = nil,
+        signal: SignalError? = nil,
+        type: CrashErrorType,
+        cppException: CppExceptionInfo? = nil,
+        userReported: UserReportedInfo? = nil,
+        memoryTermination: MemoryTerminationInfo? = nil,
+        hang: HangInfo? = nil,
+        exitReason: ExitReasonInfo? = nil,
+        reason: String? = nil,
+        profile: ProfileInfo? = nil
+    ) {
+        self.address = address
+        self.mach = mach
+        self.nsexception = nsexception
+        self.signal = signal
+        self.type = type
+        self.cppException = cppException
+        self.userReported = userReported
+        self.memoryTermination = memoryTermination
+        self.hang = hang
+        self.exitReason = exitReason
+        self.reason = reason
+        self.profile = profile
+    }
 
     enum CodingKeys: String, CodingKey {
         case address
