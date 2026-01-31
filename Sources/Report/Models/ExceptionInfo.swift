@@ -40,6 +40,18 @@ public struct ExceptionInfo: Codable, Sendable {
     /// Referenced object that was involved in the exception.
     public let referencedObject: ReferencedObject?
 
+    public init(
+        name: String,
+        reason: String? = nil,
+        userInfo: String? = nil,
+        referencedObject: ReferencedObject? = nil
+    ) {
+        self.name = name
+        self.reason = reason
+        self.userInfo = userInfo
+        self.referencedObject = referencedObject
+    }
+
     enum CodingKeys: String, CodingKey {
         case name
         case reason

@@ -52,7 +52,11 @@ final class CrashReportTests: XCTestCase {
     }
 
     func testBuildTypeRawValues() {
+        XCTAssertEqual(BuildType.simulator.rawValue, "simulator")
         XCTAssertEqual(BuildType.debug.rawValue, "debug")
         XCTAssertEqual(BuildType.release.rawValue, "release")
+        XCTAssertEqual(BuildType.test.rawValue, "test")
+        XCTAssertEqual(BuildType.appStore.rawValue, "app store")
+        XCTAssertEqual(BuildType(rawValue: "something").rawValue, "something")
     }
 }
