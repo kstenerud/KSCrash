@@ -1,0 +1,149 @@
+//
+//  KSCrashMonitor_MetricKit.swift
+//
+//  Created by Alexander Cohen on 2026-01-31.
+//
+//  Copyright (c) 2012 Karl Stenerud. All rights reserved.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall remain in place
+// in this source code.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+// THE SOFTWARE.
+//
+
+import Foundation
+import os.log
+
+#if os(iOS) || os(macOS)
+    import MetricKit
+#endif
+
+#if SWIFT_PACKAGE
+    import KSCrashRecording
+    import KSCrashRecordingCore
+    import SwiftCore
+#endif
+
+// MARK: - MetricKit Monitor
+
+final class MetricKitMonitor: Sendable {
+
+    static let lock = UnfairLock()
+
+    static private var _enabled: Bool = false
+    static var enabled: Bool {
+        set { lock.withLock { _enabled = newValue } }
+        get { lock.withLock { _enabled } }
+    }
+
+    static private let _monitorId = strdup("MetricKit")
+    static var monitorId: UnsafePointer<CChar>? {
+        lock.withLock { _monitorId.map { UnsafePointer($0) } }
+    }
+
+    static private var _callbacks: KSCrash_ExceptionHandlerCallbacks? = nil
+    static var callbacks: KSCrash_ExceptionHandlerCallbacks? {
+        set { lock.withLock { _callbacks = newValue } }
+        get { lock.withLock { _callbacks } }
+    }
+
+    static private var _receiver: MetricKitReceiver? = nil
+    static var receiver: MetricKitReceiver? {
+        set { lock.withLock { _receiver = newValue } }
+        get { lock.withLock { _receiver } }
+    }
+
+    static let api: UnsafeMutablePointer<KSCrashMonitorAPI> = {
+        let api = KSCrashMonitorAPI(
+            init: metricKitMonitorInit,
+            monitorId: metricKitMonitorGetId,
+            monitorFlags: metricKitMonitorGetFlags,
+            setEnabled: metricKitMonitorSetEnabled,
+            isEnabled: metricKitMonitorIsEnabled,
+            addContextualInfoToEvent: metricKitMonitorAddContextualInfoToEvent,
+            notifyPostSystemEnable: metricKitMonitorNotifyPostSystemEnable,
+            writeInReportSection: metricKitMonitorWriteInReportSection
+        )
+
+        let p = UnsafeMutablePointer<KSCrashMonitorAPI>.allocate(capacity: 1)  // never deallocated
+        p.initialize(to: api)
+        return p
+    }()
+}
+
+// MARK: - C Function Pointer Callbacks
+
+private func metricKitMonitorInit(
+    _ callbacks: UnsafeMutablePointer<KSCrash_ExceptionHandlerCallbacks>?
+) {
+    MetricKitMonitor.callbacks = callbacks?.pointee
+    os_log(.default, log: metricKitLog, "MetricKit monitor initialized")
+}
+
+private func metricKitMonitorGetId() -> UnsafePointer<CChar>? {
+    MetricKitMonitor.monitorId
+}
+
+private func metricKitMonitorGetFlags() -> KSCrashMonitorFlag {
+    .init(0)
+}
+
+private func metricKitMonitorSetEnabled(_ isEnabled: Bool) {
+    #if os(iOS) || os(macOS)
+        if #available(iOS 14.0, macOS 12.0, *) {
+            if isEnabled {
+                if MetricKitMonitor.receiver == nil {
+                    let newReceiver = MetricKitReceiver()
+                    MetricKitMonitor.receiver = newReceiver
+                    MXMetricManager.shared.add(newReceiver)
+                    os_log(.default, log: metricKitLog, "Subscribed to MXMetricManager for diagnostic payloads")
+                }
+            } else {
+                if let existing = MetricKitMonitor.receiver {
+                    MXMetricManager.shared.remove(existing)
+                    MetricKitMonitor.receiver = nil
+                    os_log(.default, log: metricKitLog, "Unsubscribed from MXMetricManager")
+                }
+            }
+        }
+    #endif
+    MetricKitMonitor.enabled = isEnabled
+}
+
+private func metricKitMonitorIsEnabled() -> Bool {
+    MetricKitMonitor.enabled
+}
+
+private func metricKitMonitorAddContextualInfoToEvent(
+    _ eventContext: UnsafeMutablePointer<KSCrash_MonitorContext>?
+) {
+}
+
+private func metricKitMonitorNotifyPostSystemEnable() {
+}
+
+private func metricKitMonitorWriteInReportSection(
+    _ context: UnsafePointer<KSCrash_MonitorContext>?,
+    _ writerRef: UnsafePointer<ReportWriter>?
+) {
+}
+
+// MARK: - dlsym Entry Point
+
+@_cdecl("kscm_metrickit_getAPI")
+public func kscm_metrickit_getAPI() -> UnsafeMutablePointer<KSCrashMonitorAPI> {
+    MetricKitMonitor.api
+}

@@ -237,6 +237,10 @@ let package = Package(
             targets: [Targets.profiler]
         ),
         .library(
+            name: "Monitors",
+            targets: [Targets.monitors]
+        ),
+        .library(
             name: "Report",
             targets: [Targets.report]
         ),
@@ -580,6 +584,25 @@ let package = Package(
             ]
         ),
 
+        .target(
+            name: Targets.monitors,
+            dependencies: [
+                .target(name: Targets.recordingCore),
+                .target(name: Targets.recording),
+                .target(name: Targets.report),
+                .target(name: Targets.swiftCore),
+            ],
+            resources: [
+                .copy("Resources/PrivacyInfo.xcprivacy")
+            ]
+        ),
+        .testTarget(
+            name: Targets.monitors.tests,
+            dependencies: [
+                .target(name: Targets.monitors),
+                .target(name: Targets.report),
+            ]
+        ),
     ],
     cxxLanguageStandard: .gnucxx11
 )
@@ -603,6 +626,7 @@ enum Targets {
     static let coldBenchmarks = "KSCrashBenchmarksCold"
     static let swiftCore = "SwiftCore"
     static let profiler = "KSCrashProfiler"
+    static let monitors = "Monitors"
 }
 
 extension String {
