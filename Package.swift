@@ -559,10 +559,15 @@ let package = Package(
         ),
 
         .target(
+            name: Targets.swiftCore
+        ),
+
+        .target(
             name: Targets.profiler,
             dependencies: [
                 .target(name: Targets.recordingCore),
                 .target(name: Targets.recording),
+                .target(name: Targets.swiftCore),
             ],
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy")
@@ -574,6 +579,7 @@ let package = Package(
                 .target(name: Targets.profiler)
             ]
         ),
+
     ],
     cxxLanguageStandard: .gnucxx11
 )
@@ -595,6 +601,7 @@ enum Targets {
     static let benchmarks = "KSCrashBenchmarks"
     static let objcBenchmarks = "KSCrashBenchmarksObjC"
     static let coldBenchmarks = "KSCrashBenchmarksCold"
+    static let swiftCore = "SwiftCore"
     static let profiler = "KSCrashProfiler"
 }
 

@@ -27,10 +27,10 @@
 import Foundation
 import os
 
-final internal class UnfairLock: @unchecked Sendable {
+public final class UnfairLock: @unchecked Sendable {
     private var _lock: UnsafeMutablePointer<os_unfair_lock>
 
-    internal init() {
+    public init() {
         _lock = UnsafeMutablePointer<os_unfair_lock>.allocate(capacity: 1)
         _lock.initialize(to: os_unfair_lock())
     }
@@ -39,7 +39,7 @@ final internal class UnfairLock: @unchecked Sendable {
         _lock.deallocate()
     }
 
-    internal func withLock<T>(_ block: () throws -> T) rethrows -> T {
+    public func withLock<T>(_ block: () throws -> T) rethrows -> T {
         os_unfair_lock_lock(_lock)
         defer { os_unfair_lock_unlock(_lock) }
         return try block()
