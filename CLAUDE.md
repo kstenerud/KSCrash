@@ -184,7 +184,7 @@ KSCrash is implemented as a layered architecture with these key components:
 - **Filters**: Processing crash reports
 - **Sinks**: Handling report destinations
 - **Installations**: Pre-configured setups
-- **Monitors**: Various crash detection mechanisms
+- **Monitors**: Various crash detection mechanisms. Built-in monitors are registered via `KSCrashMonitorType` flags. External monitors can be added as plugins via `KSCrashConfiguration.plugins` (Swift: `MonitorPlugin`, ObjC: `KSCrashMonitorPlugin`), which wrap a `KSCrashMonitorAPI` and are registered at install time via `kscm_addMonitor()`. The `Monitors` Swift module provides ready-made plugins (e.g., `Monitors.metricKit`).
 
 ## Watchdog Monitor
 
