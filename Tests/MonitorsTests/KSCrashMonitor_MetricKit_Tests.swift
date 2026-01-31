@@ -67,9 +67,9 @@ final class KSCrashMonitor_MetricKit_Tests: XCTestCase {
         XCTAssertFalse(api.isEnabled())
     }
 
-    func testCdeclEntryPoint() {
-        let apiPtr = kscm_metrickit_getAPI()
-        XCTAssertEqual(apiPtr, MetricKitMonitor.api)
+    func testMonitorPlugin() {
+        let plugin = Monitors.metricKit
+        XCTAssertEqual(plugin.api, MetricKitMonitor.api)
     }
 
     // MARK: - Call Stack Tree Flattening

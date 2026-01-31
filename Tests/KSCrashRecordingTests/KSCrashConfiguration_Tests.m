@@ -452,6 +452,119 @@ static void clearLegacyCallbackData(void) { memset(&g_legacyCallbackData, 0, siz
     KSCrashCConfiguration_Release(&cConfig);
 }
 
+#pragma mark - Plugin Tests
+
+static const char *testPluginMonitorId(void) { return "test_plugin"; }
+static KSCrashMonitorFlag testPluginMonitorFlags(void) { return (KSCrashMonitorFlag)0; }
+static bool g_testPluginEnabled = false;
+static void testPluginSetEnabled(bool isEnabled) { g_testPluginEnabled = isEnabled; }
+static bool testPluginIsEnabled(void) { return g_testPluginEnabled; }
+
+- (void)testPluginInitWithAPI
+{
+    KSCrashMonitorAPI api = { 0 };
+    api.monitorId = testPluginMonitorId;
+    KSCrashMonitorPlugin *plugin = [[KSCrashMonitorPlugin alloc] initWithAPI:&api];
+    XCTAssertEqual(plugin.api, &api);
+    XCTAssertEqual(strcmp(plugin.api->monitorId(), "test_plugin"), 0);
+}
+
+- (void)testPluginWithAPI
+{
+    KSCrashMonitorAPI api = { 0 };
+    api.monitorId = testPluginMonitorId;
+    KSCrashMonitorPlugin *plugin = [KSCrashMonitorPlugin pluginWithAPI:&api];
+    XCTAssertEqual(plugin.api, &api);
+}
+
+- (void)testPluginsDefaultNil
+{
+    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+    XCTAssertNil(config.plugins);
+}
+
+- (void)testPluginsToCConfiguration
+{
+    KSCrashMonitorAPI api1 = { 0 };
+    api1.monitorId = testPluginMonitorId;
+    api1.monitorFlags = testPluginMonitorFlags;
+    api1.setEnabled = testPluginSetEnabled;
+    api1.isEnabled = testPluginIsEnabled;
+
+    KSCrashMonitorPlugin *plugin1 = [[KSCrashMonitorPlugin alloc] initWithAPI:&api1];
+
+    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+    config.plugins = @[ plugin1 ];
+
+    KSCrashCConfiguration cConfig = [config toCConfiguration];
+
+    XCTAssertEqual(cConfig.plugins.length, 1);
+    XCTAssertNotEqual(cConfig.plugins.apis, NULL);
+    XCTAssertEqual(strcmp(cConfig.plugins.apis[0].monitorId(), "test_plugin"), 0);
+    XCTAssertNotEqual(cConfig.plugins.release, NULL);
+
+    KSCrashCConfiguration_Release(&cConfig);
+}
+
+- (void)testPluginsToCConfigurationNil
+{
+    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+    config.plugins = nil;
+
+    KSCrashCConfiguration cConfig = [config toCConfiguration];
+
+    XCTAssertEqual(cConfig.plugins.length, 0);
+    XCTAssertEqual(cConfig.plugins.apis, NULL);
+    XCTAssertEqual(cConfig.plugins.release, NULL);
+
+    KSCrashCConfiguration_Release(&cConfig);
+}
+
+- (void)testPluginsCopyWithZone
+{
+    KSCrashMonitorAPI api = { 0 };
+    api.monitorId = testPluginMonitorId;
+    KSCrashMonitorPlugin *plugin = [[KSCrashMonitorPlugin alloc] initWithAPI:&api];
+
+    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+    config.plugins = @[ plugin ];
+
+    KSCrashConfiguration *copy = [config copy];
+
+    XCTAssertEqual(copy.plugins.count, 1);
+    XCTAssertEqual(copy.plugins[0].api, &api);
+}
+
+- (void)testCConfigurationDefaultPlugins
+{
+    KSCrashCConfiguration cConfig = KSCrashCConfiguration_Default();
+    XCTAssertEqual(cConfig.plugins.apis, NULL);
+    XCTAssertEqual(cConfig.plugins.length, 0);
+    XCTAssertEqual(cConfig.plugins.release, NULL);
+    KSCrashCConfiguration_Release(&cConfig);
+}
+
+- (void)testCConfigurationReleaseWithReleaseFunc
+{
+    KSCrashCConfiguration cConfig = KSCrashCConfiguration_Default();
+    cConfig.plugins.apis = malloc(sizeof(KSCrashMonitorAPI) * 1);
+    cConfig.plugins.length = 1;
+    cConfig.plugins.release = free;
+    // Should not leak or crash
+    KSCrashCConfiguration_Release(&cConfig);
+}
+
+- (void)testCConfigurationReleaseWithoutReleaseFunc
+{
+    KSCrashMonitorAPI stackAPI = { 0 };
+    KSCrashCConfiguration cConfig = KSCrashCConfiguration_Default();
+    cConfig.plugins.apis = &stackAPI;
+    cConfig.plugins.length = 1;
+    cConfig.plugins.release = NULL;
+    // Should not crash — no free called on stack pointer
+    KSCrashCConfiguration_Release(&cConfig);
+}
+
 #pragma clang diagnostic pop
 
 @end

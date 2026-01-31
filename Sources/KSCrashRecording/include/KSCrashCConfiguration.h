@@ -31,6 +31,7 @@
 #include <string.h>
 
 #include "KSCrashExceptionHandlingPlan.h"
+#include "KSCrashMonitorAPI.h"
 #include "KSCrashMonitorContext.h"
 #include "KSCrashMonitorType.h"
 #include "KSCrashNamespace.h"
@@ -257,6 +258,23 @@ typedef struct {
      */
     bool enableSigTermMonitoring;
 
+    /** Plugin monitors to register at install time.
+     *
+     * An array of `KSCrashMonitorAPI` structs that will be copied into static
+     * storage and registered via `kscm_addMonitor()` during installation.
+     *
+     * If `release` is non-NULL, it will be called with `apis` during
+     * `KSCrashCConfiguration_Release()`. Set it to `free` for heap-allocated
+     * arrays, or leave it NULL for static/stack arrays.
+     *
+     * **Default**: `{ .apis = NULL, .length = 0, .release = NULL }`
+     */
+    struct {
+        KSCrashMonitorAPI *apis;
+        int length;
+        void (*release)(void *apis);
+    } plugins;
+
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
     /** Callback to invoke upon a crash (DEPRECATED).
@@ -320,6 +338,7 @@ static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
         .printPreviousLogOnStartup = false,
         .enableSwapCxaThrow = true,
         .enableSigTermMonitoring = false,
+        .plugins = { .apis = NULL, .length = 0, .release = NULL },
     };
 }
 
@@ -331,6 +350,9 @@ static inline void KSCrashCConfiguration_Release(KSCrashCConfiguration *configur
         free((void *)(configuration->doNotIntrospectClasses.strings[idx]));
     }
     free(configuration->doNotIntrospectClasses.strings);
+    if (configuration->plugins.release) {
+        configuration->plugins.release(configuration->plugins.apis);
+    }
 }
 
 #ifdef __cplusplus

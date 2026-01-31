@@ -140,10 +140,3 @@ private func metricKitMonitorWriteInReportSection(
     _ writerRef: UnsafePointer<ReportWriter>?
 ) {
 }
-
-// MARK: - dlsym Entry Point
-
-@_cdecl("kscm_metrickit_getAPI")
-public func kscm_metrickit_getAPI() -> UnsafeMutablePointer<KSCrashMonitorAPI> {
-    MetricKitMonitor.api
-}
