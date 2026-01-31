@@ -28,22 +28,31 @@ import Foundation
 
 /// The build type of the application.
 public enum BuildType: RawRepresentable, Codable, Sendable, Equatable {
+    case simulator
     case debug
     case release
+    case test
+    case appStore
     case unknown(String)
 
     public init(rawValue: String) {
         switch rawValue {
+        case "simulator": self = .simulator
         case "debug": self = .debug
         case "release": self = .release
+        case "test": self = .test
+        case "app store": self = .appStore
         default: self = .unknown(rawValue)
         }
     }
 
     public var rawValue: String {
         switch self {
+        case .simulator: return "simulator"
         case .debug: return "debug"
         case .release: return "release"
+        case .test: return "test"
+        case .appStore: return "app store"
         case .unknown(let value): return value
         }
     }
