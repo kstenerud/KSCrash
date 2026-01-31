@@ -29,6 +29,7 @@ import Foundation
 #if SWIFT_PACKAGE
     import KSCrashRecording
     import KSCrashRecordingCore
+    import SwiftCore
 #endif
 
 // MARK: - Profile Report Writing

@@ -348,6 +348,7 @@ A good test: if removing the comment would make a future change risky, keep it. 
 - Use consistent naming patterns:
   - Classes: `KSCrashMonitor_*`, `KSCrash*` (prefix with KS)
   - Methods: descriptive, camelCase
+  - **Swift SPM modules**: Do **not** use the `KSCrash` prefix. Use plain names (e.g., `SwiftCore`, `Monitors`, `Profiler`, `Report`). The `KSCrash` prefix is only for C/ObjC targets.
 - Error handling: Use proper error handling conventions for Objective-C/Swift
 - Module organization: Maintain the existing module structure
 - API design: Keep public APIs clean and well-documented
