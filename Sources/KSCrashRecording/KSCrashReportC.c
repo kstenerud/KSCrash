@@ -1483,7 +1483,7 @@ static void writeProcessState(const KSCrashReportWriter *const writer, const cha
  * @param reportID The report ID.
  */
 static void writeReportInfo(const KSCrashReportWriter *const writer, const char *const key, const char *const type,
-                            const char *const reportID, const char *const processName)
+                            const char *const reportID, const char *const processName, const char *const monitorId)
 {
     writer->beginObject(writer, key);
     {
@@ -1493,6 +1493,9 @@ static void writeReportInfo(const KSCrashReportWriter *const writer, const char 
         writer->addUIntegerElement(writer, KSCrashField_Timestamp, ksdate_microseconds());
         writer->addStringElement(writer, KSCrashField_Type, type);
         writer->addStringElement(writer, KSCrashField_RunID, kscrash_getRunID());
+        if (monitorId != NULL) {
+            writer->addStringElement(writer, KSCrashField_MonitorId, monitorId);
+        }
     }
     writer->endContainer(writer);
 }
@@ -1570,7 +1573,7 @@ void kscrashreport_writeRecrashReport(const KSCrash_MonitorContext *const monito
             KSLOG_ERROR("Could not remove %s: %s", tempPath, strerror(errno));
         }
         writeReportInfo(writer, KSCrashField_Report, KSCrashReportType_Minimal, monitorContext->eventID,
-                        monitorContext->System.processName);
+                        monitorContext->System.processName, monitorContext->monitorId);
         ksfu_flushBufferedWriter(&bufferedWriter);
 
         writer->beginObject(writer, KSCrashField_Crash);
@@ -1696,7 +1699,7 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
     writer->beginObject(writer, KSCrashField_Report);
     {
         writeReportInfo(writer, KSCrashField_Report, KSCrashReportType_Standard, monitorContext->eventID,
-                        monitorContext->System.processName);
+                        monitorContext->System.processName, monitorContext->monitorId);
         ksfu_flushBufferedWriter(&bufferedWriter);
 
         if (!monitorContext->omitBinaryImages) {
