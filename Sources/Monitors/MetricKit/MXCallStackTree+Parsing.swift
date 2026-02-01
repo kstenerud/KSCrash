@@ -86,7 +86,8 @@ import Report
                     return StackFrame(
                         instructionAddr: frame.address,
                         objectAddr: objectAddr,
-                        objectName: frame.binaryName
+                        objectName: frame.binaryName,
+                        objectUUID: frame.binaryUUID
                     )
                 }
 

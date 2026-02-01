@@ -39,6 +39,8 @@
 // #define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
 
+const KSCrashReportID KSCrashReportNoID = 0;
+
 @implementation KSCrashReportStore {
     KSCrashReportStoreCConfiguration _cConfig;
 }
@@ -81,6 +83,15 @@
     return kscrs_getReportCount(&_cConfig);
 }
 
+- (KSCrashReportID)nextReportID
+{
+    KSCrashReportID reportID = KSCrashReportNoID;
+    if (kscrs_getReportIDs(&reportID, 1, &_cConfig) <= 0) {
+        return KSCrashReportNoID;
+    }
+    return reportID;
+}
+
 - (void)sendAllReportsWithCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
     NSArray *allReports = [self allReports];
@@ -115,12 +126,12 @@
          }];
 }
 
-- (void)sendReportWithID:(int64_t)reportID completion:(nullable KSCrashReportFilterCompletion)onCompletion
+- (void)sendReportWithID:(KSCrashReportID)reportID completion:(nullable KSCrashReportFilterCompletion)onCompletion
 {
     [self sendReportWithID:reportID includeCurrentRun:YES completion:onCompletion];
 }
 
-- (void)sendReportWithID:(int64_t)reportID
+- (void)sendReportWithID:(KSCrashReportID)reportID
        includeCurrentRun:(BOOL)includeCurrentRun
               completion:(nullable KSCrashReportFilterCompletion)onCompletion
 {

@@ -37,6 +37,9 @@ public struct StackFrame: Codable, Sendable {
     /// Name of the containing binary image.
     public let objectName: String?
 
+    /// UUID of the containing binary image.
+    public let objectUUID: String?
+
     /// Address of the symbol.
     public let symbolAddr: UInt64?
 
@@ -47,12 +50,14 @@ public struct StackFrame: Codable, Sendable {
         instructionAddr: UInt64,
         objectAddr: UInt64? = nil,
         objectName: String? = nil,
+        objectUUID: String? = nil,
         symbolAddr: UInt64? = nil,
         symbolName: String? = nil
     ) {
         self.instructionAddr = instructionAddr
         self.objectAddr = objectAddr
         self.objectName = objectName
+        self.objectUUID = objectUUID
         self.symbolAddr = symbolAddr
         self.symbolName = symbolName
     }
@@ -61,6 +66,7 @@ public struct StackFrame: Codable, Sendable {
         case instructionAddr = "instruction_addr"
         case objectAddr = "object_addr"
         case objectName = "object_name"
+        case objectUUID = "object_uuid"
         case symbolAddr = "symbol_addr"
         case symbolName = "symbol_name"
     }
