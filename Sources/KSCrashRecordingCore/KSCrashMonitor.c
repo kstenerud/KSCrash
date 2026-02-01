@@ -335,12 +335,12 @@ static void handleException(struct KSCrash_MonitorContext *ctx, KSCrash_ReportRe
 
 static void handleException_Deprecated(struct KSCrash_MonitorContext *ctx) { handleException(ctx, NULL); }
 
+static KSCrash_ExceptionHandlerCallbacks g_exceptionCallbacks = { .notify = notifyException,
+                                                                  .handleWithResult = handleException,
+                                                                  .handle = handleException_Deprecated };
+
 bool kscm_addMonitor(const KSCrashMonitorAPI *api)
 {
-    static KSCrash_ExceptionHandlerCallbacks g_exceptionCallbacks = { .notify = notifyException,
-                                                                      .handleWithResult = handleException,
-                                                                      .handle = handleException_Deprecated };
-
     init();
     if (kscmr_addMonitor(&g_state.monitors, api)) {
         api->init(&g_exceptionCallbacks);
@@ -359,6 +359,12 @@ const KSCrashMonitorAPI *kscm_getMonitor(const char *monitorId)
 {
     init();
     return kscmr_getMonitor(&g_state.monitors, monitorId);
+}
+
+void kscm_setSidecarPathProvider(KSCrashSidecarPathProviderFunc provider)
+{
+    init();
+    g_exceptionCallbacks.getSidecarPath = provider;
 }
 
 // ============================================================================

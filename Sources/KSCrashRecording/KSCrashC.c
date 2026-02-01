@@ -305,6 +305,11 @@ static void handleConfiguration(KSCrashCConfiguration *configuration)
         kscm_enableSwapCxaThrow();
     }
 }
+static bool getSidecarPathCallback(const char *monitorId, int64_t reportID, char *pathBuffer, size_t pathBufferLength)
+{
+    return kscrs_getSidecarPath(monitorId, reportID, pathBuffer, pathBufferLength, &g_reportStoreConfig);
+}
+
 // ============================================================================
 #pragma mark - API -
 // ============================================================================
@@ -339,7 +344,16 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
         g_reportStoreConfig.reportsPath = strdup(path);
     }
 
+    if (g_reportStoreConfig.sidecarsPath == NULL) {
+        if (snprintf(path, sizeof(path), "%s/Sidecars", installPath) >= (int)sizeof(path)) {
+            KSLOG_ERROR("Sidecars path is too long.");
+            return KSCrashInstallErrorPathTooLong;
+        }
+        g_reportStoreConfig.sidecarsPath = strdup(path);
+    }
+
     kscrs_initialize(&g_reportStoreConfig);
+    kscm_setSidecarPathProvider(getSidecarPathCallback);
 
     if (snprintf(path, sizeof(path), "%s/Data", installPath) >= (int)sizeof(path)) {
         KSLOG_ERROR("Data path is too long.");

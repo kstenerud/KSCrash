@@ -186,6 +186,89 @@ KSCrash is implemented as a layered architecture with these key components:
 - **Installations**: Pre-configured setups
 - **Monitors**: Various crash detection mechanisms
 
+## Monitor Sidecar Files
+
+Sidecars allow monitors to store auxiliary data alongside crash reports without modifying the main report. This is important for monitors (like the Watchdog) that need to update report data after initial writing — doing so with ObjC JSON parsing during a hang would risk deadlocking on the same runtime locks being monitored.
+
+### How Sidecars Work
+
+1. **Writing**: A monitor can request a sidecar path at any time and write auxiliary data there. For example, a monitor might write the initial sidecar during event handling and update it periodically afterwards as conditions change.
+
+2. **At report delivery time** (next app launch): When the report store reads a report via `kscrs_readReport`, it scans the sidecar directories for matching files and calls each monitor's `stitchReport` callback to merge sidecar data into the report before delivery.
+
+3. **Cleanup**: Sidecars are automatically deleted when their associated report is deleted (via `kscrs_deleteReportWithID` or `kscrs_deleteAllReports`).
+
+### Directory Layout
+
+```
+<installPath>/
+├── Reports/
+│   └── myapp-report-00789abc00000001.json
+└── Sidecars/
+    ├── Watchdog/
+    │   └── 00789abc00000001.ksscr
+    └── AnotherMonitor/
+        └── 00789abc00000001.ksscr
+```
+
+Each monitor gets a subdirectory named after its `monitorId`. Sidecar files are named `<reportID>.ksscr` (hex-formatted).
+
+### Requesting a Sidecar Path (Monitor Side)
+
+Monitors receive a `KSCrash_ExceptionHandlerCallbacks` struct during `init()`. The `getSidecarPath` field is a `KSCrashSidecarPathProviderFunc`:
+
+```c
+typedef bool (*KSCrashSidecarPathProviderFunc)(const char *monitorId, int64_t reportID,
+                                               char *pathBuffer, size_t pathBufferLength);
+```
+
+Usage from within a monitor:
+
+```c
+static KSCrash_ExceptionHandlerCallbacks *g_callbacks;
+
+static void monitorInit(KSCrash_ExceptionHandlerCallbacks *callbacks) {
+    g_callbacks = callbacks;
+}
+
+// Later, when you have a reportID:
+char sidecarPath[KSCRS_MAX_PATH_LENGTH];
+if (g_callbacks->getSidecarPath &&
+    g_callbacks->getSidecarPath("MyMonitor", reportID, sidecarPath, sizeof(sidecarPath))) {
+    // Write sidecar data to sidecarPath using C file I/O
+}
+```
+
+The callback creates the monitor's subdirectory automatically and returns `false` if sidecars are not configured or the path is too long.
+
+### Stitching Sidecars into Reports (Monitor Side)
+
+To merge sidecar data into reports at delivery time, implement the `stitchReport` field in `KSCrashMonitorAPI`:
+
+```c
+char *(*stitchReport)(const char *report, int64_t reportID, const char *sidecarPath);
+```
+
+- `report`: NULL-terminated JSON string of the full crash report.
+- `sidecarPath`: Path to this monitor's sidecar file for the given report.
+- Returns: A `malloc`'d NULL-terminated string with the modified report, or `NULL` to leave the report unchanged. The caller frees the returned buffer.
+
+This runs at normal app startup time (not during crash handling), so ObjC and heap allocation are safe here.
+
+### Configuration
+
+The sidecars directory is configured via `KSCrashReportStoreCConfiguration.sidecarsPath`. If left `NULL` (the default), it is automatically set to `<installPath>/Sidecars` during `kscrash_install`. The report store creates this directory at initialization.
+
+### Key Files
+
+- `KSCrashMonitorContext.h`: `KSCrashSidecarPathProviderFunc` typedef and `getSidecarPath` callback field
+- `KSCrashMonitorAPI.h`: `stitchReport` callback field on `KSCrashMonitorAPI`
+- `KSCrashMonitor.h/.c`: `kscm_setSidecarPathProvider()` to register the path provider
+- `KSCrashReportStoreC.c`: Internal sidecar path generation, cleanup, and stitching logic
+- `KSCrashReportStoreC+Private.h`: `kscrs_getSidecarPath()` exported for use by the path provider
+- `KSCrashCConfiguration.h`: `sidecarsPath` field on `KSCrashReportStoreCConfiguration`
+- `KSCrashC.c`: Wires up the sidecar path provider callback during install
+
 ## Critical Development Guidelines
 
 ### Async Signal Safety

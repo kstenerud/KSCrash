@@ -28,6 +28,7 @@
 #define HDR_KSCrashMonitorContext_h
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include "KSCrashExceptionHandlingRequirements.h"
@@ -306,6 +307,18 @@ typedef struct KSCrash_ReportResult {
 } KSCrash_ReportResult;
 
 /**
+ * Function type for obtaining a sidecar file path for a given monitor and report.
+ *
+ * @param monitorId The calling monitor's unique identifier.
+ * @param reportID The report ID to associate the sidecar with.
+ * @param pathBuffer Buffer to receive the sidecar file path.
+ * @param pathBufferLength The size of pathBuffer in bytes.
+ * @return true if the path was successfully written, false on failure.
+ */
+typedef bool (*KSCrashSidecarPathProviderFunc)(const char *monitorId, int64_t reportID, char *pathBuffer,
+                                               size_t pathBufferLength);
+
+/**
  * Callbacks to be used by monitors.
  * In general, exception handling will follow a similar process:
  * - Do the minimum amount of work necessary to call the notify callback.
@@ -351,6 +364,9 @@ typedef struct {
 
     /** Deprecated: Use `handleWithResult` instead. */
     void (*handle)(KSCrash_MonitorContext *context);
+
+    /** Get a sidecar file path for storing auxiliary monitor data alongside a report. */
+    KSCrashSidecarPathProviderFunc getSidecarPath;
 } KSCrash_ExceptionHandlerCallbacks;
 
 #ifdef __cplusplus
