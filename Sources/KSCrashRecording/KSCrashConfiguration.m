@@ -227,6 +227,12 @@
     config.reportsPath = resolvedReportsPath != nil ? strdup(resolvedReportsPath.UTF8String) : NULL;
     config.maxReportCount = (int)self.maxReportCount;
 
+    if (resolvedReportsPath != nil) {
+        NSString *sidecarsPath =
+            [[resolvedReportsPath stringByDeletingLastPathComponent] stringByAppendingPathComponent:@"Sidecars"];
+        config.sidecarsPath = strdup(sidecarsPath.UTF8String);
+    }
+
     return config;
 }
 

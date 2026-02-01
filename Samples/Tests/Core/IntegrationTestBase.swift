@@ -212,6 +212,11 @@ class IntegrationTestBase: XCTestCase {
         return (files ?? []).isEmpty == false
     }
 
+    func readAppleReportData() throws -> Data {
+        let url = try waitForFile(in: appleReportsUrl, timeout: reportTimeout)
+        return try Data(contentsOf: url)
+    }
+
     func readAppleReport() throws -> String {
         let url = try waitForFile(in: appleReportsUrl, timeout: reportTimeout)
         let appleReport = try String(contentsOf: url)
@@ -270,6 +275,21 @@ class IntegrationTestBase: XCTestCase {
         launchAppAndRunScript()
         let report = try readAppleReport()
         return report
+    }
+
+    func launchAndReportCrashRaw(
+        installOverride: ((inout InstallConfig) throws -> Void)? = nil
+    ) throws -> Data {
+        var installConfig = InstallConfig(installPath: installUrl.path)
+        try installOverride?(&installConfig)
+        app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
+            report: .init(directoryPath: appleReportsUrl.path, rawJSON: true),
+            install: installConfig,
+            config: runConfig
+        )
+
+        launchAppAndRunScript()
+        return try readAppleReportData()
     }
 
     func readState() throws -> KSCrashState {

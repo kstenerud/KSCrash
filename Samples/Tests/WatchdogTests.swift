@@ -25,6 +25,7 @@
 //
 
 import IntegrationTestsHelper
+import Report
 import XCTest
 
 #if !os(watchOS)
@@ -42,7 +43,11 @@ import XCTest
                 config.isWatchdogEnabled = true
             }
 
-            let rawReport = try readCrashReport()
+            // Re-launch and read through the report store so the sidecar stitch runs
+            let reportData = try launchAndReportCrashRaw { config in
+                config.isWatchdogEnabled = true
+            }
+            let rawReport = try JSONDecoder().decode(CrashReport<NoUserData>.self, from: reportData)
 
             // Verify hang info is present in the crash report
             let hangInfo = rawReport.crash.error.hang

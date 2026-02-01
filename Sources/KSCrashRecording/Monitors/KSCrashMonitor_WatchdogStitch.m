@@ -32,8 +32,9 @@
 #import "KSJSONCodecObjC.h"
 
 #import <Foundation/Foundation.h>
+#include <errno.h>
+#include <fcntl.h>
 
-// #define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
 
 char *kscm_watchdog_stitchReport(const char *report, int64_t reportID, const char *sidecarPath)
@@ -44,27 +45,34 @@ char *kscm_watchdog_stitchReport(const char *report, int64_t reportID, const cha
         return NULL;
     }
 
-    // Read the mmap'd sidecar
-    KSHangSidecar *sc = (KSHangSidecar *)ksfu_mmap(sidecarPath, sizeof(KSHangSidecar));
-    if (!sc) {
+    // Read the sidecar from disk (can't use ksfu_mmap — it truncates with O_TRUNC)
+    KSHangSidecar sc = {};
+    int fd = open(sidecarPath, O_RDONLY);
+    if (fd == -1) {
+        KSLOG_ERROR(@"Failed to open sidecar at %s: %s", sidecarPath, strerror(errno));
+        return NULL;
+    }
+    if (!ksfu_readBytesFromFD(fd, (char *)&sc, (int)sizeof(sc))) {
+        KSLOG_ERROR(@"Failed to read sidecar at %s", sidecarPath);
+        close(fd);
+        return NULL;
+    }
+    close(fd);
+
+    if (sc.magic != KSHANG_SIDECAR_MAGIC || sc.version == 0 || sc.version > KSHANG_SIDECAR_CURRENT_VERSION) {
+        KSLOG_ERROR(@"Invalid sidecar at %s (magic=0x%x version=%d)", sidecarPath, sc.magic, sc.version);
         return NULL;
     }
 
-    if (sc->magic != KSHANG_SIDECAR_MAGIC || sc->version == 0 || sc->version > KSHANG_SIDECAR_CURRENT_VERSION) {
-        ksfu_munmap(sc, sizeof(KSHangSidecar));
-        return NULL;
-    }
-
-    uint64_t endTimestamp = sc->endTimestamp;
-    task_role_t endRole = sc->endRole;
-    bool recovered = sc->recovered;
-    ksfu_munmap(sc, sizeof(KSHangSidecar));
+    uint64_t endTimestamp = sc.endTimestamp;
+    task_role_t endRole = sc.endRole;
+    bool recovered = sc.recovered;
 
     // Decode the report using the same codec the old code used
     NSData *reportData = [NSData dataWithBytesNoCopy:(void *)report length:strlen(report) freeWhenDone:NO];
     NSMutableDictionary *dict = [[KSJSONCodec decode:reportData options:KSJSONDecodeOptionNone error:nil] mutableCopy];
     if (!dict) {
-        KSLOG_ERROR(@"[WATCHDOG STITCH] Failed to decode report JSON");
+        KSLOG_ERROR(@"Failed to decode report JSON");
         return NULL;
     }
 
@@ -98,7 +106,7 @@ char *kscm_watchdog_stitchReport(const char *report, int64_t reportID, const cha
     NSError *error = nil;
     NSData *newData = [KSJSONCodec encode:dict options:KSJSONEncodeOptionNone error:&error];
     if (!newData) {
-        KSLOG_ERROR(@"[WATCHDOG STITCH] Failed to encode stitched report: %@", error);
+        KSLOG_ERROR(@"Failed to encode stitched report: %@", error);
         return NULL;
     }
 

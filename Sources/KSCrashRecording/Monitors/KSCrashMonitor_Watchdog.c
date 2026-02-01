@@ -41,18 +41,16 @@
 
 #include "KSCrashMonitorContext.h"
 #include "KSCrashMonitorHelper.h"
+#include "KSCrashMonitor_WatchdogSidecar.h"
 #include "KSCrashReportFields.h"
 #include "KSDebug.h"
 #include "KSFileUtils.h"
 #include "KSHang.h"
 #include "KSID.h"
+#include "KSLogger.h"
 #include "KSStackCursor_MachineContext.h"
 #include "KSThread.h"
 #include "Unwind/KSStackCursor_Unwind.h"
-
-// #define KSLogger_LocalLevel TRACE
-#include "KSCrashMonitor_WatchdogSidecar.h"
-#include "KSLogger.h"
 
 // ============================================================================
 #pragma mark - Observer -
@@ -81,6 +79,7 @@ typedef struct KSHangMonitor {
     bool reportsHangs;
     os_unfair_lock lock;
     KSHangState hang;
+    uint64_t enterTime;  // monotonic timestamp when main run loop last woke up
 
     /** mmap'd sidecar for the current hang, or NULL. */
     KSHangSidecar *sidecar;
@@ -125,13 +124,15 @@ static int TaskRole(void)
 #pragma mark - Sidecar lifecycle -
 // ============================================================================
 
+static const char *monitorId(void);
+
 static KSHangSidecar *sidecar_open(KSHangMonitor *monitor, int64_t reportID)
 {
     if (!g_callbacks.getSidecarPath) {
         return NULL;
     }
 
-    if (!g_callbacks.getSidecarPath("Watchdog", reportID, monitor->sidecarPath, sizeof(monitor->sidecarPath))) {
+    if (!g_callbacks.getSidecarPath(monitorId(), reportID, monitor->sidecarPath, sizeof(monitor->sidecarPath))) {
         monitor->sidecarPath[0] = '\0';
         return NULL;
     }
@@ -305,20 +306,14 @@ static void endOwnedHang(KSHangMonitor *monitor, KSHangState hang)
 #pragma mark - Ping / Activity handlers -
 // ============================================================================
 
-typedef struct {
-    KSHangMonitor *monitor;
-    uint64_t enterTime;
-} PingTimerContext;
-
 static void handlePing(CFRunLoopTimerRef timer, void *info)
 {
     (void)timer;
-    PingTimerContext *ctx = (PingTimerContext *)info;
-    KSHangMonitor *monitor = ctx->monitor;
+    KSHangMonitor *monitor = (KSHangMonitor *)info;
 
     const uint64_t thresholdInNs = (uint64_t)(monitor->threshold * 1000000000);
     uint64_t now = MonotonicUptime();
-    uint64_t hangTime = now - ctx->enterTime;
+    uint64_t hangTime = now - monitor->enterTime;
 
     if (hangTime < thresholdInNs) {
         return;
@@ -331,7 +326,7 @@ static void handlePing(CFRunLoopTimerRef timer, void *info)
 
     os_unfair_lock_lock(&monitor->lock);
     if (!monitor->hang.active) {
-        kshangstate_init(&monitor->hang, ctx->enterTime, currentRole);
+        kshangstate_init(&monitor->hang, monitor->enterTime, currentRole);
         monitor->hang.endTimestamp = now;
         monitor->hang.endRole = currentRole;
         shouldStartNewHang = true;
@@ -349,20 +344,12 @@ static void handlePing(CFRunLoopTimerRef timer, void *info)
     }
 }
 
-static void pingTimerRelease(const void *info)
-{
-    PingTimerContext *ctx = (PingTimerContext *)info;
-    free(ctx);
-}
-
 static void schedulePings(KSHangMonitor *monitor)
 {
-    PingTimerContext *ctx = (PingTimerContext *)calloc(1, sizeof(PingTimerContext));
-    ctx->monitor = monitor;
-    ctx->enterTime = MonotonicUptime();
+    monitor->enterTime = MonotonicUptime();
 
     CFRunLoopTimerContext timerCtx = {
-        .version = 0, .info = ctx, .retain = NULL, .release = pingTimerRelease, .copyDescription = NULL
+        .version = 0, .info = monitor, .retain = NULL, .release = NULL, .copyDescription = NULL
     };
     monitor->watchdogTimer =
         CFRunLoopTimerCreate(NULL, CFAbsoluteTimeGetCurrent(), monitor->threshold, 0, 0, handlePing, &timerCtx);
@@ -589,10 +576,8 @@ static void setEnabled(bool isEnabled)
     }
 
     if (isEnabled) {
-        KSLOG_DEBUG("Creating watchdog.");
         g_watchdog = watchdog_create(CFRunLoopGetMain(), 0.249);
     } else {
-        KSLOG_DEBUG("Stopping watchdog.");
         KSHangMonitor *old = g_watchdog;
         g_watchdog = NULL;
         watchdog_destroy(old);
