@@ -47,10 +47,10 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
     final class MetricKitReceiver: NSObject, MXMetricManagerSubscriber {
 
         func didReceive(_ payloads: [MXDiagnosticPayload]) {
-            os_log(.default, log: metricKitLog, "Received %d diagnostic payload(s)", payloads.count)
+            os_log(.default, log: metricKitLog, "[MONITORS] Received %d diagnostic payload(s)", payloads.count)
+
             for payload in payloads {
                 if let crashDiagnostics = payload.crashDiagnostics {
-                    os_log(.default, log: metricKitLog, "Processing %d crash diagnostic(s)", crashDiagnostics.count)
                     for diagnostic in crashDiagnostics {
                         processCrashDiagnostic(diagnostic)
                     }
@@ -62,18 +62,11 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
 
         private func processCrashDiagnostic(_ diagnostic: MXCrashDiagnostic) {
             guard let callbacks = MetricKitMonitor.callbacks else {
-                os_log(.error, log: metricKitLog, "No callbacks available, skipping diagnostic")
+                os_log(.error, log: metricKitLog, "[MONITORS] No callbacks available, skipping diagnostic")
                 return
             }
 
-            os_log(
-                .info, log: metricKitLog, "Processing crash diagnostic for app version %{public}@",
-                diagnostic.applicationVersion
-            )
-
             // Phase 1: Write skeleton report to a temp file via C callbacks.
-            // We use reportPath to write outside the reports directory so the
-            // incomplete report isn't picked up by filters before post-processing.
             let tempURL = FileManager.default.temporaryDirectory
                 .appendingPathComponent("kscrash-metrickit-\(UUID().uuidString).json")
             let tempPath = tempURL.path
@@ -99,9 +92,7 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
 
             defer { try? FileManager.default.removeItem(at: tempURL) }
 
-            os_log(.default, log: metricKitLog, "Skeleton report written to %{public}@", tempPath)
-
-            // Phase 2: Post-process and write final report to the reports directory
+            // Phase 2: Post-process and write final report
             postProcessReport(atPath: tempPath, diagnostic: diagnostic)
         }
 
@@ -109,18 +100,18 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
 
         private func postProcessReport(atPath path: String, diagnostic: MXCrashDiagnostic) {
             let url = URL(fileURLWithPath: path)
+
             guard let data = try? Data(contentsOf: url),
                 let report = try? JSONDecoder().decode(BasicCrashReport.self, from: data)
             else {
-                os_log(.error, log: metricKitLog, "Failed to read or decode skeleton report at %{public}@", path)
+                os_log(
+                    .error, log: metricKitLog, "[MONITORS] Failed to read or decode skeleton report at %{public}@", path
+                )
                 return
             }
 
             // Extract MetricKit call stack and binary image data
             let callStackData = diagnostic.callStackTree.extractCallStackData()
-            os_log(
-                .debug, log: metricKitLog, "Extracted %d thread(s) and %d binary image(s) from call stack tree",
-                callStackData.threads.count, callStackData.binaryImages.count)
 
             // Build error info from the diagnostic
             let machError: Report.MachError?
@@ -129,7 +120,6 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
             let errorType: CrashErrorType
             let reason: String?
 
-            // Check for ObjC exception (iOS 17+ / macOS 14+)
             if #available(iOS 17.0, macOS 14.0, *), let exceptionReason = diagnostic.exceptionReason {
                 errorType = .nsexception
                 nsexception = ExceptionInfo(
@@ -137,7 +127,6 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
                     reason: exceptionReason.composedMessage
                 )
                 reason = exceptionReason.composedMessage
-                // ObjC exceptions still have underlying mach/signal info
                 if let exceptionType = diagnostic.exceptionType {
                     machError = Report.MachError(
                         code: diagnostic.exceptionCode.map { UInt64(truncating: $0) } ?? 0,
@@ -147,9 +136,6 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
                     machError = nil
                 }
                 signalError = diagnostic.signal.map { SignalError(code: 0, signal: UInt64(truncating: $0)) }
-                os_log(
-                    .info, log: metricKitLog, "Error type: nsexception (%{public}@: %{public}@)",
-                    exceptionReason.exceptionName, exceptionReason.composedMessage)
             } else if let exceptionType = diagnostic.exceptionType {
                 errorType = .mach
                 machError = Report.MachError(
@@ -159,32 +145,26 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
                 signalError = diagnostic.signal.map { SignalError(code: 0, signal: UInt64(truncating: $0)) }
                 nsexception = nil
                 reason = diagnostic.terminationReason
-                os_log(.default, log: metricKitLog, "Error type: mach (exception=%d)", exceptionType.intValue)
             } else if let sig = diagnostic.signal {
                 errorType = .signal
                 machError = nil
                 signalError = SignalError(code: 0, signal: UInt64(truncating: sig))
                 nsexception = nil
                 reason = diagnostic.terminationReason
-                os_log(.default, log: metricKitLog, "Error type: signal (%d)", sig.intValue)
             } else {
                 errorType = report.crash.error.type
                 machError = nil
                 signalError = nil
                 nsexception = nil
                 reason = diagnostic.terminationReason
-                os_log(.default, log: metricKitLog, "Error type: %{public}@", errorType.rawValue)
             }
 
-            // Parse exit code from termination reason (format: "Namespace <NAME>, Code <VALUE>")
+            // Parse exit code from termination reason
             let exitReason: ExitReasonInfo?
             if let terminationReason = diagnostic.terminationReason,
                 let exitCode = parseExitCode(from: terminationReason)
             {
                 exitReason = ExitReasonInfo(code: exitCode)
-                os_log(
-                    .debug, log: metricKitLog, "Parsed exit code 0x%llx from termination reason: %{public}@",
-                    exitCode, terminationReason)
             } else {
                 exitReason = nil
             }
@@ -198,7 +178,7 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
                 reason: reason
             )
 
-            // Build new crash section with MetricKit threads
+            // Build crash section with MetricKit threads
             let crashedThread: BasicCrashReport.Thread?
             if callStackData.crashedThreadIndex < callStackData.threads.count {
                 crashedThread = callStackData.threads[callStackData.crashedThreadIndex]
@@ -213,7 +193,7 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
                 crashedThread: crashedThread
             )
 
-            // Build system info from MetricKit metadata only.
+            // Build system info from MetricKit metadata.
             // The skeleton report's system info reflects the current session,
             // not the session that crashed, so we discard it entirely.
             let meta = diagnostic.metaData
@@ -247,7 +227,7 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
                 buildType: buildType
             )
 
-            // Construct the fully typed new report
+            // Construct the final report
             let newReport = BasicCrashReport(
                 binaryImages: callStackData.binaryImages,
                 crash: newCrash,
@@ -257,20 +237,21 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
                 system: newSystem
             )
 
-            // Encode and add to the reports directory as a complete report
+            // Encode and add to the reports directory
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.sortedKeys]
-            if let newData = try? encoder.encode(newReport) {
-                newData.withUnsafeBytes { buffer in
-                    guard let ptr = buffer.baseAddress?.assumingMemoryBound(to: CChar.self) else { return }
-                    kscrash_addUserReport(ptr, Int32(buffer.count))
-                }
+            guard let newData = try? encoder.encode(newReport) else {
+                os_log(.error, log: metricKitLog, "[MONITORS] Failed to encode MetricKit crash report")
+                return
+            }
+
+            newData.withUnsafeBytes { buffer in
+                guard let ptr = buffer.baseAddress?.assumingMemoryBound(to: CChar.self) else { return }
+                let reportID = kscrash_addUserReport(ptr, Int32(buffer.count))
                 os_log(
-                    .info, log: metricKitLog,
-                    "MetricKit crash report written to reports directory (%d bytes, %{public}@ error, app version %{public}@)",
-                    newData.count, errorType.rawValue, diagnostic.applicationVersion)
-            } else {
-                os_log(.error, log: metricKitLog, "Failed to encode MetricKit crash report")
+                    .default, log: metricKitLog,
+                    "[MONITORS] Added MetricKit report (id=%lld, %d bytes, %{public}@ error, app %{public}@)",
+                    reportID, buffer.count, errorType.rawValue, diagnostic.applicationVersion)
             }
         }
 
@@ -288,9 +269,6 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
     /// Format: "<Name> <Version> (<Build>)" e.g. "iPhone OS 26.2.1 (23C71)"
     /// Falls back to using the raw string as systemVersion if parsing fails.
     func parseOSVersion(_ raw: String) -> OSVersionInfo {
-        // Match: "<name> <version> (<build>)"
-        // Name can be multiple words (e.g. "iPhone OS"), version is digits/dots,
-        // build is inside parentheses.
         let pattern = #"^(.+?)\s+([\d.]+)\s+\((.+)\)$"#
         guard let regex = try? NSRegularExpression(pattern: pattern),
             let match = regex.firstMatch(in: raw, range: NSRange(raw.startIndex..., in: raw)),

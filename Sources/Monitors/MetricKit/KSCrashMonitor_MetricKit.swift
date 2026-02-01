@@ -90,7 +90,6 @@ private func metricKitMonitorInit(
     _ callbacks: UnsafeMutablePointer<KSCrash_ExceptionHandlerCallbacks>?
 ) {
     MetricKitMonitor.callbacks = callbacks?.pointee
-    os_log(.default, log: metricKitLog, "MetricKit monitor initialized")
 }
 
 private func metricKitMonitorGetId() -> UnsafePointer<CChar>? {
@@ -109,13 +108,13 @@ private func metricKitMonitorSetEnabled(_ isEnabled: Bool) {
                     let newReceiver = MetricKitReceiver()
                     MetricKitMonitor.receiver = newReceiver
                     MXMetricManager.shared.add(newReceiver)
-                    os_log(.default, log: metricKitLog, "Subscribed to MXMetricManager for diagnostic payloads")
+                    os_log(.default, log: metricKitLog, "[MONITORS] Subscribed to MXMetricManager")
                 }
             } else {
                 if let existing = MetricKitMonitor.receiver {
                     MXMetricManager.shared.remove(existing)
                     MetricKitMonitor.receiver = nil
-                    os_log(.default, log: metricKitLog, "Unsubscribed from MXMetricManager")
+                    os_log(.default, log: metricKitLog, "[MONITORS] Unsubscribed from MXMetricManager")
                 }
             }
         }

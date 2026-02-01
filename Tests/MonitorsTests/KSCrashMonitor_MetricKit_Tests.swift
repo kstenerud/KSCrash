@@ -137,6 +137,28 @@ final class KSCrashMonitor_MetricKit_Tests: XCTestCase {
             XCTAssertTrue(flattened.isEmpty)
         }
 
+        func testFlattenFramesPreservesUUID() {
+            let frames: [Frame] = [
+                Frame(
+                    address: 0x1000, binaryUUID: "ABC-123", binaryName: "MyApp",
+                    offsetIntoBinaryTextSegment: 0x100,
+                    subFrames: [
+                        Frame(
+                            address: 0x2000, binaryUUID: "DEF-456", binaryName: "Foundation",
+                            offsetIntoBinaryTextSegment: 0x200, subFrames: nil)
+                    ]),
+                Frame(
+                    address: 0x3000, binaryUUID: nil, binaryName: "Unknown",
+                    offsetIntoBinaryTextSegment: nil, subFrames: nil),
+            ]
+
+            let flattened = flattenFrames(frames)
+            XCTAssertEqual(flattened.count, 3)
+            XCTAssertEqual(flattened[0].binaryUUID, "ABC-123")
+            XCTAssertEqual(flattened[1].binaryUUID, "DEF-456")
+            XCTAssertNil(flattened[2].binaryUUID)
+        }
+
         // MARK: - Exit Code Parsing
 
         func testParseExitCodeHex() {

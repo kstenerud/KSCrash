@@ -126,6 +126,7 @@ final class CrashReportEncodingTests: XCTestCase {
                                     instructionAddr: 0x1000,
                                     objectAddr: 0x8000,
                                     objectName: "App",
+                                    objectUUID: "ABC-123",
                                     symbolAddr: 0x0FF0,
                                     symbolName: "main"
                                 ),
@@ -198,7 +199,9 @@ final class CrashReportEncodingTests: XCTestCase {
         XCTAssertEqual(thread0?.index, 0)
         XCTAssertEqual(thread0?.backtrace?.contents.count, 2)
         XCTAssertEqual(thread0?.backtrace?.contents[0].instructionAddr, 0x1000)
+        XCTAssertEqual(thread0?.backtrace?.contents[0].objectUUID, "ABC-123")
         XCTAssertEqual(thread0?.backtrace?.contents[0].symbolName, "main")
+        XCTAssertNil(thread0?.backtrace?.contents[1].objectUUID)
         XCTAssertEqual(thread0?.backtrace?.skipped, 0)
 
         let thread1 = roundTripped.crash.threads?[1]
@@ -264,6 +267,44 @@ final class CrashReportEncodingTests: XCTestCase {
         XCTAssertNil(roundTripped.crash.diagnosis)
     }
 
+    func testStackFrameObjectUUIDRoundTrip() throws {
+        let report = BasicCrashReport(
+            crash: BasicCrashReport.Crash(
+                error: CrashError(type: .mach),
+                threads: [
+                    BasicCrashReport.Thread(
+                        backtrace: Backtrace(
+                            contents: [
+                                StackFrame(
+                                    instructionAddr: 0x1000,
+                                    objectAddr: 0x8000,
+                                    objectName: "App",
+                                    objectUUID: "AABBCCDD-1122-3344-5566-778899AABBCC"
+                                ),
+                                StackFrame(
+                                    instructionAddr: 0x2000
+                                ),
+                            ],
+                            skipped: 0
+                        ),
+                        crashed: true,
+                        currentThread: true,
+                        index: 0
+                    )
+                ]
+            ),
+            report: ReportInfo(id: "uuid-test")
+        )
+
+        let (_, roundTripped) = try roundTrip(report)
+
+        let frames = roundTripped.crash.threads?[0].backtrace?.contents
+        XCTAssertEqual(frames?[0].objectUUID, "AABBCCDD-1122-3344-5566-778899AABBCC")
+        XCTAssertEqual(frames?[0].objectName, "App")
+        XCTAssertEqual(frames?[0].objectAddr, 0x8000)
+        XCTAssertNil(frames?[1].objectUUID)
+    }
+
     // MARK: - Encoding Key Verification
 
     func testEncodingUsesSnakeCaseKeys() throws {
@@ -281,6 +322,15 @@ final class CrashReportEncodingTests: XCTestCase {
                 error: CrashError(type: .mach),
                 threads: [
                     BasicCrashReport.Thread(
+                        backtrace: Backtrace(
+                            contents: [
+                                StackFrame(
+                                    instructionAddr: 0x1000,
+                                    objectUUID: "TEST-UUID"
+                                )
+                            ],
+                            skipped: 0
+                        ),
                         crashed: true,
                         currentThread: true,
                         index: 0
@@ -312,6 +362,12 @@ final class CrashReportEncodingTests: XCTestCase {
         // Thread keys
         let threads = crash["threads"] as! [[String: Any]]
         XCTAssertNotNil(threads[0]["current_thread"])
+
+        // Stack frame keys
+        let backtrace = threads[0]["backtrace"] as! [String: Any]
+        let frames = backtrace["contents"] as! [[String: Any]]
+        XCTAssertNotNil(frames[0]["object_uuid"])
+        XCTAssertNotNil(frames[0]["instruction_addr"])
 
         // Binary image keys
         let images = json["binary_images"] as! [[String: Any]]
