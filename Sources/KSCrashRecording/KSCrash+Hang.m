@@ -1,7 +1,7 @@
 //
-//  KSHang.m
+//  KSCrash+Hang.m
 //
-//  Created by Alexander Cohen on 2025-12-08.
+//  Created by Alexander Cohen on 2026-01-28.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,37 +24,54 @@
 // THE SOFTWARE.
 //
 
-#import "KSHang.h"
+#import "KSCrash+Hang.h"
 
-@implementation KSHang
+/** ObjC wrapper that ties a block observer to the C observer API.
+ *  Calls kshang_removeHangObserver on dealloc for automatic cleanup.
+ */
+@interface KSHangBlockObserver : NSObject {
+   @package
+    KSHangObserverToken _token;
+    KSHangObserverBlock _block;
+}
+@end
 
-- (instancetype)initWithTimestamp:(uint64_t)timestamp role:(task_role_t)role
+static void hangObserverTrampoline(KSHangChangeType change, uint64_t start, uint64_t end, void *context)
+{
+    KSHangBlockObserver *obj = (__bridge KSHangBlockObserver *)context;
+    if (obj->_block) {
+        obj->_block(change, start, end);
+    }
+}
+
+@implementation KSHangBlockObserver
+
+- (instancetype)initWithBlock:(KSHangObserverBlock)block
 {
     if ((self = [super init])) {
-        _timestamp = timestamp;
-        _role = role;
-        _endTimestamp = timestamp;
-        _endRole = role;
+        _block = [block copy];
+        _token = kshang_addHangObserver(hangObserverTrampoline, (__bridge void *)self);
+        if (_token == KSHangObserverTokenNotFound) {
+            return nil;
+        }
     }
     return self;
 }
 
-- (NSTimeInterval)interval
+- (void)dealloc
 {
-    return (double)(self.endTimestamp - self.timestamp) / 1000000000.0;
+    if (_token != KSHangObserverTokenNotFound) {
+        kshang_removeHangObserver(_token);
+    }
 }
 
-- (id)copyWithZone:(NSZone *)zone
+@end
+
+@implementation KSCrash (Hang)
+
+- (id)addHangObserver:(KSHangObserverBlock)observer
 {
-    KSHang *copy = [[KSHang allocWithZone:zone] init];
-    copy.timestamp = self.timestamp;
-    copy.role = self.role;
-    copy.endTimestamp = self.endTimestamp;
-    copy.endRole = self.endRole;
-    copy.reportId = self.reportId;
-    copy.path = [self.path copy];
-    copy.decodedReport = [self.decodedReport mutableCopy];
-    return copy;
+    return [[KSHangBlockObserver alloc] initWithBlock:observer];
 }
 
 @end
