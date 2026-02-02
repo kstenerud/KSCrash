@@ -95,7 +95,6 @@ typedef struct KSHangMonitor {
 
 static atomic_bool g_isEnabled = false;
 static KSHangMonitor *g_watchdog = NULL;
-static KSThread g_mainQueueThread = 0;
 static KSCrash_ExceptionHandlerCallbacks g_callbacks = { 0 };
 
 // ============================================================================
@@ -218,12 +217,12 @@ static void populateReportForCurrentHang(KSHangMonitor *monitor)
     }
 
     KSCrash_MonitorContext *crashContext = g_callbacks.notify(
-        (thread_t)g_mainQueueThread,
+        (thread_t)ksthread_main(),
         (KSCrash_ExceptionHandlingRequirements) {
             .asyncSafety = false, .isFatal = false, .shouldRecordAllThreads = true, .shouldWriteReport = true });
 
     KSMachineContext machineContext = { 0 };
-    ksmc_getContextForThreadCheckingStackOverflow(g_mainQueueThread, &machineContext, true, false);
+    ksmc_getContextForThreadCheckingStackOverflow(ksthread_main(), &machineContext, true, false);
     KSStackCursor stackCursor;
     kssc_initWithUnwind(&stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
 
@@ -637,18 +636,4 @@ KSCrashMonitorAPI *kscm_watchdog_getAPI(void)
         api.stitchReport = kscm_watchdog_stitchReport;
     }
     return &api;
-}
-
-__attribute__((constructor)) static void kscm_watchdog_constructor(void)
-{
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        if (pthread_main_np() != 0) {
-            g_mainQueueThread = ksthread_self();
-        } else {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                g_mainQueueThread = ksthread_self();
-            });
-        }
-    });
 }

@@ -62,6 +62,12 @@
     XCTAssertTrue(success, @"");
 }
 
+- (void)testMainThread
+{
+    KSThread mainThread = ksthread_main();
+    XCTAssertNotEqual(mainThread, 0);
+}
+
 - (void)testStateName
 {
     int state = 0;

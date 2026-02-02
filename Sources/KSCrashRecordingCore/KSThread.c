@@ -60,6 +60,12 @@ KSThread ksthread_self(void)
     return (KSThread)thread_self;
 }
 
+static KSThread g_mainThread;
+
+__attribute__((constructor)) static void ksthread_storeMainThread(void) { g_mainThread = ksthread_self(); }
+
+KSThread ksthread_main(void) { return g_mainThread; }
+
 bool ksthread_getThreadName(const KSThread thread, char *const buffer, int bufLength)
 {
     // WARNING: This implementation is no longer async-safe!

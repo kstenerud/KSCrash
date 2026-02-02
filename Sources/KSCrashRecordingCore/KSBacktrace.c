@@ -27,6 +27,7 @@
 #include "KSBacktrace.h"
 
 #include <TargetConditionals.h>
+#include <stdatomic.h>
 #include <sys/param.h>
 
 #include "KSBinaryImageCache.h"
@@ -39,6 +40,8 @@
 #include "KSSymbolicator.h"
 #include "KSThread.h"
 #include "Unwind/KSStackCursor_Unwind.h"
+
+static atomic_flag g_captureLock = ATOMIC_FLAG_INIT;
 
 static int captureBacktraceFromSelf(uintptr_t *addresses, int maxFrames, bool *isTruncated)
 {
@@ -59,10 +62,19 @@ static int captureBacktraceFromSelf(uintptr_t *addresses, int maxFrames, bool *i
 
 static int captureBacktraceFromOtherThread(thread_t machThread, uintptr_t *addresses, int maxFrames, bool *isTruncated)
 {
+    if (atomic_flag_test_and_set(&g_captureLock)) {
+        KSLOG_ERROR("captureBacktraceFromOtherThread: another capture is already in progress");
+        if (isTruncated) {
+            *isTruncated = false;
+        }
+        return 0;
+    }
+
 #if !TARGET_OS_WATCH
     kern_return_t kr = thread_suspend(machThread);
     if (kr != KERN_SUCCESS) {
         KSLOG_ERROR("thread_suspend (0x%x) failed: %d", machThread, kr);
+        atomic_flag_clear(&g_captureLock);
         if (isTruncated) {
             *isTruncated = false;
         }
@@ -99,6 +111,7 @@ static int captureBacktraceFromOtherThread(thread_t machThread, uintptr_t *addre
     }
 #endif
 
+    atomic_flag_clear(&g_captureLock);
     return frameCount;
 }
 
