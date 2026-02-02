@@ -185,10 +185,10 @@ let warningFlags = [
 let package = Package(
     name: "KSCrash",
     platforms: [
-        .iOS(.v15),
-        .tvOS(.v15),
-        .watchOS(.v8),
-        .macOS(.v13),
+        .iOS(.v12),
+        .tvOS(.v12),
+        .watchOS(.v5),
+        .macOS(.v10_14),
     ],
     products: [
         .library(
