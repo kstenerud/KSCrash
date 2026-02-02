@@ -298,6 +298,25 @@ When in doubt, check the POSIX list of async-signal-safe functions and follow th
 
 ## Code Style Guidelines
 
+### Inline Comments
+
+Comment for your future self — the person who has to change this code safely without re-deriving the scary parts. Focus on:
+
+- **Invariants that would break silently**: lock ordering, why a field is atomic (or isn't), why something is intentionally *not* guarded.
+- **Non-obvious "why"**: if the reason for a choice isn't clear from the code alone, say why. "Load enterTime once — a second load could see a newer value if the main thread briefly woke" is useful. "Loads enterTime" is not.
+- **Threading contracts**: which thread runs a function, and what's safe to touch from it.
+- **Simulated or fake values**: when code produces synthetic data (e.g., faking a SIGKILL for watchdog reports), say what it's mimicking and who undoes it.
+- **Crash-time constraints**: if code runs in a signal handler or with all threads suspended, say so and say what that means (no lock, no ObjC, etc.).
+
+Do **not** comment:
+- What a function does when the name already says it (`monotonicUptime`, `currentTaskRole`).
+- Every struct field — only the ones with non-obvious lifetimes, ownership, or threading rules.
+- Obvious control flow or standard patterns.
+
+A good test: if removing the comment would make a future change risky, keep it. If the code reads fine without it, skip it.
+
+### Formatting
+
 - C/C++/Objective-C: Follow clang-format style defined in the project
 - Swift: Follow Swift standard conventions and Xcode's recommended settings
 - Formatting applies to files with extensions: .c, .cpp, .h, .m, .mm

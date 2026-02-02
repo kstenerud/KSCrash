@@ -80,12 +80,6 @@ static inline void kshangstate_init(KSHangState *state, uint64_t timestamp, task
 /** Clear a hang state to its zero/inactive state. */
 static inline void kshangstate_clear(KSHangState *state) { memset(state, 0, sizeof(*state)); }
 
-/** Returns the duration of the hang in seconds. */
-static inline double kshangstate_interval(const KSHangState *state)
-{
-    return (double)(state->endTimestamp - state->timestamp) / 1000000000.0;
-}
-
 #ifdef __cplusplus
 }
 #endif
