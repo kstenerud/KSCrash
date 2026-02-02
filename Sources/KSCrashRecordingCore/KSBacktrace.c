@@ -115,16 +115,6 @@ static int captureBacktraceFromOtherThread(thread_t machThread, uintptr_t *addre
     return frameCount;
 }
 
-int ksbt_captureBacktraceFromMachThread(thread_t machThread, uintptr_t *addresses, int count)
-{
-    return ksbt_captureBacktraceFromMachThreadWithTruncation(machThread, addresses, count, NULL);
-}
-
-int ksbt_captureBacktrace(pthread_t thread, uintptr_t *addresses, int count)
-{
-    return ksbt_captureBacktraceFromMachThread(pthread_mach_thread_np(thread), addresses, count);
-}
-
 int ksbt_captureBacktraceFromMachThreadWithTruncation(thread_t machThread, uintptr_t *addresses, int count,
                                                       bool *isTruncated)
 {
@@ -141,6 +131,16 @@ int ksbt_captureBacktraceFromMachThreadWithTruncation(thread_t machThread, uintp
         return captureBacktraceFromSelf(addresses, maxFrames, isTruncated);
     }
     return captureBacktraceFromOtherThread(machThread, addresses, maxFrames, isTruncated);
+}
+
+int ksbt_captureBacktraceFromMachThread(thread_t machThread, uintptr_t *addresses, int count)
+{
+    return ksbt_captureBacktraceFromMachThreadWithTruncation(machThread, addresses, count, NULL);
+}
+
+int ksbt_captureBacktrace(pthread_t thread, uintptr_t *addresses, int count)
+{
+    return ksbt_captureBacktraceFromMachThread(pthread_mach_thread_np(thread), addresses, count);
 }
 
 int ksbt_captureBacktraceWithTruncation(pthread_t thread, uintptr_t *addresses, int count, bool *isTruncated)
