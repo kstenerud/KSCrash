@@ -52,7 +52,7 @@ typedef struct {
     bool recovered;
 } KSHangSidecar;
 
-// Expected layout (arm64/x86_64):
+// Expected layout (same on 32-bit and 64-bit — no pointer-sized fields):
 //   offset  0: int32_t    magic          (4 bytes)
 //   offset  4: uint8_t    version        (1 byte + 3 padding)
 //   offset  8: uint64_t   endTimestamp   (8 bytes)

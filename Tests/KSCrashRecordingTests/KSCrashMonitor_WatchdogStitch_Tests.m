@@ -436,4 +436,104 @@ static NSDictionary *dictFromCString(const char *json)
     XCTAssertTrue(result == NULL);
 }
 
+#pragma mark - Malformed Reports
+
+- (void)testMissingCrashKeyReturnsNull
+{
+    KSHangSidecar sc = {
+        .magic = KSHANG_SIDECAR_MAGIC,
+        .version = KSHANG_SIDECAR_VERSION_1_0,
+        .endTimestamp = 1000,
+        .endRole = TASK_DEFAULT_APPLICATION,
+        .recovered = false,
+    };
+    NSString *path = writeSidecar(self.tempDir, sc);
+
+    NSDictionary *report = @{ @"other" : @"value" };
+    NSString *json = jsonString(report);
+
+    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String);
+    XCTAssertTrue(result == NULL);
+}
+
+- (void)testCrashIsNSNullReturnsNull
+{
+    KSHangSidecar sc = {
+        .magic = KSHANG_SIDECAR_MAGIC,
+        .version = KSHANG_SIDECAR_VERSION_1_0,
+        .endTimestamp = 1000,
+        .endRole = TASK_DEFAULT_APPLICATION,
+        .recovered = false,
+    };
+    NSString *path = writeSidecar(self.tempDir, sc);
+
+    NSDictionary *report = @{ @"crash" : [NSNull null] };
+    NSString *json = jsonString(report);
+
+    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String);
+    XCTAssertTrue(result == NULL);
+}
+
+- (void)testErrorIsNSNullReturnsNull
+{
+    KSHangSidecar sc = {
+        .magic = KSHANG_SIDECAR_MAGIC,
+        .version = KSHANG_SIDECAR_VERSION_1_0,
+        .endTimestamp = 1000,
+        .endRole = TASK_DEFAULT_APPLICATION,
+        .recovered = false,
+    };
+    NSString *path = writeSidecar(self.tempDir, sc);
+
+    NSDictionary *report = @{ @"crash" : @ { @"error" : [NSNull null] } };
+    NSString *json = jsonString(report);
+
+    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String);
+    XCTAssertTrue(result == NULL);
+}
+
+- (void)testHangIsNSNullReturnsNull
+{
+    KSHangSidecar sc = {
+        .magic = KSHANG_SIDECAR_MAGIC,
+        .version = KSHANG_SIDECAR_VERSION_1_0,
+        .endTimestamp = 1000,
+        .endRole = TASK_DEFAULT_APPLICATION,
+        .recovered = false,
+    };
+    NSString *path = writeSidecar(self.tempDir, sc);
+
+    NSDictionary *report = @{ @"crash" : @ { @"error" : @ { @"type" : @"signal", @"hang" : [NSNull null] } } };
+    NSString *json = jsonString(report);
+
+    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String);
+    XCTAssertTrue(result == NULL);
+}
+
+#pragma mark - End Role
+
+- (void)testStitchUpdatesHangEndRole
+{
+    KSHangSidecar sc = {
+        .magic = KSHANG_SIDECAR_MAGIC,
+        .version = KSHANG_SIDECAR_VERSION_1_0,
+        .endTimestamp = 5000,
+        .endRole = TASK_DEFAULT_APPLICATION,
+        .recovered = false,
+    };
+    NSString *path = writeSidecar(self.tempDir, sc);
+
+    NSDictionary *report = makeMinimalHangReport(1000, @"foreground");
+    NSString *json = jsonString(report);
+
+    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String);
+    XCTAssertTrue(result != NULL);
+
+    NSDictionary *stitched = dictFromCString(result);
+    free(result);
+
+    NSDictionary *hang = stitched[@"crash"][@"error"][@"hang"];
+    XCTAssertEqualObjects(hang[@"hang_end_role"], @"DEFAULT_APPLICATION");
+}
+
 @end

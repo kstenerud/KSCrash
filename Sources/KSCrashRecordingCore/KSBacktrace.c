@@ -41,6 +41,13 @@
 #include "KSThread.h"
 #include "Unwind/KSStackCursor_Unwind.h"
 
+// Guards concurrent access to thread_suspend/thread_resume in captureBacktraceFromOtherThread.
+// Only one remote-thread capture can be in flight at a time. Concurrent callers (e.g., profiler
+// sampling while a crash/hang capture is happening) will get 0 frames rather than risk suspending
+// an already-suspended thread. Callers should treat 0 frames as "capture unavailable, retry later".
+//
+// TODO: Extend this to give priority to captures from the crash pipeline so that crash/hang
+// backtraces always succeed and profiler sampling yields instead.
 static atomic_flag g_captureLock = ATOMIC_FLAG_INIT;
 
 static int captureBacktraceFromSelf(uintptr_t *addresses, int maxFrames, bool *isTruncated)

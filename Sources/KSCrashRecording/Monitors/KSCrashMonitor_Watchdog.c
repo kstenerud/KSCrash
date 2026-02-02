@@ -602,6 +602,10 @@ static void setEnabled(bool isEnabled)
 
     if (isEnabled) {
         g_watchdog = watchdog_create(CFRunLoopGetMain(), 0.249);
+        if (!g_watchdog) {
+            atomic_store(&g_isEnabled, false);
+            return;
+        }
     } else {
         KSHangMonitor *old = g_watchdog;
         g_watchdog = NULL;

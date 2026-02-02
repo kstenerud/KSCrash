@@ -79,13 +79,27 @@ char *kscm_watchdog_stitchReport(const char *report, int64_t reportID, const cha
     // Navigate to crash.error.hang
     // Note: KSJSONCodec builds all containers as NSMutableDictionary/NSMutableArray
     // (see onBeginObject/onBeginArray in KSJSONCodecObjC.m), so no mutableCopy needed.
-    NSMutableDictionary *crash = dict[KSCrashField_Crash];
-    NSMutableDictionary *errorDict = crash[KSCrashField_Error];
-    NSMutableDictionary *hang = errorDict[KSCrashField_Hang];
-
-    if (!hang) {
+    // Type-check each level to guard against malformed reports or NSNull values.
+    id crashVal = dict[KSCrashField_Crash];
+    if (![crashVal isKindOfClass:[NSMutableDictionary class]]) {
+        KSLOG_ERROR(@"Malformed report: 'crash' is missing or not a dictionary");
         return NULL;
     }
+    NSMutableDictionary *crash = crashVal;
+
+    id errorVal = crash[KSCrashField_Error];
+    if (![errorVal isKindOfClass:[NSMutableDictionary class]]) {
+        KSLOG_ERROR(@"Malformed report: 'error' is missing or not a dictionary");
+        return NULL;
+    }
+    NSMutableDictionary *errorDict = errorVal;
+
+    id hangVal = errorDict[KSCrashField_Hang];
+    if (![hangVal isKindOfClass:[NSMutableDictionary class]]) {
+        KSLOG_ERROR(@"Malformed report: 'hang' is missing or not a dictionary");
+        return NULL;
+    }
+    NSMutableDictionary *hang = hangVal;
 
     // Update end timestamps from sidecar
     hang[KSCrashField_HangEndNanoseconds] = @(endTimestamp);
