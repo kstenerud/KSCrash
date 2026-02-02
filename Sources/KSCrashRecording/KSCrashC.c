@@ -58,6 +58,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <uuid/uuid.h>
 
 #include "KSLogger.h"
 
@@ -116,6 +117,10 @@ static KSCrashWillWriteReportCallback g_willWriteReportCallback;
 static KSCrashIsWritingReportCallback g_isWritingReportCallback;
 static KSCrashDidWriteReportCallback g_didWriteReportCallback;
 static KSApplicationState g_lastApplicationState = KSApplicationStateNone;
+
+// Run ID: a UUID generated once during kscrash_install().
+// Read-only after that, so safe to access from crash handlers.
+static char g_runID[37];
 
 // ============================================================================
 #pragma mark - Utility -
@@ -331,6 +336,11 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
 
     handleConfiguration(configuration);
 
+    // Generate run ID now so it's available async-signal-safe from crash handlers.
+    uuid_t uuid;
+    uuid_generate(uuid);
+    uuid_unparse_lower(uuid, g_runID);
+
     if (g_reportStoreConfig.appName == NULL) {
         g_reportStoreConfig.appName = strdup(appName);
     }
@@ -447,3 +457,5 @@ int64_t kscrash_addUserReport(const char *report, int reportLength)
 {
     return kscrs_addUserReport(report, reportLength, &g_reportStoreConfig);
 }
+
+const char *kscrash_getRunID(void) { return g_runID; }

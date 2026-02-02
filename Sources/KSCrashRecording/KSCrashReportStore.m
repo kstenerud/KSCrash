@@ -27,6 +27,7 @@
 #import "KSCrashReportStore.h"
 
 #import "KSCrash+Private.h"
+#import "KSCrashC.h"
 #import "KSCrashConfiguration+Private.h"
 #import "KSCrashReport.h"
 #import "KSCrashReportFields.h"
@@ -82,7 +83,20 @@
 
 - (void)sendAllReportsWithCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
-    NSArray *reports = [self allReports];
+    NSArray *allReports = [self allReports];
+
+    // Reports from the current run may still be updated, so only send
+    // ones we know are complete.
+    NSString *currentRunID = [NSString stringWithUTF8String:kscrash_getRunID()];
+    NSMutableArray *reports = [NSMutableArray arrayWithCapacity:allReports.count];
+    for (KSCrashReportDictionary *report in allReports) {
+        NSString *reportRunID = report.value[@"report"][@"run_id"];
+        if ([reportRunID isEqualToString:currentRunID]) {
+            KSLOG_INFO(@"Skipping report from current run (run_id: %@)", currentRunID);
+            continue;
+        }
+        [reports addObject:report];
+    }
 
     KSLOG_INFO(@"Sending %d crash reports", [reports count]);
 
@@ -96,6 +110,52 @@
              if ((self.reportCleanupPolicy == KSCrashReportCleanupPolicyOnSuccess && error == nil) ||
                  self.reportCleanupPolicy == KSCrashReportCleanupPolicyAlways) {
                  [weakSelf deleteAllReports];
+             }
+             kscrash_callCompletion(onCompletion, filteredReports, error);
+         }];
+}
+
+- (void)sendReportWithID:(int64_t)reportID completion:(nullable KSCrashReportFilterCompletion)onCompletion
+{
+    [self sendReportWithID:reportID includeCurrentRun:YES completion:onCompletion];
+}
+
+- (void)sendReportWithID:(int64_t)reportID
+       includeCurrentRun:(BOOL)includeCurrentRun
+              completion:(nullable KSCrashReportFilterCompletion)onCompletion
+{
+    KSCrashReportDictionary *report = [self reportForID:reportID];
+    if (report == nil) {
+        kscrash_callCompletion(onCompletion, @[],
+                               [KSNSErrorHelper errorWithDomain:[[self class] description]
+                                                           code:0
+                                                    description:@"Report not found."]);
+        return;
+    }
+
+    if (!includeCurrentRun) {
+        NSString *currentRunID = [NSString stringWithUTF8String:kscrash_getRunID()];
+        NSString *reportRunID = report.value[@"report"][@"run_id"];
+        if ([reportRunID isEqualToString:currentRunID]) {
+            KSLOG_INFO(@"Skipping report from current run (run_id: %@)", currentRunID);
+            kscrash_callCompletion(
+                onCompletion, @[],
+                [KSNSErrorHelper errorWithDomain:[[self class] description]
+                                            code:0
+                                     description:@"Report belongs to the current run and may still be updated."]);
+            return;
+        }
+    }
+
+    __weak __typeof(self) weakSelf = self;
+    [self sendReports:@[ report ]
+         onCompletion:^(NSArray *filteredReports, NSError *error) {
+             if (error != nil) {
+                 KSLOG_ERROR(@"Failed to send report: %@", error);
+             }
+             if ((self.reportCleanupPolicy == KSCrashReportCleanupPolicyOnSuccess && error == nil) ||
+                 self.reportCleanupPolicy == KSCrashReportCleanupPolicyAlways) {
+                 [weakSelf deleteReportWithID:reportID];
              }
              kscrash_callCompletion(onCompletion, filteredReports, error);
          }];

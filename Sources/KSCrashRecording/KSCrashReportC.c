@@ -28,6 +28,7 @@
 
 #include "KSBinaryImageCache.h"
 #include "KSCPU.h"
+#include "KSCrashC.h"
 #include "KSCrashExceptionHandlingPlan+Private.h"
 #include "KSCrashMonitorHelper.h"
 #include "KSCrashMonitor_AppState.h"
@@ -1491,6 +1492,7 @@ static void writeReportInfo(const KSCrashReportWriter *const writer, const char 
         writer->addStringElement(writer, KSCrashField_ProcessName, processName);
         writer->addUIntegerElement(writer, KSCrashField_Timestamp, ksdate_microseconds());
         writer->addStringElement(writer, KSCrashField_Type, type);
+        writer->addStringElement(writer, KSCrashField_RunID, kscrash_getRunID());
     }
     writer->endContainer(writer);
 }

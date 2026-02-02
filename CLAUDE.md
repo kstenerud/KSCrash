@@ -296,6 +296,31 @@ The sidecars directory is configured via `KSCrashReportStoreCConfiguration.sidec
 
 When in doubt, check the POSIX list of async-signal-safe functions and follow the patterns established in existing crash handling code.
 
+## Verbose Logging
+
+KSLogger uses compile-time log levels for async-signal-safety. To enable verbose logging during development, pass the log level as a compiler flag:
+
+```bash
+swift build -Xcc -DKSLogger_Level=50
+swift test -Xcc -DKSLogger_Level=50
+```
+
+Log levels: `ERROR=10`, `WARN=20`, `INFO=30`, `DEBUG=40`, `TRACE=50`.
+
+## Run ID
+
+Each process generates a UUID (`run_id`) once during `kscrash_install()`. This ID is written into the `"report"` section of every crash report.
+
+**Purpose**: Reports from the current run may still be updated (e.g., watchdog hang reports that get resolved). `sendAllReportsWithCompletion:` automatically excludes reports whose `run_id` matches the current process. To force-send a current-run report, use `sendReportWithID:includeCurrentRun:completion:` with `includeCurrentRun:YES`.
+
+**Async-signal-safety**: `kscrash_getRunID()` returns a pointer to a static buffer that is written once during install and read-only afterward, so it is safe to call from crash handlers.
+
+**Key files**:
+- `KSCrashC.c` / `KSCrashC.h`: UUID generation and `kscrash_getRunID()`
+- `KSCrashReportC.c`: Writes `run_id` into the report's `"report"` section
+- `KSCrashReportStore.m` / `KSCrashReportStore.h`: Filtering logic and `sendReportWithID:` API
+- `ReportInfo.swift`: `runId` property on the Swift report model
+
 ## Code Style Guidelines
 
 ### Inline Comments

@@ -69,12 +69,16 @@ public struct ReportInfo: Decodable, Sendable {
     /// Report format version.
     public let version: ReportVersion?
 
+    /// The run ID of the process that generated this report.
+    public let runId: String?
+
     enum CodingKeys: String, CodingKey {
         case id
         case processName = "process_name"
         case timestamp
         case type
         case version
+        case runId = "run_id"
     }
 
     public init(from decoder: Decoder) throws {
@@ -83,6 +87,7 @@ public struct ReportInfo: Decodable, Sendable {
         self.processName = try container.decodeIfPresent(String.self, forKey: .processName)
         self.type = try container.decodeIfPresent(ReportType.self, forKey: .type)
         self.version = try container.decodeIfPresent(ReportVersion.self, forKey: .version)
+        self.runId = try container.decodeIfPresent(String.self, forKey: .runId)
 
         // Timestamp can be ISO 8601 string or microseconds since epoch
         if let microseconds = try? container.decode(Int64.self, forKey: .timestamp) {

@@ -170,6 +170,17 @@ void kscrash_notifyAppCrash(void);
  */
 int64_t kscrash_addUserReport(const char *report, int reportLength);
 
+/** Get the run ID for the current process.
+ *
+ * Returns a UUID string generated once during kscrash_install().
+ * The returned buffer is read-only after install, so this is
+ * async-signal-safe and can be called from crash handlers.
+ *
+ * @return A null-terminated UUID string (lowercase, 36 characters).
+ *         The returned pointer is valid for the lifetime of the process.
+ */
+const char *kscrash_getRunID(void);
+
 #ifdef __cplusplus
 }
 #endif

@@ -29,6 +29,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <dispatch/dispatch.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <limits.h>
 #include <mach/mach.h>
 #include <mach/task_policy.h>
@@ -347,6 +348,8 @@ static void populateReportForCurrentHang(KSHangMonitor *monitor)
     }
     os_unfair_lock_unlock(&monitor->lock);
 
+    KSLOG_INFO("Hang started (reportID: %" PRIx64 ")", result.reportId);
+
     notifyObservers(monitor, KSHangChangeTypeStarted, hang.timestamp, hang.endTimestamp);
 }
 
@@ -382,6 +385,9 @@ static void finalizeResolvedHang(KSHangMonitor *monitor, KSHangState hang)
     } else {
         sidecar_delete(monitor);
     }
+
+    KSLOG_INFO("Hang ended (reportID: %" PRIx64 ", duration: %.3f s)", hang.reportId,
+               (double)(hang.endTimestamp - hang.timestamp) / 1e9);
 
     notifyObservers(monitor, KSHangChangeTypeEnded, hang.timestamp, hang.endTimestamp);
 }

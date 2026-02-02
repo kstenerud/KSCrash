@@ -215,6 +215,7 @@ KSCRF_DEFINE_CONSTANT(KSCrashField, Threads, threads, "threads")
 KSCRF_DEFINE_CONSTANT(KSCrashField, User, user, "user")
 KSCRF_DEFINE_CONSTANT(KSCrashField, ConsoleLog, consoleLog, "console_log")
 KSCRF_DEFINE_CONSTANT(KSCrashField, Incomplete, incomplete, "incomplete")
+KSCRF_DEFINE_CONSTANT(KSCrashField, RunID, runID, "run_id")
 KSCRF_DEFINE_CONSTANT(KSCrashField, RecrashReport, recrashReport, "recrash_report")
 
 KSCRF_DEFINE_CONSTANT(KSCrashField, AppStartTime, appStartTime, "app_start_time")
