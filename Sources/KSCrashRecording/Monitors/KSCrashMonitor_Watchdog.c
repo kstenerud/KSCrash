@@ -134,6 +134,11 @@ typedef struct KSHangMonitor {
     CFRunLoopTimerRef watchdogTimer;
     dispatch_semaphore_t threadExitSemaphore;
 
+    // Set by watchdog_destroy on timeout.  Tells the watchdog thread to
+    // call sidecar_delete + free(monitor) itself when it finally exits,
+    // avoiding a use-after-free if destroy returns before the thread stops.
+    _Atomic bool selfFreeOnExit;
+
     // When false (current default), recovered hang reports are deleted.
     // When true, they're preserved with the sidecar marking them as recovered.
     // TODO: expose through KSCrashCConfiguration.
@@ -537,6 +542,13 @@ static void *watchdog_thread_main(void *arg)
     CFRunLoopRun();
 
     dispatch_semaphore_signal(monitor->threadExitSemaphore);
+
+    // If watchdog_destroy timed out waiting for us, it set selfFreeOnExit
+    // and returned without freeing.  We own the cleanup in that case.
+    if (atomic_load_explicit(&monitor->selfFreeOnExit, memory_order_acquire)) {
+        sidecar_delete(monitor);
+        free(monitor);
+    }
     return NULL;
 }
 
@@ -621,7 +633,11 @@ static void watchdog_destroy(KSHangMonitor *monitor)
     if (monitor->threadExitSemaphore) {
         dispatch_time_t timeout = dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC);
         if (dispatch_semaphore_wait(monitor->threadExitSemaphore, timeout) != 0) {
-            KSLOG_ERROR("Watchdog thread did not exit within 5 seconds");
+            // Thread is still running.  Hand ownership to it so it can
+            // clean up after itself; freeing here would be a UAF.
+            KSLOG_ERROR("Watchdog thread did not exit within 5 seconds; thread will self-free");
+            atomic_store_explicit(&monitor->selfFreeOnExit, true, memory_order_release);
+            return;
         }
     }
 

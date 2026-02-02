@@ -27,7 +27,9 @@
 #import <Foundation/Foundation.h>
 #import <pthread.h>
 
-extern void ksthread_storeMainThread(void);
+#import "KSThread.h"
+
+extern void ksthread_storeMainThreadValue(KSThread thread);
 
 // Captures the main thread's mach port as early as possible so that
 // ksthread_main() can return it later from any context (including
@@ -40,10 +42,10 @@ extern void ksthread_storeMainThread(void);
 __attribute__((constructor(101), used, visibility("default"))) static void ksthread_init(void)
 {
     if (pthread_main_np()) {
-        ksthread_storeMainThread();
+        ksthread_storeMainThreadValue(ksthread_self());
     } else {
         dispatch_async(dispatch_get_main_queue(), ^{
-            ksthread_storeMainThread();
+            ksthread_storeMainThreadValue(ksthread_self());
         });
     }
 }

@@ -70,36 +70,34 @@ char *kscm_watchdog_stitchReport(const char *report, int64_t reportID, const cha
 
     // Decode the report using the same codec the old code used
     NSData *reportData = [NSData dataWithBytesNoCopy:(void *)report length:strlen(report) freeWhenDone:NO];
-    NSMutableDictionary *dict = [[KSJSONCodec decode:reportData options:KSJSONDecodeOptionNone error:nil] mutableCopy];
-    if (!dict) {
+    NSDictionary *decoded = [KSJSONCodec decode:reportData options:KSJSONDecodeOptionNone error:nil];
+    if (![decoded isKindOfClass:[NSDictionary class]]) {
         KSLOG_ERROR(@"Failed to decode report JSON");
         return NULL;
     }
+    NSMutableDictionary *dict = [decoded mutableCopy];
 
-    // Navigate to crash.error.hang
-    // Note: KSJSONCodec builds all containers as NSMutableDictionary/NSMutableArray
-    // (see onBeginObject/onBeginArray in KSJSONCodecObjC.m), so no mutableCopy needed.
-    // Type-check each level to guard against malformed reports or NSNull values.
+    // Navigate to crash.error.hang, mutableCopy-ing only the levels we mutate.
     id crashVal = dict[KSCrashField_Crash];
-    if (![crashVal isKindOfClass:[NSMutableDictionary class]]) {
+    if (![crashVal isKindOfClass:[NSDictionary class]]) {
         KSLOG_ERROR(@"Malformed report: 'crash' is missing or not a dictionary");
         return NULL;
     }
-    NSMutableDictionary *crash = crashVal;
+    NSMutableDictionary *crash = [crashVal mutableCopy];
 
     id errorVal = crash[KSCrashField_Error];
-    if (![errorVal isKindOfClass:[NSMutableDictionary class]]) {
+    if (![errorVal isKindOfClass:[NSDictionary class]]) {
         KSLOG_ERROR(@"Malformed report: 'error' is missing or not a dictionary");
         return NULL;
     }
-    NSMutableDictionary *errorDict = errorVal;
+    NSMutableDictionary *errorDict = [errorVal mutableCopy];
 
     id hangVal = errorDict[KSCrashField_Hang];
-    if (![hangVal isKindOfClass:[NSMutableDictionary class]]) {
+    if (![hangVal isKindOfClass:[NSDictionary class]]) {
         KSLOG_ERROR(@"Malformed report: 'hang' is missing or not a dictionary");
         return NULL;
     }
-    NSMutableDictionary *hang = hangVal;
+    NSMutableDictionary *hang = [hangVal mutableCopy];
 
     // Update end timestamps from sidecar
     hang[KSCrashField_HangEndNanoseconds] = @(endTimestamp);
@@ -117,6 +115,11 @@ char *kscm_watchdog_stitchReport(const char *report, int64_t reportID, const cha
         [errorDict removeObjectForKey:KSCrashField_Mach];
         [errorDict removeObjectForKey:KSCrashField_ExitReason];
     }
+
+    // Write mutable copies back into their parents
+    errorDict[KSCrashField_Hang] = hang;
+    crash[KSCrashField_Error] = errorDict;
+    dict[KSCrashField_Crash] = crash;
 
     // Encode back to JSON
     NSError *error = nil;

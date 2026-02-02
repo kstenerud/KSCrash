@@ -64,10 +64,9 @@ KSThread ksthread_self(void)
 
 static _Atomic KSThread g_mainThread;
 
-void ksthread_storeMainThread(void)
+void ksthread_storeMainThreadValue(KSThread thread)
 {
-    assert(pthread_main_np() && "ksthread_storeMainThread must be called from the main thread");
-    atomic_store_explicit(&g_mainThread, ksthread_self(), memory_order_release);
+    atomic_store_explicit(&g_mainThread, thread, memory_order_release);
 }
 
 KSThread ksthread_main(void) { return atomic_load_explicit(&g_mainThread, memory_order_acquire); }
