@@ -52,6 +52,15 @@ typedef struct {
     bool recovered;
 } KSHangSidecar;
 
+// Expected layout (arm64/x86_64):
+//   offset  0: int32_t    magic          (4 bytes)
+//   offset  4: uint8_t    version        (1 byte + 3 padding)
+//   offset  8: uint64_t   endTimestamp   (8 bytes)
+//   offset 16: task_role_t endRole       (4 bytes)
+//   offset 20: bool       recovered      (1 byte + 3 padding)
+//   total: 24 bytes
+_Static_assert(sizeof(KSHangSidecar) == 24, "KSHangSidecar size changed — update sidecar version");
+
 /** Stitch watchdog sidecar data into a crash report.
  *
  * Called at report delivery time (next app launch) to merge the mmap'd

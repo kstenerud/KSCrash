@@ -186,6 +186,10 @@ KSCrash is implemented as a layered architecture with these key components:
 - **Installations**: Pre-configured setups
 - **Monitors**: Various crash detection mechanisms
 
+## Watchdog Monitor
+
+The watchdog monitor uses a fixed 250ms threshold to detect hangs on the main thread. This threshold is intentionally not configurable — it aligns with Apple's definition of a "hang" (250ms+) and should not be changed. See `KSCrashMonitor_Watchdog.h` for the rationale.
+
 ## Monitor Sidecar Files
 
 Sidecars allow monitors to store auxiliary data alongside crash reports without modifying the main report. This is important for monitors (like the Watchdog) that need to update report data after initial writing — doing so with ObjC JSON parsing during a hang would risk deadlocking on the same runtime locks being monitored.

@@ -76,10 +76,15 @@ typedef struct KSHangMonitor {
     CFRunLoopTimerRef watchdogTimer;
     dispatch_semaphore_t threadExitSemaphore;
 
+    /** When true, recovered hang reports are preserved and delivered with the
+     *  sidecar marking them as recovered.  When false, hang reports are deleted
+     *  once the main thread becomes responsive again.
+     *  Currently hardcoded to false; will be exposed through KSCrashCConfiguration
+     *  in a future release. */
     bool reportsHangs;
     os_unfair_lock lock;
     KSHangState hang;
-    uint64_t enterTime;  // monotonic timestamp when main run loop last woke up
+    _Atomic uint64_t enterTime;  // monotonic timestamp when main run loop last woke up
 
     /** mmap'd sidecar for the current hang, or NULL. */
     KSHangSidecar *sidecar;
@@ -312,7 +317,7 @@ static void handlePing(CFRunLoopTimerRef timer, void *info)
 
     const uint64_t thresholdInNs = (uint64_t)(monitor->threshold * 1000000000);
     uint64_t now = MonotonicUptime();
-    uint64_t hangTime = now - monitor->enterTime;
+    uint64_t hangTime = now - atomic_load(&monitor->enterTime);
 
     if (hangTime < thresholdInNs) {
         return;
@@ -325,7 +330,7 @@ static void handlePing(CFRunLoopTimerRef timer, void *info)
 
     os_unfair_lock_lock(&monitor->lock);
     if (!monitor->hang.active) {
-        kshangstate_init(&monitor->hang, monitor->enterTime, currentRole);
+        kshangstate_init(&monitor->hang, atomic_load(&monitor->enterTime), currentRole);
         monitor->hang.endTimestamp = now;
         monitor->hang.endRole = currentRole;
         shouldStartNewHang = true;
@@ -345,7 +350,7 @@ static void handlePing(CFRunLoopTimerRef timer, void *info)
 
 static void schedulePings(KSHangMonitor *monitor)
 {
-    monitor->enterTime = MonotonicUptime();
+    atomic_store(&monitor->enterTime, MonotonicUptime());
 
     CFRunLoopTimerContext timerCtx = {
         .version = 0, .info = monitor, .retain = NULL, .release = NULL, .copyDescription = NULL
@@ -459,8 +464,15 @@ static KSHangMonitor *watchdog_create(CFRunLoopRef runLoop, double threshold)
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 
     pthread_t thread;
-    pthread_create(&thread, &attr, watchdog_thread_main, threadArg);
+    int err = pthread_create(&thread, &attr, watchdog_thread_main, threadArg);
     pthread_attr_destroy(&attr);
+
+    if (err != 0) {
+        KSLOG_ERROR("Failed to create watchdog thread: %s", strerror(err));
+        free(threadArg);
+        free(monitor);
+        return NULL;
+    }
 
     dispatch_semaphore_wait(setupSemaphore, DISPATCH_TIME_FOREVER);
 
@@ -524,13 +536,27 @@ KSHangObserverToken kshang_addHangObserver(KSHangObserverCallback callback, void
 
     KSHangObserverToken token = KSHangObserverTokenNotFound;
     os_unfair_lock_lock(&monitor->lock);
-    if (monitor->observerCount < KSHANG_MAX_OBSERVERS) {
+
+    // First, try to reuse an inactive slot
+    for (int i = 0; i < monitor->observerCount; i++) {
+        if (!monitor->observers[i].active) {
+            token = i;
+            break;
+        }
+    }
+
+    // If no inactive slot found, append if there's room
+    if (token == KSHangObserverTokenNotFound && monitor->observerCount < KSHANG_MAX_OBSERVERS) {
         token = monitor->observerCount;
+        monitor->observerCount++;
+    }
+
+    if (token != KSHangObserverTokenNotFound) {
         monitor->observers[token].func = callback;
         monitor->observers[token].context = context;
         monitor->observers[token].active = true;
-        monitor->observerCount++;
     }
+
     os_unfair_lock_unlock(&monitor->lock);
     return token;
 }
@@ -587,6 +613,36 @@ static bool isEnabled(void) { return g_isEnabled; }
 
 static void monitorInit(KSCrash_ExceptionHandlerCallbacks *callbacks) { g_callbacks = *callbacks; }
 
+/** Called by the crash handling pipeline on every enabled monitor.
+ *
+ * When a fatal crash (signal, Mach exception, etc.) occurs while a hang is
+ * in progress, delete the incomplete hang report and its sidecar so they
+ * don't appear as orphaned reports on next launch.
+ *
+ * All other threads have been suspended by the crash handler at this point,
+ * so accessing the monitor struct without a lock is safe.  unlink() is
+ * async-signal-safe.
+ */
+static void addContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext)
+{
+    if (!eventContext->requirements.isFatal) {
+        return;
+    }
+
+    KSHangMonitor *monitor = g_watchdog;
+    if (!monitor || !monitor->hang.active) {
+        return;
+    }
+
+    if (monitor->sidecarPath[0] != '\0') {
+        unlink(monitor->sidecarPath);
+    }
+
+    if (monitor->hang.path[0] != '\0') {
+        unlink(monitor->hang.path);
+    }
+}
+
 const char *kscm_stringFromRole(int /*task_role_t*/ role)
 {
     switch (role) {
@@ -633,6 +689,7 @@ KSCrashMonitorAPI *kscm_watchdog_getAPI(void)
         api.monitorFlags = monitorFlags;
         api.setEnabled = setEnabled;
         api.isEnabled = isEnabled;
+        api.addContextualInfoToEvent = addContextualInfoToEvent;
         api.stitchReport = kscm_watchdog_stitchReport;
     }
     return &api;

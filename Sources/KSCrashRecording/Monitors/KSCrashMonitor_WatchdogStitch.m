@@ -77,6 +77,8 @@ char *kscm_watchdog_stitchReport(const char *report, int64_t reportID, const cha
     }
 
     // Navigate to crash.error.hang
+    // Note: KSJSONCodec builds all containers as NSMutableDictionary/NSMutableArray
+    // (see onBeginObject/onBeginArray in KSJSONCodecObjC.m), so no mutableCopy needed.
     NSMutableDictionary *crash = dict[KSCrashField_Crash];
     NSMutableDictionary *errorDict = crash[KSCrashField_Error];
     NSMutableDictionary *hang = errorDict[KSCrashField_Hang];
