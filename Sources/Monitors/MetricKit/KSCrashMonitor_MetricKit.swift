@@ -39,6 +39,7 @@ import os.log
 
 // MARK: - MetricKit Monitor
 
+@available(iOS 14.0, macOS 12.0, *)
 final class MetricKitMonitor: Sendable {
 
     static let lock = UnfairLock()
@@ -89,11 +90,16 @@ final class MetricKitMonitor: Sendable {
 private func metricKitMonitorInit(
     _ callbacks: UnsafeMutablePointer<KSCrash_ExceptionHandlerCallbacks>?
 ) {
-    MetricKitMonitor.callbacks = callbacks?.pointee
+    if #available(iOS 14.0, macOS 12.0, *) {
+        MetricKitMonitor.callbacks = callbacks?.pointee
+    }
 }
 
 private func metricKitMonitorGetId() -> UnsafePointer<CChar>? {
-    MetricKitMonitor.monitorId
+    if #available(iOS 14.0, macOS 12.0, *) {
+        return MetricKitMonitor.monitorId
+    }
+    return nil
 }
 
 private func metricKitMonitorGetFlags() -> KSCrashMonitorFlag {
@@ -117,13 +123,16 @@ private func metricKitMonitorSetEnabled(_ isEnabled: Bool) {
                     os_log(.default, log: metricKitLog, "[MONITORS] Unsubscribed from MXMetricManager")
                 }
             }
+            MetricKitMonitor.enabled = isEnabled
         }
     #endif
-    MetricKitMonitor.enabled = isEnabled
 }
 
 private func metricKitMonitorIsEnabled() -> Bool {
-    MetricKitMonitor.enabled
+    if #available(iOS 14.0, macOS 12.0, *) {
+        return MetricKitMonitor.enabled
+    }
+    return false
 }
 
 private func metricKitMonitorAddContextualInfoToEvent(
