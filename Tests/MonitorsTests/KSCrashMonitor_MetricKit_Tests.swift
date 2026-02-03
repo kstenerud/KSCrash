@@ -315,7 +315,7 @@ final class KSCrashMonitor_MetricKit_Tests: XCTestCase {
         }
 
         func testComputeHashSingleAddress() {
-            let hash = MetricKitRunIdHandler.computeHash(from: [0xDEADBEEF])
+            let hash = MetricKitRunIdHandler.computeHash(from: [0xDEAD_BEEF])
             XCTAssertNotEqual(hash, 0)
         }
 
