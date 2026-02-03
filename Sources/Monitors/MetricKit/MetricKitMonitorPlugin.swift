@@ -59,6 +59,14 @@ import Foundation
         public var metricsState: MetricKitProcessingState {
             MetricKitMonitor.receiver?.metricsState ?? .none
         }
+
+        /// When true, writes all received payloads as JSON to Documents/MetricKit/.
+        /// Useful for debugging and exploring MetricKit data.
+        /// Default is false.
+        public var dumpPayloadsToDocuments: Bool {
+            get { MetricKitMonitor.dumpPayloadsToDocuments }
+            set { MetricKitMonitor.dumpPayloadsToDocuments = newValue }
+        }
     }
 
 #endif

@@ -67,6 +67,12 @@ final class MetricKitMonitor: Sendable {
         get { lock.withLock { _receiver } }
     }
 
+    static private var _dumpPayloadsToDocuments: Bool = false
+    static var dumpPayloadsToDocuments: Bool {
+        set { lock.withLock { _dumpPayloadsToDocuments = newValue } }
+        get { lock.withLock { _dumpPayloadsToDocuments } }
+    }
+
     static let api: UnsafeMutablePointer<KSCrashMonitorAPI> = {
         let api = KSCrashMonitorAPI(
             init: metricKitMonitorInit,
