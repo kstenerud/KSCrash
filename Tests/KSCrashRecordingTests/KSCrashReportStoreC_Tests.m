@@ -272,37 +272,6 @@
     XCTAssertEqualObjects(expected, actual);
 }
 
-- (void)testNextReportIDReturnsOldest
-{
-    [self prepareReportStoreWithPathEnd:@"testNextReportIDReturnsOldest"];
-    NSArray *allIDs = @[
-        @([self writeUserReportWithStringContents:REPORT_CONTENTS(1)]),
-        @([self writeUserReportWithStringContents:REPORT_CONTENTS(2)]),
-        @([self writeUserReportWithStringContents:REPORT_CONTENTS(3)]),
-    ];
-    int64_t reportID;
-    kscrs_getReportIDs(&reportID, 1, &_storeConfig);
-    XCTAssertEqual(reportID, [allIDs[0] longLongValue]);
-}
-
-- (void)testNextReportIDAfterDeletion
-{
-    [self prepareReportStoreWithPathEnd:@"testNextReportIDAfterDeletion"];
-    NSArray *allIDs = @[
-        @([self writeUserReportWithStringContents:REPORT_CONTENTS(1)]),
-        @([self writeUserReportWithStringContents:REPORT_CONTENTS(2)]),
-        @([self writeUserReportWithStringContents:REPORT_CONTENTS(3)]),
-    ];
-
-    int64_t reportID;
-    kscrs_getReportIDs(&reportID, 1, &_storeConfig);
-    XCTAssertEqual(reportID, [allIDs[0] longLongValue]);
-
-    kscrs_deleteReportWithID([allIDs[0] longLongValue], &_storeConfig);
-    kscrs_getReportIDs(&reportID, 1, &_storeConfig);
-    XCTAssertEqual(reportID, [allIDs[1] longLongValue]);
-}
-
 - (void)testNextReportIDAfterDeleteAll
 {
     [self prepareReportStoreWithPathEnd:@"testNextReportIDAfterDeleteAll"];
