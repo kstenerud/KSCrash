@@ -73,6 +73,8 @@ final class MetricKitMonitor: Sendable {
         get { lock.withLock { _dumpPayloadsToDocuments } }
     }
 
+    static let runIdHandler = MetricKitRunIdHandler()
+
     static let api: UnsafeMutablePointer<KSCrashMonitorAPI> = {
         let api = KSCrashMonitorAPI(
             init: metricKitMonitorInit,
@@ -118,22 +120,26 @@ private func metricKitMonitorSetEnabled(_ isEnabled: Bool) {
         if #available(iOS 14.0, macOS 12.0, *) {
             if isEnabled {
                 if MetricKitMonitor.receiver == nil {
+                    
                     let newReceiver = MetricKitReceiver()
-                    MetricKitMonitor.receiver = newReceiver
-                    MXMetricManager.shared.add(newReceiver)
                     newReceiver.diagnosticsState = .waiting
                     newReceiver.metricsState = .waiting
+                    
+                    MetricKitMonitor.receiver = newReceiver
+                    MXMetricManager.shared.add(newReceiver)
                     os_log(.default, log: metricKitLog, "[MONITORS] Subscribed to MXMetricManager")
 
-                    // Emit run ID via mxSignpost so MetricKit can capture it in diagnostics
-                    emitRunIdSignpost()
+                    // Encode run ID into threadcrumb stack for MetricKit report correlation
+                    encodeRunIdThreadcrumb()
                 }
             } else {
                 if let existing = MetricKitMonitor.receiver {
                     MXMetricManager.shared.remove(existing)
+                    
+                    MetricKitMonitor.receiver = nil
                     existing.diagnosticsState = .none
                     existing.metricsState = .none
-                    MetricKitMonitor.receiver = nil
+                    
                     os_log(.default, log: metricKitLog, "[MONITORS] Unsubscribed from MXMetricManager")
                 }
             }
@@ -144,18 +150,33 @@ private func metricKitMonitorSetEnabled(_ isEnabled: Bool) {
 
 #if os(iOS) || os(macOS)
     @available(iOS 14.0, macOS 12.0, *)
-    private func emitRunIdSignpost() {
+    func sidecarPathProvider(name: String, extension ext: String) -> URL? {
+        guard let callbacks = MetricKitMonitor.callbacks,
+            let getSidecarFilePath = callbacks.getSidecarFilePath,
+            let monitorId = MetricKitMonitor.monitorId
+        else {
+            return nil
+        }
+
+        var pathBuffer = [CChar](repeating: 0, count: Int(KSCRS_MAX_PATH_LENGTH))
+        guard getSidecarFilePath(monitorId, name, ext, &pathBuffer, pathBuffer.count) else {
+            return nil
+        }
+
+        return URL(fileURLWithPath: String(cString: pathBuffer))
+    }
+
+    @available(iOS 14.0, macOS 12.0, *)
+    private func encodeRunIdThreadcrumb() {
         let runId = String(cString: kscrash_getRunID())
 
-        // Emit with run ID as category
-        let log1 = MXMetricManager.makeLogHandle(category: runId)
-        mxSignpost(.event, log: log1, name: "com.kscrash.report.run_id")
+        let success = MetricKitMonitor.runIdHandler.encode(runId: runId, pathProvider: sidecarPathProvider)
 
-        // Emit with run ID in format string (for testing)
-        let log2 = MXMetricManager.makeLogHandle(category: "com.kscrash.report.run_id")
-        mxSignpost(.event, log: log2, name: "run_id", "%{public, signpost:metrics}@", [runId])
-
-        os_log(.default, log: metricKitLog, "[MONITORS] Emitted run ID signposts: %{public}@", runId)
+        if success {
+            os_log(.default, log: metricKitLog, "[MONITORS] Encoded run ID into threadcrumb: %{public}@", runId)
+        } else {
+            os_log(.error, log: metricKitLog, "[MONITORS] Failed to encode run ID into threadcrumb")
+        }
     }
 #endif
 

@@ -261,11 +261,8 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
             // - When the crash occurred
             // - When the report was delivered via MetricKit
             // - The end of the collection window (often 24 hours)
-            // Extract run ID from signpost data if available (iOS 17+).
-            var crashedRunId: String?
-            if #available(iOS 17.0, macOS 14.0, *) {
-                crashedRunId = extractRunId(from: diagnostic)
-            }
+            // Extract run ID from threadcrumb stack hash
+            let crashedRunId = MetricKitMonitor.runIdHandler.decode(from: callStackData, pathProvider: sidecarPathProvider)
 
             let reportInfo = ReportInfo(
                 id: report.report.id,
@@ -347,25 +344,6 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
             return UInt64(token.dropFirst(2), radix: 16)
         }
         return UInt64(token)
-    }
-
-    // MARK: - Run ID Extraction
-
-    /// Extracts the original process run ID from a crash diagnostic's signpost data.
-    /// The run ID was emitted as the category of a signpost named "com.kscrash.report.run_id".
-    @available(iOS 17.0, macOS 14.0, *)
-    func extractRunId(from diagnostic: MXCrashDiagnostic) -> String? {
-        guard let signposts = diagnostic.signpostData else { return nil }
-        for record in signposts {
-            if record.name == "com.kscrash.report.run_id" {
-                let category = record.category
-                // Validate it's a valid UUID
-                if UUID(uuidString: category) != nil {
-                    return category
-                }
-            }
-        }
-        return nil
     }
 
     // MARK: - Termination Reason Parsing
