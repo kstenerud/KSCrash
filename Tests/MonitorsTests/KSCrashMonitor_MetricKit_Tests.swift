@@ -277,5 +277,175 @@ final class KSCrashMonitor_MetricKit_Tests: XCTestCase {
             XCTAssertEqual(info.version, "")
             XCTAssertNil(info.build)
         }
+
+        // MARK: - MetricKitRunIdHandler Hash Tests
+
+        func testComputeHashReturnsNonZero() {
+            let addresses: [NSNumber] = [0x1000, 0x2000, 0x3000]
+            let hash = MetricKitRunIdHandler.computeHash(from: addresses)
+            XCTAssertNotEqual(hash, 0)
+        }
+
+        func testComputeHashIsConsistent() {
+            let addresses: [NSNumber] = [0x1000, 0x2000, 0x3000]
+            let hash1 = MetricKitRunIdHandler.computeHash(from: addresses)
+            let hash2 = MetricKitRunIdHandler.computeHash(from: addresses)
+            XCTAssertEqual(hash1, hash2)
+        }
+
+        func testComputeHashDiffersForDifferentAddresses() {
+            let addresses1: [NSNumber] = [0x1000, 0x2000, 0x3000]
+            let addresses2: [NSNumber] = [0x1000, 0x2000, 0x4000]
+            let hash1 = MetricKitRunIdHandler.computeHash(from: addresses1)
+            let hash2 = MetricKitRunIdHandler.computeHash(from: addresses2)
+            XCTAssertNotEqual(hash1, hash2)
+        }
+
+        func testComputeHashDiffersForDifferentOrder() {
+            let addresses1: [NSNumber] = [0x1000, 0x2000, 0x3000]
+            let addresses2: [NSNumber] = [0x3000, 0x2000, 0x1000]
+            let hash1 = MetricKitRunIdHandler.computeHash(from: addresses1)
+            let hash2 = MetricKitRunIdHandler.computeHash(from: addresses2)
+            XCTAssertNotEqual(hash1, hash2)
+        }
+
+        func testComputeHashEmptyArray() {
+            let hash = MetricKitRunIdHandler.computeHash(from: [])
+            XCTAssertEqual(hash, 0)
+        }
+
+        func testComputeHashSingleAddress() {
+            let hash = MetricKitRunIdHandler.computeHash(from: [0xDEADBEEF])
+            XCTAssertNotEqual(hash, 0)
+        }
+
+        func testComputeHashLargeAddresses() {
+            let addresses: [NSNumber] = [
+                NSNumber(value: UInt64.max),
+                NSNumber(value: UInt64.max - 1),
+                NSNumber(value: UInt64.max - 2),
+            ]
+            let hash = MetricKitRunIdHandler.computeHash(from: addresses)
+            XCTAssertNotEqual(hash, 0)
+        }
+
+        // MARK: - MetricKitRunIdHandler Encode Tests
+
+        func testEncodeWritesSidecarFile() {
+            let handler = MetricKitRunIdHandler()
+            let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+
+            defer { try? FileManager.default.removeItem(at: tempDir) }
+
+            var writtenURL: URL?
+            let success = handler.encode(runId: "550e8400e29b41d4a716446655440000") { name, ext in
+                let url = tempDir.appendingPathComponent("\(name).\(ext)")
+                writtenURL = url
+                return url
+            }
+
+            XCTAssertTrue(success)
+            XCTAssertNotNil(writtenURL)
+            if let url = writtenURL {
+                XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
+                let contents = try? String(contentsOf: url, encoding: .utf8)
+                XCTAssertEqual(contents, "550e8400e29b41d4a716446655440000")
+            }
+        }
+
+        func testEncodeStripsHyphens() {
+            let handler = MetricKitRunIdHandler()
+            let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+
+            defer { try? FileManager.default.removeItem(at: tempDir) }
+
+            var writtenURL: URL?
+            let success = handler.encode(runId: "550e8400-e29b-41d4-a716-446655440000") { name, ext in
+                let url = tempDir.appendingPathComponent("\(name).\(ext)")
+                writtenURL = url
+                return url
+            }
+
+            XCTAssertTrue(success)
+            if let url = writtenURL {
+                let contents = try? String(contentsOf: url, encoding: .utf8)
+                // The stored runId should be the original with hyphens
+                XCTAssertEqual(contents, "550e8400-e29b-41d4-a716-446655440000")
+            }
+        }
+
+        func testEncodeFailsWhenPathProviderReturnsNil() {
+            let handler = MetricKitRunIdHandler()
+
+            let success = handler.encode(runId: "abc123") { _, _ in
+                nil
+            }
+
+            XCTAssertFalse(success)
+        }
+
+        func testEncodeCreatesFileWithStacksymExtension() {
+            let handler = MetricKitRunIdHandler()
+            let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+
+            defer { try? FileManager.default.removeItem(at: tempDir) }
+
+            var receivedExtension: String?
+            _ = handler.encode(runId: "abc") { _, ext in
+                receivedExtension = ext
+                return tempDir.appendingPathComponent("test.\(ext)")
+            }
+
+            XCTAssertEqual(receivedExtension, "stacksym")
+        }
+
+        func testEncodeUsesHexHashAsFilename() {
+            let handler = MetricKitRunIdHandler()
+            let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+
+            defer { try? FileManager.default.removeItem(at: tempDir) }
+
+            var receivedName: String?
+            _ = handler.encode(runId: "abc") { name, ext in
+                receivedName = name
+                return tempDir.appendingPathComponent("\(name).\(ext)")
+            }
+
+            XCTAssertNotNil(receivedName)
+            // Name should be a 16-character hex string (64-bit hash)
+            if let name = receivedName {
+                XCTAssertEqual(name.count, 16)
+                XCTAssertTrue(name.allSatisfy { $0.isHexDigit })
+            }
+        }
+
+        // MARK: - Round Trip Tests
+
+        func testEncodeProducesConsistentHash() {
+            let handler = MetricKitRunIdHandler()
+            let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+
+            defer { try? FileManager.default.removeItem(at: tempDir) }
+
+            var name1: String?
+            var name2: String?
+
+            _ = handler.encode(runId: "test123") { name, ext in
+                name1 = name
+                return tempDir.appendingPathComponent("\(name).\(ext)")
+            }
+
+            _ = handler.encode(runId: "test123") { name, ext in
+                name2 = name
+                return tempDir.appendingPathComponent("\(name).\(ext)")
+            }
+
+            XCTAssertEqual(name1, name2, "Same run ID should produce same hash filename")
+        }
     #endif
 }
