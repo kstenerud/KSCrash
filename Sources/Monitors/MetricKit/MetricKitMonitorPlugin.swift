@@ -1,7 +1,7 @@
 //
-//  Monitors.swift
+//  MetricKitMonitorPlugin.swift
 //
-//  Created by Alexander Cohen on 2026-01-31.
+//  Created by Alexander Cohen on 2026-02-03.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,19 +24,41 @@
 // THE SOFTWARE.
 //
 
+import Foundation
+
 #if SWIFT_PACKAGE
     import KSCrashRecording
+    import KSCrashRecordingCore
 #endif
 
-/// Namespace for plugin monitors that can be added to `KSCrashConfiguration.plugins`.
-///
-/// ```swift
-/// let config = KSCrashConfiguration()
-/// config.plugins = [Monitors.metricKit]
-/// ```
-public enum Monitors {
+#if os(iOS) || os(macOS)
 
-    /// A monitor that receives diagnostic payloads from MetricKit.
+    /// The processing state of the MetricKit receiver.
     @available(iOS 14.0, macOS 12.0, *)
-    public static let metricKit = MetricKitMonitorPlugin()
-}
+    public enum MetricKitProcessingState: String, Sendable {
+        case none
+        case waiting
+        case processing
+        case completed
+    }
+
+    /// A monitor plugin that receives diagnostic and metric payloads from MetricKit.
+    @available(iOS 14.0, macOS 12.0, *)
+    public final class MetricKitMonitorPlugin: NSObject, MonitorPlugin {
+
+        public var api: UnsafeMutablePointer<KSCrashMonitorAPI> {
+            MetricKitMonitor.api
+        }
+
+        /// The current state of diagnostic payload processing.
+        public var diagnosticsState: MetricKitProcessingState {
+            MetricKitMonitor.receiver?.diagnosticsState ?? .none
+        }
+
+        /// The current state of metric payload processing.
+        public var metricsState: MetricKitProcessingState {
+            MetricKitMonitor.receiver?.metricsState ?? .none
+        }
+    }
+
+#endif

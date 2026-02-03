@@ -29,14 +29,27 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-/** A wrapper around a C `KSCrashMonitorAPI` for use in Objective-C configuration.
+/** A protocol for plugin monitors that can be added to `KSCrashConfiguration.plugins`.
  *
- * Use this class to pass plugin monitors to `KSCrashConfiguration.plugins`.
- * The underlying `KSCrashMonitorAPI` pointer must remain valid for the lifetime
- * of the plugin (typically a static or global).
+ * Conforming types provide access to a `KSCrashMonitorAPI` pointer that must remain
+ * valid for the lifetime of the plugin (typically a static or global).
  */
 NS_SWIFT_NAME(MonitorPlugin)
-@interface KSCrashMonitorPlugin : NSObject
+@protocol KSCrashMonitorPlugin <NSObject>
+
+/** The underlying C monitor API. */
+@property(nonatomic, readonly) KSCrashMonitorAPI *api;
+
+@end
+
+/** A basic implementation of `KSCrashMonitorPlugin` that wraps a `KSCrashMonitorAPI` pointer.
+ *
+ * Use this class when you only need to wrap an API without additional functionality.
+ * For monitors that need state or custom behavior, create your own class conforming
+ * to `KSCrashMonitorPlugin`.
+ */
+NS_SWIFT_NAME(BasicMonitorPlugin)
+@interface KSCrashBasicMonitorPlugin : NSObject <KSCrashMonitorPlugin>
 
 /** The underlying C monitor API. */
 @property(nonatomic, readonly) KSCrashMonitorAPI *api;

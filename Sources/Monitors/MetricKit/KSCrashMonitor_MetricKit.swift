@@ -115,6 +115,8 @@ private func metricKitMonitorSetEnabled(_ isEnabled: Bool) {
                     let newReceiver = MetricKitReceiver()
                     MetricKitMonitor.receiver = newReceiver
                     MXMetricManager.shared.add(newReceiver)
+                    newReceiver.diagnosticsState = .waiting
+                    newReceiver.metricsState = .waiting
                     os_log(.default, log: metricKitLog, "[MONITORS] Subscribed to MXMetricManager")
 
                     // Emit run ID via mxSignpost so MetricKit can capture it in diagnostics
@@ -123,6 +125,8 @@ private func metricKitMonitorSetEnabled(_ isEnabled: Bool) {
             } else {
                 if let existing = MetricKitMonitor.receiver {
                     MXMetricManager.shared.remove(existing)
+                    existing.diagnosticsState = .none
+                    existing.metricsState = .none
                     MetricKitMonitor.receiver = nil
                     os_log(.default, log: metricKitLog, "[MONITORS] Unsubscribed from MXMetricManager")
                 }
