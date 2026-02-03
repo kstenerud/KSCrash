@@ -191,6 +191,63 @@ final class KSCrashMonitor_MetricKit_Tests: XCTestCase {
             XCTAssertNil(code)
         }
 
+        // MARK: - Exit Code Parsing (RBSTerminateContext)
+
+        func testParseExitCodeRBSTerminateContext() {
+            let code = parseExitCode(
+                from:
+                    "<RBSTerminateContext| domain:10 code:0x8BADF00D explanation:scene-update-watchdog processVisibility:Foreground>"
+            )
+            XCTAssertEqual(code, 0x8BAD_F00D)
+        }
+
+        func testParseExitCodeRBSTerminateContextWithPrefix() {
+            let code = parseExitCode(
+                from:
+                    "FRONTBOARD 2343432205 <RBSTerminateContext| domain:10 code:0x8BADF00D explanation:scene-update-watchdog>"
+            )
+            XCTAssertEqual(code, 0x8BAD_F00D)
+        }
+
+        func testParseExitCodeRBSTerminateContextDecimal() {
+            let code = parseExitCode(
+                from: "<RBSTerminateContext| domain:10 code:42 explanation:test>"
+            )
+            XCTAssertEqual(code, 42)
+        }
+
+        func testParseExitCodeRBSTerminateContextLowerHex() {
+            let code = parseExitCode(
+                from: "<RBSTerminateContext| domain:10 code:0xdead>"
+            )
+            XCTAssertEqual(code, 0xDEAD)
+        }
+
+        // MARK: - VM Region Address Parsing
+
+        func testParseVMRegionAddressZero() {
+            let addr = parseVMRegionAddress(
+                from:
+                    "0 is not in any region. Bytes before following region: 4000000000 REGION TYPE START - END"
+            )
+            XCTAssertEqual(addr, 0)
+        }
+
+        func testParseVMRegionAddressHex() {
+            let addr = parseVMRegionAddress(from: "0x1234 is not in any region.")
+            XCTAssertEqual(addr, 0x1234)
+        }
+
+        func testParseVMRegionAddressDecimal() {
+            let addr = parseVMRegionAddress(from: "4096 is not in any region.")
+            XCTAssertEqual(addr, 4096)
+        }
+
+        func testParseVMRegionAddressEmpty() {
+            let addr = parseVMRegionAddress(from: "")
+            XCTAssertNil(addr)
+        }
+
         // MARK: - OS Version Parsing
 
         func testParseOSVersionFull() {
