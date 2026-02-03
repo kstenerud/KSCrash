@@ -113,6 +113,22 @@ void kscrs_deleteAllReports(const KSCrashReportStoreCConfiguration *const config
  */
 void kscrs_deleteReportWithID(int64_t reportID, const KSCrashReportStoreCConfiguration *const configuration);
 
+/** Get a sidecar file path.
+ *
+ * Creates the sidecar subdirectory if it doesn't exist.
+ *
+ * @param monitorId The unique identifier of the monitor.
+ * @param name The filename (without extension).
+ * @param extension The file extension (without dot).
+ * @param pathBuffer Buffer to receive the file path.
+ * @param pathBufferLength The size of the path buffer.
+ * @param configuration The store configuration containing the sidecars base path.
+ *
+ * @return true if the path was successfully written, false on failure.
+ */
+bool kscrs_getSidecarFilePath(const char *monitorId, const char *name, const char *extension, char *pathBuffer,
+                              size_t pathBufferLength, const KSCrashReportStoreCConfiguration *const configuration);
+
 #ifdef __cplusplus
 }
 #endif

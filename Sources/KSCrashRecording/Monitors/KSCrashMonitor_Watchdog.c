@@ -201,11 +201,11 @@ static const char *monitorId(void);
 
 static KSHangSidecar *sidecar_open(KSHangMonitor *monitor, int64_t reportID)
 {
-    if (!g_callbacks.getSidecarPath) {
+    if (!g_callbacks.getSidecarReportPath) {
         return NULL;
     }
 
-    if (!g_callbacks.getSidecarPath(monitorId(), reportID, monitor->sidecarPath, sizeof(monitor->sidecarPath))) {
+    if (!g_callbacks.getSidecarReportPath(monitorId(), reportID, monitor->sidecarPath, sizeof(monitor->sidecarPath))) {
         monitor->sidecarPath[0] = '\0';
         return NULL;
     }

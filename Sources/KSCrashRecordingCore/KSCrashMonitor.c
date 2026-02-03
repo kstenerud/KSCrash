@@ -361,10 +361,16 @@ const KSCrashMonitorAPI *kscm_getMonitor(const char *monitorId)
     return kscmr_getMonitor(&g_state.monitors, monitorId);
 }
 
-void kscm_setSidecarPathProvider(KSCrashSidecarPathProviderFunc provider)
+void kscm_setSidecarFilePathProvider(KSCrashSidecarFilePathProviderFunc provider)
 {
     init();
-    g_exceptionCallbacks.getSidecarPath = provider;
+    g_exceptionCallbacks.getSidecarFilePath = provider;
+}
+
+void kscm_setSidecarReportPathProvider(KSCrashSidecarReportPathProviderFunc provider)
+{
+    init();
+    g_exceptionCallbacks.getSidecarReportPath = provider;
 }
 
 // ============================================================================

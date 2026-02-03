@@ -28,6 +28,7 @@
 
 #import "KSCrashMonitor.h"
 #import "KSCrashReportStoreC+Private.h"
+#import "KSCrashReportStoreC.h"
 
 #include <inttypes.h>
 
@@ -309,7 +310,7 @@
     int64_t reportID = [self writeCrashReportWithStringContents:REPORT_CONTENTS(0)];
 
     char pathBuffer[KSCRS_MAX_PATH_LENGTH];
-    bool result = kscrs_getSidecarPath("TestMonitor", reportID, pathBuffer, sizeof(pathBuffer), &_storeConfig);
+    bool result = kscrs_getSidecarFilePathForReport("TestMonitor", reportID, pathBuffer, sizeof(pathBuffer), &_storeConfig);
     XCTAssertTrue(result);
 
     NSString *path = [NSString stringWithUTF8String:pathBuffer];
@@ -322,7 +323,7 @@
     [self prepareReportStoreWithSidecarsWithPathEnd:@"testSidecarSubdir"];
 
     char pathBuffer[KSCRS_MAX_PATH_LENGTH];
-    kscrs_getSidecarPath("MyMonitor", 12345, pathBuffer, sizeof(pathBuffer), &_storeConfig);
+    kscrs_getSidecarFilePathForReport("MyMonitor", 12345, pathBuffer, sizeof(pathBuffer), &_storeConfig);
 
     NSString *monitorDir = [NSString stringWithFormat:@"%s/MyMonitor", _storeConfig.sidecarsPath];
     BOOL isDir = NO;
@@ -335,14 +336,14 @@
 {
     [self prepareReportStoreWithSidecarsWithPathEnd:@"testSidecarNull"];
     char pathBuffer[KSCRS_MAX_PATH_LENGTH];
-    bool result = kscrs_getSidecarPath(NULL, 1, pathBuffer, sizeof(pathBuffer), &_storeConfig);
+    bool result = kscrs_getSidecarFilePathForReport(NULL, 1, pathBuffer, sizeof(pathBuffer), &_storeConfig);
     XCTAssertFalse(result);
 }
 
 - (void)testGetSidecarPathNullPathBuffer
 {
     [self prepareReportStoreWithSidecarsWithPathEnd:@"testSidecarNullBuf"];
-    bool result = kscrs_getSidecarPath("Mon", 1, NULL, 100, &_storeConfig);
+    bool result = kscrs_getSidecarFilePathForReport("Mon", 1, NULL, 100, &_storeConfig);
     XCTAssertFalse(result);
 }
 
@@ -350,7 +351,7 @@
 {
     [self prepareReportStoreWithSidecarsWithPathEnd:@"testSidecarZeroBuf"];
     char pathBuffer[KSCRS_MAX_PATH_LENGTH];
-    bool result = kscrs_getSidecarPath("Mon", 1, pathBuffer, 0, &_storeConfig);
+    bool result = kscrs_getSidecarFilePathForReport("Mon", 1, pathBuffer, 0, &_storeConfig);
     XCTAssertFalse(result);
 }
 
@@ -358,7 +359,7 @@
 {
     [self prepareReportStoreWithSidecarsWithPathEnd:@"testSidecarSmallBuf"];
     char pathBuffer[5];
-    bool result = kscrs_getSidecarPath("TestMonitor", 1, pathBuffer, sizeof(pathBuffer), &_storeConfig);
+    bool result = kscrs_getSidecarFilePathForReport("TestMonitor", 1, pathBuffer, sizeof(pathBuffer), &_storeConfig);
     XCTAssertFalse(result);
 }
 
@@ -367,7 +368,7 @@
     [self prepareReportStoreWithPathEnd:@"testSidecarNoPath"];
     // _storeConfig.sidecarsPath is NULL
     char pathBuffer[KSCRS_MAX_PATH_LENGTH];
-    bool result = kscrs_getSidecarPath("Mon", 1, pathBuffer, sizeof(pathBuffer), &_storeConfig);
+    bool result = kscrs_getSidecarFilePathForReport("Mon", 1, pathBuffer, sizeof(pathBuffer), &_storeConfig);
     XCTAssertFalse(result);
 }
 
@@ -378,7 +379,7 @@
 
     // Create a sidecar file for this report
     char sidecarPath[KSCRS_MAX_PATH_LENGTH];
-    kscrs_getSidecarPath("TestMonitor", reportID, sidecarPath, sizeof(sidecarPath), &_storeConfig);
+    kscrs_getSidecarFilePathForReport("TestMonitor", reportID, sidecarPath, sizeof(sidecarPath), &_storeConfig);
     [@"sidecar data" writeToFile:[NSString stringWithUTF8String:sidecarPath]
                       atomically:YES
                         encoding:NSUTF8StringEncoding
@@ -400,8 +401,8 @@
     // Create sidecars from two different monitors
     char sidecarPath1[KSCRS_MAX_PATH_LENGTH];
     char sidecarPath2[KSCRS_MAX_PATH_LENGTH];
-    kscrs_getSidecarPath("Monitor1", reportID, sidecarPath1, sizeof(sidecarPath1), &_storeConfig);
-    kscrs_getSidecarPath("Monitor2", reportID, sidecarPath2, sizeof(sidecarPath2), &_storeConfig);
+    kscrs_getSidecarFilePathForReport("Monitor1", reportID, sidecarPath1, sizeof(sidecarPath1), &_storeConfig);
+    kscrs_getSidecarFilePathForReport("Monitor2", reportID, sidecarPath2, sizeof(sidecarPath2), &_storeConfig);
 
     [@"data1" writeToFile:[NSString stringWithUTF8String:sidecarPath1]
                atomically:YES
@@ -424,7 +425,7 @@
     int64_t reportID = [self writeCrashReportWithStringContents:REPORT_CONTENTS(0)];
 
     char sidecarPath[KSCRS_MAX_PATH_LENGTH];
-    kscrs_getSidecarPath("TestMonitor", reportID, sidecarPath, sizeof(sidecarPath), &_storeConfig);
+    kscrs_getSidecarFilePathForReport("TestMonitor", reportID, sidecarPath, sizeof(sidecarPath), &_storeConfig);
     [@"sidecar data" writeToFile:[NSString stringWithUTF8String:sidecarPath]
                       atomically:YES
                         encoding:NSUTF8StringEncoding
@@ -444,8 +445,8 @@
     [self prepareReportStoreWithSidecarsWithPathEnd:@"testSidecarConsistent"];
     char path1[KSCRS_MAX_PATH_LENGTH];
     char path2[KSCRS_MAX_PATH_LENGTH];
-    kscrs_getSidecarPath("Mon", 42, path1, sizeof(path1), &_storeConfig);
-    kscrs_getSidecarPath("Mon", 42, path2, sizeof(path2), &_storeConfig);
+    kscrs_getSidecarFilePathForReport("Mon", 42, path1, sizeof(path1), &_storeConfig);
+    kscrs_getSidecarFilePathForReport("Mon", 42, path2, sizeof(path2), &_storeConfig);
     XCTAssertEqual(strcmp(path1, path2), 0);
 }
 
@@ -454,8 +455,8 @@
     [self prepareReportStoreWithSidecarsWithPathEnd:@"testSidecarDiffMon"];
     char path1[KSCRS_MAX_PATH_LENGTH];
     char path2[KSCRS_MAX_PATH_LENGTH];
-    kscrs_getSidecarPath("Mon1", 42, path1, sizeof(path1), &_storeConfig);
-    kscrs_getSidecarPath("Mon2", 42, path2, sizeof(path2), &_storeConfig);
+    kscrs_getSidecarFilePathForReport("Mon1", 42, path1, sizeof(path1), &_storeConfig);
+    kscrs_getSidecarFilePathForReport("Mon2", 42, path2, sizeof(path2), &_storeConfig);
     XCTAssertNotEqual(strcmp(path1, path2), 0);
 }
 
@@ -464,8 +465,8 @@
     [self prepareReportStoreWithSidecarsWithPathEnd:@"testSidecarDiffReport"];
     char path1[KSCRS_MAX_PATH_LENGTH];
     char path2[KSCRS_MAX_PATH_LENGTH];
-    kscrs_getSidecarPath("Mon", 1, path1, sizeof(path1), &_storeConfig);
-    kscrs_getSidecarPath("Mon", 2, path2, sizeof(path2), &_storeConfig);
+    kscrs_getSidecarFilePathForReport("Mon", 1, path1, sizeof(path1), &_storeConfig);
+    kscrs_getSidecarFilePathForReport("Mon", 2, path2, sizeof(path2), &_storeConfig);
     XCTAssertNotEqual(strcmp(path1, path2), 0);
 }
 
@@ -485,6 +486,127 @@
     // sidecarsPath is NULL — should not crash
     kscrs_deleteAllReports(&_storeConfig);
     [self expectHasReportCount:0];
+}
+
+#pragma mark - Generic Sidecar File Path Tests (kscrs_getSidecarFilePath)
+
+- (void)testGetSidecarFilePathReturnsValidPath
+{
+    [self prepareReportStoreWithSidecarsWithPathEnd:@"testGenericSidecarPath"];
+    char pathBuffer[KSCRS_MAX_PATH_LENGTH];
+    bool result =
+        kscrs_getSidecarFilePath("TestMonitor", "myfile", "txt", pathBuffer, sizeof(pathBuffer), &_storeConfig);
+
+    XCTAssertTrue(result);
+    XCTAssertTrue(strlen(pathBuffer) > 0);
+    XCTAssertTrue(strstr(pathBuffer, "TestMonitor") != NULL, @"Path should contain monitor ID");
+    XCTAssertTrue(strstr(pathBuffer, "myfile.txt") != NULL, @"Path should contain filename with extension");
+}
+
+- (void)testGetSidecarFilePathCreatesMonitorDirectory
+{
+    [self prepareReportStoreWithSidecarsWithPathEnd:@"testGenericSidecarDir"];
+    char pathBuffer[KSCRS_MAX_PATH_LENGTH];
+    kscrs_getSidecarFilePath("NewMonitor", "test", "dat", pathBuffer, sizeof(pathBuffer), &_storeConfig);
+
+    // Extract directory from path and verify it exists
+    NSString *path = [NSString stringWithUTF8String:pathBuffer];
+    NSString *directory = [path stringByDeletingLastPathComponent];
+    BOOL isDir = NO;
+    BOOL exists = [[NSFileManager defaultManager] fileExistsAtPath:directory isDirectory:&isDir];
+    XCTAssertTrue(exists && isDir, @"Monitor directory should be created");
+}
+
+- (void)testGetSidecarFilePathWithDifferentExtensions
+{
+    [self prepareReportStoreWithSidecarsWithPathEnd:@"testGenericSidecarExt"];
+    char path1[KSCRS_MAX_PATH_LENGTH];
+    char path2[KSCRS_MAX_PATH_LENGTH];
+
+    kscrs_getSidecarFilePath("Mon", "file", "json", path1, sizeof(path1), &_storeConfig);
+    kscrs_getSidecarFilePath("Mon", "file", "bin", path2, sizeof(path2), &_storeConfig);
+
+    XCTAssertTrue(strstr(path1, ".json") != NULL);
+    XCTAssertTrue(strstr(path2, ".bin") != NULL);
+    XCTAssertNotEqual(strcmp(path1, path2), 0, @"Different extensions should produce different paths");
+}
+
+- (void)testGetSidecarFilePathWithDifferentNames
+{
+    [self prepareReportStoreWithSidecarsWithPathEnd:@"testGenericSidecarName"];
+    char path1[KSCRS_MAX_PATH_LENGTH];
+    char path2[KSCRS_MAX_PATH_LENGTH];
+
+    kscrs_getSidecarFilePath("Mon", "alpha", "txt", path1, sizeof(path1), &_storeConfig);
+    kscrs_getSidecarFilePath("Mon", "beta", "txt", path2, sizeof(path2), &_storeConfig);
+
+    XCTAssertNotEqual(strcmp(path1, path2), 0, @"Different names should produce different paths");
+}
+
+- (void)testGetSidecarFilePathWithNullMonitorId
+{
+    [self prepareReportStoreWithSidecarsWithPathEnd:@"testGenericSidecarNullMon"];
+    char pathBuffer[KSCRS_MAX_PATH_LENGTH];
+    bool result = kscrs_getSidecarFilePath(NULL, "file", "txt", pathBuffer, sizeof(pathBuffer), &_storeConfig);
+
+    XCTAssertFalse(result);
+}
+
+- (void)testGetSidecarFilePathWithNullName
+{
+    [self prepareReportStoreWithSidecarsWithPathEnd:@"testGenericSidecarNullName"];
+    char pathBuffer[KSCRS_MAX_PATH_LENGTH];
+    bool result = kscrs_getSidecarFilePath("Mon", NULL, "txt", pathBuffer, sizeof(pathBuffer), &_storeConfig);
+
+    XCTAssertFalse(result);
+}
+
+- (void)testGetSidecarFilePathWithNullExtension
+{
+    [self prepareReportStoreWithSidecarsWithPathEnd:@"testGenericSidecarNullExt"];
+    char pathBuffer[KSCRS_MAX_PATH_LENGTH];
+    bool result = kscrs_getSidecarFilePath("Mon", "file", NULL, pathBuffer, sizeof(pathBuffer), &_storeConfig);
+
+    XCTAssertFalse(result);
+}
+
+- (void)testGetSidecarFilePathWithNullBuffer
+{
+    [self prepareReportStoreWithSidecarsWithPathEnd:@"testGenericSidecarNullBuf"];
+    bool result = kscrs_getSidecarFilePath("Mon", "file", "txt", NULL, 100, &_storeConfig);
+
+    XCTAssertFalse(result);
+}
+
+- (void)testGetSidecarFilePathWithZeroBufferLength
+{
+    [self prepareReportStoreWithSidecarsWithPathEnd:@"testGenericSidecarZeroBuf"];
+    char pathBuffer[KSCRS_MAX_PATH_LENGTH];
+    bool result = kscrs_getSidecarFilePath("Mon", "file", "txt", pathBuffer, 0, &_storeConfig);
+
+    XCTAssertFalse(result);
+}
+
+- (void)testGetSidecarFilePathWithNoSidecarsPath
+{
+    [self prepareReportStoreWithPathEnd:@"testGenericSidecarNoPath"];
+    char pathBuffer[KSCRS_MAX_PATH_LENGTH];
+    bool result = kscrs_getSidecarFilePath("Mon", "file", "txt", pathBuffer, sizeof(pathBuffer), &_storeConfig);
+
+    XCTAssertFalse(result, @"Should fail when sidecarsPath is NULL");
+}
+
+- (void)testGetSidecarFilePathHexHashName
+{
+    [self prepareReportStoreWithSidecarsWithPathEnd:@"testGenericSidecarHash"];
+    char pathBuffer[KSCRS_MAX_PATH_LENGTH];
+    // Simulate how MetricKit uses it with hex hash as name
+    bool result =
+        kscrs_getSidecarFilePath("MetricKit", "0123456789abcdef", "stacksym", pathBuffer, sizeof(pathBuffer), &_storeConfig);
+
+    XCTAssertTrue(result);
+    XCTAssertTrue(strstr(pathBuffer, "MetricKit") != NULL);
+    XCTAssertTrue(strstr(pathBuffer, "0123456789abcdef.stacksym") != NULL);
 }
 
 @end

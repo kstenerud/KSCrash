@@ -124,10 +124,11 @@ done:
     return index;
 }
 
-static bool getSidecarPath(const char *sidecarsBasePath, const char *monitorId, int64_t reportID, char *pathBuffer,
-                           size_t pathBufferLength)
+static bool getSidecarFilePath(const char *sidecarsBasePath, const char *monitorId, const char *name,
+                               const char *extension, char *pathBuffer, size_t pathBufferLength)
 {
-    if (sidecarsBasePath == NULL || monitorId == NULL || pathBuffer == NULL || pathBufferLength == 0) {
+    if (sidecarsBasePath == NULL || monitorId == NULL || name == NULL || extension == NULL || pathBuffer == NULL ||
+        pathBufferLength == 0) {
         return false;
     }
     char monitorDir[KSCRS_MAX_PATH_LENGTH];
@@ -135,11 +136,18 @@ static bool getSidecarPath(const char *sidecarsBasePath, const char *monitorId, 
         return false;
     }
     ksfu_makePath(monitorDir);
-    if (snprintf(pathBuffer, pathBufferLength, "%s/%016llx.ksscr", monitorDir, (unsigned long long)reportID) >=
-        (int)pathBufferLength) {
+    if (snprintf(pathBuffer, pathBufferLength, "%s/%s.%s", monitorDir, name, extension) >= (int)pathBufferLength) {
         return false;
     }
     return true;
+}
+
+static bool getSidecarFilePathForReport(const char *sidecarsBasePath, const char *monitorId, int64_t reportID,
+                                        char *pathBuffer, size_t pathBufferLength)
+{
+    char name[32];
+    snprintf(name, sizeof(name), "%016llx", (unsigned long long)reportID);
+    return getSidecarFilePath(sidecarsBasePath, monitorId, name, "ksscr", pathBuffer, pathBufferLength);
 }
 
 static void deleteSidecarsForReport(int64_t reportID, const KSCrashReportStoreCConfiguration *const config)
@@ -381,8 +389,15 @@ void kscrs_deleteReportWithID(int64_t reportID, const KSCrashReportStoreCConfigu
     pthread_mutex_unlock(&g_mutex);
 }
 
-bool kscrs_getSidecarPath(const char *monitorId, int64_t reportID, char *pathBuffer, size_t pathBufferLength,
-                          const KSCrashReportStoreCConfiguration *const configuration)
+bool kscrs_getSidecarFilePath(const char *monitorId, const char *name, const char *extension, char *pathBuffer,
+                              size_t pathBufferLength, const KSCrashReportStoreCConfiguration *const configuration)
 {
-    return getSidecarPath(configuration->sidecarsPath, monitorId, reportID, pathBuffer, pathBufferLength);
+    return getSidecarFilePath(configuration->sidecarsPath, monitorId, name, extension, pathBuffer, pathBufferLength);
+}
+
+bool kscrs_getSidecarFilePathForReport(const char *monitorId, int64_t reportID, char *pathBuffer,
+                                       size_t pathBufferLength,
+                                       const KSCrashReportStoreCConfiguration *const configuration)
+{
+    return getSidecarFilePathForReport(configuration->sidecarsPath, monitorId, reportID, pathBuffer, pathBufferLength);
 }

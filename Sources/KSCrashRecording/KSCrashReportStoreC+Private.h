@@ -44,11 +44,11 @@ extern "C" {
 int64_t kscrs_getNextCrashReport(char *crashReportPathBuffer,
                                  const KSCrashReportStoreCConfiguration *const configuration);
 
-/** Get the sidecar file path for a given monitor and report.
+/** Get the sidecar file path for a report.
  *
- * Creates the monitor's sidecar subdirectory if it doesn't exist.
+ * Creates the sidecar subdirectory if it doesn't exist.
  *
- * @param monitorId The unique identifier of the monitor requesting the sidecar.
+ * @param monitorId The unique identifier of the monitor.
  * @param reportID The report ID the sidecar is associated with.
  * @param pathBuffer Buffer to receive the sidecar file path.
  * @param pathBufferLength The size of the path buffer.
@@ -56,8 +56,9 @@ int64_t kscrs_getNextCrashReport(char *crashReportPathBuffer,
  *
  * @return true if the path was successfully written, false on failure.
  */
-bool kscrs_getSidecarPath(const char *monitorId, int64_t reportID, char *pathBuffer, size_t pathBufferLength,
-                          const KSCrashReportStoreCConfiguration *const configuration);
+bool kscrs_getSidecarFilePathForReport(const char *monitorId, int64_t reportID, char *pathBuffer,
+                                       size_t pathBufferLength,
+                                       const KSCrashReportStoreCConfiguration *const configuration);
 
 #ifdef __cplusplus
 }
