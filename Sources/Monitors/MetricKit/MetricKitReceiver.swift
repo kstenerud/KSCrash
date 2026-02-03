@@ -49,12 +49,90 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
         func didReceive(_ payloads: [MXDiagnosticPayload]) {
             os_log(.default, log: metricKitLog, "[MONITORS] Received %d diagnostic payload(s)", payloads.count)
 
+            let runId = String(cString: kscrash_getRunID())
+
             for payload in payloads {
                 if let crashDiagnostics = payload.crashDiagnostics {
                     for diagnostic in crashDiagnostics {
+                        dumpPayloadJSON(diagnostic.jsonRepresentation(), type: "Crash", runId: runId)
                         processCrashDiagnostic(diagnostic)
                     }
                 }
+                if let cpuExceptionDiagnostics = payload.cpuExceptionDiagnostics {
+                    for diagnostic in cpuExceptionDiagnostics {
+                        dumpPayloadJSON(diagnostic.jsonRepresentation(), type: "CPUException", runId: runId)
+                    }
+                }
+                if let diskWriteExceptionDiagnostics = payload.diskWriteExceptionDiagnostics {
+                    for diagnostic in diskWriteExceptionDiagnostics {
+                        dumpPayloadJSON(
+                            diagnostic.jsonRepresentation(), type: "DiskWriteException", runId: runId)
+                    }
+                }
+                if let hangDiagnostics = payload.hangDiagnostics {
+                    for diagnostic in hangDiagnostics {
+                        dumpPayloadJSON(diagnostic.jsonRepresentation(), type: "Hang", runId: runId)
+                    }
+                }
+                #if os(iOS)
+                    if #available(iOS 16.0, *) {
+                        if let appLaunchDiagnostics = payload.appLaunchDiagnostics {
+                            for diagnostic in appLaunchDiagnostics {
+                                dumpPayloadJSON(
+                                    diagnostic.jsonRepresentation(), type: "AppLaunch", runId: runId)
+                            }
+                        }
+                    }
+                #endif
+            }
+        }
+
+        func didReceive(_ payloads: [MXMetricPayload]) {
+            os_log(.default, log: metricKitLog, "[MONITORS] Received %d metric payload(s)", payloads.count)
+
+            let runId = String(cString: kscrash_getRunID())
+
+            for payload in payloads {
+                dumpPayloadJSON(payload.jsonRepresentation(), type: "Metric", runId: runId)
+            }
+        }
+
+        // MARK: - JSON Dump
+
+        private func dumpPayloadJSON(_ data: Data, type: String, runId: String) {
+            guard
+                let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
+                    .first
+            else {
+                os_log(.error, log: metricKitLog, "[MONITORS] Could not resolve documents directory")
+                return
+            }
+
+            let dirURL = documentsURL.appendingPathComponent("MetricKit", isDirectory: true)
+            do {
+                try FileManager.default.createDirectory(at: dirURL, withIntermediateDirectories: true)
+            } catch {
+                os_log(
+                    .error, log: metricKitLog,
+                    "[MONITORS] Failed to create MetricKit directory: %{public}@",
+                    error.localizedDescription)
+                return
+            }
+
+            let filename = "\(type)_\(runId)_\(UUID().uuidString).json"
+            let fileURL = dirURL.appendingPathComponent(filename)
+
+            do {
+                try data.write(to: fileURL, options: .atomic)
+                os_log(
+                    .default, log: metricKitLog,
+                    "[MONITORS] Dumped %{public}@ JSON (%d bytes) to %{public}@",
+                    type, data.count, fileURL.lastPathComponent)
+            } catch {
+                os_log(
+                    .error, log: metricKitLog,
+                    "[MONITORS] Failed to dump %{public}@ JSON: %{public}@",
+                    type, error.localizedDescription)
             }
         }
 
