@@ -1,7 +1,7 @@
 //
-//  KSCrashMonitorPlugin.m
+//  KSCrashBasicMonitorPlugin.m
 //
-//  Created by Alex Cohen on 2026-01-31.
+//  Created by Alexander Cohen on 2026-02-03.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -26,12 +26,11 @@
 
 #import "KSCrashMonitorPlugin.h"
 
-@implementation KSCrashMonitorPlugin
+@implementation KSCrashBasicMonitorPlugin
 
 - (instancetype)initWithAPI:(KSCrashMonitorAPI *)api
 {
-    self = [super init];
-    if (self) {
+    if ((self = [super init])) {
         _api = api;
     }
     return self;

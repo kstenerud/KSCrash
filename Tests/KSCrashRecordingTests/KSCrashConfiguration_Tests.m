@@ -464,7 +464,7 @@ static bool testPluginIsEnabled(void) { return g_testPluginEnabled; }
 {
     KSCrashMonitorAPI api = { 0 };
     api.monitorId = testPluginMonitorId;
-    KSCrashMonitorPlugin *plugin = [[KSCrashMonitorPlugin alloc] initWithAPI:&api];
+    KSCrashBasicMonitorPlugin *plugin = [[KSCrashBasicMonitorPlugin alloc] initWithAPI:&api];
     XCTAssertEqual(plugin.api, &api);
     XCTAssertEqual(strcmp(plugin.api->monitorId(), "test_plugin"), 0);
 }
@@ -473,7 +473,7 @@ static bool testPluginIsEnabled(void) { return g_testPluginEnabled; }
 {
     KSCrashMonitorAPI api = { 0 };
     api.monitorId = testPluginMonitorId;
-    KSCrashMonitorPlugin *plugin = [KSCrashMonitorPlugin pluginWithAPI:&api];
+    KSCrashBasicMonitorPlugin *plugin = [KSCrashBasicMonitorPlugin pluginWithAPI:&api];
     XCTAssertEqual(plugin.api, &api);
 }
 
@@ -491,7 +491,7 @@ static bool testPluginIsEnabled(void) { return g_testPluginEnabled; }
     api1.setEnabled = testPluginSetEnabled;
     api1.isEnabled = testPluginIsEnabled;
 
-    KSCrashMonitorPlugin *plugin1 = [[KSCrashMonitorPlugin alloc] initWithAPI:&api1];
+    KSCrashBasicMonitorPlugin *plugin1 = [[KSCrashBasicMonitorPlugin alloc] initWithAPI:&api1];
 
     KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
     config.plugins = @[ plugin1 ];
@@ -524,7 +524,7 @@ static bool testPluginIsEnabled(void) { return g_testPluginEnabled; }
 {
     KSCrashMonitorAPI api = { 0 };
     api.monitorId = testPluginMonitorId;
-    KSCrashMonitorPlugin *plugin = [[KSCrashMonitorPlugin alloc] initWithAPI:&api];
+    KSCrashBasicMonitorPlugin *plugin = [[KSCrashBasicMonitorPlugin alloc] initWithAPI:&api];
 
     KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
     config.plugins = @[ plugin ];

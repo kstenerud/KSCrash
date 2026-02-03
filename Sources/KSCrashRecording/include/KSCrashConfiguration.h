@@ -196,13 +196,13 @@ NS_ASSUME_NONNULL_BEGIN
 
 /** Plugin monitors to register at install time.
  *
- * An array of `KSCrashMonitorPlugin` objects wrapping `KSCrashMonitorAPI` pointers.
+ * An array of objects conforming to `KSCrashMonitorPlugin` protocol.
  * These monitors are copied into static storage and registered via `kscm_addMonitor()`
  * during installation, alongside the built-in monitors.
  *
  * **Default**: nil
  */
-@property(nonatomic, copy, nullable) NSArray<KSCrashMonitorPlugin *> *plugins;
+@property(nonatomic, copy, nullable) NSArray<id<KSCrashMonitorPlugin>> *plugins;
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"

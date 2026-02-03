@@ -46,7 +46,13 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
     @available(iOS 14.0, macOS 12.0, *)
     final class MetricKitReceiver: NSObject, MXMetricManagerSubscriber {
 
+        var diagnosticsState: MetricKitProcessingState = .none
+        var metricsState: MetricKitProcessingState = .none
+
         func didReceive(_ payloads: [MXDiagnosticPayload]) {
+            diagnosticsState = .processing
+            defer { diagnosticsState = .completed }
+
             os_log(.default, log: metricKitLog, "[MONITORS] Received %d diagnostic payload(s)", payloads.count)
 
             for payload in payloads {
@@ -56,6 +62,9 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
         }
 
         func didReceive(_ payloads: [MXMetricPayload]) {
+            metricsState = .processing
+            defer { metricsState = .completed }
+
             os_log(.default, log: metricKitLog, "[MONITORS] Received %d metric payload(s)", payloads.count)
 
             for payload in payloads {
@@ -243,15 +252,20 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
             )
 
             // Construct the final report.
-            // Create a clean ReportInfo without runId or timestamp since MetricKit
-            // diagnostics are from a previous crashed session, not the current one.
+            // Extract run ID from signpost data if available (iOS 17+).
+            // This was the run ID of the crashed session, not the current one.
+            var crashedRunId: String?
+            if #available(iOS 17.0, macOS 14.0, *) {
+                crashedRunId = extractRunId(from: diagnostic)
+            }
+
             let reportInfo = ReportInfo(
                 id: report.report.id,
                 processName: report.report.processName,
                 timestamp: nil,
                 type: report.report.type,
                 version: report.report.version,
-                runId: nil,
+                runId: crashedRunId,
                 monitorId: report.report.monitorId
             )
             let newReport = BasicCrashReport(
@@ -276,8 +290,9 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
                 let reportID = kscrash_addUserReport(ptr, Int32(buffer.count))
                 os_log(
                     .default, log: metricKitLog,
-                    "[MONITORS] Added MetricKit report (id=%lld, %d bytes, %{public}@ error, app %{public}@)",
-                    reportID, buffer.count, errorType.rawValue, diagnostic.applicationVersion)
+                    "[MONITORS] Added MetricKit report (id=%lld, %d bytes, %{public}@ error, app %{public}@, runId=%{public}@)",
+                    reportID, buffer.count, errorType.rawValue, diagnostic.applicationVersion,
+                    crashedRunId ?? "none")
             }
         }
 
@@ -324,6 +339,25 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
             return UInt64(token.dropFirst(2), radix: 16)
         }
         return UInt64(token)
+    }
+
+    // MARK: - Run ID Extraction
+
+    /// Extracts the original process run ID from a crash diagnostic's signpost data.
+    /// The run ID was emitted as the category of a signpost named "com.kscrash.report.run_id".
+    @available(iOS 17.0, macOS 14.0, *)
+    func extractRunId(from diagnostic: MXCrashDiagnostic) -> String? {
+        guard let signposts = diagnostic.signpostData else { return nil }
+        for record in signposts {
+            if record.name == "com.kscrash.report.run_id" {
+                let category = record.category
+                // Validate it's a valid UUID
+                if UUID(uuidString: category) != nil {
+                    return category
+                }
+            }
+        }
+        return nil
     }
 
     // MARK: - Termination Reason Parsing
