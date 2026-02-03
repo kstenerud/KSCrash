@@ -56,7 +56,8 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
             os_log(.default, log: metricKitLog, "[MONITORS] Received %d diagnostic payload(s)", payloads.count)
 
             for payload in payloads {
-                payload.crashDiagnostics?.forEach { processCrashDiagnostic($0) }
+                let timestamp = payload.timeStampEnd
+                payload.crashDiagnostics?.forEach { processCrashDiagnostic($0, timestamp: timestamp) }
                 payload.dump()
             }
         }
@@ -74,7 +75,7 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
 
         // MARK: - Processing
 
-        private func processCrashDiagnostic(_ diagnostic: MXCrashDiagnostic) {
+        private func processCrashDiagnostic(_ diagnostic: MXCrashDiagnostic, timestamp: Date) {
             guard let callbacks = MetricKitMonitor.callbacks else {
                 os_log(.error, log: metricKitLog, "[MONITORS] No callbacks available, skipping diagnostic")
                 return
@@ -107,12 +108,12 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
             defer { try? FileManager.default.removeItem(at: tempURL) }
 
             // Phase 2: Post-process and write final report
-            postProcessReport(atPath: tempPath, diagnostic: diagnostic)
+            postProcessReport(atPath: tempPath, diagnostic: diagnostic, timestamp: timestamp)
         }
 
         // MARK: - Post-Processing
 
-        private func postProcessReport(atPath path: String, diagnostic: MXCrashDiagnostic) {
+        private func postProcessReport(atPath path: String, diagnostic: MXCrashDiagnostic, timestamp: Date) {
             let url = URL(fileURLWithPath: path)
 
             guard let data = try? Data(contentsOf: url),
@@ -252,8 +253,11 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
             )
 
             // Construct the final report.
+            // The timestamp is the payload's timeStampEnd, which may represent:
+            // - When the crash occurred
+            // - When the report was delivered via MetricKit
+            // - The end of the collection window (often 24 hours)
             // Extract run ID from signpost data if available (iOS 17+).
-            // This was the run ID of the crashed session, not the current one.
             var crashedRunId: String?
             if #available(iOS 17.0, macOS 14.0, *) {
                 crashedRunId = extractRunId(from: diagnostic)
@@ -262,7 +266,7 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
             let reportInfo = ReportInfo(
                 id: report.report.id,
                 processName: report.report.processName,
-                timestamp: nil,
+                timestamp: timestamp,
                 type: report.report.type,
                 version: report.report.version,
                 runId: crashedRunId,
