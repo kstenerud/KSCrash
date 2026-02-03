@@ -76,7 +76,8 @@ final class MetricKitMonitor: Sendable {
             isEnabled: metricKitMonitorIsEnabled,
             addContextualInfoToEvent: metricKitMonitorAddContextualInfoToEvent,
             notifyPostSystemEnable: metricKitMonitorNotifyPostSystemEnable,
-            writeInReportSection: metricKitMonitorWriteInReportSection
+            writeInReportSection: metricKitMonitorWriteInReportSection,
+            stitchReport: nil
         )
 
         let p = UnsafeMutablePointer<KSCrashMonitorAPI>.allocate(capacity: 1)  // never deallocated
