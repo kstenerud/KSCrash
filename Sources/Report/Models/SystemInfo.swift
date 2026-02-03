@@ -168,6 +168,9 @@ public struct SystemInfo: Codable, Sendable {
     /// App memory information.
     public let appMemory: AppMemoryInfo?
 
+    /// Whether Low Power Mode was enabled at the time of the event.
+    public let lowPowerModeEnabled: Bool?
+
     public init(
         cfBundleExecutable: String? = nil,
         cfBundleExecutablePath: String? = nil,
@@ -204,7 +207,8 @@ public struct SystemInfo: Codable, Sendable {
         freeStorage: Int64? = nil,
         buildType: BuildType? = nil,
         clangVersion: String? = nil,
-        appMemory: AppMemoryInfo? = nil
+        appMemory: AppMemoryInfo? = nil,
+        lowPowerModeEnabled: Bool? = nil
     ) {
         self.cfBundleExecutable = cfBundleExecutable
         self.cfBundleExecutablePath = cfBundleExecutablePath
@@ -242,6 +246,7 @@ public struct SystemInfo: Codable, Sendable {
         self.buildType = buildType
         self.clangVersion = clangVersion
         self.appMemory = appMemory
+        self.lowPowerModeEnabled = lowPowerModeEnabled
     }
 
     enum CodingKeys: String, CodingKey {
@@ -281,5 +286,6 @@ public struct SystemInfo: Codable, Sendable {
         case buildType = "build_type"
         case clangVersion = "clang_version"
         case appMemory = "app_memory"
+        case lowPowerModeEnabled = "low_power_mode_enabled"
     }
 }

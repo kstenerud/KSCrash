@@ -159,6 +159,11 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
                 reason = diagnostic.terminationReason
             }
 
+            // Parse faulting address from VM region info (bad-access crashes)
+            let faultAddress: UInt64? = diagnostic.virtualMemoryRegionInfo.flatMap {
+                parseVMRegionAddress(from: $0)
+            }
+
             // Parse exit code from termination reason
             let exitReason: ExitReasonInfo?
             if let terminationReason = diagnostic.terminationReason,
@@ -170,6 +175,7 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
             }
 
             let newError = CrashError(
+                address: faultAddress,
                 mach: machError,
                 nsexception: nsexception,
                 signal: signalError,
@@ -200,12 +206,14 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
             var processID: Int?
             var buildType: BuildType = .appStore
             var bundleIdentifier: String? = report.system?.cfBundleIdentifier
+            var lowPowerMode: Bool?
             if #available(iOS 17.0, macOS 14.0, *) {
                 let pid = meta.pid
                 processID = pid >= 0 ? Int(pid) : nil
                 if meta.isTestFlightApp {
                     buildType = .test
                 }
+                lowPowerMode = meta.lowPowerModeEnabled
             }
             if #available(iOS 26.0, macOS 26.0, *) {
                 let metaBundleId = meta.bundleIdentifier
@@ -224,7 +232,8 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
                 processID: processID,
                 systemName: osInfo.name,
                 systemVersion: osInfo.version,
-                buildType: buildType
+                buildType: buildType,
+                lowPowerModeEnabled: lowPowerMode
             )
 
             // Construct the final report
@@ -286,21 +295,57 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
         )
     }
 
+    // MARK: - VM Region Parsing
+
+    /// Parses the faulting address from a `virtualMemoryRegionInfo` string.
+    /// The string starts with the address (decimal or hex), e.g.
+    /// "0 is not in any region. ..." or "0x1234 is not in any region. ..."
+    func parseVMRegionAddress(from info: String) -> UInt64? {
+        let token = String(info.prefix(while: { !$0.isWhitespace }))
+        guard !token.isEmpty else { return nil }
+        if token.hasPrefix("0x") || token.hasPrefix("0X") {
+            return UInt64(token.dropFirst(2), radix: 16)
+        }
+        return UInt64(token)
+    }
+
     // MARK: - Termination Reason Parsing
 
+    /// Parses a hex or decimal integer from the substring starting at `start`.
+    /// Reads until the next whitespace, angle bracket, or end of string.
+    private func parseCodeValue(from str: Substring) -> UInt64? {
+        let raw = String(str.prefix(while: { !$0.isWhitespace && $0 != ">" }))
+        if raw.hasPrefix("0x") || raw.hasPrefix("0X") {
+            return UInt64(raw.dropFirst(2), radix: 16)
+        }
+        return UInt64(raw)
+    }
+
     /// Parses the exit code from a termination reason string.
-    /// Format: "Namespace <NAME>, Code <VALUE> [optional description]"
-    /// The code value may be decimal or hex (0x prefix).
+    ///
+    /// Supports three known formats:
+    /// 1. Old style: `Namespace SPRINGBOARD, Code 0x8badf00d`
+    /// 2. Newer with context: `FRONTBOARD 2343432205 <RBSTerminateContext| domain:10 code:0x8BADF00D ...>`
+    /// 3. Just context: `<RBSTerminateContext| domain:10 code:0x8BADF00D ...>`
+    ///
+    /// Prefers the `code:` field inside RBSTerminateContext when present,
+    /// falling back to the old `Code ` prefix format.
     func parseExitCode(from terminationReason: String) -> UInt64? {
-        guard let codeRange = terminationReason.range(of: "Code ") else {
-            return nil
+        // Try RBSTerminateContext code: field first (formats 2 & 3)
+        if let contextCodeRange = terminationReason.range(of: "code:", options: .caseInsensitive) {
+            let after = terminationReason[contextCodeRange.upperBound...]
+            if let result = parseCodeValue(from: after) {
+                return result
+            }
         }
-        let afterCode = terminationReason[codeRange.upperBound...]
-        let codeString = String(afterCode.prefix(while: { !$0.isWhitespace }))
-        if codeString.hasPrefix("0x") || codeString.hasPrefix("0X") {
-            return UInt64(codeString.dropFirst(2), radix: 16)
+
+        // Fall back to old format: "Code <value>" (format 1)
+        if let codeRange = terminationReason.range(of: "Code ") {
+            let after = terminationReason[codeRange.upperBound...]
+            return parseCodeValue(from: after)
         }
-        return UInt64(codeString)
+
+        return nil
     }
 
 #else
