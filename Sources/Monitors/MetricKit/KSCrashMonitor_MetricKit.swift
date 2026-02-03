@@ -120,11 +120,11 @@ private func metricKitMonitorSetEnabled(_ isEnabled: Bool) {
         if #available(iOS 14.0, macOS 12.0, *) {
             if isEnabled {
                 if MetricKitMonitor.receiver == nil {
-                    
+
                     let newReceiver = MetricKitReceiver()
                     newReceiver.diagnosticsState = .waiting
                     newReceiver.metricsState = .waiting
-                    
+
                     MetricKitMonitor.receiver = newReceiver
                     MXMetricManager.shared.add(newReceiver)
                     os_log(.default, log: metricKitLog, "[MONITORS] Subscribed to MXMetricManager")
@@ -135,11 +135,11 @@ private func metricKitMonitorSetEnabled(_ isEnabled: Bool) {
             } else {
                 if let existing = MetricKitMonitor.receiver {
                     MXMetricManager.shared.remove(existing)
-                    
+
                     MetricKitMonitor.receiver = nil
                     existing.diagnosticsState = .none
                     existing.metricsState = .none
-                    
+
                     os_log(.default, log: metricKitLog, "[MONITORS] Unsubscribed from MXMetricManager")
                 }
             }

@@ -262,7 +262,8 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
             // - When the report was delivered via MetricKit
             // - The end of the collection window (often 24 hours)
             // Extract run ID from threadcrumb stack hash
-            let crashedRunId = MetricKitMonitor.runIdHandler.decode(from: callStackData, pathProvider: sidecarPathProvider)
+            let crashedRunId = MetricKitMonitor.runIdHandler.decode(
+                from: callStackData, pathProvider: sidecarPathProvider)
 
             let reportInfo = ReportInfo(
                 id: report.report.id,
