@@ -116,6 +116,9 @@ private func metricKitMonitorSetEnabled(_ isEnabled: Bool) {
                     MetricKitMonitor.receiver = newReceiver
                     MXMetricManager.shared.add(newReceiver)
                     os_log(.default, log: metricKitLog, "[MONITORS] Subscribed to MXMetricManager")
+
+                    // Emit run ID via mxSignpost so MetricKit can capture it in diagnostics
+                    emitRunIdSignpost()
                 }
             } else {
                 if let existing = MetricKitMonitor.receiver {
@@ -128,6 +131,23 @@ private func metricKitMonitorSetEnabled(_ isEnabled: Bool) {
         }
     #endif
 }
+
+#if os(iOS) || os(macOS)
+    @available(iOS 14.0, macOS 12.0, *)
+    private func emitRunIdSignpost() {
+        let runId = String(cString: kscrash_getRunID())
+
+        // Emit with run ID as category
+        let log1 = MXMetricManager.makeLogHandle(category: runId)
+        mxSignpost(.event, log: log1, name: "com.kscrash.report.run_id")
+
+        // Emit with run ID in format string (for testing)
+        let log2 = MXMetricManager.makeLogHandle(category: "com.kscrash.report.run_id")
+        mxSignpost(.event, log: log2, name: "run_id", "%{public, signpost:metrics}@", [runId])
+
+        os_log(.default, log: metricKitLog, "[MONITORS] Emitted run ID signposts: %{public}@", runId)
+    }
+#endif
 
 private func metricKitMonitorIsEnabled() -> Bool {
     if #available(iOS 14.0, macOS 12.0, *) {
