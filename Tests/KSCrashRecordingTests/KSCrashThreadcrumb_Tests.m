@@ -190,8 +190,7 @@
     NSArray<NSNumber *> *addresses1 = [crumb log:@"ABC"];
     NSArray<NSNumber *> *addresses2 = [crumb log:@"ABC"];
 
-    XCTAssertEqual(addresses1.count, addresses2.count,
-                   @"Same message should return same number of addresses");
+    XCTAssertEqual(addresses1.count, addresses2.count, @"Same message should return same number of addresses");
 }
 
 - (void)testLogCanBeCalledMultipleTimes
@@ -221,6 +220,28 @@
     for (NSNumber *addr in addresses) {
         XCTAssertGreaterThan(addr.unsignedLongLongValue, 0);
     }
+}
+
+#pragma mark - Identifier
+
+- (void)testInitWithIdentifierWorks
+{
+    KSCrashThreadcrumb *crumb = [[KSCrashThreadcrumb alloc] initWithIdentifier:@"com.test.threadcrumb"];
+    NSArray<NSNumber *> *addresses = [crumb log:@"ABC"];
+
+    XCTAssertEqual(addresses.count, 3, @"Should work with custom identifier");
+}
+
+- (void)testMultipleInstancesWithDifferentIdentifiers
+{
+    KSCrashThreadcrumb *crumb1 = [[KSCrashThreadcrumb alloc] initWithIdentifier:@"com.test.one"];
+    KSCrashThreadcrumb *crumb2 = [[KSCrashThreadcrumb alloc] initWithIdentifier:@"com.test.two"];
+
+    NSArray<NSNumber *> *addresses1 = [crumb1 log:@"ABC"];
+    NSArray<NSNumber *> *addresses2 = [crumb2 log:@"ABC"];
+
+    XCTAssertEqual(addresses1.count, 3);
+    XCTAssertEqual(addresses2.count, 3);
 }
 
 @end

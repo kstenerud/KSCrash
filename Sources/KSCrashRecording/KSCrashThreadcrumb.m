@@ -41,7 +41,8 @@ NSInteger const KSCrashThreadcrumbMaximumMessageLength = 512;
 
 @interface KSCrashThreadcrumb () {
    @public
-    char *_data;  // Message buffer, allocated to KSCrashThreadcrumbMaximumMessageLength+1
+    char *_data;        // Message buffer, allocated to KSCrashThreadcrumbMaximumMessageLength+1
+    char *_identifier;  // Thread name
 
     dispatch_semaphore_t _semaphore;  // Used to start work and park thread
     pthread_t _thread;
@@ -89,24 +90,24 @@ static KSCRASH_NOINLINE void __kscrash_threadcrumb_end__(KSCrashThreadcrumb *sel
     KSCRASH_THWART_TAIL_CALL
 }
 
-#define CALL_NEXT_OR_END                                        \
+#define CALL_NEXT_OR_END                                                         \
     kscrash_crumb_func_t func = kscrash_crumb_lookup(self->_data[self->_index]); \
-    self->_index++;                                             \
-    if (func) {                                                 \
-        func(self);                                             \
-    } else {                                                    \
-        __kscrash_threadcrumb_end__(self);                      \
+    self->_index++;                                                              \
+    if (func) {                                                                  \
+        func(self);                                                              \
+    } else {                                                                     \
+        __kscrash_threadcrumb_end__(self);                                       \
     }
 
-#define KSCRASH_REG(c)                                                                                    \
-    static KSCRASH_NOINLINE void __kscrash__##c##__(KSCrashThreadcrumb *self) KSCRASH_KEEP_FRAME          \
-    {                                                                                                     \
-        if (self->_data[self->_index] == 0) {                                                             \
-            __kscrash_threadcrumb_end__(self);                                                            \
-            return;                                                                                       \
-        }                                                                                                 \
-        CALL_NEXT_OR_END                                                                                  \
-        KSCRASH_THWART_TAIL_CALL                                                                          \
+#define KSCRASH_REG(c)                                                                           \
+    static KSCRASH_NOINLINE void __kscrash__##c##__(KSCrashThreadcrumb *self) KSCRASH_KEEP_FRAME \
+    {                                                                                            \
+        if (self->_data[self->_index] == 0) {                                                    \
+            __kscrash_threadcrumb_end__(self);                                                   \
+            return;                                                                              \
+        }                                                                                        \
+        CALL_NEXT_OR_END                                                                         \
+        KSCRASH_THWART_TAIL_CALL                                                                 \
     }
 
 // Generate one function per allowed character.
@@ -127,8 +128,8 @@ KSCRASH_REG(5) KSCRASH_REG(6) KSCRASH_REG(7) KSCRASH_REG(8) KSCRASH_REG(9)
 
 #undef KSCRASH_REG
 
-// Lookup table entry.
-typedef struct {
+    // Lookup table entry.
+    typedef struct {
     kscrash_crumb_func_t func;
     char c;
 } KSCrashThreadcrumbEntry;
@@ -167,10 +168,7 @@ static void kscrash_initLookupTable(void)
     });
 }
 
-static kscrash_crumb_func_t kscrash_crumb_lookup(char c)
-{
-    return sKSCrashDirectLookup[(unsigned char)c];
-}
+static kscrash_crumb_func_t kscrash_crumb_lookup(char c) { return sKSCrashDirectLookup[(unsigned char)c]; }
 
 // Worker thread entry point.
 static KSCRASH_NOINLINE void *__kscrash_threadcrumb_start__(void *arg) KSCRASH_KEEP_FRAME
@@ -180,8 +178,8 @@ static KSCRASH_NOINLINE void *__kscrash_threadcrumb_start__(void *arg) KSCRASH_K
     // Initial wait; subsequent waits are in __kscrash_threadcrumb_end__.
     dispatch_semaphore_wait(self->_semaphore, DISPATCH_TIME_FOREVER);
 
+    pthread_setname_np(self->_identifier);
     while (!atomic_load(&self->_stopped)) {
-        pthread_setname_np(self->_data);
         CALL_NEXT_OR_END
     }
     KSCRASH_THWART_TAIL_CALL
@@ -197,11 +195,17 @@ static KSCRASH_NOINLINE void *__kscrash_threadcrumb_start__(void *arg) KSCRASH_K
 
 - (instancetype)init
 {
+    return [self initWithIdentifier:@"KSCrashThreadcrumb"];
+}
+
+- (instancetype)initWithIdentifier:(NSString *)identifier
+{
     if ((self = [super init])) {
         _semaphore = dispatch_semaphore_create(0);
         _stackSemaphore = dispatch_semaphore_create(0);
         _lock = [NSLock new];
         _data = malloc(KSCrashThreadcrumbMaximumMessageLength + 1);
+        _identifier = strdup(identifier.UTF8String ?: "KSCrashThreadcrumb");
 
         // Calculate stack size for deep recursion.
         NSUInteger pageSize = PAGE_SIZE;
@@ -214,8 +218,8 @@ static KSCRASH_NOINLINE void *__kscrash_threadcrumb_start__(void *arg) KSCRASH_K
         pthread_attr_t attr = { 0 };
         pthread_attr_init(&attr);
         pthread_attr_setstacksize(&attr, stackSize);
-        _threadCreationFailed = (pthread_create(&_thread, &attr, __kscrash_threadcrumb_start__,
-                                                (__bridge void *)self) != 0);
+        _threadCreationFailed =
+            (pthread_create(&_thread, &attr, __kscrash_threadcrumb_start__, (__bridge void *)self) != 0);
         pthread_attr_destroy(&attr);
     }
     return self;
@@ -229,6 +233,7 @@ static KSCRASH_NOINLINE void *__kscrash_threadcrumb_start__(void *arg) KSCRASH_K
         pthread_join(_thread, NULL);
     }
     free(_data);
+    free(_identifier);
 }
 
 - (NSArray<NSNumber *> *)log:(NSString *)message
@@ -250,8 +255,8 @@ static KSCRASH_NOINLINE void *__kscrash_threadcrumb_start__(void *arg) KSCRASH_K
         }
 
         // Strip disallowed characters.
-        NSString *sanitized = [[message componentsSeparatedByCharactersInSet:sAllowedCharacters]
-            componentsJoinedByString:@""];
+        NSString *sanitized =
+            [[message componentsSeparatedByCharactersInSet:sAllowedCharacters] componentsJoinedByString:@""];
 
         // Truncate if needed.
         if (sanitized.length > KSCrashThreadcrumbMaximumMessageLength) {
