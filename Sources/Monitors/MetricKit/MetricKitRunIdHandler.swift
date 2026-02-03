@@ -38,7 +38,7 @@ import Report
     @available(iOS 14.0, macOS 12.0, *)
     public final class MetricKitRunIdHandler {
 
-        private let threadcrumb = KSCrashThreadcrumb()
+        private let threadcrumb = KSCrashThreadcrumb(identifier: "com.kscrash.run_id")
 
         /// Callback type for obtaining sidecar file URLs.
         public typealias SidecarPathProvider = (_ name: String, _ extension: String) -> URL?

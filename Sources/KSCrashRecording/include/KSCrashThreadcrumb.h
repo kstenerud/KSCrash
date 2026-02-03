@@ -56,6 +56,14 @@ FOUNDATION_EXPORT NSInteger const KSCrashThreadcrumbMaximumMessageLength;
 @interface KSCrashThreadcrumb : NSObject
 
 /**
+ * Initialize with an identifier used as the thread name.
+ *
+ * @param identifier A string to use as the thread name (e.g., "com.kscrash.metrickit").
+ *                   If nil or empty, a default name is used.
+ */
+- (instancetype)initWithIdentifier:(NSString *)identifier NS_DESIGNATED_INITIALIZER;
+
+/**
  * Log a message by encoding it into the thread's call stack.
  *
  * @param message The message to encode. Only [A-Za-z0-9_] are kept; others are stripped.
