@@ -32,6 +32,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Structure
 
 - Main Package.swift: Defines the KSCrash framework with multiple library products
+- KSCrash.podspec: CocoaPods spec — must stay in sync with Package.swift. When adding a new target or dependency in Package.swift, always add the corresponding subspec and dependency in the podspec. CI lint jobs will fail otherwise.
 - Samples/: Contains sample app and integration tests
   - Uses Tuist for project generation (Project.swift)
   - Tuist version managed by Mise (see .mise.toml)
