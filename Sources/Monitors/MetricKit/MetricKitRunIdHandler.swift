@@ -38,6 +38,9 @@ import Report
     @available(iOS 14.0, macOS 12.0, *)
     public final class MetricKitRunIdHandler {
 
+        /// Expected number of frames for a UUID without hyphens (32 hex characters).
+        static let expectedFrameCount = 32
+
         private let threadcrumb = KSCrashThreadcrumb(identifier: "com.kscrash.run_id")
 
         /// Callback type for obtaining sidecar file URLs.
@@ -53,13 +56,17 @@ import Report
         /// - Returns: true if successful
         @discardableResult
         public func encode(runId: String, pathProvider: SidecarPathProvider) -> Bool {
-            // Strip hyphens for encoding (32 hex chars)
+            // Strip hyphens for encoding (expectedFrameCount hex chars)
             let stripped = runId.replacingOccurrences(of: "-", with: "")
+
+            guard stripped.count == Self.expectedFrameCount else {
+                return false
+            }
 
             // Encode into threadcrumb stack
             let addresses = threadcrumb.log(stripped)
 
-            guard addresses.count == stripped.count else {
+            guard addresses.count == Self.expectedFrameCount else {
                 return false
             }
 
@@ -85,19 +92,28 @@ import Report
         /// - Parameters:
         ///   - callStackData: Parsed call stack data from MXCallStackTree
         ///   - pathProvider: Callback to get the sidecar file path for a given name and extension
+        /// Maximum total frames we expect on a threadcrumb thread.
+        private static let maxThreadFrameCount = expectedFrameCount + 10
+
         /// - Returns: The run ID if found
         func decode(from callStackData: CallStackData, pathProvider: SidecarPathProvider) -> String? {
             for thread in callStackData.threads {
                 guard let backtrace = thread.backtrace else { continue }
                 let frames = backtrace.contents
+
+                // Skip threads with too many frames - not a threadcrumb
+                guard frames.count <= Self.maxThreadFrameCount else { continue }
+
                 guard let crumbFrames = extractThreadcrumbFrames(from: frames),
-                    crumbFrames.count >= 32
+                    crumbFrames.count >= Self.expectedFrameCount
                 else {
                     continue
                 }
 
-                // Use the first 32 frames (UUID without hyphens)
-                let addresses = crumbFrames.prefix(32).map { NSNumber(value: $0.instructionAddr) }
+                // Use the first expectedFrameCount frames (UUID without hyphens)
+                let addresses = crumbFrames.prefix(Self.expectedFrameCount).map {
+                    NSNumber(value: $0.instructionAddr)
+                }
                 let hash = Self.computeHash(from: Array(addresses))
 
                 // Look up sidecar
@@ -128,7 +144,8 @@ import Report
 
         // MARK: - Private
 
-        /// Find the largest contiguous group of frames from the same binary.
+        /// Find the largest contiguous group of frames from the same binary
+        /// that could be a threadcrumb (exactly expectedFrameCount frames).
         private func extractThreadcrumbFrames(from frames: [StackFrame]) -> [StackFrame]? {
             var currentUUID: String?
             var currentGroup: [StackFrame] = []
@@ -138,14 +155,19 @@ import Report
                 if frame.objectUUID == currentUUID {
                     currentGroup.append(frame)
                 } else {
-                    if currentGroup.count > bestGroup.count {
+                    // Skip groups larger than expectedFrameCount - can't be threadcrumb
+                    if currentGroup.count > bestGroup.count
+                        && currentGroup.count <= Self.expectedFrameCount
+                    {
                         bestGroup = currentGroup
                     }
                     currentUUID = frame.objectUUID
                     currentGroup = [frame]
                 }
             }
-            if currentGroup.count > bestGroup.count {
+            if currentGroup.count > bestGroup.count
+                && currentGroup.count <= Self.expectedFrameCount
+            {
                 bestGroup = currentGroup
             }
 
