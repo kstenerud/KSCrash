@@ -310,7 +310,8 @@
     int64_t reportID = [self writeCrashReportWithStringContents:REPORT_CONTENTS(0)];
 
     char pathBuffer[KSCRS_MAX_PATH_LENGTH];
-    bool result = kscrs_getSidecarFilePathForReport("TestMonitor", reportID, pathBuffer, sizeof(pathBuffer), &_storeConfig);
+    bool result =
+        kscrs_getSidecarFilePathForReport("TestMonitor", reportID, pathBuffer, sizeof(pathBuffer), &_storeConfig);
     XCTAssertTrue(result);
 
     NSString *path = [NSString stringWithUTF8String:pathBuffer];
@@ -601,8 +602,8 @@
     [self prepareReportStoreWithSidecarsWithPathEnd:@"testGenericSidecarHash"];
     char pathBuffer[KSCRS_MAX_PATH_LENGTH];
     // Simulate how MetricKit uses it with hex hash as name
-    bool result =
-        kscrs_getSidecarFilePath("MetricKit", "0123456789abcdef", "stacksym", pathBuffer, sizeof(pathBuffer), &_storeConfig);
+    bool result = kscrs_getSidecarFilePath("MetricKit", "0123456789abcdef", "stacksym", pathBuffer, sizeof(pathBuffer),
+                                           &_storeConfig);
 
     XCTAssertTrue(result);
     XCTAssertTrue(strstr(pathBuffer, "MetricKit") != NULL);
