@@ -1,5 +1,5 @@
 //
-//  KSCrashMonitor_MetricKit_Tests.swift
+//  MetricKitMonitor_Tests.swift
 //
 //  Created by Alexander Cohen on 2026-01-31.
 //
@@ -33,7 +33,7 @@ import XCTest
 #if os(iOS) || os(macOS)
 
     @available(iOS 14.0, macOS 12.0, *)
-    final class KSCrashMonitor_MetricKit_Tests: XCTestCase {
+    final class MetricKitMonitorTests: XCTestCase {
 
         // MARK: - Monitor API Lifecycle
 
