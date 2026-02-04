@@ -74,6 +74,144 @@ final class KSCrashMonitor_MetricKit_Tests: XCTestCase {
         XCTAssertEqual(plugin.api, MetricKitMonitor.api)
     }
 
+    // MARK: - State Change Notifications
+
+    #if os(iOS) || os(macOS)
+        func testStateChangeNotificationPostedOnDiagnosticsStateChange() {
+            let api = MetricKitMonitor.api.pointee
+            api.setEnabled(true)
+            defer { api.setEnabled(false) }
+
+            guard let receiver = MetricKitMonitor.receiver else {
+                XCTFail("Receiver should exist when enabled")
+                return
+            }
+
+            let notificationExpectation = expectation(description: "State change notification")
+            notificationExpectation.assertForOverFulfill = false
+            var sawProcessingState = false
+
+            let observer = NotificationCenter.default.addObserver(
+                forName: MetricKitMonitorPlugin.stateDidChangeNotification,
+                object: Monitors.metricKit,
+                queue: nil
+            ) { _ in
+                if receiver.diagnosticsState == .processing {
+                    sawProcessingState = true
+                }
+                notificationExpectation.fulfill()
+            }
+            defer { NotificationCenter.default.removeObserver(observer) }
+
+            receiver.diagnosticsState = .processing
+
+            wait(for: [notificationExpectation], timeout: 2.0)
+
+            XCTAssertTrue(sawProcessingState, "Should have received notification when state became .processing")
+        }
+
+        func testStateChangeNotificationPostedOnMetricsStateChange() {
+            let api = MetricKitMonitor.api.pointee
+            api.setEnabled(true)
+            defer { api.setEnabled(false) }
+
+            guard let receiver = MetricKitMonitor.receiver else {
+                XCTFail("Receiver should exist when enabled")
+                return
+            }
+
+            let notificationExpectation = expectation(description: "State change notification")
+            notificationExpectation.assertForOverFulfill = false
+            var sawCompletedState = false
+
+            let observer = NotificationCenter.default.addObserver(
+                forName: MetricKitMonitorPlugin.stateDidChangeNotification,
+                object: Monitors.metricKit,
+                queue: nil
+            ) { _ in
+                if receiver.metricsState == .completed {
+                    sawCompletedState = true
+                }
+                notificationExpectation.fulfill()
+            }
+            defer { NotificationCenter.default.removeObserver(observer) }
+
+            receiver.metricsState = .completed
+
+            wait(for: [notificationExpectation], timeout: 2.0)
+
+            XCTAssertTrue(sawCompletedState, "Should have received notification when state became .completed")
+        }
+
+        func testStateChangeNotificationPostedOnMainThread() {
+            let api = MetricKitMonitor.api.pointee
+            api.setEnabled(true)
+            defer { api.setEnabled(false) }
+
+            guard let receiver = MetricKitMonitor.receiver else {
+                XCTFail("Receiver should exist when enabled")
+                return
+            }
+
+            let notificationExpectation = expectation(description: "Notification received")
+            notificationExpectation.assertForOverFulfill = false
+            var allOnMainThread = true
+
+            let observer = NotificationCenter.default.addObserver(
+                forName: MetricKitMonitorPlugin.stateDidChangeNotification,
+                object: Monitors.metricKit,
+                queue: nil
+            ) { _ in
+                if !Thread.isMainThread {
+                    allOnMainThread = false
+                }
+                notificationExpectation.fulfill()
+            }
+            defer { NotificationCenter.default.removeObserver(observer) }
+
+            DispatchQueue.global().async {
+                receiver.diagnosticsState = .completed
+            }
+
+            wait(for: [notificationExpectation], timeout: 2.0)
+
+            XCTAssertTrue(allOnMainThread, "All notifications should be posted on main thread")
+        }
+
+        func testStateChangeNotificationObjectIsPlugin() {
+            let api = MetricKitMonitor.api.pointee
+            api.setEnabled(true)
+            defer { api.setEnabled(false) }
+
+            guard let receiver = MetricKitMonitor.receiver else {
+                XCTFail("Receiver should exist when enabled")
+                return
+            }
+
+            let notificationExpectation = expectation(description: "Notification received")
+            notificationExpectation.assertForOverFulfill = false
+            var allObjectsCorrect = true
+
+            let observer = NotificationCenter.default.addObserver(
+                forName: MetricKitMonitorPlugin.stateDidChangeNotification,
+                object: nil,
+                queue: nil
+            ) { notification in
+                if (notification.object as AnyObject) !== Monitors.metricKit {
+                    allObjectsCorrect = false
+                }
+                notificationExpectation.fulfill()
+            }
+            defer { NotificationCenter.default.removeObserver(observer) }
+
+            receiver.metricsState = .completed
+
+            wait(for: [notificationExpectation], timeout: 2.0)
+
+            XCTAssertTrue(allObjectsCorrect, "All notification objects should be the plugin instance")
+        }
+    #endif
+
     // MARK: - Call Stack Tree Flattening
 
     #if os(iOS) || os(macOS)

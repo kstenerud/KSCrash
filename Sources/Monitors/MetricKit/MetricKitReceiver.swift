@@ -52,13 +52,28 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
         private var _diagnosticsState: MetricKitProcessingState = .none
         var diagnosticsState: MetricKitProcessingState {
             get { lock.withLock { _diagnosticsState } }
-            set { lock.withLock { _diagnosticsState = newValue } }
+            set {
+                lock.withLock { _diagnosticsState = newValue }
+                postStateChangeNotification()
+            }
         }
 
         private var _metricsState: MetricKitProcessingState = .none
         var metricsState: MetricKitProcessingState {
             get { lock.withLock { _metricsState } }
-            set { lock.withLock { _metricsState = newValue } }
+            set {
+                lock.withLock { _metricsState = newValue }
+                postStateChangeNotification()
+            }
+        }
+
+        private func postStateChangeNotification() {
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(
+                    name: MetricKitMonitorPlugin.stateDidChangeNotification,
+                    object: Monitors.metricKit
+                )
+            }
         }
 
         func didReceive(_ payloads: [MXDiagnosticPayload]) {
