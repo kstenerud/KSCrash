@@ -113,7 +113,7 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
             )
 
             let api = MetricKitMonitor.api
-            let context = callbacks.notify(mach_thread_self(), requirements)
+            let context = callbacks.notify(thread_t(ksthread_self()), requirements)
             kscm_fillMonitorContext(context, api)
             context?.pointee.omitBinaryImages = true
             tempPath.withCString { cPath in
@@ -217,8 +217,8 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
 
             // Build crash section with MetricKit threads
             let crashedThread: BasicCrashReport.Thread?
-            if callStackData.crashedThreadIndex < callStackData.threads.count {
-                crashedThread = callStackData.threads[callStackData.crashedThreadIndex]
+            if let idx = callStackData.crashedThreadIndex, idx < callStackData.threads.count {
+                crashedThread = callStackData.threads[idx]
             } else {
                 crashedThread = nil
             }
@@ -362,9 +362,10 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
     // MARK: - Termination Reason Parsing
 
     /// Parses a hex or decimal integer from the substring starting at `start`.
-    /// Reads until the next whitespace, angle bracket, or end of string.
+    /// Reads until the next whitespace, common delimiter, or end of string.
     private func parseCodeValue(from str: Substring) -> UInt64? {
-        let raw = String(str.prefix(while: { !$0.isWhitespace && $0 != ">" }))
+        let terminators: Set<Character> = [" ", "\t", "\n", "\r", ">", ",", ";", "|"]
+        let raw = String(str.prefix(while: { !terminators.contains($0) }))
         if raw.hasPrefix("0x") || raw.hasPrefix("0X") {
             return UInt64(raw.dropFirst(2), radix: 16)
         }
