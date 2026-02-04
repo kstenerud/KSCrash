@@ -46,6 +46,10 @@ import Foundation
     @available(iOS 14.0, macOS 12.0, *)
     public final class MetricKitMonitorPlugin: NSObject, MonitorPlugin {
 
+        /// Posted when the diagnostics or metrics processing state changes.
+        /// The notification object is the `MetricKitMonitorPlugin` instance.
+        public static let stateDidChangeNotification = Notification.Name("MetricKitMonitorPluginStateDidChange")
+
         public var api: UnsafeMutablePointer<KSCrashMonitorAPI> {
             MetricKitMonitor.api
         }
