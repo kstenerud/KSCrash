@@ -50,6 +50,7 @@ NSInteger const KSCrashThreadcrumbMaximumMessageLength = 512;
     NSLock *_lock;
 
     NSUInteger _index;                     // Current position in _data
+    NSUInteger _messageLength;             // Length of sanitized message (set in log:)
     dispatch_semaphore_t _stackSemaphore;  // Completion signal per log
     NSArray<NSNumber *> *_stackAddresses;  // Captured, pruned stack trace
     atomic_bool _stopped;
@@ -72,11 +73,15 @@ static kscrash_crumb_func_t kscrash_crumb_lookup(char c);
 // Terminal handler: capture stack, signal completion, park thread.
 static KSCRASH_NOINLINE void __kscrash_threadcrumb_end__(KSCrashThreadcrumb *self) KSCRASH_KEEP_FRAME
 {
-    // Capture stack, drop current frame + 3 runtime frames at the tail.
+    // Take exactly _messageLength frames after the current frame (index 0).
+    // Using the known message length avoids hardcoded tail-frame counts that
+    // break under sanitizers or across OS versions.
     NSArray<NSNumber *> *stack = [NSThread.callStackReturnAddresses copy];
     NSUInteger count = stack.count;
-    if (count > 4) {
-        self->_stackAddresses = [[stack subarrayWithRange:NSMakeRange(1, count - 4)] copy];
+    NSUInteger messageLength = self->_messageLength;
+    if (count > 1 && messageLength > 0) {
+        NSUInteger length = MIN(messageLength, count - 1);
+        self->_stackAddresses = [[stack subarrayWithRange:NSMakeRange(1, length)] copy];
     } else {
         self->_stackAddresses = @[];
     }
@@ -269,6 +274,7 @@ static KSCRASH_NOINLINE void *__kscrash_threadcrumb_start__(void *arg) KSCRASH_K
             strncpy(_data, sanitized.UTF8String, KSCrashThreadcrumbMaximumMessageLength);
         }
         _index = 0;
+        _messageLength = sanitized.length;
         _stackAddresses = nil;
 
         // Signal worker thread.
