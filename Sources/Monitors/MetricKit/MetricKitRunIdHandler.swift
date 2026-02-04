@@ -38,8 +38,19 @@ import Report
     @available(iOS 14.0, macOS 12.0, *)
     public final class MetricKitRunIdHandler {
 
-        /// Expected number of frames for a UUID without hyphens (32 hex characters).
-        static let expectedFrameCount = 32
+        /// Expected number of data frames (UUID without hyphens = 32 hex characters).
+        static let expectedDataFrameCount = 32
+
+        /// Total frames in a parked threadcrumb stack (39 frames).
+        /// Stack is ordered top-to-bottom (index 0 = most recent frame).
+        /// Layout:
+        ///   0-3:   overhead (semaphore_wait, dispatch, __kscrash_threadcrumb_end__)
+        ///   4-35:  data frames (32 characters, in reverse order - last char at 4, first at 35)
+        ///   36-38: overhead (__kscrash_threadcrumb_start__, pthread)
+        static let expectedTotalFrameCount = 39
+
+        /// Index where data frames start in the parked stack.
+        static let dataStartIndex = 4
 
         private let threadcrumb = KSCrashThreadcrumb(identifier: "com.kscrash.run_id")
 
@@ -56,17 +67,17 @@ import Report
         /// - Returns: true if successful
         @discardableResult
         public func encode(runId: String, pathProvider: SidecarPathProvider) -> Bool {
-            // Strip hyphens for encoding (expectedFrameCount hex chars)
+            // Strip hyphens for encoding (expectedDataFrameCount hex chars)
             let stripped = runId.replacingOccurrences(of: "-", with: "")
 
-            guard stripped.count == Self.expectedFrameCount else {
+            guard stripped.count == Self.expectedDataFrameCount else {
                 return false
             }
 
-            // Encode into threadcrumb stack
+            // Encode into threadcrumb stack - returns just the data frames
             let addresses = threadcrumb.log(stripped)
 
-            guard addresses.count == Self.expectedFrameCount else {
+            guard addresses.count == Self.expectedDataFrameCount else {
                 return false
             }
 
@@ -89,32 +100,27 @@ import Report
 
         /// Decode a run ID from MetricKit call stack data.
         ///
+        /// Looks for a thread with exactly 39 frames and extracts data from indices 4-35.
+        ///
         /// - Parameters:
         ///   - callStackData: Parsed call stack data from MXCallStackTree
         ///   - pathProvider: Callback to get the sidecar file path for a given name and extension
-        /// Maximum total frames we expect on a threadcrumb thread.
-        private static let maxThreadFrameCount = expectedFrameCount + 10
-
         /// - Returns: The run ID if found
         func decode(from callStackData: CallStackData, pathProvider: SidecarPathProvider) -> String? {
             for thread in callStackData.threads {
                 guard let backtrace = thread.backtrace else { continue }
                 let frames = backtrace.contents
 
-                // Skip threads with too many frames - not a threadcrumb
-                guard frames.count <= Self.maxThreadFrameCount else { continue }
+                // Must have exactly 39 frames for a threadcrumb stack
+                guard frames.count == Self.expectedTotalFrameCount else { continue }
 
-                guard let crumbFrames = extractThreadcrumbFrames(from: frames),
-                    crumbFrames.count >= Self.expectedFrameCount
-                else {
-                    continue
-                }
+                // Extract data frames at indices 4-35 (32 frames)
+                let dataFrames = Array(
+                    frames[Self.dataStartIndex..<(Self.dataStartIndex + Self.expectedDataFrameCount)])
 
-                // Use the first expectedFrameCount frames (UUID without hyphens)
-                let addresses = crumbFrames.prefix(Self.expectedFrameCount).map {
-                    NSNumber(value: $0.instructionAddr)
-                }
-                let hash = Self.computeHash(from: Array(addresses))
+                // Convert to addresses for hashing
+                let addresses = dataFrames.map { NSNumber(value: $0.instructionAddr) }
+                let hash = Self.computeHash(from: addresses)
 
                 // Look up sidecar
                 let name = String(format: "%016llx", hash)
@@ -140,38 +146,6 @@ import Report
                 hash ^= rotated
             }
             return hash
-        }
-
-        // MARK: - Private
-
-        /// Find the largest contiguous group of frames from the same binary
-        /// that could be a threadcrumb (exactly expectedFrameCount frames).
-        private func extractThreadcrumbFrames(from frames: [StackFrame]) -> [StackFrame]? {
-            var currentUUID: String?
-            var currentGroup: [StackFrame] = []
-            var bestGroup: [StackFrame] = []
-
-            for frame in frames {
-                if frame.objectUUID == currentUUID {
-                    currentGroup.append(frame)
-                } else {
-                    // Skip groups larger than expectedFrameCount - can't be threadcrumb
-                    if currentGroup.count > bestGroup.count
-                        && currentGroup.count <= Self.expectedFrameCount
-                    {
-                        bestGroup = currentGroup
-                    }
-                    currentUUID = frame.objectUUID
-                    currentGroup = [frame]
-                }
-            }
-            if currentGroup.count > bestGroup.count
-                && currentGroup.count <= Self.expectedFrameCount
-            {
-                bestGroup = currentGroup
-            }
-
-            return bestGroup.isEmpty ? nil : bestGroup
         }
     }
 
