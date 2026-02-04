@@ -35,10 +35,15 @@ extern void ksthread_storeMainThreadValue(KSThread thread);
 // ksthread_main() can return it later from any context (including
 // signal handlers).  A library constructor is used instead of +load
 // because it doesn't depend on the ObjC runtime's class registration
-// order.  Constructors normally run on the main thread, but if the
-// library is loaded dynamically (e.g. via dlopen on a background
-// thread) we fall back to dispatch_async to ensure the store always
-// happens on the main thread.
+// order.
+//
+// This running on main is effectively guaranteed: when KSCrash is linked
+// (static or dynamic), +load and library constructors run pre-main on
+// the main thread. You'd have to dlopen KSCrash on a non-main thread
+// for this to run elsewhere. If anyone does that, we'd like to understand
+// why so we can take it into account. For now, we consider this safe.
+//
+// The fallback exists for correctness but shouldn't trigger in practice.
 __attribute__((constructor(101), used, visibility("default"))) static void ksthread_init(void)
 {
     if (pthread_main_np()) {
