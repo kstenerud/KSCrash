@@ -31,54 +31,62 @@ import Foundation
     import KSCrashRecordingCore
 #endif
 
-#if os(iOS) || os(macOS)
+/// The processing state of the MetricKit receiver.
+@available(iOS 14.0, macOS 12.0, *)
+@available(tvOS, unavailable)
+@available(watchOS, unavailable)
+public enum MetricKitProcessingState: String, Sendable {
+    case none
+    case waiting
+    case processing
+    case completed
+}
 
-    /// The processing state of the MetricKit receiver.
-    @available(iOS 14.0, macOS 12.0, *)
-    public enum MetricKitProcessingState: String, Sendable {
-        case none
-        case waiting
-        case processing
-        case completed
+/// A monitor plugin that receives diagnostic and metric payloads from MetricKit.
+@available(iOS 14.0, macOS 12.0, *)
+@available(tvOS, unavailable)
+@available(watchOS, unavailable)
+public final class MetricKitMonitorPlugin: NSObject, MonitorPlugin {
+
+    /// Posted when the diagnostics or metrics processing state changes.
+    /// The notification object is the `MetricKitMonitorPlugin` instance.
+    public static let stateDidChangeNotification = Notification.Name("MetricKitMonitorPluginStateDidChange")
+
+    public var api: UnsafeMutablePointer<KSCrashMonitorAPI> {
+        MetricKitMonitor.api
     }
 
-    /// A monitor plugin that receives diagnostic and metric payloads from MetricKit.
-    @available(iOS 14.0, macOS 12.0, *)
-    public final class MetricKitMonitorPlugin: NSObject, MonitorPlugin {
-
-        /// Posted when the diagnostics or metrics processing state changes.
-        /// The notification object is the `MetricKitMonitorPlugin` instance.
-        public static let stateDidChangeNotification = Notification.Name("MetricKitMonitorPluginStateDidChange")
-
-        public var api: UnsafeMutablePointer<KSCrashMonitorAPI> {
-            MetricKitMonitor.api
-        }
-
-        /// The current state of diagnostic payload processing.
-        public var diagnosticsState: MetricKitProcessingState {
-            MetricKitMonitor.receiver?.diagnosticsState ?? .none
-        }
-
-        /// The current state of metric payload processing.
-        public var metricsState: MetricKitProcessingState {
-            MetricKitMonitor.receiver?.metricsState ?? .none
-        }
-
-        /// When true, writes all received payloads as JSON to Documents/MetricKit/.
-        /// Useful for debugging and exploring MetricKit data.
-        /// Default is false.
-        public var dumpPayloadsToDocuments: Bool {
-            get { MetricKitMonitor.dumpPayloadsToDocuments }
-            set { MetricKitMonitor.dumpPayloadsToDocuments = newValue }
-        }
-
-        /// When true, encodes the KSCrash run ID into a threadcrumb for MetricKit report correlation.
-        /// This allows matching MetricKit crash reports to KSCrash reports from the same process run.
-        /// Default is true.
-        public var threadcrumbEnabled: Bool {
-            get { MetricKitMonitor.threadcrumbEnabled }
-            set { MetricKitMonitor.threadcrumbEnabled = newValue }
-        }
+    /// The current state of diagnostic payload processing.
+    public var diagnosticsState: MetricKitProcessingState {
+        #if os(iOS) || os(macOS)
+            return MetricKitMonitor.receiver?.diagnosticsState ?? .none
+        #else
+            return .none
+        #endif
     }
 
-#endif
+    /// The current state of metric payload processing.
+    public var metricsState: MetricKitProcessingState {
+        #if os(iOS) || os(macOS)
+            return MetricKitMonitor.receiver?.metricsState ?? .none
+        #else
+            return .none
+        #endif
+    }
+
+    /// When true, writes all received payloads as JSON to Documents/MetricKit/.
+    /// Useful for debugging and exploring MetricKit data.
+    /// Default is false.
+    public var dumpPayloadsToDocuments: Bool {
+        get { MetricKitMonitor.dumpPayloadsToDocuments }
+        set { MetricKitMonitor.dumpPayloadsToDocuments = newValue }
+    }
+
+    /// When true, encodes the KSCrash run ID into a threadcrumb for MetricKit report correlation.
+    /// This allows matching MetricKit crash reports to KSCrash reports from the same process run.
+    /// Default is true.
+    public var threadcrumbEnabled: Bool {
+        get { MetricKitMonitor.threadcrumbEnabled }
+        set { MetricKitMonitor.threadcrumbEnabled = newValue }
+    }
+}

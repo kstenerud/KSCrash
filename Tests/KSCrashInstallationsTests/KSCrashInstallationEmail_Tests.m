@@ -24,10 +24,13 @@
 // THE SOFTWARE.
 //
 
+#import <TargetConditionals.h>
 #import <XCTest/XCTest.h>
 
 #import "KSCrashInstallationEmail.h"
 #import "KSCrashMonitor.h"
+
+#if TARGET_OS_IOS
 
 @interface KSCrashInstallationEmail_Tests : XCTestCase
 @end
@@ -75,3 +78,5 @@
 }
 
 @end
+
+#endif

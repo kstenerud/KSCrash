@@ -38,5 +38,7 @@ public enum Monitors {
 
     /// A monitor that receives diagnostic payloads from MetricKit.
     @available(iOS 14.0, macOS 12.0, *)
+    @available(tvOS, unavailable)
+    @available(watchOS, unavailable)
     public static let metricKit = MetricKitMonitorPlugin()
 }

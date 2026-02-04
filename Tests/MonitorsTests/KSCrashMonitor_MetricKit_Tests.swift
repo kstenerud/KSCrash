@@ -32,6 +32,7 @@ import XCTest
 
 #if os(iOS) || os(macOS)
 
+    @available(iOS 14.0, macOS 12.0, *)
     final class KSCrashMonitor_MetricKit_Tests: XCTestCase {
 
         // MARK: - Monitor API Lifecycle
