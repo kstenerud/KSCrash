@@ -146,12 +146,15 @@ import os.log
 
     // MARK: - MXMetricPayload Extension
 
-    @available(iOS 14.0, macOS 12.0, *)
-    extension MXMetricPayload {
-        func dump() {
-            MetricKitJSONDumper.dump(jsonRepresentation(), type: "Metric")
+    // MXMetricPayload was API_UNAVAILABLE(macos) until the macOS 26 SDK (Xcode 26 / Swift 6.2).
+    #if os(iOS) || compiler(>=6.2)
+        @available(iOS 14.0, macOS 12.0, *)
+        extension MXMetricPayload {
+            func dump() {
+                MetricKitJSONDumper.dump(jsonRepresentation(), type: "Metric")
+            }
         }
-    }
+    #endif
 
     // MARK: - MXCrashDiagnostic Extension
 
