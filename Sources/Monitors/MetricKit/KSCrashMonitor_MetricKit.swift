@@ -73,6 +73,12 @@ final class MetricKitMonitor: Sendable {
         get { lock.withLock { _dumpPayloadsToDocuments } }
     }
 
+    static private var _threadcrumbEnabled: Bool = true
+    static var threadcrumbEnabled: Bool {
+        set { lock.withLock { _threadcrumbEnabled = newValue } }
+        get { lock.withLock { _threadcrumbEnabled } }
+    }
+
     static let runIdHandler = MetricKitRunIdHandler()
 
     static let api: UnsafeMutablePointer<KSCrashMonitorAPI> = {
@@ -130,7 +136,9 @@ private func metricKitMonitorSetEnabled(_ isEnabled: Bool) {
                     os_log(.default, log: metricKitLog, "[MONITORS] Subscribed to MXMetricManager")
 
                     // Encode run ID into threadcrumb stack for MetricKit report correlation
-                    encodeRunIdThreadcrumb()
+                    if MetricKitMonitor.threadcrumbEnabled {
+                        encodeRunIdThreadcrumb()
+                    }
                 }
             } else {
                 if let existing = MetricKitMonitor.receiver {

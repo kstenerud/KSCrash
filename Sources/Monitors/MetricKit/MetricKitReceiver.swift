@@ -31,6 +31,7 @@ import os.log
 #if SWIFT_PACKAGE
     import KSCrashRecording
     import KSCrashRecordingCore
+    import SwiftCore
 #endif
 
 #if os(iOS) || os(macOS)
@@ -46,8 +47,19 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
     @available(iOS 14.0, macOS 12.0, *)
     final class MetricKitReceiver: NSObject, MXMetricManagerSubscriber {
 
-        var diagnosticsState: MetricKitProcessingState = .none
-        var metricsState: MetricKitProcessingState = .none
+        private let lock = UnfairLock()
+
+        private var _diagnosticsState: MetricKitProcessingState = .none
+        var diagnosticsState: MetricKitProcessingState {
+            get { lock.withLock { _diagnosticsState } }
+            set { lock.withLock { _diagnosticsState = newValue } }
+        }
+
+        private var _metricsState: MetricKitProcessingState = .none
+        var metricsState: MetricKitProcessingState {
+            get { lock.withLock { _metricsState } }
+            set { lock.withLock { _metricsState = newValue } }
+        }
 
         func didReceive(_ payloads: [MXDiagnosticPayload]) {
             diagnosticsState = .processing

@@ -67,6 +67,14 @@ import Foundation
             get { MetricKitMonitor.dumpPayloadsToDocuments }
             set { MetricKitMonitor.dumpPayloadsToDocuments = newValue }
         }
+
+        /// When true, encodes the KSCrash run ID into a threadcrumb for MetricKit report correlation.
+        /// This allows matching MetricKit crash reports to KSCrash reports from the same process run.
+        /// Default is true.
+        public var threadcrumbEnabled: Bool {
+            get { MetricKitMonitor.threadcrumbEnabled }
+            set { MetricKitMonitor.threadcrumbEnabled = newValue }
+        }
     }
 
 #endif
