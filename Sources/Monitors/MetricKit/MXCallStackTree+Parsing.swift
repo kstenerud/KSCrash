@@ -26,6 +26,7 @@
 
 import Foundation
 import Report
+import os.log
 
 #if os(iOS) || os(macOS)
     import MetricKit
@@ -53,7 +54,8 @@ import Report
 
     struct CallStackData {
         let threads: [BasicCrashReport.Thread]
-        let crashedThreadIndex: Int
+        /// Index of the crashed thread, or nil if no thread was attributed.
+        let crashedThreadIndex: Int?
         let binaryImages: [BinaryImage]
     }
 
@@ -65,11 +67,14 @@ import Report
         func extractCallStackData() -> CallStackData {
             let jsonData = jsonRepresentation()
             guard let tree = try? JSONDecoder().decode(CallStackTreeRepresentation.self, from: jsonData) else {
-                return CallStackData(threads: [], crashedThreadIndex: 0, binaryImages: [])
+                os_log(
+                    .error, log: metricKitLog,
+                    "[MONITORS] Failed to decode MXCallStackTree JSON representation")
+                return CallStackData(threads: [], crashedThreadIndex: nil, binaryImages: [])
             }
 
             var threads: [BasicCrashReport.Thread] = []
-            var crashedIndex = 0
+            var crashedIndex: Int?
             var seenUUIDs = Set<String>()
             var images: [BinaryImage] = []
 
