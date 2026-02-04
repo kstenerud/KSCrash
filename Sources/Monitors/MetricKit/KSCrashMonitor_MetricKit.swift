@@ -40,6 +40,8 @@ import os.log
 // MARK: - MetricKit Monitor
 
 @available(iOS 14.0, macOS 12.0, *)
+@available(tvOS, unavailable)
+@available(watchOS, unavailable)
 final class MetricKitMonitor: Sendable {
 
     static let lock = UnfairLock()
@@ -61,11 +63,13 @@ final class MetricKitMonitor: Sendable {
         get { lock.withLock { _callbacks } }
     }
 
-    static private var _receiver: MetricKitReceiver? = nil
-    static var receiver: MetricKitReceiver? {
-        set { lock.withLock { _receiver = newValue } }
-        get { lock.withLock { _receiver } }
-    }
+    #if os(iOS) || os(macOS)
+        static private var _receiver: MetricKitReceiver? = nil
+        static var receiver: MetricKitReceiver? {
+            set { lock.withLock { _receiver = newValue } }
+            get { lock.withLock { _receiver } }
+        }
+    #endif
 
     static private var _dumpPayloadsToDocuments: Bool = false
     static var dumpPayloadsToDocuments: Bool {
@@ -79,7 +83,9 @@ final class MetricKitMonitor: Sendable {
         get { lock.withLock { _threadcrumbEnabled } }
     }
 
-    static let runIdHandler = MetricKitRunIdHandler()
+    #if os(iOS) || os(macOS)
+        static let runIdHandler = MetricKitRunIdHandler()
+    #endif
 
     static let api: UnsafeMutablePointer<KSCrashMonitorAPI> = {
         let api = KSCrashMonitorAPI(
@@ -106,13 +112,19 @@ private func metricKitMonitorInit(
     _ callbacks: UnsafeMutablePointer<KSCrash_ExceptionHandlerCallbacks>?
 ) {
     if #available(iOS 14.0, macOS 12.0, *) {
-        MetricKitMonitor.callbacks = callbacks?.pointee
+        #if os(iOS) || os(macOS)
+            MetricKitMonitor.callbacks = callbacks?.pointee
+        #endif
     }
 }
 
 private func metricKitMonitorGetId() -> UnsafePointer<CChar>? {
     if #available(iOS 14.0, macOS 12.0, *) {
-        return MetricKitMonitor.monitorId
+        #if os(iOS) || os(macOS)
+            return MetricKitMonitor.monitorId
+        #else
+            return nil
+        #endif
     }
     return nil
 }
@@ -190,7 +202,11 @@ private func metricKitMonitorSetEnabled(_ isEnabled: Bool) {
 
 private func metricKitMonitorIsEnabled() -> Bool {
     if #available(iOS 14.0, macOS 12.0, *) {
-        return MetricKitMonitor.enabled
+        #if os(iOS) || os(macOS)
+            return MetricKitMonitor.enabled
+        #else
+            return false
+        #endif
     }
     return false
 }
