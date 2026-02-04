@@ -30,53 +30,54 @@ import XCTest
 
 @testable import Monitors
 
-final class KSCrashMonitor_MetricKit_Tests: XCTestCase {
+#if os(iOS) || os(macOS)
 
-    // MARK: - Monitor API Lifecycle
+    final class KSCrashMonitor_MetricKit_Tests: XCTestCase {
 
-    func testMonitorId() {
-        let api = MetricKitMonitor.api.pointee
-        let monitorId = api.monitorId()
-        XCTAssertNotNil(monitorId)
-        XCTAssertEqual(String(cString: monitorId!), "MetricKit")
-    }
+        // MARK: - Monitor API Lifecycle
 
-    func testMonitorFlags() {
-        let api = MetricKitMonitor.api.pointee
-        let flags = api.monitorFlags()
-        XCTAssertEqual(flags.rawValue, 0)
-    }
+        func testMonitorId() {
+            let api = MetricKitMonitor.api.pointee
+            let monitorId = api.monitorId()
+            XCTAssertNotNil(monitorId)
+            XCTAssertEqual(String(cString: monitorId!), "MetricKit")
+        }
 
-    func testEnableDisable() {
-        let api = MetricKitMonitor.api.pointee
-        XCTAssertFalse(api.isEnabled())
+        func testMonitorFlags() {
+            let api = MetricKitMonitor.api.pointee
+            let flags = api.monitorFlags()
+            XCTAssertEqual(flags.rawValue, 0)
+        }
 
-        api.setEnabled(true)
-        XCTAssertTrue(api.isEnabled())
+        func testEnableDisable() {
+            let api = MetricKitMonitor.api.pointee
+            XCTAssertFalse(api.isEnabled())
 
-        api.setEnabled(false)
-        XCTAssertFalse(api.isEnabled())
-    }
+            api.setEnabled(true)
+            XCTAssertTrue(api.isEnabled())
 
-    func testIdempotentEnable() {
-        let api = MetricKitMonitor.api.pointee
-        api.setEnabled(true)
-        api.setEnabled(true)
-        XCTAssertTrue(api.isEnabled())
+            api.setEnabled(false)
+            XCTAssertFalse(api.isEnabled())
+        }
 
-        api.setEnabled(false)
-        api.setEnabled(false)
-        XCTAssertFalse(api.isEnabled())
-    }
+        func testIdempotentEnable() {
+            let api = MetricKitMonitor.api.pointee
+            api.setEnabled(true)
+            api.setEnabled(true)
+            XCTAssertTrue(api.isEnabled())
 
-    func testMonitorPlugin() {
-        let plugin = Monitors.metricKit
-        XCTAssertEqual(plugin.api, MetricKitMonitor.api)
-    }
+            api.setEnabled(false)
+            api.setEnabled(false)
+            XCTAssertFalse(api.isEnabled())
+        }
 
-    // MARK: - State Change Notifications
+        func testMonitorPlugin() {
+            let plugin = Monitors.metricKit
+            XCTAssertEqual(plugin.api, MetricKitMonitor.api)
+        }
 
-    #if os(iOS) || os(macOS)
+        // MARK: - State Change Notifications
+
         func testStateChangeNotificationPostedOnDiagnosticsStateChange() {
             let api = MetricKitMonitor.api.pointee
             api.setEnabled(true)
@@ -210,11 +211,9 @@ final class KSCrashMonitor_MetricKit_Tests: XCTestCase {
 
             XCTAssertTrue(allObjectsCorrect, "All notification objects should be the plugin instance")
         }
-    #endif
 
-    // MARK: - Call Stack Tree Flattening
+        // MARK: - Call Stack Tree Flattening
 
-    #if os(iOS) || os(macOS)
         private typealias Frame = CallStackTreeRepresentation.Frame
 
         func testFlattenFrames() {
@@ -767,5 +766,6 @@ final class KSCrashMonitor_MetricKit_Tests: XCTestCase {
 
             XCTAssertNil(decoded, "Decode should return nil when not enough frames")
         }
-    #endif
-}
+    }
+
+#endif
