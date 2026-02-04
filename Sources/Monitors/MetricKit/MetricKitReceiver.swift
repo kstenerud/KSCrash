@@ -95,18 +95,22 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
             }
         }
 
-        func didReceive(_ payloads: [MXMetricPayload]) {
-            metricsState = .processing
-            defer { metricsState = .completed }
+        // MXMetricPayload was API_UNAVAILABLE(macos) until the macOS 26 SDK (Xcode 26 / Swift 6.2).
+        // On iOS it has been available since iOS 13.
+        #if os(iOS) || compiler(>=6.2)
+            func didReceive(_ payloads: [MXMetricPayload]) {
+                metricsState = .processing
+                defer { metricsState = .completed }
 
-            os_log(.default, log: metricKitLog, "[MONITORS] Received %d metric payload(s)", payloads.count)
+                os_log(.default, log: metricKitLog, "[MONITORS] Received %d metric payload(s)", payloads.count)
 
-            for payload in payloads {
-                if MetricKitMonitor.dumpPayloadsToDocuments {
-                    payload.dump()
+                for payload in payloads {
+                    if MetricKitMonitor.dumpPayloadsToDocuments {
+                        payload.dump()
+                    }
                 }
             }
-        }
+        #endif
 
         // MARK: - Processing
 
@@ -265,12 +269,15 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
                 }
                 lowPowerMode = meta.lowPowerModeEnabled
             }
-            if #available(iOS 26.0, macOS 26.0, *) {
-                let metaBundleId = meta.bundleIdentifier
-                if !metaBundleId.isEmpty {
-                    bundleIdentifier = metaBundleId
+            // MXMetaData.bundleIdentifier was added in the macOS 26 / iOS 26 SDK (Xcode 26 / Swift 6.2).
+            #if compiler(>=6.2)
+                if #available(iOS 26.0, macOS 26.0, *) {
+                    let metaBundleId = meta.bundleIdentifier
+                    if !metaBundleId.isEmpty {
+                        bundleIdentifier = metaBundleId
+                    }
                 }
-            }
+            #endif
             let osInfo = parseOSVersion(meta.osVersion)
             let newSystem = SystemInfo(
                 cfBundleIdentifier: bundleIdentifier,
