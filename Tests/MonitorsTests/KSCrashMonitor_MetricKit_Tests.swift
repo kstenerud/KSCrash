@@ -24,6 +24,8 @@
 // THE SOFTWARE.
 //
 
+import KSCrashRecording
+import Report
 import XCTest
 
 @testable import Monitors
@@ -394,7 +396,7 @@ final class KSCrashMonitor_MetricKit_Tests: XCTestCase {
             defer { try? FileManager.default.removeItem(at: tempDir) }
 
             var receivedExtension: String?
-            _ = handler.encode(runId: "abc") { _, ext in
+            _ = handler.encode(runId: UUID().uuidString) { _, ext in
                 receivedExtension = ext
                 return tempDir.appendingPathComponent("test.\(ext)")
             }
@@ -410,7 +412,7 @@ final class KSCrashMonitor_MetricKit_Tests: XCTestCase {
             defer { try? FileManager.default.removeItem(at: tempDir) }
 
             var receivedName: String?
-            _ = handler.encode(runId: "abc") { name, ext in
+            _ = handler.encode(runId: UUID().uuidString) { name, ext in
                 receivedName = name
                 return tempDir.appendingPathComponent("\(name).\(ext)")
             }
@@ -435,17 +437,167 @@ final class KSCrashMonitor_MetricKit_Tests: XCTestCase {
             var name1: String?
             var name2: String?
 
-            _ = handler.encode(runId: "test123") { name, ext in
+            _ = handler.encode(runId: "550e8400e29b41d4a716446655440000") { name, ext in
                 name1 = name
                 return tempDir.appendingPathComponent("\(name).\(ext)")
             }
 
-            _ = handler.encode(runId: "test123") { name, ext in
+            _ = handler.encode(runId: "550e8400e29b41d4a716446655440000") { name, ext in
                 name2 = name
                 return tempDir.appendingPathComponent("\(name).\(ext)")
             }
 
             XCTAssertEqual(name1, name2, "Same run ID should produce same hash filename")
+        }
+
+        func testEncodeFailsWithWrongLengthRunId() {
+            let handler = MetricKitRunIdHandler()
+            let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+
+            defer { try? FileManager.default.removeItem(at: tempDir) }
+
+            // Too short (not 32 chars after stripping hyphens)
+            let success1 = handler.encode(runId: "abc123") { name, ext in
+                return tempDir.appendingPathComponent("\(name).\(ext)")
+            }
+            XCTAssertFalse(success1, "Should fail with run ID shorter than 32 chars")
+
+            // Too long
+            let success2 = handler.encode(runId: "550e8400e29b41d4a716446655440000extra") { name, ext in
+                return tempDir.appendingPathComponent("\(name).\(ext)")
+            }
+            XCTAssertFalse(success2, "Should fail with run ID longer than 32 chars")
+        }
+
+        func testExpectedFrameCountMatchesUUIDLength() {
+            // UUID without hyphens is 32 hex characters
+            let uuid = UUID().uuidString.replacingOccurrences(of: "-", with: "")
+            XCTAssertEqual(uuid.count, MetricKitRunIdHandler.expectedFrameCount)
+        }
+
+        func testDecodeFindsEncodedRunId() {
+            let handler = MetricKitRunIdHandler()
+            let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+
+            defer { try? FileManager.default.removeItem(at: tempDir) }
+
+            let runId = UUID().uuidString
+            let strippedRunId = runId.replacingOccurrences(of: "-", with: "")
+
+            // Use a separate threadcrumb to get addresses for the same message
+            let threadcrumb = KSCrashThreadcrumb(identifier: "test")
+            let addresses = threadcrumb.log(strippedRunId)
+
+            XCTAssertEqual(addresses.count, MetricKitRunIdHandler.expectedFrameCount)
+
+            // Compute hash and write sidecar manually (simulating what encode does)
+            let hash = MetricKitRunIdHandler.computeHash(from: addresses)
+            let name = String(format: "%016llx", hash)
+            let sidecarURL = tempDir.appendingPathComponent("\(name).stacksym")
+            try? runId.write(to: sidecarURL, atomically: true, encoding: .utf8)
+
+            // Create mock CallStackData with these addresses
+            let stackFrames = addresses.map { addr in
+                StackFrame(
+                    instructionAddr: addr.uint64Value,
+                    objectAddr: nil,
+                    objectName: "TestBinary",
+                    objectUUID: "TEST-UUID-1234"
+                )
+            }
+            let backtrace = Backtrace(contents: stackFrames, skipped: 0)
+            let thread = BasicCrashReport.Thread(
+                backtrace: backtrace,
+                crashed: false,
+                currentThread: false,
+                index: 0
+            )
+            let callStackData = CallStackData(
+                threads: [thread],
+                crashedThreadIndex: 0,
+                binaryImages: []
+            )
+
+            // Decode should find the run ID
+            let decoded = handler.decode(from: callStackData) { name, ext in
+                return tempDir.appendingPathComponent("\(name).\(ext)")
+            }
+
+            XCTAssertEqual(decoded, runId, "Decode should return the encoded run ID")
+        }
+
+        func testDecodeReturnsNilWhenNoMatchingFrames() {
+            let handler = MetricKitRunIdHandler()
+            let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+
+            defer { try? FileManager.default.removeItem(at: tempDir) }
+
+            // Create CallStackData with random addresses (no matching sidecar)
+            let stackFrames = (0..<32).map { i in
+                StackFrame(
+                    instructionAddr: UInt64(0x1000 + i),
+                    objectAddr: nil,
+                    objectName: "TestBinary",
+                    objectUUID: "TEST-UUID-1234"
+                )
+            }
+            let backtrace = Backtrace(contents: stackFrames, skipped: 0)
+            let thread = BasicCrashReport.Thread(
+                backtrace: backtrace,
+                crashed: false,
+                currentThread: false,
+                index: 0
+            )
+            let callStackData = CallStackData(
+                threads: [thread],
+                crashedThreadIndex: 0,
+                binaryImages: []
+            )
+
+            let decoded = handler.decode(from: callStackData) { name, ext in
+                return tempDir.appendingPathComponent("\(name).\(ext)")
+            }
+
+            XCTAssertNil(decoded, "Decode should return nil when no matching sidecar exists")
+        }
+
+        func testDecodeReturnsNilWhenNotEnoughFrames() {
+            let handler = MetricKitRunIdHandler()
+            let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+
+            defer { try? FileManager.default.removeItem(at: tempDir) }
+
+            // Create CallStackData with fewer than expectedFrameCount frames
+            let stackFrames = (0..<10).map { i in
+                StackFrame(
+                    instructionAddr: UInt64(0x1000 + i),
+                    objectAddr: nil,
+                    objectName: "TestBinary",
+                    objectUUID: "TEST-UUID-1234"
+                )
+            }
+            let backtrace = Backtrace(contents: stackFrames, skipped: 0)
+            let thread = BasicCrashReport.Thread(
+                backtrace: backtrace,
+                crashed: false,
+                currentThread: false,
+                index: 0
+            )
+            let callStackData = CallStackData(
+                threads: [thread],
+                crashedThreadIndex: 0,
+                binaryImages: []
+            )
+
+            let decoded = handler.decode(from: callStackData) { name, ext in
+                return tempDir.appendingPathComponent("\(name).\(ext)")
+            }
+
+            XCTAssertNil(decoded, "Decode should return nil when not enough frames")
         }
     #endif
 }
