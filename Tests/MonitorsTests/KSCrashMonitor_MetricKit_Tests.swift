@@ -473,7 +473,7 @@ final class KSCrashMonitor_MetricKit_Tests: XCTestCase {
         func testExpectedFrameCountMatchesUUIDLength() {
             // UUID without hyphens is 32 hex characters
             let uuid = UUID().uuidString.replacingOccurrences(of: "-", with: "")
-            XCTAssertEqual(uuid.count, MetricKitRunIdHandler.expectedFrameCount)
+            XCTAssertEqual(uuid.count, MetricKitRunIdHandler.expectedDataFrameCount)
         }
 
         func testDecodeFindsEncodedRunId() {
@@ -490,7 +490,7 @@ final class KSCrashMonitor_MetricKit_Tests: XCTestCase {
             let threadcrumb = KSCrashThreadcrumb(identifier: "test")
             let addresses = threadcrumb.log(strippedRunId)
 
-            XCTAssertEqual(addresses.count, MetricKitRunIdHandler.expectedFrameCount)
+            XCTAssertEqual(addresses.count, MetricKitRunIdHandler.expectedDataFrameCount)
 
             // Compute hash and write sidecar manually (simulating what encode does)
             let hash = MetricKitRunIdHandler.computeHash(from: addresses)
@@ -498,15 +498,45 @@ final class KSCrashMonitor_MetricKit_Tests: XCTestCase {
             let sidecarURL = tempDir.appendingPathComponent("\(name).stacksym")
             try? runId.write(to: sidecarURL, atomically: true, encoding: .utf8)
 
-            // Create mock CallStackData with these addresses
-            let stackFrames = addresses.map { addr in
-                StackFrame(
-                    instructionAddr: addr.uint64Value,
-                    objectAddr: nil,
-                    objectName: "TestBinary",
-                    objectUUID: "TEST-UUID-1234"
-                )
+            // Create mock CallStackData with 39 frames (4 overhead + 32 data + 3 overhead)
+            // Stack layout: indices 0-3 overhead, 4-35 data, 36-38 overhead
+            var stackFrames: [StackFrame] = []
+
+            // 4 overhead frames at top (indices 0-3)
+            for i in 0..<4 {
+                stackFrames.append(
+                    StackFrame(
+                        instructionAddr: UInt64(0xF000 + i),
+                        objectAddr: nil,
+                        objectName: "libsystem",
+                        objectUUID: "OVERHEAD-UUID"
+                    ))
             }
+
+            // 32 data frames (indices 4-35)
+            for addr in addresses {
+                stackFrames.append(
+                    StackFrame(
+                        instructionAddr: addr.uint64Value,
+                        objectAddr: nil,
+                        objectName: "TestBinary",
+                        objectUUID: "TEST-UUID-1234"
+                    ))
+            }
+
+            // 3 overhead frames at bottom (indices 36-38)
+            for i in 0..<3 {
+                stackFrames.append(
+                    StackFrame(
+                        instructionAddr: UInt64(0xE000 + i),
+                        objectAddr: nil,
+                        objectName: "libpthread",
+                        objectUUID: "PTHREAD-UUID"
+                    ))
+            }
+
+            XCTAssertEqual(stackFrames.count, MetricKitRunIdHandler.expectedTotalFrameCount)
+
             let backtrace = Backtrace(contents: stackFrames, skipped: 0)
             let thread = BasicCrashReport.Thread(
                 backtrace: backtrace,
