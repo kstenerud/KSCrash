@@ -121,22 +121,24 @@ import os.log
         func dump() {
             MetricKitJSONDumper.dump(jsonRepresentation(), type: "DiagnosticPayload")
 
-            crashDiagnostics?.forEach { $0.dump() }
-            cpuExceptionDiagnostics?.forEach { $0.dump() }
-            diskWriteExceptionDiagnostics?.forEach { $0.dump() }
-            hangDiagnostics?.forEach { $0.dump() }
+            if let diagnostics = crashDiagnostics { for d in diagnostics { d.dump() } }
+            if let diagnostics = cpuExceptionDiagnostics { for d in diagnostics { d.dump() } }
+            if let diagnostics = diskWriteExceptionDiagnostics { for d in diagnostics { d.dump() } }
+            if let diagnostics = hangDiagnostics { for d in diagnostics { d.dump() } }
 
             if #available(iOS 17.0, macOS 14.0, *) {
-                crashDiagnostics?.forEach { $0.dumpSignposts() }
-                cpuExceptionDiagnostics?.forEach { $0.dumpSignposts() }
-                diskWriteExceptionDiagnostics?.forEach { $0.dumpSignposts() }
-                hangDiagnostics?.forEach { $0.dumpSignposts() }
+                if let diagnostics = crashDiagnostics { for d in diagnostics { d.dumpSignposts() } }
+                if let diagnostics = cpuExceptionDiagnostics { for d in diagnostics { d.dumpSignposts() } }
+                if let diagnostics = diskWriteExceptionDiagnostics { for d in diagnostics { d.dumpSignposts() } }
+                if let diagnostics = hangDiagnostics { for d in diagnostics { d.dumpSignposts() } }
             }
 
             #if os(iOS)
                 if #available(iOS 17.0, *) {
-                    appLaunchDiagnostics?.forEach { $0.dump() }
-                    appLaunchDiagnostics?.forEach { $0.dumpSignposts() }
+                    if let diagnostics = appLaunchDiagnostics {
+                        for d in diagnostics { d.dump() }
+                        for d in diagnostics { d.dumpSignposts() }
+                    }
                 }
             #endif
         }

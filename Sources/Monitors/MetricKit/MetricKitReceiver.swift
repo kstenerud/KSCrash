@@ -69,7 +69,11 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
 
             for payload in payloads {
                 let timestamp = payload.timeStampEnd
-                payload.crashDiagnostics?.forEach { processCrashDiagnostic($0, timestamp: timestamp) }
+                if let diagnostics = payload.crashDiagnostics {
+                    for diagnostic in diagnostics {
+                        processCrashDiagnostic(diagnostic, timestamp: timestamp)
+                    }
+                }
                 if MetricKitMonitor.dumpPayloadsToDocuments {
                     payload.dump()
                 }
