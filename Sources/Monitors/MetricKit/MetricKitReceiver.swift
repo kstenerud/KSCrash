@@ -25,13 +25,13 @@
 //
 
 import Foundation
-import Report
 import os.log
 
 #if SWIFT_PACKAGE
     import KSCrashRecording
     import KSCrashRecordingCore
     import SwiftCore
+    import Report
 #endif
 
 #if os(iOS) || os(macOS)
