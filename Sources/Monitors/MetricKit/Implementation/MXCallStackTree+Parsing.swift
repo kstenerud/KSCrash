@@ -27,12 +27,21 @@
 import Foundation
 import os.log
 
+#if SWIFT_PACKAGE
+    import Report
+#endif
+
+// MARK: - Output
+
+struct CallStackData {
+    let threads: [BasicCrashReport.Thread]
+    /// Index of the crashed thread, or nil if no thread was attributed.
+    let crashedThreadIndex: Int?
+    let binaryImages: [BinaryImage]
+}
+
 #if KSCRASH_HAS_METRICKIT
     import MetricKit
-
-    #if SWIFT_PACKAGE
-        import Report
-    #endif
 
     // MARK: - MXCallStackTree JSON Model
 
@@ -51,15 +60,6 @@ import os.log
             let offsetIntoBinaryTextSegment: UInt64?
             let subFrames: [Frame]?
         }
-    }
-
-    // MARK: - Output
-
-    struct CallStackData {
-        let threads: [BasicCrashReport.Thread]
-        /// Index of the crashed thread, or nil if no thread was attributed.
-        let crashedThreadIndex: Int?
-        let binaryImages: [BinaryImage]
     }
 
     // MARK: - Parsing
