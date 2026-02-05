@@ -25,11 +25,14 @@
 //
 
 import Foundation
-import Report
 import os.log
 
 #if os(iOS) || os(macOS)
     import MetricKit
+
+    #if SWIFT_PACKAGE
+        import Report
+    #endif
 
     // MARK: - MXCallStackTree JSON Model
 

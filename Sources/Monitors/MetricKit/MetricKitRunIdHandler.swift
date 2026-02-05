@@ -25,12 +25,12 @@
 //
 
 import Foundation
-import Report
 
 #if os(iOS) || os(macOS)
 
     #if SWIFT_PACKAGE
         import KSCrashRecording
+        import Report
     #endif
 
     /// Encodes a run ID into a parked thread's call stack using KSCrashThreadcrumb,
