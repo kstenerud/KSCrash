@@ -116,6 +116,8 @@ import os.log
 
             let context = callbacks.notify(thread_t(ksthread_self()), requirements)
             kscm_fillMonitorContext(context, api)
+            // this ensures we don't flag this report as "last crash"
+            context?.pointee.currentSnapshotUserReported = true
             context?.pointee.omitBinaryImages = true
             tempPath.withCString { cPath in
                 context?.pointee.reportPath = cPath

@@ -118,6 +118,8 @@ public final class MetricKitMonitor: NSObject, MonitorPlugin, @unchecked Sendabl
     }
 
     deinit {
+        api.deinitialize(count: 1)
+        api.deallocate()
         free(_monitorId)
     }
 }
