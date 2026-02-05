@@ -35,56 +35,58 @@ import XCTest
     @available(iOS 14.0, macOS 12.0, *)
     final class MetricKitMonitorTests: XCTestCase {
 
+        private var monitor: MetricKitMonitor { Monitors.metricKit.monitor }
+
         // MARK: - Monitor API Lifecycle
 
         func testMonitorId() {
-            let api = MetricKitMonitor.api.pointee
-            let monitorId = api.monitorId(nil)
+            let api = monitor.apiPointer.pointee
+            let monitorId = api.monitorId(api.context)
             XCTAssertNotNil(monitorId)
             XCTAssertEqual(String(cString: monitorId!), "MetricKit")
         }
 
         func testMonitorFlags() {
-            let api = MetricKitMonitor.api.pointee
-            let flags = api.monitorFlags(nil)
+            let api = monitor.apiPointer.pointee
+            let flags = api.monitorFlags(api.context)
             XCTAssertEqual(flags.rawValue, 0)
         }
 
         func testEnableDisable() {
-            let api = MetricKitMonitor.api.pointee
-            XCTAssertFalse(api.isEnabled(nil))
+            let api = monitor.apiPointer.pointee
+            XCTAssertFalse(api.isEnabled(api.context))
 
-            api.setEnabled(true, nil)
-            XCTAssertTrue(api.isEnabled(nil))
+            api.setEnabled(true, api.context)
+            XCTAssertTrue(api.isEnabled(api.context))
 
-            api.setEnabled(false, nil)
-            XCTAssertFalse(api.isEnabled(nil))
+            api.setEnabled(false, api.context)
+            XCTAssertFalse(api.isEnabled(api.context))
         }
 
         func testIdempotentEnable() {
-            let api = MetricKitMonitor.api.pointee
-            api.setEnabled(true, nil)
-            api.setEnabled(true, nil)
-            XCTAssertTrue(api.isEnabled(nil))
+            let api = monitor.apiPointer.pointee
+            api.setEnabled(true, api.context)
+            api.setEnabled(true, api.context)
+            XCTAssertTrue(api.isEnabled(api.context))
 
-            api.setEnabled(false, nil)
-            api.setEnabled(false, nil)
-            XCTAssertFalse(api.isEnabled(nil))
+            api.setEnabled(false, api.context)
+            api.setEnabled(false, api.context)
+            XCTAssertFalse(api.isEnabled(api.context))
         }
 
         func testMonitorPlugin() {
             let plugin = Monitors.metricKit
-            XCTAssertEqual(plugin.api, MetricKitMonitor.api)
+            XCTAssertEqual(plugin.api, monitor.apiPointer)
         }
 
         // MARK: - State Change Notifications
 
         func testStateChangeNotificationPostedOnDiagnosticsStateChange() {
-            let api = MetricKitMonitor.api.pointee
-            api.setEnabled(true, nil)
-            defer { api.setEnabled(false, nil) }
+            let api = monitor.apiPointer.pointee
+            api.setEnabled(true, api.context)
+            defer { api.setEnabled(false, api.context) }
 
-            guard let receiver = MetricKitMonitor.receiver else {
+            guard let receiver = monitor.receiver else {
                 XCTFail("Receiver should exist when enabled")
                 return
             }
@@ -113,11 +115,11 @@ import XCTest
         }
 
         func testStateChangeNotificationPostedOnMetricsStateChange() {
-            let api = MetricKitMonitor.api.pointee
-            api.setEnabled(true, nil)
-            defer { api.setEnabled(false, nil) }
+            let api = monitor.apiPointer.pointee
+            api.setEnabled(true, api.context)
+            defer { api.setEnabled(false, api.context) }
 
-            guard let receiver = MetricKitMonitor.receiver else {
+            guard let receiver = monitor.receiver else {
                 XCTFail("Receiver should exist when enabled")
                 return
             }
@@ -146,11 +148,11 @@ import XCTest
         }
 
         func testStateChangeNotificationPostedOnMainThread() {
-            let api = MetricKitMonitor.api.pointee
-            api.setEnabled(true, nil)
-            defer { api.setEnabled(false, nil) }
+            let api = monitor.apiPointer.pointee
+            api.setEnabled(true, api.context)
+            defer { api.setEnabled(false, api.context) }
 
-            guard let receiver = MetricKitMonitor.receiver else {
+            guard let receiver = monitor.receiver else {
                 XCTFail("Receiver should exist when enabled")
                 return
             }
@@ -181,11 +183,11 @@ import XCTest
         }
 
         func testStateChangeNotificationObjectIsPlugin() {
-            let api = MetricKitMonitor.api.pointee
-            api.setEnabled(true, nil)
-            defer { api.setEnabled(false, nil) }
+            let api = monitor.apiPointer.pointee
+            api.setEnabled(true, api.context)
+            defer { api.setEnabled(false, api.context) }
 
-            guard let receiver = MetricKitMonitor.receiver else {
+            guard let receiver = monitor.receiver else {
                 XCTFail("Receiver should exist when enabled")
                 return
             }
