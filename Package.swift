@@ -189,6 +189,7 @@ let package = Package(
         .tvOS(.v12),
         .watchOS(.v5),
         .macOS(.v10_14),
+        .visionOS(.v1),
     ],
     products: [
         .library(
