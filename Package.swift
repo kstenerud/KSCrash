@@ -569,6 +569,12 @@ let package = Package(
         .target(
             name: Targets.swiftCore
         ),
+        .testTarget(
+            name: Targets.swiftCore.tests,
+            dependencies: [
+                .target(name: Targets.swiftCore)
+            ]
+        ),
 
         .target(
             name: Targets.profiler,
