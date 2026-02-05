@@ -25,11 +25,6 @@
 //
 
 import Foundation
-import os.log
-
-#if os(iOS) || os(macOS)
-    import MetricKit
-#endif
 
 #if SWIFT_PACKAGE
     import KSCrashRecording
@@ -37,19 +32,69 @@ import os.log
     import SwiftCore
 #endif
 
-// MARK: - MetricKit Monitor
-
+/// A monitor plugin that receives diagnostic and metric payloads from MetricKit.
 @available(iOS 14.0, macOS 12.0, *)
 @available(tvOS, unavailable)
 @available(watchOS, unavailable)
-final class MetricKitMonitor: @unchecked Sendable {
+public final class MetricKitMonitor: NSObject, MonitorPlugin, @unchecked Sendable {
 
-    private let lock = UnfairLock()
+    /// The processing state of the MetricKit receiver.
+    public enum ProcessingState: String, Sendable {
+        case none
+        case waiting
+        case processing
+        case completed
+    }
 
-    private var _enabled: Bool = false
+    /// Posted when the diagnostics or metrics processing state changes.
+    /// The notification object is the `MetricKitMonitor` instance.
+    public static let processingStateDidChangeNotification = Notification.Name("MetricKitMonitorStateDidChange")
+
+    /// The underlying C monitor API.
+    public let api: UnsafeMutablePointer<KSCrashMonitorAPI>
+
+    /// The current state of diagnostic payload processing.
+    public var diagnosticsState: ProcessingState {
+        lock.withLock { $0.diagnosticsState }
+    }
+
+    /// The current state of metric payload processing.
+    public var metricsState: ProcessingState {
+        lock.withLock { $0.metricsState }
+    }
+
+    /// When true, writes all received payloads as JSON to Documents/MetricKit/.
+    /// Useful for debugging and exploring MetricKit data.
+    /// Default is false.
+    public var dumpPayloadsToDocuments: Bool {
+        set { lock.withLock { $0.dumpPayloadsToDocuments = newValue } }
+        get { lock.withLock { $0.dumpPayloadsToDocuments } }
+    }
+
+    /// When true, encodes the KSCrash run ID into a threadcrumb for MetricKit report correlation.
+    /// This allows matching MetricKit crash reports to KSCrash reports from the same process run.
+    /// Default is true.
+    public var threadcrumbEnabled: Bool {
+        set { lock.withLock { $0.threadcrumbEnabled = newValue } }
+        get { lock.withLock { $0.threadcrumbEnabled } }
+    }
+
+    // MARK: - Internal State
+
+    struct MonitorState {
+        var enabled: Bool = false
+        var callbacks: KSCrash_ExceptionHandlerCallbacks? = nil
+        var diagnosticsState: ProcessingState = .none
+        var metricsState: ProcessingState = .none
+        var dumpPayloadsToDocuments: Bool = false
+        var threadcrumbEnabled: Bool = true
+    }
+
+    let lock = UnfairLock(MonitorState())
+
     var enabled: Bool {
-        set { lock.withLock { _enabled = newValue } }
-        get { lock.withLock { _enabled } }
+        set { lock.withLock { $0.enabled = newValue } }
+        get { lock.withLock { $0.enabled } }
     }
 
     private let _monitorId: UnsafeMutablePointer<CChar>? = strdup("MetricKit")
@@ -57,150 +102,22 @@ final class MetricKitMonitor: @unchecked Sendable {
         _monitorId.map { UnsafePointer($0) }
     }
 
+    var callbacks: KSCrash_ExceptionHandlerCallbacks? {
+        set { lock.withLock { $0.callbacks = newValue } }
+        get { lock.withLock { $0.callbacks } }
+    }
+
+    let runIdHandler = MetricKitRunIdHandler()
+
+    // MARK: - Lifecycle
+
+    override public init() {
+        self.api = UnsafeMutablePointer<KSCrashMonitorAPI>.allocate(capacity: 1)
+        super.init()
+        self.initAPI()
+    }
+
     deinit {
         free(_monitorId)
     }
-
-    private var _callbacks: KSCrash_ExceptionHandlerCallbacks? = nil
-    var callbacks: KSCrash_ExceptionHandlerCallbacks? {
-        set { lock.withLock { _callbacks = newValue } }
-        get { lock.withLock { _callbacks } }
-    }
-
-    #if os(iOS) || os(macOS)
-        private var _receiver: MetricKitReceiver? = nil
-        var receiver: MetricKitReceiver? {
-            set { lock.withLock { _receiver = newValue } }
-            get { lock.withLock { _receiver } }
-        }
-    #endif
-
-    private var _dumpPayloadsToDocuments: Bool = false
-    var dumpPayloadsToDocuments: Bool {
-        set { lock.withLock { _dumpPayloadsToDocuments = newValue } }
-        get { lock.withLock { _dumpPayloadsToDocuments } }
-    }
-
-    private var _threadcrumbEnabled: Bool = true
-    var threadcrumbEnabled: Bool {
-        set { lock.withLock { _threadcrumbEnabled = newValue } }
-        get { lock.withLock { _threadcrumbEnabled } }
-    }
-
-    #if os(iOS) || os(macOS)
-        let runIdHandler = MetricKitRunIdHandler()
-    #endif
-
-    /// Heap-allocated API struct whose `context` points back to this instance.
-    /// Never deallocated — the plugin holds a strong reference that keeps self alive.
-    let apiPointer: UnsafeMutablePointer<KSCrashMonitorAPI>
-
-    init() {
-        let api = KSCrashMonitorAPI(
-            context: nil,
-            init: { callbacks, cntxt in
-                MetricKitMonitor.from(cntxt)?.callbacks = callbacks?.pointee
-            },
-            monitorId: {
-                MetricKitMonitor.from($0)?.monitorId
-            },
-            monitorFlags: { _ in KSCrashMonitorFlag(0) },
-            setEnabled: metricKitMonitorSetEnabled,
-            isEnabled: { cntxt in
-                MetricKitMonitor.from(cntxt)?.enabled ?? false
-            },
-            addContextualInfoToEvent: { _, _ in },
-            notifyPostSystemEnable: { _ in },
-            writeInReportSection: nil,
-            stitchReport: nil
-        )
-
-        let p = UnsafeMutablePointer<KSCrashMonitorAPI>.allocate(capacity: 1)
-        p.initialize(to: api)
-        self.apiPointer = p
-        // Safe: the plugin holds a strong reference, so self outlives the API pointer.
-        p.pointee.context = Unmanaged.passUnretained(self).toOpaque()
-    }
-
-    /// Recovers the `MetricKitMonitor` instance from the opaque context pointer
-    /// passed to every `KSCrashMonitorAPI` callback.
-    static func from(_ context: UnsafeMutableRawPointer?) -> MetricKitMonitor? {
-        guard let context = context else { return nil }
-        return Unmanaged<MetricKitMonitor>.fromOpaque(context).takeUnretainedValue()
-    }
-
-    #if os(iOS) || os(macOS)
-        func sidecarPathProvider(name: String, extension ext: String) -> URL? {
-            guard let callbacks = callbacks,
-                let getSidecarFilePath = callbacks.getSidecarFilePath,
-                let monitorId = monitorId
-            else {
-                return nil
-            }
-
-            var pathBuffer = [CChar](repeating: 0, count: Int(KSCRS_MAX_PATH_LENGTH))
-            guard getSidecarFilePath(monitorId, name, ext, &pathBuffer, pathBuffer.count) else {
-                return nil
-            }
-
-            return URL(fileURLWithPath: String(cString: pathBuffer))
-        }
-
-        func encodeRunIdThreadcrumb() {
-            let runId = String(cString: kscrash_getRunID())
-
-            let success = runIdHandler.encode(runId: runId) { name, ext in
-                self.sidecarPathProvider(name: name, extension: ext)
-            }
-
-            if success {
-                os_log(.default, log: metricKitLog, "[MONITORS] Encoded run ID into threadcrumb: %{public}@", runId)
-            } else {
-                os_log(.error, log: metricKitLog, "[MONITORS] Failed to encode run ID into threadcrumb")
-            }
-        }
-    #endif
-}
-
-// MARK: - KSCrashMonitorAPI Callbacks
-
-private func metricKitMonitorSetEnabled(_ isEnabled: Bool, _ context: UnsafeMutableRawPointer?) {
-    #if os(iOS) || os(macOS)
-        if #available(iOS 14.0, macOS 12.0, *) {
-            guard let monitor = MetricKitMonitor.from(context) else { return }
-            if isEnabled {
-                if monitor.receiver == nil {
-                    let config = MetricKitReceiverConfig(
-                        apiPointer: monitor.apiPointer,
-                        callbacks: monitor.callbacks,
-                        dumpPayloadsToDocuments: monitor.dumpPayloadsToDocuments,
-                        runIdHandler: monitor.runIdHandler,
-                        monitorId: monitor.monitorId
-                    )
-                    let newReceiver = MetricKitReceiver(config: config)
-                    newReceiver.diagnosticsState = .waiting
-                    newReceiver.metricsState = .waiting
-
-                    monitor.receiver = newReceiver
-                    MXMetricManager.shared.add(newReceiver)
-                    os_log(.default, log: metricKitLog, "[MONITORS] Subscribed to MXMetricManager")
-
-                    if monitor.threadcrumbEnabled {
-                        monitor.encodeRunIdThreadcrumb()
-                    }
-                }
-            } else {
-                if let existing = monitor.receiver {
-                    MXMetricManager.shared.remove(existing)
-
-                    monitor.receiver = nil
-                    existing.diagnosticsState = .none
-                    existing.metricsState = .none
-
-                    os_log(.default, log: metricKitLog, "[MONITORS] Unsubscribed from MXMetricManager")
-                }
-            }
-            monitor.enabled = isEnabled
-        }
-    #endif
 }

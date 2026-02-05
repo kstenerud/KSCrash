@@ -30,30 +30,30 @@ import XCTest
 
 @testable import Monitors
 
-#if os(iOS) || os(macOS)
+#if KSCRASH_HAS_METRICKIT
 
     @available(iOS 14.0, macOS 12.0, *)
     final class MetricKitMonitorTests: XCTestCase {
 
-        private var monitor: MetricKitMonitor { Monitors.metricKit.monitor }
+        private var monitor: MetricKitMonitor { Monitors.metricKit }
 
         // MARK: - Monitor API Lifecycle
 
         func testMonitorId() {
-            let api = monitor.apiPointer.pointee
+            let api = monitor.api.pointee
             let monitorId = api.monitorId(api.context)
             XCTAssertNotNil(monitorId)
             XCTAssertEqual(String(cString: monitorId!), "MetricKit")
         }
 
         func testMonitorFlags() {
-            let api = monitor.apiPointer.pointee
+            let api = monitor.api.pointee
             let flags = api.monitorFlags(api.context)
             XCTAssertEqual(flags.rawValue, 0)
         }
 
         func testEnableDisable() {
-            let api = monitor.apiPointer.pointee
+            let api = monitor.api.pointee
             XCTAssertFalse(api.isEnabled(api.context))
 
             api.setEnabled(true, api.context)
@@ -64,7 +64,7 @@ import XCTest
         }
 
         func testIdempotentEnable() {
-            let api = monitor.apiPointer.pointee
+            let api = monitor.api.pointee
             api.setEnabled(true, api.context)
             api.setEnabled(true, api.context)
             XCTAssertTrue(api.isEnabled(api.context))
@@ -75,39 +75,33 @@ import XCTest
         }
 
         func testMonitorPlugin() {
-            let plugin = Monitors.metricKit
-            XCTAssertEqual(plugin.api, monitor.apiPointer)
+            XCTAssertNotNil(Monitors.metricKit.api)
         }
 
         // MARK: - State Change Notifications
 
         func testStateChangeNotificationPostedOnDiagnosticsStateChange() {
-            let api = monitor.apiPointer.pointee
+            let api = monitor.api.pointee
             api.setEnabled(true, api.context)
             defer { api.setEnabled(false, api.context) }
-
-            guard let receiver = monitor.receiver else {
-                XCTFail("Receiver should exist when enabled")
-                return
-            }
 
             let notificationExpectation = expectation(description: "State change notification")
             notificationExpectation.assertForOverFulfill = false
             var sawProcessingState = false
 
             let observer = NotificationCenter.default.addObserver(
-                forName: MetricKitMonitorPlugin.stateDidChangeNotification,
+                forName: MetricKitMonitor.processingStateDidChangeNotification,
                 object: Monitors.metricKit,
                 queue: nil
             ) { _ in
-                if receiver.diagnosticsState == .processing {
+                if self.monitor.diagnosticsState == .processing {
                     sawProcessingState = true
                 }
                 notificationExpectation.fulfill()
             }
             defer { NotificationCenter.default.removeObserver(observer) }
 
-            receiver.diagnosticsState = .processing
+            monitor.updateDiagnosticsState(.processing)
 
             wait(for: [notificationExpectation], timeout: 2.0)
 
@@ -115,32 +109,27 @@ import XCTest
         }
 
         func testStateChangeNotificationPostedOnMetricsStateChange() {
-            let api = monitor.apiPointer.pointee
+            let api = monitor.api.pointee
             api.setEnabled(true, api.context)
             defer { api.setEnabled(false, api.context) }
-
-            guard let receiver = monitor.receiver else {
-                XCTFail("Receiver should exist when enabled")
-                return
-            }
 
             let notificationExpectation = expectation(description: "State change notification")
             notificationExpectation.assertForOverFulfill = false
             var sawCompletedState = false
 
             let observer = NotificationCenter.default.addObserver(
-                forName: MetricKitMonitorPlugin.stateDidChangeNotification,
+                forName: MetricKitMonitor.processingStateDidChangeNotification,
                 object: Monitors.metricKit,
                 queue: nil
             ) { _ in
-                if receiver.metricsState == .completed {
+                if self.monitor.metricsState == .completed {
                     sawCompletedState = true
                 }
                 notificationExpectation.fulfill()
             }
             defer { NotificationCenter.default.removeObserver(observer) }
 
-            receiver.metricsState = .completed
+            monitor.updateMetricsState(.completed)
 
             wait(for: [notificationExpectation], timeout: 2.0)
 
@@ -148,21 +137,16 @@ import XCTest
         }
 
         func testStateChangeNotificationPostedOnMainThread() {
-            let api = monitor.apiPointer.pointee
+            let api = monitor.api.pointee
             api.setEnabled(true, api.context)
             defer { api.setEnabled(false, api.context) }
-
-            guard let receiver = monitor.receiver else {
-                XCTFail("Receiver should exist when enabled")
-                return
-            }
 
             let notificationExpectation = expectation(description: "Notification received")
             notificationExpectation.assertForOverFulfill = false
             var allOnMainThread = true
 
             let observer = NotificationCenter.default.addObserver(
-                forName: MetricKitMonitorPlugin.stateDidChangeNotification,
+                forName: MetricKitMonitor.processingStateDidChangeNotification,
                 object: Monitors.metricKit,
                 queue: nil
             ) { _ in
@@ -174,7 +158,7 @@ import XCTest
             defer { NotificationCenter.default.removeObserver(observer) }
 
             DispatchQueue.global().async {
-                receiver.diagnosticsState = .completed
+                self.monitor.updateDiagnosticsState(.completed)
             }
 
             wait(for: [notificationExpectation], timeout: 2.0)
@@ -183,21 +167,16 @@ import XCTest
         }
 
         func testStateChangeNotificationObjectIsPlugin() {
-            let api = monitor.apiPointer.pointee
+            let api = monitor.api.pointee
             api.setEnabled(true, api.context)
             defer { api.setEnabled(false, api.context) }
-
-            guard let receiver = monitor.receiver else {
-                XCTFail("Receiver should exist when enabled")
-                return
-            }
 
             let notificationExpectation = expectation(description: "Notification received")
             notificationExpectation.assertForOverFulfill = false
             var allObjectsCorrect = true
 
             let observer = NotificationCenter.default.addObserver(
-                forName: MetricKitMonitorPlugin.stateDidChangeNotification,
+                forName: MetricKitMonitor.processingStateDidChangeNotification,
                 object: nil,
                 queue: nil
             ) { notification in
@@ -208,7 +187,7 @@ import XCTest
             }
             defer { NotificationCenter.default.removeObserver(observer) }
 
-            receiver.metricsState = .completed
+            monitor.updateMetricsState(.completed)
 
             wait(for: [notificationExpectation], timeout: 2.0)
 

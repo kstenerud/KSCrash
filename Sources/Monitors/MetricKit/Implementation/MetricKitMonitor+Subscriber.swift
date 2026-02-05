@@ -1,7 +1,7 @@
 //
-//  MetricKitReceiver.swift
+//  MetricKitMonitor+Subscriber.swift
 //
-//  Created by Alexander Cohen on 2026-01-31.
+//  Created by Alexander Cohen on 2026-02-05.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -27,15 +27,14 @@
 import Foundation
 import os.log
 
+#if KSCRASH_HAS_METRICKIT
+    import MetricKit
+#endif
+
 #if SWIFT_PACKAGE
     import KSCrashRecording
     import KSCrashRecordingCore
-    import SwiftCore
     import Report
-#endif
-
-#if os(iOS) || os(macOS)
-    import MetricKit
 #endif
 
 // Disambiguate from Foundation.MachError.
@@ -47,63 +46,18 @@ import os.log
     private typealias _MachError = MachError
 #endif
 
-let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
+// MARK: - MXMetricManagerSubscriber
 
-// MARK: - MetricKitReceiver
-
-#if os(iOS) || os(macOS)
+#if KSCRASH_HAS_METRICKIT
 
     @available(iOS 14.0, macOS 12.0, *)
-    struct MetricKitReceiverConfig {
-        let apiPointer: UnsafeMutablePointer<KSCrashMonitorAPI>
-        let callbacks: KSCrash_ExceptionHandlerCallbacks?
-        let dumpPayloadsToDocuments: Bool
-        let runIdHandler: MetricKitRunIdHandler
-        let monitorId: UnsafePointer<CChar>?
-    }
+    @available(tvOS, unavailable)
+    @available(watchOS, unavailable)
+    extension MetricKitMonitor: MXMetricManagerSubscriber {
 
-    @available(iOS 14.0, macOS 12.0, *)
-    final class MetricKitReceiver: NSObject, MXMetricManagerSubscriber {
-
-        let config: MetricKitReceiverConfig
-
-        init(config: MetricKitReceiverConfig) {
-            self.config = config
-            super.init()
-        }
-
-        private let lock = UnfairLock()
-
-        private var _diagnosticsState: MetricKitProcessingState = .none
-        var diagnosticsState: MetricKitProcessingState {
-            get { lock.withLock { _diagnosticsState } }
-            set {
-                lock.withLock { _diagnosticsState = newValue }
-                postStateChangeNotification()
-            }
-        }
-
-        private var _metricsState: MetricKitProcessingState = .none
-        var metricsState: MetricKitProcessingState {
-            get { lock.withLock { _metricsState } }
-            set {
-                lock.withLock { _metricsState = newValue }
-                postStateChangeNotification()
-            }
-        }
-
-        private func postStateChangeNotification() {
-            DispatchQueue.main.async {
-                NotificationCenter.default.post(
-                    name: MetricKitMonitorPlugin.stateDidChangeNotification,
-                    object: Monitors.metricKit
-                )
-            }
-        }
-
-        func didReceive(_ payloads: [MXDiagnosticPayload]) {
-            diagnosticsState = .processing
-            defer { diagnosticsState = .completed }
+        public func didReceive(_ payloads: [MXDiagnosticPayload]) {
+            updateDiagnosticsState(.processing)
+            defer { updateDiagnosticsState(.completed) }
 
             os_log(.default, log: metricKitLog, "[MONITORS] Received %d diagnostic payload(s)", payloads.count)
 
@@ -114,7 +68,7 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
                         processCrashDiagnostic(diagnostic, timestamp: timestamp)
                     }
                 }
-                if config.dumpPayloadsToDocuments {
+                if dumpPayloadsToDocuments {
                     payload.dump()
                 }
             }
@@ -122,36 +76,25 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
 
         // MXMetricPayload was API_UNAVAILABLE(macos) until the macOS 26 SDK (Xcode 26 / Swift 6.2).
         // On iOS it has been available since iOS 13.
-        #if os(iOS) || compiler(>=6.2)
-            func didReceive(_ payloads: [MXMetricPayload]) {
-                metricsState = .processing
-                defer { metricsState = .completed }
+        #if !os(macOS) || compiler(>=6.2)
+            public func didReceive(_ payloads: [MXMetricPayload]) {
+                updateMetricsState(.processing)
+                defer { updateMetricsState(.completed) }
 
                 os_log(.default, log: metricKitLog, "[MONITORS] Received %d metric payload(s)", payloads.count)
 
                 for payload in payloads {
-                    if config.dumpPayloadsToDocuments {
+                    if dumpPayloadsToDocuments {
                         payload.dump()
                     }
                 }
             }
         #endif
 
-        // MARK: - Sidecar Path
-
-        private func sidecarPath(name: String, extension ext: String) -> URL? {
-            guard let getSidecarFilePath = config.callbacks?.getSidecarFilePath,
-                let monitorId = config.monitorId
-            else { return nil }
-            var pathBuffer = [CChar](repeating: 0, count: Int(KSCRS_MAX_PATH_LENGTH))
-            guard getSidecarFilePath(monitorId, name, ext, &pathBuffer, pathBuffer.count) else { return nil }
-            return URL(fileURLWithPath: String(cString: pathBuffer))
-        }
-
         // MARK: - Processing
 
         private func processCrashDiagnostic(_ diagnostic: MXCrashDiagnostic, timestamp: Date) {
-            guard let callbacks = config.callbacks else {
+            guard let callbacks = callbacks else {
                 os_log(.error, log: metricKitLog, "[MONITORS] No callbacks available, skipping diagnostic")
                 return
             }
@@ -172,7 +115,7 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
             )
 
             let context = callbacks.notify(thread_t(ksthread_self()), requirements)
-            kscm_fillMonitorContext(context, config.apiPointer)
+            kscm_fillMonitorContext(context, api)
             context?.pointee.omitBinaryImages = true
             tempPath.withCString { cPath in
                 context?.pointee.reportPath = cPath
@@ -194,7 +137,8 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
                 let report = try? JSONDecoder().decode(BasicCrashReport.self, from: data)
             else {
                 os_log(
-                    .error, log: metricKitLog, "[MONITORS] Failed to read or decode skeleton report at %{public}@", path
+                    .error, log: metricKitLog, "[MONITORS] Failed to read or decode skeleton report at %{public}@",
+                    path
                 )
                 return
             }
@@ -273,19 +217,11 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
                 reason: reason
             )
 
-            // Build crash section with MetricKit threads
-            let crashedThread: BasicCrashReport.Thread?
-            if let idx = callStackData.crashedThreadIndex, idx < callStackData.threads.count {
-                crashedThread = callStackData.threads[idx]
-            } else {
-                crashedThread = nil
-            }
-
             let newCrash = BasicCrashReport.Crash(
                 diagnosis: nil,
                 error: newError,
                 threads: callStackData.threads,
-                crashedThread: crashedThread
+                crashedThread: nil  // this is just duplicate data
             )
 
             // Build system info from MetricKit metadata.
@@ -306,7 +242,7 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
             }
             // MXMetaData.bundleIdentifier was added in the macOS 26 / iOS 26 SDK (Xcode 26 / Swift 6.2).
             #if compiler(>=6.2)
-                if #available(iOS 26.0, macOS 26.0, *) {
+                if #available(iOS 26.0, macOS 26.0, visionOS 26.0, *) {
                     let metaBundleId = meta.bundleIdentifier
                     if !metaBundleId.isEmpty {
                         bundleIdentifier = metaBundleId
@@ -335,8 +271,8 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
             // - When the report was delivered via MetricKit
             // - The end of the collection window (often 24 hours)
             // Extract run ID from threadcrumb stack hash
-            let crashedRunId = config.runIdHandler.decode(from: callStackData) { name, ext in
-                self.sidecarPath(name: name, extension: ext)
+            let crashedRunId = runIdHandler.decode(from: callStackData) { name, ext in
+                self.sidecarPathProvider(name: name, extension: ext)
             }
 
             let reportInfo = ReportInfo(
@@ -379,86 +315,3 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
     }
 
 #endif
-
-// MARK: - OS Version Parsing
-
-struct OSVersionInfo {
-    let name: String?
-    let version: String?
-    let build: String?
-}
-
-/// Parses a MetricKit OS version string into its components.
-/// Format: "<Name> <Version> (<Build>)" e.g. "iPhone OS 26.2.1 (23C71)"
-/// Falls back to using the raw string as systemVersion if parsing fails.
-func parseOSVersion(_ raw: String) -> OSVersionInfo {
-    let pattern = #"^(.+?)\s+([\d.]+)\s+\((.+)\)$"#
-    guard let regex = try? NSRegularExpression(pattern: pattern),
-        let match = regex.firstMatch(in: raw, range: NSRange(raw.startIndex..., in: raw)),
-        match.numberOfRanges == 4,
-        let nameRange = Range(match.range(at: 1), in: raw),
-        let versionRange = Range(match.range(at: 2), in: raw),
-        let buildRange = Range(match.range(at: 3), in: raw)
-    else {
-        return OSVersionInfo(name: nil, version: raw, build: nil)
-    }
-    return OSVersionInfo(
-        name: String(raw[nameRange]),
-        version: String(raw[versionRange]),
-        build: String(raw[buildRange])
-    )
-}
-
-// MARK: - VM Region Parsing
-
-/// Parses the faulting address from a `virtualMemoryRegionInfo` string.
-/// The string starts with the address (decimal or hex), e.g.
-/// "0 is not in any region. ..." or "0x1234 is not in any region. ..."
-func parseVMRegionAddress(from info: String) -> UInt64? {
-    let token = String(info.prefix(while: { !$0.isWhitespace }))
-    guard !token.isEmpty else { return nil }
-    if token.hasPrefix("0x") || token.hasPrefix("0X") {
-        return UInt64(token.dropFirst(2), radix: 16)
-    }
-    return UInt64(token)
-}
-
-// MARK: - Termination Reason Parsing
-
-/// Parses a hex or decimal integer from the substring starting at `start`.
-/// Reads until the next whitespace, common delimiter, or end of string.
-private func parseCodeValue(from str: Substring) -> UInt64? {
-    let terminators: Set<Character> = [" ", "\t", "\n", "\r", ">", ",", ";", "|"]
-    let raw = String(str.prefix(while: { !terminators.contains($0) }))
-    if raw.hasPrefix("0x") || raw.hasPrefix("0X") {
-        return UInt64(raw.dropFirst(2), radix: 16)
-    }
-    return UInt64(raw)
-}
-
-/// Parses the exit code from a termination reason string.
-///
-/// Supports three known formats:
-/// 1. Old style: `Namespace SPRINGBOARD, Code 0x8badf00d`
-/// 2. Newer with context: `FRONTBOARD 2343432205 <RBSTerminateContext| domain:10 code:0x8BADF00D ...>`
-/// 3. Just context: `<RBSTerminateContext| domain:10 code:0x8BADF00D ...>`
-///
-/// Prefers the `code:` field inside RBSTerminateContext when present,
-/// falling back to the old `Code ` prefix format.
-func parseExitCode(from terminationReason: String) -> UInt64? {
-    // Try RBSTerminateContext code: field first (formats 2 & 3)
-    if let contextCodeRange = terminationReason.range(of: "code:", options: .caseInsensitive) {
-        let after = terminationReason[contextCodeRange.upperBound...]
-        if let result = parseCodeValue(from: after) {
-            return result
-        }
-    }
-
-    // Fall back to old format: "Code <value>" (format 1)
-    if let codeRange = terminationReason.range(of: "Code ") {
-        let after = terminationReason[codeRange.upperBound...]
-        return parseCodeValue(from: after)
-    }
-
-    return nil
-}

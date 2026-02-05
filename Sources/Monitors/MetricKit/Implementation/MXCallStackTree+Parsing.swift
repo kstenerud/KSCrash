@@ -27,7 +27,7 @@
 import Foundation
 import os.log
 
-#if os(iOS) || os(macOS)
+#if KSCRASH_HAS_METRICKIT
     import MetricKit
 
     #if SWIFT_PACKAGE

@@ -27,7 +27,7 @@
 import Foundation
 import os.log
 
-#if os(iOS) || os(macOS)
+#if KSCRASH_HAS_METRICKIT
     import MetricKit
 #endif
 
@@ -37,7 +37,7 @@ import os.log
 
 // MARK: - MetricKit JSON Dumper
 
-#if os(iOS) || os(macOS)
+#if KSCRASH_HAS_METRICKIT
 
     @available(iOS 14.0, macOS 12.0, *)
     enum MetricKitJSONDumper {
@@ -133,8 +133,8 @@ import os.log
                 if let diagnostics = hangDiagnostics { for d in diagnostics { d.dumpSignposts() } }
             }
 
-            #if os(iOS)
-                if #available(iOS 17.0, *) {
+            #if !os(macOS)
+                if #available(iOS 17.0, visionOS 1.0, *) {
                     if let diagnostics = appLaunchDiagnostics {
                         for d in diagnostics { d.dump() }
                         for d in diagnostics { d.dumpSignposts() }
@@ -147,7 +147,7 @@ import os.log
     // MARK: - MXMetricPayload Extension
 
     // MXMetricPayload was API_UNAVAILABLE(macos) until the macOS 26 SDK (Xcode 26 / Swift 6.2).
-    #if os(iOS) || compiler(>=6.2)
+    #if !os(macOS) || compiler(>=6.2)
         @available(iOS 14.0, macOS 12.0, *)
         extension MXMetricPayload {
             func dump() {
@@ -214,8 +214,8 @@ import os.log
 
     // MARK: - MXAppLaunchDiagnostic Extension
 
-    #if os(iOS)
-        @available(iOS 17.0, *)
+    #if !os(macOS)
+        @available(iOS 17.0, visionOS 1.0, *)
         extension MXAppLaunchDiagnostic {
             func dump() {
                 MetricKitJSONDumper.dump(jsonRepresentation(), type: "AppLaunch")
