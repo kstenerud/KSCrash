@@ -54,7 +54,23 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
 #if os(iOS) || os(macOS)
 
     @available(iOS 14.0, macOS 12.0, *)
+    struct MetricKitReceiverConfig {
+        let apiPointer: UnsafeMutablePointer<KSCrashMonitorAPI>
+        let callbacks: KSCrash_ExceptionHandlerCallbacks?
+        let dumpPayloadsToDocuments: Bool
+        let runIdHandler: MetricKitRunIdHandler
+        let monitorId: UnsafePointer<CChar>?
+    }
+
+    @available(iOS 14.0, macOS 12.0, *)
     final class MetricKitReceiver: NSObject, MXMetricManagerSubscriber {
+
+        let config: MetricKitReceiverConfig
+
+        init(config: MetricKitReceiverConfig) {
+            self.config = config
+            super.init()
+        }
 
         private let lock = UnfairLock()
 
@@ -98,7 +114,7 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
                         processCrashDiagnostic(diagnostic, timestamp: timestamp)
                     }
                 }
-                if MetricKitMonitor.dumpPayloadsToDocuments {
+                if config.dumpPayloadsToDocuments {
                     payload.dump()
                 }
             }
@@ -114,17 +130,28 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
                 os_log(.default, log: metricKitLog, "[MONITORS] Received %d metric payload(s)", payloads.count)
 
                 for payload in payloads {
-                    if MetricKitMonitor.dumpPayloadsToDocuments {
+                    if config.dumpPayloadsToDocuments {
                         payload.dump()
                     }
                 }
             }
         #endif
 
+        // MARK: - Sidecar Path
+
+        private func sidecarPath(name: String, extension ext: String) -> URL? {
+            guard let getSidecarFilePath = config.callbacks?.getSidecarFilePath,
+                let monitorId = config.monitorId
+            else { return nil }
+            var pathBuffer = [CChar](repeating: 0, count: Int(KSCRS_MAX_PATH_LENGTH))
+            guard getSidecarFilePath(monitorId, name, ext, &pathBuffer, pathBuffer.count) else { return nil }
+            return URL(fileURLWithPath: String(cString: pathBuffer))
+        }
+
         // MARK: - Processing
 
         private func processCrashDiagnostic(_ diagnostic: MXCrashDiagnostic, timestamp: Date) {
-            guard let callbacks = MetricKitMonitor.callbacks else {
+            guard let callbacks = config.callbacks else {
                 os_log(.error, log: metricKitLog, "[MONITORS] No callbacks available, skipping diagnostic")
                 return
             }
@@ -144,9 +171,8 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
                 shouldExitImmediately: 0
             )
 
-            let api = MetricKitMonitor.api
             let context = callbacks.notify(thread_t(ksthread_self()), requirements)
-            kscm_fillMonitorContext(context, api)
+            kscm_fillMonitorContext(context, config.apiPointer)
             context?.pointee.omitBinaryImages = true
             tempPath.withCString { cPath in
                 context?.pointee.reportPath = cPath
@@ -309,8 +335,9 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
             // - When the report was delivered via MetricKit
             // - The end of the collection window (often 24 hours)
             // Extract run ID from threadcrumb stack hash
-            let crashedRunId = MetricKitMonitor.runIdHandler.decode(
-                from: callStackData, pathProvider: sidecarPathProvider)
+            let crashedRunId = config.runIdHandler.decode(from: callStackData) { name, ext in
+                self.sidecarPath(name: name, extension: ext)
+            }
 
             let reportInfo = ReportInfo(
                 id: report.report.id,

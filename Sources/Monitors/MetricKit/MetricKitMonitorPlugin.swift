@@ -52,14 +52,16 @@ public final class MetricKitMonitorPlugin: NSObject, MonitorPlugin {
     /// The notification object is the `MetricKitMonitorPlugin` instance.
     public static let stateDidChangeNotification = Notification.Name("MetricKitMonitorPluginStateDidChange")
 
+    let monitor = MetricKitMonitor()
+
     public var api: UnsafeMutablePointer<KSCrashMonitorAPI> {
-        MetricKitMonitor.api
+        monitor.apiPointer
     }
 
     /// The current state of diagnostic payload processing.
     public var diagnosticsState: MetricKitProcessingState {
         #if os(iOS) || os(macOS)
-            return MetricKitMonitor.receiver?.diagnosticsState ?? .none
+            return monitor.receiver?.diagnosticsState ?? .none
         #else
             return .none
         #endif
@@ -68,7 +70,7 @@ public final class MetricKitMonitorPlugin: NSObject, MonitorPlugin {
     /// The current state of metric payload processing.
     public var metricsState: MetricKitProcessingState {
         #if os(iOS) || os(macOS)
-            return MetricKitMonitor.receiver?.metricsState ?? .none
+            return monitor.receiver?.metricsState ?? .none
         #else
             return .none
         #endif
@@ -78,15 +80,15 @@ public final class MetricKitMonitorPlugin: NSObject, MonitorPlugin {
     /// Useful for debugging and exploring MetricKit data.
     /// Default is false.
     public var dumpPayloadsToDocuments: Bool {
-        get { MetricKitMonitor.dumpPayloadsToDocuments }
-        set { MetricKitMonitor.dumpPayloadsToDocuments = newValue }
+        get { monitor.dumpPayloadsToDocuments }
+        set { monitor.dumpPayloadsToDocuments = newValue }
     }
 
     /// When true, encodes the KSCrash run ID into a threadcrumb for MetricKit report correlation.
     /// This allows matching MetricKit crash reports to KSCrash reports from the same process run.
     /// Default is true.
     public var threadcrumbEnabled: Bool {
-        get { MetricKitMonitor.threadcrumbEnabled }
-        set { MetricKitMonitor.threadcrumbEnabled = newValue }
+        get { monitor.threadcrumbEnabled }
+        set { monitor.threadcrumbEnabled = newValue }
     }
 }
