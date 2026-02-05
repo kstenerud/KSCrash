@@ -79,8 +79,11 @@ extension MetricKitMonitor {
         return Unmanaged<MetricKitMonitor>.fromOpaque(context).takeUnretainedValue()
     }
 
-    func updateDiagnosticsState(_ state: ProcessingState) {
-        lock.withLock { $0.diagnosticsState = state }
+    func updateDiagnosticsState(_ state: ProcessingState, reportIDs: [Int64] = []) {
+        lock.withLock {
+            $0.diagnosticReportIDs = reportIDs
+            $0.diagnosticsState = state
+        }
         postStateChangeNotification()
     }
 
