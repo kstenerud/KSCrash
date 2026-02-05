@@ -2,6 +2,10 @@
 
 @preconcurrency import PackageDescription
 
+let metricKitSwiftSettings: [SwiftSetting] = [
+    .define("KSCRASH_HAS_METRICKIT", .when(platforms: [.iOS, .macOS, .visionOS]))
+]
+
 let warningFlags = [
     // The main ones
     "-Werror",
@@ -594,14 +598,16 @@ let package = Package(
             ],
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy")
-            ]
+            ],
+            swiftSettings: metricKitSwiftSettings
         ),
         .testTarget(
             name: Targets.monitors.tests,
             dependencies: [
                 .target(name: Targets.monitors),
                 .target(name: Targets.report),
-            ]
+            ],
+            swiftSettings: metricKitSwiftSettings
         ),
     ],
     cxxLanguageStandard: .gnucxx11

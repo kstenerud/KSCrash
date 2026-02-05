@@ -114,6 +114,11 @@ Pod::Spec.new do |s|
     module_name = 'Monitors'
     monitors.source_files = "Sources/#{module_name}/**/*.swift"
     monitors.resource_bundles = { module_name => "Sources/#{module_name}/Resources/PrivacyInfo.xcprivacy" }
+
+    # Must match metricKitSwiftSettings in Package.swift
+    monitors.ios.pod_target_xcconfig = { 'OTHER_SWIFT_FLAGS' => '-DKSCRASH_HAS_METRICKIT' }
+    monitors.osx.pod_target_xcconfig = { 'OTHER_SWIFT_FLAGS' => '-DKSCRASH_HAS_METRICKIT' }
+    monitors.visionos.pod_target_xcconfig = { 'OTHER_SWIFT_FLAGS' => '-DKSCRASH_HAS_METRICKIT' }
   end
 
   s.subspec 'ReportingCore' do |reporting_core|

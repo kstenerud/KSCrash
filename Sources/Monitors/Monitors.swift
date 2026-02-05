@@ -40,5 +40,5 @@ public enum Monitors {
     @available(iOS 14.0, macOS 12.0, *)
     @available(tvOS, unavailable)
     @available(watchOS, unavailable)
-    public static let metricKit = MetricKitMonitorPlugin()
+    public static let metricKit = MetricKitMonitor()
 }

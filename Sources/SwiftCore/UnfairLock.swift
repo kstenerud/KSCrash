@@ -27,16 +27,32 @@
 import Foundation
 import os
 
-public final class UnfairLock: @unchecked Sendable {
+public final class UnfairLock<Value>: @unchecked Sendable {
     private var _lock: UnsafeMutablePointer<os_unfair_lock>
+    private var _value: Value
 
-    public init() {
+    public init(_ initialValue: Value) {
         _lock = UnsafeMutablePointer<os_unfair_lock>.allocate(capacity: 1)
         _lock.initialize(to: os_unfair_lock())
+        _value = initialValue
     }
 
     deinit {
         _lock.deallocate()
+    }
+
+    public func withLock<T>(_ block: (inout Value) throws -> T) rethrows -> T {
+        os_unfair_lock_lock(_lock)
+        defer { os_unfair_lock_unlock(_lock) }
+        return try block(&_value)
+    }
+}
+
+// MARK: - Void convenience (plain lock with no boxed value)
+
+extension UnfairLock where Value == Void {
+    public convenience init() {
+        self.init(())
     }
 
     public func withLock<T>(_ block: () throws -> T) rethrows -> T {
