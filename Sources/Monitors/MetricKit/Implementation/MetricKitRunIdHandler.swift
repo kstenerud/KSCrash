@@ -126,9 +126,15 @@ public final class MetricKitRunIdHandler {
                 continue
             }
 
-            if let runId = try? String(contentsOf: url, encoding: .utf8) {
-                return runId.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+            guard let runId = try? String(contentsOf: url, encoding: .utf8) else {
+                continue
             }
+
+            // remove the sidecar
+            try? FileManager.default.removeItem(at: url)
+
+            // trim and return
+            return runId.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
         }
 
         return nil
