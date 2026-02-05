@@ -55,8 +55,8 @@ static inline void __attribute__((noreturn)) kscm_exit(int code, bool requiresAs
 static void inline kscm_fillMonitorContext(KSCrash_MonitorContext *monitorContext, KSCrashMonitorAPI *monitorApi)
 {
     if (monitorContext) {
-        monitorContext->monitorId = monitorApi->monitorId();
-        monitorContext->monitorFlags = monitorApi->monitorFlags();
+        monitorContext->monitorId = monitorApi->monitorId(monitorApi->context);
+        monitorContext->monitorFlags = monitorApi->monitorFlags(monitorApi->context);
     }
 }
 

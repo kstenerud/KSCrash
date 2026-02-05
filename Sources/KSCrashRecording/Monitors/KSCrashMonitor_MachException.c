@@ -169,7 +169,7 @@ static struct {
     int currentRestorePoint;
 } g_state;
 
-static bool isEnabled(void) { return g_state.isEnabled && g_state.installedState == KSCM_Installed; }
+static bool isEnabled(__unused void *context) { return g_state.isEnabled && g_state.installedState == KSCM_Installed; }
 
 // ============================================================================
 #pragma mark - Utility -
@@ -466,7 +466,7 @@ static void *exceptionHandlerThreadMain(void *data)
     // We start by restoring the ports for the next level exception handler
     // in case we crash while handling this exception.
 
-    if (isEnabled()) {
+    if (isEnabled(NULL)) {
         if (restoreNextLevelExceptionPorts(ctx)) {
             KSLOG_DEBUG("Thread %s: Handling mach exception %x", ctx->threadName, exc);
             ctx->isHandlingException = true;
@@ -572,11 +572,14 @@ static void install(void)
 #pragma mark - API -
 // ============================================================================
 
-static const char *monitorId(void) { return "MachException"; }
+static const char *monitorId(__unused void *context) { return "MachException"; }
 
-static KSCrashMonitorFlag monitorFlags(void) { return KSCrashMonitorFlagAsyncSafe | KSCrashMonitorFlagDebuggerUnsafe; }
+static KSCrashMonitorFlag monitorFlags(__unused void *context)
+{
+    return KSCrashMonitorFlagAsyncSafe | KSCrashMonitorFlagDebuggerUnsafe;
+}
 
-static void setEnabled(bool enabled)
+static void setEnabled(bool enabled, __unused void *context)
 {
     bool expectedState = !enabled;
     if (!atomic_compare_exchange_strong(&g_state.isEnabled, &expectedState, enabled)) {
@@ -589,21 +592,24 @@ static void setEnabled(bool enabled)
     }
 }
 
-static void addContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext)
+static void addContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext, __unused void *context)
 {
-    const char *signalName = kscm_signal_getAPI()->monitorId();
+    const char *signalName = kscm_signal_getAPI()->monitorId(NULL);
 
-    if (strcmp(eventContext->monitorId, kscm_watchdog_getAPI()->monitorId()) == 0) {
+    if (strcmp(eventContext->monitorId, kscm_watchdog_getAPI()->monitorId(NULL)) == 0) {
         // do nothing if this is being handled by the Hang monitor.
         return;
     } else if (signalName && strcmp(eventContext->monitorId, signalName) == 0) {
         eventContext->mach.type = machExceptionForSignal(eventContext->signal.signum);
-    } else if (strcmp(eventContext->monitorId, monitorId()) != 0) {
+    } else if (strcmp(eventContext->monitorId, monitorId(NULL)) != 0) {
         eventContext->mach.type = EXC_CRASH;
     }
 }
 
-static void init(KSCrash_ExceptionHandlerCallbacks *callbacks) { g_state.callbacks = *callbacks; }
+static void init(KSCrash_ExceptionHandlerCallbacks *callbacks, __unused void *context)
+{
+    g_state.callbacks = *callbacks;
+}
 
 #endif
 

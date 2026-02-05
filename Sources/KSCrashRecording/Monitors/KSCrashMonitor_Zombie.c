@@ -195,9 +195,9 @@ const char *kszombie_className(const void *object)
     return NULL;
 }
 
-static const char *monitorId(void) { return "Zombie"; }
+static const char *monitorId(__unused void *context) { return "Zombie"; }
 
-static void setEnabled(bool isEnabled)
+static void setEnabled(bool isEnabled, __unused void *context)
 {
     bool expectEnabled = !isEnabled;
     if (!atomic_compare_exchange_strong(&g_isEnabled, &expectEnabled, isEnabled)) {
@@ -214,9 +214,9 @@ static void setEnabled(bool isEnabled)
     }
 }
 
-static bool isEnabled(void) { return g_isEnabled; }
+static bool isEnabled(__unused void *context) { return g_isEnabled; }
 
-static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext)
+static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext, __unused void *context)
 {
     if (g_isEnabled) {
         eventContext->ZombieException.address = (uintptr_t)g_lastDeallocedException.address;

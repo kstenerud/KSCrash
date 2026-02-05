@@ -89,6 +89,7 @@ final class MetricKitMonitor: Sendable {
 
     static let api: UnsafeMutablePointer<KSCrashMonitorAPI> = {
         let api = KSCrashMonitorAPI(
+            context: nil,
             init: metricKitMonitorInit,
             monitorId: metricKitMonitorGetId,
             monitorFlags: metricKitMonitorGetFlags,
@@ -109,7 +110,8 @@ final class MetricKitMonitor: Sendable {
 // MARK: - C Function Pointer Callbacks
 
 private func metricKitMonitorInit(
-    _ callbacks: UnsafeMutablePointer<KSCrash_ExceptionHandlerCallbacks>?
+    _ callbacks: UnsafeMutablePointer<KSCrash_ExceptionHandlerCallbacks>?,
+    _ context: UnsafeMutableRawPointer?
 ) {
     if #available(iOS 14.0, macOS 12.0, *) {
         #if os(iOS) || os(macOS)
@@ -118,7 +120,7 @@ private func metricKitMonitorInit(
     }
 }
 
-private func metricKitMonitorGetId() -> UnsafePointer<CChar>? {
+private func metricKitMonitorGetId(_ context: UnsafeMutableRawPointer?) -> UnsafePointer<CChar>? {
     if #available(iOS 14.0, macOS 12.0, *) {
         #if os(iOS) || os(macOS)
             return MetricKitMonitor.monitorId
@@ -129,11 +131,11 @@ private func metricKitMonitorGetId() -> UnsafePointer<CChar>? {
     return nil
 }
 
-private func metricKitMonitorGetFlags() -> KSCrashMonitorFlag {
+private func metricKitMonitorGetFlags(_ context: UnsafeMutableRawPointer?) -> KSCrashMonitorFlag {
     .init(0)
 }
 
-private func metricKitMonitorSetEnabled(_ isEnabled: Bool) {
+private func metricKitMonitorSetEnabled(_ isEnabled: Bool, _ context: UnsafeMutableRawPointer?) {
     #if os(iOS) || os(macOS)
         if #available(iOS 14.0, macOS 12.0, *) {
             if isEnabled {
@@ -200,7 +202,7 @@ private func metricKitMonitorSetEnabled(_ isEnabled: Bool) {
     }
 #endif
 
-private func metricKitMonitorIsEnabled() -> Bool {
+private func metricKitMonitorIsEnabled(_ context: UnsafeMutableRawPointer?) -> Bool {
     if #available(iOS 14.0, macOS 12.0, *) {
         #if os(iOS) || os(macOS)
             return MetricKitMonitor.enabled
@@ -212,15 +214,17 @@ private func metricKitMonitorIsEnabled() -> Bool {
 }
 
 private func metricKitMonitorAddContextualInfoToEvent(
-    _ eventContext: UnsafeMutablePointer<KSCrash_MonitorContext>?
+    _ eventContext: UnsafeMutablePointer<KSCrash_MonitorContext>?,
+    _ context: UnsafeMutableRawPointer?
 ) {
 }
 
-private func metricKitMonitorNotifyPostSystemEnable() {
+private func metricKitMonitorNotifyPostSystemEnable(_ context: UnsafeMutableRawPointer?) {
 }
 
 private func metricKitMonitorWriteInReportSection(
     _ context: UnsafePointer<KSCrash_MonitorContext>?,
-    _ writerRef: UnsafePointer<ReportWriter>?
+    _ writerRef: UnsafePointer<ReportWriter>?,
+    _ monitorContext: UnsafeMutableRawPointer?
 ) {
 }

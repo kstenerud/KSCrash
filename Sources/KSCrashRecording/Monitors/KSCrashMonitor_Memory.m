@@ -70,13 +70,13 @@ static void _ks_memory_update(void (^block)(KSCrash_Memory *mem));
 static void _ks_memory_update_from_app_memory(KSCrashAppMemory *const memory);
 static void _ks_memory_set(KSCrash_Memory *mem);
 static void ksmemory_write_possible_oom(void);
-static void setEnabled(bool isEnabled);
-static bool isEnabled(void);
+static void setEnabled(bool isEnabled, __unused void *context);
+static bool isEnabled(__unused void *context);
 static NSURL *kscm_memory_oom_breadcrumb_URL(void);
-static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext);
+static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext, __unused void *context);
 static NSDictionary<NSString *, id> *kscm_memory_serialize(KSCrash_Memory *const memory);
 static void kscm_memory_check_for_oom_in_previous_session(void);
-static void notifyPostSystemEnable(void);
+static void notifyPostSystemEnable(__unused void *context);
 static void ksmemory_read(const char *path);
 static void ksmemory_map(const char *path);
 static void ksmemory_unmap(void);
@@ -295,9 +295,9 @@ static KSCrash_Memory g_previousSessionMemory;
 #pragma mark - API -
 // ============================================================================
 
-static const char *monitorId(void) { return "MemoryTermination"; }
+static const char *monitorId(__unused void *context) { return "MemoryTermination"; }
 
-static void setEnabled(bool isEnabled)
+static void setEnabled(bool isEnabled, __unused void *context)
 {
     bool expectEnabled = !isEnabled;
     if (!atomic_compare_exchange_strong(&g_isEnabled, &expectEnabled, isEnabled)) {
@@ -325,14 +325,14 @@ static void setEnabled(bool isEnabled)
     }
 }
 
-static bool isEnabled(void) { return atomic_load(&g_isEnabled); }
+static bool isEnabled(__unused void *context) { return atomic_load(&g_isEnabled); }
 
 static NSURL *kscm_memory_oom_breadcrumb_URL(void)
 {
     return [g_dataURL URLByAppendingPathComponent:@"oom_breadcrumb_report.json"];
 }
 
-static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext)
+static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext, __unused void *context)
 {
     // Mark whether this crash is fatal so the next launch can determine
     // if an OOM is still possible, and attach memory info to the event.
@@ -425,7 +425,7 @@ static void kscm_memory_check_for_oom_in_previous_session(void)
 /**
  This is called after all monitors are enabled.
  */
-static void notifyPostSystemEnable(void)
+static void notifyPostSystemEnable(__unused void *context)
 {
     bool expectPostEnable = false;
     if (!atomic_compare_exchange_strong(&g_hasPostEnable, &expectPostEnable, true)) {
@@ -440,7 +440,7 @@ static void notifyPostSystemEnable(void)
     kscm_memory_check_for_oom_in_previous_session();
 }
 
-static void init(KSCrash_ExceptionHandlerCallbacks *callbacks) { g_callbacks = *callbacks; }
+static void init(KSCrash_ExceptionHandlerCallbacks *callbacks, __unused void *context) { g_callbacks = *callbacks; }
 
 KSCrashMonitorAPI *kscm_memory_getAPI(void)
 {

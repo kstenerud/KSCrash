@@ -54,26 +54,26 @@
 - (void)testInstallAndRemove
 {
     KSCrashMonitorAPI *api = kscm_memory_getAPI();
-    api->setEnabled(true);
-    XCTAssertTrue(api->isEnabled());
+    api->setEnabled(true, NULL);
+    XCTAssertTrue(api->isEnabled(NULL));
     [NSThread sleepForTimeInterval:0.1];
-    api->setEnabled(false);
-    XCTAssertFalse(api->isEnabled());
+    api->setEnabled(false, NULL);
+    XCTAssertFalse(api->isEnabled(NULL));
 }
 
 - (void)testDoubleInstallAndRemove
 {
     KSCrashMonitorAPI *api = kscm_memory_getAPI();
 
-    api->setEnabled(true);
-    XCTAssertTrue(api->isEnabled());
-    api->setEnabled(true);
-    XCTAssertTrue(api->isEnabled());
+    api->setEnabled(true, NULL);
+    XCTAssertTrue(api->isEnabled(NULL));
+    api->setEnabled(true, NULL);
+    XCTAssertTrue(api->isEnabled(NULL));
 
-    api->setEnabled(false);
-    XCTAssertFalse(api->isEnabled());
-    api->setEnabled(false);
-    XCTAssertFalse(api->isEnabled());
+    api->setEnabled(false, NULL);
+    XCTAssertFalse(api->isEnabled(NULL));
+    api->setEnabled(false, NULL);
+    XCTAssertFalse(api->isEnabled(NULL));
 }
 
 - (void)testInstallation
@@ -115,7 +115,7 @@
 
     // init memory API
     KSCrashMonitorAPI *api = kscm_memory_getAPI();
-    XCTAssertTrue(api->isEnabled());
+    XCTAssertTrue(api->isEnabled(NULL));
 
     // validate we didn't OOM
     bool userPerceptible = false;
@@ -135,7 +135,7 @@
     // as a replacement to disable all monitors.
     kscm_removeMonitor(kscm_memory_getAPI());
     kscm_disableAllMonitors();
-    XCTAssertFalse(api->isEnabled());
+    XCTAssertFalse(api->isEnabled(NULL));
 
     // init again
     ksmemory_initialize(dataURL.path.UTF8String);
@@ -146,10 +146,10 @@
     kscm_addMonitor(kscm_memory_getAPI());
     kscm_activateMonitors();
 
-    XCTAssertTrue(api->isEnabled());
+    XCTAssertTrue(api->isEnabled(NULL));
 
     // notify the system is enabled
-    api->notifyPostSystemEnable();
+    api->notifyPostSystemEnable(NULL);
 
     // check oom
     oomed = ksmemory_previous_session_was_terminated_due_to_memory(&userPerceptible);
@@ -332,10 +332,10 @@ static KSCrashAppMemory *Memory(uint64_t footprint)
     KSCrashMonitorAPI *api = kscm_memory_getAPI();
 
     for (int i = 0; i < 10; i++) {
-        api->setEnabled(true);
-        XCTAssertTrue(api->isEnabled());
-        api->setEnabled(false);
-        XCTAssertFalse(api->isEnabled());
+        api->setEnabled(true, NULL);
+        XCTAssertTrue(api->isEnabled(NULL));
+        api->setEnabled(false, NULL);
+        XCTAssertFalse(api->isEnabled(NULL));
     }
 }
 
@@ -345,15 +345,15 @@ static KSCrashAppMemory *Memory(uint64_t footprint)
     KSCrashMonitorAPI *api = kscm_memory_getAPI();
 
     // Should handle being disabled when already disabled
-    api->setEnabled(false);
-    XCTAssertFalse(api->isEnabled());
+    api->setEnabled(false, NULL);
+    XCTAssertFalse(api->isEnabled(NULL));
 
     // Enable then disable
-    api->setEnabled(true);
-    XCTAssertTrue(api->isEnabled());
+    api->setEnabled(true, NULL);
+    XCTAssertTrue(api->isEnabled(NULL));
     [NSThread sleepForTimeInterval:0.05];
-    api->setEnabled(false);
-    XCTAssertFalse(api->isEnabled());
+    api->setEnabled(false, NULL);
+    XCTAssertFalse(api->isEnabled(NULL));
 }
 
 @end

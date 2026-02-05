@@ -196,7 +196,7 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
 - (NSDictionary *)systemInfo
 {
     KSCrash_MonitorContext fakeEvent = { 0 };
-    kscm_system_getAPI()->addContextualInfoToEvent(&fakeEvent);
+    kscm_system_getAPI()->addContextualInfoToEvent(&fakeEvent, NULL);
     NSMutableDictionary *dict = [NSMutableDictionary new];
 
 #define COPY_STRING(A) \

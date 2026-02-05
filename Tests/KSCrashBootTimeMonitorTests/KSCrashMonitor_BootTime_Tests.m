@@ -46,20 +46,20 @@ extern void kscm_bootTime_resetState(void);
 {
     KSCrashMonitorAPI *bootTimeMonitor = kscm_boottime_getAPI();
 
-    XCTAssertFalse(bootTimeMonitor->isEnabled(), @"Boot time monitor should be initially disabled.");
-    bootTimeMonitor->setEnabled(true);
-    XCTAssertTrue(bootTimeMonitor->isEnabled(), @"Boot time monitor should be enabled after setting.");
-    bootTimeMonitor->setEnabled(false);
-    XCTAssertFalse(bootTimeMonitor->isEnabled(), @"Boot time monitor should be disabled after setting.");
+    XCTAssertFalse(bootTimeMonitor->isEnabled(NULL), @"Boot time monitor should be initially disabled.");
+    bootTimeMonitor->setEnabled(true, NULL);
+    XCTAssertTrue(bootTimeMonitor->isEnabled(NULL), @"Boot time monitor should be enabled after setting.");
+    bootTimeMonitor->setEnabled(false, NULL);
+    XCTAssertFalse(bootTimeMonitor->isEnabled(NULL), @"Boot time monitor should be disabled after setting.");
 }
 
 - (void)testAddContextualInfoWhenEnabled
 {
     KSCrashMonitorAPI *bootTimeMonitor = kscm_boottime_getAPI();
-    bootTimeMonitor->setEnabled(true);
+    bootTimeMonitor->setEnabled(true, NULL);
 
     KSCrash_MonitorContext context = { 0 };
-    bootTimeMonitor->addContextualInfoToEvent(&context);
+    bootTimeMonitor->addContextualInfoToEvent(&context, NULL);
 
     XCTAssertFalse(context.System.bootTime == NULL,
                    @"Boot time should be added to the context when the monitor is enabled.");
@@ -71,10 +71,10 @@ extern void kscm_bootTime_resetState(void);
 - (void)testNoContextualInfoWhenDisabled
 {
     KSCrashMonitorAPI *bootTimeMonitor = kscm_boottime_getAPI();
-    bootTimeMonitor->setEnabled(false);
+    bootTimeMonitor->setEnabled(false, NULL);
 
     KSCrash_MonitorContext context = { 0 };
-    bootTimeMonitor->addContextualInfoToEvent(&context);
+    bootTimeMonitor->addContextualInfoToEvent(&context, NULL);
 
     XCTAssertTrue(context.System.bootTime == NULL,
                   @"Boot time should not be added to the context when the monitor is disabled.");
@@ -83,10 +83,10 @@ extern void kscm_bootTime_resetState(void);
 - (void)testDateSysctlFunctionIndirectly
 {
     KSCrashMonitorAPI *bootTimeMonitor = kscm_boottime_getAPI();
-    bootTimeMonitor->setEnabled(true);
+    bootTimeMonitor->setEnabled(true, NULL);
 
     KSCrash_MonitorContext context = { 0 };
-    bootTimeMonitor->addContextualInfoToEvent(&context);
+    bootTimeMonitor->addContextualInfoToEvent(&context, NULL);
 
     XCTAssertFalse(context.System.bootTime == NULL,
                    @"The boot time string should not be NULL when monitor is enabled.");
@@ -107,7 +107,7 @@ extern void kscm_bootTime_resetState(void);
 - (void)testMonitorName
 {
     KSCrashMonitorAPI *bootTimeMonitor = kscm_boottime_getAPI();
-    XCTAssertEqual(strcmp(bootTimeMonitor->monitorId(), "BootTime"), 0, @"The monitor name should be 'BootTime'.");
+    XCTAssertEqual(strcmp(bootTimeMonitor->monitorId(NULL), "BootTime"), 0, @"The monitor name should be 'BootTime'.");
 }
 
 @end

@@ -74,7 +74,7 @@ _Static_assert(sizeof(KSHangSidecar) == 24, "KSHangSidecar size changed — upda
  * @return A malloc'd NULL-terminated string with the updated report,
  *         or NULL to leave the report unchanged. Caller frees the buffer.
  */
-char *kscm_watchdog_stitchReport(const char *report, int64_t reportID, const char *sidecarPath);
+char *kscm_watchdog_stitchReport(const char *report, int64_t reportID, const char *sidecarPath, void *context);
 
 #ifdef __cplusplus
 }

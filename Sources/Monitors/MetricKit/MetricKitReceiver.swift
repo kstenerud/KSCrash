@@ -38,6 +38,15 @@ import os.log
     import MetricKit
 #endif
 
+// Disambiguate from Foundation.MachError.
+// Under SPM, MachError lives in the Report module (ambiguous with Foundation).
+// Under CocoaPods, it's in the current module (KSCrash) which takes priority.
+#if SWIFT_PACKAGE
+    private typealias _MachError = Report.MachError
+#else
+    private typealias _MachError = MachError
+#endif
+
 let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
 
 // MARK: - MetricKitReceiver
@@ -168,7 +177,7 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
             let callStackData = diagnostic.callStackTree.extractCallStackData()
 
             // Build error info from the diagnostic
-            let machError: Report.MachError?
+            let machError: _MachError?
             let signalError: SignalError?
             let nsexception: ExceptionInfo?
             let errorType: CrashErrorType
@@ -182,7 +191,7 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
                 )
                 reason = exceptionReason.composedMessage
                 if let exceptionType = diagnostic.exceptionType {
-                    machError = Report.MachError(
+                    machError = _MachError(
                         code: diagnostic.exceptionCode.map { UInt64(truncating: $0) } ?? 0,
                         exception: UInt64(truncating: exceptionType)
                     )
@@ -192,7 +201,7 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
                 signalError = diagnostic.signal.map { SignalError(code: 0, signal: UInt64(truncating: $0)) }
             } else if let exceptionType = diagnostic.exceptionType {
                 errorType = .mach
-                machError = Report.MachError(
+                machError = _MachError(
                     code: diagnostic.exceptionCode.map { UInt64(truncating: $0) } ?? 0,
                     exception: UInt64(truncating: exceptionType)
                 )

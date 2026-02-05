@@ -454,11 +454,11 @@ static void clearLegacyCallbackData(void) { memset(&g_legacyCallbackData, 0, siz
 
 #pragma mark - Plugin Tests
 
-static const char *testPluginMonitorId(void) { return "test_plugin"; }
-static KSCrashMonitorFlag testPluginMonitorFlags(void) { return (KSCrashMonitorFlag)0; }
+static const char *testPluginMonitorId(__unused void *context) { return "test_plugin"; }
+static KSCrashMonitorFlag testPluginMonitorFlags(__unused void *context) { return (KSCrashMonitorFlag)0; }
 static bool g_testPluginEnabled = false;
-static void testPluginSetEnabled(bool isEnabled) { g_testPluginEnabled = isEnabled; }
-static bool testPluginIsEnabled(void) { return g_testPluginEnabled; }
+static void testPluginSetEnabled(bool isEnabled, __unused void *context) { g_testPluginEnabled = isEnabled; }
+static bool testPluginIsEnabled(__unused void *context) { return g_testPluginEnabled; }
 
 - (void)testPluginInitWithAPI
 {
@@ -466,7 +466,7 @@ static bool testPluginIsEnabled(void) { return g_testPluginEnabled; }
     api.monitorId = testPluginMonitorId;
     KSCrashBasicMonitorPlugin *plugin = [[KSCrashBasicMonitorPlugin alloc] initWithAPI:&api];
     XCTAssertEqual(plugin.api, &api);
-    XCTAssertEqual(strcmp(plugin.api->monitorId(), "test_plugin"), 0);
+    XCTAssertEqual(strcmp(plugin.api->monitorId(NULL), "test_plugin"), 0);
 }
 
 - (void)testPluginWithAPI
@@ -500,7 +500,7 @@ static bool testPluginIsEnabled(void) { return g_testPluginEnabled; }
 
     XCTAssertEqual(cConfig.plugins.length, 1);
     XCTAssertNotEqual(cConfig.plugins.apis, NULL);
-    XCTAssertEqual(strcmp(cConfig.plugins.apis[0].monitorId(), "test_plugin"), 0);
+    XCTAssertEqual(strcmp(cConfig.plugins.apis[0].monitorId(NULL), "test_plugin"), 0);
     XCTAssertNotEqual(cConfig.plugins.release, NULL);
 
     KSCrashCConfiguration_Release(&cConfig);

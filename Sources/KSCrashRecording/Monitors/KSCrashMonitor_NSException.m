@@ -56,7 +56,7 @@ static struct {
     OnNSExceptionHandlerEnabled *onEnabled;
 } g_state;
 
-static bool isEnabled(void) { return g_state.isEnabled && g_state.installedState == KSCM_Installed; }
+static bool isEnabled(__unused void *context) { return g_state.isEnabled && g_state.installedState == KSCM_Installed; }
 
 // ============================================================================
 #pragma mark - Callbacks -
@@ -102,7 +102,7 @@ static KS_NOINLINE void handleException(NSException *exception, BOOL isUserRepor
                                         BOOL logAllThreads) KS_KEEP_FUNCTION_IN_STACKTRACE
 {
     KSLOG_DEBUG(@"Trapped exception %@", exception);
-    if (isEnabled()) {
+    if (isEnabled(NULL)) {
         // Gather this info before we require async-safety:
         const char *exceptionName = exception.name.UTF8String;
         const char *exceptionReason = exception.reason.UTF8String;
@@ -180,7 +180,7 @@ static void install(void)
 #pragma mark - API -
 // ============================================================================
 
-static void setEnabled(bool enabled)
+static void setEnabled(bool enabled, __unused void *context)
 {
     bool expectedState = !enabled;
     if (!atomic_compare_exchange_strong(&g_state.isEnabled, &expectedState, enabled)) {
@@ -190,17 +190,20 @@ static void setEnabled(bool enabled)
 
     if (enabled) {
         install();
-        if (isEnabled() && g_state.onEnabled != NULL) {
+        if (isEnabled(NULL) && g_state.onEnabled != NULL) {
             g_state.onEnabled(handleUncaughtException, customNSExceptionReporter);
         }
     }
 }
 
-static const char *monitorId(void) { return "NSException"; }
+static const char *monitorId(__unused void *context) { return "NSException"; }
 
-static KSCrashMonitorFlag monitorFlags(void) { return KSCrashMonitorFlagNone; }
+static KSCrashMonitorFlag monitorFlags(__unused void *context) { return KSCrashMonitorFlagNone; }
 
-static void init(KSCrash_ExceptionHandlerCallbacks *callbacks) { g_state.callbacks = *callbacks; }
+static void init(KSCrash_ExceptionHandlerCallbacks *callbacks, __unused void *context)
+{
+    g_state.callbacks = *callbacks;
+}
 
 KSCrashMonitorAPI *kscm_nsexception_getAPI(void)
 {

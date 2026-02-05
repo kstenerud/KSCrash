@@ -40,8 +40,8 @@
 {
     NSString *stateFile = [self.tempPath stringByAppendingPathComponent:@"state.json"];
     kscrashstate_initialize([stateFile cStringUsingEncoding:NSUTF8StringEncoding]);
-    kscm_appstate_getAPI()->setEnabled(false);
-    kscm_appstate_getAPI()->setEnabled(true);
+    kscm_appstate_getAPI()->setEnabled(false, NULL);
+    kscm_appstate_getAPI()->setEnabled(true, NULL);
 }
 
 - (void)testInitRelaunch
