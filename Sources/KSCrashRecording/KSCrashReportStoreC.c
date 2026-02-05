@@ -200,7 +200,7 @@ static char *stitchSidecarsIntoReport(char *report, int64_t reportID,
         if (access(sidecarPath, F_OK) != 0) {
             continue;
         }
-        char *stitched = api->stitchReport(report, reportID, sidecarPath);
+        char *stitched = api->stitchReport(report, reportID, sidecarPath, api->context);
         if (stitched != NULL) {
             free(report);
             report = stitched;

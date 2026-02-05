@@ -343,7 +343,7 @@ bool kscm_addMonitor(const KSCrashMonitorAPI *api)
 {
     init();
     if (kscmr_addMonitor(&g_state.monitors, api)) {
-        api->init(&g_exceptionCallbacks);
+        api->init(&g_exceptionCallbacks, api->context);
         return true;
     }
     return false;

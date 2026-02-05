@@ -1253,7 +1253,7 @@ static void writeMemoryInfo(const KSCrashReportWriter *const writer, const char 
 
 static inline bool isCrashOfMonitorType(const KSCrash_MonitorContext *const crash, const KSCrashMonitorAPI *monitorAPI)
 {
-    return ksstring_safeStrcmp(crash->monitorId, monitorAPI->monitorId()) == 0;
+    return ksstring_safeStrcmp(crash->monitorId, monitorAPI->monitorId(monitorAPI->context)) == 0;
 }
 
 /** Write information about the error leading to the crash to the report.
@@ -1402,7 +1402,7 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
             if (api && api->writeInReportSection) {
                 writer->beginObject(writer, crash->monitorId);
                 {
-                    api->writeInReportSection(crash, writer);
+                    api->writeInReportSection(crash, writer, api->context);
                 }
                 writer->endContainer(writer);
             }

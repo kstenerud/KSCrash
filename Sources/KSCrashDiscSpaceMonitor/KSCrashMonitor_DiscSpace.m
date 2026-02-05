@@ -56,18 +56,18 @@ static uint64_t getFreeStorageSize(void)
 
 #pragma mark - API -
 
-static const char *monitorId(void) { return "DiscSpace"; }
+static const char *monitorId(__unused void *context) { return "DiscSpace"; }
 
-static void setEnabled(bool isEnabled)
+static void setEnabled(bool isEnabled, __unused void *context)
 {
     if (isEnabled != g_isEnabled) {
         g_isEnabled = isEnabled;
     }
 }
 
-static bool isEnabled(void) { return g_isEnabled; }
+static bool isEnabled(__unused void *context) { return g_isEnabled; }
 
-static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext)
+static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext, __unused void *context)
 {
     if (g_isEnabled) {
         eventContext->System.storageSize = getStorageSize();

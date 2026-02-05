@@ -37,7 +37,7 @@
 
 #import "KSLogger.h"
 
-char *kscm_watchdog_stitchReport(const char *report, int64_t reportID, const char *sidecarPath)
+char *kscm_watchdog_stitchReport(const char *report, int64_t reportID, const char *sidecarPath, __unused void *context)
 {
     (void)reportID;
 

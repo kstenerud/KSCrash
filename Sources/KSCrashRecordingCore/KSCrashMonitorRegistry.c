@@ -42,7 +42,7 @@ bool kscmr_addMonitor(KSCrashMonitorAPIList *monitorList, const KSCrashMonitorAP
     bool added = false;
     for (size_t i = 0; i < KSCRASH_MONITOR_API_COUNT; i++) {
         if (atomic_load(monitorList->apis + i) == api) {
-            KSLOG_DEBUG("Monitor %s already exists. Skipping addition.", api->monitorId());
+            KSLOG_DEBUG("Monitor %s already exists. Skipping addition.", api->monitorId(api->context));
             return false;
         }
 
@@ -56,7 +56,7 @@ bool kscmr_addMonitor(KSCrashMonitorAPIList *monitorList, const KSCrashMonitorAP
 
     if (!added) {
         // This should never happen, but never say never!
-        KSLOG_ERROR("Failed to add monitor API \"%s\"", api->monitorId());
+        KSLOG_ERROR("Failed to add monitor API \"%s\"", api->monitorId(api->context));
         return false;
     }
 
@@ -75,7 +75,7 @@ bool kscmr_addMonitor(KSCrashMonitorAPIList *monitorList, const KSCrashMonitorAP
         }
     }
 
-    KSLOG_DEBUG("Monitor %s injected.", api->monitorId());
+    KSLOG_DEBUG("Monitor %s injected.", api->monitorId(api->context));
     return true;
 }
 
@@ -89,7 +89,7 @@ void kscmr_removeMonitor(KSCrashMonitorAPIList *monitorList, const KSCrashMonito
         // Make sure we're swapping from our API to null, and not something else that got swapped in meanwhile.
         const KSCrashMonitorAPI *expectedAPI = api;
         if (atomic_compare_exchange_strong(monitorList->apis + i, &expectedAPI, NULL)) {
-            api->setEnabled(false);
+            api->setEnabled(false, api->context);
         }
     }
 }
@@ -102,7 +102,7 @@ const KSCrashMonitorAPI *kscmr_getMonitor(KSCrashMonitorAPIList *monitorList, co
 
     for (size_t i = 0; i < KSCRASH_MONITOR_API_COUNT; i++) {
         const KSCrashMonitorAPI *api = atomic_load(monitorList->apis + i);
-        if (api && strcmp(api->monitorId(), monitorId) == 0) {
+        if (api && strcmp(api->monitorId(api->context), monitorId) == 0) {
             return api;
         }
     }
@@ -133,23 +133,23 @@ bool kscmr_activateMonitors(KSCrashMonitorAPIList *monitorList)
             // Found a hole. Skip it.
             continue;
         }
-        KSCrashMonitorFlag flags = api->monitorFlags();
+        KSCrashMonitorFlag flags = api->monitorFlags(api->context);
         bool shouldEnable = true;
 
         if (isDebuggerUnsafe && (flags & KSCrashMonitorFlagDebuggerUnsafe)) {
             shouldEnable = false;
         }
 
-        api->setEnabled(shouldEnable);
-        bool isEnabled = api->isEnabled();
+        api->setEnabled(shouldEnable, api->context);
+        bool isEnabled = api->isEnabled(api->context);
         anyMonitorActive |= isEnabled;
-        KSLOG_DEBUG("Monitor %s is now %sabled.", api->monitorId(), isEnabled ? "en" : "dis");
+        KSLOG_DEBUG("Monitor %s is now %sabled.", api->monitorId(api->context), isEnabled ? "en" : "dis");
     }
 
     for (size_t i = 0; i < KSCRASH_MONITOR_API_COUNT; i++) {
         const KSCrashMonitorAPI *api = monitorList->apis[i];
-        if (api != NULL && api->isEnabled()) {
-            api->notifyPostSystemEnable();
+        if (api != NULL && api->isEnabled(api->context)) {
+            api->notifyPostSystemEnable(api->context);
         }
     }
 
@@ -161,7 +161,7 @@ void kscmr_disableAllMonitors(KSCrashMonitorAPIList *monitorList)
     for (size_t i = 0; i < KSCRASH_MONITOR_API_COUNT; i++) {
         const KSCrashMonitorAPI *api = monitorList->apis[i];
         if (api != NULL) {
-            api->setEnabled(false);
+            api->setEnabled(false, api->context);
         }
     }
     KSLOG_DEBUG("All monitors have been disabled.");
@@ -182,8 +182,8 @@ void kscmr_addContextualInfoToEvent(KSCrashMonitorAPIList *monitorList, struct K
 {
     for (size_t i = 0; i < KSCRASH_MONITOR_API_COUNT; i++) {
         const KSCrashMonitorAPI *api = monitorList->apis[i];
-        if (api != NULL && api->isEnabled()) {
-            api->addContextualInfoToEvent(ctx);
+        if (api != NULL && api->isEnabled(api->context)) {
+            api->addContextualInfoToEvent(ctx, api->context);
         }
     }
 }

@@ -199,7 +199,7 @@ static int currentTaskRole(void)
 #pragma mark - Sidecar lifecycle -
 // ============================================================================
 
-static const char *monitorId(void);
+static const char *monitorId(__unused void *context);
 
 static KSHangSidecar *sidecar_open(KSHangMonitor *monitor, int64_t reportID)
 {
@@ -207,7 +207,8 @@ static KSHangSidecar *sidecar_open(KSHangMonitor *monitor, int64_t reportID)
         return NULL;
     }
 
-    if (!g_callbacks.getSidecarReportPath(monitorId(), reportID, monitor->sidecarPath, sizeof(monitor->sidecarPath))) {
+    if (!g_callbacks.getSidecarReportPath(monitorId(NULL), reportID, monitor->sidecarPath,
+                                          sizeof(monitor->sidecarPath))) {
         monitor->sidecarPath[0] = '\0';
         return NULL;
     }
@@ -740,11 +741,11 @@ void kshang_removeHangObserver(KSHangObserverToken token)
 #pragma mark - Monitor API -
 // ============================================================================
 
-static const char *monitorId(void) { return "Watchdog"; }
+static const char *monitorId(__unused void *context) { return "Watchdog"; }
 
-static KSCrashMonitorFlag monitorFlags(void) { return KSCrashMonitorFlagNone; }
+static KSCrashMonitorFlag monitorFlags(__unused void *context) { return KSCrashMonitorFlagNone; }
 
-static void setEnabled(bool isEnabled)
+static void setEnabled(bool isEnabled, __unused void *context)
 {
     const char *forceEnv = getenv("KSCRASH_FORCE_ENABLE_WATCHDOG");
     bool forceEnable = forceEnv && (strcmp(forceEnv, "1") == 0 || strcmp(forceEnv, "YES") == 0);
@@ -772,9 +773,12 @@ static void setEnabled(bool isEnabled)
     }
 }
 
-static bool isEnabled(void) { return g_isEnabled; }
+static bool isEnabled(__unused void *context) { return g_isEnabled; }
 
-static void monitorInit(KSCrash_ExceptionHandlerCallbacks *callbacks) { g_callbacks = *callbacks; }
+static void monitorInit(KSCrash_ExceptionHandlerCallbacks *callbacks, __unused void *context)
+{
+    g_callbacks = *callbacks;
+}
 
 /** Called by the crash handling pipeline on every enabled monitor.
  *
@@ -786,7 +790,7 @@ static void monitorInit(KSCrash_ExceptionHandlerCallbacks *callbacks) { g_callba
  * so accessing the monitor struct without a lock is safe.  unlink() is
  * async-signal-safe.
  */
-static void addContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext)
+static void addContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext, __unused void *context)
 {
     if (!eventContext->requirements.isFatal) {
         return;
@@ -841,7 +845,8 @@ const char *kscm_stringFromRole(int /*task_role_t*/ role)
 }
 
 /** Implemented in KSCrashMonitor_WatchdogStitch.m */
-extern char *kscm_watchdog_stitchReport(const char *report, int64_t reportID, const char *sidecarPath);
+extern char *kscm_watchdog_stitchReport(const char *report, int64_t reportID, const char *sidecarPath,
+                                        __unused void *context);
 
 KSCrashMonitorAPI *kscm_watchdog_getAPI(void)
 {

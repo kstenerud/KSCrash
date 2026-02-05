@@ -89,13 +89,13 @@ exit_immediately:
     KS_THWART_TAIL_CALL_OPTIMISATION
 }
 
-static const char *monitorId(void) { return "UserReported"; }
+static const char *monitorId(__unused void *context) { return "UserReported"; }
 
-static void setEnabled(bool isEnabled) { g_isEnabled = isEnabled; }
+static void setEnabled(bool isEnabled, __unused void *context) { g_isEnabled = isEnabled; }
 
-static bool isEnabled(void) { return g_isEnabled; }
+static bool isEnabled(__unused void *context) { return g_isEnabled; }
 
-static void init(KSCrash_ExceptionHandlerCallbacks *callbacks) { g_callbacks = *callbacks; }
+static void init(KSCrash_ExceptionHandlerCallbacks *callbacks, __unused void *context) { g_callbacks = *callbacks; }
 
 KSCrashMonitorAPI *kscm_user_getAPI(void)
 {

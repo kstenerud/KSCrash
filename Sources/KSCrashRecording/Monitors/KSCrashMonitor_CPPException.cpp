@@ -74,7 +74,7 @@ static thread_local KSStackCursor g_stackCursor;
 /** True if the handler should capture the next stack trace (thread-local). */
 static thread_local bool g_captureNextStackTrace = false;
 
-static bool isEnabled(void) { return g_state.isEnabled && g_state.installedState == KSCM_Installed; }
+static bool isEnabled(__unused void *context) { return g_state.isEnabled && g_state.installedState == KSCM_Installed; }
 
 // ============================================================================
 #pragma mark - Callbacks -
@@ -135,7 +135,7 @@ static void CPPExceptionTerminate(void)
         goto skip_handling;
     }
 
-    if (isEnabled()) {
+    if (isEnabled(NULL)) {
         thread_t thisThread = (thread_t)ksthread_self();
         // This requires async-safety because the environment is suspended.
         KSCrash_MonitorContext *crashContext = g_state.callbacks.notify(
@@ -185,7 +185,7 @@ static void CPPExceptionTerminate(void)
         CATCH_VALUE(const char *, s)
 #pragma clang diagnostic pop
         catch (...) { description = NULL; }
-        g_captureNextStackTrace = isEnabled();
+        g_captureNextStackTrace = isEnabled(NULL);
 
         // Initialize g_stackCursor if not already initialized by captureStackTrace.
         // Skip 4 frames: CPPExceptionTerminate -> std::__terminate -> failed_throw -> __cxa_throw
@@ -230,11 +230,11 @@ static void install()
 #pragma mark - Public API -
 // ============================================================================
 
-static const char *monitorId() { return "CPPException"; }
+static const char *monitorId(__unused void *context) { return "CPPException"; }
 
-static KSCrashMonitorFlag monitorFlags() { return KSCrashMonitorFlagNone; }
+static KSCrashMonitorFlag monitorFlags(__unused void *context) { return KSCrashMonitorFlagNone; }
 
-static void setEnabled(bool enabled)
+static void setEnabled(bool enabled, __unused void *context)
 {
     bool expectedState = !enabled;
     if (!atomic_compare_exchange_strong(&g_state.isEnabled, &expectedState, enabled)) {
@@ -245,7 +245,7 @@ static void setEnabled(bool enabled)
     if (enabled) {
         install();
     }
-    g_captureNextStackTrace = isEnabled();
+    g_captureNextStackTrace = isEnabled(NULL);
 }
 
 extern "C" void kscm_enableSwapCxaThrow(void)
@@ -256,7 +256,10 @@ extern "C" void kscm_enableSwapCxaThrow(void)
     }
 }
 
-static void init(KSCrash_ExceptionHandlerCallbacks *callbacks) { g_state.callbacks = *callbacks; }
+static void init(KSCrash_ExceptionHandlerCallbacks *callbacks, __unused void *context)
+{
+    g_state.callbacks = *callbacks;
+}
 
 extern "C" KSCrashMonitorAPI *kscm_cppexception_getAPI()
 {

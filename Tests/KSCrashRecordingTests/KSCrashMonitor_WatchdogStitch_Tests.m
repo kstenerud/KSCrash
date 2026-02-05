@@ -107,17 +107,17 @@ static NSDictionary *dictFromCString(const char *json)
 
 - (void)testNullReportReturnsNull
 {
-    XCTAssertTrue(kscm_watchdog_stitchReport(NULL, 0, "/tmp/fake") == NULL);
+    XCTAssertTrue(kscm_watchdog_stitchReport(NULL, 0, "/tmp/fake", NULL) == NULL);
 }
 
 - (void)testNullSidecarPathReturnsNull
 {
-    XCTAssertTrue(kscm_watchdog_stitchReport("{}", 0, NULL) == NULL);
+    XCTAssertTrue(kscm_watchdog_stitchReport("{}", 0, NULL, NULL) == NULL);
 }
 
 - (void)testMissingSidecarFileReturnsNull
 {
-    char *result = kscm_watchdog_stitchReport("{}", 0, "/tmp/nonexistent.ksscr");
+    char *result = kscm_watchdog_stitchReport("{}", 0, "/tmp/nonexistent.ksscr", NULL);
     XCTAssertTrue(result == NULL);
 }
 
@@ -137,7 +137,7 @@ static NSDictionary *dictFromCString(const char *json)
     NSDictionary *report = makeMinimalHangReport(500, @"foreground");
     NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String);
+    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String, NULL);
     XCTAssertTrue(result == NULL);
 }
 
@@ -155,7 +155,7 @@ static NSDictionary *dictFromCString(const char *json)
     NSDictionary *report = makeMinimalHangReport(500, @"foreground");
     NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String);
+    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String, NULL);
     XCTAssertTrue(result == NULL);
 }
 
@@ -173,7 +173,7 @@ static NSDictionary *dictFromCString(const char *json)
     NSDictionary *report = makeMinimalHangReport(500, @"foreground");
     NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String);
+    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String, NULL);
     XCTAssertTrue(result == NULL);
 }
 
@@ -193,7 +193,7 @@ static NSDictionary *dictFromCString(const char *json)
     NSDictionary *report = @{ @"crash" : @ { @"error" : @ { @"type" : @"signal" } } };
     NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String);
+    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String, NULL);
     XCTAssertTrue(result == NULL);
 }
 
@@ -214,7 +214,7 @@ static NSDictionary *dictFromCString(const char *json)
     NSDictionary *report = makeMinimalHangReport(100000000, @"foreground");
     NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String);
+    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String, NULL);
     XCTAssertTrue(result != NULL);
 
     NSDictionary *stitched = dictFromCString(result);
@@ -238,7 +238,7 @@ static NSDictionary *dictFromCString(const char *json)
     NSDictionary *report = makeMinimalHangReport(1000, @"foreground");
     NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String);
+    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String, NULL);
     XCTAssertTrue(result != NULL);
 
     NSDictionary *stitched = dictFromCString(result);
@@ -265,7 +265,7 @@ static NSDictionary *dictFromCString(const char *json)
     NSDictionary *report = makeMinimalHangReport(1000, @"foreground");
     NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String);
+    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String, NULL);
     XCTAssertTrue(result != NULL);
 
     NSDictionary *stitched = dictFromCString(result);
@@ -291,7 +291,7 @@ static NSDictionary *dictFromCString(const char *json)
     NSDictionary *report = makeMinimalHangReport(1000, @"foreground");
     NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String);
+    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String, NULL);
     XCTAssertTrue(result != NULL);
 
     NSDictionary *stitched = dictFromCString(result);
@@ -315,7 +315,7 @@ static NSDictionary *dictFromCString(const char *json)
     NSDictionary *report = makeMinimalHangReport(1000, @"foreground");
     NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String);
+    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String, NULL);
     XCTAssertTrue(result != NULL);
 
     NSDictionary *stitched = dictFromCString(result);
@@ -339,7 +339,7 @@ static NSDictionary *dictFromCString(const char *json)
     NSDictionary *report = makeMinimalHangReport(1000, @"foreground");
     NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String);
+    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String, NULL);
     XCTAssertTrue(result != NULL);
 
     NSDictionary *stitched = dictFromCString(result);
@@ -366,7 +366,7 @@ static NSDictionary *dictFromCString(const char *json)
     NSDictionary *report = makeMinimalHangReport(1000, @"foreground");
     NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String);
+    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String, NULL);
     XCTAssertTrue(result != NULL);
 
     NSDictionary *stitched = dictFromCString(result);
@@ -391,7 +391,7 @@ static NSDictionary *dictFromCString(const char *json)
     NSDictionary *report = makeMinimalHangReport(startNanos, @"foreground");
     NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String);
+    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String, NULL);
     XCTAssertTrue(result != NULL);
 
     NSDictionary *stitched = dictFromCString(result);
@@ -415,7 +415,7 @@ static NSDictionary *dictFromCString(const char *json)
     };
     NSString *path = writeSidecar(self.tempDir, sc);
 
-    char *result = kscm_watchdog_stitchReport("not json at all", 1, path.UTF8String);
+    char *result = kscm_watchdog_stitchReport("not json at all", 1, path.UTF8String, NULL);
     XCTAssertTrue(result == NULL);
 }
 
@@ -432,7 +432,7 @@ static NSDictionary *dictFromCString(const char *json)
     NSDictionary *report = makeMinimalHangReport(1000, @"foreground");
     NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String);
+    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String, NULL);
     XCTAssertTrue(result == NULL);
 }
 
@@ -452,7 +452,7 @@ static NSDictionary *dictFromCString(const char *json)
     NSDictionary *report = @{ @"other" : @"value" };
     NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String);
+    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String, NULL);
     XCTAssertTrue(result == NULL);
 }
 
@@ -470,7 +470,7 @@ static NSDictionary *dictFromCString(const char *json)
     NSDictionary *report = @{ @"crash" : [NSNull null] };
     NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String);
+    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String, NULL);
     XCTAssertTrue(result == NULL);
 }
 
@@ -488,7 +488,7 @@ static NSDictionary *dictFromCString(const char *json)
     NSDictionary *report = @{ @"crash" : @ { @"error" : [NSNull null] } };
     NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String);
+    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String, NULL);
     XCTAssertTrue(result == NULL);
 }
 
@@ -506,7 +506,7 @@ static NSDictionary *dictFromCString(const char *json)
     NSDictionary *report = @{ @"crash" : @ { @"error" : @ { @"type" : @"signal", @"hang" : [NSNull null] } } };
     NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String);
+    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String, NULL);
     XCTAssertTrue(result == NULL);
 }
 
@@ -526,7 +526,7 @@ static NSDictionary *dictFromCString(const char *json)
     NSDictionary *report = makeMinimalHangReport(1000, @"foreground");
     NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String);
+    char *result = kscm_watchdog_stitchReport(json.UTF8String, 1, path.UTF8String, NULL);
     XCTAssertTrue(result != NULL);
 
     NSDictionary *stitched = dictFromCString(result);
