@@ -57,21 +57,25 @@ import os.log
 
         public func didReceive(_ payloads: [MXDiagnosticPayload]) {
             updateDiagnosticsState(.processing)
-            defer { updateDiagnosticsState(.completed) }
 
             os_log(.default, log: metricKitLog, "[MONITORS] Received %d diagnostic payload(s)", payloads.count)
 
+            var reportIDs: [Int64] = []
             for payload in payloads {
                 let timestamp = payload.timeStampEnd
                 if let diagnostics = payload.crashDiagnostics {
                     for diagnostic in diagnostics {
-                        processCrashDiagnostic(diagnostic, timestamp: timestamp)
+                        if let reportID = processCrashDiagnostic(diagnostic, timestamp: timestamp) {
+                            reportIDs.append(reportID)
+                        }
                     }
                 }
                 if dumpPayloadsToDocuments {
                     payload.dump()
                 }
             }
+
+            updateDiagnosticsState(.completed, reportIDs: reportIDs)
         }
 
         // MXMetricPayload was API_UNAVAILABLE(macos) until the macOS 26 SDK (Xcode 26 / Swift 6.2).
@@ -93,10 +97,11 @@ import os.log
 
         // MARK: - Processing
 
-        private func processCrashDiagnostic(_ diagnostic: MXCrashDiagnostic, timestamp: Date) {
+        @discardableResult
+        private func processCrashDiagnostic(_ diagnostic: MXCrashDiagnostic, timestamp: Date) -> Int64? {
             guard let callbacks = callbacks else {
                 os_log(.error, log: metricKitLog, "[MONITORS] No callbacks available, skipping diagnostic")
-                return
+                return nil
             }
 
             // Phase 1: Write skeleton report to a temp file via C callbacks.
@@ -127,12 +132,12 @@ import os.log
             defer { try? FileManager.default.removeItem(at: tempURL) }
 
             // Phase 2: Post-process and write final report
-            postProcessReport(atPath: tempPath, diagnostic: diagnostic, timestamp: timestamp)
+            return postProcessReport(atPath: tempPath, diagnostic: diagnostic, timestamp: timestamp)
         }
 
         // MARK: - Post-Processing
 
-        private func postProcessReport(atPath path: String, diagnostic: MXCrashDiagnostic, timestamp: Date) {
+        private func postProcessReport(atPath path: String, diagnostic: MXCrashDiagnostic, timestamp: Date) -> Int64? {
             let url = URL(fileURLWithPath: path)
 
             guard let data = try? Data(contentsOf: url),
@@ -142,7 +147,7 @@ import os.log
                     .error, log: metricKitLog, "[MONITORS] Failed to read or decode skeleton report at %{public}@",
                     path
                 )
-                return
+                return nil
             }
 
             // Extract MetricKit call stack and binary image data
@@ -300,18 +305,20 @@ import os.log
             encoder.outputFormatting = [.sortedKeys]
             guard let newData = try? encoder.encode(newReport) else {
                 os_log(.error, log: metricKitLog, "[MONITORS] Failed to encode MetricKit crash report")
-                return
+                return nil
             }
 
+            var reportID: Int64 = 0
             newData.withUnsafeBytes { buffer in
                 guard let ptr = buffer.baseAddress?.assumingMemoryBound(to: CChar.self) else { return }
-                let reportID = kscrash_addUserReport(ptr, Int32(buffer.count))
+                reportID = kscrash_addUserReport(ptr, Int32(buffer.count))
                 os_log(
                     .default, log: metricKitLog,
                     "[MONITORS] Added MetricKit report (id=%lld, %d bytes, %{public}@ error, app %{public}@, runId=%{public}@)",
                     reportID, buffer.count, errorType.rawValue, diagnostic.applicationVersion,
                     crashedRunId ?? "none")
             }
+            return reportID
         }
 
     }

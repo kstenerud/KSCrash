@@ -58,6 +58,12 @@ public final class MetricKitMonitor: NSObject, MonitorPlugin, @unchecked Sendabl
         lock.withLock { $0.diagnosticsState }
     }
 
+    /// Report IDs created during the most recent diagnostic processing pass.
+    /// Populated just before `diagnosticsState` transitions to `.completed`.
+    public var diagnosticReportIDs: [Int64] {
+        lock.withLock { $0.diagnosticReportIDs }
+    }
+
     /// The current state of metric payload processing.
     public var metricsState: ProcessingState {
         lock.withLock { $0.metricsState }
@@ -86,6 +92,7 @@ public final class MetricKitMonitor: NSObject, MonitorPlugin, @unchecked Sendabl
         var callbacks: KSCrash_ExceptionHandlerCallbacks? = nil
         var diagnosticsState: ProcessingState = .none
         var metricsState: ProcessingState = .none
+        var diagnosticReportIDs: [Int64] = []
         var dumpPayloadsToDocuments: Bool = false
         var threadcrumbEnabled: Bool = true
     }

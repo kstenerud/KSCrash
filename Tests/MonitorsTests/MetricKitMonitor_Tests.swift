@@ -194,6 +194,56 @@ import XCTest
             XCTAssertTrue(allObjectsCorrect, "All notification objects should be the plugin instance")
         }
 
+        // MARK: - Diagnostic Report IDs
+
+        func testDiagnosticReportIDsInitiallyEmpty() {
+            XCTAssertTrue(monitor.diagnosticReportIDs.isEmpty)
+        }
+
+        func testDiagnosticReportIDsSetOnCompleted() {
+            monitor.updateDiagnosticsState(.processing)
+            XCTAssertTrue(monitor.diagnosticReportIDs.isEmpty)
+
+            monitor.updateDiagnosticsState(.completed, reportIDs: [42, 99])
+            XCTAssertEqual(monitor.diagnosticReportIDs, [42, 99])
+        }
+
+        func testDiagnosticReportIDsClearedOnNextProcessing() {
+            monitor.updateDiagnosticsState(.completed, reportIDs: [1, 2, 3])
+            XCTAssertEqual(monitor.diagnosticReportIDs, [1, 2, 3])
+
+            monitor.updateDiagnosticsState(.processing)
+            XCTAssertTrue(monitor.diagnosticReportIDs.isEmpty)
+        }
+
+        func testDiagnosticReportIDsVisibleInNotification() {
+            let api = monitor.api.pointee
+            api.setEnabled(true, api.context)
+            defer { api.setEnabled(false, api.context) }
+
+            let notificationExpectation = expectation(description: "State change notification")
+            notificationExpectation.assertForOverFulfill = false
+            var observedIDs: [Int64]?
+
+            let observer = NotificationCenter.default.addObserver(
+                forName: MetricKitMonitor.processingStateDidChangeNotification,
+                object: Monitors.metricKit,
+                queue: nil
+            ) { _ in
+                if self.monitor.diagnosticsState == .completed {
+                    observedIDs = self.monitor.diagnosticReportIDs
+                    notificationExpectation.fulfill()
+                }
+            }
+            defer { NotificationCenter.default.removeObserver(observer) }
+
+            monitor.updateDiagnosticsState(.completed, reportIDs: [7, 13])
+
+            wait(for: [notificationExpectation], timeout: 2.0)
+
+            XCTAssertEqual(observedIDs, [7, 13])
+        }
+
         // MARK: - Call Stack Tree Flattening
 
         private typealias Frame = CallStackTreeRepresentation.Frame
