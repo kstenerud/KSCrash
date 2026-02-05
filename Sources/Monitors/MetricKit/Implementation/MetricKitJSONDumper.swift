@@ -134,7 +134,9 @@ import os.log
             }
 
             #if !os(macOS)
-                if #available(iOS 17.0, visionOS 1.0, *) {
+                // appLaunchDiagnostics: iOS 17.0+, visionOS 1.0+
+                // On visionOS, 1.0 is already implied by the enclosing @available(iOS 14.0, macOS 12.0, *)
+                if #available(iOS 17.0, *) {
                     if let diagnostics = appLaunchDiagnostics {
                         for d in diagnostics { d.dump() }
                         for d in diagnostics { d.dumpSignposts() }
