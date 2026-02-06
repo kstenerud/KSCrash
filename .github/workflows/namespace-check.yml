@@ -1,0 +1,62 @@
+name: Namespace Check
+
+on:
+  pull_request:
+    paths:
+      - 'Sources/**'
+      - 'namespacer/**'
+      - '.github/workflows/namespace-check.yml'
+      - 'Makefile'
+
+  push:
+    branches:
+      - master
+
+  schedule:
+    - cron: "0 0 1 * *"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  namespace-check:
+    name: Namespace Header Check
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.x'
+
+    - name: Check namespace header
+      id: check
+      run: |
+        make namespace-check
+
+    - name: Comment on failure
+      if: failure() && steps.check.outcome == 'failure' && github.event_name == 'pull_request'
+      uses: thollander/actions-comment-pull-request@v3
+      with:
+        message: |
+          ## Namespace header is out of date
+
+          The checked-in `KSCrashNamespace.h` does not match what the namespacer generates from the current source files.
+
+          Please run `make namespace` locally and commit the updated header.
+        comment-tag: namespace-check
+
+    - name: Remove comment on success
+      if: success() && github.event_name == 'pull_request'
+      uses: thollander/actions-comment-pull-request@v3
+      with:
+        message: ''
+        comment-tag: namespace-check
+        mode: delete

@@ -72,7 +72,11 @@ check-swift-format:
 	fi
 
 namespace:
-	namespacer/generate.sh
+	@echo "Generating namespace header..."
+	@namespacer/generate.sh
+	@echo ""
+	@echo "Done!"
 
 namespace-check:
-	namespacer/namespace-check.sh
+	@echo "Checking namespace header..."
+	@namespacer/namespace-check.sh
