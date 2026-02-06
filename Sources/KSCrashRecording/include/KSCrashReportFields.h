@@ -117,6 +117,7 @@ KSCRF_DEFINE_CONSTANT(KSCrashField, InstructionAddr, instructionAddr, "instructi
 KSCRF_DEFINE_CONSTANT(KSCrashField, LineOfCode, lineOfCode, "line_of_code")
 KSCRF_DEFINE_CONSTANT(KSCrashField, ObjectAddr, objectAddr, "object_addr")
 KSCRF_DEFINE_CONSTANT(KSCrashField, ObjectName, objectName, "object_name")
+KSCRF_DEFINE_CONSTANT(KSCrashField, ObjectUUID, objectUUID, "object_uuid")
 KSCRF_DEFINE_CONSTANT(KSCrashField, SymbolAddr, symbolAddr, "symbol_addr")
 KSCRF_DEFINE_CONSTANT(KSCrashField, SymbolName, symbolName, "symbol_name")
 

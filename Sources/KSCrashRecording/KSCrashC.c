@@ -318,6 +318,7 @@ static void handleConfiguration(KSCrashCConfiguration *configuration)
     }
 
     kscrashreport_setIsWritingReportCallback(g_isWritingReportCallback);
+    kscrashreport_setCompactBinaryImages(configuration->enableCompactBinaryImages);
     g_shouldAddConsoleLogToReport = configuration->addConsoleLogToReport;
     g_shouldPrintPreviousLog = configuration->printPreviousLogOnStartup;
     g_willWriteReportCallback = configuration->willWriteReportCallback;

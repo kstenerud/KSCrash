@@ -430,6 +430,56 @@ final class CrashReportDecodingTests: XCTestCase {
         }
     }
 
+    func testDecodeCompactFormatWithObjectUUID() throws {
+        let json = """
+            {
+                "crash": {
+                    "error": {
+                        "type": "mach",
+                        "mach": {
+                            "code": 1,
+                            "exception": 1
+                        }
+                    },
+                    "threads": [
+                        {
+                            "backtrace": {
+                                "contents": [
+                                    {
+                                        "instruction_addr": 827844157,
+                                        "object_addr": 827195392,
+                                        "object_name": "CoreFoundation",
+                                        "object_uuid": "AABBCCDD-1122-3344-5566-778899AABBCC",
+                                        "symbol_addr": 827844060,
+                                        "symbol_name": "__exceptionPreprocess"
+                                    }
+                                ],
+                                "skipped": 0
+                            },
+                            "crashed": true,
+                            "current_thread": true,
+                            "index": 0
+                        }
+                    ]
+                },
+                "report": { "id": "compact-test" },
+                "system": {}
+            }
+            """
+
+        let report = try CrashReport.decode(from: json)
+
+        // binary_images is absent, so it should be nil
+        XCTAssertNil(report.binaryImages)
+
+        // Frames should have both object_uuid and object_addr
+        let frame = report.crash.threads?[0].backtrace?.contents[0]
+        XCTAssertEqual(frame?.objectUUID, "AABBCCDD-1122-3344-5566-778899AABBCC")
+        XCTAssertEqual(frame?.objectAddr, 827_195_392)
+        XCTAssertEqual(frame?.objectName, "CoreFoundation")
+        XCTAssertEqual(frame?.symbolName, "__exceptionPreprocess")
+    }
+
     func testAllExampleReportsDecodeWithKnownErrorType() throws {
         let resourceURL = Bundle.module.resourceURL!
         let jsonFiles = try FileManager.default.contentsOfDirectory(at: resourceURL, includingPropertiesForKeys: nil)
