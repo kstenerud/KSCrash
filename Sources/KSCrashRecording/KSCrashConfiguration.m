@@ -64,6 +64,7 @@
         _printPreviousLogOnStartup = cConfig.printPreviousLogOnStartup ? YES : NO;
         _enableSwapCxaThrow = cConfig.enableSwapCxaThrow ? YES : NO;
         _enableSigTermMonitoring = cConfig.enableSigTermMonitoring ? YES : NO;
+        _enableCompactBinaryImages = cConfig.enableCompactBinaryImages ? YES : NO;
         _plugins = nil;
         _willWriteReportCallback = cConfig.willWriteReportCallback;
 
@@ -128,6 +129,7 @@
     config.printPreviousLogOnStartup = self.printPreviousLogOnStartup;
     config.enableSwapCxaThrow = self.enableSwapCxaThrow;
     config.enableSigTermMonitoring = self.enableSigTermMonitoring;
+    config.enableCompactBinaryImages = self.enableCompactBinaryImages;
     config.willWriteReportCallback = self.willWriteReportCallback;
 
     if (self.plugins.count > 0) {
@@ -202,6 +204,7 @@
     copy.printPreviousLogOnStartup = self.printPreviousLogOnStartup;
     copy.enableSwapCxaThrow = self.enableSwapCxaThrow;
     copy.enableSigTermMonitoring = self.enableSigTermMonitoring;
+    copy.enableCompactBinaryImages = self.enableCompactBinaryImages;
     copy.plugins = [self.plugins copy];
     return copy;
 }

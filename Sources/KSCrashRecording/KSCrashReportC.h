@@ -85,6 +85,15 @@ void kscrashreport_setDoNotIntrospectClasses(const char **doNotIntrospectClasses
  */
 void kscrashreport_setIsWritingReportCallback(const KSCrashIsWritingReportCallback userSectionWriteCallback);
 
+/** Configure compact binary image mode.
+ *
+ *  When enabled, the `binary_images` array is filtered to only include
+ *  images referenced by backtrace frames and images with crash_info.
+ *
+ * @param enabled If true, enable compact binary image reporting.
+ */
+void kscrashreport_setCompactBinaryImages(bool enabled);
+
 // ============================================================================
 #pragma mark - Main API -
 // ============================================================================

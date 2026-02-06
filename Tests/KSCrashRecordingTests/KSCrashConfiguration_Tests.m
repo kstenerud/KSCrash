@@ -63,6 +63,7 @@
     XCTAssertFalse(config.printPreviousLogOnStartup);
     XCTAssertEqual(config.reportStoreConfiguration.maxReportCount, 5);
     XCTAssertTrue(config.enableSwapCxaThrow);
+    XCTAssertFalse(config.enableCompactBinaryImages);
 }
 
 - (void)testToCConfiguration
@@ -78,6 +79,7 @@
     config.printPreviousLogOnStartup = YES;
     config.reportStoreConfiguration.maxReportCount = 10;
     config.enableSwapCxaThrow = NO;
+    config.enableCompactBinaryImages = YES;
 
     KSCrashCConfiguration cConfig = [config toCConfiguration];
 
@@ -94,6 +96,7 @@
     XCTAssertTrue(cConfig.printPreviousLogOnStartup);
     XCTAssertEqual(cConfig.reportStoreConfiguration.maxReportCount, 10);
     XCTAssertFalse(cConfig.enableSwapCxaThrow);
+    XCTAssertTrue(cConfig.enableCompactBinaryImages);
 
     // Free memory allocated for C string array
     KSCrashCConfiguration_Release(&cConfig);
@@ -112,6 +115,7 @@
     config.printPreviousLogOnStartup = YES;
     config.reportStoreConfiguration.maxReportCount = 10;
     config.enableSwapCxaThrow = NO;
+    config.enableCompactBinaryImages = YES;
 
     KSCrashConfiguration *copy = [config copy];
 
@@ -125,6 +129,7 @@
     XCTAssertTrue(copy.printPreviousLogOnStartup);
     XCTAssertEqual(copy.reportStoreConfiguration.maxReportCount, 10);
     XCTAssertFalse(copy.enableSwapCxaThrow);
+    XCTAssertTrue(copy.enableCompactBinaryImages);
 }
 
 - (void)testEmptyDictionaryForJSONConversion
