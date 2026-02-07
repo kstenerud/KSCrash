@@ -136,15 +136,22 @@ static bool g_compactBinaryImages = false;
 // Tracks unique binary image addresses referenced by backtrace frames.
 // Stack-allocated by the caller, passed through writeThreads → writeBacktrace,
 // then consumed by writeBinaryImages for compact mode filtering.
+// If the set overflows, writeBinaryImages falls back to writing all images
+// so that symbolication is never broken by a missing image.
+//
+// 512 entries ≈ 4 KB of stack. Most apps load 300–500 dylibs total and a
+// crash report typically references 10–30 unique images across all threads,
+// so overflow should never happen in practice.
 #define MAX_REFERENCED_IMAGES 512
 typedef struct {
     uintptr_t addrs[MAX_REFERENCED_IMAGES];
     uint32_t count;
+    bool overflowed;
 } KSReferencedImageSet;
 
 static void referencedImageSet_add(KSReferencedImageSet *set, uintptr_t imageAddr)
 {
-    if (set == NULL || imageAddr == 0) {
+    if (set == NULL || imageAddr == 0 || set->overflowed) {
         return;
     }
     for (uint32_t i = 0; i < set->count; i++) {
@@ -155,6 +162,8 @@ static void referencedImageSet_add(KSReferencedImageSet *set, uintptr_t imageAdd
     if (set->count < MAX_REFERENCED_IMAGES) {
         set->addrs[set->count] = imageAddr;
         set->count++;
+    } else {
+        set->overflowed = true;
     }
 }
 
@@ -1282,15 +1291,18 @@ static void writeBinaryImages(const KSCrashReportWriter *const writer, const cha
             // that aren't relevant. The trade-off is that images with crash_info but
             // no backtrace reference are omitted, but in practice the crashing image
             // is almost always referenced by the backtrace.
-            if (referencedImages != NULL &&
+            if (referencedImages != NULL && !referencedImages->overflowed &&
                 !referencedImageSet_contains(referencedImages, (uintptr_t)info.imageLoadAddress)) {
                 continue;
             }
-            if (info.imageLoadAddress == dyldHeader) {
+            bool isDyld = (info.imageLoadAddress == dyldHeader);
+            if (isDyld) {
                 dyldAlreadyWritten = true;
             }
+            // dyld_all_image_infos doesn't provide a file path for dyld itself
+            const char *imagePath = isDyld && info.imageFilePath == NULL ? "/usr/lib/dyld" : info.imageFilePath;
             KSBinaryImage image = { 0 };
-            if (!ksdl_binaryImageForHeader(info.imageLoadAddress, info.imageFilePath, &image)) {
+            if (!ksdl_binaryImageForHeader(info.imageLoadAddress, imagePath, &image)) {
                 continue;
             }
             writeBinaryImage(writer, &image);
@@ -1301,7 +1313,7 @@ static void writeBinaryImages(const KSCrashReportWriter *const writer, const cha
         // can appear in crash backtraces and symbolication needs the image info.
         if (dyldHeader != NULL && !dyldAlreadyWritten) {
             KSBinaryImage dyldImage = { 0 };
-            if (ksdl_binaryImageForHeader(dyldHeader, NULL, &dyldImage)) {
+            if (ksdl_binaryImageForHeader(dyldHeader, "/usr/lib/dyld", &dyldImage)) {
                 writeBinaryImage(writer, &dyldImage);
             }
         }
@@ -1778,7 +1790,11 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
                         monitorContext->System.processName, monitorContext->monitorId);
         ksfu_flushBufferedWriter(&bufferedWriter);
 
-        KSReferencedImageSet referencedImages = { .count = 0 };
+        // Only collect referenced image addresses when compact mode needs them.
+        // The set is stack-allocated and the per-frame dedup scan is skipped entirely
+        // when the pointer is NULL, avoiding extra work in the crash handler path.
+        KSReferencedImageSet referencedImageStorage = { .count = 0 };
+        KSReferencedImageSet *referencedImages = g_compactBinaryImages ? &referencedImageStorage : NULL;
 
         if (!monitorContext->omitBinaryImages && !g_compactBinaryImages) {
             writeBinaryImages(writer, KSCrashField_BinaryImages, NULL);
@@ -1795,9 +1811,7 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
         {
             writeError(writer, KSCrashField_Error, monitorContext);
             ksfu_flushBufferedWriter(&bufferedWriter);
-            // Collect referenced image addresses from backtrace frames.
-            // In compact mode, writeBinaryImages uses this set to filter images.
-            writeThreads(writer, KSCrashField_Threads, monitorContext, g_introspectionRules.enabled, &referencedImages);
+            writeThreads(writer, KSCrashField_Threads, monitorContext, g_introspectionRules.enabled, referencedImages);
             ksfu_flushBufferedWriter(&bufferedWriter);
             if (monitorContext->suspendedThreadsCount > 0) {
                 // Special case: If we only needed to suspend the environment to record the threads, then we can
@@ -1811,7 +1825,7 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
         writer->endContainer(writer);
 
         if (!monitorContext->omitBinaryImages && g_compactBinaryImages) {
-            writeBinaryImages(writer, KSCrashField_BinaryImages, &referencedImages);
+            writeBinaryImages(writer, KSCrashField_BinaryImages, referencedImages);
             ksfu_flushBufferedWriter(&bufferedWriter);
         }
 
