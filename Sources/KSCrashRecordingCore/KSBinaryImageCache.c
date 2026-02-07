@@ -68,6 +68,10 @@ typedef struct {
     KSSegmentRange segments[KSBIC_MAX_SEGMENTS_PER_IMAGE];  // Actual segment ranges
     uint8_t segmentCount;                                   // Number of valid segments
 
+    // Pointer to LC_UUID data in the Mach-O header (16 bytes, memory-mapped).
+    // Valid for the lifetime of the loaded image.
+    const uint8_t *_Nullable uuid;
+
     // Cached unwind section data (populated at image load time for async-signal-safety)
     KSBinaryImageUnwindInfo unwindInfo;
 } KSBinaryImageRange;
@@ -266,6 +270,10 @@ static bool populateCacheEntry(const struct mach_header *header, const char *nam
                     }
                 }
             }
+            if (lc->cmd == LC_UUID) {
+                const struct uuid_command *ucmd = (const struct uuid_command *)cmdPtr;
+                entry->uuid = ucmd->uuid;
+            }
             cmdPtr += lc->cmdsize;
         }
     } else if (header->magic == MH_MAGIC) {
@@ -311,6 +319,10 @@ static bool populateCacheEntry(const struct mach_header *header, const char *nam
                     }
                 }
             }
+            if (lc->cmd == LC_UUID) {
+                const struct uuid_command *ucmd = (const struct uuid_command *)cmdPtr;
+                entry->uuid = ucmd->uuid;
+            }
             cmdPtr += lc->cmdsize;
         }
     }
@@ -328,9 +340,9 @@ static bool populateCacheEntry(const struct mach_header *header, const char *nam
     entry->segmentCount = segCount;
 
     // Cache unwind section pointers using getsectiondata().
-    // This is called at image load time (not during crash handling), so it's safe to use
-    // getsectiondata() which correctly handles images in the dyld shared cache.
-    // The cached pointers can then be accessed async-signal-safely during crash handling.
+    // getsectiondata() correctly handles images in the dyld shared cache and is
+    // async-signal-safe on Apple platforms (its only non-trivial call is strncmp,
+    // which is async-signal-safe on Apple platforms).
     entry->unwindInfo.header = header;
     entry->unwindInfo.slide = slide;
 
@@ -414,9 +426,7 @@ static int32_t findByHeader(const KSBinaryImageRangeCache *cache, const struct m
  * We use this to invalidate/update our cache, then call the original notifier.
  *
  * IMPORTANT: This function pre-populates the cache for newly added images. This ensures
- * that unwind info is available async-signal-safely during crash handling, since
- * getsectiondata() (called during population) is NOT async-signal-safe and cannot
- * be called from signal handlers.
+ * that unwind info is available immediately during crash handling without a cache miss.
  */
 static void ksbic_dyld_image_notifier(enum dyld_image_mode mode, uint32_t infoCount,
                                       const struct dyld_image_info info[])
@@ -426,9 +436,7 @@ static void ksbic_dyld_image_notifier(enum dyld_image_mode mode, uint32_t infoCo
     if (mode == dyld_image_adding) {
         KSLOG_DEBUG("dyld notifier: %u images added", infoCount);
 
-        // Pre-populate cache for async-signal-safety.
-        // This is called at image load time (safe context), so we can use getsectiondata().
-        // The cached data can then be accessed during crash handling without unsafe calls.
+        // Pre-populate cache so data is available immediately during crash handling.
         KSBinaryImageRangeCache *cache = atomic_exchange(&g_cache_ptr, NULL);
         if (cache != NULL) {
             for (uint32_t i = 0; i < infoCount && cache->count < KSBIC_MAX_CACHE_ENTRIES; i++) {
@@ -480,6 +488,26 @@ void ksbic_init(void)
 
     // Initialize the address range cache
     g_cache_storage.count = 0;
+
+    // Cache the main executable — always the first image, almost certainly in every backtrace
+    if (g_all_image_infos->infoArrayCount > 0 && g_all_image_infos->infoArray != NULL) {
+        const struct dyld_image_info *mainImage = &g_all_image_infos->infoArray[0];
+        if (mainImage->imageLoadAddress != NULL) {
+            KSBinaryImageRange mainEntry;
+            if (populateCacheEntry(mainImage->imageLoadAddress, mainImage->imageFilePath, &mainEntry)) {
+                insertSortedCacheEntry(&g_cache_storage, &mainEntry);
+            }
+        }
+    }
+
+    // Cache dyld's own image — it's not in the infoArray
+    if (g_all_image_infos->dyldImageLoadAddress != NULL) {
+        KSBinaryImageRange dyldEntry;
+        if (populateCacheEntry(g_all_image_infos->dyldImageLoadAddress, NULL, &dyldEntry)) {
+            insertSortedCacheEntry(&g_cache_storage, &dyldEntry);
+        }
+    }
+
     atomic_store(&g_cache_ptr, &g_cache_storage);
 
     // Install our dyld image notifier to track image loading/unloading.
@@ -511,6 +539,24 @@ const ks_dyld_image_info *ksbic_getImages(uint32_t *count)
         *count = allInfo->infoArrayCount;
     }
     return (ks_dyld_image_info *)images;
+}
+
+const struct mach_header *ksbic_getAppHeader(void)
+{
+    struct dyld_all_image_infos *allInfo = g_all_image_infos;
+    if (allInfo == NULL || allInfo->infoArray == NULL || allInfo->infoArrayCount == 0) {
+        return NULL;
+    }
+    return allInfo->infoArray[0].imageLoadAddress;
+}
+
+const struct mach_header *ksbic_getDyldHeader(void)
+{
+    struct dyld_all_image_infos *allInfo = g_all_image_infos;
+    if (allInfo == NULL) {
+        return NULL;
+    }
+    return allInfo->dyldImageLoadAddress;
 }
 
 // For testing purposes only. Used with extern in test files.
@@ -664,7 +710,7 @@ bool ksbic_getUnwindInfoForHeader(const struct mach_header *header, KSBinaryImag
         atomic_store(&g_cache_ptr, cache);
         return false;
     } else {
-        // WARNING: Not async-signal-safe (cache busy, uses getsectiondata)
+        // Cache busy — fall back to uncached population
         KSBinaryImageRange entry;
         if (populateCacheEntry(header, NULL, &entry)) {
             if (outInfo) {
@@ -698,7 +744,7 @@ bool ksbic_getUnwindInfoForAddress(uintptr_t address, KSBinaryImageUnwindInfo *o
             idx--;
         }
 
-        // WARNING: Not async-signal-safe (cache miss, uses getsectiondata)
+        // Cache miss — populate and add
         KSBinaryImageRange newEntry;
         const struct mach_header *header = linearScanForAddress(address, &newEntry);
         if (header != NULL && cache->count < KSBIC_MAX_CACHE_ENTRIES) {
@@ -713,7 +759,7 @@ bool ksbic_getUnwindInfoForAddress(uintptr_t address, KSBinaryImageUnwindInfo *o
         atomic_store(&g_cache_ptr, cache);
         return header != NULL;
     } else {
-        // WARNING: Not async-signal-safe (cache busy, uses getsectiondata)
+        // Cache busy — fall back to uncached population
         KSBinaryImageRange entry;
         if (linearScanForAddress(address, &entry) != NULL) {
             if (outInfo) {
@@ -722,5 +768,44 @@ bool ksbic_getUnwindInfoForAddress(uintptr_t address, KSBinaryImageUnwindInfo *o
             return true;
         }
         return false;
+    }
+}
+
+const uint8_t *ksbic_getUUIDForHeader(const struct mach_header *header)
+{
+    if (header == NULL) {
+        return NULL;
+    }
+
+    KSBinaryImageRangeCache *cache = atomic_exchange(&g_cache_ptr, NULL);
+
+    if (cache != NULL) {
+        int32_t idx = findByHeader(cache, header);
+        if (idx >= 0) {
+            const uint8_t *uuid = cache->entries[idx].uuid;
+            atomic_store(&g_cache_ptr, cache);
+            return uuid;
+        }
+
+        // Not in cache — populate and add maintaining sorted order
+        KSBinaryImageRange newEntry;
+        if (populateCacheEntry(header, NULL, &newEntry)) {
+            const uint8_t *uuid = newEntry.uuid;
+            if (cache->count < KSBIC_MAX_CACHE_ENTRIES) {
+                insertSortedCacheEntry(cache, &newEntry);
+            }
+            atomic_store(&g_cache_ptr, cache);
+            return uuid;
+        }
+
+        atomic_store(&g_cache_ptr, cache);
+        return NULL;
+    } else {
+        // Cache busy — fall back to uncached population
+        KSBinaryImageRange entry;
+        if (populateCacheEntry(header, NULL, &entry)) {
+            return entry.uuid;
+        }
+        return NULL;
     }
 }
