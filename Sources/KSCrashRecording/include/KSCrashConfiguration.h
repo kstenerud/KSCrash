@@ -197,9 +197,10 @@ NS_ASSUME_NONNULL_BEGIN
 /** If true, use compact binary image reporting.
  *
  * When enabled, the `binary_images` array is filtered to only include
- * images referenced by backtrace frames and images with crash_info.
- * This reduces report size significantly while preserving all data
- * needed for symbolication.
+ * images referenced by backtrace frames (plus dyld, which is always
+ * included). Images that only have crash_info but no backtrace reference
+ * are omitted — in practice the crashing image is almost always
+ * referenced by the backtrace.
  *
  * **Default**: false
  */

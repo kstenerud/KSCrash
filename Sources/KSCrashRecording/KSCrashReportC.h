@@ -88,7 +88,7 @@ void kscrashreport_setIsWritingReportCallback(const KSCrashIsWritingReportCallba
 /** Configure compact binary image mode.
  *
  *  When enabled, the `binary_images` array is filtered to only include
- *  images referenced by backtrace frames and images with crash_info.
+ *  images referenced by backtrace frames (plus dyld).
  *
  * @param enabled If true, enable compact binary image reporting.
  */
