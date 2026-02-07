@@ -80,8 +80,7 @@ final class CompactBinaryImageTests: IntegrationTestBase {
             }
         }
 
-        // Compact mode only includes images referenced by backtrace frames
-        // (plus dyld, which is always included).
+        // Compact mode only includes images referenced by backtrace frames.
         let imageAddrs = Set(images.map(\.imageAddr))
 
         // All referenced addresses should have a matching binary image
@@ -92,10 +91,10 @@ final class CompactBinaryImageTests: IntegrationTestBase {
             )
         }
 
-        // Image count should be the referenced set plus dyld (at most 1 extra)
-        XCTAssertLessThanOrEqual(
-            images.count, referencedAddrs.count + 1,
-            "Compact report should only contain referenced images plus dyld"
+        // Image count should match the referenced set exactly
+        XCTAssertEqual(
+            images.count, referencedAddrs.count,
+            "Compact report should only contain images referenced by frames"
         )
     }
 
