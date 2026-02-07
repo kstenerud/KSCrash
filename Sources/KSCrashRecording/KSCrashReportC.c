@@ -1309,9 +1309,11 @@ static void writeBinaryImages(const KSCrashReportWriter *const writer, const cha
         }
 
         // dyld is not in the infoArray today, but guard against future OS
-        // versions that might include it. Always include dyld since its frames
-        // can appear in crash backtraces and symbolication needs the image info.
-        if (dyldHeader != NULL && !dyldAlreadyWritten) {
+        // versions that might include it. In compact mode, only include dyld
+        // if a frame actually references it.
+        bool dyldReferenced = referencedImages == NULL || referencedImages->overflowed ||
+                              referencedImageSet_contains(referencedImages, (uintptr_t)dyldHeader);
+        if (dyldHeader != NULL && !dyldAlreadyWritten && dyldReferenced) {
             KSBinaryImage dyldImage = { 0 };
             if (ksdl_binaryImageForHeader(dyldHeader, "/usr/lib/dyld", &dyldImage)) {
                 writeBinaryImage(writer, &dyldImage);
