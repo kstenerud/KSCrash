@@ -167,7 +167,9 @@ const struct mach_header *_Nullable ksbic_getDyldHeader(void);
  * Returns a pointer to the 16-byte UUID in the Mach-O header, or NULL if not found.
  * The pointer is valid for the lifetime of the loaded image.
  *
- * This function is async-signal-safe.
+ * This function is async-signal-safe. On a cache miss the fallback path
+ * includes KSLOG_DEBUG calls, but these are compiled out at the default
+ * log level (ERROR) so this is not an issue in production builds.
  *
  * @param header The mach_header of the image.
  * @return Pointer to 16-byte UUID data, or NULL if not found.
