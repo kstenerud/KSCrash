@@ -1269,6 +1269,9 @@ static void writeBinaryImages(const KSCrashReportWriter *const writer, const cha
     uint32_t count = 0;
     const ks_dyld_image_info *images = ksbic_getImages(&count);
 
+    const struct mach_header *dyldHeader = ksbic_getDyldHeader();
+    bool dyldAlreadyWritten = false;
+
     writer->beginArray(writer, key);
     {
         for (uint32_t iImg = 0; iImg < count; iImg++) {
@@ -1283,6 +1286,9 @@ static void writeBinaryImages(const KSCrashReportWriter *const writer, const cha
                 !referencedImageSet_contains(referencedImages, (uintptr_t)info.imageLoadAddress)) {
                 continue;
             }
+            if (info.imageLoadAddress == dyldHeader) {
+                dyldAlreadyWritten = true;
+            }
             KSBinaryImage image = { 0 };
             if (!ksdl_binaryImageForHeader(info.imageLoadAddress, info.imageFilePath, &image)) {
                 continue;
@@ -1290,10 +1296,10 @@ static void writeBinaryImages(const KSCrashReportWriter *const writer, const cha
             writeBinaryImage(writer, &image);
         }
 
-        // dyld is not in the infoArray — always include it since dyld frames
+        // dyld is not in the infoArray today, but guard against future OS
+        // versions that might include it. Always include dyld since its frames
         // can appear in crash backtraces and symbolication needs the image info.
-        const struct mach_header *dyldHeader = ksbic_getDyldHeader();
-        if (dyldHeader != NULL) {
+        if (dyldHeader != NULL && !dyldAlreadyWritten) {
             KSBinaryImage dyldImage = { 0 };
             if (ksdl_binaryImageForHeader(dyldHeader, NULL, &dyldImage)) {
                 writeBinaryImage(writer, &dyldImage);
@@ -1789,8 +1795,8 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
         {
             writeError(writer, KSCrashField_Error, monitorContext);
             ksfu_flushBufferedWriter(&bufferedWriter);
-            // Always pass the image set so UUID lookups are cached across frames.
-            // In compact mode, writeBinaryImages also consumes it for filtering.
+            // Collect referenced image addresses from backtrace frames.
+            // In compact mode, writeBinaryImages uses this set to filter images.
             writeThreads(writer, KSCrashField_Threads, monitorContext, g_introspectionRules.enabled, &referencedImages);
             ksfu_flushBufferedWriter(&bufferedWriter);
             if (monitorContext->suspendedThreadsCount > 0) {
