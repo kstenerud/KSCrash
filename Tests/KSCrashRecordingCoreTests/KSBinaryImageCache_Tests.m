@@ -614,6 +614,113 @@ static void testImageAddedCallback(const struct mach_header *mh, intptr_t vmaddr
     XCTAssertFalse(found, @"Should not find unwind info for NULL header");
 }
 
+#pragma mark - ksbic_getAppHeader / ksbic_getDyldHeader Tests
+
+- (void)testGetAppHeader_ReturnsMainExecutable
+{
+    const struct mach_header *appHeader = ksbic_getAppHeader();
+    XCTAssertNotEqual(appHeader, NULL, @"Should return app header");
+
+    // Should match the first image in the dyld list
+    uint32_t count = 0;
+    const ks_dyld_image_info *images = ksbic_getImages(&count);
+    XCTAssertGreaterThan(count, 0);
+    XCTAssertEqual(appHeader, images[0].imageLoadAddress, @"App header should be the first image");
+}
+
+- (void)testGetDyldHeader_ReturnsValidHeader
+{
+    const struct mach_header *dyldHeader = ksbic_getDyldHeader();
+    XCTAssertNotEqual(dyldHeader, NULL, @"Should return dyld header");
+
+    uint32_t magic = dyldHeader->magic;
+    XCTAssertTrue(magic == MH_MAGIC || magic == MH_MAGIC_64, @"dyld header should have valid Mach-O magic");
+}
+
+- (void)testGetDyldHeader_NotInImageList
+{
+    const struct mach_header *dyldHeader = ksbic_getDyldHeader();
+    XCTAssertNotEqual(dyldHeader, NULL);
+
+    // dyld should NOT be in the normal image list
+    uint32_t count = 0;
+    const ks_dyld_image_info *images = ksbic_getImages(&count);
+    for (uint32_t i = 0; i < count; i++) {
+        XCTAssertNotEqual(images[i].imageLoadAddress, dyldHeader, @"dyld should not appear in the infoArray (image %@)",
+                          @(i));
+    }
+}
+
+#pragma mark - ksbic_getUUIDForHeader Tests
+
+- (void)testGetUUIDForHeader_ReturnsValidUUID
+{
+    const struct mach_header *appHeader = ksbic_getAppHeader();
+    XCTAssertNotEqual(appHeader, NULL);
+
+    const uint8_t *uuid = ksbic_getUUIDForHeader(appHeader);
+    XCTAssertNotEqual(uuid, NULL, @"App should have a UUID");
+
+    // UUID should not be all zeros
+    bool allZero = true;
+    for (int i = 0; i < 16; i++) {
+        if (uuid[i] != 0) {
+            allZero = false;
+            break;
+        }
+    }
+    XCTAssertFalse(allZero, @"UUID should not be all zeros");
+}
+
+- (void)testGetUUIDForHeader_MatchesDynamicLinker
+{
+    uint32_t count = 0;
+    const ks_dyld_image_info *images = ksbic_getImages(&count);
+    XCTAssertGreaterThan(count, 0);
+
+    const struct mach_header *header = images[0].imageLoadAddress;
+
+    // Get UUID from our cache
+    const uint8_t *cachedUUID = ksbic_getUUIDForHeader(header);
+    XCTAssertNotEqual(cachedUUID, NULL);
+
+    // Get UUID from ksdl_binaryImageForHeader
+    KSBinaryImage image = { 0 };
+    bool success = ksdl_binaryImageForHeader(header, images[0].imageFilePath, &image);
+    XCTAssertTrue(success);
+    XCTAssertNotEqual(image.uuid, NULL);
+
+    // They should match
+    XCTAssertEqual(memcmp(cachedUUID, image.uuid, 16), 0, @"Cached UUID should match ksdl_binaryImageForHeader UUID");
+}
+
+- (void)testGetUUIDForHeader_DyldHasUUID
+{
+    const struct mach_header *dyldHeader = ksbic_getDyldHeader();
+    XCTAssertNotEqual(dyldHeader, NULL);
+
+    const uint8_t *uuid = ksbic_getUUIDForHeader(dyldHeader);
+    XCTAssertNotEqual(uuid, NULL, @"dyld should have a UUID");
+}
+
+- (void)testGetUUIDForHeader_NullHeader
+{
+    const uint8_t *uuid = ksbic_getUUIDForHeader(NULL);
+    XCTAssertEqual(uuid, NULL, @"NULL header should return NULL UUID");
+}
+
+- (void)testGetUUIDForHeader_ConsistentAcrossCalls
+{
+    const struct mach_header *appHeader = ksbic_getAppHeader();
+    XCTAssertNotEqual(appHeader, NULL);
+
+    const uint8_t *uuid1 = ksbic_getUUIDForHeader(appHeader);
+    const uint8_t *uuid2 = ksbic_getUUIDForHeader(appHeader);
+
+    XCTAssertNotEqual(uuid1, NULL);
+    XCTAssertEqual(uuid1, uuid2, @"Repeated calls should return the same pointer");
+}
+
 - (void)testGetUnwindInfoForHeader_ConsistentWithAddressLookup
 {
     // Get an image and look up its unwind info both by header and by address

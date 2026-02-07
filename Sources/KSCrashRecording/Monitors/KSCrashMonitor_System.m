@@ -31,7 +31,6 @@
 #import "KSCrashMonitorContext.h"
 #include "KSCrashMonitorHelper.h"
 #import "KSDate.h"
-#import "KSDynamicLinker.h"
 #import "KSJailbreak.h"
 #import "KSSysCtl.h"
 #import "KSSystemCapabilities.h"
@@ -221,18 +220,9 @@ static NSString *getExecutablePath(void)
  */
 static const char *getAppUUID(void)
 {
-    uint32_t count = 0;
-    const ks_dyld_image_info *images = ksbic_getImages(&count);
-    if (!images || count == 0) {
-        return NULL;
-    }
-    const struct mach_header *header = images[0].imageLoadAddress;
-
-    KSBinaryImage binary = { 0 };
-    if (ksdl_binaryImageForHeader(header, NULL, &binary)) {
-        if (binary.uuid) {
-            return uuidBytesToString(binary.uuid);
-        }
+    const uint8_t *uuid = ksbic_getUUIDForHeader(ksbic_getAppHeader());
+    if (uuid != NULL) {
+        return uuidBytesToString(uuid);
     }
     return NULL;
 }

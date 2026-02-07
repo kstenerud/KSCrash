@@ -480,6 +480,198 @@ final class CrashReportDecodingTests: XCTestCase {
         XCTAssertEqual(frame?.symbolName, "__exceptionPreprocess")
     }
 
+    func testDecodeCompactReportOnlyReferencedImages() throws {
+        // Simulates a compact-mode report: binary_images only contains images
+        // that are referenced by backtrace frames (plus crash_info images).
+        let json = """
+            {
+                "binary_images": [
+                    {
+                        "cpu_subtype": 9,
+                        "cpu_type": 12,
+                        "image_addr": 4294967296,
+                        "image_size": 65536,
+                        "name": "/usr/lib/system/libsystem_kernel.dylib",
+                        "uuid": "11111111-1111-1111-1111-111111111111"
+                    },
+                    {
+                        "cpu_subtype": 9,
+                        "cpu_type": 12,
+                        "image_addr": 4295032832,
+                        "image_size": 32768,
+                        "name": "/path/to/App",
+                        "uuid": "22222222-2222-2222-2222-222222222222"
+                    }
+                ],
+                "crash": {
+                    "error": {
+                        "type": "mach",
+                        "mach": { "code": 1, "exception": 1 }
+                    },
+                    "threads": [
+                        {
+                            "backtrace": {
+                                "contents": [
+                                    {
+                                        "instruction_addr": 4294967400,
+                                        "object_addr": 4294967296,
+                                        "object_name": "libsystem_kernel.dylib",
+                                        "object_uuid": "11111111-1111-1111-1111-111111111111",
+                                        "symbol_name": "__pthread_kill"
+                                    },
+                                    {
+                                        "instruction_addr": 4295032900,
+                                        "object_addr": 4295032832,
+                                        "object_name": "App",
+                                        "object_uuid": "22222222-2222-2222-2222-222222222222",
+                                        "symbol_name": "main"
+                                    }
+                                ],
+                                "skipped": 0
+                            },
+                            "crashed": true,
+                            "current_thread": true,
+                            "index": 0
+                        }
+                    ]
+                },
+                "report": { "id": "compact-referenced-only" },
+                "system": {}
+            }
+            """
+
+        let report = try CrashReport.decode(from: json)
+
+        // In compact mode, binary_images should only contain referenced images
+        XCTAssertEqual(report.binaryImages?.count, 2)
+
+        // Every frame's object_addr should have a matching binary image
+        let imageAddrs = Set(report.binaryImages?.map(\.imageAddr) ?? [])
+        let frames = report.crash.threads?[0].backtrace?.contents ?? []
+        for frame in frames {
+            if let objectAddr = frame.objectAddr {
+                XCTAssertTrue(
+                    imageAddrs.contains(objectAddr),
+                    "Frame object_addr \(objectAddr) should have a matching binary image"
+                )
+            }
+        }
+
+        // Every frame should have object_uuid
+        for frame in frames {
+            XCTAssertNotNil(frame.objectUUID, "Every frame should have object_uuid in compact mode")
+        }
+
+        // object_uuid on frame should match the corresponding binary image uuid
+        let imagesByAddr = Dictionary(
+            uniqueKeysWithValues: (report.binaryImages ?? []).map { ($0.imageAddr, $0) })
+        for frame in frames {
+            guard let addr = frame.objectAddr, let image = imagesByAddr[addr] else { continue }
+            XCTAssertEqual(frame.objectUUID, image.uuid)
+        }
+    }
+
+    func testDecodeCompactReportWithNoBinaryImages() throws {
+        // Edge case: compact report where binary_images is absent entirely.
+        // Frames still carry object_uuid for self-contained symbolication.
+        let json = """
+            {
+                "crash": {
+                    "error": { "type": "signal", "signal": { "signal": 6, "code": 0, "name": "SIGABRT" } },
+                    "threads": [
+                        {
+                            "backtrace": {
+                                "contents": [
+                                    {
+                                        "instruction_addr": 100,
+                                        "object_addr": 0,
+                                        "object_uuid": "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE"
+                                    }
+                                ],
+                                "skipped": 0
+                            },
+                            "crashed": true,
+                            "current_thread": true,
+                            "index": 0
+                        }
+                    ]
+                },
+                "report": { "id": "no-binary-images" },
+                "system": {}
+            }
+            """
+
+        let report = try CrashReport.decode(from: json)
+        XCTAssertNil(report.binaryImages)
+        XCTAssertEqual(
+            report.crash.threads?[0].backtrace?.contents[0].objectUUID,
+            "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE"
+        )
+    }
+
+    func testDecodeProfileFramesWithObjectUUID() throws {
+        // Profile reports should also carry object_uuid on frames
+        let json = """
+            {
+                "crash": {
+                    "error": {
+                        "type": "profile",
+                        "profile": {
+                            "name": "test-profile",
+                            "id": "PROFILE-UUID",
+                            "time_start_epoch": 1000000,
+                            "time_start_uptime": 500000,
+                            "time_end_uptime": 600000,
+                            "expected_sample_interval": 10000,
+                            "duration": 100000,
+                            "time_units": "nanoseconds",
+                            "frames": [
+                                {
+                                    "instruction_addr": 4294967400,
+                                    "object_addr": 4294967296,
+                                    "object_name": "libsystem_pthread.dylib",
+                                    "object_uuid": "AABB1122-3344-5566-7788-99AABBCCDDEE",
+                                    "symbol_name": "pthread_setspecific",
+                                    "symbol_addr": 4294967350
+                                },
+                                {
+                                    "instruction_addr": 4295032900,
+                                    "object_addr": 4295032832,
+                                    "object_name": "App",
+                                    "object_uuid": "FFEEDDCC-BBAA-9988-7766-554433221100",
+                                    "symbol_name": "main",
+                                    "symbol_addr": 4295032832
+                                }
+                            ],
+                            "samples": [
+                                {
+                                    "time_start_uptime": 500000,
+                                    "time_end_uptime": 510000,
+                                    "duration": 10000,
+                                    "frames": [0, 1]
+                                }
+                            ]
+                        }
+                    }
+                },
+                "report": { "id": "profile-uuid-test" },
+                "system": {}
+            }
+            """
+
+        let report = try CrashReport.decode(from: json)
+
+        let profile = report.crash.error.profile
+        XCTAssertNotNil(profile)
+        XCTAssertEqual(profile?.frames.count, 2)
+
+        // Verify object_uuid is decoded on profile frames
+        XCTAssertEqual(profile?.frames[0].objectUUID, "AABB1122-3344-5566-7788-99AABBCCDDEE")
+        XCTAssertEqual(profile?.frames[0].objectName, "libsystem_pthread.dylib")
+        XCTAssertEqual(profile?.frames[1].objectUUID, "FFEEDDCC-BBAA-9988-7766-554433221100")
+        XCTAssertEqual(profile?.frames[1].objectName, "App")
+    }
+
     func testAllExampleReportsDecodeWithKnownErrorType() throws {
         let resourceURL = Bundle.module.resourceURL!
         let jsonFiles = try FileManager.default.contentsOfDirectory(at: resourceURL, includingPropertiesForKeys: nil)
