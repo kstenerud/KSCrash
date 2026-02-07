@@ -80,9 +80,8 @@ final class CompactBinaryImageTests: IntegrationTestBase {
             }
         }
 
-        // Every binary image should be either referenced by a frame or have crash_info.
-        // We can't check crash_info from Swift, but we can verify image count is close
-        // to the number of referenced images (crash_info images are rare).
+        // Compact mode only includes images referenced by backtrace frames
+        // (plus dyld, which is always included).
         let imageAddrs = Set(images.map(\.imageAddr))
 
         // All referenced addresses should have a matching binary image
@@ -93,11 +92,10 @@ final class CompactBinaryImageTests: IntegrationTestBase {
             )
         }
 
-        // The number of images should be close to the number of referenced images
-        // (allowing a small margin for crash_info images)
+        // Image count should be the referenced set plus dyld (at most 1 extra)
         XCTAssertLessThanOrEqual(
-            images.count, referencedAddrs.count + 5,
-            "Compact report should have roughly as many images as referenced by frames"
+            images.count, referencedAddrs.count + 1,
+            "Compact report should only contain referenced images plus dyld"
         )
     }
 

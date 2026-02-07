@@ -500,10 +500,12 @@ void ksbic_init(void)
         }
     }
 
-    // Cache dyld's own image — it's not in the infoArray
+    // Cache dyld's own image — it's not in the infoArray and
+    // dyld_all_image_infos doesn't provide a file path for it,
+    // so we supply "/usr/lib/dyld" explicitly.
     if (g_all_image_infos->dyldImageLoadAddress != NULL) {
         KSBinaryImageRange dyldEntry;
-        if (populateCacheEntry(g_all_image_infos->dyldImageLoadAddress, NULL, &dyldEntry)) {
+        if (populateCacheEntry(g_all_image_infos->dyldImageLoadAddress, "/usr/lib/dyld", &dyldEntry)) {
             insertSortedCacheEntry(&g_cache_storage, &dyldEntry);
         }
     }
