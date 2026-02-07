@@ -88,6 +88,8 @@ extension Profile {
             Unmanaged<BoxedProfile>.fromOpaque(callbackContext).release()
         }
         context?.pointee.callbackContext = callbackContext
+        // Profile frames already include object_uuid, so binary_images is redundant.
+        context?.pointee.omitBinaryImages = true
 
         var result = KSCrash_ReportResult()
         callbacks.handleWithResult(context, &result)
