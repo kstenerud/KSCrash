@@ -77,6 +77,11 @@ static bool g_secondDummyEnabledState = false;
 static void secondDummySetEnabled(bool isEnabled) { g_secondDummyEnabledState = isEnabled; }
 static bool secondDummyIsEnabled(void) { return g_secondDummyEnabledState; }
 
+static KSCrashMonitorFlag combinedMonitorFlags(void)
+{
+    return KSCrashMonitorFlagDebuggerUnsafe | KSCrashMonitorFlagAsyncSafe;
+}
+
 static KSCrashMonitorAPI g_dummyMonitor = {};
 static KSCrashMonitorAPI g_secondDummyMonitor = {};
 
@@ -360,6 +365,92 @@ static KSCrashMonitorAPI g_secondDummyMonitor = {};
 
     const KSCrashMonitorAPI *resultAfter = kscmr_getMonitor(&list, "Dummy Monitor");
     XCTAssertTrue(resultAfter == NULL, @"Should return NULL after monitor is removed.");
+}
+
+#pragma mark - Disable Async-Safe Monitors Tests
+
+- (void)testDisableAsyncSafeMonitorsDisablesAsyncSafeMonitor
+{
+    KSCrashMonitorAPIList list;
+    memset(&list, 0, sizeof(list));
+    kscmr_addMonitor(&list, &g_dummyMonitor);
+    kscmr_activateMonitors(&list);
+    XCTAssertTrue(g_dummyEnabledState, @"Async-safe monitor should be enabled after activation.");
+
+    kscmr_disableAsyncSafeMonitors(&list);
+    XCTAssertFalse(g_dummyEnabledState, @"Async-safe monitor should be disabled.");
+}
+
+- (void)testDisableAsyncSafeMonitorsLeavesNonAsyncSafeEnabled
+{
+    // g_secondDummyMonitor uses default monitorFlags (KSCrashMonitorFlagNone)
+    KSCrashMonitorAPIList list;
+    memset(&list, 0, sizeof(list));
+    kscmr_addMonitor(&list, &g_secondDummyMonitor);
+    kscmr_activateMonitors(&list);
+    XCTAssertTrue(g_secondDummyEnabledState, @"Non-async-safe monitor should be enabled after activation.");
+
+    kscmr_disableAsyncSafeMonitors(&list);
+    XCTAssertTrue(g_secondDummyEnabledState, @"Non-async-safe monitor should remain enabled.");
+}
+
+- (void)testDisableAsyncSafeMonitorsSelectiveFiltering
+{
+    // g_dummyMonitor has KSCrashMonitorFlagAsyncSafe
+    // g_secondDummyMonitor has KSCrashMonitorFlagNone (default)
+    KSCrashMonitorAPIList list;
+    memset(&list, 0, sizeof(list));
+    kscmr_addMonitor(&list, &g_dummyMonitor);
+    kscmr_addMonitor(&list, &g_secondDummyMonitor);
+    kscmr_activateMonitors(&list);
+    XCTAssertTrue(g_dummyEnabledState, @"Async-safe monitor should be enabled after activation.");
+    XCTAssertTrue(g_secondDummyEnabledState, @"Non-async-safe monitor should be enabled after activation.");
+
+    kscmr_disableAsyncSafeMonitors(&list);
+    XCTAssertFalse(g_dummyEnabledState, @"Async-safe monitor should be disabled.");
+    XCTAssertTrue(g_secondDummyEnabledState, @"Non-async-safe monitor should remain enabled.");
+}
+
+- (void)testDisableAsyncSafeMonitorsOnEmptyList
+{
+    KSCrashMonitorAPIList list;
+    memset(&list, 0, sizeof(list));
+    // Should not crash on empty list
+    kscmr_disableAsyncSafeMonitors(&list);
+}
+
+- (void)testDisableAsyncSafeMonitorsWithCombinedFlags
+{
+    // A monitor with both DebuggerUnsafe and AsyncSafe flags should still be disabled
+    KSCrashMonitorAPI combinedMonitor = g_dummyMonitor;
+    combinedMonitor.monitorFlags = combinedMonitorFlags;
+
+    KSCrashMonitorAPIList list;
+    memset(&list, 0, sizeof(list));
+    kscmr_addMonitor(&list, &combinedMonitor);
+    kscmr_activateMonitors(&list);
+    XCTAssertTrue(g_dummyEnabledState, @"Combined-flags monitor should be enabled after activation.");
+
+    kscmr_disableAsyncSafeMonitors(&list);
+    XCTAssertFalse(g_dummyEnabledState, @"Monitor with AsyncSafe flag should be disabled regardless of other flags.");
+}
+
+- (void)testDisableAsyncSafeMonitorsIdempotent
+{
+    KSCrashMonitorAPIList list;
+    memset(&list, 0, sizeof(list));
+    kscmr_addMonitor(&list, &g_dummyMonitor);
+    kscmr_addMonitor(&list, &g_secondDummyMonitor);
+    kscmr_activateMonitors(&list);
+
+    kscmr_disableAsyncSafeMonitors(&list);
+    XCTAssertFalse(g_dummyEnabledState);
+    XCTAssertTrue(g_secondDummyEnabledState);
+
+    // Calling again should not change anything
+    kscmr_disableAsyncSafeMonitors(&list);
+    XCTAssertFalse(g_dummyEnabledState, @"Async-safe monitor should still be disabled after second call.");
+    XCTAssertTrue(g_secondDummyEnabledState, @"Non-async-safe monitor should still be enabled after second call.");
 }
 
 @end
