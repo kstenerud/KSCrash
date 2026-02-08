@@ -285,7 +285,10 @@ jobs:
           retention-days: 30
 
       - name: Comment PR with Results
-        if: github.event_name == 'pull_request' && steps.report.outputs.has_real_leaks == 'true'
+        if: |
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          steps.report.outputs.has_real_leaks == 'true'
         uses: thollander/actions-comment-pull-request@v3
         with:
           file-path: leaks_report.md

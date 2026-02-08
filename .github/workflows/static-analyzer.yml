@@ -15,6 +15,10 @@ on:
   schedule:
     - cron: "0 0 1 * *"
 
+permissions:
+  contents: read
+  pull-requests: write
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -129,33 +133,25 @@ jobs:
           # Also write to job summary
           cat /tmp/analyzer-report.md >> $GITHUB_STEP_SUMMARY
 
-      - name: Comment on PR
+      - name: Check for Warnings
         if: github.event_name == 'pull_request'
-        env:
-          GH_TOKEN: ${{ github.token }}
+        id: check-warnings
         run: |
-          if ! grep -q ":warning:" /tmp/analyzer-report.md; then
-            echo "No warnings found - skipping comment"
-            exit 0
-          fi
-
-          # Add hidden marker to identify our comment
-          echo "<!-- static-analyzer-report -->" > /tmp/pr-comment.md
-          cat /tmp/analyzer-report.md >> /tmp/pr-comment.md
-
-          # Find existing comment with our marker
-          COMMENT_ID=$(gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
-            --jq '.[] | select(.body | contains("<!-- static-analyzer-report -->")) | .id' | head -1)
-
-          if [ -n "$COMMENT_ID" ]; then
-            # Update existing comment
-            gh api repos/${{ github.repository }}/issues/comments/$COMMENT_ID \
-              -X PATCH \
-              -F body=@/tmp/pr-comment.md
+          if grep -q ":warning:" /tmp/analyzer-report.md; then
+            echo "has_warnings=true" >> $GITHUB_OUTPUT
           else
-            # Create new comment
-            gh pr comment ${{ github.event.pull_request.number }} --body-file /tmp/pr-comment.md
+            echo "has_warnings=false" >> $GITHUB_OUTPUT
           fi
+
+      - name: Comment on PR
+        if: |
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          steps.check-warnings.outputs.has_warnings == 'true'
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          file-path: /tmp/analyzer-report.md
+          comment-tag: static-analyzer-report
 
       - name: Fail if warnings found
         if: always()
