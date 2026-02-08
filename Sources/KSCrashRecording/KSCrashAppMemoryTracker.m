@@ -124,7 +124,7 @@ FOUNDATION_EXPORT void testsupport_KSCrashAppMemorySetProvider(KSCrashAppMemoryP
 
     // memory pressure
     uintptr_t mask = DISPATCH_MEMORYPRESSURE_NORMAL | DISPATCH_MEMORYPRESSURE_WARN | DISPATCH_MEMORYPRESSURE_CRITICAL;
-    _pressureSource = dispatch_source_create(DISPATCH_SOURCE_TYPE_MEMORYPRESSURE, 0, mask, dispatch_get_main_queue());
+    _pressureSource = dispatch_source_create(DISPATCH_SOURCE_TYPE_MEMORYPRESSURE, 0, mask, _heartbeatQueue);
 
     __weak __typeof(self) weakMe = self;
 
@@ -234,7 +234,7 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
 
 // in case of unsigned values
 // ie: MAX(x,y) - MIN(x,y)
-#define KSABS_DIFF(x, y) x > y ? x - y : y - x
+#define KSABS_DIFF(x, y) ((x) > (y) ? (x) - (y) : (y) - (x))
 
 - (void)_heartbeat:(BOOL)sendObservers
 {
@@ -254,7 +254,7 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
         _level = newLevel;
 
         // the amount footprint needs to change for any footprint notifs.
-        const uint64_t kKSCrashFootprintMinChange = 1 << 20;  // 1 MiB
+        const uint64_t kKSCrashFootprintMinChange = 1ULL << 20;  // 1 MiB
 
         // For the footprint, we don't need very granular changes,
         // changing a few bytes here or there won't mke a difference,
@@ -348,12 +348,14 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
         [self _handleMemoryChange:[self currentAppMemory]
                              type:KSCrashAppMemoryTrackerChangeTypePressure
                         observers:observers];
-        [[NSNotificationCenter defaultCenter] postNotificationName:KSCrashAppMemoryPressureChangedNotification
-                                                            object:self
-                                                          userInfo:@{
-                                                              KSCrashAppMemoryNewValueKey : @(newPressure),
-                                                              KSCrashAppMemoryOldValueKey : @(oldPressure)
-                                                          }];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [[NSNotificationCenter defaultCenter] postNotificationName:KSCrashAppMemoryPressureChangedNotification
+                                                                object:self
+                                                              userInfo:@{
+                                                                  KSCrashAppMemoryNewValueKey : @(newPressure),
+                                                                  KSCrashAppMemoryOldValueKey : @(oldPressure)
+                                                              }];
+        });
     }
 }
 
