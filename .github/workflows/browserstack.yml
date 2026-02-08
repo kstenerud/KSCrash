@@ -37,7 +37,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ inputs.ref || github.sha }}
 
@@ -45,7 +45,7 @@ jobs:
         uses: ./.github/actions/setup-xcode
 
       - name: Setup Mise
-        uses: jdx/mise-action@v2
+        uses: jdx/mise-action@v3
 
       - name: Install xcbeautify
         run: brew install xcbeautify
@@ -321,7 +321,7 @@ jobs:
 
       - name: Upload Result Bundles as Artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ steps.artifact_name.outputs.name }}
           path: result_bundles/

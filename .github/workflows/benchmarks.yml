@@ -79,14 +79,14 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Download PR Results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: ${{ needs.browserstack-pr.outputs.results_artifact }}
           path: pr-results
 
       - name: Download Main Results
         if: needs.check-base-branch.outputs.has_browserstack_scheme == 'true' && needs.browserstack-main.result == 'success'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: ${{ needs.browserstack-main.outputs.results_artifact }}
           path: main-results
