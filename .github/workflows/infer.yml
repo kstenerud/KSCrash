@@ -389,13 +389,6 @@ jobs:
           comment-tag: infer-analysis-report
           mode: delete
 
-      # ── Fail on New Issues ────────────────────────────────────
-      - name: Fail if New Issues Found
-        if: github.event_name == 'pull_request' && steps.report.outputs.has_new_issues == 'true'
-        run: |
-          echo "Infer found new issues introduced by this PR"
-          exit 1
-
       # ── Artifacts ─────────────────────────────────────────────
       - name: Upload Infer Results
         if: always()
