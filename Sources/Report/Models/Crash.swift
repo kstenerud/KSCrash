@@ -41,16 +41,22 @@ extension CrashReport {
         /// The crashed thread (in minimal reports).
         public let crashedThread: Thread?
 
+        /// The exception backtrace (e.g., from NSException.callStackReturnAddresses or __cxa_throw).
+        /// Present for NSException and C++ exception crashes; nil otherwise.
+        public let lastExceptionBacktrace: Backtrace?
+
         public init(
             diagnosis: String? = nil,
             error: CrashError,
             threads: [Thread]? = nil,
-            crashedThread: Thread? = nil
+            crashedThread: Thread? = nil,
+            lastExceptionBacktrace: Backtrace? = nil
         ) {
             self.diagnosis = diagnosis
             self.error = error
             self.threads = threads
             self.crashedThread = crashedThread
+            self.lastExceptionBacktrace = lastExceptionBacktrace
         }
 
         enum CodingKeys: String, CodingKey {
@@ -58,6 +64,7 @@ extension CrashReport {
             case error
             case threads
             case crashedThread = "crashed_thread"
+            case lastExceptionBacktrace = "last_exception_backtrace"
         }
     }
 }
