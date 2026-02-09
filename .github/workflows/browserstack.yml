@@ -1,0 +1,341 @@
+name: BrowserStack Benchmarks
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: 'Git ref to checkout'
+        required: false
+        type: string
+        default: ''
+    secrets:
+      BROWSERSTACK_USERNAME:
+        required: true
+      BROWSERSTACK_ACCESS_KEY:
+        required: true
+    outputs:
+      build_id:
+        description: 'BrowserStack build ID'
+        value: ${{ jobs.test.outputs.build_id }}
+      build_status:
+        description: 'Build status (passed/failed/error)'
+        value: ${{ jobs.test.outputs.build_status }}
+      results_artifact:
+        description: 'Name of the results artifact'
+        value: ${{ jobs.test.outputs.results_artifact }}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    outputs:
+      app_url: ${{ steps.upload_app.outputs.app_url }}
+      test_suite_url: ${{ steps.upload_test_suite.outputs.test_suite_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+
+      - name: Use Latest Stable Xcode
+        uses: ./.github/actions/setup-xcode
+
+      - name: Setup Mise
+        uses: jdx/mise-action@v3
+
+      - name: Install xcbeautify
+        run: brew install xcbeautify
+
+      - name: Generate Project
+        working-directory: Benchmarks
+        run: mise exec -- tuist generate --no-open
+
+      - name: Archive Benchmarks App
+        working-directory: Benchmarks
+        run: |
+          xcodebuild archive \
+            -workspace KSCrashBenchmarks.xcworkspace \
+            -scheme BenchmarksBrowserStack \
+            -sdk iphoneos \
+            -configuration Release \
+            -archivePath build/BenchmarkApp.xcarchive \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcbeautify
+
+      - name: Export IPA
+        working-directory: Benchmarks
+        run: |
+          # Extract the .app from the archive and create IPA manually
+          mkdir -p build/Payload
+          cp -r build/BenchmarkApp.xcarchive/Products/Applications/BenchmarkApp.app build/Payload/
+
+          # Create IPA (it's just a zip file with Payload folder)
+          cd build
+          zip -r ../BenchmarkApp.ipa Payload
+          cd ..
+
+          rm -rf build/Payload
+          ls -lh BenchmarkApp.ipa
+
+      - name: Build UI Test Runner
+        working-directory: Benchmarks
+        run: |
+          xcodebuild build-for-testing \
+            -workspace KSCrashBenchmarks.xcworkspace \
+            -scheme BenchmarksBrowserStack \
+            -sdk iphoneos \
+            -configuration Release \
+            -derivedDataPath build/DerivedData \
+            -only-testing:BenchmarkUITests \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcbeautify
+
+      - name: Create Test Suite Zip
+        working-directory: Benchmarks
+        run: |
+          # Find the test runner app
+          TEST_RUNNER_PATH=$(find build/DerivedData/Build/Products/Release-iphoneos -name "BenchmarkUITests-Runner.app" -type d | head -1)
+          echo "Test runner path: $TEST_RUNNER_PATH"
+
+          # Create test suite zip (just the Runner.app, not in Payload format)
+          cd $(dirname "$TEST_RUNNER_PATH")
+          zip --symlinks -r "$GITHUB_WORKSPACE/BenchmarkUITests.zip" "BenchmarkUITests-Runner.app"
+          cd "$GITHUB_WORKSPACE"
+
+          ls -lh BenchmarkUITests.zip
+
+      - name: Upload App to BrowserStack
+        id: upload_app
+        env:
+          BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+          BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+        run: |
+          APP_UPLOAD_RESPONSE=$(curl -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
+            -X POST "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/app" \
+            -F "file=@Benchmarks/BenchmarkApp.ipa")
+
+          echo "App upload response: $APP_UPLOAD_RESPONSE"
+          APP_URL=$(echo "$APP_UPLOAD_RESPONSE" | jq -r '.app_url')
+
+          if [ -z "$APP_URL" ] || [ "$APP_URL" = "null" ]; then
+            echo "Error uploading app"
+            exit 1
+          fi
+
+          echo "app_url=$APP_URL" >> $GITHUB_OUTPUT
+          echo "App uploaded successfully: $APP_URL"
+
+      - name: Upload Test Suite to BrowserStack
+        id: upload_test_suite
+        env:
+          BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+          BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+        run: |
+          TEST_UPLOAD_RESPONSE=$(curl -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
+            -X POST "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/test-suite" \
+            -F "file=@BenchmarkUITests.zip")
+
+          echo "Test suite upload response: $TEST_UPLOAD_RESPONSE"
+          TEST_SUITE_URL=$(echo "$TEST_UPLOAD_RESPONSE" | jq -r '.test_suite_url')
+
+          if [ -z "$TEST_SUITE_URL" ] || [ "$TEST_SUITE_URL" = "null" ]; then
+            echo "Error uploading test suite"
+            exit 1
+          fi
+
+          echo "test_suite_url=$TEST_SUITE_URL" >> $GITHUB_OUTPUT
+          echo "Test suite uploaded successfully: $TEST_SUITE_URL"
+
+  test:
+    runs-on: ubuntu-latest
+    needs: build
+    if: success()
+    timeout-minutes: 60
+    outputs:
+      build_id: ${{ steps.execute_tests.outputs.build_id }}
+      build_status: ${{ steps.wait_tests.outputs.build_status }}
+      session_ids: ${{ steps.wait_tests.outputs.session_ids }}
+      results_artifact: ${{ steps.artifact_name.outputs.name }}
+
+    steps:
+      - name: Set Artifact Name
+        id: artifact_name
+        run: |
+          # Include ref to differentiate PR vs base branch artifacts within the same workflow run
+          REF="${{ inputs.ref || github.sha }}"
+          SHORT_REF="${REF:0:8}"
+          echo "name=browserstack-results-${{ github.run_id }}-${{ github.run_attempt }}-${SHORT_REF}" >> $GITHUB_OUTPUT
+
+      - name: Execute Tests on BrowserStack
+        id: execute_tests
+        env:
+          BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+          BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+          APP_URL: ${{ needs.build.outputs.app_url }}
+          TEST_SUITE_URL: ${{ needs.build.outputs.test_suite_url }}
+        run: |
+          BUILD_RESPONSE=$(curl -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
+            -X POST "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/build" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"devices\": [\"iPhone 17 Pro-26\"],
+              \"app\": \"$APP_URL\",
+              \"testSuite\": \"$TEST_SUITE_URL\",
+              \"project\": \"KSCrash Benchmarks\",
+              \"buildName\": \"Benchmarks - ${{ github.sha }}\",
+              \"networkLogs\": false,
+              \"deviceLogs\": true,
+              \"video\": false,
+              \"enableResultBundle\": true,
+              \"idleTimeout\": 300,
+              \"testTimeout\": 3600,
+              \"shards\": {
+                \"numberOfShards\": 3,
+                \"mapping\": [
+                  {
+                    \"name\": \"Shard 1 - Backtrace, DynamicLinker, Memory\",
+                    \"strategy\": \"only-testing\",
+                    \"values\": [\"KSBacktraceBenchmarks\", \"KSDynamicLinkerBenchmarks\", \"KSMemoryBenchmarks\"]
+                  },
+                  {
+                    \"name\": \"Shard 2 - JSON, Thread, Profiler\",
+                    \"strategy\": \"only-testing\",
+                    \"values\": [\"KSJSONCodecBenchmarks\", \"KSThreadBenchmarks\", \"KSProfilerBenchmarks\"]
+                  },
+                  {
+                    \"name\": \"Shard 3 - CrashReport, CxaThrow, CxaThrowCold\",
+                    \"strategy\": \"only-testing\",
+                    \"values\": [\"KSCrashReportBenchmarks\", \"KSCxaThrowBenchmarks\", \"KSCxaThrowColdBenchmarks\"]
+                  }
+                ]
+              }
+            }")
+
+          echo "Build execution response: $BUILD_RESPONSE"
+          BUILD_ID=$(echo "$BUILD_RESPONSE" | jq -r '.build_id')
+
+          if [ -z "$BUILD_ID" ] || [ "$BUILD_ID" = "null" ]; then
+            echo "Error starting tests"
+            exit 1
+          fi
+
+          echo "build_id=$BUILD_ID" >> $GITHUB_OUTPUT
+          echo "Tests started with build ID: $BUILD_ID"
+          echo "View results at: https://app-automate.browserstack.com/dashboard/v2/builds/$BUILD_ID"
+
+      - name: Wait for Tests to Complete
+        id: wait_tests
+        env:
+          BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+          BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+          BUILD_ID: ${{ steps.execute_tests.outputs.build_id }}
+        run: |
+          echo "Waiting for build $BUILD_ID to complete..."
+
+          MAX_WAIT_TIME=3600
+          POLL_INTERVAL=30
+          ELAPSED_TIME=0
+
+          while [ $ELAPSED_TIME -lt $MAX_WAIT_TIME ]; do
+            BUILD_STATUS_RESPONSE=$(curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
+              -X GET "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/builds/$BUILD_ID")
+
+            STATUS=$(echo "$BUILD_STATUS_RESPONSE" | jq -r '.status')
+            echo "Current status: $STATUS (elapsed: ${ELAPSED_TIME}s)"
+
+            if [ "$STATUS" = "passed" ] || [ "$STATUS" = "done" ] || [ "$STATUS" = "failed" ] || [ "$STATUS" = "error" ]; then
+              echo "Build finished with status: $STATUS"
+
+              # Collect all session IDs across devices and shards
+              SESSION_IDS=$(echo "$BUILD_STATUS_RESPONSE" | jq -r '[.devices[].sessions[].id] | join(",")')
+              echo "session_ids=$SESSION_IDS" >> $GITHUB_OUTPUT
+              echo "build_status=$STATUS" >> $GITHUB_OUTPUT
+              break
+            fi
+
+            sleep $POLL_INTERVAL
+            ELAPSED_TIME=$((ELAPSED_TIME + POLL_INTERVAL))
+          done
+
+          if [ $ELAPSED_TIME -ge $MAX_WAIT_TIME ]; then
+            echo "Timeout waiting for build to complete"
+            exit 1
+          fi
+
+      - name: Download Result Bundles
+        env:
+          BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+          BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+          BUILD_ID: ${{ steps.execute_tests.outputs.build_id }}
+          SESSION_IDS: ${{ steps.wait_tests.outputs.session_ids }}
+        run: |
+          if [ -z "$SESSION_IDS" ] || [ "$SESSION_IDS" = "null" ]; then
+            echo "Warning: No session IDs available"
+            exit 0
+          fi
+
+          mkdir -p result_bundles
+          SHARD_INDEX=0
+
+          IFS=',' read -ra IDS <<< "$SESSION_IDS"
+          for SESSION_ID in "${IDS[@]}"; do
+            SHARD_INDEX=$((SHARD_INDEX + 1))
+            OUTPUT_FILE="result_bundles/shard_${SHARD_INDEX}.xcresult.zip"
+            echo "Downloading result bundle for shard $SHARD_INDEX (session $SESSION_ID)..."
+
+            HTTP_CODE=$(curl -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
+              -X GET "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/builds/$BUILD_ID/sessions/$SESSION_ID/resultbundle" \
+              -o "$OUTPUT_FILE" \
+              -w "%{http_code}")
+
+            echo "HTTP response code: $HTTP_CODE"
+
+            if [ -f "$OUTPUT_FILE" ]; then
+              FILE_SIZE=$(stat -f%z "$OUTPUT_FILE" 2>/dev/null || stat -c%s "$OUTPUT_FILE" 2>/dev/null)
+              echo "Downloaded file size: $FILE_SIZE bytes"
+
+              if [ "$FILE_SIZE" -lt 1000 ]; then
+                echo "Warning: File too small, likely an error response:"
+                cat "$OUTPUT_FILE"
+                rm "$OUTPUT_FILE"
+              elif ! unzip -t "$OUTPUT_FILE" > /dev/null 2>&1; then
+                echo "Warning: File is not a valid zip:"
+                head -c 500 "$OUTPUT_FILE"
+                rm "$OUTPUT_FILE"
+              else
+                echo "Shard $SHARD_INDEX result bundle downloaded and validated successfully"
+                ls -lh "$OUTPUT_FILE"
+              fi
+            else
+              echo "Warning: Result bundle file not created for shard $SHARD_INDEX"
+            fi
+          done
+
+          echo "Downloaded $(ls result_bundles/*.zip 2>/dev/null | wc -l | tr -d ' ') result bundle(s)"
+
+      - name: Upload Result Bundles as Artifact
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ steps.artifact_name.outputs.name }}
+          path: result_bundles/
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Cancel BrowserStack Build
+        if: cancelled() && steps.execute_tests.outputs.build_id
+        env:
+          BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+          BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+          BUILD_ID: ${{ steps.execute_tests.outputs.build_id }}
+        run: |
+          echo "CI cancelled, stopping BrowserStack build $BUILD_ID..."
+          RESPONSE=$(curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
+            -X POST "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/builds/$BUILD_ID/stop")
+          echo "Stop response: $RESPONSE"

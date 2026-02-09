@@ -10,10 +10,7 @@ on:
       - "Benchmarks/**"
       - "Package.swift"
       - ".github/workflows/benchmarks.yml"
-
-  push:
-    branches:
-      - master
+      - ".github/workflows/browserstack.yml"
 
   workflow_dispatch:
 
@@ -26,78 +23,131 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  benchmark:
-    runs-on: macos-latest
-    # Skip for fork PRs (no write permissions to comment on PR)
-    if: |
-      github.event_name != 'pull_request' ||
-      github.event.pull_request.head.repo.full_name == github.repository
-
+  # Check if base branch has BenchmarksBrowserStack scheme
+  check-base-branch:
+    runs-on: ubuntu-latest
+    outputs:
+      has_browserstack_scheme: ${{ steps.check.outputs.has_scheme }}
     steps:
-      - name: Checkout PR Branch
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          path: pr-branch
-
-      - name: Checkout Base Branch
-        if: github.event_name == 'pull_request'
+      - name: Checkout base branch
         uses: actions/checkout@v6
         with:
           ref: ${{ github.base_ref }}
-          path: base-branch
 
-      - name: Use Latest Stable Xcode
-        uses: maxim-lobanov/setup-xcode@v1
+      - name: Check for BenchmarksBrowserStack scheme
+        id: check
+        run: |
+          if grep -q "BenchmarksBrowserStack" Benchmarks/Project.swift 2>/dev/null; then
+            echo "has_scheme=true" >> $GITHUB_OUTPUT
+            echo "Base branch has BenchmarksBrowserStack scheme"
+          else
+            echo "has_scheme=false" >> $GITHUB_OUTPUT
+            echo "Base branch does not have BenchmarksBrowserStack scheme"
+          fi
+
+  # Run benchmarks on PR code
+  browserstack-pr:
+    # Skip for fork PRs (no access to secrets)
+    if: |
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    uses: ./.github/workflows/browserstack.yml
+    with:
+      ref: ${{ github.event.pull_request.head.sha || github.sha }}
+    secrets:
+      BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+      BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+
+  # Run benchmarks on main branch for comparison (only if scheme exists)
+  browserstack-main:
+    needs: [browserstack-pr, check-base-branch]
+    if: needs.check-base-branch.outputs.has_browserstack_scheme == 'true'
+    uses: ./.github/workflows/browserstack.yml
+    with:
+      ref: ${{ github.base_ref }}
+    secrets:
+      BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+      BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+
+  # Parse and post results
+  post-results:
+    needs: [browserstack-pr, browserstack-main, check-base-branch]
+    if: always() && needs.browserstack-pr.result == 'success'
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Download PR Results
+        uses: actions/download-artifact@v6
         with:
-          xcode-version: latest-stable
+          name: ${{ needs.browserstack-pr.outputs.results_artifact }}
+          path: pr-results
 
-      - name: Ensure the Platform is Downloaded
+      - name: Download Main Results
+        if: needs.check-base-branch.outputs.has_browserstack_scheme == 'true' && needs.browserstack-main.result == 'success'
+        uses: actions/download-artifact@v6
+        with:
+          name: ${{ needs.browserstack-main.outputs.results_artifact }}
+          path: main-results
+
+      - name: Extract Result Bundles
         run: |
-          xcodebuild -runFirstLaunch
-          xcrun simctl list
-          xcodebuild -downloadPlatform iOS
-          xcodebuild -runFirstLaunch
+          # Extract and merge PR shard results into a single xcresult
+          extract_and_merge() {
+            local src_dir="$1"
+            local output="$2"
 
-      - name: Setup Mise
-        uses: jdx/mise-action@v3
+            local xcresults=()
+            for zip in "$src_dir"/*.zip; do
+              [ -f "$zip" ] || continue
+              local name=$(basename "$zip" .zip)
+              unzip -q "$zip" -d "$src_dir/${name}_extracted"
+              local found=$(find "$src_dir/${name}_extracted" -name "*.xcresult" -type d | head -1)
+              if [ -n "$found" ]; then
+                xcresults+=("$found")
+              fi
+            done
 
-      - name: Install xcbeautify
-        run: brew install xcbeautify
+            if [ ${#xcresults[@]} -eq 0 ]; then
+              echo "No xcresult bundles found in $src_dir"
+              return 1
+            elif [ ${#xcresults[@]} -eq 1 ]; then
+              mv "${xcresults[0]}" "$output"
+            else
+              echo "Merging ${#xcresults[@]} xcresult bundles..."
+              xcrun xcresulttool merge "${xcresults[@]}" --output-path "$output"
+            fi
+            echo "Output: $output"
+          }
 
-      - name: Run PR Benchmarks
-        working-directory: pr-branch/Benchmarks
-        run: |
-          mise exec -- tuist generate --no-open
-          rm -rf ../../pr_benchmarks.xcresult
-          set -o pipefail
-          xcodebuild -workspace KSCrashBenchmarks.xcworkspace \
-            -scheme Benchmarks \
-            -destination 'platform=iOS Simulator,name=iPhone 17' \
-            -resultBundlePath ../../pr_benchmarks.xcresult \
-            test 2>&1 | xcbeautify
+          # Extract PR results
+          if ls pr-results/*.zip 1>/dev/null 2>&1; then
+            extract_and_merge pr-results pr_benchmarks.xcresult
+          else
+            echo "No PR result bundles found"
+          fi
 
-      - name: Run Base Benchmarks
-        if: github.event_name == 'pull_request'
-        run: |
-          if [ -d "base-branch/Benchmarks" ] && [ -f "base-branch/Benchmarks/Project.swift" ]; then
-            cd base-branch/Benchmarks
-            mise exec -- tuist generate --no-open
-            rm -rf ../../base_benchmarks.xcresult
-            set -o pipefail
-            xcodebuild -workspace KSCrashBenchmarks.xcworkspace \
-              -scheme Benchmarks \
-              -destination 'platform=iOS Simulator,name=iPhone 17' \
-              -resultBundlePath ../../base_benchmarks.xcresult \
-              test 2>&1 | xcbeautify
+          # Extract main results (if available)
+          if ls main-results/*.zip 1>/dev/null 2>&1; then
+            extract_and_merge main-results base_benchmarks.xcresult
+          else
+            echo "No main results available (BenchmarksBrowserStack may not exist on base branch yet)"
           fi
 
       - name: Parse and Format Results
         run: |
-          python3 pr-branch/.github/scripts/parse_benchmarks.py \
-            --pr-results pr_benchmarks.xcresult \
-            --base-results base_benchmarks.xcresult \
-            --config pr-branch/.github/data/benchmark-tests.json
+          # Only pass base-results if the file exists
+          if [ -d "base_benchmarks.xcresult" ]; then
+            python3 .github/scripts/parse_benchmarks.py \
+              --pr-results pr_benchmarks.xcresult \
+              --base-results base_benchmarks.xcresult \
+              --config .github/data/benchmark-tests.json
+          else
+            python3 .github/scripts/parse_benchmarks.py \
+              --pr-results pr_benchmarks.xcresult \
+              --config .github/data/benchmark-tests.json
+          fi
 
       - name: Comment PR with Results
         if: github.event_name == 'pull_request'

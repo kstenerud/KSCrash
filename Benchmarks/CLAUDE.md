@@ -99,14 +99,36 @@ The benchmark tests are located in the main repository:
 - `Tests/KSCrashBenchmarksObjC/` - Objective-C benchmarks
 - `Tests/KSCrashBenchmarksCold/` - Cold-start benchmarks
 
+## Writing Swift Benchmarks for BrowserStack
+
+**Requirements for Swift benchmark classes:**
+
+1. Inherit from `KSBenchmarkTestCase` (or `XCTestCase` directly if needed)
+2. Use plain `class` — no `@objc`, `public`, or `final` annotations needed
+
+```swift
+// Correct
+class KSMyBenchmarks: KSBenchmarkTestCase {
+    func testBenchmarkSomething() {
+        measure {
+            // benchmark code
+        }
+    }
+}
+```
+
+Swift classes inheriting from `XCTestCase` are automatically registered with the ObjC runtime, which is sufficient for BrowserStack test discovery.
+
 ## Interpreting Results
 
 Benchmark results show:
+
 - **Time**: Average execution time
 - **Std Dev**: Measurement variability (lower is more consistent)
 - **Status**: Performance rating based on thresholds
 
 For reliable results:
+
 - Run on device (not simulator) for accurate timing
 - Close other apps to reduce interference
 - Run multiple times to verify consistency

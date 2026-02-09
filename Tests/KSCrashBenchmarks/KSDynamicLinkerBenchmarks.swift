@@ -26,11 +26,11 @@ import Darwin
 import KSCrashRecordingCore
 import XCTest
 
-final class KSDynamicLinkerBenchmarks: XCTestCase {
+class KSDynamicLinkerBenchmarks: KSBenchmarkTestCase {
 
     // MARK: - Setup
 
-    override func setUp() {
+    override public func setUp() {
         super.setUp()
         ksdl_init()
     }

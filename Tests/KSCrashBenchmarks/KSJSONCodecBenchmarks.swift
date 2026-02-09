@@ -25,7 +25,7 @@
 import KSCrashRecordingCore
 import XCTest
 
-final class KSJSONCodecBenchmarks: XCTestCase {
+class KSJSONCodecBenchmarks: KSBenchmarkTestCase {
 
     // MARK: - Helper
 
