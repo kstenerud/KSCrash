@@ -91,7 +91,9 @@ typedef enum {
 #define KSDWARF_ARM_R15 15  // PC
 
 // Maximum number of registers we track
-#define KSDWARF_MAX_REGISTERS 64
+// ARM64 has the highest register number (PC = 32), so 33 entries suffices.
+// This keeps KSDwarfCFIRow under 1KB instead of ~2KB with 64 registers.
+#define KSDWARF_MAX_REGISTERS 33
 
 // MARK: - Data Structures
 
@@ -128,6 +130,8 @@ typedef struct {
  */
 typedef struct {
     bool valid;
+    bool framePointerRestored;  // True if FP was restored from CFI rules
+                                // False if no FP rule was present (frameless)
     uintptr_t returnAddress;
     uintptr_t stackPointer;
     uintptr_t framePointer;

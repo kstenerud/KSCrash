@@ -62,6 +62,7 @@ bool kscu_x86_64_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attri
     // Initialize result
     *result = (KSCompactUnwindResult) {
         .valid = false,
+        .framePointerRestored = false,
         .returnAddress = 0,
         .stackPointer = 0,
         .framePointer = 0,
@@ -100,7 +101,8 @@ bool kscu_x86_64_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attri
 
         result->returnAddress = returnAddr;
         result->framePointer = prevBP;
-        result->stackPointer = bp + 16;  // Caller's RSP
+        result->framePointerRestored = true;  // RBP-frame: FP restored from stack
+        result->stackPointer = bp + 16;       // Caller's RSP
 
         // Decode saved callee-saved registers
         // The offset field indicates how many registers are saved

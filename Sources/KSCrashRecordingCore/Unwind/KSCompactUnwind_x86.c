@@ -57,6 +57,7 @@ bool kscu_x86_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attribut
     // Initialize result
     *result = (KSCompactUnwindResult) {
         .valid = false,
+        .framePointerRestored = false,
         .returnAddress = 0,
         .stackPointer = 0,
         .framePointer = 0,
@@ -95,6 +96,7 @@ bool kscu_x86_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attribut
 
         result->returnAddress = returnAddr;
         result->framePointer = prevBP;
+        result->framePointerRestored = true;  // EBP-frame: FP restored from stack
         result->stackPointer = bp + 8;
 
         result->valid = true;
