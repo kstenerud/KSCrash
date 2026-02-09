@@ -69,10 +69,20 @@ static struct {
     KSCrash_ExceptionHandlerCallbacks callbacks;
 } g_state;
 
-static thread_local KSStackCursor g_stackCursor;
+/** Exception backtrace captured at __cxa_throw time (the throw site). */
+static thread_local KSStackCursor g_exceptionStackCursor;
+
+/** Handler backtrace captured in the terminate handler. */
+static thread_local KSStackCursor g_handlerStackCursor;
 
 /** True if the handler should capture the next stack trace (thread-local). */
 static thread_local bool g_captureNextStackTrace = false;
+
+/** True if g_exceptionStackCursor was set by captureStackTrace for the current throw.
+ *  Without this, the advanceCursor != NULL guard would permanently pass after the
+ *  first exception on a thread, causing stale throw-site backtraces to be reused
+ *  if captureStackTrace wasn't called for the current exception. */
+static thread_local bool g_exceptionCursorValid = false;
 
 static bool isEnabled(__unused void *context) { return g_state.isEnabled && g_state.installedState == KSCM_Installed; }
 
@@ -87,7 +97,8 @@ static KS_NOINLINE void captureStackTrace(void *, std::type_info *tinfo,
         return;
     }
     if (g_captureNextStackTrace) {
-        kssc_initSelfThread(&g_stackCursor, 2);
+        kssc_initSelfThread(&g_exceptionStackCursor, 2);
+        g_exceptionCursorValid = true;
     }
     KS_THWART_TAIL_CALL_OPTIMISATION
 }
@@ -187,12 +198,18 @@ static void CPPExceptionTerminate(void)
         catch (...) { description = NULL; }
         g_captureNextStackTrace = isEnabled(NULL);
 
-        // Initialize g_stackCursor if not already initialized by captureStackTrace.
+        // Use throw-site cursor if captureStackTrace set it for this exception.
+        // Otherwise fall back to walking from the terminate handler.
         // Skip 4 frames: CPPExceptionTerminate -> std::__terminate -> failed_throw -> __cxa_throw
         // to reach the actual throw location (e.g., sample_namespace::Report::crash).
-        if (g_stackCursor.advanceCursor == NULL) {
-            kssc_initSelfThread(&g_stackCursor, 4);
+        if (!g_exceptionCursorValid) {
+            kssc_initSelfThread(&g_exceptionStackCursor, 4);
         }
+        g_exceptionCursorValid = false;
+
+        // Capture the handler's actual call stack (the terminate handler context).
+        // Skip 1 frame: CPPExceptionTerminate itself.
+        kssc_initSelfThread(&g_handlerStackCursor, 1);
 
         // TODO: Should this be done here? Maybe better in the exception handler?
         KSMachineContext machineContext = { 0 };
@@ -201,7 +218,8 @@ static void CPPExceptionTerminate(void)
         KSLOG_DEBUG("Filling out context.");
         kscm_fillMonitorContext(crashContext, kscm_cppexception_getAPI());
         crashContext->registersAreValid = false;
-        crashContext->stackCursor = &g_stackCursor;
+        crashContext->stackCursor = &g_handlerStackCursor;
+        crashContext->exceptionStackCursor = &g_exceptionStackCursor;
         crashContext->CPPException.name = name;
         crashContext->exceptionName = name;
         crashContext->crashReason = description;
@@ -222,7 +240,8 @@ static void install()
         return;
     }
 
-    kssc_initCursor(&g_stackCursor, NULL, NULL);
+    kssc_initCursor(&g_exceptionStackCursor, NULL, NULL);
+    kssc_initCursor(&g_handlerStackCursor, NULL, NULL);
     g_state.originalTerminateHandler = std::set_terminate(CPPExceptionTerminate);
 }
 
