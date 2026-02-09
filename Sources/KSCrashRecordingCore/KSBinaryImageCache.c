@@ -500,12 +500,10 @@ void ksbic_init(void)
         }
     }
 
-    // Cache dyld's own image — it's not in the infoArray and
-    // dyld_all_image_infos doesn't provide a file path for it,
-    // so we supply "/usr/lib/dyld" explicitly.
+    // Cache dyld's own image — it's not in the infoArray.
     if (g_all_image_infos->dyldImageLoadAddress != NULL) {
         KSBinaryImageRange dyldEntry;
-        if (populateCacheEntry(g_all_image_infos->dyldImageLoadAddress, "/usr/lib/dyld", &dyldEntry)) {
+        if (populateCacheEntry(g_all_image_infos->dyldImageLoadAddress, ksbic_getDyldPath(), &dyldEntry)) {
             insertSortedCacheEntry(&g_cache_storage, &dyldEntry);
         }
     }
@@ -559,6 +557,17 @@ const struct mach_header *ksbic_getDyldHeader(void)
         return NULL;
     }
     return allInfo->dyldImageLoadAddress;
+}
+
+const char *ksbic_getDyldPath(void)
+{
+    struct dyld_all_image_infos *allInfo = g_all_image_infos;
+    if (allInfo != NULL && allInfo->dyldPath != NULL) {
+        return allInfo->dyldPath;
+    }
+    // dyldPath requires version 15 of the struct (macOS 10.12, iOS 10.0).
+    // Fall back to the well-known path on older systems.
+    return "/usr/lib/dyld";
 }
 
 // For testing purposes only. Used with extern in test files.

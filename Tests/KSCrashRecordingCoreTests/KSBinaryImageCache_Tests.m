@@ -651,6 +651,14 @@ static void testImageAddedCallback(const struct mach_header *mh, intptr_t vmaddr
     }
 }
 
+- (void)testGetDyldPath_ReturnsValidPath
+{
+    const char *path = ksbic_getDyldPath();
+    XCTAssertNotEqual(path, NULL, @"Should return a dyld path");
+    XCTAssertTrue(strlen(path) > 0, @"Path should not be empty");
+    XCTAssertTrue(strstr(path, "dyld") != NULL, @"Path should contain 'dyld'");
+}
+
 #pragma mark - ksbic_getUUIDForHeader Tests
 
 - (void)testGetUUIDForHeader_ReturnsValidUUID

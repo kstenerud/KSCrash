@@ -162,6 +162,13 @@ const struct mach_header *_Nullable ksbic_getAppHeader(void);
 const struct mach_header *_Nullable ksbic_getDyldHeader(void);
 
 /**
+ * Get the file path of the dyld shared library.
+ *
+ * @return The file path of dyld.
+ */
+const char *_Nonnull ksbic_getDyldPath(void);
+
+/**
  * Get the LC_UUID for a binary image.
  *
  * Returns a pointer to the 16-byte UUID in the Mach-O header, or NULL if not found.

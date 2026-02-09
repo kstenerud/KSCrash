@@ -149,24 +149,6 @@ typedef struct {
     bool overflowed;
 } KSReferencedImageSet;
 
-static void referencedImageSet_add(KSReferencedImageSet *set, uintptr_t imageAddr)
-{
-    if (set == NULL || imageAddr == 0 || set->overflowed) {
-        return;
-    }
-    for (uint32_t i = 0; i < set->count; i++) {
-        if (set->addrs[i] == imageAddr) {
-            return;
-        }
-    }
-    if (set->count < MAX_REFERENCED_IMAGES) {
-        set->addrs[set->count] = imageAddr;
-        set->count++;
-    } else {
-        set->overflowed = true;
-    }
-}
-
 static bool referencedImageSet_contains(const KSReferencedImageSet *set, uintptr_t imageAddr)
 {
     if (set == NULL) {
@@ -178,6 +160,22 @@ static bool referencedImageSet_contains(const KSReferencedImageSet *set, uintptr
         }
     }
     return false;
+}
+
+static void referencedImageSet_add(KSReferencedImageSet *set, uintptr_t imageAddr)
+{
+    if (set == NULL || imageAddr == 0 || set->overflowed) {
+        return;
+    }
+    if (referencedImageSet_contains(set, imageAddr)) {
+        return;
+    }
+    if (set->count < MAX_REFERENCED_IMAGES) {
+        set->addrs[set->count] = imageAddr;
+        set->count++;
+    } else {
+        set->overflowed = true;
+    }
 }
 
 // ============================================================================
@@ -1299,8 +1297,7 @@ static void writeBinaryImages(const KSCrashReportWriter *const writer, const cha
             if (isDyld) {
                 dyldAlreadyWritten = true;
             }
-            // dyld_all_image_infos doesn't provide a file path for dyld itself
-            const char *imagePath = isDyld && info.imageFilePath == NULL ? "/usr/lib/dyld" : info.imageFilePath;
+            const char *imagePath = isDyld && info.imageFilePath == NULL ? ksbic_getDyldPath() : info.imageFilePath;
             KSBinaryImage image = { 0 };
             if (!ksdl_binaryImageForHeader(info.imageLoadAddress, imagePath, &image)) {
                 continue;
@@ -1315,7 +1312,7 @@ static void writeBinaryImages(const KSCrashReportWriter *const writer, const cha
                               referencedImageSet_contains(referencedImages, (uintptr_t)dyldHeader);
         if (dyldHeader != NULL && !dyldAlreadyWritten && dyldReferenced) {
             KSBinaryImage dyldImage = { 0 };
-            if (ksdl_binaryImageForHeader(dyldHeader, "/usr/lib/dyld", &dyldImage)) {
+            if (ksdl_binaryImageForHeader(dyldHeader, ksbic_getDyldPath(), &dyldImage)) {
                 writeBinaryImage(writer, &dyldImage);
             }
         }
