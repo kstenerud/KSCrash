@@ -39,8 +39,17 @@ final class NSExceptionTests: IntegrationTestBase {
         try rawReport.validate()
         XCTAssertEqual(rawReport.crash.error.reason, "Test")
 
+        // Exception backtrace should be in last_exception_backtrace, not the crashed thread
+        let exceptionBt = rawReport.crash.lastExceptionBacktrace
+        XCTAssertNotNil(exceptionBt, "NSException crash should have last_exception_backtrace")
+        XCTAssertGreaterThan(
+            exceptionBt?.contents.count ?? 0, 0, "last_exception_backtrace should have frames")
+
         let appleReport = try launchAndReportCrash()
         XCTAssertTrue(appleReport.contains("reason: 'Test'"))
+        XCTAssertTrue(
+            appleReport.contains("Last Exception Backtrace:"),
+            "Apple format should contain 'Last Exception Backtrace:' section")
     }
 
     func testDontRecordAllThreads() throws {
@@ -58,8 +67,16 @@ final class NSExceptionTests: IntegrationTestBase {
         XCTAssertEqual(rawReport.crash.error.reason, "Test")
         XCTAssertEqual(rawReport.crash.threads?.count, 1)
 
+        let exceptionBt = rawReport.crash.lastExceptionBacktrace
+        XCTAssertNotNil(exceptionBt, "NSException crash should have last_exception_backtrace")
+        XCTAssertGreaterThan(
+            exceptionBt?.contents.count ?? 0, 0, "last_exception_backtrace should have frames")
+
         let appleReport = try launchAndReportCrash()
         XCTAssertTrue(appleReport.contains("reason: 'Test'"))
+        XCTAssertTrue(
+            appleReport.contains("Last Exception Backtrace:"),
+            "Apple format should contain 'Last Exception Backtrace:' section")
     }
 }
 
@@ -72,9 +89,15 @@ final class NSExceptionTests: IntegrationTestBase {
             let rawReport = try readCrashReport()
             try rawReport.validate()
             XCTAssertEqual(rawReport.crash.error.type, .mach)
+            XCTAssertNil(
+                rawReport.crash.lastExceptionBacktrace,
+                "Mach crash should not have last_exception_backtrace")
 
             let appleReport = try launchAndReportCrash()
             XCTAssertTrue(appleReport.contains("SIGSEGV"))
+            XCTAssertFalse(
+                appleReport.contains("Last Exception Backtrace:"),
+                "Apple format should not contain 'Last Exception Backtrace:' for mach crashes")
         }
     }
 
@@ -87,13 +110,20 @@ final class CppTests: IntegrationTestBase {
         let rawReport = try readCrashReport()
         try rawReport.validate()
         XCTAssertEqual(rawReport.crash.error.type, .cppException)
-        let topSymbol = rawReport.crashedThread?.backtrace?.contents
+
+        // Exception backtrace should be in last_exception_backtrace
+        let exceptionBt = rawReport.crash.lastExceptionBacktrace
+        XCTAssertNotNil(exceptionBt, "C++ exception crash should have last_exception_backtrace")
+        let topSymbol = exceptionBt?.contents
             .compactMap(\.symbolName).first
             .flatMap(CrashReportFilterDemangle.demangledCppSymbol)
         XCTAssertEqual(topSymbol, "sample_namespace::Report::crash()")
 
         let appleReport = try launchAndReportCrash()
         XCTAssertTrue(appleReport.contains("C++ exception"))
+        XCTAssertTrue(
+            appleReport.contains("Last Exception Backtrace:"),
+            "Apple format should contain 'Last Exception Backtrace:' section")
     }
 
     func testRuntimeExceptionBackgroundThread() throws {
@@ -106,13 +136,20 @@ final class CppTests: IntegrationTestBase {
         let rawReport = try readCrashReport()
         try rawReport.validate()
         XCTAssertEqual(rawReport.crash.error.type, .cppException)
-        let topSymbol = rawReport.crashedThread?.backtrace?.contents
+
+        // Even without __cxa_throw, the terminate handler captures an approximate exception backtrace
+        let exceptionBt = rawReport.crash.lastExceptionBacktrace
+        XCTAssertNotNil(exceptionBt, "C++ exception crash should have last_exception_backtrace")
+        let topSymbol = exceptionBt?.contents
             .compactMap(\.symbolName).first
             .flatMap(CrashReportFilterDemangle.demangledCppSymbol)
         XCTAssertEqual(topSymbol, "sample_namespace::Report::crash()")
 
         let appleReport = try launchAndReportCrash()
         XCTAssertTrue(appleReport.contains("C++ exception"))
+        XCTAssertTrue(
+            appleReport.contains("Last Exception Backtrace:"),
+            "Apple format should contain 'Last Exception Backtrace:' section")
     }
 }
 
@@ -126,6 +163,9 @@ final class CppTests: IntegrationTestBase {
             try rawReport.validate()
             XCTAssertEqual(rawReport.crash.error.type, .signal)
             XCTAssertEqual(rawReport.crash.error.signal?.name, "SIGABRT")
+            XCTAssertNil(
+                rawReport.crash.lastExceptionBacktrace,
+                "Signal crash should not have last_exception_backtrace")
 
             let appleReport = try launchAndReportCrash()
             XCTAssertTrue(appleReport.contains("SIGABRT"))
@@ -209,10 +249,14 @@ final class UserReportedTests: IntegrationTestBase {
         XCTAssertEqual(rawReport.crash.error.nsexception?.name, Self.crashName)
         XCTAssertTrue(rawReport.crash.error.nsexception?.userInfo?.contains("a = b") ?? false)
         XCTAssertGreaterThanOrEqual(rawReport.crash.threads?.count ?? 0, 2, "Expected to have at least 2 threads")
-        let backtraceFrame = rawReport.crashedThread?.backtrace?.contents.first(where: {
+
+        // Exception backtrace should be in last_exception_backtrace
+        let exceptionBt = rawReport.crash.lastExceptionBacktrace
+        XCTAssertNotNil(exceptionBt, "User-reported NSException should have last_exception_backtrace")
+        let backtraceFrame = exceptionBt?.contents.first(where: {
             $0.symbolName?.contains(KSCrashNSExceptionStacktraceFuncName) ?? false
         })
-        XCTAssertNotNil(backtraceFrame, "Crashed thread stack trace should have the specific symbol")
+        XCTAssertNotNil(backtraceFrame, "last_exception_backtrace should have the specific symbol")
 
         XCTAssertEqual(app.state, .runningForeground, "Should not terminate app")
         app.terminate()
@@ -221,6 +265,9 @@ final class UserReportedTests: IntegrationTestBase {
         XCTAssertTrue(appleReport.contains(Self.crashName))
         XCTAssertTrue(appleReport.contains(Self.crashReason))
         XCTAssertTrue(appleReport.contains(KSCrashNSExceptionStacktraceFuncName))
+        XCTAssertTrue(
+            appleReport.contains("Last Exception Backtrace:"),
+            "Apple format should contain 'Last Exception Backtrace:' section")
 
         let state = try readState()
         XCTAssertFalse(state.crashedLastLaunch)
@@ -242,6 +289,13 @@ final class UserReportedTests: IntegrationTestBase {
         XCTAssertEqual(rawReport.crash.error.reason, Self.crashReason)
         XCTAssertEqual(rawReport.crash.error.nsexception?.name, Self.crashName)
         XCTAssertGreaterThanOrEqual(rawReport.crash.threads?.count ?? 0, 2, "Expected to have at least 2 threads")
+
+        // Exception backtrace (from callStackReturnAddresses) goes to last_exception_backtrace
+        XCTAssertNotNil(
+            rawReport.crash.lastExceptionBacktrace,
+            "User-reported NSException should have last_exception_backtrace")
+
+        // Handler backtrace (crashed thread) should have the reporting function on top
         let topSymbol = rawReport.crashedThread?.backtrace?.contents
             .compactMap(\.symbolName).first
             .flatMap(CrashReportFilterDemangle.demangledSwiftSymbol)
