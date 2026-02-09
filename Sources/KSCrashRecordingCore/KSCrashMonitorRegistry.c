@@ -171,8 +171,8 @@ void kscmr_disableAsyncSafeMonitors(KSCrashMonitorAPIList *monitorList)
 {
     for (size_t i = 0; i < KSCRASH_MONITOR_API_COUNT; i++) {
         const KSCrashMonitorAPI *api = monitorList->apis[i];
-        if (api != NULL && (api->monitorFlags() & KSCrashMonitorFlagAsyncSafe)) {
-            api->setEnabled(false);
+        if (api != NULL && (api->monitorFlags(api->context) & KSCrashMonitorFlagAsyncSafe)) {
+            api->setEnabled(false, api->context);
         }
     }
     KSLOG_DEBUG("Async-safe monitors have been disabled.");
