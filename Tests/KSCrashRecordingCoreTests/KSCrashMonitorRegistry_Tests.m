@@ -80,7 +80,7 @@ static bool g_secondDummyEnabledState = false;
 static void secondDummySetEnabled(bool isEnabled, __unused void *context) { g_secondDummyEnabledState = isEnabled; }
 static bool secondDummyIsEnabled(__unused void *context) { return g_secondDummyEnabledState; }
 
-static KSCrashMonitorFlag combinedMonitorFlags(void)
+static KSCrashMonitorFlag combinedMonitorFlags(__unused void *context)
 {
     return KSCrashMonitorFlagDebuggerUnsafe | KSCrashMonitorFlagAsyncSafe;
 }
