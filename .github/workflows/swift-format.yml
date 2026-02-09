@@ -16,7 +16,7 @@ jobs:
     name: Swift Formatting Check
     runs-on: ubuntu-latest
     container:
-      image: swift:6.0
+      image: swift:6.2
     steps:
     - uses: actions/checkout@v6
 
