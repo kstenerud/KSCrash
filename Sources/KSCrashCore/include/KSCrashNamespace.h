@@ -217,6 +217,7 @@
 #define kscmr_addContextualInfoToEvent KSCRASH_NS(kscmr_addContextualInfoToEvent)
 #define kscmr_addMonitor KSCRASH_NS(kscmr_addMonitor)
 #define kscmr_disableAllMonitors KSCRASH_NS(kscmr_disableAllMonitors)
+#define kscmr_disableAsyncSafeMonitors KSCRASH_NS(kscmr_disableAsyncSafeMonitors)
 #define kscmr_getMonitor KSCRASH_NS(kscmr_getMonitor)
 #define kscmr_removeMonitor KSCRASH_NS(kscmr_removeMonitor)
 #define kscpu_archForCPU KSCRASH_NS(kscpu_archForCPU)

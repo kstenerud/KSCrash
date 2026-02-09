@@ -205,6 +205,8 @@ KSCrash is implemented as a layered architecture with these key components:
 - Thread safety must be considered alongside signal safety
 - Use patterns like atomic exchange (see `KSThreadCache.c`, `KSBinaryImageCache.c`) for lock-free synchronization that works in both contexts
 
+**Writing monitors and `KSCrashMonitorFlagAsyncSafe`**: Each monitor declares flags via its `monitorFlags()` callback. If a monitor's `setEnabled()` implementation is async-signal-safe (no ObjC, no locks, no heap allocation), it should declare `KSCrashMonitorFlagAsyncSafe`. Currently only Signal and MachException do this. The crash handling path uses `kscmr_disableAsyncSafeMonitors()` to disable only these monitors (to restore original handlers for other crash reporters). Monitors that do not declare this flag (e.g., Memory, Deadlock, Watchdog) are skipped during crash-time disable because their `setEnabled()` uses ObjC messaging or other non-signal-safe operations, and they don't need cleanup since the process is terminating. If you write a new monitor whose `setEnabled()` uses ObjC or locks, do **not** set `KSCrashMonitorFlagAsyncSafe`.
+
 When in doubt, check the POSIX list of async-signal-safe functions and follow the patterns established in existing crash handling code.
 
 ## Code Style Guidelines
