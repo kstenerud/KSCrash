@@ -60,10 +60,14 @@ typedef NS_ENUM(NSInteger, KSJSONDecodeOption) {
     KSJSONDecodeOptionKeepPartialObject = 4,
 } NS_SWIFT_NAME(JSONDecodeOption);
 
+NS_ASSUME_NONNULL_BEGIN
+
 /**
  * Encodes and decodes UTF-8 JSON data.
  */
 @interface KSJSONCodec : NSObject
+
+- (instancetype)init NS_UNAVAILABLE;
 
 /** Encode an object to JSON data.
  *
@@ -76,7 +80,7 @@ typedef NS_ENUM(NSInteger, KSJSONDecodeOption) {
  *
  * @return The encoded UTF-8 JSON data or nil if an error occurred.
  */
-+ (NSData *)encode:(id)object options:(KSJSONEncodeOption)options error:(NSError **)error;
++ (nullable NSData *)encode:(id)object options:(KSJSONEncodeOption)options error:(NSError **)error;
 
 /** Decode JSON data to an object.
  *
@@ -90,8 +94,10 @@ typedef NS_ENUM(NSInteger, KSJSONDecodeOption) {
  * @return The decoded object or, if the KSJSONDecodeOptionKeepPartialFile
  *         option is not set, nil when an error occurs.
  */
-+ (id)decode:(NSData *)JSONData options:(KSJSONDecodeOption)options error:(NSError **)error;
++ (nullable id)decode:(NSData *)JSONData options:(KSJSONDecodeOption)options error:(NSError **)error;
 
 @end
+
+NS_ASSUME_NONNULL_END
 
 #endif

@@ -134,7 +134,7 @@
                 }];
 }
 
-- (NSData *)loadCrashReportJSONWithID:(int64_t)reportID
+- (nullable NSData *)loadCrashReportJSONWithID:(int64_t)reportID
 {
     char *report = kscrs_readReport(reportID, &_cConfig);
     if (report != NULL) {
