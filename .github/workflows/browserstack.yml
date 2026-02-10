@@ -170,6 +170,8 @@ jobs:
           # Include ref to differentiate PR vs base branch artifacts within the same workflow run
           REF="${{ inputs.ref || github.sha }}"
           SHORT_REF="${REF:0:8}"
+          # Sanitize: artifact names cannot contain " : < > | * ? \ / CR LF % #
+          SHORT_REF=$(echo "$SHORT_REF" | tr '/:\"<>|*?\\%#' '-')
           echo "name=browserstack-results-${{ github.run_id }}-${{ github.run_attempt }}-${SHORT_REF}" >> $GITHUB_OUTPUT
 
       - name: Execute Tests on BrowserStack
