@@ -133,9 +133,7 @@ NS_SWIFT_NAME(CrashReportStore)
  * @param reportID The ID of the report to send.
  * @param onCompletion Called when sending is complete (nil = ignore).
  */
-- (void)sendReportWithID:(KSCrashReportID)reportID
-              completion:(nullable KSCrashReportFilterCompletion)onCompletion
-    NS_SWIFT_NAME(sendReport(with:completion:));
+- (void)sendReportWithID:(KSCrashReportID)reportID completion:(nullable KSCrashReportFilterCompletion)onCompletion;
 
 /** Send a single report by ID, optionally including current-run reports.
  *
