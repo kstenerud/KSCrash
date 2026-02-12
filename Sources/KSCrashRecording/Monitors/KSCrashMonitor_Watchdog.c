@@ -338,11 +338,12 @@ static void populateReportForCurrentHang(KSHangMonitor *monitor)
     os_unfair_lock_lock(&monitor->lock);
     if (monitor->hang.active && monitor->hang.timestamp == hang.timestamp) {
         monitor->hang.reportId = result.reportId;
-        strncpy(monitor->hang.path, result.path, PATH_MAX - 1);
-        monitor->hang.path[PATH_MAX - 1] = '\0';
-
-        monitor->sidecar = sidecar_open(monitor, result.reportId);
-        sidecar_update(monitor->sidecar, monitor->hang.endTimestamp, monitor->hang.endRole);
+        if (strlcpy(monitor->hang.path, result.path, PATH_MAX) >= PATH_MAX) {
+            KSLOG_ERROR("Report path too long, discarding hang report");
+        } else {
+            monitor->sidecar = sidecar_open(monitor, result.reportId);
+            sidecar_update(monitor->sidecar, monitor->hang.endTimestamp, monitor->hang.endRole);
+        }
     } else {
         KSLOG_DEBUG("hang changed during report population - discarding");
     }
