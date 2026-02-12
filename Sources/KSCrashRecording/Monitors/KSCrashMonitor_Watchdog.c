@@ -41,9 +41,9 @@
 #include <unistd.h>
 
 #include "KSCrashMonitorContext.h"
-#include "KSCrashNamespace.h"
 #include "KSCrashMonitorHelper.h"
 #include "KSCrashMonitor_WatchdogSidecar.h"
+#include "KSCrashNamespace.h"
 #include "KSCrashReportFields.h"
 #include "KSDebug.h"
 #include "KSFileUtils.h"
@@ -587,11 +587,19 @@ static KSHangMonitor *watchdog_create(CFRunLoopRef runLoop, double threshold)
     dispatch_semaphore_t setupSemaphore = dispatch_semaphore_create(0);
 
     WatchdogThreadArg *threadArg = (WatchdogThreadArg *)calloc(1, sizeof(WatchdogThreadArg));
+    if (!threadArg) {
+        free(monitor);
+        return NULL;
+    }
     threadArg->monitor = monitor;
     threadArg->setupSemaphore = setupSemaphore;
 
     pthread_attr_t attr;
-    pthread_attr_init(&attr);
+    if (pthread_attr_init(&attr) != 0) {
+        free(threadArg);
+        free(monitor);
+        return NULL;
+    }
     pthread_attr_set_qos_class_np(&attr, QOS_CLASS_USER_INTERACTIVE, 0);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 
