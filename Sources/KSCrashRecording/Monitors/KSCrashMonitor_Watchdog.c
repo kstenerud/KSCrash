@@ -41,6 +41,7 @@
 #include <unistd.h>
 
 #include "KSCrashMonitorContext.h"
+#include "KSCrashNamespace.h"
 #include "KSCrashMonitorHelper.h"
 #include "KSCrashMonitor_WatchdogSidecar.h"
 #include "KSCrashReportFields.h"
@@ -525,7 +526,13 @@ static void *watchdog_thread_main(void *arg)
     dispatch_semaphore_t setupSemaphore = threadArg->setupSemaphore;
     free(threadArg);
 
+    // Can't use KSCRASH_NS_STRING here because it concatenates without a
+    // separator, producing "com.kscrashMyApp..." instead of "com.kscrash.MyApp...".
+#ifdef KSCRASH_NAMESPACE
+    pthread_setname_np("com.kscrash." KSCRASH_NAMESPACE_STRING ".hang.watchdog.thread");
+#else
     pthread_setname_np("com.kscrash.hang.watchdog.thread");
+#endif
 
     CFRunLoopRef currentRunLoop = CFRunLoopGetCurrent();
 
