@@ -47,10 +47,8 @@ jobs:
 
   # Run benchmarks on PR code
   browserstack-pr:
-    # Skip for fork PRs (no access to secrets)
-    if: |
-      github.event_name != 'pull_request' ||
-      github.event.pull_request.head.repo.full_name == github.repository
+    # Skip when secrets are unavailable (fork PRs, Dependabot, etc.)
+    if: secrets.BROWSERSTACK_USERNAME != ''
     uses: ./.github/workflows/browserstack.yml
     with:
       ref: ${{ github.event.pull_request.head.sha || github.sha }}
