@@ -46,17 +46,14 @@ import os.log
             String(cString: kscrash_getRunID())
         }
 
-        /// Writes JSON data to Documents/MetricKit/<type>/<type>_<runId>_<uuid>.json
+        /// Writes JSON data to Documents/<namespace>/MetricKit/<type>/<type>_<runId>_<uuid>.json
         static func dump(_ data: Data, type: String) {
-            guard
-                let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
-                    .first
-            else {
+            guard let baseURL = KSCrash.documentsURL else {
                 os_log(.error, log: metricKitLog, "[MONITORS] Could not resolve documents directory")
                 return
             }
 
-            let dirURL = documentsURL.appendingPathComponent("MetricKit/\(type)", isDirectory: true)
+            let dirURL = baseURL.appendingPathComponent("MetricKit/\(type)", isDirectory: true)
             do {
                 try FileManager.default.createDirectory(at: dirURL, withIntermediateDirectories: true)
             } catch {
@@ -85,7 +82,7 @@ import os.log
             }
         }
 
-        /// Writes a JSON-serializable object to Documents/MetricKit/<type>/<type>_<runId>_<uuid>.json
+        /// Writes a JSON-serializable object to Documents/<namespace>/MetricKit/<type>/<type>_<runId>_<uuid>.json
         static func dump(_ json: Any, type: String) {
             guard JSONSerialization.isValidJSONObject(json) else {
                 os_log(.error, log: metricKitLog, "[MONITORS] Invalid JSON object for %{public}@", type)
