@@ -192,31 +192,42 @@ let kscrashNamespace: String? = {
     // Priority 2: Auto-detect from checkout path
     // SPM CLI: <ConsumerRoot>/.build/checkouts/KSCrash/Package.swift
     // Xcode:   <DerivedData>/<ProjectName-hash>/SourcePackages/checkouts/KSCrash/Package.swift
-    let packageDir = URL(fileURLWithPath: #filePath).deletingLastPathComponent().path
-    let components = packageDir.split(separator: "/", omittingEmptySubsequences: false)
-    guard let checkoutsIdx = components.lastIndex(of: "checkouts"),
-        checkoutsIdx >= 2
-    else {
+    let packageURL = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+
+    // Walk up to find the innermost "checkouts" ancestor
+    var ancestor = packageURL
+    var checkoutsURL: URL?
+    while ancestor.path != "/" {
+        if ancestor.lastPathComponent == "checkouts" {
+            checkoutsURL = ancestor
+            break
+        }
+        ancestor = ancestor.deletingLastPathComponent()
+    }
+    guard let checkoutsURL else {
         return nil  // Not a dependency checkout — development mode
     }
 
     let rawName: String?
-    let parentOfCheckouts = components[checkoutsIdx - 1]
+    let parentURL = checkoutsURL.deletingLastPathComponent()
+    let parentName = parentURL.lastPathComponent
 
-    if parentOfCheckouts == ".build" {
+    if parentName == ".build" {
         // SPM CLI — consumer's Package.swift is in the parent of .build
-        let consumerRoot = "/" + components[..<(checkoutsIdx - 1)].joined(separator: "/")
-        guard let contents = try? String(contentsOfFile: consumerRoot + "/Package.swift", encoding: .utf8),
-            let nameStart = contents.range(of: "name:"),
+        let consumerRoot = parentURL.deletingLastPathComponent()
+        let manifestURL = consumerRoot.appendingPathComponent("Package.swift")
+        guard let contents = try? String(contentsOf: manifestURL, encoding: .utf8),
+            let packageInit = contents.range(of: "Package("),
+            let nameStart = contents[packageInit.upperBound...].range(of: "name\\s*:", options: .regularExpression),
             let openQuote = contents[nameStart.upperBound...].firstIndex(of: "\"")
         else { return nil }
         let afterOpen = contents.index(after: openQuote)
         guard let closeQuote = contents[afterOpen...].firstIndex(of: "\"") else { return nil }
         rawName = String(contents[afterOpen..<closeQuote])
-    } else if parentOfCheckouts == "SourcePackages" {
+    } else if parentName == "SourcePackages" {
         // Xcode — extract project name from DerivedData subdirectory
         // e.g. "MyApp-bwrfhsjkqlnvep" → "MyApp"
-        let derivedDataSubdir = String(components[checkoutsIdx - 2])
+        let derivedDataSubdir = parentURL.deletingLastPathComponent().lastPathComponent
         guard let lastHyphen = derivedDataSubdir.lastIndex(of: "-") else { return nil }
         rawName = String(derivedDataSubdir[..<lastHyphen])
     } else {

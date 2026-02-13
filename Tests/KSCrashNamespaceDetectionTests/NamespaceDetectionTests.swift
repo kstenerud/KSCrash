@@ -41,37 +41,46 @@
     /// Parses a consumer root path from a KSCrash SPM CLI checkout path.
     /// Returns nil if the path doesn't match the `.build/checkouts/` pattern.
     private func consumerRootFromCheckoutPath(_ packageDir: String) -> String? {
-        let components = packageDir.split(separator: "/", omittingEmptySubsequences: false)
-        guard let checkoutsIdx = components.lastIndex(of: "checkouts"),
-            checkoutsIdx >= 1,
-            components[checkoutsIdx - 1] == ".build"
-        else {
-            return nil
+        let url = URL(fileURLWithPath: packageDir)
+        var ancestor = url
+        while ancestor.path != "/" {
+            if ancestor.lastPathComponent == "checkouts" {
+                let parent = ancestor.deletingLastPathComponent()
+                if parent.lastPathComponent == ".build" {
+                    return parent.deletingLastPathComponent().path
+                }
+                return nil
+            }
+            ancestor = ancestor.deletingLastPathComponent()
         }
-        return "/" + components[..<(checkoutsIdx - 1)].joined(separator: "/")
+        return nil
     }
 
     /// Extracts the Xcode project name from a SourcePackages checkout path.
     /// Path: .../<ProjectName-hash>/SourcePackages/checkouts/KSCrash
     /// Returns nil if the path doesn't match the Xcode layout.
     private func projectNameFromXcodePath(_ packageDir: String) -> String? {
-        let components = packageDir.split(separator: "/", omittingEmptySubsequences: false)
-        guard let checkoutsIdx = components.lastIndex(of: "checkouts"),
-            checkoutsIdx >= 2,
-            components[checkoutsIdx - 1] == "SourcePackages"
-        else {
-            return nil
+        let url = URL(fileURLWithPath: packageDir)
+        var ancestor = url
+        while ancestor.path != "/" {
+            if ancestor.lastPathComponent == "checkouts" {
+                let parent = ancestor.deletingLastPathComponent()
+                guard parent.lastPathComponent == "SourcePackages" else { return nil }
+                let derivedDataSubdir = parent.deletingLastPathComponent().lastPathComponent
+                guard let lastHyphen = derivedDataSubdir.lastIndex(of: "-") else { return nil }
+                let name = String(derivedDataSubdir[..<lastHyphen])
+                return name.isEmpty ? nil : name
+            }
+            ancestor = ancestor.deletingLastPathComponent()
         }
-        let derivedDataSubdir = String(components[checkoutsIdx - 2])
-        guard let lastHyphen = derivedDataSubdir.lastIndex(of: "-") else { return nil }
-        let name = String(derivedDataSubdir[..<lastHyphen])
-        return name.isEmpty ? nil : name
+        return nil
     }
 
     /// Extracts the package name from Package.swift contents.
     /// Returns nil if parsing fails.
     private func extractPackageName(from contents: String) -> String? {
-        guard let nameStart = contents.range(of: "name:"),
+        guard let packageInit = contents.range(of: "Package("),
+            let nameStart = contents[packageInit.upperBound...].range(of: "name\\s*:", options: .regularExpression),
             let openQuote = contents[nameStart.upperBound...].firstIndex(of: "\"")
         else { return nil }
         let afterOpen = contents.index(after: openQuote)
@@ -291,23 +300,7 @@
                     name: "Broken
                 )
                 """
-            // The closing quote is on the next line at the closing paren, but let's see what happens
-            // Actually "Broken\n)" — there IS no quote before newline in the same way
-            // The function looks for the next `"` after the open quote, which would be missing
-            // Actually... "Broken\n    )\n    " — wait, triple-quoted strings.
-            // Let me think: the contents string is:
-            //   ...name: "Broken\n)\n"
-            // openQuote points to the `"` before Broken
-            // afterOpen points to `B`
-            // closeQuote searches for `"` in "Broken\n)\n" — there is a `"` at the end of the triple quote
-            // Actually no, in the raw string `"Broken` is followed by newline, then `)`, newline, then `"""` closing
-            // But the actual string contents won't have `"""` — the Swift multiline string literal produces:
-            //   ...name: "Broken\n)\n
-            // So there's no closing `"` character in the parsed string content... wait, there IS a `"` wrapping "Broken"
-            // Hmm, in the Package.swift source text, name: "Broken\n is the literal characters, and the `"` before Broken IS there
-            // After the opening `"`, it searches for the NEXT `"` — but there isn't one in "Broken\n)\n"
-            // Wait: the literal text is: name: "Broken followed by newline. So the open quote is found, afterOpen is "B",
-            // and the search for closeQuote in "Broken\n)\n" finds no `"`, so it returns nil. Good.
+            // No closing `"` after "Broken — parser returns nil
             XCTAssertNil(extractPackageName(from: contents))
         }
 
@@ -322,8 +315,7 @@
         }
 
         func testNameFieldInComment() {
-            // name: appears in a comment first, then in actual code
-            // The function finds the FIRST occurrence of "name:" which is in the comment
+            // name: appears in a comment before Package(…) — parser skips it
             let contents = """
                 // name: "CommentedName"
                 let package = Package(
@@ -331,7 +323,7 @@
                     products: []
                 )
                 """
-            XCTAssertEqual(extractPackageName(from: contents), "CommentedName")
+            XCTAssertEqual(extractPackageName(from: contents), "RealName")
         }
     }
 
@@ -432,9 +424,16 @@
             .path
 
         private func dumpPackage(env: [String: String] = [:]) throws -> String {
+            // Use a separate scratch path so dump-package doesn't contend
+            // for the .build/ lock held by the outer `swift test` process.
+            let scratchDir = FileManager.default.temporaryDirectory
+                .appendingPathComponent("KSCrashDump_\(ProcessInfo.processInfo.globallyUniqueString)")
+            try FileManager.default.createDirectory(at: scratchDir, withIntermediateDirectories: true)
+            defer { try? FileManager.default.removeItem(at: scratchDir) }
+
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-            process.arguments = ["swift", "package", "dump-package"]
+            process.arguments = ["swift", "package", "dump-package", "--scratch-path", scratchDir.path]
             process.currentDirectoryURL = URL(fileURLWithPath: kscrashRoot)
 
             var environment = ProcessInfo.processInfo.environment
@@ -447,6 +446,10 @@
             process.standardOutput = pipe
             process.standardError = FileHandle.nullDevice
             try process.run()
+
+            // Read pipe BEFORE waitUntilExit to avoid deadlock when output
+            // exceeds the pipe buffer size (~64 KB).
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
             process.waitUntilExit()
 
             guard process.terminationStatus == 0 else {
@@ -457,7 +460,6 @@
                 )
             }
 
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
             return String(data: data, encoding: .utf8) ?? ""
         }
 
