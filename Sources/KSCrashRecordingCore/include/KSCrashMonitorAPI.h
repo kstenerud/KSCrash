@@ -80,6 +80,25 @@ typedef struct {
      * @note This callback is optional. If NULL, no custom section will be written for this monitor.
      */
     void (*writeInReportSection)(const KSCrash_MonitorContext *eventContext, const KSCrashReportWriter *writer);
+
+    /**
+     * Called at report delivery time to stitch sidecar data into a report.
+     *
+     * When the report store reads a report that has a matching sidecar file in this
+     * monitor's sidecar directory, it calls this function to let the monitor merge
+     * sidecar data into the report before delivery.
+     *
+     * @param report The NULL-terminated JSON report string.
+     * @param reportID The ID of the report being stitched.
+     * @param sidecarPath The full path to the sidecar file for this report.
+     *
+     * @return A malloc'd NULL-terminated string with the stitched report,
+     *         or NULL to leave the report unchanged. The caller will free the returned buffer.
+     *
+     * @note This callback is optional. If NULL, no stitching is performed.
+     *       This runs at normal app startup time, not during crash handling.
+     */
+    char *(*stitchReport)(const char *report, int64_t reportID, const char *sidecarPath);
 } KSCrashMonitorAPI;
 
 /**

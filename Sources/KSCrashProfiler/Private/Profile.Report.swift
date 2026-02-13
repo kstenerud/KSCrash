@@ -240,7 +240,8 @@ final private class ProfileMonitor: Sendable {
             isEnabled: profileMonitorIsEnabled,
             addContextualInfoToEvent: profileMonitorAddContextualInfoToEvent,
             notifyPostSystemEnable: profileMonitorNotifyPostSystemEnable,
-            writeInReportSection: profileMonitorWriteInReportSection
+            writeInReportSection: profileMonitorWriteInReportSection,
+            stitchReport: nil
         )
 
         let p = UnsafeMutablePointer<KSCrashMonitorAPI>.allocate(capacity: 1)  // never deallocated

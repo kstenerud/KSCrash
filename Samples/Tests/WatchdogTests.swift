@@ -25,6 +25,7 @@
 //
 
 import IntegrationTestsHelper
+import Report
 import XCTest
 
 #if !os(watchOS)
@@ -42,7 +43,11 @@ import XCTest
                 config.isWatchdogEnabled = true
             }
 
-            let rawReport = try readCrashReport()
+            // Re-launch and read through the report store so the sidecar stitch runs
+            let reportData = try launchAndReportCrashRaw { config in
+                config.isWatchdogEnabled = true
+            }
+            let rawReport = try JSONDecoder().decode(CrashReport<NoUserData>.self, from: reportData)
 
             // Verify hang info is present in the crash report
             let hangInfo = rawReport.crash.error.hang
@@ -82,6 +87,30 @@ import XCTest
             XCTAssertNotNil(backtrace, "Crashed thread should have a backtrace")
             XCTAssertGreaterThan(
                 backtrace?.contents.count ?? 0, 0, "Backtrace should have at least one frame")
+        }
+
+        func testExceptionDuringHangReportsExceptionNotHang() throws {
+            // Trigger a hang, then throw an exception while hung.
+            // The fatal exception should be reported, not the hang.
+            try launchAndCrash(.other_watchdogTimeoutWithException) { config in
+                config.isWatchdogEnabled = true
+            }
+
+            // Re-launch and read through the report store so the sidecar stitch runs
+            let reportData = try launchAndReportCrashRaw { config in
+                config.isWatchdogEnabled = true
+            }
+            let rawReport = try JSONDecoder().decode(CrashReport<NoUserData>.self, from: reportData)
+
+            // Verify we got an NSException, not a hang/signal
+            XCTAssertEqual(rawReport.crash.error.type, .nsexception, "Should be an NSException crash")
+            XCTAssertEqual(
+                rawReport.crash.error.reason, "Exception during hang",
+                "Should have the exception reason")
+
+            // Verify hang info is NOT present - the fatal exception takes precedence
+            let hangInfo = rawReport.crash.error.hang
+            XCTAssertNil(hangInfo, "Hang info should NOT be present when a fatal exception occurred")
         }
     }
 

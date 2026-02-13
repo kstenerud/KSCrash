@@ -93,6 +93,12 @@ bool ksthread_getQueueName(KSThread thread, char *buffer, int bufLength);
  */
 KSThread ksthread_self(void);
 
+/** Get the main thread's mach thread ID.
+ *
+ * @return The main thread ID.
+ */
+KSThread ksthread_main(void);
+
 #ifdef __cplusplus
 }
 #endif

@@ -1,7 +1,7 @@
 //
-//  KSCrashMonitor_Watchdog.h
+//  KSCrashHang.h
 //
-//  Created by Alexander Cohen on 2025-11-04.
+//  Created by Alexander Cohen on 2026-01-19.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -25,7 +25,6 @@
 //
 
 /**
- * @file KSCrashMonitor_Watchdog.h
  * @brief Monitors for hangs and watchdog timeout terminations.
  *
  * ## Hangs
@@ -62,32 +61,65 @@
  * @see https://developer.apple.com/documentation/xcode/addressing-watchdog-terminations
  */
 
-#ifndef HDR_KSCrashMonitor_Watchdog_h
-#define HDR_KSCrashMonitor_Watchdog_h
+#ifndef HDR_KSCrashHang_h
+#define HDR_KSCrashHang_h
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <stdbool.h>
+#include <CoreFoundation/CoreFoundation.h>
+#include <stdint.h>
 
-#include "KSCrashHang.h"
-#include "KSCrashMonitorAPI.h"
 #include "KSCrashNamespace.h"
 
-/** Access the Monitor API.
+/**
+ * Describes the type of hang state change being reported to observers.
  */
-KSCrashMonitorAPI *kscm_watchdog_getAPI(void);
+typedef CF_ENUM(uint8_t, KSHangChangeType) {
+    /** No change (placeholder value). */
+    KSHangChangeTypeNone = 0,
+    /** A new hang has been detected and a report is being generated. */
+    KSHangChangeTypeStarted = 1,
+    /** An ongoing hang's duration has been updated. */
+    KSHangChangeTypeUpdated = 2,
+    /** The hang has ended (main thread became responsive). */
+    KSHangChangeTypeEnded = 3,
+} CF_SWIFT_NAME(HangChangeType);
 
-/** Returns a human-readable string for a task role.
+/**
+ * C function pointer type for observing hang state changes.
  *
- * @param role The task_role_t value to convert.
- * @return A string representation of the role (e.g., "FOREGROUND_APPLICATION").
+ * @param change The type of hang state change.
+ * @param startTimestamp Monotonic timestamp (ns) when the hang started.
+ * @param endTimestamp Monotonic timestamp (ns) of the current/end state.
+ * @param context User-provided context pointer.
  */
-const char *kscm_stringFromRole(int /*task_role_t*/ role);
+typedef void (*KSHangObserverCallback)(KSHangChangeType change, uint64_t startTimestamp, uint64_t endTimestamp,
+                                       void *context);
+
+/** Opaque token returned by kshang_addHangObserver. Use with kshang_removeHangObserver. */
+typedef int KSHangObserverToken;
+
+/** Sentinel value indicating an invalid or failed observer registration. */
+CF_EXPORT const KSHangObserverToken KSHangObserverTokenNotFound;
+
+/** Registers a C observer for hang state changes.
+ *
+ * @param callback The function to call on hang state changes.
+ * @param context User-provided context pointer passed to callback on each call.
+ * @return A token identifying the observer, or KSHangObserverTokenNotFound on failure.
+ */
+KSHangObserverToken kshang_addHangObserver(KSHangObserverCallback callback, void *context);
+
+/** Removes a previously registered observer.
+ *
+ * @param token The token returned by kshang_addHangObserver.
+ */
+void kshang_removeHangObserver(KSHangObserverToken token);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif  // HDR_KSCrashMonitor_Watchdog_h
+#endif  // HDR_KSCrashHang_h

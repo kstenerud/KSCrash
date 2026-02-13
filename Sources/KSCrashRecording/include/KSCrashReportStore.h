@@ -107,11 +107,36 @@ NS_SWIFT_NAME(CrashReportStore)
  * deleted. Once the reports are successfully sent to the server, they may be
  * deleted locally, depending on the property "reportCleanupPolicy".
  *
+ * Reports from the current process run are excluded because they may still
+ * be updated while the process is alive. To send a specific report by ID
+ * (including current-run reports), use @c sendReportWithID:completion:.
+ *
  * @note Property "sink" MUST be set or else this method will call `onCompletion` with an error.
  *
  * @param onCompletion Called when sending is complete (nil = ignore).
  */
 - (void)sendAllReportsWithCompletion:(nullable KSCrashReportFilterCompletion)onCompletion;
+
+/** Send a single report by ID.
+ *
+ * Equivalent to calling @c sendReportWithID:includeCurrentRun:completion: with @c YES.
+ *
+ * @param reportID The ID of the report to send.
+ * @param onCompletion Called when sending is complete (nil = ignore).
+ */
+- (void)sendReportWithID:(int64_t)reportID completion:(nullable KSCrashReportFilterCompletion)onCompletion;
+
+/** Send a single report by ID, optionally including current-run reports.
+ *
+ * @param reportID The ID of the report to send.
+ * @param includeCurrentRun If YES, sends the report even if it belongs to the current run.
+ *                          If NO and the report is from the current run, calls onCompletion
+ *                          with an error.
+ * @param onCompletion Called when sending is complete (nil = ignore).
+ */
+- (void)sendReportWithID:(int64_t)reportID
+       includeCurrentRun:(BOOL)includeCurrentRun
+              completion:(nullable KSCrashReportFilterCompletion)onCompletion;
 
 /** Get report.
  *

@@ -58,6 +58,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <uuid/uuid.h>
 
 #include "KSLogger.h"
 
@@ -116,6 +117,10 @@ static KSCrashWillWriteReportCallback g_willWriteReportCallback;
 static KSCrashIsWritingReportCallback g_isWritingReportCallback;
 static KSCrashDidWriteReportCallback g_didWriteReportCallback;
 static KSApplicationState g_lastApplicationState = KSApplicationStateNone;
+
+// Run ID: a UUID generated once during kscrash_install().
+// Read-only after that, so safe to access from crash handlers.
+static char g_runID[37];
 
 // ============================================================================
 #pragma mark - Utility -
@@ -305,6 +310,18 @@ static void handleConfiguration(KSCrashCConfiguration *configuration)
         kscm_enableSwapCxaThrow();
     }
 }
+static bool getSidecarFilePathCallback(const char *monitorId, const char *name, const char *extension, char *pathBuffer,
+                                       size_t pathBufferLength)
+{
+    return kscrs_getSidecarFilePath(monitorId, name, extension, pathBuffer, pathBufferLength, &g_reportStoreConfig);
+}
+
+static bool getSidecarReportPathCallback(const char *monitorId, int64_t reportID, char *pathBuffer,
+                                         size_t pathBufferLength)
+{
+    return kscrs_getSidecarFilePathForReport(monitorId, reportID, pathBuffer, pathBufferLength, &g_reportStoreConfig);
+}
+
 // ============================================================================
 #pragma mark - API -
 // ============================================================================
@@ -326,6 +343,11 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
 
     handleConfiguration(configuration);
 
+    // Generate run ID now so it's available async-signal-safe from crash handlers.
+    uuid_t uuid;
+    uuid_generate(uuid);
+    uuid_unparse_lower(uuid, g_runID);
+
     if (g_reportStoreConfig.appName == NULL) {
         g_reportStoreConfig.appName = strdup(appName);
     }
@@ -339,7 +361,17 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
         g_reportStoreConfig.reportsPath = strdup(path);
     }
 
+    if (g_reportStoreConfig.sidecarsPath == NULL) {
+        if (snprintf(path, sizeof(path), "%s/Sidecars", installPath) >= (int)sizeof(path)) {
+            KSLOG_ERROR("Sidecars path is too long.");
+            return KSCrashInstallErrorPathTooLong;
+        }
+        g_reportStoreConfig.sidecarsPath = strdup(path);
+    }
+
     kscrs_initialize(&g_reportStoreConfig);
+    kscm_setSidecarFilePathProvider(getSidecarFilePathCallback);
+    kscm_setSidecarReportPathProvider(getSidecarReportPathCallback);
 
     if (snprintf(path, sizeof(path), "%s/Data", installPath) >= (int)sizeof(path)) {
         KSLOG_ERROR("Data path is too long.");
@@ -433,3 +465,5 @@ int64_t kscrash_addUserReport(const char *report, int reportLength)
 {
     return kscrs_addUserReport(report, reportLength, &g_reportStoreConfig);
 }
+
+const char *kscrash_getRunID(void) { return g_runID; }

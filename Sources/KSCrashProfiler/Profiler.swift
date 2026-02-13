@@ -134,12 +134,29 @@ public final class Profiler<T: Sample>: @unchecked Sendable {
     ///   - thread: The pthread to profile
     ///   - interval: The time interval between samples (default: 10ms)
     ///   - retentionSeconds: How many seconds of samples to retain in the ring buffer (default: 30)
-    public init(
+    public convenience init(
         thread: pthread_t,
         interval: TimeInterval = 0.01,
         retentionSeconds: Int = 30
     ) {
-        self.machThread = pthread_mach_thread_np(thread)
+        self.init(
+            machThread: pthread_mach_thread_np(thread),
+            interval: interval,
+            retentionSeconds: retentionSeconds
+        )
+    }
+
+    /// Creates a new profiler
+    /// - Parameters:
+    ///   - machThread: The mach thread to profile
+    ///   - interval: The time interval between samples (default: 10ms)
+    ///   - retentionSeconds: How many seconds of samples to retain in the ring buffer (default: 30)
+    public init(
+        machThread: thread_t,
+        interval: TimeInterval = 0.01,
+        retentionSeconds: Int = 30
+    ) {
+        self.machThread = machThread
 
         let clampedInterval = max(0.001, interval)
         self.intervalNs = UInt64(clampedInterval * 1_000_000_000)
@@ -227,6 +244,13 @@ public final class Profiler<T: Sample>: @unchecked Sendable {
             stopLocked()
         }
     }
+}
+
+extension Profiler where T == Sample512 {
+    /// A shared profiler instance that samples the main thread.
+    ///
+    /// Default sampling interval (10ms) and retention (30s).
+    public static let main: Profiler<Sample512> = Profiler<Sample512>(machThread: thread_t(ksthread_main()))
 }
 
 // MARK: - Private

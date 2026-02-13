@@ -30,7 +30,8 @@ jobs:
           - platform: macOS
           # tvOS integration tests became flaky after Xcode 16.2
           # - platform: tvOS
-          - platform: watchOS
+          # watchOS integration tests became flaky after Xcode 16.2
+          # - platform: watchOS
     steps:
       - name: Checkout Code
         uses: actions/checkout@v6

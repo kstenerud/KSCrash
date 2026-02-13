@@ -61,6 +61,12 @@ typedef struct {
      */
     const char *reportsPath;
 
+    /** The directory path for storing monitor sidecar files.
+     * Each monitor that uses sidecars gets a subdirectory named after its monitorId.
+     * If NULL, defaults to a "Sidecars" sibling directory alongside reportsPath.
+     */
+    const char *sidecarsPath;
+
     /** The maximum number of crash reports to retain on disk.
      *
      * Defines the upper limit of crash reports to keep in storage. When this threshold
@@ -76,6 +82,7 @@ static inline KSCrashReportStoreCConfiguration KSCrashReportStoreCConfiguration_
     return (KSCrashReportStoreCConfiguration) {
         .appName = NULL,
         .reportsPath = NULL,
+        .sidecarsPath = NULL,
         .maxReportCount = 5,
     };
 }
@@ -86,6 +93,7 @@ static inline KSCrashReportStoreCConfiguration KSCrashReportStoreCConfiguration_
     return (KSCrashReportStoreCConfiguration) {
         .appName = configuration->appName ? strdup(configuration->appName) : NULL,
         .reportsPath = configuration->reportsPath ? strdup(configuration->reportsPath) : NULL,
+        .sidecarsPath = configuration->sidecarsPath ? strdup(configuration->sidecarsPath) : NULL,
         .maxReportCount = configuration->maxReportCount,
     };
 }
@@ -94,6 +102,7 @@ static inline void KSCrashReportStoreCConfiguration_Release(KSCrashReportStoreCC
 {
     free((void *)configuration->appName);
     free((void *)configuration->reportsPath);
+    free((void *)configuration->sidecarsPath);
 }
 
 /** Configuration for KSCrash settings.

@@ -62,6 +62,26 @@
     XCTAssertTrue(success, @"");
 }
 
+- (void)testMainThread
+{
+    KSThread mainThread = ksthread_main();
+    XCTAssertNotEqual(mainThread, 0);
+}
+
+- (void)testMainThreadMatchesActualMainThread
+{
+    XCTestExpectation *expectation = [self expectationWithDescription:@"captured main thread"];
+    __block KSThread capturedThread = 0;
+
+    dispatch_async(dispatch_get_main_queue(), ^{
+        capturedThread = ksthread_self();
+        [expectation fulfill];
+    });
+
+    [self waitForExpectationsWithTimeout:2 handler:nil];
+    XCTAssertEqual(ksthread_main(), capturedThread, @"ksthread_main should match the actual main thread");
+}
+
 - (void)testStateName
 {
     int state = 0;

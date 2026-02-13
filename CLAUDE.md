@@ -186,6 +186,93 @@ KSCrash is implemented as a layered architecture with these key components:
 - **Installations**: Pre-configured setups
 - **Monitors**: Various crash detection mechanisms
 
+## Watchdog Monitor
+
+The watchdog monitor uses a fixed 250ms threshold to detect hangs on the main thread. This threshold is intentionally not configurable — it aligns with Apple's definition of a "hang" (250ms+) and should not be changed. See `KSCrashMonitor_Watchdog.h` for the rationale.
+
+## Monitor Sidecar Files
+
+Sidecars allow monitors to store auxiliary data alongside crash reports without modifying the main report. This is important for monitors (like the Watchdog) that need to update report data after initial writing — doing so with ObjC JSON parsing during a hang would risk deadlocking on the same runtime locks being monitored.
+
+### How Sidecars Work
+
+1. **Writing**: A monitor can request a sidecar path at any time and write auxiliary data there. For example, a monitor might write the initial sidecar during event handling and update it periodically afterwards as conditions change.
+
+2. **At report delivery time** (next app launch): When the report store reads a report via `kscrs_readReport`, it scans the sidecar directories for matching files and calls each monitor's `stitchReport` callback to merge sidecar data into the report before delivery.
+
+3. **Cleanup**: Sidecars are automatically deleted when their associated report is deleted (via `kscrs_deleteReportWithID` or `kscrs_deleteAllReports`).
+
+### Directory Layout
+
+```
+<installPath>/
+├── Reports/
+│   └── myapp-report-00789abc00000001.json
+└── Sidecars/
+    ├── Watchdog/
+    │   └── 00789abc00000001.ksscr
+    └── AnotherMonitor/
+        └── 00789abc00000001.ksscr
+```
+
+Each monitor gets a subdirectory named after its `monitorId`. Sidecar files are named `<reportID>.ksscr` (hex-formatted).
+
+### Requesting a Sidecar Path (Monitor Side)
+
+Monitors receive a `KSCrash_ExceptionHandlerCallbacks` struct during `init()`. The `getSidecarPath` field is a `KSCrashSidecarPathProviderFunc`:
+
+```c
+typedef bool (*KSCrashSidecarPathProviderFunc)(const char *monitorId, int64_t reportID,
+                                               char *pathBuffer, size_t pathBufferLength);
+```
+
+Usage from within a monitor:
+
+```c
+static KSCrash_ExceptionHandlerCallbacks *g_callbacks;
+
+static void monitorInit(KSCrash_ExceptionHandlerCallbacks *callbacks) {
+    g_callbacks = callbacks;
+}
+
+// Later, when you have a reportID:
+char sidecarPath[KSCRS_MAX_PATH_LENGTH];
+if (g_callbacks->getSidecarPath &&
+    g_callbacks->getSidecarPath("MyMonitor", reportID, sidecarPath, sizeof(sidecarPath))) {
+    // Write sidecar data to sidecarPath using C file I/O
+}
+```
+
+The callback creates the monitor's subdirectory automatically and returns `false` if sidecars are not configured or the path is too long.
+
+### Stitching Sidecars into Reports (Monitor Side)
+
+To merge sidecar data into reports at delivery time, implement the `stitchReport` field in `KSCrashMonitorAPI`:
+
+```c
+char *(*stitchReport)(const char *report, int64_t reportID, const char *sidecarPath);
+```
+
+- `report`: NULL-terminated JSON string of the full crash report.
+- `sidecarPath`: Path to this monitor's sidecar file for the given report.
+- Returns: A `malloc`'d NULL-terminated string with the modified report, or `NULL` to leave the report unchanged. The caller frees the returned buffer.
+
+This runs at normal app startup time (not during crash handling), so ObjC and heap allocation are safe here.
+
+### Configuration
+
+The sidecars directory is configured via `KSCrashReportStoreCConfiguration.sidecarsPath`. If left `NULL` (the default), it is automatically set to `<installPath>/Sidecars` during `kscrash_install`. The report store creates this directory at initialization.
+
+### Key Files
+
+- `KSCrashMonitorContext.h`: `KSCrashSidecarPathProviderFunc` typedef and `getSidecarPath` callback field
+- `KSCrashMonitorAPI.h`: `stitchReport` callback field on `KSCrashMonitorAPI`
+- `KSCrashMonitor.h/.c`: `kscm_setSidecarPathProvider()` to register the path provider
+- `KSCrashReportStoreC.c`: Internal sidecar path generation, cleanup, and stitching logic
+- `KSCrashReportStoreC+Private.h`: `kscrs_getSidecarPath()` exported for use by the path provider
+- `KSCrashCConfiguration.h`: `sidecarsPath` field on `KSCrashReportStoreCConfiguration`
+- `KSCrashC.c`: Wires up the sidecar path provider callback during install
+
 ## Critical Development Guidelines
 
 ### Async Signal Safety
@@ -209,7 +296,51 @@ KSCrash is implemented as a layered architecture with these key components:
 
 When in doubt, check the POSIX list of async-signal-safe functions and follow the patterns established in existing crash handling code.
 
+## Verbose Logging
+
+KSLogger uses compile-time log levels for async-signal-safety. To enable verbose logging during development, pass the log level as a compiler flag:
+
+```bash
+swift build -Xcc -DKSLogger_Level=50
+swift test -Xcc -DKSLogger_Level=50
+```
+
+Log levels: `ERROR=10`, `WARN=20`, `INFO=30`, `DEBUG=40`, `TRACE=50`.
+
+## Run ID
+
+Each process generates a UUID (`run_id`) once during `kscrash_install()`. This ID is written into the `"report"` section of every crash report.
+
+**Purpose**: Reports from the current run may still be updated (e.g., watchdog hang reports that get resolved). `sendAllReportsWithCompletion:` automatically excludes reports whose `run_id` matches the current process. To force-send a current-run report, use `sendReportWithID:includeCurrentRun:completion:` with `includeCurrentRun:YES`.
+
+**Async-signal-safety**: `kscrash_getRunID()` returns a pointer to a static buffer that is written once during install and read-only afterward, so it is safe to call from crash handlers.
+
+**Key files**:
+- `KSCrashC.c` / `KSCrashC.h`: UUID generation and `kscrash_getRunID()`
+- `KSCrashReportC.c`: Writes `run_id` into the report's `"report"` section
+- `KSCrashReportStore.m` / `KSCrashReportStore.h`: Filtering logic and `sendReportWithID:` API
+- `ReportInfo.swift`: `runId` property on the Swift report model
+
 ## Code Style Guidelines
+
+### Inline Comments
+
+Comment for your future self — the person who has to change this code safely without re-deriving the scary parts. Focus on:
+
+- **Invariants that would break silently**: lock ordering, why a field is atomic (or isn't), why something is intentionally *not* guarded.
+- **Non-obvious "why"**: if the reason for a choice isn't clear from the code alone, say why. "Load enterTime once — a second load could see a newer value if the main thread briefly woke" is useful. "Loads enterTime" is not.
+- **Threading contracts**: which thread runs a function, and what's safe to touch from it.
+- **Simulated or fake values**: when code produces synthetic data (e.g., faking a SIGKILL for watchdog reports), say what it's mimicking and who undoes it.
+- **Crash-time constraints**: if code runs in a signal handler or with all threads suspended, say so and say what that means (no lock, no ObjC, etc.).
+
+Do **not** comment:
+- What a function does when the name already says it (`monotonicUptime`, `currentTaskRole`).
+- Every struct field — only the ones with non-obvious lifetimes, ownership, or threading rules.
+- Obvious control flow or standard patterns.
+
+A good test: if removing the comment would make a future change risky, keep it. If the code reads fine without it, skip it.
+
+### Formatting
 
 - C/C++/Objective-C: Follow clang-format style defined in the project
 - Swift: Follow Swift standard conventions and Xcode's recommended settings

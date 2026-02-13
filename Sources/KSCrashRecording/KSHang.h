@@ -24,59 +24,64 @@
 // THE SOFTWARE.
 //
 
-#import <Foundation/Foundation.h>
+#ifndef KSHang_h
+#define KSHang_h
 
-#import <mach/task_policy.h>
+#include <mach/task_policy.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <string.h>
+#include <sys/param.h>
 
-#import "KSCrashNamespace.h"
-
-NS_ASSUME_NONNULL_BEGIN
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * Internal model representing a hang event.
  *
- * This class captures the state of a detected hang, including timestamps
+ * This struct captures the state of a detected hang, including timestamps
  * and task roles at the start and end of the hang period.
  */
-@interface KSHang : NSObject <NSCopying>
+typedef struct KSHangState {
+    /** Monotonic timestamp (in nanoseconds) when the hang started. */
+    uint64_t timestamp;
 
-/** Monotonic timestamp (in nanoseconds) when the hang started. */
-@property(nonatomic) uint64_t timestamp;
+    /** Task role when the hang started. */
+    task_role_t role;
 
-/** Task role when the hang started. */
-@property(nonatomic) task_role_t role;
+    /** Monotonic timestamp (in nanoseconds) of the current/end state. */
+    uint64_t endTimestamp;
 
-/** Monotonic timestamp (in nanoseconds) of the current/end state. */
-@property(nonatomic) uint64_t endTimestamp;
+    /** Task role at the current/end state. */
+    task_role_t endRole;
 
-/** Task role at the current/end state. */
-@property(nonatomic) task_role_t endRole;
+    /** The report ID assigned to this hang. */
+    int64_t reportId;
 
-/** The report ID assigned to this hang. */
-@property(nonatomic) int64_t reportId;
+    /** Path to the crash report file on disk. */
+    char path[PATH_MAX];
 
-/** Path to the crash report file on disk. */
-@property(nonatomic, copy, nullable) NSString *path;
+    /** Whether this hang state is currently active. */
+    bool active;
+} KSHangState;
 
-/** Decoded crash report dictionary for in-memory updates. */
-@property(nonatomic, strong, nullable) NSMutableDictionary *decodedReport;
+/** Initialize a hang state with the given start timestamp and role. */
+static inline void kshangstate_init(KSHangState *state, uint64_t timestamp, task_role_t role)
+{
+    memset(state, 0, sizeof(*state));
+    state->timestamp = timestamp;
+    state->role = role;
+    state->endTimestamp = timestamp;
+    state->endRole = role;
+    state->active = true;
+}
 
-/**
- * Initializes a new hang with the given start timestamp and role.
- *
- * @param timestamp The monotonic timestamp when the hang was detected.
- * @param role The task role at the time of detection.
- * @return A new KSHang instance.
- */
-- (instancetype)initWithTimestamp:(uint64_t)timestamp role:(task_role_t)role;
+/** Clear a hang state to its zero/inactive state. */
+static inline void kshangstate_clear(KSHangState *state) { memset(state, 0, sizeof(*state)); }
 
-/**
- * Returns the duration of the hang in seconds.
- *
- * @return The interval between endTimestamp and timestamp in seconds.
- */
-- (NSTimeInterval)interval;
+#ifdef __cplusplus
+}
+#endif
 
-@end
-
-NS_ASSUME_NONNULL_END
+#endif /* KSHang_h */

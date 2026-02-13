@@ -30,10 +30,12 @@
 #include "KSSystemCapabilities.h"
 
 // #define KSLogger_LocalLevel TRACE
+#include <assert.h>
 #include <dispatch/dispatch.h>
 #include <mach/mach.h>
 #include <mach/thread_info.h>
 #include <pthread.h>
+#include <stdatomic.h>
 #include <sys/sysctl.h>
 
 #include "KSLogger.h"
@@ -59,6 +61,15 @@ KSThread ksthread_self(void)
     mach_port_deallocate(mach_task_self(), thread_self);
     return (KSThread)thread_self;
 }
+
+static _Atomic KSThread g_mainThread;
+
+void ksthread_storeMainThreadValue(KSThread thread)
+{
+    atomic_store_explicit(&g_mainThread, thread, memory_order_release);
+}
+
+KSThread ksthread_main(void) { return atomic_load_explicit(&g_mainThread, memory_order_acquire); }
 
 bool ksthread_getThreadName(const KSThread thread, char *const buffer, int bufLength)
 {

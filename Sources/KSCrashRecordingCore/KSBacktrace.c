@@ -27,6 +27,7 @@
 #include "KSBacktrace.h"
 
 #include <TargetConditionals.h>
+#include <stdatomic.h>
 #include <sys/param.h>
 
 #include "KSBinaryImageCache.h"
@@ -39,6 +40,15 @@
 #include "KSSymbolicator.h"
 #include "KSThread.h"
 #include "Unwind/KSStackCursor_Unwind.h"
+
+// Guards concurrent access to thread_suspend/thread_resume in captureBacktraceFromOtherThread.
+// Only one remote-thread capture can be in flight at a time. Concurrent callers (e.g., profiler
+// sampling while a crash/hang capture is happening) will get 0 frames rather than risk suspending
+// an already-suspended thread. Callers should treat 0 frames as "capture unavailable, retry later".
+//
+// TODO: Extend this to give priority to captures from the crash pipeline so that crash/hang
+// backtraces always succeed and profiler sampling yields instead.
+static atomic_flag g_captureLock = ATOMIC_FLAG_INIT;
 
 static int captureBacktraceFromSelf(uintptr_t *addresses, int maxFrames, bool *isTruncated)
 {
@@ -59,10 +69,19 @@ static int captureBacktraceFromSelf(uintptr_t *addresses, int maxFrames, bool *i
 
 static int captureBacktraceFromOtherThread(thread_t machThread, uintptr_t *addresses, int maxFrames, bool *isTruncated)
 {
+    if (atomic_flag_test_and_set(&g_captureLock)) {
+        KSLOG_ERROR("captureBacktraceFromOtherThread: another capture is already in progress");
+        if (isTruncated) {
+            *isTruncated = false;
+        }
+        return 0;
+    }
+
 #if !TARGET_OS_WATCH
     kern_return_t kr = thread_suspend(machThread);
     if (kr != KERN_SUCCESS) {
         KSLOG_ERROR("thread_suspend (0x%x) failed: %d", machThread, kr);
+        atomic_flag_clear(&g_captureLock);
         if (isTruncated) {
             *isTruncated = false;
         }
@@ -99,17 +118,8 @@ static int captureBacktraceFromOtherThread(thread_t machThread, uintptr_t *addre
     }
 #endif
 
+    atomic_flag_clear(&g_captureLock);
     return frameCount;
-}
-
-int ksbt_captureBacktraceFromMachThread(thread_t machThread, uintptr_t *addresses, int count)
-{
-    return ksbt_captureBacktraceFromMachThreadWithTruncation(machThread, addresses, count, NULL);
-}
-
-int ksbt_captureBacktrace(pthread_t thread, uintptr_t *addresses, int count)
-{
-    return ksbt_captureBacktraceFromMachThread(pthread_mach_thread_np(thread), addresses, count);
 }
 
 int ksbt_captureBacktraceFromMachThreadWithTruncation(thread_t machThread, uintptr_t *addresses, int count,
@@ -128,6 +138,16 @@ int ksbt_captureBacktraceFromMachThreadWithTruncation(thread_t machThread, uintp
         return captureBacktraceFromSelf(addresses, maxFrames, isTruncated);
     }
     return captureBacktraceFromOtherThread(machThread, addresses, maxFrames, isTruncated);
+}
+
+int ksbt_captureBacktraceFromMachThread(thread_t machThread, uintptr_t *addresses, int count)
+{
+    return ksbt_captureBacktraceFromMachThreadWithTruncation(machThread, addresses, count, NULL);
+}
+
+int ksbt_captureBacktrace(pthread_t thread, uintptr_t *addresses, int count)
+{
+    return ksbt_captureBacktraceFromMachThread(pthread_mach_thread_np(thread), addresses, count);
 }
 
 int ksbt_captureBacktraceWithTruncation(pthread_t thread, uintptr_t *addresses, int count, bool *isTruncated)

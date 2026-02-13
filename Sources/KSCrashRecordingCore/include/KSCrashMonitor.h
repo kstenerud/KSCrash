@@ -117,6 +117,26 @@ void kscm_setEventCallback(void (*onEvent)(struct KSCrash_MonitorContext *monito
  */
 const KSCrashMonitorAPI *kscm_getMonitor(const char *monitorId);
 
+/**
+ * Sets the callback used by monitors to obtain sidecar file paths for generic files.
+ *
+ * This must be called before monitors are activated. The callback is passed
+ * to monitors via the exception handler callbacks struct.
+ *
+ * @param provider The callback function, or NULL to disable sidecar support.
+ */
+void kscm_setSidecarFilePathProvider(KSCrashSidecarFilePathProviderFunc provider);
+
+/**
+ * Sets the callback used by monitors to obtain sidecar file paths for report-specific files.
+ *
+ * This must be called before monitors are activated. The callback is passed
+ * to monitors via the exception handler callbacks struct.
+ *
+ * @param provider The callback function, or NULL to disable sidecar support.
+ */
+void kscm_setSidecarReportPathProvider(KSCrashSidecarReportPathProviderFunc provider);
+
 #ifdef __cplusplus
 }
 #endif

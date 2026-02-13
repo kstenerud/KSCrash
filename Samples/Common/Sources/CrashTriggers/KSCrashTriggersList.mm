@@ -31,6 +31,7 @@
 #import <stdexcept>
 #import <thread>
 #import "CrashCallback.h"
+#import "KSCrash+Hang.h"
 #import "KSCrash.h"
 
 namespace sample_namespace
@@ -209,6 +210,28 @@ NSString *const KSCrashNSExceptionStacktraceFuncName = @"exceptionWithStacktrace
 
     // Block the main thread to trigger hang detection
     // The watchdog monitor should detect this and record a hang report
+    [NSThread sleepForTimeInterval:100.0];
+}
+
++ (void)trigger_other_watchdogTimeoutWithException
+{
+    // Register a hang observer to throw an exception once a hang is detected.
+    // This ensures the exception occurs while we're definitely in a hang state.
+    static id observerToken = nil;
+    observerToken = [KSCrash.sharedInstance
+        addHangObserver:^(KSHangChangeType change, uint64_t startTimestamp, uint64_t endTimestamp) {
+            if (change == KSHangChangeTypeStarted) {
+                // Hang detected - throw exception from background thread
+                dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+                    NSException *exc = [NSException exceptionWithName:NSGenericException
+                                                               reason:@"Exception during hang"
+                                                             userInfo:nil];
+                    [exc raise];
+                });
+            }
+        }];
+
+    // Block the main thread to trigger hang detection
     [NSThread sleepForTimeInterval:100.0];
 }
 
