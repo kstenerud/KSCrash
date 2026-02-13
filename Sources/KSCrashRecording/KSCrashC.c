@@ -486,3 +486,5 @@ int64_t kscrash_addUserReport(const char *report, int reportLength)
 }
 
 const char *kscrash_getRunID(void) { return g_runID; }
+
+const char *kscrash_namespaceIdentifier(void) { return KSCRASH_NS_STRING("KSCrash"); }
