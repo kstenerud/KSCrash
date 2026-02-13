@@ -1751,6 +1751,22 @@ static void writeSystemInfo(const KSCrashReportWriter *const writer, const char 
     writer->endContainer(writer);
 }
 
+static void writeLastExceptionBacktrace(const KSCrashReportWriter *const writer, const char *const key,
+                                        const KSCrash_MonitorContext *const crash,
+                                        KSReferencedImageSet *referencedImages)
+{
+    if (crash->exceptionStackCursor == NULL) {
+        return;
+    }
+    // Peek at the first frame to avoid writing an empty backtrace key.
+    KSStackCursor peekCursor = *((KSStackCursor *)crash->exceptionStackCursor);
+    if (!peekCursor.advanceCursor(&peekCursor)) {
+        return;
+    }
+    KSStackCursor cursor = *((KSStackCursor *)crash->exceptionStackCursor);
+    writeBacktrace(writer, key, &cursor, referencedImages);
+}
+
 static void writeDebugInfo(const KSCrashReportWriter *const writer, const char *const key,
                            const KSCrash_MonitorContext *const monitorContext)
 {
@@ -1811,6 +1827,8 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
             writeError(writer, KSCrashField_Error, monitorContext);
             ksfu_flushBufferedWriter(&bufferedWriter);
             writeThreads(writer, KSCrashField_Threads, monitorContext, g_introspectionRules.enabled, referencedImages);
+            ksfu_flushBufferedWriter(&bufferedWriter);
+            writeLastExceptionBacktrace(writer, KSCrashField_LastExceptionBacktrace, monitorContext, referencedImages);
             ksfu_flushBufferedWriter(&bufferedWriter);
             if (monitorContext->suspendedThreadsCount > 0) {
                 // Special case: If we only needed to suspend the environment to record the threads, then we can
