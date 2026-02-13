@@ -325,6 +325,21 @@
                 """
             XCTAssertEqual(extractPackageName(from: contents), "RealName")
         }
+
+        func testPackageInitInCommentAndStringBeforeRealDeclaration() {
+            // "Package(" in a comment or string before the real Package(…)
+            // is a realistic pattern. The parser finds the first "Package("
+            // then scans forward for name:, which lands on the real declaration.
+            let contents = """
+                // This manifest uses Package( to configure the build
+                let description = "Using Package( API"
+                let package = Package(
+                    name: "RealName",
+                    products: []
+                )
+                """
+            XCTAssertEqual(extractPackageName(from: contents), "RealName")
+        }
     }
 
     final class EndToEndDetectionTests: XCTestCase {

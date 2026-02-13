@@ -186,7 +186,9 @@ let warningFlags = [
 let kscrashNamespace: String? = {
     // Priority 1: Explicit env var override
     if let envValue = ProcessInfo.processInfo.environment["KSCRASH_NAMESPACE"] {
-        return envValue.isEmpty ? nil : envValue
+        if envValue.isEmpty { return nil }
+        let sanitized = String(envValue.map { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "_") ? $0 : "_" })
+        return sanitized.isEmpty ? nil : sanitized
     }
 
     // Priority 2: Auto-detect from checkout path
