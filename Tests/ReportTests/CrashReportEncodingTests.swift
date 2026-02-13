@@ -305,6 +305,82 @@ final class CrashReportEncodingTests: XCTestCase {
         XCTAssertNil(frames?[1].objectUUID)
     }
 
+    func testRoundTripCompactReport() throws {
+        // Compact report: only binary images referenced by frames are present.
+        // Frames carry object_uuid for self-contained symbolication.
+        let appImage = BinaryImage(
+            cpuSubtype: 9,
+            cpuType: 12,
+            imageAddr: 0x100000,
+            imageSize: 65536,
+            name: "/path/to/App",
+            uuid: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE"
+        )
+        let kernelImage = BinaryImage(
+            cpuSubtype: 9,
+            cpuType: 12,
+            imageAddr: 0x200000,
+            imageSize: 32768,
+            name: "/usr/lib/system/libsystem_kernel.dylib",
+            uuid: "11111111-2222-3333-4444-555555555555"
+        )
+
+        let report = BasicCrashReport(
+            binaryImages: [appImage, kernelImage],
+            crash: BasicCrashReport.Crash(
+                error: CrashError(type: .mach),
+                threads: [
+                    BasicCrashReport.Thread(
+                        backtrace: Backtrace(
+                            contents: [
+                                StackFrame(
+                                    instructionAddr: 0x100100,
+                                    objectAddr: 0x100000,
+                                    objectName: "App",
+                                    objectUUID: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE",
+                                    symbolName: "crashFunc"
+                                ),
+                                StackFrame(
+                                    instructionAddr: 0x200080,
+                                    objectAddr: 0x200000,
+                                    objectName: "libsystem_kernel.dylib",
+                                    objectUUID: "11111111-2222-3333-4444-555555555555",
+                                    symbolName: "__pthread_kill"
+                                ),
+                            ],
+                            skipped: 0
+                        ),
+                        crashed: true,
+                        currentThread: true,
+                        index: 0
+                    )
+                ]
+            ),
+            report: ReportInfo(id: "compact-roundtrip")
+        )
+
+        let (_, roundTripped) = try roundTrip(report)
+
+        // Verify compact binary images survive round-trip
+        XCTAssertEqual(roundTripped.binaryImages?.count, 2)
+
+        // Verify every frame's object_uuid and object_addr survive
+        let frames = roundTripped.crash.threads?[0].backtrace?.contents ?? []
+        XCTAssertEqual(frames.count, 2)
+        XCTAssertEqual(frames[0].objectUUID, "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE")
+        XCTAssertEqual(frames[0].objectAddr, 0x100000)
+        XCTAssertEqual(frames[1].objectUUID, "11111111-2222-3333-4444-555555555555")
+        XCTAssertEqual(frames[1].objectAddr, 0x200000)
+
+        // Verify the invariant: every frame's object_addr maps to a binary image
+        let imageAddrs = Set(roundTripped.binaryImages?.map(\.imageAddr) ?? [])
+        for frame in frames {
+            if let addr = frame.objectAddr {
+                XCTAssertTrue(imageAddrs.contains(addr))
+            }
+        }
+    }
+
     // MARK: - Encoding Key Verification
 
     func testEncodingUsesSnakeCaseKeys() throws {

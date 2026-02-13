@@ -258,6 +258,17 @@ typedef struct {
      */
     bool enableSigTermMonitoring;
 
+    /** If true, use compact binary image reporting.
+     *
+     * When enabled, the `binary_images` array is filtered to only include
+     * images referenced by backtrace frames. Images that only have
+     * crash_info but no backtrace reference are omitted — in practice
+     * the crashing image is almost always referenced by the backtrace.
+     *
+     * **Default**: false
+     */
+    bool enableCompactBinaryImages;
+
     /** Plugin monitors to register at install time.
      *
      * An array of `KSCrashMonitorAPI` structs that will be copied into static
@@ -338,6 +349,7 @@ static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
         .printPreviousLogOnStartup = false,
         .enableSwapCxaThrow = true,
         .enableSigTermMonitoring = false,
+        .enableCompactBinaryImages = false,
         .plugins = { .apis = NULL, .length = 0, .release = NULL },
     };
 }
