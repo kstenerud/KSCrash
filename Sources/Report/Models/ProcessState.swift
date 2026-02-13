@@ -27,7 +27,7 @@
 import Foundation
 
 /// Process state information including zombie exception data.
-public struct ProcessState: Decodable, Sendable {
+public struct ProcessState: Codable, Sendable {
     /// Information about the last deallocated NSException (for zombie detection).
     public let lastDeallocedNSException: LastDeallocedNSException?
 
@@ -37,7 +37,7 @@ public struct ProcessState: Decodable, Sendable {
 }
 
 /// Information about a deallocated NSException (zombie).
-public struct LastDeallocedNSException: Decodable, Sendable {
+public struct LastDeallocedNSException: Codable, Sendable {
     /// Memory address of the exception.
     public let address: UInt64?
 

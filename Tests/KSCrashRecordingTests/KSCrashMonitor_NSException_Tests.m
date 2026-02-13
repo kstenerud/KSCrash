@@ -46,26 +46,26 @@
 - (void)testInstallAndRemove
 {
     KSCrashMonitorAPI *api = kscm_nsexception_getAPI();
-    api->setEnabled(true);
-    XCTAssertTrue(api->isEnabled());
+    api->setEnabled(true, NULL);
+    XCTAssertTrue(api->isEnabled(NULL));
     [NSThread sleepForTimeInterval:0.1];
-    api->setEnabled(false);
-    XCTAssertFalse(api->isEnabled());
+    api->setEnabled(false, NULL);
+    XCTAssertFalse(api->isEnabled(NULL));
 }
 
 - (void)testDoubleInstallAndRemove
 {
     KSCrashMonitorAPI *api = kscm_nsexception_getAPI();
 
-    api->setEnabled(true);
-    XCTAssertTrue(api->isEnabled());
-    api->setEnabled(true);
-    XCTAssertTrue(api->isEnabled());
+    api->setEnabled(true, NULL);
+    XCTAssertTrue(api->isEnabled(NULL));
+    api->setEnabled(true, NULL);
+    XCTAssertTrue(api->isEnabled(NULL));
 
-    api->setEnabled(false);
-    XCTAssertFalse(api->isEnabled());
-    api->setEnabled(false);
-    XCTAssertFalse(api->isEnabled());
+    api->setEnabled(false, NULL);
+    XCTAssertFalse(api->isEnabled(NULL));
+    api->setEnabled(false, NULL);
+    XCTAssertFalse(api->isEnabled(NULL));
 }
 
 - (void)testReportUserNSException

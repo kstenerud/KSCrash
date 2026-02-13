@@ -2,6 +2,10 @@
 
 @preconcurrency import PackageDescription
 
+let metricKitSwiftSettings: [SwiftSetting] = [
+    .define("KSCRASH_HAS_METRICKIT", .when(platforms: [.iOS, .macOS, .visionOS]))
+]
+
 let warningFlags = [
     // The main ones
     "-Werror",
@@ -235,6 +239,10 @@ let package = Package(
         .library(
             name: "Profiler",
             targets: [Targets.profiler]
+        ),
+        .library(
+            name: "Monitors",
+            targets: [Targets.monitors]
         ),
         .library(
             name: "Report",
@@ -559,10 +567,21 @@ let package = Package(
         ),
 
         .target(
+            name: Targets.swiftCore
+        ),
+        .testTarget(
+            name: Targets.swiftCore.tests,
+            dependencies: [
+                .target(name: Targets.swiftCore)
+            ]
+        ),
+
+        .target(
             name: Targets.profiler,
             dependencies: [
                 .target(name: Targets.recordingCore),
                 .target(name: Targets.recording),
+                .target(name: Targets.swiftCore),
             ],
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy")
@@ -573,6 +592,28 @@ let package = Package(
             dependencies: [
                 .target(name: Targets.profiler)
             ]
+        ),
+
+        .target(
+            name: Targets.monitors,
+            dependencies: [
+                .target(name: Targets.recordingCore),
+                .target(name: Targets.recording),
+                .target(name: Targets.report),
+                .target(name: Targets.swiftCore),
+            ],
+            resources: [
+                .copy("Resources/PrivacyInfo.xcprivacy")
+            ],
+            swiftSettings: metricKitSwiftSettings
+        ),
+        .testTarget(
+            name: Targets.monitors.tests,
+            dependencies: [
+                .target(name: Targets.monitors),
+                .target(name: Targets.report),
+            ],
+            swiftSettings: metricKitSwiftSettings
         ),
     ],
     cxxLanguageStandard: .gnucxx11
@@ -595,7 +636,9 @@ enum Targets {
     static let benchmarks = "KSCrashBenchmarks"
     static let objcBenchmarks = "KSCrashBenchmarksObjC"
     static let coldBenchmarks = "KSCrashBenchmarksCold"
+    static let swiftCore = "SwiftCore"
     static let profiler = "KSCrashProfiler"
+    static let monitors = "Monitors"
 }
 
 extension String {

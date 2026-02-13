@@ -121,7 +121,7 @@ static void stubHandle_deprecated(KSCrash_MonitorContext *context) { stubHandle(
 - (void)testAddObserverReturnsToken
 {
     KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
-    api->setEnabled(true);
+    api->setEnabled(true, NULL);
 
     id token = [KSCrash.sharedInstance
         addHangObserver:^(__unused KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
@@ -129,13 +129,13 @@ static void stubHandle_deprecated(KSCrash_MonitorContext *context) { stubHandle(
 
     XCTAssertNotNil(token, @"Adding an observer should return a non-nil token");
 
-    api->setEnabled(false);
+    api->setEnabled(false, NULL);
 }
 
 - (void)testAddObserverWhenDisabledReturnsNil
 {
     KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
-    api->setEnabled(false);
+    api->setEnabled(false, NULL);
 
     id token = [KSCrash.sharedInstance
         addHangObserver:^(__unused KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
@@ -147,7 +147,7 @@ static void stubHandle_deprecated(KSCrash_MonitorContext *context) { stubHandle(
 - (void)testMultipleObserversCanBeAdded
 {
     KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
-    api->setEnabled(true);
+    api->setEnabled(true, NULL);
 
     id token1 = [KSCrash.sharedInstance
         addHangObserver:^(__unused KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
@@ -167,13 +167,13 @@ static void stubHandle_deprecated(KSCrash_MonitorContext *context) { stubHandle(
     XCTAssertNotEqual(token1, token2);
     XCTAssertNotEqual(token2, token3);
 
-    api->setEnabled(false);
+    api->setEnabled(false, NULL);
 }
 
 - (void)testObserverTokenIsWeaklyHeld
 {
     KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
-    api->setEnabled(true);
+    api->setEnabled(true, NULL);
 
     __weak id weakToken = nil;
     @autoreleasepool {
@@ -191,7 +191,7 @@ static void stubHandle_deprecated(KSCrash_MonitorContext *context) { stubHandle(
     // The weak reference should become nil
     XCTAssertNil(weakToken, @"Token should be deallocated when no longer retained");
 
-    api->setEnabled(false);
+    api->setEnabled(false, NULL);
 }
 
 #pragma mark - Hang Detection Tests
@@ -202,8 +202,8 @@ static void stubHandle_deprecated(KSCrash_MonitorContext *context) { stubHandle(
     KSCrash_ExceptionHandlerCallbacks callbacks = { .notify = stubNotify,
                                                     .handle = stubHandle_deprecated,
                                                     .handleWithResult = stubHandle };
-    api->init(&callbacks);
-    api->setEnabled(true);
+    api->init(&callbacks, NULL);
+    api->setEnabled(true, NULL);
 
     KSSempahore *waiter = [KSSempahore withValue:0];
     __block uint64_t receivedStart = 0;
@@ -227,7 +227,7 @@ static void stubHandle_deprecated(KSCrash_MonitorContext *context) { stubHandle(
     XCTAssertGreaterThan(receivedStart, 0ULL);
     XCTAssertGreaterThanOrEqual(receivedEnd, receivedStart);
 
-    api->setEnabled(false);
+    api->setEnabled(false, NULL);
 }
 
 - (void)testHangStartTimestampIsReasonable
@@ -236,8 +236,8 @@ static void stubHandle_deprecated(KSCrash_MonitorContext *context) { stubHandle(
     KSCrash_ExceptionHandlerCallbacks callbacks = { .notify = stubNotify,
                                                     .handle = stubHandle_deprecated,
                                                     .handleWithResult = stubHandle };
-    api->init(&callbacks);
-    api->setEnabled(true);
+    api->init(&callbacks, NULL);
+    api->setEnabled(true, NULL);
 
     KSSempahore *waiter = [KSSempahore withValue:0];
     __block uint64_t hangStart = 0;
@@ -266,7 +266,7 @@ static void stubHandle_deprecated(KSCrash_MonitorContext *context) { stubHandle(
     // But not excessively long
     XCTAssertLessThan(durationSeconds, 3.0, @"Hang duration shouldn't be unreasonably long");
 
-    api->setEnabled(false);
+    api->setEnabled(false, NULL);
 }
 
 - (void)testHangChangeTypeValues
@@ -283,53 +283,53 @@ static void stubHandle_deprecated(KSCrash_MonitorContext *context) { stubHandle(
 - (void)testInstallAndRemove
 {
     KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
-    api->setEnabled(true);
-    XCTAssertTrue(api->isEnabled());
-    api->setEnabled(false);
-    XCTAssertFalse(api->isEnabled());
+    api->setEnabled(true, NULL);
+    XCTAssertTrue(api->isEnabled(NULL));
+    api->setEnabled(false, NULL);
+    XCTAssertFalse(api->isEnabled(NULL));
 }
 
 - (void)testDoubleInstallAndRemove
 {
     KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
 
-    api->setEnabled(true);
-    XCTAssertTrue(api->isEnabled());
-    api->setEnabled(true);
-    XCTAssertTrue(api->isEnabled());
-    api->setEnabled(false);
-    XCTAssertFalse(api->isEnabled());
-    api->setEnabled(false);
-    XCTAssertFalse(api->isEnabled());
+    api->setEnabled(true, NULL);
+    XCTAssertTrue(api->isEnabled(NULL));
+    api->setEnabled(true, NULL);
+    XCTAssertTrue(api->isEnabled(NULL));
+    api->setEnabled(false, NULL);
+    XCTAssertFalse(api->isEnabled(NULL));
+    api->setEnabled(false, NULL);
+    XCTAssertFalse(api->isEnabled(NULL));
 }
 
 - (void)testReenableAfterDisable
 {
     KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
 
-    api->setEnabled(true);
-    XCTAssertTrue(api->isEnabled());
+    api->setEnabled(true, NULL);
+    XCTAssertTrue(api->isEnabled(NULL));
 
-    api->setEnabled(false);
-    XCTAssertFalse(api->isEnabled());
+    api->setEnabled(false, NULL);
+    XCTAssertFalse(api->isEnabled(NULL));
 
-    api->setEnabled(true);
-    XCTAssertTrue(api->isEnabled());
+    api->setEnabled(true, NULL);
+    XCTAssertTrue(api->isEnabled(NULL));
 
-    api->setEnabled(false);
-    XCTAssertFalse(api->isEnabled());
+    api->setEnabled(false, NULL);
+    XCTAssertFalse(api->isEnabled(NULL));
 }
 
 - (void)testMonitorId
 {
     KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
-    XCTAssertTrue(strcmp(api->monitorId(), "Watchdog") == 0);
+    XCTAssertTrue(strcmp(api->monitorId(NULL), "Watchdog") == 0);
 }
 
 - (void)testMonitorFlags
 {
     KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
-    XCTAssertEqual(api->monitorFlags(), KSCrashMonitorFlagNone);
+    XCTAssertEqual(api->monitorFlags(NULL), KSCrashMonitorFlagNone);
 }
 
 - (void)testCleanEnableDisable
@@ -337,11 +337,11 @@ static void stubHandle_deprecated(KSCrash_MonitorContext *context) { stubHandle(
     // Enable and disable multiple times to verify clean lifecycle
     KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
     for (int i = 0; i < 5; i++) {
-        api->setEnabled(true);
-        XCTAssertTrue(api->isEnabled());
+        api->setEnabled(true, NULL);
+        XCTAssertTrue(api->isEnabled(NULL));
         [NSThread sleepForTimeInterval:0.1];
-        api->setEnabled(false);
-        XCTAssertFalse(api->isEnabled());
+        api->setEnabled(false, NULL);
+        XCTAssertFalse(api->isEnabled(NULL));
     }
 }
 
@@ -350,10 +350,10 @@ static void stubHandle_deprecated(KSCrash_MonitorContext *context) { stubHandle(
     // Rapid enable/disable without sleep
     KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
     for (int i = 0; i < 10; i++) {
-        api->setEnabled(true);
-        XCTAssertTrue(api->isEnabled());
-        api->setEnabled(false);
-        XCTAssertFalse(api->isEnabled());
+        api->setEnabled(true, NULL);
+        XCTAssertTrue(api->isEnabled(NULL));
+        api->setEnabled(false, NULL);
+        XCTAssertFalse(api->isEnabled(NULL));
     }
 }
 

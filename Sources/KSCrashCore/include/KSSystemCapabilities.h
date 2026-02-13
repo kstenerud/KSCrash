@@ -157,6 +157,12 @@
 #define KSCRASH_HAS_REACHABILITY 0
 #endif
 
+#if __has_include(<MetricKit/MetricKit.h>)
+#define KSCRASH_HAS_METRICKIT 1
+#else
+#define KSCRASH_HAS_METRICKIT 0
+#endif
+
 // ============================================================================
 #pragma mark - Sanitizer Detection -
 // ============================================================================

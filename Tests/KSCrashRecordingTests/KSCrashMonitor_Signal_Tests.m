@@ -40,26 +40,26 @@
 - (void)testInstallAndRemove
 {
     KSCrashMonitorAPI *api = kscm_signal_getAPI();
-    api->setEnabled(true);
-    XCTAssertTrue(api->isEnabled());
+    api->setEnabled(true, NULL);
+    XCTAssertTrue(api->isEnabled(NULL));
     [NSThread sleepForTimeInterval:0.1];
-    api->setEnabled(false);
-    XCTAssertFalse(api->isEnabled());
+    api->setEnabled(false, NULL);
+    XCTAssertFalse(api->isEnabled(NULL));
 }
 
 - (void)testDoubleInstallAndRemove
 {
     KSCrashMonitorAPI *api = kscm_signal_getAPI();
 
-    api->setEnabled(true);
-    XCTAssertTrue(api->isEnabled());
-    api->setEnabled(true);
-    XCTAssertTrue(api->isEnabled());
+    api->setEnabled(true, NULL);
+    XCTAssertTrue(api->isEnabled(NULL));
+    api->setEnabled(true, NULL);
+    XCTAssertTrue(api->isEnabled(NULL));
 
-    api->setEnabled(false);
-    XCTAssertFalse(api->isEnabled());
-    api->setEnabled(false);
-    XCTAssertFalse(api->isEnabled());
+    api->setEnabled(false, NULL);
+    XCTAssertFalse(api->isEnabled(NULL));
+    api->setEnabled(false, NULL);
+    XCTAssertFalse(api->isEnabled(NULL));
 }
 
 #else
@@ -67,7 +67,7 @@
 - (void)testNoImplementation
 {
     KSCrashMonitorAPI *api = kscm_signal_getAPI();
-    XCTAssertTrue(api->monitorId() != NULL);
+    XCTAssertTrue(api->monitorId(NULL) != NULL);
 }
 
 #endif

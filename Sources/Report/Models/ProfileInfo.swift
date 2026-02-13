@@ -30,7 +30,7 @@ import Foundation
 ///
 /// Profile reports contain sampled backtraces captured during a profiling session,
 /// with frame deduplication to minimize file size.
-public struct ProfileInfo: Decodable, Sendable {
+public struct ProfileInfo: Codable, Sendable {
     /// Human-readable name for this profile session.
     public let name: String
 
@@ -79,7 +79,7 @@ public struct ProfileInfo: Decodable, Sendable {
 ///
 /// Each sample contains timing information and references to frames
 /// by index into the profile's frames array.
-public struct ProfileSample: Decodable, Sendable {
+public struct ProfileSample: Codable, Sendable {
     /// Monotonic timestamp when backtrace capture began.
     public let timeStartUptime: UInt64
 

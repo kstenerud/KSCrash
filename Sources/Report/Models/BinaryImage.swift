@@ -27,7 +27,7 @@
 import Foundation
 
 /// Information about a loaded binary image (executable, framework, or dylib).
-public struct BinaryImage: Decodable, Sendable {
+public struct BinaryImage: Codable, Sendable {
     /// CPU subtype of the binary.
     public let cpuSubtype: Int
 
@@ -69,6 +69,38 @@ public struct BinaryImage: Decodable, Sendable {
 
     /// Crash info signature.
     public let crashInfoSignature: String?
+
+    public init(
+        cpuSubtype: Int = 0,
+        cpuType: Int = 0,
+        imageAddr: UInt64,
+        imageVmAddr: UInt64? = nil,
+        imageSize: UInt64 = 0,
+        name: String,
+        uuid: String? = nil,
+        majorVersion: UInt64? = nil,
+        minorVersion: UInt64? = nil,
+        revisionVersion: UInt64? = nil,
+        crashInfoMessage: String? = nil,
+        crashInfoMessage2: String? = nil,
+        crashInfoBacktrace: String? = nil,
+        crashInfoSignature: String? = nil
+    ) {
+        self.cpuSubtype = cpuSubtype
+        self.cpuType = cpuType
+        self.imageAddr = imageAddr
+        self.imageVmAddr = imageVmAddr
+        self.imageSize = imageSize
+        self.name = name
+        self.uuid = uuid
+        self.majorVersion = majorVersion
+        self.minorVersion = minorVersion
+        self.revisionVersion = revisionVersion
+        self.crashInfoMessage = crashInfoMessage
+        self.crashInfoMessage2 = crashInfoMessage2
+        self.crashInfoBacktrace = crashInfoBacktrace
+        self.crashInfoSignature = crashInfoSignature
+    }
 
     enum CodingKeys: String, CodingKey {
         case cpuSubtype = "cpu_subtype"

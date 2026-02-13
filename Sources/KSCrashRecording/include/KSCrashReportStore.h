@@ -40,6 +40,12 @@ typedef NS_ENUM(NSUInteger, KSCrashReportCleanupPolicy) {
     KSCrashReportCleanupPolicyAlways,
 } NS_SWIFT_NAME(CrashReportCleanupPolicy);
 
+/** A unique identifier for a crash report. */
+typedef int64_t KSCrashReportID NS_SWIFT_NAME(CrashReportID);
+
+/** Sentinel value indicating no report is available. */
+FOUNDATION_EXTERN const KSCrashReportID KSCrashReportNoID;
+
 NS_SWIFT_NAME(CrashReportStore)
 @interface KSCrashReportStore : NSObject
 
@@ -102,6 +108,9 @@ NS_SWIFT_NAME(CrashReportStore)
 /** Get all unsent report IDs. */
 @property(nonatomic, readonly, strong) NSArray<NSNumber *> *reportIDs;
 
+/** Get the oldest unsent report ID, or KSCrashReportNoID if the store is empty. */
+@property(nonatomic, readonly, assign) KSCrashReportID nextReportID;
+
 /** Send all outstanding crash reports to the current sink.
  * It will only attempt to send the most recent 5 reports. All others will be
  * deleted. Once the reports are successfully sent to the server, they may be
@@ -124,7 +133,7 @@ NS_SWIFT_NAME(CrashReportStore)
  * @param reportID The ID of the report to send.
  * @param onCompletion Called when sending is complete (nil = ignore).
  */
-- (void)sendReportWithID:(int64_t)reportID completion:(nullable KSCrashReportFilterCompletion)onCompletion;
+- (void)sendReportWithID:(KSCrashReportID)reportID completion:(nullable KSCrashReportFilterCompletion)onCompletion;
 
 /** Send a single report by ID, optionally including current-run reports.
  *
@@ -134,7 +143,7 @@ NS_SWIFT_NAME(CrashReportStore)
  *                          with an error.
  * @param onCompletion Called when sending is complete (nil = ignore).
  */
-- (void)sendReportWithID:(int64_t)reportID
+- (void)sendReportWithID:(KSCrashReportID)reportID
        includeCurrentRun:(BOOL)includeCurrentRun
               completion:(nullable KSCrashReportFilterCompletion)onCompletion;
 
@@ -144,7 +153,7 @@ NS_SWIFT_NAME(CrashReportStore)
  *
  * @return A crash report with a dictionary value. The dectionary fields are described in KSCrashReportFields.h.
  */
-- (nullable KSCrashReportDictionary *)reportForID:(int64_t)reportID NS_SWIFT_NAME(report(for:));
+- (nullable KSCrashReportDictionary *)reportForID:(KSCrashReportID)reportID NS_SWIFT_NAME(report(for:));
 
 /** Delete all unsent reports.
  */
@@ -154,7 +163,7 @@ NS_SWIFT_NAME(CrashReportStore)
  *
  * @param reportID An ID of report to delete.
  */
-- (void)deleteReportWithID:(int64_t)reportID NS_SWIFT_NAME(deleteReport(with:));
+- (void)deleteReportWithID:(KSCrashReportID)reportID NS_SWIFT_NAME(deleteReport(with:));
 
 @end
 

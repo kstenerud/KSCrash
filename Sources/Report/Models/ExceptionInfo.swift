@@ -27,7 +27,7 @@
 import Foundation
 
 /// NSException details (Objective-C/Swift exceptions).
-public struct ExceptionInfo: Decodable, Sendable {
+public struct ExceptionInfo: Codable, Sendable {
     /// Exception name (e.g., "NSInvalidArgumentException").
     public let name: String
 
@@ -39,6 +39,18 @@ public struct ExceptionInfo: Decodable, Sendable {
 
     /// Referenced object that was involved in the exception.
     public let referencedObject: ReferencedObject?
+
+    public init(
+        name: String,
+        reason: String? = nil,
+        userInfo: String? = nil,
+        referencedObject: ReferencedObject? = nil
+    ) {
+        self.name = name
+        self.reason = reason
+        self.userInfo = userInfo
+        self.referencedObject = referencedObject
+    }
 
     enum CodingKeys: String, CodingKey {
         case name

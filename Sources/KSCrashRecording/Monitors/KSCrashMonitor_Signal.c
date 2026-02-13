@@ -70,7 +70,7 @@ static struct {
     KSCrash_ExceptionHandlerCallbacks callbacks;
 } g_state;
 
-static bool isEnabled(void) { return g_state.isEnabled && g_state.installedState == KSCM_Installed; }
+static bool isEnabled(__unused void *context) { return g_state.isEnabled && g_state.installedState == KSCM_Installed; }
 
 // ============================================================================
 #pragma mark - Private -
@@ -98,7 +98,7 @@ static bool shouldWriteReport(int sigNum) { return !(sigNum == SIGTERM && !g_sta
 static void handleSignal(int sigNum, siginfo_t *signalInfo, void *userContext)
 {
     KSLOG_DEBUG("Trapped signal %d", sigNum);
-    if (isEnabled()) {
+    if (isEnabled(NULL)) {
         thread_t thisThread = (thread_t)ksthread_self();
         KSCrash_MonitorContext *crashContext = g_state.callbacks.notify(
             thisThread, (KSCrash_ExceptionHandlingRequirements) { .asyncSafety = true,
@@ -225,11 +225,11 @@ static void uninstall(void)
     KSLOG_DEBUG("Signal handlers uninstalled.");
 }
 
-static const char *monitorId(void) { return "Signal"; }
+static const char *monitorId(__unused void *context) { return "Signal"; }
 
-static KSCrashMonitorFlag monitorFlags(void) { return KSCrashMonitorFlagAsyncSafe; }
+static KSCrashMonitorFlag monitorFlags(__unused void *context) { return KSCrashMonitorFlagAsyncSafe; }
 
-static void setEnabled(bool enabled)
+static void setEnabled(bool enabled, __unused void *context)
 {
     bool expectedState = !enabled;
     if (!atomic_compare_exchange_strong(&g_state.isEnabled, &expectedState, enabled)) {
@@ -242,20 +242,23 @@ static void setEnabled(bool enabled)
     }
 }
 
-static void addContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext)
+static void addContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext, __unused void *context)
 {
-    const char *machName = kscm_machexception_getAPI()->monitorId();
+    const char *machName = kscm_machexception_getAPI()->monitorId(NULL);
 
-    if (strcmp(eventContext->monitorId, kscm_watchdog_getAPI()->monitorId()) == 0) {
+    if (strcmp(eventContext->monitorId, kscm_watchdog_getAPI()->monitorId(NULL)) == 0) {
         // do nothing if this is being handled by the Hang monitor.
         return;
-    } else if (!(strcmp(eventContext->monitorId, monitorId()) == 0 ||
+    } else if (!(strcmp(eventContext->monitorId, monitorId(NULL)) == 0 ||
                  (machName && strcmp(eventContext->monitorId, machName) == 0))) {
         eventContext->signal.signum = SIGABRT;
     }
 }
 
-static void init(KSCrash_ExceptionHandlerCallbacks *callbacks) { g_state.callbacks = *callbacks; }
+static void init(KSCrash_ExceptionHandlerCallbacks *callbacks, __unused void *context)
+{
+    g_state.callbacks = *callbacks;
+}
 
 #endif /* KSCRASH_HAS_SIGNAL */
 

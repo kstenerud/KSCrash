@@ -1253,7 +1253,7 @@ static void writeMemoryInfo(const KSCrashReportWriter *const writer, const char 
 
 static inline bool isCrashOfMonitorType(const KSCrash_MonitorContext *const crash, const KSCrashMonitorAPI *monitorAPI)
 {
-    return ksstring_safeStrcmp(crash->monitorId, monitorAPI->monitorId()) == 0;
+    return ksstring_safeStrcmp(crash->monitorId, monitorAPI->monitorId(monitorAPI->context)) == 0;
 }
 
 /** Write information about the error leading to the crash to the report.
@@ -1402,7 +1402,7 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
             if (api && api->writeInReportSection) {
                 writer->beginObject(writer, crash->monitorId);
                 {
-                    api->writeInReportSection(crash, writer);
+                    api->writeInReportSection(crash, writer, api->context);
                 }
                 writer->endContainer(writer);
             }
@@ -1483,7 +1483,7 @@ static void writeProcessState(const KSCrashReportWriter *const writer, const cha
  * @param reportID The report ID.
  */
 static void writeReportInfo(const KSCrashReportWriter *const writer, const char *const key, const char *const type,
-                            const char *const reportID, const char *const processName)
+                            const char *const reportID, const char *const processName, const char *const monitorId)
 {
     writer->beginObject(writer, key);
     {
@@ -1493,6 +1493,9 @@ static void writeReportInfo(const KSCrashReportWriter *const writer, const char 
         writer->addUIntegerElement(writer, KSCrashField_Timestamp, ksdate_microseconds());
         writer->addStringElement(writer, KSCrashField_Type, type);
         writer->addStringElement(writer, KSCrashField_RunID, kscrash_getRunID());
+        if (monitorId != NULL) {
+            writer->addStringElement(writer, KSCrashField_MonitorId, monitorId);
+        }
     }
     writer->endContainer(writer);
 }
@@ -1570,7 +1573,7 @@ void kscrashreport_writeRecrashReport(const KSCrash_MonitorContext *const monito
             KSLOG_ERROR("Could not remove %s: %s", tempPath, strerror(errno));
         }
         writeReportInfo(writer, KSCrashField_Report, KSCrashReportType_Minimal, monitorContext->eventID,
-                        monitorContext->System.processName);
+                        monitorContext->System.processName, monitorContext->monitorId);
         ksfu_flushBufferedWriter(&bufferedWriter);
 
         writer->beginObject(writer, KSCrashField_Crash);
@@ -1696,7 +1699,7 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
     writer->beginObject(writer, KSCrashField_Report);
     {
         writeReportInfo(writer, KSCrashField_Report, KSCrashReportType_Standard, monitorContext->eventID,
-                        monitorContext->System.processName);
+                        monitorContext->System.processName, monitorContext->monitorId);
         ksfu_flushBufferedWriter(&bufferedWriter);
 
         if (!monitorContext->omitBinaryImages) {

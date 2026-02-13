@@ -181,6 +181,48 @@ int64_t kscrash_addUserReport(const char *report, int reportLength);
  */
 const char *kscrash_getRunID(void);
 
+/** Get the namespaced KSCrash name.
+ *
+ * Returns "KSCrash" by default, or "KSCrash<namespace>" when
+ * KSCRASH_NAMESPACE is defined.
+ *
+ * @return A null-terminated string. The pointer is to static storage.
+ */
+const char *kscrash_namespaceIdentifier(void);
+
+/** Get the namespaced KSCrash path under the Documents directory.
+ *
+ * Returns "<Documents>/KSCrash" (or "<Documents>/KSCrash<namespace>").
+ * The path is computed once and cached for the lifetime of the process.
+ *
+ * @return A null-terminated path string, or NULL if the directory
+ *         could not be resolved. The pointer is valid for the
+ *         lifetime of the process.
+ */
+const char *kscrash_documentsPath(void);
+
+/** Get the namespaced KSCrash path under the Application Support directory.
+ *
+ * Returns "<AppSupport>/KSCrash" (or "<AppSupport>/KSCrash<namespace>").
+ * The path is computed once and cached for the lifetime of the process.
+ *
+ * @return A null-terminated path string, or NULL if the directory
+ *         could not be resolved. The pointer is valid for the
+ *         lifetime of the process.
+ */
+const char *kscrash_applicationSupportPath(void);
+
+/** Get the namespaced KSCrash path under the Caches directory.
+ *
+ * Returns "<Caches>/KSCrash" (or "<Caches>/KSCrash<namespace>").
+ * The path is computed once and cached for the lifetime of the process.
+ *
+ * @return A null-terminated path string, or NULL if the directory
+ *         could not be resolved. The pointer is valid for the
+ *         lifetime of the process.
+ */
+const char *kscrash_cachesPath(void);
+
 #ifdef __cplusplus
 }
 #endif

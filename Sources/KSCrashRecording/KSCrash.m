@@ -86,6 +86,50 @@ NSString *kscrash_getDefaultInstallPath(void)
     return [cachePath stringByAppendingPathComponent:pathEnd];
 }
 
+static const char *kscrash_namespacedSearchPath(NSSearchPathDirectory directory)
+{
+    NSArray *directories = NSSearchPathForDirectoriesInDomains(directory, NSUserDomainMask, YES);
+    if ([directories count] == 0) {
+        return NULL;
+    }
+    NSString *basePath = [directories objectAtIndex:0];
+    if ([basePath length] == 0) {
+        return NULL;
+    }
+    NSString *path = [basePath stringByAppendingPathComponent:KSCRASH_NS_STRING(@"KSCrash")];
+    return strdup(path.UTF8String);
+}
+
+const char *kscrash_documentsPath(void)
+{
+    static const char *path = NULL;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        path = kscrash_namespacedSearchPath(NSDocumentDirectory);
+    });
+    return path;
+}
+
+const char *kscrash_applicationSupportPath(void)
+{
+    static const char *path = NULL;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        path = kscrash_namespacedSearchPath(NSApplicationSupportDirectory);
+    });
+    return path;
+}
+
+const char *kscrash_cachesPath(void)
+{
+    static const char *path = NULL;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        path = kscrash_namespacedSearchPath(NSCachesDirectory);
+    });
+    return path;
+}
+
 static void currentSnapshotUserReportedExceptionHandler(NSException *exception)
 {
     if (!gIsSharedInstanceCreated) {
@@ -196,7 +240,7 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
 - (NSDictionary *)systemInfo
 {
     KSCrash_MonitorContext fakeEvent = { 0 };
-    kscm_system_getAPI()->addContextualInfoToEvent(&fakeEvent);
+    kscm_system_getAPI()->addContextualInfoToEvent(&fakeEvent, NULL);
     NSMutableDictionary *dict = [NSMutableDictionary new];
 
 #define COPY_STRING(A) \

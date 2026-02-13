@@ -27,7 +27,7 @@
 import Foundation
 
 /// CPU register values.
-public struct Registers: Decodable, Sendable {
+public struct Registers: Codable, Sendable {
     /// Basic CPU registers (general purpose, etc.).
     public let basic: [String: UInt64]?
 
@@ -36,7 +36,7 @@ public struct Registers: Decodable, Sendable {
 }
 
 /// Exception-related register values.
-public struct ExceptionRegisters: Decodable, Sendable {
+public struct ExceptionRegisters: Codable, Sendable {
     /// Exception type.
     public let exception: UInt64?
 

@@ -27,4 +27,4 @@
 import Foundation
 
 /// Notable address information (for debugging object references).
-public struct NotableAddress: Decodable, Sendable {}
+public struct NotableAddress: Codable, Sendable {}
