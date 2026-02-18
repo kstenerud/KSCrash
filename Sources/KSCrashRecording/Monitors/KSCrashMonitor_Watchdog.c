@@ -46,6 +46,7 @@
 #include "KSCrashNamespace.h"
 #include "KSCrashReportFields.h"
 #include "KSDebug.h"
+#include "KSMachineContext.h"
 #include "KSFileUtils.h"
 #include "KSHang.h"
 #include "KSID.h"
@@ -282,18 +283,27 @@ static void notifyObservers(KSHangMonitor *monitor, KSHangChangeType type, uint6
 // Runs OUTSIDE the lock because report writing involves I/O.
 static void populateReportForCurrentHang(KSHangMonitor *monitor)
 {
-    // Snapshot the hang state.  The main thread could clear it between our
-    // snapshot and the report write — that's OK, we check again below.
-    os_unfair_lock_lock(&monitor->lock);
-    KSHangState hang = monitor->hang;
-    os_unfair_lock_unlock(&monitor->lock);
-
-    if (!hang.active) {
-        KSLOG_DEBUG("hang ended before report could be populated");
+    if (!g_callbacks.handleWithResult || !g_callbacks.notify) {
         return;
     }
 
-    if (!g_callbacks.handleWithResult || !g_callbacks.notify) {
+    // Snapshot the hang state and freeze all threads while holding the lock.
+    // Taking the lock first guarantees the main thread is not holding it when
+    // suspended — if it's in mainRunLoopActivity, we block until it releases.
+    // notify() will call ksmc_suspendEnvironment again (incrementing each
+    // thread's suspend count to 2) and its matching ksmc_resumeEnvironment
+    // drops it back to 1.  Our resume below drops it to 0.
+    thread_act_array_t suspendedThreads = NULL;
+    mach_msg_type_number_t suspendedThreadsCount = 0;
+
+    os_unfair_lock_lock(&monitor->lock);
+    KSHangState hang = monitor->hang;
+    ksmc_suspendEnvironment(&suspendedThreads, &suspendedThreadsCount);
+    os_unfair_lock_unlock(&monitor->lock);
+
+    if (!hang.active) {
+        ksmc_resumeEnvironment(&suspendedThreads, &suspendedThreadsCount);
+        KSLOG_DEBUG("hang ended before report could be populated");
         return;
     }
 
@@ -332,6 +342,8 @@ static void populateReportForCurrentHang(KSHangMonitor *monitor)
 
     KSCrash_ReportResult result = { 0 };
     g_callbacks.handleWithResult(crashContext, &result);
+
+    ksmc_resumeEnvironment(&suspendedThreads, &suspendedThreadsCount);
 
     // Re-check: the main thread may have resolved the hang while we were
     // writing the report.  Compare timestamps to make sure it's still the
