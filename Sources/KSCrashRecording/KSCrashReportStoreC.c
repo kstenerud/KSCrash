@@ -35,6 +35,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "KSCrashC.h"
 #include "KSCrashMonitor.h"
 #include "KSCrashMonitorRegistry.h"
 #include "KSCrashReportFixer.h"
@@ -150,6 +151,27 @@ static bool getSidecarFilePathForReport(const char *sidecarsBasePath, const char
     return getSidecarFilePath(sidecarsBasePath, monitorId, name, "ksscr", pathBuffer, pathBufferLength);
 }
 
+static bool getRunSidecarFilePath(const char *runSidecarsPath, const char *monitorId, char *pathBuffer,
+                                  size_t pathBufferLength)
+{
+    if (runSidecarsPath == NULL || monitorId == NULL || pathBuffer == NULL || pathBufferLength == 0) {
+        return false;
+    }
+    const char *runID = kscrash_getRunID();
+    if (runID == NULL || runID[0] == '\0') {
+        return false;
+    }
+    char runDir[KSCRS_MAX_PATH_LENGTH];
+    if (snprintf(runDir, sizeof(runDir), "%s/%s", runSidecarsPath, runID) >= (int)sizeof(runDir)) {
+        return false;
+    }
+    ksfu_makePath(runDir);
+    if (snprintf(pathBuffer, pathBufferLength, "%s/%s.ksscr", runDir, monitorId) >= (int)pathBufferLength) {
+        return false;
+    }
+    return true;
+}
+
 static void deleteSidecarsForReport(int64_t reportID, const KSCrashReportStoreCConfiguration *const config)
 {
     if (config->sidecarsPath == NULL) {
@@ -200,7 +222,7 @@ static char *stitchSidecarsIntoReport(char *report, int64_t reportID,
         if (access(sidecarPath, F_OK) != 0) {
             continue;
         }
-        char *stitched = api->stitchReport(report, reportID, sidecarPath, api->context);
+        char *stitched = api->stitchReport(report, sidecarPath, KSCrashSidecarScopeReport, api->context);
         if (stitched != NULL) {
             free(report);
             report = stitched;
@@ -210,12 +232,128 @@ static char *stitchSidecarsIntoReport(char *report, int64_t reportID,
     return report;
 }
 
+static char *stitchRunSidecarsIntoReport(char *report, const KSCrashReportStoreCConfiguration *const config)
+{
+    if (config->runSidecarsPath == NULL) {
+        return report;
+    }
+
+    char runId[64];
+    if (!kscrs_extractRunIdFromReport(report, runId, sizeof(runId))) {
+        return report;
+    }
+
+    char runDir[KSCRS_MAX_PATH_LENGTH];
+    if (snprintf(runDir, sizeof(runDir), "%s/%s", config->runSidecarsPath, runId) >= (int)sizeof(runDir)) {
+        return report;
+    }
+
+    DIR *dir = opendir(runDir);
+    if (dir == NULL) {
+        return report;
+    }
+
+    struct dirent *ent;
+    while ((ent = readdir(dir)) != NULL) {
+        if (ent->d_name[0] == '.') {
+            continue;
+        }
+        // Strip .ksscr extension to get monitorId
+        char monitorId[256];
+        const char *dot = strrchr(ent->d_name, '.');
+        if (dot == NULL) {
+            continue;
+        }
+        size_t nameLen = (size_t)(dot - ent->d_name);
+        if (nameLen == 0 || nameLen >= sizeof(monitorId)) {
+            continue;
+        }
+        memcpy(monitorId, ent->d_name, nameLen);
+        monitorId[nameLen] = '\0';
+
+        const KSCrashMonitorAPI *api = kscm_getMonitor(monitorId);
+        if (api == NULL || api->stitchReport == NULL) {
+            continue;
+        }
+
+        char sidecarPath[KSCRS_MAX_PATH_LENGTH];
+        if (snprintf(sidecarPath, sizeof(sidecarPath), "%s/%s", runDir, ent->d_name) >= (int)sizeof(sidecarPath)) {
+            continue;
+        }
+
+        char *stitched = api->stitchReport(report, sidecarPath, KSCrashSidecarScopeRun, api->context);
+        if (stitched != NULL) {
+            free(report);
+            report = stitched;
+        }
+    }
+    closedir(dir);
+    return report;
+}
+
+/** Delete the run sidecar directory if no remaining reports share the same run_id. */
+static void deleteRunSidecarsIfOrphaned(const char *runId, const KSCrashReportStoreCConfiguration *const config)
+{
+    if (config->runSidecarsPath == NULL || runId == NULL || runId[0] == '\0') {
+        return;
+    }
+
+    int reportCount = getReportCount(config);
+    if (reportCount > 0) {
+        int64_t reportIDs[reportCount];
+        reportCount = getReportIDs(reportIDs, reportCount, config);
+
+        for (int i = 0; i < reportCount; i++) {
+            char reportPath[KSCRS_MAX_PATH_LENGTH];
+            getCrashReportPathByID(reportIDs[i], reportPath, config);
+
+            char *reportJSON;
+            ksfu_readEntireFile(reportPath, &reportJSON, NULL, 20000000);
+            if (reportJSON == NULL) {
+                continue;
+            }
+
+            char otherRunId[64];
+            bool match = kscrs_extractRunIdFromReport(reportJSON, otherRunId, sizeof(otherRunId)) &&
+                         strcmp(otherRunId, runId) == 0;
+            free(reportJSON);
+            if (match) {
+                return;  // Another report shares this run_id, keep the run sidecars
+            }
+        }
+    }
+
+    // No remaining report shares this run_id — delete the run sidecar directory
+    char runDir[KSCRS_MAX_PATH_LENGTH];
+    if (snprintf(runDir, sizeof(runDir), "%s/%s", config->runSidecarsPath, runId) < (int)sizeof(runDir)) {
+        ksfu_deleteContentsOfPath(runDir);
+        ksfu_removeFile(runDir, false);
+    }
+}
+
 static void deleteReportWithID(int64_t reportID, const KSCrashReportStoreCConfiguration *const config)
 {
+    // Extract run_id before deleting the report file
+    char runId[64] = { 0 };
+    if (config->runSidecarsPath != NULL) {
+        char reportPath[KSCRS_MAX_PATH_LENGTH];
+        getCrashReportPathByID(reportID, reportPath, config);
+        char *reportJSON;
+        ksfu_readEntireFile(reportPath, &reportJSON, NULL, 20000000);
+        if (reportJSON != NULL) {
+            kscrs_extractRunIdFromReport(reportJSON, runId, sizeof(runId));
+            free(reportJSON);
+        }
+    }
+
     char path[KSCRS_MAX_PATH_LENGTH];
     getCrashReportPathByID(reportID, path, config);
     ksfu_removeFile(path, true);
     deleteSidecarsForReport(reportID, config);
+
+    if (runId[0] != '\0') {
+        deleteRunSidecarsIfOrphaned(runId, config);
+    }
 }
 
 static void pruneReports(const KSCrashReportStoreCConfiguration *const config)
@@ -264,6 +402,9 @@ KSCrashInstallErrorCode kscrs_initialize(const KSCrashReportStoreCConfiguration 
     } else {
         if (configuration->sidecarsPath != NULL) {
             ksfu_makePath(configuration->sidecarsPath);
+        }
+        if (configuration->runSidecarsPath != NULL) {
+            ksfu_makePath(configuration->runSidecarsPath);
         }
         pruneReports(configuration);
         initializeIDs();
@@ -315,8 +456,12 @@ static char *readReportAtPath(const char *path, int64_t reportID, const KSCrashR
         return NULL;
     }
 
-    if (reportID > 0 && config != NULL) {
-        result = stitchSidecarsIntoReport(result, reportID, config);
+    if (config != NULL) {
+        // Run sidecars first so per-report data can override per-run data
+        result = stitchRunSidecarsIntoReport(result, config);
+        if (reportID > 0) {
+            result = stitchSidecarsIntoReport(result, reportID, config);
+        }
     }
 
     return result;
@@ -379,6 +524,9 @@ void kscrs_deleteAllReports(const KSCrashReportStoreCConfiguration *const config
     if (configuration->sidecarsPath != NULL) {
         ksfu_deleteContentsOfPath(configuration->sidecarsPath);
     }
+    if (configuration->runSidecarsPath != NULL) {
+        ksfu_deleteContentsOfPath(configuration->runSidecarsPath);
+    }
     pthread_mutex_unlock(&g_mutex);
 }
 
@@ -400,4 +548,10 @@ bool kscrs_getSidecarFilePathForReport(const char *monitorId, int64_t reportID, 
                                        const KSCrashReportStoreCConfiguration *const configuration)
 {
     return getSidecarFilePathForReport(configuration->sidecarsPath, monitorId, reportID, pathBuffer, pathBufferLength);
+}
+
+bool kscrs_getRunSidecarFilePath(const char *monitorId, char *pathBuffer, size_t pathBufferLength,
+                                 const KSCrashReportStoreCConfiguration *const configuration)
+{
+    return getRunSidecarFilePath(configuration->runSidecarsPath, monitorId, pathBuffer, pathBufferLength);
 }
