@@ -68,6 +68,12 @@ typedef struct {
      */
     const char *sidecarsPath;
 
+    /** The directory path for storing per-run sidecar files.
+     * Layout: <runSidecarsPath>/<runID>/<monitorId>.ksscr
+     * If NULL, defaults to a "RunSidecars" sibling directory alongside reportsPath.
+     */
+    const char *runSidecarsPath;
+
     /** The maximum number of crash reports to retain on disk.
      *
      * Defines the upper limit of crash reports to keep in storage. When this threshold
@@ -84,6 +90,7 @@ static inline KSCrashReportStoreCConfiguration KSCrashReportStoreCConfiguration_
         .appName = NULL,
         .reportsPath = NULL,
         .sidecarsPath = NULL,
+        .runSidecarsPath = NULL,
         .maxReportCount = 5,
     };
 }
@@ -95,6 +102,7 @@ static inline KSCrashReportStoreCConfiguration KSCrashReportStoreCConfiguration_
         .appName = configuration->appName ? strdup(configuration->appName) : NULL,
         .reportsPath = configuration->reportsPath ? strdup(configuration->reportsPath) : NULL,
         .sidecarsPath = configuration->sidecarsPath ? strdup(configuration->sidecarsPath) : NULL,
+        .runSidecarsPath = configuration->runSidecarsPath ? strdup(configuration->runSidecarsPath) : NULL,
         .maxReportCount = configuration->maxReportCount,
     };
 }
@@ -104,6 +112,7 @@ static inline void KSCrashReportStoreCConfiguration_Release(KSCrashReportStoreCC
     free((void *)configuration->appName);
     free((void *)configuration->reportsPath);
     free((void *)configuration->sidecarsPath);
+    free((void *)configuration->runSidecarsPath);
 }
 
 /** Configuration for KSCrash settings.
