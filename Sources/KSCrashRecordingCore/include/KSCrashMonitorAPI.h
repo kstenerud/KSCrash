@@ -46,7 +46,7 @@ extern "C" {
  * allowing Swift (or other) monitors to recover instance state without globals.
  * Built-in C monitors set context to NULL and ignore the parameter.
  */
-typedef struct {
+typedef struct KSCrashMonitorAPI {
     /** Opaque pointer passed as the last argument to every callback.
      *  Monitors can use this to store instance-specific data (e.g., an
      *  Unmanaged<Self> pointer in Swift). NULL for built-in C monitors. */

@@ -25,7 +25,10 @@
 //
 
 #import <Foundation/Foundation.h>
-#import "KSCrashMonitorAPI.h"
+
+// Forward declaration only — the full definition lives in KSCrashRecordingCore's KSCrashMonitorAPI.h.
+// Import that header directly if you need to create or populate the struct.
+typedef struct KSCrashMonitorAPI KSCrashMonitorAPI;
 
 NS_ASSUME_NONNULL_BEGIN
 
