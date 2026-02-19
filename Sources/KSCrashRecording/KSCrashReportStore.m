@@ -94,19 +94,24 @@ const KSCrashReportID KSCrashReportNoID = 0;
 
 - (void)sendAllReportsWithCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
-    NSArray *allReports = [self allReports];
-
-    // Reports from the current run may still be updated, so only send
-    // ones we know are complete.
+    NSArray<NSNumber *> *allIDs = [self reportIDs];
     NSString *currentRunID = [NSString stringWithUTF8String:kscrash_getRunID()];
-    NSMutableArray *reports = [NSMutableArray arrayWithCapacity:allReports.count];
-    for (KSCrashReportDictionary *report in allReports) {
+
+    // Load reports, skipping ones from the current run (they may still be updated).
+    NSMutableArray *reports = [NSMutableArray arrayWithCapacity:allIDs.count];
+    NSMutableArray<NSNumber *> *sentIDs = [NSMutableArray arrayWithCapacity:allIDs.count];
+    for (NSNumber *numericID in allIDs) {
+        KSCrashReportDictionary *report = [self reportForID:numericID.longLongValue];
+        if (report == nil) {
+            continue;
+        }
         NSString *reportRunID = report.value[@"report"][@"run_id"];
         if ([reportRunID isEqualToString:currentRunID]) {
             KSLOG_INFO(@"Skipping report from current run (run_id: %@)", currentRunID);
             continue;
         }
         [reports addObject:report];
+        [sentIDs addObject:numericID];
     }
 
     KSLOG_INFO(@"Sending %d crash reports", [reports count]);
@@ -120,7 +125,9 @@ const KSCrashReportID KSCrashReportNoID = 0;
              }
              if ((self.reportCleanupPolicy == KSCrashReportCleanupPolicyOnSuccess && error == nil) ||
                  self.reportCleanupPolicy == KSCrashReportCleanupPolicyAlways) {
-                 [weakSelf deleteAllReports];
+                 for (NSNumber *reportID in sentIDs) {
+                     [weakSelf deleteReportWithID:reportID.longLongValue];
+                 }
              }
              kscrash_callCompletion(onCompletion, filteredReports, error);
          }];
