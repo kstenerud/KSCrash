@@ -1,5 +1,6 @@
 // swift-tools-version:5.9
 
+import Foundation
 @preconcurrency import PackageDescription
 
 let warningFlags = [
@@ -182,6 +183,69 @@ let warningFlags = [
     //"-Wnullable-to-nonnull-conversion",
 ]
 
+let kscrashNamespace: String? = {
+    // Priority 1: Explicit env var override
+    if let envValue = ProcessInfo.processInfo.environment["KSCRASH_NAMESPACE"] {
+        if envValue.isEmpty { return nil }
+        let sanitized = String(envValue.map { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "_") ? $0 : "_" })
+        return sanitized.isEmpty ? nil : sanitized
+    }
+
+    // Priority 2: Auto-detect from checkout path
+    // SPM CLI: <ConsumerRoot>/.build/checkouts/KSCrash/Package.swift
+    // Xcode:   <DerivedData>/<ProjectName-hash>/SourcePackages/checkouts/KSCrash/Package.swift
+    let packageURL = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+
+    // Walk up to find the innermost "checkouts" ancestor
+    var ancestor = packageURL
+    var checkoutsURL: URL?
+    while ancestor.path != "/" {
+        if ancestor.lastPathComponent == "checkouts" {
+            checkoutsURL = ancestor
+            break
+        }
+        ancestor = ancestor.deletingLastPathComponent()
+    }
+    guard let checkoutsURL else {
+        return nil  // Not a dependency checkout — development mode
+    }
+
+    let rawName: String?
+    let parentURL = checkoutsURL.deletingLastPathComponent()
+    let parentName = parentURL.lastPathComponent
+
+    if parentName == ".build" {
+        // SPM CLI — consumer's Package.swift is in the parent of .build
+        let consumerRoot = parentURL.deletingLastPathComponent()
+        let manifestURL = consumerRoot.appendingPathComponent("Package.swift")
+        guard let contents = try? String(contentsOf: manifestURL, encoding: .utf8),
+            let packageInit = contents.range(of: "Package("),
+            let nameStart = contents[packageInit.upperBound...].range(of: "name\\s*:", options: .regularExpression),
+            let openQuote = contents[nameStart.upperBound...].firstIndex(of: "\"")
+        else { return nil }
+        let afterOpen = contents.index(after: openQuote)
+        guard let closeQuote = contents[afterOpen...].firstIndex(of: "\"") else { return nil }
+        rawName = String(contents[afterOpen..<closeQuote])
+    } else if parentName == "SourcePackages" {
+        // Xcode — extract project name from DerivedData subdirectory
+        // e.g. "MyApp-bwrfhsjkqlnvep" → "MyApp"
+        let derivedDataSubdir = parentURL.deletingLastPathComponent().lastPathComponent
+        guard let lastHyphen = derivedDataSubdir.lastIndex(of: "-") else { return nil }
+        rawName = String(derivedDataSubdir[..<lastHyphen])
+    } else {
+        return nil  // Not a recognized checkout layout
+    }
+
+    guard let rawName, !rawName.isEmpty else { return nil }
+
+    // Sanitize to valid C identifier suffix
+    let sanitized = String(rawName.map { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "_") ? $0 : "_" })
+    return sanitized.isEmpty ? nil : "_" + sanitized
+}()
+
+let namespaceCSettings: [CSetting] = kscrashNamespace.map { [.define("KSCRASH_NAMESPACE", to: $0)] } ?? []
+let namespaceCXXSettings: [CXXSetting] = kscrashNamespace.map { [.define("KSCRASH_NAMESPACE", to: $0)] } ?? []
+
 let package = Package(
     name: "KSCrash",
     platforms: [
@@ -256,13 +320,13 @@ let package = Package(
                 .headerSearchPath("Monitors"),
                 .headerSearchPath("../KSCrashRecordingCore/include"),  // For internal Unwind/ headers
                 .unsafeFlags(warningFlags),
-            ],
+            ] + namespaceCSettings,
             cxxSettings: [
                 .headerSearchPath("."),
                 .headerSearchPath("Monitors"),
                 .headerSearchPath("../KSCrashRecordingCore/include"),  // For internal Unwind/ headers
                 .unsafeFlags(warningFlags),
-            ]
+            ] + namespaceCXXSettings
         ),
         .testTarget(
             name: Targets.recording.tests,
@@ -279,7 +343,7 @@ let package = Package(
                 .headerSearchPath("../../Sources/\(Targets.recording)/Monitors"),
                 .headerSearchPath("../../Sources/\(Targets.recordingCore)/include"),  // For internal Unwind/ headers
                 .unsafeFlags(warningFlags),
-            ]
+            ] + namespaceCSettings
         ),
 
         .target(
@@ -294,7 +358,7 @@ let package = Package(
             ],
             cSettings: [
                 .unsafeFlags(warningFlags)
-            ]
+            ] + namespaceCSettings
         ),
         .testTarget(
             name: Targets.filters.tests,
@@ -309,7 +373,7 @@ let package = Package(
             ],
             cSettings: [
                 .unsafeFlags(warningFlags)
-            ]
+            ] + namespaceCSettings
         ),
 
         .target(
@@ -323,7 +387,7 @@ let package = Package(
             ],
             cSettings: [
                 .unsafeFlags(warningFlags)
-            ]
+            ] + namespaceCSettings
         ),
 
         .target(
@@ -339,7 +403,7 @@ let package = Package(
             ],
             cSettings: [
                 .unsafeFlags(warningFlags)
-            ]
+            ] + namespaceCSettings
         ),
         .testTarget(
             name: Targets.installations.tests,
@@ -351,7 +415,7 @@ let package = Package(
             ],
             cSettings: [
                 .unsafeFlags(warningFlags)
-            ]
+            ] + namespaceCSettings
         ),
 
         .target(
@@ -364,7 +428,7 @@ let package = Package(
             ],
             cSettings: [
                 .unsafeFlags(warningFlags)
-            ]
+            ] + namespaceCSettings
         ),
         .testTarget(
             name: Targets.recordingCore.tests,
@@ -375,7 +439,7 @@ let package = Package(
             ],
             cSettings: [
                 .unsafeFlags(warningFlags)
-            ]
+            ] + namespaceCSettings
         ),
         .testTarget(
             name: Targets.recordingCoreSwift.tests,
@@ -384,7 +448,7 @@ let package = Package(
             ],
             cSettings: [
                 .unsafeFlags(warningFlags)
-            ]
+            ] + namespaceCSettings
         ),
 
         .target(
@@ -397,7 +461,7 @@ let package = Package(
             ],
             cSettings: [
                 .unsafeFlags(warningFlags)
-            ],
+            ] + namespaceCSettings,
             linkerSettings: [
                 .linkedLibrary("z")
             ]
@@ -410,7 +474,7 @@ let package = Package(
             ],
             cSettings: [
                 .unsafeFlags(warningFlags)
-            ]
+            ] + namespaceCSettings
         ),
 
         .target(
@@ -420,7 +484,7 @@ let package = Package(
             ],
             cSettings: [
                 .unsafeFlags(warningFlags)
-            ]
+            ] + namespaceCSettings
         ),
         .testTarget(
             name: Targets.core.tests,
@@ -429,7 +493,7 @@ let package = Package(
             ],
             cSettings: [
                 .unsafeFlags(warningFlags)
-            ]
+            ] + namespaceCSettings
         ),
 
         .target(
@@ -442,7 +506,7 @@ let package = Package(
             ],
             cSettings: [
                 .unsafeFlags(warningFlags)
-            ]
+            ] + namespaceCSettings
         ),
         .testTarget(
             name: Targets.discSpaceMonitor.tests,
@@ -452,7 +516,7 @@ let package = Package(
             ],
             cSettings: [
                 .unsafeFlags(warningFlags)
-            ]
+            ] + namespaceCSettings
         ),
 
         .target(
@@ -465,7 +529,7 @@ let package = Package(
             ],
             cSettings: [
                 .unsafeFlags(warningFlags)
-            ]
+            ] + namespaceCSettings
         ),
         .testTarget(
             name: Targets.bootTimeMonitor.tests,
@@ -475,7 +539,7 @@ let package = Package(
             ],
             cSettings: [
                 .unsafeFlags(warningFlags)
-            ]
+            ] + namespaceCSettings
         ),
 
         .target(
@@ -488,10 +552,10 @@ let package = Package(
             ],
             cSettings: [
                 .unsafeFlags(warningFlags)
-            ],
+            ] + namespaceCSettings,
             cxxSettings: [
                 .unsafeFlags(warningFlags)
-            ]
+            ] + namespaceCXXSettings
         ),
         .testTarget(
             name: Targets.demangleFilter.tests,
@@ -501,7 +565,7 @@ let package = Package(
             ],
             cSettings: [
                 .unsafeFlags(warningFlags)
-            ]
+            ] + namespaceCSettings
         ),
 
         .target(
@@ -527,7 +591,7 @@ let package = Package(
             ],
             cSettings: [
                 .unsafeFlags(warningFlags)
-            ]
+            ] + namespaceCSettings
         ),
 
         .testTarget(
@@ -547,7 +611,7 @@ let package = Package(
             ],
             cSettings: [
                 .headerSearchPath("../../Sources/\(Targets.recording)")
-            ]
+            ] + namespaceCSettings
         ),
 
         .testTarget(
@@ -574,6 +638,10 @@ let package = Package(
                 .target(name: Targets.profiler)
             ]
         ),
+
+        .testTarget(
+            name: Targets.namespaceDetection.tests
+        ),
     ],
     cxxLanguageStandard: .gnucxx11
 )
@@ -596,6 +664,7 @@ enum Targets {
     static let objcBenchmarks = "KSCrashBenchmarksObjC"
     static let coldBenchmarks = "KSCrashBenchmarksCold"
     static let profiler = "KSCrashProfiler"
+    static let namespaceDetection = "KSCrashNamespaceDetection"
 }
 
 extension String {

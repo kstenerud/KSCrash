@@ -62,6 +62,7 @@ SWIFT_NAME_IGNORED = [
 FUNCTION_NAME_IGNORED = [
                             re.compile("^__CF.*"),
                             re.compile("^CF_.*"),
+                            re.compile("^KSCRASH_DEPRECATED$"),
                             re.compile("^NS_.*"),
                         ]
 
