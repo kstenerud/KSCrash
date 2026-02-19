@@ -40,32 +40,43 @@ extern "C" {
 /**
  * Monitor API.
  * WARNING: All functions MUST be idempotent!
+ *
+ * Every callback receives a `context` pointer as its last parameter.
+ * This is the same pointer stored in the `context` field of this struct,
+ * allowing Swift (or other) monitors to recover instance state without globals.
+ * Built-in C monitors set context to NULL and ignore the parameter.
  */
-typedef struct {
+typedef struct KSCrashMonitorAPI {
+    /** Opaque pointer passed as the last argument to every callback.
+     *  Monitors can use this to store instance-specific data (e.g., an
+     *  Unmanaged<Self> pointer in Swift). NULL for built-in C monitors. */
+    void *context;
+
     /**
      * Initialize the monitor.
      * The monitor MUST NOT install or activate anything! This is merely to configure things for when it activates.
      * @param callbacks The callbacks that the monitor may call when reporting an exception.
+     * @param context The monitor's opaque context pointer.
      */
-    void (*init)(KSCrash_ExceptionHandlerCallbacks *callbacks);
+    void (*init)(KSCrash_ExceptionHandlerCallbacks *callbacks, void *context);
 
     /** Returns the unique identifier for this monitor (e.g., "mach", "signal", "profile"). */
-    const char *(*monitorId)(void);
+    const char *(*monitorId)(void *context);
 
     /** Returns the flags describing this monitor's capabilities and requirements. */
-    KSCrashMonitorFlag (*monitorFlags)(void);
+    KSCrashMonitorFlag (*monitorFlags)(void *context);
 
     /** Enables or disables this monitor. */
-    void (*setEnabled)(bool isEnabled);
+    void (*setEnabled)(bool isEnabled, void *context);
 
     /** Returns whether this monitor is currently enabled. */
-    bool (*isEnabled)(void);
+    bool (*isEnabled)(void *context);
 
     /** Called to allow the monitor to add contextual information to an event context. */
-    void (*addContextualInfoToEvent)(KSCrash_MonitorContext *eventContext);
+    void (*addContextualInfoToEvent)(KSCrash_MonitorContext *eventContext, void *context);
 
     /** Called after the system monitors have been enabled. */
-    void (*notifyPostSystemEnable)(void);
+    void (*notifyPostSystemEnable)(void *context);
 
     /**
      * Called during report writing to allow the monitor to write custom data to its section.
@@ -76,10 +87,12 @@ typedef struct {
      *
      * @param eventContext The monitor context containing event information.
      * @param writer The report writer to use for adding JSON elements.
+     * @param context The monitor's opaque context pointer.
      *
      * @note This callback is optional. If NULL, no custom section will be written for this monitor.
      */
-    void (*writeInReportSection)(const KSCrash_MonitorContext *eventContext, const KSCrashReportWriter *writer);
+    void (*writeInReportSection)(const KSCrash_MonitorContext *eventContext, const KSCrashReportWriter *writer,
+                                 void *context);
 
     /**
      * Called at report delivery time to stitch sidecar data into a report.
@@ -91,6 +104,7 @@ typedef struct {
      * @param report The NULL-terminated JSON report string.
      * @param reportID The ID of the report being stitched.
      * @param sidecarPath The full path to the sidecar file for this report.
+     * @param context The monitor's opaque context pointer.
      *
      * @return A malloc'd NULL-terminated string with the stitched report,
      *         or NULL to leave the report unchanged. The caller will free the returned buffer.
@@ -98,7 +112,7 @@ typedef struct {
      * @note This callback is optional. If NULL, no stitching is performed.
      *       This runs at normal app startup time, not during crash handling.
      */
-    char *(*stitchReport)(const char *report, int64_t reportID, const char *sidecarPath);
+    char *(*stitchReport)(const char *report, int64_t reportID, const char *sidecarPath, void *context);
 } KSCrashMonitorAPI;
 
 /**

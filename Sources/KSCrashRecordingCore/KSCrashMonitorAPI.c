@@ -7,14 +7,18 @@
 
 #include "KSCrashMonitorAPI.h"
 
-static void default_init(__unused KSCrash_ExceptionHandlerCallbacks *callbacks) {}
-static KSCrashMonitorFlag default_monitorFlags(void) { return 0; }
-static const char *default_monitorId(void) { return "unset"; }
-static void default_setEnabled(__unused bool isEnabled) {}
-static bool default_isEnabled(void) { return false; }
-static void default_addContextualInfoToEvent(__unused struct KSCrash_MonitorContext *eventContext) {}
-static void default_notifyPostSystemEnable(void) {}
+static void default_init(__unused KSCrash_ExceptionHandlerCallbacks *callbacks, __unused void *context) {}
+static KSCrashMonitorFlag default_monitorFlags(__unused void *context) { return 0; }
+static const char *default_monitorId(__unused void *context) { return "unset"; }
+static void default_setEnabled(__unused bool isEnabled, __unused void *context) {}
+static bool default_isEnabled(__unused void *context) { return false; }
+static void default_addContextualInfoToEvent(__unused struct KSCrash_MonitorContext *eventContext,
+                                             __unused void *context)
+{
+}
+static void default_notifyPostSystemEnable(__unused void *context) {}
 static KSCrashMonitorAPI g_defaultAPI = {
+    .context = NULL,
     .init = default_init,
     .monitorId = default_monitorId,
     .monitorFlags = default_monitorFlags,

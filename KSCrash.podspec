@@ -84,13 +84,41 @@ Pod::Spec.new do |s|
     configure_subspec.call(demangle_filter)
   end
 
+  s.subspec 'SwiftCore' do |swift_core|
+    module_name = 'SwiftCore'
+    swift_core.source_files = "Sources/#{module_name}/**/*.swift"
+  end
+
   s.subspec 'Profiler' do |profiler|
     profiler.dependency 'KSCrash/RecordingCore'
     profiler.dependency 'KSCrash/Recording'
+    profiler.dependency 'KSCrash/SwiftCore'
 
     module_name = 'KSCrashProfiler'
     profiler.source_files = "Sources/#{module_name}/**/*.swift"
     profiler.resource_bundles = { module_name => "Sources/#{module_name}/Resources/PrivacyInfo.xcprivacy" }
+  end
+
+  s.subspec 'Report' do |report|
+    module_name = 'Report'
+    report.source_files = "Sources/#{module_name}/**/*.swift"
+    report.resource_bundles = { module_name => "Sources/#{module_name}/Resources/PrivacyInfo.xcprivacy" }
+  end
+
+  s.subspec 'Monitors' do |monitors|
+    monitors.dependency 'KSCrash/RecordingCore'
+    monitors.dependency 'KSCrash/Recording'
+    monitors.dependency 'KSCrash/Report'
+    monitors.dependency 'KSCrash/SwiftCore'
+
+    module_name = 'Monitors'
+    monitors.source_files = "Sources/#{module_name}/**/*.swift"
+    monitors.resource_bundles = { module_name => "Sources/#{module_name}/Resources/PrivacyInfo.xcprivacy" }
+
+    # Must match metricKitSwiftSettings in Package.swift
+    monitors.ios.pod_target_xcconfig = { 'OTHER_SWIFT_FLAGS' => '-DKSCRASH_HAS_METRICKIT' }
+    monitors.osx.pod_target_xcconfig = { 'OTHER_SWIFT_FLAGS' => '-DKSCRASH_HAS_METRICKIT' }
+    monitors.visionos.pod_target_xcconfig = { 'OTHER_SWIFT_FLAGS' => '-DKSCRASH_HAS_METRICKIT' }
   end
 
   s.subspec 'ReportingCore' do |reporting_core|

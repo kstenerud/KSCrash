@@ -63,6 +63,7 @@
 #include "KSLogger.h"
 
 #define KSC_MAX_APP_NAME_LENGTH 100
+#define KSC_MAX_PLUGINS 64
 
 typedef enum {
     KSApplicationStateNone,
@@ -117,6 +118,8 @@ static KSCrashWillWriteReportCallback g_willWriteReportCallback;
 static KSCrashIsWritingReportCallback g_isWritingReportCallback;
 static KSCrashDidWriteReportCallback g_didWriteReportCallback;
 static KSApplicationState g_lastApplicationState = KSApplicationStateNone;
+static KSCrashMonitorAPI g_plugins[KSC_MAX_PLUGINS];
+static int g_pluginCount = 0;
 
 // Run ID: a UUID generated once during kscrash_install().
 // Read-only after that, so safe to access from crash handlers.
@@ -237,6 +240,19 @@ static void onExceptionEvent(struct KSCrash_MonitorContext *monitorContext, KSCr
             KSCrash_ExceptionHandlingPlan plan = ksexc_monitorContextToPlan(monitorContext);
             g_didWriteReportCallback(&plan, reportID);
         }
+    }
+}
+
+static void setPluginMonitors(KSCrashMonitorAPI *apis, int count)
+{
+    g_pluginCount = 0;
+    if (apis == NULL || count <= 0) {
+        return;
+    }
+    for (int i = 0; i < count && i < KSC_MAX_PLUGINS; i++) {
+        g_plugins[i] = apis[i];
+        kscm_addMonitor(&g_plugins[i]);
+        g_pluginCount++;
     }
 }
 
@@ -404,7 +420,10 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     ksdl_init();
 
     kscm_setEventCallbackWithResult(onExceptionEvent);
+
     setMonitors(configuration->monitors);
+    setPluginMonitors(configuration->plugins.apis, configuration->plugins.length);
+
     if (kscm_activateMonitors() == false) {
         KSLOG_ERROR("No crash monitors are active");
         return KSCrashInstallErrorNoActiveMonitors;
@@ -467,3 +486,5 @@ int64_t kscrash_addUserReport(const char *report, int reportLength)
 }
 
 const char *kscrash_getRunID(void) { return g_runID; }
+
+const char *kscrash_namespaceIdentifier(void) { return KSCRASH_NS_STRING("KSCrash"); }

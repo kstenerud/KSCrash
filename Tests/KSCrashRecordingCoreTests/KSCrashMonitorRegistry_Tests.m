@@ -44,40 +44,43 @@ static const char *const g_eventID = "TestEventID";
 static const char *g_copiedEventID = NULL;
 
 static KSCrash_ExceptionHandlerCallbacks dummyExceptionHandlerCallbacks;
-static void dummyInit(KSCrash_ExceptionHandlerCallbacks *callbacks) { dummyExceptionHandlerCallbacks = *callbacks; }
+static void dummyInit(KSCrash_ExceptionHandlerCallbacks *callbacks, __unused void *context)
+{
+    dummyExceptionHandlerCallbacks = *callbacks;
+}
 
-static const char *dummyMonitorId(void) { return "Dummy Monitor"; }
-static const char *newMonitorId(void) { return "New Monitor"; }
+static const char *dummyMonitorId(__unused void *context) { return "Dummy Monitor"; }
+static const char *newMonitorId(__unused void *context) { return "New Monitor"; }
 
-static KSCrashMonitorFlag dummyMonitorFlags(void) { return KSCrashMonitorFlagAsyncSafe; }
+static KSCrashMonitorFlag dummyMonitorFlags(__unused void *context) { return KSCrashMonitorFlagAsyncSafe; }
 
-static void dummySetEnabled(bool isEnabled) { g_dummyEnabledState = isEnabled; }
-static bool dummyIsEnabled(void) { return g_dummyEnabledState; }
-static void dummyAddContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext)
+static void dummySetEnabled(bool isEnabled, __unused void *context) { g_dummyEnabledState = isEnabled; }
+static bool dummyIsEnabled(__unused void *context) { return g_dummyEnabledState; }
+static void dummyAddContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext, __unused void *context)
 {
     if (eventContext != NULL) {
         strncpy(eventContext->eventID, g_eventID, sizeof(eventContext->eventID));
     }
 }
 
-static void dummyNotifyPostSystemEnable(void) { g_dummyPostSystemEnabled = true; }
+static void dummyNotifyPostSystemEnable(__unused void *context) { g_dummyPostSystemEnabled = true; }
 
 // Second monitor
 static KSCrash_ExceptionHandlerCallbacks secondDummyExceptionHandlerCallbacks;
-static void secondDummyInit(KSCrash_ExceptionHandlerCallbacks *callbacks)
+static void secondDummyInit(KSCrash_ExceptionHandlerCallbacks *callbacks, __unused void *context)
 {
     secondDummyExceptionHandlerCallbacks = *callbacks;
 }
 
-static const char *secondDummyMonitorId(void) { return "Second Dummy Monitor"; }
+static const char *secondDummyMonitorId(__unused void *context) { return "Second Dummy Monitor"; }
 
 static bool g_secondDummyEnabledState = false;
 // static const char *const g_secondEventID = "SecondEventID";
 
-static void secondDummySetEnabled(bool isEnabled) { g_secondDummyEnabledState = isEnabled; }
-static bool secondDummyIsEnabled(void) { return g_secondDummyEnabledState; }
+static void secondDummySetEnabled(bool isEnabled, __unused void *context) { g_secondDummyEnabledState = isEnabled; }
+static bool secondDummyIsEnabled(__unused void *context) { return g_secondDummyEnabledState; }
 
-static KSCrashMonitorFlag combinedMonitorFlags(void)
+static KSCrashMonitorFlag combinedMonitorFlags(__unused void *context)
 {
     return KSCrashMonitorFlagDebuggerUnsafe | KSCrashMonitorFlagAsyncSafe;
 }
@@ -122,7 +125,7 @@ static KSCrashMonitorAPI g_secondDummyMonitor = {};
     memset(&list, 0, sizeof(list));
     XCTAssertTrue(kscmr_addMonitor(&list, &g_dummyMonitor), @"Monitor should be successfully added.");
     kscmr_activateMonitors(&list);  // Activate all monitors
-    XCTAssertTrue(g_dummyMonitor.isEnabled(), @"The monitor should be enabled after activation.");
+    XCTAssertTrue(g_dummyMonitor.isEnabled(NULL), @"The monitor should be enabled after activation.");
 }
 
 - (void)testDisablingAllMonitors
@@ -131,9 +134,9 @@ static KSCrashMonitorAPI g_secondDummyMonitor = {};
     memset(&list, 0, sizeof(list));
     kscmr_addMonitor(&list, &g_dummyMonitor);
     kscmr_activateMonitors(&list);
-    XCTAssertTrue(g_dummyMonitor.isEnabled(), @"The monitor should be enabled before disabling.");
+    XCTAssertTrue(g_dummyMonitor.isEnabled(NULL), @"The monitor should be enabled before disabling.");
     kscmr_disableAllMonitors(&list);  // Disable all monitors
-    XCTAssertFalse(g_dummyMonitor.isEnabled(), @"The monitor should be disabled after calling disable all.");
+    XCTAssertFalse(g_dummyMonitor.isEnabled(NULL), @"The monitor should be disabled after calling disable all.");
 }
 
 - (void)testActivateMonitorsReturnsTrue
@@ -143,7 +146,7 @@ static KSCrashMonitorAPI g_secondDummyMonitor = {};
     XCTAssertTrue(kscmr_addMonitor(&list, &g_dummyMonitor), @"Monitor should be successfully added.");
     XCTAssertTrue(kscmr_activateMonitors(&list),
                   @"activateMonitors should return true when at least one monitor is activated.");
-    XCTAssertTrue(g_dummyMonitor.isEnabled(), @"The monitor should be enabled after activation.");
+    XCTAssertTrue(g_dummyMonitor.isEnabled(NULL), @"The monitor should be enabled after activation.");
 }
 
 - (void)testActivateMonitorsReturnsFalseWhenNoMonitorsActive
@@ -159,10 +162,11 @@ static KSCrashMonitorAPI g_secondDummyMonitor = {};
     KSCrashMonitorAPIList list;
     memset(&list, 0, sizeof(list));
     KSCrashMonitorAPI alwaysDisabledMonitor = g_dummyMonitor;
-    alwaysDisabledMonitor.setEnabled = (void (*)(bool))(void *)imp_implementationWithBlock(^(__unused bool isEnabled) {
-        // pass
-    });
-    alwaysDisabledMonitor.isEnabled = (bool (*)(void))(void *)imp_implementationWithBlock(^{
+    alwaysDisabledMonitor.setEnabled =
+        (void (*)(bool, void *))(void *)imp_implementationWithBlock(^(__unused bool isEnabled, __unused void *ctx) {
+            // pass
+        });
+    alwaysDisabledMonitor.isEnabled = (bool (*)(void *))(void *)imp_implementationWithBlock(^(__unused void *ctx) {
         return false;
     });
 
@@ -191,12 +195,12 @@ static KSCrashMonitorAPI g_secondDummyMonitor = {};
     // Add the dummy monitor first
     XCTAssertTrue(kscmr_addMonitor(&list, &g_dummyMonitor), @"Monitor should be successfully added.");
     kscmr_activateMonitors(&list);
-    XCTAssertTrue(g_dummyMonitor.isEnabled(), @"The monitor should be enabled after adding.");
+    XCTAssertTrue(g_dummyMonitor.isEnabled(NULL), @"The monitor should be enabled after adding.");
 
     // Remove the dummy monitor
     kscmr_removeMonitor(&list, &g_dummyMonitor);
     kscmr_activateMonitors(&list);
-    XCTAssertFalse(g_dummyMonitor.isEnabled(), @"The monitor should be disabled after removal.");
+    XCTAssertFalse(g_dummyMonitor.isEnabled(NULL), @"The monitor should be disabled after removal.");
 }
 
 - (void)testRemoveMonitorNotAdded
@@ -210,9 +214,9 @@ static KSCrashMonitorAPI g_secondDummyMonitor = {};
     kscmr_activateMonitors(&list);
 
     // Verify that no crash occurred and the state remains unchanged
-    XCTAssertFalse(newMonitor.isEnabled ? newMonitor.isEnabled() : NO,
+    XCTAssertFalse(newMonitor.isEnabled ? newMonitor.isEnabled(NULL) : NO,
                    @"The new monitor should not be enabled, as it was never added.");
-    XCTAssertFalse(g_dummyMonitor.isEnabled(), @"The dummy monitor should still be disabled as it's not related.");
+    XCTAssertFalse(g_dummyMonitor.isEnabled(NULL), @"The dummy monitor should still be disabled as it's not related.");
 }
 
 - (void)testRemoveMonitorTwice
@@ -222,16 +226,17 @@ static KSCrashMonitorAPI g_secondDummyMonitor = {};
     // Add and then remove the dummy monitor
     XCTAssertTrue(kscmr_addMonitor(&list, &g_dummyMonitor), @"Monitor should be successfully added.");
     kscmr_activateMonitors(&list);
-    XCTAssertTrue(g_dummyMonitor.isEnabled(), @"The monitor should be enabled after adding.");
+    XCTAssertTrue(g_dummyMonitor.isEnabled(NULL), @"The monitor should be enabled after adding.");
 
     kscmr_removeMonitor(&list, &g_dummyMonitor);
     kscmr_activateMonitors(&list);
-    XCTAssertFalse(g_dummyMonitor.isEnabled(), @"The monitor should be disabled after the first removal.");
+    XCTAssertFalse(g_dummyMonitor.isEnabled(NULL), @"The monitor should be disabled after the first removal.");
 
     // Try to remove the dummy monitor again
     kscmr_removeMonitor(&list, &g_dummyMonitor);
     kscmr_activateMonitors(&list);
-    XCTAssertFalse(g_dummyMonitor.isEnabled(), @"The monitor should remain disabled after a second removal attempt.");
+    XCTAssertFalse(g_dummyMonitor.isEnabled(NULL),
+                   @"The monitor should remain disabled after a second removal attempt.");
 }
 
 - (void)testRemoveMonitorAndReAdd
@@ -241,15 +246,15 @@ static KSCrashMonitorAPI g_secondDummyMonitor = {};
     // Add, remove, and then re-add the dummy monitor
     XCTAssertTrue(kscmr_addMonitor(&list, &g_dummyMonitor), @"Monitor should be successfully added.");
     kscmr_activateMonitors(&list);
-    XCTAssertTrue(g_dummyMonitor.isEnabled(), @"The monitor should be enabled after adding.");
+    XCTAssertTrue(g_dummyMonitor.isEnabled(NULL), @"The monitor should be enabled after adding.");
 
     kscmr_removeMonitor(&list, &g_dummyMonitor);
     kscmr_activateMonitors(&list);
-    XCTAssertFalse(g_dummyMonitor.isEnabled(), @"The monitor should be disabled after removal.");
+    XCTAssertFalse(g_dummyMonitor.isEnabled(NULL), @"The monitor should be disabled after removal.");
 
     XCTAssertTrue(kscmr_addMonitor(&list, &g_dummyMonitor), @"Monitor should be successfully re-added.");
     kscmr_activateMonitors(&list);
-    XCTAssertTrue(g_dummyMonitor.isEnabled(), @"The monitor should be enabled again after re-adding.");
+    XCTAssertTrue(g_dummyMonitor.isEnabled(NULL), @"The monitor should be enabled again after re-adding.");
 }
 
 #pragma mark - Monitor Deduplication Tests
@@ -263,8 +268,8 @@ static KSCrashMonitorAPI g_secondDummyMonitor = {};
 
     kscmr_activateMonitors(&list);
 
-    XCTAssertTrue(g_dummyMonitor.isEnabled(), @"The first monitor should be enabled.");
-    XCTAssertTrue(g_secondDummyMonitor.isEnabled(), @"The second monitor should be enabled.");
+    XCTAssertTrue(g_dummyMonitor.isEnabled(NULL), @"The first monitor should be enabled.");
+    XCTAssertTrue(g_secondDummyMonitor.isEnabled(NULL), @"The second monitor should be enabled.");
 }
 
 - (void)testAddMonitorMultipleTimes
@@ -275,7 +280,7 @@ static KSCrashMonitorAPI g_secondDummyMonitor = {};
     XCTAssertFalse(kscmr_addMonitor(&list, &g_dummyMonitor),
                    @"Monitor should not be added again if it's already present.");
     kscmr_activateMonitors(&list);
-    XCTAssertTrue(g_dummyMonitor.isEnabled(), @"The monitor should be enabled after multiple additions.");
+    XCTAssertTrue(g_dummyMonitor.isEnabled(NULL), @"The monitor should be enabled after multiple additions.");
 }
 
 - (void)testAddingAndRemovingMonitorsWithUniqueIds
@@ -286,15 +291,15 @@ static KSCrashMonitorAPI g_secondDummyMonitor = {};
     XCTAssertTrue(kscmr_addMonitor(&list, &g_secondDummyMonitor), @"Second monitor should be successfully added.");
 
     kscmr_activateMonitors(&list);
-    XCTAssertTrue(g_dummyMonitor.isEnabled(), @"The dummy monitor should be enabled.");
-    XCTAssertTrue(g_secondDummyMonitor.isEnabled(), @"The second dummy monitor should be enabled.");
+    XCTAssertTrue(g_dummyMonitor.isEnabled(NULL), @"The dummy monitor should be enabled.");
+    XCTAssertTrue(g_secondDummyMonitor.isEnabled(NULL), @"The second dummy monitor should be enabled.");
 
     kscmr_removeMonitor(&list, &g_dummyMonitor);
 
     kscmr_disableAllMonitors(&list);
     kscmr_activateMonitors(&list);
-    XCTAssertFalse(g_dummyMonitor.isEnabled(), @"The dummy monitor should be disabled after removal.");
-    XCTAssertTrue(g_secondDummyMonitor.isEnabled(), @"The second dummy monitor should remain enabled.");
+    XCTAssertFalse(g_dummyMonitor.isEnabled(NULL), @"The dummy monitor should be disabled after removal.");
+    XCTAssertTrue(g_secondDummyMonitor.isEnabled(NULL), @"The second dummy monitor should remain enabled.");
 }
 
 #pragma mark - Monitor Lookup Tests

@@ -64,6 +64,7 @@
         _printPreviousLogOnStartup = cConfig.printPreviousLogOnStartup ? YES : NO;
         _enableSwapCxaThrow = cConfig.enableSwapCxaThrow ? YES : NO;
         _enableSigTermMonitoring = cConfig.enableSigTermMonitoring ? YES : NO;
+        _plugins = nil;
         _willWriteReportCallback = cConfig.willWriteReportCallback;
 
         _reportStoreConfiguration = [KSCrashReportStoreConfiguration new];
@@ -129,6 +130,17 @@
     config.enableSigTermMonitoring = self.enableSigTermMonitoring;
     config.willWriteReportCallback = self.willWriteReportCallback;
 
+    if (self.plugins.count > 0) {
+        int count = (int)self.plugins.count;
+        KSCrashMonitorAPI *apis = malloc(sizeof(KSCrashMonitorAPI) * (size_t)count);
+        for (int i = 0; i < count; i++) {
+            apis[i] = *self.plugins[(NSUInteger)i].api;
+        }
+        config.plugins.apis = apis;
+        config.plugins.length = count;
+        config.plugins.release = free;
+    }
+
     return config;
 }
 
@@ -190,6 +202,7 @@
     copy.printPreviousLogOnStartup = self.printPreviousLogOnStartup;
     copy.enableSwapCxaThrow = self.enableSwapCxaThrow;
     copy.enableSigTermMonitoring = self.enableSigTermMonitoring;
+    copy.plugins = [self.plugins copy];
     return copy;
 }
 

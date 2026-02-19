@@ -27,7 +27,11 @@
 import Foundation
 
 /// Exit reason information from the OS.
-public struct ExitReasonInfo: Decodable, Sendable {
+public struct ExitReasonInfo: Codable, Sendable {
     /// Exit reason code. (ex: 0x8badf00d)
     public let code: UInt64
+
+    public init(code: UInt64) {
+        self.code = code
+    }
 }

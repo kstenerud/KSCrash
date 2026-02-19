@@ -27,7 +27,7 @@
 import Foundation
 
 /// Unix signal details.
-public struct SignalError: Decodable, Sendable {
+public struct SignalError: Codable, Sendable {
     /// Signal code providing additional context.
     public let code: UInt64
 
@@ -39,6 +39,18 @@ public struct SignalError: Decodable, Sendable {
 
     /// Signal number.
     public let signal: UInt64
+
+    public init(
+        code: UInt64,
+        codeName: String? = nil,
+        name: String? = nil,
+        signal: UInt64
+    ) {
+        self.code = code
+        self.codeName = codeName
+        self.name = name
+        self.signal = signal
+    }
 
     enum CodingKeys: String, CodingKey {
         case code

@@ -1,7 +1,7 @@
 //
-//  UnfairLock.swift
+//  KSCrash+Namespace.h
 //
-//  Created by Alexander Cohen on 2025-12-14.
+//  Created by Alexander Cohen on 2026-02-13.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,24 +24,24 @@
 // THE SOFTWARE.
 //
 
-import Foundation
-import os
+#import "KSCrash.h"
 
-final internal class UnfairLock: @unchecked Sendable {
-    private var _lock: UnsafeMutablePointer<os_unfair_lock>
+NS_ASSUME_NONNULL_BEGIN
 
-    internal init() {
-        _lock = UnsafeMutablePointer<os_unfair_lock>.allocate(capacity: 1)
-        _lock.initialize(to: os_unfair_lock())
-    }
+@interface KSCrash (Namespace)
 
-    deinit {
-        _lock.deallocate()
-    }
+/** The namespaced KSCrash name ("KSCrash" or "KSCrash<namespace>"). */
+@property(class, nonatomic, readonly) NSString *namespaceIdentifier;
 
-    internal func withLock<T>(_ block: () throws -> T) rethrows -> T {
-        os_unfair_lock_lock(_lock)
-        defer { os_unfair_lock_unlock(_lock) }
-        return try block()
-    }
-}
+/** The namespaced KSCrash URL under the Documents directory. */
+@property(class, nonatomic, readonly, nullable) NSURL *documentsURL;
+
+/** The namespaced KSCrash URL under the Application Support directory. */
+@property(class, nonatomic, readonly, nullable) NSURL *applicationSupportURL;
+
+/** The namespaced KSCrash URL under the Caches directory. */
+@property(class, nonatomic, readonly, nullable) NSURL *cachesURL;
+
+@end
+
+NS_ASSUME_NONNULL_END

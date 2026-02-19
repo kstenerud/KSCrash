@@ -29,6 +29,7 @@ import Foundation
 #if SWIFT_PACKAGE
     import KSCrashRecording
     import KSCrashRecordingCore
+    import SwiftCore
 #endif
 
 // MARK: - Profile Report Writing
@@ -233,6 +234,7 @@ final private class ProfileMonitor: Sendable {
     /// The KSCrash monitor API for profile reports. Lazily initialized and registered.
     static let api: UnsafeMutablePointer<KSCrashMonitorAPI> = {
         var api = KSCrashMonitorAPI(
+            context: nil,
             init: profileMonitorInit,
             monitorId: profileMonitorGetId,
             monitorFlags: profileMonitorGetFlags,
@@ -252,38 +254,41 @@ final private class ProfileMonitor: Sendable {
 }
 
 private func profileMonitorInit(
-    _ callbacks: UnsafeMutablePointer<KSCrash_ExceptionHandlerCallbacks>?
+    _ callbacks: UnsafeMutablePointer<KSCrash_ExceptionHandlerCallbacks>?,
+    _ context: UnsafeMutableRawPointer?
 ) {
     ProfileMonitor.callbacks = callbacks?.pointee
 }
 
-private func profileMonitorGetId() -> UnsafePointer<CChar>? {
+private func profileMonitorGetId(_ context: UnsafeMutableRawPointer?) -> UnsafePointer<CChar>? {
     ProfileMonitor.monitorId
 }
 
-private func profileMonitorGetFlags() -> KSCrashMonitorFlag {
+private func profileMonitorGetFlags(_ context: UnsafeMutableRawPointer?) -> KSCrashMonitorFlag {
     .init(0)
 }
 
-private func profileMonitorSetEnabled(_ enabled: Bool) {
+private func profileMonitorSetEnabled(_ enabled: Bool, _ context: UnsafeMutableRawPointer?) {
     ProfileMonitor.enabled = enabled
 }
 
-private func profileMonitorIsEnabled() -> Bool {
+private func profileMonitorIsEnabled(_ context: UnsafeMutableRawPointer?) -> Bool {
     ProfileMonitor.enabled
 }
 
 private func profileMonitorAddContextualInfoToEvent(
-    _ eventContext: UnsafeMutablePointer<KSCrash_MonitorContext>?
+    _ eventContext: UnsafeMutablePointer<KSCrash_MonitorContext>?,
+    _ context: UnsafeMutableRawPointer?
 ) {
 }
 
-private func profileMonitorNotifyPostSystemEnable() {
+private func profileMonitorNotifyPostSystemEnable(_ context: UnsafeMutableRawPointer?) {
 }
 
 private func profileMonitorWriteInReportSection(
     _ context: UnsafePointer<KSCrash_MonitorContext>?,
-    _ writerRef: UnsafePointer<ReportWriter>?
+    _ writerRef: UnsafePointer<ReportWriter>?,
+    _ monitorContext: UnsafeMutableRawPointer?
 ) {
     guard let writer = UnsafeReportWriter(writerRef) else {
         return
