@@ -39,19 +39,19 @@
 - (void)testInstallAndRemove
 {
     KSCrashMonitorAPI *api = kscm_system_getAPI();
-    api->setEnabled(true);
-    XCTAssertTrue(api->isEnabled());
-    api->setEnabled(false);
-    XCTAssertFalse(api->isEnabled());
+    api->setEnabled(true, NULL);
+    XCTAssertTrue(api->isEnabled(NULL));
+    api->setEnabled(false, NULL);
+    XCTAssertFalse(api->isEnabled(NULL));
 }
 
 - (void)testOSVersionMatchesPlatform
 {
     KSCrashMonitorAPI *api = kscm_system_getAPI();
-    api->setEnabled(true);
+    api->setEnabled(true, NULL);
 
     KSCrash_MonitorContext context = { 0 };
-    api->addContextualInfoToEvent(&context);
+    api->addContextualInfoToEvent(&context, NULL);
 
     XCTAssertNotEqual(context.System.osVersion, NULL, @"osVersion should be populated");
 
@@ -80,7 +80,7 @@
                           @"osVersion should match kern.osversion on non-simulator");
 #endif
 
-    api->setEnabled(false);
+    api->setEnabled(false, NULL);
 }
 
 @end
