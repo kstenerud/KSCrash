@@ -482,10 +482,14 @@ static void initialize(void)
         }
         g_systemData.systemVersion = cString(systemVersion);
 #endif
+        g_systemData.kernelVersion = stringSysctl("kern.version");
+
         if (isSimulatorBuild()) {
             g_systemData.machine = cString([NSProcessInfo processInfo].environment[@"SIMULATOR_MODEL_IDENTIFIER"]);
             g_systemData.model = "simulator";
             g_systemData.systemVersion = cString([NSProcessInfo processInfo].environment[@"SIMULATOR_RUNTIME_VERSION"]);
+            g_systemData.osVersion =
+                cString([NSProcessInfo processInfo].environment[@"SIMULATOR_RUNTIME_BUILD_VERSION"]);
         } else {
 #if KSCRASH_HOST_MAC
             // MacOS has the machine in the model field, and no model
@@ -494,10 +498,8 @@ static void initialize(void)
             g_systemData.machine = stringSysctl("hw.machine");
             g_systemData.model = stringSysctl("hw.model");
 #endif
+            g_systemData.osVersion = stringSysctl("kern.osversion");
         }
-
-        g_systemData.kernelVersion = stringSysctl("kern.version");
-        g_systemData.osVersion = stringSysctl("kern.osversion");
         g_systemData.isJailbroken = isJailbroken();
         g_systemData.procTranslated = procTranslated();
         g_systemData.appStartTime = dateString(time(NULL));
