@@ -68,12 +68,14 @@ Pod::Spec.new do |s|
 
   s.subspec 'BootTimeMonitor' do |boot_time_monitor|
     boot_time_monitor.dependency 'KSCrash/RecordingCore'
+    boot_time_monitor.dependency 'KSCrash/Recording'
 
     configure_subspec.call(boot_time_monitor)
   end
 
   s.subspec 'DiscSpaceMonitor' do |disc_space_monitor|
     disc_space_monitor.dependency 'KSCrash/RecordingCore'
+    disc_space_monitor.dependency 'KSCrash/Recording'
 
     configure_subspec.call(disc_space_monitor)
   end

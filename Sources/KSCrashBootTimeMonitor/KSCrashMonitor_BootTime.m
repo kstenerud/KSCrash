@@ -28,7 +28,7 @@
 
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitorHelper.h"
-#import "KSDate.h"
+#import "KSCrashMonitor_System.h"
 #import "KSSysCtl.h"
 
 #import <Foundation/Foundation.h>
@@ -40,20 +40,6 @@ __attribute__((unused))  // For tests. Declared as extern in TestCase
 void kscm_bootTime_resetState(void)
 {
     g_isEnabled = false;
-}
-
-/** Get a sysctl value as an NSDate.
- *
- * @param name The sysctl name.
- *
- * @return The result of the sysctl call.
- */
-static const char *dateSysctl(const char *name)
-{
-    struct timeval value = kssysctl_timevalForName(name);
-    char *buffer = malloc(KSDATE_BUFFERSIZE);
-    ksdate_utcStringFromTimestamp(value.tv_sec, buffer, KSDATE_BUFFERSIZE);
-    return buffer;
 }
 
 #pragma mark - API -
@@ -69,10 +55,11 @@ static void setEnabled(bool isEnabled, __unused void *context)
 
 static bool isEnabled(__unused void *context) { return g_isEnabled; }
 
-static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext, __unused void *context)
+static void notifyPostSystemEnable(__unused void *context)
 {
     if (g_isEnabled) {
-        eventContext->System.bootTime = dateSysctl("kern.boottime");
+        struct timeval value = kssysctl_timevalForName("kern.boottime");
+        kscm_system_setBootTime((int64_t)value.tv_sec);
     }
 }
 
@@ -83,7 +70,7 @@ KSCrashMonitorAPI *kscm_boottime_getAPI(void)
         api.monitorId = monitorId;
         api.setEnabled = setEnabled;
         api.isEnabled = isEnabled;
-        api.addContextualInfoToEvent = addContextualInfoToEvent;
+        api.notifyPostSystemEnable = notifyPostSystemEnable;
     }
     return &api;
 }

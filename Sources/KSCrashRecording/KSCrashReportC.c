@@ -1320,24 +1320,6 @@ static void writeBinaryImages(const KSCrashReportWriter *const writer, const cha
     writer->endContainer(writer);
 }
 
-/** Write information about system memory to the report.
- *
- * @param writer The writer.
- *
- * @param key The object key, if needed.
- */
-static void writeMemoryInfo(const KSCrashReportWriter *const writer, const char *const key,
-                            const KSCrash_MonitorContext *const monitorContext)
-{
-    writer->beginObject(writer, key);
-    {
-        writer->addUIntegerElement(writer, KSCrashField_Size, monitorContext->System.memorySize);
-        writer->addUIntegerElement(writer, KSCrashField_Usable, monitorContext->System.usableMemory);
-        writer->addUIntegerElement(writer, KSCrashField_Free, monitorContext->System.freeMemory);
-    }
-    writer->endContainer(writer);
-}
-
 static inline bool isCrashOfMonitorType(const KSCrash_MonitorContext *const crash, const KSCrashMonitorAPI *monitorAPI)
 {
     return ksstring_safeStrcmp(crash->monitorId, monitorAPI->monitorId(monitorAPI->context)) == 0;
@@ -1659,8 +1641,8 @@ void kscrashreport_writeRecrashReport(const KSCrash_MonitorContext *const monito
         if (remove(tempPath) < 0) {
             KSLOG_ERROR("Could not remove %s: %s", tempPath, strerror(errno));
         }
-        writeReportInfo(writer, KSCrashField_Report, KSCrashReportType_Minimal, monitorContext->eventID,
-                        monitorContext->System.processName, monitorContext->monitorId);
+        writeReportInfo(writer, KSCrashField_Report, KSCrashReportType_Minimal, monitorContext->eventID, NULL,
+                        monitorContext->monitorId);
         ksfu_flushBufferedWriter(&bufferedWriter);
 
         writer->beginObject(writer, KSCrashField_Crash);
@@ -1706,45 +1688,15 @@ static void writeAppMemoryInfo(const KSCrashReportWriter *const writer, const ch
     writer->endContainer(writer);
 }
 
+/** Write system info that is still populated at crash time by other monitors.
+ *  System monitor fields (device, OS, bundle, CPU, memory, etc.) are now in
+ *  the mmap'd run sidecar and stitched into the report on next launch.
+ */
 static void writeSystemInfo(const KSCrashReportWriter *const writer, const char *const key,
                             const KSCrash_MonitorContext *const monitorContext)
 {
     writer->beginObject(writer, key);
     {
-        writer->addStringElement(writer, KSCrashField_SystemName, monitorContext->System.systemName);
-        writer->addStringElement(writer, KSCrashField_SystemVersion, monitorContext->System.systemVersion);
-        writer->addStringElement(writer, KSCrashField_Machine, monitorContext->System.machine);
-        writer->addStringElement(writer, KSCrashField_Model, monitorContext->System.model);
-        writer->addStringElement(writer, KSCrashField_KernelVersion, monitorContext->System.kernelVersion);
-        writer->addStringElement(writer, KSCrashField_OSVersion, monitorContext->System.osVersion);
-        writer->addBooleanElement(writer, KSCrashField_Jailbroken, monitorContext->System.isJailbroken);
-        writer->addBooleanElement(writer, KSCrashField_ProcTranslated, monitorContext->System.procTranslated);
-        writer->addStringElement(writer, KSCrashField_BootTime, monitorContext->System.bootTime);
-        writer->addStringElement(writer, KSCrashField_AppStartTime, monitorContext->System.appStartTime);
-        writer->addStringElement(writer, KSCrashField_ExecutablePath, monitorContext->System.executablePath);
-        writer->addStringElement(writer, KSCrashField_Executable, monitorContext->System.executableName);
-        writer->addStringElement(writer, KSCrashField_BundleID, monitorContext->System.bundleID);
-        writer->addStringElement(writer, KSCrashField_BundleName, monitorContext->System.bundleName);
-        writer->addStringElement(writer, KSCrashField_BundleVersion, monitorContext->System.bundleVersion);
-        writer->addStringElement(writer, KSCrashField_BundleShortVersion, monitorContext->System.bundleShortVersion);
-        writer->addStringElement(writer, KSCrashField_AppUUID, monitorContext->System.appID);
-        writer->addStringElement(writer, KSCrashField_CPUArch, monitorContext->System.cpuArchitecture);
-        writer->addStringElement(writer, KSCrashField_BinaryArch, monitorContext->System.binaryArchitecture);
-        writer->addIntegerElement(writer, KSCrashField_CPUType, monitorContext->System.cpuType);
-        writer->addStringElement(writer, KSCrashField_ClangVersion, monitorContext->System.clangVersion);
-        writer->addIntegerElement(writer, KSCrashField_CPUSubType, monitorContext->System.cpuSubType);
-        writer->addIntegerElement(writer, KSCrashField_BinaryCPUType, monitorContext->System.binaryCPUType);
-        writer->addIntegerElement(writer, KSCrashField_BinaryCPUSubType, monitorContext->System.binaryCPUSubType);
-        writer->addStringElement(writer, KSCrashField_TimeZone, monitorContext->System.timezone);
-        writer->addStringElement(writer, KSCrashField_ProcessName, monitorContext->System.processName);
-        writer->addIntegerElement(writer, KSCrashField_ProcessID, monitorContext->System.processID);
-        writer->addIntegerElement(writer, KSCrashField_ParentProcessID, monitorContext->System.parentProcessID);
-        writer->addStringElement(writer, KSCrashField_DeviceAppHash, monitorContext->System.deviceAppHash);
-        writer->addStringElement(writer, KSCrashField_BuildType, monitorContext->System.buildType);
-        writer->addIntegerElement(writer, KSCrashField_Storage, (int64_t)monitorContext->System.storageSize);
-        writer->addIntegerElement(writer, KSCrashField_FreeStorage, (int64_t)monitorContext->System.freeStorageSize);
-
-        writeMemoryInfo(writer, KSCrashField_Memory, monitorContext);
         writeAppStats(writer, KSCrashField_AppStats, monitorContext);
         writeAppMemoryInfo(writer, KSCrashField_AppMemory, monitorContext);
     }
@@ -1801,8 +1753,8 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
 
     writer->beginObject(writer, KSCrashField_Report);
     {
-        writeReportInfo(writer, KSCrashField_Report, KSCrashReportType_Standard, monitorContext->eventID,
-                        monitorContext->System.processName, monitorContext->monitorId);
+        writeReportInfo(writer, KSCrashField_Report, KSCrashReportType_Standard, monitorContext->eventID, NULL,
+                        monitorContext->monitorId);
         ksfu_flushBufferedWriter(&bufferedWriter);
 
         // Only collect referenced image addresses when compact mode needs them.
