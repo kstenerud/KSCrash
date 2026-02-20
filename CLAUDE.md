@@ -266,14 +266,17 @@ Sidecars allow monitors to store auxiliary data alongside crash reports without 
 <installPath>/
 ├── Reports/
 │   └── myapp-report-00789abc00000001.json
-└── Sidecars/
-    ├── Watchdog/
-    │   └── 00789abc00000001.ksscr
-    └── AnotherMonitor/
-        └── 00789abc00000001.ksscr
+├── Sidecars/                                          (per-report)
+│   ├── Watchdog/
+│   │   └── 00789abc00000001.ksscr
+│   └── AnotherMonitor/
+│       └── 00789abc00000001.ksscr
+└── RunSidecars/                                       (per-run)
+    └── a1b2c3d4-e5f6-7890-abcd-ef1234567890/
+        └── Watchdog.ksscr
 ```
 
-Each monitor gets a subdirectory named after its `monitorId`. Sidecar files are named `<reportID>.ksscr` (hex-formatted).
+Per-report sidecars: `Sidecars/<monitorId>/<reportID>.ksscr` — one file per report per monitor. Per-run sidecars: `RunSidecars/<runID>/<monitorId>.ksscr` — one file per process run per monitor, shared across all reports from that run.
 
 ### Requesting a Sidecar Path (Monitor Side)
 
@@ -308,18 +311,22 @@ The callback creates the monitor's subdirectory automatically and returns `false
 To merge sidecar data into reports at delivery time, implement the `stitchReport` field in `KSCrashMonitorAPI`:
 
 ```c
-char *(*stitchReport)(const char *report, int64_t reportID, const char *sidecarPath);
+char *(*stitchReport)(const char *report, const char *sidecarPath, KSCrashSidecarScope scope, void *context);
 ```
 
 - `report`: NULL-terminated JSON string of the full crash report.
 - `sidecarPath`: Path to this monitor's sidecar file for the given report.
+- `scope`: `KSCrashSidecarScopeReport` for per-report sidecars, `KSCrashSidecarScopeRun` for per-run sidecars.
+- `context`: The monitor's opaque context pointer (same as `api->context`).
 - Returns: A `malloc`'d NULL-terminated string with the modified report, or `NULL` to leave the report unchanged. The caller frees the returned buffer.
+
+Run sidecars are stitched first, then per-report sidecars, so per-report data can override per-run data.
 
 This runs at normal app startup time (not during crash handling), so ObjC and heap allocation are safe here.
 
 ### Configuration
 
-The sidecars directory is configured via `KSCrashReportStoreCConfiguration.sidecarsPath`. If left `NULL` (the default), it is automatically set to `<installPath>/Sidecars` during `kscrash_install`. The report store creates this directory at initialization.
+The sidecars directory is configured via `KSCrashReportStoreCConfiguration.sidecarsPath` and `runSidecarsPath`. If left `NULL` (the default), they are automatically set to `<installPath>/Sidecars` and `<installPath>/RunSidecars` during `kscrash_install`. The report store creates these directories at initialization.
 
 ### Key Files
 

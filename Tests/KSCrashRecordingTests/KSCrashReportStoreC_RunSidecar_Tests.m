@@ -80,11 +80,12 @@
 
 - (void)testExtractRunIdFromValidReport
 {
-    const char *json = "{\"report\":{\"run_id\":\"abc-123\",\"id\":\"evt1\"}}";
+    NSString *runId = [[NSUUID UUID] UUIDString];
+    NSString *jsonStr = [NSString stringWithFormat:@"{\"report\":{\"run_id\":\"%@\",\"id\":\"evt1\"}}", runId];
     char buf[64];
-    bool result = kscrs_extractRunIdFromReport(json, buf, sizeof(buf));
+    bool result = kscrs_extractRunIdFromReport(jsonStr.UTF8String, buf, sizeof(buf));
     XCTAssertTrue(result);
-    XCTAssertEqual(strcmp(buf, "abc-123"), 0);
+    XCTAssertEqualObjects([NSString stringWithUTF8String:buf], runId);
 }
 
 - (void)testExtractRunIdFromReportMissingRunId
@@ -130,6 +131,14 @@
     const char *json = "{\"report\":{\"run_id\":\"abc\"}}";
     char buf[64];
     bool result = kscrs_extractRunIdFromReport(json, buf, 0);
+    XCTAssertFalse(result);
+}
+
+- (void)testExtractRunIdRejectsNonUUID
+{
+    const char *json = "{\"report\":{\"run_id\":\"../../etc/passwd\",\"id\":\"evt1\"}}";
+    char buf[64];
+    bool result = kscrs_extractRunIdFromReport(json, buf, sizeof(buf));
     XCTAssertFalse(result);
 }
 
@@ -194,8 +203,9 @@
 - (void)testDeleteAllReportsCleansRunSidecars
 {
     [self prepareStoreWithRunSidecars:@"testDeleteAllRunSidecars"];
-    [self writeReportWithRunId:@"run-1"];
-    [self writeRunSidecar:@"System" runId:@"run-1" contents:@"system data"];
+    NSString *runId = [[NSUUID UUID] UUIDString];
+    [self writeReportWithRunId:runId];
+    [self writeRunSidecar:@"System" runId:runId contents:@"system data"];
 
     kscrs_deleteAllReports(&_storeConfig);
 
@@ -210,11 +220,12 @@
 - (void)testDeleteLastReportForRunCleansRunSidecars
 {
     [self prepareStoreWithRunSidecars:@"testOrphanCleanup"];
-    int64_t reportID = [self writeReportWithRunId:@"run-orphan"];
-    [self writeRunSidecar:@"System" runId:@"run-orphan" contents:@"system data"];
+    NSString *runId = [[NSUUID UUID] UUIDString];
+    int64_t reportID = [self writeReportWithRunId:runId];
+    [self writeRunSidecar:@"System" runId:runId contents:@"system data"];
 
     NSString *runDir =
-        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:@"run-orphan"];
+        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:runId];
     XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir]);
 
     kscrs_deleteReportWithID(reportID, &_storeConfig);
@@ -226,12 +237,13 @@
 - (void)testDeleteReportKeepsRunSidecarsWhenOtherReportsShareRunId
 {
     [self prepareStoreWithRunSidecars:@"testKeepRunSidecars"];
-    int64_t reportID1 = [self writeReportWithRunId:@"shared-run"];
-    [self writeReportWithRunId:@"shared-run"];
-    [self writeRunSidecar:@"System" runId:@"shared-run" contents:@"system data"];
+    NSString *runId = [[NSUUID UUID] UUIDString];
+    int64_t reportID1 = [self writeReportWithRunId:runId];
+    [self writeReportWithRunId:runId];
+    [self writeRunSidecar:@"System" runId:runId contents:@"system data"];
 
     NSString *runDir =
-        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:@"shared-run"];
+        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:runId];
     XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir]);
 
     kscrs_deleteReportWithID(reportID1, &_storeConfig);
@@ -244,7 +256,7 @@
 {
     [self prepareStoreWithRunSidecars:@"testDeleteNoRunSidecars"];
     _storeConfig.runSidecarsPath = NULL;
-    int64_t reportID = [self writeReportWithRunId:@"run-1"];
+    int64_t reportID = [self writeReportWithRunId:[[NSUUID UUID] UUIDString]];
     kscrs_deleteReportWithID(reportID, &_storeConfig);
     XCTAssertEqual(kscrs_getReportCount(&_storeConfig), 0);
 }
@@ -252,7 +264,7 @@
 - (void)testDeleteAllReportsWithNoRunSidecarsPathDoesNotCrash
 {
     [self prepareStoreWithRunSidecars:@"testDeleteAllNoRunSidecars"];
-    [self writeReportWithRunId:@"run-1"];
+    [self writeReportWithRunId:[[NSUUID UUID] UUIDString]];
     _storeConfig.runSidecarsPath = NULL;
     kscrs_deleteAllReports(&_storeConfig);
     XCTAssertEqual(kscrs_getReportCount(&_storeConfig), 0);
