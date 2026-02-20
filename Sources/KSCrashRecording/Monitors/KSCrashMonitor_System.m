@@ -545,7 +545,11 @@ void kscm_system_setDiscSpace(uint64_t storageSize, uint64_t freeStorageSize)
 
 void kscm_system_setFreeStorageSize(uint64_t freeStorageSize)
 {
-    ks_spinlock_lock(&g_systemDataLock);
+    // Bounded: called from disc space monitor's addContextualInfoToEvent on the
+    // crash path, where threads may be suspended holding this lock.
+    if (!ks_spinlock_lock_bounded(&g_systemDataLock)) {
+        return;
+    }
     if (g_systemData != NULL) {
         g_systemData->freeStorageSize = freeStorageSize;
     }
