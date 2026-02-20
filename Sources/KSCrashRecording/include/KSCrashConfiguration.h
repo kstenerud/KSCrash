@@ -194,6 +194,17 @@ NS_ASSUME_NONNULL_BEGIN
  */
 @property(nonatomic, assign) BOOL enableSigTermMonitoring;
 
+/** If true, use compact binary image reporting.
+ *
+ * When enabled, the `binary_images` array is filtered to only include
+ * images referenced by backtrace frames. Images that only have
+ * crash_info but no backtrace reference are omitted — in practice
+ * the crashing image is almost always referenced by the backtrace.
+ *
+ * **Default**: false
+ */
+@property(nonatomic, assign) BOOL enableCompactBinaryImages;
+
 /** Plugin monitors to register at install time.
  *
  * An array of objects conforming to `KSCrashMonitorPlugin` protocol.

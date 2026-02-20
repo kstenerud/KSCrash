@@ -131,6 +131,52 @@ static KSSpinLock g_userInfoLock = KSSPINLOCK_INIT;
 
 static KSCrash_IntrospectionRules g_introspectionRules = { 0 };
 static KSCrashIsWritingReportCallback g_userSectionWriteCallback = NULL;
+static bool g_compactBinaryImages = false;
+
+// Tracks unique binary image addresses referenced by backtrace frames.
+// Stack-allocated by the caller, passed through writeThreads → writeBacktrace,
+// then consumed by writeBinaryImages for compact mode filtering.
+// If the set overflows, writeBinaryImages falls back to writing all images
+// so that symbolication is never broken by a missing image.
+//
+// 512 entries ≈ 4 KB of stack. Most apps load 300–500 dylibs total and a
+// crash report typically references 10–30 unique images across all threads,
+// so overflow should never happen in practice.
+#define MAX_REFERENCED_IMAGES 512
+typedef struct {
+    uintptr_t addrs[MAX_REFERENCED_IMAGES];
+    uint32_t count;
+    bool overflowed;
+} KSReferencedImageSet;
+
+static bool referencedImageSet_contains(const KSReferencedImageSet *set, uintptr_t imageAddr)
+{
+    if (set == NULL) {
+        return false;
+    }
+    for (uint32_t i = 0; i < set->count; i++) {
+        if (set->addrs[i] == imageAddr) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static void referencedImageSet_add(KSReferencedImageSet *set, uintptr_t imageAddr)
+{
+    if (set == NULL || imageAddr == 0 || set->overflowed) {
+        return;
+    }
+    if (referencedImageSet_contains(set, imageAddr)) {
+        return;
+    }
+    if (set->count < MAX_REFERENCED_IMAGES) {
+        set->addrs[set->count] = imageAddr;
+        set->count++;
+    } else {
+        set->overflowed = true;
+    }
+}
 
 // ============================================================================
 #pragma mark - Unwind Method Selection -
@@ -830,7 +876,8 @@ static void writeAddressReferencedByString(const KSCrashReportWriter *const writ
  *
  * @param stackCursor The stack cursor to read from.
  */
-static void writeBacktrace(const KSCrashReportWriter *const writer, const char *const key, KSStackCursor *stackCursor)
+static void writeBacktrace(const KSCrashReportWriter *const writer, const char *const key, KSStackCursor *stackCursor,
+                           KSReferencedImageSet *referencedImages)
 {
     writer->beginObject(writer, key);
     {
@@ -844,8 +891,13 @@ static void writeBacktrace(const KSCrashReportWriter *const writer, const char *
                             writer->addStringElement(writer, KSCrashField_ObjectName,
                                                      ksfu_lastPathEntry(stackCursor->stackEntry.imageName));
                         }
-                        writer->addUIntegerElement(writer, KSCrashField_ObjectAddr,
-                                                   stackCursor->stackEntry.imageAddress);
+                        uintptr_t imageAddr = stackCursor->stackEntry.imageAddress;
+                        writer->addUIntegerElement(writer, KSCrashField_ObjectAddr, imageAddr);
+                        referencedImageSet_add(referencedImages, imageAddr);
+                        const uint8_t *uuid = ksbic_getUUIDForHeader((const struct mach_header *)imageAddr);
+                        if (uuid != NULL) {
+                            writer->addUUIDElement(writer, KSCrashField_ObjectUUID, uuid);
+                        }
                         if (stackCursor->stackEntry.symbolName != NULL) {
                             writer->addStringElement(writer, KSCrashField_SymbolName,
                                                      stackCursor->stackEntry.symbolName);
@@ -1088,7 +1140,8 @@ static void writeNotableAddresses(const KSCrashReportWriter *const writer, const
  */
 static void writeThread(const KSCrashReportWriter *const writer, const char *const key,
                         const KSCrash_MonitorContext *const crash, const struct KSMachineContext *const machineContext,
-                        const int threadIndex, const bool shouldWriteNotableAddresses, const int threadState)
+                        const int threadIndex, const bool shouldWriteNotableAddresses, const int threadState,
+                        KSReferencedImageSet *referencedImages)
 {
     bool isCrashedThread = ksmc_isCrashedContext(machineContext);
     KSThread thread = ksmc_getThreadFromContext(machineContext);
@@ -1101,7 +1154,7 @@ static void writeThread(const KSCrashReportWriter *const writer, const char *con
     writer->beginObject(writer, key);
     {
         if (hasBacktrace) {
-            writeBacktrace(writer, KSCrashField_Backtrace, &stackCursor);
+            writeBacktrace(writer, KSCrashField_Backtrace, &stackCursor, referencedImages);
         }
         if (ksmc_canHaveCPUState(machineContext)) {
             writeRegisters(writer, KSCrashField_Registers, machineContext);
@@ -1139,7 +1192,8 @@ static void writeThread(const KSCrashReportWriter *const writer, const char *con
  * @param crash The crash handler context.
  */
 static void writeThreads(const KSCrashReportWriter *const writer, const char *const key,
-                         const KSCrash_MonitorContext *const crash, bool writeNotableAddresses)
+                         const KSCrash_MonitorContext *const crash, bool writeNotableAddresses,
+                         KSReferencedImageSet *referencedImages)
 {
     const struct KSMachineContext *const context = crash->offendingMachineContext;
 
@@ -1161,10 +1215,11 @@ static void writeThreads(const KSCrashReportWriter *const writer, const char *co
             KSThread thread = ksmc_getThreadAtIndex(context, i);
             int threadRunState = ksthread_getThreadState(thread);
             if (thread == offendingThread) {
-                writeThread(writer, NULL, crash, context, i, writeNotableAddresses, threadRunState);
+                writeThread(writer, NULL, crash, context, i, writeNotableAddresses, threadRunState, referencedImages);
             } else if (shouldRecordAllThreads) {
                 ksmc_getContextForThread(thread, &machineContext, false);
-                writeThread(writer, NULL, crash, &machineContext, i, writeNotableAddresses, threadRunState);
+                writeThread(writer, NULL, crash, &machineContext, i, writeNotableAddresses, threadRunState,
+                            referencedImages);
             }
         }
     }
@@ -1215,18 +1270,50 @@ static void writeBinaryImage(const KSCrashReportWriter *const writer, const KSBi
  *
  * @param key The object key, if needed.
  */
-static void writeBinaryImages(const KSCrashReportWriter *const writer, const char *const key)
+static void writeBinaryImages(const KSCrashReportWriter *const writer, const char *const key,
+                              const KSReferencedImageSet *referencedImages)
 {
     uint32_t count = 0;
     const ks_dyld_image_info *images = ksbic_getImages(&count);
+
+    const struct mach_header *dyldHeader = ksbic_getDyldHeader();
+    bool dyldAlreadyWritten = false;
 
     writer->beginArray(writer, key);
     {
         for (uint32_t iImg = 0; iImg < count; iImg++) {
             ks_dyld_image_info info = images[iImg];
+            // In compact mode, skip images not referenced by any backtrace frame.
+            // This avoids calling ksdl_binaryImageForHeader (which walks all Mach-O
+            // load commands + getsectiondata for crash_info) on the ~95% of images
+            // that aren't relevant. The trade-off is that images with crash_info but
+            // no backtrace reference are omitted, but in practice the crashing image
+            // is almost always referenced by the backtrace.
+            if (referencedImages != NULL && !referencedImages->overflowed &&
+                !referencedImageSet_contains(referencedImages, (uintptr_t)info.imageLoadAddress)) {
+                continue;
+            }
+            bool isDyld = (info.imageLoadAddress == dyldHeader);
+            if (isDyld) {
+                dyldAlreadyWritten = true;
+            }
+            const char *imagePath = isDyld && info.imageFilePath == NULL ? ksbic_getDyldPath() : info.imageFilePath;
             KSBinaryImage image = { 0 };
-            if (ksdl_binaryImageForHeader(info.imageLoadAddress, info.imageFilePath, &image)) {
-                writeBinaryImage(writer, &image);
+            if (!ksdl_binaryImageForHeader(info.imageLoadAddress, imagePath, &image)) {
+                continue;
+            }
+            writeBinaryImage(writer, &image);
+        }
+
+        // dyld is not in the infoArray today, but guard against future OS
+        // versions that might include it. In compact mode, only include dyld
+        // if a frame actually references it.
+        bool dyldReferenced = referencedImages == NULL || referencedImages->overflowed ||
+                              referencedImageSet_contains(referencedImages, (uintptr_t)dyldHeader);
+        if (dyldHeader != NULL && !dyldAlreadyWritten && dyldReferenced) {
+            KSBinaryImage dyldImage = { 0 };
+            if (ksdl_binaryImageForHeader(dyldHeader, ksbic_getDyldPath(), &dyldImage)) {
+                writeBinaryImage(writer, &dyldImage);
             }
         }
     }
@@ -1584,7 +1671,7 @@ void kscrashreport_writeRecrashReport(const KSCrash_MonitorContext *const monito
             int threadIndex = ksmc_indexOfThread(monitorContext->offendingMachineContext, thread);
             int threadRunState = ksthread_getThreadState(thread);
             writeThread(writer, KSCrashField_CrashedThread, monitorContext, monitorContext->offendingMachineContext,
-                        threadIndex, false, threadRunState);
+                        threadIndex, false, threadRunState, NULL);
             ksfu_flushBufferedWriter(&bufferedWriter);
         }
         writer->endContainer(writer);
@@ -1702,8 +1789,14 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
                         monitorContext->System.processName, monitorContext->monitorId);
         ksfu_flushBufferedWriter(&bufferedWriter);
 
-        if (!monitorContext->omitBinaryImages) {
-            writeBinaryImages(writer, KSCrashField_BinaryImages);
+        // Only collect referenced image addresses when compact mode needs them.
+        // The set is stack-allocated and the per-frame dedup scan is skipped entirely
+        // when the pointer is NULL, avoiding extra work in the crash handler path.
+        KSReferencedImageSet referencedImageStorage = { .count = 0 };
+        KSReferencedImageSet *referencedImages = g_compactBinaryImages ? &referencedImageStorage : NULL;
+
+        if (!monitorContext->omitBinaryImages && !g_compactBinaryImages) {
+            writeBinaryImages(writer, KSCrashField_BinaryImages, NULL);
             ksfu_flushBufferedWriter(&bufferedWriter);
         }
 
@@ -1717,7 +1810,7 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
         {
             writeError(writer, KSCrashField_Error, monitorContext);
             ksfu_flushBufferedWriter(&bufferedWriter);
-            writeThreads(writer, KSCrashField_Threads, monitorContext, g_introspectionRules.enabled);
+            writeThreads(writer, KSCrashField_Threads, monitorContext, g_introspectionRules.enabled, referencedImages);
             ksfu_flushBufferedWriter(&bufferedWriter);
             if (monitorContext->suspendedThreadsCount > 0) {
                 // Special case: If we only needed to suspend the environment to record the threads, then we can
@@ -1729,6 +1822,11 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
             }
         }
         writer->endContainer(writer);
+
+        if (!monitorContext->omitBinaryImages && g_compactBinaryImages) {
+            writeBinaryImages(writer, KSCrashField_BinaryImages, referencedImages);
+            ksfu_flushBufferedWriter(&bufferedWriter);
+        }
 
         // Acquire lock to read userInfo (async-signal-safe bounded spin)
         bool userInfoLocked = ks_spinlock_lock_bounded(&g_userInfoLock);
@@ -1832,4 +1930,6 @@ void kscrashreport_setIsWritingReportCallback(const KSCrashIsWritingReportCallba
     KSLOG_TRACE("Set isWritingReportCallback to %p", isWritingReportCallback);
     g_userSectionWriteCallback = isWritingReportCallback;
 }
+
+void kscrashreport_setCompactBinaryImages(bool enabled) { g_compactBinaryImages = enabled; }
 

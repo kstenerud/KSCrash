@@ -493,6 +493,13 @@ static bool advanceCursor(KSStackCursor *cursor)
             return false;
         }
 
+        // Clear LR after consuming it. Compact unwind passes ctx->lr to the
+        // decoder, and frameless-leaf encodings (stackSize==0) or mode-0
+        // entries return it as the return address. If LR still holds the
+        // original register value, any such encoding deep in the stack would
+        // produce a spurious duplicate of frame [1].
+        ctx->lr = 0;
+
         // After using LR, we need to unwind to get the next return address
         // Try methods in order to update our register state
         if (!tryUpdateStateAfterLR(ctx)) {

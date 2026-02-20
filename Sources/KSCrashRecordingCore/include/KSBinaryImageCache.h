@@ -142,6 +142,48 @@ typedef struct {
 } KSBinaryImageUnwindInfo;
 
 /**
+ * Get the mach_header of the main executable.
+ *
+ * The main executable is always the first entry in the dyld image list.
+ *
+ * @return The mach_header of the main executable, or NULL if not available.
+ */
+const struct mach_header *_Nullable ksbic_getAppHeader(void);
+
+/**
+ * Get the mach_header of the dyld shared library.
+ *
+ * dyld is not included in the normal image list returned by ksbic_getImages().
+ * This function provides access to dyld's header for cache lookups and
+ * binary image reporting.
+ *
+ * @return The mach_header of dyld, or NULL if not available.
+ */
+const struct mach_header *_Nullable ksbic_getDyldHeader(void);
+
+/**
+ * Get the file path of the dyld shared library.
+ *
+ * @return The file path of dyld.
+ */
+const char *_Nonnull ksbic_getDyldPath(void);
+
+/**
+ * Get the LC_UUID for a binary image.
+ *
+ * Returns a pointer to the 16-byte UUID in the Mach-O header, or NULL if not found.
+ * The pointer is valid for the lifetime of the loaded image.
+ *
+ * This function is async-signal-safe. On a cache miss the fallback path
+ * includes KSLOG_DEBUG calls, but these are compiled out at the default
+ * log level (ERROR) so this is not an issue in production builds.
+ *
+ * @param header The mach_header of the image.
+ * @return Pointer to 16-byte UUID data, or NULL if not found.
+ */
+const uint8_t *_Nullable ksbic_getUUIDForHeader(const struct mach_header *_Nullable header);
+
+/**
  * Get cached unwind information for a binary image.
  *
  * This function is async-signal-safe.

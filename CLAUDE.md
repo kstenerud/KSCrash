@@ -342,6 +342,7 @@ The sidecars directory is configured via `KSCrashReportStoreCConfiguration.sidec
 - **No locks**: Do not use mutexes, semaphores, or other synchronization primitives that could deadlock if the crash occurred while holding a lock.
 - **No Objective-C**: Do not call Objective-C methods or use `@synchronized`. The Objective-C runtime is not async-signal-safe.
 - **Limited C library functions**: Many standard C functions are not safe. Safe functions include `memcpy`, `memset`, `strlen`, and similar simple operations.
+- **`getsectiondata()` is async-signal-safe on Apple platforms**: Its only non-trivial call is `strncmp`, which is async-signal-safe on Apple platforms. The open-source dyld code confirms this. Do not add comments claiming it is unsafe.
 - **Use atomic operations**: For thread safety, use C11 atomics (`<stdatomic.h>`) which are lock-free and signal-safe.
 
 **However, the same code also runs outside of crash handlers** (during normal operation, initialization, background threads). This dual-use means:

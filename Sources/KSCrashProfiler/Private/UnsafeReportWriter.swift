@@ -100,6 +100,13 @@ struct UnsafeReportWriter {
         }
     }
 
+    /// Adds a UUID element to the report (formatted as a standard UUID string).
+    func addUUID(_ name: String, _ value: UnsafePointer<UInt8>) {
+        name.withCString { cName in
+            ptr.pointee.addUUIDElement(ptr, cName, value)
+        }
+    }
+
     // MARK: - Containers
 
     /// Begins a new JSON object.

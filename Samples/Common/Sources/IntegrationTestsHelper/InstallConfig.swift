@@ -34,6 +34,7 @@ public struct InstallConfig: Codable {
     public var isSigTermMonitoringEnabled: Bool?
     public var shouldRecordAllThreads: Bool?
     public var isWatchdogEnabled: Bool?
+    public var isCompactBinaryImagesEnabled: Bool?
 
     public init(installPath: String) {
         self.installPath = installPath
@@ -52,6 +53,9 @@ extension InstallConfig {
         }
         if isWatchdogEnabled == true {
             config.monitors = [config.monitors, .watchdog]
+        }
+        if let isCompactBinaryImagesEnabled {
+            config.enableCompactBinaryImages = isCompactBinaryImagesEnabled
         }
         setIntegrationTestWillWriteReportCallback({
             (plan: UnsafeMutablePointer<ExceptionHandlingPlan>, ctx: UnsafePointer<KSCrash_MonitorContext>) in

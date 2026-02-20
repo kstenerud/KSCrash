@@ -88,6 +88,8 @@ extension Profile {
             Unmanaged<BoxedProfile>.fromOpaque(callbackContext).release()
         }
         context?.pointee.callbackContext = callbackContext
+        // Profile frames already include object_uuid, so binary_images is redundant.
+        context?.pointee.omitBinaryImages = true
 
         var result = KSCrash_ReportResult()
         callbacks.handleWithResult(context, &result)
@@ -136,7 +138,7 @@ private class BoxedProfile {
             .sorted()
             .map {
                 var info = SymbolInformation()
-                _ = quickSymbolicate(address: $0, result: &info)
+                _ = symbolicate(address: $0, result: &info)
                 return info
             }
 
@@ -172,6 +174,9 @@ private class BoxedProfile {
                 writer.add("object_name", name)
             }
             writer.add("object_addr", UInt64(address.imageAddress))
+            if let uuid = address.imageUUID {
+                writer.addUUID("object_uuid", uuid)
+            }
 
             writer.endContainer()
         }
