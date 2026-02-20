@@ -356,6 +356,11 @@ static void deleteReportWithID(int64_t reportID, const KSCrashReportStoreCConfig
     }
 }
 
+/** Delete oldest reports exceeding maxReportCount.
+ *  Each deletion checks whether the report's run sidecar directory is orphaned
+ *  by scanning remaining reports — O(D * N) where D = reports deleted and
+ *  N = reports remaining, both bounded by reportCount at prune time.
+ */
 static void pruneReports(const KSCrashReportStoreCConfiguration *const config)
 {
     if (config->maxReportCount <= 0) {

@@ -30,6 +30,7 @@
 #import "KSJSONCodecObjC.h"
 
 #import <Foundation/Foundation.h>
+#import <uuid/uuid.h>
 
 bool kscrs_extractRunIdFromReport(const char *report, char *runIdBuffer, size_t bufferLength)
 {
@@ -49,6 +50,19 @@ bool kscrs_extractRunIdFromReport(const char *report, char *runIdBuffer, size_t 
             return false;
         }
 
-        return [runId getCString:runIdBuffer maxLength:bufferLength encoding:NSUTF8StringEncoding];
+        if (![runId getCString:runIdBuffer maxLength:bufferLength encoding:NSUTF8StringEncoding]) {
+            return false;
+        }
+
+        // Defense-in-depth: run_id is used as a path component, so reject anything
+        // that isn't a valid UUID to prevent path traversal via crafted report JSON.
+        // uuid_parse returns -1 for any non-UUID string; NULL input is UB but
+        // runIdBuffer is guaranteed non-NULL and null-terminated by getCString above.
+        uuid_t unused;
+        if (uuid_parse(runIdBuffer, unused) != 0) {
+            runIdBuffer[0] = '\0';
+            return false;
+        }
+        return true;
     }
 }
