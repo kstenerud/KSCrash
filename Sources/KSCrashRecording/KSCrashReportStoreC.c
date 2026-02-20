@@ -49,6 +49,10 @@ static _Atomic(uint32_t) g_nextUniqueIDLow;
 static int64_t g_nextUniqueIDHigh;
 static pthread_mutex_t g_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+// Saved during kscrs_initialize so kscrs_readReportAtPath can stitch sidecars.
+static bool g_hasStoredConfig = false;
+static KSCrashReportStoreCConfiguration g_storedConfig;
+
 static int compareInt64(const void *a, const void *b)
 {
     int64_t diff = *(int64_t *)a - *(int64_t *)b;
@@ -466,6 +470,12 @@ KSCrashInstallErrorCode kscrs_initialize(const KSCrashReportStoreCConfiguration 
         }
         pruneReports(configuration);
         initializeIDs();
+
+        if (g_hasStoredConfig) {
+            KSCrashReportStoreCConfiguration_Release(&g_storedConfig);
+        }
+        g_storedConfig = KSCrashReportStoreCConfiguration_Copy((KSCrashReportStoreCConfiguration *)configuration);
+        g_hasStoredConfig = true;
     }
     pthread_mutex_unlock(&g_mutex);
     return result;
@@ -528,7 +538,8 @@ static char *readReportAtPath(const char *path, int64_t reportID, const KSCrashR
 char *kscrs_readReportAtPath(const char *path)
 {
     pthread_mutex_lock(&g_mutex);
-    char *result = readReportAtPath(path, 0, NULL);
+    const KSCrashReportStoreCConfiguration *config = g_hasStoredConfig ? &g_storedConfig : NULL;
+    char *result = readReportAtPath(path, 0, config);
     pthread_mutex_unlock(&g_mutex);
     return result;
 }
