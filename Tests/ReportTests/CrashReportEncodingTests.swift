@@ -249,6 +249,57 @@ final class CrashReportEncodingTests: XCTestCase {
         XCTAssertNil(roundTripped.crash.error.mach)
     }
 
+    func testRoundTripLastExceptionBacktrace() throws {
+        let report = BasicCrashReport(
+            crash: BasicCrashReport.Crash(
+                error: CrashError(
+                    nsexception: ExceptionInfo(name: "NSInvalidArgumentException"),
+                    type: .nsexception
+                ),
+                threads: [
+                    BasicCrashReport.Thread(
+                        backtrace: Backtrace(
+                            contents: [
+                                StackFrame(instructionAddr: 0x3000, symbolName: "handleUncaughtException")
+                            ],
+                            skipped: 0
+                        ),
+                        crashed: true,
+                        currentThread: true,
+                        index: 0
+                    )
+                ],
+                lastExceptionBacktrace: Backtrace(
+                    contents: [
+                        StackFrame(
+                            instructionAddr: 0x1000,
+                            objectName: "CoreFoundation",
+                            symbolName: "__exceptionPreprocess"
+                        ),
+                        StackFrame(
+                            instructionAddr: 0x2000,
+                            objectName: "libobjc.A.dylib",
+                            symbolName: "objc_exception_throw"
+                        ),
+                    ],
+                    skipped: 0
+                )
+            ),
+            report: ReportInfo(id: "last-exc-bt-test")
+        )
+
+        let (_, roundTripped) = try roundTrip(report)
+
+        XCTAssertNotNil(roundTripped.crash.lastExceptionBacktrace)
+        XCTAssertEqual(roundTripped.crash.lastExceptionBacktrace?.contents.count, 2)
+        XCTAssertEqual(roundTripped.crash.lastExceptionBacktrace?.contents[0].symbolName, "__exceptionPreprocess")
+        XCTAssertEqual(roundTripped.crash.lastExceptionBacktrace?.contents[1].symbolName, "objc_exception_throw")
+        XCTAssertEqual(roundTripped.crash.lastExceptionBacktrace?.skipped, 0)
+
+        // Thread should have the handler backtrace, not the exception backtrace
+        XCTAssertEqual(roundTripped.crash.threads?[0].backtrace?.contents[0].symbolName, "handleUncaughtException")
+    }
+
     func testRoundTripMinimalReport() throws {
         let report = BasicCrashReport(
             crash: BasicCrashReport.Crash(
@@ -416,6 +467,10 @@ final class CrashReportEncodingTests: XCTestCase {
                     crashed: true,
                     currentThread: true,
                     index: 0
+                ),
+                lastExceptionBacktrace: Backtrace(
+                    contents: [StackFrame(instructionAddr: 0x2000)],
+                    skipped: 0
                 )
             ),
             report: ReportInfo(
@@ -434,6 +489,7 @@ final class CrashReportEncodingTests: XCTestCase {
         // Crash keys
         let crash = json["crash"] as! [String: Any]
         XCTAssertNotNil(crash["crashed_thread"])
+        XCTAssertNotNil(crash["last_exception_backtrace"])
 
         // Thread keys
         let threads = crash["threads"] as! [[String: Any]]

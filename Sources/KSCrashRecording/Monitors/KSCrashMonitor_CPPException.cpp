@@ -69,10 +69,20 @@ static struct {
     KSCrash_ExceptionHandlerCallbacks callbacks;
 } g_state;
 
-static thread_local KSStackCursor g_stackCursor;
+/** Exception backtrace captured at __cxa_throw time (the throw site). */
+static thread_local KSStackCursor g_exceptionStackCursor;
+
+/** Handler backtrace captured in the terminate handler. */
+static thread_local KSStackCursor g_handlerStackCursor;
 
 /** True if the handler should capture the next stack trace (thread-local). */
 static thread_local bool g_captureNextStackTrace = false;
+
+/** True if g_exceptionStackCursor was set by captureStackTrace for the current throw.
+ *  Without this, the advanceCursor != NULL guard would permanently pass after the
+ *  first exception on a thread, causing stale throw-site backtraces to be reused
+ *  if captureStackTrace wasn't called for the current exception. */
+static thread_local bool g_exceptionCursorValid = false;
 
 static bool isEnabled(__unused void *context) { return g_state.isEnabled && g_state.installedState == KSCM_Installed; }
 
@@ -87,7 +97,8 @@ static KS_NOINLINE void captureStackTrace(void *, std::type_info *tinfo,
         return;
     }
     if (g_captureNextStackTrace) {
-        kssc_initSelfThread(&g_stackCursor, 2);
+        kssc_initSelfThread(&g_exceptionStackCursor, 2);
+        g_exceptionCursorValid = true;
     }
     KS_THWART_TAIL_CALL_OPTIMISATION
 }
@@ -129,7 +140,9 @@ static void CPPExceptionTerminate(void)
 {
     KSLOG_DEBUG("Trapped c++ exception");
     std::type_info *tinfo = __cxxabiv1::__cxa_current_exception_type();
-    const char *name = cpp_demangleSymbol(tinfo->name());
+    // nullptr when std::terminate() is invoked without an active exception
+    // (explicit call, noexcept violation after exception is consumed, etc.).
+    const char *name = tinfo != nullptr ? cpp_demangleSymbol(tinfo->name()) : NULL;
     if (name != NULL && strcmp(name, "NSException") == 0) {
         KSLOG_DEBUG("Detected NSException. Letting the current NSException handler deal with it.");
         goto skip_handling;
@@ -152,47 +165,64 @@ static void CPPExceptionTerminate(void)
         KSLOG_DEBUG("Discovering what kind of exception was thrown.");
         g_captureNextStackTrace = false;
 
-        // We need to be very explicit about what type is thrown or it'll drop through.
-        try {
-            throw;
-        } catch (std::exception *exc) {
-            snprintf(descriptionBuff, sizeof(descriptionBuff), "%s", exc->what());
-        } catch (std::exception &exc) {
-            snprintf(descriptionBuff, sizeof(descriptionBuff), "%s", exc.what());
-        } catch (std::string *exc) {
-            snprintf(descriptionBuff, sizeof(descriptionBuff), "%s", exc->c_str());
-        } catch (std::string &exc) {
-            snprintf(descriptionBuff, sizeof(descriptionBuff), "%s", exc.c_str());
-        }
+        // Rethrow only when an exception is active; throw; with no active
+        // exception would recurse into std::terminate().
+        if (tinfo != nullptr) {
+            // We need to be very explicit about what type is thrown or it'll drop through.
+            try {
+                throw;
+            } catch (std::exception *exc) {
+                snprintf(descriptionBuff, sizeof(descriptionBuff), "%s", exc->what());
+            } catch (std::exception &exc) {
+                snprintf(descriptionBuff, sizeof(descriptionBuff), "%s", exc.what());
+            } catch (std::string *exc) {
+                snprintf(descriptionBuff, sizeof(descriptionBuff), "%s", exc->c_str());
+            } catch (std::string &exc) {
+                snprintf(descriptionBuff, sizeof(descriptionBuff), "%s", exc.c_str());
+            }
 #define CATCH_VALUE(TYPE, PRINTFTYPE) \
     catch (TYPE value) { snprintf(descriptionBuff, sizeof(descriptionBuff), "%" #PRINTFTYPE, value); }
-        CATCH_VALUE(char, d)
-        CATCH_VALUE(short, d)
-        CATCH_VALUE(int, d)
-        CATCH_VALUE(long, ld)
-        CATCH_VALUE(long long, lld)
-        CATCH_VALUE(unsigned char, u)
-        CATCH_VALUE(unsigned short, u)
-        CATCH_VALUE(unsigned int, u)
-        CATCH_VALUE(unsigned long, lu)
-        CATCH_VALUE(unsigned long long, llu)
-        CATCH_VALUE(float, f)
-        CATCH_VALUE(double, f)
-        CATCH_VALUE(long double, Lf)
+            CATCH_VALUE(char, d)
+            CATCH_VALUE(short, d)
+            CATCH_VALUE(int, d)
+            CATCH_VALUE(long, ld)
+            CATCH_VALUE(long long, lld)
+            CATCH_VALUE(unsigned char, u)
+            CATCH_VALUE(unsigned short, u)
+            CATCH_VALUE(unsigned int, u)
+            CATCH_VALUE(unsigned long, lu)
+            CATCH_VALUE(unsigned long long, llu)
+            CATCH_VALUE(float, f)
+            CATCH_VALUE(double, f)
+            CATCH_VALUE(long double, Lf)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wexceptions"
-        CATCH_VALUE(char *, s)
-        CATCH_VALUE(const char *, s)
+            CATCH_VALUE(char *, s)
+            CATCH_VALUE(const char *, s)
 #pragma clang diagnostic pop
-        catch (...) { description = NULL; }
+            catch (...) { description = NULL; }
+        } else {
+            description = NULL;
+        }
         g_captureNextStackTrace = isEnabled(NULL);
 
-        // Initialize g_stackCursor if not already initialized by captureStackTrace.
-        // Skip 4 frames: CPPExceptionTerminate -> std::__terminate -> failed_throw -> __cxa_throw
-        // to reach the actual throw location (e.g., sample_namespace::Report::crash).
-        if (g_stackCursor.advanceCursor == NULL) {
-            kssc_initSelfThread(&g_stackCursor, 4);
+        if (tinfo == nullptr) {
+            // No active exception — init fresh to avoid reusing a stale throw-site cursor
+            // from a prior throw on this thread. Skip 1 frame (this function) to show
+            // the terminate() context, same as the handler cursor.
+            kssc_initSelfThread(&g_exceptionStackCursor, 1);
+        } else if (!g_exceptionCursorValid) {
+            // Exception exists but captureStackTrace didn't fire (e.g., foreign throw).
+            // Skip 4 frames: CPPExceptionTerminate -> std::__terminate -> failed_throw -> __cxa_throw
+            // to reach the actual throw location.
+            kssc_initSelfThread(&g_exceptionStackCursor, 4);
         }
+        // else: throw-site cursor was captured by captureStackTrace — use it as-is.
+        g_exceptionCursorValid = false;
+
+        // Capture the handler's actual call stack (the terminate handler context).
+        // Skip 1 frame: CPPExceptionTerminate itself.
+        kssc_initSelfThread(&g_handlerStackCursor, 1);
 
         // TODO: Should this be done here? Maybe better in the exception handler?
         KSMachineContext machineContext = { 0 };
@@ -201,7 +231,8 @@ static void CPPExceptionTerminate(void)
         KSLOG_DEBUG("Filling out context.");
         kscm_fillMonitorContext(crashContext, kscm_cppexception_getAPI());
         crashContext->registersAreValid = false;
-        crashContext->stackCursor = &g_stackCursor;
+        crashContext->stackCursor = &g_handlerStackCursor;
+        crashContext->exceptionStackCursor = &g_exceptionStackCursor;
         crashContext->CPPException.name = name;
         crashContext->exceptionName = name;
         crashContext->crashReason = description;
@@ -222,7 +253,8 @@ static void install()
         return;
     }
 
-    kssc_initCursor(&g_stackCursor, NULL, NULL);
+    kssc_initCursor(&g_exceptionStackCursor, NULL, NULL);
+    kssc_initCursor(&g_handlerStackCursor, NULL, NULL);
     g_state.originalTerminateHandler = std::set_terminate(CPPExceptionTerminate);
 }
 

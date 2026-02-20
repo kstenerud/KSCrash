@@ -96,6 +96,13 @@ typedef struct KSCrash_MonitorContext {
      */
     void *stackCursor;
 
+    /** The stack cursor for the exception backtrace (e.g., from NSException.callStackReturnAddresses
+     *  or __cxa_throw). Written to last_exception_backtrace in the report.
+     *  When set, stackCursor should contain the handler's actual call stack instead.
+     *  Note: Actual type is KSStackCursor*
+     */
+    void *exceptionStackCursor;
+
     /** If true, don't output binary images.
      *  This can be useful in cases where we have no stack.
      */

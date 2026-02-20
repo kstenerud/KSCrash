@@ -103,21 +103,30 @@ static KS_NOINLINE void handleException(NSException *exception, BOOL isUserRepor
 {
     KSLOG_DEBUG(@"Trapped exception %@", exception);
     if (isEnabled(NULL)) {
-        // Gather this info before we require async-safety:
+        // Gather this info before we require async-safety (ObjC messaging is not signal-safe):
         const char *exceptionName = exception.name.UTF8String;
         const char *exceptionReason = exception.reason.UTF8String;
         NS_VALID_UNTIL_END_OF_SCOPE NSString *userInfoString =
             exception.userInfo != nil ? [NSString stringWithFormat:@"%@", exception.userInfo] : nil;
         const char *userInfo = userInfoString.UTF8String;
+
+        // Capture the exception's own backtrace (from callStackReturnAddresses).
+        // This uses ObjC, so it must happen before notify() enters async-safe mode.
+        KSStackCursor exceptionCursor;
+        uintptr_t *callstack = NULL;
+        initStackCursor(&exceptionCursor, exception, &callstack, isUserReported);
+
+        // Capture the handler's actual call stack while we're still in the handler frame.
+        // User-reported skip 3: handleException + customNSExceptionReporter + reportNSException:
+        // Uncaught skip 2: handleException + handleUncaughtException
+        KSStackCursor handlerCursor;
+        int const handlerSkipFrames = isUserReported ? 3 : 2;
+        kssc_initSelfThread(&handlerCursor, handlerSkipFrames);
+
         KSLOG_DEBUG(@"Filling out context.");
         thread_t thisThread = (thread_t)ksthread_self();
-        KSMachineContext machineContext = { 0 };
-        ksmc_getContextForThread(thisThread, &machineContext, true);
-        KSStackCursor cursor;
-        uintptr_t *callstack = NULL;
-        initStackCursor(&cursor, exception, &callstack, isUserReported);
 
-        // Now start exception handling
+        // Notify suspends other threads, establishing async-safe mode.
         KSCrash_MonitorContext *crashContext = g_state.callbacks.notify(
             thisThread, (KSCrash_ExceptionHandlingRequirements) { .asyncSafety = false,
                                                                   // User-reported exceptions are not considered fatal.
@@ -128,6 +137,10 @@ static KS_NOINLINE void handleException(NSException *exception, BOOL isUserRepor
             goto exit_immediately;
         }
 
+        // Capture machine context after notify() so the thread list matches the suspended state.
+        KSMachineContext machineContext = { 0 };
+        ksmc_getContextForThread(thisThread, &machineContext, true);
+
         kscm_fillMonitorContext(crashContext, kscm_nsexception_getAPI());
         crashContext->offendingMachineContext = &machineContext;
         crashContext->registersAreValid = false;
@@ -135,8 +148,12 @@ static KS_NOINLINE void handleException(NSException *exception, BOOL isUserRepor
         crashContext->NSException.userInfo = userInfo;
         crashContext->exceptionName = exceptionName;
         crashContext->crashReason = exceptionReason;
-        crashContext->stackCursor = &cursor;
         crashContext->currentSnapshotUserReported = isUserReported;
+
+        // The handler backtrace goes into stackCursor (shown as the crashed thread's backtrace).
+        // The exception's origin backtrace goes into exceptionStackCursor (last_exception_backtrace).
+        crashContext->stackCursor = &handlerCursor;
+        crashContext->exceptionStackCursor = &exceptionCursor;
 
         KSLOG_DEBUG(@"Calling main crash handler.");
         g_state.callbacks.handle(crashContext);

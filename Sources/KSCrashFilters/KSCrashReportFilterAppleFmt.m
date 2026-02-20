@@ -777,6 +777,23 @@ static NSDictionary *g_registerOrders;
     return str;
 }
 
+- (NSString *)lastExceptionBacktraceStringForReport:(NSDictionary *)report
+                                 mainExecutableName:(NSString *)mainExecutableName
+{
+    NSDictionary *crash = [self crashReport:report];
+    NSDictionary *backtrace = [crash objectForKey:KSCrashField_LastExceptionBacktrace];
+    if (backtrace == nil) {
+        return @"";
+    }
+
+    NSMutableString *str = [NSMutableString string];
+    [str appendString:@"\nLast Exception Backtrace:\n"];
+    [str appendString:[self backtraceString:backtrace
+                                 reportStyle:self.reportStyle
+                          mainExecutableName:mainExecutableName]];
+    return str;
+}
+
 - (NSString *)crashReportString:(NSDictionary *)report
 {
     NSMutableString *str = [NSMutableString string];
@@ -785,6 +802,7 @@ static NSDictionary *g_registerOrders;
     [str appendString:[self headerStringForReport:report]];
     [str appendString:[self errorInfoStringForReport:report]];
     [str appendString:[self threadListStringForReport:report mainExecutableName:executableName]];
+    [str appendString:[self lastExceptionBacktraceStringForReport:report mainExecutableName:executableName]];
     [str appendString:[self crashedThreadCPUStateStringForReport:report cpuArch:[self cpuArchForReport:report]]];
     [str appendString:[self binaryImagesStringForReport:report]];
     [str appendString:[self extraInfoStringForReport:report mainExecutableName:executableName]];

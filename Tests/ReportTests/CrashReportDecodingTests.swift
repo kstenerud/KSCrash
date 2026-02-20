@@ -183,6 +183,67 @@ final class CrashReportDecodingTests: XCTestCase {
         XCTAssertEqual(frame.symbolName, "__exceptionPreprocess")
     }
 
+    func testDecodeLastExceptionBacktrace() throws {
+        let json = """
+            {
+                "binary_images": [],
+                "crash": {
+                    "error": {
+                        "type": "nsexception",
+                        "nsexception": {
+                            "name": "NSInvalidArgumentException"
+                        }
+                    },
+                    "threads": [],
+                    "last_exception_backtrace": {
+                        "contents": [
+                            {
+                                "instruction_addr": 100,
+                                "object_addr": 0,
+                                "object_name": "CoreFoundation",
+                                "symbol_name": "__exceptionPreprocess"
+                            },
+                            {
+                                "instruction_addr": 200,
+                                "object_addr": 0,
+                                "object_name": "libobjc.A.dylib",
+                                "symbol_name": "objc_exception_throw"
+                            }
+                        ],
+                        "skipped": 0
+                    }
+                },
+                "report": { "id": "test-last-exception-bt" },
+                "system": {}
+            }
+            """
+
+        let report = try CrashReport.decode(from: json)
+
+        XCTAssertNotNil(report.crash.lastExceptionBacktrace)
+        XCTAssertEqual(report.crash.lastExceptionBacktrace?.contents.count, 2)
+        XCTAssertEqual(report.crash.lastExceptionBacktrace?.contents[0].symbolName, "__exceptionPreprocess")
+        XCTAssertEqual(report.crash.lastExceptionBacktrace?.contents[1].symbolName, "objc_exception_throw")
+        XCTAssertEqual(report.crash.lastExceptionBacktrace?.skipped, 0)
+    }
+
+    func testDecodeAbsentLastExceptionBacktrace() throws {
+        let json = """
+            {
+                "binary_images": [],
+                "crash": {
+                    "error": { "type": "mach" },
+                    "threads": []
+                },
+                "report": { "id": "test" },
+                "system": {}
+            }
+            """
+
+        let report = try CrashReport.decode(from: json)
+        XCTAssertNil(report.crash.lastExceptionBacktrace)
+    }
+
     func testDecodeSystemInfo() throws {
         let json = """
             {
