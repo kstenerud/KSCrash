@@ -239,48 +239,47 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
 
 - (NSDictionary *)systemInfo
 {
-    KSCrash_MonitorContext fakeEvent = { 0 };
-    kscm_system_getAPI()->addContextualInfoToEvent(&fakeEvent, NULL);
     NSMutableDictionary *dict = [NSMutableDictionary new];
 
-#define COPY_STRING(A) \
-    if (fakeEvent.System.A) dict[@ #A] = [NSString stringWithUTF8String:fakeEvent.System.A]
-#define COPY_PRIMITIVE(A) dict[@ #A] = @(fakeEvent.System.A)
-    COPY_STRING(systemName);
-    COPY_STRING(systemVersion);
-    COPY_STRING(machine);
-    COPY_STRING(model);
-    COPY_STRING(kernelVersion);
-    COPY_STRING(osVersion);
-    COPY_PRIMITIVE(isJailbroken);
-    COPY_PRIMITIVE(procTranslated);
-    COPY_STRING(bootTime);  // this field is populated in an optional monitor
-    COPY_STRING(appStartTime);
-    COPY_STRING(executablePath);
-    COPY_STRING(executableName);
-    COPY_STRING(bundleID);
-    COPY_STRING(bundleName);
-    COPY_STRING(bundleVersion);
-    COPY_STRING(bundleShortVersion);
-    COPY_STRING(appID);
-    COPY_STRING(cpuArchitecture);
-    COPY_STRING(binaryArchitecture);
-    COPY_STRING(clangVersion);
-    COPY_PRIMITIVE(cpuType);
-    COPY_PRIMITIVE(cpuSubType);
-    COPY_PRIMITIVE(binaryCPUType);
-    COPY_PRIMITIVE(binaryCPUSubType);
-    COPY_STRING(timezone);
-    COPY_STRING(processName);
-    COPY_PRIMITIVE(processID);
-    COPY_PRIMITIVE(parentProcessID);
-    COPY_STRING(deviceAppHash);
-    COPY_STRING(buildType);
-    COPY_PRIMITIVE(storageSize);      // this field is populated in an optional monitor
-    COPY_PRIMITIVE(freeStorageSize);  // this field is populated in an optional monitor
-    COPY_PRIMITIVE(memorySize);
-    COPY_PRIMITIVE(freeMemory);
-    COPY_PRIMITIVE(usableMemory);
+    // System-monitor fields come from a snapshot of the mmap'd struct
+    KSCrash_SystemData sd;
+    if (kscm_system_getSystemData(&sd)) {
+#define COPY_SYS_STR(FIELD, KEY) \
+    if (sd.FIELD[0] != '\0') dict[@KEY] = [NSString stringWithUTF8String:sd.FIELD]
+        COPY_SYS_STR(systemName, "systemName");
+        COPY_SYS_STR(systemVersion, "systemVersion");
+        COPY_SYS_STR(machine, "machine");
+        COPY_SYS_STR(model, "model");
+        COPY_SYS_STR(kernelVersion, "kernelVersion");
+        COPY_SYS_STR(osVersion, "osVersion");
+        dict[@"isJailbroken"] = @(sd.isJailbroken);
+        dict[@"procTranslated"] = @(sd.procTranslated);
+        COPY_SYS_STR(appStartTime, "appStartTime");
+        COPY_SYS_STR(executablePath, "executablePath");
+        COPY_SYS_STR(executableName, "executableName");
+        COPY_SYS_STR(bundleID, "bundleID");
+        COPY_SYS_STR(bundleName, "bundleName");
+        COPY_SYS_STR(bundleVersion, "bundleVersion");
+        COPY_SYS_STR(bundleShortVersion, "bundleShortVersion");
+        COPY_SYS_STR(appID, "appID");
+        COPY_SYS_STR(cpuArchitecture, "cpuArchitecture");
+        COPY_SYS_STR(binaryArchitecture, "binaryArchitecture");
+        COPY_SYS_STR(clangVersion, "clangVersion");
+        dict[@"cpuType"] = @(sd.cpuType);
+        dict[@"cpuSubType"] = @(sd.cpuSubType);
+        dict[@"binaryCPUType"] = @(sd.binaryCPUType);
+        dict[@"binaryCPUSubType"] = @(sd.binaryCPUSubType);
+        COPY_SYS_STR(timezone, "timezone");
+        COPY_SYS_STR(processName, "processName");
+        dict[@"processID"] = @(sd.processID);
+        dict[@"parentProcessID"] = @(sd.parentProcessID);
+        COPY_SYS_STR(deviceAppHash, "deviceAppHash");
+        COPY_SYS_STR(buildType, "buildType");
+        dict[@"memorySize"] = @(sd.memorySize);
+        dict[@"freeMemory"] = @(sd.freeMemory);
+        dict[@"usableMemory"] = @(sd.usableMemory);
+#undef COPY_SYS_STR
+    }
 
     return [dict copy];
 }

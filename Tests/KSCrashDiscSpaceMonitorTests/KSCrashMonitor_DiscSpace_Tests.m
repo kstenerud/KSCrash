@@ -25,14 +25,30 @@
 //
 
 #import <XCTest/XCTest.h>
+
 #import "KSCrashMonitorContext.h"
-
 #import "KSCrashMonitor_DiscSpace.h"
+#import "KSCrashMonitor_System.h"
+#import "KSFileUtils.h"
 
-// Function to reset global state for tests
+#include <errno.h>
+#include <fcntl.h>
+
 extern void kscm_discSpace_resetState(void);
 
+static char g_sidecarPath[512];
+
+static bool stubRunSidecarPath(const char *monitorId, char *pathBuffer, size_t pathBufferLength)
+{
+    if (g_sidecarPath[0] == '\0') {
+        return false;
+    }
+    snprintf(pathBuffer, pathBufferLength, "%s/%s.ksscr", g_sidecarPath, monitorId);
+    return true;
+}
+
 @interface KSCrashMonitorDiscSpaceTests : XCTestCase
+@property(nonatomic, strong) NSString *tempDir;
 @end
 
 @implementation KSCrashMonitorDiscSpaceTests
@@ -41,6 +57,28 @@ extern void kscm_discSpace_resetState(void);
 {
     [super setUp];
     kscm_discSpace_resetState();
+
+    self.tempDir = [NSTemporaryDirectory() stringByAppendingPathComponent:[[NSUUID UUID] UUIDString]];
+    [[NSFileManager defaultManager] createDirectoryAtPath:self.tempDir
+                              withIntermediateDirectories:YES
+                                               attributes:nil
+                                                    error:nil];
+    strlcpy(g_sidecarPath, self.tempDir.fileSystemRepresentation, sizeof(g_sidecarPath));
+
+    KSCrashMonitorAPI *sysApi = kscm_system_getAPI();
+    KSCrash_ExceptionHandlerCallbacks callbacks = { .getRunSidecarPath = stubRunSidecarPath };
+    sysApi->init(&callbacks, NULL);
+    sysApi->setEnabled(true, NULL);
+}
+
+- (void)tearDown
+{
+    KSCrashMonitorAPI *sysApi = kscm_system_getAPI();
+    sysApi->setEnabled(false, NULL);
+
+    [[NSFileManager defaultManager] removeItemAtPath:self.tempDir error:nil];
+    g_sidecarPath[0] = '\0';
+    [super tearDown];
 }
 
 - (void)testMonitorActivation
@@ -54,29 +92,30 @@ extern void kscm_discSpace_resetState(void);
     XCTAssertFalse(discSpaceMonitor->isEnabled(NULL), @"Disc space monitor should be disabled after setting.");
 }
 
-- (void)testAddContextualInfoWhenEnabled
+- (void)testNotifyPostSystemEnableSetsDiscSpace
 {
     KSCrashMonitorAPI *discSpaceMonitor = kscm_discspace_getAPI();
     discSpaceMonitor->setEnabled(true, NULL);
 
-    KSCrash_MonitorContext context = { 0 };
-    discSpaceMonitor->addContextualInfoToEvent(&context, NULL);
+    discSpaceMonitor->notifyPostSystemEnable(NULL);
 
-    // Check that storage size is added to the context
-    XCTAssertFalse(context.System.storageSize == 0,
-                   @"Storage size should be added to the context when the monitor is enabled.");
+    KSCrash_SystemData sd = {};
+    XCTAssertTrue(kscm_system_getSystemData(&sd));
+    XCTAssertGreaterThan(sd.storageSize, (uint64_t)0, @"storageSize should be set after notifyPostSystemEnable");
+    XCTAssertGreaterThan(sd.freeStorageSize, (uint64_t)0,
+                         @"freeStorageSize should be set after notifyPostSystemEnable");
 }
 
-- (void)testNoContextualInfoWhenDisabled
+- (void)testNoDiscSpaceWhenDisabled
 {
     KSCrashMonitorAPI *discSpaceMonitor = kscm_discspace_getAPI();
     discSpaceMonitor->setEnabled(false, NULL);
 
-    KSCrash_MonitorContext context = { 0 };
-    discSpaceMonitor->addContextualInfoToEvent(&context, NULL);
+    discSpaceMonitor->notifyPostSystemEnable(NULL);
 
-    XCTAssertTrue(context.System.storageSize == 0,
-                  @"Storage size should not be added to the context when the monitor is disabled.");
+    KSCrash_SystemData sd = {};
+    XCTAssertTrue(kscm_system_getSystemData(&sd));
+    XCTAssertEqual(sd.storageSize, (uint64_t)0, @"storageSize should not be set when the monitor is disabled.");
 }
 
 - (void)testMonitorName

@@ -25,13 +25,31 @@
 //
 
 #import <XCTest/XCTest.h>
-#import "KSCrashMonitor_BootTime.h"
 
 #import "KSCrashMonitorContext.h"
+#import "KSCrashMonitor_BootTime.h"
+#import "KSCrashMonitor_System.h"
+#import "KSDate.h"
+#import "KSFileUtils.h"
+
+#include <errno.h>
+#include <fcntl.h>
 
 extern void kscm_bootTime_resetState(void);
 
+static char g_sidecarPath[512];
+
+static bool stubRunSidecarPath(const char *monitorId, char *pathBuffer, size_t pathBufferLength)
+{
+    if (g_sidecarPath[0] == '\0') {
+        return false;
+    }
+    snprintf(pathBuffer, pathBufferLength, "%s/%s.ksscr", g_sidecarPath, monitorId);
+    return true;
+}
+
 @interface KSCrashMonitorBootTimeTests : XCTestCase
+@property(nonatomic, strong) NSString *tempDir;
 @end
 
 @implementation KSCrashMonitorBootTimeTests
@@ -40,6 +58,29 @@ extern void kscm_bootTime_resetState(void);
 {
     [super setUp];
     kscm_bootTime_resetState();
+
+    self.tempDir = [NSTemporaryDirectory() stringByAppendingPathComponent:[[NSUUID UUID] UUIDString]];
+    [[NSFileManager defaultManager] createDirectoryAtPath:self.tempDir
+                              withIntermediateDirectories:YES
+                                               attributes:nil
+                                                    error:nil];
+    strlcpy(g_sidecarPath, self.tempDir.fileSystemRepresentation, sizeof(g_sidecarPath));
+
+    // Set up and enable the system monitor so boot time has somewhere to write
+    KSCrashMonitorAPI *sysApi = kscm_system_getAPI();
+    KSCrash_ExceptionHandlerCallbacks callbacks = { .getRunSidecarPath = stubRunSidecarPath };
+    sysApi->init(&callbacks, NULL);
+    sysApi->setEnabled(true, NULL);
+}
+
+- (void)tearDown
+{
+    KSCrashMonitorAPI *sysApi = kscm_system_getAPI();
+    sysApi->setEnabled(false, NULL);
+
+    [[NSFileManager defaultManager] removeItemAtPath:self.tempDir error:nil];
+    g_sidecarPath[0] = '\0';
+    [super tearDown];
 }
 
 - (void)testMonitorActivation
@@ -53,55 +94,50 @@ extern void kscm_bootTime_resetState(void);
     XCTAssertFalse(bootTimeMonitor->isEnabled(NULL), @"Boot time monitor should be disabled after setting.");
 }
 
-- (void)testAddContextualInfoWhenEnabled
+- (void)testNotifyPostSystemEnableSetsBootTime
 {
     KSCrashMonitorAPI *bootTimeMonitor = kscm_boottime_getAPI();
     bootTimeMonitor->setEnabled(true, NULL);
 
-    KSCrash_MonitorContext context = { 0 };
-    bootTimeMonitor->addContextualInfoToEvent(&context, NULL);
+    bootTimeMonitor->notifyPostSystemEnable(NULL);
 
-    XCTAssertFalse(context.System.bootTime == NULL,
-                   @"Boot time should be added to the context when the monitor is enabled.");
-
-    // Clean up
-    free((void *)context.System.bootTime);
+    KSCrash_SystemData sd = {};
+    XCTAssertTrue(kscm_system_getSystemData(&sd));
+    XCTAssertGreaterThan(sd.bootTimestamp, (int64_t)0, @"bootTimestamp should be set after notifyPostSystemEnable");
 }
 
-- (void)testNoContextualInfoWhenDisabled
+- (void)testBootTimestampProducesValidDate
+{
+    KSCrashMonitorAPI *bootTimeMonitor = kscm_boottime_getAPI();
+    bootTimeMonitor->setEnabled(true, NULL);
+
+    bootTimeMonitor->notifyPostSystemEnable(NULL);
+
+    KSCrash_SystemData sd = {};
+    XCTAssertTrue(kscm_system_getSystemData(&sd));
+
+    char buffer[KSDATE_BUFFERSIZE];
+    ksdate_utcStringFromTimestamp((time_t)sd.bootTimestamp, buffer, sizeof(buffer));
+
+    NSString *bootTimeString = @(buffer);
+    NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init];
+    dateFormatter.dateFormat = @"yyyy-MM-dd'T'HH:mm:ss'Z'";
+    dateFormatter.timeZone = [NSTimeZone timeZoneForSecondsFromGMT:0];
+
+    NSDate *bootTimeDate = [dateFormatter dateFromString:bootTimeString];
+    XCTAssertNotNil(bootTimeDate, @"The boot time string should be a valid date string.");
+}
+
+- (void)testNoBootTimeWhenDisabled
 {
     KSCrashMonitorAPI *bootTimeMonitor = kscm_boottime_getAPI();
     bootTimeMonitor->setEnabled(false, NULL);
 
-    KSCrash_MonitorContext context = { 0 };
-    bootTimeMonitor->addContextualInfoToEvent(&context, NULL);
+    bootTimeMonitor->notifyPostSystemEnable(NULL);
 
-    XCTAssertTrue(context.System.bootTime == NULL,
-                  @"Boot time should not be added to the context when the monitor is disabled.");
-}
-
-- (void)testDateSysctlFunctionIndirectly
-{
-    KSCrashMonitorAPI *bootTimeMonitor = kscm_boottime_getAPI();
-    bootTimeMonitor->setEnabled(true, NULL);
-
-    KSCrash_MonitorContext context = { 0 };
-    bootTimeMonitor->addContextualInfoToEvent(&context, NULL);
-
-    XCTAssertFalse(context.System.bootTime == NULL,
-                   @"The boot time string should not be NULL when monitor is enabled.");
-
-    NSString *bootTimeString = [NSString stringWithUTF8String:context.System.bootTime];
-    NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init];
-    dateFormatter.dateFormat = @"yyyy-MM-dd'T'HH:mm:ss'Z'";  // Format from ksdate_utcStringFromTimestamp
-    dateFormatter.timeZone = [NSTimeZone timeZoneForSecondsFromGMT:0];
-
-    NSDate *bootTimeDate = [dateFormatter dateFromString:bootTimeString];
-
-    XCTAssertNotNil(bootTimeDate, @"The boot time string should be a valid date string.");
-
-    // Clean up
-    free((void *)context.System.bootTime);
+    KSCrash_SystemData sd = {};
+    XCTAssertTrue(kscm_system_getSystemData(&sd));
+    XCTAssertEqual(sd.bootTimestamp, (int64_t)0, @"bootTimestamp should not be set when the monitor is disabled.");
 }
 
 - (void)testMonitorName

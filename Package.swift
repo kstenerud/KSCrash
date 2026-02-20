@@ -443,46 +443,54 @@ let package = Package(
         .target(
             name: Targets.discSpaceMonitor,
             dependencies: [
-                .target(name: Targets.recordingCore)
+                .target(name: Targets.recordingCore),
+                .target(name: Targets.recording),
             ],
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy")
             ],
             cSettings: [
-                .unsafeFlags(warningFlags)
+                .headerSearchPath("../\(Targets.recording)/Monitors"),
+                .unsafeFlags(warningFlags),
             ]
         ),
         .testTarget(
             name: Targets.discSpaceMonitor.tests,
             dependencies: [
                 .target(name: Targets.discSpaceMonitor),
+                .target(name: Targets.recording),
                 .target(name: Targets.recordingCore),
             ],
             cSettings: [
-                .unsafeFlags(warningFlags)
+                .headerSearchPath("../../Sources/\(Targets.recording)/Monitors"),
+                .unsafeFlags(warningFlags),
             ]
         ),
 
         .target(
             name: Targets.bootTimeMonitor,
             dependencies: [
-                .target(name: Targets.recordingCore)
+                .target(name: Targets.recordingCore),
+                .target(name: Targets.recording),
             ],
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy")
             ],
             cSettings: [
-                .unsafeFlags(warningFlags)
+                .headerSearchPath("../\(Targets.recording)/Monitors"),
+                .unsafeFlags(warningFlags),
             ]
         ),
         .testTarget(
             name: Targets.bootTimeMonitor.tests,
             dependencies: [
                 .target(name: Targets.bootTimeMonitor),
+                .target(name: Targets.recording),
                 .target(name: Targets.recordingCore),
             ],
             cSettings: [
-                .unsafeFlags(warningFlags)
+                .headerSearchPath("../../Sources/\(Targets.recording)/Monitors"),
+                .unsafeFlags(warningFlags),
             ]
         ),
 

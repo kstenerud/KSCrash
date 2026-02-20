@@ -28,50 +28,59 @@
 
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitorHelper.h"
+#import "KSCrashMonitor_System.h"
 
 #import <Foundation/Foundation.h>
 
-static volatile bool g_isEnabled = false;
+#import <stdatomic.h>
+#import <sys/mount.h>
+#import <unistd.h>
+
+static _Atomic bool g_isEnabled = false;
 
 __attribute__((unused))  // For tests. Declared as extern in TestCase
 void kscm_discSpace_resetState(void)
 {
-    g_isEnabled = false;
+    atomic_store(&g_isEnabled, false);
 }
 
 static uint64_t getStorageSize(void)
 {
-    NSNumber *storageSize = [[[NSFileManager defaultManager] attributesOfFileSystemForPath:NSHomeDirectory() error:nil]
-        objectForKey:NSFileSystemSize];
-    return storageSize.unsignedLongLongValue;
+    struct statfs s;
+    if (statfs("/", &s) == 0) {
+        return (uint64_t)s.f_blocks * (uint64_t)s.f_bsize;
+    }
+    return 0;
 }
 
 static uint64_t getFreeStorageSize(void)
 {
-    NSNumber *freeStorageSize =
-        [[[NSFileManager defaultManager] attributesOfFileSystemForPath:NSHomeDirectory()
-                                                                 error:nil] objectForKey:NSFileSystemFreeSize];
-    return freeStorageSize.unsignedLongLongValue;
+    struct statfs s;
+    if (statfs("/", &s) == 0) {
+        return (uint64_t)s.f_bfree * (uint64_t)s.f_bsize;
+    }
+    return 0;
 }
 
 #pragma mark - API -
 
 static const char *monitorId(__unused void *context) { return "DiscSpace"; }
 
-static void setEnabled(bool isEnabled, __unused void *context)
+static void setEnabled(bool isEnabled, __unused void *context) { atomic_store(&g_isEnabled, isEnabled); }
+
+static bool isEnabled_func(__unused void *context) { return atomic_load(&g_isEnabled); }
+
+static void notifyPostSystemEnable(__unused void *context)
 {
-    if (isEnabled != g_isEnabled) {
-        g_isEnabled = isEnabled;
+    if (atomic_load(&g_isEnabled)) {
+        kscm_system_setDiscSpace(getStorageSize(), getFreeStorageSize());
     }
 }
 
-static bool isEnabled(__unused void *context) { return g_isEnabled; }
-
-static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext, __unused void *context)
+static void addContextualInfoToEvent(__unused KSCrash_MonitorContext *eventContext, __unused void *context)
 {
-    if (g_isEnabled) {
-        eventContext->System.storageSize = getStorageSize();
-        eventContext->System.freeStorageSize = getFreeStorageSize();
+    if (atomic_load(&g_isEnabled)) {
+        kscm_system_setFreeStorageSize(getFreeStorageSize());
     }
 }
 
@@ -81,7 +90,8 @@ KSCrashMonitorAPI *kscm_discspace_getAPI(void)
     if (kscma_initAPI(&api)) {
         api.monitorId = monitorId;
         api.setEnabled = setEnabled;
-        api.isEnabled = isEnabled;
+        api.isEnabled = isEnabled_func;
+        api.notifyPostSystemEnable = notifyPostSystemEnable;
         api.addContextualInfoToEvent = addContextualInfoToEvent;
     }
     return &api;

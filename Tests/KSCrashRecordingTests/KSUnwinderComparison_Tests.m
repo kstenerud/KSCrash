@@ -148,8 +148,6 @@ static void *workerThreadMain(void *arg)
     context.registersAreValid = true;
     context.monitorId = "unwind_test";
     context.crashReason = "Unwinder test";
-    context.System.processName = "UnwindTest";
-    context.System.processID = getpid();
     context.omitBinaryImages = true;
 
     // Write report
@@ -291,8 +289,6 @@ static void *framelessWorkerThreadMain(void *arg)
     context.registersAreValid = true;
     context.monitorId = "frameless_test";
     context.crashReason = "Frameless unwind test";
-    context.System.processName = "FramelessTest";
-    context.System.processID = getpid();
     context.omitBinaryImages = true;
 
     // Write report

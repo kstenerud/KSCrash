@@ -207,44 +207,12 @@ typedef struct KSCrash_MonitorContext {
 
     } AppState;
 
-    /* Misc system information */
-    struct {
-        const char *systemName;
-        const char *systemVersion;
-        const char *machine;
-        const char *model;
-        const char *kernelVersion;
-        const char *osVersion;
-        bool isJailbroken;
-        bool procTranslated;
-        const char *bootTime;
-        const char *appStartTime;
-        const char *executablePath;
-        const char *executableName;
-        const char *bundleID;
-        const char *bundleName;
-        const char *bundleVersion;
-        const char *bundleShortVersion;
-        const char *appID;
-        const char *cpuArchitecture;
-        const char *binaryArchitecture;
-        const char *clangVersion;
-        int cpuType;
-        int cpuSubType;
-        int binaryCPUType;
-        int binaryCPUSubType;
-        const char *timezone;
-        const char *processName;
-        int processID;
-        int parentProcessID;
-        const char *deviceAppHash;
-        const char *buildType;
-        uint64_t storageSize;
-        uint64_t freeStorageSize;
-        uint64_t memorySize;
-        uint64_t freeMemory;
-        uint64_t usableMemory;
-    } System;
+    /* Misc system information.
+     * All system fields (device, OS, bundle, CPU, memory, storage, boot time, etc.)
+     * are now in the system monitor's mmap'd run sidecar and stitched at delivery time.
+     * Other monitors (BootTime, DiscSpace) write their data into the sidecar via
+     * notifyPostSystemEnable.
+     */
 
     struct {
         /** Address of the last deallocated exception. */
