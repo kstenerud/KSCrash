@@ -261,7 +261,7 @@ static char *stitchRunSidecarsIntoReport(char *report, const KSCrashReportStoreC
         // Strip .ksscr extension to get monitorId
         char monitorId[256];
         const char *dot = strrchr(ent->d_name, '.');
-        if (dot == NULL) {
+        if (dot == NULL || strcmp(dot, ".ksscr") != 0) {
             continue;
         }
         size_t nameLen = (size_t)(dot - ent->d_name);

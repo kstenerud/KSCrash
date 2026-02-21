@@ -65,12 +65,12 @@ _Static_assert(sizeof(KSHangSidecar) == 24, "KSHangSidecar size changed — upda
 
 /** Stitch watchdog sidecar data into a crash report.
  *
- * Called at report delivery time (next app launch) to merge the mmap'd
+ * Called at report delivery time (next app launch) to merge the
  * sidecar data into the JSON report. This function uses ObjC/Foundation
  * for JSON parsing, which is safe because it runs at normal startup.
  *
  * @param report The NULL-terminated JSON report string.
- * @param sidecarPath Path to the mmap'd KSHangSidecar file.
+ * @param sidecarPath Path to the KSHangSidecar file.
  * @param scope The sidecar scope (report or run).
  * @param context The monitor's opaque context pointer (unused).
  *
