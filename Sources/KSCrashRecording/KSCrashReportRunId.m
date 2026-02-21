@@ -45,7 +45,12 @@ bool kscrs_extractRunIdFromReport(const char *report, char *runIdBuffer, size_t 
             return false;
         }
 
-        NSString *runId = decoded[KSCrashField_Report][KSCrashField_RunID];
+        id reportSection = decoded[KSCrashField_Report];
+        if (![reportSection isKindOfClass:[NSDictionary class]]) {
+            return false;
+        }
+
+        NSString *runId = reportSection[KSCrashField_RunID];
         if (![runId isKindOfClass:[NSString class]] || runId.length == 0) {
             return false;
         }
