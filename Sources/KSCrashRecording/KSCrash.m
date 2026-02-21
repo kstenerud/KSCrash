@@ -36,6 +36,7 @@
 #import "KSCrashMonitor_System.h"
 #import "KSCrashReport.h"
 #import "KSCrashReportFields.h"
+#import "KSDate.h"
 #import "KSJSONCodecObjC.h"
 #import "KSNSErrorHelper.h"
 #import "KSSystemCapabilities.h"
@@ -278,6 +279,17 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
         dict[@"memorySize"] = @(sd.memorySize);
         dict[@"freeMemory"] = @(sd.freeMemory);
         dict[@"usableMemory"] = @(sd.usableMemory);
+        if (sd.bootTimestamp > 0) {
+            char bootTimeBuf[KSDATE_BUFFERSIZE];
+            ksdate_utcStringFromTimestamp((time_t)sd.bootTimestamp, bootTimeBuf, sizeof(bootTimeBuf));
+            dict[@"bootTime"] = [NSString stringWithUTF8String:bootTimeBuf];
+        }
+        if (sd.storageSize > 0) {
+            dict[@"storageSize"] = @(sd.storageSize);
+        }
+        if (sd.freeStorageSize > 0) {
+            dict[@"freeStorageSize"] = @(sd.freeStorageSize);
+        }
 #undef COPY_SYS_STR
     }
 

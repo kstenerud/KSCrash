@@ -100,6 +100,8 @@ typedef struct {
     uint64_t usableMemory;
 } KSCrash_SystemData;
 
+_Static_assert(sizeof(KSCrash_SystemData) == 3024, "KSCrash_SystemData size changed — update sidecar version");
+
 // ============================================================================
 #pragma mark - API -
 // ============================================================================
