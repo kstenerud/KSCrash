@@ -375,23 +375,22 @@ static void initialize(void)
         KSLOG_ERROR(@"Failed to mmap system data at %s", sidecarPath);
         return;
     }
-    g_systemData = (KSCrash_SystemData *)ptr;
+    KSCrash_SystemData *sd = (KSCrash_SystemData *)ptr;
 
-    // Populate all static fields
+    // Populate all static fields into local pointer before publishing.
     NSBundle *mainBundle = [NSBundle mainBundle];
     NSDictionary *infoDict = [mainBundle infoDictionary];
     const struct mach_header *header = _dyld_get_image_header(0);
 
 #if KSCRASH_HAS_UIDEVICE
-    safeNSStringCopy(g_systemData->systemName, [UIDevice currentDevice].systemName, sizeof(g_systemData->systemName));
-    safeNSStringCopy(g_systemData->systemVersion, [UIDevice currentDevice].systemVersion,
-                     sizeof(g_systemData->systemVersion));
+    safeNSStringCopy(sd->systemName, [UIDevice currentDevice].systemName, sizeof(sd->systemName));
+    safeNSStringCopy(sd->systemVersion, [UIDevice currentDevice].systemVersion, sizeof(sd->systemVersion));
 #else
 #if KSCRASH_HOST_MAC
-    safeStrlcpy(g_systemData->systemName, "macOS", sizeof(g_systemData->systemName));
+    safeStrlcpy(sd->systemName, "macOS", sizeof(sd->systemName));
 #endif
 #if KSCRASH_HOST_WATCH
-    safeStrlcpy(g_systemData->systemName, "watchOS", sizeof(g_systemData->systemName));
+    safeStrlcpy(sd->systemName, "watchOS", sizeof(sd->systemName));
 #endif
     NSOperatingSystemVersion version = [NSProcessInfo processInfo].operatingSystemVersion;
     NSString *systemVersion;
@@ -401,69 +400,69 @@ static void initialize(void)
         systemVersion = [NSString stringWithFormat:@"%d.%d.%d", (int)version.majorVersion, (int)version.minorVersion,
                                                    (int)version.patchVersion];
     }
-    safeNSStringCopy(g_systemData->systemVersion, systemVersion, sizeof(g_systemData->systemVersion));
+    safeNSStringCopy(sd->systemVersion, systemVersion, sizeof(sd->systemVersion));
 #endif
-    stringSysctlInto("kern.version", g_systemData->kernelVersion, sizeof(g_systemData->kernelVersion));
+    stringSysctlInto("kern.version", sd->kernelVersion, sizeof(sd->kernelVersion));
 
     if (isSimulatorBuild()) {
-        safeNSStringCopy(g_systemData->machine, [NSProcessInfo processInfo].environment[@"SIMULATOR_MODEL_IDENTIFIER"],
-                         sizeof(g_systemData->machine));
-        safeStrlcpy(g_systemData->model, "simulator", sizeof(g_systemData->model));
-        safeNSStringCopy(g_systemData->systemVersion,
-                         [NSProcessInfo processInfo].environment[@"SIMULATOR_RUNTIME_VERSION"],
-                         sizeof(g_systemData->systemVersion));
-        safeNSStringCopy(g_systemData->osVersion,
-                         [NSProcessInfo processInfo].environment[@"SIMULATOR_RUNTIME_BUILD_VERSION"],
-                         sizeof(g_systemData->osVersion));
+        safeNSStringCopy(sd->machine, [NSProcessInfo processInfo].environment[@"SIMULATOR_MODEL_IDENTIFIER"],
+                         sizeof(sd->machine));
+        safeStrlcpy(sd->model, "simulator", sizeof(sd->model));
+        safeNSStringCopy(sd->systemVersion, [NSProcessInfo processInfo].environment[@"SIMULATOR_RUNTIME_VERSION"],
+                         sizeof(sd->systemVersion));
+        safeNSStringCopy(sd->osVersion, [NSProcessInfo processInfo].environment[@"SIMULATOR_RUNTIME_BUILD_VERSION"],
+                         sizeof(sd->osVersion));
     } else {
 #if KSCRASH_HOST_MAC
-        stringSysctlInto("hw.model", g_systemData->machine, sizeof(g_systemData->machine));
+        stringSysctlInto("hw.model", sd->machine, sizeof(sd->machine));
 #else
-        stringSysctlInto("hw.machine", g_systemData->machine, sizeof(g_systemData->machine));
-        stringSysctlInto("hw.model", g_systemData->model, sizeof(g_systemData->model));
+        stringSysctlInto("hw.machine", sd->machine, sizeof(sd->machine));
+        stringSysctlInto("hw.model", sd->model, sizeof(sd->model));
 #endif
-        stringSysctlInto("kern.osversion", g_systemData->osVersion, sizeof(g_systemData->osVersion));
+        stringSysctlInto("kern.osversion", sd->osVersion, sizeof(sd->osVersion));
     }
-    g_systemData->isJailbroken = isJailbroken();
-    g_systemData->procTranslated = procTranslated();
+    sd->isJailbroken = isJailbroken();
+    sd->procTranslated = procTranslated();
 
     char timeBuf[KSDATE_BUFFERSIZE];
     ksdate_utcStringFromTimestamp(time(NULL), timeBuf, sizeof(timeBuf));
-    safeStrlcpy(g_systemData->appStartTime, timeBuf, sizeof(g_systemData->appStartTime));
+    safeStrlcpy(sd->appStartTime, timeBuf, sizeof(sd->appStartTime));
 
-    safeNSStringCopy(g_systemData->executablePath, getExecutablePath(), sizeof(g_systemData->executablePath));
-    safeNSStringCopy(g_systemData->executableName, infoDict[@"CFBundleExecutable"],
-                     sizeof(g_systemData->executableName));
-    safeNSStringCopy(g_systemData->bundleID, infoDict[@"CFBundleIdentifier"], sizeof(g_systemData->bundleID));
-    safeNSStringCopy(g_systemData->bundleName, infoDict[@"CFBundleName"], sizeof(g_systemData->bundleName));
-    safeNSStringCopy(g_systemData->bundleVersion, infoDict[@"CFBundleVersion"], sizeof(g_systemData->bundleVersion));
-    safeNSStringCopy(g_systemData->bundleShortVersion, infoDict[@"CFBundleShortVersionString"],
-                     sizeof(g_systemData->bundleShortVersion));
-    getAppUUIDInto(g_systemData->appID, sizeof(g_systemData->appID));
-    safeStrlcpy(g_systemData->cpuArchitecture, getCurrentCPUArch(), sizeof(g_systemData->cpuArchitecture));
-    g_systemData->cpuType = kssysctl_int32ForName("hw.cputype");
-    g_systemData->cpuSubType = kssysctl_int32ForName("hw.cpusubtype");
-    g_systemData->binaryCPUType = header->cputype;
-    g_systemData->binaryCPUSubType = header->cpusubtype;
-    safeNSStringCopy(g_systemData->timezone, [NSTimeZone localTimeZone].abbreviation, sizeof(g_systemData->timezone));
-    safeNSStringCopy(g_systemData->processName, [NSProcessInfo processInfo].processName,
-                     sizeof(g_systemData->processName));
-    g_systemData->processID = [NSProcessInfo processInfo].processIdentifier;
-    g_systemData->parentProcessID = getppid();
-    getDeviceAndAppHashInto(g_systemData->deviceAppHash, sizeof(g_systemData->deviceAppHash));
-    safeStrlcpy(g_systemData->buildType, getBuildType(), sizeof(g_systemData->buildType));
-    g_systemData->memorySize = kssysctl_uint64ForName("hw.memsize");
+    safeNSStringCopy(sd->executablePath, getExecutablePath(), sizeof(sd->executablePath));
+    safeNSStringCopy(sd->executableName, infoDict[@"CFBundleExecutable"], sizeof(sd->executableName));
+    safeNSStringCopy(sd->bundleID, infoDict[@"CFBundleIdentifier"], sizeof(sd->bundleID));
+    safeNSStringCopy(sd->bundleName, infoDict[@"CFBundleName"], sizeof(sd->bundleName));
+    safeNSStringCopy(sd->bundleVersion, infoDict[@"CFBundleVersion"], sizeof(sd->bundleVersion));
+    safeNSStringCopy(sd->bundleShortVersion, infoDict[@"CFBundleShortVersionString"], sizeof(sd->bundleShortVersion));
+    getAppUUIDInto(sd->appID, sizeof(sd->appID));
+    safeStrlcpy(sd->cpuArchitecture, getCurrentCPUArch(), sizeof(sd->cpuArchitecture));
+    sd->cpuType = kssysctl_int32ForName("hw.cputype");
+    sd->cpuSubType = kssysctl_int32ForName("hw.cpusubtype");
+    sd->binaryCPUType = header->cputype;
+    sd->binaryCPUSubType = header->cpusubtype;
+    safeNSStringCopy(sd->timezone, [NSTimeZone localTimeZone].abbreviation, sizeof(sd->timezone));
+    safeNSStringCopy(sd->processName, [NSProcessInfo processInfo].processName, sizeof(sd->processName));
+    sd->processID = [NSProcessInfo processInfo].processIdentifier;
+    sd->parentProcessID = getppid();
+    getDeviceAndAppHashInto(sd->deviceAppHash, sizeof(sd->deviceAppHash));
+    safeStrlcpy(sd->buildType, getBuildType(), sizeof(sd->buildType));
+    sd->memorySize = kssysctl_uint64ForName("hw.memsize");
 
     const char *binaryArch = getCPUArchForCPUType(header->cputype, header->cpusubtype);
-    safeStrlcpy(g_systemData->binaryArchitecture, binaryArch != NULL ? binaryArch : "",
-                sizeof(g_systemData->binaryArchitecture));
+    safeStrlcpy(sd->binaryArchitecture, binaryArch != NULL ? binaryArch : "", sizeof(sd->binaryArchitecture));
 
 #ifdef __clang_version__
-    safeStrlcpy(g_systemData->clangVersion, __clang_version__, sizeof(g_systemData->clangVersion));
+    safeStrlcpy(sd->clangVersion, __clang_version__, sizeof(sd->clangVersion));
 #endif
 
-    g_systemData->magic = KSSYS_MAGIC;
-    g_systemData->version = KSCrash_System_CurrentVersion;
+    // Write magic/version last, then publish under the lock so readers
+    // never see a partially-initialized struct.
+    sd->magic = KSSYS_MAGIC;
+    sd->version = KSCrash_System_CurrentVersion;
+
+    ks_spinlock_lock(&g_systemDataLock);
+    g_systemData = sd;
+    ks_spinlock_unlock(&g_systemDataLock);
 }
 
 static const char *monitorId(__unused void *context) { return "System"; }
@@ -482,6 +481,9 @@ static void setEnabled(bool isEnabled, __unused void *context)
 
     if (isEnabled) {
         initialize();
+        if (g_systemData == NULL) {
+            atomic_store(&g_isEnabled, false);
+        }
     } else {
         ks_spinlock_lock(&g_systemDataLock);
         KSCrash_SystemData *old = g_systemData;
