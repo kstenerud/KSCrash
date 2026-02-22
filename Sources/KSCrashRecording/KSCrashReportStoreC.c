@@ -117,7 +117,7 @@ static int getReportIDs(int64_t *reportIDs, int count, const KSCrashReportStoreC
         }
     }
 
-    qsort(reportIDs, (unsigned)count, sizeof(reportIDs[0]), compareInt64);
+    qsort(reportIDs, (unsigned)index, sizeof(reportIDs[0]), compareInt64);
 
 done:
     if (dir != NULL) {
