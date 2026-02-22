@@ -26,10 +26,47 @@
 
 #import "FileBasedTestCase.h"
 
+#import "KSCrashMonitor.h"
+#import "KSCrashReportFields.h"
 #import "KSCrashReportStoreC+Private.h"
 #import "KSCrashReportStoreC.h"
+#import "KSJSONCodecObjC.h"
 
 #include <inttypes.h>
+
+#pragma mark - Test monitor stitch callback
+
+static const char *testMonitorId(__unused void *context) { return "TestStitchMonitor"; }
+
+// Reads the sidecar file as UTF-8 text and inserts it under "test_stitch" in the report.
+static char *testStitchReport(const char *report, const char *sidecarPath, __unused KSCrashSidecarScope scope,
+                              __unused void *context)
+{
+    @autoreleasepool {
+        NSData *reportData = [NSData dataWithBytesNoCopy:(void *)report length:strlen(report) freeWhenDone:NO];
+        NSDictionary *decoded = [KSJSONCodec decode:reportData options:KSJSONDecodeOptionNone error:nil];
+        if (![decoded isKindOfClass:[NSDictionary class]]) {
+            return NULL;
+        }
+        NSString *sidecarContent = [NSString stringWithContentsOfFile:[NSString stringWithUTF8String:sidecarPath]
+                                                             encoding:NSUTF8StringEncoding
+                                                                error:nil];
+        if (sidecarContent == nil) {
+            return NULL;
+        }
+        NSMutableDictionary *dict = [decoded mutableCopy];
+        dict[@"test_stitch"] = sidecarContent;
+
+        NSData *encoded = [KSJSONCodec encode:dict options:KSJSONEncodeOptionNone error:nil];
+        if (!encoded) {
+            return NULL;
+        }
+        char *result = (char *)malloc(encoded.length + 1);
+        memcpy(result, encoded.bytes, encoded.length);
+        result[encoded.length] = '\0';
+        return result;
+    }
+}
 
 @interface KSCrashReportStoreC_RunSidecar_Tests : FileBasedTestCase
 @end
@@ -51,7 +88,7 @@
     NSString *runSidecarsPath = [self.tempPath stringByAppendingPathComponent:@"RunSidecars"];
     _storeConfig.appName = "testapp";
     _storeConfig.reportsPath = reportsPath.UTF8String;
-    _storeConfig.sidecarsPath = sidecarsPath.UTF8String;
+    _storeConfig.reportSidecarsPath = sidecarsPath.UTF8String;
     _storeConfig.runSidecarsPath = runSidecarsPath.UTF8String;
     _storeConfig.maxReportCount = 10;
     kscrs_initialize(&_storeConfig);
@@ -217,7 +254,7 @@
 
 #pragma mark - Run Sidecar Orphan Cleanup
 
-- (void)testDeleteLastReportForRunCleansRunSidecars
+- (void)testInitializationCleansOrphanedRunSidecars
 {
     [self prepareStoreWithRunSidecars:@"testOrphanCleanup"];
     NSString *runId = [[NSUUID UUID] UUIDString];
@@ -228,17 +265,20 @@
         [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:runId];
     XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir]);
 
+    // Delete the report, leaving the run sidecar orphaned
     kscrs_deleteReportWithID(reportID, &_storeConfig);
+    // Orphan still exists after deletion (cleanup is deferred)
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir]);
 
-    // Run sidecar dir should be cleaned since no reports share this run_id
+    // Cleanup orphans — orphan should be removed
+    kscrs_cleanupOrphanedRunSidecars(&_storeConfig);
     XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:runDir]);
 }
 
-- (void)testDeleteReportKeepsRunSidecarsWhenOtherReportsShareRunId
+- (void)testInitializationKeepsRunSidecarsWithMatchingReports
 {
     [self prepareStoreWithRunSidecars:@"testKeepRunSidecars"];
     NSString *runId = [[NSUUID UUID] UUIDString];
-    int64_t reportID1 = [self writeReportWithRunId:runId];
     [self writeReportWithRunId:runId];
     [self writeRunSidecar:@"System" runId:runId contents:@"system data"];
 
@@ -246,10 +286,32 @@
         [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:runId];
     XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir]);
 
-    kscrs_deleteReportWithID(reportID1, &_storeConfig);
-
-    // Run sidecar dir should still exist — another report shares this run_id
+    // Cleanup orphans — run sidecar should survive since report still exists
+    kscrs_cleanupOrphanedRunSidecars(&_storeConfig);
     XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir]);
+}
+
+- (void)testInitializationCleansOnlyOrphanedRunSidecars
+{
+    [self prepareStoreWithRunSidecars:@"testSelectiveCleanup"];
+    NSString *activeRunId = [[NSUUID UUID] UUIDString];
+    NSString *orphanRunId = [[NSUUID UUID] UUIDString];
+
+    [self writeReportWithRunId:activeRunId];
+    [self writeRunSidecar:@"System" runId:activeRunId contents:@"active data"];
+    [self writeRunSidecar:@"System" runId:orphanRunId contents:@"orphan data"];
+
+    NSString *activeDir =
+        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:activeRunId];
+    NSString *orphanDir =
+        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:orphanRunId];
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:activeDir]);
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:orphanDir]);
+
+    // Cleanup orphans — only orphan should be removed
+    kscrs_cleanupOrphanedRunSidecars(&_storeConfig);
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:activeDir]);
+    XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:orphanDir]);
 }
 
 - (void)testDeleteReportWithNoRunSidecarsPathDoesNotCrash
@@ -268,6 +330,104 @@
     _storeConfig.runSidecarsPath = NULL;
     kscrs_deleteAllReports(&_storeConfig);
     XCTAssertEqual(kscrs_getReportCount(&_storeConfig), 0);
+}
+
+#pragma mark - Run Sidecar Stitching Integration
+
+- (KSCrashMonitorAPI)makeTestStitchMonitorAPI
+{
+    KSCrashMonitorAPI api = {};
+    kscma_initAPI(&api);
+    api.monitorId = testMonitorId;
+    api.stitchReport = testStitchReport;
+    return api;
+}
+
+- (void)testRunSidecarStitchedIntoReportOnRead
+{
+    [self prepareStoreWithRunSidecars:@"testStitchOnRead"];
+
+    KSCrashMonitorAPI api = [self makeTestStitchMonitorAPI];
+    kscm_addMonitor(&api);
+
+    NSString *runId = [[NSUUID UUID] UUIDString];
+    int64_t reportID = [self writeReportWithRunId:runId];
+    [self writeRunSidecar:@"TestStitchMonitor" runId:runId contents:@"hello from sidecar"];
+
+    char *rawReport = kscrs_readReport(reportID, &_storeConfig);
+    XCTAssertTrue(rawReport != NULL);
+
+    NSData *data = [NSData dataWithBytesNoCopy:rawReport length:strlen(rawReport) freeWhenDone:YES];
+    NSDictionary *decoded = [KSJSONCodec decode:data options:KSJSONDecodeOptionNone error:nil];
+    XCTAssertEqualObjects(decoded[@"test_stitch"], @"hello from sidecar");
+
+    kscm_removeMonitor(&api);
+}
+
+- (void)testRunSidecarNotStitchedWhenNoMatchingSidecar
+{
+    [self prepareStoreWithRunSidecars:@"testNoStitchNoSidecar"];
+
+    KSCrashMonitorAPI api = [self makeTestStitchMonitorAPI];
+    kscm_addMonitor(&api);
+
+    NSString *runId = [[NSUUID UUID] UUIDString];
+    int64_t reportID = [self writeReportWithRunId:runId];
+    // No run sidecar written
+
+    char *rawReport = kscrs_readReport(reportID, &_storeConfig);
+    XCTAssertTrue(rawReport != NULL);
+
+    NSData *data = [NSData dataWithBytesNoCopy:rawReport length:strlen(rawReport) freeWhenDone:YES];
+    NSDictionary *decoded = [KSJSONCodec decode:data options:KSJSONDecodeOptionNone error:nil];
+    XCTAssertNil(decoded[@"test_stitch"]);
+
+    kscm_removeMonitor(&api);
+}
+
+- (void)testRunSidecarNotStitchedWithoutRegisteredMonitor
+{
+    [self prepareStoreWithRunSidecars:@"testNoStitchNoMonitor"];
+
+    NSString *runId = [[NSUUID UUID] UUIDString];
+    int64_t reportID = [self writeReportWithRunId:runId];
+    // Write a sidecar for a monitor that isn't registered
+    [self writeRunSidecar:@"UnknownMonitor" runId:runId contents:@"should be ignored"];
+
+    char *rawReport = kscrs_readReport(reportID, &_storeConfig);
+    XCTAssertTrue(rawReport != NULL);
+
+    NSData *data = [NSData dataWithBytesNoCopy:rawReport length:strlen(rawReport) freeWhenDone:YES];
+    NSDictionary *decoded = [KSJSONCodec decode:data options:KSJSONDecodeOptionNone error:nil];
+    XCTAssertNil(decoded[@"test_stitch"]);
+}
+
+- (void)testRunSidecarStitchedForMultipleReportsWithSameRunId
+{
+    [self prepareStoreWithRunSidecars:@"testStitchMultiple"];
+
+    KSCrashMonitorAPI api = [self makeTestStitchMonitorAPI];
+    kscm_addMonitor(&api);
+
+    NSString *runId = [[NSUUID UUID] UUIDString];
+    int64_t reportID1 = [self writeReportWithRunId:runId];
+    int64_t reportID2 = [self writeReportWithRunId:runId];
+    [self writeRunSidecar:@"TestStitchMonitor" runId:runId contents:@"shared data"];
+
+    // Both reports should get the same stitched data
+    char *raw1 = kscrs_readReport(reportID1, &_storeConfig);
+    char *raw2 = kscrs_readReport(reportID2, &_storeConfig);
+    XCTAssertTrue(raw1 != NULL);
+    XCTAssertTrue(raw2 != NULL);
+
+    NSData *data1 = [NSData dataWithBytesNoCopy:raw1 length:strlen(raw1) freeWhenDone:YES];
+    NSData *data2 = [NSData dataWithBytesNoCopy:raw2 length:strlen(raw2) freeWhenDone:YES];
+    NSDictionary *decoded1 = [KSJSONCodec decode:data1 options:KSJSONDecodeOptionNone error:nil];
+    NSDictionary *decoded2 = [KSJSONCodec decode:data2 options:KSJSONDecodeOptionNone error:nil];
+    XCTAssertEqualObjects(decoded1[@"test_stitch"], @"shared data");
+    XCTAssertEqualObjects(decoded2[@"test_stitch"], @"shared data");
+
+    kscm_removeMonitor(&api);
 }
 
 @end

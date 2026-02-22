@@ -126,8 +126,9 @@ void kscrs_deleteReportWithID(int64_t reportID, const KSCrashReportStoreCConfigu
  *
  * @return true if the path was successfully written, false on failure.
  */
-bool kscrs_getSidecarFilePath(const char *monitorId, const char *name, const char *extension, char *pathBuffer,
-                              size_t pathBufferLength, const KSCrashReportStoreCConfiguration *const configuration);
+bool kscrs_getReportSidecarFilePath(const char *monitorId, const char *name, const char *extension, char *pathBuffer,
+                                    size_t pathBufferLength,
+                                    const KSCrashReportStoreCConfiguration *const configuration);
 
 #ifdef __cplusplus
 }

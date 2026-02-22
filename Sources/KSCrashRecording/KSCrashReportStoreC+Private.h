@@ -56,9 +56,9 @@ int64_t kscrs_getNextCrashReport(char *crashReportPathBuffer,
  *
  * @return true if the path was successfully written, false on failure.
  */
-bool kscrs_getSidecarFilePathForReport(const char *monitorId, int64_t reportID, char *pathBuffer,
-                                       size_t pathBufferLength,
-                                       const KSCrashReportStoreCConfiguration *const configuration);
+bool kscrs_getReportSidecarFilePathForReport(const char *monitorId, int64_t reportID, char *pathBuffer,
+                                             size_t pathBufferLength,
+                                             const KSCrashReportStoreCConfiguration *const configuration);
 
 /** Get a run-scoped sidecar file path.
  *
@@ -74,6 +74,16 @@ bool kscrs_getSidecarFilePathForReport(const char *monitorId, int64_t reportID, 
  */
 bool kscrs_getRunSidecarFilePath(const char *monitorId, char *pathBuffer, size_t pathBufferLength,
                                  const KSCrashReportStoreCConfiguration *const configuration);
+
+/** Remove run sidecar directories that no longer have matching reports.
+ *
+ * Called automatically within sendAllReports. If you handle report delivery
+ * yourself, call this periodically or after sending reports.
+ * May block, so prefer calling from a background thread.
+ *
+ * @param configuration The store configuration.
+ */
+void kscrs_cleanupOrphanedRunSidecars(const KSCrashReportStoreCConfiguration *const configuration);
 
 /** Extract the run_id from a JSON crash report.
  *
