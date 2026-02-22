@@ -104,8 +104,8 @@ char *kscm_system_stitchReport(const char *report, const char *sidecarPath, __un
     setStringIfNonEmpty(systemDict, KSCrashField_Model, sc.model);
     setStringIfNonEmpty(systemDict, KSCrashField_KernelVersion, sc.kernelVersion);
     setStringIfNonEmpty(systemDict, KSCrashField_OSVersion, sc.osVersion);
-    systemDict[KSCrashField_Jailbroken] = @(sc.isJailbroken);
-    systemDict[KSCrashField_ProcTranslated] = @(sc.procTranslated);
+    systemDict[KSCrashField_Jailbroken] = sc.isJailbroken ? @YES : @NO;
+    systemDict[KSCrashField_ProcTranslated] = sc.procTranslated ? @YES : @NO;
     setTimestamp(systemDict, KSCrashField_AppStartTime, sc.appStartTimestamp);
     setStringIfNonEmpty(systemDict, KSCrashField_ExecutablePath, sc.executablePath);
     setStringIfNonEmpty(systemDict, KSCrashField_Executable, sc.executableName);
