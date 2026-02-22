@@ -200,6 +200,11 @@ const KSCrashReportID KSCrashReportNoID = 0;
     kscrs_deleteReportWithID(reportID, &_cConfig);
 }
 
+- (void)cleanupOrphanedRunSidecars
+{
+    kscrs_cleanupOrphanedRunSidecars(&_cConfig);
+}
+
 #pragma mark - Private API
 
 - (void)sendReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
