@@ -130,6 +130,16 @@ bool kscrs_getReportSidecarFilePath(const char *monitorId, const char *name, con
                                     size_t pathBufferLength,
                                     const KSCrashReportStoreCConfiguration *const configuration);
 
+/** Remove run sidecar directories that no longer have matching reports.
+ *
+ * Called automatically within sendAllReports. If you handle report delivery
+ * yourself, call this periodically or after sending reports.
+ * May block, so prefer calling from a background thread.
+ *
+ * @param configuration The store configuration.
+ */
+void kscrs_cleanupOrphanedRunSidecars(const KSCrashReportStoreCConfiguration *const configuration);
+
 #ifdef __cplusplus
 }
 #endif
