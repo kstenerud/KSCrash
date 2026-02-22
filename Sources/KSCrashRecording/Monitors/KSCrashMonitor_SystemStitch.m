@@ -32,8 +32,8 @@
 #import "KSJSONCodecObjC.h"
 
 #import <Foundation/Foundation.h>
-#include <errno.h>
-#include <fcntl.h>
+#import <errno.h>
+#import <fcntl.h>
 
 #import "KSLogger.h"
 
@@ -41,6 +41,15 @@ static void setStringIfNonEmpty(NSMutableDictionary *dict, NSString *key, const 
 {
     if (value && value[0] != '\0') {
         dict[key] = @(value);
+    }
+}
+
+static void setTimestamp(NSMutableDictionary *dict, NSString *key, int64_t timestamp)
+{
+    if (timestamp != 0) {
+        char buf[KSDATE_BUFFERSIZE];
+        ksdate_utcStringFromTimestamp((time_t)timestamp, buf, sizeof(buf));
+        setStringIfNonEmpty(dict, key, buf);
     }
 }
 
@@ -97,7 +106,7 @@ char *kscm_system_stitchReport(const char *report, const char *sidecarPath, __un
     setStringIfNonEmpty(systemDict, KSCrashField_OSVersion, sc.osVersion);
     systemDict[KSCrashField_Jailbroken] = @(sc.isJailbroken);
     systemDict[KSCrashField_ProcTranslated] = @(sc.procTranslated);
-    setStringIfNonEmpty(systemDict, KSCrashField_AppStartTime, sc.appStartTime);
+    setTimestamp(systemDict, KSCrashField_AppStartTime, sc.appStartTimestamp);
     setStringIfNonEmpty(systemDict, KSCrashField_ExecutablePath, sc.executablePath);
     setStringIfNonEmpty(systemDict, KSCrashField_Executable, sc.executableName);
     setStringIfNonEmpty(systemDict, KSCrashField_BundleID, sc.bundleID);
@@ -119,11 +128,7 @@ char *kscm_system_stitchReport(const char *report, const char *sidecarPath, __un
     setStringIfNonEmpty(systemDict, KSCrashField_DeviceAppHash, sc.deviceAppHash);
     setStringIfNonEmpty(systemDict, KSCrashField_BuildType, sc.buildType);
 
-    if (sc.bootTimestamp != 0) {
-        char bootTimeBuf[KSDATE_BUFFERSIZE];
-        ksdate_utcStringFromTimestamp((time_t)sc.bootTimestamp, bootTimeBuf, sizeof(bootTimeBuf));
-        setStringIfNonEmpty(systemDict, KSCrashField_BootTime, bootTimeBuf);
-    }
+    setTimestamp(systemDict, KSCrashField_BootTime, sc.bootTimestamp);
 
     if (sc.storageSize > 0) {
         systemDict[KSCrashField_Storage] = @(sc.storageSize);
