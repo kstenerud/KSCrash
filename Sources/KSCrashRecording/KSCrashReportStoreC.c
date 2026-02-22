@@ -294,6 +294,7 @@ static char *stitchRunSidecarsIntoReport(char *report, const KSCrashReportStoreC
 
 // UUID: 8-4-4-4-12 hex digits with hyphens = 36 chars
 #define KSCRS_UUID_STRING_LENGTH 36
+#define KSCRS_MAX_REPORT_COUNT 512
 
 /** Extract run_id from raw report bytes using strstr.
  *
@@ -341,20 +342,22 @@ static void cleanupOrphanedRunSidecars(const KSCrashReportStoreCConfiguration *c
         return;
     }
 
-    int reportCount = getReportCount(config);
-    if (reportCount <= 0) {
-        ksfu_deleteContentsOfPath(config->runSidecarsPath);
-        return;
-    }
+    const char *currentRunID = kscrash_getRunID();
 
-    int64_t reportIDs[reportCount];
-    reportCount = getReportIDs(reportIDs, reportCount, config);
+    int64_t reportIDs[KSCRS_MAX_REPORT_COUNT];
+    int reportCount = getReportIDs(reportIDs, KSCRS_MAX_REPORT_COUNT, config);
 
-    char (*activeRunIds)[64] = calloc((size_t)reportCount, sizeof(*activeRunIds));
+    int capacity = reportCount + 1;  // +1 for current run
+    char (*activeRunIds)[KSCRS_UUID_STRING_LENGTH + 1] = calloc((size_t)capacity, sizeof(*activeRunIds));
     if (activeRunIds == NULL) {
         return;
     }
     int activeCount = 0;
+
+    // Always preserve the current run's sidecar directory
+    memcpy(activeRunIds[activeCount], currentRunID, KSCRS_UUID_STRING_LENGTH);
+    activeRunIds[activeCount][KSCRS_UUID_STRING_LENGTH] = '\0';
+    activeCount++;
     // run_id is in the report header — 2 KB is more than enough
     const int prefixSize = 2048;
     for (int i = 0; i < reportCount; i++) {
