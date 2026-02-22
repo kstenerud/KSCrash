@@ -247,7 +247,7 @@
         NSString *parentPath = [resolvedReportsPath stringByDeletingLastPathComponent];
         NSString *sidecarsPath = [parentPath stringByAppendingPathComponent:@"Sidecars"];
         NSString *runSidecarsPath = [parentPath stringByAppendingPathComponent:@"RunSidecars"];
-        config.sidecarsPath = strdup(sidecarsPath.UTF8String);
+        config.reportSidecarsPath = strdup(sidecarsPath.UTF8String);
         config.runSidecarsPath = strdup(runSidecarsPath.UTF8String);
     }
 

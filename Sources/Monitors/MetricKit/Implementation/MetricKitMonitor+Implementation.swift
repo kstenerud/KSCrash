@@ -103,14 +103,14 @@ extension MetricKitMonitor {
 
     func sidecarPathProvider(name: String, extension ext: String) -> URL? {
         guard let callbacks = callbacks,
-            let getSidecarFilePath = callbacks.getSidecarFilePath,
+            let getReportSidecarFilePath = callbacks.getReportSidecarFilePath,
             let monitorId = monitorId
         else {
             return nil
         }
 
         var pathBuffer = [CChar](repeating: 0, count: Int(KSCRS_MAX_PATH_LENGTH))
-        guard getSidecarFilePath(monitorId, name, ext, &pathBuffer, pathBuffer.count) else {
+        guard getReportSidecarFilePath(monitorId, name, ext, &pathBuffer, pathBuffer.count) else {
             return nil
         }
 
